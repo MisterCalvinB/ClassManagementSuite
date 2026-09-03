@@ -13,6 +13,7 @@
   <script src="../js/tutorial.js"></script>
   <script src="../js/menus.js"></script>
   <script src="../js/import-utils.js"></script>
+  <script src="../modules/xlsx.min.js"></script>
   <script src="../js/lesson-creator-service.js"></script>
 </head>
 <body>
@@ -79,11 +80,15 @@
       <div class="nav-group">
         <button class="nav-btn" data-i18n="menuExport">Export</button>
         <div class="nav-group-popup">
-          <button class="nav-pop-item" onclick="lcOpenCopyTextModal()"><span data-i18n="lcCopyAsText">Copy as Text…</span></button>
+          <button class="nav-pop-item" onclick="lcOpenExportModal()"><span data-i18n="lcExportPlanNav">Export Plan…</span> <span class="nav-pop-hint">Ctrl+E</span></button>
           <hr class="nav-pop-sep">
-          <button class="nav-pop-item" onclick="lcExportPdf()"><span data-i18n="lcPrintPdf">Print / PDF Document</span> <span class="nav-pop-hint">Ctrl+P</span></button>
-          <button class="nav-pop-item" onclick="lcExportStandaloneHtml()"><span data-i18n="lcExportHtml">Standalone HTML File</span></button>
-          <button class="nav-pop-item" onclick="lcExportJson()"><span data-i18n="lcExportJson">Export Plan JSON</span></button>
+          <button class="nav-pop-item" onclick="lcOpenExportModal('pdf')"><span data-i18n="lcPrintPdf">Print / PDF Document</span> <span class="nav-pop-hint">Ctrl+P</span></button>
+          <button class="nav-pop-item" onclick="lcOpenExportModal('html')"><span data-i18n="lcExportHtml">Standalone HTML File</span></button>
+          <button class="nav-pop-item" onclick="lcOpenExportModal('xlsx')"><span data-i18n="lcExportXlsx">Excel Spreadsheet (.xlsx)</span></button>
+          <button class="nav-pop-item" onclick="lcOpenExportModal('csv')"><span data-i18n="lcExportCsv">CSV Spreadsheet (.csv)</span></button>
+          <button class="nav-pop-item" onclick="lcOpenExportModal('json')"><span data-i18n="lcExportJson">Export Plan JSON</span></button>
+          <hr class="nav-pop-sep">
+          <button class="nav-pop-item" onclick="lcOpenCopyTextModal()"><span data-i18n="lcCopyAsText">Copy as Text…</span></button>
         </div>
       </div>
 
@@ -504,6 +509,355 @@
       <div class="modal-footer">
         <button class="neo-btn" onclick="lcCloseModal('splitModal')"><span data-i18n="btnCancel">Cancel</span></button>
         <button class="neo-btn primary" onclick="lcApplySplitPhase()"><span data-i18n="lcApplySplit">Split Phase</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Unified Export Plan Modal -->
+  <div id="exportPlanModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="max-width:820px; max-height:92vh; display:flex; flex-direction:column;">
+      <div class="modal-header">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <img src="../assets/icons/export.svg" style="width:20px;height:20px;" alt="">
+          <span data-i18n="lcExportPlanModalTitle">Export Lesson Plan</span>
+        </div>
+        <button class="icon-btn" onclick="lcCloseModal('exportPlanModal')">&times;</button>
+      </div>
+      <div class="modal-body" style="overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:16px;">
+        <p style="font-size:0.85rem;margin:0;color:var(--neo-gray-dark);" data-i18n="lcExportPlanDesc">
+          Choose export format and customize sections and phases to include:
+        </p>
+
+        <!-- 1. Format Selection Grid -->
+        <div>
+          <div style="font-weight:900;font-size:0.84rem;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;color:var(--neo-dark);" data-i18n="lcExportFormatTitle">
+            1. Select Format
+          </div>
+          <div class="export-format-grid" id="exportFormatGrid">
+            <button type="button" class="export-format-card active" data-format="html" onclick="lcSelectExportFormat('html')">
+              <img src="../assets/icons/file-text.svg" class="btn-icon" alt="">
+              <div class="fmt-info">
+                <span class="fmt-name">HTML</span>
+                <span class="fmt-desc">Standalone Webpage (.html)</span>
+              </div>
+            </button>
+            <button type="button" class="export-format-card" data-format="pdf" onclick="lcSelectExportFormat('pdf')">
+              <img src="../assets/icons/printer.svg" class="btn-icon" alt="">
+              <div class="fmt-info">
+                <span class="fmt-name">PDF</span>
+                <span class="fmt-desc">Print-Ready Document (.pdf)</span>
+              </div>
+            </button>
+            <button type="button" class="export-format-card" data-format="xlsx" onclick="lcSelectExportFormat('xlsx')">
+              <img src="../assets/icons/table.svg" class="btn-icon" alt="">
+              <div class="fmt-info">
+                <span class="fmt-name">Excel</span>
+                <span class="fmt-desc">Workbook Sheets (.xlsx)</span>
+              </div>
+            </button>
+            <button type="button" class="export-format-card" data-format="csv" onclick="lcSelectExportFormat('csv')">
+              <img src="../assets/icons/table.svg" class="btn-icon" alt="">
+              <div class="fmt-info">
+                <span class="fmt-name">CSV</span>
+                <span class="fmt-desc">Spreadsheet Table (.csv)</span>
+              </div>
+            </button>
+            <button type="button" class="export-format-card" data-format="json" onclick="lcSelectExportFormat('json')">
+              <img src="../assets/icons/save.svg" class="btn-icon" alt="">
+              <div class="fmt-info">
+                <span class="fmt-name">JSON</span>
+                <span class="fmt-desc">Plan Schema (.json)</span>
+              </div>
+            </button>
+            <button type="button" class="export-format-card" data-format="text" onclick="lcSelectExportFormat('text')">
+              <img src="../assets/icons/copy.svg" class="btn-icon" alt="">
+              <div class="fmt-info">
+                <span class="fmt-name">Markdown</span>
+                <span class="fmt-desc">Structured Text (.md)</span>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <!-- Presets Row -->
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;background:var(--neo-gray-light);padding:8px 12px;border:2px solid var(--neo-dark);border-radius:var(--neo-radius-sm);box-shadow:var(--neo-shadow-sm);">
+          <div style="display:flex;align-items:center;gap:6px;font-size:0.82rem;font-weight:800;">
+            <span data-i18n="lcCopyPresets">Presets:</span>
+            <button type="button" class="neo-btn" style="padding:3px 8px;font-size:0.75rem;" onclick="lcApplyExportPreset('full')"><span data-i18n="lcExportPresetFull">Full Plan</span></button>
+            <button type="button" class="neo-btn" style="padding:3px 8px;font-size:0.75rem;" onclick="lcApplyExportPreset('teacher')"><span data-i18n="lcExportPresetTeacher">Teacher Guide</span></button>
+            <button type="button" class="neo-btn" style="padding:3px 8px;font-size:0.75rem;" onclick="lcApplyExportPreset('student')"><span data-i18n="lcExportPresetStudent">Student Handout</span></button>
+            <button type="button" class="neo-btn" style="padding:3px 8px;font-size:0.75rem;" onclick="lcApplyExportPreset('outline')"><span data-i18n="lcExportPresetOutline">Summary Outline</span></button>
+          </div>
+        </div>
+
+        <!-- 2. Content Sections Customization -->
+        <div>
+          <div style="font-weight:900;font-size:0.84rem;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;color:var(--neo-dark);" data-i18n="lcExportOptionsTitle">
+            2. Choose Content & Details
+          </div>
+
+          <!-- Metadata Fields -->
+          <div style="margin-bottom:8px;">
+            <div style="font-size:0.75rem;font-weight:800;color:var(--neo-gray-dark);text-transform:uppercase;margin-bottom:4px;">A. Lesson Information</div>
+            <div class="customize-field-grid" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:8px; padding:6px 8px;">
+              <div class="customize-toggle-item">
+                <span data-i18n="lcCopyMetaHeader">Title, Subject & Class</span>
+                <label class="neo-switch">
+                  <input type="checkbox" id="exportTgl_metaHeader" checked onchange="lcOnExportToggleChange()">
+                  <span class="neo-switch-slider"></span>
+                </label>
+              </div>
+              <div class="customize-toggle-item">
+                <span data-i18n="lcCopyMetaDate">Date, Year Level & Semester</span>
+                <label class="neo-switch">
+                  <input type="checkbox" id="exportTgl_metaDate" checked onchange="lcOnExportToggleChange()">
+                  <span class="neo-switch-slider"></span>
+                </label>
+              </div>
+              <div class="customize-toggle-item">
+                <span data-i18n="lcCopyMetaDuration">Total Duration & Target</span>
+                <label class="neo-switch">
+                  <input type="checkbox" id="exportTgl_metaDuration" checked onchange="lcOnExportToggleChange()">
+                  <span class="neo-switch-slider"></span>
+                </label>
+              </div>
+              <div class="customize-toggle-item">
+                <span data-i18n="lcCopyMetaSequence">Unit Sequence Info</span>
+                <label class="neo-switch">
+                  <input type="checkbox" id="exportTgl_metaSequence" checked onchange="lcOnExportToggleChange()">
+                  <span class="neo-switch-slider"></span>
+                </label>
+              </div>
+              <div class="customize-toggle-item">
+                <span data-i18n="lcCopyMetaTags">Tags & Keywords</span>
+                <label class="neo-switch">
+                  <input type="checkbox" id="exportTgl_metaTags" checked onchange="lcOnExportToggleChange()">
+                  <span class="neo-switch-slider"></span>
+                </label>
+              </div>
+              <div class="customize-toggle-item">
+                <span data-i18n="lcCopyMetaTeams">Team Config & Roles</span>
+                <label class="neo-switch">
+                  <input type="checkbox" id="exportTgl_metaTeams" checked onchange="lcOnExportToggleChange()">
+                  <span class="neo-switch-slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Phase Fields -->
+          <div>
+            <div style="font-size:0.75rem;font-weight:800;color:var(--neo-gray-dark);text-transform:uppercase;margin-bottom:4px;">B. Phase Elements</div>
+            <div class="customize-field-grid" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:8px; padding:6px 8px;">
+              <div class="customize-toggle-item">
+                <span data-i18n="lcCopyPhaseTitle">Phase Numbers & Titles</span>
+                <label class="neo-switch">
+                  <input type="checkbox" id="exportTgl_phaseTitle" checked onchange="lcOnExportToggleChange()">
+                  <span class="neo-switch-slider"></span>
+                </label>
+              </div>
+              <div class="customize-toggle-item">
+                <span data-i18n="lcCopyPhaseDuration">Phase Durations</span>
+                <label class="neo-switch">
+                  <input type="checkbox" id="exportTgl_phaseDuration" checked onchange="lcOnExportToggleChange()">
+                  <span class="neo-switch-slider"></span>
+                </label>
+              </div>
+              <div class="customize-toggle-item">
+                <span data-i18n="lcCopyPhaseActivity">Activity & Mode Badges</span>
+                <label class="neo-switch">
+                  <input type="checkbox" id="exportTgl_phaseActivity" checked onchange="lcOnExportToggleChange()">
+                  <span class="neo-switch-slider"></span>
+                </label>
+              </div>
+              <div class="customize-toggle-item">
+                <span data-i18n="lcCopyPhaseObjective">Learning Objectives</span>
+                <label class="neo-switch">
+                  <input type="checkbox" id="exportTgl_phaseObjective" checked onchange="lcOnExportToggleChange()">
+                  <span class="neo-switch-slider"></span>
+                </label>
+              </div>
+              <div class="customize-toggle-item">
+                <span data-i18n="lcCopyPhaseTeacher">Teacher Actions & Prompts</span>
+                <label class="neo-switch">
+                  <input type="checkbox" id="exportTgl_phaseTeacher" checked onchange="lcOnExportToggleChange()">
+                  <span class="neo-switch-slider"></span>
+                </label>
+              </div>
+              <div class="customize-toggle-item">
+                <span data-i18n="lcCopyPhaseStudent">Student Tasks & Actions</span>
+                <label class="neo-switch">
+                  <input type="checkbox" id="exportTgl_phaseStudent" checked onchange="lcOnExportToggleChange()">
+                  <span class="neo-switch-slider"></span>
+                </label>
+              </div>
+              <div class="customize-toggle-item">
+                <span data-i18n="lcCopyPhaseResources">Resources & Materials</span>
+                <label class="neo-switch">
+                  <input type="checkbox" id="exportTgl_phaseResources" checked onchange="lcOnExportToggleChange()">
+                  <span class="neo-switch-slider"></span>
+                </label>
+              </div>
+              <div class="customize-toggle-item">
+                <span data-i18n="lcCopyPhaseDescriptors">Tagged Competences</span>
+                <label class="neo-switch">
+                  <input type="checkbox" id="exportTgl_phaseDescriptors" checked onchange="lcOnExportToggleChange()">
+                  <span class="neo-switch-slider"></span>
+                </label>
+              </div>
+              <div class="customize-toggle-item">
+                <span data-i18n="lcExportPhaseDifferentiation">Differentiation & Support</span>
+                <label class="neo-switch">
+                  <input type="checkbox" id="exportTgl_phaseDiff" checked onchange="lcOnExportToggleChange()">
+                  <span class="neo-switch-slider"></span>
+                </label>
+              </div>
+              <div class="customize-toggle-item">
+                <span data-i18n="lcExportPhaseAssessment">Formative Assessment</span>
+                <label class="neo-switch">
+                  <input type="checkbox" id="exportTgl_phaseAssess" checked onchange="lcOnExportToggleChange()">
+                  <span class="neo-switch-slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Phase Range / Selector -->
+        <div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+            <div style="font-weight:900;font-size:0.84rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--neo-dark);" data-i18n="lcExportPhaseFilterTitle">
+              3. Lesson Phases to Include
+            </div>
+            <div style="display:flex;gap:6px;">
+              <button type="button" class="neo-btn" style="padding:2px 8px;font-size:0.72rem;" onclick="lcExportToggleAllPhases(true)" data-i18n="lcExportSelectAllPhases">Select All</button>
+              <button type="button" class="neo-btn" style="padding:2px 8px;font-size:0.72rem;" onclick="lcExportToggleAllPhases(false)" data-i18n="lcExportDeselectAllPhases">Deselect All</button>
+            </div>
+          </div>
+          <div id="exportPhasesList" class="export-phases-list"></div>
+        </div>
+
+        <!-- Live Summary Row -->
+        <div class="export-summary-bar" id="exportSummaryBar">
+          <div class="export-summary-badges">
+            <span class="neo-badge" id="exportSummaryFormatBadge">HTML (.html)</span>
+            <span class="neo-badge" id="exportSummaryPhasesBadge">0 Phases</span>
+            <span class="neo-badge" id="exportSummaryDurationBadge">0 min</span>
+          </div>
+          <div class="export-summary-filename" id="exportSummaryFilename">
+            lesson_plan.html
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer" style="justify-content:space-between;">
+        <button class="neo-btn" onclick="lcCloseModal('exportPlanModal')"><span data-i18n="btnCancel">Cancel</span></button>
+        <div style="display:flex;gap:8px;">
+          <button class="neo-btn" id="btnExportPreview" onclick="lcPreviewExportInBrowser()" style="display:inline-flex;align-items:center;gap:4px;">
+            <img src="../assets/icons/eye.svg" class="btn-icon" alt="">
+            <span data-i18n="lcExportBtnPreview">Preview in Browser</span>
+          </button>
+          <button class="neo-btn primary" id="btnExportSubmit" onclick="lcExecuteCurrentExport()" style="display:inline-flex;align-items:center;gap:4px;">
+            <img src="../assets/icons/download.svg" class="btn-icon" alt="">
+            <span id="exportSubmitBtnLabel" data-i18n="lcExportBtnDownload">Export</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export Destination Modal -->
+  <div id="exportDestinationModal" class="modal-overlay" style="display:none; z-index:10001;">
+    <div class="modal-box" style="max-width:520px; border:3px solid var(--neo-dark); box-shadow:var(--neo-shadow-lg);">
+      <div class="modal-header">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <img src="../assets/icons/folder.svg" style="width:20px;height:20px;" alt="">
+          <span data-i18n="lcExportDestinationTitle">Choose Export Location</span>
+        </div>
+        <button class="icon-btn" onclick="lcCloseDestinationModal(null)">&times;</button>
+      </div>
+      <div class="modal-body" style="display:flex;flex-direction:column;gap:14px;padding:20px;">
+        <p style="font-size:0.86rem;margin:0;color:var(--neo-gray-dark);" data-i18n="lcExportDestinationPrompt">
+          Where do you want to save the exported file?
+        </p>
+
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <!-- Option 1: Print Folder -->
+          <button type="button" class="export-destination-card" onclick="lcCloseDestinationModal('to-print')">
+            <div style="display:flex;align-items:center;gap:14px;">
+              <div class="dest-icon-box" style="background:var(--neo-yellow);">
+                <img src="../assets/icons/printer.svg" style="width:24px;height:24px;" alt="">
+              </div>
+              <div style="text-align:left;">
+                <div style="font-size:0.95rem;font-weight:900;color:var(--neo-dark);" data-i18n="lcExportToPrintFolder">
+                  Print Folder (user/to-print)
+                </div>
+                <div style="font-size:0.75rem;color:var(--neo-gray-dark);font-weight:600;margin-top:2px;" data-i18n="lcExportToPrintDesc">
+                  Direct save into the local print folder without browsing
+                </div>
+              </div>
+            </div>
+          </button>
+
+          <!-- Option 2: Custom Location -->
+          <button type="button" class="export-destination-card" onclick="lcCloseDestinationModal('custom')">
+            <div style="display:flex;align-items:center;gap:14px;">
+              <div class="dest-icon-box" style="background:var(--neo-blue);">
+                <img src="../assets/icons/folder.svg" style="width:24px;height:24px;" alt="">
+              </div>
+              <div style="text-align:left;">
+                <div style="font-size:0.95rem;font-weight:900;color:var(--neo-dark);" data-i18n="lcExportCustomLocation">
+                  Custom Location (File Picker)
+                </div>
+                <div style="font-size:0.75rem;color:var(--neo-gray-dark);font-weight:600;margin-top:2px;" data-i18n="lcExportCustomDesc">
+                  Select any folder or drive on your computer using the system dialog
+                </div>
+              </div>
+            </div>
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content:flex-end;">
+        <button class="neo-btn" onclick="lcCloseDestinationModal(null)"><span data-i18n="btnCancel">Cancel</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live Export Preview Modal -->
+  <div id="exportPreviewModal" class="modal-overlay" style="display:none; z-index:10002;">
+    <div class="modal-box" style="max-width:1100px; width:95vw; height:90vh; display:flex; flex-direction:column; padding:18px; border:3px solid var(--neo-dark); box-shadow:var(--neo-shadow-lg);">
+      <div class="modal-header" style="border-bottom:2.5px solid var(--neo-dark); padding-bottom:10px; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <img src="../assets/icons/eye.svg" style="width:22px;height:22px;" alt="">
+          <span style="font-weight:900;font-size:1.15rem;letter-spacing:-0.3px;" data-i18n="lcPreviewModalTitle">Live Plan Preview</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button type="button" class="neo-btn" onclick="lcOpenPreviewInExternalBrowser()" style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;font-size:0.78rem;">
+            <img src="../assets/icons/fullscreen.svg" class="btn-icon btn-icon-xs" alt="">
+            <span data-i18n="lcPreviewOpenExternal">Open in System Browser</span>
+          </button>
+          <button type="button" class="neo-btn" onclick="lcPrintPreviewIframe()" style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;font-size:0.78rem;">
+            <img src="../assets/icons/printer.svg" class="btn-icon btn-icon-xs" alt="">
+            <span>Print</span>
+          </button>
+          <button class="icon-btn" onclick="lcCloseModal('exportPreviewModal')">&times;</button>
+        </div>
+      </div>
+      <div style="font-size:0.76rem;color:var(--neo-gray-dark);font-weight:700;margin-bottom:8px;" data-i18n="lcPreviewModalSub">
+        Live rendered view with all formatting, color codes, and print layout before exporting.
+      </div>
+      <div style="flex:1;border:2.5px solid var(--neo-dark);box-shadow:3px 3px 0 var(--neo-dark);border-radius:6px;overflow:hidden;background:#f8fafc;min-height:0;">
+        <iframe id="exportPreviewIframe" style="width:100%;height:100%;border:none;background:#fff;" title="Lesson Plan Preview"></iframe>
+      </div>
+      <div class="modal-footer" style="margin-top:12px;border-top:2px solid var(--neo-dark);padding-top:10px;justify-content:space-between;align-items:center;">
+        <button type="button" class="neo-btn" onclick="lcCloseModal('exportPreviewModal')" style="display:inline-flex;align-items:center;gap:4px;">
+          <img src="../assets/icons/arrow-left.svg" class="btn-icon btn-icon-xs" alt="">
+          <span data-i18n="lcPreviewBackBtn">Back to Options</span>
+        </button>
+        <button type="button" class="neo-btn primary" onclick="lcExecuteFromPreview()" style="display:inline-flex;align-items:center;gap:4px;">
+          <img src="../assets/icons/download.svg" class="btn-icon btn-icon-xs" alt="">
+          <span data-i18n="lcExportBtnDownload">Export</span>
+        </button>
       </div>
     </div>
   </div>
@@ -3881,6 +4235,7 @@
               { keys: ['Ctrl', 'O'], desc: 'Open saved lesson plan picker' },
               { keys: ['Ctrl', 'N'], desc: 'New blank lesson plan' },
               { keys: ['Ctrl', 'P'], desc: 'Print / Export PDF' },
+              { keys: ['Ctrl', 'E'], desc: 'Export lesson plan (All Formats)' },
               { keys: ['Ctrl', 'B'], desc: 'Toggle Descriptor Bank Drawer' },
               { keys: ['Ctrl', 'R'], desc: 'Run active plan in Class Management' },
               { keys: ['Ctrl', 'Shift', 'A'], desc: 'Add new phase to timeline' }
@@ -3913,7 +4268,10 @@
             lcNewPlan();
           } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
             e.preventDefault();
-            lcExportPdf();
+            lcOpenExportModal('pdf');
+          } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e') {
+            e.preventDefault();
+            lcOpenExportModal();
           } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
             e.preventDefault();
             if (e.shiftKey) {
@@ -3928,34 +4286,1297 @@
         });
       }
 
+      // ── Unified Lesson Plan Export Engine ─────────────────────────────────
+      var DEFAULT_EXPORT_CONFIG = {
+        format: 'html',
+        metaHeader: true,
+        metaDate: true,
+        metaDuration: true,
+        metaSequence: true,
+        metaTags: true,
+        metaTeams: true,
+        phaseTitle: true,
+        phaseDuration: true,
+        phaseActivity: true,
+        phaseObjective: true,
+        phaseTeacher: true,
+        phaseStudent: true,
+        phaseResources: true,
+        phaseDescriptors: true,
+        phaseDiff: true,
+        phaseAssess: true
+      };
+
+      var activeExportFormat = 'html';
+      var activeSelectedPhaseIndices = new Set();
+
+      var ACTIVITY_COLOR_MAP = {
+        warm_up: { border: '#b45309', bg: '#fef3c7', text: '#78350f', label: 'Warm-up' },
+        direct_instruction: { border: '#1d4ed8', bg: '#dbeafe', text: '#1e3a8a', label: 'Direct Instruction' },
+        guided_practice: { border: '#047857', bg: '#d1fae5', text: '#064e3b', label: 'Guided Practice' },
+        independent_work: { border: '#4338ca', bg: '#e0e7ff', text: '#312e81', label: 'Independent Practice' },
+        group_activity: { border: '#6d28d9', bg: '#ede9fe', text: '#4c1d95', label: 'Group Task' },
+        discussion: { border: '#be185d', bg: '#fce7f3', text: '#831843', label: 'Discussion' },
+        assessment: { border: '#b91c1c', bg: '#fee2e2', text: '#7f1d1d', label: 'Assessment' },
+        plenary: { border: '#0f766e', bg: '#ccfbf1', text: '#134e4a', label: 'Plenary' }
+      };
+
+      function getSafeExportFilename(ext) {
+        var base = (currentPlan.title || 'lesson_plan').toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+        if (!base) base = 'lesson_plan';
+        var stamp = currentPlan.date ? ('_' + currentPlan.date) : '';
+        return base + stamp + '.' + ext;
+      }
+
+      function downloadExportBlob(filename, content, mimeType) {
+        var blob = (content instanceof Blob) ? content : new Blob([content], { type: mimeType });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function () {
+          if (a.parentNode) a.parentNode.removeChild(a);
+          URL.revokeObjectURL(a.href);
+        }, 300);
+      }
+
+      window.lcOpenExportModal = function (initialFormat) {
+        if (initialFormat) {
+          activeExportFormat = initialFormat;
+        } else if (!activeExportFormat) {
+          activeExportFormat = 'html';
+        }
+
+        var saved = null;
+        try {
+          saved = JSON.parse(localStorage.getItem('cmt_lc_export_config') || 'null');
+        } catch (_) {}
+        var cfg = Object.assign({}, DEFAULT_EXPORT_CONFIG, saved || {});
+
+        var keys = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence', 'metaTags', 'metaTeams',
+                    'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseTeacher', 'phaseStudent', 'phaseResources', 'phaseDescriptors', 'phaseDiff', 'phaseAssess'];
+        keys.forEach(function (k) {
+          var el = document.getElementById('exportTgl_' + k);
+          if (el) el.checked = (cfg[k] !== false);
+        });
+
+        // Initialize selected phases (all phases selected by default)
+        activeSelectedPhaseIndices.clear();
+        (currentPlan.sections || []).forEach(function (_, i) {
+          activeSelectedPhaseIndices.add(i);
+        });
+
+        renderExportPhasesList();
+        lcSelectExportFormat(activeExportFormat);
+        lcUpdateExportSummary();
+
+        var m = document.getElementById('exportPlanModal');
+        if (m) m.style.display = 'flex';
+      };
+
+      window.lcSelectExportFormat = function (fmt) {
+        activeExportFormat = fmt || 'html';
+        var cards = document.querySelectorAll('.export-format-card');
+        cards.forEach(function (c) {
+          if (c.dataset.format === activeExportFormat) {
+            c.classList.add('active');
+          } else {
+            c.classList.remove('active');
+          }
+        });
+
+        var submitLabelEl = document.getElementById('exportSubmitBtnLabel');
+        var previewBtn = document.getElementById('btnExportPreview');
+        if (previewBtn) {
+          previewBtn.style.display = (activeExportFormat === 'html' || activeExportFormat === 'pdf') ? 'inline-flex' : 'none';
+        }
+
+        if (submitLabelEl) {
+          var labelText = 'Export';
+          switch (activeExportFormat) {
+            case 'html': labelText = 'Export HTML (.html)'; break;
+            case 'pdf': labelText = 'Print / PDF (.pdf)'; break;
+            case 'xlsx': labelText = 'Download Excel (.xlsx)'; break;
+            case 'csv': labelText = 'Download CSV (.csv)'; break;
+            case 'json': labelText = 'Download JSON (.json)'; break;
+            case 'text': labelText = 'Download Text (.md)'; break;
+          }
+          submitLabelEl.textContent = labelText;
+        }
+
+        lcUpdateExportSummary();
+      };
+
+      window.lcApplyExportPreset = function (preset) {
+        var keys = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence', 'metaTags', 'metaTeams',
+                    'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseTeacher', 'phaseStudent', 'phaseResources', 'phaseDescriptors', 'phaseDiff', 'phaseAssess'];
+
+        if (preset === 'full') {
+          keys.forEach(function (k) {
+            var el = document.getElementById('exportTgl_' + k);
+            if (el) el.checked = true;
+          });
+        } else if (preset === 'teacher') {
+          var teacherKeys = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence', 'metaTags', 'metaTeams',
+                             'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseTeacher', 'phaseResources', 'phaseDescriptors', 'phaseDiff', 'phaseAssess'];
+          keys.forEach(function (k) {
+            var el = document.getElementById('exportTgl_' + k);
+            if (el) el.checked = teacherKeys.includes(k);
+          });
+        } else if (preset === 'student') {
+          var studentKeys = ['metaHeader', 'metaDate', 'metaDuration',
+                             'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseStudent', 'phaseResources'];
+          keys.forEach(function (k) {
+            var el = document.getElementById('exportTgl_' + k);
+            if (el) el.checked = studentKeys.includes(k);
+          });
+        } else if (preset === 'outline') {
+          var outlineKeys = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence',
+                             'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective'];
+          keys.forEach(function (k) {
+            var el = document.getElementById('exportTgl_' + k);
+            if (el) el.checked = outlineKeys.includes(k);
+          });
+        }
+
+        lcOnExportToggleChange();
+      };
+
+      window.lcOnExportToggleChange = function () {
+        var toggles = lcGetExportToggles();
+        try {
+          localStorage.setItem('cmt_lc_export_config', JSON.stringify(toggles));
+        } catch (_) {}
+        lcUpdateExportSummary();
+      };
+
+      function lcGetExportToggles() {
+        var keys = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence', 'metaTags', 'metaTeams',
+                    'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseTeacher', 'phaseStudent', 'phaseResources', 'phaseDescriptors', 'phaseDiff', 'phaseAssess'];
+        var res = {};
+        keys.forEach(function (k) {
+          var el = document.getElementById('exportTgl_' + k);
+          res[k] = el ? el.checked : true;
+        });
+        return res;
+      }
+
+      function renderExportPhasesList() {
+        var container = document.getElementById('exportPhasesList');
+        if (!container) return;
+        container.innerHTML = '';
+
+        var phases = currentPlan.sections || [];
+        if (phases.length === 0) {
+          container.innerHTML = '<div style="padding:10px;text-align:center;color:var(--neo-gray-dark);font-size:0.8rem;">No phases in current plan.</div>';
+          return;
+        }
+
+        phases.forEach(function (sec, idx) {
+          var isChecked = activeSelectedPhaseIndices.has(idx);
+          var item = document.createElement('label');
+          item.className = 'export-phase-item';
+
+          var actName = getActivityLabel(sec.activityTypeId) || 'Phase';
+          var pDur = Number(sec.duration) || 0;
+          var pTitle = sec.title || ('Phase ' + (idx + 1));
+
+          item.innerHTML = [
+            '<div class="export-phase-item-left">',
+            '  <span class="export-phase-num">' + (idx + 1) + '</span>',
+            '  <span class="export-phase-title" title="' + escapeHtml(pTitle) + '">' + escapeHtml(pTitle) + '</span>',
+            '</div>',
+            '<div class="export-phase-item-right">',
+            '  <span style="font-size:0.75rem;font-weight:700;color:var(--neo-gray-dark);">' + escapeHtml(actName) + ' (' + pDur + 'm)</span>',
+            '  <input type="checkbox" ' + (isChecked ? 'checked' : '') + ' style="width:16px;height:16px;cursor:pointer;">',
+            '</div>'
+          ].join('');
+
+          var cb = item.querySelector('input[type="checkbox"]');
+          cb.addEventListener('change', function (e) {
+            e.stopPropagation();
+            if (cb.checked) {
+              activeSelectedPhaseIndices.add(idx);
+            } else {
+              activeSelectedPhaseIndices.delete(idx);
+            }
+            lcUpdateExportSummary();
+          });
+
+          container.appendChild(item);
+        });
+      }
+
+      window.lcExportToggleAllPhases = function (selectAll) {
+        var phases = currentPlan.sections || [];
+        activeSelectedPhaseIndices.clear();
+        if (selectAll) {
+          phases.forEach(function (_, i) { activeSelectedPhaseIndices.add(i); });
+        }
+        renderExportPhasesList();
+        lcUpdateExportSummary();
+      };
+
+      function lcUpdateExportSummary() {
+        var phases = currentPlan.sections || [];
+        var selectedCount = activeSelectedPhaseIndices.size;
+        var totalMin = 0;
+        phases.forEach(function (s, i) {
+          if (activeSelectedPhaseIndices.has(i)) {
+            totalMin += (Number(s.duration) || 0);
+          }
+        });
+
+        var fmtBadge = document.getElementById('exportSummaryFormatBadge');
+        if (fmtBadge) {
+          var extMap = { html: 'HTML (.html)', pdf: 'PDF (.pdf)', xlsx: 'Excel (.xlsx)', csv: 'CSV (.csv)', json: 'JSON (.json)', text: 'Text (.md)' };
+          fmtBadge.textContent = extMap[activeExportFormat] || activeExportFormat.toUpperCase();
+        }
+
+        var phasesBadge = document.getElementById('exportSummaryPhasesBadge');
+        if (phasesBadge) {
+          phasesBadge.textContent = selectedCount + ' of ' + phases.length + ' Phases';
+        }
+
+        var durBadge = document.getElementById('exportSummaryDurationBadge');
+        if (durBadge) {
+          durBadge.textContent = totalMin + ' min';
+        }
+
+        var fnEl = document.getElementById('exportSummaryFilename');
+        if (fnEl) {
+          var ext = (activeExportFormat === 'text') ? 'md' : activeExportFormat;
+          fnEl.textContent = getSafeExportFilename(ext);
+        }
+      }
+
+      // ── Neobrutalist HTML Document Generator ──────────────────────────────
+      window.lcGenerateExportHtml = function (options) {
+        options = options || {};
+        var toggles = options.toggles || lcGetExportToggles();
+        var isForPrint = !!options.forPrint;
+
+        var phases = (currentPlan.sections || []).filter(function (_, i) {
+          return activeSelectedPhaseIndices.has(i);
+        });
+
+        var planTitle = currentPlan.title || 'Lesson Plan';
+        var subName = getSubjectLabel(currentPlan.subjectId);
+        var clsName = getClassLabel(currentPlan.classId);
+        var yrName = getYearLevelLabel(currentPlan.yearLevel);
+        var totalDur = phases.reduce(function (sum, s) { return sum + (Number(s.duration) || 0); }, 0);
+        var targetDur = currentPlan.targetDuration || 60;
+
+        var html = '<!DOCTYPE html>\n<html lang="en">\n<head>\n' +
+          '  <meta charset="utf-8">\n' +
+          '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
+          '  <title>' + escapeHtml(planTitle) + '</title>\n' +
+          '  <style>\n' +
+          '    :root {\n' +
+          '      --bg-canvas: #f8fafc;\n' +
+          '      --bg-card: #ffffff;\n' +
+          '      --border-dark: #121212;\n' +
+          '      --shadow-solid: 4px 4px 0 #121212;\n' +
+          '      --shadow-sm: 2px 2px 0 #121212;\n' +
+          '      --neo-yellow: #fde047;\n' +
+          '      --neo-blue: #93c5fd;\n' +
+          '      --neo-green: #86efac;\n' +
+          '      --neo-purple: #c4b5fd;\n' +
+          '      --neo-gray: #f4f4f5;\n' +
+          '    }\n' +
+          '    * { box-sizing: border-box; margin: 0; padding: 0; }\n' +
+          '    body {\n' +
+          '      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;\n' +
+          '      background: var(--bg-canvas);\n' +
+          '      color: #121212;\n' +
+          '      padding: 24px 16px;\n' +
+          '      line-height: 1.5;\n' +
+          '      -webkit-font-smoothing: antialiased;\n' +
+          '    }\n' +
+          '    .export-container {\n' +
+          '      max-width: 900px;\n' +
+          '      margin: 0 auto;\n' +
+          '    }\n' +
+          '    /* Neobrutalist Hero Card */\n' +
+          '    .plan-hero {\n' +
+          '      background: var(--bg-card);\n' +
+          '      border: 3px solid var(--border-dark);\n' +
+          '      border-radius: 8px;\n' +
+          '      box-shadow: 6px 6px 0 var(--border-dark);\n' +
+          '      padding: 24px;\n' +
+          '      margin-bottom: 24px;\n' +
+          '    }\n' +
+          '    .plan-hero-title {\n' +
+          '      font-size: 1.85rem;\n' +
+          '      font-weight: 900;\n' +
+          '      letter-spacing: -0.5px;\n' +
+          '      text-transform: uppercase;\n' +
+          '      line-height: 1.2;\n' +
+          '      margin-bottom: 12px;\n' +
+          '    }\n' +
+          '    .plan-badges-row {\n' +
+          '      display: flex;\n' +
+          '      flex-wrap: wrap;\n' +
+          '      gap: 8px;\n' +
+          '      align-items: center;\n' +
+          '    }\n' +
+          '    .neo-tag {\n' +
+          '      display: inline-flex;\n' +
+          '      align-items: center;\n' +
+          '      gap: 4px;\n' +
+          '      padding: 4px 10px;\n' +
+          '      border: 2px solid var(--border-dark);\n' +
+          '      border-radius: 4px;\n' +
+          '      font-size: 0.8rem;\n' +
+          '      font-weight: 800;\n' +
+          '      box-shadow: var(--shadow-sm);\n' +
+          '      background: #fff;\n' +
+          '      text-transform: uppercase;\n' +
+          '    }\n' +
+          '    .neo-tag-yellow { background: var(--neo-yellow); }\n' +
+          '    .neo-tag-blue { background: var(--neo-blue); }\n' +
+          '    .neo-tag-green { background: var(--neo-green); }\n' +
+          '    .neo-tag-purple { background: var(--neo-purple); }\n' +
+          '    .neo-tag-dark { background: var(--border-dark); color: #fff; }\n' +
+          '    /* Phase Cards */\n' +
+          '    .phase-export-card {\n' +
+          '      background: var(--bg-card);\n' +
+          '      border: 3px solid var(--border-dark);\n' +
+          '      border-radius: 8px;\n' +
+          '      box-shadow: var(--shadow-solid);\n' +
+          '      margin-bottom: 22px;\n' +
+          '      page-break-inside: avoid;\n' +
+          '      break-inside: avoid;\n' +
+          '      overflow: hidden;\n' +
+          '    }\n' +
+          '    .phase-header {\n' +
+          '      display: flex;\n' +
+          '      align-items: center;\n' +
+          '      justify-content: space-between;\n' +
+          '      flex-wrap: wrap;\n' +
+          '      gap: 10px;\n' +
+          '      padding: 12px 18px;\n' +
+          '      border-bottom: 3px solid var(--border-dark);\n' +
+          '      background: #fafaf9;\n' +
+          '    }\n' +
+          '    .phase-header-left {\n' +
+          '      display: flex;\n' +
+          '      align-items: center;\n' +
+          '      gap: 10px;\n' +
+          '      flex-wrap: wrap;\n' +
+          '    }\n' +
+          '    .phase-num {\n' +
+          '      background: var(--border-dark);\n' +
+          '      color: #fff;\n' +
+          '      font-size: 1.1rem;\n' +
+          '      font-weight: 900;\n' +
+          '      padding: 3px 10px;\n' +
+          '      border-radius: 4px;\n' +
+          '      letter-spacing: 0.5px;\n' +
+          '    }\n' +
+          '    .phase-title {\n' +
+          '      font-size: 1.2rem;\n' +
+          '      font-weight: 900;\n' +
+          '      letter-spacing: -0.3px;\n' +
+          '    }\n' +
+          '    .phase-header-right {\n' +
+          '      display: flex;\n' +
+          '      align-items: center;\n' +
+          '      gap: 6px;\n' +
+          '      flex-wrap: wrap;\n' +
+          '    }\n' +
+          '    .phase-body {\n' +
+          '      padding: 16px;\n' +
+          '      display: flex;\n' +
+          '      flex-direction: column;\n' +
+          '      gap: 12px;\n' +
+          '    }\n' +
+          '    .sec-box {\n' +
+          '      border: 2px solid var(--border-dark);\n' +
+          '      border-radius: 6px;\n' +
+          '      box-shadow: var(--shadow-sm);\n' +
+          '      padding: 10px 12px;\n' +
+          '    }\n' +
+          '    .box-tag {\n' +
+          '      font-size: 0.7rem;\n' +
+          '      font-weight: 900;\n' +
+          '      text-transform: uppercase;\n' +
+          '      letter-spacing: 0.8px;\n' +
+          '      margin-bottom: 4px;\n' +
+          '      display: block;\n' +
+          '      color: #121212;\n' +
+          '    }\n' +
+          '    .box-text {\n' +
+          '      font-size: 0.9rem;\n' +
+          '      line-height: 1.45;\n' +
+          '      white-space: pre-line;\n' +
+          '    }\n' +
+          '    .objective-box {\n' +
+          '      background: #fefce8;\n' +
+          '    }\n' +
+          '    .objective-text {\n' +
+          '      font-size: 0.95rem;\n' +
+          '      font-weight: 700;\n' +
+          '      color: #121212;\n' +
+          '    }\n' +
+          '    .actions-grid {\n' +
+          '      display: grid;\n' +
+          '      grid-template-columns: 1fr 1fr;\n' +
+          '      gap: 12px;\n' +
+          '    }\n' +
+          '    @media (max-width: 640px) {\n' +
+          '      .actions-grid { grid-template-columns: 1fr; }\n' +
+          '    }\n' +
+          '    .teacher-box {\n' +
+          '      background: #eff6ff;\n' +
+          '    }\n' +
+          '    .student-box {\n' +
+          '      background: #f0fdf4;\n' +
+          '    }\n' +
+          '    .resources-box {\n' +
+          '      background: #f4f4f5;\n' +
+          '    }\n' +
+          '    .diff-box {\n' +
+          '      background: #faf5ff;\n' +
+          '    }\n' +
+          '    .assess-box {\n' +
+          '      background: #fff1f2;\n' +
+          '    }\n' +
+          '    .comp-chips {\n' +
+          '      display: flex;\n' +
+          '      flex-wrap: wrap;\n' +
+          '      gap: 6px;\n' +
+          '      margin-top: 4px;\n' +
+          '    }\n' +
+          '    .comp-chip {\n' +
+          '      background: #ede9fe;\n' +
+          '      border: 1.5px solid var(--border-dark);\n' +
+          '      border-radius: 4px;\n' +
+          '      padding: 3px 8px;\n' +
+          '      font-size: 0.76rem;\n' +
+          '      font-weight: 700;\n' +
+          '      box-shadow: 1px 1px 0 var(--border-dark);\n' +
+          '    }\n' +
+          '    .plan-footer {\n' +
+          '      margin-top: 24px;\n' +
+          '      padding: 12px 16px;\n' +
+          '      background: var(--bg-card);\n' +
+          '      border: 2px solid var(--border-dark);\n' +
+          '      border-radius: 6px;\n' +
+          '      display: flex;\n' +
+          '      align-items: center;\n' +
+          '      justify-content: space-between;\n' +
+          '      font-size: 0.78rem;\n' +
+          '      font-weight: 700;\n' +
+          '      box-shadow: var(--shadow-sm);\n' +
+          '    }\n' +
+          '    @media print {\n' +
+          '      body { background: #fff !important; padding: 0 !important; }\n' +
+          '      .export-container { max-width: 100% !important; margin: 0 !important; }\n' +
+          '      .plan-hero, .phase-export-card { box-shadow: none !important; }\n' +
+          '      .phase-export-card { page-break-inside: avoid !important; break-inside: avoid !important; }\n' +
+          '      @page { margin: 12mm 10mm; size: A4 portrait; }\n' +
+          '      -webkit-print-color-adjust: exact; print-color-adjust: exact;\n' +
+          '    }\n' +
+          '  </style>\n' +
+          '</head>\n' +
+          '<body>\n' +
+          '  <div class="export-container">\n';
+
+        // 1. Hero Block
+        if (toggles.metaHeader || toggles.metaDate || toggles.metaDuration || toggles.metaSequence || toggles.metaTags || toggles.metaTeams) {
+          html += '    <div class="plan-hero">\n';
+          if (toggles.metaHeader) {
+            html += '      <h1 class="plan-hero-title">' + escapeHtml(planTitle) + '</h1>\n';
+          }
+          html += '      <div class="plan-badges-row">\n';
+          if (toggles.metaHeader) {
+            if (subName) html += '        <span class="neo-tag neo-tag-yellow">' + escapeHtml(subName) + '</span>\n';
+            if (clsName) html += '        <span class="neo-tag neo-tag-blue">Class: ' + escapeHtml(clsName) + '</span>\n';
+          }
+          if (toggles.metaDate) {
+            if (currentPlan.date) html += '        <span class="neo-tag">Date: ' + escapeHtml(currentPlan.date) + '</span>\n';
+            if (yrName && currentPlan.yearLevel !== 'all') html += '        <span class="neo-tag">Year: ' + escapeHtml(yrName) + '</span>\n';
+            if (currentPlan.semester && currentPlan.semester !== 'all') html += '        <span class="neo-tag">Semester: ' + escapeHtml(currentPlan.semester.toUpperCase()) + '</span>\n';
+          }
+          if (toggles.metaDuration) {
+            html += '        <span class="neo-tag neo-tag-dark">Duration: ' + totalDur + ' min / ' + targetDur + ' min Target</span>\n';
+          }
+          if (toggles.metaSequence && currentPlan.unitSequence && currentPlan.unitSequence.title) {
+            var seqStr = currentPlan.unitSequence.title + ' (Lesson ' + (currentPlan.unitSequence.lessonIndex || 1) + ' of ' + (currentPlan.unitSequence.totalLessons || 1) + ')';
+            html += '        <span class="neo-tag neo-tag-purple">Unit: ' + escapeHtml(seqStr) + '</span>\n';
+          }
+          if (toggles.metaTeams && currentPlan.teamConfig && currentPlan.teamConfig.enabled) {
+            var rList = (currentPlan.teamConfig.roles || []).map(function (r) { return r.name || r; }).join(', ');
+            html += '        <span class="neo-tag neo-tag-green">Teams of ' + currentPlan.teamConfig.teamSize + (rList ? (' (' + escapeHtml(rList) + ')') : '') + '</span>\n';
+          }
+          if (toggles.metaTags && Array.isArray(currentPlan.tags) && currentPlan.tags.length > 0) {
+            html += '        <span class="neo-tag">Tags: ' + escapeHtml(currentPlan.tags.join(', ')) + '</span>\n';
+          }
+          html += '      </div>\n';
+          html += '    </div>\n';
+        }
+
+        // 2. Phases Block
+        phases.forEach(function (sec, idx) {
+          var actInfo = ACTIVITY_COLOR_MAP[sec.activityTypeId] || { border: '#121212', bg: '#f4f4f5', text: '#121212', label: getActivityLabel(sec.activityTypeId) };
+          var actLabel = getActivityLabel(sec.activityTypeId);
+          var modeLabel = getInteractionLabel(sec.interactionTypeId);
+          var pDur = Number(sec.duration) || 0;
+          var pTitle = sec.title || ('Phase ' + (idx + 1));
+
+          html += '    <div class="phase-export-card" style="border-left: 6px solid ' + actInfo.border + ';">\n';
+          html += '      <div class="phase-header">\n';
+          html += '        <div class="phase-header-left">\n';
+          if (toggles.phaseTitle) {
+            html += '          <span class="phase-num">' + (idx + 1) + '</span>\n';
+            html += '          <span class="phase-title">' + escapeHtml(pTitle) + '</span>\n';
+          }
+          if (toggles.phaseDuration) {
+            html += '          <span class="neo-tag neo-tag-yellow">' + pDur + ' min</span>\n';
+          }
+          html += '        </div>\n';
+          html += '        <div class="phase-header-right">\n';
+          if (toggles.phaseActivity) {
+            if (actLabel) {
+              html += '          <span class="neo-tag" style="background:' + actInfo.bg + ';color:' + actInfo.text + ';border-color:' + actInfo.border + ';">' + escapeHtml(actLabel) + '</span>\n';
+            }
+            if (modeLabel) {
+              html += '          <span class="neo-tag">' + escapeHtml(modeLabel) + '</span>\n';
+            }
+          }
+          html += '        </div>\n';
+          html += '      </div>\n';
+
+          html += '      <div class="phase-body">\n';
+
+          // Objective
+          if (toggles.phaseObjective && sec.objective) {
+            html += '        <div class="sec-box objective-box">\n';
+            html += '          <span class="box-tag">LEARNING OBJECTIVE</span>\n';
+            html += '          <div class="objective-text">' + escapeHtml(sec.objective) + '</div>\n';
+            html += '        </div>\n';
+          }
+
+          // Two-column Teacher / Student grid
+          var hasTeacher = toggles.phaseTeacher && sec.teacherAction;
+          var hasStudent = toggles.phaseStudent && sec.studentAction;
+          if (hasTeacher || hasStudent) {
+            html += '        <div class="actions-grid">\n';
+            if (hasTeacher) {
+              html += '          <div class="sec-box teacher-box">\n';
+              html += '            <span class="box-tag">TEACHER ACTIONS</span>\n';
+              html += '            <div class="box-text">' + escapeHtml(sec.teacherAction) + '</div>\n';
+              html += '          </div>\n';
+            } else if (hasStudent) {
+              html += '          <div></div>\n';
+            }
+            if (hasStudent) {
+              html += '          <div class="sec-box student-box">\n';
+              html += '            <span class="box-tag">STUDENT TASKS</span>\n';
+              html += '            <div class="box-text">' + escapeHtml(sec.studentAction) + '</div>\n';
+              html += '          </div>\n';
+            }
+            html += '        </div>\n';
+          }
+
+          // Resources
+          if (toggles.phaseResources && sec.resources) {
+            html += '        <div class="sec-box resources-box">\n';
+            html += '          <span class="box-tag">RESOURCES & MATERIALS</span>\n';
+            html += '          <div class="box-text">' + escapeHtml(sec.resources) + '</div>\n';
+            html += '        </div>\n';
+          }
+
+          // Tagged Competences
+          if (toggles.phaseDescriptors && Array.isArray(sec.descriptorIds) && sec.descriptorIds.length > 0) {
+            html += '        <div class="sec-box" style="background:#faf5ff;">\n';
+            html += '          <span class="box-tag">TAGGED COMPETENCES</span>\n';
+            html += '          <div class="comp-chips">\n';
+            sec.descriptorIds.forEach(function (id) {
+              var targetIdStr = String(id || '').toLowerCase().trim();
+              var d = (allDescriptors || []).find(function (item) {
+                return item && (String(item.id || '').toLowerCase().trim() === targetIdStr || String(item.code || '').toLowerCase().trim() === targetIdStr);
+              });
+              var displayStr = d ? ((d.code ? (d.code + ' - ') : '') + (d.title || d.id)) : id;
+              html += '            <span class="comp-chip">' + escapeHtml(displayStr) + '</span>\n';
+            });
+            html += '          </div>\n';
+            html += '        </div>\n';
+          }
+
+          // Differentiation
+          if (toggles.phaseDiff && sec.differentiation) {
+            html += '        <div class="sec-box diff-box">\n';
+            html += '          <span class="box-tag">DIFFERENTIATION & SUPPORT</span>\n';
+            html += '          <div class="box-text">' + escapeHtml(sec.differentiation) + '</div>\n';
+            html += '        </div>\n';
+          }
+
+          // Formative Assessment
+          if (toggles.phaseAssess && sec.assessmentStrategy) {
+            html += '        <div class="sec-box assess-box">\n';
+            html += '          <span class="box-tag">FORMATIVE ASSESSMENT</span>\n';
+            html += '          <div class="box-text">' + escapeHtml(sec.assessmentStrategy) + '</div>\n';
+            html += '        </div>\n';
+          }
+
+          html += '      </div>\n';
+          html += '    </div>\n';
+        });
+
+        // Footer Banner
+        html += '    <div class="plan-footer">\n' +
+          '      <span>' + escapeHtml(planTitle) + ' | Class Management Tools</span>\n' +
+          '      <span>Exported: ' + new Date().toLocaleDateString() + '</span>\n' +
+          '    </div>\n' +
+          '  </div>\n';
+
+        if (isForPrint) {
+          html += '  <script>window.addEventListener("load", function() { setTimeout(function() { window.print(); }, 250); });<\/script>\n';
+        }
+
+        html += '</body>\n</html>';
+        return html;
+      };
+
+      window.lcPreviewExportInBrowser = function () {
+        var toggles = lcGetExportToggles();
+        var html = lcGenerateExportHtml({ forPrint: false, toggles: toggles });
+        var modal = document.getElementById('exportPreviewModal');
+        var iframe = document.getElementById('exportPreviewIframe');
+        if (iframe) {
+          iframe.srcdoc = html;
+        }
+        if (modal) {
+          modal.style.display = 'flex';
+        }
+      };
+
+      window.lcPrintPreviewIframe = function () {
+        var ifr = document.getElementById('exportPreviewIframe');
+        if (ifr && ifr.contentWindow) {
+          try {
+            ifr.contentWindow.focus();
+            ifr.contentWindow.print();
+          } catch (_) {
+            window.print();
+          }
+        }
+      };
+
+      window.lcOpenPreviewInExternalBrowser = async function () {
+        var toggles = lcGetExportToggles();
+        var html = lcGenerateExportHtml({ forPrint: false, toggles: toggles });
+        if (window.Desktop && Desktop.isElectron()) {
+          try {
+            var tempName = '_preview_' + getSafeExportFilename('html');
+            var result = await Desktop.saveText('toPrint', tempName, html);
+            var filePath = (result && result.path) || (result && result.file && result.file.path);
+            if (filePath) {
+              await Desktop.openNative({ absolutePath: filePath });
+            } else if (typeof showToast === 'function') {
+              showToast('Preview saved to print folder: ' + tempName);
+            }
+          } catch (err) {
+            if (typeof showToast === 'function') showToast('Could not open external browser: ' + err.message, true);
+          }
+        } else {
+          try {
+            var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+            var url = URL.createObjectURL(blob);
+            var w = window.open(url, '_blank');
+            if (!w) {
+              downloadExportBlob(getSafeExportFilename('html'), html, 'text/html;charset=utf-8');
+            }
+          } catch (_) {
+            downloadExportBlob(getSafeExportFilename('html'), html, 'text/html;charset=utf-8');
+          }
+        }
+      };
+
+      window.lcExecuteFromPreview = function () {
+        lcCloseModal('exportPreviewModal');
+        lcExecuteCurrentExport();
+      };
+
+      // ── Export Destination & Location Handler ─────────────────────────────
+      var destinationModalCallback = null;
+      window.lastExportedFilePath = null;
+
+      function lcPromptExportDestination() {
+        if (!window.Desktop || !Desktop.isElectron()) {
+          return Promise.resolve('browser');
+        }
+        return new Promise(function (resolve) {
+          destinationModalCallback = resolve;
+          var m = document.getElementById('exportDestinationModal');
+          if (m) m.style.display = 'flex';
+        });
+      }
+
+      window.lcCloseDestinationModal = function (dest) {
+        var m = document.getElementById('exportDestinationModal');
+        if (m) m.style.display = 'none';
+        if (destinationModalCallback) {
+          var cb = destinationModalCallback;
+          destinationModalCallback = null;
+          cb(dest);
+        }
+      };
+
+      window.lcOpenLastExportLocation = function () {
+        if (window.lastExportedFilePath && window.Desktop && typeof Desktop.showItemInFolder === 'function') {
+          Desktop.showItemInFolder(window.lastExportedFilePath);
+        } else if (typeof showToast === 'function') {
+          showToast('No exported file path available.', true);
+        }
+      };
+
+      function handleExportSuccess(filePath, fileName, defaultToastMsg) {
+        window.lastExportedFilePath = filePath;
+        lcCloseModal('exportPlanModal');
+        if (window.showExportSuccessPopup && filePath) {
+          showExportSuccessPopup(filePath, fileName);
+        } else if (typeof showToast === 'function') {
+          showToast(defaultToastMsg || i18n.t('lcExportCopySuccess') || 'Export complete.');
+        }
+      }
+
+      window.lcExecuteExportHtml = async function (dest) {
+        if (!dest) {
+          dest = await lcPromptExportDestination();
+          if (!dest) return;
+        }
+
+        var toggles = lcGetExportToggles();
+        var html = lcGenerateExportHtml({ forPrint: false, toggles: toggles });
+        var filename = getSafeExportFilename('html');
+
+        if (window.Desktop && Desktop.isElectron() && dest !== 'browser') {
+          try {
+            var result = null;
+            if (dest === 'to-print') {
+              result = await Desktop.saveText('toPrint', filename, html);
+              if (result && result.file && result.file.path) result.path = result.file.path;
+              if (result && !result.name) result.name = filename;
+            } else {
+              result = await Desktop.saveToDisk({
+                title: 'Save HTML Document',
+                defaultPath: filename,
+                filters: [{ name: 'HTML Document', extensions: ['html', 'htm'] }],
+                content: html,
+                encoding: 'utf8'
+              });
+            }
+            if (result && result.ok) {
+              handleExportSuccess(result.path, result.name || filename, i18n.t('lcExportCopySuccess') || 'HTML document exported successfully.');
+            } else if (result && !result.ok && !result.canceled) {
+              if (typeof showToast === 'function') showToast('Could not save HTML: ' + (result.error || 'unknown error'), true);
+            }
+          } catch (err) {
+            if (typeof showToast === 'function') showToast('Could not save HTML: ' + err.message, true);
+          }
+        } else {
+          downloadExportBlob(filename, html, 'text/html;charset=utf-8');
+          lcCloseModal('exportPlanModal');
+          if (typeof showToast === 'function') {
+            showToast(i18n.t('lcExportCopySuccess') || 'HTML document exported successfully.');
+          }
+        }
+      };
+
+      window.lcExecuteExportPdf = async function (dest) {
+        if (!dest) {
+          dest = await lcPromptExportDestination();
+          if (!dest) return;
+        }
+
+        var toggles = lcGetExportToggles();
+        var html = lcGenerateExportHtml({ forPrint: true, toggles: toggles });
+        var filename = getSafeExportFilename('pdf');
+
+        if (window.Desktop && Desktop.isElectron() && typeof Desktop.printPdf === 'function' && dest !== 'browser') {
+          try {
+            var req = {
+              html: html,
+              defaultName: filename,
+              landscape: false,
+              pdfOptions: { pageSize: 'A4', landscape: false }
+            };
+            if (dest === 'to-print') {
+              req.target = 'toPrint';
+              req.filename = filename;
+            }
+            var result = await Desktop.printPdf(req);
+            if (result && result.ok) {
+              handleExportSuccess(result.path, result.name || filename, i18n.t('lcExportCopySuccess') || 'PDF exported successfully.');
+            } else if (result && !result.ok && !result.canceled) {
+              if (typeof showToast === 'function') {
+                showToast('Could not save PDF: ' + (result.error || 'unknown error'), true);
+              }
+            }
+          } catch (err) {
+            if (typeof showToast === 'function') {
+              showToast('Could not save PDF: ' + err.message, true);
+            }
+          }
+        } else {
+          var win = window.open('', '_blank');
+          if (win) {
+            win.document.open();
+            win.document.write(html);
+            win.document.close();
+            lcCloseModal('exportPlanModal');
+          } else {
+            window.print();
+          }
+        }
+      };
+
+      window.lcExecuteExportXlsx = async function (dest) {
+        if (typeof XLSX === 'undefined') {
+          if (typeof showToast === 'function') showToast('Excel export library (SheetJS) is not loaded.', true);
+          return;
+        }
+
+        var toggles = lcGetExportToggles();
+        var phases = (currentPlan.sections || []).filter(function (_, i) {
+          return activeSelectedPhaseIndices.has(i);
+        });
+
+        if (phases.length === 0 && (currentPlan.sections || []).length > 0) {
+          if (typeof showToast === 'function') showToast('No phases selected to export.', true);
+          return;
+        }
+
+        if (!dest) {
+          dest = await lcPromptExportDestination();
+          if (!dest) return;
+        }
+
+        var wb = XLSX.utils.book_new();
+
+        // Sheet 1: Lesson Plan
+        var aoa = [];
+        aoa.push(['LESSON PLAN', (currentPlan.title || 'Untitled Lesson Plan').toUpperCase()]);
+
+        if (toggles.metaHeader || toggles.metaDate || toggles.metaDuration) {
+          var subLabel = getSubjectLabel(currentPlan.subjectId);
+          var clsLabel = getClassLabel(currentPlan.classId);
+          var yrLabel = getYearLevelLabel(currentPlan.yearLevel);
+          var totalDur = phases.reduce(function (sum, s) { return sum + (Number(s.duration) || 0); }, 0);
+
+          if (toggles.metaHeader) {
+            aoa.push(['Subject', subLabel || 'All', 'Class', clsLabel || 'All']);
+          }
+          if (toggles.metaDate) {
+            aoa.push(['Date', currentPlan.date || '', 'Year Level', yrLabel || 'All', 'Semester', (currentPlan.semester || 'all').toUpperCase()]);
+          }
+          if (toggles.metaDuration) {
+            aoa.push(['Selected Duration', totalDur + ' min', 'Target Duration', (currentPlan.targetDuration || 60) + ' min']);
+          }
+          if (toggles.metaSequence && currentPlan.unitSequence && currentPlan.unitSequence.title) {
+            var seqStr = currentPlan.unitSequence.title + ' (Lesson ' + (currentPlan.unitSequence.lessonIndex || 1) + ' of ' + (currentPlan.unitSequence.totalLessons || 1) + ')';
+            aoa.push(['Unit Sequence', seqStr]);
+          }
+          if (toggles.metaTeams && currentPlan.teamConfig && currentPlan.teamConfig.enabled) {
+            var rolesList = (currentPlan.teamConfig.roles || []).map(function (r) { return r.name || r; }).join(', ');
+            aoa.push(['Teams', 'Teams of ' + currentPlan.teamConfig.teamSize + (rolesList ? (' (' + rolesList + ')') : '')]);
+          }
+          if (toggles.metaTags && Array.isArray(currentPlan.tags) && currentPlan.tags.length > 0) {
+            aoa.push(['Tags', currentPlan.tags.join(', ')]);
+          }
+        }
+
+        aoa.push([]);
+
+        var headers = ['Phase #'];
+        if (toggles.phaseTitle) headers.push('Title');
+        if (toggles.phaseDuration) headers.push('Duration (min)');
+        if (toggles.phaseActivity) {
+          headers.push('Activity Type');
+          headers.push('Interaction Mode');
+        }
+        if (toggles.phaseObjective) headers.push('Learning Objective');
+        if (toggles.phaseTeacher) headers.push('Teacher Actions / Prompts');
+        if (toggles.phaseStudent) headers.push('Student Tasks / Activities');
+        if (toggles.phaseResources) headers.push('Resources & Materials');
+        if (toggles.phaseDescriptors) headers.push('Tagged Competences');
+        if (toggles.phaseDiff) headers.push('Differentiation & Support');
+        if (toggles.phaseAssess) headers.push('Formative Assessment');
+
+        aoa.push(headers);
+
+        phases.forEach(function (sec, idx) {
+          var row = [idx + 1];
+          if (toggles.phaseTitle) row.push(sec.title || ('Phase ' + (idx + 1)));
+          if (toggles.phaseDuration) row.push(Number(sec.duration) || 0);
+          if (toggles.phaseActivity) {
+            row.push(getActivityLabel(sec.activityTypeId) || '');
+            row.push(getInteractionLabel(sec.interactionTypeId) || '');
+          }
+          if (toggles.phaseObjective) row.push(sec.objective || '');
+          if (toggles.phaseTeacher) row.push(sec.teacherAction || '');
+          if (toggles.phaseStudent) row.push(sec.studentAction || '');
+          if (toggles.phaseResources) row.push(sec.resources || '');
+          if (toggles.phaseDescriptors) {
+            var descStr = '';
+            if (Array.isArray(sec.descriptorIds) && sec.descriptorIds.length > 0) {
+              descStr = sec.descriptorIds.map(function (id) {
+                var targetIdStr = String(id || '').toLowerCase().trim();
+                var d = (allDescriptors || []).find(function (item) {
+                  return item && (String(item.id || '').toLowerCase().trim() === targetIdStr || String(item.code || '').toLowerCase().trim() === targetIdStr);
+                });
+                return d ? ((d.code ? (d.code + ': ') : '') + (d.title || d.id)) : id;
+              }).join('; ');
+            }
+            row.push(descStr);
+          }
+          if (toggles.phaseDiff) row.push(sec.differentiation || '');
+          if (toggles.phaseAssess) row.push(sec.assessmentStrategy || '');
+          aoa.push(row);
+        });
+
+        var ws1 = XLSX.utils.aoa_to_sheet(aoa);
+        ws1['!cols'] = headers.map(function (h, i) {
+          if (i === 0) return { wch: 8 };
+          if (h.includes('Title')) return { wch: 24 };
+          if (h.includes('Duration')) return { wch: 14 };
+          if (h.includes('Objective')) return { wch: 32 };
+          if (h.includes('Teacher') || h.includes('Student')) return { wch: 38 };
+          if (h.includes('Competences')) return { wch: 30 };
+          return { wch: 20 };
+        });
+
+        XLSX.utils.book_append_sheet(wb, ws1, 'Lesson Plan');
+
+        // Sheet 2: Competences Matrix
+        if (toggles.phaseDescriptors) {
+          var compRows = [['Code', 'Standard / Competence Title', 'Category', 'Subject', 'Phases Tagged In']];
+          var usedDescMap = new Map();
+
+          phases.forEach(function (sec, pIdx) {
+            (sec.descriptorIds || []).forEach(function (id) {
+              var targetIdStr = String(id || '').toLowerCase().trim();
+              var d = (allDescriptors || []).find(function (item) {
+                return item && (String(item.id || '').toLowerCase().trim() === targetIdStr || String(item.code || '').toLowerCase().trim() === targetIdStr);
+              });
+              var key = d ? (d.code || d.id) : id;
+              if (!usedDescMap.has(key)) {
+                usedDescMap.set(key, {
+                  code: d ? (d.code || '') : key,
+                  title: d ? (d.title || d.id) : id,
+                  category: d ? (d.category || d.subCategory || '') : '',
+                  subject: d ? (getSubjectLabel(d.subjectId) || d.subjectId || '') : '',
+                  phases: []
+                });
+              }
+              usedDescMap.get(key).phases.push('Phase ' + (pIdx + 1));
+            });
+          });
+
+          if (usedDescMap.size > 0) {
+            usedDescMap.forEach(function (val) {
+              compRows.push([val.code, val.title, val.category, val.subject, val.phases.join(', ')]);
+            });
+            var ws2 = XLSX.utils.aoa_to_sheet(compRows);
+            ws2['!cols'] = [{ wch: 14 }, { wch: 36 }, { wch: 20 }, { wch: 18 }, { wch: 24 }];
+            XLSX.utils.book_append_sheet(wb, ws2, 'Competences Matrix');
+          }
+        }
+
+        var wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        var filename = getSafeExportFilename('xlsx');
+
+        if (window.Desktop && Desktop.isElectron() && dest !== 'browser') {
+          try {
+            var result = null;
+            if (dest === 'to-print') {
+              var blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+              result = await Desktop.saveBlob('toPrint', filename, blob);
+              if (result && result.file && result.file.path) result.path = result.file.path;
+              if (result && !result.name) result.name = filename;
+            } else {
+              var binary = '';
+              var bytes = new Uint8Array(wbout);
+              var len = bytes.byteLength;
+              for (var i = 0; i < len; i += 8192) {
+                binary += String.fromCharCode.apply(null, bytes.subarray(i, Math.min(i + 8192, len)));
+              }
+              var base64 = btoa(binary);
+              result = await Desktop.saveToDisk({
+                title: 'Save Excel Spreadsheet',
+                defaultPath: filename,
+                filters: [{ name: 'Excel Workbook', extensions: ['xlsx'] }],
+                content: base64,
+                encoding: 'base64'
+              });
+            }
+            if (result && result.ok) {
+              handleExportSuccess(result.path, result.name || filename, i18n.t('lcExportCopySuccess') || 'Excel spreadsheet exported successfully.');
+            } else if (result && !result.ok && !result.canceled) {
+              if (typeof showToast === 'function') showToast('Could not save Excel: ' + (result.error || 'unknown error'), true);
+            }
+          } catch (err) {
+            if (typeof showToast === 'function') showToast('Could not save Excel: ' + err.message, true);
+          }
+        } else {
+          downloadExportBlob(filename, wbout, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+          lcCloseModal('exportPlanModal');
+          if (typeof showToast === 'function') {
+            showToast(i18n.t('lcExportCopySuccess') || 'Excel spreadsheet exported successfully.');
+          }
+        }
+      };
+
+      window.lcExecuteExportCsv = async function (dest) {
+        var toggles = lcGetExportToggles();
+        var phases = (currentPlan.sections || []).filter(function (_, i) {
+          return activeSelectedPhaseIndices.has(i);
+        });
+
+        if (phases.length === 0 && (currentPlan.sections || []).length > 0) {
+          if (typeof showToast === 'function') showToast('No phases selected to export.', true);
+          return;
+        }
+
+        if (!dest) {
+          dest = await lcPromptExportDestination();
+          if (!dest) return;
+        }
+
+        function escCsv(val) {
+          var s = String(val === null || val === undefined ? '' : val);
+          if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
+            return '"' + s.replace(/"/g, '""') + '"';
+          }
+          return s;
+        }
+
+        var rows = [];
+
+        if (toggles.metaHeader) {
+          rows.push(['# Lesson Plan', currentPlan.title || 'Untitled'].map(escCsv).join(','));
+          rows.push(['# Subject', getSubjectLabel(currentPlan.subjectId) || 'All', '# Class', getClassLabel(currentPlan.classId) || 'All'].map(escCsv).join(','));
+        }
+        if (toggles.metaDate) {
+          rows.push(['# Date', currentPlan.date || '', '# Year Level', getYearLevelLabel(currentPlan.yearLevel) || 'All'].map(escCsv).join(','));
+        }
+
+        var headers = ['Phase Number'];
+        if (toggles.phaseTitle) headers.push('Phase Title');
+        if (toggles.phaseDuration) headers.push('Duration Minutes');
+        if (toggles.phaseActivity) {
+          headers.push('Activity Type');
+          headers.push('Interaction Mode');
+        }
+        if (toggles.phaseObjective) headers.push('Learning Objective');
+        if (toggles.phaseTeacher) headers.push('Teacher Actions');
+        if (toggles.phaseStudent) headers.push('Student Tasks');
+        if (toggles.phaseResources) headers.push('Resources');
+        if (toggles.phaseDescriptors) headers.push('Tagged Competences');
+        if (toggles.phaseDiff) headers.push('Differentiation');
+        if (toggles.phaseAssess) headers.push('Formative Assessment');
+
+        rows.push(headers.map(escCsv).join(','));
+
+        phases.forEach(function (sec, idx) {
+          var r = [idx + 1];
+          if (toggles.phaseTitle) r.push(sec.title || ('Phase ' + (idx + 1)));
+          if (toggles.phaseDuration) r.push(Number(sec.duration) || 0);
+          if (toggles.phaseActivity) {
+            r.push(getActivityLabel(sec.activityTypeId) || '');
+            r.push(getInteractionLabel(sec.interactionTypeId) || '');
+          }
+          if (toggles.phaseObjective) r.push(sec.objective || '');
+          if (toggles.phaseTeacher) r.push(sec.teacherAction || '');
+          if (toggles.phaseStudent) r.push(sec.studentAction || '');
+          if (toggles.phaseResources) r.push(sec.resources || '');
+          if (toggles.phaseDescriptors) {
+            var descStr = (sec.descriptorIds || []).map(function (id) {
+              var targetIdStr = String(id || '').toLowerCase().trim();
+              var d = (allDescriptors || []).find(function (item) {
+                return item && (String(item.id || '').toLowerCase().trim() === targetIdStr || String(item.code || '').toLowerCase().trim() === targetIdStr);
+              });
+              return d ? ((d.code ? (d.code + ': ') : '') + (d.title || d.id)) : id;
+            }).join('; ');
+            r.push(descStr);
+          }
+          if (toggles.phaseDiff) r.push(sec.differentiation || '');
+          if (toggles.phaseAssess) r.push(sec.assessmentStrategy || '');
+          rows.push(r.map(escCsv).join(','));
+        });
+
+        var csvContent = '\uFEFF' + rows.join('\r\n');
+        var filename = getSafeExportFilename('csv');
+
+        if (window.Desktop && Desktop.isElectron() && dest !== 'browser') {
+          try {
+            var result = null;
+            if (dest === 'to-print') {
+              result = await Desktop.saveText('toPrint', filename, csvContent);
+              if (result && result.file && result.file.path) result.path = result.file.path;
+              if (result && !result.name) result.name = filename;
+            } else {
+              result = await Desktop.saveToDisk({
+                title: 'Save CSV Spreadsheet',
+                defaultPath: filename,
+                filters: [{ name: 'CSV File', extensions: ['csv'] }],
+                content: csvContent,
+                encoding: 'utf8'
+              });
+            }
+            if (result && result.ok) {
+              handleExportSuccess(result.path, result.name || filename, i18n.t('lcExportCopySuccess') || 'CSV exported successfully.');
+            } else if (result && !result.ok && !result.canceled) {
+              if (typeof showToast === 'function') showToast('Could not save CSV: ' + (result.error || 'unknown error'), true);
+            }
+          } catch (err) {
+            if (typeof showToast === 'function') showToast('Could not save CSV: ' + err.message, true);
+          }
+        } else {
+          downloadExportBlob(filename, csvContent, 'text/csv;charset=utf-8');
+          lcCloseModal('exportPlanModal');
+          if (typeof showToast === 'function') {
+            showToast(i18n.t('lcExportCopySuccess') || 'CSV exported successfully.');
+          }
+        }
+      };
+
+      window.lcExecuteExportJson = async function (dest) {
+        if (!dest) {
+          dest = await lcPromptExportDestination();
+          if (!dest) return;
+        }
+
+        var phases = (currentPlan.sections || []).filter(function (_, i) {
+          return activeSelectedPhaseIndices.has(i);
+        });
+
+        var exportPayload = Object.assign({}, currentPlan, {
+          sections: phases
+        });
+
+        var jsonStr = JSON.stringify(exportPayload, null, 2);
+        var filename = getSafeExportFilename('json');
+
+        if (window.Desktop && Desktop.isElectron() && dest !== 'browser') {
+          try {
+            var result = null;
+            if (dest === 'to-print') {
+              result = await Desktop.saveText('toPrint', filename, jsonStr);
+              if (result && result.file && result.file.path) result.path = result.file.path;
+              if (result && !result.name) result.name = filename;
+            } else {
+              result = await Desktop.saveToDisk({
+                title: 'Save Lesson Plan JSON',
+                defaultPath: filename,
+                filters: [{ name: 'JSON File', extensions: ['json'] }],
+                content: jsonStr,
+                encoding: 'utf8'
+              });
+            }
+            if (result && result.ok) {
+              handleExportSuccess(result.path, result.name || filename, i18n.t('lcExportCopySuccess') || 'Plan JSON exported successfully.');
+            } else if (result && !result.ok && !result.canceled) {
+              if (typeof showToast === 'function') showToast('Could not save JSON: ' + (result.error || 'unknown error'), true);
+            }
+          } catch (err) {
+            if (typeof showToast === 'function') showToast('Could not save JSON: ' + err.message, true);
+          }
+        } else {
+          downloadExportBlob(filename, jsonStr, 'application/json;charset=utf-8');
+          lcCloseModal('exportPlanModal');
+          if (typeof showToast === 'function') {
+            showToast(i18n.t('lcExportCopySuccess') || 'Plan JSON exported successfully.');
+          }
+        }
+      };
+
+      window.lcExecuteExportText = async function (dest) {
+        if (!dest) {
+          dest = await lcPromptExportDestination();
+          if (!dest) return;
+        }
+
+        var toggles = lcGetExportToggles();
+        var text = lcGeneratePlanText(toggles);
+        var filename = getSafeExportFilename('md');
+
+        if (window.Desktop && Desktop.isElectron() && dest !== 'browser') {
+          try {
+            var result = null;
+            if (dest === 'to-print') {
+              result = await Desktop.saveText('toPrint', filename, text);
+              if (result && result.file && result.file.path) result.path = result.file.path;
+              if (result && !result.name) result.name = filename;
+            } else {
+              result = await Desktop.saveToDisk({
+                title: 'Save Text Document',
+                defaultPath: filename,
+                filters: [{ name: 'Markdown File', extensions: ['md', 'txt'] }],
+                content: text,
+                encoding: 'utf8'
+              });
+            }
+            if (result && result.ok) {
+              handleExportSuccess(result.path, result.name || filename, i18n.t('lcExportCopySuccess') || 'Text document exported successfully.');
+            } else if (result && !result.ok && !result.canceled) {
+              if (typeof showToast === 'function') showToast('Could not save text: ' + (result.error || 'unknown error'), true);
+            }
+          } catch (err) {
+            if (typeof showToast === 'function') showToast('Could not save text: ' + err.message, true);
+          }
+        } else {
+          downloadExportBlob(filename, text, 'text/markdown;charset=utf-8');
+          lcCloseModal('exportPlanModal');
+          if (typeof showToast === 'function') {
+            showToast(i18n.t('lcExportCopySuccess') || 'Text document exported successfully.');
+          }
+        }
+      };
+
+      window.lcExecuteCurrentExport = async function () {
+        var destination = await lcPromptExportDestination();
+        if (!destination) return;
+
+        switch (activeExportFormat) {
+          case 'html':
+            await lcExecuteExportHtml(destination);
+            break;
+          case 'pdf':
+            await lcExecuteExportPdf(destination);
+            break;
+          case 'xlsx':
+            await lcExecuteExportXlsx(destination);
+            break;
+          case 'csv':
+            await lcExecuteExportCsv(destination);
+            break;
+          case 'json':
+            await lcExecuteExportJson(destination);
+            break;
+          case 'text':
+            await lcExecuteExportText(destination);
+            break;
+          default:
+            await lcExecuteExportHtml(destination);
+            break;
+        }
+      };
+
       window.lcExportPdf = function () {
-        window.print();
+        lcOpenExportModal('pdf');
       };
 
       window.lcExportStandaloneHtml = function () {
-        var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + escapeHtml(currentPlan.title) + '</title><style>' +
-          'body{font-family:sans-serif;padding:24px;color:#111;} table{width:100%;border-collapse:collapse;margin-top:16px;} th,td{border:1px solid #111;padding:8px 12px;text-align:left;} th{background:#fcd34d;}' +
-          '</style></head><body><h1>' + escapeHtml(currentPlan.title) + '</h1><p>Class: ' + escapeHtml(getClassLabel(currentPlan.classId) || 'All') + ' | Date: ' + (currentPlan.date || '') + ' | Duration: ' + (currentPlan.totalDuration || 0) + ' min</p>' +
-          '<table><thead><tr><th>Phase</th><th>Duration</th><th>Activity & Mode</th><th>Teacher / Student Instructions</th></tr></thead><tbody>';
-        
-        (currentPlan.sections || []).forEach(function (sec, idx) {
-          html += '<tr><td><strong>' + (idx + 1) + '. ' + escapeHtml(sec.title) + '</strong></td><td>' + (sec.duration || 0) + ' min</td><td>' + escapeHtml(sec.activityTypeId || '') + ' (' + escapeHtml(sec.interactionTypeId || '') + ')</td><td><strong>Teacher:</strong> ' + escapeHtml(sec.teacherAction || '') + '<br><strong>Student:</strong> ' + escapeHtml(sec.studentAction || '') + '</td></tr>';
-        });
-        html += '</tbody></table></body></html>';
-
-        var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-        var a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = (currentPlan.title || 'lesson_plan').toLowerCase().replace(/[^a-z0-9]/g, '_') + '.html';
-        a.click();
+        lcOpenExportModal('html');
       };
 
       window.lcExportJson = function () {
-        var blob = new Blob([JSON.stringify(currentPlan, null, 2)], { type: 'application/json;charset=utf-8' });
-        var a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = (currentPlan.title || 'lesson_plan').toLowerCase().replace(/[^a-z0-9]/g, '_') + '.json';
-        a.click();
+        lcOpenExportModal('json');
       };
 
       // ── Copy as Text System ────────────────────────────────────────────────

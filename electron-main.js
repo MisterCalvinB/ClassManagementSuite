@@ -11,9 +11,9 @@ const { spawn } = require('child_process');
 
 try {
   const totalMemMB = Math.round(os.totalmem() / (1024 * 1024));
-  // Use up to 45% of total system RAM for V8 heap (clamped between 1024MB and 4096MB)
-  // This prevents V8 from delaying GC until the Linux kernel OOM-killer terminates the process
-  const maxOldSpace = Math.max(1024, Math.min(4096, Math.round(totalMemMB * 0.45)));
+  // Use up to 45% of total system RAM for V8 heap (clamped between 1024MB and 2048MB)
+  // This prevents V8 from delaying GC until memory reaches excessive levels
+  const maxOldSpace = Math.max(1024, Math.min(2048, Math.round(totalMemMB * 0.45)));
   app.commandLine.appendSwitch('js-flags', `--max-old-space-size=${maxOldSpace} --expose-gc`);
   app.commandLine.appendSwitch('disable-gpu-process-crash-limit');
   app.commandLine.appendSwitch('ignore-gpu-blocklist');
@@ -992,6 +992,14 @@ function createMainWindow(initialPageFile = PAGE_FILES.launcher, options = {}) {
 
   setupWindowExternalLinkHandling(mainWindow);
   registerWindowForSessionState(mainWindow);
+  mainWindow.on('blur', () => {
+    if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+      mainWindow.webContents.executeJavaScript('if (typeof window.gc === "function") { try { window.gc(); } catch(_) {} }').catch(() => {});
+    }
+    if (typeof global.gc === 'function') {
+      try { global.gc(); } catch (_) {}
+    }
+  });
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
@@ -1245,7 +1253,14 @@ function readSessionTimestampMeta(rawText, ext) {
   return meta;
 }
 
-async function readSessionTimestampMetaFast(filePath, ext, knownSize) {
+const _sessionMetaCache = new Map();
+
+async function readSessionTimestampMetaFast(filePath, ext, knownSize, mtimeMs = 0) {
+  const cacheKey = `${filePath}:${knownSize || 0}:${mtimeMs || 0}`;
+  if (_sessionMetaCache.has(cacheKey)) {
+    return Object.assign({}, _sessionMetaCache.get(cacheKey));
+  }
+
   const meta = {};
   if (ext === '.cstz' || ext === '.zip') {
     try {
@@ -1282,6 +1297,9 @@ async function readSessionTimestampMetaFast(filePath, ext, knownSize) {
         if (savedAt > 0) meta.savedAt = savedAt;
       }
     } catch {}
+    if (!meta.sessionType) meta.sessionType = 'constellation';
+    if (_sessionMetaCache.size > 2000) _sessionMetaCache.clear();
+    _sessionMetaCache.set(cacheKey, Object.assign({}, meta));
     return meta;
   }
 
@@ -1345,6 +1363,11 @@ async function readSessionTimestampMetaFast(filePath, ext, knownSize) {
       try { await fileHandle.close(); } catch {}
     }
   }
+  if (!meta.sessionType && (ext === '.js' || ext === '.json')) {
+    meta.sessionType = 'constellation';
+  }
+  if (_sessionMetaCache.size > 2000) _sessionMetaCache.clear();
+  _sessionMetaCache.set(cacheKey, Object.assign({}, meta));
   return meta;
 }
 
@@ -1375,7 +1398,7 @@ async function listAllowedFiles(pageFile, target, request = {}) {
     let jsonMeta = {};
     if (ext === '.json' || ext === '.js' || ext === '.cstz' || ext === '.zip') {
       try {
-        jsonMeta = await readSessionTimestampMetaFast(filePath, ext, stats.size);
+        jsonMeta = await readSessionTimestampMetaFast(filePath, ext, stats.size, stats.mtimeMs);
       } catch {}
     }
 
@@ -1582,7 +1605,7 @@ async function listAllowedPathFiles(pageFile, target, relativePath, request = {}
       let jsonMeta = {};
       if (ext === '.json' || ext === '.js' || ext === '.cstz' || ext === '.zip') {
         try {
-          jsonMeta = await readSessionTimestampMetaFast(absolutePath, ext, stats.size);
+          jsonMeta = await readSessionTimestampMetaFast(absolutePath, ext, stats.size, stats.mtimeMs);
         } catch {}
       }
 
@@ -4374,6 +4397,7 @@ async function normalizeAndAdoptDataLocation(selectedPath) {
     'students.js',
     'planner-config.js',
     'board-config.js',
+    'participation-tracker-config.js',
     'ui-prefs.json',
     'remote-config.js',
     'roles.js',

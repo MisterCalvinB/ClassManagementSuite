@@ -475,7 +475,6 @@ Infinite-canvas mind-mapping tool for vocabulary, draw overlays, sound nodes, an
 | `Ctrl/Cmd + S` | Save constellation archive (`.cstz`) |
 | `Ctrl/Cmd + Z` / `Y` | Undo / Redo |
 | `Ctrl/Cmd + G` | Group selected nodes |
-| `Ctrl/Cmd + L` | Toggle laser pointer |
 | `Ctrl/Cmd + ↑ / ↓` | Increase / decrease node font size |
 | `Delete` | Remove selected nodes |
 </details>

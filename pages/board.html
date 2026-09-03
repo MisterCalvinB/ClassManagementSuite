@@ -2684,7 +2684,7 @@
               title="Erase freehand drawings (click again to exit)"><img src="../assets/icons/eraser.svg"
                 class="btn-icon" alt="" /> Erase</button>
             <button class="action-btn btn-grey" id="con-laser-btn" onclick="laserToggle()"
-              title="Laser pointer (Ctrl+L) — click: mark · hold &amp; drag: trail · double-click: pulse"><img
+              title="Laser pointer — click: mark · hold &amp; drag: trail · double-click: pulse"><img
                 src="../assets/icons/laser.svg" class="btn-icon" alt="" /> Laser</button>
           </div>
         </div>
@@ -39116,7 +39116,7 @@
       // Modes & Drawing Tools
       { id: 'mode_move', name: 'Text / Selection Mode', desc: 'Switch to text selection and moving mode', category: 'modes', categoryName: 'Modes & Tools', icon: '../assets/icons/text.svg', defaultShortcut: { ctrl: true, key: 'w' }, fn: () => { if (typeof window.conSetMode === 'function') window.conSetMode('move'); else if (typeof setBoardMode === 'function') setBoardMode('text'); } },
       { id: 'mode_draw', name: 'Toggle Drawing Pen', desc: 'Toggle freehand drawing annotation pen', category: 'modes', categoryName: 'Modes & Tools', icon: '../assets/icons/draw.svg', defaultShortcut: { ctrl: true, key: 'd' }, fn: () => { if (typeof window.conToggleDrawMode === 'function') window.conToggleDrawMode(); else if (typeof setBoardMode === 'function') setBoardMode('drawings'); } },
-      { id: 'mode_laser', name: 'Toggle Laser Pointer', desc: 'Toggle interactive laser pointer', category: 'modes', categoryName: 'Modes & Tools', icon: '../assets/icons/laser.svg', defaultShortcut: { ctrl: true, key: 'l' }, fn: () => { if (typeof window.laserToggle === 'function') window.laserToggle(); else if (typeof setBoardMode === 'function') setBoardMode('laser'); } },
+      { id: 'mode_laser', name: 'Toggle Laser Pointer', desc: 'Toggle interactive laser pointer', category: 'modes', categoryName: 'Modes & Tools', icon: '../assets/icons/laser.svg', defaultShortcut: null, fn: () => { if (typeof window.laserToggle === 'function') window.laserToggle(); else if (typeof setBoardMode === 'function') setBoardMode('laser'); } },
       { id: 'mode_link', name: 'Link / Connect Nodes', desc: 'Connect selected node or note to another', category: 'modes', categoryName: 'Modes & Tools', icon: '../assets/icons/zap.svg', defaultShortcut: { ctrl: true, key: 'j' }, fn: () => {
         if (typeof window.conTriggerLinkShortcut === 'function') window.conTriggerLinkShortcut();
       } },
@@ -41373,7 +41373,6 @@
     // Simple click → leaves a persistent glowing mark.
     // Hold & drag   → trails of fading dots follow the cursor.
     // Double-click  → expanding pulse ring (no mark placed).
-    // Shortcut: Ctrl+L to toggle on/off.
     // ================================================================
     (function () {
       'use strict';
@@ -41525,9 +41524,8 @@
       document.addEventListener('mouseup', _onUp);
       document.addEventListener('dblclick', _onDblClick);
 
-      // Ctrl+L shortcut (works in both constellation and textual analysis sections)
+      // Close preview pane on Escape
       document.addEventListener('keydown', function (e) {
-        // Close preview pane on Escape
         if (e.key === 'Escape') {
           const pane = document.getElementById('history-preview-pane');
           if (pane && parseInt(pane.style.right || '-400') !== -400) {
@@ -41535,13 +41533,6 @@
             return;
           }
         }
-
-        if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'l') return;
-        var tag = document.activeElement && document.activeElement.tagName;
-        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-        if (document.activeElement && document.activeElement.isContentEditable) return;
-        e.preventDefault();
-        window.laserToggle();
       });
     })();
 

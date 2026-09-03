@@ -47,6 +47,7 @@
             window.__ptUserBootstrapPromise = (async function () {
                 try { await loadUserScript('class-groups.js'); } catch (e) { console.warn('Failed to load user/class-groups.js:', e); }
                 try { await loadUserScript('config.js'); } catch (e) { console.warn('Failed to load user/config.js:', e); }
+                try { await loadUserScript('participation-tracker-config.js'); } catch (e) { /* config may not exist yet */ }
                 try { await loadUserScript('students.js'); } catch (e) { /* students.js may not exist yet */ }
             })();
         })();
@@ -232,29 +233,31 @@
         <div class="section-header-actions">
             <h2 data-i18n="ptHistoryTitle">Session History</h2>
             <div style="display:flex;gap:8px;align-items:center;">
+                <button class="btn-secondary btn-icon" id="historyColsBtn" type="button" onclick="openColumnsConfigModal('historyTable')"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> <span data-i18n="ptColumns">Columns ▾</span></button>
                 <button class="btn-danger btn-icon" id="resetGroupBtn" style="font-size:12px; padding:6px 12px; cursor:pointer;" data-i18n="ptBtnResetGroup"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> Reset Group</button>
             </div>
         </div>
         <div class="section-header-actions-line"></div>
         <div class="table-container">
             <table id="historyTable">
+                <colgroup id="historyTableColGroup"></colgroup>
                 <thead>
                     <tr>
-                        <th class="sortable" data-sort="date" data-i18n="ptColDate">Date</th>
-                        <th class="sortable" data-sort="time" data-i18n="ptColTime">Time</th>
-                        <th class="sortable" data-sort="picks" data-i18n="ptColPicks">Picks</th>
-                        <th class="sortable" data-sort="pluses" data-i18n="ptColPluses">Pluses</th>
-                        <th class="sortable" data-sort="minuses" data-i18n="ptColMinuses">Minuses</th>
-                        <th class="sortable" data-sort="teamPluses" data-i18n="ptColT">T+</th>
-                        <th class="sortable" data-sort="teamMinuses" data-i18n="ptColTm">T-</th>
-                        <th class="sortable" data-sort="badgePositive" data-i18n="ptColBadgePlus">Badge +</th>
-                        <th class="sortable" data-sort="badgeNegative" data-i18n="ptColBadgeMinus">Badge -</th>
-                        <th class="sortable" data-sort="teamRoleEvents" data-i18n="ptColTeamRole">Team/Role Events</th>
-                        <th class="sortable" data-sort="students" data-i18n="ptColStudents">Students</th>
-                        <th class="sortable" data-sort="badges" data-i18n="ptColBadges">Badges</th>
-                        <th data-i18n="ptColObjectives">Objectives</th>
-                        <th data-i18n="ptColNotes">Notes</th>
-                        <th></th>
+                        <th class="sortable" data-col="date" data-sort="date" data-i18n="ptColDate">Date</th>
+                        <th class="sortable" data-col="time" data-sort="time" data-i18n="ptColTime">Time</th>
+                        <th class="sortable" data-col="picks" data-sort="picks" data-i18n="ptColPicks">Picks</th>
+                        <th class="sortable" data-col="pluses" data-sort="pluses" data-i18n="ptColPluses">Pluses</th>
+                        <th class="sortable" data-col="minuses" data-sort="minuses" data-i18n="ptColMinuses">Minuses</th>
+                        <th class="sortable" data-col="teamPluses" data-sort="teamPluses" data-i18n="ptColT">T+</th>
+                        <th class="sortable" data-col="teamMinuses" data-sort="teamMinuses" data-i18n="ptColTm">T-</th>
+                        <th class="sortable" data-col="badgePositive" data-sort="badgePositive" data-i18n="ptColBadgePlus">Badge +</th>
+                        <th class="sortable" data-col="badgeNegative" data-sort="badgeNegative" data-i18n="ptColBadgeMinus">Badge -</th>
+                        <th class="sortable" data-col="teamRoleEvents" data-sort="teamRoleEvents" data-i18n="ptColTeamRole">Team/Role Events</th>
+                        <th class="sortable" data-col="students" data-sort="students" data-i18n="ptColStudents">Students</th>
+                        <th class="sortable" data-col="badges" data-sort="badges" data-i18n="ptColBadges">Badges</th>
+                        <th data-col="objectives" data-i18n="ptColObjectives">Objectives</th>
+                        <th data-col="notes" data-i18n="ptColNotes">Notes</th>
+                        <th data-col="actions"></th>
                     </tr>
                 </thead>
                 <tbody id="historyTableBody">
@@ -270,11 +273,13 @@
                     <span class="right-click-hint-banner" data-i18n="ptRightClickHint">Right-click any student row to edit past interactions & points</span>
                 </div>
                 <div style="display:flex;gap:8px;align-items:center;">
+                    <button class="btn-secondary btn-icon" id="classOverviewColsBtn" type="button" onclick="openColumnsConfigModal('classOverviewTable')"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> <span data-i18n="ptColumns">Columns ▾</span></button>
                     <button id="clearSessionFilterBtn" class="btn-secondary hidden" type="button" data-i18n="ptMsgClearSessionFilter">Clear Session Filter</button>
                 </div>
             </div>
             <div class="table-container">
                 <table id="classOverviewTable" class="class-overview-table">
+                    <colgroup id="classOverviewTableColGroup"></colgroup>
                     <thead>
                         <tr>
                             <th data-col="name" data-i18n="ptColStudent">Student</th>
@@ -323,9 +328,11 @@
 
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-top:20px;margin-bottom:15px;">
                     <h3 data-i18n="ptStudentSessionHistory">Session History</h3>
+                    <button class="btn-secondary btn-icon" id="studentColsBtn" type="button" onclick="openColumnsConfigModal('studentTable')"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> <span data-i18n="ptColumns">Columns ▾</span></button>
                 </div>
                 <div class="table-container">
                     <table id="studentTable">
+                        <colgroup id="studentTableColGroup"></colgroup>
                         <thead>
                             <tr>
                                 <th class="sortable" data-col="date" data-sort="date" data-i18n="ptColDate">Date</th>
@@ -723,6 +730,30 @@
         </div>
     </div>
 
+    <!-- Columns Configuration Modal -->
+    <div id="columnsConfigModal" class="modal">
+        <div class="modal-content columns-modal-content">
+            <div class="modal-header">
+                <div>
+                    <h3 id="columnsModalTitle" data-i18n="ptConfigureColumns">Configure Columns</h3>
+                    <p style="margin: 4px 0 0; font-size: 12px; color: #555;" data-i18n="ptColumnsModalSub">Toggle visibility, change order, or adjust width for each column.</p>
+                </div>
+                <button class="modal-close" onclick="closeColumnsConfigModal()" aria-label="Close">&times;</button>
+            </div>
+
+            <div class="columns-modal-toolbar">
+                <button class="btn-secondary btn-icon" type="button" onclick="showAllColumnsInModal()"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" /> <span data-i18n="ptColToggleShowAll">Show All</span></button>
+                <button class="btn-secondary btn-icon" type="button" onclick="resetColumnsOrderAndWidthsInModal()"><img src="../assets/icons/refresh.svg" class="btn-icon" alt="" /> <span data-i18n="ptResetColumns">Reset Columns</span></button>
+            </div>
+
+            <div id="columnsModalList" class="columns-modal-list"></div>
+
+            <div class="button-group">
+                <button class="btn-primary" onclick="closeColumnsConfigModal()" data-i18n="btn_done">Done</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Export Options Modal (Neobrutalist Popup) -->
     <div id="ptExportModal" class="modal">
         <div class="modal-content">
@@ -985,111 +1016,600 @@
             updateDashboard();
         }
 
-        // ─── Column Visibility ───────────────────────────────────────────────
+        // ─── Column Management: Resizing, Reordering, and Visibility ─────────
+        let _wasColumnDragging = false;
+        let _wasColumnResizing = false;
+        let currentColumnsModalTableId = null;
+
         const TABLE_COL_CONFIGS = {
-            historyTable: [
-                { idx: 0,  label: 'Date',             fixed: true },
-                { idx: 1,  label: 'Time' },
-                { idx: 2,  label: 'Picks' },
-                { idx: 3,  label: 'Pluses' },
-                { idx: 4,  label: 'Minuses' },
-                { idx: 5,  label: 'T+' },
-                { idx: 6,  label: 'T-' },
-                { idx: 7,  label: 'Badge +' },
-                { idx: 8,  label: 'Badge -' },
-                { idx: 9,  label: 'Team/Role Events' },
-                { idx: 10, label: 'Students' },
-                { idx: 11, label: 'Badges' },
-                { idx: 12, label: 'Objectives' },
-                { idx: 13, label: 'Notes' }
-            ],
             classOverviewTable: [
-                { idx: 0,  label: 'Student',          fixed: true },
-                { idx: 1,  label: 'Sessions' },
-                { idx: 2,  label: 'Picks' },
-                { idx: 3,  label: 'Absent' },
-                { idx: 4,  label: '+' },
-                { idx: 5,  label: '-' },
-                { idx: 6,  label: 'T+' },
-                { idx: 7,  label: 'T-' },
-                { idx: 8,  label: 'Badge +' },
-                { idx: 9,  label: 'Badge -' },
-                { idx: 10, label: 'Badges' },
-                { idx: 11, label: 'Team/Role Events' },
-                { idx: 12, label: 'Notes' },
-                { idx: 13, label: 'Prov. Grade' },
-                { idx: 14, label: 'Net' },
-                { idx: 15, label: '+/s' },
-                { idx: 16, label: '-/s' },
-                { idx: 17, label: 'Net/s' },
-                { idx: 18, label: 'Good/Bad' },
-                { idx: 19, label: 'Trend' }
+                { id: 'name',             label: 'Student',          i18nKey: 'ptColStudent',          defaultWidth: 160, minWidth: 90,  canHide: false, fixed: true },
+                { id: 'sessions',         label: 'Sess.',            i18nKey: 'ptColSess',             defaultWidth: 65,  minWidth: 45 },
+                { id: 'picks',            label: 'Pick.',            i18nKey: 'ptColPick',             defaultWidth: 65,  minWidth: 45 },
+                { id: 'absent',           label: 'Abs.',             i18nKey: 'ptColAbs',              defaultWidth: 65,  minWidth: 45 },
+                { id: 'pluses',           label: '+',                                                  defaultWidth: 55,  minWidth: 40 },
+                { id: 'minuses',          label: '-',                                                  defaultWidth: 55,  minWidth: 40 },
+                { id: 'teamPluses',       label: 'T+',               i18nKey: 'ptColT',                defaultWidth: 55,  minWidth: 40 },
+                { id: 'teamMinuses',      label: 'T-',               i18nKey: 'ptColTm',               defaultWidth: 55,  minWidth: 40 },
+                { id: 'badgePositive',    label: 'Badge +',          i18nKey: 'ptColBadgePlus',        defaultWidth: 80,  minWidth: 55 },
+                { id: 'badgeNegative',    label: 'Badge -',          i18nKey: 'ptColBadgeMinus',       defaultWidth: 80,  minWidth: 55 },
+                { id: 'badges',           label: 'Badges',           i18nKey: 'ptColBadges',           defaultWidth: 110, minWidth: 70 },
+                { id: 'teamRoleEvents',   label: 'Team/Role Events', i18nKey: 'ptColTeamRole',         defaultWidth: 150, minWidth: 90 },
+                { id: 'notes',            label: 'Notes',            i18nKey: 'ptColNotes',            defaultWidth: 140, minWidth: 80 },
+                { id: 'provisionalGrade', label: 'Prov. Grade',      i18nKey: 'ptColProvisionalGrade', defaultWidth: 95,  minWidth: 65 },
+                { id: 'net',              label: 'Net',              i18nKey: 'ptColNet',              defaultWidth: 65,  minWidth: 45 },
+                { id: 'posRatio',         label: '+/s',              i18nKey: 'ptColPosRatio',         defaultWidth: 65,  minWidth: 45 },
+                { id: 'negRatio',         label: '-/s',              i18nKey: 'ptColNegRatio',         defaultWidth: 65,  minWidth: 45 },
+                { id: 'netRatio',         label: 'Net/s',            i18nKey: 'ptColNetRatio',         defaultWidth: 65,  minWidth: 45 },
+                { id: 'ratio',            label: 'Good/Bad',         i18nKey: 'ptColGoodBad',          defaultWidth: 80,  minWidth: 55 },
+                { id: 'trend',            label: 'Trend',            i18nKey: 'ptColTrend',            defaultWidth: 65,  minWidth: 45 }
+            ],
+            historyTable: [
+                { id: 'date',             label: 'Date',             i18nKey: 'ptColDate',             defaultWidth: 130, minWidth: 85,  canHide: false, fixed: true },
+                { id: 'time',             label: 'Time',             i18nKey: 'ptColTime',             defaultWidth: 80,  minWidth: 50 },
+                { id: 'picks',            label: 'Picks',            i18nKey: 'ptColPicks',            defaultWidth: 65,  minWidth: 45 },
+                { id: 'pluses',           label: 'Pluses',           i18nKey: 'ptColPluses',           defaultWidth: 65,  minWidth: 45 },
+                { id: 'minuses',          label: 'Minuses',          i18nKey: 'ptColMinuses',          defaultWidth: 70,  minWidth: 45 },
+                { id: 'teamPluses',       label: 'T+',               i18nKey: 'ptColT',                defaultWidth: 55,  minWidth: 40 },
+                { id: 'teamMinuses',      label: 'T-',               i18nKey: 'ptColTm',               defaultWidth: 55,  minWidth: 40 },
+                { id: 'badgePositive',    label: 'Badge +',          i18nKey: 'ptColBadgePlus',        defaultWidth: 80,  minWidth: 55 },
+                { id: 'badgeNegative',    label: 'Badge -',          i18nKey: 'ptColBadgeMinus',       defaultWidth: 80,  minWidth: 55 },
+                { id: 'teamRoleEvents',   label: 'Team/Role Events', i18nKey: 'ptColTeamRole',         defaultWidth: 140, minWidth: 85 },
+                { id: 'students',         label: 'Students',         i18nKey: 'ptColStudents',         defaultWidth: 75,  minWidth: 50 },
+                { id: 'badges',           label: 'Badges',           i18nKey: 'ptColBadges',           defaultWidth: 100, minWidth: 60 },
+                { id: 'objectives',       label: 'Objectives',       i18nKey: 'ptColObjectives',       defaultWidth: 150, minWidth: 80 },
+                { id: 'notes',            label: 'Notes',            i18nKey: 'ptColNotes',            defaultWidth: 150, minWidth: 80 },
+                { id: 'actions',          label: '',                 i18nKey: '',                      defaultWidth: 80,  minWidth: 60,  canHide: false, fixed: true, noSort: true }
             ],
             studentTable: [
-                { idx: 0,  label: 'Date',             fixed: true },
-                { idx: 1,  label: 'Time' },
-                { idx: 2,  label: 'Picked' },
-                { idx: 3,  label: 'Absent' },
-                { idx: 4,  label: '+' },
-                { idx: 5,  label: '-' },
-                { idx: 6,  label: 'T+' },
-                { idx: 7,  label: 'T-' },
-                { idx: 8,  label: 'Badges' },
-                { idx: 9,  label: 'Team/Role Events' },
-                { idx: 10, label: 'Notes' }
+                { id: 'date',             label: 'Date',             i18nKey: 'ptColDate',             defaultWidth: 130, minWidth: 85,  canHide: false, fixed: true },
+                { id: 'time',             label: 'Time',             i18nKey: 'ptColTime',             defaultWidth: 80,  minWidth: 50 },
+                { id: 'picked',           label: 'Picked',           i18nKey: 'ptColPicked',           defaultWidth: 65,  minWidth: 45 },
+                { id: 'absent',           label: 'Absent',           i18nKey: 'ptColAbsent',           defaultWidth: 65,  minWidth: 45 },
+                { id: 'pluses',           label: '+',                                                  defaultWidth: 55,  minWidth: 40 },
+                { id: 'minuses',          label: '-',                                                  defaultWidth: 55,  minWidth: 40 },
+                { id: 'teamPluses',       label: 'T+',               i18nKey: 'ptColT',                defaultWidth: 55,  minWidth: 40 },
+                { id: 'teamMinuses',      label: 'T-',               i18nKey: 'ptColTm',               defaultWidth: 55,  minWidth: 40 },
+                { id: 'badges',           label: 'Badges',           i18nKey: 'ptColBadges',           defaultWidth: 120, minWidth: 70 },
+                { id: 'teamRoleEvents',   label: 'Team/Role Events', i18nKey: 'ptColTeamRole',         defaultWidth: 150, minWidth: 85 },
+                { id: 'notes',            label: 'Notes',            i18nKey: 'ptColNotes',            defaultWidth: 150, minWidth: 80 }
             ]
         };
 
-        function _loadHiddenCols() {
-            try {
-                const stored = localStorage.getItem('cms_hidden_cols');
-                if (stored) {
-                    const parsed = JSON.parse(stored);
-                    const result = {};
-                    for (const [k, v] of Object.entries(parsed)) {
-                        result[k] = new Set(Array.isArray(v) ? v : []);
-                    }
-                    return result;
-                }
-            } catch (e) {}
-            return {};
-        }
-
-        const _savedHiddenCols = _loadHiddenCols();
-        const hiddenCols = {
-            historyTable:       _savedHiddenCols.historyTable       || new Set(),
-            classOverviewTable: _savedHiddenCols.classOverviewTable || new Set(),
-            studentTable:       _savedHiddenCols.studentTable       || new Set()
+        const ptTableColState = {
+            classOverviewTable: { order: [], widths: {}, hidden: new Set() },
+            historyTable:       { order: [], widths: {}, hidden: new Set() },
+            studentTable:       { order: [], widths: {}, hidden: new Set() }
         };
 
-        function _saveHiddenCols() {
-            const serializable = {};
-            for (const [k, v] of Object.entries(hiddenCols)) {
-                serializable[k] = Array.from(v);
-            }
-            try { localStorage.setItem('cms_hidden_cols', JSON.stringify(serializable)); } catch (e) {}
+        function _initPtColumnsState() {
+            const cfg = (typeof window.PARTICIPATION_TRACKER_CONFIG === 'object' && window.PARTICIPATION_TRACKER_CONFIG?.columns)
+                ? window.PARTICIPATION_TRACKER_CONFIG.columns
+                : null;
+
+            let localOrders = {}, localWidths = {}, localHidden = {};
+            try { localOrders = JSON.parse(localStorage.getItem('cms_col_orders') || '{}'); } catch (_) {}
+            try { localWidths = JSON.parse(localStorage.getItem('cms_col_widths') || '{}'); } catch (_) {}
+            try { localHidden = JSON.parse(localStorage.getItem('cms_hidden_cols') || '{}'); } catch (_) {}
+
+            ['classOverviewTable', 'historyTable', 'studentTable'].forEach(tableId => {
+                const defs = TABLE_COL_CONFIGS[tableId] || [];
+                const defaultOrder = defs.map(c => c.id);
+                const defaultWidths = {};
+                defs.forEach(c => { defaultWidths[c.id] = c.defaultWidth; });
+
+                // Order
+                let order = cfg?.[tableId]?.order || localOrders[tableId] || [];
+                if (!Array.isArray(order) || !order.length) {
+                    order = [...defaultOrder];
+                } else {
+                    order = order.filter(id => defs.some(c => c.id === id));
+                    defaultOrder.forEach(id => { if (!order.includes(id)) order.push(id); });
+                }
+
+                // Widths
+                const widths = Object.assign({}, defaultWidths, localWidths[tableId] || {}, cfg?.[tableId]?.widths || {});
+
+                // Hidden
+                const rawHidden = cfg?.[tableId]?.hidden || localHidden[tableId] || [];
+                const hiddenSet = new Set();
+                if (Array.isArray(rawHidden)) {
+                    rawHidden.forEach(item => {
+                        if (typeof item === 'number' && defs[item]) {
+                            if (defs[item].canHide !== false) hiddenSet.add(defs[item].id);
+                        } else if (typeof item === 'string') {
+                            const found = defs.find(c => c.id === item);
+                            if (found && found.canHide !== false) hiddenSet.add(item);
+                        }
+                    });
+                }
+
+                ptTableColState[tableId] = { order, widths, hidden: hiddenSet };
+            });
         }
+
+        // Initialize state right away from localStorage / preloaded config
+        _initPtColumnsState();
+
+        let _savePtConfigTimer = null;
+        function savePtColumnsConfig() {
+            const serializableOrders = {};
+            const serializableWidths = {};
+            const serializableHidden = {};
+            const filePayload = { columns: {} };
+
+            ['classOverviewTable', 'historyTable', 'studentTable'].forEach(tableId => {
+                const st = ptTableColState[tableId];
+                serializableOrders[tableId] = st.order;
+                serializableWidths[tableId] = st.widths;
+                serializableHidden[tableId] = Array.from(st.hidden);
+
+                filePayload.columns[tableId] = {
+                    order: st.order,
+                    widths: st.widths,
+                    hidden: Array.from(st.hidden)
+                };
+            });
+
+            try {
+                localStorage.setItem('cms_col_orders', JSON.stringify(serializableOrders));
+                localStorage.setItem('cms_col_widths', JSON.stringify(serializableWidths));
+                localStorage.setItem('cms_hidden_cols', JSON.stringify(serializableHidden));
+            } catch (_) {}
+
+            window.PARTICIPATION_TRACKER_CONFIG = filePayload;
+
+            clearTimeout(_savePtConfigTimer);
+            _savePtConfigTimer = setTimeout(async () => {
+                if (window.Desktop && typeof Desktop.saveText === 'function') {
+                    try {
+                        const jsContent = `// Participation Tracker Configuration\n// Automatically updated\nwindow.PARTICIPATION_TRACKER_CONFIG = ${JSON.stringify(filePayload, null, 2)};\n`;
+                        await Desktop.saveText('user', 'participation-tracker-config.js', jsContent);
+                    } catch (err) {
+                        console.warn('Failed to save user/participation-tracker-config.js:', err);
+                    }
+                }
+            }, 400);
+        }
+
+        async function loadPtColumnsConfigFile() {
+            if (window.Desktop && typeof Desktop.readText === 'function') {
+                try {
+                    const r = await Desktop.readText('user', 'participation-tracker-config.js');
+                    if (r && r.ok && r.content) {
+                        const match = r.content.match(/window\.PARTICIPATION_TRACKER_CONFIG\s*=\s*(\{[\s\S]*?\});/);
+                        if (match) {
+                            window.PARTICIPATION_TRACKER_CONFIG = JSON.parse(match[1]);
+                            _initPtColumnsState();
+                            renderTableHeader('historyTable');
+                            renderTableHeader('classOverviewTable');
+                            renderTableHeader('studentTable');
+                            if (classOverviewData && classOverviewData.length) renderClassOverviewRows();
+                        }
+                    }
+                } catch (_) {}
+            }
+        }
+
+        function getColOrder(tableId) {
+            return ptTableColState[tableId]?.order || (TABLE_COL_CONFIGS[tableId] || []).map(c => c.id);
+        }
+
+        function getColDef(tableId, colId) {
+            return (TABLE_COL_CONFIGS[tableId] || []).find(c => c.id === colId) || null;
+        }
+
+        function getColWidths(tableId) {
+            return ptTableColState[tableId]?.widths || {};
+        }
+
+        function getHiddenColsSet(tableId) {
+            if (!ptTableColState[tableId] || !(ptTableColState[tableId].hidden instanceof Set)) {
+                ptTableColState[tableId] = ptTableColState[tableId] || {};
+                ptTableColState[tableId].hidden = new Set();
+            }
+            return ptTableColState[tableId].hidden;
+        }
+
+        // Backward compatibility shim
+        const hiddenCols = {
+            get historyTable() { return getHiddenColsSet('historyTable'); },
+            get classOverviewTable() { return getHiddenColsSet('classOverviewTable'); },
+            get studentTable() { return getHiddenColsSet('studentTable'); }
+        };
 
         function applyHiddenCols(tableId) {
             const table = document.getElementById(tableId);
             if (!table) return;
-            const config = TABLE_COL_CONFIGS[tableId] || [];
-            const hidden = hiddenCols[tableId] || new Set();
-            Array.from(table.rows).forEach(row => {
-                config.forEach(col => {
-                    if (row.cells[col.idx]) {
-                        row.cells[col.idx].style.display = hidden.has(col.idx) ? 'none' : '';
+            const hidden = getHiddenColsSet(tableId);
+            table.querySelectorAll('col[data-col]').forEach(col => {
+                const id = col.getAttribute('data-col');
+                const isHidden = hidden.has(id);
+                col.classList.toggle('col-hidden', isHidden);
+                col.style.display = isHidden ? 'none' : '';
+            });
+            table.querySelectorAll('th[data-col], td[data-col]').forEach(cell => {
+                const id = cell.getAttribute('data-col');
+                const isHidden = hidden.has(id);
+                cell.classList.toggle('col-hidden', isHidden);
+                cell.style.display = isHidden ? 'none' : '';
+            });
+        }
+
+        function renderTableHeader(tableId) {
+            const table = document.getElementById(tableId);
+            if (!table) return;
+            const order = getColOrder(tableId);
+            const widths = getColWidths(tableId);
+            const hidden = getHiddenColsSet(tableId);
+
+            // 1. Render <colgroup>
+            let colgroup = table.querySelector('colgroup');
+            if (!colgroup) {
+                colgroup = document.createElement('colgroup');
+                colgroup.id = tableId + 'ColGroup';
+                table.insertBefore(colgroup, table.firstChild);
+            }
+            colgroup.innerHTML = order.map(colId => {
+                const w = widths[colId] || 70;
+                const isHidden = hidden.has(colId);
+                return `<col data-col="${colId}" class="${isHidden ? 'col-hidden' : ''}" style="width:${w}px;${isHidden ? 'display:none;' : ''}">`;
+            }).join('');
+
+            // 2. Render <thead>
+            let thead = table.querySelector('thead');
+            if (!thead) {
+                thead = document.createElement('thead');
+                table.appendChild(thead);
+            }
+
+            let activeSortCol = null;
+            let activeSortDir = 1;
+            if (tableId === 'classOverviewTable') {
+                activeSortCol = classOverviewSortCol;
+                activeSortDir = classOverviewSortDir;
+            } else if (tableId === 'historyTable') {
+                activeSortCol = historySortCol;
+                activeSortDir = historySortDir;
+            } else if (tableId === 'studentTable') {
+                activeSortCol = studentTableSortCol;
+                activeSortDir = studentTableSortDir;
+            }
+
+            const trHtml = order.map(colId => {
+                const def = getColDef(tableId, colId) || { id: colId, label: colId };
+                const label = (def.i18nKey ? t(def.i18nKey) : '') || def.label;
+                const isHidden = hidden.has(colId);
+                const isSorted = (activeSortCol === colId);
+                const sortClass = def.noSort ? '' : ('sortable' + (isSorted ? (activeSortDir === 1 ? ' sort-asc' : ' sort-desc') : ''));
+                const w = widths[colId] || def.defaultWidth || 70;
+                const minW = def.minWidth || 40;
+
+                return `<th data-col="${colId}" class="${sortClass} ${isHidden ? 'col-hidden' : ''}" draggable="true" style="width:${w}px; min-width:${minW}px;${isHidden ? 'display:none;' : ''}">` +
+                       `<div class="th-content">` +
+                       `<span class="col-drag-handle" title="${t('ptDragToReorder')}">⋮⋮</span>` +
+                       `<span class="th-label">${label}</span>` +
+                       `</div>` +
+                       `<span class="col-resizer" data-col="${colId}" title="${t('ptDragToResize')}"></span>` +
+                       `</th>`;
+            }).join('');
+
+            thead.innerHTML = `<tr>${trHtml}</tr>`;
+
+            // 3. Attach drag-and-drop column reordering listeners
+            const thList = thead.querySelectorAll('th');
+            thList.forEach(th => {
+                const colId = th.dataset.col;
+
+                th.addEventListener('dragstart', e => {
+                    if (e.target.closest('.col-resizer')) {
+                        e.preventDefault();
+                        return;
                     }
+                    _wasColumnDragging = true;
+                    e.dataTransfer.setData('text/plain', JSON.stringify({ tableId, colId }));
+                    e.dataTransfer.effectAllowed = 'move';
+                    th.classList.add('col-dragging');
+                });
+
+                th.addEventListener('dragend', () => {
+                    th.classList.remove('col-dragging');
+                    thead.querySelectorAll('th').forEach(h => h.classList.remove('drag-over-left', 'drag-over-right'));
+                    setTimeout(() => { _wasColumnDragging = false; }, 250);
+                });
+
+                th.addEventListener('dragover', e => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    const rect = th.getBoundingClientRect();
+                    const isRight = (e.clientX - rect.left) > (rect.width / 2);
+                    th.classList.toggle('drag-over-left', !isRight);
+                    th.classList.toggle('drag-over-right', isRight);
+                });
+
+                th.addEventListener('dragleave', () => {
+                    th.classList.remove('drag-over-left', 'drag-over-right');
+                });
+
+                th.addEventListener('drop', e => {
+                    e.preventDefault();
+                    th.classList.remove('drag-over-left', 'drag-over-right');
+                    let rawData = null;
+                    try { rawData = JSON.parse(e.dataTransfer.getData('text/plain')); } catch (_) {}
+                    if (!rawData || rawData.tableId !== tableId) return;
+
+                    const srcId = rawData.colId;
+                    const tgtId = th.dataset.col;
+                    if (!srcId || !tgtId || srcId === tgtId) return;
+
+                    const rect = th.getBoundingClientRect();
+                    const isRight = (e.clientX - rect.left) > (rect.width / 2);
+
+                    const currentOrder = [...getColOrder(tableId)];
+                    const srcIdx = currentOrder.indexOf(srcId);
+                    if (srcIdx === -1) return;
+                    currentOrder.splice(srcIdx, 1);
+
+                    let tgtIdx = currentOrder.indexOf(tgtId);
+                    if (tgtIdx === -1) tgtIdx = currentOrder.length;
+                    else if (isRight) tgtIdx += 1;
+
+                    currentOrder.splice(tgtIdx, 0, srcId);
+                    ptTableColState[tableId].order = currentOrder;
+                    savePtColumnsConfig();
+
+                    renderTableHeader(tableId);
+                    refreshTableBody(tableId);
+
+                    setTimeout(() => { _wasColumnDragging = false; }, 250);
+                });
+            });
+
+            // 4. Attach column resizer handle listeners
+            thead.querySelectorAll('.col-resizer').forEach(handle => {
+                handle.addEventListener('mousedown', e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    _wasColumnResizing = true;
+
+                    const colId = handle.dataset.col;
+                    const th = handle.closest('th');
+                    const startX = e.clientX;
+                    const startWidth = th.getBoundingClientRect().width;
+                    const def = getColDef(tableId, colId);
+                    const minWidth = def?.minWidth || 40;
+
+                    document.body.classList.add('resizing-col');
+                    handle.classList.add('is-resizing');
+
+                    const colEl = table.querySelector(`col[data-col="${colId}"]`);
+
+                    function onMove(evt) {
+                        evt.preventDefault();
+                        const currentWidth = Math.max(minWidth, Math.round(startWidth + (evt.clientX - startX)));
+                        if (colEl) colEl.style.width = currentWidth + 'px';
+                        th.style.width = currentWidth + 'px';
+                    }
+
+                    function onUp(evt) {
+                        window.removeEventListener('mousemove', onMove);
+                        window.removeEventListener('mouseup', onUp);
+                        document.body.classList.remove('resizing-col');
+                        handle.classList.remove('is-resizing');
+
+                        const finalWidth = Math.max(minWidth, Math.round(startWidth + (evt.clientX - startX)));
+                        ptTableColState[tableId].widths[colId] = finalWidth;
+                        savePtColumnsConfig();
+
+                        setTimeout(() => { _wasColumnResizing = false; }, 250);
+                    }
+
+                    window.addEventListener('mousemove', onMove);
+                    window.addEventListener('mouseup', onUp);
                 });
             });
         }
 
-        function getHiddenColsSet(tableId) {
-            if (!hiddenCols[tableId] || !(hiddenCols[tableId] instanceof Set)) {
-                hiddenCols[tableId] = new Set();
+        function refreshTableBody(tableId) {
+            if (tableId === 'classOverviewTable') {
+                if (typeof renderClassOverviewRows === 'function' && classOverviewData) {
+                    renderClassOverviewRows();
+                }
+            } else if (tableId === 'historyTable') {
+                if (typeof updateHistoryTable === 'function' && typeof getFilteredSessions === 'function') {
+                    updateHistoryTable(getFilteredSessions());
+                }
+            } else if (tableId === 'studentTable') {
+                if (typeof updateStudentDetails === 'function' && currentStudentName) {
+                    updateStudentDetails();
+                }
             }
-            return hiddenCols[tableId];
         }
+
+        // ─── Columns Configuration Modal UI ──────────────────────────────────
+        function openColumnsConfigModal(tableId) {
+            currentColumnsModalTableId = tableId || 'classOverviewTable';
+            const modal = document.getElementById('columnsConfigModal');
+            if (!modal) return;
+
+            const titleEl = document.getElementById('columnsModalTitle');
+            if (titleEl) {
+                let name = t('ptColToggleOverview');
+                if (currentColumnsModalTableId === 'historyTable') name = t('ptColToggleHistory');
+                else if (currentColumnsModalTableId === 'studentTable') name = t('ptColToggleStudent');
+                titleEl.textContent = `${t('ptConfigureColumns')} — ${name}`;
+            }
+
+            renderColumnsModalList();
+            modal.classList.add('active');
+        }
+
+        function closeColumnsConfigModal() {
+            const modal = document.getElementById('columnsConfigModal');
+            if (modal) modal.classList.remove('active');
+            currentColumnsModalTableId = null;
+        }
+
+        function renderColumnsModalList() {
+            const tableId = currentColumnsModalTableId;
+            if (!tableId) return;
+            const container = document.getElementById('columnsModalList');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const order = getColOrder(tableId);
+            const widths = getColWidths(tableId);
+            const hidden = getHiddenColsSet(tableId);
+
+            order.forEach((colId, index) => {
+                const def = getColDef(tableId, colId) || { id: colId, label: colId };
+                const label = (def.i18nKey ? t(def.i18nKey) : '') || def.label;
+                const isFixed = def.canHide === false;
+                const isVisible = !hidden.has(colId);
+                const widthVal = widths[colId] || def.defaultWidth || 70;
+
+                const card = document.createElement('div');
+                card.className = 'column-item-card' + (isFixed ? ' is-fixed' : '');
+                card.dataset.col = colId;
+                card.draggable = true;
+
+                card.innerHTML = `
+                    <span class="card-drag-handle" title="${t('ptDragToReorder')}">⋮⋮</span>
+                    <label class="card-checkbox-label">
+                        <input type="checkbox" ${isVisible ? 'checked' : ''} ${isFixed ? 'disabled' : ''} data-col="${colId}">
+                        <span>${escapeHtml(label)}</span>
+                    </label>
+                    <span class="card-width-badge">${widthVal}px</span>
+                    <div class="card-btn-group">
+                        <button type="button" class="card-action-btn btn-move-up" title="${t('ptMoveUp')}" ${index === 0 ? 'disabled' : ''}>▲</button>
+                        <button type="button" class="card-action-btn btn-move-down" title="${t('ptMoveDown')}" ${index === order.length - 1 ? 'disabled' : ''}>▼</button>
+                    </div>
+                `;
+
+                // Checkbox toggle
+                const checkbox = card.querySelector('input[type="checkbox"]');
+                if (checkbox && !isFixed) {
+                    checkbox.addEventListener('change', () => {
+                        toggleColVisibility(tableId, colId, checkbox.checked);
+                    });
+                }
+
+                // Move buttons
+                const btnUp = card.querySelector('.btn-move-up');
+                if (btnUp) {
+                    btnUp.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        moveColumnInOrder(tableId, colId, -1);
+                    });
+                }
+
+                const btnDown = card.querySelector('.btn-move-down');
+                if (btnDown) {
+                    btnDown.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        moveColumnInOrder(tableId, colId, 1);
+                    });
+                }
+
+                // Modal drag-and-drop reorder
+                card.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('text/plain', colId);
+                    e.dataTransfer.effectAllowed = 'move';
+                    card.classList.add('is-dragging');
+                });
+
+                card.addEventListener('dragend', () => {
+                    card.classList.remove('is-dragging');
+                    container.querySelectorAll('.column-item-card').forEach(c => c.classList.remove('drag-over-item'));
+                });
+
+                card.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    card.classList.add('drag-over-item');
+                });
+
+                card.addEventListener('dragleave', () => {
+                    card.classList.remove('drag-over-item');
+                });
+
+                card.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    card.classList.remove('drag-over-item');
+                    const srcId = e.dataTransfer.getData('text/plain');
+                    if (!srcId || srcId === colId) return;
+
+                    const curOrder = [...getColOrder(tableId)];
+                    const sIdx = curOrder.indexOf(srcId);
+                    const tIdx = curOrder.indexOf(colId);
+                    if (sIdx === -1 || tIdx === -1) return;
+
+                    curOrder.splice(sIdx, 1);
+                    curOrder.splice(tIdx, 0, srcId);
+                    ptTableColState[tableId].order = curOrder;
+                    savePtColumnsConfig();
+
+                    renderTableHeader(tableId);
+                    refreshTableBody(tableId);
+                    renderColumnsModalList();
+                });
+
+                container.appendChild(card);
+            });
+        }
+
+        function toggleColVisibility(tableId, colId, isVisible) {
+            const hidden = getHiddenColsSet(tableId);
+            if (isVisible) {
+                hidden.delete(colId);
+            } else {
+                hidden.add(colId);
+            }
+            savePtColumnsConfig();
+            applyHiddenCols(tableId);
+        }
+
+        function moveColumnInOrder(tableId, colId, offset) {
+            const curOrder = [...getColOrder(tableId)];
+            const idx = curOrder.indexOf(colId);
+            if (idx === -1) return;
+            const newIdx = idx + offset;
+            if (newIdx < 0 || newIdx >= curOrder.length) return;
+
+            curOrder.splice(idx, 1);
+            curOrder.splice(newIdx, 0, colId);
+            ptTableColState[tableId].order = curOrder;
+            savePtColumnsConfig();
+
+            renderTableHeader(tableId);
+            refreshTableBody(tableId);
+            renderColumnsModalList();
+        }
+
+        function showAllColumnsInModal() {
+            const tableId = currentColumnsModalTableId;
+            if (!tableId) return;
+            getHiddenColsSet(tableId).clear();
+            savePtColumnsConfig();
+            applyHiddenCols(tableId);
+            renderColumnsModalList();
+        }
+
+        function resetColumnsOrderAndWidthsInModal() {
+            const tableId = currentColumnsModalTableId;
+            if (!tableId) return;
+            const defs = TABLE_COL_CONFIGS[tableId] || [];
+            ptTableColState[tableId].order = defs.map(c => c.id);
+            ptTableColState[tableId].widths = {};
+            defs.forEach(c => { ptTableColState[tableId].widths[c.id] = c.defaultWidth; });
+            ptTableColState[tableId].hidden.clear();
+
+            savePtColumnsConfig();
+            renderTableHeader(tableId);
+            refreshTableBody(tableId);
+            renderColumnsModalList();
+        }
+
 
 
 
@@ -1285,6 +1805,11 @@
             initHamburger();
             if (typeof applyTranslations === 'function') applyTranslations();
             await Promise.resolve(window.__ptUserBootstrapPromise).catch(function () {});
+            _initPtColumnsState();
+            renderTableHeader('historyTable');
+            renderTableHeader('classOverviewTable');
+            renderTableHeader('studentTable');
+            await loadPtColumnsConfigFile().catch(function () {});
             // Check if electron is available
             ELECTRON_AVAILABLE = !!(window.electronApi && window.electronApi.isElectron);
 
@@ -1904,10 +2429,12 @@
                 const thead = table.querySelector('thead');
                 if (!thead) return;
                 thead.addEventListener('click', function(e) {
+                    if (_wasColumnDragging || _wasColumnResizing) return;
+                    if (e.target.closest('.col-resizer') || e.target.closest('.col-drag-handle')) return;
                     const th = e.target.closest('th');
                     if (!th) return;
                     const col = th.dataset.col || th.dataset.sort;
-                    if (!col) return;
+                    if (!col || col === 'actions') return;
                     if (tableId === 'historyTable') {
                         sortHistoryTable(col);
                     } else if (tableId === 'classOverviewTable') {
@@ -3037,57 +3564,76 @@
 
             const totalWithGrades = classOverviewData.filter(d => calculateStudentProvisionalGrade(d) !== null).length;
 
-            tfoot.innerHTML = `
-                <tr>
-                    <td><strong>${t('ptClassTotal')}</strong></td>
-                    <td>${formatSummaryNumber(summary.totals.sessions)}</td>
-                    <td>${formatSummaryNumber(summary.totals.picks)}</td>
-                    <td>${formatSummaryNumber(summary.totals.absent)}</td>
-                    <td>${formatSummaryNumber(summary.totals.pluses)}</td>
-                    <td>${formatSummaryNumber(summary.totals.minuses)}</td>
-                    <td style="color: #1f5a2b;">${formatSummaryNumber(summary.totals.teamPluses)}</td>
-                    <td style="color: #8a1e1e;">${formatSummaryNumber(summary.totals.teamMinuses)}</td>
-                    <td style="color: #2ca02c;">${formatSummaryNumber(summary.totals.badgePositive)}</td>
-                    <td style="color: #d62728;">${formatSummaryNumber(summary.totals.badgeNegative)}</td>
-                    <td>${formatSummaryNumber(summary.totals.badges)}</td>
-                    <td>${formatSummaryNumber(summary.totals.teamRoleEvents)}</td>
-                    <td>${formatSummaryNumber(summary.totals.notesCount)}</td>
-                    <td>—</td>
-                    <td style="color: ${totalNetColor};">${summary.totals.net >= 0 ? '+' : ''}${formatSummaryNumber(summary.totals.net)}</td>
-                    <td style="color: #2ca02c;">+${summary.ratios.posRatio.toFixed(2)}</td>
-                    <td style="color: #d62728;">-${summary.ratios.negRatio.toFixed(2)}</td>
-                    <td style="color: ${totalNetRatioColor};">${summary.ratios.netRatio >= 0 ? '+' : ''}${summary.ratios.netRatio.toFixed(2)}</td>
-                    <td>${totalRatioText}</td>
-                    <td>—</td>
-                </tr>
-                <tr>
-                    <td><strong>${t('ptClassAvg')}</strong></td>
-                    <td>${summary.averages.sessions.toFixed(2)}</td>
-                    <td>${summary.averages.picks.toFixed(2)}</td>
-                    <td>${summary.averages.absent.toFixed(2)}</td>
-                    <td>${summary.averages.pluses.toFixed(2)}</td>
-                    <td>${summary.averages.minuses.toFixed(2)}</td>
-                    <td style="color: #1f5a2b;">${summary.averages.teamPluses.toFixed(2)}</td>
-                    <td style="color: #8a1e1e;">${summary.averages.teamMinuses.toFixed(2)}</td>
-                    <td style="color: #2ca02c;">${summary.averages.badgePositive.toFixed(2)}</td>
-                    <td style="color: #d62728;">${summary.averages.badgeNegative.toFixed(2)}</td>
-                    <td>${summary.averages.badges.toFixed(2)}</td>
-                    <td>${summary.averages.teamRoleEvents.toFixed(2)}</td>
-                    <td>${summary.averages.notesCount.toFixed(2)}</td>
-                    <td>${totalWithGrades > 0 ? summary.averages.provisionalGrade.toFixed(2) : '—'}</td>
-                    <td style="color: ${avgNetColor};">${summary.averages.net >= 0 ? '+' : ''}${summary.averages.net.toFixed(2)}</td>
-                    <td style="color: #2ca02c;">+${summary.averages.posRatio.toFixed(2)}</td>
-                    <td style="color: #d62728;">-${summary.averages.negRatio.toFixed(2)}</td>
-                    <td style="color: ${avgNetRatioColor};">${summary.averages.netRatio >= 0 ? '+' : ''}${summary.averages.netRatio.toFixed(2)}</td>
-                    <td>${avgRatioText}</td>
-                    <td>—</td>
-                </tr>
-            `;
+            const colOrder = getColOrder('classOverviewTable');
+            const hidden = getHiddenColsSet('classOverviewTable');
+
+            const totalCells = {
+                name: `<td><strong>${t('ptClassTotal')}</strong></td>`,
+                sessions: `<td>${formatSummaryNumber(summary.totals.sessions)}</td>`,
+                picks: `<td>${formatSummaryNumber(summary.totals.picks)}</td>`,
+                absent: `<td>${formatSummaryNumber(summary.totals.absent)}</td>`,
+                pluses: `<td>${formatSummaryNumber(summary.totals.pluses)}</td>`,
+                minuses: `<td>${formatSummaryNumber(summary.totals.minuses)}</td>`,
+                teamPluses: `<td style="color: #1f5a2b;">${formatSummaryNumber(summary.totals.teamPluses)}</td>`,
+                teamMinuses: `<td style="color: #8a1e1e;">${formatSummaryNumber(summary.totals.teamMinuses)}</td>`,
+                badgePositive: `<td style="color: #2ca02c;">${formatSummaryNumber(summary.totals.badgePositive)}</td>`,
+                badgeNegative: `<td style="color: #d62728;">${formatSummaryNumber(summary.totals.badgeNegative)}</td>`,
+                badges: `<td>${formatSummaryNumber(summary.totals.badges)}</td>`,
+                teamRoleEvents: `<td>${formatSummaryNumber(summary.totals.teamRoleEvents)}</td>`,
+                notes: `<td>${formatSummaryNumber(summary.totals.notesCount)}</td>`,
+                provisionalGrade: `<td>—</td>`,
+                net: `<td style="color: ${totalNetColor};">${summary.totals.net >= 0 ? '+' : ''}${formatSummaryNumber(summary.totals.net)}</td>`,
+                posRatio: `<td style="color: #2ca02c;">+${summary.ratios.posRatio.toFixed(2)}</td>`,
+                negRatio: `<td style="color: #d62728;">-${summary.ratios.negRatio.toFixed(2)}</td>`,
+                netRatio: `<td style="color: ${totalNetRatioColor};">${summary.ratios.netRatio >= 0 ? '+' : ''}${summary.ratios.netRatio.toFixed(2)}</td>`,
+                ratio: `<td>${totalRatioText}</td>`,
+                trend: `<td>—</td>`
+            };
+
+            const avgCells = {
+                name: `<td><strong>${t('ptClassAvg')}</strong></td>`,
+                sessions: `<td>${summary.averages.sessions.toFixed(2)}</td>`,
+                picks: `<td>${summary.averages.picks.toFixed(2)}</td>`,
+                absent: `<td>${summary.averages.absent.toFixed(2)}</td>`,
+                pluses: `<td>${summary.averages.pluses.toFixed(2)}</td>`,
+                minuses: `<td>${summary.averages.minuses.toFixed(2)}</td>`,
+                teamPluses: `<td style="color: #1f5a2b;">${summary.averages.teamPluses.toFixed(2)}</td>`,
+                teamMinuses: `<td style="color: #8a1e1e;">${summary.averages.teamMinuses.toFixed(2)}</td>`,
+                badgePositive: `<td style="color: #2ca02c;">${summary.averages.badgePositive.toFixed(2)}</td>`,
+                badgeNegative: `<td style="color: #d62728;">${summary.averages.badgeNegative.toFixed(2)}</td>`,
+                badges: `<td>${summary.averages.badges.toFixed(2)}</td>`,
+                teamRoleEvents: `<td>${summary.averages.teamRoleEvents.toFixed(2)}</td>`,
+                notes: `<td>${summary.averages.notesCount.toFixed(2)}</td>`,
+                provisionalGrade: `<td>${totalWithGrades > 0 ? summary.averages.provisionalGrade.toFixed(2) : '—'}</td>`,
+                net: `<td style="color: ${avgNetColor};">${summary.averages.net >= 0 ? '+' : ''}${summary.averages.net.toFixed(2)}</td>`,
+                posRatio: `<td style="color: #2ca02c;">+${summary.averages.posRatio.toFixed(2)}</td>`,
+                negRatio: `<td style="color: #d62728;">-${summary.averages.negRatio.toFixed(2)}</td>`,
+                netRatio: `<td style="color: ${avgNetRatioColor};">${summary.averages.netRatio >= 0 ? '+' : ''}${summary.averages.netRatio.toFixed(2)}</td>`,
+                ratio: `<td>${avgRatioText}</td>`,
+                trend: `<td>—</td>`
+            };
+
+            const trTotalHtml = colOrder.map(colId => {
+                const cell = totalCells[colId] || `<td>—</td>`;
+                const isHidden = hidden.has(colId);
+                return cell.replace('<td', `<td data-col="${colId}" class="${isHidden ? 'col-hidden' : ''}"${isHidden ? ' style="display:none;"' : ''}`);
+            }).join('');
+
+            const trAvgHtml = colOrder.map(colId => {
+                const cell = avgCells[colId] || `<td>—</td>`;
+                const isHidden = hidden.has(colId);
+                return cell.replace('<td', `<td data-col="${colId}" class="${isHidden ? 'col-hidden' : ''}"${isHidden ? ' style="display:none;"' : ''}`);
+            }).join('');
+
+            tfoot.innerHTML = `<tr>${trTotalHtml}</tr><tr>${trAvgHtml}</tr>`;
         }
 
         function renderClassOverviewRows() {
             const tbody = document.getElementById('classOverviewTableBody');
             tbody.innerHTML = '';
+
+            const colOrder = getColOrder('classOverviewTable');
+            const hidden = getHiddenColsSet('classOverviewTable');
 
             const sorted = [...classOverviewData].sort((a, b) => {
                 const col = classOverviewSortCol;
@@ -3134,30 +3680,53 @@
                     ? ` <span style="font-size:0.72rem;font-weight:normal;color:#666;">(${escapeHtml(sObj.customName)})</span>`
                     : '';
 
+                const ratioVal = (() => {
+                    const g = data.pluses + data.teamPluses + data.badgePositive;
+                    const bd = data.minuses + data.teamMinuses + data.badgeNegative;
+                    return (g === 0 && bd === 0) ? '—' : (bd === 0 ? '∞' : (g / bd).toFixed(2));
+                })();
+                const ratioColor = (() => {
+                    const g = data.pluses + data.teamPluses + data.badgePositive;
+                    const bd = data.minuses + data.teamMinuses + data.badgeNegative;
+                    return (g === 0 && bd === 0) ? '#888' : (bd === 0 ? '#2ca02c' : (g / bd >= 1 ? '#2ca02c' : '#d62728'));
+                })();
+
+                const trendVal = computeTrend(data.sessionNets);
+                const trendSymbol = trendVal === 'up' ? '↑' : trendVal === 'down' ? '↓' : '→';
+                const trendColor = trendVal === 'up' ? '#2ca02c' : trendVal === 'down' ? '#d62728' : '#888';
+                const trendTitle = trendVal === 'up' ? t('ptTrendImproving') : trendVal === 'down' ? t('ptTrendDeclining') : t('ptTrendStable');
+
+                const cells = {
+                    name: `<td><strong>${escapeHtml(displayName)}</strong>${customBadge}</td>`,
+                    sessions: `<td>${data.sessions}</td>`,
+                    picks: `<td>${data.picks}</td>`,
+                    absent: `<td>${data.absent}</td>`,
+                    pluses: `<td>${data.pluses}</td>`,
+                    minuses: `<td>${data.minuses}</td>`,
+                    teamPluses: `<td style="color: #1f5a2b; font-weight: 600;">${data.teamPluses}</td>`,
+                    teamMinuses: `<td style="color: #8a1e1e; font-weight: 600;">${data.teamMinuses}</td>`,
+                    badgePositive: `<td style="color: #2ca02c; font-weight: 600;">${data.badgePositive}</td>`,
+                    badgeNegative: `<td style="color: #d62728; font-weight: 600;">${data.badgeNegative}</td>`,
+                    badges: `<td>${formatBadges(data.badges)}</td>`,
+                    teamRoleEvents: `<td><span title="${escapeHtml(teamRoleText)}" class="notes-preview ${data.teamRoleEvents ? '' : 'empty'}">${data.teamRoleEvents ? `${data.teamRoleEvents} · ${escapeHtml(teamRolePreview)}` : t('ptNone')}</span></td>`,
+                    notes: `<td><span title="${escapeHtml(notesText)}" class="notes-preview ${data.notes ? '' : 'empty'}">${escapeHtml(notesPreview)}</span></td>`,
+                    provisionalGrade: `<td>${displayGrade}</td>`,
+                    net: `<td style="color: ${net >= 0 ? '#2ca02c' : '#d62728'}; font-weight: 600;">${net >= 0 ? '+' : ''}${net}</td>`,
+                    posRatio: `<td style="color: #2ca02c; font-weight: 600;">+${posRatio.toFixed(2)}</td>`,
+                    negRatio: `<td style="color: #d62728; font-weight: 600;">-${negRatio.toFixed(2)}</td>`,
+                    netRatio: `<td style="color: ${netRatio >= 0 ? '#2ca02c' : '#d62728'}; font-weight: 600;">${netRatio >= 0 ? '+' : ''}${netRatio.toFixed(2)}</td>`,
+                    ratio: `<td style="font-weight: 600; color: ${ratioColor};">${ratioVal}</td>`,
+                    trend: `<td style="font-size: 1.2em; font-weight: 700; text-align: center; color: ${trendColor};" title="${trendTitle}">${trendSymbol}</td>`
+                };
+
                 const row = document.createElement('tr');
                 row.className = 'expandable-row' + (data.name === currentStudentName ? ' selected-student' : '');
-                row.innerHTML = `
-                    <td><strong>${escapeHtml(displayName)}</strong>${customBadge}</td>
-                    <td>${data.sessions}</td>
-                    <td>${data.picks}</td>
-                    <td>${data.absent}</td>
-                    <td>${data.pluses}</td>
-                    <td>${data.minuses}</td>
-                    <td style="color: #1f5a2b; font-weight: 600;">${data.teamPluses}</td>
-                    <td style="color: #8a1e1e; font-weight: 600;">${data.teamMinuses}</td>
-                    <td style="color: #2ca02c; font-weight: 600;">${data.badgePositive}</td>
-                    <td style="color: #d62728; font-weight: 600;">${data.badgeNegative}</td>
-                    <td>${formatBadges(data.badges)}</td>
-                    <td><span title="${teamRoleText.replace(/"/g, '&quot;')}" class="notes-preview ${data.teamRoleEvents ? '' : 'empty'}">${data.teamRoleEvents ? `${data.teamRoleEvents} · ${teamRolePreview}` : t('ptNone')}</span></td>
-                    <td><span title="${notesText.replace(/"/g, '&quot;')}" class="notes-preview ${data.notes ? '' : 'empty'}">${notesPreview}</span></td>
-                    <td>${displayGrade}</td>
-                    <td style="color: ${net >= 0 ? '#2ca02c' : '#d62728'}; font-weight: 600;">${net >= 0 ? '+' : ''}${net}</td>
-                    <td style="color: #2ca02c; font-weight: 600;">+${posRatio.toFixed(2)}</td>
-                    <td style="color: #d62728; font-weight: 600;">-${negRatio.toFixed(2)}</td>
-                    <td style="color: ${netRatio >= 0 ? '#2ca02c' : '#d62728'}; font-weight: 600;">${netRatio >= 0 ? '+' : ''}${netRatio.toFixed(2)}</td>
-                    <td style="font-weight: 600; color: ${(() => { const g = data.pluses + data.teamPluses + data.badgePositive; const bd = data.minuses + data.teamMinuses + data.badgeNegative; return (g === 0 && bd === 0) ? '#888' : (bd === 0 ? '#2ca02c' : (g / bd >= 1 ? '#2ca02c' : '#d62728')); })()};">${(() => { const g = data.pluses + data.teamPluses + data.badgePositive; const bd = data.minuses + data.teamMinuses + data.badgeNegative; return (g === 0 && bd === 0) ? '—' : (bd === 0 ? '∞' : (g / bd).toFixed(2)); })()}</td>
-                    <td style="font-size: 1.2em; font-weight: 700; text-align: center; color: ${computeTrend(data.sessionNets) === 'up' ? '#2ca02c' : computeTrend(data.sessionNets) === 'down' ? '#d62728' : '#888'};" title="${computeTrend(data.sessionNets) === 'up' ? t('ptTrendImproving') : computeTrend(data.sessionNets) === 'down' ? t('ptTrendDeclining') : t('ptTrendStable')}">${computeTrend(data.sessionNets) === 'up' ? '↑' : computeTrend(data.sessionNets) === 'down' ? '↓' : '→'}</td>
-                `;
+                row.innerHTML = colOrder.map(colId => {
+                    const rawCell = cells[colId] || `<td></td>`;
+                    const isHidden = hidden.has(colId);
+                    return rawCell.replace('<td', `<td data-col="${colId}" class="${isHidden ? 'col-hidden' : ''}"${isHidden ? ' style="display:none;"' : ''}`);
+                }).join('');
+
                 row.dataset.studentName = data.name;
                 row.title = sObj?.customName ? `${data.name} (Custom: ${sObj.customName}) — ${t('ptRightClickHint')}` : t('ptRightClickHint');
                 row.addEventListener('click', () => {
@@ -3177,8 +3746,6 @@
                     return false;
                 };
                 tbody.appendChild(row);
-
-
             });
             buildClassOverviewSummaryRows();
             applyHiddenCols('classOverviewTable');
@@ -3498,33 +4065,45 @@
                 const objectivesPreview = objectives ? objectives.replace(/\s+/g, ' ').substring(0, 60) : '';
                 const sessionEvents = getSessionTeamRoleEvents(session, currentGroupId);
 
-                row.innerHTML = `
-                    <td>${dateStr}</td>
-                    <td>${metric.time || '-'}</td>
-                    <td>${metric.picks}</td>
-                    <td>${metric.pluses}</td>
-                    <td>${metric.minuses}</td>
-                    <td style="color: #1f5a2b; font-weight: 600;">${metric.teamPluses || 0}</td>
-                    <td style="color: #8a1e1e; font-weight: 600;">${metric.teamMinuses || 0}</td>
-                    <td style="color: #2ca02c; font-weight: 600;">${metric.badgePositive || 0}</td>
-                    <td style="color: #d62728; font-weight: 600;">${metric.badgeNegative || 0}</td>
-                    <td>${sessionEvents.length}</td>
-                    <td>${metric.students}</td>
-                    <td>${metric.badges || '-'}</td>
-                    <td><span class="notes-preview ${objectives ? '' : 'empty'}">${objectives ? objectivesPreview + (objectivesPreview.length < objectives.replace(/\s+/g, ' ').length ? '...' : '') : '(none)'}</span></td>
-                    <td><span class="notes-preview ${notes ? '' : 'empty'}">${notes ? notesPreview + (notesPreview.length < notes.length ? '...' : '') : '(no notes)'}</span></td>
-                    <td></td>
-                `;
+                const cells = {
+                    date: `<td>${dateStr}</td>`,
+                    time: `<td>${metric.time || '-'}</td>`,
+                    picks: `<td>${metric.picks}</td>`,
+                    pluses: `<td>${metric.pluses}</td>`,
+                    minuses: `<td>${metric.minuses}</td>`,
+                    teamPluses: `<td style="color: #1f5a2b; font-weight: 600;">${metric.teamPluses || 0}</td>`,
+                    teamMinuses: `<td style="color: #8a1e1e; font-weight: 600;">${metric.teamMinuses || 0}</td>`,
+                    badgePositive: `<td style="color: #2ca02c; font-weight: 600;">${metric.badgePositive || 0}</td>`,
+                    badgeNegative: `<td style="color: #d62728; font-weight: 600;">${metric.badgeNegative || 0}</td>`,
+                    teamRoleEvents: `<td>${sessionEvents.length}</td>`,
+                    students: `<td>${metric.students}</td>`,
+                    badges: `<td>${metric.badges || '-'}</td>`,
+                    objectives: `<td><span class="notes-preview ${objectives ? '' : 'empty'}">${objectives ? escapeHtml(objectivesPreview) + (objectivesPreview.length < objectives.replace(/\s+/g, ' ').length ? '...' : '') : '(none)'}</span></td>`,
+                    notes: `<td><span class="notes-preview ${notes ? '' : 'empty'}">${notes ? escapeHtml(notesPreview) + (notesPreview.length < notes.length ? '...' : '') : '(no notes)'}</span></td>`,
+                    actions: `<td></td>`
+                };
 
-                const deleteBtn = document.createElement('button');
-                deleteBtn.className = 'btn-reset-row';
-                deleteBtn.innerHTML = '<img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> Delete';
-                deleteBtn.title = 'Delete this session';
-                deleteBtn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    openResetModal('session', metric.date);
-                });
-                row.cells[row.cells.length - 1].appendChild(deleteBtn);
+                const colOrder = getColOrder('historyTable');
+                const hidden = getHiddenColsSet('historyTable');
+
+                row.innerHTML = colOrder.map(colId => {
+                    const cell = cells[colId] || `<td></td>`;
+                    const isHidden = hidden.has(colId);
+                    return cell.replace('<td', `<td data-col="${colId}" class="${isHidden ? 'col-hidden' : ''}"${isHidden ? ' style="display:none;"' : ''}`);
+                }).join('');
+
+                const actionsCell = row.querySelector('td[data-col="actions"]') || row.cells[row.cells.length - 1];
+                if (actionsCell) {
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'btn-reset-row';
+                    deleteBtn.innerHTML = '<img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> Delete';
+                    deleteBtn.title = 'Delete this session';
+                    deleteBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        openResetModal('session', metric.date);
+                    });
+                    actionsCell.appendChild(deleteBtn);
+                }
 
                 row.addEventListener('click', () => {
                     if (!session) return;
@@ -3921,19 +4500,28 @@
                 const teamRoleEvents = getSessionTeamRoleEvents(session, currentGroupId, currentStudentName);
                 const teamRolePreview = formatTeamRoleEventsPreview(teamRoleEvents, 70);
 
-                row.innerHTML = `
-                    <td>${dateStr}</td>
-                    <td>${session.time || '-'}</td>
-                    <td>${student.isPicked ? '✓' : '-'}</td>
-                    <td>${student.isAbsent ? '✓' : '-'}</td>
-                    <td>${student.pluses || 0}</td>
-                    <td>${student.minuses || 0}</td>
-                    <td style="color: #1f5a2b; font-weight: 600;">${student.teamPluses || 0}</td>
-                    <td style="color: #8a1e1e; font-weight: 600;">${student.teamMinuses || 0}</td>
-                    <td>${formatBadges(student.badges)}</td>
-                    <td><span class="notes-preview ${teamRoleEvents.length ? '' : 'empty'}">${teamRolePreview}</span></td>
-                    <td><span class="notes-preview ${notesText ? '' : 'empty'}">${notesText ? notesPreview + (notesPreview.length < notesText.length ? '...' : '') : '(no notes)'}</span></td>
-                `;
+                const cells = {
+                    date: `<td>${dateStr}</td>`,
+                    time: `<td>${session.time || '-'}</td>`,
+                    picked: `<td>${student.isPicked ? '✓' : '-'}</td>`,
+                    absent: `<td>${student.isAbsent ? '✓' : '-'}</td>`,
+                    pluses: `<td>${student.pluses || 0}</td>`,
+                    minuses: `<td>${student.minuses || 0}</td>`,
+                    teamPluses: `<td style="color: #1f5a2b; font-weight: 600;">${student.teamPluses || 0}</td>`,
+                    teamMinuses: `<td style="color: #8a1e1e; font-weight: 600;">${student.teamMinuses || 0}</td>`,
+                    badges: `<td>${formatBadges(student.badges)}</td>`,
+                    teamRoleEvents: `<td><span class="notes-preview ${teamRoleEvents.length ? '' : 'empty'}">${escapeHtml(teamRolePreview)}</span></td>`,
+                    notes: `<td><span class="notes-preview ${notesText ? '' : 'empty'}">${notesText ? escapeHtml(notesPreview) + (notesPreview.length < notesText.length ? '...' : '') : '(no notes)'}</span></td>`
+                };
+
+                const colOrder = getColOrder('studentTable');
+                const hidden = getHiddenColsSet('studentTable');
+
+                row.innerHTML = colOrder.map(colId => {
+                    const cell = cells[colId] || `<td></td>`;
+                    const isHidden = hidden.has(colId);
+                    return cell.replace('<td', `<td data-col="${colId}" class="${isHidden ? 'col-hidden' : ''}"${isHidden ? ' style="display:none;"' : ''}`);
+                }).join('');
 
                     row.addEventListener('click', () => {
                         currentSessionId = session.id;

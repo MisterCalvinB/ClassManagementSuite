@@ -1826,3 +1826,242 @@ img.btn-icon:only-child {
     font-size: 13px;
     color: #777;
 }
+
+/* ================================================================
+   COLUMN MANAGEMENT: RESIZING, REORDERING & VISIBILITY
+   ================================================================ */
+
+body.resizing-col,
+body.resizing-col * {
+    cursor: col-resize !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+}
+
+.table-container table {
+    table-layout: fixed;
+    min-width: 100%;
+}
+
+th {
+    position: relative;
+}
+
+.th-content {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.th-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.col-drag-handle {
+    display: inline-block;
+    cursor: grab;
+    color: #888;
+    font-size: 12px;
+    line-height: 1;
+    letter-spacing: -1.5px;
+    padding: 0 2px;
+    opacity: 0.55;
+    transition: opacity 0.15s ease, color 0.15s ease;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+th:hover .col-drag-handle {
+    opacity: 1;
+    color: #ffde59;
+}
+
+.col-drag-handle:active {
+    cursor: grabbing;
+}
+
+.col-resizer {
+    position: absolute;
+    top: 0;
+    right: -4px;
+    width: 8px;
+    height: 100%;
+    cursor: col-resize;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+    z-index: 10;
+}
+
+.col-resizer::after {
+    content: '';
+    position: absolute;
+    right: 3px;
+    top: 15%;
+    bottom: 15%;
+    width: 2px;
+    background: #555;
+    border-radius: 1px;
+    transition: background 0.12s ease, width 0.12s ease;
+}
+
+.col-resizer:hover::after,
+.col-resizer.is-resizing::after {
+    background: #ffde59;
+    width: 3px;
+    right: 2.5px;
+}
+
+th.col-dragging {
+    opacity: 0.45;
+    background: #333338 !important;
+}
+
+th.drag-over-left {
+    box-shadow: inset 4px 0 0 #ffde59 !important;
+}
+
+th.drag-over-right {
+    box-shadow: inset -4px 0 0 #ffde59 !important;
+}
+
+.col-hidden,
+th.col-hidden,
+td.col-hidden,
+col.col-hidden {
+    display: none !important;
+}
+
+/* Columns Configuration Modal */
+.columns-modal-content {
+    max-width: 580px;
+    width: 95%;
+}
+
+.columns-modal-toolbar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 2.5px solid #111;
+}
+
+.columns-modal-list {
+    max-height: 420px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 4px;
+    margin-bottom: 20px;
+}
+
+.column-item-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: #fafaf8;
+    border: 2px solid #111;
+    border-radius: 6px;
+    box-shadow: 2px 2px 0 #111;
+    transition: background 0.12s ease, transform 0.12s ease;
+    user-select: none;
+}
+
+.column-item-card:hover {
+    background: #fffdf0;
+}
+
+.column-item-card.is-dragging {
+    opacity: 0.45;
+    background: #e2e8f0;
+}
+
+.column-item-card.drag-over-item {
+    border-top: 3px solid #ffde59;
+    background: #fefce8;
+}
+
+.column-item-card .card-drag-handle {
+    cursor: grab;
+    color: #777;
+    font-size: 14px;
+    padding: 0 4px;
+    user-select: none;
+    line-height: 1;
+}
+
+.column-item-card .card-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #111;
+    flex: 1;
+    cursor: pointer;
+    margin: 0;
+}
+
+.column-item-card .card-checkbox-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: #111;
+}
+
+.column-item-card .card-width-badge {
+    font-size: 11px;
+    font-weight: 700;
+    color: #333;
+    background: #e2e8f0;
+    border: 1.5px solid #111;
+    border-radius: 4px;
+    padding: 2px 6px;
+}
+
+.column-item-card .card-btn-group {
+    display: flex;
+    gap: 4px;
+}
+
+.column-item-card .card-action-btn {
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 800;
+    border: 1.5px solid #111;
+    box-shadow: 1.5px 1.5px 0 #111;
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+    color: #111;
+    line-height: 1.2;
+    transition: all 0.1s ease;
+}
+
+.column-item-card .card-action-btn:hover:not(:disabled) {
+    background: #ffde59;
+    transform: translate(-0.5px, -0.5px);
+}
+
+.column-item-card .card-action-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.column-item-card.is-fixed .card-checkbox-label {
+    cursor: default;
+    color: #444;
+}
+

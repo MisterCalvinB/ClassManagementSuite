@@ -1993,15 +1993,39 @@
   var _sbSyncTimer = null;
   var _sbPendingTasks = { pinned: false, planner: false, docs: false };
   var _sbSyncRunning = false;
-  var _sbDirtyTasksWhileHidden = { pinned: false, planner: false, docs: false };
+  var _sbDirtyTasksWhileInactive = { pinned: false, planner: false, docs: false };
+  var _isWindowFocused = (typeof document.hasFocus === 'function') ? document.hasFocus() : true;
+
+  function isLauncherActive() {
+    return !document.hidden && _isWindowFocused;
+  }
+
+  function flushInactiveTasks() {
+    if (_sbDirtyTasksWhileInactive.pinned || _sbDirtyTasksWhileInactive.planner || _sbDirtyTasksWhileInactive.docs) {
+      var tasksToRun = Object.assign({}, _sbDirtyTasksWhileInactive);
+      _sbDirtyTasksWhileInactive = { pinned: false, planner: false, docs: false };
+      sbScheduleSync(tasksToRun);
+    }
+  }
+
+  window.addEventListener('focus', function () {
+    _isWindowFocused = true;
+    flushInactiveTasks();
+  });
+
+  window.addEventListener('blur', function () {
+    _isWindowFocused = false;
+    try {
+      if (typeof window.gc === 'function') window.gc();
+    } catch(e) {}
+  });
 
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden) {
-      if (_sbDirtyTasksWhileHidden.pinned || _sbDirtyTasksWhileHidden.planner || _sbDirtyTasksWhileHidden.docs) {
-        var tasksToRun = Object.assign({}, _sbDirtyTasksWhileHidden);
-        _sbDirtyTasksWhileHidden = { pinned: false, planner: false, docs: false };
-        sbScheduleSync(tasksToRun);
-      }
+      _isWindowFocused = (typeof document.hasFocus === 'function') ? document.hasFocus() : true;
+      if (_isWindowFocused) flushInactiveTasks();
+    } else {
+      _isWindowFocused = false;
     }
   });
 
@@ -2011,16 +2035,23 @@
     if (tasks.planner) _sbPendingTasks.planner = true;
     if (tasks.docs) _sbPendingTasks.docs = true;
 
-    if (document.hidden) {
-      if (tasks.pinned) _sbDirtyTasksWhileHidden.pinned = true;
-      if (tasks.planner) _sbDirtyTasksWhileHidden.planner = true;
-      if (tasks.docs) _sbDirtyTasksWhileHidden.docs = true;
+    if (!isLauncherActive()) {
+      if (tasks.pinned) _sbDirtyTasksWhileInactive.pinned = true;
+      if (tasks.planner) _sbDirtyTasksWhileInactive.planner = true;
+      if (tasks.docs) _sbDirtyTasksWhileInactive.docs = true;
       return;
     }
 
     if (_sbSyncTimer) clearTimeout(_sbSyncTimer);
     _sbSyncTimer = setTimeout(async function() {
       _sbSyncTimer = null;
+      if (!isLauncherActive()) {
+        if (_sbPendingTasks.pinned) _sbDirtyTasksWhileInactive.pinned = true;
+        if (_sbPendingTasks.planner) _sbDirtyTasksWhileInactive.planner = true;
+        if (_sbPendingTasks.docs) _sbDirtyTasksWhileInactive.docs = true;
+        _sbPendingTasks = { pinned: false, planner: false, docs: false };
+        return;
+      }
       if (_sbSyncRunning) {
         sbScheduleSync({});
         return;
