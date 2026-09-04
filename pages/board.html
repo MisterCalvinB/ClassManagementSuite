@@ -1500,14 +1500,12 @@
         <button onclick="conPdfPagePickerClose()">✕</button>
       </h3>
       <div class="pdf-page-picker-body">
-        <p class="pdf-page-picker-hint" id="con-pdf-page-picker-hint"></p>
-        <div class="pdf-page-picker-grid" id="con-pdf-page-picker-grid"></div>
-        <div class="pdf-page-picker-options" style="margin-top:14px; padding:10px 14px; background:rgba(0,0,0,0.03); border:1px solid #ddd; border-radius:8px; display:flex; flex-direction:column; gap:10px;">
+        <div class="pdf-page-picker-options" style="margin-bottom:14px; padding:10px 14px; background:rgba(0,0,0,0.03); border:1px solid #ddd; border-radius:8px; display:flex; flex-direction:column; gap:10px;">
           <label style="display:inline-flex; align-items:center; gap:8px; font-size:0.84rem; font-weight:600; cursor:pointer; color:#111; user-select:none;">
-            <input type="checkbox" id="con-pdf-insert-as-png-check" onchange="conPdfToggleImageOptions()" style="accent-color:#111; cursor:pointer; width:16px; height:16px;">
+            <input type="checkbox" id="con-pdf-insert-as-png-check" checked onchange="conPdfToggleImageOptions()" style="accent-color:#111; cursor:pointer; width:16px; height:16px;">
             <span data-i18n="conPdfInsertAsPngOnly">Add pages as converted images (do not integrate raw PDF file)</span>
           </label>
-          <div id="con-pdf-image-options-panel" style="display:none; padding-top:10px; border-top:1px dashed #ccc; flex-direction:column; gap:8px; font-size:0.8rem;">
+          <div id="con-pdf-image-options-panel" style="display:flex; padding-top:10px; border-top:1px dashed #ccc; flex-direction:column; gap:8px; font-size:0.8rem;">
             <div style="display:flex; flex-wrap:wrap; align-items:center; gap:14px;">
               <div style="display:flex; align-items:center; gap:6px;">
                 <label for="con-pdf-img-format" style="font-weight:600; color:#444;" data-i18n="conPdfImgFormatLabel">Format:</label>
@@ -1534,6 +1532,8 @@
             </div>
           </div>
         </div>
+        <p class="pdf-page-picker-hint" id="con-pdf-page-picker-hint"></p>
+        <div class="pdf-page-picker-grid" id="con-pdf-page-picker-grid"></div>
       </div>
       <div class="pdf-page-picker-footer">
         <button class="action-btn btn-grey" type="button" onclick="conPdfPagePickerSelectAll()">All</button>
@@ -2178,7 +2178,7 @@
     <div style="font-size:0.7rem;color:#777;padding:3px 12px 6px;">This cannot be undone.</div>
     <div style="display:flex;gap:0;">
       <div class="con-ctx-item" id="con-page-del-confirm-btn"
-        style="flex:1;justify-content:center;font-size:0.72rem;color:#b94040;padding:5px 4px;font-weight:800;">🗑 Delete
+        style="flex:1;justify-content:center;font-size:0.72rem;color:#b94040;padding:5px 4px;font-weight:800;">Delete
       </div>
       <div class="con-ctx-item" onclick="conPageDelPopupClose()"
         style="flex:1;justify-content:center;font-size:0.72rem;color:#888;padding:5px 4px;">Cancel</div>
@@ -3725,18 +3725,20 @@
   <div id="con-pages-overlay" onclick="if(event.target===this)conClosePagePreview()">
     <div id="con-pages-popup">
       <div id="con-pages-popup-header">
-        <span style="font-size:0.78rem;font-weight:900;text-transform:uppercase;letter-spacing:1px;color:#555;">📄
-          Pages</span>
+        <span style="font-size:0.78rem;font-weight:900;text-transform:uppercase;letter-spacing:1px;color:#555;">Pages</span>
         <button class="action-btn btn-grey" onclick="conClosePagePreview()"
           style="padding:3px 9px;font-size:0.8rem;margin-left:auto;">✕</button>
       </div>
       <div id="con-pages-popup-actions">
         <button class="action-btn btn-grey" id="con-pages-copy-selected-btn"
-          onclick="window.conPreviewCopySelectedPages()" title="Copy all checked pages" disabled>⎘ Copy
+          onclick="window.conPreviewCopySelectedPages()" title="Copy all checked pages" disabled>Copy
           Selected</button>
         <button class="action-btn btn-grey" id="con-pages-paste-copied-btn"
-          onclick="window.conPreviewPasteCopiedPagesPrompt()" title="Paste copied pages at a chosen position" disabled>⎗
-          Paste Copied...</button>
+          onclick="window.conPreviewPasteCopiedPagesPrompt()" title="Paste copied pages at a chosen position" disabled>Paste
+          Copied...</button>
+        <button class="action-btn btn-grey" id="con-pages-delete-selected-btn"
+          onclick="window.conPreviewDeleteSelectedPages(this)" title="Delete all checked pages" disabled>Delete
+          Selected</button>
         <span id="con-pages-selection-info">0 selected</span>
       </div>
       <div id="con-pages-list"></div>
@@ -9048,6 +9050,244 @@
       return true;
     }
 
+    async function conDeleteAttachmentsBulk(categoryOrKind, options = {}) {
+      if (!Array.isArray(conAttachments) || conAttachments.length === 0) return 0;
+
+      const cat = String(categoryOrKind || 'all').toLowerCase();
+      let toDelete = [];
+      let label = 'all';
+
+      if (cat === 'all') {
+        toDelete = [...conAttachments];
+        label = 'all';
+      } else if (cat === 'pdf') {
+        toDelete = conAttachments.filter(item => item && item.kind === 'pdf');
+        label = 'PDF';
+      } else if (cat === 'pics' || cat === 'images') {
+        toDelete = conAttachments.filter(item => item && item.kind === 'pics');
+        label = 'image';
+      } else if (cat === 'sounds' || cat === 'audio') {
+        toDelete = conAttachments.filter(item => item && item.kind === 'sounds');
+        label = 'audio';
+      } else if (cat === 'videos' || cat === 'video') {
+        toDelete = conAttachments.filter(item => item && (item.kind === 'video' || item.kind === 'videos'));
+        label = 'video';
+      } else if (cat === 'other') {
+        toDelete = conAttachments.filter(item => item && !['pdf', 'pics', 'sounds', 'videos'].includes(item.kind));
+        label = 'other';
+      } else {
+        toDelete = conAttachments.filter(item => item && item.kind === cat);
+        label = cat;
+      }
+
+      if (!toDelete.length) return 0;
+
+      const deleteIds = new Set(toDelete.map(a => String(a.id || '')));
+
+      conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
+
+      conPageSnapshots = conPageSnapshots.map(page => {
+        const base = page && typeof page === 'object' ? page : conBuildEmptyPageSnapshot();
+        return {
+          ...base,
+          media: Array.isArray(base.media)
+            ? base.media.filter(item => !deleteIds.has(String((item && item.attachmentId) || '')))
+            : [],
+          backgroundPdf: (base.backgroundPdf && deleteIds.has(String(base.backgroundPdf.attachmentId || '')))
+            ? null
+            : (base.backgroundPdf || null),
+          boardBg: (base.boardBg && deleteIds.has(String(base.boardBg.attachmentId || '')))
+            ? null
+            : (base.boardBg || null)
+        };
+      });
+
+      _conRestorePageToBoard(conPageSnapshots[conCurrentPageIndex] || conBuildEmptyPageSnapshot());
+      if (window.conUpdatePageBar) window.conUpdatePageBar();
+
+      for (const item of toDelete) {
+        if (item && item._cachedObjectUrl) {
+          try { URL.revokeObjectURL(item._cachedObjectUrl); } catch { }
+        }
+        const removedRelativePath = String((item && item.relativePath) || '').trim();
+        if (removedRelativePath
+          && window.Desktop
+          && Desktop.isElectron()
+          && typeof Desktop.deleteByPath === 'function') {
+          try {
+            await Desktop.deleteByPath('mindmaps', removedRelativePath, { recursive: false, force: true });
+          } catch (error) {
+            console.warn('Could not delete attachment file from disk:', removedRelativePath, error);
+          }
+        }
+      }
+
+      conAttachments = conAttachments.filter(item => !deleteIds.has(String(item.id || '')));
+
+      conRenderAttachmentSummary();
+      if (!(options && options.silent) && typeof mdbToast === 'function') {
+        mdbToast('Deleted ' + toDelete.length + ' ' + label + ' attachment' + (toDelete.length === 1 ? '' : 's') + '.');
+      }
+      return toDelete.length;
+    }
+
+    function conOpenRemoveAllAttachedPopover(anchorBtn) {
+      conRemoveManageMediaDeletePopup();
+      if (!Array.isArray(conAttachments) || conAttachments.length === 0) {
+        if (typeof mdbToast === 'function') mdbToast('No attached documents to remove.');
+        return;
+      }
+
+      const counts = { all: conAttachments.length, pdf: 0, pics: 0, sounds: 0, videos: 0, other: 0 };
+      conAttachments.forEach(att => {
+        const k = att && att.kind;
+        if (k === 'pdf') counts.pdf += 1;
+        else if (k === 'pics') counts.pics += 1;
+        else if (k === 'sounds') counts.sounds += 1;
+        else if (k === 'videos') counts.videos += 1;
+        else counts.other += 1;
+      });
+
+      const pop = document.createElement('div');
+      pop.id = 'con-media-delete-popover';
+      pop.className = 'con-media-delete-popover';
+      pop.style.width = '330px';
+      pop.style.maxWidth = 'calc(100vw - 16px)';
+
+      function renderCategoryChoices() {
+        pop.innerHTML = '';
+
+        const title = document.createElement('div');
+        title.style.cssText = 'font-weight:800; font-size:0.82rem; color:#111; display:flex; align-items:center; gap:6px; margin-bottom:2px;';
+        title.innerHTML = '<span>' + (t('conRemoveAllAttachedTitle') || 'Remove Attached Documents') + '</span>';
+        pop.appendChild(title);
+
+        const hint = document.createElement('div');
+        hint.style.cssText = 'font-size:0.75rem; color:#555; margin-bottom:8px; line-height:1.3;';
+        hint.textContent = t('conRemoveAllAttachedHint') || 'Choose which attachments to permanently remove from this board:';
+        pop.appendChild(hint);
+
+        const list = document.createElement('div');
+        list.style.cssText = 'display:flex; flex-direction:column; gap:5px; margin-bottom:8px;';
+
+        const categories = [
+          { key: 'all', label: t('conRemoveAllCategories') || 'All attached documents (All categories)', count: counts.all, danger: true },
+          { key: 'pdf', label: t('conRemoveAllPdf') || 'All PDF documents', count: counts.pdf },
+          { key: 'pics', label: t('conRemoveAllImages') || 'All Images', count: counts.pics },
+          { key: 'sounds', label: t('conRemoveAllAudio') || 'All Sounds / Audio', count: counts.sounds },
+          { key: 'videos', label: t('conRemoveAllVideos') || 'All Videos', count: counts.videos },
+        ];
+        if (counts.other > 0) {
+          categories.push({ key: 'other', label: t('conRemoveAllOther') || 'Other Documents', count: counts.other });
+        }
+
+        categories.forEach(cat => {
+          if (cat.count === 0 && cat.key !== 'all') return;
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'con-media-manage-btn' + (cat.danger ? ' con-media-manage-btn-danger' : '');
+          btn.style.cssText = 'display:flex; align-items:center; justify-content:space-between; padding:6px 10px; font-size:0.76rem; border-radius:5px; text-align:left; gap:8px;' + (cat.danger ? ' font-weight:800;' : '');
+
+          const labelSpan = document.createElement('span');
+          labelSpan.textContent = cat.label;
+          const badge = document.createElement('span');
+          badge.style.cssText = 'font-weight:700; opacity:0.8; font-size:0.72rem; padding:1px 6px; border-radius:10px; background:rgba(0,0,0,0.06); flex-shrink:0;';
+          badge.textContent = cat.count;
+
+          btn.appendChild(labelSpan);
+          btn.appendChild(badge);
+          btn.onclick = () => renderConfirmation(cat);
+          list.appendChild(btn);
+        });
+
+        pop.appendChild(list);
+
+        const footer = document.createElement('div');
+        footer.style.cssText = 'display:flex; justify-content:flex-end;';
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'con-media-manage-btn';
+        cancelBtn.textContent = t('btnCancel') || 'Cancel';
+        cancelBtn.onclick = () => conRemoveManageMediaDeletePopup();
+        footer.appendChild(cancelBtn);
+        pop.appendChild(footer);
+      }
+
+      function renderConfirmation(cat) {
+        pop.innerHTML = '';
+
+        const title = document.createElement('div');
+        title.style.cssText = 'font-weight:800; font-size:0.82rem; color:#b91c1c; display:flex; align-items:center; gap:6px; margin-bottom:4px;';
+        title.innerHTML = '<span>Confirm Removal</span>';
+        pop.appendChild(title);
+
+        const msg = document.createElement('div');
+        msg.style.cssText = 'font-size:0.77rem; color:#222; line-height:1.4; margin-bottom:12px;';
+        if (cat.key === 'all') {
+          msg.textContent = 'Delete ALL ' + cat.count + ' attached document(s) across all categories? This will permanently remove them from all board pages and session files.';
+        } else {
+          msg.textContent = 'Delete all ' + cat.count + ' attached ' + cat.label.toLowerCase() + '? This will permanently remove them from all board pages and session files.';
+        }
+        pop.appendChild(msg);
+
+        const actions = document.createElement('div');
+        actions.style.cssText = 'display:flex; justify-content:flex-end; gap:6px;';
+
+        const backBtn = document.createElement('button');
+        backBtn.type = 'button';
+        backBtn.className = 'con-media-manage-btn';
+        backBtn.textContent = 'Back';
+        backBtn.onclick = () => renderCategoryChoices();
+
+        const confirmBtn = document.createElement('button');
+        confirmBtn.type = 'button';
+        confirmBtn.className = 'con-media-manage-btn con-media-manage-btn-danger';
+        confirmBtn.textContent = 'Delete ' + (cat.key === 'all' ? 'All' : cat.count);
+        confirmBtn.onclick = async () => {
+          confirmBtn.disabled = true;
+          confirmBtn.textContent = 'Deleting...';
+          await conDeleteAttachmentsBulk(cat.key);
+          conRemoveManageMediaDeletePopup();
+          window.conOpenManageMediaChooser({ keepPosition: true });
+        };
+
+        actions.appendChild(backBtn);
+        actions.appendChild(confirmBtn);
+        pop.appendChild(actions);
+      }
+
+      renderCategoryChoices();
+      document.body.appendChild(pop);
+
+      const rect = anchorBtn && typeof anchorBtn.getBoundingClientRect === 'function'
+        ? anchorBtn.getBoundingClientRect()
+        : { left: window.innerWidth / 2, top: window.innerHeight / 2, bottom: window.innerHeight / 2 };
+
+      const popRect = pop.getBoundingClientRect();
+      let left = Math.round(rect.left);
+      let top = Math.round(rect.bottom + 8);
+      if (left + popRect.width > window.innerWidth - 8) {
+        left = Math.max(8, Math.round(window.innerWidth - popRect.width - 8));
+      }
+      if (top + popRect.height > window.innerHeight - 8) {
+        top = Math.max(8, Math.round(rect.top - popRect.height - 8));
+      }
+
+      pop.style.left = left + 'px';
+      pop.style.top = top + 'px';
+
+      const onOutside = ev => {
+        if (!pop.contains(ev.target)) {
+          conRemoveManageMediaDeletePopup();
+          document.removeEventListener('mousedown', onOutside, true);
+        }
+      };
+
+      setTimeout(() => {
+        document.addEventListener('mousedown', onOutside, true);
+      }, 0);
+    }
+
     window.conOpenManageMediaChooser = function (anchorOrOptions) {
       conRemoveInsertAttachmentChooser();
 
@@ -9117,10 +9357,27 @@
         window.conOpenManageMediaChooser({ keepPosition: true });
       };
 
+      const removeAttachedBtn = document.createElement('button');
+      removeAttachedBtn.type = 'button';
+      removeAttachedBtn.className = 'con-media-manage-btn con-media-manage-btn-danger';
+      removeAttachedBtn.textContent = (t('conRemoveAttachedDocs') || 'Attached Docs ▾');
+      removeAttachedBtn.title = 'Remove attached documents (all categories, PDFs, images, etc.)';
+      if (!conAttachments.length) {
+        removeAttachedBtn.disabled = true;
+        removeAttachedBtn.style.opacity = '0.5';
+        removeAttachedBtn.style.cursor = 'not-allowed';
+      } else {
+        removeAttachedBtn.onclick = (e) => {
+          e.stopPropagation();
+          conOpenRemoveAllAttachedPopover(removeAttachedBtn);
+        };
+      }
+
       quickActions.appendChild(addBtn);
       quickActions.appendChild(recordBtn);
       quickActions.appendChild(removeAllBtn);
       quickActions.appendChild(clearPdfBtn);
+      quickActions.appendChild(removeAttachedBtn);
       chooser.appendChild(quickActions);
 
       if (!conAttachments.length) {
@@ -9128,6 +9385,26 @@
         empty.className = 'con-media-manage-empty';
         empty.textContent = 'No attachments yet. Use Attach to add media files.';
         chooser.appendChild(empty);
+      } else {
+        const attachHeaderRow = document.createElement('div');
+        attachHeaderRow.style.cssText = 'display:flex; align-items:center; justify-content:space-between; padding:4px 4px 2px; font-size:0.72rem; color:#666; font-weight:700; border-top:1px dashed #e2e8f0; margin-top:2px;';
+
+        const countLabel = document.createElement('span');
+        countLabel.textContent = conAttachments.length + ' attached document' + (conAttachments.length === 1 ? '' : 's');
+        attachHeaderRow.appendChild(countLabel);
+
+        const removeAllLink = document.createElement('button');
+        removeAllLink.type = 'button';
+        removeAllLink.className = 'con-media-manage-btn con-media-manage-btn-danger';
+        removeAllLink.style.fontSize = '0.68rem';
+        removeAllLink.textContent = (t('conRemoveAttachedDocs') || 'Remove all attached...');
+        removeAllLink.title = 'Remove all attached documents (all categories, PDFs, images, etc.)';
+        removeAllLink.onclick = (e) => {
+          e.stopPropagation();
+          conOpenRemoveAllAttachedPopover(removeAllLink);
+        };
+        attachHeaderRow.appendChild(removeAllLink);
+        chooser.appendChild(attachHeaderRow);
       }
 
       conAttachments.forEach(att => {
@@ -10521,7 +10798,7 @@
       const hintEl = document.getElementById('con-pdf-page-picker-hint');
       const grid = document.getElementById('con-pdf-page-picker-grid');
       const pngCheck = document.getElementById('con-pdf-insert-as-png-check');
-      if (pngCheck) pngCheck.checked = false;
+      if (pngCheck) pngCheck.checked = true;
       window.conPdfToggleImageOptions();
       window.conPdfUpdateFormatControls();
       if (hintEl) hintEl.textContent = '\u201c' + (att.name || 'document.pdf') + '\u201d \u2014 ' + pageCount + ' page' + (pageCount === 1 ? '' : 's') + '. Click to select/deselect. Each selected page becomes its own board page.';
@@ -15924,9 +16201,11 @@
         const count = _conPreviewSelectedIdx.size;
         const copyBtn = document.getElementById('con-pages-copy-selected-btn');
         const pasteBtn = document.getElementById('con-pages-paste-copied-btn');
+        const delBtn = document.getElementById('con-pages-delete-selected-btn');
         const info = document.getElementById('con-pages-selection-info');
         if (copyBtn) copyBtn.disabled = count === 0;
         if (pasteBtn) pasteBtn.disabled = !conHasCopiedPages();
+        if (delBtn) delBtn.disabled = count === 0;
         if (info) info.textContent = count + ' selected';
       }
 
@@ -15958,7 +16237,79 @@
         const pasteBtnMain = document.getElementById('con-paste-page-btn');
         if (pasteBtnMain) pasteBtnMain.disabled = false;
         conPreviewUpdateSelectionUi();
-        mdbToast('📋 Copied ' + indices.length + ' page' + (indices.length === 1 ? '' : 's'));
+        mdbToast('Copied ' + indices.length + ' page' + (indices.length === 1 ? '' : 's'));
+      };
+
+      window.conPreviewDeleteSelectedPages = function (anchorEl) {
+        const indices = Array.from(_conPreviewSelectedIdx).sort((a, b) => a - b);
+        if (indices.length === 0) {
+          mdbToast('Select at least one page first');
+          return;
+        }
+        if (indices.length >= conPageSnapshots.length) {
+          mdbToast('Cannot delete all pages — at least one page must remain.');
+          return;
+        }
+
+        const title = document.getElementById('con-page-del-popup-title');
+        const confirmBtn = document.getElementById('con-page-del-confirm-btn');
+        const popup = document.getElementById('con-page-del-popup');
+        if (!popup || !anchorEl) return;
+
+        title.textContent = 'Delete ' + indices.length + ' selected page' + (indices.length === 1 ? '' : 's') + '?';
+        confirmBtn.style.display = '';
+        confirmBtn.onclick = function () {
+          conPageDelPopupClose();
+          conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
+
+          const removeSet = new Set(indices);
+          let newActiveIdx = conCurrentPageIndex;
+          if (removeSet.has(conCurrentPageIndex)) {
+            let found = -1;
+            for (let i = conCurrentPageIndex + 1; i < conPageSnapshots.length; i++) {
+              if (!removeSet.has(i)) { found = i; break; }
+            }
+            if (found === -1) {
+              for (let i = conCurrentPageIndex - 1; i >= 0; i--) {
+                if (!removeSet.has(i)) { found = i; break; }
+              }
+            }
+            newActiveIdx = found >= 0 ? found : 0;
+          }
+
+          let shiftCount = 0;
+          indices.forEach(idx => {
+            if (idx < newActiveIdx) shiftCount++;
+          });
+          const targetIndexAfterSplice = Math.max(0, newActiveIdx - shiftCount);
+
+          for (let i = indices.length - 1; i >= 0; i--) {
+            const delIdx = indices[i];
+            conPageSnapshots.splice(delIdx, 1);
+            if (Array.isArray(_conPageSnapshotPngs)) _conPageSnapshotPngs.splice(delIdx, 1);
+          }
+
+          conCurrentPageIndex = Math.min(targetIndexAfterSplice, Math.max(0, conPageSnapshots.length - 1));
+          _conRestorePageToBoard(conPageSnapshots[conCurrentPageIndex] || conBuildEmptyPageSnapshot());
+
+          _conPreviewSelectedIdx.clear();
+          conUpdatePageBar();
+          window.conOpenPagePreview();
+          mdbToast('Deleted ' + indices.length + ' page' + (indices.length === 1 ? '' : 's'));
+        };
+
+        const rect = anchorEl.getBoundingClientRect();
+        popup.style.top = (rect.bottom + 4) + 'px';
+        popup.style.left = Math.min(rect.left, window.innerWidth - 190) + 'px';
+        popup.classList.add('visible');
+
+        const handler = function (e) {
+          if (!popup.contains(e.target) && e.target !== anchorEl) {
+            conPageDelPopupClose();
+            document.removeEventListener('click', handler, true);
+          }
+        };
+        setTimeout(() => document.addEventListener('click', handler, true), 0);
       };
 
       window.conPreviewPasteCopiedPagesPrompt = async function () {
@@ -15982,7 +16333,7 @@
 
         const insertIdx = afterPage; // after page N => array index N
         const count = conPasteCopiedPagesPackage(pkg, insertIdx);
-        mdbToast('📋 Pasted ' + count + ' page' + (count === 1 ? '' : 's') + ' at page ' + (insertIdx + 1));
+        mdbToast('Pasted ' + count + ' page' + (count === 1 ? '' : 's') + ' at page ' + (insertIdx + 1));
         window.conOpenPagePreview();
       };
 
