@@ -3624,6 +3624,27 @@
                     value="320" class="bc-num-input"><span class="bc-unit">px</span></div>
               </div>
             </div>
+
+            <!-- 9b. Session Autosave -->
+            <div class="bc-section">
+              <div class="bc-section-title" id="bc-autosave-title" data-i18n="bcAutosaveTitle">Session Autosave</div>
+              <div class="bc-section-hint" id="bc-autosave-hint" data-i18n="bcAutosaveHint">Configure how long after changes are made the board automatically saves to disk.</div>
+              <div class="bc-fields-grid">
+                <label id="bc-autosave-label" data-i18n="bcAutosaveInterval">Autosave interval</label>
+                <div class="bc-field-row">
+                  <select id="bc-autosave-interval" class="bc-select">
+                    <option value="15" data-i18n="bcAutosave15s">15 seconds (Frequent)</option>
+                    <option value="30" data-i18n="bcAutosave30s">30 seconds</option>
+                    <option value="45" data-i18n="bcAutosave45s">45 seconds (Default)</option>
+                    <option value="60" data-i18n="bcAutosave1m">1 minute</option>
+                    <option value="90" data-i18n="bcAutosave90s">1.5 minutes</option>
+                    <option value="120" data-i18n="bcAutosave2m">2 minutes</option>
+                    <option value="300" data-i18n="bcAutosave5m">5 minutes</option>
+                    <option value="0" data-i18n="bcAutosaveDisabled">Disabled (Manual save only)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- Drawing & Tools Tab -->
@@ -29512,6 +29533,18 @@
     }
 
     const BOARD_SAVED_SESSIONS_KEY = 'board_saved_sessions_v1';
+    function boardGetAutosaveDebounceMs() {
+      const cfg = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG) ? BOARD_CONFIG : {};
+      if (typeof cfg.autosaveDebounceSec === 'number') {
+        if (cfg.autosaveDebounceSec <= 0) return 0; // Disabled
+        return Math.max(5000, cfg.autosaveDebounceSec * 1000);
+      }
+      return 45000;
+    }
+    function boardGetAutosaveMaxWaitMs(debounceMs) {
+      if (debounceMs <= 0) return 0;
+      return Math.max(debounceMs + 10000, Math.round(debounceMs * 1.33));
+    }
     const BOARD_AUTOSAVE_DEBOUNCE_MS = 45000;
     const BOARD_AUTOSAVE_MAX_WAIT_MS = 60000;
     const BOARD_MAX_SESSIONS_PER_CLASS = 12;
@@ -30865,6 +30898,15 @@
       if (new URLSearchParams(location.search).get('mirror') === '1') return;
       if (!_conCurrentFileName && !_conCurrentFolderName) return;
 
+      const debounceMs = boardGetAutosaveDebounceMs();
+      if (debounceMs <= 0) {
+        if (_boardMutationTimer) {
+          clearTimeout(_boardMutationTimer);
+          _boardMutationTimer = null;
+        }
+        return;
+      }
+
       const now = Date.now();
       if (!_boardMutationFirstDirtyAt) {
         _boardMutationFirstDirtyAt = now;
@@ -30875,8 +30917,9 @@
         _boardMutationTimer = null;
       }
 
+      const maxWaitMs = boardGetAutosaveMaxWaitMs(debounceMs);
       const elapsed = now - _boardMutationFirstDirtyAt;
-      const delay = Math.max(1000, Math.min(BOARD_AUTOSAVE_DEBOUNCE_MS, BOARD_AUTOSAVE_MAX_WAIT_MS - elapsed));
+      const delay = Math.max(1000, Math.min(debounceMs, maxWaitMs - elapsed));
 
       _boardMutationTimer = setTimeout(function _boardMutationFire() {
         _boardMutationTimer = null;
@@ -39578,6 +39621,26 @@
       set('bc-board-custom-width', _bcClampBoardDimension(bc.boardCustomWidthPx, 1600));
       set('bc-board-custom-height', _bcClampBoardDimension(bc.boardCustomHeightPx, 1000));
       _bcBuildSwatchList('bc-board-bg-preset-list', conExtractBoardBgPresetsFromConfig(bc));
+      set('bc-autosave-interval', bc.autosaveDebounceSec !== undefined ? bc.autosaveDebounceSec : 45);
+
+      if (typeof t === 'function') {
+        const _tr = (id, k) => { const el = document.getElementById(id); if (el) el.textContent = t(k); };
+        const _opt = (selId, val, k) => {
+          const opt = document.querySelector('#' + selId + ' option[value="' + val + '"]');
+          if (opt) opt.textContent = t(k);
+        };
+        _tr('bc-autosave-title', 'bcAutosaveTitle');
+        _tr('bc-autosave-hint', 'bcAutosaveHint');
+        _tr('bc-autosave-label', 'bcAutosaveInterval');
+        _opt('bc-autosave-interval', '15', 'bcAutosave15s');
+        _opt('bc-autosave-interval', '30', 'bcAutosave30s');
+        _opt('bc-autosave-interval', '45', 'bcAutosave45s');
+        _opt('bc-autosave-interval', '60', 'bcAutosave1m');
+        _opt('bc-autosave-interval', '90', 'bcAutosave90s');
+        _opt('bc-autosave-interval', '120', 'bcAutosave2m');
+        _opt('bc-autosave-interval', '300', 'bcAutosave5m');
+        _opt('bc-autosave-interval', '0', 'bcAutosaveDisabled');
+      }
 
       const layoutPresetEl = document.getElementById('bc-board-layout-preset');
       const layoutOrientationEl = document.getElementById('bc-board-custom-orientation');
@@ -40038,6 +40101,7 @@
         penPresets: _bcGetPenPresets(),
         shortcuts: _bcGetCustomShortcutsMap(),
         quickActions: _bcGetQuickActionsList(),
+        autosaveDebounceSec: getNum('bc-autosave-interval', 45),
       };
 
       window.BOARD_CONFIG = bc;
@@ -40224,6 +40288,11 @@
         saveBoardQuickActionsList(bc.quickActions);
       }
       renderQuickActionsToolbar();
+
+      // 11. Session Autosave
+      if (bc.autosaveDebounceSec !== undefined && _boardIsDirty) {
+        _boardScheduleSave('constellation');
+      }
     }
 
     // Auto-apply saved customise settings on load

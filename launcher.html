@@ -2000,11 +2000,11 @@
     return !document.hidden && _isWindowFocused;
   }
 
-  function flushInactiveTasks() {
+  function flushInactiveTasks(force) {
     if (_sbDirtyTasksWhileInactive.pinned || _sbDirtyTasksWhileInactive.planner || _sbDirtyTasksWhileInactive.docs) {
       var tasksToRun = Object.assign({}, _sbDirtyTasksWhileInactive);
       _sbDirtyTasksWhileInactive = { pinned: false, planner: false, docs: false };
-      sbScheduleSync(tasksToRun);
+      sbScheduleSync(tasksToRun, force);
     }
   }
 
@@ -2029,13 +2029,13 @@
     }
   });
 
-  function sbScheduleSync(tasks) {
+  function sbScheduleSync(tasks, force) {
     if (!tasks) tasks = {};
     if (tasks.pinned) _sbPendingTasks.pinned = true;
     if (tasks.planner) _sbPendingTasks.planner = true;
     if (tasks.docs) _sbPendingTasks.docs = true;
 
-    if (!isLauncherActive()) {
+    if (!isLauncherActive() && !force) {
       if (tasks.pinned) _sbDirtyTasksWhileInactive.pinned = true;
       if (tasks.planner) _sbDirtyTasksWhileInactive.planner = true;
       if (tasks.docs) _sbDirtyTasksWhileInactive.docs = true;
@@ -2045,7 +2045,7 @@
     if (_sbSyncTimer) clearTimeout(_sbSyncTimer);
     _sbSyncTimer = setTimeout(async function() {
       _sbSyncTimer = null;
-      if (!isLauncherActive()) {
+      if (!isLauncherActive() && !force) {
         if (_sbPendingTasks.pinned) _sbDirtyTasksWhileInactive.pinned = true;
         if (_sbPendingTasks.planner) _sbDirtyTasksWhileInactive.planner = true;
         if (_sbPendingTasks.docs) _sbDirtyTasksWhileInactive.docs = true;
@@ -2053,7 +2053,7 @@
         return;
       }
       if (_sbSyncRunning) {
-        sbScheduleSync({});
+        sbScheduleSync({}, force);
         return;
       }
       _sbSyncRunning = true;
@@ -2079,9 +2079,27 @@
       } catch(e) {
       } finally {
         _sbSyncRunning = false;
+        if (force) {
+          try {
+            if (typeof window.gc === 'function') window.gc();
+          } catch(e) {}
+        }
       }
     }, 1200);
   }
+
+  // Periodic background maintenance (every 10 minutes) to avoid memory buildup while unfocused
+  var BACKGROUND_MAINTENANCE_INTERVAL_MS = 10 * 60 * 1000;
+  function runLauncherBackgroundMaintenance() {
+    if (!isLauncherActive()) {
+      flushInactiveTasks(true);
+      try {
+        if (typeof window.gc === 'function') window.gc();
+      } catch (e) {}
+    }
+  }
+  window.runLauncherBackgroundMaintenance = runLauncherBackgroundMaintenance;
+  setInterval(runLauncherBackgroundMaintenance, BACKGROUND_MAINTENANCE_INTERVAL_MS);
 
   // ── Count popup ─────────────────────────────────────────
   var _sbCountTarget = null;

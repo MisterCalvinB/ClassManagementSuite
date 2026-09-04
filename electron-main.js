@@ -376,6 +376,20 @@ function startMemoryHeartbeat() {
   }, 5 * 60 * 1000);
 }
 
+let _launcherBgCleanupInterval = null;
+function startLauncherBackgroundCleanup() {
+  if (_launcherBgCleanupInterval) clearInterval(_launcherBgCleanupInterval);
+  _launcherBgCleanupInterval = setInterval(() => {
+    try {
+      if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents && !mainWindow.isFocused()) {
+        mainWindow.webContents.executeJavaScript(
+          'if (typeof window.runLauncherBackgroundMaintenance === "function") { window.runLauncherBackgroundMaintenance(); } else if (typeof window.gc === "function") { try { window.gc(); } catch(_) {} }'
+        ).catch(() => {});
+      }
+    } catch (_) {}
+  }, 10 * 60 * 1000);
+}
+
 function getSaveTargets() {
   const writableRoot = getWritableRootDir();
   const customDataRoot = path.join(writableRoot, 'user/custom-data');
@@ -8579,6 +8593,7 @@ ipcMain.handle('app:get-screen-sources', async (_event, request = {}) => {
 
 app.whenReady().then(async () => {
   startMemoryHeartbeat();
+  startLauncherBackgroundCleanup();
   let initialPageFile = getInitialPageFile();
 
   try {
