@@ -8797,7 +8797,8 @@
         media: [],
         backgroundPdf: null,
         boardBg: null,
-        boardBgColor: window._bcBoardDefaultBgColor || null
+        boardBgColor: window._bcBoardDefaultBgColor || null,
+        boardHeight: null
       };
     }
 
@@ -15463,6 +15464,19 @@
         conResetAttachments();
         _conCurrentFileName = null;
         if (typeof conUpdateRenameButtonVisibility === 'function') conUpdateRenameButtonVisibility();
+        const _clearBoardEl = document.getElementById('constellation-board');
+        if (_clearBoardEl) {
+          if (window._bcBoardLayoutConfig && window._bcBoardLayoutConfig.dims && window._bcBoardLayoutConfig.dims.h) {
+            _clearBoardEl.style.height = window._bcBoardLayoutConfig.dims.h + 'px';
+          } else {
+            _clearBoardEl.style.height = '';
+          }
+        }
+        try {
+          sessionStorage.removeItem('cmt-board-expanded-height');
+          sessionStorage.removeItem('cmt-board-expanded-height-0');
+          sessionStorage.removeItem('cmt-board-active-open-request');
+        } catch (_) { }
         if (resetTitle) {
           const titleInput = document.getElementById('con-title-input');
           const _tsTitle = conMakeTimestampTitle();
@@ -17077,13 +17091,20 @@
         const currentH = board.offsetHeight || board.clientHeight || 1200;
         const newH = Math.round(currentH + Number(deltaPx || 400));
         board.style.height = newH + 'px';
-        if (typeof conPageSnapshots !== 'undefined' && typeof conCurrentPageIndex === 'number' && conPageSnapshots[conCurrentPageIndex]) {
-          conPageSnapshots[conCurrentPageIndex].boardHeight = newH;
+        const pIdx = (typeof conCurrentPageIndex === 'number') ? conCurrentPageIndex : 0;
+        if (typeof conPageSnapshots !== 'undefined' && conPageSnapshots[pIdx]) {
+          conPageSnapshots[pIdx].boardHeight = newH;
         }
+        try {
+          sessionStorage.setItem('cmt-board-expanded-height-' + pIdx, String(newH));
+          sessionStorage.setItem('cmt-board-expanded-height', String(newH));
+        } catch (_) { }
         try {
           board.scrollBy({ top: Math.min(300, deltaPx), behavior: 'smooth' });
         } catch (_) { }
-        if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true });
+        if (typeof boardSetDirty === 'function') boardSetDirty(true);
+        if (typeof _boardScheduleSave === 'function') _boardScheduleSave('constellation');
+        if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true, boardHeight: newH });
       };
 
       // ---- Mirror: BroadcastChannel broadcast (main window only) ----
@@ -25128,6 +25149,24 @@
       bpUpdateBtn();
       initBoardSessionAutosave();
       await boardConsumePendingOpenRequestFromQuery();
+      const _initBrd = document.getElementById('constellation-board');
+      if (_initBrd) {
+        const _pIdx = (typeof conCurrentPageIndex === 'number') ? conCurrentPageIndex : 0;
+        const _initSnapH = (typeof conPageSnapshots !== 'undefined' && conPageSnapshots[_pIdx]?.boardHeight)
+          || (() => {
+            try {
+              const s = sessionStorage.getItem('cmt-board-expanded-height-' + _pIdx) || sessionStorage.getItem('cmt-board-expanded-height');
+              const v = parseInt(s, 10);
+              return (!isNaN(v) && v > 0) ? v : null;
+            } catch (_) { return null; }
+          })();
+        if (_initSnapH && _initSnapH > 0) {
+          _initBrd.style.height = _initSnapH + 'px';
+          if (conPageSnapshots && conPageSnapshots[_pIdx]) {
+            conPageSnapshots[_pIdx].boardHeight = _initSnapH;
+          }
+        }
+      }
       // Set timestamp title on fresh load if no title was restored
       const _initTitleInput = document.getElementById('con-title-input');
       if (_initTitleInput && !_initTitleInput.value.trim()) {
@@ -29869,17 +29908,29 @@
     let _noteCurrentFileName = null; // set when a .js file is loaded; enables direct overwrite on Save
 
     function boardReportActiveFileContext() {
-      if (!(window.Desktop && typeof Desktop.updateSessionContext === 'function')) return;
       if (_conCurrentFileName) {
         const rel = _conCurrentFolderName ? (_conCurrentFolderName + '/' + _conCurrentFileName) : _conCurrentFileName;
-        Desktop.updateSessionContext({
-          target: 'mindmaps',
-          filename: _conCurrentFileName,
-          relativePath: rel,
-          section: 'constellation'
-        }).catch(() => {});
+        try {
+          sessionStorage.setItem('cmt-board-active-open-request', JSON.stringify({
+            target: 'mindmaps',
+            filename: _conCurrentFileName,
+            relativePath: rel,
+            section: 'constellation'
+          }));
+        } catch (_) { }
+        if (window.Desktop && typeof Desktop.updateSessionContext === 'function') {
+          Desktop.updateSessionContext({
+            target: 'mindmaps',
+            filename: _conCurrentFileName,
+            relativePath: rel,
+            section: 'constellation'
+          }).catch(() => {});
+        }
       } else {
-        Desktop.updateSessionContext(null).catch(() => {});
+        try { sessionStorage.removeItem('cmt-board-active-open-request'); } catch (_) { }
+        if (window.Desktop && typeof Desktop.updateSessionContext === 'function') {
+          Desktop.updateSessionContext(null).catch(() => {});
+        }
       }
     }
 
@@ -30696,6 +30747,23 @@
         boardBackgroundColor: _conBoardBgColor || null,
         tables: window.conSerializeTables ? window.conSerializeTables() : [],
         boardStickers: (window._conBoardStickers || []).map(s => ({ id: s.id, emoji: s.emoji, x: Number(s.x) || 0, y: Number(s.y) || 0, size: Number(s.size) || 40 })),
+        boardHeight: (() => {
+          const b = document.getElementById('constellation-board');
+          if (b && b.style && b.style.height) {
+            const val = parseInt(b.style.height, 10);
+            if (!isNaN(val) && val > 0) return val;
+          }
+          const pIdx = (typeof conCurrentPageIndex === 'number') ? conCurrentPageIndex : 0;
+          if (typeof conPageSnapshots !== 'undefined' && conPageSnapshots[pIdx] && conPageSnapshots[pIdx].boardHeight) {
+            return conPageSnapshots[pIdx].boardHeight;
+          }
+          try {
+            const s = sessionStorage.getItem('cmt-board-expanded-height-' + pIdx) || sessionStorage.getItem('cmt-board-expanded-height');
+            const val = parseInt(s, 10);
+            if (!isNaN(val) && val > 0) return val;
+          } catch (_) { }
+          return null;
+        })(),
         _revision: (typeof window._conGetBoardRevision === 'function' ? window._conGetBoardRevision() : 1)
       };
     }
@@ -30707,7 +30775,8 @@
         nodeCount: (snapshot && snapshot.nodes || []).length,
         drawingCount: (snapshot && snapshot.drawings || []).length,
         groupCount: (snapshot && snapshot.groups || []).length,
-        hasBoardBg: !!(snapshot && snapshot.boardBg)
+        hasBoardBg: !!(snapshot && snapshot.boardBg),
+        boardHeight: snapshot && snapshot.boardHeight
       });
       const title = window.conGetTitle ? window.conGetTitle() : '';
       const dateCreated = boardSessionDateCreated.constellation;
@@ -30717,6 +30786,7 @@
         _isMirrorSync: !!(opts && opts.mirrorSync),
         title: title,
         dateCreated: dateCreated,
+        boardHeight: (snapshot && snapshot.boardHeight) || null,
         nodes: (snapshot && snapshot.nodes) || [],
         edges: (snapshot && snapshot.edges) || [],
         groups: (snapshot && snapshot.groups) || [],
@@ -30797,10 +30867,11 @@
         return data.pages.some(p => p && (
           (p.nodes || []).length || (p.notes || []).length ||
           (p.drawings || []).length || (p.shapes || []).length || (p.masks || []).length ||
-          (p.media || []).length || (p.backgroundPdf && (p.backgroundPdf.relativePath || p.backgroundPdf.attachmentId)) || p.boardBgColor || p.boardBackgroundColor || p.backgroundColor
+          (p.media || []).length || (p.backgroundPdf && (p.backgroundPdf.relativePath || p.backgroundPdf.attachmentId)) || p.boardBgColor || p.boardBackgroundColor || p.backgroundColor || p.boardHeight
         ));
       }
       // Single-page (flat) format
+      if (data.boardHeight) return true;
       if ((data.nodes || []).length) return true;
       if ((data.edges || []).length) return true;
       if ((data.groups || []).length) return true;
@@ -34199,6 +34270,35 @@
       }
     }
 
+    function conGetBoardContentBottomFromData(data) {
+      if (!data) return 0;
+      let maxBottom = 0;
+      (data.nodes || []).forEach(n => {
+        const fs = parseFloat(n.fontSize) || 16;
+        const h = fs * 2.5 + 20;
+        const b = (Number(n.y) || 0) + h;
+        if (b > maxBottom) maxBottom = b;
+      });
+      (data.notes || []).forEach(n => {
+        const h = Number(n.height) || (Number(n.fontSize) || 14) * 4 + 30;
+        const b = (Number(n.y) || 0) + h;
+        if (b > maxBottom) maxBottom = b;
+      });
+      (data.media || []).forEach(m => {
+        const b = (Number(m.y) || 0) + (Number(m.h) || 100);
+        if (b > maxBottom) maxBottom = b;
+      });
+      (data.shapes || []).forEach(s => {
+        const b = (Number(s.y) || 0) + (Number(s.h) || 50);
+        if (b > maxBottom) maxBottom = b;
+      });
+      (data.drawings || []).forEach(d => {
+        const b = (Number(d.y) || 0) + (Number(d.h) || 50);
+        if (b > maxBottom) maxBottom = b;
+      });
+      return maxBottom;
+    }
+
     function _conRestoreSession(data) {
       _conIsRestoringSession = true;
       try {
@@ -34262,7 +34362,8 @@
               boardBg: p.boardBg || null,
               boardBgColor: p.boardBgColor || p.boardBackgroundColor || p.backgroundColor || null,
               boardBackgroundColor: p.boardBgColor || p.boardBackgroundColor || p.backgroundColor || null,
-              boardStickers: p.boardStickers || []
+              boardStickers: p.boardStickers || [],
+              boardHeight: (p && p.boardHeight) || null
             } : {});
             conCurrentPageIndex = restoreIdx;
             const pageData = conPageSnapshots[restoreIdx];
@@ -34271,6 +34372,7 @@
               _type: data._type || 'constellation',
               dateCreated: data.dateCreated,
               title: data.title || '',
+              boardHeight: pageData.boardHeight || null,
               nodes: pageData.nodes,
               edges: pageData.edges,
               groups: pageData.groups,
@@ -34288,7 +34390,9 @@
             };
           } else {
             // Single-page format — reset to one page
-            conPageSnapshots = [conBuildEmptyPageSnapshot()];
+            const singleSnap = conBuildEmptyPageSnapshot();
+            if (data && data.boardHeight) singleSnap.boardHeight = data.boardHeight;
+            conPageSnapshots = [singleSnap];
             conCurrentPageIndex = 0;
           }
 
@@ -34316,6 +34420,15 @@
         if (isMirrorSync) {
           // ── Non-destructive in-place reconciliation for Mirror Presentation Mode ──
           const brd = conGetBoard();
+          if (brd) {
+            if (data && data.boardHeight && Number(data.boardHeight) > 0) {
+              brd.style.height = data.boardHeight + 'px';
+            } else if (window._bcBoardLayoutConfig && window._bcBoardLayoutConfig.dims && window._bcBoardLayoutConfig.dims.h) {
+              brd.style.height = window._bcBoardLayoutConfig.dims.h + 'px';
+            } else {
+              brd.style.height = '';
+            }
+          }
           const existingNodes = conGetNodes();
           const existingNodeMap = new Map(existingNodes.map(n => [n.id, n]));
           const keepNodeIds = new Set();
@@ -34636,6 +34749,44 @@
       if (window.conSetNextId) window.conSetNextId(maxNum + 2);
 
       const brd = conGetBoard();
+      const contentBottom = conGetBoardContentBottomFromData(data);
+      let resolvedHeight = (data && Number(data.boardHeight) > 0) ? Number(data.boardHeight) : null;
+      if (!resolvedHeight) {
+        try {
+          const pIdx = (typeof conCurrentPageIndex === 'number') ? conCurrentPageIndex : 0;
+          const s = sessionStorage.getItem('cmt-board-expanded-height-' + pIdx) || sessionStorage.getItem('cmt-board-expanded-height');
+          const v = parseInt(s, 10);
+          if (!isNaN(v) && v > 0) resolvedHeight = v;
+        } catch (_) { }
+      }
+      if (contentBottom > 0 && (!resolvedHeight || resolvedHeight < contentBottom + 120)) {
+        const minNeeded = Math.round(contentBottom + 120);
+        const defaultH = (brd ? (brd.offsetHeight || brd.clientHeight) : 0) || (window.innerHeight * 2);
+        if (minNeeded > defaultH) resolvedHeight = minNeeded;
+      }
+      if (brd) {
+        if (resolvedHeight && resolvedHeight > 0) {
+          brd.style.height = resolvedHeight + 'px';
+        } else if (window._bcBoardLayoutConfig && window._bcBoardLayoutConfig.dims && window._bcBoardLayoutConfig.dims.h) {
+          brd.style.height = window._bcBoardLayoutConfig.dims.h + 'px';
+        } else {
+          brd.style.height = '';
+        }
+      }
+      const curPIdx = (typeof conCurrentPageIndex === 'number') ? conCurrentPageIndex : 0;
+      if (typeof conPageSnapshots !== 'undefined' && conPageSnapshots[curPIdx]) {
+        conPageSnapshots[curPIdx].boardHeight = resolvedHeight || null;
+      }
+      if (resolvedHeight && resolvedHeight > 0) {
+        try {
+          sessionStorage.setItem('cmt-board-expanded-height-' + curPIdx, String(resolvedHeight));
+          sessionStorage.setItem('cmt-board-expanded-height', String(resolvedHeight));
+        } catch (_) { }
+      } else {
+        try {
+          sessionStorage.removeItem('cmt-board-expanded-height-' + curPIdx);
+        } catch (_) { }
+      }
 
       // Restore title
       if (window.conSetTitle) window.conSetTitle(data.title || '');
@@ -36726,7 +36877,30 @@
       const params = new URLSearchParams(location.search);
       const wantsFile = params.get('openSession') === '1';
       const wantsLocal = params.get('openLocalSession') === '1';
-      if (!wantsFile && !wantsLocal) return;
+      if (!wantsFile && !wantsLocal) {
+        try {
+          const raw = sessionStorage.getItem('cmt-board-active-open-request');
+          if (raw) {
+            const req = JSON.parse(raw);
+            if (req && req.target && req.filename) {
+              await historyLoadSavedFile(req);
+              return;
+            }
+          }
+        } catch (_) { }
+
+        try {
+          const savedH = parseInt(sessionStorage.getItem('cmt-board-expanded-height-0') || sessionStorage.getItem('cmt-board-expanded-height'), 10);
+          if (savedH && savedH > 0) {
+            const b = document.getElementById('constellation-board');
+            if (b) b.style.height = savedH + 'px';
+            if (typeof conPageSnapshots !== 'undefined' && conPageSnapshots[0]) {
+              conPageSnapshots[0].boardHeight = savedH;
+            }
+          }
+        } catch (_) { }
+        return;
+      }
 
       if (wantsFile) {
         const target = params.get('openTarget') || '';
@@ -36738,6 +36912,9 @@
           mdbToast('⚠️ Missing file details for opening this session.');
           return;
         }
+        try {
+          sessionStorage.setItem('cmt-board-active-open-request', JSON.stringify({ target, filename, relativePath, section }));
+        } catch (_) { }
         await historyLoadSavedFile({ target, filename, relativePath, section });
         return;
       }
@@ -36762,6 +36939,14 @@
 
     async function historyLoadSavedFile(entry) {
       if (!entry || !entry.target || !entry.filename) return;
+      try {
+        sessionStorage.setItem('cmt-board-active-open-request', JSON.stringify({
+          target: entry.target,
+          filename: entry.filename,
+          relativePath: entry.relativePath || entry.filename,
+          section: entry.section || 'constellation'
+        }));
+      } catch (_) { }
       if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.readJson === 'function')) {
         mdbToast('⚠️ Opening history files requires the Electron desktop app.');
         return;
@@ -39340,10 +39525,20 @@
       if (!board) return;
       if (section && section.classList.contains('con-fullscreen')) return;
 
+      const pIdx = (typeof conCurrentPageIndex === 'number') ? conCurrentPageIndex : 0;
+      const savedH = (typeof conPageSnapshots !== 'undefined' && conPageSnapshots[pIdx]?.boardHeight)
+        || (() => {
+          try {
+            const s = sessionStorage.getItem('cmt-board-expanded-height-' + pIdx) || sessionStorage.getItem('cmt-board-expanded-height');
+            const v = parseInt(s, 10);
+            return (!isNaN(v) && v > 0) ? v : null;
+          } catch (_) { return null; }
+        })();
+
       if (!layout || !layout.dims) {
         board.style.width = '';
         board.style.maxWidth = '';
-        board.style.height = '';
+        board.style.height = (savedH && savedH > 0) ? (savedH + 'px') : '';
         board.style.marginLeft = '';
         board.style.marginRight = '';
         return;
@@ -39351,7 +39546,7 @@
 
       board.style.width = '100%';
       board.style.maxWidth = layout.dims.w + 'px';
-      board.style.height = layout.dims.h + 'px';
+      board.style.height = (savedH && savedH > layout.dims.h ? savedH : layout.dims.h) + 'px';
       board.style.marginLeft = 'auto';
       board.style.marginRight = 'auto';
     }

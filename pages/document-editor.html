@@ -268,7 +268,10 @@
   <div id="full-preview-overlay" hidden>
     <div id="full-preview-bar">
       <span id="full-preview-bar-title">Preview</span>
-      <button id="btn-close-preview">✕ Close (Esc)</button>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button id="btn-full-preview-export"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export PDF</button>
+        <button id="btn-close-preview">✕ Close (Esc)</button>
+      </div>
     </div>
     <div id="full-preview-scroll">
       <style id="full-preview-custom-css"></style>
@@ -897,15 +900,15 @@
         const html = currentDocType === 'html' ? raw : marked.parse(raw);
         const container = document.getElementById('preview-content');
         if (currentViewMode !== 'wysiwyg' || !container.isContentEditable || !container.contains(document.activeElement)) {
-          container.innerHTML = html;
-          _deExpandPageBreakComments(container);
-          await fixPreviewImages(container);
+          if (currentViewMode === 'wysiwyg') {
+            container.classList.remove('paged-mode', 'doc-pages-container');
+            container.innerHTML = html;
+            _deExpandPageBreakComments(container);
+            await fixPreviewImages(container);
+          } else {
+            await deRenderPagedPreview(container, html);
+          }
         }
-        
-        // Update page break rulers in live preview pane
-        requestAnimationFrame(() => {
-          deUpdatePageBreakRulers(container);
-        });
       } catch (e) {
         document.getElementById('preview-content').innerHTML =
           '<div class="render-error">Render error: ' + escHtml(String(e.message)) + '</div>';
@@ -3375,6 +3378,130 @@
       return css;
     }
 
+    async function deBuildPrintDocumentHtml() {
+      const lexendFontsCss = await getEmbeddedLexendFontsCss();
+
+      let katexCssLink = '';
+      try {
+        const r = await Desktop.resolvePath('app', 'modules/katex/dist/katex.min.css');
+        if (r && r.path) {
+          const fwd = r.path.replace(/\\/g, '/');
+          const normalized = fwd.startsWith('/') ? fwd : '/' + fwd;
+          katexCssLink = '<link rel="stylesheet" href="' + encodeURI('file://' + normalized) + '">';
+        }
+      } catch (e) { }
+
+      const customCss = deStripManagedLayoutCss(cssEditor ? cssEditor.getValue() : '');
+
+      let previewContent = '';
+      const previewEl = document.getElementById('preview-content');
+      if (previewEl && previewEl.classList.contains('paged-mode')) {
+        const bodies = previewEl.querySelectorAll('.doc-page-body');
+        if (bodies.length > 0) {
+          const wrapper = document.createElement('div');
+          bodies.forEach(b => {
+            Array.from(b.childNodes).forEach(node => {
+              wrapper.appendChild(node.cloneNode(true));
+            });
+          });
+          wrapper.querySelectorAll('.de-preview-footer').forEach(el => el.remove());
+          wrapper.querySelectorAll('.de-fp-ruler').forEach(el => el.remove());
+          await fixPreviewImages(wrapper);
+          previewContent = wrapper.innerHTML;
+        } else {
+          previewContent = previewEl.innerHTML;
+        }
+      } else if (previewEl) {
+        const _previewClone = previewEl.cloneNode(true);
+        _previewClone.querySelectorAll('.de-preview-footer').forEach(el => el.remove());
+        _previewClone.querySelectorAll('.de-fp-ruler').forEach(el => el.remove());
+        await fixPreviewImages(_previewClone);
+        previewContent = _previewClone.innerHTML;
+      }
+
+      const m = pageLayout.margins;
+      const marginCss = m.top + 'mm ' + m.right + 'mm ' + m.bottom + 'mm ' + m.left + 'mm';
+
+      const pdfFontFamily = pageLayout.fontFamily || "'Segoe UI', system-ui, sans-serif";
+      const pdfFontSize = (pageLayout.fontSize || 11) + 'pt';
+      const defaultPreviewCss =
+        '@page { size: auto; margin: ' + marginCss + '; }\n' +
+        'body { margin: 0; padding: 0; background: #fff; }\n' +
+        '.doc-preview { line-height: 1.65; color: #1a1a1a; font-size: ' + pdfFontSize + '; font-family: ' + pdfFontFamily + '; }\n' +
+        '.doc-preview h1 { font-size: 2em; font-weight: 800; margin: .67em 0 .4em; padding-bottom: .3em; border-bottom: 2px solid #eee; }\n' +
+        '.doc-preview h2 { font-size: 1.5em; font-weight: 700; margin: 1em 0 .4em; padding-bottom: .2em; border-bottom: 1px solid #eee; }\n' +
+        '.doc-preview h3 { font-size: 1.17em; font-weight: 700; margin: 1em 0 .4em; }\n' +
+        '.doc-preview h4 { font-size: 1em; font-weight: 700; margin: .8em 0 .3em; }\n' +
+        '.doc-preview p { margin: 0 0 1em; }\n' +
+        '.doc-preview ul, .doc-preview ol { padding-left: 2em; margin: 0 0 1em; }\n' +
+        '.doc-preview li { margin: .25em 0; }\n' +
+        '.doc-preview pre { background: #f6f8fa; border: 1px solid #e1e4e8; border-radius: 6px; padding: 16px; overflow-x: auto; margin: 0 0 1em; font-size: .88em; }\n' +
+        '.doc-preview code { background: rgba(27,31,35,.07); padding: 2px 5px; border-radius: 3px; font-size: .9em; font-family: \'Consolas\',\'Courier New\',monospace; }\n' +
+        '.doc-preview pre code { background: none; padding: 0; }\n' +
+        '.doc-preview blockquote { border-left: 4px solid #dfe2e5; padding: 2px 16px; color: #6a737d; margin: 0 0 1em; }\n' +
+        '.doc-preview table { border-collapse: collapse; width: 100%; margin: 0 0 1em; }\n' +
+        '.doc-preview th, .doc-preview td { border: 1px solid #dfe2e5; padding: 8px 13px; }\n' +
+        '.doc-preview th { background: #f6f8fa; font-weight: 700; }\n' +
+        '.doc-preview hr { border: none; border-top: 2px solid #eee; margin: 1.5em 0; }\n' +
+        '.de-page-break, .page-break { display: block; height: 0; margin: 0; padding: 0; border: none; page-break-after: always; break-after: page; }\n' +
+        '.math-display { margin: 1em 0; overflow-x: auto; text-align: center; }\n' +
+        (pageLayout.imageWidth && pageLayout.imageWidth !== 'auto'
+          ? '.doc-preview img { width: ' + pageLayout.imageWidth + '; max-width: 100%; height: auto; }\n'
+          : '.doc-preview img { max-width: 100%; height: auto; }\n');
+
+      const html = '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="UTF-8">\n' +
+        katexCssLink + '\n' +
+        '<style>\n* { box-sizing: border-box; margin: 0; padding: 0; }\n' +
+        lexendFontsCss + '\n' +
+        defaultPreviewCss + '\n' + customCss + '\n</style>\n' +
+        '</head>\n<body>\n<div class="doc-preview">\n' + previewContent + '\n</div>\n</body>\n</html>';
+
+      const pdfSize = pageLayout.size === 'Custom'
+        ? { width: Math.round(pageLayout.customW * 1000), height: Math.round(pageLayout.customH * 1000) }
+        : (pageLayout.orientation === 'landscape'
+          ? { width: Math.round(getPageDims().w * 1000), height: Math.round(getPageDims().h * 1000) }
+          : pageLayout.size);
+
+      const pdfOptions = {
+        landscape: pageLayout.orientation === 'landscape',
+        pageSize: pdfSize,
+        marginsType: 1, // no browser-imposed PDF margins; use @page margin from generated CSS
+        preferCSSPageSize: true
+      };
+
+      const hasPageNums = pageLayout.pageNumbers;
+      const hasFooter = pageLayout.footer && (pageLayout.footerText || '').trim();
+      if (hasPageNums || hasFooter) {
+        const font = (pageLayout.fontFamily || 'Segoe UI').split(',')[0].trim().replace(/^['"]|['"]$/g, '');
+        const ml = pageLayout.margins.left + 'mm';
+        const mr = pageLayout.margins.right + 'mm';
+        let rows = '';
+        if (hasFooter) {
+          const fa = pageLayout.footerAlign || 'center';
+          const faStyle = fa === 'left' ? 'text-align:left;padding-left:' + ml
+            : fa === 'right' ? 'text-align:right;padding-right:' + mr
+              : 'text-align:center';
+          const safeText = pageLayout.footerText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          rows += '<div style="width:100%;' + faStyle + '">' + safeText + '</div>';
+        }
+        if (hasPageNums) {
+          const pos = pageLayout.pageNumbersPos || 'center';
+          const paStyle = pos === 'left' ? 'text-align:left;padding-left:' + ml
+            : pos === 'right' ? 'text-align:right;padding-right:' + mr
+              : 'text-align:center';
+          rows += '<div style="width:100%;' + paStyle + '"><span class="pageNumber"></span></div>';
+        }
+        pdfOptions.displayHeaderFooter = true;
+        pdfOptions.headerTemplate = '<span></span>';
+        pdfOptions.footerTemplate =
+          '<div style="width:100%;font-size:8pt;color:#888;font-family:' + font + ',Arial,sans-serif">' +
+          rows +
+          '</div>';
+      }
+
+      return { html, pdfOptions, previewContent };
+    }
+
     async function exportPdf() {
       if (!window.Desktop || !Desktop.isElectron()) {
         showToast(t('deExportPdfNoElectron') || 'PDF export requires the Electron desktop app.', true);
@@ -3447,104 +3574,7 @@
         return;
       }
 
-      const lexendFontsCss = await getEmbeddedLexendFontsCss();
-
-      let katexCssLink = '';
-      try {
-        const r = await Desktop.resolvePath('app', 'modules/katex/dist/katex.min.css');
-        if (r && r.path) {
-          const fwd = r.path.replace(/\\/g, '/');
-          const normalized = fwd.startsWith('/') ? fwd : '/' + fwd;
-          katexCssLink = '<link rel="stylesheet" href="' + encodeURI('file://' + normalized) + '">';
-        }
-      } catch (e) { }
-
-      const customCss = deStripManagedLayoutCss(cssEditor ? cssEditor.getValue() : '');
-      const _previewClone = document.getElementById('preview-content').cloneNode(true);
-      _previewClone.querySelectorAll('.de-preview-footer').forEach(el => el.remove());
-      _previewClone.querySelectorAll('.de-fp-ruler').forEach(el => el.remove());
-      await fixPreviewImages(_previewClone);
-      const previewContent = _previewClone.innerHTML;
-      const m = pageLayout.margins;
-      const marginCss = m.top + 'mm ' + m.right + 'mm ' + m.bottom + 'mm ' + m.left + 'mm';
-
-      const pdfFontFamily = pageLayout.fontFamily || "'Segoe UI', system-ui, sans-serif";
-      const pdfFontSize = (pageLayout.fontSize || 11) + 'pt';
-      const defaultPreviewCss =
-        '@page { size: auto; margin: ' + marginCss + '; }\n' +
-        'body { margin: 0; padding: 0; background: #fff; }\n' +
-        '.doc-preview { line-height: 1.65; color: #1a1a1a; font-size: ' + pdfFontSize + '; font-family: ' + pdfFontFamily + '; }\n' +
-        '.doc-preview h1 { font-size: 2em; font-weight: 800; margin: .67em 0 .4em; padding-bottom: .3em; border-bottom: 2px solid #eee; }\n' +
-        '.doc-preview h2 { font-size: 1.5em; font-weight: 700; margin: 1em 0 .4em; padding-bottom: .2em; border-bottom: 1px solid #eee; }\n' +
-        '.doc-preview h3 { font-size: 1.17em; font-weight: 700; margin: 1em 0 .4em; }\n' +
-        '.doc-preview h4 { font-size: 1em; font-weight: 700; margin: .8em 0 .3em; }\n' +
-        '.doc-preview p { margin: 0 0 1em; }\n' +
-        '.doc-preview ul, .doc-preview ol { padding-left: 2em; margin: 0 0 1em; }\n' +
-        '.doc-preview li { margin: .25em 0; }\n' +
-        '.doc-preview pre { background: #f6f8fa; border: 1px solid #e1e4e8; border-radius: 6px; padding: 16px; overflow-x: auto; margin: 0 0 1em; font-size: .88em; }\n' +
-        '.doc-preview code { background: rgba(27,31,35,.07); padding: 2px 5px; border-radius: 3px; font-size: .9em; font-family: \'Consolas\',\'Courier New\',monospace; }\n' +
-        '.doc-preview pre code { background: none; padding: 0; }\n' +
-        '.doc-preview blockquote { border-left: 4px solid #dfe2e5; padding: 2px 16px; color: #6a737d; margin: 0 0 1em; }\n' +
-        '.doc-preview table { border-collapse: collapse; width: 100%; margin: 0 0 1em; }\n' +
-        '.doc-preview th, .doc-preview td { border: 1px solid #dfe2e5; padding: 8px 13px; }\n' +
-        '.doc-preview th { background: #f6f8fa; font-weight: 700; }\n' +
-        '.doc-preview hr { border: none; border-top: 2px solid #eee; margin: 1.5em 0; }\n' +
-        '.de-page-break, .page-break { display: block; height: 0; margin: 0; padding: 0; border: none; page-break-after: always; break-after: page; }\n' +
-        '.math-display { margin: 1em 0; overflow-x: auto; text-align: center; }\n' +
-        (pageLayout.imageWidth && pageLayout.imageWidth !== 'auto'
-          ? '.doc-preview img { width: ' + pageLayout.imageWidth + '; max-width: 100%; height: auto; }\n'
-          : '.doc-preview img { max-width: 100%; height: auto; }\n');
-
-      const html = '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="UTF-8">\n' +
-        katexCssLink + '\n' +
-        '<style>\n* { box-sizing: border-box; margin: 0; padding: 0; }\n' +
-        lexendFontsCss + '\n' +
-        defaultPreviewCss + '\n' + customCss + '\n</style>\n' +
-        '</head>\n<body>\n<div class="doc-preview">\n' + previewContent + '\n</div>\n</body>\n</html>';
-
-      // Build pdfOptions for Electron printToPDF
-      const pdfSize = pageLayout.size === 'Custom'
-        ? { width: Math.round(pageLayout.customW * 1000), height: Math.round(pageLayout.customH * 1000) }
-        : (pageLayout.orientation === 'landscape'
-          ? { width: Math.round(getPageDims().w * 1000), height: Math.round(getPageDims().h * 1000) }
-          : pageLayout.size);
-
-      const pdfOptions = {
-        landscape: pageLayout.orientation === 'landscape',
-        pageSize: pdfSize,
-        marginsType: 1, // no browser-imposed PDF margins; use @page margin from generated CSS
-        preferCSSPageSize: true
-      };
-
-      const hasPageNums = pageLayout.pageNumbers;
-      const hasFooter = pageLayout.footer && (pageLayout.footerText || '').trim();
-      if (hasPageNums || hasFooter) {
-        const font = (pageLayout.fontFamily || 'Segoe UI').split(',')[0].trim().replace(/^['"]|['"]$/g, '');
-        const ml = pageLayout.margins.left + 'mm';
-        const mr = pageLayout.margins.right + 'mm';
-        let rows = '';
-        if (hasFooter) {
-          const fa = pageLayout.footerAlign || 'center';
-          const faStyle = fa === 'left' ? 'text-align:left;padding-left:' + ml
-            : fa === 'right' ? 'text-align:right;padding-right:' + mr
-              : 'text-align:center';
-          const safeText = pageLayout.footerText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-          rows += '<div style="width:100%;' + faStyle + '">' + safeText + '</div>';
-        }
-        if (hasPageNums) {
-          const pos = pageLayout.pageNumbersPos || 'center';
-          const paStyle = pos === 'left' ? 'text-align:left;padding-left:' + ml
-            : pos === 'right' ? 'text-align:right;padding-right:' + mr
-              : 'text-align:center';
-          rows += '<div style="width:100%;' + paStyle + '"><span class="pageNumber"></span></div>';
-        }
-        pdfOptions.displayHeaderFooter = true;
-        pdfOptions.headerTemplate = '<span></span>';
-        pdfOptions.footerTemplate =
-          '<div style="width:100%;font-size:8pt;color:#888;font-family:' + font + ',Arial,sans-serif">' +
-          rows +
-          '</div>';
-      }
+      const { html, pdfOptions } = await deBuildPrintDocumentHtml();
 
       const defaultName = getPdfExportBaseName() + '.pdf';
       const request = { html, defaultName, pdfOptions };
@@ -3754,7 +3784,7 @@
 
     function updatePreviewFooter() {
       const container = document.getElementById('preview-content');
-      if (!container) return;
+      if (!container || container.classList.contains('paged-mode')) return;
       const existing = container.querySelector('.de-preview-footer');
       if (existing) existing.remove();
       if (pageLayout.footer && (pageLayout.footerText || '').trim()) {
@@ -3775,16 +3805,48 @@
       const fs = (pageLayout.fontSize || 11) * PT2PX;
       const imgW = pageLayout.imageWidth || 'auto';
       const imgCss = imgW === 'auto'
-        ? '.doc-preview img{max-width:100%;height:auto}'
-        : '.doc-preview img{width:' + imgW + ';max-width:100%;height:auto}';
+        ? '.doc-preview img, .doc-page-body img { max-width: 100%; height: auto; }\n'
+        : '.doc-preview img, .doc-page-body img { width: ' + imgW + '; max-width: 100%; height: auto; }\n';
+
+      const pageWPx = dims.w * MM2PX;
+      const pageHPx = dims.h * MM2PX;
+      const padTopPx = m.top * MM2PX;
+      const padRightPx = m.right * MM2PX;
+      const padBottomPx = m.bottom * MM2PX;
+      const padLeftPx = m.left * MM2PX;
+
       document.getElementById('page-layout-style').textContent =
-        '.doc-preview{' +
-        'max-width:' + (dims.w * MM2PX) + 'px!important;' +
-        'padding:' + (m.top * MM2PX) + 'px ' + (m.right * MM2PX) + 'px ' +
-        (m.bottom * MM2PX) + 'px ' + (m.left * MM2PX) + 'px!important;' +
-        'font-family:' + ff + '!important;' +
-        'font-size:' + fs + 'px!important;' +
-        '}' + imgCss;
+        ':root {\n' +
+        '  --page-w: ' + pageWPx + 'px;\n' +
+        '  --page-h: ' + pageHPx + 'px;\n' +
+        '  --page-pad-top: ' + padTopPx + 'px;\n' +
+        '  --page-pad-right: ' + padRightPx + 'px;\n' +
+        '  --page-pad-bottom: ' + padBottomPx + 'px;\n' +
+        '  --page-pad-left: ' + padLeftPx + 'px;\n' +
+        '  --page-font-family: ' + ff + ';\n' +
+        '  --page-font-size: ' + fs + 'px;\n' +
+        '}\n' +
+        '.doc-preview:not(.paged-mode) {\n' +
+        '  max-width: ' + pageWPx + 'px !important;\n' +
+        '  padding: ' + padTopPx + 'px ' + padRightPx + 'px ' + padBottomPx + 'px ' + padLeftPx + 'px !important;\n' +
+        '  font-family: ' + ff + ' !important;\n' +
+        '  font-size: ' + fs + 'px !important;\n' +
+        '}\n' +
+        '.doc-page-sheet {\n' +
+        '  width: ' + pageWPx + 'px;\n' +
+        '  min-height: ' + pageHPx + 'px;\n' +
+        '  max-height: ' + pageHPx + 'px;\n' +
+        '}\n' +
+        '.doc-page-body {\n' +
+        '  padding: ' + padTopPx + 'px ' + padRightPx + 'px ' + padBottomPx + 'px ' + padLeftPx + 'px !important;\n' +
+        '  font-family: ' + ff + ' !important;\n' +
+        '  font-size: ' + fs + 'px !important;\n' +
+        '}\n' +
+        imgCss;
+
+      if (currentDocType !== 'typ') {
+        renderPreview();
+      }
       deBroadcastState();
     }
 
@@ -4128,137 +4190,295 @@
       });
     }
 
-    function showFullPreview() {
+    async function deRenderPagedPreview(container, html) {
+      if (!container) return 1;
+
+      container.classList.add('doc-pages-container', 'paged-mode');
+      container.innerHTML = '';
+
+      const MM2PX = 3.7795;
+      const dims = getPageDims();
+      const pageWPx = Math.round(dims.w * MM2PX);
+      const pageHPx = Math.round(dims.h * MM2PX);
+      const m = pageLayout.margins;
+      const padTop = Math.round(m.top * MM2PX);
+      const padRight = Math.round(m.right * MM2PX);
+      const padBottom = Math.round(m.bottom * MM2PX);
+      const padLeft = Math.round(m.left * MM2PX);
+
+      // Usable content height inside the page sheet
+      const usableH = Math.max(100, pageHPx - padTop - padBottom);
+
+      // Parse HTML in sandbox
+      const sandbox = document.createElement('div');
+      sandbox.innerHTML = html || '<p><br></p>';
+      _deExpandPageBreakComments(sandbox);
+      await fixPreviewImages(sandbox);
+
+      // Group inline children into block elements
+      const blocks = [];
+      let inlineBuffer = [];
+      const flushInline = () => {
+        if (inlineBuffer.length > 0) {
+          const p = document.createElement('p');
+          inlineBuffer.forEach(n => p.appendChild(n));
+          blocks.push(p);
+          inlineBuffer = [];
+        }
+      };
+
+      Array.from(sandbox.childNodes).forEach(node => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          if (node.textContent.trim().length > 0) {
+            inlineBuffer.push(node);
+          }
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+          const tag = node.tagName.toUpperCase();
+          const isInline = ['SPAN', 'A', 'STRONG', 'EM', 'B', 'I', 'U', 'SMALL', 'CODE'].includes(tag);
+          if (isInline && !node.classList.contains('math-display')) {
+            inlineBuffer.push(node);
+          } else {
+            flushInline();
+            blocks.push(node);
+          }
+        }
+      });
+      flushInline();
+
+      if (blocks.length === 0) {
+        const p = document.createElement('p');
+        p.innerHTML = '<br>';
+        blocks.push(p);
+      }
+
+      function createSheet(pageNum) {
+        const sheet = document.createElement('div');
+        sheet.className = 'doc-page-sheet';
+        sheet.setAttribute('data-page', String(pageNum));
+        sheet.style.width = pageWPx + 'px';
+        sheet.style.height = pageHPx + 'px';
+        sheet.style.minHeight = pageHPx + 'px';
+        sheet.style.maxHeight = pageHPx + 'px';
+
+        const body = document.createElement('div');
+        body.className = 'doc-page-body';
+        body.style.padding = `${padTop}px ${padRight}px ${padBottom}px ${padLeft}px`;
+
+        const content = document.createElement('div');
+        content.className = 'doc-page-content';
+        body.appendChild(content);
+        sheet.appendChild(body);
+
+        if (pageLayout.footer || pageLayout.pageNumbers) {
+          const footer = document.createElement('div');
+          footer.className = 'doc-page-footer';
+          footer.style.paddingLeft = padLeft + 'px';
+          footer.style.paddingRight = padRight + 'px';
+          footer.style.height = Math.max(padBottom, 24) + 'px';
+
+          const textEl = document.createElement('span');
+          textEl.className = 'doc-page-footer-text';
+          if (pageLayout.footer && pageLayout.footerText) {
+            textEl.textContent = pageLayout.footerText;
+            textEl.style.textAlign = pageLayout.footerAlign || 'center';
+          }
+
+          const numEl = document.createElement('span');
+          numEl.className = 'doc-page-footer-num';
+          numEl.setAttribute('data-page-index', String(pageNum));
+
+          const pos = pageLayout.pageNumbersPos || 'center';
+          if (pos === 'left') {
+            if (pageLayout.pageNumbers) footer.appendChild(numEl);
+            footer.appendChild(textEl);
+          } else if (pos === 'right') {
+            footer.appendChild(textEl);
+            if (pageLayout.pageNumbers) footer.appendChild(numEl);
+          } else {
+            const spacer1 = document.createElement('span');
+            spacer1.style.width = '30px';
+            footer.appendChild(spacer1);
+            if (pageLayout.pageNumbers) footer.appendChild(numEl);
+            else footer.appendChild(textEl);
+            const spacer2 = document.createElement('span');
+            spacer2.style.width = '30px';
+            footer.appendChild(spacer2);
+          }
+          sheet.appendChild(footer);
+        }
+
+        return { sheet, body, content };
+      }
+
+      const sheets = [];
+      let currentSheet = createSheet(1);
+      sheets.push(currentSheet);
+      container.appendChild(currentSheet.sheet);
+
+      for (let i = 0; i < blocks.length; i++) {
+        const el = blocks[i];
+
+        // Check for manual page break
+        if (_deIsManualPageBreak(el)) {
+          if (currentSheet.content.childNodes.length > 0) {
+            currentSheet = createSheet(sheets.length + 1);
+            sheets.push(currentSheet);
+            container.appendChild(currentSheet.sheet);
+          }
+          continue;
+        }
+
+        currentSheet.content.appendChild(el);
+
+        // Check overflow against usable height
+        if (currentSheet.content.offsetHeight > usableH) {
+          if (currentSheet.content.childNodes.length === 1) {
+            // First item on sheet is larger than usable height; keep it to prevent infinite loop
+            continue;
+          }
+
+          // Move this element to the next sheet
+          currentSheet.content.removeChild(el);
+
+          // Keep with next: if the last remaining element is a heading (H1-H6)
+          // and there is at least one other element before it, move heading together
+          const lastEl = currentSheet.content.lastElementChild;
+          const isHeading = lastEl && ['H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(lastEl.tagName.toUpperCase());
+          let orphanHeading = null;
+          if (isHeading && currentSheet.content.children.length > 1) {
+            orphanHeading = lastEl;
+            currentSheet.content.removeChild(orphanHeading);
+          }
+
+          currentSheet = createSheet(sheets.length + 1);
+          sheets.push(currentSheet);
+          container.appendChild(currentSheet.sheet);
+
+          if (orphanHeading) {
+            currentSheet.content.appendChild(orphanHeading);
+          }
+          currentSheet.content.appendChild(el);
+        }
+      }
+
+      // Update page numbers: "Page X of N"
+      const totalPages = sheets.length;
+      container.querySelectorAll('.doc-page-footer-num').forEach(numEl => {
+        const idx = numEl.getAttribute('data-page-index') || '1';
+        numEl.textContent = 'Page ' + idx + ' / ' + totalPages;
+      });
+
+      return totalPages;
+    }
+
+    async function deEnsurePdfjsLib() {
+      if (!window._dePdfjsLib) {
+        const mod = await import('../modules/pdf.min.mjs');
+        mod.GlobalWorkerOptions.workerSrc = new URL('../modules/pdf.worker.min.mjs', location.href).href;
+        window._dePdfjsLib = mod;
+      }
+      return window._dePdfjsLib;
+    }
+
+    async function showFullPreview() {
       const overlay = document.getElementById('full-preview-overlay');
       const content = document.getElementById('full-preview-content');
 
-      // Apply active custom CSS (scoped to #full-preview-content)
-      document.getElementById('full-preview-custom-css').textContent =
-        deBuildScopedPreviewCss(cssEditor ? cssEditor.getValue() : document.getElementById('custom-css-style').textContent, '#full-preview-content');
-
-      // Page dimensions in px
-      const MM2PX = 3.7795;
-      const PT2PX = 1.3333;
-      const dims = getPageDims();
-      const m = pageLayout.margins;
-      const pageWidthPx = dims.w * MM2PX;
-      const pageHeightPx = dims.h * MM2PX;
-      const padTop = m.top * MM2PX;
-      const padRight = m.right * MM2PX;
-      const padBottom = m.bottom * MM2PX;
-      const padLeft = m.left * MM2PX;
-      const fontFamily = pageLayout.fontFamily || "'Segoe UI', system-ui, sans-serif";
-      const fontSize = ((pageLayout.fontSize || 11) * PT2PX) + 'px';
-
-      // Render content into the preview — identical layout to the PDF
-      const sourceHtml = document.getElementById('preview-content').innerHTML;
-      content.innerHTML = sourceHtml;
-      _deExpandPageBreakComments(content);
-      content.querySelectorAll('.de-preview-footer').forEach(el => el.remove());
-
-      // Style the container with the exact same layout the PDF uses
-      content.style.cssText =
-        'position:relative;box-sizing:border-box;' +
-        'width:' + pageWidthPx + 'px;max-width:100%;' +
-        'padding:' + padTop + 'px ' + padRight + 'px ' + padBottom + 'px ' + padLeft + 'px;' +
-        'font-family:' + fontFamily + ';font-size:' + fontSize + ';' +
-        'margin:0 auto;height:auto;min-height:' + pageHeightPx + 'px;overflow:visible;';
-
-      fixPreviewImages(content);
-
-      // Update title bar (initial)
       const docTitle = currentDocName ? currentDocName.replace(/\.(md|html)$/, '') : 'Untitled';
       document.getElementById('full-preview-bar-title').textContent = 'Preview — ' + docTitle;
-
-      // Show overlay BEFORE measuring — hidden means display:none, so scrollHeight would be 0
       overlay.removeAttribute('hidden');
 
-      // After the browser computes layout, overlay page-break rulers
-      requestAnimationFrame(() => {
-        const pageCount = deUpdatePageBreakRulers(content);
-        // Update title bar with page count
-        document.getElementById('full-preview-bar-title').textContent =
-          'Preview — ' + docTitle + ' (' + pageCount + ' page' + (pageCount !== 1 ? 's' : '') + ')';
-      });
+      const expBtn = document.getElementById('btn-full-preview-export');
+      if (expBtn && !expBtn._hasClickListener) {
+        expBtn._hasClickListener = true;
+        expBtn.addEventListener('click', () => exportPdf());
+      }
+
+      // Option B1: Electron exact print preview with PDF.js
+      if (window.Desktop && Desktop.isElectron()) {
+        content.classList.add('doc-preview', 'paged-mode');
+        content.innerHTML =
+          '<div class="full-preview-loading">' +
+          '  <div class="full-preview-spinner"></div>' +
+          '  <div>Rendering high-fidelity print preview…</div>' +
+          '</div>';
+
+        try {
+          const printData = await deBuildPrintDocumentHtml();
+          const req = {
+            html: printData.html,
+            pdfOptions: printData.pdfOptions,
+            previewOnly: true
+          };
+
+          const result = await Desktop.printPdf(req);
+          if (result && result.ok && result.base64) {
+            const pdfjsLib = await deEnsurePdfjsLib();
+            const binaryStr = atob(result.base64);
+            const bytes = new Uint8Array(binaryStr.length);
+            for (let i = 0; i < binaryStr.length; i++) {
+              bytes[i] = binaryStr.charCodeAt(i);
+            }
+
+            const pdfDoc = await pdfjsLib.getDocument({
+              data: bytes,
+              standardFontDataUrl: new URL('../modules/standard_fonts/', location.href).href,
+              disableFontFace: false
+            }).promise;
+
+            content.innerHTML = '';
+            const pagesWrapper = document.createElement('div');
+            pagesWrapper.className = 'full-preview-pdf-pages';
+
+            const dpr = Math.max(window.devicePixelRatio || 1, 2);
+
+            for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+              const page = await pdfDoc.getPage(pageNum);
+              const unscaledViewport = page.getViewport({ scale: 1.0 });
+              const displayWidth = Math.min(unscaledViewport.width, 860);
+              const scale = (displayWidth / unscaledViewport.width) * dpr;
+              const viewport = page.getViewport({ scale });
+
+              const canvasWrap = document.createElement('div');
+              canvasWrap.className = 'full-preview-pdf-canvas-wrap';
+              canvasWrap.style.width = displayWidth + 'px';
+
+              const canvas = document.createElement('canvas');
+              canvas.className = 'full-preview-pdf-canvas';
+              canvas.width = viewport.width;
+              canvas.height = viewport.height;
+              canvas.style.width = displayWidth + 'px';
+              canvas.style.height = (unscaledViewport.height * (displayWidth / unscaledViewport.width)) + 'px';
+
+              const ctx = canvas.getContext('2d');
+              await page.render({ canvasContext: ctx, viewport }).promise;
+
+              canvasWrap.appendChild(canvas);
+              pagesWrapper.appendChild(canvasWrap);
+            }
+
+            content.appendChild(pagesWrapper);
+            document.getElementById('full-preview-bar-title').textContent =
+              'Preview — ' + docTitle + ' (' + pdfDoc.numPages + ' page' + (pdfDoc.numPages !== 1 ? 's' : '') + ')';
+            return;
+          }
+        } catch (err) {
+          console.warn('PDF print preview fallback triggered:', err);
+        }
+      }
+
+      // Fallback: render using DOM paginator
+      const sourceHtml = document.getElementById('preview-content').innerHTML;
+      const pageCount = await deRenderPagedPreview(content, sourceHtml);
+      document.getElementById('full-preview-bar-title').textContent =
+        'Preview — ' + docTitle + ' (' + pageCount + ' page' + (pageCount !== 1 ? 's' : '') + ')';
     }
 
-    /** Compute and overlay page break rulers */
+    /** Legacy helper stub */
     function deUpdatePageBreakRulers(content) {
-      // Remove any previous rulers
-      content.querySelectorAll('.de-fp-ruler').forEach(el => el.remove());
-
-      // Read actual rendered padding from computed style — correct for both
-      // preview-content (CSS mm-based padding) and full-preview-content
-      // (inline px padding set by showFullPreview). Both resolve to the same px.
-      const cs = window.getComputedStyle(content);
-      const padTop    = parseFloat(cs.paddingTop)    || 0;
-      const padBottom = parseFloat(cs.paddingBottom) || 0;
-
-      // Always use the physical page height in px regardless of container width.
-      // Using containerW * (dims.h/dims.w) would shrink usablePageH whenever the
-      // pane is narrower than the real page, producing spurious extra rulers.
-      const MM2PX = 3.7795;
-      const dims = getPageDims();
-      const pageHeightPx = dims.h * MM2PX;
-      const usablePageH = pageHeightPx - padTop - padBottom;
-
-      // Collect manual page break positions (relative to the content box top)
-      const manualBreakYs = [];
-      const walker = document.createTreeWalker(content, NodeFilter.SHOW_ELEMENT);
-      let node;
-      while ((node = walker.nextNode())) {
-        if (_deIsManualPageBreak(node)) {
-          // offsetTop is relative to offsetParent; content must have position:relative
-          manualBreakYs.push(node.offsetTop);
-        }
-      }
-      manualBreakYs.sort((a, b) => a - b);
-
-      // Calculate break positions
-      const breakPositions = [];
-      const totalH = content.scrollHeight;
-      let pageTopY = padTop;          // Y where current page's content area begins
-      let manualIdx = 0;
-
-      for (let safety = 0; safety < 500; safety++) {
-        const autoBreakY = pageTopY + usablePageH;
-
-        // Check if any manual break occurs before the auto break
-        while (manualIdx < manualBreakYs.length && manualBreakYs[manualIdx] <= pageTopY) {
-          manualIdx++;
-        }
-
-        const nextManualY = (manualIdx < manualBreakYs.length && manualBreakYs[manualIdx] < autoBreakY)
-          ? manualBreakYs[manualIdx++]
-          : null;
-
-        const breakY = nextManualY !== null ? nextManualY : autoBreakY;
-        const isManual = nextManualY !== null;
-
-        // Stop if we've passed the end of the content
-        if (breakY >= totalH - padBottom) break;
-
-        breakPositions.push({ y: breakY, manual: isManual });
-
-        // Next page starts at the break
-        pageTopY = breakY;
-      }
-
-      // Insert ruler elements at each break position
-      breakPositions.forEach((bp, idx) => {
-        const ruler = document.createElement('div');
-        ruler.className = 'de-fp-ruler';
-        ruler.style.top = bp.y + 'px';
-
-        const label = document.createElement('span');
-        label.className = 'de-fp-ruler-label';
-        const pn = idx + 1;
-        label.textContent = (bp.manual ? '✂ ' : '') + 'Page ' + pn + ' → ' + (pn + 1);
-        ruler.appendChild(label);
-        content.appendChild(ruler);
-      });
-
-      return breakPositions.length + 1;
+      if (!content) return 1;
+      const sheets = content.querySelectorAll('.doc-page-sheet, .full-preview-pdf-canvas-wrap');
+      return sheets.length > 0 ? sheets.length : 1;
     }
 
     /** Check if an element represents a manual page break */
@@ -4266,14 +4486,9 @@
       if (!el || el.nodeType !== 1) return false;
       if (el.classList.contains('de-page-break') || el.classList.contains('page-break')) return true;
       const s = el.style;
-      if (s.pageBreakAfter === 'always' || s.pageBreakBefore === 'always' ||
-        s.breakAfter === 'page' || s.breakBefore === 'page') return true;
+      if (s && (s.pageBreakAfter === 'always' || s.pageBreakBefore === 'always' ||
+        s.breakAfter === 'page' || s.breakBefore === 'page')) return true;
       if (el.dataset && el.dataset.pageBreak === 'after') return true;
-      try {
-        const cs = window.getComputedStyle(el);
-        if (cs.pageBreakAfter === 'always' || cs.pageBreakBefore === 'always' ||
-          cs.breakAfter === 'page' || cs.breakBefore === 'page') return true;
-      } catch (e) { }
       return false;
     }
 
@@ -4608,13 +4823,11 @@
         renderPreview();
       } else if (mode === 'wysiwyg') {
         if (pc) {
+          pc.classList.remove('paged-mode', 'doc-pages-container');
           const raw = mdEditor ? mdEditor.getValue() : '';
           pc.innerHTML = raw;
           _deExpandPageBreakComments(pc);
           fixPreviewImages(pc);
-          requestAnimationFrame(() => {
-            deUpdatePageBreakRulers(pc);
-          });
         }
       }
     }

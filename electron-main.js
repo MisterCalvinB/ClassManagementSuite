@@ -5773,6 +5773,11 @@ ipcMain.handle('app:print-pdf', async (event, request = {}) => {
     );
     const pdfBuffer = await win.webContents.printToPDF(pdfOptions);
 
+    if (request.previewOnly) {
+      try { win.close(); } catch {}
+      return { ok: true, base64: pdfBuffer.toString('base64') };
+    }
+
     // Ask user where to save
     const dateStr = new Date().toISOString().slice(0,19).replace(/:/g,'-');
     const defaultName = (typeof request.defaultName === 'string' && request.defaultName.trim())
