@@ -418,7 +418,9 @@ function getSaveTargets() {
     customCompetences: path.join(writableRoot, 'user/custom-data/competences'),
     customDescriptors: path.join(writableRoot, 'user/custom-data/competences'),
     customPhases: path.join(writableRoot, 'user/custom-data/phases'),
-    customActivities: path.join(writableRoot, 'user/custom-data/phases'),
+    customCriteria: path.join(writableRoot, 'user/custom-data/criteria'),
+    customScales: path.join(writableRoot, 'user/custom-data/scales'),
+    customChips: path.join(writableRoot, 'user/custom-data/chips'),
     classPlans: path.join(writableRoot, 'user/class-plans'),
     docEditorDocs: path.join(writableRoot, 'user/document-editor/docs'),
     docEditorStylesheets: path.join(writableRoot, 'user/document-editor/stylesheets'),
@@ -438,14 +440,14 @@ const PAGE_PERMISSIONS = {
   [PAGE_FILES.board]: new Set(['data', 'mindmaps', 'constellationTemplates', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'user', 'customBooks', 'lessons']),
   [PAGE_FILES.classManagement]: new Set(['user', 'lessons', 'groupParticipation', 'data', 'grades']),
   [PAGE_FILES.groupEditor]: new Set(['user', 'groupParticipation', 'grades', 'gradeSheet']),
-  [PAGE_FILES.gradeSheet]: new Set(['grades', 'user', 'toPrint']),
-  [PAGE_FILES.learningDb]: new Set(['data', 'user', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities']),
-  [PAGE_FILES.learningDb2]: new Set(['data', 'user', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customBooks', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities']),
+  [PAGE_FILES.gradeSheet]: new Set(['grades', 'user', 'toPrint', 'customCriteria', 'customScales', 'customChips', 'customCompetences', 'customDescriptors']),
+  [PAGE_FILES.learningDb]: new Set(['data', 'user', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'customCriteria', 'customScales', 'customChips']),
+  [PAGE_FILES.learningDb2]: new Set(['data', 'user', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customBooks', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'customCriteria', 'customScales', 'customChips']),
   [PAGE_FILES.learningTools]: new Set(['data', 'user', 'groupParticipation', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'gameResults']),
   [PAGE_FILES.participationTracker]: new Set(['user', 'groupParticipation', 'toPrint']),
   [PAGE_FILES.launcher]: new Set(['user', 'mindmaps', 'docEditorDocs', 'toPrint', 'lessons']),
   [PAGE_FILES.generalConfig]: new Set(['user']),
-  [PAGE_FILES.fileManager]: new Set(['user', 'lessons', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'groupParticipation', 'docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'toPrint', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities']),
+  [PAGE_FILES.fileManager]: new Set(['user', 'lessons', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'groupParticipation', 'docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'toPrint', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'customCriteria', 'customScales', 'customChips']),
   [PAGE_FILES.howTo]: new Set(['user']),
   [PAGE_FILES.credits]: new Set([]),
   [PAGE_FILES.scheduleMaker]: new Set(['user', 'data']),
@@ -1279,7 +1281,10 @@ async function readSessionTimestampMetaFast(filePath, ext, knownSize, mtimeMs = 
   if (ext === '.cstz' || ext === '.zip') {
     try {
       const zipBuffer = await fs.readFile(filePath);
-      const entries = parseZipEntries(zipBuffer);
+      const entries = await parseZipEntries(zipBuffer, (name) => {
+        const n = (normalizeZipEntryPath(name) || name).toLowerCase();
+        return n === 'manifest.json' || n === 'board.json';
+      });
       let manifest = null;
       let boardData = null;
       for (const entry of entries) {
@@ -2013,6 +2018,9 @@ async function ensureWritableSeedData() {
     fs.mkdir(saveTargets.customCompetences, { recursive: true }),
     fs.mkdir(saveTargets.customDescriptors, { recursive: true }),
     fs.mkdir(saveTargets.customPhases, { recursive: true }),
+    fs.mkdir(saveTargets.customCriteria, { recursive: true }),
+    fs.mkdir(saveTargets.customScales, { recursive: true }),
+    fs.mkdir(saveTargets.customChips, { recursive: true }),
     fs.mkdir(saveTargets.groupParticipation, { recursive: true }),
     fs.mkdir(saveTargets.mindmaps, { recursive: true }),
     fs.mkdir(saveTargets.constellationTemplates, { recursive: true }),
@@ -3847,7 +3855,8 @@ ipcMain.handle('app:backup-zip', async (event) => {
 });
 
 // Extract zip entries into an array of { name, data, mtimeMs }
-async function parseZipEntries(zipBuffer) {
+// Supports optional entryFilter(filename) to skip decompressing or buffering unneeded entries
+async function parseZipEntries(zipBuffer, entryFilter = null) {
   const entries = [];
   let offset = 0;
   let loopCount = 0;
@@ -3870,6 +3879,11 @@ async function parseZipEntries(zipBuffer) {
       const dataStart = offset + 30 + filenameLen + extraLen;
       const dataEnd = dataStart + compressedSize;
       
+      if (typeof entryFilter === 'function' && !entryFilter(filename)) {
+        offset = dataEnd;
+        continue;
+      }
+
       let data;
       if (compressionMethod === 8) {
         // Deflate compressed - async inflate in thread pool
@@ -3929,7 +3943,7 @@ ipcMain.handle('app:restore-zip', async (event) => {
   
   try {
     const zipBuffer = await fs.readFile(zipPath);
-    const parsedEntries = parseZipEntries(zipBuffer);
+    const parsedEntries = await parseZipEntries(zipBuffer);
     const entries = parsedEntries.filter((entry) => normalizeZipEntryPath(entry.name) !== BACKUP_META_ENTRY);
     
     const writableRoot = getWritableRootDir();
@@ -4280,6 +4294,106 @@ ipcMain.handle('app:read-board-archive', async (event, request = {}) => {
   }
 });
 
+function extractSearchTextFromBoardData(boardData, maxLen = 50000) {
+  if (!boardData || typeof boardData !== 'object') return '';
+  const tokens = [];
+  let totalLen = 0;
+
+  function addText(str) {
+    if (!str || totalLen >= maxLen) return;
+    const clean = String(str).trim();
+    if (!clean) return;
+    tokens.push(clean);
+    totalLen += clean.length + 1;
+  }
+
+  function processPage(page) {
+    if (!page || typeof page !== 'object') return;
+    addText(page.title);
+
+    if (Array.isArray(page.nodes)) {
+      for (const node of page.nodes) {
+        if (!node) continue;
+        addText(node.baseWord);
+        addText(node.dbWord);
+        addText(node.sourceWord);
+        addText(node.notes);
+        addText(node.comment);
+        addText(node.label);
+      }
+    }
+
+    if (Array.isArray(page.notes)) {
+      for (const note of page.notes) {
+        if (!note) continue;
+        addText(note.title);
+        addText(note.text);
+        addText(note.content);
+      }
+    }
+
+    if (Array.isArray(page.tables)) {
+      for (const table of page.tables) {
+        if (!table) continue;
+        addText(table.title);
+        if (Array.isArray(table.headers)) {
+          for (const h of table.headers) addText(h);
+        }
+        if (Array.isArray(table.rows)) {
+          for (const row of table.rows) {
+            if (Array.isArray(row)) {
+              for (const cell of row) addText(cell);
+            }
+          }
+        }
+      }
+    }
+
+    if (Array.isArray(page.groups)) {
+      for (const group of page.groups) {
+        if (!group) continue;
+        addText(group.title);
+        addText(group.label);
+      }
+    }
+
+    if (Array.isArray(page.edges)) {
+      for (const edge of page.edges) {
+        if (!edge) continue;
+        addText(edge.label);
+      }
+    }
+
+    if (Array.isArray(page.shapes)) {
+      for (const shape of page.shapes) {
+        if (!shape) continue;
+        addText(shape.text);
+        addText(shape.label);
+      }
+    }
+
+    if (Array.isArray(page.media)) {
+      for (const m of page.media) {
+        if (!m) continue;
+        addText(m.title);
+        addText(m.name);
+        addText(m.caption);
+      }
+    }
+  }
+
+  addText(boardData.title);
+  if (Array.isArray(boardData.pages) && boardData.pages.length > 0) {
+    for (const page of boardData.pages) {
+      processPage(page);
+    }
+  } else {
+    processPage(boardData);
+  }
+
+  return tokens.join(' ').slice(0, maxLen);
+}
+
 ipcMain.handle('app:inspect-board-archive', async (event, request = {}) => {
   const pageFile = getRequestingPage(event);
   const target = request.target || 'mindmaps';
@@ -4288,9 +4402,20 @@ ipcMain.handle('app:inspect-board-archive', async (event, request = {}) => {
 
   try {
     const zipBuffer = await fs.readFile(fullPath);
-    const parsedEntries = await parseZipEntries(zipBuffer);
+    // Selective inspection: only parse manifest, board data, and primary thumbnail.
+    // Skip all media assets (images, sound recordings, videos, pdfs) to avoid memory and CPU overhead!
+    const parsedEntries = await parseZipEntries(zipBuffer, (name) => {
+      const n = (normalizeZipEntryPath(name) || name).toLowerCase();
+      return n === 'manifest.json' ||
+             n === 'board.json' ||
+             n === 'thumbnail.webp' ||
+             n === 'thumbnail.png' ||
+             n === 'page-snapshots/page-001.webp' ||
+             n === 'page-snapshots/page-001.png';
+    });
 
     let manifest = null;
+    let rawBoardData = null;
     let boardDataSummary = null;
     let thumbnail = null;
 
@@ -4300,25 +4425,32 @@ ipcMain.handle('app:inspect-board-archive', async (event, request = {}) => {
         try { manifest = JSON.parse(entry.data.toString('utf8')); } catch {}
       } else if (normName === 'board.json') {
         try {
-          const parsed = JSON.parse(entry.data.toString('utf8'));
+          rawBoardData = JSON.parse(entry.data.toString('utf8'));
           boardDataSummary = {
-            title: parsed.title,
-            _type: parsed._type,
-            classGroup: parsed._classGroup || parsed.classGroup || '',
-            _classGroup: parsed._classGroup || parsed.classGroup || '',
-            _plannerEntryId: parsed._plannerEntryId || (parsed.manifest && parsed.manifest.plannerEntryId),
-            plannerEntryId: parsed._plannerEntryId || (parsed.manifest && parsed.manifest.plannerEntryId),
-            pageCount: Array.isArray(parsed.pages) ? parsed.pages.length : 1
+            title: rawBoardData.title,
+            _type: rawBoardData._type,
+            classGroup: rawBoardData._classGroup || rawBoardData.classGroup || '',
+            _classGroup: rawBoardData._classGroup || rawBoardData.classGroup || '',
+            _plannerEntryId: rawBoardData._plannerEntryId || (rawBoardData.manifest && rawBoardData.manifest.plannerEntryId),
+            plannerEntryId: rawBoardData._plannerEntryId || (rawBoardData.manifest && rawBoardData.manifest.plannerEntryId),
+            pageCount: Array.isArray(rawBoardData.pages) ? rawBoardData.pages.length : 1
           };
         } catch {}
-      } else if (!thumbnail && (normName === 'page-snapshots/page-001.webp' || normName === 'page-snapshots/page-001.png' || normName === 'thumbnail.webp' || normName === 'thumbnail.png' || normName.startsWith('page-snapshots/'))) {
-        const mimeType = (normName.endsWith('.png')) ? 'image/png' : (normName.endsWith('.jpg') || normName.endsWith('.jpeg') ? 'image/jpeg' : 'image/webp');
+      } else if (!thumbnail && (normName === 'page-snapshots/page-001.webp' || normName === 'page-snapshots/page-001.png' || normName === 'thumbnail.webp' || normName === 'thumbnail.png')) {
+        const mimeType = (normName.endsWith('.png')) ? 'image/png' : 'image/webp';
         thumbnail = 'data:' + mimeType + ';base64,' + entry.data.toString('base64');
       }
     }
 
     if (manifest && !manifest.classGroup && boardDataSummary && boardDataSummary.classGroup) {
       manifest.classGroup = boardDataSummary.classGroup;
+    }
+
+    let searchText = '';
+    if (manifest && typeof manifest.searchText === 'string' && manifest.searchText) {
+      searchText = manifest.searchText;
+    } else if (rawBoardData) {
+      searchText = extractSearchTextFromBoardData(rawBoardData, 50000);
     }
 
     const stat = await fs.stat(fullPath);
@@ -4342,7 +4474,8 @@ ipcMain.handle('app:inspect-board-archive', async (event, request = {}) => {
       createdAt: createdAt || undefined,
       savedAt: savedAt || stat.mtimeMs,
       mtimeMs: stat.mtimeMs,
-      size: stat.size
+      size: stat.size,
+      searchText: searchText || ''
     };
   } catch (err) {
     return { ok: false, error: err && err.message ? err.message : String(err) };

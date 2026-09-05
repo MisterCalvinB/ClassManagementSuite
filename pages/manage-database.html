@@ -125,6 +125,8 @@
                 style="display:none" data-i18n="mdbBtnClear"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /> Clear</button>
               <button class="btn btn-secondary btn-sm" id="batch-edit-btn" onclick="toggleBatchPanel()"
                 style="display:none" disabled data-i18n="mdbBtnBatchEdit"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> Batch Edit</button>
+              <button class="btn btn-secondary btn-sm" id="batch-copy-btn" onclick="openBatchCopyToModal()"
+                style="display:none" disabled data-i18n="mdbBtnCopyToFile"><img src="../assets/icons/copy.svg" class="btn-icon" alt="" /> Copy to file…</button>
               <button class="btn btn-danger btn-sm" id="batch-del-btn" onclick="deleteSelectedBatch()"
                 style="display:none" disabled data-i18n="mdbBtnDelSelected"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> Del Selected</button>
               <span id="batch-count" class="rec-count" style="display:none"></span>
@@ -207,6 +209,7 @@
       </div>
       <div class="modal-bd" id="edit-body"></div>
       <div class="modal-ft">
+        <button class="btn btn-secondary" id="edit-copy-to-btn" style="margin-right:auto;display:none;" onclick="openCopyToModalFromEdit()"><img src="../assets/icons/copy.svg" class="btn-icon btn-icon-xs" alt="" /> <span data-i18n="mdbBtnCopyToFile">Copy to file…</span></button>
         <button class="btn btn-secondary" onclick="closeEdit()" data-i18n="mdbBtnCancel">Cancel</button>
         <button class="btn btn-primary" onclick="submitEdit()" data-i18n="mdbBtnSave"><img src="../assets/icons/save.svg" class="btn-icon" alt="" /> Save</button>
       </div>
@@ -297,6 +300,86 @@
     </div>
   </div>
 
+  <!-- Copy to File Modal -->
+  <div id="copy-modal-bg" class="modal-bg hidden" onclick="if(event.target===this)closeCopyModal()">
+    <div class="modal modal-sm">
+      <div class="modal-hd">
+        <span id="copy-modal-title" data-i18n="mdbCopyModalTitle">Copy Entry to Another File</span>
+        <button class="modal-x" onclick="closeCopyModal()"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="Close" /></button>
+      </div>
+      <div class="modal-bd">
+        <div id="copy-entry-preview" style="font-size:0.85rem;margin-bottom:14px;padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;"></div>
+
+        <div class="form-field" style="margin-bottom:12px;">
+          <label class="form-lbl" style="font-size:0.82rem;font-weight:600;margin-bottom:4px;" data-i18n="mdbCopyTargetFile">Target File</label>
+          <select id="copy-target-select" class="form-control" style="width:100%;font-size:0.85rem;padding:6px 10px;border-radius:6px;border:1px solid #cbd5e1;background:#fff;" onchange="handleCopyTargetChange()"></select>
+        </div>
+
+        <div id="copy-new-file-group" class="form-field hidden" style="margin-bottom:12px;">
+          <label class="form-lbl" style="font-size:0.82rem;font-weight:600;margin-bottom:4px;" data-i18n="mdbCopyNewFileName">New File Name</label>
+          <input type="text" id="copy-new-file-input" class="form-control" style="width:100%;font-size:0.85rem;padding:6px 10px;border-radius:6px;border:1px solid #cbd5e1;" placeholder="e.g. custom-list.js" />
+        </div>
+
+        <div style="margin-top:14px;padding-top:10px;border-top:1px solid #eee;">
+          <label style="display:inline-flex;align-items:center;gap:8px;font-size:0.82rem;color:var(--text);cursor:pointer;">
+            <input type="checkbox" id="copy-move-check" style="cursor:pointer;" />
+            <span data-i18n="mdbCopyMoveCheck">Remove from source file (Move instead of Copy)</span>
+          </label>
+        </div>
+      </div>
+      <div class="modal-ft">
+        <button class="btn btn-secondary" onclick="closeCopyModal()" data-i18n="mdbBtnCancel">Cancel</button>
+        <button class="btn btn-primary" id="copy-confirm-btn" onclick="submitCopyModal()"><img src="../assets/icons/copy.svg" class="btn-icon" alt="" /> <span id="copy-confirm-btn-label">Copy</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Competence Picker Modal for Criteria -->
+  <div id="mdb-comp-picker-bg" class="modal-bg hidden" style="z-index:1050;" onclick="if(event.target===this)closeMdbCompPicker()">
+    <div class="modal" style="width:min(780px, 95vw); max-height:90vh;">
+      <div class="modal-hd">
+        <span data-i18n="gsCriteriaLinkedCompetences">Linked Competences</span>
+        <button class="modal-x" onclick="closeMdbCompPicker()"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="Close" /></button>
+      </div>
+      <div class="modal-bd" style="display:flex;flex-direction:column;gap:10px;">
+        <input type="search" id="mdb-comp-picker-search" class="input" style="width:100%;box-sizing:border-box;border:2px solid #111;border-radius:6px;padding:7px 10px;font-family:inherit;font-size:0.87rem;" placeholder="Search competences by title, code, domain, level…" data-i18n-placeholder="gsSearchCompetences" oninput="filterMdbCompPicker()" />
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#f8fafc;padding:6px 10px;border-radius:6px;border:1px solid #e2e8f0;">
+          <div style="display:flex;align-items:center;gap:4px;">
+            <label style="font-size:0.75rem;font-weight:700;color:#555;" data-i18n="gsCompFilterCategory">Domain</label>
+            <select id="mdb-comp-filter-category" style="border:1px solid #ccc;border-radius:4px;padding:3px 6px;font-size:0.75rem;background:#fff;" onchange="filterMdbCompPicker()">
+              <option value="all" data-i18n="gsCompFilterAllDomains">All Domains</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;gap:4px;">
+            <label style="font-size:0.75rem;font-weight:700;color:#555;" data-i18n="gsCompFilterLevel">Level</label>
+            <select id="mdb-comp-filter-level" style="border:1px solid #ccc;border-radius:4px;padding:3px 6px;font-size:0.75rem;background:#fff;" onchange="filterMdbCompPicker()">
+              <option value="all" data-i18n="gsCompFilterAllLevels">All Levels</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;gap:4px;">
+            <label style="font-size:0.75rem;font-weight:700;color:#555;" data-i18n="gsCompFilterYear">Year</label>
+            <select id="mdb-comp-filter-year" style="border:1px solid #ccc;border-radius:4px;padding:3px 6px;font-size:0.75rem;background:#fff;" onchange="filterMdbCompPicker()">
+              <option value="all" data-i18n="gsCompFilterAllYears">All Years</option>
+            </select>
+          </div>
+          <div style="margin-left:auto;display:flex;gap:6px;">
+            <button type="button" id="mdb-comp-filter-show-selected" class="btn btn-secondary btn-sm" onclick="toggleMdbCompShowSelected(this)" style="font-size:0.72rem;padding:3px 7px;" data-i18n="gsCompFilterShowSelected">Selected</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="selectMdbCompVisible(true)" style="font-size:0.72rem;padding:3px 7px;" data-i18n="gsCompFilterSelectAll">Select Visible</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="selectMdbCompVisible(false)" style="font-size:0.72rem;padding:3px 7px;" data-i18n="gsCompFilterDeselectAll">Deselect Visible</button>
+          </div>
+        </div>
+        <div id="mdb-comp-picker-list" style="flex:1;overflow-y:auto;max-height:380px;min-height:180px;border:1.5px solid #ccc;border-radius:6px;padding:8px;display:flex;flex-direction:column;gap:5px;background:#fff;"></div>
+      </div>
+      <div class="modal-ft" style="display:flex;align-items:center;justify-content:space-between;">
+        <span id="mdb-comp-picker-count" style="font-size:0.82rem;font-weight:700;color:#555;">0 selected</span>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-secondary" type="button" onclick="closeMdbCompPicker()" data-i18n="btnCancel">Cancel</button>
+          <button class="btn btn-primary" type="button" onclick="applyMdbCompPicker()" data-i18n="btnConfirm">Apply</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- New File Modal -->
   <div id="nf-bg" class="modal-bg hidden" onclick="if(event.target===this)closeNF()">
     <div class="modal modal-sm">
@@ -358,6 +441,9 @@
       { key: 'quizzes', labelKey: 'mdbTypeQuizzes', icon: 'quiz.svg', target: 'customQuizzes', defaultView: 'table' },
       { key: 'competences', labelKey: 'mdbTypeCompetences', icon: 'file-text.svg', target: 'customCompetences', defaultView: 'table' },
       { key: 'phases', labelKey: 'mdbTypePhases', icon: 'zap.svg', target: 'customPhases', defaultView: 'table' },
+      { key: 'criteria', labelKey: 'mdbTypeCriteria', icon: 'check.svg', target: 'customCriteria', defaultView: 'table' },
+      { key: 'scales', labelKey: 'mdbTypeScales', icon: 'award.svg', target: 'customScales', defaultView: 'table' },
+      { key: 'chips', labelKey: 'mdbTypePersonalisedChips', icon: 'speech-bubbles.svg', target: 'customChips', defaultView: 'chips' },
     ];
 
     const VAR_NAME_DEFAULTS = {
@@ -366,7 +452,8 @@
       gapfillbanks: 'customGapFillBank', errorbanks: 'customErrorBank',
       sentencebanks: 'customSentenceBank', storybanks: 'customStoryBank',
       quizzes: 'customQuizBank', competences: 'customCompetenceBank', descriptors: 'customCompetenceBank',
-      phases: 'customPhaseBank',
+      phases: 'customPhaseBank', criteria: 'XLSM_CRITERIA',
+      scales: 'XLSM_SCALE_MODELS', chips: 'OBSERVATION_CHECKLIST_GROUPS',
     };
 
     // ─────────────────────────────────────────────────────────────────────
@@ -440,67 +527,217 @@
       return [];
     }
 
-    function _parseRecords(content) {
+    const DEFAULT_OBSERVATION_CHIP_GROUPS = [
+      { type: "Participation", items: ["Active contributor", "Needs encouragement", "Asks relevant questions", "Attentive listener"] },
+      { type: "Work Habits", items: ["Organized", "Punctual", "Follows instructions", "Self-directed", "Needs reminders"] },
+      { type: "Collaboration", items: ["Team player", "Helps peers", "Prefers working alone", "Leadership skills"] },
+      { type: "Language & Oral", items: ["Expressive", "Fluent", "Grammar accuracy", "Pronunciation effort"] }
+    ];
+
+    function isLikelyCriteriaRecord(rec) {
+      if (!rec || typeof rec !== 'object') return false;
+      return 'pointCoefficient' in rec || 'grades' in rec || 'comments' in rec || 'minPoints' in rec || 'maxPoints' in rec;
+    }
+
+    function _parseRecords(content, typeKey = null) {
       if (!content || typeof content !== 'string') return null;
       const trimmed = content.trim();
+
+      if (typeKey === 'chips') {
+        try {
+          const fn = new Function(content + '\n;try{return typeof OBSERVATION_CHECKLIST_GROUPS !== "undefined" ? OBSERVATION_CHECKLIST_GROUPS : (typeof customChips !== "undefined" ? customChips : null);}catch(e){return null;}');
+          const cRes = fn();
+          if (Array.isArray(cRes) && cRes.length > 0 && cRes.every(r => !isLikelyCriteriaRecord(r))) return cRes;
+          if (cRes && typeof cRes === 'object' && !Array.isArray(cRes)) {
+            const arr = Object.entries(cRes).map(([type, items]) => ({ type, items: Array.isArray(items) ? items : [] }));
+            if (arr.length > 0) return arr;
+          }
+        } catch (_) {}
+      } else if (typeKey === 'scales') {
+        try {
+          const fn = new Function(content + '\n;try{return typeof XLSM_SCALE_MODELS !== "undefined" ? XLSM_SCALE_MODELS : (typeof customScaleModels !== "undefined" ? customScaleModels : null);}catch(e){return null;}');
+          const sRes = fn();
+          if (Array.isArray(sRes) && sRes.length > 0) return sRes;
+        } catch (_) {}
+      } else if (typeKey === 'criteria') {
+        try {
+          const fn = new Function(content + '\n;try{return typeof XLSM_CRITERIA !== "undefined" ? XLSM_CRITERIA : (typeof customCriteria !== "undefined" ? customCriteria : null);}catch(e){return null;}');
+          const critRes = fn();
+          if (Array.isArray(critRes) && critRes.length > 0) return critRes;
+        } catch (_) {}
+      }
+
       if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
         try {
           const parsed = JSON.parse(trimmed);
-          if (Array.isArray(parsed)) return parsed;
+          if (Array.isArray(parsed)) {
+            if (typeKey === 'chips' && parsed.some(isLikelyCriteriaRecord)) {
+              // skip criteria array
+            } else {
+              return parsed;
+            }
+          }
         } catch (_) {}
       }
       if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
         try {
           const obj = JSON.parse(trimmed);
-          if (Array.isArray(obj.competences)) return obj.competences;
-          if (Array.isArray(obj.descriptors)) return obj.descriptors;
-          if (Array.isArray(obj.records)) return obj.records;
-          if (Array.isArray(obj.phases)) return obj.phases;
-          if (Array.isArray(obj.activities)) return obj.activities;
-          if (Array.isArray(obj.customCompetenceBank)) return obj.customCompetenceBank;
-          if (Array.isArray(obj.customDescriptorBank)) return obj.customDescriptorBank;
-          if (Array.isArray(obj.customPhaseBank)) return obj.customPhaseBank;
+          if (typeKey === 'chips') {
+            if (Array.isArray(obj.chips)) return obj.chips;
+            if (Array.isArray(obj.personalisedChips)) return obj.personalisedChips;
+            if (Array.isArray(obj.observationChips)) return obj.observationChips;
+            if (Array.isArray(obj.OBSERVATION_CHECKLIST_GROUPS)) return obj.OBSERVATION_CHECKLIST_GROUPS;
+            if (Array.isArray(obj.groups)) return obj.groups;
+            if (Array.isArray(obj.records) && obj.records.every(r => !isLikelyCriteriaRecord(r))) return obj.records;
+          } else if (typeKey === 'scales') {
+            if (Array.isArray(obj.scales)) return obj.scales;
+            if (Array.isArray(obj.scaleModels)) return obj.scaleModels;
+            if (Array.isArray(obj.XLSM_SCALE_MODELS)) return obj.XLSM_SCALE_MODELS;
+            if (Array.isArray(obj.records)) return obj.records;
+          } else {
+            if (Array.isArray(obj.competences)) return obj.competences;
+            if (Array.isArray(obj.descriptors)) return obj.descriptors;
+            if (Array.isArray(obj.records)) return obj.records;
+            if (Array.isArray(obj.phases)) return obj.phases;
+            if (Array.isArray(obj.activities)) return obj.activities;
+            if (Array.isArray(obj.customCompetenceBank)) return obj.customCompetenceBank;
+            if (Array.isArray(obj.customDescriptorBank)) return obj.customDescriptorBank;
+            if (Array.isArray(obj.customPhaseBank)) return obj.customPhaseBank;
+            if (Array.isArray(obj.scaleModels)) return obj.scaleModels;
+            if (Array.isArray(obj.scales)) return obj.scales;
+            if (Array.isArray(obj.groups)) return obj.groups;
+            if (Array.isArray(obj.chips)) return obj.chips;
+            if (Array.isArray(obj.personalisedChips)) return obj.personalisedChips;
+            if (Array.isArray(obj.observationChips)) return obj.observationChips;
+          }
         } catch (_) {}
       }
+
+      // Variable regex match
+      if (typeKey === 'chips') {
+        const chipVarMatch = content.match(/(?:(?:const|let|var)\s+(\w*(?:chip|obs|checklist|group)\w*)\s*=|window\.(\w*(?:chip|obs|checklist|group)\w*)\s*=)\s*\[/i);
+        if (chipVarMatch) {
+          const varName = chipVarMatch[1] || chipVarMatch[2];
+          try {
+            const fn = new Function(content + `\n;try{return ${varName};}catch(e){return [];}`);
+            const data = fn();
+            if (Array.isArray(data) && data.length > 0 && data.every(r => !isLikelyCriteriaRecord(r))) return data;
+          } catch (e) { }
+        }
+      }
+
       const varMatch = content.match(/(?:(?:const|let|var)\s+(\w+)\s*=|window\.([A-Za-z0-9_$]+)\s*=)\s*\[/);
       if (varMatch) {
         const varName = varMatch[1] || varMatch[2];
-        try {
-          const fn = new Function(content + `\n;try{return ${varName};}catch(e){return [];}`);
-          const data = fn();
-          return Array.isArray(data) ? data : null;
-        } catch (e) { }
-      }
-      try {
-        const firstBracket = trimmed.indexOf('[');
-        const lastBracket = trimmed.lastIndexOf(']');
-        if (firstBracket !== -1 && lastBracket > firstBracket) {
-          const slice = trimmed.slice(firstBracket, lastBracket + 1);
-          const fn2 = new Function('return ' + slice + ';');
-          const res2 = fn2();
-          if (Array.isArray(res2)) return res2;
+        if (typeKey === 'chips' && varName.toLowerCase().includes('criteria')) {
+          // Do not parse criteria variable as chips
+        } else {
+          try {
+            const fn = new Function(content + `\n;try{return ${varName};}catch(e){return [];}`);
+            const data = fn();
+            if (Array.isArray(data)) return data;
+          } catch (e) { }
         }
-      } catch (_) {}
+      }
+
+      if (typeKey !== 'chips') {
+        try {
+          const firstBracket = trimmed.indexOf('[');
+          const lastBracket = trimmed.lastIndexOf(']');
+          if (firstBracket !== -1 && lastBracket > firstBracket) {
+            const slice = trimmed.slice(firstBracket, lastBracket + 1);
+            const fn2 = new Function('return ' + slice + ';');
+            const res2 = fn2();
+            if (Array.isArray(res2)) return res2;
+          }
+        } catch (_) {}
+      }
       return null;
     }
 
     // Unified file reader: tries fast JSON parse first, falls back to JS eval via _parseRecords.
     // Handles both clean JSON-style files and JS files with unquoted keys or template literals.
     async function readRecords(target, filename, typeKey) {
+      let actualTarget = target;
+      if (typeKey === 'criteria' && filename === 'correction-criteria.js') {
+        actualTarget = 'user';
+      } else if (typeKey === 'scales' && filename === 'grade-scale-models.js') {
+        actualTarget = 'user';
+      } else if (typeKey === 'chips' && filename === 'correction-criteria.js') {
+        actualTarget = 'user';
+      }
       const [jsonResult, rawResult] = await Promise.all([
-        Desktop.readJson(target, filename),
-        Desktop.readText(target, filename),
+        Desktop.readJson(actualTarget, filename),
+        Desktop.readText(actualTarget, filename),
       ]);
       const content = rawResult?.ok ? rawResult.content : null;
-      const varName = content
-        ? (detectVarName(content) || VAR_NAME_DEFAULTS[typeKey] || 'customData')
-        : (VAR_NAME_DEFAULTS[typeKey] || 'customData');
+      let varName = VAR_NAME_DEFAULTS[typeKey] || 'customData';
 
       let records = null;
-      if (jsonResult?.ok && Array.isArray(jsonResult.data)) {
-        records = jsonResult.data;
-      } else if (content) {
-        records = _parseRecords(content);
+
+      if (typeKey === 'chips') {
+        varName = 'OBSERVATION_CHECKLIST_GROUPS';
+        if (content) {
+          records = _parseRecords(content, 'chips');
+          if (records && records.some(isLikelyCriteriaRecord)) records = null;
+        }
+        if (!records && jsonResult?.ok && Array.isArray(jsonResult.data)) {
+          if (filename !== 'correction-criteria.js' && jsonResult.data.every(r => !isLikelyCriteriaRecord(r))) {
+            records = jsonResult.data;
+          }
+        }
+        if (!records && filename === 'correction-criteria.js') {
+          try {
+            const ls = localStorage.getItem('gradeSheetPersonalisedChips.v1');
+            if (ls) {
+              const parsed = JSON.parse(ls);
+              if (Array.isArray(parsed) && parsed.length > 0) records = parsed;
+            }
+          } catch (_) {}
+          if (!records && typeof window.OBSERVATION_CHECKLIST_GROUPS !== 'undefined' && Array.isArray(window.OBSERVATION_CHECKLIST_GROUPS) && window.OBSERVATION_CHECKLIST_GROUPS.length > 0) {
+            records = JSON.parse(JSON.stringify(window.OBSERVATION_CHECKLIST_GROUPS));
+          }
+          if (!records) {
+            records = JSON.parse(JSON.stringify(DEFAULT_OBSERVATION_CHIP_GROUPS));
+          }
+        }
+      } else if (typeKey === 'scales') {
+        varName = 'XLSM_SCALE_MODELS';
+        if (content) {
+          records = _parseRecords(content, 'scales');
+        }
+        if (!records && jsonResult?.ok && Array.isArray(jsonResult.data)) {
+          records = jsonResult.data;
+        }
+        if (!records && filename === 'grade-scale-models.js') {
+          try {
+            const ls = localStorage.getItem('gradeSheetScaleModels.v1');
+            if (ls) records = JSON.parse(ls);
+          } catch (_) {}
+        }
+      } else if (typeKey === 'criteria') {
+        varName = 'XLSM_CRITERIA';
+        if (content) {
+          records = _parseRecords(content, 'criteria');
+        }
+        if (!records && jsonResult?.ok && Array.isArray(jsonResult.data)) {
+          records = jsonResult.data;
+        }
+        if (!records && filename === 'correction-criteria.js') {
+          try {
+            const ls = localStorage.getItem('gradeSheetReferenceCriteria.v1');
+            if (ls) records = JSON.parse(ls);
+          } catch (_) {}
+        }
+      } else {
+        if (content) {
+          varName = detectVarName(content) || varName;
+        }
+        if (jsonResult?.ok && Array.isArray(jsonResult.data)) {
+          records = jsonResult.data;
+        } else if (content) {
+          records = _parseRecords(content, typeKey);
+        }
       }
 
       if (records) {
@@ -515,7 +752,26 @@
       for (const def of TYPE_DEFS) {
         try {
           const list = await Desktop.listFiles(def.target, { extensions: ['.js', '.json'] });
-          const fileEntries = _normalizeFileList(list);
+          let fileEntries = _normalizeFileList(list);
+          if (def.key === 'criteria') {
+            const rootCheck = await Desktop.readText('user', 'correction-criteria.js');
+            const hasRoot = fileEntries.some(f => (typeof f === 'string' ? f : f.filename) === 'correction-criteria.js');
+            if (!hasRoot) {
+              fileEntries.unshift({ filename: 'correction-criteria.js', size: (rootCheck && rootCheck.ok && rootCheck.content) ? rootCheck.content.length : 0 });
+            }
+          } else if (def.key === 'scales') {
+            const rootCheck = await Desktop.readText('user', 'grade-scale-models.js');
+            const hasRoot = fileEntries.some(f => (typeof f === 'string' ? f : f.filename) === 'grade-scale-models.js');
+            if (!hasRoot) {
+              fileEntries.unshift({ filename: 'grade-scale-models.js', size: (rootCheck && rootCheck.ok && rootCheck.content) ? rootCheck.content.length : 0 });
+            }
+          } else if (def.key === 'chips') {
+            const rootCheck = await Desktop.readText('user', 'correction-criteria.js');
+            const hasRoot = fileEntries.some(f => (typeof f === 'string' ? f : f.filename) === 'correction-criteria.js');
+            if (!hasRoot) {
+              fileEntries.unshift({ filename: 'correction-criteria.js', size: (rootCheck && rootCheck.ok && rootCheck.content) ? rootCheck.content.length : 0 });
+            }
+          }
           S.counts[def.key] = fileEntries.length;
           updateSidebarCount(def.key);
           if (!fileEntries.length) { _gsc[def.key] = {}; continue; }
@@ -609,6 +865,9 @@
       if (aiBtn) aiBtn.style.display = AI_PROMPTS[key] ? '' : 'none';
 
       const def = getTypeDef(key);
+      if (key === 'criteria') {
+        loadAllAvailableCompetences().catch(() => {});
+      }
 
       const prevLoaded = typeCache[key] || [];
       if (_gsc[key] !== undefined) {
@@ -622,7 +881,26 @@
       } else {
         // Cache not yet warm — fall back to listFiles IPC
         const listResult = await Desktop.listFiles(def.target, { extensions: ['.js', '.json'] });
-        const listEntries = _normalizeFileList(listResult);
+        let listEntries = _normalizeFileList(listResult);
+        if (key === 'criteria') {
+          const rootCheck = await Desktop.readText('user', 'correction-criteria.js');
+          const hasRoot = listEntries.some(f => (typeof f === 'string' ? f : f.filename) === 'correction-criteria.js');
+          if (!hasRoot) {
+            listEntries.unshift({ filename: 'correction-criteria.js', size: (rootCheck && rootCheck.ok && rootCheck.content) ? rootCheck.content.length : 0 });
+          }
+        } else if (key === 'scales') {
+          const rootCheck = await Desktop.readText('user', 'grade-scale-models.js');
+          const hasRoot = listEntries.some(f => (typeof f === 'string' ? f : f.filename) === 'grade-scale-models.js');
+          if (!hasRoot) {
+            listEntries.unshift({ filename: 'grade-scale-models.js', size: (rootCheck && rootCheck.ok && rootCheck.content) ? rootCheck.content.length : 0 });
+          }
+        } else if (key === 'chips') {
+          const rootCheck = await Desktop.readText('user', 'correction-criteria.js');
+          const hasRoot = listEntries.some(f => (typeof f === 'string' ? f : f.filename) === 'correction-criteria.js');
+          if (!hasRoot) {
+            listEntries.unshift({ filename: 'correction-criteria.js', size: (rootCheck && rootCheck.ok && rootCheck.content) ? rootCheck.content.length : 0 });
+          }
+        }
         const freshFiles = listEntries.map(fi => {
           const name = typeof fi === 'string' ? fi : fi.filename;
           const size = (typeof fi === 'object' && fi) ? (fi.size || 0) : 0;
@@ -631,7 +909,12 @@
         S.files = freshFiles.map(ff => prevLoaded.find(cf => cf.name === ff.name && cf.status === 'loaded') || ff);
       }
 
+      if (S.files.length === 1 && S.files[0].status === 'pending') {
+        S.filters['_src'] = S.files[0].name;
+        await loadFileContent(0, def);
+      }
       S.schema = buildSchema(getAllRecords());
+      if (!S.schema.length) S.schema = getDefaultSchema(key);
       S.counts[key] = S.files.length;
       updateSidebarCount(key);
       renderFilePills();
@@ -822,6 +1105,27 @@
         addStr('studentAction', { isLong: true });
         addStr('resources');
         addArr('tags');
+      } else if (typeKey === 'criteria') {
+        addStr('name');
+        addNum('minPoints');
+        addNum('maxPoints');
+        addNum('interval');
+        addNum('pointCoefficient');
+        addArr('competenceIds');
+        addArr('grades');
+        addObj('comments');
+        addObj('colors');
+      } else if (typeKey === 'scales') {
+        addStr('key');
+        addStr('label');
+        addNum('minGrade');
+        addNum('maxGrade');
+        addNum('interval');
+        addObj('thresholds');
+        addObj('colors');
+      } else if (typeKey === 'chips') {
+        addStr('type');
+        addArr('items', { longArray: true });
       }
       return schema;
     }
@@ -849,6 +1153,51 @@
             } else if (!Array.isArray(rec.tags)) {
               rec.tags = [];
             }
+          }
+        }
+      } else if (typeKey === 'criteria') {
+        for (const rec of records) {
+          if (rec && typeof rec === 'object') {
+            if (rec.minPoints === undefined || rec.minPoints === null) rec.minPoints = 0;
+            if (rec.maxPoints === undefined || rec.maxPoints === null) rec.maxPoints = 1;
+            if (rec.pointCoefficient === undefined || rec.pointCoefficient === null) rec.pointCoefficient = 1;
+            if (typeof rec.competenceIds === 'string') {
+              rec.competenceIds = rec.competenceIds.split(',').map(s => s.trim()).filter(Boolean);
+            } else if (!Array.isArray(rec.competenceIds)) {
+              rec.competenceIds = [];
+            }
+          }
+        }
+      } else if (typeKey === 'scales') {
+        for (const rec of records) {
+          if (rec && typeof rec === 'object') {
+            if (!rec.key) rec.key = 'custom' + Math.floor(Math.random() * 1000);
+            if (!rec.label) rec.label = rec.key;
+            if (rec.minGrade === undefined || rec.minGrade === null) rec.minGrade = 1;
+            if (rec.maxGrade === undefined || rec.maxGrade === null) rec.maxGrade = 6;
+            if (rec.interval === undefined || rec.interval === null) rec.interval = 0.5;
+            if (!rec.thresholds || typeof rec.thresholds !== 'object') rec.thresholds = {};
+            if (!rec.colors || typeof rec.colors !== 'object') rec.colors = {};
+          }
+        }
+      } else if (typeKey === 'chips') {
+        for (let i = 0; i < records.length; i++) {
+          const rec = records[i];
+          if (rec && typeof rec === 'object') {
+            if (!rec.type) rec.type = rec.category || rec.name || `Category ${i + 1}`;
+            if (typeof rec.items === 'string') {
+              rec.items = rec.items.split(/[,\n]/).map(s => s.trim()).filter(Boolean);
+            } else if (!Array.isArray(rec.items)) {
+              rec.items = [];
+            }
+            delete rec.grades;
+            delete rec.comments;
+            delete rec.minPoints;
+            delete rec.maxPoints;
+            delete rec.pointCoefficient;
+            delete rec.competenceIds;
+            delete rec.isBonus;
+            delete rec.showComment;
           }
         }
       } else if (typeKey === 'wordbanks') {
@@ -1224,6 +1573,7 @@
       <td class="act-cell">
         <button class="btn btn-sm btn-secondary" onclick="openEdit(${row._fi},${row._ri})"><img src="../assets/icons/edit-word.svg" class="btn-icon btn-icon-xs" alt="" /> ${t('mdbBtnEdit')}</button>
         <button class="btn btn-sm btn-secondary" onclick="duplicateRecord(${row._fi},${row._ri})" title="${t('mdbBtnDuplicate')}"><img src="../assets/icons/copy.svg" class="btn-icon btn-icon-xs" alt="" /> ${t('mdbBtnDuplicate')}</button>
+        <button class="btn btn-sm btn-secondary" onclick="openCopyToModal(${row._fi},${row._ri})" title="${t('mdbBtnCopyToFile')}"><img src="../assets/icons/file.svg" class="btn-icon btn-icon-xs" alt="" /> ${t('mdbBtnCopyToFile')}</button>
         <button class="btn btn-sm btn-danger" onclick="confirmDel(${row._fi},${row._ri})"><img src="../assets/icons/delete.svg" class="btn-icon btn-icon-xs" alt="" /> ${t('mdbBtnDel')}</button>
       </td>
     </tr>`;
@@ -1238,6 +1588,17 @@
       if (field.type === 'array') {
         const arr = Array.isArray(val) ? val : [val];
         if (!arr.length) return '<span class="cell-empty">—</span>';
+        if (field.key === 'competenceIds' || (S.typeKey === 'criteria' && field.key === 'competenceIds')) {
+          const items = arr.slice(0, 4).map(t => {
+            const cid = String(t).trim();
+            const comp = findAvailableCompetence(cid);
+            const code = comp?.code || cid;
+            const title = comp?.title ? `${comp.code ? comp.code + ': ' : ''}${comp.title}` : (comp?.code || cid);
+            return `<span class="tag" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;font-weight:700;" title="${esc(title)}">${esc(code)}</span>`;
+          }).join('');
+          const more = arr.length > 4 ? `<span class="tag-more">+${arr.length - 4}</span>` : '';
+          return `<span class="tags">${items}${more}</span>`;
+        }
         const items = arr.slice(0, 4).map(t => `<span class="tag">${esc(String(t))}</span>`).join('');
         const more = arr.length > 4 ? `<span class="tag-more">+${arr.length - 4}</span>` : '';
         return `<span class="tags">${items}${more}</span>`;
@@ -1285,11 +1646,270 @@
         clone.title = clone.title + ' (Copy)';
       } else if (clone.word) {
         clone.word = clone.word + ' (copy)';
+      } else if (clone.name) {
+        clone.name = clone.name + ' (Copy)';
+      } else if (clone.label) {
+        clone.label = clone.label + ' (Copy)';
+        if (clone.key) clone.key = clone.key + '-copy';
+      } else if (clone.type) {
+        clone.type = clone.type + ' (Copy)';
       }
       file.records.splice(ri + 1, 0, clone);
-      await saveActiveFile(file);
+      await saveFile(fi);
       renderTable();
       if (typeof showToast === 'function') showToast(t('mdbRecordDuplicated') || 'Record duplicated');
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // COPY TO FILE
+    // ─────────────────────────────────────────────────────────────────────
+    let _copyModalCtx = null;
+
+    function getEntryDisplayLabel(rec) {
+      if (!rec) return '';
+      if (rec.word) return rec.word;
+      if (rec.title) return rec.title;
+      if (rec.name) return rec.name;
+      if (rec.label) return rec.label;
+      if (rec.type) return rec.type;
+      if (rec.term) return rec.term;
+      if (rec.question) return rec.question;
+      if (rec.code) return rec.code + (rec.title ? ` - ${rec.title}` : '');
+      const firstVal = Object.values(rec).find(v => typeof v === 'string' && v.trim());
+      return firstVal || 'Record';
+    }
+
+    function openCopyToModal(fi, ri) {
+      const sourceFile = S.files[fi];
+      if (!sourceFile || !sourceFile.records[ri]) return;
+      const rec = sourceFile.records[ri];
+      _copyModalCtx = {
+        mode: 'single',
+        fi,
+        ri,
+        rec,
+        records: [rec],
+        sourceName: sourceFile.name
+      };
+
+      const titleEl = $('copy-modal-title');
+      if (titleEl) titleEl.textContent = t('mdbCopyModalTitle');
+
+      const previewEl = $('copy-entry-preview');
+      if (previewEl) {
+        const lbl = getEntryDisplayLabel(rec);
+        previewEl.innerHTML = `<div style="font-weight:700;font-size:0.9rem;">${esc(lbl)}</div><div style="font-size:0.75rem;color:#64748b;margin-top:2px;">${t('mdbColSource')}: <code>${esc(sourceFile.name)}</code></div>`;
+      }
+
+      populateCopyTargetOptions(fi);
+      $('copy-move-check').checked = false;
+      $('copy-modal-bg').classList.remove('hidden');
+    }
+
+    function openBatchCopyToModal() {
+      const selectedKeys = [...S.batchSel];
+      if (!selectedKeys.length) return;
+
+      const items = [];
+      for (const bk of selectedKeys) {
+        const [fi, ri] = bk.split(':').map(Number);
+        if (S.files[fi] && S.files[fi].records[ri]) {
+          items.push({ fi, ri, rec: S.files[fi].records[ri], file: S.files[fi] });
+        }
+      }
+      if (!items.length) return;
+
+      _copyModalCtx = {
+        mode: 'batch',
+        items,
+        records: items.map(i => i.rec),
+        sourceName: items.length === 1 ? items[0].file.name : `${items.length} items`
+      };
+
+      const titleEl = $('copy-modal-title');
+      if (titleEl) titleEl.textContent = t('mdbCopyModalTitle');
+
+      const previewEl = $('copy-entry-preview');
+      if (previewEl) {
+        previewEl.innerHTML = `<div style="font-weight:700;font-size:0.9rem;">${tFmt('mdbNSelected', { n: items.length })}</div>`;
+      }
+
+      populateCopyTargetOptions(-1);
+      $('copy-move-check').checked = false;
+      $('copy-modal-bg').classList.remove('hidden');
+    }
+
+    function openCopyToModalFromEdit() {
+      if (S.editFI != null && S.editRI != null) {
+        openCopyToModal(S.editFI, S.editRI);
+      }
+    }
+
+    function populateCopyTargetOptions(excludeFi) {
+      const select = $('copy-target-select');
+      select.innerHTML = '';
+
+      const otherFiles = S.files.filter((f, idx) => idx !== excludeFi);
+      otherFiles.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f.name;
+        opt.textContent = f.name + (f.status === 'loaded' ? ` (${f.records.length} records)` : ` (${t('mdbStatusPending') || 'pending'})`);
+        select.appendChild(opt);
+      });
+
+      const newOpt = document.createElement('option');
+      newOpt.value = '__new__';
+      newOpt.textContent = t('mdbCopyCreateNewFile');
+      select.appendChild(newOpt);
+
+      if (otherFiles.length > 0) {
+        select.value = otherFiles[0].name;
+        $('copy-new-file-group').classList.add('hidden');
+      } else {
+        select.value = '__new__';
+        $('copy-new-file-group').classList.remove('hidden');
+        $('copy-new-file-input').value = '';
+      }
+    }
+
+    function handleCopyTargetChange() {
+      const select = $('copy-target-select');
+      const isNew = select.value === '__new__';
+      const newGroup = $('copy-new-file-group');
+      if (isNew) {
+        newGroup.classList.remove('hidden');
+        const input = $('copy-new-file-input');
+        if (!input.value) {
+          input.value = `custom-${S.typeKey}-${Date.now().toString(36)}.js`;
+        }
+        input.focus();
+      } else {
+        newGroup.classList.add('hidden');
+      }
+    }
+
+    function closeCopyModal() {
+      $('copy-modal-bg').classList.add('hidden');
+      _copyModalCtx = null;
+    }
+
+    async function submitCopyModal() {
+      if (!_copyModalCtx) return;
+      const targetVal = $('copy-target-select').value;
+      const isMove = $('copy-move-check').checked;
+      const def = getTypeDef(S.typeKey);
+
+      let targetFile = null;
+      let targetFi = -1;
+
+      if (targetVal === '__new__') {
+        let rawName = $('copy-new-file-input').value.trim();
+        if (!rawName) {
+          showToast('Please enter a new file name', true);
+          return;
+        }
+        if (!rawName.endsWith('.js') && !rawName.endsWith('.json')) {
+          rawName += '.js';
+        }
+        const exists = S.files.find(f => f.name.toLowerCase() === rawName.toLowerCase());
+        if (exists) {
+          showToast('A file with this name already exists', true);
+          return;
+        }
+        targetFile = {
+          name: rawName,
+          varName: VAR_NAME_DEFAULTS[S.typeKey] || 'DATA',
+          records: [],
+          status: 'loaded',
+          size: 0
+        };
+        S.files.push(targetFile);
+        targetFi = S.files.length - 1;
+      } else {
+        targetFi = S.files.findIndex(f => f.name === targetVal);
+        if (targetFi === -1) {
+          showToast('Target file not found', true);
+          return;
+        }
+        targetFile = S.files[targetFi];
+        if (targetFile.status === 'pending') {
+          await loadFileContent(targetFi, def);
+        }
+      }
+
+      const recordsToCopy = _copyModalCtx.records || [];
+      if (!recordsToCopy.length) {
+        closeCopyModal();
+        return;
+      }
+
+      // Clone records and ensure unique IDs if needed
+      const clonedList = recordsToCopy.map(original => {
+        const clone = JSON.parse(JSON.stringify(original));
+        delete clone._fi;
+        delete clone._ri;
+        delete clone._src;
+
+        if (clone.id) {
+          const existsId = targetFile.records.some(r => r.id === clone.id);
+          if (existsId) {
+            clone.id = S.typeKey + '-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6);
+          }
+        }
+        return clone;
+      });
+
+      targetFile.records.push(...clonedList);
+      const savedOk = await saveFile(targetFi);
+      if (!savedOk) {
+        // Rollback targetFile addition if save failed
+        targetFile.records.splice(targetFile.records.length - clonedList.length, clonedList.length);
+        return;
+      }
+
+      // If Move was requested, remove from source file(s)
+      if (isMove) {
+        if (_copyModalCtx.mode === 'single') {
+          const srcFi = _copyModalCtx.fi;
+          const srcRi = _copyModalCtx.ri;
+          if (S.files[srcFi] && S.files[srcFi].records[srcRi]) {
+            S.files[srcFi].records.splice(srcRi, 1);
+            await saveFile(srcFi);
+          }
+        } else if (_copyModalCtx.mode === 'batch') {
+          const byFi = new Map();
+          _copyModalCtx.items.forEach(item => {
+            if (!byFi.has(item.fi)) byFi.set(item.fi, []);
+            byFi.get(item.fi).push(item.ri);
+          });
+          for (const [srcFi, riList] of byFi.entries()) {
+            if (!S.files[srcFi]) continue;
+            riList.sort((a, b) => b - a);
+            riList.forEach(idx => {
+              S.files[srcFi].records.splice(idx, 1);
+            });
+            await saveFile(srcFi);
+          }
+          S.batchSel.clear();
+          closeBatchPanel();
+        }
+      }
+
+      closeCopyModal();
+
+      if (S.editMode === 'edit') {
+        closeEdit();
+      }
+
+      const toastKey = isMove
+        ? (_copyModalCtx.mode === 'batch' ? 'mdbBatchMoveSuccess' : 'mdbMoveSuccess')
+        : (_copyModalCtx.mode === 'batch' ? 'mdbBatchCopySuccess' : 'mdbCopySuccess');
+
+      const msg = tFmt(toastKey, { file: targetFile.name, count: clonedList.length });
+      showToast(msg);
+
+      renderFilePills();
+      renderTable();
     }
 
     async function deduplicateRecords() {
@@ -1332,8 +1952,8 @@
 
     function getChipFields() {
       const strFields = S.schema.filter(f => f.type === 'string' || f.type === 'number');
-      const PRIMARY = ['word', 'term', 'expression', 'sentence', 'english', 'target', 'question'];
-      const SECONDARY = ['translation', 'meaning', 'answer', 'french', 'german', 'italian', 'native', 'definition', 'l1'];
+      const PRIMARY = ['word', 'term', 'expression', 'sentence', 'english', 'target', 'question', 'type', 'label'];
+      const SECONDARY = ['translation', 'meaning', 'answer', 'french', 'german', 'italian', 'native', 'definition', 'l1', 'key'];
       const primary = strFields.find(f => PRIMARY.includes(f.key.toLowerCase())) || strFields[0];
       const secondary = strFields.find(f => f !== primary && SECONDARY.includes(f.key.toLowerCase()))
         || strFields.find(f => f !== primary);
@@ -1342,6 +1962,31 @@
 
     function renderChips(rows) {
       const container = $('chips-container');
+      if (S.typeKey === 'chips') {
+        container.innerHTML = rows.map(row => {
+          const catName = row.type || 'Category';
+          const items = Array.isArray(row.items) ? row.items : [];
+          const bk = batchKey(row._fi, row._ri);
+          const isSel = S.batchSel.has(bk);
+          const itemTags = items.map(it => `<span class="tag" style="background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;font-size:0.75rem;padding:2px 7px;border-radius:12px;margin:2px;">${esc(it)}</span>`).join('');
+          return `<div class="chip${isSel ? ' chip-selected' : ''}" style="width:100%;max-width:540px;flex-direction:column;align-items:flex-start;padding:12px 14px;gap:8px;">
+            <div style="display:flex;align-items:center;width:100%;justify-content:space-between;gap:8px;">
+              <div class="chip-body" onclick="openEdit(${row._fi},${row._ri})" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                <span style="font-weight:800;font-size:0.95rem;color:#0f172a;">${esc(catName)}</span>
+                <span class="tag-more" style="background:#e0f2fe;color:#0369a1;font-weight:700;">${items.length} ${items.length === 1 ? 'chip' : 'chips'}</span>
+              </div>
+              <div style="display:flex;gap:4px;margin-left:auto;">
+                <button class="chip-del" onclick="openCopyToModal(${row._fi},${row._ri})" title="${t('mdbBtnCopyToFile')}"><img src="../assets/icons/copy.svg" class="btn-icon btn-icon-xs" alt="" /></button>
+                <button class="chip-del" onclick="confirmDel(${row._fi},${row._ri})" title="${t('mdbTitleDelete')}"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="" /></button>
+              </div>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;width:100%;cursor:pointer;" onclick="openEdit(${row._fi},${row._ri})">
+              ${itemTags || '<span style="color:#94a3b8;font-size:0.78rem;font-style:italic;">No chips in this category yet. Click to add.</span>'}
+            </div>
+          </div>`;
+        }).join('');
+        return;
+      }
       const { primary, secondary } = getChipFields();
       if (!primary) {
         container.innerHTML = '<div style="padding:20px;color:#bbb;font-size:0.85rem">No displayable fields detected.</div>';
@@ -1359,6 +2004,7 @@
         <span class="chip-main">${esc(main) || '<span style="color:#bbb">—</span>'}</span>
         ${sub ? `<span class="chip-sep">·</span><span class="chip-sub" title="${esc(sub)}">${esc(sub)}</span>` : ''}
       </div>
+      <button class="chip-del" onclick="openCopyToModal(${row._fi},${row._ri})" title="${t('mdbBtnCopyToFile')}"><img src="../assets/icons/copy.svg" class="btn-icon btn-icon-xs" alt="" /></button>
       <button class="chip-del" onclick="confirmDel(${row._fi},${row._ri})" title="${t('mdbTitleDelete')}"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="" /></button>
     </div>`;
       }).join('');
@@ -1396,6 +2042,11 @@
       const rec = S.files[fi].records[ri];
       $('edit-title').textContent = tFmt('mdbEditRecord', { filename: S.files[fi].name });
       $('edit-body').innerHTML = buildForm(rec, S.schema, fi, false);
+      if (S.typeKey === 'criteria') {
+        initCriteriaCompField(rec);
+      }
+      const copyBtn = $('edit-copy-to-btn');
+      if (copyBtn) copyBtn.style.display = '';
       $('edit-bg').classList.remove('hidden');
     }
 
@@ -1406,6 +2057,11 @@
       S.editRI = null;
       $('edit-title').textContent = t('mdbAddRecord');
       $('edit-body').innerHTML = buildForm({}, S.schema, null, true);
+      if (S.typeKey === 'criteria') {
+        initCriteriaCompField({});
+      }
+      const copyBtn = $('edit-copy-to-btn');
+      if (copyBtn) copyBtn.style.display = 'none';
       $('edit-bg').classList.remove('hidden');
     }
 
@@ -1454,7 +2110,11 @@
       } else if (field.type === 'number') {
         input = `<input type="number" id="${id}" value="${esc(String(val ?? ''))}">`;
       } else if (field.type === 'array') {
-        if (field.longArray) {
+        if (S.typeKey === 'criteria' && field.key === 'competenceIds') {
+          const arrVal = Array.isArray(val) ? val : (typeof val === 'string' ? val.split(',').map(s => s.trim()).filter(Boolean) : []);
+          input = `<div id="mdb-crit-comp-chips-wrap" style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;min-height:36px;padding:6px 8px;border:2px solid #111;border-radius:5px;background:#fafafa;"></div>
+               <input type="hidden" id="${id}" value="${esc(arrVal.join(', '))}">`;
+        } else if (field.longArray) {
           const sv = Array.isArray(val) ? val.join('\n') : String(val ?? '');
           input = `<textarea id="${id}" rows="4" placeholder="item 1\nitem 2\nitem 3">${escHtml(sv)}</textarea>
                <div class="form-hint">${t('mdbHintOnePerLine')}</div>`;
@@ -1470,7 +2130,11 @@
       } else if (field.isLong) {
         input = `<textarea id="${id}" rows="3" placeholder="Enter details...">${escHtml(String(val ?? ''))}</textarea>`;
       } else {
-        input = `<input type="text" id="${id}" value="${esc(String(val ?? ''))}">`;
+        const placeholder = (S.typeKey === 'chips' && field.key === 'type') ? 'e.g. Oral Fluency, Work Habits'
+          : (S.typeKey === 'scales' && field.key === 'key') ? 'e.g. standard-1-6, custom-scale'
+          : (S.typeKey === 'scales' && field.key === 'label') ? 'e.g. Standard (1 to 6)'
+          : '';
+        input = `<input type="text" id="${id}" value="${esc(String(val ?? ''))}" ${placeholder ? `placeholder="${esc(placeholder)}"` : ''}>`;
       }
 
       const helpDescription = hasHelp
@@ -1478,16 +2142,29 @@
         : '';
 
       const isWordField = field.key === 'word' || (field.key === 'english' && (S.typeKey === 'wordbanks' || !rec.word));
-      const autofillBtn = isWordField
+      const isCompCriteriaField = S.typeKey === 'criteria' && field.key === 'competenceIds';
+      const actionBtn = isWordField
         ? `<button type="button" class="btn btn-secondary btn-sm" onclick="triggerWordAutofill()" style="padding:2px 8px;font-size:0.75rem;margin-left:auto;border-radius:4px;cursor:pointer;" data-i18n="mdbBtnAutofill"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> Autofill</button>`
-        : '';
+        : (isCompCriteriaField
+          ? `<button type="button" class="btn btn-secondary btn-sm" onclick="openMdbCompetencePicker()" style="padding:2px 8px;font-size:0.75rem;margin-left:auto;border-radius:4px;cursor:pointer;"><img src="../assets/icons/plus.svg" class="btn-icon btn-icon-xs" alt="" /> <span data-i18n="mdbPickCompetences">${t('mdbPickCompetences')}</span></button>`
+          : '');
+
+      if (isCompCriteriaField) {
+        typeBadge = `<span style="font-size:0.68rem;font-weight:700;color:#2563eb;background:#eff6ff;border:1px solid #bfdbfe;padding:1px 5px;border-radius:3px;margin-left:6px;">Competences</span>`;
+      }
+
+      let fieldLabel = esc(cap(field.key));
+      if (S.typeKey === 'chips' && field.key === 'type') fieldLabel = 'Category Name';
+      else if (S.typeKey === 'chips' && field.key === 'items') fieldLabel = 'Observation Chips';
+      else if (S.typeKey === 'scales' && field.key === 'key') fieldLabel = 'Scale Identifier (Key)';
+      else if (S.typeKey === 'scales' && field.key === 'label') fieldLabel = 'Scale Display Name';
 
       return `<div class="form-field" style="margin-bottom:12px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
       <label class="form-lbl" for="${id}" style="margin-bottom:0;display:flex;align-items:center;">
-        <span>${esc(cap(field.key))}</span>${typeBadge}
+        <span>${isCompCriteriaField ? t('mdbLinkedCompetences') : fieldLabel}</span>${typeBadge}
       </label>
-      ${autofillBtn}
+      ${actionBtn}
     </div>
     ${input}
     ${helpDescription}
@@ -1554,6 +2231,30 @@
             <span style="font-size:0.7rem;background:#dcfce7;padding:2px 6px;border-radius:4px;color:#15803d;">Schema Info</span>
           </div>
           <div>Phases configured here appear directly in <strong>Lesson Creator's Activity Bank</strong>. Teachers can insert them into any lesson timeline with a single click or drag-and-drop.</div>
+        </div>`;
+      } else if (S.typeKey === 'criteria') {
+        infoBanner = `<div style="background:#f8fafc;border:1.5px solid #cbd5e1;border-radius:6px;padding:10px 12px;margin-bottom:14px;font-size:0.78rem;color:#334155;line-height:1.45;">
+          <div style="font-weight:700;color:#0f172a;margin-bottom:2px;display:flex;align-items:center;justify-content:space-between;">
+            <span>Evaluation Criteria Guide</span>
+            <span style="font-size:0.7rem;background:#e2e8f0;padding:2px 6px;border-radius:4px;color:#475569;">Grade Sheet Criteria</span>
+          </div>
+          <div>Used in <strong>Grade Sheet</strong> test presets and reference data. Define <strong>name</strong>, points range (<strong>minPoints</strong>, <strong>maxPoints</strong>), <strong>interval</strong>, and link to curriculum <strong>competenceIds</strong> (comma-separated codes/IDs).</div>
+        </div>`;
+      } else if (S.typeKey === 'scales') {
+        infoBanner = `<div style="background:#f8fafc;border:1.5px solid #cbd5e1;border-radius:6px;padding:10px 12px;margin-bottom:14px;font-size:0.78rem;color:#334155;line-height:1.45;">
+          <div style="font-weight:700;color:#0f172a;margin-bottom:2px;display:flex;align-items:center;justify-content:space-between;">
+            <span>Grading Scale Models Guide</span>
+            <span style="font-size:0.7rem;background:#e2e8f0;padding:2px 6px;border-radius:4px;color:#475569;">Grade Sheet Scales</span>
+          </div>
+          <div>Used in <strong>Grade Sheet</strong> to calculate student grades from test percentages. Define <strong>key</strong>, <strong>label</strong>, grade range (<strong>minGrade</strong>, <strong>maxGrade</strong>, <strong>interval</strong>), and percentage <strong>thresholds</strong> for each grade step.</div>
+        </div>`;
+      } else if (S.typeKey === 'chips') {
+        infoBanner = `<div style="background:#f8fafc;border:1.5px solid #cbd5e1;border-radius:6px;padding:10px 12px;margin-bottom:14px;font-size:0.78rem;color:#334155;line-height:1.45;">
+          <div style="font-weight:700;color:#0f172a;margin-bottom:2px;display:flex;align-items:center;justify-content:space-between;">
+            <span>Personalised Observation Chips Guide</span>
+            <span style="font-size:0.7rem;background:#e2e8f0;padding:2px 6px;border-radius:4px;color:#475569;">Grade Sheet Observations</span>
+          </div>
+          <div>Configures the checklist chip categories shown in the <strong>Teacher Observations</strong> section of Grade Sheet. Specify the category <strong>type</strong> (e.g. Effort, Oral Skills) and individual observation phrase <strong>items</strong>.</div>
         </div>`;
       }
 
@@ -1736,6 +2437,376 @@
       $('edit-bg').classList.add('hidden');
       S.editMode = S.editFI = S.editRI = null;
       _activeFormSchema = null;
+      _activeFormCompDraft = [];
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // CRITERIA COMPETENCE LINKER & PICKER
+    // ─────────────────────────────────────────────────────────────────────
+    let _allAvailableCompetences = [];
+    let _loadingAvailableCompetences = false;
+    let _activeFormCompDraft = [];
+    let _compPickerDraftSelected = new Set();
+    let _compPickerFilters = {
+      search: '',
+      category: 'all',
+      level: 'all',
+      year: 'all',
+      selectedOnly: false
+    };
+
+    async function loadAllAvailableCompetences() {
+      if (_allAvailableCompetences.length && !_loadingAvailableCompetences) return _allAvailableCompetences;
+      _loadingAvailableCompetences = true;
+      const compMap = new Map();
+
+      function addOrUpdateComp(item) {
+        if (!item || typeof item !== 'object') return;
+        const id = String(item.id || item.code || item.title || '').trim();
+        if (!id) return;
+        const year = String(item.yearLevel || item.year || item.grade || '').trim();
+        const category = String(item.category || item.domain || item.competence || item.subject || '').trim();
+        const level = String(item.level || '').trim();
+        const subject = String(item.subjectId || item.subject || '').trim();
+        const title = String(item.title || item.name || '').trim();
+        const code = String(item.code || '').trim();
+        const description = String(item.description || '').trim();
+
+        if (!compMap.has(id)) {
+          compMap.set(id, {
+            id,
+            code,
+            title: title || code || id,
+            description,
+            level,
+            year,
+            category,
+            subject
+          });
+        } else {
+          const existing = compMap.get(id);
+          if (!existing.code && code) existing.code = code;
+          if (!existing.title && title) existing.title = title;
+          if (!existing.description && description) existing.description = description;
+          if (!existing.category && category) existing.category = category;
+          if (!existing.level && level) existing.level = level;
+          if (!existing.year && year) existing.year = year;
+        }
+      }
+
+      // 1. From typeCache / _gsc if already loaded
+      if (typeCache['competences']) {
+        for (const f of typeCache['competences']) {
+          if (Array.isArray(f.records)) f.records.forEach(addOrUpdateComp);
+        }
+      }
+      if (_gsc['competences']) {
+        for (const fn of Object.keys(_gsc['competences'])) {
+          const entry = _gsc['competences'][fn];
+          if (entry && Array.isArray(entry.records)) entry.records.forEach(addOrUpdateComp);
+        }
+      }
+
+      // 2. From localStorage
+      try {
+        const stored = localStorage.getItem('cmt-lesson-competences') || localStorage.getItem('cmt-lesson-descriptors');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) parsed.forEach(addOrUpdateComp);
+        }
+      } catch (_) {}
+
+      // 3. User root files & customCompetences directory via Desktop
+      if (window.Desktop && typeof Desktop.readText === 'function') {
+        try {
+          let res = await Desktop.readText('user', 'lesson-competences.json');
+          if (!res || !res.ok) res = await Desktop.readText('user', 'lesson-descriptors.json');
+          if (res && res.ok && res.content) {
+            const list = _parseRecords(res.content);
+            if (Array.isArray(list)) list.forEach(addOrUpdateComp);
+          }
+        } catch (_) {}
+
+        try {
+          if (typeof Desktop.listFiles === 'function') {
+            const filesRes = await Desktop.listFiles('customCompetences', { extensions: ['.js', '.json'] });
+            let flist = _normalizeFileList(filesRes);
+            if (!flist.length) {
+              const legacyRes = await Desktop.listFiles('customDescriptors', { extensions: ['.js', '.json'] });
+              flist = _normalizeFileList(legacyRes);
+            }
+            for (const item of flist) {
+              const fn = typeof item === 'string' ? item : item.filename;
+              if (!fn) continue;
+              let raw = await Desktop.readText('customCompetences', fn);
+              if (!raw || !raw.ok) raw = await Desktop.readText('customDescriptors', fn);
+              if (raw && raw.ok && raw.content) {
+                const recs = _parseRecords(raw.content);
+                if (Array.isArray(recs)) recs.forEach(addOrUpdateComp);
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
+      _allAvailableCompetences = Array.from(compMap.values());
+      _loadingAvailableCompetences = false;
+      return _allAvailableCompetences;
+    }
+
+    function findAvailableCompetence(idOrCode) {
+      if (!idOrCode) return null;
+      const q = String(idOrCode).trim().toLowerCase();
+      return _allAvailableCompetences.find(c =>
+        (c.id && String(c.id).toLowerCase() === q) ||
+        (c.code && String(c.code).toLowerCase() === q)
+      ) || null;
+    }
+
+    function initCriteriaCompField(rec) {
+      _activeFormCompDraft = Array.isArray(rec.competenceIds)
+        ? [...rec.competenceIds]
+        : (typeof rec.competenceIds === 'string' ? rec.competenceIds.split(',').map(s => s.trim()).filter(Boolean) : []);
+      renderFormCompChips();
+      loadAllAvailableCompetences().then(() => {
+        renderFormCompChips();
+      });
+    }
+
+    function renderFormCompChips() {
+      const wrap = $('mdb-crit-comp-chips-wrap');
+      const input = $('ff-competenceIds');
+      if (!wrap) return;
+      if (input) input.value = _activeFormCompDraft.join(', ');
+
+      if (!_activeFormCompDraft.length) {
+        wrap.innerHTML = `<span style="font-size:0.8rem;color:#94a3b8;font-style:italic;" data-i18n="mdbNoCompetencesLinked">${t('mdbNoCompetencesLinked')}</span>`;
+        return;
+      }
+
+      wrap.innerHTML = _activeFormCompDraft.map(cid => {
+        const comp = findAvailableCompetence(cid);
+        const code = comp?.code || cid;
+        const title = comp?.title ? `${comp.code ? comp.code + ': ' : ''}${comp.title}` : (comp?.code || cid);
+        return `<span class="crit-comp-chip" style="display:inline-flex;align-items:center;gap:5px;background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:4px;padding:3px 8px;font-size:0.78rem;color:#1e40af;max-width:100%;" title="${esc(title)}">
+          <strong style="color:#1d4ed8;">${esc(code)}</strong>
+          ${comp?.title && comp.title !== code ? `<span style="color:#334155;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(comp.title)}</span>` : ''}
+          <button type="button" onclick="removeFormCompChip('${esc(cid)}')" style="border:none;background:none;color:#94a3b8;font-weight:700;font-size:0.85rem;cursor:pointer;padding:0 2px;line-height:1;margin-left:2px;" title="Remove">✕</button>
+        </span>`;
+      }).join('');
+    }
+
+    function removeFormCompChip(cid) {
+      _activeFormCompDraft = _activeFormCompDraft.filter(id => id !== cid);
+      renderFormCompChips();
+    }
+
+    async function openMdbCompetencePicker() {
+      await loadAllAvailableCompetences();
+      _compPickerDraftSelected = new Set(_activeFormCompDraft);
+      _compPickerFilters = {
+        search: '',
+        category: 'all',
+        level: 'all',
+        year: 'all',
+        selectedOnly: false
+      };
+
+      const catSel = $('mdb-comp-filter-category');
+      const lvlSel = $('mdb-comp-filter-level');
+      const yrSel = $('mdb-comp-filter-year');
+      const searchInput = $('mdb-comp-picker-search');
+      if (searchInput) searchInput.value = '';
+
+      if (catSel) {
+        const cats = new Set();
+        _allAvailableCompetences.forEach(c => { if (c.category) cats.add(c.category); });
+        catSel.innerHTML = `<option value="all" data-i18n="gsCompFilterAllDomains">${t('gsCompFilterAllDomains')}</option>` +
+          Array.from(cats).sort().map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+        catSel.value = 'all';
+      }
+
+      if (lvlSel) {
+        const lvls = new Set();
+        _allAvailableCompetences.forEach(c => { if (c.level) lvls.add(c.level); });
+        lvlSel.innerHTML = `<option value="all" data-i18n="gsCompFilterAllLevels">${t('gsCompFilterAllLevels')}</option>` +
+          Array.from(lvls).sort().map(l => `<option value="${esc(l)}">${esc(l)}</option>`).join('');
+        lvlSel.value = 'all';
+      }
+
+      if (yrSel) {
+        const yrs = new Set();
+        _allAvailableCompetences.forEach(c => { if (c.year) yrs.add(c.year); });
+        yrSel.innerHTML = `<option value="all" data-i18n="gsCompFilterAllYears">${t('gsCompFilterAllYears')}</option>` +
+          Array.from(yrs).sort().map(y => `<option value="${esc(y)}">${esc(y)}</option>`).join('');
+        yrSel.value = 'all';
+      }
+
+      const showSelBtn = $('mdb-comp-filter-show-selected');
+      if (showSelBtn) {
+        showSelBtn.style.background = '#fff';
+        showSelBtn.style.color = '#111';
+      }
+
+      renderMdbCompPickerList();
+      $('mdb-comp-picker-bg').classList.remove('hidden');
+      if (searchInput) searchInput.focus();
+    }
+
+    function getFilteredMdbCompetences() {
+      const q = String(_compPickerFilters.search || '').toLowerCase().trim();
+      const fc = _compPickerFilters.category;
+      const fl = _compPickerFilters.level;
+      const fy = _compPickerFilters.year;
+      const fSelected = _compPickerFilters.selectedOnly;
+
+      return _allAvailableCompetences.filter(c => {
+        if (fSelected && !_compPickerDraftSelected.has(c.id)) return false;
+        if (fc !== 'all' && c.category !== fc) return false;
+        if (fl !== 'all' && c.level !== fl) return false;
+        if (fy !== 'all' && c.year !== fy) return false;
+        if (!q) return true;
+        return (c.code && c.code.toLowerCase().includes(q)) ||
+               (c.title && c.title.toLowerCase().includes(q)) ||
+               (c.description && c.description.toLowerCase().includes(q)) ||
+               (c.category && c.category.toLowerCase().includes(q)) ||
+               (c.level && c.level.toLowerCase().includes(q)) ||
+               (c.year && c.year.toLowerCase().includes(q));
+      });
+    }
+
+    function renderMdbCompPickerList() {
+      const listEl = $('mdb-comp-picker-list');
+      const countEl = $('mdb-comp-picker-count');
+      if (!listEl) return;
+      listEl.innerHTML = '';
+
+      const filtered = getFilteredMdbCompetences();
+
+      if (countEl) {
+        countEl.textContent = tFmt('mdbSelectedCount', { n: _compPickerDraftSelected.size }) + ` (${filtered.length} visible)`;
+      }
+
+      if (!filtered.length) {
+        const empty = document.createElement('div');
+        empty.style.cssText = 'padding:20px;text-align:center;color:#64748b;font-size:0.85rem;';
+        empty.textContent = _allAvailableCompetences.length === 0
+          ? (t('gsNoCompetencesFound') || 'No competences found in database.')
+          : (t('gsNoMatchingCompetences') || 'No matching competences.');
+        listEl.appendChild(empty);
+        return;
+      }
+
+      filtered.forEach(comp => {
+        const row = document.createElement('div');
+        const isChecked = _compPickerDraftSelected.has(comp.id);
+        row.style.cssText = `display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:6px;cursor:pointer;background:${isChecked ? '#eff6ff' : '#fff'};border:1px solid ${isChecked ? '#93c5fd' : '#e2e8f0'};transition:background 0.1s ease;`;
+
+        const chk = document.createElement('input');
+        chk.type = 'checkbox';
+        chk.checked = isChecked;
+        chk.style.marginTop = '3px';
+        chk.style.cursor = 'pointer';
+
+        const info = document.createElement('div');
+        info.style.cssText = 'flex:1;min-width:0;';
+
+        const topRow = document.createElement('div');
+        topRow.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px;';
+        if (comp.code) {
+          const badge = document.createElement('span');
+          badge.style.cssText = 'background:#1d4ed8;color:#fff;font-weight:800;font-size:0.75rem;padding:1px 6px;border-radius:3px;';
+          badge.textContent = comp.code;
+          topRow.appendChild(badge);
+        }
+        if (comp.level || comp.category) {
+          const tag = document.createElement('span');
+          tag.style.cssText = 'background:#f1f5f9;border:1px solid #cbd5e1;color:#475569;font-size:0.7rem;font-weight:600;padding:1px 5px;border-radius:3px;';
+          tag.textContent = comp.level ? `${comp.level}${comp.category ? ' · ' + comp.category : ''}` : comp.category;
+          topRow.appendChild(tag);
+        }
+
+        const titleEl = document.createElement('div');
+        titleEl.style.cssText = 'font-weight:700;font-size:0.85rem;color:#0f172a;line-height:1.3;';
+        titleEl.textContent = comp.title || comp.code || comp.id;
+        info.appendChild(topRow);
+        info.appendChild(titleEl);
+
+        if (comp.description && comp.description !== comp.title) {
+          const descEl = document.createElement('div');
+          descEl.style.cssText = 'font-size:0.75rem;color:#64748b;margin-top:2px;line-height:1.35;max-height:2.7em;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;';
+          descEl.textContent = comp.description;
+          info.appendChild(descEl);
+        }
+
+        row.appendChild(chk);
+        row.appendChild(info);
+
+        const toggle = () => {
+          if (_compPickerDraftSelected.has(comp.id)) {
+            _compPickerDraftSelected.delete(comp.id);
+            row.style.background = '#fff';
+            row.style.borderColor = '#e2e8f0';
+            chk.checked = false;
+          } else {
+            _compPickerDraftSelected.add(comp.id);
+            row.style.background = '#eff6ff';
+            row.style.borderColor = '#93c5fd';
+            chk.checked = true;
+          }
+          if (countEl) {
+            countEl.textContent = tFmt('mdbSelectedCount', { n: _compPickerDraftSelected.size }) + ` (${filtered.length} visible)`;
+          }
+        };
+
+        row.onclick = (e) => {
+          if (e.target !== chk) toggle();
+        };
+        chk.onchange = toggle;
+
+        listEl.appendChild(row);
+      });
+    }
+
+    function filterMdbCompPicker() {
+      const searchInput = $('mdb-comp-picker-search');
+      const catSel = $('mdb-comp-filter-category');
+      const lvlSel = $('mdb-comp-filter-level');
+      const yrSel = $('mdb-comp-filter-year');
+
+      _compPickerFilters.search = searchInput ? searchInput.value : '';
+      _compPickerFilters.category = catSel ? catSel.value : 'all';
+      _compPickerFilters.level = lvlSel ? lvlSel.value : 'all';
+      _compPickerFilters.year = yrSel ? yrSel.value : 'all';
+      renderMdbCompPickerList();
+    }
+
+    function toggleMdbCompShowSelected(btn) {
+      _compPickerFilters.selectedOnly = !_compPickerFilters.selectedOnly;
+      if (btn) {
+        btn.style.background = _compPickerFilters.selectedOnly ? '#111' : '#fff';
+        btn.style.color = _compPickerFilters.selectedOnly ? '#fff' : '#111';
+      }
+      renderMdbCompPickerList();
+    }
+
+    function selectMdbCompVisible(selectAll) {
+      const filtered = getFilteredMdbCompetences();
+      filtered.forEach(c => {
+        if (selectAll) _compPickerDraftSelected.add(c.id);
+        else _compPickerDraftSelected.delete(c.id);
+      });
+      renderMdbCompPickerList();
+    }
+
+    function closeMdbCompPicker() {
+      $('mdb-comp-picker-bg').classList.add('hidden');
+    }
+
+    function applyMdbCompPicker() {
+      _activeFormCompDraft = Array.from(_compPickerDraftSelected);
+      renderFormCompChips();
+      closeMdbCompPicker();
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -1965,6 +3036,16 @@
       updateSidebarCount(S.typeKey);
       closeNF();
       renderAll();
+
+      if (S.typeKey === 'criteria') {
+        try {
+          if (typeof BroadcastChannel !== 'undefined') {
+            const ch = new BroadcastChannel('cmt-criteria');
+            ch.postMessage({ type: 'criteria-updated', filename: name, timestamp: Date.now() });
+            ch.close();
+          }
+        } catch (_) {}
+      }
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -1990,6 +3071,18 @@
     async function deleteDBFile(fi) {
       const file = S.files[fi];
       if (!file) return;
+      if (S.typeKey === 'criteria' && file.name === 'correction-criteria.js') {
+        showToast('Default correction-criteria.js cannot be deleted.', true);
+        return;
+      }
+      if (S.typeKey === 'scales' && file.name === 'grade-scale-models.js') {
+        showToast('Default grade-scale-models.js cannot be deleted.', true);
+        return;
+      }
+      if (S.typeKey === 'chips' && file.name === 'correction-criteria.js') {
+        showToast('Default correction-criteria.js cannot be deleted.', true);
+        return;
+      }
       if (!await showConfirm(tFmt('mdbConfirmDeleteFile', { name: file.name }))) return;
 
       if (typeof Desktop !== 'undefined' && Desktop.isElectron()) {
@@ -2008,6 +3101,32 @@
       updateSidebarCount(S.typeKey);
       S.schema = buildSchema(getAllRecords());
       renderAll();
+
+      if (S.typeKey === 'criteria') {
+        try {
+          if (typeof BroadcastChannel !== 'undefined') {
+            const ch = new BroadcastChannel('cmt-criteria');
+            ch.postMessage({ type: 'criteria-updated', filename: file.name, timestamp: Date.now() });
+            ch.close();
+          }
+        } catch (_) {}
+      } else if (S.typeKey === 'scales') {
+        try {
+          if (typeof BroadcastChannel !== 'undefined') {
+            const ch = new BroadcastChannel('cmt-scales');
+            ch.postMessage({ type: 'scales-updated', filename: file.name, timestamp: Date.now() });
+            ch.close();
+          }
+        } catch (_) {}
+      } else if (S.typeKey === 'chips') {
+        try {
+          if (typeof BroadcastChannel !== 'undefined') {
+            const ch = new BroadcastChannel('cmt-chips');
+            ch.postMessage({ type: 'chips-updated', filename: file.name, timestamp: Date.now() });
+            ch.close();
+          }
+        } catch (_) {}
+      }
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -2130,7 +3249,60 @@
     async function saveFile(fi) {
       const file = S.files[fi];
       const def = getTypeDef(S.typeKey);
-      const result = await Desktop.saveText(def.target, file.name, buildJsContent(file.varName, file.records));
+      let result = null;
+
+      if (S.typeKey === 'criteria' && file.name === 'correction-criteria.js') {
+        let chips = [];
+        try {
+          const rawRes = await Desktop.readText('user', 'correction-criteria.js');
+          if (rawRes && rawRes.ok) {
+            const fn = new Function(rawRes.content + '\n;try{return typeof OBSERVATION_CHECKLIST_GROUPS !== "undefined" ? OBSERVATION_CHECKLIST_GROUPS : [];}catch(e){return [];}');
+            chips = fn() || [];
+          }
+        } catch (_) {}
+        if (!chips.length) {
+          try {
+            const ls = localStorage.getItem('gradeSheetPersonalisedChips.v1');
+            if (ls) chips = JSON.parse(ls);
+          } catch (_) {}
+        }
+        const content = `const XLSM_CRITERIA = ${JSON.stringify(file.records, null, 2)};\n` +
+          `const OBSERVATION_CHECKLIST_GROUPS = ${JSON.stringify(chips, null, 2)};\n`;
+        result = await Desktop.saveText('user', 'correction-criteria.js', content);
+        try {
+          localStorage.setItem('gradeSheetReferenceCriteria.v1', JSON.stringify(file.records));
+        } catch (_) {}
+      } else if (S.typeKey === 'scales' && file.name === 'grade-scale-models.js') {
+        const content = `// XLSM_SCALE_MODELS\nconst XLSM_SCALE_MODELS = ${JSON.stringify(file.records, null, 2)};\n`;
+        result = await Desktop.saveText('user', 'grade-scale-models.js', content);
+        try {
+          localStorage.setItem('gradeSheetScaleModels.v1', JSON.stringify(file.records));
+        } catch (_) {}
+      } else if (S.typeKey === 'chips' && file.name === 'correction-criteria.js') {
+        let criteria = [];
+        try {
+          const rawRes = await Desktop.readText('user', 'correction-criteria.js');
+          if (rawRes && rawRes.ok) {
+            const fn = new Function(rawRes.content + '\n;try{return typeof XLSM_CRITERIA !== "undefined" ? XLSM_CRITERIA : [];}catch(e){return [];}');
+            criteria = fn() || [];
+          }
+        } catch (_) {}
+        if (!criteria.length) {
+          try {
+            const ls = localStorage.getItem('gradeSheetReferenceCriteria.v1');
+            if (ls) criteria = JSON.parse(ls);
+          } catch (_) {}
+        }
+        const content = `const XLSM_CRITERIA = ${JSON.stringify(criteria, null, 2)};\n` +
+          `const OBSERVATION_CHECKLIST_GROUPS = ${JSON.stringify(file.records, null, 2)};\n`;
+        result = await Desktop.saveText('user', 'correction-criteria.js', content);
+        try {
+          localStorage.setItem('gradeSheetPersonalisedChips.v1', JSON.stringify(file.records));
+        } catch (_) {}
+      } else {
+        result = await Desktop.saveText(def.target, file.name, buildJsContent(file.varName, file.records));
+      }
+
       if (!result?.ok) { showToast(t('mdbErrSaveFailed') + (result?.error || ''), true); return false; }
       if (_gsc[S.typeKey]) _gsc[S.typeKey][file.name] = { records: file.records.slice(), varName: file.varName };
 
@@ -2161,6 +3333,36 @@
             const ch = new BroadcastChannel('cmt-phases');
             ch.postMessage({ type: 'phases-updated', timestamp: Date.now() });
             ch.close();
+          }
+        } catch (_) {}
+      } else if (S.typeKey === 'criteria') {
+        try {
+          if (typeof BroadcastChannel !== 'undefined') {
+            const ch = new BroadcastChannel('cmt-criteria');
+            ch.postMessage({ type: 'criteria-updated', filename: file.name, timestamp: Date.now() });
+            ch.close();
+          }
+        } catch (_) {}
+      } else if (S.typeKey === 'scales') {
+        try {
+          if (typeof BroadcastChannel !== 'undefined') {
+            const ch = new BroadcastChannel('cmt-scales');
+            ch.postMessage({ type: 'scales-updated', filename: file.name, timestamp: Date.now() });
+            ch.close();
+            const chCrit = new BroadcastChannel('cmt-criteria');
+            chCrit.postMessage({ type: 'scales-updated', filename: file.name, timestamp: Date.now() });
+            chCrit.close();
+          }
+        } catch (_) {}
+      } else if (S.typeKey === 'chips') {
+        try {
+          if (typeof BroadcastChannel !== 'undefined') {
+            const ch = new BroadcastChannel('cmt-chips');
+            ch.postMessage({ type: 'chips-updated', filename: file.name, timestamp: Date.now() });
+            ch.close();
+            const chCrit = new BroadcastChannel('cmt-criteria');
+            chCrit.postMessage({ type: 'chips-updated', filename: file.name, timestamp: Date.now() });
+            chCrit.close();
           }
         } catch (_) {}
       }
@@ -2411,6 +3613,80 @@ Rules:
 - "activityTypeId" should be one of: warm_up, direct_instruction, guided_practice, independent_work, group_activity, discussion, assessment, plenary.
 - "interactionTypeId" should be one of: whole_class, teacher_led, individual, pairs, small_groups, stations.
 - "tags" must be an array of short strings.
+- No markdown or explanation text.`,
+
+      scales: `Generate JSON for grading scale model entries.
+Return ONLY valid JSON (array of objects), no markdown.
+
+Format:
+[
+  {
+    "key": "standard-1-6",
+    "label": "Standard (1 to 6)",
+    "minGrade": 1,
+    "maxGrade": 6,
+    "interval": 0.5,
+    "thresholds": {
+      "6": 90,
+      "5.5": 80,
+      "5": 70,
+      "4.5": 60,
+      "4": 50,
+      "3.5": 40,
+      "3": 30,
+      "2.5": 20,
+      "2": 10,
+      "1.5": 5,
+      "1": 0
+    },
+    "colors": {
+      "6": "#166534",
+      "5.5": "#15803d",
+      "5": "#22c55e",
+      "4.5": "#84cc16",
+      "4": "#eab308",
+      "3.5": "#f97316",
+      "3": "#ef4444",
+      "2.5": "#dc2626",
+      "2": "#b91c1c",
+      "1.5": "#991b1b",
+      "1": "#7f1d1d"
+    }
+  }
+]
+
+Rules:
+- "key", "label", "minGrade", "maxGrade", "interval", and "thresholds" object with percentage numbers (0 to 100) are required.
+- No markdown or explanation text.`,
+
+      chips: `Generate JSON for observation chip categories and tags.
+Return ONLY valid JSON (array of objects), no markdown.
+
+Format:
+[
+  {
+    "type": "Oral Fluency & Participation",
+    "items": [
+      "Speaks clearly with good volume",
+      "Actively contributes to discussions",
+      "Uses accurate target vocabulary",
+      "Hesitant; needs encouraging prompts",
+      "Interrupts peers during speaking turns"
+    ]
+  },
+  {
+    "type": "Work Habits & Effort",
+    "items": [
+      "Stays focused throughout individual tasks",
+      "Consistently submits high-quality work",
+      "Easily distracted by surroundings",
+      "Collaborates effectively in small groups"
+    ]
+  }
+]
+
+Rules:
+- Each item must have "type" (string, category name) and "items" (array of short observation phrases).
 - No markdown or explanation text.`,
     };
 
@@ -2981,8 +4257,10 @@ Rules:
         if (el) el.style.display = show ? '' : 'none';
       });
       const editBtn = $('batch-edit-btn');
+      const copyBtn = $('batch-copy-btn');
       const delBtn = $('batch-del-btn');
       if (editBtn) { editBtn.style.display = show ? '' : 'none'; editBtn.disabled = count === 0; }
+      if (copyBtn) { copyBtn.style.display = show ? '' : 'none'; copyBtn.disabled = count === 0; }
       if (delBtn) { delBtn.style.display = show ? '' : 'none'; delBtn.disabled = count === 0; }
       const countEl = $('batch-count');
       if (countEl) countEl.textContent = count > 0 ? tFmt('mdbNSelected', { n: count }) : '';
@@ -3253,7 +4531,12 @@ Rules:
     // ─────────────────────────────────────────────────────────────────────
     // START
     // ─────────────────────────────────────────────────────────────────────
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeColPicker(); });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        closeColPicker();
+        closeCopyModal();
+      }
+    });
     document.addEventListener('DOMContentLoaded', init);
   </script>
 </body>

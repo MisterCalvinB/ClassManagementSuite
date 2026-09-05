@@ -172,7 +172,7 @@
           <button id="btn-import" class="btn" data-i18n="gsBtnImport"><img src="../assets/icons/import.svg" class="btn-icon" alt="" /> Import JSON</button>
           <button id="btn-edit-reference-data" class="btn btn-edit-reference-data" data-i18n="gsBtnEditRef"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> Edit Criteria / Scales</button>
           <button id="btn-add-test-overview" class="btn" data-i18n="gsBtnAddTest"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Test</button>
-          <button id="btn-add-class" class="btn primary" data-i18n="gsBtnAddClass"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Class</button>
+          <button id="btn-add-class" class="btn primary" data-i18n="gsBtnNewGradeSheet"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> New Grade Sheet</button>
         </div>
       </div>
 
@@ -273,6 +273,7 @@
             </div>
           </div>
           <button id="btn-import-grades" class="btn" data-i18n="gsBtnImportGrades"><img src="../assets/icons/import.svg" class="btn-icon" alt="" /> Import Grades</button>
+          <button id="btn-class-templates" class="btn" data-i18n="gsBtnManageTemplates"><img src="../assets/icons/check.svg" class="btn-icon" alt="" /> Criteria Templates</button>
           <button id="btn-edit-reference-data-summary" class="btn btn-edit-reference-data" data-i18n="gsBtnEditRef"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> Edit Criteria / Scales</button>
           <button id="btn-edit-class" class="btn" data-i18n="gsBtnEditClass"><img src="../assets/icons/edit-word.svg" class="btn-icon" alt="" /> Edit Class</button>
           <button id="btn-delete-class" class="btn" data-i18n="gsBtnDeleteClass"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> Delete Class</button>
@@ -413,6 +414,10 @@
               <button id="ref-scale-add" class="btn primary" type="button" data-i18n="gsRefAddModel"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add model</button>
             </div>
           </div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:8px 12px;background:var(--subtle-bg, #f8fafc);border:1px solid var(--border);border-radius:6px;">
+            <label for="ref-scale-bank-select" style="font-size:0.82rem;font-weight:700;" data-i18n="gsScaleBank">Scale Models Bank:</label>
+            <select id="ref-scale-bank-select" class="input" style="max-width:320px;padding:4px 8px;font-size:0.82rem;"></select>
+          </div>
           <div id="ref-scale-list" class="ref-data-list"></div>
         </section>
 
@@ -425,6 +430,10 @@
             <div class="ref-actions">
               <button id="ref-chips-add" class="btn primary" type="button" data-i18n="gsRefAddCategory"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add category</button>
             </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:8px 12px;background:var(--subtle-bg, #f8fafc);border:1px solid var(--border);border-radius:6px;">
+            <label for="ref-chips-bank-select" style="font-size:0.82rem;font-weight:700;" data-i18n="gsChipsBank">Observation Chips Bank:</label>
+            <select id="ref-chips-bank-select" class="input" style="max-width:320px;padding:4px 8px;font-size:0.82rem;"></select>
           </div>
           <div id="ref-chips-list" class="ref-data-list"></div>
         </section>
@@ -594,6 +603,10 @@
       <div id="grading-popup-formula-wrap" class="form-group">
         <label for="grading-popup-pass4" data-i18n="gsGradingLabelPass4">% for grade 4</label>
         <input id="grading-popup-pass4" class="input" type="number" min="0" max="100" step="0.1" />
+      </div>
+      <div class="form-group">
+        <label for="grading-popup-scale-bank" data-i18n="gsScaleBank">Scale Models Bank</label>
+        <select id="grading-popup-scale-bank" class="input"></select>
       </div>
       <div class="form-group">
         <label for="grading-popup-model" data-i18n="gsGradingLabelModel">Scale model</label>
@@ -885,7 +898,13 @@
               </div>
             </div>
             <div id="topt-grading-model-wrap" class="form-group" style="margin-top:8px;">
-              <label data-i18n="gsGradingLabelModel">Preset Scale Models</label>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+                <label data-i18n="gsGradingLabelModel">Preset Scale Models</label>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span style="font-size:0.75rem;color:var(--muted);font-weight:600;" data-i18n="gsScaleBank">Bank:</span>
+                  <select id="topt-grading-scale-bank" class="input input-sm" style="max-width:200px;padding:2px 6px;font-size:0.75rem;"></select>
+                </div>
+              </div>
               <div id="topt-grading-model" class="chip-group"></div>
             </div>
           </div>
@@ -921,6 +940,15 @@
 
             <div class="topt-card">
               <div class="topt-card-title" data-i18n="gsToptAddCriterionLoadPreset">+ Add New Criterion / Load Preset</div>
+              <div class="form-group" style="margin-bottom:12px;background:var(--bg-subtle,#f8fafc);padding:8px 10px;border-radius:6px;border:1px solid var(--border,#e2e8f0);">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                  <label for="topt-criteria-bank-select" style="font-weight:700;font-size:0.82rem;margin:0;" data-i18n="gsTestCriteriaTemplate">Test Criteria Template</label>
+                  <button type="button" class="btn btn-xs" id="topt-apply-all-template-criteria-btn" style="font-size:0.75rem;padding:2px 8px;" data-i18n="gsApplyTemplateAll">
+                    <img src="../assets/icons/check.svg" class="btn-icon btn-icon-xs" alt="" /> Apply All
+                  </button>
+                </div>
+                <select id="topt-criteria-bank-select" class="input" style="font-size:0.85rem;padding:4px 8px;"></select>
+              </div>
               <div class="form-group">
                 <label for="topt-criteria-preset" data-i18n="gsToptPresetTemplate">Preset Template</label>
                 <select id="topt-criteria-preset" class="input"></select>
@@ -1062,11 +1090,64 @@
           </label>
         </div>
       </div>
+      <div class="form-group" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <label style="margin:0;font-size:0.82rem;font-weight:700;color:var(--ink);" data-i18n="gsCriteriaLinkedCompetences">Linked Competences</label>
+          <button type="button" id="crit-popup-link-competence-btn" class="btn btn-sm" style="font-size:0.75rem;padding:2px 8px;" data-i18n="gsLinkCompetence">+ Link Competence</button>
+        </div>
+        <div id="crit-popup-competence-chips" style="display:flex;flex-wrap:wrap;gap:4px;min-height:24px;align-items:center;"></div>
+      </div>
       <div class="crit-popup-footer">
         <button id="crit-popup-del" class="btn" type="button" style="color:var(--warn);" data-i18n="gsCritBtnDelete">Delete</button>
         <div class="btn-row">
           <button id="crit-popup-cancel" class="btn" type="button" data-i18n="btnCancel">Cancel</button>
           <button id="crit-popup-save" class="btn primary" type="button" data-i18n="gsBtnSave">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Competence Picker Modal -->
+  <div id="gs-competence-picker-overlay" class="crit-popup-overlay hidden" style="z-index: 10700;">
+    <div class="crit-popup wide panel" role="dialog" aria-modal="true" style="max-width:720px;width:95%;max-height:88vh;display:flex;flex-direction:column;">
+      <div class="crit-popup-title" style="display:flex;justify-content:space-between;align-items:center;">
+        <span data-i18n="gsCriteriaLinkedCompetences">Linked Competences</span>
+        <button type="button" id="gs-competence-picker-close-x" class="btn btn-sm" style="padding:2px 8px;font-size:1rem;line-height:1;" aria-label="Close">✕</button>
+      </div>
+      <div style="margin-bottom:8px;">
+        <input type="search" id="gs-competence-picker-search" class="input" style="width:100%;box-sizing:border-box;" placeholder="Search competences..." data-i18n-placeholder="gsSearchCompetences" />
+      </div>
+      <!-- Filter Toolbar -->
+      <div id="gs-competence-picker-filters" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;background:var(--bg-subtle,#f8fafc);padding:6px 10px;border-radius:6px;border:1px solid var(--border,#e2e8f0);">
+        <div style="display:flex;align-items:center;gap:4px;flex:1;min-width:115px;">
+          <label for="gs-comp-filter-year" style="font-size:0.75rem;font-weight:600;color:var(--muted,#666);margin:0;white-space:nowrap;" data-i18n="gsCompFilterYear">Year:</label>
+          <select id="gs-comp-filter-year" class="input" style="font-size:0.8rem;padding:2px 6px;height:28px;flex:1;min-width:0;"></select>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;flex:1.4;min-width:140px;">
+          <label for="gs-comp-filter-category" style="font-size:0.75rem;font-weight:600;color:var(--muted,#666);margin:0;white-space:nowrap;" data-i18n="gsCompFilterCategory">Domain:</label>
+          <select id="gs-comp-filter-category" class="input" style="font-size:0.8rem;padding:2px 6px;height:28px;flex:1;min-width:0;"></select>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;flex:1;min-width:105px;">
+          <label for="gs-comp-filter-level" style="font-size:0.75rem;font-weight:600;color:var(--muted,#666);margin:0;white-space:nowrap;" data-i18n="gsCompFilterLevel">Level:</label>
+          <select id="gs-comp-filter-level" class="input" style="font-size:0.8rem;padding:2px 6px;height:28px;flex:1;min-width:0;"></select>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-left:auto;">
+          <button type="button" id="gs-comp-filter-show-selected" class="btn btn-xs" style="font-size:0.75rem;padding:3px 8px;height:28px;white-space:nowrap;" data-i18n="gsCompFilterShowSelected">Selected</button>
+          <button type="button" id="gs-comp-filter-reset" class="btn btn-xs" style="font-size:0.75rem;padding:3px 8px;height:28px;white-space:nowrap;" data-i18n="btnReset">Reset</button>
+        </div>
+      </div>
+      <div id="gs-competence-picker-list" style="flex:1;overflow-y:auto;max-height:420px;border:1px solid var(--line, #e2e8f0);border-radius:6px;padding:8px;display:flex;flex-direction:column;gap:6px;"></div>
+      <div class="crit-popup-footer" style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span id="gs-competence-picker-count" style="font-size:0.85rem;font-weight:600;color:var(--muted,#666);">0 selected</span>
+          <div style="display:flex;gap:4px;">
+            <button type="button" id="gs-comp-picker-select-all" class="btn btn-xs" style="font-size:0.72rem;padding:2px 6px;" data-i18n="gsCompFilterSelectAll">Select Visible</button>
+            <button type="button" id="gs-comp-picker-deselect-all" class="btn btn-xs" style="font-size:0.72rem;padding:2px 6px;" data-i18n="gsCompFilterDeselectAll">Deselect Visible</button>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button id="gs-competence-picker-cancel" class="btn" type="button" data-i18n="btnCancel">Cancel</button>
+          <button id="gs-competence-picker-apply" class="btn primary" type="button" data-i18n="btnConfirm">Apply</button>
         </div>
       </div>
     </div>
@@ -1192,6 +1273,12 @@
           <option value="4">4</option>
         </select>
       </div>
+      <div class="form-group">
+        <label for="add-class-criteria-bank" data-i18n="gsCriteriaBank">Criteria Bank</label>
+        <select id="add-class-criteria-bank" class="input">
+          <option value="" data-i18n="gsCriteriaBankDefault">Default (XLSM_CRITERIA)</option>
+        </select>
+      </div>
       <div class="crit-popup-footer">
         <div></div>
         <div class="btn-row">
@@ -1251,11 +1338,35 @@
           <option value="4">4</option>
         </select>
       </div>
+      <div class="form-group">
+        <label data-i18n="gsCriteriaTemplates">Loaded Criteria Templates</label>
+        <div id="edit-class-criteria-banks-checklist" style="display:flex;flex-direction:column;gap:6px;max-height:140px;overflow-y:auto;background:var(--card,#fff);border:1px solid var(--border,#ccc);border-radius:6px;padding:8px 10px;"></div>
+        <div style="font-size:0.75rem;color:var(--muted);margin-top:4px;" data-i18n="gsCriteriaTemplatesHelp">Select which criteria templates are loaded for this grade sheet. Individual tests can choose among any of these loaded templates.</div>
+      </div>
       <div class="crit-popup-footer">
         <div></div>
         <div class="btn-row">
           <button id="edit-class-cancel" class="btn" type="button" data-i18n="btnCancel">Cancel</button>
           <button id="edit-class-save" class="btn primary" type="button" data-i18n="gsBtnSave">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Class Criteria Templates Management Modal -->
+  <div id="class-criteria-templates-overlay" class="crit-popup-overlay hidden" style="z-index: 10600;">
+    <div class="crit-popup panel" role="dialog" aria-modal="true" style="max-width:540px;width:92%;">
+      <div class="crit-popup-title" style="display:flex;justify-content:space-between;align-items:center;">
+        <span data-i18n="gsCriteriaTemplatesTitle">Manage Criteria Templates</span>
+        <button type="button" id="class-templates-modal-close-x" class="btn btn-sm" style="padding:2px 8px;font-size:1rem;line-height:1;" aria-label="Close">✕</button>
+      </div>
+      <p style="font-size:0.83rem;color:var(--muted);margin:0 0 12px 0;" data-i18n="gsCriteriaTemplatesHelp">Select which criteria templates are loaded for this grade sheet. Individual tests can choose among any of these loaded templates.</p>
+      <div id="class-templates-checklist" style="display:flex;flex-direction:column;gap:8px;max-height:260px;overflow-y:auto;background:var(--card,#fff);border:1px solid var(--border,#ccc);border-radius:6px;padding:10px 12px;margin-bottom:14px;"></div>
+      <div class="crit-popup-footer">
+        <div></div>
+        <div class="btn-row">
+          <button id="class-templates-modal-cancel" class="btn" type="button" data-i18n="btnCancel">Cancel</button>
+          <button id="class-templates-modal-save" class="btn primary" type="button" data-i18n="gsBtnSave">Save</button>
         </div>
       </div>
     </div>
@@ -1310,12 +1421,18 @@
           <img src="../assets/icons/file-text.svg" style="width: 22px; height: 22px;" alt="" />
           <h2 id="gs-report-modal-title" style="margin: 0; font-size: 1.25rem; font-weight: 800;" data-i18n="gsReportModalTitle">Report Preview</h2>
         </div>
-        <div class="btn-row" style="margin: 0;">
-          <button id="gs-report-btn-print" class="btn" type="button"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> <span data-i18n="gsReportBtnPrint">Print</span></button>
-          <button id="gs-report-btn-pdf" class="btn primary" type="button"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> <span data-i18n="gsReportBtnExportPdf">Export PDF</span></button>
-          <button id="gs-report-btn-html" class="btn" type="button"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> <span data-i18n="gsReportBtnExportHtml">Export HTML</span></button>
-          <button id="gs-report-btn-docx" class="btn" type="button"><img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" /> <span data-i18n="gsReportBtnExportDocx">Export DOCX</span></button>
-          <button id="gs-report-modal-close" class="btn" type="button" style="border: 2px solid #111;"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
+        <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-left: auto;">
+          <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.84rem; font-weight: 700; cursor: pointer; user-select: none; background: #f8fafc; padding: 4px 8px; border: 1.5px solid #111; border-radius: 4px;">
+            <input type="checkbox" id="gs-report-toggle-competences" checked style="cursor: pointer; width: 15px; height: 15px;" />
+            <span data-i18n="gsReportToggleCompetences">Include Competences</span>
+          </label>
+          <div class="btn-row" style="margin: 0;">
+            <button id="gs-report-btn-print" class="btn" type="button"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> <span data-i18n="gsReportBtnPrint">Print</span></button>
+            <button id="gs-report-btn-pdf" class="btn primary" type="button"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> <span data-i18n="gsReportBtnExportPdf">Export PDF</span></button>
+            <button id="gs-report-btn-html" class="btn" type="button"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> <span data-i18n="gsReportBtnExportHtml">Export HTML</span></button>
+            <button id="gs-report-btn-docx" class="btn" type="button"><img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" /> <span data-i18n="gsReportBtnExportDocx">Export DOCX</span></button>
+            <button id="gs-report-modal-close" class="btn" type="button" style="border: 2px solid #111;"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
+          </div>
         </div>
       </div>
       <div id="gs-report-modal-body" style="flex: 1; min-height: 520px; overflow: hidden; background: #f0f0f0; border: 2px solid #111; border-radius: 4px; padding: 8px;">
@@ -1449,36 +1566,50 @@
       };
     }
 
-    function getObservationChecklistItems() {
-      const groups = getObservationChecklistGroups();
+    function getObservationChecklistItems(bankFilename) {
+      const groups = getObservationChecklistGroups(bankFilename);
       return groups.flatMap(g => g.items);
     }
 
-    function getObservationChecklistGroups() {
+    function getObservationChecklistGroups(bankFilename) {
       function normalizeGroupItems(items) {
         return Array.isArray(items)
           ? items.map(v => String(v || "").trim()).filter(Boolean)
           : [];
       }
 
-      if (typeof OBSERVATION_CHECKLIST_GROUPS !== "undefined" && OBSERVATION_CHECKLIST_GROUPS) {
-        if (Array.isArray(OBSERVATION_CHECKLIST_GROUPS)) {
-          const arrGroups = OBSERVATION_CHECKLIST_GROUPS
+      function normalizeRawGroups(raw) {
+        if (!raw) return [];
+        if (Array.isArray(raw)) {
+          return raw
             .map(g => ({
               type: String((g && (g.type || g.label || g.name)) || "").trim() || "Criteria",
               items: normalizeGroupItems(g && g.items)
             }))
             .filter(g => g.items.length > 0);
-          if (arrGroups.length > 0) return arrGroups;
-        } else if (typeof OBSERVATION_CHECKLIST_GROUPS === "object") {
-          const objGroups = Object.entries(OBSERVATION_CHECKLIST_GROUPS)
+        } else if (typeof raw === "object") {
+          return Object.entries(raw)
             .map(([type, items]) => ({
               type: String(type || "").trim() || "Criteria",
               items: normalizeGroupItems(items)
             }))
             .filter(g => g.items.length > 0);
-          if (objGroups.length > 0) return objGroups;
         }
+        return [];
+      }
+
+      const targetBank = bankFilename || (typeof _activeChipBankFilename !== 'undefined' ? _activeChipBankFilename : null);
+      if (targetBank && typeof _availableChipBanks !== 'undefined' && Array.isArray(_availableChipBanks)) {
+        const b = _availableChipBanks.find(x => x.filename === targetBank);
+        if (b && Array.isArray(b.chips) && b.chips.length > 0) {
+          const res = normalizeRawGroups(b.chips);
+          if (res.length > 0) return res;
+        }
+      }
+
+      if (typeof OBSERVATION_CHECKLIST_GROUPS !== "undefined" && OBSERVATION_CHECKLIST_GROUPS) {
+        const res = normalizeRawGroups(OBSERVATION_CHECKLIST_GROUPS);
+        if (res.length > 0) return res;
       }
 
       if (typeof OBSERVATION_CHECKLIST_ITEMS !== "undefined" && Array.isArray(OBSERVATION_CHECKLIST_ITEMS)) {
@@ -1486,6 +1617,15 @@
           .map(v => String(v || "").trim())
           .filter(Boolean);
         return items.length > 0 ? [{ type: "Criteria", items }] : [];
+      }
+
+      if (typeof _availableChipBanks !== 'undefined' && Array.isArray(_availableChipBanks) && _availableChipBanks.length > 0) {
+        for (const b of _availableChipBanks) {
+          if (b && Array.isArray(b.chips) && b.chips.length > 0) {
+            const res = normalizeRawGroups(b.chips);
+            if (res.length > 0) return res;
+          }
+        }
       }
 
       if (!Array.isArray(XLSM_CRITERIA)) return [];
@@ -1986,15 +2126,56 @@
       return getDefaultGradeColor(k);
     }
 
-    function findMatchingReferenceCriterion(criterionName) {
-      if (!criterionName || typeof XLSM_CRITERIA === "undefined" || !Array.isArray(XLSM_CRITERIA)) return null;
-      const cleanName = String(criterionName).trim().toLowerCase();
-      return XLSM_CRITERIA.find(c => c && c.name && c.name.trim().toLowerCase() === cleanName) || null;
+    function lookupColorInMap(colorMap, key) {
+      if (!colorMap || typeof colorMap !== "object" || key == null) return null;
+      const k = String(key).trim();
+      if (colorMap[k] && typeof colorMap[k] === "string") return colorMap[k].trim();
+      const num = toNumber(k);
+      if (num != null) {
+        if (colorMap[num] && typeof colorMap[num] === "string") return colorMap[num].trim();
+        const numStr = String(num);
+        if (colorMap[numStr] && typeof colorMap[numStr] === "string") return colorMap[numStr].trim();
+        const intStr = String(Math.round(num));
+        if (num === Math.round(num) && colorMap[intStr] && typeof colorMap[intStr] === "string") return colorMap[intStr].trim();
+      }
+      return null;
     }
 
-    function resolveCriterionProps(criterion) {
+    function findMatchingReferenceCriterion(criterionName, bankFilename = null) {
+      if (!criterionName) return null;
+      const cleanName = String(criterionName).trim().toLowerCase();
+
+      // 1. Search in _availableCriteriaBanks (prioritize bankFilename if supplied)
+      if (typeof _availableCriteriaBanks !== "undefined" && Array.isArray(_availableCriteriaBanks) && _availableCriteriaBanks.length > 0) {
+        if (bankFilename) {
+          const targetBank = _availableCriteriaBanks.find(b => b.filename === bankFilename);
+          if (targetBank && Array.isArray(targetBank.criteria)) {
+            const match = targetBank.criteria.find(c => c && c.name && String(c.name).trim().toLowerCase() === cleanName);
+            if (match) return match;
+          }
+        }
+        for (const bank of _availableCriteriaBanks) {
+          if (Array.isArray(bank.criteria)) {
+            const match = bank.criteria.find(c => c && c.name && String(c.name).trim().toLowerCase() === cleanName);
+            if (match) return match;
+          }
+        }
+      }
+
+      // 2. Fallback to XLSM_CRITERIA (user/correction-criteria.js)
+      if (typeof XLSM_CRITERIA !== "undefined" && Array.isArray(XLSM_CRITERIA)) {
+        const match = XLSM_CRITERIA.find(c => c && c.name && String(c.name).trim().toLowerCase() === cleanName);
+        if (match) return match;
+      }
+      return null;
+    }
+
+    function resolveCriterionProps(criterion, testConfig = null, classObj = null) {
       const name = criterion && criterion.name ? criterion.name.trim() : "Criterion";
-      const xlsm = findMatchingReferenceCriterion(name);
+      const bankFilename = (testConfig && testConfig.criteriaBank) ||
+                           (classObj && classObj.criteriaBank) ||
+                           (criterion && criterion.criteriaBank) || null;
+      const xlsm = findMatchingReferenceCriterion(name, bankFilename);
 
       // minPoints: crit-item-detail takes precedence if set, otherwise falls back to ref-field (or 0)
       const minPts = (criterion && criterion.minPoints != null && !isNaN(Number(criterion.minPoints)))
@@ -2017,10 +2198,10 @@
         ? Math.max(0, Number(criterion.pointCoefficient))
         : 1;
 
-      // grades, colors, comments
-      const grades = normalizeCriterionGrades((criterion && criterion.grades) || (xlsm && xlsm.grades));
-      const comments = (criterion && criterion.comments) || (xlsm && xlsm.comments) || {};
-      const colors = (criterion && criterion.colors) || (xlsm && xlsm.colors) || {};
+      // grades, comments, colors: prioritize reference bank and merge cleanly
+      const grades = normalizeCriterionGrades((criterion && Array.isArray(criterion.grades) && criterion.grades.length) ? criterion.grades : (xlsm && xlsm.grades));
+      const comments = Object.assign({}, (xlsm && xlsm.comments) || {}, (criterion && criterion.comments) || {});
+      const colors = Object.assign({}, (xlsm && xlsm.colors) || {}, (criterion && criterion.colors) || {});
 
       return {
         name,
@@ -2037,19 +2218,19 @@
       };
     }
 
-    function getCriterionGradeStops(criterion, minPts, maxPts) {
-      const resolved = resolveCriterionProps(criterion);
+    function getCriterionGradeStops(criterion, minPts, maxPts, testConfig = null, classObj = null) {
+      const resolved = resolveCriterionProps(criterion, testConfig, classObj);
       const safeMin = minPts != null ? minPts : resolved.minPoints;
       const safeMax = maxPts != null ? maxPts : resolved.maxPoints;
       const ptsSpan = Math.max(0, safeMax - safeMin);
       const critInterval = resolved.interval;
 
       function getStopColorForPts(currentPts, ratio) {
-        const key = nearestCriterionGradeKey(criterion, null, currentPts, safeMin, safeMax);
+        const key = nearestCriterionGradeKey(resolved, null, currentPts, safeMin, safeMax);
         if (key) {
-          const col = (resolved.colors && resolved.colors[key]) ||
-                      (resolved.xlsm && resolved.xlsm.colors && resolved.xlsm.colors[key]) ||
-                      (criterion && criterion.colors && criterion.colors[key]) ||
+          const col = lookupColorInMap(resolved.colors, key) ||
+                      (resolved.xlsm && lookupColorInMap(resolved.xlsm.colors, key)) ||
+                      lookupColorInMap(criterion && criterion.colors, key) ||
                       getScaleGradeColor(key);
           if (col) return col;
         }
@@ -2071,7 +2252,7 @@
         const currentPts = Math.min(safeMax, Number(pts.toFixed(2)));
         const ratio = ptsSpan > 0 ? (currentPts - safeMin) / ptsSpan : 0;
         const color = getStopColorForPts(currentPts, ratio);
-        const key = nearestCriterionGradeKey(criterion, null, currentPts, safeMin, safeMax);
+        const key = nearestCriterionGradeKey(resolved, null, currentPts, safeMin, safeMax);
         stops.push({
           key: fmt(currentPts),
           label: fmt(currentPts),
@@ -2085,7 +2266,7 @@
       }
       if (stops.length === 0 || stops[stops.length - 1].ptsValue < safeMax) {
         const color = getStopColorForPts(safeMax, 1.0);
-        const key = nearestCriterionGradeKey(criterion, null, safeMax, safeMin, safeMax);
+        const key = nearestCriterionGradeKey(resolved, null, safeMax, safeMin, safeMax);
         stops.push({
           key: fmt(safeMax),
           label: fmt(safeMax),
@@ -2099,8 +2280,8 @@
       return stops;
     }
 
-    function buildCriterionSliderGradient(criterion, minPts, maxPts) {
-      const stops = getCriterionGradeStops(criterion, minPts, maxPts);
+    function buildCriterionSliderGradient(criterion, minPts, maxPts, testConfig = null, classObj = null) {
+      const stops = getCriterionGradeStops(criterion, minPts, maxPts, testConfig, classObj);
       if (!stops.length) return "linear-gradient(to right, #ef4444 0%, #f59e0b 50%, #10b981 100%)";
       if (stops.length === 1) return stops[0].color;
 
@@ -2123,8 +2304,24 @@
       return grades.length ? grades : DEFAULT_CRITERION_GRADES.slice();
     }
 
-    function nearestCriterionGradeKey(criterion, grade, points, minPts, maxPts) {
-      const available = normalizeCriterionGrades(criterion && criterion.grades);
+    function nearestCriterionGradeKey(criterionOrGrades, grade, points, minPts, maxPts) {
+      let rawGrades = null;
+      let refMinPts = minPts;
+      let refMaxPts = maxPts;
+      if (Array.isArray(criterionOrGrades)) {
+        rawGrades = criterionOrGrades;
+      } else if (criterionOrGrades && typeof criterionOrGrades === "object") {
+        rawGrades = (Array.isArray(criterionOrGrades.grades) && criterionOrGrades.grades.length)
+          ? criterionOrGrades.grades
+          : (criterionOrGrades.xlsm && Array.isArray(criterionOrGrades.xlsm.grades) && criterionOrGrades.xlsm.grades.length ? criterionOrGrades.xlsm.grades : null);
+        if (refMinPts == null && criterionOrGrades.minPoints != null) refMinPts = criterionOrGrades.minPoints;
+        if (refMaxPts == null && criterionOrGrades.maxPoints != null) refMaxPts = criterionOrGrades.maxPoints;
+        if (!rawGrades && criterionOrGrades.name) {
+          const ref = findMatchingReferenceCriterion(criterionOrGrades.name);
+          if (ref && Array.isArray(ref.grades) && ref.grades.length) rawGrades = ref.grades;
+        }
+      }
+      const available = normalizeCriterionGrades(rawGrades);
       if (!available.length) return null;
 
       const numeric = available
@@ -2132,14 +2329,23 @@
         .filter(entry => entry.value != null)
         .sort((a, b) => b.value - a.value);
 
-      if (!numeric.length) return available[available.length - 1] || null;
+      if (!numeric.length) {
+        if (points != null && refMinPts != null && refMaxPts != null) {
+          const p = Number(points);
+          const span = Math.max(0, refMaxPts - refMinPts);
+          const ratio = span > 0 ? Math.max(0, Math.min(1, (p - refMinPts) / span)) : 0;
+          const idx = Math.min(available.length - 1, Math.max(0, Math.floor((1 - ratio) * available.length)));
+          return available[idx];
+        }
+        return available[0] || null;
+      }
 
       const maxKey = numeric[0].value;
       const minKey = numeric[numeric.length - 1].value;
       const keySpan = Math.max(0, maxKey - minKey);
 
-      const safeMinPts = minPts != null ? Number(minPts) : (toNumber(criterion && criterion.minPoints) ?? minKey);
-      const safeMaxPts = maxPts != null ? Number(maxPts) : (toNumber(criterion && criterion.maxPoints) ?? maxKey);
+      const safeMinPts = refMinPts != null ? Number(refMinPts) : minKey;
+      const safeMaxPts = refMaxPts != null ? Number(refMaxPts) : maxKey;
       const ptsSpan = Math.max(0, safeMaxPts - safeMinPts);
 
       if (points != null) {
@@ -2226,6 +2432,1020 @@
       }
     }
 
+    let _allLessonCompetences = [];
+    let _availableCriteriaBanks = [];
+
+    function findLessonCompetence(idOrCode) {
+      if (!idOrCode) return null;
+      const q = String(idOrCode).trim().toLowerCase();
+      return _allLessonCompetences.find(c =>
+        (c.id && String(c.id).toLowerCase() === q) ||
+        (c.code && String(c.code).toLowerCase() === q)
+      ) || null;
+    }
+
+    async function loadLessonCompetences() {
+      const compMap = new Map();
+      function addOrUpdateComp(item) {
+        if (!item || typeof item !== 'object') return;
+        const id = String(item.id || item.code || item.title || '').trim();
+        if (!id) return;
+        const year = String(item.yearLevel || item.year || item.grade || '').trim();
+        const category = String(item.category || item.domain || item.competence || item.subject || '').trim();
+        const level = String(item.level || '').trim();
+        const subject = String(item.subjectId || item.subject || '').trim();
+        compMap.set(id, {
+          id: id,
+          code: item.code || '',
+          title: item.title || item.name || '',
+          description: item.description || '',
+          level: level,
+          year: year,
+          category: category,
+          subject: subject
+        });
+      }
+
+      // 1. LocalStorage
+      try {
+        const stored = localStorage.getItem('cmt-lesson-competences') || localStorage.getItem('cmt-lesson-descriptors');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) parsed.forEach(addOrUpdateComp);
+        }
+      } catch (_) {}
+
+      // 2. User root files: lesson-competences.json / lesson-descriptors.json
+      if (window.Desktop && typeof Desktop.readText === 'function') {
+        try {
+          let res = await Desktop.readText('user', 'lesson-competences.json');
+          if (!res || !res.ok) res = await Desktop.readText('user', 'lesson-descriptors.json');
+          if (res && res.ok && res.content) {
+            const parsed = JSON.parse(res.content);
+            const list = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.competences || parsed.descriptors) ? (parsed.competences || parsed.descriptors) : []);
+            list.forEach(addOrUpdateComp);
+          }
+        } catch (_) {}
+
+        // 3. Custom competence files in user/custom-data/competences/
+        try {
+          if (typeof Desktop.listFiles === 'function') {
+            let filesRes = await Desktop.listFiles('customCompetences', { extensions: ['.js', '.json'] });
+            let flist = Array.isArray(filesRes) ? filesRes : (filesRes && Array.isArray(filesRes.files) ? filesRes.files : []);
+            if (!flist.length) {
+              let legacyRes = await Desktop.listFiles('customDescriptors', { extensions: ['.js', '.json'] });
+              flist = Array.isArray(legacyRes) ? legacyRes : (legacyRes && Array.isArray(legacyRes.files) ? legacyRes.files : []);
+            }
+            for (let i = 0; i < flist.length; i++) {
+              const fn = typeof flist[i] === 'string' ? flist[i] : flist[i].filename;
+              if (!fn) continue;
+              let raw = await Desktop.readText('customCompetences', fn);
+              if (!raw || !raw.ok) raw = await Desktop.readText('customDescriptors', fn);
+              if (raw && raw.ok && raw.content) {
+                try {
+                  const arr = parseCriteriaFileContent(raw.content);
+                  if (Array.isArray(arr)) {
+                    arr.forEach(addOrUpdateComp);
+                  } else {
+                    const sandbox = {};
+                    const func = new Function('window', raw.content);
+                    func(sandbox);
+                    const arr2 = sandbox.LESSON_COMPETENCES || sandbox.LESSON_DESCRIPTORS || sandbox.COMPETENCES || JSON.parse(raw.content);
+                    if (Array.isArray(arr2)) arr2.forEach(addOrUpdateComp);
+                  }
+                } catch (_) {}
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
+      _allLessonCompetences = Array.from(compMap.values());
+      if (typeof populateCompetencePickerFilters === 'function') {
+        populateCompetencePickerFilters();
+      }
+    }
+
+    function parseCriteriaFileContent(content) {
+      if (!content || typeof content !== 'string') return null;
+      const trimmed = content.trim();
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (Array.isArray(parsed)) return parsed;
+        } catch (_) {}
+      }
+      if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+        try {
+          const obj = JSON.parse(trimmed);
+          if (Array.isArray(obj.criteria)) return obj.criteria;
+          if (Array.isArray(obj.records)) return obj.records;
+          if (Array.isArray(obj.XLSM_CRITERIA)) return obj.XLSM_CRITERIA;
+        } catch (_) {}
+      }
+      const varMatch = content.match(/(?:(?:const|let|var)\s+(\w+)\s*=|window\.([A-Za-z0-9_$]+)\s*=)\s*\[/);
+      if (varMatch) {
+        const varName = varMatch[1] || varMatch[2];
+        try {
+          const fn = new Function(content + `\n;try{return ${varName};}catch(e){return [];}`);
+          const data = fn();
+          if (Array.isArray(data)) return data;
+        } catch (_) {}
+      }
+      try {
+        const firstBracket = trimmed.indexOf('[');
+        const lastBracket = trimmed.lastIndexOf(']');
+        if (firstBracket !== -1 && lastBracket > firstBracket) {
+          const slice = trimmed.slice(firstBracket, lastBracket + 1);
+          const fn2 = new Function('return ' + slice + ';');
+          const res2 = fn2();
+          if (Array.isArray(res2)) return res2;
+        }
+      } catch (_) {}
+      return null;
+    }
+
+    async function loadAvailableCriteriaBanks() {
+      const banks = [];
+
+      // 1. Default bank from correction-criteria.js (XLSM_CRITERIA)
+      let defaultCriteria = (typeof XLSM_CRITERIA !== 'undefined' && Array.isArray(XLSM_CRITERIA)) ? XLSM_CRITERIA : [];
+      if (!defaultCriteria.length && window.Desktop && typeof Desktop.readText === 'function') {
+        try {
+          const rootRes = await Desktop.readText('user', 'correction-criteria.js');
+          if (rootRes && rootRes.ok && rootRes.content) {
+            const parsed = parseCriteriaFileContent(rootRes.content);
+            if (Array.isArray(parsed) && parsed.length) defaultCriteria = parsed;
+          }
+        } catch (_) {}
+      }
+      if (!defaultCriteria.length) {
+        try {
+          const ls = localStorage.getItem('gradeSheetReferenceCriteria.v1');
+          if (ls) {
+            const parsed = JSON.parse(ls);
+            if (Array.isArray(parsed) && parsed.length) defaultCriteria = parsed;
+          }
+        } catch (_) {}
+      }
+
+      banks.push({
+        id: 'default',
+        filename: 'correction-criteria.js',
+        name: t('gsCriteriaBankDefault', 'Default (correction-criteria.js)'),
+        criteria: defaultCriteria
+      });
+
+      // 2. Custom criteria banks in customCriteria (user/custom-data/criteria)
+      if (window.Desktop && typeof Desktop.listFiles === 'function') {
+        try {
+          const res = await Desktop.listFiles('customCriteria', { extensions: ['.js', '.json'] });
+          const list = Array.isArray(res) ? res : (res && Array.isArray(res.files) ? res.files : []);
+          for (let i = 0; i < list.length; i++) {
+            const item = list[i];
+            const fn = typeof item === 'string' ? item : (item.filename || item.name);
+            if (!fn || fn === 'correction-criteria.js') continue;
+            try {
+              const fileRes = await Desktop.readText('customCriteria', fn);
+              const content = fileRes?.content || (typeof fileRes === 'string' ? fileRes : null);
+              if (content) {
+                const critArr = parseCriteriaFileContent(content);
+                if (Array.isArray(critArr)) {
+                  if (!banks.some(b => b.filename === fn)) {
+                    banks.push({
+                      id: fn,
+                      filename: fn,
+                      name: fn.replace(/\.(js|json)$/i, ''),
+                      criteria: critArr
+                    });
+                  }
+                }
+              }
+            } catch (err) {
+              console.warn('Error reading custom criteria file:', fn, err);
+            }
+          }
+        } catch (e) {
+          console.warn('Error listing customCriteria:', e);
+        }
+      }
+
+      // 3. Fallback / browser localStorage criteria banks
+      try {
+        for (let k = 0; k < localStorage.length; k++) {
+          const key = localStorage.key(k);
+          if (key && (key.startsWith('cmt-criteria-') || key.startsWith('custom-criteria-'))) {
+            try {
+              const val = JSON.parse(localStorage.getItem(key));
+              if (Array.isArray(val)) {
+                const fname = key.replace(/^(cmt|custom)-criteria-/, '') + '.js';
+                if (!banks.some(b => b.filename === fname)) {
+                  banks.push({
+                    id: fname,
+                    filename: fname,
+                    name: fname.replace(/\.(js|json)$/i, ''),
+                    criteria: val
+                  });
+                }
+              }
+            } catch (_) {}
+          }
+        }
+      } catch (_) {}
+
+      _availableCriteriaBanks = banks;
+      populateCriteriaBankDropdowns();
+      return banks;
+    }
+
+    function populateCriteriaBankDropdowns() {
+      const addSelect = document.getElementById('add-class-criteria-bank');
+      if (addSelect) {
+        const currentVal = addSelect.value;
+        addSelect.innerHTML = '';
+        _availableCriteriaBanks.forEach(b => {
+          const opt = document.createElement('option');
+          opt.value = b.filename;
+          const critCount = Array.isArray(b.criteria) ? b.criteria.length : 0;
+          opt.textContent = `${b.name} (${critCount} criteria)`;
+          addSelect.appendChild(opt);
+        });
+        if (currentVal && Array.from(addSelect.options).some(o => o.value === currentVal)) {
+          addSelect.value = currentVal;
+        }
+      }
+    }
+
+    let _availableScaleBanks = [];
+    let _activeScaleBankFilename = 'grade-scale-models.js';
+    let _refEditorActiveScaleBank = 'grade-scale-models.js';
+
+    let _availableChipBanks = [];
+    let _activeChipBankFilename = 'correction-criteria.js';
+    let _refEditorActiveChipBank = 'correction-criteria.js';
+
+    function parseScaleModelsFileContent(content) {
+      if (!content || typeof content !== 'string') return null;
+      const trimmed = content.trim();
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (Array.isArray(parsed)) return parsed;
+        } catch (_) {}
+      }
+      if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+        try {
+          const obj = JSON.parse(trimmed);
+          if (Array.isArray(obj.scales)) return obj.scales;
+          if (Array.isArray(obj.records)) return obj.records;
+          if (Array.isArray(obj.XLSM_SCALE_MODELS)) return obj.XLSM_SCALE_MODELS;
+        } catch (_) {}
+      }
+      try {
+        const fn = new Function(content + '\n;try{return typeof XLSM_SCALE_MODELS !== "undefined" ? XLSM_SCALE_MODELS : (typeof customScaleModels !== "undefined" ? customScaleModels : null);}catch(e){return null;}');
+        const data = fn();
+        if (Array.isArray(data)) return data;
+      } catch (_) {}
+      try {
+        const firstBracket = trimmed.indexOf('[');
+        const lastBracket = trimmed.lastIndexOf(']');
+        if (firstBracket !== -1 && lastBracket > firstBracket) {
+          const slice = trimmed.slice(firstBracket, lastBracket + 1);
+          const fn2 = new Function('return ' + slice + ';');
+          const res2 = fn2();
+          if (Array.isArray(res2)) return res2;
+        }
+      } catch (_) {}
+      return null;
+    }
+
+    async function loadAvailableScaleBanks() {
+      const banks = [];
+
+      // 1. Default bank from grade-scale-models.js (XLSM_SCALE_MODELS)
+      let defaultScales = (typeof XLSM_SCALE_MODELS !== 'undefined' && Array.isArray(XLSM_SCALE_MODELS)) ? XLSM_SCALE_MODELS : [];
+      if (!defaultScales.length && window.Desktop && typeof Desktop.readText === 'function') {
+        try {
+          const rootRes = await Desktop.readText('user', 'grade-scale-models.js');
+          if (rootRes && rootRes.ok && rootRes.content) {
+            const parsed = parseScaleModelsFileContent(rootRes.content);
+            if (Array.isArray(parsed) && parsed.length) defaultScales = parsed;
+          }
+        } catch (_) {}
+      }
+      if (!defaultScales.length) {
+        try {
+          const ls = localStorage.getItem(REFERENCE_SCALE_MODELS_STORAGE_KEY);
+          if (ls) {
+            const parsed = JSON.parse(ls);
+            if (Array.isArray(parsed) && parsed.length) defaultScales = parsed;
+          }
+        } catch (_) {}
+      }
+
+      banks.push({
+        id: 'default',
+        filename: 'grade-scale-models.js',
+        name: t('gsScaleBankDefault', 'Default (grade-scale-models.js)'),
+        scales: defaultScales
+      });
+
+      // 2. Custom scale banks in customScales (user/custom-data/scales)
+      if (window.Desktop && typeof Desktop.listFiles === 'function') {
+        try {
+          const res = await Desktop.listFiles('customScales', { extensions: ['.js', '.json'] });
+          const list = Array.isArray(res) ? res : (res && Array.isArray(res.files) ? res.files : []);
+          for (let i = 0; i < list.length; i++) {
+            const item = list[i];
+            const fn = typeof item === 'string' ? item : (item.filename || item.name);
+            if (!fn || fn === 'grade-scale-models.js') continue;
+            try {
+              const fileRes = await Desktop.readText('customScales', fn);
+              const content = fileRes?.content || (typeof fileRes === 'string' ? fileRes : null);
+              if (content) {
+                const arr = parseScaleModelsFileContent(content);
+                if (Array.isArray(arr)) {
+                  if (!banks.some(b => b.filename === fn)) {
+                    banks.push({
+                      id: fn,
+                      filename: fn,
+                      name: fn.replace(/\.(js|json)$/i, ''),
+                      scales: arr
+                    });
+                  }
+                }
+              }
+            } catch (err) {
+              console.warn('Error reading custom scales file:', fn, err);
+            }
+          }
+        } catch (e) {
+          console.warn('Error listing customScales:', e);
+        }
+      }
+
+      // 3. Fallback / browser localStorage scale banks
+      try {
+        for (let k = 0; k < localStorage.length; k++) {
+          const key = localStorage.key(k);
+          if (key && (key.startsWith('cmt-scales-') || key.startsWith('custom-scales-'))) {
+            try {
+              const val = JSON.parse(localStorage.getItem(key));
+              if (Array.isArray(val)) {
+                const fname = key.replace(/^(cmt|custom)-scales-/, '') + '.js';
+                if (!banks.some(b => b.filename === fname)) {
+                  banks.push({
+                    id: fname,
+                    filename: fname,
+                    name: fname.replace(/\.(js|json)$/i, ''),
+                    scales: val
+                  });
+                }
+              }
+            } catch (_) {}
+          }
+        }
+      } catch (_) {}
+
+      _availableScaleBanks = banks;
+      populateScaleBankDropdowns();
+      return banks;
+    }
+
+    function populateScaleBankSelectElement(selectEl, selectedVal) {
+      if (!selectEl) return;
+      const current = selectedVal || selectEl.value || 'grade-scale-models.js';
+      selectEl.innerHTML = '';
+      (_availableScaleBanks || []).forEach(b => {
+        const opt = document.createElement('option');
+        opt.value = b.filename;
+        const count = Array.isArray(b.scales) ? b.scales.length : 0;
+        opt.textContent = `${b.name} (${count} models)`;
+        selectEl.appendChild(opt);
+      });
+      if (Array.from(selectEl.options).some(o => o.value === current)) {
+        selectEl.value = current;
+      } else if (selectEl.options.length > 0) {
+        selectEl.selectedIndex = 0;
+      }
+    }
+
+    function populateScaleBankDropdowns() {
+      populateScaleBankSelectElement(document.getElementById('ref-scale-bank-select'), _refEditorActiveScaleBank);
+      populateScaleBankSelectElement(document.getElementById('grading-popup-scale-bank'));
+      populateScaleBankSelectElement(document.getElementById('topt-grading-scale-bank'));
+    }
+
+    function getScaleModelsList(bankFilename = null) {
+      const fn = bankFilename || _activeScaleBankFilename || 'grade-scale-models.js';
+      if (fn && Array.isArray(_availableScaleBanks)) {
+        const b = _availableScaleBanks.find(x => x.filename === fn);
+        if (b && Array.isArray(b.scales)) return b.scales;
+      }
+      if (typeof XLSM_SCALE_MODELS !== 'undefined' && Array.isArray(XLSM_SCALE_MODELS) && XLSM_SCALE_MODELS.length) {
+        return XLSM_SCALE_MODELS;
+      }
+      if (Array.isArray(_availableScaleBanks) && _availableScaleBanks.length > 0 && _availableScaleBanks[0].scales) {
+        return _availableScaleBanks[0].scales;
+      }
+      return [];
+    }
+
+    function parseChipGroupsFileContent(content) {
+      if (!content || typeof content !== 'string') return null;
+      const trimmed = content.trim();
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (Array.isArray(parsed)) return parsed;
+        } catch (_) {}
+      }
+      if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+        try {
+          const obj = JSON.parse(trimmed);
+          if (Array.isArray(obj.chips)) return obj.chips;
+          if (Array.isArray(obj.records)) return obj.records;
+          if (Array.isArray(obj.OBSERVATION_CHECKLIST_GROUPS)) return obj.OBSERVATION_CHECKLIST_GROUPS;
+        } catch (_) {}
+      }
+      try {
+        const fn = new Function(content + '\n;try{return typeof OBSERVATION_CHECKLIST_GROUPS !== "undefined" ? OBSERVATION_CHECKLIST_GROUPS : (typeof customChips !== "undefined" ? customChips : null);}catch(e){return null;}');
+        const data = fn();
+        if (Array.isArray(data)) return data;
+      } catch (_) {}
+      try {
+        const firstBracket = trimmed.indexOf('[');
+        const lastBracket = trimmed.lastIndexOf(']');
+        if (firstBracket !== -1 && lastBracket > firstBracket) {
+          const slice = trimmed.slice(firstBracket, lastBracket + 1);
+          const fn2 = new Function('return ' + slice + ';');
+          const res2 = fn2();
+          if (Array.isArray(res2)) return res2;
+        }
+      } catch (_) {}
+      return null;
+    }
+
+    async function loadAvailableChipBanks() {
+      const banks = [];
+
+      // 1. Default bank from correction-criteria.js (OBSERVATION_CHECKLIST_GROUPS)
+      let defaultChips = (typeof OBSERVATION_CHECKLIST_GROUPS !== 'undefined' && Array.isArray(OBSERVATION_CHECKLIST_GROUPS)) ? OBSERVATION_CHECKLIST_GROUPS : [];
+      if (!defaultChips.length && window.Desktop && typeof Desktop.readText === 'function') {
+        try {
+          const rootRes = await Desktop.readText('user', 'correction-criteria.js');
+          if (rootRes && rootRes.ok && rootRes.content) {
+            const parsed = parseChipGroupsFileContent(rootRes.content);
+            if (Array.isArray(parsed) && parsed.length) defaultChips = parsed;
+          }
+        } catch (_) {}
+      }
+      if (!defaultChips.length) {
+        try {
+          const ls = localStorage.getItem(REFERENCE_PERSONALISED_CHIPS_STORAGE_KEY);
+          if (ls) {
+            const parsed = JSON.parse(ls);
+            if (Array.isArray(parsed) && parsed.length) defaultChips = parsed;
+          }
+        } catch (_) {}
+      }
+
+      banks.push({
+        id: 'default',
+        filename: 'correction-criteria.js',
+        name: t('gsChipsBankDefault', 'Default (correction-criteria.js)'),
+        chips: defaultChips
+      });
+
+      // 2. Custom chip banks in customChips (user/custom-data/chips)
+      if (window.Desktop && typeof Desktop.listFiles === 'function') {
+        try {
+          const res = await Desktop.listFiles('customChips', { extensions: ['.js', '.json'] });
+          const list = Array.isArray(res) ? res : (res && Array.isArray(res.files) ? res.files : []);
+          for (let i = 0; i < list.length; i++) {
+            const item = list[i];
+            const fn = typeof item === 'string' ? item : (item.filename || item.name);
+            if (!fn || fn === 'correction-criteria.js') continue;
+            try {
+              const fileRes = await Desktop.readText('customChips', fn);
+              const content = fileRes?.content || (typeof fileRes === 'string' ? fileRes : null);
+              if (content) {
+                const arr = parseChipGroupsFileContent(content);
+                if (Array.isArray(arr)) {
+                  if (!banks.some(b => b.filename === fn)) {
+                    banks.push({
+                      id: fn,
+                      filename: fn,
+                      name: fn.replace(/\.(js|json)$/i, ''),
+                      chips: arr
+                    });
+                  }
+                }
+              }
+            } catch (err) {
+              console.warn('Error reading custom chips file:', fn, err);
+            }
+          }
+        } catch (e) {
+          console.warn('Error listing customChips:', e);
+        }
+      }
+
+      // 3. Fallback / browser localStorage chip banks
+      try {
+        for (let k = 0; k < localStorage.length; k++) {
+          const key = localStorage.key(k);
+          if (key && (key.startsWith('cmt-chips-') || key.startsWith('custom-chips-'))) {
+            try {
+              const val = JSON.parse(localStorage.getItem(key));
+              if (Array.isArray(val)) {
+                const fname = key.replace(/^(cmt|custom)-chips-/, '') + '.js';
+                if (!banks.some(b => b.filename === fname)) {
+                  banks.push({
+                    id: fname,
+                    filename: fname,
+                    name: fname.replace(/\.(js|json)$/i, ''),
+                    chips: val
+                  });
+                }
+              }
+            } catch (_) {}
+          }
+        }
+      } catch (_) {}
+
+      _availableChipBanks = banks;
+      populateChipBankDropdowns();
+      return banks;
+    }
+
+    function populateChipBankSelectElement(selectEl, selectedVal) {
+      if (!selectEl) return;
+      const current = selectedVal || selectEl.value || 'correction-criteria.js';
+      selectEl.innerHTML = '';
+      (_availableChipBanks || []).forEach(b => {
+        const opt = document.createElement('option');
+        opt.value = b.filename;
+        const count = Array.isArray(b.chips) ? b.chips.length : 0;
+        opt.textContent = `${b.name} (${count} categories)`;
+        selectEl.appendChild(opt);
+      });
+      if (Array.from(selectEl.options).some(o => o.value === current)) {
+        selectEl.value = current;
+      } else if (selectEl.options.length > 0) {
+        selectEl.selectedIndex = 0;
+      }
+    }
+
+    function populateChipBankDropdowns() {
+      populateChipBankSelectElement(document.getElementById('ref-chips-bank-select'), _refEditorActiveChipBank);
+    }
+
+    function getClassLoadedCriteriaBanks(classObj) {
+      if (!classObj) return _availableCriteriaBanks.slice(0, 1);
+      const names = Array.isArray(classObj.criteriaBanks) && classObj.criteriaBanks.length
+        ? classObj.criteriaBanks
+        : (classObj.criteriaBank ? [classObj.criteriaBank] : ['correction-criteria.js']);
+      const matched = _availableCriteriaBanks.filter(b => names.includes(b.filename));
+      if (!matched.length && _availableCriteriaBanks.length) {
+        matched.push(_availableCriteriaBanks[0]);
+      }
+      return matched;
+    }
+
+    function getTestCriteriaBank(classObj, config) {
+      const bankName = (config && config.criteriaBank)
+        || (classObj && classObj.criteriaBank)
+        || ((classObj && Array.isArray(classObj.criteriaBanks) && classObj.criteriaBanks[0]))
+        || 'correction-criteria.js';
+      return _availableCriteriaBanks.find(b => b.filename === bankName) || _availableCriteriaBanks[0] || null;
+    }
+
+    function getCriterionEffectiveCompetenceIds(criterion, classObj, testConfig) {
+      if (!criterion) return [];
+      if (Array.isArray(criterion.competenceIds) && criterion.competenceIds.length > 0) {
+        return criterion.competenceIds;
+      }
+      const cleanName = String(criterion.name || '').trim().toLowerCase();
+      if (!cleanName) return [];
+
+      // 1. Check active criteria bank for this test/class
+      let activeBank = null;
+      if (typeof getTestCriteriaBank === 'function' && classObj && testConfig) {
+        activeBank = getTestCriteriaBank(classObj, testConfig);
+      }
+      if (activeBank && Array.isArray(activeBank.criteria)) {
+        const match = activeBank.criteria.find(c => c && String(c.name || '').trim().toLowerCase() === cleanName);
+        if (match && Array.isArray(match.competenceIds) && match.competenceIds.length > 0) {
+          return match.competenceIds;
+        }
+      }
+
+      // 2. Check XLSM_CRITERIA (user/correction-criteria.js)
+      if (typeof XLSM_CRITERIA !== 'undefined' && Array.isArray(XLSM_CRITERIA)) {
+        const match = XLSM_CRITERIA.find(c => c && String(c.name || '').trim().toLowerCase() === cleanName);
+        if (match && Array.isArray(match.competenceIds) && match.competenceIds.length > 0) {
+          return match.competenceIds;
+        }
+      }
+
+      // 3. Check any loaded criteria banks
+      if (Array.isArray(_availableCriteriaBanks)) {
+        for (const b of _availableCriteriaBanks) {
+          if (b && Array.isArray(b.criteria)) {
+            const match = b.criteria.find(c => c && String(c.name || '').trim().toLowerCase() === cleanName);
+            if (match && Array.isArray(match.competenceIds) && match.competenceIds.length > 0) {
+              return match.competenceIds;
+            }
+          }
+        }
+      }
+
+      return [];
+    }
+
+    async function openClassTemplatesModal(classObj) {
+      if (!classObj) classObj = getActiveClass();
+      if (!classObj) return;
+
+      await loadAvailableCriteriaBanks();
+
+      const overlay = document.getElementById("class-criteria-templates-overlay");
+      const list = document.getElementById("class-templates-checklist");
+      if (!overlay || !list) return;
+      list.innerHTML = "";
+
+      const currentBanks = Array.isArray(classObj.criteriaBanks) && classObj.criteriaBanks.length
+        ? classObj.criteriaBanks
+        : [classObj.criteriaBank || 'correction-criteria.js'];
+
+      _availableCriteriaBanks.forEach(bank => {
+        const item = document.createElement("label");
+        item.style.display = "flex";
+        item.style.alignItems = "flex-start";
+        item.style.gap = "10px";
+        item.style.padding = "8px 10px";
+        item.style.borderRadius = "6px";
+        item.style.background = "#f8fafc";
+        item.style.border = "1px solid #e2e8f0";
+        item.style.cursor = "pointer";
+
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.value = bank.filename;
+        cb.checked = currentBanks.includes(bank.filename);
+        cb.style.marginTop = "3px";
+
+        const infoWrap = document.createElement("div");
+        infoWrap.style.flex = "1";
+
+        const titleRow = document.createElement("div");
+        titleRow.style.fontWeight = "600";
+        titleRow.style.fontSize = "0.86rem";
+        titleRow.textContent = bank.name;
+
+        const subRow = document.createElement("div");
+        subRow.style.fontSize = "0.75rem";
+        subRow.style.color = "var(--muted)";
+        const critCount = Array.isArray(bank.criteria) ? bank.criteria.length : 0;
+        const previewNames = (Array.isArray(bank.criteria) ? bank.criteria.slice(0, 4).map(c => c.name) : []).join(", ");
+        subRow.textContent = `${critCount} criteria${previewNames ? ` (${previewNames}…)` : ''} · ${bank.filename}`;
+
+        infoWrap.append(titleRow, subRow);
+        item.append(cb, infoWrap);
+        list.appendChild(item);
+      });
+
+      const closeBtn = document.getElementById("class-templates-modal-close-x");
+      const cancelBtn = document.getElementById("class-templates-modal-cancel");
+      const saveBtn = document.getElementById("class-templates-modal-save");
+
+      const closeFn = () => overlay.classList.add("hidden");
+      if (closeBtn) closeBtn.onclick = closeFn;
+      if (cancelBtn) cancelBtn.onclick = closeFn;
+
+      if (saveBtn) {
+        saveBtn.onclick = () => {
+          const checked = Array.from(list.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+          if (!checked.length && _availableCriteriaBanks.length) {
+            checked.push(_availableCriteriaBanks[0].filename);
+          }
+          classObj.criteriaBanks = checked;
+          if (!classObj.criteriaBank || !checked.includes(classObj.criteriaBank)) {
+            classObj.criteriaBank = checked[0];
+          }
+          saveState();
+          closeFn();
+          if (typeof showToast === 'function') showToast(t('gsCriteriaTemplates') + ' updated');
+          renderSummary();
+        };
+      }
+      overlay.onclick = (e) => {
+        if (e.target === overlay) closeFn();
+      };
+      overlay.classList.remove("hidden");
+    }
+
+    let _compPickerCallback = null;
+    let _compPickerSelected = new Set();
+    let _compPickerFilters = {
+      search: '',
+      year: 'all',
+      category: 'all',
+      level: 'all',
+      selectedOnly: false
+    };
+
+    function populateCompetencePickerFilters() {
+      const yrSel = document.getElementById('gs-comp-filter-year');
+      const catSel = document.getElementById('gs-comp-filter-category');
+      const lvlSel = document.getElementById('gs-comp-filter-level');
+      if (!yrSel || !catSel || !lvlSel) return;
+
+      const years = new Set();
+      const categories = new Set();
+      const levels = new Set();
+
+      _allLessonCompetences.forEach(c => {
+        if (c.year && c.year !== 'all') years.add(c.year);
+        if (c.category && c.category !== 'all') categories.add(c.category);
+        if (c.level && c.level !== 'all') levels.add(c.level);
+      });
+
+      const curYr = _compPickerFilters.year;
+      const curCat = _compPickerFilters.category;
+      const curLvl = _compPickerFilters.level;
+
+      yrSel.innerHTML = `<option value="all">${t('gsCompFilterAllYears') || 'All Years'}</option>` +
+        Array.from(years).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).map(y => `<option value="${escapeHtml(y)}">${escapeHtml(y)}</option>`).join('');
+      yrSel.value = years.has(curYr) ? curYr : 'all';
+
+      catSel.innerHTML = `<option value="all">${t('gsCompFilterAllDomains') || 'All Domains'}</option>` +
+        Array.from(categories).sort().map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+      catSel.value = categories.has(curCat) ? curCat : 'all';
+
+      lvlSel.innerHTML = `<option value="all">${t('gsCompFilterAllLevels') || 'All Levels'}</option>` +
+        Array.from(levels).sort().map(l => `<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`).join('');
+      lvlSel.value = levels.has(curLvl) ? curLvl : 'all';
+    }
+
+    function openCompetencePicker(initialSelectedIds, onApply) {
+      _compPickerCallback = onApply;
+      _compPickerSelected = new Set(Array.isArray(initialSelectedIds) ? initialSelectedIds : []);
+      _compPickerFilters.search = '';
+      _compPickerFilters.year = 'all';
+      _compPickerFilters.category = 'all';
+      _compPickerFilters.level = 'all';
+      _compPickerFilters.selectedOnly = false;
+
+      populateCompetencePickerFilters();
+
+      const yrSel = document.getElementById('gs-comp-filter-year');
+      const catSel = document.getElementById('gs-comp-filter-category');
+      const lvlSel = document.getElementById('gs-comp-filter-level');
+      const searchInput = document.getElementById('gs-competence-picker-search');
+      const showSelBtn = document.getElementById('gs-comp-filter-show-selected');
+
+      if (searchInput) searchInput.value = '';
+      if (yrSel) yrSel.value = 'all';
+      if (catSel) catSel.value = 'all';
+      if (lvlSel) lvlSel.value = 'all';
+      if (showSelBtn) {
+        showSelBtn.classList.remove('active', 'primary');
+      }
+
+      renderCompetencePickerList();
+      const overlay = document.getElementById('gs-competence-picker-overlay');
+      if (overlay) overlay.classList.remove('hidden');
+      if (searchInput) searchInput.focus();
+    }
+
+    function closeCompetencePicker() {
+      const overlay = document.getElementById('gs-competence-picker-overlay');
+      if (overlay) overlay.classList.add('hidden');
+      _compPickerCallback = null;
+    }
+
+    function getFilteredCompetences() {
+      const q = String(_compPickerFilters.search || '').toLowerCase().trim();
+      const fy = _compPickerFilters.year;
+      const fc = _compPickerFilters.category;
+      const fl = _compPickerFilters.level;
+      const fSelected = _compPickerFilters.selectedOnly;
+
+      return _allLessonCompetences.filter(c => {
+        if (fSelected && !_compPickerSelected.has(c.id)) return false;
+        if (fy !== 'all' && c.year !== fy) return false;
+        if (fc !== 'all' && c.category !== fc) return false;
+        if (fl !== 'all' && c.level !== fl) return false;
+        if (!q) return true;
+        return (c.code && c.code.toLowerCase().includes(q)) ||
+               (c.title && c.title.toLowerCase().includes(q)) ||
+               (c.description && c.description.toLowerCase().includes(q)) ||
+               (c.level && c.level.toLowerCase().includes(q)) ||
+               (c.year && c.year.toLowerCase().includes(q)) ||
+               (c.category && c.category.toLowerCase().includes(q));
+      });
+    }
+
+    function renderCompetencePickerList() {
+      const listEl = document.getElementById('gs-competence-picker-list');
+      const countEl = document.getElementById('gs-competence-picker-count');
+      if (!listEl) return;
+      listEl.innerHTML = '';
+
+      const filtered = getFilteredCompetences();
+
+      if (countEl) {
+        countEl.textContent = `${_compPickerSelected.size} selected (${filtered.length} visible)`;
+      }
+
+      if (filtered.length === 0) {
+        const empty = document.createElement('div');
+        empty.style.cssText = 'padding:16px;text-align:center;color:var(--muted);font-size:0.85rem;';
+        empty.textContent = _allLessonCompetences.length === 0
+          ? (t('gsNoCompetencesFound') || 'No competences found in Lesson Creator or database.')
+          : (t('gsNoMatchingCompetences') || 'No matching competences.');
+        listEl.appendChild(empty);
+        return;
+      }
+
+      filtered.forEach(comp => {
+        const row = document.createElement('div');
+        const isChecked = _compPickerSelected.has(comp.id);
+        row.style.cssText = `display:flex;align-items:flex-start;gap:8px;padding:6px 8px;border-radius:5px;cursor:pointer;background:${isChecked ? '#f0f9ff' : 'transparent'};border:1px solid ${isChecked ? '#bae6fd' : '#f1f5f9'};margin-bottom:2px;`;
+        
+        const chk = document.createElement('input');
+        chk.type = 'checkbox';
+        chk.checked = isChecked;
+        chk.style.marginTop = '3px';
+        chk.style.cursor = 'pointer';
+
+        const info = document.createElement('div');
+        info.style.cssText = 'flex:1;min-width:0;';
+
+        const topRow = document.createElement('div');
+        topRow.style.cssText = 'display:flex;align-items:center;gap:5px;flex-wrap:wrap;';
+        if (comp.code) {
+          const codeSpan = document.createElement('span');
+          codeSpan.style.cssText = 'background:#0284c7;color:#fff;border-radius:4px;padding:1px 6px;font-size:0.75rem;font-weight:700;';
+          codeSpan.textContent = comp.code;
+          topRow.appendChild(codeSpan);
+        }
+        if (comp.year) {
+          const yrSpan = document.createElement('span');
+          yrSpan.style.cssText = 'background:#e0e7ff;color:#3730a3;border-radius:4px;padding:1px 5px;font-size:0.72rem;font-weight:600;';
+          yrSpan.textContent = comp.year;
+          topRow.appendChild(yrSpan);
+        }
+        if (comp.category) {
+          const catSpan = document.createElement('span');
+          catSpan.style.cssText = 'background:#f1f5f9;color:#475569;border-radius:4px;padding:1px 5px;font-size:0.72rem;font-weight:500;';
+          catSpan.textContent = comp.category;
+          topRow.appendChild(catSpan);
+        }
+        if (comp.level) {
+          const lvlSpan = document.createElement('span');
+          lvlSpan.style.cssText = 'background:#fef3c7;color:#92400e;border-radius:4px;padding:1px 5px;font-size:0.72rem;font-weight:600;';
+          lvlSpan.textContent = comp.level;
+          topRow.appendChild(lvlSpan);
+        }
+        const titleSpan = document.createElement('span');
+        titleSpan.style.cssText = 'font-weight:600;font-size:0.84rem;color:var(--ink);margin-left:2px;';
+        titleSpan.textContent = comp.title;
+        topRow.appendChild(titleSpan);
+
+        info.appendChild(topRow);
+        if (comp.description) {
+          const descEl = document.createElement('div');
+          descEl.style.cssText = 'font-size:0.78rem;color:var(--muted);margin-top:2px;line-height:1.3;';
+          descEl.textContent = comp.description;
+          info.appendChild(descEl);
+        }
+
+        function toggle() {
+          if (_compPickerSelected.has(comp.id)) {
+            _compPickerSelected.delete(comp.id);
+            chk.checked = false;
+            row.style.background = 'transparent';
+            row.style.borderColor = '#f1f5f9';
+          } else {
+            _compPickerSelected.add(comp.id);
+            chk.checked = true;
+            row.style.background = '#f0f9ff';
+            row.style.borderColor = '#bae6fd';
+          }
+          const vis = getFilteredCompetences();
+          if (countEl) countEl.textContent = `${_compPickerSelected.size} selected (${vis.length} visible)`;
+        }
+
+        chk.addEventListener('change', (e) => {
+          e.stopPropagation();
+          toggle();
+        });
+        row.addEventListener('click', (e) => {
+          if (e.target === chk) return;
+          toggle();
+        });
+
+        row.appendChild(chk);
+        row.appendChild(info);
+        listEl.appendChild(row);
+      });
+    }
+
+    (function wireCompetencePickerModal() {
+      const overlay = document.getElementById('gs-competence-picker-overlay');
+      const searchInput = document.getElementById('gs-competence-picker-search');
+      const closeX = document.getElementById('gs-competence-picker-close-x');
+      const cancelBtn = document.getElementById('gs-competence-picker-cancel');
+      const applyBtn = document.getElementById('gs-competence-picker-apply');
+
+      const yrSel = document.getElementById('gs-comp-filter-year');
+      const catSel = document.getElementById('gs-comp-filter-category');
+      const lvlSel = document.getElementById('gs-comp-filter-level');
+      const showSelBtn = document.getElementById('gs-comp-filter-show-selected');
+      const resetBtn = document.getElementById('gs-comp-filter-reset');
+      const selectAllBtn = document.getElementById('gs-comp-picker-select-all');
+      const deselectAllBtn = document.getElementById('gs-comp-picker-deselect-all');
+
+      if (closeX) closeX.addEventListener('click', closeCompetencePicker);
+      if (cancelBtn) cancelBtn.addEventListener('click', closeCompetencePicker);
+      if (overlay) {
+        overlay.addEventListener('click', (e) => {
+          if (e.target === overlay) closeCompetencePicker();
+        });
+      }
+      if (searchInput) {
+        searchInput.addEventListener('input', () => {
+          _compPickerFilters.search = searchInput.value;
+          renderCompetencePickerList();
+        });
+      }
+      if (yrSel) {
+        yrSel.addEventListener('change', () => {
+          _compPickerFilters.year = yrSel.value;
+          renderCompetencePickerList();
+        });
+      }
+      if (catSel) {
+        catSel.addEventListener('change', () => {
+          _compPickerFilters.category = catSel.value;
+          renderCompetencePickerList();
+        });
+      }
+      if (lvlSel) {
+        lvlSel.addEventListener('change', () => {
+          _compPickerFilters.level = lvlSel.value;
+          renderCompetencePickerList();
+        });
+      }
+      if (showSelBtn) {
+        showSelBtn.addEventListener('click', () => {
+          _compPickerFilters.selectedOnly = !_compPickerFilters.selectedOnly;
+          showSelBtn.classList.toggle('active', _compPickerFilters.selectedOnly);
+          showSelBtn.classList.toggle('primary', _compPickerFilters.selectedOnly);
+          renderCompetencePickerList();
+        });
+      }
+      if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+          _compPickerFilters = { search: '', year: 'all', category: 'all', level: 'all', selectedOnly: false };
+          if (searchInput) searchInput.value = '';
+          if (yrSel) yrSel.value = 'all';
+          if (catSel) catSel.value = 'all';
+          if (lvlSel) lvlSel.value = 'all';
+          if (showSelBtn) {
+            showSelBtn.classList.remove('active', 'primary');
+          }
+          renderCompetencePickerList();
+        });
+      }
+      if (selectAllBtn) {
+        selectAllBtn.addEventListener('click', () => {
+          const visible = getFilteredCompetences();
+          visible.forEach(c => _compPickerSelected.add(c.id));
+          renderCompetencePickerList();
+        });
+      }
+      if (deselectAllBtn) {
+        deselectAllBtn.addEventListener('click', () => {
+          const visible = getFilteredCompetences();
+          visible.forEach(c => _compPickerSelected.delete(c.id));
+          renderCompetencePickerList();
+        });
+      }
+      if (applyBtn) {
+        applyBtn.addEventListener('click', () => {
+          const result = Array.from(_compPickerSelected);
+          if (typeof _compPickerCallback === 'function') {
+            _compPickerCallback(result);
+          }
+          closeCompetencePicker();
+        });
+      }
+    })();
+
     function switchRefTab(tabName) {
       const tabs = ["criteria", "scales", "chips"];
       tabs.forEach(t => {
@@ -2257,7 +3477,11 @@
       const maxPoints = rawMax != null && rawMax >= 0 ? rawMax : null;
       const rawInterval = toNumber(source.interval);
       const interval = rawInterval != null && rawInterval > 0 ? rawInterval : null;
-      return { name, grades, comments, colors, minPoints, maxPoints, interval };
+      const competenceIds = Array.isArray(source.competenceIds)
+        ? [...source.competenceIds]
+        : (typeof source.competenceIds === 'string' ? source.competenceIds.split(',').map(s => s.trim()).filter(Boolean) : []);
+      const pointCoefficient = toNumber(source.pointCoefficient) ?? 1;
+      return { name, grades, comments, colors, minPoints, maxPoints, interval, competenceIds, pointCoefficient };
     }
 
     function normalizeReferenceScaleModel(entry, index, existingKeys = new Set()) {
@@ -2359,13 +3583,28 @@
       };
     }
 
-    function refreshCriteriaPresetDropdown() {
+    function refreshCriteriaPresetDropdown(bankFilename) {
       const sel = document.getElementById("crit-popup-preset");
       if (!sel) return;
       sel.innerHTML = '<option value="">-- Select preset --</option>';
-      const criteria = (typeof XLSM_CRITERIA !== "undefined" && Array.isArray(XLSM_CRITERIA))
-        ? XLSM_CRITERIA
-        : [];
+
+      let criteria = [];
+      if (bankFilename && _availableCriteriaBanks.length) {
+        const bank = _availableCriteriaBanks.find(b => b.filename === bankFilename);
+        if (bank && Array.isArray(bank.criteria)) criteria = bank.criteria;
+      }
+      if (!criteria.length) {
+        const activeClass = getActiveClass();
+        const activeTest = (activeClass && appState.activeTest && activeClass.testConfigs)
+          ? (activeClass.testConfigs[appState.activeTest.semester]?.[appState.activeTest.testIndex])
+          : null;
+        const bank = getTestCriteriaBank(activeClass, activeTest);
+        if (bank && Array.isArray(bank.criteria)) criteria = bank.criteria;
+      }
+      if (!criteria.length) {
+        criteria = (typeof XLSM_CRITERIA !== "undefined" && Array.isArray(XLSM_CRITERIA)) ? XLSM_CRITERIA : [];
+      }
+
       criteria.forEach(c => {
         const opt = document.createElement("option");
         opt.value = c.name;
@@ -2432,6 +3671,28 @@
 
     let _referenceDataEditorDraft = null;
 
+    function switchRefEditorScaleBank(bankFn) {
+      _refEditorActiveScaleBank = bankFn;
+      if (!_referenceDataEditorDraft) return;
+      const bank = (_availableScaleBanks || []).find(b => b.filename === bankFn);
+      const rawScales = (bank && Array.isArray(bank.scales)) ? bank.scales : (bankFn === 'grade-scale-models.js' && Array.isArray(XLSM_SCALE_MODELS) ? XLSM_SCALE_MODELS : []);
+      const existingKeys = new Set();
+      _referenceDataEditorDraft.scaleModels = rawScales.map((entry, index) => normalizeReferenceScaleModel(entry, index, existingKeys));
+      renderReferenceDataEditor({ initial: true });
+    }
+
+    function switchRefEditorChipBank(bankFn) {
+      _refEditorActiveChipBank = bankFn;
+      if (!_referenceDataEditorDraft) return;
+      const bank = (_availableChipBanks || []).find(b => b.filename === bankFn);
+      const rawChips = (bank && Array.isArray(bank.chips)) ? bank.chips : (bankFn === 'correction-criteria.js' ? getObservationChecklistGroups('correction-criteria.js') : []);
+      _referenceDataEditorDraft.personalisedChips = rawChips.map(g => ({
+        type: String(g.type || "").trim(),
+        items: Array.isArray(g.items) ? g.items.slice() : []
+      }));
+      renderReferenceDataEditor({ initial: true });
+    }
+
     function renderReferenceDataEditor(options = {}) {
       const draft = _referenceDataEditorDraft;
       if (!draft) return;
@@ -2440,6 +3701,21 @@
       const scaleList = document.getElementById("ref-scale-list");
       const chipsList = document.getElementById("ref-chips-list");
       if (!criteriaList || !scaleList || !chipsList) return;
+
+      const scaleBankSel = document.getElementById("ref-scale-bank-select");
+      if (scaleBankSel) {
+        populateScaleBankSelectElement(scaleBankSel, _refEditorActiveScaleBank || 'grade-scale-models.js');
+        scaleBankSel.onchange = () => {
+          switchRefEditorScaleBank(scaleBankSel.value);
+        };
+      }
+      const chipsBankSel = document.getElementById("ref-chips-bank-select");
+      if (chipsBankSel) {
+        populateChipBankSelectElement(chipsBankSel, _refEditorActiveChipBank || 'correction-criteria.js');
+        chipsBankSel.onchange = () => {
+          switchRefEditorChipBank(chipsBankSel.value);
+        };
+      }
 
       // Capture currently expanded cards before rebuilding DOM
       const expandedCriteria = new Set();
@@ -2888,25 +4164,87 @@
         return { type, items };
       });
 
+      // 1. Save criteria
       XLSM_CRITERIA.splice(0, XLSM_CRITERIA.length, ...criteria);
-      XLSM_SCALE_MODELS.splice(0, XLSM_SCALE_MODELS.length, ...scaleModels);
-      window.OBSERVATION_CHECKLIST_GROUPS = personalisedChips;
-
       localStorage.setItem(REFERENCE_CRITERIA_STORAGE_KEY, JSON.stringify(criteria));
-      localStorage.setItem(REFERENCE_SCALE_MODELS_STORAGE_KEY, JSON.stringify(scaleModels));
-      localStorage.setItem(REFERENCE_PERSONALISED_CHIPS_STORAGE_KEY, JSON.stringify(personalisedChips));
 
+      // 2. Save scale models (to active scale bank)
+      const activeScaleFn = _refEditorActiveScaleBank || 'grade-scale-models.js';
+      const scaleBankEntry = (_availableScaleBanks || []).find(b => b.filename === activeScaleFn);
+      if (scaleBankEntry) scaleBankEntry.scales = scaleModels;
+
+      if (activeScaleFn === 'grade-scale-models.js') {
+        XLSM_SCALE_MODELS.splice(0, XLSM_SCALE_MODELS.length, ...scaleModels);
+        localStorage.setItem(REFERENCE_SCALE_MODELS_STORAGE_KEY, JSON.stringify(scaleModels));
+      } else {
+        try {
+          const lsKey = 'cmt-scales-' + activeScaleFn.replace(/\.(js|json)$/i, '');
+          localStorage.setItem(lsKey, JSON.stringify(scaleModels));
+        } catch (_) {}
+      }
+
+      // 3. Save observation chips (to active chip bank)
+      const activeChipFn = _refEditorActiveChipBank || 'correction-criteria.js';
+      const chipBankEntry = (_availableChipBanks || []).find(b => b.filename === activeChipFn);
+      if (chipBankEntry) chipBankEntry.chips = personalisedChips;
+
+      if (activeChipFn === 'correction-criteria.js') {
+        window.OBSERVATION_CHECKLIST_GROUPS = personalisedChips;
+        localStorage.setItem(REFERENCE_PERSONALISED_CHIPS_STORAGE_KEY, JSON.stringify(personalisedChips));
+      } else {
+        try {
+          const lsKey = 'cmt-chips-' + activeChipFn.replace(/\.(js|json)$/i, '');
+          localStorage.setItem(lsKey, JSON.stringify(personalisedChips));
+        } catch (_) {}
+      }
+
+      // File I/O for Electron
       if (window.Desktop && Desktop.isElectron()) {
+        const savePromises = [];
+
+        // Save correction-criteria.js (criteria + default chips if default)
+        const chipsToSaveInCriteriaFile = (activeChipFn === 'correction-criteria.js')
+          ? personalisedChips
+          : (typeof OBSERVATION_CHECKLIST_GROUPS !== 'undefined' ? OBSERVATION_CHECKLIST_GROUPS : []);
         const criteriaText = `const XLSM_CRITERIA = ${JSON.stringify(criteria, null, 2)};\n` +
-          `const OBSERVATION_CHECKLIST_GROUPS = ${JSON.stringify(personalisedChips, null, 2)};\n`;
-        const scaleModelsText = `const XLSM_SCALE_MODELS = ${JSON.stringify(scaleModels, null, 2)};\n`;
-        await Promise.all([
-          Desktop.saveText("user", "correction-criteria.js", criteriaText),
-          Desktop.saveText("user", "grade-scale-models.js", scaleModelsText)
-        ]);
+          `const OBSERVATION_CHECKLIST_GROUPS = ${JSON.stringify(chipsToSaveInCriteriaFile, null, 2)};\n`;
+        savePromises.push(Desktop.saveText("user", "correction-criteria.js", criteriaText));
+
+        // Save scale models
+        if (activeScaleFn === 'grade-scale-models.js') {
+          const scaleModelsText = `const XLSM_SCALE_MODELS = ${JSON.stringify(scaleModels, null, 2)};\n`;
+          savePromises.push(Desktop.saveText("user", "grade-scale-models.js", scaleModelsText));
+        } else {
+          const isJson = activeScaleFn.endsWith('.json');
+          const customScalesText = isJson
+            ? JSON.stringify(scaleModels, null, 2)
+            : `// XLSM_SCALE_MODELS\nconst XLSM_SCALE_MODELS = ${JSON.stringify(scaleModels, null, 2)};\n`;
+          savePromises.push(Desktop.saveText("customScales", activeScaleFn, customScalesText));
+        }
+
+        // Save custom chips if custom
+        if (activeChipFn !== 'correction-criteria.js') {
+          const isJson = activeChipFn.endsWith('.json');
+          const customChipsText = isJson
+            ? JSON.stringify(personalisedChips, null, 2)
+            : `// OBSERVATION_CHECKLIST_GROUPS\nconst OBSERVATION_CHECKLIST_GROUPS = ${JSON.stringify(personalisedChips, null, 2)};\n`;
+          savePromises.push(Desktop.saveText("customChips", activeChipFn, customChipsText));
+        }
+
+        await Promise.all(savePromises);
+      }
+
+      // Broadcast changes across windows
+      if (typeof BroadcastChannel !== 'undefined') {
+        try {
+          new BroadcastChannel('cmt-scales').postMessage({ filename: activeScaleFn });
+          new BroadcastChannel('cmt-chips').postMessage({ filename: activeChipFn });
+        } catch (_) {}
       }
 
       refreshCriteriaPresetDropdown();
+      populateScaleBankDropdowns();
+      populateChipBankDropdowns();
       renderTestSheet();
       renderSummary();
       document.getElementById("reference-data-popup-overlay").classList.add("hidden");
@@ -2927,7 +4265,7 @@
       refreshCriteriaPresetDropdown();
     }
 
-    function makeCriterion(name = "Criterion", maxPoints = null, pointCoefficient = 1, isBonus = false, minPoints = null, interval = null) {
+    function makeCriterion(name = "Criterion", maxPoints = null, pointCoefficient = 1, isBonus = false, minPoints = null, interval = null, competenceIds = []) {
       const crit = {
         id: uid(),
         name,
@@ -2935,7 +4273,8 @@
         maxPoints: maxPoints != null && !isNaN(Number(maxPoints)) ? Number(maxPoints) : null,
         pointCoefficient: Number.isFinite(Number(pointCoefficient)) ? Number(pointCoefficient) : 1,
         showComment: true,
-        isBonus: !!isBonus
+        isBonus: !!isBonus,
+        competenceIds: Array.isArray(competenceIds) ? [...competenceIds] : []
       };
       if (interval != null && Number(interval) > 0) crit.interval = Number(interval);
       return crit;
@@ -2998,6 +4337,13 @@
         classObj.testConfigs = createDefaultTestConfigs();
       }
 
+      if (!Array.isArray(classObj.criteriaBanks) || !classObj.criteriaBanks.length) {
+        classObj.criteriaBanks = classObj.criteriaBank ? [classObj.criteriaBank] : ['correction-criteria.js'];
+      }
+      if (!classObj.criteriaBank || !classObj.criteriaBanks.includes(classObj.criteriaBank)) {
+        classObj.criteriaBank = classObj.criteriaBanks[0] || 'correction-criteria.js';
+      }
+
       ["sem1", "sem2"].forEach(sem => {
         if (!Array.isArray(classObj.testConfigs[sem])) classObj.testConfigs[sem] = [];
         if (classObj.testConfigs[sem].length > TEST_COUNT_PER_SEM) {
@@ -3011,6 +4357,9 @@
             if (typeof cfg.testDate !== "string") cfg.testDate = "";
             if (typeof cfg.scope !== "string") cfg.scope = "";
             if (typeof cfg.type !== "string") cfg.type = "";
+            if (!cfg.criteriaBank) {
+              cfg.criteriaBank = classObj.criteriaBank || (classObj.criteriaBanks && classObj.criteriaBanks[0]) || 'correction-criteria.js';
+            }
             if (toNumber(cfg.nextGradeHighlightPoints) == null) cfg.nextGradeHighlightPoints = 0;
 
             if (Array.isArray(cfg.criteria)) {
@@ -3021,6 +4370,7 @@
                   crit.pointCoefficient = (crit.pointCoefficient != null && !isNaN(Number(crit.pointCoefficient))) ? Math.max(0, Number(crit.pointCoefficient)) : 1;
                   crit.interval = (crit.interval != null && !isNaN(Number(crit.interval)) && Number(crit.interval) > 0) ? Number(crit.interval) : null;
                   crit.isBonus = !!crit.isBonus;
+                  if (!Array.isArray(crit.competenceIds)) crit.competenceIds = [];
                 }
               });
             }
@@ -3324,16 +4674,44 @@
       })).sort((a, b) => b.grade - a.grade);
     }
 
-    function getScaleModel(key) {
+    function getScaleModel(key, bankFilename = null) {
+      if (!key) return null;
+      if (bankFilename && typeof _availableScaleBanks !== 'undefined' && Array.isArray(_availableScaleBanks)) {
+        const b = _availableScaleBanks.find(x => x.filename === bankFilename);
+        if (b && Array.isArray(b.scales)) {
+          const found = b.scales.find(m => m.key === key);
+          if (found) return found;
+        }
+      }
+      if (typeof _activeScaleBankFilename !== 'undefined' && _activeScaleBankFilename && typeof _availableScaleBanks !== 'undefined' && Array.isArray(_availableScaleBanks)) {
+        const b = _availableScaleBanks.find(x => x.filename === _activeScaleBankFilename);
+        if (b && Array.isArray(b.scales)) {
+          const found = b.scales.find(m => m.key === key);
+          if (found) return found;
+        }
+      }
       if (typeof XLSM_SCALE_MODELS !== "undefined" && Array.isArray(XLSM_SCALE_MODELS)) {
-        return XLSM_SCALE_MODELS.find(m => m.key === key) || null;
+        const found = XLSM_SCALE_MODELS.find(m => m.key === key);
+        if (found) return found;
+      }
+      if (typeof _availableScaleBanks !== 'undefined' && Array.isArray(_availableScaleBanks)) {
+        for (const b of _availableScaleBanks) {
+          if (b && Array.isArray(b.scales)) {
+            const found = b.scales.find(m => m.key === key);
+            if (found) return found;
+          }
+        }
       }
       return null;
     }
 
-    function detectScaleModelKey(thresholds) {
-      if (typeof XLSM_SCALE_MODELS !== "undefined" && Array.isArray(XLSM_SCALE_MODELS)) {
-        for (const model of XLSM_SCALE_MODELS) {
+    function detectScaleModelKey(thresholds, bankFilename = null) {
+      const modelsList = typeof getScaleModelsList === 'function'
+        ? getScaleModelsList(bankFilename)
+        : ((typeof XLSM_SCALE_MODELS !== "undefined" && Array.isArray(XLSM_SCALE_MODELS)) ? XLSM_SCALE_MODELS : []);
+
+      if (Array.isArray(modelsList)) {
+        for (const model of modelsList) {
           const steps = getScaleModelGradeSteps(model);
           let ok = true;
           for (const grade of steps) {
@@ -3351,8 +4729,9 @@
       return "custom";
     }
 
-    function applyScaleModelToConfig(config, modelKey) {
-      const model = getScaleModel(modelKey);
+    function applyScaleModelToConfig(config, modelKey, bankFilename = null) {
+      const bank = bankFilename || (config && config.grading && config.grading.scaleBank) || null;
+      const model = getScaleModel(modelKey, bank);
       if (!model) return;
       const totals = Array.isArray(config.criteria) ? calcCriteriaTotals(config, {}) : { totalPossible: 0 };
       const totalPossible = Math.max(0, totals.totalPossible);
@@ -3749,13 +5128,16 @@
       };
     }
 
-    function makeClass(name, studentNames = [], year = "", semester = "", level = "") {
+    function makeClass(name, studentNames = [], year = "", semester = "", level = "", criteriaBank = "correction-criteria.js", criteriaBanks = null) {
+      const banks = Array.isArray(criteriaBanks) && criteriaBanks.length ? criteriaBanks : (criteriaBank ? [criteriaBank] : ["correction-criteria.js"]);
       return {
         id: uid(),
         name,
         year,
         semester,
         level,
+        criteriaBank: banks[0],
+        criteriaBanks: banks,
         createdAt: new Date().toISOString(),
         students: studentNames.map((n, i) => defaultStudent(i + 1, n)),
         testConfigs: createDefaultTestConfigs()
@@ -3800,6 +5182,8 @@
           classSemester: cls.semester,
           classLevel: cls.level,
           classCreatedAt: cls.createdAt,
+          criteriaBank: cls.criteriaBank || (Array.isArray(cls.criteriaBanks) && cls.criteriaBanks.length ? cls.criteriaBanks[0] : 'correction-criteria.js'),
+          criteriaBanks: Array.isArray(cls.criteriaBanks) && cls.criteriaBanks.length ? cls.criteriaBanks : (cls.criteriaBank ? [cls.criteriaBank] : ['correction-criteria.js']),
           testCounts: cls.testCounts || { sem1: 0, sem2: 0 },
           students: cls.students.map(s => ({
             id: s.id,
@@ -3895,6 +5279,8 @@
             semester: meta.classSemester || '',
             level: meta.classLevel || '',
             createdAt: meta.classCreatedAt || new Date().toISOString(),
+            criteriaBank: meta.criteriaBank || (Array.isArray(meta.criteriaBanks) && meta.criteriaBanks.length ? meta.criteriaBanks[0] : 'correction-criteria.js'),
+            criteriaBanks: Array.isArray(meta.criteriaBanks) && meta.criteriaBanks.length ? meta.criteriaBanks : (meta.criteriaBank ? [meta.criteriaBank] : ['correction-criteria.js']),
             testCounts: meta.testCounts || { sem1: 0, sem2: 0 },
             students: (meta.students || []).map((s, idx) => ({
               id: s.id || uid(),
@@ -4190,6 +5576,8 @@
           semester: c.semester || "",
           level: c.level || "",
           createdAt: c.createdAt || new Date().toISOString(),
+          criteriaBank: c.criteriaBank || (Array.isArray(c.criteriaBanks) && c.criteriaBanks.length ? c.criteriaBanks[0] : 'correction-criteria.js'),
+          criteriaBanks: Array.isArray(c.criteriaBanks) && c.criteriaBanks.length ? c.criteriaBanks : (c.criteriaBank ? [c.criteriaBank] : ['correction-criteria.js']),
           students,
           testConfigs: c.testConfigs || createDefaultTestConfigs()
         };
@@ -5402,7 +6790,11 @@
         label.style.cursor = "pointer";
         label.title = t('gsClickEditCriterion');
         const minBadge = criterion.minPoints != null && criterion.minPoints !== 0 ? `min ${criterion.minPoints}, ` : '';
-        label.innerHTML = `<strong>${criterion.name}</strong><span class="score-badge">${criterion.isBonus ? 'bonus · ' : ''}${minBadge}max ${criterion.maxPoints}, ${criterion.pointCoefficient}</span>`;
+        const effCompIds = getCriterionEffectiveCompetenceIds(criterion, classObj, config);
+        const compBadge = effCompIds.length > 0
+          ? `<span class="score-badge" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;font-weight:700;margin-left:2px;" title="${effCompIds.map(cid => { const c = findLessonCompetence(cid); return (c ? (c.code || c.id) + ': ' + c.title : cid); }).join('\n')}">🏷️ ${effCompIds.length}</span>`
+          : '';
+        label.innerHTML = `<strong>${criterion.name}</strong><span class="score-badge">${criterion.isBonus ? 'bonus · ' : ''}${minBadge}max ${criterion.maxPoints}, ${criterion.pointCoefficient}</span>${compBadge}`;
         label.addEventListener("click", () => criterionPopupOpen(criterion, classObj, sem, testIndex));
         thPts.appendChild(label);
 
@@ -5680,6 +7072,7 @@
         passPercentGrade4: config.grading.passPercentGrade4,
         modelKey: config.grading.modelKey,
         pendingModelKey: config.grading.pendingModelKey,
+        scaleBank: config.grading.scaleBank || _activeScaleBankFilename || 'grade-scale-models.js',
         manualInputMode: config.grading.manualInputMode === "points" ? "points" : "percent",
         manualThresholds: Object.assign({}, config.grading.manualThresholds),
         manualPoints: Object.assign(
@@ -5702,8 +7095,22 @@
       pass4El.value = fmt(draft.passPercentGrade4);
 
       const modelSel = document.getElementById("grading-popup-model");
-      modelSel.innerHTML = `<option value="custom" ${draft.pendingModelKey === "custom" ? "selected" : ""}>Custom</option>` +
-        XLSM_SCALE_MODELS.map(m => `<option value="${m.key}" ${draft.pendingModelKey === m.key ? "selected" : ""}>${m.label}</option>`).join("");
+      const scaleBankSel = document.getElementById("grading-popup-scale-bank");
+
+      function refreshPopupModelOptions(bankFn) {
+        const models = getScaleModelsList(bankFn);
+        modelSel.innerHTML = `<option value="custom" ${draft.pendingModelKey === "custom" ? "selected" : ""}>Custom</option>` +
+          models.map(m => `<option value="${m.key}" ${draft.pendingModelKey === m.key ? "selected" : ""}>${m.label}</option>`).join("");
+      }
+
+      if (scaleBankSel) {
+        populateScaleBankSelectElement(scaleBankSel, draft.scaleBank);
+        scaleBankSel.onchange = () => {
+          draft.scaleBank = scaleBankSel.value;
+          refreshPopupModelOptions(draft.scaleBank);
+        };
+      }
+      refreshPopupModelOptions(draft.scaleBank);
 
       const manualUnitEl = document.getElementById("grading-popup-manual-unit");
       const manualNoteEl = document.getElementById("grading-popup-manual-note");
@@ -5826,8 +7233,8 @@
           syncModeSelectFromDraft();
         } else {
           // Apply model thresholds temporarily to draft
-          const tmpConfig = { grading: { mode: draft.mode, passPercentGrade4: draft.passPercentGrade4, modelKey: draft.pendingModelKey, pendingModelKey: draft.pendingModelKey, manualThresholds: Object.assign({}, draft.manualThresholds) } };
-          applyScaleModelToConfig(tmpConfig, key);
+          const tmpConfig = { grading: { mode: draft.mode, passPercentGrade4: draft.passPercentGrade4, modelKey: draft.pendingModelKey, pendingModelKey: draft.pendingModelKey, scaleBank: draft.scaleBank, manualThresholds: Object.assign({}, draft.manualThresholds) } };
+          applyScaleModelToConfig(tmpConfig, key, draft.scaleBank);
           Object.assign(draft, tmpConfig.grading);
           draft.mode = tmpConfig.grading.mode;
           modeEl.value = draft.mode;
@@ -5892,16 +7299,23 @@
       rebuildList();
 
       // Populate preset selector
+      let _critMgmtPresetCompetenceIds = [];
       const presetSel = document.getElementById("criteria-mgmt-preset");
+      const activeBank = getTestCriteriaBank(classObj, config);
+      const presetCriteriaList = (activeBank && Array.isArray(activeBank.criteria))
+        ? activeBank.criteria
+        : ((typeof XLSM_CRITERIA !== "undefined" && Array.isArray(XLSM_CRITERIA)) ? XLSM_CRITERIA : []);
       presetSel.innerHTML = '<option value="">Preset…</option>' +
-        XLSM_CRITERIA.map(c => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join("");
+        presetCriteriaList.map(c => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join("");
       presetSel.onchange = () => {
         if (presetSel.value) {
-          const entry = XLSM_CRITERIA.find(c => c.name === presetSel.value);
+          const entry = presetCriteriaList.find(c => c.name === presetSel.value);
           document.getElementById("criteria-mgmt-name").value = presetSel.value;
           if (entry && entry.minPoints != null) document.getElementById("criteria-mgmt-min").value = String(entry.minPoints);
           else document.getElementById("criteria-mgmt-min").value = "0";
           if (entry && entry.maxPoints != null) document.getElementById("criteria-mgmt-max").value = String(entry.maxPoints);
+          if (entry && entry.pointCoefficient != null) document.getElementById("criteria-mgmt-coeff").value = String(entry.pointCoefficient);
+          _critMgmtPresetCompetenceIds = (entry && Array.isArray(entry.competenceIds)) ? [...entry.competenceIds] : [];
           presetSel.value = "";
         }
       };
@@ -5921,13 +7335,19 @@
         const isBonus = !!(bonusEl && bonusEl.checked);
         const count = Math.max(1, Math.floor(toNumber(countEl.value) ?? 1));
         const startIndex = config.criteria.length + 1;
+        let compIdsToAdd = _critMgmtPresetCompetenceIds ? [..._critMgmtPresetCompetenceIds] : [];
+        if (!compIdsToAdd.length) {
+          const matched = presetCriteriaList.find(c => c && c.name && c.name.toLowerCase() === name.toLowerCase());
+          if (matched && Array.isArray(matched.competenceIds)) compIdsToAdd = [...matched.competenceIds];
+        }
         if (count === 1) {
-          config.criteria.push(makeCriterion(name, maxPoints, pointCoeff, isBonus, minPoints));
+          config.criteria.push(makeCriterion(name, maxPoints, pointCoeff, isBonus, minPoints, null, compIdsToAdd));
         } else {
           for (let i = 0; i < count; i++) {
-            config.criteria.push(makeCriterion(`${name} ${startIndex + i}`, maxPoints, pointCoeff, isBonus, minPoints));
+            config.criteria.push(makeCriterion(`${name} ${startIndex + i}`, maxPoints, pointCoeff, isBonus, minPoints, null, compIdsToAdd));
           }
         }
+        _critMgmtPresetCompetenceIds = [];
         nameEl.value = "";
         minEl.value = "0";
         maxEl.value = "1";
@@ -6018,10 +7438,11 @@
     }
 
     // ── Unified Test Options modal ────────────────────────────────
-    function openTestOptionsModal(config, classObj, sem, testIndex, openSection) {
+    async function openTestOptionsModal(config, classObj, sem, testIndex, openSection) {
       const overlay = document.getElementById("test-options-overlay");
       let activeSem = sem;
       let activeTestIndex = testIndex;
+      await loadAvailableCriteriaBanks();
 
       // Header context badge
       const badge = document.getElementById("topt-context-badge");
@@ -6096,6 +7517,7 @@
         interval: config.grading.interval != null ? config.grading.interval : 0.5,
         modelKey: config.grading.modelKey,
         pendingModelKey: config.grading.pendingModelKey,
+        scaleBank: config.grading.scaleBank || _activeScaleBankFilename || 'grade-scale-models.js',
         manualInputMode: config.grading.manualInputMode === "points" ? "points" : "percent",
         manualThresholds: Object.assign({}, config.grading.manualThresholds),
         manualPoints: Object.assign(
@@ -6466,10 +7888,21 @@
         gradingModeEl.querySelectorAll(".chip[data-value]").forEach(c => c.classList.toggle("active", c.dataset.value === val));
       }
 
+      const toptScaleBankSel = document.getElementById("topt-grading-scale-bank");
+      if (toptScaleBankSel) {
+        populateScaleBankSelectElement(toptScaleBankSel, gradingDraft.scaleBank || 'grade-scale-models.js');
+        toptScaleBankSel.onchange = () => {
+          gradingDraft.scaleBank = toptScaleBankSel.value;
+          rebuildModelChips();
+        };
+      }
+
       function rebuildModelChips() {
+        const bankFn = gradingDraft.scaleBank || (toptScaleBankSel ? toptScaleBankSel.value : 'grade-scale-models.js');
+        const models = getScaleModelsList(bankFn);
         gradingModelChips.innerHTML =
           `<button type="button" class="chip${gradingDraft.pendingModelKey === "custom" ? " active" : ""}" data-value="custom">Custom</button>` +
-          XLSM_SCALE_MODELS.map(m => `<button type="button" class="chip${gradingDraft.pendingModelKey === m.key ? " active" : ""}" data-value="${m.key}">${m.label}</button>`).join("");
+          models.map(m => `<button type="button" class="chip${gradingDraft.pendingModelKey === m.key ? " active" : ""}" data-value="${m.key}">${m.label}</button>`).join("");
       }
 
       const pass4EvalEl = document.getElementById("topt-grading-pass4-eval");
@@ -6624,8 +8057,8 @@
           gradingDraft.mode = "manual"; gradingDraft.manualInputMode = "percent";
           syncGradingModeSelect();
         } else {
-          const tmpConfig = { grading: { mode: gradingDraft.mode, passPercentGrade4: gradingDraft.passPercentGrade4, modelKey: key, pendingModelKey: key, manualThresholds: Object.assign({}, gradingDraft.manualThresholds) } };
-          applyScaleModelToConfig(tmpConfig, key);
+          const tmpConfig = { grading: { mode: gradingDraft.mode, passPercentGrade4: gradingDraft.passPercentGrade4, modelKey: key, pendingModelKey: key, scaleBank: gradingDraft.scaleBank, manualThresholds: Object.assign({}, gradingDraft.manualThresholds) } };
+          applyScaleModelToConfig(tmpConfig, key, gradingDraft.scaleBank);
           Object.assign(gradingDraft, tmpConfig.grading);
           gradingDraft.mode = tmpConfig.grading.mode;
           gradingDraft.minGrade = tmpConfig.grading.minGrade;
@@ -6766,7 +8199,7 @@
             const numRow = document.createElement("div");
             numRow.style.cssText = "display:flex;gap:8px;";
 
-            const xlsm = findMatchingReferenceCriterion(crit.name);
+            const xlsm = findMatchingReferenceCriterion(crit.name, config.criteriaBank);
             const fallbackMin = xlsm && xlsm.minPoints != null ? xlsm.minPoints : 0;
             const fallbackMax = xlsm && xlsm.maxPoints != null ? xlsm.maxPoints : 1;
             const fallbackInt = xlsm && xlsm.interval != null ? xlsm.interval : 0.5;
@@ -6904,7 +8337,66 @@
               _openCritId = null; rebuildToptCriteriaList();
             });
 
-            detail.append(nameWrap, numRow, flagRow, btnRow);
+            // Linked Competences section
+            const compWrap = document.createElement("div");
+            compWrap.style.cssText = "background:#f8fafc;border:1px solid var(--line, #e2e8f0);border-radius:6px;padding:8px 10px;margin-top:6px;";
+            const compHeader = document.createElement("div");
+            compHeader.style.cssText = "display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;";
+            compHeader.innerHTML = `<span style="font-size:0.8rem;font-weight:700;color:var(--ink);">${escapeHtml(t('gsCriteriaLinkedCompetences'))}</span>`;
+            const linkCompBtn = document.createElement("button");
+            linkCompBtn.type = "button";
+            linkCompBtn.className = "btn btn-sm";
+            linkCompBtn.style.cssText = "font-size:0.75rem;padding:2px 8px;";
+            linkCompBtn.textContent = t('gsLinkCompetence');
+            compHeader.appendChild(linkCompBtn);
+
+            const compChipsContainer = document.createElement("div");
+            compChipsContainer.style.cssText = "display:flex;flex-wrap:wrap;gap:4px;min-height:22px;align-items:center;";
+
+            function renderCompChips() {
+              compChipsContainer.innerHTML = "";
+              const ids = Array.isArray(crit.competenceIds) ? crit.competenceIds : [];
+              if (ids.length === 0) {
+                const emptyChip = document.createElement("span");
+                emptyChip.style.cssText = "font-size:0.78rem;color:var(--muted);font-style:italic;";
+                emptyChip.textContent = t('gsNoCompetencesLinked');
+                compChipsContainer.appendChild(emptyChip);
+                return;
+              }
+              ids.forEach(cid => {
+                const comp = findLessonCompetence(cid);
+                const chip = document.createElement("span");
+                chip.style.cssText = "display:inline-flex;align-items:center;gap:5px;background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;border-radius:12px;padding:2px 8px;font-size:0.75rem;font-weight:600;";
+                const label = comp ? (comp.code || comp.title || cid) : cid;
+                chip.textContent = label;
+                chip.title = comp ? `${comp.code ? comp.code + ': ' : ''}${comp.title || ''}${comp.description ? ' - ' + comp.description : ''}` : cid;
+
+                const removeX = document.createElement("span");
+                removeX.style.cssText = "cursor:pointer;margin-left:3px;font-weight:bold;color:#0284c7;";
+                removeX.textContent = "×";
+                removeX.onclick = (ev) => {
+                  ev.stopPropagation();
+                  crit.competenceIds = crit.competenceIds.filter(id => id !== cid);
+                  renderCompChips();
+                  saveState();
+                };
+                chip.appendChild(removeX);
+                compChipsContainer.appendChild(chip);
+              });
+            }
+
+            linkCompBtn.addEventListener("click", () => {
+              openCompetencePicker(crit.competenceIds || [], (newIds) => {
+                crit.competenceIds = newIds;
+                renderCompChips();
+                saveState();
+              });
+            });
+
+            renderCompChips();
+            compWrap.append(compHeader, compChipsContainer);
+
+            detail.append(nameWrap, numRow, flagRow, compWrap, btnRow);
             item.append(header, detail);
             list.appendChild(item);
           });
@@ -6916,16 +8408,112 @@
         updateLiveGradePreview();
       }
 
+      let _toptPresetCompetenceIds = [];
       const toptPresetSel = document.getElementById("topt-criteria-preset");
-      toptPresetSel.innerHTML = '<option value="">Preset…</option>' +
-        XLSM_CRITERIA.map(c => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join("");
+      const toptBankSel = document.getElementById("topt-criteria-bank-select");
+      const toptApplyAllBtn = document.getElementById("topt-apply-all-template-criteria-btn");
+
+      function updateToptPresetsForBank(bankFilename) {
+        const bank = _availableCriteriaBanks.find(b => b.filename === bankFilename)
+          || _availableCriteriaBanks[0]
+          || null;
+        const presetCriteriaSource = (bank && Array.isArray(bank.criteria) && bank.criteria.length > 0)
+          ? bank.criteria
+          : ((typeof XLSM_CRITERIA !== "undefined" && Array.isArray(XLSM_CRITERIA)) ? XLSM_CRITERIA : []);
+        toptPresetSel.innerHTML = '<option value="">Preset…</option>' +
+          presetCriteriaSource.map(c => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join("");
+      }
+
+      if (toptBankSel) {
+        toptBankSel.innerHTML = "";
+        const loadedBanks = getClassLoadedCriteriaBanks(classObj);
+        const allOtherBanks = _availableCriteriaBanks.filter(b => !loadedBanks.some(lb => lb.filename === b.filename));
+
+        if (loadedBanks.length) {
+          const optGroup = document.createElement("optgroup");
+          optGroup.label = t('gsCriteriaTemplates', 'Class Loaded Templates');
+          loadedBanks.forEach(b => {
+            const opt = document.createElement("option");
+            opt.value = b.filename;
+            opt.textContent = `${b.name} (${Array.isArray(b.criteria) ? b.criteria.length : 0})`;
+            optGroup.appendChild(opt);
+          });
+          toptBankSel.appendChild(optGroup);
+        }
+
+        if (allOtherBanks.length) {
+          const optGroupOther = document.createElement("optgroup");
+          optGroupOther.label = t('gsOtherTemplates', 'Other Templates');
+          allOtherBanks.forEach(b => {
+            const opt = document.createElement("option");
+            opt.value = b.filename;
+            opt.textContent = `${b.name} (${Array.isArray(b.criteria) ? b.criteria.length : 0})`;
+            optGroupOther.appendChild(opt);
+          });
+          toptBankSel.appendChild(optGroupOther);
+        }
+
+        const activeBankForTest = getTestCriteriaBank(classObj, config);
+        const selectedFilename = activeBankForTest ? activeBankForTest.filename : (loadedBanks[0]?.filename || 'correction-criteria.js');
+        toptBankSel.value = selectedFilename;
+
+        updateToptPresetsForBank(selectedFilename);
+
+        toptBankSel.onchange = () => {
+          config.criteriaBank = toptBankSel.value;
+          if (Array.isArray(classObj.criteriaBanks) && !classObj.criteriaBanks.includes(config.criteriaBank)) {
+            classObj.criteriaBanks.push(config.criteriaBank);
+          }
+          updateToptPresetsForBank(config.criteriaBank);
+          saveState();
+        };
+      } else {
+        const activeBankForTest = getTestCriteriaBank(classObj, config);
+        updateToptPresetsForBank(activeBankForTest ? activeBankForTest.filename : null);
+      }
+
+      if (toptApplyAllBtn) {
+        toptApplyAllBtn.onclick = async () => {
+          const activeBank = getTestCriteriaBank(classObj, config);
+          if (!activeBank || !Array.isArray(activeBank.criteria) || !activeBank.criteria.length) {
+            showToast("No criteria found in this template", true);
+            return;
+          }
+          if (config.criteria.length > 0) {
+            const ok = await showConfirm(tFmt('gsApplyTemplateConfirm', { template: activeBank.name }));
+            if (!ok) return;
+          }
+          activeBank.criteria.forEach(c => {
+            const compIds = Array.isArray(c.competenceIds) ? [...c.competenceIds] : [];
+            config.criteria.push(makeCriterion(
+              c.name || "Criterion",
+              c.maxPoints != null ? c.maxPoints : 1,
+              c.pointCoefficient != null ? c.pointCoefficient : 1,
+              false,
+              c.minPoints != null ? c.minPoints : 0,
+              null,
+              compIds
+            ));
+          });
+          saveState();
+          rebuildToptCriteriaList();
+          renderTestSheet();
+          renderSummary();
+          showToast(tFmt('gsCriteriaCountLabel', { n: activeBank.criteria.length }) + ' applied from ' + activeBank.name);
+        };
+      }
+
       toptPresetSel.onchange = () => {
         if (toptPresetSel.value) {
-          const entry = XLSM_CRITERIA.find(c => c.name === toptPresetSel.value);
+          const activeBank = getTestCriteriaBank(classObj, config);
+          const presetList = (activeBank && Array.isArray(activeBank.criteria)) ? activeBank.criteria : ((typeof XLSM_CRITERIA !== "undefined" && Array.isArray(XLSM_CRITERIA)) ? XLSM_CRITERIA : []);
+          const entry = presetList.find(c => c.name === toptPresetSel.value);
           document.getElementById("topt-criteria-name").value = toptPresetSel.value;
           if (entry && entry.minPoints != null) document.getElementById("topt-criteria-min").value = String(entry.minPoints);
           else document.getElementById("topt-criteria-min").value = "0";
           if (entry && entry.maxPoints != null) document.getElementById("topt-criteria-max").value = String(entry.maxPoints);
+          if (entry && entry.pointCoefficient != null) document.getElementById("topt-criteria-coeff").value = String(entry.pointCoefficient);
+          _toptPresetCompetenceIds = (entry && Array.isArray(entry.competenceIds)) ? [...entry.competenceIds] : [];
           toptPresetSel.value = "";
         }
       };
@@ -6945,8 +8533,18 @@
         const isBonus = !!(bonEl && bonEl.checked);
         const count = Math.max(1, Math.floor(toNumber(cntEl.value) ?? 1));
         const start = config.criteria.length + 1;
-        if (count === 1) { config.criteria.push(makeCriterion(name, maxPoints, pointCoeff, isBonus, minPoints)); }
-        else { for (let i = 0; i < count; i++) config.criteria.push(makeCriterion(`${name} ${start + i}`, maxPoints, pointCoeff, isBonus, minPoints)); }
+        let compIdsToAdd = _toptPresetCompetenceIds ? [..._toptPresetCompetenceIds] : [];
+        if (!compIdsToAdd.length) {
+          const activeBank = getTestCriteriaBank(classObj, config);
+          const presetList = (activeBank && Array.isArray(activeBank.criteria)) ? activeBank.criteria : ((typeof XLSM_CRITERIA !== "undefined" && Array.isArray(XLSM_CRITERIA)) ? XLSM_CRITERIA : []);
+          const matchEntry = presetList.find(c => c && c.name && c.name.trim().toLowerCase() === name.toLowerCase());
+          if (matchEntry && Array.isArray(matchEntry.competenceIds)) {
+            compIdsToAdd = [...matchEntry.competenceIds];
+          }
+        }
+        if (count === 1) { config.criteria.push(makeCriterion(name, maxPoints, pointCoeff, isBonus, minPoints, null, compIdsToAdd)); }
+        else { for (let i = 0; i < count; i++) config.criteria.push(makeCriterion(`${name} ${start + i}`, maxPoints, pointCoeff, isBonus, minPoints, null, compIdsToAdd)); }
+        _toptPresetCompetenceIds = [];
         nameEl.value = ""; minEl.value = "0"; maxEl.value = "1"; cEl.value = "1"; cntEl.value = "1";
         saveState(); rebuildToptCriteriaList(); renderTestSheet(); renderSummary();
       };
@@ -7195,8 +8793,17 @@
             } else {
               ptsDisplay = `<span style="color:#888;">—</span> <span style="color:#111;font-weight:600;">/ ${esc(fmtN(cr.maxPoints))}</span>`;
             }
+            let compBadges = "";
+            const effCompIds = getCriterionEffectiveCompetenceIds(cr, classObj, config);
+            if (getReportIncludeCompetences() && effCompIds.length > 0) {
+              compBadges = '<div style="margin-top:2px;">' + effCompIds.map(cid => {
+                const c = findLessonCompetence(cid);
+                const label = c ? (c.code || c.title || cid) : cid;
+                return `<span style="display:inline-block;background:#0284c7;color:#fff;border-radius:3px;padding:0px 4px;font-size:9px;font-weight:700;margin-right:3px;">${esc(label)}</span>`;
+              }).join('') + '</div>';
+            }
             return `<tr>
-              <td>${gradeBadge}${esc(cr.name)}</td>
+              <td>${gradeBadge}${esc(cr.name)}${compBadges}</td>
               <td class="pts-cell">${ptsDisplay}</td>
               <td>${comment}</td>
             </tr>`;
@@ -9035,7 +10642,7 @@
       </body></html>`;
     }
 
-    function buildClassTestReportHtml(classObj, sem, testIndex) {
+    function buildClassTestReportHtml(classObj, sem, testIndex, includeCompetences = getReportIncludeCompetences()) {
       ensureClassStructures(classObj);
       const config = getTestConfig(classObj, sem, testIndex);
       const testNo = testIndex + 1;
@@ -9169,13 +10776,95 @@
                 <th style="width:180px;">Student Name</th>
                 <th class="center" style="width:65px;background:#fff9c4;">Grade</th>
                 <th class="center" style="width:90px;">Total Points</th>
-                ${(config.criteria || []).map(cr => `<th class="center">${esc(cr.name)} (/${fmtN(cr.maxPoints)})</th>`).join('')}
+                ${(config.criteria || []).map(cr => {
+                  let compBadges = '';
+                  const effCompIds = getCriterionEffectiveCompetenceIds(cr, classObj, config);
+                  if (includeCompetences && effCompIds.length > 0) {
+                    compBadges = '<div style="margin-top:2px;">' + effCompIds.map(cid => {
+                      const c = findLessonCompetence(cid);
+                      const label = c ? (c.code || c.title || cid) : cid;
+                      return `<span style="display:inline-block;background:#0284c7;color:#fff;border-radius:3px;padding:0px 4px;font-size:9px;font-weight:700;margin:1px;">${esc(label)}</span>`;
+                    }).join('') + '</div>';
+                  }
+                  return `<th class="center">${esc(cr.name)} (/${fmtN(cr.maxPoints)})${compBadges}</th>`;
+                }).join('')}
               </tr>
             </thead>
             <tbody>
               ${trs}
             </tbody>
           </table>
+
+          ${(() => {
+            if (!includeCompetences) return '';
+            const compMap = new Map();
+            (config.criteria || []).forEach(cr => {
+              const effCompIds = getCriterionEffectiveCompetenceIds(cr, classObj, config);
+              if (effCompIds.length > 0) {
+                effCompIds.forEach(cid => {
+                  if (!compMap.has(cid)) {
+                    compMap.set(cid, { competence: findLessonCompetence(cid) || { id: cid, code: cid, title: cid }, criteria: [] });
+                  }
+                  compMap.get(cid).criteria.push(cr);
+                });
+              }
+            });
+            if (compMap.size === 0) return '';
+            const rows = Array.from(compMap.entries()).map(([cid, data]) => {
+              const comp = data.competence;
+              const critList = data.criteria;
+              const critNames = critList.map(c => esc(c.name)).join(', ');
+              const maxPtsTotal = critList.reduce((acc, c) => acc + (c.maxPoints || 0), 0);
+              
+              let totalScoredAcrossClass = 0;
+              let studentCount = 0;
+              studentResults.forEach(r => {
+                let sSum = 0;
+                let hasAny = false;
+                critList.forEach(c => {
+                  const entry = r.criteriaMap[c.id];
+                  if (entry && entry.points != null) {
+                    sSum += entry.points;
+                    hasAny = true;
+                  }
+                });
+                if (hasAny) {
+                  totalScoredAcrossClass += sSum;
+                  studentCount++;
+                }
+              });
+              const avgScored = studentCount > 0 ? (totalScoredAcrossClass / studentCount) : null;
+              const avgPct = (avgScored != null && maxPtsTotal > 0) ? Math.round((avgScored / maxPtsTotal) * 100) : null;
+              const avgStr = avgScored != null ? `${fmtN(avgScored)} / ${fmtN(maxPtsTotal)} (${avgPct}%)` : '—';
+              const avgColor = avgPct != null ? (avgPct >= 60 ? '#2e7d32' : (avgPct >= 40 ? '#f57c00' : '#c62828')) : '#111';
+
+              return `<tr>
+                <td style="font-weight:800;color:#0284c7;">${esc(comp.code || comp.id || '')}</td>
+                <td><strong>${esc(comp.title || '')}</strong>${comp.description ? `<div style="font-size:10px;color:#555;margin-top:2px;">${esc(comp.description)}</div>` : ''}</td>
+                <td class="center"><span style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:3px;padding:1px 5px;font-size:10px;font-weight:600;">${esc(comp.level || comp.category || '—')}</span></td>
+                <td>${critNames}</td>
+                <td class="center" style="font-weight:800;color:${avgColor};">${avgStr}</td>
+              </tr>`;
+            }).join('');
+
+            return `
+              <div class="section-heading" style="margin-top:10px;">Curriculum Competences Coverage & Performance</div>
+              <table class="report-table">
+                <thead>
+                  <tr>
+                    <th style="width:90px;">Code</th>
+                    <th>Competence Title & Description</th>
+                    <th class="center" style="width:80px;">Level/Domain</th>
+                    <th style="width:160px;">Linked Criteria</th>
+                    <th class="center" style="width:120px;">Class Average</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${rows}
+                </tbody>
+              </table>
+            `;
+          })()}
         </div>
       </body></html>`;
     }
@@ -9458,7 +11147,7 @@
       </body></html>`;
     }
 
-    function buildStudentTestReportHtml(classObj, student, sem, testIndex) {
+    function buildStudentTestReportHtml(classObj, student, sem, testIndex, includeCompetences = getReportIncludeCompetences()) {
       ensureClassStructures(classObj);
       const config = getTestConfig(classObj, sem, testIndex);
       const testNo = testIndex + 1;
@@ -9502,8 +11191,17 @@
           const gradeBadge = (pts != null && key != null && critColor)
             ? `<span style="display:inline-block;font-size:10px;font-weight:800;padding:1px 5px;border-radius:3px;margin-right:6px;background:${critColor}20;color:${cTextColor};border:1px solid ${critColor};">${escapeHtml(key)}</span>`
             : "";
+          let compBadges = '';
+          const effCompIds = getCriterionEffectiveCompetenceIds(cr, classObj, config);
+          if (includeCompetences && effCompIds.length > 0) {
+            compBadges = '<div style="margin-top:2px;">' + effCompIds.map(cid => {
+              const c = findLessonCompetence(cid);
+              const label = c ? (c.code || c.title || cid) : cid;
+              return `<span style="display:inline-block;background:#0284c7;color:#fff;border-radius:3px;padding:0px 4px;font-size:9px;font-weight:700;margin:1px;">${escapeHtml(label)}</span>`;
+            }).join('') + '</div>';
+          }
           return `<tr>
-            <td style="font-weight:700;">${gradeBadge}${escapeHtml(cr.name)}</td>
+            <td style="font-weight:700;">${gradeBadge}${escapeHtml(cr.name)}${compBadges}</td>
             <td class="center" style="font-weight:800;">${ptsStr}</td>
             <td>${comment}</td>
           </tr>`;
@@ -9595,6 +11293,68 @@
             </tbody>
           </table>` : ''}
 
+          ${(() => {
+            if (!includeCompetences) return '';
+            const compMap = new Map();
+            (config.criteria || []).forEach(cr => {
+              const effCompIds = getCriterionEffectiveCompetenceIds(cr, classObj, config);
+              if (effCompIds.length > 0) {
+                effCompIds.forEach(cid => {
+                  if (!compMap.has(cid)) {
+                    compMap.set(cid, { competence: findLessonCompetence(cid) || { id: cid, code: cid, title: cid }, criteria: [] });
+                  }
+                  compMap.get(cid).criteria.push(cr);
+                });
+              }
+            });
+            if (compMap.size === 0) return '';
+            const rows = Array.from(compMap.entries()).map(([cid, data]) => {
+              const comp = data.competence;
+              const critList = data.criteria;
+              const critNames = critList.map(c => esc(c.name)).join(', ');
+              const maxPtsTotal = critList.reduce((acc, c) => acc + (c.maxPoints || 0), 0);
+              
+              let studentScoredSum = 0;
+              let hasScoredAny = false;
+              critList.forEach(c => {
+                const entry = criteriaMap[c.id];
+                if (entry && entry.points != null) {
+                  studentScoredSum += entry.points;
+                  hasScoredAny = true;
+                }
+              });
+              const pct = (hasScoredAny && maxPtsTotal > 0) ? Math.round((studentScoredSum / maxPtsTotal) * 100) : null;
+              const scoreStr = hasScoredAny ? `${fmtN(studentScoredSum)} / ${fmtN(maxPtsTotal)} (${pct}%)` : '—';
+              const scoreColor = pct != null ? (pct >= 60 ? '#2e7d32' : (pct >= 40 ? '#f57c00' : '#c62828')) : '#111';
+
+              return `<tr>
+                <td style="font-weight:800;color:#0284c7;">${esc(comp.code || comp.id || '')}</td>
+                <td><strong>${esc(comp.title || '')}</strong>${comp.description ? `<div style="font-size:10px;color:#555;margin-top:2px;">${esc(comp.description)}</div>` : ''}</td>
+                <td class="center"><span style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:3px;padding:1px 5px;font-size:10px;font-weight:600;">${esc(comp.level || comp.category || '—')}</span></td>
+                <td>${critNames}</td>
+                <td class="center" style="font-weight:800;color:${scoreColor};">${scoreStr}</td>
+              </tr>`;
+            }).join('');
+
+            return `
+              <div class="section-heading" style="margin-top:8px;">Curriculum Competences Performance</div>
+              <table class="report-table">
+                <thead>
+                  <tr>
+                    <th style="width:90px;">Code</th>
+                    <th>Competence Title & Description</th>
+                    <th class="center" style="width:80px;">Level/Domain</th>
+                    <th style="width:160px;">Linked Criteria</th>
+                    <th class="center" style="width:120px;">Student Score</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${rows}
+                </tbody>
+              </table>
+            `;
+          })()}
+
           ${obsHtml}
 
           <div class="section-heading" style="margin-top:6px;">Grading Scale Reference</div>
@@ -9605,14 +11365,36 @@
 
     // ── Interactive Report Modal Handlers ──
 
+    function getReportIncludeCompetences() {
+      const el = document.getElementById('gs-report-toggle-competences');
+      if (el) return !!el.checked;
+      const cached = localStorage.getItem('cmt-gs-report-include-competences');
+      return cached !== 'false';
+    }
+
+    function setReportIncludeCompetences(val) {
+      localStorage.setItem('cmt-gs-report-include-competences', val ? 'true' : 'false');
+      const el = document.getElementById('gs-report-toggle-competences');
+      if (el) el.checked = !!val;
+    }
+
     function openReportModal(reportHtml, title, defaultFilename, options = {}) {
+      const incComp = getReportIncludeCompetences();
       _currentActiveReport = {
         html: reportHtml,
         title: title || t('gsReportModalTitle') || 'Report Preview',
         defaultFilename: defaultFilename || 'grade-report',
         isLandscape: !!options.isLandscape,
-        markdown: options.markdown || null
+        markdown: options.markdown || null,
+        rebuild: typeof options.rebuild === 'function' ? options.rebuild : null
       };
+
+      const compToggle = document.getElementById('gs-report-toggle-competences');
+      if (compToggle) {
+        compToggle.checked = incComp;
+        const lbl = compToggle.closest('label') || compToggle.parentElement;
+        if (lbl) lbl.style.display = _currentActiveReport.rebuild ? 'inline-flex' : 'none';
+      }
 
       const titleEl = document.getElementById('gs-report-modal-title');
       if (titleEl) titleEl.textContent = _currentActiveReport.title;
@@ -9733,9 +11515,13 @@
 
     function openClassTestReport(classObj, sem, testIndex) {
       if (!classObj) return;
-      const html = buildClassTestReportHtml(classObj, sem, testIndex);
+      const inc = getReportIncludeCompetences();
+      const html = buildClassTestReportHtml(classObj, sem, testIndex, inc);
       const slug = slugifyForPath(classObj.name || "class");
-      openReportModal(html, `${classObj.name} — ${sem.toUpperCase()} T${testIndex + 1} Test Report`, `${slug}-${sem}-t${testIndex + 1}-report`, { isLandscape: false });
+      openReportModal(html, `${classObj.name} — ${sem.toUpperCase()} T${testIndex + 1} Test Report`, `${slug}-${sem}-t${testIndex + 1}-report`, {
+        isLandscape: false,
+        rebuild: (include) => buildClassTestReportHtml(classObj, sem, testIndex, include)
+      });
     }
 
     function openStudentYearReport(classObj, student) {
@@ -9756,10 +11542,14 @@
 
     function openStudentTestReport(classObj, student, sem, testIndex) {
       if (!classObj || !student) return;
-      const html = buildStudentTestReportHtml(classObj, student, sem, testIndex);
+      const inc = getReportIncludeCompetences();
+      const html = buildStudentTestReportHtml(classObj, student, sem, testIndex, inc);
       const slug = slugifyForPath(classObj.name || "class");
       const stuSlug = slugifyForPath(student.lastName || student.firstName || "student");
-      openReportModal(html, `${student.firstName} ${student.lastName} — ${sem.toUpperCase()} T${testIndex + 1} Report`, `${slug}-${stuSlug}-${sem}-t${testIndex + 1}-report`, { isLandscape: false });
+      openReportModal(html, `${student.firstName} ${student.lastName} — ${sem.toUpperCase()} T${testIndex + 1} Report`, `${slug}-${stuSlug}-${sem}-t${testIndex + 1}-report`, {
+        isLandscape: false,
+        rebuild: (include) => buildStudentTestReportHtml(classObj, student, sem, testIndex, include)
+      });
     }
 
     let _studentSelectModalCtx = null;
@@ -10075,14 +11865,14 @@
             datalist.appendChild(opt);
           }
 
-          const sliderGradient = buildCriterionSliderGradient(criterion, minPts, maxPts);
+          const sliderGradient = buildCriterionSliderGradient(criterion, minPts, maxPts, config, classObj);
           ptsSlider.style.setProperty("background", sliderGradient, "important");
           ptsSlider.style.setProperty("background-image", sliderGradient, "important");
 
           const sliderWrap = document.createElement("div");
           sliderWrap.className = "smod-pts-slider-wrap";
 
-          const gradeStops = getCriterionGradeStops(criterion, minPts, maxPts);
+          const gradeStops = getCriterionGradeStops(criterion, minPts, maxPts, config, classObj);
           const notchesTrack = document.createElement("div");
           notchesTrack.className = "smod-pts-notches-track";
           const notchEls = [];
@@ -10137,11 +11927,13 @@
             dr.points = raw == null ? null : Math.max(minPts, Math.min(maxPts, raw));
 
             // Dynamically update thumb accent, border, and input highlight to match selected grade band
-            const xlsm = (typeof XLSM_CRITERIA !== "undefined" && Array.isArray(XLSM_CRITERIA))
-              ? XLSM_CRITERIA.find(c => c.name.trim().toLowerCase() === criterion.name.trim().toLowerCase())
-              : null;
-            const key = nearestCriterionGradeKey(criterion, null, dr.points, minPts, maxPts);
-            const activeColor = (xlsm && xlsm.colors && xlsm.colors[key]) || (criterion && criterion.colors && criterion.colors[key]) || getDefaultGradeColor(key);
+            const resolvedCrit = resolveCriterionProps(criterion, config, classObj);
+            const key = nearestCriterionGradeKey(resolvedCrit, null, dr.points, minPts, maxPts);
+            const activeColor = lookupColorInMap(resolvedCrit.colors, key) ||
+                                (resolvedCrit.xlsm && lookupColorInMap(resolvedCrit.xlsm.colors, key)) ||
+                                lookupColorInMap(criterion && criterion.colors, key) ||
+                                getScaleGradeColor(key) ||
+                                getDefaultGradeColor(key);
             if (activeColor) {
               ptsSlider.style.color = activeColor;
               ptsSlider.style.accentColor = activeColor;
@@ -10160,13 +11952,11 @@
               el.classList.toggle("active", stop.key === key);
             });
 
-            // Auto-fill comment as selectable sentence chips.
             // Auto-fill comment as selectable sentence chips matching slider point value
             if (dr.points != null && maxPts >= minPts) {
-              const resolvedCrit = resolveCriterionProps(criterion);
               const auto = (resolvedCrit.comments && resolvedCrit.comments[key]) ||
                            (criterion.comments && criterion.comments[key]) ||
-                           (xlsm && xlsm.comments && xlsm.comments[key]) ||
+                           (resolvedCrit.xlsm && resolvedCrit.xlsm.comments && resolvedCrit.xlsm.comments[key]) ||
                            xlsmCommentForGrade(criterion.name, null, dr.points, minPts, maxPts) || "";
 
               if (auto && sentencePickerEls[criterion.id]) {
@@ -10295,13 +12085,92 @@
       // — Teacher observations —
       const noteSection = document.createElement("div");
       noteSection.className = "smod-section";
+
+      const noteHeadRow = document.createElement("div");
+      noteHeadRow.style.cssText = "display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px;";
       const noteTitle = document.createElement("div");
       noteTitle.className = "smod-section-title";
+      noteTitle.style.margin = "0";
       noteTitle.textContent = t('gsStudentObsTitle');
-      noteSection.appendChild(noteTitle);
+      noteHeadRow.appendChild(noteTitle);
+
+      const noteBankWrap = document.createElement("div");
+      noteBankWrap.style.cssText = "display:flex;align-items:center;gap:6px;";
+      const noteBankLbl = document.createElement("span");
+      noteBankLbl.style.cssText = "font-size:0.75rem;font-weight:600;color:var(--muted);";
+      noteBankLbl.textContent = t('gsChipsBank', 'Observation Chips Bank:') + ' ';
+      const noteBankSel = document.createElement("select");
+      noteBankSel.className = "input input-sm";
+      noteBankSel.style.cssText = "padding:2px 6px;font-size:0.75rem;max-width:220px;";
+      populateChipBankSelectElement(noteBankSel, _activeChipBankFilename);
+      noteBankSel.addEventListener("change", () => {
+        _activeChipBankFilename = noteBankSel.value;
+        refreshObservationChecklists();
+      });
+      noteBankWrap.append(noteBankLbl, noteBankSel);
+      noteHeadRow.appendChild(noteBankWrap);
+      noteSection.appendChild(noteHeadRow);
 
       const noteSectionsWrap = document.createElement("div");
       noteSectionsWrap.className = "note-sections-container";
+
+      function buildChecklistElement(section) {
+        const groups = getObservationChecklistGroups(_activeChipBankFilename);
+        const items = groups.flatMap(g => g.items);
+        const selected = new Set(sectionChecklistSummary(section).map(v => v.toLowerCase()));
+        section.checklist = items.filter(name => selected.has(name.toLowerCase()));
+
+        const checklist = document.createElement("div");
+        checklist.className = "note-checklist";
+        groups.forEach(group => {
+          const inlineGroup = document.createElement("div");
+          inlineGroup.className = "note-checklist-inline-group";
+
+          const sectionTag = document.createElement("span");
+          sectionTag.className = "note-checklist-section-tag";
+          sectionTag.textContent = group.type;
+          inlineGroup.appendChild(sectionTag);
+
+          group.items.forEach(name => {
+            const chip = document.createElement("button");
+            chip.type = "button";
+            chip.className = "note-checklist-chip";
+            chip.textContent = name;
+            chip.title = group.type;
+            const isSelected = selected.has(name.toLowerCase());
+            chip.classList.toggle("selected", isSelected);
+            chip.setAttribute("aria-pressed", isSelected ? "true" : "false");
+            chip.addEventListener("click", () => {
+              const now = new Set(sectionChecklistSummary(section));
+              const alreadySelected = now.has(name);
+              if (alreadySelected) now.delete(name);
+              else now.add(name);
+              section.checklist = Array.from(now);
+              const selectedNow = now.has(name);
+              chip.classList.toggle("selected", selectedNow);
+              chip.setAttribute("aria-pressed", selectedNow ? "true" : "false");
+            });
+            inlineGroup.appendChild(chip);
+          });
+          checklist.appendChild(inlineGroup);
+        });
+        return checklist;
+      }
+
+      function refreshObservationChecklists() {
+        noteSectionsWrap.querySelectorAll(".note-checklist").forEach(cl => cl.remove());
+        draftSections.forEach(s => {
+          if (s.kind === "toRemedy" || s.kind === "goodPoints") {
+            const block = noteSectionsWrap.querySelector(`.note-section.kind-${s.kind === "toRemedy" ? "to-remedy" : "good-points"}`);
+            if (block) {
+              const cl = buildChecklistElement(s);
+              const ta = block.querySelector(".note-section-body");
+              if (ta) block.insertBefore(cl, ta);
+              else block.appendChild(cl);
+            }
+          }
+        });
+      }
 
       const addBtn = document.createElement("button");
       addBtn.innerHTML = '<img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> ' + t('gsBtnAddSection');
@@ -10343,45 +12212,7 @@
         block.appendChild(header);
 
         if (isMandatoryChecklist) {
-          const groups = getObservationChecklistGroups();
-          const items = groups.flatMap(g => g.items);
-          const selected = new Set(sectionChecklistSummary(section).map(v => v.toLowerCase()));
-          section.checklist = items.filter(name => selected.has(name.toLowerCase()));
-
-          const checklist = document.createElement("div");
-          checklist.className = "note-checklist";
-          groups.forEach(group => {
-            const inlineGroup = document.createElement("div");
-            inlineGroup.className = "note-checklist-inline-group";
-
-            const sectionTag = document.createElement("span");
-            sectionTag.className = "note-checklist-section-tag";
-            sectionTag.textContent = group.type;
-            inlineGroup.appendChild(sectionTag);
-
-            group.items.forEach(name => {
-              const chip = document.createElement("button");
-              chip.type = "button";
-              chip.className = "note-checklist-chip";
-              chip.textContent = name;
-              chip.title = group.type;
-              const isSelected = selected.has(name.toLowerCase());
-              chip.classList.toggle("selected", isSelected);
-              chip.setAttribute("aria-pressed", isSelected ? "true" : "false");
-              chip.addEventListener("click", () => {
-                const now = new Set(sectionChecklistSummary(section));
-                const alreadySelected = now.has(name);
-                if (alreadySelected) now.delete(name);
-                else now.add(name);
-                section.checklist = Array.from(now);
-                const selectedNow = now.has(name);
-                chip.classList.toggle("selected", selectedNow);
-                chip.setAttribute("aria-pressed", selectedNow ? "true" : "false");
-              });
-              inlineGroup.appendChild(chip);
-            });
-            checklist.appendChild(inlineGroup);
-          });
+          const checklist = buildChecklistElement(section);
           block.appendChild(checklist);
         }
 
@@ -10636,12 +12467,18 @@
         .replaceAll("'", "&#39;");
     }
 
-    function openAddClassModal() {
+    async function openAddClassModal() {
       const _cgd = (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA) ? CLASS_GROUPS_DATA : {};
       document.getElementById("add-class-name").value = "";
       document.getElementById("add-class-year").value = _cgd.activeYear || "";
       document.getElementById("add-class-semester").value = _cgd.activeSemester ? String(_cgd.activeSemester) : "";
       document.getElementById("add-class-level").value = "";
+      await loadAvailableCriteriaBanks();
+      populateCriteriaBankDropdowns();
+      const bankSel = document.getElementById("add-class-criteria-bank");
+      if (bankSel && !bankSel.value && _availableCriteriaBanks.length > 0) {
+        bankSel.value = _availableCriteriaBanks[0].filename;
+      }
       document.getElementById("add-class-overlay").classList.remove("hidden");
       document.getElementById("add-class-name").focus();
     }
@@ -10655,6 +12492,7 @@
       const yearInput = document.getElementById("add-class-year");
       const semesterSelect = document.getElementById("add-class-semester");
       const levelSelect = document.getElementById("add-class-level");
+      const bankSelect = document.getElementById("add-class-criteria-bank");
       const name = nameInput.value.trim();
       if (!name) return;
 
@@ -10666,6 +12504,7 @@
 
       const semester = semesterSelect.value;
       const level = levelSelect.value;
+      const criteriaBank = bankSelect ? bankSelect.value : "";
 
       const exists = appState.classes.some(c => c.name.toLowerCase() === name.toLowerCase());
       if (exists) {
@@ -10674,6 +12513,10 @@
       }
 
       const newClass = makeClass(name, [], year, semester, level);
+      if (criteriaBank) {
+        newClass.criteriaBank = criteriaBank;
+        newClass.criteriaBanks = [criteriaBank];
+      }
       appState.classes.push(newClass);
       closeAddClassModal();
       saveState();
@@ -11299,9 +13142,10 @@
       document.getElementById('gs-rename-overlay').classList.add('hidden');
     }
 
-    function openEditClassPopup() {
+    async function openEditClassPopup() {
       const classObj = getActiveClass();
       if (!classObj) return;
+      await loadAvailableCriteriaBanks();
       const overlay = document.getElementById("edit-class-overlay");
       const nameInput = document.getElementById("edit-class-name");
       const fromGroupEditor = isGroupEditorClass(classObj);
@@ -11311,6 +13155,32 @@
       document.getElementById("edit-class-year").value = classObj.year || "";
       document.getElementById("edit-class-semester").value = classObj.semester || "";
       document.getElementById("edit-class-level").value = classObj.level || "";
+      const checklist = document.getElementById("edit-class-criteria-banks-checklist");
+      if (checklist) {
+        checklist.innerHTML = "";
+        const currentBanks = Array.isArray(classObj.criteriaBanks) && classObj.criteriaBanks.length
+          ? classObj.criteriaBanks
+          : [classObj.criteriaBank || 'correction-criteria.js'];
+        _availableCriteriaBanks.forEach(bank => {
+          const lbl = document.createElement("label");
+          lbl.style.display = "flex";
+          lbl.style.alignItems = "center";
+          lbl.style.gap = "8px";
+          lbl.style.fontSize = "0.82rem";
+          lbl.style.cursor = "pointer";
+
+          const cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.value = bank.filename;
+          cb.checked = currentBanks.includes(bank.filename);
+
+          const span = document.createElement("span");
+          span.textContent = `${bank.name} (${Array.isArray(bank.criteria) ? bank.criteria.length : 0} criteria)`;
+
+          lbl.append(cb, span);
+          checklist.appendChild(lbl);
+        });
+      }
       overlay.classList.remove("hidden");
       (fromGroupEditor ? document.getElementById("edit-class-year") : nameInput).focus();
     }
@@ -11341,6 +13211,15 @@
       classObj.year = year;
       classObj.semester = semester;
       classObj.level = level;
+
+      const checklist = document.getElementById("edit-class-criteria-banks-checklist");
+      if (checklist) {
+        const checked = Array.from(checklist.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+        if (checked.length > 0) {
+          classObj.criteriaBanks = checked;
+          classObj.criteriaBank = checked[0];
+        }
+      }
       saveState();
       overlay.classList.add("hidden");
       document.getElementById("summary-title").textContent = classObj.name + " - " + t('gsClassSummaryLabel');
@@ -11761,6 +13640,10 @@
       document.getElementById("btn-import-test").addEventListener("click", openDuplicateTestPopup);
       document.getElementById("btn-delete-class").addEventListener("click", deleteActiveClass);
       document.getElementById("btn-edit-class").addEventListener("click", openEditClassPopup);
+      const btnClassTemplates = document.getElementById("btn-class-templates");
+      if (btnClassTemplates) {
+        btnClassTemplates.addEventListener("click", () => openClassTemplatesModal());
+      }
       document.querySelectorAll(".btn-edit-reference-data, #btn-edit-reference-data").forEach(btn => {
         btn.addEventListener("click", openReferenceDataEditor);
       });
@@ -11871,6 +13754,20 @@
       document.getElementById("gs-report-modal-overlay").addEventListener("click", e => {
         if (e.target === document.getElementById("gs-report-modal-overlay")) closeReportModal();
       });
+
+      const compToggle = document.getElementById("gs-report-toggle-competences");
+      if (compToggle) {
+        compToggle.addEventListener("change", () => {
+          const val = compToggle.checked;
+          setReportIncludeCompetences(val);
+          if (_currentActiveReport && typeof _currentActiveReport.rebuild === 'function') {
+            const newHtml = _currentActiveReport.rebuild(val);
+            _currentActiveReport.html = newHtml;
+            const frame = document.getElementById("gs-report-preview-frame");
+            if (frame) frame.srcdoc = newHtml;
+          }
+        });
+      }
 
       // ── Student Selector Modal ──
       document.getElementById("gs-student-select-cancel").addEventListener("click", closeStudentSelectModal);
@@ -12565,9 +14462,48 @@ ${blocks}
 
     // ── Criterion edit popup ─────────────────────────────────────
     let _critPopupCtx = null;
+    let _critPopupCompetenceDraft = [];
 
+    function renderCritPopupChips() {
+      const chipsEl = document.getElementById("crit-popup-competence-chips");
+      if (!chipsEl) return;
+      chipsEl.innerHTML = "";
+      if (!_critPopupCompetenceDraft || _critPopupCompetenceDraft.length === 0) {
+        const empty = document.createElement("span");
+        empty.style.cssText = "font-size:0.78rem;color:var(--muted);font-style:italic;";
+        empty.textContent = t('gsNoCompetencesLinked');
+        chipsEl.appendChild(empty);
+        return;
+      }
+      _critPopupCompetenceDraft.forEach(cid => {
+        const comp = findLessonCompetence(cid);
+        const chip = document.createElement("span");
+        chip.style.cssText = "display:inline-flex;align-items:center;gap:5px;background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;border-radius:12px;padding:2px 8px;font-size:0.75rem;font-weight:600;";
+        const label = comp ? (comp.code || comp.title || cid) : cid;
+        chip.textContent = label;
+        chip.title = comp ? `${comp.code ? comp.code + ': ' : ''}${comp.title || ''}${comp.description ? ' - ' + comp.description : ''}` : cid;
+
+        const removeX = document.createElement("span");
+        removeX.style.cssText = "cursor:pointer;margin-left:3px;font-weight:bold;color:#0284c7;";
+        removeX.textContent = "×";
+        removeX.onclick = (ev) => {
+          ev.stopPropagation();
+          _critPopupCompetenceDraft = _critPopupCompetenceDraft.filter(id => id !== cid);
+          renderCritPopupChips();
+        };
+        chip.appendChild(removeX);
+        chipsEl.appendChild(chip);
+      });
+    }
     function criterionPopupOpen(criterion, classObj, sem, testIndex) {
       _critPopupCtx = { criterion, classObj, sem, testIndex };
+      const testConfig = classObj?.testConfigs?.[sem]?.[testIndex];
+      const effCompIds = getCriterionEffectiveCompetenceIds(criterion, classObj, testConfig);
+      _critPopupCompetenceDraft = Array.isArray(criterion.competenceIds) && criterion.competenceIds.length > 0
+        ? [...criterion.competenceIds]
+        : [...effCompIds];
+      const bank = getTestCriteriaBank(classObj, testConfig);
+      refreshCriteriaPresetDropdown(bank ? bank.filename : null);
       document.getElementById("crit-popup-preset").value = "";
       document.getElementById("crit-popup-name").value = criterion.name;
       document.getElementById("crit-popup-min").value = String(criterion.minPoints != null ? criterion.minPoints : 0);
@@ -12575,6 +14511,7 @@ ${blocks}
       document.getElementById("crit-popup-coeff").value = String(criterion.pointCoefficient);
       document.getElementById(criterion.showComment !== false ? "crit-popup-comment-yes" : "crit-popup-comment-no").checked = true;
       document.getElementById("crit-popup-bonus").checked = !!criterion.isBonus;
+      renderCritPopupChips();
       document.getElementById("criterion-popup-overlay").classList.remove("hidden");
       document.getElementById("crit-popup-name").focus();
     }
@@ -12582,6 +14519,7 @@ ${blocks}
     function criterionPopupClose() {
       document.getElementById("criterion-popup-overlay").classList.add("hidden");
       _critPopupCtx = null;
+      _critPopupCompetenceDraft = [];
     }
 
     document.getElementById("criterion-popup-overlay").addEventListener("click", evt => {
@@ -12589,6 +14527,13 @@ ${blocks}
     });
 
     document.getElementById("crit-popup-cancel").addEventListener("click", criterionPopupClose);
+
+    document.getElementById("crit-popup-link-competence-btn").addEventListener("click", () => {
+      openCompetencePicker(_critPopupCompetenceDraft, (newIds) => {
+        _critPopupCompetenceDraft = newIds;
+        renderCritPopupChips();
+      });
+    });
 
     document.getElementById("crit-popup-save").addEventListener("click", () => {
       if (!_critPopupCtx) return;
@@ -12605,12 +14550,14 @@ ${blocks}
       criterion.pointCoefficient = coeff;
       criterion.isBonus = !!isBonus;
       criterion.showComment = showComment;
+      criterion.competenceIds = [..._critPopupCompetenceDraft];
       recalcAllStudentGradesForTest(classObj, sem, testIndex);
       saveState();
       renderTestSheet();
       renderSummary();
-      if (_toptRebuildCriteriaList) _toptRebuildCriteriaList();
+      updateLiveGradePreview();
       criterionPopupClose();
+      showCriterionSavedToast();
     });
 
     document.getElementById("crit-popup-del").addEventListener("click", () => {
@@ -12646,6 +14593,14 @@ ${blocks}
       sel.addEventListener("change", () => {
         if (sel.value) {
           document.getElementById("crit-popup-name").value = sel.value;
+          const testConfig = _critPopupCtx?.classObj?.testConfigs?.[_critPopupCtx.sem]?.[_critPopupCtx.testIndex];
+          const activeBank = getTestCriteriaBank(_critPopupCtx?.classObj, testConfig);
+          const presetList = (activeBank && Array.isArray(activeBank.criteria)) ? activeBank.criteria : ((typeof XLSM_CRITERIA !== "undefined" && Array.isArray(XLSM_CRITERIA)) ? XLSM_CRITERIA : []);
+          const entry = presetList.find(c => c && c.name === sel.value);
+          if (entry && Array.isArray(entry.competenceIds) && entry.competenceIds.length > 0) {
+            _critPopupCompetenceDraft = [...entry.competenceIds];
+            renderCritPopupChips();
+          }
           sel.value = "";
         }
       });
@@ -13220,6 +15175,10 @@ ${blocks}
       await loadState();
       if (syncFromClassGroups()) saveState();
       await syncTestsFromPlanner();
+      await loadAvailableCriteriaBanks();
+      await loadAvailableScaleBanks();
+      await loadAvailableChipBanks();
+      await loadLessonCompetences();
       wireEvents();
       renderClasses();
       showScreen("classes");
@@ -13403,6 +15362,32 @@ ${blocks}
             if (ev && ev.data) {
               navigateToTarget(ev.data);
             }
+          };
+          const compCh = new BroadcastChannel('cmt-competences');
+          compCh.onmessage = function () {
+            loadLessonCompetences();
+          };
+          const critCh = new BroadcastChannel('cmt-criteria');
+          critCh.onmessage = async function () {
+            await loadAvailableCriteriaBanks();
+            loadReferenceDataOverrides();
+            if (typeof refreshCriteriaPresetDropdown === 'function') refreshCriteriaPresetDropdown();
+            renderTestSheet();
+            renderSummary();
+            updateLiveGradePreview();
+          };
+          const scalesCh = new BroadcastChannel('cmt-scales');
+          scalesCh.onmessage = async function () {
+            await loadAvailableScaleBanks();
+            loadReferenceDataOverrides();
+            renderTestSheet();
+            renderSummary();
+            updateLiveGradePreview();
+          };
+          const chipsCh = new BroadcastChannel('cmt-chips');
+          chipsCh.onmessage = async function () {
+            await loadAvailableChipBanks();
+            loadReferenceDataOverrides();
           };
         } catch (_) {}
       }

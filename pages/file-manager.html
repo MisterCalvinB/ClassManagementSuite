@@ -515,6 +515,11 @@ async function rfFilterOutTemplateSessions(files) {
           try {
             var insp = await Desktop.inspectBoardArchive(f.target || 'mindmaps', rel);
             rfSessionTypeCache.set(key, (insp && insp.manifest && insp.manifest._type) || 'constellation');
+            var st = (insp && (insp.searchText || (insp.manifest && insp.manifest.searchText))) || '';
+            if (st) {
+              f.searchText = st;
+              rfContentCache.set(normPath(f.relativePath || f.filename), st);
+            }
             return;
           } catch(e) {
             rfSessionTypeCache.set(key, 'constellation');
@@ -654,19 +659,34 @@ async function fmPrimeBrowseSessionTypes(files) {
   }
 }
 
+function rfNormalizeText(str) {
+  if (!str) return '';
+  return String(str).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
 function rfExtractSearchText(raw) {
   var parts = [];
-  var re = /(?:baseWord|text|label|title)"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
+  var re = /(?:baseWord|text|label|title|notes|comment|dbWord|sourceWord)"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
   var m;
-  while ((m = re.exec(raw)) !== null) {
-    if (m[1]) parts.push(m[1].replace(/\\n/g, ' ').replace(/\\r/g, ' ').replace(/\\"/g, '"'));
+  var totalLen = 0;
+  while ((m = re.exec(raw)) !== null && totalLen < 50000) {
+    if (m[1]) {
+      var clean = m[1].replace(/\\n/g, ' ').replace(/\\r/g, ' ').replace(/\\"/g, '"').trim();
+      if (clean) {
+        parts.push(clean);
+        totalLen += clean.length + 1;
+      }
+    }
   }
   return parts.join(' ').toLowerCase();
 }
 
 function rfGetSnippet(text, query) {
   if (!text || !query) return '';
-  var idx = text.indexOf(query);
+  var normText = rfNormalizeText(text);
+  var normQuery = rfNormalizeText(query);
+  var idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) idx = normText.indexOf(normQuery);
   if (idx === -1) return '';
   var ctx = 60;
   var start = Math.max(0, idx - ctx);
@@ -695,15 +715,32 @@ async function rfRunContentSearch() {
       var batch = toRead.slice(i, i + BATCH);
       await Promise.all(batch.map(async function(f) {
         var key = normPath(f.relativePath || f.filename);
+        var rel = f.relativePath || f.filename || '';
+        var isArchive = rel.endsWith('.cstz') || rel.endsWith('.zip');
         try {
-          var result = await Desktop.readByPath(f.target, f.relativePath || f.filename);
-          rfContentCache.set(key, rfExtractSearchText(result && result.content ? result.content : ''));
+          if (isArchive) {
+            if (f.searchText) {
+              rfContentCache.set(key, f.searchText);
+            } else if (typeof Desktop.inspectBoardArchive === 'function') {
+              var insp = await Desktop.inspectBoardArchive(f.target || 'mindmaps', rel);
+              var st = (insp && (insp.searchText || (insp.manifest && insp.manifest.searchText))) || '';
+              f.searchText = st;
+              rfContentCache.set(key, st);
+            } else {
+              rfContentCache.set(key, '');
+            }
+          } else {
+            var result = await Desktop.readByPath(f.target, rel);
+            rfContentCache.set(key, rfExtractSearchText(result && result.content ? result.content : ''));
+          }
         } catch(e) {
           rfContentCache.set(key, '');
         }
       }));
       if (rfSearchGeneration !== gen) return;
       rfRender();
+      // Yield to event loop to keep UI thread fluid at 60fps
+      await new Promise(function(r) { setTimeout(r, 0); });
     }
   }
   if (rfSearchGeneration === gen) rfRender();
@@ -861,14 +898,18 @@ function rfRender() {
 
   function rfMatchesSearch(f, isSession) {
     if (!search) return true;
+    var normSearch = rfNormalizeText(search);
     var fn = (f.filename || '').toLowerCase();
-    if (fn.indexOf(search) !== -1) return true;
-    if (isSession && prettyName(f.filename).toLowerCase().indexOf(search) !== -1) return true;
+    if (fn.indexOf(search) !== -1 || rfNormalizeText(fn).indexOf(normSearch) !== -1) return true;
+    if (isSession && (prettyName(f.filename).toLowerCase().indexOf(search) !== -1 || rfNormalizeText(prettyName(f.filename)).indexOf(normSearch) !== -1)) return true;
     var rel = normPath(f.relativePath || f.filename || '').toLowerCase();
-    if (rel.indexOf(search) !== -1) return true;
+    if (rel.indexOf(search) !== -1 || rfNormalizeText(rel).indexOf(normSearch) !== -1) return true;
     if (isSession) {
       var key = normPath(f.relativePath || f.filename);
-      if (rfContentCache.has(key) && rfContentCache.get(key).indexOf(search) !== -1) return true;
+      if (rfContentCache.has(key)) {
+        var content = rfContentCache.get(key) || '';
+        if (content.indexOf(search) !== -1 || rfNormalizeText(content).indexOf(normSearch) !== -1) return true;
+      }
     }
     return false;
   }

@@ -32124,6 +32124,106 @@
       return { files, metadata };
     }
 
+    function conExtractSearchTextFromSession(dataObj, maxLen = 50000) {
+      if (!dataObj || typeof dataObj !== 'object') return '';
+      const tokens = [];
+      let totalLen = 0;
+
+      function addText(str) {
+        if (!str || totalLen >= maxLen) return;
+        const clean = String(str).trim();
+        if (!clean) return;
+        tokens.push(clean);
+        totalLen += clean.length + 1;
+      }
+
+      function processPage(page) {
+        if (!page || typeof page !== 'object') return;
+        addText(page.title);
+
+        if (Array.isArray(page.nodes)) {
+          for (const node of page.nodes) {
+            if (!node) continue;
+            addText(node.baseWord);
+            addText(node.dbWord);
+            addText(node.sourceWord);
+            addText(node.notes);
+            addText(node.comment);
+            addText(node.label);
+          }
+        }
+
+        if (Array.isArray(page.notes)) {
+          for (const note of page.notes) {
+            if (!note) continue;
+            addText(note.title);
+            addText(note.text);
+            addText(note.content);
+          }
+        }
+
+        if (Array.isArray(page.tables)) {
+          for (const table of page.tables) {
+            if (!table) continue;
+            addText(table.title);
+            if (Array.isArray(table.headers)) {
+              for (const h of table.headers) addText(h);
+            }
+            if (Array.isArray(table.rows)) {
+              for (const row of table.rows) {
+                if (Array.isArray(row)) {
+                  for (const cell of row) addText(cell);
+                }
+              }
+            }
+          }
+        }
+
+        if (Array.isArray(page.groups)) {
+          for (const group of page.groups) {
+            if (!group) continue;
+            addText(group.title);
+            addText(group.label);
+          }
+        }
+
+        if (Array.isArray(page.edges)) {
+          for (const edge of page.edges) {
+            if (!edge) continue;
+            addText(edge.label);
+          }
+        }
+
+        if (Array.isArray(page.shapes)) {
+          for (const shape of page.shapes) {
+            if (!shape) continue;
+            addText(shape.text);
+            addText(shape.label);
+          }
+        }
+
+        if (Array.isArray(page.media)) {
+          for (const m of page.media) {
+            if (!m) continue;
+            addText(m.title);
+            addText(m.name);
+            addText(m.caption);
+          }
+        }
+      }
+
+      addText(dataObj.title);
+      if (Array.isArray(dataObj.pages) && dataObj.pages.length > 0) {
+        for (const page of dataObj.pages) {
+          processPage(page);
+        }
+      } else {
+        processPage(dataObj);
+      }
+
+      return tokens.join(' ').slice(0, maxLen);
+    }
+
     async function conBuildSessionArchiveBundle(sessionFilename, persistedData, options = {}) {
       const isAutosave = !!(options && options.isAutosave);
       const normalizedFilename = sessionFilename.endsWith('.cstz')
@@ -32211,7 +32311,8 @@
         createdAt: createdAtMs,
         dateCreated: dataToSave.dateCreated || new Date(createdAtMs).toISOString(),
         updatedAt: savedAtMs,
-        savedAt: savedAtMs
+        savedAt: savedAtMs,
+        searchText: conExtractSearchTextFromSession(dataToSave, 50000)
       };
 
       const entries = [
@@ -35329,9 +35430,17 @@
       historyRenderList();
     }
 
+    function historyNormalizeText(str) {
+      if (!str) return '';
+      return String(str).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    }
+
     function historyGetSnippet(text, query) {
       if (!text || !query) return '';
-      const idx = text.indexOf(query);
+      const normText = historyNormalizeText(text);
+      const normQuery = historyNormalizeText(query);
+      let idx = text.toLowerCase().indexOf(query.toLowerCase());
+      if (idx === -1) idx = normText.indexOf(normQuery);
       if (idx === -1) return '';
       const ctx = 55;
       const start = Math.max(0, idx - ctx);
@@ -35344,13 +35453,22 @@
 
     function historyExtractSearchText(rawContent) {
       var parts = [];
-      var re = /"(?:baseWord|text|label|title)"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
+      var re = /"(?:baseWord|text|label|title|notes|comment|dbWord|sourceWord)"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
       var m;
-      while ((m = re.exec(rawContent)) !== null) {
-        if (m[1]) parts.push(m[1].replace(/\\n/g, ' ').replace(/\\r/g, ' ').replace(/\\"/g, '"'));
+      var totalLen = 0;
+      while ((m = re.exec(rawContent)) !== null && totalLen < 50000) {
+        if (m[1]) {
+          var clean = m[1].replace(/\\n/g, ' ').replace(/\\r/g, ' ').replace(/\\"/g, '"').trim();
+          if (clean) {
+            parts.push(clean);
+            totalLen += clean.length + 1;
+          }
+        }
       }
       return parts.join(' ').toLowerCase();
     }
+
+    var historyContentSearchGen = 0;
 
     function historySetFilterText(value) {
       historyFilterText = (value || '').trim().toLowerCase();
@@ -35365,6 +35483,7 @@
       if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.readByPath === 'function')) {
         historyRenderList(); return;
       }
+      const currentGen = ++historyContentSearchGen;
       const toRead = historyEntries.filter(e => {
         const key = historyEntryKey(e);
         return key && !historyContentCache.has(key);
@@ -35374,21 +35493,42 @@
         let done = 0;
         const BATCH = 8;
         for (let i = 0; i < toRead.length; i += BATCH) {
+          if (historyContentSearchGen !== currentGen) return;
           const batch = toRead.slice(i, i + BATCH);
           await Promise.all(batch.map(async entry => {
             const key = historyEntryKey(entry);
+            const rel = historyEntryRelativePath(entry);
+            const isArchive = rel && (rel.endsWith('.cstz') || rel.endsWith('.zip'));
             try {
-              const result = await Desktop.readByPath(entry.target, entry.relativePath);
-              historyContentCache.set(key, historyExtractSearchText(result && result.content ? result.content : ''));
+              if (isArchive) {
+                if (entry.searchText) {
+                  historyContentCache.set(key, entry.searchText);
+                } else if (typeof Desktop.inspectBoardArchive === 'function') {
+                  const inspectRes = await Desktop.inspectBoardArchive(entry.target, rel);
+                  const st = (inspectRes && (inspectRes.searchText || (inspectRes.manifest && inspectRes.manifest.searchText))) || '';
+                  entry.searchText = st;
+                  historyContentCache.set(key, st);
+                } else {
+                  historyContentCache.set(key, '');
+                }
+              } else {
+                const result = await Desktop.readByPath(entry.target, entry.relativePath);
+                historyContentCache.set(key, historyExtractSearchText(result && result.content ? result.content : ''));
+              }
             } catch (e) {
               historyContentCache.set(key, '');
             }
           }));
+          if (historyContentSearchGen !== currentGen) return;
           done = Math.min(i + BATCH, toRead.length);
           if (historyFilterText) historySetStatus('Searching content… (' + done + '/' + toRead.length + ')');
+          // Yield to event loop to keep UI thread fluid at 60fps
+          await new Promise(r => setTimeout(r, 0));
         }
       }
-      historyRenderList();
+      if (historyContentSearchGen === currentGen) {
+        historyRenderList();
+      }
     }
 
     function historyClearFilters() {
@@ -36069,16 +36209,20 @@
         if (!entry) return false;
         if (q) {
           // Text search: include all sources (including archived), filter by filename, extension, relative path, class label, or cached content
+          const normQ = historyNormalizeText(q);
           const fn = (entry.filename || '').toLowerCase();
-          if (fn.indexOf(q) !== -1) return true;
+          if (fn.indexOf(q) !== -1 || historyNormalizeText(fn).indexOf(normQ) !== -1) return true;
           const base = (entry.baseName || '').toLowerCase();
-          if (base.indexOf(q) !== -1) return true;
+          if (base.indexOf(q) !== -1 || historyNormalizeText(base).indexOf(normQ) !== -1) return true;
           const rel = (entry.relativePath || '').toLowerCase();
-          if (rel.indexOf(q) !== -1) return true;
+          if (rel.indexOf(q) !== -1 || historyNormalizeText(rel).indexOf(normQ) !== -1) return true;
           const classLbl = (entry.classLabel || '').toLowerCase();
-          if (classLbl.indexOf(q) !== -1) return true;
+          if (classLbl.indexOf(q) !== -1 || historyNormalizeText(classLbl).indexOf(normQ) !== -1) return true;
           const key = historyEntryKey(entry);
-          if (key && historyContentCache.has(key)) return historyContentCache.get(key).indexOf(q) !== -1;
+          if (key && historyContentCache.has(key)) {
+            const content = historyContentCache.get(key) || '';
+            if (content.indexOf(q) !== -1 || historyNormalizeText(content).indexOf(normQ) !== -1) return true;
+          }
           return false;
         }
         if (historyViewTab === 'archived') return entry.source === 'archived';
@@ -36509,6 +36653,12 @@
                       modifiedAt: entry.modifiedAt || 0
                     };
                     historySaveMetaCache();
+                  }
+                  const st = inspectRes.searchText || (inspectRes.manifest && inspectRes.manifest.searchText) || '';
+                  if (st) {
+                    entry.searchText = st;
+                    const eKey = historyEntryKey(entry);
+                    if (eKey) historyContentCache.set(eKey, st);
                   }
                   return;
                 }
