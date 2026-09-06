@@ -802,9 +802,36 @@
 
       var params = new URLSearchParams(window.location.search);
       var initialType = params.get('type');
+      var initialWord = params.get('word');
       if (initialType === 'descriptors') initialType = 'competences';
       if (initialType && TYPE_DEFS.some(d => d.key === initialType)) {
-        selectType(initialType);
+        selectType(initialType).then(async () => {
+          if (initialWord && initialType === 'wordbanks') {
+            const targetWord = initialWord.trim().toLowerCase();
+            const def = getTypeDef('wordbanks');
+            let found = false;
+            for (let fi = 0; fi < S.files.length; fi++) {
+              if (S.files[fi].status === 'pending') {
+                await loadFileContent(fi, def);
+              }
+              const ri = S.files[fi].records.findIndex(r => r && r.word && String(r.word).trim().toLowerCase() === targetWord);
+              if (ri !== -1) {
+                S.filters['_src'] = S.files[fi].name;
+                renderFilePills();
+                renderTable();
+                openEdit(fi, ri);
+                found = true;
+                break;
+              }
+            }
+            if (!found) {
+              S.filters['q'] = initialWord;
+              const searchInp = $('search-input');
+              if (searchInp) searchInp.value = initialWord;
+              renderTable();
+            }
+          }
+        });
       }
     }
 

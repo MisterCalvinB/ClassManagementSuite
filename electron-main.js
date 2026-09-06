@@ -5297,6 +5297,17 @@ ipcMain.handle('app:open-html', async (event, request = {}) => {
     }
   });
 
+  if (request.file || request.pageFile) {
+    const p = request.file || request.pageFile;
+    const targetFile = path.isAbsolute(p) ? p : path.join(ROOT_DIR, 'pages', p);
+    try {
+      await win.loadFile(targetFile, request.query ? { query: request.query } : undefined);
+    } catch (err) {
+      console.error('app:open-html file load failed', err);
+    }
+    return { ok: true };
+  }
+
   // Load via temp file to avoid data: URL blocking in Electron 28+
   const tmpFile = path.join(os.tmpdir(), `cmt-open-${Date.now()}.html`);
   try {

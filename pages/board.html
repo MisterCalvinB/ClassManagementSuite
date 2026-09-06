@@ -1623,7 +1623,7 @@
         title="Add IPA node(s)">IPA</button>
       <button class="con-ctx-icon-btn" id="con-ctx-network-btn" onclick="conCtxOpenNetworkModal()"
         title="Word Network — spawn related words radially">NET</button>
-      <span class="con-ctx-icon-sep"></span>
+      <span class="con-ctx-icon-sep" id="con-ctx-relations-sep"></span>
       <button class="con-ctx-icon-btn" id="con-ctx-addconn-btn" onclick="conCtxAddConnectedWord()"
         title="Add Connected Word">＋</button>
       <button class="con-ctx-icon-btn" onclick="conCtxAddConnectedWord('forward')"
@@ -1823,6 +1823,58 @@
           src="../assets/icons/delete.svg" class="btn-icon" alt="" /></button>
       <button class="con-ctx-icon-btn" onclick="conCtxClose()" style="color:#888;" title="Close"><img
           src="../assets/icons/clear.svg" class="btn-icon" alt="" /></button>
+    </div>
+  </div>
+
+  <!-- Node Word Card Popup (compact inspector resembling note popup with link to Database Manager) -->
+  <div id="con-node-card-popup" class="con-node-card-popup" style="display:none;" onclick="event.stopPropagation()">
+    <div class="con-ncp-header">
+      <div class="con-ncp-title-wrap">
+        <span class="con-ncp-word" id="con-ncp-word">Word</span>
+        <span class="con-ncp-badge con-ncp-pos" id="con-ncp-pos" style="display:none;"></span>
+        <span class="con-ncp-badge con-ncp-level" id="con-ncp-level" style="display:none;"></span>
+        <span class="con-ncp-badge con-ncp-source" id="con-ncp-source" style="display:none;"></span>
+      </div>
+      <button type="button" class="con-ncp-close-btn" onclick="conCloseNodeWordCard()" title="Close">✕</button>
+    </div>
+    <div class="con-ncp-body" id="con-ncp-body">
+      <div class="wn-sp-wordmeta-row" id="con-ncp-ipa-row" style="display:none;">
+        <span class="wn-sp-wordmeta-k">IPA</span>
+        <span id="con-ncp-ipa" class="wn-sp-copyable" title="Click to copy IPA"></span>
+      </div>
+      <div class="wn-sp-wordmeta-row" id="con-ncp-fr-row" style="display:none;">
+        <span class="wn-sp-wordmeta-k">FR</span>
+        <span id="con-ncp-fr" class="wn-sp-copyable" title="Click to copy translation"></span>
+      </div>
+      <div class="wn-sp-wordmeta-row" id="con-ncp-def-row" style="display:none;">
+        <span class="wn-sp-wordmeta-k">DEF</span>
+        <span id="con-ncp-def" class="wn-sp-copyable" title="Click to copy definition"></span>
+      </div>
+      <div class="wn-sp-wordmeta-row" id="con-ncp-syn-row" style="display:none;">
+        <span class="wn-sp-wordmeta-k">SYN</span>
+        <span id="con-ncp-syn" class="wn-sp-copyable" title="Click to copy synonyms"></span>
+      </div>
+      <div class="wn-sp-wordmeta-row" id="con-ncp-ant-row" style="display:none;">
+        <span class="wn-sp-wordmeta-k">ANT</span>
+        <span id="con-ncp-ant" class="wn-sp-copyable" title="Click to copy antonyms"></span>
+      </div>
+      <div class="wn-sp-wordmeta-row" id="con-ncp-forms-row" style="display:none;">
+        <span class="wn-sp-wordmeta-k">FORMS</span>
+        <span id="con-ncp-forms" class="wn-sp-copyable" title="Click to copy forms"></span>
+      </div>
+      <div class="wn-sp-wordmeta-row" id="con-ncp-ex-row" style="display:none;">
+        <span class="wn-sp-wordmeta-k">EX</span>
+        <span id="con-ncp-ex" class="wn-sp-copyable" title="Click to copy example"></span>
+      </div>
+    </div>
+    <div class="con-ncp-footer">
+      <button type="button" class="con-ncp-link-btn" id="con-ncp-edit-link" onclick="conNodeCardEditInDbManager()" title="Open in Database Manager">
+        <img src="../assets/icons/edit-word.svg" class="btn-icon" alt="" style="width:13px;height:13px;" />
+        <span>Edit in Database Manager</span>
+      </button>
+      <button type="button" class="con-ncp-action-btn" id="con-ncp-copy-all" onclick="conNodeCardCopyAll()" title="Copy all word info">
+        📋 Copy
+      </button>
     </div>
   </div>
 
@@ -3994,27 +4046,40 @@
     }
     window.stripParens = stripParens;
 
+    function conNormalizeWordForLookup(s) {
+      if (!s) return '';
+      let text = stripParens(String(s).trim());
+      // Strip outer quotation marks, periods, commas, colons, semicolons, exclamation and question marks
+      text = text.replace(/^["'«»“„\s]+|["'«»”\s,.;:!?]+$/g, '').trim();
+      return text.toLowerCase();
+    }
+    window.conNormalizeWordForLookup = conNormalizeWordForLookup;
+
     function conFindDbEntry(wordOrText) {
       if (!wordOrText || typeof vocabBank === 'undefined' || !Array.isArray(vocabBank)) return null;
-      const raw = stripParens(String(wordOrText).trim()).toLowerCase();
+      const raw = conNormalizeWordForLookup(wordOrText);
       if (!raw) return null;
       // 1. Direct word match
-      const direct = vocabBank.find(v => v && v.word && stripParens(String(v.word).trim()).toLowerCase() === raw);
+      const direct = vocabBank.find(v => v && v.word && conNormalizeWordForLookup(v.word) === raw);
       if (direct) return direct;
-      // 2. otherForms match (array or string)
-      return vocabBank.find(v => {
-        if (!v) return false;
-        if (Array.isArray(v.otherForms)) {
-          return v.otherForms.some(f => {
+      // 2. otherForms / otherTerms match (inflections, plurals, irregular forms)
+      const matchForms = (forms) => {
+        if (!forms) return false;
+        if (Array.isArray(forms)) {
+          return forms.some(f => {
             if (!f) return false;
-            const s = typeof f === 'string' ? f : (f.word || f.form || '');
-            return stripParens(String(s).trim()).toLowerCase() === raw;
+            const s = typeof f === 'string' ? f : (f.word || f.form || f.term || '');
+            return conNormalizeWordForLookup(s) === raw;
           });
         }
-        if (typeof v.otherForms === 'string' && v.otherForms.trim()) {
-          return v.otherForms.split(/[,;/]+/).some(s => stripParens(s.trim()).toLowerCase() === raw);
+        if (typeof forms === 'string' && forms.trim()) {
+          return forms.split(/[,;/]+/).some(s => conNormalizeWordForLookup(s) === raw);
         }
         return false;
+      };
+      return vocabBank.find(v => {
+        if (!v) return false;
+        return matchForms(v.otherForms) || matchForms(v.otherTerms);
       }) || null;
     }
     window.conFindDbEntry = conFindDbEntry;
@@ -4023,7 +4088,7 @@
       if (!node) return null;
       if (typeof vocabBank === 'undefined' || !Array.isArray(vocabBank)) return null;
       if (node.dbWord) {
-        const byKey = vocabBank.find(w => w && w.word === node.dbWord);
+        const byKey = vocabBank.find(w => w && w.word && conNormalizeWordForLookup(w.word) === conNormalizeWordForLookup(node.dbWord));
         if (byKey) return byKey;
       }
       const text = node.baseWord || (node.el ? (node.el.dataset.baseWord || node.el.textContent.trim()) : '');
@@ -17758,6 +17823,7 @@
         });
         conGroups.forEach(g => { if (g && g.el) g.el.classList.remove('con-group-selected'); });
         conGroupFocused = null;
+        if (typeof conCloseNodeWordCard === 'function') conCloseNodeWordCard();
         if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
       }
       window.conNodeClearSelection = conNodeClearSelection;
@@ -17825,22 +17891,232 @@
         if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
       }
 
+      let _conActiveWordCardNodeId = null;
+      let _conActiveWordCardDbEntry = null;
+
+      function conCloseNodeWordCard() {
+        const popup = document.getElementById('con-node-card-popup');
+        if (popup) {
+          popup.style.display = 'none';
+          popup.classList.remove('visible');
+        }
+        _conActiveWordCardNodeId = null;
+        _conActiveWordCardDbEntry = null;
+      }
+
+      function conOpenNodeWordCard(id, x, y) {
+        const node = conNodes.find(n => n.id === id);
+        if (!node) return;
+        const dbEntry = conGetNodeDbEntry(node) || conFindDbEntry(node.baseWord || (node.el && node.el.textContent.trim()));
+        if (!dbEntry) {
+          if (typeof mdbToast === 'function') {
+            mdbToast(`⚠️ "${node.baseWord || (node.el && node.el.textContent.trim())}" was not found in the word bank.`);
+          }
+          return;
+        }
+
+        _conActiveWordCardNodeId = node.id;
+        _conActiveWordCardDbEntry = dbEntry;
+
+        const popup = document.getElementById('con-node-card-popup');
+        if (!popup) return;
+
+        const wordEl = document.getElementById('con-ncp-word');
+        const posEl = document.getElementById('con-ncp-pos');
+        const levelEl = document.getElementById('con-ncp-level');
+        const sourceEl = document.getElementById('con-ncp-source');
+
+        const ipaRow = document.getElementById('con-ncp-ipa-row');
+        const ipaEl = document.getElementById('con-ncp-ipa');
+        const frRow = document.getElementById('con-ncp-fr-row');
+        const frEl = document.getElementById('con-ncp-fr');
+        const defRow = document.getElementById('con-ncp-def-row');
+        const defEl = document.getElementById('con-ncp-def');
+        const synRow = document.getElementById('con-ncp-syn-row');
+        const synEl = document.getElementById('con-ncp-syn');
+        const antRow = document.getElementById('con-ncp-ant-row');
+        const antEl = document.getElementById('con-ncp-ant');
+        const formsRow = document.getElementById('con-ncp-forms-row');
+        const formsEl = document.getElementById('con-ncp-forms');
+        const exRow = document.getElementById('con-ncp-ex-row');
+        const exEl = document.getElementById('con-ncp-ex');
+
+        wordEl.textContent = dbEntry.word || node.baseWord || 'Word';
+
+        if (dbEntry.partOfSpeech) {
+          posEl.textContent = dbEntry.partOfSpeech;
+          posEl.style.display = '';
+        } else {
+          posEl.style.display = 'none';
+        }
+
+        if (dbEntry.level) {
+          levelEl.textContent = dbEntry.level;
+          levelEl.style.display = '';
+        } else {
+          levelEl.style.display = 'none';
+        }
+
+        const srcName = dbEntry._source || (dbEntry._custom ? 'custom' : '');
+        if (srcName) {
+          sourceEl.textContent = srcName;
+          sourceEl.style.display = '';
+        } else {
+          sourceEl.style.display = 'none';
+        }
+
+        const conSafeClipboardCopy = async (text, toastMsg) => {
+          if (!text) return false;
+          let ok = false;
+          // 1. Try Desktop API (native Electron IPC, no permission restrictions)
+          if (typeof Desktop !== 'undefined' && typeof Desktop.clipboardWriteText === 'function') {
+            try {
+              await Desktop.clipboardWriteText(text);
+              ok = true;
+            } catch (_) {}
+          }
+          // 2. Try window.electronApi directly
+          if (!ok && window.electronApi && typeof window.electronApi.clipboardWriteText === 'function') {
+            try {
+              await window.electronApi.clipboardWriteText(text);
+              ok = true;
+            } catch (_) {}
+          }
+          // 3. Try standard navigator.clipboard with error catching
+          if (!ok && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+            try {
+              await navigator.clipboard.writeText(text);
+              ok = true;
+            } catch (_) {}
+          }
+          // 4. Fallback to execCommand('copy') via temporary textarea
+          if (!ok) {
+            try {
+              const tmp = document.createElement('textarea');
+              tmp.value = text;
+              tmp.style.position = 'fixed';
+              tmp.style.opacity = '0';
+              tmp.style.pointerEvents = 'none';
+              document.body.appendChild(tmp);
+              tmp.focus();
+              tmp.select();
+              ok = document.execCommand('copy');
+              tmp.remove();
+            } catch (_) {}
+          }
+          if (ok && toastMsg && typeof mdbToast === 'function') {
+            mdbToast(toastMsg);
+          }
+          return ok;
+        };
+
+        const formatArr = (val) => {
+          if (!val) return '';
+          if (Array.isArray(val)) return val.filter(Boolean).map(v => typeof v === 'string' ? v : (v.word || v.form || v.term || JSON.stringify(v))).join(', ');
+          return String(val).trim();
+        };
+
+        const bindField = (row, el, val) => {
+          const str = formatArr(val);
+          if (str) {
+            el.textContent = str;
+            el.onclick = (e) => {
+              e.stopPropagation();
+              conSafeClipboardCopy(str, `Copied: "${str.slice(0, 30)}${str.length > 30 ? '…' : ''}"`);
+            };
+            row.style.display = '';
+          } else {
+            row.style.display = 'none';
+          }
+        };
+
+        bindField(ipaRow, ipaEl, dbEntry.ipa);
+        bindField(frRow, frEl, dbEntry.french || dbEntry.translation);
+        bindField(defRow, defEl, dbEntry.definition);
+        bindField(synRow, synEl, dbEntry.synonyms);
+        bindField(antRow, antEl, dbEntry.antonyms);
+        bindField(formsRow, formsEl, dbEntry.otherForms || dbEntry.otherTerms);
+        bindField(exRow, exEl, dbEntry.exampleSentence || dbEntry.example);
+
+        popup.style.display = 'flex';
+        popup.classList.add('visible');
+
+        let targetX = x;
+        let targetY = y;
+        if (targetX == null || targetY == null) {
+          const rect = node.el.getBoundingClientRect();
+          targetX = rect.right + 10;
+          targetY = rect.top;
+        }
+
+        const popRect = popup.getBoundingClientRect();
+        const maxX = window.innerWidth - popRect.width - 12;
+        const maxY = window.innerHeight - popRect.height - 12;
+
+        if (targetX > maxX) {
+          const rect = node.el ? node.el.getBoundingClientRect() : { left: targetX };
+          targetX = Math.max(12, rect.left - popRect.width - 10);
+        }
+        if (targetX > maxX) targetX = maxX;
+        if (targetX < 12) targetX = 12;
+
+        if (targetY > maxY) targetY = maxY;
+        if (targetY < 12) targetY = 12;
+
+        popup.style.left = `${Math.round(targetX)}px`;
+        popup.style.top = `${Math.round(targetY)}px`;
+      }
+
+      window.conCloseNodeWordCard = conCloseNodeWordCard;
+      window.conOpenNodeWordCard = conOpenNodeWordCard;
+
+      window.conNodeCardCopyAll = function() {
+        if (!_conActiveWordCardDbEntry) return;
+        const d = _conActiveWordCardDbEntry;
+        const parts = [
+          d.word,
+          d.partOfSpeech ? `(${d.partOfSpeech})` : '',
+          d.level ? `[${d.level}]` : '',
+          d.ipa ? `/${d.ipa}/` : '',
+          d.french ? `FR: ${Array.isArray(d.french) ? d.french.join(', ') : d.french}` : '',
+          d.definition ? `DEF: ${Array.isArray(d.definition) ? d.definition.join('; ') : d.definition}` : '',
+          d.synonyms && d.synonyms.length ? `SYN: ${d.synonyms.join(', ')}` : '',
+          d.antonyms && d.antonyms.length ? `ANT: ${d.antonyms.join(', ')}` : '',
+          (d.otherForms && d.otherForms.length) ? `FORMS: ${Array.isArray(d.otherForms) ? d.otherForms.join(', ') : d.otherForms}` : '',
+          d.exampleSentence || d.example ? `EX: ${d.exampleSentence || d.example}` : ''
+        ].filter(Boolean).join('\n');
+
+        // Copy through native IPC / fallback
+        if (typeof Desktop !== 'undefined' && typeof Desktop.clipboardWriteText === 'function') {
+          Desktop.clipboardWriteText(parts).catch(() => {});
+        } else if (window.electronApi && typeof window.electronApi.clipboardWriteText === 'function') {
+          window.electronApi.clipboardWriteText(parts).catch(() => {});
+        } else if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          navigator.clipboard.writeText(parts).catch(() => {});
+        }
+        if (typeof mdbToast === 'function') mdbToast(`✓ Copied entry for "${d.word}"`);
+      };
+
+      window.conNodeCardEditInDbManager = async function() {
+        if (!_conActiveWordCardDbEntry) return;
+        const word = _conActiveWordCardDbEntry.word;
+        conCloseNodeWordCard();
+        if (typeof Desktop !== 'undefined' && typeof Desktop.openTool === 'function') {
+          try {
+            await Desktop.openTool('manage-database.html', { query: { type: 'wordbanks', word: word } });
+            return;
+          } catch (e) {
+            console.warn('[conNodeCardEditInDbManager] Desktop.openTool error:', e);
+          }
+        }
+        window.open(`manage-database.html?type=wordbanks&word=${encodeURIComponent(word)}`, '_blank');
+      };
+
       window.conViewSelectedCard = function () {
         const id = conCtxNodeId || conSelected;
         if (!id) return;
-        const node = conNodes.find(n => n.id === id);
-        if (!node) return;
-        const dbEntry = conGetNodeDbEntry(node);
-        const wordKey = dbEntry ? dbEntry.word : null;
-        if (!wordKey) { mdbToast(`⚠️ "${node.baseWord || node.el.textContent.trim()}" was not found in the word bank.`); return; }
-        _detWordList = conNodes
-          .map(n => {
-            const e = conGetNodeDbEntry(n);
-            return e ? e.word : null;
-          })
-          .filter(Boolean);
-        showWordDetail(wordKey);
-      }
+        conOpenNodeWordCard(id);
+      };
 
       window.conAddSelectedToDb = function () {
         const id = conCtxNodeId || conSelected;
@@ -17923,18 +18199,8 @@
           deleteBtn.style.display = '';
           deleteBtn.disabled = !existingEntry;
         }
-
-        // Show Wiktionary lookup button only when running in Electron
-        const wikiRow = document.getElementById('cwdb-lookup-row');
-        if (wikiRow) wikiRow.style.display = (window.WiktionaryLookup && WiktionaryLookup.isAvailable()) ? '' : 'none';
-
         document.getElementById('cwdb-overlay').classList.add('active');
         setTimeout(() => { const el = document.getElementById('cwdb-ipa'); if (el) el.focus(); }, 80);
-
-        // Auto-fill from Wiktionary when adding a brand-new word
-        if (!existingEntry && window.WiktionaryLookup && WiktionaryLookup.isAvailable()) {
-          setTimeout(cwdbWikiLookup, 200);
-        }
       }
 
       function cwdbClose() {
@@ -18191,6 +18457,21 @@
             (skipped > 0 ? ` (${skipped} already existed, kept unchanged)` : '');
           mdbToast(msg);
           conDbExportClose();
+          try {
+            if (typeof initCustomDatabases === 'function') {
+              _customDbInitPromise = null;
+              await initCustomDatabases();
+              conNodes.forEach(n => {
+                const match = conGetNodeDbEntry(n);
+                if (match) {
+                  n.dbWord = match.word;
+                  n.el.classList.add('con-node-matched');
+                  if (typeof conAddNodeStarBtn === 'function') conAddNodeStarBtn(n);
+                  if (typeof conUpdateNodeStarVisual === 'function') conUpdateNodeStarVisual(n);
+                }
+              });
+            }
+          } catch (_) { }
         } catch (err) {
           mdbToast('⚠ Save failed: ' + err);
         }
@@ -18295,6 +18576,12 @@
             const content = `// ${filename}\nconst customVocabBank = [\n${lines.join(',\n')}\n];\n`;
             await Desktop.saveText('customWordbanks', filename, content);
             cwdbFeedback(`✓ "${wordDisplay}" saved to ${filename}!`, 'ok');
+            try {
+              if (typeof initCustomDatabases === 'function') {
+                _customDbInitPromise = null;
+                await initCustomDatabases();
+              }
+            } catch (_) {}
           } catch (e3) {
             cwdbFeedback('⚠ Failed to save to custom DB.', 'err');
             return;
@@ -18355,38 +18642,6 @@
         setTimeout(() => cwdbClose(), 700);
       }
 
-      function cwdbWikiLookup() {
-        if (!window.WiktionaryLookup || !WiktionaryLookup.isAvailable() || !_cwdbEditWord) return;
-        const btn = document.getElementById('cwdb-wiki-btn');
-        const originalText = btn ? btn.textContent : '';
-        if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
-        const preferredPos = document.getElementById('cwdb-pos').value || '';
-        WiktionaryLookup.find(_cwdbEditWord, preferredPos).then(data => {
-          if (btn) { btn.disabled = false; btn.textContent = originalText; }
-          if (!data) { cwdbFeedback(`"${_cwdbEditWord}" not found in Wiktionary.`, 'err'); return; }
-          const filled = [];
-          const ipaEl = document.getElementById('cwdb-ipa');
-          if (!ipaEl.value.trim() && data.ipa) { ipaEl.value = data.ipa; filled.push('IPA'); }
-          const posEl = document.getElementById('cwdb-pos');
-          if (!posEl.value && data.pos) { posEl.value = data.pos; filled.push('PoS'); }
-          const defEl = document.getElementById('cwdb-definition');
-          if (!defEl.value.trim() && data.definition) { defEl.value = data.definition; filled.push('definition'); }
-          const exEl = document.getElementById('cwdb-example');
-          if (!exEl.value.trim() && data.example) { exEl.value = data.example; filled.push('example'); }
-          const synEl = document.getElementById('cwdb-synonyms');
-          if (!synEl.value.trim() && data.synonyms.length) { synEl.value = data.synonyms.join(', '); filled.push('synonyms'); }
-          const antEl = document.getElementById('cwdb-antonyms');
-          if (!antEl.value.trim() && data.antonyms.length) { antEl.value = data.antonyms.join(', '); filled.push('antonyms'); }
-          const msg = filled.length
-            ? `✓ Filled: ${filled.join(', ')}.`
-            : '✓ Found in Wiktionary — fields already filled.';
-          cwdbFeedback(msg, 'ok');
-        }).catch(() => {
-          if (btn) { btn.disabled = false; btn.textContent = originalText; }
-          cwdbFeedback('⚠ Wiktionary lookup failed.', 'err');
-        });
-      }
-
       function cwdbFeedback(msg, type) {
         const el = document.getElementById('cwdb-feedback');
         if (!el) return;
@@ -18397,7 +18652,6 @@
       window.cwdbClose = cwdbClose;
       window.cwdbSave = cwdbSave;
       window.cwdbDelete = cwdbDelete;
-      window.cwdbWikiLookup = cwdbWikiLookup;
       window.pickCustomDbFile = pickCustomDbFile;
       window.conDbExportOpen = conDbExportOpen;
       window.conDbExportRefresh = conDbExportRefresh;
@@ -19431,33 +19685,61 @@
 
         label.textContent = node ? (node.baseWord || node.el.dataset.baseWord || node.el.textContent) : 'Word';
 
-        const hasSyn = dbWord && dbWord.synonyms && dbWord.synonyms.length > 0;
-        const hasAnt = dbWord && dbWord.antonyms && dbWord.antonyms.length > 0;
-        synBtn.classList.toggle('disabled', !hasSyn);
-        antBtn.classList.toggle('disabled', !hasAnt);
-        synBtn.innerHTML = hasSyn ? `<img src="../assets/icons/syn.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">syn·${dbWord.synonyms.length}</span>` : '<img src="../assets/icons/syn.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">syn</span>';
-        antBtn.innerHTML = hasAnt ? `<img src="../assets/icons/ant.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">ant·${dbWord.antonyms.length}</span>` : '<img src="../assets/icons/ant.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">ant</span>';
+        const hasSyn = !!(dbWord && Array.isArray(dbWord.synonyms) && dbWord.synonyms.filter(Boolean).length > 0);
+        const hasAnt = !!(dbWord && Array.isArray(dbWord.antonyms) && dbWord.antonyms.filter(Boolean).length > 0);
+        const hasDef = !!(dbWord && (Array.isArray(dbWord.definition) ? dbWord.definition.some(d => String(d || '').trim()) : !!String(dbWord.definition || '').trim()));
+        const hasFr = !!(dbWord && (Array.isArray(dbWord.french) ? dbWord.french.some(f => String(f || '').trim()) : !!String(dbWord.french || dbWord.translation || '').trim()));
+        const hasIpa = !!(dbWord && !!String(dbWord.ipa || '').trim());
+
+        if (synBtn) {
+          synBtn.style.display = hasSyn ? '' : 'none';
+          if (hasSyn) {
+            synBtn.innerHTML = `<img src="../assets/icons/syn.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">syn·${dbWord.synonyms.filter(Boolean).length}</span>`;
+          }
+        }
+        if (antBtn) {
+          antBtn.style.display = hasAnt ? '' : 'none';
+          if (hasAnt) {
+            antBtn.innerHTML = `<img src="../assets/icons/ant.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">ant·${dbWord.antonyms.filter(Boolean).length}</span>`;
+          }
+        }
+
+        const defBtn = document.getElementById('con-fmt-def');
+        if (defBtn) defBtn.style.display = hasDef ? '' : 'none';
+
+        const transBtn = document.getElementById('con-fmt-trans');
+        if (transBtn) transBtn.style.display = hasFr ? '' : 'none';
+
+        const ipaBtn = document.getElementById('con-fmt-ipa');
+        if (ipaBtn) ipaBtn.style.display = hasIpa ? '' : 'none';
 
         const networkBtn = document.getElementById('con-ctx-network-btn');
+        const hasNetwork = !!(dbWord && (
+          hasSyn ||
+          hasAnt ||
+          (dbWord.otherForms && dbWord.otherForms.length) ||
+          (dbWord.otherTerms && dbWord.otherTerms.length) ||
+          (dbWord.hypernym && dbWord.hypernym.length) ||
+          (dbWord.hyponym && dbWord.hyponym.length)
+        ));
         if (networkBtn) {
-          const hasNetwork = !!(dbWord && (
-            (dbWord.synonyms && dbWord.synonyms.length) ||
-            (dbWord.antonyms && dbWord.antonyms.length) ||
-            (dbWord.otherForms && dbWord.otherForms.length) ||
-            (dbWord.hypernym && dbWord.hypernym.length) ||
-            (dbWord.hyponym && dbWord.hyponym.length)
-          ));
-          networkBtn.classList.toggle('disabled', !hasNetwork);
-          const totalCount = dbWord ? [
-            ...(dbWord.synonyms || []),
-            ...(dbWord.antonyms || []),
-            ...(dbWord.otherForms || []),
-            ...(dbWord.hypernym || []),
-            ...(dbWord.hyponym || [])
-          ].length : 0;
-          networkBtn.innerHTML = hasNetwork
-            ? `NET<span class="con-ctx-icon-label">${totalCount}</span>`
-            : 'NET';
+          networkBtn.style.display = hasNetwork ? '' : 'none';
+          if (hasNetwork) {
+            const totalCount = [
+              ...(dbWord.synonyms || []),
+              ...(dbWord.antonyms || []),
+              ...(dbWord.otherForms || []),
+              ...(dbWord.otherTerms || []),
+              ...(dbWord.hypernym || []),
+              ...(dbWord.hyponym || [])
+            ].filter(Boolean).length;
+            networkBtn.innerHTML = `NET<span class="con-ctx-icon-label">${totalCount}</span>`;
+          }
+        }
+
+        const relSep = document.getElementById('con-ctx-relations-sep');
+        if (relSep) {
+          relSep.style.display = (hasSyn || hasAnt || hasDef || hasFr || hasIpa || hasNetwork) ? '' : 'none';
         }
 
         // Show/hide Card button
@@ -20403,9 +20685,7 @@
       function conAddWordAt(text, x, y, pageNum) {
         const id = 'cn' + conNextId++;
         const brd = board();
-        const dbMatch = (typeof vocabBank !== 'undefined')
-          ? vocabBank.find(i => i.word.toLowerCase() === text.toLowerCase())
-          : null;
+        const dbMatch = conFindDbEntry(text);
         const el = document.createElement('div');
         el.className = 'con-node' + (dbMatch ? ' con-node-matched' : '');
         el.id = id;
@@ -21212,18 +21492,18 @@
       // Returns an array of vocabBank entries for baseWord.
       // For space-separated phrases with no exact match, returns per-word entries.
       function conLookupDbEntries(baseWord, dbWordOverride) {
-        if (typeof vocabBank === 'undefined') return [];
+        if (typeof vocabBank === 'undefined' || !Array.isArray(vocabBank)) return [];
         if (dbWordOverride) {
-          const e = vocabBank.find(w => w.word === dbWordOverride);
-          return e ? [e] : [];
+          const e = vocabBank.find(w => w && w.word && conNormalizeWordForLookup(w.word) === conNormalizeWordForLookup(dbWordOverride));
+          if (e) return [e];
         }
-        const key = stripParens(String(baseWord || '').trim()).toLowerCase();
+        const key = String(baseWord || '').trim();
         if (!key) return [];
-        const exact = vocabBank.find(w => stripParens(w.word).toLowerCase() === key);
+        const exact = conFindDbEntry(key);
         if (exact) return [exact];
         const parts = key.split(/\s+/).filter(Boolean);
         if (parts.length < 2) return [];
-        return parts.map(p => vocabBank.find(w => stripParens(w.word).toLowerCase() === p)).filter(Boolean);
+        return parts.map(p => conFindDbEntry(p)).filter(Boolean);
       }
       window.conLookupDbEntries = conLookupDbEntries;
 
@@ -23287,6 +23567,7 @@
 
       document.addEventListener('click', function (e) {
         if (!e.target.closest('#con-ctx-menu')) conCtxClose();
+        if (!e.target.closest('#con-node-card-popup') && !e.target.closest('#con-ctx-card-btn')) conCloseNodeWordCard();
         if (!e.target.closest('#con-fmt-case-btn') && !e.target.closest('#con-ctx-case-dropdown')) {
           const dd = document.getElementById('con-ctx-case-dropdown');
           if (dd) dd.style.display = 'none';
@@ -23309,7 +23590,7 @@
           if (_conLinkSrc) { _conCancelLinkMode(); return; }
           if (conMode === 'draw') { window.conSetMode('move'); return; }
           if (typeof _taDrawActive !== 'undefined' && _taDrawActive && typeof window.taToggleDrawMode === 'function') { window.taToggleDrawMode(); return; }
-          conCtxClose(); conBoardCtxClose(); window.conEdgeCtxClose(); window.conMaskCtxClose(); if (window.conRelPickerClose) window.conRelPickerClose(); if (window.conDefPickerClose) window.conDefPickerClose(); if (window.conTransPickerClose) window.conTransPickerClose(); if (window.conMergeChoiceCancel) window.conMergeChoiceCancel(); if (window.conImgConvertClose) window.conImgConvertClose(); if (window.conPdfPagePickerClose) window.conPdfPagePickerClose();
+          conCtxClose(); conCloseNodeWordCard(); conBoardCtxClose(); window.conEdgeCtxClose(); window.conMaskCtxClose(); if (window.conRelPickerClose) window.conRelPickerClose(); if (window.conDefPickerClose) window.conDefPickerClose(); if (window.conTransPickerClose) window.conTransPickerClose(); if (window.conMergeChoiceCancel) window.conMergeChoiceCancel(); if (window.conImgConvertClose) window.conImgConvertClose(); if (window.conPdfPagePickerClose) window.conPdfPagePickerClose();
         }
         if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) {
           const tag = document.activeElement && document.activeElement.tagName;
@@ -26162,20 +26443,21 @@
     }
 
     function wnFindDbEntryForWord(word) {
-      if (!word || typeof vocabBank === 'undefined') return null;
+      if (!word) return null;
+      if (typeof conFindDbEntry === 'function') {
+        return conFindDbEntry(word);
+      }
+      if (typeof vocabBank === 'undefined' || !Array.isArray(vocabBank)) return null;
       const key = String(word).toLowerCase();
       const exact = vocabBank.find(v => v && v.word && String(v.word).toLowerCase() === key);
       if (exact) return exact;
-      return vocabBank.find(v => {
-        if (!v) return false;
-        if (Array.isArray(v.otherForms)) {
-          return v.otherForms.some(f => String(f || '').toLowerCase() === key);
-        }
-        if (typeof v.otherForms === 'string') {
-          return v.otherForms.split(/[,;/]+/).map(s => s.trim().toLowerCase()).includes(key);
-        }
+      const matchForms = (forms) => {
+        if (!forms) return false;
+        if (Array.isArray(forms)) return forms.some(f => String(f || '').toLowerCase() === key);
+        if (typeof forms === 'string') return forms.split(/[,;/]+/).map(s => s.trim().toLowerCase()).includes(key);
         return false;
-      }) || null;
+      };
+      return vocabBank.find(v => v && (matchForms(v.otherForms) || matchForms(v.otherTerms))) || null;
     }
 
     function wnGetSelectedTextInsideEditor(editor) {
@@ -35273,7 +35555,7 @@
       }
     }
 
-    let _historyAutoLoadTimer = null;
+    var _historyAutoLoadTimer = null;
 
     function historyOnSectionHover() {
       if (_historyAutoLoadTimer) {
@@ -41669,11 +41951,6 @@
         <div id="cwdb-word-badge"></div>
         <div id="cwdb-existing-note"></div>
         <div id="cwdb-feedback"></div>
-        <div id="cwdb-lookup-row" style="text-align:center;margin-bottom:8px;display:none;">
-          <button type="button" id="cwdb-wiki-btn" class="cwdb-btn-outline" onclick="cwdbWikiLookup()"
-            style="font-size:0.82rem;padding:6px 14px;" data-i18n="conAutoFillWiktionary">🔍 Auto-fill from
-            Wiktionary</button>
-        </div>
         <div class="cwdb-field">
           <label data-i18n="conAddWordIpa">IPA</label>
           <input type="text" id="cwdb-ipa" placeholder="/ɪˈfɛmərəl/">
@@ -42310,12 +42587,31 @@
       return String(s || '').replace(/\s*\([^)]*\)/g, '').trim();
     }
 
-    function unknownWordsOpen(section) {
-      // Build lookup set from vocabBank (includes custom-added words)
+    async function unknownWordsOpen(section) {
+      if (typeof scheduleCustomDatabasesInit === 'function') {
+        try { await scheduleCustomDatabasesInit(); } catch (_) { }
+      }
+      // Build lookup set from vocabBank (includes all custom database words)
       const dbSet = new Set();
-      if (typeof vocabBank !== 'undefined') {
+      if (typeof vocabBank !== 'undefined' && Array.isArray(vocabBank)) {
         vocabBank.forEach(function (item) {
-          if (item && item.word) dbSet.add(stripParens(item.word).toLowerCase());
+          if (!item) return;
+          if (item.word) dbSet.add(conNormalizeWordForLookup(item.word));
+          const addForms = function (forms) {
+            if (!forms) return;
+            if (Array.isArray(forms)) {
+              forms.forEach(function (f) {
+                const s = typeof f === 'string' ? f : (f.word || f.form || f.term || '');
+                if (s) dbSet.add(conNormalizeWordForLookup(s));
+              });
+            } else if (typeof forms === 'string' && forms.trim()) {
+              forms.split(/[,;/]+/).forEach(function (s) {
+                if (s && s.trim()) dbSet.add(conNormalizeWordForLookup(s));
+              });
+            }
+          };
+          addForms(item.otherForms);
+          addForms(item.otherTerms);
         });
       }
 
@@ -42356,9 +42652,9 @@
         if (!seen.has(key)) { seen.add(key); deduped.push(w); }
       });
 
-      // Filter: keep words not in DB
+      // Filter: keep words not in DB (using unified word lookup normalization)
       var unknown = deduped
-        .filter(function (w) { return !dbSet.has(stripParens(w).toLowerCase()); })
+        .filter(function (w) { return !dbSet.has(conNormalizeWordForLookup(w)); })
         .sort(function (a, b) { return a.localeCompare(b, undefined, { sensitivity: 'base' }); });
 
       var total = deduped.length;
