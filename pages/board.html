@@ -240,11 +240,15 @@
         if (!data) return;
         if (data.type === 'timer-tick' || data.type === 'state') {
           boardApplyCmsTimerData(data);
+          if (typeof conSyncCmsTimerDataToNodes === 'function') {
+            conSyncCmsTimerDataToNodes(data);
+          }
         }
       });
 
       window.addEventListener('beforeunload', function () {
         try { if (boardCmsTimerChannel) boardCmsTimerChannel.close(); } catch (_) { }
+        try { if (_conTimerIntervalId) clearInterval(_conTimerIntervalId); } catch (_) { }
       }, { once: true });
     }
 
@@ -1274,6 +1278,147 @@
       color: #fff;
       font-weight: 700;
     }
+
+    /* Competence Tags Styles */
+    .con-header-competence-bar {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      flex-wrap: wrap;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+    .con-comp-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1.5px solid #bfdbfe;
+      border-radius: 12px;
+      padding: 3px 9px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.12s ease, border-color 0.12s ease, transform 0.12s ease;
+      line-height: 1.2;
+      user-select: none;
+    }
+    .con-comp-pill img {
+      width: 13px;
+      height: 13px;
+      filter: invert(24%) sepia(86%) saturate(2289%) hue-rotate(213deg) brightness(93%) contrast(92%);
+    }
+    .con-comp-pill:hover {
+      background: #dbeafe;
+      border-color: #93c5fd;
+      transform: translateY(-1px);
+    }
+    .con-comp-pill-empty {
+      background: #f8fafc;
+      color: #64748b;
+      border: 1.5px dashed #cbd5e1;
+    }
+    .con-comp-pill-empty img {
+      filter: invert(45%) sepia(10%) saturate(600%) hue-rotate(175deg) brightness(90%) contrast(85%);
+    }
+    .con-comp-pill-empty:hover {
+      background: #f1f5f9;
+      color: #334155;
+      border-color: #94a3b8;
+    }
+    .con-comp-pill-add {
+      padding: 3px 8px;
+      background: #f8fafc;
+      color: #64748b;
+      border: 1.5px dashed #cbd5e1;
+    }
+    .con-comp-pill-add:hover {
+      background: #f1f5f9;
+      color: #1e293b;
+      border-color: #94a3b8;
+    }
+    .con-node-comp-badge {
+      position: absolute;
+      top: -9px;
+      right: -9px;
+      background: #2563eb;
+      color: #fff;
+      border: 1.5px solid #fff;
+      border-radius: 10px;
+      padding: 1px 6px;
+      font-size: 0.62rem;
+      font-weight: 800;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+      z-index: 10;
+      cursor: pointer;
+      user-select: none;
+      pointer-events: auto;
+      transition: transform 0.12s ease;
+    }
+    .con-node-comp-badge:hover {
+      transform: scale(1.1);
+      background: #1d4ed8;
+    }
+    .con-node-comp-badge img {
+      width: 10px;
+      height: 10px;
+      filter: brightness(0) invert(1) !important;
+    }
+    .session-load-comp-badge {
+      display: inline-flex;
+      align-items: center;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      border-radius: 3px;
+      padding: 1px 5px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      margin-left: 4px;
+    }
+    .con-comp-picker-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 8px 12px;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 6px;
+      cursor: pointer;
+      background: #fff;
+      transition: background 0.1s ease, border-color 0.1s ease;
+      user-select: none;
+    }
+    .con-comp-picker-item:hover {
+      background: #f8fafc;
+      border-color: #cbd5e1;
+    }
+    .con-comp-picker-item.selected {
+      background: #eff6ff;
+      border-color: #93c5fd;
+    }
+    .con-comp-badge-code {
+      font-weight: 800;
+      font-size: 0.78rem;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: #1e293b;
+      color: #fff;
+      flex-shrink: 0;
+      font-family: inherit;
+    }
+    .con-comp-tag-chip {
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: 3px;
+      background: #f1f5f9;
+      color: #475569;
+      border: 1px solid #e2e8f0;
+    }
   </style>
 </head>
 
@@ -1319,7 +1464,7 @@
     </div>
   </div>
   <button id="board-cms-timer-show-btn" class="board-cms-timer-show-btn" type="button" onclick="boardShowCmsTimer()"
-    title="Show timer">⏱</button>
+    title="Show timer"><img src="../assets/icons/clock.svg" class="btn-icon" alt="" style="width:14px;height:14px;" /></button>
 
   <!-- Live Video Recording Floating Bar -->
   <div id="board-rec-live-bar" class="board-rec-floating-bar" style="display:none;" aria-live="polite">
@@ -1623,6 +1768,8 @@
         title="Add IPA node(s)">IPA</button>
       <button class="con-ctx-icon-btn" id="con-ctx-network-btn" onclick="conCtxOpenNetworkModal()"
         title="Word Network — spawn related words radially">NET</button>
+      <button class="con-ctx-icon-btn" id="con-ctx-comp-btn" onclick="conCtxOpenCompetenceModal()"
+        title="Attach competence tags to this element"><img src="../assets/icons/award.svg" class="btn-icon" alt="" /></button>
       <span class="con-ctx-icon-sep" id="con-ctx-relations-sep"></span>
       <button class="con-ctx-icon-btn" id="con-ctx-addconn-btn" onclick="conCtxAddConnectedWord()"
         title="Add Connected Word">＋</button>
@@ -1815,8 +1962,6 @@
         style="display:none"><img src="../assets/icons/learning-tools.svg" class="btn-icon" alt="" /></button>
       <button class="con-ctx-icon-btn" id="con-ctx-card-btn" onclick="conCtxViewCard()" title="View word card"><img
           src="../assets/icons/word-card.svg" class="btn-icon" alt="" /></button>
-      <button class="con-ctx-icon-btn" id="con-ctx-db-btn" onclick="conCtxAddToDb()" title="Add to DB"><img
-          src="../assets/icons/add-db.svg" class="btn-icon" alt="" /></button>
       <button class="con-ctx-icon-btn" id="con-ctx-edit-btn" onclick="conCtxEditWord()" title="Edit word"><img
           src="../assets/icons/edit-word.svg" class="btn-icon" alt="" /></button>
       <button class="con-ctx-icon-btn" onclick="conCtxRemove()" style="color:#b94040;" title="Remove word"><img
@@ -2234,6 +2379,44 @@
       </div>
       <div class="con-ctx-item" onclick="conPageDelPopupClose()"
         style="flex:1;justify-content:center;font-size:0.72rem;color:#888;padding:5px 4px;">Cancel</div>
+    </div>
+  </div>
+
+  <!-- Timer Action Popover (anchored above timer node) -->
+  <div id="con-timer-action-popover" role="dialog" aria-label="Timer Actions">
+    <div class="con-timer-popover-header">
+      <img src="../assets/icons/clock.svg" class="btn-icon" alt="" style="width:14px;height:14px;" />
+      <span id="con-timer-popover-title">Timer</span>
+      <button type="button" class="con-timer-popover-close" onclick="conCloseTimerPopover()" title="Close">
+        <img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" />
+      </button>
+    </div>
+    <div class="con-timer-popover-body" id="con-timer-popover-actions"></div>
+  </div>
+
+  <!-- Timer Node Conversion Prompt Modal -->
+  <div id="con-timer-convert-modal" class="modal" style="display:none; position:fixed; inset:0; z-index:100050; align-items:center; justify-content:center;">
+    <div class="modal-backdrop" onclick="conTimerConvertModalCancel()" style="position:absolute; inset:0; background:rgba(0,0,0,0.5);"></div>
+    <div class="modal-content" style="position:relative; z-index:1; max-width:380px; width:90%; text-align:center; padding:22px; border-radius:10px; background:var(--bg-card, #ffffff); color:var(--text-primary, #111111); border:1.5px solid var(--border-color, #333); box-shadow:0 12px 32px rgba(0,0,0,0.35); font-family:inherit;">
+      <div style="margin-bottom:10px;">
+        <img src="../assets/icons/clock.svg" class="btn-icon" style="width:36px; height:36px;" alt="" />
+      </div>
+      <h3 id="con-timer-convert-title" style="margin:0 0 8px; font-size:1.15rem; font-weight:700;">Timer Node</h3>
+      <p id="con-timer-convert-msg" style="margin:0 0 18px; font-size:0.92rem; color:var(--text-secondary, #555); line-height:1.5;"></p>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <button id="con-timer-convert-create-btn" type="button" class="action-btn btn-blue" style="display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:9px 14px; font-weight:700; cursor:pointer; font-size:0.88rem; border-radius:6px;">
+          <img src="../assets/icons/clock.svg" class="btn-icon" style="width:16px; height:16px;" alt="" />
+          <span id="con-timer-convert-create-label">Create Timer</span>
+        </button>
+        <button id="con-timer-convert-text-btn" type="button" class="action-btn btn-grey" style="display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:8px 14px; cursor:pointer; font-size:0.85rem; border-radius:6px;">
+          <img src="../assets/icons/text.svg" class="btn-icon" style="width:15px; height:15px;" alt="" />
+          <span id="con-timer-convert-text-label">Keep as Text</span>
+        </button>
+        <button id="con-timer-convert-cancel-btn" type="button" class="action-btn btn-grey" style="display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:6px 14px; opacity:0.75; cursor:pointer; font-size:0.8rem; border-radius:6px;">
+          <img src="../assets/icons/close.svg" class="btn-icon" style="width:12px; height:12px;" alt="" />
+          <span id="con-timer-convert-cancel-label">Cancel</span>
+        </button>
+      </div>
     </div>
   </div>
 
@@ -2691,6 +2874,9 @@
             <button class="action-btn btn-grey" id="con-manage-media-btn" onclick="conOpenManageMediaChooser(this)"
               title="Attach, insert, remove from board, or delete media"><img src="../assets/icons/media.svg"
                 class="btn-icon" alt="" /> Media</button>
+            <button class="action-btn btn-grey" id="con-add-competence-btn" onclick="conOpenCompetenceModal('board')"
+              title="Add or manage competence tags for this board"><img src="../assets/icons/award.svg" class="btn-icon"
+                alt="" /> <span data-i18n="btnCompetenceTags">Competences</span></button>
             <input type="file" id="con-load-input" accept=".cstz,.js,.json,.zip" style="display:none"
               onchange="conLoadSession(event)">
             <input type="file" id="con-attachments-input" accept="image/*,audio/*,video/*,application/pdf,.pdf" multiple
@@ -2840,6 +3026,7 @@
               onclick="conToggleClassDropdown()"></button>
             <ul id="con-class-pills" class="con-class-dropdown-menu"></ul>
           </div>
+          <div id="con-header-competence-bar" class="con-header-competence-bar"></div>
         </div>
 
         <div class="con-tb-group" id="con-tb-mode-toggle" style="margin-left: auto;">
@@ -3357,6 +3544,73 @@
         <button class="action-btn btn-grey" onclick="document.getElementById('con-template-load-input').click()">📂
           Load
           from file</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Competence Picker Modal Overlay -->
+  <div id="con-competence-overlay" class="modal-bg" style="display:none;position:fixed;inset:0;z-index:100060;background:rgba(0,0,0,0.45);align-items:center;justify-content:center;" onclick="if(event.target===this)conCloseCompetenceModal()">
+    <div class="modal" style="width:min(820px, 95vw);max-height:90vh;display:flex;flex-direction:column;background:#fff;border-radius:10px;box-shadow:0 16px 40px rgba(0,0,0,0.3);overflow:hidden;border:1.5px solid #222;font-family:inherit;">
+      <div class="modal-hd" style="padding:12px 18px;background:#111;color:#fff;display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <img src="../assets/icons/award.svg" class="btn-icon" style="filter:brightness(0) invert(1);" alt="" />
+          <span style="font-weight:700;font-size:1.05rem;" data-i18n="modalCompetenceTitle">Competence Tags</span>
+          <span id="con-comp-modal-target-badge" style="font-size:0.75rem;padding:2px 8px;border-radius:12px;background:#2563eb;color:#fff;font-weight:600;"></span>
+        </div>
+        <button class="modal-x" onclick="conCloseCompetenceModal()" style="background:none;border:none;cursor:pointer;color:#aaa;padding:4px;"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" style="filter:brightness(0) invert(1);" alt="Close" /></button>
+      </div>
+
+      <div class="modal-bd" style="padding:14px 18px;display:flex;flex-direction:column;gap:10px;overflow:hidden;flex:1;">
+        <!-- Planner Suggestion Banner -->
+        <div id="con-comp-planner-suggestion" style="display:none;align-items:center;justify-content:space-between;background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:6px;padding:8px 12px;gap:10px;">
+          <div style="display:flex;align-items:center;gap:6px;font-size:0.82rem;color:#1e40af;font-weight:600;">
+            <img src="../assets/icons/planner.svg" class="btn-icon btn-icon-xs" alt="" />
+            <span id="con-comp-planner-suggestion-text" data-i18n="suggestFromPlanner">Suggest from linked Planner lesson</span>
+          </div>
+          <button type="button" class="action-btn btn-grey" onclick="conApplyPlannerSuggestedCompetences()" style="padding:3px 8px;font-size:0.75rem;cursor:pointer;">Select Suggested</button>
+        </div>
+
+        <input type="search" id="con-comp-search-input" class="input" style="width:100%;box-sizing:border-box;border:2px solid #111;border-radius:6px;padding:8px 12px;font-family:inherit;font-size:0.88rem;" placeholder="Search competences by code, title, domain, level…" data-i18n-placeholder="compSearchPlaceholder" oninput="conFilterCompetencePicker()" />
+
+        <!-- Filters Bar -->
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#f8fafc;padding:6px 10px;border-radius:6px;border:1px solid #e2e8f0;">
+          <div style="display:flex;align-items:center;gap:4px;">
+            <label style="font-size:0.75rem;font-weight:700;color:#555;" data-i18n="compDomain">Domain</label>
+            <select id="con-comp-filter-domain" style="border:1px solid #ccc;border-radius:4px;padding:3px 6px;font-size:0.75rem;background:#fff;" onchange="conFilterCompetencePicker()">
+              <option value="all" data-i18n="compAllDomains">All Domains</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;gap:4px;">
+            <label style="font-size:0.75rem;font-weight:700;color:#555;" data-i18n="compLevel">Level</label>
+            <select id="con-comp-filter-level" style="border:1px solid #ccc;border-radius:4px;padding:3px 6px;font-size:0.75rem;background:#fff;" onchange="conFilterCompetencePicker()">
+              <option value="all" data-i18n="compAllLevels">All Levels</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;gap:4px;">
+            <label style="font-size:0.75rem;font-weight:700;color:#555;" data-i18n="compYear">Year</label>
+            <select id="con-comp-filter-year" style="border:1px solid #ccc;border-radius:4px;padding:3px 6px;font-size:0.75rem;background:#fff;" onchange="conFilterCompetencePicker()">
+              <option value="all" data-i18n="compAllYears">All Years</option>
+            </select>
+          </div>
+          <div style="margin-left:auto;display:flex;gap:6px;">
+            <button type="button" id="con-comp-filter-selected-btn" class="action-btn btn-grey" onclick="conToggleCompFilterSelected(this)" style="font-size:0.72rem;padding:3px 7px;" data-i18n="compShowSelected">Selected</button>
+            <button type="button" class="action-btn btn-grey" onclick="conSelectAllVisibleCompetences(true)" style="font-size:0.72rem;padding:3px 7px;" data-i18n="compSelectVisible">Select Visible</button>
+            <button type="button" class="action-btn btn-grey" onclick="conSelectAllVisibleCompetences(false)" style="font-size:0.72rem;padding:3px 7px;" data-i18n="compDeselectVisible">Deselect Visible</button>
+          </div>
+        </div>
+
+        <!-- Competences List Container -->
+        <div id="con-comp-picker-list" style="flex:1;overflow-y:auto;max-height:400px;min-height:200px;border:1.5px solid #ccc;border-radius:6px;padding:8px;display:flex;flex-direction:column;gap:5px;background:#fff;">
+          <div style="text-align:center;color:#888;padding:20px;font-size:0.85rem;">Loading competences…</div>
+        </div>
+      </div>
+
+      <div class="modal-ft" style="padding:10px 18px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;">
+        <span id="con-comp-picker-count" style="font-size:0.84rem;font-weight:700;color:#475569;">0 selected</span>
+        <div style="display:flex;gap:8px;">
+          <button type="button" class="action-btn btn-grey" onclick="conCloseCompetenceModal()" data-i18n="btnCancel">Cancel</button>
+          <button type="button" class="action-btn" onclick="conApplySelectedCompetences()" style="background:#2563eb;color:#fff;border-color:#1d4ed8;font-weight:700;" data-i18n="compApplyBtn">Apply Tags</button>
+        </div>
       </div>
     </div>
   </div>
@@ -4881,6 +5135,7 @@
           }
         }
         if (sectionId === 'constellation-section') {
+          if (typeof conRenderHeaderCompetenceBar === 'function') conRenderHeaderCompetenceBar();
           if (typeof window.conScheduleLayoutRefresh === 'function') {
             window.conScheduleLayoutRefresh();
           } else {
@@ -15551,6 +15806,8 @@
           conCurrentPageIndex = 0;
           if (typeof boardSetDirty === 'function') boardSetDirty(false);
         }
+        _conCurrentCompetences = [];
+        if (typeof conRenderHeaderCompetenceBar === 'function') conRenderHeaderCompetenceBar();
         conNextId = 1;
         conUpdatePageBar();
         mdbToast('🗑 Board cleared');
@@ -19129,7 +19386,15 @@
               } else {
                 conSelect(id);
                 if (window.conNoteClearSelection) window.conNoteClearSelection();
+                if (node && node.isTimer && typeof conOpenTimerPopover === 'function') {
+                  conOpenTimerPopover(node);
+                } else if (typeof conCloseTimerPopover === 'function') {
+                  conCloseTimerPopover();
+                }
               }
+            }
+            if (dragging && typeof conCloseTimerPopover === 'function') {
+              conCloseTimerPopover();
             }
             dragging = false;
           }
@@ -19681,7 +19946,6 @@
         const synBtn = document.getElementById('con-ctx-syn-btn');
         const antBtn = document.getElementById('con-ctx-ant-btn');
         const cardBtn = document.getElementById('con-ctx-card-btn');
-        const dbBtn = document.getElementById('con-ctx-db-btn');
 
         label.textContent = node ? (node.baseWord || node.el.dataset.baseWord || node.el.textContent) : 'Word';
 
@@ -19744,8 +20008,6 @@
 
         // Show/hide Card button
         if (cardBtn) cardBtn.style.display = dbWord ? '' : 'none';
-        // DB button: show edit icon if word already in vocabBank, add-db icon if new
-        if (dbBtn) dbBtn.innerHTML = dbWord ? '<img src="../assets/icons/edit-word.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">edit</span>' : '<img src="../assets/icons/add-db.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">add</span>';
         // Star button: show only when node has a db entry
         const starBtn = document.getElementById('con-ctx-star-btn');
         if (starBtn) {
@@ -20103,9 +20365,37 @@
         inp.select();
         inp.addEventListener('mousedown', e => e.stopPropagation());
 
-        function commit() {
+        async function commit() {
           const rawText = inp.value.trim() || currentText;
           el.style.minWidth = '';
+
+          // Check if edited to timer syntax
+          const parsedTimer = conParseTimerSyntax(rawText);
+          if (parsedTimer) {
+            const choice = await conPromptTimerConversion(parsedTimer);
+            if (!choice) {
+              conRenderNodeLabel(node);
+              conRedrawEdges();
+              return;
+            }
+            if (choice === 'timer') {
+              conPushUndo();
+              node.isTimer = true;
+              node.durationSec = parsedTimer.totalSec;
+              node.remainingSec = parsedTimer.totalSec;
+              node.timerState = 'idle';
+              node.timerTarget = null;
+              node.baseWord = conFormatDurationSec(parsedTimer.totalSec);
+              conRenderNodeLabel(node);
+              conRedrawEdges();
+              return;
+            }
+          } else if (node.isTimer) {
+            node.isTimer = false;
+            node.timerState = 'idle';
+            node.timerTarget = null;
+          }
+
           const entries = rawText.split(',,').map(w => w.trim()).filter(Boolean);
 
           function parseEntry(entryRaw, fallbackText) {
@@ -20493,6 +20783,518 @@
         }, 20);
       };
 
+      // ================================================================
+      // CONSTELLATION TIMER NODES
+      // ================================================================
+
+      let _conActiveTimerPopoverNodeId = null;
+      let _conTimerEngineInterval = null;
+
+      function conFormatDurationSec(totalSec) {
+        const s = Math.max(0, Math.round(Number(totalSec) || 0));
+        const h = Math.floor(s / 3600);
+        const m = Math.floor((s % 3600) / 60);
+        const remS = s % 60;
+        if (h > 0) {
+          return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(remS).padStart(2, '0');
+        }
+        return String(m).padStart(2, '0') + ':' + String(remS).padStart(2, '0');
+      }
+      window.conFormatDurationSec = conFormatDurationSec;
+
+      function conParseTimerSyntax(text) {
+        if (!text || typeof text !== 'string') return null;
+        const raw = text.trim();
+        // 1. Minutes + Seconds e.g. 15'30", 15'30, 15’30”, 15’30
+        const mAndS = raw.match(/^(\d+)\s*['’]\s*(\d{1,2})\s*["”]?$/);
+        if (mAndS) {
+          const min = parseInt(mAndS[1], 10);
+          const sec = parseInt(mAndS[2], 10);
+          if (min > 0 || sec > 0) {
+            const totalSec = min * 60 + sec;
+            return {
+              totalSec,
+              min,
+              sec,
+              displayDuration: conFormatDurationSec(totalSec),
+              raw
+            };
+          }
+        }
+        // 2. Minutes only e.g. 15', 5', 120'
+        const mOnly = raw.match(/^(\d+)\s*['’]$/);
+        if (mOnly) {
+          const min = parseInt(mOnly[1], 10);
+          if (min > 0) {
+            const totalSec = min * 60;
+            return {
+              totalSec,
+              min,
+              sec: 0,
+              displayDuration: conFormatDurationSec(totalSec),
+              raw
+            };
+          }
+        }
+        // 3. Seconds only e.g. 45", 30”, 90"
+        const sOnly = raw.match(/^(\d+)\s*["”]$/);
+        if (sOnly) {
+          const sec = parseInt(sOnly[1], 10);
+          if (sec > 0) {
+            return {
+              totalSec: sec,
+              min: Math.floor(sec / 60),
+              sec: sec % 60,
+              displayDuration: conFormatDurationSec(sec),
+              raw
+            };
+          }
+        }
+        return null;
+      }
+      window.conParseTimerSyntax = conParseTimerSyntax;
+
+      function conPromptTimerConversion(parsedTimer) {
+        return new Promise(resolve => {
+          const modal = document.getElementById('con-timer-convert-modal');
+          if (!modal) { resolve('timer'); return; }
+          const titleEl = document.getElementById('con-timer-convert-title');
+          const msgEl = document.getElementById('con-timer-convert-msg');
+          const createBtn = document.getElementById('con-timer-convert-create-btn');
+          const textBtn = document.getElementById('con-timer-convert-text-btn');
+          const cancelBtn = document.getElementById('con-timer-convert-cancel-btn');
+          const createLabel = document.getElementById('con-timer-convert-create-label');
+          const textLabel = document.getElementById('con-timer-convert-text-label');
+          const cancelLabel = document.getElementById('con-timer-convert-cancel-label');
+
+          if (titleEl && typeof i18n !== 'undefined') titleEl.textContent = i18n.t('timerNodeConvertTitle') || 'Timer Node';
+          if (msgEl && typeof i18n !== 'undefined') {
+            const tmpl = i18n.t('timerNodeConvertPrompt') || 'Convert "{text}" into a timer node ({duration})?';
+            msgEl.textContent = tmpl.replace('{text}', parsedTimer.raw).replace('{duration}', parsedTimer.displayDuration);
+          }
+          if (createLabel && typeof i18n !== 'undefined') createLabel.textContent = i18n.t('timerNodeCreateBtn') || 'Create Timer';
+          if (textLabel && typeof i18n !== 'undefined') textLabel.textContent = i18n.t('timerNodeKeepTextBtn') || 'Keep as Text';
+          if (cancelLabel && typeof i18n !== 'undefined') cancelLabel.textContent = i18n.t('btnCancel') || 'Cancel';
+
+          function cleanup(choice) {
+            modal.style.display = 'none';
+            document.removeEventListener('keydown', onKey);
+            createBtn.onclick = null;
+            textBtn.onclick = null;
+            cancelBtn.onclick = null;
+            window.conTimerConvertModalCancel = null;
+            resolve(choice);
+          }
+
+          function onKey(e) {
+            if (e.key === 'Enter') { e.preventDefault(); cleanup('timer'); }
+            else if (e.key === 'Escape') { e.preventDefault(); cleanup(null); }
+          }
+
+          createBtn.onclick = () => cleanup('timer');
+          textBtn.onclick = () => cleanup('text');
+          cancelBtn.onclick = () => cleanup(null);
+          window.conTimerConvertModalCancel = () => cleanup(null);
+          document.addEventListener('keydown', onKey);
+
+          modal.style.display = 'flex';
+          createBtn.focus();
+        });
+      }
+      window.conPromptTimerConversion = conPromptTimerConversion;
+
+      function conAddTimerNodeAt(totalSec, x, y, pageNum) {
+        const formatted = conFormatDurationSec(totalSec);
+        const id = conAddWordAt(formatted, x, y, pageNum);
+        const node = conNodes.find(n => n.id === id);
+        if (node) {
+          node.isTimer = true;
+          node.durationSec = totalSec;
+          node.remainingSec = totalSec;
+          node.timerState = 'idle';
+          node.timerTarget = null;
+          node.baseWord = formatted;
+          conRenderNodeLabel(node);
+          conRedrawEdges();
+        }
+        return id;
+      }
+      window.conAddTimerNodeAt = conAddTimerNodeAt;
+
+      function conPlayTimerChime() {
+        try {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (!AudioCtx) return;
+          const ctx = new AudioCtx();
+          const now = ctx.currentTime;
+          [0, 0.16, 0.32].forEach((offset, idx) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(idx === 2 ? 1046.5 : 880, now + offset);
+            gain.gain.setValueAtTime(0.2, now + offset);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.35);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(now + offset);
+            osc.stop(now + offset + 0.36);
+          });
+        } catch (_) {}
+      }
+
+      let _conActiveCmsTimerNodeId = null;
+      window._conActiveCmsTimerNodeId = null;
+
+      function conTimerTickEngine() {
+        if (_conTimerEngineInterval) return;
+        _conTimerEngineInterval = setInterval(function () {
+          const now = Date.now();
+          let mirrorNeedsUpdate = false;
+
+          conNodes.forEach(node => {
+            if (!node || !node.isTimer) return;
+            // Only tick nodes running locally on the board.
+            // Nodes targeted to CMS receive their ticks exclusively from Class Management.
+            if (node.timerState === 'running' && node.timerTarget !== 'cms') {
+              if (node.timerEndTime) {
+                const rem = Math.max(0, Math.ceil((node.timerEndTime - now) / 1000));
+                if (rem !== node.remainingSec) {
+                  node.remainingSec = rem;
+                  conRenderNodeLabel(node);
+                  mirrorNeedsUpdate = true;
+                }
+                if (rem <= 0) {
+                  node.timerState = 'ended';
+                  node.timerEndTime = null;
+                  conRenderNodeLabel(node);
+                  mirrorNeedsUpdate = true;
+                  if (typeof conBlinkNodeAttention === 'function' && node.el) {
+                    conBlinkNodeAttention(node.el, 3000);
+                  }
+                  conPlayTimerChime();
+                }
+              }
+            }
+          });
+
+          if (mirrorNeedsUpdate && window._conMirrorBroadcast) {
+            window._conMirrorBroadcast();
+          }
+        }, 500);
+      }
+      conTimerTickEngine();
+
+      function conStartNodeTimer(nodeId, target) {
+        const node = conNodes.find(n => n.id === nodeId);
+        if (!node || !node.isTimer) return;
+
+        if (target === 'cms') {
+          _conActiveCmsTimerNodeId = nodeId;
+          window._conActiveCmsTimerNodeId = nodeId;
+          // Unlink any other nodes that might have had cms target
+          conNodes.forEach(n => {
+            if (n && n.isTimer && n.id !== nodeId) {
+              if (n.timerTarget === 'cms') {
+                n.timerTarget = null;
+                if (n.timerState === 'running') {
+                  n.timerState = 'idle';
+                  n.remainingSec = n.durationSec || 60;
+                  n.timerEndTime = null;
+                  conRenderNodeLabel(n);
+                }
+              }
+            }
+          });
+        }
+
+        const rem = (typeof node.remainingSec === 'number' && node.remainingSec > 0) ? node.remainingSec : (node.durationSec || 60);
+        node.remainingSec = rem;
+        node.timerState = 'running';
+        node.timerTarget = target || 'board';
+        node.timerEndTime = Date.now() + rem * 1000;
+        conRenderNodeLabel(node);
+        if (target === 'cms') {
+          conDispatchTimerToCms(node);
+        }
+      }
+
+      function conPauseNodeTimer(nodeId) {
+        const node = conNodes.find(n => n.id === nodeId);
+        if (!node || !node.isTimer) return;
+        if (node.timerState === 'running') {
+          const now = Date.now();
+          node.remainingSec = Math.max(0, Math.ceil((node.timerEndTime - now) / 1000));
+          node.timerState = 'paused';
+          node.timerEndTime = null;
+          conRenderNodeLabel(node);
+          if (node.timerTarget === 'cms') {
+            if (window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron()) {
+              Desktop.timerCommand({ cmd: 'pause' });
+            }
+            if (typeof boardCmsTimerChannel !== 'undefined' && boardCmsTimerChannel) {
+              try { boardCmsTimerChannel.postMessage({ type: 'timer-command', cmd: 'pause' }); } catch (_) {}
+            }
+          }
+        }
+      }
+
+      function conResumeNodeTimer(nodeId) {
+        const node = conNodes.find(n => n.id === nodeId);
+        if (!node || !node.isTimer) return;
+        if (node.timerState === 'paused') {
+          const rem = (typeof node.remainingSec === 'number' && node.remainingSec > 0) ? node.remainingSec : (node.durationSec || 60);
+          node.remainingSec = rem;
+          node.timerState = 'running';
+          node.timerEndTime = Date.now() + rem * 1000;
+          conRenderNodeLabel(node);
+          if (node.timerTarget === 'cms') {
+            if (window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron()) {
+              Desktop.timerCommand({ cmd: 'pause' });
+            }
+            if (typeof boardCmsTimerChannel !== 'undefined' && boardCmsTimerChannel) {
+              try { boardCmsTimerChannel.postMessage({ type: 'timer-command', cmd: 'resume' }); } catch (_) {}
+            }
+          }
+        }
+      }
+
+      function conResetNodeTimer(nodeId) {
+        const node = conNodes.find(n => n.id === nodeId);
+        if (!node || !node.isTimer) return;
+        node.timerState = 'idle';
+        node.timerEndTime = null;
+        node.remainingSec = node.durationSec || 60;
+        if (node.timerTarget === 'cms' || _conActiveCmsTimerNodeId === nodeId) {
+          _conActiveCmsTimerNodeId = null;
+          window._conActiveCmsTimerNodeId = null;
+          node.timerTarget = null;
+          if (window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron()) {
+            Desktop.timerCommand({ cmd: 'stop' });
+          }
+          if (typeof boardCmsTimerChannel !== 'undefined' && boardCmsTimerChannel) {
+            try { boardCmsTimerChannel.postMessage({ type: 'timer-command', cmd: 'stop' }); } catch (_) {}
+          }
+        }
+        conRenderNodeLabel(node);
+      }
+
+      function conStopNodeTimer(nodeId) {
+        conResetNodeTimer(nodeId);
+      }
+
+      async function conDispatchTimerToCms(node) {
+        const totalSec = node.remainingSec || node.durationSec || 60;
+        const isElec = typeof window.Desktop !== 'undefined' && typeof Desktop.isElectron === 'function' && Desktop.isElectron();
+
+        if (!isElec) {
+          if (typeof boardCmsTimerChannel !== 'undefined' && boardCmsTimerChannel) {
+            try { boardCmsTimerChannel.postMessage({ type: 'start-timer', seconds: totalSec }); } catch (_) {}
+          }
+          const promptText = (typeof i18n !== 'undefined' && i18n.t('timerNodeCmsNotOpenPrompt'))
+            || 'Class Management is not currently open. Would you like to open it and start this timer?';
+          const confirmOpen = (typeof showConfirm === 'function') ? await showConfirm(promptText) : true;
+          if (confirmOpen) {
+            window.open('class-management.html?startTimerSec=' + encodeURIComponent(totalSec), '_blank');
+          }
+          return;
+        }
+
+        try {
+          const isOpen = await Desktop.isToolOpen('class-management.html');
+          if (!isOpen) {
+            const promptText = (typeof i18n !== 'undefined' && i18n.t('timerNodeCmsNotOpenPrompt'))
+              || 'Class Management is not currently open. Would you like to open it and start this timer?';
+            const confirmOpen = (typeof showConfirm === 'function') ? await showConfirm(promptText) : true;
+            if (!confirmOpen) {
+              node.timerTarget = 'board';
+              return;
+            }
+            await Desktop.openTool('class-management.html', {
+              query: { startTimerSec: totalSec }
+            });
+            setTimeout(async () => {
+              try {
+                await Desktop.timerCommand({ cmd: 'start', totalSec: totalSec });
+              } catch (_) {}
+              if (typeof boardCmsTimerChannel !== 'undefined' && boardCmsTimerChannel) {
+                try {
+                  boardCmsTimerChannel.postMessage({ type: 'start-timer', seconds: totalSec });
+                } catch (_) {}
+              }
+            }, 1200);
+          } else {
+            await Desktop.openTool('class-management.html', { noReload: true });
+            const res = await Desktop.timerCommand({ cmd: 'start', totalSec: totalSec });
+            if (!res || !res.ok) {
+              if (typeof boardCmsTimerChannel !== 'undefined' && boardCmsTimerChannel) {
+                boardCmsTimerChannel.postMessage({ type: 'start-timer', seconds: totalSec });
+              }
+            }
+          }
+        } catch (err) {
+          console.error('Failed to dispatch timer to Class Management', err);
+          if (typeof showToast === 'function') showToast('Could not start timer in Class Management', true);
+        }
+      }
+
+      function conOpenTimerPopover(node) {
+        const popover = document.getElementById('con-timer-action-popover');
+        if (!popover || !node || !node.el) return;
+        _conActiveTimerPopoverNodeId = node.id;
+        const rect = node.el.getBoundingClientRect();
+        const titleEl = document.getElementById('con-timer-popover-title');
+        const bodyEl = document.getElementById('con-timer-popover-actions');
+
+        const durStr = conFormatDurationSec(node.remainingSec != null ? node.remainingSec : (node.durationSec || 0));
+        if (titleEl && typeof i18n !== 'undefined') {
+          const tmpl = i18n.t('timerNodeActionTitle') || 'Timer: {duration}';
+          titleEl.textContent = tmpl.replace('{duration}', durStr);
+        }
+
+        if (bodyEl && typeof i18n !== 'undefined') {
+          bodyEl.innerHTML = '';
+          const state = node.timerState || 'idle';
+
+          if (state === 'idle' || state === 'ended') {
+            bodyEl.innerHTML = `
+              <button type="button" class="con-timer-action-btn" onclick="conHandleTimerAction('${node.id}', 'start-board')">
+                <img src="../assets/icons/board.svg" class="btn-icon" alt="" />
+                <span>${i18n.t('timerNodeStartBoard') || 'Start in Board'}</span>
+              </button>
+              <button type="button" class="con-timer-action-btn" onclick="conHandleTimerAction('${node.id}', 'start-cms')">
+                <img src="../assets/icons/class-management.svg" class="btn-icon" alt="" />
+                <span>${i18n.t('timerNodeStartCms') || 'Start in Class Management'}</span>
+              </button>
+              ${state === 'ended' ? `
+              <button type="button" class="con-timer-action-btn" onclick="conHandleTimerAction('${node.id}', 'reset')">
+                <img src="../assets/icons/refresh.svg" class="btn-icon" alt="" />
+                <span>${i18n.t('timerNodeReset') || 'Reset'}</span>
+              </button>` : ''}
+            `;
+          } else if (state === 'running') {
+            bodyEl.innerHTML = `
+              <button type="button" class="con-timer-action-btn" onclick="conHandleTimerAction('${node.id}', 'pause')">
+                <img src="../assets/icons/pause.svg" class="btn-icon" alt="" />
+                <span>${i18n.t('timerNodePause') || 'Pause'}</span>
+              </button>
+              <button type="button" class="con-timer-action-btn" onclick="conHandleTimerAction('${node.id}', 'reset')">
+                <img src="../assets/icons/refresh.svg" class="btn-icon" alt="" />
+                <span>${i18n.t('timerNodeReset') || 'Reset'}</span>
+              </button>
+              <button type="button" class="con-timer-action-btn" onclick="conHandleTimerAction('${node.id}', 'stop')">
+                <img src="../assets/icons/stop.svg" class="btn-icon" alt="" />
+                <span>${i18n.t('timerNodeStop') || 'Stop'}</span>
+              </button>
+            `;
+          } else if (state === 'paused') {
+            bodyEl.innerHTML = `
+              <button type="button" class="con-timer-action-btn" onclick="conHandleTimerAction('${node.id}', 'resume')">
+                <img src="../assets/icons/play.svg" class="btn-icon" alt="" />
+                <span>${i18n.t('timerNodeResume') || 'Resume'}</span>
+              </button>
+              <button type="button" class="con-timer-action-btn" onclick="conHandleTimerAction('${node.id}', 'reset')">
+                <img src="../assets/icons/refresh.svg" class="btn-icon" alt="" />
+                <span>${i18n.t('timerNodeReset') || 'Reset'}</span>
+              </button>
+              <button type="button" class="con-timer-action-btn" onclick="conHandleTimerAction('${node.id}', 'stop')">
+                <img src="../assets/icons/stop.svg" class="btn-icon" alt="" />
+                <span>${i18n.t('timerNodeStop') || 'Stop'}</span>
+              </button>
+            `;
+          }
+        }
+
+        popover.style.display = 'flex';
+        const popW = popover.offsetWidth || 210;
+        const popH = popover.offsetHeight || 130;
+        let px = rect.left + rect.width / 2 - popW / 2;
+        let py = rect.top - popH - 8;
+        if (py < 10) {
+          py = rect.bottom + 8;
+        }
+        px = Math.max(10, Math.min(window.innerWidth - popW - 10, px));
+        popover.style.left = px + 'px';
+        popover.style.top = py + 'px';
+
+        setTimeout(() => {
+          document.addEventListener('mousedown', _conOnTimerPopoverOutside, true);
+        }, 20);
+      }
+      window.conOpenTimerPopover = conOpenTimerPopover;
+
+      function _conOnTimerPopoverOutside(e) {
+        const popover = document.getElementById('con-timer-action-popover');
+        if (!popover || popover.style.display === 'none') {
+          document.removeEventListener('mousedown', _conOnTimerPopoverOutside, true);
+          return;
+        }
+        if (popover.contains(e.target) || (e.target && e.target.closest && e.target.closest('.con-node-timer'))) {
+          return;
+        }
+        conCloseTimerPopover();
+      }
+
+      function conCloseTimerPopover() {
+        const popover = document.getElementById('con-timer-action-popover');
+        if (popover) popover.style.display = 'none';
+        _conActiveTimerPopoverNodeId = null;
+        document.removeEventListener('mousedown', _conOnTimerPopoverOutside, true);
+      }
+      window.conCloseTimerPopover = conCloseTimerPopover;
+
+      window.conHandleTimerAction = function (nodeId, action) {
+        conCloseTimerPopover();
+        if (action === 'start-board') {
+          conStartNodeTimer(nodeId, 'board');
+        } else if (action === 'start-cms') {
+          conStartNodeTimer(nodeId, 'cms');
+        } else if (action === 'pause') {
+          conPauseNodeTimer(nodeId);
+        } else if (action === 'resume') {
+          conResumeNodeTimer(nodeId);
+        } else if (action === 'reset') {
+          conResetNodeTimer(nodeId);
+        } else if (action === 'stop') {
+          conStopNodeTimer(nodeId);
+        }
+      };
+
+      function conSyncCmsTimerDataToNodes(data) {
+        if (!data || typeof conNodes === 'undefined' || !Array.isArray(conNodes)) return;
+        if (!_conActiveCmsTimerNodeId) return;
+        const node = conNodes.find(n => n && n.id === _conActiveCmsTimerNodeId);
+        if (!node || !node.isTimer || node.timerTarget !== 'cms') return;
+
+        if (!data.timerActive) {
+          if (node.timerState === 'running') {
+            node.timerState = 'ended';
+            node.timerEndTime = null;
+            conRenderNodeLabel(node);
+          }
+          _conActiveCmsTimerNodeId = null;
+          window._conActiveCmsTimerNodeId = null;
+          node.timerTarget = null;
+          return;
+        }
+
+        const txt = String(data.timerDisplayText || '').trim();
+        const parts = txt.split(':').map(p => parseInt(p, 10));
+        let s = null;
+        if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+          s = parts[0] * 60 + parts[1];
+        } else if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+          s = parts[0] * 3600 + parts[1] * 60 + parts[2];
+        }
+        if (s !== null) {
+          if (node.remainingSec !== s || node.timerState !== 'running') {
+            node.remainingSec = s;
+            node.timerState = 'running';
+            conRenderNodeLabel(node);
+          }
+        }
+      }
+      window.conSyncCmsTimerDataToNodes = conSyncCmsTimerDataToNodes;
+
       // Returns the nearest (x, y) that does not overlap any existing board node.
       // Uses a phyllotaxis (golden-angle) spiral to probe outward from the proposed position.
       // estW / estH: estimated size of the node being placed (pre-render).
@@ -20520,13 +21322,32 @@
         return { x, y };
       }
 
-      window.conBoardCtxConfirm = function () {
+      window.conBoardCtxConfirm = async function () {
         const inp = document.getElementById('con-board-ctx-input');
         const raw = (inp && inp.value.trim()) || '';
         const pendingSrc = _pendingConnectSrcId;  // snapshot before close clears it
         const pendingType = _pendingConnectType || 'none'; // snapshot arrow type
         conBoardCtxClose();
         if (!raw) return;
+
+        // Check if raw text is a single timer shorthand (e.g. 15', 15'30", 45")
+        if (!raw.includes(',,') && !raw.includes('--') && !raw.includes('>') && !raw.includes('<') && !raw.includes('+')) {
+          const parsedTimer = conParseTimerSyntax(raw);
+          if (parsedTimer) {
+            const choice = await conPromptTimerConversion(parsedTimer);
+            if (!choice) return;
+            if (choice === 'timer') {
+              conPushUndo();
+              const _fp = conFindFreePosition(_boardCtxX, _boardCtxY, pendingSrc);
+              const timerId = conAddTimerNodeAt(parsedTimer.totalSec, _fp.x, _fp.y);
+              if (pendingSrc && timerId) {
+                conAddEdge(pendingSrc, timerId, pendingType);
+              }
+              return;
+            }
+          }
+        }
+
         conPushUndo();
         const entries = raw.split(',,').map(w => w.trim()).filter(w => w.length > 0);
         let lastId = null;
@@ -20739,6 +21560,13 @@
 
         dup.masked = !!src.masked;
         dup.el.classList.toggle('con-masked', !!src.masked);
+        if (src.isTimer) {
+          dup.isTimer = true;
+          dup.durationSec = src.durationSec;
+          dup.remainingSec = src.durationSec;
+          dup.timerState = 'idle';
+          dup.timerTarget = null;
+        }
         conSyncNodeLockState(dup);
 
         conRenderNodeLabel(dup);
@@ -21550,6 +22378,40 @@
       }
 
       function conRenderNodeLabel(node) {
+        if (node && node.isTimer) {
+          const displaySec = (typeof node.remainingSec === 'number') ? node.remainingSec : (node.durationSec || 0);
+          const timeStr = conFormatDurationSec(displaySec);
+          const isWarn = node.timerState === 'running' && displaySec > 0 && displaySec <= 60;
+          const isEnded = node.timerState === 'ended' || (node.timerState === 'running' && displaySec <= 0);
+          const isRunning = node.timerState === 'running';
+
+          node.el.classList.toggle('con-node-timer', true);
+          node.el.classList.toggle('con-timer-running', isRunning);
+          node.el.classList.toggle('con-timer-warning', isWarn);
+          node.el.classList.toggle('con-timer-ended', isEnded);
+
+          const iconHtml = `<img src="../assets/icons/clock.svg" class="btn-icon" alt="" style="width:14px;height:14px;margin-right:5px;vertical-align:-2px;pointer-events:none;display:inline-block;" />`;
+          const timerHtml = `<span class="con-node-word-row con-timer-node-row" style="display:inline-flex;align-items:center;font-weight:700;">${iconHtml}<span class="con-timer-digits">${timeStr}</span></span>`;
+
+          const _savedResizer = node.el.querySelector('.con-node-resizer');
+          const _savedEmojiDot = node.el.querySelector('.con-emoji-dot');
+          const _savedStarBtn = node.el.querySelector('.con-node-star-btn');
+          node.el.innerHTML = timerHtml;
+          if (_savedResizer) node.el.appendChild(_savedResizer);
+          if (_savedEmojiDot) node.el.appendChild(_savedEmojiDot);
+          if (_savedStarBtn) node.el.appendChild(_savedStarBtn);
+          node.el.style.display = 'inline-flex';
+          node.el.style.flexDirection = 'column';
+          node.el.style.alignItems = 'center';
+          node.el.style.justifyContent = 'center';
+          conApplyNodeShape(node, node.shape);
+          return;
+        }
+
+        if (node && node.el) {
+          node.el.classList.remove('con-node-timer', 'con-timer-running', 'con-timer-warning', 'con-timer-ended');
+        }
+
         // Get the base word (always the raw word text, never the annotated version)
         const baseWord = node.baseWord || node.el.dataset.baseWord || node.el.textContent.trim();
         node.baseWord = baseWord;
@@ -24197,6 +25059,7 @@
         conInitBorderSwatches();
         conInitPresetButtons();
         conSetDefaultWordFontSize(conDefaultNewWordFontSize);
+        if (typeof conRenderHeaderCompetenceBar === 'function') conRenderHeaderCompetenceBar();
         if (typeof _ensureMirrorControlMenu === 'function') _ensureMirrorControlMenu();
         // Reflect initial snap state on button
         const snapBtn = document.getElementById('con-snap-toggle-btn');
@@ -30896,6 +31759,12 @@
           pageNum: n.pageNum != null ? n.pageNum : null,
           phraseOrder: n.phraseOrder != null ? n.phraseOrder : null,
           emoji: n.emoji || null,
+          isTimer: !!n.isTimer,
+          durationSec: n.durationSec || null,
+          remainingSec: n.remainingSec != null ? n.remainingSec : null,
+          timerState: n.timerState || 'idle',
+          timerTarget: n.timerTarget === 'board' ? 'board' : null,
+          competences: (Array.isArray(n.competences) && n.competences.length) ? n.competences.slice() : undefined,
           shape: (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(n.shape || (n.el && n.el.dataset.shape)) : conNormalizeNodeShapeSafe(n.shape || (n.el && n.el.dataset.shape)))
         })),
         edges: edges.map(e => ({
@@ -31110,6 +31979,7 @@
       const createdAt = Number(meta.createdAt)
         || (dateCreated ? Date.parse(String(dateCreated).replace(/_\d+$/, '')) : 0)
         || undefined;
+      const competences = Array.isArray(_conCurrentCompetences) ? _conCurrentCompetences.slice() : [];
 
       if (allPages.length > 1) {
         // Multi-page format
@@ -31119,6 +31989,7 @@
           dateCreated,
           _createdAt: createdAt,
           title,
+          competences,
           attachments,
           currentPage: conCurrentPageIndex,
           pages: allPages
@@ -31132,6 +32003,7 @@
         dateCreated,
         _createdAt: createdAt,
         title,
+        competences,
         attachments,
         ...currentSnap
       };
@@ -31365,7 +32237,9 @@
           const name = boardEscapeHtml(entry.baseName || boardStripJsonExt(entry.filename));
           const entryClass = entry.classLabel || entry.classGroup || '';
           const classTag = entryClass ? ' [' + entryClass + ']' : '';
-          const meta = boardEscapeHtml(boardSourceLabel(entry.source) + ' - ' + boardFormatWhen(entry.modifiedAt) + classTag);
+          const compList = Array.isArray(entry.competences) ? entry.competences : ((entry.data && Array.isArray(entry.data.competences)) ? entry.data.competences : []);
+          const compBadges = compList.map(c => `<span class="session-load-comp-badge" title="${boardEscapeHtml(c.title || c.code || '')}">${boardEscapeHtml(c.code || c.title || '')}</span>`).join(' ');
+          const meta = boardEscapeHtml(boardSourceLabel(entry.source) + ' - ' + boardFormatWhen(entry.modifiedAt) + classTag) + (compBadges ? ' ' + compBadges : '');
           item.innerHTML = '<div class="session-load-item-title">' + name + '</div>'
             + '<div class="session-load-item-meta">' + meta + '</div>';
 
@@ -31496,7 +32370,9 @@
         const name = boardEscapeHtml(entry.name || boardDefaultSessionName(sessionLoadMode));
         const entryClass = entry.classGroup ? getClassGroupLabel(entry.classGroup) : '';
         const classTag = entryClass ? ' [' + entryClass + ']' : '';
-        const meta = boardEscapeHtml(boardSourceLabel(entry.source) + ' - ' + boardFormatWhen(entry.savedAt) + classTag);
+        const compList = Array.isArray(entry.competences) ? entry.competences : ((entry.data && Array.isArray(entry.data.competences)) ? entry.data.competences : []);
+        const compBadges = compList.map(c => `<span class="session-load-comp-badge" title="${boardEscapeHtml(c.title || c.code || '')}">${boardEscapeHtml(c.code || c.title || '')}</span>`).join(' ');
+        const meta = boardEscapeHtml(boardSourceLabel(entry.source) + ' - ' + boardFormatWhen(entry.savedAt) + classTag) + (compBadges ? ' ' + compBadges : '');
         item.innerHTML = '<div class="session-load-item-title">' + name + '</div>'
           + '<div class="session-load-item-meta">' + meta + '</div>';
 
@@ -34682,6 +35558,549 @@
       return maxBottom;
     }
 
+    // ── COMPETENCE TAGGING SYSTEM ────────────────────────────────────
+    let _conCurrentCompetences = [];
+    let _conAvailableCompetences = [];
+    let _conLoadingCompetences = false;
+    let _conCompModalTarget = { type: 'board', id: null };
+    let _conCompSelectedIds = new Set();
+    let _conCompSelectedObjects = new Map();
+    let _conCompFilterSelectedOnly = false;
+    let _conPlannerSuggestedCompetences = [];
+
+    function conRenderHeaderCompetenceBar() {
+      const bar = document.getElementById('con-header-competence-bar');
+      if (!bar) return;
+      bar.innerHTML = '';
+
+      if (!_conCurrentCompetences || !_conCurrentCompetences.length) {
+        const addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.className = 'con-comp-pill con-comp-pill-empty';
+        addBtn.title = (typeof t === 'function' ? t('compTagsNone') : 'No competence tags attached') + ' — Click to add';
+        addBtn.innerHTML = `<img src="../assets/icons/award.svg" alt="" /> <span>+ ${(typeof t === 'function' ? t('btnCompetenceTags') : 'Competences')}</span>`;
+        addBtn.onclick = (e) => { e.preventDefault(); conOpenCompetenceModal('board'); };
+        bar.appendChild(addBtn);
+        return;
+      }
+
+      _conCurrentCompetences.forEach(c => {
+        if (!c) return;
+        const pill = document.createElement('button');
+        pill.type = 'button';
+        pill.className = 'con-comp-pill';
+        const code = String(c.code || c.title || c.id || '');
+        const title = String(c.title || code);
+        const desc = c.description ? '\n' + c.description : '';
+        pill.title = `${code}: ${title}${desc}`;
+        pill.innerHTML = `<img src="../assets/icons/award.svg" alt="" /> <span>${boardEscapeHtml(code)}</span>`;
+        pill.onclick = (e) => { e.preventDefault(); conOpenCompetenceModal('board'); };
+        bar.appendChild(pill);
+      });
+
+      const plusBtn = document.createElement('button');
+      plusBtn.type = 'button';
+      plusBtn.className = 'con-comp-pill con-comp-pill-add';
+      plusBtn.title = typeof t === 'function' ? t('btnCompetenceTags') : 'Manage competences';
+      plusBtn.textContent = '+';
+      plusBtn.onclick = (e) => { e.preventDefault(); conOpenCompetenceModal('board'); };
+      bar.appendChild(plusBtn);
+    }
+
+    function conUpdateNodeCompetenceBadge(nodeObj) {
+      if (!nodeObj || !nodeObj.el) return;
+      let badge = nodeObj.el.querySelector('.con-node-comp-badge');
+      const compList = Array.isArray(nodeObj.competences) ? nodeObj.competences : (Array.isArray(nodeObj.competenceTags) ? nodeObj.competenceTags : []);
+      if (compList.length > 0) {
+        if (!badge) {
+          badge = document.createElement('span');
+          badge.className = 'con-node-comp-badge';
+          badge.onclick = (e) => {
+            e.stopPropagation();
+            conOpenCompetenceModal('node', nodeObj.id);
+          };
+          nodeObj.el.appendChild(badge);
+        }
+        const codes = compList.map(c => c.code || c.title || c.id).filter(Boolean);
+        badge.title = (typeof t === 'function' ? t('compNodeBadgeTitle', { codes: codes.join(', ') }) : ('Competences: ' + codes.join(', ')));
+        badge.innerHTML = `<img src="../assets/icons/award.svg" alt="" /> ${compList.length === 1 ? (boardEscapeHtml(codes[0]) || '1') : compList.length}`;
+      } else if (badge) {
+        badge.remove();
+      }
+    }
+
+    function conParseCompetenceRecords(content) {
+      if (!content || typeof content !== 'string') return [];
+      const trimmed = content.trim();
+      if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+        try {
+          const obj = JSON.parse(trimmed);
+          if (Array.isArray(obj)) return obj;
+          if (Array.isArray(obj.competences)) return obj.competences;
+          if (Array.isArray(obj.customCompetenceBank)) return obj.customCompetenceBank;
+          if (Array.isArray(obj.descriptors)) return obj.descriptors;
+          if (Array.isArray(obj.records)) return obj.records;
+        } catch (_) {}
+      }
+      try {
+        const fn = new Function(content + '\n;try{if(typeof customCompetenceBank!=="undefined")return customCompetenceBank;if(typeof window!=="undefined"&&window.customCompetenceBank)return window.customCompetenceBank;if(typeof customDescriptorBank!=="undefined")return customDescriptorBank;if(typeof window!=="undefined"&&window.customDescriptorBank)return window.customDescriptorBank;}catch(e){}return [];');
+        const res = fn();
+        if (Array.isArray(res) && res.length > 0) return res;
+      } catch (_) {}
+      return [];
+    }
+
+    async function conLoadAvailableCompetences(forceReload = false) {
+      if (_conAvailableCompetences.length && !_conLoadingCompetences && !forceReload) {
+        return _conAvailableCompetences;
+      }
+      _conLoadingCompetences = true;
+      const compMap = new Map();
+
+      function addOrUpdateComp(item) {
+        if (!item || typeof item !== 'object') return;
+        const id = String(item.id || item.code || item.title || '').trim();
+        if (!id) return;
+        const code = String(item.code || '').trim();
+        const title = String(item.title || item.name || '').trim();
+        const category = String(item.category || item.domain || item.competence || item.subject || item.strand || '').trim();
+        const level = String(item.level || '').trim();
+        const yearLevel = String(item.yearLevel || item.year || item.grade || '').trim();
+        const description = String(item.description || item.statement || '').trim();
+        const tags = Array.isArray(item.tags) ? item.tags : (item.tags ? String(item.tags).split(',').map(s => s.trim()).filter(Boolean) : []);
+
+        if (!compMap.has(id)) {
+          compMap.set(id, {
+            id,
+            code: code || id,
+            title: title || code || id,
+            category,
+            level,
+            yearLevel,
+            description,
+            tags
+          });
+        } else {
+          const existing = compMap.get(id);
+          if (!existing.code && code) existing.code = code;
+          if (!existing.title && title) existing.title = title;
+          if (!existing.category && category) existing.category = category;
+          if (!existing.level && level) existing.level = level;
+          if (!existing.yearLevel && yearLevel) existing.yearLevel = yearLevel;
+          if (!existing.description && description) existing.description = description;
+        }
+      }
+
+      if (window.Desktop && typeof Desktop.listFiles === 'function') {
+        try {
+          const res = await Desktop.listFiles('customCompetences', { extensions: ['.js', '.json'] });
+          const flist = Array.isArray(res) ? res : ((res && Array.isArray(res.files)) ? res.files : []);
+          for (const item of flist) {
+            const fn = typeof item === 'string' ? item : (item && item.filename);
+            if (!fn) continue;
+            const readRes = await Desktop.readText('customCompetences', fn);
+            if (readRes && readRes.ok && readRes.content) {
+              conParseCompetenceRecords(readRes.content).forEach(addOrUpdateComp);
+            }
+          }
+        } catch (_) {}
+
+        try {
+          const res = await Desktop.listFiles('customDescriptors', { extensions: ['.js', '.json'] });
+          const flist = Array.isArray(res) ? res : ((res && Array.isArray(res.files)) ? res.files : []);
+          for (const item of flist) {
+            const fn = typeof item === 'string' ? item : (item && item.filename);
+            if (!fn) continue;
+            const readRes = await Desktop.readText('customDescriptors', fn);
+            if (readRes && readRes.ok && readRes.content) {
+              conParseCompetenceRecords(readRes.content).forEach(addOrUpdateComp);
+            }
+          }
+        } catch (_) {}
+
+        try {
+          let r = await Desktop.readText('user', 'lesson-competences.json');
+          if (!r || !r.ok) r = await Desktop.readText('user', 'lesson-descriptors.json');
+          if (r && r.ok && r.content) {
+            conParseCompetenceRecords(r.content).forEach(addOrUpdateComp);
+          }
+        } catch (_) {}
+      }
+
+      try {
+        const stored = localStorage.getItem('cmt-lesson-competences') || localStorage.getItem('cmt-lesson-descriptors');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) parsed.forEach(addOrUpdateComp);
+        }
+      } catch (_) {}
+
+      _conAvailableCompetences = Array.from(compMap.values());
+      _conLoadingCompetences = false;
+      return _conAvailableCompetences;
+    }
+
+    function conGetPlannerSuggestedCompetences() {
+      if (!activePlannerEntryId || !window.PLANNER_ENTRIES_BY_CLASS) return [];
+      let foundEntry = null;
+      const byClass = window.PLANNER_ENTRIES_BY_CLASS;
+      for (const cid of Object.keys(byClass)) {
+        const list = Array.isArray(byClass[cid]) ? byClass[cid] : [];
+        const hit = list.find(e => e && e.id === activePlannerEntryId);
+        if (hit) { foundEntry = hit; break; }
+      }
+      if (!foundEntry) return [];
+      if (Array.isArray(foundEntry.competences) && foundEntry.competences.length > 0) {
+        return foundEntry.competences;
+      }
+      if (Array.isArray(foundEntry.competenceIds) && foundEntry.competenceIds.length > 0) {
+        return foundEntry.competenceIds;
+      }
+      return [];
+    }
+
+    async function conOpenCompetenceModal(targetType = 'board', targetId = null) {
+      _conCompModalTarget = { type: targetType, id: targetId };
+      _conCompSelectedIds = new Set();
+      _conCompSelectedObjects = new Map();
+      _conCompFilterSelectedOnly = false;
+
+      const overlay = document.getElementById('con-competence-overlay');
+      const badgeEl = document.getElementById('con-comp-modal-target-badge');
+      const searchInput = document.getElementById('con-comp-search-input');
+      const selectedFilterBtn = document.getElementById('con-comp-filter-selected-btn');
+      const suggestionBanner = document.getElementById('con-comp-planner-suggestion');
+      const suggestionText = document.getElementById('con-comp-planner-suggestion-text');
+
+      if (selectedFilterBtn) selectedFilterBtn.classList.remove('active');
+      if (searchInput) searchInput.value = '';
+
+      let initialList = [];
+      if (targetType === 'node') {
+        const nodes = (typeof conGetNodes === 'function' ? conGetNodes() : window.conNodes) || [];
+        const node = nodes.find(n => n.id === targetId);
+        const nodeLabel = (node && (node.baseWord || (node.el && node.el.textContent.trim()))) || targetId || '';
+        if (badgeEl) badgeEl.textContent = (typeof t === 'function' ? t('targetConstellationNode') : 'Selected Node') + (nodeLabel ? `: "${nodeLabel}"` : '');
+        initialList = (node && Array.isArray(node.competences)) ? node.competences : ((node && Array.isArray(node.competenceTags)) ? node.competenceTags : []);
+      } else {
+        const currentTitle = (typeof window.conGetTitle === 'function' ? window.conGetTitle() : '') || _conCurrentFileName || 'Board File';
+        if (badgeEl) badgeEl.textContent = (typeof t === 'function' ? t('targetBoardFile') : 'Board File') + `: ${currentTitle}`;
+        initialList = Array.isArray(_conCurrentCompetences) ? _conCurrentCompetences : [];
+      }
+
+      initialList.forEach(item => {
+        if (!item) return;
+        const id = String(item.id || item.code || item.title || '').trim();
+        if (id) {
+          _conCompSelectedIds.add(id);
+          _conCompSelectedObjects.set(id, item);
+        }
+      });
+
+      // Check planner suggestions
+      _conPlannerSuggestedCompetences = conGetPlannerSuggestedCompetences();
+      if (suggestionBanner && suggestionText) {
+        if (_conPlannerSuggestedCompetences.length > 0) {
+          const suggestedCodes = _conPlannerSuggestedCompetences.map(c => typeof c === 'string' ? c : (c.code || c.title || c.id)).filter(Boolean);
+          suggestionText.textContent = (typeof t === 'function' ? t('suggestFromPlanner') : 'Suggest from linked Planner lesson') + ` (${suggestedCodes.join(', ')})`;
+          suggestionBanner.style.display = 'flex';
+        } else {
+          suggestionBanner.style.display = 'none';
+        }
+      }
+
+      overlay.style.display = 'flex';
+
+      const listEl = document.getElementById('con-comp-picker-list');
+      if (listEl) listEl.innerHTML = '<div style="text-align:center;color:#888;padding:20px;font-size:0.85rem;">Loading competences…</div>';
+
+      const comps = await conLoadAvailableCompetences();
+
+      // Populate filters
+      const domainSelect = document.getElementById('con-comp-filter-domain');
+      const levelSelect = document.getElementById('con-comp-filter-level');
+      const yearSelect = document.getElementById('con-comp-filter-year');
+
+      const domains = new Set();
+      const levels = new Set();
+      const years = new Set();
+
+      comps.forEach(c => {
+        if (c.category) domains.add(c.category);
+        if (c.level) levels.add(c.level);
+        if (c.yearLevel) years.add(c.yearLevel);
+      });
+
+      if (domainSelect) {
+        const prev = domainSelect.value || 'all';
+        domainSelect.innerHTML = `<option value="all">${typeof t === 'function' ? t('compAllDomains') : 'All Domains'}</option>`;
+        Array.from(domains).sort().forEach(d => {
+          const opt = document.createElement('option');
+          opt.value = d;
+          opt.textContent = d;
+          domainSelect.appendChild(opt);
+        });
+        domainSelect.value = domains.has(prev) ? prev : 'all';
+      }
+
+      if (levelSelect) {
+        const prev = levelSelect.value || 'all';
+        levelSelect.innerHTML = `<option value="all">${typeof t === 'function' ? t('compAllLevels') : 'All Levels'}</option>`;
+        Array.from(levels).sort().forEach(l => {
+          const opt = document.createElement('option');
+          opt.value = l;
+          opt.textContent = l;
+          levelSelect.appendChild(opt);
+        });
+        levelSelect.value = levels.has(prev) ? prev : 'all';
+      }
+
+      if (yearSelect) {
+        const prev = yearSelect.value || 'all';
+        yearSelect.innerHTML = `<option value="all">${typeof t === 'function' ? t('compAllYears') : 'All Years'}</option>`;
+        Array.from(years).sort().forEach(y => {
+          const opt = document.createElement('option');
+          opt.value = y;
+          opt.textContent = y;
+          yearSelect.appendChild(opt);
+        });
+        yearSelect.value = years.has(prev) ? prev : 'all';
+      }
+
+      conFilterCompetencePicker();
+    }
+
+    function conCloseCompetenceModal() {
+      const overlay = document.getElementById('con-competence-overlay');
+      if (overlay) overlay.style.display = 'none';
+      _conCompModalTarget = { type: 'board', id: null };
+    }
+
+    function conToggleCompFilterSelected(btn) {
+      _conCompFilterSelectedOnly = !_conCompFilterSelectedOnly;
+      if (btn) btn.classList.toggle('active', _conCompFilterSelectedOnly);
+      conFilterCompetencePicker();
+    }
+
+    function conFilterCompetencePicker() {
+      const searchVal = (document.getElementById('con-comp-search-input')?.value || '').trim().toLowerCase();
+      const domainVal = document.getElementById('con-comp-filter-domain')?.value || 'all';
+      const levelVal = document.getElementById('con-comp-filter-level')?.value || 'all';
+      const yearVal = document.getElementById('con-comp-filter-year')?.value || 'all';
+      const listEl = document.getElementById('con-comp-picker-list');
+      const countEl = document.getElementById('con-comp-picker-count');
+
+      if (!listEl) return;
+
+      const filtered = _conAvailableCompetences.filter(c => {
+        const id = String(c.id || c.code || c.title || '');
+        if (_conCompFilterSelectedOnly && !_conCompSelectedIds.has(id)) return false;
+        if (domainVal !== 'all' && c.category !== domainVal) return false;
+        if (levelVal !== 'all' && c.level !== levelVal) return false;
+        if (yearVal !== 'all' && c.yearLevel !== yearVal) return false;
+        if (searchVal) {
+          const matchCode = (c.code || '').toLowerCase().includes(searchVal);
+          const matchTitle = (c.title || '').toLowerCase().includes(searchVal);
+          const matchCat = (c.category || '').toLowerCase().includes(searchVal);
+          const matchDesc = (c.description || '').toLowerCase().includes(searchVal);
+          if (!matchCode && !matchTitle && !matchCat && !matchDesc) return false;
+        }
+        return true;
+      });
+
+      listEl.innerHTML = '';
+      if (!filtered.length) {
+        listEl.innerHTML = '<div style="text-align:center;color:#888;padding:24px;font-size:0.85rem;">No competences found matching filters.</div>';
+      } else {
+        filtered.forEach(c => {
+          const id = String(c.id || c.code || c.title || '');
+          const isSelected = _conCompSelectedIds.has(id);
+
+          const row = document.createElement('div');
+          row.className = 'con-comp-picker-item' + (isSelected ? ' selected' : '');
+          row.dataset.compId = id;
+
+          const chk = document.createElement('input');
+          chk.type = 'checkbox';
+          chk.checked = isSelected;
+          chk.style.cursor = 'pointer';
+          chk.style.marginTop = '3px';
+          chk.onclick = (e) => {
+            e.stopPropagation();
+            conToggleCompSelection(c, chk.checked);
+          };
+
+          const body = document.createElement('div');
+          body.style.display = 'flex';
+          body.style.flexDirection = 'column';
+          body.style.gap = '3px';
+          body.style.flex = '1';
+          body.style.minWidth = '0';
+
+          const topRow = document.createElement('div');
+          topRow.style.display = 'flex';
+          topRow.style.alignItems = 'center';
+          topRow.style.gap = '6px';
+          topRow.style.flexWrap = 'wrap';
+
+          const codeBadge = document.createElement('span');
+          codeBadge.className = 'con-comp-badge-code';
+          codeBadge.textContent = c.code || c.title;
+          topRow.appendChild(codeBadge);
+
+          const titleSpan = document.createElement('span');
+          titleSpan.style.fontWeight = '700';
+          titleSpan.style.fontSize = '0.85rem';
+          titleSpan.style.color = '#111';
+          titleSpan.textContent = c.title;
+          topRow.appendChild(titleSpan);
+
+          if (c.category) {
+            const catChip = document.createElement('span');
+            catChip.className = 'con-comp-tag-chip';
+            catChip.textContent = c.category;
+            topRow.appendChild(catChip);
+          }
+          if (c.level) {
+            const lvlChip = document.createElement('span');
+            lvlChip.className = 'con-comp-tag-chip';
+            lvlChip.style.background = '#fef3c7';
+            lvlChip.style.color = '#92400e';
+            lvlChip.style.borderColor = '#fde68a';
+            lvlChip.textContent = c.level;
+            topRow.appendChild(lvlChip);
+          }
+          if (c.yearLevel) {
+            const yrChip = document.createElement('span');
+            yrChip.className = 'con-comp-tag-chip';
+            yrChip.textContent = 'Yr ' + c.yearLevel;
+            topRow.appendChild(yrChip);
+          }
+
+          body.appendChild(topRow);
+
+          if (c.description) {
+            const desc = document.createElement('div');
+            desc.style.fontSize = '0.75rem';
+            desc.style.color = '#64748b';
+            desc.style.lineHeight = '1.3';
+            desc.textContent = c.description;
+            body.appendChild(desc);
+          }
+
+          row.appendChild(chk);
+          row.appendChild(body);
+
+          row.onclick = () => {
+            const nextState = !_conCompSelectedIds.has(id);
+            chk.checked = nextState;
+            conToggleCompSelection(c, nextState);
+          };
+
+          listEl.appendChild(row);
+        });
+      }
+
+      if (countEl) {
+        const count = _conCompSelectedIds.size;
+        countEl.textContent = typeof t === 'function' ? t('compCountSelected', { count }) : `${count} selected`;
+      }
+    }
+
+    function conToggleCompSelection(comp, forceState) {
+      if (!comp) return;
+      const id = String(comp.id || comp.code || comp.title || '').trim();
+      if (!id) return;
+      const shouldSelect = typeof forceState === 'boolean' ? forceState : !_conCompSelectedIds.has(id);
+      if (shouldSelect) {
+        _conCompSelectedIds.add(id);
+        _conCompSelectedObjects.set(id, comp);
+      } else {
+        _conCompSelectedIds.delete(id);
+        _conCompSelectedObjects.delete(id);
+      }
+
+      const row = document.querySelector(`.con-comp-picker-item[data-comp-id="${id}"]`);
+      if (row) {
+        row.classList.toggle('selected', shouldSelect);
+        const chk = row.querySelector('input[type="checkbox"]');
+        if (chk) chk.checked = shouldSelect;
+      }
+
+      const countEl = document.getElementById('con-comp-picker-count');
+      if (countEl) {
+        const count = _conCompSelectedIds.size;
+        countEl.textContent = typeof t === 'function' ? t('compCountSelected', { count }) : `${count} selected`;
+      }
+    }
+
+    function conSelectAllVisibleCompetences(select) {
+      const rows = document.querySelectorAll('.con-comp-picker-item');
+      rows.forEach(r => {
+        const id = r.dataset.compId;
+        const comp = _conAvailableCompetences.find(c => String(c.id || c.code || c.title || '') === id);
+        if (comp) conToggleCompSelection(comp, select);
+      });
+    }
+
+    function conApplyPlannerSuggestedCompetences() {
+      if (!_conPlannerSuggestedCompetences || !_conPlannerSuggestedCompetences.length) return;
+      _conPlannerSuggestedCompetences.forEach(sug => {
+        const sugCode = typeof sug === 'string' ? sug : (sug.code || sug.title || sug.id);
+        const hit = _conAvailableCompetences.find(c =>
+          String(c.id || '').toLowerCase() === String(sugCode).toLowerCase() ||
+          String(c.code || '').toLowerCase() === String(sugCode).toLowerCase() ||
+          String(c.title || '').toLowerCase() === String(sugCode).toLowerCase()
+        );
+        if (hit) {
+          conToggleCompSelection(hit, true);
+        } else if (typeof sug === 'object' && sug) {
+          const id = String(sug.id || sug.code || sug.title || '');
+          if (id) {
+            _conCompSelectedIds.add(id);
+            _conCompSelectedObjects.set(id, sug);
+          }
+        }
+      });
+      conFilterCompetencePicker();
+    }
+
+    function conApplySelectedCompetences() {
+      const selectedList = Array.from(_conCompSelectedObjects.values());
+      const targetType = _conCompModalTarget.type;
+      const targetId = _conCompModalTarget.id;
+
+      if (targetType === 'node') {
+        const nodes = (typeof conGetNodes === 'function' ? conGetNodes() : window.conNodes) || [];
+        const node = nodes.find(n => n.id === targetId);
+        if (node) {
+          node.competences = selectedList;
+          conUpdateNodeCompetenceBadge(node);
+          if (typeof window.boardSetDirty === 'function') boardSetDirty(true);
+          else if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+          mdbToast(typeof t === 'function' ? t('compNodeBadgeTitle', { codes: selectedList.map(c => c.code || c.title).join(', ') }) : 'Competence tags applied to node.');
+        }
+      } else {
+        _conCurrentCompetences = selectedList;
+        conRenderHeaderCompetenceBar();
+        if (typeof window.boardSetDirty === 'function') boardSetDirty(true);
+        else if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        mdbToast(typeof t === 'function' ? t('compAttachedToBoard', { codes: selectedList.map(c => c.code || c.title).join(', ') }) : 'Competence tags attached to board file.');
+      }
+
+      conCloseCompetenceModal();
+    }
+
+    function conCtxOpenCompetenceModal() {
+      const nodeId = (typeof conGetCtxNodeId === 'function' ? conGetCtxNodeId() : null) || (window.conSelected ? window.conSelected : null);
+      if (typeof conCtxClose === 'function') conCtxClose();
+      if (nodeId) {
+        conOpenCompetenceModal('node', nodeId);
+      } else {
+        conOpenCompetenceModal('board');
+      }
+    }
+
     function _conRestoreSession(data) {
       _conIsRestoringSession = true;
       try {
@@ -34700,6 +36119,11 @@
           if (window._conAttachmentBufferCache) window._conAttachmentBufferCache.clear();
         }
         if (!isPageRestore) {
+          _conCurrentCompetences = Array.isArray(data.competences)
+            ? data.competences.slice()
+            : (Array.isArray(data.competenceTags) ? data.competenceTags.slice() : []);
+          if (typeof conRenderHeaderCompetenceBar === 'function') conRenderHeaderCompetenceBar();
+
           const mediaMap = (data && (data._mediaMap || data.mediaMap || data.media)) || null;
           conSetAttachmentsFromSession((data && data.attachments) || [], mediaMap);
           _conPageSnapshotPngs = [];
@@ -34842,6 +36266,14 @@
             existing.pageNum = n.pageNum != null ? n.pageNum : null;
             existing.phraseOrder = n.phraseOrder != null ? n.phraseOrder : null;
             existing.emoji = n.emoji || null;
+            existing.isTimer = !!n.isTimer;
+            existing.durationSec = n.durationSec || null;
+            existing.remainingSec = n.remainingSec != null ? n.remainingSec : null;
+            existing.timerState = n.timerState || 'idle';
+            existing.timerTarget = n.timerTarget === 'board' ? 'board' : null;
+            if (existing.isTimer && existing.timerState === 'running') {
+              existing.timerEndTime = Date.now() + (existing.remainingSec || existing.durationSec || 60) * 1000;
+            }
             existing.shape = (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(n.shape || 'rectangle') : conNormalizeNodeShapeSafe(n.shape || 'rectangle'));
             existing.borderWidth = n.borderWidth || null;
             existing.borderStyle = n.borderStyle || null;
@@ -34851,6 +36283,8 @@
             existing.fontSize = n.fontSize || '16px';
             existing.textStrokeColor = n.textStrokeColor || null;
             existing.textStrokeWidth = n.textStrokeWidth || null;
+            existing.competences = Array.isArray(n.competences) ? n.competences.slice() : (Array.isArray(n.competenceTags) ? n.competenceTags.slice() : []);
+            if (typeof conUpdateNodeCompetenceBadge === 'function') conUpdateNodeCompetenceBadge(existing);
 
             window.conRenderNodeLabel(existing);
             if (window.conSetNodeBaseFontSize) window.conSetNodeBaseFontSize(existing, n.fontSize || '16px');
@@ -34892,6 +36326,11 @@
               pageNum: n.pageNum != null ? n.pageNum : null,
               phraseOrder: n.phraseOrder != null ? n.phraseOrder : null,
               emoji: n.emoji || null,
+              isTimer: !!n.isTimer,
+              durationSec: n.durationSec || null,
+              remainingSec: n.remainingSec != null ? n.remainingSec : null,
+              timerState: n.timerState || 'idle',
+              timerTarget: n.timerTarget === 'board' ? 'board' : null,
               shape: (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(n.shape || 'rectangle') : conNormalizeNodeShapeSafe(n.shape || 'rectangle')),
               borderWidth: n.borderWidth || null,
               borderStyle: n.borderStyle || null,
@@ -34900,8 +36339,12 @@
               fontFamily: n.fontFamily || null,
               fontSize: n.fontSize || '16px',
               textStrokeColor: n.textStrokeColor || null,
-              textStrokeWidth: n.textStrokeWidth || null
+              textStrokeWidth: n.textStrokeWidth || null,
+              competences: Array.isArray(n.competences) ? n.competences.slice() : (Array.isArray(n.competenceTags) ? n.competenceTags.slice() : [])
             };
+            if (nodeObj.isTimer && nodeObj.timerState === 'running') {
+              nodeObj.timerEndTime = Date.now() + (nodeObj.remainingSec || nodeObj.durationSec || 60) * 1000;
+            }
             nextNodes.push(nodeObj);
             window.conAttachNode(n.id, el);
             window.conRenderNodeLabel(nodeObj);
@@ -34915,6 +36358,7 @@
               el.classList.add('con-masked');
             }
             if (window.conSyncNodeLockState) window.conSyncNodeLockState(nodeObj);
+            if (typeof conUpdateNodeCompetenceBadge === 'function') conUpdateNodeCompetenceBadge(nodeObj);
           }
         });
 
@@ -35203,6 +36647,11 @@
           pageNum: n.pageNum != null ? n.pageNum : null,
           phraseOrder: n.phraseOrder != null ? n.phraseOrder : null,
           emoji: n.emoji || null,
+          isTimer: !!n.isTimer,
+          durationSec: n.durationSec || null,
+          remainingSec: n.remainingSec != null ? n.remainingSec : null,
+          timerState: n.timerState || 'idle',
+          timerTarget: n.timerTarget === 'board' ? 'board' : null,
           shape: (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(n.shape || 'rectangle') : conNormalizeNodeShapeSafe(n.shape || 'rectangle')),
           borderWidth: n.borderWidth || null,
           borderStyle: n.borderStyle || null,
@@ -35213,6 +36662,9 @@
           textStrokeColor: n.textStrokeColor || null,
           textStrokeWidth: n.textStrokeWidth || null
         };
+        if (nodeObj.isTimer && nodeObj.timerState === 'running') {
+          nodeObj.timerEndTime = Date.now() + (nodeObj.remainingSec || nodeObj.durationSec || 60) * 1000;
+        }
         conGetNodes().push(nodeObj);
         window.conAttachNode(n.id, el);
         // Rebuild innerHTML with formatting + annotations + page badge
@@ -36225,6 +37677,7 @@
       const cached = boardHistoryMetaCache[relativePath];
       let classGroup = (file && file.classGroup) || (cached && cached.classGroup) || historyInferClassGroup(baseName);
       let plannerEntryId = (file && file.plannerEntryId) || (cached && cached.plannerEntryId) || '';
+      let competences = (file && file.competences) || (cached && cached.competences) || (file && file.data && file.data.competences) || [];
       if (!classGroup && plannerEntryId && window.PLANNER_ENTRIES_BY_CLASS) {
         const byClass = window.PLANNER_ENTRIES_BY_CLASS || {};
         for (const cid of Object.keys(byClass)) {
@@ -36249,6 +37702,7 @@
         baseName,
         classGroup,
         plannerEntryId,
+        competences: Array.isArray(competences) ? competences : [],
         classLabel: getClassGroupLabel(classGroup),
         dateKey: historyExtractDateKey(baseName, createdAt || modifiedAt),
         createdAt,
@@ -36310,6 +37764,7 @@
         baseName,
         classGroup,
         plannerEntryId,
+        competences: (sessionData && (sessionData.competences || sessionData.competenceTags)) || (Array.isArray(_conCurrentCompetences) ? _conCurrentCompetences.slice() : []),
         classLabel: getClassGroupLabel(classGroup),
         dateKey: historyExtractDateKey(baseName, createdAt),
         createdAt,
@@ -36328,10 +37783,11 @@
         historyEntries.unshift(entryData);
       }
 
-      if (rel && (classGroup || plannerEntryId)) {
+      if (rel && (classGroup || plannerEntryId || (entryData.competences && entryData.competences.length))) {
         boardHistoryMetaCache[rel] = {
           classGroup: classGroup || '',
           plannerEntryId: plannerEntryId || '',
+          competences: Array.isArray(entryData.competences) ? entryData.competences : [],
           createdAt: entryData.createdAt || 0,
           modifiedAt: now
         };
@@ -40091,6 +41547,8 @@
       { id: 'file_duplicate', name: 'Duplicate File', desc: 'Duplicate the current board file', category: 'history', categoryName: 'History & File', icon: '../assets/icons/duplicate.svg', defaultShortcut: null, fn: () => { if (typeof conDuplicateCurrentFile === 'function') conDuplicateCurrentFile(); } },
       { id: 'file_templates', name: 'Templates', desc: 'Save or load reusable board templates', category: 'history', categoryName: 'History & File', icon: '../assets/icons/layout.svg', defaultShortcut: null, fn: () => { if (typeof conOpenTemplatePopup === 'function') conOpenTemplatePopup(); } },
       { id: 'file_media', name: 'Media Attachments', desc: 'Manage media attachments', category: 'history', categoryName: 'History & File', icon: '../assets/icons/media.svg', defaultShortcut: null, fn: () => { const btn = document.getElementById('con-manage-media-btn'); if (typeof window.conOpenManageMediaChooser === 'function') window.conOpenManageMediaChooser(btn); else if (typeof conOpenManageMediaChooser === 'function') conOpenManageMediaChooser(btn); } },
+      { id: 'file_competences', name: 'Competence Tags', desc: 'Add or manage competence tags for this board', category: 'history', categoryName: 'History & File', icon: '../assets/icons/award.svg', defaultShortcut: null, fn: () => { if (typeof conOpenCompetenceModal === 'function') conOpenCompetenceModal('board'); } },
+      { id: 'node_competences', name: 'Tag Node Competences', desc: 'Attach competence tags to selected node', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/award.svg', defaultShortcut: null, fn: () => { if (typeof conCtxOpenCompetenceModal === 'function') conCtxOpenCompetenceModal(); } },
 
       // Selection & Manipulation
       { id: 'select_all', name: 'Select All Nodes', desc: 'Select all constellation nodes', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/check.svg', defaultShortcut: { ctrl: true, key: 'a' }, fn: () => {

@@ -4520,6 +4520,17 @@
             } else {
                 await autoSelectPlannerGroup();
             }
+
+            var qTimerSec = parseInt(params.get('startTimerSec'), 10);
+            if (qTimerSec > 0) {
+                setTimeout(function () {
+                    if (typeof startCountdownWithSeconds === 'function') {
+                        startCountdownWithSeconds(qTimerSec);
+                    } else if (typeof window.cmsStartExternalTimer === 'function') {
+                        window.cmsStartExternalTimer(qTimerSec);
+                    }
+                }, 600);
+            }
         }
 
         initApp().catch(error => {
@@ -12161,6 +12172,45 @@ syncState();
 
         // ---- Countdown Timer ----
 
+        window.cmsStartExternalTimer = function (totalSeconds) {
+            const tot = Math.max(1, parseInt(totalSeconds, 10) || 300);
+            const h = Math.floor(tot / 3600);
+            const m = Math.floor((tot % 3600) / 60);
+            const s = tot % 60;
+            const ph = document.getElementById('popup-timer-hours');
+            const pm = document.getElementById('popup-timer-minutes');
+            if (ph) ph.value = h;
+            if (pm) pm.value = m;
+            const hiddenSec = document.getElementById('timer-seconds');
+            if (hiddenSec) hiddenSec.value = s;
+            const totalMs = tot * 1000;
+            timerTotalMs = totalMs;
+            timerEndTime = Date.now() + totalMs;
+            const stopBtn = document.getElementById('popup-stop-btn');
+            if (stopBtn) stopBtn.style.display = 'block';
+            const startBtn = document.getElementById('popup-start-btn');
+            if (startBtn) startBtn.style.display = 'none';
+            if (typeof updateOverlayTransportControls === 'function') updateOverlayTransportControls();
+            const overlayEl = document.getElementById('timer-overlay');
+            if (overlayEl) overlayEl.style.background = '#2a9d2a';
+            const bar = document.getElementById('timer-overlay-progress-bar');
+            if (bar) bar.style.width = '100%';
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(updateTimerDisplay, 500);
+            const display = document.getElementById('timer-active-display');
+            const area = document.getElementById('timer-active-area');
+            if (area) area.style.display = 'flex';
+            if (display) display.className = 'running';
+            updateTimerDisplay();
+            const pAdd = document.getElementById('popup-add30s-btn');
+            if (pAdd) pAdd.style.display = 'block';
+            const pSub = document.getElementById('popup-sub30s-btn');
+            if (pSub) pSub.style.display = 'block';
+            const pPause = document.getElementById('popup-pause-btn');
+            if (pPause) pPause.style.display = 'block';
+            if (!PRESENTATION_MODE && typeof _broadcastTimerTick === 'function') _broadcastTimerTick();
+        };
+
         function startCountdown() {
             // Check if timer is in fullscreen mode or mode overlay
             const overlayActive = document.getElementById('timer-overlay') && document.getElementById('timer-overlay').classList.contains('active');
@@ -12231,6 +12281,50 @@ syncState();
             if (mos) mos.style.display = '';
             if (!PRESENTATION_MODE) _broadcastTimerTick();
         }
+
+        function startCountdownWithSeconds(totalSec) {
+            setTimerMode('timer');
+            const sec = Math.max(1, parseInt(totalSec, 10) || 60);
+            const totalMs = sec * 1000;
+            const hours = Math.floor(sec / 3600);
+            const minutes = Math.floor((sec % 3600) / 60);
+
+            const hInput = document.getElementById('popup-timer-hours');
+            const mInput = document.getElementById('popup-timer-minutes');
+            if (hInput) hInput.value = hours;
+            if (mInput) mInput.value = minutes + ((sec % 60) > 0 ? 1 : 0);
+
+            if (timerInterval) clearInterval(timerInterval);
+            timerTotalMs = totalMs;
+            timerEndTime = Date.now() + totalMs;
+            timerPaused = false;
+            timerPausedRemaining = 0;
+
+            const overlay = document.getElementById('timer-overlay');
+            if (overlay) overlay.style.background = '#2a9d2a';
+            const prog = document.getElementById('timer-overlay-progress-bar');
+            if (prog) prog.style.width = '100%';
+
+            timerInterval = setInterval(updateTimerDisplay, 500);
+            const display = document.getElementById('timer-active-display');
+            if (document.getElementById('timer-active-area')) document.getElementById('timer-active-area').style.display = 'flex';
+            if (display) display.className = 'running';
+
+            updateTimerDisplay();
+
+            const pStop = document.getElementById('popup-stop-btn');
+            const pStart = document.getElementById('popup-start-btn');
+            if (pStop) pStop.style.display = 'block';
+            if (pStart) pStart.style.display = 'none';
+
+            if (document.getElementById('popup-add30s-btn')) document.getElementById('popup-add30s-btn').style.display = 'block';
+            if (document.getElementById('popup-sub30s-btn')) document.getElementById('popup-sub30s-btn').style.display = 'block';
+            if (document.getElementById('popup-pause-btn')) document.getElementById('popup-pause-btn').style.display = 'block';
+
+            updateOverlayTransportControls();
+            if (!PRESENTATION_MODE) _broadcastTimerTick();
+        }
+        window.startCountdownWithSeconds = startCountdownWithSeconds;
 
         function stopCountdown() {
             if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
@@ -16700,6 +16794,27 @@ syncState();
                         if (e.data && e.data.type === 'pres-window-closing') {
                             _presWindowOpen = false;
                             _updatePresWindowControls();
+                        }
+                        if (e.data && e.data.type === 'start-timer') {
+                            const sec = parseInt(e.data.seconds, 10);
+                            if (sec > 0 && typeof startCountdownWithSeconds === 'function') {
+                                startCountdownWithSeconds(sec);
+                            }
+                        }
+                        if (e.data && e.data.type === 'timer-command') {
+                            const cmd = e.data.cmd;
+                            if (cmd === 'pause') {
+                                if (!timerPaused && timerEndTime) timerTogglePause();
+                            } else if (cmd === 'resume') {
+                                if (timerPaused) timerTogglePause();
+                            } else if (cmd === 'stop') {
+                                stopCountdown();
+                            } else if (cmd === 'reset') {
+                                stopCountdown();
+                                if (e.data.seconds && typeof startCountdownWithSeconds === 'function') {
+                                    startCountdownWithSeconds(e.data.seconds);
+                                }
+                            }
                         }
                     });
                 }

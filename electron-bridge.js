@@ -799,6 +799,14 @@
     return !!(res && res.open);
   }
 
+  async function isToolOpen(request) {
+    if (!isElectron()) return false;
+    var api = getDesktopApi();
+    if (!api || typeof api.isToolOpen !== 'function') return false;
+    const res = await api.isToolOpen(request);
+    return !!(res && res.open);
+  }
+
   // ── Cross-app data change listener ─────────────────────────────────────────
   function onDataChanged(callback) {
     if (!isElectron()) return;
@@ -949,6 +957,7 @@
     closeWindow,
     isElectron,
     isTimerWindowOpen,
+    isToolOpen,
     createDirectoryByPath,
     listByPath,
     listFiles,

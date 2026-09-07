@@ -437,7 +437,7 @@ function getBundledDataRoot() {
 }
 
 const PAGE_PERMISSIONS = {
-  [PAGE_FILES.board]: new Set(['data', 'mindmaps', 'constellationTemplates', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'user', 'customBooks', 'lessons']),
+  [PAGE_FILES.board]: new Set(['data', 'mindmaps', 'constellationTemplates', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'user', 'customBooks', 'lessons', 'customCompetences', 'customDescriptors']),
   [PAGE_FILES.classManagement]: new Set(['user', 'lessons', 'groupParticipation', 'data', 'grades']),
   [PAGE_FILES.groupEditor]: new Set(['user', 'groupParticipation', 'grades', 'gradeSheet']),
   [PAGE_FILES.gradeSheet]: new Set(['grades', 'user', 'toPrint', 'customCriteria', 'customScales', 'customChips', 'customCompetences', 'customDescriptors']),
@@ -4844,7 +4844,8 @@ ipcMain.handle('app:close-window', async (event) => {
 });
 
 ipcMain.handle('app:open-tool', async (event, request = {}) => {
-  const pageFile = typeof request === 'string' ? request : (request.pageFile || '');
+  const rawPage = typeof request === 'string' ? request : (request.pageFile || request.tool || '');
+  const pageFile = PAGE_FILES[rawPage] || rawPage;
   const knownPages = new Set(Object.values(PAGE_FILES));
   if (!pageFile || !knownPages.has(pageFile)) {
     return { ok: false, error: `Unknown page: ${pageFile}` };
@@ -5214,15 +5215,37 @@ ipcMain.handle('app:is-timer-window-open', () => {
   return { open: !!(timerDetachedWindow && !timerDetachedWindow.isDestroyed()) };
 });
 
+ipcMain.handle('app:is-tool-open', (_event, request = {}) => {
+  const req = typeof request === 'string' ? request : (request.pageFile || request.tool || '');
+  const clean = req.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const targetFile = PAGE_FILES[req] || PAGE_ARG_MAP[clean] || req;
+  const win = BrowserWindow.getAllWindows().find(
+    w => !w.isDestroyed() && getLoadedPageFile(w) === targetFile
+  );
+  return { open: !!win };
+});
+
 ipcMain.handle('app:timer-command', async (event, request = {}) => {
-  if (!mainWindow || mainWindow.isDestroyed()) return { ok: false, error: 'no-main-window' };
+  const targetWin = _cmsFindClassManagementWindow()
+    || (mainWindow && !mainWindow.isDestroyed() && getLoadedPageFile(mainWindow) === PAGE_FILES.classManagement ? mainWindow : null)
+    || (mainWindow && !mainWindow.isDestroyed() ? mainWindow : null);
+  if (!targetWin || targetWin.isDestroyed()) return { ok: false, error: 'no-cms-window' };
+  const totalSec = Number(request.totalSec) || ((Number(request.h) || 0) * 3600 + (Number(request.m) || 5) * 60 + (Number(request.s) || 0));
   const ALLOWED = {
     start: `(function(){
-      var h=arguments[0],m=arguments[1];
-      document.getElementById('popup-timer-hours').value=h;
-      document.getElementById('popup-timer-minutes').value=m;
-      popupStartTimer();
-    })(${Number(request.h)||0},${Number(request.m)||5})`,
+      if (typeof window.cmsStartExternalTimer === 'function') {
+        window.cmsStartExternalTimer(${totalSec});
+      } else {
+        var tot = ${totalSec};
+        var h = Math.floor(tot / 3600);
+        var m = Math.floor((tot % 3600) / 60);
+        var ph = document.getElementById('popup-timer-hours');
+        var pm = document.getElementById('popup-timer-minutes');
+        if (ph) ph.value = h;
+        if (pm) pm.value = m;
+        if (typeof popupStartTimer === 'function') popupStartTimer();
+      }
+    })()`,
     stop:    `overlayStopTimer()`,
     pause:   `overlayPlayPauseTimer()`,
     add30:   `timerAdd30s()`,
@@ -5231,7 +5254,7 @@ ipcMain.handle('app:timer-command', async (event, request = {}) => {
   const cmd = String(request.cmd || '');
   if (!ALLOWED[cmd]) return { ok: false, error: 'unknown-command' };
   try {
-    await mainWindow.webContents.executeJavaScript(ALLOWED[cmd]);
+    await targetWin.webContents.executeJavaScript(ALLOWED[cmd]);
     return { ok: true };
   } catch (err) {
     return { ok: false, error: String(err) };

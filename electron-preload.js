@@ -248,6 +248,9 @@ const exposedApi = {
   isTimerWindowOpen() {
     return invoke('app:is-timer-window-open');
   },
+  isToolOpen(request) {
+    return invoke('app:is-tool-open', request);
+  },
   timerCommand(request) {
     return invoke('app:timer-command', request);
   },

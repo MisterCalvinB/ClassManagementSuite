@@ -446,6 +446,19 @@
       { key: 'chips', labelKey: 'mdbTypePersonalisedChips', icon: 'speech-bubbles.svg', target: 'customChips', defaultView: 'chips' },
     ];
 
+    const DATABASE_SECTIONS = [
+      {
+        id: 'learningContent',
+        labelKey: 'mdbSectionLearningContent',
+        types: ['wordbanks', 'quotebanks', 'dictations', 'grammarbanks', 'gapfillbanks', 'errorbanks', 'sentencebanks', 'storybanks', 'quizzes']
+      },
+      {
+        id: 'assessmentCurriculum',
+        labelKey: 'mdbSectionAssessmentCurriculum',
+        types: ['competences', 'phases', 'criteria', 'scales', 'chips']
+      }
+    ];
+
     const VAR_NAME_DEFAULTS = {
       wordbanks: 'customVocabBank', quotebanks: 'customQuoteBank',
       dictations: 'customDictationBank', grammarbanks: 'customGrammarBank',
@@ -836,20 +849,108 @@
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // SIDEBAR
+    // SIDEBAR & SECTIONS
     // ─────────────────────────────────────────────────────────────────────
-    function renderSidebar() {
-      $('type-list').innerHTML = TYPE_DEFS.map(d => `
-    <div class="type-item" id="type-${d.key}" onclick="selectType('${d.key}')">
-      <img src="../assets/icons/${d.icon}" class="sidebar-icon" alt="" />
-      <span class="type-label">${t(d.labelKey)}</span>
-      <span class="type-count" id="tc-${d.key}"><span class="ld ld-sm"></span></span>
-    </div>`).join('');
+    function getSectionForType(typeKey) {
+      return DATABASE_SECTIONS.find(sec => sec.types.includes(typeKey));
     }
+
+    function getAccordionState() {
+      try {
+        const raw = localStorage.getItem('mdb_accordion_state.v1');
+        if (raw) return JSON.parse(raw);
+      } catch (_) {}
+      return { learningContent: false, assessmentCurriculum: false };
+    }
+
+    function saveAccordionState(state) {
+      try {
+        localStorage.setItem('mdb_accordion_state.v1', JSON.stringify(state));
+      } catch (_) {}
+    }
+
+    function toggleSection(secId) {
+      const state = getAccordionState();
+      state[secId] = !state[secId];
+      saveAccordionState(state);
+      const secEl = $(`sec-${secId}`);
+      if (secEl) {
+        secEl.classList.toggle('collapsed', state[secId]);
+      }
+    }
+
+    function ensureSectionExpanded(secId) {
+      const state = getAccordionState();
+      if (state[secId]) {
+        state[secId] = false;
+        saveAccordionState(state);
+        const secEl = $(`sec-${secId}`);
+        if (secEl) {
+          secEl.classList.remove('collapsed');
+        }
+      }
+    }
+
+    function renderSidebar() {
+      const state = getAccordionState();
+      $('type-list').innerHTML = DATABASE_SECTIONS.map(sec => {
+        const isCollapsed = Boolean(state[sec.id]);
+        const itemsHtml = sec.types.map(key => {
+          const d = getTypeDef(key);
+          if (!d) return '';
+          return `
+      <div class="type-item" id="type-${d.key}" onclick="selectType('${d.key}')">
+        <img src="../assets/icons/${d.icon}" class="sidebar-icon" alt="" />
+        <span class="type-label" data-i18n="${d.labelKey}">${t(d.labelKey)}</span>
+        <span class="type-count" id="tc-${d.key}"><span class="ld ld-sm"></span></span>
+      </div>`;
+        }).join('');
+
+        return `
+    <div class="sb-section${isCollapsed ? ' collapsed' : ''}" id="sec-${sec.id}">
+      <div class="sb-section-hd" onclick="toggleSection('${sec.id}')">
+        <img src="../assets/icons/chevron-down.svg" class="sb-section-chevron" alt="" />
+        <span class="sb-section-title" data-i18n="${sec.labelKey}">${t(sec.labelKey)}</span>
+        <span class="sb-section-count" id="sc-${sec.id}">–</span>
+      </div>
+      <div class="sb-section-items">
+        ${itemsHtml}
+      </div>
+    </div>`;
+      }).join('');
+      updateAllSectionCounts();
+    }
+
     function updateSidebarCount(key) {
       const el = $(`tc-${key}`);
       if (el) el.textContent = S.counts[key] ?? '–';
+      const sec = getSectionForType(key);
+      if (sec) updateSectionCount(sec.id);
     }
+
+    function updateSectionCount(secId) {
+      const sec = DATABASE_SECTIONS.find(s => s.id === secId);
+      if (!sec) return;
+      const el = $(`sc-${secId}`);
+      if (!el) return;
+      let total = 0;
+      let allLoaded = true;
+      for (const tKey of sec.types) {
+        if (S.counts[tKey] === undefined) {
+          allLoaded = false;
+        } else {
+          total += (Number(S.counts[tKey]) || 0);
+        }
+      }
+      el.textContent = allLoaded ? total : '–';
+    }
+
+    function updateAllSectionCounts() {
+      for (const sec of DATABASE_SECTIONS) {
+        updateSectionCount(sec.id);
+      }
+    }
+
     function setSidebarActive(key) {
       document.querySelectorAll('.type-item').forEach(el =>
         el.classList.toggle('active', el.id === `type-${key}`));
@@ -870,6 +971,9 @@
       S.page = 0;
       S.viewMode = getTypeDef(key).defaultView || 'table';
       S.batchSel = new Set();
+
+      const sec = getSectionForType(key);
+      if (sec) ensureSectionExpanded(sec.id);
 
       setSidebarActive(key);
       $('empty-state').classList.add('hidden');
