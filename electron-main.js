@@ -68,7 +68,8 @@ const PAGE_FILES = {
   lessonCreator: 'lesson-creator.html',
   importTool: 'import-tool.html',
   administrativeGroups: 'administrative-groups.html',
-  oralMarking: 'oral-marking.html'
+  oralMarking: 'oral-marking.html',
+  competencePortfolio: 'competence-portfolio.html'
 };
 
 const PAGE_ARG_MAP = {
@@ -119,7 +120,10 @@ const PAGE_ARG_MAP = {
   administrativegroups: PAGE_FILES.administrativeGroups,
   admingroups: PAGE_FILES.administrativeGroups,
   maitrisedegroupe: PAGE_FILES.administrativeGroups,
-  maitrise: PAGE_FILES.administrativeGroups
+  maitrise: PAGE_FILES.administrativeGroups,
+  competenceportfolio: PAGE_FILES.competencePortfolio,
+  competences: PAGE_FILES.competencePortfolio,
+  portfolio: PAGE_FILES.competencePortfolio
 };
 
 const PAGE_LABELS = {
@@ -143,7 +147,8 @@ const PAGE_LABELS = {
   [PAGE_FILES.lessonCreator]: 'Lesson Creator',
   [PAGE_FILES.importTool]: 'Import Tool',
   [PAGE_FILES.administrativeGroups]: 'Administrative Groups',
-  [PAGE_FILES.oralMarking]: 'Oral Marking'
+  [PAGE_FILES.oralMarking]: 'Oral Marking',
+  [PAGE_FILES.competencePortfolio]: 'Competence Portfolio'
 };
 
 function getDefaultWritableRootDir() {
@@ -457,7 +462,8 @@ const PAGE_PERMISSIONS = {
   [PAGE_FILES.lessonCreator]: new Set(['user', 'lessons', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'mindmaps', 'toPrint']),
   [PAGE_FILES.importTool]: new Set(['user', 'lessons', 'customWordbanks', 'customQuizzes', 'customGapfillbanks', 'customQuotes', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'data', 'docEditorDocs', 'customBooks', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities']),
   [PAGE_FILES.administrativeGroups]: new Set(['user', 'grades', 'data', 'customData', 'toPrint']),
-  [PAGE_FILES.oralMarking]: new Set(['user', 'grades'])
+  [PAGE_FILES.oralMarking]: new Set(['user', 'grades']),
+  [PAGE_FILES.competencePortfolio]: new Set(['user', 'lessons', 'mindmaps', 'grades', 'customCompetences', 'customDescriptors', 'toPrint'])
 };
 
 let mainWindow;

@@ -11,6 +11,7 @@
   <script src="../electron-bridge.js"></script>
   <script src="../js/dialogs.js"></script>
   <script src="../js/i18n.js"></script>
+  <script src="../js/competence-aggregator-service.js"></script>
   <script>
     let boardCmsTimerChannel = null;
     const boardCmsTimerPrefsKey = 'board-cms-timer-widget-v2';
@@ -3574,6 +3575,12 @@
 
         <!-- Filters Bar -->
         <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#f8fafc;padding:6px 10px;border-radius:6px;border:1px solid #e2e8f0;">
+          <div style="display:flex;align-items:center;gap:4px;">
+            <label style="font-size:0.75rem;font-weight:700;color:#555;" data-i18n="cpFilterSubject">Subject</label>
+            <select id="con-comp-filter-subject" style="border:1px solid #ccc;border-radius:4px;padding:3px 6px;font-size:0.75rem;background:#fff;" onchange="conFilterCompetencePicker()">
+              <option value="all">All Subjects</option>
+            </select>
+          </div>
           <div style="display:flex;align-items:center;gap:4px;">
             <label style="font-size:0.75rem;font-weight:700;color:#555;" data-i18n="compDomain">Domain</label>
             <select id="con-comp-filter-domain" style="border:1px solid #ccc;border-radius:4px;padding:3px 6px;font-size:0.75rem;background:#fff;" onchange="conFilterCompetencePicker()">
@@ -35817,19 +35824,34 @@
       const comps = await conLoadAvailableCompetences();
 
       // Populate filters
+      const subjectSelect = document.getElementById('con-comp-filter-subject');
       const domainSelect = document.getElementById('con-comp-filter-domain');
       const levelSelect = document.getElementById('con-comp-filter-level');
       const yearSelect = document.getElementById('con-comp-filter-year');
 
+      const subjects = new Set();
       const domains = new Set();
       const levels = new Set();
       const years = new Set();
 
       comps.forEach(c => {
+        if (c.subjectId) subjects.add(c.subjectId);
         if (c.category) domains.add(c.category);
         if (c.level) levels.add(c.level);
         if (c.yearLevel) years.add(c.yearLevel);
       });
+
+      if (subjectSelect) {
+        const prev = subjectSelect.value || 'all';
+        subjectSelect.innerHTML = `<option value="all">All Subjects</option>`;
+        Array.from(subjects).sort().forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = s;
+          opt.textContent = s;
+          subjectSelect.appendChild(opt);
+        });
+        subjectSelect.value = subjects.has(prev) ? prev : 'all';
+      }
 
       if (domainSelect) {
         const prev = domainSelect.value || 'all';
@@ -35867,6 +35889,34 @@
         yearSelect.value = years.has(prev) ? prev : 'all';
       }
 
+      // Auto-prefilter by active board class if defined
+      const boardClassId = (typeof _conGetActiveClassId === 'function' ? _conGetActiveClassId() : null) || (window._conCurrentBoard && (window._conCurrentBoard.activeClassId || window._conCurrentBoard.classId)) || null;
+      if (boardClassId && typeof CompetenceAggregatorService !== 'undefined') {
+        CompetenceAggregatorService.getGroupMetadata(boardClassId).then(meta => {
+          if (!meta) return;
+          if (meta.subject && subjectSelect) {
+            for (let i = 0; i < subjectSelect.options.length; i++) {
+              const v = subjectSelect.options[i].value.toLowerCase();
+              if (v === meta.subject.toLowerCase() || meta.subject.toLowerCase().includes(v) || v.includes(meta.subject.toLowerCase())) {
+                subjectSelect.selectedIndex = i;
+                break;
+              }
+            }
+          }
+          if (meta.level && yearSelect) {
+            const targetLvl = String(meta.level).toLowerCase();
+            for (let i = 0; i < yearSelect.options.length; i++) {
+              const v = yearSelect.options[i].value.toLowerCase();
+              if (v === targetLvl || targetLvl.includes(v) || v.includes(targetLvl)) {
+                yearSelect.selectedIndex = i;
+                break;
+              }
+            }
+          }
+          conFilterCompetencePicker();
+        }).catch(() => {});
+      }
+
       conFilterCompetencePicker();
     }
 
@@ -35884,6 +35934,7 @@
 
     function conFilterCompetencePicker() {
       const searchVal = (document.getElementById('con-comp-search-input')?.value || '').trim().toLowerCase();
+      const subjectVal = document.getElementById('con-comp-filter-subject')?.value || 'all';
       const domainVal = document.getElementById('con-comp-filter-domain')?.value || 'all';
       const levelVal = document.getElementById('con-comp-filter-level')?.value || 'all';
       const yearVal = document.getElementById('con-comp-filter-year')?.value || 'all';
@@ -35895,6 +35946,10 @@
       const filtered = _conAvailableCompetences.filter(c => {
         const id = String(c.id || c.code || c.title || '');
         if (_conCompFilterSelectedOnly && !_conCompSelectedIds.has(id)) return false;
+        if (subjectVal !== 'all') {
+          const cSubj = (c.subjectId || c.category || '').toLowerCase();
+          if (!cSubj.includes(subjectVal.toLowerCase())) return false;
+        }
         if (domainVal !== 'all' && c.category !== domainVal) return false;
         if (levelVal !== 'all' && c.level !== levelVal) return false;
         if (yearVal !== 'all' && c.yearLevel !== yearVal) return false;

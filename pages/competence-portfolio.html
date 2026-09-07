@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Competence Portfolio — Class Management Tools</title>
+  <link rel="stylesheet" href="../modules/lexend/lexend.css">
+  <link rel="stylesheet" href="../css/stylesheet.css">
+  <link rel="stylesheet" href="../css/competence-portfolio.css">
+  <script src="../electron-bridge.js"></script>
+  <script src="../js/i18n.js"></script>
+  <script src="../js/dialogs.js"></script>
+  <script src="../js/competence-aggregator-service.js"></script>
+</head>
+<body>
+
+  <!-- Topbar Header -->
+  <header class="cp-topbar">
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+      <a href="launcher.html" class="cp-brand" title="Back to Launcher">
+        <img src="../assets/icons/award.svg" alt="" />
+        <h1 data-i18n="cpAppTitle">Competence Portfolio</h1>
+      </a>
+
+      <!-- Class Selector & Info -->
+      <div class="cp-class-selector-box">
+        <span class="cp-class-label" data-i18n="cpClassSelector">Class:</span>
+        <select id="cp-class-select" class="cp-select-class" onchange="cpOnClassChange(this.value)">
+          <option value="">Loading classes…</option>
+        </select>
+        <span id="cp-class-badge" class="cp-class-badge" style="display:none;">
+          <span class="dot"></span>
+          <span id="cp-class-badge-text">0 students</span>
+        </span>
+        <button type="button" class="cp-btn" onclick="cpOpenGroupEditor()" style="padding:3px 8px;font-size:0.75rem;" title="Edit Class in Group Editor">
+          <img src="../assets/icons/group-editor.svg" alt="" style="width:13px;height:13px;" />
+          <span data-i18n="menuClass">Class</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="cp-top-actions">
+      <button type="button" class="cp-btn" onclick="cpRefreshPortfolio()" title="Reload data">
+        <img src="../assets/icons/refresh.svg" alt="" />
+        <span data-i18n="btnReload">Refresh</span>
+      </button>
+      <button type="button" class="cp-btn" onclick="cpExportCsv()" title="Export CSV Summary">
+        <img src="../assets/icons/table.svg" alt="" />
+        <span data-i18n="cpExportCsv">Export CSV</span>
+      </button>
+      <button type="button" class="cp-btn primary" onclick="cpPrintReport()" title="Print / PDF Report">
+        <img src="../assets/icons/printer.svg" alt="" />
+        <span data-i18n="cpPrintReport">Print Report</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content Body -->
+  <main class="cp-main">
+    
+    <!-- KPI Summary Grid -->
+    <section class="cp-kpi-grid">
+      <div class="cp-kpi-card total">
+        <div class="cp-kpi-title" data-i18n="cpTotalCompetences">Total Competences</div>
+        <div class="cp-kpi-value-row">
+          <span class="cp-kpi-num" id="kpi-total">0</span>
+        </div>
+        <div class="cp-kpi-bar-bg"><div class="cp-kpi-bar-fill" style="width:100%;background:#3b82f6;"></div></div>
+      </div>
+
+      <div class="cp-kpi-card covered">
+        <div class="cp-kpi-title" data-i18n="cpCoveredLabel">Covered to Date</div>
+        <div class="cp-kpi-value-row">
+          <span class="cp-kpi-num" id="kpi-covered">0</span>
+          <span class="cp-kpi-pct" id="kpi-covered-pct">0%</span>
+        </div>
+        <div class="cp-kpi-bar-bg"><div class="cp-kpi-bar-fill" id="kpi-covered-bar" style="width:0%;"></div></div>
+      </div>
+
+      <div class="cp-kpi-card assessed">
+        <div class="cp-kpi-title" data-i18n="cpStatusAssessed">Assessed (Grades)</div>
+        <div class="cp-kpi-value-row">
+          <span class="cp-kpi-num" id="kpi-assessed">0</span>
+        </div>
+        <div class="cp-kpi-bar-bg"><div class="cp-kpi-bar-fill" id="kpi-assessed-bar" style="width:0%;background:#15803d;"></div></div>
+      </div>
+
+      <div class="cp-kpi-card delivered">
+        <div class="cp-kpi-title" data-i18n="cpStatusDelivered">Delivered (Lessons / Board)</div>
+        <div class="cp-kpi-value-row">
+          <span class="cp-kpi-num" id="kpi-delivered">0</span>
+        </div>
+        <div class="cp-kpi-bar-bg"><div class="cp-kpi-bar-fill" id="kpi-delivered-bar" style="width:0%;background:#0284c7;"></div></div>
+      </div>
+
+      <div class="cp-kpi-card planned">
+        <div class="cp-kpi-title" data-i18n="cpStatusPlanned">Planned (Planner)</div>
+        <div class="cp-kpi-value-row">
+          <span class="cp-kpi-num" id="kpi-planned">0</span>
+        </div>
+        <div class="cp-kpi-bar-bg"><div class="cp-kpi-bar-fill" id="kpi-planned-bar" style="width:0%;background:#9333ea;"></div></div>
+      </div>
+
+      <div class="cp-kpi-card untouched">
+        <div class="cp-kpi-title" data-i18n="cpStatusUntouched">Remaining</div>
+        <div class="cp-kpi-value-row">
+          <span class="cp-kpi-num" id="kpi-untouched">0</span>
+        </div>
+        <div class="cp-kpi-bar-bg"><div class="cp-kpi-bar-fill" id="kpi-untouched-bar" style="width:0%;background:#94a3b8;"></div></div>
+      </div>
+    </section>
+
+    <!-- Filter & View Switcher Toolbar -->
+    <section class="cp-filter-bar">
+      <div class="cp-filter-controls">
+        <!-- Search Input -->
+        <div class="cp-search-wrap">
+          <img src="../assets/icons/search.svg" class="cp-search-icon" alt="" />
+          <input type="search" id="cp-search-input" placeholder="Search by code, title, keywords…" oninput="cpApplyFilters()" />
+        </div>
+
+        <!-- Subject Filter -->
+        <div class="cp-filter-group">
+          <span class="cp-filter-label" data-i18n="cpFilterSubject">Subject:</span>
+          <select id="cp-filter-subject" class="cp-filter-select" onchange="cpOnSubjectFilterChange()">
+            <option value="all">All Subjects</option>
+          </select>
+        </div>
+
+        <!-- Year Level Filter -->
+        <div class="cp-filter-group">
+          <span class="cp-filter-label" data-i18n="cpFilterYear">Year:</span>
+          <select id="cp-filter-year" class="cp-filter-select" onchange="cpOnYearFilterChange()">
+            <option value="all">All Levels</option>
+          </select>
+        </div>
+
+        <!-- Domain Filter -->
+        <div class="cp-filter-group">
+          <span class="cp-filter-label" data-i18n="cpFilterDomain">Domain:</span>
+          <select id="cp-filter-domain" class="cp-filter-select" onchange="cpApplyFilters()">
+            <option value="all">All Domains</option>
+          </select>
+        </div>
+
+        <!-- Status Filter -->
+        <div class="cp-filter-group">
+          <span class="cp-filter-label" data-i18n="cpFilterStatus">Status:</span>
+          <select id="cp-filter-status" class="cp-filter-select" onchange="cpApplyFilters()">
+            <option value="all" data-i18n="cpStatusAll">All Statuses</option>
+            <option value="covered" data-i18n="cpStatusCovered">Covered</option>
+            <option value="assessed" data-i18n="cpStatusAssessed">Assessed</option>
+            <option value="delivered" data-i18n="cpStatusDelivered">Delivered</option>
+            <option value="planned" data-i18n="cpStatusPlanned">Planned</option>
+            <option value="untouched" data-i18n="cpStatusUntouched">Untouched</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- View Switcher -->
+      <div class="cp-view-switcher">
+        <button type="button" class="cp-view-btn active" id="cp-view-accordion-btn" onclick="cpSwitchView('accordion')">
+          <span data-i18n="cpViewAccordion">Domain View</span>
+        </button>
+        <button type="button" class="cp-view-btn" id="cp-view-timeline-btn" onclick="cpSwitchView('timeline')">
+          <span data-i18n="cpViewTimeline">Audit Timeline</span>
+        </button>
+        <button type="button" class="cp-view-btn" id="cp-view-table-btn" onclick="cpSwitchView('table')">
+          <span data-i18n="cpViewTable">Matrix Table</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- View 1: Domain Accordion View Container -->
+    <div id="cp-view-accordion-container" class="cp-domain-list"></div>
+
+    <!-- View 2: Audit Timeline Feed Container -->
+    <div id="cp-view-timeline-container" class="cp-timeline-container" style="display:none;">
+      <div id="cp-timeline-list" class="cp-timeline-list"></div>
+    </div>
+
+    <!-- View 3: Matrix Table Container -->
+    <div id="cp-view-table-container" class="cp-table-wrap" style="display:none;">
+      <table class="cp-table">
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Competence Statement</th>
+            <th>Domain</th>
+            <th>Year / Level</th>
+            <th>Subject</th>
+            <th style="text-align:center;">Planned</th>
+            <th style="text-align:center;">Delivered</th>
+            <th style="text-align:center;">Assessed</th>
+            <th style="text-align:center;">Class Mean</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="cp-table-body"></tbody>
+      </table>
+    </div>
+
+    <!-- Empty State -->
+    <div id="cp-empty-state" class="cp-empty-state" style="display:none;">
+      <img src="../assets/icons/award.svg" alt="" />
+      <h3 data-i18n="cpNoCompetencesFound">No competences match the selected filters.</h3>
+      <p>Try clearing your search query or selecting "All Subjects" or "All Levels" in the filter toolbar above.</p>
+    </div>
+
+  </main>
+
+  <!-- Competence History & Provenance Detail Modal -->
+  <div id="cp-detail-modal" class="cp-modal-overlay" style="display:none;" onclick="if(event.target===this)cpCloseDetailModal()">
+    <div class="cp-modal" onclick="event.stopPropagation()">
+      <div class="cp-modal-header">
+        <div>
+          <span id="modal-comp-code" class="cp-comp-code" style="margin-right:8px;"></span>
+          <span id="modal-comp-title" class="cp-modal-title"></span>
+        </div>
+        <button type="button" class="cp-modal-close" onclick="cpCloseDetailModal()">&times;</button>
+      </div>
+      <div class="cp-modal-body">
+        <div id="modal-comp-desc" style="font-size:0.88rem;color:var(--ink-secondary);line-height:1.45;background:var(--bg-subtle);padding:10px 14px;border-radius:6px;border:1px solid var(--border);"></div>
+        
+        <div style="font-size:0.85rem;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;color:var(--muted);margin-top:6px;" data-i18n="cpHistoryTitle">
+          Activity & Assessment History
+        </div>
+        <div id="modal-history-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+      </div>
+      <div class="cp-modal-footer">
+        <button type="button" class="cp-btn primary" onclick="cpCloseDetailModal()" data-i18n="btnClose">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ── Application State ──────────────────────────────────────────────
+    let _allGroups = {};
+    let _activeClassId = '';
+    let _activePortfolio = null;
+    let _activeView = 'accordion';
+    let _availableSubjects = [];
+    let _availableYears = [];
+
+    // ── Initialization ────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', async function () {
+      if (typeof applyTranslations === 'function') applyTranslations();
+
+      // Read query param if passed: ?classId=...
+      const params = new URLSearchParams(window.location.search);
+      const queryClassId = params.get('classId');
+
+      await cpLoadClasses(queryClassId);
+      await cpPopulateFilterDropdowns();
+      if (_activeClassId) {
+        await cpApplyClassPrefilters(_activeClassId);
+      }
+      await cpRefreshPortfolio();
+
+      if (window.Desktop && typeof Desktop.onDataChanged === 'function') {
+        Desktop.onDataChanged(async function () {
+          await cpLoadClasses(_activeClassId);
+          await cpRefreshPortfolio();
+        });
+      }
+    });
+
+    // ── Load Classes into Dropdown ─────────────────────────────────────
+    async function cpLoadClasses(preferredClassId = null) {
+      _allGroups = await CompetenceAggregatorService.getAllGroups(true);
+      const select = document.getElementById('cp-class-select');
+      select.innerHTML = '';
+
+      const allKeys = Object.keys(_allGroups).filter(k => k !== '_meta' && !k.startsWith('_'));
+      if (!allKeys.length) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'No classes found in class-groups.js';
+        select.appendChild(opt);
+        return;
+      }
+
+      // Filter out archived groups from the dropdown by default unless preferredClassId matches
+      const activeKeys = allKeys.filter(k => {
+        const m = _allGroups[k] || (_allGroups._meta && _allGroups._meta[k]) || {};
+        return !m.archived || k === preferredClassId || (m.name && m.name === preferredClassId);
+      });
+      const classIds = activeKeys.length > 0 ? activeKeys : allKeys;
+
+      classIds.forEach(cid => {
+        const meta = _allGroups[cid] || (_allGroups._meta && _allGroups._meta[cid]) || {};
+        const name = meta.name || cid;
+        const opt = document.createElement('option');
+        opt.value = cid;
+        opt.textContent = name + (meta.archived ? ' (Archived)' : '');
+        select.appendChild(opt);
+      });
+
+      // Match preferredClassId by key or by display name
+      let selectedId = null;
+      if (preferredClassId) {
+        if (classIds.includes(preferredClassId)) {
+          selectedId = preferredClassId;
+        } else {
+          const match = classIds.find(cid => {
+            const m = _allGroups[cid] || (_allGroups._meta && _allGroups._meta[cid]) || {};
+            return m && m.name && m.name.toLowerCase().trim() === String(preferredClassId).toLowerCase().trim();
+          });
+          if (match) selectedId = match;
+        }
+      }
+
+      _activeClassId = selectedId || classIds[0];
+      select.value = _activeClassId;
+    }
+
+    // ── Populate Filter Dropdowns ──────────────────────────────────────
+    async function cpPopulateFilterDropdowns() {
+      _availableSubjects = await CompetenceAggregatorService.getAvailableSubjects();
+      _availableYears = await CompetenceAggregatorService.getAvailableYearLevels();
+
+      const subjSel = document.getElementById('cp-filter-subject');
+      subjSel.innerHTML = '<option value="all">All Subjects</option>';
+      _availableSubjects.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s;
+        opt.textContent = s;
+        subjSel.appendChild(opt);
+      });
+
+      const yearSel = document.getElementById('cp-filter-year');
+      yearSel.innerHTML = '<option value="all">All Levels</option>';
+      _availableYears.forEach(y => {
+        const opt = document.createElement('option');
+        opt.value = y;
+        opt.textContent = y;
+        yearSel.appendChild(opt);
+      });
+    }
+
+    // ── Class Prefilters Helper ─────────────────────────────────────────
+    async function cpApplyClassPrefilters(classId) {
+      if (!classId) return;
+      const meta = await CompetenceAggregatorService.getGroupMetadata(classId);
+      if (!meta) return;
+
+      const subjSel = document.getElementById('cp-filter-subject');
+      if (meta.subject && subjSel) {
+        const matchFn = CompetenceAggregatorService.matchSubject || ((a, b) => a.toLowerCase() === b.toLowerCase());
+        const matchSubj = _availableSubjects.find(s => matchFn(meta.subject, s));
+        subjSel.value = matchSubj || 'all';
+      }
+
+      const yearSel = document.getElementById('cp-filter-year');
+      if (meta.level && yearSel) {
+        const matchYFn = CompetenceAggregatorService.matchYearLevel || ((a, b) => String(a).toLowerCase() === String(b).toLowerCase());
+        const matchYear = _availableYears.find(y => matchYFn(meta.level, y));
+        yearSel.value = matchYear || 'all';
+      }
+    }
+
+    // ── On Class Change ────────────────────────────────────────────────
+    async function cpOnClassChange(newClassId) {
+      if (!newClassId) return;
+      _activeClassId = newClassId;
+
+      // Update URL without reload
+      const newUrl = new URL(window.location);
+      newUrl.searchParams.set('classId', _activeClassId);
+      window.history.replaceState({}, '', newUrl);
+
+      // Auto-prefilter subject and year based on class metadata
+      await cpApplyClassPrefilters(_activeClassId);
+
+      await cpRefreshPortfolio();
+    }
+
+    function cpOnSubjectFilterChange() {
+      cpRefreshPortfolio();
+    }
+
+    function cpOnYearFilterChange() {
+      cpRefreshPortfolio();
+    }
+
+    // ── Refresh & Re-aggregate ─────────────────────────────────────────
+    async function cpRefreshPortfolio() {
+      if (!_activeClassId) return;
+
+      const meta = await CompetenceAggregatorService.getGroupMetadata(_activeClassId);
+      cpRenderClassBadge(meta);
+
+      const subjFilter = document.getElementById('cp-filter-subject').value;
+      const yearFilter = document.getElementById('cp-filter-year').value;
+
+      _activePortfolio = await CompetenceAggregatorService.compileGroupCompetencePortfolio(_activeClassId, {
+        subject: subjFilter,
+        yearLevel: yearFilter
+      });
+
+      // Populate Domains dropdown for current filtered list
+      cpPopulateDomainFilter();
+
+      // Render KPIs
+      cpRenderKpis(_activePortfolio.stats);
+
+      // Render Active View
+      cpApplyFilters();
+    }
+
+    function cpRenderClassBadge(meta) {
+      const badge = document.getElementById('cp-class-badge');
+      const badgeText = document.getElementById('cp-class-badge-text');
+      if (!meta) {
+        badge.style.display = 'none';
+        return;
+      }
+      badge.style.display = 'inline-flex';
+      const parts = [];
+      if (meta.studentCount) parts.push(`${meta.studentCount} ${typeof t === 'function' ? t('cpStudentsCount') : 'students'}`);
+      if (meta.year) parts.push(meta.year);
+      if (meta.level) parts.push(`Lvl ${meta.level}`);
+      if (meta.subject) parts.push(meta.subject);
+      badgeText.textContent = parts.join(' • ') || 'Class Active';
+    }
+
+    function cpPopulateDomainFilter() {
+      const domainSel = document.getElementById('cp-filter-domain');
+      const currentVal = domainSel.value;
+      domainSel.innerHTML = '<option value="all">All Domains</option>';
+      if (!_activePortfolio || !_activePortfolio.categories) return;
+
+      const domains = Object.keys(_activePortfolio.categories).sort();
+      domains.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d;
+        opt.textContent = d;
+        if (d === currentVal) opt.selected = true;
+        domainSel.appendChild(opt);
+      });
+    }
+
+    // ── Render KPIs ────────────────────────────────────────────────────
+    function cpRenderKpis(stats) {
+      stats = stats || { total: 0, covered: 0, percentage: 0, assessed: 0, delivered: 0, plannedOnly: 0, untouched: 0 };
+      document.getElementById('kpi-total').textContent = stats.total;
+      document.getElementById('kpi-covered').textContent = stats.covered;
+      document.getElementById('kpi-covered-pct').textContent = `${stats.percentage}%`;
+      document.getElementById('kpi-covered-bar').style.width = `${stats.percentage}%`;
+
+      document.getElementById('kpi-assessed').textContent = stats.assessed;
+      document.getElementById('kpi-assessed-bar').style.width = stats.total > 0 ? `${(stats.assessed / stats.total) * 100}%` : '0%';
+
+      document.getElementById('kpi-delivered').textContent = stats.delivered;
+      document.getElementById('kpi-delivered-bar').style.width = stats.total > 0 ? `${(stats.delivered / stats.total) * 100}%` : '0%';
+
+      document.getElementById('kpi-planned').textContent = stats.plannedOnly;
+      document.getElementById('kpi-planned-bar').style.width = stats.total > 0 ? `${(stats.plannedOnly / stats.total) * 100}%` : '0%';
+
+      document.getElementById('kpi-untouched').textContent = stats.untouched;
+      document.getElementById('kpi-untouched-bar').style.width = stats.total > 0 ? `${(stats.untouched / stats.total) * 100}%` : '0%';
+    }
+
+    // ── Apply Search & Filters to Active View ───────────────────────────
+    function cpApplyFilters() {
+      if (!_activePortfolio) return;
+
+      const search = (document.getElementById('cp-search-input').value || '').trim().toLowerCase();
+      const domainFilter = document.getElementById('cp-filter-domain').value;
+      const statusFilter = document.getElementById('cp-filter-status').value;
+
+      function matchesFilters(item) {
+        if (!item || !item.competence) return false;
+        const c = item.competence;
+        if (domainFilter !== 'all' && (c.category || 'General') !== domainFilter) return false;
+        if (statusFilter !== 'all') {
+          if (statusFilter === 'covered' && item.status === 'untouched') return false;
+          if (statusFilter !== 'covered' && item.status !== statusFilter) return false;
+        }
+        if (search) {
+          const hay = `${c.code} ${c.title} ${c.description} ${c.tags ? c.tags.join(' ') : ''} ${c.category}`.toLowerCase();
+          if (!hay.includes(search)) return false;
+        }
+        return true;
+      }
+
+      // Filter categories
+      const filteredCategories = {};
+      let matchCount = 0;
+      Object.keys(_activePortfolio.categories).forEach(cat => {
+        const list = _activePortfolio.categories[cat].filter(matchesFilters);
+        if (list.length > 0) {
+          filteredCategories[cat] = list;
+          matchCount += list.length;
+        }
+      });
+
+      // Filter timeline
+      const filteredTimeline = _activePortfolio.timeline.filter(h => {
+        return matchesFilters({ competence: h.competence, status: 'assessed' });
+      });
+
+      const emptyEl = document.getElementById('cp-empty-state');
+      if (matchCount === 0) {
+        emptyEl.style.display = 'block';
+        document.getElementById('cp-view-accordion-container').style.display = 'none';
+        document.getElementById('cp-view-timeline-container').style.display = 'none';
+        document.getElementById('cp-view-table-container').style.display = 'none';
+        return;
+      } else {
+        emptyEl.style.display = 'none';
+      }
+
+      if (_activeView === 'accordion') {
+        document.getElementById('cp-view-accordion-container').style.display = 'flex';
+        document.getElementById('cp-view-timeline-container').style.display = 'none';
+        document.getElementById('cp-view-table-container').style.display = 'none';
+        cpRenderAccordionView(filteredCategories);
+      } else if (_activeView === 'timeline') {
+        document.getElementById('cp-view-accordion-container').style.display = 'none';
+        document.getElementById('cp-view-timeline-container').style.display = 'block';
+        document.getElementById('cp-view-table-container').style.display = 'none';
+        cpRenderTimelineView(filteredTimeline);
+      } else if (_activeView === 'table') {
+        document.getElementById('cp-view-accordion-container').style.display = 'none';
+        document.getElementById('cp-view-timeline-container').style.display = 'none';
+        document.getElementById('cp-view-table-container').style.display = 'block';
+        cpRenderTableView(filteredCategories);
+      }
+    }
+
+    // ── Switch Active View ─────────────────────────────────────────────
+    function cpSwitchView(viewKey) {
+      _activeView = viewKey;
+      document.querySelectorAll('.cp-view-btn').forEach(btn => btn.classList.remove('active'));
+      const activeBtn = document.getElementById(`cp-view-${viewKey}-btn`);
+      if (activeBtn) activeBtn.classList.add('active');
+      cpApplyFilters();
+    }
+
+    // ── Render Accordion View ──────────────────────────────────────────
+    function cpRenderAccordionView(categories) {
+      const container = document.getElementById('cp-view-accordion-container');
+      container.innerHTML = '';
+
+      Object.keys(categories).sort().forEach(cat => {
+        const items = categories[cat];
+        const coveredCount = items.filter(i => i.status !== 'untouched').length;
+        const totalCount = items.length;
+        const isFull = coveredCount === totalCount && totalCount > 0;
+
+        const card = document.createElement('div');
+        card.className = 'cp-domain-card open';
+
+        const header = document.createElement('div');
+        header.className = 'cp-domain-header';
+        header.onclick = () => card.classList.toggle('open');
+        header.innerHTML = `
+          <div class="cp-domain-info">
+            <span class="cp-domain-chevron">▶</span>
+            <span class="cp-domain-title">${cpEscapeHtml(cat)}</span>
+          </div>
+          <div class="cp-domain-stats">
+            <span class="cp-domain-badge ${isFull ? 'full' : ''}">${coveredCount} / ${totalCount} (${Math.round((coveredCount / totalCount) * 100)}%)</span>
+          </div>
+        `;
+        card.appendChild(header);
+
+        const body = document.createElement('div');
+        body.className = 'cp-domain-body';
+
+        items.forEach(item => {
+          const comp = item.competence;
+          const compCard = document.createElement('div');
+          compCard.className = 'cp-comp-card';
+          compCard.onclick = () => cpOpenDetailModal(item);
+
+          let statusClass = item.status;
+          let statusLabel = item.status;
+          if (item.status === 'assessed') {
+            statusLabel = item.averageScorePct !== null ? `Assessed (${item.averageScorePct}%)` : 'Assessed';
+          } else if (item.status === 'delivered') {
+            statusLabel = `Delivered (${item.deliveredCount}x)`;
+          } else if (item.status === 'planned') {
+            statusLabel = `Planned (${item.plannedCount}x)`;
+          } else {
+            statusLabel = 'Untouched';
+          }
+
+          compCard.innerHTML = `
+            <div class="cp-comp-top">
+              <span class="cp-comp-code">${cpEscapeHtml(comp.code)}</span>
+              <span class="cp-comp-status-pill ${statusClass}">${statusLabel}</span>
+            </div>
+            <div class="cp-comp-title">${cpEscapeHtml(comp.title)}</div>
+            ${comp.description ? `<div class="cp-comp-desc">${cpEscapeHtml(comp.description)}</div>` : ''}
+            <div class="cp-comp-footer">
+              <span>${comp.yearLevel ? `Year: ${cpEscapeHtml(comp.yearLevel)}` : (comp.level ? `Lvl ${cpEscapeHtml(comp.level)}` : '')}</span>
+              <div class="cp-comp-occ-chips">
+                ${item.history.length ? `<span style="font-weight:700;">${item.history.length} touchpoint(s)</span>` : '<span>0 events</span>'}
+              </div>
+            </div>
+          `;
+          body.appendChild(compCard);
+        });
+
+        card.appendChild(body);
+        container.appendChild(card);
+      });
+    }
+
+    // ── Render Timeline View ───────────────────────────────────────────
+    function cpRenderTimelineView(timeline) {
+      const list = document.getElementById('cp-timeline-list');
+      list.innerHTML = '';
+
+      if (!timeline.length) {
+        list.innerHTML = `<div class="cp-empty-state"><p>${typeof t === 'function' ? t('cpTimelineEmpty') : 'No activities recorded yet.'}</p></div>`;
+        return;
+      }
+
+      timeline.forEach(event => {
+        const item = document.createElement('div');
+        item.className = `cp-timeline-item ${event.tool}`;
+        
+        let toolName = event.tool;
+        if (event.tool === 'grade-sheet') toolName = 'Grade Sheet';
+        else if (event.tool === 'lesson') toolName = 'Lesson Plan';
+        else if (event.tool === 'board') toolName = 'Board Session';
+        else if (event.tool === 'planner') toolName = 'Planner';
+
+        item.innerHTML = `
+          <div class="cp-tl-header">
+            <span class="cp-tl-tool ${event.tool}">${toolName}</span>
+            <span class="cp-tl-date">${event.date || 'Undated'}</span>
+          </div>
+          <div class="cp-tl-comp-title">
+            <span class="cp-comp-code" style="margin-right:6px;">${cpEscapeHtml(event.competence.code)}</span>
+            ${cpEscapeHtml(event.competence.title)}
+          </div>
+          <div class="cp-tl-details">
+            <strong>${cpEscapeHtml(event.title)}</strong> ${event.details ? `— ${cpEscapeHtml(event.details)}` : ''}
+          </div>
+        `;
+        list.appendChild(item);
+      });
+    }
+
+    // ── Render Matrix Table View ───────────────────────────────────────
+    function cpRenderTableView(categories) {
+      const tbody = document.getElementById('cp-table-body');
+      tbody.innerHTML = '';
+
+      Object.keys(categories).sort().forEach(cat => {
+        categories[cat].forEach(item => {
+          const c = item.competence;
+          const tr = document.createElement('tr');
+          tr.style.cursor = 'pointer';
+          tr.onclick = () => cpOpenDetailModal(item);
+
+          tr.innerHTML = `
+            <td><span class="cp-comp-code">${cpEscapeHtml(c.code)}</span></td>
+            <td><strong>${cpEscapeHtml(c.title)}</strong></td>
+            <td>${cpEscapeHtml(c.category || '')}</td>
+            <td>${cpEscapeHtml(c.yearLevel || c.level || '—')}</td>
+            <td>${cpEscapeHtml(c.subjectId || '—')}</td>
+            <td style="text-align:center;">${item.plannedCount || '—'}</td>
+            <td style="text-align:center;">${item.deliveredCount || '—'}</td>
+            <td style="text-align:center;">${item.assessedCount || '—'}</td>
+            <td style="text-align:center;">${item.averageScorePct !== null ? `<strong>${item.averageScorePct}%</strong>` : '—'}</td>
+            <td><span class="cp-comp-status-pill ${item.status}">${item.status}</span></td>
+          `;
+          tbody.appendChild(tr);
+        });
+      });
+    }
+
+    // ── Detail Modal & Provenance Trail ────────────────────────────────
+    function cpOpenDetailModal(item) {
+      const modal = document.getElementById('cp-detail-modal');
+      const c = item.competence;
+      document.getElementById('modal-comp-code').textContent = c.code;
+      document.getElementById('modal-comp-title').textContent = c.title;
+      document.getElementById('modal-comp-desc').textContent = c.description || (c.category ? `Domain: ${c.category}` : 'No description available.');
+
+      const histList = document.getElementById('modal-history-list');
+      histList.innerHTML = '';
+
+      if (!item.history || !item.history.length) {
+        histList.innerHTML = '<div style="color:#888;font-size:0.85rem;padding:12px 0;">No recorded touchpoints for this competence yet in this class.</div>';
+      } else {
+        item.history.forEach(h => {
+          const row = document.createElement('div');
+          row.className = `cp-timeline-item ${h.tool}`;
+          
+          let toolBtnHtml = '';
+          if (h.tool === 'grade-sheet') {
+            toolBtnHtml = `<button class="cp-btn" style="padding:2px 8px;font-size:0.75rem;margin-left:auto;" onclick="cpJumpToGradeSheet('${_activeClassId}')">Open Grade Sheet</button>`;
+          } else if (h.tool === 'lesson') {
+            toolBtnHtml = `<button class="cp-btn" style="padding:2px 8px;font-size:0.75rem;margin-left:auto;" onclick="cpJumpToLessonCreator('${h.refId}')">Open Lesson</button>`;
+          } else if (h.tool === 'board') {
+            toolBtnHtml = `<button class="cp-btn" style="padding:2px 8px;font-size:0.75rem;margin-left:auto;" onclick="cpJumpToBoard('${h.refId}')">Open Board</button>`;
+          } else if (h.tool === 'planner') {
+            toolBtnHtml = `<button class="cp-btn" style="padding:2px 8px;font-size:0.75rem;margin-left:auto;" onclick="cpJumpToPlanner('${h.date}')">Open Planner</button>`;
+          }
+
+          row.innerHTML = `
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span class="cp-tl-tool ${h.tool}">${h.tool.toUpperCase()}</span>
+                <span style="font-weight:700;font-size:0.85rem;">${cpEscapeHtml(h.title)}</span>
+              </div>
+              <span class="cp-tl-date">${h.date || 'Undated'}</span>
+            </div>
+            ${h.details ? `<div style="font-size:0.8rem;color:var(--ink-secondary);margin-top:2px;">${cpEscapeHtml(h.details)}</div>` : ''}
+            ${h.scorePct !== null ? `<div style="font-size:0.82rem;font-weight:800;color:var(--assessed-color);margin-top:2px;">Student Average: ${h.scorePct}%</div>` : ''}
+            <div style="display:flex;margin-top:6px;">${toolBtnHtml}</div>
+          `;
+          histList.appendChild(row);
+        });
+      }
+
+      modal.style.display = 'flex';
+    }
+
+    function cpCloseDetailModal() {
+      document.getElementById('cp-detail-modal').style.display = 'none';
+    }
+
+    // ── Cross-App Jump Helpers ─────────────────────────────────────────
+    function cpOpenGroupEditor() {
+      if (window.Desktop && typeof Desktop.openTool === 'function') {
+        Desktop.openTool('group-editor.html');
+      } else {
+        window.open('group-editor.html', '_blank');
+      }
+    }
+
+    function cpJumpToGradeSheet(classId) {
+      if (window.Desktop && typeof Desktop.openTool === 'function') {
+        Desktop.openTool('grade-sheet.html', { query: { classId } });
+      } else {
+        window.open('grade-sheet.html?classId=' + encodeURIComponent(classId), '_blank');
+      }
+    }
+
+    function cpJumpToLessonCreator(planId) {
+      if (window.Desktop && typeof Desktop.openTool === 'function') {
+        Desktop.openTool('lesson-creator.html', { query: { planId } });
+      } else {
+        window.open('lesson-creator.html?planId=' + encodeURIComponent(planId), '_blank');
+      }
+    }
+
+    function cpJumpToBoard(filename) {
+      if (window.Desktop && typeof Desktop.openTool === 'function') {
+        Desktop.openTool('board.html', { query: { openSession: '1', openFilename: filename, openTarget: 'mindmaps' } });
+      } else {
+        window.open('board.html', '_blank');
+      }
+    }
+
+    function cpJumpToPlanner(date) {
+      if (window.Desktop && typeof Desktop.openTool === 'function') {
+        Desktop.openTool('planner.html', { query: { navDate: date, navClassId: _activeClassId } });
+      } else {
+        window.open('planner.html', '_blank');
+      }
+    }
+
+    // ── CSV Export ─────────────────────────────────────────────────────
+    function cpExportCsv() {
+      if (!_activePortfolio) return;
+      const rows = [
+        ['Class', 'Competence Code', 'Title', 'Domain', 'Year Level', 'Subject', 'Status', 'Planned Count', 'Delivered Count', 'Assessed Count', 'Class Mean %', 'Latest Touchpoint']
+      ];
+
+      Object.keys(_activePortfolio.categories).forEach(cat => {
+        _activePortfolio.categories[cat].forEach(item => {
+          const c = item.competence;
+          rows.push([
+            _activePortfolio.className,
+            c.code,
+            c.title,
+            c.category || '',
+            c.yearLevel || '',
+            c.subjectId || '',
+            item.status,
+            item.plannedCount,
+            item.deliveredCount,
+            item.assessedCount,
+            item.averageScorePct !== null ? `${item.averageScorePct}%` : '',
+            item.latestDate || ''
+          ]);
+        });
+      });
+
+      const csvContent = rows.map(r => r.map(v => `"${String(v || '').replace(/"/g, '""')}"`).join(',')).join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const filename = `Competence_Portfolio_${_activePortfolio.className.replace(/[^a-zA-Z0-9_-]/g, '_')}.csv`;
+
+      if (window.Desktop && typeof Desktop.saveFile === 'function') {
+        Desktop.saveFile('toPrint', filename, csvContent).then(() => {
+          showToast(`Exported CSV to user/to-print/${filename}`);
+        }).catch(() => {
+          cpDownloadBlob(blob, filename);
+        });
+      } else {
+        cpDownloadBlob(blob, filename);
+      }
+    }
+
+    function cpDownloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // ── Print Report ───────────────────────────────────────────────────
+    function cpPrintReport() {
+      window.print();
+    }
+
+    // ── Utilities ──────────────────────────────────────────────────────
+    function cpEscapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+  </script>
+</body>
+</html>

@@ -14,6 +14,7 @@
   <script src="../js/menus.js"></script>
   <script src="../js/import-utils.js"></script>
   <script src="../modules/xlsx.min.js"></script>
+  <script src="../js/competence-aggregator-service.js"></script>
   <script src="../js/lesson-creator-service.js"></script>
 </head>
 <body>
@@ -69,6 +70,7 @@
           <button class="nav-pop-item" onclick="lcRunInClassManagement()"><span data-i18n="lcRunCMS">Run in Class Management</span> <span class="nav-pop-hint">Ctrl+R</span></button>
           <button class="nav-pop-item" onclick="lcOpenBoardExportModal()"><span data-i18n="lcExportBoard">Export to Board (Mindmap)…</span></button>
           <button class="nav-pop-item" onclick="lcOpenPlannerLinkModal()"><span data-i18n="lcLinkPlanner">Link to Planner Slot…</span></button>
+          <button class="nav-pop-item" onclick="lcOpenCompetencePortfolio()"><span data-i18n="lcBtnCompetencePortfolio">Competence Portfolio…</span></button>
           <hr class="nav-pop-sep">
           <button class="nav-pop-item" onclick="lcOpenDescriptorDb()"><span data-i18n="lcOpenCompetenceDb">Open Competences Database…</span></button>
           <button class="nav-pop-item" onclick="lcOpenPhaseDb()"><span data-i18n="lcOpenPhaseDb">Open Phases DB…</span></button>
@@ -443,6 +445,7 @@
         </div>
       </div>
       <div class="modal-footer">
+        <button class="neo-btn" onclick="lcOpenCompetencePortfolio()"><span data-i18n="lcBtnCompetencePortfolio">Open Portfolio</span></button>
         <button class="neo-btn" onclick="lcExportCoverageCsv()"><span data-i18n="lcExportCsv">Export CSV</span></button>
         <button class="neo-btn primary" onclick="lcCloseModal('coverageModal')"><span data-i18n="btnClose">Close</span></button>
       </div>
@@ -2717,7 +2720,69 @@
 
       window.lcOnClassChange = function () {
         currentPlan.classId = document.getElementById('planClass').value;
+        if (currentPlan.classId && typeof CompetenceAggregatorService !== 'undefined') {
+          CompetenceAggregatorService.getGroupMetadata(currentPlan.classId).then(function (meta) {
+            if (!meta) return;
+            if (meta.subject) {
+              var subEl = document.getElementById('planSubject');
+              var dSubEl = document.getElementById('drawerFilterSubject');
+              if (subEl) {
+                for (var i = 0; i < subEl.options.length; i++) {
+                  var v = subEl.options[i].value.toLowerCase();
+                  if (v === meta.subject.toLowerCase() || meta.subject.toLowerCase().includes(v) || v.includes(meta.subject.toLowerCase())) {
+                    subEl.selectedIndex = i;
+                    currentPlan.subjectId = subEl.value;
+                    break;
+                  }
+                }
+              }
+              if (dSubEl) {
+                for (var j = 0; j < dSubEl.options.length; j++) {
+                  var dv = dSubEl.options[j].value.toLowerCase();
+                  if (dv === meta.subject.toLowerCase() || meta.subject.toLowerCase().includes(dv) || dv.includes(meta.subject.toLowerCase())) {
+                    dSubEl.selectedIndex = j;
+                    break;
+                  }
+                }
+              }
+            }
+            if (meta.level) {
+              var yrEl = document.getElementById('planYearLevel');
+              var dYrEl = document.getElementById('drawerFilterYear');
+              var tLvl = String(meta.level).toLowerCase();
+              if (yrEl) {
+                for (var k = 0; k < yrEl.options.length; k++) {
+                  var yv = yrEl.options[k].value.toLowerCase();
+                  if (yv === tLvl || yv.includes(tLvl) || tLvl.includes(yv)) {
+                    yrEl.selectedIndex = k;
+                    currentPlan.yearLevel = yrEl.value;
+                    break;
+                  }
+                }
+              }
+              if (dYrEl) {
+                for (var m = 0; m < dYrEl.options.length; m++) {
+                  var dyv = dYrEl.options[m].value.toLowerCase();
+                  if (dyv === tLvl || dyv.includes(tLvl) || tLvl.includes(dyv)) {
+                    dYrEl.selectedIndex = m;
+                    break;
+                  }
+                }
+              }
+            }
+            if (typeof renderDrawer === 'function') renderDrawer();
+          });
+        }
         lcOnPlanDirty();
+      };
+
+      window.lcOpenCompetencePortfolio = function () {
+        var classId = (currentPlan && currentPlan.classId) || (document.getElementById('planClass') ? document.getElementById('planClass').value : '');
+        if (window.Desktop && typeof Desktop.openTool === 'function') {
+          Desktop.openTool('competence-portfolio.html', { query: { classId: classId } });
+        } else {
+          window.open('competence-portfolio.html?classId=' + encodeURIComponent(classId), '_blank');
+        }
       };
 
       window.lcOnYearLevelChange = function () {

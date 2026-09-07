@@ -13,6 +13,7 @@
   <script src="../js/menus.js"></script>
   <script src="../js/tutorial.js"></script>
   <script src="../js/import-utils.js"></script>
+  <script src="../js/competence-aggregator-service.js"></script>
   <link rel="stylesheet" href="../css/stylesheet.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -974,6 +975,8 @@
         <option value="3">3</option>
         <option value="4">4</option>
       </select>
+      <input id="new-group-subject" class="ge-add-subject" list="ge-subject-datalist" placeholder="Subject" data-i18n-placeholder="geSubject" style="width:105px;padding:6px 8px;border:1px solid #ccc;border-radius:6px;font-size:0.85rem;">
+      <datalist id="ge-subject-datalist"></datalist>
       <label class="ge-admin-toggle-label" title="Administrative Group (Syncs students to Administrative Groups)">
         <input type="checkbox" id="new-group-is-admin">
         <img src="../assets/icons/admin-groups.svg" class="btn-icon" alt="" style="width:14px;height:14px;" />
@@ -2026,6 +2029,7 @@
       const m = meta[uuid] || {};
       const metaEntry = { year: m.year ?? '', semester: m.semester === '' ? '' : m.semester, level: m.level === '' ? '' : m.level };
       if (m.name) metaEntry.name = m.name;
+      if (m.subject) metaEntry.subject = m.subject;
       if (m.isAdminGroup) metaEntry.isAdminGroup = true;
       if (m.halfGroups && (m.halfGroups.A?.length || m.halfGroups.B?.length)) metaEntry.halfGroups = m.halfGroups;
       if (m.students && m.students.length) metaEntry.students = m.students;
@@ -2144,16 +2148,120 @@
 
     const lvlSelect = document.createElement('select');
     lvlSelect.className = 'eg-row-level';
-    lvlSelect.title = 'Level';
-    lvlSelect.style.cssText = 'width:64px; padding:5px 4px; border:1px solid #ccc; border-radius:4px; font-size:0.82rem;';
-    [['', 'Lvl'], ['1', '1'], ['2', '2'], ['3', '3'], ['4', '4']].forEach(([v, t]) => {
-      const opt = document.createElement('option');
-      opt.value = v; opt.textContent = t;
-      if (String(meta && meta.level) === v) opt.selected = true;
-      lvlSelect.appendChild(opt);
-    });
+    lvlSelect.title = 'Level / Year Level';
+    lvlSelect.style.cssText = 'min-width:70px; max-width:115px; padding:5px 4px; border:1px solid #ccc; border-radius:4px; font-size:0.82rem;';
+    _buildLevelSelectOptions(lvlSelect, meta && meta.level);
 
-    return { yearInput, semSelect, lvlSelect };
+    const subjectInput = document.createElement('input');
+    subjectInput.type = 'text';
+    subjectInput.className = 'eg-row-subject';
+    subjectInput.setAttribute('list', 'ge-subject-datalist');
+    subjectInput.placeholder = typeof t === 'function' ? t('geSubject') : 'Subject';
+    subjectInput.title = typeof t === 'function' ? t('geSubject') : 'Subject';
+    subjectInput.value = (meta && meta.subject) || '';
+
+    return { yearInput, semSelect, lvlSelect, subjectInput };
+  }
+
+  let _availableCompetenceLevels = [];
+  let _availableCompetenceSubjects = [];
+
+  async function _initCompetenceOptionsForGroupEditor() {
+    if (typeof CompetenceAggregatorService !== 'undefined') {
+      try {
+        _availableCompetenceLevels = await CompetenceAggregatorService.getAvailableYearLevels();
+        _availableCompetenceSubjects = await CompetenceAggregatorService.getAvailableSubjects();
+        _populateSubjectDatalist();
+        _refreshLevelSelects();
+      } catch (_) {}
+    }
+  }
+
+  function _populateSubjectDatalist() {
+    let dl = document.getElementById('ge-subject-datalist');
+    if (!dl) {
+      dl = document.createElement('datalist');
+      dl.id = 'ge-subject-datalist';
+      document.body.appendChild(dl);
+    }
+    dl.innerHTML = '';
+    const defSubjects = ['English', 'French', 'Science', 'Mathematics', 'History', 'Geography', 'Art', 'Music', 'Physical Education', 'Spanish', 'German'];
+    const combined = Array.from(new Set([...defSubjects, ..._availableCompetenceSubjects])).filter(Boolean).sort();
+    combined.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s;
+      dl.appendChild(opt);
+    });
+  }
+
+  function _buildLevelSelectOptions(lvlSelect, currentVal) {
+    if (!lvlSelect) return;
+    const cur = String(currentVal !== undefined && currentVal !== null ? currentVal : '').trim();
+    lvlSelect.innerHTML = '';
+
+    const placeholderOpt = document.createElement('option');
+    placeholderOpt.value = '';
+    placeholderOpt.textContent = 'Lvl';
+    lvlSelect.appendChild(placeholderOpt);
+
+    // Standard numbered levels 1 - 12
+    const numGroup = document.createElement('optgroup');
+    numGroup.label = 'Standard (1-12)';
+    for (let i = 1; i <= 12; i++) {
+      const opt = document.createElement('option');
+      opt.value = String(i);
+      opt.textContent = String(i);
+      if (cur === String(i)) opt.selected = true;
+      numGroup.appendChild(opt);
+    }
+    lvlSelect.appendChild(numGroup);
+
+    // Detected Competence Year Levels
+    if (_availableCompetenceLevels.length > 0) {
+      const compGroup = document.createElement('optgroup');
+      compGroup.label = 'Curriculum / Competences';
+      _availableCompetenceLevels.forEach(lvl => {
+        if (/^[1-9]$|^1[0-2]$/.test(lvl)) return;
+        const opt = document.createElement('option');
+        opt.value = lvl;
+        opt.textContent = lvl;
+        if (cur.toLowerCase() === lvl.toLowerCase()) opt.selected = true;
+        compGroup.appendChild(opt);
+      });
+      if (compGroup.children.length > 0) {
+        lvlSelect.appendChild(compGroup);
+      }
+    }
+
+    // Preserve custom value if not present in options
+    if (cur && !Array.from(lvlSelect.options).some(o => o.value === cur || o.value.toLowerCase() === cur.toLowerCase())) {
+      const customOpt = document.createElement('option');
+      customOpt.value = cur;
+      customOpt.textContent = cur;
+      customOpt.selected = true;
+      lvlSelect.appendChild(customOpt);
+    }
+  }
+
+  function _refreshLevelSelects() {
+    const ngLvl = document.getElementById('new-group-level');
+    if (ngLvl) _buildLevelSelectOptions(ngLvl, ngLvl.value);
+    document.querySelectorAll('#ge-groups-body .eg-row').forEach(row => {
+      const gid = row.dataset.group;
+      const lvlSel = row.querySelector('.eg-row-level');
+      if (lvlSel && gid && rawMeta[gid]) {
+        _buildLevelSelectOptions(lvlSel, rawMeta[gid].level);
+      }
+    });
+  }
+
+  function openGroupCompetencePortfolio(groupId) {
+    if (!groupId) return;
+    if (window.Desktop && typeof Desktop.openTool === 'function') {
+      Desktop.openTool('competence-portfolio.html', { query: { classId: groupId } });
+    } else {
+      window.open('competence-portfolio.html?classId=' + encodeURIComponent(groupId), '_blank');
+    }
   }
 
   // ── Preset popup menus for Custom Name ────────────────────────
@@ -2677,7 +2785,7 @@
     studentsToggle.title = 'Show/hide student details';
     if (isArchived) studentsToggle.disabled = true;
 
-    const { yearInput, semSelect, lvlSelect } = makeMetaInputs(rawMeta[groupId]);
+    const { yearInput, semSelect, lvlSelect, subjectInput } = makeMetaInputs(rawMeta[groupId]);
     const isAdminGroup = !!(rawMeta[groupId] && rawMeta[groupId].isAdminGroup);
     const adminToggle = document.createElement('button');
     adminToggle.type = 'button';
@@ -2698,6 +2806,7 @@
 
     if (isArchived) {
       yearInput.disabled = true; semSelect.disabled = true; lvlSelect.disabled = true;
+      if (subjectInput) { subjectInput.disabled = true; subjectInput.style.opacity = '0.6'; }
       [yearInput, semSelect, lvlSelect].forEach(el => el.style.opacity = '0.6');
     }
 
@@ -2786,12 +2895,21 @@
       );
     };
 
+    const compBtn = document.createElement('button');
+    compBtn.type = 'button';
+    compBtn.className = 'eg-comp-btn';
+    compBtn.title = typeof t === 'function' ? t('geBtnCompetencePortfolio') : 'Competence Portfolio';
+    compBtn.innerHTML = '<img src="../assets/icons/award.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> ' + (typeof t === 'function' ? t('btnCompetenceTags') : 'Competences');
+    compBtn.onclick = () => openGroupCompetencePortfolio(groupId);
+
     row.appendChild(nameInput);
     row.appendChild(uuidBadge);
     row.appendChild(studentsToggle);
     row.appendChild(yearInput);
     row.appendChild(semSelect);
     row.appendChild(lvlSelect);
+    if (subjectInput) row.appendChild(subjectInput);
+    row.appendChild(compBtn);
     row.appendChild(adminToggle);
     row.appendChild(halfToggle);
     row.appendChild(archiveBtn);
@@ -3010,6 +3128,7 @@
       const yearEl = row.querySelector('.eg-row-year');
       const semEl = row.querySelector('.eg-row-semester');
       const lvlEl = row.querySelector('.eg-row-level');
+      const subjEl = row.querySelector('.eg-row-subject');
       const adminToggle = row.querySelector('.eg-admin-toggle');
       const isAdmin = adminToggle ? adminToggle.classList.contains('active') : false;
 
@@ -3020,11 +3139,18 @@
         else if (rawSv !== '') semVal = Number(rawSv);
       }
 
+      let lvlVal = '';
+      if (lvlEl && lvlEl.value !== '') {
+        const rawLvl = lvlEl.value.trim();
+        lvlVal = isNaN(Number(rawLvl)) ? rawLvl : Number(rawLvl);
+      }
+
       updatedMeta[uuid] = {
         name,
         year: yearEl ? yearEl.value.trim() : '',
         semester: semVal,
-        level: lvlEl ? (lvlEl.value === '' ? '' : Number(lvlEl.value)) : ''
+        level: lvlVal,
+        subject: subjEl ? subjEl.value.trim() : ''
       };
       if (isAdmin) updatedMeta[uuid].isAdminGroup = true;
       if (studentUuids.length > 0) updatedMeta[uuid].students = studentUuids;
@@ -3103,9 +3229,10 @@
     const newMeta = {
       year: newGroupYear,
       semester: document.getElementById('new-group-semester').value || (activeCtx.activeSemester ? String(activeCtx.activeSemester) : ''),
-      level: document.getElementById('new-group-level').value
+      level: document.getElementById('new-group-level').value,
+      subject: (document.getElementById('new-group-subject')?.value || '').trim()
     };
-    const { yearInput, semSelect, lvlSelect } = makeMetaInputs(newMeta);
+    const { yearInput, semSelect, lvlSelect, subjectInput } = makeMetaInputs(newMeta);
 
     const studentSection = buildStudentSection(students, false);
     studentSection.style.display = ''; // open by default for new groups
@@ -3171,6 +3298,14 @@
     row.appendChild(yearInput);
     row.appendChild(semSelect);
     row.appendChild(lvlSelect);
+    if (subjectInput) row.appendChild(subjectInput);
+    const compBtn = document.createElement('button');
+    compBtn.type = 'button';
+    compBtn.className = 'eg-comp-btn';
+    compBtn.title = typeof t === 'function' ? t('geBtnCompetencePortfolio') : 'Competence Portfolio';
+    compBtn.innerHTML = '<img src="../assets/icons/award.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> ' + (typeof t === 'function' ? t('btnCompetenceTags') : 'Competences');
+    compBtn.onclick = () => openGroupCompetencePortfolio(newUuid);
+    row.appendChild(compBtn);
     row.appendChild(adminToggle);
     row.appendChild(halfToggle);
     row.appendChild(archiveBtn);
@@ -4512,6 +4647,7 @@
     if (typeof applyTranslations === 'function') applyTranslations();
     window._cmtApplyNavBrand();
     loadGroups();
+    _initCompetenceOptionsForGroupEditor();
     if (window.Desktop && typeof Desktop.onDataChanged === 'function') {
       window._cmtHotReload = function () { return loadGroups(); };
       Desktop.onDataChanged(function (data) {

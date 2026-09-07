@@ -12,6 +12,7 @@
   <script src="../js/tutorial.js"></script>
   <script src="../modules/xlsx.min.js"></script>
   <script src="../electron-bridge.js"></script>
+  <script src="../js/competence-aggregator-service.js"></script>
   <script src="../js/menus.js"></script>
   <script>
     (function () {
@@ -190,6 +191,7 @@
         </div>
         <div class="btn-row">
           <button id="btn-back-classes" class="btn" data-i18n="gsBtnBackClasses"><img src="../assets/icons/arrow-left.svg" class="btn-icon" alt="" /> Back to Classes</button>
+          <button id="btn-open-competence-portfolio" class="btn" onclick="gsOpenCompetencePortfolio()" title="Open Competence Portfolio" data-i18n-title="geBtnCompetencePortfolio"><img src="../assets/icons/award.svg" class="btn-icon" alt="" /> <span data-i18n="gsBtnCompetencePortfolio">Competences</span></button>
           <div class="dropdown" id="summary-name-display-dropdown" style="display:inline-flex;align-items:center;">
             <select id="gs-name-display-select" class="btn" style="padding:6px 10px;font-size:0.82rem;font-weight:600;background:var(--card,#fff);color:var(--text,#111);border:1px solid var(--border,#ccc);border-radius:6px;cursor:pointer;" title="Student name display mode">
               <option value="full">Full Name</option>
@@ -1119,6 +1121,10 @@
       </div>
       <!-- Filter Toolbar -->
       <div id="gs-competence-picker-filters" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;background:var(--bg-subtle,#f8fafc);padding:6px 10px;border-radius:6px;border:1px solid var(--border,#e2e8f0);">
+        <div style="display:flex;align-items:center;gap:4px;flex:1;min-width:115px;">
+          <label for="gs-comp-filter-subject" style="font-size:0.75rem;font-weight:600;color:var(--muted,#666);margin:0;white-space:nowrap;" data-i18n="cpFilterSubject">Subject:</label>
+          <select id="gs-comp-filter-subject" class="input" style="font-size:0.8rem;padding:2px 6px;height:28px;flex:1;min-width:0;"></select>
+        </div>
         <div style="display:flex;align-items:center;gap:4px;flex:1;min-width:115px;">
           <label for="gs-comp-filter-year" style="font-size:0.75rem;font-weight:600;color:var(--muted,#666);margin:0;white-space:nowrap;" data-i18n="gsCompFilterYear">Year:</label>
           <select id="gs-comp-filter-year" class="input" style="font-size:0.8rem;padding:2px 6px;height:28px;flex:1;min-width:0;"></select>
@@ -3150,6 +3156,7 @@
     let _compPickerSelected = new Set();
     let _compPickerFilters = {
       search: '',
+      subject: 'all',
       year: 'all',
       category: 'all',
       level: 'all',
@@ -3157,24 +3164,35 @@
     };
 
     function populateCompetencePickerFilters() {
+      const subjSel = document.getElementById('gs-comp-filter-subject');
       const yrSel = document.getElementById('gs-comp-filter-year');
       const catSel = document.getElementById('gs-comp-filter-category');
       const lvlSel = document.getElementById('gs-comp-filter-level');
       if (!yrSel || !catSel || !lvlSel) return;
 
+      const subjects = new Set();
       const years = new Set();
       const categories = new Set();
       const levels = new Set();
 
       _allLessonCompetences.forEach(c => {
+        if (c.subjectId) subjects.add(c.subjectId);
+        else if (c.subject) subjects.add(c.subject);
         if (c.year && c.year !== 'all') years.add(c.year);
         if (c.category && c.category !== 'all') categories.add(c.category);
         if (c.level && c.level !== 'all') levels.add(c.level);
       });
 
+      const curSubj = _compPickerFilters.subject;
       const curYr = _compPickerFilters.year;
       const curCat = _compPickerFilters.category;
       const curLvl = _compPickerFilters.level;
+
+      if (subjSel) {
+        subjSel.innerHTML = `<option value="all">${t('cpStatusAll') || 'All Subjects'}</option>` +
+          Array.from(subjects).sort().map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+        subjSel.value = subjects.has(curSubj) ? curSubj : 'all';
+      }
 
       yrSel.innerHTML = `<option value="all">${t('gsCompFilterAllYears') || 'All Years'}</option>` +
         Array.from(years).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).map(y => `<option value="${escapeHtml(y)}">${escapeHtml(y)}</option>`).join('');
@@ -3193,6 +3211,7 @@
       _compPickerCallback = onApply;
       _compPickerSelected = new Set(Array.isArray(initialSelectedIds) ? initialSelectedIds : []);
       _compPickerFilters.search = '';
+      _compPickerFilters.subject = 'all';
       _compPickerFilters.year = 'all';
       _compPickerFilters.category = 'all';
       _compPickerFilters.level = 'all';
@@ -3200,6 +3219,7 @@
 
       populateCompetencePickerFilters();
 
+      const subjSel = document.getElementById('gs-comp-filter-subject');
       const yrSel = document.getElementById('gs-comp-filter-year');
       const catSel = document.getElementById('gs-comp-filter-category');
       const lvlSel = document.getElementById('gs-comp-filter-level');
@@ -3207,9 +3227,38 @@
       const showSelBtn = document.getElementById('gs-comp-filter-show-selected');
 
       if (searchInput) searchInput.value = '';
+      if (subjSel) subjSel.value = 'all';
       if (yrSel) yrSel.value = 'all';
       if (catSel) catSel.value = 'all';
       if (lvlSel) lvlSel.value = 'all';
+
+      // Auto pre-filter based on active class
+      const activeClass = (typeof getActiveClass === 'function' && getActiveClass()) || null;
+      if (activeClass) {
+        if (activeClass.level && yrSel) {
+          const targetLvl = String(activeClass.level).toLowerCase().trim();
+          for (let i = 0; i < yrSel.options.length; i++) {
+            const val = yrSel.options[i].value.toLowerCase();
+            if (val === targetLvl || val.includes(targetLvl) || targetLvl.includes(val)) {
+              yrSel.selectedIndex = i;
+              _compPickerFilters.year = yrSel.value;
+              break;
+            }
+          }
+        }
+        if (activeClass.subject && subjSel) {
+          const targetSubj = String(activeClass.subject).toLowerCase().trim();
+          for (let i = 0; i < subjSel.options.length; i++) {
+            const val = subjSel.options[i].value.toLowerCase();
+            if (val === targetSubj || val.includes(targetSubj) || targetSubj.includes(val)) {
+              subjSel.selectedIndex = i;
+              _compPickerFilters.subject = subjSel.value;
+              break;
+            }
+          }
+        }
+      }
+
       if (showSelBtn) {
         showSelBtn.classList.remove('active', 'primary');
       }
@@ -3220,6 +3269,16 @@
       if (searchInput) searchInput.focus();
     }
 
+    function gsOpenCompetencePortfolio() {
+      const classObj = (typeof getActiveClass === 'function' && getActiveClass()) || null;
+      const classId = (classObj && classObj.id) || (typeof appState !== 'undefined' && appState.activeClassId) || '';
+      if (window.Desktop && typeof Desktop.openTool === 'function') {
+        Desktop.openTool('competence-portfolio.html', { query: { classId } });
+      } else {
+        window.open('competence-portfolio.html?classId=' + encodeURIComponent(classId), '_blank');
+      }
+    }
+
     function closeCompetencePicker() {
       const overlay = document.getElementById('gs-competence-picker-overlay');
       if (overlay) overlay.classList.add('hidden');
@@ -3228,6 +3287,7 @@
 
     function getFilteredCompetences() {
       const q = String(_compPickerFilters.search || '').toLowerCase().trim();
+      const fs = _compPickerFilters.subject;
       const fy = _compPickerFilters.year;
       const fc = _compPickerFilters.category;
       const fl = _compPickerFilters.level;
@@ -3235,6 +3295,10 @@
 
       return _allLessonCompetences.filter(c => {
         if (fSelected && !_compPickerSelected.has(c.id)) return false;
+        if (fs && fs !== 'all') {
+          const cSubj = (c.subjectId || c.subject || '').toLowerCase();
+          if (!cSubj.includes(fs.toLowerCase())) return false;
+        }
         if (fy !== 'all' && c.year !== fy) return false;
         if (fc !== 'all' && c.category !== fc) return false;
         if (fl !== 'all' && c.level !== fl) return false;
@@ -3361,6 +3425,7 @@
       const cancelBtn = document.getElementById('gs-competence-picker-cancel');
       const applyBtn = document.getElementById('gs-competence-picker-apply');
 
+      const subjSel = document.getElementById('gs-comp-filter-subject');
       const yrSel = document.getElementById('gs-comp-filter-year');
       const catSel = document.getElementById('gs-comp-filter-category');
       const lvlSel = document.getElementById('gs-comp-filter-level');
@@ -3379,6 +3444,12 @@
       if (searchInput) {
         searchInput.addEventListener('input', () => {
           _compPickerFilters.search = searchInput.value;
+          renderCompetencePickerList();
+        });
+      }
+      if (subjSel) {
+        subjSel.addEventListener('change', () => {
+          _compPickerFilters.subject = subjSel.value;
           renderCompetencePickerList();
         });
       }
