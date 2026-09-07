@@ -839,6 +839,87 @@
       filter: none;
     }
 
+    .con-ctx-layout-selector {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      padding: 3px 10px 5px;
+      border-bottom: 1px solid #eee;
+      margin-bottom: 4px;
+    }
+
+    .con-ctx-layout-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: #777;
+      margin-right: 2px;
+      flex-shrink: 0;
+    }
+
+    .con-ctx-layout-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      padding: 3px 5px;
+      background: #f4f4f4;
+      color: #333;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+
+    .con-ctx-layout-btn:hover {
+      background: #e5e5e5;
+      border-color: #999;
+    }
+
+    .con-ctx-layout-btn.active {
+      background: #111 !important;
+      color: #fff !important;
+      border-color: #111 !important;
+    }
+
+    .con-ctx-layout-btn svg {
+      flex-shrink: 0;
+      pointer-events: none;
+    }
+
+    body.dark-mode .con-ctx-layout-selector,
+    html.dark .con-ctx-layout-selector {
+      border-bottom-color: #333;
+    }
+
+    body.dark-mode .con-ctx-layout-label,
+    html.dark .con-ctx-layout-label {
+      color: #aaa;
+    }
+
+    body.dark-mode .con-ctx-layout-btn,
+    html.dark .con-ctx-layout-btn {
+      background: #252525;
+      color: #eee;
+      border-color: #444;
+    }
+
+    body.dark-mode .con-ctx-layout-btn:hover,
+    html.dark .con-ctx-layout-btn:hover {
+      background: #333;
+      border-color: #666;
+    }
+
+    body.dark-mode .con-ctx-layout-btn.active,
+    html.dark .con-ctx-layout-btn.active {
+      background: #4f46e5 !important;
+      color: #fff !important;
+      border-color: #4f46e5 !important;
+    }
+
     #board-cms-timer-strip {
       display: none;
       align-items: center;
@@ -976,6 +1057,12 @@
       user-select: none;
       cursor: default;
       font-family: inherit;
+    }
+
+    .con-table-el.con-table-selected {
+      outline: 2px solid var(--accent, #3b82f6);
+      outline-offset: 2px;
+      box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.25), 2px 2px 0 rgba(0, 0, 0, 0.12);
     }
 
     .con-table-bar {
@@ -2035,10 +2122,29 @@
       <button onclick="conBoardCtxConfirm()"
         style="padding:5px 9px; background:#111; color:#fff; border:none; border-radius:3px; font-size:0.82rem; font-weight:700; cursor:pointer; font-family:inherit; flex-shrink:0;">＋</button>
     </div>
+    <div class="con-ctx-layout-selector" id="con-ctx-layout-selector">
+      <span class="con-ctx-layout-label" data-i18n="conLayoutMulti">Multi-layout:</span>
+      <button type="button" class="con-ctx-layout-btn" data-layout="horizontal" onclick="conSetBoardCtxLayout('horizontal')" title="Horizontal row">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="12" x2="21" y2="12"/><circle cx="5" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="19" cy="12" r="2" fill="currentColor"/></svg>
+        <span data-i18n="conLayoutRow">Row</span>
+      </button>
+      <button type="button" class="con-ctx-layout-btn" data-layout="vertical" onclick="conSetBoardCtxLayout('vertical')" title="Vertical column">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="3" x2="12" y2="21"/><circle cx="12" cy="5" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="19" r="2" fill="currentColor"/></svg>
+        <span data-i18n="conLayoutCol">Col</span>
+      </button>
+      <button type="button" class="con-ctx-layout-btn" data-layout="circle" onclick="conSetBoardCtxLayout('circle')" title="Radial circle">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="5" r="1.5" fill="currentColor"/><circle cx="18.5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="19" r="1.5" fill="currentColor"/><circle cx="5.5" cy="12" r="1.5" fill="currentColor"/></svg>
+        <span data-i18n="conLayoutCircle">Circle</span>
+      </button>
+      <button type="button" class="con-ctx-layout-btn" data-layout="cluster" onclick="conSetBoardCtxLayout('cluster')" title="Compact cluster">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="8" cy="9" r="2.8" fill="currentColor"/><circle cx="16" cy="9" r="2.8" fill="currentColor"/><circle cx="12" cy="16" r="2.8" fill="currentColor"/></svg>
+        <span data-i18n="conLayoutCluster">Cluster</span>
+      </button>
+    </div>
     <div style="padding:0 10px 5px; font-size:0.65rem; color:#999; line-height:1.55;">
       <code>_</code> phrase &nbsp;·&nbsp; <code>//</code> 2 lines &nbsp;·&nbsp; <code>,,</code> separate<br>
-      <code>--</code> chain &nbsp;·&nbsp; <code>+</code> group<br>
-      <code>&gt;</code> arrow→ &nbsp;·&nbsp; <code>&lt;</code> arrow← &nbsp;·&nbsp; <code>&lt;&gt;</code> both↔<br>
+      <code>--</code> chain &nbsp;·&nbsp; <code>+</code> / <code>++</code> group<br>
+      <code>&gt;</code>/<code>&gt;&gt;</code> arrow→ &nbsp;·&nbsp; <code>&lt;</code>/<code>&lt;&lt;</code> arrow← &nbsp;·&nbsp; <code>&lt;&gt;</code> both↔<br>
       <code>((n))</code> page number &nbsp;e.g. <code>word ((128))</code>
     </div>
     <div class="con-ctx-sep"></div>
@@ -11535,6 +11641,15 @@
       let conSelected = null; // id of selected node
       let conMultiSelected = new Set(); // ids of multi-selected nodes
       let conGroupFocused = null; // id of focused group (Delete key support)
+      let conTableSelected = new Set(); // ids of selected tables
+      function conTableClearSelection() {
+        conTableSelected.clear();
+        document.querySelectorAll('#constellation-board .con-table-el.con-table-selected')
+          .forEach(el => el.classList.remove('con-table-selected'));
+        if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
+      }
+      window.conTableClearSelection = conTableClearSelection;
+      window.conGetTableSelected = function () { return conTableSelected; };
       let conConnSrc = null;  // id of first node in connect mode
       let _conLinkSrc = null; // id of source element for Ctrl+J cross-type link mode
       let conNextId = 1;
@@ -13033,11 +13148,42 @@
 
           // Drag (bar)
           let _drag = false, _ox = 0, _oy = 0, _sx = 0, _sy = 0, _pre = null;
+          let _tableOffsets = [];
           bar.addEventListener('mousedown', function (e) {
             if (e.button !== 0 || tbl.locked) return;
             if (e.target.closest('.con-table-header-toggle, .con-table-bar-btn')) return;
             e.preventDefault(); e.stopPropagation();
+
+            if (e.shiftKey || e.ctrlKey || e.metaKey) {
+              if (conTableSelected.has(tbl.id)) {
+                conTableSelected.delete(tbl.id);
+                el.classList.remove('con-table-selected');
+              } else {
+                conTableSelected.add(tbl.id);
+                el.classList.add('con-table-selected');
+              }
+            } else {
+              if (!conTableSelected.has(tbl.id)) {
+                if (typeof conTableClearSelection === 'function') conTableClearSelection();
+                conTableSelected.add(tbl.id);
+                el.classList.add('con-table-selected');
+              }
+              if (window.conNodeClearSelection) window.conNodeClearSelection();
+              if (window.conNoteClearSelection) window.conNoteClearSelection();
+              if (window.conDrawingClearSelection) window.conDrawingClearSelection();
+              if (window.conShapeClearSelection) window.conShapeClearSelection();
+            }
+            if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
+
             _drag = false; _sx = e.clientX; _sy = e.clientY; _ox = tbl.x; _oy = tbl.y; _pre = null;
+            _tableOffsets = [];
+            if (conTableSelected.size > 1 && conTableSelected.has(tbl.id)) {
+              conTableSelected.forEach(tid => {
+                if (tid === tbl.id) return;
+                const other = conTables.find(t => t.id === tid);
+                if (other && !other.locked) _tableOffsets.push({ tbl: other, sx: other.x, sy: other.y });
+              });
+            }
           });
           document.addEventListener('mousemove', function (e) {
             if (!_sx && !_sy) return;
@@ -13049,10 +13195,15 @@
             if (!_drag) return;
             tbl.x = Math.max(0, _ox + dx); tbl.y = Math.max(0, _oy + dy);
             el.style.left = tbl.x + 'px'; el.style.top = tbl.y + 'px';
+            _tableOffsets.forEach(({ tbl: other, sx, sy }) => {
+              other.x = Math.max(0, sx + dx);
+              other.y = Math.max(0, sy + dy);
+              if (other.el) { other.el.style.left = other.x + 'px'; other.el.style.top = other.y + 'px'; }
+            });
           });
           document.addEventListener('mouseup', function () {
             if (_drag && _pre) { conPushUndo(_pre); }
-            _drag = false; _sx = 0; _sy = 0; _pre = null;
+            _drag = false; _sx = 0; _sy = 0; _pre = null; _tableOffsets = [];
           });
 
           // Corner resize
@@ -17157,6 +17308,7 @@
         if (typeof conNodeClearSelection === 'function') conNodeClearSelection();
         else conSelect(null);
         if (typeof window.conNoteClearSelection === 'function') window.conNoteClearSelection();
+        if (typeof window.conTableClearSelection === 'function') window.conTableClearSelection();
         if (typeof window.conDrawingClearSelection === 'function') window.conDrawingClearSelection();
         if (typeof window.conShapeClearSelection === 'function') window.conShapeClearSelection();
         window._conActiveMediaItem = null;
@@ -17221,6 +17373,18 @@
             if (nd && typeof wnDeleteNoteData === 'function') wnDeleteNoteData(nd);
           });
           conNoteSelected.clear();
+        }
+        if (typeof conTableSelected !== 'undefined' && conTableSelected.size > 0) {
+          [...conTableSelected].forEach(tid => {
+            const tbl = (window.conGetTables ? window.conGetTables() : []).find(t => t.id === tid);
+            if (tbl && tbl.el) tbl.el.remove();
+            if (window.conGetTables) {
+              const allTbls = window.conGetTables();
+              const idx = allTbls.findIndex(t => t.id === tid);
+              if (idx !== -1) allTbls.splice(idx, 1);
+            }
+          });
+          conTableSelected.clear();
         }
       };
       window.conToggleMaskSelected = function () {
@@ -18134,7 +18298,7 @@
         if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
       }
 
-      function conSetMultiSelected(ids) {
+      function conSetMultiSelected(ids, preserveOthers) {
         // ids: array of node ids to multi-select
         conSelected = null;
         conMultiSelected = new Set(ids);
@@ -18142,7 +18306,7 @@
           n.el.classList.remove('con-selected', 'con-multi-selected');
           if (conMultiSelected.has(n.id)) n.el.classList.add('con-multi-selected');
         });
-        if (ids && ids.length > 0) {
+        if (!preserveOthers && ids && ids.length > 0) {
           if (typeof conNoteSelected !== 'undefined' && conNoteSelected) {
             conNoteSelected.clear();
             document.querySelectorAll('#constellation-board .con-word-note.wn-selected')
@@ -19067,7 +19231,9 @@
           const allSelectedNodeIds = new Set(conMultiSelected);
           if (conSelected) allSelectedNodeIds.add(conSelected);
           const isSelected = allSelectedNodeIds.has(id);
-          const totalSelectedObjects = allSelectedNodeIds.size + conNoteSelected.size + conDrawingSelected.size;
+          const shapeSel = window.conGetShapeSelected ? window.conGetShapeSelected() : (typeof _conShapeSelected !== 'undefined' ? _conShapeSelected : new Set());
+          const tableSel = (typeof conTableSelected !== 'undefined') ? conTableSelected : new Set();
+          const totalSelectedObjects = allSelectedNodeIds.size + conNoteSelected.size + conDrawingSelected.size + shapeSel.size + tableSel.size;
           const isMulti = isSelected && (allSelectedNodeIds.size > 1 || totalSelectedObjects > 1);
 
           // Expand selection to include phrase siblings of any selected node
@@ -19095,6 +19261,20 @@
             ? Array.from(conDrawingSelected).map(did => {
               const dr = conDrawings.find(d => d.id === did);
               return dr ? { dr, snapX: dr.x, snapY: dr.y } : null;
+            }).filter(Boolean)
+            : [];
+          // Snapshot selected shapes for joint drag
+          const shapeGroupSnap = (shapeSel.size > 0 && isSelected)
+            ? Array.from(shapeSel).map(sid => {
+              const s = (typeof conShapes !== 'undefined' ? conShapes : []).find(x => x.id === sid);
+              return s ? { s, snapX: s.x, snapY: s.y } : null;
+            }).filter(Boolean)
+            : [];
+          // Snapshot selected tables for joint drag
+          const tableGroupSnap = (tableSel.size > 0 && isSelected)
+            ? Array.from(tableSel).map(tid => {
+              const tbl = (window.conGetTables ? window.conGetTables() : []).find(t => t.id === tid);
+              return tbl ? { tbl, snapX: tbl.x, snapY: tbl.y } : null;
             }).filter(Boolean)
             : [];
 
@@ -19236,6 +19416,24 @@
                 dr.x = snapX + ddx;
                 dr.y = snapY + ddy;
                 if (dr.el) { dr.el.style.left = (dr.x - dr.pad) + 'px'; dr.el.style.top = (dr.y - dr.pad) + 'px'; }
+              });
+            }
+            // Move jointly-selected shapes
+            if (shapeGroupSnap.length > 0) {
+              const ddx = node.x - nodeStartX, ddy = node.y - nodeStartY;
+              shapeGroupSnap.forEach(({ s, snapX, snapY }) => {
+                s.x = snapX + ddx;
+                s.y = snapY + ddy;
+                if (s.el) { s.el.style.left = s.x + 'px'; s.el.style.top = s.y + 'px'; }
+              });
+            }
+            // Move jointly-selected tables
+            if (tableGroupSnap.length > 0) {
+              const ddx = node.x - nodeStartX, ddy = node.y - nodeStartY;
+              tableGroupSnap.forEach(({ tbl, snapX, snapY }) => {
+                tbl.x = snapX + ddx;
+                tbl.y = snapY + ddy;
+                if (tbl.el) { tbl.el.style.left = tbl.x + 'px'; tbl.el.style.top = tbl.y + 'px'; }
               });
             }
             // Highlight nearby nodes as drop targets (single-node drag only)
@@ -20783,6 +20981,7 @@
         _boardMenuLocked = true;
         setTimeout(() => {
           bmenu.classList.add('visible');
+          if (window.conSyncBoardCtxLayoutUi) window.conSyncBoardCtxLayoutUi(true);
           conPlaceBoardCtxMenu(bmenu, nodeScreenX, nodeScreenY, { offsetX: 6, offsetY: 6, margin: 8 });
           const inp = document.getElementById('con-board-ctx-input');
           if (inp) { inp.value = ''; inp.focus(); }
@@ -21302,12 +21501,52 @@
       }
       window.conSyncCmsTimerDataToNodes = conSyncCmsTimerDataToNodes;
 
+      // ---- Multi-node layout preferences & state ----
+      let _conBoardLayoutPrefBoard = localStorage.getItem('con-board-layout-pref-board') || 'horizontal';
+      let _conBoardLayoutPrefConnected = localStorage.getItem('con-board-layout-pref-connected') || 'circle';
+      let _conCurrentCtxLayout = 'horizontal';
+
+      window.conGetBoardCtxLayout = function () {
+        return _conCurrentCtxLayout || (_pendingConnectSrcId ? _conBoardLayoutPrefConnected : _conBoardLayoutPrefBoard);
+      };
+
+      window.conSetBoardCtxLayout = function (layoutKey) {
+        if (!['horizontal', 'vertical', 'circle', 'cluster'].includes(layoutKey)) return;
+        _conCurrentCtxLayout = layoutKey;
+        if (_pendingConnectSrcId) {
+          _conBoardLayoutPrefConnected = layoutKey;
+          try { localStorage.setItem('con-board-layout-pref-connected', layoutKey); } catch (_) { }
+        } else {
+          _conBoardLayoutPrefBoard = layoutKey;
+          try { localStorage.setItem('con-board-layout-pref-board', layoutKey); } catch (_) { }
+        }
+        const selector = document.getElementById('con-ctx-layout-selector');
+        if (selector) {
+          selector.querySelectorAll('.con-ctx-layout-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.layout === layoutKey);
+          });
+        }
+      };
+
+      window.conSyncBoardCtxLayoutUi = function (isPendingSrc) {
+        const layout = isPendingSrc ? (_conBoardLayoutPrefConnected || 'circle') : (_conBoardLayoutPrefBoard || 'horizontal');
+        _conCurrentCtxLayout = layout;
+        const selector = document.getElementById('con-ctx-layout-selector');
+        if (selector) {
+          selector.querySelectorAll('.con-ctx-layout-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.layout === layout);
+          });
+        }
+      };
+
       // Returns the nearest (x, y) that does not overlap any existing board node.
-      // Uses a phyllotaxis (golden-angle) spiral to probe outward from the proposed position.
-      // estW / estH: estimated size of the node being placed (pre-render).
-      // excludeId: optional node id to ignore during overlap checks (e.g. the source node).
+      // Clamped to canvas boundaries.
       function conFindFreePosition(x, y, excludeId) {
         const estW = 88, estH = 34, pad = 8;
+        const brd = board();
+        const bw = brd ? brd.clientWidth : 1200;
+        const bh = brd ? brd.clientHeight : 800;
+
         function overlaps(tx, ty) {
           return conNodes.some(n => {
             if (excludeId && n.id === excludeId) return false;
@@ -21317,16 +21556,232 @@
               ty + estH + pad <= n.y || ty >= n.y + nh + pad);
           });
         }
-        if (!overlaps(x, y)) return { x, y };
+
+        function clamp(tx, ty) {
+          return {
+            x: Math.max(4, Math.min(bw - estW - 4, tx)),
+            y: Math.max(4, Math.min(bh - estH - 4, ty))
+          };
+        }
+
+        const initial = clamp(x, y);
+        if (!overlaps(initial.x, initial.y)) return initial;
         const step = Math.max(estW, estH) + pad;
         const golden = 2.39996323; // ~137.5° in radians
-        for (let i = 1; i <= 300; i++) {
+        for (let i = 1; i <= 60; i++) {
           const r = step * Math.sqrt(i);
           const tx = x + r * Math.cos(i * golden);
           const ty = y + r * Math.sin(i * golden);
-          if (!overlaps(tx, ty)) return { x: tx, y: ty };
+          const clamped = clamp(tx, ty);
+          if (!overlaps(clamped.x, clamped.y)) return clamped;
         }
-        return { x, y };
+        return initial;
+      }
+
+      // Probes outward from (x, y) strictly bounded within maxR of (origX, origY), clamped to canvas.
+      function conFindFreePositionBounded(x, y, origX, origY, maxR, excludeId) {
+        const estW = 88, estH = 34, pad = 8;
+        const radiusLimit = Number.isFinite(maxR) && maxR > 0 ? maxR : 150;
+        const brd = board();
+        const bw = brd ? brd.clientWidth : 1200;
+        const bh = brd ? brd.clientHeight : 800;
+
+        function overlaps(tx, ty) {
+          return conNodes.some(n => {
+            if (excludeId && n.id === excludeId) return false;
+            const nw = (n.el && n.el.offsetWidth) || 80;
+            const nh = (n.el && n.el.offsetHeight) || 32;
+            return !(tx + estW + pad <= n.x || tx >= n.x + nw + pad ||
+              ty + estH + pad <= n.y || ty >= n.y + nh + pad);
+          });
+        }
+
+        function clamp(tx, ty) {
+          return {
+            x: Math.max(4, Math.min(bw - estW - 4, tx)),
+            y: Math.max(4, Math.min(bh - estH - 4, ty))
+          };
+        }
+
+        const initial = clamp(x, y);
+        if (!overlaps(initial.x, initial.y)) return initial;
+
+        const golden = 2.39996323;
+        const step = 20;
+        let best = initial;
+        for (let i = 1; i <= 60; i++) {
+          const r = step * Math.sqrt(i);
+          if (r > radiusLimit) break; // Strict radius constraint
+          const tx = origX + r * Math.cos(i * golden) - estW / 2;
+          const ty = origY + r * Math.sin(i * golden) - estH / 2;
+          const clamped = clamp(tx, ty);
+          const dist = Math.hypot(clamped.x + estW / 2 - origX, clamped.y + estH / 2 - origY);
+          if (dist <= radiusLimit + 25) {
+            if (!overlaps(clamped.x, clamped.y)) {
+              return clamped;
+            }
+            best = clamped;
+          }
+        }
+        return best;
+      }
+
+      // Unified node layout computation keeping all new nodes within compact radius (140px-160px)
+      function conComputeNodeLayout(opts) {
+        const origin = opts.origin || { x: 100, y: 100 };
+        const count = Math.max(1, opts.count || 1);
+        const layout = opts.layout || 'horizontal';
+        const isConnected = !!opts.isConnected;
+        const srcNode = opts.srcNode || null;
+        const maxR = Number.isFinite(opts.maxRadius) && opts.maxRadius > 0 ? opts.maxRadius : 150;
+        const nodeW = opts.nodeW || 88;
+        const nodeH = opts.nodeH || 34;
+        const excludeId = opts.excludeId || (srcNode ? srcNode.id : null);
+        const brd = board();
+        const bw = brd ? brd.clientWidth : 1200;
+        const bh = brd ? brd.clientHeight : 800;
+
+        function clamp(tx, ty) {
+          return {
+            x: Math.max(4, Math.min(bw - nodeW - 4, tx)),
+            y: Math.max(4, Math.min(bh - nodeH - 4, ty))
+          };
+        }
+
+        const positions = [];
+
+        // Single node
+        if (count === 1) {
+          if (isConnected && srcNode) {
+            const srcW = (srcNode.el && srcNode.el.offsetWidth) || 80;
+            const srcH = (srcNode.el && srcNode.el.offsetHeight) || 32;
+            const spaceRight = bw - (srcNode.x + srcW);
+            const spaceLeft = srcNode.x;
+            const spaceBottom = bh - (srcNode.y + srcH);
+
+            let targetX, targetY;
+            // Prefer right side if >= 120px room, else pick side with most space
+            if (spaceRight >= 120) {
+              targetX = srcNode.x + srcW + 28;
+              targetY = srcNode.y + (srcH - nodeH) / 2;
+            } else if (spaceLeft >= 120) {
+              targetX = srcNode.x - nodeW - 28;
+              targetY = srcNode.y + (srcH - nodeH) / 2;
+            } else if (spaceBottom >= 60) {
+              targetX = srcNode.x + (srcW - nodeW) / 2;
+              targetY = srcNode.y + srcH + 24;
+            } else {
+              targetX = srcNode.x + (srcW - nodeW) / 2;
+              targetY = srcNode.y - nodeH - 24;
+            }
+            const c = clamp(targetX, targetY);
+            positions.push(conFindFreePositionBounded(c.x, c.y, origin.x, origin.y, maxR, excludeId));
+          } else {
+            const c = clamp(origin.x - nodeW / 2, origin.y - nodeH / 2);
+            positions.push(conFindFreePositionBounded(c.x, c.y, origin.x, origin.y, maxR, excludeId));
+          }
+          return positions;
+        }
+
+        // Multiple nodes (count >= 2)
+        if (layout === 'circle') {
+          const R = Math.min(150, Math.max(65, 45 + count * 8));
+          let startAngle = -Math.PI / 2;
+          if (isConnected) {
+            if (origin.x < 180) startAngle = -Math.PI / 4;
+            else if (origin.x > bw - 180) startAngle = 3 * Math.PI / 4;
+          }
+          for (let i = 0; i < count; i++) {
+            const angle = startAngle + (2 * Math.PI * i / count);
+            const nx = origin.x + R * Math.cos(angle) - nodeW / 2;
+            const ny = origin.y + R * Math.sin(angle) - nodeH / 2;
+            positions.push(clamp(nx, ny));
+          }
+        } else if (layout === 'horizontal') {
+          // Always a single horizontal row, cleanly spaced and centered on origin
+          const gap = 10;
+          const totalW = count * nodeW + (count - 1) * gap;
+          let startX, rowY;
+          if (isConnected && srcNode) {
+            const srcW = (srcNode.el && srcNode.el.offsetWidth) || 80;
+            const srcH = (srcNode.el && srcNode.el.offsetHeight) || 32;
+            const spaceRight = bw - (srcNode.x + srcW);
+            const spaceLeft = srcNode.x;
+            const spaceBottom = bh - (srcNode.y + srcH);
+            if (spaceRight >= totalW + 20) {
+              startX = srcNode.x + srcW + 24;
+              rowY = srcNode.y + (srcH - nodeH) / 2;
+            } else if (spaceLeft >= totalW + 20) {
+              startX = srcNode.x - totalW - 24;
+              rowY = srcNode.y + (srcH - nodeH) / 2;
+            } else if (spaceBottom >= nodeH + 20) {
+              startX = origin.x - totalW / 2;
+              rowY = srcNode.y + srcH + 24;
+            } else {
+              startX = origin.x - totalW / 2;
+              rowY = srcNode.y - nodeH - 24;
+            }
+          } else {
+            startX = origin.x - totalW / 2;
+            rowY = origin.y - nodeH / 2;
+          }
+          if (startX < 4) startX = 4;
+          if (startX + totalW > bw - 4) startX = Math.max(4, bw - totalW - 4);
+          rowY = Math.max(4, Math.min(bh - nodeH - 4, rowY));
+          for (let i = 0; i < count; i++) {
+            positions.push({ x: startX + i * (nodeW + gap), y: rowY });
+          }
+        } else if (layout === 'vertical') {
+          // Always a single vertical column, cleanly spaced and centered on origin
+          const gap = 8;
+          const totalH = count * nodeH + (count - 1) * gap;
+          let colX, startY;
+          if (isConnected && srcNode) {
+            const srcW = (srcNode.el && srcNode.el.offsetWidth) || 80;
+            const srcH = (srcNode.el && srcNode.el.offsetHeight) || 32;
+            const spaceRight = bw - (srcNode.x + srcW);
+            const spaceLeft = srcNode.x;
+            const spaceBottom = bh - (srcNode.y + srcH);
+            if (spaceRight >= nodeW + 20) {
+              colX = srcNode.x + srcW + 24;
+              startY = origin.y - totalH / 2;
+            } else if (spaceLeft >= nodeW + 20) {
+              colX = srcNode.x - nodeW - 24;
+              startY = origin.y - totalH / 2;
+            } else if (spaceBottom >= totalH + 20) {
+              colX = origin.x - nodeW / 2;
+              startY = srcNode.y + srcH + 24;
+            } else {
+              colX = origin.x - nodeW / 2;
+              startY = srcNode.y - totalH - 24;
+            }
+          } else {
+            colX = origin.x - nodeW / 2;
+            startY = origin.y - totalH / 2;
+          }
+          colX = Math.max(4, Math.min(bw - nodeW - 4, colX));
+          if (startY < 4) startY = 4;
+          if (startY + totalH > bh - 4) startY = Math.max(4, bh - totalH - 4);
+          for (let i = 0; i < count; i++) {
+            positions.push({ x: colX, y: startY + i * (nodeH + gap) });
+          }
+        } else {
+          // 'cluster': compact spiral packing tightly constrained within maxR
+          for (let i = 0; i < count; i++) {
+            if (i === 0) {
+              positions.push(clamp(origin.x - nodeW / 2, origin.y - nodeH / 2));
+            } else {
+              const golden = 2.39996323;
+              const step = Math.min(32, 120 / Math.sqrt(count));
+              const r = step * Math.sqrt(i);
+              const nx = origin.x + r * Math.cos(i * golden) - nodeW / 2;
+              const ny = origin.y + r * Math.sin(i * golden) - nodeH / 2;
+              positions.push(clamp(nx, ny));
+            }
+          }
+        }
+
+        return positions;
       }
 
       window.conBoardCtxConfirm = async function () {
@@ -21334,6 +21789,7 @@
         const raw = (inp && inp.value.trim()) || '';
         const pendingSrc = _pendingConnectSrcId;  // snapshot before close clears it
         const pendingType = _pendingConnectType || 'none'; // snapshot arrow type
+        const chosenLayout = conGetBoardCtxLayout();
         conBoardCtxClose();
         if (!raw) return;
 
@@ -21345,7 +21801,7 @@
             if (!choice) return;
             if (choice === 'timer') {
               conPushUndo();
-              const _fp = conFindFreePosition(_boardCtxX, _boardCtxY, pendingSrc);
+              const _fp = conFindFreePositionBounded(_boardCtxX, _boardCtxY, _boardCtxX + 40, _boardCtxY + 18, 150, pendingSrc);
               const timerId = conAddTimerNodeAt(parsedTimer.totalSec, _fp.x, _fp.y);
               if (pendingSrc && timerId) {
                 conAddEdge(pendingSrc, timerId, pendingType);
@@ -21360,52 +21816,52 @@
         let lastId = null;
         const allNewIds = [];
 
-        // Pre-compute angular positions around source node when in "Add Connected Word" mode
-        const entryBasePositions = [];
-        if (pendingSrc && entries.length > 0) {
-          const srcNode = conNodes.find(n => n.id === pendingSrc);
-          if (srcNode) {
-            const count = entries.length;
-            const radius = 160;
-            const nodeW = srcNode.el.offsetWidth || 80;
-            const nodeH = srcNode.el.offsetHeight || 32;
-            const cx = srcNode.x + nodeW / 2;
-            const cy = srcNode.y + nodeH / 2;
-            for (let i = 0; i < count; i++) {
-              const angle = (2 * Math.PI * i / count) - Math.PI / 2; // start at top
-              entryBasePositions.push({
-                x: cx + radius * Math.cos(angle) - nodeW / 2,
-                y: cy + radius * Math.sin(angle) - nodeH / 2
-              });
-            }
+        // Compute base positions using the unified radius-constrained layout engine (compact radius <= 150px)
+        let originX = _boardCtxX + 40;
+        let originY = _boardCtxY + 18;
+        let srcNodeObj = null;
+        if (pendingSrc) {
+          srcNodeObj = conNodes.find(n => n.id === pendingSrc);
+          if (srcNodeObj) {
+            const sw = (srcNodeObj.el && srcNodeObj.el.offsetWidth) || 80;
+            const sh = (srcNodeObj.el && srcNodeObj.el.offsetHeight) || 32;
+            originX = srcNodeObj.x + sw / 2;
+            originY = srcNodeObj.y + sh / 2;
           }
         }
 
+        const entryBasePositions = conComputeNodeLayout({
+          origin: { x: originX, y: originY },
+          count: entries.length,
+          layout: chosenLayout,
+          isConnected: !!pendingSrc,
+          srcNode: srcNodeObj,
+          maxRadius: 150
+        });
+
         entries.forEach((entry, entryIdx) => {
-          // Unified parser: split by any chain operator (<>, --, >, <) while capturing it.
-          // Within each segment, '+' creates a visual group of co-located words.
-          // Operators: '--' → plain link, '>' → forward arrow, '<' → backward arrow, '<>' → both arrows
-          const SEP_RE = /\s*(<>|--|>|<)\s*/;
+          // Unified parser supporting: <>, --, >>, <<, >, <, and +, ++
+          const SEP_RE = /\s*(<>|--|>>|<<|>|<)\s*/;
           const rawSegs = entry.split(SEP_RE); // [seg0, op0, seg1, op1, seg2, ...]
           const chainParts = []; // [{words:[], op: string|null}]
           for (let i = 0; i < rawSegs.length; i += 2) {
             const wordGroup = rawSegs[i].trim();
             const op = (i + 1 < rawSegs.length) ? rawSegs[i + 1] : null;
-            const words = wordGroup.split('+').map(w => w.trim()).filter(Boolean);
+            const words = wordGroup.split(/\+{1,2}/).map(w => w.trim()).filter(Boolean);
             if (words.length) chainParts.push({ words, op });
           }
           if (!chainParts.length) return;
 
           const chainAnchorIds = [];  // first node id of each segment (for chaining)
-          const chainNodeIds = [];  // all node ids (for spread)
+          const chainNodeIds = [];    // all node ids (for spread)
 
-          const entryBase = entryBasePositions[entryIdx];
-          const baseX = entryBase ? entryBase.x : _boardCtxX;
-          const baseY = entryBase ? entryBase.y : _boardCtxY;
+          const entryBase = entryBasePositions[entryIdx] || { x: originX, y: originY };
+          const baseX = entryBase.x;
+          const baseY = entryBase.y;
 
           chainParts.forEach((part, partIdx) => {
-            const partOffsetX = partIdx * 24;
-            const partOffsetY = (entryBase ? 0 : entryIdx * 44) + partIdx * 10;
+            const partOffsetX = partIdx * 20;
+            const partOffsetY = partIdx * 8;
             const unitNodeIds = [];
 
             part.words.forEach((word, wordIdx) => {
@@ -21414,8 +21870,17 @@
               const cleanWord = word.replace(/\s*\(\([^)]+\)\)\s*/, '').trim();
               if (!cleanWord) return;
               const ox = partOffsetX + wordIdx * 6;
-              const oy = partOffsetY + wordIdx * (28 + 6);
-              const _fp = conFindFreePosition(baseX + ox, baseY + oy);
+              const oy = partOffsetY + wordIdx * (28 + 4);
+              let nx = baseX + ox;
+              let ny = baseY + oy;
+              const brd = board();
+              const bw = brd ? brd.clientWidth : 1200;
+              const bh = brd ? brd.clientHeight : 800;
+              nx = Math.max(4, Math.min(bw - 88 - 4, nx));
+              ny = Math.max(4, Math.min(bh - 34 - 4, ny));
+              const _fp = (partIdx > 0 || wordIdx > 0)
+                ? conFindFreePositionBounded(nx, ny, originX, originY, 150, pendingSrc)
+                : { x: nx, y: ny };
               if (cleanWord.includes('_')) {
                 // Underscore-separated phrase → seamless phrase group (one node per segment)
                 const phraseWords = cleanWord.split('_').map(w => w.trim()).filter(Boolean);
@@ -21438,7 +21903,7 @@
 
             if (!unitNodeIds.length) return;
 
-            // Group '+' words together
+            // Group '+' or '++' words together
             if (unitNodeIds.length > 1) {
               const newGroup = conGroupCreate(unitNodeIds, baseX + partOffsetX, baseY + partOffsetY);
               if (newGroup) conSpreadGroup(newGroup);
@@ -21459,7 +21924,10 @@
             const aId = chainAnchorIds[i].id;
             const bId = chainAnchorIds[i + 1].id;
             const op = chainAnchorIds[i].op;
-            const t = op === '>' ? 'forward' : op === '<' ? 'backward' : op === '<>' ? 'both' : 'none';
+            const t = (op === '>' || op === '>>') ? 'forward'
+                    : (op === '<' || op === '<<') ? 'backward'
+                    : (op === '<>') ? 'both'
+                    : 'none';
             conAddEdge(aId, bId, t);
           }
 
@@ -21469,6 +21937,21 @@
           }
         });
 
+        // When multiple nodes are created, select all of them for immediate joint moving
+        if (allNewIds.length > 1) {
+          conSelected = null;
+          conMultiSelected.clear();
+          allNewIds.forEach(id => {
+            const n = conNodes.find(node => node.id === id);
+            if (n && n.el) {
+              n.el.classList.remove('con-selected');
+              n.el.classList.add('con-multi-selected');
+              conMultiSelected.add(n.id);
+            }
+          });
+          if (typeof conUpdateToolbarStatus === 'function') conUpdateToolbarStatus();
+          if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
+        }
       };
       window.conBoardCtxFocusNoteInput = function () {
         const noteInp = document.getElementById('con-board-ctx-note-input');
@@ -25166,6 +25649,7 @@
           const bmenu = document.getElementById('con-board-ctx-menu');
           conRenderBoardBgPresetsInContextMenu();
           conRenderBoardLayoutOptionsInContextMenu();
+          if (window.conSyncBoardCtxLayoutUi) window.conSyncBoardCtxLayoutUi(false);
           bmenu.classList.add('visible');
           conPlaceBoardCtxMenu(bmenu, e.clientX, e.clientY, { offsetX: 6, offsetY: 6, margin: 8 });
           setTimeout(() => {
@@ -25266,80 +25750,169 @@
             // Only act if rect is meaningful (>5px)
             if (rx1 - rx0 < 5 && ry1 - ry0 < 5) {
               // Tiny click on board — deselect all
-              if (window.conNoteClearSelection) window.conNoteClearSelection();
-              if (window.conDrawingClearSelection) window.conDrawingClearSelection();
-              if (window.conShapeClearSelection) window.conShapeClearSelection();
-              conSelect(null);
+              if (typeof window.conDeselectAll === 'function') {
+                window.conDeselectAll();
+              } else {
+                if (window.conNoteClearSelection) window.conNoteClearSelection();
+                if (window.conTableClearSelection) window.conTableClearSelection();
+                if (window.conDrawingClearSelection) window.conDrawingClearSelection();
+                if (window.conShapeClearSelection) window.conShapeClearSelection();
+                conSelect(null);
+              }
               return;
             }
 
-            // Find nodes whose centre lies inside the rect
-            const hits = conNodes.filter(n => {
-              const cx = n.x + (n.el.offsetWidth || 80) / 2;
-              const cy = n.y + (n.el.offsetHeight || 36) / 2;
-              return cx >= rx0 && cx <= rx1 && cy >= ry0 && cy <= ry1;
+            // Find nodes whose centre lies inside the rect OR bbox overlaps
+            const hits = (typeof conNodes !== 'undefined' && Array.isArray(conNodes)) ? conNodes.filter(n => {
+              const nw = (n.el && n.el.offsetWidth) || 80;
+              const nh = (n.el && n.el.offsetHeight) || 36;
+              const cx = n.x + nw / 2;
+              const cy = n.y + nh / 2;
+              return (cx >= rx0 && cx <= rx1 && cy >= ry0 && cy <= ry1) ||
+                     (n.x < rx1 && (n.x + nw) > rx0 && n.y < ry1 && (n.y + nh) > ry0);
+            }).map(n => n.id) : [];
+
+            // Find notes within the rect (centre inside OR bbox overlaps)
+            const allNotes = (typeof conNotes !== 'undefined' && Array.isArray(conNotes)) ? conNotes : [];
+            const noteHits = allNotes.filter(n => {
+              const el = (typeof wnGetNoteElementById === 'function') ? wnGetNoteElementById(n.id) : document.querySelector(`.con-word-note[data-id="${n.id}"]`);
+              const nx = (n.x != null) ? n.x : (el ? (parseInt(el.style.left) || 0) : 0);
+              const ny = (n.y != null) ? n.y : (el ? (parseInt(el.style.top) || 0) : 0);
+              const nw = (el && el.offsetWidth) || n.width || 80;
+              const nh = (el && el.offsetHeight) || n.height || 28;
+              const cx = nx + nw / 2;
+              const cy = ny + nh / 2;
+              return (cx >= rx0 && cx <= rx1 && cy >= ry0 && cy <= ry1) ||
+                     (nx < rx1 && (nx + nw) > rx0 && ny < ry1 && (ny + nh) > ry0);
             }).map(n => n.id);
 
-            // Find notes within the rect
-            const noteHits = conNotes.filter(n => {
-              const el = wnGetNoteElementById(n.id);
-              if (!el) return false;
-              const cx = n.x + (el.offsetWidth || 80) / 2;
-              const cy = n.y + (el.offsetHeight || 28) / 2;
-              return cx >= rx0 && cx <= rx1 && cy >= ry0 && cy <= ry1;
-            }).map(n => n.id);
+            // Find groups within the rect (centre inside OR bbox overlaps)
+            const allGroups = (typeof conGroups !== 'undefined' && Array.isArray(conGroups)) ? conGroups : [];
+            const groupHits = allGroups.filter(g => {
+              if (!g || !g.el) return false;
+              const gx = parseFloat(g.el.style.left) || 0;
+              const gy = parseFloat(g.el.style.top) || 0;
+              const gw = g.el.offsetWidth || parseFloat(g.el.style.width) || 100;
+              const gh = g.el.offsetHeight || parseFloat(g.el.style.height) || 60;
+              const cx = gx + gw / 2;
+              const cy = gy + gh / 2;
+              return (cx >= rx0 && cx <= rx1 && cy >= ry0 && cy <= ry1) ||
+                     (gx < rx1 && (gx + gw) > rx0 && gy < ry1 && (gy + gh) > ry0);
+            }).map(g => g.id);
+
+            // Find tables within the rect (centre inside OR bbox overlaps)
+            const allTables = (typeof window.conGetTables === 'function') ? window.conGetTables() : (typeof conTables !== 'undefined' ? conTables : []);
+            const tableHits = allTables.filter(t => {
+              if (!t) return false;
+              const tx = (t.x != null) ? t.x : (t.el ? (parseInt(t.el.style.left) || 0) : 0);
+              const ty = (t.y != null) ? t.y : (t.el ? (parseInt(t.el.style.top) || 0) : 0);
+              const tw = (t.el && t.el.offsetWidth) || t.w || 200;
+              const th = (t.el && t.el.offsetHeight) || t.h || 120;
+              const cx = tx + tw / 2;
+              const cy = ty + th / 2;
+              return (cx >= rx0 && cx <= rx1 && cy >= ry0 && cy <= ry1) ||
+                     (tx < rx1 && (tx + tw) > rx0 && ty < ry1 && (ty + th) > ry0);
+            }).map(t => t.id);
 
             // Find drawings whose bounding box overlaps the rect
-            const drawingHits = conDrawings.filter(dr => {
-              return dr.x < rx1 && (dr.x + dr.w) > rx0 && dr.y < ry1 && (dr.y + dr.h) > ry0;
+            const allDrawings = (typeof conDrawings !== 'undefined' && Array.isArray(conDrawings)) ? conDrawings : [];
+            const drawingHits = allDrawings.filter(dr => {
+              const dw = Math.max(1, dr.w || 1);
+              const dh = Math.max(1, dr.h || 1);
+              const cx = dr.x + dw / 2;
+              const cy = dr.y + dh / 2;
+              return (cx >= rx0 && cx <= rx1 && cy >= ry0 && cy <= ry1) ||
+                     (dr.x < rx1 && (dr.x + dw) > rx0 && dr.y < ry1 && (dr.y + dh) > ry0);
             }).map(dr => dr.id);
 
             // Find shapes whose bounding box overlaps the rect
-            const shapeHits = conShapes.filter(s => {
-              return s.x < rx1 && (s.x + s.w) > rx0 && s.y < ry1 && (s.y + s.h) > ry0;
+            const allShapes = (typeof conShapes !== 'undefined' && Array.isArray(conShapes)) ? conShapes : [];
+            const shapeHits = allShapes.filter(s => {
+              const sw = Math.max(1, s.w || 1);
+              const sh = Math.max(1, s.h || 1);
+              const cx = s.x + sw / 2;
+              const cy = s.y + sh / 2;
+              return (cx >= rx0 && cx <= rx1 && cy >= ry0 && cy <= ry1) ||
+                     (s.x < rx1 && (s.x + sw) > rx0 && s.y < ry1 && (s.y + sh) > ry0);
             }).map(s => s.id);
 
-            // Clear existing selection first
+            const totalHits = hits.length + noteHits.length + groupHits.length + tableHits.length + drawingHits.length + shapeHits.length;
+            if (totalHits === 0) {
+              if (typeof window.conDeselectAll === 'function') window.conDeselectAll();
+              else conSelect(null);
+              return;
+            }
+
+            // Clear existing selection across all item types first
             if (window.conNoteClearSelection) window.conNoteClearSelection();
+            if (window.conTableClearSelection) window.conTableClearSelection();
+            if (window.conDrawingClearSelection) window.conDrawingClearSelection();
             if (window.conShapeClearSelection) window.conShapeClearSelection();
-            conDrawingSelected.clear();
-            document.querySelectorAll('#constellation-board .con-drawing.con-drawing-selected')
-              .forEach(el => el.classList.remove('con-drawing-selected'));
+            if (typeof conDrawingSelected !== 'undefined') {
+              conDrawingSelected.clear();
+              document.querySelectorAll('#constellation-board .con-drawing.con-drawing-selected')
+                .forEach(el => el.classList.remove('con-drawing-selected'));
+            }
+            if (typeof conGroups !== 'undefined') {
+              conGroups.forEach(g => { if (g && g.el) g.el.classList.remove('con-group-selected'); });
+              conGroupFocused = null;
+            }
+            conSelected = null;
+            conMultiSelected.clear();
+            conNodes.forEach(n => {
+              if (n && n.el) n.el.classList.remove('con-selected', 'con-src', 'con-multi-selected');
+            });
+
+            // Apply node selection
+            if (hits.length === 1 && totalHits === 1) {
+              conSelect(hits[0]);
+            } else if (hits.length > 0) {
+              hits.forEach(id => {
+                conMultiSelected.add(id);
+                const n = conNodes.find(x => x.id === id);
+                if (n && n.el) n.el.classList.add('con-multi-selected');
+              });
+            }
 
             // Apply note selection
             noteHits.forEach(nid => {
-              conNoteSelected.add(nid);
-              const el = wnGetNoteElementById(nid);
+              if (typeof conNoteSelected !== 'undefined') conNoteSelected.add(nid);
+              const el = (typeof wnGetNoteElementById === 'function') ? wnGetNoteElementById(nid) : document.querySelector(`.con-word-note[data-id="${nid}"]`);
               if (el) el.classList.add('wn-selected');
+            });
+
+            // Apply group selection
+            groupHits.forEach(gid => {
+              const g = allGroups.find(x => x.id === gid);
+              if (g && g.el) g.el.classList.add('con-group-selected');
+            });
+            if (groupHits.length === 1) {
+              conGroupFocused = groupHits[0];
+            }
+
+            // Apply table selection
+            tableHits.forEach(tid => {
+              if (typeof conTableSelected !== 'undefined') conTableSelected.add(tid);
+              const tbl = allTables.find(t => t.id === tid);
+              if (tbl && tbl.el) tbl.el.classList.add('con-table-selected');
             });
 
             // Apply drawing selection
             drawingHits.forEach(did => {
-              conDrawingSelected.add(did);
-              const dr = conDrawings.find(x => x.id === did);
+              if (typeof conDrawingSelected !== 'undefined') conDrawingSelected.add(did);
+              const dr = allDrawings.find(x => x.id === did);
               if (dr && dr.el) dr.el.classList.add('con-drawing-selected');
             });
 
             // Apply shape selection
             shapeHits.forEach(sid => {
-              _conShapeSelected.add(sid);
-              const s = conShapes.find(x => x.id === sid);
+              if (typeof _conShapeSelected !== 'undefined') _conShapeSelected.add(sid);
+              const s = allShapes.find(x => x.id === sid);
               if (s && s.el) s.el.classList.add('con-shape-selected');
             });
 
-            const totalHits = hits.length + noteHits.length + drawingHits.length + shapeHits.length;
-            if (totalHits === 0) {
-              conSelect(null);
-            } else if (hits.length === 0) {
-              // Notes/drawings/shapes only — clear node selection without wiping drawing/note/shape selection
-              conSelected = null;
-              conMultiSelected.clear();
-              conNodes.forEach(n => n.el.classList.remove('con-selected', 'con-src', 'con-multi-selected'));
-            } else if (hits.length === 1 && noteHits.length === 0 && drawingHits.length === 0 && shapeHits.length === 0) {
-              conSelect(hits[0]);
-            } else {
-              conSetMultiSelected(hits);
-            }
+            if (typeof conUpdateToolbarStatus === 'function') conUpdateToolbarStatus();
+            if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
           }
 
           document.addEventListener('mousemove', onMove);

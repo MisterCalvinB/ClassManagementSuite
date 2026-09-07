@@ -351,21 +351,31 @@
             border: 2px solid #111111 !important;
             box-shadow: 4px 4px 0 #111111;
             color: #111111 !important;
+            padding: 8px 10px 6px !important;
+            min-width: 210px;
+            max-width: 250px;
+            max-height: calc(100vh - 60px);
+            overflow-y: auto;
         }
 
         #settings-popup .db-popup-header {
-            border-bottom: 2px solid #111111 !important;
+            border-bottom: 1.5px solid #111111 !important;
+            margin-bottom: 5px !important;
+            padding-bottom: 3px !important;
         }
 
         #settings-popup .db-popup-title {
             color: #111111 !important;
             font-weight: 800;
-            font-size: 0.95rem;
+            font-size: 0.80rem;
             display: inline-flex;
             align-items: center;
+            gap: 5px;
         }
 
         #settings-popup .db-popup-title .btn-icon {
+            width: 13px;
+            height: 13px;
             filter: none !important;
         }
 
@@ -373,11 +383,15 @@
             background: #f1f5f9 !important;
             border: 1px solid #cbd5e1 !important;
             color: #111111 !important;
-            border-radius: 6px;
+            border-radius: 4px;
+            padding: 1px 4px;
             cursor: pointer;
+            line-height: 1;
         }
 
         #settings-popup .db-popup-close .btn-icon {
+            width: 11px;
+            height: 11px;
             filter: none !important;
         }
 
@@ -391,29 +405,87 @@
             filter: brightness(0) invert(1) !important;
         }
 
+        #settings-popup .settings-option-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 2px 2px;
+            flex-wrap: wrap;
+        }
+
+        #settings-popup .settings-option-label {
+            font-size: 0.67rem;
+            font-weight: 700;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+
+        #settings-popup .settings-option-group {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        #settings-popup .settings-option-group label {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 0.72rem;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        #settings-popup .settings-option-group input[type="radio"] {
+            margin: 0;
+            transform: scale(0.85);
+            cursor: pointer;
+        }
+
+        #settings-popup .settings-option-divider {
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 4px;
+            margin-bottom: 4px;
+        }
+
         #settings-popup .db-popup-btn {
             background: #f8fafc !important;
-            border: 2px solid #e2e8f0 !important;
-            border-radius: 8px;
-            padding: 8px 12px;
-            margin-bottom: 6px;
+            border: 1.5px solid #e2e8f0 !important;
+            border-radius: 5px;
+            padding: 4px 7px;
+            margin-bottom: 3px;
+            gap: 6px;
             transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
             cursor: pointer;
         }
 
+        #settings-popup .db-popup-btn-icon {
+            width: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
         #settings-popup .db-popup-btn-icon .btn-icon {
+            width: 13px;
+            height: 13px;
             filter: none !important;
         }
 
         #settings-popup .db-popup-btn-text strong {
             color: #0f172a !important;
             font-weight: 700;
-            font-size: 0.82rem;
+            font-size: 0.74rem;
+            line-height: 1.15;
         }
 
         #settings-popup .db-popup-btn-text small {
             color: #64748b !important;
-            font-size: 0.72rem;
+            font-size: 0.63rem;
+            line-height: 1.1;
         }
 
         /* Settings button hover */
@@ -987,50 +1059,52 @@
             <button class="db-popup-close" onclick="closeSettingsPopup()"><img src="../assets/icons/close.svg"
                     class="btn-icon" alt="" /></button>
         </div>
-        <div style="display:flex; align-items:center; gap:10px; padding:10px 14px 6px; flex-wrap:wrap;">
-            <span
-                style="font-size:0.8rem; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:1px; white-space:nowrap;"
-                data-i18n="settings_show_name">Show name</span>
-            <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                <label
-                    style="display:flex; align-items:center; gap:4px; font-size:0.82rem; cursor:pointer; font-weight:600;">
+        <div class="settings-option-row">
+            <span class="settings-option-label" data-i18n="settings_show_name">Show name</span>
+            <div class="settings-option-group">
+                <label>
                     <input type="radio" name="nameDisplayMode" value="full" onchange="saveNameDisplayMode(this.value)"
                         checked> <span data-i18n="settings_name_full">Full</span>
                 </label>
-                <label
-                    style="display:flex; align-items:center; gap:4px; font-size:0.82rem; cursor:pointer; font-weight:600;">
+                <label>
                     <input type="radio" name="nameDisplayMode" value="first" onchange="saveNameDisplayMode(this.value)">
                     <span data-i18n="settings_name_first">First</span>
                 </label>
-                <label
-                    style="display:flex; align-items:center; gap:4px; font-size:0.82rem; cursor:pointer; font-weight:600;">
+                <label>
                     <input type="radio" name="nameDisplayMode" value="last" onchange="saveNameDisplayMode(this.value)">
                     <span data-i18n="settings_name_last">Last</span>
                 </label>
-                <label
-                    style="display:flex; align-items:center; gap:4px; font-size:0.82rem; cursor:pointer; font-weight:600;">
+                <label>
                     <input type="radio" name="nameDisplayMode" value="custom" onchange="saveNameDisplayMode(this.value)">
                     <span data-i18n="cmsNameModeCustom">Custom</span>
                 </label>
             </div>
         </div>
-        <div style="display:flex; align-items:center; gap:10px; padding:4px 14px 8px; flex-wrap:wrap; border-bottom:1px solid #eee; margin-bottom:4px;">
-            <span
-                style="font-size:0.8rem; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:1px; white-space:nowrap;"
-                data-i18n="settings_lr_layout">Lesson Plan</span>
-            <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                <label
-                    style="display:flex; align-items:center; gap:4px; font-size:0.82rem; cursor:pointer; font-weight:600;">
+        <div class="settings-option-row">
+            <span class="settings-option-label" data-i18n="settings_sort_roster">Sort names</span>
+            <div class="settings-option-group">
+                <label>
+                    <input type="radio" name="rosterSortOrderRadio" value="first" onchange="setRosterSortOrder(this.value)"
+                        checked> <span data-i18n="settings_sort_first">First name</span>
+                </label>
+                <label>
+                    <input type="radio" name="rosterSortOrderRadio" value="last" onchange="setRosterSortOrder(this.value)">
+                    <span data-i18n="settings_sort_last">Last name</span>
+                </label>
+            </div>
+        </div>
+        <div class="settings-option-row settings-option-divider">
+            <span class="settings-option-label" data-i18n="settings_lr_layout">Lesson Plan</span>
+            <div class="settings-option-group">
+                <label>
                     <input type="radio" name="lessonRunnerLayoutMode" value="compact" onchange="setLessonRunnerLayout(this.value)"
                         checked> <span data-i18n="settings_lr_compact">Compact</span>
                 </label>
-                <label
-                    style="display:flex; align-items:center; gap:4px; font-size:0.82rem; cursor:pointer; font-weight:600;">
+                <label>
                     <input type="radio" name="lessonRunnerLayoutMode" value="collapsible" onchange="setLessonRunnerLayout(this.value)">
                     <span data-i18n="settings_lr_collapsible">Collapsible</span>
                 </label>
-                <label
-                    style="display:flex; align-items:center; gap:4px; font-size:0.82rem; cursor:pointer; font-weight:600;">
+                <label>
                     <input type="radio" name="lessonRunnerLayoutMode" value="single" onchange="setLessonRunnerLayout(this.value)">
                     <span data-i18n="settings_lr_single">Single Row</span>
                 </label>
@@ -1299,6 +1373,18 @@
                                         <button onclick="changeNameSize(1)" title="Increase name size"
                                             data-i18n-title="rsp_increase_title">A+</button>
                                     </div>
+                                </div>
+                            </div>
+
+                            <div class="rsp-tab-section">
+                                <div class="rsp-row-label" data-i18n="settings_sort_roster">Sort names</div>
+                                <div class="rsp-grid-toggles" style="grid-template-columns: repeat(2, 1fr);">
+                                    <button class="rsp-inline-btn" id="rsp-sort-first-btn" onclick="setRosterSortOrder('first')"
+                                        title="Sort by first name" data-i18n-title="settings_sort_first">
+                                        <span data-i18n="settings_sort_first">First name</span></button>
+                                    <button class="rsp-inline-btn is-off" id="rsp-sort-last-btn" onclick="setRosterSortOrder('last')"
+                                        title="Sort by last name" data-i18n-title="settings_sort_last">
+                                        <span data-i18n="settings_sort_last">Last name</span></button>
                                 </div>
                             </div>
 
@@ -2162,7 +2248,7 @@
                                 <th style="padding:8px 6px; width:190px;">Metric</th>
                                 <th style="padding:8px 6px; width:60px;">Op</th>
                                 <th style="padding:8px 6px;">Value / Formula</th>
-                                <th style="padding:8px 6px; width:60px;" title="Pick Weight Multiplier">Weight</th>
+                                <th style="padding:8px 6px; width:60px;" title="Pick weight multiplier: >1.0 increases chance, <1.0 decreases chance, 1.0 = normal chance." data-i18n-title="af_weight_tooltip" data-i18n="af_weight_col">Weight</th>
                                 <th style="padding:8px 6px; width:30px;"></th>
                             </tr>
                         </thead>
@@ -2175,6 +2261,9 @@
                     Formula Tips: Use variables like <code>netPoints</code>, <code>picks</code>,
                     <code>attendanceRate</code>, <code>pluses</code>, <code>minuses</code>, or badge icons (e.g.
                     <code>💎</code>, <code>⭐</code>).
+                </div>
+                <div style="font-size:0.75rem; color:#333; background:#f4f7fb; border:1px solid #d0d7de; border-radius:5px; padding:7px 10px; margin-top:8px; line-height:1.4;" data-i18n-html="af_weight_guide">
+                    <strong>Weight guide:</strong> <strong>&gt; 1.0</strong> (e.g. 2.0×, 3.0×) increases pick chance &bull; <strong>&lt; 1.0</strong> (e.g. 0.5×) decreases pick chance &bull; <strong>1.0</strong> = standard/normal chance.
                 </div>
             </div>
 
@@ -2777,6 +2866,7 @@
         let actionButtonSettings = JSON.parse(JSON.stringify(DEFAULT_ACTION_BUTTON_SETTINGS));
         let planAbbrevLen = 3;                // Number of first-name letters shown in plan view cells
         let nameDisplayMode = 'full';         // 'full' | 'first' | 'last'
+        let rosterSortOrder = 'first';        // 'first' | 'last'
         let lessonRunnerLayout = 'compact';   // 'compact' | 'collapsible' | 'single'
         let lessonRunnerCollapsed = false;
         let loadedConfigCache = null;
@@ -2851,6 +2941,7 @@
                     presNameSizeRem: presNameSizeRem,
                     planAbbrevLen: planAbbrevLen,
                     nameDisplayMode: nameDisplayMode,
+                    rosterSortOrder: rosterSortOrder,
                     lessonRunnerLayout: lessonRunnerLayout,
                     lessonRunnerCollapsed: lessonRunnerCollapsed,
                     lessonRunner: runnerPayload,
@@ -3138,6 +3229,7 @@
             if (data.presNameSizeRem !== undefined) { presNameSizeRem = data.presNameSizeRem; applyPresNameSize(); }
             if (data.planAbbrevLen !== undefined) { planAbbrevLen = data.planAbbrevLen; }
             if (data.nameDisplayMode !== undefined && ['full', 'first', 'last', 'custom'].includes(data.nameDisplayMode)) { nameDisplayMode = data.nameDisplayMode; }
+            if (data.rosterSortOrder !== undefined && ['first', 'last'].includes(data.rosterSortOrder)) { rosterSortOrder = data.rosterSortOrder; }
             const dn = document.getElementById('display-name');
             if (dn) {
                 const _resolvedGrpName = (rawMeta[selectedGroupName] && rawMeta[selectedGroupName].name) ? rawMeta[selectedGroupName].name : (selectedGroupName || '--');
@@ -3902,6 +3994,15 @@
                 } else if (typeof config?.launcherSettings?.defaultNameDisplayMode === 'string' && ['full', 'first', 'last', 'custom'].includes(config.launcherSettings.defaultNameDisplayMode)) {
                     nameDisplayMode = config.launcherSettings.defaultNameDisplayMode;
                 }
+                if (typeof ui.rosterSortOrder === 'string' && ['first', 'last'].includes(ui.rosterSortOrder)) {
+                    rosterSortOrder = ui.rosterSortOrder;
+                } else {
+                    try {
+                        const lsSort = localStorage.getItem('cms-roster-sort-order');
+                        if (lsSort && ['first', 'last'].includes(lsSort)) rosterSortOrder = lsSort;
+                    } catch (_) { }
+                }
+                _syncRosterSortOrderInputs();
                 if (typeof ui.lessonRunnerLayout === 'string' && ['compact', 'collapsible', 'single'].includes(ui.lessonRunnerLayout)) {
                     if (typeof setLessonRunnerLayout === 'function') setLessonRunnerLayout(ui.lessonRunnerLayout, false);
                 } else {
@@ -4120,6 +4221,7 @@
                     presSettings: { ...presSettings },
                     planAbbrevLen: planAbbrevLen,
                     nameDisplayMode: nameDisplayMode,
+                    rosterSortOrder: rosterSortOrder,
                     lessonRunnerLayout: lessonRunnerLayout,
                     actionButtons: normalizeActionButtonSettings(actionButtonSettings)
                 },
@@ -4487,6 +4589,7 @@
             if (_planAbbrevIn) _planAbbrevIn.value = planAbbrevLen;
             const _ndmRadio = document.querySelector(`input[name="nameDisplayMode"][value="${nameDisplayMode}"]`);
             if (_ndmRadio) _ndmRadio.checked = true;
+            _syncRosterSortOrderInputs();
             renderCustomActionButtons();
             renderCustomButtonsModalEditor();
 
@@ -7591,7 +7694,7 @@
                 const aid = a.teamId || 0;
                 const bid = b.teamId || 0;
                 if (aid !== bid) return aid - bid;
-                return a.name.localeCompare(b.name);
+                return compareStudentsByName(a, b);
             });
 
             let lastTeamId = null;
@@ -7945,7 +8048,7 @@
                 const aid = a.teamId || 0;
                 const bid = b.teamId || 0;
                 if (aid !== bid) return aid - bid;
-                return a.name.localeCompare(b.name);
+                return compareStudentsByName(a, b);
             });
 
             const lines = [];
@@ -9394,7 +9497,7 @@
             const listEl = document.getElementById('ranking-list');
             const rankedStudents = [...studentGroups[selectedGroupName]]
                 .map(s => ({ ...s, score: ((s.pluses || 0) + (s.teamPluses || 0)) - ((s.minuses || 0) + (s.teamMinuses || 0)) }))
-                .sort((a, b) => (b.score !== a.score) ? b.score - a.score : a.name.localeCompare(b.name));
+                .sort((a, b) => (b.score !== a.score) ? b.score - a.score : compareStudentsByName(a, b));
 
             listEl.innerHTML = "";
             rankedStudents.forEach((student, index) => {
@@ -9588,75 +9691,6 @@
             link.click();
         }
 
-        // ---- Auto-flag from participation tracker Net/s ----
-
-        function computeNetForStudentInSessions(studentName, groupName, sessions) {
-            // Mirrors the Net calculation used by participation-tracker
-            const plusDef = badgeDefinitions.find(d => d.isBuiltin && d.icon === '+');
-            const minusDef = badgeDefinitions.find(d => d.isBuiltin && d.icon === '-');
-            const plusCoeff = plusDef ? plusDef.coefficient : participationSettings.plusMinusCoefficient;
-            const minusCoeff = minusDef ? minusDef.coefficient : participationSettings.plusMinusCoefficient;
-
-            // Timeline filter
-            const tl = participationSettings.autoFlagTimeline || {};
-            let cutoffDate = null;
-            if (tl.mode === 'weeks' && tl.weeks > 0) {
-                cutoffDate = new Date();
-                cutoffDate.setDate(cutoffDate.getDate() - tl.weeks * 7);
-            } else if (tl.mode === 'date' && tl.sinceDate) {
-                cutoffDate = new Date(tl.sinceDate);
-            }
-
-            // Elements filter
-            const el = participationSettings.autoFlagElements || {};
-            const usePlus = el.plus !== false;
-            const useMinus = el.minus !== false;
-            const useTeamPlus = el.teamPlus !== false;
-            const useTeamMinus = el.teamMinus !== false;
-            // badges: true = all, [] = none, array = specific set
-            const badgesFilter = el.badges; // true | string[] | []
-            const useBadges = badgesFilter === true || (Array.isArray(badgesFilter) && badgesFilter.length > 0);
-
-            let totalNet = 0;
-            let sessionCount = 0;
-            let attendedSessions = 0;
-
-            sessions.forEach(session => {
-                const grpStudents = _getGroupStudentsFromSession(session, groupName);
-                if (!grpStudents) return;
-
-                if (cutoffDate) {
-                    const sessionDate = new Date(session.date || session.savedAt || session._savedAt || session.createdAt || session.id || 0);
-                    if (!isNaN(sessionDate.getTime()) && sessionDate < cutoffDate) return;
-                }
-
-                const match = _findStudentInSessionList(grpStudents, { name: studentName });
-                if (!match) return;
-
-                sessionCount++;
-                if (!match.isAbsent) attendedSessions++;
-
-                const pluses = usePlus ? (match.pluses || 0) : 0;
-                const minuses = useMinus ? (match.minuses || 0) : 0;
-                const teamPluses = useTeamPlus ? (match.teamPluses || 0) : 0;
-                const teamMinuses = useTeamMinus ? (match.teamMinuses || 0) : 0;
-                let badgePos = 0, badgeNeg = 0;
-                if (useBadges) {
-                    (match.badges || []).forEach(b => {
-                        const resolved = resolveBadgeData(b);
-                        if (Array.isArray(badgesFilter) && !badgesFilter.includes(resolved.icon) && !badgesFilter.includes(resolved.label)) return;
-                        if (resolved.tone === 'negative') badgeNeg += resolved.coefficient;
-                        else badgePos += resolved.coefficient;
-                    });
-                }
-                totalNet += pluses * plusCoeff - minuses * minusCoeff + teamPluses * plusCoeff - teamMinuses * minusCoeff + badgePos - badgeNeg;
-            });
-
-            if (sessionCount === 0) return null;  // no data
-            const denom = attendedSessions > 0 ? attendedSessions : sessionCount;
-            return parseFloat((totalNet / denom).toFixed(2));
-        }
-
         // ---- Multi-Color & Rule-Based Flag System ----
 
         const FLAG_PRESETS = [
@@ -9694,16 +9728,34 @@
 
             if (Array.isArray(student.manualFlags)) {
                 student.manualFlags.forEach(f => {
-                    const hex = getFlagColorHex(f);
-                    map.set(f, { key: f, color: hex, label: getFlagColorName(f), source: 'manual' });
+                    const colorKey = typeof f === 'string' ? f : (f.color || f.key || 'red');
+                    const hex = getFlagColorHex(colorKey);
+                    map.set(colorKey, { key: colorKey, color: hex, label: getFlagColorName(colorKey), source: 'manual' });
                 });
             }
 
             if (Array.isArray(student.autoFlags)) {
                 student.autoFlags.forEach(f => {
-                    const hex = getFlagColorHex(f);
-                    if (!map.has(f)) {
-                        map.set(f, { key: f, color: hex, label: getFlagColorName(f), source: 'auto' });
+                    if (typeof f === 'object' && f !== null) {
+                        const colorKey = f.color || 'red';
+                        const hex = getFlagColorHex(colorKey);
+                        const mapKey = f.ruleId || colorKey;
+                        if (!map.has(colorKey) && !map.has(mapKey)) {
+                            map.set(mapKey, {
+                                key: colorKey,
+                                ruleId: f.ruleId,
+                                color: hex,
+                                label: getFlagColorName(colorKey),
+                                ruleName: f.name || '',
+                                pickWeight: f.pickWeight,
+                                source: 'auto'
+                            });
+                        }
+                    } else if (typeof f === 'string') {
+                        const hex = getFlagColorHex(f);
+                        if (!map.has(f)) {
+                            map.set(f, { key: f, color: hex, label: getFlagColorName(f), source: 'auto' });
+                        }
                     }
                 });
             }
@@ -9760,186 +9812,26 @@
             openRosterContextMenu(null, studentId);
         }
 
-        // ---- Formula Tokenizer & Evaluator for Rules ----
-
-        function tokenize(str) {
-            const tokens = [];
-            let i = 0;
-            while (i < str.length) {
-                const char = str[i];
-                if (/\s/.test(char)) { i++; continue; }
-                if (char === '[') {
-                    let start = i + 1;
-                    let end = str.indexOf(']', start);
-                    if (end === -1) throw new Error('Unterminated bracket in formula');
-                    tokens.push({ type: 'IDENTIFIER', value: str.substring(start, end) });
-                    i = end + 1;
-                    continue;
-                }
-                if (char === '"' || char === "'") {
-                    let quote = char;
-                    let start = i + 1;
-                    let end = str.indexOf(quote, start);
-                    if (end === -1) throw new Error('Unterminated string literal');
-                    tokens.push({ type: 'STRING', value: str.substring(start, end) });
-                    i = end + 1;
-                    continue;
-                }
-                if (/\d/.test(char) || (char === '.' && /\d/.test(str[i + 1]))) {
-                    let numStr = '';
-                    while (i < str.length && (/\d/.test(str[i]) || str[i] === '.')) {
-                        numStr += str[i];
-                        i++;
-                    }
-                    tokens.push({ type: 'NUMBER', value: parseFloat(numStr) });
-                    continue;
-                }
-                if (i + 1 < str.length) {
-                    const two = str.substr(i, 2);
-                    if (two === '>=' || two === '<=' || two === '==' || two === '!=' || two === '&&' || two === '||') {
-                        tokens.push({ type: 'OPERATOR', value: two });
-                        i += 2;
-                        continue;
-                    }
-                }
-                if ('+-*/(),><=!'.includes(char)) {
-                    tokens.push({ type: 'OPERATOR', value: char });
-                    i++;
-                    continue;
-                }
-                let identStr = '';
-                while (i < str.length && (!/\s/.test(str[i]) && !'+-*/(),><=![]"\''.includes(str[i]))) {
-                    identStr += str[i];
-                    i++;
-                }
-                if (identStr) {
-                    const upper = identStr.toUpperCase();
-                    if (upper === 'AND') tokens.push({ type: 'OPERATOR', value: '&&' });
-                    else if (upper === 'OR') tokens.push({ type: 'OPERATOR', value: '||' });
-                    else if (upper === 'NOT') tokens.push({ type: 'OPERATOR', value: '!' });
-                    else if (upper === 'IF') tokens.push({ type: 'KEYWORD', value: 'IF' });
-                    else tokens.push({ type: 'IDENTIFIER', value: identStr });
-                    continue;
-                }
-                throw new Error(`Unexpected character: ${char}`);
-            }
-            return tokens;
-        }
-
-        function evaluateExpression(exprStr, context) {
-            let tokens;
-            try { tokens = tokenize(exprStr); } catch (e) { throw new Error(`Syntax Error: ${e.message}`); }
-            let position = 0;
-            function peek() { return tokens[position]; }
-            function consume(expectedValue) {
-                const token = peek();
-                if (!token) throw new Error('Unexpected end of formula');
-                if (expectedValue !== undefined && token.value !== expectedValue) {
-                    throw new Error(`Expected '${expectedValue}' but found '${token.value}'`);
-                }
-                position++;
-                return token;
-            }
-            function parsePrimary() {
-                const token = peek();
-                if (!token) throw new Error('Unexpected end of formula');
-                if (token.type === 'NUMBER') { consume(); return token.value; }
-                if (token.type === 'STRING') { consume(); return token.value; }
-                if (token.type === 'KEYWORD' && token.value === 'IF') {
-                    consume(); consume('(');
-                    const cond = parseExpression(); consume(',');
-                    const trueVal = parseExpression(); consume(',');
-                    const falseVal = parseExpression(); consume(')');
-                    return cond ? trueVal : falseVal;
-                }
-                if (token.type === 'IDENTIFIER') {
-                    consume();
-                    const name = token.value.trim();
-                    const lowerName = name.toLowerCase();
-                    const normalizedName = lowerName.replace(/[^a-z0-9]/g, '');
-                    if (name in context) return context[name];
-                    if (lowerName in context) return context[lowerName];
-                    if (normalizedName in context) return context[normalizedName];
-                    for (const [k, v] of Object.entries(context)) {
-                        if (k.toLowerCase().replace(/[^a-z0-9]/g, '') === normalizedName) return v;
-                    }
-                    return 0;
-                }
-                if (token.type === 'OPERATOR' && token.value === '(') {
-                    consume('('); const val = parseExpression(); consume(')'); return val;
-                }
-                throw new Error(`Unexpected token: ${token.value}`);
-            }
-            function parseUnary() {
-                const token = peek();
-                if (token && token.type === 'OPERATOR' && (token.value === '-' || token.value === '!')) {
-                    consume(); const val = parseUnary();
-                    return token.value === '-' ? -val : (val ? 0 : 1);
-                }
-                return parsePrimary();
-            }
-            function parseMultiplicative() {
-                let left = parseUnary();
-                while (peek() && peek().type === 'OPERATOR' && ('*/'.includes(peek().value))) {
-                    const op = consume().value; const right = parseUnary();
-                    if (op === '*') left *= right;
-                    else if (op === '/') left = right === 0 ? 0 : left / right;
-                }
-                return left;
-            }
-            function parseAdditive() {
-                let left = parseMultiplicative();
-                while (peek() && peek().type === 'OPERATOR' && ('+-'.includes(peek().value))) {
-                    const op = consume().value; const right = parseMultiplicative();
-                    if (op === '+') left += right; else if (op === '-') left -= right;
-                }
-                return left;
-            }
-            function parseRelational() {
-                let left = parseAdditive();
-                while (peek() && peek().type === 'OPERATOR' && ['<', '>', '<=', '>='].includes(peek().value)) {
-                    const op = consume().value; const right = parseAdditive();
-                    if (op === '<') left = left < right ? 1 : 0;
-                    else if (op === '>') left = left > right ? 1 : 0;
-                    else if (op === '<=') left = left <= right ? 1 : 0;
-                    else if (op === '>=') left = left >= right ? 1 : 0;
-                }
-                return left;
-            }
-            function parseEquality() {
-                let left = parseRelational();
-                while (peek() && peek().type === 'OPERATOR' && ['==', '!='].includes(peek().value)) {
-                    const op = consume().value; const right = parseRelational();
-                    if (op === '==') left = left === right ? 1 : 0;
-                    else if (op === '!=') left = left !== right ? 1 : 0;
-                }
-                return left;
-            }
-            function parseLogicalAnd() {
-                let left = parseEquality();
-                while (peek() && peek().type === 'OPERATOR' && peek().value === '&&') {
-                    consume(); const right = parseEquality(); left = (left && right) ? 1 : 0;
-                }
-                return left;
-            }
-            function parseLogicalOr() {
-                let left = parseLogicalAnd();
-                while (peek() && peek().type === 'OPERATOR' && peek().value === '||') {
-                    consume(); const right = parseLogicalAnd(); left = (left || right) ? 1 : 0;
-                }
-                return left;
-            }
-            function parseExpression() { return parseLogicalOr(); }
-            return parseExpression();
-        }
-
         // ---- Metrics & Auto-Flag Engine ----
 
-        function computeStudentMetricsForSessions(studentName, groupName, sessions) {
+        function computeStudentMetricsForSessions(studentOrName, groupName, sessions) {
+            const studentObj = (studentOrName && typeof studentOrName === 'object') ? studentOrName : null;
+            const studentName = studentObj ? studentObj.name : studentOrName;
+            const studentUuid = studentObj ? (studentObj.uuid || studentObj.id) : null;
+
             const plusDef = badgeDefinitions.find(d => d.isBuiltin && d.icon === '+');
             const minusDef = badgeDefinitions.find(d => d.isBuiltin && d.icon === '-');
             const plusCoeff = plusDef ? plusDef.coefficient : participationSettings.plusMinusCoefficient;
             const minusCoeff = minusDef ? minusDef.coefficient : participationSettings.plusMinusCoefficient;
+
+            // Elements filter
+            const el = participationSettings.autoFlagElements || {};
+            const usePlus = el.plus !== false;
+            const useMinus = el.minus !== false;
+            const useTeamPlus = el.teamPlus !== false;
+            const useTeamMinus = el.teamMinus !== false;
+            const badgesFilter = el.badges; // true | string[] | []
+            const useBadges = badgesFilter === true || (Array.isArray(badgesFilter) && badgesFilter.length > 0);
 
             const tl = participationSettings.autoFlagTimeline || {};
             let cutoffDate = null;
@@ -9962,7 +9854,12 @@
                 }
 
                 const students = (session.groups && session.groups[groupName]) || [];
-                const match = students.find(s => s.name === studentName);
+                // Match by uuid, then id, then name
+                const match = students.find(s => {
+                    if (studentUuid && (s.uuid === studentUuid || s.id === studentUuid)) return true;
+                    if (studentObj && studentObj.id != null && s.id === studentObj.id) return true;
+                    return s.name === studentName;
+                });
                 if (!match) return;
 
                 sessionCount++;
@@ -9983,16 +9880,25 @@
                     badgeCounts[iconKey] = (badgeCounts[iconKey] || 0) + 1;
                     if (b.label) badgeCounts[`[${b.label}]`] = (badgeCounts[`[${b.label}]`] || 0) + 1;
 
-                    const def = badgeDefinitions.find(d => d.icon === b.icon);
-                    const tone = def ? def.tone : b.tone || 'positive';
-                    const coeff = def ? (def.coefficient || 1) : 1;
-                    if (tone === 'negative') sessionBadgeNeg += coeff;
-                    else sessionBadgePos += coeff;
+                    if (useBadges) {
+                        if (Array.isArray(badgesFilter) && !badgesFilter.includes(b.icon) && !badgesFilter.includes(b.label)) return;
+                        const def = badgeDefinitions.find(d => d.icon === b.icon);
+                        const tone = def ? def.tone : b.tone || 'positive';
+                        const coeff = def ? (def.coefficient || 1) : 1;
+                        if (tone === 'negative') sessionBadgeNeg += coeff;
+                        else sessionBadgePos += coeff;
+                    }
                 });
 
                 totalBadgePos += sessionBadgePos;
                 totalBadgeNeg += sessionBadgeNeg;
-                totalNet += (p * plusCoeff - m * minusCoeff + tp * plusCoeff - tm * minusCoeff + sessionBadgePos - sessionBadgeNeg);
+
+                const netPlus = usePlus ? (p * plusCoeff) : 0;
+                const netMinus = useMinus ? (m * minusCoeff) : 0;
+                const netTeamPlus = useTeamPlus ? (tp * plusCoeff) : 0;
+                const netTeamMinus = useTeamMinus ? (tm * minusCoeff) : 0;
+
+                totalNet += (netPlus - netMinus + netTeamPlus - netTeamMinus + sessionBadgePos - sessionBadgeNeg);
             });
 
             if (sessionCount === 0) return null;
@@ -10126,7 +10032,7 @@
             const allMetrics = [];
 
             studentGroups[groupName].forEach(s => {
-                const metrics = computeStudentMetricsForSessions(s.name, groupName, sessions);
+                const metrics = computeStudentMetricsForSessions(s, groupName, sessions);
                 if (metrics) allMetrics.push({ student: s, metrics });
             });
 
@@ -10141,8 +10047,17 @@
                     const isMet = evaluateFlagRuleForStudent(student, rule, metrics, allMetrics);
                     if (isMet) {
                         const colorKey = rule.color || 'red';
-                        if (!student.autoFlags.includes(colorKey)) {
-                            student.autoFlags.push(colorKey);
+                        const flagObj = {
+                            ruleId: rule.id,
+                            color: colorKey,
+                            name: rule.name || 'Flag Rule',
+                            pickWeight: Number(rule.pickWeight) || 2.0
+                        };
+                        const alreadyExists = student.autoFlags.some(f =>
+                            (typeof f === 'object' && f !== null) ? (f.ruleId === rule.id || f.color === colorKey) : (f === colorKey)
+                        );
+                        if (!alreadyExists) {
+                            student.autoFlags.push(flagObj);
                         }
                     }
                 });
@@ -10159,17 +10074,34 @@
             const flags = getActiveFlags(student);
             if (!flags || flags.length === 0) return 1.0;
 
-            let maxWeight = 3.0;
+            let maxWeight = 1.0;
+            let hasFlagWeight = false;
             const rules = participationSettings.flagRules || [];
 
             flags.forEach(f => {
-                const rule = rules.find(r => r.color === f.key || r.id === f.key);
-                if (rule && Number.isFinite(Number(rule.pickWeight))) {
-                    maxWeight = Math.max(maxWeight, Number(rule.pickWeight));
+                // If flag object directly has pickWeight (from rich auto-flag)
+                if (f && Number.isFinite(Number(f.pickWeight)) && Number(f.pickWeight) > 0) {
+                    const pw = Number(f.pickWeight);
+                    maxWeight = hasFlagWeight ? Math.max(maxWeight, pw) : pw;
+                    hasFlagWeight = true;
+                    return;
+                }
+
+                // Match against configured rules by ruleId, rule color, or key
+                const rule = rules.find(r => (f.ruleId && r.id === f.ruleId) || r.id === f.key || r.color === f.key);
+                if (rule && Number.isFinite(Number(rule.pickWeight)) && Number(rule.pickWeight) > 0) {
+                    const pw = Number(rule.pickWeight);
+                    maxWeight = hasFlagWeight ? Math.max(maxWeight, pw) : pw;
+                    hasFlagWeight = true;
+                } else if (f.source === 'manual') {
+                    // Manual flag without a specific matching rule defaults to 2.0x weight
+                    const manualDefault = 2.0;
+                    maxWeight = hasFlagWeight ? Math.max(maxWeight, manualDefault) : manualDefault;
+                    hasFlagWeight = true;
                 }
             });
 
-            return maxWeight;
+            return hasFlagWeight ? maxWeight : 1.0;
         }
 
         function getDefaultFlagRules() {
@@ -10294,7 +10226,7 @@
                     }
                     </td>
                     <td style="padding: 6px;">
-                        <input type="number" class="af-rule-weight" value="${r.pickWeight ?? 2.0}" onchange="tempFlagRules[${idx}].pickWeight = parseFloat(this.value)" step="0.5" min="0.1" max="10" style="width:55px; font-size:0.82rem; padding:4px; border:1px solid #ccc; border-radius:4px;" title="Pick weight multiplier">
+                        <input type="number" class="af-rule-weight" value="${r.pickWeight ?? 2.0}" onchange="tempFlagRules[${idx}].pickWeight = parseFloat(this.value)" step="0.5" min="0.1" max="10" style="width:55px; font-size:0.82rem; padding:4px; border:1px solid #ccc; border-radius:4px;" title="${(typeof t === 'function' ? t('af_weight_tooltip') : '') || 'Pick weight multiplier: >1.0 increases chance, <1.0 decreases chance, 1.0 = normal chance.'}">
                     </td>
                     <td style="padding: 6px; text-align: center;">
                         <button type="button" onclick="removeAutoFlagRule(${idx})" style="background:none; border:none; color:#c0392b; cursor:pointer; font-size:1.1rem; padding:0;" title="Delete Rule">&times;</button>
@@ -10385,10 +10317,11 @@
                 });
                 return;
             }
-            // Flagged students get weighted selection based on active flag rules
+            // Flagged students get weighted selection based on active flag rules (scaled by 10 for fractional/sub-1.0 accuracy)
             const weightedPool = pool.flatMap(s => {
-                const w = Math.round(getStudentPickWeight(s));
-                return Array(Math.max(1, w)).fill(s);
+                const w = getStudentPickWeight(s);
+                const tickets = Math.max(1, Math.round(w * 10));
+                return Array(tickets).fill(s);
             });
             const winner = weightedPool[Math.floor(Math.random() * weightedPool.length)];
             winner.isPicked = true;
@@ -11088,6 +11021,16 @@
                 const btn = document.getElementById('rsp-pres-' + key + '-btn');
                 if (btn) btn.classList.toggle('is-off', !presSettings[key]);
             });
+            const rspSortFirst = document.getElementById('rsp-sort-first-btn');
+            const rspSortLast = document.getElementById('rsp-sort-last-btn');
+            if (rspSortFirst) {
+                rspSortFirst.classList.toggle('active', rosterSortOrder === 'first');
+                rspSortFirst.classList.toggle('is-off', rosterSortOrder !== 'first');
+            }
+            if (rspSortLast) {
+                rspSortLast.classList.toggle('active', rosterSortOrder === 'last');
+                rspSortLast.classList.toggle('is-off', rosterSortOrder !== 'last');
+            }
         }
 
         function toggleScoreMute() {
@@ -13442,26 +13385,6 @@ syncState();
             syncRosterInlineToggleButtonStates();
             renderRoster();
             persistSettingsToUserFile().catch(err => console.warn('toggleBadgesVisibility: could not save config:', err));
-        }
-
-        function toggleAutoFlagVisibility() {
-            autoFlagVisible = !autoFlagVisible;
-            syncRosterInlineToggleButtonStates();
-            renderRoster();
-            persistSettingsToUserFile().catch(err => console.warn('toggleAutoFlagVisibility: could not save config:', err));
-        }
-
-        function toggleAnimations() {
-            animationsEnabled = !animationsEnabled;
-            syncRosterInlineToggleButtonStates();
-            persistSettingsToUserFile().catch(err => console.warn('toggleAnimations: could not save config:', err));
-        }
-
-        function togglePresSetting(key) {
-            presSettings[key] = !presSettings[key];
-            syncRosterInlineToggleButtonStates();
-            _broadcastPresentationState();
-            persistSettingsToUserFile().catch(err => console.warn('togglePresSetting: could not save config:', err));
         }
 
         // ============================================================
@@ -16089,6 +16012,80 @@ syncState();
             persistSettingsToUserFile().catch(err => console.warn('saveNameDisplayMode: could not save config:', err));
         }
 
+        function getStudentSortNames(student) {
+            if (!student) return { first: '', last: '', full: '' };
+            const rosterStudent = (student.uuid && studentRoster[student.uuid]) ? studentRoster[student.uuid] : student;
+            let fn = String(rosterStudent.firstName || student.firstName || '').trim();
+            let ln = String(rosterStudent.lastName || student.lastName || '').trim();
+            const fullName = String(student.name || rosterStudent.name || (fn + ' ' + ln).trim() || '').trim();
+
+            if (!fn && !ln && fullName) {
+                const spaceIdx = fullName.indexOf(' ');
+                if (spaceIdx !== -1) {
+                    fn = fullName.slice(0, spaceIdx).trim();
+                    ln = fullName.slice(spaceIdx + 1).trim();
+                } else {
+                    fn = fullName;
+                }
+            }
+            return {
+                first: fn || fullName,
+                last: ln || fn || fullName,
+                full: fullName
+            };
+        }
+
+        function compareStudentsByName(a, b) {
+            const namesA = getStudentSortNames(a);
+            const namesB = getStudentSortNames(b);
+
+            if (rosterSortOrder === 'last') {
+                const cmpLast = namesA.last.localeCompare(namesB.last, undefined, { sensitivity: 'base' });
+                if (cmpLast !== 0) return cmpLast;
+                const cmpFirst = namesA.first.localeCompare(namesB.first, undefined, { sensitivity: 'base' });
+                if (cmpFirst !== 0) return cmpFirst;
+                return namesA.full.localeCompare(namesB.full, undefined, { sensitivity: 'base' });
+            } else {
+                const cmpFirst = namesA.first.localeCompare(namesB.first, undefined, { sensitivity: 'base' });
+                if (cmpFirst !== 0) return cmpFirst;
+                const cmpLast = namesA.last.localeCompare(namesB.last, undefined, { sensitivity: 'base' });
+                if (cmpLast !== 0) return cmpLast;
+                return namesA.full.localeCompare(namesB.full, undefined, { sensitivity: 'base' });
+            }
+        }
+
+        function setRosterSortOrder(value, persist = true) {
+            if (['first', 'last'].includes(value)) {
+                rosterSortOrder = value;
+            }
+            _syncRosterSortOrderInputs();
+            renderRoster();
+            renderRanking();
+            if (persist) {
+                try { localStorage.setItem('cms-roster-sort-order', rosterSortOrder); } catch (_) { }
+                if (!PRESENTATION_MODE) _broadcastPresentationState();
+                persistSettingsToUserFile().catch(err => console.warn('setRosterSortOrder: could not save config:', err));
+            }
+        }
+
+        function _syncRosterSortOrderInputs() {
+            const radios = document.querySelectorAll('input[name="rosterSortOrderRadio"]');
+            radios.forEach(r => {
+                r.checked = (r.value === rosterSortOrder);
+            });
+
+            const btnFirst = document.getElementById('rsp-sort-first-btn');
+            const btnLast = document.getElementById('rsp-sort-last-btn');
+            if (btnFirst) {
+                btnFirst.classList.toggle('active', rosterSortOrder === 'first');
+                btnFirst.classList.toggle('is-off', rosterSortOrder !== 'first');
+            }
+            if (btnLast) {
+                btnLast.classList.toggle('active', rosterSortOrder === 'last');
+                btnLast.classList.toggle('is-off', rosterSortOrder !== 'last');
+            }
+        }
+
         function setLessonRunnerLayout(value, persist = true) {
             if (!['compact', 'collapsible', 'single'].includes(value)) value = 'compact';
             lessonRunnerLayout = value;
@@ -18433,7 +18430,12 @@ ${body}
             listEl.appendChild(teacherDesk);
 
             updatePresentCount();
-            if (PRESENTATION_MODE) requestAnimationFrame(_presAdjustPlanViewHeight);
+            if (PRESENTATION_MODE) {
+                applyPresNameSize();
+                requestAnimationFrame(_presAdjustPlanViewHeight);
+            } else {
+                applyNameSize();
+            }
         }
 
         function _appendRpcSeatIdCell(listEl, seatId, student, plan) {
@@ -18592,7 +18594,7 @@ ${body}
                     const ta = a.teamId || 99999;
                     const tb = b.teamId || 99999;
                     if (ta !== tb) return ta - tb;
-                    return a.name.localeCompare(b.name);
+                    return compareStudentsByName(a, b);
                 });
 
                 // Build consecutive team runs (present first, then absent, each team as a group)
