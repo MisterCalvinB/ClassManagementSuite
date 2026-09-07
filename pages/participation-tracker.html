@@ -2177,25 +2177,67 @@
             const ordered = [...byId.values(), ...withoutId]
                 .sort((a, b) => getSessionTimestamp(b) - getSessionTimestamp(a));
 
-            const seenGroupDays = new Set();
-            let removedGroups = 0;
-
+            // Group sessions by (groupId, day) to merge any fragmented session entries on the same day
+            const sessionsByGroupDay = new Map();
             ordered.forEach(session => {
-                const groups = (session && session.groups && typeof session.groups === 'object')
-                    ? session.groups
-                    : {};
-
+                const groups = (session && session.groups && typeof session.groups === 'object') ? session.groups : {};
                 Object.keys(groups).forEach(groupId => {
                     const key = buildGroupDayKey(session, groupId);
-                    if (seenGroupDays.has(key)) {
-                        delete groups[groupId];
-                        removedGroups++;
-                        return;
+                    if (!sessionsByGroupDay.has(key)) {
+                        sessionsByGroupDay.set(key, []);
                     }
-                    seenGroupDays.add(key);
+                    sessionsByGroupDay.get(key).push({ session, students: groups[groupId] || [] });
                 });
+            });
 
-                session.groups = groups;
+            let mergedGroups = 0;
+            sessionsByGroupDay.forEach((entries, key) => {
+                if (entries.length <= 1) return;
+
+                // Sort so the session with the largest roster is primary
+                entries.sort((a, b) => (b.students.length || 0) - (a.students.length || 0));
+                const primary = entries[0];
+                const groupId = key.split('|')[0];
+
+                for (let i = 1; i < entries.length; i++) {
+                    const secondary = entries[i];
+                    const secStudents = secondary.students || [];
+                    const priStudents = primary.session.groups[groupId] || [];
+
+                    secStudents.forEach(st => {
+                        if (!st || !st.name) return;
+                        const matchIdx = priStudents.findIndex(p =>
+                            (p.uuid && st.uuid && p.uuid === st.uuid) ||
+                            (p.name && String(p.name).trim().toUpperCase() === String(st.name).trim().toUpperCase())
+                        );
+
+                        if (matchIdx !== -1) {
+                            const p = priStudents[matchIdx];
+                            p.pluses = Math.max(p.pluses || 0, st.pluses || 0);
+                            p.minuses = Math.max(p.minuses || 0, st.minuses || 0);
+                            p.teamPluses = Math.max(p.teamPluses || 0, st.teamPluses || 0);
+                            p.teamMinuses = Math.max(p.teamMinuses || 0, st.teamMinuses || 0);
+                            p.isPicked = !!(p.isPicked || st.isPicked);
+                            if (st.isAbsent !== undefined) p.isAbsent = st.isAbsent;
+                            if (Array.isArray(st.badges) && st.badges.length) {
+                                p.badges = p.badges || [];
+                                st.badges.forEach(b => {
+                                    const bKey = typeof b === 'string' ? b : `${b.icon || ''}|${b.label || ''}|${b.time || ''}`;
+                                    const exists = p.badges.some(pb => (typeof pb === 'string' ? pb : `${pb.icon || ''}|${pb.label || ''}|${pb.time || ''}`) === bKey);
+                                    if (!exists) p.badges.push(b);
+                                });
+                            }
+                            if (st.notes && (!p.notes || !p.notes.includes(st.notes))) {
+                                p.notes = p.notes ? `${p.notes} | ${st.notes}` : st.notes;
+                            }
+                        } else {
+                            priStudents.push(cloneSessions(st));
+                        }
+                    });
+
+                    delete secondary.session.groups[groupId];
+                    mergedGroups++;
+                }
             });
 
             const normalized = ordered.filter(hasGroups);
@@ -2203,7 +2245,7 @@
                 sessions: normalized,
                 stats: {
                     droppedById: source.length - withoutId.length - byId.size,
-                    removedGroups,
+                    removedGroups: mergedGroups,
                     removedEmptySessions: ordered.length - normalized.length
                 }
             };
@@ -5249,7 +5291,9 @@
                     const absIn = tr.querySelector('.past-abs-in');
                     const noteIn = tr.querySelector('.past-note-in');
 
-                    if (dateIn && dateIn.value) {
+                    const origDateStr = formatIsoDate(item.sessionId);
+                    const origTimeStr = item.time || (item.sessionId && item.sessionId.includes('T') ? item.sessionId.split('T')[1].substring(0, 5) : '10:00');
+                    if (dateIn && dateIn.value && (dateIn.value !== origDateStr || (timeIn && timeIn.value && timeIn.value !== origTimeStr))) {
                         const rawTime = String(timeIn && timeIn.value ? timeIn.value : item.time || '10:00').trim();
                         const timeParts = rawTime.split(':');
                         const hh = (timeParts[0] || '10').padStart(2, '0');
@@ -5318,6 +5362,14 @@
                 delete item.newSessionId;
 
                 let session = DB_EXPORT.find(s => s.id === targetSessionId);
+
+                // If not found by exact session ID, look for an existing session for this group on the same date
+                if (!session) {
+                    const targetDate = targetSessionId.split('T')[0];
+                    if (targetDate) {
+                        session = DB_EXPORT.find(s => s.groups && s.groups[groupId] && s.id && s.id.startsWith(targetDate));
+                    }
+                }
 
                 if (!session) {
                     session = {

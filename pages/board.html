@@ -2002,6 +2002,8 @@
           title="Compact selected words">⤡</button>
         <button class="con-fmt-btn-wide con-mini-action" id="con-ctx-merge-btn" onclick="conCtxMergeSelected(event)"
           title="Merge selected words into a phrase group or single node">Merge</button>
+        <button class="con-fmt-btn-wide con-mini-action" id="con-ctx-multi-lib-btn" onclick="conSaveSelectionToLibraryPrompt()"
+          title="Save selection to Premade Library" data-i18n-title="conSaveSelectionToLibrary">✨ Library</button>
       </div>
       <div id="con-ctx-align-menu" class="con-ctx-submenu">
         <button class="con-fmt-btn-wide con-mini-action" onclick="conCtxAlignSelected('vertical','left')"
@@ -2050,6 +2052,8 @@
         style="display:none"><img src="../assets/icons/learning-tools.svg" class="btn-icon" alt="" /></button>
       <button class="con-ctx-icon-btn" id="con-ctx-card-btn" onclick="conCtxViewCard()" title="View word card"><img
           src="../assets/icons/word-card.svg" class="btn-icon" alt="" /></button>
+      <button class="con-ctx-icon-btn" id="con-ctx-lib-btn" onclick="conSaveNodeToLibrary()" title="Save to Premade Library" data-i18n-title="conSaveToPremadeLibrary"><img
+          src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /></button>
       <button class="con-ctx-icon-btn" id="con-ctx-edit-btn" onclick="conCtxEditWord()" title="Edit word"><img
           src="../assets/icons/edit-word.svg" class="btn-icon" alt="" /></button>
       <button class="con-ctx-icon-btn" onclick="conCtxRemove()" style="color:#b94040;" title="Remove word"><img
@@ -2064,13 +2068,29 @@
     <div class="con-ncp-header">
       <div class="con-ncp-title-wrap">
         <span class="con-ncp-word" id="con-ncp-word">Word</span>
-        <span class="con-ncp-badge con-ncp-pos" id="con-ncp-pos" style="display:none;"></span>
-        <span class="con-ncp-badge con-ncp-level" id="con-ncp-level" style="display:none;"></span>
-        <span class="con-ncp-badge con-ncp-source" id="con-ncp-source" style="display:none;"></span>
+        <div class="con-ncp-badges-wrap" id="con-ncp-badges-wrap">
+          <span class="con-ncp-badge con-ncp-pos" id="con-ncp-pos" style="display:none;"></span>
+          <span class="con-ncp-badge con-ncp-level" id="con-ncp-level" style="display:none;"></span>
+          <span class="con-ncp-badge con-ncp-source" id="con-ncp-source" style="display:none;"></span>
+          <span class="con-ncp-count-pill" id="con-ncp-count" style="display:none;"></span>
+        </div>
       </div>
       <button type="button" class="con-ncp-close-btn" onclick="conCloseNodeWordCard()" title="Close">✕</button>
     </div>
     <div class="con-ncp-body" id="con-ncp-body">
+      <!-- Exhaustive All Forms Section -->
+      <div class="con-ncp-forms-section" id="con-ncp-all-forms-section" style="display:none;">
+        <div class="con-ncp-section-title">
+          <span>All Forms in Databases</span>
+          <span class="con-ncp-count-pill" id="con-ncp-forms-count">0</span>
+        </div>
+        <div class="con-ncp-forms-wrap" id="con-ncp-forms-wrap"></div>
+      </div>
+
+      <!-- Multi-Entry / Multi-Sense Container -->
+      <div id="con-ncp-entries-container" class="con-ncp-entries-container"></div>
+
+      <!-- Single-entry fallback elements to maintain backwards compatibility -->
       <div class="wn-sp-wordmeta-row" id="con-ncp-ipa-row" style="display:none;">
         <span class="wn-sp-wordmeta-k">IPA</span>
         <span id="con-ncp-ipa" class="wn-sp-copyable" title="Click to copy IPA"></span>
@@ -2179,6 +2199,9 @@
     </div>
     <div class="con-ctx-item" onclick="conBoardCtxCreateGroup()"><img src="../assets/icons/group.svg" class="btn-icon"
         alt="" /> Add Group</div>
+    <div class="con-ctx-item" id="con-board-ctx-save-library" onclick="conBoardCtxClose();conSaveSelectionToLibraryPrompt();"
+      style="display:none; color:#8b5cf6; font-weight:600;"><img src="../assets/icons/sparkles.svg" class="btn-icon"
+        alt="" /> <span data-i18n="conSaveSelectionToLibrary">Save Selection to Library</span></div>
     <div class="con-ctx-sep"></div>
     <div style="padding:4px 10px 3px; display:flex; gap:6px; align-items:flex-start;">
       <span style="font-size:0.78rem; font-weight:700; color:#444; white-space:nowrap; margin-top:1px;"><img
@@ -2447,6 +2470,11 @@
           src="../assets/icons/duplicate.svg" class="btn-icon" alt="" /> Duplicate</div>
       <div class="con-ctx-item" id="con-group-ctx-resetsize-btn" onclick="conGroupCtxResetSize()"
         style="flex:1; justify-content:center; font-size:0.72rem; color:#2563eb; padding:5px 4px;">⇱ Auto-fit</div>
+    </div>
+    <div style="display:flex; gap:0; margin-top:6px;">
+      <div class="con-ctx-item" id="con-group-ctx-lib-btn" onclick="conGroupCtxSaveToLibrary()"
+        style="flex:1; justify-content:center; font-size:0.72rem; color:#8b5cf6; padding:5px 4px;"><img
+          src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> <span data-i18n="conSaveGroupToLibrary">Save to Library</span></div>
     </div>
     <div style="display:flex; gap:0; margin-top:6px;">
       <div class="con-ctx-item" id="con-group-ctx-blink-btn" onclick="conGroupCtxBlink()"
@@ -2978,6 +3006,9 @@
             <button class="action-btn btn-grey" onclick="conOpenTemplatePopup()"
               title="Save/load reusable board templates"><img src="../assets/icons/copy.svg" class="btn-icon" alt="" />
               Templates</button>
+            <button class="action-btn btn-grey" id="con-tb-btn-library" onclick="conOpenPremadeLibraryModal()"
+              title="Premade notes, widgets & reusable nodes library" data-i18n-title="premadeLibraryTooltip"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" />
+              <span data-i18n="btnPremadeLibrary">Library</span></button>
             <button class="action-btn btn-grey" id="con-manage-media-btn" onclick="conOpenManageMediaChooser(this)"
               title="Attach, insert, remove from board, or delete media"><img src="../assets/icons/media.svg"
                 class="btn-icon" alt="" /> Media</button>
@@ -3494,7 +3525,8 @@
             style="display:none;">▶ Open input</button>
           <button class="wn-sp-action-btn" id="wn-sp-stop-input-btn" onclick="wnStyleStopStudentInput()"
             style="display:none;">⏹ Stop input</button>
-          <button class="wn-sp-action-btn" id="wn-sp-planner-btn" onclick="wnpOpen()" data-i18n="wnpSaveToPlanner"><img src="../assets/icons/planner.svg" class="btn-icon" alt=""></button>
+          <button class="wn-sp-action-btn" id="wn-sp-save-library-btn" onclick="wnSaveNoteToLibrary()" title="Save to Premade Library" data-i18n-title="conSaveToPremadeLibrary"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt=""></button>
+          <button class="wn-sp-action-btn" id="wn-sp-planner-btn" onclick="wnpOpen()" title="Save note to planner" data-i18n-title="wnpSaveToPlanner"><img src="../assets/icons/planner.svg" class="btn-icon" alt=""></button>
           <button class="wn-sp-action-btn danger" onclick="wnStyleDeleteNote()"><img src="../assets/icons/delete.svg" class="btn-icon" alt=""></button>
         </div>
       </div>
@@ -4155,6 +4187,8 @@
         <button class="action-btn btn-grey" id="con-pages-paste-copied-btn"
           onclick="window.conPreviewPasteCopiedPagesPrompt()" title="Paste copied pages at a chosen position" disabled>Paste
           Copied...</button>
+        <button class="action-btn btn-grey" id="con-pages-merge-selected-btn"
+          onclick="window.conPreviewMergeSelectedPagesPrompt()" title="Merge checked pages together" data-i18n-title="mergePagesTitle" disabled><img src="../assets/icons/merge.svg" class="btn-icon" alt="" /> <span data-i18n="btnMergeSelected">Merge Selected...</span></button>
         <button class="action-btn btn-grey" id="con-pages-delete-selected-btn"
           onclick="window.conPreviewDeleteSelectedPages(this)" title="Delete all checked pages" disabled>Delete
           Selected</button>
@@ -4163,6 +4197,76 @@
       <div id="con-pages-list"></div>
       <div style="font-size:0.68rem;color:#999;margin-top:2px;">Drag to reorder · Click to navigate · ✕ to delete
       </div>
+    </div>
+  </div>
+
+  <!-- Page Merge Dialog -->
+  <div id="con-page-merge-overlay" onclick="if(event.target===this)conClosePageMergeModal()">
+    <div id="con-page-merge-popup">
+      <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1.5px solid #eee;padding-bottom:10px;">
+        <h3 style="margin:0;font-size:0.95rem;font-weight:800;display:flex;align-items:center;gap:6px;">
+          <img src="../assets/icons/merge.svg" class="btn-icon" alt="" />
+          <span data-i18n="mergePagesTitle">Merge Pages</span>
+        </h3>
+        <button class="action-btn btn-grey" onclick="conClosePageMergeModal()" style="padding:2px 8px;font-size:0.8rem;">✕</button>
+      </div>
+      <div id="con-page-merge-summary" style="font-size:0.75rem;color:#444;line-height:1.4;">
+        Merge selected pages into <b id="con-page-merge-target-name">Page 1</b>:
+      </div>
+      <div class="con-merge-field-group">
+        <span class="con-merge-label">Merge Layout Strategy:</span>
+        <label class="con-merge-option-row">
+          <input type="radio" name="con-merge-layout-mode" value="stack" checked style="accent-color:#111;">
+          <span data-i18n="mergePagesModeStack">Stack vertically (extend canvas downward)</span>
+        </label>
+        <label class="con-merge-option-row">
+          <input type="radio" name="con-merge-layout-mode" value="overlay" style="accent-color:#111;">
+          <span data-i18n="mergePagesModeOverlay">Overlay / In-place (keep coordinates)</span>
+        </label>
+      </div>
+      <div class="con-merge-field-group" id="con-merge-gap-row" style="flex-direction:row;align-items:center;gap:8px;">
+        <span class="con-merge-label" style="min-width:140px;">Vertical spacing:</span>
+        <input type="number" id="con-merge-spacing-input" min="0" max="1000" step="10" value="80"
+          style="width:70px;padding:3px 6px;border:1.5px solid #ccc;border-radius:4px;font-size:0.75rem;font-family:inherit;">
+        <span style="font-size:0.72rem;color:#666;">px</span>
+      </div>
+      <div class="con-merge-field-group" style="padding-top:4px;border-top:1px dashed #ddd;">
+        <label class="con-merge-option-row" style="font-weight:600;">
+          <input type="checkbox" id="con-merge-keep-originals" checked style="accent-color:#111;">
+          <span data-i18n="mergePagesKeepOriginals">Keep original pages as backup</span>
+        </label>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px;">
+        <button class="action-btn btn-grey" onclick="conClosePageMergeModal()">Cancel</button>
+        <button class="action-btn btn-grey" onclick="conExecutePageMerge()" style="background:#111;color:#fff;border-color:#111;font-weight:700;">
+          <img src="../assets/icons/merge.svg" class="btn-icon" style="filter:invert(1);" alt="" />
+          <span data-i18n="mergePagesConfirm">Merge</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Premade Library Modal -->
+  <div id="con-premade-library-overlay" onclick="if(event.target===this)conClosePremadeLibraryModal()">
+    <div id="con-premade-library-popup">
+      <div id="con-premade-library-header">
+        <h3 style="margin:0;font-size:0.95rem;font-weight:900;text-transform:uppercase;letter-spacing:1px;display:flex;align-items:center;gap:6px;">
+          <span data-i18n="premadeLibraryTitle">Premade Library</span>
+        </h3>
+        <button class="action-btn btn-grey" onclick="conSaveSelectionToLibraryPrompt()" style="margin-left:auto;padding:4px 10px;font-size:0.72rem;">
+          <span data-i18n="premadeSaveBtn">Save Selection to Library</span>
+        </button>
+        <button class="action-btn btn-grey" onclick="conClosePremadeLibraryModal()" style="padding:3px 9px;font-size:0.8rem;">✕</button>
+      </div>
+      <div class="con-lib-filter-bar">
+        <input type="text" id="con-lib-search" class="con-lib-search-input" placeholder="Search widgets and notes..." data-i18n-placeholder="premadeLibrarySearch" oninput="conRenderPremadeLibraryList()">
+        <button class="con-lib-cat-btn active" data-cat="all" onclick="conSetPremadeLibraryCategory('all', this)" data-i18n="premadeCatAll">All</button>
+        <button class="con-lib-cat-btn" data-cat="templates" onclick="conSetPremadeLibraryCategory('templates', this)" data-i18n="premadeCatTemplates">Templates</button>
+        <button class="con-lib-cat-btn" data-cat="widgets" onclick="conSetPremadeLibraryCategory('widgets', this)" data-i18n="premadeCatWidgets">Widgets</button>
+        <button class="con-lib-cat-btn" data-cat="callouts" onclick="conSetPremadeLibraryCategory('callouts', this)" data-i18n="premadeCatCallouts">Callouts</button>
+        <button class="con-lib-cat-btn" data-cat="custom" onclick="conSetPremadeLibraryCategory('custom', this)" data-i18n="premadeCatCustom">My Saved</button>
+      </div>
+      <div id="con-premade-library-list"></div>
     </div>
   </div>
 
@@ -4181,6 +4285,7 @@
   </div>
 
   <script src="../js/board-recorder.js"></script>
+  <script src="../js/board-premade-library.js"></script>
   <script>
     let activeSection = 'main-menu';
     let currentGameWord = null; // The vocab word object currently active in any game
@@ -4450,6 +4555,78 @@
       }) || null;
     }
     window.conFindDbEntry = conFindDbEntry;
+
+    function conFindAllDbEntries(wordOrText) {
+      if (!wordOrText || typeof vocabBank === 'undefined' || !Array.isArray(vocabBank)) return [];
+      const raw = conNormalizeWordForLookup(wordOrText);
+      if (!raw) return [];
+
+      const matchForms = (forms) => {
+        if (!forms) return false;
+        if (Array.isArray(forms)) {
+          return forms.some(f => {
+            if (!f) return false;
+            const s = typeof f === 'string' ? f : (f.word || f.form || f.term || '');
+            return conNormalizeWordForLookup(s) === raw;
+          });
+        }
+        if (typeof forms === 'string' && forms.trim()) {
+          return forms.split(/[,;/]+/).some(s => conNormalizeWordForLookup(s) === raw);
+        }
+        return false;
+      };
+
+      const directMatches = [];
+      const formMatches = [];
+      const seenEntries = new Set();
+
+      for (let i = 0; i < vocabBank.length; i++) {
+        const v = vocabBank[i];
+        if (!v || !v.word || seenEntries.has(v)) continue;
+        const normLemma = conNormalizeWordForLookup(v.word);
+        if (normLemma === raw) {
+          seenEntries.add(v);
+          directMatches.push({ entry: v, matchType: 'direct', matchedWord: v.word });
+        } else if (matchForms(v.otherForms) || matchForms(v.otherTerms)) {
+          seenEntries.add(v);
+          formMatches.push({ entry: v, matchType: 'inflection', matchedWord: v.word });
+        }
+      }
+
+      return directMatches.concat(formMatches);
+    }
+    window.conFindAllDbEntries = conFindAllDbEntries;
+
+    function conGetNodeDbEntries(node) {
+      if (!node) return [];
+      if (typeof vocabBank === 'undefined' || !Array.isArray(vocabBank)) return [];
+      const results = [];
+      const seen = new Set();
+
+      if (node.dbWord) {
+        const overrideMatches = conFindAllDbEntries(node.dbWord);
+        overrideMatches.forEach(m => {
+          if (m && m.entry && !seen.has(m.entry)) {
+            seen.add(m.entry);
+            results.push(m);
+          }
+        });
+      }
+
+      const text = node.baseWord || (node.el ? (node.el.dataset.baseWord || node.el.textContent.trim()) : '');
+      if (text) {
+        const textMatches = conFindAllDbEntries(text);
+        textMatches.forEach(m => {
+          if (m && m.entry && !seen.has(m.entry)) {
+            seen.add(m.entry);
+            results.push(m);
+          }
+        });
+      }
+
+      return results;
+    }
+    window.conGetNodeDbEntries = conGetNodeDbEntries;
 
     function conGetNodeDbEntry(node) {
       if (!node) return null;
@@ -6686,12 +6863,43 @@
     function awSaveCustomGaps(g) { localStorage.setItem(AW_GAP_KEY, JSON.stringify(g)); }
     function awSaveCustomErrors(e) { localStorage.setItem(AW_ERROR_KEY, JSON.stringify(e)); }
 
+    function _conMergeFormsList(existingForms, newForms) {
+      const set = new Set();
+      const add = (f) => {
+        if (!f) return;
+        if (Array.isArray(f)) { f.forEach(add); return; }
+        if (typeof f === 'string') {
+          f.split(/[,;/]+/).map(s => s.trim()).filter(Boolean).forEach(s => set.add(s));
+        } else if (f.word || f.form || f.term) {
+          const s = String(f.word || f.form || f.term).trim();
+          if (s) set.add(s);
+        }
+      };
+      add(existingForms);
+      add(newForms);
+      return Array.from(set);
+    }
+
     function awLoadCustomWords() {
       const custom = awGetCustomWords(); if (!custom.length) return;
       custom.forEach(w => {
         w._source = 'custom';
+        if (!Array.isArray(w._sources)) w._sources = ['custom'];
         const bi = vocabBank.findIndex(v => v.word.toLowerCase() === w.word.toLowerCase());
-        if (bi !== -1) { vocabBank[bi] = w; } else { vocabBank.push(w); }
+        if (bi !== -1) {
+          const existing = vocabBank[bi];
+          if (!Array.isArray(existing._sources)) existing._sources = [existing._source || 'worddb'];
+          if (!existing._sources.includes('custom')) existing._sources.push('custom');
+          existing.otherForms = _conMergeFormsList(existing.otherForms, w.otherForms);
+          if (w.synonyms) existing.synonyms = _conMergeFormsList(existing.synonyms, w.synonyms);
+          if (w.antonyms) existing.antonyms = _conMergeFormsList(existing.antonyms, w.antonyms);
+          if (w.ipa && !existing.ipa) existing.ipa = w.ipa;
+          if (w.level && !existing.level) existing.level = w.level;
+          if (w.translation && !existing.translation) existing.translation = w.translation;
+          if (w.french && !existing.french) existing.french = w.french;
+        } else {
+          vocabBank.push(w);
+        }
       });
     }
     let _customDbSources = [];
@@ -6729,9 +6937,55 @@
               const key = String(w.word).toLowerCase();
               const bi = wordIndex.has(key) ? wordIndex.get(key) : -1;
               if (bi !== -1) {
-                Object.assign(vocabBank[bi], w);
-                if (!Array.isArray(vocabBank[bi]._sources)) vocabBank[bi]._sources = [sourceId];
-                else if (!vocabBank[bi]._sources.includes(sourceId)) vocabBank[bi]._sources.push(sourceId);
+                const existing = vocabBank[bi];
+                if (!Array.isArray(existing._sources)) existing._sources = [existing._source || 'worddb'];
+                if (!existing._sources.includes(sourceId)) existing._sources.push(sourceId);
+
+                // Union inflected forms so no forms from either database are lost
+                existing.otherForms = _conMergeFormsList(existing.otherForms, w.otherForms);
+                if (w.otherTerms) existing.otherTerms = _conMergeFormsList(existing.otherTerms, w.otherTerms);
+
+                // Union synonyms and antonyms
+                if (w.synonyms) existing.synonyms = _conMergeFormsList(existing.synonyms, w.synonyms);
+                if (w.antonyms) existing.antonyms = _conMergeFormsList(existing.antonyms, w.antonyms);
+
+                // Fill in missing metadata fields
+                if (w.ipa && !existing.ipa) existing.ipa = w.ipa;
+                if (w.level && !existing.level) existing.level = w.level;
+                if (w.audio && !existing.audio) existing.audio = w.audio;
+                if (w.theme && !existing.theme) existing.theme = w.theme;
+                if (w.translation && !existing.translation) existing.translation = w.translation;
+                if (w.french && !existing.french) existing.french = w.french;
+
+                // Check if w has distinct definitions or distinct POS
+                const getPosStr = (x) => Array.isArray(x.partOfSpeech || x.pos) ? (x.partOfSpeech || x.pos).join(',') : String(x.partOfSpeech || x.pos || '');
+                const samePos = !w.partOfSpeech && !w.pos || getPosStr(w) === getPosStr(existing);
+
+                const getDefs = (x) => {
+                  const d = x.definition != null ? x.definition : x.def;
+                  return Array.isArray(d) ? d.map(String) : (d ? [String(d)] : []);
+                };
+                const existingDefs = getDefs(existing);
+                const newDefs = getDefs(w);
+
+                // If POS differs or definitions are distinct from another database, keep w as distinct entry
+                const hasDistinctDefs = newDefs.length > 0 && newDefs.some(nd => !existingDefs.some(ed => ed.trim().toLowerCase() === nd.trim().toLowerCase()));
+
+                if (!samePos || (hasDistinctDefs && existing._source !== sourceId)) {
+                  w._sources = [sourceId];
+                  w.otherForms = existing.otherForms; // share unioned forms
+                  vocabBank.push(w);
+                } else if (hasDistinctDefs) {
+                  // Append new distinct definitions to existing
+                  if (!Array.isArray(existing.definition)) {
+                    existing.definition = existingDefs;
+                  }
+                  newDefs.forEach(nd => {
+                    if (!existing.definition.some(ed => String(ed).trim().toLowerCase() === nd.trim().toLowerCase())) {
+                      existing.definition.push(nd);
+                    }
+                  });
+                }
               } else {
                 w._sources = [sourceId];
                 vocabBank.push(w);
@@ -12668,6 +12922,20 @@
         if (window._conMirrorSend) window._conMirrorSend({ type: 'blink-update', groupId: group.id, blink: !!group.blink });
       };
 
+      window.conGroupCtxSaveToLibrary = function () {
+        const gid = _conGroupCtxId;
+        const group = conGroups.find(g => g.id === gid);
+        conGroupCtxClose();
+        if (!group) return;
+        const gNodes = Array.isArray(group.nodeIds) ? [...group.nodeIds] : [];
+        const gNotes = Array.isArray(group.noteIds) ? [...group.noteIds] : [];
+        conSaveSelectionToLibraryPrompt(group.title || 'Group', {
+          groupIds: [group.id],
+          nodeIds: gNodes,
+          noteIds: gNotes
+        });
+      };
+
       window.conGroupCtxClose = function () {
         _conGroupCtxId = null;
         document.getElementById('con-group-ctx-menu').classList.remove('visible');
@@ -16696,10 +16964,12 @@
         const copyBtn = document.getElementById('con-pages-copy-selected-btn');
         const pasteBtn = document.getElementById('con-pages-paste-copied-btn');
         const delBtn = document.getElementById('con-pages-delete-selected-btn');
+        const mergeBtn = document.getElementById('con-pages-merge-selected-btn');
         const info = document.getElementById('con-pages-selection-info');
         if (copyBtn) copyBtn.disabled = count === 0;
         if (pasteBtn) pasteBtn.disabled = !conHasCopiedPages();
         if (delBtn) delBtn.disabled = count === 0;
+        if (mergeBtn) mergeBtn.disabled = count < 2;
         if (info) info.textContent = count + ' selected';
       }
 
@@ -16829,6 +17099,642 @@
         const count = conPasteCopiedPagesPackage(pkg, insertIdx);
         mdbToast('Pasted ' + count + ' page' + (count === 1 ? '' : 's') + ' at page ' + (insertIdx + 1));
         window.conOpenPagePreview();
+      };
+
+      // ---- Page Merging Subsystem ----
+      function _conGetSnapshotBottomY(snap) {
+        if (!snap) return 0;
+        let maxY = 0;
+        (snap.nodes || []).forEach(n => {
+          maxY = Math.max(maxY, (Number(n.y) || 0) + 60);
+        });
+        (snap.notes || []).forEach(n => {
+          const h = Number(n.height) || Number(n.liveBaseHeight) || 120;
+          maxY = Math.max(maxY, (Number(n.y) || 0) + h);
+        });
+        (snap.drawings || []).forEach(d => {
+          maxY = Math.max(maxY, (Number(d.y) || 0) + (Number(d.h) || 0));
+          (d.points || []).forEach(p => {
+            if (p && Number.isFinite(p.y)) maxY = Math.max(maxY, p.y);
+          });
+        });
+        (snap.shapes || []).forEach(s => {
+          maxY = Math.max(maxY, (Number(s.y) || 0) + (Number(s.h) || 0));
+          if (Number.isFinite(s.ly1)) maxY = Math.max(maxY, s.ly1);
+          if (Number.isFinite(s.ly2)) maxY = Math.max(maxY, s.ly2);
+        });
+        (snap.groups || []).forEach(g => {
+          maxY = Math.max(maxY, (Number(g.y) || 0) + (Number(g.manualH) || 150));
+        });
+        (snap.media || []).forEach(m => {
+          maxY = Math.max(maxY, (Number(m.y) || 0) + (Number(m.h) || 200));
+        });
+        (snap.masks || []).forEach(m => {
+          maxY = Math.max(maxY, (Number(m.y) || 0) + (Number(m.height) || 100));
+        });
+        (snap.tables || []).forEach(tbl => {
+          maxY = Math.max(maxY, (Number(tbl.y) || 0) + (Number(tbl.height) || 160));
+        });
+        (snap.boardStickers || []).forEach(st => {
+          maxY = Math.max(maxY, (Number(st.y) || 0) + (Number(st.size) || 40));
+        });
+        return maxY;
+      }
+
+      window.conMergePageSnapshots = function (targetSnap, incomingSnap, opts = {}) {
+        if (!targetSnap || !incomingSnap) return targetSnap;
+        const mode = opts.mode || 'stack';
+        const spacing = Number.isFinite(opts.spacing) ? Number(opts.spacing) : 80;
+
+        let yOffset = 0;
+        if (mode === 'stack') {
+          const currentBottom = _conGetSnapshotBottomY(targetSnap);
+          yOffset = currentBottom > 0 ? (currentBottom + spacing) : 0;
+        }
+
+        const inc = JSON.parse(JSON.stringify(incomingSnap));
+        const idMap = {};
+        const genUid = prefix => prefix + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+
+        // Pre-allocate new unique IDs to avoid collision
+        (inc.nodes || []).forEach(n => { idMap[n.id] = genUid('cn_m_'); });
+        (inc.notes || []).forEach(n => { idMap[n.id] = genUid('cnn_m_'); });
+        (inc.drawings || []).forEach(d => { idMap[d.id] = genUid('cd_m_'); });
+        (inc.shapes || []).forEach(s => { idMap[s.id] = genUid('cs_m_'); });
+        (inc.groups || []).forEach(g => { idMap[g.id] = genUid('cg_m_'); });
+        (inc.masks || []).forEach(m => { idMap[m.id] = genUid('cmask_m_'); });
+        (inc.media || []).forEach(m => { idMap[m.id] = genUid('cm_m_'); });
+        (inc.tables || []).forEach(t => { idMap[t.id] = genUid('tbl_m_'); });
+        (inc.boardStickers || []).forEach(st => { idMap[st.id] = genUid('stick_m_'); });
+
+        // Merge Nodes
+        (inc.nodes || []).forEach(n => {
+          n.id = idMap[n.id] || genUid('cn_m_');
+          n.y = Math.round((Number(n.y) || 0) + yOffset);
+          (targetSnap.nodes = targetSnap.nodes || []).push(n);
+        });
+
+        // Merge Edges
+        (inc.edges || []).forEach(e => {
+          e.id = genUid('ce_m_');
+          e.a = idMap[e.a] || e.a;
+          e.b = idMap[e.b] || e.b;
+          (targetSnap.edges = targetSnap.edges || []).push(e);
+        });
+
+        // Merge Notes
+        (inc.notes || []).forEach(n => {
+          n.id = idMap[n.id] || genUid('cnn_m_');
+          if (n.nodeId && idMap[n.nodeId]) n.nodeId = idMap[n.nodeId];
+          n.y = Math.round((Number(n.y) || 0) + yOffset);
+          (targetSnap.notes = targetSnap.notes || []).push(n);
+        });
+
+        // Merge Drawings
+        (inc.drawings || []).forEach(d => {
+          d.id = idMap[d.id] || genUid('cd_m_');
+          d.y = Math.round((Number(d.y) || 0) + yOffset);
+          (d.points || []).forEach(p => {
+            if (p && Number.isFinite(p.y)) p.y = Math.round(p.y + yOffset);
+          });
+          (targetSnap.drawings = targetSnap.drawings || []).push(d);
+        });
+
+        // Merge Shapes
+        (inc.shapes || []).forEach(s => {
+          s.id = idMap[s.id] || genUid('cs_m_');
+          s.y = Math.round((Number(s.y) || 0) + yOffset);
+          if (Number.isFinite(s.ly1)) s.ly1 = Math.round(s.ly1 + yOffset);
+          if (Number.isFinite(s.ly2)) s.ly2 = Math.round(s.ly2 + yOffset);
+          (targetSnap.shapes = targetSnap.shapes || []).push(s);
+        });
+
+        // Merge Groups
+        (inc.groups || []).forEach(g => {
+          g.id = idMap[g.id] || genUid('cg_m_');
+          g.nodeIds = (g.nodeIds || []).map(id => idMap[id] || id);
+          g.noteIds = (g.noteIds || []).map(id => idMap[id] || id);
+          g.drawingIds = (g.drawingIds || []).map(id => idMap[id] || id);
+          g.shapeIds = (g.shapeIds || []).map(id => idMap[id] || id);
+          g.y = Math.round((Number(g.y) || 0) + yOffset);
+          if (g.titleY != null) g.titleY = Math.round(Number(g.titleY) + yOffset);
+          (targetSnap.groups = targetSnap.groups || []).push(g);
+        });
+
+        // Merge Media
+        (inc.media || []).forEach(m => {
+          m.id = idMap[m.id] || genUid('cm_m_');
+          m.y = Math.round((Number(m.y) || 0) + yOffset);
+          (targetSnap.media = targetSnap.media || []).push(m);
+        });
+
+        // Merge Masks
+        (inc.masks || []).forEach(m => {
+          m.id = idMap[m.id] || genUid('cmask_m_');
+          m.y = Math.round((Number(m.y) || 0) + yOffset);
+          (targetSnap.masks = targetSnap.masks || []).push(m);
+        });
+
+        // Merge Tables
+        (inc.tables || []).forEach(t => {
+          t.id = idMap[t.id] || genUid('tbl_m_');
+          t.y = Math.round((Number(t.y) || 0) + yOffset);
+          (targetSnap.tables = targetSnap.tables || []).push(t);
+        });
+
+        // Merge Stickers
+        (inc.boardStickers || []).forEach(st => {
+          st.id = idMap[st.id] || genUid('stick_m_');
+          st.y = Math.round((Number(st.y) || 0) + yOffset);
+          (targetSnap.boardStickers = targetSnap.boardStickers || []).push(st);
+        });
+
+        // Expand board height to comfortably fit all merged elements
+        const finalMaxY = _conGetSnapshotBottomY(targetSnap);
+        const existingHeight = Number(targetSnap.boardHeight) || 1080;
+        targetSnap.boardHeight = Math.max(existingHeight, finalMaxY + 140);
+
+        return targetSnap;
+      };
+
+      window.conPreviewMergeSelectedPagesPrompt = function () {
+        const indices = Array.from(_conPreviewSelectedIdx).sort((a, b) => a - b);
+        if (indices.length < 2) {
+          mdbToast((typeof i18n !== 'undefined' && i18n.t) ? i18n.t('mergePagesSelectAtLeastTwo') : 'Select at least two pages to merge');
+          return;
+        }
+
+        const overlay = document.getElementById('con-page-merge-overlay');
+        const targetNameEl = document.getElementById('con-page-merge-target-name');
+        const summaryEl = document.getElementById('con-page-merge-summary');
+        if (!overlay) return;
+
+        const targetPage = indices[0] + 1;
+        const incomingPages = indices.slice(1).map(i => 'Page ' + (i + 1)).join(', ');
+        if (targetNameEl) targetNameEl.textContent = 'Page ' + targetPage;
+        if (summaryEl) {
+          summaryEl.innerHTML = `Merge <b>${indices.length}</b> selected pages (${incomingPages}) into destination <b>Page ${targetPage}</b>:`;
+        }
+
+        overlay.classList.add('active');
+      };
+
+      window.conClosePageMergeModal = function () {
+        const overlay = document.getElementById('con-page-merge-overlay');
+        if (overlay) overlay.classList.remove('active');
+      };
+
+      window.conExecutePageMerge = async function () {
+        const indices = Array.from(_conPreviewSelectedIdx).sort((a, b) => a - b);
+        if (indices.length < 2) {
+          mdbToast('Select at least two pages to merge');
+          return;
+        }
+
+        conClosePageMergeModal();
+
+        // Push undo state so merge can be completely undone
+        if (typeof window.conPushUndo === 'function') window.conPushUndo();
+
+        // Save active page snapshot before merging
+        conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
+
+        const targetIdx = indices[0];
+        const sourceIndices = indices.slice(1);
+        const modeInput = document.querySelector('input[name="con-merge-layout-mode"]:checked');
+        const mode = modeInput ? modeInput.value : 'stack';
+        const spacingInput = document.getElementById('con-merge-spacing-input');
+        const spacing = spacingInput ? (parseInt(spacingInput.value, 10) || 80) : 80;
+        const keepOriginals = !!(document.getElementById('con-merge-keep-originals') && document.getElementById('con-merge-keep-originals').checked);
+
+        // Destination snapshot clone
+        let targetSnap = JSON.parse(JSON.stringify(conPageSnapshots[targetIdx] || conBuildEmptyPageSnapshot()));
+
+        // Merge each source page into destination
+        for (let i = 0; i < sourceIndices.length; i++) {
+          const sIdx = sourceIndices[i];
+          const srcSnap = conPageSnapshots[sIdx];
+          if (!srcSnap) continue;
+          conMergePageSnapshots(targetSnap, srcSnap, { mode, spacing });
+        }
+
+        conPageSnapshots[targetIdx] = targetSnap;
+
+        // Cleanup source pages if user chose not to keep them as backup
+        if (!keepOriginals) {
+          const removeSet = new Set(sourceIndices);
+          for (let i = conPageSnapshots.length - 1; i >= 0; i--) {
+            if (removeSet.has(i)) {
+              conPageSnapshots.splice(i, 1);
+              if (Array.isArray(_conPageSnapshotPngs)) _conPageSnapshotPngs.splice(i, 1);
+            }
+          }
+        }
+
+        // Set active page to target and restore
+        conCurrentPageIndex = targetIdx;
+        _conRestorePageToBoard(conPageSnapshots[conCurrentPageIndex]);
+
+        _conPreviewSelectedIdx.clear();
+        conUpdatePageBar();
+        window.conOpenPagePreview();
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+
+        const count = indices.length;
+        const targetPageNum = targetIdx + 1;
+        const msg = (typeof i18n !== 'undefined' && i18n.t)
+          ? i18n.t('mergePagesSuccess').replace('{count}', count).replace('{page}', targetPageNum)
+          : ('Merged ' + count + ' pages into Page ' + targetPageNum);
+        mdbToast(msg);
+      };
+
+      // ---- Premade Library UI Controller ----
+      let _conActiveLibCategory = 'all';
+
+      window.conOpenPremadeLibraryModal = async function () {
+        const overlay = document.getElementById('con-premade-library-overlay');
+        if (!overlay) return;
+        overlay.classList.add('active');
+        const searchInput = document.getElementById('con-lib-search');
+        if (searchInput) {
+          searchInput.value = '';
+          searchInput.focus();
+        }
+        await conRenderPremadeLibraryList();
+      };
+
+      window.conClosePremadeLibraryModal = function () {
+        const overlay = document.getElementById('con-premade-library-overlay');
+        if (overlay) overlay.classList.remove('active');
+      };
+
+      window.conSetPremadeLibraryCategory = function (cat, btn) {
+        _conActiveLibCategory = cat;
+        document.querySelectorAll('.con-lib-cat-btn').forEach(b => b.classList.remove('active'));
+        if (btn) btn.classList.add('active');
+        conRenderPremadeLibraryList();
+      };
+
+      window.conRenderPremadeLibraryList = async function () {
+        const listEl = document.getElementById('con-premade-library-list');
+        if (!listEl) return;
+        const searchInput = document.getElementById('con-lib-search');
+        const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
+
+        const items = (typeof window.conGetPremadeLibraryItems === 'function')
+          ? await window.conGetPremadeLibraryItems()
+          : [];
+
+        const filtered = items.filter(item => {
+          if (_conActiveLibCategory !== 'all' && item.category !== _conActiveLibCategory) {
+            return false;
+          }
+          if (query) {
+            const nameMatch = (item.name || '').toLowerCase().includes(query);
+            const descMatch = (item.description || '').toLowerCase().includes(query);
+            return nameMatch || descMatch;
+          }
+          return true;
+        });
+
+        if (filtered.length === 0) {
+          listEl.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#888;font-size:0.85rem;">No premade items match your search.</div>';
+          return;
+        }
+
+        listEl.innerHTML = filtered.map(item => {
+          const isCustom = !!item.isCustom;
+          return `
+            <div class="con-lib-card" data-id="${item.id}">
+              <div class="con-lib-card-header">
+                <span class="con-lib-card-title" title="${item.name}">${item.name}</span>
+                <span class="con-lib-card-cat">${item.category || 'widget'}</span>
+              </div>
+              <div class="con-lib-card-desc">${item.description || ''}</div>
+              <div class="con-lib-card-actions">
+                <button class="con-lib-insert-btn" onclick="conInsertItemFromLibrary('${item.id}')">
+                  <span>Insert</span>
+                </button>
+                ${isCustom ? `<button class="con-lib-del-btn" onclick="conDeleteCustomPremadePrompt('${item.id}', event)" title="Delete custom item">Delete</button>` : ''}
+              </div>
+            </div>
+          `;
+        }).join('');
+      };
+
+      window.conInsertItemFromLibrary = async function (id) {
+        const items = (typeof window.conGetPremadeLibraryItems === 'function')
+          ? await window.conGetPremadeLibraryItems()
+          : [];
+        const item = items.find(it => it.id === id);
+        if (!item) return;
+        conClosePremadeLibraryModal();
+        conInsertPremadeItem(item);
+      };
+
+      window.conDeleteCustomPremadePrompt = async function (id, event) {
+        if (event) event.stopPropagation();
+        const ok = await showConfirm('Delete this custom item from your library?');
+        if (!ok) return;
+        if (typeof window.conDeleteCustomPremadeItem === 'function') {
+          await window.conDeleteCustomPremadeItem(id);
+          conRenderPremadeLibraryList();
+          mdbToast('Deleted item from library');
+        }
+      };
+
+      window.conSaveSelectionToLibraryPrompt = async function (preferredName, explicitSelection) {
+        if (typeof conCtxClose === 'function') conCtxClose();
+        if (typeof wnStyleDismiss === 'function') wnStyleDismiss();
+        if (typeof conBoardCtxClose === 'function') conBoardCtxClose();
+        if (typeof conGroupCtxClose === 'function') conGroupCtxClose();
+
+        let selectedNodes = [];
+        let selectedNotes = [];
+        let selectedGroups = [];
+
+        if (explicitSelection) {
+          if (Array.isArray(explicitSelection.nodeIds)) {
+            selectedNodes = conNodes.filter(n => explicitSelection.nodeIds.includes(n.id));
+          }
+          if (Array.isArray(explicitSelection.noteIds)) {
+            selectedNotes = conNotes.filter(n => explicitSelection.noteIds.includes(n.id));
+          }
+          if (Array.isArray(explicitSelection.groupIds)) {
+            selectedGroups = conGroups.filter(g => explicitSelection.groupIds.includes(g.id));
+          }
+        } else {
+          // 1. Collect selected nodes
+          if (typeof window.conGetSelectedNodes === 'function') {
+            selectedNodes = window.conGetSelectedNodes().filter(Boolean);
+          } else if (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 0) {
+            selectedNodes = conNodes.filter(n => conMultiSelected.has(n.id));
+          } else if (typeof conSelected !== 'undefined' && conSelected) {
+            const n = conNodes.find(node => node.id === conSelected);
+            if (n) selectedNodes.push(n);
+          } else if (typeof conCtxNodeId !== 'undefined' && conCtxNodeId) {
+            const n = conNodes.find(node => node.id === conCtxNodeId);
+            if (n) selectedNodes.push(n);
+          }
+
+          // 2. Collect selected notes
+          const noteIdSet = new Set(
+            (typeof conNoteSelected !== 'undefined' && conNoteSelected) ? Array.from(conNoteSelected) : []
+          );
+          if (typeof _wnActiveNote !== 'undefined' && _wnActiveNote && _wnActiveNote.id) {
+            noteIdSet.add(_wnActiveNote.id);
+          }
+          if (typeof _conNoteCtxData !== 'undefined' && _conNoteCtxData && _conNoteCtxData.id) {
+            noteIdSet.add(_conNoteCtxData.id);
+          }
+
+          // Also include notes attached to any of the selected nodes
+          selectedNodes.forEach(node => {
+            conNotes.filter(n => n.nodeId === node.id).forEach(att => noteIdSet.add(att.id));
+          });
+
+          selectedNotes = conNotes.filter(n => noteIdSet.has(n.id));
+
+          // 3. Fallback: if no nodes and no notes selected, check if a group is focused
+          if (selectedNodes.length === 0 && selectedNotes.length === 0) {
+            const focusedGid = (typeof conGroupFocused !== 'undefined' ? conGroupFocused : null)
+              || (typeof _conGroupCtxId !== 'undefined' ? _conGroupCtxId : null);
+            if (focusedGid) {
+              const grp = conGroups.find(g => g.id === focusedGid);
+              if (grp) {
+                selectedGroups.push(grp);
+                if (Array.isArray(grp.nodeIds)) {
+                  selectedNodes = conNodes.filter(n => grp.nodeIds.includes(n.id));
+                }
+                if (Array.isArray(grp.noteIds)) {
+                  selectedNotes = conNotes.filter(n => grp.noteIds.includes(n.id));
+                }
+              }
+            }
+          }
+        }
+
+        if (selectedNodes.length === 0 && selectedNotes.length === 0) {
+          if (typeof mdbToast === 'function') mdbToast('Select at least one node or note on the board first.');
+          return;
+        }
+
+        // Find enclosing groups if not explicitly gathered
+        const selectedNodeIdSet = new Set(selectedNodes.map(n => n.id));
+        const selectedNoteIdSet = new Set(selectedNotes.map(n => n.id));
+        if (selectedGroups.length === 0 && Array.isArray(conGroups)) {
+          conGroups.forEach(g => {
+            const gNodes = g.nodeIds || [];
+            const gNotes = g.noteIds || [];
+            if (gNodes.length === 0 && gNotes.length === 0) return;
+            const allNodesIn = gNodes.length > 0 && gNodes.every(nid => selectedNodeIdSet.has(nid));
+            const allNotesIn = gNotes.length > 0 && gNotes.every(nid => selectedNoteIdSet.has(nid));
+            if (allNodesIn || allNotesIn) {
+              selectedGroups.push(g);
+            }
+          });
+        }
+
+        // Find edges connecting the selected items
+        const allItemIds = new Set([...selectedNodeIdSet, ...selectedNoteIdSet]);
+        const connectedEdges = (Array.isArray(conEdges) ? conEdges : []).filter(e => {
+          return allItemIds.has(e.a) && allItemIds.has(e.b);
+        });
+
+        // Calculate default prompt name
+        let defaultName = preferredName;
+        if (!defaultName) {
+          if (selectedGroups.length > 0 && selectedGroups[0].title) {
+            defaultName = selectedGroups[0].title;
+          } else if (selectedNodes.length > 0) {
+            defaultName = selectedNodes[0].baseWord || (selectedNodes[0].el ? selectedNodes[0].el.textContent.trim() : '') || 'Custom Preset';
+          } else if (selectedNotes.length > 0) {
+            defaultName = (selectedNotes[0].text || '').trim().slice(0, 24) || 'Custom Note';
+          } else {
+            defaultName = 'Custom Premade Item';
+          }
+        }
+
+        const promptTitle = (typeof i18n !== 'undefined' && i18n.t)
+          ? i18n.t('premadeNamePrompt') || 'Name of new premade item:'
+          : 'Name of new premade item:';
+        const name = await showPrompt(promptTitle, defaultName);
+        if (!name || !name.trim()) return;
+
+        const snippet = {
+          nodes: selectedNodes.map(n => ({
+            id: n.id,
+            baseWord: n.baseWord || (n.el ? n.el.textContent.trim() : ''),
+            x: n.x,
+            y: n.y,
+            bg: (n.el ? (n.el.style.background || n.el.style.backgroundColor) : '') || n.bg || '',
+            color: (n.el ? n.el.style.color : '') || n.color || '',
+            border: (n.el ? n.el.style.borderColor : '') || n.border || '',
+            borderWidth: n.borderWidth != null ? n.borderWidth : (n.el ? parseFloat(n.el.style.borderWidth) || null : null),
+            borderStyle: n.borderStyle || (n.el ? n.el.style.borderStyle || null : null),
+            fontSize: n.fontSize || (n.el ? n.el.style.fontSize || '16px' : '16px'),
+            shape: n.shape || (n.el ? n.el.dataset.shape || 'oval' : 'oval'),
+            fmt: n.fmt ? { ...n.fmt } : {},
+            isTimer: !!n.isTimer,
+            durationSec: n.durationSec || null
+          })),
+          notes: selectedNotes.map(n => ({
+            id: n.id,
+            nodeId: n.nodeId || null,
+            text: n.text || '',
+            html: n.html || '',
+            x: n.x,
+            y: n.y,
+            width: n.width || null,
+            height: n.height || null,
+            manualSize: !!n.manualSize,
+            bg: n.bg || '#ffffff',
+            color: n.color || '#111111',
+            borderColor: n.borderColor || null,
+            borderWidth: n.borderWidth || null,
+            borderStyle: n.borderStyle || null,
+            fontSize: n.fontSize || 14,
+            fontFamily: n.fontFamily || null,
+            bold: !!n.bold,
+            italic: !!n.italic,
+            underline: !!n.underline,
+            strike: !!n.strike,
+            hidden: !!n.hidden
+          })),
+          edges: connectedEdges.map(e => ({
+            id: e.id,
+            a: e.a,
+            b: e.b,
+            type: e.type || 'none',
+            label: e.label || '',
+            labelSize: e.labelSize || 11,
+            labelColor: e.labelColor || '#333333'
+          })),
+          groups: selectedGroups.map(g => ({
+            id: g.id,
+            title: g.title || '',
+            nodeIds: Array.isArray(g.nodeIds) ? g.nodeIds.filter(nid => selectedNodeIdSet.has(nid)) : [],
+            noteIds: Array.isArray(g.noteIds) ? g.noteIds.filter(nid => selectedNoteIdSet.has(nid)) : [],
+            x: g.x || 0,
+            y: g.y || 0,
+            paletteIdx: g.paletteIdx || 0,
+            manualW: g.manualW || g._manualW || null,
+            manualH: g.manualH || g._manualH || null
+          }))
+        };
+
+        if (typeof window.conSaveCustomPremadeItem === 'function') {
+          await window.conSaveCustomPremadeItem(name.trim(), 'custom', 'Custom saved snippet', snippet);
+          if (typeof mdbToast === 'function') {
+            mdbToast('Saved "' + name.trim() + '" to Premade Library!');
+          }
+          if (typeof conRenderPremadeLibraryList === 'function') {
+            conRenderPremadeLibraryList();
+          }
+        }
+      };
+
+      window.conSaveNodeToLibrary = async function () {
+        if ((typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 1)
+          || (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0)) {
+          return window.conSaveSelectionToLibraryPrompt();
+        }
+
+        const id = (window.conGetCtxNodeId && window.conGetCtxNodeId()) || (window.conGetSelected && window.conGetSelected());
+        const node = (window.conGetNodes ? window.conGetNodes() : []).find(n => n.id === id);
+        if (typeof conCtxClose === 'function') conCtxClose();
+        if (!node) {
+          if (typeof mdbToast === 'function') mdbToast('No node selected.');
+          return;
+        }
+
+        const name = await showPrompt('Name for this premade node:', node.baseWord || 'Custom Node');
+        if (!name || !name.trim()) return;
+
+        const attachedNote = conNotes.find(n => n.nodeId === node.id);
+
+        const snippet = {
+          nodes: [{
+            id: node.id,
+            baseWord: node.baseWord || '',
+            x: 0, y: 0,
+            bg: node.el ? node.el.style.background || '' : '',
+            color: node.el ? node.el.style.color || '' : '',
+            border: node.el ? node.el.style.borderColor || '' : '',
+            borderWidth: node.borderWidth || null,
+            borderStyle: node.borderStyle || null,
+            fontSize: node.fontSize || '16px',
+            shape: node.shape || 'oval',
+            fmt: node.fmt ? { ...node.fmt } : {},
+            isTimer: !!node.isTimer,
+            durationSec: node.durationSec || null
+          }],
+          notes: attachedNote ? [{
+            id: attachedNote.id,
+            nodeId: node.id,
+            text: attachedNote.text || '',
+            html: attachedNote.html || '',
+            x: 180, y: 0,
+            width: attachedNote.width || null,
+            height: attachedNote.height || null,
+            manualSize: !!attachedNote.manualSize,
+            bg: attachedNote.bg || '#ffffff',
+            color: attachedNote.color || '#111111',
+            borderColor: attachedNote.borderColor || null,
+            borderWidth: attachedNote.borderWidth || null,
+            borderStyle: attachedNote.borderStyle || null,
+            fontSize: attachedNote.fontSize || 14
+          }] : []
+        };
+
+        if (typeof window.conSaveCustomPremadeItem === 'function') {
+          await window.conSaveCustomPremadeItem(name.trim(), 'custom', 'Saved custom node', snippet);
+          if (typeof mdbToast === 'function') mdbToast('Saved "' + name.trim() + '" to Premade Library!');
+          if (typeof conRenderPremadeLibraryList === 'function') conRenderPremadeLibraryList();
+        }
+      };
+
+      window.wnSaveNoteToLibrary = async function () {
+        if ((typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 1)
+          || (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 0)) {
+          return window.conSaveSelectionToLibraryPrompt();
+        }
+
+        const nd = (typeof _wnActiveNote !== 'undefined' && _wnActiveNote) || (typeof _conNoteCtxData !== 'undefined' && _conNoteCtxData);
+        if (typeof wnStyleDismiss === 'function') wnStyleDismiss();
+        if (!nd) {
+          if (typeof mdbToast === 'function') mdbToast('No note selected.');
+          return;
+        }
+
+        const snippetText = (nd.text || '').trim().slice(0, 24) || 'Custom Note';
+        const name = await showPrompt('Name for this premade note:', snippetText);
+        if (!name || !name.trim()) return;
+
+        const snippet = {
+          notes: [{
+            id: nd.id,
+            nodeId: null,
+            text: nd.text || '',
+            html: nd.html || '',
+            x: 0, y: 0,
+            width: nd.width || null,
+            height: nd.height || null,
+            manualSize: !!nd.manualSize,
+            bg: nd.bg || '#ffffff',
+            color: nd.color || '#111111',
+            borderColor: nd.borderColor || null,
+            borderWidth: nd.borderWidth || null,
+            borderStyle: nd.borderStyle || null,
+            fontSize: nd.fontSize || 14
+          }]
+        };
+
+        if (typeof window.conSaveCustomPremadeItem === 'function') {
+          await window.conSaveCustomPremadeItem(name.trim(), 'custom', 'Saved sticky note', snippet);
+          if (typeof mdbToast === 'function') mdbToast('Saved "' + name.trim() + '" to Premade Library!');
+          if (typeof conRenderPremadeLibraryList === 'function') conRenderPremadeLibraryList();
+        }
       };
 
       // ---- Page Preview (thumbnails, reorder, delete) ----
@@ -17301,6 +18207,18 @@
       window.conApplyEdgeLabelStyle = function (edge) { conApplyEdgeLabelStyle(edge); };
       window.conGetCtxNodeId = function () { return conCtxNodeId; };
       window.conGetSelected = function () { return conSelected; };
+      window.conGetMultiSelected = function () { return conMultiSelected; };
+      window.conGetSelectedNodes = function () {
+        if (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 0) {
+          return conNodes.filter(n => conMultiSelected.has(n.id));
+        }
+        const selId = conSelected || (typeof conCtxNodeId !== 'undefined' ? conCtxNodeId : null);
+        if (selId) {
+          const node = conNodes.find(n => n.id === selId);
+          return node ? [node] : [];
+        }
+        return [];
+      };
       window.conGetGroupFocused = function () { return conGroupFocused; };
       window.conPushUndo = function (snapshot) { conPushUndo(snapshot); };
       window.conRenderNodeLabel = function (node) { conRenderNodeLabel(node); };
@@ -18332,19 +19250,34 @@
         _conActiveWordCardDbEntry = null;
       }
 
+      let _conActiveWordCardMatches = [];
+
       function conOpenNodeWordCard(id, x, y) {
         const node = conNodes.find(n => n.id === id);
         if (!node) return;
-        const dbEntry = conGetNodeDbEntry(node) || conFindDbEntry(node.baseWord || (node.el && node.el.textContent.trim()));
-        if (!dbEntry) {
+        const nodeWord = (node.baseWord || (node.el && node.el.textContent.trim()) || '').trim();
+
+        let matches = conGetNodeDbEntries(node);
+        if (!matches || !matches.length) {
+          matches = conFindAllDbEntries(nodeWord);
+        }
+        if (!matches || !matches.length) {
+          const legacy = conGetNodeDbEntry(node) || conFindDbEntry(nodeWord);
+          if (legacy) {
+            matches = [{ entry: legacy, matchType: 'direct', matchedWord: legacy.word }];
+          }
+        }
+
+        if (!matches || !matches.length) {
           if (typeof mdbToast === 'function') {
-            mdbToast(`⚠️ "${node.baseWord || (node.el && node.el.textContent.trim())}" was not found in the word bank.`);
+            mdbToast(`⚠️ "${nodeWord || 'Word'}" was not found in the word bank.`);
           }
           return;
         }
 
         _conActiveWordCardNodeId = node.id;
-        _conActiveWordCardDbEntry = dbEntry;
+        _conActiveWordCardDbEntry = matches[0].entry;
+        _conActiveWordCardMatches = matches;
 
         const popup = document.getElementById('con-node-card-popup');
         if (!popup) return;
@@ -18353,71 +19286,79 @@
         const posEl = document.getElementById('con-ncp-pos');
         const levelEl = document.getElementById('con-ncp-level');
         const sourceEl = document.getElementById('con-ncp-source');
+        const countPill = document.getElementById('con-ncp-count');
 
-        const ipaRow = document.getElementById('con-ncp-ipa-row');
-        const ipaEl = document.getElementById('con-ncp-ipa');
-        const frRow = document.getElementById('con-ncp-fr-row');
-        const frEl = document.getElementById('con-ncp-fr');
-        const defRow = document.getElementById('con-ncp-def-row');
-        const defEl = document.getElementById('con-ncp-def');
-        const synRow = document.getElementById('con-ncp-syn-row');
-        const synEl = document.getElementById('con-ncp-syn');
-        const antRow = document.getElementById('con-ncp-ant-row');
-        const antEl = document.getElementById('con-ncp-ant');
-        const formsRow = document.getElementById('con-ncp-forms-row');
-        const formsEl = document.getElementById('con-ncp-forms');
-        const exRow = document.getElementById('con-ncp-ex-row');
-        const exEl = document.getElementById('con-ncp-ex');
+        wordEl.textContent = nodeWord || matches[0].entry.word || 'Word';
 
-        wordEl.textContent = dbEntry.word || node.baseWord || 'Word';
+        // 1. Gather distinct metadata across all matches
+        const allPos = new Set();
+        const allLevels = new Set();
+        const allSources = new Set();
 
-        if (dbEntry.partOfSpeech) {
-          posEl.textContent = dbEntry.partOfSpeech;
+        matches.forEach(m => {
+          const e = m.entry;
+          if (!e) return;
+          const p = e.partOfSpeech || e.pos;
+          if (Array.isArray(p)) p.forEach(x => x && allPos.add(String(x).trim()));
+          else if (typeof p === 'string' && p.trim()) allPos.add(p.trim());
+
+          if (e.level && typeof e.level === 'string' && e.level.trim()) allLevels.add(e.level.trim());
+          const src = e._source || (e._custom ? 'custom' : '');
+          if (src) allSources.add(src);
+          if (Array.isArray(e._sources)) e._sources.forEach(s => s && allSources.add(s));
+        });
+
+        if (allPos.size > 0) {
+          posEl.textContent = Array.from(allPos).join(' / ');
           posEl.style.display = '';
         } else {
           posEl.style.display = 'none';
         }
 
-        if (dbEntry.level) {
-          levelEl.textContent = dbEntry.level;
+        if (allLevels.size > 0) {
+          levelEl.textContent = Array.from(allLevels).join(', ');
           levelEl.style.display = '';
         } else {
           levelEl.style.display = 'none';
         }
 
-        const srcName = dbEntry._source || (dbEntry._custom ? 'custom' : '');
-        if (srcName) {
-          sourceEl.textContent = srcName;
+        if (allSources.size > 0) {
+          sourceEl.textContent = Array.from(allSources).join(', ');
           sourceEl.style.display = '';
         } else {
           sourceEl.style.display = 'none';
         }
 
+        if (countPill) {
+          if (matches.length > 1) {
+            countPill.textContent = `${matches.length} entries`;
+            countPill.style.display = '';
+          } else {
+            countPill.style.display = 'none';
+          }
+        }
+
         const conSafeClipboardCopy = async (text, toastMsg) => {
           if (!text) return false;
           let ok = false;
-          // 1. Try Desktop API (native Electron IPC, no permission restrictions)
           if (typeof Desktop !== 'undefined' && typeof Desktop.clipboardWriteText === 'function') {
             try {
               await Desktop.clipboardWriteText(text);
               ok = true;
             } catch (_) {}
           }
-          // 2. Try window.electronApi directly
           if (!ok && window.electronApi && typeof window.electronApi.clipboardWriteText === 'function') {
             try {
               await window.electronApi.clipboardWriteText(text);
               ok = true;
             } catch (_) {}
           }
-          // 3. Try standard navigator.clipboard with error catching
           if (!ok && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
             try {
               await navigator.clipboard.writeText(text);
               ok = true;
             } catch (_) {}
           }
-          // 4. Fallback to execCommand('copy') via temporary textarea
           if (!ok) {
             try {
               const tmp = document.createElement('textarea');
@@ -18438,41 +19379,268 @@
           return ok;
         };
 
+        // 2. Exhaustive "All Forms in Databases" Section
+        const allFormsSec = document.getElementById('con-ncp-all-forms-section');
+        const formsCountPill = document.getElementById('con-ncp-forms-count');
+        const formsWrap = document.getElementById('con-ncp-forms-wrap');
+
+        const formsSet = new Set();
+        const rawNode = conNormalizeWordForLookup(nodeWord);
+
+        if (nodeWord) formsSet.add(nodeWord);
+        matches.forEach(m => {
+          const e = m.entry;
+          if (!e) return;
+          if (e.word) formsSet.add(e.word.trim());
+          const fList = e.otherForms || e.otherTerms;
+          if (Array.isArray(fList)) {
+            fList.forEach(f => {
+              if (!f) return;
+              const s = typeof f === 'string' ? f : (f.word || f.form || f.term || '');
+              if (s && s.trim()) formsSet.add(s.trim());
+            });
+          } else if (typeof fList === 'string' && fList.trim()) {
+            fList.split(/[,;/]+/).forEach(s => {
+              if (s && s.trim()) formsSet.add(s.trim());
+            });
+          }
+        });
+
+        const formsArr = Array.from(formsSet);
+        if (formsArr.length > 0 && formsWrap && allFormsSec) {
+          formsWrap.innerHTML = '';
+          if (formsCountPill) formsCountPill.textContent = String(formsArr.length);
+          formsArr.forEach(form => {
+            const chip = document.createElement('span');
+            chip.className = 'con-ncp-form-chip';
+            if (conNormalizeWordForLookup(form) === rawNode) {
+              chip.classList.add('current-word');
+            }
+            chip.textContent = form;
+            chip.title = `Click to copy "${form}". Alt-click to add as connected node on board.`;
+            chip.onclick = (e) => {
+              e.stopPropagation();
+              if (e.altKey && typeof conAddWordAt === 'function') {
+                const nx = Math.min(window.innerWidth - 120, (node.x || 200) + 140);
+                const ny = (node.y || 200);
+                const newId = conAddWordAt(form, nx, ny);
+                if (newId && typeof conAddEdge === 'function') {
+                  conAddEdge(node.id, newId);
+                }
+                if (typeof mdbToast === 'function') mdbToast(`✓ Added connected node "${form}"`);
+              } else {
+                conSafeClipboardCopy(form, `Copied form: "${form}"`);
+              }
+            };
+            formsWrap.appendChild(chip);
+          });
+          allFormsSec.style.display = '';
+        } else if (allFormsSec) {
+          allFormsSec.style.display = 'none';
+        }
+
+        // 3. Multi-Entry / Multi-Sense Container
+        const entriesContainer = document.getElementById('con-ncp-entries-container');
+        if (entriesContainer) {
+          entriesContainer.innerHTML = '';
+          matches.forEach((m, idx) => {
+            const e = m.entry;
+            if (!e) return;
+            const card = document.createElement('div');
+            card.className = 'con-ncp-entry-card';
+
+            // Header
+            const header = document.createElement('div');
+            header.className = 'con-ncp-entry-header';
+
+            const titleWrap = document.createElement('div');
+            titleWrap.style.display = 'inline-flex';
+            titleWrap.style.alignItems = 'center';
+            titleWrap.style.gap = '4px';
+
+            const title = document.createElement('span');
+            title.className = 'con-ncp-entry-title con-ncp-copyable';
+            title.textContent = e.word || 'Entry';
+            title.title = 'Click to copy word';
+            title.onclick = (ev) => {
+              ev.stopPropagation();
+              conSafeClipboardCopy(e.word, `Copied: "${e.word}"`);
+            };
+            titleWrap.appendChild(title);
+
+            if (m.matchType === 'inflection') {
+              const inflPill = document.createElement('span');
+              inflPill.className = 'con-ncp-count-pill';
+              inflPill.textContent = `form of ${e.word}`;
+              titleWrap.appendChild(inflPill);
+            }
+            header.appendChild(titleWrap);
+
+            // Badges
+            const badgesWrap = document.createElement('div');
+            badgesWrap.className = 'con-ncp-entry-badges';
+
+            const pos = e.partOfSpeech || e.pos;
+            if (pos) {
+              const posBadge = document.createElement('span');
+              posBadge.className = 'con-ncp-badge con-ncp-pos';
+              posBadge.textContent = Array.isArray(pos) ? pos.join(', ') : String(pos);
+              badgesWrap.appendChild(posBadge);
+            }
+
+            if (e.level) {
+              const lvlBadge = document.createElement('span');
+              lvlBadge.className = 'con-ncp-badge con-ncp-level';
+              lvlBadge.textContent = String(e.level);
+              badgesWrap.appendChild(lvlBadge);
+            }
+
+            const src = e._source || (Array.isArray(e._sources) ? e._sources[0] : '');
+            if (src) {
+              const srcBadge = document.createElement('span');
+              srcBadge.className = 'con-ncp-badge con-ncp-source';
+              srcBadge.textContent = src;
+              badgesWrap.appendChild(srcBadge);
+            }
+
+            if (e.ipa) {
+              const ipaBadge = document.createElement('span');
+              ipaBadge.className = 'con-ncp-badge con-ncp-copyable';
+              ipaBadge.style.background = '#f1f5f9';
+              ipaBadge.style.color = '#334155';
+              ipaBadge.textContent = `/${e.ipa}/`;
+              ipaBadge.title = 'Click to copy IPA';
+              ipaBadge.onclick = (ev) => {
+                ev.stopPropagation();
+                conSafeClipboardCopy(String(e.ipa), `Copied IPA: "/${e.ipa}/"`);
+              };
+              badgesWrap.appendChild(ipaBadge);
+            }
+
+            header.appendChild(badgesWrap);
+            card.appendChild(header);
+
+            // Translation / French
+            const fr = e.french || e.translation;
+            if (fr) {
+              const frStr = Array.isArray(fr) ? fr.filter(Boolean).join(', ') : String(fr).trim();
+              if (frStr) {
+                const frRow = document.createElement('div');
+                frRow.className = 'con-ncp-entry-row';
+                frRow.innerHTML = `<span class="con-ncp-entry-label">FR</span><span class="con-ncp-copyable" title="Click to copy">${frStr}</span>`;
+                frRow.querySelector('.con-ncp-copyable').onclick = (ev) => {
+                  ev.stopPropagation();
+                  conSafeClipboardCopy(frStr, `Copied translation: "${frStr}"`);
+                };
+                card.appendChild(frRow);
+              }
+            }
+
+            // Definitions List
+            const rawDefs = e.definition != null ? e.definition : e.def;
+            const defs = Array.isArray(rawDefs)
+              ? rawDefs.map(String).map(s => s.trim()).filter(Boolean)
+              : (rawDefs ? String(rawDefs).split(/\n+/).map(s => s.trim()).filter(Boolean) : []);
+
+            if (defs.length > 0) {
+              const ol = document.createElement('ol');
+              ol.className = 'con-ncp-def-list';
+              defs.forEach((d, dIdx) => {
+                const li = document.createElement('li');
+                li.className = 'con-ncp-copyable';
+                li.textContent = d;
+                li.title = 'Click to copy this definition';
+                li.onclick = (ev) => {
+                  ev.stopPropagation();
+                  conSafeClipboardCopy(d, `Copied definition ${dIdx + 1}`);
+                };
+                ol.appendChild(li);
+              });
+              card.appendChild(ol);
+            }
+
+            // Examples
+            const rawEx = e.exampleSentence || e.example;
+            const exList = Array.isArray(rawEx)
+              ? rawEx.map(String).map(s => s.trim()).filter(Boolean)
+              : (rawEx ? [String(rawEx).trim()].filter(Boolean) : []);
+
+            exList.forEach(ex => {
+              const exEl = document.createElement('div');
+              exEl.className = 'con-ncp-entry-ex con-ncp-copyable';
+              exEl.textContent = `“${ex}”`;
+              exEl.title = 'Click to copy example';
+              exEl.onclick = (ev) => {
+                ev.stopPropagation();
+                conSafeClipboardCopy(ex, `Copied example`);
+              };
+              card.appendChild(exEl);
+            });
+
+            // Synonyms & Antonyms
+            const syns = Array.isArray(e.synonyms) ? e.synonyms.filter(Boolean) : (e.synonyms ? String(e.synonyms).split(/[,;/]+/).map(s => s.trim()).filter(Boolean) : []);
+            if (syns.length > 0) {
+              const synRow = document.createElement('div');
+              synRow.className = 'con-ncp-entry-row';
+              const synStr = syns.join(', ');
+              synRow.innerHTML = `<span class="con-ncp-entry-label">SYN</span><span class="con-ncp-copyable" title="Click to copy">${synStr}</span>`;
+              synRow.querySelector('.con-ncp-copyable').onclick = (ev) => {
+                ev.stopPropagation();
+                conSafeClipboardCopy(synStr, `Copied synonyms`);
+              };
+              card.appendChild(synRow);
+            }
+
+            const ants = Array.isArray(e.antonyms) ? e.antonyms.filter(Boolean) : (e.antonyms ? String(e.antonyms).split(/[,;/]+/).map(s => s.trim()).filter(Boolean) : []);
+            if (ants.length > 0) {
+              const antRow = document.createElement('div');
+              antRow.className = 'con-ncp-entry-row';
+              const antStr = ants.join(', ');
+              antRow.innerHTML = `<span class="con-ncp-entry-label">ANT</span><span class="con-ncp-copyable" title="Click to copy">${antStr}</span>`;
+              antRow.querySelector('.con-ncp-copyable').onclick = (ev) => {
+                ev.stopPropagation();
+                conSafeClipboardCopy(antStr, `Copied antonyms`);
+              };
+              card.appendChild(antRow);
+            }
+
+            entriesContainer.appendChild(card);
+          });
+        }
+
+        // 4. Populate legacy fallback elements (hidden, for backwards compatibility)
+        const d0 = matches[0].entry;
         const formatArr = (val) => {
           if (!val) return '';
           if (Array.isArray(val)) return val.filter(Boolean).map(v => typeof v === 'string' ? v : (v.word || v.form || v.term || JSON.stringify(v))).join(', ');
           return String(val).trim();
         };
-
-        const bindField = (row, el, val) => {
-          const str = formatArr(val);
-          if (str) {
-            el.textContent = str;
-            el.onclick = (e) => {
-              e.stopPropagation();
-              conSafeClipboardCopy(str, `Copied: "${str.slice(0, 30)}${str.length > 30 ? '…' : ''}"`);
-            };
-            row.style.display = '';
-          } else {
-            row.style.display = 'none';
-          }
+        const bindLegacy = (id, val) => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = formatArr(val);
         };
+        bindLegacy('con-ncp-ipa', d0.ipa);
+        bindLegacy('con-ncp-fr', d0.french || d0.translation);
+        bindLegacy('con-ncp-def', d0.definition || d0.def);
+        bindLegacy('con-ncp-syn', d0.synonyms);
+        bindLegacy('con-ncp-ant', d0.antonyms);
+        bindLegacy('con-ncp-forms', d0.otherForms || d0.otherTerms);
+        bindLegacy('con-ncp-ex', d0.exampleSentence || d0.example);
 
-        bindField(ipaRow, ipaEl, dbEntry.ipa);
-        bindField(frRow, frEl, dbEntry.french || dbEntry.translation);
-        bindField(defRow, defEl, dbEntry.definition);
-        bindField(synRow, synEl, dbEntry.synonyms);
-        bindField(antRow, antEl, dbEntry.antonyms);
-        bindField(formsRow, formsEl, dbEntry.otherForms || dbEntry.otherTerms);
-        bindField(exRow, exEl, dbEntry.exampleSentence || dbEntry.example);
+        // Hide legacy rows since rich cards are rendered above
+        ['ipa', 'fr', 'def', 'syn', 'ant', 'forms', 'ex'].forEach(k => {
+          const row = document.getElementById(`con-ncp-${k}-row`);
+          if (row) row.style.display = 'none';
+        });
 
+        // 5. Position popup safely
         popup.style.display = 'flex';
         popup.classList.add('visible');
 
         let targetX = x;
         let targetY = y;
         if (targetX == null || targetY == null) {
-          const rect = node.el.getBoundingClientRect();
+          const rect = node.el ? node.el.getBoundingClientRect() : { right: 200, top: 200, left: 100 };
           targetX = rect.right + 10;
           targetY = rect.top;
         }
@@ -18499,30 +19667,75 @@
       window.conOpenNodeWordCard = conOpenNodeWordCard;
 
       window.conNodeCardCopyAll = function() {
-        if (!_conActiveWordCardDbEntry) return;
-        const d = _conActiveWordCardDbEntry;
-        const parts = [
-          d.word,
-          d.partOfSpeech ? `(${d.partOfSpeech})` : '',
-          d.level ? `[${d.level}]` : '',
-          d.ipa ? `/${d.ipa}/` : '',
-          d.french ? `FR: ${Array.isArray(d.french) ? d.french.join(', ') : d.french}` : '',
-          d.definition ? `DEF: ${Array.isArray(d.definition) ? d.definition.join('; ') : d.definition}` : '',
-          d.synonyms && d.synonyms.length ? `SYN: ${d.synonyms.join(', ')}` : '',
-          d.antonyms && d.antonyms.length ? `ANT: ${d.antonyms.join(', ')}` : '',
-          (d.otherForms && d.otherForms.length) ? `FORMS: ${Array.isArray(d.otherForms) ? d.otherForms.join(', ') : d.otherForms}` : '',
-          d.exampleSentence || d.example ? `EX: ${d.exampleSentence || d.example}` : ''
-        ].filter(Boolean).join('\n');
+        const matches = _conActiveWordCardMatches && _conActiveWordCardMatches.length
+          ? _conActiveWordCardMatches
+          : (_conActiveWordCardDbEntry ? [{ entry: _conActiveWordCardDbEntry, matchType: 'direct' }] : []);
+        if (!matches.length) return;
 
-        // Copy through native IPC / fallback
-        if (typeof Desktop !== 'undefined' && typeof Desktop.clipboardWriteText === 'function') {
-          Desktop.clipboardWriteText(parts).catch(() => {});
-        } else if (window.electronApi && typeof window.electronApi.clipboardWriteText === 'function') {
-          window.electronApi.clipboardWriteText(parts).catch(() => {});
-        } else if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-          navigator.clipboard.writeText(parts).catch(() => {});
+        const mainWord = (matches[0].entry && matches[0].entry.word) || 'Word';
+
+        // Gather all forms
+        const formsSet = new Set();
+        matches.forEach(m => {
+          const e = m.entry;
+          if (!e) return;
+          if (e.word) formsSet.add(e.word);
+          const fList = e.otherForms || e.otherTerms;
+          if (Array.isArray(fList)) fList.forEach(f => f && formsSet.add(typeof f === 'string' ? f : (f.word || f.form || '')));
+          else if (typeof fList === 'string') fList.split(/[,;/]+/).forEach(s => s && formsSet.add(s.trim()));
+        });
+
+        const blocks = [];
+        blocks.push(`Word: ${mainWord}`);
+        if (formsSet.size > 0) {
+          blocks.push(`All Forms: ${Array.from(formsSet).join(', ')}`);
         }
-        if (typeof mdbToast === 'function') mdbToast(`✓ Copied entry for "${d.word}"`);
+
+        matches.forEach((m, idx) => {
+          const e = m.entry;
+          if (!e) return;
+          const pos = e.partOfSpeech || e.pos;
+          const posStr = Array.isArray(pos) ? pos.join(', ') : (pos ? String(pos) : '');
+          const src = e._source || (Array.isArray(e._sources) ? e._sources.join(', ') : '');
+          const ipaStr = e.ipa ? ` /${e.ipa}/` : '';
+          const headerLine = `\n--- Entry ${idx + 1}: ${e.word}${posStr ? ` (${posStr})` : ''}${ipaStr}${src ? ` [${src}]` : ''} ---`;
+          blocks.push(headerLine);
+
+          const fr = e.french || e.translation;
+          if (fr) {
+            blocks.push(`FR: ${Array.isArray(fr) ? fr.join(', ') : fr}`);
+          }
+
+          const rawDefs = e.definition != null ? e.definition : e.def;
+          const defs = Array.isArray(rawDefs) ? rawDefs : (rawDefs ? String(rawDefs).split(/\n+/) : []);
+          if (defs.length) {
+            blocks.push('Definitions:');
+            defs.forEach((d, dIdx) => blocks.push(`  ${dIdx + 1}. ${String(d).trim()}`));
+          }
+
+          const ex = e.exampleSentence || e.example;
+          if (ex) {
+            const exList = Array.isArray(ex) ? ex : [ex];
+            exList.forEach(x => blocks.push(`  Example: “${x}”`));
+          }
+
+          if (e.synonyms && e.synonyms.length) {
+            blocks.push(`Synonyms: ${Array.isArray(e.synonyms) ? e.synonyms.join(', ') : e.synonyms}`);
+          }
+          if (e.antonyms && e.antonyms.length) {
+            blocks.push(`Antonyms: ${Array.isArray(e.antonyms) ? e.antonyms.join(', ') : e.antonyms}`);
+          }
+        });
+
+        const fullText = blocks.join('\n');
+        if (typeof Desktop !== 'undefined' && typeof Desktop.clipboardWriteText === 'function') {
+          Desktop.clipboardWriteText(fullText).catch(() => {});
+        } else if (window.electronApi && typeof window.electronApi.clipboardWriteText === 'function') {
+          window.electronApi.clipboardWriteText(fullText).catch(() => {});
+        } else if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          navigator.clipboard.writeText(fullText).catch(() => {});
+        }
+        if (typeof mdbToast === 'function') mdbToast(`✓ Copied all database info for "${mainWord}"`);
       };
 
       window.conNodeCardEditInDbManager = async function() {
@@ -20144,7 +21357,11 @@
           conSelect(id);
         }
         const node = conNodes.find(n => n.id === id);
-        const dbWord = conGetNodeDbEntry(node);
+        const matched = conGetNodeDbEntries(node);
+        const entries = (matched && matched.length)
+          ? matched.map(m => m.entry).filter(Boolean)
+          : (conGetNodeDbEntry(node) ? [conGetNodeDbEntry(node)] : []);
+        const dbWord = entries[0] || null;
 
         const menu = document.getElementById('con-ctx-menu');
         const label = document.getElementById('con-ctx-word-label');
@@ -20154,22 +21371,24 @@
 
         label.textContent = node ? (node.baseWord || node.el.dataset.baseWord || node.el.textContent) : 'Word';
 
-        const hasSyn = !!(dbWord && Array.isArray(dbWord.synonyms) && dbWord.synonyms.filter(Boolean).length > 0);
-        const hasAnt = !!(dbWord && Array.isArray(dbWord.antonyms) && dbWord.antonyms.filter(Boolean).length > 0);
-        const hasDef = !!(dbWord && (Array.isArray(dbWord.definition) ? dbWord.definition.some(d => String(d || '').trim()) : !!String(dbWord.definition || '').trim()));
-        const hasFr = !!(dbWord && (Array.isArray(dbWord.french) ? dbWord.french.some(f => String(f || '').trim()) : !!String(dbWord.french || dbWord.translation || '').trim()));
-        const hasIpa = !!(dbWord && !!String(dbWord.ipa || '').trim());
+        const allSynonyms = Array.from(new Set(entries.flatMap(e => Array.isArray(e.synonyms) ? e.synonyms : (e.synonyms ? [e.synonyms] : [])).filter(Boolean)));
+        const allAntonyms = Array.from(new Set(entries.flatMap(e => Array.isArray(e.antonyms) ? e.antonyms : (e.antonyms ? [e.antonyms] : [])).filter(Boolean)));
+        const hasSyn = allSynonyms.length > 0;
+        const hasAnt = allAntonyms.length > 0;
+        const hasDef = entries.some(e => Array.isArray(e.definition) ? e.definition.some(d => String(d || '').trim()) : !!String(e.definition || e.def || '').trim());
+        const hasFr = entries.some(e => Array.isArray(e.french) ? e.french.some(f => String(f || '').trim()) : !!String(e.french || e.translation || '').trim());
+        const hasIpa = entries.some(e => !!String(e.ipa || '').trim());
 
         if (synBtn) {
           synBtn.style.display = hasSyn ? '' : 'none';
           if (hasSyn) {
-            synBtn.innerHTML = `<img src="../assets/icons/syn.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">syn·${dbWord.synonyms.filter(Boolean).length}</span>`;
+            synBtn.innerHTML = `<img src="../assets/icons/syn.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">syn·${allSynonyms.length}</span>`;
           }
         }
         if (antBtn) {
           antBtn.style.display = hasAnt ? '' : 'none';
           if (hasAnt) {
-            antBtn.innerHTML = `<img src="../assets/icons/ant.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">ant·${dbWord.antonyms.filter(Boolean).length}</span>`;
+            antBtn.innerHTML = `<img src="../assets/icons/ant.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">ant·${allAntonyms.length}</span>`;
           }
         }
 
@@ -20183,26 +21402,18 @@
         if (ipaBtn) ipaBtn.style.display = hasIpa ? '' : 'none';
 
         const networkBtn = document.getElementById('con-ctx-network-btn');
-        const hasNetwork = !!(dbWord && (
-          hasSyn ||
-          hasAnt ||
-          (dbWord.otherForms && dbWord.otherForms.length) ||
-          (dbWord.otherTerms && dbWord.otherTerms.length) ||
-          (dbWord.hypernym && dbWord.hypernym.length) ||
-          (dbWord.hyponym && dbWord.hyponym.length)
-        ));
+        const networkWords = new Set();
+        entries.forEach(e => {
+          ['synonyms', 'antonyms', 'otherForms', 'otherTerms', 'hypernym', 'hyponym'].forEach(k => {
+            const arr = Array.isArray(e[k]) ? e[k] : (e[k] ? [e[k]] : []);
+            arr.forEach(w => { if (w && typeof w === 'string') networkWords.add(w.trim()); });
+          });
+        });
+        const hasNetwork = entries.length > 0 && networkWords.size > 0;
         if (networkBtn) {
           networkBtn.style.display = hasNetwork ? '' : 'none';
           if (hasNetwork) {
-            const totalCount = [
-              ...(dbWord.synonyms || []),
-              ...(dbWord.antonyms || []),
-              ...(dbWord.otherForms || []),
-              ...(dbWord.otherTerms || []),
-              ...(dbWord.hypernym || []),
-              ...(dbWord.hyponym || [])
-            ].filter(Boolean).length;
-            networkBtn.innerHTML = `NET<span class="con-ctx-icon-label">${totalCount}</span>`;
+            networkBtn.innerHTML = `NET<span class="con-ctx-icon-label">${networkWords.size}</span>`;
           }
         }
 
@@ -20212,7 +21423,7 @@
         }
 
         // Show/hide Card button
-        if (cardBtn) cardBtn.style.display = dbWord ? '' : 'none';
+        if (cardBtn) cardBtn.style.display = entries.length > 0 ? '' : 'none';
         // Star button: show only when node has a db entry
         const starBtn = document.getElementById('con-ctx-star-btn');
         if (starBtn) {
@@ -21972,6 +23183,8 @@
       window.conBoardCtxClose = function () {
         const bmenu = document.getElementById('con-board-ctx-menu');
         bmenu.classList.remove('visible');
+        const saveSelItem = document.getElementById('con-board-ctx-save-library');
+        if (saveSelItem) saveSelItem.style.display = 'none';
         const inp = document.getElementById('con-board-ctx-input');
         if (inp) inp.value = '';
         const noteInp = document.getElementById('con-board-ctx-note-input');
@@ -22808,20 +24021,31 @@
 
       // ---- Node formatting helpers ----
       // Returns an array of vocabBank entries for baseWord.
-      // For space-separated phrases with no exact match, returns per-word entries.
+      // Returns all entries across all databases matching the lemma or inflected forms.
       function conLookupDbEntries(baseWord, dbWordOverride) {
         if (typeof vocabBank === 'undefined' || !Array.isArray(vocabBank)) return [];
-        if (dbWordOverride) {
-          const e = vocabBank.find(w => w && w.word && conNormalizeWordForLookup(w.word) === conNormalizeWordForLookup(dbWordOverride));
-          if (e) return [e];
+        const targetWord = dbWordOverride || baseWord;
+        if (!targetWord) return [];
+        const allMatches = conFindAllDbEntries(targetWord);
+        if (allMatches && allMatches.length > 0) {
+          return allMatches.map(m => m.entry).filter(Boolean);
         }
-        const key = String(baseWord || '').trim();
-        if (!key) return [];
-        const exact = conFindDbEntry(key);
-        if (exact) return [exact];
-        const parts = key.split(/\s+/).filter(Boolean);
-        if (parts.length < 2) return [];
-        return parts.map(p => conFindDbEntry(p)).filter(Boolean);
+        const parts = String(targetWord).trim().split(/\s+/).filter(Boolean);
+        if (parts.length >= 2) {
+          const results = [];
+          const seen = new Set();
+          parts.forEach(p => {
+            const matches = conFindAllDbEntries(p);
+            matches.forEach(m => {
+              if (m && m.entry && !seen.has(m.entry)) {
+                seen.add(m.entry);
+                results.push(m.entry);
+              }
+            });
+          });
+          if (results.length > 0) return results;
+        }
+        return [];
       }
       window.conLookupDbEntries = conLookupDbEntries;
 
@@ -23504,12 +24728,22 @@
         if (!conCtxNodeId) return;
         const node = conNodes.find(n => n.id === conCtxNodeId);
         if (!node) { conCtxClose(); return; }
-        const dbWord = node.dbWord
-          ? vocabBank.find(w => w.word === node.dbWord)
-          : null;
-        if (!dbWord) { conCtxClose(); return; }
+        const matched = conGetNodeDbEntries(node);
+        const entries = (matched && matched.length)
+          ? matched.map(m => m.entry).filter(Boolean)
+          : conLookupDbEntries(node.baseWord || (node.el && node.el.textContent.trim()));
+        if (!entries.length) { conCtxClose(); return; }
 
-        const words = (relation === 'synonyms' ? dbWord.synonyms : dbWord.antonyms) || [];
+        const wordsSet = new Set();
+        entries.forEach(dbWord => {
+          const list = (relation === 'synonyms' ? dbWord.synonyms : dbWord.antonyms) || [];
+          const arr = Array.isArray(list) ? list : String(list).split(/[,;/]+/);
+          arr.forEach(w => {
+            const s = typeof w === 'string' ? w.trim() : (w.word || w.term || '');
+            if (s) wordsSet.add(s);
+          });
+        });
+        const words = Array.from(wordsSet);
         if (!words.length) { conCtxClose(); return; }
 
         conCtxClose();
@@ -23690,10 +24924,11 @@
         if (!conCtxNodeId) return;
         const node = conNodes.find(n => n.id === conCtxNodeId);
         if (!node) { conCtxClose(); return; }
-        const dbWord = node.dbWord
-          ? vocabBank.find(w => w.word === node.dbWord)
-          : vocabBank.find(w => stripParens(w.word).toLowerCase() === stripParens(node.baseWord || '').toLowerCase());
-        if (!dbWord) { conCtxClose(); return; }
+        const matched = conGetNodeDbEntries(node);
+        const entries = (matched && matched.length)
+          ? matched.map(m => m.entry).filter(Boolean)
+          : conLookupDbEntries(node.baseWord || (node.el && node.el.textContent.trim()));
+        if (!entries.length) { conCtxClose(); return; }
 
         conCtxClose();
         _conNetworkNodeId = node.id;
@@ -23710,10 +24945,15 @@
         container.innerHTML = '';
 
         _CON_NETWORK_CATS.forEach(cat => {
-          const rawVal = dbWord[cat.key];
-          const words = cat.singleValue
-            ? [Array.isArray(rawVal) ? rawVal[0] : rawVal].filter(v => typeof v === 'string' && v.length > 0)
-            : (Array.isArray(rawVal) ? rawVal : []).filter(v => typeof v === 'string' && v.length > 0);
+          const wordsSet = new Set();
+          entries.forEach(dbWord => {
+            const rawVal = dbWord[cat.key];
+            const list = cat.singleValue
+              ? [Array.isArray(rawVal) ? rawVal[0] : rawVal].filter(v => typeof v === 'string' && v.trim().length > 0)
+              : (Array.isArray(rawVal) ? rawVal : (rawVal ? [rawVal] : [])).filter(v => typeof v === 'string' && v.trim().length > 0);
+            list.forEach(w => wordsSet.add(w.trim()));
+          });
+          const words = Array.from(wordsSet);
           // A word is "on board" if a node with that baseWord already exists
           const onBoardCount = words.filter(w =>
             conNodes.find(n => (n.baseWord || '').toLowerCase() === w.toLowerCase())
@@ -25647,6 +26887,13 @@
           window._boardCtxNoteX = e.clientX - brdRect.left + brd.scrollLeft;
           window._boardCtxNoteY = e.clientY - brdRect.top + brd.scrollTop;
           const bmenu = document.getElementById('con-board-ctx-menu');
+          const saveSelItem = document.getElementById('con-board-ctx-save-library');
+          if (saveSelItem) {
+            const hasSelection = (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 0)
+              || (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0)
+              || (typeof conSelected !== 'undefined' && conSelected != null);
+            saveSelItem.style.display = hasSelection ? '' : 'none';
+          }
           conRenderBoardBgPresetsInContextMenu();
           conRenderBoardLayoutOptionsInContextMenu();
           if (window.conSyncBoardCtxLayoutUi) window.conSyncBoardCtxLayoutUi(false);
@@ -28148,6 +29395,16 @@
       if (hideBtn) hideBtn.innerHtml = noteData.hidden ? '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Reveal' : '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Hide';
       const blinkBtn = document.getElementById('wn-sp-blink-btn');
       if (blinkBtn) blinkBtn.classList.toggle('active', !!noteData.blink);
+      const libBtn = document.getElementById('wn-sp-save-library-btn');
+      if (libBtn) {
+        const isMulti = (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 1)
+          || (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 0);
+        const titleStr = isMulti
+          ? ((typeof i18n !== 'undefined' && i18n.t ? i18n.t('conSaveSelectionToLibrary') : null) || 'Save Selection to Library')
+          : ((typeof i18n !== 'undefined' && i18n.t ? i18n.t('conSaveToPremadeLibrary') : null) || 'Save to Premade Library');
+        libBtn.title = titleStr;
+        libBtn.setAttribute('title', titleStr);
+      }
       const openInputBtn = document.getElementById('wn-sp-open-input-btn');
       const stopInputBtn = document.getElementById('wn-sp-stop-input-btn');
       if (stopInputBtn) {
@@ -29962,7 +31219,7 @@
     let _conDefPickerNode = null;
     let _conDefPickerChoices = [];
 
-    function conGetDefinitionChoices(dbEntry) {
+    function conGetDefinitionChoices(dbEntries) {
       const choices = [];
       const addChoice = (kind, text, label) => {
         const value = String(text == null ? '' : text).trim();
@@ -29971,25 +31228,34 @@
         choices.push({ kind, text: value, label: label || 'Definition' });
       };
 
-      if (dbEntry) {
+      const entries = Array.isArray(dbEntries) ? dbEntries.filter(Boolean) : (dbEntries ? [dbEntries] : []);
+      const multi = entries.length > 1;
+
+      entries.forEach((dbEntry, entryIdx) => {
+        const pos = dbEntry.partOfSpeech || dbEntry.pos;
+        const posStr = Array.isArray(pos) ? pos.join('/') : (pos ? String(pos) : '');
+        const src = dbEntry._source || (Array.isArray(dbEntry._sources) ? dbEntry._sources[0] : '');
+        const prefix = multi ? `[${dbEntry.word || 'entry'}${posStr ? ` · ${posStr}` : ''}] ` : '';
+
         const defs = Array.isArray(dbEntry.definition)
           ? dbEntry.definition
-          : (dbEntry.definition != null ? String(dbEntry.definition).split(/\n+/) : []);
+          : (dbEntry.definition != null ? String(dbEntry.definition).split(/\n+/) : (dbEntry.def ? (Array.isArray(dbEntry.def) ? dbEntry.def : [dbEntry.def]) : []));
 
         defs
           .map(def => String(def).trim())
           .filter(Boolean)
           .forEach((def, idx, arr) => {
-            addChoice('definition', def, arr.length > 1 ? 'Definition ' + (idx + 1) : 'Definition');
+            const defNum = arr.length > 1 ? `Def ${idx + 1}` : 'Definition';
+            addChoice('definition', def, `${prefix}${defNum}`);
           });
 
         const french = Array.isArray(dbEntry.french)
           ? dbEntry.french.filter(Boolean).join(' · ')
-          : String(dbEntry.french || '').trim();
-        if (!choices.some(choice => choice.kind === 'definition') && french) {
-          addChoice('translation', '(' + french + ')', 'Translation');
+          : String(dbEntry.french || dbEntry.translation || '').trim();
+        if (french) {
+          addChoice('translation', '(' + french + ')', `${prefix}Translation`);
         }
-      }
+      });
 
       return choices;
     }
@@ -30098,10 +31364,11 @@
       if (window.conCtxClose) window.conCtxClose();
       if (!node) return;
       const word = node.baseWord || node.el.textContent.trim().replace(/\n[\s\S]*/, '');
-      const dbEntry = (typeof vocabBank !== 'undefined')
-        ? vocabBank.find(i => i.word.toLowerCase() === word.toLowerCase())
-        : null;
-      const choices = conGetDefinitionChoices(dbEntry);
+      const matched = conGetNodeDbEntries(node);
+      const entries = (matched && matched.length)
+        ? matched.map(m => m.entry).filter(Boolean)
+        : conLookupDbEntries(word);
+      const choices = conGetDefinitionChoices(entries);
       conDefPickerOpen(node, word, choices);
     };
 
@@ -30345,6 +31612,19 @@
           e.preventDefault();
           e.stopPropagation();
           document.execCommand('insertText', false, '\t');
+          return;
+        }
+        if (e.key === 'Escape') {
+          ta.blur();
+          if (typeof window.conSelectNote === 'function') {
+            window.conSelectNote(noteData.id);
+          } else if (typeof conNoteSelected !== 'undefined') {
+            conNoteSelected.clear();
+            conNoteSelected.add(noteData.id);
+            note.classList.add('wn-selected');
+          }
+          e.preventDefault();
+          e.stopPropagation();
           return;
         }
         e.stopPropagation();
@@ -30632,6 +31912,10 @@
       let _drawOffsets = [];
       note.addEventListener('mousedown', e => {
         if (e.target.closest('.wn-note-editor') || e.target.closest('.wn-note-resizer')) return;
+        // Blur active editor so Delete key immediately acts on the selected note container
+        if (document.activeElement && (document.activeElement.isContentEditable || document.activeElement.tagName === 'INPUT')) {
+          document.activeElement.blur();
+        }
         // Selection handling
         if (e.shiftKey || e.ctrlKey || e.metaKey) {
           if (conNoteSelected.has(noteData.id)) {
@@ -30913,6 +32197,31 @@
     };
     window.conGetNotes = function () { return conNotes; };
     window.conGetNoteSelected = function () { return conNoteSelected; };
+    window.conAddNoteObject = function (noteData) {
+      if (!noteData) return null;
+      if (!noteData.id) {
+        noteData.id = 'cnn' + (conNoteNextId++);
+      } else {
+        const m = String(noteData.id).match(/^cnn(\d+)$/);
+        if (m) conNoteNextId = Math.max(conNoteNextId, parseInt(m[1], 10) + 1);
+      }
+      conNotes.push(noteData);
+      conNoteBuild(noteData);
+      return noteData.id;
+    };
+    window.conSelectNote = function (noteId, add = false) {
+      if (!add) {
+        document.querySelectorAll('#constellation-board .con-word-note.wn-selected')
+          .forEach(n => n.classList.remove('wn-selected'));
+        conNoteSelected.clear();
+      }
+      conNoteSelected.add(noteId);
+      const el = document.querySelector(`.con-word-note[data-id="${noteId}"]`);
+      if (el) el.classList.add('wn-selected');
+    };
+    window.conGetNextNoteId = function () {
+      return 'cnn' + (conNoteNextId++);
+    };
 
     // ── Emoji sticker system ──────────────────────────────────────────
     let _emojiStickerSeq = 0;
@@ -42214,6 +43523,7 @@
       { id: 'toggle_snap', name: 'Toggle Snap to Align', desc: 'Toggle snapping when dragging nodes', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/snap.svg', defaultShortcut: null, fn: () => { if (typeof window.conToggleSnap === 'function') window.conToggleSnap(); else if (typeof conToggleSnap === 'function') conToggleSnap(); } },
       { id: 'spread_nodes', name: 'Spread Words', desc: 'Spread selected words to remove overlaps', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/spread.svg', defaultShortcut: null, fn: () => { if (typeof window.conCtxSpreadSelected === 'function') window.conCtxSpreadSelected(); } },
       { id: 'compact_nodes', name: 'Compact Words', desc: 'Compact words closer together without overlapping', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/compact.svg', defaultShortcut: null, fn: () => { if (typeof window.conCompactNodes === 'function') window.conCompactNodes(); } },
+      { id: 'save_to_library', name: 'Save to Premade Library', desc: 'Save selected elements to the premade library', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/sparkles.svg', defaultShortcut: null, fn: () => { if (typeof window.conSaveSelectionToLibraryPrompt === 'function') window.conSaveSelectionToLibraryPrompt(); } },
 
       // Clipboard
       { id: 'clipboard_copy', name: 'Copy', desc: 'Copy selected nodes or notes', category: 'clipboard', categoryName: 'Clipboard', icon: '../assets/icons/copy.svg', defaultShortcut: { ctrl: true, key: 'c' }, fn: () => { if (typeof window.conClipboardCopy === 'function') window.conClipboardCopy({ allowWhileTyping: false }); } },
