@@ -9,24 +9,24 @@
 
   // ── 1. Default Activity Types ──────────────────────────────────────────────
   LessonCreatorService.DEFAULT_ACTIVITY_TYPES = [
-    { id: 'warm_up', name: 'Warm-up / Bell Ringer', shortName: 'Warm-up', icon: 'zap.svg', color: '#b45309', bg: '#fef3c7' },
-    { id: 'direct_instruction', name: 'Direct Instruction / Mini-Lesson', shortName: 'Direct Instruction', icon: 'presentation.svg', color: '#1d4ed8', bg: '#dbeafe' },
-    { id: 'guided_practice', name: 'Guided Practice', shortName: 'Guided Practice', icon: 'user-check.svg', color: '#047857', bg: '#d1fae5' },
-    { id: 'independent_work', name: 'Independent Practice', shortName: 'Independent', icon: 'file-text.svg', color: '#4338ca', bg: '#e0e7ff' },
-    { id: 'group_activity', name: 'Group Task / Cooperative Task', shortName: 'Group Task', icon: 'people-group.svg', color: '#6d28d9', bg: '#ede9fe' },
-    { id: 'discussion', name: 'Class Discussion / Socratic', shortName: 'Discussion', icon: 'speech-bubbles.svg', color: '#be185d', bg: '#fce7f3' },
-    { id: 'assessment', name: 'Formative Check / Quiz', shortName: 'Quiz / Check', icon: 'quiz.svg', color: '#b91c1c', bg: '#fee2e2' },
-    { id: 'plenary', name: 'Plenary / Exit Ticket', shortName: 'Plenary', icon: 'check.svg', color: '#0f766e', bg: '#ccfbf1' }
+    { id: 'warm_up', name: 'Warm-up / Bell Ringer', shortName: 'Warm-up', name_fr: 'Mise en route / Échauffement', shortName_fr: 'Mise en route', icon: 'zap.svg', color: '#b45309', bg: '#fef3c7' },
+    { id: 'direct_instruction', name: 'Direct Instruction / Mini-Lesson', shortName: 'Direct Instruction', name_fr: 'Enseignement explicite / Cours', shortName_fr: 'Cours', icon: 'presentation.svg', color: '#1d4ed8', bg: '#dbeafe' },
+    { id: 'guided_practice', name: 'Guided Practice', shortName: 'Guided Practice', name_fr: 'Pratique guidée', shortName_fr: 'Pratique guidée', icon: 'user-check.svg', color: '#047857', bg: '#d1fae5' },
+    { id: 'independent_work', name: 'Independent Practice', shortName: 'Independent', name_fr: 'Travail autonome', shortName_fr: 'Autonome', icon: 'file-text.svg', color: '#4338ca', bg: '#e0e7ff' },
+    { id: 'group_activity', name: 'Group Task / Cooperative Task', shortName: 'Group Task', name_fr: 'Travail de groupe / Coopératif', shortName_fr: 'Travail de groupe', icon: 'people-group.svg', color: '#6d28d9', bg: '#ede9fe' },
+    { id: 'discussion', name: 'Class Discussion / Socratic', shortName: 'Discussion', name_fr: 'Discussion / Débat collectif', shortName_fr: 'Discussion', icon: 'speech-bubbles.svg', color: '#be185d', bg: '#fce7f3' },
+    { id: 'assessment', name: 'Formative Check / Quiz', shortName: 'Quiz / Check', name_fr: 'Évaluation formative / Quiz', shortName_fr: 'Quiz', icon: 'quiz.svg', color: '#b91c1c', bg: '#fee2e2' },
+    { id: 'plenary', name: 'Plenary / Exit Ticket', shortName: 'Plenary', name_fr: 'Bilan / Billet de sortie', shortName_fr: 'Bilan', icon: 'check.svg', color: '#0f766e', bg: '#ccfbf1' }
   ];
 
   // ── 2. Default Student Interaction Types ────────────────────────────────────
   LessonCreatorService.DEFAULT_INTERACTION_TYPES = [
-    { id: 'whole_class', name: 'Whole Class', shortName: 'Whole Class', icon: 'people-group.svg' },
-    { id: 'teacher_led', name: 'Teacher-Led', shortName: 'Teacher-Led', icon: 'presentation.svg' },
-    { id: 'individual', name: 'Individual (Solo)', shortName: 'Solo', icon: 'user-check.svg' },
-    { id: 'pairs', name: 'Pair Work (Turn & Talk)', shortName: 'Pairs', icon: 'group.svg' },
-    { id: 'small_groups', name: 'Small Groups (3-4)', shortName: 'Small Groups', icon: 'groups.svg' },
-    { id: 'stations', name: 'Stations / Carousel', shortName: 'Stations', icon: 'refresh.svg' }
+    { id: 'whole_class', name: 'Whole Class', shortName: 'Whole Class', name_fr: 'Classe entière', shortName_fr: 'Classe entière', icon: 'people-group.svg' },
+    { id: 'teacher_led', name: 'Teacher-Led', shortName: 'Teacher-Led', name_fr: 'Frontal / Magistral', shortName_fr: 'Frontal', icon: 'presentation.svg' },
+    { id: 'individual', name: 'Individual (Solo)', shortName: 'Solo', name_fr: 'Travail individuel (Solo)', shortName_fr: 'Solo', icon: 'user-check.svg' },
+    { id: 'pairs', name: 'Pair Work (Turn & Talk)', shortName: 'Pairs', name_fr: 'En binôme (Pair-work)', shortName_fr: 'Binômes', icon: 'group.svg' },
+    { id: 'small_groups', name: 'Small Groups (3-4)', shortName: 'Small Groups', name_fr: 'En petits groupes (3-4)', shortName_fr: 'Groupes', icon: 'groups.svg' },
+    { id: 'stations', name: 'Stations / Carousel', shortName: 'Stations', name_fr: 'Ateliers / Carrousel', shortName_fr: 'Ateliers', icon: 'refresh.svg' }
   ];
 
   // ── 3. Default Year Levels & Semesters ──────────────────────────────────────

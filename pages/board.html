@@ -4527,84 +4527,73 @@
     }
     window.conNormalizeWordForLookup = conNormalizeWordForLookup;
 
-    let _conVocabIndex = null;
-    let _conVocabIndexRef = null;
-
-    function conGetVocabBankIndex() {
-      if (typeof vocabBank === 'undefined' || !Array.isArray(vocabBank)) return null;
-      if (_conVocabIndex && _conVocabIndexRef === vocabBank) return _conVocabIndex;
-      _conVocabIndexRef = vocabBank;
-      const directMap = new Map();
-      const formMap = new Map();
-
-      for (let i = 0; i < vocabBank.length; i++) {
-        const v = vocabBank[i];
-        if (!v || !v.word) continue;
-        const normLemma = conNormalizeWordForLookup(v.word);
-        if (normLemma) {
-          let list = directMap.get(normLemma);
-          if (!list) { list = []; directMap.set(normLemma, list); }
-          list.push({ entry: v, matchType: 'direct', matchedWord: v.word });
-        }
-        const indexForms = (forms) => {
-          if (!forms) return;
-          const terms = Array.isArray(forms)
-            ? forms.map(f => typeof f === 'string' ? f : (f.word || f.form || f.term || ''))
-            : (typeof forms === 'string' ? forms.split(/[,;/]+/) : []);
-          for (let k = 0; k < terms.length; k++) {
-            const rawForm = conNormalizeWordForLookup(terms[k]);
-            if (rawForm && rawForm !== normLemma) {
-              let flist = formMap.get(rawForm);
-              if (!flist) { flist = []; formMap.set(rawForm, flist); }
-              flist.push({ entry: v, matchType: 'inflection', matchedWord: v.word });
-            }
-          }
-        };
-        indexForms(v.otherForms);
-        indexForms(v.otherTerms);
-      }
-      _conVocabIndex = { directMap, formMap };
-      return _conVocabIndex;
-    }
-    window.conGetVocabBankIndex = conGetVocabBankIndex;
-
     function conFindDbEntry(wordOrText) {
-      if (!wordOrText) return null;
+      if (!wordOrText || typeof vocabBank === 'undefined' || !Array.isArray(vocabBank)) return null;
       const raw = conNormalizeWordForLookup(wordOrText);
       if (!raw) return null;
-      const idx = conGetVocabBankIndex();
-      if (!idx) {
-        if (typeof vocabBank === 'undefined' || !Array.isArray(vocabBank)) return null;
-        return vocabBank.find(v => v && v.word && conNormalizeWordForLookup(v.word) === raw) || null;
-      }
-      const direct = idx.directMap.get(raw);
-      if (direct && direct.length) return direct[0].entry;
-      const form = idx.formMap.get(raw);
-      if (form && form.length) return form[0].entry;
-      return null;
+      // 1. Direct word match
+      const direct = vocabBank.find(v => v && v.word && conNormalizeWordForLookup(v.word) === raw);
+      if (direct) return direct;
+      // 2. otherForms / otherTerms match (inflections, plurals, irregular forms)
+      const matchForms = (forms) => {
+        if (!forms) return false;
+        if (Array.isArray(forms)) {
+          return forms.some(f => {
+            if (!f) return false;
+            const s = typeof f === 'string' ? f : (f.word || f.form || f.term || '');
+            return conNormalizeWordForLookup(s) === raw;
+          });
+        }
+        if (typeof forms === 'string' && forms.trim()) {
+          return forms.split(/[,;/]+/).some(s => conNormalizeWordForLookup(s) === raw);
+        }
+        return false;
+      };
+      return vocabBank.find(v => {
+        if (!v) return false;
+        return matchForms(v.otherForms) || matchForms(v.otherTerms);
+      }) || null;
     }
     window.conFindDbEntry = conFindDbEntry;
 
     function conFindAllDbEntries(wordOrText) {
-      if (!wordOrText) return [];
+      if (!wordOrText || typeof vocabBank === 'undefined' || !Array.isArray(vocabBank)) return [];
       const raw = conNormalizeWordForLookup(wordOrText);
       if (!raw) return [];
-      const idx = conGetVocabBankIndex();
-      if (!idx) return [];
-      const direct = idx.directMap.get(raw) || [];
-      const form = idx.formMap.get(raw) || [];
-      if (direct.length === 0 && form.length === 0) return [];
-      const results = [];
-      const seen = new Set();
-      for (let i = 0; i < direct.length; i++) {
-        const m = direct[i];
-        if (!seen.has(m.entry)) { seen.add(m.entry); results.push(m); }
+
+      const matchForms = (forms) => {
+        if (!forms) return false;
+        if (Array.isArray(forms)) {
+          return forms.some(f => {
+            if (!f) return false;
+            const s = typeof f === 'string' ? f : (f.word || f.form || f.term || '');
+            return conNormalizeWordForLookup(s) === raw;
+          });
+        }
+        if (typeof forms === 'string' && forms.trim()) {
+          return forms.split(/[,;/]+/).some(s => conNormalizeWordForLookup(s) === raw);
+        }
+        return false;
+      };
+
+      const directMatches = [];
+      const formMatches = [];
+      const seenEntries = new Set();
+
+      for (let i = 0; i < vocabBank.length; i++) {
+        const v = vocabBank[i];
+        if (!v || !v.word || seenEntries.has(v)) continue;
+        const normLemma = conNormalizeWordForLookup(v.word);
+        if (normLemma === raw) {
+          seenEntries.add(v);
+          directMatches.push({ entry: v, matchType: 'direct', matchedWord: v.word });
+        } else if (matchForms(v.otherForms) || matchForms(v.otherTerms)) {
+          seenEntries.add(v);
+          formMatches.push({ entry: v, matchType: 'inflection', matchedWord: v.word });
+        }
       }
-      for (let i = 0; i < form.length; i++) {
-        const m = form[i];
-        if (!seen.has(m.entry)) { seen.add(m.entry); results.push(m); }
-      }
-      return results;
+
+      return directMatches.concat(formMatches);
     }
     window.conFindAllDbEntries = conFindAllDbEntries;
 
@@ -38422,9 +38411,9 @@
             if (window.conSyncNodeLockState) window.conSyncNodeLockState(existing);
             nextNodes.push(existing);
           } else {
-            const dbMatch = typeof conFindDbEntry === 'function'
-              ? conFindDbEntry(n.dbWord || n.baseWord || '')
-              : ((typeof vocabBank !== 'undefined') ? vocabBank.find(i => i.word.toLowerCase() === (n.dbWord || n.baseWord || '').toLowerCase()) : null);
+            const dbMatch = (typeof vocabBank !== 'undefined')
+              ? vocabBank.find(i => i.word.toLowerCase() === (n.dbWord || n.baseWord || '').toLowerCase())
+              : null;
             const el = document.createElement('div');
             el.className = 'con-node' + (dbMatch ? ' con-node-matched' : '');
             el.id = n.id;
@@ -38743,9 +38732,9 @@
 
       // Restore nodes
       (data.nodes || []).forEach(n => {
-        const dbMatch = typeof conFindDbEntry === 'function'
-          ? conFindDbEntry(n.dbWord || n.baseWord || '')
-          : ((typeof vocabBank !== 'undefined') ? vocabBank.find(i => i.word.toLowerCase() === (n.dbWord || n.baseWord || '').toLowerCase()) : null);
+        const dbMatch = (typeof vocabBank !== 'undefined')
+          ? vocabBank.find(i => i.word.toLowerCase() === (n.dbWord || n.baseWord || '').toLowerCase())
+          : null;
         const el = document.createElement('div');
         el.className = 'con-node' + (dbMatch ? ' con-node-matched' : '');
         el.id = n.id;

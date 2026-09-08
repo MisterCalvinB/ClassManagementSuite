@@ -57,8 +57,8 @@
       <div class="nav-group">
         <button class="nav-btn" data-i18n="menuView">View</button>
         <div class="nav-group-popup">
-          <button class="nav-pop-item" onclick="lcToggleDrawer('competences')"><span data-i18n="lcToggleDrawer">Toggle Competences</span> <span class="nav-pop-hint">Ctrl+B</span></button>
-          <button class="nav-pop-item" onclick="lcToggleDrawer('activities')"><span data-i18n="lcToggleActivities">Toggle Activities</span> <span class="nav-pop-hint">Ctrl+Shift+B</span></button>
+          <button class="nav-pop-item" onclick="lcToggleDrawer('competences')"><span data-i18n="lcCompetenceBank">Competence Bank</span> <span class="nav-pop-hint">Ctrl+B</span></button>
+          <button class="nav-pop-item" onclick="lcToggleDrawer('activities')"><span data-i18n="lcActivityBank">Activity Bank</span> <span class="nav-pop-hint">Ctrl+Shift+B</span></button>
           <button class="nav-pop-item" onclick="lcOpenCoverageModal()"><span data-i18n="lcCoverageMatrix">Curriculum Coverage…</span> <span class="nav-pop-hint">Ctrl+M</span></button>
         </div>
       </div>
@@ -147,7 +147,7 @@
         <div class="meta-actions">
           <button class="neo-btn success" onclick="lcRunInClassManagement()" title="Launch active session runner in Class Management"><span data-i18n="lcRunCMS">Run</span></button>
           <button class="neo-btn primary" onclick="lcSavePlan()"><span data-i18n="btnSave">Save</span></button>
-          <button class="neo-btn" id="drawerToggleBtn" onclick="lcToggleDrawer('competences')"><span data-i18n="lcCompetences">Competences</span></button>
+          <button class="neo-btn active" id="drawerToggleBtn" onclick="lcToggleDrawer('competences')"><span data-i18n="lcCompetences">Competences</span></button>
           <button class="neo-btn" id="drawerActivitiesToggleBtn" onclick="lcToggleDrawer('activities')"><span data-i18n="lcActivities">Activities</span></button>
         </div>
       </div>
@@ -219,7 +219,6 @@
             <div class="drawer-title"><span data-i18n="lcCompetenceBank">Competence Bank</span></div>
             <div style="display:flex;gap:6px;align-items:center;">
               <button class="neo-btn purple" style="padding:4px 8px;font-size:0.75rem;" onclick="lcOpenCompetenceCustomizeModal()"><span data-i18n="lcCustomiseView">Customise View</span></button>
-              <button class="icon-btn" onclick="lcToggleDrawer()" title="Close Drawer">&times;</button>
             </div>
           </div>
 
@@ -266,7 +265,6 @@
             <div class="drawer-title"><span data-i18n="lcActivityBank">Activity Bank</span></div>
             <div style="display:flex;gap:6px;align-items:center;">
               <button class="neo-btn primary" style="padding:4px 8px;font-size:0.75rem;" onclick="lcOpenPhaseDb()"><span data-i18n="lcOpenPhaseDb">Open DB</span></button>
-              <button class="icon-btn" onclick="lcToggleDrawer()" title="Close Drawer">&times;</button>
             </div>
           </div>
 
@@ -708,6 +706,13 @@
                   <span class="neo-switch-slider"></span>
                 </label>
               </div>
+              <div class="customize-toggle-item" id="exportTgl_phaseDescText_wrap" style="padding-left:14px;">
+                <span data-i18n="lcExportCompetenceText">Full Competence Description Text</span>
+                <label class="neo-switch">
+                  <input type="checkbox" id="exportTgl_phaseDescText" onchange="lcOnExportToggleChange()">
+                  <span class="neo-switch-slider"></span>
+                </label>
+              </div>
               <div class="customize-toggle-item">
                 <span data-i18n="lcExportPhaseDifferentiation">Differentiation & Support</span>
                 <label class="neo-switch">
@@ -1007,6 +1012,13 @@
               <span data-i18n="lcCopyPhaseDescriptors">Tagged Competences</span>
               <label class="neo-switch">
                 <input type="checkbox" id="copyTgl_phaseDescriptors" checked onchange="lcOnCopyToggleChange()">
+                <span class="neo-switch-slider"></span>
+              </label>
+            </div>
+            <div class="customize-toggle-item" id="copyTgl_phaseDescText_wrap" style="padding-left:14px;">
+              <span data-i18n="lcExportCompetenceText">Full Competence Description Text</span>
+              <label class="neo-switch">
+                <input type="checkbox" id="copyTgl_phaseDescText" onchange="lcOnCopyToggleChange()">
                 <span class="neo-switch-slider"></span>
               </label>
             </div>
@@ -1446,6 +1458,35 @@
         resizer.addEventListener('touchstart', onTouchStart, { passive: true });
       }
 
+      var _drawerRafPending = false;
+      function updateDrawerHeight() {
+        var drawer = document.getElementById('descriptorDrawer');
+        if (!drawer) return;
+        var rect = drawer.getBoundingClientRect();
+        var topGap = Math.max(14, rect.top);
+        var availableH = window.innerHeight - topGap - 14;
+        drawer.style.height = Math.max(320, Math.floor(availableH)) + 'px';
+      }
+
+      function scheduleDrawerHeightUpdate() {
+        if (_drawerRafPending) return;
+        _drawerRafPending = true;
+        requestAnimationFrame(function () {
+          _drawerRafPending = false;
+          updateDrawerHeight();
+        });
+      }
+
+      function initFixedDrawer() {
+        var ws = document.getElementById('mainWorkspace');
+        if (ws && !ws.classList.contains('drawer-open')) {
+          ws.classList.add('drawer-open');
+        }
+        window.addEventListener('scroll', scheduleDrawerHeightUpdate, { passive: true });
+        window.addEventListener('resize', scheduleDrawerHeightUpdate, { passive: true });
+        scheduleDrawerHeightUpdate();
+      }
+
       // ── Initialization ───────────────────────────────────────────────────
       window.addEventListener('DOMContentLoaded', async function () {
         if (typeof _cmtApplyNavBrand === 'function') _cmtApplyNavBrand();
@@ -1454,6 +1495,7 @@
         initDropdowns();
         await loadCompetenceDisplayConfig();
         initDrawerResizer();
+        initFixedDrawer();
         await loadClassRosters();
         await loadSavedDescriptors();
         await loadSavedPhases();
@@ -2320,10 +2362,11 @@
             ? ('background:' + (a.bg || '#fef3c7') + ';color:' + (a.color || '#111') + ';border-color:var(--neo-dark);font-weight:800;')
             : '';
           var iconHtml = a.icon ? '<img src="../assets/icons/' + escapeHtml(a.icon) + '" class="phase-pill-icon" alt="">' : '';
-          var displayName = a.shortName || a.name || a.id;
+          var displayName = getActivityLabel(a.id, true);
+          var fullTitle = getActivityLabel(a.id, false);
           return '<button type="button" class="phase-pill activity-pill' + selectedClass + '" ' +
             'style="' + inlineStyle + '" ' +
-            'title="' + escapeHtml(a.name) + '" ' +
+            'title="' + escapeHtml(fullTitle) + '" ' +
             'onclick="lcTogglePhaseActivity(' + phaseIndex + ', \'' + escapeHtml(a.id) + '\')">' +
             iconHtml + '<span>' + escapeHtml(displayName) + '</span>' +
             '</button>';
@@ -2335,9 +2378,10 @@
           var isSelected = (m.id === selectedId);
           var selectedClass = isSelected ? ' active' : '';
           var iconHtml = m.icon ? '<img src="../assets/icons/' + escapeHtml(m.icon) + '" class="phase-pill-icon" alt="">' : '';
-          var displayName = m.shortName || m.name || m.id;
+          var displayName = getInteractionLabel(m.id, true);
+          var fullTitle = getInteractionLabel(m.id, false);
           return '<button type="button" class="phase-pill mode-pill' + selectedClass + '" ' +
-            'title="' + escapeHtml(m.name) + '" ' +
+            'title="' + escapeHtml(fullTitle) + '" ' +
             'onclick="lcTogglePhaseMode(' + phaseIndex + ', \'' + escapeHtml(m.id) + '\')">' +
             iconHtml + '<span>' + escapeHtml(displayName) + '</span>' +
             '</button>';
@@ -2828,35 +2872,43 @@
         currentDrawerTab = tab;
         var compTabBtn = document.getElementById('tabCompetenceBank');
         var actTabBtn = document.getElementById('tabActivityBank');
+        var compToggleBtn = document.getElementById('drawerToggleBtn');
+        var actToggleBtn = document.getElementById('drawerActivitiesToggleBtn');
         var compPanel = document.getElementById('panelCompetences');
         var actPanel = document.getElementById('panelActivities');
 
         if (tab === 'activities') {
           if (compTabBtn) compTabBtn.classList.remove('active');
           if (actTabBtn) actTabBtn.classList.add('active');
+          if (compToggleBtn) compToggleBtn.classList.remove('active');
+          if (actToggleBtn) actToggleBtn.classList.add('active');
           if (compPanel) compPanel.style.display = 'none';
           if (actPanel) actPanel.style.display = 'flex';
           renderActivityDrawer();
         } else {
           if (actTabBtn) actTabBtn.classList.remove('active');
           if (compTabBtn) compTabBtn.classList.add('active');
+          if (actToggleBtn) actToggleBtn.classList.remove('active');
+          if (compToggleBtn) compToggleBtn.classList.add('active');
           if (actPanel) actPanel.style.display = 'none';
           if (compPanel) compPanel.style.display = 'flex';
           renderDrawer();
         }
+        scheduleDrawerHeightUpdate();
       };
 
       window.lcToggleDrawer = function (requestedTab) {
         var ws = document.getElementById('mainWorkspace');
-        var isOpen = ws.classList.contains('drawer-open');
+        if (ws && !ws.classList.contains('drawer-open')) {
+          ws.classList.add('drawer-open');
+        }
         if (requestedTab) {
           lcSwitchDrawerTab(requestedTab);
-          if (!isOpen) {
-            ws.classList.add('drawer-open');
-          }
-          return;
+        } else {
+          var isCompetences = (currentDrawerTab === 'competences');
+          lcSwitchDrawerTab(isCompetences ? 'activities' : 'competences');
         }
-        ws.classList.toggle('drawer-open');
+        scheduleDrawerHeightUpdate();
       };
 
       window.lcOpenPhaseDb = function () {
@@ -2917,12 +2969,14 @@
         if (previewEl) {
           var actDef = (LessonCreatorService.DEFAULT_ACTIVITY_TYPES || []).find(function (a) { return a.id === sec.activityTypeId; });
           var modeDef = (LessonCreatorService.DEFAULT_INTERACTION_TYPES || []).find(function (m) { return m.id === sec.interactionTypeId; });
+          var actLabel = getActivityLabel(sec.activityTypeId, true);
+          var modeLabel = getInteractionLabel(sec.interactionTypeId, true);
           var actPill = actDef
-            ? ('<span class="drawer-act-pill" style="background:' + (actDef.bg || '#fef3c7') + ';color:' + (actDef.color || '#111') + ';">' + escapeHtml(actDef.name || actDef.shortName) + '</span>')
-            : (sec.activityTypeId ? ('<span class="drawer-act-pill">' + escapeHtml(sec.activityTypeId) + '</span>') : '');
+            ? ('<span class="drawer-act-pill" style="background:' + (actDef.bg || '#fef3c7') + ';color:' + (actDef.color || '#111') + ';">' + escapeHtml(actLabel || actDef.shortName || actDef.name) + '</span>')
+            : (sec.activityTypeId ? ('<span class="drawer-act-pill">' + escapeHtml(actLabel || sec.activityTypeId) + '</span>') : '');
           var modePill = modeDef
-            ? ('<span class="drawer-act-pill" style="background:#f1f5f9;color:#334155;">' + escapeHtml(modeDef.name || modeDef.shortName) + '</span>')
-            : (sec.interactionTypeId ? ('<span class="drawer-act-pill">' + escapeHtml(sec.interactionTypeId) + '</span>') : '');
+            ? ('<span class="drawer-act-pill" style="background:#f1f5f9;color:#334155;">' + escapeHtml(modeLabel || modeDef.shortName || modeDef.name) + '</span>')
+            : (sec.interactionTypeId ? ('<span class="drawer-act-pill">' + escapeHtml(modeLabel || sec.interactionTypeId) + '</span>') : '');
 
           previewEl.innerHTML = [
             '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">',
@@ -3128,7 +3182,7 @@
           (LessonCreatorService.DEFAULT_ACTIVITY_TYPES || []).forEach(function (a) {
             var opt = document.createElement('option');
             opt.value = a.id;
-            opt.textContent = a.name || a.shortName || a.id;
+            opt.textContent = getActivityLabel(a.id, false);
             actTypeSelect.appendChild(opt);
           });
           if (curActVal) actTypeSelect.value = curActVal;
@@ -3140,7 +3194,7 @@
           (LessonCreatorService.DEFAULT_INTERACTION_TYPES || []).forEach(function (m) {
             var opt = document.createElement('option');
             opt.value = m.id;
-            opt.textContent = m.name || m.shortName || m.id;
+            opt.textContent = getInteractionLabel(m.id, false);
             actModeSelect.appendChild(opt);
           });
           if (curModeVal) actModeSelect.value = curModeVal;
@@ -3293,17 +3347,20 @@
           var actDef = (LessonCreatorService.DEFAULT_ACTIVITY_TYPES || []).find(function (a) { return a.id === p.activityTypeId; });
           var modeDef = (LessonCreatorService.DEFAULT_INTERACTION_TYPES || []).find(function (m) { return m.id === p.interactionTypeId; });
 
+          var actLabel = getActivityLabel(p.activityTypeId, true);
+          var modeLabel = getInteractionLabel(p.interactionTypeId, true);
+
           var actPillHtml = actDef
             ? ('<span class="drawer-act-pill" style="background:' + (actDef.bg || '#fef3c7') + ';color:' + (actDef.color || '#111') + ';">' +
                (actDef.icon ? ('<img src="../assets/icons/' + escapeHtml(actDef.icon) + '" alt="">') : '') +
-               '<span>' + escapeHtml(actDef.shortName || actDef.name) + '</span></span>')
-            : (p.activityTypeId ? ('<span class="drawer-act-pill">' + escapeHtml(p.activityTypeId) + '</span>') : '');
+               '<span>' + escapeHtml(actLabel || actDef.shortName || actDef.name) + '</span></span>')
+            : (p.activityTypeId ? ('<span class="drawer-act-pill">' + escapeHtml(actLabel || p.activityTypeId) + '</span>') : '');
 
           var modePillHtml = modeDef
             ? ('<span class="drawer-act-pill" style="background:#f1f5f9;color:#334155;">' +
                (modeDef.icon ? ('<img src="../assets/icons/' + escapeHtml(modeDef.icon) + '" alt="">') : '') +
-               '<span>' + escapeHtml(modeDef.shortName || modeDef.name) + '</span></span>')
-            : (p.interactionTypeId ? ('<span class="drawer-act-pill">' + escapeHtml(p.interactionTypeId) + '</span>') : '');
+               '<span>' + escapeHtml(modeLabel || modeDef.shortName || modeDef.name) + '</span></span>')
+            : (p.interactionTypeId ? ('<span class="drawer-act-pill">' + escapeHtml(modeLabel || p.interactionTypeId) + '</span>') : '');
 
           var catPillHtml = p.category
             ? ('<span class="drawer-act-pill" style="background:#f3e8ff;color:#6b21a8;border-color:#d8b4fe;">' + escapeHtml(p.category) + '</span>')
@@ -4368,6 +4425,7 @@
         phaseStudent: true,
         phaseResources: true,
         phaseDescriptors: true,
+        phaseDescText: false,
         phaseDiff: true,
         phaseAssess: true
       };
@@ -4420,10 +4478,11 @@
         var cfg = Object.assign({}, DEFAULT_EXPORT_CONFIG, saved || {});
 
         var keys = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence', 'metaTags', 'metaTeams',
-                    'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseTeacher', 'phaseStudent', 'phaseResources', 'phaseDescriptors', 'phaseDiff', 'phaseAssess'];
+                    'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseTeacher', 'phaseStudent', 'phaseResources', 'phaseDescriptors', 'phaseDescText', 'phaseDiff', 'phaseAssess'];
         keys.forEach(function (k) {
           var el = document.getElementById('exportTgl_' + k);
-          if (el) el.checked = (cfg[k] !== false);
+          if (el) el.checked = (cfg[k] === true);
+          if (el && k !== 'phaseDescText') el.checked = (cfg[k] !== false);
         });
 
         // Initialize selected phases (all phases selected by default)
@@ -4434,7 +4493,7 @@
 
         renderExportPhasesList();
         lcSelectExportFormat(activeExportFormat);
-        lcUpdateExportSummary();
+        lcOnExportToggleChange();
 
         var m = document.getElementById('exportPlanModal');
         if (m) m.style.display = 'flex';
@@ -4482,6 +4541,8 @@
             var el = document.getElementById('exportTgl_' + k);
             if (el) el.checked = true;
           });
+          var descTextEl = document.getElementById('exportTgl_phaseDescText');
+          if (descTextEl) descTextEl.checked = true;
         } else if (preset === 'teacher') {
           var teacherKeys = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence', 'metaTags', 'metaTeams',
                              'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseTeacher', 'phaseResources', 'phaseDescriptors', 'phaseDiff', 'phaseAssess'];
@@ -4489,6 +4550,8 @@
             var el = document.getElementById('exportTgl_' + k);
             if (el) el.checked = teacherKeys.includes(k);
           });
+          var descTextEl = document.getElementById('exportTgl_phaseDescText');
+          if (descTextEl) descTextEl.checked = false;
         } else if (preset === 'student') {
           var studentKeys = ['metaHeader', 'metaDate', 'metaDuration',
                              'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseStudent', 'phaseResources'];
@@ -4496,6 +4559,8 @@
             var el = document.getElementById('exportTgl_' + k);
             if (el) el.checked = studentKeys.includes(k);
           });
+          var descTextEl = document.getElementById('exportTgl_phaseDescText');
+          if (descTextEl) descTextEl.checked = false;
         } else if (preset === 'outline') {
           var outlineKeys = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence',
                              'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective'];
@@ -4503,12 +4568,22 @@
             var el = document.getElementById('exportTgl_' + k);
             if (el) el.checked = outlineKeys.includes(k);
           });
+          var descTextEl = document.getElementById('exportTgl_phaseDescText');
+          if (descTextEl) descTextEl.checked = false;
         }
 
         lcOnExportToggleChange();
       };
 
       window.lcOnExportToggleChange = function () {
+        var parentEl = document.getElementById('exportTgl_phaseDescriptors');
+        var childEl = document.getElementById('exportTgl_phaseDescText');
+        var childWrap = document.getElementById('exportTgl_phaseDescText_wrap');
+        if (parentEl && childEl && childWrap) {
+          childEl.disabled = !parentEl.checked;
+          childWrap.style.opacity = parentEl.checked ? '1' : '0.45';
+          childWrap.style.pointerEvents = parentEl.checked ? 'auto' : 'none';
+        }
         var toggles = lcGetExportToggles();
         try {
           localStorage.setItem('cmt_lc_export_config', JSON.stringify(toggles));
@@ -4518,11 +4593,11 @@
 
       function lcGetExportToggles() {
         var keys = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence', 'metaTags', 'metaTeams',
-                    'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseTeacher', 'phaseStudent', 'phaseResources', 'phaseDescriptors', 'phaseDiff', 'phaseAssess'];
+                    'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseTeacher', 'phaseStudent', 'phaseResources', 'phaseDescriptors', 'phaseDescText', 'phaseDiff', 'phaseAssess'];
         var res = {};
         keys.forEach(function (k) {
           var el = document.getElementById('exportTgl_' + k);
-          res[k] = el ? el.checked : true;
+          res[k] = el ? el.checked : (k !== 'phaseDescText');
         });
         return res;
       }
@@ -4616,7 +4691,7 @@
         }
       }
 
-      // ── Neobrutalist HTML Document Generator ──────────────────────────────
+      // ── Clean & Readable HTML Document Generator ──────────────────────────
       window.lcGenerateExportHtml = function (options) {
         options = options || {};
         var toggles = options.toggles || lcGetExportToggles();
@@ -4639,45 +4714,41 @@
           '  <title>' + escapeHtml(planTitle) + '</title>\n' +
           '  <style>\n' +
           '    :root {\n' +
-          '      --bg-canvas: #f8fafc;\n' +
-          '      --bg-card: #ffffff;\n' +
-          '      --border-dark: #121212;\n' +
-          '      --shadow-solid: 4px 4px 0 #121212;\n' +
-          '      --shadow-sm: 2px 2px 0 #121212;\n' +
-          '      --neo-yellow: #fde047;\n' +
-          '      --neo-blue: #93c5fd;\n' +
-          '      --neo-green: #86efac;\n' +
-          '      --neo-purple: #c4b5fd;\n' +
-          '      --neo-gray: #f4f4f5;\n' +
+          '      --canvas-bg: #ffffff;\n' +
+          '      --card-bg: #ffffff;\n' +
+          '      --text-primary: #000000;\n' +
+          '      --text-secondary: #111111;\n' +
+          '      --text-muted: #333333;\n' +
+          '      --border-color: #000000;\n' +
           '    }\n' +
           '    * { box-sizing: border-box; margin: 0; padding: 0; }\n' +
           '    body {\n' +
           '      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;\n' +
-          '      background: var(--bg-canvas);\n' +
-          '      color: #121212;\n' +
-          '      padding: 24px 16px;\n' +
-          '      line-height: 1.5;\n' +
+          '      background: #ffffff;\n' +
+          '      color: #000000;\n' +
+          '      padding: 26px 22px;\n' +
+          '      line-height: 1.55;\n' +
+          '      font-size: 14px;\n' +
           '      -webkit-font-smoothing: antialiased;\n' +
           '    }\n' +
           '    .export-container {\n' +
-          '      max-width: 900px;\n' +
+          '      max-width: 880px;\n' +
           '      margin: 0 auto;\n' +
           '    }\n' +
-          '    /* Neobrutalist Hero Card */\n' +
+          '    /* Semi-Neobrutalist Black-Line Plan Hero */\n' +
           '    .plan-hero {\n' +
-          '      background: var(--bg-card);\n' +
-          '      border: 3px solid var(--border-dark);\n' +
-          '      border-radius: 8px;\n' +
-          '      box-shadow: 6px 6px 0 var(--border-dark);\n' +
-          '      padding: 24px;\n' +
-          '      margin-bottom: 24px;\n' +
+          '      background: #ffffff;\n' +
+          '      border: 2.5px solid #000000;\n' +
+          '      box-shadow: 3px 3px 0 #000000;\n' +
+          '      padding: 16px 20px;\n' +
+          '      margin-bottom: 22px;\n' +
           '    }\n' +
           '    .plan-hero-title {\n' +
-          '      font-size: 1.85rem;\n' +
-          '      font-weight: 900;\n' +
-          '      letter-spacing: -0.5px;\n' +
-          '      text-transform: uppercase;\n' +
-          '      line-height: 1.2;\n' +
+          '      font-size: 1.7rem;\n' +
+          '      font-weight: 800;\n' +
+          '      color: #000000;\n' +
+          '      letter-spacing: -0.02em;\n' +
+          '      line-height: 1.25;\n' +
           '      margin-bottom: 12px;\n' +
           '    }\n' +
           '    .plan-badges-row {\n' +
@@ -4686,34 +4757,38 @@
           '      gap: 8px;\n' +
           '      align-items: center;\n' +
           '    }\n' +
-          '    .neo-tag {\n' +
+          '    .meta-tag {\n' +
           '      display: inline-flex;\n' +
           '      align-items: center;\n' +
-          '      gap: 4px;\n' +
+          '      gap: 5px;\n' +
           '      padding: 4px 10px;\n' +
-          '      border: 2px solid var(--border-dark);\n' +
-          '      border-radius: 4px;\n' +
+          '      border: 1.5px solid #000000;\n' +
           '      font-size: 0.8rem;\n' +
-          '      font-weight: 800;\n' +
-          '      box-shadow: var(--shadow-sm);\n' +
-          '      background: #fff;\n' +
-          '      text-transform: uppercase;\n' +
+          '      font-weight: 600;\n' +
+          '      background: #ffffff;\n' +
+          '      color: #000000;\n' +
           '    }\n' +
-          '    .neo-tag-yellow { background: var(--neo-yellow); }\n' +
-          '    .neo-tag-blue { background: var(--neo-blue); }\n' +
-          '    .neo-tag-green { background: var(--neo-green); }\n' +
-          '    .neo-tag-purple { background: var(--neo-purple); }\n' +
-          '    .neo-tag-dark { background: var(--border-dark); color: #fff; }\n' +
-          '    /* Phase Cards */\n' +
+          '    .meta-tag strong {\n' +
+          '      font-weight: 800;\n' +
+          '      color: #000000;\n' +
+          '    }\n' +
+          '    .meta-tag-highlight {\n' +
+          '      background: #000000;\n' +
+          '      color: #ffffff;\n' +
+          '      border: 1.5px solid #000000;\n' +
+          '      font-weight: 700;\n' +
+          '    }\n' +
+          '    .meta-tag-highlight strong {\n' +
+          '      color: #ffffff;\n' +
+          '    }\n' +
+          '    /* Semi-Neobrutalist Phase Cards */\n' +
           '    .phase-export-card {\n' +
-          '      background: var(--bg-card);\n' +
-          '      border: 3px solid var(--border-dark);\n' +
-          '      border-radius: 8px;\n' +
-          '      box-shadow: var(--shadow-solid);\n' +
-          '      margin-bottom: 22px;\n' +
+          '      background: #ffffff;\n' +
+          '      border: 2.5px solid #000000;\n' +
+          '      box-shadow: 3px 3px 0 #000000;\n' +
+          '      margin-bottom: 18px;\n' +
           '      page-break-inside: avoid;\n' +
           '      break-inside: avoid;\n' +
-          '      overflow: hidden;\n' +
           '    }\n' +
           '    .phase-header {\n' +
           '      display: flex;\n' +
@@ -4721,9 +4796,9 @@
           '      justify-content: space-between;\n' +
           '      flex-wrap: wrap;\n' +
           '      gap: 10px;\n' +
-          '      padding: 12px 18px;\n' +
-          '      border-bottom: 3px solid var(--border-dark);\n' +
-          '      background: #fafaf9;\n' +
+          '      padding: 10px 14px;\n' +
+          '      border-bottom: 2px solid #000000;\n' +
+          '      background: #f4f4f5;\n' +
           '    }\n' +
           '    .phase-header-left {\n' +
           '      display: flex;\n' +
@@ -4732,18 +4807,18 @@
           '      flex-wrap: wrap;\n' +
           '    }\n' +
           '    .phase-num {\n' +
-          '      background: var(--border-dark);\n' +
-          '      color: #fff;\n' +
-          '      font-size: 1.1rem;\n' +
-          '      font-weight: 900;\n' +
-          '      padding: 3px 10px;\n' +
-          '      border-radius: 4px;\n' +
-          '      letter-spacing: 0.5px;\n' +
+          '      background: #000000;\n' +
+          '      color: #ffffff;\n' +
+          '      font-size: 0.85rem;\n' +
+          '      font-weight: 800;\n' +
+          '      padding: 2px 9px;\n' +
+          '      border: 1.5px solid #000000;\n' +
+          '      line-height: 1.2;\n' +
           '    }\n' +
           '    .phase-title {\n' +
-          '      font-size: 1.2rem;\n' +
-          '      font-weight: 900;\n' +
-          '      letter-spacing: -0.3px;\n' +
+          '      font-size: 1.12rem;\n' +
+          '      font-weight: 800;\n' +
+          '      color: #000000;\n' +
           '    }\n' +
           '    .phase-header-right {\n' +
           '      display: flex;\n' +
@@ -4751,62 +4826,88 @@
           '      gap: 6px;\n' +
           '      flex-wrap: wrap;\n' +
           '    }\n' +
+          '    .phase-badge {\n' +
+          '      font-size: 0.78rem;\n' +
+          '      font-weight: 700;\n' +
+          '      color: #000000;\n' +
+          '      background: #ffffff;\n' +
+          '      border: 1.5px solid #000000;\n' +
+          '      padding: 2px 9px;\n' +
+          '    }\n' +
+          '    .phase-badge-duration {\n' +
+          '      font-weight: 800;\n' +
+          '      color: #ffffff;\n' +
+          '      background: #000000;\n' +
+          '      border-color: #000000;\n' +
+          '    }\n' +
           '    .phase-body {\n' +
-          '      padding: 16px;\n' +
+          '      padding: 13px 14px;\n' +
           '      display: flex;\n' +
           '      flex-direction: column;\n' +
-          '      gap: 12px;\n' +
+          '      gap: 11px;\n' +
           '    }\n' +
           '    .sec-box {\n' +
-          '      border: 2px solid var(--border-dark);\n' +
-          '      border-radius: 6px;\n' +
-          '      box-shadow: var(--shadow-sm);\n' +
-          '      padding: 10px 12px;\n' +
+          '      border: 1.5px solid #000000;\n' +
+          '      padding: 8px 12px;\n' +
+          '      background: #ffffff;\n' +
           '    }\n' +
           '    .box-tag {\n' +
           '      font-size: 0.7rem;\n' +
           '      font-weight: 900;\n' +
           '      text-transform: uppercase;\n' +
-          '      letter-spacing: 0.8px;\n' +
-          '      margin-bottom: 4px;\n' +
+          '      letter-spacing: 0.6px;\n' +
+          '      margin-bottom: 3px;\n' +
           '      display: block;\n' +
-          '      color: #121212;\n' +
+          '      color: #000000;\n' +
           '    }\n' +
           '    .box-text {\n' +
-          '      font-size: 0.9rem;\n' +
-          '      line-height: 1.45;\n' +
+          '      font-size: 0.88rem;\n' +
+          '      line-height: 1.55;\n' +
+          '      color: #111111;\n' +
           '      white-space: pre-line;\n' +
           '    }\n' +
           '    .objective-box {\n' +
-          '      background: #fefce8;\n' +
+          '      background: #fafafa;\n' +
+          '      border: 2px solid #000000;\n' +
+          '      border-left: 6px solid #000000;\n' +
           '    }\n' +
           '    .objective-text {\n' +
-          '      font-size: 0.95rem;\n' +
+          '      font-size: 0.94rem;\n' +
           '      font-weight: 700;\n' +
-          '      color: #121212;\n' +
+          '      color: #000000;\n' +
+          '      line-height: 1.5;\n' +
           '    }\n' +
           '    .actions-grid {\n' +
           '      display: grid;\n' +
           '      grid-template-columns: 1fr 1fr;\n' +
-          '      gap: 12px;\n' +
+          '      gap: 11px;\n' +
           '    }\n' +
           '    @media (max-width: 640px) {\n' +
           '      .actions-grid { grid-template-columns: 1fr; }\n' +
           '    }\n' +
           '    .teacher-box {\n' +
-          '      background: #eff6ff;\n' +
+          '      background: #ffffff;\n' +
+          '      border-left: 4px solid #000000;\n' +
           '    }\n' +
           '    .student-box {\n' +
-          '      background: #f0fdf4;\n' +
+          '      background: #ffffff;\n' +
+          '      border-left: 4px solid #000000;\n' +
           '    }\n' +
           '    .resources-box {\n' +
-          '      background: #f4f4f5;\n' +
+          '      background: #ffffff;\n' +
+          '      border-left: 4px solid #000000;\n' +
           '    }\n' +
           '    .diff-box {\n' +
-          '      background: #faf5ff;\n' +
+          '      background: #ffffff;\n' +
+          '      border-left: 4px solid #000000;\n' +
           '    }\n' +
           '    .assess-box {\n' +
-          '      background: #fff1f2;\n' +
+          '      background: #ffffff;\n' +
+          '      border-left: 4px solid #000000;\n' +
+          '    }\n' +
+          '    .descriptors-box {\n' +
+          '      background: #ffffff;\n' +
+          '      border-left: 4px solid #000000;\n' +
           '    }\n' +
           '    .comp-chips {\n' +
           '      display: flex;\n' +
@@ -4815,32 +4916,72 @@
           '      margin-top: 4px;\n' +
           '    }\n' +
           '    .comp-chip {\n' +
-          '      background: #ede9fe;\n' +
-          '      border: 1.5px solid var(--border-dark);\n' +
-          '      border-radius: 4px;\n' +
-          '      padding: 3px 8px;\n' +
-          '      font-size: 0.76rem;\n' +
+          '      background: #ffffff;\n' +
+          '      border: 1.5px solid #000000;\n' +
+          '      padding: 2px 8px;\n' +
+          '      font-size: 0.78rem;\n' +
           '      font-weight: 700;\n' +
-          '      box-shadow: 1px 1px 0 var(--border-dark);\n' +
+          '      color: #000000;\n' +
+          '    }\n' +
+          '    .comp-list {\n' +
+          '      display: flex;\n' +
+          '      flex-direction: column;\n' +
+          '      gap: 6px;\n' +
+          '      margin-top: 5px;\n' +
+          '    }\n' +
+          '    .comp-item {\n' +
+          '      padding: 6px 10px;\n' +
+          '      background: #ffffff;\n' +
+          '      border: 1.5px solid #000000;\n' +
+          '    }\n' +
+          '    .comp-item-header {\n' +
+          '      display: flex;\n' +
+          '      align-items: baseline;\n' +
+          '      gap: 8px;\n' +
+          '      flex-wrap: wrap;\n' +
+          '    }\n' +
+          '    .comp-item-code {\n' +
+          '      font-weight: 900;\n' +
+          '      font-size: 0.8rem;\n' +
+          '      color: #ffffff;\n' +
+          '      background: #000000;\n' +
+          '      padding: 2px 7px;\n' +
+          '      line-height: 1.2;\n' +
+          '    }\n' +
+          '    .comp-item-title {\n' +
+          '      font-weight: 700;\n' +
+          '      font-size: 0.84rem;\n' +
+          '      color: #000000;\n' +
+          '    }\n' +
+          '    .comp-item-text {\n' +
+          '      margin-top: 4px;\n' +
+          '      font-size: 0.82rem;\n' +
+          '      line-height: 1.45;\n' +
+          '      color: #222222;\n' +
+          '      border-top: 1px dashed #000000;\n' +
+          '      padding-top: 4px;\n' +
           '    }\n' +
           '    .plan-footer {\n' +
-          '      margin-top: 24px;\n' +
-          '      padding: 12px 16px;\n' +
-          '      background: var(--bg-card);\n' +
-          '      border: 2px solid var(--border-dark);\n' +
-          '      border-radius: 6px;\n' +
+          '      margin-top: 22px;\n' +
+          '      padding: 12px 0;\n' +
+          '      border-top: 2.5px solid #000000;\n' +
           '      display: flex;\n' +
           '      align-items: center;\n' +
           '      justify-content: space-between;\n' +
           '      font-size: 0.78rem;\n' +
           '      font-weight: 700;\n' +
-          '      box-shadow: var(--shadow-sm);\n' +
+          '      color: #000000;\n' +
+          '      text-transform: uppercase;\n' +
+          '      letter-spacing: 0.5px;\n' +
           '    }\n' +
           '    @media print {\n' +
-          '      body { background: #fff !important; padding: 0 !important; }\n' +
+          '      body { background: #fff !important; padding: 0 !important; font-size: 11pt !important; color: #000 !important; }\n' +
           '      .export-container { max-width: 100% !important; margin: 0 !important; }\n' +
-          '      .plan-hero, .phase-export-card { box-shadow: none !important; }\n' +
-          '      .phase-export-card { page-break-inside: avoid !important; break-inside: avoid !important; }\n' +
+          '      .plan-hero { box-shadow: none !important; border: 2px solid #000 !important; margin-bottom: 14px !important; }\n' +
+          '      .phase-export-card { page-break-inside: avoid !important; break-inside: avoid !important; border: 2px solid #000 !important; box-shadow: none !important; margin-bottom: 12px !important; }\n' +
+          '      .phase-header { background: #f0f0f0 !important; border-bottom: 2px solid #000 !important; }\n' +
+          '      .sec-box { border: 1.5px solid #000 !important; }\n' +
+          '      .plan-footer { border-top: 2px solid #000 !important; }\n' +
           '      @page { margin: 12mm 10mm; size: A4 portrait; }\n' +
           '      -webkit-print-color-adjust: exact; print-color-adjust: exact;\n' +
           '    }\n' +
@@ -4857,27 +4998,29 @@
           }
           html += '      <div class="plan-badges-row">\n';
           if (toggles.metaHeader) {
-            if (subName) html += '        <span class="neo-tag neo-tag-yellow">' + escapeHtml(subName) + '</span>\n';
-            if (clsName) html += '        <span class="neo-tag neo-tag-blue">Class: ' + escapeHtml(clsName) + '</span>\n';
+            if (subName) html += '        <span class="meta-tag meta-tag-highlight">' + escapeHtml(subName) + '</span>\n';
+            if (clsName) html += '        <span class="meta-tag"><strong>' + escapeHtml(i18n.t('class') || 'Class') + ':</strong> ' + escapeHtml(clsName) + '</span>\n';
           }
           if (toggles.metaDate) {
-            if (currentPlan.date) html += '        <span class="neo-tag">Date: ' + escapeHtml(currentPlan.date) + '</span>\n';
-            if (yrName && currentPlan.yearLevel !== 'all') html += '        <span class="neo-tag">Year: ' + escapeHtml(yrName) + '</span>\n';
-            if (currentPlan.semester && currentPlan.semester !== 'all') html += '        <span class="neo-tag">Semester: ' + escapeHtml(currentPlan.semester.toUpperCase()) + '</span>\n';
+            if (currentPlan.date) html += '        <span class="meta-tag"><strong>' + escapeHtml(i18n.t('date') || 'Date') + ':</strong> ' + escapeHtml(currentPlan.date) + '</span>\n';
+            if (yrName && currentPlan.yearLevel !== 'all') html += '        <span class="meta-tag"><strong>' + escapeHtml(i18n.t('year') || 'Year') + ':</strong> ' + escapeHtml(yrName) + '</span>\n';
+            if (currentPlan.semester && currentPlan.semester !== 'all') html += '        <span class="meta-tag"><strong>' + escapeHtml(i18n.t('semester') || 'Semester') + ':</strong> ' + escapeHtml(currentPlan.semester.toUpperCase()) + '</span>\n';
           }
           if (toggles.metaDuration) {
-            html += '        <span class="neo-tag neo-tag-dark">Duration: ' + totalDur + ' min / ' + targetDur + ' min Target</span>\n';
+            html += '        <span class="meta-tag meta-tag-highlight"><strong>' + escapeHtml(i18n.t('duration') || 'Duration') + ':</strong> ' + totalDur + ' min / ' + targetDur + ' min</span>\n';
           }
           if (toggles.metaSequence && currentPlan.unitSequence && currentPlan.unitSequence.title) {
             var seqStr = currentPlan.unitSequence.title + ' (Lesson ' + (currentPlan.unitSequence.lessonIndex || 1) + ' of ' + (currentPlan.unitSequence.totalLessons || 1) + ')';
-            html += '        <span class="neo-tag neo-tag-purple">Unit: ' + escapeHtml(seqStr) + '</span>\n';
+            html += '        <span class="meta-tag"><strong>' + escapeHtml(i18n.t('lcSequenceLabel') || 'Unit') + ':</strong> ' + escapeHtml(seqStr) + '</span>\n';
           }
           if (toggles.metaTeams && currentPlan.teamConfig && currentPlan.teamConfig.enabled) {
             var rList = (currentPlan.teamConfig.roles || []).map(function (r) { return r.name || r; }).join(', ');
-            html += '        <span class="neo-tag neo-tag-green">Teams of ' + currentPlan.teamConfig.teamSize + (rList ? (' (' + escapeHtml(rList) + ')') : '') + '</span>\n';
+            var teamsWord = i18n.t('lcExportMetaTeams') || 'Teams';
+            var studWord = i18n.t('lcExportMetaStudents') || 'students';
+            html += '        <span class="meta-tag"><strong>' + escapeHtml(teamsWord) + ':</strong> ' + currentPlan.teamConfig.teamSize + ' ' + escapeHtml(studWord) + (rList ? (' (' + escapeHtml(rList) + ')') : '') + '</span>\n';
           }
           if (toggles.metaTags && Array.isArray(currentPlan.tags) && currentPlan.tags.length > 0) {
-            html += '        <span class="neo-tag">Tags: ' + escapeHtml(currentPlan.tags.join(', ')) + '</span>\n';
+            html += '        <span class="meta-tag"><strong>' + escapeHtml(i18n.t('lcTagsLabel') || 'Tags:') + '</strong> ' + escapeHtml(currentPlan.tags.join(', ')) + '</span>\n';
           }
           html += '      </div>\n';
           html += '    </div>\n';
@@ -4885,13 +5028,12 @@
 
         // 2. Phases Block
         phases.forEach(function (sec, idx) {
-          var actInfo = ACTIVITY_COLOR_MAP[sec.activityTypeId] || { border: '#121212', bg: '#f4f4f5', text: '#121212', label: getActivityLabel(sec.activityTypeId) };
-          var actLabel = getActivityLabel(sec.activityTypeId);
-          var modeLabel = getInteractionLabel(sec.interactionTypeId);
+          var actLabel = getActivityLabel(sec.activityTypeId, false);
+          var modeLabel = getInteractionLabel(sec.interactionTypeId, false);
           var pDur = Number(sec.duration) || 0;
           var pTitle = sec.title || ('Phase ' + (idx + 1));
 
-          html += '    <div class="phase-export-card" style="border-left: 6px solid ' + actInfo.border + ';">\n';
+          html += '    <div class="phase-export-card">\n';
           html += '      <div class="phase-header">\n';
           html += '        <div class="phase-header-left">\n';
           if (toggles.phaseTitle) {
@@ -4899,16 +5041,16 @@
             html += '          <span class="phase-title">' + escapeHtml(pTitle) + '</span>\n';
           }
           if (toggles.phaseDuration) {
-            html += '          <span class="neo-tag neo-tag-yellow">' + pDur + ' min</span>\n';
+            html += '          <span class="phase-badge phase-badge-duration">' + pDur + ' min</span>\n';
           }
           html += '        </div>\n';
           html += '        <div class="phase-header-right">\n';
           if (toggles.phaseActivity) {
             if (actLabel) {
-              html += '          <span class="neo-tag" style="background:' + actInfo.bg + ';color:' + actInfo.text + ';border-color:' + actInfo.border + ';">' + escapeHtml(actLabel) + '</span>\n';
+              html += '          <span class="phase-badge">' + escapeHtml(actLabel) + '</span>\n';
             }
             if (modeLabel) {
-              html += '          <span class="neo-tag">' + escapeHtml(modeLabel) + '</span>\n';
+              html += '          <span class="phase-badge">' + escapeHtml(modeLabel) + '</span>\n';
             }
           }
           html += '        </div>\n';
@@ -4918,8 +5060,9 @@
 
           // Objective
           if (toggles.phaseObjective && sec.objective) {
+            var objTag = i18n.t('lcExportObjective') || 'Learning Objective';
             html += '        <div class="sec-box objective-box">\n';
-            html += '          <span class="box-tag">LEARNING OBJECTIVE</span>\n';
+            html += '          <span class="box-tag">' + escapeHtml(objTag) + '</span>\n';
             html += '          <div class="objective-text">' + escapeHtml(sec.objective) + '</div>\n';
             html += '        </div>\n';
           }
@@ -4930,16 +5073,18 @@
           if (hasTeacher || hasStudent) {
             html += '        <div class="actions-grid">\n';
             if (hasTeacher) {
+              var tTag = i18n.t('lcExportTeacherActions') || 'Teacher Actions';
               html += '          <div class="sec-box teacher-box">\n';
-              html += '            <span class="box-tag">TEACHER ACTIONS</span>\n';
+              html += '            <span class="box-tag">' + escapeHtml(tTag) + '</span>\n';
               html += '            <div class="box-text">' + escapeHtml(sec.teacherAction) + '</div>\n';
               html += '          </div>\n';
             } else if (hasStudent) {
               html += '          <div></div>\n';
             }
             if (hasStudent) {
+              var sTag = i18n.t('lcExportStudentTasks') || 'Student Tasks';
               html += '          <div class="sec-box student-box">\n';
-              html += '            <span class="box-tag">STUDENT TASKS</span>\n';
+              html += '            <span class="box-tag">' + escapeHtml(sTag) + '</span>\n';
               html += '            <div class="box-text">' + escapeHtml(sec.studentAction) + '</div>\n';
               html += '          </div>\n';
             }
@@ -4948,41 +5093,68 @@
 
           // Resources
           if (toggles.phaseResources && sec.resources) {
+            var resTag = i18n.t('lcExportResources') || 'Resources & Materials';
             html += '        <div class="sec-box resources-box">\n';
-            html += '          <span class="box-tag">RESOURCES & MATERIALS</span>\n';
+            html += '          <span class="box-tag">' + escapeHtml(resTag) + '</span>\n';
             html += '          <div class="box-text">' + escapeHtml(sec.resources) + '</div>\n';
             html += '        </div>\n';
           }
 
           // Tagged Competences
           if (toggles.phaseDescriptors && Array.isArray(sec.descriptorIds) && sec.descriptorIds.length > 0) {
-            html += '        <div class="sec-box" style="background:#faf5ff;">\n';
-            html += '          <span class="box-tag">TAGGED COMPETENCES</span>\n';
-            html += '          <div class="comp-chips">\n';
-            sec.descriptorIds.forEach(function (id) {
-              var targetIdStr = String(id || '').toLowerCase().trim();
-              var d = (allDescriptors || []).find(function (item) {
-                return item && (String(item.id || '').toLowerCase().trim() === targetIdStr || String(item.code || '').toLowerCase().trim() === targetIdStr);
+            var compTag = i18n.t('lcExportTaggedCompetences') || 'Tagged Competences';
+            html += '        <div class="sec-box descriptors-box">\n';
+            html += '          <span class="box-tag">' + escapeHtml(compTag) + '</span>\n';
+            if (toggles.phaseDescText) {
+              html += '          <div class="comp-list">\n';
+              sec.descriptorIds.forEach(function (id) {
+                var targetIdStr = String(id || '').toLowerCase().trim();
+                var d = (allDescriptors || []).find(function (item) {
+                  return item && (String(item.id || '').toLowerCase().trim() === targetIdStr || String(item.code || '').toLowerCase().trim() === targetIdStr);
+                });
+                var code = d ? (d.code || d.id) : id;
+                var title = d ? (d.title || '') : '';
+                var text = d ? (d.description || d.statement || '') : '';
+                html += '            <div class="comp-item">\n';
+                html += '              <div class="comp-item-header">';
+                if (code) html += '<span class="comp-item-code">' + escapeHtml(code) + '</span>';
+                if (title && title !== code) html += ' <span class="comp-item-title">' + escapeHtml(title) + '</span>';
+                html += '</div>\n';
+                if (text) {
+                  html += '              <div class="comp-item-text">' + escapeHtml(text) + '</div>\n';
+                }
+                html += '            </div>\n';
               });
-              var displayStr = d ? ((d.code ? (d.code + ' - ') : '') + (d.title || d.id)) : id;
-              html += '            <span class="comp-chip">' + escapeHtml(displayStr) + '</span>\n';
-            });
-            html += '          </div>\n';
+              html += '          </div>\n';
+            } else {
+              html += '          <div class="comp-chips">\n';
+              sec.descriptorIds.forEach(function (id) {
+                var targetIdStr = String(id || '').toLowerCase().trim();
+                var d = (allDescriptors || []).find(function (item) {
+                  return item && (String(item.id || '').toLowerCase().trim() === targetIdStr || String(item.code || '').toLowerCase().trim() === targetIdStr);
+                });
+                var displayStr = d ? ((d.code ? (d.code + ' - ') : '') + (d.title || d.id)) : id;
+                html += '            <span class="comp-chip">' + escapeHtml(displayStr) + '</span>\n';
+              });
+              html += '          </div>\n';
+            }
             html += '        </div>\n';
           }
 
           // Differentiation
           if (toggles.phaseDiff && sec.differentiation) {
+            var diffTag = i18n.t('lcExportDifferentiation') || 'Differentiation & Support';
             html += '        <div class="sec-box diff-box">\n';
-            html += '          <span class="box-tag">DIFFERENTIATION & SUPPORT</span>\n';
+            html += '          <span class="box-tag">' + escapeHtml(diffTag) + '</span>\n';
             html += '          <div class="box-text">' + escapeHtml(sec.differentiation) + '</div>\n';
             html += '        </div>\n';
           }
 
           // Formative Assessment
           if (toggles.phaseAssess && sec.assessmentStrategy) {
+            var assessTag = i18n.t('lcExportAssessmentStrategy') || 'Formative Assessment';
             html += '        <div class="sec-box assess-box">\n';
-            html += '          <span class="box-tag">FORMATIVE ASSESSMENT</span>\n';
+            html += '          <span class="box-tag">' + escapeHtml(assessTag) + '</span>\n';
             html += '          <div class="box-text">' + escapeHtml(sec.assessmentStrategy) + '</div>\n';
             html += '        </div>\n';
           }
@@ -4998,7 +5170,7 @@
           '    </div>\n' +
           '  </div>\n';
 
-        if (isForPrint) {
+        if (options && options.autoPrint) {
           html += '  <script>window.addEventListener("load", function() { setTimeout(function() { window.print(); }, 250); });<\/script>\n';
         }
 
@@ -5159,7 +5331,7 @@
         }
 
         var toggles = lcGetExportToggles();
-        var html = lcGenerateExportHtml({ forPrint: true, toggles: toggles });
+        var html = lcGenerateExportHtml({ forPrint: false, toggles: toggles });
         var filename = getSafeExportFilename('pdf');
 
         if (window.Desktop && Desktop.isElectron() && typeof Desktop.printPdf === 'function' && dest !== 'browser') {
@@ -5168,7 +5340,13 @@
               html: html,
               defaultName: filename,
               landscape: false,
-              pdfOptions: { pageSize: 'A4', landscape: false }
+              pdfOptions: {
+                pageSize: 'A4',
+                landscape: false,
+                marginsType: 1,
+                preferCSSPageSize: true,
+                printBackground: true
+              }
             };
             if (dest === 'to-print') {
               req.target = 'toPrint';
@@ -5193,6 +5371,10 @@
             win.document.open();
             win.document.write(html);
             win.document.close();
+            win.focus();
+            setTimeout(function () {
+              try { win.print(); } catch (_) {}
+            }, 300);
             lcCloseModal('exportPlanModal');
           } else {
             window.print();
@@ -5294,8 +5476,13 @@
                 var d = (allDescriptors || []).find(function (item) {
                   return item && (String(item.id || '').toLowerCase().trim() === targetIdStr || String(item.code || '').toLowerCase().trim() === targetIdStr);
                 });
-                return d ? ((d.code ? (d.code + ': ') : '') + (d.title || d.id)) : id;
-              }).join('; ');
+                if (!d) return id;
+                var s = (d.code ? (d.code + ': ') : '') + (d.title || d.id);
+                if (toggles.phaseDescText && (d.description || d.statement)) {
+                  s += ' — ' + (d.description || d.statement);
+                }
+                return s;
+              }).join(';\n');
             }
             row.push(descStr);
           }
@@ -5319,7 +5506,7 @@
 
         // Sheet 2: Competences Matrix
         if (toggles.phaseDescriptors) {
-          var compRows = [['Code', 'Standard / Competence Title', 'Category', 'Subject', 'Phases Tagged In']];
+          var compRows = [['Code', 'Standard / Competence Title', 'Description / Text', 'Category', 'Subject', 'Phases Tagged In']];
           var usedDescMap = new Map();
 
           phases.forEach(function (sec, pIdx) {
@@ -5333,6 +5520,7 @@
                 usedDescMap.set(key, {
                   code: d ? (d.code || '') : key,
                   title: d ? (d.title || d.id) : id,
+                  description: d ? (d.description || d.statement || '') : '',
                   category: d ? (d.category || d.subCategory || '') : '',
                   subject: d ? (getSubjectLabel(d.subjectId) || d.subjectId || '') : '',
                   phases: []
@@ -5344,10 +5532,10 @@
 
           if (usedDescMap.size > 0) {
             usedDescMap.forEach(function (val) {
-              compRows.push([val.code, val.title, val.category, val.subject, val.phases.join(', ')]);
+              compRows.push([val.code, val.title, val.description, val.category, val.subject, val.phases.join(', ')]);
             });
             var ws2 = XLSX.utils.aoa_to_sheet(compRows);
-            ws2['!cols'] = [{ wch: 14 }, { wch: 36 }, { wch: 20 }, { wch: 18 }, { wch: 24 }];
+            ws2['!cols'] = [{ wch: 14 }, { wch: 32 }, { wch: 50 }, { wch: 20 }, { wch: 18 }, { wch: 24 }];
             XLSX.utils.book_append_sheet(wb, ws2, 'Competences Matrix');
           }
         }
@@ -5465,7 +5653,12 @@
               var d = (allDescriptors || []).find(function (item) {
                 return item && (String(item.id || '').toLowerCase().trim() === targetIdStr || String(item.code || '').toLowerCase().trim() === targetIdStr);
               });
-              return d ? ((d.code ? (d.code + ': ') : '') + (d.title || d.id)) : id;
+              if (!d) return id;
+              var s = (d.code ? (d.code + ': ') : '') + (d.title || d.id);
+              if (toggles.phaseDescText && (d.description || d.statement)) {
+                s += ' — ' + (d.description || d.statement);
+              }
+              return s;
             }).join('; ');
             r.push(descStr);
           }
@@ -5660,23 +5853,76 @@
         phaseTeacher: true,
         phaseStudent: true,
         phaseResources: true,
-        phaseDescriptors: true
+        phaseDescriptors: true,
+        phaseDescText: false
       };
 
-      function getActivityLabel(aId) {
+      function getActivityLabel(aId, isShort) {
         if (!aId) return '';
+        var lang = (typeof i18n !== 'undefined') ? (i18n.getLang ? i18n.getLang() : (i18n.getLanguage ? i18n.getLanguage() : 'en')) : 'en';
+        var idToToken = {
+          'warm_up': 'lcActWarmUp',
+          'direct_instruction': 'lcActDirectInstruction',
+          'guided_practice': 'lcActGuidedPractice',
+          'independent_work': 'lcActIndependentWork',
+          'group_activity': 'lcActGroupActivity',
+          'discussion': 'lcActDiscussion',
+          'assessment': 'lcActAssessment',
+          'plenary': 'lcActPlenary'
+        };
+        var token = idToToken[aId];
+        if (token && typeof i18n !== 'undefined' && i18n.t) {
+          if (isShort) {
+            var sToken = token + 'Short';
+            var sVal = i18n.t(sToken);
+            if (sVal && sVal !== sToken) return sVal;
+          }
+          var val = i18n.t(token);
+          if (val && val !== token) return val;
+        }
         if (typeof LessonCreatorService !== 'undefined' && Array.isArray(LessonCreatorService.DEFAULT_ACTIVITY_TYPES)) {
           var found = LessonCreatorService.DEFAULT_ACTIVITY_TYPES.find(function (a) { return a.id === aId; });
-          if (found && found.name) return found.name;
+          if (found) {
+            if (lang === 'fr') {
+              if (isShort && found.shortName_fr) return found.shortName_fr;
+              if (found.name_fr) return found.name_fr;
+            }
+            return isShort ? (found.shortName || found.name) : (found.name || found.shortName);
+          }
         }
         return aId.charAt(0).toUpperCase() + aId.slice(1).replace(/_/g, ' ');
       }
 
-      function getInteractionLabel(iId) {
+      function getInteractionLabel(iId, isShort) {
         if (!iId) return '';
+        var lang = (typeof i18n !== 'undefined') ? (i18n.getLang ? i18n.getLang() : (i18n.getLanguage ? i18n.getLanguage() : 'en')) : 'en';
+        var idToToken = {
+          'whole_class': 'lcModeWholeClass',
+          'teacher_led': 'lcModeTeacherLed',
+          'individual': 'lcModeIndividual',
+          'pairs': 'lcModePairs',
+          'small_groups': 'lcModeSmallGroups',
+          'stations': 'lcModeStations'
+        };
+        var token = idToToken[iId];
+        if (token && typeof i18n !== 'undefined' && i18n.t) {
+          if (isShort) {
+            var sToken = token + 'Short';
+            var sVal = i18n.t(sToken);
+            if (sVal && sVal !== sToken) return sVal;
+          }
+          var val = i18n.t(token);
+          if (val && val !== token) return val;
+        }
         if (typeof LessonCreatorService !== 'undefined' && Array.isArray(LessonCreatorService.DEFAULT_INTERACTION_TYPES)) {
           var found = LessonCreatorService.DEFAULT_INTERACTION_TYPES.find(function (i) { return i.id === iId; });
-          if (found && found.name) return found.name;
+          if (found) {
+            if (lang === 'fr') {
+              if (isShort && found.shortName_fr) return found.shortName_fr;
+              if (found.name_fr) return found.name_fr;
+            }
+            return isShort ? (found.shortName || found.name) : (found.name || found.shortName);
+          }
         }
         return iId.charAt(0).toUpperCase() + iId.slice(1).replace(/_/g, ' ');
       }
@@ -5697,7 +5943,8 @@
           phaseTeacher: !!(document.getElementById('copyTgl_phaseTeacher') && document.getElementById('copyTgl_phaseTeacher').checked),
           phaseStudent: !!(document.getElementById('copyTgl_phaseStudent') && document.getElementById('copyTgl_phaseStudent').checked),
           phaseResources: !!(document.getElementById('copyTgl_phaseResources') && document.getElementById('copyTgl_phaseResources').checked),
-          phaseDescriptors: !!(document.getElementById('copyTgl_phaseDescriptors') && document.getElementById('copyTgl_phaseDescriptors').checked)
+          phaseDescriptors: !!(document.getElementById('copyTgl_phaseDescriptors') && document.getElementById('copyTgl_phaseDescriptors').checked),
+          phaseDescText: !!(document.getElementById('copyTgl_phaseDescText') && document.getElementById('copyTgl_phaseDescText').checked)
         };
       }
 
@@ -5829,9 +6076,14 @@
                 var d = (allDescriptors || []).find(function (item) {
                   return item && (String(item.id || '').toLowerCase().trim() === targetIdStr || String(item.code || '').toLowerCase().trim() === targetIdStr);
                 });
-                return d ? ((d.code ? (d.code + ' - ') : '') + (d.title || d.id)) : id;
-              }).join('; ');
-              pLines.push(formatField('Competences', descNames));
+                if (!d) return id;
+                var s = (d.code ? (d.code + ' - ') : '') + (d.title || d.id);
+                if (cfg.phaseDescText && (d.description || d.statement)) {
+                  s += ': ' + (d.description || d.statement);
+                }
+                return s;
+              }).join(cfg.phaseDescText ? '\n  • ' : '; ');
+              pLines.push(formatField('Competences', (cfg.phaseDescText ? ('\n  • ' + descNames) : descNames)));
             }
 
             if (pLines.length > 0) {
@@ -5855,18 +6107,27 @@
         if (fmtSel) fmtSel.value = cfg.format || 'markdown';
 
         var keys = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence', 'metaTags', 'metaTeams',
-                     'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseTeacher', 'phaseStudent', 'phaseResources', 'phaseDescriptors'];
+                     'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseTeacher', 'phaseStudent', 'phaseResources', 'phaseDescriptors', 'phaseDescText'];
         keys.forEach(function (k) {
           var el = document.getElementById('copyTgl_' + k);
-          if (el) el.checked = (cfg[k] !== false);
+          if (el) el.checked = (cfg[k] === true);
+          if (el && k !== 'phaseDescText') el.checked = (cfg[k] !== false);
         });
 
-        lcUpdateCopyTextPreview();
+        lcOnCopyToggleChange();
         var m = document.getElementById('copyTextModal');
         if (m) m.style.display = 'flex';
       };
 
       window.lcOnCopyToggleChange = function () {
+        var parentEl = document.getElementById('copyTgl_phaseDescriptors');
+        var childEl = document.getElementById('copyTgl_phaseDescText');
+        var childWrap = document.getElementById('copyTgl_phaseDescText_wrap');
+        if (parentEl && childEl && childWrap) {
+          childEl.disabled = !parentEl.checked;
+          childWrap.style.opacity = parentEl.checked ? '1' : '0.45';
+          childWrap.style.pointerEvents = parentEl.checked ? 'auto' : 'none';
+        }
         var cfg = lcGetCopyTextToggles();
         try {
           localStorage.setItem('cmt_lc_copy_text_config', JSON.stringify(cfg));
@@ -5883,17 +6144,23 @@
             var el = document.getElementById('copyTgl_' + k);
             if (el) el.checked = true;
           });
+          var descTextEl = document.getElementById('copyTgl_phaseDescText');
+          if (descTextEl) descTextEl.checked = true;
         } else if (preset === 'summary') {
           var summaryTrue = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence', 'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective'];
           keys.forEach(function (k) {
             var el = document.getElementById('copyTgl_' + k);
             if (el) el.checked = summaryTrue.includes(k);
           });
+          var descTextEl = document.getElementById('copyTgl_phaseDescText');
+          if (descTextEl) descTextEl.checked = false;
         } else if (preset === 'phasesOnly') {
           keys.forEach(function (k) {
             var el = document.getElementById('copyTgl_' + k);
             if (el) el.checked = k.startsWith('phase');
           });
+          var descTextEl = document.getElementById('copyTgl_phaseDescText');
+          if (descTextEl) descTextEl.checked = false;
         }
 
         lcOnCopyToggleChange();
