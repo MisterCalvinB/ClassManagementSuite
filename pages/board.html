@@ -4527,73 +4527,84 @@
     }
     window.conNormalizeWordForLookup = conNormalizeWordForLookup;
 
+    let _conVocabIndex = null;
+    let _conVocabIndexRef = null;
+
+    function conGetVocabBankIndex() {
+      if (typeof vocabBank === 'undefined' || !Array.isArray(vocabBank)) return null;
+      if (_conVocabIndex && _conVocabIndexRef === vocabBank) return _conVocabIndex;
+      _conVocabIndexRef = vocabBank;
+      const directMap = new Map();
+      const formMap = new Map();
+
+      for (let i = 0; i < vocabBank.length; i++) {
+        const v = vocabBank[i];
+        if (!v || !v.word) continue;
+        const normLemma = conNormalizeWordForLookup(v.word);
+        if (normLemma) {
+          let list = directMap.get(normLemma);
+          if (!list) { list = []; directMap.set(normLemma, list); }
+          list.push({ entry: v, matchType: 'direct', matchedWord: v.word });
+        }
+        const indexForms = (forms) => {
+          if (!forms) return;
+          const terms = Array.isArray(forms)
+            ? forms.map(f => typeof f === 'string' ? f : (f.word || f.form || f.term || ''))
+            : (typeof forms === 'string' ? forms.split(/[,;/]+/) : []);
+          for (let k = 0; k < terms.length; k++) {
+            const rawForm = conNormalizeWordForLookup(terms[k]);
+            if (rawForm && rawForm !== normLemma) {
+              let flist = formMap.get(rawForm);
+              if (!flist) { flist = []; formMap.set(rawForm, flist); }
+              flist.push({ entry: v, matchType: 'inflection', matchedWord: v.word });
+            }
+          }
+        };
+        indexForms(v.otherForms);
+        indexForms(v.otherTerms);
+      }
+      _conVocabIndex = { directMap, formMap };
+      return _conVocabIndex;
+    }
+    window.conGetVocabBankIndex = conGetVocabBankIndex;
+
     function conFindDbEntry(wordOrText) {
-      if (!wordOrText || typeof vocabBank === 'undefined' || !Array.isArray(vocabBank)) return null;
+      if (!wordOrText) return null;
       const raw = conNormalizeWordForLookup(wordOrText);
       if (!raw) return null;
-      // 1. Direct word match
-      const direct = vocabBank.find(v => v && v.word && conNormalizeWordForLookup(v.word) === raw);
-      if (direct) return direct;
-      // 2. otherForms / otherTerms match (inflections, plurals, irregular forms)
-      const matchForms = (forms) => {
-        if (!forms) return false;
-        if (Array.isArray(forms)) {
-          return forms.some(f => {
-            if (!f) return false;
-            const s = typeof f === 'string' ? f : (f.word || f.form || f.term || '');
-            return conNormalizeWordForLookup(s) === raw;
-          });
-        }
-        if (typeof forms === 'string' && forms.trim()) {
-          return forms.split(/[,;/]+/).some(s => conNormalizeWordForLookup(s) === raw);
-        }
-        return false;
-      };
-      return vocabBank.find(v => {
-        if (!v) return false;
-        return matchForms(v.otherForms) || matchForms(v.otherTerms);
-      }) || null;
+      const idx = conGetVocabBankIndex();
+      if (!idx) {
+        if (typeof vocabBank === 'undefined' || !Array.isArray(vocabBank)) return null;
+        return vocabBank.find(v => v && v.word && conNormalizeWordForLookup(v.word) === raw) || null;
+      }
+      const direct = idx.directMap.get(raw);
+      if (direct && direct.length) return direct[0].entry;
+      const form = idx.formMap.get(raw);
+      if (form && form.length) return form[0].entry;
+      return null;
     }
     window.conFindDbEntry = conFindDbEntry;
 
     function conFindAllDbEntries(wordOrText) {
-      if (!wordOrText || typeof vocabBank === 'undefined' || !Array.isArray(vocabBank)) return [];
+      if (!wordOrText) return [];
       const raw = conNormalizeWordForLookup(wordOrText);
       if (!raw) return [];
-
-      const matchForms = (forms) => {
-        if (!forms) return false;
-        if (Array.isArray(forms)) {
-          return forms.some(f => {
-            if (!f) return false;
-            const s = typeof f === 'string' ? f : (f.word || f.form || f.term || '');
-            return conNormalizeWordForLookup(s) === raw;
-          });
-        }
-        if (typeof forms === 'string' && forms.trim()) {
-          return forms.split(/[,;/]+/).some(s => conNormalizeWordForLookup(s) === raw);
-        }
-        return false;
-      };
-
-      const directMatches = [];
-      const formMatches = [];
-      const seenEntries = new Set();
-
-      for (let i = 0; i < vocabBank.length; i++) {
-        const v = vocabBank[i];
-        if (!v || !v.word || seenEntries.has(v)) continue;
-        const normLemma = conNormalizeWordForLookup(v.word);
-        if (normLemma === raw) {
-          seenEntries.add(v);
-          directMatches.push({ entry: v, matchType: 'direct', matchedWord: v.word });
-        } else if (matchForms(v.otherForms) || matchForms(v.otherTerms)) {
-          seenEntries.add(v);
-          formMatches.push({ entry: v, matchType: 'inflection', matchedWord: v.word });
-        }
+      const idx = conGetVocabBankIndex();
+      if (!idx) return [];
+      const direct = idx.directMap.get(raw) || [];
+      const form = idx.formMap.get(raw) || [];
+      if (direct.length === 0 && form.length === 0) return [];
+      const results = [];
+      const seen = new Set();
+      for (let i = 0; i < direct.length; i++) {
+        const m = direct[i];
+        if (!seen.has(m.entry)) { seen.add(m.entry); results.push(m); }
       }
-
-      return directMatches.concat(formMatches);
+      for (let i = 0; i < form.length; i++) {
+        const m = form[i];
+        if (!seen.has(m.entry)) { seen.add(m.entry); results.push(m); }
+      }
+      return results;
     }
     window.conFindAllDbEntries = conFindAllDbEntries;
 
@@ -16653,10 +16664,26 @@
         // Capture the current live board into its slot
         conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
         // Create a new empty page and switch to it
-        conPageSnapshots.push(conBuildEmptyPageSnapshot());
+        const emptySnap = conBuildEmptyPageSnapshot();
+        conPageSnapshots.push(emptySnap);
         if (Array.isArray(_conPageSnapshotPngs)) _conPageSnapshotPngs.push(null);
         conCurrentPageIndex = conPageSnapshots.length - 1;
-        _conRestorePageToBoard(conBuildEmptyPageSnapshot());
+
+        if (window._conMirrorSend) {
+          if (typeof window._conBumpBoardRevision === 'function') window._conBumpBoardRevision();
+          window._conMirrorSend({
+            type: 'board-state',
+            snapshot: emptySnap,
+            pageIndex: conCurrentPageIndex,
+            zoom: conCurrentZoom || 1,
+            selectedNodeId: null,
+            selectedNodeIds: [],
+            selectedGroupId: null,
+            selectedNoteIds: []
+          });
+        }
+
+        _conRestorePageToBoard(emptySnap);
         conUpdatePageBar();
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
       };
@@ -16666,7 +16693,24 @@
         // Save current live board into in-memory snapshot
         conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
         conCurrentPageIndex = idx;
-        _conRestorePageToBoard(conPageSnapshots[conCurrentPageIndex]);
+        const targetSnap = conPageSnapshots[conCurrentPageIndex];
+
+        // Broadcast target page directly and immediately so mirror restores in parallel
+        if (window._conMirrorSend && targetSnap) {
+          if (typeof window._conBumpBoardRevision === 'function') window._conBumpBoardRevision();
+          window._conMirrorSend({
+            type: 'board-state',
+            snapshot: targetSnap,
+            pageIndex: idx,
+            zoom: conCurrentZoom || 1,
+            selectedNodeId: null,
+            selectedNodeIds: [],
+            selectedGroupId: null,
+            selectedNoteIds: []
+          });
+        }
+
+        _conRestorePageToBoard(targetSnap);
         conUpdatePageBar();
       };
 
@@ -18733,12 +18777,17 @@
                   try {
                     var resp = await fetch(url);
                     var blob = await resp.blob();
-                    url = await new Promise(function (resolve, reject) {
-                      var reader = new FileReader();
-                      reader.onload = function () { resolve(reader.result); };
-                      reader.onerror = reject;
-                      reader.readAsDataURL(blob);
-                    });
+                    if (blob && blob.size > 10 * 1024 * 1024) {
+                      // Avoid serializing huge audio/video files (>10MB) into base64 over BroadcastChannel
+                      url = '';
+                    } else {
+                      url = await new Promise(function (resolve, reject) {
+                        var reader = new FileReader();
+                        reader.onload = function () { resolve(reader.result); };
+                        reader.onerror = reject;
+                        reader.readAsDataURL(blob);
+                      });
+                    }
                   } catch (err) { url = ''; }
                 }
                 if (url) _attachmentDataUrlCache.set(cacheKey, url);
@@ -18902,38 +18951,79 @@
           }
           const _mirrorBoard = document.getElementById('constellation-board');
           if (_mirrorBoard) {
+            let _mirrorObsTimer = null;
+            const _CON_SELECTION_STATUS_CLASSES = new Set([
+              'con-selected', 'con-multi-selected', 'con-src', 'con-group-selected',
+              'con-group-blink', 'con-attention-blink', 'wn-selected', 'con-drawing-selected',
+              'wn-emoji-sticker', 'laser-active', 'laser-btn-active', 'con-drop-target',
+              'con-table-drop-highlight', 'con-timer-running', 'con-timer-warning', 'con-timer-ended',
+              'con-masked', 'con-link-src'
+            ]);
             new MutationObserver(function (mutations) {
-              if (window._conSuppressMirrorObserver || window._conMirrorDragging) return;
-              // Skip full re-render if ALL mutations are only selection, blink, stickers, or transient classes
+              if (window._conSuppressMirrorObserver || window._conMirrorDragging || (typeof location !== 'undefined' && location.search.indexOf('mirror=1') !== -1)) return;
+              // Skip full re-render if mutations are only selection, blink, stickers, note typing, timer ticks, or transient classes
               const allIgnored = mutations.every(function (m) {
+                const t = m.target;
+                if (!t) return true;
+                // Ignore any mutations inside word notes (typing, formatting, autosize) — handled directly by note-text and note-move
+                if (t.closest && (t.closest('.con-word-note') || t.closest('.wn-note-editor') || t.closest('.wn-note-resizer'))) return true;
+                // Ignore any mutations inside node timers (countdown ticks, digit changes) — handled directly by node-timer-tick
+                if (t.closest && (t.closest('.con-node-timer') || t.closest('.con-timer-digits') || t.closest('.con-timer-node-row'))) return true;
+                if (t.closest && t.closest('.con-node-resizer')) return true;
+
                 if (m.type === 'attributes') {
-                  const t = m.target;
-                  if (!t) return false;
                   if (m.attributeName === 'class') {
-                    const cls = t.className || '';
-                    if (typeof cls === 'string') {
-                      if (cls.includes('con-selected') || cls.includes('con-multi-selected') ||
-                          cls.includes('con-src') || cls.includes('con-group-selected') ||
-                          cls.includes('con-group-blink') || cls.includes('con-attention-blink') ||
-                          cls.includes('wn-selected') || cls.includes('con-drawing-selected') ||
-                          cls.includes('wn-emoji-sticker') || cls.includes('laser-')) {
-                        return true;
+                    const oldTokens = (m.oldValue || '').trim().split(/\s+/).filter(Boolean);
+                    const newTokens = (t.className || '').trim().split(/\s+/).filter(Boolean);
+                    const oldSet = new Set(oldTokens);
+                    const newSet = new Set(newTokens);
+                    let onlySelectionStatusDiff = true;
+                    for (const c of oldTokens) {
+                      if (!newSet.has(c) && !_CON_SELECTION_STATUS_CLASSES.has(c)) {
+                        onlySelectionStatusDiff = false;
+                        break;
                       }
                     }
+                    if (onlySelectionStatusDiff) {
+                      for (const c of newTokens) {
+                        if (!oldSet.has(c) && !_CON_SELECTION_STATUS_CLASSES.has(c)) {
+                          onlySelectionStatusDiff = false;
+                          break;
+                        }
+                      }
+                    }
+                    if (onlySelectionStatusDiff) return true;
                   } else if (m.attributeName === 'style') {
-                    if (t.classList && t.classList.contains('wn-emoji-sticker')) return true;
+                    if (t.classList && (t.classList.contains('wn-emoji-sticker') || t.classList.contains('con-drop-target'))) return true;
                   }
                 } else if (m.type === 'childList') {
-                  const addedOnlyStickers = Array.from(m.addedNodes).every(n => n.classList && n.classList.contains('wn-emoji-sticker'));
-                  const removedOnlyStickers = Array.from(m.removedNodes).every(n => n.classList && n.classList.contains('wn-emoji-sticker'));
-                  if ((m.addedNodes.length === 0 || addedOnlyStickers) && (m.removedNodes.length === 0 || removedOnlyStickers)) return true;
+                  const addedOnlyIgnored = Array.from(m.addedNodes).every(n => {
+                    if (!n) return true;
+                    if (n.nodeType === Node.TEXT_NODE) return true;
+                    if (n.classList && (n.classList.contains('wn-emoji-sticker') || n.classList.contains('con-timer-digits') || n.classList.contains('con-timer-node-row') || n.classList.contains('wn-mirror-selection-overlay') || n.classList.contains('con-snap-line'))) return true;
+                    return false;
+                  });
+                  const removedOnlyIgnored = Array.from(m.removedNodes).every(n => {
+                    if (!n) return true;
+                    if (n.nodeType === Node.TEXT_NODE) return true;
+                    if (n.classList && (n.classList.contains('wn-emoji-sticker') || n.classList.contains('con-timer-digits') || n.classList.contains('con-timer-node-row') || n.classList.contains('wn-mirror-selection-overlay') || n.classList.contains('con-snap-line'))) return true;
+                    return false;
+                  });
+                  if ((m.addedNodes.length === 0 || addedOnlyIgnored) && (m.removedNodes.length === 0 || removedOnlyIgnored)) return true;
                 }
                 return false;
               });
-              if (!allIgnored) _mirrorBroadcast({ bumpRevision: true });
+              if (!allIgnored) {
+                if (_mirrorObsTimer) clearTimeout(_mirrorObsTimer);
+                _mirrorObsTimer = setTimeout(() => {
+                  _mirrorObsTimer = null;
+                  _mirrorBroadcast({ bumpRevision: true });
+                }, 50);
+              }
             }).observe(_mirrorBoard, {
               childList: true, subtree: true,
-              attributes: true, attributeFilter: ['style', 'class', 'data-shape']
+              attributes: true, attributeFilter: ['style', 'class', 'data-shape'],
+              attributeOldValue: true
             });
           }
           // Patch laserToggle to forward on/off state
@@ -18961,15 +19051,20 @@
             if (!_mirrorFrozen) _mirrorBroadcast();
           };
           _setFreezeUi(_mirrorFrozen);
-          // Sync board scroll (and page scroll) to mirror
+          // Sync board scroll (and page scroll) to mirror (throttled to rAF)
+          let _mirrorScrollRaf = null;
           function _mirrorSendScroll() {
             if (_mirrorFrozen) return;
-            var vp = _mirrorGetViewport();
-            window._conMirrorSend({
-              type: 'board-scroll',
-              sx: vp.sx, sy: vp.sy,
-              boardViewW: vp.vW, boardViewH: vp.vH,
-              zoom: conCurrentZoom || 1
+            if (_mirrorScrollRaf) return;
+            _mirrorScrollRaf = requestAnimationFrame(function () {
+              _mirrorScrollRaf = null;
+              var vp = _mirrorGetViewport();
+              window._conMirrorSend({
+                type: 'board-scroll',
+                sx: vp.sx, sy: vp.sy,
+                boardViewW: vp.vW, boardViewH: vp.vH,
+                zoom: conCurrentZoom || 1
+              });
             });
           }
           if (_mirrorBoard) {
@@ -20392,7 +20487,7 @@
 
         // All click logic lives here in mousedown/onUp so modifier keys are available
         let dragging = false, ox = 0, oy = 0, startX = 0, startY = 0;
-        let _preDragSnap = null;
+        let _preDragSnap = null, _conNodeMoveRaf = null;
         el.addEventListener('mousedown', function (e) {
           if (e.button !== 0) return; // left button only
           if (e.target.closest('.con-node-resizer')) return; // let resizer handle it
@@ -20662,20 +20757,29 @@
             }
             conRedrawEdges();
             conGroupRefitAll();
-            // Send lightweight node-move message to mirror — avoids full snapshot during drag
+            // Send lightweight node-move message to mirror throttled to rAF — avoids full snapshot during drag
             if (window._conMirrorSend) {
-              const _mirrorPositions = [];
-              if (groupSnap) {
-                groupSnap.forEach(function ({ n }) { _mirrorPositions.push({ id: n.id, x: n.x, y: n.y }); });
-              } else {
-                _mirrorPositions.push({ id: node.id, x: node.x, y: node.y });
+              if (!_conNodeMoveRaf) {
+                _conNodeMoveRaf = requestAnimationFrame(function () {
+                  _conNodeMoveRaf = null;
+                  const _mirrorPositions = [];
+                  if (groupSnap) {
+                    groupSnap.forEach(function ({ n }) { _mirrorPositions.push({ id: n.id, x: n.x, y: n.y }); });
+                  } else {
+                    _mirrorPositions.push({ id: node.id, x: node.x, y: node.y });
+                  }
+                  window._conMirrorSend({ type: 'node-move', positions: _mirrorPositions });
+                });
               }
-              window._conMirrorSend({ type: 'node-move', positions: _mirrorPositions });
             }
           }
           function onUp(e) {
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onUp);
+            if (_conNodeMoveRaf) {
+              cancelAnimationFrame(_conNodeMoveRaf);
+              _conNodeMoveRaf = null;
+            }
             // Lift drag suppression so the MutationObserver resumes normal operation
             window._conMirrorDragging = false;
             // Clear snap lines and drop-target highlights
@@ -21136,8 +21240,8 @@
       // Returns distance from node centre to its rectangular boundary in direction (dx, dy)
       // plus a small margin so the arrowhead tip lands just at the visible edge
       function conNodeEdgeOffset(node, dx, dy) {
-        const rawW = node && node.el ? ((node.el.offsetWidth > 0) ? node.el.offsetWidth : (parseFloat(node.el.style.width) || 80)) : 80;
-        const rawH = node && node.el ? ((node.el.offsetHeight > 0) ? node.el.offsetHeight : (parseFloat(node.el.style.height) || 28)) : 28;
+        const rawW = (node && node._cachedW > 0) ? node._cachedW : (node && node.el ? ((node.el.offsetWidth > 0) ? (node._cachedW = node.el.offsetWidth) : (parseFloat(node.el.style.width) || 80)) : 80);
+        const rawH = (node && node._cachedH > 0) ? node._cachedH : (node && node.el ? ((node.el.offsetHeight > 0) ? (node._cachedH = node.el.offsetHeight) : (parseFloat(node.el.style.height) || 28)) : 28);
         const w = Math.max(20, rawW);
         const h = Math.max(10, rawH);
         const len = Math.sqrt(dx * dx + dy * dy);
@@ -21163,6 +21267,12 @@
       }
 
       function conRedrawEdges() {
+        if (typeof conNodes !== 'undefined' && Array.isArray(conNodes)) {
+          for (let i = 0; i < conNodes.length; i++) {
+            conNodes[i]._cachedW = 0;
+            conNodes[i]._cachedH = 0;
+          }
+        }
         conEdges.forEach(e => conUpdateEdge(e));
       }
 
@@ -21176,15 +21286,15 @@
         const note = noteArr.find(n => n.id === id);
         if (note) {
           const el = (typeof wnGetNoteElementById === 'function') ? wnGetNoteElementById(id) : document.querySelector(`.con-word-note[data-id="${id}"]`);
-          const w = (el && el.offsetWidth > 0) ? el.offsetWidth : (typeof note.width === 'number' && note.width > 0 ? note.width : 120);
-          const h = (el && el.offsetHeight > 0) ? el.offsetHeight : (typeof note.height === 'number' && note.height > 0 ? note.height : 80);
+          const w = (note._cachedW > 0) ? note._cachedW : ((el && el.offsetWidth > 0) ? (note._cachedW = el.offsetWidth) : (typeof note.width === 'number' && note.width > 0 ? note.width : 120));
+          const h = (note._cachedH > 0) ? note._cachedH : ((el && el.offsetHeight > 0) ? (note._cachedH = el.offsetHeight) : (typeof note.height === 'number' && note.height > 0 ? note.height : 80));
           return { cx: note.x + w / 2, cy: note.y + h / 2, el, shape: null };
         }
         // 2. Node
         const node = conNodes.find(n => n.id === id);
         if (node && node.el) {
-          const nw = (node.el.offsetWidth > 0) ? node.el.offsetWidth : (parseFloat(node.el.style.width) || 80);
-          const nh = (node.el.offsetHeight > 0) ? node.el.offsetHeight : (parseFloat(node.el.style.height) || 28);
+          const nw = (node._cachedW > 0) ? node._cachedW : ((node.el.offsetWidth > 0) ? (node._cachedW = node.el.offsetWidth) : (parseFloat(node.el.style.width) || 80));
+          const nh = (node._cachedH > 0) ? node._cachedH : ((node.el.offsetHeight > 0) ? (node._cachedH = node.el.offsetHeight) : (parseFloat(node.el.style.height) || 28));
           return {
             cx: node.x + nw / 2,
             cy: node.y + nh / 2,
@@ -21281,9 +21391,8 @@
         if (!node || !node.el) return;
         const el = node.el;
         const shape = conNormalizeNodeShape(requestedShape || node.shape || el.dataset.shape);
-        const computed = getComputedStyle(el);
-        const borderColor = el.style.borderColor || computed.borderColor || '#111111';
-        const bgColor = el.style.background || computed.backgroundColor || '#ffffff';
+        const borderColor = el.style.borderColor || node.border || '#111111';
+        const bgColor = el.style.background || node.bg || '#ffffff';
         node.shape = shape;
         el.dataset.shape = shape;
         el.style.setProperty('--con-node-border', borderColor);
@@ -21311,6 +21420,9 @@
         // Apply custom border width / style if set
         if (node.borderWidth) el.style.borderWidth = node.borderWidth + 'px';
         if (node.borderStyle) el.style.borderStyle = node.borderStyle;
+
+        // Rectangle is default; avoid reading layout dimensions to prevent forced reflows!
+        if (shape === 'rectangle') return;
 
         const naturalW = Math.max(48, el.scrollWidth || el.offsetWidth || 48);
         const naturalH = Math.max(32, el.scrollHeight || el.offsetHeight || 32);
@@ -22362,11 +22474,33 @@
       let _conActiveCmsTimerNodeId = null;
       window._conActiveCmsTimerNodeId = null;
 
+      function conUpdateTimerNodeDisplay(node) {
+        if (!node || !node.el) return;
+        const totalSec = node.remainingSec != null ? node.remainingSec : (node.durationSec || 0);
+        const timeStr = conFormatDurationSec(totalSec);
+        const isWarn = totalSec <= 10 && totalSec > 0;
+        const isEnded = totalSec <= 0;
+        const isRunning = node.timerState === 'running';
+
+        node.el.classList.toggle('con-node-timer', true);
+        node.el.classList.toggle('con-timer-running', isRunning);
+        node.el.classList.toggle('con-timer-warning', isWarn);
+        node.el.classList.toggle('con-timer-ended', isEnded);
+
+        const digits = node.el.querySelector('.con-timer-digits');
+        if (digits) {
+          if (digits.textContent !== timeStr) digits.textContent = timeStr;
+        } else {
+          conRenderNodeLabel(node);
+        }
+      }
+      window.conUpdateTimerNodeDisplay = conUpdateTimerNodeDisplay;
+
       function conTimerTickEngine() {
+        if (typeof location !== 'undefined' && location.search.indexOf('mirror=1') !== -1) return;
         if (_conTimerEngineInterval) return;
         _conTimerEngineInterval = setInterval(function () {
           const now = Date.now();
-          let mirrorNeedsUpdate = false;
 
           conNodes.forEach(node => {
             if (!node || !node.isTimer) return;
@@ -22377,26 +22511,39 @@
                 const rem = Math.max(0, Math.ceil((node.timerEndTime - now) / 1000));
                 if (rem !== node.remainingSec) {
                   node.remainingSec = rem;
-                  conRenderNodeLabel(node);
-                  mirrorNeedsUpdate = true;
+                  conUpdateTimerNodeDisplay(node);
+                  if (window._conMirrorSend) {
+                    window._conMirrorSend({
+                      type: 'node-timer-tick',
+                      id: String(node.id),
+                      remainingSec: rem,
+                      timerState: node.timerState
+                    });
+                  }
                 }
                 if (rem <= 0) {
                   node.timerState = 'ended';
                   node.timerEndTime = null;
-                  conRenderNodeLabel(node);
-                  mirrorNeedsUpdate = true;
+                  conUpdateTimerNodeDisplay(node);
+                  if (window._conMirrorSend) {
+                    window._conMirrorSend({
+                      type: 'node-timer-tick',
+                      id: String(node.id),
+                      remainingSec: 0,
+                      timerState: 'ended'
+                    });
+                  }
                   if (typeof conBlinkNodeAttention === 'function' && node.el) {
                     conBlinkNodeAttention(node.el, 3000);
                   }
                   conPlayTimerChime();
+                  if (window._conMirrorBroadcast) {
+                    window._conMirrorBroadcast();
+                  }
                 }
               }
             }
           });
-
-          if (mirrorNeedsUpdate && window._conMirrorBroadcast) {
-            window._conMirrorBroadcast();
-          }
         }, 500);
       }
       conTimerTickEngine();
@@ -24110,10 +24257,16 @@
           const _savedResizer = node.el.querySelector('.con-node-resizer');
           const _savedEmojiDot = node.el.querySelector('.con-emoji-dot');
           const _savedStarBtn = node.el.querySelector('.con-node-star-btn');
+          const _savedCompBadge = node.el.querySelector('.con-node-comp-badge');
           node.el.innerHTML = timerHtml;
           if (_savedResizer) node.el.appendChild(_savedResizer);
           if (_savedEmojiDot) node.el.appendChild(_savedEmojiDot);
           if (_savedStarBtn) node.el.appendChild(_savedStarBtn);
+          if (typeof conUpdateNodeCompetenceBadge === 'function') {
+            conUpdateNodeCompetenceBadge(node);
+          } else if (_savedCompBadge) {
+            node.el.appendChild(_savedCompBadge);
+          }
           node.el.style.display = 'inline-flex';
           node.el.style.flexDirection = 'column';
           node.el.style.alignItems = 'center';
@@ -24182,14 +24335,20 @@
         } else {
           el.style.fontVariant = 'normal';
         }
-        // Preserve resize handle, emoji dot, and star button across innerHTML rebuilds
+        // Preserve resize handle, emoji dot, star button, and competence badge across innerHTML rebuilds
         const _savedResizer = el.querySelector('.con-node-resizer');
         const _savedEmojiDot = el.querySelector('.con-emoji-dot');
         const _savedStarBtn = el.querySelector('.con-node-star-btn');
+        const _savedCompBadge = el.querySelector('.con-node-comp-badge');
         node.el.innerHTML = wordRow + annLines;
         if (_savedResizer) el.appendChild(_savedResizer);
         if (_savedEmojiDot) el.appendChild(_savedEmojiDot);
         if (_savedStarBtn) el.appendChild(_savedStarBtn);
+        if (typeof conUpdateNodeCompetenceBadge === 'function') {
+          conUpdateNodeCompetenceBadge(node);
+        } else if (_savedCompBadge) {
+          el.appendChild(_savedCompBadge);
+        }
         // Keep node content vertically centred for all shapes
         node.el.style.display = 'inline-flex';
         node.el.style.flexDirection = 'column';
@@ -31423,7 +31582,12 @@
       ta.style.width = '100%';
       ta.style.height = 'auto';
       ta.style.height = Math.max(24, ta.scrollHeight) + 'px';
-      if (note) note.style.height = Math.max(40, ta.scrollHeight + 12) + 'px';
+      const newH = Math.max(40, ta.scrollHeight + 12);
+      if (note) note.style.height = newH + 'px';
+      if (noteData) {
+        noteData.liveBaseWidth = newW;
+        noteData.liveBaseHeight = newH;
+      }
     }
 
     function conNoteBuild(noteData) {
@@ -31550,7 +31714,6 @@
         if (typeof wnSyncAndBroadcastNoteSelection === 'function') {
           wnSyncAndBroadcastNoteSelection(false);
         }
-        conScheduleNoteMirrorUpdate(noteData, ta);
       });
       ta.addEventListener('blur', () => {
         conCancelNoteMirrorUpdate();
@@ -31584,7 +31747,6 @@
       });
       ta.addEventListener('keyup', () => {
         wnRememberSelection(ta);
-        conScheduleNoteMirrorUpdate(noteData, ta);
       });
       ta.addEventListener('focus', () => {
         wnRememberSelection(ta);
@@ -31910,6 +32072,7 @@
       let _dragOffsets = [];
       let _nodeOffsets = [];
       let _drawOffsets = [];
+      let _conNoteMoveRaf = null;
       note.addEventListener('mousedown', e => {
         if (e.target.closest('.wn-note-editor') || e.target.closest('.wn-note-resizer')) return;
         // Blur active editor so Delete key immediately acts on the selected note container
@@ -32122,13 +32285,22 @@
         // Lightweight mirror update — send note positions directly, no snapshot
         if (window._conMirrorSend && _dragOffsets.length > 0) {
           window._conMirrorDragging = true;
-          const _notePositions = _dragOffsets.map(({ nd }) => ({ id: nd.id, x: nd.x, y: nd.y }));
-          window._conMirrorSend({ type: 'note-move', positions: _notePositions });
+          if (!_conNoteMoveRaf) {
+            _conNoteMoveRaf = requestAnimationFrame(function () {
+              _conNoteMoveRaf = null;
+              const _notePositions = _dragOffsets.map(({ nd }) => ({ id: nd.id, x: nd.x, y: nd.y }));
+              window._conMirrorSend({ type: 'note-move', positions: _notePositions });
+            });
+          }
         }
       });
       document.addEventListener('mouseup', () => {
         if (!dragging) return;
         dragging = false;
+        if (_conNoteMoveRaf) {
+          cancelAnimationFrame(_conNoteMoveRaf);
+          _conNoteMoveRaf = null;
+        }
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
         // Lift drag suppression and do a full mirror sync
         window._conMirrorDragging = false;
@@ -33695,12 +33867,20 @@
         })),
         notes: (window.conGetNotes ? window.conGetNotes() : []).map(n => ({
           ...(function () {
-            const _el = (typeof wnGetNoteElementById === 'function') ? wnGetNoteElementById(n.id) : null;
-            const _w = _el ? (_el.offsetWidth || parseFloat(_el.style.width) || 0) : 0;
-            const _h = _el ? (_el.offsetHeight || parseFloat(_el.style.height) || 0) : 0;
+            let _w = n.liveBaseWidth != null ? n.liveBaseWidth : (typeof n.width === 'number' && n.width > 0 ? n.width : null);
+            let _h = n.liveBaseHeight != null ? n.liveBaseHeight : (typeof n.height === 'number' && n.height > 0 ? n.height : null);
+            if (_w == null || _h == null) {
+              const _el = (typeof wnGetNoteElementById === 'function') ? wnGetNoteElementById(n.id) : null;
+              if (_el) {
+                const sw = parseFloat(_el.style.width) || 0;
+                const sh = parseFloat(_el.style.height) || 0;
+                if (_w == null && sw > 0) _w = sw / _noteZoom;
+                if (_h == null && sh > 0) _h = sh / _noteZoom;
+              }
+            }
             return {
-              liveBaseWidth: _w > 0 ? (_w / _noteZoom) : null,
-              liveBaseHeight: _h > 0 ? (_h / _noteZoom) : null
+              liveBaseWidth: _w || null,
+              liveBaseHeight: _h || null
             };
           })(),
           id: n.id, nodeId: n.nodeId,
@@ -36608,12 +36788,24 @@
     }
 
     // Save a WebP/PNG snapshot of the current board state for a given page index.
+    // Save a WebP/PNG snapshot of the current board state for a given page index.
     // Captures visual fidelity canvas and updates in-memory snapshot cache and DOM preview.
     async function conSaveCurrentPageSnapshotPng(pageIndex, options = {}) {
       const idx = (typeof pageIndex === 'number') ? pageIndex : conCurrentPageIndex;
       if (typeof idx !== 'number' || idx < 0) return;
       let dataUrl = '';
-      if (idx === conCurrentPageIndex && typeof _conBuildBoardCanvas === 'function') {
+
+      const snap = (idx === conCurrentPageIndex && typeof conBuildPageSnapshot === 'function')
+        ? conBuildPageSnapshot()
+        : (conPageSnapshots && conPageSnapshots[idx]);
+
+      // Fast-path: use lightweight vector thumbnail renderer (sub-millisecond)
+      if (options.fast && snap && typeof conBuildPageThumbnailDataUrl === 'function') {
+        dataUrl = conBuildPageThumbnailDataUrl(snap, 480, 320);
+      }
+
+      // High-res path: only render full board canvas when not in fast mode
+      if (!dataUrl && !options.fast && idx === conCurrentPageIndex && typeof _conBuildBoardCanvas === 'function') {
         try {
           const liveRes = await _conBuildBoardCanvas();
           if (liveRes && liveRes.canvas) {
@@ -36627,11 +36819,7 @@
           }
         } catch (_) {}
       }
-      if (!dataUrl) {
-        const snap = (idx === conCurrentPageIndex && typeof conBuildPageSnapshot === 'function')
-          ? conBuildPageSnapshot()
-          : (conPageSnapshots && conPageSnapshots[idx]);
-        if (!snap) return;
+      if (!dataUrl && snap) {
         dataUrl = (typeof conBuildPageThumbnailDataUrl === 'function')
           ? conBuildPageThumbnailDataUrl(snap, 480, 320)
           : '';
@@ -36670,13 +36858,15 @@
       const targetIdx = (typeof pageIndex === 'number') ? pageIndex : conCurrentPageIndex;
       if (typeof targetIdx !== 'number' || targetIdx < 0) return;
       _conPageSnapshotSaveQueued = targetIdx;
-      if (_conPageSnapshotSaveTimer) return;
 
-      const schedule = window.requestIdleCallback
-        ? function (cb) { return window.requestIdleCallback(cb, { timeout: 2000 }); }
-        : function (cb) { return setTimeout(cb, 150); };
+      // Immediately produce fast vector thumbnail with zero lag
+      try {
+        conSaveCurrentPageSnapshotPng(targetIdx, { fast: true });
+      } catch (_) {}
 
-      _conPageSnapshotSaveTimer = schedule(async function () {
+      // Debounce heavy raster canvas build to avoid freezing UI during active page navigation
+      if (_conPageSnapshotSaveTimer) clearTimeout(_conPageSnapshotSaveTimer);
+      _conPageSnapshotSaveTimer = setTimeout(async function () {
         _conPageSnapshotSaveTimer = null;
         const nextIndex = _conPageSnapshotSaveQueued;
         _conPageSnapshotSaveQueued = null;
@@ -36684,10 +36874,7 @@
         try {
           await conSaveCurrentPageSnapshotPng(nextIndex);
         } catch (_) { }
-        if (_conPageSnapshotSaveQueued !== null && _conPageSnapshotSaveQueued !== undefined) {
-          conQueueCurrentPageSnapshotPng(_conPageSnapshotSaveQueued);
-        }
-      });
+      }, 2500);
     }
 
     let _conLiveSnapshotDebounceTimer = null;
@@ -37371,23 +37558,20 @@
     }
     // ────────────────────────────────────────────────────────────────
 
+    let _conLayoutRefreshRaf = null;
     function conScheduleLayoutRefresh() {
       const run = () => {
         if (typeof window.conGroupRefitAll === 'function') window.conGroupRefitAll();
         if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
       };
       run();
-      if (typeof requestAnimationFrame === 'function') {
-        requestAnimationFrame(() => {
-          run();
-          requestAnimationFrame(run);
-        });
-      }
-      setTimeout(run, 50);
-      setTimeout(run, 150);
-      setTimeout(run, 350);
+      if (_conLayoutRefreshRaf) cancelAnimationFrame(_conLayoutRefreshRaf);
+      _conLayoutRefreshRaf = requestAnimationFrame(() => {
+        _conLayoutRefreshRaf = null;
+        run();
+      });
       if (document.fonts && document.fonts.ready && typeof document.fonts.ready.then === 'function') {
-        document.fonts.ready.then(run).catch(() => {});
+        document.fonts.ready.then(() => { run(); }).catch(() => {});
       }
     }
     window.conScheduleLayoutRefresh = conScheduleLayoutRefresh;
@@ -38238,9 +38422,9 @@
             if (window.conSyncNodeLockState) window.conSyncNodeLockState(existing);
             nextNodes.push(existing);
           } else {
-            const dbMatch = (typeof vocabBank !== 'undefined')
-              ? vocabBank.find(i => i.word.toLowerCase() === (n.dbWord || n.baseWord || '').toLowerCase())
-              : null;
+            const dbMatch = typeof conFindDbEntry === 'function'
+              ? conFindDbEntry(n.dbWord || n.baseWord || '')
+              : ((typeof vocabBank !== 'undefined') ? vocabBank.find(i => i.word.toLowerCase() === (n.dbWord || n.baseWord || '').toLowerCase()) : null);
             const el = document.createElement('div');
             el.className = 'con-node' + (dbMatch ? ' con-node-matched' : '');
             el.id = n.id;
@@ -38559,9 +38743,9 @@
 
       // Restore nodes
       (data.nodes || []).forEach(n => {
-        const dbMatch = (typeof vocabBank !== 'undefined')
-          ? vocabBank.find(i => i.word.toLowerCase() === (n.dbWord || n.baseWord || '').toLowerCase())
-          : null;
+        const dbMatch = typeof conFindDbEntry === 'function'
+          ? conFindDbEntry(n.dbWord || n.baseWord || '')
+          : ((typeof vocabBank !== 'undefined') ? vocabBank.find(i => i.word.toLowerCase() === (n.dbWord || n.baseWord || '').toLowerCase()) : null);
         const el = document.createElement('div');
         el.className = 'con-node' + (dbMatch ? ' con-node-matched' : '');
         el.id = n.id;
@@ -38597,7 +38781,8 @@
           fontFamily: n.fontFamily || null,
           fontSize: n.fontSize || '16px',
           textStrokeColor: n.textStrokeColor || null,
-          textStrokeWidth: n.textStrokeWidth || null
+          textStrokeWidth: n.textStrokeWidth || null,
+          competences: Array.isArray(n.competences) ? n.competences.slice() : (n.competences ? [n.competences] : (Array.isArray(n.competenceTags) ? n.competenceTags.slice() : []))
         };
         if (nodeObj.isTimer && nodeObj.timerState === 'running') {
           nodeObj.timerEndTime = Date.now() + (nodeObj.remainingSec || nodeObj.durationSec || 60) * 1000;
@@ -38613,6 +38798,8 @@
         if (nodeObj.emoji && window.conEmojiRestoreNodeDotAndBadge) window.conEmojiRestoreNodeDotAndBadge(nodeObj);
         // Attach star button if node has a db entry
         if (window.conAddNodeStarBtn) window.conAddNodeStarBtn(nodeObj);
+        // Restore competence badge
+        if (typeof conUpdateNodeCompetenceBadge === 'function') conUpdateNodeCompetenceBadge(nodeObj);
         // Restore masked state
         if (n.masked) {
           nodeObj.masked = true;
@@ -46098,6 +46285,7 @@
     // Mirror window: receive board state via BroadcastChannel and render read-only
     (function () {
       if (new URLSearchParams(location.search).get('mirror') !== '1') return;
+      window._conSuppressMirrorObserver = true;
       document.title = 'Board – Presentation Mode';
       document.documentElement.classList.add('con-mirror-mode');
       const ch = new BroadcastChannel('constellation-mirror');
@@ -46113,21 +46301,23 @@
       var _mvpW = 0, _mvpH = 0, _msx = 0, _msy = 0;
       var _mirrorScale = 1, _mirrorWrapOx = 0, _mirrorWrapOy = 0;
       var _mirrorLivePath = null;
+      var _lastPdfResizeMw = 0, _lastPdfResizeMh = 0;
+      var _mirrorViewportRaf = null;
+
+      function _mirrorScheduleApplyViewport() {
+        if (_mirrorViewportRaf) return;
+        _mirrorViewportRaf = requestAnimationFrame(function () {
+          _mirrorViewportRaf = null;
+          _mirrorApplyViewport();
+        });
+      }
 
       // Apply transform so the mirror shows exactly the same board region as the main window.
       // The board element is 20000x20000 absolute; a fixed clip wrapper constrains what's visible.
       function _mirrorApplyViewport() {
         var brd = document.getElementById('constellation-board');
         var wrap = document.getElementById('con-mirror-clip');
-        if (!brd || !wrap || !_mvpW || !_mvpH) {
-          console.warn('[BoardMirror] _mirrorApplyViewport skipped:', {
-            hasBrd: !!brd,
-            hasWrap: !!wrap,
-            mvpW: _mvpW,
-            mvpH: _mvpH
-          });
-          return;
-        }
+        if (!brd || !wrap || !_mvpW || !_mvpH) return;
         var mW = window.innerWidth;
         var mH = window.innerHeight;
         var s = Math.min(mW / _mvpW, mH / _mvpH);
@@ -46145,25 +46335,22 @@
         // transform: scale(s) translate(-sx,-sy) — translate is in pre-scale coords
         brd.style.transform = 'scale(' + s + ') translate(' + (-_msx) + 'px, ' + (-_msy) + 'px)';
 
-        // If there is any fullscreen PDF, re-render it to match mirror window resize
-        document.querySelectorAll('.con-media-item.con-media-fullscreen.con-media-kind-pdf').forEach(function (fwrap) {
-          var fid = fwrap.dataset.id;
-          var fitems = window.conGetMediaItems ? window.conGetMediaItems() : [];
-          var fitem = fitems.find(function (m) { return String(m.id) === String(fid); });
-          if (fitem && typeof conRenderPdfForItem === 'function') {
-            var fcvs = fwrap.querySelector('canvas.con-media-pdf-canvas');
-            var fscr = fwrap.querySelector('.con-media-pdf-scroll');
-            var fcnt = fwrap.querySelector('.con-media-content');
-            if (fcvs) conRenderPdfForItem(fitem, fcvs, fscr, fcnt);
-          }
-        });
-
-        console.log('[BoardMirror] _mirrorApplyViewport updated:', {
-          windowSize: { w: mW, h: mH },
-          presenterViewport: { w: _mvpW, h: _mvpH, sx: _msx, sy: _msy },
-          computedScale: s,
-          clipBounds: { left: _mirrorWrapOx, top: _mirrorWrapOy, w: displayW, h: displayH }
-        });
+        // Only re-render fullscreen PDFs if mirror window was actually resized
+        if (_lastPdfResizeMw !== mW || _lastPdfResizeMh !== mH) {
+          _lastPdfResizeMw = mW;
+          _lastPdfResizeMh = mH;
+          document.querySelectorAll('.con-media-item.con-media-fullscreen.con-media-kind-pdf').forEach(function (fwrap) {
+            var fid = fwrap.dataset.id;
+            var fitems = window.conGetMediaItems ? window.conGetMediaItems() : [];
+            var fitem = fitems.find(function (m) { return String(m.id) === String(fid); });
+            if (fitem && typeof conRenderPdfForItem === 'function') {
+              var fcvs = fwrap.querySelector('canvas.con-media-pdf-canvas');
+              var fscr = fwrap.querySelector('.con-media-pdf-scroll');
+              var fcnt = fwrap.querySelector('.con-media-content');
+              if (fcvs) conRenderPdfForItem(fitem, fcvs, fscr, fcnt);
+            }
+          });
+        }
       }
 
       // Force-restart group blink animation synced to current clock phase (3.6 s period).
@@ -46561,6 +46748,21 @@
         if (!e.data) return;
         var d = e.data;
 
+        if (d.type === 'node-timer-tick') {
+          if (_mirrorIsFrozen) return;
+          var timerNode = (window.conGetNodes ? window.conGetNodes() : []).find(function (n) { return String(n.id) === String(d.id); });
+          if (timerNode) {
+            timerNode.remainingSec = d.remainingSec;
+            timerNode.timerState = d.timerState;
+            if (typeof conUpdateTimerNodeDisplay === 'function') {
+              conUpdateTimerNodeDisplay(timerNode);
+            } else if (typeof conRenderNodeLabel === 'function') {
+              conRenderNodeLabel(timerNode);
+            }
+          }
+          return;
+        }
+
         if (d.type === 'note-text') {
           if (_mirrorIsFrozen) return;
           var noteEl = document.querySelector('.con-word-note[data-id="' + d.id + '"]');
@@ -46716,19 +46918,17 @@
 
         if (d.type === 'board-scroll') {
           if (_mirrorIsFrozen) return;
-          console.log('[BoardMirror] Received board-scroll:', { sx: d.sx, sy: d.sy, boardViewW: d.boardViewW, boardViewH: d.boardViewH });
           if (typeof d.zoom === 'number' && typeof window.updateZoom === 'function') {
             window.updateZoom(d.zoom);
           }
           _msx = d.sx; _msy = d.sy;
           if (d.boardViewW) { _mvpW = d.boardViewW; _mvpH = d.boardViewH; }
-          _mirrorApplyViewport();
+          _mirrorScheduleApplyViewport();
           return;
         }
 
         if (d.type === 'board-zoom') {
           if (_mirrorIsFrozen) return;
-          console.log('[BoardMirror] Received board-zoom:', { zoom: d.zoom, sx: d.sx, sy: d.sy, boardViewW: d.boardViewW, boardViewH: d.boardViewH });
           if (typeof d.zoom === 'number' && typeof window.updateZoom === 'function') {
             window.updateZoom(d.zoom);
           }
@@ -46736,7 +46936,7 @@
             _msx = d.sx; _msy = d.sy;
           }
           if (d.boardViewW) { _mvpW = d.boardViewW; _mvpH = d.boardViewH; }
-          _mirrorApplyViewport();
+          _mirrorScheduleApplyViewport();
           return;
         }
 
@@ -46896,11 +47096,19 @@
         if (d.type === 'node-move') {
           if (_mirrorIsFrozen) return;
           if (!d.positions || !d.positions.length) return;
+          var _liveNodes = window.conGetNodes ? window.conGetNodes() : [];
           d.positions.forEach(function (p) {
             var nel = document.getElementById(p.id);
             if (nel) {
               nel.style.left = p.x + 'px';
               nel.style.top = p.y + 'px';
+            }
+            var nd = _liveNodes.find(function (n) { return String(n.id) === String(p.id); });
+            if (nd) {
+              nd.x = p.x;
+              nd.y = p.y;
+              nd.baseX = p.x;
+              nd.baseY = p.y;
             }
           });
           // Redraw edges so connections stay aligned during the drag
@@ -46911,13 +47119,20 @@
         if (d.type === 'note-move') {
           if (_mirrorIsFrozen) return;
           if (!d.positions || !d.positions.length) return;
+          var _liveNotes = window.conGetNotes ? window.conGetNotes() : [];
           d.positions.forEach(function (p) {
             var nel = document.querySelector('#constellation-board .con-word-note[data-id="' + p.id + '"]');
             if (nel) {
               nel.style.left = p.x + 'px';
               nel.style.top = p.y + 'px';
             }
+            var nt = _liveNotes.find(function (n) { return String(n.id) === String(p.id); });
+            if (nt) {
+              nt.x = p.x;
+              nt.y = p.y;
+            }
           });
+          if (typeof conRedrawEdges === 'function') conRedrawEdges();
           return;
         }
 
