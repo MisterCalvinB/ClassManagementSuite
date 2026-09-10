@@ -466,6 +466,7 @@ Infinite-canvas mind-mapping tool for vocabulary, draw overlays, sound nodes, an
 - **High-Resolution PNG Snapshots**: One-click PNG snapshot capture with clean framing and metadata.
 - **Table Support**: Copy/paste HTML or TSV spreadsheet tables directly onto the canvas as draggable, resizable board elements.
 - **Student Input Note (beta)**: Allows students to submit short text notes from their smartphones directly onto the board canvas via QR code or URL.
+- **Premade Library & Reusable Snippets**: Built-in library modal for reusable widgets, templates, callouts, and custom user-saved board snippets, persistently stored in `user/board-library.json` with cross-window live sync.
 
 <details>
 <summary><strong>Default Keyboard Shortcuts</strong></summary>
@@ -515,7 +516,9 @@ Grade and assessment tracking spreadsheet supporting custom evaluation criteria,
 - **Custom Display Names**: Displays student names according to the configured format or nicknames.
 - **Reference Data Editor**: Customize evaluation criteria descriptors (`user/correction-criteria.js`) and grading scale thresholds (`user/grade-scale-models.js`).
 - **Import Participation Grades**: One-click import prompt when provisional grades are exported from Participation Tracker.
-- **Export**: Export grade reports to PDF, DOCX, CSV, or HTML with draggable column layouts.
+- **Comprehensive Analytics Reports**: Generate whole-class year/semester/test reports or individual student reports with interactive SVG charts (grade distributions, test progression timelines, quartile boxes, and performance matrix).
+- **Correction Criteria Reference**: Export the complete evaluation rubric with grade descriptors and point values to PDF, Markdown, or HTML.
+- **Multi-Format Localized Exports**: Export grade reports to Excel (`.xlsx`), CSV, Word (`.docx`), standalone HTML with resizable/draggable columns, and vector PDF / Print sheets. Full multilingual i18n support across English, French, German, and Italian.
 
 ---
 

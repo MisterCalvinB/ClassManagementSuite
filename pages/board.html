@@ -335,9 +335,6 @@
     })();
   </script>
 
-  <link rel="stylesheet" href="../css/stylesheet.css">
-
-
 
   <script src="../modules/html2canvas.js"></script>
   <script src="../modules/wavesurfer/wavesurfer.min.js"></script>
@@ -1640,7 +1637,9 @@
         title="Keyboard Shortcuts">?</button>
       <button class="tut-trigger-btn" onclick="showBoardTour()" data-i18n-title="tourBtnLabel"
         data-i18n="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
-      <button class="hm-btn" aria-label="Open menu">☰</button>
+      <button class="hm-btn" aria-label="Open menu" data-i18n-aria="navOpenMenu"
+        data-i18n-title="links_btn_title" title="Open another tool"><img src="../assets/icons/menu.svg"
+          class="btn-icon" alt="" onerror="this.style.display='none'" /></button>
       <div class="hm-menu"></div>
     </div>
   </nav>
@@ -17765,7 +17764,7 @@
           searchInput.value = '';
           searchInput.focus();
         }
-        await conRenderPremadeLibraryList();
+        await conRenderPremadeLibraryList(true);
       };
 
       window.conClosePremadeLibraryModal = function () {
@@ -17780,14 +17779,14 @@
         conRenderPremadeLibraryList();
       };
 
-      window.conRenderPremadeLibraryList = async function () {
+      window.conRenderPremadeLibraryList = async function (forceReload = false) {
         const listEl = document.getElementById('con-premade-library-list');
         if (!listEl) return;
         const searchInput = document.getElementById('con-lib-search');
         const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
 
         const items = (typeof window.conGetPremadeLibraryItems === 'function')
-          ? await window.conGetPremadeLibraryItems()
+          ? await window.conGetPremadeLibraryItems(forceReload)
           : [];
 
         const filtered = items.filter(item => {
@@ -17843,7 +17842,7 @@
         if (!ok) return;
         if (typeof window.conDeleteCustomPremadeItem === 'function') {
           await window.conDeleteCustomPremadeItem(id);
-          conRenderPremadeLibraryList();
+          conRenderPremadeLibraryList(true);
           mdbToast('Deleted item from library');
         }
       };
@@ -18034,7 +18033,7 @@
             mdbToast('Saved "' + name.trim() + '" to Premade Library!');
           }
           if (typeof conRenderPremadeLibraryList === 'function') {
-            conRenderPremadeLibraryList();
+            conRenderPremadeLibraryList(true);
           }
         }
       };
@@ -18095,7 +18094,7 @@
         if (typeof window.conSaveCustomPremadeItem === 'function') {
           await window.conSaveCustomPremadeItem(name.trim(), 'custom', 'Saved custom node', snippet);
           if (typeof mdbToast === 'function') mdbToast('Saved "' + name.trim() + '" to Premade Library!');
-          if (typeof conRenderPremadeLibraryList === 'function') conRenderPremadeLibraryList();
+          if (typeof conRenderPremadeLibraryList === 'function') conRenderPremadeLibraryList(true);
         }
       };
 
@@ -18138,7 +18137,7 @@
         if (typeof window.conSaveCustomPremadeItem === 'function') {
           await window.conSaveCustomPremadeItem(name.trim(), 'custom', 'Saved sticky note', snippet);
           if (typeof mdbToast === 'function') mdbToast('Saved "' + name.trim() + '" to Premade Library!');
-          if (typeof conRenderPremadeLibraryList === 'function') conRenderPremadeLibraryList();
+          if (typeof conRenderPremadeLibraryList === 'function') conRenderPremadeLibraryList(true);
         }
       };
 

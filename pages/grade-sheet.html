@@ -193,11 +193,11 @@
           <button id="btn-back-classes" class="btn" data-i18n="gsBtnBackClasses"><img src="../assets/icons/arrow-left.svg" class="btn-icon" alt="" /> Back to Classes</button>
           <button id="btn-open-competence-portfolio" class="btn" onclick="gsOpenCompetencePortfolio()" title="Open Competence Portfolio" data-i18n-title="geBtnCompetencePortfolio"><img src="../assets/icons/award.svg" class="btn-icon" alt="" /> <span data-i18n="gsBtnCompetencePortfolio">Competences</span></button>
           <div class="dropdown" id="summary-name-display-dropdown" style="display:inline-flex;align-items:center;">
-            <select id="gs-name-display-select" class="btn" style="padding:6px 10px;font-size:0.82rem;font-weight:600;background:var(--card,#fff);color:var(--text,#111);border:1px solid var(--border,#ccc);border-radius:6px;cursor:pointer;" title="Student name display mode">
-              <option value="full">Full Name</option>
-              <option value="first">First Name Only</option>
-              <option value="last">Last Name Only</option>
-              <option value="custom">Custom / Nickname</option>
+            <select id="gs-name-display-select" class="btn" style="padding:6px 10px;font-size:0.82rem;font-weight:600;background:var(--card,#fff);color:var(--text,#111);border:1px solid var(--border,#ccc);border-radius:6px;cursor:pointer;" title="Student name display mode" data-i18n-title="gsTitleNameDisplayMode">
+              <option value="full" data-i18n="gsNameDisplayFull">Full Name</option>
+              <option value="first" data-i18n="gsNameDisplayFirst">First Name Only</option>
+              <option value="last" data-i18n="gsNameDisplayLast">Last Name Only</option>
+              <option value="custom" data-i18n="gsNameDisplayCustom">Custom / Nickname</option>
             </select>
           </div>
           <button id="btn-add-student" class="btn" data-i18n="gsBtnAddStudent"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Student</button>
@@ -1456,11 +1456,11 @@
     <div class="crit-popup" style="max-width: 480px; width: 90vw; padding: 20px; border: 2.5px solid #111; box-shadow: 5px 5px 0 #111; background: #fff;">
       <div class="crit-popup-title" data-i18n="gsReportSelectStudentTitle">Select Student for Report</div>
       <div class="form-group" style="margin-top: 14px;">
-        <label for="gs-student-select-input" style="font-weight: 700;">Student:</label>
+        <label for="gs-student-select-input" style="font-weight: 700;" data-i18n="gsLabelStudent">Student:</label>
         <select id="gs-student-select-input" class="input" style="width: 100%;"></select>
       </div>
       <div class="form-group" style="margin-top: 14px;">
-        <label for="gs-student-report-type-input" style="font-weight: 700;">Report Scope:</label>
+        <label for="gs-student-report-type-input" style="font-weight: 700;" data-i18n="gsLabelReportScope">Report Scope:</label>
         <select id="gs-student-report-type-input" class="input" style="width: 100%;">
           <option value="year" data-i18n="gsReportStudentYear">Student Year Report</option>
           <option value="sem1" data-i18n="gsReportStudentSem1">Student Semester 1 Report</option>
@@ -1470,7 +1470,7 @@
       </div>
       <div class="btn-row" style="margin-top: 20px; justify-content: flex-end;">
         <button id="gs-student-select-cancel" class="btn" type="button" data-i18n="btnCancel">Cancel</button>
-        <button id="gs-student-select-confirm" class="btn primary" type="button"><img src="../assets/icons/check.svg" class="btn-icon" alt="" /> Generate Report</button>
+        <button id="gs-student-select-confirm" class="btn primary" type="button" data-i18n="gsBtnGenerateReport"><img src="../assets/icons/check.svg" class="btn-icon" alt="" /> Generate Report</button>
       </div>
     </div>
   </div>
@@ -6950,7 +6950,7 @@
         const minBadge = criterion.minPoints != null && criterion.minPoints !== 0 ? `min ${criterion.minPoints}, ` : '';
         const effCompIds = getCriterionEffectiveCompetenceIds(criterion, classObj, config);
         const compBadge = effCompIds.length > 0
-          ? `<span class="score-badge" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;font-weight:700;margin-left:2px;" title="${effCompIds.map(cid => { const c = findLessonCompetence(cid); return (c ? (c.code || c.id) + ': ' + c.title : cid); }).join('\n')}">🏷️ ${effCompIds.length}</span>`
+          ? `<span class="score-badge" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;font-weight:700;margin-left:2px;" title="${effCompIds.map(cid => { const c = findLessonCompetence(cid); return (c ? (c.code || c.id) + ': ' + c.title : cid); }).join('\n')}"><img src="../assets/icons/award.svg" style="width:11px;height:11px;vertical-align:-1px;margin-right:2px;" alt="" />${effCompIds.length}</span>`
           : '';
         label.innerHTML = `<strong>${criterion.name}</strong><span class="score-badge">${criterion.isBonus ? 'bonus · ' : ''}${minBadge}max ${criterion.maxPoints}, ${criterion.pointCoefficient}</span>${compBadge}`;
         label.addEventListener("click", () => criterionPopupOpen(criterion, classObj, sem, testIndex));
@@ -8634,7 +8634,7 @@
         toptApplyAllBtn.onclick = async () => {
           const activeBank = getTestCriteriaBank(classObj, config);
           if (!activeBank || !Array.isArray(activeBank.criteria) || !activeBank.criteria.length) {
-            showToast("No criteria found in this template", true);
+            showToast(t('gsAlertNoCriteriaInTemplate') || "No criteria found in this template", true);
             return;
           }
           if (config.criteria.length > 0) {
@@ -8899,14 +8899,14 @@
         `<td>${Math.round(t.ratio * 100)}%</td>`
       ).join("");
       const scalePtsRow = defaultTotals.totalPossible > 0
-        ? `<tr><td class="row-label">Min pts (/${fmtN(defaultTotals.totalPossible)})</td>${thresholds.map(t => `<td>${fmtN(t.ratio * defaultTotals.totalPossible)}</td>`).join("")}</tr>`
+        ? `<tr><td class="row-label">${t('gsReportMinPts') || 'Min pts'} (/${fmtN(defaultTotals.totalPossible)})</td>${thresholds.map(t => `<td>${fmtN(t.ratio * defaultTotals.totalPossible)}</td>`).join("")}</tr>`
         : "";
       const scaleHtml = `<div class="scale-wrap">
-        <div class="section-title">Grading Scale</div>
+        <div class="section-title">${t('gsReportSectionGradingScale') || 'Grading Scale'}</div>
         <table class="scale-table">
           <thead><tr><th></th>${scaleGradeHeaders}</tr></thead>
           <tbody>
-            <tr><td class="row-label">Min %</td>${scalePctCells}</tr>
+            <tr><td class="row-label">${t('gsReportMinPct') || 'Min %'}</td>${scalePctCells}</tr>
             ${scalePtsRow}
           </tbody>
         </table>
@@ -8973,13 +8973,13 @@
             : "—";
           criteriaHtml = `
             <div>
-              <div class="section-title">Criteria</div>
+              <div class="section-title">${t('gsReportSectionCriteria') || 'Criteria'}</div>
               <table>
-                <thead><tr><th style="width:35%">Criterion</th><th style="width:14%">Points</th><th>Comment</th></tr></thead>
+                <thead><tr><th style="width:35%">${t('gsCriteriaLabelName') || 'Criterion'}</th><th style="width:14%">${t('gsGradingManualPts') || 'Points'}</th><th>${t('gsColComments') || 'Comment'}</th></tr></thead>
                 <tbody>
                   ${rows}
                   <tr class="total-row">
-                    <td>Total</td>
+                    <td>${t('gsTotal') || 'Total'}</td>
                     <td class="pts-cell">${esc(totalPtsStr)}</td>
                     <td></td>
                   </tr>
@@ -8995,7 +8995,7 @@
             const labelHtml = s.label ? `<div class="obs-label">${esc(s.label)}</div>` : "";
             return `<div class="obs-section">${labelHtml}<div class="obs-text">${esc(sectionDisplayText(s))}</div></div>`;
           }).join("");
-          obsHtml = `<div><div class="section-title">Observations</div>${blocks}</div>`;
+          obsHtml = `<div><div class="section-title">${t('gsColObservations') || 'Observations'}</div>${blocks}</div>`;
         }
 
         const gradeDisplay = grade != null ? String(grade) : "—";
@@ -9019,7 +9019,7 @@
               <div class="test-label">${testLabel}</div>
               ${metaHtml}
             </div>
-            <div class="grade-badge" ${gradeBadgeStyle}>Grade: ${esc(gradeDisplay)}</div>
+            <div class="grade-badge" ${gradeBadgeStyle}>${t('gsColGrade') || 'Grade'}: ${esc(gradeDisplay)}</div>
           </div>
           ${criteriaHtml}
           ${obsHtml}
@@ -9029,7 +9029,7 @@
 
       if (!pages) { await showAlert(t('gsAlertNoStudentsCriteria')); return; }
 
-      const htmlDoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Results — ${esc(classObj.name)} ${esc(sem.toUpperCase())} T${testNo}</title><style>${pageCSS}</style></head><body>${pages}</body></html>`;
+      const htmlDoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${t('gsReportTestResultsTitle') || 'Results'} — ${esc(classObj.name)} ${esc(sem.toUpperCase())} T${testNo}</title><style>${pageCSS}</style></head><body>${pages}</body></html>`;
       if (window.Desktop && Desktop.isElectron()) {
         try {
           const destination = await openGsPdfExportModal();
@@ -9205,7 +9205,7 @@
     function buildSemesterReportHtml(report) {
       const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;");
       const pdfSettings = getPdfExportSettings();
-      const columns = ["#", "Name", ...report.testNames, "Sem. Avg"];
+      const columns = ["#", t('gsColStudentName') || "Name", ...report.testNames, t('gsHeaderSemAvg') || "Sem. Avg"];
       const colGroup = columns.map((_, i) => {
         const w = i === 0 ? "60px" : (i === 1 ? "220px" : "96px");
         return `<col data-col="${i}" style="width:${w}">`;
@@ -9267,7 +9267,7 @@
         <title>${esc(report.className)} - ${esc(report.semLabel)}</title>
         <style>${css}</style></head><body>
         <h1>${esc(report.className)} - ${esc(report.semLabel)}</h1>
-        <div class="subtitle">Printed ${esc(report.printedDate)}</div>
+        <div class="subtitle">${t('gsReportPrintedOn') || 'Printed'} ${esc(report.printedDate)}</div>
         <table id="semester-report-table">
           <colgroup>${colGroup}</colgroup>
           <thead><tr>
@@ -9275,10 +9275,10 @@
           </tr></thead>
           <tbody>
             ${studentRows}
-            ${statRow("Avg", "avg")}
-            ${statRow("Max", "max")}
-            ${statRow("Min", "min")}
-            ${statRow("Median", "median")}
+            ${statRow(t('gsStatAvg') || "Avg", "avg")}
+            ${statRow(t('gsStatMax') || "Max", "max")}
+            ${statRow(t('gsStatMin') || "Min", "min")}
+            ${statRow(t('gsStatMedian') || "Median", "median")}
           </tbody>
         </table>
         ${'<script>' + buildColumnResizeScript("semester-report-table") + '; (function(){ document.querySelectorAll("body *").forEach(function(el){ if(!el.classList.contains("col-resizer")) el.contentEditable = "true"; }); })();' + '</' + 'script>'}
@@ -9520,7 +9520,7 @@
 
           criteriaHtml = `
             <div>
-              <div class="section-title">Criteria</div>
+              <div class="section-title">${t('gsReportSectionCriteria') || 'Criteria'}</div>
               <table class="resizable-table" id="${criteriaTableId}">
                 <colgroup>
                   <col data-col="0" style="width:35%">
@@ -9529,15 +9529,15 @@
                 </colgroup>
                 <thead>
                   <tr>
-                    <th><span class="th-wrap">Criterion<span class="col-resizer" data-col="0"></span></span></th>
-                    <th><span class="th-wrap">Points<span class="col-resizer" data-col="1"></span></span></th>
-                    <th><span class="th-wrap">Comment<span class="col-resizer" data-col="2"></span></span></th>
+                    <th><span class="th-wrap">${t('gsCriteriaLabelName') || 'Criterion'}<span class="col-resizer" data-col="0"></span></span></th>
+                    <th><span class="th-wrap">${t('gsGradingManualPts') || 'Points'}<span class="col-resizer" data-col="1"></span></span></th>
+                    <th><span class="th-wrap">${t('gsColComments') || 'Comment'}<span class="col-resizer" data-col="2"></span></span></th>
                   </tr>
                 </thead>
                 <tbody>
                   ${criteriaRows}
                   <tr class="total-row">
-                    <td>Total</td>
+                    <td>${t('gsTotal') || 'Total'}</td>
                     <td class="pts-cell">${esc(student.totalPtsText)}</td>
                     <td></td>
                   </tr>
@@ -9548,7 +9548,7 @@
         }
 
         const obsHtml = student.observations.length > 0
-          ? `<div><div class="section-title">Observations</div>${student.observations.map(o => {
+          ? `<div><div class="section-title">${t('gsColObservations') || 'Observations'}</div>${student.observations.map(o => {
               const labelHtml = o.label ? `<div class="obs-label">${esc(o.label)}</div>` : "";
               return `<div class="obs-section">${labelHtml}<div class="obs-text">${esc(o.text)}</div></div>`;
             }).join("")}</div>`
@@ -9567,13 +9567,13 @@
         const scalePctCells = report.thresholds.map(t => `<td>${Math.round(t.ratio * 100)}%</td>`).join("");
         const scalePtsCells = report.thresholds.map(t => `<td>${report.totalPossible > 0 ? fmtN(t.ratio * report.totalPossible) : "-"}</td>`).join("");
         const scaleHtml = `<div class="scale-wrap">
-          <div class="section-title">Grading Scale</div>
+          <div class="section-title">${t('gsReportSectionGradingScale') || 'Grading Scale'}</div>
           <table class="scale-table resizable-table" id="${scaleTableId}">
             <colgroup>${scaleColGroup}</colgroup>
-            <thead><tr><th><span class="th-wrap">Grade<span class="col-resizer" data-col="0"></span></span></th>${scaleHeaderResized}</tr></thead>
+            <thead><tr><th><span class="th-wrap">${t('gsColGrade') || 'Grade'}<span class="col-resizer" data-col="0"></span></span></th>${scaleHeaderResized}</tr></thead>
             <tbody>
-              <tr><td class="row-label">Min %</td>${scalePctCells}</tr>
-              <tr><td class="row-label">Min pts (/ ${fmtN(report.totalPossible)})</td>${scalePtsCells}</tr>
+              <tr><td class="row-label">${t('gsReportMinPct') || 'Min %'}</td>${scalePctCells}</tr>
+              <tr><td class="row-label">${t('gsReportMinPts') || 'Min pts'} (/ ${fmtN(report.totalPossible)})</td>${scalePtsCells}</tr>
             </tbody>
           </table>
         </div>`;
@@ -9592,8 +9592,8 @@
 
         const benchmarkPillHtml = student.classMean != null
           ? `<div style="font-size:10px; font-weight:800; border:1.5px solid #111; box-shadow:2px 2px 0 #111; border-radius:4px; padding:2px 8px; background:#fff; white-space:nowrap; display:flex; gap:6px; margin-top:4px;">
-               <span>Class Mean: <strong>${student.classMean.toFixed(2)}</strong></span>
-               ${student.delta != null ? `<span>| Delta: <strong style="color:${student.delta >= 0 ? '#2e7d32' : '#c62828'}">${student.delta >= 0 ? '+' : ''}${student.delta.toFixed(2)}</strong></span>` : ''}
+               <span>${t('gsReportClassMean') || 'Class Mean:'} <strong>${student.classMean.toFixed(2)}</strong></span>
+               ${student.delta != null ? `<span>| ${t('gsColDelta') || 'Delta:'} <strong style="color:${student.delta >= 0 ? '#2e7d32' : '#c62828'}">${student.delta >= 0 ? '+' : ''}${student.delta.toFixed(2)}</strong></span>` : ''}
              </div>`
           : "";
 
@@ -9602,7 +9602,7 @@
                ${renderNeobrutalistSvgBenchmarkGauge({
                  studentVal: student.grade,
                  classAvg: student.classMean,
-                 label: "Student Score vs. Class Mean Benchmark"
+                 label: t('gsReportStudentVsClassGauge') || "Student Score vs. Class Mean Benchmark"
                })}
              </div>`
           : "";
@@ -9615,7 +9615,7 @@
               ${metaHtml}
             </div>
             <div style="display:flex; flex-direction:column; align-items:flex-end;">
-              <div class="grade-badge" ${gradeBadgeStyle}>Grade: ${student.grade != null ? esc(String(student.grade)) : '—'}</div>
+              <div class="grade-badge" ${gradeBadgeStyle}>${t('gsColGrade') || 'Grade'}: ${student.grade != null ? esc(String(student.grade)) : '—'}</div>
               ${benchmarkPillHtml}
             </div>
           </div>
@@ -9627,7 +9627,7 @@
       }).join("");
 
       return `<!DOCTYPE html><html><head><meta charset="utf-8">
-        <title>Results - ${esc(report.className)} ${esc(report.sem.toUpperCase())} T${report.testNo}</title>
+        <title>${t('gsReportTestResultsTitle') || 'Results'} - ${esc(report.className)} ${esc(report.sem.toUpperCase())} T${report.testNo}</title>
         <style>${css}</style></head><body>
         ${pagesHtml}
         ${'<script>' + buildAllTablesResizeScript() + '; (function(){ document.querySelectorAll("body *").forEach(function(el){ if(!el.classList.contains("col-resizer")) el.contentEditable = "true"; }); })();' + '</' + 'script>'}
@@ -9636,11 +9636,11 @@
 
     function buildSemesterReportMarkdown(report) {
       const mdEsc = value => String(value == null ? "" : value).replace(/\|/g, "\\|").replace(/\n/g, " ");
-      const header = ["#", "Name", ...report.testNames, "Sem. Avg"];
+      const header = ["#", t('gsColStudentName') || "Name", ...report.testNames, t('gsHeaderSemAvg') || "Sem. Avg"];
       const lines = [
         `# ${report.className} - ${report.semLabel}`,
         "",
-        `Printed ${report.printedDate}`,
+        `${t('gsReportPrintedOn') || 'Printed'} ${report.printedDate}`,
         "",
         `| ${header.map(mdEsc).join(" | ")} |`,
         `| ${header.map(() => "---").join(" | ")} |`
@@ -9663,10 +9663,10 @@
       }
 
       [
-        statsRow("Avg", "avg"),
-        statsRow("Max", "max"),
-        statsRow("Min", "min"),
-        statsRow("Median", "median")
+        statsRow(t('gsStatAvg') || "Avg", "avg"),
+        statsRow(t('gsStatMax') || "Max", "max"),
+        statsRow(t('gsStatMin') || "Min", "min"),
+        statsRow(t('gsStatMedian') || "Median", "median")
       ].forEach(row => lines.push(`| ${row.map(mdEsc).join(" | ")} |`));
 
       return lines.join("\n");
@@ -9722,7 +9722,7 @@
 
     async function exportSemesterGradesXlsx(classObj, sem) {
       if (typeof XLSX === "undefined") {
-        await showAlert("XLSX library not loaded");
+        await showAlert(t('gsAlertXlsxNotLoaded') || "XLSX library not loaded");
         return;
       }
       if (!classObj) classObj = getActiveClass();
@@ -9732,7 +9732,7 @@
         if (!sem) return;
       }
       const report = buildSemesterReportData(classObj, sem);
-      const header = ["#", "First Name", "Last Name", ...report.testNames, "Semester Avg"];
+      const header = ["#", t('gsEditStudentFirstName') || "First Name", t('gsEditStudentLastName') || "Last Name", ...report.testNames, t('gsHeaderSemAvg') || "Semester Avg"];
       const aoa = [header];
       const nameMode = getGsNameDisplayMode();
       report.rows.forEach(({ student, grades, semAvg }) => {
@@ -9769,10 +9769,10 @@
           report.semAvgStats[fn] != null ? Math.round(report.semAvgStats[fn] * 100) / 100 : ""
         ];
       }
-      aoa.push(statRow("Avg", "avg"));
-      aoa.push(statRow("Max", "max"));
-      aoa.push(statRow("Min", "min"));
-      aoa.push(statRow("Median", "median"));
+      aoa.push(statRow(t('gsStatAvg') || "Avg", "avg"));
+      aoa.push(statRow(t('gsStatMax') || "Max", "max"));
+      aoa.push(statRow(t('gsStatMin') || "Min", "min"));
+      aoa.push(statRow(t('gsStatMedian') || "Median", "median"));
 
       const ws = XLSX.utils.aoa_to_sheet(aoa);
       const wb = XLSX.utils.book_new();
@@ -9784,7 +9784,7 @@
         const filename = `${slug}-${sem}-grades-${new Date().toISOString().slice(0, 10)}.xlsx`;
         downloadBinaryFile(wbout, filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       } catch (err) {
-        await showAlert('<img src="../assets/icons/error.svg" class="btn-icon" alt="" /> Could not save XLSX: ' + (err && err.message ? err.message : String(err)));
+        await showAlert('<img src="../assets/icons/error.svg" class="btn-icon" alt="" /> ' + (t('gsAlertXlsxSaveFailed') || 'Could not save XLSX:') + ' ' + (err && err.message ? err.message : String(err)));
       }
     }
 
@@ -9820,10 +9820,10 @@
       const sections = [];
       sections.push(`# ${classObj.name} - ${sem.toUpperCase()} - T${testNo}`);
       if (classMean != null) {
-        sections.push(`**Class Average:** ${classMean.toFixed(2)}`);
+        sections.push(`**${t('gsReportClassMean') || 'Class Average:'}** ${classMean.toFixed(2)}`);
       }
       sections.push("");
-      sections.push(`Printed ${new Date().toLocaleDateString()}`);
+      sections.push(`${t('gsReportPrintedOn') || 'Printed'} ${new Date().toLocaleDateString()}`);
       sections.push("");
 
       classObj.students.filter(student => {
@@ -9841,14 +9841,14 @@
         const noteArray = student.testNotes[sem];
         const notes = Array.isArray(noteArray[testIndex]) ? noteArray[testIndex] : [];
         const delta = (grade != null && classMean != null) ? (grade - classMean) : null;
-        const deltaStr = delta != null ? ` (${delta >= 0 ? '+' : ''}${delta.toFixed(2)} vs Class Mean)` : '';
+        const deltaStr = delta != null ? ` (${delta >= 0 ? '+' : ''}${delta.toFixed(2)} vs ${t('gsKpiClassAvg') || 'Class Mean'})` : '';
 
         const fullName = (window.StudentNameUtils && typeof StudentNameUtils.formatStudentName === 'function')
           ? StudentNameUtils.formatStudentName(student, getGsNameDisplayMode())
           : `${student.firstName || ""} ${student.lastName || ""}`.trim();
-        sections.push(`## ${fullName} - Grade: ${grade != null ? grade : "-"}${deltaStr}`);
+        sections.push(`## ${fullName} - ${t('gsColGrade') || 'Grade'}: ${grade != null ? grade : "-"}${deltaStr}`);
         if (classMean != null) {
-          sections.push(`*Score:* **${grade != null ? fmtN(grade) : '-'}** | *Class Mean:* **${classMean.toFixed(2)}**${delta != null ? ` | *Delta:* **${delta >= 0 ? '+' : ''}${delta.toFixed(2)}**` : ''}`);
+          sections.push(`*${t('gsStatScore') || 'Score'}:* **${grade != null ? fmtN(grade) : '-'}** | *${t('gsReportClassMean') || 'Class Mean:'}* **${classMean.toFixed(2)}**${delta != null ? ` | *${t('gsColDelta') || 'Delta:'}* **${delta >= 0 ? '+' : ''}${delta.toFixed(2)}**` : ''}`);
         }
         if (config.testDate || config.scope || config.type) {
           const metaParts = [];
@@ -9860,8 +9860,8 @@
         sections.push("");
 
         if (config.criteria.length > 0) {
-          sections.push("### Criteria");
-          sections.push(`| Criterion | Points | Comment |`);
+          sections.push(`### ${t('gsReportSectionCriteria') || 'Criteria'}`);
+          sections.push(`| ${t('gsCriteriaLabelName') || 'Criterion'} | ${t('gsGradingManualPts') || 'Points'} | ${t('gsColComments') || 'Comment'} |`);
           sections.push(`| --- | --- | --- |`);
           config.criteria.forEach(cr => {
             const entry = criteriaMap[cr.id] || { points: null, comment: "" };
@@ -9875,12 +9875,12 @@
           const totalPtsStr = totals.totalPossible > 0
             ? `${displayedScored} / ${fmtN(totals.totalPossible)}${bonusText}`
             : "-";
-          sections.push(`| **Total** | **${mdEsc(totalPtsStr)}** | |`);
+          sections.push(`| **${t('gsTotal') || 'Total'}** | **${mdEsc(totalPtsStr)}** | |`);
           sections.push("");
         }
 
         if (notes.length > 0 && notes.some(s => sectionHasContent(s))) {
-          sections.push("### Observations");
+          sections.push(`### ${t('gsColObservations') || 'Observations'}`);
           notes.filter(s => sectionHasContent(s)).forEach(s => {
             const label = s.label ? `${s.label}: ` : "";
             sections.push(`- ${label}${sectionDisplayText(s)}`);
@@ -9888,8 +9888,8 @@
           sections.push("");
         }
 
-        sections.push("### Grading Scale");
-        sections.push(`| Grade | Min % | Min pts |`);
+        sections.push(`### ${t('gsReportSectionGradingScale') || 'Grading Scale'}`);
+        sections.push(`| ${t('gsColGrade') || 'Grade'} | ${t('gsReportMinPct') || 'Min %'} | ${t('gsReportMinPts') || 'Min pts'} |`);
         sections.push(`| --- | --- | --- |`);
         thresholds.forEach(t => {
           const pct = `${Math.round(t.ratio * 100)}%`;
@@ -10554,22 +10554,22 @@
 
       const histSvg = renderNeobrutalistSvgHistogram({
         buckets: yearBuckets,
-        title: "Annual Grade Distribution"
+        title: t('gsChartAnnualGradeDist') || "Annual Grade Distribution"
       });
 
       const compBarsSvg = renderNeobrutalistSvgGroupedBars({
         categories: yearBuckets.map(b => b.label),
         series: [
-          { name: "Sem 1", data: s1Buckets.map(b => b.count), color: "#42a5f5" },
-          { name: "Sem 2", data: s2Buckets.map(b => b.count), color: "#66bb6a" }
+          { name: t('gsSem1') || "Sem 1", data: s1Buckets.map(b => b.count), color: "#42a5f5" },
+          { name: t('gsSem2') || "Sem 2", data: s2Buckets.map(b => b.count), color: "#66bb6a" }
         ],
-        title: "S1 vs S2 Grade Distribution"
+        title: t('gsChartS1S2Dist') || "S1 vs S2 Grade Distribution"
       });
 
       const timelineSvg = renderNeobrutalistSvgTimeline({
-        series: [{ name: "Class Mean", data: classTimelineData, color: "#111", strokeWidth: 3 }],
-        categories: allTestCategories.length ? allTestCategories : ["No tests"],
-        title: "Annual Test Progression Timeline"
+        series: [{ name: t('gsKpiClassAvg') || "Class Mean", data: classTimelineData, color: "#111", strokeWidth: 3 }],
+        categories: allTestCategories.length ? allTestCategories : [t('gsCardNoTests') || "No tests"],
+        title: t('gsChartAnnualProgression') || "Annual Test Progression Timeline"
       });
 
       const quartileSvg = renderNeobrutalistSvgQuartileBox({
@@ -10578,7 +10578,7 @@
         median: yearStats.median,
         q3: yearStats.q3,
         max: yearStats.max,
-        title: "Annual Distribution Quartiles & Extremes"
+        title: t('gsChartAnnualQuartiles') || "Annual Distribution Quartiles & Extremes"
       });
 
       // Build Table
@@ -10603,45 +10603,45 @@
 
       const esc = escapeHtml;
       return `<!DOCTYPE html><html><head><meta charset="utf-8">
-        <title>${esc(classObj.name)} - Annual Class Report</title>
+        <title>${esc(classObj.name)} - ${t('gsReportWholeClassYear') || 'Annual Class Report'}</title>
         <style>${getNeobrutalistReportCss(true)}</style></head><body>
         <div class="report-page landscape">
           <div class="report-header">
             <div>
-              <div class="report-title">${esc(classObj.name)} — Whole Class Full Year Report</div>
-              <div class="report-subtitle">School Year ${esc(classObj.year || '')} &nbsp;·&nbsp; Total Students: ${classObj.students.length} &nbsp;·&nbsp; Tests: S1 (${n1}), S2 (${n2})</div>
+              <div class="report-title">${esc(classObj.name)} — ${t('gsReportWholeClassYear') || 'Whole Class Full Year Report'}</div>
+              <div class="report-subtitle">${t('gsReportSchoolYear') || 'School Year'} ${esc(classObj.year || '')} &nbsp;·&nbsp; ${t('gsReportTotalStudents') || 'Total Students'}: ${classObj.students.length} &nbsp;·&nbsp; ${t('gsReportTestsCount') || 'Tests'}: S1 (${n1}), S2 (${n2})</div>
             </div>
-            <div class="report-meta">Generated: ${new Date().toLocaleDateString()}</div>
+            <div class="report-meta">${t('gsReportGenerated') || 'Generated:'} ${new Date().toLocaleDateString()}</div>
           </div>
 
           <div class="kpi-grid">
             <div class="kpi-card">
-              <div class="kpi-label">Annual Class Mean</div>
+              <div class="kpi-label">${t('gsKpiAnnualClassMean') || 'Annual Class Mean'}</div>
               <div class="kpi-value">${yearStats.mean != null ? yearStats.mean.toFixed(2) : '-'}</div>
               <div class="kpi-sub">S1: ${s1Stats.mean != null ? s1Stats.mean.toFixed(2) : '-'} | S2: ${s2Stats.mean != null ? s2Stats.mean.toFixed(2) : '-'}</div>
             </div>
             <div class="kpi-card">
-              <div class="kpi-label">Median Grade</div>
+              <div class="kpi-label">${t('gsKpiMedianGrade') || 'Median Grade'}</div>
               <div class="kpi-value">${yearStats.median != null ? yearStats.median.toFixed(2) : '-'}</div>
               <div class="kpi-sub">Mode: ${yearStats.mode != null ? yearStats.mode.toFixed(1) : '-'}</div>
             </div>
             <div class="kpi-card">
-              <div class="kpi-label">Pass Rate (≥ 4.0)</div>
+              <div class="kpi-label">${t('gsKpiPassRate4') || 'Pass Rate (≥ 4.0)'}</div>
               <div class="kpi-value" style="color:${yearStats.passRate >= 75 ? '#2ecc40' : (yearStats.passRate >= 50 ? '#f57c00' : '#d32f2f')};">${Math.round(yearStats.passRate)}%</div>
-              <div class="kpi-sub">${yearStats.passCount} of ${yearStats.count} students</div>
+              <div class="kpi-sub">${(t('gsOfPassed') || '{count} of {total} passed').replace('{count}', yearStats.passCount).replace('{total}', yearStats.count)}</div>
             </div>
             <div class="kpi-card">
-              <div class="kpi-label">Distinction (≥ 5.5)</div>
+              <div class="kpi-label">${t('gsKpiDistinction') || 'Distinction (≥ 5.5)'}</div>
               <div class="kpi-value">${Math.round(yearStats.distinctionRate)}%</div>
-              <div class="kpi-sub">${yearStats.distinctionCount} students</div>
+              <div class="kpi-sub">${(t('gsStudentsCount') || '{count} students').replace('{count}', yearStats.distinctionCount)}</div>
             </div>
             <div class="kpi-card">
-              <div class="kpi-label">Std Deviation</div>
+              <div class="kpi-label">${t('gsKpiStdDev') || 'Std Deviation'}</div>
               <div class="kpi-value">${yearStats.stdDev != null ? yearStats.stdDev.toFixed(2) : '-'}</div>
               <div class="kpi-sub">IQR: ${yearStats.iqr != null ? yearStats.iqr.toFixed(2) : '-'}</div>
             </div>
             <div class="kpi-card">
-              <div class="kpi-label">Extremes (Min / Max)</div>
+              <div class="kpi-label">${t('gsKpiExtremes') || 'Extremes (Min / Max)'}</div>
               <div class="kpi-value">${yearStats.min != null ? yearStats.min.toFixed(1) : '-'} / ${yearStats.max != null ? yearStats.max.toFixed(1) : '-'}</div>
               <div class="kpi-sub">Range: ${yearStats.min != null && yearStats.max != null ? (yearStats.max - yearStats.min).toFixed(1) : '-'} pts</div>
             </div>
@@ -10657,17 +10657,17 @@
             <div>${quartileSvg}</div>
           </div>
 
-          <div class="section-heading" style="margin-top:6px;">Annual Student Roster & Performance Matrix</div>
+          <div class="section-heading" style="margin-top:6px;">${t('gsReportMatrixTitle') || 'Annual Student Roster & Performance Matrix'}</div>
           <table class="report-table">
             <thead>
               <tr>
                 <th class="center" style="width:36px;">#</th>
-                <th style="width:180px;">Student Name</th>
+                <th style="width:180px;">${t('gsColStudentName') || 'Student Name'}</th>
                 ${s1TestNames.map(t => `<th class="center">${esc(t)}</th>`).join('')}
-                <th class="center" style="background:#e3f2fd;">S1 Avg</th>
+                <th class="center" style="background:#e3f2fd;">${t('gsColS1Avg') || 'S1 Avg'}</th>
                 ${s2TestNames.map(t => `<th class="center">${esc(t)}</th>`).join('')}
-                <th class="center" style="background:#e8f5e9;">S2 Avg</th>
-                <th class="center" style="background:#fff9c4;">Year Avg</th>
+                <th class="center" style="background:#e8f5e9;">${t('gsColS2Avg') || 'S2 Avg'}</th>
+                <th class="center" style="background:#fff9c4;">${t('gsColYearAvg') || 'Year Avg'}</th>
               </tr>
             </thead>
             <tbody>
@@ -10706,13 +10706,13 @@
 
       const histSvg = renderNeobrutalistSvgHistogram({
         buckets: semBuckets,
-        title: `${semLabel} Grade Distribution`
+        title: `${semLabel} — ${t('gsChartGradeDist') || 'Grade Distribution'}`
       });
 
       const timelineSvg = renderNeobrutalistSvgTimeline({
-        series: [{ name: "Class Mean", data: testMeans, color: "#111", strokeWidth: 3 }],
-        categories: testNames.length ? testNames : ["No tests"],
-        title: "Test Difficulty & Mean Progression"
+        series: [{ name: t('gsKpiClassAvg') || "Class Mean", data: testMeans, color: "#111", strokeWidth: 3 }],
+        categories: testNames.length ? testNames : [t('gsCardNoTests') || "No tests"],
+        title: t('gsChartDifficultyProgression') || "Test Difficulty & Mean Progression"
       });
 
       const quartileSvg = renderNeobrutalistSvgQuartileBox({
@@ -10721,7 +10721,7 @@
         median: semStats.median,
         q3: semStats.q3,
         max: semStats.max,
-        title: `${semLabel} Quartiles & Extremes`
+        title: `${semLabel} — ${t('gsChartQuartilesExtremes') || 'Quartiles & Extremes'}`
       });
 
       const sortedStudents = [...studentRows].sort((a, b) => (b.semAvg || 0) - (a.semAvg || 0));
@@ -10741,35 +10741,35 @@
 
       const esc = escapeHtml;
       return `<!DOCTYPE html><html><head><meta charset="utf-8">
-        <title>${esc(classObj.name)} - ${esc(semLabel)} Class Report</title>
+        <title>${esc(classObj.name)} - ${esc(semLabel)} ${t('gsReportClassReport') || 'Class Report'}</title>
         <style>${getNeobrutalistReportCss(false)}</style></head><body>
         <div class="report-page">
           <div class="report-header">
             <div>
-              <div class="report-title">${esc(classObj.name)} — ${esc(semLabel)} Class Report</div>
-              <div class="report-subtitle">School Year ${esc(classObj.year || '')} &nbsp;·&nbsp; Students: ${classObj.students.length} &nbsp;·&nbsp; Tests: ${n}</div>
+              <div class="report-title">${esc(classObj.name)} — ${esc(semLabel)} ${t('gsReportClassReport') || 'Class Report'}</div>
+              <div class="report-subtitle">${t('gsReportSchoolYear') || 'School Year'} ${esc(classObj.year || '')} &nbsp;·&nbsp; ${t('gsReportTotalStudents') || 'Students'}: ${classObj.students.length} &nbsp;·&nbsp; ${t('gsReportTestsCount') || 'Tests'}: ${n}</div>
             </div>
-            <div class="report-meta">Generated: ${new Date().toLocaleDateString()}</div>
+            <div class="report-meta">${t('gsReportGenerated') || 'Generated:'} ${new Date().toLocaleDateString()}</div>
           </div>
 
           <div class="kpi-grid">
             <div class="kpi-card">
-              <div class="kpi-label">Semester Mean</div>
+              <div class="kpi-label">${t('gsKpiSemesterMean') || 'Semester Mean'}</div>
               <div class="kpi-value">${semStats.mean != null ? semStats.mean.toFixed(2) : '-'}</div>
               <div class="kpi-sub">Median: ${semStats.median != null ? semStats.median.toFixed(2) : '-'}</div>
             </div>
             <div class="kpi-card">
-              <div class="kpi-label">Pass Rate (≥ 4.0)</div>
+              <div class="kpi-label">${t('gsKpiPassRate4') || 'Pass Rate (≥ 4.0)'}</div>
               <div class="kpi-value" style="color:${semStats.passRate >= 75 ? '#2ecc40' : (semStats.passRate >= 50 ? '#f57c00' : '#d32f2f')};">${Math.round(semStats.passRate)}%</div>
-              <div class="kpi-sub">${semStats.passCount} of ${semStats.count} passed</div>
+              <div class="kpi-sub">${(t('gsOfPassed') || '{count} of {total} passed').replace('{count}', semStats.passCount).replace('{total}', semStats.count)}</div>
             </div>
             <div class="kpi-card">
-              <div class="kpi-label">Std Deviation</div>
+              <div class="kpi-label">${t('gsKpiStdDev') || 'Std Deviation'}</div>
               <div class="kpi-value">${semStats.stdDev != null ? semStats.stdDev.toFixed(2) : '-'}</div>
               <div class="kpi-sub">IQR: ${semStats.iqr != null ? semStats.iqr.toFixed(2) : '-'}</div>
             </div>
             <div class="kpi-card">
-              <div class="kpi-label">Extremes (Min/Max)</div>
+              <div class="kpi-label">${t('gsKpiExtremes') || 'Extremes (Min/Max)'}</div>
               <div class="kpi-value">${semStats.min != null ? semStats.min.toFixed(1) : '-'} / ${semStats.max != null ? semStats.max.toFixed(1) : '-'}</div>
               <div class="kpi-sub">Range: ${semStats.min != null && semStats.max != null ? (semStats.max - semStats.min).toFixed(1) : '-'} pts</div>
             </div>
@@ -10782,14 +10782,14 @@
 
           <div style="margin-top:2px;">${quartileSvg}</div>
 
-          <div class="section-heading" style="margin-top:6px;">Semester Student Roster & Grades</div>
+          <div class="section-heading" style="margin-top:6px;">${t('gsReportSemesterRoster') || 'Semester Student Roster & Grades'}</div>
           <table class="report-table">
             <thead>
               <tr>
                 <th class="center" style="width:36px;">#</th>
-                <th style="width:200px;">Student Name</th>
+                <th style="width:200px;">${t('gsColStudentName') || 'Student Name'}</th>
                 ${testNames.map(t => `<th class="center">${esc(t)}</th>`).join('')}
-                <th class="center" style="background:#fff9c4;width:80px;">Sem Avg</th>
+                <th class="center" style="background:#fff9c4;width:80px;">${t('gsHeaderSemAvg') || 'Sem Avg'}</th>
               </tr>
             </thead>
             <tbody>
@@ -10833,12 +10833,12 @@
 
       const histGradeSvg = renderNeobrutalistSvgHistogram({
         buckets: gradeBuckets,
-        title: "Test Grade Distribution"
+        title: t('gsChartTestGradeDist') || "Test Grade Distribution"
       });
 
       const histPointsSvg = renderNeobrutalistSvgHistogram({
         buckets: pointsBuckets,
-        title: `Raw Points Distribution (/${fmtN(defaultTotals.totalPossible)})`
+        title: `${t('gsChartPointsDist') || 'Raw Points Distribution'} (/${fmtN(defaultTotals.totalPossible)})`
       });
 
       // Criteria Performance Breakdown
@@ -10859,7 +10859,7 @@
 
       const critBarsSvg = renderNeobrutalistSvgCriteriaBars({
         criteriaItems,
-        title: "Class Average Performance per Criterion"
+        title: t('gsChartCritAvgPerf') || "Class Average Performance per Criterion"
       });
 
       const sorted = [...studentResults].sort((a, b) => (b.grade || 0) - (a.grade || 0));
@@ -10893,29 +10893,29 @@
               <div class="report-title">${esc(classObj.name)} — Test Report: ${esc(testLabel)} (${esc(semLabel)})</div>
               <div class="report-subtitle">Date: ${esc(config.testDate || 'N/A')} &nbsp;·&nbsp; Scope: ${esc(config.scope || 'N/A')} &nbsp;·&nbsp; Type: ${esc(config.type || 'N/A')}</div>
             </div>
-            <div class="report-meta">Generated: ${new Date().toLocaleDateString()}</div>
+            <div class="report-meta">${t('gsReportGenerated') || 'Generated:'} ${new Date().toLocaleDateString()}</div>
           </div>
 
           <div class="kpi-grid">
             <div class="kpi-card">
-              <div class="kpi-label">Test Grade Mean</div>
+              <div class="kpi-label">${t('gsKpiTestGradeMean') || 'Test Grade Mean'}</div>
               <div class="kpi-value">${gradeStats.mean != null ? gradeStats.mean.toFixed(2) : '-'}</div>
               <div class="kpi-sub">Median: ${gradeStats.median != null ? gradeStats.median.toFixed(2) : '-'}</div>
             </div>
             <div class="kpi-card">
-              <div class="kpi-label">Points Average</div>
+              <div class="kpi-label">${t('gsKpiPointsAvg') || 'Points Average'}</div>
               <div class="kpi-value">${pointsStats.mean != null ? fmtN(pointsStats.mean) : '-'} <span style="font-size:11px;font-weight:600;">/ ${fmtN(defaultTotals.totalPossible)}</span></div>
               <div class="kpi-sub">Median: ${pointsStats.median != null ? fmtN(pointsStats.median) : '-'} pts</div>
             </div>
             <div class="kpi-card">
-              <div class="kpi-label">Pass Rate (≥ 4.0)</div>
+              <div class="kpi-label">${t('gsKpiPassRate4') || 'Pass Rate (≥ 4.0)'}</div>
               <div class="kpi-value" style="color:${gradeStats.passRate >= 75 ? '#2ecc40' : (gradeStats.passRate >= 50 ? '#f57c00' : '#d32f2f')};">${Math.round(gradeStats.passRate)}%</div>
-              <div class="kpi-sub">${gradeStats.passCount} of ${gradeStats.count} passed</div>
+              <div class="kpi-sub">${(t('gsOfPassed') || '{count} of {total} passed').replace('{count}', gradeStats.passCount).replace('{total}', gradeStats.count)}</div>
             </div>
             <div class="kpi-card">
-              <div class="kpi-label">Std Deviation</div>
+              <div class="kpi-label">${t('gsKpiStdDev') || 'Std Deviation'}</div>
               <div class="kpi-value">${gradeStats.stdDev != null ? gradeStats.stdDev.toFixed(2) : '-'}</div>
-              <div class="kpi-sub">Extremes: ${gradeStats.min != null ? gradeStats.min.toFixed(1) : '-'} / ${gradeStats.max != null ? gradeStats.max.toFixed(1) : '-'}</div>
+              <div class="kpi-sub">${t('gsKpiExtremes') || 'Extremes'}: ${gradeStats.min != null ? gradeStats.min.toFixed(1) : '-'} / ${gradeStats.max != null ? gradeStats.max.toFixed(1) : '-'}</div>
             </div>
           </div>
 
@@ -10926,7 +10926,7 @@
 
           <div style="margin-top:2px;">${critBarsSvg}</div>
 
-          <div class="section-heading" style="margin-top:6px;">Student Results & Criteria Breakdown</div>
+          <div class="section-heading" style="margin-top:6px;">${t('gsReportStudentResultsCritBreakdown') || 'Student Results & Criteria Breakdown'}</div>
           <table class="report-table">
             <thead>
               <tr>
@@ -11617,7 +11617,7 @@
           }
         } catch (e) {
           console.error(e);
-          await showAlert('PDF export failed: ' + (e && e.message ? e.message : String(e)));
+          await showAlert((t('gsAlertPdfExportFailed') || 'PDF export failed:') + ' ' + (e && e.message ? e.message : String(e)));
         }
         return;
       }
@@ -13666,16 +13666,16 @@
       }
 
       const header = [
-        "Exported At",
-        "Class",
-        "Year",
-        t('gsDupLabelSem'),
-        "Test",
-        "Student Index",
-        "First Name",
-        "Last Name",
-        "Grade",
-        "Override"
+        t('gsCsvColExportedAt') || "Exported At",
+        t('gsDupLabelClass') || "Class",
+        t('gsDupLabelYear') || "Year",
+        t('gsDupLabelSem') || "Semester",
+        t('gsDupLabelTest') || "Test",
+        t('gsCsvColStudentIndex') || "Student Index",
+        t('gsEditStudentFirstName') || "First Name",
+        t('gsEditStudentLastName') || "Last Name",
+        t('gsColGrade') || "Grade",
+        t('gsCsvColOverride') || "Override"
       ];
 
       const scope = (document.getElementById("csv-export-scope") && document.getElementById("csv-export-scope").value) || "all";
@@ -14229,9 +14229,9 @@
         }).join("");
 
         const badges = [];
-        if (maxPoints != null) badges.push(`<span class="crit-badge">Max: ${fmtN(maxPoints)} pts</span>`);
-        if (pointCoefficient && pointCoefficient !== 1) badges.push(`<span class="crit-badge">Coeff: ${fmtN(pointCoefficient)}×</span>`);
-        if (isBonus) badges.push(`<span class="crit-badge bonus-badge">Bonus</span>`);
+        if (maxPoints != null) badges.push(`<span class="crit-badge">${t('gsCritMax') || 'Max'}: ${fmtN(maxPoints)} pts</span>`);
+        if (pointCoefficient && pointCoefficient !== 1) badges.push(`<span class="crit-badge">${t('gsCoeff') || 'Coeff'}: ${fmtN(pointCoefficient)}×</span>`);
+        if (isBonus) badges.push(`<span class="crit-badge bonus-badge">${t('gsCritBonusBadge') || 'Bonus'}</span>`);
 
         return `
           <section class="crit-card">
@@ -14243,7 +14243,7 @@
               <tbody>${rows}</tbody>
             </table>
           </section>`;
-      }).join("") : `<div class="empty-notice">No criteria configured for this test.</div>`;
+      }).join("") : `<div class="empty-notice">${t('gsAlertNoCriteriaToExport') || 'No criteria configured for this test.'}</div>`;
 
       const testTitle = `${classObj ? classObj.name + " — " : ""}${sem ? sem.toUpperCase() + " — " : ""}${config.name || ("Test T" + ((testIndex || 0) + 1))}`;
 
@@ -14252,7 +14252,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Criteria Reference — ${esc(testTitle)}</title>
+<title>${t('gsCriteriaRefTitle') || 'Criteria Reference'} — ${esc(testTitle)}</title>
 <style>
   * { box-sizing: border-box; }
   body {
@@ -14437,15 +14437,15 @@
 <body>
 <div class="no-print">
   <button class="btn-print" onclick="window.print()">
-    <span>🖨️</span> Print / Save to PDF
+    <img src="../assets/icons/printer.svg" class="btn-icon" alt="" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;" /> ${t('gsBtnPrintSavePdf') || 'Print / Save to PDF'}
   </button>
 </div>
 <div class="header-card">
   <div class="header-title-group">
-    <h1>Correction Criteria Reference</h1>
+    <h1>${t('gsCriteriaRefTitle') || 'Correction Criteria Reference'}</h1>
     <div class="header-subtitle">${esc(testTitle)}</div>
   </div>
-  <div class="header-badge">Criteria Guide</div>
+  <div class="header-badge">${t('gsCriteriaRefBadge') || 'Criteria Guide'}</div>
 </div>
 ${blocks}
 </body>
@@ -14480,9 +14480,9 @@ ${blocks}
     function buildCriteriaRefMarkdown(config, classObj, sem, testIndex) {
       const testTitle = `${classObj ? classObj.name + " — " : ""}${sem ? sem.toUpperCase() + " — " : ""}${config.name || ("Test T" + ((testIndex || 0) + 1))}`;
       const lines = [];
-      lines.push(`# Correction Criteria Reference — ${testTitle}`);
+      lines.push(`# ${t('gsCriteriaRefTitle') || 'Correction Criteria Reference'} — ${testTitle}`);
       lines.push("");
-      lines.push(`_Exported on ${new Date().toLocaleDateString()}_`);
+      lines.push(`_${t('gsExportedOn') || 'Exported on'} ${new Date().toLocaleDateString()}_`);
       lines.push("");
       lines.push("---");
       lines.push("");
@@ -14511,22 +14511,22 @@ ${blocks}
       });
 
       if (usedCriteria.length === 0) {
-        lines.push("_No criteria configured for this test._");
+        lines.push(`_${t('gsAlertNoCriteriaToExport') || 'No criteria configured for this test.'}_`);
         return lines.join("\n");
       }
 
       usedCriteria.forEach((crit, idx) => {
         lines.push(`## ${idx + 1}. ${crit.configName}`);
         const meta = [];
-        if (crit.maxPoints != null) meta.push(`**Max:** ${fmtN(crit.maxPoints)} pts`);
-        if (crit.pointCoefficient && crit.pointCoefficient !== 1) meta.push(`**Coeff:** ${fmtN(crit.pointCoefficient)}×`);
-        if (crit.isBonus) meta.push(`**Bonus:** Yes`);
+        if (crit.maxPoints != null) meta.push(`**${t('gsCritMax') || 'Max'}:** ${fmtN(crit.maxPoints)} pts`);
+        if (crit.pointCoefficient && crit.pointCoefficient !== 1) meta.push(`**${t('gsCoeff') || 'Coeff'}:** ${fmtN(crit.pointCoefficient)}×`);
+        if (crit.isBonus) meta.push(`**${t('gsCritBonusBadge') || 'Bonus'}:** ${t('btnYes') || 'Yes'}`);
         if (meta.length) {
           lines.push(meta.join(" · "));
           lines.push("");
         }
 
-        lines.push("| Grade / Level | Descriptor |");
+        lines.push(`| ${t('gsCritTableGradeLevel') || 'Grade / Level'} | ${t('gsCritTableDescriptor') || 'Descriptor'} |`);
         lines.push("| :--- | :--- |");
         crit.grades.forEach(k => {
           const text = (crit.xlsm && crit.xlsm.comments && crit.xlsm.comments[k]) ? crit.xlsm.comments[k] : "—";

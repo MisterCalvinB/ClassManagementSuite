@@ -20,17 +20,17 @@
     /* hamburger wrapper */
     '.hm-wrap{position:relative;margin-left:auto;display:inline-flex;align-items:center;gap:8px}',
     /* dropdown panel — grid layout */
-    '.hm-menu{display:none;position:absolute;right:0;top:calc(100% + 6px);background:#1a1a1a;border:2px solid #3a3a3a;border-radius:10px;z-index:9999;padding:10px;box-shadow:0 8px 32px rgba(0,0,0,.6);width:280px}',
+    '.hm-menu{display:none;position:absolute;right:0;top:calc(100% + 6px);background:#1a1a1a;border:2px solid #3a3a3a;border-radius:10px;z-index:9999;padding:10px;box-shadow:0 8px 32px rgba(0,0,0,.6);width:280px;box-sizing:border-box}',
     '.hm-wrap.open .hm-menu{display:block}',
     /* grid container inside the panel */
     '.hm-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}',
     /* individual tile */
-    '.hm-item{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:5px;padding:8px 4px 6px;color:#bbb;text-decoration:none;font-size:.62rem;font-weight:700;text-align:center;line-height:1.2;background:none;border:1.5px solid transparent;border-radius:7px;cursor:pointer;font-family:inherit;box-sizing:border-box;transition:background 0.12s ease,border-color 0.12s ease,color 0.12s ease;word-break:break-word;hyphens:auto}',
-    '.hm-item:hover{background:#2a2a2a;border-color:#555;color:#fff}',
-    '.hm-item.nav-active{background:#252525;border-color:#666;color:#fff}',
+    '.hm-item,.hm-grid .hm-item{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:5px;padding:8px 4px 6px;color:#bbb;text-decoration:none;font-size:.62rem;font-weight:700;text-align:center;line-height:1.2;background:none;border:1.5px solid transparent;border-radius:7px;cursor:pointer;font-family:inherit;width:auto;box-sizing:border-box;transition:background 0.12s ease,border-color 0.12s ease,color 0.12s ease;word-break:break-word;hyphens:auto}',
+    '.hm-item:hover,.hm-grid .hm-item:hover{background:#2a2a2a;border-color:#555;color:#fff}',
+    '.hm-item.nav-active,.hm-grid .hm-item.nav-active{background:#252525;border-color:#666;color:#fff}',
     /* icon inside tile */
-    '.hm-icon-img{width:22px;height:22px;flex-shrink:0;filter:invert(1) brightness(10) grayscale(1)!important;opacity:.75;transition:opacity 0.12s ease}',
-    '.hm-item:hover .hm-icon-img,.hm-item.nav-active .hm-icon-img{opacity:1}',
+    '.hm-icon-img,.hm-grid .hm-icon-img{width:22px;height:22px;flex-shrink:0;vertical-align:middle;margin-right:0;filter:invert(1) brightness(10) grayscale(1)!important;opacity:.75;transition:opacity 0.12s ease}',
+    '.hm-item:hover .hm-icon-img,.hm-item.nav-active .hm-icon-img,.hm-grid .hm-item:hover .hm-icon-img,.hm-grid .hm-item.nav-active .hm-icon-img{opacity:1}',
     /* separators span full grid width */
     '.hm-sep{border:none;border-top:1px solid #2e2e2e;margin:6px 0;grid-column:1/-1}',
     /* lang row */
@@ -134,7 +134,7 @@
           parts.push('</div><hr class="hm-sep"><div class="hm-grid">');
           return;
         }
-        var cls = 'nav-link hm-item' + (app.href === current ? ' nav-active' : '');
+        var cls = 'hm-item' + (app.href === current ? ' nav-active' : '');
         var iconHtml = app.icon
           ? '<img src="' + baseDir + 'assets/icons/' + app.icon + '" class="hm-icon-img" alt="" />'
           : '';

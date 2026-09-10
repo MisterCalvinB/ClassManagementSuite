@@ -413,23 +413,48 @@
   let _customLibraryItems = [];
   let _libraryLoaded = false;
 
-  async function loadPremadeLibraryData() {
+  async function loadPremadeLibraryData(force = false) {
+    if (_libraryLoaded && !force) return;
     try {
-      if (typeof Desktop !== 'undefined' && Desktop.readText) {
-        const r = await Desktop.readText('user', 'board-library.json');
-        if (r && r.success && r.data) {
-          const parsed = typeof r.data === 'string' ? JSON.parse(r.data) : r.data;
-          if (parsed && Array.isArray(parsed.customItems)) {
-            _customLibraryItems = parsed.customItems;
+      let parsed = null;
+      let fromDisk = false;
+      if (typeof Desktop !== 'undefined') {
+        if (typeof Desktop.readJson === 'function') {
+          const r = await Desktop.readJson('user', 'board-library.json');
+          if (r && (r.ok || r.success) && r.data) {
+            parsed = r.data;
+            fromDisk = true;
           }
         }
-      } else {
+        if (!parsed && typeof Desktop.readText === 'function') {
+          const r = await Desktop.readText('user', 'board-library.json');
+          if (r && (r.ok || r.success)) {
+            const raw = (r.content !== undefined && r.content !== null) ? r.content : r.data;
+            if (raw) {
+              parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+              fromDisk = true;
+            }
+          }
+        }
+      }
+      if (!parsed) {
         const raw = localStorage.getItem('cmt_board_premade_library');
         if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed && Array.isArray(parsed.customItems)) {
-            _customLibraryItems = parsed.customItems;
-          }
+          try {
+            parsed = JSON.parse(raw);
+          } catch (_) {}
+        }
+      }
+
+      if (parsed) {
+        if (Array.isArray(parsed.customItems)) {
+          _customLibraryItems = parsed.customItems;
+        } else if (Array.isArray(parsed)) {
+          _customLibraryItems = parsed;
+        }
+        // If loaded from localStorage fallback while in Desktop mode, persist to disk immediately
+        if (!fromDisk && _customLibraryItems.length > 0 && typeof Desktop !== 'undefined' && (Desktop.saveJson || Desktop.saveText)) {
+          await savePremadeLibraryData();
         }
       }
     } catch (e) {
@@ -445,23 +470,27 @@
       updatedAt: Date.now()
     };
     try {
+      try {
+        localStorage.setItem('cmt_board_premade_library', JSON.stringify(payload));
+      } catch (_) {}
+
       if (typeof Desktop !== 'undefined' && Desktop.saveJson) {
         await Desktop.saveJson('user', 'board-library.json', payload);
-      } else {
-        localStorage.setItem('cmt_board_premade_library', JSON.stringify(payload));
+      } else if (typeof Desktop !== 'undefined' && Desktop.saveText) {
+        await Desktop.saveText('user', 'board-library.json', JSON.stringify(payload, null, 2));
       }
     } catch (e) {
       console.error('[Premade Library] Error saving custom items:', e);
     }
   }
 
-  window.conGetPremadeLibraryItems = async function () {
-    if (!_libraryLoaded) await loadPremadeLibraryData();
+  window.conGetPremadeLibraryItems = async function (forceReload = false) {
+    if (!_libraryLoaded || forceReload) await loadPremadeLibraryData(forceReload);
     return [...STOCK_PREMADE_ITEMS, ..._customLibraryItems];
   };
 
   window.conSaveCustomPremadeItem = async function (name, category, description, snippetData) {
-    if (!_libraryLoaded) await loadPremadeLibraryData();
+    await loadPremadeLibraryData(true);
     const newItem = {
       id: 'custom_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
       name: name || 'Custom Item',
@@ -471,16 +500,32 @@
       createdAt: Date.now(),
       data: snippetData
     };
-    _customLibraryItems.unshift(newItem);
+    _customLibraryItems = [newItem, ..._customLibraryItems.filter(item => item.id !== newItem.id)];
     await savePremadeLibraryData();
     return newItem;
   };
 
   window.conDeleteCustomPremadeItem = async function (id) {
-    if (!_libraryLoaded) await loadPremadeLibraryData();
+    await loadPremadeLibraryData(true);
     _customLibraryItems = _customLibraryItems.filter(item => item.id !== id);
     await savePremadeLibraryData();
   };
+
+  if (typeof Desktop !== 'undefined' && typeof Desktop.onDataChanged === 'function') {
+    Desktop.onDataChanged(function (data) {
+      if (data && data.filename === 'board-library.json') {
+        _libraryLoaded = false;
+        loadPremadeLibraryData(true).then(() => {
+          if (typeof window.conRenderPremadeLibraryList === 'function') {
+            const overlay = document.getElementById('con-premade-library-overlay');
+            if (overlay && overlay.classList.contains('active')) {
+              window.conRenderPremadeLibraryList();
+            }
+          }
+        }).catch(() => {});
+      }
+    });
+  }
 
   /**
    * Insert a premade library item onto the active board at (targetX, targetY).
