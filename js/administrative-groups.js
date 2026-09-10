@@ -281,6 +281,15 @@
     return age >= 0 ? age : '';
   }
 
+  // Returns a CSS colour for an individual infraction count value.
+  // 0 → green (clean), 1–2 → orange (borderline), 3+ → red (bad).
+  function getInfractionCountColor(val) {
+    val = parseInt(val, 10) || 0;
+    if (val <= 0) return '#16a34a';
+    if (val <= 2) return '#d97706';
+    return '#dc2626';
+  }
+
   function calculateDisciplinePoints(infractions) {
     if (!infractions) return 0;
     var total = 0;
@@ -657,7 +666,7 @@
             html += '<td style="text-align:center;">';
             html += '<div class="ag-counter-cell">';
             html += '<button type="button" class="ag-counter-btn" onclick="window.modInfraction(\'' + s.uuid + '\', \'' + key + '\', -1)">-</button>';
-            html += '<input type="number" class="ag-counter-val" min="0" max="999" value="' + val + '" onfocus="this.select()" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="window.setInfraction(\'' + s.uuid + '\', \'' + key + '\', this.value)">';
+            html += '<input type="number" class="ag-counter-val" min="0" max="999" value="' + val + '" onfocus="this.select()" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="window.setInfraction(\'' + s.uuid + '\', \'' + key + '\', this.value); window.updateCounterColor(this)" style="color:' + getInfractionCountColor(val) + '; font-weight:900;">';
             html += '<button type="button" class="ag-counter-btn" onclick="window.modInfraction(\'' + s.uuid + '\', \'' + key + '\', 1)">+</button>';
             html += '</div>';
             html += '</td>';
@@ -667,7 +676,7 @@
               html += '<td style="text-align:center;">';
               html += '<div class="ag-counter-cell">';
               html += '<button type="button" class="ag-counter-btn" onclick="window.modInfraction(\'' + s.uuid + '\', \'' + inf.key + '\', -1)">-</button>';
-              html += '<input type="number" class="ag-counter-val" min="0" max="999" value="' + val + '" onfocus="this.select()" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="window.setInfraction(\'' + s.uuid + '\', \'' + inf.key + '\', this.value)">';
+              html += '<input type="number" class="ag-counter-val" min="0" max="999" value="' + val + '" onfocus="this.select()" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="window.setInfraction(\'' + s.uuid + '\', \'' + inf.key + '\', this.value); window.updateCounterColor(this)" style="color:' + getInfractionCountColor(val) + '; font-weight:900;">';
               html += '<button type="button" class="ag-counter-btn" onclick="window.modInfraction(\'' + s.uuid + '\', \'' + inf.key + '\', 1)">+</button>';
               html += '</div>';
               html += '</td>';
@@ -788,6 +797,14 @@
 
     renderTable();
     autoSave();
+  };
+
+  // Updates the colour of a counter input immediately when the user types a value.
+  window.updateCounterColor = function (input) {
+    var val = parseInt(input.value, 10) || 0;
+    if (val <= 0) input.style.color = '#16a34a';
+    else if (val <= 2) input.style.color = '#d97706';
+    else input.style.color = '#dc2626';
   };
 
   window.updateStudentField = function (uuid, field, val) {
