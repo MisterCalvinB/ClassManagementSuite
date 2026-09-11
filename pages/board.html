@@ -17029,7 +17029,7 @@
         if (Array.isArray(_conPageSnapshotPngs)) _conPageSnapshotPngs.push(null);
         conCurrentPageIndex = conPageSnapshots.length - 1;
 
-        if (window._conMirrorSend) {
+        if (!window._conMirrorFrozen && window._conMirrorSend) {
           if (typeof window._conBumpBoardRevision === 'function') window._conBumpBoardRevision();
           window._conMirrorSend({
             type: 'board-state',
@@ -17055,8 +17055,8 @@
         conCurrentPageIndex = idx;
         const targetSnap = conPageSnapshots[conCurrentPageIndex];
 
-        // Broadcast target page directly and immediately so mirror restores in parallel
-        if (window._conMirrorSend && targetSnap) {
+        // Broadcast target page directly and immediately so mirror restores in parallel (unless frozen)
+        if (!window._conMirrorFrozen && window._conMirrorSend && targetSnap) {
           if (typeof window._conBumpBoardRevision === 'function') window._conBumpBoardRevision();
           window._conMirrorSend({
             type: 'board-state',
@@ -18964,6 +18964,11 @@
         let _mirrorTimer = null;
         let _mirrorLastSent = 0;
         let _mirrorFrozen = false;
+        let _mirrorFrozenSnapshot = null;
+        let _mirrorFrozenPageIndex = null;
+        let _mirrorFrozenViewport = null;
+        window._conMirrorFrozen = false;
+        window.conIsMirrorFrozen = function () { return !!_mirrorFrozen; };
         const _mirrorPeers = new Set();
         let _mirrorControlMenuEl = null;
         const _attachmentDataUrlCache = new Map(); // cacheKey -> dataUrl
@@ -19285,6 +19290,10 @@
           if (!e.data) return;
           if (e.data.type === 'request-state') {
             _mirrorSentAttachmentKeys.clear();
+            if (_mirrorFrozen && _mirrorFrozenSnapshot) {
+              _mirrorDoSendFrozen();
+              return;
+            }
             _mirrorBroadcast({ bumpRevision: true });
             return;
           }
@@ -19309,15 +19318,44 @@
             if (e.data.online) {
               _mirrorPeers.add(mirrorId);
               _mirrorSentAttachmentKeys.clear();
-              _mirrorBroadcast({ bumpRevision: true });
+              if (_mirrorFrozen && _mirrorFrozenSnapshot) {
+                _mirrorDoSendFrozen();
+              } else {
+                _mirrorBroadcast({ bumpRevision: true });
+              }
             } else {
               _mirrorPeers.delete(mirrorId);
             }
             _setPresentationActive(_mirrorPeers.size > 0);
           }
         };
+        function _mirrorDoSendFrozen() {
+          try {
+            if (!_mirrorFrozenSnapshot) return;
+            var vp = _mirrorFrozenViewport || _mirrorGetViewport();
+            _mirrorCh.postMessage({
+              type: 'board-state',
+              snapshot: _mirrorFrozenSnapshot,
+              pageIndex: _mirrorFrozenPageIndex !== null ? _mirrorFrozenPageIndex : 0,
+              zoom: conCurrentZoom || 1,
+              boardViewW: vp.vW,
+              boardViewH: vp.vH,
+              sx: vp.sx,
+              sy: vp.sy,
+              pointerOn: false,
+              frozen: true,
+              forceRender: true
+            });
+          } catch (e) { console.error('[BoardPresenter] Error in _mirrorDoSendFrozen:', e); }
+        }
         window._conMirrorBroadcast = _mirrorBroadcast;
-        window._conMirrorSend = function (msg) { try { _mirrorCh.postMessage(msg); } catch (e) { } };
+        window._conMirrorSend = function (msg) {
+          if (!msg) return;
+          if (_mirrorFrozen && msg.type !== 'freeze-state' && msg.type !== 'mirror-control' && msg.type !== 'mirror-presence') {
+            return;
+          }
+          try { _mirrorCh.postMessage(msg); } catch (e) { }
+        };
         document.addEventListener('DOMContentLoaded', function () {
           function _setFreezeUi(on) {
             var btn = document.getElementById('con-freeze-btn');
@@ -19461,6 +19499,16 @@
           };
           window.conToggleMirrorFreeze = function () {
             _mirrorFrozen = !_mirrorFrozen;
+            window._conMirrorFrozen = _mirrorFrozen;
+            if (_mirrorFrozen) {
+              _mirrorFrozenSnapshot = window.conBuildPageSnapshot ? window.conBuildPageSnapshot() : null;
+              _mirrorFrozenPageIndex = (typeof conCurrentPageIndex === 'number') ? conCurrentPageIndex : 0;
+              _mirrorFrozenViewport = _mirrorGetViewport ? _mirrorGetViewport() : null;
+            } else {
+              _mirrorFrozenSnapshot = null;
+              _mirrorFrozenPageIndex = null;
+              _mirrorFrozenViewport = null;
+            }
             _setFreezeUi(_mirrorFrozen);
             window._conMirrorSend({ type: 'freeze-state', on: _mirrorFrozen });
             if (!_mirrorFrozen) _mirrorBroadcast();
@@ -23062,7 +23110,7 @@
           conRenderNodeLabel(node);
           if (node.timerTarget === 'cms') {
             if (window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron()) {
-              Desktop.timerCommand({ cmd: 'pause' });
+              Desktop.timerCommand({ cmd: 'resume' });
             }
             if (typeof boardCmsTimerChannel !== 'undefined' && boardCmsTimerChannel) {
               try { boardCmsTimerChannel.postMessage({ type: 'timer-command', cmd: 'resume' }); } catch (_) {}
@@ -29467,6 +29515,7 @@
       ta.style.overflowY = 'auto';
       return true;
     }
+    window.wnApplyStoredSize = wnApplyStoredSize;
 
     function wnAttachResizeHandle(note, ta, noteData, opts) {
       const cfg = Object.assign({ minW: 80, maxW: 540, minH: 28, maxH: 360 }, opts || {});
@@ -29484,6 +29533,8 @@
       note.appendChild(handle);
 
       let resizing = false, sx = 0, sy = 0, sw = 0, sh = 0;
+      let _noteResizeRaf = null, _pendingNoteResizeMsg = null;
+
       handle.addEventListener('mousedown', e => {
         if (noteData.locked) {
           e.preventDefault();
@@ -29492,10 +29543,11 @@
         }
         const scale = Math.max(0.5, Math.min(3, Number(getScale()) || 1));
         resizing = true;
+        window._conMirrorDragging = true;
         sx = e.clientX;
         sy = e.clientY;
-        sw = note.offsetWidth / scale;
-        sh = note.offsetHeight / scale;
+        sw = (noteData.manualSize && Number.isFinite(Number(noteData.width))) ? Number(noteData.width) : (note.offsetWidth / scale);
+        sh = (noteData.manualSize && Number.isFinite(Number(noteData.height))) ? Number(noteData.height) : (note.offsetHeight / scale);
         e.preventDefault();
         e.stopPropagation();
       });
@@ -29514,11 +29566,48 @@
         noteData.width = nextW;
         noteData.height = nextH;
         wnApplyStoredSize(note, ta, noteData, scale);
+        if (typeof conRedrawEdges === 'function') conRedrawEdges();
+        if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
+
+        if (window._conMirrorSend) {
+          _pendingNoteResizeMsg = {
+            type: 'note-resize',
+            id: String(noteData.id),
+            width: nextW,
+            height: nextH,
+            manualSize: true
+          };
+          if (!_noteResizeRaf) {
+            _noteResizeRaf = requestAnimationFrame(function () {
+              _noteResizeRaf = null;
+              if (window._conMirrorSend && _pendingNoteResizeMsg) {
+                window._conMirrorSend(_pendingNoteResizeMsg);
+              }
+            });
+          }
+        }
       });
       document.addEventListener('mouseup', () => {
         if (resizing) {
           resizing = false;
+          if (_noteResizeRaf) {
+            cancelAnimationFrame(_noteResizeRaf);
+            _noteResizeRaf = null;
+          }
+          if (window._conMirrorSend) {
+            window._conMirrorSend({
+              type: 'note-resize',
+              id: String(noteData.id),
+              width: Number(noteData.width),
+              height: Number(noteData.height),
+              manualSize: true
+            });
+            _pendingNoteResizeMsg = null;
+          }
           if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+          setTimeout(() => {
+            window._conMirrorDragging = false;
+          }, 60);
         }
       });
     }
@@ -30442,14 +30531,26 @@
     }
     function wnStyleBlink() {
       if (!_wnActiveNote) return;
-      _wnActiveNote.blink = !_wnActiveNote.blink;
-      const noteEl = wnGetNoteElementById(_wnActiveNote.id);
-      if (noteEl) noteEl.classList.toggle('wn-blink', !!_wnActiveNote.blink);
+      const targetNotes = (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 1 && conNoteSelected.has(_wnActiveNote.id))
+        ? (window.conGetNotes ? window.conGetNotes().filter(n => conNoteSelected.has(n.id)) : [_wnActiveNote])
+        : [_wnActiveNote];
+
+      const newBlink = !_wnActiveNote.blink;
+      targetNotes.forEach(nd => {
+        nd.blink = newBlink;
+        const noteEl = (typeof wnGetNoteElementById === 'function') ? wnGetNoteElementById(nd.id) : null;
+        if (noteEl) {
+          noteEl.classList.toggle('wn-blink', !!newBlink);
+          const quickBlink = noteEl.querySelector('.wn-note-mini-btn[data-action="blink"]');
+          if (quickBlink) quickBlink.classList.toggle('active', !!newBlink);
+        }
+        if (typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({ type: 'note-blink', noteId: String(nd.id), blink: !!newBlink });
+        }
+      });
       const blinkBtn = document.getElementById('wn-sp-blink-btn');
-      if (blinkBtn) blinkBtn.classList.toggle('active', !!_wnActiveNote.blink);
-      if (typeof window._conMirrorSend === 'function') {
-        window._conMirrorSend({ type: 'note-blink', noteId: String(_wnActiveNote.id), blink: !!_wnActiveNote.blink });
-      }
+      if (blinkBtn) blinkBtn.classList.toggle('active', !!newBlink);
+      if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
     }
     function wnStyleDeleteNote() {
       if (!_wnActiveNote) return; const nd = _wnActiveNote; wnStyleDismiss(); wnDeleteNoteData(nd);
@@ -30793,6 +30894,15 @@
       if (nd._applyStyle) nd._applyStyle();
       nd.width = boxW; nd.height = boxH;
       wnApplyStoredSize(noteEl, ta, nd, zoom);
+      if (typeof window._conMirrorSend === 'function') {
+        window._conMirrorSend({
+          type: 'note-resize',
+          id: String(nd.id),
+          width: boxW,
+          height: boxH,
+          manualSize: true
+        });
+      }
       wnStyleRefresh();
     }
 
@@ -31410,6 +31520,15 @@
         if (wnUnwrapBlinkHlInSelection(editor)) {
           wnSyncNoteDataFromEditor(_wnActiveNote, editor);
           if (_wnActiveNote._applyStyle) _wnActiveNote._applyStyle();
+          if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+          if (typeof window._conMirrorSend === 'function') {
+            window._conMirrorSend({
+              type: 'note-text',
+              id: String(_wnActiveNote.id),
+              html: _wnActiveNote.html,
+              text: _wnActiveNote.text
+            });
+          }
           return;
         }
         const range = sel.getRangeAt(0);
@@ -31419,6 +31538,15 @@
         sel.removeAllRanges();
         wnSyncNoteDataFromEditor(_wnActiveNote, editor);
         if (_wnActiveNote._applyStyle) _wnActiveNote._applyStyle();
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        if (typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({
+            type: 'note-text',
+            id: String(_wnActiveNote.id),
+            html: _wnActiveNote.html,
+            text: _wnActiveNote.text
+          });
+        }
         return;
       }
       if (wnApplySelectionCommand('hiliteColor', color)) return;
@@ -32367,6 +32495,7 @@
       // Blink button
       const blinkQuickBtn = document.createElement('button');
       blinkQuickBtn.className = 'wn-note-mini-btn';
+      blinkQuickBtn.setAttribute('data-action', 'blink');
       blinkQuickBtn.title = 'Toggle blink';
       blinkQuickBtn.innerHTML = '<img src="../assets/icons/blink.svg" class="btn-icon" alt="" />';
       blinkQuickBtn.classList.toggle('active', !!noteData.blink);
@@ -32381,6 +32510,9 @@
         if (_wnActiveNote && _wnActiveNote.id === noteData.id) {
           const blinkBtn = document.getElementById('wn-sp-blink-btn');
           if (blinkBtn) blinkBtn.classList.toggle('active', !!noteData.blink);
+        }
+        if (typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({ type: 'note-blink', noteId: String(noteData.id), blink: !!noteData.blink });
         }
       });
       miniActions.appendChild(blinkQuickBtn);
@@ -46927,7 +47059,7 @@
         }
       }
 
-      // Force-restart group blink animation synced to current clock phase (3.6 s period).
+      // Force-restart group and note blink animation synced to current clock phase (3.6 s period).
       // Must remove+re-add the class to restart the animation with the new delay.
       function _syncBlinkPhase() {
         requestAnimationFrame(function () {
@@ -46937,6 +47069,12 @@
             bel.style.setProperty('--con-group-blink-delay', delay);
             void bel.offsetWidth;
             bel.classList.add('con-group-blink');
+          });
+          document.querySelectorAll('.con-word-note.wn-blink, .ta-word-note.wn-blink, .wn-blink').forEach(function (bel) {
+            bel.classList.remove('wn-blink');
+            bel.style.setProperty('--wn-blink-delay', delay);
+            void bel.offsetWidth;
+            bel.classList.add('wn-blink');
           });
         });
       }
@@ -46965,8 +47103,9 @@
           el.classList.remove('con-attention-blink');
           el.style.removeProperty('--con-blink-delay');
         });
-        document.querySelectorAll('#constellation-board .con-word-note.wn-blink, #constellation-board .con-word-note .wn-blink-hl').forEach(function (el) {
+        document.querySelectorAll('#constellation-board .con-word-note.wn-blink, #constellation-board .con-word-note .wn-blink-hl, #constellation-board .ta-word-note.wn-blink').forEach(function (el) {
           el.classList.remove('wn-blink');
+          el.style.removeProperty('--wn-blink-delay');
           el.classList.remove('wn-blink-hl');
         });
         Object.keys(_activeNodeBlinks).forEach(function (nodeId) {
@@ -46974,6 +47113,24 @@
           if (info && info.cleanupTimer) clearTimeout(info.cleanupTimer);
           delete _activeNodeBlinks[nodeId];
         });
+      }
+      function _reapplyMirrorBlinks() {
+        var _liveGroups = window.conGetGroups ? window.conGetGroups() : [];
+        _liveGroups.forEach(function (g) {
+          if (g.blink && g.el) {
+            g.el.classList.add('con-group-blink');
+          }
+        });
+        var _liveNotes = window.conGetNotes ? window.conGetNotes() : [];
+        _liveNotes.forEach(function (n) {
+          if (n.blink) {
+            var nEl = (typeof wnGetNoteElementById === 'function')
+              ? wnGetNoteElementById(n.id)
+              : document.querySelector('#constellation-board [data-id="' + n.id + '"]');
+            if (nEl) nEl.classList.add('wn-blink');
+          }
+        });
+        _syncBlinkPhase();
       }
       function _setMirrorFrozenUi(on) {
         var el = _mirrorFrozenIndicator();
@@ -47397,6 +47554,14 @@
         }
 
         if (d.type === 'board-state') {
+          if (d.frozen !== undefined) {
+            _mirrorIsFrozen = !!d.frozen;
+            _setMirrorFrozenUi(_mirrorIsFrozen);
+            _setMirrorMenuFrozen(_mirrorIsFrozen);
+          }
+          if (_mirrorIsFrozen && !d.forceRender) {
+            return;
+          }
           console.log('[BoardMirror] Received board-state:', {
             boardViewW: d.boardViewW,
             boardViewH: d.boardViewH,
@@ -47615,9 +47780,13 @@
           return;
         }
         if (d.type === 'freeze-state') {
+          var wasFrozen = _mirrorIsFrozen;
           _mirrorIsFrozen = !!d.on;
           _setMirrorFrozenUi(_mirrorIsFrozen);
           _setMirrorMenuFrozen(_mirrorIsFrozen);
+          if (wasFrozen && !_mirrorIsFrozen) {
+            _reapplyMirrorBlinks();
+          }
           return;
         }
 
@@ -47784,9 +47953,18 @@
 
         if (d.type === 'note-blink') {
           if (_mirrorIsFrozen) return;
-          var nEl = document.querySelector('#constellation-board .con-word-note[data-id="' + d.noteId + '"]');
+          var nEl = (typeof wnGetNoteElementById === 'function')
+            ? wnGetNoteElementById(d.noteId)
+            : document.querySelector('#constellation-board .con-word-note[data-id="' + d.noteId + '"], #constellation-board .ta-word-note[data-id="' + d.noteId + '"]');
           if (nEl) {
-            nEl.classList.toggle('wn-blink', !!d.blink);
+            nEl.classList.remove('wn-blink');
+            if (d.blink) {
+              nEl.style.setProperty('--wn-blink-delay', '-' + ((Date.now() / 1000) % 3.6).toFixed(3) + 's');
+              void nEl.offsetWidth;
+              nEl.classList.add('wn-blink');
+            } else {
+              nEl.style.removeProperty('--wn-blink-delay');
+            }
           }
           var _liveNotes = window.conGetNotes ? window.conGetNotes() : [];
           var noteObj = _liveNotes.find(function (n) { return String(n.id) === String(d.noteId); });
@@ -48202,13 +48380,75 @@
             if (d.blink !== undefined) noteObj.blink = d.blink;
             if (typeof noteObj._applyStyle === 'function') {
               noteObj._applyStyle();
+              var nEl = (typeof wnGetNoteElementById === 'function')
+                ? wnGetNoteElementById(d.id)
+                : document.querySelector('#constellation-board .con-word-note[data-id="' + d.id + '"], #constellation-board .ta-word-note[data-id="' + d.id + '"]');
+              if (nEl && d.blink !== undefined) {
+                nEl.classList.remove('wn-blink');
+                if (d.blink) {
+                  nEl.style.setProperty('--wn-blink-delay', '-' + ((Date.now() / 1000) % 3.6).toFixed(3) + 's');
+                  void nEl.offsetWidth;
+                  nEl.classList.add('wn-blink');
+                } else {
+                  nEl.style.removeProperty('--wn-blink-delay');
+                }
+              }
             } else {
-              var noteEl = document.querySelector('#constellation-board .con-word-note[data-id="' + d.id + '"]');
+              var noteEl = (typeof wnGetNoteElementById === 'function')
+                ? wnGetNoteElementById(d.id)
+                : document.querySelector('#constellation-board .con-word-note[data-id="' + d.id + '"], #constellation-board .ta-word-note[data-id="' + d.id + '"]');
               if (noteEl) {
                 if (d.bg !== undefined) noteEl.style.background = d.bg;
                 if (d.color !== undefined) noteEl.style.color = d.color;
+                if (d.blink !== undefined) {
+                  noteEl.classList.remove('wn-blink');
+                  if (d.blink) {
+                    noteEl.style.setProperty('--wn-blink-delay', '-' + ((Date.now() / 1000) % 3.6).toFixed(3) + 's');
+                    void noteEl.offsetWidth;
+                    noteEl.classList.add('wn-blink');
+                  } else {
+                    noteEl.style.removeProperty('--wn-blink-delay');
+                  }
+                }
               }
             }
+          }
+          return;
+        }
+
+        if (d.type === 'note-resize') {
+          if (_mirrorIsFrozen) return;
+          var _liveNotes = window.conGetNotes ? window.conGetNotes() : [];
+          var noteObj = _liveNotes.find(function (n) { return String(n.id) === String(d.id); });
+          if (noteObj) {
+            if (d.manualSize !== undefined) noteObj.manualSize = !!d.manualSize;
+            if (typeof d.width === 'number') noteObj.width = d.width;
+            if (typeof d.height === 'number') noteObj.height = d.height;
+          }
+          var nel = document.querySelector('#constellation-board .con-word-note[data-id="' + d.id + '"]') || document.querySelector('.con-word-note[data-id="' + d.id + '"]');
+          if (nel) {
+            var ta = nel.querySelector('.wn-note-editor, textarea');
+            var zoom = (window.conGetZoom ? window.conGetZoom() : 1);
+            var applyFn = (typeof wnApplyStoredSize === 'function') ? wnApplyStoredSize : (window.wnApplyStoredSize || null);
+            if (applyFn && ta) {
+              var nData = noteObj || { width: d.width, height: d.height, manualSize: (d.manualSize !== undefined ? d.manualSize : true) };
+              applyFn(nel, ta, nData, zoom);
+            } else {
+              var z = Math.max(0.5, Math.min(3, Number(zoom) || 1));
+              var w = (typeof d.width === 'number') ? d.width : (noteObj ? noteObj.width : null);
+              var h = (typeof d.height === 'number') ? d.height : (noteObj ? noteObj.height : null);
+              if (w != null) nel.style.width = (w * z) + 'px';
+              if (h != null) {
+                nel.style.height = (h * z) + 'px';
+                if (ta) {
+                  ta.style.width = '100%';
+                  ta.style.height = Math.max(16, (h - 12) * z) + 'px';
+                  ta.style.overflowY = 'auto';
+                }
+              }
+            }
+            if (typeof conRedrawEdges === 'function') conRedrawEdges();
+            if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
           }
           return;
         }

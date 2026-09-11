@@ -4304,6 +4304,12 @@ body.pres-show-roles .picked-blink {
   z-index: 550 !important;
 }
 
+/* Suppress active-note ring while the attention-blink animation is running */
+.con-mirror-mode .con-word-note.con-mirror-active.wn-blink {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
 /* Active drawing highlight in presentation (mirror) mode */
 .con-mirror-mode .con-drawing.con-mirror-active {
   outline: 4px solid #ff9800 !important;
@@ -7462,16 +7468,30 @@ body.is-dragging-mini-thumb .con-page-mini-thumb img,
 
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    opacity: 0;
   }
 
   50% {
-    box-shadow: 0 0 0 12px rgba(239, 68, 68, 0.85), 0 0 8px 4px rgba(239, 68, 68, 0.3);
+    opacity: 1;
   }
 }
 
 .wn-blink {
+  position: absolute;
+}
+
+.wn-blink::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: 0 0 0 12px rgba(239, 68, 68, 0.85), 0 0 14px 6px rgba(239, 68, 68, 0.22);
+  opacity: 0;
   animation: wn-blink-pulse 3.6s ease-in-out infinite;
+  animation-delay: var(--wn-blink-delay, 0s);
+  will-change: opacity;
+  z-index: 10;
 }
 
 @keyframes wn-blink-hl-anim {

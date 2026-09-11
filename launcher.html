@@ -17,6 +17,11 @@
     (function () {
       try {
         if (sessionStorage.getItem('cmt-launcher-started')) return;
+        var urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('restore') || urlParams.has('restored')) {
+          sessionStorage.setItem('cmt-launcher-started', '1');
+          return;
+        }
         sessionStorage.setItem('cmt-launcher-started', '1');
 
         var cfg = JSON.parse(localStorage.getItem('cmt-general-config') || '{}');

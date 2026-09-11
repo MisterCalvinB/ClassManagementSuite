@@ -11816,6 +11816,12 @@
         }
 
         function overlayPlayPauseTimer() {
+            if (PRESENTATION_MODE) {
+                if (_presChannel) {
+                    try { _presChannel.postMessage({ type: 'timer-command', cmd: 'pause' }); } catch (_) {}
+                }
+                return;
+            }
             if (timerMode === 'stopwatch') {
                 if (stopwatchInterval) {
                     toggleStopwatchPause(); // pause or resume
@@ -11849,6 +11855,12 @@
         }
 
         function overlayStopTimer() {
+            if (PRESENTATION_MODE) {
+                if (_presChannel) {
+                    try { _presChannel.postMessage({ type: 'timer-command', cmd: 'stop' }); } catch (_) {}
+                }
+                return;
+            }
             popupStopTimer();
             updateOverlayTransportControls();
         }
@@ -12120,6 +12132,16 @@ syncState();
         // ---- Countdown Timer ----
 
         window.cmsStartExternalTimer = function (totalSeconds) {
+            if (PRESENTATION_MODE) {
+                if (_presChannel) {
+                    try { _presChannel.postMessage({ type: 'start-timer', seconds: totalSeconds }); } catch (_) {}
+                }
+                return;
+            }
+            if (typeof startCountdownWithSeconds === 'function') {
+                startCountdownWithSeconds(totalSeconds);
+                return;
+            }
             const tot = Math.max(1, parseInt(totalSeconds, 10) || 300);
             const h = Math.floor(tot / 3600);
             const m = Math.floor((tot % 3600) / 60);

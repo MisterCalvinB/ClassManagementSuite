@@ -579,6 +579,23 @@ function getLoadedPageFile(window = mainWindow) {
   }
 }
 
+function isPresentationWindow(win) {
+  if (!win || win.isDestroyed()) return false;
+  if (typeof cmsPresentationWindow !== 'undefined' && win === cmsPresentationWindow) return true;
+  if (typeof mirrorWindow !== 'undefined' && win === mirrorWindow) return true;
+  if (typeof learningToolsPresentationWindow !== 'undefined' && win === learningToolsPresentationWindow) return true;
+  if (typeof oralPresenterWindow !== 'undefined' && win === oralPresenterWindow) return true;
+  if (typeof docPresentationWindow !== 'undefined' && win === docPresentationWindow) return true;
+  if (typeof timerDetachedWindow !== 'undefined' && win === timerDetachedWindow) return true;
+  try {
+    const u = win.webContents ? win.webContents.getURL() : '';
+    if (u && /[?&](presentation|wwPresentation|ltPresentation)=/i.test(u)) {
+      return true;
+    }
+  } catch (_) {}
+  return false;
+}
+
 async function loadTool(pageFile, window = mainWindow, options = {}) {
   if (!window || window.isDestroyed()) {
     return;
@@ -609,8 +626,7 @@ function getActiveSessionSnapshot(cleanQuit = false) {
       if (!win || win.isDestroyed()) continue;
 
       // Filter out internal presentation, mirror, or detached secondary display windows
-      if (win === mirrorWindow || win === cmsPresentationWindow || win === oralPresenterWindow ||
-          win === docPresentationWindow || win === timerDetachedWindow || win === learningToolsPresentationWindow) {
+      if (isPresentationWindow(win)) {
         continue;
       }
 
@@ -723,6 +739,18 @@ function registerWindowForSessionState(win, initialContext = null) {
   scheduleSaveSessionState(500);
 }
 
+function _buildSessionWindowQuery(item) {
+  const query = {};
+  if (item && item.pageFile === PAGE_FILES.board && item.context && item.context.filename) {
+    query.openSession = '1';
+    query.openTarget = item.context.target || 'mindmaps';
+    query.openFilename = item.context.filename;
+    query.openRelPath = item.context.relativePath || item.context.filename;
+    query.openSection = item.context.section || 'constellation';
+  }
+  return query;
+}
+
 function restoreSavedSession(savedSession) {
   if (!savedSession || !Array.isArray(savedSession.windows) || savedSession.windows.length === 0) {
     return false;
@@ -730,40 +758,32 @@ function restoreSavedSession(savedSession) {
 
   console.log(`[SessionState] Recovering ${savedSession.windows.length} window(s) after unexpected shutdown...`);
 
-  // Window 0 becomes mainWindow
-  const primary = savedSession.windows[0];
-  const primaryQuery = {};
-  if (primary.pageFile === PAGE_FILES.board && primary.context && primary.context.filename) {
-    primaryQuery.openSession = '1';
-    primaryQuery.openTarget = primary.context.target || 'mindmaps';
-    primaryQuery.openFilename = primary.context.filename;
-    primaryQuery.openRelPath = primary.context.relativePath || primary.context.filename;
-    primaryQuery.openSection = primary.context.section || 'constellation';
-  }
+  // Identify launcher window if it was recorded as open
+  const launcherEntry = savedSession.windows.find(w => w && w.pageFile === PAGE_FILES.launcher);
+  // All other windows are tool windows (exclude duplicate launcher entries if any)
+  const toolWindows = savedSession.windows.filter(w => w && w.pageFile && w.pageFile !== PAGE_FILES.launcher);
 
-  const primaryOptions = {
-    bounds: primary.bounds,
-    isMaximized: primary.isMaximized,
-    query: Object.keys(primaryQuery).length ? primaryQuery : undefined
-  };
-
-  createMainWindow(primary.pageFile, primaryOptions);
-  if (primary.context && mainWindow && !mainWindow.isDestroyed()) {
-    _windowSessionContexts.set(mainWindow.id, primary.context);
-  }
-
-  // Windows 1 to n become tool windows
-  for (let i = 1; i < savedSession.windows.length; i++) {
-    const w = savedSession.windows[i];
-    const toolQuery = {};
-    if (w.pageFile === PAGE_FILES.board && w.context && w.context.filename) {
-      toolQuery.openSession = '1';
-      toolQuery.openTarget = w.context.target || 'mindmaps';
-      toolQuery.openFilename = w.context.filename;
-      toolQuery.openRelPath = w.context.relativePath || w.context.filename;
-      toolQuery.openSection = w.context.section || 'constellation';
+  // If launcher was open, restore it as mainWindow with its previous bounds/state.
+  // If launcher was NOT open, the launcher must also open as mainWindow!
+  if (launcherEntry) {
+    const launcherQuery = { restore: '1', ..._buildSessionWindowQuery(launcherEntry) };
+    const launcherOpts = {
+      bounds: launcherEntry.bounds,
+      isMaximized: launcherEntry.isMaximized,
+      query: launcherQuery
+    };
+    createMainWindow(PAGE_FILES.launcher, launcherOpts);
+    if (launcherEntry.context && mainWindow && !mainWindow.isDestroyed()) {
+      _windowSessionContexts.set(mainWindow.id, launcherEntry.context);
     }
+  } else {
+    console.log('[SessionState] Launcher was not opened in saved session; reopening launcher alongside restored tools.');
+    createMainWindow(PAGE_FILES.launcher, { query: { restore: '1' } });
+  }
 
+  // Restore all recorded tool windows
+  for (const w of toolWindows) {
+    const toolQuery = _buildSessionWindowQuery(w);
     const toolOpts = {
       ...(w.bounds || {}),
       isMaximized: w.isMaximized,
@@ -4907,7 +4927,7 @@ ipcMain.handle('app:open-tool', async (event, request = {}) => {
   // If an existing window for this page is already open (and no side-by-side, second screen, presentation query, or explicit new-window request)
   if (!wantsNewWindow && !isLearningToolsPresentation && !request.sideBySide && !request.openOnSecondScreen && !request.maximize) {
     const existing = BrowserWindow.getAllWindows().find(
-      w => !w.isDestroyed() && getLoadedPageFile(w) === pageFile
+      w => !w.isDestroyed() && !isPresentationWindow(w) && getLoadedPageFile(w) === pageFile
     );
     if (existing) {
       if (query && !request.noReload) {
@@ -5226,14 +5246,14 @@ ipcMain.handle('app:is-tool-open', (_event, request = {}) => {
   const clean = req.toLowerCase().replace(/[^a-z0-9]/g, '');
   const targetFile = PAGE_FILES[req] || PAGE_ARG_MAP[clean] || req;
   const win = BrowserWindow.getAllWindows().find(
-    w => !w.isDestroyed() && getLoadedPageFile(w) === targetFile
+    w => !w.isDestroyed() && !isPresentationWindow(w) && getLoadedPageFile(w) === targetFile
   );
   return { open: !!win };
 });
 
 ipcMain.handle('app:timer-command', async (event, request = {}) => {
   const targetWin = _cmsFindClassManagementWindow()
-    || (mainWindow && !mainWindow.isDestroyed() && getLoadedPageFile(mainWindow) === PAGE_FILES.classManagement ? mainWindow : null)
+    || (mainWindow && !mainWindow.isDestroyed() && !isPresentationWindow(mainWindow) && getLoadedPageFile(mainWindow) === PAGE_FILES.classManagement ? mainWindow : null)
     || (mainWindow && !mainWindow.isDestroyed() ? mainWindow : null);
   if (!targetWin || targetWin.isDestroyed()) return { ok: false, error: 'no-cms-window' };
   const totalSec = Number(request.totalSec) || ((Number(request.h) || 0) * 3600 + (Number(request.m) || 5) * 60 + (Number(request.s) || 0));
@@ -5241,6 +5261,8 @@ ipcMain.handle('app:timer-command', async (event, request = {}) => {
     start: `(function(){
       if (typeof window.cmsStartExternalTimer === 'function') {
         window.cmsStartExternalTimer(${totalSec});
+      } else if (typeof window.startCountdownWithSeconds === 'function') {
+        window.startCountdownWithSeconds(${totalSec});
       } else {
         var tot = ${totalSec};
         var h = Math.floor(tot / 3600);
@@ -5254,6 +5276,7 @@ ipcMain.handle('app:timer-command', async (event, request = {}) => {
     })()`,
     stop:    `overlayStopTimer()`,
     pause:   `overlayPlayPauseTimer()`,
+    resume:  `overlayPlayPauseTimer()`,
     add30:   `timerAdd30s()`,
     sub30:   `timerSubtract30s()`
   };
@@ -7561,6 +7584,10 @@ function _remoteGetLocalIp() {
 }
 
 function _cmsFindClassManagementWindow() {
+  const mainWin = BrowserWindow.getAllWindows().find(
+    w => !w.isDestroyed() && !isPresentationWindow(w) && getLoadedPageFile(w) === PAGE_FILES.classManagement
+  );
+  if (mainWin) return mainWin;
   return BrowserWindow.getAllWindows().find(
     w => !w.isDestroyed() && getLoadedPageFile(w) === PAGE_FILES.classManagement
   ) || null;

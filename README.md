@@ -203,6 +203,7 @@ When loading a class group in [Class Management](#class-managementhtml) on a dat
 ### Class Management ↔ Board: Live Sync & Floating Timer
 
 - **Live Draggable Floating Timer**: Timers started in [Class Management](#class-managementhtml) automatically render as a draggable, resizable floating widget on active [Board](#boardhtml) windows.
+- **Board Timer Nodes → Class Management**: Timers initiated from Board timer nodes trigger the countdown in the main Class Management window and synchronize live across secondary presentation windows and board mirrors.
 - **Presentation Mode**: Classroom updates, active group selections, working mode changes, and score animations stream to Board presentation views in real time.
 
 ---
@@ -225,7 +226,7 @@ Four tools support multi-monitor presentation modes:
 
 | Tool | How to Launch | Projected Content |
 |---|---|---|
-| **Board** | Toolbar → 📽️ Presentation Mode | Clean canvas view with optional laser dot, freeze mode, and window position popups |
+| **Board** | Toolbar → 📽️ Presentation Mode | Clean canvas view with live synchronized note resizing, drawing, and movements, optional laser dot, freeze mode (pauses canvas updates and page switching so other pages can be prepared in private), and window position popups |
 | **Class Management** | Top Menu → Presentation | Student roster with roles, badges, point animations, and independent freeze control |
 | **Learning Tools** | Game Toolbar → 📽️ Presentation Icon | Student-facing quiz & game screen while teacher control panel remains private |
 | **Document Editor** | Nav Bar → Presentation Mode | Live rendered Markdown/KaTeX preview on dark background, updated per keystroke |
@@ -248,6 +249,7 @@ The central entry point for the suite. Opens on app launch and provides quick na
   - **⚙ Config**: Launches [General Config](#general-confightml).
   - **? How To**: Opens built-in documentation with direct *Reveal Folder* disk links.
   - **▶ Tour**: Triggers an interactive step-by-step onboarding guide.
+- **Crash Recovery & Session Restoration**: Reopens on app startup even when recovering from an unexpected exit or crash, ensuring uninterrupted access to launcher navigation alongside all restored tool windows.
 
 ---
 
@@ -460,7 +462,7 @@ Infinite-canvas mind-mapping tool for vocabulary, draw overlays, sound nodes, an
 - **Custom Keyboard Shortcuts**: Configurable keyboard shortcut mapping within Board.
 - **Node Styling & Visuals**:
   - **Fit Text**: One-click node boundary auto-fitting (`fit-text.svg`).
-  - **Blink / Pulse**: Animated pulsing highlight for active discussion nodes (`blink.svg`).
+  - **Blink / Pulse**: Animated pulsing highlight for active discussion nodes and free-floating notes (`blink.svg`), phase-synced in presentation view.
   - **Rich Hyperlinks**: Direct hyperlinks to web URLs, local files, or Planner lessons.
 - **Voice Recordings**: Record microphone audio directly and attach sound nodes to the board with built-in audio trimming (`✂ Trim`), bundled seamlessly into the `.cstz` package.
 - **High-Resolution PNG Snapshots**: One-click PNG snapshot capture with clean framing and metadata.
