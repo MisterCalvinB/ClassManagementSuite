@@ -1431,6 +1431,43 @@
       padding: 0 4px;
       line-height: 1;
     }
+    /* Inline Frozen status badge */
+    #con-frozen-indicator,
+    .con-frozen-indicator {
+      display: none;
+      align-items: center;
+      gap: 5px;
+      background: #fff1f2;
+      color: #9f1239;
+      border: 2px solid #e11d48;
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-size: 0.74rem;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 2px 2px 0 #e11d48;
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+      user-select: none;
+      white-space: nowrap;
+      margin-left: 4px;
+      vertical-align: middle;
+    }
+    #con-frozen-indicator:hover,
+    .con-frozen-indicator:hover {
+      background: #ffe4e6;
+      transform: translate(-1px, -1px);
+      box-shadow: 3px 3px 0 #e11d48;
+    }
+    #con-frozen-indicator.con-frozen-active,
+    .con-frozen-indicator.con-frozen-active {
+      display: inline-flex;
+    }
+    #con-frozen-indicator img,
+    .con-frozen-indicator img {
+      width: 13px;
+      height: 13px;
+      filter: invert(18%) sepia(85%) saturate(3600%) hue-rotate(334deg) brightness(85%) contrast(98%);
+    }
     /* Competence popup panel */
     .con-comp-popup {
       position: absolute;
@@ -3220,6 +3257,9 @@
             <button class="action-btn btn-grey" id="con-record-board-btn" onclick="boardVideoOpenSetup()"
               data-i18n-title="btnRecordBoardTitle" title="Record live video and microphone audio of the board"><img
                 src="../assets/icons/record.svg" class="btn-icon" alt="" /> <span data-i18n="btnRecordBoard">Record Board</span></button>
+            <button class="action-btn btn-grey" id="con-search-btn" onclick="conOpenSearchModal()"
+              data-i18n-title="conSearchBtnTitle" title="Search board items (Ctrl+F)"><img
+                src="../assets/icons/search.svg" class="btn-icon" alt="" /> <span data-i18n="conSearchBtn">Search</span></button>
           </div>
         </div>
         <div class="con-tb-group" id="con-tb-pages">
@@ -3269,6 +3309,10 @@
             <ul id="con-class-pills" class="con-class-dropdown-menu"></ul>
           </div>
           <div id="con-header-competence-bar" class="con-header-competence-bar"></div>
+          <button type="button" id="con-frozen-indicator" class="con-frozen-indicator" onclick="if(typeof conToggleMirrorFreeze==='function')conToggleMirrorFreeze();" data-i18n-title="presFrozenTitle" title="Presentation view is currently frozen — Click to unfreeze">
+            <img src="../assets/icons/lock.svg" class="btn-icon" alt="" />
+            <span data-i18n="presFrozen">Frozen</span>
+          </button>
         </div>
 
         <div class="con-tb-group" id="con-tb-mode-toggle" style="margin-left: auto;">
@@ -3380,7 +3424,6 @@
         <svg id="con-draw-live-svg" xmlns="http://www.w3.org/2000/svg"></svg>
         <div id="con-draw-overlay"></div>
         <div id="con-board-title"></div>
-        <span id="con-frozen-indicator" title="Presentation view is currently frozen">Frozen</span>
         <button id="con-board-expand-btn" class="action-btn btn-grey con-board-expand-btn" onclick="conExpandBoardHeight(400)" title="Expand board height (+400px)"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Expand Board (+400px)</button>
       </div>
       <div id="con-instructions" data-i18n="conInstructions">System: right-click the board to add words (,, = several ·
@@ -3612,7 +3655,17 @@
               onclick="wnStyleSetAlign('justify')" title="Justify">⇔</button>
           </div>
         </div>
-        <div class="wn-sp-actions">
+        <div id="wn-sp-wordcount-row" class="wn-sp-row" onclick="wnStyleCountWords()" title="Count words" data-i18n-title="conCountWords" style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; border:1.5px solid #111; border-radius:4px; padding:3px 8px; font-size:0.75rem; margin-top:6px; cursor:pointer; user-select:none;">
+          <div style="display:flex; align-items:center; gap:5px;">
+            <img src="../assets/icons/sentence.svg" class="btn-icon" style="width:13px; height:13px;" alt="" />
+            <span style="font-weight:800; font-size:0.7rem; color:#222;" data-i18n="conWordCountLabel">Words:</span>
+            <span id="wn-sp-wordcount-val" style="font-weight:900; color:#000;">0</span>
+          </div>
+          <div style="color:#555; font-size:0.7rem;">
+            <span data-i18n="conCharCountLabel">Chars:</span> <strong id="wn-sp-charcount-val" style="color:#111;">0</strong>
+          </div>
+        </div>
+        <div class="wn-sp-actions" style="flex-wrap:wrap;">
           <button class="wn-sp-action-btn" onmousedown="event.preventDefault()" onclick="wnStyleClearSelectedFormat()"><img src="../assets/icons/clear.svg" class="btn-icon" alt=""></button>
           <button class="wn-sp-action-btn" id="wn-sp-lock-btn" onclick="wnStyleToggleLock()"><img
               src="../assets/icons/lock.svg" class="btn-icon" alt="" /> Lock</button>
@@ -3623,6 +3676,7 @@
           <button class="wn-sp-action-btn" onclick="wnStyleDuplicateNote()"><img src="../assets/icons/duplicate.svg" class="btn-icon" alt=""></button>
           <button class="wn-sp-action-btn" onmousedown="event.preventDefault()" onclick="wnStyleSplitNote()"
             title="Split note at cursor into two notes"><img src="../assets/icons/split.svg" class="btn-icon" alt=""></button>
+          <button class="wn-sp-action-btn" id="wn-sp-wordcount-btn" onclick="wnStyleCountWords()" title="Count words" data-i18n-title="conCountWords"><img src="../assets/icons/sentence.svg" class="btn-icon" alt="" /></button>
           <button class="wn-sp-action-btn" onclick="wnStyleConvertToNode()" title="Convert note to word" data-i18n-title="wnConvertToNodeTitle"><img src="../assets/icons/text.svg" class="btn-icon" alt=""></button>
           <button class="wn-sp-action-btn" onclick="wnStyleEditNote()"><img src="../assets/icons/edit-word.svg" class="btn-icon" alt=""></button>
           <button class="wn-sp-action-btn" id="wn-sp-open-input-btn" onclick="wnStyleOpenStudentInput()"
@@ -4300,6 +4354,83 @@
       </div>
       <div id="con-pages-list"></div>
       <div style="font-size:0.68rem;color:#999;margin-top:2px;">Drag to reorder · Click to navigate · ✕ to delete
+      </div>
+    </div>
+  </div>
+
+  <!-- Board Search Modal -->
+  <div id="con-search-overlay" onclick="if(event.target===this)conCloseSearchModal()">
+    <div id="con-search-popup" role="dialog" aria-modal="true" aria-labelledby="con-search-title">
+      <div id="con-search-header">
+        <div class="con-search-title-wrap">
+          <img src="../assets/icons/search.svg" class="btn-icon" alt="" />
+          <span id="con-search-title" data-i18n="conSearchTitle">Search Board</span>
+        </div>
+        <button class="action-btn btn-grey" onclick="conCloseSearchModal()" title="Close (Esc)" style="padding:4px 8px;"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
+      </div>
+
+      <div id="con-search-controls">
+        <div class="con-search-input-row">
+          <div class="con-search-input-wrap">
+            <input type="text" id="con-search-input" data-i18n-placeholder="conSearchPlaceholder"
+              placeholder="Search words, notes, tables, groups..." autocomplete="off" spellcheck="false"
+              oninput="conExecuteSearchDebounced()" onkeydown="conSearchInputKeyDown(event)" />
+            <button type="button" class="con-search-input-clear" id="con-search-clear-btn" onclick="conClearSearchInput()" title="Clear"><img src="../assets/icons/close.svg" style="width:11px;height:11px;" alt="" /></button>
+          </div>
+        </div>
+        <div class="con-search-filter-row">
+          <div class="con-search-scope-toggle" role="group" aria-label="Search scope">
+            <button type="button" class="con-search-scope-btn active" id="con-search-scope-current" onclick="conSetSearchScope('current')" data-i18n="conSearchScopeCurrent">Current Page</button>
+            <button type="button" class="con-search-scope-btn" id="con-search-scope-all" onclick="conSetSearchScope('all')" data-i18n="conSearchScopeAll">All Pages</button>
+          </div>
+          <div class="con-search-type-chips">
+            <button type="button" class="con-search-chip active" id="con-search-chip-all" data-type="all" onclick="conSetSearchTypeFilter('all')"><span data-i18n="conSearchFilterAll">All</span></button>
+            <button type="button" class="con-search-chip" id="con-search-chip-node" data-type="node" onclick="conSetSearchTypeFilter('node')"><span data-i18n="conSearchFilterNodes">Words</span></button>
+            <button type="button" class="con-search-chip" id="con-search-chip-note" data-type="note" onclick="conSetSearchTypeFilter('note')"><span data-i18n="conSearchFilterNotes">Notes</span></button>
+            <button type="button" class="con-search-chip" id="con-search-chip-table" data-type="table" onclick="conSetSearchTypeFilter('table')"><span data-i18n="conSearchFilterTables">Tables</span></button>
+            <button type="button" class="con-search-chip" id="con-search-chip-group" data-type="group" onclick="conSetSearchTypeFilter('group')"><span data-i18n="conSearchFilterGroups">Groups</span></button>
+          </div>
+        </div>
+      </div>
+
+      <div id="con-search-body">
+        <div id="con-search-results-pane">
+          <div id="con-search-results-header">
+            <span id="con-search-count-label">0 matches</span>
+          </div>
+          <div id="con-search-results-list"></div>
+        </div>
+
+        <div id="con-search-preview-pane">
+          <div id="con-search-preview-toolbar">
+            <div class="con-search-preview-meta" id="con-search-preview-meta">
+              <span data-i18n="conSearchSectionPreview">Section Preview</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <button type="button" class="action-btn btn-grey" id="con-search-open-win-btn" onclick="conOpenSearchTermInNewWindow()" disabled style="padding:4px 10px;font-size:0.75rem;display:flex;align-items:center;gap:4px;" title="Open searched term in a dedicated read-only window" data-i18n-title="conSearchOpenWindowBtnTitle">
+                <img src="../assets/icons/eye.svg" class="btn-icon" alt="" />
+                <span data-i18n="conSearchOpenWindowBtn">Open in New Window</span>
+              </button>
+              <button type="button" class="action-btn btn-blue" id="con-search-jump-btn" onclick="conJumpToItem()" disabled style="padding:4px 10px;font-size:0.75rem;display:flex;align-items:center;gap:4px;">
+                <img src="../assets/icons/maximize.svg" class="btn-icon" alt="" />
+                <span data-i18n="conSearchJumpToBoard">Jump to on Board</span>
+              </button>
+            </div>
+          </div>
+
+          <div id="con-search-crop-viewport">
+            <div class="con-search-empty-preview" id="con-search-empty-preview">
+              <img src="../assets/icons/search.svg" style="width:32px;height:32px;opacity:0.35;" alt="" />
+              <span data-i18n="conSearchSelectToPreview">Select an item to preview its section</span>
+            </div>
+            <canvas id="con-search-crop-canvas" width="560" height="380" style="display:none;"></canvas>
+          </div>
+
+          <div id="con-search-preview-footer">
+            <div id="con-search-detail-title" style="font-weight:800;color:#0f172a;min-height:1.2em;"></div>
+            <div id="con-search-detail-location" style="color:#64748b;font-size:0.7rem;font-family:monospace;min-height:1.2em;"></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -16657,8 +16788,10 @@
         const existing = document.getElementById('con-mini-thumb-context-menu');
         if (existing) existing.remove();
       }
+      window.conCloseMiniThumbContextMenu = conCloseMiniThumbContextMenu;
 
       function conShowMiniThumbContextMenu(e, pageIndex) {
+        window.conShowMiniThumbContextMenu = conShowMiniThumbContextMenu;
         e.preventDefault();
         e.stopPropagation();
         conCloseMiniThumbContextMenu();
@@ -16667,32 +16800,57 @@
         menu.id = 'con-mini-thumb-context-menu';
         menu.className = 'con-mini-thumb-menu';
 
+        const openImgItem = document.createElement('button');
+        openImgItem.type = 'button';
+        openImgItem.className = 'con-mini-thumb-menu-item';
+        openImgItem.style.display = 'flex';
+        openImgItem.style.alignItems = 'center';
+        openImgItem.style.gap = '6px';
+        const openImgLabel = (typeof t === 'function' ? t('conOpenPageImageInNewWindow') : 'Open image in new window');
+        openImgItem.innerHTML = '<img src="../assets/icons/eye.svg" style="width:13px;height:13px;flex-shrink:0;" alt="" /> <span>' + escapeSearchHtml(openImgLabel) + '</span>';
+        openImgItem.onclick = function (evt) {
+          evt.stopPropagation();
+          conCloseMiniThumbContextMenu();
+          if (typeof window.conOpenPageSnapshotWindow === 'function') {
+            window.conOpenPageSnapshotWindow(pageIndex);
+          }
+        };
+        menu.appendChild(openImgItem);
+
         const dupItem = document.createElement('button');
         dupItem.type = 'button';
         dupItem.className = 'con-mini-thumb-menu-item';
-        dupItem.innerHTML = 'Duplicate page';
+        dupItem.style.display = 'flex';
+        dupItem.style.alignItems = 'center';
+        dupItem.style.gap = '6px';
+        const dupLabel = (typeof t === 'function' ? t('conDuplicatePage') : 'Duplicate page');
+        dupItem.innerHTML = '<img src="../assets/icons/copy.svg" style="width:13px;height:13px;flex-shrink:0;" alt="" /> <span>' + escapeSearchHtml(dupLabel) + '</span>';
         dupItem.onclick = function (evt) {
           evt.stopPropagation();
           conCloseMiniThumbContextMenu();
           conDuplicatePageMiniThumb(pageIndex);
         };
+        menu.appendChild(dupItem);
 
         const delItem = document.createElement('button');
         delItem.type = 'button';
         delItem.className = 'con-mini-thumb-menu-item danger';
-        delItem.innerHTML = 'Delete page';
+        delItem.style.display = 'flex';
+        delItem.style.alignItems = 'center';
+        delItem.style.gap = '6px';
+        const delLabel = (typeof t === 'function' ? t('conDeletePage') : 'Delete page');
+        delItem.innerHTML = '<img src="../assets/icons/delete.svg" style="width:13px;height:13px;flex-shrink:0;" alt="" /> <span>' + escapeSearchHtml(delLabel) + '</span>';
         delItem.onclick = function (evt) {
           evt.stopPropagation();
           conCloseMiniThumbContextMenu();
           conDeletePageMiniThumb(pageIndex);
         };
-
-        menu.appendChild(dupItem);
         menu.appendChild(delItem);
+
         document.body.appendChild(menu);
 
-        const menuWidth = 150;
-        const menuHeight = 80;
+        const menuWidth = 200;
+        const menuHeight = 115;
         let top = e.clientY;
         let left = e.clientX;
         if (left + menuWidth > window.innerWidth) left = Math.max(10, window.innerWidth - menuWidth - 8);
@@ -16739,15 +16897,19 @@
         if (strip) strip.dataset.pageCount = '';
         conUpdatePageBar();
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        const pagesOverlay = document.getElementById('con-pages-overlay');
+        if (pagesOverlay && pagesOverlay.style.display !== 'none' && typeof window.conOpenPagePreview === 'function') {
+          window.conOpenPagePreview();
+        }
         if (typeof mdbToast === 'function') {
-          mdbToast('📋 Duplicated page ' + (idx + 1));
+          mdbToast('Duplicated page ' + (idx + 1));
         }
       }
 
       function conDeletePageMiniThumb(idx) {
         if (!Array.isArray(conPageSnapshots) || conPageSnapshots.length <= 1) {
           if (typeof mdbToast === 'function') {
-            mdbToast('⚠️ Only one page – cannot delete.');
+            mdbToast('Only one page – cannot delete.');
           }
           return;
         }
@@ -16774,8 +16936,12 @@
         if (strip) strip.dataset.pageCount = '';
         conUpdatePageBar();
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        const pagesOverlayDel = document.getElementById('con-pages-overlay');
+        if (pagesOverlayDel && pagesOverlayDel.style.display !== 'none' && typeof window.conOpenPagePreview === 'function') {
+          window.conOpenPagePreview();
+        }
         if (typeof mdbToast === 'function') {
-          mdbToast('🗑️ Deleted page ' + (idx + 1));
+          mdbToast('Deleted page ' + (idx + 1));
         }
       }
 
@@ -18405,6 +18571,11 @@
             window.conGoToPage(idx);
           });
 
+          // Context menu (Open image in new window, Duplicate, Delete)
+          thumb.addEventListener('contextmenu', function (e) {
+            conShowMiniThumbContextMenu(e, idx);
+          });
+
           // Drag-and-drop reorder
           thumb.addEventListener('dragstart', function (e) {
             _conPreviewDragIdx = idx;
@@ -18592,7 +18763,9 @@
       window.conGetNodes = function () { return conNodes; };
       window.conGetBoard = function () { return board(); };
       window.conAttachNode = function (id, el) { conAttachNodeEvents(id, el); };
-      window.conAddWordAt = function (text, x, y) { return conAddWordAt(text, x, y); };
+      window.conAddWordAt = function (text, x, y, pageNum) { return conAddWordAt(text, x, y, pageNum); };
+      window.conSelect = function (id) { conSelect(id); };
+      window.conSyncNodeLockState = function (node) { conSyncNodeLockState(node); };
       window.conRedrawEdges = function () { conRedrawEdges(); };
       window.conGroups = conGroups;
       window.conEdges = conEdges;
@@ -29619,11 +29792,20 @@
       if (nd.id && nd.id.startsWith('cn')) {
         conNotes = conNotes.filter(n => n.id !== nd.id);
         if (nd.nodeId) {
-          const linkedNode = conGetNodes().find(n => n.id === nd.nodeId);
+          const allNodes = (typeof conGetNodes === 'function') ? conGetNodes() : (window.conGetNodes ? window.conGetNodes() : []);
+          const linkedNode = allNodes.find(n => n.id === nd.nodeId);
           if (linkedNode && linkedNode.el) {
             const stillHas = conNotes.some(n => n.nodeId === nd.nodeId);
             if (!stillHas) linkedNode.el.classList.remove('has-con-note');
           }
+        }
+        const allGroups = (typeof conGroups !== 'undefined') ? conGroups : (window.conGetGroups ? window.conGetGroups() : []);
+        if (Array.isArray(allGroups)) {
+          allGroups.forEach(g => {
+            if (Array.isArray(g.noteIds) && g.noteIds.includes(nd.id)) {
+              g.noteIds = g.noteIds.filter(id => id !== nd.id);
+            }
+          });
         }
       } else {
         taWordNotes = taWordNotes.filter(n => n.id !== nd.id);
@@ -30150,6 +30332,9 @@
         stopInputBtn.style.display = isStudentInput ? '' : 'none';
         if (openInputBtn) openInputBtn.style.display = isStudentInput ? '' : 'none';
       }
+      if (typeof wnStyleCountWords === 'function') {
+        wnStyleCountWords({ silent: true });
+      }
 
       _wnPopupDragged = false;
       overlay.classList.add('active');
@@ -30591,8 +30776,13 @@
       const y = Number.isFinite(noteData.y) ? noteData.y : 100;
       const pageNum = noteData.pageNum != null ? noteData.pageNum : null;
 
-      const newId = conAddWordAt(plainText, x, y, pageNum);
-      const newNode = conNodes.find(n => n.id === newId);
+      const newId = (typeof conAddWordAt === 'function')
+        ? conAddWordAt(plainText, x, y, pageNum)
+        : (window.conAddWordAt ? window.conAddWordAt(plainText, x, y, pageNum) : null);
+      const allNodes = (typeof conNodes !== 'undefined')
+        ? conNodes
+        : (window.conGetNodes ? window.conGetNodes() : []);
+      const newNode = allNodes.find(n => n.id === newId);
       if (newNode) {
         if (noteData.bg && newNode.el) newNode.el.style.background = noteData.bg;
         if (noteData.color && newNode.el) newNode.el.style.color = noteData.color;
@@ -30601,7 +30791,8 @@
           if (newNode.el) newNode.el.style.fontFamily = noteData.fontFamily;
         }
         if (noteData.fontSize) {
-          conSetNodeBaseFontSize(newNode, Math.max(8, Math.min(72, Number(noteData.fontSize) || 16)));
+          const setFs = (typeof conSetNodeBaseFontSize === 'function') ? conSetNodeBaseFontSize : window.conSetNodeBaseFontSize;
+          if (setFs) setFs(newNode, Math.max(8, Math.min(72, Number(noteData.fontSize) || 16)));
         }
         newNode.fmt = Object.assign({}, newNode.fmt || {}, {
           bold: !!noteData.bold,
@@ -30626,13 +30817,15 @@
         }
         if (noteData.locked) {
           newNode.locked = true;
-          conSyncNodeLockState(newNode);
+          const syncLock = (typeof conSyncNodeLockState === 'function') ? conSyncNodeLockState : window.conSyncNodeLockState;
+          if (syncLock) syncLock(newNode);
         }
         if (noteData.hidden) {
           newNode.masked = true;
           if (newNode.el) newNode.el.classList.add('con-masked');
         }
-        conRenderNodeLabel(newNode);
+        const renderLabel = (typeof conRenderNodeLabel === 'function') ? conRenderNodeLabel : window.conRenderNodeLabel;
+        if (renderLabel) renderLabel(newNode);
       }
       wnDeleteNoteData(noteData);
       return newNode;
@@ -30641,7 +30834,7 @@
 
     // Convert active/selected note(s) to word node(s)
     window.wnStyleConvertToNode = function () {
-      const targetNotes = (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0)
+      const targetNotes = (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0 && (!_wnActiveNote || conNoteSelected.has(_wnActiveNote.id)))
         ? [...conNoteSelected].map(id => conNotes.find(n => n.id === id)).filter(Boolean)
         : (_wnActiveNote ? [_wnActiveNote] : (_wnCtxNoteData ? [_wnCtxNoteData] : []));
       if (!targetNotes.length) return;
@@ -30656,9 +30849,11 @@
       });
       if (typeof conNoteSelected !== 'undefined' && conNoteSelected) conNoteSelected.clear();
       if (createdNodes.length === 1) {
-        conSelect(createdNodes[0].id);
+        const doSelect = (typeof conSelect === 'function') ? conSelect : window.conSelect;
+        if (doSelect) doSelect(createdNodes[0].id);
       }
-      conRedrawEdges();
+      if (typeof conRedrawEdges === 'function') conRedrawEdges();
+      else if (window.conRedrawEdges) window.conRedrawEdges();
       if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
       if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true });
     };
@@ -30844,6 +31039,126 @@
       const newEditor = document.querySelector(`.con-word-note[data-id="${newId}"] .wn-note-editor`);
       if (newEditor) setTimeout(() => newEditor.focus(), 0);
     }
+
+    function wnCountWordsInText(text) {
+      if (!text) return { words: 0, characters: 0, charactersNoSpaces: 0, lines: 0 };
+      let raw = String(text).replace(/\r/g, '');
+      if (/<[a-z][\s\S]*>/i.test(raw)) {
+        const tmp = document.createElement('div');
+        tmp.innerHTML = raw;
+        tmp.querySelectorAll('.katex-html, .katex-mathml, annotation').forEach(el => el.remove());
+        raw = tmp.innerText || tmp.textContent || '';
+      }
+      const trimmed = raw.trim();
+      const words = trimmed ? trimmed.split(/\s+/).filter(Boolean).length : 0;
+      const characters = raw.length;
+      const charactersNoSpaces = raw.replace(/\s/g, '').length;
+      const lines = raw ? raw.split('\n').filter(l => l.trim().length > 0).length : 0;
+      return { words, characters, charactersNoSpaces, lines };
+    }
+    window.wnCountWordsInText = wnCountWordsInText;
+
+    function wnGetNoteText(nd) {
+      if (!nd) return '';
+      const noteEl = (typeof wnGetNoteElementById === 'function') ? wnGetNoteElementById(nd.id) : null;
+      if (noteEl) {
+        const editor = noteEl.querySelector('.wn-note-editor, textarea');
+        if (editor) wnSyncNoteDataFromEditor(nd, editor);
+      }
+      return nd.text || '';
+    }
+    window.wnGetNoteText = wnGetNoteText;
+
+    function wnStyleCountWords(opts) {
+      if (!_wnActiveNote && typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0) {
+        const firstId = Array.from(conNoteSelected)[0];
+        const found = (typeof conNotes !== 'undefined' && Array.isArray(conNotes)) ? conNotes.find(n => n.id === firstId) : null;
+        if (found) _wnActiveNote = found;
+      }
+      if (!_wnActiveNote && document.activeElement) {
+        const ed = document.activeElement.closest ? document.activeElement.closest('.wn-note-editor') : null;
+        const pnote = ed ? ed.closest('.con-word-note') : null;
+        if (pnote && pnote.dataset.id) {
+          const found = (typeof conNotes !== 'undefined' && Array.isArray(conNotes)) ? conNotes.find(n => n.id === pnote.dataset.id) : null;
+          if (found) _wnActiveNote = found;
+        }
+      }
+      if (!_wnActiveNote) {
+        if (!opts || !opts.silent) {
+          if (typeof showToast === 'function') {
+            const emptyLabel = (typeof i18n !== 'undefined' && i18n.t ? i18n.t('conSearchFilterNotes') : 'Notes') + ': 0';
+            showToast(emptyLabel, true);
+          }
+        }
+        return null;
+      }
+
+      const nd = _wnActiveNote;
+      const curText = wnGetNoteText(nd);
+      const stats = wnCountWordsInText(curText);
+
+      const isMulti = typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 1 && conNoteSelected.has(nd.id);
+      let totalStats = null;
+      let multiCount = 0;
+      if (isMulti) {
+        let combinedText = '';
+        conNoteSelected.forEach(id => {
+          const item = (typeof conNotes !== 'undefined' && Array.isArray(conNotes)) ? conNotes.find(n => n.id === id) : null;
+          if (item) {
+            combinedText += (wnGetNoteText(item) + '\n');
+            multiCount++;
+          }
+        });
+        totalStats = wnCountWordsInText(combinedText);
+      }
+
+      let selStats = null;
+      const savedRange = _wnSavedSelectionRange;
+      if (savedRange && !savedRange.collapsed) {
+        const selText = savedRange.toString();
+        if (selText && selText.trim()) {
+          selStats = wnCountWordsInText(selText);
+        }
+      }
+
+      const row = document.getElementById('wn-sp-wordcount-row');
+      const valEl = document.getElementById('wn-sp-wordcount-val');
+      const charEl = document.getElementById('wn-sp-charcount-val');
+      if (row && valEl) {
+        valEl.textContent = isMulti ? `${totalStats.words} (${stats.words})` : String(stats.words);
+        if (charEl) {
+          charEl.textContent = isMulti ? `${totalStats.characters} (${stats.characters})` : String(stats.characters);
+        }
+      }
+
+      if (!opts || !opts.silent) {
+        let msg = '';
+        if (isMulti && totalStats) {
+          const tpl = (typeof i18n !== 'undefined' && i18n.t ? i18n.t('conWordCountMultiToast') : null) || 'Selected notes ({count}): {words} words · {chars} characters';
+          msg = tpl
+            .replace('{count}', multiCount)
+            .replace('{words}', totalStats.words)
+            .replace('{chars}', totalStats.characters);
+        } else if (selStats) {
+          const tpl = (typeof i18n !== 'undefined' && i18n.t ? i18n.t('conWordCountSelToast') : null) || 'Selected: {selWords} words ({selChars} chars) · Total: {words} words ({chars} chars)';
+          msg = tpl
+            .replace('{selWords}', selStats.words)
+            .replace('{selChars}', selStats.characters)
+            .replace('{words}', stats.words)
+            .replace('{chars}', stats.characters);
+        } else {
+          const tpl = (typeof i18n !== 'undefined' && i18n.t ? i18n.t('conWordCountToast') : null) || 'Word count: {words} words · {chars} characters';
+          msg = tpl
+            .replace('{words}', stats.words)
+            .replace('{chars}', stats.characters);
+        }
+        if (typeof showToast === 'function') {
+          showToast(msg);
+        }
+      }
+      return isMulti ? totalStats : stats;
+    }
+    window.wnStyleCountWords = wnStyleCountWords;
 
     function wnStyleToggleLock() {
       if (!_wnActiveNote) return;
@@ -37280,7 +37595,7 @@
       const ts = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0') + '  ' + String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
       ctx.font = '500 11px "Segoe UI",Arial,sans-serif'; ctx.fillStyle = 'rgba(0,0,0,0.22)'; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
       ctx.fillText(ts, bw + PAD * 2 - 8, bh + PAD * 2 - 6);
-      return { canvas, now };
+      return { canvas, now, scale, PAD, bw, bh };
     }
 
     async function conExportPNG() {
@@ -44417,6 +44732,7 @@
       { id: 'spread_nodes', name: 'Spread Words', desc: 'Spread selected words to remove overlaps', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/spread.svg', defaultShortcut: null, fn: () => { if (typeof window.conCtxSpreadSelected === 'function') window.conCtxSpreadSelected(); } },
       { id: 'compact_nodes', name: 'Compact Words', desc: 'Compact words closer together without overlapping', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/compact.svg', defaultShortcut: null, fn: () => { if (typeof window.conCompactNodes === 'function') window.conCompactNodes(); } },
       { id: 'save_to_library', name: 'Save to Premade Library', desc: 'Save selected elements to the premade library', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/sparkles.svg', defaultShortcut: null, fn: () => { if (typeof window.conSaveSelectionToLibraryPrompt === 'function') window.conSaveSelectionToLibraryPrompt(); } },
+      { id: 'note_count_words', name: 'Count Note Words', desc: 'Count words in selected or active note', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/sentence.svg', defaultShortcut: null, fn: () => { if (typeof wnStyleCountWords === 'function') wnStyleCountWords(); } },
 
       // Clipboard
       { id: 'clipboard_copy', name: 'Copy', desc: 'Copy selected nodes or notes', category: 'clipboard', categoryName: 'Clipboard', icon: '../assets/icons/copy.svg', defaultShortcut: { ctrl: true, key: 'c' }, fn: () => { if (typeof window.conClipboardCopy === 'function') window.conClipboardCopy({ allowWhileTyping: false }); } },
@@ -44433,6 +44749,7 @@
       { id: 'tool_eraser', name: 'Toggle Drawing Eraser', desc: 'Toggle drawing eraser mode', category: 'modes', categoryName: 'Modes & Tools', icon: '../assets/icons/eraser.svg', defaultShortcut: null, fn: () => { if (typeof conToggleEraserMode === 'function') conToggleEraserMode(); } },
 
       // Presentation & View Modes
+      { id: 'board_search', name: 'Search Board', desc: 'Search words, notes, tables and groups on the board', category: 'presentation', categoryName: 'Presentation & View', icon: '../assets/icons/search.svg', defaultShortcut: { ctrl: true, key: 'f' }, fn: () => { if (typeof window.conOpenSearchModal === 'function') window.conOpenSearchModal(); } },
       { id: 'open_presentation', name: 'Open Presentation Window', desc: 'Open presentation mode window on secondary display', category: 'presentation', categoryName: 'Presentation & View', icon: '../assets/icons/presentation.svg', defaultShortcut: null, fn: () => { if (typeof conOpenMirrorWindow === 'function') conOpenMirrorWindow(); } },
       { id: 'close_presentation', name: 'Close Presentation Window', desc: 'Close active presentation mode window', category: 'presentation', categoryName: 'Presentation & View', icon: '../assets/icons/monitor.svg', defaultShortcut: null, fn: () => { if (typeof conCloseMirrorWindow === 'function') conCloseMirrorWindow(); } },
       { id: 'freeze_presentation', name: 'Freeze Presentation', desc: 'Freeze or unfreeze presentation window', category: 'presentation', categoryName: 'Presentation & View', icon: '../assets/icons/snowflake.svg', defaultShortcut: null, fn: () => { if (typeof conToggleMirrorFreeze === 'function') conToggleMirrorFreeze(); } },
@@ -44811,8 +45128,9 @@
       const tag = document.activeElement && document.activeElement.tagName;
       const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || (document.activeElement && document.activeElement.isContentEditable);
       
-      // If user is actively typing in a text field, only allow Escape
-      if (isInput && e.key !== 'Escape') return false;
+      // If user is actively typing in a text field, allow Escape and search shortcut (Ctrl+F)
+      const isSearchShortcut = (e.ctrlKey || e.metaKey) && String(e.key).toLowerCase() === 'f';
+      if (isInput && e.key !== 'Escape' && !isSearchShortcut) return false;
 
       const customMap = getBoardCustomShortcutsMap();
       for (const def of BOARD_ACTION_DEFINITIONS) {
@@ -45971,6 +46289,1119 @@
       } catch (e) {
         mdbToast('⚠️ Trim failed: ' + (e && e.message ? e.message : String(e)));
         if (btn) { btn.disabled = false; btn.textContent = t ? t('saveTrimmed') : 'Save trimmed'; }
+      }
+    };
+
+    // =========================================================================
+    // CONSTELLATION BOARD SEARCH ENGINE & CROPPED VISUAL PREVIEW
+    // =========================================================================
+    let _conSearchScope = 'current'; // 'current' | 'all'
+    let _conSearchTypeFilter = 'all'; // 'all' | 'node' | 'note' | 'table' | 'group'
+    let _conSearchResults = [];
+    let _conSearchSelectedItem = null;
+    let _conSearchDebounceTimer = null;
+
+    let _conSearchBoardCanvasData = null;
+    let _conSearchBoardCanvasPromise = null;
+    let _conSearchOtherPagesCanvases = {};
+
+    function conOpenSearchModal(initialQuery) {
+      const overlay = document.getElementById('con-search-overlay');
+      if (!overlay) return;
+      overlay.classList.add('active');
+
+      // Refresh live board canvas snapshot in background
+      _conSearchBoardCanvasData = null;
+      if (typeof _conBuildBoardCanvas === 'function') {
+        _conSearchBoardCanvasPromise = _conBuildBoardCanvas().then(res => {
+          _conSearchBoardCanvasData = res;
+          if (_conSearchSelectedItem && _conSearchSelectedItem.pageIndex === conCurrentPageIndex) {
+            conRenderSearchCrop(_conSearchSelectedItem);
+          }
+          return res;
+        }).catch(err => {
+          console.warn('Board search canvas build error:', err);
+          return null;
+        });
+      }
+
+      const inp = document.getElementById('con-search-input');
+      if (inp) {
+        if (typeof initialQuery === 'string') inp.value = initialQuery;
+        setTimeout(() => {
+          inp.focus();
+          inp.select();
+        }, 50);
+      }
+      conExecuteSearch();
+    }
+    window.conOpenSearchModal = conOpenSearchModal;
+
+    function conCloseSearchModal() {
+      const overlay = document.getElementById('con-search-overlay');
+      if (overlay) overlay.classList.remove('active');
+    }
+    window.conCloseSearchModal = conCloseSearchModal;
+
+    window.conSetSearchScope = function (scope) {
+      if (scope !== 'current' && scope !== 'all') scope = 'current';
+      _conSearchScope = scope;
+      const btnCur = document.getElementById('con-search-scope-current');
+      const btnAll = document.getElementById('con-search-scope-all');
+      if (btnCur) btnCur.classList.toggle('active', scope === 'current');
+      if (btnAll) btnAll.classList.toggle('active', scope === 'all');
+      conExecuteSearch();
+    };
+
+    window.conSetSearchTypeFilter = function (type) {
+      _conSearchTypeFilter = type || 'all';
+      const chips = document.querySelectorAll('.con-search-chip');
+      chips.forEach(c => {
+        c.classList.toggle('active', c.dataset.type === _conSearchTypeFilter);
+      });
+      conExecuteSearch();
+    };
+
+    window.conClearSearchInput = function () {
+      const inp = document.getElementById('con-search-input');
+      if (inp) {
+        inp.value = '';
+        inp.focus();
+      }
+      conExecuteSearch();
+    };
+
+    window.conExecuteSearchDebounced = function () {
+      if (_conSearchDebounceTimer) clearTimeout(_conSearchDebounceTimer);
+      _conSearchDebounceTimer = setTimeout(() => {
+        conExecuteSearch();
+      }, 120);
+    };
+
+    function conCollectPageSearchItems(pageIndex) {
+      const isCurrent = (pageIndex === conCurrentPageIndex);
+      let snap = null;
+      if (isCurrent) {
+        const liveNodes = window.conGetNodes ? window.conGetNodes() : [];
+        const liveNotes = window.conGetNotes ? window.conGetNotes() : [];
+        const liveTables = window.conGetTables ? window.conGetTables() : [];
+        const liveGroups = window.conGetGroups ? window.conGetGroups() : [];
+        snap = {
+          nodes: liveNodes,
+          notes: liveNotes,
+          tables: liveTables,
+          groups: liveGroups
+        };
+      } else {
+        snap = (conPageSnapshots && conPageSnapshots[pageIndex]) || null;
+      }
+      if (!snap) return [];
+
+      const items = [];
+      const pageNum = pageIndex + 1;
+
+      // 1. Nodes
+      const nodes = snap.nodes || [];
+      nodes.forEach(n => {
+        const baseWord = String(n.baseWord || (n.el ? n.el.textContent.trim() : '') || '').trim();
+        const dbWord = String(n.dbWord || '').trim();
+        const srcWord = String(n.sourceWord || '').trim();
+        const fullText = [baseWord, dbWord, srcWord].filter(Boolean).join(' ');
+        if (!fullText) return;
+
+        const w = (n.el ? n.el.offsetWidth : (Number(n.w || n.width) || 60));
+        const h = (n.el ? n.el.offsetHeight : (Number(n.h || n.height) || 32));
+
+        items.push({
+          id: n.id,
+          type: 'node',
+          text: fullText,
+          displayText: baseWord || fullText,
+          x: Number(n.x) || 0,
+          y: Number(n.y) || 0,
+          w: Math.max(30, w),
+          h: Math.max(20, h),
+          pageIndex: pageIndex,
+          pageNum: pageNum,
+          raw: n
+        });
+      });
+
+      // 2. Notes
+      const notes = snap.notes || [];
+      notes.forEach(n => {
+        let noteText = String(n.text || '');
+        if (!noteText && n.html) {
+          noteText = String(n.html).replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+        }
+        if (!noteText.trim()) return;
+
+        const nw = Number(n.width || (n.el ? n.el.offsetWidth : 120)) || 120;
+        const nh = Number(n.height || (n.el ? n.el.offsetHeight : 80)) || 80;
+
+        items.push({
+          id: n.id,
+          type: 'note',
+          text: noteText,
+          displayText: noteText.slice(0, 140).trim(),
+          x: Number(n.x) || 0,
+          y: Number(n.y) || 0,
+          w: Math.max(40, nw),
+          h: Math.max(30, nh),
+          pageIndex: pageIndex,
+          pageNum: pageNum,
+          raw: n
+        });
+      });
+
+      // 3. Tables
+      const tables = snap.tables || [];
+      tables.forEach(tbl => {
+        if (!tbl || !Array.isArray(tbl.cells)) return;
+        const cols = Number(tbl.cols) || 1;
+        const colWidths = Array.isArray(tbl.colWidths) ? tbl.colWidths : [];
+        const rowHeights = Array.isArray(tbl.rowHeights) ? tbl.rowHeights : [];
+
+        tbl.cells.forEach((cell, cellIdx) => {
+          const cText = String((cell && cell.text) || '').trim();
+          if (!cText) return;
+
+          const r = Math.floor(cellIdx / cols);
+          const c = cellIdx % cols;
+
+          let colOff = 0;
+          for (let i = 0; i < c; i++) colOff += (colWidths[i] || 80);
+          let rowOff = 0;
+          for (let j = 0; j < r; j++) rowOff += (rowHeights[j] || 36);
+
+          const cellW = colWidths[c] || 80;
+          const cellH = rowHeights[r] || 36;
+          const cellX = (Number(tbl.x) || 0) + colOff;
+          const cellY = (Number(tbl.y) || 0) + rowOff + 24;
+
+          items.push({
+            id: String(tbl.id) + '_c' + cellIdx,
+            tableId: tbl.id,
+            type: 'table',
+            text: cText,
+            displayText: cText,
+            x: cellX,
+            y: cellY,
+            w: cellW,
+            h: cellH,
+            pageIndex: pageIndex,
+            pageNum: pageNum,
+            tableCoord: `R${r + 1}:C${c + 1}`,
+            raw: tbl
+          });
+        });
+      });
+
+      // 4. Groups
+      const groups = snap.groups || [];
+      groups.forEach(g => {
+        const title = String(g.title || '').trim();
+        if (!title) return;
+
+        const gx = g.x || (g.el ? (parseFloat(g.el.style.left) || 0) : 0);
+        const gy = g.y || (g.el ? (parseFloat(g.el.style.top) || 0) : 0);
+        const gw = g.manualW || 140;
+        const gh = g.manualH || 60;
+
+        items.push({
+          id: g.id,
+          type: 'group',
+          text: title,
+          displayText: title,
+          x: Number(gx) || 0,
+          y: Number(gy) || 0,
+          w: gw,
+          h: gh,
+          pageIndex: pageIndex,
+          pageNum: pageNum,
+          raw: g
+        });
+      });
+
+      return items;
+    }
+
+    window.conExecuteSearch = function () {
+      const inp = document.getElementById('con-search-input');
+      const rawQuery = (inp ? inp.value : '').trim();
+      const query = rawQuery.toLowerCase();
+
+      let pagesToSearch = [];
+      if (_conSearchScope === 'all') {
+        const totalPages = Math.max(1, conPageSnapshots ? conPageSnapshots.length : 1);
+        for (let p = 0; p < totalPages; p++) pagesToSearch.push(p);
+      } else {
+        pagesToSearch.push(conCurrentPageIndex);
+      }
+
+      let allCollected = [];
+      pagesToSearch.forEach(pIdx => {
+        allCollected = allCollected.concat(conCollectPageSearchItems(pIdx));
+      });
+
+      if (_conSearchTypeFilter !== 'all') {
+        allCollected = allCollected.filter(it => it.type === _conSearchTypeFilter);
+      }
+
+      if (query) {
+        _conSearchResults = allCollected.filter(it => it.text.toLowerCase().includes(query));
+      } else {
+        _conSearchResults = allCollected;
+      }
+
+      conRenderSearchResults(rawQuery);
+    };
+
+    function escapeSearchHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function highlightSearchMatchText(text, query) {
+      const safe = escapeSearchHtml(text);
+      if (!query) return safe;
+      const qSafe = escapeSearchHtml(query).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`(${qSafe})`, 'gi');
+      return safe.replace(regex, '<mark>$1</mark>');
+    }
+
+    function conRenderSearchResults(query) {
+      const list = document.getElementById('con-search-results-list');
+      const countLabel = document.getElementById('con-search-count-label');
+      if (!list) return;
+
+      list.innerHTML = '';
+      const total = _conSearchResults.length;
+
+      if (countLabel) {
+        const tFn = (typeof t === 'function' ? t : null);
+        const curLang = (typeof window.getLang === 'function') ? window.getLang() : ((window.i18n && typeof window.i18n.getLang === 'function') ? window.i18n.getLang() : 'en');
+        const matchStr = tFn ? tFn('conSearchMatchCount', { count: total, plural: (total === 1 ? '' : (curLang === 'fr' ? 's' : 'es')) }) : `${total} match${total === 1 ? '' : 'es'}`;
+        countLabel.textContent = matchStr;
+      }
+
+      if (total === 0) {
+        const empty = document.createElement('div');
+        empty.style.padding = '24px 12px';
+        empty.style.textAlign = 'center';
+        empty.style.color = '#64748b';
+        empty.style.fontSize = '0.8rem';
+        empty.textContent = (typeof t === 'function' ? t('conSearchNoResults') : 'No matches found on this board.');
+        list.appendChild(empty);
+        conSelectSearchItem(null);
+        return;
+      }
+
+      let selectIdx = 0;
+      if (_conSearchSelectedItem) {
+        const found = _conSearchResults.findIndex(it => it.id === _conSearchSelectedItem.id && it.pageIndex === _conSearchSelectedItem.pageIndex);
+        if (found >= 0) selectIdx = found;
+      }
+
+      _conSearchResults.forEach((item, idx) => {
+        const card = document.createElement('div');
+        card.className = 'con-search-item-card' + (idx === selectIdx ? ' selected' : '');
+        card.dataset.idx = idx;
+
+        const typeLabels = {
+          node: (typeof t === 'function' ? t('conSearchTypeNode') : 'Word'),
+          note: (typeof t === 'function' ? t('conSearchTypeNote') : 'Note'),
+          table: (typeof t === 'function' ? t('conSearchTypeTable') : 'Table'),
+          group: (typeof t === 'function' ? t('conSearchTypeGroup') : 'Group')
+        };
+
+        const topRow = document.createElement('div');
+        topRow.className = 'con-search-card-top';
+
+        const badges = document.createElement('div');
+        badges.className = 'con-search-card-badges';
+
+        const typeBadge = document.createElement('span');
+        typeBadge.className = `con-search-type-badge ${item.type}`;
+        typeBadge.textContent = typeLabels[item.type] || item.type;
+        badges.appendChild(typeBadge);
+
+        if (conPageSnapshots && conPageSnapshots.length > 1) {
+          const pBadge = document.createElement('span');
+          pBadge.className = 'con-search-page-badge';
+          pBadge.textContent = (typeof t === 'function' ? t('conSearchItemPage', { page: item.pageNum }) : `Page ${item.pageNum}`);
+          badges.appendChild(pBadge);
+        }
+
+        const coord = document.createElement('span');
+        coord.className = 'con-search-card-sub';
+        coord.textContent = item.tableCoord || `(${Math.round(item.x)}, ${Math.round(item.y)})`;
+
+        topRow.appendChild(badges);
+        topRow.appendChild(coord);
+
+        const openIconBtn = document.createElement('button');
+        openIconBtn.type = 'button';
+        openIconBtn.className = 'action-btn btn-grey';
+        openIconBtn.style.padding = '1px 5px';
+        openIconBtn.style.fontSize = '0.68rem';
+        openIconBtn.style.marginLeft = 'auto';
+        openIconBtn.style.display = 'inline-flex';
+        openIconBtn.style.alignItems = 'center';
+        openIconBtn.style.gap = '2px';
+        openIconBtn.title = (typeof t === 'function' ? t('conSearchOpenWindowBtnTitle') : 'Open searched term in a dedicated read-only window');
+        openIconBtn.innerHTML = '<img src="../assets/icons/eye.svg" style="width:11px;height:11px;" alt="" />';
+        openIconBtn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          conSelectSearchItem(idx);
+          conOpenSearchTermInNewWindow(item);
+        });
+        topRow.appendChild(openIconBtn);
+
+        const textRow = document.createElement('div');
+        textRow.className = 'con-search-card-text';
+        textRow.innerHTML = highlightSearchMatchText(item.displayText, query);
+
+        card.appendChild(topRow);
+        card.appendChild(textRow);
+
+        card.addEventListener('click', () => {
+          conSelectSearchItem(idx);
+        });
+        card.addEventListener('dblclick', () => {
+          conJumpToItem(item);
+        });
+
+        list.appendChild(card);
+      });
+
+      conSelectSearchItem(selectIdx);
+    }
+
+    function conSelectSearchItem(idx) {
+      const list = document.getElementById('con-search-results-list');
+      const jumpBtn = document.getElementById('con-search-jump-btn');
+      const openWinBtn = document.getElementById('con-search-open-win-btn');
+      const canvas = document.getElementById('con-search-crop-canvas');
+      const emptyState = document.getElementById('con-search-empty-preview');
+      const detailTitle = document.getElementById('con-search-detail-title');
+      const detailLoc = document.getElementById('con-search-detail-location');
+
+      if (idx === null || idx < 0 || idx >= _conSearchResults.length) {
+        _conSearchSelectedItem = null;
+        if (jumpBtn) jumpBtn.disabled = true;
+        if (openWinBtn) openWinBtn.disabled = true;
+        if (canvas) canvas.style.display = 'none';
+        if (emptyState) emptyState.style.display = 'flex';
+        if (detailTitle) detailTitle.textContent = '';
+        if (detailLoc) detailLoc.textContent = '';
+        return;
+      }
+
+      _conSearchSelectedItem = _conSearchResults[idx];
+      if (jumpBtn) jumpBtn.disabled = false;
+      if (openWinBtn) openWinBtn.disabled = false;
+      if (canvas) canvas.style.display = 'block';
+      if (emptyState) emptyState.style.display = 'none';
+
+      if (list) {
+        const cards = list.querySelectorAll('.con-search-item-card');
+        cards.forEach((c, cIdx) => {
+          c.classList.toggle('selected', cIdx === idx);
+        });
+        if (cards[idx]) {
+          cards[idx].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+      }
+
+      if (detailTitle) {
+        detailTitle.textContent = _conSearchSelectedItem.displayText;
+      }
+      if (detailLoc) {
+        const tFn = (typeof t === 'function' ? t : null);
+        const pLabel = tFn ? tFn('conSearchItemPage', { page: _conSearchSelectedItem.pageNum }) : `Page ${_conSearchSelectedItem.pageNum}`;
+        const posLabel = tFn ? tFn('conSearchMatchPosition', { x: Math.round(_conSearchSelectedItem.x), y: Math.round(_conSearchSelectedItem.y) }) : `Position: X: ${Math.round(_conSearchSelectedItem.x)}, Y: ${Math.round(_conSearchSelectedItem.y)}`;
+        detailLoc.textContent = `${pLabel} · ${posLabel} · ${_conSearchSelectedItem.w}×${_conSearchSelectedItem.h}px`;
+      }
+
+      conRenderSearchCrop(_conSearchSelectedItem);
+    }
+
+    function conDrawCroppedBoard(destCtx, srcCanvas, sX, sY, sW, sH, dX, dY, dW, dH) {
+      if (!srcCanvas || !srcCanvas.width || !srcCanvas.height) return;
+
+      const srcW = srcCanvas.width;
+      const srcH = srcCanvas.height;
+
+      const clampSX = Math.max(0, Math.min(srcW, sX));
+      const clampSY = Math.max(0, Math.min(srcH, sY));
+      const clampRight = Math.max(0, Math.min(srcW, sX + sW));
+      const clampBottom = Math.max(0, Math.min(srcH, sY + sH));
+
+      const visibleSW = clampRight - clampSX;
+      const visibleSH = clampBottom - clampSY;
+
+      if (visibleSW <= 0 || visibleSH <= 0) return;
+
+      const scaleX = dW / sW;
+      const scaleY = dH / sH;
+
+      const destX = dX + (clampSX - sX) * scaleX;
+      const destY = dY + (clampSY - sY) * scaleY;
+      const destW = visibleSW * scaleX;
+      const destH = visibleSH * scaleY;
+
+      destCtx.drawImage(
+        srcCanvas,
+        clampSX, clampSY, visibleSW, visibleSH,
+        destX, destY, destW, destH
+      );
+    }
+
+    async function conRenderSearchCrop(target) {
+      const canvas = document.getElementById('con-search-crop-canvas');
+      if (!canvas || !target) return;
+
+      const viewport = canvas.parentElement;
+      if (viewport && viewport.clientWidth > 100 && viewport.clientHeight > 100) {
+        canvas.width = Math.min(680, Math.max(380, viewport.clientWidth - 24));
+        canvas.height = Math.min(460, Math.max(260, viewport.clientHeight - 24));
+      }
+
+      const W = canvas.width;
+      const H = canvas.height;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, W, H);
+
+      const computedBg = (typeof getComputedStyle === 'function' && document.getElementById('constellation-board'))
+        ? getComputedStyle(document.getElementById('constellation-board')).backgroundColor
+        : '';
+      const bg = (typeof _conBoardBgColor !== 'undefined' && _conBoardBgColor) ||
+        (computedBg && computedBg !== 'transparent' && !/^rgba\(0,\s*0,\s*0,\s*0\)$/.test(computedBg) ? computedBg : '#ffffff');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      const targetW = target.w || 60;
+      const targetH = target.h || 32;
+      const CX = target.x + targetW / 2;
+      const CY = target.y + targetH / 2;
+
+      const spanW = Math.max(targetW * 3.4, 480);
+      const spanH = Math.max(targetH * 3.4, 320);
+      const minX = CX - spanW / 2;
+      const minY = CY - spanH / 2;
+
+      const isCurrentPage = (target.pageIndex === conCurrentPageIndex);
+
+      let boardCanvasData = null;
+      if (isCurrentPage) {
+        if (_conSearchBoardCanvasData) {
+          boardCanvasData = _conSearchBoardCanvasData;
+        } else if (_conSearchBoardCanvasPromise) {
+          ctx.fillStyle = '#64748b';
+          ctx.font = '500 12px "Segoe UI", Arial, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('Capturing board preview...', W / 2, H / 2);
+
+          try {
+            boardCanvasData = await _conSearchBoardCanvasPromise;
+            if (_conSearchSelectedItem !== target) return;
+          } catch (_) {
+            boardCanvasData = null;
+          }
+        }
+      } else {
+        if (_conSearchOtherPagesCanvases && _conSearchOtherPagesCanvases[target.pageIndex]) {
+          boardCanvasData = _conSearchOtherPagesCanvases[target.pageIndex];
+        } else {
+          let dataUrl = (_conPageSnapshotPngs && _conPageSnapshotPngs[target.pageIndex]) || '';
+          if (!dataUrl && typeof conBuildPageThumbnailDataUrl === 'function' && conPageSnapshots && conPageSnapshots[target.pageIndex]) {
+            try {
+              dataUrl = conBuildPageThumbnailDataUrl(conPageSnapshots[target.pageIndex], 1200, 800);
+            } catch (_) {}
+          }
+          if (dataUrl) {
+            try {
+              const loadedImg = await new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = reject;
+                img.src = dataUrl;
+              });
+              boardCanvasData = { canvas: loadedImg, PAD: 16, scale: 1 };
+              _conSearchOtherPagesCanvases[target.pageIndex] = boardCanvasData;
+            } catch (_) {
+              boardCanvasData = null;
+            }
+          }
+        }
+      }
+
+      if (boardCanvasData && boardCanvasData.canvas) {
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, W, H);
+
+        const srcCanvas = boardCanvasData.canvas;
+        const PAD = boardCanvasData.PAD != null ? boardCanvasData.PAD : 24;
+        const scale = boardCanvasData.scale || 2;
+
+        const sX = (minX + PAD) * scale;
+        const sY = (minY + PAD) * scale;
+        const sW = spanW * scale;
+        const sH = spanH * scale;
+
+        conDrawCroppedBoard(ctx, srcCanvas, sX, sY, sW, sH, 0, 0, W, H);
+      } else {
+        ctx.fillStyle = '#f1f5f9';
+        ctx.fillRect(0, 0, W, H);
+      }
+
+      const dstX = ((target.x - minX) / spanW) * W;
+      const dstY = ((target.y - minY) / spanH) * H;
+      const dstW = (targetW / spanW) * W;
+      const dstH = (targetH / spanH) * H;
+
+      ctx.save();
+      ctx.shadowColor = '#ea580c';
+      ctx.shadowBlur = 14;
+      ctx.strokeStyle = '#ea580c';
+      ctx.lineWidth = 3.5;
+      const hPad = 5;
+
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(dstX - hPad, dstY - hPad, dstW + hPad * 2, dstH + hPad * 2, 4);
+      } else {
+        ctx.rect(dstX - hPad, dstY - hPad, dstW + hPad * 2, dstH + hPad * 2);
+      }
+      ctx.stroke();
+      ctx.restore();
+
+      const badgeText = 'MATCH';
+      ctx.font = 'bold 9px "Segoe UI", Arial, sans-serif';
+      const bW = ctx.measureText(badgeText).width + 8;
+      const bH = 15;
+      const bX = Math.max(2, dstX - hPad);
+      const bY = Math.max(2, dstY - hPad - bH - 2);
+
+      ctx.fillStyle = '#ea580c';
+      ctx.fillRect(bX, bY, bW, bH);
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(badgeText, bX + bW / 2, bY + bH / 2);
+    }
+
+    window.conJumpToItem = function (item) {
+      if (!item) item = _conSearchSelectedItem;
+      if (!item) return;
+
+      conCloseSearchModal();
+
+      const doCenterAndPulse = () => {
+        const board = document.getElementById('constellation-board');
+        if (!board) return;
+
+        const itemW = item.w || 60;
+        const itemH = item.h || 32;
+        const targetScrollX = (item.x + itemW / 2) - board.clientWidth / 2;
+        const targetScrollY = (item.y + itemH / 2) - board.clientHeight / 2;
+
+        board.scrollTo({
+          left: Math.max(0, Math.round(targetScrollX)),
+          top: Math.max(0, Math.round(targetScrollY)),
+          behavior: 'smooth'
+        });
+
+        let liveEl = null;
+        if (item.type === 'node') {
+          const nodeObj = (window.conGetNodes ? window.conGetNodes() : []).find(n => n.id === item.id);
+          if (nodeObj) {
+            liveEl = nodeObj.el;
+            if (typeof window.conSelect === 'function') window.conSelect(nodeObj);
+          }
+        } else if (item.type === 'note') {
+          liveEl = document.querySelector(`.con-word-note[data-id="${item.id}"]`);
+          if (typeof window.conNoteSelect === 'function') {
+            const noteObj = (window.conGetNotes ? window.conGetNotes() : []).find(n => n.id === item.id);
+            if (noteObj) window.conNoteSelect(noteObj);
+          }
+        } else if (item.type === 'table') {
+          liveEl = document.querySelector(`.con-table-el[data-id="${item.tableId}"]`);
+        } else if (item.type === 'group') {
+          liveEl = document.querySelector(`.con-group[data-id="${item.id}"]`);
+        }
+
+        if (liveEl) {
+          liveEl.classList.remove('con-search-target-pulse');
+          void liveEl.offsetWidth;
+          liveEl.classList.add('con-search-target-pulse');
+          setTimeout(() => {
+            liveEl.classList.remove('con-search-target-pulse');
+          }, 2400);
+        }
+      };
+
+      if (typeof conCurrentPageIndex === 'number' && item.pageIndex !== conCurrentPageIndex) {
+        if (typeof window.conGoToPage === 'function') {
+          window.conGoToPage(item.pageIndex);
+          setTimeout(doCenterAndPulse, 220);
+        }
+      } else {
+        doCenterAndPulse();
+      }
+    };
+
+    window.conJumpToSelectedSearchItem = function () {
+      conJumpToItem(_conSearchSelectedItem);
+    };
+
+    window.conOpenPageSnapshotWindow = async function (pageIndex, options = {}) {
+      const totalPages = (conPageSnapshots && conPageSnapshots.length) || 1;
+      const targetIdx = (typeof pageIndex === 'number' && pageIndex >= 0)
+        ? Math.min(pageIndex, Math.max(0, totalPages - 1))
+        : ((typeof conCurrentPageIndex === 'number') ? conCurrentPageIndex : 0);
+
+      // 1. Resolve WebP snapshot data URL (preferring fresh high-res live canvas or existing snapshot cache)
+      let dataUrl = '';
+      if (targetIdx === conCurrentPageIndex && typeof _conBuildBoardCanvas === 'function') {
+        try {
+          const liveRes = await _conBuildBoardCanvas();
+          if (liveRes && liveRes.canvas) {
+            try {
+              dataUrl = liveRes.canvas.toDataURL('image/webp', 0.94);
+              if (!dataUrl || !dataUrl.startsWith('data:image/webp')) {
+                dataUrl = liveRes.canvas.toDataURL('image/png');
+              }
+            } catch (_) {
+              dataUrl = liveRes.canvas.toDataURL('image/png');
+            }
+            if (dataUrl) {
+              if (!_conPageSnapshotPngs) _conPageSnapshotPngs = [];
+              _conPageSnapshotPngs[targetIdx] = dataUrl;
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (!dataUrl && _conPageSnapshotPngs && _conPageSnapshotPngs[targetIdx]) {
+        dataUrl = _conPageSnapshotPngs[targetIdx];
+      }
+
+      if (!dataUrl && typeof conResolveMiniPageSnapshotUrl === 'function') {
+        try {
+          dataUrl = await conResolveMiniPageSnapshotUrl(targetIdx);
+        } catch (_) {}
+      }
+
+      if (!dataUrl) {
+        const snap = (targetIdx === conCurrentPageIndex && typeof conBuildPageSnapshot === 'function')
+          ? conBuildPageSnapshot()
+          : (conPageSnapshots && conPageSnapshots[targetIdx]);
+        if (snap && typeof conBuildPageThumbnailDataUrl === 'function') {
+          try {
+            dataUrl = conBuildPageThumbnailDataUrl(snap, 1800, 1125);
+          } catch (_) {}
+        }
+      }
+
+      // Ensure WebP format if currently PNG and offscreen canvas supports it
+      if (dataUrl && dataUrl.startsWith('data:image/png')) {
+        try {
+          const img = new Image();
+          img.src = dataUrl;
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+          });
+          const cvs = document.createElement('canvas');
+          cvs.width = img.naturalWidth || img.width;
+          cvs.height = img.naturalHeight || img.height;
+          const ctx = cvs.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0);
+            const webpUrl = cvs.toDataURL('image/webp', 0.92);
+            if (webpUrl && webpUrl.startsWith('data:image/webp')) {
+              dataUrl = webpUrl;
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (!dataUrl) {
+        if (typeof showToast === 'function') {
+          showToast('No snapshot available for page ' + (targetIdx + 1), true);
+        }
+        return;
+      }
+
+      // 2. Prepare localized UI labels & Neobrutalist styling
+      const curLang = (typeof window.getLang === 'function') ? window.getLang() : ((window.i18n && typeof window.i18n.getLang === 'function') ? window.i18n.getLang() : 'en');
+      const isFr = (curLang === 'fr');
+
+      const pageNumText = `${isFr ? 'Page' : 'Page'} ${targetIdx + 1}`;
+      const constellationTitle = (typeof _conCurrentConstellationTitle === 'string' && _conCurrentConstellationTitle.trim())
+        ? _conCurrentConstellationTitle.trim()
+        : '';
+      const fullTitle = constellationTitle ? `${constellationTitle} — ${pageNumText}` : pageNumText;
+      const safeTitle = escapeSearchHtml(fullTitle);
+
+      const lblBadge = isFr ? 'VUE ENSEIGNANT EN LECTURE SEULE' : 'TEACHER READ-ONLY VIEW';
+      const lblNotice = isFr ? 'Capture WebP haute résolution · N\'affecte ni ne remplace l\'affichage miroir' : 'High-resolution WebP snapshot · Does not affect or replace mirrored display';
+      const lblZoomFit = isFr ? 'Ajuster' : 'Fit';
+      const lblZoom100 = isFr ? 'Taille réelle' : '100% Zoom';
+      const lblCopy = isFr ? 'Copier' : 'Copy';
+      const lblCopied = isFr ? 'Copié !' : 'Copied!';
+      const lblPrint = isFr ? 'Imprimer / PDF' : 'Print / PDF';
+      const lblClose = isFr ? 'Fermer' : 'Close';
+
+      const svgLock = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fef08a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;flex-shrink:0;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+      const svgZoom = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;flex-shrink:0;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>';
+      const svgCopy = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;flex-shrink:0;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+      const svgCheck = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;flex-shrink:0;"><polyline points="20 6 9 17 4 12"/></svg>';
+      const svgPrinter = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;flex-shrink:0;"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>';
+      const svgClose = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;flex-shrink:0;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+      const svgBoard = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;flex-shrink:0;"><rect x="2" y="2" width="20" height="15" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>';
+
+      const snapshotHtml = `<!DOCTYPE html>
+<html lang="${curLang}">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${safeTitle} — ${isFr ? 'Aperçu Enseignant' : 'Teacher View'} (Read-Only)</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #0f172a;
+      color: #0f172a;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .nb-topbar {
+      background: #ffffff;
+      border-bottom: 3px solid #000000;
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-shrink: 0;
+      z-index: 10;
+    }
+    .nb-title-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .nb-title-text {
+      font-weight: 800;
+      font-size: 1.05rem;
+      color: #0f172a;
+    }
+    .nb-badge-lock {
+      background: #111111;
+      color: #fef08a;
+      font-size: 0.72rem;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 4px;
+      letter-spacing: 0.5px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1.5px solid #000000;
+    }
+    .nb-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .nb-btn {
+      background: #ffffff;
+      border: 2px solid #000000;
+      box-shadow: 2px 2px 0px #000000;
+      border-radius: 4px;
+      padding: 5px 12px;
+      font-weight: 700;
+      font-size: 0.8rem;
+      color: #0f172a;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+      user-select: none;
+    }
+    .nb-btn:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 3px 3px 0px #000000;
+    }
+    .nb-btn:active {
+      transform: translate(1px, 1px);
+      box-shadow: 1px 1px 0px #000000;
+    }
+    .nb-btn-danger {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    .nb-subbar {
+      background: #f8fafc;
+      border-bottom: 2px solid #000000;
+      padding: 4px 16px;
+      font-size: 0.76rem;
+      font-weight: 600;
+      color: #475569;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .nb-viewport {
+      flex: 1;
+      overflow: auto;
+      background: #1e293b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      position: relative;
+    }
+    .nb-snapshot-frame {
+      display: inline-block;
+      border: 3px solid #000000;
+      box-shadow: 6px 6px 0px #000000;
+      background: #ffffff;
+      border-radius: 4px;
+      transition: box-shadow 0.15s ease;
+      line-height: 0;
+    }
+    .nb-snapshot-img {
+      display: block;
+      transition: max-width 0.2s ease, max-height 0.2s ease;
+    }
+    .nb-snapshot-img.fit-mode {
+      max-width: calc(100vw - 64px);
+      max-height: calc(100vh - 120px);
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      cursor: zoom-in;
+    }
+    .nb-snapshot-img.zoom-mode {
+      max-width: none;
+      max-height: none;
+      width: auto;
+      height: auto;
+      cursor: zoom-out;
+    }
+    @media print {
+      .nb-topbar, .nb-subbar, .no-print { display: none !important; }
+      html, body { background: #ffffff !important; overflow: visible !important; height: auto !important; }
+      .nb-viewport { background: #ffffff !important; padding: 0 !important; overflow: visible !important; display: block !important; }
+      .nb-snapshot-frame { border: none !important; box-shadow: none !important; }
+      .nb-snapshot-img { max-width: 100% !important; max-height: 100vh !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="nb-topbar no-print">
+    <div class="nb-title-group">
+      ${svgBoard}
+      <span class="nb-title-text">${safeTitle}</span>
+      <span class="nb-badge-lock">${svgLock} <span>${lblBadge}</span></span>
+    </div>
+    <div class="nb-actions">
+      <button id="btn-zoom" class="nb-btn" onclick="toggleZoom()" title="Toggle 100% zoom (Key: Z)">
+        ${svgZoom} <span id="btn-zoom-text">${lblZoom100}</span>
+      </button>
+      <button id="btn-copy" class="nb-btn" onclick="copySnapshot()" title="Copy image to clipboard (Ctrl+C)">
+        ${svgCopy} <span id="btn-copy-text">${lblCopy}</span>
+      </button>
+      <button class="nb-btn" onclick="window.print()" title="Print or save as PDF">
+        ${svgPrinter} <span>${lblPrint}</span>
+      </button>
+      <button class="nb-btn nb-btn-danger" onclick="window.close()" title="Close window (Esc)">
+        ${svgClose} <span>${lblClose}</span>
+      </button>
+    </div>
+  </div>
+  <div class="nb-subbar no-print">
+    <span>${lblNotice}</span>
+    <span style="font-family:monospace;font-size:0.72rem;color:#64748b;" id="img-dim-info">WebP</span>
+  </div>
+  <div class="nb-viewport" id="viewport" onclick="onViewportClick(event)">
+    <div class="nb-snapshot-frame" id="frame">
+      <img id="snapshot-img" class="nb-snapshot-img fit-mode" src="${dataUrl}" alt="${safeTitle}" onclick="toggleZoom()" />
+    </div>
+  </div>
+
+  <script>
+    let isZoomed = false;
+    const img = document.getElementById('snapshot-img');
+    const zoomLabel = document.getElementById('btn-zoom-text');
+    const dimInfo = document.getElementById('img-dim-info');
+
+    if (img) {
+      img.onload = function() {
+        if (dimInfo && img.naturalWidth && img.naturalHeight) {
+          dimInfo.textContent = img.naturalWidth + ' × ' + img.naturalHeight + ' px · WebP';
+        }
+      };
+      if (img.complete && img.naturalWidth) {
+        if (dimInfo) dimInfo.textContent = img.naturalWidth + ' × ' + img.naturalHeight + ' px · WebP';
+      }
+    }
+
+    function toggleZoom() {
+      isZoomed = !isZoomed;
+      if (!img) return;
+      if (isZoomed) {
+        img.className = 'nb-snapshot-img zoom-mode';
+        if (zoomLabel) zoomLabel.textContent = ${JSON.stringify(lblZoomFit)};
+      } else {
+        img.className = 'nb-snapshot-img fit-mode';
+        if (zoomLabel) zoomLabel.textContent = ${JSON.stringify(lblZoom100)};
+      }
+    }
+
+    function onViewportClick(e) {
+      if (e.target === document.getElementById('viewport')) {
+        toggleZoom();
+      }
+    }
+
+    async function copySnapshot() {
+      const btn = document.getElementById('btn-copy');
+      const btnText = document.getElementById('btn-copy-text');
+      try {
+        if (!img) return;
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth || img.width;
+        canvas.height = img.naturalHeight || img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        canvas.toBlob(async function(blob) {
+          if (!blob) return;
+          if (navigator.clipboard && navigator.clipboard.write) {
+            try {
+              await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+              if (btn && btnText) {
+                btn.innerHTML = ${JSON.stringify(svgCheck)} + ' <span>' + ${JSON.stringify(lblCopied)} + '</span>';
+                setTimeout(() => {
+                  btn.innerHTML = ${JSON.stringify(svgCopy)} + ' <span id="btn-copy-text">' + ${JSON.stringify(lblCopy)} + '</span>';
+                }, 1600);
+              }
+            } catch (err) {
+              console.warn('Clipboard write failed:', err);
+            }
+          }
+        }, 'image/png');
+      } catch (err) {
+        console.warn('Copy snapshot error:', err);
+      }
+    }
+
+    window.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        window.close();
+      } else if (e.key === 'z' || e.key === 'Z') {
+        toggleZoom();
+      } else if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C')) {
+        if (document.activeElement === document.body || !document.getSelection().toString()) {
+          copySnapshot();
+        }
+      }
+    });
+  <\/script>
+</body>
+</html>`;
+
+      // 3. Open in a dedicated read-only window on teacher's monitor
+      const winTitle = `${safeTitle} — ${isFr ? 'Aperçu Enseignant' : 'Teacher View'}`;
+      const winWidth = 1100;
+      const winHeight = 820;
+
+      if (window.Desktop && typeof Desktop.openHtml === 'function') {
+        try {
+          await Desktop.openHtml({
+            html: snapshotHtml,
+            width: winWidth,
+            height: winHeight,
+            title: winTitle
+          });
+          return;
+        } catch (err) {
+          console.warn('Desktop.openHtml failed, falling back to window.open', err);
+        }
+      }
+
+      // Web browser fallback: center window relative to active screen coordinates
+      const sLeft = Math.round((window.screenX || 0) + Math.max(0, ((window.outerWidth || window.innerWidth) - winWidth) / 2));
+      const sTop = Math.round((window.screenY || 0) + Math.max(0, ((window.outerHeight || window.innerHeight) - winHeight) / 2));
+      const popup = window.open('', '_blank', `width=${winWidth},height=${winHeight},left=${sLeft},top=${sTop},menubar=no,toolbar=no,location=no,status=no`);
+      if (popup) {
+        popup.document.open();
+        popup.document.write(snapshotHtml);
+        popup.document.close();
+      }
+    };
+
+    window.conOpenSearchTermInNewWindow = async function (targetItem) {
+      let item = targetItem || _conSearchSelectedItem;
+      if (!item) {
+        if (_conSearchResults && _conSearchResults.length > 0) {
+          item = _conSearchResults[0];
+        }
+      }
+      if (!item) {
+        if (typeof showToast === 'function') {
+          showToast((typeof t === 'function' ? t('conSearchNoItemSelected') : 'Please select a search result first'), true);
+        }
+        return;
+      }
+      const pIdx = (typeof item.pageIndex === 'number') ? item.pageIndex : conCurrentPageIndex;
+      await window.conOpenPageSnapshotWindow(pIdx);
+    };
+
+    window.conSearchInputKeyDown = function (e) {
+      if (!e) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        conCloseSearchModal();
+        return;
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (e.ctrlKey || e.metaKey) {
+          if (_conSearchSelectedItem) {
+            conOpenSearchTermInNewWindow(_conSearchSelectedItem);
+          }
+          return;
+        }
+        if (_conSearchSelectedItem) {
+          conJumpToItem(_conSearchSelectedItem);
+        }
+        return;
+      }
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (!_conSearchResults || _conSearchResults.length === 0) return;
+        let currIdx = _conSearchResults.findIndex(it => _conSearchSelectedItem && it.id === _conSearchSelectedItem.id);
+        if (currIdx < 0) currIdx = 0;
+        const nextIdx = e.key === 'ArrowDown'
+          ? Math.min(_conSearchResults.length - 1, currIdx + 1)
+          : Math.max(0, currIdx - 1);
+        conSelectSearchItem(nextIdx);
       }
     };
 

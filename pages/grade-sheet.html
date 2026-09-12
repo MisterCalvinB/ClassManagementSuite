@@ -9117,6 +9117,15 @@
       };
     }
 
+    function gradeClass(g) {
+      if (g == null) return "";
+      if (g >= 6) return "grade-band-6";
+      if (g >= 5) return "grade-band-5";
+      if (g >= 4) return "grade-band-4";
+      if (g >= 3) return "grade-band-3";
+      return "grade-band-low";
+    }
+
     function gradeColor(g) {
       if (g == null) return "";
       if (g >= 6) return "background:#2ecc40;color:#fff;";
@@ -9231,6 +9240,11 @@
           outline: 2px solid #111;
           background: #fafafa;
         }
+        .grade-band-6 { background: #2ecc40 !important; color: #fff !important; }
+        .grade-band-5 { background: #a5d6a7 !important; color: #1a3a1a !important; }
+        .grade-band-4 { background: #ffb74d !important; color: #3a1800 !important; }
+        .grade-band-3 { background: #ef9a9a !important; color: #3a0000 !important; }
+        .grade-band-low { background: #e53935 !important; color: #fff !important; }
         @page { size: ${pdfSettings.pageSize} ${pdfSettings.orientation}; margin: ${pdfSettings.margin}; }
         @media print {
           body { margin: 0; padding: 0; }
@@ -9243,13 +9257,13 @@
         return `<th${cls}><span class="th-wrap">${esc(name)}<span class="col-resizer" data-col="${i}"></span></span></th>`;
       }).join("");
       const studentRows = report.rows.map(({ student, grades, semAvg }) => {
-        const gradeCells = grades.map(g => `<td style="${gradeColor(g)}">${g != null ? fmtN(g) : "-"}</td>`).join("");
-        const avgStyle = gradeColor(semAvg);
+        const gradeCells = grades.map(g => `<td class="center ${gradeClass(g)}">${g != null ? fmtN(g) : "-"}</td>`).join("");
+        const avgCls = gradeClass(semAvg);
         return `<tr>
           <td class="left">${esc(String(student.index))}</td>
           <td class="left">${esc((student.firstName + " " + student.lastName).trim())}</td>
           ${gradeCells}
-          <td style="font-weight:700;${avgStyle}">${semAvg != null ? fmt(semAvg) : "-"}</td>
+          <td class="center ${avgCls}" style="font-weight:700;">${semAvg != null ? fmt(semAvg) : "-"}</td>
         </tr>`;
       }).join("");
 
@@ -9686,9 +9700,25 @@
       const report = buildSemesterReportData(classObj, sem);
       const markdown = buildSemesterReportMarkdown(report);
       const slug = slugifyForPath(classObj.name || "class");
+      const baseName = `${slug}-${sem}-grades-${new Date().toISOString().slice(0, 10)}`;
+      if (window.saveExportWithDestination) {
+        return await window.saveExportWithDestination({
+          filename: `${baseName}.docx`,
+          docxRequest: {
+            markdown,
+            defaultName: baseName,
+            fontFamily: 'Segoe UI',
+            fontSize: '10pt',
+            lineHeight: '1.2',
+            margins: { top: 18, right: 16, bottom: 18, left: 16 },
+            size: 'A4',
+            orientation: 'portrait'
+          }
+        });
+      }
       const result = await Desktop.exportDocx({
         markdown,
-        defaultName: `${slug}-${sem}-grades-${new Date().toISOString().slice(0, 10)}`,
+        defaultName: baseName,
         fontFamily: 'Segoe UI',
         fontSize: '10pt',
         lineHeight: '1.2',
@@ -9696,7 +9726,12 @@
         size: 'A4',
         orientation: 'portrait'
       });
-      if (result && result.ok) return;
+      if (result && result.ok) {
+        if (window.showExportSuccessPopup && result.path) {
+          showExportSuccessPopup(result.path, result.name || `${baseName}.docx`);
+        }
+        return;
+      }
       if (result && !result.canceled) {
         await showAlert(t('gsAlertDocxExportFailed'));
       }
@@ -9710,7 +9745,21 @@
       downloadTextFile(html, filename, "text/html;charset=utf-8");
     }
 
-    function downloadBinaryFile(buffer, filename, mimeType) {
+    async function downloadBinaryFile(buffer, filename, mimeType) {
+      const ext = (filename.split('.').pop() || '').toLowerCase();
+      let filterName = 'File';
+      if (ext === 'xlsx') filterName = 'Excel Spreadsheet';
+      else if (ext === 'pdf') filterName = 'PDF Document';
+
+      if (window.saveExportWithDestination) {
+        return await window.saveExportWithDestination({
+          filename: filename,
+          content: buffer,
+          mimeType: mimeType || 'application/octet-stream',
+          filters: [{ name: filterName, extensions: [ext] }, { name: 'All Files', extensions: ['*'] }],
+          title: typeof t === 'function' ? (t('deSaveFileTitle') || 'Save File') : 'Save File'
+        });
+      }
       const blob = new Blob([buffer], { type: mimeType || "application/octet-stream" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -9913,9 +9962,25 @@
       const testIndex = appState.activeTest.testIndex;
       const markdown = buildTestResultsDocxMarkdown(classObj, sem, testIndex);
       const slug = slugifyForPath(classObj.name || "class");
+      const baseName = `${slug}-${sem}-t${testIndex + 1}-${new Date().toISOString().slice(0, 10)}`;
+      if (window.saveExportWithDestination) {
+        return await window.saveExportWithDestination({
+          filename: `${baseName}.docx`,
+          docxRequest: {
+            markdown,
+            defaultName: baseName,
+            fontFamily: 'Segoe UI',
+            fontSize: '10pt',
+            lineHeight: '1.2',
+            margins: { top: 18, right: 16, bottom: 18, left: 16 },
+            size: 'A4',
+            orientation: 'portrait'
+          }
+        });
+      }
       const result = await Desktop.exportDocx({
         markdown,
-        defaultName: `${slug}-${sem}-t${testIndex + 1}-${new Date().toISOString().slice(0, 10)}`,
+        defaultName: baseName,
         fontFamily: 'Segoe UI',
         fontSize: '10pt',
         lineHeight: '1.2',
@@ -9923,7 +9988,12 @@
         size: 'A4',
         orientation: 'portrait'
       });
-      if (result && result.ok) return;
+      if (result && result.ok) {
+        if (window.showExportSuccessPopup && result.path) {
+          showExportSuccessPopup(result.path, result.name || `${baseName}.docx`);
+        }
+        return;
+      }
       if (result && !result.canceled) {
         await showAlert(t('gsAlertDocxExportFailed'));
       }
@@ -10160,6 +10230,16 @@
           font-size: 12px;
           background: #f0f0f0;
         }
+        .grade-band-6 { background: #2ecc40 !important; color: #fff !important; }
+        .grade-band-5 { background: #a5d6a7 !important; color: #1a3a1a !important; }
+        .grade-band-4 { background: #ffb74d !important; color: #3a1800 !important; }
+        .grade-band-3 { background: #ef9a9a !important; color: #3a0000 !important; }
+        .grade-band-low { background: #e53935 !important; color: #fff !important; }
+        .delta-pos { color: #2e7d32 !important; font-weight: 800; }
+        .delta-neg { color: #c62828 !important; font-weight: 800; }
+        .cell-sem1-avg { background: #e3f2fd !important; }
+        .cell-sem2-avg { background: #e8f5e9 !important; }
+        .cell-year-avg { background: #fff9c4 !important; }
         @page { size: ${size}; margin: ${pdfSettings.margin || '12mm'}; }
         @media print {
           body { background: #fff; margin: 0; padding: 0; }
@@ -10588,16 +10668,16 @@
         const fullName = (window.StudentNameUtils && typeof StudentNameUtils.formatStudentName === 'function')
           ? StudentNameUtils.formatStudentName(r.student, nameMode)
           : `${r.student.firstName || ''} ${r.student.lastName || ''}`.trim();
-        const s1Cells = r.s1Grades.map(g => `<td class="center" style="${gradeColor(g)}">${g != null ? fmtN(g) : '-'}</td>`).join('');
-        const s2Cells = r.s2Grades.map(g => `<td class="center" style="${gradeColor(g)}">${g != null ? fmtN(g) : '-'}</td>`).join('');
+        const s1Cells = r.s1Grades.map(g => `<td class="center ${gradeClass(g)}">${g != null ? fmtN(g) : '-'}</td>`).join('');
+        const s2Cells = r.s2Grades.map(g => `<td class="center ${gradeClass(g)}">${g != null ? fmtN(g) : '-'}</td>`).join('');
         return `<tr>
           <td class="center" style="font-weight:700;">${idx + 1}</td>
           <td style="font-weight:700;">${escapeHtml(fullName)}</td>
           ${s1Cells}
-          <td class="center" style="font-weight:700;${gradeColor(r.sem1Avg)}">${r.sem1Avg != null ? fmt(r.sem1Avg) : '-'}</td>
+          <td class="center ${gradeClass(r.sem1Avg)}" style="font-weight:700;">${r.sem1Avg != null ? fmt(r.sem1Avg) : '-'}</td>
           ${s2Cells}
-          <td class="center" style="font-weight:700;${gradeColor(r.sem2Avg)}">${r.sem2Avg != null ? fmt(r.sem2Avg) : '-'}</td>
-          <td class="center" style="font-weight:800;${gradeColor(r.yearAvg)}">${r.yearAvg != null ? fmt(r.yearAvg) : '-'}</td>
+          <td class="center ${gradeClass(r.sem2Avg)}" style="font-weight:700;">${r.sem2Avg != null ? fmt(r.sem2Avg) : '-'}</td>
+          <td class="center ${gradeClass(r.yearAvg)}" style="font-weight:800;">${r.yearAvg != null ? fmt(r.yearAvg) : '-'}</td>
         </tr>`;
       }).join('');
 
@@ -10664,10 +10744,10 @@
                 <th class="center" style="width:36px;">#</th>
                 <th style="width:180px;">${t('gsColStudentName') || 'Student Name'}</th>
                 ${s1TestNames.map(t => `<th class="center">${esc(t)}</th>`).join('')}
-                <th class="center" style="background:#e3f2fd;">${t('gsColS1Avg') || 'S1 Avg'}</th>
+                <th class="center cell-sem1-avg">${t('gsColS1Avg') || 'S1 Avg'}</th>
                 ${s2TestNames.map(t => `<th class="center">${esc(t)}</th>`).join('')}
-                <th class="center" style="background:#e8f5e9;">${t('gsColS2Avg') || 'S2 Avg'}</th>
-                <th class="center" style="background:#fff9c4;">${t('gsColYearAvg') || 'Year Avg'}</th>
+                <th class="center cell-sem2-avg">${t('gsColS2Avg') || 'S2 Avg'}</th>
+                <th class="center cell-year-avg">${t('gsColYearAvg') || 'Year Avg'}</th>
               </tr>
             </thead>
             <tbody>
@@ -10730,12 +10810,12 @@
         const fullName = (window.StudentNameUtils && typeof StudentNameUtils.formatStudentName === 'function')
           ? StudentNameUtils.formatStudentName(r.student, nameMode)
           : `${r.student.firstName || ''} ${r.student.lastName || ''}`.trim();
-        const testCells = r.grades.map(g => `<td class="center" style="${gradeColor(g)}">${g != null ? fmtN(g) : '-'}</td>`).join('');
+        const testCells = r.grades.map(g => `<td class="center ${gradeClass(g)}">${g != null ? fmtN(g) : '-'}</td>`).join('');
         return `<tr>
           <td class="center" style="font-weight:700;">${idx + 1}</td>
           <td style="font-weight:700;">${escapeHtml(fullName)}</td>
           ${testCells}
-          <td class="center" style="font-weight:800;${gradeColor(r.semAvg)}">${r.semAvg != null ? fmt(r.semAvg) : '-'}</td>
+          <td class="center ${gradeClass(r.semAvg)}" style="font-weight:800;">${r.semAvg != null ? fmt(r.semAvg) : '-'}</td>
         </tr>`;
       }).join('');
 
@@ -10877,7 +10957,7 @@
         return `<tr>
           <td class="center" style="font-weight:700;">${idx + 1}</td>
           <td style="font-weight:700;">${escapeHtml(fullName)}</td>
-          <td class="center" style="font-weight:800;${gradeColor(r.grade)}">${r.grade != null ? fmtN(r.grade) : '-'}</td>
+          <td class="center ${gradeClass(r.grade)}" style="font-weight:800;">${r.grade != null ? fmtN(r.grade) : '-'}</td>
           <td class="center" style="font-weight:700;">${ptsStr}</td>
           ${critCells}
         </tr>`;
@@ -11108,9 +11188,9 @@
             <td class="center" style="font-weight:700;">${sem.toUpperCase()}</td>
             <td style="font-weight:700;">${escapeHtml(tName)}</td>
             <td class="center">${escapeHtml(cfg.testDate || '-')}</td>
-            <td class="center" style="font-weight:800;${gradeColor(g)}">${g != null ? fmtN(g) : '-'}</td>
+            <td class="center ${gradeClass(g)}" style="font-weight:800;">${g != null ? fmtN(g) : '-'}</td>
             <td class="center">${cMean != null ? cMean.toFixed(2) : '-'}</td>
-            <td class="center" style="font-weight:800;color:${deltaColor};">${deltaStr}</td>
+            <td class="center ${delta != null ? (delta >= 0 ? 'delta-pos' : 'delta-neg') : ''}" style="font-weight:800;">${deltaStr}</td>
             <td style="font-size:9.5px;color:#333;">${escapeHtml(notes || '—')}</td>
           </tr>`);
         }
@@ -11236,9 +11316,9 @@
           <td class="center" style="font-weight:700;">T${ti + 1}</td>
           <td style="font-weight:700;">${escapeHtml(tName)}</td>
           <td class="center">${escapeHtml(cfg.testDate || '-')}</td>
-          <td class="center" style="font-weight:800;${gradeColor(g)}">${g != null ? fmtN(g) : '-'}</td>
+          <td class="center ${gradeClass(g)}" style="font-weight:800;">${g != null ? fmtN(g) : '-'}</td>
           <td class="center">${cMean != null ? cMean.toFixed(2) : '-'}</td>
-          <td class="center" style="font-weight:800;color:${deltaColor};">${deltaStr}</td>
+          <td class="center ${delta != null ? (delta >= 0 ? 'delta-pos' : 'delta-neg') : ''}" style="font-weight:800;">${deltaStr}</td>
           <td style="font-size:9.5px;color:#333;">${escapeHtml(notes || '—')}</td>
         </tr>`);
       }
@@ -11405,14 +11485,14 @@
               <div class="report-subtitle">Class: ${esc(classObj.name)} &nbsp;·&nbsp; ${esc(semLabel)} &nbsp;·&nbsp; Date: ${esc(config.testDate || 'N/A')}</div>
             </div>
             <div class="report-meta">
-              <div class="badge" style="font-size:16px;${gradeColor(grade)}">Grade: ${grade != null ? fmtN(grade) : '—'}</div>
+              <div class="badge ${gradeClass(grade)}" style="font-size:16px;">Grade: ${grade != null ? fmtN(grade) : '—'}</div>
             </div>
           </div>
 
           <div class="kpi-grid">
             <div class="kpi-card">
               <div class="kpi-label">Final Grade</div>
-              <div class="kpi-value" style="${gradeColor(grade)}">${grade != null ? fmtN(grade) : '-'}</div>
+              <div class="kpi-value ${gradeClass(grade)}">${grade != null ? fmtN(grade) : '-'}</div>
               <div class="kpi-sub">Class Mean: ${classTestStats.mean != null ? classTestStats.mean.toFixed(2) : '-'}</div>
             </div>
             <div class="kpi-card">
@@ -11639,6 +11719,21 @@
         return;
       }
       const fname = `${defaultFilename}-${new Date().toISOString().slice(0, 10)}`;
+      if (window.saveExportWithDestination) {
+        return await window.saveExportWithDestination({
+          filename: `${fname}.docx`,
+          docxRequest: {
+            markdown: markdown || "# Report\n\nReport details.",
+            defaultName: fname,
+            fontFamily: 'Segoe UI',
+            fontSize: '10pt',
+            lineHeight: '1.2',
+            margins: { top: 18, right: 16, bottom: 18, left: 16 },
+            size: 'A4',
+            orientation: isLandscape ? 'landscape' : 'portrait'
+          }
+        });
+      }
       const result = await Desktop.exportDocx({
         markdown: markdown || "# Report\n\nReport details.",
         defaultName: fname,
@@ -11649,7 +11744,12 @@
         size: 'A4',
         orientation: isLandscape ? 'landscape' : 'portrait'
       });
-      if (result && result.ok) return;
+      if (result && result.ok) {
+        if (window.showExportSuccessPopup && result.path) {
+          showExportSuccessPopup(result.path, result.name || (fname + '.docx'));
+        }
+        return;
+      }
       if (result && !result.canceled) {
         await showAlert(t('gsAlertDocxExportFailed'));
       }
@@ -13500,13 +13600,7 @@
         exportedAt: new Date().toISOString(),
         classes: appState.classes
       };
-      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "grade-sheet-data.json";
-      a.click();
-      URL.revokeObjectURL(url);
+      downloadTextFile(JSON.stringify(payload, null, 2), "grade-sheet-data.json", "application/json");
     }
 
     function csvCell(value) {
@@ -13514,7 +13608,26 @@
       return `"${v.replaceAll('"', '""')}"`;
     }
 
-    function downloadTextFile(text, filename, mimeType) {
+    async function downloadTextFile(text, filename, mimeType) {
+      const ext = (filename.split('.').pop() || '').toLowerCase();
+      let filterName = 'File';
+      if (ext === 'html') filterName = 'HTML Document';
+      else if (ext === 'md') filterName = 'Markdown Document';
+      else if (ext === 'csv') filterName = 'CSV Spreadsheet';
+      else if (ext === 'xlsx') filterName = 'Excel Spreadsheet';
+      else if (ext === 'json') filterName = 'JSON Document';
+
+      if (window.saveExportWithDestination) {
+        return await window.saveExportWithDestination({
+          filename: filename,
+          content: text,
+          encoding: 'utf8',
+          mimeType: mimeType || 'text/plain;charset=utf-8',
+          filters: [{ name: filterName, extensions: [ext] }, { name: 'All Files', extensions: ['*'] }],
+          title: typeof t === 'function' ? (t('deSaveFileTitle') || 'Save File') : 'Save File'
+        });
+      }
+
       const blob = new Blob([text], { type: mimeType || "text/plain;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -14189,6 +14302,38 @@
       });
     }
 
+    function resolveCriterionRefRows(c, xlsm) {
+      if (xlsm) {
+        return {
+          isPersonalised: false,
+          grades: normalizeCriterionGrades(xlsm.grades)
+        };
+      }
+      const maxPts = (c && c.maxPoints != null && !isNaN(Number(c.maxPoints))) ? Number(c.maxPoints) : null;
+      const minPts = (c && c.minPoints != null && !isNaN(Number(c.minPoints))) ? Number(c.minPoints) : 0;
+      if (maxPts != null && maxPts >= minPts) {
+        const step = (c && c.interval != null && Number(c.interval) > 0) ? Number(c.interval) : 1;
+        const grades = [];
+        for (let p = minPts; p <= maxPts + 0.0001; p += step) {
+          grades.push(String(Number(p.toFixed(2))));
+        }
+        return {
+          isPersonalised: true,
+          grades: grades.length ? grades : ["0"]
+        };
+      }
+      if (c && Array.isArray(c.grades) && c.grades.length > 0) {
+        return {
+          isPersonalised: true,
+          grades: c.grades.map(String)
+        };
+      }
+      return {
+        isPersonalised: true,
+        grades: ["0"]
+      };
+    }
+
     // ── Criteria reference & export ───────────────────────────────
     function buildCriteriaRefHtml(config, classObj, sem, testIndex) {
       // Resolve the active criteria bank for this test, then fall back to the default XLSM_CRITERIA
@@ -14203,23 +14348,45 @@
       }
       const usedCriteria = (config.criteria || []).map(c => {
         const xlsm = findXlsm(c.name);
+        const resolved = resolveCriterionRefRows(c, xlsm);
         return {
           configName: c.name,
           minPoints: c.minPoints,
           maxPoints: c.maxPoints,
           pointCoefficient: c.pointCoefficient,
           isBonus: c.isBonus,
-          grades: normalizeCriterionGrades(xlsm && xlsm.grades),
-          xlsm
+          grades: resolved.grades,
+          isPersonalised: resolved.isPersonalised,
+          xlsm,
+          criterion: c
         };
       });
 
       const esc = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-      const blocks = usedCriteria.length > 0 ? usedCriteria.map(({ configName, maxPoints, pointCoefficient, isBonus, grades, xlsm }) => {
+      const blocks = usedCriteria.length > 0 ? usedCriteria.map(({ configName, maxPoints, pointCoefficient, isBonus, grades, xlsm, isPersonalised, minPoints, criterion }) => {
         const rows = grades.map((k, kIdx) => {
-          const text = (xlsm && xlsm.comments && xlsm.comments[k]) ? xlsm.comments[k] : "\u2014";
-          const color = (xlsm && xlsm.colors && xlsm.colors[k]) || getDefaultGradeColor(k, kIdx, grades.length);
+          const text = (xlsm && xlsm.comments && xlsm.comments[k])
+            || (criterion && criterion.comments && criterion.comments[k])
+            || "\u2014";
+
+          let color;
+          if (isPersonalised) {
+            const maxPts = (maxPoints != null && !isNaN(Number(maxPoints))) ? Number(maxPoints) : null;
+            const minPts = (minPoints != null && !isNaN(Number(minPoints))) ? Number(minPoints) : 0;
+            if (maxPts != null && maxPts > minPts) {
+              const ratio = (Number(k) - minPts) / (maxPts - minPts);
+              if (ratio >= 0.85) color = "#16a34a";
+              else if (ratio >= 0.65) color = "#65a30d";
+              else if (ratio >= 0.5) color = "#d97706";
+              else if (ratio >= 0.25) color = "#ea580c";
+              else color = "#dc2626";
+            } else {
+              color = "#16a34a";
+            }
+          } else {
+            color = (xlsm && xlsm.colors && xlsm.colors[k]) || getDefaultGradeColor(k, kIdx, grades.length);
+          }
           const textColor = getHighContrastTextColor(color);
           return `
             <tr>
@@ -14246,11 +14413,15 @@
       }).join("") : `<div class="empty-notice">${t('gsAlertNoCriteriaToExport') || 'No criteria configured for this test.'}</div>`;
 
       const testTitle = `${classObj ? classObj.name + " — " : ""}${sem ? sem.toUpperCase() + " — " : ""}${config.name || ("Test T" + ((testIndex || 0) + 1))}`;
+      const slug = slugifyForPath(classObj ? classObj.name : "class");
+      const defaultName = `${slug}-${sem}-t${testIndex + 1}-criteria-reference-${new Date().toISOString().slice(0, 10)}.pdf`;
+      const baseHref = (document && document.baseURI) ? document.baseURI : (window.location && window.location.href ? window.location.href : '');
 
       return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
+<base href="${esc(baseHref)}" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>${t('gsCriteriaRefTitle') || 'Criteria Reference'} — ${esc(testTitle)}</title>
 <style>
@@ -14270,7 +14441,7 @@
     justify-content: flex-end;
     gap: 10px;
   }
-  .btn-print {
+  .btn-print, .btn-export {
     font-family: inherit;
     font-size: 13px;
     font-weight: 800;
@@ -14286,14 +14457,121 @@
     align-items: center;
     gap: 6px;
   }
-  .btn-print:hover {
+  .btn-print:hover, .btn-export:hover {
     transform: translate(-1px, -1px);
     box-shadow: 4px 4px 0 #111;
     background: #f0f0f0;
   }
-  .btn-print:active {
+  .btn-print:active, .btn-export:active {
     transform: translate(1px, 1px);
     box-shadow: 1px 1px 0 #111;
+  }
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+    padding: 16px;
+  }
+  .modal-overlay.hidden {
+    display: none !important;
+  }
+  .modal-card {
+    background: #ffffff;
+    border: 2.5px solid #111;
+    border-radius: 6px;
+    box-shadow: 4px 4px 0 #111;
+    max-width: 420px;
+    width: min(96vw, 420px);
+    padding: 20px 22px;
+    color: #111;
+    box-sizing: border-box;
+  }
+  .modal-title {
+    font-size: 1.15rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 8px;
+    color: #111;
+  }
+  .modal-prompt {
+    margin: 0 0 16px 0;
+    font-size: 0.92rem;
+    line-height: 1.4;
+    color: #333;
+  }
+  .modal-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .modal-btn {
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    color: #111;
+    background: #fff;
+    border: 2px solid #111;
+    border-radius: 6px;
+    padding: 10px 14px;
+    cursor: pointer;
+    box-shadow: 3px 3px 0 #111;
+    transition: transform 0.1s, box-shadow 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    text-decoration: none;
+  }
+  .modal-btn:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 #111;
+    background: #f5f5f5;
+  }
+  .modal-btn:active {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0 #111;
+  }
+  .modal-btn-primary {
+    background: #ffd93d;
+  }
+  .modal-btn-primary:hover {
+    background: #fcd329;
+  }
+  .modal-footer {
+    margin-top: 16px;
+    display: flex;
+    justify-content: flex-end;
+  }
+  .toast-banner {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: #111;
+    color: #fff;
+    border: 2px solid #111;
+    border-radius: 6px;
+    box-shadow: 3px 3px 0 rgba(0,0,0,0.3);
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 700;
+    z-index: 100000;
+    transition: opacity 0.2s, transform 0.2s;
+    pointer-events: none;
+  }
+  .toast-banner.is-error {
+    background: #ef4444;
+    color: #fff;
+  }
+  .toast-banner.hidden {
+    display: none !important;
   }
   .header-card {
     background: #ffffff;
@@ -14436,8 +14714,8 @@
 </head>
 <body>
 <div class="no-print">
-  <button class="btn-print" onclick="window.print()">
-    <img src="../assets/icons/printer.svg" class="btn-icon" alt="" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;" /> ${t('gsBtnPrintSavePdf') || 'Print / Save to PDF'}
+  <button class="btn-export" id="btn-export-pdf" type="button" onclick="openExportModal()" title="${esc(t('deExportPdfDestinationTitle') || 'Export PDF')}">
+    <img src="../assets/icons/export.svg" class="btn-icon" alt="" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;" /> ${esc(t('gsBtnExportCriteriaPdf') || 'Export')}
   </button>
 </div>
 <div class="header-card">
@@ -14448,6 +14726,95 @@
   <div class="header-badge">${t('gsCriteriaRefBadge') || 'Criteria Guide'}</div>
 </div>
 ${blocks}
+
+<div id="pdf-export-overlay" class="modal-overlay hidden no-print" onclick="if(event.target===this)closeExportModal()">
+  <div class="modal-card" role="dialog" aria-modal="true" onclick="event.stopPropagation()">
+    <div class="modal-title">${esc(t('deExportPdfDestinationTitle') || 'Export PDF')}</div>
+    <p class="modal-prompt">${esc(t('deExportPdfDestinationPrompt') || 'Where do you want to save the PDF?')}</p>
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-primary" id="btn-export-to-print" type="button" onclick="doExportPdf('to-print')">
+        <img src="../assets/icons/printer.svg" alt="" style="width:16px;height:16px;vertical-align:middle;" /> ${esc(t('deExportPdfToPrintFolder') || 'Export to Print folder')}
+      </button>
+      <button class="modal-btn" id="btn-export-picker" type="button" onclick="doExportPdf('picker')">
+        <img src="../assets/icons/folder.svg" alt="" style="width:16px;height:16px;vertical-align:middle;" /> ${esc(t('deExportPdfFilePicker') || 'Choose with file picker')}
+      </button>
+    </div>
+    <div class="modal-footer">
+      <button class="modal-btn" type="button" onclick="closeExportModal()">${esc(t('btnCancel') || 'Cancel')}</button>
+    </div>
+  </div>
+</div>
+<div id="toast-banner" class="toast-banner hidden no-print"></div>
+
+<script>
+  (function() {
+    const defaultFilename = ${JSON.stringify(defaultName)};
+    const txtToPrintSuccess = ${JSON.stringify(t('deExportPdfToPrintSuccess') || 'PDF saved to Print folder: ')};
+    const txtExportSuccess = ${JSON.stringify(t('deExportPdfSuccess') || 'PDF exported')};
+    const txtExportFailed = ${JSON.stringify(t('deExportPdfFailed') || 'PDF export failed: ')};
+
+    window.openExportModal = function() {
+      const overlay = document.getElementById('pdf-export-overlay');
+      if (overlay) {
+        overlay.classList.remove('hidden');
+        const btn = document.getElementById('btn-export-to-print');
+        if (btn) btn.focus();
+      }
+    };
+
+    window.closeExportModal = function() {
+      const overlay = document.getElementById('pdf-export-overlay');
+      if (overlay) overlay.classList.add('hidden');
+    };
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') window.closeExportModal();
+    });
+
+    let toastTimer = null;
+    function showToast(msg, isError) {
+      const el = document.getElementById('toast-banner');
+      if (!el) return;
+      el.textContent = msg;
+      el.classList.toggle('is-error', !!isError);
+      el.classList.remove('hidden');
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(function() {
+        el.classList.add('hidden');
+      }, 4000);
+    }
+
+    window.doExportPdf = async function(dest) {
+      window.closeExportModal();
+      const isElectron = !!(window.electronApi && window.electronApi.isElectron);
+      if (!isElectron) {
+        window.print();
+        return;
+      }
+
+      try {
+        const pdfReq = {
+          html: document.documentElement.outerHTML,
+          pdfOptions: { pageSize: 'A4', landscape: false }
+        };
+        if (dest === 'to-print') {
+          pdfReq.target = 'toPrint';
+          pdfReq.filename = defaultFilename;
+        } else {
+          pdfReq.defaultName = defaultFilename;
+        }
+        const res = await window.electronApi.printPdf(pdfReq);
+        if (res && res.ok) {
+          showToast(dest === 'to-print' ? (txtToPrintSuccess + (res.name || defaultFilename)) : txtExportSuccess, false);
+        } else if (res && !res.ok && !res.canceled) {
+          showToast(txtExportFailed + (res.failureReason || res.error || 'Unknown error'), true);
+        }
+      } catch (err) {
+        showToast(txtExportFailed + (err && err.message ? err.message : String(err)), true);
+      }
+    };
+  })();
+<\/script>
 </body>
 </html>`;
     }
@@ -14499,14 +14866,17 @@ ${blocks}
       }
       const usedCriteria = (config.criteria || []).map(c => {
         const xlsm = findXlsm(c.name);
+        const resolved = resolveCriterionRefRows(c, xlsm);
         return {
           configName: c.name,
           minPoints: c.minPoints,
           maxPoints: c.maxPoints,
           pointCoefficient: c.pointCoefficient,
           isBonus: c.isBonus,
-          grades: normalizeCriterionGrades(xlsm && xlsm.grades),
-          xlsm
+          grades: resolved.grades,
+          isPersonalised: resolved.isPersonalised,
+          xlsm,
+          criterion: c
         };
       });
 
@@ -14529,7 +14899,9 @@ ${blocks}
         lines.push(`| ${t('gsCritTableGradeLevel') || 'Grade / Level'} | ${t('gsCritTableDescriptor') || 'Descriptor'} |`);
         lines.push("| :--- | :--- |");
         crit.grades.forEach(k => {
-          const text = (crit.xlsm && crit.xlsm.comments && crit.xlsm.comments[k]) ? crit.xlsm.comments[k] : "—";
+          const text = (crit.xlsm && crit.xlsm.comments && crit.xlsm.comments[k])
+            || (crit.criterion && crit.criterion.comments && crit.criterion.comments[k])
+            || "—";
           const cleanText = text.replace(/\|/g, "\\|").replace(/\n/g, " ");
           lines.push(`| **${k}** | ${cleanText} |`);
         });

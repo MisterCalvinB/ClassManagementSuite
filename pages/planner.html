@@ -6344,13 +6344,16 @@
 
       if (filters.separateClassFiles) {
         var classes = getSeparateExportClassList();
-        classes.forEach(function (cf) {
-          var fileBase = getExportFilenameBase(cf);
-          var singleFilters = Object.assign({}, filters, { separateClassTables: false, separateClassFiles: false });
-          var html = buildExportHtml(cf, singleFilters);
-          downloadText(html, fileBase + '.html', 'text/html;charset=utf-8');
-        });
         closeModal('exportModal');
+        (async function () {
+          for (var i = 0; i < classes.length; i++) {
+            var cf = classes[i];
+            var fileBase = getExportFilenameBase(cf);
+            var singleFilters = Object.assign({}, filters, { separateClassTables: false, separateClassFiles: false });
+            var html = buildExportHtml(cf, singleFilters);
+            await downloadText(html, fileBase + '.html', 'text/html;charset=utf-8');
+          }
+        })();
         return;
       }
 
@@ -6406,7 +6409,7 @@
         }
 
         var breakStyle = (separateTables && cIdx > 0) ? ' class="class-page-break"' : '';
-        var secHeading = (separateTables && classList.length > 1) ? ('<h2 style="margin:18px 0 8px;font-size:20px">' + esc(classTitle) + '</h2>') : '';
+        var secHeading = (separateTables && classList.length > 1) ? ('<h2 class="class-heading">' + esc(classTitle) + '</h2>') : '';
 
         sectionsHtml += '<div' + breakStyle + '>' + secHeading +
           '<table id="planner-export-table-' + cIdx + '" class="planner-export-table">' + colGroup + '<thead><tr>' + tableHead + '</tr></thead>' +
@@ -6423,7 +6426,7 @@
         '* { box-sizing: border-box; margin: 0; padding: 0; }\n' +
         'body { font-family: \'Lexend\', \'Segoe UI\', Arial, sans-serif; font-size: 13px; color: #111; background: #fff; padding: 24px; }\n' +
         'h1 { font-size: 22px; font-weight: 800; color: #111; border-bottom: 2.5px solid #111; padding-bottom: 6px; margin: 0 0 6px; }\n' +
-        'h2 { font-size: 18px; font-weight: 800; color: #111; border-bottom: 2px solid #111; padding-bottom: 4px; margin: 18px 0 8px; }\n' +
+        'h2, .class-heading { font-size: 18px; font-weight: 800; color: #111; border-bottom: 2px solid #111; padding-bottom: 4px; margin: 18px 0 8px; }\n' +
         '.meta { font-size: 12px; color: #555; margin: 0 0 14px; }\n' +
         '.table-toolbar { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; margin: 0 0 14px; padding: 10px 12px; border: 2px solid #111; background: #f0f0f0; border-radius: 4px; box-shadow: 3px 3px 0 #111; }\n' +
         '.tb-label { font-size: 11px; color: #111; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; line-height: 1.9; }\n' +
@@ -6476,32 +6479,35 @@
         var fi = filters.fields;
         var customNames = (cfg.customFields || []).filter(function (n) { return fi.custom; });
         var header = [t('pl_weeksTitle') || 'Week', (t('pl_entryDate') || 'Date') + ' / Time', t('pl_exportActivitiesCol') || 'Details'];
-
-        classes.forEach(function (cf) {
-          var fileBase = getExportFilenameBase(cf);
-          var data = getExportData(cf, filters.types, { includeLessonSlots: filters.includeLessonSlots });
-          var sem = data.sem;
-          var totalWeeks = sem && sem.semesterStart && sem.semesterEnd ? getTotalWeeks(sem) : 0;
-          var groups = getPreparedExportRows(data, sem, totalWeeks, fi, customNames, cf);
-          var rows = [header];
-
-          groups.forEach(function (grp) {
-            grp.items.forEach(function (item, idx) {
-              var wLabel = idx === 0 ? item.weekLabel : '';
-              rows.push([wLabel, item.dateText, item.detailsText]);
-            });
-          });
-
-          var csv = rows.map(function (row) {
-            return row.map(function (cell) {
-              var s = String(cell).replace(/"/g, '""');
-              return /[,"\n\r]/.test(s) ? '"' + s + '"' : s;
-            }).join(',');
-          }).join('\r\n');
-
-          downloadText('﻿' + csv, fileBase + '.csv', 'text/csv;charset=utf-8');
-        });
         closeModal('exportModal');
+
+        (async function () {
+          for (var c = 0; c < classes.length; c++) {
+            var cf = classes[c];
+            var fileBase = getExportFilenameBase(cf);
+            var data = getExportData(cf, filters.types, { includeLessonSlots: filters.includeLessonSlots });
+            var sem = data.sem;
+            var totalWeeks = sem && sem.semesterStart && sem.semesterEnd ? getTotalWeeks(sem) : 0;
+            var groups = getPreparedExportRows(data, sem, totalWeeks, fi, customNames, cf);
+            var rows = [header];
+
+            groups.forEach(function (grp) {
+              grp.items.forEach(function (item, idx) {
+                var wLabel = idx === 0 ? item.weekLabel : '';
+                rows.push([wLabel, item.dateText, item.detailsText]);
+              });
+            });
+
+            var csv = rows.map(function (row) {
+              return row.map(function (cell) {
+                var s = String(cell).replace(/"/g, '""');
+                return /[,"\n\r]/.test(s) ? '"' + s + '"' : s;
+              }).join(',');
+            }).join('\r\n');
+
+            await downloadText('﻿' + csv, fileBase + '.csv', 'text/csv;charset=utf-8');
+          }
+        })();
         return;
       }
 
@@ -6814,6 +6820,9 @@
       if (!window.Desktop || !Desktop.isElectron()) {
         showToast(t('pl_exportDocxLabel') + ': desktop only'); return;
       }
+      var dest = window.promptExportDestination ? await window.promptExportDestination() : 'custom';
+      if (!dest) return;
+
       var clsFilter = document.getElementById('exp-cls').value;
       var filters = getExportFilters();
 
@@ -6826,21 +6835,22 @@
           var fileBase = getExportFilenameBase(cf);
           var singleFilters = Object.assign({}, filters, { separateClassTables: false, separateClassFiles: false });
           var markdown = buildExportDocxMarkdown(cf, singleFilters);
-          var result = await Desktop.exportDocx({
-            markdown: markdown,
-            defaultName: fileBase,
-            fontFamily: 'Segoe UI',
-            fontSize: fit ? '8pt' : '10pt',
-            lineHeight: fit ? '1.1' : '1.25',
-            margins: fit
-              ? { top: 8, right: 8, bottom: 8, left: 8 }
-              : { top: 18, right: 16, bottom: 18, left: 16 },
-            size: 'A4',
-            orientation: 'portrait'
+          await window.saveExportWithDestination({
+            filename: fileBase + '.docx',
+            destination: dest,
+            docxRequest: {
+              markdown: markdown,
+              defaultName: fileBase,
+              fontFamily: 'Segoe UI',
+              fontSize: fit ? '8pt' : '10pt',
+              lineHeight: fit ? '1.1' : '1.25',
+              margins: fit
+                ? { top: 8, right: 8, bottom: 8, left: 8 }
+                : { top: 18, right: 16, bottom: 18, left: 16 },
+              size: 'A4',
+              orientation: 'portrait'
+            }
           });
-          if (result && result.ok && window.showExportSuccessPopup && result.path) {
-            showExportSuccessPopup(result.path, result.name || (fileBase + '.docx'));
-          }
         }
         return;
       }
@@ -6849,27 +6859,22 @@
       var markdown = buildExportDocxMarkdown(clsFilter, filters);
       closeModal('exportModal');
       var fit = !!filters.pdfFitOnePage;
-      var result = await Desktop.exportDocx({
-        markdown: markdown,
-        defaultName: fileBase,
-        fontFamily: 'Segoe UI',
-        fontSize: fit ? '8pt' : '10pt',
-        lineHeight: fit ? '1.1' : '1.25',
-        margins: fit
-          ? { top: 8, right: 8, bottom: 8, left: 8 }
-          : { top: 18, right: 16, bottom: 18, left: 16 },
-        size: 'A4',
-        orientation: 'portrait'
-      });
-      if (result && result.ok) {
-        if (window.showExportSuccessPopup && result.path) {
-          showExportSuccessPopup(result.path, result.name || (fileBase + '.docx'));
+      await window.saveExportWithDestination({
+        filename: fileBase + '.docx',
+        destination: dest,
+        docxRequest: {
+          markdown: markdown,
+          defaultName: fileBase,
+          fontFamily: 'Segoe UI',
+          fontSize: fit ? '8pt' : '10pt',
+          lineHeight: fit ? '1.1' : '1.25',
+          margins: fit
+            ? { top: 8, right: 8, bottom: 8, left: 8 }
+            : { top: 18, right: 16, bottom: 18, left: 16 },
+          size: 'A4',
+          orientation: 'portrait'
         }
-        return;
-      }
-      if (result && !result.canceled) {
-        showToast(t('pl_exportDocxLabel') + ' failed: ' + (result.error || 'unknown'), true);
-      }
+      });
     }
 
     function buildExportHtml(clsFilter, filters) {
@@ -6897,7 +6902,7 @@
         var detailsColHeader = t('pl_exportActivitiesCol') || 'Details';
 
         var breakStyle = (separateTables && cIdx > 0) ? ' class="class-page-break"' : '';
-        var secHeading = (separateTables && classList.length > 1) ? ('<h1 style="font-size:' + (fitOnePage ? '11pt' : '15pt') + ';font-weight:800;margin-bottom:4px">' + esc(classTitle) + '</h1>') : '';
+        var secHeading = (separateTables && classList.length > 1) ? ('<h2 class="class-heading">' + esc(classTitle) + '</h2>') : '';
 
         var sectionHtml = '<div' + breakStyle + '>' + secHeading +
           '<table class="exp-table"><thead><tr><th class="col-week">' +
@@ -6944,6 +6949,7 @@
         + 'html,body{width:100%;' + (fitOnePage ? 'height:100%' : '') + '}'
         + 'body{font-family:\'Lexend\',\'Segoe UI\',Arial,sans-serif;font-size:' + bodyFont + ';color:#111;background:#fff;margin:0;padding:0' + (fitOnePage ? ';display:flex;flex-direction:column;overflow:hidden' : '') + '}'
         + 'h1{font-size:' + titleSize + ';font-weight:800;color:#111;border-bottom:2.5px solid #111;padding-bottom:4px;margin-bottom:6px;line-height:1.1}'
+        + '.class-heading{font-size:' + (fitOnePage ? '11pt' : '15pt') + ';font-weight:800;margin-bottom:4px;color:#111;border-bottom:2px solid #111;padding-bottom:2px}'
         + '.meta{font-size:' + metaSize + ';color:#555;margin-bottom:' + (fitOnePage ? '4px' : '10px') + ';line-height:1.1}'
         + '.exp-table{width:100%;border-collapse:collapse;table-layout:fixed;border:2px solid #111' + (fitOnePage ? ';flex:1;height:100%' : '') + '}'
         + '.exp-table thead{display:table-header-group}'
@@ -6971,33 +6977,32 @@
     }
 
 
-    // ── Download helper ────────────────────────────────────────────────────────
     function downloadText(content, filename, mime) {
-      if (window.Desktop && Desktop.isElectron()) {
-        var ext = filename.split('.').pop();
-        var filterName = ext.toUpperCase() + ' Files';
-        Desktop.saveToDisk({
-          title: 'Save File',
-          defaultPath: filename,
-          filters: [{ name: filterName, extensions: [ext] }],
+      var ext = (filename.split('.').pop() || '').toLowerCase();
+      var filterName = ext.toUpperCase() + ' Files';
+      if (ext === 'html') filterName = 'HTML Document';
+      else if (ext === 'csv') filterName = 'CSV Spreadsheet';
+      else if (ext === 'ics') filterName = 'iCalendar File';
+
+      if (window.saveExportWithDestination) {
+        return window.saveExportWithDestination({
+          filename: filename,
           content: content,
-          encoding: 'utf8'
-        }).then(function (result) {
-          if (result && result.ok) {
-            if (window.showExportSuccessPopup) showExportSuccessPopup(result.path, filename);
-          } else if (result && !result.ok && !result.canceled) {
-            showToast('Save failed: ' + (result.error || 'unknown'), true);
-          }
+          encoding: 'utf8',
+          mimeType: mime || 'text/plain;charset=utf-8',
+          filters: [{ name: filterName, extensions: [ext] }, { name: 'All Files', extensions: ['*'] }],
+          title: 'Save ' + filename
         });
-      } else {
-        var blob = new Blob([content], { type: mime });
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement('a');
-        a.href = url; a.download = filename;
-        document.body.appendChild(a); a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
       }
+
+      var blob = new Blob([content], { type: mime });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      return Promise.resolve({ ok: true });
     }
 
     function datePlus1(dateStr) {

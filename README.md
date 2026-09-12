@@ -41,6 +41,7 @@ Welcome to the **Class Management Tools** comprehensive documentation. This guid
   - [Learning Tools (`learning-tools.html`)](#learning-toolshtml)
   - [Manage Database (`manage-database.html`)](#manage-databasehtml)
   - [Grade Sheet (`grade-sheet.html`)](#grade-sheethtml)
+  - [Competence Portfolio (`competence-portfolio.html`)](#competence-portfoliohtml)
   - [Participation Tracker (`participation-tracker.html`)](#participation-trackerhtml)
   - [Administrative Groups (`administrative-groups.html`)](#administrative-groupshtml)
   - [Document Editor (`document-editor.html`)](#document-editorhtml)
@@ -98,8 +99,9 @@ If you downloaded a ZIP file, extract the entire folder before launching. Double
 | [`class-management.html`](#class-managementhtml) | Live classroom session runner (timer, SVG class modes, ambient soundscapes, scoring, badges, random picker, phone remote (beta)) | Broadcasts to [Board](#boardhtml) & Presentation screens |
 | [`board.html`](#boardhtml) | Infinite mind-map canvas, `.cstz` zipped archive storage, autosave, voice recordings with trimming, draggable floating presentation timer, custom keyboard shortcuts, fit-text, blink animation, student input notes (beta) | Links to [Planner](#plannerhtml), [Class Management](#class-managementhtml) |
 | [`learning-tools.html`](#learning-toolshtml) | Student-facing vocabulary and grammar games, multiplayer host (beta), and team mode | Sourced from [Manage Database](#manage-databasehtml) |
-| [`manage-database.html`](#manage-databasehtml) | Vocabulary database browser, multi-language editor (EN, FR, DE, IT), and bulk theme manager | Powers [Learning Tools](#learning-toolshtml) & [Board](#boardhtml) |
+| [`manage-database.html`](#manage-databasehtml) | Central curriculum, assessment & learning content database (words, competences, criteria, scales, phases, chips) | Powers [Learning Tools](#learning-toolshtml), [Grade Sheet](#grade-sheethtml), [Competence Portfolio](#competence-portfoliohtml) & [Lesson Creator](#lesson-creatorhtml) |
 | [`grade-sheet.html`](#grade-sheethtml) | Test & grade tracking per class, term, and criterion with drag-and-drop test reordering, grading scale models, and multi-format export (PDF/DOCX/CSV/HTML) | Linked from [Planner](#plannerhtml), [Oral Marking](#oral-markinghtml), [Participation Tracker](#participation-trackerhtml) |
+| [`competence-portfolio.html`](#competence-portfoliohtml) | Curriculum standards coverage tracking, audit timeline, matrix view, and cross-tool grade/lesson aggregation | Sinks from [Grade Sheet](#grade-sheethtml), [Planner](#plannerhtml), [Lesson Creator](#lesson-creatorhtml), [Board](#boardhtml) |
 | [`participation-tracker.html`](#participation-trackerhtml) | Participation & attendance analytics dashboard with weekly trend line charts, student score distributions, multi-group comparisons, dynamic window positioning, full i18n, and provisional grading rules | Exports provisional grades to [Grade Sheet](#grade-sheethtml) |
 | [`administrative-groups.html`](#administrative-groupshtml) | Comprehensive student administrative tracker, medical & SEN accommodation manager, infraction point scoring, automated sanction rules engine, period chips, student action timeline, and multi-format reports | Syncs with [Group Editor](#group-editorhtml) & master student roster |
 | [`document-editor.html`](#document-editorhtml) | Multi-format document editor supporting Typst (`.typ`), Markdown (`.md`), and HTML (`.html`) with WebAssembly live preview, Monaco syntax highlighting, native vector PDF export, Mailposting batch student reports, and built-in Syntax Guide | Edits `.typ` / `.md` / `.html` files suite-wide |
@@ -124,6 +126,9 @@ Class Management Tools features deep cross-tool synchronisation. Data edited in 
 | **Learning Tools** | Populates Team Mode rosters |
 | **Schedule Maker** | Loads student lists and SEN accommodation flags |
 | **Class Plan** | Imports student lists for seat assignment |
+| **Competence Portfolio** | Aggregates class curriculum coverage, combining planned lessons, delivered activities, and grade evaluations |
+| **Lesson Creator** | Loads class groups and year levels to configure targeted lesson plans and time budgets |
+| **Oral Marking** | Reads class rosters and SEN accommodation flags directly for candidate evaluation sessions |
 | **Administrative Groups** | Reads student rosters, UUIDs, classes, and synchronizes profile changes |
 
 <details>
@@ -150,6 +155,16 @@ When any tool mutates shared configuration (`class-groups.js`, `planner-config.j
 <summary><strong>Renaming Safety & Stable UUIDs</strong></summary>
 
 Classes and students are linked by persistent UUIDs (`st-…` for students, UUID v4 for groups). Renaming a class or student in [Group Editor](#group-editorhtml) automatically updates displays across Grade Sheet, Participation Tracker, Planner, and Class Plan without severing historical data links.
+</details>
+
+<details>
+<summary><strong>Universal Export Standards & Document Editor Workflow</strong></summary>
+
+Whenever files are exported from any tool across the suite:
+- **"Open File"**: Launches the exported file in the default operating system viewer.
+- **"Open with Document Editor"**: Displayed automatically for Markdown (`.md`) and HTML (`.html`) files to open directly in [Document Editor](#document-editorhtml) with Monaco syntax highlighting and live preview. Edits can be saved directly back to the file with `Ctrl+S`.
+- **"Open Folder"**: Reveals and highlights the exported file or folder in the system file explorer.
+- **Semantic HTML & Stylesheets**: HTML exports across all tools adhere to the `export-standards` skill, using clean semantic CSS classes and embedded `<style>` blocks rather than repetitive inline styles, enabling rapid re-styling in Document Editor.
 </details>
 
 ---
@@ -220,16 +235,69 @@ Seating arrangements created in [Class Plan](#class-planhtml) are written to `us
 
 ---
 
+### Competence Portfolio ↔ Grade Sheet, Planner, Lesson Creator & Board: Centralized Curriculum Auditing
+
+[Competence Portfolio](#competence-portfoliohtml) unifies pedagogical planning, delivery, and evaluation:
+- **Grade Sheet**: Test columns tagged with curriculum competence codes automatically push student marks to calculate evaluated mastery percentages and domain breakdown stats.
+- **Planner**: Lessons scheduled with attached curriculum descriptors feed the planned coverage KPIs and the chronological Audit Timeline.
+- **Lesson Creator**: Phase-level descriptor tags mark curriculum standards as delivered when lessons are run in Class Management.
+- **Board**: Interactive mindmaps can tag curriculum descriptors, tying whiteboard learning directly into the audit progression.
+
+---
+
+### Lesson Creator ↔ Board: Interactive Mindmap Export & Merging
+
+Export structured lesson phases, objectives, and pedagogical steps directly into an interactive [Board](#boardhtml) mindmap canvas session (`.cstz`). You can generate a fresh session or non-destructively append the lesson phase cluster into an existing whiteboard constellation.
+
+---
+
+### Lesson Creator ↔ Document Editor: Printable Lesson Plans & Handouts
+
+Export complete lesson outlines with phase breakdowns, time budgets, pedagogical frameworks, and materials directly into formatted Typst, Markdown, or HTML files in [Document Editor](#document-editorhtml) for PDF export and student worksheets.
+
+---
+
+### Schedule Maker ↔ Oral Marking: Timetable & Accommodation Transfer
+
+Exam timetables generated in [Schedule Maker](#schedule-makerhtml) — including exact student preparation/exam time slots, room assignments, and SEN extra-time accommodations (+25%, +33%, +50%) — transfer directly into [Oral Marking](#oral-markinghtml) for live assessment.
+
+---
+
+### Oral Marking → Grade Sheet: Automatic Evaluation Slot Sync
+
+Saving grades at the end of an oral exam session automatically registers or updates the oral test entry in [Grade Sheet](#grade-sheethtml) with per-criterion scores, weights, comments, and teacher remarks.
+
+---
+
+### Document Editor ↔ Grade Sheet: Mailposting Batch Student Reports
+
+[Document Editor](#document-editorhtml)'s batch Mailposting service pulls student evaluations, grades, class averages, ranking, and attendance metrics directly from Grade Sheet files to generate personalized report cards, letters, or certificates.
+
+---
+
+### Manage Database ↔ Learning Content, Curriculum & Assessment Central Repository
+
+Vocabulary decks, quotes, dictations, grammar sets, and quizzes managed in [Manage Database](#manage-databasehtml) feed directly into [Learning Tools](#learning-toolshtml) game modes and instant node generation on the [Board](#boardhtml). In addition, curricular standards, lesson phases, evaluation criteria (with linked competences), scale models, and observation chips directly configure and power [Competence Portfolio](#competence-portfoliohtml), [Lesson Creator](#lesson-creatorhtml), [Grade Sheet](#grade-sheethtml), and [Oral Marking](#oral-markinghtml).
+
+---
+
+### Classroom Server & Remote ↔ Class Management, Board & Quiz
+
+The built-in WebSocket classroom server (`js/classroom-server.js`) enables mobile remote control for timers and scoring, live student note submission onto Board, and multiplayer quiz hosting in [Quiz Player](#learning-toolshtml).
+
+---
+
 ### Presentation Windows
 
-Four tools support multi-monitor presentation modes:
+Five tools support multi-monitor presentation modes:
 
 | Tool | How to Launch | Projected Content |
 |---|---|---|
-| **Board** | Toolbar → 📽️ Presentation Mode | Clean canvas view with live synchronized note resizing, drawing, and movements, optional laser dot, freeze mode (pauses canvas updates and page switching so other pages can be prepared in private), and window position popups |
+| **Board** | Toolbar → 📽️ Presentation Mode | Clean canvas view with live synchronized note resizing, drawing, and movements, optional laser dot, freeze mode (pauses canvas updates and page switching with an inline toolbar status badge), and window position popups |
 | **Class Management** | Top Menu → Presentation | Student roster with roles, badges, point animations, and independent freeze control |
 | **Learning Tools** | Game Toolbar → 📽️ Presentation Icon | Student-facing quiz & game screen while teacher control panel remains private |
 | **Document Editor** | Nav Bar → Presentation Mode | Live rendered Markdown/KaTeX preview on dark background, updated per keystroke |
+| **Oral Marking** | Header → Present | Live candidate countdown screen showing current phase (PREP / EXAM), student name, remaining timer, and color-coded alert state while scoring rubrics and teacher notes remain private |
 
 ---
 
@@ -355,7 +423,7 @@ Lesson, assessment, and holiday scheduling tool with export capabilities.
 - **Linked Board Files**: Right-click any entry to generate or open an attached [Board](#boardhtml) constellation map (`.cstz`).
 - **Weeks Navigation Drawer**: Collapsible left sidebar displaying all weeks in the active term with auto-dimming of past weeks and smooth scrolling.
 - **To-do Drawer**: Integrated task list synced with `user/todos.js` and Launcher sidebar.
-- **Export Options**: Export schedule to **ICS**, **PDF**, **CSV**, **HTML Table**, or **DOCX**.
+- **Export Options**: Export schedule to **ICS**, **PDF**, **CSV**, **HTML Table**, or **DOCX** with universal export modals providing direct **Open File**, **Open Folder**, and **Open with Document Editor** (for HTML) actions.
 
 ---
 
@@ -382,7 +450,7 @@ Oral exam scheduler with timing optimization and SEN accommodations.
 - **Timing Model**: Calculates prep and exam overlap so one student prepares while another presents.
 - **SEN Accommodations**: Applies custom preparation durations for SEN-flagged students automatically.
 - **Breaks**: Auto-places breaks across exam blocks.
-- **Output**: Export schedule to print or save for loading in [Oral Marking](#oral-markinghtml).
+- **Output**: Export schedule to print, PDF, CSV, XLSX, DOCX, or HTML with universal completion popups (Open File, Open Folder, Open with Document Editor), or save for loading in [Oral Marking](#oral-markinghtml).
 
 ---
 
@@ -428,11 +496,13 @@ Active classroom control panel for student scoring, timers, class working modes,
 #### Features
 - **Timer & Class Modes**: Full-screen timer with customizable working modes (Quiet Work `shush.svg`, Group Work `people-group.svg`, Conversation `speech-bubbles.svg`). Includes background ambient soundscapes (Ocean waves `ocean.svg`, Wind `wind.svg`, Flower/Spring `flower.svg`, Music `music.svg`, White/Pink/Brown noise), custom images (`user/mode-image/`), animations, and sound effects.
 - **Roster & Scoring**: Award participation marks (**+** / **−**), badges, and strikes. Context menu for attendance, flagging, and role assignment. Respects custom student display names.
+- **Auto-Flagging & Criteria Engine**: Multi-color student auto-flagging with customizable criteria (Bottom/Top % Net Score, Net Points, Attendance Rate, **Participation Grade** computed from Participation Tracker rules, badges, and expression formulas) with weighted random picking multipliers.
 - **Team Maker & Picker**: Random student picker with drumroll sound, team auto-balancer, and role generator.
 - **Presentation View**: Projects roster state, active badges, and points onto a second screen with independent freeze controls.
 - **Phone Remote (beta)**:
   - *Local Mode*: Node server on port `8787` for local WiFi mobile scoring.
   - *External Mode*: Connects via WebSocket relay (`js/classroom-server.js`) for internet access.
+- **Session & Student ID Integrity Safeguards**: Guarantees strictly unique session timestamps (`session.id`) across quick saves, autosaves, and multi-class batches, plus automatic collision prevention and unique ID enforcement for students in every saved session (`user/group-participation/`).
 
 <details>
 <summary><strong>Keyboard Shortcuts</strong></summary>
@@ -462,11 +532,14 @@ Infinite-canvas mind-mapping tool for vocabulary, draw overlays, sound nodes, an
 - **Custom Keyboard Shortcuts**: Configurable keyboard shortcut mapping within Board.
 - **Node Styling & Visuals**:
   - **Fit Text**: One-click node boundary auto-fitting (`fit-text.svg`).
+  - **Note Word Count**: Right-click context menu option and live word & character counter for notes (`sentence.svg`), supporting selection details and multi-note aggregation.
   - **Blink / Pulse**: Animated pulsing highlight for active discussion nodes and free-floating notes (`blink.svg`), phase-synced in presentation view.
   - **Rich Hyperlinks**: Direct hyperlinks to web URLs, local files, or Planner lessons.
 - **Voice Recordings**: Record microphone audio directly and attach sound nodes to the board with built-in audio trimming (`✂ Trim`), bundled seamlessly into the `.cstz` package.
 - **High-Resolution PNG Snapshots**: One-click PNG snapshot capture with clean framing and metadata.
 - **Table Support**: Copy/paste HTML or TSV spreadsheet tables directly onto the canvas as draggable, resizable board elements.
+- **Board Search & Section Preview (`Ctrl+F`)**: Search across all nodes, notes, table cells, and group titles on the active page or across all pages. Features a split-pane modal with element type filtering, live match highlights, an embedded visual canvas cropped section viewer, a "Jump to on Board" action that smoothly centers and pulses the found item on the board, and an **"Open in New Window"** button (or <kbd>Ctrl+Enter</kbd>) to open the searched item's page in a dedicated, purely read-only teacher window displaying a crisp high-resolution WebP page snapshot with click-to-zoom, clipboard copy, and print/PDF export—completely isolated from and without disrupting or replacing secondary mirrored presentation displays.
+- **Page Thumbnails & Context Menu**: Right-click any page thumbnail in the bottom toolbar mini-strip or the full Pages Drawer to open a Neobrutalist context menu: choose **Open image in new window** to inspect the page's WebP snapshot in an independent read-only window on the teacher's monitor, or quickly duplicate or delete pages.
 - **Student Input Note (beta)**: Allows students to submit short text notes from their smartphones directly onto the board canvas via QR code or URL.
 - **Premade Library & Reusable Snippets**: Built-in library modal for reusable widgets, templates, callouts, and custom user-saved board snippets, persistently stored in `user/board-library.json` with cross-window live sync.
 
@@ -476,6 +549,7 @@ Infinite-canvas mind-mapping tool for vocabulary, draw overlays, sound nodes, an
 | Shortcut | Action |
 |---|---|
 | `Ctrl/Cmd + S` | Save constellation archive (`.cstz`) |
+| `Ctrl/Cmd + F` | Search board words, notes, tables, and groups |
 | `Ctrl/Cmd + Z` / `Y` | Undo / Redo |
 | `Ctrl/Cmd + G` | Group selected nodes |
 | `Ctrl/Cmd + ↑ / ↓` | Increase / decrease node font size |
@@ -498,13 +572,19 @@ Student-facing activity suite featuring 12 vocabulary and grammar games powered 
 
 ### manage-database.html
 
-Vocabulary and question bank database editor supporting multi-language translations.
+Centralized content, curriculum, and assessment database editor supporting multi-language translations and pedagogical frameworks.
 
 #### Features
-- **Word Detail Editor**: Edit IPA, CEFR levels (A1–C2), themes, keywords, definitions, example sentences, synonyms, and antonyms.
-- **Multi-Language Schema**: Stores English, French, German, and Italian translations for every word. Active UI language automatically selects the appropriate column.
-- **Bulk Theme Operations**: Rename themes across all words, merge themes, or batch-assign levels/POS tags.
-- **Exporting**: Column picker export to CSV, PDF, HTML Table, XLSX, or DOCX.
+- **Dual Architecture (Learning Content & Assessment/Curriculum)**: Unifies 14 database types across learning activities (Word Banks, Quotes, Dictations, Grammar, Gap Fill, Error Banks, Sentences, Stories, Quizzes) and curriculum/evaluation structures (Competences & Descriptors, Lesson Phases, Evaluation Criteria, Grading Scales, Observation Chips).
+- **Competences & Descriptors Editor**: Catalog official curriculum standards with codes, domains, CEFR proficiency levels (A1–C2), grade levels, and sample tasks feeding directly into Competence Portfolio and Lesson Creator.
+- **Evaluation Criteria & Interactive Competence Picker**: Configure assessment rubrics with min/max points, intervals, point coefficients, and discrete level comments. Directly link criteria to curriculum standards using the built-in Competence Picker modal with live domain, level, and year filters.
+- **Grading Scale Models**: Define scale conversion models (e.g. Swiss 1–6, French 0–20, Percentage, Letter grades) with score thresholds and color bands for Grade Sheet and Oral Marking.
+- **Lesson Phase Templates**: Store pedagogical lesson blocks with duration, interaction patterns (Whole Class, Pair, Group, Individual), and dual teacher/student action plans for Lesson Creator.
+- **Personalised Observation Chips**: Create themed qualitative observation feedback chips with seamless switching between Table View and Visual Chips View.
+- **Multi-Language Schema**: Stores English, French, German, and Italian translations for word banks; active UI language automatically selects the appropriate column.
+- **Global Cross-Database Search**: Instant landing search scanning all databases simultaneously with match counts and deep-linking to files.
+- **Productivity & AI Tools**: Deduplication (`Remove Dupes`) to clean redundant entries, batch multi-record editing and copying across files, and built-in `AI Prompt` generation tailored for LLMs.
+- **Multi-Format Exporting**: Column picker export to CSV, vector PDF, styled editable HTML table, Excel (XLSX), and Word (DOCX).
 
 ---
 
@@ -519,8 +599,22 @@ Grade and assessment tracking spreadsheet supporting custom evaluation criteria,
 - **Reference Data Editor**: Customize evaluation criteria descriptors (`user/correction-criteria.js`) and grading scale thresholds (`user/grade-scale-models.js`).
 - **Import Participation Grades**: One-click import prompt when provisional grades are exported from Participation Tracker.
 - **Comprehensive Analytics Reports**: Generate whole-class year/semester/test reports or individual student reports with interactive SVG charts (grade distributions, test progression timelines, quartile boxes, and performance matrix).
-- **Correction Criteria Reference**: Export the complete evaluation rubric with grade descriptors and point values to PDF, Markdown, or HTML.
-- **Multi-Format Localized Exports**: Export grade reports to Excel (`.xlsx`), CSV, Word (`.docx`), standalone HTML with resizable/draggable columns, and vector PDF / Print sheets. Full multilingual i18n support across English, French, German, and Italian.
+- **Correction Criteria Reference**: View evaluation rubrics with grade descriptors and point values in a dedicated window with an **Export** button offering direct saving to the `to-print` folder or custom file picker selection, or export directly to PDF, Markdown, or HTML. Personalised test-only criteria automatically render point-based rows (e.g., 0, 1, 2, 3 for a 3-point exercise).
+- **Multi-Format Localized Exports**: Export grade reports to Excel (`.xlsx`), CSV, Word (`.docx`), standalone HTML with resizable/draggable columns, and vector PDF / Print sheets. Full multilingual i18n support across English, French, German, and Italian with universal export completion dialogs offering **Open File**, **Open Folder**, and **Open with Document Editor** (for HTML).
+
+---
+
+### competence-portfolio.html
+
+Centralized curriculum tracking and auditing dashboard aggregating learning standards across Planner, Lesson Creator, Board, and Grade Sheet.
+
+#### Features
+- **Coverage KPIs**: Real-time summary cards displaying Total Competences, Covered to Date (with percentage progress bar), Assessed (in Grade Sheet), Delivered (in Lesson Creator/Board sessions), Planned (in Planner), and Untouched remaining standards.
+- **Domain & Strand View**: Collapsible accordion grouped by curricular strands (Reading, Writing, Speaking, Listening, Grammar, Literature). Each strand displays a progress meter and detailed competence cards with status tags (`Planned`, `Delivered`, `Assessed`, `Untouched`).
+- **Audit Timeline**: Chronological event feed tracing every planned lesson, classroom activity, and evaluation date linked to specific curriculum codes.
+- **Matrix Table & Multi-Criteria Filtering**: High-density matrix displaying Code, Statement, Domain, Level, Subject, Planned count, Delivered count, Assessed count, Class Mean Score (average %), and Status. Includes live search, subject/year filters, and status toggles.
+- **Activity & Assessment History Modal**: Detailed modal inspector showing complete pedagogical descriptions, linked lesson objectives, board mindmaps, and grade test scores with class averages.
+- **Reports & Exporting**: One-click CSV export (`Competence_Portfolio_[ClassName].csv`) and printer-ready PDF/paper audit reports.
 
 ---
 
@@ -534,7 +628,9 @@ Comprehensive analytics dashboard sourcing session data from [Class Management](
 - **Dynamic Window Positioning & Safe Bounds**: Multi-monitor and safe-bound window positioning.
 - **Full Localization (i18n)**: Fully translated UI across English, French, German, and Italian.
 - **Session & Student Overviews**: Detailed tabular logs per session and per student.
+- **Collision Auto-Healing**: Automatically de-collides session timestamps and student IDs on load and disk persistence, ensuring overlapping saves from multiple classes or devices are never dropped, overwritten, or cross-contaminated.
 - **Provisional Grading Engine**: Custom rule configurator converting participation points into grades, with direct one-click **Export to Grade Sheet**.
+- **Multi-Format Analytics Exports**: Export exhaustive reports (HTML) and category breakdowns (XLSX, DOCX) with universal completion popups for immediate opening and editing.
 
 ---
 
@@ -570,11 +666,10 @@ Neobrutalist instructional design studio for constructing structured, competency
   - **PPP Language Framework**: Presentation, Practice, Production.
 - **Dynamic Time Budget**: Live calculation of total planned minutes against target class duration with visual color-coded status badges.
 - **Descriptor Bank & Curriculum Coverage**: Slide-out drawer (`Ctrl+B`) for browsing school curriculum standards across Subject, Year Level (Y7–Y13), Semester, Category, and Subcategory. Attach descriptors to specific phases with 1 click.
-- **Coverage Matrix Audit (`Ctrl+M`)**: Comprehensive matrix displaying which curriculum standards have been taught across saved lesson plans, complete with progress meters and CSV export.
+- **Coverage Matrix Audit (`Ctrl+M`)**: Comprehensive matrix displaying which curriculum standards have been taught across saved lesson plans, complete with progress meters and CSV export with instant Open File and Open Folder actions.
 - **Live Lesson Runner HUD in Class Management (`Ctrl+R`)**: Run lessons interactively in [Class Management](#class-managementhtml) with automatic phase countdown timers, activity cues, and sound chimes on activity completion.
 - **Export to Board Mindmaps**: Non-destructively export or append lesson phase clusters as structured nodes directly into [Board](#boardhtml) constellation mindmaps.
-- **Deep Planner Integration**: Right-click slot actions in [Planner](#plannerhtml), high-contrast text badges, and automatic drag-and-drop plan duplication.
-- **Multi-Format Export**: Export clean PDF lesson plan documents, JSON templates, or print handouts.
+- **Multi-Format Export**: Export formatted lesson plan documents to **HTML**, **DOCX**, **Markdown (.md)**, printable **PDF**, or curriculum coverage **CSV**, with destination selection (`to-print` folder or native file picker) and universal completion dialogs providing one-click **Open File**, **Open Folder**, and **Open with Document Editor** (for HTML and Markdown files).
 
 ---
 

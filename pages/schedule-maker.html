@@ -1315,7 +1315,25 @@
     else if (type === 'html') exportHtml();
   }
 
-  function downloadExportFile(filename, content, mimeType) {
+  async function downloadExportFile(filename, content, mimeType) {
+    const ext = (filename.split('.').pop() || '').toLowerCase();
+    let filterName = 'File';
+    if (ext === 'html') filterName = 'HTML Document';
+    else if (ext === 'csv') filterName = 'CSV Spreadsheet';
+    else if (ext === 'xlsx') filterName = 'Excel Spreadsheet';
+    else if (ext === 'docx' || ext === 'doc') filterName = 'Word Document';
+    else if (ext === 'json') filterName = 'JSON Document';
+
+    if (window.saveExportWithDestination) {
+      return await window.saveExportWithDestination({
+        filename: filename,
+        content: content,
+        mimeType: mimeType || 'application/octet-stream',
+        filters: [{ name: filterName, extensions: [ext] }, { name: 'All Files', extensions: ['*'] }],
+        title: typeof t === 'function' ? (t('deSaveFileTitle') || 'Save File') : 'Save File'
+      });
+    }
+
     const bom = mimeType.includes('csv') ? new Uint8Array([0xEF, 0xBB, 0xBF]) : new Uint8Array();
     const blob = new Blob([bom, content], { type: mimeType + ';charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -1324,6 +1342,7 @@
     a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+    return { ok: true };
   }
 
   function getPdfExportSettings() {
@@ -1698,7 +1717,7 @@
     }
   }
 
-  function exportDocx() {
+  async function exportDocx() {
     if (orderItems.filter(i => i.type === 'student' && !i.excluded).length === 0) {
       showNotice(typeof t === 'function' ? t('smNothingToExport') : 'Nothing to export.', true);
       return;
@@ -1757,6 +1776,22 @@
 
       if (metaText) md += `\n*${metaText}*\n`;
 
+      if (window.saveExportWithDestination) {
+        return await window.saveExportWithDestination({
+          filename: `schedule_${safeTitle}_${stamp}.docx`,
+          docxRequest: {
+            markdown: md,
+            defaultName: `schedule_${safeTitle}_${stamp}`,
+            fontFamily: 'Segoe UI',
+            fontSize: '10pt',
+            lineHeight: '1.25',
+            margins: { top: 18, right: 16, bottom: 18, left: 16 },
+            size: 'A4',
+            orientation: 'portrait'
+          }
+        });
+      }
+
       Desktop.exportDocx({
         markdown: md,
         defaultName: `schedule_${safeTitle}_${stamp}`,
@@ -1768,6 +1803,9 @@
         orientation: 'portrait'
       }).then(result => {
         if (result && result.ok) {
+          if (window.showExportSuccessPopup && result.path) {
+            showExportSuccessPopup(result.path, result.name || `schedule_${safeTitle}_${stamp}.docx`);
+          }
           showNotice(typeof t === 'function' ? t('smDocxExported') : 'DOCX exported successfully.');
         } else if (result && !result.ok && !result.canceled) {
           const errPrefix = typeof t === 'function' ? t('smDocxSaveError') : '⚠️ Could not save DOCX:';

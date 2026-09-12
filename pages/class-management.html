@@ -2259,7 +2259,7 @@
                 </div>
                 <div style="font-size:0.75rem; color:#777; margin-top:6px;">
                     Formula Tips: Use variables like <code>netPoints</code>, <code>picks</code>,
-                    <code>attendanceRate</code>, <code>pluses</code>, <code>minuses</code>, or badge icons (e.g.
+                    <code>attendanceRate</code>, <code>participationGrade</code>, <code>pluses</code>, <code>minuses</code>, or badge icons (e.g.
                     <code>💎</code>, <code>⭐</code>).
                 </div>
                 <div style="font-size:0.75rem; color:#333; background:#f4f7fb; border:1px solid #d0d7de; border-radius:5px; padding:7px 10px; margin-top:8px; line-height:1.4;" data-i18n-html="af_weight_guide">
@@ -4361,13 +4361,47 @@
             return allStudents.filter(s => nameSet.has(String(s.name || '').toUpperCase()));
         }
 
+        function _generateUniqueStudentSessionId(seenIds) {
+            let id;
+            do {
+                id = Date.now() + Math.random();
+            } while (seenIds && seenIds.has(id));
+            if (seenIds) seenIds.add(id);
+            return id;
+        }
+
+        function _ensureUniqueStudentSessionIds(groupStudents) {
+            if (!Array.isArray(groupStudents)) return groupStudents;
+            const seenIds = new Set();
+            const seenUuids = new Set();
+
+            groupStudents.forEach(s => {
+                if (!s || typeof s !== 'object') return;
+                if (s.id == null || seenIds.has(s.id)) {
+                    s.id = _generateUniqueStudentSessionId(seenIds);
+                } else {
+                    seenIds.add(s.id);
+                }
+
+                if (s.uuid) {
+                    if (seenUuids.has(s.uuid)) {
+                        const rand = Math.floor(Math.random() * 0xffffffff).toString(16).padStart(8, '0');
+                        s.uuid = 'st-' + rand;
+                    }
+                    seenUuids.add(s.uuid);
+                }
+            });
+
+            return groupStudents;
+        }
+
         // Build studentGroups from rawMeta/rawData (called after script load)
         function buildStudentGroups() {
             const allGroupIds = Object.keys(rawMeta).length ? Object.keys(rawMeta) : Object.keys(rawData);
             allGroupIds.forEach(group => {
                 if (rawMeta[group] && rawMeta[group].archived) return;
                 if (!studentGroups[group]) {
-                    studentGroups[group] = _resolveStudentsForGroup(group).map(s => ({
+                    const rawList = _resolveStudentsForGroup(group).map(s => ({
                         id: Date.now() + Math.random(),
                         uuid: s.uuid || null,
                         name: s.name,
@@ -4382,6 +4416,7 @@
                         minuses: 0,
                         teamId: null
                     }));
+                    studentGroups[group] = _ensureUniqueStudentSessionIds(rawList);
                 }
             });
         }
@@ -4769,7 +4804,7 @@
 
             // Re-add to runtime studentGroups
             if (!studentGroups[groupName]) {
-                studentGroups[groupName] = _resolveStudentsForGroup(groupName).map(s => ({
+                const rawList = _resolveStudentsForGroup(groupName).map(s => ({
                     id: Date.now() + Math.random(),
                     uuid: s.uuid || null,
                     name: s.name,
@@ -4780,6 +4815,7 @@
                     minuses: 0,
                     teamId: null
                 }));
+                studentGroups[groupName] = _ensureUniqueStudentSessionIds(rawList);
             }
 
             const container = document.getElementById('group-container');
@@ -9587,8 +9623,11 @@
             showPrompt('Enter student name:', '', function (name) {
                 if (!name || !name.trim()) return;
                 const trimmed = name.trim().toUpperCase();
-                studentGroups[selectedGroupName].push({
-                    id: Date.now() + Math.random(),
+                const existing = studentGroups[selectedGroupName] || [];
+                const seen = new Set(existing.map(s => s.id));
+                const newId = _generateUniqueStudentSessionId(seen);
+                existing.push({
+                    id: newId,
                     name: trimmed,
                     isPicked: false,
                     isAbsent: false,
@@ -9598,6 +9637,7 @@
                     teamMinuses: 0,
                     teamId: currentTeamsActive ? null : null
                 });
+                studentGroups[selectedGroupName] = _ensureUniqueStudentSessionIds(existing);
                 syncRawDataFromGroup(selectedGroupName);
                 renderRoster();
                 renderRanking();
@@ -9818,7 +9858,7 @@
 
         // ---- Metrics & Auto-Flag Engine ----
 
-        function computeStudentMetricsForSessions(studentOrName, groupName, sessions) {
+        function computeStudentMetricsForSessions(studentOrName, groupName, sessions, groupRulesConfig = null) {
             const studentObj = (studentOrName && typeof studentOrName === 'object') ? studentOrName : null;
             const studentName = studentObj ? studentObj.name : studentOrName;
             const studentUuid = studentObj ? (studentObj.uuid || studentObj.id) : null;
@@ -9849,6 +9889,9 @@
             let totalNet = 0, totalPluses = 0, totalMinuses = 0, totalTeamPluses = 0, totalTeamMinuses = 0;
             let totalBadgePos = 0, totalBadgeNeg = 0, totalPicks = 0, sessionCount = 0, attendedCount = 0;
             const badgeCounts = {};
+            let accumulatedBadges = [];
+            const sessionNets = [];
+            let totalTeamRoleEvents = 0;
 
             sessions.forEach(session => {
                 if (session.activeGroup !== groupName) return;
@@ -9867,7 +9910,14 @@
                 if (!match) return;
 
                 sessionCount++;
-                if (!match.isAbsent) attendedCount++;
+                if (match.isAbsent) {
+                    // absent
+                } else {
+                    attendedCount++;
+                    if (typeof getStudentSessionNetForStudent === 'function') {
+                        sessionNets.push(getStudentSessionNetForStudent(match));
+                    }
+                }
 
                 const p = match.pluses || 0;
                 const m = match.minuses || 0;
@@ -9877,9 +9927,12 @@
                 totalPluses += p; totalMinuses += m; totalTeamPluses += tp; totalTeamMinuses += tm;
                 totalPicks += (match.picks || 0);
 
+                const sBadges = match.badges || [];
+                accumulatedBadges = accumulatedBadges.concat(sBadges);
+
                 let sessionBadgePos = 0, sessionBadgeNeg = 0;
 
-                (match.badges || []).forEach(b => {
+                sBadges.forEach(b => {
                     const iconKey = b.icon;
                     badgeCounts[iconKey] = (badgeCounts[iconKey] || 0) + 1;
                     if (b.label) badgeCounts[`[${b.label}]`] = (badgeCounts[`[${b.label}]`] || 0) + 1;
@@ -9896,6 +9949,9 @@
 
                 totalBadgePos += sessionBadgePos;
                 totalBadgeNeg += sessionBadgeNeg;
+
+                const events = (typeof getSessionTeamRoleEvents === 'function') ? getSessionTeamRoleEvents(session, groupName, studentName) : [];
+                totalTeamRoleEvents += events.length;
 
                 const netPlus = usePlus ? (p * plusCoeff) : 0;
                 const netMinus = useMinus ? (m * minusCoeff) : 0;
@@ -9920,11 +9976,36 @@
             const badgePositiveSession = parseFloat((totalBadgePos / Math.max(1, sessionCount)).toFixed(2));
             const badgeNegativeSession = parseFloat((totalBadgeNeg / Math.max(1, sessionCount)).toFixed(2));
 
+            let participationGrade = null;
+            if (groupRulesConfig && groupRulesConfig.rules && groupRulesConfig.rules.length > 0 && typeof calculateStudentProvisionalGrade === 'function') {
+                const mockOverviewData = {
+                    picks: totalPicks,
+                    attendedSessions: attendedCount,
+                    pluses: totalPluses,
+                    minuses: totalMinuses,
+                    teamPluses: totalTeamPluses,
+                    teamMinuses: totalTeamMinuses,
+                    badgePositive: totalBadgePos,
+                    badgeNegative: totalBadgeNeg,
+                    badges: accumulatedBadges,
+                    sessions: sessionCount,
+                    absent: sessionCount - attendedCount,
+                    teamRoleEvents: totalTeamRoleEvents,
+                    sessionNets: sessionNets
+                };
+                try {
+                    participationGrade = calculateStudentProvisionalGrade(mockOverviewData, groupRulesConfig, groupName);
+                } catch (e) {
+                    console.warn('Failed to calculate provisional participation grade for auto-flag:', e);
+                }
+            }
+
             return {
                 netPoints: avgNet,
                 net: avgNet,
                 picks: totalPicks,
                 attendanceRate,
+                participationGrade,
                 pluses: totalPluses,
                 minuses: totalMinuses,
                 teamPluses: totalTeamPluses,
@@ -9968,6 +10049,8 @@
                         net: metrics.netPoints,
                         picks: metrics.picks,
                         attendanceRate: metrics.attendanceRate,
+                        participationGrade: metrics.participationGrade ?? 0,
+                        grade: metrics.participationGrade ?? 0,
                         pluses: metrics.pluses,
                         minuses: metrics.minuses,
                         teamPluses: metrics.teamPluses,
@@ -9989,7 +10072,12 @@
             }
 
             let val = 0;
-            if (metric.startsWith('badge_icon_session:')) {
+            if (metric === 'participationGrade') {
+                if (metrics.participationGrade === null || metrics.participationGrade === undefined || isNaN(metrics.participationGrade)) {
+                    return false;
+                }
+                val = metrics.participationGrade;
+            } else if (metric.startsWith('badge_icon_session:')) {
                 const icon = metric.replace('badge_icon_session:', '');
                 val = metrics.badgeSessionCounts[icon] || 0;
             } else if (metric.startsWith('badge_icon:')) {
@@ -10033,10 +10121,26 @@
                 : getDefaultFlagRules();
 
             const sessions = await getTimeMachineSessions();
+            let groupRulesConfig = null;
+            try {
+                const rulesMap = await getOrLoadParticipationRules();
+                if (rulesMap && rulesMap[groupName]) groupRulesConfig = rulesMap[groupName];
+                else if (rawMeta && rawMeta[groupName]) {
+                    const m = rawMeta[groupName];
+                    if (m.name && rulesMap && rulesMap[m.name]) groupRulesConfig = rulesMap[m.name];
+                    else if (m.id && rulesMap && rulesMap[m.id]) groupRulesConfig = rulesMap[m.id];
+                }
+                if (!groupRulesConfig && rulesMap && rulesMap['_default']) {
+                    groupRulesConfig = rulesMap['_default'];
+                }
+            } catch (e) {
+                console.warn('Failed to load participation rules for auto-flag:', e);
+            }
+
             const allMetrics = [];
 
             studentGroups[groupName].forEach(s => {
-                const metrics = computeStudentMetricsForSessions(s, groupName, sessions);
+                const metrics = computeStudentMetricsForSessions(s, groupName, sessions, groupRulesConfig);
                 if (metrics) allMetrics.push({ student: s, metrics });
             });
 
@@ -10194,6 +10298,7 @@
                                 <option value="netPoints" ${r.metric === 'netPoints' ? 'selected' : ''}>Net Score (per session)</option>
                                 <option value="picks" ${r.metric === 'picks' ? 'selected' : ''}>Times Picked</option>
                                 <option value="attendanceRate" ${r.metric === 'attendanceRate' ? 'selected' : ''}>Attendance Rate (%)</option>
+                                <option value="participationGrade" ${r.metric === 'participationGrade' ? 'selected' : ''}>${(typeof t === 'function' && t('af_metric_participation_grade')) || 'Participation Grade'}</option>
                             </optgroup>
                             <optgroup label="Point Metrics">
                                 <option value="pluses" ${r.metric === 'pluses' ? 'selected' : ''}>Individual Pluses (+)</option>
@@ -10254,6 +10359,9 @@
         function _afMetricChange(idx, selectEl) {
             const val = selectEl.value;
             tempFlagRules[idx].metric = val;
+            if (val === 'participationGrade' && (tempFlagRules[idx].threshold === undefined || tempFlagRules[idx].threshold === 25)) {
+                tempFlagRules[idx].threshold = 10;
+            }
             renderAutoFlagRulesTable();
         }
 
@@ -14943,7 +15051,7 @@ syncState();
             Object.keys(sourceGroups || {}).forEach(gName => {
                 const groupStudents = sourceGroups[gName] || [];
                 if (groupStudents.some(studentHasInteraction)) {
-                    snapshot[gName] = JSON.parse(JSON.stringify(groupStudents));
+                    snapshot[gName] = _ensureUniqueStudentSessionIds(JSON.parse(JSON.stringify(groupStudents)));
                 }
             });
             return snapshot;
@@ -14961,12 +15069,25 @@ syncState();
             return sanitized;
         }
 
+        function _generateUniqueSessionId(existingSessions, baseDate = new Date()) {
+            const sessions = Array.isArray(existingSessions) ? existingSessions : (typeof getDb === 'function' ? getDb() : []);
+            const seenIds = new Set(sessions.map(s => s && s.id).filter(Boolean));
+            let ms = baseDate instanceof Date ? baseDate.getTime() : new Date(baseDate).getTime();
+            if (Number.isNaN(ms)) ms = Date.now();
+            let candidate = new Date(ms).toISOString();
+            while (seenIds.has(candidate)) {
+                ms += 1;
+                candidate = new Date(ms).toISOString();
+            }
+            return candidate;
+        }
+
         function buildLiveSessionSnapshot(now = new Date()) {
             if (!selectedGroupName || isViewingPastSession) return null;
 
             const dateStr = now.toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
             const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            const isoKey = now.toISOString();
+            const isoKey = _generateUniqueSessionId(getDb(), now);
 
             const snapshot = buildInteractionSnapshot(studentGroups);
             if (!snapshot[selectedGroupName]) return null;
@@ -15224,7 +15345,31 @@ syncState();
                     .replace(/^\.+/, '')
                     .trim() || '_class';
                 const filename = `${datePrefix}_${safeGroup}.js`;
-                return Desktop.saveText('groupParticipation', filename, buildDbFileContent(classSessions), safeGroup)
+
+                // Pre-flight safeguard: Ensure no duplicate session.id and no duplicate student IDs in any class
+                const seenBatchSessionIds = new Set();
+                const sanitizedClassSessions = (classSessions || []).map(sess => {
+                    const sCopy = JSON.parse(JSON.stringify(sess));
+                    if (sCopy.groups && typeof sCopy.groups === 'object') {
+                        Object.keys(sCopy.groups).forEach(gName => {
+                            sCopy.groups[gName] = _ensureUniqueStudentSessionIds(sCopy.groups[gName]);
+                        });
+                    }
+                    if (!sCopy.id || seenBatchSessionIds.has(sCopy.id)) {
+                        let ms = new Date(sCopy.id || Date.now()).getTime();
+                        if (Number.isNaN(ms)) ms = Date.now();
+                        let cand = new Date(ms).toISOString();
+                        while (seenBatchSessionIds.has(cand)) {
+                            ms += 1;
+                            cand = new Date(ms).toISOString();
+                        }
+                        sCopy.id = cand;
+                    }
+                    seenBatchSessionIds.add(sCopy.id);
+                    return sCopy;
+                });
+
+                return Desktop.saveText('groupParticipation', filename, buildDbFileContent(sanitizedClassSessions), safeGroup)
                     .catch(err => console.warn(`Could not save DB for class "${group}":`, err));
             });
 
@@ -15324,7 +15469,6 @@ syncState();
             const now = new Date();
             const dateStr = now.toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
             const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            const isoKey = now.toISOString();
 
             // Save only groups with interactions
             const snapshot = buildInteractionSnapshot(studentGroups);
@@ -15340,6 +15484,7 @@ syncState();
                 const sDate = new Date(s.id);
                 return sDate.toDateString() === todayStr && s.activeGroup === selectedGroupName;
             });
+            const isoKey = _generateUniqueSessionId(sessions, now);
 
             const session = {
                 id: isoKey,
@@ -15414,8 +15559,9 @@ syncState();
             let overwrittenCount = 0;
 
             groupsToSave.forEach((gName, i) => {
-                // Stagger ISO key by 1ms per group so each has a unique ID
-                const isoKey = new Date(now.getTime() + i).toISOString();
+                // Stagger ISO key and de-collide against all sessions
+                const targetDate = new Date(now.getTime() + i);
+                const isoKey = _generateUniqueSessionId(sessions, targetDate);
 
                 const existingIdx = sessions.findIndex(s => {
                     const sDate = new Date(s.id);
@@ -15493,7 +15639,8 @@ syncState();
                     return;
                 }
 
-                const isoKey = new Date(now.getTime() + i).toISOString();
+                const targetDate = new Date(now.getTime() + i);
+                const isoKey = _generateUniqueSessionId(sessions, targetDate);
                 const groupHistory = Array.isArray(sessionHistory)
                     ? sessionHistory.filter(e => !e.group || e.group === gName).map(e => JSON.parse(JSON.stringify(e)))
                     : [];
@@ -15508,7 +15655,7 @@ syncState();
                     date: dateStr,
                     time: timeStr,
                     activeGroup: gName,
-                    groups: { [gName]: JSON.parse(JSON.stringify(groupStudents)) },
+                    groups: { [gName]: _ensureUniqueStudentSessionIds(JSON.parse(JSON.stringify(groupStudents))) },
                     lessonObjectives: gName === selectedGroupName ? currentObjectives : existingObjectives,
                     sessionHistory: groupHistory,
                     ...(sessionTeamNames ? { teamCustomNames: sessionTeamNames } : {}),

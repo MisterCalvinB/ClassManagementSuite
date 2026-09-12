@@ -455,7 +455,7 @@ const PAGE_PERMISSIONS = {
   [PAGE_FILES.fileManager]: new Set(['user', 'lessons', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'groupParticipation', 'docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'toPrint', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'customCriteria', 'customScales', 'customChips']),
   [PAGE_FILES.howTo]: new Set(['user']),
   [PAGE_FILES.credits]: new Set([]),
-  [PAGE_FILES.scheduleMaker]: new Set(['user', 'data']),
+  [PAGE_FILES.scheduleMaker]: new Set(['user', 'data', 'toPrint']),
   [PAGE_FILES.classPlan]: new Set(['user', 'classPlans']),
   [PAGE_FILES.documentEditor]: new Set(['docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'docEditorSettings', 'user', 'app', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'groupParticipation', 'toPrint']),
   [PAGE_FILES.planner]: new Set(['user', 'lessons', 'groupParticipation', 'grades', 'mindmaps', 'toPrint']),
@@ -1089,7 +1089,10 @@ function sanitizeRelativePath(relativePath) {
 }
 
 function resolveAllowedTargetDir(pageFile, target) {
-  const allowedTargets = PAGE_PERMISSIONS[pageFile];
+  let allowedTargets = PAGE_PERMISSIONS[pageFile];
+  if (!allowedTargets && typeof pageFile === 'string' && pageFile.startsWith('cmt-open-')) {
+    allowedTargets = new Set(['toPrint', 'user', 'grades']);
+  }
   if (!allowedTargets) {
     throw new Error(`Saving is not configured for ${pageFile}.`);
   }
@@ -5337,9 +5340,11 @@ ipcMain.handle('app:open-html', async (event, request = {}) => {
   const width = Number(request.width) || 1000;
   const height = Number(request.height) || 700;
 
-  const win = new BrowserWindow({
+  const senderWin = BrowserWindow.fromWebContents(event.sender);
+  const winOpts = {
     width,
     height,
+    title: request.title ? String(request.title) : 'Class Management Tools',
     autoHideMenuBar: false,
     webPreferences: {
       preload: path.join(ROOT_DIR, 'electron-preload.js'),
@@ -5347,7 +5352,19 @@ ipcMain.handle('app:open-html', async (event, request = {}) => {
       nodeIntegration: false,
       sandbox: false
     }
-  });
+  };
+
+  if (request.x != null && request.y != null) {
+    winOpts.x = Number(request.x);
+    winOpts.y = Number(request.y);
+  } else if (senderWin && !senderWin.isDestroyed()) {
+    const sBounds = senderWin.getBounds();
+    winOpts.x = Math.round(sBounds.x + Math.max(0, (sBounds.width - width) / 2));
+    winOpts.y = Math.round(sBounds.y + Math.max(0, (sBounds.height - height) / 2));
+  }
+
+  const win = new BrowserWindow(winOpts);
+  setupWindowExternalLinkHandling(win);
 
   if (request.file || request.pageFile) {
     const p = request.file || request.pageFile;
@@ -6751,6 +6768,32 @@ ipcMain.handle('app:pick-and-read-file', async (_event, request = {}) => {
     return { ok: true, canceled: false, name, content };
   } catch (err) {
     return { ok: false, canceled: false, error: String(err?.message || err) };
+  }
+});
+
+ipcMain.handle('app:read-disk-file', async (_event, request = {}) => {
+  if (!request.absolutePath) return { ok: false, error: 'No path specified.' };
+  try {
+    const fullPath = path.resolve(String(request.absolutePath));
+    const content = await fs.readFile(fullPath, request.encoding === 'base64' ? 'base64' : 'utf8');
+    return { ok: true, path: fullPath, name: path.basename(fullPath), content };
+  } catch (err) {
+    return { ok: false, error: String(err?.message || err) };
+  }
+});
+
+ipcMain.handle('app:write-disk-file', async (_event, request = {}) => {
+  if (!request.absolutePath) return { ok: false, error: 'No path specified.' };
+  try {
+    const fullPath = path.resolve(String(request.absolutePath));
+    const encoding = request.encoding === 'base64' ? 'base64' : 'utf8';
+    const data = encoding === 'base64'
+      ? Buffer.from(String(request.content || ''), 'base64')
+      : String(request.content || '');
+    await fs.writeFile(fullPath, data, encoding === 'base64' ? undefined : 'utf8');
+    return { ok: true, path: fullPath, name: path.basename(fullPath) };
+  } catch (err) {
+    return { ok: false, error: String(err?.message || err) };
   }
 });
 
@@ -8431,14 +8474,22 @@ ipcMain.handle('app:export-docx', async (event, request = {}) => {
     const baseName = (typeof request.defaultName === 'string' && request.defaultName.trim())
       ? request.defaultName.trim().replace(/\.md$/, '')
       : 'document';
-    const { canceled, filePath } = await dialog.showSaveDialog({
-      title: 'Save as DOCX',
-      defaultPath: path.join(app.getPath('downloads'), baseName + '.docx'),
-      filters: [{ name: 'Word Document', extensions: ['docx'] }]
-    });
-    if (canceled || !filePath) return { ok: false, canceled: true };
-    await fs.writeFile(filePath, buffer);
-    return { ok: true, path: filePath, name: path.basename(filePath) };
+    let finalPath;
+    if (request.target === 'toPrint') {
+      const toPrintDir = getWritablePaths().toPrint;
+      await fs.ensureDir(toPrintDir);
+      finalPath = path.join(toPrintDir, baseName + '.docx');
+    } else {
+      const { canceled, filePath } = await dialog.showSaveDialog({
+        title: 'Save as DOCX',
+        defaultPath: path.join(app.getPath('downloads'), baseName + '.docx'),
+        filters: [{ name: 'Word Document', extensions: ['docx'] }]
+      });
+      if (canceled || !filePath) return { ok: false, canceled: true };
+      finalPath = filePath;
+    }
+    await fs.writeFile(finalPath, buffer);
+    return { ok: true, path: finalPath, name: path.basename(finalPath) };
   } catch (err) {
     console.error('export-docx failed', err);
     return { ok: false, error: String(err && err.message ? err.message : err) };

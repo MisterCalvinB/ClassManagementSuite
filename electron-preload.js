@@ -221,6 +221,12 @@ const exposedApi = {
   pickAndReadFile(request) {
     return invoke('app:pick-and-read-file', request);
   },
+  readDiskFile(request) {
+    return invoke('app:read-disk-file', request);
+  },
+  writeDiskFile(request) {
+    return invoke('app:write-disk-file', request);
+  },
   pickAndCopyFiles(request) {
     return invoke('app:pick-and-copy-files', request);
   },

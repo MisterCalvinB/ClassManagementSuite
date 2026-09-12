@@ -1830,10 +1830,42 @@
                                 if (result && result.ok && result.content) {
                                     const sessions = extractSessionsFromContent(result.content);
                                     for (const s of sessions) {
-                                        if (s && s.id && !seenIds.has(s.id)) {
-                                            seenIds.add(s.id);
-                                            allSessions.push(s);
+                                        if (!s || !s.id) continue;
+                                        if (seenIds.has(s.id)) {
+                                            const existingSess = allSessions.find(item => item.id === s.id);
+                                            const isSameClass = existingSess && existingSess.activeGroup === s.activeGroup;
+                                            if (isSameClass && typeof areEqualByData === 'function' && areEqualByData(existingSess, s)) {
+                                                continue;
+                                            }
+                                            // Collision on different session or class! Auto-heal with unique timestamp
+                                            let ms = new Date(s.id).getTime();
+                                            if (Number.isNaN(ms)) ms = Date.now();
+                                            let cand = new Date(ms).toISOString();
+                                            while (seenIds.has(cand)) {
+                                                ms += 1;
+                                                cand = new Date(ms).toISOString();
+                                            }
+                                            s.id = cand;
                                         }
+                                        // Ensure student IDs within the session are unique
+                                        if (s.groups && typeof s.groups === 'object') {
+                                            Object.keys(s.groups).forEach(gName => {
+                                                const grp = s.groups[gName];
+                                                if (Array.isArray(grp)) {
+                                                    const stSeen = new Set();
+                                                    grp.forEach(st => {
+                                                        if (st.id == null || stSeen.has(st.id)) {
+                                                            let nid = Date.now() + Math.random();
+                                                            while (stSeen.has(nid)) nid = Date.now() + Math.random();
+                                                            st.id = nid;
+                                                        }
+                                                        stSeen.add(st.id);
+                                                    });
+                                                }
+                                            });
+                                        }
+                                        seenIds.add(s.id);
+                                        allSessions.push(s);
                                     }
                                 }
                             } catch (e) { /* skip unreadable file */ }
@@ -2166,6 +2198,24 @@
                 if (!session || !session.id) {
                     withoutId.push(session);
                     return;
+                }
+
+                // Ensure student IDs in this session are unique
+                if (session.groups && typeof session.groups === 'object') {
+                    Object.keys(session.groups).forEach(gName => {
+                        const grp = session.groups[gName];
+                        if (Array.isArray(grp)) {
+                            const stSeen = new Set();
+                            grp.forEach(st => {
+                                if (st.id == null || stSeen.has(st.id)) {
+                                    let nid = Date.now() + Math.random();
+                                    while (stSeen.has(nid)) nid = Date.now() + Math.random();
+                                    st.id = nid;
+                                }
+                                stSeen.add(st.id);
+                            });
+                        }
+                    });
                 }
 
                 const existing = byId.get(session.id);
@@ -5447,7 +5497,42 @@
 
                 for (const [dateStr, classSessions] of Object.entries(byDate)) {
                     const filename = `${dateStr}_${safeGroup}.js`;
-                    const content = `window.CMS_DB_EXPORT = ${JSON.stringify(classSessions, null, 2)};\nwindow.DB_EXPORT = window.CMS_DB_EXPORT;\n`;
+
+                    // Pre-flight safeguard: Ensure no duplicate session.id and no duplicate student IDs
+                    const seenBatchSessionIds = new Set();
+                    const sanitizedClassSessions = (classSessions || []).map(sess => {
+                        const sCopy = JSON.parse(JSON.stringify(sess));
+                        if (sCopy.groups && typeof sCopy.groups === 'object') {
+                            Object.keys(sCopy.groups).forEach(gName => {
+                                const grp = sCopy.groups[gName];
+                                if (Array.isArray(grp)) {
+                                    const stSeen = new Set();
+                                    grp.forEach(st => {
+                                        if (st.id == null || stSeen.has(st.id)) {
+                                            let nid = Date.now() + Math.random();
+                                            while (stSeen.has(nid)) nid = Date.now() + Math.random();
+                                            st.id = nid;
+                                        }
+                                        stSeen.add(st.id);
+                                    });
+                                }
+                            });
+                        }
+                        if (!sCopy.id || seenBatchSessionIds.has(sCopy.id)) {
+                            let ms = new Date(sCopy.id || Date.now()).getTime();
+                            if (Number.isNaN(ms)) ms = Date.now();
+                            let cand = new Date(ms).toISOString();
+                            while (seenBatchSessionIds.has(cand)) {
+                                ms += 1;
+                                cand = new Date(ms).toISOString();
+                            }
+                            sCopy.id = cand;
+                        }
+                        seenBatchSessionIds.add(sCopy.id);
+                        return sCopy;
+                    });
+
+                    const content = `window.CMS_DB_EXPORT = ${JSON.stringify(sanitizedClassSessions, null, 2)};\nwindow.DB_EXPORT = window.CMS_DB_EXPORT;\n`;
                     await Desktop.saveText('groupParticipation', filename, content, safeGroup);
                 }
             } catch (err) {
@@ -5526,8 +5611,27 @@
                 .replace(/'/g, '&#039;');
         }
 
-        function downloadFile(filename, content, mimeType) {
-            const blob = new Blob([content], { type: mimeType });
+        async function downloadFile(filename, content, mimeType) {
+            const ext = (filename.split('.').pop() || '').toLowerCase();
+            let filterName = 'File';
+            if (ext === 'html') filterName = 'HTML Document';
+            else if (ext === 'md') filterName = 'Markdown Document';
+            else if (ext === 'csv') filterName = 'CSV Spreadsheet';
+            else if (ext === 'xlsx') filterName = 'Excel Spreadsheet';
+            else if (ext === 'docx' || ext === 'doc') filterName = 'Word Document';
+            else if (ext === 'json') filterName = 'JSON Document';
+
+            if (window.saveExportWithDestination) {
+                return await window.saveExportWithDestination({
+                    filename: filename,
+                    content: content,
+                    mimeType: mimeType || 'application/octet-stream',
+                    filters: [{ name: filterName, extensions: [ext] }, { name: 'All Files', extensions: ['*'] }],
+                    title: typeof t === 'function' ? (t('deSaveFileTitle') || 'Save File') : 'Save File'
+                });
+            }
+
+            const blob = content instanceof Blob ? content : new Blob([content], { type: mimeType || 'application/octet-stream' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -5536,6 +5640,7 @@
             a.click();
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
+            return { ok: true };
         }
 
         let ptPdfExportModalCallback = null;
@@ -6582,14 +6687,8 @@
                     }
                 }
             } else {
-                const win = window.open('', '_blank');
-                if (win && win.document) {
-                    win.document.write(fullHtml);
-                    win.document.close();
-                } else {
-                    downloadFile(`${filenameBase}.html`, fullHtml, 'text/html');
-                    showMessage('Exhaustive report exported as HTML!', 'success');
-                }
+                await downloadFile(`${filenameBase}.html`, fullHtml, 'text/html;charset=utf-8');
+                showMessage('Exhaustive report exported as HTML!', 'success');
             }
         }
 
@@ -7006,6 +7105,16 @@
 
         async function exportCategoryAsDocx(category, data) {
             const htmlReport = generatePrintableHtmlReport(data);
+            if (window.saveExportWithDestination) {
+                return await window.saveExportWithDestination({
+                    filename: `${data.filenameBase}.docx`,
+                    docxRequest: {
+                        html: htmlReport,
+                        title: data.title,
+                        defaultName: `${data.filenameBase}.docx`
+                    }
+                });
+            }
             if (window.Desktop && Desktop.isElectron() && typeof Desktop.exportDocx === 'function') {
                 const result = await Desktop.exportDocx({
                     html: htmlReport,
@@ -7013,7 +7122,11 @@
                     defaultPath: `${data.filenameBase}.docx`
                 });
                 if (result && result.ok) {
-                    showMessage('DOCX report exported successfully!', 'success');
+                    if (window.showExportSuccessPopup && result.path) {
+                        showExportSuccessPopup(result.path, result.name || `${data.filenameBase}.docx`);
+                    } else {
+                        showMessage('DOCX report exported successfully!', 'success');
+                    }
                 } else if (!result || !result.canceled) {
                     showMessage('DOCX export error: ' + (result?.error || 'failed'), 'error');
                 }
@@ -7021,12 +7134,12 @@
                 const docHtml = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
 <head><meta charset='utf-8'><title>${escHtml(data.title)}</title></head>
 <body>${htmlReport}</body></html>`;
-                downloadFile(`${data.filenameBase}.doc`, docHtml, 'application/msword');
+                await downloadFile(`${data.filenameBase}.doc`, docHtml, 'application/msword');
                 showMessage('Word document exported successfully!', 'success');
             }
         }
 
-        function exportCategoryAsXlsx(category, data) {
+        async function exportCategoryAsXlsx(category, data) {
             if (typeof XLSX === 'undefined') {
                 showMessage('XLSX library not loaded. Exporting as CSV instead.', 'error');
                 exportCategoryAsCsv(category, data);
@@ -7046,16 +7159,7 @@
             XLSX.utils.book_append_sheet(wb, ws, (data.groupName || 'Stats').slice(0, 31));
 
             const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-            const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${data.filenameBase}.xlsx`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-
+            await downloadFile(`${data.filenameBase}.xlsx`, wbout, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             showMessage('XLSX spreadsheet exported successfully!', 'success');
         }
 

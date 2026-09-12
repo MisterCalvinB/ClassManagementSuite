@@ -2700,7 +2700,51 @@
       const params = new URLSearchParams(window.location.search);
       const target = params.get('editTarget');
       const relPath = params.get('editRelPath');
-      if (target && relPath) await loadExternalDoc(target, relPath);
+      const absPath = params.get('editAbsPath') || params.get('editFile');
+      if (target && relPath) {
+        await loadExternalDoc(target, relPath);
+      } else if (absPath) {
+        await loadExternalDocByAbsPath(absPath);
+      }
+    }
+
+    async function loadExternalDocByAbsPath(absPath) {
+      if (!window.Desktop || !Desktop.isElectron()) return;
+      try {
+        const r = await Desktop.readDiskFile(absPath);
+        if (r && r.ok) {
+          const inlineState = deExtractStyleBlocks(r.content || '');
+          mdEditor.setValue(inlineState.content || '');
+          const filename = r.name || String(absPath).split(/[\\/]/).pop();
+          currentDocName = filename;
+          currentDocSubdir = null;
+          currentEditTarget = null;
+          currentEditRelPath = null;
+          currentDocStoredInDocs = false;
+          currentOpenedDiskPath = absPath;
+          const lower = filename.toLowerCase();
+          currentDocType = lower.endsWith('.typ') ? 'typ' : (lower.endsWith('.html') ? 'html' : 'md');
+          docModified = false;
+          updateDocIndicator();
+          const typeBtn2 = document.getElementById('btn-doc-type');
+          if (typeBtn2) {
+            typeBtn2.textContent = currentDocType.toUpperCase();
+            typeBtn2.classList.toggle('html-mode', currentDocType === 'html');
+            typeBtn2.classList.toggle('typ-mode', currentDocType === 'typ');
+          }
+          if (mdEditor) monaco.editor.setModelLanguage(mdEditor.getModel(), currentDocType === 'html' ? 'html' : (currentDocType === 'typ' ? 'typst' : 'markdown'));
+          deUpdateViewSwitcherState();
+          currentDocMeta = {};
+          deApplyManagedDocState(inlineState.cssText || '', null);
+          syncPopupToState && syncPopupToState();
+          applyPageLayoutToPreview && applyPageLayoutToPreview();
+          renderPreview();
+        } else {
+          showToast('Could not open file: ' + ((r && r.error) || absPath), true);
+        }
+      } catch (e) {
+        showToast('Could not load: ' + e.message, true);
+      }
     }
 
     async function loadExternalDoc(target, relPath) {
@@ -2762,6 +2806,24 @@
       finally { docSaveInProgress = false; }
     }
 
+    async function saveDiskDoc() {
+      if (docSaveInProgress) return;
+      docSaveInProgress = true;
+      const content = deBuildPersistedCurrentDocContent();
+      try {
+        const r = await Desktop.writeDiskFile(currentOpenedDiskPath, content);
+        if (r && r.ok) {
+          cssModified = false;
+          docModified = false;
+          updateDocIndicator();
+          showToast('Saved: ' + (currentDocName || currentOpenedDiskPath));
+        } else {
+          showToast('Save failed: ' + ((r && r.error) || ''), true);
+        }
+      } catch (e) { showToast('Save error: ' + e.message, true); }
+      finally { docSaveInProgress = false; }
+    }
+
     async function saveDoc() {
       if (!window.Desktop || !Desktop.isElectron()) {
         showToast('File saving requires the Electron app.', true);
@@ -2769,6 +2831,8 @@
       }
       if (currentEditTarget && currentEditRelPath) {
         await saveExternalDoc();
+      } else if (currentOpenedDiskPath) {
+        await saveDiskDoc();
       } else if (currentDocName) {
         await doSaveDoc(currentDocName);
       } else {
@@ -2861,6 +2925,8 @@
           }
         } else if (currentEditTarget && currentEditRelPath) {
           await saveExternalDoc();
+        } else if (currentOpenedDiskPath) {
+          await saveDiskDoc();
         }
       } catch (e) { /* silent */ }
     }
@@ -2872,6 +2938,10 @@
       }
       if (currentEditTarget) {
         await saveExternalDoc();
+        return;
+      }
+      if (currentOpenedDiskPath) {
+        await saveDiskDoc();
         return;
       }
       if (currentDocName) {
