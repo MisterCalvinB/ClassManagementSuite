@@ -2193,6 +2193,18 @@
         }
       }
 
+      function lcAutoResizeField(el) {
+        if (!el) return;
+        if (window.CSS && CSS.supports && CSS.supports('field-sizing', 'content')) {
+          return;
+        }
+        el.style.height = 'auto';
+        if (el.scrollHeight > 0) {
+          el.style.height = el.scrollHeight + 'px';
+        }
+      }
+      window.lcAutoResizeField = lcAutoResizeField;
+
       function renderPhaseCards() {
         var list = document.getElementById('phaseCardsList');
         list.innerHTML = '';
@@ -2342,15 +2354,19 @@
           var body = document.createElement('div');
           body.className = 'phase-card-body';
           body.innerHTML = [
-            '<div class="phase-field"><label class="phase-label">Learning Objective:</label><input type="text" class="phase-input" value="' + escapeHtml(sec.objective || '') + '" placeholder="Core learning target for this phase" oninput="lcOnPhaseFieldChange(' + idx + ', \'objective\', this.value)"></div>',
-            '<div class="phase-field"><label class="phase-label">Resources & Materials:</label><input type="text" class="phase-input" value="' + escapeHtml(sec.resources || '') + '" placeholder="Cards, slides, whiteboards…" oninput="lcOnPhaseFieldChange(' + idx + ', \'resources\', this.value)"></div>',
-            '<div class="phase-field"><label class="phase-label">Teacher Actions / Prompts:</label><textarea class="phase-textarea" rows="2" placeholder="Instructions to give, questions to ask…" oninput="lcOnPhaseFieldChange(' + idx + ', \'teacherAction\', this.value)">' + escapeHtml(sec.teacherAction || '') + '</textarea></div>',
-            '<div class="phase-field"><label class="phase-label">Student Actions / Tasks:</label><textarea class="phase-textarea" rows="2" placeholder="Student tasks, partner work, notes…" oninput="lcOnPhaseFieldChange(' + idx + ', \'studentAction\', this.value)">' + escapeHtml(sec.studentAction || '') + '</textarea></div>',
+            '<div class="phase-field"><label class="phase-label">Learning Objective:</label><textarea class="phase-input" rows="1" placeholder="Core learning target for this phase" oninput="lcOnPhaseFieldChange(' + idx + ', \'objective\', this.value); lcAutoResizeField(this);">' + escapeHtml(sec.objective || '') + '</textarea></div>',
+            '<div class="phase-field"><label class="phase-label">Resources & Materials:</label><textarea class="phase-input" rows="1" placeholder="Cards, slides, whiteboards…" oninput="lcOnPhaseFieldChange(' + idx + ', \'resources\', this.value); lcAutoResizeField(this);">' + escapeHtml(sec.resources || '') + '</textarea></div>',
+            '<div class="phase-field"><label class="phase-label">Teacher Actions / Prompts:</label><textarea class="phase-textarea" rows="2" placeholder="Instructions to give, questions to ask…" oninput="lcOnPhaseFieldChange(' + idx + ', \'teacherAction\', this.value); lcAutoResizeField(this);">' + escapeHtml(sec.teacherAction || '') + '</textarea></div>',
+            '<div class="phase-field"><label class="phase-label">Student Actions / Tasks:</label><textarea class="phase-textarea" rows="2" placeholder="Student tasks, partner work, notes…" oninput="lcOnPhaseFieldChange(' + idx + ', \'studentAction\', this.value); lcAutoResizeField(this);">' + escapeHtml(sec.studentAction || '') + '</textarea></div>',
             '<div class="phase-field full-width"><label class="phase-label">Tagged Competences & Standards:</label><div class="phase-descriptors-wrap" id="phaseDescWrap_' + idx + '">' + buildPhaseDescriptorChips(sec.descriptorIds, idx) + '</div></div>'
           ].join('');
           card.appendChild(body);
 
           list.appendChild(card);
+        });
+
+        list.querySelectorAll('.phase-input, .phase-textarea').forEach(function (el) {
+          lcAutoResizeField(el);
         });
       }
 
