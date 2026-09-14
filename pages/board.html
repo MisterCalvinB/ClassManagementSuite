@@ -4853,6 +4853,7 @@
     var conEdgeCtxDelete = window.conEdgeCtxDelete = window.conEdgeCtxDelete || function () {};
     var conEdgeCtxSave = window.conEdgeCtxSave = window.conEdgeCtxSave || function () {};
     var conEdgeCtxOpen = window.conEdgeCtxOpen = window.conEdgeCtxOpen || function () {};
+    var _conSyncDrawOverlaySize = window._conSyncDrawOverlaySize = window._conSyncDrawOverlaySize || function () {};
 
     let activeSection = 'main-menu';
     let currentGameWord = null; // The vocab word object currently active in any game
@@ -14625,7 +14626,7 @@
       }
 
       function conDrawingBuild(d) {
-        const brd = board();
+        const brd = (typeof board === 'function') ? board() : document.getElementById('constellation-board');
         if (!brd) return;
         const PAD = Math.max(d.thickness + 4, 12);
         const el = document.createElement('div');
@@ -14884,6 +14885,7 @@
         });
         _conDrawingAddHandles(d);
       }
+      window.conDrawingBuild = conDrawingBuild;
 
       function _conDrawingUpdateGeom(d) {
         if (!d.el || !d.hitPath || !d.visPath) return;
@@ -15732,7 +15734,7 @@
       }
 
       function conShapeBuild(s) {
-        const brd = board();
+        const brd = (typeof board === 'function') ? board() : document.getElementById('constellation-board');
         if (!brd) return;
         const PAD = _conShapeGetPAD(s);
         s.pad = PAD;
@@ -15755,6 +15757,7 @@
         brd.appendChild(el);
         _conShapeAttachHitEvents(s);
       }
+      window.conShapeBuild = conShapeBuild;
 
       function conShapeFullRebuild(s) {
         if (!s.svgEl) return;
@@ -16174,6 +16177,7 @@
           _conDrawHandMode = false;
           _conDrawSyncOverlayCursor();
           _conShapeSyncPanelState();
+          if (typeof window._conSyncDrawOverlaySize === 'function') window._conSyncDrawOverlaySize();
         } else if (targetMode === 'hand') {
           if (document.body.classList.contains('laser-active') && typeof window.laserToggle === 'function') {
             window.laserToggle();
@@ -16187,6 +16191,7 @@
           _conDrawEraserMode = false;
           _conDrawSyncOverlayCursor();
           _conShapeSyncPanelState();
+          if (typeof window._conSyncDrawOverlaySize === 'function') window._conSyncDrawOverlaySize();
         } else if (targetMode === 'laser') {
           if (typeof conMode !== 'undefined' && conMode === 'draw' && typeof window.conSetMode === 'function') {
             if (window._conPolygonReset) window._conPolygonReset();
@@ -16712,6 +16717,7 @@
         if (overlay) overlay.classList.toggle('active', mode === 'draw');
         const panel = document.getElementById('con-draw-panel');
         if (panel) panel.style.display = mode === 'draw' ? 'flex' : 'none';
+        if (typeof window._conSyncDrawOverlaySize === 'function') window._conSyncDrawOverlaySize();
         // Reset eraser when exiting draw mode
         if (mode !== 'draw' && _conDrawEraserMode) window.conDrawToggleEraser();
         // Sync toolbar eraser button
@@ -19743,6 +19749,7 @@
         } catch (_) { }
         if (typeof boardSetDirty === 'function') boardSetDirty(true);
         if (typeof _boardScheduleSave === 'function') _boardScheduleSave('constellation');
+        if (typeof window._conSyncDrawOverlaySize === 'function') window._conSyncDrawOverlaySize();
         if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true, boardHeight: newH });
       };
 
@@ -20193,6 +20200,9 @@
                 if (!t) return true;
                 // Ignore rubber-band selection element and its transient mutations
                 if (t.id === 'con-rubberband' || (t.closest && t.closest('#con-rubberband'))) return true;
+                // Ignore draw overlay, live SVG, and eraser outline
+                if (t.id === 'con-draw-overlay' || t.id === 'con-draw-live-svg' || (t.closest && (t.closest('#con-draw-overlay') || t.closest('#con-draw-live-svg') || t.closest('.con-eraser-outline')))) return true;
+                if (t.classList && (t.classList.contains('con-eraser-outline') || t.classList.contains('con-eraser-active'))) return true;
                 // Ignore drawing/shape/media/table/mask/node resize handles
                 if (t.closest && (t.closest('.con-drawing-handle') || t.closest('.con-shape-handle') || t.closest('.con-group-resizer') || t.closest('.con-mask-resizer') || t.closest('.con-node-resizer') || t.closest('.con-media-resizer') || t.closest('.con-table-resizer') || t.closest('.con-table-col-resizer') || t.closest('.con-table-row-resizer'))) return true;
                 // Ignore any mutations inside word notes (typing, formatting, autosize) — handled directly by note-text and note-move
@@ -20226,7 +20236,8 @@
                     }
                     if (onlySelectionStatusDiff) return true;
                   } else if (m.attributeName === 'style') {
-                    if (t.classList && (t.classList.contains('wn-emoji-sticker') || t.classList.contains('con-drop-target'))) return true;
+                    if (t.classList && (t.classList.contains('wn-emoji-sticker') || t.classList.contains('con-drop-target') || t.classList.contains('con-drawing') || t.classList.contains('con-shape') || t.classList.contains('con-eraser-outline'))) return true;
+                    if (t.closest && (t.closest('.con-drawing') || t.closest('.con-shape') || t.closest('#con-draw-overlay') || t.closest('.con-eraser-outline'))) return true;
                     // Ignore transient CSS variables used for attention blinking (--con-blink-delay, --con-node-border, --con-group-blink-delay)
                     // and transient selection styles like z-index, cursor, pointer-events
                     const cleanStyle = s => (s || '').replace(/(?:--con-(?:blink-delay|node-border|group-blink-delay)|z-index|cursor|pointer-events)\s*:[^;]+;?/gi, '').trim();
@@ -20254,6 +20265,9 @@
                            n.classList.contains('con-line') ||
                            n.classList.contains('con-line-hit') ||
                            n.classList.contains('con-line-label') ||
+                           n.classList.contains('con-eraser-outline') ||
+                           n.id === 'con-draw-overlay' ||
+                           n.id === 'con-draw-live-svg' ||
                            n.id === 'con-arrow-defs' ||
                            // Drawing/shape removal is synced via drawing-remove/shape-remove micro-messages
                            n.classList.contains('con-drawing') ||
@@ -23859,15 +23873,23 @@
         const el = node.el;
         const currentText = node.baseWord || el.textContent.trim();
 
+        // Capture actual rendered width before clearing innerHTML
+        const actualWidth = Math.max(el.offsetWidth, Math.ceil(el.getBoundingClientRect().width || 0));
+        const prevStyleWidth = el.style.width;
+        const prevStyleMinWidth = el.style.minWidth;
+
         // Replace node content with an input
         const _savedResizer = el.querySelector('.con-node-resizer');
         const _savedEmojiDot = el.querySelector('.con-emoji-dot');
         const _savedStarBtn = el.querySelector('.con-node-star-btn');
         el.innerHTML = '';
-        el.style.minWidth = Math.max(el.offsetWidth, 80) + 'px';
+        if (actualWidth > 0) {
+          el.style.width = actualWidth + 'px';
+          el.style.minWidth = actualWidth + 'px';
+        }
         const inp = document.createElement('input');
         inp.value = currentText + (node.pageNum != null ? ' ((' + node.pageNum + '))' : '');
-        inp.style.cssText = 'width:100%;border:none;outline:none;background:transparent;font:inherit;color:inherit;text-align:center;padding:0;min-width:60px;';
+        inp.style.cssText = 'width:100%;box-sizing:border-box;border:none;outline:none;background:transparent;font:inherit;color:inherit;text-align:center;padding:0;min-width:0;';
         el.appendChild(inp);
         if (_savedResizer) el.appendChild(_savedResizer);
         if (_savedEmojiDot) el.appendChild(_savedEmojiDot);
@@ -23876,9 +23898,14 @@
         inp.select();
         inp.addEventListener('mousedown', e => e.stopPropagation());
 
+        let committed = false;
         async function commit() {
+          if (committed) return;
+          committed = true;
+          inp.removeEventListener('blur', commit);
           const rawText = inp.value.trim() || currentText;
-          el.style.minWidth = '';
+          el.style.minWidth = prevStyleMinWidth;
+          el.style.width = prevStyleWidth;
 
           // Check if edited to timer syntax
           const parsedTimer = conParseTimerSyntax(rawText);
@@ -24361,6 +24388,7 @@
         const mw = menu.offsetWidth || 256;
         const mh = menu.offsetHeight || 380;
         const clientX = (e && typeof e.clientX === 'number') ? e.clientX : (window.innerWidth / 2);
+        const clientY = (e && typeof e.clientY === 'number') ? e.clientY : (window.innerHeight / 2);
         let mx = clientX + 6;
         let my = clientY + 6;
 
@@ -29788,6 +29816,42 @@
           _eraserOutline.style.height = (_initEraserR * 2) + 'px';
           drawOverlay.appendChild(_eraserOutline);
 
+          function _conSyncDrawOverlaySize() {
+            const b = document.getElementById('constellation-board');
+            if (!b || !drawOverlay) return;
+            const liveSvg = document.getElementById('con-draw-live-svg');
+            const conSvg = document.getElementById('constellation-svg');
+            if (typeof conMode === 'undefined' || conMode !== 'draw') {
+              drawOverlay.style.width = '100%';
+              drawOverlay.style.height = '100%';
+              if (liveSvg) { liveSvg.style.width = '100%'; liveSvg.style.height = '100%'; }
+              return;
+            }
+            const maxW = Math.max(
+              b.scrollWidth || 0,
+              b.clientWidth || 0,
+              Math.ceil((b.scrollLeft || 0) + (b.clientWidth || 0))
+            );
+            const maxH = Math.max(
+              b.scrollHeight || 0,
+              b.clientHeight || 0,
+              Math.ceil((b.scrollTop || 0) + (b.clientHeight || 0))
+            );
+            const wStr = Math.max(maxW, 100) + 'px';
+            const hStr = Math.max(maxH, 100) + 'px';
+            if (drawOverlay.style.width !== wStr) drawOverlay.style.width = wStr;
+            if (drawOverlay.style.height !== hStr) drawOverlay.style.height = hStr;
+            if (liveSvg) {
+              if (liveSvg.style.width !== wStr) liveSvg.style.width = wStr;
+              if (liveSvg.style.height !== hStr) liveSvg.style.height = hStr;
+            }
+            if (conSvg) {
+              if (conSvg.style.width !== wStr) conSvg.style.width = wStr;
+              if (conSvg.style.height !== hStr) conSvg.style.height = hStr;
+            }
+          }
+          window._conSyncDrawOverlaySize = _conSyncDrawOverlaySize;
+
           window._conUpdateEraserOutlineSize = function () {
             const r = window._conEraserRadius || 20;
             if (_eraserOutline) {
@@ -30159,35 +30223,41 @@
               if (!window._conEraserMirrorRaf) {
                 window._conEraserMirrorRaf = requestAnimationFrame(function () {
                   window._conEraserMirrorRaf = null;
-                  if (window._conEraserMirrorPendingDrawIds && window._conEraserMirrorPendingDrawIds.length > 0) {
-                    window._conMirrorSend({ type: 'drawing-remove', ids: window._conEraserMirrorPendingDrawIds });
-                    window._conEraserMirrorPendingDrawIds = [];
-                  }
-                  if (window._conEraserMirrorPendingShapeIds && window._conEraserMirrorPendingShapeIds.length > 0) {
-                    window._conMirrorSend({ type: 'shape-remove', ids: window._conEraserMirrorPendingShapeIds });
-                    window._conEraserMirrorPendingShapeIds = [];
-                  }
-                  if (window._conEraserMirrorPendingModifiedDrawings && window._conEraserMirrorPendingModifiedDrawings.size > 0) {
-                    window._conEraserMirrorPendingModifiedDrawings.forEach(modData => {
-                      window._conMirrorSend({
-                        type: 'drawing-resize',
-                        id: modData.id,
-                        x: modData.x,
-                        y: modData.y,
-                        w: modData.w,
-                        h: modData.h,
-                        points: modData.points
-                      });
-                    });
-                    window._conEraserMirrorPendingModifiedDrawings.clear();
-                  }
+                  _conFlushEraserMirrorMessages();
                 });
               }
             }
           }
 
+          function _conFlushEraserMirrorMessages() {
+            if (typeof window._conMirrorSend !== 'function') return;
+            if (window._conEraserMirrorPendingDrawIds && window._conEraserMirrorPendingDrawIds.length > 0) {
+              window._conMirrorSend({ type: 'drawing-remove', ids: window._conEraserMirrorPendingDrawIds });
+              window._conEraserMirrorPendingDrawIds = [];
+            }
+            if (window._conEraserMirrorPendingShapeIds && window._conEraserMirrorPendingShapeIds.length > 0) {
+              window._conMirrorSend({ type: 'shape-remove', ids: window._conEraserMirrorPendingShapeIds });
+              window._conEraserMirrorPendingShapeIds = [];
+            }
+            if (window._conEraserMirrorPendingModifiedDrawings && window._conEraserMirrorPendingModifiedDrawings.size > 0) {
+              window._conEraserMirrorPendingModifiedDrawings.forEach(modData => {
+                window._conMirrorSend({
+                  type: 'drawing-resize',
+                  id: modData.id,
+                  x: modData.x,
+                  y: modData.y,
+                  w: modData.w,
+                  h: modData.h,
+                  points: modData.points
+                });
+              });
+              window._conEraserMirrorPendingModifiedDrawings.clear();
+            }
+          }
+
           function _conSplitMultiSubstrokeDrawings() {
             const toAdd = [];
+            const modified = [];
             conDrawings.forEach(d => {
               const substrokes = _conExtractWorldSubstrokes(d);
               if (substrokes.length > 1) {
@@ -30209,6 +30279,7 @@
                 if (conDrawingSelected && conDrawingSelected.has(d.id)) {
                   _conDrawingUpdateHandles(d);
                 }
+                modified.push(d);
 
                 // Remaining substrokes become new separate drawings
                 const parentGroup = conGroups.find(g => (g.drawingIds || []).includes(d.id));
@@ -30243,6 +30314,41 @@
               conDrawings.push(newD);
               conDrawingBuild(newD);
             });
+
+            // Send in-place updates to mirror
+            if (typeof window._conMirrorSend === 'function') {
+              modified.forEach(d => {
+                window._conMirrorSend({
+                  type: 'drawing-resize',
+                  id: d.id,
+                  x: d.x,
+                  y: d.y,
+                  w: d.w,
+                  h: d.h,
+                  points: d.points
+                });
+              });
+              if (toAdd.length > 0) {
+                window._conMirrorSend({
+                  type: 'drawing-add',
+                  drawings: toAdd.map(newD => ({
+                    id: newD.id,
+                    x: newD.x,
+                    y: newD.y,
+                    w: newD.w,
+                    h: newD.h,
+                    points: newD.points,
+                    color: newD.color,
+                    thickness: newD.thickness,
+                    opacity: newD.opacity
+                  })),
+                  groupDrawingLinks: toAdd.map(newD => {
+                    const parentGroup = conGroups.find(g => (g.drawingIds || []).includes(newD.id));
+                    return parentGroup ? { drawingId: newD.id, groupId: parentGroup.id } : null;
+                  }).filter(Boolean)
+                });
+              }
+            }
           }
 
           function _conPolygonSnapAngle(prev, cur) {
@@ -30310,6 +30416,20 @@
             };
             conShapes.push(s);
             conShapeBuild(s);
+            if (window._conMirrorSend) {
+              window._conMirrorSend({
+                type: 'shape-add',
+                shapes: [{
+                  id: s.id, type: s.type,
+                  x: s.x, y: s.y, w: s.w, h: s.h,
+                  lx1: s.lx1, ly1: s.ly1, lx2: s.lx2, ly2: s.ly2,
+                  pts: s.pts,
+                  color: s.color, fillColor: s.fillColor,
+                  thickness: s.thickness, opacity: s.opacity,
+                  dashStyle: s.dashStyle, arrowheadSize: s.arrowheadSize
+                }]
+              });
+            }
             _polygonReset();
           }
 
@@ -30405,13 +30525,30 @@
             };
             conShapes.push(s);
             conShapeBuild(s);
+            if (window._conMirrorSend) {
+              window._conMirrorSend({
+                type: 'shape-add',
+                shapes: [{
+                  id: s.id, type: s.type,
+                  x: s.x, y: s.y, w: s.w, h: s.h,
+                  lx1: s.lx1, ly1: s.ly1, lx2: s.lx2, ly2: s.ly2,
+                  pts: s.pts,
+                  color: s.color, fillColor: s.fillColor,
+                  thickness: s.thickness, opacity: s.opacity,
+                  dashStyle: s.dashStyle, arrowheadSize: s.arrowheadSize
+                }]
+              });
+            }
           }
 
-          drawOverlay.addEventListener('pointerdown', function (e) {
+          function _conDrawPointerDown(e) {
+            _conSyncDrawOverlaySize();
             if (_drawActivePointerId !== null && _drawActivePointerId !== e.pointerId) return;
             _drawActivePointerId = e.pointerId;
             e.preventDefault();
-            try { drawOverlay.setPointerCapture(e.pointerId); } catch (_) { }
+            try { drawOverlay.setPointerCapture(e.pointerId); } catch (_) {
+              try { if (e.target && e.target.setPointerCapture) e.target.setPointerCapture(e.pointerId); } catch (__) {}
+            }
             _conUpdateEraserOutlineByEvent(e);
             const pos = getBoardPos(e);
             if (_conDrawHandMode) return;
@@ -30427,6 +30564,7 @@
             livePoints = [];
             livePoints.push(pos);
             if (_conDrawEraserMode) {
+              window._conMirrorDragging = true;
               _eraserPushedUndo = false;
               _eraserLastPos = pos;
               _conEraseAtPos(pos);
@@ -30449,14 +30587,17 @@
               type: 'live-path-start',
               color: _conDrawColor, thickness: _conDrawThickness, opacity: _conDrawOpacity
             });
-          });
+          }
 
-          drawOverlay.addEventListener('pointermove', function (e) {
+          function _conDrawPointerMove(e) {
             if (_drawActivePointerId !== null && _drawActivePointerId !== e.pointerId) return;
             _conUpdateEraserOutlineByEvent(e);
             if (e.buttons === 0) return;
             const pos = getBoardPos(e);
             if (_conDrawHandMode) return;
+            if (pos.x + 100 > drawOverlay.offsetWidth || pos.y + 100 > drawOverlay.offsetHeight) {
+              _conSyncDrawOverlaySize();
+            }
             // Polygon live edge preview
             if (_conDrawShapeTool === 'polygon' && !_conDrawEraserMode && _polygonInProgress) {
               _polygonLivePos = pos;
@@ -30500,9 +30641,9 @@
                 }
               }
             }
-          });
+          }
 
-          drawOverlay.addEventListener('pointerup', function (e) {
+          function _conDrawPointerUp(e) {
             if (_drawActivePointerId !== e.pointerId) return;
             _drawActivePointerId = null;
             if (_conDrawHandMode) { livePoints = []; livePath = null; _conSetEraserOutlineVisible(false); return; }
@@ -30515,18 +30656,25 @@
               _shapeCommit(_shapeStart, _snapPos);
               _shapeStart = null;
               _shapeLastPos = null;
+              _conSyncDrawOverlaySize();
               return;
             }
             if (_conDrawEraserMode) {
               _eraserLastPos = null;
+              if (window._conEraserMirrorRaf) {
+                cancelAnimationFrame(window._conEraserMirrorRaf);
+                window._conEraserMirrorRaf = null;
+              }
+              _conFlushEraserMirrorMessages();
               if (_eraserPushedUndo) {
                 _conSplitMultiSubstrokeDrawings();
                 if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
-                if (typeof _mirrorBroadcast === 'function') _mirrorBroadcast({ bumpRevision: true });
                 _eraserPushedUndo = false;
               }
               livePoints = [];
               if (e.pointerType !== 'mouse') _conSetEraserOutlineVisible(false);
+              setTimeout(() => { window._conMirrorDragging = false; }, 60);
+              _conSyncDrawOverlaySize();
               return;
             }
             if (livePath && livePoints.length >= 2) {
@@ -30552,6 +30700,23 @@
               };
               conDrawings.push(d);
               conDrawingBuild(d);
+              _conSyncDrawOverlaySize();
+              if (window._conMirrorSend) {
+                window._conMirrorSend({
+                  type: 'drawing-add',
+                  drawings: [{
+                    id: d.id,
+                    x: d.x,
+                    y: d.y,
+                    w: d.w,
+                    h: d.h,
+                    points: d.points,
+                    color: d.color,
+                    thickness: d.thickness,
+                    opacity: d.opacity
+                  }]
+                });
+              }
             } else if (livePath) {
               const liveSvg = document.getElementById('con-draw-live-svg');
               if (liveSvg && livePath.parentNode === liveSvg) liveSvg.removeChild(livePath);
@@ -30560,21 +30725,27 @@
             livePoints = [];
             if (window._conMirrorSend) window._conMirrorSend({ type: 'live-path-commit' });
             if (e.pointerType !== 'mouse') _conSetEraserOutlineVisible(false);
-          });
+            _conSyncDrawOverlaySize();
+          }
 
-          drawOverlay.addEventListener('pointercancel', function (e) {
+          function _conDrawPointerCancel(e) {
             if (_drawActivePointerId !== e.pointerId) return;
             _drawActivePointerId = null;
             if (_conDrawEraserMode) {
               _eraserLastPos = null;
+              if (window._conEraserMirrorRaf) {
+                cancelAnimationFrame(window._conEraserMirrorRaf);
+                window._conEraserMirrorRaf = null;
+              }
+              _conFlushEraserMirrorMessages();
               if (_eraserPushedUndo) {
                 _conSplitMultiSubstrokeDrawings();
                 if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
-                if (typeof _mirrorBroadcast === 'function') _mirrorBroadcast({ bumpRevision: true });
                 _eraserPushedUndo = false;
               }
               livePoints = [];
               _conSetEraserOutlineVisible(false);
+              setTimeout(() => { window._conMirrorDragging = false; }, 60);
               return;
             }
             const liveSvg = document.getElementById('con-draw-live-svg');
@@ -30585,7 +30756,12 @@
             _shapeLastPos = null;
             if (window._conMirrorSend) window._conMirrorSend({ type: 'live-path-end' });
             _conSetEraserOutlineVisible(false);
-          });
+          }
+
+          drawOverlay.addEventListener('pointerdown', _conDrawPointerDown);
+          drawOverlay.addEventListener('pointermove', _conDrawPointerMove);
+          drawOverlay.addEventListener('pointerup', _conDrawPointerUp);
+          drawOverlay.addEventListener('pointercancel', _conDrawPointerCancel);
 
           drawOverlay.addEventListener('pointerenter', function (e) {
             _conUpdateEraserOutlineByEvent(e);
@@ -30597,6 +30773,42 @@
 
           drawOverlay.addEventListener('mouseleave', function () {
             _conSetEraserOutlineVisible(false);
+          });
+
+          const brdEl = document.getElementById('constellation-board');
+          if (brdEl) {
+            brdEl.addEventListener('scroll', function () {
+              if (typeof conMode !== 'undefined' && conMode === 'draw') {
+                _conSyncDrawOverlaySize();
+              }
+            }, { passive: true });
+
+            brdEl.addEventListener('pointerdown', function (e) {
+              if (typeof conMode !== 'undefined' && conMode === 'draw') {
+                _conSyncDrawOverlaySize();
+                if (e.target !== drawOverlay && !drawOverlay.contains(e.target)) {
+                  _conDrawPointerDown(e);
+                }
+              }
+            }, true);
+          }
+
+          window.addEventListener('resize', function () {
+            if (typeof conMode !== 'undefined' && conMode === 'draw') {
+              _conSyncDrawOverlaySize();
+            }
+          });
+
+          window.addEventListener('pointermove', function (e) {
+            if (typeof conMode !== 'undefined' && conMode === 'draw' && _drawActivePointerId !== null && _drawActivePointerId === e.pointerId && e.target !== drawOverlay) {
+              _conDrawPointerMove(e);
+            }
+          });
+
+          window.addEventListener('pointerup', function (e) {
+            if (typeof conMode !== 'undefined' && conMode === 'draw' && _drawActivePointerId !== null && _drawActivePointerId === e.pointerId && e.target !== drawOverlay) {
+              _conDrawPointerUp(e);
+            }
           });
 
           // Polygon: click to add points, double-click to close
@@ -42151,6 +42363,7 @@
         window.conRedrawEdges();
         if (window.conUpdatePageBar) window.conUpdatePageBar();
         conScheduleLayoutRefresh();
+        if (typeof window._conSyncDrawOverlaySize === 'function') window._conSyncDrawOverlaySize();
         return;
       }
 
@@ -42419,6 +42632,7 @@
       window.conRedrawEdges();
       if (window.conUpdatePageBar) window.conUpdatePageBar();
       conScheduleLayoutRefresh();
+      if (typeof window._conSyncDrawOverlaySize === 'function') window._conSyncDrawOverlaySize();
 
       // Restore board-level emoji stickers (placed near nodes)
       const _brd = document.getElementById('constellation-board');
@@ -49300,15 +49514,13 @@
     }
 
     function conSelectTextInElement(containerEl, searchText, item) {
-      if (!containerEl) return false;
+      if (!containerEl || (item && item.type === 'node')) return false;
       const q = String(searchText || '').trim();
 
       // Find best target container based on element type
       let targetContainer = containerEl;
       if (item && item.type === 'note') {
         targetContainer = containerEl.querySelector('.wn-note-editor') || containerEl;
-      } else if (item && item.type === 'node') {
-        targetContainer = containerEl.querySelector('.con-node-word-row') || containerEl;
       } else if (item && item.type === 'table') {
         if (item.cellIdx != null) {
           const cells = containerEl.querySelectorAll('.con-table-cell');
@@ -49723,10 +49935,17 @@
             liveEl.classList.remove('con-search-target-pulse');
           }, 2400);
 
-          // Select the searched text within the live element on board
-          setTimeout(() => {
-            conSelectTextInElement(liveEl, searchQuery, item);
-          }, 60);
+          // Select searched text within notes/tables on board; for nodes, never select text
+          if (item && item.type === 'node') {
+            try {
+              const sel = window.getSelection();
+              if (sel) sel.removeAllRanges();
+            } catch (_) {}
+          } else {
+            setTimeout(() => {
+              conSelectTextInElement(liveEl, searchQuery, item);
+            }, 60);
+          }
         }
       };
 
@@ -51990,8 +52209,8 @@
         }
 
         if (d.type === 'live-path-commit') {
-          // Stroke committed: keep the live path element visible until the board-state
-          // snapshot arrives and conDrawingsClear wipes it (replaced by the real drawing).
+          var _lsvCommit = document.getElementById('con-draw-live-svg');
+          if (_lsvCommit) _lsvCommit.innerHTML = '';
           _mirrorLivePath = null;
           return;
         }
@@ -52641,6 +52860,14 @@
             var idx = _liveDrawings2.findIndex(function (dr) { return String(dr.id) === did; });
             if (idx !== -1) _liveDrawings2.splice(idx, 1);
           });
+          if (Array.isArray(d.ids)) {
+            var delSet = new Set(d.ids.map(String));
+            var liveGroups = window.conGetGroups ? window.conGetGroups() : [];
+            liveGroups.forEach(function (g) {
+              if (g.drawingIds) g.drawingIds = g.drawingIds.filter(function (id) { return !delSet.has(String(id)); });
+            });
+            if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
+          }
           return;
         }
 
@@ -52653,6 +52880,92 @@
             if (sEl) sEl.remove();
             var idx = _liveShapes2.findIndex(function (s) { return String(s.id) === sid; });
             if (idx !== -1) _liveShapes2.splice(idx, 1);
+          });
+          if (Array.isArray(d.ids)) {
+            var delShapeSet = new Set(d.ids.map(String));
+            var liveGroups = window.conGetGroups ? window.conGetGroups() : [];
+            liveGroups.forEach(function (g) {
+              if (g.shapeIds) g.shapeIds = g.shapeIds.filter(function (id) { return !delShapeSet.has(String(id)); });
+            });
+            if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
+          }
+          return;
+        }
+
+        if (d.type === 'drawing-add' || d.type === 'drawings-add') {
+          if (_mirrorIsFrozen) return;
+          var _lsvAdd = document.getElementById('con-draw-live-svg');
+          if (_lsvAdd) _lsvAdd.innerHTML = '';
+          _mirrorLivePath = null;
+          var items = Array.isArray(d.drawings) ? d.drawings : (d.drawing ? [d.drawing] : []);
+          var _liveDrawingsAdd = window.conGetDrawings ? window.conGetDrawings() : [];
+          items.forEach(function (drData) {
+            var existing = _liveDrawingsAdd.find(function (dr) { return String(dr.id) === String(drData.id); });
+            if (!existing) {
+              var newDr = {
+                id: drData.id,
+                x: drData.x,
+                y: drData.y,
+                w: drData.w,
+                h: drData.h,
+                points: drData.points,
+                color: drData.color,
+                thickness: drData.thickness,
+                opacity: drData.opacity,
+                el: null, hitPath: null, visPath: null, pad: 0
+              };
+              _liveDrawingsAdd.push(newDr);
+              if (typeof conDrawingBuild === 'function') {
+                conDrawingBuild(newDr);
+              } else if (typeof window.conDrawingBuild === 'function') {
+                window.conDrawingBuild(newDr);
+              }
+            }
+          });
+          if (Array.isArray(d.groupDrawingLinks)) {
+            var _liveGroupsAdd = window.conGetGroups ? window.conGetGroups() : [];
+            d.groupDrawingLinks.forEach(function (link) {
+              var grp = _liveGroupsAdd.find(function (g) { return String(g.id) === String(link.groupId); });
+              if (grp) {
+                if (!grp.drawingIds) grp.drawingIds = [];
+                if (!grp.drawingIds.includes(link.drawingId)) grp.drawingIds.push(link.drawingId);
+              }
+            });
+            if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
+          }
+          return;
+        }
+
+        if (d.type === 'shape-add' || d.type === 'shapes-add') {
+          if (_mirrorIsFrozen) return;
+          var _lsvShape = document.getElementById('con-draw-live-svg');
+          if (_lsvShape) _lsvShape.innerHTML = '';
+          var sItems = Array.isArray(d.shapes) ? d.shapes : (d.shape ? [d.shape] : []);
+          var _liveShapesAdd = window.conGetShapes ? window.conGetShapes() : [];
+          sItems.forEach(function (sData) {
+            var existing = _liveShapesAdd.find(function (s) { return String(s.id) === String(sData.id); });
+            if (!existing) {
+              var newS = {
+                id: sData.id,
+                type: sData.type,
+                x: sData.x, y: sData.y, w: sData.w, h: sData.h,
+                lx1: sData.lx1, ly1: sData.ly1, lx2: sData.lx2, ly2: sData.ly2,
+                pts: sData.pts,
+                color: sData.color,
+                fillColor: sData.fillColor,
+                thickness: sData.thickness,
+                opacity: sData.opacity,
+                dashStyle: sData.dashStyle,
+                arrowheadSize: sData.arrowheadSize,
+                el: null, svgEl: null, hitEl: null, visEl: null, pad: 0
+              };
+              _liveShapesAdd.push(newS);
+              if (typeof conShapeBuild === 'function') {
+                conShapeBuild(newS);
+              } else if (typeof window.conShapeBuild === 'function') {
+                window.conShapeBuild(newS);
+              }
+            }
           });
           return;
         }
