@@ -5944,9 +5944,27 @@ ipcMain.handle('app:print-pdf', async (event, request = {}) => {
     await fs.writeFile(tmpFile, html, 'utf8');
     await win.loadFile(tmpFile);
 
+    // Ensure document.title reflects the requested title or file name
+    const resolvedTitle = (typeof request.title === 'string' && request.title.trim())
+      ? request.title.trim()
+      : (typeof request.defaultName === 'string' && request.defaultName.trim()
+        ? request.defaultName.trim().replace(/\.pdf$/i, '')
+        : '');
+    const explicitTitle = (typeof request.title === 'string' && request.title.trim())
+      ? request.title.trim()
+      : '';
+
     // Wait for layout/images/fonts so printToPDF captures fully rendered pages.
     await win.webContents.executeJavaScript(`
       (async () => {
+        const expTitle = ${JSON.stringify(explicitTitle)};
+        const fbTitle = ${JSON.stringify(resolvedTitle)};
+        if (expTitle) {
+          document.title = expTitle;
+        } else if (fbTitle && (!document.title || document.title.startsWith('cmt-pdf-'))) {
+          document.title = fbTitle;
+        }
+
         const waitMs = (ms) => new Promise(resolve => setTimeout(resolve, ms));
         const imgList = Array.from(document.images || []);
         const pending = imgList
@@ -6176,6 +6194,7 @@ ipcMain.handle('app:get-system-fonts', async () => {
     return [];
   }
 });
+
 
 ipcMain.handle('app:copy-by-path', async (event, request = {}) => {
   const pageFile = getRequestingPage(event);

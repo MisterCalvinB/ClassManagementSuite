@@ -3510,7 +3510,7 @@
         }
       };
 
-      window.lcTagDescriptorToActivePhase = function (descId, targetPhaseIdx) {
+      window.lcTagDescriptorToActivePhase = function (descId, targetPhaseIdx, skipPrompt = false) {
         var phases = currentPlan.sections || [];
         if (phases.length === 0) {
           lcAddPhase();
@@ -3527,6 +3527,17 @@
           renderPhaseCards();
           if (typeof showToast === 'function') showToast('Tagged standard to Phase ' + (pIdx + 1));
           lcOnPlanDirty();
+
+          if (!skipPrompt && typeof CompetenceAggregatorService !== 'undefined' && typeof CompetenceAggregatorService.promptAddLinkedCompetences === 'function') {
+            var compObj = (Array.isArray(allDescriptors) ? allDescriptors.find(function (d) { return d.id === descId || d.code === descId || (d.qualifiedId && d.qualifiedId === descId); }) : null) || { id: descId, code: descId };
+            CompetenceAggregatorService.promptAddLinkedCompetences(compObj, targetPhase.descriptorIds, {
+              onAdd: function (linkedToAdd) {
+                linkedToAdd.forEach(function (lc) {
+                  lcTagDescriptorToActivePhase(lc.id, pIdx, true);
+                });
+              }
+            });
+          }
         }
       };
 
@@ -4462,10 +4473,12 @@
       };
 
       function getSafeExportFilename(ext) {
-        var base = (currentPlan.title || 'lesson_plan').toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+        var rawTitle = String((currentPlan && currentPlan.title) || 'lesson_plan').normalize('NFC');
+        var base = rawTitle.toLowerCase().replace(/[^\p{L}\p{N}\p{M}]+/gu, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
         if (!base) base = 'lesson_plan';
-        var stamp = currentPlan.date ? ('_' + currentPlan.date) : '';
-        return base + stamp + '.' + ext;
+        var stamp = (currentPlan && currentPlan.date) ? ('_' + currentPlan.date) : '';
+        var cleanExt = String(ext || '').replace(/^\.+/, '');
+        return base + stamp + (cleanExt ? ('.' + cleanExt) : '');
       }
 
       function downloadExportBlob(filename, content, mimeType) {
@@ -6269,12 +6282,12 @@
           return;
         }
         var fmt = document.getElementById('copyTextFormatSelect') ? document.getElementById('copyTextFormatSelect').value : 'markdown';
-        var ext = (fmt === 'markdown') ? '.md' : '.txt';
+        var ext = (fmt === 'markdown') ? 'md' : 'txt';
         var mime = (fmt === 'markdown') ? 'text/markdown;charset=utf-8' : 'text/plain;charset=utf-8';
         var blob = new Blob([text], { type: mime });
         var a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = (currentPlan.title || 'lesson_plan').toLowerCase().replace(/[^a-z0-9]/g, '_') + ext;
+        a.download = getSafeExportFilename(ext);
         a.click();
       };
 

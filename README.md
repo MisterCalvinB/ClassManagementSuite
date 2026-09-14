@@ -245,6 +245,16 @@ Seating arrangements created in [Class Plan](#class-planhtml) are written to `us
 
 ---
 
+### Cross-Database Competence Linking: Automatic Multi-Tool Pairing
+
+Curriculum competences can be linked across distinct databases (e.g. mapping National Curriculum codes to CEFR descriptors or Grammar objectives) in [Manage Database](#manage-databasehtml):
+- **Bidirectional Link Registry**: Stored safely in `user/custom-data/competence-links.json` with qualified keys (`dbFile::id`), ensuring zero collisions between different curriculum sets.
+- **Smart Prompts in Grade Sheet, Board & Lesson Creator**: When a teacher selects or tags a competence in [Grade Sheet](#grade-sheethtml), [Board](#boardhtml), or [Lesson Creator](#lesson-creatorhtml), a Neobrutalist prompt automatically offers to attach linked companion competences from other databases with 1 click.
+- **Auto-Add Preference**: Teachers can toggle *"Don't ask again this session (auto-add linked)"* to automatically link paired standards without interruptions.
+- **Portfolio Navigation**: [Competence Portfolio](#competence-portfoliohtml) renders clickable linked competence badges in the detail modal, allowing seamless navigation across related standards and curricula.
+
+---
+
 ### Lesson Creator ↔ Board: Interactive Mindmap Export & Merging
 
 Export structured lesson phases, objectives, and pedagogical steps directly into an interactive [Board](#boardhtml) mindmap canvas session (`.cstz`). You can generate a fresh session or non-destructively append the lesson phase cluster into an existing whiteboard constellation.
@@ -525,23 +535,30 @@ Active classroom control panel for student scoring, timers, class working modes,
 Infinite-canvas mind-mapping tool for vocabulary, draw overlays, sound nodes, and live lesson projection.
 
 #### Features
-- **Mind-Map Canvas**: Draggable nodes, synonym/antonym connections, Wiktionary definition fetching, shape formatting, and color preset swatches.
+- **Mind-Map Canvas**: Draggable nodes, synonym/antonym connections, Wiktionary definition fetching, shape formatting, and color preset swatches. Includes quick creation shorthands: `,,` for separate words, `_` for phrases, `//` for two lines, `++` for automatic group clustering (leaving single `+` available for literal text), and `--` / `>` / `<` / `<>` for links and directional arrows.
 - **Zipped Archive Storage (`.cstz`)**: Saves all canvas data, multi-page layouts, version histories, and embedded media assets into a single portable `.cstz` archive in `user/mindmaps/`. Media assets are stored uncompressed for fast, spike-free saves.
-- **Autosave & Dirty-State Tracking**: Background autosave with configurable intervals and dirty tracking.
+- **Autosave & Dirty-State Tracking**: Background autosave with configurable intervals and dirty tracking (uses fast cached snapshots for zero lag). Manual saves (`Ctrl+S` / Save button) explicitly rebuild fresh high-fidelity visual snapshots for all pages and persist them into the archive.
 - **Floating Live Timer**: Draggable and resizable presentation timer widget embedded directly in Board, synced live from [Class Management](#class-managementhtml).
-- **Custom Keyboard Shortcuts**: Configurable keyboard shortcut mapping within Board.
+- **Custom Keyboard Shortcuts**: Configurable keyboard shortcut mapping within Board, including dedicated shortcuts for modes: Text/Move (`Ctrl+W`), Drawing Pen (`Ctrl+D`), and Hand/Pan Tool (`H`).
 - **Node Styling & Visuals**:
+  - **Node Rotation**: Rotate word nodes by quick preset angles (**0°**, **90°**, **180°**, **270°**) or enter any custom angle (**0–360°**) directly from the node context menu. Supports batch rotation across all multi-selected nodes simultaneously (via context menu or the quick `↻ 90°` action button), with rotated bounding box integration in group containers, dynamic edge boundary clipping, and live mirror synchronization to secondary presentation displays.
+  - **Wholly Visible Context Menus**: All board context menus (nodes, word notes, edges, groups, canvas, and drawing/media popups) are strictly clamped within the viewport and scrollable vertically if needed, ensuring they remain 100% visible on any display size or zoom level without cutting off.
   - **Fit Text**: One-click node boundary auto-fitting (`fit-text.svg`).
   - **Note Word Count**: Right-click context menu option and live word & character counter for notes (`sentence.svg`), supporting selection details and multi-note aggregation.
+  - **Note Splitting & Conversion**: Split a sticky note at the cursor into two stacked notes with the initial note's height automatically reduced to the split point, or convert note text into word nodes via a Neobrutalist options modal (by whole note, lines, sentences, or words).
+  - **Word / Node Splitting**: Split a multi-word or single-word node via the context menu button into separate nodes: choose **Split by space** to break phrases into individual words, or **Split by letter** to decompose text into individual letter nodes (whitespace stripped). Supports single-node execution as well as batch-splitting across all multi-selected nodes.
   - **Blink / Pulse**: Animated pulsing highlight for active discussion nodes and free-floating notes (`blink.svg`), phase-synced in presentation view.
   - **Rich Hyperlinks**: Direct hyperlinks to web URLs, local files, or Planner lessons.
+- **Compact Drawing & Annotation Mode**: Freehand annotations, shape drawing (rectangle, circle, diamond, line, arrow, polygon), and canvas panning organized into 5 compact Neobrutalist dropdowns (**Presets**, **Shapes**, **Colour**, **Line**, and **Eraser**). Features both **Partial** stroke erasing (excising intersected stroke segments in real-time with continuous interpolation and automatic splitting of severed strokes) and **Stroke** erasing (instant deletion upon touching any stroke segment or shape), with an adjustable radius slider and integrated **Hand** mode (shortcut: `H`) for effortless board panning and repositioning.
 - **Voice Recordings**: Record microphone audio directly and attach sound nodes to the board with built-in audio trimming (`✂ Trim`), bundled seamlessly into the `.cstz` package.
 - **High-Resolution PNG Snapshots**: One-click PNG snapshot capture with clean framing and metadata.
 - **Table Support**: Copy/paste HTML or TSV spreadsheet tables directly onto the canvas as draggable, resizable board elements.
-- **Board Search & Section Preview (`Ctrl+F`)**: Search across all nodes, notes, table cells, and group titles on the active page or across all pages. Features a split-pane modal with element type filtering, live match highlights, an embedded visual canvas cropped section viewer, a "Jump to on Board" action that smoothly centers and pulses the found item on the board, and an **"Open in New Window"** button (or <kbd>Ctrl+Enter</kbd>) to open the searched item's page in a dedicated, purely read-only teacher window displaying a crisp high-resolution WebP page snapshot with click-to-zoom, clipboard copy, and print/PDF export—completely isolated from and without disrupting or replacing secondary mirrored presentation displays.
+- **Board Search & Teacher View Preview (`Ctrl+F`)**: Search across all nodes, notes, table cells, and group titles on the active page or across all pages. Features a split-pane modal with element type filtering, live match highlights with smart centered excerpts, a "Jump to on Board" action (via toolbar button, double-click, Enter, or card jump icon) that smoothly centers, pulses, and selects both the board element and the searched text range within the element, and an **"Open in New Window"** button (or <kbd>Ctrl+Enter</kbd>) to open the searched item's page in a dedicated, purely read-only teacher window displaying a crisp high-resolution WebP page snapshot with click-to-zoom, clipboard copy, and print/PDF export—completely isolated from and without disrupting or replacing secondary mirrored presentation displays.
 - **Page Thumbnails & Context Menu**: Right-click any page thumbnail in the bottom toolbar mini-strip or the full Pages Drawer to open a Neobrutalist context menu: choose **Open image in new window** to inspect the page's WebP snapshot in an independent read-only window on the teacher's monitor, or quickly duplicate or delete pages.
 - **Student Input Note (beta)**: Allows students to submit short text notes from their smartphones directly onto the board canvas via QR code or URL.
+- **Advanced Node Linking & Connection Context Menu**: Right-click (or double-click) any link or arrow to open the enhanced Neobrutalist link menu. Features a multi-row wrapping colour palette, opacity slider (applied exclusively to the line and arrows while keeping labels 100% legible), stroke types (**Solid**, **Dashes**, **Dots**, **Double Line** with single clean arrowhead, **Wavy** cubic Bézier sine waves), routing modes (**Straight**, **Curved** with interactive midpoint arc bend handle, **Step** right-angle orthogonal routing), direction switcher (**None**, **Forward**, **Backward**, **Both**), compact custom terminators (**Arrow**, **Chevron**, **Dot/Circle**, **Diamond**), animated marching-ants flow for dashed/dotted lines, label pill background badges, quick relationship presets (*is a*, *causes*, *part of*, *leads to*, *synonym*, *example*), and magnetic docking anchors (North, South, East, West ports) with endpoint reconnect handles. Commits on close or outside click and cancels on <kbd>Escape</kbd>.
 - **Premade Library & Reusable Snippets**: Built-in library modal for reusable widgets, templates, callouts, and custom user-saved board snippets, persistently stored in `user/board-library.json` with cross-window live sync.
+- **Responsive Canvas & Freedom of Movement**: Full unconstrained drag-and-drop movement across the open board canvas without artificial viewport-clamping, ensuring nodes placed on larger displays remain smoothly draggable, editable, and movable without getting stuck when the application window or screen is resized.
 
 <details>
 <summary><strong>Default Keyboard Shortcuts</strong></summary>
@@ -594,7 +611,10 @@ Grade and assessment tracking spreadsheet supporting custom evaluation criteria,
 
 #### Features
 - **Class Summary & Test Sheets**: Track student grades across test slots (T1–T8). Auto-calculate averages based on weighted coefficients or fixed percentages.
-- **Drag & Drop Test Reordering**: Easily reorder tests (T1, T2, etc.) directly in the **All Tests** panel via drag-and-drop.
+- **Drag & Drop Test Reordering, Duplication & Cross-Class Copying**: In the **All Tests** panel, drag and drop test chips:
+  - Drag to the left/right edges of a chip in the same class to freely reorder tests (T1, T2, etc.).
+  - Drag directly onto another test (center of same class test or onto a test in another class) to open the Duplicate Test modal pre-filled with source and destination tests and choose which elements (name, date, grading criteria, scale, weighting) to duplicate.
+  - Drag onto an empty `+ New Test` slot (or empty row area) of any class to instantly create a new test copying the full test configuration.
 - **Custom Display Names**: Displays student names according to the configured format or nicknames.
 - **Reference Data Editor**: Customize evaluation criteria descriptors (`user/correction-criteria.js`) and grading scale thresholds (`user/grade-scale-models.js`).
 - **Import Participation Grades**: One-click import prompt when provisional grades are exported from Participation Tracker.
@@ -685,11 +705,12 @@ Multi-format desktop document editor and typesetting suite supporting **Typst (`
   - Native vector PDF compilation directly from the Typst compiler for crisp, high-resolution printable handouts and exam papers.
 - **Markdown & KaTeX (`.md`)**: Full GFM markdown support with LaTeX maths rendering (`$inline$` and `$$display$$`), checklists, and table formatting.
 - **HTML & Custom CSS (`.html`)**: Semantic HTML markup with inline stylesheets, custom layout rules, and print-ready page breaks.
+- **Live Preview-to-Code & CSS Inspector**: Click any element in the live preview (headings, paragraphs, inline formatting, tables, images, math formulas) to immediately locate and highlight its source code in Monaco, and automatically open and highlight matching stylesheet rules in the CSS Editor panel. Also pre-fills the Quick Rule selector for rapid styling.
 - **Interactive Syntax & Format Guide**: Built-in modal (`Syntax` button in nav bar) featuring real-time search, topic category filters (`Setup & Page`, `Math & Formulas`, `Tables & Grids`, `Exams & Quizzes`, `Layout & Callouts`), instant `Copy` buttons, and one-click `+ Insert` snippet insertion into Monaco at cursor.
 - **Mailposting Batch Generation**: Connects class rosters (`class-groups.js`) to dynamic document templates with student placeholders (`{{student.fullName}}`, `{{student.id}}`, `{{class.name}}`, `{{datetime.today}}`). Exports single merged or separate individual PDFs for each student.
 - **Book Text Import**: Browse and extract text passages directly from `custom-data/books/` (`.epub`, `.html`, `.txt`) into active documents.
 - **Presentation Mode**: Broadcasts clean, live-rendered vector SVGs or HTML previews to secondary display monitors or classroom beamers.
-- **Export Options**: Export to native vector PDF, DOCX, or HTML.
+- **Export Options**: Export to native vector PDF, DOCX, or HTML with automatic document metadata and PDF title reflection matching the actual file title.
 
 ---
 

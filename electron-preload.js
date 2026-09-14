@@ -1,14 +1,12 @@
 let contextBridge = null;
 let ipcRenderer = null;
 let webFrame = null;
-let clipboard = null;
 
 try {
   const electronApi = require('electron') || {};
   contextBridge = electronApi.contextBridge || null;
   ipcRenderer = electronApi.ipcRenderer || null;
   webFrame = electronApi.webFrame || null;
-  clipboard = electronApi.clipboard || null;
 } catch (error) {
   // Keep preload alive so renderer can still boot even if Electron internals fail.
   console.error('Failed to initialize Electron preload bridge:', error);
@@ -401,39 +399,17 @@ const exposedApi = {
   deleteBakFiles(request)     { return invoke('app:delete-bak-files', request); },
   restoreBakFile(request)     { return invoke('app:restore-bak-file', request); },
 
-  // ── Clipboard (Desktop native) ──────────────────────────────────────────────
+  // ── Clipboard (Desktop native via IPC) ──────────────────────────────────────
   clipboardReadText() {
-    if (clipboard && typeof clipboard.readText === 'function') {
-      try {
-        return clipboard.readText();
-      } catch (e) {}
-    }
     return invoke('app:clipboard-read-text');
   },
   clipboardReadHtml() {
-    if (clipboard && typeof clipboard.readHTML === 'function') {
-      try {
-        return clipboard.readHTML();
-      } catch (e) {}
-    }
     return invoke('app:clipboard-read-html');
   },
   clipboardReadImage() {
-    if (clipboard && typeof clipboard.readImage === 'function') {
-      try {
-        const img = clipboard.readImage();
-        if (img && !img.isEmpty()) return img.toDataURL();
-      } catch (e) {}
-    }
     return invoke('app:clipboard-read-image');
   },
   clipboardWriteText(text) {
-    if (clipboard && typeof clipboard.writeText === 'function') {
-      try {
-        clipboard.writeText(String(text || ''));
-        return true;
-      } catch (e) {}
-    }
     return invoke('app:clipboard-write-text', text);
   },
 };

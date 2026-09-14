@@ -140,7 +140,15 @@
     async compileToPdf(sourceCode, options = {}) {
       await this.init(options.basePath);
       
-      _compiler.addSource('/main.typ', sourceCode);
+      let code = sourceCode;
+      if (options && typeof options.title === 'string' && options.title.trim()) {
+        const cleanTitle = options.title.trim();
+        if (!/^\s*#set\s+document\s*\(\s*title\s*:/m.test(code)) {
+          code = `#set document(title: ${JSON.stringify(cleanTitle)})\n` + code;
+        }
+      }
+
+      _compiler.addSource('/main.typ', code);
       const artifact = await _compiler.compile({
         mainFilePath: '/main.typ',
         format: 1 // PDF format enum

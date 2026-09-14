@@ -223,6 +223,13 @@
       <div class="cp-modal-body">
         <div id="modal-comp-desc" style="font-size:0.88rem;color:var(--ink-secondary);line-height:1.45;background:var(--bg-subtle);padding:10px 14px;border-radius:6px;border:1px solid var(--border);"></div>
         
+        <div id="modal-linked-section" style="margin-top:10px;display:none;">
+          <div style="font-size:0.82rem;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;color:var(--muted);margin-bottom:6px;" data-i18n="portfolioLinkedCompetencesTitle">
+            Linked Competences
+          </div>
+          <div id="modal-linked-list" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+        </div>
+
         <div style="font-size:0.85rem;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;color:var(--muted);margin-top:6px;" data-i18n="cpHistoryTitle">
           Activity & Assessment History
         </div>
@@ -684,6 +691,31 @@
       document.getElementById('modal-comp-title').textContent = c.title;
       document.getElementById('modal-comp-desc').textContent = c.description || (c.category ? `Domain: ${c.category}` : 'No description available.');
 
+      // Query cross-database linked competences
+      const linkedSection = document.getElementById('modal-linked-section');
+      const linkedList = document.getElementById('modal-linked-list');
+      if (linkedSection && linkedList) {
+        linkedList.innerHTML = '';
+        linkedSection.style.display = 'none';
+        if (typeof CompetenceAggregatorService !== 'undefined') {
+          CompetenceAggregatorService.getLinkedCompetences(c.id || c.qualifiedId || c.code).then(linked => {
+            if (linked && linked.length) {
+              linkedSection.style.display = 'block';
+              linkedList.innerHTML = linked.map(lc => {
+                const dbBadge = lc._sourceDb ? `<span style="font-size:0.68rem;background:#e2e8f0;color:#334155;border-radius:3px;padding:1px 5px;margin-left:4px;border:1px solid #cbd5e1;">${cpEscapeHtml(lc._sourceDb)}</span>` : '';
+                return `
+                  <button type="button" class="cp-btn" style="padding:4px 8px;font-size:0.75rem;display:inline-flex;align-items:center;gap:4px;cursor:pointer;" onclick="cpJumpToLinkedCompetence('${cpEscapeHtml(lc.id)}')">
+                    <strong>${cpEscapeHtml(lc.code || lc.id)}</strong>
+                    ${dbBadge}
+                    ${lc.title && lc.title !== lc.code ? `<span style="color:#64748b;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${cpEscapeHtml(lc.title)}</span>` : ''}
+                  </button>
+                `;
+              }).join('');
+            }
+          });
+        }
+      }
+
       const histList = document.getElementById('modal-history-list');
       histList.innerHTML = '';
 
@@ -726,6 +758,28 @@
 
     function cpCloseDetailModal() {
       document.getElementById('cp-detail-modal').style.display = 'none';
+    }
+
+    function cpJumpToLinkedCompetence(targetId) {
+      if (!_activePortfolio || !_activePortfolio.categories) return;
+      const tNorm = String(targetId).toLowerCase();
+      let foundItem = null;
+      for (const cat of Object.values(_activePortfolio.categories)) {
+        foundItem = cat.find(it => {
+          const comp = it.competence;
+          return (comp.id && comp.id.toLowerCase() === tNorm) ||
+                 (comp.qualifiedId && comp.qualifiedId.toLowerCase() === tNorm) ||
+                 (comp.code && comp.code.toLowerCase() === tNorm);
+        });
+        if (foundItem) break;
+      }
+      if (foundItem) {
+        cpOpenDetailModal(foundItem);
+      } else {
+        if (typeof showToast === 'function') {
+          showToast('Linked competence belongs to another curriculum or domain.');
+        }
+      }
     }
 
     // ── Cross-App Jump Helpers ─────────────────────────────────────────

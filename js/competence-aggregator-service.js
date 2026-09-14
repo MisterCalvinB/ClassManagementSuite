@@ -55,7 +55,7 @@
   }
 
   // ── Standardize Competence Item ────────────────────────────────────
-  function normalizeCompetence(item) {
+  function normalizeCompetence(item, sourceDb = '') {
     if (!item || typeof item !== 'object') return null;
     const id = String(item.id || item.code || item.title || '').trim();
     if (!id) return null;
@@ -70,9 +70,18 @@
     const tags = Array.isArray(item.tags)
       ? item.tags
       : (item.tags ? String(item.tags).split(',').map(s => s.trim()).filter(Boolean) : []);
+    const linkedCompetenceIds = Array.isArray(item.linkedCompetenceIds)
+      ? item.linkedCompetenceIds.map(s => String(s).trim()).filter(Boolean)
+      : (typeof item.linkedCompetenceIds === 'string'
+        ? item.linkedCompetenceIds.split(',').map(s => s.trim()).filter(Boolean)
+        : []);
+    const _sourceDb = String(item._sourceDb || sourceDb || '').trim();
+    const qualifiedId = _sourceDb ? `${_sourceDb}::${id}` : id;
 
     return {
       id,
+      qualifiedId,
+      _sourceDb,
       code,
       title,
       category,
@@ -81,7 +90,8 @@
       level,
       yearLevel,
       description,
-      tags
+      tags,
+      linkedCompetenceIds
     };
   }
 
@@ -97,16 +107,18 @@
     _loadingPromise = (async () => {
       const compMap = new Map();
 
-      function ingest(rawArr) {
+      function ingest(rawArr, sourceDb = '') {
         if (!Array.isArray(rawArr)) return;
         for (const r of rawArr) {
-          const c = normalizeCompetence(r);
+          const c = normalizeCompetence(r, sourceDb);
           if (!c) continue;
           if (!compMap.has(c.id)) {
             compMap.set(c.id, c);
           } else {
             // merge non-empty attributes
             const ex = compMap.get(c.id);
+            if (!ex._sourceDb && c._sourceDb) ex._sourceDb = c._sourceDb;
+            if ((!ex.qualifiedId || ex.qualifiedId === ex.id) && c.qualifiedId) ex.qualifiedId = c.qualifiedId;
             if (!ex.code && c.code) ex.code = c.code;
             if (!ex.title && c.title) ex.title = c.title;
             if (!ex.category && c.category) ex.category = c.category;
@@ -116,6 +128,10 @@
             if (!ex.yearLevel && c.yearLevel) ex.yearLevel = c.yearLevel;
             if (!ex.description && c.description) ex.description = c.description;
             if (c.tags.length && !ex.tags.length) ex.tags = c.tags;
+            if (Array.isArray(c.linkedCompetenceIds) && c.linkedCompetenceIds.length) {
+              const merged = new Set([...(ex.linkedCompetenceIds || []), ...c.linkedCompetenceIds]);
+              ex.linkedCompetenceIds = Array.from(merged);
+            }
           }
         }
       }
@@ -127,9 +143,9 @@
           const flist = Array.isArray(res) ? res : ((res && Array.isArray(res.files)) ? res.files : []);
           for (const item of flist) {
             const fn = typeof item === 'string' ? item : (item && item.filename);
-            if (!fn) continue;
+            if (!fn || fn === 'competence-links.json') continue;
             const r = await window.Desktop.readText('customCompetences', fn);
-            if (r && r.ok && r.content) ingest(parseCompetenceFileContent(r.content));
+            if (r && r.ok && r.content) ingest(parseCompetenceFileContent(r.content), fn);
           }
         } catch (_) {}
 
@@ -138,17 +154,18 @@
           const flist = Array.isArray(res) ? res : ((res && Array.isArray(res.files)) ? res.files : []);
           for (const item of flist) {
             const fn = typeof item === 'string' ? item : (item && item.filename);
-            if (!fn) continue;
+            if (!fn || fn === 'competence-links.json') continue;
             const r = await window.Desktop.readText('customDescriptors', fn);
-            if (r && r.ok && r.content) ingest(parseCompetenceFileContent(r.content));
+            if (r && r.ok && r.content) ingest(parseCompetenceFileContent(r.content), fn);
           }
         } catch (_) {}
 
         // Root files: lesson-competences.json / lesson-descriptors.json
         try {
           let r = await window.Desktop.readText('user', 'lesson-competences.json');
-          if (!r || !r.ok) r = await window.Desktop.readText('user', 'lesson-descriptors.json');
-          if (r && r.ok && r.content) ingest(parseCompetenceFileContent(r.content));
+          if (r && r.ok && r.content) ingest(parseCompetenceFileContent(r.content), 'lesson-competences.json');
+          let r2 = await window.Desktop.readText('user', 'lesson-descriptors.json');
+          if (r2 && r2.ok && r2.content) ingest(parseCompetenceFileContent(r2.content), 'lesson-descriptors.json');
         } catch (_) {}
       }
 
@@ -158,7 +175,7 @@
           const stored = localStorage.getItem('cmt-lesson-competences') || localStorage.getItem('cmt-lesson-descriptors');
           if (stored) {
             const p = JSON.parse(stored);
-            if (Array.isArray(p)) ingest(p);
+            if (Array.isArray(p)) ingest(p, 'localStorage');
           }
         } catch (_) {}
       }
@@ -170,6 +187,413 @@
     const result = await _loadingPromise;
     _loadingPromise = null;
     return result;
+  }
+
+  // ── Competence Cross-Database Links Registry ────────────────────────
+  let _cachedLinks = null;
+  let _linksLoadingPromise = null;
+
+  async function loadCompetenceLinks(forceReload = false) {
+    if (_cachedLinks && !forceReload) return _cachedLinks;
+    if (_linksLoadingPromise && !forceReload) return _linksLoadingPromise;
+
+    _linksLoadingPromise = (async () => {
+      let rawContent = null;
+      if (typeof window !== 'undefined' && window.Desktop && typeof window.Desktop.readText === 'function') {
+        try {
+          let r = await window.Desktop.readText('customCompetences', 'competence-links.json');
+          if (!r || !r.ok) r = await window.Desktop.readText('user', 'competence-links.json');
+          if (r && r.ok && r.content) rawContent = r.content;
+        } catch (_) {}
+      }
+      if (!rawContent && typeof localStorage !== 'undefined') {
+        try {
+          rawContent = localStorage.getItem('cmt-competence-links');
+        } catch (_) {}
+      }
+
+      let parsedLinks = [];
+      if (rawContent) {
+        try {
+          const parsed = JSON.parse(rawContent);
+          if (Array.isArray(parsed)) parsedLinks = parsed;
+          else if (parsed && Array.isArray(parsed.links)) parsedLinks = parsed.links;
+        } catch (err) {
+          console.warn('Failed to parse competence-links.json:', err);
+        }
+      }
+
+      // Ingest any inline linkedCompetenceIds from loaded competences
+      const allComps = await loadAllCompetences();
+      const existingKeySet = new Set(parsedLinks.map(l => `${String(l.source).trim().toLowerCase()}:::${String(l.target).trim().toLowerCase()}`));
+
+      allComps.forEach(comp => {
+        if (Array.isArray(comp.linkedCompetenceIds)) {
+          const sourceKey = comp.qualifiedId || comp.id;
+          comp.linkedCompetenceIds.forEach(targetId => {
+            const sNorm = String(sourceKey).trim().toLowerCase();
+            const tNorm = String(targetId).trim().toLowerCase();
+            const keyForward = `${sNorm}:::${tNorm}`;
+            const keyReverse = `${tNorm}:::${sNorm}`;
+            if (!existingKeySet.has(keyForward) && !existingKeySet.has(keyReverse)) {
+              parsedLinks.push({
+                source: sourceKey,
+                target: targetId,
+                relation: 'related'
+              });
+              existingKeySet.add(keyForward);
+            }
+          });
+        }
+      });
+
+      _cachedLinks = parsedLinks;
+      return _cachedLinks;
+    })();
+
+    const res = await _linksLoadingPromise;
+    _linksLoadingPromise = null;
+    return res;
+  }
+
+  async function saveCompetenceLinks(links) {
+    _cachedLinks = Array.isArray(links) ? links : [];
+    const payload = JSON.stringify({ version: 1, updated: new Date().toISOString(), links: _cachedLinks }, null, 2);
+    let saved = false;
+
+    if (typeof window !== 'undefined' && window.Desktop && typeof window.Desktop.saveText === 'function') {
+      try {
+        const res = await window.Desktop.saveText('customCompetences', 'competence-links.json', payload);
+        if (res && res.ok) saved = true;
+      } catch (_) {}
+      if (!saved) {
+        try {
+          const res2 = await window.Desktop.saveText('user', 'competence-links.json', payload);
+          if (res2 && res2.ok) saved = true;
+        } catch (_) {}
+      }
+    }
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem('cmt-competence-links', payload);
+        saved = true;
+      } catch (_) {}
+    }
+    return saved;
+  }
+
+  async function getLinkedCompetences(compIdOrCode) {
+    if (!compIdOrCode) return [];
+    const norm = String(compIdOrCode).trim().toLowerCase();
+    const allComps = await loadAllCompetences();
+    const links = await loadCompetenceLinks();
+
+    // Find the competence matching compIdOrCode
+    const comp = allComps.find(c =>
+      (c.id && String(c.id).trim().toLowerCase() === norm) ||
+      (c.qualifiedId && String(c.qualifiedId).trim().toLowerCase() === norm) ||
+      (c.code && String(c.code).trim().toLowerCase() === norm)
+    );
+
+    const matchKeys = new Set([norm]);
+    if (comp) {
+      if (comp.id) matchKeys.add(String(comp.id).trim().toLowerCase());
+      if (comp.qualifiedId) matchKeys.add(String(comp.qualifiedId).trim().toLowerCase());
+      if (comp.code) matchKeys.add(String(comp.code).trim().toLowerCase());
+    }
+
+    const linkedTargetIds = new Set();
+    links.forEach(l => {
+      const s = String(l.source || '').trim().toLowerCase();
+      const t = String(l.target || '').trim().toLowerCase();
+      if (matchKeys.has(s) && !matchKeys.has(t)) {
+        linkedTargetIds.add(String(l.target || '').trim());
+      } else if (matchKeys.has(t) && !matchKeys.has(s)) {
+        linkedTargetIds.add(String(l.source || '').trim());
+      }
+    });
+
+    const result = [];
+    const seenResultIds = new Set();
+    if (comp && comp.id) seenResultIds.add(comp.id);
+    if (comp && comp.qualifiedId) seenResultIds.add(comp.qualifiedId);
+
+    linkedTargetIds.forEach(targetId => {
+      const tNorm = targetId.toLowerCase();
+      const found = allComps.find(c =>
+        (c.qualifiedId && c.qualifiedId.toLowerCase() === tNorm) ||
+        (c.id && c.id.toLowerCase() === tNorm) ||
+        (c.code && c.code.toLowerCase() === tNorm)
+      );
+      if (found && !seenResultIds.has(found.id)) {
+        seenResultIds.add(found.id);
+        result.push(found);
+      } else if (!found && !seenResultIds.has(targetId)) {
+        seenResultIds.add(targetId);
+        result.push({
+          id: targetId,
+          code: targetId.includes('::') ? targetId.split('::')[1] : targetId,
+          title: targetId,
+          _sourceDb: targetId.includes('::') ? targetId.split('::')[0] : '',
+          category: 'External'
+        });
+      }
+    });
+
+    return result;
+  }
+
+  async function addCompetenceLink(idA, idB, relation = 'related') {
+    if (!idA || !idB || idA === idB) return false;
+    const links = await loadCompetenceLinks();
+    const sNorm = String(idA).trim();
+    const tNorm = String(idB).trim();
+    const exists = links.some(l => {
+      const s = String(l.source).trim();
+      const t = String(l.target).trim();
+      return (s === sNorm && t === tNorm) || (s === tNorm && t === sNorm);
+    });
+    if (!exists) {
+      links.push({ source: sNorm, target: tNorm, relation });
+      await saveCompetenceLinks(links);
+    }
+    return true;
+  }
+
+  async function removeCompetenceLink(idA, idB) {
+    if (!idA || !idB) return false;
+    const links = await loadCompetenceLinks();
+    const sNorm = String(idA).trim().toLowerCase();
+    const tNorm = String(idB).trim().toLowerCase();
+    const filtered = links.filter(l => {
+      const ls = String(l.source || '').trim().toLowerCase();
+      const lt = String(l.target || '').trim().toLowerCase();
+      return !((ls === sNorm && lt === tNorm) || (ls === tNorm && lt === sNorm));
+    });
+    if (filtered.length !== links.length) {
+      await saveCompetenceLinks(filtered);
+      return true;
+    }
+    return false;
+  }
+
+  // ── Neobrutalist Linked Competences Prompt Modal ──────────────────────
+  let _linkedPromptInjected = false;
+  function _ensureLinkedPromptStyles() {
+    if (_linkedPromptInjected) return;
+    _linkedPromptInjected = true;
+    const style = document.createElement('style');
+    style.id = 'cmt-linked-prompt-styles';
+    style.textContent = `
+      .cmt-linked-overlay {
+        position: fixed; inset: 0; background: rgba(0, 0, 0, 0.55);
+        z-index: 100085; display: flex; align-items: center; justify-content: center;
+        padding: 16px; box-sizing: border-box;
+      }
+      .cmt-linked-modal {
+        background: #fff; border: 3px solid #000; border-radius: 8px;
+        box-shadow: 6px 6px 0px #000; width: min(520px, 95vw);
+        max-height: 85vh; display: flex; flex-direction: column; overflow: hidden;
+        font-family: inherit; color: #111;
+      }
+      .cmt-linked-hd {
+        background: #ffe600; padding: 12px 18px; border-bottom: 3px solid #000;
+        display: flex; align-items: center; gap: 10px; font-weight: 900; font-size: 1.05rem;
+      }
+      .cmt-linked-hd img { width: 20px; height: 20px; }
+      .cmt-linked-bd {
+        padding: 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px;
+      }
+      .cmt-linked-card {
+        border: 2px solid #000; border-radius: 6px; padding: 10px 12px;
+        background: #f8fafc; box-shadow: 2px 2px 0px #000; display: flex;
+        align-items: flex-start; gap: 10px; cursor: pointer; transition: background 0.15s;
+      }
+      .cmt-linked-card:hover { background: #eff6ff; }
+      .cmt-linked-card.selected { background: #e0f2fe; border-color: #0284c7; }
+      .cmt-linked-badge-code {
+        background: #0284c7; color: #fff; border-radius: 4px; padding: 2px 6px;
+        font-size: 0.75rem; font-weight: 800; border: 1.5px solid #000;
+      }
+      .cmt-linked-badge-db {
+        background: #f1f5f9; color: #334155; border-radius: 4px; padding: 2px 6px;
+        font-size: 0.72rem; font-weight: 700; border: 1px solid #cbd5e1;
+      }
+      .cmt-linked-dont-ask {
+        display: flex; align-items: center; gap: 8px; font-size: 0.8rem;
+        color: #475569; font-weight: 600; cursor: pointer; margin-top: 4px;
+        user-select: none;
+      }
+      .cmt-linked-ft {
+        padding: 12px 18px; border-top: 2px solid #000; background: #f8fafc;
+        display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap;
+      }
+      .cmt-linked-btn {
+        padding: 8px 16px; border: 2px solid #000; border-radius: 6px;
+        font-weight: 800; font-size: 0.85rem; cursor: pointer; font-family: inherit;
+        box-shadow: 2px 2px 0px #000; transition: transform 0.1s, box-shadow 0.1s;
+      }
+      .cmt-linked-btn:hover {
+        transform: translate(-1px, -1px); box-shadow: 3px 3px 0px #000;
+      }
+      .cmt-linked-btn:active {
+        transform: translate(1px, 1px); box-shadow: 1px 1px 0px #000;
+      }
+      .cmt-linked-btn-primary { background: #ffe600; color: #000; }
+      .cmt-linked-btn-secondary { background: #fff; color: #000; }
+    `;
+    document.head.appendChild(style);
+  }
+
+  async function promptAddLinkedCompetences(targetComp, currentSelectedIds, options = {}) {
+    if (!targetComp) return false;
+    const linked = await getLinkedCompetences(targetComp.id || targetComp.qualifiedId || targetComp.code);
+    if (!linked || !linked.length) return false;
+
+    // Filter to only those not already selected/tagged
+    const selectedSet = new Set(
+      Array.isArray(currentSelectedIds)
+        ? currentSelectedIds.map(s => String(s).trim().toLowerCase())
+        : (currentSelectedIds instanceof Set ? Array.from(currentSelectedIds).map(s => String(s).trim().toLowerCase()) : [])
+    );
+
+    const unselectedLinks = linked.filter(l => {
+      const id = String(l.id || '').trim().toLowerCase();
+      const code = String(l.code || '').trim().toLowerCase();
+      const qid = String(l.qualifiedId || '').trim().toLowerCase();
+      return !selectedSet.has(id) && !selectedSet.has(code) && !selectedSet.has(qid);
+    });
+
+    if (!unselectedLinks.length) return false;
+
+    // Check session preference: "auto-add linked competences"
+    const autoAddSession = (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('cmt_auto_add_linked_competences') === '1');
+    if (autoAddSession) {
+      if (typeof options.onAdd === 'function') {
+        options.onAdd(unselectedLinks);
+      }
+      if (typeof window !== 'undefined' && typeof window.showToast === 'function') {
+        const tFn = (typeof window.t === 'function') ? window.t : ((k, d) => d);
+        const sourceName = targetComp.code || targetComp.title || 'selected';
+        const codes = unselectedLinks.map(c => c.code || c.title).join(', ');
+        window.showToast(tFn('compLinkedAutoAdded', `Automatically linked ${codes} to match ${sourceName}`).replace('{codes}', codes).replace('{source}', sourceName));
+      }
+      return true;
+    }
+
+    _ensureLinkedPromptStyles();
+    const tFn = (typeof window !== 'undefined' && typeof window.t === 'function') ? window.t : ((k, d) => d);
+
+    return new Promise(resolve => {
+      const overlay = document.createElement('div');
+      overlay.className = 'cmt-linked-overlay';
+
+      const selectedMap = new Map();
+      unselectedLinks.forEach(c => selectedMap.set(c.id, true));
+
+      const titleText = tFn('compLinkedPromptTitle', 'Linked Competences Detected');
+      const targetCode = targetComp.code || targetComp.title || 'Competence';
+      const msgText = tFn('compLinkedPromptMsg', `The competence **{code}** is linked with {count} other competence(s). Would you like to add them as well?`)
+        .replace('{code}', `<strong>${targetCode}</strong>`)
+        .replace('{count}', unselectedLinks.length);
+
+      const cardsHtml = unselectedLinks.map(c => {
+        const dbBadge = c._sourceDb ? `<span class="cmt-linked-badge-db">${c._sourceDb}</span>` : '';
+        const levelBadge = c.level ? `<span class="cmt-linked-badge-db" style="background:#fef3c7;border-color:#fde68a;">${c.level}</span>` : '';
+        return `
+          <div class="cmt-linked-card selected" data-cid="${c.id}">
+            <input type="checkbox" checked style="cursor:pointer;margin-top:2px;" data-chk-id="${c.id}">
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px;">
+                <span class="cmt-linked-badge-code">${c.code || c.id}</span>
+                ${dbBadge}
+                ${levelBadge}
+                <strong style="font-size:0.86rem;">${c.title || ''}</strong>
+              </div>
+              ${c.description ? `<div style="font-size:0.77rem;color:#64748b;line-height:1.3;max-height:42px;overflow:hidden;text-overflow:ellipsis;">${c.description}</div>` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      overlay.innerHTML = `
+        <div class="cmt-linked-modal" onclick="event.stopPropagation()">
+          <div class="cmt-linked-hd">
+            <img src="../assets/icons/award.svg" alt="" onerror="this.style.display='none'">
+            <span>${titleText}</span>
+          </div>
+          <div class="cmt-linked-bd">
+            <div style="font-size:0.88rem;line-height:1.45;">${msgText}</div>
+            <div style="display:flex;flex-direction:column;gap:8px;max-height:280px;overflow-y:auto;padding-right:4px;">
+              ${cardsHtml}
+            </div>
+            <label class="cmt-linked-dont-ask">
+              <input type="checkbox" id="cmt-linked-dont-ask-chk">
+              <span>${tFn('compLinkedDontAskAgain', "Don't ask again this session (auto-add linked)")}</span>
+            </label>
+          </div>
+          <div class="cmt-linked-ft">
+            <button type="button" class="cmt-linked-btn cmt-linked-btn-secondary" id="cmt-linked-skip-btn">${tFn('compLinkedBtnSkip', 'Keep Only Selected')}</button>
+            <button type="button" class="cmt-linked-btn cmt-linked-btn-primary" id="cmt-linked-add-btn">${tFn('compLinkedBtnAdd', '+ Add Linked Competence(s)')}</button>
+          </div>
+        </div>
+      `;
+
+      function cleanup() {
+        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+      }
+
+      // Card clicks and checkboxes
+      overlay.querySelectorAll('.cmt-linked-card').forEach(card => {
+        const cid = card.dataset.cid;
+        const chk = card.querySelector(`input[data-chk-id="${cid}"]`);
+        function toggle() {
+          const next = !selectedMap.get(cid);
+          selectedMap.set(cid, next);
+          if (chk) chk.checked = next;
+          card.classList.toggle('selected', next);
+        }
+        card.addEventListener('click', e => {
+          if (e.target === chk) return;
+          toggle();
+        });
+        if (chk) {
+          chk.addEventListener('change', () => {
+            selectedMap.set(cid, chk.checked);
+            card.classList.toggle('selected', chk.checked);
+          });
+        }
+      });
+
+      overlay.querySelector('#cmt-linked-skip-btn').addEventListener('click', () => {
+        cleanup();
+        if (typeof options.onDismiss === 'function') options.onDismiss();
+        resolve(false);
+      });
+
+      overlay.querySelector('#cmt-linked-add-btn').addEventListener('click', () => {
+        const dontAskChk = overlay.querySelector('#cmt-linked-dont-ask-chk');
+        if (dontAskChk && dontAskChk.checked && typeof sessionStorage !== 'undefined') {
+          sessionStorage.setItem('cmt_auto_add_linked_competences', '1');
+        }
+        const toAdd = unselectedLinks.filter(c => selectedMap.get(c.id) !== false);
+        cleanup();
+        if (toAdd.length && typeof options.onAdd === 'function') {
+          options.onAdd(toAdd);
+        }
+        resolve(toAdd);
+      });
+
+      overlay.addEventListener('click', e => {
+        if (e.target === overlay) {
+          cleanup();
+          if (typeof options.onDismiss === 'function') options.onDismiss();
+          resolve(false);
+        }
+      });
+
+      document.body.appendChild(overlay);
+    });
   }
 
   // ── Extract Available Filter Options ────────────────────────────────
@@ -1121,6 +1545,12 @@
     applyClassPrefilters,
     matchSubject,
     matchYearLevel,
-    compileGroupCompetencePortfolio
+    compileGroupCompetencePortfolio,
+    loadCompetenceLinks,
+    saveCompetenceLinks,
+    getLinkedCompetences,
+    addCompetenceLink,
+    removeCompetenceLink,
+    promptAddLinkedCompetences
   };
 });

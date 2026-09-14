@@ -621,6 +621,14 @@
               liveNode.shape = n.shape;
               if (liveNode.el) liveNode.el.dataset.shape = n.shape;
             }
+            if (n.rotation != null) {
+              liveNode.rotation = (typeof window.conNormalizeNodeRotation === 'function')
+                ? window.conNormalizeNodeRotation(n.rotation)
+                : (Number(n.rotation) || 0);
+              if (typeof window.conApplyNodeRotation === 'function') {
+                window.conApplyNodeRotation(liveNode, liveNode.rotation);
+              }
+            }
             if (n.fmt) liveNode.fmt = { ...n.fmt };
             if (typeof window.conRenderNodeLabel === 'function') window.conRenderNodeLabel(liveNode);
           }

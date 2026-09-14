@@ -3423,6 +3423,17 @@
             chk.checked = true;
             row.style.background = '#f0f9ff';
             row.style.borderColor = '#bae6fd';
+
+            if (typeof CompetenceAggregatorService !== 'undefined' && typeof CompetenceAggregatorService.promptAddLinkedCompetences === 'function') {
+              CompetenceAggregatorService.promptAddLinkedCompetences(comp, _compPickerSelected, {
+                onAdd: (linkedToAdd) => {
+                  linkedToAdd.forEach(lc => {
+                    _compPickerSelected.add(lc.id);
+                  });
+                  renderCompetencePickerList();
+                }
+              });
+            }
           }
           const vis = getFilteredCompetences();
           if (countEl) countEl.textContent = `${_compPickerSelected.size} selected (${vis.length} visible)`;
@@ -6261,17 +6272,77 @@
       }
     }
 
+    function copyTestToClass(srcClassId, srcSem, srcTestIdx, destClassId, destSem) {
+      const srcClass = appState.classes.find(c => c.id === srcClassId);
+      const destClass = appState.classes.find(c => c.id === destClassId);
+      if (!srcClass || !destClass) return;
+
+      ensureClassStructures(srcClass);
+      ensureClassStructures(destClass);
+
+      const srcConfig = srcClass.testConfigs && srcClass.testConfigs[srcSem] && srcClass.testConfigs[srcSem][srcTestIdx];
+      if (!srcConfig) return;
+
+      if (!destSem) {
+        if (destClass.semester === '2') destSem = 'sem2';
+        else if (destClass.semester === '1') destSem = 'sem1';
+        else destSem = srcSem || 'sem1';
+      }
+
+      if ((destClass.testCounts[destSem] || 0) >= TEST_COUNT_PER_SEM) {
+        if (typeof showToast === 'function') {
+          showToast(t('gsErrMaxTestsReached') || 'Maximum tests reached for this semester', true);
+        }
+        return;
+      }
+
+      const destTestIdx = destClass.testCounts[destSem] || 0;
+      const newConfig = JSON.parse(JSON.stringify(srcConfig));
+
+      if (!destClass.testConfigs[destSem]) destClass.testConfigs[destSem] = [];
+      destClass.testConfigs[destSem][destTestIdx] = newConfig;
+      destClass.testCounts[destSem] = destTestIdx + 1;
+
+      (destClass.students || []).forEach(student => {
+        const tests = destSem === "sem1" ? student.sem1Tests : student.sem2Tests;
+        while (tests.length <= destTestIdx) tests.push(null);
+
+        if (student.testNotes) {
+          if (!student.testNotes[destSem]) student.testNotes[destSem] = [];
+          while (student.testNotes[destSem].length <= destTestIdx) student.testNotes[destSem].push([]);
+        }
+        if (student.criteriaResults) {
+          if (!student.criteriaResults[destSem]) student.criteriaResults[destSem] = [];
+          while (student.criteriaResults[destSem].length <= destTestIdx) student.criteriaResults[destSem].push({});
+        }
+        if (student.gradeOverrides) {
+          if (!student.gradeOverrides[destSem]) student.gradeOverrides[destSem] = [];
+          while (student.gradeOverrides[destSem].length <= destTestIdx) student.gradeOverrides[destSem].push(false);
+        }
+        if (student.correctionTime) {
+          if (!student.correctionTime[destSem]) student.correctionTime[destSem] = [];
+          while (student.correctionTime[destSem].length <= destTestIdx) student.correctionTime[destSem].push(null);
+        }
+      });
+
+      saveState();
+      renderClasses();
+
+      const msg = tFmt('gsToastTestCopiedToClass', { name: destClass.name }) || `Test copied to ${destClass.name}`;
+      if (typeof showToast === 'function') showToast(msg);
+    }
+
     function renderAllTests() {
       const panel = document.getElementById("all-tests-panel");
       if (!panel) return;
       panel.innerHTML = "";
 
-      const classesWithTests = appState.classes.filter(c => {
+      const hasAnyTests = appState.classes.some(c => {
         const tc = c.testCounts || { sem1: 0, sem2: 0 };
-        return tc.sem1 + tc.sem2 > 0;
+        return (tc.sem1 || 0) + (tc.sem2 || 0) > 0;
       });
 
-      if (classesWithTests.length === 0) {
+      if (!hasAnyTests) {
         panel.classList.add("hidden");
         return;
       }
@@ -6294,7 +6365,7 @@
 
       panel.appendChild(header);
 
-      classesWithTests.forEach(c => {
+      appState.classes.forEach(c => {
         const testCounts = c.testCounts || { sem1: 0, sem2: 0 };
         const testConfigs = c.testConfigs || { sem1: [], sem2: [] };
         const classSem = c.semester ? Number(c.semester) : 0;
@@ -6314,9 +6385,9 @@
         rows.className = "all-tests-rows";
 
         rows.addEventListener("dragover", (e) => {
-          if (!_gsDraggedTestInfo || _gsDraggedTestInfo.classId !== c.id) return;
+          if (!_gsDraggedTestInfo) return;
           e.preventDefault();
-          e.dataTransfer.dropEffect = "move";
+          e.dataTransfer.dropEffect = (_gsDraggedTestInfo.classId === c.id) ? "move" : "copy";
           rows.classList.add("drag-over");
         });
 
@@ -6328,16 +6399,24 @@
 
         rows.addEventListener("drop", (e) => {
           rows.classList.remove("drag-over");
-          if (!_gsDraggedTestInfo || _gsDraggedTestInfo.classId !== c.id) return;
+          if (!_gsDraggedTestInfo) return;
           if (e.target === rows) {
             e.preventDefault();
             e.stopPropagation();
+            const fromClassId = _gsDraggedTestInfo.classId;
             const fromSem = _gsDraggedTestInfo.sem;
             const fromIdx = _gsDraggedTestInfo.testIndex;
-            const targetSem = fromSem;
-            const targetIdx = Math.max(0, (c.testCounts[targetSem] || 1) - 1);
-            if (fromIdx !== targetIdx) {
-              reorderClassTests(c, fromSem, fromIdx, targetSem, targetIdx);
+            _gsDraggedTestInfo = null;
+
+            if (fromClassId === c.id) {
+              const targetSem = fromSem;
+              const targetIdx = Math.max(0, (c.testCounts[targetSem] || 1) - 1);
+              if (fromIdx !== targetIdx) {
+                reorderClassTests(c, fromSem, fromIdx, targetSem, targetIdx);
+              }
+            } else {
+              const targetSem = (c.semester === '2') ? 'sem2' : (fromSem === 'sem2' && showSem2 ? 'sem2' : 'sem1');
+              copyTestToClass(fromClassId, fromSem, fromIdx, c.id, targetSem);
             }
           }
         });
@@ -6358,7 +6437,7 @@
           chip.addEventListener("dragstart", (e) => {
             _gsDraggedTestInfo = { classId: c.id, sem: sem, testIndex: i };
             _gsIsDraggingTest = true;
-            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.effectAllowed = "copyMove";
             e.dataTransfer.setData("text/plain", JSON.stringify(_gsDraggedTestInfo));
             chip.classList.add("dragging");
           });
@@ -6366,7 +6445,12 @@
           chip.addEventListener("dragend", () => {
             chip.classList.remove("dragging");
             panel.querySelectorAll(".all-test-item").forEach(el => {
-              el.classList.remove("drag-over-left", "drag-over-right", "drag-over");
+              el.classList.remove("drag-over-left", "drag-over-right", "drag-over-center", "drag-over");
+              el.removeAttribute("data-drop-tooltip");
+            });
+            panel.querySelectorAll(".all-test-empty-slot").forEach(s => {
+              s.classList.remove("drag-over-slot");
+              s.removeAttribute("data-drop-tooltip");
             });
             panel.querySelectorAll(".all-tests-rows").forEach(r => r.classList.remove("drag-over"));
             _gsDraggedTestInfo = null;
@@ -6374,53 +6458,92 @@
           });
 
           chip.addEventListener("dragover", (e) => {
-            if (!_gsDraggedTestInfo || _gsDraggedTestInfo.classId !== c.id) return;
+            if (!_gsDraggedTestInfo) return;
             e.preventDefault();
             e.stopPropagation();
-            e.dataTransfer.dropEffect = "move";
 
+            const isSameClass = _gsDraggedTestInfo.classId === c.id;
             const rect = chip.getBoundingClientRect();
             const relX = e.clientX - rect.left;
-            const isRight = relX > rect.width / 2;
+            const ratio = rect.width > 0 ? (relX / rect.width) : 0.5;
 
-            chip.classList.remove("drag-over-left", "drag-over-right");
-            if (isRight) {
-              chip.classList.add("drag-over-right");
+            chip.classList.remove("drag-over-left", "drag-over-right", "drag-over-center");
+
+            if (isSameClass) {
+              if (ratio < 0.25) {
+                chip.classList.add("drag-over-left");
+                chip.removeAttribute("data-drop-tooltip");
+                e.dataTransfer.dropEffect = "move";
+              } else if (ratio > 0.75) {
+                chip.classList.add("drag-over-right");
+                chip.removeAttribute("data-drop-tooltip");
+                e.dataTransfer.dropEffect = "move";
+              } else {
+                chip.classList.add("drag-over-center");
+                chip.setAttribute("data-drop-tooltip", t('gsDropDuplicateElements') || 'Duplicate Elements');
+                e.dataTransfer.dropEffect = "copy";
+              }
             } else {
-              chip.classList.add("drag-over-left");
+              chip.classList.add("drag-over-center");
+              chip.setAttribute("data-drop-tooltip", t('gsDropDuplicateElements') || 'Duplicate Elements');
+              e.dataTransfer.dropEffect = "copy";
             }
           });
 
           chip.addEventListener("dragleave", () => {
-            chip.classList.remove("drag-over-left", "drag-over-right", "drag-over");
+            chip.classList.remove("drag-over-left", "drag-over-right", "drag-over-center");
+            chip.removeAttribute("data-drop-tooltip");
           });
 
           chip.addEventListener("drop", (e) => {
             e.preventDefault();
             e.stopPropagation();
-            chip.classList.remove("drag-over-left", "drag-over-right", "drag-over");
+            const isCenterDrop = chip.classList.contains("drag-over-center");
+            const isRightDrop = chip.classList.contains("drag-over-right");
+            const isLeftDrop = chip.classList.contains("drag-over-left");
+
+            chip.classList.remove("drag-over-left", "drag-over-right", "drag-over-center");
+            chip.removeAttribute("data-drop-tooltip");
             rows.classList.remove("drag-over");
 
-            if (!_gsDraggedTestInfo || _gsDraggedTestInfo.classId !== c.id) return;
-
-            const rect = chip.getBoundingClientRect();
-            const relX = e.clientX - rect.left;
-            const isRight = relX > rect.width / 2;
-
+            if (!_gsDraggedTestInfo) return;
+            const fromClassId = _gsDraggedTestInfo.classId;
             const fromSem = _gsDraggedTestInfo.sem;
             const fromIdx = _gsDraggedTestInfo.testIndex;
-            const toSem = sem;
-            let targetIdx = i;
+            _gsDraggedTestInfo = null;
 
-            if (fromSem === toSem) {
-              if (isRight && targetIdx < fromIdx) targetIdx++;
-              else if (!isRight && targetIdx > fromIdx) targetIdx--;
-              if (fromIdx === targetIdx) return;
+            if (fromClassId === c.id) {
+              if (isCenterDrop) {
+                openDuplicateTestPopup({
+                  srcClassId: c.id,
+                  srcSem: fromSem,
+                  srcTestIndex: fromIdx,
+                  destClassId: c.id,
+                  destSem: sem,
+                  destTestIndex: i
+                });
+              } else if (isLeftDrop || isRightDrop) {
+                const toSem = sem;
+                let targetIdx = i;
+                if (fromSem === toSem) {
+                  if (isRightDrop && targetIdx < fromIdx) targetIdx++;
+                  else if (isLeftDrop && targetIdx > fromIdx) targetIdx--;
+                  if (fromIdx === targetIdx) return;
+                } else {
+                  if (isRightDrop) targetIdx++;
+                }
+                reorderClassTests(c, fromSem, fromIdx, toSem, targetIdx);
+              }
             } else {
-              if (isRight) targetIdx++;
+              openDuplicateTestPopup({
+                srcClassId: fromClassId,
+                srcSem: fromSem,
+                srcTestIndex: fromIdx,
+                destClassId: c.id,
+                destSem: sem,
+                destTestIndex: i
+              });
             }
-
-            reorderClassTests(c, fromSem, fromIdx, toSem, targetIdx);
           });
 
           chip.addEventListener("click", () => {
@@ -6435,23 +6558,62 @@
           rows.appendChild(chip);
         };
 
-        rows.addEventListener("dragleave", () => {
-          rows.classList.remove("drag-over");
-        });
-        rows.addEventListener("drop", async (e) => {
-          e.preventDefault();
-          rows.classList.remove("drag-over");
-          if (!_gsDraggedTestInfo) return;
-          const { classId: srcClassId, semester: srcSem, testIndex: srcIdx } = _gsDraggedTestInfo;
-          _gsDraggedTestInfo = null;
+        const addEmptySlotChip = (sem) => {
+          if ((testCounts[sem] || 0) >= TEST_COUNT_PER_SEM) return;
+          const emptyChip = document.createElement("div");
+          emptyChip.className = "all-test-empty-slot";
+          emptyChip.setAttribute("role", "button");
+          emptyChip.setAttribute("tabindex", "0");
+          emptyChip.setAttribute("title", t('gsAllTestsDropToCopyHint') || 'Drop a test here to copy, or click to add a new test');
+          const prefix = multiSem ? (sem === 'sem1' ? 'S1 · ' : 'S2 · ') : '';
+          emptyChip.innerHTML = `<span class="all-test-empty-icon">+</span><span class="all-test-empty-text">${escapeHtml(prefix)}${t('gsNewTestSlot')}</span>`;
 
-          if (srcClassId === c.id) {
-            return;
-          }
-          // Cross-class move: move test into c's first available semester
-          const targetSem = (c.semester === '2') ? 'sem2' : 'sem1';
-          await moveTestCrossClass(srcClassId, srcSem, srcIdx, c.id, targetSem);
-        });
+          emptyChip.addEventListener("dragover", (e) => {
+            if (!_gsDraggedTestInfo) return;
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = "copy";
+            emptyChip.classList.add("drag-over-slot");
+            emptyChip.setAttribute("data-drop-tooltip", t('gsDropCopyToNewSlot') || 'Copy to New Slot');
+          });
+
+          emptyChip.addEventListener("dragleave", () => {
+            emptyChip.classList.remove("drag-over-slot");
+            emptyChip.removeAttribute("data-drop-tooltip");
+          });
+
+          emptyChip.addEventListener("drop", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            emptyChip.classList.remove("drag-over-slot");
+            emptyChip.removeAttribute("data-drop-tooltip");
+            rows.classList.remove("drag-over");
+
+            if (!_gsDraggedTestInfo) return;
+            const fromClassId = _gsDraggedTestInfo.classId;
+            const fromSem = _gsDraggedTestInfo.sem;
+            const fromIdx = _gsDraggedTestInfo.testIndex;
+            _gsDraggedTestInfo = null;
+
+            copyTestToClass(fromClassId, fromSem, fromIdx, c.id, sem);
+          });
+
+          emptyChip.addEventListener("click", () => {
+            if (_gsIsDraggingTest) return;
+            appState.activeClassId = c.id;
+            ensureClassStructures(c);
+            const newTestIndex = c.testCounts[sem] || 0;
+            c.testCounts[sem] = newTestIndex + 1;
+            saveState();
+            renderSummary();
+            appState.activeTest = { semester: sem, testIndex: newTestIndex };
+            renderTestSheet();
+            showScreen("test");
+            openTestOptionsModal(getTestConfig(c, sem, newTestIndex), c, sem, newTestIndex, "info");
+          });
+
+          rows.appendChild(emptyChip);
+        };
 
         if (showSem1) {
           for (let i = 0; i < testCounts.sem1; i++) addTestChip('sem1', i);
@@ -6459,6 +6621,9 @@
         if (showSem2) {
           for (let i = 0; i < testCounts.sem2; i++) addTestChip('sem2', i);
         }
+
+        if (showSem1) addEmptySlotChip('sem1');
+        if (showSem2 && (multiSem || !showSem1)) addEmptySlotChip('sem2');
 
         group.appendChild(rows);
         panel.appendChild(group);
@@ -12919,9 +13084,9 @@
       closeGsAddStudentsModal();
     }
 
-    function openDuplicateTestPopup() {
-      const classObj = getActiveClass();
-      if (!classObj) return;
+    function openDuplicateTestPopup(prefill) {
+      const classObj = getActiveClass() || (prefill && prefill.srcClassId && appState.classes.find(c => c.id === prefill.srcClassId)) || appState.classes[0];
+      if (!classObj && (!prefill || !prefill.srcClassId)) return;
 
       const overlay = document.getElementById("dup-test-popup-overlay");
       const classSel = document.getElementById("dup-test-class-select");
@@ -12957,13 +13122,22 @@
       destClassSel.innerHTML = classOptionsHtml;
 
       // Pre-select source and destination classes
-      classSel.value = classObj.id;
-      destClassSel.value = classObj.id;
+      const defaultSrcClassId = (prefill && prefill.srcClassId) || (classObj && classObj.id) || (sortedClasses[0] && sortedClasses[0].id);
+      const defaultDestClassId = (prefill && prefill.destClassId) || defaultSrcClassId;
 
-      // Pre-select dest semester from active test if available
-      if (appState.activeTest) {
-        destSemSel.value = appState.activeTest.semester;
+      classSel.value = defaultSrcClassId;
+      destClassSel.value = defaultDestClassId;
+
+      if (prefill && prefill.srcSem) {
+        semSel.value = prefill.srcSem;
+      } else if (appState.activeTest) {
         semSel.value = appState.activeTest.semester;
+      }
+
+      if (prefill && prefill.destSem) {
+        destSemSel.value = prefill.destSem;
+      } else if (appState.activeTest) {
+        destSemSel.value = appState.activeTest.semester;
       }
 
       function updateDupContextHint() {
@@ -13004,8 +13178,10 @@
         const destClass = appState.classes.find(c => c.id === destClassSel.value) || classObj;
         const destSem = destSemSel.value;
         const currentCount = destClass.testCounts ? (destClass.testCounts[destSem] || 0) : 0;
-        const preselect = appState.activeTest && destClass.id === classObj.id && appState.activeTest.semester === destSem
-          ? appState.activeTest.testIndex : null;
+        const preselect = (prefill && prefill.destTestIndex != null && destClass.id === prefill.destClassId && destSem === prefill.destSem)
+          ? prefill.destTestIndex
+          : (appState.activeTest && destClass.id === (classObj && classObj.id) && appState.activeTest.semester === destSem
+              ? appState.activeTest.testIndex : null);
         // Show existing slots + one new slot (to create)
         const maxSlot = Math.min(currentCount + 1, TEST_COUNT_PER_SEM);
         destTestSel.innerHTML = Array.from({ length: maxSlot }, (_, i) => {
@@ -13018,13 +13194,19 @@
         updateDupContextHint();
       }
 
-      classSel.onchange = refreshSourceTestOptions;
-      semSel.onchange = refreshSourceTestOptions;
-      destClassSel.onchange = refreshDestTestOptions;
-      destSemSel.onchange = refreshDestTestOptions;
+      classSel.onchange = () => { refreshSourceTestOptions(); };
+      semSel.onchange = () => { refreshSourceTestOptions(); };
+      destClassSel.onchange = () => { refreshDestTestOptions(); };
+      destSemSel.onchange = () => { refreshDestTestOptions(); };
 
       refreshSourceTestOptions();
+      if (prefill && prefill.srcTestIndex != null && testSel.querySelector(`option[value="${prefill.srcTestIndex}"]`)) {
+        testSel.value = String(prefill.srcTestIndex);
+      }
       refreshDestTestOptions();
+      if (prefill && prefill.destTestIndex != null && destTestSel.querySelector(`option[value="${prefill.destTestIndex}"]`)) {
+        destTestSel.value = String(prefill.destTestIndex);
+      }
       updateDupContextHint();
 
       overlay.classList.remove("hidden");

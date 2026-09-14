@@ -13,6 +13,7 @@
   <script src="../js/shortcuts-modal.js"></script>
   <script src="../js/menus.js"></script>
   <script src="../js/tutorial.js"></script>
+  <script src="../js/competence-aggregator-service.js"></script>
   <script>
     (function () {
       function injectClassicScript(source, name) {
@@ -1222,6 +1223,7 @@
         addStr('level');
         addStr('description', { isLong: true });
         addArr('tags');
+        addArr('linkedCompetenceIds');
         addStr('comments', { isLong: true });
         addStr('sampleTasks', { isLong: true });
       } else if (typeKey === 'phases') {
@@ -1270,6 +1272,11 @@
               rec.tags = rec.tags.split(',').map(s => s.trim()).filter(Boolean);
             } else if (!Array.isArray(rec.tags)) {
               rec.tags = [];
+            }
+            if (typeof rec.linkedCompetenceIds === 'string') {
+              rec.linkedCompetenceIds = rec.linkedCompetenceIds.split(',').map(s => s.trim()).filter(Boolean);
+            } else if (!Array.isArray(rec.linkedCompetenceIds)) {
+              rec.linkedCompetenceIds = [];
             }
           }
         }
@@ -1719,12 +1726,13 @@
       if (field.type === 'array') {
         const arr = Array.isArray(val) ? val : [val];
         if (!arr.length) return '<span class="cell-empty">—</span>';
-        if (field.key === 'competenceIds' || (S.typeKey === 'criteria' && field.key === 'competenceIds')) {
+        if (field.key === 'competenceIds' || field.key === 'linkedCompetenceIds' || (S.typeKey === 'criteria' && field.key === 'competenceIds')) {
           const items = arr.slice(0, 4).map(t => {
             const cid = String(t).trim();
             const comp = findAvailableCompetence(cid);
             const code = comp?.code || cid;
-            const title = comp?.title ? `${comp.code ? comp.code + ': ' : ''}${comp.title}` : (comp?.code || cid);
+            const dbText = comp?._sourceDb ? ` [${comp._sourceDb}]` : '';
+            const title = comp?.title ? `${comp.code ? comp.code + ': ' : ''}${comp.title}${dbText}` : (comp?.code || cid);
             return `<span class="tag" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;font-weight:700;" title="${esc(title)}">${esc(code)}</span>`;
           }).join('');
           const more = arr.length > 4 ? `<span class="tag-more">+${arr.length - 4}</span>` : '';
@@ -2174,7 +2182,9 @@
       $('edit-title').textContent = tFmt('mdbEditRecord', { filename: S.files[fi].name });
       $('edit-body').innerHTML = buildForm(rec, S.schema, fi, false);
       if (S.typeKey === 'criteria') {
-        initCriteriaCompField(rec);
+        initCriteriaCompField(rec, 'competenceIds');
+      } else if (S.typeKey === 'competences' || S.typeKey === 'descriptors') {
+        initCriteriaCompField(rec, 'linkedCompetenceIds');
       }
       const copyBtn = $('edit-copy-to-btn');
       if (copyBtn) copyBtn.style.display = '';
@@ -2189,7 +2199,9 @@
       $('edit-title').textContent = t('mdbAddRecord');
       $('edit-body').innerHTML = buildForm({}, S.schema, null, true);
       if (S.typeKey === 'criteria') {
-        initCriteriaCompField({});
+        initCriteriaCompField({}, 'competenceIds');
+      } else if (S.typeKey === 'competences' || S.typeKey === 'descriptors') {
+        initCriteriaCompField({}, 'linkedCompetenceIds');
       }
       const copyBtn = $('edit-copy-to-btn');
       if (copyBtn) copyBtn.style.display = 'none';
@@ -2241,9 +2253,10 @@
       } else if (field.type === 'number') {
         input = `<input type="number" id="${id}" value="${esc(String(val ?? ''))}">`;
       } else if (field.type === 'array') {
-        if (S.typeKey === 'criteria' && field.key === 'competenceIds') {
+        if ((S.typeKey === 'criteria' && field.key === 'competenceIds') || ((S.typeKey === 'competences' || S.typeKey === 'descriptors') && field.key === 'linkedCompetenceIds')) {
           const arrVal = Array.isArray(val) ? val : (typeof val === 'string' ? val.split(',').map(s => s.trim()).filter(Boolean) : []);
-          input = `<div id="mdb-crit-comp-chips-wrap" style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;min-height:36px;padding:6px 8px;border:2px solid #111;border-radius:5px;background:#fafafa;"></div>
+          const wrapId = field.key === 'linkedCompetenceIds' ? 'mdb-comp-linked-chips-wrap' : 'mdb-crit-comp-chips-wrap';
+          input = `<div id="${wrapId}" style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;min-height:36px;padding:6px 8px;border:2px solid #111;border-radius:5px;background:#fafafa;"></div>
                <input type="hidden" id="${id}" value="${esc(arrVal.join(', '))}">`;
         } else if (field.longArray) {
           const sv = Array.isArray(val) ? val.join('\n') : String(val ?? '');
@@ -2274,18 +2287,23 @@
 
       const isWordField = field.key === 'word' || (field.key === 'english' && (S.typeKey === 'wordbanks' || !rec.word));
       const isCompCriteriaField = S.typeKey === 'criteria' && field.key === 'competenceIds';
+      const isCompLinkedField = (S.typeKey === 'competences' || S.typeKey === 'descriptors') && field.key === 'linkedCompetenceIds';
       const actionBtn = isWordField
         ? `<button type="button" class="btn btn-secondary btn-sm" onclick="triggerWordAutofill()" style="padding:2px 8px;font-size:0.75rem;margin-left:auto;border-radius:4px;cursor:pointer;" data-i18n="mdbBtnAutofill"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> Autofill</button>`
         : (isCompCriteriaField
-          ? `<button type="button" class="btn btn-secondary btn-sm" onclick="openMdbCompetencePicker()" style="padding:2px 8px;font-size:0.75rem;margin-left:auto;border-radius:4px;cursor:pointer;"><img src="../assets/icons/plus.svg" class="btn-icon btn-icon-xs" alt="" /> <span data-i18n="mdbPickCompetences">${t('mdbPickCompetences')}</span></button>`
-          : '');
+          ? `<button type="button" class="btn btn-secondary btn-sm" onclick="openMdbCompetencePicker('competenceIds')" style="padding:2px 8px;font-size:0.75rem;margin-left:auto;border-radius:4px;cursor:pointer;"><img src="../assets/icons/plus.svg" class="btn-icon btn-icon-xs" alt="" /> <span data-i18n="mdbPickCompetences">${t('mdbPickCompetences')}</span></button>`
+          : (isCompLinkedField
+            ? `<button type="button" class="btn btn-secondary btn-sm" onclick="openMdbCompetencePicker('linkedCompetenceIds')" style="padding:2px 8px;font-size:0.75rem;margin-left:auto;border-radius:4px;cursor:pointer;"><img src="../assets/icons/plus.svg" class="btn-icon btn-icon-xs" alt="" /> <span data-i18n="mdbLinkCompetence">${t('mdbLinkCompetence', 'Link Competence')}</span></button>`
+            : ''));
 
-      if (isCompCriteriaField) {
+      if (isCompCriteriaField || isCompLinkedField) {
         typeBadge = `<span style="font-size:0.68rem;font-weight:700;color:#2563eb;background:#eff6ff;border:1px solid #bfdbfe;padding:1px 5px;border-radius:3px;margin-left:6px;">Competences</span>`;
       }
 
       let fieldLabel = esc(cap(field.key));
-      if (S.typeKey === 'chips' && field.key === 'type') fieldLabel = 'Category Name';
+      if (isCompCriteriaField) fieldLabel = t('mdbLinkedCompetences');
+      else if (isCompLinkedField) fieldLabel = t('mdbLinkedCompetencesField', 'Linked Competences (Cross-Database)');
+      else if (S.typeKey === 'chips' && field.key === 'type') fieldLabel = 'Category Name';
       else if (S.typeKey === 'chips' && field.key === 'items') fieldLabel = 'Observation Chips';
       else if (S.typeKey === 'scales' && field.key === 'key') fieldLabel = 'Scale Identifier (Key)';
       else if (S.typeKey === 'scales' && field.key === 'label') fieldLabel = 'Scale Display Name';
@@ -2293,7 +2311,7 @@
       return `<div class="form-field" style="margin-bottom:12px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
       <label class="form-lbl" for="${id}" style="margin-bottom:0;display:flex;align-items:center;">
-        <span>${isCompCriteriaField ? t('mdbLinkedCompetences') : fieldLabel}</span>${typeBadge}
+        <span>${fieldLabel}</span>${typeBadge}
       </label>
       ${actionBtn}
     </div>
@@ -2527,6 +2545,39 @@
         if (!await saveFile(fi)) return;
       }
 
+      // Synchronize competence links if saving a competence record
+      if (S.typeKey === 'competences' || S.typeKey === 'descriptors') {
+        if (typeof CompetenceAggregatorService !== 'undefined') {
+          try {
+            const fi = S.editMode === 'add' ? (Number($('ff-_target')?.value) || 0) : S.editFI;
+            const savedRec = S.editMode === 'add'
+              ? S.files[fi].records[S.files[fi].records.length - 1]
+              : S.files[fi].records[S.editRI];
+            if (savedRec) {
+              const currentFileName = S.files[fi]?.name || '';
+              const myKey = currentFileName ? `${currentFileName}::${savedRec.id}` : savedRec.id;
+              const targetIds = Array.isArray(savedRec.linkedCompetenceIds) ? savedRec.linkedCompetenceIds : [];
+              const links = await CompetenceAggregatorService.loadCompetenceLinks(true);
+              const filteredLinks = links.filter(l => {
+                const s = String(l.source || '').trim();
+                const t = String(l.target || '').trim();
+                return !(s === myKey || s === savedRec.id || t === myKey || t === savedRec.id);
+              });
+              targetIds.forEach(tid => {
+                filteredLinks.push({
+                  source: myKey,
+                  target: tid,
+                  relation: 'related'
+                });
+              });
+              await CompetenceAggregatorService.saveCompetenceLinks(filteredLinks);
+            }
+          } catch (e) {
+            console.warn('Failed to sync competence links:', e);
+          }
+        }
+      }
+
       closeEdit();
       S.schema = buildSchema(getAllRecords());
       renderAll();
@@ -2694,10 +2745,16 @@
       ) || null;
     }
 
-    function initCriteriaCompField(rec) {
-      _activeFormCompDraft = Array.isArray(rec.competenceIds)
-        ? [...rec.competenceIds]
-        : (typeof rec.competenceIds === 'string' ? rec.competenceIds.split(',').map(s => s.trim()).filter(Boolean) : []);
+    let _activeCompFieldKey = 'competenceIds';
+    let _currentEditingCompId = null;
+
+    function initCriteriaCompField(rec, fieldKey = 'competenceIds') {
+      _activeCompFieldKey = fieldKey;
+      _currentEditingCompId = (fieldKey === 'linkedCompetenceIds' && rec) ? (rec.id || rec.code || null) : null;
+      const raw = rec ? rec[fieldKey] : null;
+      _activeFormCompDraft = Array.isArray(raw)
+        ? [...raw]
+        : (typeof raw === 'string' ? raw.split(',').map(s => s.trim()).filter(Boolean) : []);
       renderFormCompChips();
       loadAllAvailableCompetences().then(() => {
         renderFormCompChips();
@@ -2705,8 +2762,10 @@
     }
 
     function renderFormCompChips() {
-      const wrap = $('mdb-crit-comp-chips-wrap');
-      const input = $('ff-competenceIds');
+      const wrapId = _activeCompFieldKey === 'linkedCompetenceIds' ? 'mdb-comp-linked-chips-wrap' : 'mdb-crit-comp-chips-wrap';
+      const inputId = `ff-${_activeCompFieldKey}`;
+      const wrap = $(wrapId);
+      const input = $(inputId);
       if (!wrap) return;
       if (input) input.value = _activeFormCompDraft.join(', ');
 
@@ -2718,10 +2777,12 @@
       wrap.innerHTML = _activeFormCompDraft.map(cid => {
         const comp = findAvailableCompetence(cid);
         const code = comp?.code || cid;
-        const title = comp?.title ? `${comp.code ? comp.code + ': ' : ''}${comp.title}` : (comp?.code || cid);
+        const dbText = comp?._sourceDb ? ` [${comp._sourceDb}]` : '';
+        const title = comp?.title ? `${comp.code ? comp.code + ': ' : ''}${comp.title}${dbText}` : (comp?.code || cid);
         return `<span class="crit-comp-chip" style="display:inline-flex;align-items:center;gap:5px;background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:4px;padding:3px 8px;font-size:0.78rem;color:#1e40af;max-width:100%;" title="${esc(title)}">
           <strong style="color:#1d4ed8;">${esc(code)}</strong>
-          ${comp?.title && comp.title !== code ? `<span style="color:#334155;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(comp.title)}</span>` : ''}
+          ${comp?._sourceDb ? `<span style="font-size:0.7rem;background:#dbeafe;color:#1e3a8a;border-radius:3px;padding:0 4px;">${esc(comp._sourceDb)}</span>` : ''}
+          ${comp?.title && comp.title !== code ? `<span style="color:#334155;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(comp.title)}</span>` : ''}
           <button type="button" onclick="removeFormCompChip('${esc(cid)}')" style="border:none;background:none;color:#94a3b8;font-weight:700;font-size:0.85rem;cursor:pointer;padding:0 2px;line-height:1;margin-left:2px;" title="Remove">✕</button>
         </span>`;
       }).join('');
@@ -2732,7 +2793,12 @@
       renderFormCompChips();
     }
 
-    async function openMdbCompetencePicker() {
+    async function openMdbCompetencePicker(targetField = 'competenceIds') {
+      _activeCompFieldKey = targetField;
+      const input = $(`ff-${targetField}`);
+      if (input && input.value) {
+        _activeFormCompDraft = input.value.split(',').map(s => s.trim()).filter(Boolean);
+      }
       await loadAllAvailableCompetences();
       _compPickerDraftSelected = new Set(_activeFormCompDraft);
       _compPickerFilters = {
@@ -2792,6 +2858,9 @@
       const fSelected = _compPickerFilters.selectedOnly;
 
       return _allAvailableCompetences.filter(c => {
+        if (_currentEditingCompId && (c.id === _currentEditingCompId || c.code === _currentEditingCompId || c.qualifiedId === _currentEditingCompId)) {
+          return false;
+        }
         if (fSelected && !_compPickerDraftSelected.has(c.id)) return false;
         if (fc !== 'all' && c.category !== fc) return false;
         if (fl !== 'all' && c.level !== fl) return false;
@@ -2800,6 +2869,7 @@
         return (c.code && c.code.toLowerCase().includes(q)) ||
                (c.title && c.title.toLowerCase().includes(q)) ||
                (c.description && c.description.toLowerCase().includes(q)) ||
+               (c._sourceDb && c._sourceDb.toLowerCase().includes(q)) ||
                (c.category && c.category.toLowerCase().includes(q)) ||
                (c.level && c.level.toLowerCase().includes(q)) ||
                (c.year && c.year.toLowerCase().includes(q));

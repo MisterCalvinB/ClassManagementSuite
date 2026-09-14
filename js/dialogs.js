@@ -292,7 +292,8 @@
     timedConfirmRemaining = seconds;
 
     function updateCountdown() {
-      countdownEl.textContent = countdownTemplate.replace('{seconds}', timedConfirmRemaining);
+      var template = String(countdownTemplate || '');
+      countdownEl.textContent = template.replace(/\{seconds\}|\{sec\}|\{count\}|\{time\}|\{\}/gi, timedConfirmRemaining);
     }
     updateCountdown();
 

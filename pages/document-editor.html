@@ -413,6 +413,18 @@
         <style id="custom-css-style"></style>
         <div id="preview-content" class="doc-preview"></div>
       </div>
+      <div id="de-inspector-pill" style="display:none;">
+        <span class="de-pill-tag" id="de-pill-tag">&lt;elem&gt;</span>
+        <span class="de-pill-item de-pill-code" id="de-pill-code" title="Jump to code in editor">
+          <img src="../assets/icons/file-text.svg" class="btn-icon" alt="" style="width:12px;height:12px;" />
+          <span id="de-pill-code-text">Line 1</span>
+        </span>
+        <span class="de-pill-item de-pill-css" id="de-pill-css" title="Jump to matching CSS rule">
+          <img src="../assets/icons/palette.svg" class="btn-icon" alt="" style="width:12px;height:12px;" />
+          <span id="de-pill-css-text">CSS</span>
+        </span>
+        <button class="de-pill-close" id="de-pill-close" title="Close inspector">✕</button>
+      </div>
     </div>
   </div>
 
@@ -765,11 +777,113 @@
     const DE_LAYOUT_END = '/* cmt-layout:end */';
     let deSyncingLayoutCss = false;
 
+    // ── Preview-to-Code & CSS Inspector State ────────────────
+    let mdHighlightDecorations = [];
+    let cssHighlightDecorations = [];
+    let lastInspectedPreviewEl = null;
+    let lastInspectedCodeRange = null;
+    let lastInspectedCssRange = null;
+
     // ── Marked + KaTeX setup ─────────────────────────────────
     function setupMarked() {
       marked.use({
         breaks: true,
         gfm: true,
+        hooks: {
+          processAllTokens(tokens) {
+            let curLine = 1;
+            for (let i = 0; i < tokens.length; i++) {
+              const tok = tokens[i];
+              tok.sourceStartLine = curLine;
+              const nlCount = (tok.raw.match(/\n/g) || []).length;
+              tok.sourceEndLine = curLine + nlCount;
+              curLine = tok.sourceEndLine;
+
+              if (tok.type === 'list' && Array.isArray(tok.items)) {
+                let itemLine = tok.sourceStartLine;
+                for (let j = 0; j < tok.items.length; j++) {
+                  const it = tok.items[j];
+                  it.sourceStartLine = itemLine;
+                  const itNl = (it.raw.match(/\n/g) || []).length;
+                  it.sourceEndLine = itemLine + itNl;
+                  itemLine = it.sourceEndLine;
+                }
+              }
+            }
+            return tokens;
+          }
+        },
+        renderer: {
+          heading(token) {
+            const lineAttr = token.sourceStartLine ? ` data-source-line="${token.sourceStartLine}" data-source-end-line="${token.sourceEndLine}"` : '';
+            return `<h${token.depth}${lineAttr}>${this.parser.parseInline(token.tokens)}</h${token.depth}>\n`;
+          },
+          paragraph(token) {
+            const lineAttr = token.sourceStartLine ? ` data-source-line="${token.sourceStartLine}" data-source-end-line="${token.sourceEndLine}"` : '';
+            return `<p${lineAttr}>${this.parser.parseInline(token.tokens)}</p>\n`;
+          },
+          blockquote(token) {
+            const lineAttr = token.sourceStartLine ? ` data-source-line="${token.sourceStartLine}" data-source-end-line="${token.sourceEndLine}"` : '';
+            return `<blockquote${lineAttr}>\n${this.parser.parse(token.tokens)}</blockquote>\n`;
+          },
+          list(token) {
+            const lineAttr = token.sourceStartLine ? ` data-source-line="${token.sourceStartLine}" data-source-end-line="${token.sourceEndLine}"` : '';
+            const type = token.ordered ? 'ol' : 'ul';
+            const start = (token.ordered && token.start !== 1) ? ` start="${token.start}"` : '';
+            let body = '';
+            for (let j = 0; j < token.items.length; j++) {
+              body += this.listitem(token.items[j]);
+            }
+            return `<${type}${start}${lineAttr}>\n${body}</${type}>\n`;
+          },
+          listitem(item) {
+            const lineAttr = item.sourceStartLine ? ` data-source-line="${item.sourceStartLine}" data-source-end-line="${item.sourceEndLine}"` : '';
+            let itemBody = '';
+            if (item.task) {
+              itemBody += this.checkbox(item);
+            }
+            itemBody += this.parser.parse(item.tokens, !!item.loose);
+            return `<li${lineAttr}>${itemBody}</li>\n`;
+          },
+          table(token) {
+            const lineAttr = token.sourceStartLine ? ` data-source-line="${token.sourceStartLine}" data-source-end-line="${token.sourceEndLine}"` : '';
+            let header = '';
+            let cell = '';
+            for (let j = 0; j < token.header.length; j++) {
+              cell += this.tablecell(token.header[j]);
+            }
+            header += this.tablerow({ text: cell });
+            let body = '';
+            for (let j = 0; j < token.rows.length; j++) {
+              cell = '';
+              for (let k = 0; k < token.rows[j].length; k++) {
+                cell += this.tablecell(token.rows[j][k]);
+              }
+              body += this.tablerow({ text: cell });
+            }
+            return `<table${lineAttr}>\n<thead>\n${header}</thead>\n` +
+              (body ? `<tbody>\n${body}</tbody>\n` : '') +
+              `</table>\n`;
+          },
+          code(token) {
+            const lineAttr = token.sourceStartLine ? ` data-source-line="${token.sourceStartLine}" data-source-end-line="${token.sourceEndLine}"` : '';
+            const lang = (token.lang || '').match(/^\S*/)?.[0];
+            const codeText = token.escaped ? token.text : escHtml(token.text);
+            return `<pre${lineAttr}><code${lang ? ` class="language-${lang}"` : ''}>${codeText}</code></pre>\n`;
+          },
+          html(token) {
+            const lineAttr = token.sourceStartLine ? ` data-source-line="${token.sourceStartLine}" data-source-end-line="${token.sourceEndLine}"` : '';
+            const text = token.text || token.raw || '';
+            if (lineAttr && /^<[a-zA-Z][a-zA-Z0-9_-]*(\s|>)/.test(text)) {
+              return text.replace(/^<([a-zA-Z][a-zA-Z0-9_-]*)/, `<$1${lineAttr}`);
+            }
+            return text;
+          },
+          hr(token) {
+            const lineAttr = token && token.sourceStartLine ? ` data-source-line="${token.sourceStartLine}" data-source-end-line="${token.sourceEndLine}"` : '';
+            return `<hr${lineAttr}>\n`;
+          }
+        },
         extensions: [
           {
             name: 'math-block',
@@ -780,12 +894,13 @@
               if (m) return { type: 'math-block', raw: m[0], math: m[1].trim() };
             },
             renderer(token) {
+              const lineAttr = token.sourceStartLine ? ` data-source-line="${token.sourceStartLine}" data-source-end-line="${token.sourceEndLine}"` : '';
               try {
-                return '<div class="math-display">' +
+                return '<div class="math-display"' + lineAttr + ' data-math="' + escHtml(token.math || '') + '">' +
                   katex.renderToString(token.math, { displayMode: true, throwOnError: false }) +
                   '</div>\n';
               } catch (e) {
-                return '<div class="math-error">' + escHtml(String(e.message)) + '</div>\n';
+                return '<div class="math-error"' + lineAttr + '>' + escHtml(String(e.message)) + '</div>\n';
               }
             }
           },
@@ -840,6 +955,7 @@
       if (typeof deUpdateViewSwitcherState === 'function') {
         deUpdateViewSwitcherState();
       }
+      deClearInspectorHighlights();
       renderPreview();
     }
 
@@ -2034,6 +2150,9 @@
 
       mdEditor.onDidChangeModelContent(function () {
         if (wysiwygIsUpdatingFromEditor) return;
+        if (mdHighlightDecorations.length > 0) {
+          mdHighlightDecorations = mdEditor.deltaDecorations(mdHighlightDecorations, []);
+        }
         docModified = true;
         updateDocIndicator();
         scheduleRender();
@@ -2042,6 +2161,9 @@
 
       cssEditor.onDidChangeModelContent(function () {
         cssModified = true;
+        if (cssHighlightDecorations.length > 0) {
+          cssHighlightDecorations = cssEditor.deltaDecorations(cssHighlightDecorations, []);
+        }
         currentStylesheetName = '@inline@';
         const cssText = cssEditor.getValue();
         document.getElementById('custom-css-style').textContent = deBuildScopedPreviewCss(cssText, '#preview-content');
@@ -3351,10 +3473,39 @@
     }
 
     // ── PDF Export ────────────────────────────────────────────
+    function extractDocTitleFromContent() {
+      const raw = mdEditor ? mdEditor.getValue() : '';
+      if (!raw || !raw.trim()) return '';
+      // Markdown: first line starting with #
+      const mdMatch = raw.match(/^#\s+([^\n\r#]+)/m);
+      if (mdMatch && mdMatch[1].trim()) {
+        return mdMatch[1].trim().replace(/[/\\?%*:|"<>]/g, '_');
+      }
+      // HTML: first <h1>...</h1>
+      const htmlMatch = raw.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+      if (htmlMatch && htmlMatch[1].trim()) {
+        const text = htmlMatch[1].replace(/<[^>]+>/g, '').trim();
+        if (text) return text.replace(/[/\\?%*:|"<>]/g, '_');
+      }
+      // Typst: first = Heading
+      const typMatch = raw.match(/^=\s+([^\n\r=]+)/m);
+      if (typMatch && typMatch[1].trim()) {
+        return typMatch[1].trim().replace(/[/\\?%*:|"<>]/g, '_');
+      }
+      return '';
+    }
+
     function getPdfExportBaseName() {
-      const rawName = currentDocName || (currentEditRelPath ? deBasename(currentEditRelPath) : 'document');
-      const baseName = String(rawName || 'document').replace(/\.[^.]+$/i, '').trim();
-      return baseName || 'document';
+      const rawName = currentDocName
+        || (currentEditRelPath ? deBasename(currentEditRelPath) : null)
+        || (currentOpenedDiskPath ? deBasename(currentOpenedDiskPath) : null);
+      if (rawName) {
+        const baseName = String(rawName).replace(/\.[^.]+$/i, '').trim();
+        if (baseName) return baseName;
+      }
+      const fromContent = extractDocTitleFromContent();
+      if (fromContent) return fromContent;
+      return 'document';
     }
 
     function getPdfSameFolderTarget() {
@@ -3448,7 +3599,7 @@
       return css;
     }
 
-    async function deBuildPrintDocumentHtml() {
+    async function deBuildPrintDocumentHtml(overrideTitle = null) {
       const lexendFontsCss = await getEmbeddedLexendFontsCss();
 
       let katexCssLink = '';
@@ -3519,7 +3670,10 @@
           ? '.doc-preview img { width: ' + pageLayout.imageWidth + '; max-width: 100%; height: auto; }\n'
           : '.doc-preview img { max-width: 100%; height: auto; }\n');
 
+      const pdfTitle = overrideTitle || getPdfExportBaseName() || 'Document';
+
       const html = '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="UTF-8">\n' +
+        '<title>' + escHtml(pdfTitle) + '</title>\n' +
         katexCssLink + '\n' +
         '<style>\n* { box-sizing: border-box; margin: 0; padding: 0; }\n' +
         lexendFontsCss + '\n' +
@@ -3597,8 +3751,9 @@
         }
         try {
           const raw = mdEditor ? mdEditor.getValue() : '';
-          const pdfBytes = await TypstService.compileToPdf(raw);
-          const defaultName = getPdfExportBaseName() + '.pdf';
+          const pdfTitle = getPdfExportBaseName();
+          const pdfBytes = await TypstService.compileToPdf(raw, { title: pdfTitle });
+          const defaultName = pdfTitle + '.pdf';
 
           let result = null;
           if (destination === 'same-folder' && sameFolderInfo && sameFolderInfo.available) {
@@ -3644,10 +3799,11 @@
         return;
       }
 
-      const { html, pdfOptions } = await deBuildPrintDocumentHtml();
+      const pdfBaseName = getPdfExportBaseName();
+      const { html, pdfOptions } = await deBuildPrintDocumentHtml(pdfBaseName);
 
-      const defaultName = getPdfExportBaseName() + '.pdf';
-      const request = { html, defaultName, pdfOptions };
+      const defaultName = pdfBaseName + '.pdf';
+      const request = { html, defaultName, title: pdfBaseName, pdfOptions };
       if (destination === 'same-folder' && sameFolderInfo && sameFolderInfo.available) {
         if (sameFolderInfo.absolutePath) {
           request.absolutePath = sameFolderInfo.absolutePath;
@@ -4454,7 +4610,7 @@
       const overlay = document.getElementById('full-preview-overlay');
       const content = document.getElementById('full-preview-content');
 
-      const docTitle = currentDocName ? currentDocName.replace(/\.(md|html)$/, '') : 'Untitled';
+      const docTitle = getPdfExportBaseName() || (currentDocName ? currentDocName.replace(/\.(md|html|typ)$/i, '') : 'Untitled');
       document.getElementById('full-preview-bar-title').textContent = 'Preview — ' + docTitle;
       overlay.removeAttribute('hidden');
 
@@ -4859,6 +5015,7 @@
       }
       const prevMode = currentViewMode;
       currentViewMode = mode;
+      deClearInspectorHighlights();
 
       document.querySelectorAll('.de-view-btn').forEach(btn => {
         btn.classList.toggle('active', btn.getAttribute('data-mode') === mode);
@@ -5067,6 +5224,547 @@
       }
     }
 
+    // ── Preview-to-Code & CSS Inspector ──────────────────────
+    function deParseCssRules(cssText) {
+      if (!cssText) return [];
+      const blocks = [];
+      let i = 0;
+      const len = cssText.length;
+      let line = 1;
+      let col = 1;
+
+      let currentSelector = '';
+      let selectorStartLine = 1;
+      let selectorStartCol = 1;
+      let inComment = false;
+      let inString = false;
+      let stringChar = '';
+      let braceDepth = 0;
+      let blockStartLine = 1;
+      let blockStartCol = 1;
+      let blockBody = '';
+
+      while (i < len) {
+        const ch = cssText[i];
+        const nextCh = i + 1 < len ? cssText[i + 1] : '';
+
+        if (inComment) {
+          if (ch === '*' && nextCh === '/') {
+            inComment = false;
+            i += 2;
+            col += 2;
+            continue;
+          }
+          if (ch === '\n') {
+            line++;
+            col = 1;
+          } else {
+            col++;
+          }
+          i++;
+          continue;
+        }
+
+        if (!inString && ch === '/' && nextCh === '*') {
+          inComment = true;
+          i += 2;
+          col += 2;
+          continue;
+        }
+
+        if (inString) {
+          if (ch === stringChar && cssText[i - 1] !== '\\') {
+            inString = false;
+          }
+          if (braceDepth > 0) blockBody += ch;
+          else currentSelector += ch;
+          if (ch === '\n') {
+            line++;
+            col = 1;
+          } else {
+            col++;
+          }
+          i++;
+          continue;
+        }
+
+        if (ch === '"' || ch === "'") {
+          inString = true;
+          stringChar = ch;
+          if (braceDepth > 0) blockBody += ch;
+          else {
+            if (!currentSelector.trim()) {
+              selectorStartLine = line;
+              selectorStartCol = col;
+            }
+            currentSelector += ch;
+          }
+          col++;
+          i++;
+          continue;
+        }
+
+        if (ch === '{') {
+          if (braceDepth === 0) {
+            blockStartLine = line;
+            blockStartCol = col;
+            blockBody = '';
+          } else {
+            blockBody += ch;
+          }
+          braceDepth++;
+          col++;
+          i++;
+          continue;
+        }
+
+        if (ch === '}') {
+          braceDepth--;
+          if (braceDepth === 0) {
+            const trimmedSelector = currentSelector.trim();
+            if (trimmedSelector &&
+              !trimmedSelector.startsWith('@keyframes') &&
+              !trimmedSelector.startsWith('@font-face') &&
+              !trimmedSelector.startsWith('@import')) {
+              blocks.push({
+                selector: trimmedSelector,
+                startLine: selectorStartLine,
+                startCol: selectorStartCol,
+                endLine: line,
+                endCol: col,
+                body: blockBody.trim()
+              });
+            }
+            currentSelector = '';
+          } else {
+            blockBody += ch;
+          }
+          col++;
+          i++;
+          continue;
+        }
+
+        if (braceDepth === 0) {
+          if (!currentSelector.trim() && ch !== ' ' && ch !== '\t' && ch !== '\r' && ch !== '\n') {
+            selectorStartLine = line;
+            selectorStartCol = col;
+          }
+          currentSelector += ch;
+        } else {
+          blockBody += ch;
+        }
+
+        if (ch === '\n') {
+          line++;
+          col = 1;
+        } else {
+          col++;
+        }
+        i++;
+      }
+
+      return blocks;
+    }
+
+    function deFindMatchingCssRules(targetElement, cssText) {
+      if (!targetElement || !cssText) return [];
+      const allRules = deParseCssRules(cssText);
+      const matched = [];
+
+      for (let i = 0; i < allRules.length; i++) {
+        const rule = allRules[i];
+        const subSelectors = rule.selector.split(',').map(s => s.trim()).filter(Boolean);
+        let isMatched = false;
+        let isDirect = false;
+        let matchedSelector = '';
+
+        for (let j = 0; j < subSelectors.length; j++) {
+          let sel = subSelectors[j];
+          let testSel = sel.replace(/^(?:#preview-content|\.doc-preview)\s*/g, '').trim();
+          if (!testSel) testSel = sel;
+          const cleanSel = testSel.replace(/::?[a-zA-Z-]+(?:\([^)]*\))?/g, '').trim();
+
+          // 1. Direct match on target element
+          try {
+            if (targetElement.matches(testSel) || (cleanSel && targetElement.matches(cleanSel))) {
+              isMatched = true;
+              isDirect = true;
+              matchedSelector = sel;
+              break;
+            }
+          } catch (e) { }
+
+          // 2. Inherited match on parent elements up to preview container
+          if (!isMatched) {
+            let parent = targetElement.parentElement;
+            while (parent &&
+              !parent.classList.contains('doc-preview') &&
+              !parent.classList.contains('doc-pages-container') &&
+              parent !== document.body) {
+              try {
+                if (parent.matches(testSel) || (cleanSel && parent.matches(cleanSel))) {
+                  isMatched = true;
+                  isDirect = false;
+                  matchedSelector = sel;
+                  break;
+                }
+              } catch (e) { }
+              parent = parent.parentElement;
+            }
+          }
+
+          if (isMatched) break;
+        }
+
+        if (isMatched) {
+          matched.push({
+            ...rule,
+            isDirect,
+            matchedSelector
+          });
+        }
+      }
+
+      return matched;
+    }
+
+    function deLocateHtmlElementInCode(element, model) {
+      if (!element || !model) return null;
+
+      // 1. By ID
+      if (element.id) {
+        const idMatches = model.findMatches(`id="${element.id}"`, false, false, false, null, true);
+        if (idMatches && idMatches.length > 0) return idMatches[0].range;
+        const idMatchesSingle = model.findMatches(`id='${element.id}'`, false, false, false, null, true);
+        if (idMatchesSingle && idMatchesSingle.length > 0) return idMatchesSingle[0].range;
+      }
+
+      // 2. By image src
+      if (element.tagName === 'IMG') {
+        const src = element.getAttribute('src');
+        if (src) {
+          const srcMatches = model.findMatches(src, false, false, false, null, true);
+          if (srcMatches && srcMatches.length > 0) return srcMatches[0].range;
+        }
+      }
+
+      // 3. By text content snippet
+      const text = element.textContent.trim();
+      if (text.length > 0) {
+        const snippet = text.slice(0, Math.min(35, text.length)).replace(/\s+/g, ' ');
+        const textMatches = model.findMatches(snippet, false, false, false, null, true);
+        if (textMatches && textMatches.length > 0) {
+          const preview = document.getElementById('preview-content');
+          const allMatching = Array.from((preview || document).querySelectorAll(element.tagName.toLowerCase()))
+            .filter(el => el.textContent.includes(snippet));
+          const idx = Math.max(0, allMatching.indexOf(element));
+          return textMatches[Math.min(idx, textMatches.length - 1)].range;
+        }
+      }
+
+      // 4. By tag and class
+      if (element.className && typeof element.className === 'string') {
+        const firstClass = element.className.trim().split(/\s+/).find(c => c && !c.startsWith('cmt-'));
+        if (firstClass) {
+          const classMatches = model.findMatches(`class="${firstClass}"`, false, false, false, null, true);
+          if (classMatches && classMatches.length > 0) return classMatches[0].range;
+        }
+      }
+
+      // 5. By tag name
+      const tagQuery = `<${element.tagName.toLowerCase()}`;
+      const tagMatches = model.findMatches(tagQuery, false, false, false, null, true);
+      if (tagMatches && tagMatches.length > 0) return tagMatches[0].range;
+
+      return null;
+    }
+
+    function deLocateTypstElementInCode(element, model) {
+      if (!element || !model) return null;
+      const text = element.textContent.trim();
+      if (text.length > 0) {
+        const snippet = text.slice(0, 30);
+        const matches = model.findMatches(snippet, false, false, false, null, true);
+        if (matches && matches.length > 0) return matches[0].range;
+      }
+      return null;
+    }
+
+    function deClearInspectorHighlights() {
+      if (lastInspectedPreviewEl) {
+        lastInspectedPreviewEl.classList.remove('cmt-inspected-preview-elem');
+        lastInspectedPreviewEl = null;
+      }
+      if (mdEditor && mdHighlightDecorations.length > 0) {
+        mdHighlightDecorations = mdEditor.deltaDecorations(mdHighlightDecorations, []);
+      }
+      if (cssEditor && cssHighlightDecorations.length > 0) {
+        cssHighlightDecorations = cssEditor.deltaDecorations(cssHighlightDecorations, []);
+      }
+      const pill = document.getElementById('de-inspector-pill');
+      if (pill) pill.style.display = 'none';
+      lastInspectedCodeRange = null;
+      lastInspectedCssRange = null;
+    }
+
+    function deHandlePreviewElementClick(e) {
+      if (currentViewMode === 'wysiwyg') return;
+
+      let target = e.target;
+      const previewContainer = document.getElementById('preview-content');
+      if (!target || target === previewContainer) return;
+
+      // Ignore page sheet container margins/footers
+      if (target.classList.contains('doc-pages-container') ||
+        target.classList.contains('doc-page-sheet') ||
+        target.classList.contains('doc-page-body') ||
+        target.classList.contains('doc-page-footer') ||
+        target.id === 'preview-scroll') {
+        return;
+      }
+
+      if (target.nodeType === Node.TEXT_NODE) target = target.parentElement;
+      if (!target || target === previewContainer) return;
+
+      // Prevent link navigation in preview when inspecting
+      if (target.closest('a')) e.preventDefault();
+
+      const el = target;
+
+      // 1. Highlight clicked element in preview
+      if (lastInspectedPreviewEl && lastInspectedPreviewEl !== el) {
+        lastInspectedPreviewEl.classList.remove('cmt-inspected-preview-elem');
+      }
+      el.classList.add('cmt-inspected-preview-elem');
+      lastInspectedPreviewEl = el;
+
+      // 2. Suggest selector in Quick Rule input
+      const ruleSelectorInput = document.getElementById('rule-selector');
+      if (ruleSelectorInput) {
+        let suggestedSelector = el.tagName.toLowerCase();
+        if (el.id) {
+          suggestedSelector = '#' + el.id;
+        } else if (el.className && typeof el.className === 'string') {
+          const cleanClasses = el.className.split(/\s+/).filter(c => c && !c.startsWith('cmt-'));
+          if (cleanClasses.length > 0) {
+            suggestedSelector = '.' + cleanClasses[0];
+          }
+        }
+        ruleSelectorInput.value = suggestedSelector;
+      }
+
+      // 3. Locate & highlight in Monaco Code Editor
+      let codeRange = null;
+      if (mdEditor) {
+        const model = mdEditor.getModel();
+        if (currentDocType === 'md') {
+          const sourceBlock = el.closest('[data-source-line]');
+          if (sourceBlock) {
+            const sLine = parseInt(sourceBlock.getAttribute('data-source-line'), 10);
+            const eLine = parseInt(sourceBlock.getAttribute('data-source-end-line') || sLine, 10);
+            const maxLine = model.getLineCount();
+            const clampedStart = Math.max(1, Math.min(sLine, maxLine));
+            const clampedEnd = Math.max(clampedStart, Math.min(eLine, maxLine));
+
+            const clickedText = el.textContent.trim();
+            if (el !== sourceBlock && clickedText.length > 0) {
+              for (let l = clampedStart; l <= clampedEnd; l++) {
+                const lineStr = model.getLineContent(l);
+                const idx = lineStr.indexOf(clickedText);
+                if (idx !== -1) {
+                  codeRange = new monaco.Range(l, idx + 1, l, idx + 1 + clickedText.length);
+                  break;
+                }
+              }
+            }
+
+            if (!codeRange) {
+              const mathDisplay = el.closest('.math-display');
+              if (mathDisplay && mathDisplay.getAttribute('data-math')) {
+                const mathFormula = mathDisplay.getAttribute('data-math');
+                for (let l = clampedStart; l <= clampedEnd; l++) {
+                  const lineStr = model.getLineContent(l);
+                  const idx = lineStr.indexOf(mathFormula);
+                  if (idx !== -1) {
+                    codeRange = new monaco.Range(l, idx + 1, l, idx + 1 + mathFormula.length);
+                    break;
+                  }
+                }
+              }
+            }
+
+            if (!codeRange && el.tagName === 'IMG') {
+              const src = el.getAttribute('src');
+              if (src) {
+                for (let l = clampedStart; l <= clampedEnd; l++) {
+                  const lineStr = model.getLineContent(l);
+                  const idx = lineStr.indexOf(src);
+                  if (idx !== -1) {
+                    codeRange = new monaco.Range(l, 1, l, lineStr.length + 1);
+                    break;
+                  }
+                }
+              }
+            }
+
+            if (!codeRange) {
+              const endLineContent = model.getLineContent(clampedEnd);
+              codeRange = new monaco.Range(clampedStart, 1, clampedEnd, endLineContent.length + 1);
+            }
+          } else {
+            const text = el.textContent.trim();
+            if (text.length > 0) {
+              const matches = model.findMatches(text.slice(0, 30), false, false, false, null, true);
+              if (matches && matches.length > 0) {
+                codeRange = matches[0].range;
+              }
+            }
+          }
+        } else if (currentDocType === 'html') {
+          codeRange = deLocateHtmlElementInCode(el, model);
+        } else if (currentDocType === 'typ') {
+          codeRange = deLocateTypstElementInCode(el, model);
+        }
+
+        if (codeRange) {
+          lastInspectedCodeRange = codeRange;
+          mdEditor.revealRangeInCenter(codeRange, monaco.editor.ScrollType.Smooth);
+          mdEditor.setSelection(codeRange);
+          mdHighlightDecorations = mdEditor.deltaDecorations(mdHighlightDecorations, [
+            {
+              range: codeRange,
+              options: {
+                isWholeLine: codeRange.startLineNumber !== codeRange.endLineNumber || codeRange.startColumn === 1,
+                className: 'cmt-editor-highlight-line',
+                inlineClassName: 'cmt-editor-highlight-inline',
+                overviewRuler: {
+                  color: '#eab308',
+                  position: monaco.editor.OverviewRulerLane.Full
+                }
+              }
+            }
+          ]);
+        }
+      }
+
+      // 4. Locate & highlight associated CSS in Monaco CSS Editor
+      const customCss = cssEditor ? cssEditor.getValue() : '';
+      const matchingRules = deFindMatchingCssRules(el, customCss);
+      let cssRange = null;
+
+      if (matchingRules.length > 0) {
+        if (!cssEditorVisible) {
+          toggleCssEditor();
+        }
+        const decs = matchingRules.map(r => ({
+          range: new monaco.Range(r.startLine, 1, r.endLine, 999),
+          options: {
+            isWholeLine: true,
+            className: 'cmt-css-highlight-line',
+            inlineClassName: 'cmt-css-highlight-inline',
+            overviewRuler: {
+              color: '#0284c7',
+              position: monaco.editor.OverviewRulerLane.Full
+            }
+          }
+        }));
+        if (cssEditor) {
+          cssHighlightDecorations = cssEditor.deltaDecorations(cssHighlightDecorations, decs);
+          const bestRule = matchingRules.find(r => r.isDirect) || matchingRules[0];
+          cssRange = new monaco.Range(bestRule.startLine, bestRule.startCol, bestRule.endLine, bestRule.endCol);
+          lastInspectedCssRange = cssRange;
+          cssEditor.revealRangeInCenter(cssRange, monaco.editor.ScrollType.Smooth);
+          cssEditor.setSelection(cssRange);
+        }
+      } else {
+        lastInspectedCssRange = null;
+        if (cssEditor && cssHighlightDecorations.length > 0) {
+          cssHighlightDecorations = cssEditor.deltaDecorations(cssHighlightDecorations, []);
+        }
+      }
+
+      // 5. Update Floating Inspector Pill
+      const pill = document.getElementById('de-inspector-pill');
+      if (pill) {
+        const tagEl = document.getElementById('de-pill-tag');
+        const codeTextEl = document.getElementById('de-pill-code-text');
+        const cssItem = document.getElementById('de-pill-css');
+        const cssTextEl = document.getElementById('de-pill-css-text');
+
+        const cleanClasses = (el.className || '').split(/\s+/).filter(c => c && !c.startsWith('cmt-'));
+        const tagDesc = '<' + el.tagName.toLowerCase() + (cleanClasses.length > 0 ? '.' + cleanClasses[0] : '') + '>';
+        if (tagEl) tagEl.textContent = tagDesc;
+
+        if (codeTextEl) {
+          codeTextEl.textContent = (typeof t === 'function' ? t('deInspectorCodeLine') : 'Line') + ' ' + (codeRange ? codeRange.startLineNumber : '—');
+        }
+
+        if (cssItem && cssTextEl) {
+          if (matchingRules.length > 0) {
+            cssItem.classList.remove('de-pill-no-css');
+            cssItem.classList.add('de-pill-css');
+            cssTextEl.textContent = matchingRules.length + ' ' + (typeof t === 'function' ? t('deInspectorCssRules') : 'CSS') + ' (L' + matchingRules[0].startLine + ')';
+          } else {
+            cssItem.classList.remove('de-pill-css');
+            cssItem.classList.add('de-pill-no-css');
+            cssTextEl.textContent = typeof t === 'function' ? t('deInspectorNoCss') : 'No custom CSS';
+          }
+        }
+
+        pill.style.display = 'flex';
+      }
+    }
+
+    function initDocumentInspector() {
+      const pc = document.getElementById('preview-content');
+      if (pc) {
+        pc.addEventListener('click', deHandlePreviewElementClick);
+      }
+      const fullPc = document.getElementById('full-preview-content');
+      if (fullPc) {
+        fullPc.addEventListener('click', deHandlePreviewElementClick);
+      }
+
+      const pillClose = document.getElementById('de-pill-close');
+      if (pillClose) {
+        pillClose.addEventListener('click', (e) => {
+          e.stopPropagation();
+          deClearInspectorHighlights();
+        });
+      }
+
+      const pillCode = document.getElementById('de-pill-code');
+      if (pillCode) {
+        pillCode.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (lastInspectedCodeRange && mdEditor) {
+            mdEditor.revealRangeInCenter(lastInspectedCodeRange, monaco.editor.ScrollType.Smooth);
+            mdEditor.setSelection(lastInspectedCodeRange);
+            mdEditor.focus();
+          }
+        });
+      }
+
+      const pillCss = document.getElementById('de-pill-css');
+      if (pillCss) {
+        pillCss.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (!cssEditorVisible) toggleCssEditor();
+          if (lastInspectedCssRange && cssEditor) {
+            cssEditor.revealRangeInCenter(lastInspectedCssRange, monaco.editor.ScrollType.Smooth);
+            cssEditor.setSelection(lastInspectedCssRange);
+            cssEditor.focus();
+          }
+        });
+      }
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && lastInspectedPreviewEl) {
+          deClearInspectorHighlights();
+        }
+      });
+    }
+
     // ── Persistence ───────────────────────────────────────────
     function saveSplitState() {
       try { localStorage.setItem('cmt-doceditor-split', String(splitFraction)); } catch (e) { }
@@ -5129,7 +5827,7 @@
 
     function updateDocIndicator() {
       const el = document.getElementById('doc-name-indicator');
-      const name = currentDocName ? currentDocName.replace(/\.(md|html)$/, '') : 'Untitled';
+      const name = currentDocName ? currentDocName.replace(/\.(md|html|typ|typst)$/i, '') : 'Untitled';
       el.textContent = name;
       document.title = name + ' — Document Editor';
       el.classList.toggle('modified', docModified);
@@ -7337,8 +8035,9 @@
                 })
               ).join('\n\n#pagebreak()\n\n');
 
-              const pdfBytes = await TypstService.compileToPdf(combinedTypst);
-              const defaultName = `${classNameClean}_${docNameClean}_BatchCombined.pdf`;
+              const combinedTypstTitle = `${classNameClean}_${docNameClean}_BatchCombined`;
+              const pdfBytes = await TypstService.compileToPdf(combinedTypst, { title: combinedTypstTitle });
+              const defaultName = `${combinedTypstTitle}.pdf`;
               if (window.Desktop && Desktop.isElectron()) {
                 await Desktop.saveBlob('docEditorDocs', defaultName, new Blob([pdfBytes], { type: 'application/pdf' }));
                 showToast(`Batch PDF export complete! Saved as ${defaultName}`);
@@ -7360,8 +8059,9 @@
                   students: students,
                   isHtml: false
                 });
-                const pdfBytes = await TypstService.compileToPdf(studentTypst);
-                const filename = `${classNameClean}_${(s.fullName || s.lastName || 'student').replace(/[/\\?%*:|"<>]/g, '_')}_${docNameClean}.pdf`;
+                const singleTypstTitle = `${classNameClean}_${(s.fullName || s.lastName || 'student').replace(/[/\\?%*:|"<>]/g, '_')}_${docNameClean}`;
+                const pdfBytes = await TypstService.compileToPdf(studentTypst, { title: singleTypstTitle });
+                const filename = `${singleTypstTitle}.pdf`;
                 if (window.Desktop && Desktop.isElectron()) {
                   await Desktop.saveBlob('docEditorDocs', filename, new Blob([pdfBytes], { type: 'application/pdf' }));
                   successCount++;
@@ -7418,7 +8118,9 @@
             '.mailposting-student-page:last-child { page-break-after: auto; break-after: auto; }\n' +
             customCss;
 
+          const combinedPdfTitle = `${classNameClean} - ${docNameClean}`;
           const html = '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="UTF-8">\n' +
+            '<title>' + escHtml(combinedPdfTitle) + '</title>\n' +
             '<style>\n* { box-sizing: border-box; margin: 0; padding: 0; }\n' +
             lexendFontsCss + '\n' +
             defaultPreviewCss + '\n</style>\n</head>\n<body>\n<div class="doc-preview">\n' +
@@ -7436,7 +8138,7 @@
             preferCSSPageSize: true
           };
 
-          const result = await Desktop.printPdf({ html, defaultName, pdfOptions });
+          const result = await Desktop.printPdf({ html, defaultName, title: combinedPdfTitle, pdfOptions });
           if (result && result.ok) {
             showToast(`Batch PDF export complete! Saved as ${result.name || defaultName}`);
           } else if (result && !result.canceled) {
@@ -7529,6 +8231,7 @@
             for (const d of docs) {
               const inlinedDocContent = await deInlineAllImages(d.processedContent);
               const html = '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="UTF-8">\n' +
+                '<title>' + escHtml(d.filename) + '</title>\n' +
                 '<style>\n* { box-sizing: border-box; margin: 0; padding: 0; }\n' +
                 lexendFontsCss + '\n' +
                 defaultPreviewCss + '\n</style>\n</head>\n<body>\n<div class="doc-preview">\n' +
@@ -7537,6 +8240,7 @@
               const res = await Desktop.printPdf({
                 html,
                 defaultName: `${d.filename}.pdf`,
+                title: d.filename,
                 pdfOptions: { landscape: pageLayout.orientation === 'landscape', marginsType: 1, preferCSSPageSize: true }
               });
               if (res && res.ok) successCount++;
@@ -7589,6 +8293,7 @@
       }
       window.addEventListener('resize', deBroadcastState);
       initPageLayoutPopup();
+      initDocumentInspector();
 
       document.getElementById('btn-doc-type').addEventListener('click', () => {
         const next = currentDocType === 'md' ? 'html' : (currentDocType === 'html' ? 'typ' : 'md');
