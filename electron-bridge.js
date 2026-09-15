@@ -1092,10 +1092,14 @@
     const nav = document.getElementById('app-nav') || document.getElementById('menu');
     if (!nav) return;
     nav.addEventListener('click', function (event) {
-      const link = event.target.closest('a.nav-link[href]');
+      const link = event.target.closest('a.nav-link[href], a.hm-item[href]');
       if (!link) return;
       event.preventDefault();
-      window.Desktop.openTool(link.getAttribute('href'));
+      const rawHref = link.getAttribute('href') || '';
+      const pageFile = rawHref.split('/').pop().split('?')[0];
+      if (pageFile && window.Desktop && typeof window.Desktop.openTool === 'function') {
+        window.Desktop.openTool(pageFile);
+      }
     });
   }
 

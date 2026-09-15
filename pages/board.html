@@ -19931,12 +19931,12 @@
             window._conBumpBoardRevision();
           }
           const _now = Date.now();
-          // Leading edge: fire immediately if enough time has passed since last send (80ms throttle)
-          if (_now - _mirrorLastSent >= 80) {
+          // Leading edge or explicit forceRender: fire immediately if enough time has passed or forceRender is requested
+          if (opts.forceRender || _now - _mirrorLastSent >= 80) {
             clearTimeout(_mirrorTimer);
             _mirrorTimer = null;
             _mirrorLastSent = _now;
-            _mirrorDoSend();
+            _mirrorDoSend(opts);
             return;
           }
           // Trailing edge: schedule a catch-up send for the end of the burst
@@ -19944,11 +19944,11 @@
             _mirrorTimer = setTimeout(function () {
               _mirrorTimer = null;
               _mirrorLastSent = Date.now();
-              _mirrorDoSend();
+              _mirrorDoSend(opts);
             }, 80 - (_now - _mirrorLastSent));
           }
         }
-        async function _mirrorDoSend() {
+        async function _mirrorDoSend(opts = {}) {
           try {
             if (_mirrorPeers.size === 0 && (!_mirrorPopupRef || _mirrorPopupRef.closed)) return;
             var vp = _mirrorGetViewport();
@@ -20049,6 +20049,8 @@
             _mirrorCh.postMessage({
               type: 'board-state',
               snapshot: snap,
+              pageIndex: (typeof conCurrentPageIndex === 'number') ? conCurrentPageIndex : 0,
+              forceRender: !!(opts && opts.forceRender),
               mediaPlaybackStates: Object.keys(mediaPlaybackStates).length ? mediaPlaybackStates : undefined,
               boardBgRender: (_conBoardBg && _conBoardBg._cachedDataUrl && _conBoardBg._cachedW && _conBoardBg._cachedH)
                 ? {
@@ -20100,7 +20102,7 @@
               _mirrorDoSendFrozen();
               return;
             }
-            _mirrorBroadcast({ bumpRevision: true });
+            _mirrorBroadcast({ bumpRevision: true, forceRender: true });
             return;
           }
           if (e.data.type === 'mirror-control') {
@@ -20324,7 +20326,18 @@
             }
             _setFreezeUi(_mirrorFrozen);
             window._conMirrorSend({ type: 'freeze-state', on: _mirrorFrozen });
-            if (!_mirrorFrozen) _mirrorBroadcast();
+            if (!_mirrorFrozen) {
+              _mirrorSentAttachmentKeys.clear();
+              if (typeof window._conBumpBoardRevision === 'function') {
+                window._conBumpBoardRevision();
+              }
+              if (_mirrorTimer) {
+                clearTimeout(_mirrorTimer);
+                _mirrorTimer = null;
+              }
+              _mirrorLastSent = 0;
+              _mirrorBroadcast({ bumpRevision: true, forceRender: true });
+            }
           };
           _setFreezeUi(_mirrorFrozen);
           // Sync board scroll (and page scroll) to mirror (throttled to rAF)
@@ -51940,10 +51953,15 @@
         }
 
         if (d.type === 'board-state') {
+          var prevFrozen = _mirrorIsFrozen;
           if (d.frozen !== undefined) {
             _mirrorIsFrozen = !!d.frozen;
             _setMirrorFrozenUi(_mirrorIsFrozen);
             _setMirrorMenuFrozen(_mirrorIsFrozen);
+            if (prevFrozen && !_mirrorIsFrozen) {
+              _lastRenderedRevision = null;
+              _reapplyMirrorBlinks();
+            }
           }
           if (_mirrorIsFrozen && !d.forceRender) {
             return;
@@ -51958,7 +51976,8 @@
             snapshotDrawings: d.snapshot ? (d.snapshot.drawings || []).length : 0,
             hasBoardBgRender: !!d.boardBgRender,
             revision: d.snapshot ? d.snapshot._revision : null,
-            frozen: d.frozen
+            frozen: d.frozen,
+            forceRender: d.forceRender
           });
           if (d.boardViewW) { _mvpW = d.boardViewW; _mvpH = d.boardViewH; }
           if (d.sx !== undefined) { _msx = d.sx; _msy = d.sy; }
@@ -51968,9 +51987,13 @@
           }
 
           const incomingRevision = d.snapshot && (d.snapshot._revision || d.snapshot._conRevision);
-          const skipRestore = !!(incomingRevision && _lastRenderedRevision && incomingRevision === _lastRenderedRevision);
+          const skipRestore = !d.forceRender && !!(incomingRevision && _lastRenderedRevision && incomingRevision === _lastRenderedRevision);
 
           if (!skipRestore && d.snapshot && typeof window.conRestorePageToBoard === 'function') {
+            if (typeof d.pageIndex === 'number' && typeof conCurrentPageIndex === 'number') {
+              conCurrentPageIndex = d.pageIndex;
+              if (typeof conUpdatePageBar === 'function') conUpdatePageBar();
+            }
             window.conRestorePageToBoard(d.snapshot, { mirrorSync: true });
             _lastRenderedRevision = incomingRevision || null;
             // conDrawingsClear (called during restore) wipes con-draw-live-svg; re-attach the
@@ -52171,7 +52194,9 @@
           _setMirrorFrozenUi(_mirrorIsFrozen);
           _setMirrorMenuFrozen(_mirrorIsFrozen);
           if (wasFrozen && !_mirrorIsFrozen) {
+            _lastRenderedRevision = null;
             _reapplyMirrorBlinks();
+            try { ch.postMessage({ type: 'request-state' }); } catch (e) { }
           }
           return;
         }

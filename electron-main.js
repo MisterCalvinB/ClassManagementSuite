@@ -52,7 +52,7 @@ const PAGE_FILES = {
   groupEditor: 'group-editor.html',
   gradeSheet: 'grade-sheet.html',
   learningDb: 'manage-database.html',
-  learningDb2: 'manage-database2.html',
+  /*learningDb2: 'manage-database2.html',*/
   learningTools: 'learning-tools.html',
   participationTracker: 'participation-tracker.html',
   launcher: 'launcher.html',
@@ -60,7 +60,7 @@ const PAGE_FILES = {
   fileManager: 'file-manager.html',
   howTo: 'how-to.html',
   about: 'about.html',
-  credits: 'about.html',
+  /*credits: 'about.html',*/
   scheduleMaker: 'schedule-maker.html',
   classPlan: 'class-plan.html',
   documentEditor: 'document-editor.html',
@@ -79,8 +79,8 @@ const PAGE_ARG_MAP = {
   gradesheet: PAGE_FILES.gradeSheet,
   grades: PAGE_FILES.gradeSheet,
   learningdb: PAGE_FILES.learningDb,
-  learningdb2: PAGE_FILES.learningDb2,
-  dbmanager2: PAGE_FILES.learningDb2,
+  /*learningdb2: PAGE_FILES.learningDb2,
+  dbmanager2: PAGE_FILES.learningDb2,*/
   learningtools: PAGE_FILES.learningTools,
   participationtracker: PAGE_FILES.participationTracker,
   participationtracking: PAGE_FILES.participationTracker,
@@ -95,7 +95,7 @@ const PAGE_ARG_MAP = {
   howto: PAGE_FILES.howTo,
   help: PAGE_FILES.howTo,
   about: PAGE_FILES.about,
-  credits: PAGE_FILES.about,
+  /*credits: PAGE_FILES.about,*/
   groupeditor: PAGE_FILES.groupEditor,
   groups: PAGE_FILES.groupEditor,
   schedulemaker: PAGE_FILES.scheduleMaker,
@@ -131,8 +131,8 @@ const PAGE_LABELS = {
   [PAGE_FILES.classManagement]: 'Class Management',
   [PAGE_FILES.groupEditor]: 'Group Editor',
   [PAGE_FILES.gradeSheet]: 'Grade Sheet',
-  [PAGE_FILES.learningDb]: 'Learning DB',
-  [PAGE_FILES.learningDb2]: 'DB Manager v2',
+  [PAGE_FILES.learningDb]: 'Manage Database',
+  /*[PAGE_FILES.learningDb2]: 'DB Manager v2',*/
   [PAGE_FILES.learningTools]: 'Learning Tools',
   [PAGE_FILES.participationTracker]: 'Participation Tracker',
   [PAGE_FILES.launcher]: 'Launcher',

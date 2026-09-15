@@ -159,6 +159,13 @@
           evalInContext(cfgRes.content);
           initDefaults();
         }
+      } else {
+        try {
+          var savedData = localStorage.getItem('cmt-admin-groups-data');
+          if (savedData) {
+            state.adminData = JSON.parse(savedData);
+          }
+        } catch (e) {}
       }
     } catch (err) {
       console.warn('Error loading administrative data files:', err);
@@ -236,8 +243,41 @@
       var dob = s.dob || adm.dob || '';
       var age = calculateAge(dob);
 
-      // Points and infractions
+      // Points, periods and infractions
+      var periods = (adm.periods && typeof adm.periods === 'object') ? JSON.parse(JSON.stringify(adm.periods)) : {};
       var infractions = adm.infractions || { lates: 0, missingHomework: 0, missingMaterial: 0, disruptive: 0, dismissals: 0, unexcusedAbsence: 0 };
+
+      // If periods exist, compute cumulative totals across all periods
+      if (Object.keys(periods).length > 0) {
+        var computedInfractions = {};
+        (state.config.infractions || []).forEach(function (inf) {
+          computedInfractions[inf.key] = 0;
+        });
+        Object.keys(periods).forEach(function (pid) {
+          var pData = periods[pid];
+          if (pData && pData.infractions) {
+            Object.keys(pData.infractions).forEach(function (k) {
+              computedInfractions[k] = (computedInfractions[k] || 0) + (parseInt(pData.infractions[k], 10) || 0);
+            });
+          }
+        });
+        infractions = computedInfractions;
+      } else {
+        // If periods object is empty but legacy infractions had data, assign to first period
+        var firstPeriodId = (state.config.periods && state.config.periods[0] && state.config.periods[0].id) || 'p1';
+        var hasNonZero = Object.keys(infractions).some(function (k) { return (parseInt(infractions[k], 10) || 0) > 0; });
+        if (hasNonZero) {
+          periods[firstPeriodId] = {
+            infractions: JSON.parse(JSON.stringify(infractions)),
+            startDate: (state.config.periods && state.config.periods[0] && state.config.periods[0].startDate) || '',
+            endDate: (state.config.periods && state.config.periods[0] && state.config.periods[0].endDate) || ''
+          };
+          state.adminData.students = state.adminData.students || {};
+          state.adminData.students[uuid] = state.adminData.students[uuid] || {};
+          state.adminData.students[uuid].periods = periods;
+        }
+      }
+
       var points = calculateDisciplinePoints(infractions);
       var sanction = determineSanctionTier(points);
 
@@ -260,6 +300,7 @@
         address: adm.address || '',
         emergencyContact: adm.emergencyContact || '',
         medicalNotes: adm.medicalNotes || '',
+        periods: periods,
         infractions: infractions,
         points: points,
         sanction: sanction,
@@ -550,7 +591,7 @@
     }
 
     if (isAll) {
-      if (student.periods) {
+      if (student.periods && Object.keys(student.periods).length > 0) {
         var totals = {};
         (state.config.infractions || []).forEach(function (inf) {
           totals[inf.key] = 0;
@@ -940,7 +981,7 @@
   var autoSaveTimer = null;
   function autoSave() {
     clearTimeout(autoSaveTimer);
-    autoSaveTimer = setTimeout(saveAllData, 1000);
+    autoSaveTimer = setTimeout(saveAllData, 500);
   }
 
   async function saveAllData() {
@@ -948,11 +989,22 @@
       if (window.Desktop && Desktop.isElectron()) {
         // Save administrative-groups.json
         await Desktop.saveText('user', 'administrative-groups.json', JSON.stringify(state.adminData, null, 2));
+      } else {
+        try {
+          localStorage.setItem('cmt-admin-groups-data', JSON.stringify(state.adminData));
+        } catch (e) {}
       }
     } catch (e) {
       console.warn('Failed to persist administrative data:', e);
     }
   }
+
+  window.addEventListener('beforeunload', function () {
+    if (autoSaveTimer) {
+      clearTimeout(autoSaveTimer);
+      saveAllData();
+    }
+  });
 
   // ── Erase Student Handlers ──
   state.targetEraseStudentId = null;

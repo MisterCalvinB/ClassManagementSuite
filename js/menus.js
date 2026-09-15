@@ -138,7 +138,7 @@
         var iconHtml = app.icon
           ? '<img src="' + baseDir + 'assets/icons/' + app.icon + '" class="hm-icon-img" alt="" />'
           : '';
-        parts.push('<a href="' + app.href + '" class="' + cls + '">' + iconHtml + '<span>' + app.label + '</span></a>');
+        parts.push('<a href="' + app.href + '" class="' + cls + '" target="_blank">' + iconHtml + '<span>' + app.label + '</span></a>');
       });
       // Close last grid, add lang row.
       parts.push(
@@ -157,19 +157,53 @@
       if (typeof window.updateLangButtons === 'function') window.updateLangButtons();
     }
 
-    // Wire button toggle.
+    // Wire button toggle (idempotent: prevent duplicate click listeners if initHamburger is called multiple times)
     var btn = wrap.querySelector('.hm-btn');
-    if (btn) {
+    if (btn && !btn._hmBound) {
+      btn._hmBound = true;
       btn.removeAttribute('onclick');
       btn.addEventListener('click', function (e) {
         e.stopPropagation();
-        wrap.classList.toggle('open');
+        var willOpen = !wrap.classList.contains('open');
+        document.querySelectorAll('.hm-wrap.open').forEach(function (w) {
+          if (w !== wrap) w.classList.remove('open');
+        });
+        if (typeof window.closeDbPopup === 'function') window.closeDbPopup();
+        if (typeof window.closeSettingsPopup === 'function') window.closeSettingsPopup();
+        wrap.classList.toggle('open', willOpen);
       });
     }
 
-    // Close on outside click.
-    document.addEventListener('click', function (e) {
-      if (!wrap.contains(e.target)) wrap.classList.remove('open');
-    });
+    // Wire link clicks to open in a new window (Desktop.openTool in Electron, new tab in browser)
+    if (!wrap._hmLinksDelegated) {
+      wrap._hmLinksDelegated = true;
+      wrap.addEventListener('click', function (e) {
+        var link = e.target.closest('a.hm-item[href]');
+        if (!link) return;
+        e.preventDefault();
+        e.stopPropagation();
+        wrap.classList.remove('open');
+        var href = link.getAttribute('href');
+        if (!href) return;
+        var pageFile = href.split('/').pop().split('?')[0];
+        if (window.Desktop && typeof window.Desktop.openTool === 'function') {
+          window.Desktop.openTool(pageFile);
+        } else if (window.electronBridge && typeof window.electronBridge.openTool === 'function') {
+          window.electronBridge.openTool(pageFile);
+        } else if (window.electronApi && typeof window.electronApi.openTool === 'function') {
+          window.electronApi.openTool(pageFile);
+        } else {
+          window.open(href, '_blank');
+        }
+      });
+    }
+
+    // Close on outside click (idempotent: register once per wrapper)
+    if (!wrap._hmDocBound) {
+      wrap._hmDocBound = true;
+      document.addEventListener('click', function (e) {
+        if (!wrap.contains(e.target)) wrap.classList.remove('open');
+      });
+    }
   };
 })();
