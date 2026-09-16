@@ -139,37 +139,7 @@
 
         <div id="filter-bar"></div>
 
-        <div id="batch-panel" class="hidden">
-          <div style="font-size:0.82rem;color:#555;margin-bottom:8px;" data-i18n="mdbBatchHint">Themes &amp; keywords
-            are <em>added</em>; part of speech &amp; level are <em>replaced</em> (leave blank to keep existing).</div>
-          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
-            <div style="flex:1;min-width:150px;">
-              <label class="form-lbl" for="be-theme" data-i18n="mdbBatchTheme">Theme(s)</label>
-              <input type="text" id="be-theme" data-i18n-placeholder="mdbBatchThemePlaceholder"
-                placeholder="e.g. Character, Emotions"
-                style="width:100%;padding:6px 10px;border:1.5px solid #ccc;border-radius:5px;font-family:inherit;font-size:0.85rem;">
-            </div>
-            <div style="flex:1;min-width:150px;">
-              <label class="form-lbl" for="be-keywords" data-i18n="mdbBatchKeywords">Keyword(s)</label>
-              <input type="text" id="be-keywords" data-i18n-placeholder="mdbBatchKeywordsPlaceholder"
-                placeholder="e.g. lesson1, revision"
-                style="width:100%;padding:6px 10px;border:1.5px solid #ccc;border-radius:5px;font-family:inherit;font-size:0.85rem;">
-            </div>
-            <div style="flex:0 1 120px;">
-              <label class="form-lbl" for="be-pos" data-i18n="mdbBatchPos">Part of Speech</label>
-              <input type="text" id="be-pos" data-i18n-placeholder="mdbBatchPosPlaceholder" placeholder="e.g. noun"
-                style="width:100%;padding:6px 10px;border:1.5px solid #ccc;border-radius:5px;font-family:inherit;font-size:0.85rem;">
-            </div>
-            <div style="flex:0 1 80px;">
-              <label class="form-lbl" for="be-level" data-i18n="mdbBatchLevel">Level</label>
-              <input type="text" id="be-level" data-i18n-placeholder="mdbBatchLevelPlaceholder" placeholder="e.g. B2"
-                style="width:100%;padding:6px 10px;border:1.5px solid #ccc;border-radius:5px;font-family:inherit;font-size:0.85rem;">
-            </div>
-            <div><button class="btn btn-primary" onclick="applyBatchEdit()" data-i18n="mdbBtnApply"><img src="../assets/icons/check.svg" class="btn-icon" alt="" /> Apply</button>
-            </div>
-          </div>
-          <div id="batch-feedback" style="margin-top:8px;font-size:0.82rem;color:#666;"></div>
-        </div>
+        <div id="batch-panel" class="hidden"></div>
 
         <div id="table-wrap">
           <div id="empty-rows" class="center-msg hidden" data-i18n="mdbEmptyRows">No records match the current filters.
@@ -972,6 +942,8 @@
       S.page = 0;
       S.viewMode = getTypeDef(key).defaultView || 'table';
       S.batchSel = new Set();
+      closeBatchPanel();
+      updateBatchUI();
 
       const sec = getSectionForType(key);
       if (sec) ensureSectionExpanded(sec.id);
@@ -1689,10 +1661,11 @@
       table.classList.remove('hidden');
       const tableCols = S.schema.filter(f => f.type !== 'object');
       const multiFile = S.files.length > 1;
-      const isBatchMode = S.typeKey === 'wordbanks';
+      const isBatchMode = isBatchSupported();
+      const allPageSelected = rows.length > 0 && rows.every(r => S.batchSel.has(batchKey(r._fi, r._ri)));
 
       thead.innerHTML = `<tr>
-    ${isBatchMode ? `<th class="th-act" style="width:32px;padding:8px 4px 8px 11px;"><input type="checkbox" id="batch-check-all" onchange="handleBatchCheckAll(this)" title="${t('mdbTitleSelectAllPage')}"></th>` : ''}
+    ${isBatchMode ? `<th class="th-act" style="width:32px;padding:8px 4px 8px 11px;"><input type="checkbox" id="batch-check-all" ${allPageSelected ? 'checked' : ''} onchange="handleBatchCheckAll(this)" title="${t('mdbTitleSelectAllPage')}"></th>` : ''}
     ${tableCols.map(f => {
         const cls = S.sortField === f.key ? (S.sortDir === 'asc' ? 'sort-asc' : 'sort-desc') : '';
         return `<th class="${cls}" onclick="setSort('${f.key}')">${esc(cap(f.key))}</th>`;
@@ -2110,9 +2083,12 @@
           const itemTags = items.map(it => `<span class="tag" style="background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;font-size:0.75rem;padding:2px 7px;border-radius:12px;margin:2px;">${esc(it)}</span>`).join('');
           return `<div class="chip${isSel ? ' chip-selected' : ''}" style="width:100%;max-width:540px;flex-direction:column;align-items:flex-start;padding:12px 14px;gap:8px;">
             <div style="display:flex;align-items:center;width:100%;justify-content:space-between;gap:8px;">
-              <div class="chip-body" onclick="openEdit(${row._fi},${row._ri})" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-                <span style="font-weight:800;font-size:0.95rem;color:#0f172a;">${esc(catName)}</span>
-                <span class="tag-more" style="background:#e0f2fe;color:#0369a1;font-weight:700;">${items.length} ${items.length === 1 ? 'chip' : 'chips'}</span>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <label class="chip-check" onclick="event.stopPropagation()"><input type="checkbox" data-batch-key="${esc(bk)}" ${isSel ? 'checked' : ''} onchange="toggleBatchSelect(${row._fi},${row._ri})"></label>
+                <div class="chip-body" onclick="openEdit(${row._fi},${row._ri})" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                  <span style="font-weight:800;font-size:0.95rem;color:#0f172a;">${esc(catName)}</span>
+                  <span class="tag-more" style="background:#e0f2fe;color:#0369a1;font-weight:700;">${items.length} ${items.length === 1 ? 'chip' : 'chips'}</span>
+                </div>
               </div>
               <div style="display:flex;gap:4px;margin-left:auto;">
                 <button class="chip-del" onclick="openCopyToModal(${row._fi},${row._ri})" title="${t('mdbBtnCopyToFile')}"><img src="../assets/icons/copy.svg" class="btn-icon btn-icon-xs" alt="" /></button>
@@ -2131,7 +2107,7 @@
         container.innerHTML = '<div style="padding:20px;color:#bbb;font-size:0.85rem">No displayable fields detected.</div>';
         return;
       }
-      const isBatchMode = S.typeKey === 'wordbanks';
+      const isBatchMode = isBatchSupported();
       container.innerHTML = rows.map(row => {
         const main = String(row[primary.key] ?? '');
         const sub = secondary ? String(row[secondary.key] ?? '') : '';
@@ -4385,12 +4361,20 @@ Rules:
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // BATCH SELECTION (wordbanks)
+    // BATCH SELECTION & EDITING
     // ─────────────────────────────────────────────────────────────────────
+    function isBatchSupported() {
+      return ['wordbanks', 'competences', 'descriptors', 'criteria', 'scales', 'chips', 'quotebanks', 'dictations', 'grammarbanks', 'gapfillbanks', 'errorbanks', 'sentencebanks', 'storybanks', 'quizzes', 'phases'].includes(S.typeKey);
+    }
+
     function batchKey(fi, ri) { return `${fi}:${ri}`; }
 
     function parseCsvList(raw) {
       return String(raw || '').split(',').map(s => s.trim()).filter(Boolean);
+    }
+
+    function parseCsvOrNewlineList(raw) {
+      return String(raw || '').split(/[\r\n,]+/).map(s => s.trim()).filter(Boolean);
     }
 
     function getRecordThemes(rec) {
@@ -4452,7 +4436,7 @@ Rules:
 
     function updateBatchUI() {
       const count = S.batchSel.size;
-      const show = S.typeKey === 'wordbanks';
+      const show = isBatchSupported();
       ['batch-select-all-btn', 'batch-clear-btn', 'batch-count'].forEach(id => {
         const el = $(id);
         if (el) el.style.display = show ? '' : 'none';
@@ -4465,15 +4449,277 @@ Rules:
       if (delBtn) { delBtn.style.display = show ? '' : 'none'; delBtn.disabled = count === 0; }
       const countEl = $('batch-count');
       if (countEl) countEl.textContent = count > 0 ? tFmt('mdbNSelected', { n: count }) : '';
+      const panelBadge = $('batch-panel-count-badge');
+      if (panelBadge) panelBadge.textContent = tFmt('mdbNSelected', { n: count });
       if (!show) closeBatchPanel();
+    }
+
+    function renderBatchPanel() {
+      const panel = $('batch-panel');
+      if (!panel) return;
+      const count = S.batchSel.size;
+      const typeKey = S.typeKey;
+
+      // Determine available prefix/suffix targets for this type
+      let targets = [];
+      if (typeKey === 'chips') {
+        targets = [
+          { val: 'items', label: t('mdbBatchTargetChipsItems') || 'Observation Chips (Elements)' },
+          { val: 'type', label: t('mdbBatchTargetChipCategory') || 'Category Name' }
+        ];
+      } else if (typeKey === 'competences' || typeKey === 'descriptors') {
+        targets = [
+          { val: 'id', label: t('mdbBatchTargetCompId') || 'Competence ID' },
+          { val: 'title', label: t('mdbBatchTargetCompTitle') || 'Competence Title' },
+          { val: 'code', label: t('mdbBatchTargetCompCode') || 'Competence Code' },
+          { val: 'category', label: t('mdbBatchCompCategory') || 'Category / Domain' },
+          { val: 'tags', label: t('mdbBatchTargetCompTags') || 'Tags' }
+        ];
+      } else if (typeKey === 'criteria') {
+        targets = [
+          { val: 'id', label: t('mdbBatchTargetCompId') || 'ID' },
+          { val: 'name', label: t('mdbBatchTargetCritName') || 'Criterion Name' },
+          { val: 'competenceIds', label: t('mdbBatchAddLinkedComp') || 'Linked Competence IDs' }
+        ];
+      } else if (typeKey === 'scales') {
+        targets = [
+          { val: 'label', label: t('mdbBatchTargetScaleLabel') || 'Scale Display Name' },
+          { val: 'key', label: t('mdbBatchTargetScaleKey') || 'Scale Identifier (Key)' }
+        ];
+      } else if (typeKey === 'wordbanks') {
+        targets = [
+          { val: 'word', label: t('mdbBatchTargetWord') || 'Word / Expression' },
+          { val: 'translation', label: t('mdbBatchTargetTranslation') || 'Translation' }
+        ];
+      } else {
+        const strCols = (S.schema || []).filter(f => f.type === 'string');
+        targets = strCols.map(f => ({ val: f.key, label: cap(f.key) }));
+        if (!targets.some(t => t.val === 'id') && (S.schema || []).some(f => f.key === 'id')) {
+          targets.unshift({ val: 'id', label: 'ID' });
+        }
+        if (!targets.length) targets = [{ val: 'title', label: 'Title / Content' }];
+      }
+
+      let fieldsHtml = '';
+      let hintText = '';
+
+      if (typeKey === 'chips') {
+        hintText = t('mdbBatchHintChips') || 'Add prefix/suffix to all chips in selected categories, or add/remove chips in batch.';
+        fieldsHtml = `
+          <div class="batch-form-field" style="flex:2;min-width:220px;">
+            <label for="be-chip-add">${t('mdbBatchAddChips') || 'Add Chips to Categories'}</label>
+            <input type="text" id="be-chip-add" placeholder="${t('mdbBatchAddChipsPlaceholder') || 'e.g. Active listener, Needs encouragement'}">
+            <div class="form-hint">${t('mdbHintCommaSep') || 'Comma-separated or newline-separated values'}</div>
+          </div>
+          <div class="batch-form-field" style="flex:2;min-width:220px;">
+            <label for="be-chip-remove">${t('mdbBatchRemoveChips') || 'Remove Chips from Categories'}</label>
+            <input type="text" id="be-chip-remove" placeholder="${t('mdbBatchRemoveChipsPlaceholder') || 'e.g. Outdated chip 1, Outdated chip 2'}">
+            <div class="form-hint">${t('mdbHintCommaSep') || 'Comma-separated values'}</div>
+          </div>
+          <div class="batch-form-field" style="flex:1;min-width:160px;">
+            <label for="be-chip-cat">${t('mdbBatchRenameCategory') || 'Replace Category Name'}</label>
+            <input type="text" id="be-chip-cat" placeholder="${t('mdbBatchRenameCategoryPlaceholder') || 'Leave blank to keep existing'}">
+          </div>
+        `;
+      } else if (typeKey === 'competences' || typeKey === 'descriptors') {
+        hintText = t('mdbBatchHintCompetences') || 'Tags and linked competences are added; other fields replace existing values (leave blank to keep).';
+        fieldsHtml = `
+          <div class="batch-form-field" style="flex:1;min-width:150px;">
+            <label for="be-comp-id">${t('mdbBatchCompId') || 'ID / Pattern'}</label>
+            <input type="text" id="be-comp-id" placeholder="${t('mdbBatchCompIdPlaceholder') || 'e.g. C-{n} or static ID'}">
+            <div class="form-hint">${t('mdbBatchHintIdPattern') || 'Use {n} for 1,2,3 or {0n} for 01,02'}</div>
+          </div>
+          <div class="batch-form-field" style="flex:1;min-width:140px;">
+            <label for="be-comp-cat">${t('mdbBatchCompCategory') || 'Category / Domain'}</label>
+            <input type="text" id="be-comp-cat" placeholder="e.g. Oral Production">
+          </div>
+          <div class="batch-form-field" style="flex:1;min-width:140px;">
+            <label for="be-comp-subcat">${t('mdbBatchCompSubCategory') || 'Sub-Category'}</label>
+            <input type="text" id="be-comp-subcat" placeholder="e.g. Fluency">
+          </div>
+          <div class="batch-form-field" style="flex:0 1 100px;">
+            <label for="be-comp-level">${t('mdbBatchCompLevel') || 'CEFR Level'}</label>
+            <input type="text" id="be-comp-level" placeholder="e.g. B2">
+          </div>
+          <div class="batch-form-field" style="flex:0 1 100px;">
+            <label for="be-comp-year">${t('mdbBatchCompYearLevel') || 'Year Level'}</label>
+            <input type="text" id="be-comp-year" placeholder="e.g. Year 10">
+          </div>
+          <div class="batch-form-field" style="flex:0 1 90px;">
+            <label for="be-comp-semester">${t('mdbBatchCompSemester') || 'Semester'}</label>
+            <input type="text" id="be-comp-semester" placeholder="e.g. S1">
+          </div>
+          <div class="batch-form-field" style="flex:0 1 100px;">
+            <label for="be-comp-subject">${t('mdbBatchCompSubject') || 'Subject ID'}</label>
+            <input type="text" id="be-comp-subject" placeholder="e.g. ENG">
+          </div>
+          <div class="batch-form-field" style="flex:2;min-width:180px;">
+            <label for="be-comp-tags">${t('mdbBatchAddTags') || 'Add Tags'}</label>
+            <input type="text" id="be-comp-tags" placeholder="${t('mdbBatchAddTagsPlaceholder') || 'e.g. oral, exam, unit1'}">
+          </div>
+          <div class="batch-form-field" style="flex:2;min-width:200px;">
+            <label for="be-comp-linked">${t('mdbBatchAddLinkedComp') || 'Add Linked Competences'}</label>
+            <input type="text" id="be-comp-linked" placeholder="${t('mdbBatchAddLinkedCompPlaceholder') || 'e.g. C1, COM-02'}">
+          </div>
+        `;
+      } else if (typeKey === 'criteria') {
+        hintText = t('mdbBatchHintCriteria') || 'Linked competences are added; numeric points and weights replace existing values (leave blank to keep).';
+        fieldsHtml = `
+          <div class="batch-form-field" style="flex:1;min-width:150px;">
+            <label for="be-crit-id">${t('mdbBatchCompId') || 'ID / Pattern'}</label>
+            <input type="text" id="be-crit-id" placeholder="${t('mdbBatchCompIdPlaceholder') || 'e.g. CRIT-{n} or static ID'}">
+            <div class="form-hint">${t('mdbBatchHintIdPattern') || 'Use {n} for 1,2,3 or {0n} for 01,02'}</div>
+          </div>
+          <div class="batch-form-field" style="flex:0 1 100px;">
+            <label for="be-crit-min">${t('mdbBatchCritMinPoints') || 'Min Points'}</label>
+            <input type="number" step="any" id="be-crit-min" placeholder="e.g. 0">
+          </div>
+          <div class="batch-form-field" style="flex:0 1 100px;">
+            <label for="be-crit-max">${t('mdbBatchCritMaxPoints') || 'Max Points'}</label>
+            <input type="number" step="any" id="be-crit-max" placeholder="e.g. 10">
+          </div>
+          <div class="batch-form-field" style="flex:0 1 100px;">
+            <label for="be-crit-interval">${t('mdbBatchCritInterval') || 'Step / Interval'}</label>
+            <input type="number" step="any" id="be-crit-interval" placeholder="e.g. 1">
+          </div>
+          <div class="batch-form-field" style="flex:0 1 100px;">
+            <label for="be-crit-coeff">${t('mdbBatchCritWeight') || 'Weight / Coeff'}</label>
+            <input type="number" step="any" id="be-crit-coeff" placeholder="e.g. 1">
+          </div>
+          <div class="batch-form-field" style="flex:2;min-width:220px;">
+            <label for="be-crit-comp">${t('mdbBatchAddLinkedComp') || 'Add Linked Competences'}</label>
+            <input type="text" id="be-crit-comp" placeholder="${t('mdbBatchAddLinkedCompPlaceholder') || 'e.g. C1, COM-02'}">
+          </div>
+        `;
+      } else if (typeKey === 'scales') {
+        hintText = t('mdbBatchHintScales') || 'Numeric grades and interval replace existing values (leave blank to keep).';
+        fieldsHtml = `
+          <div class="batch-form-field" style="flex:1;min-width:150px;">
+            <label for="be-scale-key">${t('mdbBatchTargetScaleKey') || 'Scale Key / Pattern'}</label>
+            <input type="text" id="be-scale-key" placeholder="e.g. scale-{n}">
+            <div class="form-hint">${t('mdbBatchHintIdPattern') || 'Use {n} for 1,2,3 or {0n} for 01,02'}</div>
+          </div>
+          <div class="batch-form-field" style="flex:1;min-width:120px;">
+            <label for="be-scale-min">${t('mdbBatchScaleMinGrade') || 'Min Grade'}</label>
+            <input type="number" step="any" id="be-scale-min" placeholder="e.g. 1">
+          </div>
+          <div class="batch-form-field" style="flex:1;min-width:120px;">
+            <label for="be-scale-max">${t('mdbBatchScaleMaxGrade') || 'Max Grade'}</label>
+            <input type="number" step="any" id="be-scale-max" placeholder="e.g. 6">
+          </div>
+          <div class="batch-form-field" style="flex:1;min-width:120px;">
+            <label for="be-scale-interval">${t('mdbBatchScaleInterval') || 'Interval'}</label>
+            <input type="number" step="any" id="be-scale-interval" placeholder="e.g. 0.5">
+          </div>
+        `;
+      } else if (typeKey === 'wordbanks') {
+        hintText = t('mdbBatchHint') || 'Themes & keywords are added; part of speech & level are replaced (leave blank to keep existing).';
+        fieldsHtml = `
+          <div class="batch-form-field" style="flex:1;min-width:150px;">
+            <label for="be-theme">${t('mdbBatchTheme') || 'Theme(s)'}</label>
+            <input type="text" id="be-theme" placeholder="${t('mdbBatchThemePlaceholder') || 'e.g. Character, Emotions'}">
+          </div>
+          <div class="batch-form-field" style="flex:1;min-width:150px;">
+            <label for="be-keywords">${t('mdbBatchKeywords') || 'Keyword(s)'}</label>
+            <input type="text" id="be-keywords" placeholder="${t('mdbBatchKeywordsPlaceholder') || 'e.g. lesson1, revision'}">
+          </div>
+          <div class="batch-form-field" style="flex:0 1 120px;">
+            <label for="be-pos">${t('mdbBatchPos') || 'Part of Speech'}</label>
+            <input type="text" id="be-pos" placeholder="${t('mdbBatchPosPlaceholder') || 'e.g. noun'}">
+          </div>
+          <div class="batch-form-field" style="flex:0 1 80px;">
+            <label for="be-level">${t('mdbBatchLevel') || 'Level'}</label>
+            <input type="text" id="be-level" placeholder="${t('mdbBatchLevelPlaceholder') || 'e.g. B2'}">
+          </div>
+        `;
+      } else {
+        hintText = t('mdbBatchHintGeneral') || 'Values entered below will be applied to selected records. Leave blank to keep existing values.';
+        const hasIdInGeneral = (S.schema || []).some(f => f.key === 'id') || (getAllRecords() || []).some(r => 'id' in r);
+        if (hasIdInGeneral) {
+          fieldsHtml = `
+            <div class="batch-form-field" style="flex:1;min-width:160px;">
+              <label for="be-gen-id">${t('mdbBatchCompId') || 'ID / Pattern'}</label>
+              <input type="text" id="be-gen-id" placeholder="${t('mdbBatchCompIdPlaceholder') || 'e.g. ID-{n} or static ID'}">
+              <div class="form-hint">${t('mdbBatchHintIdPattern') || 'Use {n} for 1,2,3 or {0n} for 01,02'}</div>
+            </div>
+          `;
+        }
+      }
+
+      panel.innerHTML = `
+        <div class="batch-panel-hd">
+          <div class="batch-panel-title">
+            <img src="../assets/icons/gear.svg" class="btn-icon" alt="" />
+            <span>${t('mdbBtnBatchEdit')}</span>
+            <span id="batch-panel-count-badge" class="tag" style="background:#e0f2fe;color:#0369a1;border:1.5px solid #0284c7;font-size:0.75rem;padding:2px 8px;font-weight:800;border-radius:12px;">${tFmt('mdbNSelected', { n: count })}</span>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="closeBatchPanel()" title="${t('mdbBatchClose') || 'Close'}">
+            <img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="" />
+          </button>
+        </div>
+        <div class="batch-panel-hint">${esc(hintText)}</div>
+
+        <!-- PREFIX & SUFFIX SECTION -->
+        <div class="batch-section-box">
+          <div class="batch-section-title">
+            <img src="../assets/icons/edit-word.svg" class="btn-icon btn-icon-xs" alt="" />
+            <span>${t('mdbBatchPrefixSuffix') || 'Add Prefix & Suffix to Elements'}</span>
+          </div>
+          <div class="batch-form-grid">
+            <div class="batch-form-field" style="flex:1;min-width:180px;">
+              <label for="be-prefix-target">${t('mdbBatchTargetElement') || 'Target Element'}</label>
+              <select id="be-prefix-target">
+                ${targets.map(opt => `<option value="${esc(opt.val)}">${esc(opt.label)}</option>`).join('')}
+              </select>
+            </div>
+            <div class="batch-form-field" style="flex:1;min-width:160px;">
+              <label for="be-prefix">${t('mdbBatchPrefix') || 'Prefix (prepended)'}</label>
+              <input type="text" id="be-prefix" placeholder="${t('mdbBatchPrefixPlaceholder') || 'e.g. [Oral] , C-'}">
+            </div>
+            <div class="batch-form-field" style="flex:1;min-width:160px;">
+              <label for="be-suffix">${t('mdbBatchSuffix') || 'Suffix (appended)'}</label>
+              <input type="text" id="be-suffix" placeholder="${t('mdbBatchSuffixPlaceholder') || 'e.g.  (Term 1), -v2'}">
+            </div>
+          </div>
+        </div>
+
+        <!-- FIELDS SECTION (if applicable) -->
+        ${fieldsHtml ? `
+        <div class="batch-section-box">
+          <div class="batch-section-title">
+            <img src="../assets/icons/sliders.svg" class="btn-icon btn-icon-xs" alt="" />
+            <span>${t('mdbBatchSectionFields') || 'Batch Fields & Properties'}</span>
+          </div>
+          <div class="batch-form-grid">
+            ${fieldsHtml}
+          </div>
+        </div>` : ''}
+
+        <!-- ACTIONS ROW -->
+        <div class="batch-actions-row">
+          <button class="btn btn-primary" onclick="applyBatchEdit()">
+            <img src="../assets/icons/check.svg" class="btn-icon" alt="" /> ${t('mdbBtnApply')}
+          </button>
+          <button class="btn btn-secondary" onclick="closeBatchPanel()">
+            ${t('mdbBtnCancel')}
+          </button>
+          <div id="batch-feedback" style="font-size:0.85rem;font-weight:700;color:#1d4ed8;margin-left:8px;"></div>
+        </div>
+      `;
     }
 
     function toggleBatchPanel() {
       const panel = $('batch-panel');
       if (!panel) return;
       const wasHidden = panel.classList.contains('hidden');
-      panel.classList.toggle('hidden', !wasHidden);
-      if (!wasHidden) $('batch-feedback').textContent = '';
+      if (wasHidden) {
+        renderBatchPanel();
+        panel.classList.remove('hidden');
+        const fb = $('batch-feedback');
+        if (fb) fb.textContent = '';
+      } else {
+        panel.classList.add('hidden');
+      }
     }
 
     function closeBatchPanel() {
@@ -4481,17 +4727,111 @@ Rules:
       if (panel) panel.classList.add('hidden');
     }
 
+    function formatIdPattern(pattern, num, total) {
+      if (!pattern) return '';
+      let id = pattern;
+      let hasToken = false;
+      if (/\{0+[ni]\}/i.test(id)) {
+        hasToken = true;
+        id = id.replace(/\{(0+)[ni]\}/gi, (_, zeroes) => String(num).padStart(zeroes.length + 1, '0'));
+      }
+      if (/\{[ni](?:ndex)?\}/i.test(id)) {
+        hasToken = true;
+        id = id.replace(/\{[ni](?:ndex)?\}/gi, String(num));
+      }
+      if (!hasToken && total > 1) {
+        if (id.endsWith('-') || id.endsWith('_') || id.endsWith('.')) {
+          id = `${id}${num}`;
+        } else {
+          id = `${id}-${num}`;
+        }
+      }
+      return id;
+    }
+
     async function applyBatchEdit() {
       const fb = $('batch-feedback');
       const selected = [...S.batchSel];
-      if (!selected.length) { if (fb) fb.textContent = t('mdbBatchWarnSelect'); return; }
+      if (!selected.length) {
+        if (fb) fb.textContent = t('mdbBatchWarnSelect');
+        return;
+      }
 
+      // 1. Prefix & Suffix
+      const targetElement = $('be-prefix-target')?.value || '';
+      const prefix = $('be-prefix')?.value || '';
+      const suffix = $('be-suffix')?.value || '';
+      const hasPrefixSuffix = (prefix.length > 0 || suffix.length > 0) && targetElement.length > 0;
+
+      // 2. Type-specific inputs
+      let hasChanges = hasPrefixSuffix;
+
+      // Chips
+      const addChips = parseCsvOrNewlineList($('be-chip-add')?.value || '');
+      const removeChips = parseCsvList($('be-chip-remove')?.value || '');
+      const newCatName = ($('be-chip-cat')?.value || '').trim();
+      if (S.typeKey === 'chips') {
+        if (addChips.length || removeChips.length || newCatName) hasChanges = true;
+      }
+
+      // Competences
+      const newCompIdPattern = ($('be-comp-id')?.value || '').trim();
+      const newCompCat = ($('be-comp-cat')?.value || '').trim();
+      const newCompSubCat = ($('be-comp-subcat')?.value || '').trim();
+      const newCompLevel = ($('be-comp-level')?.value || '').trim().toUpperCase();
+      const newCompYear = ($('be-comp-year')?.value || '').trim();
+      const newCompSemester = ($('be-comp-semester')?.value || '').trim();
+      const newCompSubject = ($('be-comp-subject')?.value || '').trim();
+      const newCompTags = parseCsvList($('be-comp-tags')?.value || '');
+      const newCompLinked = parseCsvList($('be-comp-linked')?.value || '');
+      if (S.typeKey === 'competences' || S.typeKey === 'descriptors') {
+        if (newCompIdPattern || newCompCat || newCompSubCat || newCompLevel || newCompYear || newCompSemester || newCompSubject || newCompTags.length || newCompLinked.length) {
+          hasChanges = true;
+        }
+      }
+
+      // Criteria
+      const newCritIdPattern = ($('be-crit-id')?.value || '').trim();
+      const rawCritMin = ($('be-crit-min')?.value ?? '').trim();
+      const rawCritMax = ($('be-crit-max')?.value ?? '').trim();
+      const rawCritInterval = ($('be-crit-interval')?.value ?? '').trim();
+      const rawCritCoeff = ($('be-crit-coeff')?.value ?? '').trim();
+      const newCritLinked = parseCsvList($('be-crit-comp')?.value || '');
+      if (S.typeKey === 'criteria') {
+        if (newCritIdPattern || rawCritMin !== '' || rawCritMax !== '' || rawCritInterval !== '' || rawCritCoeff !== '' || newCritLinked.length) {
+          hasChanges = true;
+        }
+      }
+
+      // Scales
+      const newScaleKeyPattern = ($('be-scale-key')?.value || '').trim();
+      const rawScaleMin = ($('be-scale-min')?.value ?? '').trim();
+      const rawScaleMax = ($('be-scale-max')?.value ?? '').trim();
+      const rawScaleInterval = ($('be-scale-interval')?.value ?? '').trim();
+      if (S.typeKey === 'scales') {
+        if (newScaleKeyPattern || rawScaleMin !== '' || rawScaleMax !== '' || rawScaleInterval !== '') {
+          hasChanges = true;
+        }
+      }
+
+      // Wordbanks
       const newThemes = parseCsvList($('be-theme')?.value || '');
       const newKeywords = parseCsvList($('be-keywords')?.value || '');
       const newPos = ($('be-pos')?.value || '').trim();
       const newLevel = ($('be-level')?.value || '').trim().toUpperCase();
+      if (S.typeKey === 'wordbanks') {
+        if (newThemes.length || newKeywords.length || newPos || newLevel) {
+          hasChanges = true;
+        }
+      }
 
-      if (!newThemes.length && !newKeywords.length && !newPos && !newLevel) {
+      // General / other schemas
+      const newGenIdPattern = ($('be-gen-id')?.value || '').trim();
+      if (newGenIdPattern) {
+        hasChanges = true;
+      }
+
+      if (!hasChanges) {
         if (fb) fb.textContent = t('mdbBatchWarnField');
         return;
       }
@@ -4499,20 +4839,141 @@ Rules:
       const affectedFiles = new Set();
       let updated = 0;
 
-      for (const key of selected) {
+      for (let recIdx = 0; recIdx < selected.length; recIdx++) {
+        const key = selected[recIdx];
         const [fi, ri] = key.split(':').map(Number);
         const rec = S.files[fi]?.records[ri];
         if (!rec) continue;
-        if (newThemes.length) {
-          const merged = mergeTagList(getRecordThemes(rec), newThemes);
-          rec.theme = merged.length === 1 ? merged[0] : merged;
+
+        // Apply Prefix & Suffix
+        if (hasPrefixSuffix) {
+          if (S.typeKey === 'chips') {
+            if (targetElement === 'items') {
+              if (Array.isArray(rec.items)) {
+                rec.items = rec.items.map(item => `${prefix}${item}${suffix}`);
+              }
+            } else if (targetElement === 'type') {
+              rec.type = `${prefix}${rec.type || ''}${suffix}`;
+            }
+          } else if (S.typeKey === 'competences' || S.typeKey === 'descriptors') {
+            if (targetElement === 'id') {
+              rec.id = `${prefix}${rec.id ?? ''}${suffix}`;
+            } else if (targetElement === 'title') {
+              rec.title = `${prefix}${rec.title || ''}${suffix}`;
+            } else if (targetElement === 'code') {
+              rec.code = `${prefix}${rec.code || ''}${suffix}`;
+            } else if (targetElement === 'category') {
+              rec.category = `${prefix}${rec.category || ''}${suffix}`;
+            } else if (targetElement === 'tags') {
+              if (Array.isArray(rec.tags)) {
+                rec.tags = rec.tags.map(t => `${prefix}${t}${suffix}`);
+              }
+            }
+          } else if (S.typeKey === 'criteria') {
+            if (targetElement === 'id') {
+              rec.id = `${prefix}${rec.id ?? ''}${suffix}`;
+            } else if (targetElement === 'name') {
+              rec.name = `${prefix}${rec.name || ''}${suffix}`;
+            } else if (targetElement === 'competenceIds') {
+              if (Array.isArray(rec.competenceIds)) {
+                rec.competenceIds = rec.competenceIds.map(cid => `${prefix}${cid}${suffix}`);
+              }
+            }
+          } else if (S.typeKey === 'scales') {
+            if (targetElement === 'label') {
+              rec.label = `${prefix}${rec.label || ''}${suffix}`;
+            } else if (targetElement === 'key') {
+              rec.key = `${prefix}${rec.key || ''}${suffix}`;
+            }
+          } else if (S.typeKey === 'wordbanks') {
+            if (targetElement === 'word') {
+              const k = ('word' in rec) ? 'word' : (('english' in rec) ? 'english' : 'word');
+              rec[k] = `${prefix}${rec[k] || ''}${suffix}`;
+            } else if (targetElement === 'translation') {
+              const k = ('translation' in rec) ? 'translation' : (('french' in rec) ? 'french' : (('meaning' in rec) ? 'meaning' : 'translation'));
+              rec[k] = `${prefix}${rec[k] || ''}${suffix}`;
+            }
+          } else {
+            if (targetElement in rec) {
+              if (Array.isArray(rec[targetElement])) {
+                rec[targetElement] = rec[targetElement].map(v => `${prefix}${v}${suffix}`);
+              } else {
+                rec[targetElement] = `${prefix}${rec[targetElement] || ''}${suffix}`;
+              }
+            }
+          }
         }
-        if (newKeywords.length) {
-          rec.keywords = mergeTagList(Array.isArray(rec.keywords) ? rec.keywords : (rec.keywords ? [rec.keywords] : []),
-            newKeywords);
+
+        // Apply type-specific updates
+        if (S.typeKey === 'chips') {
+          if (newCatName) rec.type = newCatName;
+          if (addChips.length) {
+            if (!Array.isArray(rec.items)) rec.items = [];
+            const seen = new Set(rec.items.map(s => String(s).toLowerCase().trim()));
+            for (const item of addChips) {
+              const trimmed = item.trim();
+              if (trimmed && !seen.has(trimmed.toLowerCase())) {
+                rec.items.push(trimmed);
+                seen.add(trimmed.toLowerCase());
+              }
+            }
+          }
+          if (removeChips.length) {
+            if (Array.isArray(rec.items)) {
+              const remSet = new Set(removeChips.map(s => String(s).toLowerCase().trim()));
+              rec.items = rec.items.filter(it => !remSet.has(String(it).toLowerCase().trim()));
+            }
+          }
+        } else if (S.typeKey === 'competences' || S.typeKey === 'descriptors') {
+          if (newCompIdPattern) {
+            rec.id = formatIdPattern(newCompIdPattern, recIdx + 1, selected.length);
+          }
+          if (newCompCat) rec.category = newCompCat;
+          if (newCompSubCat) rec.subCategory = newCompSubCat;
+          if (newCompLevel) rec.level = newCompLevel;
+          if (newCompYear) rec.yearLevel = newCompYear;
+          if (newCompSemester) rec.semester = newCompSemester;
+          if (newCompSubject) rec.subjectId = newCompSubject;
+          if (newCompTags.length) {
+            rec.tags = mergeTagList(rec.tags || [], newCompTags);
+          }
+          if (newCompLinked.length) {
+            rec.linkedCompetenceIds = mergeTagList(rec.linkedCompetenceIds || [], newCompLinked);
+          }
+        } else if (S.typeKey === 'criteria') {
+          if (newCritIdPattern) {
+            rec.id = formatIdPattern(newCritIdPattern, recIdx + 1, selected.length);
+          }
+          if (rawCritMin !== '') rec.minPoints = Number(rawCritMin) || 0;
+          if (rawCritMax !== '') rec.maxPoints = Number(rawCritMax) || 0;
+          if (rawCritInterval !== '') rec.interval = Number(rawCritInterval) || 1;
+          if (rawCritCoeff !== '') rec.pointCoefficient = Number(rawCritCoeff) || 1;
+          if (newCritLinked.length) {
+            rec.competenceIds = mergeTagList(rec.competenceIds || [], newCritLinked);
+          }
+        } else if (S.typeKey === 'scales') {
+          if (newScaleKeyPattern) {
+            rec.key = formatIdPattern(newScaleKeyPattern, recIdx + 1, selected.length);
+          }
+          if (rawScaleMin !== '') rec.minGrade = Number(rawScaleMin) || 0;
+          if (rawScaleMax !== '') rec.maxGrade = Number(rawScaleMax) || 0;
+          if (rawScaleInterval !== '') rec.interval = Number(rawScaleInterval) || 1;
+        } else if (S.typeKey === 'wordbanks') {
+          if (newThemes.length) {
+            const merged = mergeTagList(getRecordThemes(rec), newThemes);
+            rec.theme = merged.length === 1 ? merged[0] : merged;
+          }
+          if (newKeywords.length) {
+            rec.keywords = mergeTagList(Array.isArray(rec.keywords) ? rec.keywords : (rec.keywords ? [rec.keywords] : []), newKeywords);
+          }
+          if (newPos) rec.partOfSpeech = newPos;
+          if (newLevel) rec.level = newLevel;
+        } else {
+          if (newGenIdPattern) {
+            rec.id = formatIdPattern(newGenIdPattern, recIdx + 1, selected.length);
+          }
         }
-        if (newPos) rec.partOfSpeech = newPos;
-        if (newLevel) rec.level = newLevel;
+
         affectedFiles.add(fi);
         updated++;
       }
@@ -4523,7 +4984,9 @@ Rules:
 
       S.schema = buildSchema(getAllRecords());
       renderAll();
-      if (fb) fb.textContent = tFmt('mdbBatchUpdated', { n: updated });
+      const successMsg = tFmt('mdbBatchUpdated', { n: updated });
+      if (fb) fb.textContent = successMsg;
+      if (typeof showToast === 'function') showToast(successMsg);
     }
 
     async function deleteSelectedBatch() {

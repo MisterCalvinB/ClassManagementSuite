@@ -323,32 +323,35 @@
     /* ── Grid ───────────────────────────────────────────── */
     .apps-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(268px, 1fr));
-      gap: 10px;
+      grid-template-columns: repeat(auto-fill, minmax(228px, 1fr));
+      gap: 8px;
     }
 
     /* ── Card ───────────────────────────────────────────── */
     .app-card {
       background: #fff;
       border: 2px solid #000;
-      border-radius: 10px;
+      border-radius: 8px;
       display: flex;
       flex-direction: column;
       overflow: hidden;
       contain: layout style;
       transition: box-shadow 0.14s, transform 0.1s;
+      position: relative;
     }
     .app-card:hover {
-      box-shadow: 4px 4px 0 #000;
-      transform: translate(-2px, -2px);
+      box-shadow: 3px 3px 0 #000;
+      transform: translate(-1.5px, -1.5px);
     }
     .app-card.config-open {
-      box-shadow: 4px 4px 0 #000;
+      box-shadow: 3px 3px 0 #000;
     }
 
     .card-body {
-      padding: 12px 14px 8px;
+      padding: 9px 12px 7px;
       flex: 1;
+      display: flex;
+      flex-direction: column;
       cursor: pointer;
       user-select: none;
     }
@@ -356,70 +359,113 @@
       text-decoration: underline;
     }
     .card-icon {
-      font-size: 1.7rem;
+      font-size: 1.4rem;
       display: block;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
       user-select: none;
     }
     .l-card-icon-img {
-      width: 32px;
-      height: 32px;
+      width: 26px;
+      height: 26px;
       display: inline-block;
       vertical-align: middle;
     }
     .card-title {
-      font-size: 1.06rem;
+      font-size: 0.93rem;
       font-weight: 800;
-      margin-bottom: 6px;
+      margin-bottom: 3px;
+      padding-right: 26px;
     }
     .card-desc {
-      font-size: 0.86rem;
+      font-size: 0.78rem;
       color: #000;
       font-weight: 500;
-      line-height: 1.55;
+      line-height: 1.42;
+      flex: 1;
     }
 
-    .card-footer {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 6px 14px 8px;
-      border-top: 1.5px solid #000;
-    }
+    /* ── Card gear / settings button ────────────────────── */
     .card-gear-btn {
-      background: none;
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 24px;
+      height: 24px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #fff;
       border: 1.5px solid #000;
       cursor: pointer;
       color: #000;
-      font-size: 1.05rem;
-      padding: 4px 7px;
+      font-size: 0.82rem;
       border-radius: 5px;
       line-height: 1;
-      transition: background 0.1s, color 0.1s;
+      padding: 0;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 2;
+      box-shadow: 1.5px 1.5px 0 #000;
+      transition: opacity 0.15s ease, background 0.1s, color 0.1s, transform 0.1s;
+    }
+    .app-card:hover .card-gear-btn,
+    .app-card:focus-within .card-gear-btn,
+    .app-card.config-open .card-gear-btn,
+    .card-gear-btn.active,
+    .card-gear-btn.tut-target,
+    .card-gear-btn:focus-visible {
+      opacity: 1;
+      pointer-events: auto;
     }
     .card-gear-btn:hover {
       background: #000;
       color: #fff;
+      transform: translate(-1px, -1px);
+      box-shadow: 2px 2px 0 #000;
     }
     .card-gear-btn.active {
       background: #000;
       color: #fff;
+      box-shadow: 1px 1px 0 #000;
+      transform: translate(1px, 1px);
     }
 
-    /* ── Card drag handle ───────────────────────────────── */
+    /* ── Card drag handle (little rectangle near bottom of card-body) ── */
     .card-drag-handle {
-      color: #ccc;
-      font-size: 0.95rem;
+      display: block;
+      width: 36px;
+      height: 5px;
+      margin: 8px auto 1px;
+      background: #e0e0e0;
+      border: 1.5px solid #000;
+      border-radius: 2.5px;
       cursor: grab;
-      padding: 4px 6px;
-      border-radius: 4px;
-      user-select: none;
-      line-height: 1;
-      transition: color 0.1s;
       flex-shrink: 0;
+      box-sizing: border-box;
+      transition: background 0.12s, border-color 0.12s, transform 0.1s;
+      position: relative;
     }
-    .card-drag-handle:hover { color: #888; }
-    .card-drag-handle:active { cursor: grabbing; }
+    .card-drag-handle::before {
+      content: '';
+      position: absolute;
+      top: -8px;
+      bottom: -8px;
+      left: -12px;
+      right: -12px;
+      cursor: grab;
+    }
+    .card-drag-handle:hover {
+      background: #000;
+      transform: scaleY(1.2);
+    }
+    .card-drag-handle:active,
+    .app-card.is-dragging .card-drag-handle {
+      cursor: grabbing;
+      background: #000;
+    }
+    .card-drag-handle:active::before {
+      cursor: grabbing;
+    }
     .app-card.is-dragging { opacity: 0.35; }
 
     /* ── Sections ───────────────────────────────────────── */
@@ -525,8 +571,8 @@
     .drag-placeholder {
       background: #f6f6f6;
       border: 2px dashed #ccc;
-      border-radius: 10px;
-      min-height: 110px;
+      border-radius: 8px;
+      min-height: 85px;
       pointer-events: none;
     }
 

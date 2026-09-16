@@ -328,6 +328,13 @@
       icon: 'assets/icons/award.svg',
       title: 'Competence Portfolio',
       desc: 'Track and audit curriculum competences and standards covered across lessons, board activities, and grade sheets per class.'
+    },
+    {
+      id: 'databaseConverter',
+      pageFile: 'database-converter.html',
+      icon: 'assets/icons/table.svg',
+      title: 'Database Converter',
+      desc: 'Convert seamlessly between CSV, XLSX, JSON, TSV, ODS, SQL, XML, HTML, Markdown tables, and CMT app formats.'
     }
   ];
 
@@ -335,7 +342,7 @@
   var DEFAULT_GROUPS = [
     { id: 'grp-classroom', labelKey: 'sectionClassroom', cardIds: ['board', 'classManagement', 'learningTools'] },
     { id: 'grp-students',  labelKey: 'sectionStudents',  cardIds: ['administrativeGroups', 'competencePortfolio', 'participationTracker', 'gradeSheet', 'oralMarking', 'groupEditor', 'classPlan', 'planner', 'scheduleMaker'] },
-    { id: 'grp-content',   labelKey: 'sectionContent',   cardIds: ['manageDatabase','importTool', 'documentEditor', 'fileManager' ] },
+    { id: 'grp-content',   labelKey: 'sectionContent',   cardIds: ['manageDatabase', 'importTool', 'databaseConverter', 'documentEditor', 'fileManager' ] },
     { id: 'grp-system',    labelKey: 'sectionSystem',    cardIds: ['generalConfig'] }
   ];
 
@@ -473,7 +480,11 @@
   // ── Card drag ───────────────────────────────────────────
   function setupCardHandleDrag(handle, card, appId) {
     var _ok = false;
-    handle.addEventListener('mousedown', function() { _ok = true; });
+    handle.addEventListener('mousedown', function(e) {
+      _ok = true;
+      e.stopPropagation();
+    });
+    handle.addEventListener('mouseup', function() { _ok = false; });
     card.addEventListener('dragstart', function(e) {
       if (!_ok) { e.preventDefault(); return; }
       _ok = false;
@@ -663,15 +674,14 @@
     card.dataset.id = app.id;
 
     const gearTitle = typeof t === 'function' ? t('cfgGearTitle') : 'Card settings';
+    const dragTitle = typeof t === 'function' ? t('tutLn4Title') : 'Reorder card';
     card.innerHTML =
+      '<button class="card-gear-btn" title="' + escHtml(gearTitle) + '" aria-label="' + escHtml(gearTitle) + '">⚙</button>' +
       '<div class="card-body">' +
         '<span class="card-icon" aria-hidden="true"><img src="' + app.icon + '" class="l-card-icon-img" alt="" /></span>' +
         '<div class="card-title">' + escHtml(label) + '</div>' +
         '<div class="card-desc">' + escHtml(localDesc) + '</div>' +
-      '</div>' +
-      '<div class="card-footer">' +
-        '<span class="card-drag-handle" aria-hidden="true">⠿</span>' +
-        '<button class="card-gear-btn" title="' + escHtml(gearTitle) + '" aria-label="' + escHtml(gearTitle) + '">⚙</button>' +
+        '<div class="card-drag-handle" title="' + escHtml(dragTitle) + '" aria-label="' + escHtml(dragTitle) + '"></div>' +
       '</div>';
 
     const cardBody = card.querySelector('.card-body');
@@ -679,7 +689,12 @@
     const dragHdl  = card.querySelector('.card-drag-handle');
     setupCardHandleDrag(dragHdl, card, app.id);
 
-    cardBody.addEventListener('click', function () {
+    dragHdl.addEventListener('click', function (e) {
+      e.stopPropagation();
+    });
+
+    cardBody.addEventListener('click', function (e) {
+      if (e.target.closest('.card-drag-handle') || e.target.closest('.card-gear-btn')) return;
       if (app.modal) {
         openModal(app.pageFile);
       } else {
@@ -725,9 +740,15 @@
     const rect   = gearBtn.getBoundingClientRect();
     const pw     = popup.offsetWidth;
     const ph     = popup.offsetHeight;
-    let top  = rect.top - ph - 8;
-    if (top < 8) top = rect.bottom + 8;
-    let left = rect.left;
+    let top  = rect.bottom + 8;
+    if (top + ph > window.innerHeight - 8) {
+      if (rect.top - ph - 8 >= 8) {
+        top = rect.top - ph - 8;
+      } else {
+        top = Math.max(8, window.innerHeight - ph - 8);
+      }
+    }
+    let left = rect.right - pw;
     if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
     if (left < 8) left = 8;
 

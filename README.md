@@ -30,6 +30,7 @@ Welcome to the **Class Management Tools** comprehensive documentation. This guid
   - [General Config (`general-config.html`)](#general-confightml)
   - [Group Editor (`group-editor.html`)](#group-editorhtml)
   - [Import Tool (`import-tool.html`)](#import-toolhtml)
+  - [Database Converter (`database-converter.html`)](#database-converterhtml)
   - [Planner (`planner.html`)](#plannerhtml)
   - [Lesson Creator (`lesson-creator.html`)](#lesson-creatorhtml)
   - [Class Plan (`class-plan.html`)](#class-planhtml)
@@ -90,6 +91,7 @@ If you downloaded a ZIP file, extract the entire folder before launching. Double
 | [`general-config.html`](#general-confightml) | Global settings across 4 tabs: General (App Identity, Language, PDF Export, Startup & Launch Window Arrangements/Split Screen), Storage & Sync (Data Location, Local Backup formats, Local Sync, Cloud/Server WebDAV/FTP/Google Drive, Backup Files Manager, App Reset), Remote Server (Hosted server & secret), and App Notes | Global application preferences |
 | [`group-editor.html`](#group-editorhtml) | Single source of truth for class rosters, active terms, student UUIDs, display name formatting (First/Last, Last/First, Nicknames), and Planner terms | Sinks to all roster-aware tools |
 | [`import-tool.html`](#import-toolhtml) | Bulk-import students, classes, word banks, and quizzes from CSV, XLSX, or JSON (with custom static values mapping), or copy media files directly | Populates `students.js`, database, sounds, docs |
+| [`database-converter.html`](#database-converterhtml) | Universal bidirectional database & table converter (CSV, XLSX, JSON, TSV, ODS, JSONL, SQL, XML, HTML, Markdown) with live preview, schema editing, and direct CMT application format exports | Sinks to [Manage Database](#manage-databasehtml), [Grade Sheet](#grade-sheethtml), [Competence Portfolio](#competence-portfoliohtml), [Group Editor](#group-editorhtml) |
 | [`planner.html`](#plannerhtml) | Weekly lesson & test planner with ICS, PDF, CSV, DOCX, and HTML export options, weeks drawer, and linked Board mind maps | Connects to [Grade Sheet](#grade-sheethtml), [Board](#boardhtml), [Class Management](#class-managementhtml), [Lesson Creator](#lesson-creatorhtml) |
 | [`lesson-creator.html`](#lesson-creatorhtml) | Neobrutalist lesson planning studio with drag-and-drop phases, curriculum descriptor coverage matrix, live HUD runner in Class Management, and Board mindmap exports | Links to [Planner](#plannerhtml), [Class Management](#class-managementhtml), [Board](#boardhtml) |
 | [`class-plan.html`](#class-planhtml) | Interactive seating plan designer (Grid, U-Shape, Pods) with PDF, DOCX, XLSX, and CSV export | Shared with [Class Management](#class-managementhtml) |
@@ -242,6 +244,7 @@ Seating arrangements created in [Class Plan](#class-planhtml) are written to `us
 - **Planner**: Lessons scheduled with attached curriculum descriptors feed the planned coverage KPIs and the chronological Audit Timeline.
 - **Lesson Creator**: Phase-level descriptor tags mark curriculum standards as delivered when lessons are run in Class Management.
 - **Board**: Interactive mindmaps can tag curriculum descriptors, tying whiteboard learning directly into the audit progression.
+- **Multi-Source Curriculum Filtering**: Filter standards by Subject, Year Level, and Source database / curriculum bank (e.g., custom competence files, CEFR descriptor sets, or converted databases). Dynamic KPIs, domain breakdowns, and matrix tables automatically reflect the chosen curriculum source.
 
 ---
 
@@ -422,6 +425,50 @@ Wizard for bulk-importing structured data or copying media files into managed wo
 
 ---
 
+### database-converter.html
+
+Comprehensive offline-first **Database & Table Converter** enabling seamless bidirectional conversions between spreadsheets, database dumps, JSON, and Class Management Suite internal schemas.
+
+#### Key Features & Supported Formats
+- **Ingestion & Parsing**:
+  - Drag-and-drop or file picker for `.xlsx`, `.xls`, `.ods`, `.csv`, `.tsv`, `.json`, `.jsonl`, `.sql`, `.xml`, `.html`, `.md`.
+  - Paste raw text mode with intelligent format auto-detection.
+  - Multi-sheet workbook switcher for Excel and ODS files.
+  - Header row selection (Auto-detect, Row 1, Row 2, or No header).
+- **Interactive Data Studio**:
+  - Live search filter across all records.
+  - Paginated high-speed data table (15, 25, 50, 100 rows per page) ensuring 60fps responsiveness.
+  - Zero-horizontal-scroll density switcher: "Fit (No Scroll)" (wrap text), "Truncate" (single-line with hover tooltips), or "Scrollable" mode.
+  - Layout toggle: Split View (50/50 Data & Output Studios) vs. Full Width View (stacked 100% canvas) with automatic full-width switching for tables with >6 columns.
+  - Schema mapping: reorder columns, rename output headers, toggle column inclusion, cast types (Text, Number, Boolean, Date, JSON), and apply text transforms (Trim, UPPERCASE, lowercase, Title Case).
+  - **Premade Model Preset Bar & Dual Output Header Adjuster**:
+    - Pick any CMT model preset directly inside Schema Editor (*Grade Sheet Criteria*, *Competence Bank*, *Class Roster*, *Vocabulary Bank*, *Quiz Questions*, *Admin Groups*).
+    - Under **Output Header**, easily choose from a dropdown of expected target fields (e.g., `code`, `title`, `category` for Competences; `name`, `maxPoints`, `minPoints` for Grade Sheet) or type a custom header.
+    - Automatic data type synchronization and instant field status feedback (`(Selected)`, `(Used)`).
+    - One-click **Auto-Match** to align matching aliases and **Reset Headers** to restore source names.
+- **Universal Target Formats**:
+  - **CSV / TSV**: Delimiter options (`,`, `;`, `\t`, `|`), quote escaping, UTF-8 BOM toggle for native Excel compatibility.
+  - **Excel (.xlsx) / OpenDocument (.ods)**: Formatted workbooks with styled headers via SheetJS.
+  - **JSON / JSONL**: Array of Objects, 2D Arrays, or Keyed Dictionary formats with 2-space, 4-space, or minified output.
+  - **SQL**: Dialect support (SQLite, PostgreSQL, MySQL) with optional `CREATE TABLE` DDL and batch `INSERT INTO` statements.
+  - **XML**: Customizable `<root>` and `<record>` tags.
+  - **HTML Table**: Semantic table markup with embedded Neobrutalist styling.
+  - **Markdown Table**: GitHub-flavored markdown tables for notes and document editing.
+- **Class Management Suite App Formats & Interactive Field Mapping Matrix**:
+  - **Grade Sheet Criteria**: Evaluation criteria schema with grade scales, points, and descriptors compatible with [Grade Sheet](#grade-sheethtml).
+  - **Competence Bank**: Curriculum standards/competence bank with code, title, domain, level, descriptors compatible with [Competence Portfolio](#competence-portfoliohtml) and [Lesson Creator](#lesson-creatorhtml).
+  - **Class Rosters & Students**: `class-groups.js` compatible roster format with UUIDs, first/last names, SEN flags, and class groups compatible with [Group Editor](#group-editorhtml).
+  - **Vocabulary / Word Bank**: Multilingual vocabulary database (word, definitions, translations, POS, level) compatible with [Manage Database](#manage-databasehtml) & [Learning Tools](#learning-toolshtml).
+  - **Quiz Question Bank**: Structured multiple-choice questions compatible with [Manage Database](#manage-databasehtml) and multiplayer quiz tools.
+  - **Administrative Groups**: Student cohort mapping compatible with [Administrative Groups](#administrative-groupshtml).
+  - **Interactive Field Mapping Matrix**: Dedicated panel showing required and optional fields with `<select>` source column pickers, status badges (`✓ Mapped`, `⚠ Required`, `Optional`), and two-way real-time synchronization with the Schema Editor.
+- **Export Standards & Actions**:
+  - Live syntax/code preview with instant character and line count badges.
+  - 1-click **Copy Converted Output** to system clipboard with toast feedback.
+  - Universal export modal (`showExportSuccessPopup`) with one-click **Open File**, **Open Folder**, and **Open with Document Editor** (for `.html` and `.md`).
+
+---
+
 ### planner.html
 
 Lesson, assessment, and holiday scheduling tool with export capabilities.
@@ -599,8 +646,7 @@ Centralized content, curriculum, and assessment database editor supporting multi
 - **Lesson Phase Templates**: Store pedagogical lesson blocks with duration, interaction patterns (Whole Class, Pair, Group, Individual), and dual teacher/student action plans for Lesson Creator.
 - **Personalised Observation Chips**: Create themed qualitative observation feedback chips with seamless switching between Table View and Visual Chips View.
 - **Multi-Language Schema**: Stores English, French, German, and Italian translations for word banks; active UI language automatically selects the appropriate column.
-- **Global Cross-Database Search**: Instant landing search scanning all databases simultaneously with match counts and deep-linking to files.
-- **Productivity & AI Tools**: Deduplication (`Remove Dupes`) to clean redundant entries, batch multi-record editing and copying across files, and built-in `AI Prompt` generation tailored for LLMs.
+- **Productivity, Batch Editing & Element Prefix/Suffix**: Deduplication (`Remove Dupes`) to clean redundant entries, batch multi-record selection and editing across Competences, Criteria, Scales, Personalised Chips, and Word Banks, dynamic **ID & Code templating** (`{n}`, `{0n}`, `{00n}`) for bulk identifier restructuring, dedicated **Prefix & Suffix** bulk utility for elements (e.g. IDs, observation chips, titles, codes, criteria names), copying/moving across files, and built-in `AI Prompt` generation tailored for LLMs.
 - **Multi-Format Exporting**: Column picker export to CSV, vector PDF, styled editable HTML table, Excel (XLSX), and Word (DOCX).
 
 ---
@@ -630,11 +676,12 @@ Centralized curriculum tracking and auditing dashboard aggregating learning stan
 
 #### Features
 - **Coverage KPIs**: Real-time summary cards displaying Total Competences, Covered to Date (with percentage progress bar), Assessed (in Grade Sheet), Delivered (in Lesson Creator/Board sessions), Planned (in Planner), and Untouched remaining standards.
-- **Domain & Strand View**: Collapsible accordion grouped by curricular strands (Reading, Writing, Speaking, Listening, Grammar, Literature). Each strand displays a progress meter and detailed competence cards with status tags (`Planned`, `Delivered`, `Assessed`, `Untouched`).
+- **Domain & Strand View**: Collapsible accordion grouped by curricular strands (Reading, Writing, Speaking, Listening, Grammar, Literature). Each strand displays a progress meter and detailed competence cards with status tags (`Planned`, `Delivered`, `Assessed`, `Untouched`), Level badge, Sub-Domain label, and Tags chips.
 - **Audit Timeline**: Chronological event feed tracing every planned lesson, classroom activity, and evaluation date linked to specific curriculum codes.
-- **Matrix Table & Multi-Criteria Filtering**: High-density matrix displaying Code, Statement, Domain, Level, Subject, Planned count, Delivered count, Assessed count, Class Mean Score (average %), and Status. Includes live search, subject/year filters, and status toggles.
-- **Activity & Assessment History Modal**: Detailed modal inspector showing complete pedagogical descriptions, linked lesson objectives, board mindmaps, and grade test scores with class averages.
-- **Reports & Exporting**: One-click CSV export (`Competence_Portfolio_[ClassName].csv`) and printer-ready PDF/paper audit reports.
+- **Matrix Table & Multi-Field Filtering Toolbar**: Complete schema filtering with dedicated dropdowns for **Subject**, **Year Level**, **Level / CEFR / Cycle**, **Source**, **Domain**, dynamic cascading **Sub-Domain**, **Tags**, and **Status** (`All`, `Covered`, `Assessed`, `Delivered`, `Planned`, `Untouched`), plus live cross-field search and 1-click **Reset Filters**.
+- **Dense Tabular Columns**: High-density matrix displaying Code, Statement, Domain, Sub-Domain, Year Level, Level, Subject, Source, Tags, Planned count, Delivered count, Assessed count, Class Mean Score (average %), and Status.
+- **Activity & Assessment History Modal**: Detailed modal inspector showing complete pedagogical descriptions, structured metadata chips (Domain, Sub-Domain, Level, Year, Subject, Source, Tags), linked cross-database competences, and touchpoint provenance with direct jump links to Grade Sheet, Lesson Creator, Board, and Planner.
+- **Reports & Exporting**: One-click CSV export (`Competence_Portfolio_[ClassName].csv`) with all 17 schema & tracking columns, and printer-ready PDF/paper audit reports.
 
 ---
 

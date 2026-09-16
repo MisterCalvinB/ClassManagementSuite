@@ -69,7 +69,8 @@ const PAGE_FILES = {
   importTool: 'import-tool.html',
   administrativeGroups: 'administrative-groups.html',
   oralMarking: 'oral-marking.html',
-  competencePortfolio: 'competence-portfolio.html'
+  competencePortfolio: 'competence-portfolio.html',
+  databaseConverter: 'database-converter.html'
 };
 
 const PAGE_ARG_MAP = {
@@ -123,7 +124,11 @@ const PAGE_ARG_MAP = {
   maitrise: PAGE_FILES.administrativeGroups,
   competenceportfolio: PAGE_FILES.competencePortfolio,
   competences: PAGE_FILES.competencePortfolio,
-  portfolio: PAGE_FILES.competencePortfolio
+  portfolio: PAGE_FILES.competencePortfolio,
+  databaseconverter: PAGE_FILES.databaseConverter,
+  dataconverter: PAGE_FILES.databaseConverter,
+  converter: PAGE_FILES.databaseConverter,
+  tableconverter: PAGE_FILES.databaseConverter
 };
 
 const PAGE_LABELS = {
@@ -148,7 +153,8 @@ const PAGE_LABELS = {
   [PAGE_FILES.importTool]: 'Import Tool',
   [PAGE_FILES.administrativeGroups]: 'Administrative Groups',
   [PAGE_FILES.oralMarking]: 'Oral Marking',
-  [PAGE_FILES.competencePortfolio]: 'Competence Portfolio'
+  [PAGE_FILES.competencePortfolio]: 'Competence Portfolio',
+  [PAGE_FILES.databaseConverter]: 'Database Converter'
 };
 
 function getDefaultWritableRootDir() {

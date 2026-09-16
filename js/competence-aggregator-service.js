@@ -75,13 +75,14 @@
       : (typeof item.linkedCompetenceIds === 'string'
         ? item.linkedCompetenceIds.split(',').map(s => s.trim()).filter(Boolean)
         : []);
-    const _sourceDb = String(item._sourceDb || sourceDb || '').trim();
+    const _sourceDb = String(item._sourceDb || item.source || item.sourceDb || sourceDb || '').trim();
     const qualifiedId = _sourceDb ? `${_sourceDb}::${id}` : id;
 
     return {
       id,
       qualifiedId,
       _sourceDb,
+      source: _sourceDb,
       code,
       title,
       category,
@@ -630,6 +631,50 @@
     return Array.from(set).sort();
   }
 
+  async function getAvailableSources() {
+    const list = await loadAllCompetences();
+    const set = new Set();
+    list.forEach(c => {
+      const src = c._sourceDb || c.source || '';
+      if (src) set.add(src.trim());
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  }
+
+  async function getAvailableLevels() {
+    const list = await loadAllCompetences();
+    const set = new Set();
+    list.forEach(c => {
+      if (c.level) set.add(c.level.trim());
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  }
+
+  async function getAvailableSubCategories(filterDomain = null) {
+    const list = await loadAllCompetences();
+    const set = new Set();
+    list.forEach(c => {
+      if (filterDomain && filterDomain !== 'all' && c.category && c.category.toLowerCase() !== filterDomain.toLowerCase()) {
+        return;
+      }
+      if (c.subCategory) set.add(c.subCategory.trim());
+    });
+    return Array.from(set).sort();
+  }
+
+  async function getAvailableTags() {
+    const list = await loadAllCompetences();
+    const set = new Set();
+    list.forEach(c => {
+      if (Array.isArray(c.tags)) {
+        c.tags.forEach(t => {
+          if (t && typeof t === 'string' && t.trim()) set.add(t.trim());
+        });
+      }
+    });
+    return Array.from(set).sort();
+  }
+
   let _cachedGroups = null;
 
   // ── Resolve Group / Class Metadata ──────────────────────────────────
@@ -971,6 +1016,26 @@
       ? filterOptions.yearLevel
       : ((groupMeta && groupMeta.level) || 'all');
 
+    const activeLevel = filterOptions.level !== undefined
+      ? filterOptions.level
+      : 'all';
+
+    const activeSource = filterOptions.source !== undefined
+      ? filterOptions.source
+      : 'all';
+
+    const activeDomain = filterOptions.domain !== undefined
+      ? filterOptions.domain
+      : 'all';
+
+    const activeSubCategory = filterOptions.subCategory !== undefined
+      ? filterOptions.subCategory
+      : 'all';
+
+    const activeTag = filterOptions.tag !== undefined
+      ? filterOptions.tag
+      : 'all';
+
     // 1. Initialize Coverage Ledger for Master Competences
     const ledger = new Map();
     allComps.forEach(comp => {
@@ -983,6 +1048,31 @@
       if (activeYearLevel && activeYearLevel !== 'all') {
         const cYear = comp.yearLevel || '';
         if (!matchYearLevel(activeYearLevel, cYear)) return;
+      }
+      // Check level match
+      if (activeLevel && activeLevel !== 'all') {
+        const cLvl = comp.level || '';
+        if (cLvl.toLowerCase() !== activeLevel.toLowerCase()) return;
+      }
+      // Check source match
+      if (activeSource && activeSource !== 'all') {
+        const cSrc = comp._sourceDb || comp.source || '';
+        if (cSrc !== activeSource) return;
+      }
+      // Check domain match
+      if (activeDomain && activeDomain !== 'all') {
+        const cDom = comp.category || 'General';
+        if (cDom.toLowerCase() !== activeDomain.toLowerCase()) return;
+      }
+      // Check subCategory match
+      if (activeSubCategory && activeSubCategory !== 'all') {
+        const cSub = comp.subCategory || '';
+        if (cSub.toLowerCase() !== activeSubCategory.toLowerCase()) return;
+      }
+      // Check tag match
+      if (activeTag && activeTag !== 'all') {
+        const cTags = Array.isArray(comp.tags) ? comp.tags : [];
+        if (!cTags.some(t => t.toLowerCase() === activeTag.toLowerCase())) return;
       }
 
       ledger.set(comp.id, {
@@ -1023,6 +1113,19 @@
           c.code.toLowerCase() === cleanId.toLowerCase() ||
           c.title.toLowerCase() === cleanId.toLowerCase());
         if (foundMaster) {
+          if (activeSubject && activeSubject !== 'all' && !matchSubject(activeSubject, foundMaster.subjectId || foundMaster.category || '')) return;
+          if (activeYearLevel && activeYearLevel !== 'all' && !matchYearLevel(activeYearLevel, foundMaster.yearLevel || '')) return;
+          if (activeLevel && activeLevel !== 'all' && (foundMaster.level || '').toLowerCase() !== activeLevel.toLowerCase()) return;
+          if (activeSource && activeSource !== 'all') {
+            const fSrc = foundMaster._sourceDb || foundMaster.source || '';
+            if (fSrc !== activeSource) return;
+          }
+          if (activeDomain && activeDomain !== 'all' && (foundMaster.category || 'General').toLowerCase() !== activeDomain.toLowerCase()) return;
+          if (activeSubCategory && activeSubCategory !== 'all' && (foundMaster.subCategory || '').toLowerCase() !== activeSubCategory.toLowerCase()) return;
+          if (activeTag && activeTag !== 'all') {
+            const fTags = Array.isArray(foundMaster.tags) ? foundMaster.tags : [];
+            if (!fTags.some(t => t.toLowerCase() === activeTag.toLowerCase())) return;
+          }
           entry = {
             competence: foundMaster,
             plannedCount: 0,
@@ -1538,8 +1641,12 @@
   return {
     loadAllCompetences,
     getAvailableYearLevels,
+    getAvailableLevels,
     getAvailableSubjects,
     getAvailableDomains,
+    getAvailableSubCategories,
+    getAvailableTags,
+    getAvailableSources,
     getAllGroups,
     getGroupMetadata,
     applyClassPrefilters,

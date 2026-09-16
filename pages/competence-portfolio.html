@@ -124,7 +124,7 @@
         <div class="cp-filter-group">
           <span class="cp-filter-label" data-i18n="cpFilterSubject">Subject:</span>
           <select id="cp-filter-subject" class="cp-filter-select" onchange="cpOnSubjectFilterChange()">
-            <option value="all">All Subjects</option>
+            <option value="all" data-i18n="cpSubjectAll">All Subjects</option>
           </select>
         </div>
 
@@ -132,15 +132,47 @@
         <div class="cp-filter-group">
           <span class="cp-filter-label" data-i18n="cpFilterYear">Year:</span>
           <select id="cp-filter-year" class="cp-filter-select" onchange="cpOnYearFilterChange()">
-            <option value="all">All Levels</option>
+            <option value="all" data-i18n="cpYearAll">All Years</option>
+          </select>
+        </div>
+
+        <!-- Level / CEFR Filter -->
+        <div class="cp-filter-group">
+          <span class="cp-filter-label" data-i18n="cpFilterLevel">Level:</span>
+          <select id="cp-filter-level" class="cp-filter-select" onchange="cpOnLevelFilterChange()">
+            <option value="all" data-i18n="cpLevelAll">All Levels</option>
+          </select>
+        </div>
+
+        <!-- Source Filter -->
+        <div class="cp-filter-group">
+          <span class="cp-filter-label" data-i18n="cpFilterSource">Source:</span>
+          <select id="cp-filter-source" class="cp-filter-select" onchange="cpOnSourceFilterChange()">
+            <option value="all" data-i18n="cpSourceAll">All Sources</option>
           </select>
         </div>
 
         <!-- Domain Filter -->
         <div class="cp-filter-group">
           <span class="cp-filter-label" data-i18n="cpFilterDomain">Domain:</span>
-          <select id="cp-filter-domain" class="cp-filter-select" onchange="cpApplyFilters()">
-            <option value="all">All Domains</option>
+          <select id="cp-filter-domain" class="cp-filter-select" onchange="cpOnDomainFilterChange()">
+            <option value="all" data-i18n="cpDomainAll">All Domains</option>
+          </select>
+        </div>
+
+        <!-- Sub-Domain Filter -->
+        <div class="cp-filter-group">
+          <span class="cp-filter-label" data-i18n="cpFilterSubDomain">Sub-Domain:</span>
+          <select id="cp-filter-subdomain" class="cp-filter-select" onchange="cpApplyFilters()">
+            <option value="all" data-i18n="cpSubDomainAll">All Sub-Domains</option>
+          </select>
+        </div>
+
+        <!-- Tag Filter -->
+        <div class="cp-filter-group">
+          <span class="cp-filter-label" data-i18n="cpFilterTag">Tag:</span>
+          <select id="cp-filter-tag" class="cp-filter-select" onchange="cpApplyFilters()">
+            <option value="all" data-i18n="cpTagAll">All Tags</option>
           </select>
         </div>
 
@@ -156,6 +188,12 @@
             <option value="untouched" data-i18n="cpStatusUntouched">Untouched</option>
           </select>
         </div>
+
+        <!-- Reset Filters Action -->
+        <button type="button" class="cp-btn" onclick="cpResetAllFilters()" title="Reset all filters" style="padding:5px 9px;font-size:0.78rem;">
+          <img src="../assets/icons/refresh.svg" alt="" style="width:12px;height:12px;" />
+          <span data-i18n="cpBtnResetFilters">Reset</span>
+        </button>
       </div>
 
       <!-- View Switcher -->
@@ -188,8 +226,12 @@
             <th>Code</th>
             <th>Competence Statement</th>
             <th>Domain</th>
-            <th>Year / Level</th>
+            <th data-i18n="cpColSubDomain">Sub-Domain</th>
+            <th>Year / Grade</th>
+            <th data-i18n="cpColLevel">Level</th>
             <th>Subject</th>
+            <th data-i18n="cpColSource">Source</th>
+            <th data-i18n="cpColTags">Tags</th>
             <th style="text-align:center;">Planned</th>
             <th style="text-align:center;">Delivered</th>
             <th style="text-align:center;">Assessed</th>
@@ -249,6 +291,9 @@
     let _activeView = 'accordion';
     let _availableSubjects = [];
     let _availableYears = [];
+    let _availableLevels = [];
+    let _availableSources = [];
+    let _availableTags = [];
 
     // ── Initialization ────────────────────────────────────────────────
     document.addEventListener('DOMContentLoaded', async function () {
@@ -326,9 +371,19 @@
     async function cpPopulateFilterDropdowns() {
       _availableSubjects = await CompetenceAggregatorService.getAvailableSubjects();
       _availableYears = await CompetenceAggregatorService.getAvailableYearLevels();
+      _availableLevels = typeof CompetenceAggregatorService.getAvailableLevels === 'function'
+        ? await CompetenceAggregatorService.getAvailableLevels()
+        : [];
+      _availableSources = typeof CompetenceAggregatorService.getAvailableSources === 'function'
+        ? await CompetenceAggregatorService.getAvailableSources()
+        : [];
+      _availableTags = typeof CompetenceAggregatorService.getAvailableTags === 'function'
+        ? await CompetenceAggregatorService.getAvailableTags()
+        : [];
 
       const subjSel = document.getElementById('cp-filter-subject');
-      subjSel.innerHTML = '<option value="all">All Subjects</option>';
+      const allSubjText = typeof t === 'function' ? t('cpSubjectAll', 'All Subjects') : 'All Subjects';
+      subjSel.innerHTML = `<option value="all">${allSubjText}</option>`;
       _availableSubjects.forEach(s => {
         const opt = document.createElement('option');
         opt.value = s;
@@ -337,13 +392,50 @@
       });
 
       const yearSel = document.getElementById('cp-filter-year');
-      yearSel.innerHTML = '<option value="all">All Levels</option>';
+      const allYearsText = typeof t === 'function' ? t('cpYearAll', 'All Years') : 'All Years';
+      yearSel.innerHTML = `<option value="all">${allYearsText}</option>`;
       _availableYears.forEach(y => {
         const opt = document.createElement('option');
         opt.value = y;
         opt.textContent = y;
         yearSel.appendChild(opt);
       });
+
+      const lvlSel = document.getElementById('cp-filter-level');
+      if (lvlSel) {
+        const allLevelsText = typeof t === 'function' ? t('cpLevelAll', 'All Levels') : 'All Levels';
+        lvlSel.innerHTML = `<option value="all">${allLevelsText}</option>`;
+        _availableLevels.forEach(lvl => {
+          const opt = document.createElement('option');
+          opt.value = lvl;
+          opt.textContent = lvl;
+          lvlSel.appendChild(opt);
+        });
+      }
+
+      const srcSel = document.getElementById('cp-filter-source');
+      if (srcSel) {
+        const allSourcesText = typeof t === 'function' ? t('cpSourceAll', 'All Sources') : 'All Sources';
+        srcSel.innerHTML = `<option value="all">${allSourcesText}</option>`;
+        _availableSources.forEach(src => {
+          const opt = document.createElement('option');
+          opt.value = src;
+          opt.textContent = src;
+          srcSel.appendChild(opt);
+        });
+      }
+
+      const tagSel = document.getElementById('cp-filter-tag');
+      if (tagSel) {
+        const allTagsText = typeof t === 'function' ? t('cpTagAll', 'All Tags') : 'All Tags';
+        tagSel.innerHTML = `<option value="all">${allTagsText}</option>`;
+        _availableTags.forEach(tg => {
+          const opt = document.createElement('option');
+          opt.value = tg;
+          opt.textContent = tg;
+          tagSel.appendChild(opt);
+        });
+      }
     }
 
     // ── Class Prefilters Helper ─────────────────────────────────────────
@@ -391,6 +483,32 @@
       cpRefreshPortfolio();
     }
 
+    function cpOnLevelFilterChange() {
+      cpRefreshPortfolio();
+    }
+
+    function cpOnSourceFilterChange() {
+      cpRefreshPortfolio();
+    }
+
+    function cpOnDomainFilterChange() {
+      cpPopulateSubDomainFilter();
+      cpApplyFilters();
+    }
+
+    function cpResetAllFilters() {
+      document.getElementById('cp-search-input').value = '';
+      document.getElementById('cp-filter-subject').value = 'all';
+      document.getElementById('cp-filter-year').value = 'all';
+      if (document.getElementById('cp-filter-level')) document.getElementById('cp-filter-level').value = 'all';
+      if (document.getElementById('cp-filter-source')) document.getElementById('cp-filter-source').value = 'all';
+      if (document.getElementById('cp-filter-domain')) document.getElementById('cp-filter-domain').value = 'all';
+      if (document.getElementById('cp-filter-subdomain')) document.getElementById('cp-filter-subdomain').value = 'all';
+      if (document.getElementById('cp-filter-tag')) document.getElementById('cp-filter-tag').value = 'all';
+      if (document.getElementById('cp-filter-status')) document.getElementById('cp-filter-status').value = 'all';
+      cpRefreshPortfolio();
+    }
+
     // ── Refresh & Re-aggregate ─────────────────────────────────────────
     async function cpRefreshPortfolio() {
       if (!_activeClassId) return;
@@ -400,14 +518,19 @@
 
       const subjFilter = document.getElementById('cp-filter-subject').value;
       const yearFilter = document.getElementById('cp-filter-year').value;
+      const levelFilter = document.getElementById('cp-filter-level') ? document.getElementById('cp-filter-level').value : 'all';
+      const sourceFilter = document.getElementById('cp-filter-source') ? document.getElementById('cp-filter-source').value : 'all';
 
       _activePortfolio = await CompetenceAggregatorService.compileGroupCompetencePortfolio(_activeClassId, {
         subject: subjFilter,
-        yearLevel: yearFilter
+        yearLevel: yearFilter,
+        level: levelFilter,
+        source: sourceFilter
       });
 
-      // Populate Domains dropdown for current filtered list
+      // Populate Domains & Sub-Domains dropdowns for current filtered list
       cpPopulateDomainFilter();
+      cpPopulateSubDomainFilter();
 
       // Render KPIs
       cpRenderKpis(_activePortfolio.stats);
@@ -434,8 +557,10 @@
 
     function cpPopulateDomainFilter() {
       const domainSel = document.getElementById('cp-filter-domain');
+      if (!domainSel) return;
       const currentVal = domainSel.value;
-      domainSel.innerHTML = '<option value="all">All Domains</option>';
+      const allDomainsText = typeof t === 'function' ? t('cpDomainAll', 'All Domains') : 'All Domains';
+      domainSel.innerHTML = `<option value="all">${allDomainsText}</option>`;
       if (!_activePortfolio || !_activePortfolio.categories) return;
 
       const domains = Object.keys(_activePortfolio.categories).sort();
@@ -445,6 +570,34 @@
         opt.textContent = d;
         if (d === currentVal) opt.selected = true;
         domainSel.appendChild(opt);
+      });
+    }
+
+    function cpPopulateSubDomainFilter() {
+      const subSel = document.getElementById('cp-filter-subdomain');
+      if (!subSel) return;
+      const currentVal = subSel.value;
+      const allSubText = typeof t === 'function' ? t('cpSubDomainAll', 'All Sub-Domains') : 'All Sub-Domains';
+      subSel.innerHTML = `<option value="all">${allSubText}</option>`;
+      if (!_activePortfolio || !_activePortfolio.categories) return;
+
+      const domainFilter = document.getElementById('cp-filter-domain') ? document.getElementById('cp-filter-domain').value : 'all';
+      const subSet = new Set();
+      Object.keys(_activePortfolio.categories).forEach(cat => {
+        if (domainFilter !== 'all' && cat !== domainFilter) return;
+        _activePortfolio.categories[cat].forEach(item => {
+          if (item && item.competence && item.competence.subCategory) {
+            subSet.add(item.competence.subCategory.trim());
+          }
+        });
+      });
+
+      Array.from(subSet).sort().forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s;
+        opt.textContent = s;
+        if (s === currentVal) opt.selected = true;
+        subSel.appendChild(opt);
       });
     }
 
@@ -474,19 +627,30 @@
       if (!_activePortfolio) return;
 
       const search = (document.getElementById('cp-search-input').value || '').trim().toLowerCase();
-      const domainFilter = document.getElementById('cp-filter-domain').value;
-      const statusFilter = document.getElementById('cp-filter-status').value;
+      const domainFilter = document.getElementById('cp-filter-domain') ? document.getElementById('cp-filter-domain').value : 'all';
+      const subDomainFilter = document.getElementById('cp-filter-subdomain') ? document.getElementById('cp-filter-subdomain').value : 'all';
+      const levelFilter = document.getElementById('cp-filter-level') ? document.getElementById('cp-filter-level').value : 'all';
+      const sourceFilter = document.getElementById('cp-filter-source') ? document.getElementById('cp-filter-source').value : 'all';
+      const tagFilter = document.getElementById('cp-filter-tag') ? document.getElementById('cp-filter-tag').value : 'all';
+      const statusFilter = document.getElementById('cp-filter-status') ? document.getElementById('cp-filter-status').value : 'all';
 
       function matchesFilters(item) {
         if (!item || !item.competence) return false;
         const c = item.competence;
+        if (sourceFilter !== 'all' && (c._sourceDb || c.source || '') !== sourceFilter) return false;
+        if (levelFilter !== 'all' && (c.level || '').toLowerCase() !== levelFilter.toLowerCase()) return false;
         if (domainFilter !== 'all' && (c.category || 'General') !== domainFilter) return false;
+        if (subDomainFilter !== 'all' && (c.subCategory || '').toLowerCase() !== subDomainFilter.toLowerCase()) return false;
+        if (tagFilter !== 'all') {
+          const tags = Array.isArray(c.tags) ? c.tags : [];
+          if (!tags.some(t => t.toLowerCase() === tagFilter.toLowerCase())) return false;
+        }
         if (statusFilter !== 'all') {
           if (statusFilter === 'covered' && item.status === 'untouched') return false;
           if (statusFilter !== 'covered' && item.status !== statusFilter) return false;
         }
         if (search) {
-          const hay = `${c.code} ${c.title} ${c.description} ${c.tags ? c.tags.join(' ') : ''} ${c.category}`.toLowerCase();
+          const hay = `${c.code} ${c.title} ${c.description} ${c.tags ? c.tags.join(' ') : ''} ${c.category} ${c.subCategory || ''} ${c.level || ''} ${c.yearLevel || ''} ${c.subjectId || ''} ${c._sourceDb || c.source || ''}`.toLowerCase();
           if (!hay.includes(search)) return false;
         }
         return true;
@@ -597,13 +761,21 @@
 
           compCard.innerHTML = `
             <div class="cp-comp-top">
-              <span class="cp-comp-code">${cpEscapeHtml(comp.code)}</span>
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                <span class="cp-comp-code">${cpEscapeHtml(comp.code)}</span>
+                ${comp.level ? `<span class="cp-comp-level-badge" title="Level: ${cpEscapeHtml(comp.level)}">${cpEscapeHtml(comp.level)}</span>` : ''}
+                ${comp._sourceDb ? `<span class="cp-comp-source-badge" title="Source: ${cpEscapeHtml(comp._sourceDb)}">${cpEscapeHtml(comp._sourceDb)}</span>` : ''}
+              </div>
               <span class="cp-comp-status-pill ${statusClass}">${statusLabel}</span>
             </div>
             <div class="cp-comp-title">${cpEscapeHtml(comp.title)}</div>
             ${comp.description ? `<div class="cp-comp-desc">${cpEscapeHtml(comp.description)}</div>` : ''}
             <div class="cp-comp-footer">
-              <span>${comp.yearLevel ? `Year: ${cpEscapeHtml(comp.yearLevel)}` : (comp.level ? `Lvl ${cpEscapeHtml(comp.level)}` : '')}</span>
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                ${comp.subCategory ? `<span style="font-weight:700;color:var(--ink-secondary);">${cpEscapeHtml(comp.subCategory)}</span>` : ''}
+                ${comp.yearLevel ? `<span>Year: ${cpEscapeHtml(comp.yearLevel)}</span>` : ''}
+                ${Array.isArray(comp.tags) && comp.tags.length ? comp.tags.map(t => `<span class="cp-comp-tag-pill">${cpEscapeHtml(t)}</span>`).join('') : ''}
+              </div>
               <div class="cp-comp-occ-chips">
                 ${item.history.length ? `<span style="font-weight:700;">${item.history.length} touchpoint(s)</span>` : '<span>0 events</span>'}
               </div>
@@ -666,12 +838,20 @@
           tr.style.cursor = 'pointer';
           tr.onclick = () => cpOpenDetailModal(item);
 
+          const tagsHtml = Array.isArray(c.tags) && c.tags.length 
+            ? c.tags.map(t => `<span class="cp-comp-tag-pill">${cpEscapeHtml(t)}</span>`).join(' ') 
+            : '—';
+
           tr.innerHTML = `
             <td><span class="cp-comp-code">${cpEscapeHtml(c.code)}</span></td>
             <td><strong>${cpEscapeHtml(c.title)}</strong></td>
             <td>${cpEscapeHtml(c.category || '')}</td>
-            <td>${cpEscapeHtml(c.yearLevel || c.level || '—')}</td>
+            <td>${cpEscapeHtml(c.subCategory || '—')}</td>
+            <td>${cpEscapeHtml(c.yearLevel || '—')}</td>
+            <td>${c.level ? `<span class="cp-comp-level-badge">${cpEscapeHtml(c.level)}</span>` : '—'}</td>
             <td>${cpEscapeHtml(c.subjectId || '—')}</td>
+            <td><span class="cp-comp-source-badge">${cpEscapeHtml(c._sourceDb || c.source || '—')}</span></td>
+            <td>${tagsHtml}</td>
             <td style="text-align:center;">${item.plannedCount || '—'}</td>
             <td style="text-align:center;">${item.deliveredCount || '—'}</td>
             <td style="text-align:center;">${item.assessedCount || '—'}</td>
@@ -689,7 +869,25 @@
       const c = item.competence;
       document.getElementById('modal-comp-code').textContent = c.code;
       document.getElementById('modal-comp-title').textContent = c.title;
-      document.getElementById('modal-comp-desc').textContent = c.description || (c.category ? `Domain: ${c.category}` : 'No description available.');
+
+      const metaParts = [];
+      if (c.category) metaParts.push(`<strong>Domain:</strong> ${cpEscapeHtml(c.category)}`);
+      if (c.subCategory) metaParts.push(`<strong>Sub-Domain:</strong> ${cpEscapeHtml(c.subCategory)}`);
+      if (c.level) metaParts.push(`<strong>Level:</strong> <span class="cp-comp-level-badge">${cpEscapeHtml(c.level)}</span>`);
+      if (c.yearLevel) metaParts.push(`<strong>Year:</strong> ${cpEscapeHtml(c.yearLevel)}`);
+      if (c.subjectId) metaParts.push(`<strong>Subject:</strong> ${cpEscapeHtml(c.subjectId)}`);
+      if (c._sourceDb || c.source) metaParts.push(`<strong>Source:</strong> <span class="cp-comp-source-badge">${cpEscapeHtml(c._sourceDb || c.source)}</span>`);
+      if (Array.isArray(c.tags) && c.tags.length) {
+        metaParts.push(`<strong>Tags:</strong> ${c.tags.map(t => `<span class="cp-comp-tag-pill">${cpEscapeHtml(t)}</span>`).join(' ')}`);
+      }
+
+      const descEl = document.getElementById('modal-comp-desc');
+      descEl.innerHTML = `
+        <div style="display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:8px;font-size:0.82rem;">
+          ${metaParts.join('')}
+        </div>
+        <div style="line-height:1.45;color:var(--ink);">${cpEscapeHtml(c.description || 'No detailed statement or description available.')}</div>
+      `;
 
       // Query cross-database linked competences
       const linkedSection = document.getElementById('modal-linked-section');
@@ -827,7 +1025,7 @@
     function cpExportCsv() {
       if (!_activePortfolio) return;
       const rows = [
-        ['Class', 'Competence Code', 'Title', 'Domain', 'Year Level', 'Subject', 'Status', 'Planned Count', 'Delivered Count', 'Assessed Count', 'Class Mean %', 'Latest Touchpoint']
+        ['Class', 'Competence Code', 'Title', 'Domain', 'Sub-Domain', 'Year Level', 'Level', 'Subject', 'Source', 'Tags', 'Status', 'Planned Count', 'Delivered Count', 'Assessed Count', 'Class Mean %', 'Latest Touchpoint', 'Description']
       ];
 
       Object.keys(_activePortfolio.categories).forEach(cat => {
@@ -838,14 +1036,19 @@
             c.code,
             c.title,
             c.category || '',
+            c.subCategory || '',
             c.yearLevel || '',
+            c.level || '',
             c.subjectId || '',
+            c._sourceDb || c.source || '',
+            Array.isArray(c.tags) ? c.tags.join(', ') : (c.tags || ''),
             item.status,
             item.plannedCount,
             item.deliveredCount,
             item.assessedCount,
             item.averageScorePct !== null ? `${item.averageScorePct}%` : '',
-            item.latestDate || ''
+            item.latestDate || '',
+            c.description || ''
           ]);
         });
       });
@@ -855,8 +1058,17 @@
       const filename = `Competence_Portfolio_${_activePortfolio.className.replace(/[^a-zA-Z0-9_-]/g, '_')}.csv`;
 
       if (window.Desktop && typeof Desktop.saveFile === 'function') {
-        Desktop.saveFile('toPrint', filename, csvContent).then(() => {
-          showToast(`Exported CSV to user/to-print/${filename}`);
+        Desktop.saveFile('toPrint', filename, csvContent).then((saveRes) => {
+          if (typeof showExportSuccessPopup === 'function') {
+            const savedPath = (saveRes && saveRes.filePath) ? saveRes.filePath : `user/to-print/${filename}`;
+            showExportSuccessPopup({
+              filePath: savedPath,
+              fileName: filename,
+              folderTarget: 'toPrint'
+            });
+          } else {
+            showToast(`Exported CSV to user/to-print/${filename}`);
+          }
         }).catch(() => {
           cpDownloadBlob(blob, filename);
         });

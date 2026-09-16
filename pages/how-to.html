@@ -165,6 +165,22 @@
         </div>
       </div>
 
+      <div class="sidebar-item" id="nav-database-converter">
+        <div class="sidebar-row">
+          <button class="sidebar-row-main" data-section="database-converter" onclick="navTo('database-converter')">
+            <span><img src="../assets/icons/table.svg" class="ht-icon-img" alt="" /></span> Database Converter
+          </button>
+          <button class="sidebar-caret" onclick="toggleSidebarChildren('nav-database-converter')" title="Toggle sub-items">▶</button>
+        </div>
+        <div class="sidebar-children">
+          <button class="sidebar-child" data-accordion="acc-dc-ingestion" onclick="navToAccordion('database-converter','acc-dc-ingestion')"><span class="sidebar-child-dot"></span>Import &amp; Parsing</button>
+          <button class="sidebar-child" data-accordion="acc-dc-schema" onclick="navToAccordion('database-converter','acc-dc-schema')"><span class="sidebar-child-dot"></span>Schema &amp; Transforms</button>
+          <button class="sidebar-child" data-accordion="acc-dc-formats" onclick="navToAccordion('database-converter','acc-dc-formats')"><span class="sidebar-child-dot"></span>Universal Formats</button>
+          <button class="sidebar-child" data-accordion="acc-dc-appformats" onclick="navToAccordion('database-converter','acc-dc-appformats')"><span class="sidebar-child-dot"></span>CMT App Formats</button>
+          <button class="sidebar-child" data-accordion="acc-dc-export" onclick="navToAccordion('database-converter','acc-dc-export')"><span class="sidebar-child-dot"></span>Export &amp; Document Editor</button>
+        </div>
+      </div>
+
       <div class="sidebar-item" id="nav-planner">
         <div class="sidebar-row">
           <button class="sidebar-row-main" data-section="planner" onclick="navTo('planner')">
@@ -1634,6 +1650,107 @@
 
     <hr class="divider">
 
+    <!-- ═══ DATABASE CONVERTER ═══════════════════════════════════ -->
+    <section class="tool-section" id="database-converter">
+      <div class="tool-header">
+        <span class="tool-icon"><img src="../assets/icons/table.svg" class="ht-hdr-icon-img" alt="" /></span>
+        <h2>Database &amp; Table Converter</h2>
+        <button class="open-tool-btn" onclick="openTool('database-converter.html')">Open →</button>
+      </div>
+      <p class="tool-overview">
+        Convert bidirectional spreadsheets, database dumps, JSON, SQL, and CMT application formats. Features interactive paginated data inspection, column schema mapping with type casting, live code generation, and universal export options.
+      </p>
+
+      <div class="accordion" id="acc-dc-ingestion">
+        <button class="accordion-header" onclick="toggleAccordion('acc-dc-ingestion')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">1. Ingestion &amp; Multi-Format Parsing</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li><strong>Drop or Browse File:</strong> Drag and drop any <code>.xlsx</code>, <code>.xls</code>, <code>.ods</code>, <code>.csv</code>, <code>.tsv</code>, <code>.json</code>, <code>.jsonl</code>, <code>.sql</code>, <code>.xml</code>, <code>.html</code>, or <code>.md</code> file directly onto the upload zone.</li>
+            <li><strong>Paste Raw Text:</strong> Click the <strong>Paste Raw Text</strong> tab to paste unformatted CSV, JSON objects, SQL INSERT statements, or Markdown tables directly without creating a file first.</li>
+            <li><strong>Workbook Sheets:</strong> If an Excel or OpenDocument file contains multiple sheets, a sheet selector dropdown automatically appears to let you switch sheets instantly.</li>
+            <li><strong>Header Row Customization:</strong> Adjust which row is used as the header (Auto-detect, Row 1, Row 2, or No Header) to skip title banners or metadata rows seamlessly.</li>
+          </ol>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-dc-schema">
+        <button class="accordion-header" onclick="toggleAccordion('acc-dc-schema')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">2. Schema Editing, Model Presets &amp; Output Header Adjuster</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li><strong>Model Preset Selector:</strong> Choose a premade application model (<em>Grade Sheet Criteria</em>, <em>Competence Bank</em>, <em>Class Roster</em>, <em>Vocabulary Bank</em>, <em>Quiz Questions</em>, or <em>Admin Groups</em>) directly in the Schema toolbar.</li>
+            <li><strong>Dual Output Header Adjuster:</strong> When a model preset is active, the <em>Output Header</em> cell displays a smart dropdown of target fields (with star markers and required badges) paired with an editable text box. Selecting a field instantly renames the header, sets the recommended data type, and marks the column included.</li>
+            <li><strong>Auto-Match &amp; Reset:</strong> Click <strong>Auto-Match</strong> to automatically scan and link source columns to target fields by multilingual aliases, or <strong>Reset Headers</strong> to revert to original column names.</li>
+            <li><strong>Include / Exclude Columns:</strong> Toggle the checkbox next to any column to include or exclude data from the converted file.</li>
+            <li><strong>Data Type Casting:</strong> Select the target data type (Text, Number, Boolean, Date, JSON) to ensure valid SQL types, numbers without quotes in JSON, or boolean flags.</li>
+            <li><strong>Text Transformations:</strong> Apply in-place text cleanup rules: <em>Trim Spaces</em>, <em>UPPERCASE</em>, <em>lowercase</em>, or <em>Title Case</em>.</li>
+            <li><strong>Column Reordering:</strong> Use the ▲ and ▼ buttons to change the order of columns in the generated output.</li>
+          </ol>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-dc-formats">
+        <button class="accordion-header" onclick="toggleAccordion('acc-dc-formats')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">3. Universal Target Formats</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:10px;">Select any target format pill in the right-hand panel:</p>
+          <ul class="steps" style="list-style-type:disc;padding-left:20px;">
+            <li><strong>CSV / TSV:</strong> Configure delimiters (comma, semicolon, tab, pipe) and toggle UTF-8 BOM for seamless double-click opening in Microsoft Excel.</li>
+            <li><strong>Excel (.xlsx) / OpenDocument (.ods):</strong> Export binary spreadsheets via SheetJS with styled header rows.</li>
+            <li><strong>JSON:</strong> Choose between Array of Objects <code>[{"col": "val"}]</code>, 2D Arrays <code>[["col"], ["val"]]</code>, or Keyed Dictionaries, with 2-space, 4-space, or minified formatting.</li>
+            <li><strong>JSONL:</strong> Newline-delimited JSON records for streaming or large data pipelines.</li>
+            <li><strong>SQL Database Dump:</strong> Generates <code>CREATE TABLE</code> DDL and batch <code>INSERT INTO</code> statements for SQLite, PostgreSQL, or MySQL.</li>
+            <li><strong>XML Records:</strong> Hierarchical XML documents with customizable root and row element tags.</li>
+            <li><strong>HTML Table:</strong> Semantic HTML markup with optional embedded Neobrutalist CSS styling.</li>
+            <li><strong>Markdown Table:</strong> GitHub-flavored markdown tables for documentation and notes.</li>
+          </ul>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-dc-appformats">
+        <button class="accordion-header" onclick="toggleAccordion('acc-dc-appformats')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">4. Class Management Suite (CMT) App Formats &amp; Field Mapping Matrix</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:10px;">Export data directly into CMT's internal data formats:</p>
+          <ul class="steps" style="list-style-type:disc;padding-left:20px;">
+            <li><strong>Grade Sheet Criteria:</strong> Converts rows into criteria with points and descriptors compatible with <strong>Grade Sheet</strong>.</li>
+            <li><strong>Competence Bank:</strong> Converts rows into curriculum standards with codes, titles, domains, and descriptors for <strong>Competence Portfolio</strong> and <strong>Lesson Creator</strong>.</li>
+            <li><strong>Class Roster:</strong> Generates student profiles with UUIDs and class assignments compatible with <strong>Group Editor</strong>.</li>
+            <li><strong>Vocabulary Bank:</strong> Generates word entries with translations, POS, and CEFR levels for <strong>Learning Tools</strong> and <strong>Manage Database</strong>.</li>
+            <li><strong>Quiz Question Bank:</strong> Formats multiple-choice questions for quiz players.</li>
+            <li><strong>Administrative Groups:</strong> Cohort records with demographic and support flags for <strong>Administrative Groups</strong>.</li>
+          </ul>
+          <div class="tip"><strong>Interactive Field Mapping Matrix:</strong> In the Target Format panel, a dedicated matrix shows all target fields (with required and optional badges) alongside source column dropdown pickers. Adjusting headers in either the Schema Editor or the Field Mapping Matrix synchronizes both sides in real time!</div>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-dc-export">
+        <button class="accordion-header" onclick="toggleAccordion('acc-dc-export')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">5. Live Output, Copy &amp; Export Actions</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li><strong>Live Output Preview:</strong> The code box on the right displays the generated file text in real-time, along with line count and character count badges.</li>
+            <li><strong>Copy Converted Output:</strong> Click <strong>Copy Converted Output</strong> (or press <code>Ctrl+C</code>) to copy the text to your clipboard with instant toast notification.</li>
+            <li><strong>Convert &amp; Export File:</strong> Click <strong>Convert &amp; Export File</strong> (or press <code>Ctrl+S</code>) to save the file into <code>user/to-print/</code> (in Electron) or download directly (in web browser).</li>
+            <li><strong>Universal Export Modal:</strong> After export, the completion dialog offers <strong>Open File</strong>, <strong>Open Folder</strong>, and <strong>Open with Document Editor</strong> (for HTML and Markdown files).</li>
+          </ol>
+        </div></div>
+      </div>
+    </section>
+
+    <hr class="divider">
+
     <!-- ═══ PLANNER ════════════════════════════════════════════ -->
     <section class="tool-section" id="planner">
       <div class="tool-header">
@@ -2005,7 +2122,7 @@
           <ol class="steps">
             <li><strong>Chronological Event Stream:</strong> Every lesson entry from the Planner, completed lesson phase from Lesson Creator, Board constellation, and Grade Sheet evaluation is arranged chronologically.</li>
             <li><strong>Event Provenance:</strong> Each timeline item specifies the date, the event type (<em>Planned Lesson</em>, <em>Classroom Session</em>, or <em>Grade Sheet Assessment</em>), the associated competence codes, and test scoring summary where applicable.</li>
-            <li><strong>Filter Synchronization:</strong> The timeline automatically respects the active Subject, Year Level, Domain, Status, and Search query filters set in the toolbar.</li>
+            <li><strong>Filter Synchronization:</strong> The timeline automatically respects all active filters (Subject, Year Level, Level/Cycle, Source, Domain, Sub-Domain, Tag, Status, and Search query).</li>
           </ol>
         </div></div>
       </div>
@@ -2013,15 +2130,24 @@
       <div class="accordion" id="acc-cp-matrix">
         <button class="accordion-header" onclick="toggleAccordion('acc-cp-matrix')">
           <span class="accordion-arrow">▶</span>
-          <span class="accordion-title">Matrix Table &amp; Filtering</span>
+          <span class="accordion-title">Matrix Table &amp; Multi-Field Filtering</span>
         </button>
         <div class="accordion-body"><div class="accordion-inner">
-          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:10px;">The <strong>Matrix Table</strong> view presents an in-depth, tabular layout ideal for department audits and curriculum mapping:</p>
+          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:10px;">The <strong>Matrix Table</strong> view presents an in-depth, tabular layout ideal for department audits, curriculum mapping, and inspectorate reviews:</p>
           <ol class="steps">
-            <li><strong>Dense Tabular Data:</strong> Columns include <strong>Code</strong>, <strong>Competence Statement</strong>, <strong>Domain</strong>, <strong>Year / Level</strong>, <strong>Subject</strong>, <strong>Planned Count</strong>, <strong>Delivered Count</strong>, <strong>Assessed Count</strong>, <strong>Class Mean Score</strong>, and <strong>Status</strong>.</li>
-            <li><strong>Search Filter:</strong> Live search input instantly filters rows by competence code, statement text, or keywords.</li>
-            <li><strong>Subject &amp; Year Filter:</strong> Filter standards by Subject and Year Level. Changing subject or year dynamically recalculates KPIs and available domains.</li>
-            <li><strong>Domain &amp; Status Filters:</strong> Narrow down to specific strands or filter by coverage status (<em>All</em>, <em>Covered</em>, <em>Assessed</em>, <em>Delivered</em>, <em>Planned</em>, or <em>Untouched</em>).</li>
+            <li><strong>Dense Tabular Data (All Schema Fields):</strong> Columns include <strong>Code</strong>, <strong>Competence Statement</strong>, <strong>Domain</strong>, <strong>Sub-Domain</strong>, <strong>Year / Grade</strong>, <strong>Level (CEFR/Cycle)</strong>, <strong>Subject</strong>, <strong>Source</strong>, <strong>Tags</strong>, <strong>Planned Count</strong>, <strong>Delivered Count</strong>, <strong>Assessed Count</strong>, <strong>Class Mean Score</strong>, and <strong>Status</strong>.</li>
+            <li><strong>Complete Field Filters Toolbar:</strong>
+              <ul style="margin:4px 0 8px 16px;padding:0;line-height:1.6;font-size:0.84rem;">
+                <li><strong>Subject &amp; Year Level:</strong> Select specific curriculum subjects or grade cohorts.</li>
+                <li><strong>Level / Cycle:</strong> Filter by CEFR proficiency levels (A1, A2, B1, B2, etc.) or educational cycles.</li>
+                <li><strong>Source:</strong> Filter by originating database file or national standard bank.</li>
+                <li><strong>Domain &amp; Cascading Sub-Domain:</strong> Narrow standards down by main disciplinary domain; the sub-domain dropdown automatically filters to options within that domain.</li>
+                <li><strong>Tag Filter:</strong> Filter by custom topical or exam tags attached to curriculum standards.</li>
+                <li><strong>Status Filter:</strong> Select between <em>All</em>, <em>Covered</em>, <em>Assessed</em>, <em>Delivered</em>, <em>Planned</em>, or <em>Untouched</em>.</li>
+                <li><strong>Universal Search Bar:</strong> Instantly searches across code, statement, description, domain, sub-domain, level, year level, subject, source, and tag keywords simultaneously.</li>
+                <li><strong>Reset Button:</strong> One-click button to clear all field filters back to default.</li>
+              </ul>
+            </li>
             <li><strong>Class Mean Score:</strong> When students are evaluated on a competence in Grade Sheet, the table computes and highlights the class average percentage score.</li>
           </ol>
         </div></div>
@@ -2543,8 +2669,17 @@
             <li><strong>Global Search Across All Databases:</strong>
               <p style="font-size:0.85rem;line-height:1.6;margin:4px 0 8px;">From the initial empty state (or deselecting the current type), enter a query in the <strong>Search across all databases</strong> box. Manage Database scans all word banks, quotes, grammar, competences, criteria, and quizzes simultaneously, presenting grouped results with match counts and one-click navigation to the target file.</p>
             </li>
-            <li><strong>Batch Selection &amp; Editing:</strong>
-              <p style="font-size:0.85rem;line-height:1.6;margin:4px 0 8px;">Use the record checkboxes or click <strong>Select All</strong> to select multiple entries. Click <strong>Batch Edit</strong> to append themes/keywords or overwrite CEFR levels and parts of speech across all selected items simultaneously.</p>
+            <li><strong>Batch Selection, Editing &amp; Element Prefix/Suffix:</strong>
+              <p style="font-size:0.85rem;line-height:1.6;margin:4px 0 8px;">Use the record checkboxes or click <strong>Select All</strong> to select multiple entries. In addition to Word Banks, Batch Edit is supported across <strong>Competences</strong>, <strong>Evaluation Criteria</strong>, <strong>Grading Scales</strong>, and <strong>Personalised Observation Chips</strong>:</p>
+              <ul style="margin:4px 0 8px 16px;padding:0;line-height:1.6;font-size:0.84rem;">
+                <li><strong>Add Prefix &amp; Suffix to Elements:</strong> Choose a target element or text field (e.g. IDs, observation chips, competence titles or codes, criterion names, scale labels) and enter a prefix (prepended) and/or suffix (appended) to apply in bulk. For personalised observation chips, this applies directly to each individual chip item within the selected categories.</li>
+                <li><strong>Batch ID &amp; Code Templating:</strong> Directly re-template or replace record identifiers in bulk using dynamic patterns such as <code>COM-{n}</code> (1, 2, 3), <code>CRIT-{0n}</code> (01, 02), or <code>{00n}</code> (001, 002). Single records receive exact static IDs while multiple records without explicit tokens are safely assigned auto-incremented suffixes to preserve identifier uniqueness.</li>
+                <li><strong>Competences:</strong> Bulk update IDs / patterns, categories, sub-categories, CEFR levels, year levels, semesters, subject IDs, or merge new tags and linked cross-curriculum competence IDs.</li>
+                <li><strong>Criteria:</strong> Bulk configure IDs / patterns, min/max points, steps/intervals, point weighting coefficients, or merge linked curriculum competence IDs.</li>
+                <li><strong>Grading Scales:</strong> Bulk configure scale keys / patterns, min/max grade thresholds, and intervals.</li>
+                <li><strong>Personalised Chips:</strong> Bulk append new observation chips (comma or newline-separated), remove obsolete chips, or rename categories.</li>
+                <li><strong>Word Banks:</strong> Append themes and keywords, or overwrite CEFR levels and parts of speech in bulk.</li>
+              </ul>
             </li>
             <li><strong>Copy to File:</strong>
               <p style="font-size:0.85rem;line-height:1.6;margin:4px 0 8px;">Click <strong>Copy to file…</strong> with records selected to duplicate them into an existing or newly created file within the same database type without altering the original.</p>

@@ -1,0 +1,2146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Database & Table Converter</title>
+  <link rel="stylesheet" href="../modules/lexend/lexend.css">
+  <script src="../modules/xlsx.min.js"></script>
+  <script src="../electron-bridge.js"></script>
+  <script src="../js/i18n.js"></script>
+  <script src="../js/shortcuts-modal.js"></script>
+  <script src="../js/dialogs.js"></script>
+  <script src="../js/tutorial.js"></script>
+  <script src="../js/menus.js"></script>
+  <link rel="stylesheet" href="../css/database-converter.css">
+</head>
+<body>
+  <!-- ── Top Navigation ── -->
+  <nav id="app-nav">
+    <div class="nav-brand">
+      <img src="../assets/icons/table.svg" alt="" class="nav-brand-img">
+      <span data-i18n="dbConvTitle">Database & Table Converter</span>
+      <span class="nav-brand-badge">PRO</span>
+    </div>
+    <div class="nav-actions">
+      <a href="../launcher.html" class="btn-nav-back" data-i18n="btnBack">← Back</a>
+      <button class="tut-trigger-btn" id="skmBtn" onclick="openConverterShortcuts()" title="Keyboard Shortcuts" data-i18n-title="skmTitle">⌨ ?</button>
+      <button class="tut-trigger-btn" id="tourBtn" onclick="startConverterTour()" title="Tour" data-i18n-title="tourBtnLabel"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
+      <div id="app-hamburger" class="hm-wrap">
+        <button class="hm-btn" aria-label="Open menu" data-i18n-aria="navOpenMenu"><img src="../assets/icons/menu.svg" class="btn-icon" alt="" /></button>
+        <div class="hm-menu"></div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ── Main Application Container ── -->
+  <main class="conv-container">
+    <header class="conv-header">
+      <div>
+        <h1 class="conv-title">
+          <span class="conv-title-icon"><img src="../assets/icons/table.svg" alt="" style="width: 24px; height: 24px;"></span>
+          <span data-i18n="dbConvTitle">Database & Table Converter</span>
+        </h1>
+        <p class="conv-subtitle" data-i18n="dbConvSubtitle">Convert between spreadsheets, database tables, JSON, SQL, and CMT application formats with live preview and schema editing.</p>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button type="button" class="nb-btn nb-btn-sm" id="btnToggleLayout" onclick="toggleStudioLayout()" title="Switch between split screen and full-width stacked view">
+          <span id="layoutIcon">⛶</span> <span id="layoutText">Full Width View</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- ── Two-Column Studio Grid ── -->
+    <div class="conv-grid">
+
+      <!-- ══ LEFT COLUMN: SOURCE & DATA STUDIO ══════════════════════ -->
+      <div class="conv-col-left">
+
+        <!-- Card: Input File / Raw Text -->
+        <section class="nb-card" id="stepInput">
+          <div class="nb-card-hd">
+            <h2 class="nb-card-title">
+              <img src="../assets/icons/upload.svg" class="btn-icon" alt="">
+              <span data-i18n="dbConvTabFile">Source Data</span>
+            </h2>
+            <div style="display: flex; gap: 8px;">
+              <button type="button" class="nb-btn nb-btn-sm" id="btnLoadSample" onclick="loadSampleData()" data-i18n="dbConvSampleBtn">Load Sample Table</button>
+              <button type="button" class="nb-btn nb-btn-sm nb-btn-danger" id="btnClearData" onclick="clearAllData()" data-i18n="dbConvClearBtn">Clear</button>
+            </div>
+          </div>
+
+          <!-- Input Mode Tabs -->
+          <div class="nb-tabs">
+            <button type="button" class="nb-tab-btn active" id="tabBtnFile" onclick="switchInputTab('file')" data-i18n="dbConvTabFile">File Upload</button>
+            <button type="button" class="nb-tab-btn" id="tabBtnPaste" onclick="switchInputTab('paste')" data-i18n="dbConvTabPaste">Paste Raw Text</button>
+          </div>
+
+          <!-- File Upload Dropzone -->
+          <div id="inputPaneFile">
+            <div class="nb-dropzone" id="dropzone">
+              <img src="../assets/icons/upload.svg" alt="" class="nb-dropzone-icon">
+              <h3 class="nb-dropzone-title" data-i18n="dbConvDropTitle">Drag & drop your file here</h3>
+              <p class="nb-dropzone-sub" data-i18n="dbConvDropSubtitle">Supports .xlsx, .xls, .ods, .csv, .tsv, .json, .jsonl, .sql, .xml, .html, .md</p>
+              <button type="button" class="nb-btn nb-btn-primary" data-i18n="dbConvBrowseBtn">Browse File</button>
+              <input type="file" id="fileInput" accept=".csv,.tsv,.xlsx,.xls,.ods,.json,.jsonl,.ndjson,.sql,.xml,.html,.htm,.md,.markdown,.txt" onchange="handleFileSelect(event)">
+            </div>
+          </div>
+
+          <!-- Raw Paste Textarea -->
+          <div id="inputPanePaste" style="display: none;">
+            <textarea class="nb-textarea" id="pasteInput" placeholder="Paste CSV, TSV, JSON, SQL INSERT, XML, or Markdown table content here..." data-i18n-placeholder="dbConvPastePlaceholder"></textarea>
+            <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
+              <button type="button" class="nb-btn nb-btn-primary" onclick="handlePasteParse()" data-i18n="dbConvDetectBtn">Parse Content</button>
+            </div>
+          </div>
+
+          <!-- Workbook Options Bar (Sheet / Header Selection) -->
+          <div class="conv-meta-bar" id="metaBar" style="display: none;">
+            <!-- Sheet selector for Excel/ODS -->
+            <div class="conv-meta-item" id="sheetSelectWrap" style="display: none;">
+              <label for="sheetSelect" data-i18n="dbConvSheetLabel">Workbook Sheet:</label>
+              <select id="sheetSelect" class="nb-select" onchange="handleSheetChange()"></select>
+            </div>
+
+            <!-- Header Row Selector -->
+            <div class="conv-meta-item">
+              <label for="headerRowSelect" data-i18n="dbConvHeaderRowLabel">Header Row:</label>
+              <select id="headerRowSelect" class="nb-select" onchange="handleHeaderRowChange()">
+                <option value="auto" data-i18n="dbConvAutoDetect">Auto-detect</option>
+                <option value="0">Row 1</option>
+                <option value="1">Row 2</option>
+                <option value="2">Row 3</option>
+                <option value="-1" data-i18n="dbConvNoHeader">No Header (Generate col1, col2...)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Summary Badges -->
+          <div class="conv-stats-pills" id="statsBar" style="display: none;">
+            <span class="nb-badge nb-badge-yellow" id="badgeRows">0 Rows</span>
+            <span class="nb-badge nb-badge-blue" id="badgeCols">0 Columns</span>
+            <span class="nb-badge nb-badge-green" id="badgeFormat">CSV</span>
+            <span class="nb-badge nb-badge-purple" id="badgeSize">0 KB</span>
+          </div>
+        </section>
+
+        <!-- Card: Column Schema & Transformation Panel -->
+        <section class="nb-card" id="stepSchema" style="display: none;">
+          <div class="nb-card-hd">
+            <h2 class="nb-card-title">
+              <img src="../assets/icons/gear.svg" class="btn-icon" alt="">
+              <span data-i18n="dbConvSchemaTitle">Column Mapping & Transformations</span>
+            </h2>
+            <button type="button" class="nb-btn nb-btn-sm" onclick="toggleSchemaPanel()" id="btnToggleSchema" data-i18n="dbConvToggleSchema">Toggle Schema</button>
+          </div>
+
+          <div class="schema-panel-body" id="schemaBody">
+            <!-- Premade Model Preset Toolbar -->
+            <div class="schema-preset-bar">
+              <div class="schema-preset-controls">
+                <span class="schema-preset-label" data-i18n="dbConvModelPreset">Model Preset:</span>
+                <select id="schemaModelPresetSelect" class="nb-select" onchange="handleModelPresetChange(this.value)">
+                  <option value="none" data-i18n="dbConvModelNone">None / Custom Generic Schema</option>
+                  <optgroup label="Class Management Suite Models">
+                    <option value="app-grade-criteria" data-i18n="dbConvAppGradeCriteria">Grade Sheet Criteria</option>
+                    <option value="app-competences" data-i18n="dbConvAppCompetences">Competence Bank</option>
+                    <option value="app-class-groups" data-i18n="dbConvAppClassGroups">Class Roster</option>
+                    <option value="app-wordbank" data-i18n="dbConvAppWordbank">Vocabulary Bank</option>
+                    <option value="app-quiz" data-i18n="dbConvAppQuiz">Quiz Questions</option>
+                    <option value="app-admin-groups" data-i18n="dbConvAppAdminGroups">Admin Groups</option>
+                  </optgroup>
+                </select>
+                <button type="button" class="nb-btn nb-btn-sm" onclick="autoMatchCurrentModelHeaders()" title="Automatically match output headers to model fields" data-i18n="dbConvAutoMatch">
+                  <img src="../assets/icons/check.svg" class="btn-icon" alt="">
+                  <span>Auto-Match</span>
+                </button>
+                <button type="button" class="nb-btn nb-btn-sm" onclick="resetSchemaHeadersToSource()" title="Reset all output headers to original source headers" data-i18n="dbConvResetHeaders">
+                  <img src="../assets/icons/undo.svg" class="btn-icon" alt="">
+                  <span>Reset Headers</span>
+                </button>
+              </div>
+              <div id="modelStatusPill" class="nb-badge nb-badge-green" style="display: none;">
+                ✓ Model Active
+              </div>
+            </div>
+
+            <div class="schema-table-wrap">
+              <table class="schema-table" id="schemaTable">
+                <thead>
+                  <tr>
+                    <th style="width: 40px;" data-i18n="dbConvColInclude">Inc.</th>
+                    <th data-i18n="dbConvColOriginal">Source Header</th>
+                    <th data-i18n="dbConvColOutputName">Output Header</th>
+                    <th data-i18n="dbConvColType">Type</th>
+                    <th data-i18n="dbConvColTransform">Transform</th>
+                    <th style="width: 70px;" data-i18n="dbConvColMove">Order</th>
+                  </tr>
+                </thead>
+                <tbody id="schemaTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- Card: Interactive Paginated Preview Table -->
+        <section class="nb-card" id="stepPreview" style="display: none;">
+          <div class="nb-card-hd">
+            <h2 class="nb-card-title">
+              <img src="../assets/icons/eye.svg" class="btn-icon" alt="">
+              <span>Data Preview</span>
+            </h2>
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <!-- Zero Horizontal Scroll Density Modes -->
+              <div class="density-toggle-group" title="Table Width & Text Wrapping Mode">
+                <button type="button" class="density-btn active" data-density="fit" onclick="setTableDensity('fit')" title="Wrap text so all columns fit within container with NO horizontal scrolling">Fit (No Scroll)</button>
+                <button type="button" class="density-btn" data-density="truncate" onclick="setTableDensity('truncate')" title="Compact single-line with ellipsis (hover to view full text)">Truncate</button>
+                <button type="button" class="density-btn" data-density="scroll" onclick="setTableDensity('scroll')" title="Scrollable mode with full natural column widths">Scrollable</button>
+              </div>
+              <input type="search" class="nb-input" id="tableFilterInput" placeholder="Filter rows..." data-i18n-placeholder="dbConvSearchPlaceholder" oninput="handleTableSearch(event)">
+            </div>
+          </div>
+
+          <div class="preview-table-wrap">
+            <div class="preview-table-scroll">
+              <table class="data-table" id="dataTable">
+                <thead id="dataThead"></thead>
+                <tbody id="dataTbody"></tbody>
+              </table>
+            </div>
+
+            <!-- Pagination Bar -->
+            <div class="table-pagination">
+              <div>
+                <label for="rowsPerPageSelect" data-i18n="dbConvRowsPerPage">Rows per page:</label>
+                <select id="rowsPerPageSelect" class="nb-select" onchange="handleRowsPerPageChange(event)">
+                  <option value="15">15</option>
+                  <option value="25" selected>25</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                </select>
+              </div>
+              <div id="paginationLabel">Page 1 of 1</div>
+              <div style="display: flex; gap: 4px;">
+                <button type="button" class="nb-btn nb-btn-sm" id="btnPrevPage" onclick="changePage(-1)">◀ Prev</button>
+                <button type="button" class="nb-btn nb-btn-sm" id="btnNextPage" onclick="changePage(1)">Next ▶</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- ══ RIGHT COLUMN: TARGET FORMAT & LIVE OUTPUT ══════════════ -->
+      <div class="conv-col-right">
+
+        <!-- Card: Format Selection & Customization -->
+        <section class="nb-card" id="stepTarget">
+          <div class="nb-card-hd">
+            <h2 class="nb-card-title">
+              <img src="../assets/icons/refresh.svg" class="btn-icon" alt="">
+              <span data-i18n="dbConvTargetFormat">Target Format</span>
+            </h2>
+          </div>
+
+          <!-- Category 1: Universal Formats -->
+          <div class="format-category-title" data-i18n="dbConvTargetCategoryGeneric">Universal Table & Database Formats</div>
+          <div class="format-grid">
+            <button type="button" class="format-btn active" data-fmt="csv" onclick="selectTargetFormat('csv')">
+              <img src="../assets/icons/table.svg" alt="" class="format-icon">
+              <span>CSV</span>
+            </button>
+            <button type="button" class="format-btn" data-fmt="xlsx" onclick="selectTargetFormat('xlsx')">
+              <img src="../assets/icons/grade-sheet.svg" alt="" class="format-icon">
+              <span>Excel (.xlsx)</span>
+            </button>
+            <button type="button" class="format-btn" data-fmt="json" onclick="selectTargetFormat('json')">
+              <img src="../assets/icons/text.svg" alt="" class="format-icon">
+              <span>JSON</span>
+            </button>
+            <button type="button" class="format-btn" data-fmt="tsv" onclick="selectTargetFormat('tsv')">
+              <img src="../assets/icons/table.svg" alt="" class="format-icon">
+              <span>TSV</span>
+            </button>
+            <button type="button" class="format-btn" data-fmt="ods" onclick="selectTargetFormat('ods')">
+              <img src="../assets/icons/grade-sheet.svg" alt="" class="format-icon">
+              <span>ODS</span>
+            </button>
+            <button type="button" class="format-btn" data-fmt="jsonl" onclick="selectTargetFormat('jsonl')">
+              <img src="../assets/icons/text.svg" alt="" class="format-icon">
+              <span>JSONL</span>
+            </button>
+            <button type="button" class="format-btn" data-fmt="sql" onclick="selectTargetFormat('sql')">
+              <img src="../assets/icons/manage-database.svg" alt="" class="format-icon">
+              <span>SQL Dump</span>
+            </button>
+            <button type="button" class="format-btn" data-fmt="xml" onclick="selectTargetFormat('xml')">
+              <img src="../assets/icons/text.svg" alt="" class="format-icon">
+              <span>XML</span>
+            </button>
+            <button type="button" class="format-btn" data-fmt="html" onclick="selectTargetFormat('html')">
+              <img src="../assets/icons/layout.svg" alt="" class="format-icon">
+              <span>HTML Table</span>
+            </button>
+            <button type="button" class="format-btn" data-fmt="markdown" onclick="selectTargetFormat('markdown')">
+              <img src="../assets/icons/document-editor.svg" alt="" class="format-icon">
+              <span>Markdown</span>
+            </button>
+          </div>
+
+          <!-- Category 2: Class Management Suite Formats -->
+          <div class="format-category-title" data-i18n="dbConvTargetCategoryApp">Class Management Suite Formats</div>
+          <div class="format-grid">
+            <button type="button" class="format-btn format-btn-app" data-fmt="app-grade-criteria" onclick="selectTargetFormat('app-grade-criteria')">
+              <img src="../assets/icons/grade-sheet.svg" alt="" class="format-icon">
+              <span data-i18n="dbConvAppGradeCriteria">Grade Sheet Criteria</span>
+            </button>
+            <button type="button" class="format-btn format-btn-app" data-fmt="app-competences" onclick="selectTargetFormat('app-competences')">
+              <img src="../assets/icons/award.svg" alt="" class="format-icon">
+              <span data-i18n="dbConvAppCompetences">Competence Bank</span>
+            </button>
+            <button type="button" class="format-btn format-btn-app" data-fmt="app-class-groups" onclick="selectTargetFormat('app-class-groups')">
+              <img src="../assets/icons/group-editor.svg" alt="" class="format-icon">
+              <span data-i18n="dbConvAppClassGroups">Class Roster</span>
+            </button>
+            <button type="button" class="format-btn format-btn-app" data-fmt="app-wordbank" onclick="selectTargetFormat('app-wordbank')">
+              <img src="../assets/icons/book.svg" alt="" class="format-icon">
+              <span data-i18n="dbConvAppWordbank">Vocabulary Bank</span>
+            </button>
+            <button type="button" class="format-btn format-btn-app" data-fmt="app-quiz" onclick="selectTargetFormat('app-quiz')">
+              <img src="../assets/icons/quiz.svg" alt="" class="format-icon">
+              <span data-i18n="dbConvAppQuiz">Quiz Questions</span>
+            </button>
+            <button type="button" class="format-btn format-btn-app" data-fmt="app-admin-groups" onclick="selectTargetFormat('app-admin-groups')">
+              <img src="../assets/icons/admin-groups.svg" alt="" class="format-icon">
+              <span data-i18n="dbConvAppAdminGroups">Admin Groups</span>
+            </button>
+          </div>
+
+          <!-- Format Specific Options Accordion -->
+          <div class="format-options-card" id="formatOptionsCard">
+
+            <!-- CSV / TSV Options -->
+            <div id="optsCsv" class="format-options-block">
+              <div class="format-options-row">
+                <label class="format-options-label" for="csvDelimSelect" data-i18n="dbConvCsvDelimiter">Delimiter:</label>
+                <select id="csvDelimSelect" class="nb-select" onchange="updateOutput()">
+                  <option value="," data-i18n="dbConvCsvComma">Comma (,)</option>
+                  <option value=";" data-i18n="dbConvCsvSemicolon">Semicolon (;)</option>
+                  <option value="&#9;" data-i18n="dbConvCsvTab">Tab (\t)</option>
+                  <option value="|" data-i18n="dbConvCsvPipe">Pipe (|)</option>
+                </select>
+                <label class="format-options-label" style="margin-left: 12px;">
+                  <input type="checkbox" id="csvBomCheck" checked onchange="updateOutput()">
+                  <span data-i18n="dbConvCsvBom">Include UTF-8 BOM (Excel compatible)</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- JSON Options -->
+            <div id="optsJson" class="format-options-block" style="display: none;">
+              <div class="format-options-row">
+                <label class="format-options-label" for="jsonModeSelect" data-i18n="dbConvJsonMode">JSON Structure:</label>
+                <select id="jsonModeSelect" class="nb-select" onchange="updateOutput()">
+                  <option value="objects" data-i18n="dbConvJsonModeObjects">Array of Objects [{col: val}]</option>
+                  <option value="arrays" data-i18n="dbConvJsonModeArrays">Array of Arrays [[val1, val2]]</option>
+                  <option value="keyed" data-i18n="dbConvJsonModeKeyed">Dictionary Keyed by First Column</option>
+                </select>
+                <label class="format-options-label" for="jsonIndentSelect" style="margin-left: 12px;" data-i18n="dbConvJsonIndent">Formatting:</label>
+                <select id="jsonIndentSelect" class="nb-select" onchange="updateOutput()">
+                  <option value="2" data-i18n="dbConvJsonIndent2">2 Spaces</option>
+                  <option value="4" data-i18n="dbConvJsonIndent4">4 Spaces</option>
+                  <option value="0" data-i18n="dbConvJsonMinified">Minified</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- SQL Options -->
+            <div id="optsSql" class="format-options-block" style="display: none;">
+              <div class="format-options-row">
+                <label class="format-options-label" for="sqlTableInput" data-i18n="dbConvSqlTable">Table Name:</label>
+                <input type="text" id="sqlTableInput" class="nb-input" value="imported_data" oninput="updateOutput()">
+                <label class="format-options-label" for="sqlDialectSelect" style="margin-left: 12px;" data-i18n="dbConvSqlDialect">SQL Dialect:</label>
+                <select id="sqlDialectSelect" class="nb-select" onchange="updateOutput()">
+                  <option value="sqlite">SQLite</option>
+                  <option value="postgres">PostgreSQL</option>
+                  <option value="mysql">MySQL</option>
+                </select>
+              </div>
+              <div class="format-options-row" style="margin-top: 8px;">
+                <label class="format-options-label">
+                  <input type="checkbox" id="sqlCreateCheck" checked onchange="updateOutput()">
+                  <span data-i18n="dbConvSqlCreate">Include CREATE TABLE statement</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- XML Options -->
+            <div id="optsXml" class="format-options-block" style="display: none;">
+              <div class="format-options-row">
+                <label class="format-options-label" for="xmlRootInput" data-i18n="dbConvXmlRoot">Root Tag:</label>
+                <input type="text" id="xmlRootInput" class="nb-input" value="dataset" oninput="updateOutput()">
+                <label class="format-options-label" for="xmlRowInput" style="margin-left: 12px;" data-i18n="dbConvXmlRow">Row Tag:</label>
+                <input type="text" id="xmlRowInput" class="nb-input" value="record" oninput="updateOutput()">
+              </div>
+            </div>
+
+            <!-- HTML Options -->
+            <div id="optsHtml" class="format-options-block" style="display: none;">
+              <div class="format-options-row">
+                <label class="format-options-label">
+                  <input type="checkbox" id="htmlStyleCheck" checked onchange="updateOutput()">
+                  <span data-i18n="dbConvHtmlStyled">Embed Neobrutalist CSS styling</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- CMT App Options & Field Mapping Matrix -->
+            <div id="optsApp" class="format-options-block" style="display: none;">
+              <div style="font-size: 0.85rem; font-weight: 700; color: #166534; display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <img src="../assets/icons/check.svg" alt="" style="width: 16px; height: 16px;">
+                  <span id="appMappingNotice" data-i18n="dbConvAppAutoMappedNotice">Intelligent auto-mapping applied for target fields.</span>
+                </div>
+                <button type="button" class="nb-btn nb-btn-sm" onclick="autoMatchCurrentModelHeaders()" data-i18n="dbConvAutoMatch">Auto-Match</button>
+              </div>
+
+              <!-- Interactive Field Mapping Matrix Card -->
+              <div class="model-matrix-card" id="modelMatrixCard">
+                <div class="model-matrix-hd">
+                  <span data-i18n="dbConvFieldMapping">Model Field Mapping Matrix</span>
+                  <span id="matrixMatchCount" class="nb-badge nb-badge-yellow">0 / 0 Mapped</span>
+                </div>
+                <div style="padding: 6px 12px; font-size: 0.8rem; color: #475569; background: #f8fafc; border-bottom: 1px solid #e2e8f0;" data-i18n="dbConvFieldMappingSubtitle">
+                  Map each required and optional field to a source column from your data.
+                </div>
+                <div style="max-height: 240px; overflow-y: auto;">
+                  <table class="model-matrix-table">
+                    <thead>
+                      <tr>
+                        <th data-i18n="dbConvTargetField">Target Field</th>
+                        <th style="width: 70px;" data-i18n="dbConvColType">Type</th>
+                        <th data-i18n="dbConvSourceColumn">Source Column</th>
+                        <th style="width: 130px;">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody id="modelMatrixTbody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Live Output Preview Box -->
+          <div class="output-box-wrap" id="outputWrap">
+            <div class="output-box-hd">
+              <span data-i18n="dbConvOutputPreview">Live Output Preview</span>
+              <div class="output-box-stats">
+                <span id="outputLinesBadge">0 Lines</span>
+                <span id="outputCharsBadge">0 Characters</span>
+              </div>
+            </div>
+            <textarea class="output-code" id="outputCode" readonly spellcheck="false" placeholder="Output preview will appear here..."></textarea>
+          </div>
+
+          <!-- Action Buttons Bar -->
+          <div class="conv-actions-bar">
+            <button type="button" class="nb-btn" id="btnCopyOutput" onclick="copyOutputToClipboard()" data-i18n="dbConvBtnCopy">
+              <img src="../assets/icons/copy.svg" class="btn-icon" alt="">
+              <span>Copy Converted Output</span>
+            </button>
+            <button type="button" class="nb-btn nb-btn-success" id="btnExportFile" onclick="exportConvertedFile()" data-i18n="dbConvBtnExport">
+              <img src="../assets/icons/download.svg" class="btn-icon" alt="">
+              <span>Convert & Export File</span>
+            </button>
+          </div>
+        </section>
+
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ── Core Engine Logic Script ── -->
+  <script>
+    'use strict';
+
+    // ── Application State ───────────────────────────────────────────────────
+    var state = {
+      rawWorkbook: null,
+      sheetNames: [],
+      currentSheet: '',
+      rawRows: [],          // Raw AoA (all rows from input)
+      headerRowIdx: 0,      // Index of row used as headers (or -1)
+      headers: [],          // Extracted or generated string headers
+      dataRows: [],         // Raw rows after the header row
+      columns: [],          // [{ id, original, name, type, transform, included }]
+      filteredRows: [],     // Rows after search query applied
+      targetFormat: 'csv',
+      currentPage: 1,
+      rowsPerPage: 25,
+      searchQuery: '',
+      generatedOutput: '',
+      generatedBlob: null,
+      generatedFilename: 'converted_table.csv',
+      fileSize: 0,
+      detectedFormat: 'CSV',
+      layoutMode: 'split',     // 'split' or 'stacked'
+      tableDensity: 'fit',     // 'fit' (default: no scroll), 'truncate', 'scroll'
+      activeModel: 'none'      // 'none' or app format key like 'app-grade-criteria'
+    };
+
+    // ── Pre-configured Field Schemas for CMT App Formats ───────────────────
+    var APP_SCHEMAS = {
+      'app-grade-criteria': {
+        name: 'Grade Sheet Criteria',
+        targetFolder: 'grades',
+        defaultExt: '.json',
+        fields: [
+          { key: 'name', label: 'Criterion Name', type: 'string', required: true, aliases: ['name', 'criterion', 'critère', 'critere', 'title', 'compétence', 'competence', 'label', 'nom'] },
+          { key: 'maxPoints', label: 'Max Points', type: 'number', required: true, aliases: ['maxpoints', 'max points', 'max', 'maximum', 'points', 'total', 'barème', 'bareme', 'pts'] },
+          { key: 'minPoints', label: 'Min Points', type: 'number', required: false, aliases: ['minpoints', 'min points', 'min', 'minimum', 'pts min'] },
+          { key: 'interval', label: 'Step / Interval', type: 'number', required: false, aliases: ['interval', 'intervalle', 'step', 'pas'] },
+          { key: 'weight', label: 'Weight / Coeff', type: 'number', required: false, aliases: ['weight', 'coeff', 'coefficient', 'pondération', 'ponderation'] }
+        ]
+      },
+      'app-competences': {
+        name: 'Competence Portfolio Bank',
+        targetFolder: 'competences',
+        defaultExt: '.json',
+        fields: [
+          { key: 'code', label: 'Code / Reference', type: 'string', required: true, aliases: ['code', 'standard', 'reference', 'ref', 'id', 'key', 'num', 'numéro', 'numero'] },
+          { key: 'title', label: 'Competence Title', type: 'string', required: true, aliases: ['title', 'titre', 'name', 'nom', 'standard title', 'intitulé', 'intitule', 'libellé', 'libelle'] },
+          { key: 'category', label: 'Domain / Strand', type: 'string', required: false, aliases: ['category', 'catégorie', 'categorie', 'domain', 'domaine', 'strand', 'matière', 'matiere'] },
+          { key: 'subCategory', label: 'Sub-Domain', type: 'string', required: false, aliases: ['subcategory', 'sous-catégorie', 'sous-categorie', 'sous-domaine', 'substrand', 'focale'] },
+          { key: 'level', label: 'Level / Cycle', type: 'string', required: false, aliases: ['level', 'niveau', 'cefr', 'cycle'] },
+          { key: 'yearLevel', label: 'Year Level', type: 'string', required: false, aliases: ['yearlevel', 'year', 'année', 'annee', 'classe', 'grade'] },
+          { key: 'description', label: 'Statement / Details', type: 'string', required: false, aliases: ['description', 'desc', 'statement', 'texte', 'détails', 'details', 'critères', 'criteres'] }
+        ]
+      },
+      'app-class-groups': {
+        name: 'Class Roster',
+        targetFolder: 'user',
+        defaultExt: '.js',
+        fields: [
+          { key: 'firstName', label: 'First Name', type: 'string', required: true, aliases: ['firstname', 'first name', 'prenom', 'prénom', 'given name'] },
+          { key: 'lastName', label: 'Last Name', type: 'string', required: true, aliases: ['lastname', 'last name', 'nom', 'nom de famille', 'family name', 'surname'] },
+          { key: 'customName', label: 'Nickname / Alias', type: 'string', required: false, aliases: ['customname', 'custom name', 'nickname', 'surnom', 'alias'] },
+          { key: 'adminClass', label: 'Class / Group', type: 'string', required: false, aliases: ['class', 'classe', 'admin class', 'group', 'groupe', 'division'] },
+          { key: 'sen', label: 'SEN / Special Needs', type: 'boolean', required: false, aliases: ['sen', 'special needs', 'besoins particuliers', 'pai', 'pap', 'pps'] }
+        ]
+      },
+      'app-wordbank': {
+        name: 'Vocabulary Bank',
+        targetFolder: 'customWordbanks',
+        defaultExt: '.json',
+        fields: [
+          { key: 'word', label: 'Word / Term', type: 'string', required: true, aliases: ['word', 'mot', 'wort', 'parola', 'vocabulary', 'terme'] },
+          { key: 'english', label: 'English Translation', type: 'string', required: false, aliases: ['english', 'anglais', 'en', 'eng'] },
+          { key: 'french', label: 'French Translation', type: 'string', required: false, aliases: ['french', 'français', 'francais', 'fr'] },
+          { key: 'german', label: 'German Translation', type: 'string', required: false, aliases: ['german', 'allemand', 'de', 'deutsch'] },
+          { key: 'italian', label: 'Italian Translation', type: 'string', required: false, aliases: ['italian', 'italien', 'it', 'italiano'] },
+          { key: 'partOfSpeech', label: 'Part of Speech', type: 'string', required: false, aliases: ['part of speech', 'pos', 'nature', 'grammaire', 'type'] },
+          { key: 'level', label: 'CEFR Level', type: 'string', required: false, aliases: ['level', 'niveau', 'cefr', 'difficulty'] },
+          { key: 'category', label: 'Topic / Theme', type: 'string', required: false, aliases: ['category', 'catégorie', 'categorie', 'topic', 'thème', 'theme'] }
+        ]
+      },
+      'app-quiz': {
+        name: 'Quiz Question Bank',
+        targetFolder: 'user',
+        defaultExt: '.json',
+        fields: [
+          { key: 'question', label: 'Question Prompt', type: 'string', required: true, aliases: ['question', 'prompt', 'item', 'consigne', 'question text'] },
+          { key: 'optionA', label: 'Option A', type: 'string', required: true, aliases: ['optiona', 'option 1', 'choice a', 'choix 1', 'a', 'reponse a'] },
+          { key: 'optionB', label: 'Option B', type: 'string', required: true, aliases: ['optionb', 'option 2', 'choice b', 'choix 2', 'b', 'reponse b'] },
+          { key: 'optionC', label: 'Option C', type: 'string', required: false, aliases: ['optionc', 'option 3', 'choice c', 'choix 3', 'c', 'reponse c'] },
+          { key: 'optionD', label: 'Option D', type: 'string', required: false, aliases: ['optiond', 'option 4', 'choice d', 'choix 4', 'd', 'reponse d'] },
+          { key: 'answer', label: 'Correct Answer (A/B/C/D)', type: 'string', required: true, aliases: ['answer', 'correct', 'réponse', 'solution', 'bonne reponse'] },
+          { key: 'explanation', label: 'Feedback / Explanation', type: 'string', required: false, aliases: ['explanation', 'explication', 'feedback', 'commentaire'] }
+        ]
+      },
+      'app-admin-groups': {
+        name: 'Administrative Groups',
+        targetFolder: 'user',
+        defaultExt: '.json',
+        fields: [
+          { key: 'name', label: 'Student Full Name', type: 'string', required: true, aliases: ['name', 'nom', 'élève', 'eleve', 'student', 'nom prenom'] },
+          { key: 'adminClass', label: 'Admin Class', type: 'string', required: true, aliases: ['class', 'classe', 'groupe', 'admin class', 'division'] },
+          { key: 'dob', label: 'Date of Birth', type: 'date', required: false, aliases: ['dob', 'date of birth', 'naissance', 'birthday', 'date de naissance'] },
+          { key: 'gender', label: 'Gender', type: 'string', required: false, aliases: ['gender', 'sexe', 'sex', 'genre'] },
+          { key: 'contact', label: 'Contact / Email', type: 'string', required: false, aliases: ['contact', 'email', 'phone', 'téléphone', 'telephone', 'parent'] },
+          { key: 'accommodations', label: 'Accommodations / PAI', type: 'string', required: false, aliases: ['accommodations', 'sen', 'pai', 'pap', 'aménagements', 'amenagements'] }
+        ]
+      }
+    };
+
+    // ── Initialization ───────────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', function () {
+      if (typeof window.applyTranslations === 'function') {
+        window.applyTranslations();
+      }
+      setupDragDrop();
+      loadSampleData(); // Load initial sample so the app is instantly rich & ready!
+    });
+
+    // ── Input Tab Switching ──────────────────────────────────────────────────
+    function switchInputTab(tab) {
+      var fileTab = document.getElementById('tabBtnFile');
+      var pasteTab = document.getElementById('tabBtnPaste');
+      var filePane = document.getElementById('inputPaneFile');
+      var pastePane = document.getElementById('inputPanePaste');
+
+      if (tab === 'file') {
+        fileTab.classList.add('active');
+        pasteTab.classList.remove('active');
+        filePane.style.display = 'block';
+        pastePane.style.display = 'none';
+      } else {
+        pasteTab.classList.add('active');
+        fileTab.classList.remove('active');
+        pastePane.style.display = 'block';
+        filePane.style.display = 'none';
+      }
+    }
+
+    // ── Drag and Drop Handlers ───────────────────────────────────────────────
+    function setupDragDrop() {
+      var dropzone = document.getElementById('dropzone');
+      if (!dropzone) return;
+
+      ['dragenter', 'dragover'].forEach(function (eventName) {
+        dropzone.addEventListener(eventName, function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          dropzone.classList.add('dragover');
+        });
+      });
+
+      ['dragleave', 'drop'].forEach(function (eventName) {
+        dropzone.addEventListener(eventName, function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          dropzone.classList.remove('dragover');
+        });
+      });
+
+      dropzone.addEventListener('drop', function (e) {
+        var dt = e.dataTransfer;
+        var files = dt.files;
+        if (files && files.length) {
+          processUploadedFile(files[0]);
+        }
+      });
+    }
+
+    function handleFileSelect(e) {
+      var files = e.target.files;
+      if (files && files.length) {
+        processUploadedFile(files[0]);
+      }
+    }
+
+    // ── File Parsing Pipeline ────────────────────────────────────────────────
+    async function processUploadedFile(file) {
+      if (!file) return;
+      state.fileSize = file.size;
+      var ext = (file.name || '').split('.').pop().toLowerCase();
+      state.detectedFormat = ext.toUpperCase();
+
+      try {
+        if (['xlsx', 'xls', 'xlsm', 'xlsb', 'ods'].includes(ext)) {
+          var ab = await file.arrayBuffer();
+          parseWorkbookBuffer(ab, file.name);
+        } else {
+          var text = await file.text();
+          parseRawText(text, ext, file.name);
+        }
+      } catch (err) {
+        if (typeof showToast === 'function') {
+          showToast('Error parsing file: ' + err.message, true);
+        } else {
+          alert('Error parsing file: ' + err.message);
+        }
+      }
+    }
+
+    // ── Parse Workbook (SheetJS) ─────────────────────────────────────────────
+    function parseWorkbookBuffer(arrayBuffer, filename) {
+      if (typeof XLSX === 'undefined') {
+        throw new Error('SheetJS library (XLSX) is not available.');
+      }
+      var wb = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
+      state.rawWorkbook = wb;
+      state.sheetNames = wb.SheetNames || [];
+
+      var sheetSelectWrap = document.getElementById('sheetSelectWrap');
+      var sheetSelect = document.getElementById('sheetSelect');
+
+      if (state.sheetNames.length > 1) {
+        sheetSelect.innerHTML = '';
+        state.sheetNames.forEach(function (name) {
+          var opt = document.createElement('option');
+          opt.value = name;
+          opt.textContent = name;
+          sheetSelect.appendChild(opt);
+        });
+        sheetSelectWrap.style.display = 'flex';
+      } else {
+        sheetSelectWrap.style.display = 'none';
+      }
+
+      state.currentSheet = state.sheetNames[0] || 'Sheet1';
+      loadSheetData(state.currentSheet, filename);
+    }
+
+    function handleSheetChange() {
+      var sel = document.getElementById('sheetSelect');
+      if (sel && sel.value) {
+        state.currentSheet = sel.value;
+        loadSheetData(state.currentSheet);
+      }
+    }
+
+    function loadSheetData(sheetName, filename) {
+      if (!state.rawWorkbook || !state.rawWorkbook.Sheets[sheetName]) return;
+      var ws = state.rawWorkbook.Sheets[sheetName];
+      var rawAoA = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
+      state.rawRows = rawAoA;
+      inferAndSetupTable(filename || 'workbook');
+    }
+
+    // ── Parse Raw Text (CSV, JSON, SQL, XML, Markdown, HTML) ─────────────────
+    function handlePasteParse() {
+      var text = document.getElementById('pasteInput').value;
+      if (!text || !text.trim()) {
+        if (typeof showToast === 'function') showToast('Please paste content first.', true);
+        return;
+      }
+      state.fileSize = new Blob([text]).size;
+      parseRawText(text, 'auto', 'pasted_data');
+    }
+
+    function parseRawText(text, hintExt, filename) {
+      var trimmed = text.trim();
+      var rawRows = [];
+
+      // 1. Sniff JSON
+      if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+        try {
+          var parsed = JSON.parse(trimmed);
+          rawRows = jsonToAoA(parsed);
+          state.detectedFormat = 'JSON';
+        } catch (e) {
+          // fallback to CSV
+        }
+      }
+
+      // 2. Sniff XML / HTML
+      if (!rawRows.length && (trimmed.startsWith('<') || trimmed.includes('<table'))) {
+        rawRows = parseXmlOrHtml(trimmed);
+        if (rawRows.length) state.detectedFormat = trimmed.includes('<table') ? 'HTML' : 'XML';
+      }
+
+      // 3. Sniff Markdown table
+      if (!rawRows.length && trimmed.includes('|') && trimmed.includes('---')) {
+        rawRows = parseMarkdownTable(trimmed);
+        if (rawRows.length) state.detectedFormat = 'Markdown';
+      }
+
+      // 4. Sniff SQL Inserts
+      if (!rawRows.length && /INSERT\s+INTO/i.test(trimmed)) {
+        rawRows = parseSqlInserts(trimmed);
+        if (rawRows.length) state.detectedFormat = 'SQL';
+      }
+
+      // 5. Default: CSV / TSV with auto-delimiter detection
+      if (!rawRows.length) {
+        rawRows = parseDelimitedText(trimmed);
+        state.detectedFormat = 'CSV';
+      }
+
+      state.rawRows = rawRows;
+      inferAndSetupTable(filename || 'data');
+    }
+
+    // ── Format Helper: JSON to AoA ───────────────────────────────────────────
+    function jsonToAoA(data) {
+      if (Array.isArray(data)) {
+        if (!data.length) return [];
+        if (Array.isArray(data[0])) return data;
+        var headerSet = [];
+        data.forEach(function (row) {
+          if (row && typeof row === 'object') {
+            Object.keys(row).forEach(function (k) {
+              if (!headerSet.includes(k)) headerSet.push(k);
+            });
+          }
+        });
+        var aoa = [headerSet];
+        data.forEach(function (row) {
+          aoa.push(headerSet.map(function (k) {
+            var v = row ? row[k] : '';
+            return v !== undefined && v !== null ? (typeof v === 'object' ? JSON.stringify(v) : String(v)) : '';
+          }));
+        });
+        return aoa;
+      } else if (data && typeof data === 'object') {
+        var keys = Object.keys(data);
+        var arrayKey = keys.find(function (k) { return Array.isArray(data[k]) && data[k].length > 0; });
+        if (arrayKey) return jsonToAoA(data[arrayKey]);
+        var aoa = [['Key', 'Value']];
+        keys.forEach(function (k) {
+          var val = typeof data[k] === 'object' ? JSON.stringify(data[k]) : String(data[k]);
+          aoa.push([k, val]);
+        });
+        return aoa;
+      }
+      return [];
+    }
+
+    // ── Format Helper: CSV / TSV Parser ──────────────────────────────────────
+    function parseDelimitedText(text) {
+      text = text.replace(/^\uFEFF/, '');
+      var sample = text.split(/\r?\n/).slice(0, 5).filter(function (l) { return l.trim(); });
+      var counts = { ',': 0, ';': 0, '\t': 0, '|': 0 };
+      sample.forEach(function (line) {
+        var inQ = false;
+        for (var i = 0; i < line.length; i++) {
+          var ch = line[i];
+          if (ch === '"') inQ = !inQ;
+          else if (!inQ && counts[ch] !== undefined) counts[ch]++;
+        }
+      });
+      var delim = ',';
+      var best = 0;
+      Object.keys(counts).forEach(function (d) {
+        if (counts[d] > best) { best = counts[d]; delim = d; }
+      });
+
+      var rows = [];
+      var row = [];
+      var cell = '';
+      var inQuotes = false;
+      var i = 0;
+
+      while (i < text.length) {
+        var ch = text[i];
+        var next = text[i + 1];
+
+        if (inQuotes) {
+          if (ch === '"') {
+            if (next === '"') { cell += '"'; i += 2; continue; }
+            else { inQuotes = false; i++; continue; }
+          } else {
+            cell += ch; i++; continue;
+          }
+        } else {
+          if (ch === '"') { inQuotes = true; i++; continue; }
+          else if (ch === delim) { row.push(cell.trim()); cell = ''; i++; continue; }
+          else if (ch === '\r') {
+            if (next === '\n') i++;
+            row.push(cell.trim()); rows.push(row); row = []; cell = ''; i++; continue;
+          } else if (ch === '\n') {
+            row.push(cell.trim()); rows.push(row); row = []; cell = ''; i++; continue;
+          } else {
+            cell += ch; i++; continue;
+          }
+        }
+      }
+      if (cell !== '' || row.length > 0) {
+        row.push(cell.trim());
+        rows.push(row);
+      }
+      return rows.filter(function (r) {
+        return r.some(function (c) { return c !== '' && c !== null; });
+      });
+    }
+
+    // ── Format Helper: XML / HTML Table Parser ───────────────────────────────
+    function parseXmlOrHtml(text) {
+      try {
+        var parser = new DOMParser();
+        var doc = parser.parseFromString(text, text.includes('<table') ? 'text/html' : 'text/xml');
+        var table = doc.querySelector('table');
+        if (table) {
+          var rows = [];
+          table.querySelectorAll('tr').forEach(function (tr) {
+            var cells = [];
+            tr.querySelectorAll('th, td').forEach(function (td) {
+              cells.push(td.textContent.trim());
+            });
+            if (cells.length) rows.push(cells);
+          });
+          return rows;
+        }
+
+        // Tabular XML records
+        var root = doc.documentElement;
+        if (!root) return [];
+        var recordNodes = root.children;
+        if (!recordNodes.length) return [];
+        var headerSet = [];
+        for (var i = 0; i < recordNodes.length; i++) {
+          var childs = recordNodes[i].children;
+          for (var j = 0; j < childs.length; j++) {
+            var tag = childs[j].tagName;
+            if (!headerSet.includes(tag)) headerSet.push(tag);
+          }
+        }
+        var aoa = [headerSet];
+        for (var i = 0; i < recordNodes.length; i++) {
+          var r = [];
+          headerSet.forEach(function (h) {
+            var el = recordNodes[i].querySelector(h);
+            r.push(el ? el.textContent.trim() : '');
+          });
+          aoa.push(r);
+        }
+        return aoa;
+      } catch (e) {
+        return [];
+      }
+    }
+
+    // ── Format Helper: Markdown Table Parser ─────────────────────────────────
+    function parseMarkdownTable(text) {
+      var lines = text.split(/\r?\n/).filter(function (l) { return l.trim().startsWith('|'); });
+      if (lines.length < 2) return [];
+      var rows = [];
+      lines.forEach(function (line, idx) {
+        // Skip separator row |---|---|
+        if (idx === 1 && line.includes('---')) return;
+        var parts = line.split('|').slice(1, -1).map(function (c) { return c.trim(); });
+        if (parts.length) rows.push(parts);
+      });
+      return rows;
+    }
+
+    // ── Format Helper: SQL Insert Parser ─────────────────────────────────────
+    function parseSqlInserts(text) {
+      var rows = [];
+      var headerSet = null;
+      var regex = /INSERT\s+INTO\s+[^\(]+(?:\(([^\)]+)\))?\s+VALUES\s*\(([^\)]+)\)/gi;
+      var match;
+      while ((match = regex.exec(text)) !== null) {
+        if (!headerSet && match[1]) {
+          headerSet = match[1].split(',').map(function (c) { return c.trim().replace(/[`"']/g, ''); });
+          rows.push(headerSet);
+        }
+        var vals = match[2].split(',').map(function (v) {
+          var clean = v.trim();
+          if ((clean.startsWith("'") && clean.endsWith("'")) || (clean.startsWith('"') && clean.endsWith('"'))) {
+            clean = clean.substring(1, clean.length - 1);
+          }
+          return clean;
+        });
+        rows.push(vals);
+      }
+      return rows;
+    }
+
+    // ── Table Inference & Schema Setup ───────────────────────────────────────
+    function inferAndSetupTable(baseName) {
+      if (!state.rawRows || !state.rawRows.length) {
+        clearAllData();
+        return;
+      }
+
+      var maxCols = 0;
+      state.rawRows.forEach(function (r) {
+        if (r && r.length > maxCols) maxCols = r.length;
+      });
+
+      // Auto-detect header row (default row 0 unless row 0 has 1 column and row 1 has multiple)
+      var hIdx = 0;
+      if (state.rawRows.length > 1 && maxCols > 1) {
+        var r0 = state.rawRows[0].filter(function (c) { return c !== '' && c !== null; }).length;
+        var r1 = state.rawRows[1].filter(function (c) { return c !== '' && c !== null; }).length;
+        if (r0 === 1 && r1 > 1) hIdx = 1;
+      }
+      state.headerRowIdx = hIdx;
+
+      document.getElementById('headerRowSelect').value = String(hIdx);
+      applyHeaderRow(hIdx, maxCols);
+
+      // Show UI cards
+      document.getElementById('metaBar').style.display = 'flex';
+      document.getElementById('statsBar').style.display = 'flex';
+      document.getElementById('stepSchema').style.display = 'block';
+      document.getElementById('stepPreview').style.display = 'block';
+
+      // Auto-switch to stacked full-width view if table has more than 6 columns
+      if (state.columns.length > 6 && state.layoutMode === 'split') {
+        toggleStudioLayout();
+      }
+
+      updateStatsBadges();
+      renderSchemaEditor();
+      applyFiltersAndPagination();
+      updateOutput();
+
+      if (typeof showToast === 'function') {
+        showToast(`Loaded ${state.rawRows.length} rows (${state.columns.length} columns)`);
+      }
+    }
+
+    function handleHeaderRowChange() {
+      var val = document.getElementById('headerRowSelect').value;
+      var hIdx = val === 'auto' ? 0 : parseInt(val, 10);
+      state.headerRowIdx = hIdx;
+
+      var maxCols = 0;
+      state.rawRows.forEach(function (r) {
+        if (r && r.length > maxCols) maxCols = r.length;
+      });
+
+      applyHeaderRow(hIdx, maxCols);
+      renderSchemaEditor();
+      applyFiltersAndPagination();
+      updateOutput();
+    }
+
+    function applyHeaderRow(hIdx, maxCols) {
+      var headers = [];
+      if (hIdx >= 0 && state.rawRows[hIdx]) {
+        for (var i = 0; i < maxCols; i++) {
+          var text = state.rawRows[hIdx][i];
+          headers.push(text ? String(text).trim() : ('Col_' + (i + 1)));
+        }
+        state.dataRows = state.rawRows.slice(hIdx + 1);
+      } else {
+        for (var i = 0; i < maxCols; i++) {
+          headers.push('col_' + (i + 1));
+        }
+        state.dataRows = state.rawRows.slice();
+      }
+
+      state.headers = headers;
+
+      // Build column definitions
+      state.columns = headers.map(function (h, idx) {
+        // Infer column type
+        var inferredType = inferColumnType(idx);
+        return {
+          id: 'col_' + idx,
+          original: h,
+          name: h,
+          type: inferredType,
+          transform: 'none',
+          included: true
+        };
+      });
+    }
+
+    function inferColumnType(colIdx) {
+      var sample = state.dataRows.slice(0, 30);
+      var numbers = 0, booleans = 0, dates = 0, total = 0;
+
+      sample.forEach(function (r) {
+        var v = r[colIdx];
+        if (v === undefined || v === null || String(v).trim() === '') return;
+        total++;
+        var str = String(v).trim().toLowerCase();
+        if (str === 'true' || str === 'false' || str === 'yes' || str === 'no' || str === 'oui' || str === 'non') {
+          booleans++;
+        } else if (!isNaN(Number(str))) {
+          numbers++;
+        } else if (!isNaN(Date.parse(str)) && str.length > 6) {
+          dates++;
+        }
+      });
+
+      if (total === 0) return 'string';
+      if (numbers / total > 0.8) return 'number';
+      if (booleans / total > 0.8) return 'boolean';
+      if (dates / total > 0.8) return 'date';
+      return 'string';
+    }
+
+    // ── Summary Badges ───────────────────────────────────────────────────────
+    function updateStatsBadges() {
+      document.getElementById('badgeRows').textContent = `${state.dataRows.length} Rows`;
+      document.getElementById('badgeCols').textContent = `${state.columns.length} Columns`;
+      document.getElementById('badgeFormat').textContent = state.detectedFormat;
+      var kb = Math.max(1, Math.round(state.fileSize / 1024));
+      document.getElementById('badgeSize').textContent = `${kb} KB`;
+    }
+
+    // ── Schema / Column Mapping Editor ───────────────────────────────────────
+    function toggleSchemaPanel() {
+      var body = document.getElementById('schemaBody');
+      body.style.display = body.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function renderSchemaEditor() {
+      var tbody = document.getElementById('schemaTbody');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+
+      var schema = (state.activeModel && state.activeModel !== 'none') ? APP_SCHEMAS[state.activeModel] : null;
+
+      state.columns.forEach(function (col, idx) {
+        var tr = document.createElement('tr');
+
+        var headerCellHtml = '';
+        if (schema) {
+          var optionsHtml = `<option value="__custom__">-- Custom Header --</option>`;
+          optionsHtml += `<optgroup label="${escapeHtml(schema.name)}">`;
+          schema.fields.forEach(function (f) {
+            var isCurrent = col.name === f.key;
+            var isMappedElsewhere = !isCurrent && state.columns.some(function (oCol, oIdx) {
+              return oIdx !== idx && oCol.name === f.key && oCol.included;
+            });
+            var tag = isCurrent ? ' (Selected)' : (isMappedElsewhere ? ' (Used)' : '');
+            var reqStar = f.required ? ' *' : '';
+            optionsHtml += `<option value="${escapeHtml(f.key)}" ${isCurrent ? 'selected' : ''}>⭐ ${escapeHtml(f.key)} — ${escapeHtml(f.label)}${reqStar}${tag}</option>`;
+          });
+          optionsHtml += `</optgroup>`;
+
+          var isKnown = schema.fields.some(function (f) { return f.key === col.name; });
+
+          headerCellHtml = `
+            <div class="schema-header-adjuster">
+              <select class="schema-field-select ${isKnown ? 'is-mapped' : ''}" onchange="handleSchemaFieldDropdownChange(${idx}, this.value)">
+                ${optionsHtml}
+              </select>
+              <input type="text" class="schema-header-input" value="${escapeHtml(col.name)}" placeholder="Output header..." oninput="handleSchemaHeaderInputChange(${idx}, this.value)">
+            </div>
+          `;
+        } else {
+          headerCellHtml = `
+            <input type="text" class="nb-input" value="${escapeHtml(col.name)}" style="width: 140px; padding: 4px 6px;" oninput="updateColumnName(${idx}, this.value)">
+          `;
+        }
+
+        tr.innerHTML = `
+          <td style="text-align: center;">
+            <input type="checkbox" ${col.included ? 'checked' : ''} onchange="toggleColumnIncluded(${idx}, this.checked)">
+          </td>
+          <td><strong>${escapeHtml(col.original)}</strong></td>
+          <td>${headerCellHtml}</td>
+          <td>
+            <select class="nb-select" style="padding: 4px;" onchange="updateColumnType(${idx}, this.value)">
+              <option value="string" ${col.type === 'string' ? 'selected' : ''}>Text</option>
+              <option value="number" ${col.type === 'number' ? 'selected' : ''}>Number</option>
+              <option value="boolean" ${col.type === 'boolean' ? 'selected' : ''}>Boolean</option>
+              <option value="date" ${col.type === 'date' ? 'selected' : ''}>Date</option>
+              <option value="json" ${col.type === 'json' ? 'selected' : ''}>JSON</option>
+            </select>
+          </td>
+          <td>
+            <select class="nb-select" style="padding: 4px;" onchange="updateColumnTransform(${idx}, this.value)">
+              <option value="none" ${col.transform === 'none' ? 'selected' : ''}>None</option>
+              <option value="trim" ${col.transform === 'trim' ? 'selected' : ''}>Trim Spaces</option>
+              <option value="upper" ${col.transform === 'upper' ? 'selected' : ''}>UPPERCASE</option>
+              <option value="lower" ${col.transform === 'lower' ? 'selected' : ''}>lowercase</option>
+              <option value="title" ${col.transform === 'title' ? 'selected' : ''}>Title Case</option>
+            </select>
+          </td>
+          <td>
+            <div style="display: flex; gap: 2px;">
+              <button type="button" class="nb-btn nb-btn-sm" onclick="moveColumn(${idx}, -1)" ${idx === 0 ? 'disabled' : ''}>▲</button>
+              <button type="button" class="nb-btn nb-btn-sm" onclick="moveColumn(${idx}, 1)" ${idx === state.columns.length - 1 ? 'disabled' : ''}>▼</button>
+            </div>
+          </td>
+        `;
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    function handleSchemaFieldDropdownChange(colIdx, val) {
+      var schema = state.activeModel && APP_SCHEMAS[state.activeModel];
+      if (!schema) return;
+
+      if (val === '__custom__') {
+        renderSchemaEditor();
+        return;
+      }
+
+      var field = schema.fields.find(function (f) { return f.key === val; });
+      if (field) {
+        state.columns[colIdx].name = field.key;
+        state.columns[colIdx].included = true;
+        if (field.type) {
+          state.columns[colIdx].type = field.type;
+        }
+      }
+
+      renderSchemaEditor();
+      renderModelMatrix();
+      applyFiltersAndPagination();
+      updateOutput();
+    }
+
+    function handleSchemaHeaderInputChange(colIdx, val) {
+      var trimmed = val.trim();
+      state.columns[colIdx].name = trimmed || state.columns[colIdx].original;
+
+      var schema = state.activeModel && APP_SCHEMAS[state.activeModel];
+      if (schema) {
+        var field = schema.fields.find(function (f) { return f.key.toLowerCase() === trimmed.toLowerCase(); });
+        if (field) {
+          state.columns[colIdx].name = field.key;
+          if (field.type) state.columns[colIdx].type = field.type;
+        }
+      }
+
+      renderModelMatrix();
+      applyFiltersAndPagination();
+      updateOutput();
+    }
+
+    function handleModelPresetChange(modelKey) {
+      state.activeModel = modelKey;
+
+      var sel = document.getElementById('schemaModelPresetSelect');
+      if (sel) sel.value = modelKey;
+
+      var pill = document.getElementById('modelStatusPill');
+
+      if (modelKey === 'none') {
+        if (pill) pill.style.display = 'none';
+      } else {
+        applyAppSmartMapping(modelKey);
+        if (state.targetFormat !== modelKey) {
+          selectTargetFormat(modelKey);
+        }
+      }
+
+      renderSchemaEditor();
+      renderModelMatrix();
+      applyFiltersAndPagination();
+      updateOutput();
+    }
+
+    function autoMatchCurrentModelHeaders() {
+      if (!state.activeModel || state.activeModel === 'none') {
+        if (typeof showToast === 'function') showToast('Please select a Model Preset first.', true);
+        return;
+      }
+      applyAppSmartMapping(state.activeModel);
+      renderSchemaEditor();
+      renderModelMatrix();
+      applyFiltersAndPagination();
+      updateOutput();
+      if (typeof showToast === 'function') {
+        showToast(`Auto-matched headers for ${APP_SCHEMAS[state.activeModel].name}`);
+      }
+    }
+
+    function resetSchemaHeadersToSource() {
+      state.columns.forEach(function (col) {
+        col.name = col.original;
+        col.included = true;
+      });
+      renderSchemaEditor();
+      renderModelMatrix();
+      applyFiltersAndPagination();
+      updateOutput();
+      if (typeof showToast === 'function') {
+        showToast('Headers reset to original source values.');
+      }
+    }
+
+    function renderModelMatrix() {
+      var tbody = document.getElementById('modelMatrixTbody');
+      var badge = document.getElementById('matrixMatchCount');
+      if (!tbody) return;
+
+      var schemaKey = state.activeModel;
+      var schema = (schemaKey && schemaKey !== 'none') ? APP_SCHEMAS[schemaKey] : null;
+
+      if (!schema) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #64748b; padding: 14px;">No premade model selected.</td></tr>';
+        if (badge) badge.textContent = '0 / 0 Mapped';
+        var pill = document.getElementById('modelStatusPill');
+        if (pill) pill.style.display = 'none';
+        return;
+      }
+
+      tbody.innerHTML = '';
+      var mappedRequired = 0;
+      var totalRequired = 0;
+      var totalMapped = 0;
+
+      schema.fields.forEach(function (field) {
+        if (field.required) totalRequired++;
+
+        var mappedColIdx = state.columns.findIndex(function (col) {
+          return col.included && col.name.toLowerCase() === field.key.toLowerCase();
+        });
+
+        var isMapped = mappedColIdx !== -1;
+        if (isMapped) {
+          totalMapped++;
+          if (field.required) mappedRequired++;
+        }
+
+        var tr = document.createElement('tr');
+
+        var colOptionsHtml = `<option value="__none__">-- ${isMapped ? 'Unmap Field' : 'Not Mapped'} --</option>`;
+        state.columns.forEach(function (col, cIdx) {
+          var isSelected = cIdx === mappedColIdx;
+          colOptionsHtml += `<option value="${cIdx}" ${isSelected ? 'selected' : ''}>Col ${cIdx + 1}: ${escapeHtml(col.original)} ${col.name !== col.original ? '→ ' + escapeHtml(col.name) : ''}</option>`;
+        });
+
+        var statusHtml = '';
+        if (isMapped) {
+          statusHtml = `<span class="matrix-status-badge status-ok">✓ Mapped (Col ${mappedColIdx + 1})</span>`;
+        } else if (field.required) {
+          statusHtml = `<span class="matrix-status-badge status-missing">⚠ Required</span>`;
+        } else {
+          statusHtml = `<span class="matrix-status-badge status-warn">Optional</span>`;
+        }
+
+        var reqBadge = field.required
+          ? `<span class="matrix-status-badge status-missing" style="font-size: 0.7rem;">Required</span>`
+          : `<span class="matrix-status-badge status-warn" style="font-size: 0.7rem;">Optional</span>`;
+
+        tr.innerHTML = `
+          <td>
+            <div style="font-weight: 800; display: flex; align-items: center; gap: 6px;">
+              <code>${escapeHtml(field.key)}</code>
+              ${reqBadge}
+            </div>
+            <div style="font-size: 0.75rem; color: #475569;">${escapeHtml(field.label || '')}</div>
+          </td>
+          <td>
+            <span class="nb-badge nb-badge-blue" style="font-size: 0.7rem; padding: 2px 5px;">${escapeHtml(field.type || 'string')}</span>
+          </td>
+          <td>
+            <select class="nb-select" style="width: 100%; font-size: 0.8rem; padding: 4px;" onchange="handleMatrixColumnChange('${field.key}', this.value)">
+              ${colOptionsHtml}
+            </select>
+          </td>
+          <td>${statusHtml}</td>
+        `;
+
+        tbody.appendChild(tr);
+      });
+
+      if (badge) {
+        var allOk = mappedRequired === totalRequired;
+        badge.className = 'nb-badge ' + (allOk ? 'nb-badge-green' : 'nb-badge-coral');
+        badge.textContent = `${mappedRequired} / ${totalRequired} Required (${totalMapped} / ${schema.fields.length})`;
+      }
+
+      var pill = document.getElementById('modelStatusPill');
+      if (pill) {
+        pill.style.display = 'inline-flex';
+        var allOk = mappedRequired === totalRequired;
+        pill.className = 'nb-badge ' + (allOk ? 'nb-badge-green' : 'nb-badge-coral');
+        pill.textContent = `${schema.name}: ${mappedRequired}/${totalRequired} Required Mapped`;
+      }
+    }
+
+    function handleMatrixColumnChange(fieldKey, colIdxVal) {
+      var schema = state.activeModel && APP_SCHEMAS[state.activeModel];
+      if (!schema) return;
+
+      var field = schema.fields.find(function (f) { return f.key === fieldKey; });
+
+      if (colIdxVal === '__none__') {
+        state.columns.forEach(function (col) {
+          if (col.name === fieldKey) {
+            col.name = col.original;
+          }
+        });
+      } else {
+        var targetIdx = parseInt(colIdxVal, 10);
+        state.columns.forEach(function (col, idx) {
+          if (idx !== targetIdx && col.name === fieldKey) {
+            col.name = col.original;
+          }
+        });
+
+        if (state.columns[targetIdx]) {
+          state.columns[targetIdx].name = fieldKey;
+          state.columns[targetIdx].included = true;
+          if (field && field.type) {
+            state.columns[targetIdx].type = field.type;
+          }
+        }
+      }
+
+      renderSchemaEditor();
+      renderModelMatrix();
+      applyFiltersAndPagination();
+      updateOutput();
+    }
+
+    function toggleColumnIncluded(idx, checked) {
+      state.columns[idx].included = checked;
+      renderModelMatrix();
+      applyFiltersAndPagination();
+      updateOutput();
+    }
+
+    function updateColumnName(idx, val) {
+      state.columns[idx].name = val.trim() || state.columns[idx].original;
+      renderModelMatrix();
+      applyFiltersAndPagination();
+      updateOutput();
+    }
+
+    function updateColumnType(idx, val) {
+      state.columns[idx].type = val;
+      updateOutput();
+    }
+
+    function updateColumnTransform(idx, val) {
+      state.columns[idx].transform = val;
+      applyFiltersAndPagination();
+      updateOutput();
+    }
+
+    function moveColumn(idx, delta) {
+      var newIdx = idx + delta;
+      if (newIdx < 0 || newIdx >= state.columns.length) return;
+      var item = state.columns.splice(idx, 1)[0];
+      state.columns.splice(newIdx, 0, item);
+      renderSchemaEditor();
+      renderModelMatrix();
+      applyFiltersAndPagination();
+      updateOutput();
+    }
+
+    // ── Table Filtering & Pagination ─────────────────────────────────────────
+    function handleTableSearch(e) {
+      state.searchQuery = (e.target.value || '').trim().toLowerCase();
+      state.currentPage = 1;
+      applyFiltersAndPagination();
+    }
+
+    function handleRowsPerPageChange(e) {
+      state.rowsPerPage = parseInt(e.target.value, 10) || 25;
+      state.currentPage = 1;
+      applyFiltersAndPagination();
+    }
+
+    function changePage(delta) {
+      var totalPages = Math.ceil(state.filteredRows.length / state.rowsPerPage) || 1;
+      var newPage = state.currentPage + delta;
+      if (newPage >= 1 && newPage <= totalPages) {
+        state.currentPage = newPage;
+        renderDataPreview();
+      }
+    }
+
+    function applyFiltersAndPagination() {
+      var activeCols = state.columns.map((c, i) => ({ col: c, origIdx: i })).filter(x => x.col.included);
+
+      if (!state.searchQuery) {
+        state.filteredRows = state.dataRows;
+      } else {
+        state.filteredRows = state.dataRows.filter(function (row) {
+          return activeCols.some(function (item) {
+            var val = String(row[item.origIdx] || '').toLowerCase();
+            return val.includes(state.searchQuery);
+          });
+        });
+      }
+
+      var totalPages = Math.ceil(state.filteredRows.length / state.rowsPerPage) || 1;
+      if (state.currentPage > totalPages) state.currentPage = totalPages;
+
+      renderDataPreview();
+    }
+
+    function toggleStudioLayout() {
+      var grid = document.querySelector('.conv-grid');
+      var icon = document.getElementById('layoutIcon');
+      var text = document.getElementById('layoutText');
+      if (!grid) return;
+
+      if (state.layoutMode === 'split') {
+        state.layoutMode = 'stacked';
+        grid.classList.add('layout-stacked');
+        if (icon) icon.textContent = '◫';
+        if (text) text.textContent = 'Split View';
+      } else {
+        state.layoutMode = 'split';
+        grid.classList.remove('layout-stacked');
+        if (icon) icon.textContent = '⛶';
+        if (text) text.textContent = 'Full Width View';
+      }
+    }
+
+    function setTableDensity(mode) {
+      state.tableDensity = mode;
+      document.querySelectorAll('.density-btn').forEach(function(btn) {
+        btn.classList.toggle('active', btn.getAttribute('data-density') === mode);
+      });
+      renderDataPreview();
+    }
+
+    function renderDataPreview() {
+      var table = document.getElementById('dataTable');
+      var scrollWrap = document.querySelector('.preview-table-scroll');
+      var thead = document.getElementById('dataThead');
+      var tbody = document.getElementById('dataTbody');
+      var pageLabel = document.getElementById('paginationLabel');
+      var prevBtn = document.getElementById('btnPrevPage');
+      var nextBtn = document.getElementById('btnNextPage');
+
+      if (table) table.className = 'data-table mode-' + state.tableDensity;
+      if (scrollWrap) {
+        if (state.tableDensity === 'scroll') scrollWrap.classList.add('allow-scroll');
+        else scrollWrap.classList.remove('allow-scroll');
+      }
+
+      var activeCols = state.columns.map((c, i) => ({ col: c, origIdx: i })).filter(x => x.col.included);
+
+      // Render Head
+      thead.innerHTML = '';
+      var headTr = document.createElement('tr');
+      activeCols.forEach(function (item) {
+        var th = document.createElement('th');
+        th.textContent = item.col.name;
+        th.title = item.col.name;
+        headTr.appendChild(th);
+      });
+      thead.appendChild(headTr);
+
+      // Render Body (Paginated slice)
+      tbody.innerHTML = '';
+      var start = (state.currentPage - 1) * state.rowsPerPage;
+      var slice = state.filteredRows.slice(start, start + state.rowsPerPage);
+
+      slice.forEach(function (row) {
+        var tr = document.createElement('tr');
+        activeCols.forEach(function (item) {
+          var td = document.createElement('td');
+          var rawVal = row[item.origIdx];
+          var formattedVal = applyTransform(rawVal, item.col.transform);
+          td.textContent = formattedVal;
+          if (rawVal !== undefined && rawVal !== null && String(rawVal).trim() !== '') {
+            td.title = String(rawVal);
+          }
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+
+      var totalPages = Math.ceil(state.filteredRows.length / state.rowsPerPage) || 1;
+      pageLabel.textContent = `Page ${state.currentPage} of ${totalPages} (${state.filteredRows.length} rows)`;
+      prevBtn.disabled = state.currentPage <= 1;
+      nextBtn.disabled = state.currentPage >= totalPages;
+    }
+
+    function applyTransform(val, transform) {
+      if (val === undefined || val === null) return '';
+      var str = String(val);
+      if (transform === 'trim') return str.trim();
+      if (transform === 'upper') return str.toUpperCase();
+      if (transform === 'lower') return str.toLowerCase();
+      if (transform === 'title') {
+        return str.replace(/\w\S*/g, function (txt) {
+          return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+        });
+      }
+      return str;
+    }
+
+    // ── Target Format Selection ──────────────────────────────────────────────
+    function selectTargetFormat(fmt) {
+      state.targetFormat = fmt;
+      document.querySelectorAll('.format-btn').forEach(function (btn) {
+        btn.classList.toggle('active', btn.getAttribute('data-fmt') === fmt);
+      });
+
+      // Show relevant option blocks
+      document.getElementById('optsCsv').style.display = (fmt === 'csv' || fmt === 'tsv') ? 'block' : 'none';
+      document.getElementById('optsJson').style.display = (fmt === 'json' || fmt === 'jsonl') ? 'block' : 'none';
+      document.getElementById('optsSql').style.display = fmt === 'sql' ? 'block' : 'none';
+      document.getElementById('optsXml').style.display = fmt === 'xml' ? 'block' : 'none';
+      document.getElementById('optsHtml').style.display = fmt === 'html' ? 'block' : 'none';
+
+      // CMT App Format smart mapping
+      var isApp = fmt.startsWith('app-');
+      document.getElementById('optsApp').style.display = isApp ? 'block' : 'none';
+
+      if (isApp) {
+        state.activeModel = fmt;
+        var sel = document.getElementById('schemaModelPresetSelect');
+        if (sel) sel.value = fmt;
+        applyAppSmartMapping(fmt);
+        renderModelMatrix();
+      }
+
+      updateOutput();
+    }
+
+    function applyAppSmartMapping(appKey) {
+      var schema = APP_SCHEMAS[appKey];
+      if (!schema) return;
+
+      var noticeEl = document.getElementById('appMappingNotice');
+      if (noticeEl) {
+        noticeEl.textContent = `Smart mapping applied for ${schema.name} fields.`;
+      }
+
+      state.activeModel = appKey;
+      var sel = document.getElementById('schemaModelPresetSelect');
+      if (sel) sel.value = appKey;
+
+      // Auto-match existing column names against schema aliases
+      var usedFields = {};
+      state.columns.forEach(function (col) {
+        var norm = col.original.toLowerCase().trim();
+        var bestField = schema.fields.find(function (f) {
+          if (usedFields[f.key]) return false;
+          return f.aliases.some(function (alias) {
+            return norm === alias || norm.includes(alias) || alias.includes(norm);
+          });
+        });
+
+        if (bestField) {
+          col.name = bestField.key;
+          col.included = true;
+          if (bestField.type) {
+            col.type = bestField.type;
+          }
+          usedFields[bestField.key] = true;
+        }
+      });
+
+      renderSchemaEditor();
+      renderModelMatrix();
+      applyFiltersAndPagination();
+    }
+
+    // ── Core Conversion Engine: Update Output ────────────────────────────────
+    function updateOutput() {
+      var fmt = state.targetFormat;
+      var activeCols = state.columns.map((c, i) => ({ col: c, origIdx: i })).filter(x => x.col.included);
+
+      if (!activeCols.length || !state.dataRows.length) {
+        setOutputText('', 'converted.txt', 0, 0);
+        return;
+      }
+
+      // Build transformed rows
+      var transformedRows = state.dataRows.map(function (row) {
+        return activeCols.map(function (item) {
+          var raw = row[item.origIdx];
+          var trans = applyTransform(raw, item.col.transform);
+          // Cast type if needed
+          if (item.col.type === 'number') {
+            var n = parseFloat(trans);
+            return isNaN(n) ? trans : n;
+          }
+          if (item.col.type === 'boolean') {
+            var b = String(trans).toLowerCase();
+            return b === 'true' || b === '1' || b === 'yes' || b === 'oui';
+          }
+          return trans;
+        });
+      });
+
+      var outputText = '';
+      var filename = 'converted_table';
+      var blob = null;
+
+      switch (fmt) {
+        case 'csv':
+        case 'tsv': {
+          var delim = fmt === 'tsv' ? '\t' : (document.getElementById('csvDelimSelect').value || ',');
+          var addBom = document.getElementById('csvBomCheck').checked;
+          var lines = [];
+          var headerLine = activeCols.map(c => escapeCsvCell(c.col.name, delim)).join(delim);
+          lines.push(headerLine);
+          transformedRows.forEach(function (r) {
+            lines.push(r.map(c => escapeCsvCell(c, delim)).join(delim));
+          });
+          outputText = (addBom ? '\uFEFF' : '') + lines.join('\r\n');
+          filename = 'converted_table.' + (fmt === 'tsv' ? 'tsv' : 'csv');
+          blob = new Blob([outputText], { type: (fmt === 'tsv' ? 'text/tab-separated-values' : 'text/csv') + ';charset=utf-8;' });
+          break;
+        }
+
+        case 'xlsx':
+        case 'ods': {
+          var isOds = fmt === 'ods';
+          var wb = XLSX.utils.book_new();
+          var aoa = [activeCols.map(c => c.col.name)].concat(transformedRows);
+          var ws = XLSX.utils.aoa_to_sheet(aoa);
+          XLSX.utils.book_append_sheet(wb, ws, 'Converted');
+          var outArray = XLSX.write(wb, { bookType: isOds ? 'ods' : 'xlsx', type: 'array' });
+          blob = new Blob([outArray], { type: isOds ? 'application/vnd.oasis.opendocument.spreadsheet' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+          filename = 'converted_table.' + (isOds ? 'ods' : 'xlsx');
+          outputText = `/* Binary ${fmt.toUpperCase()} Spreadsheet Workbook */\n/* Contains 1 Sheet ('Converted') with ${transformedRows.length} rows and ${activeCols.length} columns. */\n/* Ready to Export or Open. */`;
+          break;
+        }
+
+        case 'json': {
+          var mode = document.getElementById('jsonModeSelect').value || 'objects';
+          var indent = parseInt(document.getElementById('jsonIndentSelect').value, 10);
+          var jsonObj;
+          if (mode === 'objects') {
+            jsonObj = transformedRows.map(function (r) {
+              var obj = {};
+              activeCols.forEach(function (c, i) {
+                obj[c.col.name] = r[i];
+              });
+              return obj;
+            });
+          } else if (mode === 'arrays') {
+            jsonObj = [activeCols.map(c => c.col.name)].concat(transformedRows);
+          } else { // Keyed by first column
+            jsonObj = {};
+            transformedRows.forEach(function (r) {
+              var key = String(r[0] || 'row_' + Math.random());
+              var obj = {};
+              activeCols.forEach(function (c, i) {
+                obj[c.col.name] = r[i];
+              });
+              jsonObj[key] = obj;
+            });
+          }
+          outputText = indent > 0 ? JSON.stringify(jsonObj, null, indent) : JSON.stringify(jsonObj);
+          filename = 'converted_table.json';
+          blob = new Blob([outputText], { type: 'application/json;charset=utf-8;' });
+          break;
+        }
+
+        case 'jsonl': {
+          var lines = transformedRows.map(function (r) {
+            var obj = {};
+            activeCols.forEach(function (c, i) { obj[c.col.name] = r[i]; });
+            return JSON.stringify(obj);
+          });
+          outputText = lines.join('\n');
+          filename = 'converted_table.jsonl';
+          blob = new Blob([outputText], { type: 'application/x-ndjson;charset=utf-8;' });
+          break;
+        }
+
+        case 'sql': {
+          var tableName = (document.getElementById('sqlTableInput').value || 'imported_data').trim().replace(/[^a-zA-Z0-9_]/g, '_');
+          var dialect = document.getElementById('sqlDialectSelect').value || 'sqlite';
+          var includeCreate = document.getElementById('sqlCreateCheck').checked;
+          var sqlLines = [];
+
+          if (includeCreate) {
+            sqlLines.push(`-- Table definition for ${dialect}`);
+            sqlLines.push(`CREATE TABLE IF NOT EXISTS "${tableName}" (`);
+            var colDefs = activeCols.map(function (c) {
+              var typeName = 'TEXT';
+              if (c.col.type === 'number') typeName = 'REAL';
+              if (c.col.type === 'boolean') typeName = 'INTEGER';
+              if (c.col.type === 'date') typeName = 'DATETIME';
+              return `  "${c.col.name}" ${typeName}`;
+            });
+            sqlLines.push(colDefs.join(',\n'));
+            sqlLines.push(');\n');
+          }
+
+          var colNames = activeCols.map(c => `"${c.col.name}"`).join(', ');
+          transformedRows.forEach(function (r) {
+            var vals = r.map(function (v) {
+              if (v === null || v === undefined) return 'NULL';
+              if (typeof v === 'number') return v;
+              if (typeof v === 'boolean') return v ? 1 : 0;
+              return "'" + String(v).replace(/'/g, "''") + "'";
+            }).join(', ');
+            sqlLines.push(`INSERT INTO "${tableName}" (${colNames}) VALUES (${vals});`);
+          });
+
+          outputText = sqlLines.join('\n');
+          filename = `${tableName}.sql`;
+          blob = new Blob([outputText], { type: 'application/sql;charset=utf-8;' });
+          break;
+        }
+
+        case 'xml': {
+          var rootTag = (document.getElementById('xmlRootInput').value || 'dataset').trim().replace(/[^a-zA-Z0-9_]/g, '_');
+          var rowTag = (document.getElementById('xmlRowInput').value || 'record').trim().replace(/[^a-zA-Z0-9_]/g, '_');
+          var xmlLines = ['<?xml version="1.0" encoding="UTF-8"?>', `<${rootTag}>`];
+
+          transformedRows.forEach(function (r) {
+            xmlLines.push(`  <${rowTag}>`);
+            activeCols.forEach(function (c, i) {
+              var tag = c.col.name.replace(/[^a-zA-Z0-9_]/g, '_') || 'col';
+              var val = escapeXml(r[i]);
+              xmlLines.push(`    <${tag}>${val}</${tag}>`);
+            });
+            xmlLines.push(`  </${rowTag}>`);
+          });
+
+          xmlLines.push(`</${rootTag}>`);
+          outputText = xmlLines.join('\n');
+          filename = 'converted_table.xml';
+          blob = new Blob([outputText], { type: 'application/xml;charset=utf-8;' });
+          break;
+        }
+
+        case 'html': {
+          var includeStyle = document.getElementById('htmlStyleCheck').checked;
+          var htmlParts = [];
+          if (includeStyle) {
+            htmlParts.push('<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <title>Table Export</title>');
+            htmlParts.push('  <style>\n    body { font-family: system-ui, sans-serif; padding: 20px; background: #f8fafc; }\n    table { width: 100%; border-collapse: collapse; border: 2px solid #000; box-shadow: 4px 4px 0 #000; background: #fff; }\n    th { background: #000; color: #fff; padding: 10px 12px; text-align: left; font-weight: 800; }\n    td { padding: 8px 12px; border-bottom: 1px solid #ddd; border-right: 1px solid #f1f5f9; }\n    tr:nth-child(even) { background: #f8fafc; }\n  </style>\n</head>\n<body>');
+          }
+          htmlParts.push('<table class="cmt-table">');
+          htmlParts.push('  <thead>\n    <tr>');
+          activeCols.forEach(c => htmlParts.push(`      <th>${escapeHtml(c.col.name)}</th>`));
+          htmlParts.push('    </tr>\n  </thead>');
+          htmlParts.push('  <tbody>');
+          transformedRows.forEach(function (r) {
+            htmlParts.push('    <tr>');
+            r.forEach(v => htmlParts.push(`      <td>${escapeHtml(v)}</td>`));
+            htmlParts.push('    </tr>');
+          });
+          htmlParts.push('  </tbody>\n</table>');
+          if (includeStyle) htmlParts.push('</body>\n</html>');
+
+          outputText = htmlParts.join('\n');
+          filename = 'converted_table.html';
+          blob = new Blob([outputText], { type: 'text/html;charset=utf-8;' });
+          break;
+        }
+
+        case 'markdown': {
+          var mdLines = [];
+          var headerLine = '| ' + activeCols.map(c => c.col.name).join(' | ') + ' |';
+          var sepLine = '| ' + activeCols.map(() => '---').join(' | ') + ' |';
+          mdLines.push(headerLine);
+          mdLines.push(sepLine);
+          transformedRows.forEach(function (r) {
+            mdLines.push('| ' + r.map(v => String(v || '').replace(/\|/g, '\\|')).join(' | ') + ' |');
+          });
+          outputText = mdLines.join('\n');
+          filename = 'converted_table.md';
+          blob = new Blob([outputText], { type: 'text/markdown;charset=utf-8;' });
+          break;
+        }
+
+        // ── CMT Application Formats ──
+        case 'app-grade-criteria': {
+          var criteriaList = transformedRows.map(function (r) {
+            var obj = {};
+            activeCols.forEach(function (c, i) { obj[c.col.name] = r[i]; });
+            return {
+              name: String(obj.name || 'Criterion'),
+              minPoints: obj.minPoints != null && !isNaN(Number(obj.minPoints)) ? Number(obj.minPoints) : 0,
+              maxPoints: obj.maxPoints != null && !isNaN(Number(obj.maxPoints)) ? Number(obj.maxPoints) : 20,
+              interval: obj.interval != null && !isNaN(Number(obj.interval)) ? Number(obj.interval) : 1,
+              grades: ["6", "5.5", "5", "4.5", "4", "3.5", "3", "2.5", "2", "1.5", "1"],
+              comments: {},
+              colors: {}
+            };
+          });
+          outputText = JSON.stringify(criteriaList, null, 2);
+          filename = 'grade-criteria.json';
+          blob = new Blob([outputText], { type: 'application/json;charset=utf-8;' });
+          break;
+        }
+
+        case 'app-competences': {
+          var compList = transformedRows.map(function (r) {
+            var obj = {};
+            activeCols.forEach(function (c, i) { obj[c.col.name] = r[i]; });
+            return {
+              code: String(obj.code || 'COMP.' + Math.floor(Math.random() * 999)),
+              title: String(obj.title || 'Competence Title'),
+              category: String(obj.category || 'General'),
+              subCategory: String(obj.subCategory || ''),
+              yearLevel: String(obj.yearLevel || 'All Levels'),
+              description: String(obj.description || '')
+            };
+          });
+          outputText = JSON.stringify(compList, null, 2);
+          filename = 'custom-competences.json';
+          blob = new Blob([outputText], { type: 'application/json;charset=utf-8;' });
+          break;
+        }
+
+        case 'app-class-groups': {
+          var studentList = transformedRows.map(function (r) {
+            var obj = {};
+            activeCols.forEach(function (c, i) { obj[c.col.name] = r[i]; });
+            var rand = Math.floor(Math.random() * 0xffffffff).toString(16).padStart(8, '0');
+            return {
+              uuid: 'st-' + rand,
+              firstName: String(obj.firstName || ''),
+              lastName: String(obj.lastName || ''),
+              customName: String(obj.customName || ''),
+              adminClass: String(obj.adminClass || 'Class 1'),
+              sen: !!obj.sen
+            };
+          });
+          var rosterObj = {
+            version: '2.0',
+            exportedAt: new Date().toISOString(),
+            students: studentList
+          };
+          outputText = 'window.CLASS_GROUPS_IMPORT = ' + JSON.stringify(rosterObj, null, 2) + ';';
+          filename = 'class-groups-import.js';
+          blob = new Blob([outputText], { type: 'application/javascript;charset=utf-8;' });
+          break;
+        }
+
+        case 'app-wordbank': {
+          var wordList = transformedRows.map(function (r) {
+            var obj = {};
+            activeCols.forEach(function (c, i) { obj[c.col.name] = r[i]; });
+            return {
+              word: String(obj.word || ''),
+              english: String(obj.english || ''),
+              french: String(obj.french || ''),
+              german: String(obj.german || ''),
+              italian: String(obj.italian || ''),
+              partOfSpeech: String(obj.partOfSpeech || 'noun'),
+              level: String(obj.level || 'A1'),
+              category: String(obj.category || 'General')
+            };
+          });
+          outputText = JSON.stringify(wordList, null, 2);
+          filename = 'custom-wordbank.json';
+          blob = new Blob([outputText], { type: 'application/json;charset=utf-8;' });
+          break;
+        }
+
+        case 'app-quiz': {
+          var quizList = transformedRows.map(function (r) {
+            var obj = {};
+            activeCols.forEach(function (c, i) { obj[c.col.name] = r[i]; });
+            var opts = [obj.optionA, obj.optionB, obj.optionC, obj.optionD].filter(Boolean);
+            return {
+              question: String(obj.question || 'Sample Question?'),
+              options: opts.length ? opts : ['Option 1', 'Option 2', 'Option 3', 'Option 4'],
+              answer: !isNaN(Number(obj.answer)) ? Number(obj.answer) : 0,
+              explanation: String(obj.explanation || '')
+            };
+          });
+          outputText = JSON.stringify(quizList, null, 2);
+          filename = 'quiz-bank.json';
+          blob = new Blob([outputText], { type: 'application/json;charset=utf-8;' });
+          break;
+        }
+
+        case 'app-admin-groups': {
+          var adminList = transformedRows.map(function (r) {
+            var obj = {};
+            activeCols.forEach(function (c, i) { obj[c.col.name] = r[i]; });
+            return {
+              name: String(obj.name || ''),
+              adminClass: String(obj.adminClass || 'Class 1'),
+              dob: String(obj.dob || ''),
+              gender: String(obj.gender || ''),
+              contact: String(obj.contact || ''),
+              accommodations: String(obj.accommodations || '')
+            };
+          });
+          outputText = JSON.stringify({ administrativeGroups: adminList }, null, 2);
+          filename = 'administrative-groups.json';
+          blob = new Blob([outputText], { type: 'application/json;charset=utf-8;' });
+          break;
+        }
+      }
+
+      state.generatedOutput = outputText;
+      state.generatedBlob = blob;
+      state.generatedFilename = filename;
+
+      var lineCount = outputText ? outputText.split('\n').length : 0;
+      var charCount = outputText ? outputText.length : 0;
+      setOutputText(outputText, filename, lineCount, charCount);
+    }
+
+    function setOutputText(text, filename, lines, chars) {
+      document.getElementById('outputCode').value = text;
+      document.getElementById('outputLinesBadge').textContent = `${lines} Lines`;
+      document.getElementById('outputCharsBadge').textContent = `${chars} Chars`;
+    }
+
+    // ── Export & Save Compliance ─────────────────────────────────────────────
+    async function exportConvertedFile() {
+      if (!state.generatedBlob && !state.generatedOutput) {
+        if (typeof showToast === 'function') showToast('No content to export.', true);
+        return;
+      }
+
+      var filename = state.generatedFilename || 'converted_table.csv';
+
+      // 1. Electron Desktop Mode
+      if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveFile === 'function') {
+        try {
+          var targetFolder = 'toPrint';
+          var isBinary = state.targetFormat === 'xlsx' || state.targetFormat === 'ods';
+          var res = null;
+
+          if (isBinary) {
+            res = await Desktop.saveBlob(targetFolder, filename, state.generatedBlob);
+          } else {
+            res = await Desktop.saveFile({
+              target: targetFolder,
+              filename: filename,
+              content: state.generatedOutput,
+              encoding: 'utf8'
+            });
+          }
+
+          if (res && res.ok !== false) {
+            var savedPath = res.file || res.path || `user/to-print/${filename}`;
+            if (typeof window.showExportSuccessPopup === 'function') {
+              window.showExportSuccessPopup(savedPath, filename, false);
+            } else if (typeof showToast === 'function') {
+              showToast(`Exported ${filename} successfully!`);
+            }
+          } else {
+            fallbackBrowserDownload(state.generatedBlob, filename);
+          }
+        } catch (err) {
+          console.error('Export error:', err);
+          fallbackBrowserDownload(state.generatedBlob, filename);
+        }
+      } else {
+        // 2. Browser Mode Fallback
+        fallbackBrowserDownload(state.generatedBlob, filename);
+      }
+    }
+
+    function fallbackBrowserDownload(blob, filename) {
+      if (!blob) {
+        blob = new Blob([state.generatedOutput], { type: 'text/plain;charset=utf-8;' });
+      }
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (typeof showToast === 'function') {
+        showToast(`Downloaded ${filename}`);
+      }
+    }
+
+    async function copyOutputToClipboard() {
+      if (!state.generatedOutput) {
+        if (typeof showToast === 'function') showToast('No content to copy.', true);
+        return;
+      }
+
+      var success = false;
+      if (window.Desktop && typeof Desktop.clipboardWriteText === 'function') {
+        success = await Desktop.clipboardWriteText(state.generatedOutput);
+      } else if (navigator.clipboard && navigator.clipboard.writeText) {
+        try {
+          await navigator.clipboard.writeText(state.generatedOutput);
+          success = true;
+        } catch (e) {}
+      }
+
+      if (success) {
+        if (typeof showToast === 'function') {
+          showToast(typeof t === 'function' ? t('dbConvCopiedToast', 'Copied to clipboard!') : 'Copied to clipboard!');
+        }
+      } else {
+        var ta = document.getElementById('outputCode');
+        ta.select();
+        document.execCommand('copy');
+        if (typeof showToast === 'function') {
+          showToast('Copied to clipboard!');
+        }
+      }
+    }
+
+    // ── Sample Data Generator ────────────────────────────────────────────────
+    function loadSampleData() {
+      var sampleAoa = [
+        ['Student Name', 'Subject', 'Score', 'Letter Grade', 'Status', 'Date'],
+        ['Alice Walker', 'Mathematics', 18.5, 'A', 'Passed', '2026-09-10'],
+        ['Bob Miller', 'Physics', 14.0, 'B', 'Passed', '2026-09-10'],
+        ['Charlie Dupont', 'French', 9.5, 'D', 'Remediation', '2026-09-11'],
+        ['Diana Rossi', 'History', 17.0, 'A', 'Passed', '2026-09-12'],
+        ['Evan Klein', 'Science', 12.5, 'C', 'Passed', '2026-09-12'],
+        ['Fiona Gallagher', 'English', 19.0, 'A', 'Passed', '2026-09-13'],
+        ['Gabriel Santos', 'Mathematics', 8.0, 'E', 'Remediation', '2026-09-14'],
+        ['Helena Vogt', 'German', 16.5, 'B', 'Passed', '2026-09-14']
+      ];
+      state.rawRows = sampleAoa;
+      state.fileSize = 1420;
+      state.detectedFormat = 'CSV';
+      inferAndSetupTable('sample_table');
+    }
+
+    function clearAllData() {
+      state.rawRows = [];
+      state.dataRows = [];
+      state.columns = [];
+      state.filteredRows = [];
+      state.generatedOutput = '';
+      state.generatedBlob = null;
+      document.getElementById('pasteInput').value = '';
+      document.getElementById('fileInput').value = '';
+      document.getElementById('metaBar').style.display = 'none';
+      document.getElementById('statsBar').style.display = 'none';
+      document.getElementById('stepSchema').style.display = 'none';
+      document.getElementById('stepPreview').style.display = 'none';
+      setOutputText('', 'converted.txt', 0, 0);
+    }
+
+    // ── Keyboard Shortcuts Modal & Tour ──────────────────────────────────────
+    function openConverterShortcuts() {
+      if (typeof ShortcutsModal !== 'undefined' && ShortcutsModal.open) {
+        ShortcutsModal.open({
+          title: typeof t === 'function' ? t('dbConvTitle', 'Database Converter') : 'Database Converter',
+          rows: [
+            { key: 'Ctrl+O', desc: 'Browse file to import' },
+            { key: 'Ctrl+S', desc: 'Convert and export file' },
+            { key: 'Ctrl+C', desc: 'Copy output preview (when active)' },
+            { key: 'Ctrl+F', desc: 'Focus data filter input' }
+          ]
+        });
+      }
+    }
+
+    function startConverterTour() {
+      if (typeof Tutorial !== 'undefined' && Tutorial.start) {
+        Tutorial.start([
+          { element: '#stepInput', title: '1. Source Data', content: 'Drop any Excel, CSV, JSON, SQL, or Markdown file here, or paste raw content.' },
+          { element: '#stepSchema', title: '2. Schema & Transforms', content: 'Rename columns, cast types (Number, Date, Boolean), and apply casing transformations in-place.' },
+          { element: '#stepPreview', title: '3. Data Preview', content: 'Inspect your paginated table with real-time searching and filtering.' },
+          { element: '#stepTarget', title: '4. Format & Export', content: 'Choose from 10 universal database formats or CMT application formats, preview live, and export with 1-click.' }
+        ]);
+      }
+    }
+
+    // Keydown listener
+    window.addEventListener('keydown', function (e) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        exportConvertedFile();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') {
+        e.preventDefault();
+        document.getElementById('fileInput').click();
+      }
+    });
+
+    // ── Escape Utilities ─────────────────────────────────────────────────────
+    function escapeHtml(str) {
+      if (str === undefined || str === null) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function escapeXml(str) {
+      return escapeHtml(str).replace(/'/g, '&apos;');
+    }
+
+    function escapeCsvCell(val, delim) {
+      if (val === undefined || val === null) return '';
+      var s = String(val);
+      if (s.includes('"') || s.includes(delim) || s.includes('\n') || s.includes('\r')) {
+        return '"' + s.replace(/"/g, '""') + '"';
+      }
+      return s;
+    }
+  </script>
+</body>
+</html>
