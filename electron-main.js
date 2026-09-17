@@ -194,7 +194,12 @@ function getPortableRootConfigPath() {
 
 function loadSavedPortableRootSync() {
   if (process.env.PORTABLE_ROOT) {
-    return process.env.PORTABLE_ROOT;
+    try {
+      fsSync.accessSync(path.join(process.env.PORTABLE_ROOT, 'user'), fsSync.constants.F_OK);
+      return process.env.PORTABLE_ROOT;
+    } catch {
+      delete process.env.PORTABLE_ROOT;
+    }
   }
   try {
     const configPath = getPortableRootConfigPath();
@@ -205,10 +210,11 @@ function loadSavedPortableRootSync() {
       if (saved) {
         try {
           fsSync.accessSync(saved, fsSync.constants.W_OK);
+          fsSync.accessSync(path.join(saved, 'user'), fsSync.constants.F_OK);
           process.env.PORTABLE_ROOT = saved;
           return saved;
         } catch {
-          // Saved path inaccessible
+          // Saved path inaccessible or user folder missing
         }
       }
     }
@@ -3577,19 +3583,24 @@ async function copyTreeForBackup(sourceDir, destDir) {
 
 async function loadSavedPortableRoot() {
   if (process.env.PORTABLE_ROOT) {
-    return; // already set, nothing to do
+    try {
+      fsSync.accessSync(path.join(process.env.PORTABLE_ROOT, 'user'), fsSync.constants.F_OK);
+      return; // valid and user folder present
+    } catch {
+      delete process.env.PORTABLE_ROOT;
+    }
   }
   try {
     const raw = await fs.readFile(getPortableRootConfigPath(), 'utf8');
     const parsed = JSON.parse(raw);
     const saved = String(parsed?.portableRoot || '').trim();
     if (saved) {
-      // Verify the saved path is still writable before restoring it.
       try {
         fsSync.accessSync(saved, fsSync.constants.W_OK);
+        fsSync.accessSync(path.join(saved, 'user'), fsSync.constants.F_OK);
         process.env.PORTABLE_ROOT = saved;
       } catch {
-        // Saved path is no longer accessible; ignore it so we can re-detect.
+        // Saved path is no longer accessible or user folder was moved/deleted
       }
     }
   } catch {
@@ -3611,13 +3622,34 @@ async function savePortableRoot(dirPath) {
 }
 
 async function checkIsFirstRun() {
-  const writableRoot = getWritableRootDir();
-  for (const folder of ['data', 'user']) {
+  const configPath = getPortableRootConfigPath();
+  let savedConfiguredRoot = null;
+  try {
+    if (fsSync.existsSync(configPath)) {
+      const raw = fsSync.readFileSync(configPath, 'utf8');
+      const parsed = JSON.parse(raw);
+      savedConfiguredRoot = String(parsed?.portableRoot || '').trim() || null;
+    }
+  } catch {}
+
+  // If a custom data root was configured in portable-root.json:
+  if (savedConfiguredRoot) {
     try {
-      await fs.access(path.join(writableRoot, folder));
-      return false;
-    } catch {}
+      await fs.access(savedConfiguredRoot, fsSync.constants.W_OK);
+      await fs.access(path.join(savedConfiguredRoot, 'user'));
+      return false; // Valid and user folder exists
+    } catch {
+      // Configured folder missing, moved, or user folder deleted
+      return true;
+    }
   }
+
+  // Check default writableRoot:
+  const writableRoot = getWritableRootDir();
+  try {
+    await fs.access(path.join(writableRoot, 'user'));
+    return false;
+  } catch {}
   return true;
 }
 
@@ -3625,12 +3657,17 @@ async function ensureWritableSeedDataWithFallback() {
   // Restore previously chosen data folder across launches.
   await loadSavedPortableRoot();
 
-  if (!app.isPackaged) {
+  // Detect first run before seed data creates the folders.
+  firstRunDetected = await checkIsFirstRun();
+  if (firstRunDetected) {
+    // On first run, we do not automatically write seed data or override directories
+    // before the user makes their selection in the onboarding modal.
     return;
   }
 
-  // Detect first run before seed data creates the folders.
-  firstRunDetected = await checkIsFirstRun();
+  if (!app.isPackaged) {
+    return;
+  }
 
   try {
     await ensureWritableSeedData();
@@ -4518,8 +4555,24 @@ ipcMain.handle('app:inspect-board-archive', async (event, request = {}) => {
 });
 
 ipcMain.handle('app:get-data-location', async () => {
+  const configPath = getPortableRootConfigPath();
+  let savedConfiguredRoot = null;
+  try {
+    if (fsSync.existsSync(configPath)) {
+      const raw = fsSync.readFileSync(configPath, 'utf8');
+      const parsed = JSON.parse(raw);
+      savedConfiguredRoot = String(parsed?.portableRoot || '').trim() || null;
+    }
+  } catch {}
+
+  const isMissing = await checkIsFirstRun();
   const configuredPortableRoot = String(process.env.PORTABLE_ROOT || '').trim() || null;
   const resolvedWritableRoot = getWritableRootDir();
+
+  let folderMissingReason = null;
+  if (isMissing) {
+    folderMissingReason = savedConfiguredRoot ? 'configured_missing' : 'first_run';
+  }
 
   return {
     ok: true,
@@ -4527,7 +4580,9 @@ ipcMain.handle('app:get-data-location', async () => {
     resolvedWritableRoot,
     configPath: getPortableRootConfigPath(),
     isPackaged: app.isPackaged,
-    isFirstRun: firstRunDetected
+    isFirstRun: firstRunDetected || isMissing,
+    folderMissingReason,
+    lastConfiguredPath: savedConfiguredRoot
   };
 });
 
@@ -4686,6 +4741,7 @@ ipcMain.handle('app:pick-data-location', async (event) => {
 
   process.env.PORTABLE_ROOT = effectivePath;
   await savePortableRoot(effectivePath);
+  firstRunDetected = false;
 
   try {
     await ensureWritableSeedData();
@@ -4711,6 +4767,27 @@ ipcMain.handle('app:pick-data-location', async (event) => {
     adoptedLooseFiles,
     previousRoot,
     resolvedWritableRoot: getWritableRootDir()
+  };
+});
+
+ipcMain.handle('app:confirm-default-data-location', async (event) => {
+  firstRunDetected = false;
+  const resolvedWritableRoot = getWritableRootDir();
+
+  try {
+    await ensureWritableSeedData();
+  } catch (error) {
+    console.error('Failed to initialize default seed data:', error);
+    return {
+      ok: false,
+      error: `Could not initialize default app data folders in: ${resolvedWritableRoot}`,
+      details: String(error?.message || error)
+    };
+  }
+
+  return {
+    ok: true,
+    resolvedWritableRoot
   };
 });
 
@@ -8936,6 +9013,9 @@ app.whenReady().then(async () => {
 
   buildMenu();
 
+  await loadSavedPortableRoot();
+  firstRunDetected = await checkIsFirstRun();
+
   const explicitCliPage = getInitialPageFile();
   const hasCliArg = (explicitCliPage !== PAGE_FILES.launcher);
 
@@ -8958,9 +9038,6 @@ app.whenReady().then(async () => {
   }
 
   if (!didRestore) {
-    if (firstRunDetected) {
-      initialPageFile = PAGE_FILES.generalConfig;
-    }
     createMainWindow(initialPageFile);
   }
 
@@ -8988,10 +9065,6 @@ app.whenReady().then(async () => {
       await ensureWritableSeedDataWithFallback();
     } catch (error) {
       console.error('Data initialization failed:', error);
-    }
-
-    if (firstRunDetected && mainWindow && !mainWindow.isDestroyed()) {
-      loadTool(PAGE_FILES.generalConfig, mainWindow).catch(() => {});
     }
 
     _startReminderEngine();

@@ -1365,14 +1365,12 @@
     }
 
     .board-split-dropdown {
-      position: absolute;
-      top: calc(100% + 4px);
-      left: 0;
+      position: fixed;
       background: #ffffff;
       border: 2px solid #111;
       border-radius: 6px;
       box-shadow: 3px 3px 0px #000;
-      z-index: 10001;
+      z-index: 10005;
       min-width: 175px;
       padding: 4px 0;
       display: flex;
@@ -2258,43 +2256,8 @@
       <span class="con-ctx-icon-sep"></span>
       <button class="con-ctx-icon-btn" onclick="conCtxDuplicate()" title="Duplicate word"><img
           src="../assets/icons/duplicate.svg" class="btn-icon" alt="" /></button>
-      <div style="position:relative; display:inline-flex;">
-        <button class="con-ctx-icon-btn" id="con-ctx-split-btn" onclick="conCtxToggleSplitDropdown(event)" title="Split word" data-i18n-title="conSplitTitle"><img
-            src="../assets/icons/split.svg" class="btn-icon" alt="" /></button>
-        <div id="con-ctx-split-dropdown" class="board-split-dropdown" style="display:none;" onclick="event.stopPropagation()">
-          <div id="con-ctx-split-single-group" class="board-split-group">
-            <div class="board-split-item" onclick="conCtxExecuteSplit('space', false)">
-              <img src="../assets/icons/split.svg" class="btn-icon" alt="" />
-              <span data-i18n="conSplitBySpace">Split by space</span>
-            </div>
-            <div class="board-split-item" onclick="conCtxExecuteSplit('letter', false)">
-              <img src="../assets/icons/text.svg" class="btn-icon" alt="" />
-              <span data-i18n="conSplitByLetter">Split by letter</span>
-            </div>
-          </div>
-          <div id="con-ctx-split-multi-group" class="board-split-group" style="display:none;">
-            <div class="board-split-header" data-i18n="conSplitThisNode">This word</div>
-            <div class="board-split-item" onclick="conCtxExecuteSplit('space', false)">
-              <img src="../assets/icons/split.svg" class="btn-icon" alt="" />
-              <span data-i18n="conSplitBySpace">Split by space</span>
-            </div>
-            <div class="board-split-item" onclick="conCtxExecuteSplit('letter', false)">
-              <img src="../assets/icons/text.svg" class="btn-icon" alt="" />
-              <span data-i18n="conSplitByLetter">Split by letter</span>
-            </div>
-            <div class="con-ctx-sep" style="margin:4px 0;"></div>
-            <div class="board-split-header" id="con-ctx-split-multi-title" data-i18n="conSplitAllSelected">All selected</div>
-            <div class="board-split-item" onclick="conCtxExecuteSplit('space', true)">
-              <img src="../assets/icons/split.svg" class="btn-icon" alt="" />
-              <span data-i18n="conSplitAllBySpace">Split all by space</span>
-            </div>
-            <div class="board-split-item" onclick="conCtxExecuteSplit('letter', true)">
-              <img src="../assets/icons/text.svg" class="btn-icon" alt="" />
-              <span data-i18n="conSplitAllByLetter">Split all by letter</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      <button class="con-ctx-icon-btn" id="con-ctx-split-btn" onclick="conCtxToggleSplitDropdown(event)" title="Split word" data-i18n-title="conSplitTitle"><img
+          src="../assets/icons/split.svg" class="btn-icon" alt="" /></button>
       <button class="con-ctx-icon-btn" id="con-ctx-star-btn" onclick="conCtxToggleStar()" title="Star in DB"
         style="display:none"><img src="../assets/icons/learning-tools.svg" class="btn-icon" alt="" /></button>
       <button class="con-ctx-icon-btn" id="con-ctx-card-btn" onclick="conCtxViewCard()" title="View word card"><img
@@ -2307,6 +2270,40 @@
           src="../assets/icons/delete.svg" class="btn-icon" alt="" /></button>
       <button class="con-ctx-icon-btn" onclick="conCtxClose()" style="color:#888;" title="Close"><img
           src="../assets/icons/clear.svg" class="btn-icon" alt="" /></button>
+    </div>
+  </div>
+
+  <div id="con-ctx-split-dropdown" class="board-split-dropdown" style="display:none;" onclick="event.stopPropagation()">
+    <div id="con-ctx-split-single-group" class="board-split-group">
+      <div class="board-split-item" onclick="conCtxExecuteSplit('space', false)">
+        <img src="../assets/icons/split.svg" class="btn-icon" alt="" />
+        <span data-i18n="conSplitBySpace">Split by space</span>
+      </div>
+      <div class="board-split-item" onclick="conCtxExecuteSplit('letter', false)">
+        <img src="../assets/icons/text.svg" class="btn-icon" alt="" />
+        <span data-i18n="conSplitByLetter">Split by letter</span>
+      </div>
+    </div>
+    <div id="con-ctx-split-multi-group" class="board-split-group" style="display:none;">
+      <div class="board-split-header" data-i18n="conSplitThisNode">This word</div>
+      <div class="board-split-item" onclick="conCtxExecuteSplit('space', false)">
+        <img src="../assets/icons/split.svg" class="btn-icon" alt="" />
+        <span data-i18n="conSplitBySpace">Split by space</span>
+      </div>
+      <div class="board-split-item" onclick="conCtxExecuteSplit('letter', false)">
+        <img src="../assets/icons/text.svg" class="btn-icon" alt="" />
+        <span data-i18n="conSplitByLetter">Split by letter</span>
+      </div>
+      <div class="con-ctx-sep" style="margin:4px 0;"></div>
+      <div class="board-split-header" id="con-ctx-split-multi-title" data-i18n="conSplitAllSelected">All selected</div>
+      <div class="board-split-item" onclick="conCtxExecuteSplit('space', true)">
+        <img src="../assets/icons/split.svg" class="btn-icon" alt="" />
+        <span data-i18n="conSplitAllBySpace">Split all by space</span>
+      </div>
+      <div class="board-split-item" onclick="conCtxExecuteSplit('letter', true)">
+        <img src="../assets/icons/text.svg" class="btn-icon" alt="" />
+        <span data-i18n="conSplitAllByLetter">Split all by letter</span>
+      </div>
     </div>
   </div>
 
@@ -3444,19 +3441,19 @@
         <div class="con-tb-group" id="con-tb-view">
           <span class="con-tb-group-label">View</span>
           <div class="con-tb-group-body">
-            <span style="white-space:nowrap;display:inline-flex;align-items:center;gap:2px;">
-              <button class="action-btn btn-grey" onclick="updateZoom(window.conCurrentZoom - 0.1)"
-                title="Decrease font size 10%"><img src="../assets/icons/zoom-out.svg" class="btn-icon"
-                  alt="" /></button>
+            <div class="con-tb-inline-row">
+              <button class="action-btn btn-grey" style="width:auto !important; padding: 2px 5px !important;" onclick="updateZoom(window.conCurrentZoom - 0.1)"
+                title="Decrease font size 10%"><img src="../assets/icons/zoom-out.svg" class="btn-icon" alt="" /></button>
               <span id="zoom-level-display"
-                style="min-width:3.2em;text-align:center;display:inline-block;font-size:0.62rem;">100%</span>
-              <button class="action-btn btn-grey" onclick="updateZoom(window.conCurrentZoom + 0.1)"
-                title="Increase font size 10%"><img src="../assets/icons/zoom-in.svg" class="btn-icon"
-                  alt="" /></button>
-            </span>
-            <span class="con-label">Size:</span>
-            <input type="number" id="con-default-font-size-input" min="8" max="48" step="1" value="16"
-              onchange="conSetDefaultWordFontSize(this.value)" title="Default font size for newly added words">
+                style="min-width:3.2em;text-align:center;display:inline-block;font-size:0.65rem;font-weight:700;">100%</span>
+              <button class="action-btn btn-grey" style="width:auto !important; padding: 2px 5px !important;" onclick="updateZoom(window.conCurrentZoom + 0.1)"
+                title="Increase font size 10%"><img src="../assets/icons/zoom-in.svg" class="btn-icon" alt="" /></button>
+            </div>
+            <div class="con-tb-inline-row">
+              <span class="con-label">Size:</span>
+              <input type="number" id="con-default-font-size-input" min="8" max="48" step="1" value="16"
+                onchange="conSetDefaultWordFontSize(this.value)" title="Default font size for newly added words">
+            </div>
             <button class="action-btn btn-grey" id="con-mirror-btn" onclick="conOpenMirrorWindow()"
               title="Open presentation mode on second monitor"><img src="../assets/icons/presentation.svg"
                 class="btn-icon" alt="" /> Presentation Mode</button>
@@ -3972,30 +3969,7 @@
           <button class="wn-sp-action-btn" onmousedown="event.preventDefault()" onclick="wnStyleSplitNote()"
             title="Split note at cursor into two notes"><img src="../assets/icons/split.svg" class="btn-icon" alt=""></button>
           <button class="wn-sp-action-btn" id="wn-sp-wordcount-btn" onclick="wnStyleCountWords()" title="Count words" data-i18n-title="conCountWords"><img src="../assets/icons/sentence.svg" class="btn-icon" alt="" /></button>
-          <div style="position:relative; display:inline-flex;">
-            <button class="wn-sp-action-btn" id="wn-sp-convert-btn" onclick="wnStyleConvertToNode(event)" title="Convert note to word" data-i18n-title="wnConvertToNodeTitle"><img src="../assets/icons/text.svg" class="btn-icon" alt=""></button>
-            <div id="con-note-convert-modal" class="board-split-dropdown" style="display:none;" onclick="event.stopPropagation()">
-              <div class="board-split-header" id="con-note-convert-title" data-i18n="conConvertNoteModalTitle">Convert Note</div>
-              <span id="con-note-convert-subtitle" style="display:none;" data-i18n="conConvertNoteModalSubtitle">Choose how note text should be converted:</span>
-              <div class="board-split-item con-convert-opt-btn" onclick="conNoteConvertChoose('entire')">
-                <img src="../assets/icons/note.svg" class="btn-icon" alt="" />
-                <span data-i18n="conConvertOptEntire">Entire note as single node</span>
-              </div>
-              <div class="board-split-item con-convert-opt-btn" onclick="conNoteConvertChoose('lines')">
-                <img src="../assets/icons/split.svg" class="btn-icon" alt="" />
-                <span data-i18n="conConvertOptLines">New line as new node</span>
-              </div>
-              <div class="board-split-item con-convert-opt-btn" onclick="conNoteConvertChoose('sentences')">
-                <img src="../assets/icons/sentence.svg" class="btn-icon" alt="" />
-                <span data-i18n="conConvertOptSentences">Each sentence into node</span>
-              </div>
-              <div class="board-split-item con-convert-opt-btn" onclick="conNoteConvertChoose('words')">
-                <img src="../assets/icons/text.svg" class="btn-icon" alt="" />
-                <span data-i18n="conConvertOptWords">Each word into node</span>
-              </div>
-              <button id="con-note-convert-cancel-btn" type="button" style="display:none;" onclick="conNoteConvertModalCancel()"></button>
-            </div>
-          </div>
+          <button class="wn-sp-action-btn" id="wn-sp-convert-btn" onclick="wnStyleConvertToNode(event)" title="Convert note to word" data-i18n-title="wnConvertToNodeTitle"><img src="../assets/icons/text.svg" class="btn-icon" alt=""></button>
           <button class="wn-sp-action-btn" onclick="wnStyleEditNote()"><img src="../assets/icons/edit-word.svg" class="btn-icon" alt=""></button>
           <button class="wn-sp-action-btn" id="wn-sp-open-input-btn" onclick="wnStyleOpenStudentInput()"
             style="display:none;">▶ Open input</button>
@@ -4005,6 +3979,28 @@
           <button class="wn-sp-action-btn" id="wn-sp-planner-btn" onclick="wnpOpen()" title="Save note to planner" data-i18n-title="wnpSaveToPlanner"><img src="../assets/icons/planner.svg" class="btn-icon" alt=""></button>
           <button class="wn-sp-action-btn danger" onclick="wnStyleDeleteNote()"><img src="../assets/icons/delete.svg" class="btn-icon" alt=""></button>
         </div>
+      </div>
+
+      <div id="con-note-convert-modal" class="board-split-dropdown" style="display:none;" onclick="event.stopPropagation()">
+        <div class="board-split-header" id="con-note-convert-title" data-i18n="conConvertNoteModalTitle">Convert Note</div>
+        <span id="con-note-convert-subtitle" style="display:none;" data-i18n="conConvertNoteModalSubtitle">Choose how note text should be converted:</span>
+        <div class="board-split-item con-convert-opt-btn" onclick="conNoteConvertChoose('entire')">
+          <img src="../assets/icons/note.svg" class="btn-icon" alt="" />
+          <span data-i18n="conConvertOptEntire">Entire note as single node</span>
+        </div>
+        <div class="board-split-item con-convert-opt-btn" onclick="conNoteConvertChoose('lines')">
+          <img src="../assets/icons/split.svg" class="btn-icon" alt="" />
+          <span data-i18n="conConvertOptLines">New line as new node</span>
+        </div>
+        <div class="board-split-item con-convert-opt-btn" onclick="conNoteConvertChoose('sentences')">
+          <img src="../assets/icons/sentence.svg" class="btn-icon" alt="" />
+          <span data-i18n="conConvertOptSentences">Each sentence into node</span>
+        </div>
+        <div class="board-split-item con-convert-opt-btn" onclick="conNoteConvertChoose('words')">
+          <img src="../assets/icons/text.svg" class="btn-icon" alt="" />
+          <span data-i18n="conConvertOptWords">Each word into node</span>
+        </div>
+        <button id="con-note-convert-cancel-btn" type="button" style="display:none;" onclick="conNoteConvertModalCancel()"></button>
       </div>
     </div>
 
@@ -13964,7 +13960,17 @@
                 window._conMirrorBroadcast();
               }
             });
-            te.addEventListener('keydown', function (e) { e.stopPropagation(); });
+            te.addEventListener('keydown', function (e) {
+              if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 's') {
+                e.preventDefault();
+                e.stopPropagation();
+                _syncCell();
+                if (typeof window.conSaveSession === 'function') window.conSaveSession();
+                else if (typeof conSaveSession === 'function') conSaveSession();
+                return;
+              }
+              e.stopPropagation();
+            });
             cellEl.appendChild(te);
           }
           _applyCellStyle(tbl, r, c);
@@ -17455,7 +17461,7 @@
         conUpdatePageBar();
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
         const pagesOverlay = document.getElementById('con-pages-overlay');
-        if (pagesOverlay && pagesOverlay.style.display !== 'none' && typeof window.conOpenPagePreview === 'function') {
+        if (pagesOverlay && pagesOverlay.classList.contains('active') && typeof window.conOpenPagePreview === 'function') {
           window.conOpenPagePreview();
         }
         if (typeof mdbToast === 'function') {
@@ -17494,7 +17500,7 @@
         conUpdatePageBar();
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
         const pagesOverlayDel = document.getElementById('con-pages-overlay');
-        if (pagesOverlayDel && pagesOverlayDel.style.display !== 'none' && typeof window.conOpenPagePreview === 'function') {
+        if (pagesOverlayDel && pagesOverlayDel.classList.contains('active') && typeof window.conOpenPagePreview === 'function') {
           window.conOpenPagePreview();
         }
         if (typeof mdbToast === 'function') {
@@ -17638,13 +17644,20 @@
         if (needsRebuild) {
           const frag = document.createDocumentFragment();
           for (let i = 0; i < total; i += 1) {
-            const btn = document.createElement('button');
-            btn.type = 'button';
+            const btn = document.createElement('div');
             btn.className = 'con-page-mini-thumb' + (i === cur ? ' active' : '');
+            btn.setAttribute('role', 'button');
+            btn.setAttribute('tabindex', '0');
             const navTitle = tFmt('conFileNavGoPage', { n: i + 1 });
             btn.title = navTitle;
             btn.setAttribute('aria-label', navTitle);
             btn.onclick = function () { window.conGoToPage(i); };
+            btn.addEventListener('keydown', function (e) {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                window.conGoToPage(i);
+              }
+            });
 
             btn.draggable = true;
             btn.oncontextmenu = function (e) {
@@ -27196,28 +27209,50 @@
       function boardPositionSplitDropdown(btn, dd) {
         if (!btn || !dd) return;
         dd.style.display = 'flex';
+        dd.style.position = 'fixed';
+        dd.style.zIndex = '10005';
         dd.style.top = '';
         dd.style.bottom = '';
-        dd.style.left = '0';
+        dd.style.left = '';
         dd.style.right = '';
 
         const btnRect = btn.getBoundingClientRect();
         const ddHeight = dd.offsetHeight || 160;
+        const ddWidth = dd.offsetWidth || 185;
+
+        let left = btnRect.left;
+        if (left + ddWidth > window.innerWidth - 8) {
+          left = btnRect.right - ddWidth;
+        }
+        if (left + ddWidth > window.innerWidth - 8) {
+          left = window.innerWidth - ddWidth - 8;
+        }
+        if (left < 8) left = 8;
+        dd.style.left = Math.round(left) + 'px';
+
         const spaceBelow = window.innerHeight - btnRect.bottom;
         const spaceAbove = btnRect.top;
 
-        if (spaceBelow < ddHeight + 10 && spaceAbove > spaceBelow) {
-          dd.style.top = 'auto';
-          dd.style.bottom = 'calc(100% + 4px)';
+        if (btn.id === 'con-ctx-split-btn') {
+          // Simply appear below the button without scrolling the context menu
+          let top = btnRect.bottom + 4;
+          if (top + ddHeight > window.innerHeight - 8) {
+            top = Math.max(8, window.innerHeight - ddHeight - 8);
+          }
+          dd.style.top = Math.round(top) + 'px';
         } else {
-          dd.style.top = 'calc(100% + 4px)';
-          dd.style.bottom = 'auto';
-        }
-
-        const ddRect = dd.getBoundingClientRect();
-        if (ddRect.right > window.innerWidth - 8) {
-          dd.style.left = 'auto';
-          dd.style.right = '0';
+          // For other dropdowns (e.g. note convert modal)
+          if (spaceBelow < ddHeight + 8 && spaceAbove > spaceBelow) {
+            let top = btnRect.top - ddHeight - 4;
+            if (top < 8) top = 8;
+            dd.style.top = Math.round(top) + 'px';
+          } else {
+            let top = btnRect.bottom + 4;
+            if (top + ddHeight > window.innerHeight - 8) {
+              top = Math.max(8, window.innerHeight - ddHeight - 8);
+            }
+            dd.style.top = Math.round(top) + 'px';
+          }
         }
       }
       window.boardPositionSplitDropdown = boardPositionSplitDropdown;
@@ -28942,9 +28977,6 @@
           return;
         }
         if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 's') {
-          const tag = document.activeElement && document.activeElement.tagName;
-          if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-          if (document.activeElement && document.activeElement.isContentEditable) return;
           const sec = document.getElementById('constellation-section');
           if (!sec || sec.classList.contains('hidden')) return;
           e.preventDefault();
@@ -32907,6 +32939,7 @@
       handle.addEventListener('mousedown', e => {
         if (e.target.tagName === 'BUTTON') return;
         dragging = true; _wnPopupDragged = true;
+        if (typeof conCloseNoteConvertModal === 'function') conCloseNoteConvertModal();
         ox = e.clientX - popup.offsetLeft;
         oy = e.clientY - popup.offsetTop;
         e.preventDefault();
@@ -33430,15 +33463,19 @@
       modal.style.display = 'flex';
       if (typeof boardPositionSplitDropdown === 'function' && btn) {
         boardPositionSplitDropdown(btn, modal);
+      } else if (btn) {
         const btnRect = btn.getBoundingClientRect();
         const ddHeight = modal.offsetHeight || 160;
-        if (btnRect.top >= ddHeight + 8 || btnRect.top > (window.innerHeight - btnRect.bottom)) {
-          modal.style.top = 'auto';
-          modal.style.bottom = 'calc(100% + 4px)';
+        const ddWidth = modal.offsetWidth || 185;
+        let left = Math.max(8, Math.min(btnRect.left, window.innerWidth - ddWidth - 8));
+        let top = btnRect.bottom + 4;
+        if (top + ddHeight > window.innerHeight - 8 && btnRect.top > ddHeight + 8) {
+          top = btnRect.top - ddHeight - 4;
         }
-      } else {
-        modal.style.top = 'auto';
-        modal.style.bottom = 'calc(100% + 4px)';
+        modal.style.position = 'fixed';
+        modal.style.zIndex = '10005';
+        modal.style.left = Math.round(left) + 'px';
+        modal.style.top = Math.round(top) + 'px';
       }
       const firstBtn = modal.querySelector('.con-convert-opt-btn, .board-split-item');
       if (firstBtn) firstBtn.focus();
@@ -35438,6 +35475,17 @@
           setTimeout(() => {
             if (typeof wnRenderMathImmediate === 'function') wnRenderMathImmediate();
           }, 0);
+        }
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 's') {
+          e.preventDefault();
+          e.stopPropagation();
+          wnSyncNoteDataFromEditor(noteData, ta);
+          if (typeof window.conSaveSession === 'function') {
+            window.conSaveSession();
+          } else if (typeof conSaveSession === 'function') {
+            conSaveSession();
+          }
+          return;
         }
         if (e.ctrlKey && (e.code === 'Space' || e.key === ' ')) {
           e.preventDefault();
@@ -37475,12 +37523,13 @@
     function conBuildPageSnapshot() {
       try {
         const _ae = document.activeElement;
-        if (_ae && _ae.classList && _ae.classList.contains('wn-note-editor')) {
-          const _noteEl = _ae.closest('.con-word-note');
+        const _ed = _ae ? (_ae.classList && _ae.classList.contains('wn-note-editor') ? _ae : (_ae.closest && _ae.closest('.wn-note-editor'))) : null;
+        if (_ed) {
+          const _noteEl = _ed.closest('.con-word-note');
           if (_noteEl && _noteEl.dataset && _noteEl.dataset.id) {
             const _currNotes = window.conGetNotes ? window.conGetNotes() : [];
             const _nd = _currNotes.find(n => n.id === _noteEl.dataset.id);
-            if (_nd) wnSyncNoteDataFromEditor(_nd, _ae);
+            if (_nd) wnSyncNoteDataFromEditor(_nd, _ed);
           }
         }
       } catch (_) { }
@@ -48028,9 +48077,10 @@
       const tag = document.activeElement && document.activeElement.tagName;
       const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || (document.activeElement && document.activeElement.isContentEditable);
       
-      // If user is actively typing in a text field, allow Escape and search shortcut (Ctrl+F)
+      // If user is actively typing in a text field, allow Escape, search shortcut (Ctrl+F), and save shortcut (Ctrl+S)
       const isSearchShortcut = (e.ctrlKey || e.metaKey) && String(e.key).toLowerCase() === 'f';
-      if (isInput && e.key !== 'Escape' && !isSearchShortcut) return false;
+      const isSaveShortcut = (e.ctrlKey || e.metaKey) && !e.shiftKey && String(e.key).toLowerCase() === 's';
+      if (isInput && e.key !== 'Escape' && !isSearchShortcut && !isSaveShortcut) return false;
 
       const customMap = getBoardCustomShortcutsMap();
       for (const def of BOARD_ACTION_DEFINITIONS) {

@@ -200,6 +200,76 @@
   </div>
 </div>
 
+<div id="firstRunModal" class="lm-overlay">
+  <div class="fr-modal-box" id="firstRunModalBox" role="dialog" aria-modal="true">
+    <button class="lm-close" id="firstRunModalClose" aria-label="Close">✕</button>
+
+    <div class="fr-header">
+      <div class="fr-icon-wrap">
+        <img src="assets/icons/sparkles.svg" alt="" />
+      </div>
+      <div>
+        <h2 class="fr-title" data-i18n="frWelcomeTitle">Welcome to Class Management Tools</h2>
+        <p class="fr-subtitle" data-i18n="frWelcomeSubtitle">Configure your preferences and data storage to get started.</p>
+      </div>
+    </div>
+
+    <!-- Section 1: Language selection -->
+    <div class="fr-section-card">
+      <div class="fr-card-heading">
+        <span data-i18n="frLanguageHeading">Interface Language</span>
+      </div>
+      <div class="fr-lang-grid" id="frLangGrid">
+        <button type="button" class="fr-lang-chip" data-lang="fr">Français</button>
+        <button type="button" class="fr-lang-chip" data-lang="en">English</button>
+        <button type="button" class="fr-lang-chip" data-lang="de">Deutsch</button>
+        <button type="button" class="fr-lang-chip" data-lang="it">Italiano</button>
+      </div>
+    </div>
+
+    <!-- Section 2: Data storage location -->
+    <div class="fr-section-card">
+      <div class="fr-card-heading">
+        <span data-i18n="frLocationHeading">Data Storage Location</span>
+      </div>
+      <p class="fr-card-desc" data-i18n="frLocationDesc">All rosters, grades, lessons, seating plans, and session files will be stored here.</p>
+      <div class="fr-path-display" id="frPathDisplay">…</div>
+      <div class="fr-actions-row">
+        <button type="button" class="fr-btn fr-btn-primary" id="frPickBtn">
+          <img src="assets/icons/folder.svg" alt="" />
+          <span data-i18n="frPickBtn">Choose Folder…</span>
+        </button>
+        <button type="button" class="fr-btn fr-btn-secondary" id="frDefaultBtn">
+          <img src="assets/icons/check.svg" alt="" />
+          <span data-i18n="frDefaultBtn">Use Default Location</span>
+        </button>
+      </div>
+      <div class="fr-status" id="frLocationStatus"></div>
+    </div>
+
+    <!-- Section 3: Getting Started & Guidance -->
+    <div class="fr-section-card">
+      <div class="fr-card-heading">
+        <span data-i18n="frExploreHeading">Getting Started</span>
+      </div>
+      <div class="fr-explore-grid">
+        <button type="button" class="fr-explore-btn" id="frTourBtn">
+          <img src="assets/icons/launcher.svg" alt="" />
+          <span data-i18n="frTourBtn">Take a Tour of the Launcher</span>
+        </button>
+        <button type="button" class="fr-explore-btn" id="frHowToBtn">
+          <img src="assets/icons/how-to.svg" alt="" />
+          <span data-i18n="frHowToBtn">Open How-To Guide</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="fr-footer">
+      <button type="button" class="fr-done-btn" id="frDoneBtn" data-i18n="frDoneBtn">Get Started</button>
+    </div>
+  </div>
+</div>
+
 <script>
   const APPS = [
     {
@@ -798,7 +868,7 @@
   });
 
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') { closePopup(); closeModal(); closeRecentFilesModal(); sbHideCountPopup(); }
+    if (e.key === 'Escape') { closePopup(); closeModal(); closeRecentFilesModal(); sbHideCountPopup(); closeFirstRunModal(true); }
   });
 
   // ── iframe modal (credits, general-config) ──────────────
@@ -838,6 +908,228 @@
   window.addEventListener('message', function (e) {
     if (e.data === 'cmt-close-modal') closeModal();
   });
+
+  // ── First-Run Onboarding Modal ─────────────────────────
+  var _frCompleted = false;
+
+  async function checkFirstRunWelcome() {
+    if (!window.electronApi || !window.electronApi.getDataLocation) return;
+    try {
+      var res = await window.electronApi.getDataLocation();
+      if (res && res.ok && res.isFirstRun) {
+        openFirstRunModal(res.resolvedWritableRoot, res.folderMissingReason, res.lastConfiguredPath);
+      }
+    } catch (err) {
+      console.warn('[FirstRun] Could not check data location:', err);
+    }
+  }
+
+  function openFirstRunModal(currentPath, reason, lastConfiguredPath) {
+    var overlay   = document.getElementById('firstRunModal');
+    var pathEl    = document.getElementById('frPathDisplay');
+    var titleEl   = document.querySelector('#firstRunModal .fr-title');
+    var subEl     = document.querySelector('#firstRunModal .fr-subtitle');
+    var pickSpan  = document.querySelector('#frPickBtn span');
+    if (!overlay) return;
+
+    if (reason === 'configured_missing') {
+      if (titleEl) {
+        titleEl.textContent = (typeof t === 'function') ? t('frMissingTitle', 'User Data Folder Not Found') : 'User Data Folder Not Found';
+        titleEl.setAttribute('data-i18n', 'frMissingTitle');
+      }
+      if (subEl) {
+        subEl.textContent = (typeof t === 'function') ? t('frMissingSubtitle', 'Your data folder could not be found at its configured location. Please select where your data folder is now, or set up a default folder.') : 'Your data folder could not be found at its configured location.';
+        subEl.setAttribute('data-i18n', 'frMissingSubtitle');
+      }
+      if (pathEl) {
+        var label = (typeof t === 'function') ? t('frLastKnownPath', 'Previous location (missing):') : 'Previous location (missing):';
+        pathEl.textContent = lastConfiguredPath ? (label + ' ' + lastConfiguredPath) : (currentPath || '…');
+      }
+      if (pickSpan) {
+        pickSpan.textContent = (typeof t === 'function') ? t('frLocateFolderBtn', 'Locate / Choose Folder…') : 'Locate / Choose Folder…';
+        pickSpan.setAttribute('data-i18n', 'frLocateFolderBtn');
+      }
+    } else {
+      if (titleEl) {
+        titleEl.textContent = (typeof t === 'function') ? t('frWelcomeTitle', 'Welcome to Class Management Tools') : 'Welcome to Class Management Tools';
+        titleEl.setAttribute('data-i18n', 'frWelcomeTitle');
+      }
+      if (subEl) {
+        subEl.textContent = (typeof t === 'function') ? t('frWelcomeSubtitle', 'Configure your preferences and data storage to get started.') : 'Configure your preferences and data storage to get started.';
+        subEl.setAttribute('data-i18n', 'frWelcomeSubtitle');
+      }
+      if (pathEl) pathEl.textContent = currentPath || '…';
+      if (pickSpan) {
+        pickSpan.textContent = (typeof t === 'function') ? t('frPickBtn', 'Choose Folder…') : 'Choose Folder…';
+        pickSpan.setAttribute('data-i18n', 'frPickBtn');
+      }
+    }
+
+    var currentLang = (typeof getLang === 'function') ? getLang() : 'fr';
+    var chips = document.querySelectorAll('#frLangGrid .fr-lang-chip');
+    chips.forEach(function (chip) {
+      chip.classList.toggle('active', chip.dataset.lang === currentLang);
+    });
+
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  async function closeFirstRunModal(autoConfirm) {
+    var overlay = document.getElementById('firstRunModal');
+    if (!overlay || !overlay.classList.contains('open')) return;
+    overlay.classList.remove('open');
+    document.body.style.overflow = '';
+
+    if (!_frCompleted && autoConfirm !== false && window.electronApi && window.electronApi.confirmDefaultDataLocation) {
+      _frCompleted = true;
+      try {
+        await window.electronApi.confirmDefaultDataLocation();
+      } catch (e) {}
+    }
+  }
+
+  function initFirstRunModalEvents() {
+    var langGrid = document.getElementById('frLangGrid');
+    if (langGrid) {
+      langGrid.addEventListener('click', function (e) {
+        var chip = e.target.closest('.fr-lang-chip');
+        if (!chip) return;
+        var lang = chip.dataset.lang;
+        document.querySelectorAll('#frLangGrid .fr-lang-chip').forEach(function (c) {
+          c.classList.toggle('active', c === chip);
+        });
+
+        var cfg = {};
+        try { cfg = JSON.parse(localStorage.getItem('cmt-general-config') || '{}'); } catch (_) {}
+        cfg.language = lang;
+        localStorage.setItem('cmt-general-config', JSON.stringify(cfg));
+        localStorage.setItem('cmt-lang-launcher', lang);
+
+        if (typeof applyTranslations === 'function') applyTranslations();
+        if (typeof applyTitle === 'function') applyTitle();
+        if (typeof sbRender === 'function') sbRender();
+        if (typeof rfRender === 'function') rfRender();
+      });
+    }
+
+    var pickBtn = document.getElementById('frPickBtn');
+    if (pickBtn) {
+      pickBtn.addEventListener('click', async function () {
+        if (!window.electronApi || !window.electronApi.pickDataLocation) return;
+        var btn = this;
+        var statusEl = document.getElementById('frLocationStatus');
+        var pathEl = document.getElementById('frPathDisplay');
+        btn.disabled = true;
+        if (statusEl) {
+          statusEl.textContent = (typeof t === 'function') ? t('gcPickingFolder', 'Opening folder picker…') : 'Opening folder picker…';
+          statusEl.className = 'fr-status';
+        }
+        try {
+          var res = await window.electronApi.pickDataLocation();
+          if (res && res.ok && res.selected) {
+            _frCompleted = true;
+            if (pathEl) pathEl.textContent = res.selected;
+            if (statusEl) {
+              statusEl.textContent = (typeof t === 'function') ? t('frFolderSet', 'Data folder configured successfully!') : 'Data folder configured successfully!';
+              statusEl.className = 'fr-status ok';
+            }
+            var btnSpan = btn.querySelector('span');
+            if (btnSpan) btnSpan.textContent = (typeof t === 'function') ? t('frChangeFolderBtn', 'Change Folder…') : 'Change Folder…';
+          } else if (res && res.canceled) {
+            if (statusEl) statusEl.textContent = '';
+          } else if (res && !res.ok) {
+            if (statusEl) {
+              statusEl.textContent = res.error || 'Could not set folder.';
+              statusEl.className = 'fr-status err';
+            }
+          }
+        } catch (err) {
+          if (statusEl) {
+            statusEl.textContent = String(err?.message || err);
+            statusEl.className = 'fr-status err';
+          }
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    }
+
+    var defaultBtn = document.getElementById('frDefaultBtn');
+    if (defaultBtn) {
+      defaultBtn.addEventListener('click', async function () {
+        if (!window.electronApi || !window.electronApi.confirmDefaultDataLocation) return;
+        var btn = this;
+        var statusEl = document.getElementById('frLocationStatus');
+        var pathEl = document.getElementById('frPathDisplay');
+        btn.disabled = true;
+        try {
+          var res = await window.electronApi.confirmDefaultDataLocation();
+          if (res && res.ok) {
+            _frCompleted = true;
+            if (pathEl && res.resolvedWritableRoot) pathEl.textContent = res.resolvedWritableRoot;
+            if (statusEl) {
+              statusEl.textContent = (typeof t === 'function') ? t('frDefaultSet', 'Default data folder configured!') : 'Default data folder configured!';
+              statusEl.className = 'fr-status ok';
+            }
+          } else if (res && !res.ok) {
+            if (statusEl) {
+              statusEl.textContent = res.error || 'Could not configure default folder.';
+              statusEl.className = 'fr-status err';
+            }
+          }
+        } catch (err) {
+          if (statusEl) {
+            statusEl.textContent = String(err?.message || err);
+            statusEl.className = 'fr-status err';
+          }
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    }
+
+    var tourBtn = document.getElementById('frTourBtn');
+    if (tourBtn) {
+      tourBtn.addEventListener('click', async function () {
+        await closeFirstRunModal(true);
+        if (typeof startLauncherTutorial === 'function') {
+          setTimeout(startLauncherTutorial, 200);
+        }
+      });
+    }
+
+    var howToBtn = document.getElementById('frHowToBtn');
+    if (howToBtn) {
+      howToBtn.addEventListener('click', async function () {
+        await closeFirstRunModal(true);
+        if (typeof openApp === 'function') {
+          openApp('how-to.html');
+        }
+      });
+    }
+
+    var doneBtn = document.getElementById('frDoneBtn');
+    if (doneBtn) {
+      doneBtn.addEventListener('click', function () {
+        closeFirstRunModal(true);
+      });
+    }
+
+    var closeBtn = document.getElementById('firstRunModalClose');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', function () {
+        closeFirstRunModal(true);
+      });
+    }
+
+    var modalOverlay = document.getElementById('firstRunModal');
+    if (modalOverlay) {
+      modalOverlay.addEventListener('click', function (e) {
+        if (e.target === this) closeFirstRunModal(true);
+      });
+    }
+  }
 
   // ── Recent Files modal (inline, no iframe) ──────────────
   var rfAllFiles = [];
@@ -1370,6 +1662,8 @@
     applyTitle();
     renderSections();
     initSidebarCollapse();
+    initFirstRunModalEvents();
+    checkFirstRunWelcome();
 
     // Async sync config from disk in background without blocking launcher render
     if (window.Desktop && Desktop.isElectron() && typeof Desktop.readJson === 'function') {

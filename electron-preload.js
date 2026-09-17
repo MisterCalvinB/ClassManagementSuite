@@ -159,6 +159,9 @@ const exposedApi = {
   pickDataLocation() {
     return invoke('app:pick-data-location');
   },
+  confirmDefaultDataLocation() {
+    return invoke('app:confirm-default-data-location');
+  },
   resetDataLocation() {
     return invoke('app:reset-data-location');
   },

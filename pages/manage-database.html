@@ -1374,7 +1374,31 @@
         }
         const field = S.schema.find(f => f.key === key);
         if (!field) continue;
-        const lv = val.toLowerCase();
+        if (Array.isArray(val) || val instanceof Set) {
+          const selectedVals = Array.from(val).map(v => String(v).trim().toLowerCase()).filter(v => v && v !== 'all');
+          if (!selectedVals.length) continue;
+          rows = rows.filter(r => {
+            const v = r[key];
+            if (v === undefined || v === null || v === '') return false;
+            if (field.type === 'array') {
+              if (!Array.isArray(v)) return false;
+              return v.some(el => {
+                const elStr = String(el).trim().toLowerCase();
+                return selectedVals.includes(elStr) || selectedVals.some(target => elStr.includes(target));
+              });
+            }
+            const rawStr = String(v).trim().toLowerCase();
+            if (selectedVals.includes(rawStr)) return true;
+            if (rawStr.includes(',')) {
+              const tokens = rawStr.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+              if (tokens.some(tok => selectedVals.includes(tok))) return true;
+            }
+            return selectedVals.some(target => rawStr.includes(target));
+          });
+          continue;
+        }
+        const lv = String(val).toLowerCase();
+        if (!lv.trim()) continue;
         rows = rows.filter(r => {
           const v = r[key];
           if (field.type === 'array') return Array.isArray(v) && v.some(el => String(el).toLowerCase().includes(lv));
@@ -1531,15 +1555,50 @@
         ];
 
         for (const field of shown) {
-          const val = S.filters[field.key] || '';
+          const curVal = S.filters[field.key];
           if (field.useSelect && !field.isLong) {
-            html += `<div class="fc">
+            const selectedVals = Array.isArray(curVal) ? curVal.filter(Boolean) : (curVal ? [String(curVal)] : []);
+            const count = selectedVals.length;
+            let labelSummary = t('mdbFilterAll');
+            if (count === 1) {
+              labelSummary = selectedVals[0];
+            } else if (count === 2) {
+              labelSummary = `${selectedVals[0]}, ${selectedVals[1]}`;
+            } else if (count > 2) {
+              labelSummary = `${selectedVals[0]}, ${selectedVals[1]}…`;
+            }
+            const badgeHtml = count > 1 ? `<span class="mdb-ms-badge">${count}</span>` : '';
+            const tooltip = count > 0 ? selectedVals.join(', ') : t('mdbFilterAll');
+
+            html += `<div class="fc mdb-ms-wrap" id="ms-wrap-${field.key}">
           <span class="fl">${esc(cap(field.key))}</span>
-          <select onchange="setFilter('${field.key}', this.value)">
-            <option value=""${!val ? ' selected' : ''}>${t('mdbFilterAll')}</option>
-            ${field.uniqueVals.map(v => `<option value="${esc(v)}"${val === v ? ' selected' : ''}>${esc(v) || '(empty)'}</option>`).join('')}
-          </select></div>`;
+          <button type="button" class="mdb-ms-btn ${count > 0 ? 'active' : ''}" id="ms-btn-${field.key}" onclick="toggleMdbDropdown('${field.key}', event)" title="${esc(tooltip)}">
+            <span class="mdb-ms-label" id="ms-label-${field.key}">${esc(labelSummary)}</span>
+            ${badgeHtml}
+            <img src="../assets/icons/arrow-down.svg" class="btn-icon btn-icon-xs mdb-ms-arrow" alt="" />
+          </button>
+          <div class="mdb-ms-menu" id="ms-menu-${field.key}">
+            <div class="mdb-ms-header">
+              <button type="button" class="mdb-ms-action-btn" onclick="mdbMsSelectAll('${field.key}', event)">${t('mdbBtnSelectAll')}</button>
+              <button type="button" class="mdb-ms-action-btn" onclick="mdbMsClear('${field.key}', event)">${t('mdbBtnClear')}</button>
+            </div>
+            ${field.uniqueVals.length > 6 ? `
+            <div class="mdb-ms-search-wrap">
+              <input type="text" class="mdb-ms-search" placeholder="${t('mdbFilterPlaceholder')}" oninput="mdbMsFilterList(this)">
+            </div>` : ''}
+            <div class="mdb-ms-list">
+              ${field.uniqueVals.map(v => {
+                const isChecked = selectedVals.includes(v);
+                return `<label class="mdb-ms-item ${isChecked ? 'selected' : ''}">
+                  <input type="checkbox" class="mdb-ms-cb" value="${esc(v)}" ${isChecked ? 'checked' : ''} onchange="mdbMsToggle('${field.key}', this.value, this.checked)">
+                  <span class="mdb-ms-text" title="${esc(v)}">${esc(v) || '(empty)'}</span>
+                </label>`;
+              }).join('')}
+            </div>
+          </div>
+        </div>`;
           } else {
+            const val = typeof curVal === 'string' ? curVal : '';
             html += `<div class="fc">
           <span class="fl">${esc(cap(field.key))}</span>
           <input type="text" value="${esc(val)}" placeholder="${t('mdbFilterPlaceholder')}" oninput="setFilter('${field.key}', this.value)">
@@ -1560,6 +1619,140 @@
     <button class="btn btn-secondary btn-sm" onclick="resetFilters()"><img src="../assets/icons/refresh.svg" class="btn-icon" alt="" /> ${t('mdbFilterReset')}</button></div>`;
 
       bar.innerHTML = html;
+    }
+
+    function toggleMdbDropdown(key, e) {
+      if (e) e.stopPropagation();
+      const wrap = $(`ms-wrap-${key}`);
+      if (!wrap) return;
+      const wasOpen = wrap.classList.contains('open');
+      closeAllMdbDropdowns();
+      if (!wasOpen) {
+        wrap.classList.add('open');
+        const menu = wrap.querySelector('.mdb-ms-menu');
+        if (menu) {
+          menu.style.left = '0';
+          menu.style.right = 'auto';
+          const rect = menu.getBoundingClientRect();
+          if (rect.right > window.innerWidth - 10) {
+            menu.style.left = 'auto';
+            menu.style.right = '0';
+          }
+        }
+        const search = wrap.querySelector('.mdb-ms-search');
+        if (search) {
+          search.value = '';
+          mdbMsFilterList(search);
+          setTimeout(() => search.focus(), 50);
+        }
+      }
+    }
+
+    function closeAllMdbDropdowns() {
+      document.querySelectorAll('.mdb-ms-wrap.open').forEach(w => w.classList.remove('open'));
+    }
+
+    function mdbMsToggle(key, val, isChecked) {
+      let cur = S.filters[key];
+      if (!Array.isArray(cur)) {
+        cur = cur ? [String(cur)] : [];
+      }
+      cur = [...cur];
+      if (isChecked) {
+        if (!cur.includes(val)) cur.push(val);
+      } else {
+        cur = cur.filter(v => v !== val);
+      }
+      S.filters[key] = cur;
+      updateMdbMsBtn(key);
+      const wrap = $(`ms-wrap-${key}`);
+      if (wrap) {
+        const item = Array.from(wrap.querySelectorAll('.mdb-ms-cb')).find(c => c.value === val)?.closest('.mdb-ms-item');
+        if (item) item.classList.toggle('selected', isChecked);
+      }
+      S.page = 0;
+      renderTable();
+    }
+
+    function mdbMsSelectAll(key, e) {
+      if (e) e.stopPropagation();
+      const wrap = $(`ms-wrap-${key}`);
+      if (!wrap) return;
+      const visibleCbs = Array.from(wrap.querySelectorAll('.mdb-ms-item:not([style*="display: none"]) .mdb-ms-cb'));
+      const valsToAdd = visibleCbs.map(cb => cb.value);
+      let cur = Array.isArray(S.filters[key]) ? [...S.filters[key]] : [];
+      valsToAdd.forEach(v => {
+        if (!cur.includes(v)) cur.push(v);
+      });
+      S.filters[key] = cur;
+      visibleCbs.forEach(cb => {
+        cb.checked = true;
+        cb.closest('.mdb-ms-item')?.classList.add('selected');
+      });
+      updateMdbMsBtn(key);
+      S.page = 0;
+      renderTable();
+    }
+
+    function mdbMsClear(key, e) {
+      if (e) e.stopPropagation();
+      S.filters[key] = [];
+      const wrap = $(`ms-wrap-${key}`);
+      if (wrap) {
+        wrap.querySelectorAll('.mdb-ms-cb').forEach(cb => {
+          cb.checked = false;
+          cb.closest('.mdb-ms-item')?.classList.remove('selected');
+        });
+      }
+      updateMdbMsBtn(key);
+      S.page = 0;
+      renderTable();
+    }
+
+    function mdbMsFilterList(input) {
+      const q = input.value.trim().toLowerCase();
+      const wrap = input.closest('.mdb-ms-wrap');
+      if (!wrap) return;
+      wrap.querySelectorAll('.mdb-ms-item').forEach(item => {
+        const txt = item.querySelector('.mdb-ms-text')?.textContent.toLowerCase() || '';
+        item.style.display = (!q || txt.includes(q)) ? 'flex' : 'none';
+      });
+    }
+
+    function updateMdbMsBtn(key) {
+      const btn = $(`ms-btn-${key}`);
+      const labelEl = $(`ms-label-${key}`);
+      if (!btn || !labelEl) return;
+      const cur = S.filters[key];
+      const selected = Array.isArray(cur) ? cur.filter(Boolean) : (cur ? [String(cur)] : []);
+      const count = selected.length;
+
+      btn.classList.toggle('active', count > 0);
+
+      let labelText = t('mdbFilterAll');
+      if (count === 1) {
+        labelText = selected[0];
+      } else if (count === 2) {
+        labelText = `${selected[0]}, ${selected[1]}`;
+      } else if (count > 2) {
+        labelText = `${selected[0]}, ${selected[1]}…`;
+      }
+      labelEl.textContent = labelText;
+      btn.title = count > 0 ? selected.join(', ') : t('mdbFilterAll');
+
+      let badge = btn.querySelector('.mdb-ms-badge');
+      if (count > 1) {
+        if (!badge) {
+          badge = document.createElement('span');
+          badge.className = 'mdb-ms-badge';
+          const arrow = btn.querySelector('.mdb-ms-arrow');
+          if (arrow) btn.insertBefore(badge, arrow);
+          else btn.appendChild(badge);
+        }
+        badge.textContent = count;
+      } else if (badge) {
+        badge.remove();
+      }
     }
 
     function setFilter(key, val) {
@@ -4065,8 +4258,16 @@ Rules:
       }).join('');
 
       const filterDesc = Object.entries(S.filters)
-        .filter(([, v]) => v)
-        .map(([k, v]) => `<strong>${escHtml(k === '_all' ? 'Search' : k === '_src' ? 'File' : cap(k))}:</strong> ${escHtml(v)}`)
+        .filter(([, v]) => {
+          if (!v) return false;
+          if (Array.isArray(v)) return v.length > 0;
+          if (v instanceof Set) return v.size > 0;
+          return true;
+        })
+        .map(([k, v]) => {
+          const disp = Array.isArray(v) ? v.join(', ') : (v instanceof Set ? Array.from(v).join(', ') : v);
+          return `<strong>${escHtml(k === '_all' ? 'Search' : k === '_src' ? 'File' : cap(k))}:</strong> ${escHtml(disp)}`;
+        })
         .join(' &nbsp;·&nbsp; ');
       const filterLine = filterDesc ? `<p class="filters">Filters: ${filterDesc}</p>` : '';
 
@@ -4291,8 +4492,16 @@ Rules:
       ).join('');
 
       const filterDesc = Object.entries(S.filters)
-        .filter(([, v]) => v)
-        .map(([k, v]) => `<strong>${escHtml(k === '_all' ? 'Search' : k === '_src' ? 'File' : cap(k))}:</strong> ${escHtml(v)}`)
+        .filter(([, v]) => {
+          if (!v) return false;
+          if (Array.isArray(v)) return v.length > 0;
+          if (v instanceof Set) return v.size > 0;
+          return true;
+        })
+        .map(([k, v]) => {
+          const disp = Array.isArray(v) ? v.join(', ') : (v instanceof Set ? Array.from(v).join(', ') : v);
+          return `<strong>${escHtml(k === '_all' ? 'Search' : k === '_src' ? 'File' : cap(k))}:</strong> ${escHtml(disp)}`;
+        })
         .join(' &nbsp;·&nbsp; ');
       const filterLine = filterDesc ? `<p class="filters">Filters: ${filterDesc}</p>` : '';
 
@@ -5199,6 +5408,12 @@ Rules:
       if (e.key === 'Escape') {
         closeColPicker();
         closeCopyModal();
+        closeAllMdbDropdowns();
+      }
+    });
+    document.addEventListener('click', e => {
+      if (!e.target.closest('.mdb-ms-wrap')) {
+        closeAllMdbDropdowns();
       }
     });
     document.addEventListener('DOMContentLoaded', init);

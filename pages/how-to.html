@@ -22,7 +22,7 @@
   <!-- ── Sidebar ── -->
   <nav class="sidebar">
     <div class="sidebar-search-wrap">
-      <input class="sidebar-search" id="searchInput" type="search" placeholder="Search…" oninput="onSearch(this.value)" autocomplete="off">
+      <input class="sidebar-search" id="searchInput" type="search" placeholder="Search… (Ctrl+K)" onclick="openSearchModal(this.value)" oninput="openSearchModal(this.value)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openSearchModal(this.value);}" autocomplete="off" title="Search documentation (Ctrl+K)">
     </div>
     <div class="sidebar-nav" id="sidebarNav">
 
@@ -538,15 +538,15 @@
           <span class="accordion-badge">first launch</span>
         </button>
         <div class="accordion-body"><div class="accordion-inner">
-          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:12px;">All your data — class groups, word banks, grades, and session logs — is stored in a single folder on your computer. On first launch you will be asked where to put it.</p>
+          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:12px;">All your data — class groups, word banks, grades, and session logs — is stored in a local folder on your computer. When the app is opened for the first time without an existing data folder, a dedicated <strong>First Launch Onboarding Modal</strong> opens automatically on the Launcher.</p>
           <ol class="steps">
-            <li>When the app starts for the first time a blue <strong>First Launch</strong> banner appears at the top of the launcher. If you are migrating from a previous installation, click <strong>Select Existing Folder</strong> and point to your old data folder. Otherwise click <strong>Start Fresh</strong>.</li>
-            <li>The default location is next to the app itself (or inside your home folder on Windows). You can change it any time in <button class="xlink" onclick="navToAccordion('general-config','acc-cfg-storage')">General Config → Storage &amp; Sync</button>.</li>
-            <li>If you want the data folder on a USB stick, an external drive, or a cloud-synced folder (Dropbox, OneDrive), click <strong>Change folder…</strong> in Data &amp; Storage and point to that location.</li>
-            <li>Optionally set a <strong>Backup folder</strong> — any save will copy files there too. Ideal for a cloud drive.</li>
-            <li>Optionally set a <strong>Sync folder</strong> — useful when you switch between two computers (e.g., classroom PC and a laptop at home).</li>
+            <li><strong>Select Language:</strong> Click your preferred interface language (Français, English, Deutsch, or Italiano). The interface updates instantly in real time.</li>
+            <li><strong>Choose Data Storage Location:</strong> If you have data from a previous installation or want your data saved to a USB drive or cloud-synced folder (OneDrive, Dropbox, Google Drive), click <strong>Choose Folder…</strong>. Otherwise, click <strong>Use Default Location</strong> to create the recommended local folder.</li>
+            <li><strong>Interactive Guidance:</strong> Click <strong>Take a Tour of the Launcher</strong> for a guided walkthrough of the suite's hub, or <strong>Open How-To Guide</strong> for in-depth documentation.</li>
+            <li>Click <strong>Get Started</strong> to close the modal and begin using the suite. You can always change your data location later in <button class="xlink" onclick="navToAccordion('general-config','acc-cfg-storage')">General Config → Storage &amp; Sync</button>.</li>
+            <li>Optionally configure a <strong>Backup folder</strong> or <strong>Sync folder</strong> in General Config for automated multi-device synchronisation.</li>
           </ol>
-          <div class="tip"><strong>Recommendation:</strong> Set the data folder to a cloud-synced folder (OneDrive, Google Drive, Dropbox) from the start. You get automatic backup and cross-device sync for free.</div>
+          <div class="tip"><strong>Recommendation:</strong> Setting your data folder to a cloud-synced folder (OneDrive, Google Drive, Dropbox) or external portable drive allows seamless cross-device synchronisation and peace of mind.</div>
         </div></div>
       </div>
 
@@ -2670,6 +2670,9 @@
             <li><strong>Global Search Across All Databases:</strong>
               <p style="font-size:0.85rem;line-height:1.6;margin:4px 0 8px;">From the initial empty state (or deselecting the current type), enter a query in the <strong>Search across all databases</strong> box. Manage Database scans all word banks, quotes, grammar, competences, criteria, and quizzes simultaneously, presenting grouped results with match counts and one-click navigation to the target file.</p>
             </li>
+            <li><strong>Multi-Selection Filter Bar Dropdowns:</strong>
+              <p style="font-size:0.85rem;line-height:1.6;margin:4px 0 8px;">The filter bar above loaded database records features multi-select dropdown menus for all categorical attributes (such as Level, Part of Speech, Theme, Category, etc.). Click any dropdown to open its Neobrutalist checkbox menu, check multiple options (applying OR logic within that attribute), use <strong>Select All</strong> or <strong>Clear</strong> to adjust selections instantly, or type in the integrated search filter to quickly find specific options. An active counter badge indicates the number of active selections, and the record table updates immediately in-place.</p>
+            </li>
             <li><strong>Batch Selection, Editing &amp; Element Prefix/Suffix:</strong>
               <p style="font-size:0.85rem;line-height:1.6;margin:4px 0 8px;">Use the record checkboxes or click <strong>Select All</strong> to select multiple entries. In addition to Word Banks, Batch Edit is supported across <strong>Competences</strong>, <strong>Evaluation Criteria</strong>, <strong>Grading Scales</strong>, and <strong>Personalised Observation Chips</strong>:</p>
               <ul style="margin:4px 0 8px 16px;padding:0;line-height:1.6;font-size:0.84rem;">
@@ -3635,6 +3638,38 @@
   </main>
 </div>
 
+<!-- ── Search Modal ── -->
+<div class="ht-search-modal-overlay" id="htSearchModalOverlay" onclick="if(event.target===this)closeSearchModal()" role="dialog" aria-modal="true" aria-labelledby="htModalSearchInput">
+  <div class="ht-search-modal">
+    <div class="ht-search-header">
+      <img src="../assets/icons/search.svg" class="ht-search-icon" alt="" />
+      <input id="htModalSearchInput" class="ht-search-input" type="text" placeholder="Search documentation, tools, storage paths…" autocomplete="off" oninput="executeModalSearch(this.value)">
+      <button class="ht-search-clear" id="htSearchClearBtn" onclick="clearModalSearch()" title="Clear query" style="display:none;">
+        <img src="../assets/icons/close.svg" alt="Clear" />
+      </button>
+      <button class="ht-search-close-hint" onclick="closeSearchModal()" title="Close (Esc)">ESC</button>
+    </div>
+    <div class="ht-search-meta" id="htSearchMeta">
+      <span id="htSearchResultCount">Type to search…</span>
+      <span id="htSearchScopeHint">Instant search across all tools &amp; storage</span>
+    </div>
+    <div class="ht-search-results" id="htSearchResults">
+      <div class="ht-search-empty-state">
+        <div class="ht-search-empty-title">Search How-To Documentation</div>
+        <div class="ht-search-empty-desc">Type keywords to instantly find instructions, feature explanations, and saved file locations.</div>
+      </div>
+    </div>
+    <div class="ht-search-footer">
+      <div class="ht-search-footer-shortcuts">
+        <span class="ht-search-shortcut-item"><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>
+        <span class="ht-search-shortcut-item"><kbd>↵</kbd> Select</span>
+        <span class="ht-search-shortcut-item"><kbd>Esc</kbd> Close</span>
+      </div>
+      <span style="opacity:0.6;">Class Management Tools</span>
+    </div>
+  </div>
+</div>
+
 <script>
   // ── Navigation ────────────────────────────────────────────
 
@@ -3804,59 +3839,349 @@
 
   window.addEventListener('scroll', onScroll, { passive: true });
 
-  // ── Search ────────────────────────────────────────────────
+  // ── Search Modal & Indexing ───────────────────────────────
 
-  function onSearch(query) {
-    var q = query.trim().toLowerCase();
-    var noResults = document.getElementById('noResults');
-    var anyVisible = false;
+  var searchIndex = null;
+  var currentResults = [];
+  var selectedResultIndex = -1;
+
+  function buildSearchIndex() {
+    var items = [];
+    var sections = document.querySelectorAll('.tool-section');
+    sections.forEach(function (sec) {
+      var secId = sec.id;
+      if (!secId) return;
+      var secHeader = sec.querySelector('.tool-header h2') || sec.querySelector('.page-header h1');
+      var secTitle = secHeader ? secHeader.textContent.replace(/\s+/g, ' ').trim() : secId;
+      var secOverview = sec.querySelector('.tool-overview');
+      var secOverviewText = secOverview ? secOverview.textContent.replace(/\s+/g, ' ').trim() : '';
+
+      // Section level entry
+      items.push({
+        id: secId,
+        sectionId: secId,
+        accordionId: null,
+        tool: secTitle,
+        badge: 'Overview',
+        title: secTitle,
+        text: secTitle + ' ' + secOverviewText
+      });
+
+      // Accordion entries
+      var accordions = sec.querySelectorAll('.accordion');
+      accordions.forEach(function (acc) {
+        var accId = acc.id;
+        var accHeader = acc.querySelector('.accordion-title');
+        var accTitle = accHeader ? accHeader.textContent.replace(/\s+/g, ' ').trim() : '';
+        var accBadge = acc.querySelector('.accordion-badge');
+        var accBadgeText = accBadge ? accBadge.textContent.replace(/\s+/g, ' ').trim() : '';
+        var accBody = acc.querySelector('.accordion-inner');
+        var accBodyText = accBody ? accBody.textContent.replace(/\s+/g, ' ').trim() : '';
+
+        items.push({
+          id: accId || secId,
+          sectionId: secId,
+          accordionId: accId,
+          tool: secTitle,
+          badge: accBadgeText || 'Guide',
+          title: accTitle || secTitle,
+          text: accTitle + ' ' + accBodyText
+        });
+      });
+
+      // Storage panel entries
+      var storagePanel = sec.querySelector('.storage-panel');
+      if (storagePanel) {
+        var stItems = storagePanel.querySelectorAll('.storage-item');
+        stItems.forEach(function (stItem) {
+          var label = stItem.querySelector('.storage-label');
+          var path = stItem.querySelector('.storage-path');
+          var labelText = label ? label.textContent.replace(/\s+/g, ' ').trim() : '';
+          var pathText = path ? path.textContent.replace(/\s+/g, ' ').trim() : '';
+
+          items.push({
+            id: secId + '-storage-' + labelText,
+            sectionId: secId,
+            accordionId: null,
+            tool: secTitle,
+            badge: 'Storage',
+            title: labelText ? labelText + ' — ' + secTitle : 'Saved Storage (' + secTitle + ')',
+            text: labelText + ' ' + pathText + ' ' + secTitle
+          });
+        });
+      }
+    });
+
+    searchIndex = items;
+  }
+
+  function escapeRegex(str) {
+    return String(str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  function highlightMatches(text, words) {
+    if (!words || !words.length) return escapeHtml(text);
+    var safeText = escapeHtml(text);
+    var sortedWords = words.slice().sort(function (a, b) { return b.length - a.length; });
+    var pattern = '(' + sortedWords.map(escapeRegex).join('|') + ')';
+    var reg = new RegExp(pattern, 'gi');
+    return safeText.replace(reg, '<mark class="ht-search-highlight">$1</mark>');
+  }
+
+  function createSnippet(fullText, words, maxLen) {
+    if (!maxLen) maxLen = 130;
+    var clean = String(fullText || '').replace(/\s+/g, ' ').trim();
+    var lower = clean.toLowerCase();
+    var firstIdx = -1;
+    for (var i = 0; i < words.length; i++) {
+      var idx = lower.indexOf(words[i]);
+      if (idx !== -1 && (firstIdx === -1 || idx < firstIdx)) {
+        firstIdx = idx;
+      }
+    }
+
+    if (firstIdx === -1) {
+      var sub = clean.slice(0, maxLen).trim();
+      return highlightMatches(sub + (clean.length > maxLen ? '…' : ''), words);
+    }
+
+    var start = Math.max(0, firstIdx - 36);
+    var end = Math.min(clean.length, start + maxLen);
+    var snippet = clean.slice(start, end).trim();
+    if (start > 0) snippet = '…' + snippet;
+    if (end < clean.length) snippet = snippet + '…';
+
+    return highlightMatches(snippet, words);
+  }
+
+  function searchDocumentation(query) {
+    if (!searchIndex) buildSearchIndex();
+    var q = String(query || '').trim().toLowerCase();
+    if (!q) return [];
+
+    var words = q.split(/\s+/).filter(Boolean);
+    var results = [];
+
+    for (var i = 0; i < searchIndex.length; i++) {
+      var item = searchIndex[i];
+      var lowerTitle = item.title.toLowerCase();
+      var lowerText = item.text.toLowerCase();
+      var lowerTool = item.tool.toLowerCase();
+
+      var allMatch = true;
+      for (var w = 0; w < words.length; w++) {
+        if (!lowerText.includes(words[w]) && !lowerTool.includes(words[w])) {
+          allMatch = false;
+          break;
+        }
+      }
+      if (!allMatch) continue;
+
+      var score = 0;
+      if (lowerTitle.includes(q)) score += 120;
+      if (lowerTool.includes(q)) score += 45;
+      if (lowerText.includes(q)) score += 30;
+
+      for (var k = 0; k < words.length; k++) {
+        if (lowerTitle.includes(words[k])) score += 25;
+        if (lowerTool.includes(words[k])) score += 15;
+      }
+
+      results.push({
+        item: item,
+        score: score,
+        words: words
+      });
+    }
+
+    results.sort(function (a, b) {
+      return b.score - a.score;
+    });
+
+    return results.slice(0, 30);
+  }
+
+  function executeModalSearch(query) {
+    var clearBtn = document.getElementById('htSearchClearBtn');
+    var countEl = document.getElementById('htSearchResultCount');
+    var resultsContainer = document.getElementById('htSearchResults');
+
+    var q = String(query || '').trim();
+    if (clearBtn) clearBtn.style.display = q ? 'flex' : 'none';
 
     if (!q) {
-      // Restore everything
-      document.querySelectorAll('.tool-section, .accordion, .sidebar-row-main, .sidebar-child').forEach(function (el) {
-        el.classList.remove('search-hidden');
-      });
-      noResults.classList.remove('visible');
+      currentResults = [];
+      selectedResultIndex = -1;
+      if (countEl) countEl.textContent = 'Type to search…';
+      if (resultsContainer) {
+        resultsContainer.innerHTML = ''
+          + '<div class="ht-search-empty-state">'
+          + '  <div class="ht-search-empty-title">Search How-To Documentation</div>'
+          + '  <div class="ht-search-empty-desc">Type keywords to instantly find instructions, feature explanations, and saved file locations.</div>'
+          + '</div>';
+      }
       return;
     }
 
-    // Score each accordion and section
-    document.querySelectorAll('.accordion').forEach(function (acc) {
-      var text = acc.textContent.toLowerCase();
-      var matches = text.includes(q);
-      acc.classList.toggle('search-hidden', !matches);
-    });
+    var matches = searchDocumentation(q);
+    currentResults = matches;
+    selectedResultIndex = matches.length > 0 ? 0 : -1;
 
-    document.querySelectorAll('.tool-section').forEach(function (section) {
-      var visibleAccordions = section.querySelectorAll('.accordion:not(.search-hidden)');
-      var sectionText = (section.querySelector('.tool-header h2') || section.querySelector('.page-header h1') || { textContent: '' }).textContent.toLowerCase();
-      var overviewText = (section.querySelector('.tool-overview') || { textContent: '' }).textContent.toLowerCase();
-      var hasMatch = visibleAccordions.length > 0 || sectionText.includes(q) || overviewText.includes(q);
-      section.classList.toggle('search-hidden', !hasMatch);
-      if (hasMatch) anyVisible = true;
-    });
+    if (matches.length === 0) {
+      if (countEl) countEl.textContent = '0 results';
+      if (resultsContainer) {
+        resultsContainer.innerHTML = ''
+          + '<div class="ht-search-empty-state">'
+          + '  <div class="ht-search-empty-title">No matching topics found</div>'
+          + '  <div class="ht-search-empty-desc">Try checking your spelling or searching for a different keyword or tool name.</div>'
+          + '</div>';
+      }
+      return;
+    }
 
-    // Auto-expand matched accordions
-    document.querySelectorAll('.accordion:not(.search-hidden)').forEach(function (acc) {
-      acc.querySelector('.accordion-header').classList.add('open');
-      acc.querySelector('.accordion-body').classList.add('open');
-    });
+    if (countEl) countEl.textContent = matches.length + (matches.length === 1 ? ' result' : ' results');
 
-    // Sidebar children
-    document.querySelectorAll('.sidebar-child').forEach(function (child) {
-      var accordionId = child.getAttribute('data-accordion');
-      var acc = accordionId ? document.getElementById(accordionId) : null;
-      child.classList.toggle('search-hidden', !!(acc && acc.classList.contains('search-hidden')));
-    });
+    var words = q.split(/\s+/).filter(Boolean);
+    var html = matches.map(function (res, index) {
+      var item = res.item;
+      var titleHtml = highlightMatches(item.title, words);
+      var toolBadge = escapeHtml(item.tool || 'Guide');
+      var snippetHtml = createSnippet(item.text, words, 130);
+      var isSelected = index === selectedResultIndex;
 
-    document.querySelectorAll('.sidebar-row-main').forEach(function (btn) {
-      var sectionId = btn.getAttribute('data-section');
-      var section = sectionId ? document.getElementById(sectionId) : null;
-      btn.classList.toggle('search-hidden', !!(section && section.classList.contains('search-hidden')));
-    });
+      return '<div class="ht-search-item' + (isSelected ? ' selected' : '') + '" data-index="' + index + '" onclick="selectSearchResultByIndex(' + index + ')">'
+        + '  <div class="ht-search-item-header">'
+        + '    <div class="ht-search-item-title-wrap">'
+        + '      <span class="ht-search-badge">' + toolBadge + '</span>'
+        + '      <span class="ht-search-item-title">' + titleHtml + '</span>'
+        + '    </div>'
+        + '    <span class="ht-search-item-arrow">↵</span>'
+        + '  </div>'
+        + '  <div class="ht-search-item-snippet">' + snippetHtml + '</div>'
+        + '</div>';
+    }).join('');
 
-    noResults.classList.toggle('visible', !anyVisible);
+    if (resultsContainer) resultsContainer.innerHTML = html;
   }
+
+  function selectSearchResultByIndex(index) {
+    if (!currentResults[index]) return;
+    selectSearchResult(currentResults[index].item);
+  }
+
+  function selectSearchResult(item) {
+    closeSearchModal();
+    if (!item) return;
+
+    var targetEl = null;
+    if (item.accordionId) {
+      navToAccordion(item.sectionId, item.accordionId);
+      targetEl = document.getElementById(item.accordionId);
+    } else if (item.sectionId) {
+      navTo(item.sectionId);
+      targetEl = document.getElementById(item.sectionId);
+    }
+
+    if (targetEl) {
+      targetEl.classList.remove('ht-target-highlight');
+      void targetEl.offsetWidth; // Force reflow to restart CSS animation
+      targetEl.classList.add('ht-target-highlight');
+      setTimeout(function () {
+        if (targetEl) targetEl.classList.remove('ht-target-highlight');
+      }, 1200);
+    }
+  }
+
+  function updateSelectedResultDOM() {
+    var items = document.querySelectorAll('.ht-search-item');
+    items.forEach(function (el, idx) {
+      var isSel = idx === selectedResultIndex;
+      el.classList.toggle('selected', isSel);
+      if (isSel) {
+        el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    });
+  }
+
+  function handleModalKeyDown(e) {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeSearchModal();
+      return;
+    }
+
+    if (!currentResults || !currentResults.length) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      selectedResultIndex = (selectedResultIndex + 1) % currentResults.length;
+      updateSelectedResultDOM();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      selectedResultIndex = (selectedResultIndex - 1 + currentResults.length) % currentResults.length;
+      updateSelectedResultDOM();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (selectedResultIndex >= 0 && currentResults[selectedResultIndex]) {
+        selectSearchResult(currentResults[selectedResultIndex].item);
+      }
+    }
+  }
+
+  function openSearchModal(initialQuery) {
+    if (!searchIndex) buildSearchIndex();
+    var overlay = document.getElementById('htSearchModalOverlay');
+    var modalInput = document.getElementById('htModalSearchInput');
+    if (!overlay || !modalInput) return;
+
+    overlay.classList.add('open');
+    if (typeof initialQuery === 'string' && initialQuery.length > 0) {
+      modalInput.value = initialQuery;
+    }
+    executeModalSearch(modalInput.value);
+
+    setTimeout(function () {
+      modalInput.focus();
+      if (modalInput.value) {
+        modalInput.select();
+      }
+    }, 50);
+  }
+
+  function closeSearchModal() {
+    var overlay = document.getElementById('htSearchModalOverlay');
+    if (overlay) overlay.classList.remove('open');
+    var sidebarInput = document.getElementById('searchInput');
+    if (sidebarInput) sidebarInput.value = '';
+  }
+
+  function clearModalSearch() {
+    var modalInput = document.getElementById('htModalSearchInput');
+    if (modalInput) {
+      modalInput.value = '';
+      executeModalSearch('');
+      modalInput.focus();
+    }
+  }
+
+  function onSearch(query) {
+    openSearchModal(query);
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+      e.preventDefault();
+      var overlay = document.getElementById('htSearchModalOverlay');
+      if (overlay && overlay.classList.contains('open')) {
+        closeSearchModal();
+      } else {
+        openSearchModal();
+      }
+    } else if (e.key === '/' && document.activeElement && !['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+      e.preventDefault();
+      openSearchModal();
+    }
+  });
 
   // ── Storage paths by section ─────────────────────────────
 
@@ -4119,6 +4444,11 @@
 
   document.addEventListener('DOMContentLoaded', function () {
     injectStoragePanels();
+    buildSearchIndex();
+    var modalInput = document.getElementById('htModalSearchInput');
+    if (modalInput) {
+      modalInput.addEventListener('keydown', handleModalKeyDown);
+    }
     onScroll();
   });
 </script>

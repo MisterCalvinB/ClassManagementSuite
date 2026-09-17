@@ -46,6 +46,7 @@ Welcome to the **Class Management Tools** comprehensive documentation. This guid
   - [Participation Tracker (`participation-tracker.html`)](#participation-trackerhtml)
   - [Administrative Groups (`administrative-groups.html`)](#administrative-groupshtml)
   - [Document Editor (`document-editor.html`)](#document-editorhtml)
+  - [How-To Guide (`how-to.html`)](#how-tohtml)
   - [Data Location (Legacy) (`data-location.html`)](#data-locationhtml)
 
 </details>
@@ -77,7 +78,10 @@ If you downloaded a ZIP file, extract the entire folder before launching. Double
 ### 2. First launch checklist
 
 1. **Open the Launcher** — double-click `Class Management Tools.exe` (or run `npm start` / launch script). The [Launcher](#launcherhtml) is the home screen for all tools.
-2. **Set your language** — click [General Config](#general-confightml) (⚙ gear icon) → **General tab** and pick your interface language (English 🇬🇧, French 🇫🇷, German 🇩🇪, or Italian 🇮🇹).
+2. **First-Launch Onboarding Modal** — on first launch without a `user/` folder, the Launcher automatically opens the setup wizard:
+   - **Language Selection**: Choose your preferred language (English 🇬🇧, French 🇫🇷, German 🇩🇪, or Italian 🇮🇹); the UI immediately translates in real time.
+   - **Data Location**: Click **Choose Folder…** to select an existing data directory (USB drive, cloud folder, or previous installation) or **Use Default Location** to proceed with the recommended local directory.
+   - **Guided Tour & Manual**: Click **Take a Tour of the Launcher** for an interactive walkthrough, or **Open How-To Guide** for comprehensive documentation.
 3. **Create your classes** — open [Group Editor](#group-editorhtml) and add your class groups and student rosters. This step is essential as all tools draw student data from Group Editor.
 4. **Explore the tools** — return to the Launcher and open any tool. Each tool features a built-in **?** help button in its toolbar to launch interactive documentation.
 
@@ -107,6 +111,7 @@ If you downloaded a ZIP file, extract the entire folder before launching. Double
 | [`participation-tracker.html`](#participation-trackerhtml) | Participation & attendance analytics dashboard with weekly trend line charts, student score distributions, multi-group comparisons, dynamic window positioning, full i18n, and provisional grading rules | Exports provisional grades to [Grade Sheet](#grade-sheethtml) |
 | [`administrative-groups.html`](#administrative-groupshtml) | Comprehensive student administrative tracker, medical & SEN accommodation manager, infraction point scoring, automated sanction rules engine, period chips, student action timeline, and multi-format reports | Syncs with [Group Editor](#group-editorhtml) & master student roster |
 | [`document-editor.html`](#document-editorhtml) | Multi-format document editor supporting Typst (`.typ`), Markdown (`.md`), and HTML (`.html`) with WebAssembly live preview, Monaco syntax highlighting, native vector PDF export, Mailposting batch student reports, and built-in Syntax Guide | Edits `.typ` / `.md` / `.html` files suite-wide |
+| [`how-to.html`](#how-tohtml) | Comprehensive built-in user guide, interactive tool manuals, and local storage inspector with instant Neobrutalist search modal (`Ctrl+K`), keyword previews, keyboard navigation, and target highlight pulses | Accessible from tool headers via **?** buttons and Launcher |
 | [`data-location.html`](#data-locationhtml) | Legacy data-folder configuration page (superseded by General Config) | Deprecated |
 
 ---
@@ -330,6 +335,7 @@ The central entry point for the suite. Opens on app launch and provides quick na
   - **⚙ Config**: Launches [General Config](#general-confightml).
   - **? How To**: Opens built-in documentation with direct *Reveal Folder* disk links.
   - **▶ Tour**: Triggers an interactive step-by-step onboarding guide.
+- **First-Launch Onboarding Wizard**: Automatically appears on first launch if no data directory is configured. Offers instant interface language selection (FR, EN, DE, IT), data directory selection (custom directory/USB/cloud sync vs. recommended local default), interactive tour launch, and direct how-to guide access.
 - **Crash Recovery & Session Restoration**: Reopens on app startup even when recovering from an unexpected exit or crash, ensuring uninterrupted access to launcher navigation alongside all restored tool windows.
 
 ---
@@ -647,6 +653,7 @@ Centralized content, curriculum, and assessment database editor supporting multi
 - **Lesson Phase Templates**: Store pedagogical lesson blocks with duration, interaction patterns (Whole Class, Pair, Group, Individual), and dual teacher/student action plans for Lesson Creator.
 - **Personalised Observation Chips**: Create themed qualitative observation feedback chips with seamless switching between Table View and Visual Chips View.
 - **Multi-Language Schema**: Stores English, French, German, and Italian translations for word banks; active UI language automatically selects the appropriate column.
+- **Multi-Selection Filter Bar Dropdowns**: All categorical filter dropdowns in the toolbar (such as Level, Part of Speech, Theme, Category, etc.) support multi-selection with custom Neobrutalist checkbox menus. Enables multi-attribute OR filtering within fields and AND filtering across fields, with live count badges, "Select All" and "Clear" quick buttons, interactive search filtering for long option lists, and full export synchronization.
 - **Productivity, Batch Editing & Element Prefix/Suffix**: Deduplication (`Remove Dupes`) to clean redundant entries, batch multi-record selection and editing across Competences, Criteria, Scales, Personalised Chips, and Word Banks, dynamic **ID & Code templating** (`{n}`, `{0n}`, `{00n}`) for bulk identifier restructuring, dedicated **Prefix & Suffix** bulk utility for elements (e.g. IDs, observation chips, titles, codes, criteria names), copying/moving across files, and built-in `AI Prompt` generation tailored for LLMs.
 - **Multi-Format Exporting**: Column picker export to CSV, vector PDF, styled editable HTML table, Excel (XLSX), and Word (DOCX).
 
@@ -761,6 +768,20 @@ Multi-format desktop document editor and typesetting suite supporting **Typst (`
 - **Book Text Import**: Browse and extract text passages directly from `custom-data/books/` (`.epub`, `.html`, `.txt`) into active documents.
 - **Presentation Mode**: Broadcasts clean, live-rendered vector SVGs or HTML previews to secondary display monitors or classroom beamers.
 - **Export Options**: Export to native vector PDF, DOCX, or HTML with automatic document metadata and PDF title reflection matching the actual file title.
+
+---
+
+### how-to.html
+
+Built-in comprehensive user manual and data directory reference map for the entire Class Management Tools suite.
+
+#### Features
+- **Neobrutalist Search Modal (`Ctrl+K` / `/`)**: Fast instant search modal that queries all tools, section overviews, accordion guides, and saved storage paths without disrupting or collapsing sidebar navigation.
+  - Features real-time keyword scoring, category badges, context preview snippets with highlighted query terms, and full keyboard navigation (`↑`/`↓` to navigate, `Enter` to open, `Esc` to close).
+  - Automatically scrolls to matching topics, expands relevant accordions, and highlights the target section with a visual pulse animation.
+- **Tool-by-Tool User Manual**: Structured documentation for every tool with setup steps, feature explanations, and configuration tips.
+- **Storage Location Inspector**: Interactive "Saved In" panel detailing local paths for every tool with direct **Open folder** and **Reveal folder** native desktop actions.
+- **Batch Accordion Controls**: One-click **Expand all** and **Collapse all** actions with persistent sidebar synchronisation.
 
 ---
 

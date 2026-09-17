@@ -217,6 +217,8 @@
       border-bottom: 2px solid #111;
       align-items: flex-end;
       flex-shrink: 0;
+      position: relative;
+      z-index: 10;
     }
     .fc { display: flex; flex-direction: column; gap: 3px; }
     .fl { font-size: 0.64rem; font-weight: 800; color: #888; text-transform: uppercase; letter-spacing: 0.8px; }
@@ -226,6 +228,181 @@
       min-width: 80px; max-width: 170px;
     }
     .fc select:focus, .fc input:focus { outline: none; border-color: #111; }
+
+    /* ── Multi-select Dropdown Menus in Filter Bar ───────── */
+    .mdb-ms-wrap {
+      position: relative;
+    }
+    .mdb-ms-btn {
+      border: 2px solid #111;
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-family: inherit;
+      font-size: 0.82rem;
+      background: #fff;
+      color: #111;
+      min-width: 95px;
+      max-width: 190px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      cursor: pointer;
+      user-select: none;
+      box-sizing: border-box;
+      transition: background 0.12s ease, box-shadow 0.12s ease;
+    }
+    .mdb-ms-btn:hover {
+      background: #f0f0f0;
+    }
+    .mdb-ms-btn:focus-visible {
+      outline: 2px solid #111;
+      outline-offset: 1px;
+    }
+    .mdb-ms-btn.active {
+      background: #eef5ff;
+      font-weight: 700;
+    }
+    .mdb-ms-wrap.open .mdb-ms-btn {
+      box-shadow: 2px 2px 0px #111;
+    }
+    .mdb-ms-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-align: left;
+      flex: 1;
+    }
+    .mdb-ms-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #111;
+      color: #fff;
+      font-size: 0.68rem;
+      font-weight: 800;
+      border-radius: 10px;
+      padding: 0 5px;
+      min-width: 16px;
+      height: 16px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .mdb-ms-arrow {
+      width: 12px;
+      height: 12px;
+      flex-shrink: 0;
+      transition: transform 0.15s ease;
+    }
+    .mdb-ms-wrap.open .mdb-ms-arrow {
+      transform: rotate(180deg);
+    }
+    .mdb-ms-menu {
+      display: none;
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      z-index: 500;
+      min-width: 190px;
+      max-width: 280px;
+      background: #fff;
+      border: 2px solid #111;
+      border-radius: 4px;
+      box-shadow: 3px 3px 0px #111;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .mdb-ms-wrap.open .mdb-ms-menu {
+      display: flex;
+    }
+    .mdb-ms-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 8px;
+      background: #f4f4f4;
+      border-bottom: 2px solid #111;
+      gap: 6px;
+    }
+    .mdb-ms-action-btn {
+      background: #fff;
+      border: 1.5px solid #111;
+      border-radius: 3px;
+      font-family: inherit;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #111;
+      cursor: pointer;
+      padding: 2px 6px;
+      box-shadow: 1px 1px 0px #111;
+      transition: transform 0.1s ease, background 0.1s ease;
+    }
+    .mdb-ms-action-btn:hover {
+      background: #fef08a;
+      transform: translate(-1px, -1px);
+      box-shadow: 2px 2px 0px #111;
+    }
+    .mdb-ms-action-btn:active {
+      transform: translate(1px, 1px);
+      box-shadow: 0px 0px 0px #111;
+    }
+    .mdb-ms-search-wrap {
+      padding: 4px 6px;
+      border-bottom: 1px solid #eee;
+      background: #fff;
+    }
+    .mdb-ms-search {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1.5px solid #111;
+      border-radius: 3px;
+      padding: 3px 6px;
+      font-family: inherit;
+      font-size: 0.76rem;
+      background: #fff;
+      outline: none;
+    }
+    .mdb-ms-search:focus {
+      border-color: #111;
+      background: #fafafa;
+    }
+    .mdb-ms-list {
+      max-height: 220px;
+      overflow-y: auto;
+      padding: 3px 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .mdb-ms-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 4px 8px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      user-select: none;
+      transition: background 0.1s ease;
+    }
+    .mdb-ms-item:hover {
+      background: #f0f0f0;
+    }
+    .mdb-ms-item.selected {
+      background: #f0f6ff;
+      font-weight: 600;
+    }
+    .mdb-ms-cb {
+      width: 14px;
+      height: 14px;
+      cursor: pointer;
+      accent-color: #111;
+      flex-shrink: 0;
+    }
+    .mdb-ms-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+    }
 
     /* ── Table ───────────────────────────────────────────── */
     #table-wrap { flex: 1; overflow: auto; }

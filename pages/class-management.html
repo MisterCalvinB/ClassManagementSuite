@@ -18528,10 +18528,11 @@ ${body}
                         }
 
                         const isBlinking = typeof _activeBlinkStudentId !== 'undefined' && _activeBlinkStudentId === student.id && (Date.now() - _activeBlinkTime < 4000);
+                        const hasFlags = !!(student.isFlagged || (typeof getActiveFlags === 'function' && getActiveFlags(student).length > 0));
                         li.className = 'roster-plan-cell' +
                             (student.isPicked ? ' picked' : '') +
                             (student.isAbsent ? ' absent' : '') +
-                            (student.isFlagged ? ' flagged' : '') +
+                            (hasFlags ? ' flagged' : '') +
                             (isBlinking ? ' picked-blink' : '');
                         li.setAttribute('data-student-id', student.id);
                         li.setAttribute('data-row', r);
@@ -18567,12 +18568,14 @@ ${body}
                         const abbrev = getDisplayName(student);
                         const isSen = !!(student.sen || (student.uuid && studentRoster[student.uuid]?.sen));
                         const senStarHtml = (senVisible && !PRESENTATION_MODE && isSen) ? '<span class="sen-indicator" title="SEN" style="color:#e11d48;font-weight:bold;margin-left:2px;">*</span>' : '';
+                        const flagsHtml = renderStudentFlagsHtml(student);
 
                         li.innerHTML = `
                     <span class="student-name rpc-name" onclick="toggleStrike(${student.id})" title="${student.name}">
-                        ${abbrev}${senStarHtml}${renderStudentFlagsHtml(student)}
+                        ${abbrev}${senStarHtml}
                         ${student.role && rolesVisible ? `<i class="student-role-tag" onclick="event.stopPropagation(); changeStudentRole(${student.id})">${student.role}</i>` : ''}
                     </span>
+                    ${flagsHtml ? `<div class="rpc-flags">${flagsHtml}</div>` : ''}
                     <div class="badges rpc-badges" id="badges-row-${student.id}" style="${badgesVisible ? '' : 'display:none'}">
                         <span class="student-badges-earned">${badgeSpans}</span>
                         <span class="p-plus" onclick="mod(${student.id}, 'p', -1)">${plusDisplay}</span>
@@ -18623,10 +18626,11 @@ ${body}
                 return li;
             }
             const isBlinking = typeof _activeBlinkStudentId !== 'undefined' && _activeBlinkStudentId === student.id && (Date.now() - _activeBlinkTime < 4000);
+            const hasFlags = !!(student.isFlagged || (typeof getActiveFlags === 'function' && getActiveFlags(student).length > 0));
             li.className = 'roster-plan-cell' +
                 (student.isPicked ? ' picked' : '') +
                 (student.isAbsent ? ' absent' : '') +
-                (student.isFlagged ? ' flagged' : '') +
+                (hasFlags ? ' flagged' : '') +
                 (isBlinking ? ' picked-blink' : '');
             li.setAttribute('data-student-id', student.id);
             li.setAttribute('data-seat-id', seatId);
@@ -18668,11 +18672,13 @@ ${body}
             const abbrev = getDisplayName(student);
             const isSen = !!(student.sen || (student.uuid && studentRoster[student.uuid]?.sen));
             const senStarHtml = (senVisible && !PRESENTATION_MODE && isSen) ? '<span class="sen-indicator" title="SEN" style="color:#e11d48;font-weight:bold;margin-left:2px;">*</span>' : '';
+            const flagsHtml = renderStudentFlagsHtml(student);
             li.innerHTML = `
         <span class="student-name rpc-name" onclick="toggleStrike(${student.id})" title="${student.name}">
-            ${abbrev}${senStarHtml}${renderStudentFlagsHtml(student)}
+            ${abbrev}${senStarHtml}
             ${student.role && rolesVisible ? `<i class="student-role-tag" onclick="event.stopPropagation(); changeStudentRole(${student.id})">${student.role}</i>` : ''}
         </span>
+        ${flagsHtml ? `<div class="rpc-flags">${flagsHtml}</div>` : ''}
         <div class="badges rpc-badges" id="badges-row-${student.id}" style="${badgesVisible ? '' : 'display:none'}">
             <span class="student-badges-earned">${badgeSpans}</span>
             <span class="p-plus" onclick="mod(${student.id}, 'p', -1)">${plusDisplay}</span>
