@@ -90,6 +90,12 @@ const exposedApi = {
   openHtml(request) {
     return invoke('app:open-html', request);
   },
+  setAlwaysOnTop(flag) {
+    return invoke('app:set-always-on-top', flag);
+  },
+  isAlwaysOnTop() {
+    return invoke('app:is-always-on-top');
+  },
   printHtml(request) {
     return invoke('app:print-html', request);
   },

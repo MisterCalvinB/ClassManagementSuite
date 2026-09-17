@@ -246,6 +246,16 @@
     return getDesktopApi().openHtml(request);
   }
 
+  async function setAlwaysOnTop(flag) {
+    if (!isElectron()) return null;
+    return getDesktopApi().setAlwaysOnTop(flag);
+  }
+
+  async function isAlwaysOnTop() {
+    if (!isElectron()) return { ok: false, alwaysOnTop: false };
+    return getDesktopApi().isAlwaysOnTop();
+  }
+
   async function printHtml(request) {
     if (!isElectron()) return null;
     if (typeof request === 'string') {
@@ -992,6 +1002,8 @@
     deleteFile,
     deleteByPath,
     openHtml,
+    setAlwaysOnTop,
+    isAlwaysOnTop,
     printHtml,
     printPdf,
     exportDocx,

@@ -59,6 +59,7 @@
         <div class="nav-group-popup">
           <button class="nav-pop-item" onclick="lcToggleDrawer('competences')"><span data-i18n="lcCompetenceBank">Competence Bank</span> <span class="nav-pop-hint">Ctrl+B</span></button>
           <button class="nav-pop-item" onclick="lcToggleDrawer('activities')"><span data-i18n="lcActivityBank">Activity Bank</span> <span class="nav-pop-hint">Ctrl+Shift+B</span></button>
+          <button class="nav-pop-item" onclick="lcOpenFloatingCompanion()"><span data-i18n="lcFloatingCompanion">Floating Companion…</span></button>
           <button class="nav-pop-item" onclick="lcOpenCoverageModal()"><span data-i18n="lcCoverageMatrix">Curriculum Coverage…</span> <span class="nav-pop-hint">Ctrl+M</span></button>
         </div>
       </div>
@@ -68,6 +69,7 @@
         <button class="nav-btn" data-i18n="menuTools">Tools</button>
         <div class="nav-group-popup">
           <button class="nav-pop-item" onclick="lcRunInClassManagement()"><span data-i18n="lcRunCMS">Run in Class Management</span> <span class="nav-pop-hint">Ctrl+R</span></button>
+          <button class="nav-pop-item" onclick="lcOpenFloatingCompanion()"><span data-i18n="lcFloatingCompanion">Floating Companion…</span></button>
           <button class="nav-pop-item" onclick="lcOpenBoardExportModal()"><span data-i18n="lcExportBoard">Export to Board (Mindmap)…</span></button>
           <button class="nav-pop-item" onclick="lcOpenPlannerLinkModal()"><span data-i18n="lcLinkPlanner">Link to Planner Slot…</span></button>
           <button class="nav-pop-item" onclick="lcOpenCompetencePortfolio()"><span data-i18n="lcBtnCompetencePortfolio">Competence Portfolio…</span></button>
@@ -146,6 +148,7 @@
 
         <div class="meta-actions">
           <button class="neo-btn success" onclick="lcRunInClassManagement()" title="Launch active session runner in Class Management"><span data-i18n="lcRunCMS">Run</span></button>
+          <button class="neo-btn purple" onclick="lcOpenFloatingCompanion()" title="Open floating mini-window with lesson plan & timings"><span data-i18n="lcFloatingCompanion">Companion</span></button>
           <button class="neo-btn primary" onclick="lcSavePlan()"><span data-i18n="btnSave">Save</span></button>
           <button class="neo-btn active" id="drawerToggleBtn" onclick="lcToggleDrawer('competences')"><span data-i18n="lcCompetences">Competences</span></button>
           <button class="neo-btn" id="drawerActivitiesToggleBtn" onclick="lcToggleDrawer('activities')"><span data-i18n="lcActivities">Activities</span></button>
@@ -180,6 +183,7 @@
           </div>
 
           <div style="display:flex;align-items:center;gap:8px;">
+            <button class="neo-btn purple" style="padding:5px 10px;font-size:0.82rem;" onclick="lcOpenFloatingCompanion()" title="Floating Lesson Companion"><span data-i18n="lcFloatingCompanion">⏱ Companion</span></button>
             <button class="neo-btn" style="padding:5px 10px;font-size:0.82rem;" onclick="lcOpenTemplatePicker()"><span data-i18n="lcTemplates">Templates</span></button>
             <button class="neo-btn primary" style="padding:5px 10px;font-size:0.82rem;" onclick="lcAddPhase()">+ <span data-i18n="lcAddPhase">Add Phase</span></button>
           </div>
@@ -263,8 +267,15 @@
         <div id="panelActivities" class="drawer-tab-panel" style="display:none;">
           <div class="drawer-header">
             <div class="drawer-title"><span data-i18n="lcActivityBank">Activity Bank</span></div>
-            <div style="display:flex;gap:6px;align-items:center;">
-              <button class="neo-btn primary" style="padding:4px 8px;font-size:0.75rem;" onclick="lcOpenPhaseDb()"><span data-i18n="lcOpenPhaseDb">Open DB</span></button>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+              <div class="drawer-preset-group">
+                <button type="button" class="drawer-preset-btn active" id="btnActPresetDetailed" onclick="lcSetActivityPreset('detailed')" title="Detailed View">Full</button>
+                <button type="button" class="drawer-preset-btn" id="btnActPresetCompact" onclick="lcSetActivityPreset('compact')" title="Compact View">Compact</button>
+                <button type="button" class="drawer-preset-btn" id="btnActPresetMinimal" onclick="lcSetActivityPreset('minimal')" title="Minimal View">Mini</button>
+              </div>
+              <button type="button" class="neo-btn" style="padding:4px 8px;font-size:0.75rem;" id="btnToggleExpandAllActivities" onclick="lcToggleAllActivitiesExpanded()"><span id="txtToggleExpandActivities" data-i18n="lcExpandAll">Expand All</span></button>
+              <button type="button" class="neo-btn purple" style="padding:4px 8px;font-size:0.75rem;" onclick="lcOpenActivityCustomizeModal()"><span data-i18n="lcCustomiseView">Customise View</span></button>
+              <button type="button" class="neo-btn primary" style="padding:4px 8px;font-size:0.75rem;" onclick="lcOpenPhaseDb()"><span data-i18n="lcOpenPhaseDb">Open DB</span></button>
             </div>
           </div>
 
@@ -416,6 +427,116 @@
     </div>
   </div>
 
+  <!-- Activity Customise View Modal -->
+  <div id="activityCustomizeModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="max-width:640px;">
+      <div class="modal-header">
+        <div><span data-i18n="lcCustomiseActivityTitle">Customise Activity Panel</span></div>
+        <button class="icon-btn" onclick="lcCloseModal('activityCustomizeModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        
+        <!-- Display Preset Selection -->
+        <div>
+          <label style="font-weight:900;font-size:0.9rem;display:block;margin-bottom:6px;" data-i18n="lcPresetLabel">Display Presets:</label>
+          <div style="display:flex;gap:16px;">
+            <label style="font-weight:700;font-size:0.85rem;display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="radio" name="actPresetMode" value="detailed" onchange="lcOnActivityPresetChange('detailed')">
+              <span data-i18n="lcPresetDetailed">Detailed (Full)</span>
+            </label>
+            <label style="font-weight:700;font-size:0.85rem;display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="radio" name="actPresetMode" value="compact" onchange="lcOnActivityPresetChange('compact')">
+              <span data-i18n="lcPresetCompact">Compact (Summary)</span>
+            </label>
+            <label style="font-weight:700;font-size:0.85rem;display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="radio" name="actPresetMode" value="minimal" onchange="lcOnActivityPresetChange('minimal')">
+              <span data-i18n="lcPresetMinimalDesc">Minimal (Compact List)</span>
+            </label>
+          </div>
+        </div>
+
+        <hr style="border:none;border-top:1px dashed var(--neo-gray-mid);margin:8px 0;">
+
+        <!-- Field Visibility Toggles Grid -->
+        <div style="font-weight:900;font-size:0.9rem;margin-bottom:8px;" data-i18n="lcActivityFieldVisibility">Activity Card Field Visibility:</div>
+        <div class="customize-field-grid">
+          
+          <div class="customize-toggle-item">
+            <span data-i18n="lcShowActivityTitle">Title & Name</span>
+            <label class="neo-switch">
+              <input type="checkbox" id="cfgActShowTitle" checked>
+              <span class="neo-switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="customize-toggle-item">
+            <span data-i18n="lcShowActivityDuration">Duration Badge</span>
+            <label class="neo-switch">
+              <input type="checkbox" id="cfgActShowDuration" checked>
+              <span class="neo-switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="customize-toggle-item">
+            <span data-i18n="lcShowActivityType">Activity Type Pill</span>
+            <label class="neo-switch">
+              <input type="checkbox" id="cfgActShowType" checked>
+              <span class="neo-switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="customize-toggle-item">
+            <span data-i18n="lcShowActivityMode">Interaction Mode Pill</span>
+            <label class="neo-switch">
+              <input type="checkbox" id="cfgActShowMode" checked>
+              <span class="neo-switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="customize-toggle-item">
+            <span data-i18n="lcShowActivityCategory">Category Badge</span>
+            <label class="neo-switch">
+              <input type="checkbox" id="cfgActShowCategory" checked>
+              <span class="neo-switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="customize-toggle-item">
+            <span data-i18n="lcShowActivityDescription">Descriptions & Prompts</span>
+            <label class="neo-switch">
+              <input type="checkbox" id="cfgActShowDescription" checked>
+              <span class="neo-switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="customize-toggle-item">
+            <span data-i18n="lcShowActivityTags">Keywords & Tags</span>
+            <label class="neo-switch">
+              <input type="checkbox" id="cfgActShowTags" checked>
+              <span class="neo-switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="customize-toggle-item">
+            <span data-i18n="lcShowActivityActions">Add Button (+ Add to Lesson)</span>
+            <label class="neo-switch">
+              <input type="checkbox" id="cfgActShowActions" checked>
+              <span class="neo-switch-slider"></span>
+            </label>
+          </div>
+
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button class="neo-btn danger" onclick="lcResetActivityConfig()"><span data-i18n="lcResetDefaults">Reset Defaults</span></button>
+        <div style="margin-left:auto;display:flex;gap:8px;">
+          <button class="neo-btn" onclick="lcCloseModal('activityCustomizeModal')"><span data-i18n="btnCancel">Cancel</span></button>
+          <button class="neo-btn primary" onclick="lcSaveActivityConfig()"><span data-i18n="btnSave">Save & Apply</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Coverage Matrix Modal -->
   <div id="coverageModal" class="modal-overlay" style="display:none;">
@@ -1366,6 +1487,59 @@
         } catch (_) {}
       }
 
+      var DEFAULT_ACTIVITY_CONFIG = {
+        preset: 'detailed',
+        showTitle: true,
+        showDuration: true,
+        showType: true,
+        showMode: true,
+        showCategory: true,
+        showDescription: true,
+        showTags: true,
+        showActions: true
+      };
+
+      var activityDisplayConfig = Object.assign({}, DEFAULT_ACTIVITY_CONFIG);
+
+      async function loadActivityDisplayConfig() {
+        try {
+          if (window.Desktop && typeof Desktop.readText === 'function') {
+            var res = await Desktop.readText('user', 'activity-display-config.json');
+            if (res && res.ok && res.content) {
+              var parsed = JSON.parse(res.content);
+              if (parsed && typeof parsed === 'object') {
+                activityDisplayConfig = Object.assign({}, DEFAULT_ACTIVITY_CONFIG, parsed);
+                return;
+              }
+            }
+          }
+        } catch (_) {}
+
+        try {
+          var local = localStorage.getItem('cmt-activity-display-config');
+          if (local) {
+            var parsedLocal = JSON.parse(local);
+            if (parsedLocal && typeof parsedLocal === 'object') {
+              activityDisplayConfig = Object.assign({}, DEFAULT_ACTIVITY_CONFIG, parsedLocal);
+            }
+          }
+        } catch (_) {}
+      }
+
+      async function saveActivityDisplayConfigToDisk() {
+        try {
+          localStorage.setItem('cmt-activity-display-config', JSON.stringify(activityDisplayConfig));
+        } catch (_) {}
+
+        try {
+          if (window.Desktop && typeof Desktop.saveJson === 'function') {
+            await Desktop.saveJson('user', 'activity-display-config.json', activityDisplayConfig);
+          } else if (window.Desktop && typeof Desktop.saveText === 'function') {
+            await Desktop.saveText('user', 'activity-display-config.json', JSON.stringify(activityDisplayConfig, null, 2));
+          }
+        } catch (_) {}
+      }
+
       function initDrawerResizer() {
         var resizer = document.getElementById('drawerResizer');
         var workspace = document.getElementById('mainWorkspace');
@@ -1494,6 +1668,7 @@
 
         initDropdowns();
         await loadCompetenceDisplayConfig();
+        await loadActivityDisplayConfig();
         initDrawerResizer();
         initFixedDrawer();
         await loadClassRosters();
@@ -2720,6 +2895,196 @@
         if (typeof showToast === 'function') showToast('Competence settings reset to defaults.');
       };
 
+      // ── Activity Customization & View Toggles ─────────────────────────────
+      window.lcOpenActivityCustomizeModal = function () {
+        var cfg = activityDisplayConfig;
+        var radios = document.getElementsByName('actPresetMode');
+        radios.forEach(function (r) {
+          r.checked = (r.value === (cfg.preset || 'detailed'));
+        });
+
+        document.getElementById('cfgActShowTitle').checked = !!cfg.showTitle;
+        document.getElementById('cfgActShowDuration').checked = !!cfg.showDuration;
+        document.getElementById('cfgActShowType').checked = !!cfg.showType;
+        document.getElementById('cfgActShowMode').checked = !!cfg.showMode;
+        document.getElementById('cfgActShowCategory').checked = !!cfg.showCategory;
+        document.getElementById('cfgActShowDescription').checked = !!cfg.showDescription;
+        document.getElementById('cfgActShowTags').checked = !!cfg.showTags;
+        document.getElementById('cfgActShowActions').checked = !!cfg.showActions;
+
+        var m = document.getElementById('activityCustomizeModal');
+        if (m) m.style.display = 'flex';
+      };
+
+      window.lcOnActivityPresetChange = function (presetMode) {
+        if (presetMode === 'detailed' || presetMode === 'compact') {
+          document.getElementById('cfgActShowTitle').checked = true;
+          document.getElementById('cfgActShowDuration').checked = true;
+          document.getElementById('cfgActShowType').checked = true;
+          document.getElementById('cfgActShowMode').checked = true;
+          document.getElementById('cfgActShowCategory').checked = true;
+          document.getElementById('cfgActShowDescription').checked = true;
+          document.getElementById('cfgActShowTags').checked = true;
+          document.getElementById('cfgActShowActions').checked = true;
+        } else if (presetMode === 'minimal') {
+          document.getElementById('cfgActShowTitle').checked = true;
+          document.getElementById('cfgActShowDuration').checked = true;
+          document.getElementById('cfgActShowType').checked = true;
+          document.getElementById('cfgActShowMode').checked = true;
+          document.getElementById('cfgActShowCategory').checked = true;
+          document.getElementById('cfgActShowDescription').checked = false;
+          document.getElementById('cfgActShowTags').checked = false;
+          document.getElementById('cfgActShowActions').checked = true;
+        }
+      };
+
+      window.lcSaveActivityConfig = async function () {
+        var selectedPreset = 'detailed';
+        var radios = document.getElementsByName('actPresetMode');
+        for (var i = 0; i < radios.length; i++) {
+          if (radios[i].checked) {
+            selectedPreset = radios[i].value;
+            break;
+          }
+        }
+
+        activityDisplayConfig = {
+          preset: selectedPreset,
+          showTitle: document.getElementById('cfgActShowTitle').checked,
+          showDuration: document.getElementById('cfgActShowDuration').checked,
+          showType: document.getElementById('cfgActShowType').checked,
+          showMode: document.getElementById('cfgActShowMode').checked,
+          showCategory: document.getElementById('cfgActShowCategory').checked,
+          showDescription: document.getElementById('cfgActShowDescription').checked,
+          showTags: document.getElementById('cfgActShowTags').checked,
+          showActions: document.getElementById('cfgActShowActions').checked
+        };
+
+        await saveActivityDisplayConfigToDisk();
+        lcCloseModal('activityCustomizeModal');
+        renderActivityDrawer();
+        if (typeof showToast === 'function') showToast('Activity view customization saved!');
+      };
+
+      window.lcResetActivityConfig = async function () {
+        activityDisplayConfig = Object.assign({}, DEFAULT_ACTIVITY_CONFIG);
+        await saveActivityDisplayConfigToDisk();
+        lcOpenActivityCustomizeModal();
+        renderActivityDrawer();
+        if (typeof showToast === 'function') showToast('Activity settings reset to defaults.');
+      };
+
+      window.lcSetActivityPreset = async function (preset) {
+        if (!preset) return;
+        activityDisplayConfig.preset = preset;
+        if (preset === 'detailed' || preset === 'compact') {
+          activityDisplayConfig.showTitle = true;
+          activityDisplayConfig.showDuration = true;
+          activityDisplayConfig.showType = true;
+          activityDisplayConfig.showMode = true;
+          activityDisplayConfig.showCategory = true;
+          activityDisplayConfig.showDescription = true;
+          activityDisplayConfig.showTags = true;
+          activityDisplayConfig.showActions = true;
+        } else if (preset === 'minimal') {
+          activityDisplayConfig.showTitle = true;
+          activityDisplayConfig.showDuration = true;
+          activityDisplayConfig.showType = true;
+          activityDisplayConfig.showMode = true;
+          activityDisplayConfig.showCategory = true;
+          activityDisplayConfig.showDescription = false;
+          activityDisplayConfig.showTags = false;
+          activityDisplayConfig.showActions = true;
+        }
+        await saveActivityDisplayConfigToDisk();
+        renderActivityDrawer();
+      };
+
+      window.lcToggleSingleActivityCard = function (btn) {
+        var card = btn.closest('.drawer-activity-card');
+        if (!card) return;
+        card.classList.toggle('expanded');
+        var isExp = card.classList.contains('expanded');
+        btn.textContent = isExp ? (i18n.t('lcDetailsCollapse') || 'Details ▲') : (i18n.t('lcDetailsExpand') || 'Details ▾');
+      };
+
+      window.lcToggleAllActivitiesExpanded = function () {
+        var list = document.getElementById('drawerActivitiesList');
+        if (!list) return;
+        var cards = list.querySelectorAll('.drawer-activity-card');
+        if (cards.length === 0) return;
+
+        var someCollapsed = Array.prototype.some.call(cards, function (c) {
+          return !c.classList.contains('expanded');
+        });
+
+        cards.forEach(function (c) {
+          if (someCollapsed) {
+            c.classList.add('expanded');
+          } else {
+            c.classList.remove('expanded');
+          }
+          var toggleBtn = c.querySelector('.card-expand-toggle');
+          if (toggleBtn) {
+            toggleBtn.textContent = someCollapsed ? (i18n.t('lcDetailsCollapse') || 'Details ▲') : (i18n.t('lcDetailsExpand') || 'Details ▾');
+          }
+        });
+
+        var btnText = document.getElementById('txtToggleExpandActivities');
+        if (btnText) {
+          btnText.textContent = someCollapsed ? (i18n.t('lcCollapseAll') || 'Collapse All') : (i18n.t('lcExpandAll') || 'Expand All');
+        }
+      };
+
+      // ── Floating Companion & Live Sync ────────────────────────────────────
+      var _liveBroadcastTimer = null;
+      function broadcastLivePlan() {
+        if (_liveBroadcastTimer) clearTimeout(_liveBroadcastTimer);
+        _liveBroadcastTimer = setTimeout(function () {
+          try {
+            localStorage.setItem('cmt-active-lesson-plan', JSON.stringify(currentPlan));
+            if (typeof BroadcastChannel !== 'undefined') {
+              var ch = new BroadcastChannel('cmt-lesson-plan-live');
+              ch.postMessage({ type: 'plan-updated', plan: currentPlan });
+              ch.close();
+            }
+          } catch (_) {}
+        }, 150);
+      }
+
+      window.lcOpenFloatingCompanion = async function () {
+        try {
+          localStorage.setItem('cmt-active-lesson-plan', JSON.stringify(currentPlan));
+        } catch (_) {}
+
+        try {
+          if (typeof BroadcastChannel !== 'undefined') {
+            var ch = new BroadcastChannel('cmt-lesson-plan-live');
+            ch.postMessage({ type: 'plan-sync', plan: currentPlan });
+            ch.close();
+          }
+        } catch (_) {}
+
+        if (window.Desktop && typeof Desktop.openHtml === 'function') {
+          await Desktop.openHtml({
+            pageFile: 'lesson-companion.html',
+            width: 350,
+            height: 580,
+            minWidth: 280,
+            minHeight: 400,
+            title: 'Lesson Companion — ' + (currentPlan.title || 'Plan'),
+            alwaysOnTop: true,
+            autoHideMenuBar: true
+          });
+        } else {
+          window.open('lesson-companion.html', 'cmtLessonCompanion', 'width=350,height=580,top=100,left=100,resizable=yes');
+        }
+
+        if (typeof showToast === 'function') {
+          showToast(i18n.t('lcFloatingCompanion') + ' opened!');
+        }
+      };
+
       window.lcResetAllDrawerFilters = function () {
         document.getElementById('drawerSearch').value = '';
         document.getElementById('drawerFilterSubject').value = 'all';
@@ -2769,6 +3134,7 @@
         currentPlan.date = document.getElementById('planDate').value;
         currentPlan.targetDuration = Number(document.getElementById('planTargetDuration').value) || 60;
         updateDurationMeter();
+        broadcastLivePlan();
       };
 
       window.lcOnSubjectChange = function () {
@@ -3241,6 +3607,15 @@
         var list = document.getElementById('drawerActivitiesList');
         if (!list) return;
 
+        // Update preset buttons active state
+        var pDetailed = document.getElementById('btnActPresetDetailed');
+        var pCompact = document.getElementById('btnActPresetCompact');
+        var pMinimal = document.getElementById('btnActPresetMinimal');
+        var curPreset = (activityDisplayConfig && activityDisplayConfig.preset) || 'detailed';
+        if (pDetailed) pDetailed.classList.toggle('active', curPreset === 'detailed');
+        if (pCompact) pCompact.classList.toggle('active', curPreset === 'compact');
+        if (pMinimal) pMinimal.classList.toggle('active', curPreset === 'minimal');
+
         var searchInput = document.getElementById('drawerActivitySearch');
         var rawQuery = searchInput ? (searchInput.value || '').toLowerCase().trim() : '';
 
@@ -3339,9 +3714,16 @@
           return;
         }
 
+        var cfg = activityDisplayConfig || DEFAULT_ACTIVITY_CONFIG;
+
         filtered.forEach(function (p) {
           var card = document.createElement('div');
           card.className = 'drawer-activity-card';
+          if (cfg.preset === 'compact') {
+            card.classList.add('compact-mode');
+          } else if (cfg.preset === 'minimal') {
+            card.classList.add('minimal-mode');
+          }
           card.draggable = true;
           card.dataset.id = p.id;
 
@@ -3383,22 +3765,47 @@
             : '';
 
           var tagsArr = Array.isArray(p.tags) ? p.tags : (p.tags ? [p.tags] : []);
-          var tagsHtml = tagsArr.length > 0 ? ('<span class="drawer-act-tags" title="' + escapeHtml(tagsArr.join(', ')) + '">' + escapeHtml(tagsArr.join(', ')) + '</span>') : '<span></span>';
+          var tagsHtml = tagsArr.length > 0 ? ('<span class="drawer-act-tags" title="' + escapeHtml(tagsArr.join(', ')) + '">' + highlightMatchText(escapeHtml(tagsArr.join(', ')), rawQuery) + '</span>') : '<span></span>';
 
           var descSnippet = p.objective || p.teacherAction || p.studentAction || p.resources || '';
-          var descHtml = descSnippet ? ('<div class="drawer-act-desc">' + escapeHtml(descSnippet) + '</div>') : '';
+
+          // Header
+          var titleHtml = cfg.showTitle ? ('<span class="drawer-act-title">' + highlightMatchText(escapeHtml(p.title || 'Untitled Phase'), rawQuery) + '</span>') : '';
+          var durHtml = cfg.showDuration ? ('<span class="drawer-act-duration">' + (Number(p.duration) || 10) + 'm</span>') : '';
+          var headerHtml = (titleHtml || durHtml) ? ('<div class="drawer-act-header">' + titleHtml + durHtml + '</div>') : '';
+
+          // Badges
+          var badgesList = [];
+          if (cfg.showType && actPillHtml) badgesList.push(actPillHtml);
+          if (cfg.showMode && modePillHtml) badgesList.push(modePillHtml);
+          if (cfg.showCategory && catPillHtml) badgesList.push(catPillHtml);
+          var badgesHtml = badgesList.length > 0 ? ('<div class="drawer-act-badges">' + badgesList.join('') + '</div>') : '';
+
+          // Description
+          var descHtml = '';
+          if (cfg.showDescription && descSnippet && cfg.preset !== 'minimal') {
+            descHtml = '<div class="drawer-act-desc">' + highlightMatchText(escapeHtml(descSnippet), rawQuery) + '</div>';
+          }
+
+          // Expand toggle
+          var expandToggleHtml = '';
+          if (cfg.preset === 'compact' || (cfg.preset === 'detailed' && descSnippet && descSnippet.length > 80)) {
+            expandToggleHtml = '<button type="button" class="card-expand-toggle" onclick="event.stopPropagation(); lcToggleSingleActivityCard(this)">' + (i18n.t('lcDetailsExpand') || 'Details ▾') + '</button>';
+          }
+
+          // Footer
+          var tagsRendered = (cfg.showTags && cfg.preset !== 'minimal') ? tagsHtml : '<span></span>';
+          var btnAddHtml = cfg.showActions
+            ? ('<button type="button" class="neo-btn primary" style="padding:3px 8px;font-size:0.75rem;" onclick="event.stopPropagation(); lcInsertPhaseFromBank(\'' + escapeHtml(p.id) + '\')">+ ' + (i18n.t('lcAddPhaseToLesson') || 'Add to Lesson') + '</button>')
+            : '';
+          var footerHtml = (tagsRendered || btnAddHtml) ? ('<div class="drawer-act-footer">' + tagsRendered + btnAddHtml + '</div>') : '';
 
           card.innerHTML = [
-            '<div class="drawer-act-header">',
-            '  <span class="drawer-act-title">' + escapeHtml(p.title || 'Untitled Phase') + '</span>',
-            '  <span class="drawer-act-duration">' + (Number(p.duration) || 10) + 'm</span>',
-            '</div>',
-            '<div class="drawer-act-badges">' + actPillHtml + modePillHtml + catPillHtml + '</div>',
+            headerHtml,
+            badgesHtml,
             descHtml,
-            '<div class="drawer-act-footer">',
-            '  ' + tagsHtml,
-            '  <button type="button" class="neo-btn primary" style="padding:3px 8px;font-size:0.75rem;" onclick="event.stopPropagation(); lcInsertPhaseFromBank(\'' + escapeHtml(p.id) + '\')">+ ' + (i18n.t('lcAddPhaseToLesson') || 'Add to Lesson') + '</button>',
-            '</div>'
+            expandToggleHtml,
+            footerHtml
           ].join('');
 
           list.appendChild(card);

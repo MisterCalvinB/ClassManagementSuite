@@ -5351,7 +5351,7 @@ ipcMain.handle('app:open-html', async (event, request = {}) => {
     width,
     height,
     title: request.title ? String(request.title) : 'Class Management Tools',
-    autoHideMenuBar: false,
+    autoHideMenuBar: request.autoHideMenuBar !== undefined ? !!request.autoHideMenuBar : false,
     webPreferences: {
       preload: path.join(ROOT_DIR, 'electron-preload.js'),
       contextIsolation: true,
@@ -5359,6 +5359,15 @@ ipcMain.handle('app:open-html', async (event, request = {}) => {
       sandbox: false
     }
   };
+
+  if (request.alwaysOnTop !== undefined) {
+    winOpts.alwaysOnTop = !!request.alwaysOnTop;
+  }
+  if (request.resizable !== undefined) {
+    winOpts.resizable = !!request.resizable;
+  }
+  if (request.minWidth) winOpts.minWidth = Number(request.minWidth);
+  if (request.minHeight) winOpts.minHeight = Number(request.minHeight);
 
   if (request.x != null && request.y != null) {
     winOpts.x = Number(request.x);
@@ -5395,6 +5404,23 @@ ipcMain.handle('app:open-html', async (event, request = {}) => {
   }
 
   return { ok: true };
+});
+
+ipcMain.handle('app:set-always-on-top', (event, flag) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win && !win.isDestroyed()) {
+    win.setAlwaysOnTop(!!flag);
+    return { ok: true, alwaysOnTop: win.isAlwaysOnTop() };
+  }
+  return { ok: false };
+});
+
+ipcMain.handle('app:is-always-on-top', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win && !win.isDestroyed()) {
+    return { ok: true, alwaysOnTop: win.isAlwaysOnTop() };
+  }
+  return { ok: false, alwaysOnTop: false };
 });
 
 let mirrorWindow = null;

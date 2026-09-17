@@ -19516,12 +19516,40 @@
         }
       };
       window.conToggleMaskSelected = function () {
+        const allNotes = (typeof conNotes !== 'undefined' && Array.isArray(conNotes))
+          ? conNotes
+          : ((typeof window.conGetNotes === 'function') ? window.conGetNotes() : []);
+
         const selectedNodes = (conMultiSelected && conMultiSelected.size > 0)
           ? conNodes.filter(n => conMultiSelected.has(n.id))
           : (conSelected ? [conNodes.find(n => n.id === conSelected)].filter(Boolean) : []);
-        const selectedNotes = (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0)
-          ? [...conNoteSelected].map(nid => (typeof conNotes !== 'undefined' ? conNotes.find(n => n.id === nid) : null)).filter(Boolean)
-          : (typeof _wnActiveNote !== 'undefined' && _wnActiveNote ? [_wnActiveNote] : []);
+
+        // Also check any visually selected node elements in DOM
+        document.querySelectorAll('#constellation-board .con-node.con-selected, #constellation-board .con-node.con-multi-selected').forEach(el => {
+          const nid = el.id || el.dataset.id;
+          if (nid && !selectedNodes.some(n => n.id === nid)) {
+            const found = conNodes.find(n => n.id === nid);
+            if (found) selectedNodes.push(found);
+          }
+        });
+
+        // Collect all selected note IDs from multiple possible sources
+        const noteIdSet = new Set();
+        if (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0) {
+          conNoteSelected.forEach(id => noteIdSet.add(String(id)));
+        }
+        document.querySelectorAll('#constellation-board .con-word-note.wn-selected').forEach(el => {
+          if (el.dataset.id) noteIdSet.add(String(el.dataset.id));
+        });
+        if (typeof _wnActiveNote !== 'undefined' && _wnActiveNote && _wnActiveNote.id) {
+          noteIdSet.add(String(_wnActiveNote.id));
+        }
+        if (typeof _conNoteCtxData !== 'undefined' && _conNoteCtxData && _conNoteCtxData.id) {
+          noteIdSet.add(String(_conNoteCtxData.id));
+        }
+
+        const selectedNotes = allNotes.filter(n => n && noteIdSet.has(String(n.id)));
+
         const selectedMedia = [];
         if (typeof window._conActiveMediaItem !== 'undefined' && window._conActiveMediaItem) {
           selectedMedia.push(window._conActiveMediaItem);
@@ -19541,12 +19569,17 @@
 
         if (hasNodeSelection || hasNoteSelection || hasMediaSelection) {
           conPushUndo();
+
+          // Unified visibility: if ANY item in the selection is visible, hide everything; otherwise reveal everything
+          const anyVisible = (hasNodeSelection && selectedNodes.some(n => !n.masked)) ||
+                             (hasNoteSelection && selectedNotes.some(n => !n.hidden)) ||
+                             (hasMediaSelection && selectedMedia.some(m => !m.hidden));
+
           if (hasNodeSelection) {
-            const anyVisibleNode = selectedNodes.some(node => !node.masked);
             selectedNodes.forEach(node => {
               if (!node || !node.el) return;
-              node.masked = anyVisibleNode;
-              node.el.classList.toggle('con-masked', anyVisibleNode);
+              node.masked = anyVisible;
+              node.el.classList.toggle('con-masked', anyVisible);
             });
             // Sync node mask state to mirror view without DOM teardown
             if (typeof window._conMirrorSend === 'function') {
@@ -19557,12 +19590,13 @@
             }
           }
           if (hasNoteSelection) {
-            const anyVisibleNote = selectedNotes.some(note => !note.hidden);
             selectedNotes.forEach(note => {
               if (!note) return;
-              note.hidden = anyVisibleNote;
-              if (note._applyStyle) note._applyStyle();
-              const noteEl = typeof wnGetNoteElementById === 'function' ? wnGetNoteElementById(note.id) : null;
+              note.hidden = anyVisible;
+              if (typeof note._applyStyle === 'function') note._applyStyle();
+              const noteEl = (typeof wnGetNoteElementById === 'function')
+                ? wnGetNoteElementById(note.id)
+                : document.querySelector(`.con-word-note[data-id="${note.id}"]`);
               if (typeof wnApplyHiddenState === 'function') wnApplyHiddenState(note, noteEl);
               if (noteEl) {
                 const hideQuickBtn = noteEl.querySelector('.wn-note-mini-btn[title*="Hide"], .wn-note-mini-btn[title*="Reveal"]');
@@ -19579,14 +19613,14 @@
             // Sync note hidden state to mirror view without DOM teardown
             if (typeof window._conMirrorSend === 'function') {
               selectedNotes.filter(n => n).forEach(note => {
+                window._conMirrorSend({ type: 'note-hide', id: String(note.id), hidden: !!note.hidden });
                 window._conMirrorSend({ type: 'note-style', id: String(note.id), hidden: !!note.hidden });
               });
             }
           }
           if (hasMediaSelection) {
-            const anyVisibleMedia = selectedMedia.some(m => !m.hidden);
             selectedMedia.forEach(m => {
-              m.hidden = anyVisibleMedia;
+              m.hidden = anyVisible;
               const wrap = (typeof _conMediaGetWrap === 'function') ? _conMediaGetWrap(m) : document.querySelector('.con-media-item[data-id="' + m.id + '"]');
               if (wrap && typeof _conApplyMediaStyles === 'function') _conApplyMediaStyles(m, wrap);
               if (typeof _conCtxItem !== 'undefined' && _conCtxItem && _conCtxItem.id === m.id) {
@@ -19605,27 +19639,51 @@
           }
         } else if (conGroupFocused) {
           const group = conGroups.find(g => g.id === conGroupFocused);
-          if (group && group.nodeIds && group.nodeIds.length) {
-            conPushUndo();
-            const anyVisible = group.nodeIds.some(nid => {
-              const node = conNodes.find(n => n.id === nid);
-              return node && !node.masked;
-            });
-            group.nodeIds.forEach(nid => {
-              const node = conNodes.find(n => n.id === nid);
-              if (!node || !node.el) return;
-              node.masked = anyVisible;
-              node.el.classList.toggle('con-masked', anyVisible);
-            });
-            if (typeof window._conMirrorSend === 'function') {
-              window._conMirrorSend({
-                type: 'node-masks',
-                masks: group.nodeIds.map(nid => ({ id: String(nid), masked: anyVisible }))
+          if (group) {
+            const grpNodes = (group.nodeIds || []).map(nid => conNodes.find(n => n.id === nid)).filter(Boolean);
+            const grpNotes = (group.noteIds || []).map(nid => allNotes.find(n => String(n.id) === String(nid))).filter(Boolean);
+            if (grpNodes.length || grpNotes.length) {
+              conPushUndo();
+              const anyVisible = grpNodes.some(n => !n.masked) || grpNotes.some(n => !n.hidden);
+              grpNodes.forEach(node => {
+                if (!node || !node.el) return;
+                node.masked = anyVisible;
+                node.el.classList.toggle('con-masked', anyVisible);
               });
+              if (grpNodes.length && typeof window._conMirrorSend === 'function') {
+                window._conMirrorSend({
+                  type: 'node-masks',
+                  masks: grpNodes.map(nid => ({ id: String(nid.id), masked: anyVisible }))
+                });
+              }
+              grpNotes.forEach(note => {
+                if (!note) return;
+                note.hidden = anyVisible;
+                if (typeof note._applyStyle === 'function') note._applyStyle();
+                const noteEl = (typeof wnGetNoteElementById === 'function')
+                  ? wnGetNoteElementById(note.id)
+                  : document.querySelector(`.con-word-note[data-id="${note.id}"]`);
+                if (typeof wnApplyHiddenState === 'function') wnApplyHiddenState(note, noteEl);
+                if (noteEl) {
+                  const hideQuickBtn = noteEl.querySelector('.wn-note-mini-btn[title*="Hide"], .wn-note-mini-btn[title*="Reveal"]');
+                  if (hideQuickBtn) {
+                    hideQuickBtn.classList.toggle('active', !!note.hidden);
+                    hideQuickBtn.title = note.hidden ? 'Reveal note' : 'Hide note';
+                  }
+                }
+              });
+              if (grpNotes.length && typeof window._conMirrorSend === 'function') {
+                grpNotes.forEach(note => {
+                  window._conMirrorSend({ type: 'note-hide', id: String(note.id), hidden: anyVisible });
+                  window._conMirrorSend({ type: 'note-style', id: String(note.id), hidden: anyVisible });
+                });
+              }
             }
           }
         }
         if (typeof conRedrawEdges === 'function') conRedrawEdges();
+        if (typeof conMarkBoardDirty === 'function') conMarkBoardDirty();
+        else if (typeof boardSetDirty === 'function') boardSetDirty(true);
       };
       window.conTriggerLinkShortcut = function () {
         let srcId = null;
@@ -21902,6 +21960,38 @@
             }).filter(Boolean)
             : [];
 
+          // Determine marker node for snapping (top-left node if multi-selected, or the dragged node itself)
+          let markerNode = node;
+          let markerDx = 0;
+          let markerDy = 0;
+          if (groupSnap && groupSnap.length > 0) {
+            let minX = Infinity, minY = Infinity;
+            groupSnap.forEach(({ n }) => {
+              if (n.x < minX) minX = n.x;
+              if (n.y < minY) minY = n.y;
+            });
+            let bestDistSq = Infinity;
+            let markerItem = groupSnap[0];
+            groupSnap.forEach(item => {
+              const dX = item.n.x - minX;
+              const dY = item.n.y - minY;
+              const distSq = dX * dX + dY * dY;
+              if (distSq < bestDistSq) {
+                bestDistSq = distSq;
+                markerItem = item;
+              } else if (Math.abs(distSq - bestDistSq) < 1e-4) {
+                if (item.n.y < markerItem.n.y || (item.n.y === markerItem.n.y && item.n.x < markerItem.n.x)) {
+                  markerItem = item;
+                }
+              }
+            });
+            markerNode = markerItem.n;
+            markerDx = markerItem.dx;
+            markerDy = markerItem.dy;
+          }
+          const minGroupDx = groupSnap ? Math.min(...groupSnap.map(g => g.dx)) : 0;
+          const minGroupDy = groupSnap ? Math.min(...groupSnap.map(g => g.dy)) : 0;
+
           function onMove(e) {
             if (conIsNodeLocked(node)) return;
             // Nodes inside a phrase group move only as a group — block solo drag (allow if multi-select)
@@ -21910,12 +22000,138 @@
             const brd = board();
             let nx = e.clientX - ox;
             let ny = e.clientY - oy;
-            nx = Math.max(0, nx);
-            ny = Math.max(0, ny);
+            nx = Math.max(-minGroupDx, nx);
+            ny = Math.max(-minGroupDy, ny);
             if (!dragging && Math.abs(e.clientX - startX) < 3 && Math.abs(e.clientY - startY) < 3) return;
             dragging = true;
             window._conMirrorDragging = true; // suppress heavy MutationObserver broadcast during drag
             window._conTblDraggingNodeId = id;
+
+            // Snap align (single or multi-node drag) — hold Alt to bypass
+            if (conSnapEnabled && !e.altKey) {
+              const SNAP_DIST = 8;
+              const markerEl = markerNode ? markerNode.el : el;
+              const elW = markerEl ? markerEl.offsetWidth : 80;
+              const elH = markerEl ? markerEl.offsetHeight : 32;
+              const curMarkerX = nx + markerDx;
+              const curMarkerY = ny + markerDy;
+              const dragAnchorsX = [curMarkerX, curMarkerX + elW / 2, curMarkerX + elW];
+              const dragAnchorsY = [curMarkerY, curMarkerY + elH / 2, curMarkerY + elH];
+              let bestSnapX = null, bestSnapY = null;
+
+              const draggedNodeIds = _multiDragIds || new Set([id]);
+
+              conNodes.forEach(sn => {
+                if (draggedNodeIds.has(sn.id)) return;
+                const snW = sn.el ? sn.el.offsetWidth : 80, snH = sn.el ? sn.el.offsetHeight : 32;
+                [sn.x, sn.x + snW / 2, sn.x + snW].forEach(na => {
+                  dragAnchorsX.forEach(da => {
+                    const diff = Math.abs(da - na);
+                    if (diff < SNAP_DIST && (!bestSnapX || diff < bestSnapX.diff))
+                      bestSnapX = { shift: na - da, line: na, diff };
+                  });
+                });
+                [sn.y, sn.y + snH / 2, sn.y + snH].forEach(na => {
+                  dragAnchorsY.forEach(da => {
+                    const diff = Math.abs(da - na);
+                    if (diff < SNAP_DIST && (!bestSnapY || diff < bestSnapY.diff))
+                      bestSnapY = { shift: na - da, line: na, diff };
+                  });
+                });
+              });
+              // Also consider notes
+              conNotes.forEach(on => {
+                if (conNoteSelected && conNoteSelected.has(on.id)) return;
+                const oEl = wnGetNoteElementById(on.id);
+                const oW = oEl ? oEl.offsetWidth : (on.width || 120), oH = oEl ? oEl.offsetHeight : (on.height || 80);
+                [on.x, on.x + oW / 2, on.x + oW].forEach(na => {
+                  dragAnchorsX.forEach(da => {
+                    const diff = Math.abs(da - na);
+                    if (diff < SNAP_DIST && (!bestSnapX || diff < bestSnapX.diff)) bestSnapX = { shift: na - da, line: na, diff };
+                  });
+                });
+                [on.y, on.y + oH / 2, on.y + oH].forEach(na => {
+                  dragAnchorsY.forEach(da => {
+                    const diff = Math.abs(da - na);
+                    if (diff < SNAP_DIST && (!bestSnapY || diff < bestSnapY.diff)) bestSnapY = { shift: na - da, line: na, diff };
+                  });
+                });
+              });
+              // Consider shapes
+              conShapes.forEach(sh => {
+                if (shapeSel && shapeSel.has(sh.id)) return;
+                const sW = Math.max(2, sh.w || 40), sH = Math.max(2, sh.h || 40);
+                [sh.x, sh.x + sW / 2, sh.x + sW].forEach(na => {
+                  dragAnchorsX.forEach(da => {
+                    const diff = Math.abs(da - na);
+                    if (diff < SNAP_DIST && (!bestSnapX || diff < bestSnapX.diff)) bestSnapX = { shift: na - da, line: na, diff };
+                  });
+                });
+                [sh.y, sh.y + sH / 2, sh.y + sH].forEach(na => {
+                  dragAnchorsY.forEach(da => {
+                    const diff = Math.abs(da - na);
+                    if (diff < SNAP_DIST && (!bestSnapY || diff < bestSnapY.diff)) bestSnapY = { shift: na - da, line: na, diff };
+                  });
+                });
+              });
+              // Consider freehand drawings
+              conDrawings.forEach(d => {
+                if (conDrawingSelected && conDrawingSelected.has(d.id)) return;
+                const dW = Math.max(2, d.w || 40), dH = Math.max(2, d.h || 40);
+                [d.x, d.x + dW / 2, d.x + dW].forEach(na => {
+                  dragAnchorsX.forEach(da => {
+                    const diff = Math.abs(da - na);
+                    if (diff < SNAP_DIST && (!bestSnapX || diff < bestSnapX.diff)) bestSnapX = { shift: na - da, line: na, diff };
+                  });
+                });
+                [d.y, d.y + dH / 2, d.y + dH].forEach(na => {
+                  dragAnchorsY.forEach(da => {
+                    const diff = Math.abs(da - na);
+                    if (diff < SNAP_DIST && (!bestSnapY || diff < bestSnapY.diff)) bestSnapY = { shift: na - da, line: na, diff };
+                  });
+                });
+              });
+              // Consider tables
+              const allTables = (window.conGetTables ? window.conGetTables() : []);
+              allTables.forEach(tbl => {
+                if (tableSel && tableSel.has(tbl.id)) return;
+                const tW = Math.max(20, tbl.w || 200), tH = Math.max(20, tbl.h || 100);
+                [tbl.x, tbl.x + tW / 2, tbl.x + tW].forEach(na => {
+                  dragAnchorsX.forEach(da => {
+                    const diff = Math.abs(da - na);
+                    if (diff < SNAP_DIST && (!bestSnapX || diff < bestSnapX.diff)) bestSnapX = { shift: na - da, line: na, diff };
+                  });
+                });
+                [tbl.y, tbl.y + tH / 2, tbl.y + tH].forEach(na => {
+                  dragAnchorsY.forEach(da => {
+                    const diff = Math.abs(da - na);
+                    if (diff < SNAP_DIST && (!bestSnapY || diff < bestSnapY.diff)) bestSnapY = { shift: na - da, line: na, diff };
+                  });
+                });
+              });
+
+              const svgEl = document.getElementById('constellation-svg');
+              document.querySelectorAll('.con-snap-line').forEach(l => l.remove());
+              if (bestSnapX !== null) {
+                nx = Math.max(-minGroupDx, nx + bestSnapX.shift);
+                const sl = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                sl.setAttribute('class', 'con-snap-line');
+                sl.setAttribute('x1', bestSnapX.line); sl.setAttribute('y1', 0);
+                sl.setAttribute('x2', bestSnapX.line); sl.setAttribute('y2', Math.max(brd.clientHeight, brd.scrollHeight));
+                svgEl.appendChild(sl);
+              }
+              if (bestSnapY !== null) {
+                ny = Math.max(-minGroupDy, ny + bestSnapY.shift);
+                const sl = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                sl.setAttribute('class', 'con-snap-line');
+                sl.setAttribute('x1', 0); sl.setAttribute('y1', bestSnapY.line);
+                sl.setAttribute('x2', Math.max(brd.clientWidth, brd.scrollWidth)); sl.setAttribute('y2', bestSnapY.line);
+                svgEl.appendChild(sl);
+              }
+            } else {
+              document.querySelectorAll('.con-snap-line').forEach(l => l.remove());
+            }
+
             if (groupSnap) {
               groupSnap.forEach(({ n, dx, dy }) => {
                 n.x = Math.max(0, nx + dx);
@@ -21924,101 +22140,6 @@
                 n.el.style.top = n.y + 'px';
               });
             } else {
-              // Snap align (single-node drag) — hold Alt to bypass
-              if (conSnapEnabled && !e.altKey) {
-                const SNAP_DIST = 8;
-                const elW = el.offsetWidth, elH = el.offsetHeight;
-                const dragAnchorsX = [nx, nx + elW / 2, nx + elW];
-                const dragAnchorsY = [ny, ny + elH / 2, ny + elH];
-                let bestSnapX = null, bestSnapY = null;
-                conNodes.forEach(sn => {
-                  if (sn.id === id) return;
-                  const snW = sn.el.offsetWidth, snH = sn.el.offsetHeight;
-                  [sn.x, sn.x + snW / 2, sn.x + snW].forEach(na => {
-                    dragAnchorsX.forEach(da => {
-                      const diff = Math.abs(da - na);
-                      if (diff < SNAP_DIST && (!bestSnapX || diff < bestSnapX.diff))
-                        bestSnapX = { nx: nx + (na - da), line: na, diff };
-                    });
-                  });
-                  [sn.y, sn.y + snH / 2, sn.y + snH].forEach(na => {
-                    dragAnchorsY.forEach(da => {
-                      const diff = Math.abs(da - na);
-                      if (diff < SNAP_DIST && (!bestSnapY || diff < bestSnapY.diff))
-                        bestSnapY = { ny: ny + (na - da), line: na, diff };
-                    });
-                  });
-                });
-                // Also consider notes
-                conNotes.forEach(on => {
-                  const oEl = wnGetNoteElementById(on.id);
-                  const oW = oEl ? oEl.offsetWidth : (on.width || 120), oH = oEl ? oEl.offsetHeight : (on.height || 80);
-                  [on.x, on.x + oW / 2, on.x + oW].forEach(na => {
-                    dragAnchorsX.forEach(da => {
-                      const diff = Math.abs(da - na);
-                      if (diff < SNAP_DIST && (!bestSnapX || diff < bestSnapX.diff)) bestSnapX = { nx: nx + (na - da), line: na, diff };
-                    });
-                  });
-                  [on.y, on.y + oH / 2, on.y + oH].forEach(na => {
-                    dragAnchorsY.forEach(da => {
-                      const diff = Math.abs(da - na);
-                      if (diff < SNAP_DIST && (!bestSnapY || diff < bestSnapY.diff)) bestSnapY = { ny: ny + (na - da), line: na, diff };
-                    });
-                  });
-                });
-                // Consider shapes
-                conShapes.forEach(sh => {
-                  const sW = Math.max(2, sh.w || 40), sH = Math.max(2, sh.h || 40);
-                  [sh.x, sh.x + sW / 2, sh.x + sW].forEach(na => {
-                    dragAnchorsX.forEach(da => {
-                      const diff = Math.abs(da - na);
-                      if (diff < SNAP_DIST && (!bestSnapX || diff < bestSnapX.diff)) bestSnapX = { nx: nx + (na - da), line: na, diff };
-                    });
-                  });
-                  [sh.y, sh.y + sH / 2, sh.y + sH].forEach(na => {
-                    dragAnchorsY.forEach(da => {
-                      const diff = Math.abs(da - na);
-                      if (diff < SNAP_DIST && (!bestSnapY || diff < bestSnapY.diff)) bestSnapY = { ny: ny + (na - da), line: na, diff };
-                    });
-                  });
-                });
-                // Consider freehand drawings
-                conDrawings.forEach(d => {
-                  const dW = Math.max(2, d.w || 40), dH = Math.max(2, d.h || 40);
-                  [d.x, d.x + dW / 2, d.x + dW].forEach(na => {
-                    dragAnchorsX.forEach(da => {
-                      const diff = Math.abs(da - na);
-                      if (diff < SNAP_DIST && (!bestSnapX || diff < bestSnapX.diff)) bestSnapX = { nx: nx + (na - da), line: na, diff };
-                    });
-                  });
-                  [d.y, d.y + dH / 2, d.y + dH].forEach(na => {
-                    dragAnchorsY.forEach(da => {
-                      const diff = Math.abs(da - na);
-                      if (diff < SNAP_DIST && (!bestSnapY || diff < bestSnapY.diff)) bestSnapY = { ny: ny + (na - da), line: na, diff };
-                    });
-                  });
-                });
-                const svgEl = document.getElementById('constellation-svg');
-                document.querySelectorAll('.con-snap-line').forEach(l => l.remove());
-                if (bestSnapX !== null) {
-                  nx = Math.max(0, bestSnapX.nx);
-                  const sl = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                  sl.setAttribute('class', 'con-snap-line');
-                  sl.setAttribute('x1', bestSnapX.line); sl.setAttribute('y1', 0);
-                  sl.setAttribute('x2', bestSnapX.line); sl.setAttribute('y2', Math.max(brd.clientHeight, brd.scrollHeight));
-                  svgEl.appendChild(sl);
-                }
-                if (bestSnapY !== null) {
-                  ny = Math.max(0, bestSnapY.ny);
-                  const sl = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                  sl.setAttribute('class', 'con-snap-line');
-                  sl.setAttribute('x1', 0); sl.setAttribute('y1', bestSnapY.line);
-                  sl.setAttribute('x2', Math.max(brd.clientWidth, brd.scrollWidth)); sl.setAttribute('y2', bestSnapY.line);
-                  svgEl.appendChild(sl);
-                }
-              } else {
-                document.querySelectorAll('.con-snap-line').forEach(l => l.remove());
-              }
               node.x = nx; node.y = ny;
               el.style.left = nx + 'px';
               el.style.top = ny + 'px';
@@ -22202,7 +22323,7 @@
                   conMultiSelected.add(id);
                   el.classList.add('con-multi-selected');
                 }
-              } else if (e.shiftKey && (conMultiSelected.size > 0 || conSelected)) {
+              } else if (e.shiftKey && (conMultiSelected.size > 0 || conSelected || (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0))) {
                 // Shift-click: also toggle
                 if (conSelected && conSelected !== id) {
                   const prevEl = conNodes.find(n => n.id === conSelected);
@@ -35645,6 +35766,15 @@
         }
         // Selection handling
         if (e.shiftKey || e.ctrlKey || e.metaKey) {
+          if (typeof conSelected !== 'undefined' && conSelected) {
+            const prevEl = conNodes.find(n => n.id === conSelected);
+            if (prevEl) {
+              conMultiSelected.add(conSelected);
+              prevEl.el.classList.remove('con-selected');
+              prevEl.el.classList.add('con-multi-selected');
+            }
+            conSelected = null;
+          }
           if (conNoteSelected.has(noteData.id)) {
             conNoteSelected.delete(noteData.id);
             note.classList.remove('wn-selected');
