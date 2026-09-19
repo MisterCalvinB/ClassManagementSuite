@@ -117,6 +117,7 @@
                   <button class="dropdown-item" onclick="handleExportClick('csv')" data-i18n="mdbBtnExportCsv"><img src="../assets/icons/download.svg" class="btn-icon" alt="" /> CSV</button>
                   <button class="dropdown-item" onclick="handleExportClick('pdf')" data-i18n="mdbBtnPrintPdf"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> Print PDF</button>
                   <button class="dropdown-item" onclick="handleExportClick('html')" data-i18n="mdbBtnExportHtml"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> Export HTML (Editable)</button>
+                  <button class="dropdown-item" onclick="handleExportClick('md')" data-i18n="mdbBtnExportMd"><img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" /> Export Markdown</button>
                   <button class="dropdown-item" onclick="handleExportClick('xlsx')" data-i18n="mdbBtnExportXlsx"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> Export XLSX</button>
                   <button class="dropdown-item" onclick="handleExportClick('docx')" data-i18n="mdbBtnExportDocx"><img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" /> Export DOCX</button>
                 </div>
@@ -374,20 +375,64 @@
     </div>
   </div>
 
-  <!-- Column picker modal (CSV / PDF) -->
+  <!-- Column picker modal (CSV / PDF / HTML / Markdown / XLSX / DOCX) -->
   <div id="col-picker-bg" class="modal-bg hidden" onclick="if(event.target===this)closeColPicker()">
-    <div class="modal modal-sm">
+    <div class="modal" style="width:min(460px, 95vw);max-height:90vh;">
       <div class="modal-hd">
         <span id="col-picker-title" data-i18n="mdbColPickerTitleDefault">Select columns</span>
         <button class="modal-x" onclick="closeColPicker()"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="Close" /></button>
       </div>
-      <div class="modal-bd">
-        <div style="display:flex;gap:8px;margin-bottom:12px;">
-          <button class="btn btn-secondary btn-sm" onclick="colPickerToggleAll(true)" data-i18n="mdbBtnAll"><img src="../assets/icons/check.svg" class="btn-icon" alt="" /> All</button>
-          <button class="btn btn-secondary btn-sm" onclick="colPickerToggleAll(false)"
-            data-i18n="mdbBtnNone"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /> None</button>
+      <div class="modal-bd" style="display:flex;flex-direction:column;gap:14px;overflow-y:auto;">
+        <!-- Destination Section -->
+        <div style="border:2px solid #111;border-radius:8px;padding:12px;background:#fcfcfc;box-shadow:2px 2px 0px #111;">
+          <div style="font-size:0.75rem;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:#333;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+            <img src="../assets/icons/folder.svg" style="width:14px;height:14px;" alt="" />
+            <span data-i18n="mdbExportDestinationLabel">Save Destination</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <!-- Option 1: Print Folder -->
+            <label class="dest-option-card">
+              <input type="radio" name="export-dest" id="export-dest-print" value="to-print" checked style="margin-top:3px;accent-color:#111;cursor:pointer;flex-shrink:0;" />
+              <div style="flex:1;">
+                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                  <img src="../assets/icons/printer.svg" style="width:15px;height:15px;" alt="" />
+                  <span style="font-weight:800;font-size:0.88rem;color:#111;" data-i18n="mdbExportDestToPrintTitle">Print Folder</span>
+                  <span class="dest-badge-print">user/to-print/</span>
+                </div>
+                <div style="font-size:0.76rem;color:#555;margin-top:2px;line-height:1.3;" data-i18n="mdbExportDestToPrintDesc">
+                  Directly saved to the user/to-print/ folder
+                </div>
+              </div>
+            </label>
+            <!-- Option 2: Custom Location -->
+            <label class="dest-option-card">
+              <input type="radio" name="export-dest" id="export-dest-custom" value="custom" style="margin-top:3px;accent-color:#111;cursor:pointer;flex-shrink:0;" />
+              <div style="flex:1;">
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <img src="../assets/icons/folder.svg" style="width:15px;height:15px;" alt="" />
+                  <span style="font-weight:800;font-size:0.88rem;color:#111;" data-i18n="mdbExportDestCustomTitle">Custom Location</span>
+                </div>
+                <div style="font-size:0.76rem;color:#555;margin-top:2px;line-height:1.3;" data-i18n="mdbExportDestCustomDesc">
+                  Choose destination folder via system save dialog
+                </div>
+              </div>
+            </label>
+          </div>
         </div>
-        <div id="col-picker-list" style="display:flex;flex-direction:column;gap:7px;"></div>
+
+        <!-- Columns Section -->
+        <div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <div style="font-size:0.75rem;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:#333;" data-i18n="mdbExportColumnsLabel">
+              Columns to include
+            </div>
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-secondary btn-sm" type="button" onclick="colPickerToggleAll(true)" data-i18n="mdbBtnAll" style="padding:3px 8px;font-size:0.75rem;"><img src="../assets/icons/check.svg" class="btn-icon" alt="" /> All</button>
+              <button class="btn btn-secondary btn-sm" type="button" onclick="colPickerToggleAll(false)" data-i18n="mdbBtnNone" style="padding:3px 8px;font-size:0.75rem;"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /> None</button>
+            </div>
+          </div>
+          <div id="col-picker-list" style="display:flex;flex-direction:column;gap:7px;max-height:180px;overflow-y:auto;padding-right:4px;border:1.5px solid #ddd;border-radius:6px;padding:8px;background:#fafafa;"></div>
+        </div>
       </div>
       <div class="modal-ft">
         <button class="btn btn-secondary" onclick="closeColPicker()" data-i18n="mdbBtnCancel">Cancel</button>
@@ -4379,13 +4424,35 @@
       const file = S.files[fi];
       const content = buildJsContent(file.varName, file.records);
       if (typeof Desktop !== 'undefined' && Desktop.isElectron()) {
-        await Desktop.exportFiles([{ filename: file.name, content, encoding: 'utf8' }]);
+        try {
+          const res = await Desktop.saveToDisk({
+            title: (t('mdbTitleDownload') || 'Export') + ' ' + file.name,
+            defaultPath: file.name,
+            filters: [
+              { name: 'JavaScript Files', extensions: ['js'] },
+              { name: 'All Files', extensions: ['*'] }
+            ],
+            content: content,
+            encoding: 'utf8'
+          });
+          if (res && res.ok) {
+            showToast(t('mdbDownloadSuccess') || 'Database file exported successfully.');
+            if (window.showExportSuccessPopup && res.path) {
+              showExportSuccessPopup(res.path, res.name || file.name);
+            }
+          } else if (res && !res.ok && !res.canceled) {
+            showToast('⚠️ ' + (t('mdbErrSaveFailed') || 'Could not save file: ') + (res.error || 'unknown error'), true);
+          }
+        } catch (err) {
+          showToast('⚠️ ' + (t('mdbErrSaveFailed') || 'Could not save file: ') + (err && err.message ? err.message : String(err)), true);
+        }
       } else {
         const blob = new Blob([content], { type: 'text/javascript' });
         const url = URL.createObjectURL(blob);
         const a = Object.assign(document.createElement('a'), { href: url, download: file.name });
         a.click();
         URL.revokeObjectURL(url);
+        showToast(t('mdbDownloadSuccess') || 'Database file exported successfully.');
       }
     }
 
@@ -5089,7 +5156,7 @@ Rules:
       const rows = getDisplayRecords();
       if (!rows.length) { showToast(t('mdbAlertNoRecords')); return; }
 
-      const isPdfOrDocxOrHtml = mode === 'pdf' || mode === 'docx' || mode === 'html';
+      const isPdfOrDocxOrHtml = mode === 'pdf' || mode === 'docx' || mode === 'html' || mode === 'md';
       const cols = isPdfOrDocxOrHtml ? S.schema.filter(f => f.type !== 'object') : S.schema;
       const multiFile = S.files.filter(f => f.status === 'loaded').length > 1;
 
@@ -5113,6 +5180,21 @@ Rules:
         list.appendChild(lbl);
       }
 
+      const isElectronEnv = !!(window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron());
+      const printRadio = document.getElementById('export-dest-print');
+      const customRadio = document.getElementById('export-dest-custom');
+      if (printRadio && customRadio) {
+        if (isElectronEnv) {
+          printRadio.disabled = false;
+          printRadio.checked = true;
+          customRadio.checked = false;
+        } else {
+          printRadio.disabled = true;
+          printRadio.checked = false;
+          customRadio.checked = true;
+        }
+      }
+
       let title = 'Export';
       let confirmText = 'Export';
       if (mode === 'csv') {
@@ -5122,25 +5204,29 @@ Rules:
         title = t('mdbColPickerPdfTitle') || 'Print PDF — select columns';
         confirmText = t('mdbBtnPrintPdfConfirm') || 'Print PDF';
       } else if (mode === 'html') {
-        title = 'Export HTML — select columns';
-        confirmText = 'Export HTML';
+        title = t('mdbColPickerHtmlTitle') || 'Export HTML — select columns';
+        confirmText = t('mdbBtnExportHtmlConfirm') || 'Export HTML';
+      } else if (mode === 'md') {
+        title = t('mdbColPickerMdTitle') || 'Export Markdown — select columns';
+        confirmText = t('mdbBtnExportMdConfirm') || 'Export Markdown';
       } else if (mode === 'xlsx') {
-        title = 'Export XLSX — select columns';
-        confirmText = 'Export XLSX';
+        title = t('mdbColPickerXlsxTitle') || 'Export XLSX — select columns';
+        confirmText = t('mdbBtnExportXlsxConfirm') || 'Export XLSX';
       } else if (mode === 'docx') {
-        title = 'Export DOCX — select columns';
-        confirmText = 'Export DOCX';
+        title = t('mdbColPickerDocxTitle') || 'Export DOCX — select columns';
+        confirmText = t('mdbBtnExportDocxConfirm') || 'Export DOCX';
       }
 
       document.getElementById('col-picker-title').textContent = title;
       document.getElementById('col-picker-confirm').textContent = confirmText;
 
-      _colPickerCallback = function (selectedKeys) {
-        if (mode === 'pdf') doExportPDF(rows, selectedKeys);
-        else if (mode === 'csv') doExportCSV(rows, selectedKeys);
-        else if (mode === 'html') doExportHTML(rows, selectedKeys);
-        else if (mode === 'xlsx') doExportXLSX(rows, selectedKeys);
-        else if (mode === 'docx') doExportDocx(rows, selectedKeys);
+      _colPickerCallback = function (selectedKeys, dest) {
+        if (mode === 'pdf') doExportPDF(rows, selectedKeys, dest);
+        else if (mode === 'csv') doExportCSV(rows, selectedKeys, dest);
+        else if (mode === 'html') doExportHTML(rows, selectedKeys, dest);
+        else if (mode === 'md') doExportMarkdown(rows, selectedKeys, dest);
+        else if (mode === 'xlsx') doExportXLSX(rows, selectedKeys, dest);
+        else if (mode === 'docx') doExportDocx(rows, selectedKeys, dest);
       };
 
       document.getElementById('col-picker-bg').classList.remove('hidden');
@@ -5158,9 +5244,11 @@ Rules:
     function colPickerConfirm() {
       const keys = [...document.querySelectorAll('#col-picker-list input[type="checkbox"]:checked')].map(cb => cb.value);
       if (!keys.length) { showToast(t('mdbAlertSelectColumn')); return; }
+      const destRadio = document.querySelector('input[name="export-dest"]:checked');
+      const dest = (destRadio && destRadio.value) ? destRadio.value : 'to-print';
       const cb = _colPickerCallback;
       closeColPicker();
-      if (cb) cb(keys);
+      if (cb) cb(keys, dest);
     }
 
     function exportCSV() { openColPicker('csv'); }
@@ -5186,7 +5274,7 @@ Rules:
       }
     });
 
-    function doExportHTML(rows, selectedKeys) {
+    function doExportHTML(rows, selectedKeys, dest = 'to-print') {
       const typeDef = getTypeDef(S.typeKey);
       const label = typeDef ? t(typeDef.labelKey) : S.typeKey;
       const ts = exportTimestamp();
@@ -5207,7 +5295,7 @@ Rules:
 
       const body = rows.map(row => {
         const cells = cols.map(f => `<td contenteditable="true">${escHtml(exportCellValue(row[f.key], f))}</td>`).join('');
-        const srcCell = inclSrc ? `<td contenteditable="true">${escHtml(row._src)}</td>` : '';
+        const srcCell = inclSrc ? `<td contenteditable="true" class="source-cell">${escHtml(row._src || '')}</td>` : '';
         return `<tr>${cells}${srcCell}</tr>`;
       }).join('');
 
@@ -5247,11 +5335,13 @@ Rules:
   .btn:hover { background: #f0f0f0; transform: translate(-1px, -1px); box-shadow: 3px 3px 0 #111; }
   .btn:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 #111; }
   p.filters { background: #fff3e0; color: #b45309; border: 2px solid #111; padding: 8px 12px; border-radius: 6px; margin-bottom: 16px; font-size: 11px; font-weight: 700; box-shadow: 2px 2px 0 #111; }
-  table { width: 100%; border-collapse: collapse; border: 2px solid #111; margin-top: 4px; background: #fff; }
+  .table-wrap { overflow-x: auto; margin-top: 4px; }
+  table { width: 100%; border-collapse: collapse; border: 2px solid #111; background: #fff; }
   th, td { border: 2px solid #111; padding: 8px 10px; font-size: 11px; color: #111; vertical-align: middle; overflow-wrap: break-word; }
   th { background: #f0f0f0; font-weight: 800; color: #111; text-align: left; text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; position: sticky; top: 0; white-space: nowrap; }
   tr:nth-child(even) td { background: #fafafa; }
   td[contenteditable="true"]:focus { outline: 2px solid #111; background: #fffbe6; }
+  td.source-cell { color: #555; }
   .remove-col-btn { background: #fee2e2; border: 1.5px solid #111; color: #991b1b; font-size: 12px; cursor: pointer; padding: 1px 5px; margin-left: 6px; font-weight: 800; border-radius: 4px; vertical-align: middle; box-shadow: 1px 1px 0 #111; }
   .remove-col-btn:hover { background: #fca5a5; }
   .toast { position: fixed; bottom: 20px; right: 20px; background: #fff; color: #111; padding: 10px 16px; border-radius: 6px; font-size: 12px; font-weight: 800; opacity: 0; transition: opacity 0.3s; z-index: 1000; border: 2px solid #111; box-shadow: 3px 3px 0 #111; }
@@ -5275,7 +5365,7 @@ Rules:
     <button class="btn" onclick="downloadEditedHTML()">Download Edited HTML</button>
     <button class="btn" onclick="window.print()">Print Page</button>
   </div>
-  <div style="overflow-x:auto;">
+  <div class="table-wrap">
     <table id="data-table">
       <thead><tr>${hdr}</tr></thead>
       <tbody>${body}</tbody>
@@ -5334,10 +5424,52 @@ Rules:
 </body>
 </html>`;
 
-      downloadExportFile(`${safeLabel}_${ts}.html`, html, 'text/html');
+      const filename = `${safeLabel}_${ts}.html`;
+      if (window.Desktop && Desktop.isElectron()) {
+        if (dest === 'to-print') {
+          Desktop.saveText('toPrint', filename, html).then(result => {
+            if (result && result.ok) {
+              const fullPath = (result.file && result.file.path) ? result.file.path : ('user/to-print/' + filename);
+              showToast((t('mdbExportSuccessToPrint') || 'File saved to Print folder: ') + filename);
+              if (window.showExportSuccessPopup) {
+                showExportSuccessPopup(fullPath, filename);
+              }
+            } else {
+              showToast('⚠️ ' + (t('mdbErrSaveFailed') || 'Could not save HTML: ') + ((result && result.error) || 'unknown error'), true);
+            }
+          }).catch(err => {
+            showToast('⚠️ ' + (t('mdbErrSaveFailed') || 'Could not save HTML: ') + (err && err.message ? err.message : String(err)), true);
+          });
+        } else {
+          Desktop.saveToDisk({
+            title: t('mdbColPickerHtmlTitle') || 'Export HTML',
+            defaultPath: filename,
+            filters: [
+              { name: 'HTML Document', extensions: ['html', 'htm'] },
+              { name: 'All Files', extensions: ['*'] }
+            ],
+            content: html,
+            encoding: 'utf8'
+          }).then(result => {
+            if (result && result.ok) {
+              showToast(t('mdbExportSuccessHtml') || 'HTML exported successfully.');
+              if (window.showExportSuccessPopup && result.path) {
+                showExportSuccessPopup(result.path, result.name || filename);
+              }
+            } else if (result && !result.ok && !result.canceled) {
+              showToast('⚠️ ' + (t('mdbErrSaveFailed') || 'Could not save HTML: ') + (result.error || 'unknown error'), true);
+            }
+          }).catch(err => {
+            showToast('⚠️ ' + (t('mdbErrSaveFailed') || 'Could not save HTML: ') + (err && err.message ? err.message : String(err)), true);
+          });
+        }
+      } else {
+        downloadExportFile(filename, html, 'text/html');
+        showToast(t('mdbExportSuccessHtml') || 'HTML exported successfully.');
+      }
     }
 
-    function doExportXLSX(rows, selectedKeys) {
+    function doExportXLSX(rows, selectedKeys, dest = 'to-print') {
       if (typeof XLSX === 'undefined') {
         showToast('XLSX library not loaded', true);
         return;
@@ -5354,7 +5486,7 @@ Rules:
 
       const dataRows = rows.map(row => {
         const cells = cols.map(f => exportCellValue(row[f.key], f));
-        if (inclSrc) cells.push(row._src);
+        if (inclSrc) cells.push(row._src || '');
         return cells;
       });
 
@@ -5366,13 +5498,63 @@ Rules:
         const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
         const safeLabel = label.toLowerCase().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]/g, '_');
         const filename = `${safeLabel}_${ts}.xlsx`;
-        downloadExportFile(filename, wbout, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
+        if (window.Desktop && Desktop.isElectron()) {
+          if (dest === 'to-print') {
+            const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            Desktop.saveBlob('toPrint', filename, blob).then(result => {
+              if (result && result.ok) {
+                const fullPath = (result.file && result.file.path) ? result.file.path : ('user/to-print/' + filename);
+                showToast((t('mdbExportSuccessToPrint') || 'File saved to Print folder: ') + filename);
+                if (window.showExportSuccessPopup) {
+                  showExportSuccessPopup(fullPath, filename);
+                }
+              } else {
+                showToast('⚠️ ' + (t('mdbErrSaveFailed') || 'Could not save XLSX: ') + ((result && result.error) || 'unknown error'), true);
+              }
+            }).catch(err => {
+              showToast('⚠️ ' + (t('mdbErrSaveFailed') || 'Could not save XLSX: ') + (err && err.message ? err.message : String(err)), true);
+            });
+          } else {
+            let binary = '';
+            const bytes = new Uint8Array(wbout);
+            const len = bytes.byteLength;
+            for (let i = 0; i < len; i += 8192) {
+              binary += String.fromCharCode.apply(null, bytes.subarray(i, Math.min(i + 8192, len)));
+            }
+            const base64 = btoa(binary);
+            Desktop.saveToDisk({
+              title: t('mdbColPickerXlsxTitle') || 'Export Excel Spreadsheet',
+              defaultPath: filename,
+              filters: [
+                { name: 'Excel Spreadsheet', extensions: ['xlsx'] },
+                { name: 'All Files', extensions: ['*'] }
+              ],
+              content: base64,
+              encoding: 'base64'
+            }).then(result => {
+              if (result && result.ok) {
+                showToast(t('mdbExportSuccessXlsx') || 'Excel spreadsheet exported successfully.');
+                if (window.showExportSuccessPopup && result.path) {
+                  showExportSuccessPopup(result.path, result.name || filename);
+                }
+              } else if (result && !result.ok && !result.canceled) {
+                showToast('⚠️ ' + (t('mdbErrSaveFailed') || 'Could not save XLSX: ') + (result.error || 'unknown error'), true);
+              }
+            }).catch(err => {
+              showToast('⚠️ ' + (t('mdbErrSaveFailed') || 'Could not save XLSX: ') + (err && err.message ? err.message : String(err)), true);
+            });
+          }
+        } else {
+          downloadExportFile(filename, wbout, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+          showToast(t('mdbExportSuccessXlsx') || 'Excel spreadsheet exported successfully.');
+        }
       } catch (err) {
-        showToast('⚠️ Could not save XLSX: ' + (err && err.message ? err.message : String(err)), true);
+        showToast('⚠️ ' + (t('mdbErrSaveFailed') || 'Could not save XLSX: ') + (err && err.message ? err.message : String(err)), true);
       }
     }
 
-    function doExportDocx(rows, selectedKeys) {
+    function buildExportMarkdown(rows, selectedKeys) {
       const typeDef = getTypeDef(S.typeKey);
       const label = typeDef ? t(typeDef.labelKey) : S.typeKey;
       const ts = exportTimestamp();
@@ -5381,7 +5563,24 @@ Rules:
       const cols = S.schema.filter(f => f.type !== 'object' && selectedKeys.includes(f.key));
 
       let md = `# ${label}\n\n`;
-      md += `${rows.length} record${rows.length !== 1 ? 's' : ''} · ${ts}\n\n`;
+      md += `> **Records:** ${rows.length} | **Exported:** ${ts}\n\n`;
+
+      const filterDesc = Object.entries(S.filters)
+        .filter(([, v]) => {
+          if (!v) return false;
+          if (Array.isArray(v)) return v.length > 0;
+          if (v instanceof Set) return v.size > 0;
+          return true;
+        })
+        .map(([k, v]) => {
+          const disp = Array.isArray(v) ? v.join(', ') : (v instanceof Set ? Array.from(v).join(', ') : v);
+          return `**${k === '_all' ? 'Search' : k === '_src' ? 'File' : cap(k)}:** ${disp}`;
+        })
+        .join(' · ');
+
+      if (filterDesc) {
+        md += `> **Filters:** ${filterDesc}\n\n`;
+      }
 
       const headers = cols.map(f => cap(f.key));
       if (inclSrc) headers.push('Source');
@@ -5395,14 +5594,76 @@ Rules:
           return String(val).replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
         });
         if (inclSrc) {
-          cells.push(String(row._src).replace(/\|/g, '\\|').replace(/\r?\n/g, ' '));
+          cells.push(String(row._src || '').replace(/\|/g, '\\|').replace(/\r?\n/g, ' '));
         }
         md += '| ' + cells.join(' | ') + ' |\n';
       }
 
-      const safeLabel = label.toLowerCase().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]/g, '_');
+      return md;
+    }
 
-      Desktop.exportDocx({
+    function doExportMarkdown(rows, selectedKeys, dest = 'to-print') {
+      const typeDef = getTypeDef(S.typeKey);
+      const label = typeDef ? t(typeDef.labelKey) : S.typeKey;
+      const ts = exportTimestamp();
+      const md = buildExportMarkdown(rows, selectedKeys);
+      const safeLabel = label.toLowerCase().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]/g, '_');
+      const filename = `${safeLabel}_${ts}.md`;
+
+      if (window.Desktop && Desktop.isElectron()) {
+        if (dest === 'to-print') {
+          Desktop.saveText('toPrint', filename, md).then(result => {
+            if (result && result.ok) {
+              const fullPath = (result.file && result.file.path) ? result.file.path : ('user/to-print/' + filename);
+              showToast((t('mdbExportSuccessToPrint') || 'File saved to Print folder: ') + filename);
+              if (window.showExportSuccessPopup) {
+                showExportSuccessPopup(fullPath, filename);
+              }
+            } else {
+              showToast('⚠️ ' + (t('mdbErrSaveFailed') || 'Could not save Markdown: ') + ((result && result.error) || 'unknown error'), true);
+            }
+          }).catch(err => {
+            showToast('⚠️ ' + (t('mdbErrSaveFailed') || 'Could not save Markdown: ') + (err && err.message ? err.message : String(err)), true);
+          });
+        } else {
+          Desktop.saveToDisk({
+            title: t('mdbColPickerMdTitle') || 'Export Markdown',
+            defaultPath: filename,
+            filters: [
+              { name: 'Markdown Document', extensions: ['md', 'markdown'] },
+              { name: 'All Files', extensions: ['*'] }
+            ],
+            content: md,
+            encoding: 'utf8'
+          }).then(result => {
+            if (result && result.ok) {
+              showToast(t('mdbExportSuccessMd') || 'Markdown exported successfully.');
+              if (window.showExportSuccessPopup && result.path) {
+                showExportSuccessPopup(result.path, result.name || filename);
+              }
+            } else if (result && !result.ok && !result.canceled) {
+              showToast('⚠️ ' + (t('mdbErrSaveFailed') || 'Could not save Markdown: ') + (result.error || 'unknown error'), true);
+            }
+          }).catch(err => {
+            showToast('⚠️ ' + (t('mdbErrSaveFailed') || 'Could not save Markdown: ') + (err && err.message ? err.message : String(err)), true);
+          });
+        }
+      } else {
+        downloadExportFile(filename, md, 'text/markdown');
+        showToast(t('mdbExportSuccessMd') || 'Markdown exported successfully.');
+      }
+    }
+
+    function doExportDocx(rows, selectedKeys, dest = 'to-print') {
+      const typeDef = getTypeDef(S.typeKey);
+      const label = typeDef ? t(typeDef.labelKey) : S.typeKey;
+      const ts = exportTimestamp();
+      const md = buildExportMarkdown(rows, selectedKeys);
+
+      const safeLabel = label.toLowerCase().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]/g, '_');
+      const filename = `${safeLabel}_${ts}.docx`;
+
+      const req = {
         markdown: md,
         defaultName: `${safeLabel}_${ts}`,
         fontFamily: 'Segoe UI',
@@ -5411,28 +5672,90 @@ Rules:
         margins: { top: 18, right: 16, bottom: 18, left: 16 },
         size: 'A4',
         orientation: 'portrait'
-      }).then(result => {
+      };
+      if (dest === 'to-print') {
+        req.target = 'toPrint';
+      }
+
+      Desktop.exportDocx(req).then(result => {
         if (result && result.ok) {
-          showToast('DOCX exported successfully.');
+          if (dest === 'to-print') {
+            showToast((t('mdbExportSuccessToPrint') || 'File saved to Print folder: ') + (result.name || filename));
+          } else {
+            showToast(t('mdbExportSuccessDocx') || 'DOCX exported successfully.');
+          }
+          if (window.showExportSuccessPopup && result.path) {
+            showExportSuccessPopup(result.path, result.name || filename);
+          }
         } else if (result && !result.ok && !result.canceled) {
-          showToast('⚠️ Could not save DOCX: ' + (result.error || 'unknown error'), true);
+          showToast('⚠️ ' + (t('mdbErrSaveFailed') || 'Could not save DOCX: ') + (result.error || 'unknown error'), true);
         }
       }).catch(err => {
-        showToast('⚠️ Could not save DOCX: ' + (err && err.message ? err.message : String(err)), true);
+        showToast('⚠️ ' + (t('mdbErrSaveFailed') || 'Could not save DOCX: ') + (err && err.message ? err.message : String(err)), true);
       });
     }
 
-    function doExportCSV(rows, selectedKeys) {
+    function doExportCSV(rows, selectedKeys, dest = 'to-print') {
       const cols = S.schema.filter(f => selectedKeys.includes(f.key));
       const header = cols.map(f => cap(f.key));
-      const csvRows = [header, ...rows.map(row => cols.map(f => exportCellValue(row[f.key], f)))];
+      const multiFile = S.files.filter(f => f.status === 'loaded').length > 1;
+      const inclSrc = multiFile && selectedKeys.includes('_src');
+      if (inclSrc) header.push('Source');
+      const csvRows = [header, ...rows.map(row => {
+        const cells = cols.map(f => exportCellValue(row[f.key], f));
+        if (inclSrc) cells.push(row._src || '');
+        return cells;
+      })];
       const csv = csvRows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
-      const label = (getTypeDef(S.typeKey) ? t(getTypeDef(S.typeKey).labelKey) : S.typeKey).toLowerCase().replace(/\s+/g,
-        '_');
-      downloadExportFile(`${label}_${exportTimestamp()}.csv`, csv, 'text/csv');
+      const label = (getTypeDef(S.typeKey) ? t(getTypeDef(S.typeKey).labelKey) : S.typeKey);
+      const safeLabel = label.toLowerCase().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]/g, '_');
+      const filename = `${safeLabel}_${exportTimestamp()}.csv`;
+
+      if (window.Desktop && Desktop.isElectron()) {
+        if (dest === 'to-print') {
+          Desktop.saveText('toPrint', filename, csv).then(result => {
+            if (result && result.ok) {
+              const fullPath = (result.file && result.file.path) ? result.file.path : ('user/to-print/' + filename);
+              showToast((t('mdbExportSuccessToPrint') || 'File saved to Print folder: ') + filename);
+              if (window.showExportSuccessPopup) {
+                showExportSuccessPopup(fullPath, filename);
+              }
+            } else {
+              showToast('⚠️ ' + (t('mdbErrSaveFailed') || 'Could not save CSV: ') + ((result && result.error) || 'unknown error'), true);
+            }
+          }).catch(err => {
+            showToast('⚠️ ' + (t('mdbErrSaveFailed') || 'Could not save CSV: ') + (err && err.message ? err.message : String(err)), true);
+          });
+        } else {
+          Desktop.saveToDisk({
+            title: t('mdbColPickerCsvTitle') || 'Export CSV',
+            defaultPath: filename,
+            filters: [
+              { name: 'CSV Document', extensions: ['csv'] },
+              { name: 'All Files', extensions: ['*'] }
+            ],
+            content: csv,
+            encoding: 'utf8'
+          }).then(result => {
+            if (result && result.ok) {
+              showToast(t('mdbExportSuccessCsv') || 'CSV exported successfully.');
+              if (window.showExportSuccessPopup && result.path) {
+                showExportSuccessPopup(result.path, result.name || filename);
+              }
+            } else if (result && !result.ok && !result.canceled) {
+              showToast('⚠️ ' + (t('mdbErrSaveFailed') || 'Could not save CSV: ') + (result.error || 'unknown error'), true);
+            }
+          }).catch(err => {
+            showToast('⚠️ ' + (t('mdbErrSaveFailed') || 'Could not save CSV: ') + (err && err.message ? err.message : String(err)), true);
+          });
+        }
+      } else {
+        downloadExportFile(filename, csv, 'text/csv');
+        showToast(t('mdbExportSuccessCsv') || 'CSV exported successfully.');
+      }
     }
 
-    function doExportPDF(rows, selectedKeys) {
+    function doExportPDF(rows, selectedKeys, dest = 'to-print') {
       const typeDef = getTypeDef(S.typeKey);
       const label = typeDef ? t(typeDef.labelKey) : S.typeKey;
       const ts = exportTimestamp();
@@ -5442,7 +5765,7 @@ Rules:
 
       const hdr = cols.map(f => `<th>${escHtml(cap(f.key))}</th>`).join('') + (inclSrc ? '<th>Source</th>' : '');
       const body = rows.map(row =>
-        `<tr>${cols.map(f => `<td>${escHtml(exportCellValue(row[f.key], f))}</td>`).join('')}${inclSrc ? `<td style="color:#555;font-size:10px">${escHtml(row._src)}</td>` : ''}</tr>`
+        `<tr>${cols.map(f => `<td>${escHtml(exportCellValue(row[f.key], f))}</td>`).join('')}${inclSrc ? `<td class="source-cell">${escHtml(row._src || '')}</td>` : ''}</tr>`
       ).join('');
 
       const filterDesc = Object.entries(S.filters)
@@ -5477,6 +5800,7 @@ Rules:
     th, td { border: 2px solid #111; padding: 8px 10px; font-size: 11px; color: #111; vertical-align: middle; overflow-wrap: break-word; }
     th { background: #f0f0f0; font-weight: 800; color: #111; text-align: left; text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; position: sticky; top: 0; white-space: nowrap; }
     tr:nth-child(even) td { background: #fafafa; }
+    td.source-cell { color: #555; font-size: 10px; }
     @page { margin: 15mm; }
     @media print {
       body { padding: 0; }
@@ -5498,14 +5822,30 @@ Rules:
 </body>
 </html>`;
 
+      const safeLabel = label.toLowerCase().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]/g, '_');
+      const filename = `${safeLabel}_${ts}.pdf`;
+
       if (window.Desktop && Desktop.isElectron() && typeof Desktop.printPdf === 'function') {
-        const safeLabel = label.toLowerCase().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]/g, '_');
-        Desktop.printPdf({ html, defaultName: `${safeLabel}_${ts}.pdf` }).then(result => {
-          if (!result.ok && !result.canceled) {
-            mdbToast('⚠️ Could not save PDF: ' + (result.error || 'unknown error'));
+        const pdfReq = { html, defaultName: filename };
+        if (dest === 'to-print') {
+          pdfReq.target = 'toPrint';
+          pdfReq.filename = filename;
+        }
+        Desktop.printPdf(pdfReq).then(result => {
+          if (result && result.ok) {
+            if (dest === 'to-print') {
+              showToast((t('mdbExportSuccessToPrint') || 'File saved to Print folder: ') + (result.name || filename));
+            } else {
+              showToast(t('mdbExportSuccessPdf') || 'PDF exported successfully.');
+            }
+            if (window.showExportSuccessPopup && result.path) {
+              showExportSuccessPopup(result.path, result.name || filename);
+            }
+          } else if (!result.ok && !result.canceled) {
+            showToast('⚠️ ' + (t('mdbErrSaveFailed') || 'Could not save PDF: ') + (result.error || 'unknown error'), true);
           }
         }).catch(err => {
-          mdbToast('⚠️ Could not save PDF: ' + (err && err.message ? err.message : String(err)));
+          showToast('⚠️ ' + (t('mdbErrSaveFailed') || 'Could not save PDF: ') + (err && err.message ? err.message : String(err)), true);
         });
       } else {
         let iframe = document.getElementById('mdb-pdf-iframe');
