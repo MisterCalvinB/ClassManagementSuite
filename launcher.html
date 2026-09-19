@@ -381,7 +381,7 @@
     {
       id: 'lessonCreator',
       pageFile: 'lesson-creator.html',
-      icon: 'assets/icons/file-text.svg',
+      icon: 'assets/icons/lesson-creator.svg',
       title: 'Lesson Creator',
       desc: 'Design structured lesson plans with drag-and-drop phases, curriculum descriptor bank, cooperative teams, and board mindmap exports.'
     },
@@ -395,7 +395,7 @@
     {
       id: 'competencePortfolio',
       pageFile: 'competence-portfolio.html',
-      icon: 'assets/icons/award.svg',
+      icon: 'assets/icons/competence-portfolio.svg',
       title: 'Competence Portfolio',
       desc: 'Track and audit curriculum competences and standards covered across lessons, board activities, and grade sheets per class.'
     },
@@ -405,6 +405,13 @@
       icon: 'assets/icons/table.svg',
       title: 'Database Converter',
       desc: 'Convert seamlessly between CSV, XLSX, JSON, TSV, ODS, SQL, XML, HTML, Markdown tables, and CMT app formats.'
+    },
+    {
+      id: 'testCreator',
+      pageFile: 'test-creator.html',
+      icon: 'assets/icons/test-creator.svg',
+      title: 'Test Creator',
+      desc: 'Create, format, and export classroom tests with custom exercise databases, criteria rubrics, variants, and grade sheet integration.'
     }
   ];
 
@@ -412,7 +419,7 @@
   var DEFAULT_GROUPS = [
     { id: 'grp-classroom', labelKey: 'sectionClassroom', cardIds: ['board', 'classManagement', 'learningTools'] },
     { id: 'grp-students',  labelKey: 'sectionStudents',  cardIds: ['administrativeGroups', 'competencePortfolio', 'participationTracker', 'gradeSheet', 'oralMarking', 'groupEditor', 'classPlan', 'planner', 'scheduleMaker'] },
-    { id: 'grp-content',   labelKey: 'sectionContent',   cardIds: ['manageDatabase', 'importTool', 'databaseConverter', 'documentEditor', 'fileManager' ] },
+    { id: 'grp-content',   labelKey: 'sectionContent',   cardIds: ['lessonCreator', 'testCreator', 'manageDatabase', 'importTool', 'databaseConverter', 'documentEditor', 'fileManager' ] },
     { id: 'grp-system',    labelKey: 'sectionSystem',    cardIds: ['generalConfig'] }
   ];
 
@@ -734,8 +741,8 @@
 
   function buildCard(app) {
     const cfg = getCardConfig(app.id);
-    const localTitle = (typeof t === 'function' ? t('app_' + app.id + '_title') : null) || app.title;
-    const localDesc  = (typeof t === 'function' ? t('app_' + app.id + '_desc')  : null) || app.desc;
+    const localTitle = (typeof t === 'function' ? t('app_' + app.id + '_title', app.title) : null) || app.title;
+    const localDesc  = (typeof t === 'function' ? t('app_' + app.id + '_desc', app.desc)  : null) || app.desc;
     const label = (cfg.customLabel && cfg.customLabel.trim()) || localTitle;
 
     const card = document.createElement('div');
@@ -796,7 +803,7 @@
     currentCard     = card;
 
     const cfg = getCardConfig(app.id);
-    const localTitle = (typeof t === 'function' ? t('app_' + app.id + '_title') : null) || app.title;
+    const localTitle = (typeof t === 'function' ? t('app_' + app.id + '_title', app.title) : null) || app.title;
     popup.querySelector('.cfg-label-input').placeholder = localTitle + ' (default)';
     popup.querySelector('.cfg-label-input').value = cfg.customLabel || '';
     popup.querySelector('.cfg-notes').value        = cfg.notes || '';
@@ -851,7 +858,7 @@
       windowPosition: popup.querySelector('.cfg-pos-select').value
     });
     if (currentCard) {
-      const fallbackTitle = (typeof t === 'function' ? t('app_' + currentPopupApp.id + '_title') : null) || currentPopupApp.title;
+      const fallbackTitle = (typeof t === 'function' ? t('app_' + currentPopupApp.id + '_title', currentPopupApp.title) : null) || currentPopupApp.title;
       currentCard.querySelector('.card-title').textContent = labelVal.trim() || fallbackTitle;
     }
   }

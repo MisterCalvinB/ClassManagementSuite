@@ -100,6 +100,7 @@
             <div id="actions-row">
               <button class="btn btn-primary" onclick="openAdd()" data-i18n="mdbBtnAddRecord"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Record</button>
               <button class="btn btn-secondary" onclick="openNewFile()" data-i18n="mdbBtnNewFile"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> New File</button>
+              <button class="btn btn-secondary" id="add-col-btn" onclick="openAddColumnModal()" data-i18n="mdbBtnAddColumn"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Column</button>
               <button class="btn btn-secondary btn-sm" id="ai-prompt-btn" onclick="copyAIPrompt(this)"
                 style="display:none" data-i18n="mdbBtnAiPrompt"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> AI Prompt</button>
               <button class="btn btn-secondary btn-sm" id="view-toggle-btn" onclick="toggleViewMode()"
@@ -396,6 +397,77 @@
     </div>
   </div>
 
+  <!-- Add Column Modal -->
+  <div id="add-col-bg" class="modal-bg hidden" onclick="if(event.target===this)closeAddColumnModal()">
+    <div class="modal modal-sm">
+      <div class="modal-hd">
+        <span data-i18n="mdbModalAddColTitle">Add Column to Database</span>
+        <button class="modal-x" onclick="closeAddColumnModal()"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="Close" /></button>
+      </div>
+      <div class="modal-bd">
+        <div class="form-field">
+          <label class="form-lbl" for="add-col-key" data-i18n="mdbColKey">Column Key / Field</label>
+          <input type="text" id="add-col-key" data-i18n-placeholder="mdbColKeyPlaceholder" placeholder="e.g. difficulty, notes, level2" autocomplete="off" onkeydown="if(event.key==='Enter')submitAddColumn()" />
+          <div id="add-col-err" class="form-err"></div>
+        </div>
+        <div class="form-field">
+          <label class="form-lbl" for="add-col-label" data-i18n="mdbColLabel">Display Label</label>
+          <input type="text" id="add-col-label" data-i18n-placeholder="mdbColLabelPlaceholder" placeholder="e.g. Difficulty Level" autocomplete="off" onkeydown="if(event.key==='Enter')submitAddColumn()" />
+        </div>
+        <div class="form-field">
+          <label class="form-lbl" for="add-col-type" data-i18n="mdbColType">Data Type</label>
+          <select id="add-col-type" onchange="handleAddColTypeChange()">
+            <option value="string" data-i18n="mdbColTypeString">Text (Short)</option>
+            <option value="isLong" data-i18n="mdbColTypeLong">Text (Multiline)</option>
+            <option value="number" data-i18n="mdbColTypeNumber">Number</option>
+            <option value="boolean" data-i18n="mdbColTypeBoolean">Boolean (Yes/No)</option>
+            <option value="array" data-i18n="mdbColTypeArray">List / Tags</option>
+          </select>
+        </div>
+        <div class="form-field" id="add-col-default-wrap">
+          <label class="form-lbl" for="add-col-default" data-i18n="mdbColDefaultVal">Default Value</label>
+          <input type="text" id="add-col-default" data-i18n-placeholder="mdbColDefaultValPlaceholder" placeholder="Optional default value for existing records" onkeydown="if(event.key==='Enter')submitAddColumn()" />
+        </div>
+        <div class="form-field">
+          <label class="form-lbl" for="add-col-scope" data-i18n="mdbColScope">Apply To</label>
+          <select id="add-col-scope">
+            <option value="all" data-i18n="mdbColScopeAll" selected>All loaded files in this database</option>
+            <option value="current" data-i18n="mdbColScopeCurrent">Active / loaded file only</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-ft">
+        <button class="btn btn-secondary" onclick="closeAddColumnModal()" data-i18n="mdbBtnCancel">Cancel</button>
+        <button class="btn btn-primary" onclick="submitAddColumn()"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnAddColumn">Add Column</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row Context Menu -->
+  <div id="row-context-menu" class="row-context-menu hidden">
+    <div class="row-context-menu-item" id="rcm-edit">
+      <img src="../assets/icons/edit-word.svg" class="btn-icon btn-icon-xs" alt="" />
+      <span data-i18n="mdbCtxEdit">Edit</span>
+    </div>
+    <div class="row-context-menu-item" id="rcm-autofill">
+      <img src="../assets/icons/sparkles.svg" class="btn-icon btn-icon-xs" alt="" />
+      <span data-i18n="mdbCtxAutofill">Autofill</span>
+    </div>
+    <div class="row-context-menu-item" id="rcm-copy">
+      <img src="../assets/icons/copy.svg" class="btn-icon btn-icon-xs" alt="" />
+      <span data-i18n="mdbCtxCopyToFile">Copy to other file</span>
+    </div>
+    <div class="row-context-menu-item" id="rcm-duplicate">
+      <img src="../assets/icons/duplicate.svg" class="btn-icon btn-icon-xs" alt="" />
+      <span data-i18n="mdbCtxDuplicate">Duplicate</span>
+    </div>
+    <div class="row-context-menu-divider"></div>
+    <div class="row-context-menu-item danger" id="rcm-delete">
+      <img src="../assets/icons/delete.svg" class="btn-icon btn-icon-xs" alt="" />
+      <span data-i18n="mdbCtxDelete">Delete</span>
+    </div>
+  </div>
+
   <script>
     // ─────────────────────────────────────────────────────────────────────
     // CONFIG
@@ -410,6 +482,7 @@
       { key: 'sentencebanks', labelKey: 'mdbTypeSentences', icon: 'sentence.svg', target: 'customSentences', defaultView: 'chips' },
       { key: 'storybanks', labelKey: 'mdbTypeStories', icon: 'book.svg', target: 'customStorybanks', defaultView: 'table' },
       { key: 'quizzes', labelKey: 'mdbTypeQuizzes', icon: 'quiz.svg', target: 'customQuizzes', defaultView: 'table' },
+      { key: 'testbanks', labelKey: 'mdbTypeTestBanks', icon: 'award.svg', target: 'customExercises', defaultView: 'table' },
       { key: 'competences', labelKey: 'mdbTypeCompetences', icon: 'file-text.svg', target: 'customCompetences', defaultView: 'table' },
       { key: 'phases', labelKey: 'mdbTypePhases', icon: 'zap.svg', target: 'customPhases', defaultView: 'table' },
       { key: 'criteria', labelKey: 'mdbTypeCriteria', icon: 'check.svg', target: 'customCriteria', defaultView: 'table' },
@@ -426,7 +499,7 @@
       {
         id: 'assessmentCurriculum',
         labelKey: 'mdbSectionAssessmentCurriculum',
-        types: ['competences', 'phases', 'criteria', 'scales', 'chips']
+        types: ['testbanks', 'competences', 'phases', 'criteria', 'scales', 'chips']
       }
     ];
 
@@ -435,7 +508,8 @@
       dictations: 'customDictationBank', grammarbanks: 'customGrammarBank',
       gapfillbanks: 'customGapFillBank', errorbanks: 'customErrorBank',
       sentencebanks: 'customSentenceBank', storybanks: 'customStoryBank',
-      quizzes: 'customQuizBank', competences: 'customCompetenceBank', descriptors: 'customCompetenceBank',
+      quizzes: 'customQuizBank', testbanks: 'customExerciseBank',
+      competences: 'customCompetenceBank', descriptors: 'customCompetenceBank',
       phases: 'customPhaseBank', criteria: 'XLSM_CRITERIA',
       scales: 'XLSM_SCALE_MODELS', chips: 'OBSERVATION_CHECKLIST_GROUPS',
     };
@@ -496,6 +570,71 @@
     }
     function getAllRecords() {
       return S.files.filter(f => f.status === 'loaded').flatMap(f => f.records);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // CUSTOM COLUMNS & COLUMN WIDTHS STORAGE
+    // ─────────────────────────────────────────────────────────────────────
+    function getCustomColumns(typeKey) {
+      if (!typeKey) return [];
+      try {
+        const raw = localStorage.getItem('mdb_custom_columns.v1');
+        const map = raw ? JSON.parse(raw) : {};
+        return Array.isArray(map[typeKey]) ? map[typeKey] : [];
+      } catch (_) {
+        return [];
+      }
+    }
+
+    function saveCustomColumns(typeKey, cols) {
+      if (!typeKey) return;
+      try {
+        const raw = localStorage.getItem('mdb_custom_columns.v1');
+        const map = raw ? JSON.parse(raw) : {};
+        map[typeKey] = cols;
+        localStorage.setItem('mdb_custom_columns.v1', JSON.stringify(map));
+      } catch (_) {}
+    }
+
+    function getColumnWidths(typeKey) {
+      if (!typeKey) return {};
+      try {
+        const raw = localStorage.getItem(`mdb_col_widths_v1_${typeKey}`);
+        return raw ? JSON.parse(raw) : {};
+      } catch (_) {
+        return {};
+      }
+    }
+
+    function saveColumnWidth(typeKey, colKey, width) {
+      if (!typeKey || !colKey) return;
+      try {
+        const widths = getColumnWidths(typeKey);
+        if (width > 0) {
+          widths[colKey] = Math.round(width);
+        } else {
+          delete widths[colKey];
+        }
+        localStorage.setItem(`mdb_col_widths_v1_${typeKey}`, JSON.stringify(widths));
+      } catch (_) {}
+    }
+
+    function resetColumnWidth(typeKey, colKey) {
+      if (!typeKey || !colKey) return;
+      try {
+        const widths = getColumnWidths(typeKey);
+        delete widths[colKey];
+        localStorage.setItem(`mdb_col_widths_v1_${typeKey}`, JSON.stringify(widths));
+      } catch (_) {}
+      renderTable();
+    }
+
+    function resetAllColumnWidths(typeKey) {
+      if (!typeKey) return;
+      try {
+        localStorage.removeItem(`mdb_col_widths_v1_${typeKey}`);
+      } catch (_) {}
+      renderTable();
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -581,6 +720,10 @@
           } else {
             if (Array.isArray(obj.competences)) return obj.competences;
             if (Array.isArray(obj.descriptors)) return obj.descriptors;
+            if (Array.isArray(obj.exercises)) return obj.exercises;
+            if (Array.isArray(obj.testbanks)) return obj.testbanks;
+            if (Array.isArray(obj.customExerciseBank)) return obj.customExerciseBank;
+            if (Array.isArray(obj.customTestBank)) return obj.customTestBank;
             if (Array.isArray(obj.records)) return obj.records;
             if (Array.isArray(obj.phases)) return obj.phases;
             if (Array.isArray(obj.activities)) return obj.activities;
@@ -780,6 +923,7 @@
     // ─────────────────────────────────────────────────────────────────────
     function init() {
       initHamburger();
+      initRowContextMenu();
       if (window.applyTranslations) applyTranslations();
       renderSidebar();
       setTimeout(startBackgroundLoad, 0);
@@ -1062,33 +1206,68 @@
     // SCHEMA DETECTION
     // ─────────────────────────────────────────────────────────────────────
     function buildSchema(records) {
-      if (!records.length) return [];
+      const customCols = getCustomColumns(S.typeKey);
+      if (!records || !records.length) {
+        return customCols.map(c => ({
+          key: c.key,
+          type: c.type || 'string',
+          isLong: Boolean(c.isLong),
+          longArray: Boolean(c.longArray),
+          uniqueVals: [],
+          useSelect: false,
+          isCustom: true,
+          customLabel: c.label || cap(c.key)
+        }));
+      }
       const keyOrder = [];
       for (const rec of records) {
+        if (!rec || typeof rec !== 'object') continue;
         for (const k of Object.keys(rec)) {
-          if (!keyOrder.includes(k)) keyOrder.push(k);
+          if (!keyOrder.includes(k) && !k.startsWith('_')) keyOrder.push(k);
         }
+      }
+      for (const c of customCols) {
+        if (!keyOrder.includes(c.key)) keyOrder.push(c.key);
       }
 
       const ALWAYS_LONG_ARRAYS = ['definition', 'exampleSentence'];
 
       return keyOrder.map(key => {
-        const vals = records.map(r => r[key]).filter(v => v !== undefined && v !== null && v !== '');
-        if (!vals.length) return { key, type: 'string', isLong: false, longArray: false, uniqueVals: [], useSelect: false };
-        if (ALWAYS_LONG_ARRAYS.includes(key)) return { key, type: 'array', isLong: false, longArray: true, uniqueVals: [], useSelect: false };
+        const customDef = customCols.find(c => c.key === key);
+        const vals = records.map(r => r ? r[key] : undefined).filter(v => v !== undefined && v !== null && v !== '');
+        if (!vals.length && customDef) {
+          return {
+            key,
+            type: customDef.type || 'string',
+            isLong: Boolean(customDef.isLong),
+            longArray: Boolean(customDef.longArray),
+            uniqueVals: [],
+            useSelect: false,
+            isCustom: true,
+            customLabel: customDef.label || cap(key)
+          };
+        }
+        if (!vals.length) return { key, type: 'string', isLong: false, longArray: false, uniqueVals: [], useSelect: false, isCustom: Boolean(customDef), customLabel: customDef?.label };
+        if (ALWAYS_LONG_ARRAYS.includes(key)) return { key, type: 'array', isLong: false, longArray: true, uniqueVals: [], useSelect: false, isCustom: Boolean(customDef), customLabel: customDef?.label };
 
-        let type = 'string';
-        if (vals.every(v => typeof v === 'boolean')) type = 'boolean';
-        else if (vals.every(v => Array.isArray(v))) type = 'array';
-        else if (vals.every(v => v !== null && typeof v === 'object' && !Array.isArray(v))) type = 'object';
-        else if (vals.every(v => typeof v === 'number')) type = 'number';
+        let type = customDef ? customDef.type : 'string';
+        if (!customDef) {
+          if (vals.every(v => typeof v === 'boolean')) type = 'boolean';
+          else if (vals.every(v => Array.isArray(v))) type = 'array';
+          else if (vals.every(v => v !== null && typeof v === 'object' && !Array.isArray(v))) type = 'object';
+          else if (vals.every(v => typeof v === 'number')) type = 'number';
+        }
 
-        const isLong = type === 'string' && vals.some(v => String(v).length > 65);
+        const isLong = customDef ? Boolean(customDef.isLong) : (type === 'string' && vals.some(v => String(v).length > 65));
         let longArray = false;
         if (type === 'array') {
-          const flat = vals.flatMap(v => v);
-          const avgLen = flat.length ? flat.reduce((s, el) => s + String(el).length, 0) / flat.length : 0;
-          longArray = avgLen > 35;
+          if (customDef && customDef.longArray !== undefined) {
+            longArray = Boolean(customDef.longArray);
+          } else {
+            const flat = vals.flatMap(v => v);
+            const avgLen = flat.length ? flat.reduce((s, el) => s + String(el).length, 0) / flat.length : 0;
+            longArray = avgLen > 35;
+          }
         }
 
         const uniqueVals = (type === 'string' || type === 'number')
@@ -1096,7 +1275,7 @@
           : [];
         const useSelect = uniqueVals.length >= 1 && uniqueVals.length <= 25;
 
-        return { key, type, isLong, longArray, uniqueVals, useSelect };
+        return { key, type, isLong, longArray, uniqueVals, useSelect, isCustom: Boolean(customDef), customLabel: customDef?.label };
       });
     }
 
@@ -1232,6 +1411,23 @@
         addStr('type');
         addArr('items', { longArray: true });
       }
+
+      const customCols = getCustomColumns(typeKey);
+      for (const c of customCols) {
+        if (!schema.some(f => f.key === c.key)) {
+          schema.push({
+            key: c.key,
+            type: c.type || 'string',
+            isLong: Boolean(c.isLong),
+            longArray: Boolean(c.longArray),
+            uniqueVals: [],
+            useSelect: false,
+            isCustom: true,
+            customLabel: c.label || cap(c.key)
+          });
+        }
+      }
+
       return schema;
     }
 
@@ -1856,13 +2052,23 @@
       const multiFile = S.files.length > 1;
       const isBatchMode = isBatchSupported();
       const allPageSelected = rows.length > 0 && rows.every(r => S.batchSel.has(batchKey(r._fi, r._ri)));
+      const colWidths = getColumnWidths(S.typeKey);
 
       thead.innerHTML = `<tr>
-    ${isBatchMode ? `<th class="th-act" style="width:32px;padding:8px 4px 8px 11px;"><input type="checkbox" id="batch-check-all" ${allPageSelected ? 'checked' : ''} onchange="handleBatchCheckAll(this)" title="${t('mdbTitleSelectAllPage')}"></th>` : ''}
+    ${isBatchMode ? `<th class="th-act" style="width:32px;min-width:32px;padding:8px 4px 8px 11px;"><input type="checkbox" id="batch-check-all" ${allPageSelected ? 'checked' : ''} onchange="handleBatchCheckAll(this)" title="${t('mdbTitleSelectAllPage')}"></th>` : ''}
     ${tableCols.map(f => {
         const cls = S.sortField === f.key ? (S.sortDir === 'asc' ? 'sort-asc' : 'sort-desc') : '';
-        return `<th class="${cls}" onclick="setSort('${f.key}')">${esc(cap(f.key))}</th>`;
+        const w = colWidths[f.key];
+        const wStyle = w ? `style="width:${w}px;min-width:${w}px;max-width:${w}px;"` : '';
+        const displayLabel = esc(f.customLabel || cap(f.key));
+        const badge = f.isCustom ? `<span class="th-custom-badge">custom</span>` : '';
+        return `<th class="${cls}" data-col="${esc(f.key)}" ${wStyle} onclick="setSort('${f.key}')">
+          <span class="th-label">${displayLabel}</span>${badge}
+          <button type="button" class="th-col-menu-btn" onclick="openColMenu(event, '${esc(f.key)}', ${Boolean(f.isCustom)})" title="Column options">⋮</button>
+          <div class="col-resizer" data-col="${esc(f.key)}" title="Drag to resize, double-click to auto-fit"></div>
+        </th>`;
       }).join('')}
+    <th class="th-add-col" title="${t('mdbBtnAddColumn')}"><button type="button" class="btn-add-col-th" onclick="openAddColumnModal()" title="${t('mdbBtnAddColumn')}">+</button></th>
     ${multiFile ? `<th class="${S.sortField === '_src' ? (S.sortDir === 'asc' ? 'sort-asc' : 'sort-desc') : ''}" onclick="setSort('_src')">${t('mdbColSource')}</th>` : ''}
     <th class="th-act">${t('mdbColActions')}</th>
   </tr>`;
@@ -1870,9 +2076,18 @@
       tbody.innerHTML = rows.map(row => {
         const bk = batchKey(row._fi, row._ri);
         const isSel = S.batchSel.has(bk);
-        return `<tr${isSel ? ' class="row-selected"' : ''} data-batch-row="${esc(bk)}">
+        return `<tr${isSel ? ' class="row-selected"' : ''} data-batch-row="${esc(bk)}" data-fi="${row._fi}" data-ri="${row._ri}">
       ${isBatchMode ? `<td style="width:32px;padding:7px 4px 7px 11px;"><input type="checkbox" class="batch-cb" ${isSel ? 'checked' : ''} onchange="toggleBatchSelect(${row._fi},${row._ri})"></td>` : ''}
-      ${tableCols.map(f => `<td>${renderCell(row[f.key], f)}</td>`).join('')}
+      ${tableCols.map(f => {
+        const isEditable = f.type !== 'object' && f.key !== '_src';
+        const w = colWidths[f.key];
+        const wStyle = w ? `style="width:${w}px;min-width:${w}px;max-width:${w}px;"` : '';
+        if (isEditable) {
+          return `<td class="cell-editable" data-fi="${row._fi}" data-ri="${row._ri}" data-key="${esc(f.key)}" data-type="${f.type}" data-long="${f.isLong || f.longArray ? '1' : '0'}" ${wStyle} title="${t('mdbCellEditHint')}">${renderCell(row[f.key], f)}</td>`;
+        }
+        return `<td ${wStyle}>${renderCell(row[f.key], f)}</td>`;
+      }).join('')}
+      <td class="th-add-col-cell" style="width:44px;min-width:44px;"></td>
       ${multiFile ? `<td class="src-cell" title="${esc(row._src)}">${esc(row._src)}</td>` : ''}
       <td class="act-cell">
         <button class="btn btn-sm btn-secondary" onclick="openEdit(${row._fi},${row._ri})"><img src="../assets/icons/edit-word.svg" class="btn-icon btn-icon-xs" alt="" /> ${t('mdbBtnEdit')}</button>
@@ -1882,6 +2097,9 @@
       </td>
     </tr>`;
       }).join('');
+
+      initColResizers();
+      initCellEditListeners();
     }
 
     function renderCell(val, field) {
@@ -1911,6 +2129,464 @@
       const str = String(val);
       if (str.length > 85) return `<span class="cell-trunc" title="${esc(str)}">${esc(str.slice(0, 85))}…</span>`;
       return esc(str);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // COLUMN RESIZING & AUTO-FIT
+    // ─────────────────────────────────────────────────────────────────────
+    function initColResizers() {
+      document.querySelectorAll('.col-resizer').forEach(initColResizer);
+    }
+
+    function initColResizer(resizerEl) {
+      if (!resizerEl || resizerEl._initDone) return;
+      resizerEl._initDone = true;
+
+      resizerEl.addEventListener('mousedown', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const colKey = resizerEl.dataset.col;
+        const th = resizerEl.closest('th');
+        if (!th || !colKey) return;
+
+        const startX = e.clientX;
+        const startWidth = th.offsetWidth;
+        const minWidth = 45;
+
+        document.body.classList.add('col-resizing');
+
+        let currentWidth = startWidth;
+        let rafId = null;
+
+        function onMouseMove(moveEvent) {
+          const deltaX = moveEvent.clientX - startX;
+          currentWidth = Math.max(minWidth, startWidth + deltaX);
+
+          if (!rafId) {
+            rafId = requestAnimationFrame(() => {
+              th.style.width = `${currentWidth}px`;
+              th.style.minWidth = `${currentWidth}px`;
+              th.style.maxWidth = `${currentWidth}px`;
+              const thIndex = Array.from(th.parentNode.children).indexOf(th);
+              if (thIndex !== -1) {
+                const cells = document.querySelectorAll(`tbody tr td:nth-child(${thIndex + 1})`);
+                cells.forEach(c => {
+                  c.style.width = `${currentWidth}px`;
+                  c.style.minWidth = `${currentWidth}px`;
+                  c.style.maxWidth = `${currentWidth}px`;
+                });
+              }
+              rafId = null;
+            });
+          }
+        }
+
+        function onMouseUp() {
+          document.body.classList.remove('col-resizing');
+          document.removeEventListener('mousemove', onMouseMove);
+          document.removeEventListener('mouseup', onMouseUp);
+          if (rafId) {
+            cancelAnimationFrame(rafId);
+            rafId = null;
+          }
+          saveColumnWidth(S.typeKey, colKey, currentWidth);
+        }
+
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+      });
+
+      resizerEl.addEventListener('dblclick', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        autoFitColumn(resizerEl.dataset.col);
+      });
+    }
+
+    function autoFitColumn(colKey) {
+      const th = document.querySelector(`thead th[data-col="${colKey}"]`);
+      if (!th) return;
+      const thIndex = Array.from(th.parentNode.children).indexOf(th);
+      if (thIndex === -1) return;
+
+      let maxW = Math.max(60, (th.querySelector('.th-label')?.scrollWidth || 50) + 40);
+      const cells = document.querySelectorAll(`tbody tr td:nth-child(${thIndex + 1})`);
+      cells.forEach(td => {
+        maxW = Math.max(maxW, td.scrollWidth + 24);
+      });
+      maxW = Math.min(650, Math.max(50, maxW));
+
+      th.style.width = `${maxW}px`;
+      th.style.minWidth = `${maxW}px`;
+      th.style.maxWidth = `${maxW}px`;
+      saveColumnWidth(S.typeKey, colKey, maxW);
+      renderTable();
+    }
+
+    function openColMenu(e, colKey, isCustom) {
+      e.stopPropagation();
+      closeAllColMenus();
+
+      const th = e.currentTarget.closest('th');
+      if (!th) return;
+
+      const menu = document.createElement('div');
+      menu.className = 'col-menu-dropdown';
+      menu.id = 'active-col-menu';
+
+      let menuHtml = `
+        <div class="col-menu-item" onclick="autoFitColumn('${esc(colKey)}'); closeAllColMenus();">
+          <img src="../assets/icons/table.svg" class="btn-icon btn-icon-xs" alt="" />
+          <span>Auto-fit Width</span>
+        </div>
+        <div class="col-menu-item" onclick="resetColumnWidth('${S.typeKey}', '${esc(colKey)}'); closeAllColMenus();">
+          <img src="../assets/icons/refresh.svg" class="btn-icon btn-icon-xs" alt="" />
+          <span>${t('mdbResetColWidth')}</span>
+        </div>
+        <div class="col-menu-item" onclick="resetAllColumnWidths('${S.typeKey}'); closeAllColMenus();">
+          <img src="../assets/icons/clear.svg" class="btn-icon btn-icon-xs" alt="" />
+          <span>${t('mdbResetAllColWidths')}</span>
+        </div>
+      `;
+
+      if (isCustom) {
+        menuHtml += `
+          <div style="border-top:1px solid #eee;margin:3px 0;"></div>
+          <div class="col-menu-item danger" onclick="deleteCustomColumn('${esc(colKey)}'); closeAllColMenus();">
+            <img src="../assets/icons/delete.svg" class="btn-icon btn-icon-xs" alt="" />
+            <span>${t('mdbDeleteColumn')}</span>
+          </div>
+        `;
+      }
+
+      menu.innerHTML = menuHtml;
+      th.appendChild(menu);
+    }
+
+    function closeAllColMenus() {
+      document.querySelectorAll('.col-menu-dropdown').forEach(m => m.remove());
+    }
+
+    document.addEventListener('click', function (e) {
+      if (!e.target.closest('.col-menu-dropdown') && !e.target.closest('.th-col-menu-btn')) {
+        closeAllColMenus();
+      }
+    });
+
+    // ─────────────────────────────────────────────────────────────────────
+    // DIRECT IN-CELL SPREADSHEET EDITING
+    // ─────────────────────────────────────────────────────────────────────
+    let _activeEditingTd = null;
+
+    function initCellEditListeners() {
+      const tbody = $('t-body');
+      if (!tbody || tbody._cellEditInitialized) return;
+      tbody._cellEditInitialized = true;
+
+      tbody.addEventListener('click', handleCellClick);
+      tbody.addEventListener('dblclick', handleCellDblClick);
+    }
+
+    function handleCellClick(e) {
+      const td = e.target.closest('td.cell-editable');
+      if (!td || td.classList.contains('cell-editing')) return;
+      if (td.dataset.type === 'boolean') {
+        e.stopPropagation();
+        const fi = Number(td.dataset.fi);
+        const ri = Number(td.dataset.ri);
+        const key = td.dataset.key;
+        const rec = S.files[fi]?.records[ri];
+        if (!rec) return;
+
+        const currentVal = Boolean(rec[key]);
+        const newVal = !currentVal;
+        rec[key] = newVal;
+
+        const field = S.schema.find(f => f.key === key) || { key, type: 'boolean' };
+        td.innerHTML = renderCell(newVal, field);
+        td.classList.add('cell-saved-flash');
+        setTimeout(() => td.classList.remove('cell-saved-flash'), 500);
+
+        saveFile(fi);
+        if (_gsc[S.typeKey]?.[S.files[fi]?.name]) {
+          _gsc[S.typeKey][S.files[fi].name].records = S.files[fi].records;
+        }
+      }
+    }
+
+    function handleCellDblClick(e) {
+      const td = e.target.closest('td.cell-editable');
+      if (!td || td.classList.contains('cell-editing')) return;
+      if (td.dataset.type === 'boolean') return;
+      startCellEdit(td);
+    }
+
+    function startCellEdit(td) {
+      if (!td) return;
+      if (_activeEditingTd && _activeEditingTd !== td) {
+        commitCellEdit(_activeEditingTd);
+      }
+
+      const fi = Number(td.dataset.fi);
+      const ri = Number(td.dataset.ri);
+      const key = td.dataset.key;
+      const type = td.dataset.type;
+      const isLong = td.dataset.long === '1';
+
+      const rec = S.files[fi]?.records[ri];
+      if (!rec) return;
+
+      const currentVal = rec[key];
+      td._originalVal = currentVal;
+      _activeEditingTd = td;
+
+      td.classList.add('cell-editing');
+
+      let strVal = '';
+      if (Array.isArray(currentVal)) {
+        strVal = isLong ? currentVal.join('\n') : currentVal.join(', ');
+      } else if (currentVal !== undefined && currentVal !== null) {
+        strVal = String(currentVal);
+      }
+
+      let inputHtml = '';
+      if (isLong) {
+        inputHtml = `<textarea class="cell-inline-textarea" rows="3">${escHtml(strVal)}</textarea>`;
+      } else if (type === 'number') {
+        inputHtml = `<input type="number" class="cell-inline-input" value="${esc(strVal)}" />`;
+      } else {
+        inputHtml = `<input type="text" class="cell-inline-input" value="${esc(strVal)}" />`;
+      }
+
+      td.innerHTML = inputHtml;
+      const input = td.querySelector('input, textarea');
+      if (!input) return;
+
+      input.focus();
+      if (typeof input.select === 'function') {
+        input.select();
+      }
+
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+          e.stopPropagation();
+          e.preventDefault();
+          cancelCellEdit(td);
+        } else if (e.key === 'Enter') {
+          if (isLong && e.shiftKey) return;
+          e.stopPropagation();
+          e.preventDefault();
+          commitCellEdit(td);
+        } else if (e.key === 'Tab') {
+          e.stopPropagation();
+          e.preventDefault();
+          const shift = e.shiftKey;
+          commitCellEdit(td, true, shift);
+        }
+      });
+
+      input.addEventListener('blur', function () {
+        setTimeout(() => {
+          if (_activeEditingTd === td) {
+            commitCellEdit(td);
+          }
+        }, 120);
+      });
+    }
+
+    function cancelCellEdit(td) {
+      if (!td || !td.classList.contains('cell-editing')) return;
+      const key = td.dataset.key;
+      const field = S.schema.find(f => f.key === key) || { key, type: td.dataset.type };
+      td.classList.remove('cell-editing');
+      td.innerHTML = renderCell(td._originalVal, field);
+      if (_activeEditingTd === td) _activeEditingTd = null;
+    }
+
+    async function commitCellEdit(td, advance = false, shift = false) {
+      if (!td || !td.classList.contains('cell-editing')) return;
+      const input = td.querySelector('input, textarea');
+      if (!input) {
+        td.classList.remove('cell-editing');
+        if (_activeEditingTd === td) _activeEditingTd = null;
+        return;
+      }
+
+      const fi = Number(td.dataset.fi);
+      const ri = Number(td.dataset.ri);
+      const key = td.dataset.key;
+      const type = td.dataset.type;
+      const isLong = td.dataset.long === '1';
+      const rec = S.files[fi]?.records[ri];
+
+      const rawVal = input.value;
+      let newVal;
+
+      if (type === 'number') {
+        newVal = rawVal.trim() === '' ? null : Number(rawVal.trim());
+      } else if (type === 'array') {
+        const sep = isLong ? '\n' : ',';
+        newVal = rawVal.split(sep).map(s => s.trim()).filter(Boolean);
+      } else {
+        newVal = rawVal;
+      }
+
+      td.classList.remove('cell-editing');
+      if (_activeEditingTd === td) _activeEditingTd = null;
+
+      if (rec) {
+        const origJson = JSON.stringify(td._originalVal ?? '');
+        const newJson = JSON.stringify(newVal ?? '');
+        if (origJson !== newJson) {
+          rec[key] = newVal;
+          td.classList.add('cell-saved-flash');
+          setTimeout(() => td.classList.remove('cell-saved-flash'), 500);
+          saveFile(fi);
+          if (_gsc[S.typeKey]?.[S.files[fi]?.name]) {
+            _gsc[S.typeKey][S.files[fi].name].records = S.files[fi].records;
+          }
+        }
+      }
+
+      const field = S.schema.find(f => f.key === key) || { key, type, isLong };
+      td.innerHTML = renderCell(newVal, field);
+
+      if (advance) {
+        const allCells = Array.from(document.querySelectorAll('tbody td.cell-editable'));
+        const currentIndex = allCells.indexOf(td);
+        if (currentIndex !== -1) {
+          const nextIndex = shift ? currentIndex - 1 : currentIndex + 1;
+          if (nextIndex >= 0 && nextIndex < allCells.length) {
+            startCellEdit(allCells[nextIndex]);
+          }
+        }
+      }
+    }
+
+    document.addEventListener('mousedown', function (e) {
+      if (_activeEditingTd && !_activeEditingTd.contains(e.target)) {
+        commitCellEdit(_activeEditingTd);
+      }
+    });
+
+    // ─────────────────────────────────────────────────────────────────────
+    // ROW CONTEXT MENU (Right Click)
+    // ─────────────────────────────────────────────────────────────────────
+    let _rcmTarget = null; // { fi, ri }
+
+    function openRowContextMenu(x, y, fi, ri) {
+      const menu = $('row-context-menu');
+      if (!menu) return;
+      _rcmTarget = { fi: Number(fi), ri: Number(ri) };
+
+      menu.classList.remove('hidden');
+      menu.style.visibility = 'hidden';
+      menu.style.left = '0px';
+      menu.style.top = '0px';
+
+      const menuWidth = menu.offsetWidth || 185;
+      const menuHeight = menu.offsetHeight || 145;
+
+      const pad = 10;
+      let posX = x;
+      let posY = y;
+
+      if (posX + menuWidth > window.innerWidth - pad) {
+        posX = Math.max(pad, window.innerWidth - menuWidth - pad);
+      }
+      if (posY + menuHeight > window.innerHeight - pad) {
+        posY = Math.max(pad, window.innerHeight - menuHeight - pad);
+      }
+
+      menu.style.left = `${posX}px`;
+      menu.style.top = `${posY}px`;
+      menu.style.visibility = 'visible';
+    }
+
+    function closeRowContextMenu() {
+      const menu = $('row-context-menu');
+      if (menu) {
+        menu.classList.add('hidden');
+        menu.style.visibility = 'hidden';
+      }
+      _rcmTarget = null;
+    }
+
+    function initRowContextMenu() {
+      const menu = $('row-context-menu');
+      if (!menu || menu._initDone) return;
+      menu._initDone = true;
+
+      $('rcm-edit')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (_rcmTarget) {
+          const { fi, ri } = _rcmTarget;
+          closeRowContextMenu();
+          openEdit(fi, ri);
+        }
+      });
+
+      $('rcm-autofill')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (_rcmTarget) {
+          const { fi, ri } = _rcmTarget;
+          closeRowContextMenu();
+          triggerRecordAutofill(fi, ri);
+        }
+      });
+
+      $('rcm-copy')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (_rcmTarget) {
+          const { fi, ri } = _rcmTarget;
+          closeRowContextMenu();
+          openCopyToModal(fi, ri);
+        }
+      });
+
+      $('rcm-duplicate')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (_rcmTarget) {
+          const { fi, ri } = _rcmTarget;
+          closeRowContextMenu();
+          duplicateRecord(fi, ri);
+        }
+      });
+
+      $('rcm-delete')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (_rcmTarget) {
+          const { fi, ri } = _rcmTarget;
+          closeRowContextMenu();
+          confirmDel(fi, ri);
+        }
+      });
+
+      document.addEventListener('contextmenu', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+          closeRowContextMenu();
+          return;
+        }
+
+        const rowEl = e.target.closest('tr[data-fi], .chip[data-fi]');
+        if (rowEl && rowEl.dataset.fi !== undefined && rowEl.dataset.ri !== undefined) {
+          e.preventDefault();
+          e.stopPropagation();
+          openRowContextMenu(e.clientX, e.clientY, rowEl.dataset.fi, rowEl.dataset.ri);
+        } else {
+          closeRowContextMenu();
+        }
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!menu.contains(e.target)) {
+          closeRowContextMenu();
+        }
+      });
+
+      window.addEventListener('scroll', closeRowContextMenu, true);
+      window.addEventListener('resize', closeRowContextMenu);
     }
 
     function updateCount(shown) {
@@ -2274,7 +2950,7 @@
           const bk = batchKey(row._fi, row._ri);
           const isSel = S.batchSel.has(bk);
           const itemTags = items.map(it => `<span class="tag" style="background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;font-size:0.75rem;padding:2px 7px;border-radius:12px;margin:2px;">${esc(it)}</span>`).join('');
-          return `<div class="chip${isSel ? ' chip-selected' : ''}" style="width:100%;max-width:540px;flex-direction:column;align-items:flex-start;padding:12px 14px;gap:8px;">
+          return `<div class="chip${isSel ? ' chip-selected' : ''}" data-fi="${row._fi}" data-ri="${row._ri}" style="width:100%;max-width:540px;flex-direction:column;align-items:flex-start;padding:12px 14px;gap:8px;">
             <div style="display:flex;align-items:center;width:100%;justify-content:space-between;gap:8px;">
               <div style="display:flex;align-items:center;gap:8px;">
                 <label class="chip-check" onclick="event.stopPropagation()"><input type="checkbox" data-batch-key="${esc(bk)}" ${isSel ? 'checked' : ''} onchange="toggleBatchSelect(${row._fi},${row._ri})"></label>
@@ -2306,7 +2982,7 @@
         const sub = secondary ? String(row[secondary.key] ?? '') : '';
         const bk = batchKey(row._fi, row._ri);
         const isSel = S.batchSel.has(bk);
-        return `<div class="chip${isSel ? ' chip-selected' : ''}">
+        return `<div class="chip${isSel ? ' chip-selected' : ''}" data-fi="${row._fi}" data-ri="${row._ri}">
       ${isBatchMode ? `<label class="chip-check" onclick="event.stopPropagation()"><input type="checkbox" data-batch-key="${esc(bk)}" ${isSel ? 'checked' : ''} onchange="toggleBatchSelect(${row._fi},${row._ri})"></label>` : ''}
       <div class="chip-body" onclick="openEdit(${row._fi},${row._ri})">
         <span class="chip-main">${esc(main) || '<span style="color:#bbb">—</span>'}</span>
@@ -3183,16 +3859,41 @@
     // AUTOFILL
     // ─────────────────────────────────────────────────────────────────────
     let _autofillPendingSuggestions = null;
+    let _autofillContext = null; // { mode: 'form' | 'record', fi, ri, rec }
 
-    async function triggerWordAutofill() {
-      const wordEl = $('ff-word') || $('ff-english');
-      const targetWord = (wordEl ? wordEl.value : '').trim();
-
-      if (!targetWord) {
-        showToast(t('mdbAutofillNoWord'), true);
-        return;
+    function getRecordSearchTerm(rec) {
+      if (!rec || typeof rec !== 'object') return '';
+      const prioritized = [
+        rec.word, rec.english, rec.term, rec.target, rec.sentence, rec.title,
+        rec.name, rec.code, rec.expression, rec.question, rec.quote, rec.label,
+        rec.type, rec.author, rec.french, rec.german, rec.italian
+      ];
+      for (const v of prioritized) {
+        if (typeof v === 'string' && v.trim()) return v.trim();
       }
+      const anyStr = Object.entries(rec).find(([k, v]) => !k.startsWith('_') && typeof v === 'string' && v.trim());
+      return anyStr ? anyStr[1].trim() : '';
+    }
 
+    function isRecordMatch(candidateRec, targetWordLower) {
+      if (!candidateRec || typeof candidateRec !== 'object') return false;
+      const matchFields = [
+        candidateRec.word, candidateRec.english, candidateRec.term, candidateRec.target,
+        candidateRec.sentence, candidateRec.title, candidateRec.name, candidateRec.code,
+        candidateRec.expression, candidateRec.question, candidateRec.quote, candidateRec.label,
+        candidateRec.french, candidateRec.german, candidateRec.italian
+      ];
+      for (const v of matchFields) {
+        if (typeof v === 'string' && v.trim().toLowerCase() === targetWordLower) return true;
+      }
+      for (const [k, v] of Object.entries(candidateRec)) {
+        if (k.startsWith('_')) continue;
+        if (typeof v === 'string' && v.trim().toLowerCase() === targetWordLower) return true;
+      }
+      return false;
+    }
+
+    function findAutofillHits(targetWord) {
       const targetWordLower = targetWord.toLowerCase();
       const hits = [];
 
@@ -3201,9 +3902,7 @@
         for (const [filename, fileData] of Object.entries(typeFiles)) {
           if (!fileData || !Array.isArray(fileData.records)) continue;
           for (const rec of fileData.records) {
-            if (!rec) continue;
-            const recWord = String(rec.word || rec.english || '').trim().toLowerCase();
-            if (recWord === targetWordLower) {
+            if (isRecordMatch(rec, targetWordLower)) {
               hits.push({ typeKey, filename, rec });
             }
           }
@@ -3213,9 +3912,7 @@
       for (const f of S.files) {
         if (f.status === 'loaded' && Array.isArray(f.records)) {
           for (const rec of f.records) {
-            if (!rec) continue;
-            const recWord = String(rec.word || rec.english || '').trim().toLowerCase();
-            if (recWord === targetWordLower) {
+            if (isRecordMatch(rec, targetWordLower)) {
               if (!hits.some(h => h.filename === f.name && h.rec === rec)) {
                 hits.push({ typeKey: S.typeKey, filename: f.name, rec });
               }
@@ -3224,40 +3921,10 @@
         }
       }
 
-      if (!hits.length) {
-        showToast(t('mdbAutofillNoMatches'), true);
-        return;
-      }
+      return hits;
+    }
 
-      const fieldSuggestions = {};
-      const sources = new Set();
-
-      for (const hit of hits) {
-        sources.add(hit.filename);
-        const r = hit.rec;
-        for (const [key, val] of Object.entries(r)) {
-          if (key.startsWith('_') || key === 'word') continue;
-          if (val === undefined || val === null || val === '') continue;
-          if (Array.isArray(val) && val.length === 0) continue;
-
-          if (!fieldSuggestions[key]) {
-            fieldSuggestions[key] = [];
-          }
-          
-          const valStr = JSON.stringify(val);
-          if (!fieldSuggestions[key].some(existing => JSON.stringify(existing.val) === valStr)) {
-            fieldSuggestions[key].push({ val, filename: hit.filename });
-          }
-        }
-      }
-
-      if (Object.keys(fieldSuggestions).length === 0) {
-        showToast(t('mdbAutofillNoMatches'), true);
-        return;
-      }
-
-      _autofillPendingSuggestions = fieldSuggestions;
-
+    function renderAutofillModalUi(hits, sources, fieldSuggestions, rec) {
       let html = `<div style="font-size:0.83rem;color:#555;margin-bottom:12px;">`;
       html += `<div>${tFmt('mdbAutofillFoundN', { n: hits.length })}</div>`;
       html += `<div style="font-size:0.75rem;color:#888;margin-top:2px;">${t('mdbAutofillSourceLabel')} ${esc([...sources].join(', '))}</div>`;
@@ -3267,9 +3934,14 @@
       html += `<div style="display:flex;flex-direction:column;gap:10px;max-height:300px;overflow-y:auto;padding-right:4px;">`;
 
       for (const [fieldKey, candidateList] of Object.entries(fieldSuggestions)) {
-        const el = $(`ff-${fieldKey}`);
-        const currentVal = el ? el.value.trim() : '';
-        const isCurrentEmpty = !currentVal;
+        let isCurrentEmpty = true;
+        if (rec) {
+          const v = rec[fieldKey];
+          isCurrentEmpty = v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
+        } else {
+          const el = $(`ff-${fieldKey}`);
+          isCurrentEmpty = !el || !el.value.trim();
+        }
 
         const primaryCandidate = candidateList[0].val;
         let displayVal = '';
@@ -3300,14 +3972,147 @@
       $('autofill-bg').classList.remove('hidden');
     }
 
+    async function triggerRecordAutofill(fi, ri) {
+      const file = S.files[fi];
+      if (!file || !file.records[ri]) return;
+      const rec = file.records[ri];
+      const targetWord = getRecordSearchTerm(rec);
+
+      if (!targetWord) {
+        showToast(t('mdbAutofillNoWord'), true);
+        return;
+      }
+
+      const hits = findAutofillHits(targetWord);
+      const relevantHits = hits.filter(h => !(h.filename === file.name && h.rec === rec));
+
+      if (!relevantHits.length) {
+        showToast(t('mdbAutofillNoMatches'), true);
+        return;
+      }
+
+      const fieldSuggestions = {};
+      const sources = new Set();
+
+      for (const hit of relevantHits) {
+        sources.add(hit.filename);
+        const r = hit.rec;
+        for (const [key, val] of Object.entries(r)) {
+          if (key.startsWith('_')) continue;
+          if (val === undefined || val === null || val === '') continue;
+          if (Array.isArray(val) && val.length === 0) continue;
+
+          if (!fieldSuggestions[key]) {
+            fieldSuggestions[key] = [];
+          }
+
+          const valStr = JSON.stringify(val);
+          if (!fieldSuggestions[key].some(existing => JSON.stringify(existing.val) === valStr)) {
+            fieldSuggestions[key].push({ val, filename: hit.filename });
+          }
+        }
+      }
+
+      if (Object.keys(fieldSuggestions).length === 0) {
+        showToast(t('mdbAutofillNoMatches'), true);
+        return;
+      }
+
+      _autofillPendingSuggestions = fieldSuggestions;
+      _autofillContext = { mode: 'record', fi, ri, rec };
+
+      renderAutofillModalUi(relevantHits, sources, fieldSuggestions, rec);
+    }
+
+    async function triggerWordAutofill() {
+      const wordEl = $('ff-word') || $('ff-english') || document.querySelector('#edit-body input[type="text"]');
+      const targetWord = (wordEl ? wordEl.value : '').trim();
+
+      if (!targetWord) {
+        showToast(t('mdbAutofillNoWord'), true);
+        return;
+      }
+
+      const hits = findAutofillHits(targetWord);
+      if (!hits.length) {
+        showToast(t('mdbAutofillNoMatches'), true);
+        return;
+      }
+
+      const fieldSuggestions = {};
+      const sources = new Set();
+
+      for (const hit of hits) {
+        sources.add(hit.filename);
+        const r = hit.rec;
+        for (const [key, val] of Object.entries(r)) {
+          if (key.startsWith('_') || key === 'word') continue;
+          if (val === undefined || val === null || val === '') continue;
+          if (Array.isArray(val) && val.length === 0) continue;
+
+          if (!fieldSuggestions[key]) {
+            fieldSuggestions[key] = [];
+          }
+
+          const valStr = JSON.stringify(val);
+          if (!fieldSuggestions[key].some(existing => JSON.stringify(existing.val) === valStr)) {
+            fieldSuggestions[key].push({ val, filename: hit.filename });
+          }
+        }
+      }
+
+      if (Object.keys(fieldSuggestions).length === 0) {
+        showToast(t('mdbAutofillNoMatches'), true);
+        return;
+      }
+
+      _autofillPendingSuggestions = fieldSuggestions;
+      _autofillContext = { mode: 'form' };
+
+      renderAutofillModalUi(hits, sources, fieldSuggestions, null);
+    }
+
     function closeAutofill() {
       $('autofill-bg').classList.add('hidden');
       _autofillPendingSuggestions = null;
+      _autofillContext = null;
     }
 
-    function applyAutofillSuggestions() {
+    async function applyAutofillSuggestions() {
       if (!_autofillPendingSuggestions) return;
       const checkboxes = document.querySelectorAll('.af-field-cb:checked');
+      if (!checkboxes.length) {
+        closeAutofill();
+        return;
+      }
+
+      if (_autofillContext && _autofillContext.mode === 'record') {
+        const { fi, ri, rec } = _autofillContext;
+        const file = S.files[fi];
+        if (file && rec) {
+          let updatedCount = 0;
+          checkboxes.forEach(cb => {
+            const fieldKey = cb.dataset.field;
+            const candidates = _autofillPendingSuggestions[fieldKey];
+            if (!candidates || !candidates.length) return;
+            const val = candidates[0].val;
+            rec[fieldKey] = Array.isArray(val) ? [...val] : (val && typeof val === 'object' ? JSON.parse(JSON.stringify(val)) : val);
+            updatedCount++;
+          });
+
+          if (updatedCount > 0) {
+            await saveFile(fi);
+            if (_gsc[S.typeKey]?.[file.name]) {
+              _gsc[S.typeKey][file.name].records = file.records;
+            }
+            S.schema = buildSchema(getAllRecords());
+            renderTable();
+            showToast(t('mdbAutofillApplied'));
+          }
+        }
+        closeAutofill();
+        return;
+      }
 
       checkboxes.forEach(cb => {
         const fieldKey = cb.dataset.field;
@@ -3416,6 +4221,155 @@
           }
         } catch (_) {}
       }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // ADD & DELETE CUSTOM COLUMNS
+    // ─────────────────────────────────────────────────────────────────────
+    function openAddColumnModal() {
+      if (!S.typeKey) {
+        showToast(t('mdbSelectType'), true);
+        return;
+      }
+      $('add-col-key').value = '';
+      $('add-col-label').value = '';
+      $('add-col-type').value = 'string';
+      $('add-col-default').value = '';
+      $('add-col-err').textContent = '';
+      handleAddColTypeChange();
+      $('add-col-bg').classList.remove('hidden');
+      setTimeout(() => $('add-col-key').focus(), 80);
+    }
+
+    function closeAddColumnModal() {
+      $('add-col-bg').classList.add('hidden');
+    }
+
+    function handleAddColTypeChange() {
+      const type = $('add-col-type').value;
+      const defInput = $('add-col-default');
+      if (type === 'boolean') {
+        defInput.placeholder = 'true or false';
+      } else if (type === 'number') {
+        defInput.placeholder = 'e.g. 0 or 1';
+      } else if (type === 'array') {
+        defInput.placeholder = 'tag1, tag2';
+      } else {
+        defInput.placeholder = 'Optional default value';
+      }
+    }
+
+    async function submitAddColumn() {
+      let rawKey = $('add-col-key').value.trim();
+      let label = $('add-col-label').value.trim();
+      const typeVal = $('add-col-type').value;
+      const defValRaw = $('add-col-default').value.trim();
+      const scope = $('add-col-scope').value;
+      const errEl = $('add-col-err');
+
+      if (!rawKey) {
+        errEl.textContent = t('mdbErrColKeyInvalid');
+        return;
+      }
+
+      // Convert to valid JS property key
+      const cleanKey = rawKey.replace(/[\s-]+/g, '_').replace(/[^\w$]/g, '');
+      if (!cleanKey || cleanKey.startsWith('_')) {
+        errEl.textContent = t('mdbErrColKeyInvalid');
+        return;
+      }
+
+      if (S.schema.some(f => f.key.toLowerCase() === cleanKey.toLowerCase())) {
+        errEl.textContent = t('mdbErrColKeyExists');
+        return;
+      }
+
+      const isLong = typeVal === 'isLong';
+      const type = isLong ? 'string' : typeVal;
+      const longArray = type === 'array';
+
+      let defaultValue = '';
+      if (type === 'number') {
+        defaultValue = defValRaw !== '' ? (Number(defValRaw) || 0) : null;
+      } else if (type === 'boolean') {
+        defaultValue = defValRaw.toLowerCase() === 'true' || defValRaw === '1';
+      } else if (type === 'array') {
+        defaultValue = defValRaw ? defValRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+      } else {
+        defaultValue = defValRaw || '';
+      }
+
+      // 1. Save to custom column definitions in localStorage
+      const customCols = getCustomColumns(S.typeKey);
+      customCols.push({
+        key: cleanKey,
+        label: label || cap(cleanKey),
+        type,
+        isLong,
+        longArray,
+        defaultValue,
+        isCustom: true
+      });
+      saveCustomColumns(S.typeKey, customCols);
+
+      // 2. Update files and save to disk
+      const filesToUpdate = scope === 'current' && S.filters['_src']
+        ? S.files.filter(f => f.name === S.filters['_src'])
+        : S.files.filter(f => f.status === 'loaded');
+
+      for (const file of filesToUpdate) {
+        for (const rec of file.records) {
+          if (rec && typeof rec === 'object' && !(cleanKey in rec)) {
+            rec[cleanKey] = Array.isArray(defaultValue) ? [...defaultValue] : defaultValue;
+          }
+        }
+        const fi = S.files.indexOf(file);
+        if (fi !== -1) {
+          await saveFile(fi);
+        }
+      }
+
+      closeAddColumnModal();
+      showToast(tFmt('mdbColAddedSuccess', { name: label || cleanKey }));
+
+      // 3. Refresh schema and re-render
+      S.schema = buildSchema(getAllRecords());
+      renderAll();
+    }
+
+    async function deleteCustomColumn(key) {
+      const msg = tFmt('mdbConfirmDeleteColumn', { key });
+      if (!await showConfirm(msg)) return;
+
+      // 1. Remove from localStorage
+      let customCols = getCustomColumns(S.typeKey);
+      customCols = customCols.filter(c => c.key !== key);
+      saveCustomColumns(S.typeKey, customCols);
+
+      // 2. Remove from column widths
+      resetColumnWidth(S.typeKey, key);
+
+      // 3. Remove from records and save
+      const loadedFiles = S.files.filter(f => f.status === 'loaded');
+      for (const file of loadedFiles) {
+        let touched = false;
+        for (const rec of file.records) {
+          if (rec && typeof rec === 'object' && key in rec) {
+            delete rec[key];
+            touched = true;
+          }
+        }
+        if (touched) {
+          const fi = S.files.indexOf(file);
+          if (fi !== -1) {
+            await saveFile(fi);
+          }
+        }
+      }
+
+      showToast(tFmt('mdbColumnDeletedSuccess', { key }));
+      S.schema = buildSchema(getAllRecords());
+      renderAll();
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -5409,6 +6363,7 @@ Rules:
         closeColPicker();
         closeCopyModal();
         closeAllMdbDropdowns();
+        closeRowContextMenu();
       }
     });
     document.addEventListener('click', e => {

@@ -33,6 +33,7 @@ Welcome to the **Class Management Tools** comprehensive documentation. This guid
   - [Database Converter (`database-converter.html`)](#database-converterhtml)
   - [Planner (`planner.html`)](#plannerhtml)
   - [Lesson Creator (`lesson-creator.html`)](#lesson-creatorhtml)
+  - [Test Creator (`test-creator.html`)](#test-creatorhtml)
   - [Class Plan (`class-plan.html`)](#class-planhtml)
   - [Schedule Maker (`schedule-maker.html`)](#schedule-makerhtml)
   - [Oral Marking (`oral-marking.html`)](#oral-markinghtml)
@@ -98,6 +99,7 @@ If you downloaded a ZIP file, extract the entire folder before launching. Double
 | [`database-converter.html`](#database-converterhtml) | Universal bidirectional database & table converter (CSV, XLSX, JSON, TSV, ODS, JSONL, SQL, XML, HTML, Markdown) with live preview, schema editing, and direct CMT application format exports | Sinks to [Manage Database](#manage-databasehtml), [Grade Sheet](#grade-sheethtml), [Competence Portfolio](#competence-portfoliohtml), [Group Editor](#group-editorhtml) |
 | [`planner.html`](#plannerhtml) | Weekly lesson & test planner with ICS, PDF, CSV, DOCX, and HTML export options, weeks drawer, and linked Board mind maps | Connects to [Grade Sheet](#grade-sheethtml), [Board](#boardhtml), [Class Management](#class-managementhtml), [Lesson Creator](#lesson-creatorhtml) |
 | [`lesson-creator.html`](#lesson-creatorhtml) | Neobrutalist lesson planning studio with drag-and-drop phases, curriculum descriptor coverage matrix, live HUD runner in Class Management, and Board mindmap exports | Links to [Planner](#plannerhtml), [Class Management](#class-managementhtml), [Board](#boardhtml) |
+| [`test-creator.html`](#test-creatorhtml) | Neobrutalist test authoring studio with 11 exercise types, database linking, Group A/B variants, Seating Plan assignment, criteria rubrics, Grade Sheet sync, and multi-format exports | Links to [Grade Sheet](#grade-sheethtml), [Competence Portfolio](#competence-portfoliohtml), [Class Plan](#class-planhtml), [Manage Database](#manage-databasehtml) |
 | [`class-plan.html`](#class-planhtml) | Interactive seating plan designer (Grid, U-Shape, Pods) with PDF, DOCX, XLSX, and CSV export | Shared with [Class Management](#class-managementhtml) |
 | [`schedule-maker.html`](#schedule-makerhtml) | Plan oral exam sessions with concurrent prep/exam timing, SEN accommodations, and saved schedules | Feeds into [Oral Marking](#oral-markinghtml) |
 | [`oral-marking.html`](#oral-markinghtml) | Run live oral exam sessions with prep/exam timers, criteria scoring, and presenter view | Saves grades directly to [Grade Sheet](#grade-sheethtml) |
@@ -134,7 +136,8 @@ Class Management Tools features deep cross-tool synchronisation. Data edited in 
 | **Schedule Maker** | Loads student lists and SEN accommodation flags |
 | **Class Plan** | Imports student lists for seat assignment |
 | **Competence Portfolio** | Aggregates class curriculum coverage, combining planned lessons, delivered activities, and grade evaluations |
-| **Lesson Creator** | Loads class groups and year levels to configure targeted lesson plans and time budgets |
+| **Lesson Creator** | Loads class groups, year levels, and assigned subjects from Group Editor, Competences, Criteria, and Custom DB with class auto-sync |
+| **Test Creator** | Loads class rosters, variant matrices, and assigned subjects from Group Editor, Competences, Criteria, and Custom DB with class auto-sync |
 | **Oral Marking** | Reads class rosters and SEN accommodation flags directly for candidate evaluation sessions |
 | **Administrative Groups** | Reads student rosters, UUIDs, classes, and synchronizes profile changes |
 
@@ -475,6 +478,68 @@ Comprehensive offline-first **Database & Table Converter** enabling seamless bid
 
 ---
 
+### test-creator.html
+
+Comprehensive **Test & Exam Authoring Studio** featuring 11 modular question types, dynamic variant matrix assignment (Group A / Group B), seating plan integration, Grade Sheet evaluation sync, and customizable PDF/DOCX/HTML/Markdown exports.
+
+#### Key Features & Architecture
+- **Wholly Customizable Exam Header & Allowed Materials Subsystem (`Ctrl+H`)**:
+  - Click the **Header & Materials…** button in the top metadata panel or press `Ctrl+H` to access the dedicated 4-tab customisation studio with live preview:
+    - **Tab 1: Allowed Materials**: Quick-toggle preset material chips (*Pen & Pencil only*, *Bilingual Dictionary*, *Monolingual Dictionary*, *Scientific Calculator*, *Basic Calculator*, *Formula Sheet*, *Open Book / Notes*, *Draft Paper*, *No Electronic Devices*) or type custom allowances. Configurable display mode (*inline comma-separated* or *individual pill badges*) and bold/italic/underline labels.
+    - **Tab 2: Header Elements & Typography**: Granular element-by-element visibility toggles, custom labels, and Bold (**B**), Italic (*I*), Underline (<u>U</u>) styling for: *Exam Title* (with multi-unit font sizing: `pt`, `px`, `cm`, `mm`, `em`, uppercase, alignment), *Subtitle / Department / Institution* (with multi-unit font sizing), *Student Name* (with solid rule, dotted line, or bordered box), *Class / Group*, *Date*, *Teacher*, *Duration*, *Materials Allowed*, *Scope / Topic*, *Points / Score Box*, and *Group Variant Badge*. Includes an optional multi-line *Student Exam Instructions & Guidelines* notice box (bordered box, accent quote bar, or yellow tint).
+    - **Tab 3: Box Layout & Border**: Outer border styling (*Classic Double Rule*, *Modern Neobrutalist with offset shadow*, *Clean Solid*, *Dashed*, *Minimal*, or *Borderless*), metadata grid layout (*3-Column Grid*, *2-Column Grid*, *Compact Inline*, or *Formal Evaluation Table*), background tints (*Soft Ivory*, *Pure White*, *Subtle Slate Grey*), and padding controls.
+    - **Tab 4: Element & Metadata Order**: Interactive reordering (▲ Up / ▼ Down) of top-level header sections (*Exam Title*, *Subtitle*, *Metadata Grid/Table*, *Exam Instructions*) and individual student metadata fields (*Student Name*, *Class / Group*, *Date*, *Teacher*, *Duration*, *Materials Allowed*, *Scope / Topic*, *Points / Score Box*).
+    - **Live Mini-Preview**: Interactive real-time preview renders header updates instantaneously.
+- **Universal Rich Text Formatting & Input Styling (`**`, `__`, safe HTML)**:
+  - **Every input and field** across Test Creator—including test titles, instructions, prompts, options, sentence starters, hints, rubrics, reading passages, clues, and footnotes—supports rich formatting via markdown (`**bold**`, `__bold__`, `*italic*`, `_italic_`, `~~strike~~`, `^sup^`, `~sub~`, `==mark==`, `` `code` ``) and safe HTML tags (`<b>`, `<strong>`, `<i>`, `<em>`, `<u>`, `<ins>`, `<s>`, `<del>`, `<sub>`, `<sup>`, `<mark>`, `<small>`, `<span>`, `<font>`, `<br>`, `<code>`).
+  - **Floating Rich Text Toolbar**: Automatically appears when selecting text or focusing inputs, offering instant formatting buttons (**B**, *I*, <u>U</u>, <s>S</s>, x², x₂, Highlight, and color highlights).
+  - **Universal Input Shortcuts**: Press `Ctrl+B` (bold), `Ctrl+I` (italic), or `Ctrl+U` (underline) inside any text input or textarea to instantly wrap or toggle formatting around the selection.
+- **Universal Sub-Item & Component Reordering (▲ Up / ▼ Down)**:
+  - **All 11 Exercise Types**: Every multi-item exercise card features interactive Move Up (▲) and Move Down (▼) buttons on each question or task item—including Cloze sentences/passages, MCQ questions, Open Questions, Composition tasks, Rubrics, Matching pairs, Sentence transformations, Translation sentences, Picture prompts, Table rows, Odd-one-out items, and Reading Comprehension sub-questions. Reorder items smoothly without copy-pasting.
+  - **Composition Modular Question Components**: Granularly toggle ON/OFF and reorder pedagogical sections (*Genre Badge*, *Prompt & Sentence Starters*, *Draft / Brainstorming Box*, *Writing Lines*, *Proofreading Checklist*, *Marking Rubric*) in any sequence using the unified Question Components panel (`tc-subopts-panel`) in the Composition options drawer. Each component features an inclusion checkbox, position reordering arrows (▲ / ▼), included/removed status pill badges, and embedded contextual controls (rough work dimensions, proofreading checklist items, writing line ruling & spacing, and genre selector).
+- **Multi-Unit Measurement System (`pt`, `px`, `cm`, `mm`, `em`)**:
+  - Modifiable dimensions support multiple CSS units across the application: Title & Subtitle font sizes, Essay line spacing / height, Essay line stroke thickness, and Draft / Brainstorming box height. Inputs pair a numerical value with an instant unit selector.
+- **Open Saved Test Picker (`Ctrl+O`), File Browser & Seamless Persistence**:
+  - Press `Ctrl+O`, click **Open** in the main toolbar, or select **Open Test…** / **Browse File…** from the File menu to launch the Saved Tests Picker modal. Filter saved assessments by title, subject, class, or topic with instant exercise count and point badges, one-click loading, and safe deletion.
+  - Teachers can also load any external or shared JSON test file from disk using the **Browse File…** button.
+  - Active tests automatically persist across page refreshes and can be launched directly via URL parameters (`?file=` or `?testId=`), with seamless fallback across desktop files (`user/tests/`) and local storage.
+- **11 Modular Exercise Types with Per-Card Collapsible Options**:
+  - Every exercise card includes a collapsible **Options** drawer providing granular pedagogical and layout customisations:
+    - **Cloze / Gap Fill**: Blank styles (`solid underline`, `boxed fill-in`, `character-length dots`), first-letter scaffolding hints (`p_____`), extra distractor words pool, and alphabetical or random word bank ordering.
+    - **Multiple Choice (MCQ)**: Layout arrangements (`2-column grid`, `1-column stack`, `inline row`), marker styles (`letters A–D`, `checkbox [ ]`, `circle ( )`, `numbers`), and option shuffling on print/export.
+    - **Open Question**: Ruled notebook lines, dotted lines, squared math grid, framed boxes, sentence starter prefixes (`"Because..."`), and response length guidance.
+    - **Composition / Essay**: Pre-set format & genre badges (*Argumentative Essay*, *Formal Letter*, *News Article*, *Personal Narrative*, *Review*, *Dialogue*), min/max word targets, fully customizable essay writing lines (adjustable line spacing / height, line type: *solid*, *dashed*, *dotted*, and stroke thickness with clean margin layout and no intrusive left borders), multi-unit rough work / draft brainstorming area, student proofreading checklists, criteria rubrics, and modular component reordering.
+    - **Matching**: Presentation formats (`letter boxes`, `connecting dots ●—●`, `2-column response table`), customizable column headers, and distractor items in Column B.
+    - **Sentence Transformation**: Cambridge-style word count constraint banners (*"Use between 2 and 5 words"*), contractions note, and capital block vs inline bracketed keywords.
+    - **Translation**: Direction indicator badges (*"English → French"*), per-sentence vocabulary clues/hints, and ruling formats.
+    - **Picture Description**: Side-by-side (`image left 40%`, `prompt & lines right 60%`) or stacked layouts, image sizing (`small 120px`, `medium 180px`, `large 250px`), target vocabulary pool chips, and document/figure caption labeling.
+    - **Table Completion**: Full grid, zebra-striped, or minimal scientific/academic border styles, cell text alignment, and word bank pool for missing cells.
+    - **Odd One Out**: Task modes (`circle & justify`, `circle only`, `cross out`) and display styles (`rounded pill badges` vs `slash-separated`).
+    - **Reading Comprehension**: Two-column newspaper format or full-width passage layout, vocabulary footnotes/glossary, and per-subquestion custom line allocations and question types (`short answer`, `True/False + line citation justification`).
+- **Safe Database Auto-Save Workflow**:
+  - Newly added exercises have "Save to Database" toggled **OFF by default** to prevent cluttering the central exercise database with drafts.
+  - Toggling "Save to Database" **ON** on any exercise immediately saves it to the custom database with instant confirmation toast notifications.
+- **Resource Drawer with Multi-Filter Wordbank & Item Inspector Modal**:
+  - Live access to curriculum competences, evaluation criteria rubrics, custom exercise databases, and rich vocabulary wordbanks.
+  - Multi-criteria filtering for wordbanks: search input, theme, keyword, CEFR level (A1–C2), source file, letter (A–Z), and part of speech / type.
+  - Badges displaying part of speech, difficulty level, theme, and source origin.
+  - **Interactive Drawer Item Modal**: Clicking any vocabulary item card (`drawer-item-card`) opens a Neobrutalist inspection popup allowing teachers to inspect phonetic transcription (IPA), definitions, and translations. Teachers can copy individual elements or all details to the clipboard, insert them directly into the currently active exercise field/cursor position, append them as new exercise items into a selected exercise card, or create a brand new exercise from the item.
+- **Export Customisation (Global & Per-Exercise Overrides)**:
+  - Global styling controls for base font size (`9pt`–`16pt`), line spacing/height (`1.2`–`2.4`), exercise card padding (`8px`–`24px`), and line numbering.
+  - Numbered lines for student writing areas and reading comprehension passages.
+  - Dedicated per-exercise override modal (`🎨 Style`) and bulk matrix table with "Apply Global Settings to All" option.
+  - Clean semantic scoped CSS classes (`#ex-{id}`) without inline style violations (`export-standards` skill).
+- **Exact Rendition Print Preview & Export Circuit**:
+  - High-fidelity PDF.js print preview matching Document Editor's exact rendition using Electron's native `Desktop.printPdf({ previewOnly: true })` and high DPR canvas rendering.
+  - Direct PDF export via `Desktop.printPdf`.
+  - Universal export modal (`showExportSuccessPopup`) with **Open File**, **Open Folder**, and **Open with Document Editor** (for `.html` and `.md` exports).
+- **Classroom Integration**:
+  - Direct registration in [Grade Sheet](#grade-sheethtml) with automatic sub-criteria breakdowns matching test exercises and points.
+  - Group A / Group B variant matrices with randomized or alternating assignment.
+  - Class Set batch export generating one personalized sheet per student.
+
+---
+
 ### planner.html
 
 Lesson, assessment, and holiday scheduling tool with export capabilities.
@@ -655,6 +720,10 @@ Centralized content, curriculum, and assessment database editor supporting multi
 - **Multi-Language Schema**: Stores English, French, German, and Italian translations for word banks; active UI language automatically selects the appropriate column.
 - **Multi-Selection Filter Bar Dropdowns**: All categorical filter dropdowns in the toolbar (such as Level, Part of Speech, Theme, Category, etc.) support multi-selection with custom Neobrutalist checkbox menus. Enables multi-attribute OR filtering within fields and AND filtering across fields, with live count badges, "Select All" and "Clear" quick buttons, interactive search filtering for long option lists, and full export synchronization.
 - **Productivity, Batch Editing & Element Prefix/Suffix**: Deduplication (`Remove Dupes`) to clean redundant entries, batch multi-record selection and editing across Competences, Criteria, Scales, Personalised Chips, and Word Banks, dynamic **ID & Code templating** (`{n}`, `{0n}`, `{00n}`) for bulk identifier restructuring, dedicated **Prefix & Suffix** bulk utility for elements (e.g. IDs, observation chips, titles, codes, criteria names), copying/moving across files, and built-in `AI Prompt` generation tailored for LLMs.
+- **Custom Columns with Disk Persistence**: Add custom columns to any of the 15 database types (Text, Multiline, Number, Boolean, or List/Tags) with automatic persistence to disk across all loaded files (`Desktop.saveText()` / `saveFile()`) and local schema definitions so newly created or imported records inherit the fields. Includes a header column management menu (`⋮`) for auto-fitting, resetting width, and deleting custom fields.
+- **Direct In-Cell Spreadsheet Editing**: Double-click any data cell (or single-click boolean flags) to edit directly in the table with full spreadsheet keyboard navigation (`Enter` to save, `Tab` / `Shift+Tab` to advance across cells, `Escape` to cancel). Changes persist immediately to disk without tearing down the DOM (`smooth-dom-sync`) and flash a subtle green confirmation indicator.
+- **Draggable & Auto-Fitting Column Resizing**: Grab and drag header dividers with 60fps fluidity (without triggering column sorting), double-click dividers to auto-fit to cell content, and enjoy persistent column widths stored per database in local configuration.
+- **Right-Click Quick Context Menu**: Right-click any row in Table View or chip in Chips View to summon a Neobrutalist popup menu providing **Edit** (opens full record inspector/editor), **Autofill** (cross-database search matching identical terms to automatically suggest and populate missing definitions, translations, and metadata directly onto the record with instant disk saving), **Copy to other file** (opens file destination selector with optional move), **Duplicate** (creates an instant in-place copy with updated identifiers), and **Delete** (with confirmation safeguard).
 - **Multi-Format Exporting**: Column picker export to CSV, vector PDF, styled editable HTML table, Excel (XLSX), and Word (DOCX).
 
 ---
@@ -740,13 +809,63 @@ Neobrutalist instructional design studio for constructing structured, competency
   - **5E Instructional Model**: Engage, Explore, Explain, Elaborate, Evaluate.
   - **PPP Language Framework**: Presentation, Practice, Production.
 - **Dynamic Time Budget**: Live calculation of total planned minutes against target class duration with visual color-coded status badges.
-- **Descriptor Bank & Curriculum Coverage**: Slide-out drawer (`Ctrl+B`) for browsing school curriculum standards across Subject, Year Level (Y7–Y13), Semester, Category, and Subcategory. Attach descriptors to specific phases with 1 click.
+- **Descriptor Bank & Multi-Source Subject Integration**: Slide-out drawer (`Ctrl+B`) for browsing curriculum standards across Subject, Year Level (Y7–Y13), Semester, Category, and Subcategory. Subjects are aggregated dynamically across Group Editor (including classes), Competences, Correction Criteria, and Custom DB, automatically synchronizing when selecting a class, with on-the-fly custom subject entry. Attach descriptors to specific phases with 1 click.
 - **Activity Bank View Customization & Presets (`Ctrl+Shift+B`)**: Slide-out drawer for pre-built pedagogical activities with customizable view presets (*Detailed / Full*, *Compact / Summary*, and *Minimal / Mini*), in-place card expansion (`Details ▾` / `Details ▲`), an *Expand All / Collapse All* batch toggle, and a granular *Customise View* modal controlling visibility of individual fields (Title, Duration, Activity Type Pill, Interaction Mode Pill, Category Badge, Prompts & Descriptions, Tags, and Add Button) with persistent local settings.
 - **Floating Lesson Companion Window (`pages/lesson-companion.html`)**: Detachable, always-on-top compact desktop widget displaying cumulative lesson timings (`00:00 – 15:00`), active phase countdown timer with stopwatch controls, overtime alerts, previous/next phase steppers, and real-time live synchronization with Lesson Creator via `BroadcastChannel` and `localStorage`.
 - **Coverage Matrix Audit (`Ctrl+M`)**: Comprehensive matrix displaying which curriculum standards have been taught across saved lesson plans, complete with progress meters and CSV export with instant Open File and Open Folder actions.
 - **Live Lesson Runner HUD in Class Management (`Ctrl+R`)**: Run lessons interactively in [Class Management](#class-managementhtml) with automatic phase countdown timers, activity cues, and sound chimes on activity completion.
 - **Export to Board Mindmaps**: Non-destructively export or append lesson phase clusters as structured nodes directly into [Board](#boardhtml) constellation mindmaps.
 - **Multi-Format Export**: Export formatted lesson plan documents to **HTML**, **DOCX**, **Markdown (.md)**, printable **PDF**, or curriculum coverage **CSV**, with destination selection (`to-print` folder or native file picker) and universal completion dialogs providing one-click **Open File**, **Open Folder**, and **Open with Document Editor** (for HTML and Markdown files).
+
+---
+
+### test-creator.html
+
+Neobrutalist test and exam authoring studio for creating printable assessments, quizzes, and formal exams with 11 exercise types, database linking, automated Group A / Group B variants, Seating Plan student assignments, correction criteria rubrics, and direct synchronization with Grade Sheet and Competence Portfolio.
+
+#### Features
+- **Comprehensive Assessment Header & Multi-Source Subject Integration**: Configure test metadata including title, class group, subject, teacher name, date, allocated duration (minutes), instructions, scope/curriculum benchmarks, and allowed materials with a live total points indicator. Subjects are dynamically aggregated across Group Editor (classes and defaults), Competences, Correction Criteria, and Custom DB with automatic class synchronization and custom subject entry.
+- **11 Interactive Exercise Types with Multi-Item & Bulk Creation Support**:
+  - Every exercise type supports adding, duplicating, editing, reordering, and deleting **multiple individual items/questions** inside a single exercise card, along with a universal **Bulk Add** dialog to quickly batch-generate multiple blank items or paste lines of raw text.
+  - **Cloze (Fill in the blanks)**: Support for multiple gapped sentences/items. Mark blanks directly using `[brackets]` with optional Word Bank chips pool and per-blank point scoring.
+  - **Multiple Choice Questions (MCQ)**: Multiple question items with configurable options and radio/checkbox selectors for correct answers. Includes bulk adding and option scrambling in Group B variants.
+  - **Open Question**: Multiple short/long answer questions per exercise with per-question points, configurable per-item formats (ruled writing lines, dotted guide lines, blank boxed response areas, or squared math grids), customizable line allocations (`1–25 lines`), individual answer starters / prefixes (e.g. *Because...*), length guidance notes (*1-2 sentences*), and sample answers.
+  - **Composition / Essay**: Multiple writing tasks or topic choices (e.g. Option A vs Option B) with individual word count targets (`min / max`), line allocations, customizable essay writing lines (configurable line-height / spacing, line styles: `solid`, `dashed`, `dotted`, and thickness in px with clean margin layout without intrusive left borders), criteria rubrics, customizable rough work / draft areas (choice of blank box, ruled lines, dotted lines, or squared grid, space/lines allocation, placement before/after), and student proofreading checklists (full item builder with add/delete/reorder, quick presets like Argumentative or Narrative, suggestion chips, and layout options).
+  - **Matching**: Multiple prompt-target pairs with automatic letter/number connectors and bulk-paste support (`Left = Right`).
+  - **Sentence Transformation**: Multiple rewrite items with base sentences, clue keywords, start/end prompts, and expected solutions.
+  - **Translations**: Multiple translation sentences with source sentences, line allocations, and model translations.
+  - **Picture Descriptions**: Multiple image prompts featuring local file browsing, URL or data URIs, captions, writing lines, and sample answers.
+  - **Table Completions**: Tabular prompt builder with row/column adding, batch row generation, and cell toggling between prompt text and student fill-in blanks.
+  - **Odd One Out**: Multiple concept/word clusters with intruder selection, points per intruder, and justification keys.
+  - **Reading Comprehension**: Rich passage text area paired with multiple structured comprehension sub-questions and solution keys.
+- **Points, Scoring & Weighting Engine**:
+  - Granular points per question item across all exercise types with live recalculation on item creation/removal.
+  - Automated dynamic test total point calculation with balanced-score highlighting.
+  - Criteria rubrics with custom coefficients for open questions and essays.
+  - Persistent answer keys and scoring guidelines for all questions.
+- **Multi-Source Database Integration & Auto-Persistence**:
+  - **Test Banks (`user/custom-data/exercises/`)**: Integrated directly into [Manage Database](#manage-databasehtml) under Assessment & Curriculum (`testbanks`). Exercises have "Save to Database" toggled off by default; checking the toggle immediately writes the exercise to the custom database with toast confirmation.
+  - **Learning DB**: Pull vocabulary decks, quotes, gap-fills, grammar sets, and sentences directly into test questions.
+  - **Criteria Database (`correction-criteria.js`)**: Pull evaluation criteria into exercise rubrics with pre-configured scales and weightings.
+  - **Competence Bank (`competence-bank.json` / `descriptors.js`)**: Tag curriculum standards and CEFR descriptors to individual exercises.
+  - **Random Test Generator**: Automatically generate randomized assessments by specifying themes, difficulty levels, target exercise types, and total point budgets.
+- **Group A / Group B Variants & Anti-Cheating**:
+  - 1-click automatic generation of scrambled test variants (Group A and Group B) with randomized question sequences and scrambled MCQ options.
+  - Synchronized solution keys generated for both Group A and Group B.
+  - **Variant Assignment Modes**:
+    - **Alternating Roster**: Automatically alternates Group A and Group B alphabetically down the class roster.
+    - **Seating Plan Adjacency**: Reads active seating plans from [Class Plan](#class-planhtml) and ensures adjacent desks receive opposite variants.
+    - **Manual Matrix**: Interactive modal with student chips to toggle individual variant assignments.
+- **Grade Sheet & Competence Portfolio Synchronisation**:
+  - **Grade Sheet Registration**: Export test structure directly to [Grade Sheet](#grade-sheethtml) with full sub-criteria breakdown matching the test's individual exercises and criteria.
+  - **Competence Portfolio**: Synchronizes exercise curriculum tags directly with [Competence Portfolio](#competence-portfoliohtml) for standards coverage tracking.
+- **Print Preview & Multi-Format Exports**:
+  - **Dedicated A4 Print Preview**: Realistic multi-page A4 document renderer with margins, header banner, student info box, exercise containers, and clean page breaks before printing.
+  - **Printable PDF**: High-resolution vector PDF export via native Electron print pipeline.
+  - **Batch Student Copies**: 1-click batch generation exporting 1 pre-printed test sheet per student in the class roster, featuring their student name, ID, class, date, and assigned Group variant.
+  - **Editable DOCX**: Word-compatible XML package with tables, headers, and formatted lines.
+  - **Markdown & Semantic HTML**: Clean structured markup with external/embedded stylesheets (no inline style bloat).
+  - **Universal Completion Modal**: Standardized dialog offering **Open File**, **Open Folder**, and **Open with Document Editor** (for HTML and Markdown files).
 
 ---
 

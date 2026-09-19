@@ -22,7 +22,10 @@
     
     <!-- ── 1. Top App Navigation Bar ──────────────────────────────────────── -->
     <nav id="app-nav">
-      <span class="nav-brand"><span data-i18n="lcAppTitle">Lesson Creator</span></span>
+      <span class="nav-brand">
+        <img src="../assets/icons/lesson-creator.svg" alt="" />
+        <span data-i18n="lcAppTitle">Lesson Creator</span>
+      </span>
       
       <!-- File menu -->
       <div class="nav-group">
@@ -1719,14 +1722,39 @@
         setupShortcuts();
       });
 
-      // ── Dropdown & Select Initializers ───────────────────────────────────
       function getSubjectLabel(sId) {
         if (!sId) return '';
         if (typeof LessonCreatorService !== 'undefined' && Array.isArray(LessonCreatorService.DEFAULT_SUBJECTS)) {
-          var found = LessonCreatorService.DEFAULT_SUBJECTS.find(function (s) { return s.id === sId; });
+          var found = LessonCreatorService.DEFAULT_SUBJECTS.find(function (s) {
+            return (s.id && s.id.toLowerCase() === sId.toLowerCase()) ||
+                   (s.name && s.name.toLowerCase() === sId.toLowerCase());
+          });
           if (found && found.name) return found.name;
         }
         return sId.charAt(0).toUpperCase() + sId.slice(1).replace(/_/g, ' ');
+      }
+
+      function lcAddSubjectOption(name, selectIt) {
+        var sel = document.getElementById('planSubject');
+        if (!sel || !name) return;
+        var norm = String(name).trim();
+        if (!norm) return;
+        for (var i = 0; i < sel.options.length; i++) {
+          if (sel.options[i].value.toLowerCase() === norm.toLowerCase()) {
+            if (selectIt) sel.selectedIndex = i;
+            return;
+          }
+        }
+        var opt = document.createElement('option');
+        opt.value = norm;
+        opt.textContent = getSubjectLabel(norm);
+        var customOpt = sel.querySelector('option[value="__custom__"]');
+        if (customOpt) {
+          sel.insertBefore(opt, customOpt);
+        } else {
+          sel.appendChild(opt);
+        }
+        if (selectIt) sel.value = norm;
       }
 
       function getYearLevelLabel(yId) {
@@ -1866,6 +1894,25 @@
         var subCategories = new Set();
         var classes = new Set();
 
+        // 1. Group Editor default subjects:
+        var defSubjects = ['English', 'French', 'Science', 'Mathematics', 'History', 'Geography', 'Art', 'Music', 'Physical Education', 'Spanish', 'German'];
+        defSubjects.forEach(function (s) { if (s) subjects.add(s.trim()); });
+
+        // 2. Group Editor class-groups.js subjects (allClassGroupsMeta & allPlannerClasses):
+        Object.keys(allClassGroupsMeta || {}).forEach(function (k) {
+          var m = allClassGroupsMeta[k];
+          if (m && m.subject && typeof m.subject === 'string' && m.subject.trim()) {
+            subjects.add(m.subject.trim());
+          }
+        });
+        Object.keys(allPlannerClasses || {}).forEach(function (k) {
+          var pc = allPlannerClasses[k];
+          if (pc && pc.subject && typeof pc.subject === 'string' && pc.subject.trim()) {
+            subjects.add(pc.subject.trim());
+          }
+        });
+
+        // 3. Competences Database subjects:
         allCompetences.forEach(function (d) {
           if (d) {
             var s = d.subjectId || d.subject;
@@ -1882,10 +1929,26 @@
           }
         });
 
-        // 1. drawerFilterSubject (drawn ONLY from competence list in user)
+        // 4. Correction Criteria Database subjects:
+        if (typeof window !== 'undefined' && Array.isArray(window.XLSM_CRITERIA)) {
+          window.XLSM_CRITERIA.forEach(function (cr) {
+            if (cr.subjectId) subjects.add(cr.subjectId.trim());
+            if (cr.subject) subjects.add(cr.subject.trim());
+          });
+        }
+
+        // 5. Current Plan Subject:
+        if (currentPlan && currentPlan.subjectId && currentPlan.subjectId.trim()) {
+          subjects.add(currentPlan.subjectId.trim());
+        }
+
+        // 1. drawerFilterSubject (drawn from all available subjects)
         if (subSelect) {
           subSelect.innerHTML = '<option value="all" data-i18n="lcAllSubjects">All Subjects</option>';
-          subjects.forEach(function (sId) {
+          var sortedDrawerSubs = Array.from(subjects).filter(Boolean).sort(function (a, b) {
+            return getSubjectLabel(a).localeCompare(getSubjectLabel(b), undefined, { sensitivity: 'base' });
+          });
+          sortedDrawerSubs.forEach(function (sId) {
             var opt = document.createElement('option');
             opt.value = sId;
             opt.textContent = getSubjectLabel(sId);
@@ -1894,26 +1957,37 @@
           if (subjects.has(currentDrawerSub)) subSelect.value = currentDrawerSub;
         }
 
-        // 2. planSubject (drawn ONLY from competence list in user)
+        // 2. planSubject (drawn from all available subjects + custom option)
         if (planSubSelect) {
           planSubSelect.innerHTML = '';
-          if (subjects.size === 0) {
-            var optEmpty = document.createElement('option');
-            optEmpty.value = '';
-            optEmpty.textContent = 'No subjects in competences';
-            planSubSelect.appendChild(optEmpty);
-          } else {
-            subjects.forEach(function (sId) {
-              var opt = document.createElement('option');
-              opt.value = sId;
-              opt.textContent = getSubjectLabel(sId);
-              planSubSelect.appendChild(opt);
-            });
-            if (subjects.has(currentPlanSub)) {
-              planSubSelect.value = currentPlanSub;
-            } else if (planSubSelect.options.length > 0) {
-              planSubSelect.value = planSubSelect.options[0].value;
+          var sortedSubs = Array.from(subjects).filter(Boolean).sort(function (a, b) {
+            return getSubjectLabel(a).localeCompare(getSubjectLabel(b), undefined, { sensitivity: 'base' });
+          });
+          sortedSubs.forEach(function (sId) {
+            var opt = document.createElement('option');
+            opt.value = sId;
+            opt.textContent = getSubjectLabel(sId);
+            planSubSelect.appendChild(opt);
+          });
+          var addCustomLabel = (typeof i18n !== 'undefined' && typeof i18n.t === 'function')
+            ? i18n.t('lcAddCustomSubject')
+            : '＋ Add Custom Subject…';
+          var customOpt = document.createElement('option');
+          customOpt.value = '__custom__';
+          customOpt.textContent = addCustomLabel;
+          planSubSelect.appendChild(customOpt);
+
+          if (currentPlanSub && sortedSubs.some(function (s) { return s.toLowerCase() === currentPlanSub.toLowerCase(); })) {
+            for (var i = 0; i < planSubSelect.options.length; i++) {
+              if (planSubSelect.options[i].value.toLowerCase() === currentPlanSub.toLowerCase()) {
+                planSubSelect.selectedIndex = i;
+                break;
+              }
             }
+          } else if (currentPlanSub && currentPlanSub !== '__custom__') {
+            lcAddSubjectOption(currentPlanSub, true);
+          } else if (planSubSelect.options.length > 1) {
+            planSubSelect.selectedIndex = 0;
           }
           if (currentPlan) currentPlan.subjectId = planSubSelect.value;
         }
@@ -3137,66 +3211,96 @@
         broadcastLivePlan();
       };
 
-      window.lcOnSubjectChange = function () {
-        currentPlan.subjectId = document.getElementById('planSubject').value;
-        document.getElementById('drawerFilterSubject').value = currentPlan.subjectId;
-        renderDrawer();
-        lcOnPlanDirty();
+      window.lcOnSubjectChange = async function () {
+        var sel = document.getElementById('planSubject');
+        if (!sel) return;
+        if (sel.value === '__custom__') {
+          var promptMsg = (typeof i18n !== 'undefined' && typeof i18n.t === 'function')
+            ? i18n.t('lcEnterCustomSubject')
+            : 'Enter custom subject name:';
+          var res = (typeof showPrompt === 'function')
+            ? await showPrompt(promptMsg, '')
+            : prompt(promptMsg, '');
+          if (res && res.trim()) {
+            var newSub = res.trim();
+            lcAddSubjectOption(newSub, true);
+            currentPlan.subjectId = newSub;
+            var dSub = document.getElementById('drawerFilterSubject');
+            if (dSub) dSub.value = newSub;
+            renderDrawer();
+            lcOnPlanDirty();
+          } else {
+            sel.value = currentPlan.subjectId || (sel.options[0] ? sel.options[0].value : 'English');
+          }
+        } else {
+          currentPlan.subjectId = sel.value;
+          var dSubEl = document.getElementById('drawerFilterSubject');
+          if (dSubEl) dSubEl.value = currentPlan.subjectId;
+          renderDrawer();
+          lcOnPlanDirty();
+        }
       };
 
       window.lcOnClassChange = function () {
         currentPlan.classId = document.getElementById('planClass').value;
-        if (currentPlan.classId && typeof CompetenceAggregatorService !== 'undefined') {
-          CompetenceAggregatorService.getGroupMetadata(currentPlan.classId).then(function (meta) {
-            if (!meta) return;
-            if (meta.subject) {
-              var subEl = document.getElementById('planSubject');
-              var dSubEl = document.getElementById('drawerFilterSubject');
-              if (subEl) {
-                for (var i = 0; i < subEl.options.length; i++) {
-                  var v = subEl.options[i].value.toLowerCase();
-                  if (v === meta.subject.toLowerCase() || meta.subject.toLowerCase().includes(v) || v.includes(meta.subject.toLowerCase())) {
-                    subEl.selectedIndex = i;
-                    currentPlan.subjectId = subEl.value;
-                    break;
-                  }
-                }
-              }
-              if (dSubEl) {
-                for (var j = 0; j < dSubEl.options.length; j++) {
-                  var dv = dSubEl.options[j].value.toLowerCase();
-                  if (dv === meta.subject.toLowerCase() || meta.subject.toLowerCase().includes(dv) || dv.includes(meta.subject.toLowerCase())) {
-                    dSubEl.selectedIndex = j;
-                    break;
-                  }
+        var classId = currentPlan.classId;
+        var groupMeta = (allClassGroupsMeta && allClassGroupsMeta[classId]) || (allPlannerClasses && allPlannerClasses[classId]) || null;
+
+        function applyMeta(meta) {
+          if (!meta) return;
+          if (meta.subject && meta.subject.trim()) {
+            var gSub = meta.subject.trim();
+            lcAddSubjectOption(gSub, true);
+            currentPlan.subjectId = gSub;
+            var subEl = document.getElementById('planSubject');
+            var dSubEl = document.getElementById('drawerFilterSubject');
+            if (subEl) subEl.value = gSub;
+            if (dSubEl) {
+              for (var j = 0; j < dSubEl.options.length; j++) {
+                var dv = dSubEl.options[j].value.toLowerCase();
+                if (dv === gSub.toLowerCase() || gSub.toLowerCase().includes(dv) || dv.includes(gSub.toLowerCase())) {
+                  dSubEl.selectedIndex = j;
+                  break;
                 }
               }
             }
-            if (meta.level) {
-              var yrEl = document.getElementById('planYearLevel');
-              var dYrEl = document.getElementById('drawerFilterYear');
-              var tLvl = String(meta.level).toLowerCase();
-              if (yrEl) {
-                for (var k = 0; k < yrEl.options.length; k++) {
-                  var yv = yrEl.options[k].value.toLowerCase();
-                  if (yv === tLvl || yv.includes(tLvl) || tLvl.includes(yv)) {
-                    yrEl.selectedIndex = k;
-                    currentPlan.yearLevel = yrEl.value;
-                    break;
-                  }
-                }
-              }
-              if (dYrEl) {
-                for (var m = 0; m < dYrEl.options.length; m++) {
-                  var dyv = dYrEl.options[m].value.toLowerCase();
-                  if (dyv === tLvl || dyv.includes(tLvl) || tLvl.includes(dyv)) {
-                    dYrEl.selectedIndex = m;
-                    break;
-                  }
+            if (window.showToast && typeof i18n !== 'undefined' && typeof i18n.tFmt === 'function') {
+              showToast(i18n.tFmt('lcSubjectSyncedFromClass', { subject: gSub }));
+            }
+          }
+          if (meta.level) {
+            var yrEl = document.getElementById('planYearLevel');
+            var dYrEl = document.getElementById('drawerFilterYear');
+            var tLvl = String(meta.level).toLowerCase();
+            if (yrEl) {
+              for (var k = 0; k < yrEl.options.length; k++) {
+                var yv = yrEl.options[k].value.toLowerCase();
+                if (yv === tLvl || yv.includes(tLvl) || tLvl.includes(yv)) {
+                  yrEl.selectedIndex = k;
+                  currentPlan.yearLevel = yrEl.value;
+                  break;
                 }
               }
             }
-            if (typeof renderDrawer === 'function') renderDrawer();
+            if (dYrEl) {
+              for (var m = 0; m < dYrEl.options.length; m++) {
+                var dyv = dYrEl.options[m].value.toLowerCase();
+                if (dyv === tLvl || dyv.includes(tLvl) || tLvl.includes(dyv)) {
+                  dYrEl.selectedIndex = m;
+                  break;
+                }
+              }
+            }
+          }
+          if (typeof renderDrawer === 'function') renderDrawer();
+          lcOnPlanDirty();
+        }
+
+        if (groupMeta) {
+          applyMeta(groupMeta);
+        } else if (classId && typeof CompetenceAggregatorService !== 'undefined') {
+          CompetenceAggregatorService.getGroupMetadata(classId).then(function (meta) {
+            if (meta) applyMeta(meta);
           });
         }
         lcOnPlanDirty();
@@ -6716,6 +6820,20 @@
 
       function escapeHtml(str) {
         return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        try {
+          var _dataChannel = new BroadcastChannel('cmt_data_sync');
+          _dataChannel.onmessage = function (ev) {
+            if (ev && ev.data && (ev.data.file === 'class-groups.js' || ev.data.type === 'class-groups')) {
+              loadClassRosters();
+              if (typeof showDataChangedBanner === 'function') {
+                showDataChangedBanner({ file: 'class-groups.js', label: 'Class Groups' });
+              }
+            }
+          };
+        } catch (_) {}
       }
 
     })();

@@ -49,9 +49,21 @@
 
   // ── 4. Default Subjects & Rich Descriptor Bank ─────────────────────────────
   LessonCreatorService.DEFAULT_SUBJECTS = [
-    { id: 'science', name: 'Science & STEM', icon: 'lightbulb.svg', color: '#d97706' },
-    { id: 'languages', name: 'Modern Languages (CEFR)', icon: 'french.svg', color: '#7c3aed' },
+    { id: 'English', name: 'English', icon: 'book.svg', color: '#2563eb' },
+    { id: 'French', name: 'French', icon: 'french.svg', color: '#7c3aed' },
+    { id: 'Science', name: 'Science & STEM', icon: 'lightbulb.svg', color: '#d97706' },
+    { id: 'Mathematics', name: 'Mathematics', icon: 'table.svg', color: '#059669' },
+    { id: 'History', name: 'History', icon: 'flag.svg', color: '#dc2626' },
+    { id: 'Geography', name: 'Geography', icon: 'flag.svg', color: '#0891b2' },
+    { id: 'Art', name: 'Art', icon: 'award.svg', color: '#e11d48' },
+    { id: 'Music', name: 'Music', icon: 'award.svg', color: '#9333ea' },
+    { id: 'Physical Education', name: 'Physical Education', icon: 'award.svg', color: '#16a34a' },
+    { id: 'Spanish', name: 'Spanish', icon: 'flag.svg', color: '#ea580c' },
+    { id: 'German', name: 'German', icon: 'flag.svg', color: '#b45309' },
+    // Backwards compatibility
     { id: 'english', name: 'English Language Arts', icon: 'book.svg', color: '#2563eb' },
+    { id: 'languages', name: 'Modern Languages (CEFR)', icon: 'french.svg', color: '#7c3aed' },
+    { id: 'science', name: 'Science & STEM', icon: 'lightbulb.svg', color: '#d97706' },
     { id: 'math', name: 'Mathematics', icon: 'table.svg', color: '#059669' },
     { id: 'social_studies', name: 'History & Geography', icon: 'flag.svg', color: '#dc2626' },
     { id: 'blooms', name: "Bloom's Taxonomy (Cognitive)", icon: 'award.svg', color: '#4b5563' }

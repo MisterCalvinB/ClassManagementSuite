@@ -70,7 +70,8 @@ const PAGE_FILES = {
   administrativeGroups: 'administrative-groups.html',
   oralMarking: 'oral-marking.html',
   competencePortfolio: 'competence-portfolio.html',
-  databaseConverter: 'database-converter.html'
+  databaseConverter: 'database-converter.html',
+  testCreator: 'test-creator.html'
 };
 
 const PAGE_ARG_MAP = {
@@ -128,7 +129,12 @@ const PAGE_ARG_MAP = {
   databaseconverter: PAGE_FILES.databaseConverter,
   dataconverter: PAGE_FILES.databaseConverter,
   converter: PAGE_FILES.databaseConverter,
-  tableconverter: PAGE_FILES.databaseConverter
+  tableconverter: PAGE_FILES.databaseConverter,
+  testcreator: PAGE_FILES.testCreator,
+  test: PAGE_FILES.testCreator,
+  tests: PAGE_FILES.testCreator,
+  examcreator: PAGE_FILES.testCreator,
+  exams: PAGE_FILES.testCreator
 };
 
 const PAGE_LABELS = {
@@ -154,7 +160,8 @@ const PAGE_LABELS = {
   [PAGE_FILES.administrativeGroups]: 'Administrative Groups',
   [PAGE_FILES.oralMarking]: 'Oral Marking',
   [PAGE_FILES.competencePortfolio]: 'Competence Portfolio',
-  [PAGE_FILES.databaseConverter]: 'Database Converter'
+  [PAGE_FILES.databaseConverter]: 'Database Converter',
+  [PAGE_FILES.testCreator]: 'Test Creator'
 };
 
 function getDefaultWritableRootDir() {
@@ -439,6 +446,9 @@ function getSaveTargets() {
     customScales: path.join(writableRoot, 'user/custom-data/scales'),
     customChips: path.join(writableRoot, 'user/custom-data/chips'),
     classPlans: path.join(writableRoot, 'user/class-plans'),
+    customExercises: path.join(writableRoot, 'user/custom-data/exercises'),
+    tests: path.join(writableRoot, 'user/tests'),
+    testImages: path.join(writableRoot, 'user/custom-data/test-images'),
     docEditorDocs: path.join(writableRoot, 'user/document-editor/docs'),
     docEditorStylesheets: path.join(writableRoot, 'user/document-editor/stylesheets'),
     docEditorTemplates: path.join(writableRoot, 'user/document-editor/templates'),
@@ -458,13 +468,13 @@ const PAGE_PERMISSIONS = {
   [PAGE_FILES.classManagement]: new Set(['user', 'lessons', 'groupParticipation', 'data', 'grades']),
   [PAGE_FILES.groupEditor]: new Set(['user', 'groupParticipation', 'grades', 'gradeSheet']),
   [PAGE_FILES.gradeSheet]: new Set(['grades', 'user', 'toPrint', 'customCriteria', 'customScales', 'customChips', 'customCompetences', 'customDescriptors']),
-  [PAGE_FILES.learningDb]: new Set(['data', 'user', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'customCriteria', 'customScales', 'customChips']),
+  [PAGE_FILES.learningDb]: new Set(['data', 'user', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'customCriteria', 'customScales', 'customChips', 'customExercises']),
   [PAGE_FILES.learningDb2]: new Set(['data', 'user', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customBooks', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'customCriteria', 'customScales', 'customChips']),
   [PAGE_FILES.learningTools]: new Set(['data', 'user', 'groupParticipation', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'gameResults']),
   [PAGE_FILES.participationTracker]: new Set(['user', 'groupParticipation', 'toPrint']),
-  [PAGE_FILES.launcher]: new Set(['user', 'mindmaps', 'docEditorDocs', 'toPrint', 'lessons']),
+  [PAGE_FILES.launcher]: new Set(['user', 'mindmaps', 'docEditorDocs', 'toPrint', 'lessons', 'tests']),
   [PAGE_FILES.generalConfig]: new Set(['user']),
-  [PAGE_FILES.fileManager]: new Set(['user', 'lessons', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'groupParticipation', 'docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'toPrint', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'customCriteria', 'customScales', 'customChips']),
+  [PAGE_FILES.fileManager]: new Set(['user', 'lessons', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'groupParticipation', 'docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'toPrint', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'customCriteria', 'customScales', 'customChips', 'customExercises', 'tests', 'testImages']),
   [PAGE_FILES.howTo]: new Set(['user']),
   [PAGE_FILES.credits]: new Set([]),
   [PAGE_FILES.scheduleMaker]: new Set(['user', 'data', 'toPrint']),
@@ -472,10 +482,11 @@ const PAGE_PERMISSIONS = {
   [PAGE_FILES.documentEditor]: new Set(['docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'docEditorSettings', 'user', 'app', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'groupParticipation', 'toPrint']),
   [PAGE_FILES.planner]: new Set(['user', 'lessons', 'groupParticipation', 'grades', 'mindmaps', 'toPrint']),
   [PAGE_FILES.lessonCreator]: new Set(['user', 'lessons', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'mindmaps', 'toPrint']),
-  [PAGE_FILES.importTool]: new Set(['user', 'lessons', 'customWordbanks', 'customQuizzes', 'customGapfillbanks', 'customQuotes', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'data', 'docEditorDocs', 'customBooks', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities']),
+  [PAGE_FILES.importTool]: new Set(['user', 'lessons', 'customWordbanks', 'customQuizzes', 'customGapfillbanks', 'customQuotes', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'data', 'docEditorDocs', 'customBooks', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'customExercises']),
   [PAGE_FILES.administrativeGroups]: new Set(['user', 'grades', 'data', 'customData', 'toPrint']),
   [PAGE_FILES.oralMarking]: new Set(['user', 'grades']),
-  [PAGE_FILES.competencePortfolio]: new Set(['user', 'lessons', 'mindmaps', 'grades', 'customCompetences', 'customDescriptors', 'toPrint'])
+  [PAGE_FILES.competencePortfolio]: new Set(['user', 'lessons', 'mindmaps', 'grades', 'customCompetences', 'customDescriptors', 'toPrint', 'tests']),
+  [PAGE_FILES.testCreator]: new Set(['user', 'tests', 'testImages', 'customExercises', 'data', 'customData', 'grades', 'classPlans', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customCompetences', 'customDescriptors', 'customCriteria', 'customScales', 'customChips', 'toPrint'])
 };
 
 let mainWindow;

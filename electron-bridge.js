@@ -364,6 +364,11 @@
     if (!isElectron()) {
       return null;
     }
+    if (target && typeof target === 'object') {
+      options = target;
+      target = options.target;
+      filename = options.filename;
+    }
 
     return getDesktopApi().deleteFile({ target, filename, ...options });
   }
@@ -371,6 +376,11 @@
   async function deleteByPath(target, relativePath, options = {}) {
     if (!isElectron()) {
       return null;
+    }
+    if (target && typeof target === 'object') {
+      options = target;
+      target = options.target;
+      relativePath = options.relativePath;
     }
 
     return getDesktopApi().deleteByPath({ target, relativePath, ...options });
