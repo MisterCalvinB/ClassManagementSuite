@@ -603,13 +603,25 @@ function getLoadedPageFile(window = mainWindow) {
   }
 }
 
+// ── Presentation & Mirror Window Registry ────────────────────────────────────
+let mirrorWindow = null;
+let mirrorWindowSource = null;
+let cmsPresentationWindow = null;
+let cmsPresentationSourceWindow = null;
+let learningToolsPresentationWindow = null;
+let learningToolsPresentationSourceWindow = null;
+let oralPresenterWindow = null;
+let oralPresenterSourceWindow = null;
+let docPresentationWindow = null;
+let docPresentationSourceWindow = null;
+
 function isPresentationWindow(win) {
   if (!win || win.isDestroyed()) return false;
-  if (typeof cmsPresentationWindow !== 'undefined' && win === cmsPresentationWindow) return true;
-  if (typeof mirrorWindow !== 'undefined' && win === mirrorWindow) return true;
-  if (typeof learningToolsPresentationWindow !== 'undefined' && win === learningToolsPresentationWindow) return true;
-  if (typeof oralPresenterWindow !== 'undefined' && win === oralPresenterWindow) return true;
-  if (typeof docPresentationWindow !== 'undefined' && win === docPresentationWindow) return true;
+  if (win === cmsPresentationWindow) return true;
+  if (win === mirrorWindow) return true;
+  if (win === learningToolsPresentationWindow) return true;
+  if (win === oralPresenterWindow) return true;
+  if (win === docPresentationWindow) return true;
   if (typeof timerDetachedWindow !== 'undefined' && win === timerDetachedWindow) return true;
   try {
     const u = win.webContents ? win.webContents.getURL() : '';
@@ -904,8 +916,111 @@ function _applySafeBounds(win, bounds) {
   win.setBounds({ x, y, width, height });
 }
 
+// ── Zoom Management & Presentation Synchronization ───────────────────────────
+function getAssociatedPresenterWindow(win) {
+  if (!win || win.isDestroyed()) return null;
+  if (win === mirrorWindowSource && mirrorWindow && !mirrorWindow.isDestroyed()) return mirrorWindow;
+  if (win === cmsPresentationSourceWindow && cmsPresentationWindow && !cmsPresentationWindow.isDestroyed()) return cmsPresentationWindow;
+  if (win === learningToolsPresentationSourceWindow && learningToolsPresentationWindow && !learningToolsPresentationWindow.isDestroyed()) return learningToolsPresentationWindow;
+  if (win === oralPresenterSourceWindow && oralPresenterWindow && !oralPresenterWindow.isDestroyed()) return oralPresenterWindow;
+  if (win === docPresentationSourceWindow && docPresentationWindow && !docPresentationWindow.isDestroyed()) return docPresentationWindow;
+  return null;
+}
+
+function getAssociatedSourceWindow(win) {
+  if (!win || win.isDestroyed()) return null;
+  if (win === mirrorWindow && mirrorWindowSource && !mirrorWindowSource.isDestroyed()) return mirrorWindowSource;
+  if (win === cmsPresentationWindow && cmsPresentationSourceWindow && !cmsPresentationSourceWindow.isDestroyed()) return cmsPresentationSourceWindow;
+  if (win === learningToolsPresentationWindow && learningToolsPresentationSourceWindow && !learningToolsPresentationSourceWindow.isDestroyed()) return learningToolsPresentationSourceWindow;
+  if (win === oralPresenterWindow && oralPresenterSourceWindow && !oralPresenterSourceWindow.isDestroyed()) return oralPresenterSourceWindow;
+  if (win === docPresentationWindow && docPresentationSourceWindow && !docPresentationSourceWindow.isDestroyed()) return docPresentationSourceWindow;
+  return null;
+}
+
+function setWindowZoom(win, factor) {
+  if (!win || win.isDestroyed() || !win.webContents || win.webContents.isDestroyed()) return;
+  const clamped = Math.max(0.5, Math.min(3.0, Number(factor.toFixed(2))));
+  try {
+    win.webContents.setZoomFactor(clamped);
+  } catch (err) {
+    console.warn('Failed to setZoomFactor on window:', err);
+  }
+
+  // Synchronize to associated presenter/mirror window
+  const presenter = getAssociatedPresenterWindow(win);
+  if (presenter && !presenter.isDestroyed() && presenter.webContents && !presenter.webContents.isDestroyed()) {
+    try {
+      presenter.webContents.setZoomFactor(clamped);
+    } catch (pErr) {
+      console.warn('Failed to sync zoom to presenter window:', pErr);
+    }
+  }
+
+  // Synchronize back to source window if zoom was changed directly from presenter window
+  const source = getAssociatedSourceWindow(win);
+  if (source && !source.isDestroyed() && source.webContents && !source.webContents.isDestroyed()) {
+    try {
+      source.webContents.setZoomFactor(clamped);
+    } catch (sErr) {
+      console.warn('Failed to sync zoom to source window:', sErr);
+    }
+  }
+}
+
+function setupWindowZoomShortcuts(win) {
+  if (!win || win._zoomShortcutsSetup || !win.webContents) return;
+  win._zoomShortcutsSetup = true;
+
+  win.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown') return;
+    const isCtrl = process.platform === 'darwin' ? input.meta : input.control;
+    if (!isCtrl) return;
+
+    // Zoom In: Ctrl + +, Ctrl + =, Ctrl + NumpadAdd
+    const isZoomIn = (
+      input.key === '+' ||
+      input.key === '=' ||
+      input.code === 'NumpadAdd' ||
+      (input.code === 'Equal' && input.shift)
+    );
+
+    // Zoom Out: Ctrl + -, Ctrl + _, Ctrl + NumpadSubtract
+    const isZoomOut = (
+      input.key === '-' ||
+      input.key === '_' ||
+      input.code === 'NumpadSubtract' ||
+      input.code === 'Minus'
+    );
+
+    // Reset Zoom: Ctrl + 0, Ctrl + Numpad0
+    const isZoomReset = (
+      input.key === '0' ||
+      input.code === 'Digit0' ||
+      input.code === 'Numpad0'
+    );
+
+    if (isZoomIn) {
+      event.preventDefault();
+      const current = win.webContents.getZoomFactor() || 1.0;
+      setWindowZoom(win, current + 0.1);
+    } else if (isZoomOut) {
+      event.preventDefault();
+      const current = win.webContents.getZoomFactor() || 1.0;
+      setWindowZoom(win, current - 0.1);
+    } else if (isZoomReset) {
+      event.preventDefault();
+      setWindowZoom(win, 1.0);
+    }
+  });
+}
+
+app.on('browser-window-created', (event, win) => {
+  setupWindowZoomShortcuts(win);
+});
+
 function setupWindowExternalLinkHandling(win) {
   if (!win || !win.webContents) return;
+  setupWindowZoomShortcuts(win);
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^(https?|mailto):/i.test(url)) {
       shell.openExternal(url).catch((err) => {
@@ -5059,6 +5174,12 @@ ipcMain.handle('app:open-tool', async (event, request = {}) => {
       if (learningToolsPresentationWindow === toolWin) learningToolsPresentationWindow = null;
       if (learningToolsPresentationSourceWindow === senderWin) learningToolsPresentationSourceWindow = null;
     });
+    if (senderWin && !senderWin.isDestroyed() && toolWin && !toolWin.isDestroyed()) {
+      try {
+        const srcZoom = senderWin.webContents.getZoomFactor();
+        toolWin.webContents.setZoomFactor(srcZoom);
+      } catch (_) {}
+    }
   }
 
   const wantsSecondary = !!(
@@ -5512,13 +5633,6 @@ ipcMain.handle('app:is-always-on-top', (event) => {
   return { ok: false, alwaysOnTop: false };
 });
 
-let mirrorWindow = null;
-let mirrorWindowSource = null;
-let cmsPresentationWindow = null;
-let cmsPresentationSourceWindow = null;
-let learningToolsPresentationWindow = null;
-let learningToolsPresentationSourceWindow = null;
-
 function getExtendedDisplayForBounds(bounds) {
   const allDisplays = screen.getAllDisplays();
   if (!Array.isArray(allDisplays) || allDisplays.length < 2) return null;
@@ -5727,6 +5841,12 @@ ipcMain.handle('app:open-mirror-window', async (event, request = {}) => {
     console.error('app:open-mirror-window load failed', err);
     return { ok: false, error: String(err) };
   }
+  if (senderWin && !senderWin.isDestroyed() && mirrorWindow && !mirrorWindow.isDestroyed()) {
+    try {
+      const srcZoom = senderWin.webContents.getZoomFactor();
+      mirrorWindow.webContents.setZoomFactor(srcZoom);
+    } catch (_) {}
+  }
   return { ok: true };
 });
 
@@ -5815,6 +5935,12 @@ ipcMain.handle('app:open-cms-presentation', async (event, request = {}) => {
     console.error('app:open-cms-presentation load failed', err);
     return { ok: false, error: String(err) };
   }
+  if (senderWin && !senderWin.isDestroyed() && cmsPresentationWindow && !cmsPresentationWindow.isDestroyed()) {
+    try {
+      const srcZoom = senderWin.webContents.getZoomFactor();
+      cmsPresentationWindow.webContents.setZoomFactor(srcZoom);
+    } catch (_) {}
+  }
   return { ok: true };
 });
 
@@ -5869,8 +5995,6 @@ ipcMain.handle('app:learning-tools-presentation-command', (event, command) => {
 });
 
 // ── Oral Marking Presenter Window ─────────────────────────────────────────────
-let oralPresenterWindow = null;
-let oralPresenterSourceWindow = null;
 ipcMain.handle('app:open-oral-presenter', async (event, request = {}) => {
   if (oralPresenterWindow && !oralPresenterWindow.isDestroyed()) {
     oralPresenterWindow.focus();
@@ -5910,6 +6034,12 @@ ipcMain.handle('app:open-oral-presenter', async (event, request = {}) => {
     console.error('app:open-oral-presenter load failed', err);
     return { ok: false, error: String(err) };
   }
+  if (senderWin && !senderWin.isDestroyed() && oralPresenterWindow && !oralPresenterWindow.isDestroyed()) {
+    try {
+      const srcZoom = senderWin.webContents.getZoomFactor();
+      oralPresenterWindow.webContents.setZoomFactor(srcZoom);
+    } catch (_) {}
+  }
   return { ok: true };
 });
 
@@ -5931,8 +6061,6 @@ ipcMain.handle('app:oral-presenter-command', (event, command) => {
 });
 
 // ── Document Editor Presentation Window ────────────────────────────────────────
-let docPresentationWindow = null;
-let docPresentationSourceWindow = null;
 ipcMain.handle('app:open-doc-presentation', async (event, request = {}) => {
   if (docPresentationWindow && !docPresentationWindow.isDestroyed()) {
     docPresentationWindow.focus();
@@ -5941,9 +6069,7 @@ ipcMain.handle('app:open-doc-presentation', async (event, request = {}) => {
   const senderWin = BrowserWindow.fromWebContents(event.sender);
   docPresentationSourceWindow = senderWin || null;
   const sBounds   = senderWin ? senderWin.getBounds() : null;
-
   const secondDisplay = getExtendedDisplayForBounds(sBounds);
-
   let winOpts;
   if (secondDisplay) {
     const sourceDisplay = sBounds
@@ -5953,28 +6079,15 @@ ipcMain.handle('app:open-doc-presentation', async (event, request = {}) => {
       || { x: secondDisplay.workArea.x, y: secondDisplay.workArea.y, width: 1200, height: 800 };
     winOpts = {
       x: mappedBounds.x, y: mappedBounds.y, width: mappedBounds.width, height: mappedBounds.height,
-      autoHideMenuBar: true,
-      title: 'Document Editor – Presentation',
-      webPreferences: {
-        preload: path.join(ROOT_DIR, 'electron-preload.js'),
-        contextIsolation: true,
-        nodeIntegration: false,
-        sandbox: false
-      }
+      autoHideMenuBar: true, title: 'Document – Presentation Mode',
+      webPreferences: { preload: path.join(ROOT_DIR, 'electron-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false }
     };
   } else {
     const width  = sBounds ? sBounds.width  : 1200;
     const height = sBounds ? sBounds.height : 800;
     winOpts = {
-      width, height,
-      autoHideMenuBar: true,
-      title: 'Document Editor – Presentation',
-      webPreferences: {
-        preload: path.join(ROOT_DIR, 'electron-preload.js'),
-        contextIsolation: true,
-        nodeIntegration: false,
-        sandbox: false
-      }
+      width, height, autoHideMenuBar: true, title: 'Document – Presentation Mode',
+      webPreferences: { preload: path.join(ROOT_DIR, 'electron-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false }
     };
     if (sBounds) { winOpts.x = sBounds.x + sBounds.width + 10; winOpts.y = sBounds.y; }
   }
@@ -5991,6 +6104,12 @@ ipcMain.handle('app:open-doc-presentation', async (event, request = {}) => {
   } catch (err) {
     console.error('app:open-doc-presentation load failed', err);
     return { ok: false, error: String(err) };
+  }
+  if (senderWin && !senderWin.isDestroyed() && docPresentationWindow && !docPresentationWindow.isDestroyed()) {
+    try {
+      const srcZoom = senderWin.webContents.getZoomFactor();
+      docPresentationWindow.webContents.setZoomFactor(srcZoom);
+    } catch (_) {}
   }
   return { ok: true };
 });
@@ -6012,6 +6131,38 @@ ipcMain.handle('app:doc-presentation-command', (event, command) => {
     default: return { ok: false, reason: 'unknown-command' };
   }
   return { ok: true };
+});
+
+ipcMain.handle('app:adjust-zoom', (event, delta) => {
+  const senderWin = BrowserWindow.fromWebContents(event.sender);
+  if (!senderWin || senderWin.isDestroyed() || !senderWin.webContents || senderWin.webContents.isDestroyed()) {
+    return { ok: false };
+  }
+  const current = senderWin.webContents.getZoomFactor() || 1.0;
+  const numDelta = typeof delta === 'number' ? delta : 0.1;
+  const next = current + numDelta;
+  setWindowZoom(senderWin, next);
+  return { ok: true, zoomFactor: senderWin.webContents.getZoomFactor() };
+});
+
+ipcMain.handle('app:reset-zoom', (event) => {
+  const senderWin = BrowserWindow.fromWebContents(event.sender);
+  if (!senderWin || senderWin.isDestroyed() || !senderWin.webContents || senderWin.webContents.isDestroyed()) {
+    return { ok: false };
+  }
+  setWindowZoom(senderWin, 1.0);
+  return { ok: true, zoomFactor: 1.0 };
+});
+
+ipcMain.handle('app:set-zoom-factor', (event, factor) => {
+  const senderWin = BrowserWindow.fromWebContents(event.sender);
+  if (!senderWin || senderWin.isDestroyed() || !senderWin.webContents || senderWin.webContents.isDestroyed()) {
+    return { ok: false };
+  }
+  if (typeof factor === 'number' && !isNaN(factor)) {
+    setWindowZoom(senderWin, factor);
+  }
+  return { ok: true, zoomFactor: senderWin.webContents.getZoomFactor() };
 });
 
 ipcMain.handle('app:print-html', async (event, request = {}) => {

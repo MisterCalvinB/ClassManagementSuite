@@ -313,12 +313,19 @@ const exposedApi = {
     if (webFrame && typeof webFrame.setZoomFactor === 'function') {
       webFrame.setZoomFactor(factor);
     }
+    return invoke('app:set-zoom-factor', factor);
   },
   getZoomFactor() {
     if (webFrame && typeof webFrame.getZoomFactor === 'function') {
       return webFrame.getZoomFactor();
     }
     return 1;
+  },
+  adjustZoom(delta) {
+    return invoke('app:adjust-zoom', delta);
+  },
+  resetZoom() {
+    return invoke('app:reset-zoom');
   },
   remoteStart(request) {
     return invoke('app:remote-start', request);

@@ -1005,7 +1005,35 @@
     }
   }
 
+  function adjustZoom(delta) {
+    const api = getDesktopApi();
+    if (api && typeof api.adjustZoom === 'function') return api.adjustZoom(delta);
+    return Promise.resolve({ ok: false });
+  }
+
+  function resetZoom() {
+    const api = getDesktopApi();
+    if (api && typeof api.resetZoom === 'function') return api.resetZoom();
+    return Promise.resolve({ ok: false });
+  }
+
+  function setZoomFactor(factor) {
+    const api = getDesktopApi();
+    if (api && typeof api.setZoomFactor === 'function') return api.setZoomFactor(factor);
+    return Promise.resolve({ ok: false });
+  }
+
+  function getZoomFactor() {
+    const api = getDesktopApi();
+    if (api && typeof api.getZoomFactor === 'function') return api.getZoomFactor();
+    return 1.0;
+  }
+
   window.Desktop = Object.freeze({
+    adjustZoom,
+    resetZoom,
+    setZoomFactor,
+    getZoomFactor,
     sendToDocumentEditor,
     applyRestoreChoices,
     arrangeSideBySide,
@@ -1167,18 +1195,31 @@
     });
   }
 
+  function wireCtrlWheelZoom() {
+    window.addEventListener('wheel', function (e) {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      const desktopApi = getDesktopApi();
+      if (!desktopApi || typeof desktopApi.adjustZoom !== 'function') return;
+      const delta = e.deltaY < 0 ? 0.05 : -0.05;
+      desktopApi.adjustZoom(delta);
+    }, { passive: false });
+  }
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () {
       wireExternalLinks();
       wireAppNav();
       wireHamburger();
       wireReminderToast();
+      wireCtrlWheelZoom();
     });
   } else {
     wireExternalLinks();
     wireAppNav();
     wireHamburger();
     wireReminderToast();
+    wireCtrlWheelZoom();
   }
 
   try {
