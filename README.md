@@ -24,6 +24,7 @@ Welcome to the **Class Management Tools** comprehensive documentation. This guid
   - [Class Management ↔ Board (Live Sync & Floating Timer)](#class-management--board-live-sync--floating-timer)
   - [File Manager → Board (Reopen Saved Sessions & `.cstz` Archives)](#file-manager--board-reopen-saved-sessions--cstz-archives)
   - [Class Plan ↔ Class Management (Shared Seating Plans)](#class-plan--class-management-shared-seating-plans)
+  - [Universal Exports ↔ Document Editor (One-Click Handout & Document Ingestion)](#universal-exports--document-editor-one-click-handout--document-ingestion)
   - [Presentation Windows](#presentation-windows)
 - [Tool Reference](#tool-reference)
   - [Launcher (`launcher.html`)](#launcherhtml)
@@ -278,6 +279,15 @@ Export complete lesson outlines with phase breakdowns, time budgets, pedagogical
 
 ---
 
+### Universal Exports ↔ Document Editor: One-Click Handout & Document Ingestion
+
+HTML and Markdown exports generated across suite tools — including [Manage Database](#manage-databasehtml), [Test Creator](#test-creatorhtml), [Lesson Creator](#lesson-creatorhtml), [Planner](#plannerhtml), and [Database Converter](#database-converterhtml) — can be dispatched straight into [Document Editor](#document-editorhtml):
+- **Editable File Name Prompt**: When choosing an export destination, teachers can edit the suggested file name before saving.
+- **Dedicated Destination Card**: Selecting **Document Editor** automatically writes the file directly to the teacher's document library (`user/document-editor/docs/`) and opens it in Document Editor with embedded CSS rules parsed and live Monaco editing active.
+- **Universal Completion Modals**: Exports saved to the Print Folder (`user/to-print/`) or custom disk locations also present an **Open with Document Editor** shortcut button in the post-export dialog.
+
+---
+
 ### Schedule Maker ↔ Oral Marking: Timetable & Accommodation Transfer
 
 Exam timetables generated in [Schedule Maker](#schedule-makerhtml) — including exact student preparation/exam time slots, room assignments, and SEN extra-time accommodations (+25%, +33%, +50%) — transfer directly into [Oral Marking](#oral-markinghtml) for live assessment.
@@ -508,7 +518,7 @@ Comprehensive **Test & Exam Authoring Studio** featuring 11 modular question typ
     - **Cloze / Gap Fill**: Blank styles (`solid underline`, `boxed fill-in`, `character-length dots`), first-letter scaffolding hints (`p_____`), extra distractor words pool, and alphabetical or random word bank ordering.
     - **Multiple Choice (MCQ)**: Layout arrangements (`2-column grid`, `1-column stack`, `inline row`), marker styles (`letters A–D`, `checkbox [ ]`, `circle ( )`, `numbers`), and option shuffling on print/export.
     - **Open Question**: Ruled notebook lines, dotted lines, squared math grid, framed boxes, sentence starter prefixes (`"Because..."`), and response length guidance.
-    - **Composition / Essay**: Pre-set format & genre badges (*Argumentative Essay*, *Formal Letter*, *News Article*, *Personal Narrative*, *Review*, *Dialogue*), min/max word targets, fully customizable essay writing lines (adjustable line spacing / height, line type: *solid*, *dashed*, *dotted*, and stroke thickness with clean margin layout and no intrusive left borders), multi-unit rough work / draft brainstorming area, student proofreading checklists, criteria rubrics, and modular component reordering.
+    - **Composition / Essay**: Pre-set format & genre badges (*Argumentative Essay*, *Formal Letter*, *News Article*, *Personal Narrative*, *Review*, *Dialogue*), min/max word targets, fully customizable essay writing lines (adjustable line spacing / height, line type: *solid*, *dashed*, *dotted*, and stroke thickness with clean margin layout and no intrusive left borders), multi-unit rough work / draft brainstorming area, student proofreading checklists with customizable container appearance (background tint, padding, border style), criteria rubrics, and modular component reordering.
     - **Matching**: Presentation formats (`letter boxes`, `connecting dots ●—●`, `2-column response table`), customizable column headers, and distractor items in Column B.
     - **Sentence Transformation**: Cambridge-style word count constraint banners (*"Use between 2 and 5 words"*), contractions note, and capital block vs inline bracketed keywords.
     - **Translation**: Direction indicator badges (*"English → French"*), per-sentence vocabulary clues/hints, and ruling formats.
@@ -519,16 +529,34 @@ Comprehensive **Test & Exam Authoring Studio** featuring 11 modular question typ
 - **Safe Database Auto-Save Workflow**:
   - Newly added exercises have "Save to Database" toggled **OFF by default** to prevent cluttering the central exercise database with drafts.
   - Toggling "Save to Database" **ON** on any exercise immediately saves it to the custom database with instant confirmation toast notifications.
-- **Resource Drawer with Multi-Filter Wordbank & Item Inspector Modal**:
-  - Live access to curriculum competences, evaluation criteria rubrics, custom exercise databases, and rich vocabulary wordbanks.
+- **Resource Drawer with Multi-Filter Wordbank, Criteria, Competences & Grading Scales**:
+  - Live access to curriculum competences, evaluation criteria rubrics, custom exercise databases, rich vocabulary wordbanks, and grading scale banks.
   - Multi-criteria filtering for wordbanks: search input, theme, keyword, CEFR level (A1–C2), source file, letter (A–Z), and part of speech / type.
   - Badges displaying part of speech, difficulty level, theme, and source origin.
   - **Interactive Drawer Item Modal**: Clicking any vocabulary item card (`drawer-item-card`) opens a Neobrutalist inspection popup allowing teachers to inspect phonetic transcription (IPA), definitions, and translations. Teachers can copy individual elements or all details to the clipboard, insert them directly into the currently active exercise field/cursor position, append them as new exercise items into a selected exercise card, or create a brand new exercise from the item.
-- **Export Customisation (Global & Per-Exercise Overrides)**:
+- **Grading Scale Models & Score Conversion Tables (Custom Scales & Resource Drawer Tab 5)**:
+  - **Dynamic Scale Bank Loading**: Browse and load grading scale models dynamically from custom databases (`user/custom-data/scales/`, target `customScales`), user models (`user/grade-scale-models.js`), and built-in scales (French 0–20, Percentage 0–100%, Swiss/German 1–6, US Letter A–F, UK Honours).
+  - **Dual Attachment Workflow**: Attach any scale model either to the entire exam (test-wide) or to specific exercises with dedicated `+ Grading Scale` buttons and tag badges with remove controls.
+  - **Active Test Grading Scale Bar**: An interactive workspace bar displays active scale name, model system, dynamic score conversion intervals calculated from the exam's total points (e.g. `Grade 6: 27–30 pts (≥90%)`), an instant "Print on Exam Sheet" toggle, and a removal button.
+  - **Header Customizer Integration & Container Customization**: Toggle inclusion on exam printout, customize scale header label, choose display mode (`Conversion Table`, `Inline (6 = 30 (95.4%))` format displaying `grade = points (percentage)`, or `Header Metadata`), and customize container appearance directly in Tab 2 (Background tint: default, white, light blue, soft green, warm amber, muted gray; Padding: compact, standard, relaxed; Border style: solid, double, dashed, dotted, none).
+  - **High-Fidelity Exports & Grade Sheet**: Conversion tables and inline grade steps render across Print / PDF Preview, standalone HTML exports, Word Document (.docx), and Markdown exports. Seamlessly passes `scaleBank` and `scaleModel` when registering evaluations directly into [Grade Sheet](#grade-sheethtml).
+- **Pedagogical Test Models & Reusable Test Templates**:
+  - Choose from curated built-in test templates (*Grammar & Vocabulary Test*, *Standard Reading Comprehension*, *General Midterm Exam*, *Short Quiz / Quick Check*, *Literature Essay Exam*) or save any authored test as a custom template (`File → Save as Template…`).
+  - Built-in Template Picker modal (`File → Test Templates & Models…` or toolbar **Templates** button) with search filtering, tabbed filtering (*All*, *Built-in Models*, *My Custom Templates*), exercise type chips breakdown, duration, points, and 1-click test instantiation with fresh UUID generation.
+  - 1-click JSON template export and import across teacher workstations. Custom templates persist safely to `user/custom-test-templates.json` with web `localStorage` fallback.
+- **Reusable Header & Materials Templates**:
+  - Header Customizer modal (`Ctrl+H`) features a header template dropdown bar populated with curated built-in templates (*Standard Academic Exam*, *Modern Neobrutalist Assessment*, *Reading Comprehension Header*, *Quick Diagnostic Quiz*, *Formal End-of-Term Examination*) and user custom header configurations.
+  - 1-click **Save as Template…** prompts for a name and saves the active header configuration, allowed materials pool, and materials typography to `user/custom-header-templates.json`.
+  - 1-click **Apply Template** applies the configuration and updates all fields and live previews instantaneously. Custom header templates can be deleted at any time with confirmation.
+- **Configurable Page Margins for PDF & Print**:
+  - Set page margins directly in the Print Preview toolbar (`Normal (15mm)`, `Narrow (10mm)`, `Wide (25mm)`, or `Custom…`).
+  - Detailed per-margin numeric inputs (Top, Right, Bottom, Left in mm) with instant preset switching buttons in the Style Customisation modal (`🎨 Style`).
+  - Pixel-perfect consistency between on-screen PDF preview and physical/exported PDF via CSS `@page { size: A4 portrait; margin: ... }` and Electron's Chromium print settings (`preferCSSPageSize: true`, `marginsType: 1`).
+- **Export Customisation & Semantic HTML Architecture (`export-standards` skill)**:
   - Global styling controls for base font size (`9pt`–`16pt`), line spacing/height (`1.2`–`2.4`), exercise card padding (`8px`–`24px`), and line numbering.
   - Numbered lines for student writing areas and reading comprehension passages.
   - Dedicated per-exercise override modal (`🎨 Style`) and bulk matrix table with "Apply Global Settings to All" option.
-  - Clean semantic scoped CSS classes (`#ex-{id}`) without inline style violations (`export-standards` skill).
+  - Strict compliance with `export-standards`: HTML exports utilize clean semantic CSS classes and an embedded `<style>` block in `<head>` without repetitive inline styles, ensuring clean document structures, easy styling overrides, and seamless ingestion into Document Editor.
 - **Exact Rendition Print Preview & Export Circuit**:
   - High-fidelity PDF.js print preview matching Document Editor's exact rendition using Electron's native `Desktop.printPdf({ previewOnly: true })` and high DPR canvas rendering.
   - Direct PDF export via `Desktop.printPdf`.
@@ -724,7 +752,7 @@ Centralized content, curriculum, and assessment database editor supporting multi
 - **Direct In-Cell Spreadsheet Editing**: Double-click any data cell (or single-click boolean flags) to edit directly in the table with full spreadsheet keyboard navigation (`Enter` to save, `Tab` / `Shift+Tab` to advance across cells, `Escape` to cancel). Changes persist immediately to disk without tearing down the DOM (`smooth-dom-sync`) and flash a subtle green confirmation indicator.
 - **Draggable & Auto-Fitting Column Resizing**: Grab and drag header dividers with 60fps fluidity (without triggering column sorting), double-click dividers to auto-fit to cell content, and enjoy persistent column widths stored per database in local configuration.
 - **Right-Click Quick Context Menu**: Right-click any row in Table View or chip in Chips View to summon a Neobrutalist popup menu providing **Edit** (opens full record inspector/editor), **Autofill** (cross-database search matching identical terms to automatically suggest and populate missing definitions, translations, and metadata directly onto the record with instant disk saving), **Copy to other file** (opens file destination selector with optional move), **Duplicate** (creates an instant in-place copy with updated identifiers), and **Delete** (with confirmation safeguard).
-- **Multi-Format Exporting & Universal Export Modal**: Export to CSV, vector PDF, styled editable HTML table, GitHub-flavored Markdown (MD), Excel (XLSX), and Word (DOCX). The interactive export modal explicitly indicates the local **Print Folder (`user/to-print/`)** destination with direct saving alongside custom file picker selection, column toggle controls, and seamless integration with `showExportSuccessPopup` providing one-click **Open File**, **Open Folder**, and **Open with Document Editor** (for HTML and Markdown exports) with clean semantic classes and zero repetitive inline styles.
+- **Multi-Format Exporting, File Name Prompt & Universal Export Modal**: Export to CSV, vector PDF, styled editable HTML table, GitHub-flavored Markdown (MD), Excel (XLSX), and Word (DOCX). Selecting an export format launches a column toggle picker followed by the Universal Destination Modal, allowing teachers to customize the output **File Name** before saving and select their destination: direct quick-save to the **Print Folder (`user/to-print/`)**, custom file browser location, or **Document Editor** (for HTML and Markdown, saving directly into `user/document-editor/docs/` and opening Document Editor immediately). Standard exports saved to disk trigger `showExportSuccessPopup` providing one-click **Open File**, **Open Folder**, and **Open with Document Editor** actions with clean semantic CSS classes and zero repetitive inline styles.
 
 ---
 
@@ -859,6 +887,7 @@ Neobrutalist test and exam authoring studio for creating printable assessments, 
 - **Grade Sheet & Competence Portfolio Synchronisation**:
   - **Grade Sheet Registration**: Export test structure directly to [Grade Sheet](#grade-sheethtml) with full sub-criteria breakdown matching the test's individual exercises and criteria.
   - **Competence Portfolio**: Synchronizes exercise curriculum tags directly with [Competence Portfolio](#competence-portfoliohtml) for standards coverage tracking.
+- **Universal Destination & Completion Workflow**: Prompts for an editable **File Name** before saving, offering direct export to **Print Folder (`user/to-print/`)**, custom file picker, or straight to **Document Editor** (for HTML and Markdown tests, saving directly to `user/document-editor/docs/` and opening instantly). Standard saves display the universal completion modal with **Open File**, **Open Folder**, and **Open with Document Editor**.
 - **Print Preview & Multi-Format Exports**:
   - **Dedicated A4 Print Preview**: Realistic multi-page A4 document renderer with margins, header banner, student info box, exercise containers, and clean page breaks before printing.
   - **Printable PDF**: High-resolution vector PDF export via native Electron print pipeline.
@@ -884,6 +913,7 @@ Multi-format desktop document editor and typesetting suite supporting **Typst (`
 - **Live Preview-to-Code & CSS Inspector**: Click any element in the live preview (headings, paragraphs, inline formatting, tables, images, math formulas) to immediately locate and highlight its source code in Monaco, and automatically open and highlight matching stylesheet rules in the CSS Editor panel. Also pre-fills the Quick Rule selector for rapid styling.
 - **Interactive Syntax & Format Guide**: Built-in modal (`Syntax` button in nav bar) featuring real-time search, topic category filters (`Setup & Page`, `Math & Formulas`, `Tables & Grids`, `Exams & Quizzes`, `Layout & Callouts`), instant `Copy` buttons, and one-click `+ Insert` snippet insertion into Monaco at cursor.
 - **Mailposting Batch Generation**: Connects class rosters (`class-groups.js`) to dynamic document templates with student placeholders (`{{student.fullName}}`, `{{student.id}}`, `{{class.name}}`, `{{datetime.today}}`). Exports single merged or separate individual PDFs for each student.
+- **Direct Cross-App Ingestion**: Accepts documents exported straight from other suite tools (Manage Database, Test Creator, Lesson Creator, Planner, Database Converter) via the Universal Destination Modal. Incoming files are saved directly into the teacher's document library (`user/document-editor/docs/`), registered in the document sidebar, and opened immediately with inline stylesheets extracted and live preview active.
 - **Book Text Import**: Browse and extract text passages directly from `custom-data/books/` (`.epub`, `.html`, `.txt`) into active documents.
 - **Presentation Mode**: Broadcasts clean, live-rendered vector SVGs or HTML previews to secondary display monitors or classroom beamers.
 - **Export Options**: Export to native vector PDF, DOCX, or HTML with automatic document metadata and PDF title reflection matching the actual file title.

@@ -2823,6 +2823,43 @@
       const target = params.get('editTarget');
       const relPath = params.get('editRelPath');
       const absPath = params.get('editAbsPath') || params.get('editFile');
+      if (params.get('importPending') === 'draft') {
+        try {
+          const draftStr = sessionStorage.getItem('cmt_doc_editor_draft');
+          if (draftStr) {
+            sessionStorage.removeItem('cmt_doc_editor_draft');
+            const draft = JSON.parse(draftStr);
+            if (draft && draft.content) {
+              const inlineState = deExtractStyleBlocks(draft.content || '');
+              mdEditor.setValue(inlineState.content || '');
+              currentDocName = draft.filename || 'export.html';
+              currentDocSubdir = null;
+              currentEditTarget = null;
+              currentEditRelPath = null;
+              currentDocStoredInDocs = false;
+              currentOpenedDiskPath = null;
+              const lower = currentDocName.toLowerCase();
+              currentDocType = lower.endsWith('.typ') ? 'typ' : (lower.endsWith('.html') ? 'html' : 'md');
+              docModified = false;
+              updateDocIndicator();
+              const typeBtn = document.getElementById('btn-doc-type');
+              if (typeBtn) {
+                typeBtn.textContent = currentDocType.toUpperCase();
+                typeBtn.classList.toggle('html-mode', currentDocType === 'html');
+                typeBtn.classList.toggle('typ-mode', currentDocType === 'typ');
+              }
+              if (mdEditor) monaco.editor.setModelLanguage(mdEditor.getModel(), currentDocType === 'html' ? 'html' : (currentDocType === 'typ' ? 'typst' : 'markdown'));
+              deUpdateViewSwitcherState();
+              currentDocMeta = {};
+              deApplyManagedDocState(inlineState.cssText || '', null);
+              syncPopupToState && syncPopupToState();
+              applyPageLayoutToPreview && applyPageLayoutToPreview();
+              renderPreview();
+              return;
+            }
+          }
+        } catch (e) {}
+      }
       if (target && relPath) {
         await loadExternalDoc(target, relPath);
       } else if (absPath) {

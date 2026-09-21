@@ -47,11 +47,11 @@
   ];
 
   TestCreatorService.DEFAULT_SCALES = [
-    { id: 'pts_20', name: 'French Scale (0 to 20)', max: 20 },
-    { id: 'pts_100', name: 'Percentage (0 to 100%)', max: 100 },
-    { id: 'pts_6', name: 'Swiss / German Scale (1 to 6)', max: 6 },
-    { id: 'letter_af', name: 'Letter Grades (A+ to F)', max: 100 },
-    { id: 'pts_total', name: 'Exact Points Total', max: 0 }
+    { id: 'pts_20', key: 'pts_20', name: 'French Scale (0 to 20)', label: 'French Scale (0 to 20)', max: 20 },
+    { id: 'pts_100', key: 'pts_100', name: 'Percentage (0 to 100%)', label: 'Percentage (0 to 100%)', max: 100 },
+    { id: 'pts_6', key: 'pts_6', name: 'Swiss / German Scale (1 to 6)', label: 'Swiss / German Scale (1 to 6)', max: 6 },
+    { id: 'letter_af', key: 'letter_af', name: 'Letter Grades (A+ to F)', label: 'Letter Grades (A+ to F)', max: 100 },
+    { id: 'pts_total', key: 'pts_total', name: 'Exact Points Total', label: 'Exact Points Total', max: 0 }
   ];
 
   // ── 2. Supported Exercise Types ───────────────────────────────────────────
@@ -84,6 +84,9 @@
     showScope: true,
     showTotalPoints: true,
     showVariantBadge: true,
+    showGradingScale: false,
+    gradingScaleLabel: 'Grading Scale & Score Conversion:',
+    gradingScaleStyle: { bold: true, italic: false, displayMode: 'table', background: 'default', padding: 'standard', border: 'solid' }, // 'table' | 'inline' | 'inline_grades'
     showInstructions: false,
     instructionsText: 'Answer all questions clearly. Write legibly and respect time constraints.',
     // Custom labels
@@ -96,8 +99,8 @@
     scopeLabel: 'Scope / Topic:',
     pointsLabel: 'Total Points:',
     // Section and metadata ordering
-    sectionOrder: ['title', 'subtitle', 'metadata', 'instructions'],
-    metaOrder: ['studentName', 'class', 'date', 'teacher', 'duration', 'materials', 'scope', 'points'],
+    sectionOrder: ['title', 'subtitle', 'metadata', 'instructions', 'gradingScale'],
+    metaOrder: ['studentName', 'class', 'date', 'teacher', 'duration', 'materials', 'scope', 'points', 'gradingScale'],
     // Formats & typography per element: { bold, italic, underline, uppercase, size, align }
     titleStyle: { bold: true, italic: false, underline: false, uppercase: true, size: '18pt', align: 'left' },
     subtitleStyle: { bold: false, italic: true, underline: false, size: '11pt', align: 'left' },
@@ -115,6 +118,240 @@
     borderStyle: 'double', // 'double' | 'neobrutalist' | 'solid' | 'dashed' | 'minimal' | 'none'
     backgroundTint: 'ivory', // 'white' | 'ivory' | 'light_gray'
     padding: 'standard' // 'compact' | 'standard' | 'spacious'
+  };
+
+  // ── 2b1. Grading Scale Parser & Converter ──────────────────────────────────
+  TestCreatorService.parseScaleModelsFileContent = function (content) {
+    if (!content || typeof content !== 'string') return null;
+    var trimmed = content.trim();
+    if (!trimmed) return null;
+    try {
+      var parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) return parsed;
+      if (parsed && typeof parsed === 'object') {
+        if (Array.isArray(parsed.scales)) return parsed.scales;
+        if (Array.isArray(parsed.scaleModels)) return parsed.scaleModels;
+        if (Array.isArray(parsed.XLSM_SCALE_MODELS)) return parsed.XLSM_SCALE_MODELS;
+        if (Array.isArray(parsed.records)) return parsed.records;
+      }
+    } catch (_) {}
+    try {
+      var fn = new Function(content + '\n;try{return typeof XLSM_SCALE_MODELS !== "undefined" ? XLSM_SCALE_MODELS : (typeof customScaleModels !== "undefined" ? customScaleModels : (typeof scales !== "undefined" ? scales : null));}catch(e){return null;}');
+      var res = fn();
+      if (Array.isArray(res) && res.length) return res;
+    } catch (_) {}
+    try {
+      var firstBracket = trimmed.indexOf('[');
+      var lastBracket = trimmed.lastIndexOf(']');
+      if (firstBracket !== -1 && lastBracket > firstBracket) {
+        var slice = trimmed.slice(firstBracket, lastBracket + 1);
+        var fn2 = new Function('return ' + slice + ';');
+        var res2 = fn2();
+        if (Array.isArray(res2)) return res2;
+      }
+    } catch (_) {}
+    return null;
+  };
+
+  TestCreatorService.calculateGradeConversionTable = function (scaleModelOrId, totalTestPoints) {
+    var tPts = Number(totalTestPoints) || 0;
+    var model = (scaleModelOrId && typeof scaleModelOrId === 'object') ? scaleModelOrId : null;
+    var mId = (typeof scaleModelOrId === 'string') ? scaleModelOrId : (model && (model.key || model.id)) || 'pts_20';
+    var scaleName = (model && (model.label || model.name)) || mId;
+
+    // Built-in lookup if model not full object
+    if (!model) {
+      if (mId === 'pts_6') {
+        model = {
+          key: 'pts_6',
+          label: 'Swiss / German Scale (1 to 6)',
+          minGrade: 1,
+          maxGrade: 6,
+          interval: 0.5,
+          thresholds: {
+            '6': 90, '5.5': 80, '5': 70, '4.5': 60,
+            '4': 50, '3.5': 40, '3': 30, '2.5': 20,
+            '2': 10, '1.5': 5, '1': 0
+          }
+        };
+      } else if (mId === 'pts_20') {
+        model = {
+          key: 'pts_20',
+          label: 'French Scale (0 to 20)',
+          minGrade: 0,
+          maxGrade: 20,
+          interval: 1,
+          thresholds: {
+            '20': 100, '19': 95, '18': 90, '17': 85, '16': 80,
+            '15': 75, '14': 70, '13': 65, '12': 60, '11': 55,
+            '10': 50, '9': 45, '8': 40, '7': 35, '6': 30,
+            '5': 25, '4': 20, '3': 15, '2': 10, '1': 5, '0': 0
+          }
+        };
+      } else if (mId === 'pts_100') {
+        model = {
+          key: 'pts_100',
+          label: 'Percentage (0 to 100%)',
+          minGrade: 0,
+          maxGrade: 100,
+          interval: 10,
+          thresholds: {
+            '100%': 100, '90%': 90, '80%': 80, '70%': 70, '60%': 60,
+            '50%': 50, '40%': 40, '30%': 30, '20%': 20, '10%': 10, '0%': 0
+          }
+        };
+      } else if (mId === 'letter_af') {
+        model = {
+          key: 'letter_af',
+          label: 'Letter Grades (A+ to F)',
+          thresholds: {
+            'A+': 97, 'A': 93, 'A-': 90,
+            'B+': 87, 'B': 83, 'B-': 80,
+            'C+': 77, 'C': 73, 'C-': 70,
+            'D+': 67, 'D': 63, 'D-': 60,
+            'F': 0
+          }
+        };
+      }
+    }
+
+    scaleName = (model && (model.label || model.name)) || scaleName;
+    var rows = [];
+
+    if (model && model.thresholds) {
+      var rawTh = model.thresholds;
+      var parsedItems = [];
+      if (Array.isArray(rawTh)) {
+        rawTh.forEach(function (item) {
+          if (!item) return;
+          if (typeof item === 'object') {
+            var g = item.grade || item.key || item.label || item.name || '';
+            var p = (item.pct !== undefined) ? item.pct : ((item.value !== undefined) ? item.value : (item.minPoints !== undefined ? item.minPoints : 0));
+            parsedItems.push({
+              grade: String(g),
+              pct: Number(p) || 0,
+              desc: item.desc || item.description || item.notes || ''
+            });
+          }
+        });
+      } else if (typeof rawTh === 'object') {
+        Object.keys(rawTh).forEach(function (gKey) {
+          parsedItems.push({
+            grade: gKey,
+            pct: Number(rawTh[gKey]) || 0,
+            desc: (model.descriptions && model.descriptions[gKey]) || ''
+          });
+        });
+      }
+
+      // Sort descending by threshold percentage
+      parsedItems.sort(function (a, b) {
+        if (b.pct !== a.pct) return b.pct - a.pct;
+        return parseFloat(b.grade) - parseFloat(a.grade);
+      });
+
+      for (var i = 0; i < parsedItems.length; i++) {
+        var it = parsedItems[i];
+        var pct = it.pct;
+        var minRequiredPts = Math.round((pct / 100) * tPts * 10) / 10;
+        var maxPts = tPts;
+        if (i > 0) {
+          var prevItem = parsedItems[i - 1];
+          var prevMin = Math.round((prevItem.pct / 100) * tPts * 10) / 10;
+          maxPts = (prevMin > minRequiredPts) ? Math.round((prevMin - 0.5) * 10) / 10 : minRequiredPts;
+          if (maxPts < minRequiredPts) maxPts = minRequiredPts;
+        }
+        var pointsStr = (minRequiredPts === maxPts) ? (minRequiredPts + ' pts') : (minRequiredPts + ' – ' + maxPts + ' pts');
+        var color = (model.colors && model.colors[it.grade]) || null;
+        rows.push({
+          grade: it.grade,
+          thresholdPct: pct,
+          pct: pct,
+          thresholdStr: '≥ ' + pct + '%',
+          minPoints: minRequiredPts,
+          maxPoints: maxPts,
+          pointsStr: pointsStr,
+          color: color,
+          desc: it.desc || (model.descriptions && model.descriptions[it.grade]) || (model.description || '')
+        });
+      }
+    } else if (model && (model.maxGrade !== undefined || model.max !== undefined)) {
+      var minG = Number((model.minGrade !== undefined) ? model.minGrade : (model.min || 0));
+      var maxG = Number((model.maxGrade !== undefined) ? model.maxGrade : (model.max || 20));
+      var step = Number(model.interval || model.step || 1);
+      if (step <= 0) step = 1;
+      var currentG = maxG;
+      while (currentG >= minG - 0.001) {
+        var pctVal = (maxG > minG) ? Math.round(((currentG - minG) / (maxG - minG)) * 100) : 100;
+        var reqPts = Math.round((pctVal / 100) * tPts * 10) / 10;
+        var gDisplay = String(Math.round(currentG * 100) / 100);
+        rows.push({
+          grade: gDisplay,
+          thresholdPct: pctVal,
+          pct: pctVal,
+          thresholdStr: '≥ ' + pctVal + '%',
+          minPoints: reqPts,
+          maxPoints: tPts,
+          pointsStr: reqPts + ' pts',
+          color: (model.colors && model.colors[gDisplay]) || null,
+          desc: ''
+        });
+        currentG = Math.round((currentG - step) * 100) / 100;
+      }
+    }
+
+    return {
+      scaleName: scaleName,
+      model: model,
+      totalPoints: tPts,
+      rows: rows,
+      intervals: rows
+    };
+  };
+
+  TestCreatorService.buildInlineGradeItems = function (tableData, totalPts, isHtml) {
+    if (!tableData || !tableData.rows || !tableData.rows.length) return [];
+    var tPts = Number(totalPts) || 0;
+    return tableData.rows.map(function (row) {
+      var g = String(row.grade !== undefined && row.grade !== null ? row.grade : '');
+      var pts = (row.minPoints !== undefined) ? row.minPoints : (row.points !== undefined ? row.points : (parseFloat(row.pointsStr) || 0));
+      var ptsNum = Math.round(Number(pts) * 10) / 10;
+
+      var pctVal = (row.pct !== undefined && row.pct !== null) ? row.pct : ((row.thresholdPct !== undefined && row.thresholdPct !== null) ? row.thresholdPct : null);
+      var pctNum;
+      if (pctVal !== null && pctVal !== undefined) {
+        pctNum = Math.round(Number(pctVal) * 10) / 10;
+      } else if (tPts > 0) {
+        pctNum = Math.round((ptsNum / tPts) * 1000) / 10;
+      } else {
+        pctNum = 0;
+      }
+      var pctStr = pctNum + '%';
+
+      if (isHtml) {
+        var colorBorder = row.color ? ' style="border-left: 3px solid ' + row.color + '; padding-left: 4px;"' : '';
+        return '<span class="grading-scale-inline-item"' + colorBorder + '><strong class="scale-inline-grade">' + escapeHtml(g) + '</strong> = ' + ptsNum + ' <span class="scale-inline-pct">(' + pctStr + ')</span></span>';
+      } else {
+        return g + ' = ' + ptsNum + ' (' + pctStr + ')';
+      }
+    });
+  };
+
+  TestCreatorService.formatInlineGradesString = function (test, options) {
+    if (!test) return '';
+    var opts = options || {};
+    var totalPts = (opts.totalPoints !== undefined) ? opts.totalPoints : TestCreatorService.calculateTotalTestPoints(test);
+    var scaleModel = test.scaleModel || null;
+    var scaleModelId = test.scaleModelId || 'pts_20';
+    var tableData = TestCreatorService.calculateGradeConversionTable(scaleModel || scaleModelId, totalPts);
+    var isHtml = !!opts.html;
+    var items = TestCreatorService.buildInlineGradeItems(tableData, totalPts, isHtml);
+    if (!items.length) {
+      var sName = (scaleModel && (scaleModel.label || scaleModel.name)) || scaleModelId;
+      return isHtml ? escapeHtml(sName) : sName;
+    }
+    var sep = isHtml ? '<span class="grading-scale-inline-sep"> · </span>' : ' · ';
+    return items.join(sep);
   };
 
   // ── 2b2. Universal Multi-Unit Dimension Parser ────────────────────────────
@@ -168,6 +405,748 @@
       }
     }
     return hc;
+  };
+
+  // ── 2b3. Page Margins & Export Style Defaults ──────────────────────────────
+  TestCreatorService.DEFAULT_EXPORT_STYLE = {
+    fontSize: '11pt',
+    lineHeight: 1.5,
+    padding: '14px',
+    numberedLines: false,
+    margins: {
+      preset: 'normal',
+      top: 15,
+      right: 15,
+      bottom: 15,
+      left: 15,
+      unit: 'mm'
+    }
+  };
+
+  TestCreatorService.MARGIN_PRESETS = {
+    normal: { top: 15, right: 15, bottom: 15, left: 15, unit: 'mm', preset: 'normal' },
+    narrow: { top: 10, right: 10, bottom: 10, left: 10, unit: 'mm', preset: 'narrow' },
+    wide: { top: 25, right: 25, bottom: 25, left: 25, unit: 'mm', preset: 'wide' }
+  };
+
+  TestCreatorService.ensureExportStyle = function (test) {
+    if (!test) return JSON.parse(JSON.stringify(TestCreatorService.DEFAULT_EXPORT_STYLE));
+    if (!test.exportStyle || typeof test.exportStyle !== 'object') {
+      test.exportStyle = {};
+    }
+    var es = test.exportStyle;
+    var d = TestCreatorService.DEFAULT_EXPORT_STYLE;
+    if (!es.fontSize) es.fontSize = d.fontSize;
+    if (!es.lineHeight) es.lineHeight = d.lineHeight;
+    if (!es.padding) es.padding = d.padding;
+    if (es.numberedLines === undefined) es.numberedLines = d.numberedLines;
+    if (!es.margins || typeof es.margins !== 'object') {
+      es.margins = JSON.parse(JSON.stringify(d.margins));
+    } else {
+      if (es.margins.top === undefined || es.margins.top === null) es.margins.top = 15;
+      if (es.margins.right === undefined || es.margins.right === null) es.margins.right = 15;
+      if (es.margins.bottom === undefined || es.margins.bottom === null) es.margins.bottom = 15;
+      if (es.margins.left === undefined || es.margins.left === null) es.margins.left = 15;
+      if (!es.margins.unit) es.margins.unit = 'mm';
+      if (!es.margins.preset) es.margins.preset = 'normal';
+    }
+    return es;
+  };
+
+  // ── 2b4. Built-in Header Templates ─────────────────────────────────────────
+  TestCreatorService.BUILTIN_HEADER_TEMPLATES = [
+    {
+      id: 'hdr_neobrutalist',
+      title: 'Neobrutalist Bold',
+      description: 'Thick 3px solid black border, block shadow, uppercase header & 3 columns',
+      config: {
+        showTitle: true,
+        showSubtitle: false,
+        showStudentName: true,
+        showClass: true,
+        showDate: true,
+        showTeacher: true,
+        showDuration: true,
+        showMaterials: true,
+        showScope: true,
+        showTotalPoints: true,
+        showVariantBadge: true,
+        showInstructions: false,
+        layout: '3-columns',
+        borderStyle: 'neobrutalist',
+        backgroundTint: 'white',
+        padding: 'standard',
+        titleStyle: { bold: true, italic: false, underline: false, uppercase: true, size: '18pt', align: 'left' }
+      },
+      materialsAllowed: ['Pen & Pencil only', 'Ruler']
+    },
+    {
+      id: 'hdr_academic_classic',
+      title: 'Classic Academic',
+      description: 'Traditional double border, serif styling, 3 columns, clean score box',
+      config: {
+        showTitle: true,
+        showSubtitle: true,
+        subtitleText: 'Term Examination',
+        showStudentName: true,
+        showClass: true,
+        showDate: true,
+        showTeacher: true,
+        showDuration: true,
+        showMaterials: true,
+        showScope: false,
+        showTotalPoints: true,
+        showVariantBadge: true,
+        showInstructions: false,
+        layout: '3-columns',
+        borderStyle: 'double',
+        backgroundTint: 'ivory',
+        padding: 'standard',
+        titleStyle: { bold: true, italic: false, underline: false, uppercase: true, size: '16pt', align: 'center' },
+        subtitleStyle: { bold: false, italic: true, underline: false, size: '11pt', align: 'center' }
+      },
+      materialsAllowed: ['Blue or Black pen only', 'No correction fluid']
+    },
+    {
+      id: 'hdr_minimalist',
+      title: 'Minimalist Modern',
+      description: 'Clean top & bottom borders, compact padding, 2 columns',
+      config: {
+        showTitle: true,
+        showSubtitle: false,
+        showStudentName: true,
+        showClass: true,
+        showDate: true,
+        showTeacher: true,
+        showDuration: true,
+        showMaterials: false,
+        showScope: false,
+        showTotalPoints: true,
+        showVariantBadge: true,
+        showInstructions: false,
+        layout: '2-columns',
+        borderStyle: 'minimal',
+        backgroundTint: 'white',
+        padding: 'compact',
+        titleStyle: { bold: true, italic: false, underline: false, uppercase: false, size: '16pt', align: 'left' }
+      },
+      materialsAllowed: ['Pen only']
+    },
+    {
+      id: 'hdr_formal_exam',
+      title: 'Formal Exam / Cambridge Style',
+      description: 'Candidate boxes, formal instructions box, permitted equipment list',
+      config: {
+        showTitle: true,
+        showSubtitle: true,
+        subtitleText: 'General Certificate Examination',
+        showStudentName: true,
+        studentNameLabel: 'Candidate Name & Number:',
+        showClass: true,
+        classLabel: 'Centre / Class:',
+        showDate: true,
+        showTeacher: false,
+        showDuration: true,
+        durationLabel: 'Time Allowed:',
+        showMaterials: true,
+        materialsLabel: 'Equipment Permitted:',
+        showScope: false,
+        showTotalPoints: true,
+        pointsLabel: 'Maximum Mark:',
+        showVariantBadge: true,
+        showInstructions: true,
+        instructionsText: 'Read each question carefully before answering. Write all answers in the spaces provided. Check your work before submitting.',
+        layout: '2-columns',
+        borderStyle: 'solid',
+        backgroundTint: 'light_gray',
+        padding: 'spacious',
+        titleStyle: { bold: true, italic: false, underline: false, uppercase: true, size: '17pt', align: 'center' },
+        subtitleStyle: { bold: false, italic: false, underline: false, size: '11pt', align: 'center' },
+        studentNameStyle: { bold: true, italic: false, underline: false, lineStyle: 'box' },
+        instructionsStyle: { bold: false, italic: true, underline: false, border: 'box' }
+      },
+      materialsAllowed: ['Black pen', 'HB pencil', 'Eraser', 'Ruler']
+    },
+    {
+      id: 'hdr_compact_quiz',
+      title: 'Compact Quiz Header',
+      description: 'Space-saving single-row header for pop quizzes & formative tests',
+      config: {
+        showTitle: true,
+        showSubtitle: false,
+        showStudentName: true,
+        showClass: true,
+        showDate: true,
+        showTeacher: false,
+        showDuration: false,
+        showMaterials: false,
+        showScope: false,
+        showTotalPoints: true,
+        showVariantBadge: true,
+        showInstructions: false,
+        layout: 'compact',
+        borderStyle: 'solid',
+        backgroundTint: 'white',
+        padding: 'compact',
+        titleStyle: { bold: true, italic: false, underline: false, uppercase: true, size: '14pt', align: 'left' }
+      },
+      materialsAllowed: ['Pen & Pencil']
+    }
+  ];
+
+  // ── 2b5. Built-in Test Models & Templates ──────────────────────────────────
+  TestCreatorService.BUILTIN_TEST_TEMPLATES = [
+    {
+      id: 'tmpl_grammar_vocab',
+      title: 'Grammar & Vocabulary Test',
+      subject: 'English',
+      durationMinutes: 45,
+      targetPoints: 20,
+      scaleModelId: 'pts_20',
+      description: 'Standard language assessment: cloze text with gaps, multiple choice questions, and sentence transformations.',
+      materialsAllowed: ['Pen & Pencil only', 'Ruler'],
+      headerConfig: {
+        showTitle: true,
+        showSubtitle: false,
+        showStudentName: true,
+        showClass: true,
+        showDate: true,
+        showTeacher: true,
+        showDuration: true,
+        showMaterials: true,
+        showScope: true,
+        showTotalPoints: true,
+        showVariantBadge: true,
+        showInstructions: false,
+        layout: '3-columns',
+        borderStyle: 'neobrutalist',
+        backgroundTint: 'white',
+        padding: 'standard'
+      },
+      exportStyle: {
+        fontSize: '11pt',
+        lineHeight: 1.5,
+        padding: '14px',
+        numberedLines: false,
+        margins: { preset: 'normal', top: 15, right: 15, bottom: 15, left: 15, unit: 'mm' }
+      },
+      exercises: [
+        {
+          type: 'cloze',
+          title: 'Verb Tenses & Prepositions in Context',
+          instructions: 'Fill in the blanks with the correct form of the word in brackets or the missing preposition.',
+          points: 6,
+          pointsPerItem: 1,
+          options: { blankStyle: 'bracketed_box', showWordBank: false },
+          content: {
+            items: [
+              { text: 'Yesterday, while Sarah [was walking] to the library, she [met] her former biology teacher.' },
+              { text: 'If you [study] diligently every day, you will succeed [in] passing the final exam without difficulty.' },
+              { text: 'They [have lived] in this neighborhood since 2018 and are very fond [of] their local community.' }
+            ]
+          }
+        },
+        {
+          type: 'mcq',
+          title: 'Syntax & Lexical Choice',
+          instructions: 'Select the best option (A, B, C, or D) to complete each sentence correctly.',
+          points: 6,
+          options: { layout: '2-columns', markerStyle: 'letters', shuffleOptions: false },
+          content: {
+            questions: [
+              {
+                prompt: 'Despite the heavy rain, the football match was not ________.',
+                points: 2,
+                options: ['called off', 'put down', 'given in', 'taken away'],
+                correctIndices: [0]
+              },
+              {
+                prompt: 'Hardly ________ arrived at the station when the train pulled away.',
+                points: 2,
+                options: ['had we', 'we had', 'did we have', 'have we'],
+                correctIndices: [0]
+              },
+              {
+                prompt: 'The manager suggested that everyone ________ present at the opening session.',
+                points: 2,
+                options: ['be', 'is', 'was', 'being'],
+                correctIndices: [0]
+              }
+            ]
+          }
+        },
+        {
+          type: 'transformation',
+          title: 'Sentence Rewriting',
+          instructions: 'Complete the second sentence so that it has a similar meaning to the first, using the word given in brackets. Do not change the word given.',
+          points: 8,
+          options: { wordConstraint: 'Use between 2 and 5 words, including the word given.', keywordStyle: 'bold_blue' },
+          content: {
+            items: [
+              {
+                original: 'It was too cold for us to swim in the lake.',
+                keyword: 'WARM',
+                targetPrefix: 'The lake was',
+                targetSuffix: 'for us to swim in.',
+                solution: 'not warm enough'
+              },
+              {
+                original: 'I am certain that Paul didn\'t leave the keys on the counter.',
+                keyword: 'HAVE',
+                targetPrefix: 'Paul',
+                targetSuffix: 'the keys on the counter.',
+                solution: 'cannot have left'
+              },
+              {
+                original: 'Someone stole my bicycle while I was inside the shop.',
+                keyword: 'HAD',
+                targetPrefix: 'I',
+                targetSuffix: 'while I was inside the shop.',
+                solution: 'had my bicycle stolen'
+              },
+              {
+                original: '"I will call you tomorrow," promised Mark.',
+                keyword: 'TOLD',
+                targetPrefix: 'Mark',
+                targetSuffix: 'he would call the next day.',
+                solution: 'told me that'
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      id: 'tmpl_reading_writing',
+      title: 'Reading Comprehension & Composition Exam',
+      subject: 'English',
+      durationMinutes: 60,
+      targetPoints: 30,
+      scaleModelId: 'pts_30',
+      description: 'Formal exam format: numbered reading passage with glossary, analytical questions, and structured composition with checklist and rubric.',
+      materialsAllowed: ['Black or Blue pen', 'Highlighter permitted on text'],
+      headerConfig: {
+        showTitle: true,
+        showSubtitle: true,
+        subtitleText: 'Paper 1: Reading & Extended Writing',
+        showStudentName: true,
+        studentNameLabel: 'Candidate Full Name:',
+        showClass: true,
+        showDate: true,
+        showTeacher: true,
+        showDuration: true,
+        showMaterials: true,
+        showScope: false,
+        showTotalPoints: true,
+        showVariantBadge: true,
+        showInstructions: true,
+        instructionsText: 'Read the passage thoroughly before attempting questions. Write in continuous prose where required. Pay close attention to spelling, punctuation, and grammar.',
+        layout: '2-columns',
+        borderStyle: 'double',
+        backgroundTint: 'ivory',
+        padding: 'spacious'
+      },
+      exportStyle: {
+        fontSize: '11pt',
+        lineHeight: 1.5,
+        padding: '16px',
+        numberedLines: true,
+        margins: { preset: 'normal', top: 15, right: 15, bottom: 15, left: 15, unit: 'mm' }
+      },
+      exercises: [
+        {
+          type: 'reading_comprehension',
+          title: 'Reading Text: The Future of Renewable Energy',
+          instructions: 'Read the article carefully and answer all questions in full sentences.',
+          points: 15,
+          options: { passageLayout: 'single_column', vocabularyFootnotes: 'Turbine: machine for producing continuous power | Intermittent: not steady or continuous' },
+          content: {
+            passageTitle: 'Harnessing the Winds of Change',
+            passageText: 'Across the coastal plains of northern Europe, towering wind turbines have become a familiar sight on the horizon.\nEngineers and environmental scientists argue that offshore wind farms represent one of humanity\'s most promising tools in the battle against climate change.\nHowever, transitioning to an electric grid powered entirely by renewables presents unprecedented technical challenges.\nThe wind does not blow consistently, nor does the sun always shine, meaning energy storage technologies must advance rapidly to prevent blackouts during periods of peak demand.\nInnovations in battery chemistry and hydrogen electrolysis are beginning to bridge this gap, offering hope for a carbon-neutral industrial future.',
+            subQuestions: [
+              {
+                prompt: 'According to paragraph 1, where are wind turbines primarily being established in northern Europe?',
+                points: 3,
+                lineCount: 2,
+                answerPrefix: 'Wind turbines are primarily established'
+              },
+              {
+                prompt: 'Why does a renewable energy grid present unprecedented technical challenges?',
+                points: 4,
+                lineCount: 3,
+                lengthGuidance: 'Explain in 2–3 sentences'
+              },
+              {
+                prompt: 'Renewable energy sources deliver consistent and uninterrupted electricity without requiring storage solutions.',
+                answerType: 'true_false_justify',
+                points: 4,
+                solution: 'False — "The wind does not blow consistently, nor does the sun always shine, meaning energy storage technologies must advance rapidly"'
+              },
+              {
+                prompt: 'Explain how innovations in battery chemistry and hydrogen electrolysis address the intermittency of wind energy.',
+                points: 4,
+                lineCount: 3,
+                lengthGuidance: '30–40 words'
+              }
+            ]
+          }
+        },
+        {
+          type: 'composition',
+          title: 'Extended Writing: Opinion Essay',
+          instructions: 'Write a well-structured argumentative essay addressing the prompt below.',
+          points: 15,
+          markingRubric: [
+            { id: 'r1', title: 'Content & Relevance to Prompt', maxPoints: 5 },
+            { id: 'r2', title: 'Organisation, Paragraphing & Cohesion', maxPoints: 4 },
+            { id: 'r3', title: 'Vocabulary & Lexical Variety', maxPoints: 3 },
+            { id: 'r4', title: 'Grammar Accuracy & Punctuation', maxPoints: 3 }
+          ],
+          options: {
+            textGenre: 'Opinion Essay',
+            showGenreBadge: true,
+            showDraftBox: true,
+            draftTitle: 'Rough Work & Outline (Not Graded)',
+            draftLines: 6,
+            draftStyle: 'lines',
+            showWritingLines: true,
+            writingLinesCount: 16,
+            showChecklist: true,
+            checklistTitle: 'Proofreading Checklist:',
+            checklistItems: [
+              'Clear introduction with a thesis statement',
+              'Logical paragraphs with transition words (However, Furthermore, Consequently)',
+              'Accurate verb tenses and subject-verb agreement',
+              'Word count checked (150–200 words)'
+            ],
+            showRubric: true
+          },
+          content: {
+            items: [
+              {
+                label: 'Essay Topic',
+                prompt: '"Individual choices, such as reducing waste and driving less, are far more effective in combating global warming than government regulations." Do you agree or disagree? Give reasons and examples from your own knowledge.',
+                targetWordCount: 180
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      id: 'tmpl_pop_quiz',
+      title: '15-Minute Pop Quiz',
+      subject: 'General',
+      durationMinutes: 15,
+      targetPoints: 10,
+      scaleModelId: 'pts_10',
+      description: 'Quick formative check with multiple choice, odd-one-out categorization, and direct sentence translation.',
+      materialsAllowed: ['Pen only'],
+      headerConfig: {
+        showTitle: true,
+        showSubtitle: false,
+        showStudentName: true,
+        showClass: true,
+        showDate: true,
+        showTeacher: false,
+        showDuration: true,
+        showMaterials: false,
+        showScope: false,
+        showTotalPoints: true,
+        showVariantBadge: true,
+        showInstructions: false,
+        layout: 'compact',
+        borderStyle: 'solid',
+        backgroundTint: 'white',
+        padding: 'compact'
+      },
+      exportStyle: {
+        fontSize: '10pt',
+        lineHeight: 1.4,
+        padding: '10px',
+        numberedLines: false,
+        margins: { preset: 'narrow', top: 10, right: 10, bottom: 10, left: 10, unit: 'mm' }
+      },
+      exercises: [
+        {
+          type: 'mcq',
+          title: 'Knowledge Check',
+          instructions: 'Choose the correct answer.',
+          points: 4,
+          options: { layout: '2-columns', markerStyle: 'circle' },
+          content: {
+            questions: [
+              { prompt: 'What is the synonym of "lucid"?', options: ['Clear', 'Confusing', 'Dark', 'Ancient'], correctIndices: [0], points: 1 },
+              { prompt: 'Which word functions as an adverb in this context?', options: ['Swiftly', 'Swift', 'Quick', 'Fasten'], correctIndices: [0], points: 1 },
+              { prompt: 'Identify the correct passive sentence:', options: ['The letter was sent yesterday.', 'She sent the letter.', 'They will send the letter.', 'Sending the letter.'], correctIndices: [0], points: 1 },
+              { prompt: 'Choose the correct preposition: "Interested ________ art"', options: ['in', 'at', 'on', 'with'], correctIndices: [0], points: 1 }
+            ]
+          }
+        },
+        {
+          type: 'odd_one_out',
+          title: 'Odd One Out (Lexical Categorisation)',
+          instructions: 'Cross out the intruder in each row that does not belong to the semantic group.',
+          points: 3,
+          options: { taskMode: 'cross_out', displayStyle: 'pills' },
+          content: {
+            items: [
+              { words: ['Apple', 'Banana', 'Carrot', 'Strawberry'], intruder: 'Carrot', justificationKey: 'Vegetable, the others are fruits' },
+              { words: ['Whisper', 'Shout', 'Mumble', 'Sprint'], intruder: 'Sprint', justificationKey: 'Verb of motion, the others are verbs of speaking' },
+              { words: ['Reliable', 'Generous', 'Deceitful', 'Helpful'], intruder: 'Deceitful', justificationKey: 'Negative trait, the others are positive' }
+            ]
+          }
+        },
+        {
+          type: 'translation',
+          title: 'Sentence Translation',
+          instructions: 'Translate the following sentences accurately into the target language.',
+          points: 3,
+          options: { direction: 'Source to Target', showHints: false },
+          content: {
+            items: [
+              { sourceText: 'Nous devons partir immédiatement pour ne pas rater le train.', modelTranslation: 'We must leave immediately so as not to miss the train.', allocatedLines: 1 },
+              { sourceText: 'Bien qu\'il fasse froid, ils sont allés se promener dans la forêt.', modelTranslation: 'Although it was cold, they went for a walk in the forest.', allocatedLines: 1 },
+              { sourceText: 'Elle a promis qu\'elle terminerait ses devoirs avant le dîner.', modelTranslation: 'She promised she would finish her homework before dinner.', allocatedLines: 1 }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      id: 'tmpl_comprehensive_midterm',
+      title: 'Comprehensive Midterm Examination (4 Skills)',
+      subject: 'Languages',
+      durationMinutes: 90,
+      targetPoints: 50,
+      scaleModelId: 'pts_50',
+      description: 'Rigorous multi-part exam assessing reading, cloze with word bank, vocabulary matching, sentence transformation, and composition.',
+      materialsAllowed: ['Black or Blue pen', 'Pencil', 'Eraser'],
+      headerConfig: {
+        showTitle: true,
+        showSubtitle: true,
+        subtitleText: 'Semester Midterm Examination',
+        showStudentName: true,
+        showClass: true,
+        showDate: true,
+        showTeacher: true,
+        showDuration: true,
+        showMaterials: true,
+        showScope: true,
+        showTotalPoints: true,
+        showVariantBadge: true,
+        showInstructions: true,
+        instructionsText: 'Answer all parts thoroughly. Manage your time carefully across all 5 sections. Do not use correction fluid.',
+        layout: '3-columns',
+        borderStyle: 'neobrutalist',
+        backgroundTint: 'white',
+        padding: 'standard'
+      },
+      exportStyle: {
+        fontSize: '11pt',
+        lineHeight: 1.5,
+        padding: '14px',
+        numberedLines: true,
+        margins: { preset: 'normal', top: 15, right: 15, bottom: 15, left: 15, unit: 'mm' }
+      },
+      exercises: [
+        {
+          type: 'cloze',
+          title: 'Part 1: Text Cloze with Word Bank',
+          instructions: 'Fill each gap with the most suitable word from the pool provided.',
+          points: 10,
+          options: { showWordBank: true, wordBankOrder: 'alphabetical', wordBankDistractors: 'frequently, nevertheless' },
+          content: {
+            items: [
+              { text: 'The discovery of penicillin revolutionized medicine and [significantly] reduced mortality rates worldwide.' },
+              { text: 'Scientists were [initially] skeptical about the findings until repeated trials confirmed the antibacterial [properties] of the mold.' },
+              { text: 'Today, medical researchers face the challenge of antibiotic resistance, which has become an [urgent] global priority.' }
+            ]
+          }
+        },
+        {
+          type: 'matching',
+          title: 'Part 2: Idioms & Definitions Matching',
+          instructions: 'Match each idiom in Column A with its definition in Column B.',
+          points: 5,
+          options: { colALabel: 'Idiom (Column A)', colBLabel: 'Definition (Column B)', presentation: 'table' },
+          content: {
+            pairs: [
+              { left: 'Bite the bullet', right: 'Face a difficult situation with courage' },
+              { left: 'Break the ice', right: 'Make people feel relaxed in a social setting' },
+              { left: 'Burn the midnight oil', right: 'Work late into the night' },
+              { left: 'Hit the nail on the head', right: 'State something with exact accuracy' },
+              { left: 'See eye to eye', right: 'Agree completely with someone' }
+            ]
+          }
+        },
+        {
+          type: 'transformation',
+          title: 'Part 3: Key Word Transformations',
+          instructions: 'Complete the second sentence so that it has a similar meaning to the first, using the word in brackets.',
+          points: 10,
+          options: { wordConstraint: 'Use 2 to 5 words, including the word given.' },
+          content: {
+            items: [
+              { original: 'I regret not visiting my grandparents last weekend.', keyword: 'WISH', targetPrefix: 'I', targetSuffix: 'my grandparents last weekend.', solution: 'wish I had visited' },
+              { original: 'The concert was cancelled because of bad weather.', keyword: 'DUE', targetPrefix: 'The concert was cancelled', targetSuffix: 'the bad weather.', solution: 'due to' },
+              { original: 'They believe the thief entered through the bedroom window.', keyword: 'THOUGHT', targetPrefix: 'The thief is', targetSuffix: 'through the bedroom window.', solution: 'thought to have entered' }
+            ]
+          }
+        },
+        {
+          type: 'composition',
+          title: 'Part 4: Extended Writing',
+          instructions: 'Write a persuasive article on the topic below.',
+          points: 15,
+          options: { textGenre: 'Persuasive Article', showDraftBox: true, showWritingLines: true, writingLinesCount: 14, showChecklist: true, showRubric: true },
+          content: {
+            items: [
+              { label: 'Article Topic', prompt: 'Should artificial intelligence tools be integrated into secondary school examinations? Defend your position with relevant arguments.', targetWordCount: 200 }
+            ]
+          },
+          markingRubric: [
+            { id: 'r1', title: 'Task Achievement & Coherence', maxPoints: 5 },
+            { id: 'r2', title: 'Lexical Range & Precision', maxPoints: 5 },
+            { id: 'r3', title: 'Grammatical Accuracy & Range', maxPoints: 5 }
+          ]
+        }
+      ]
+    },
+    {
+      id: 'tmpl_visual_prompt',
+      title: 'Visual Prompt & Descriptive Writing',
+      subject: 'English',
+      durationMinutes: 30,
+      targetPoints: 15,
+      scaleModelId: 'pts_15',
+      description: 'Image-based descriptive assessment combining visual cues with open analysis and starter stems.',
+      materialsAllowed: ['Pen & Pencil'],
+      headerConfig: {
+        showTitle: true,
+        showSubtitle: false,
+        showStudentName: true,
+        showClass: true,
+        showDate: true,
+        showTeacher: true,
+        showDuration: true,
+        showMaterials: false,
+        showScope: true,
+        showTotalPoints: true,
+        showVariantBadge: true,
+        showInstructions: false,
+        layout: '2-columns',
+        borderStyle: 'solid',
+        backgroundTint: 'white',
+        padding: 'standard'
+      },
+      exportStyle: {
+        fontSize: '11pt',
+        lineHeight: 1.5,
+        padding: '14px',
+        numberedLines: false,
+        margins: { preset: 'normal', top: 15, right: 15, bottom: 15, left: 15, unit: 'mm' }
+      },
+      exercises: [
+        {
+          type: 'picture_description',
+          title: 'Visual Observation & Description',
+          instructions: 'Observe the scene and write a vivid description incorporating the target vocabulary.',
+          points: 8,
+          options: { layout: 'stacked', targetVocab: 'crowded, vibrant, silhouette, bustling', figureLabel: 'Figure 1' },
+          content: {
+            items: [
+              {
+                prompt: 'Describe the atmosphere and activities in the picture. Focus on sensory details (sight, sound, atmosphere).',
+                lineCount: 7,
+                imageCaption: 'A bustling twilight street market in a historic old town.'
+              }
+            ]
+          }
+        },
+        {
+          type: 'open_question',
+          title: 'Creative Interpretation',
+          instructions: 'Answer the question based on the visual prompt using the sentence starter provided.',
+          points: 7,
+          options: { lengthGuidance: '4–6 sentences', answerPrefix: 'If I were present in this setting, the first thing that would draw my attention would be' },
+          content: {
+            items: [
+              {
+                prompt: 'Imagine you are one of the characters in the scene. Describe your thoughts and what brings you to this location.',
+                lineCount: 6,
+                points: 7
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ];
+
+  // ── 2b6. Template Instantiation Helpers ─────────────────────────────────────
+  TestCreatorService.createTestFromTemplate = function (template, options) {
+    if (!template) return TestCreatorService.createEmptyTest();
+    var test = TestCreatorService.createEmptyTest();
+    test.title = template.title || 'Exam';
+    test.subject = template.subject || 'English';
+    test.durationMinutes = template.durationMinutes || 45;
+    test.targetPoints = template.targetPoints || 20;
+    test.scaleModelId = template.scaleModelId || 'pts_20';
+    test.scope = template.scope || '';
+    if (Array.isArray(template.materialsAllowed)) {
+      test.materialsAllowed = template.materialsAllowed.slice();
+    }
+    if (template.headerConfig && typeof template.headerConfig === 'object') {
+      test.headerConfig = JSON.parse(JSON.stringify(template.headerConfig));
+    }
+    if (template.exportStyle && typeof template.exportStyle === 'object') {
+      test.exportStyle = JSON.parse(JSON.stringify(template.exportStyle));
+    }
+    TestCreatorService.ensureHeaderConfig(test);
+    TestCreatorService.ensureExportStyle(test);
+
+    // Deep clone exercises and assign new unique IDs
+    if (Array.isArray(template.exercises)) {
+      test.exercises = template.exercises.map(function (srcEx) {
+        var exCopy = JSON.parse(JSON.stringify(srcEx));
+        exCopy.id = generateUUID();
+        if (exCopy.content && Array.isArray(exCopy.content.items)) {
+          exCopy.content.items.forEach(function (it) {
+            if (it && typeof it === 'object' && it.id) it.id = generateUUID();
+          });
+        }
+        if (exCopy.content && Array.isArray(exCopy.content.questions)) {
+          exCopy.content.questions.forEach(function (q) {
+            if (q && typeof q === 'object' && q.id) q.id = generateUUID();
+          });
+        }
+        return exCopy;
+      });
+    }
+    return test;
+  };
+
+  TestCreatorService.extractTemplateFromTest = function (test, metadata) {
+    if (!test) return null;
+    var meta = metadata || {};
+    return {
+      id: meta.id || ('tmpl_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 8)),
+      title: meta.title || test.title || 'Untitled Template',
+      subject: meta.subject || test.subject || 'General',
+      description: meta.description || '',
+      durationMinutes: test.durationMinutes || 45,
+      targetPoints: test.targetPoints || TestCreatorService.calculateTotalTestPoints(test),
+      scaleModelId: test.scaleModelId || 'pts_20',
+      scope: test.scope || '',
+      materialsAllowed: Array.isArray(test.materialsAllowed) ? test.materialsAllowed.slice() : ['Pen & Pencil only'],
+      headerConfig: JSON.parse(JSON.stringify(test.headerConfig || TestCreatorService.DEFAULT_HEADER_CONFIG)),
+      exportStyle: JSON.parse(JSON.stringify(test.exportStyle || TestCreatorService.DEFAULT_EXPORT_STYLE)),
+      exercises: JSON.parse(JSON.stringify(test.exercises || [])),
+      isCustom: true,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
   };
 
   // ── 2c. Safe Rich Text Formatting Parser ──────────────────────────────────
@@ -313,12 +1292,7 @@
       targetPoints: 20,
       linkedCompetenceIds: [],
       tags: [],
-      exportStyle: {
-        fontSize: '11pt',
-        lineHeight: 1.5,
-        padding: '14px',
-        numberedLines: false
-      },
+      exportStyle: JSON.parse(JSON.stringify(TestCreatorService.DEFAULT_EXPORT_STYLE)),
       exercises: [],
       createdAt: Date.now(),
       updatedAt: Date.now()
@@ -637,6 +1611,9 @@
         if (o.showChecklist === undefined) o.showChecklist = false;
         if (o.checklistTitle === undefined) o.checklistTitle = '';
         if (o.checklistLayout === undefined) o.checklistLayout = 'inline'; // 'inline' | 'columns' | 'stacked'
+        if (o.checklistBg === undefined) o.checklistBg = 'amber'; // 'amber' | 'white' | 'ivory' | 'light_gray' | 'tint' | 'none'
+        if (o.checklistPadding === undefined) o.checklistPadding = 'standard'; // 'compact' | 'standard' | 'spacious'
+        if (o.checklistBorder === undefined) o.checklistBorder = 'solid'; // 'solid' | 'neobrutalist' | 'dashed' | 'quote' | 'none'
         if (o.checklistItems === undefined) {
           o.checklistItems = [
             'Structure & Paragraphs',
@@ -1107,6 +2084,8 @@
       maxScore: totalPts,
       coefficient: 1,
       scaleModelId: test.scaleModelId || 'pts_20',
+      scaleBank: test.scaleBank || null,
+      scaleModel: test.scaleModel || null,
       term: 't1',
       criteria: subCriteria,
       linkedTestId: test.id
@@ -1170,17 +2149,18 @@
       css = [
         'body { font-family: "Lexend", system-ui, sans-serif; color: #000; background: #fff; margin: 0; padding: 20px; font-size: 11pt; line-height: 1.45; }',
         '.exam-sheet { max-width: 800px; margin: 0 auto; }',
-        '.exam-header { border: 3px solid #000; box-shadow: 4px 4px 0px #000; padding: 14px 18px; margin-bottom: 24px; background: #fafafa; }',
+        '.exam-header { border: 3px solid #000; box-shadow: 4px 4px 0px #000; padding: 14px 18px; margin-bottom: 24px; background: #fafafa; break-after: avoid; page-break-after: avoid; }',
         '.exam-title { font-size: 18pt; font-weight: 900; margin: 0 0 10px; text-transform: uppercase; letter-spacing: -0.5px; border-bottom: 2px solid #000; padding-bottom: 6px; }',
         '.header-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-size: 10pt; font-weight: 700; }',
         '.header-item { padding: 4px 0; }',
         '.header-item span.lbl { text-transform: uppercase; font-size: 8pt; color: #444; display: block; }',
         '.score-badge-box { grid-column: span 3; display: flex; justify-content: space-between; align-items: center; border-top: 2px dashed #000; margin-top: 8px; padding-top: 8px; font-weight: 800; font-size: 11pt; }',
-        '.exercise-card { border: 2.5px solid #000; box-shadow: 3px 3px 0px #000; padding: 14px 16px; margin-bottom: 20px; background: #fff; page-break-inside: avoid; }',
-        '.exercise-header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1.5px solid #000; padding-bottom: 6px; margin-bottom: 10px; }',
+        '.exercise-card { border: 2.5px solid #000; box-shadow: 3px 3px 0px #000; padding: 14px 16px; margin-bottom: 20px; background: #fff; break-inside: auto; page-break-inside: auto; }',
+        '.exercise-card:first-of-type:not(.page-break-before) { break-before: avoid; page-break-before: avoid; }',
+        '.exercise-header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1.5px solid #000; padding-bottom: 6px; margin-bottom: 10px; break-after: avoid; page-break-after: avoid; }',
         '.exercise-title { font-size: 12pt; font-weight: 900; text-transform: uppercase; }',
         '.exercise-points { background: #111; color: #fff; padding: 3px 8px; border-radius: 4px; font-size: 9pt; font-weight: 800; }',
-        '.exercise-instructions { font-style: italic; font-size: 10pt; color: #333; margin-bottom: 12px; }',
+        '.exercise-instructions { font-style: italic; font-size: 10pt; color: #333; margin-bottom: 12px; break-after: avoid; page-break-after: avoid; }',
         '.cloze-text { font-size: 11pt; line-height: 2.2; }',
         '.cloze-blank { display: inline-block; min-width: 90px; border-bottom: 2px solid #000; text-align: center; font-weight: 700; color: #000; padding: 0 4px; }',
         '.cloze-blank.teacher-key { color: #b91c1c; border-color: #b91c1c; }',
@@ -1217,13 +2197,15 @@
       css = [
         'body { font-family: "OpenDyslexic", "Lexend", sans-serif; color: #111; background: #fff; margin: 0; padding: 24px; font-size: 12pt; line-height: 1.8; letter-spacing: 0.6px; word-spacing: 2px; }',
         '.exam-sheet { max-width: 820px; margin: 0 auto; }',
-        '.exam-header { border: 2px solid #222; border-radius: 8px; padding: 16px; margin-bottom: 24px; background: #fdfdf6; }',
+        '.exam-header { border: 2px solid #222; border-radius: 8px; padding: 16px; margin-bottom: 24px; background: #fdfdf6; break-after: avoid; page-break-after: avoid; }',
         '.exam-title { font-size: 19pt; font-weight: 900; margin: 0 0 12px; }',
         '.header-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 11pt; }',
-        '.exercise-card { border: 2px solid #444; border-radius: 8px; padding: 18px; margin-bottom: 24px; background: #fafafa; page-break-inside: avoid; }',
-        '.exercise-header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2px solid #555; padding-bottom: 8px; margin-bottom: 12px; }',
+        '.exercise-card { border: 2px solid #444; border-radius: 8px; padding: 18px; margin-bottom: 24px; background: #fafafa; break-inside: auto; page-break-inside: auto; }',
+        '.exercise-card:first-of-type:not(.page-break-before) { break-before: avoid; page-break-before: avoid; }',
+        '.exercise-header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2px solid #555; padding-bottom: 8px; margin-bottom: 12px; break-after: avoid; page-break-after: avoid; }',
         '.exercise-title { font-size: 13pt; font-weight: 900; }',
         '.exercise-points { background: #333; color: #fff; padding: 4px 10px; border-radius: 6px; font-size: 10pt; font-weight: 700; }',
+        '.exercise-instructions { break-after: avoid; page-break-after: avoid; }',
         '.cloze-blank { display: inline-block; min-width: 100px; border-bottom: 2.5px solid #222; text-align: center; font-weight: 700; background: #f0f0e8; padding: 2px 6px; border-radius: 4px; }',
         '.cloze-blank.teacher-key { color: #dc2626; border-color: #dc2626; }',
         '.writing-line { border-bottom: 1.5px solid #888; height: 32px; }',
@@ -1234,16 +2216,17 @@
       css = [
         'body { font-family: "Times New Roman", Times, Georgia, serif; color: #000; background: #fff; margin: 0; padding: 30px; font-size: 11pt; line-height: 1.5; }',
         '.exam-sheet { max-width: 820px; margin: 0 auto; }',
-        '.exam-header { border: 2px double #000; padding: 14px 18px; margin-bottom: 24px; }',
+        '.exam-header { border: 2px double #000; padding: 14px 18px; margin-bottom: 24px; break-after: avoid; page-break-after: avoid; }',
         '.exam-title { font-size: 16pt; font-weight: bold; text-align: center; margin: 0 0 10px; text-transform: uppercase; letter-spacing: 1px; }',
         '.header-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-size: 10pt; }',
         '.header-item span.lbl { font-weight: bold; margin-right: 4px; }',
         '.score-badge-box { grid-column: span 3; display: flex; justify-content: space-between; border-top: 1px solid #000; margin-top: 8px; padding-top: 8px; font-weight: bold; }',
-        '.exercise-card { margin-bottom: 24px; page-break-inside: avoid; }',
-        '.exercise-header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #000; padding-bottom: 4px; margin-bottom: 8px; }',
+        '.exercise-card { margin-bottom: 24px; break-inside: auto; page-break-inside: auto; }',
+        '.exercise-card:first-of-type:not(.page-break-before) { break-before: avoid; page-break-before: avoid; }',
+        '.exercise-header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #000; padding-bottom: 4px; margin-bottom: 8px; break-after: avoid; page-break-after: avoid; }',
         '.exercise-title { font-size: 11.5pt; font-weight: bold; }',
         '.exercise-points { font-size: 9.5pt; font-style: italic; }',
-        '.exercise-instructions { font-style: italic; font-size: 10pt; margin-bottom: 10px; }',
+        '.exercise-instructions { font-style: italic; font-size: 10pt; margin-bottom: 10px; break-after: avoid; page-break-after: avoid; }',
         '.cloze-text { font-size: 11pt; line-height: 2.2; }',
         '.cloze-blank { display: inline-block; min-width: 90px; border-bottom: 1px solid #000; text-align: center; font-weight: bold; }',
         '.cloze-blank.teacher-key { color: #b91c1c; font-weight: bold; }',
@@ -1314,13 +2297,145 @@
       '.exam-instructions-title { font-weight: 800; text-transform: uppercase; font-size: 8pt; margin-bottom: 2px; color: #333; }',
       '.materials-badges-wrap { display: inline-flex; flex-wrap: wrap; gap: 4px; vertical-align: middle; }',
       '.mat-badge { display: inline-block; background: #f1f5f9; border: 1px solid #cbd5e1; padding: 1px 6px; border-radius: 3px; font-size: 8.5pt; font-weight: 600; }',
+      '.exam-top-badge-row { overflow: hidden; margin-bottom: 8px; }',
       '.score-badge-box { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; border-top: 1.5px dashed #000; margin-top: 8px; padding-top: 6px; font-weight: 800; font-size: 10.5pt; }',
+      '.lbl-bold { font-weight: bold; }',
+      '.lbl-italic { font-style: italic; }',
+      '.lbl-underline { text-decoration: underline; }',
+      '.val-bold { font-weight: bold; }',
+      '.val-italic { font-style: italic; }',
+      '.val-underline { text-decoration: underline; }',
+      '/* Exam Grading Scale Component & Container Modifiers */',
+      '.exam-grading-scale-wrap { margin-top: 12px; padding: 10px 14px; border: 2px solid #000; border-radius: 4px; background: #fafafa; break-inside: avoid; page-break-inside: avoid; }',
+      '.exam-grading-scale-wrap.exam-grading-scale-inline { padding: 6px 12px; margin-top: 8px; background: #fffbeb; }',
+      '.scale-bg-default { background: #fafafa; }',
+      '.exam-grading-scale-inline.scale-bg-default { background: #fffbeb; }',
+      '.scale-bg-amber { background: #fffbeb !important; }',
+      '.scale-bg-white { background: #ffffff !important; }',
+      '.scale-bg-ivory { background: #fdfdf6 !important; }',
+      '.scale-bg-light_gray { background: #f8fafc !important; }',
+      '.scale-bg-none { background: transparent !important; }',
+      '.scale-pad-compact { padding: 4px 8px !important; margin-top: 6px !important; }',
+      '.scale-pad-standard { padding: 8px 14px !important; margin-top: 10px !important; }',
+      '.scale-pad-spacious { padding: 14px 18px !important; margin-top: 14px !important; }',
+      '.scale-border-solid { border: 2px solid #000 !important; border-radius: 4px; }',
+      '.scale-border-neobrutalist { border: 3px solid #000 !important; box-shadow: 3px 3px 0px #000 !important; border-radius: 4px; }',
+      '.scale-border-double { border: 3px double #000 !important; border-radius: 4px; }',
+      '.scale-border-dashed { border: 2px dashed #444 !important; border-radius: 4px; }',
+      '.scale-border-minimal { border-top: 2px solid #000 !important; border-bottom: 2px solid #000 !important; border-left: none !important; border-right: none !important; border-radius: 0 !important; padding-left: 0 !important; padding-right: 0 !important; }',
+      '.scale-border-none { border: none !important; box-shadow: none !important; border-radius: 0; }',
+      '.exam-grading-scale-title { font-weight: 800; text-transform: uppercase; font-size: 8.5pt; margin-bottom: 6px; color: #111; letter-spacing: 0.5px; }',
+      '.exam-grading-scale-title.title-bold { font-weight: 900; }',
+      '.exam-grading-scale-title.title-italic { font-style: italic; }',
+      '.exam-grading-scale-title.title-underline { text-decoration: underline; }',
+      '.scale-title-sub { font-weight: normal; color: #475569; text-transform: none; }',
+      '.grading-scale-inline-row { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; font-size: 8.5pt; line-height: 1.4; margin-top: 4px; }',
+      '.grading-scale-inline-item { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; font-size: 8.5pt; background: #fff; border: 1px solid #cbd5e1; padding: 1px 5px; border-radius: 3px; }',
+      '.grading-scale-inline-item strong.scale-inline-grade { font-weight: 800; color: #0f172a; }',
+      '.grading-scale-inline-pct { color: #475569; font-size: 8pt; font-weight: 600; }',
+      '.grading-scale-inline-sep { color: #94a3b8; font-weight: 700; user-select: none; }',
+      '.grading-scale-table { width: 100%; border-collapse: collapse; font-size: 8.5pt; text-align: center; }',
+      '.grading-scale-table th, .grading-scale-table td { border: 1.5px solid #000; padding: 4px 6px; }',
+      '.grading-scale-table th { background: #e2e8f0; font-weight: 800; text-transform: uppercase; font-size: 7.5pt; letter-spacing: 0.5px; }',
+      '.col-scale-grade { width: 75px; }',
+      '.col-scale-threshold { width: 85px; }',
+      '.col-scale-points { width: 110px; }',
+      '.col-scale-notes { text-align: left; }',
+      '.scale-desc-cell { color: #64748b; font-size: 8pt; text-align: left; padding-left: 10px; }',
+      '.scale-empty-cell { color: #888; }',
+      '.grading-scale-table td.scale-grade-cell { font-weight: 800; font-size: 9pt; }',
+      '.grading-scale-inline-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 9pt; }',
+      '.grading-scale-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border: 1.5px solid #000; border-radius: 3px; font-weight: 700; font-size: 8pt; background: #fff; }',
+      '/* Composition Component Styles (Genre Tag, Draft Box, Checklist) */',
+      '.composition-genre-tag { font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.5px; color: #1e40af; background: #eff6ff; border: 1px solid #93c5fd; border-radius: 4px; padding: 2px 8px; display: inline-block; margin-bottom: 8px; }',
+      '.draft-work-box { border: 1.5px dashed #94a3b8; border-radius: 4px; background: #fafafa; min-height: 85px; margin: 8px 0 12px 0; padding: 8px 12px; position: relative; break-inside: avoid; page-break-inside: avoid; }',
+      '.draft-work-box.draft-ruled { min-height: auto; padding-bottom: 6px; }',
+      '.draft-work-box.draft-grid-box { min-height: auto; }',
+      '.draft-title { font-size: 8.5pt; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }',
+      '.draft-note { font-size: 8pt; font-style: italic; color: #64748b; margin-top: 2px; margin-bottom: 4px; }',
+      '.composition-checklist { border: 1.5px solid #000; border-radius: 4px; background: #fffbeb; padding: 6px 10px; margin-top: 10px; font-size: 8.5pt; break-inside: avoid; page-break-inside: avoid; }',
+      '.checklist-bg-amber { background: #fffbeb !important; }',
+      '.checklist-bg-white { background: #ffffff !important; }',
+      '.checklist-bg-ivory { background: #fdfdf6 !important; }',
+      '.checklist-bg-light_gray { background: #f8fafc !important; }',
+      '.checklist-bg-tint { background: #eff6ff !important; border-color: #93c5fd !important; }',
+      '.checklist-bg-none { background: transparent !important; }',
+      '.checklist-pad-compact { padding: 4px 8px !important; margin-top: 6px !important; }',
+      '.checklist-pad-standard { padding: 6px 12px !important; margin-top: 10px !important; }',
+      '.checklist-pad-spacious { padding: 12px 16px !important; margin-top: 14px !important; }',
+      '.checklist-border-solid { border: 1.5px solid #000 !important; border-radius: 4px; }',
+      '.checklist-border-neobrutalist { border: 2.5px solid #000 !important; box-shadow: 3px 3px 0px #000 !important; border-radius: 4px; }',
+      '.checklist-border-dashed { border: 1.5px dashed #444 !important; border-radius: 4px; }',
+      '.checklist-border-quote { border: none !important; border-left: 4px solid #f59e0b !important; border-radius: 0 !important; }',
+      '.checklist-border-none { border: none !important; box-shadow: none !important; }',
+      '.checklist-title { font-weight: 800; margin-bottom: 5px; color: #92400e; text-transform: uppercase; font-size: 8pt; letter-spacing: 0.5px; }',
+      '.checklist-items { font-weight: 600; font-size: 8.5pt; }',
+      '.composition-checklist.checklist-inline .checklist-items { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; }',
+      '.composition-checklist.checklist-columns .checklist-items { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 16px; align-items: start; }',
+      '.composition-checklist.checklist-stacked .checklist-items { display: flex; flex-direction: column; gap: 5px; }',
+      '.checklist-item { display: inline-flex; align-items: baseline; gap: 6px; font-size: 8.5pt; break-inside: avoid; }',
+      '.checklist-box { font-size: 9.5pt; color: #1e293b; user-select: none; font-weight: bold; }',
+      '/* Semantic Classes for Exercises (Export Standards) */',
+      '.cloze-text { margin-bottom: 8px; }',
+      '.open-question-item { margin-bottom: 14px; }',
+      '.teacher-sample-answer { color: #b91c1c; font-size: 10pt; font-weight: bold; margin: 6px 0; }',
+      '.composition-task-block { margin-bottom: 12px; }',
+      '.comp-wordcount-hint { font-size: 9.5pt; font-style: italic; margin: 4px 0 8px; }',
+      '.comp-task-lines-label { font-size: 9pt; font-weight: 700; color: #64748b; margin-top: 8px; }',
+      '.col-rubric-max, .col-rubric-score { width: 70px; }',
+      '.matching-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }',
+      '.matching-response-table { margin-top: 12px; max-width: 400px; }',
+      '.transformation-item { margin-bottom: 12px; font-size: 10.5pt; }',
+      '.trans-keyword-bracketed { padding-left: 20px; margin: 2px 0; }',
+      '.trans-keyword-block { font-weight: bold; margin: 2px 0 2px 20px; letter-spacing: 1px; color: #2563eb; }',
+      '.trans-solution-line { color: #b91c1c; font-weight: bold; padding-left: 20px; }',
+      '.trans-blank-line { padding-left: 20px; }',
+      '.translation-item { margin-bottom: 12px; font-size: 10.5pt; }',
+      '.translation-solution { color: #b91c1c; font-weight: bold; margin: 4px 0; }',
+      '.pic-desc-item { margin-bottom: 18px; }',
+      '.pic-side-layout { display: flex; gap: 18px; align-items: flex-start; }',
+      '.pic-media-col { flex: 0 0 40%; max-width: 40%; }',
+      '.pic-content-col { flex: 1; }',
+      '.pic-prompt-img { width: 100%; object-fit: contain; border: 1.5px solid #000; border-radius: 4px; }',
+      '.pic-img-small { max-height: 120px; }',
+      '.pic-img-medium { max-height: 180px; }',
+      '.pic-img-large { max-height: 250px; }',
+      '.pic-caption { font-size: 8.5pt; color: #475569; font-style: italic; margin-top: 2px; }',
+      '.pic-prompt-row { margin-bottom: 8px; }',
+      '.pic-sample-answer { color: #b91c1c; font-size: 10pt; font-weight: bold; margin-bottom: 6px; }',
+      '.pic-stacked-media { margin-bottom: 10px; }',
+      '.cell-center { text-align: center; }',
+      '.cell-left { text-align: left; }',
+      '.cell-right { text-align: right; }',
+      '.odd-item-block { margin-bottom: 14px; font-size: 10.5pt; }',
+      '.odd-justification-key { color: #b91c1c; font-size: 9.5pt; margin-top: 2px; }',
+      '.odd-task-mode-hint { font-size: 9pt; font-style: italic; color: #64748b; margin-top: 4px; }',
+      '.odd-intruder-response-row { margin-top: 6px; display: flex; gap: 10px; align-items: center; }',
+      '.odd-intruder-label, .odd-why-label { font-size: 9pt; font-weight: bold; }',
+      '.odd-intruder-line { display: inline-block; width: 140px; border-bottom: 1px solid #000; }',
+      '.odd-why-line { flex: 1; border-bottom: 1px solid #000; }',
+      '.odd-pill.correct { color: #b91c1c !important; font-weight: bold !important; border-color: #b91c1c !important; background: #fee2e2 !important; }',
+      '.odd-plain-key { color: #b91c1c; font-weight: bold; text-decoration: underline; }',
+      '.reading-passage-box { border: 1.5px solid #333; padding: 12px; background: #fbfbfb; margin-bottom: 14px; font-size: 10pt; line-height: 1.6; }',
+      '.reading-passage-title { font-weight: bold; margin-bottom: 6px; text-align: center; text-decoration: underline; }',
+      '.passage-footnotes { margin-top: 10px; padding-top: 6px; border-top: 1px dashed #94a3b8; font-size: 8.5pt; color: #334155; }',
+      '.rc-subquestion-block { margin-bottom: 10px; font-size: 10.5pt; }',
+      '.rc-tf-choice-row { margin: 4px 0 6px 14px; font-size: 9.5pt; font-weight: bold; }',
+      '.rc-quote-prompt { font-size: 9pt; font-style: italic; margin-left: 14px; margin-bottom: 4px; }',
+      '.rc-answer-solution { color: #b91c1c; font-weight: bold; margin: 2px 0; }',
       '/* Exercise & Question Styling Overrides */',
       '.card-border-neobrutalist { border: 2.5px solid #000 !important; box-shadow: 3px 3px 0 #000 !important; }',
       '.card-border-minimal { border: 1px solid #cbd5e1 !important; box-shadow: none !important; }',
       '.card-border-borderless { border: none !important; box-shadow: none !important; border-bottom: 1.5px solid #000 !important; border-radius: 0 !important; padding-left: 0 !important; padding-right: 0 !important; }',
       '.q-spacing-compact .mcq-item, .q-spacing-compact .exercise-subitem-card { margin-bottom: 6px !important; }',
-      '.q-spacing-relaxed .mcq-item, .q-spacing-relaxed .exercise-subitem-card { margin-bottom: 18px !important; }'
+      '.q-spacing-relaxed .mcq-item, .q-spacing-relaxed .exercise-subitem-card { margin-bottom: 18px !important; }',
+      '/* Header & Exercise Page Break Protection */',
+      '.exam-header { break-after: avoid !important; page-break-after: avoid !important; }',
+      '.exercise-header { break-after: avoid !important; page-break-after: avoid !important; }',
+      '.exercise-instructions { break-after: avoid !important; page-break-after: avoid !important; }',
+      '.exercise-card { break-inside: auto; page-break-inside: auto; }',
+      '.exercise-card:first-of-type:not(.page-break-before) { break-before: avoid !important; page-break-before: avoid !important; }',
+      '.mcq-item, .matching-row, .table-exercise tr, .rubric-table tr, .grading-scale-table tr, .cloze-text, .writing-box, .writing-grid { break-inside: avoid; page-break-inside: avoid; }'
     ].join('\n');
 
     return css + '\n' + commonNumberedLineCss + '\n' + commonHeaderAndQuestionCss;
@@ -1351,24 +2466,24 @@
     // Helper for formatting an element item
     function formatItemHtml(lbl, val, styleObj, customCss) {
       var st = styleObj || {};
-      var lblCss = [];
-      if (st.bold) lblCss.push('font-weight: bold;');
-      if (st.italic) lblCss.push('font-style: italic;');
-      if (st.underline) lblCss.push('text-decoration: underline;');
+      var lblClasses = ['lbl'];
+      if (st.bold) lblClasses.push('lbl-bold');
+      if (st.italic) lblClasses.push('lbl-italic');
+      if (st.underline) lblClasses.push('lbl-underline');
 
-      var valCss = [];
-      if (st.valBold) valCss.push('font-weight: bold;');
-      if (st.valItalic) valCss.push('font-style: italic;');
-      if (st.valUnderline) valCss.push('text-decoration: underline;');
+      var valClasses = ['val'];
+      if (st.valBold) valClasses.push('val-bold');
+      if (st.valItalic) valClasses.push('val-italic');
+      if (st.valUnderline) valClasses.push('val-underline');
 
       var extra = customCss ? ' style="' + customCss + '"' : '';
-      return '<div class="header-item"' + extra + '><span class="lbl" style="' + lblCss.join(' ') + '">' + TestCreatorService.formatRichText(lbl) + '</span> <span class="val" style="' + valCss.join(' ') + '">' + val + '</span></div>';
+      return '<div class="header-item"' + extra + '><span class="' + lblClasses.join(' ') + '">' + TestCreatorService.formatRichText(lbl) + '</span> <span class="' + valClasses.join(' ') + '">' + val + '</span></div>';
     }
 
     // Section builders
     function buildTitleHtml() {
       if (!hc.showTitle) {
-        if (variantBadgeHtml) return '      <div style="overflow:hidden;margin-bottom:8px;">' + variantBadgeHtml + '</div>';
+        if (variantBadgeHtml) return '      <div class="exam-top-badge-row">' + variantBadgeHtml + '</div>';
         return '';
       }
       var tSt = hc.titleStyle || {};
@@ -1446,10 +2561,20 @@
       if (hc.showTotalPoints) {
         metaItemsMap['points'] = formatItemHtml(hc.pointsLabel || 'Total Points:', '____ / ' + tPts + ' pts', hc.pointsStyle);
       }
+      if (hc.showGradingScale) {
+        var scMode = (hc.gradingScaleStyle && hc.gradingScaleStyle.displayMode) || 'table';
+        if (scMode === 'inline') {
+          var scaleName = (test.scaleModel && (test.scaleModel.label || test.scaleModel.name)) || test.scaleModelId || 'Standard Scale';
+          metaItemsMap['gradingScale'] = formatItemHtml(hc.gradingScaleLabel || 'Grading Scale:', TestCreatorService.formatRichText(scaleName), hc.gradingScaleStyle);
+        } else if (scMode === 'inline_grades' && sectionOrder.indexOf('gradingScale') === -1) {
+          var inlineGradesHtml = TestCreatorService.formatInlineGradesString(test, { totalPoints: tPts, html: true });
+          metaItemsMap['gradingScale'] = formatItemHtml(hc.gradingScaleLabel || 'Grading Scale:', inlineGradesHtml, hc.gradingScaleStyle);
+        }
+      }
 
       var metaOrder = (Array.isArray(hc.metaOrder) && hc.metaOrder.length)
         ? hc.metaOrder
-        : ['studentName', 'class', 'date', 'teacher', 'duration', 'materials', 'scope', 'points'];
+        : ['studentName', 'class', 'date', 'teacher', 'duration', 'materials', 'scope', 'points', 'gradingScale'];
 
       var orderedItems = [];
       metaOrder.forEach(function (k) {
@@ -1504,10 +2629,15 @@
       return iOut.join('\n');
     }
 
+    function buildGradingScaleSectionHtml() {
+      if (!hc.showGradingScale || (hc.gradingScaleStyle && hc.gradingScaleStyle.displayMode === 'inline')) return '';
+      return TestCreatorService.renderGradingScaleHtml(test, { totalPoints: tPts });
+    }
+
     // Dynamic Section Ordering
     var sectionOrder = (Array.isArray(hc.sectionOrder) && hc.sectionOrder.length)
       ? hc.sectionOrder
-      : ['title', 'subtitle', 'metadata', 'instructions'];
+      : ['title', 'subtitle', 'metadata', 'instructions', 'gradingScale'];
 
     sectionOrder.forEach(function (secKey) {
       var sHtml = '';
@@ -1515,10 +2645,75 @@
       else if (secKey === 'subtitle') sHtml = buildSubtitleHtml();
       else if (secKey === 'metadata') sHtml = buildMetadataHtml();
       else if (secKey === 'instructions') sHtml = buildInstructionsHtml();
+      else if (secKey === 'gradingScale') sHtml = buildGradingScaleSectionHtml();
       if (sHtml) out.push(sHtml);
     });
 
     out.push('    </div>');
+    return out.join('\n');
+  };
+
+  TestCreatorService.renderGradingScaleHtml = function (test, options) {
+    if (!test) return '';
+    var opts = options || {};
+    var totalPts = (opts.totalPoints !== undefined) ? opts.totalPoints : TestCreatorService.calculateTotalTestPoints(test);
+    var scaleModel = test.scaleModel || null;
+    var scaleModelId = test.scaleModelId || 'pts_20';
+    var hc = TestCreatorService.ensureHeaderConfig(test);
+    var label = hc.gradingScaleLabel || 'Grading Scale & Score Conversion:';
+    var displayMode = opts.displayMode || (hc.gradingScaleStyle && hc.gradingScaleStyle.displayMode) || 'table';
+    var tableData = TestCreatorService.calculateGradeConversionTable(scaleModel || scaleModelId, totalPts);
+
+    var gSt = hc.gradingScaleStyle || {};
+    var titleClasses = ['exam-grading-scale-title'];
+    if (gSt.bold) titleClasses.push('title-bold');
+    if (gSt.italic) titleClasses.push('title-italic');
+    if (gSt.underline) titleClasses.push('title-underline');
+    var titleClsAttr = ' class="' + titleClasses.join(' ') + '"';
+
+    var bgCls = ' scale-bg-' + (gSt.background || (displayMode === 'inline_grades' ? 'amber' : 'default'));
+    var padCls = ' scale-pad-' + (gSt.padding || 'standard');
+    var borderCls = ' scale-border-' + (gSt.border || 'solid');
+
+    if (displayMode === 'inline_grades') {
+      var inlineItems = TestCreatorService.buildInlineGradeItems(tableData, totalPts, true);
+      var out = [];
+      out.push('      <div class="exam-grading-scale-wrap exam-grading-scale-inline' + bgCls + padCls + borderCls + '">');
+      out.push('        <div' + titleClsAttr + '>' + TestCreatorService.formatRichText(label) + ' <span class="scale-title-sub">(' + escapeHtml(tableData.scaleName || scaleModelId) + ' — Total ' + totalPts + ' pts)</span></div>');
+      out.push('        <div class="grading-scale-inline-row">');
+      out.push('          ' + (inlineItems.length ? inlineItems.join('<span class="grading-scale-inline-sep"> · </span>') : escapeHtml(tableData.scaleName || scaleModelId)));
+      out.push('        </div>');
+      out.push('      </div>');
+      return out.join('\n');
+    }
+
+    var out = [];
+    out.push('      <div class="exam-grading-scale-wrap' + bgCls + padCls + borderCls + '">');
+    out.push('        <div' + titleClsAttr + '>' + TestCreatorService.formatRichText(label) + ' <span class="scale-title-sub">(' + escapeHtml(tableData.scaleName || scaleModelId) + ' — Total ' + totalPts + ' pts)</span></div>');
+    out.push('        <table class="grading-scale-table">');
+    out.push('          <thead><tr>');
+    out.push('            <th class="col-scale-grade">Grade / Mark</th>');
+    out.push('            <th class="col-scale-threshold">Threshold</th>');
+    out.push('            <th class="col-scale-points">Required Score</th>');
+    out.push('            <th class="col-scale-notes">Evaluation / Notes</th>');
+    out.push('          </tr></thead>');
+    out.push('          <tbody>');
+    if (tableData.rows && tableData.rows.length) {
+      tableData.rows.forEach(function (row) {
+        var colorBorder = row.color ? ' style="border-left: 4px solid ' + row.color + ';"' : '';
+        out.push('            <tr>');
+        out.push('              <td class="scale-grade-cell"' + colorBorder + '><strong>' + escapeHtml(row.grade) + '</strong></td>');
+        out.push('              <td>' + escapeHtml(row.thresholdStr) + '</td>');
+        out.push('              <td><strong>' + escapeHtml(row.pointsStr) + '</strong></td>');
+        out.push('              <td class="scale-desc-cell">' + escapeHtml(row.desc || '') + '</td>');
+        out.push('            </tr>');
+      });
+    } else {
+      out.push('            <tr><td colspan="4" class="scale-empty-cell">Standard scale: ' + escapeHtml(tableData.scaleName || scaleModelId) + '</td></tr>');
+    }
+    out.push('          </tbody>');
+    out.push('        </table>');
+    out.push('      </div>');
     return out.join('\n');
   };
 
@@ -1572,13 +2767,6 @@
       }
       if (lThicknessObj && lThicknessObj.css) {
         styleRules.push('border-bottom-width:' + lThicknessObj.css);
-      }
-      if (isDashed) {
-        styleRules.push('border-bottom-style:dashed');
-      } else if (isDotted) {
-        styleRules.push('border-bottom-style:dotted');
-      } else {
-        styleRules.push('border-bottom-style:solid');
       }
 
       var inlineStyleAttr = styleRules.length ? ' style="' + styleRules.join(';') + ';"' : '';
@@ -1664,7 +2852,7 @@
             return '<span class="' + bClass + '">' + inner + '</span>';
           });
           var prefix = cItems.length > 1 ? '<strong>' + (itIdx + 1) + '.</strong> ' : '';
-          html.push('  <div class="cloze-text" style="margin-bottom:8px;">' + prefix + renderedText + '</div>');
+          html.push('  <div class="cloze-text">' + prefix + renderedText + '</div>');
         });
         break;
 
@@ -1725,14 +2913,14 @@
           var ptsLabel = it.points ? ' (' + it.points + ' pt' + (it.points === 1 ? '' : 's') + ')' : '';
           var guidance = it.lengthGuidance || exOpts.lengthGuidance;
           var guidanceLabel = guidance ? ' <span class="open-length-hint">(' + TestCreatorService.formatRichText(guidance) + ')</span>' : '';
-          html.push('  <div style="margin-bottom:14px;">');
+          html.push('  <div class="open-question-item">');
           html.push('    <div class="open-prompt"><strong>' + prefix + '</strong>' + TestCreatorService.formatRichText(it.prompt || '') + guidanceLabel + ptsLabel + '</div>');
           var starter = it.answerPrefix || exOpts.answerPrefix;
           if (starter) {
             html.push('    <div class="open-starter-prefix"><em>Starter: ' + TestCreatorService.formatRichText(starter) + '</em></div>');
           }
           if (isTeacherKey && it.sampleAnswer) {
-            html.push('    <div style="color:#b91c1c;font-size:10pt;font-weight:bold;margin:6px 0;">Sample Answer: ' + TestCreatorService.formatRichText(it.sampleAnswer) + '</div>');
+            html.push('    <div class="teacher-sample-answer">Sample Answer: ' + TestCreatorService.formatRichText(it.sampleAnswer) + '</div>');
           }
           var lCount = Number(it.lineCount) || 4;
           var lSt = it.lineStyle || exOpts.lineStyle || 'lines';
@@ -1763,7 +2951,7 @@
             dOut.push('    </div>');
           } else if (draftStyle === 'grid') {
             dOut.push('    <div class="draft-work-box draft-grid-box"><div class="draft-title">' + draftTitle + '</div>' + draftNoteHtml);
-            dOut.push('      <div class="writing-grid" style="height:' + draftHeightCss + ';margin-top:6px;"></div>');
+            dOut.push('      <div class="writing-grid" style="height:' + draftHeightCss + ';"></div>');
             dOut.push('    </div>');
           }
           return dOut.join('\n');
@@ -1783,9 +2971,9 @@
             var wcStr = (exOpts.wordCountMin && exOpts.wordCountMax)
               ? (exOpts.wordCountMin + ' – ' + exOpts.wordCountMax + ' words')
               : ('~' + (it.targetWordCount || exOpts.wordCountMax || 150) + ' words');
-            pOut.push('  <div class="composition-task-block" style="margin-bottom:12px;">');
+            pOut.push('  <div class="composition-task-block">');
             pOut.push('    <div class="composition-prompt"><strong>' + TestCreatorService.formatRichText(taskHeader) + '</strong>' + TestCreatorService.formatRichText(it.prompt || '') + '</div>');
-            pOut.push('    <div style="font-size:9.5pt;font-style:italic;margin:4px 0 8px;">Target word count: ' + wcStr + '</div>');
+            pOut.push('    <div class="comp-wordcount-hint">Target word count: ' + wcStr + '</div>');
             pOut.push('  </div>');
           });
           return pOut.join('\n');
@@ -1801,7 +2989,7 @@
           compItems.forEach(function (it, itIdx) {
             if (compItems.length > 1) {
               var tLbl = it.label || ('Task ' + (itIdx + 1));
-              lOut.push('  <div style="font-size:9pt;font-weight:700;color:#64748b;margin-top:8px;">' + TestCreatorService.formatRichText(tLbl) + ' — Response Lines:</div>');
+              lOut.push('  <div class="comp-task-lines-label">' + TestCreatorService.formatRichText(tLbl) + ' — Response Lines:</div>');
             }
             var cLines = Number(it.lineCount) || 14;
             var cStyle = it.lineStyle || exOpts.lineStyle || 'solid';
@@ -1820,10 +3008,13 @@
             : ['Structure & Paragraphs', 'Spelling & Verb Tenses', 'Punctuation & Capitalization', 'Word Count Verified'];
           var clLayout = exOpts.checklistLayout || 'inline';
           var layoutCls = clLayout === 'columns' ? ' checklist-columns' : (clLayout === 'stacked' ? ' checklist-stacked' : ' checklist-inline');
+          var bgCls = ' checklist-bg-' + (exOpts.checklistBg || 'amber');
+          var padCls = ' checklist-pad-' + (exOpts.checklistPadding || 'standard');
+          var borderCls = ' checklist-border-' + (exOpts.checklistBorder || 'solid');
           var cOut = [];
-          cOut.push('  <div class="composition-checklist' + layoutCls + '"><div class="checklist-title">' + clTitle + '</div><div class="checklist-items">');
+          cOut.push('  <div class="composition-checklist' + layoutCls + bgCls + padCls + borderCls + '"><div class="checklist-title">' + clTitle + '</div><div class="checklist-items">');
           clItems.forEach(function (cItem) {
-            cOut.push('<span>☐ ' + TestCreatorService.formatRichText(cItem) + '</span>');
+            cOut.push('<span class="checklist-item"><span class="checklist-box">☐</span> ' + TestCreatorService.formatRichText(cItem) + '</span>');
           });
           cOut.push('</div></div>');
           return cOut.join('\n');
@@ -1833,7 +3024,7 @@
           if (exOpts.showRubric === false || !Array.isArray(ex.markingRubric) || ex.markingRubric.length === 0) return '';
           var rOut = [];
           rOut.push('  <table class="rubric-table">');
-          rOut.push('    <thead><tr><th>Assessment Criteria</th><th style="width:70px;">Max</th><th style="width:70px;">Score</th><th>Feedback</th></tr></thead>');
+          rOut.push('    <thead><tr><th>Assessment Criteria</th><th class="col-rubric-max">Max</th><th class="col-rubric-score">Score</th><th>Feedback</th></tr></thead>');
           rOut.push('    <tbody>');
           ex.markingRubric.forEach(function (r) {
             rOut.push('      <tr><td>' + TestCreatorService.formatRichText(r.title) + '</td><td>/' + (r.maxPoints || 0) + '</td><td></td><td></td></tr>');
@@ -1871,7 +3062,7 @@
         var colA = TestCreatorService.formatRichText(exOpts.colALabel || 'Column A');
         var colB = TestCreatorService.formatRichText(exOpts.colBLabel || 'Column B');
 
-        html.push('  <div class="matching-container" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">');
+        html.push('  <div class="matching-container">');
         html.push('    <div><strong>' + colA + '</strong>');
         lefts.forEach(function (l, idx) {
           var matchingLetter = '';
@@ -1897,7 +3088,7 @@
         html.push('  </div>');
 
         if (exOpts.presentation === 'table') {
-          html.push('  <table class="table-exercise" style="margin-top:12px;max-width:400px;">');
+          html.push('  <table class="table-exercise matching-response-table">');
           html.push('    <thead><tr>' + lefts.map(function (_, i) { return '<th>' + (i + 1) + '</th>'; }).join('') + '</tr></thead>');
           html.push('    <tbody><tr>' + lefts.map(function (_, i) {
             var solLetter = '';
@@ -1931,17 +3122,17 @@
           html.push('  <div class="trans-note">*(Contractions count as two words)*</div>');
         }
         transItems.forEach(function (item, idx) {
-          html.push('  <div style="margin-bottom:12px;font-size:10.5pt;">');
+          html.push('  <div class="transformation-item">');
           html.push('    <div>' + (idx + 1) + '. ' + TestCreatorService.formatRichText(item.original) + '</div>');
           if (exOpts.keywordStyle === 'bracketed') {
-            html.push('    <div style="padding-left:20px;margin:2px 0;"><strong>[' + TestCreatorService.formatRichText(item.keyword || '') + ']</strong></div>');
+            html.push('    <div class="trans-keyword-bracketed"><strong>[' + TestCreatorService.formatRichText(item.keyword || '') + ']</strong></div>');
           } else {
-            html.push('    <div style="font-weight:bold;margin:2px 0 2px 20px;letter-spacing:1px;color:#2563eb;">' + TestCreatorService.formatRichText(item.keyword || '') + '</div>');
+            html.push('    <div class="trans-keyword-block">' + TestCreatorService.formatRichText(item.keyword || '') + '</div>');
           }
           if (isTeacherKey && item.solution) {
-            html.push('    <div style="color:#b91c1c;font-weight:bold;padding-left:20px;">' + TestCreatorService.formatRichText(item.targetPrefix || '') + ' <u>' + TestCreatorService.formatRichText(item.solution) + '</u> ' + TestCreatorService.formatRichText(item.targetSuffix || '') + '</div>');
+            html.push('    <div class="trans-solution-line">' + TestCreatorService.formatRichText(item.targetPrefix || '') + ' <u>' + TestCreatorService.formatRichText(item.solution) + '</u> ' + TestCreatorService.formatRichText(item.targetSuffix || '') + '</div>');
           } else {
-            html.push('    <div style="padding-left:20px;">' + TestCreatorService.formatRichText(item.targetPrefix || '') + ' ___________________________________ ' + TestCreatorService.formatRichText(item.targetSuffix || '') + '</div>');
+            html.push('    <div class="trans-blank-line">' + TestCreatorService.formatRichText(item.targetPrefix || '') + ' ___________________________________ ' + TestCreatorService.formatRichText(item.targetSuffix || '') + '</div>');
           }
           html.push('  </div>');
         });
@@ -1953,13 +3144,13 @@
           html.push('  <div class="translation-direction-badge">' + TestCreatorService.formatRichText(exOpts.direction) + '</div>');
         }
         trItems.forEach(function (item, idx) {
-          html.push('  <div style="margin-bottom:12px;font-size:10.5pt;">');
+          html.push('  <div class="translation-item">');
           html.push('    <div>' + (idx + 1) + '. ' + TestCreatorService.formatRichText(item.sourceText) + '</div>');
           if (exOpts.showHints && item.hint) {
             html.push('    <div class="translation-hint"><em>Hint: ' + TestCreatorService.formatRichText(item.hint) + '</em></div>');
           }
           if (isTeacherKey && item.modelTranslation) {
-            html.push('    <div style="color:#b91c1c;font-weight:bold;margin:4px 0;">&rarr; ' + TestCreatorService.formatRichText(item.modelTranslation) + '</div>');
+            html.push('    <div class="translation-solution">&rarr; ' + TestCreatorService.formatRichText(item.modelTranslation) + '</div>');
           }
           var lines = Number(item.allocatedLines) || 2;
           html.push(buildWritingLinesHtml(lines, item.lineStyle || exOpts.lineStyle || 'lines'));
@@ -1982,21 +3173,22 @@
           var figLabel = exOpts.figureLabel ? (TestCreatorService.formatRichText(exOpts.figureLabel) + (pItems.length > 1 ? ' (' + (itIdx + 1) + ')' : '') + ': ') : '';
           var ptsLabel = it.points ? ' (' + it.points + ' pt' + (it.points === 1 ? '' : 's') + ')' : '';
           var itemWrapClass = isSideBySide ? 'pic-desc-item side-by-side' : 'pic-desc-item stacked';
-          html.push('  <div class="' + itemWrapClass + '" style="margin-bottom:18px;">');
+          var imgSizeCls = ' pic-img-' + (exOpts.imageSize || 'medium');
+          html.push('  <div class="' + itemWrapClass + '">');
           if (isSideBySide) {
-            html.push('    <div style="display:flex;gap:18px;align-items:flex-start;">');
+            html.push('    <div class="pic-side-layout">');
             if (it.imagePath) {
-              html.push('      <div style="flex: 0 0 40%;max-width:40%;">');
-              html.push('        <img src="' + escapeHtml(it.imagePath) + '" style="width:100%;max-height:' + imgMaxH + ';object-fit:contain;border:1.5px solid #000;border-radius:4px;" alt="Prompt Image" />');
+              html.push('      <div class="pic-media-col">');
+              html.push('        <img src="' + escapeHtml(it.imagePath) + '" class="pic-prompt-img' + imgSizeCls + '" alt="Prompt Image" />');
               if (it.imageCaption) {
-                html.push('        <div style="font-size:8.5pt;color:#475569;font-style:italic;margin-top:2px;">' + figLabel + TestCreatorService.formatRichText(it.imageCaption) + '</div>');
+                html.push('        <div class="pic-caption">' + figLabel + TestCreatorService.formatRichText(it.imageCaption) + '</div>');
               }
               html.push('      </div>');
             }
-            html.push('      <div style="flex:1;">');
-            html.push('        <div style="margin-bottom:8px;"><strong>' + figLabel + '</strong>' + TestCreatorService.formatRichText(it.prompt || '') + ptsLabel + '</div>');
+            html.push('      <div class="pic-content-col">');
+            html.push('        <div class="pic-prompt-row"><strong>' + figLabel + '</strong>' + TestCreatorService.formatRichText(it.prompt || '') + ptsLabel + '</div>');
             if (isTeacherKey && it.modelAnswer) {
-              html.push('        <div style="color:#b91c1c;font-size:10pt;font-weight:bold;margin-bottom:6px;">Sample Answer: ' + TestCreatorService.formatRichText(it.modelAnswer) + '</div>');
+              html.push('        <div class="pic-sample-answer">Sample Answer: ' + TestCreatorService.formatRichText(it.modelAnswer) + '</div>');
             }
             var pLines = Number(it.lineCount) || 6;
             html.push(buildWritingLinesHtml(pLines, it.lineStyle || 'lines'));
@@ -2005,16 +3197,16 @@
           } else {
             // Stacked
             if (it.imagePath) {
-              html.push('    <div style="margin-bottom:10px;">');
-              html.push('      <img src="' + escapeHtml(it.imagePath) + '" style="max-height:' + imgMaxH + ';border:1.5px solid #000;border-radius:4px;object-fit:contain;" alt="Prompt Image" />');
+              html.push('    <div class="pic-stacked-media">');
+              html.push('      <img src="' + escapeHtml(it.imagePath) + '" class="pic-prompt-img' + imgSizeCls + '" alt="Prompt Image" />');
               if (it.imageCaption) {
-                html.push('      <div style="font-size:8.5pt;color:#475569;font-style:italic;margin-top:2px;">' + figLabel + TestCreatorService.formatRichText(it.imageCaption) + '</div>');
+                html.push('      <div class="pic-caption">' + figLabel + TestCreatorService.formatRichText(it.imageCaption) + '</div>');
               }
               html.push('    </div>');
             }
-            html.push('    <div style="margin-bottom:8px;"><strong>' + figLabel + '</strong>' + TestCreatorService.formatRichText(it.prompt || '') + ptsLabel + '</div>');
+            html.push('    <div class="pic-prompt-row"><strong>' + figLabel + '</strong>' + TestCreatorService.formatRichText(it.prompt || '') + ptsLabel + '</div>');
             if (isTeacherKey && it.modelAnswer) {
-              html.push('    <div style="color:#b91c1c;font-size:10pt;font-weight:bold;margin-bottom:6px;">Sample Answer: ' + TestCreatorService.formatRichText(it.modelAnswer) + '</div>');
+              html.push('    <div class="pic-sample-answer">Sample Answer: ' + TestCreatorService.formatRichText(it.modelAnswer) + '</div>');
             }
             var pLines = Number(it.lineCount) || 6;
             html.push(buildWritingLinesHtml(pLines, it.lineStyle || 'lines'));
@@ -2040,13 +3232,13 @@
         var tblClass = 'table-exercise';
         if (exOpts.tableStyle === 'zebra') tblClass += ' table-zebra';
         else if (exOpts.tableStyle === 'scientific') tblClass += ' table-scientific';
-        var cellAlignStyle = (exOpts.textAlign === 'center') ? 'text-align:center;' : 'text-align:left;';
+        var cellAlignClass = (exOpts.textAlign === 'center') ? 'cell-center' : ((exOpts.textAlign === 'right') ? 'cell-right' : 'cell-left');
 
         html.push('  <table class="' + tblClass + '">');
         if (headers.length) {
           html.push('    <thead><tr>');
           headers.forEach(function (h) {
-            html.push('      <th style="' + cellAlignStyle + '">' + TestCreatorService.formatRichText(h) + '</th>');
+            html.push('      <th class="' + cellAlignClass + '">' + TestCreatorService.formatRichText(h) + '</th>');
           });
           html.push('    </tr></thead>');
         }
@@ -2056,9 +3248,9 @@
           (r || []).forEach(function (cell) {
             if (cell && cell.isBlank) {
               var cellVal = isTeacherKey ? '<span class="table-blank-cell teacher-key">' + TestCreatorService.formatRichText(cell.text) + '</span>' : '&nbsp;';
-              html.push('        <td style="' + cellAlignStyle + '">' + cellVal + '</td>');
+              html.push('        <td class="' + cellAlignClass + '">' + cellVal + '</td>');
             } else {
-              html.push('        <td style="' + cellAlignStyle + '">' + TestCreatorService.formatRichText(cell ? cell.text : '') + '</td>');
+              html.push('        <td class="' + cellAlignClass + '">' + TestCreatorService.formatRichText(cell ? cell.text : '') + '</td>');
             }
           });
           html.push('      </tr>');
@@ -2074,29 +3266,29 @@
         var isPill = (exOpts.displayStyle !== 'plain_separated');
 
         oddItems.forEach(function (item, idx) {
-          html.push('  <div style="margin-bottom:14px;font-size:10.5pt;">');
+          html.push('  <div class="odd-item-block">');
           var renderedWords = (item.words || []).map(function (w) {
             var isIntruder = (item.intruder || '').trim().toLowerCase() === w.trim().toLowerCase();
             if (isTeacherKey && isIntruder) {
               return isPill
-                ? '<span class="odd-pill correct" style="color:#b91c1c;font-weight:bold;border-color:#b91c1c;background:#fee2e2;">' + TestCreatorService.formatRichText(w) + '</span>'
-                : '<span style="color:#b91c1c;font-weight:bold;text-decoration:underline;">' + TestCreatorService.formatRichText(w) + '</span>';
+                ? '<span class="odd-pill correct">' + TestCreatorService.formatRichText(w) + '</span>'
+                : '<span class="odd-plain-key">' + TestCreatorService.formatRichText(w) + '</span>';
             }
             return isPill ? '<span class="odd-pill">' + TestCreatorService.formatRichText(w) + '</span>' : TestCreatorService.formatRichText(w);
           });
           var sep = isPill ? ' ' : ' &nbsp;|&nbsp; ';
           html.push('    <div><strong>' + (idx + 1) + '.</strong> ' + renderedWords.join(sep) + '</div>');
           if (isTeacherKey && item.justificationKey && !isCircleOnly) {
-            html.push('    <div style="color:#b91c1c;font-size:9.5pt;margin-top:2px;">&rarr; <strong>Justification:</strong> ' + TestCreatorService.formatRichText(item.justificationKey) + '</div>');
+            html.push('    <div class="odd-justification-key">&rarr; <strong>Justification:</strong> ' + TestCreatorService.formatRichText(item.justificationKey) + '</div>');
           }
           if (isCrossOut) {
-            html.push('    <div style="font-size:9pt;font-style:italic;color:#64748b;margin-top:4px;">(Cross out the intruder with an X)</div>');
+            html.push('    <div class="odd-task-mode-hint">(Cross out the intruder with an X)</div>');
           } else if (isCircleOnly) {
-            html.push('    <div style="font-size:9pt;font-style:italic;color:#64748b;margin-top:4px;">(Circle the word that does not belong)</div>');
+            html.push('    <div class="odd-task-mode-hint">(Circle the word that does not belong)</div>');
           } else {
-            html.push('    <div style="margin-top:6px;display:flex;gap:10px;align-items:center;">');
-            html.push('      <span style="font-size:9pt;font-weight:bold;">Intruder:</span> <span style="display:inline-block;width:140px;border-bottom:1px solid #000;"></span>');
-            html.push('      <span style="font-size:9pt;font-weight:bold;">Why?</span> <span style="flex:1;border-bottom:1px solid #000;"></span>');
+            html.push('    <div class="odd-intruder-response-row">');
+            html.push('      <span class="odd-intruder-label">Intruder:</span> <span class="odd-intruder-line"></span>');
+            html.push('      <span class="odd-why-label">Why?</span> <span class="odd-why-line"></span>');
             html.push('    </div>');
           }
           html.push('  </div>');
@@ -2109,9 +3301,9 @@
         var subQuestions = (ex.content && ex.content.subQuestions) || [];
         var passageWrapClass = (exOpts.passageLayout === 'two_columns') ? 'passage-box passage-2col' : 'passage-box';
 
-        html.push('  <div class="' + passageWrapClass + '" style="border:1.5px solid #333;padding:12px;background:#fbfbfb;margin-bottom:14px;font-size:10pt;line-height:1.6;">');
+        html.push('  <div class="' + passageWrapClass + ' reading-passage-box">');
         if (rcTitle) {
-          html.push('    <div style="font-weight:bold;margin-bottom:6px;text-align:center;text-decoration:underline;">' + TestCreatorService.formatRichText(rcTitle) + '</div>');
+          html.push('    <div class="reading-passage-title">' + TestCreatorService.formatRichText(rcTitle) + '</div>');
         }
         if (effectiveNumberedLines && rcPassage) {
           var pLines = rcPassage.split('\n');
@@ -2123,7 +3315,7 @@
           html.push('    <div>' + TestCreatorService.formatRichText(rcPassage).replace(/\n/g, '<br>') + '</div>');
         }
         if (exOpts.vocabularyFootnotes) {
-          html.push('    <div class="passage-footnotes" style="margin-top:10px;padding-top:6px;border-top:1px dashed #94a3b8;font-size:8.5pt;color:#334155;"><strong>Glossary:</strong> ' + TestCreatorService.formatRichText(exOpts.vocabularyFootnotes).replace(/\n/g, '<br>') + '</div>');
+          html.push('    <div class="passage-footnotes"><strong>Glossary:</strong> ' + TestCreatorService.formatRichText(exOpts.vocabularyFootnotes).replace(/\n/g, '<br>') + '</div>');
         }
         html.push('  </div>');
 
@@ -2131,19 +3323,19 @@
           var sqPts = (sq.points || 1);
           var sqLines = Number(sq.lineCount) || Number(exOpts.defaultLineCount) || 1;
           var sqGuidance = sq.lengthGuidance ? ' <span class="open-length-hint">(' + TestCreatorService.formatRichText(sq.lengthGuidance) + ')</span>' : '';
-          html.push('  <div style="margin-bottom:10px;font-size:10.5pt;">');
+          html.push('  <div class="rc-subquestion-block">');
           html.push('    <div><strong>' + (sIdx + 1) + '.</strong> ' + TestCreatorService.formatRichText(sq.prompt) + sqGuidance + ' (' + sqPts + ' pt' + (sqPts === 1 ? '' : 's') + ')</div>');
           if (sq.answerPrefix) {
             html.push('    <div class="open-starter-prefix"><em>Starter: ' + TestCreatorService.formatRichText(sq.answerPrefix) + '</em></div>');
           }
           if (sq.answerType === 'true_false_justify') {
             var tfKey = (isTeacherKey && sq.solution) ? (' &nbsp; (Key: ' + TestCreatorService.formatRichText(sq.solution) + ')') : '';
-            html.push('    <div style="margin:4px 0 6px 14px;font-size:9.5pt;font-weight:bold;">[ &nbsp; ] True &nbsp;&nbsp;&nbsp; [ &nbsp; ] False' + tfKey + '</div>');
-            html.push('    <div style="font-size:9pt;font-style:italic;margin-left:14px;margin-bottom:4px;">Quote line from text to justify:</div>');
+            html.push('    <div class="rc-tf-choice-row">[ &nbsp; ] True &nbsp;&nbsp;&nbsp; [ &nbsp; ] False' + tfKey + '</div>');
+            html.push('    <div class="rc-quote-prompt">Quote line from text to justify:</div>');
             html.push(buildWritingLinesHtml(sqLines, 'lines'));
           } else {
             if (isTeacherKey && sq.solution) {
-              html.push('    <div style="color:#b91c1c;font-weight:bold;margin:2px 0;">&rarr; Answer: ' + TestCreatorService.formatRichText(sq.solution) + '</div>');
+              html.push('    <div class="rc-answer-solution">&rarr; Answer: ' + TestCreatorService.formatRichText(sq.solution) + '</div>');
             }
             html.push(buildWritingLinesHtml(sqLines, sq.lineStyle || 'lines'));
           }
@@ -2165,14 +3357,32 @@
     var className = opts.className || test.className || '';
     var totalPts = TestCreatorService.calculateTotalTestPoints(test);
 
-    var globalStyle = Object.assign({
-      fontSize: '11pt',
-      lineHeight: 1.5,
-      padding: '14px',
-      numberedLines: false
-    }, (test && test.exportStyle) || {}, opts.exportStyle || {});
+    var globalStyle = Object.assign(
+      JSON.parse(JSON.stringify(TestCreatorService.DEFAULT_EXPORT_STYLE)),
+      (test && test.exportStyle) || {},
+      opts.exportStyle || {}
+    );
 
     var customCssRules = [];
+
+    // Page margins for PDF & Print
+    var margins = (globalStyle && globalStyle.margins) || { top: 15, right: 15, bottom: 15, left: 15, unit: 'mm' };
+    var mUnit = margins.unit || 'mm';
+    var mTop = ((margins.top !== undefined && margins.top !== null) ? margins.top : 15) + mUnit;
+    var mRight = ((margins.right !== undefined && margins.right !== null) ? margins.right : 15) + mUnit;
+    var mBottom = ((margins.bottom !== undefined && margins.bottom !== null) ? margins.bottom : 15) + mUnit;
+    var mLeft = ((margins.left !== undefined && margins.left !== null) ? margins.left : 15) + mUnit;
+
+    customCssRules.push('@page { size: A4 portrait; margin: ' + mTop + ' ' + mRight + ' ' + mBottom + ' ' + mLeft + '; }');
+    customCssRules.push('@media print { body { margin: 0 !important; padding: 0 !important; } .exam-sheet { padding: 0 !important; max-width: 100% !important; margin: 0 !important; width: 100% !important; } }');
+    customCssRules.push('.exam-sheet { padding: ' + mTop + ' ' + mRight + ' ' + mBottom + ' ' + mLeft + '; box-sizing: border-box; }');
+    customCssRules.push('.exam-header { break-after: avoid !important; page-break-after: avoid !important; }');
+    customCssRules.push('.exercise-header { break-after: avoid !important; page-break-after: avoid !important; }');
+    customCssRules.push('.exercise-instructions { break-after: avoid !important; page-break-after: avoid !important; }');
+    customCssRules.push('.exercise-card { break-inside: auto; page-break-inside: auto; }');
+    customCssRules.push('.exercise-card:first-of-type:not(.page-break-before) { break-before: avoid !important; page-break-before: avoid !important; }');
+    customCssRules.push('.mcq-item, .matching-row, .table-exercise tr, .rubric-table tr, .cloze-text, .writing-box, .writing-grid { break-inside: avoid; page-break-inside: avoid; }');
+
     if (globalStyle.fontSize) {
       customCssRules.push('.exam-sheet { font-size: ' + globalStyle.fontSize + '; }');
     }
@@ -2292,12 +3502,33 @@
       md.push('');
       md.push('> *Instructions:* ' + hc.instructionsText);
     }
+    if (hc.showGradingScale) {
+      var scMode = (hc.gradingScaleStyle && hc.gradingScaleStyle.displayMode) || 'table';
+      if (scMode === 'inline') {
+        var sName = (test.scaleModel && (test.scaleModel.label || test.scaleModel.name)) || test.scaleModelId || 'Standard Scale';
+        md.push('> **' + (hc.gradingScaleLabel || 'Grading Scale:') + '** ' + sName);
+      } else if (scMode === 'inline_grades') {
+        var inlineStr = TestCreatorService.formatInlineGradesString(test, { totalPoints: totalPts, html: false });
+        md.push('');
+        md.push('**' + (hc.gradingScaleLabel || 'Grading Scale & Score Conversion:') + '** ' + inlineStr);
+      } else {
+        var tableData = TestCreatorService.calculateGradeConversionTable(test.scaleModel || test.scaleModelId, totalPts);
+        md.push('');
+        md.push('### ' + (hc.gradingScaleLabel || 'Grading Scale & Score Conversion'));
+        md.push('| Grade / Mark | Threshold | Required Points | Assessment |');
+        md.push('|---|---|---|---|');
+        tableData.rows.forEach(function (r) {
+          md.push('| **' + r.grade + '** | ' + r.thresholdStr + ' | **' + r.pointsStr + '** | ' + (r.desc || '') + ' |');
+        });
+      }
+    }
     md.push('');
     md.push('---');
     md.push('');
 
     (test.exercises || []).forEach(function (ex, idx) {
       var num = idx + 1;
+      var exOpts = TestCreatorService.ensureExerciseOptions(ex);
       md.push('## Exercise ' + num + ': ' + (ex.title || 'Question') + ' (' + (ex.points || 0) + ' pts)');
       if (ex.instructions) md.push('*' + ex.instructions + '*\n');
 
@@ -2305,6 +3536,23 @@
         case 'cloze':
           TestCreatorService.normalizeExerciseItems(ex);
           var cItems = (ex.content && ex.content.items) || [];
+          if (ex.content && ex.content.showWordBank) {
+            var allBlanks = [];
+            cItems.forEach(function (it) {
+              allBlanks = allBlanks.concat(TestCreatorService.extractClozeBlanks(it.text));
+            });
+            if (exOpts.wordBankDistractors) {
+              var dists = String(exOpts.wordBankDistractors).split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+              allBlanks = allBlanks.concat(dists);
+            }
+            var chips = (exOpts.wordBankOrder === 'alphabetical')
+              ? allBlanks.slice().sort(function (a, b) { return a.localeCompare(b); })
+              : shuffleArray(allBlanks);
+            if (chips.length) {
+              md.push('> **Word Bank:** ' + chips.join(' | '));
+              md.push('');
+            }
+          }
           cItems.forEach(function (it, itIdx) {
             var prefix = cItems.length > 1 ? (itIdx + 1) + '. ' : '';
             var txt = it.text || '';
@@ -2393,11 +3641,170 @@
         case 'picture_description':
           TestCreatorService.normalizeExerciseItems(ex);
           var pItems = (ex.content && ex.content.items) || [];
+          if (exOpts.targetVocab) {
+            var vChips = String(exOpts.targetVocab).split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+            if (vChips.length) {
+              md.push('> **Target Vocabulary:** ' + vChips.join(', '));
+              md.push('');
+            }
+          }
           pItems.forEach(function (it, itIdx) {
             md.push('**Picture ' + (itIdx + 1) + ':** ' + (it.prompt || ''));
             if (it.imageCaption) md.push('*' + it.imageCaption + '*');
             if (isTeacherKey && it.modelAnswer) {
               md.push('> *Sample Answer:* ' + it.modelAnswer);
+            }
+            md.push('');
+          });
+          break;
+
+        case 'matching':
+          var pairs = (ex.content && ex.content.pairs) || [];
+          var lefts = pairs.map(function (pr) { return pr.left; });
+          var rights = pairs.map(function (pr) { return pr.right; });
+          if (exOpts.distractors) {
+            var distArr = String(exOpts.distractors).split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+            rights = rights.concat(distArr);
+          }
+          var shuffledRights = shuffleArray(rights);
+          var colA = exOpts.colALabel || 'Column A';
+          var colB = exOpts.colBLabel || 'Column B';
+          md.push('| ' + colA + ' | ' + colB + (isTeacherKey ? ' | Key' : '') + ' |');
+          md.push('|---|---|' + (isTeacherKey ? '---|' : ''));
+          var maxLen = Math.max(lefts.length, shuffledRights.length);
+          for (var mIdx = 0; mIdx < maxLen; mIdx++) {
+            var lText = mIdx < lefts.length ? ((mIdx + 1) + '. ' + lefts[mIdx]) : '';
+            var rText = mIdx < shuffledRights.length ? (String.fromCharCode(65 + mIdx) + '. ' + shuffledRights[mIdx]) : '';
+            var keyText = '';
+            if (isTeacherKey && mIdx < lefts.length) {
+              var cR = pairs[mIdx].right;
+              var lI = shuffledRights.indexOf(cR);
+              keyText = lI !== -1 ? String.fromCharCode(65 + lI) : '';
+            }
+            md.push('| ' + lText + ' | ' + rText + (isTeacherKey ? ' | ' + keyText : '') + ' |');
+          }
+          md.push('');
+          break;
+
+        case 'transformation':
+        case 'sentence_transformation':
+          var transItems = (ex.content && ex.content.items) || [];
+          if ((!transItems || !transItems.length) && ex.content && (ex.content.leadIn || ex.content.original)) {
+            transItems = [{
+              original: ex.content.leadIn || ex.content.original || '',
+              keyword: ex.content.keyword || 'REWRITE',
+              targetPrefix: ex.content.startOfSentence || ex.content.targetPrefix || '',
+              targetSuffix: ex.content.targetSuffix || '',
+              solution: ex.expectedAnswer || ex.content.solution || ''
+            }];
+          }
+          if (exOpts.wordConstraint) {
+            md.push('*' + exOpts.wordConstraint + '*\n');
+          }
+          transItems.forEach(function (item, itIdx) {
+            md.push('**' + (itIdx + 1) + '. ' + (item.original || '') + '**');
+            if (item.keyword) {
+              md.push('> **[' + item.keyword + ']**');
+            }
+            if (isTeacherKey && item.solution) {
+              md.push('> ' + (item.targetPrefix || '') + ' **' + item.solution + '** ' + (item.targetSuffix || ''));
+            } else {
+              md.push('> ' + (item.targetPrefix || '') + ' ________________________ ' + (item.targetSuffix || ''));
+            }
+            md.push('');
+          });
+          break;
+
+        case 'translation':
+          var trItems = (ex.content && ex.content.items) || [];
+          if (exOpts.direction) {
+            md.push('*Direction: ' + exOpts.direction + '*\n');
+          }
+          trItems.forEach(function (item, itIdx) {
+            md.push('**' + (itIdx + 1) + '. ' + (item.sourceText || '') + '**');
+            if (exOpts.showHints && item.hint) {
+              md.push('> *Hint: ' + item.hint + '*');
+            }
+            if (isTeacherKey && item.modelTranslation) {
+              md.push('> *Translation:* ' + item.modelTranslation);
+            }
+            md.push('');
+          });
+          break;
+
+        case 'table_completion':
+          var headers = (ex.content && ex.content.headers) || [];
+          var rows = (ex.content && ex.content.rows) || [];
+          if (headers.length) {
+            md.push('| ' + headers.join(' | ') + ' |');
+            md.push('|' + headers.map(function () { return '---'; }).join('|') + '|');
+          }
+          rows.forEach(function (r) {
+            var rowVals = (r || []).map(function (cell) {
+              if (cell && cell.isBlank) {
+                return isTeacherKey ? ('**' + (cell.text || '') + '**') : '_______';
+              }
+              return (cell && cell.text) ? cell.text : '';
+            });
+            md.push('| ' + rowVals.join(' | ') + ' |');
+          });
+          md.push('');
+          break;
+
+        case 'odd_one_out':
+          var oddItems = (ex.content && ex.content.items) || [];
+          oddItems.forEach(function (item, itIdx) {
+            var renderedWords = (item.words || []).map(function (w) {
+              var isIntruder = (item.intruder || '').trim().toLowerCase() === w.trim().toLowerCase();
+              if (isTeacherKey && isIntruder) {
+                return '**[' + w + ']** *(Intruder)*';
+              }
+              return w;
+            });
+            md.push('**' + (itIdx + 1) + '.** ' + renderedWords.join('  |  '));
+            if (isTeacherKey && item.justificationKey) {
+              md.push('> *Justification:* ' + item.justificationKey);
+            }
+            md.push('');
+          });
+          break;
+
+        case 'reading_comprehension':
+          var rcTitle = (ex.content && ex.content.passageTitle) || '';
+          var rcPassage = (ex.content && ex.content.passageText) || '';
+          var subQuestions = (ex.content && ex.content.subQuestions) || [];
+          if (rcTitle) {
+            md.push('### ' + rcTitle);
+            md.push('');
+          }
+          if (rcPassage) {
+            var pLines = rcPassage.split('\n');
+            pLines.forEach(function (ln) {
+              md.push('> ' + ln);
+            });
+            md.push('');
+          }
+          if (exOpts.vocabularyFootnotes) {
+            md.push('*Glossary: ' + exOpts.vocabularyFootnotes + '*\n');
+          }
+          subQuestions.forEach(function (sq, sIdx) {
+            var sqPts = sq.points || 1;
+            var sqGuidance = sq.lengthGuidance ? ' *(' + sq.lengthGuidance + ')*' : '';
+            md.push('**' + (sIdx + 1) + '. ' + (sq.prompt || '') + '**' + sqGuidance + ' (' + sqPts + ' pt' + (sqPts === 1 ? '' : 's') + ')');
+            if (sq.answerPrefix) {
+              md.push('> *Starter: ' + sq.answerPrefix + '*');
+            }
+            if (sq.answerType === 'true_false_justify') {
+              if (isTeacherKey && sq.solution) {
+                md.push('- [ ] True / [ ] False — *Key: ' + sq.solution + '*');
+              } else {
+                md.push('- [ ] True    - [ ] False');
+                md.push('> *Quote line from text to justify:* ________________________');
+              }
+            } else {
+              if (isTeacherKey && sq.solution) {
+                md.push('> *Answer:* ' + sq.solution);
+              }
             }
             md.push('');
           });
@@ -2439,6 +3846,17 @@
     var opts = options || {};
     var themeName = opts.stylesheetTheme || 'academic';
     var isTeacherKey = !!opts.isTeacherKey;
+    var globalStyle = Object.assign(
+      JSON.parse(JSON.stringify(TestCreatorService.DEFAULT_EXPORT_STYLE)),
+      (test && test.exportStyle) || {},
+      opts.exportStyle || {}
+    );
+    var margins = (globalStyle && globalStyle.margins) || { top: 15, right: 15, bottom: 15, left: 15, unit: 'mm' };
+    var mUnit = margins.unit || 'mm';
+    var mTop = ((margins.top !== undefined && margins.top !== null) ? margins.top : 15) + mUnit;
+    var mRight = ((margins.right !== undefined && margins.right !== null) ? margins.right : 15) + mUnit;
+    var mBottom = ((margins.bottom !== undefined && margins.bottom !== null) ? margins.bottom : 15) + mUnit;
+    var mLeft = ((margins.left !== undefined && margins.left !== null) ? margins.left : 15) + mUnit;
 
     var compiledSheets = [];
     (students || []).forEach(function (st, idx) {
@@ -2450,7 +3868,8 @@
         className: test.className || '',
         variant: assignedVariant,
         isTeacherKey: isTeacherKey,
-        stylesheetTheme: themeName
+        stylesheetTheme: themeName,
+        exportStyle: globalStyle
       });
 
       var sheetHtml = TestCreatorService.exportToHtml(variantTest, sheetOpts);
@@ -2468,6 +3887,9 @@
       '<head><meta charset="UTF-8"><title>' + escapeHtml(test.title || 'Class Exam Set') + '</title>',
       '<style>',
       TestCreatorService.getThemeCss(themeName),
+      '@page { size: A4 portrait; margin: ' + mTop + ' ' + mRight + ' ' + mBottom + ' ' + mLeft + '; }',
+      '@media print { body { margin: 0 !important; padding: 0 !important; } .exam-sheet { padding: 0 !important; max-width: 100% !important; margin: 0 !important; width: 100% !important; } }',
+      '.exam-sheet { padding: ' + mTop + ' ' + mRight + ' ' + mBottom + ' ' + mLeft + '; box-sizing: border-box; }',
       '</style>',
       '</head>',
       '<body>',

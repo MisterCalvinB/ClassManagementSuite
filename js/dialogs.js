@@ -567,14 +567,31 @@
 
   // ── Export destination modal ("to-print" vs "custom") ─────────────────────
   var destinationOverlay = null;
+  // ── Export destination modal ("to-print" vs "custom" vs "doc-editor") ────
+  var destinationOverlay = null;
   var _destinationResolver = null;
+  var _currentExportDefaultExt = '';
+  var _currentExportDefaultName = '';
+
+  function _sanitizeExportFilename(inputVal, defaultExt, defaultName) {
+    var str = (inputVal || '').trim();
+    if (!str) str = defaultName || 'export';
+    str = str.replace(/[/\\?%*:|"<>]/g, '_');
+    if (defaultExt) {
+      var cleanExt = defaultExt.replace(/^\./, '').toLowerCase();
+      if (!str.toLowerCase().endsWith('.' + cleanExt)) {
+        str += '.' + cleanExt;
+      }
+    }
+    return str;
+  }
 
   function ensureDestinationOverlay() {
     if (destinationOverlay) return;
     destinationOverlay = document.createElement('div');
     destinationOverlay.className = 'cmt-overlay';
     destinationOverlay.innerHTML =
-      '<div class="cmt-dialog-box" style="text-align: left; max-width: 440px; padding: 24px 22px 18px; border: 2.5px solid #000; box-shadow: 4px 4px 0 #000; border-radius: 8px;">' +
+      '<div class="cmt-dialog-box" style="text-align: left; max-width: 460px; padding: 24px 22px 18px; border: 2.5px solid #000; box-shadow: 4px 4px 0 #000; border-radius: 8px;">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
           '<div style="display:flex;align-items:center;gap:8px;">' +
             '<img src="../assets/icons/folder.svg" style="width:20px;height:20px;" alt="">' +
@@ -582,8 +599,21 @@
           '</div>' +
           '<button type="button" class="cmt-dest-close-x" style="background:none;border:none;font-size:1.3rem;font-weight:700;cursor:pointer;line-height:1;padding:2px 6px;color:#444;">&times;</button>' +
         '</div>' +
-        '<p class="cmt-dest-prompt" style="margin: 0 0 16px; font-size: .86rem; line-height: 1.45; color: #555; font-family: inherit;">Where do you want to save the exported file?</p>' +
+        '<p class="cmt-dest-prompt" style="margin: 0 0 12px; font-size: .86rem; line-height: 1.45; color: #555; font-family: inherit;">Where do you want to save the exported file?</p>' +
+        '<div class="cmt-dest-filename-wrap" style="margin-bottom: 14px;">' +
+          '<label class="cmt-dest-filename-label" for="cmt-dest-filename-input" style="display:block;font-size:0.75rem;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;color:#222;margin-bottom:5px;">File Name:</label>' +
+          '<input type="text" id="cmt-dest-filename-input" class="cmt-dest-filename-input" style="width:100%;box-sizing:border-box;padding:8px 10px;font-size:0.92rem;font-weight:700;border:2px solid #000;border-radius:6px;box-shadow:2px 2px 0 #000;font-family:inherit;background:#fff;color:#111;outline:none;" />' +
+        '</div>' +
         '<div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">' +
+          '<button type="button" class="cmt-btn-dest-doceditor" style="display:none;align-items:center;gap:12px;padding:12px 14px;background:#fef08a;border:2px solid #000;box-shadow:3px 3px 0 #000;border-radius:6px;cursor:pointer;text-align:left;transition:transform .08s,box-shadow .08s,background .12s;outline:none;font-family:inherit;">' +
+            '<div style="width:36px;height:36px;border:1.5px solid #000;border-radius:4px;background:#fde047;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+              '<img src="../assets/icons/document-editor.svg" style="width:20px;height:20px;" alt="">' +
+            '</div>' +
+            '<div style="flex:1;">' +
+              '<div class="cmt-dest-doceditor-title" style="font-size:0.92rem;font-weight:800;color:#000;">Document Editor (user/document-editor/docs)</div>' +
+              '<div class="cmt-dest-doceditor-desc" style="font-size:0.75rem;color:#444;font-weight:600;margin-top:2px;">Direct save into documents and open immediately in Document Editor</div>' +
+            '</div>' +
+          '</button>' +
           '<button type="button" class="cmt-btn-dest-print" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:#fff;border:2px solid #000;box-shadow:3px 3px 0 #000;border-radius:6px;cursor:pointer;text-align:left;transition:transform .08s,box-shadow .08s,background .12s;outline:none;font-family:inherit;">' +
             '<div style="width:36px;height:36px;border:1.5px solid #000;border-radius:4px;background:#fde047;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
               '<img src="../assets/icons/printer.svg" style="width:20px;height:20px;" alt="">' +
@@ -609,24 +639,37 @@
       '</div>';
     document.body.appendChild(destinationOverlay);
 
+    var btnDocEditor = destinationOverlay.querySelector('.cmt-btn-dest-doceditor');
     var btnPrint = destinationOverlay.querySelector('.cmt-btn-dest-print');
     var btnCustom = destinationOverlay.querySelector('.cmt-btn-dest-custom');
     var btnCancel = destinationOverlay.querySelector('.cmt-btn-dest-cancel');
     var btnCloseX = destinationOverlay.querySelector('.cmt-dest-close-x');
+    var filenameInput = destinationOverlay.querySelector('#cmt-dest-filename-input');
 
     function closeWith(res) {
       destinationOverlay.classList.remove('open');
       if (_destinationResolver) {
         var fn = _destinationResolver;
         _destinationResolver = null;
-        fn(res);
+        if (!res) {
+          fn(null);
+        } else {
+          var cleanName = _sanitizeExportFilename(filenameInput ? filenameInput.value : '', _currentExportDefaultExt, _currentExportDefaultName);
+          fn({ destination: res, filename: cleanName });
+        }
       }
     }
 
+    btnDocEditor.addEventListener('click', function () { closeWith('doc-editor'); });
     btnPrint.addEventListener('click', function () { closeWith('to-print'); });
     btnCustom.addEventListener('click', function () { closeWith('custom'); });
     btnCancel.addEventListener('click', function () { closeWith(null); });
     btnCloseX.addEventListener('click', function () { closeWith(null); });
+
+    btnDocEditor.addEventListener('mouseenter', function () { btnDocEditor.style.background = '#fde047'; });
+    btnDocEditor.addEventListener('mouseleave', function () { btnDocEditor.style.background = '#fef08a'; });
+    btnDocEditor.addEventListener('mousedown', function () { btnDocEditor.style.transform = 'translate(1px, 1px)'; btnDocEditor.style.boxShadow = '2px 2px 0 #000'; });
+    btnDocEditor.addEventListener('mouseup', function () { btnDocEditor.style.transform = 'none'; btnDocEditor.style.boxShadow = '3px 3px 0 #000'; });
 
     [btnPrint, btnCustom].forEach(function (btn) {
       btn.addEventListener('mouseenter', function () { btn.style.background = '#f9fafb'; });
@@ -635,6 +678,15 @@
       btn.addEventListener('mouseup', function () { btn.style.transform = 'none'; btn.style.boxShadow = '3px 3px 0 #000'; });
     });
 
+    if (filenameInput) {
+      filenameInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          closeWith(btnDocEditor.style.display !== 'none' ? 'doc-editor' : 'to-print');
+        }
+      });
+    }
+
     destinationOverlay.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') { e.preventDefault(); closeWith(null); }
     });
@@ -642,17 +694,41 @@
 
   function _promptExportDestination(options) {
     if (!window.Desktop || !Desktop.isElectron()) {
-      return Promise.resolve('browser');
+      return Promise.resolve({ destination: 'browser', filename: (options && options.filename) || 'export' });
     }
     ensureDestinationOverlay();
     var opts = options || {};
+    var rawFilename = opts.filename || 'export';
+    _currentExportDefaultName = rawFilename;
+    var ext = String(rawFilename).split('?')[0].split('.').pop().toLowerCase();
+    _currentExportDefaultExt = ext;
+    var isDoc = (ext === 'html' || ext === 'md' || ext === 'htm' || ext === 'typ');
+
     destinationOverlay.querySelector('.cmt-dest-title').textContent = opts.title || _getExportText('exportDestinationTitle', 'Choose Export Location');
     destinationOverlay.querySelector('.cmt-dest-prompt').textContent = opts.prompt || _getExportText('exportDestinationPrompt', 'Where do you want to save the exported file?');
+    destinationOverlay.querySelector('.cmt-dest-filename-label').textContent = _getExportText('exportFileNameLabel', 'File Name:');
+
+    var btnDocEditor = destinationOverlay.querySelector('.cmt-btn-dest-doceditor');
+    if (btnDocEditor) {
+      destinationOverlay.querySelector('.cmt-dest-doceditor-title').textContent = _getExportText('exportToDocEditor', 'Document Editor (user/document-editor/docs)');
+      destinationOverlay.querySelector('.cmt-dest-doceditor-desc').textContent = _getExportText('exportToDocEditorDesc', 'Direct save into documents and open immediately in Document Editor');
+      if (isDoc && opts.allowDocEditor !== false) {
+        btnDocEditor.style.display = 'flex';
+      } else {
+        btnDocEditor.style.display = 'none';
+      }
+    }
+
     destinationOverlay.querySelector('.cmt-dest-print-title').textContent = _getExportText('exportToPrintFolder', 'Print Folder (user/to-print)');
     destinationOverlay.querySelector('.cmt-dest-print-desc').textContent = _getExportText('exportToPrintDesc', 'Direct save into the local print folder without browsing');
     destinationOverlay.querySelector('.cmt-dest-custom-title').textContent = _getExportText('exportCustomLocation', 'Choose Other Folder (File Picker)');
     destinationOverlay.querySelector('.cmt-dest-custom-desc').textContent = _getExportText('exportCustomDesc', 'Select any folder or drive on your computer using the system dialog');
     destinationOverlay.querySelector('.cmt-btn-dest-cancel').textContent = _getExportText('btnCancel', 'Cancel');
+
+    var filenameInput = destinationOverlay.querySelector('#cmt-dest-filename-input');
+    if (filenameInput) {
+      filenameInput.value = rawFilename;
+    }
 
     return new Promise(function (resolve) {
       if (_destinationResolver) {
@@ -662,6 +738,18 @@
       }
       _destinationResolver = resolve;
       destinationOverlay.classList.add('open');
+
+      if (filenameInput) {
+        setTimeout(function () {
+          filenameInput.focus();
+          var dot = rawFilename.lastIndexOf('.');
+          if (dot > 0) {
+            try { filenameInput.setSelectionRange(0, dot); } catch (e) {}
+          } else {
+            filenameInput.select();
+          }
+        }, 60);
+      }
     });
   }
 
@@ -672,14 +760,33 @@
     var dest = config.destination;
 
     if (!dest) {
-      dest = await _promptExportDestination({
+      var destRes = await _promptExportDestination({
         title: config.modalTitle,
-        prompt: config.modalPrompt
+        prompt: config.modalPrompt,
+        filename: filename,
+        allowDocEditor: config.allowDocEditor
       });
-      if (!dest) return { ok: false, canceled: true };
+      if (!destRes || destRes.canceled) return { ok: false, canceled: true };
+      if (typeof destRes === 'string') {
+        dest = destRes;
+      } else {
+        dest = destRes.destination;
+        if (destRes.filename) filename = destRes.filename;
+      }
     }
 
     if (dest === 'browser' || !window.Desktop || !Desktop.isElectron()) {
+      if (dest === 'doc-editor' || dest === 'doceditor') {
+        try {
+          sessionStorage.setItem('cmt_doc_editor_draft', JSON.stringify({
+            filename: filename,
+            content: typeof content === 'string' ? content : '',
+            format: filename.endsWith('.md') ? 'md' : 'html'
+          }));
+          window.location.href = 'document-editor.html?importPending=draft';
+          return { ok: true, path: filename, name: filename, destination: 'doc-editor' };
+        } catch (err) {}
+      }
       try {
         var blob = content instanceof Blob
           ? content
@@ -702,7 +809,45 @@
 
     var result = null;
     try {
-      if (dest === 'to-print') {
+      if (dest === 'doc-editor' || dest === 'doceditor') {
+        var docRes = null;
+        if (typeof content === 'string') {
+          docRes = await Desktop.saveText('docEditorDocs', filename, content);
+        } else if (content instanceof Blob) {
+          docRes = await Desktop.saveBlob('docEditorDocs', filename, content);
+        } else if (content instanceof ArrayBuffer || (content && content.buffer instanceof ArrayBuffer)) {
+          var bytes2 = content instanceof Uint8Array ? content : new Uint8Array(content);
+          var b2 = new Blob([bytes2], { type: config.mimeType || 'text/html;charset=utf-8' });
+          docRes = await Desktop.saveBlob('docEditorDocs', filename, b2);
+        } else {
+          docRes = await Desktop.saveText('docEditorDocs', filename, String(content || ''));
+        }
+
+        if (docRes && docRes.ok) {
+          if (typeof Desktop.openTool === 'function') {
+            Desktop.openTool('document-editor.html', {
+              query: { editTarget: 'docEditorDocs', editRelPath: filename }
+            });
+          }
+          var openedMsg = _getExportText('exportOpenedInDocEditor', 'Opened in Document Editor: "{name}"').replace('{name}', filename);
+          if (typeof window.showToast === 'function') {
+            window.showToast(openedMsg);
+          } else if (typeof window.mdbToast === 'function') {
+            window.mdbToast(openedMsg);
+          }
+          return {
+            ok: true,
+            path: (docRes.file && docRes.file.path) || ('user/document-editor/docs/' + filename),
+            name: filename,
+            target: 'docEditorDocs',
+            destination: 'doc-editor'
+          };
+        } else {
+          var errText = (docRes && docRes.error) || 'Failed to save to Document Editor';
+          if (typeof window.showToast === 'function') window.showToast(errText, true);
+          return { ok: false, error: errText };
+        }
+      } else if (dest === 'to-print') {
         if (config.docxRequest) {
           var req = Object.assign({}, config.docxRequest, { target: 'toPrint', defaultName: filename.replace(/\.docx$/i, '') });
           result = await Desktop.exportDocx(req);
@@ -726,7 +871,8 @@
         if (result && !result.name) result.name = filename;
       } else {
         if (config.docxRequest) {
-          result = await Desktop.exportDocx(config.docxRequest);
+          var reqCustom = Object.assign({}, config.docxRequest, { defaultName: filename.replace(/\.docx$/i, '') });
+          result = await Desktop.exportDocx(reqCustom);
         } else {
           var saveContent = content;
           var encoding = config.encoding || 'utf8';
@@ -770,10 +916,28 @@
       return result;
     } catch (err) {
       if (typeof showToast === 'function') {
-        showToast('Export failed: ' + err.message, true);
+        showToast('Export failed: ' + (err.message || String(err)), true);
       }
       return { ok: false, error: err.message };
     }
+  }
+
+  async function _sendToDocumentEditor(options) {
+    if (!options) return { ok: false, canceled: true };
+    var content = options.content || '';
+    var filename = options.filename;
+    var format = options.format || (filename && filename.endsWith('.md') ? 'md' : 'html');
+    if (!filename) {
+      var ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      var safeTitle = (options.title || 'document').toLowerCase().replace(/[^a-z0-9_\-]+/g, '_');
+      filename = safeTitle + '_' + ts + '.' + format;
+    }
+    return _saveExportWithDestination({
+      filename: filename,
+      content: content,
+      destination: 'doc-editor',
+      showSuccessPopup: false
+    });
   }
 
   // ── Export success modal ───────────────────────────────────────────────────
@@ -958,6 +1122,10 @@
         exportToPrintDesc: 'Direct save into the local print folder without browsing',
         exportCustomLocation: 'Choose Other Folder (File Picker)',
         exportCustomDesc: 'Select any folder or drive on your computer using the system dialog',
+        exportFileNameLabel: 'File Name:',
+        exportToDocEditor: 'Document Editor (user/document-editor/docs)',
+        exportToDocEditorDesc: 'Direct save into documents and open immediately in Document Editor',
+        exportOpenedInDocEditor: 'Opened in Document Editor: "{name}"',
         btnCancel: 'Cancel'
       },
       fr: {
@@ -975,6 +1143,10 @@
         exportToPrintDesc: "Enregistrement direct dans le dossier d'impression local sans navigation",
         exportCustomLocation: 'Choisir un autre dossier (Sélecteur de fichiers)',
         exportCustomDesc: 'Sélectionnez n\'importe quel dossier ou disque sur votre ordinateur à l\'aide de la boîte de dialogue système',
+        exportFileNameLabel: 'Nom du fichier :',
+        exportToDocEditor: "Éditeur de documents (user/document-editor/docs)",
+        exportToDocEditorDesc: "Enregistrement direct dans les documents et ouverture immédiate dans l'Éditeur de documents",
+        exportOpenedInDocEditor: 'Ouvert dans l\'Éditeur de documents : "{name}"',
         btnCancel: 'Annuler'
       },
       de: {
@@ -992,6 +1164,10 @@
         exportToPrintDesc: 'Direktes Speichern im lokalen Druckordner ohne Auswahldialog',
         exportCustomLocation: 'Anderen Ordner wählen (Dateiauswahl)',
         exportCustomDesc: 'Wählen Sie einen beliebigen Ordner oder ein Laufwerk über den Systemdialog aus',
+        exportFileNameLabel: 'Dateiname:',
+        exportToDocEditor: 'Dokument-Editor (user/document-editor/docs)',
+        exportToDocEditorDesc: 'Direkt in Dokumente speichern und sofort im Dokument-Editor öffnen',
+        exportOpenedInDocEditor: 'Im Dokument-Editor geöffnet: "{name}"',
         btnCancel: 'Abbrechen'
       },
       it: {
@@ -1009,6 +1185,10 @@
         exportToPrintDesc: 'Salvataggio diretto nella cartella di stampa locale senza sfogliare',
         exportCustomLocation: 'Scegli altra cartella (File Picker)',
         exportCustomDesc: 'Seleziona qualsiasi cartella o unità sul computer utilizzando la finestra di dialogo del sistema',
+        exportFileNameLabel: 'Nome file:',
+        exportToDocEditor: 'Editor di documenti (user/document-editor/docs)',
+        exportToDocEditorDesc: "Salva direttamente nei documenti e apri immediatamente nell'Editor",
+        exportOpenedInDocEditor: 'Aperto nell\'Editor di documenti: "{name}"',
         btnCancel: 'Annulla'
       }
     };
@@ -1106,4 +1286,5 @@
   window.showExportSuccessPopup = _showExportSuccessPopup;
   window.promptExportDestination = _promptExportDestination;
   window.saveExportWithDestination = _saveExportWithDestination;
+  window.sendToDocumentEditor = _sendToDocumentEditor;
 })();

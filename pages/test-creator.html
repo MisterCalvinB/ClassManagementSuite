@@ -30,9 +30,11 @@
         <button class="nav-btn" data-i18n="menuFile">File</button>
         <div class="nav-group-popup">
           <button class="nav-pop-item" onclick="tcNewTest()"><span data-i18n="tcNewTest">New Test</span> <span class="nav-pop-hint">Ctrl+N</span></button>
+          <button class="nav-pop-item" onclick="tcOpenTemplatePicker()"><span data-i18n="tcChooseTemplate">Test Templates &amp; Models…</span></button>
           <button class="nav-pop-item" onclick="tcOpenTestPicker()"><span data-i18n="tcOpenTest">Open Test…</span> <span class="nav-pop-hint">Ctrl+O</span></button>
-          <button class="nav-pop-item" onclick="tcBrowseAndLoadFile()"><span data-i18n="tcBrowseTestFile">Browse File…</span></button>
+          <button class="nav-pop-item" onclick="tcBrowseTestFile()"><span data-i18n="tcBrowseTestFile">Browse File…</span></button>
           <button class="nav-pop-item" onclick="tcSaveTest()"><span data-i18n="tcSaveTest">Save Test</span> <span class="nav-pop-hint">Ctrl+S</span></button>
+          <button class="nav-pop-item" onclick="tcSaveAsTemplate()"><span data-i18n="tcSaveAsTemplate">Save as Template…</span></button>
           <button class="nav-pop-item" onclick="tcDuplicateTest()"><span data-i18n="tcDuplicateTest">Duplicate Test</span> <span class="nav-pop-hint">Ctrl+D</span></button>
           <hr class="nav-pop-sep">
           <button class="nav-pop-item" onclick="tcResetTest()"><span data-i18n="tcResetTest">Reset to Blank</span></button>
@@ -130,8 +132,9 @@
         </div>
 
         <div style="display:flex;align-items:center;gap:6px;margin-left:auto;">
+          <button class="neo-btn" onclick="tcOpenTemplatePicker()" title="Test Models &amp; Templates"><img src="../assets/icons/copy.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> <span data-i18n="tcTemplates">Templates</span></button>
           <button class="neo-btn" onclick="tcOpenTestPicker()" title="Open Saved Test"><img src="../assets/icons/folder.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> <span data-i18n="btnOpen">Open</span></button>
-          <button class="neo-btn purple" onclick="tcOpenPrintPreview()" title="Dedicated Print & PDF Preview"><span data-i18n="tcPrintPreviewBtn">Preview</span></button>
+          <button class="neo-btn purple" onclick="tcOpenPrintPreview()" title="Dedicated Print &amp; PDF Preview"><span data-i18n="tcPrintPreviewBtn">Preview</span></button>
           <button class="neo-btn primary" onclick="tcSaveTest()"><span data-i18n="btnSave">Save</span></button>
           <button class="neo-btn" id="drawerToggleBtn" onclick="tcToggleDrawer()"><span data-i18n="tcDrawerBtn">Resources</span></button>
         </div>
@@ -190,6 +193,24 @@
           <div id="testCompetencesList" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
         </div>
 
+        <!-- Test-wide Grading Scale Bar -->
+        <div id="testGradingScaleBar" style="display:none;padding:10px 14px;background:#fffbeb;border:2.5px solid #d97706;border-radius:4px;margin:10px 15px 0 15px;box-shadow:2px 2px 0 #d97706;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-weight:900;font-size:0.8rem;color:#92400e;text-transform:uppercase;letter-spacing:0.5px;" data-i18n="tcTestGradingScaleTitle">Active Test Grading Scale &amp; Conversion:</span>
+              <span id="testGradingScaleNameBadge" style="background:#fef3c7;border:1.5px solid #d97706;color:#92400e;font-size:0.75rem;padding:2px 8px;border-radius:3px;font-weight:900;"></span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <label style="display:inline-flex;align-items:center;gap:4px;font-size:0.75rem;font-weight:700;color:#92400e;cursor:pointer;">
+                <input type="checkbox" id="testGradingScalePrintChk" onchange="tcToggleScalePrintOnTest(this.checked)">
+                <span data-i18n="tcShowScaleOnTest">Print on Exam Sheet</span>
+              </label>
+              <button type="button" style="background:none;border:none;cursor:pointer;color:#ef4444;font-weight:900;font-size:1.1rem;padding:0;line-height:1;" onclick="tcRemoveTestScale()" title="Remove scale" data-i18n-title="tcRemoveScale">&times;</button>
+            </div>
+          </div>
+          <div id="testGradingScaleStepsList" style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;"></div>
+        </div>
+
         <!-- Draggable Exercise Cards List -->
         <div class="exercise-list" id="exerciseCardsList">
           <!-- Populated by JavaScript -->
@@ -229,6 +250,9 @@
           </button>
           <button type="button" class="drawer-tab-btn" id="tabBtnCompetences" onclick="tcSwitchDrawerTab('competences')">
             <span>Competences</span>
+          </button>
+          <button type="button" class="drawer-tab-btn" id="tabBtnScales" onclick="tcSwitchDrawerTab('scales')">
+            <span data-i18n="tcDrawerTabScales">Grading Scales</span>
           </button>
         </div>
 
@@ -345,6 +369,25 @@
           </div>
         </div>
 
+        <!-- Panel 5: Grading Scales -->
+        <div id="panelScales" class="drawer-tab-panel">
+          <div style="display:flex;gap:6px;margin-bottom:6px;">
+            <select id="scaleBankSource" class="meta-select" style="flex:1;padding:5px;" onchange="tcLoadScaleBankSource()">
+              <option value="">Loading scale banks…</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">
+            <span style="font-size:0.75rem;font-weight:800;color:#d97706;white-space:nowrap;">Target:</span>
+            <select id="scaleTargetExSelect" class="meta-select" style="flex:1;padding:4px;" onchange="tcOnScaleTargetChange()">
+              <option value="__exam__">Entire Exam (Test-wide)</option>
+            </select>
+          </div>
+          <input type="text" id="drawerScaleSearch" class="drawer-search-input" placeholder="Search scales by name, key, range…" oninput="tcFilterScalesDb()">
+          <div class="drawer-items-list" id="scalesDbList">
+            <div style="font-size:0.8rem;color:#888;text-align:center;padding:20px;">Loading grading scales…</div>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -377,6 +420,16 @@
             <option value="academic">Academic Classic</option>
             <option value="neobrutalist">Modern Neobrutalist</option>
             <option value="dyslexic">Dyslexic Friendly</option>
+          </select>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:6px;font-size:0.82rem;font-weight:700;margin-left:10px;">
+          <span data-i18n="tcMargins">Margins:</span>
+          <select id="previewMarginsSelect" class="meta-select" style="padding:2px 8px;font-size:0.8rem;" onchange="tcOnPreviewMarginsChange(this.value)">
+            <option value="normal" data-i18n="tcMarginNormal">Normal (15mm)</option>
+            <option value="narrow" data-i18n="tcMarginNarrow">Narrow (10mm)</option>
+            <option value="wide" data-i18n="tcMarginWide">Wide (25mm)</option>
+            <option value="custom" data-i18n="tcMarginCustom">Custom…</option>
           </select>
         </div>
 
@@ -512,6 +565,34 @@
               <input type="checkbox" id="globalStyleNumberedLines" onchange="tcOnGlobalStyleChange()">
               <span data-i18n="tcStyleNumberedLinesDesc">Number student writing lines & passages (1, 2, 3...)</span>
             </label>
+          </div>
+          <div class="style-control-card" style="grid-column: span 2; margin-top: 4px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
+              <label style="font-weight:900;margin:0;" data-i18n="tcPdfMarginsTitle">Page Margins (PDF &amp; Print):</label>
+              <div style="display:flex;gap:6px;">
+                <button type="button" class="neo-btn sm active" id="marginPresetNormal" onclick="tcSetMarginPreset('normal')" data-i18n="tcMarginNormal">Normal (15mm)</button>
+                <button type="button" class="neo-btn sm" id="marginPresetNarrow" onclick="tcSetMarginPreset('narrow')" data-i18n="tcMarginNarrow">Narrow (10mm)</button>
+                <button type="button" class="neo-btn sm" id="marginPresetWide" onclick="tcSetMarginPreset('wide')" data-i18n="tcMarginWide">Wide (25mm)</button>
+              </div>
+            </div>
+            <div class="margin-inputs-grid" style="display:grid;grid-template-columns:repeat(4, 1fr);gap:8px;">
+              <div>
+                <span class="meta-lbl" data-i18n="tcMarginTop">Top (mm):</span>
+                <input type="number" id="globalMarginTop" class="meta-input" min="0" max="60" step="1" value="15" oninput="tcOnMarginInputChange()">
+              </div>
+              <div>
+                <span class="meta-lbl" data-i18n="tcMarginRight">Right (mm):</span>
+                <input type="number" id="globalMarginRight" class="meta-input" min="0" max="60" step="1" value="15" oninput="tcOnMarginInputChange()">
+              </div>
+              <div>
+                <span class="meta-lbl" data-i18n="tcMarginBottom">Bottom (mm):</span>
+                <input type="number" id="globalMarginBottom" class="meta-input" min="0" max="60" step="1" value="15" oninput="tcOnMarginInputChange()">
+              </div>
+              <div>
+                <span class="meta-lbl" data-i18n="tcMarginLeft">Left (mm):</span>
+                <input type="number" id="globalMarginLeft" class="meta-input" min="0" max="60" step="1" value="15" oninput="tcOnMarginInputChange()">
+              </div>
+            </div>
           </div>
         </div>
 
@@ -694,6 +775,20 @@
         <button class="modal-close-btn" onclick="tcCloseHeaderCustomizerModal()">&times;</button>
       </div>
       <div class="modal-body" style="padding:14px;display:flex;flex-direction:column;gap:12px;max-height:calc(88vh - 120px);overflow-y:auto;">
+
+        <!-- Header Template Selector & Presets Bar -->
+        <div class="hdr-template-bar" style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#fef9c3;border:2px solid #000;box-shadow:2px 2px 0 #000;border-radius:4px;flex-wrap:wrap;">
+          <span style="font-weight:900;font-size:0.82rem;text-transform:uppercase;display:flex;align-items:center;gap:5px;">
+            <img src="../assets/icons/layout.svg" style="width:14px;height:14px;" alt="" />
+            <span data-i18n="tcHeaderTemplates">Header Template:</span>
+          </span>
+          <select id="tcHeaderTemplateSelect" class="meta-select" style="flex:1;min-width:180px;height:32px;font-size:0.85rem;" onchange="tcOnHeaderTemplateSelectChange()">
+            <!-- Populated with built-in and user saved header templates -->
+          </select>
+          <button type="button" class="neo-btn sm primary" onclick="tcApplySelectedHeaderTemplate()" data-i18n="tcApplyHeaderTemplate">Apply Template</button>
+          <button type="button" class="neo-btn sm yellow" onclick="tcSaveCurrentHeaderAsTemplate()" title="Save current header settings &amp; materials as a reusable template">+ <span data-i18n="tcSaveHeaderTemplate">Save as Template…</span></button>
+          <button type="button" class="neo-btn sm danger" id="tcDeleteHeaderTemplateBtn" style="display:none;" onclick="tcDeleteSelectedHeaderTemplate()" title="Delete custom template">&times;</button>
+        </div>
 
         <!-- Header Tabs Navigation -->
         <div class="header-customizer-tabs">
@@ -977,8 +1072,68 @@
                   <td></td>
                   <td></td>
                 </tr>
+
+                <!-- Row 12: Grading Scale Table -->
+                <tr>
+                  <td><input type="checkbox" id="hdrChk_showGradingScale" onchange="tcUpdateHdrElem('showGradingScale', this.checked); tcUpdateScaleBarPrintChk();"></td>
+                  <td><strong>Grading Scale Table</strong></td>
+                  <td><input type="text" id="hdrInput_gradingScaleLabel" class="meta-input" style="width:100%;font-size:0.8rem;" value="Grading Scale &amp; Score Conversion:" oninput="tcUpdateHdrElem('gradingScaleLabel', this.value)" onchange="tcUpdateHdrElem('gradingScaleLabel', this.value)"></td>
+                  <td>
+                    <div class="tc-btn-toggle-group">
+                      <button type="button" id="hdrBtn_gradingScale_bold" class="hdr-fmt-toggle bold" onclick="tcToggleElemFmt('gradingScaleStyle', 'bold')">B</button>
+                      <button type="button" id="hdrBtn_gradingScale_italic" class="hdr-fmt-toggle italic" onclick="tcToggleElemFmt('gradingScaleStyle', 'italic')">I</button>
+                      <button type="button" id="hdrBtn_gradingScale_underline" class="hdr-fmt-toggle underline" onclick="tcToggleElemFmt('gradingScaleStyle', 'underline')">U</button>
+                    </div>
+                  </td>
+                  <td>
+                    <select id="hdrSelect_scaleDisplayMode" class="meta-select" style="padding:2px 4px;font-size:0.75rem;" onchange="tcUpdateElemStyle('gradingScaleStyle', 'displayMode', this.value)">
+                      <option value="table" data-i18n="tcScaleModeTable">Conversion Table</option>
+                      <option value="inline_grades" data-i18n="tcScaleModeInlineGrades">Inline (6 = 30 (95.4%))</option>
+                      <option value="inline" data-i18n="tcScaleModeInlineMeta">Header Metadata</option>
+                    </select>
+                  </td>
+                </tr>
               </tbody>
             </table>
+          </div>
+
+          <!-- Grading Scale Container Customisation Section -->
+          <div id="hdrGradingScaleStyleBox" style="background:#fff;border:2px solid #000;border-radius:4px;padding:10px;margin-top:10px;">
+            <div style="font-weight:800;font-size:0.85rem;margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+              <span data-i18n="tcScaleContainerCustomise">Grading Scale Container Customisation:</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;font-size:0.8rem;">
+              <div>
+                <span style="font-weight:700;display:block;margin-bottom:2px;" data-i18n="tcScaleBg">Background:</span>
+                <select id="hdrSelect_scaleBg" class="meta-select" style="width:100%;padding:2px 6px;font-size:0.78rem;" onchange="tcUpdateElemStyle('gradingScaleStyle', 'background', this.value)">
+                  <option value="default" data-i18n="tcOptDefault">Default (Light / Amber)</option>
+                  <option value="white" data-i18n="tcOptBgWhite">Crisp White</option>
+                  <option value="amber" data-i18n="tcOptBgAmber">Warm Amber</option>
+                  <option value="ivory" data-i18n="tcOptBgIvory">Ivory Cream</option>
+                  <option value="light_gray" data-i18n="tcOptBgLightGray">Subtle Gray</option>
+                  <option value="none" data-i18n="tcOptBgNone">None (Transparent)</option>
+                </select>
+              </div>
+              <div>
+                <span style="font-weight:700;display:block;margin-bottom:2px;" data-i18n="tcScalePadding">Padding:</span>
+                <select id="hdrSelect_scalePadding" class="meta-select" style="width:100%;padding:2px 6px;font-size:0.78rem;" onchange="tcUpdateElemStyle('gradingScaleStyle', 'padding', this.value)">
+                  <option value="compact" data-i18n="tcOptPadCompact">Compact (4px 8px)</option>
+                  <option value="standard" data-i18n="tcOptPadStandard">Standard (8px 14px)</option>
+                  <option value="spacious" data-i18n="tcOptPadSpacious">Spacious (14px 18px)</option>
+                </select>
+              </div>
+              <div>
+                <span style="font-weight:700;display:block;margin-bottom:2px;" data-i18n="tcScaleBorder">Border Style:</span>
+                <select id="hdrSelect_scaleBorder" class="meta-select" style="width:100%;padding:2px 6px;font-size:0.78rem;" onchange="tcUpdateElemStyle('gradingScaleStyle', 'border', this.value)">
+                  <option value="solid" data-i18n="tcOptBorderSolid">Solid (2px Black)</option>
+                  <option value="neobrutalist" data-i18n="tcOptBorderNeobrutalist">Neobrutalist (Thick + Shadow)</option>
+                  <option value="double" data-i18n="tcOptBorderDouble">Double Border</option>
+                  <option value="dashed" data-i18n="tcOptBorderDashed">Dashed Border</option>
+                  <option value="minimal" data-i18n="tcOptBorderMinimal">Minimal (Top/Bottom only)</option>
+                  <option value="none" data-i18n="tcOptBorderNone">None (Borderless)</option>
+                </select>
+              </div>
+            </div>
           </div>
 
           <!-- Instructions / Student Notice Box Section -->
@@ -1226,6 +1381,44 @@
     </div>
   </div>
 
+  <!-- ── 9b. Test Models & Templates Picker Modal ──────────────────────────── -->
+  <input type="file" id="tcTemplateFileInput" accept=".json" style="display:none;" onchange="tcImportTemplateFromFile(event)">
+  <div id="templateModal" class="modal-overlay" onclick="if(event.target===this)tcCloseTemplatePicker()">
+    <div class="modal-box" style="max-width: 780px;">
+      <div class="modal-header">
+        <span class="modal-title" style="display:flex;align-items:center;gap:8px;">
+          <img src="../assets/icons/copy.svg" class="btn-icon" alt="" style="width:18px;height:18px;" />
+          <span data-i18n="tcTestTemplates">Test Models &amp; Templates</span>
+        </span>
+        <button class="modal-close-btn" onclick="tcCloseTemplatePicker()">&times;</button>
+      </div>
+      <div class="modal-body" style="display:flex;flex-direction:column;gap:12px;max-height:75vh;overflow-y:auto;">
+        <!-- Top Toolbar & Search -->
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <input type="text" id="templatePickerSearch" class="meta-input" style="flex:1;min-width:220px;" placeholder="Search templates by title, subject, or description…" data-i18n-placeholder="tcFilterTemplatesPlaceholder" oninput="tcFilterTemplatePicker()">
+          <button type="button" class="neo-btn sm" onclick="document.getElementById('tcTemplateFileInput').click()" title="Import a template JSON file from disk"><img src="../assets/icons/folder.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> <span data-i18n="tcImportTemplate">Import Template…</span></button>
+          <button type="button" class="neo-btn sm yellow" onclick="tcSaveAsTemplate()" title="Save current test as a template">+ <span data-i18n="tcSaveAsTemplate">Save as Template…</span></button>
+        </div>
+
+        <!-- Filter Tabs -->
+        <div class="template-tabs-nav" style="display:flex;gap:6px;border-bottom:2px solid #000;padding-bottom:4px;">
+          <button type="button" class="neo-btn sm active" id="tmplTabAll" onclick="tcSetTemplateTab('all')"><span data-i18n="tcTabAllTemplates">All Templates</span> <span id="tmplCountAll" class="count-chip">0</span></button>
+          <button type="button" class="neo-btn sm" id="tmplTabBuiltin" onclick="tcSetTemplateTab('builtin')"><span data-i18n="tcTabBuiltinTemplates">Built-in Models</span> <span id="tmplCountBuiltin" class="count-chip">5</span></button>
+          <button type="button" class="neo-btn sm" id="tmplTabCustom" onclick="tcSetTemplateTab('custom')"><span data-i18n="tcTabCustomTemplates">My Custom Templates</span> <span id="tmplCountCustom" class="count-chip">0</span></button>
+        </div>
+
+        <!-- Template Cards List -->
+        <div id="templatePickerList" style="display:flex;flex-direction:column;gap:10px;min-height:120px;">
+          <!-- Loaded via JavaScript -->
+        </div>
+      </div>
+      <div class="modal-footer" style="display:flex;justify-content:space-between;align-items:center;">
+        <span id="templatePickerCountBadge" style="font-size:0.8rem;font-weight:800;color:#64748b;">0 templates</span>
+        <button type="button" class="neo-btn sm" onclick="tcCloseTemplatePicker()" data-i18n="btnClose">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ── 10. Drawer Item Details & Quick Insert Modal ──────────────────────── -->
   <div id="drawerItemModal" class="modal-overlay" onclick="if(event.target===this)tcCloseDrawerItemModal()">
     <div class="modal-box" style="max-width: 620px;">
@@ -1280,6 +1473,8 @@
         initHamburger();
         populateDropdowns();
         await loadInitialData();
+        await tcLoadCustomTestTemplates();
+        await tcLoadCustomHeaderTemplates();
         await tcLoadAllAvailableSubjects();
         await tcBootstrapActiveTest();
         renderTestMeta();
@@ -1351,11 +1546,15 @@
           }).join('') + '<option value="__custom__">＋ Add Custom Subject…</option>';
         }
 
-        var scaleSel = document.getElementById('testScale');
-        if (scaleSel) {
-          scaleSel.innerHTML = TestCreatorService.DEFAULT_SCALES.map(function (sc) {
-            return '<option value="' + sc.id + '">' + sc.name + '</option>';
-          }).join('');
+        if (typeof tcPopulateScaleSelect === 'function') {
+          tcPopulateScaleSelect();
+        } else {
+          var scaleSel = document.getElementById('testScale');
+          if (scaleSel) {
+            scaleSel.innerHTML = TestCreatorService.DEFAULT_SCALES.map(function (sc) {
+              return '<option value="' + sc.id + '">' + sc.name + '</option>';
+            }).join('');
+          }
         }
       }
 
@@ -1425,6 +1624,13 @@
             await tcLoadAvailableCriteriaBanks();
           } catch (e) {
             console.warn('Error loading criteria banks:', e);
+          }
+
+          // 4. Preload all available grading scale banks (custom scales and default)
+          try {
+            await tcLoadAvailableScaleBanks();
+          } catch (e) {
+            console.warn('Error loading scale banks:', e);
           }
         }
 
@@ -1756,8 +1962,14 @@
         document.getElementById('testDuration').value = currentTest.durationMinutes || 45;
         document.getElementById('testScope').value = currentTest.scope || '';
         document.getElementById('testTeacher').value = currentTest.teacher || '';
-        document.getElementById('testScale').value = currentTest.scaleModelId || 'pts_20';
+        var scSel = document.getElementById('testScale');
+        if (scSel) {
+          scSel.value = currentTest.scaleModelId || (currentTest.scaleModel && currentTest.scaleModel.id) || 'none';
+        }
         updatePointsBadge();
+        if (typeof tcRenderTestGradingScaleBar === 'function') {
+          tcRenderTestGradingScaleBar();
+        }
       }
 
       function updatePointsBadge() {
@@ -1769,6 +1981,9 @@
         } else {
           badge.classList.remove('balanced');
         }
+        if (typeof tcRenderTestGradingScaleBar === 'function') {
+          tcRenderTestGradingScaleBar();
+        }
       }
 
       window.tcOnDirty = function () {
@@ -1778,7 +1993,14 @@
         currentTest.durationMinutes = Number(document.getElementById('testDuration').value) || 45;
         currentTest.scope = document.getElementById('testScope').value.trim();
         currentTest.teacher = document.getElementById('testTeacher').value.trim();
-        currentTest.scaleModelId = document.getElementById('testScale').value;
+        var selectedScale = document.getElementById('testScale').value;
+        if (selectedScale !== currentTest.scaleModelId) {
+          if (typeof tcResolveAndSetScaleModel === 'function') {
+            tcResolveAndSetScaleModel(selectedScale);
+          } else {
+            currentTest.scaleModelId = selectedScale;
+          }
+        }
         updatePointsBadge();
         if (document.getElementById('printPreviewModal') && document.getElementById('printPreviewModal').classList.contains('open')) {
           tcUpdatePrintPreview();
@@ -2038,6 +2260,7 @@
           '      <button type="button" class="' + (ex.exportStyle && (ex.exportStyle.fontSize || ex.exportStyle.lineHeight || ex.exportStyle.padding || (ex.exportStyle.numberedLines !== null && ex.exportStyle.numberedLines !== undefined)) ? 'neo-btn sm primary' : 'neo-btn sm') + '" onclick="tcOpenExerciseStyleModal(\'' + ex.id + '\')" title="Customise export formatting (font, line spacing, padding, numbered lines)">Style</button>' +
           '      <button class="neo-btn sm" onclick="tcAttachCriteriaToEx(\'' + ex.id + '\')">+ Rubric Criteria</button>' +
           '      <button class="neo-btn sm" onclick="tcAttachCompetenceToEx(\'' + ex.id + '\')">+ Competence</button>' +
+          '      <button class="neo-btn sm" onclick="tcAttachScaleToEx(\'' + ex.id + '\')">+ Grading Scale</button>' +
           '    </div>' +
           '  </div>' +
           '</div>';
@@ -2047,7 +2270,8 @@
         var html = '';
         var comps = Array.isArray(ex.linkedCompetenceIds) ? ex.linkedCompetenceIds : [];
         var rubrics = Array.isArray(ex.markingRubric) ? ex.markingRubric : [];
-        if (comps.length > 0 || rubrics.length > 0) {
+        var scale = ex.scaleModel || (ex.scaleModelId ? { name: ex.scaleModelId } : null);
+        if (comps.length > 0 || rubrics.length > 0 || scale) {
           html += '<div style="margin-top:10px;padding-top:8px;border-top:1.5px dashed #ccc;display:flex;flex-wrap:wrap;gap:6px;">';
           comps.forEach(function (c, cIdx) {
             html += '<span style="background:#eff6ff;border:1.5px solid #2563eb;color:#1e40af;font-size:0.75rem;padding:2px 8px;border-radius:4px;font-weight:800;display:inline-flex;align-items:center;gap:6px;">' +
@@ -2058,6 +2282,12 @@
               escapeHtml(r.title) + ' (/' + (r.maxPoints || 0) + ' pts)' +
               ' <button type="button" style="background:none;border:none;cursor:pointer;color:#15803d;font-weight:900;font-size:0.85rem;padding:0;line-height:1;" onclick="tcRemoveRubricFromEx(\'' + ex.id + '\',' + rIdx + ')">&times;</button></span>';
           });
+          if (scale) {
+            var sLabel = scale.label || scale.name || scale.title || scale.key || scale.id || ex.scaleModelId;
+            html += '<span style="background:#fffbeb;border:1.5px solid #d97706;color:#92400e;font-size:0.75rem;padding:2px 8px;border-radius:4px;font-weight:800;display:inline-flex;align-items:center;gap:6px;">' +
+              'Scale: ' + escapeHtml(sLabel) +
+              ' <button type="button" style="background:none;border:none;cursor:pointer;color:#92400e;font-weight:900;font-size:0.85rem;padding:0;line-height:1;" onclick="tcRemoveScaleFromEx(\'' + ex.id + '\')">&times;</button></span>';
+          }
           html += '</div>';
         }
         return html;
@@ -2814,6 +3044,37 @@
                   '          </select>' +
                   '        </div>' +
                   '      </div>' +
+                  '      <div class="tc-subopts-grid" style="margin-bottom:8px;">' +
+                  '        <div class="opt-field">' +
+                  '          <span class="opt-label">' + (t('tcChecklistBg') || 'Container Background') + '</span>' +
+                  '          <select class="opt-select" onchange="tcUpdateChecklistOption(\'' + ex.id + '\', \'checklistBg\', this.value)">' +
+                  '            <option value="amber"' + ((o.checklistBg || 'amber') === 'amber' ? ' selected' : '') + '>' + (t('tcOptBgAmber') || 'Warm Amber Tint') + '</option>' +
+                  '            <option value="white"' + (o.checklistBg === 'white' ? ' selected' : '') + '>' + (t('tcOptBgWhite') || 'Crisp White') + '</option>' +
+                  '            <option value="ivory"' + (o.checklistBg === 'ivory' ? ' selected' : '') + '>' + (t('tcOptBgIvory') || 'Ivory Cream') + '</option>' +
+                  '            <option value="light_gray"' + (o.checklistBg === 'light_gray' ? ' selected' : '') + '>' + (t('tcOptBgLightGray') || 'Subtle Gray') + '</option>' +
+                  '            <option value="tint"' + (o.checklistBg === 'tint' ? ' selected' : '') + '>' + (t('tcOptBgTint') || 'Soft Blue Tint') + '</option>' +
+                  '            <option value="none"' + (o.checklistBg === 'none' ? ' selected' : '') + '>' + (t('tcOptBgNone') || 'None (Transparent)') + '</option>' +
+                  '          </select>' +
+                  '        </div>' +
+                  '        <div class="opt-field">' +
+                  '          <span class="opt-label">' + (t('tcChecklistPadding') || 'Container Padding') + '</span>' +
+                  '          <select class="opt-select" onchange="tcUpdateChecklistOption(\'' + ex.id + '\', \'checklistPadding\', this.value)">' +
+                  '            <option value="compact"' + (o.checklistPadding === 'compact' ? ' selected' : '') + '>' + (t('tcOptPadCompact') || 'Compact (4px 8px)') + '</option>' +
+                  '            <option value="standard"' + ((o.checklistPadding || 'standard') === 'standard' ? ' selected' : '') + '>' + (t('tcOptPadStandard') || 'Standard (6px 12px)') + '</option>' +
+                  '            <option value="spacious"' + (o.checklistPadding === 'spacious' ? ' selected' : '') + '>' + (t('tcOptPadSpacious') || 'Spacious (12px 16px)') + '</option>' +
+                  '          </select>' +
+                  '        </div>' +
+                  '        <div class="opt-field">' +
+                  '          <span class="opt-label">' + (t('tcChecklistBorder') || 'Container Border') + '</span>' +
+                  '          <select class="opt-select" onchange="tcUpdateChecklistOption(\'' + ex.id + '\', \'checklistBorder\', this.value)">' +
+                  '            <option value="solid"' + ((o.checklistBorder || 'solid') === 'solid' ? ' selected' : '') + '>' + (t('tcOptBorderSolid') || 'Solid (1.5px Black)') + '</option>' +
+                  '            <option value="neobrutalist"' + (o.checklistBorder === 'neobrutalist' ? ' selected' : '') + '>' + (t('tcOptBorderNeobrutalist') || 'Neobrutalist (Thick + Shadow)') + '</option>' +
+                  '            <option value="dashed"' + (o.checklistBorder === 'dashed' ? ' selected' : '') + '>' + (t('tcOptBorderDashed') || 'Dashed Border') + '</option>' +
+                  '            <option value="quote"' + (o.checklistBorder === 'quote' ? ' selected' : '') + '>' + (t('tcOptBorderQuote') || 'Accent Left Bar (Quote)') + '</option>' +
+                  '            <option value="none"' + (o.checklistBorder === 'none' ? ' selected' : '') + '>' + (t('tcOptBorderNone') || 'None (Borderless)') + '</option>' +
+                  '          </select>' +
+                  '        </div>' +
+                  '      </div>' +
                   '      <div style="margin-bottom:8px;">' +
                   '        <span class="opt-label" style="display:block;margin-bottom:4px;">Quick Presets:</span>' +
                   '        <div style="display:flex;flex-wrap:wrap;gap:6px;">' +
@@ -3193,6 +3454,13 @@
         tcToggleExerciseComponent(exId, 'checklist', isChecked);
       };
 
+      function tcRefreshPrintPreviewIfOpen() {
+        var modal = document.getElementById('printPreviewModal');
+        if (modal && modal.classList.contains('open')) {
+          tcUpdatePrintPreview();
+        }
+      }
+
       window.tcUpdateChecklistOption = function (exId, key, value) {
         var ex = (currentTest.exercises || []).find(function (e) { return e.id === exId; });
         if (!ex) return;
@@ -3202,6 +3470,7 @@
         if (ex.autoSaveToDb) {
           TestCreatorService.saveExerciseToDatabase(ex, currentTest.subject);
         }
+        tcRefreshPrintPreviewIfOpen();
       };
 
       window.tcRenderChecklistItemsList = function (exId) {
@@ -3236,6 +3505,7 @@
         if (ex.autoSaveToDb) {
           TestCreatorService.saveExerciseToDatabase(ex, currentTest.subject);
         }
+        tcRefreshPrintPreviewIfOpen();
       };
 
       window.tcMoveChecklistItem = function (exId, idx, dir) {
@@ -3253,6 +3523,7 @@
         if (ex.autoSaveToDb) {
           TestCreatorService.saveExerciseToDatabase(ex, currentTest.subject);
         }
+        tcRefreshPrintPreviewIfOpen();
       };
 
       window.tcDeleteChecklistItem = function (exId, idx) {
@@ -3266,6 +3537,7 @@
         if (ex.autoSaveToDb) {
           TestCreatorService.saveExerciseToDatabase(ex, currentTest.subject);
         }
+        tcRefreshPrintPreviewIfOpen();
       };
 
       window.tcAddChecklistItem = function (exId) {
@@ -3284,6 +3556,7 @@
         if (ex.autoSaveToDb) {
           TestCreatorService.saveExerciseToDatabase(ex, currentTest.subject);
         }
+        tcRefreshPrintPreviewIfOpen();
       };
 
       window.tcQuickAddChecklistChip = function (exId, text) {
@@ -3298,6 +3571,7 @@
           if (ex.autoSaveToDb) {
             TestCreatorService.saveExerciseToDatabase(ex, currentTest.subject);
           }
+          tcRefreshPrintPreviewIfOpen();
         }
       };
 
@@ -3344,6 +3618,7 @@
         if (ex.autoSaveToDb) {
           TestCreatorService.saveExerciseToDatabase(ex, currentTest.subject);
         }
+        tcRefreshPrintPreviewIfOpen();
       };
 
       window.tcToggleExAutoSave = async function (exId, isChecked) {
@@ -4276,6 +4551,9 @@
         } else if (tabId === 'competences') {
           document.getElementById('tabBtnCompetences').classList.add('active');
           document.getElementById('panelCompetences').classList.add('active');
+        } else if (tabId === 'scales') {
+          document.getElementById('tabBtnScales').classList.add('active');
+          document.getElementById('panelScales').classList.add('active');
         }
         tcLoadDrawerContent();
       };
@@ -4303,6 +4581,8 @@
               _cachedCompetences = await window.CompetenceAggregatorService.loadAllCompetences();
               tcRenderCompetenceList(_cachedCompetences);
             }
+          } else if (activeDrawerTab === 'scales') {
+            await tcLoadAvailableScaleBanks();
           }
           tcLoadAllAvailableSubjects();
         } catch (e) {
@@ -5540,6 +5820,482 @@
         tcRenderCompetenceList(filtered);
       };
 
+      // ── Drawer Tab 5: Grading Scales ─────────────────────────────────────
+      var _allScaleBanks = [];
+      var _cachedScales = [];
+      var _targetAttachScaleExId = null;
+
+      async function tcLoadAvailableScaleBanks() {
+        _allScaleBanks = [];
+        var isElec = window.Desktop && (typeof Desktop.isElectron === 'function' ? Desktop.isElectron() : !!Desktop.isElectron);
+
+        if (isElec && typeof Desktop.listFiles === 'function') {
+          // 1. Scan customScales (user/custom-data/scales)
+          try {
+            var res = await window.Desktop.listFiles('customScales', { extensions: ['.js', '.json'] });
+            var list = Array.isArray(res) ? res : ((res && Array.isArray(res.files)) ? res.files : []);
+            for (var i = 0; i < list.length; i++) {
+              var fn = typeof list[i] === 'string' ? list[i] : (list[i].filename || list[i].name);
+              if (!fn) continue;
+              try {
+                var fRes = await window.Desktop.readText('customScales', fn);
+                if (fRes && fRes.ok && fRes.content) {
+                  var scales = TestCreatorService.parseScaleModelsFileContent(fRes.content);
+                  if (Array.isArray(scales) && scales.length > 0) {
+                    _allScaleBanks.push({
+                      id: 'custom_' + fn,
+                      filename: fn,
+                      name: fn.replace(/\.(js|json)$/i, ''),
+                      target: 'customScales',
+                      scales: scales
+                    });
+                  }
+                }
+              } catch (err) {
+                console.warn('Error reading custom scales file:', fn, err);
+              }
+            }
+          } catch (e) {
+            console.warn('Error listing customScales:', e);
+          }
+
+          // 2. Default user/grade-scale-models.js
+          try {
+            var defRes = await window.Desktop.readText('user', 'grade-scale-models.js');
+            if (defRes && defRes.ok && defRes.content) {
+              var defScales = TestCreatorService.parseScaleModelsFileContent(defRes.content);
+              if (Array.isArray(defScales) && defScales.length > 0) {
+                _allScaleBanks.push({
+                  id: 'default_grade_scales',
+                  filename: 'grade-scale-models.js',
+                  name: 'User Grade Models (grade-scale-models.js)',
+                  target: 'user',
+                  scales: defScales
+                });
+              }
+            }
+          } catch (_) {}
+        }
+
+        // 3. Fallback / Global window models
+        if (!_allScaleBanks.length && typeof XLSM_SCALE_MODELS !== 'undefined' && Array.isArray(XLSM_SCALE_MODELS) && XLSM_SCALE_MODELS.length > 0) {
+          _allScaleBanks.push({
+            id: 'global_xlsm_scales',
+            filename: 'grade-scale-models.js',
+            name: 'Default Models (XLSM_SCALE_MODELS)',
+            scales: XLSM_SCALE_MODELS
+          });
+        }
+
+        // Always ensure built-in models from TestCreatorService.DEFAULT_SCALES are available
+        var builtinScales = TestCreatorService.DEFAULT_SCALES || [];
+        _allScaleBanks.push({
+          id: 'builtin_scales',
+          filename: 'builtin',
+          name: 'Built-in Grading Scales',
+          scales: builtinScales
+        });
+
+        // Populate scaleBankSource dropdown in Drawer
+        var sel = document.getElementById('scaleBankSource');
+        if (sel) {
+          if (_allScaleBanks.length === 0) {
+            sel.innerHTML = '<option value="">No scale banks available</option>';
+          } else {
+            sel.innerHTML = _allScaleBanks.map(function (b) {
+              return '<option value="' + b.id + '">' + escapeHtml(b.name) + ' (' + (b.scales ? b.scales.length : 0) + ' scales)</option>';
+            }).join('');
+          }
+        }
+
+        // Preselect active bank
+        var activeBank = _allScaleBanks.find(function (b) { return b.scales && b.scales.length > 0; }) || _allScaleBanks[0];
+        if (activeBank) {
+          if (sel) sel.value = activeBank.id;
+          _cachedScales = activeBank.scales || [];
+        } else {
+          _cachedScales = [];
+        }
+
+        tcRenderScalesList(_cachedScales);
+        tcPopulateScaleSelect();
+      }
+
+      window.tcLoadScaleBankSource = function () {
+        var sel = document.getElementById('scaleBankSource');
+        var val = sel ? sel.value : '';
+        var bank = _allScaleBanks.find(function (b) { return b.id === val; });
+        _cachedScales = (bank && bank.scales) ? bank.scales : [];
+        tcRenderScalesList(_cachedScales);
+      };
+
+      function updateScaleTargetDropdown() {
+        var sel = document.getElementById('scaleTargetExSelect');
+        if (!sel) return;
+        var exs = (currentTest && currentTest.exercises) || [];
+        var opts = '<option value="__exam__">Entire Exam (Test-wide)</option>' +
+          exs.map(function (e, idx) {
+            return '<option value="' + e.id + '">Ex ' + (idx + 1) + ': ' + escapeHtml(e.title || 'Exercise') + '</option>';
+          }).join('');
+        sel.innerHTML = opts;
+        if (_targetAttachScaleExId && exs.some(function (e) { return e.id === _targetAttachScaleExId; })) {
+          sel.value = _targetAttachScaleExId;
+        } else if (_targetAttachScaleExId === '__exam__') {
+          sel.value = '__exam__';
+        } else if (exs.length > 0) {
+          sel.value = exs[0].id;
+          _targetAttachScaleExId = exs[0].id;
+        } else {
+          sel.value = '__exam__';
+          _targetAttachScaleExId = null;
+        }
+      }
+
+      window.tcOnScaleTargetChange = function () {
+        var sel = document.getElementById('scaleTargetExSelect');
+        var val = sel ? sel.value : '__exam__';
+        _targetAttachScaleExId = val === '__exam__' ? null : val;
+        tcRenderScalesList(_cachedScales);
+      };
+
+      function tcRenderScalesList(list) {
+        var el = document.getElementById('scalesDbList');
+        if (!el) return;
+        if (!list || !list.length) {
+          el.innerHTML = '<div style="text-align:center;padding:20px;color:#888;font-size:0.8rem;" data-i18n="tcNoScalesFound">No grading scales found in this bank.</div>';
+          return;
+        }
+
+        updateScaleTargetDropdown();
+
+        var targetEx = _targetAttachScaleExId ? (currentTest && currentTest.exercises && currentTest.exercises.find(function (e) { return e.id === _targetAttachScaleExId; })) : null;
+        var targetLabel = targetEx ? ('Exercise "' + (targetEx.title || 'Exercise') + '"') : 'Entire Exam (Test-wide)';
+
+        var headerNote = '<div style="background:#fef3c7;border:1.5px solid #d97706;color:#92400e;padding:6px 10px;border-radius:4px;font-size:0.78rem;font-weight:800;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">' +
+          '<span>Target: ' + escapeHtml(targetLabel) + '</span>' +
+          '<span style="font-size:0.7rem;color:#b45309;font-weight:600;">Choose scale</span>' +
+          '</div>';
+
+        var bankSel = document.getElementById('scaleBankSource');
+        var activeBankId = bankSel ? bankSel.value : '';
+
+        el.innerHTML = headerNote + list.map(function (sc, idx) {
+          var scId = sc.key || sc.id || sc.name || ('scale_' + idx);
+          var scName = sc.label || sc.name || sc.title || sc.key || sc.id || ('Grading Scale ' + (idx + 1));
+          var scSys = sc.system || sc.type || (sc.maxScore ? ('Max ' + sc.maxScore) : (sc.maxGrade ? ('Max ' + sc.maxGrade) : ''));
+          var thresholds = sc.thresholds;
+
+          var thSummary = '';
+          if (Array.isArray(thresholds) && thresholds.length > 0) {
+            thSummary = '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;">' +
+              thresholds.slice(0, 6).map(function (th) {
+                var g = th.grade || th.key || th.label || '';
+                var p = th.pct != null ? (th.pct + '%') : (th.minPoints != null ? (th.minPoints + 'p') : '');
+                return '<span style="background:#fff;border:1px solid #d97706;color:#92400e;font-size:0.68rem;padding:1px 5px;border-radius:3px;font-weight:700;">' +
+                  escapeHtml(g) + (p ? (' (' + p + ')') : '') + '</span>';
+              }).join('') + (thresholds.length > 6 ? '<span style="font-size:0.68rem;color:#92400e;font-weight:700;">+ ' + (thresholds.length - 6) + ' more</span>' : '') +
+              '</div>';
+          } else if (thresholds && typeof thresholds === 'object') {
+            var tKeys = Object.keys(thresholds);
+            if (tKeys.length > 0) {
+              thSummary = '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;">' +
+                tKeys.slice(0, 6).map(function (k) {
+                  var p = thresholds[k] != null ? (thresholds[k] + '%') : '';
+                  return '<span style="background:#fff;border:1px solid #d97706;color:#92400e;font-size:0.68rem;padding:1px 5px;border-radius:3px;font-weight:700;">' +
+                    escapeHtml(k) + (p ? (' (' + p + ')') : '') + '</span>';
+                }).join('') + (tKeys.length > 6 ? '<span style="font-size:0.68rem;color:#92400e;font-weight:700;">+ ' + (tKeys.length - 6) + ' more</span>' : '') +
+                '</div>';
+            }
+          }
+
+          var isCurrentTestScale = currentTest && (
+            currentTest.scaleModelId === scId ||
+            (currentTest.scaleModel && (currentTest.scaleModel.key === scId || currentTest.scaleModel.id === scId || currentTest.scaleModel.label === scName))
+          );
+
+          return '<div class="drawer-item-card" style="border-left:4px solid ' + (isCurrentTestScale ? '#16a34a' : '#d97706') + ';">' +
+            '  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">' +
+            '    <div>' +
+            '      <span style="font-weight:900;font-size:0.85rem;color:#92400e;">' + escapeHtml(scName) + '</span>' +
+            (scSys ? (' <span style="background:#fef3c7;border:1px solid #d97706;color:#92400e;font-size:0.7rem;padding:1px 5px;border-radius:3px;font-weight:800;">' + escapeHtml(scSys) + '</span>') : '') +
+            '    </div>' +
+            (isCurrentTestScale ? '<span style="background:#dcfce7;color:#15803d;border:1px solid #16a34a;font-size:0.68rem;padding:1px 5px;border-radius:3px;font-weight:800;">Active Test Scale</span>' : '') +
+            '  </div>' +
+            thSummary +
+            '  <div style="display:flex;gap:6px;margin-top:8px;justify-content:flex-end;">' +
+            (targetEx ? ('<button type="button" class="neo-btn sm" onclick="tcAttachScaleToTarget(\'' + escapeAttr(scId) + '\', \'' + escapeAttr(activeBankId) + '\')">+ Attach to Ex</button>') : '') +
+            '    <button type="button" class="neo-btn sm yellow" onclick="tcSetTestScale(\'' + escapeAttr(scId) + '\', \'' + escapeAttr(activeBankId) + '\')">' + (i18n.t('tcSetAsTestScale') || 'Set as Test Scale') + '</button>' +
+            '  </div>' +
+            '</div>';
+        }).join('');
+      }
+
+      window.tcFilterScalesDb = function () {
+        var q = (document.getElementById('drawerScaleSearch').value || '').trim().toLowerCase();
+        if (!q) {
+          tcRenderScalesList(_cachedScales);
+          return;
+        }
+        var filtered = _cachedScales.filter(function (s) {
+          var n = (s.label || s.name || s.title || s.key || s.id || '').toLowerCase();
+          var sys = (s.system || s.type || '').toLowerCase();
+          var k = (s.key || s.id || '').toLowerCase();
+          return n.indexOf(q) !== -1 || sys.indexOf(q) !== -1 || k.indexOf(q) !== -1;
+        });
+        tcRenderScalesList(filtered);
+      };
+
+      function tcFindScaleModel(scaleId, bankId) {
+        if (!scaleId || scaleId === 'none') return null;
+        function matches(s) {
+          return s && (s.key === scaleId || s.id === scaleId || s.label === scaleId || s.name === scaleId);
+        }
+        // Check current bank if provided
+        if (bankId) {
+          var b = _allScaleBanks.find(function (bk) { return bk.id === bankId; });
+          if (b && Array.isArray(b.scales)) {
+            var found = b.scales.find(matches);
+            if (found) return { model: found, bankName: b.name };
+          }
+        }
+        // Check all loaded banks
+        for (var i = 0; i < _allScaleBanks.length; i++) {
+          var bank = _allScaleBanks[i];
+          if (Array.isArray(bank.scales)) {
+            var m = bank.scales.find(matches);
+            if (m) return { model: m, bankName: bank.name };
+          }
+        }
+        // Check TestCreatorService.DEFAULT_SCALES
+        var ds = (TestCreatorService.DEFAULT_SCALES || []).find(matches);
+        if (ds) return { model: ds, bankName: 'Default Scales' };
+        return null;
+      }
+
+      window.tcPopulateScaleSelect = function () {
+        var scaleSel = document.getElementById('testScale');
+        if (!scaleSel) return;
+        var currentVal = currentTest ? (currentTest.scaleModelId || 'none') : 'none';
+
+        var html = '<option value="none">No grading scale (points only)</option>';
+
+        if (_allScaleBanks.length > 0) {
+          _allScaleBanks.forEach(function (b) {
+            if (Array.isArray(b.scales) && b.scales.length > 0) {
+              html += '<optgroup label="' + escapeAttr(b.name) + '">';
+              b.scales.forEach(function (sc) {
+                var scId = sc.key || sc.id || sc.name;
+                var scName = sc.label || sc.name || sc.title || sc.key || sc.id;
+                html += '<option value="' + escapeAttr(scId) + '">' + escapeHtml(scName) + '</option>';
+              });
+              html += '</optgroup>';
+            }
+          });
+        } else {
+          html += '<optgroup label="Default Grade Scales">';
+          (TestCreatorService.DEFAULT_SCALES || []).forEach(function (sc) {
+            var scId = sc.key || sc.id;
+            var scName = sc.label || sc.name || sc.id;
+            html += '<option value="' + escapeAttr(scId) + '">' + escapeHtml(scName) + '</option>';
+          });
+          html += '</optgroup>';
+        }
+
+        scaleSel.innerHTML = html;
+        scaleSel.value = currentVal;
+      };
+
+      function tcResolveAndSetScaleModel(scaleId) {
+        if (!currentTest) return;
+        if (!scaleId || scaleId === 'none') {
+          currentTest.scaleModelId = 'none';
+          currentTest.scaleModel = null;
+          currentTest.scaleBank = null;
+        } else {
+          var resolved = tcFindScaleModel(scaleId);
+          currentTest.scaleModelId = scaleId;
+          if (resolved) {
+            currentTest.scaleModel = resolved.model;
+            currentTest.scaleBank = resolved.bankName;
+          }
+        }
+        tcRenderTestGradingScaleBar();
+      }
+
+      window.tcSetTestScale = function (scaleId, bankId) {
+        if (!currentTest) return;
+        var resolved = tcFindScaleModel(scaleId, bankId);
+        currentTest.scaleModelId = scaleId;
+        if (resolved) {
+          currentTest.scaleModel = resolved.model;
+          currentTest.scaleBank = resolved.bankName;
+        }
+
+        var scaleSel = document.getElementById('testScale');
+        if (scaleSel) scaleSel.value = scaleId;
+
+        var hc = TestCreatorService.ensureHeaderConfig(currentTest);
+        if (hc.showGradingScale === undefined) {
+          hc.showGradingScale = true;
+        }
+
+        tcRenderTestGradingScaleBar();
+        tcRenderScalesList(_cachedScales);
+        tcOnDirty();
+        if (window.showToast) {
+          var mTitle = (resolved && resolved.model && (resolved.model.label || resolved.model.name || resolved.model.title || resolved.model.key)) || scaleId;
+          showToast((i18n.t('tcScaleAttachedToast') || 'Grading scale attached to test: ') + mTitle);
+        }
+      };
+
+      window.tcRemoveTestScale = function () {
+        if (!currentTest) return;
+        currentTest.scaleModelId = 'none';
+        currentTest.scaleModel = null;
+        currentTest.scaleBank = null;
+
+        var scaleSel = document.getElementById('testScale');
+        if (scaleSel) scaleSel.value = 'none';
+
+        var hc = TestCreatorService.ensureHeaderConfig(currentTest);
+        hc.showGradingScale = false;
+
+        tcRenderTestGradingScaleBar();
+        tcRenderScalesList(_cachedScales);
+        tcOnDirty();
+        if (window.showToast) {
+          showToast(i18n.t('tcScaleRemovedToast') || 'Grading scale removed from test');
+        }
+      };
+
+      window.tcRenderTestGradingScaleBar = function () {
+        var bar = document.getElementById('testGradingScaleBar');
+        if (!bar || !currentTest) return;
+
+        var scaleId = currentTest.scaleModelId;
+        if (!scaleId || scaleId === 'none') {
+          bar.style.display = 'none';
+          return;
+        }
+
+        var model = currentTest.scaleModel;
+        if (!model) {
+          var resolved = tcFindScaleModel(scaleId);
+          if (resolved) {
+            currentTest.scaleModel = resolved.model;
+            currentTest.scaleBank = resolved.bankName;
+            model = resolved.model;
+          }
+        }
+
+        if (!model) {
+          bar.style.display = 'none';
+          return;
+        }
+
+        bar.style.display = 'block';
+
+        var badge = document.getElementById('testGradingScaleNameBadge');
+        if (badge) {
+          var bText = model.label || model.name || model.title || model.key || model.id || 'Scale';
+          if (model.system) bText += ' (' + model.system + ')';
+          badge.textContent = bText;
+        }
+
+        var hc = TestCreatorService.ensureHeaderConfig(currentTest);
+        var printChk = document.getElementById('testGradingScalePrintChk');
+        if (printChk) {
+          printChk.checked = hc.showGradingScale !== false;
+        }
+
+        var totalPoints = TestCreatorService.calculateTotalTestPoints(currentTest);
+        var convTable = TestCreatorService.calculateGradeConversionTable(model, totalPoints);
+        var stepsList = document.getElementById('testGradingScaleStepsList');
+        if (stepsList) {
+          if (convTable && convTable.intervals && convTable.intervals.length > 0) {
+            stepsList.innerHTML = convTable.intervals.map(function (it) {
+              return '<span style="background:#fff;border:1.5px solid #d97706;color:#92400e;font-size:0.75rem;padding:2px 7px;border-radius:4px;font-weight:800;display:inline-flex;align-items:center;gap:4px;">' +
+                '<strong>' + escapeHtml(it.grade) + '</strong>: ' + it.minPoints + '–' + it.maxPoints + ' pts ' +
+                '<span style="font-size:0.68rem;color:#b45309;font-weight:700;">(≥' + it.pct + '%)</span>' +
+                '</span>';
+            }).join('');
+          } else {
+            stepsList.innerHTML = '<span style="font-size:0.75rem;color:#92400e;font-weight:700;">Scale active (no conversion steps defined)</span>';
+          }
+        }
+      };
+
+      window.tcToggleScalePrintOnTest = function (checked) {
+        var hc = TestCreatorService.ensureHeaderConfig(currentTest);
+        hc.showGradingScale = !!checked;
+        tcUpdateScaleBarPrintChk();
+        tcOnDirty();
+        if (document.getElementById('printPreviewModal') && document.getElementById('printPreviewModal').classList.contains('open')) {
+          tcUpdatePrintPreview();
+        }
+      };
+
+      window.tcUpdateScaleBarPrintChk = function () {
+        var hc = TestCreatorService.ensureHeaderConfig(currentTest);
+        var printChk = document.getElementById('testGradingScalePrintChk');
+        if (printChk) printChk.checked = hc.showGradingScale !== false;
+        var hdrChk = document.getElementById('hdrChk_showGradingScale');
+        if (hdrChk) hdrChk.checked = hc.showGradingScale !== false;
+      };
+
+      window.tcAttachScaleToEx = function (exId) {
+        _targetAttachScaleExId = exId;
+        var ex = currentTest.exercises.find(function (e) { return e.id === exId; });
+        if (!ex) return;
+
+        var drawer = document.getElementById('testDrawer');
+        if (drawer) drawer.style.display = 'flex';
+        tcSwitchDrawerTab('scales');
+        updateScaleTargetDropdown();
+        tcRenderScalesList(_cachedScales);
+        if (window.showToast) {
+          showToast('Select a grading scale from the drawer to assign to "' + (ex.title || 'Exercise') + '"');
+        }
+      };
+
+      window.tcRemoveScaleFromEx = function (exId) {
+        var ex = currentTest.exercises.find(function (e) { return e.id === exId; });
+        if (ex) {
+          delete ex.scaleModelId;
+          delete ex.scaleModel;
+          delete ex.scaleBank;
+          renderExerciseCards();
+          if (window.showToast) {
+            showToast(i18n.t('tcScaleRemovedToast') || 'Grading scale removed from exercise');
+          }
+        }
+      };
+
+      window.tcAttachScaleToTarget = function (scaleId, bankId) {
+        var resolved = tcFindScaleModel(scaleId, bankId);
+        var model = resolved ? resolved.model : null;
+        var bankName = resolved ? resolved.bankName : '';
+
+        var targetSel = document.getElementById('scaleTargetExSelect');
+        var targetVal = targetSel ? targetSel.value : (_targetAttachScaleExId || '__exam__');
+
+        if (targetVal === '__exam__') {
+          tcSetTestScale(scaleId, bankId);
+          return;
+        }
+
+        var targetEx = currentTest.exercises.find(function (e) { return e.id === targetVal; });
+        if (targetEx) {
+          targetEx.scaleModelId = scaleId;
+          targetEx.scaleModel = model;
+          targetEx.scaleBank = bankName;
+          renderExerciseCards();
+          if (window.showToast) {
+            showToast((i18n.t('tcScaleAttachedExToast') || 'Attached scale to exercise: ') + (targetEx.title || 'Exercise'));
+          }
+        }
+      };
+
       // Resizer Handle Logic
       function setupResizer() {
         var handle = document.getElementById('drawerResizer');
@@ -5583,10 +6339,93 @@
         return window._tcPdfjsLib;
       };
 
-      window.tcOpenGlobalStyleModal = function () {
-        if (!currentTest.exportStyle) {
-          currentTest.exportStyle = { fontSize: '11pt', lineHeight: 1.5, padding: '14px', numberedLines: false };
+      window.tcHighlightMarginPresetBtn = function (preset) {
+        ['normal', 'narrow', 'wide'].forEach(function (p) {
+          var btn = document.getElementById('marginPreset' + p.charAt(0).toUpperCase() + p.slice(1));
+          if (btn) {
+            if (p === preset) btn.classList.add('active');
+            else btn.classList.remove('active');
+          }
+        });
+      };
+
+      window.tcSetMarginPreset = function (preset) {
+        if (!TestCreatorService.MARGIN_PRESETS[preset]) return;
+        var p = TestCreatorService.MARGIN_PRESETS[preset];
+        if (!currentTest.exportStyle) currentTest.exportStyle = {};
+        currentTest.exportStyle.margins = {
+          preset: preset,
+          top: p.top,
+          right: p.right,
+          bottom: p.bottom,
+          left: p.left,
+          unit: p.unit || 'mm'
+        };
+        var tIn = document.getElementById('globalMarginTop');
+        var rIn = document.getElementById('globalMarginRight');
+        var bIn = document.getElementById('globalMarginBottom');
+        var lIn = document.getElementById('globalMarginLeft');
+        if (tIn) tIn.value = p.top;
+        if (rIn) rIn.value = p.right;
+        if (bIn) bIn.value = p.bottom;
+        if (lIn) lIn.value = p.left;
+
+        tcHighlightMarginPresetBtn(preset);
+
+        var prevSel = document.getElementById('previewMarginsSelect');
+        if (prevSel) prevSel.value = preset;
+
+        tcSaveCurrentTest(false);
+        if (document.getElementById('printPreviewModal') && document.getElementById('printPreviewModal').classList.contains('open')) {
+          tcUpdatePrintPreview();
         }
+      };
+
+      window.tcOnMarginInputChange = function () {
+        if (!currentTest.exportStyle) currentTest.exportStyle = {};
+        var t = parseFloat(document.getElementById('globalMarginTop').value) || 0;
+        var r = parseFloat(document.getElementById('globalMarginRight').value) || 0;
+        var b = parseFloat(document.getElementById('globalMarginBottom').value) || 0;
+        var l = parseFloat(document.getElementById('globalMarginLeft').value) || 0;
+
+        var detectedPreset = 'custom';
+        ['normal', 'narrow', 'wide'].forEach(function (key) {
+          var p = TestCreatorService.MARGIN_PRESETS[key];
+          if (p && p.top === t && p.right === r && p.bottom === b && p.left === l) {
+            detectedPreset = key;
+          }
+        });
+
+        currentTest.exportStyle.margins = {
+          preset: detectedPreset,
+          top: t,
+          right: r,
+          bottom: b,
+          left: l,
+          unit: 'mm'
+        };
+
+        tcHighlightMarginPresetBtn(detectedPreset);
+
+        var prevSel = document.getElementById('previewMarginsSelect');
+        if (prevSel) prevSel.value = detectedPreset;
+
+        tcSaveCurrentTest(false);
+        if (document.getElementById('printPreviewModal') && document.getElementById('printPreviewModal').classList.contains('open')) {
+          tcUpdatePrintPreview();
+        }
+      };
+
+      window.tcOnPreviewMarginsChange = function (val) {
+        if (val === 'custom') {
+          tcOpenGlobalStyleModal();
+          return;
+        }
+        tcSetMarginPreset(val);
+      };
+
+      window.tcOpenGlobalStyleModal = function () {
+        currentTest.exportStyle = TestCreatorService.ensureExportStyle(currentTest);
         var st = currentTest.exportStyle;
         var fSel = document.getElementById('globalStyleFontSize');
         var lSel = document.getElementById('globalStyleLineHeight');
@@ -5597,6 +6436,17 @@
         if (lSel) lSel.value = String(st.lineHeight || 1.5);
         if (pSel) pSel.value = st.padding || '14px';
         if (nChk) nChk.checked = !!st.numberedLines;
+
+        var mg = st.margins || { preset: 'normal', top: 15, right: 15, bottom: 15, left: 15, unit: 'mm' };
+        var tIn = document.getElementById('globalMarginTop');
+        var rIn = document.getElementById('globalMarginRight');
+        var bIn = document.getElementById('globalMarginBottom');
+        var lIn = document.getElementById('globalMarginLeft');
+        if (tIn) tIn.value = mg.top !== undefined ? mg.top : 15;
+        if (rIn) rIn.value = mg.right !== undefined ? mg.right : 15;
+        if (bIn) bIn.value = mg.bottom !== undefined ? mg.bottom : 15;
+        if (lIn) lIn.value = mg.left !== undefined ? mg.left : 15;
+        tcHighlightMarginPresetBtn(mg.preset || 'custom');
 
         tcRenderStyleExTable();
         document.getElementById('styleCustomisationModal').classList.add('open');
@@ -5843,8 +6693,172 @@
       };
 
       // ── Header Customizer & Allowed Materials Controller ────────────────────
+      var _userCustomHeaderTemplates = [];
+
+      window.tcLoadCustomHeaderTemplates = async function () {
+        _userCustomHeaderTemplates = [];
+        if (window.Desktop && Desktop.isElectron && typeof Desktop.readJson === 'function') {
+          try {
+            var res = await Desktop.readJson('user', 'custom-header-templates.json');
+            var list = (res && res.ok && res.data) ? res.data : (res && res.data ? res.data : res);
+            if (Array.isArray(list)) {
+              _userCustomHeaderTemplates = list;
+              return;
+            }
+          } catch (_) {}
+        }
+        try {
+          var raw = localStorage.getItem('cmt_custom_header_templates');
+          if (raw) {
+            var parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              _userCustomHeaderTemplates = parsed;
+            }
+          }
+        } catch (_) {}
+      };
+
+      window.tcSaveCustomHeaderTemplatesToDisk = async function () {
+        try {
+          localStorage.setItem('cmt_custom_header_templates', JSON.stringify(_userCustomHeaderTemplates));
+        } catch (_) {}
+        if (window.Desktop && Desktop.isElectron && typeof Desktop.saveJson === 'function') {
+          try {
+            await Desktop.saveJson('user', 'custom-header-templates.json', _userCustomHeaderTemplates);
+          } catch (e) {
+            console.error('Error saving custom header templates:', e);
+          }
+        }
+      };
+
+      window.tcPopulateHeaderTemplatesDropdown = function () {
+        var sel = document.getElementById('tcHeaderTemplateSelect');
+        if (!sel) return;
+        sel.innerHTML = '';
+
+        var builtins = TestCreatorService.BUILTIN_HEADER_TEMPLATES || [];
+        var builtinGrp = document.createElement('optgroup');
+        builtinGrp.label = i18n.t('tcTabBuiltinTemplates') || 'Built-in Models';
+        builtins.forEach(function (t) {
+          var opt = document.createElement('option');
+          opt.value = 'builtin_' + t.id;
+          opt.textContent = (t.title || t.id) + ' (' + (t.subject || 'All') + ')';
+          builtinGrp.appendChild(opt);
+        });
+        sel.appendChild(builtinGrp);
+
+        if (_userCustomHeaderTemplates && _userCustomHeaderTemplates.length > 0) {
+          var customGrp = document.createElement('optgroup');
+          customGrp.label = i18n.t('tcTabCustomTemplates') || 'My Saved Header Templates';
+          _userCustomHeaderTemplates.forEach(function (t) {
+            var opt = document.createElement('option');
+            opt.value = 'custom_' + t.id;
+            opt.textContent = t.title || t.id;
+            customGrp.appendChild(opt);
+          });
+          sel.appendChild(customGrp);
+        }
+
+        tcOnHeaderTemplateSelectChange();
+      };
+
+      window.tcOnHeaderTemplateSelectChange = function () {
+        var sel = document.getElementById('tcHeaderTemplateSelect');
+        var delBtn = document.getElementById('tcDeleteHeaderTemplateBtn');
+        if (!sel || !delBtn) return;
+        var val = sel.value || '';
+        delBtn.style.display = val.startsWith('custom_') ? 'inline-flex' : 'none';
+      };
+
+      window.tcApplySelectedHeaderTemplate = function () {
+        var sel = document.getElementById('tcHeaderTemplateSelect');
+        if (!sel || !sel.value || !currentTest) return;
+        var val = sel.value;
+        var template = null;
+        if (val.startsWith('builtin_')) {
+          var bId = val.replace('builtin_', '');
+          template = (TestCreatorService.BUILTIN_HEADER_TEMPLATES || []).find(function (t) { return t.id === bId; });
+        } else if (val.startsWith('custom_')) {
+          var cId = val.replace('custom_', '');
+          template = (_userCustomHeaderTemplates || []).find(function (t) { return t.id === cId; });
+        }
+        if (!template) {
+          if (window.showToast) showToast('Template not found', true);
+          return;
+        }
+
+        if (template.headerConfig) {
+          currentTest.headerConfig = JSON.parse(JSON.stringify(template.headerConfig));
+        }
+        if (Array.isArray(template.materialsAllowed)) {
+          currentTest.materialsAllowed = JSON.parse(JSON.stringify(template.materialsAllowed));
+        }
+        if (template.materialsStyle) {
+          if (!currentTest.headerConfig) currentTest.headerConfig = {};
+          currentTest.headerConfig.materialsStyle = JSON.parse(JSON.stringify(template.materialsStyle));
+        }
+
+        tcOpenHeaderCustomizerModal();
+        tcSaveCurrentTest(false);
+        if (window.showToast) {
+          showToast(i18n.t('tcHeaderTemplateApplied') || 'Header template applied!');
+        }
+      };
+
+      window.tcSaveCurrentHeaderAsTemplate = async function () {
+        if (!currentTest) return;
+        var promptMsg = i18n.t('tcEnterHeaderTemplateName') || 'Enter a name for this header template:';
+        var defaultName = (currentTest.title ? (currentTest.title + ' Header') : 'Custom Header');
+        var name = window.showPrompt
+          ? await window.showPrompt(promptMsg, defaultName)
+          : prompt(promptMsg, defaultName);
+        if (!name || !name.trim()) return;
+
+        var newTmpl = {
+          id: 'hdr_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+          title: name.trim(),
+          isCustom: true,
+          headerConfig: JSON.parse(JSON.stringify(TestCreatorService.ensureHeaderConfig(currentTest))),
+          materialsAllowed: Array.isArray(currentTest.materialsAllowed) ? JSON.parse(JSON.stringify(currentTest.materialsAllowed)) : [],
+          materialsStyle: (currentTest.headerConfig && currentTest.headerConfig.materialsStyle) ? JSON.parse(JSON.stringify(currentTest.headerConfig.materialsStyle)) : {}
+        };
+
+        _userCustomHeaderTemplates.push(newTmpl);
+        await tcSaveCustomHeaderTemplatesToDisk();
+        tcPopulateHeaderTemplatesDropdown();
+
+        var sel = document.getElementById('tcHeaderTemplateSelect');
+        if (sel) {
+          sel.value = 'custom_' + newTmpl.id;
+          tcOnHeaderTemplateSelectChange();
+        }
+        if (window.showToast) {
+          showToast(i18n.t('tcHeaderTemplateSaved') || 'Header template saved successfully!');
+        }
+      };
+
+      window.tcDeleteSelectedHeaderTemplate = async function () {
+        var sel = document.getElementById('tcHeaderTemplateSelect');
+        if (!sel || !sel.value || !sel.value.startsWith('custom_')) return;
+        var cId = sel.value.replace('custom_', '');
+        var tmpl = (_userCustomHeaderTemplates || []).find(function (t) { return t.id === cId; });
+        if (!tmpl) return;
+
+        var confirmMsg = (i18n.t('tcDeleteTemplateConfirm') || 'Are you sure you want to delete this template?') + ' "' + tmpl.title + '"';
+        var confirmed = window.showConfirm ? await window.showConfirm(confirmMsg) : confirm(confirmMsg);
+        if (!confirmed) return;
+
+        _userCustomHeaderTemplates = _userCustomHeaderTemplates.filter(function (t) { return t.id !== cId; });
+        await tcSaveCustomHeaderTemplatesToDisk();
+        tcPopulateHeaderTemplatesDropdown();
+        if (window.showToast) {
+          showToast('Deleted header template');
+        }
+      };
+
       window.tcOpenHeaderCustomizerModal = function () {
         if (!currentTest) return;
+        tcPopulateHeaderTemplatesDropdown();
         if (typeof tcOnDirty === 'function') {
           tcOnDirty();
         }
@@ -5881,6 +6895,7 @@
           'showScope', 'scopeLabel',
           'showTotalPoints', 'pointsLabel',
           'showVariantBadge',
+          'showGradingScale', 'gradingScaleLabel',
           'showInstructions', 'instructionsText'
         ];
         elemKeys.forEach(function (k) {
@@ -5909,6 +6924,7 @@
           { obj: 'materialsStyle', pfx: 'materials' },
           { obj: 'scopeStyle', pfx: 'scope' },
           { obj: 'pointsStyle', pfx: 'points' },
+          { obj: 'gradingScaleStyle', pfx: 'gradingScale' },
           { obj: 'instructionsStyle', pfx: 'instr' }
         ];
         styleMap.forEach(function (item) {
@@ -5921,6 +6937,20 @@
             }
           });
         });
+
+        if (document.getElementById('hdrSelect_scaleDisplayMode')) {
+          var scMode = (hc.gradingScaleStyle && hc.gradingScaleStyle.displayMode) || (typeof hc.gradingScaleStyle === 'string' ? hc.gradingScaleStyle : 'table');
+          document.getElementById('hdrSelect_scaleDisplayMode').value = scMode;
+        }
+        if (document.getElementById('hdrSelect_scaleBg')) {
+          document.getElementById('hdrSelect_scaleBg').value = (hc.gradingScaleStyle && hc.gradingScaleStyle.background) || 'default';
+        }
+        if (document.getElementById('hdrSelect_scalePadding')) {
+          document.getElementById('hdrSelect_scalePadding').value = (hc.gradingScaleStyle && hc.gradingScaleStyle.padding) || 'standard';
+        }
+        if (document.getElementById('hdrSelect_scaleBorder')) {
+          document.getElementById('hdrSelect_scaleBorder').value = (hc.gradingScaleStyle && hc.gradingScaleStyle.border) || 'solid';
+        }
 
         // Dropdowns / specifics
         var tSize = (hc.titleStyle && hc.titleStyle.size) || '18pt';
@@ -6162,6 +7192,7 @@
           title: t('tcSecTitle') || 'Main Title',
           subtitle: t('tcSecSubtitle') || 'Subtitle',
           metadata: t('tcSecMetadata') || 'Metadata Box',
+          gradingScale: t('tcSecGradingScale') || 'Grading Scale Table',
           instructions: t('tcSecInstructions') || 'General Instructions'
         };
         var metaNames = {
@@ -6172,7 +7203,8 @@
           duration: t('tcMetaDuration') || 'Duration / Time',
           materials: t('tcMetaMaterials') || 'Materials Allowed',
           scope: t('tcMetaScope') || 'Scope / Subject',
-          points: t('tcMetaPoints') || 'Score / Total Points'
+          points: t('tcMetaPoints') || 'Score / Total Points',
+          gradingScale: t('tcMetaGradingScale') || 'Grading Scale'
         };
 
         secList.innerHTML = (hc.sectionOrder || []).map(function (secKey, idx) {
@@ -6228,6 +7260,10 @@
       // ── Dedicated Print & PDF Preview Modal (Exact PDF rendition) ─────────
       window.tcOpenPrintPreview = function () {
         document.getElementById('printPreviewModal').classList.add('open');
+        var prevSel = document.getElementById('previewMarginsSelect');
+        if (prevSel && currentTest && currentTest.exportStyle && currentTest.exportStyle.margins) {
+          prevSel.value = currentTest.exportStyle.margins.preset || 'custom';
+        }
         tcUpdatePrintPreview();
       };
 
@@ -6307,16 +7343,20 @@
                 var scale = (displayWidth / unscaledViewport.width) * dpr;
                 var viewport = page.getViewport({ scale: scale });
 
+                var pageW = Math.round(displayWidth);
+                var pageH = Math.round(unscaledViewport.height * (displayWidth / unscaledViewport.width));
+
                 var canvasWrap = document.createElement('div');
                 canvasWrap.className = 'full-preview-pdf-canvas-wrap';
-                canvasWrap.style.width = displayWidth + 'px';
+                canvasWrap.style.width = pageW + 'px';
+                canvasWrap.style.height = pageH + 'px';
 
                 var canvas = document.createElement('canvas');
                 canvas.className = 'full-preview-pdf-canvas';
-                canvas.width = viewport.width;
-                canvas.height = viewport.height;
-                canvas.style.width = displayWidth + 'px';
-                canvas.style.height = (unscaledViewport.height * (displayWidth / unscaledViewport.width)) + 'px';
+                canvas.width = Math.round(viewport.width);
+                canvas.height = Math.round(viewport.height);
+                canvas.style.width = pageW + 'px';
+                canvas.style.height = pageH + 'px';
 
                 var ctx = canvas.getContext('2d');
                 await page.render({ canvasContext: ctx, viewport: viewport }).promise;
@@ -6439,11 +7479,20 @@
 
         var filename = fileNameBase + (isTeacher ? '_Solution_Key' : '') + '.' + ext;
 
-        // If format is PDF, use Desktop.printPdf for direct PDF rendering
+        // If format is PDF, use promptExportDestination and Desktop.printPdf for direct PDF rendering
         if (currentExportFormat === 'pdf' && window.Desktop && Desktop.isElectron && typeof Desktop.printPdf === 'function') {
-          var pdfRes = await Desktop.printPdf({
+          var destRes = window.promptExportDestination
+            ? await window.promptExportDestination({
+                title: 'Export PDF',
+                filename: filename,
+                allowDocEditor: false
+              })
+            : { destination: 'to-print', filename: filename };
+          if (!destRes || !destRes.destination) return;
+          var finalPdfName = destRes.filename || filename;
+          var pdfReq = {
             html: outContent,
-            defaultName: filename,
+            defaultName: finalPdfName,
             pdfOptions: {
               landscape: false,
               pageSize: 'A4',
@@ -6451,19 +7500,44 @@
               preferCSSPageSize: true,
               printBackground: true
             }
-          });
+          };
+          if (destRes.destination === 'to-print') {
+            pdfReq.target = 'toPrint';
+            pdfReq.filename = finalPdfName;
+          }
+          var pdfRes = await Desktop.printPdf(pdfReq);
 
           if (pdfRes && pdfRes.ok && pdfRes.path) {
             if (window.showExportSuccessPopup) {
-              window.showExportSuccessPopup(pdfRes.path, pdfRes.name || filename);
+              window.showExportSuccessPopup(pdfRes.path, pdfRes.name || finalPdfName);
             } else if (window.showToast) {
-              showToast('Exported ' + filename);
+              showToast('Exported ' + finalPdfName);
             }
           }
           return;
         }
 
-        // Standard text/html/md/docx file save
+        // Standard text/html/md/docx file save using universal export modal
+        if (window.saveExportWithDestination) {
+          var mime = ext === 'md' ? 'text/markdown;charset=utf-8' : (ext === 'doc' ? 'application/msword' : 'text/html;charset=utf-8');
+          var isDocFormat = (currentExportFormat === 'html' || currentExportFormat === 'md');
+          var filters = currentExportFormat === 'md'
+            ? [{ name: 'Markdown Document', extensions: ['md'] }, { name: 'All Files', extensions: ['*'] }]
+            : (currentExportFormat === 'docx'
+              ? [{ name: 'Word Document', extensions: ['doc', 'docx'] }, { name: 'All Files', extensions: ['*'] }]
+              : [{ name: 'HTML Document', extensions: ['html'] }, { name: 'All Files', extensions: ['*'] }]);
+
+          await window.saveExportWithDestination({
+            filename: filename,
+            content: outContent,
+            mimeType: mime,
+            allowDocEditor: isDocFormat,
+            filters: filters,
+            modalTitle: 'Export ' + currentExportFormat.toUpperCase()
+          });
+          return;
+        }
+
         if (window.Desktop && Desktop.isElectron && typeof Desktop.saveFile === 'function') {
           var res = await Desktop.saveFile({
             target: 'toPrint',
@@ -6913,6 +7987,378 @@
 
         window.renderTestPickerList();
         if (window.showToast) showToast(i18n.t('tcTestDeletedToast') || 'Test deleted successfully.');
+      };
+
+      // ── Test Models & Templates Controller ────────────────────────────────
+      var _userCustomTestTemplates = [];
+      var _activeTemplateTab = 'all';
+
+      window.tcLoadCustomTestTemplates = async function () {
+        _userCustomTestTemplates = [];
+        if (window.Desktop && Desktop.isElectron && typeof Desktop.readJson === 'function') {
+          try {
+            var res = await Desktop.readJson('user', 'custom-test-templates.json');
+            var list = (res && res.ok && res.data) ? res.data : (res && res.data ? res.data : res);
+            if (Array.isArray(list)) {
+              _userCustomTestTemplates = list;
+              return;
+            }
+          } catch (_) {}
+        }
+        try {
+          var raw = localStorage.getItem('cmt_custom_test_templates');
+          if (raw) {
+            var parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              _userCustomTestTemplates = parsed;
+            }
+          }
+        } catch (_) {}
+      };
+
+      window.tcSaveCustomTestTemplatesToDisk = async function () {
+        try {
+          localStorage.setItem('cmt_custom_test_templates', JSON.stringify(_userCustomTestTemplates));
+        } catch (_) {}
+        if (window.Desktop && Desktop.isElectron && typeof Desktop.saveJson === 'function') {
+          try {
+            await Desktop.saveJson('user', 'custom-test-templates.json', _userCustomTestTemplates);
+          } catch (e) {
+            console.error('Error saving custom test templates:', e);
+          }
+        }
+      };
+
+      window.tcOpenTemplatePicker = function () {
+        document.getElementById('templateModal').classList.add('open');
+        var sIn = document.getElementById('templatePickerSearch');
+        if (sIn) sIn.value = '';
+        tcSetTemplateTab('all');
+      };
+
+      window.tcCloseTemplatePicker = function () {
+        document.getElementById('templateModal').classList.remove('open');
+      };
+
+      window.tcSetTemplateTab = function (tab) {
+        _activeTemplateTab = tab;
+        ['all', 'builtin', 'custom'].forEach(function (t) {
+          var btn = document.getElementById('tmplTab' + t.charAt(0).toUpperCase() + t.slice(1));
+          if (btn) {
+            if (t === tab) btn.classList.add('active');
+            else btn.classList.remove('active');
+          }
+        });
+        tcRenderTemplatePickerList();
+      };
+
+      window.tcFilterTemplatePicker = function () {
+        tcRenderTemplatePickerList();
+      };
+
+      window.tcRenderTemplatePickerList = function () {
+        var container = document.getElementById('templatePickerList');
+        if (!container) return;
+
+        var query = ((document.getElementById('templatePickerSearch') && document.getElementById('templatePickerSearch').value) || '').trim().toLowerCase();
+
+        var builtins = TestCreatorService.BUILTIN_TEST_TEMPLATES || [];
+        var customs = _userCustomTestTemplates || [];
+
+        var cntAll = document.getElementById('tmplCountAll');
+        var cntBuiltin = document.getElementById('tmplCountBuiltin');
+        var cntCustom = document.getElementById('tmplCountCustom');
+        if (cntAll) cntAll.textContent = builtins.length + customs.length;
+        if (cntBuiltin) cntBuiltin.textContent = builtins.length;
+        if (cntCustom) cntCustom.textContent = customs.length;
+
+        var all = [];
+        if (_activeTemplateTab === 'all' || _activeTemplateTab === 'builtin') {
+          all = all.concat(builtins);
+        }
+        if (_activeTemplateTab === 'all' || _activeTemplateTab === 'custom') {
+          all = all.concat(customs);
+        }
+
+        var filtered = all.filter(function (t) {
+          if (!query) return true;
+          var inTitle = (t.title || '').toLowerCase().includes(query);
+          var inDesc = (t.description || '').toLowerCase().includes(query);
+          var inSubj = (t.subject || '').toLowerCase().includes(query);
+          return inTitle || inDesc || inSubj;
+        });
+
+        var countBadge = document.getElementById('templatePickerCountBadge');
+        if (countBadge) {
+          countBadge.textContent = filtered.length + ' ' + (filtered.length === 1 ? 'template' : 'templates');
+        }
+
+        if (!filtered.length) {
+          container.innerHTML = '<div style="text-align:center;padding:24px;color:#64748b;font-weight:700;">' +
+            (i18n.t('tcNoTemplatesFound') || 'No test models or templates match your filter.') + '</div>';
+          return;
+        }
+
+        container.innerHTML = filtered.map(function (tmpl) {
+          var isCustom = !!tmpl.isCustom;
+          var exList = tmpl.exercises || [];
+          var totalPts = 0;
+          exList.forEach(function (e) {
+            totalPts += (Number(e.points) || 0);
+          });
+          var chipsHtml = exList.map(function (e, idx) {
+            var typeLabel = e.type ? e.type.toUpperCase() : 'EX';
+            var pts = (Number(e.points) || 0);
+            return '<span class="template-ex-chip">#' + (idx + 1) + ' ' + escapeHtml(e.title || typeLabel) + ' (' + pts + 'p)</span>';
+          }).join('');
+
+          return '<div class="template-picker-card">' +
+            '  <div class="template-picker-header">' +
+            '    <div style="display:flex;flex-direction:column;gap:4px;width:100%;">' +
+            '      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+            '        <span class="template-picker-title">' + escapeHtml(tmpl.title || 'Untitled Model') + '</span>' +
+            '        <span class="template-badge ' + (isCustom ? 'template-badge-custom' : 'template-badge-builtin') + '">' +
+            '          ' + (isCustom ? (i18n.t('tcBadgeCustom') || 'Custom Template') : (i18n.t('tcBadgeBuiltin') || 'Built-in Model')) +
+            '        </span>' +
+            '        <span class="template-subject-badge">' + escapeHtml(tmpl.subject || 'General') + '</span>' +
+            '      </div>' +
+            '      <div class="template-picker-desc">' + escapeHtml(tmpl.description || '') + '</div>' +
+            '    </div>' +
+            '  </div>' +
+            '  <div class="template-meta-row">' +
+            '    <span class="template-stat"><strong>' + exList.length + '</strong> ' + (i18n.t('tcExercises') || 'exercises') + '</span>' +
+            '    <span class="template-stat"><strong>' + (tmpl.duration || 45) + '</strong> min</span>' +
+            '    <span class="template-stat"><strong>' + totalPts + '</strong> pts</span>' +
+            '  </div>' +
+            (chipsHtml ? ('  <div class="template-ex-chips">' + chipsHtml + '</div>') : '') +
+            '  <div class="template-actions">' +
+            '    <button type="button" class="neo-btn sm primary" onclick="tcUseTemplate(\'' + escapeAttr(tmpl.id) + '\', ' + (!isCustom) + ')">' +
+            '      <img src="../assets/icons/check.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> ' +
+            '      ' + (i18n.t('tcUseThisTemplate') || 'Use this Model') +
+            '    </button>' +
+            '    <button type="button" class="neo-btn sm" onclick="tcExportTemplateFile(\'' + escapeAttr(tmpl.id) + '\', ' + (!isCustom) + ')" title="Export template JSON to disk">' +
+            '      <img src="../assets/icons/download.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> ' +
+            '      ' + (i18n.t('tcExportTemplate') || 'Export…') +
+            '    </button>' +
+            (isCustom ? (
+            '    <button type="button" class="neo-btn sm danger" onclick="tcDeleteCustomTemplate(\'' + escapeAttr(tmpl.id) + '\')" title="Delete custom template">' +
+            '      <img src="../assets/icons/trash.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> ' +
+            '      ' + (i18n.t('btnDelete') || 'Delete') +
+            '    </button>'
+            ) : '') +
+            '  </div>' +
+            '</div>';
+        }).join('');
+      };
+
+      window.tcUseTemplate = async function (templateId, isBuiltin) {
+        var tmpl = null;
+        if (isBuiltin) {
+          tmpl = (TestCreatorService.BUILTIN_TEST_TEMPLATES || []).find(function (t) { return t.id === templateId; });
+        } else {
+          tmpl = (_userCustomTestTemplates || []).find(function (t) { return t.id === templateId; });
+        }
+        if (!tmpl) {
+          if (window.showToast) showToast('Template not found', true);
+          return;
+        }
+
+        if (currentTest && currentTest.exercises && currentTest.exercises.length > 0) {
+          var warnMsg = 'Using a template will replace the current exercises with the template structure. Any unsaved changes on the current test will be lost. Do you wish to continue?';
+          var ok = window.showConfirm ? await window.showConfirm(warnMsg) : confirm(warnMsg);
+          if (!ok) return;
+        }
+
+        var newTest = TestCreatorService.createTestFromTemplate(tmpl, {
+          className: currentTest ? currentTest.className : '',
+          subject: (tmpl.subject && tmpl.subject !== 'General') ? tmpl.subject : (currentTest ? currentTest.subject : '')
+        });
+
+        currentTest = newTest;
+        if (currentTest.classId) {
+          var matching = activeClassGroups.find(function (g) {
+            return g.id === currentTest.classId || g.name === currentTest.classId;
+          });
+          if (matching) {
+            currentTest.className = matching.name || matching.id;
+            activeStudents = matching.students || [];
+          } else {
+            activeStudents = [];
+          }
+        } else {
+          activeStudents = [];
+        }
+
+        renderTestMeta();
+        renderExerciseCards();
+        tcCloseTemplatePicker();
+
+        try {
+          localStorage.setItem('cmt_active_test', JSON.stringify(currentTest));
+        } catch (_) {}
+
+        tcSaveCurrentTest(false);
+        if (window.showToast) {
+          showToast((i18n.t('tcTemplateLoaded') || 'Loaded template: ') + (tmpl.title || 'Untitled'));
+        }
+      };
+
+      window.tcSaveAsTemplate = async function () {
+        if (!currentTest) return;
+        var promptTitle = i18n.t('tcSaveTemplatePromptTitle') || 'Enter a title for this template:';
+        var defaultTitle = (currentTest.title ? (currentTest.title + ' Template') : 'My Custom Template');
+        var enteredTitle = window.showPrompt
+          ? await window.showPrompt(promptTitle, defaultTitle)
+          : prompt(promptTitle, defaultTitle);
+        if (!enteredTitle || !enteredTitle.trim()) return;
+
+        var promptDesc = i18n.t('tcSaveTemplatePromptDesc') || 'Enter a short description of this test model/template:';
+        var defaultDesc = (currentTest.exercises ? (currentTest.exercises.length + ' exercises') : '') + (currentTest.subject ? (' for ' + currentTest.subject) : '');
+        var enteredDesc = window.showPrompt
+          ? await window.showPrompt(promptDesc, defaultDesc)
+          : prompt(promptDesc, defaultDesc);
+
+        var tmpl = TestCreatorService.extractTemplateFromTest(currentTest, {
+          title: enteredTitle.trim(),
+          description: (enteredDesc || '').trim(),
+          subject: currentTest.subject || 'General'
+        });
+
+        _userCustomTestTemplates.push(tmpl);
+        await tcSaveCustomTestTemplatesToDisk();
+
+        if (window.showToast) {
+          showToast(i18n.t('tcTemplateSaved') || 'Template saved successfully!');
+        }
+
+        var modal = document.getElementById('templateModal');
+        if (modal && modal.classList.contains('open')) {
+          tcSetTemplateTab('custom');
+          tcRenderTemplatePickerList();
+        }
+      };
+
+      window.tcDeleteCustomTemplate = async function (templateId) {
+        var tmpl = (_userCustomTestTemplates || []).find(function (t) { return t.id === templateId; });
+        if (!tmpl) return;
+
+        var msg = (i18n.t('tcDeleteTemplateConfirm') || 'Are you sure you want to delete this template?') + ' "' + tmpl.title + '"';
+        var ok = window.showConfirm ? await window.showConfirm(msg) : confirm(msg);
+        if (!ok) return;
+
+        _userCustomTestTemplates = _userCustomTestTemplates.filter(function (t) { return t.id !== templateId; });
+        await tcSaveCustomTestTemplatesToDisk();
+        tcRenderTemplatePickerList();
+        if (window.showToast) {
+          showToast('Template deleted');
+        }
+      };
+
+      window.tcExportTemplateFile = async function (templateId, isBuiltin) {
+        var tmpl = null;
+        if (isBuiltin) {
+          tmpl = (TestCreatorService.BUILTIN_TEST_TEMPLATES || []).find(function (t) { return t.id === templateId; });
+        } else {
+          tmpl = (_userCustomTestTemplates || []).find(function (t) { return t.id === templateId; });
+        }
+        if (!tmpl) {
+          if (window.showToast) showToast('Template not found', true);
+          return;
+        }
+
+        var exportObj = {
+          title: tmpl.title,
+          description: tmpl.description || '',
+          subject: tmpl.subject || 'General',
+          duration: tmpl.duration || 45,
+          headerConfig: tmpl.headerConfig || {},
+          materialsAllowed: tmpl.materialsAllowed || [],
+          exportStyle: tmpl.exportStyle || {},
+          exercises: tmpl.exercises || []
+        };
+
+        var slug = (tmpl.title || 'template').toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 30) || 'template';
+        var filename = 'template_' + slug + '.json';
+        var jsonContent = JSON.stringify(exportObj, null, 2);
+
+        if (window.saveExportWithDestination) {
+          await window.saveExportWithDestination({
+            filename: filename,
+            content: jsonContent,
+            mimeType: 'application/json;charset=utf-8',
+            allowDocEditor: false,
+            filters: [{ name: 'JSON Template File', extensions: ['json'] }, { name: 'All Files', extensions: ['*'] }],
+            modalTitle: (i18n.t('tcExportTemplate') || 'Export Template')
+          });
+          return;
+        }
+
+        if (window.Desktop && Desktop.isElectron && typeof Desktop.saveFile === 'function') {
+          var res = await Desktop.saveFile({
+            target: 'user',
+            filename: filename,
+            content: jsonContent
+          });
+          if (res && res.ok && window.showExportSuccessPopup) {
+            window.showExportSuccessPopup(res.path || ('user/' + filename), filename);
+          } else if (window.showToast) {
+            showToast('Template exported to ' + filename);
+          }
+        } else {
+          var blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8' });
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(function () {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          }, 200);
+          if (window.showToast) showToast('Template exported');
+        }
+      };
+
+      window.tcImportTemplateFromFile = function (event) {
+        var file = event && event.target && event.target.files && event.target.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = async function (e) {
+          try {
+            var data = JSON.parse(e.target.result);
+            if (!data || typeof data !== 'object') {
+              if (window.showToast) showToast('Invalid template file format', true);
+              return;
+            }
+            var newTmpl = {
+              id: 'tmpl_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+              title: data.title || 'Imported Template',
+              description: data.description || '',
+              subject: data.subject || 'General',
+              duration: data.duration || 45,
+              isCustom: true,
+              headerConfig: data.headerConfig || {},
+              materialsAllowed: Array.isArray(data.materialsAllowed) ? data.materialsAllowed : [],
+              exportStyle: data.exportStyle || {},
+              exercises: Array.isArray(data.exercises) ? data.exercises : []
+            };
+
+            _userCustomTestTemplates.push(newTmpl);
+            await tcSaveCustomTestTemplatesToDisk();
+            tcSetTemplateTab('custom');
+            tcRenderTemplatePickerList();
+            if (window.showToast) {
+              showToast((i18n.t('tcTemplateImported') || 'Template imported successfully! ') + ' "' + newTmpl.title + '"');
+            }
+          } catch (err) {
+            console.error('Error parsing imported template JSON:', err);
+            if (window.showToast) showToast('Failed to import template JSON: ' + err.message, true);
+          } finally {
+            event.target.value = '';
+          }
+        };
+        reader.readAsText(file);
       };
 
       window.tcNewTest = function () {

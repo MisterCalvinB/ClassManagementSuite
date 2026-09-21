@@ -972,7 +972,41 @@
     return { ok: false, error: 'Screen capture API unavailable' };
   }
 
+  async function sendToDocumentEditor(options) {
+    if (typeof window.sendToDocumentEditor === 'function') {
+      return window.sendToDocumentEditor(options);
+    }
+    if (!options) return { ok: false, canceled: true };
+    const content = options.content || '';
+    let filename = options.filename;
+    const format = options.format || (filename && filename.endsWith('.md') ? 'md' : 'html');
+    if (!filename) {
+      const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const safeTitle = (options.title || 'document').toLowerCase().replace(/[^a-z0-9_\-]+/g, '_');
+      filename = `${safeTitle}_${ts}.${format}`;
+    }
+    if (isElectron()) {
+      const r = await saveText('docEditorDocs', filename, content);
+      if (r && r.ok) {
+        await openTool('document-editor.html', {
+          query: { editTarget: 'docEditorDocs', editRelPath: filename }
+        });
+        return { ok: true, name: filename, target: 'docEditorDocs' };
+      }
+      return r;
+    } else {
+      try {
+        sessionStorage.setItem('cmt_doc_editor_draft', JSON.stringify({ filename, content, format }));
+        window.location.href = 'document-editor.html?importPending=draft';
+        return { ok: true, name: filename, destination: 'doc-editor' };
+      } catch (e) {
+        return { ok: false, error: e.message };
+      }
+    }
+  }
+
   window.Desktop = Object.freeze({
+    sendToDocumentEditor,
     applyRestoreChoices,
     arrangeSideBySide,
     backupZip,
