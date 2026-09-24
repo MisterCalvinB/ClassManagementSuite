@@ -4443,11 +4443,18 @@ ipcMain.handle('app:read-board-archive', async (event, request = {}) => {
         else if (ext === '.pdf') mime = 'application/pdf';
         else if (ext === '.mp3') mime = 'audio/mpeg';
         else if (ext === '.wav') mime = 'audio/wav';
-        else if (ext === '.ogg') mime = 'audio/ogg';
+        else if (ext === '.ogg') mime = kind === 'sounds' ? 'audio/ogg' : 'video/ogg';
         else if (ext === '.m4a') mime = 'audio/mp4';
+        else if (ext === '.aac') mime = 'audio/aac';
+        else if (ext === '.flac') mime = 'audio/flac';
         else if (ext === '.mp4') mime = 'video/mp4';
+        else if (ext === '.m4v') mime = 'video/mp4';
+        else if (ext === '.avi') mime = 'video/x-msvideo';
+        else if (ext === '.mkv') mime = 'video/x-matroska';
+        else if (ext === '.mov') mime = 'video/quicktime';
         else if (ext === '.webm') mime = kind === 'sounds' ? 'audio/webm' : 'video/webm';
-        else mime = kind === 'pics' ? 'image/webp' : (kind === 'sounds' ? 'audio/wav' : 'application/octet-stream');
+        else if (ext === '.opus' || ext === '.weba') mime = kind === 'sounds' ? 'audio/ogg' : 'video/webm';
+        else mime = kind === 'pics' ? 'image/webp' : (kind === 'sounds' ? 'audio/wav' : (kind === 'videos' ? 'video/webm' : 'application/octet-stream'));
 
         const mediaEntry = {
           name: fileName,

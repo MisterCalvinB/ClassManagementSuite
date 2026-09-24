@@ -55,6 +55,161 @@
   }
 
   /**
+   * Patch a WebM blob to write the correct Duration into the EBML SegmentInfo.
+   * MediaRecorder produces WebM files without a Duration field, causing players
+   * to report 0 or unknown duration. This function locates the Duration element
+   * (EBML ID 0x4489) in the binary and overwrites its float64 value.
+   *
+   * If no Duration element is found (short recordings / some codecs), the blob
+   * is returned as-is — the recording still plays correctly, just without seek.
+   *
+   * @param {Blob} blob         — raw WebM blob from MediaRecorder
+   * @param {number} durationMs — elapsed recording time in milliseconds
+   * @returns {Promise<Blob>}
+   */
+  async function patchWebMDuration(blob, durationMs) {
+    if (!blob || durationMs <= 0) return blob;
+    try {
+      var arrayBuf = await blob.arrayBuffer();
+      var bytes = new Uint8Array(arrayBuf);
+
+      // EBML element IDs we care about
+      var SEGMENT_ID      = [0x18, 0x53, 0x80, 0x67]; // Segment
+      var SEG_INFO_ID     = [0x15, 0x49, 0xA9, 0x66]; // SegmentInformation
+      var DURATION_ID     = [0x44, 0x89];              // Duration (float64 or float32)
+      var TIMECODE_SCALE_ID = [0x2A, 0xD7, 0xB1];     // TimecodeScale (nanoseconds per tick)
+
+      // Read a VINT (variable-length integer) at position i; return {value, bytesRead}
+      function readVInt(buf, i) {
+        var b = buf[i];
+        if (b === undefined) return null;
+        var mask = 0x80;
+        var bytesRead = 1;
+        while (bytesRead <= 8 && !(b & mask)) { mask >>= 1; bytesRead++; }
+        if (bytesRead > 8) return null;
+        var value = (b & (mask - 1));
+        for (var j = 1; j < bytesRead; j++) value = (value * 256) + buf[i + j];
+        return { value: value, bytesRead: bytesRead };
+      }
+
+      // Match a multi-byte ID at position i
+      function matchId(buf, i, idBytes) {
+        for (var k = 0; k < idBytes.length; k++) {
+          if (buf[i + k] !== idBytes[k]) return false;
+        }
+        return true;
+      }
+
+      // Read a IEEE 754 float64 (big-endian) from 8 bytes at position i
+      function readFloat64BE(buf, i) {
+        var dv = new DataView(buf.buffer || new Uint8Array(buf).buffer);
+        return dv.getFloat64(i, false);
+      }
+
+      // Write a IEEE 754 float64 (big-endian) to 8 bytes at position i
+      function writeFloat64BE(buf, i, value) {
+        var tmp = new DataView(new ArrayBuffer(8));
+        tmp.setFloat64(0, value, false);
+        for (var k = 0; k < 8; k++) buf[i + k] = tmp.getUint8(k);
+      }
+
+      // Determine the timecode scale (default 1,000,000 ns/tick = 1ms per tick)
+      var timecodeScale = 1000000; // default: 1 ms per tick
+      var searchEnd = Math.min(bytes.length, 65536); // look only in first 64 KB
+      for (var i = 0; i < searchEnd - 3; i++) {
+        if (matchId(bytes, i, TIMECODE_SCALE_ID)) {
+          var tsLen = readVInt(bytes, i + TIMECODE_SCALE_ID.length);
+          if (tsLen && tsLen.value >= 1 && tsLen.value <= 8) {
+            var tsStart = i + TIMECODE_SCALE_ID.length + tsLen.bytesRead;
+            var val = 0;
+            for (var b = 0; b < tsLen.value; b++) val = val * 256 + bytes[tsStart + b];
+            if (val > 0) timecodeScale = val;
+          }
+          break;
+        }
+      }
+
+      // Duration in WebM ticks = durationMs * 1,000,000 / timecodeScale
+      var durationTicks = (durationMs * 1000000) / timecodeScale;
+
+      // Find the Duration element and patch it
+      var patched = false;
+      for (var i = 0; i < searchEnd - 10; i++) {
+        if (matchId(bytes, i, DURATION_ID)) {
+          var sizeVint = readVInt(bytes, i + 2);
+          if (!sizeVint) continue;
+          var dataStart = i + 2 + sizeVint.bytesRead;
+          var dataLen   = sizeVint.value;
+
+          if (dataLen === 8) {
+            // float64 — overwrite in place
+            writeFloat64BE(bytes, dataStart, durationTicks);
+            patched = true;
+            break;
+          } else if (dataLen === 4) {
+            // float32 — overwrite in place (less precision but still correct)
+            var tmp32 = new DataView(new ArrayBuffer(4));
+            tmp32.setFloat32(0, durationTicks, false);
+            for (var k = 0; k < 4; k++) bytes[dataStart + k] = tmp32.getUint8(k);
+            patched = true;
+            break;
+          }
+        }
+      }
+
+      if (!patched) {
+        // Duration element not present: fall back to SegmentInfo injection.
+        // Locate SegmentInfo block and insert Duration element (4489 88 <8 float64 bytes>)
+        for (var i = 0; i < searchEnd - 4; i++) {
+          if (matchId(bytes, i, SEG_INFO_ID)) {
+            // SEG_INFO_ID (4 bytes) + size VINT (variable) → skip to body
+            var siSizeVint = readVInt(bytes, i + SEG_INFO_ID.length);
+            if (!siSizeVint) break;
+            // Insert Duration as first child of SegmentInfo body
+            var insertAt = i + SEG_INFO_ID.length + siSizeVint.bytesRead;
+
+            // Build Duration element: ID(2) + size_vint(1, value=8) + float64(8) = 11 bytes
+            var durElement = new Uint8Array(11);
+            durElement[0] = 0x44; durElement[1] = 0x89; // Duration element ID
+            durElement[2] = 0x88; // VINT for size 8 (0x80 | 8)
+            var tmp64 = new DataView(new ArrayBuffer(8));
+            tmp64.setFloat64(0, durationTicks, false);
+            for (var k = 0; k < 8; k++) durElement[3 + k] = tmp64.getUint8(k);
+
+            // Splice the duration element into the bytes
+            var newBytes = new Uint8Array(bytes.length + 11);
+            newBytes.set(bytes.subarray(0, insertAt), 0);
+            newBytes.set(durElement, insertAt);
+            newBytes.set(bytes.subarray(insertAt), insertAt + 11);
+
+            // Update the SegmentInfo size field (+11 bytes)
+            // Re-write the size VINT for SegmentInfo (only if it fits in same number of bytes)
+            var newSiSize = siSizeVint.value + 11;
+            if (siSizeVint.bytesRead === 4) {
+              // 4-byte VINT: mask is 0x10000000
+              newBytes[i + SEG_INFO_ID.length + 0] = 0x10 | ((newSiSize >> 21) & 0x0F);
+              newBytes[i + SEG_INFO_ID.length + 1] = (newSiSize >> 14) & 0xFF;
+              newBytes[i + SEG_INFO_ID.length + 2] = (newSiSize >> 7)  & 0xFF;
+              newBytes[i + SEG_INFO_ID.length + 3] = newSiSize & 0x7F;
+              patched = true;
+            } else if (siSizeVint.bytesRead === 8) {
+              // 8-byte unknown-size sentinel — leave as-is, duration is now present
+              patched = true;
+            }
+            bytes = newBytes;
+            break;
+          }
+        }
+      }
+
+      return new Blob([bytes], { type: blob.type });
+    } catch (patchErr) {
+      console.warn('[BoardRecorder] patchWebMDuration failed, returning raw blob:', patchErr);
+      return blob;
+    }
+  }
+
+  /**
    * Helper: Pick best supported MIME type
    */
   function getPreferredMimeType() {
@@ -106,11 +261,29 @@
    */
   async function startMicrophoneTest(deviceId, onLevel) {
     stopMicrophoneTest();
-    try {
+
+    async function _tryAcquire(useExact) {
       var constraints = {
-        audio: deviceId ? { deviceId: { exact: deviceId } } : true
+        audio: (deviceId && useExact) ? { deviceId: { exact: deviceId } } : (deviceId ? { deviceId: deviceId } : true)
       };
-      testMicStream = await navigator.mediaDevices.getUserMedia(constraints);
+      return navigator.mediaDevices.getUserMedia(constraints);
+    }
+
+    try {
+      try {
+        testMicStream = await _tryAcquire(true);
+      } catch (firstErr) {
+        // NotReadableError = device busy (often a race with the getAudioDevices probe).
+        // NotFoundError   = exact deviceId no longer valid.
+        // Retry once after a short backoff, falling back to default mic.
+        if (firstErr.name === 'NotReadableError' || firstErr.name === 'NotFoundError' || firstErr.name === 'OverconstrainedError') {
+          await new Promise(function (r) { setTimeout(r, 350); });
+          testMicStream = await _tryAcquire(false); // retry without exact constraint
+        } else {
+          throw firstErr;
+        }
+      }
+
       var AudioContextClass = window.AudioContext || window.webkitAudioContext;
       if (!AudioContextClass) return;
 
@@ -371,10 +544,15 @@
 
       if (micLevelRaf) { cancelAnimationFrame(micLevelRaf); micLevelRaf = null; }
 
-      mediaRecorder.onstop = function () {
+      mediaRecorder.onstop = async function () {
         try {
           var mimeType = mediaRecorder.mimeType || getPreferredMimeType();
-          currentBlob = new Blob(recordedChunks, { type: mimeType });
+          var rawBlob = new Blob(recordedChunks, { type: mimeType });
+
+          // Patch the WebM blob to embed the correct Duration into the EBML header.
+          // MediaRecorder never writes a Duration field, which causes players to
+          // report 0:00 / unknown duration for both in-app preview and exported files.
+          currentBlob = await patchWebMDuration(rawBlob, Math.max(0, finalDuration));
           currentBlobUrl = URL.createObjectURL(currentBlob);
 
           _cleanupStreams();
@@ -506,7 +684,10 @@
       } catch (_) {}
     }
 
-    boardVideoOnMicSelectChange();
+    // Small delay so the OS fully releases the temporary getUserMedia track
+    // that getAudioDevices() opened internally to resolve device labels.
+    // Without this, startMicrophoneTest fires too quickly and gets NotReadableError.
+    setTimeout(function () { boardVideoOnMicSelectChange(); }, 250);
 
     // Restore saved FPS setting
     var fpsSelect = document.getElementById('board-rec-fps-select');

@@ -1,0 +1,506 @@
+/**
+ * css/tag-link-modal.css
+ * Neobrutalist Plain-Text Tagging & Linking Modal Stylesheet
+ * Class Management Tools (CMT)
+ *
+ * STRICT REQUIREMENT: NO EMOJIS, NO ICONS - PLAIN TEXT ONLY.
+ * Thick solid black borders, hard offset shadows, high contrast, blocky buttons.
+ */
+
+/* ── Modal Overlay & Backdrop ────────────────────────────────────────────── */
+#cmt-link-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  font-family: 'Lexend', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+#cmt-link-modal-overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ── Main Modal Card ─────────────────────────────────────────────────────── */
+.cmt-lm-card {
+  background: #ffffff;
+  border: 3px solid #000000;
+  border-radius: 0px;
+  box-shadow: 6px 6px 0px #000000;
+  width: 95%;
+  max-width: 780px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+.cmt-lm-header {
+  background: #fde047; /* Neobrutalist yellow */
+  border-bottom: 3px solid #000000;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cmt-lm-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cmt-lm-title-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cmt-lm-badge {
+  background: #000000;
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 3px 6px;
+  border: 1.5px solid #000000;
+  border-radius: 0px;
+  white-space: nowrap;
+}
+
+.cmt-lm-badge.inherited {
+  background: #3b82f6;
+  color: #ffffff;
+}
+
+.cmt-lm-title {
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: #000000;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cmt-lm-subtitle {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #333333;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cmt-lm-close-btn {
+  background: #ffffff;
+  color: #000000;
+  border: 2px solid #000000;
+  border-radius: 0px;
+  box-shadow: 2px 2px 0px #000000;
+  font-weight: 900;
+  font-size: 0.8rem;
+  padding: 6px 12px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
+.cmt-lm-close-btn:hover {
+  background: #f87171;
+  color: #000000;
+}
+
+.cmt-lm-close-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0px #000000;
+}
+
+/* ── Scrollable Body ─────────────────────────────────────────────────────── */
+.cmt-lm-body {
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: #fafafa;
+}
+
+/* ── Section Containers ──────────────────────────────────────────────────── */
+.cmt-lm-section {
+  background: #ffffff;
+  border: 2.5px solid #000000;
+  border-radius: 0px;
+  box-shadow: 3px 3px 0px #000000;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cmt-lm-sec-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 2px solid #000000;
+  padding-bottom: 6px;
+}
+
+.cmt-lm-sec-title {
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #000000;
+  margin: 0;
+}
+
+.cmt-lm-sec-count {
+  background: #e2e8f0;
+  border: 1.5px solid #000000;
+  padding: 1px 6px;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+/* ── Tags Area ───────────────────────────────────────────────────────────── */
+.cmt-lm-tags-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.cmt-lm-tag-pill {
+  background: #fef08a;
+  border: 2px solid #000000;
+  box-shadow: 2px 2px 0px #000000;
+  padding: 4px 8px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-transform: lowercase;
+}
+
+.cmt-lm-tag-del {
+  background: #000000;
+  color: #ffffff;
+  border: none;
+  font-size: 0.7rem;
+  font-weight: 900;
+  padding: 1px 5px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.cmt-lm-tag-del:hover {
+  background: #ef4444;
+}
+
+.cmt-lm-tag-add-form {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.cmt-lm-input {
+  border: 2px solid #000000;
+  border-radius: 0px;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-family: inherit;
+  background: #ffffff;
+  outline: none;
+  flex: 1;
+}
+
+.cmt-lm-input:focus {
+  background: #fffbeb;
+  box-shadow: inset 2px 2px 0px #000000;
+}
+
+.cmt-lm-btn {
+  background: #ffffff;
+  color: #000000;
+  border: 2px solid #000000;
+  border-radius: 0px;
+  box-shadow: 2px 2px 0px #000000;
+  font-size: 0.76rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  padding: 6px 12px;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.cmt-lm-btn:hover {
+  background: #e2e8f0;
+}
+
+.cmt-lm-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0px #000000;
+}
+
+.cmt-lm-btn.primary {
+  background: #4ade80;
+}
+
+.cmt-lm-btn.primary:hover {
+  background: #22c55e;
+}
+
+.cmt-lm-btn.danger {
+  background: #f87171;
+}
+
+.cmt-lm-btn.danger:hover {
+  background: #ef4444;
+  color: #ffffff;
+}
+
+/* ── Links List ──────────────────────────────────────────────────────────── */
+.cmt-lm-links-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.cmt-lm-link-row {
+  border: 2px solid #000000;
+  background: #ffffff;
+  box-shadow: 2px 2px 0px #000000;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cmt-lm-link-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.cmt-lm-link-title-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.cmt-lm-link-title {
+  font-size: 0.82rem;
+  font-weight: 900;
+  color: #000000;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cmt-lm-link-sub {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #555555;
+}
+
+.cmt-lm-link-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* ── Entity Browser / Link Adder ─────────────────────────────────────────── */
+.cmt-lm-add-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cmt-lm-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  border-bottom: 2px solid #000000;
+  padding-bottom: 6px;
+}
+
+.cmt-lm-tab-btn {
+  background: #ffffff;
+  border: 2px solid #000000;
+  border-radius: 0px;
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+}
+
+.cmt-lm-tab-btn.active {
+  background: #000000;
+  color: #ffffff;
+}
+
+.cmt-lm-search-row {
+  display: flex;
+  gap: 6px;
+}
+
+.cmt-lm-candidates-list {
+  border: 2px solid #000000;
+  background: #ffffff;
+  max-height: 180px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.cmt-lm-candidate-row {
+  padding: 8px 10px;
+  border-bottom: 1.5px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cmt-lm-candidate-row:last-child {
+  border-bottom: none;
+}
+
+.cmt-lm-candidate-row:hover {
+  background: #f8fafc;
+}
+
+.cmt-lm-empty {
+  padding: 16px;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ── Embedded PDF & File Previewer Sub-Modal ──────────────────────────────── */
+#cmt-preview-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100000;
+  font-family: 'Lexend', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+#cmt-preview-modal-overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.cmt-preview-card {
+  background: #ffffff;
+  border: 3px solid #000000;
+  border-radius: 0px;
+  box-shadow: 6px 6px 0px #000000;
+  width: 94%;
+  max-width: 900px;
+  height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.cmt-preview-header {
+  background: #60a5fa; /* Neobrutalist blue */
+  border-bottom: 3px solid #000000;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cmt-preview-body {
+  flex: 1;
+  background: #e2e8f0;
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+}
+
+.cmt-preview-body iframe,
+.cmt-preview-body object {
+  width: 100%;
+  height: 100%;
+  border: 2px solid #000000;
+  background: #ffffff;
+}
+
+.cmt-preview-body img {
+  max-width: 100%;
+  max-height: 100%;
+  border: 2px solid #000000;
+  box-shadow: 4px 4px 0px #000000;
+  background: #ffffff;
+}
+
+.cmt-preview-body audio {
+  width: 90%;
+  max-width: 500px;
+}
+
+.cmt-preview-footer {
+  background: #ffffff;
+  border-top: 3px solid #000000;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cmt-preview-info {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #000000;
+  text-transform: uppercase;
+}

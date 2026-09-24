@@ -2088,6 +2088,14 @@
         <span id="con-ctx-font-size-display"
           style="min-width:2em; text-align:right; font-size:0.72rem; color:#555;">13</span>
       </div>
+      <div class="wn-sp-row" style="margin-bottom:0;" id="con-ctx-maxwidth-row">
+        <span class="wn-sp-label" data-i18n="conFmtMaxWidth">Width</span>
+        <input type="range" id="con-ctx-max-width" min="0" max="400" step="10" value="0"
+          oninput="conCtxApplyMaxWidth(this.value); document.getElementById('con-ctx-max-width-display').textContent = (parseInt(this.value) > 0 ? this.value + 'px' : '\u2014');"
+          style="flex:1; cursor:pointer; accent-color:#111;">
+        <span id="con-ctx-max-width-display"
+          style="min-width:2.8em; text-align:right; font-size:0.72rem; color:#555;">&#x2014;</span>
+      </div>
       <div class="wn-sp-row" style="align-items:flex-start; margin-bottom:0;">
         <span class="wn-sp-label" style="padding-top:2px;">Shape</span>
         <div id="con-ctx-shapes" class="wn-sp-style-btns" style="flex-wrap:wrap; flex:1;">
@@ -2409,7 +2417,8 @@
       <code>_</code> phrase &nbsp;·&nbsp; <code>//</code> 2 lines &nbsp;·&nbsp; <code>,,</code> separate<br>
       <code>--</code> chain &nbsp;·&nbsp; <code>++</code> group<br>
       <code>&gt;</code>/<code>&gt;&gt;</code> arrow→ &nbsp;·&nbsp; <code>&lt;</code>/<code>&lt;&lt;</code> arrow← &nbsp;·&nbsp; <code>&lt;&gt;</code> both↔<br>
-      <code>((n))</code> page number &nbsp;e.g. <code>word ((128))</code>
+      <code>((n))</code> page number &nbsp;e.g. <code>word ((128))</code><br>
+      <code>=random(a,b)</code> random number node
     </div>
     <div class="con-ctx-sep"></div>
     <div style="padding:4px 10px 6px; display:flex; gap:5px; align-items:center;">
@@ -2797,6 +2806,18 @@
         </button>
       </div>
     </div>
+  </div>
+
+  <!-- Random Number Node Action Popover (anchored above random node) -->
+  <div id="con-random-action-popover" role="dialog" aria-label="Random Number Actions" style="display:none; position:fixed; z-index:99100; flex-direction:column; min-width:190px; max-width:240px; background:var(--bg-card,#fff); border:2px solid #111; box-shadow:3px 3px 0 #111; border-radius:5px; font-family:inherit; overflow:hidden;">
+    <div class="con-timer-popover-header">
+      <img src="../assets/icons/dice.svg" class="btn-icon" alt="" style="width:14px;height:14px;" />
+      <span id="con-random-popover-title">Random</span>
+      <button type="button" class="con-timer-popover-close" onclick="conCloseRandomPopover()" title="Close">
+        <img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" />
+      </button>
+    </div>
+    <div class="con-timer-popover-body" id="con-random-popover-actions"></div>
   </div>
 
   <!-- Note-to-Node Conversion Options Modal -->
@@ -4554,7 +4575,7 @@
               <div class="bc-section-hint" id="bc-autosave-hint" data-i18n="bcAutosaveHint">Configure how long after changes are made the board automatically saves to disk.</div>
               <div class="bc-fields-grid">
                 <label id="bc-autosave-label" data-i18n="bcAutosaveInterval">Autosave interval</label>
-                <div class="bc-field-row">
+                <div class="bc-field-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
                   <select id="bc-autosave-interval" class="bc-select">
                     <option value="15" data-i18n="bcAutosave15s">15 seconds (Frequent)</option>
                     <option value="30" data-i18n="bcAutosave30s">30 seconds</option>
@@ -4563,8 +4584,14 @@
                     <option value="90" data-i18n="bcAutosave90s">1.5 minutes</option>
                     <option value="120" data-i18n="bcAutosave2m">2 minutes</option>
                     <option value="300" data-i18n="bcAutosave5m">5 minutes</option>
+                    <option value="600" data-i18n="bcAutosave10m">10 minutes</option>
+                    <option value="custom" data-i18n="bcAutosaveCustom">Custom minutes...</option>
                     <option value="0" data-i18n="bcAutosaveDisabled">Disabled (Manual save only)</option>
                   </select>
+                  <div id="bc-autosave-custom-row" style="display:none;align-items:center;gap:6px;width:100%;">
+                    <input type="number" id="bc-autosave-custom-minutes" min="0.5" max="1440" step="0.5" value="10" class="bc-num-input" style="width:90px;" />
+                    <span class="bc-unit">min</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -9683,7 +9710,7 @@
             base64 = prev.base64;
           }
         }
-        const mime = raw.mime || conGuessMimeByName(raw.name, kind) || (kind === 'pics' ? 'image/webp' : (kind === 'sounds' ? 'audio/wav' : 'application/octet-stream'));
+        const mime = raw.mime || conGuessMimeByName(raw.name, kind) || (kind === 'pics' ? 'image/webp' : (kind === 'sounds' ? 'audio/wav' : (kind === 'videos' ? 'video/webm' : 'application/octet-stream')));
         const cleanB64 = base64.startsWith('data:') ? base64.split(',')[1] : base64;
         let cachedUrl = '';
         if (cleanB64) {
@@ -9794,6 +9821,9 @@
       if (/\.ogg$/i.test(lower)) return 'audio/ogg';
       if (/\.m4a$/i.test(lower)) return 'audio/mp4';
       if (/\.(webm|weba|opus)$/i.test(lower)) return (kind === 'sounds' ? 'audio/webm' : 'video/webm');
+      if (/\.m4v$/i.test(lower)) return 'video/mp4';
+      if (/\.avi$/i.test(lower)) return 'video/x-msvideo';
+      if (/\.mkv$/i.test(lower)) return 'video/x-matroska';
       if (/\.aac$/i.test(lower)) return 'audio/aac';
       if (/\.flac$/i.test(lower)) return 'audio/flac';
       if (/\.mp4$/i.test(lower)) return 'video/mp4';
@@ -9907,6 +9937,23 @@
       }
 
       return '';
+    }
+
+    // Returns {w, h} using the image's naturalWidth/naturalHeight, or null on failure.
+    async function conGetImageNaturalSize(url) {
+      if (!url) return null;
+      return new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => {
+          if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+            resolve({ w: img.naturalWidth, h: img.naturalHeight });
+          } else {
+            resolve(null);
+          }
+        };
+        img.onerror = () => resolve(null);
+        img.src = url;
+      });
     }
 
     async function conGetAttachmentArrayBuffer(att) {
@@ -12343,8 +12390,21 @@
       const customX = Number(options && options.x);
       const customY = Number(options && options.y);
       const hasCustomPos = Number.isFinite(customX) && Number.isFinite(customY);
+
+      // For images, resolve the natural aspect ratio so the container fits the image exactly.
+      let resolvedH = baseH;
+      if (att.kind === 'pics') {
+        try {
+          const imgUrl = await conGetAttachmentDataUrl(att);
+          const nat = await conGetImageNaturalSize(imgUrl);
+          if (nat && nat.w > 0 && nat.h > 0) {
+            resolvedH = Math.max(40, Math.round(baseW * nat.h / nat.w));
+          }
+        } catch (_) {}
+      }
+
       const maxX = Math.max(12, board.clientWidth - baseW - 12);
-      const maxY = Math.max(12, board.clientHeight - baseH - 12);
+      const maxY = Math.max(12, board.clientHeight - resolvedH - 12);
       const item = {
         id: 'cm' + (conMediaNextId++),
         kind: att.kind,
@@ -12358,9 +12418,9 @@
           : Math.max(12, Math.round((board.clientWidth - baseW) / 2 + Math.random() * 40 - 20)),
         y: hasCustomPos
           ? Math.max(12, Math.min(maxY, Math.round(customY)))
-          : Math.max(12, Math.round((board.clientHeight - baseH) / 2 + Math.random() * 40 - 20)),
+          : Math.max(12, Math.round((board.clientHeight - resolvedH) / 2 + Math.random() * 40 - 20)),
         w: baseW,
-        h: baseH
+        h: resolvedH
       };
       conMediaItems.push(item);
       conBuildMediaWidget(item);
@@ -17380,6 +17440,23 @@
         };
         menu.appendChild(openImgItem);
 
+        const openPageItem = document.createElement('button');
+        openPageItem.type = 'button';
+        openPageItem.className = 'con-mini-thumb-menu-item';
+        openPageItem.style.display = 'flex';
+        openPageItem.style.alignItems = 'center';
+        openPageItem.style.gap = '6px';
+        const openPageLabel = (typeof t === 'function' ? t('conOpenPageInNewWindow') : 'Open page in new window');
+        openPageItem.innerHTML = '<img src="../assets/icons/monitor.svg" style="width:13px;height:13px;flex-shrink:0;" alt="" /> <span>' + escapeSearchHtml(openPageLabel) + '</span>';
+        openPageItem.onclick = function (evt) {
+          evt.stopPropagation();
+          conCloseMiniThumbContextMenu();
+          if (typeof window.conOpenPageInNewWindow === 'function') {
+            window.conOpenPageInNewWindow(pageIndex);
+          }
+        };
+        menu.appendChild(openPageItem);
+
         const dupItem = document.createElement('button');
         dupItem.type = 'button';
         dupItem.className = 'con-mini-thumb-menu-item';
@@ -17412,8 +17489,8 @@
 
         document.body.appendChild(menu);
 
-        const menuWidth = 200;
-        const menuHeight = 115;
+        const menuWidth = 220;
+        const menuHeight = 155;
         let top = e.clientY;
         let left = e.clientX;
         if (left + menuWidth > window.innerWidth) left = Math.max(10, window.innerWidth - menuWidth - 8);
@@ -17808,6 +17885,13 @@
 
         _conRestorePageToBoard(targetSnap);
         conUpdatePageBar();
+        if (window._isPageWindow) {
+          const textSpan = document.getElementById('con-page-window-badge-text');
+          if (textSpan) {
+            const label = typeof t === 'function' ? t('conPageWindowBadge') : 'Secondary Window (Saving Disabled)';
+            textSpan.textContent = `Page ${idx + 1} • ${label}`;
+          }
+        }
       };
 
       window.conGoToPrevPage = function () { window.conGoToPage(conCurrentPageIndex - 1); };
@@ -18717,7 +18801,11 @@
             rotation: (typeof n.rotation === 'number') ? n.rotation : 0,
             fmt: n.fmt ? { ...n.fmt } : {},
             isTimer: !!n.isTimer,
-            durationSec: n.durationSec || null
+            durationSec: n.durationSec || null,
+            isRandom: !!n.isRandom,
+            randomMin: n.isRandom ? (n.randomMin != null ? n.randomMin : 1) : undefined,
+            randomMax: n.isRandom ? (n.randomMax != null ? n.randomMax : 100) : undefined,
+            randomValue: n.isRandom ? (n.randomValue != null ? n.randomValue : n.randomMin) : undefined
           })),
           notes: selectedNotes.map(n => ({
             id: n.id,
@@ -18809,7 +18897,11 @@
             rotation: (typeof node.rotation === 'number') ? node.rotation : 0,
             fmt: node.fmt ? { ...node.fmt } : {},
             isTimer: !!node.isTimer,
-            durationSec: node.durationSec || null
+            durationSec: node.durationSec || null,
+            isRandom: !!node.isRandom,
+            randomMin: node.isRandom ? (node.randomMin != null ? node.randomMin : 1) : undefined,
+            randomMax: node.isRandom ? (node.randomMax != null ? node.randomMax : 100) : undefined,
+            randomValue: node.isRandom ? (node.randomValue != null ? node.randomValue : node.randomMin) : undefined
           }],
           notes: attachedNote ? [{
             id: attachedNote.id,
@@ -19835,7 +19927,7 @@
       };
       window._conSuppressMirrorObserver = false;
 
-      if (new URLSearchParams(location.search).get('mirror') !== '1') {
+      if (new URLSearchParams(location.search).get('mirror') !== '1' && new URLSearchParams(location.search).get('pageWindow') !== '1') {
         const _mirrorCh = new BroadcastChannel('constellation-mirror');
         let _mirrorPopupRef = null;
         let _mirrorTimer = null;
@@ -20263,7 +20355,8 @@
               'con-table-selected', 'con-shape-selected', 'con-edge-selected',
               'con-media-selected', 'con-media-hidden', 'con-media-blink', 'tbl-locked',
               'con-linking', 'con-link-mode',
-              'draw-mode', 'connect-mode'
+              'draw-mode', 'connect-mode',
+              'con-random-rolling'
             ]);
             new MutationObserver(function (mutations) {
               if (window._conSuppressMirrorObserver || window._conMirrorDragging || (typeof location !== 'undefined' && location.search.indexOf('mirror=1') !== -1)) return;
@@ -20282,6 +20375,8 @@
                 if (t.closest && (t.closest('.con-word-note') || t.closest('.wn-note-editor') || t.closest('.wn-note-resizer'))) return true;
                 // Ignore any mutations inside node timers (countdown ticks, digit changes) — handled directly by node-timer-tick
                 if (t.closest && (t.closest('.con-node-timer') || t.closest('.con-timer-digits') || t.closest('.con-timer-node-row'))) return true;
+                // Ignore any mutations inside random nodes (roll digit changes) — handled directly by node-random-roll
+                if (t.closest && (t.closest('.con-random-digits') || t.closest('.con-random-node-row'))) return true;
                 // Ignore any mutations inside edge SVG line groups (creation, style, label changes — handled directly by edge-add, edge-remove, edge-update)
                 if (t.closest && (t.closest('.con-line-group') || t.closest('.con-line') || t.closest('.con-line-hit') || t.closest('.con-line-label') || t.id === 'con-arrow-defs' || (t.closest && t.closest('#con-arrow-defs')))) return true;
                 if (t.classList && (t.classList.contains('con-line-group') || t.classList.contains('con-line') || t.classList.contains('con-line-hit') || t.classList.contains('con-line-label'))) return true;
@@ -20325,6 +20420,8 @@
                     return n.classList.contains('wn-emoji-sticker') ||
                            n.classList.contains('con-timer-digits') ||
                            n.classList.contains('con-timer-node-row') ||
+                           n.classList.contains('con-random-digits') ||
+                           n.classList.contains('con-random-node-row') ||
                            n.classList.contains('wn-mirror-selection-overlay') ||
                            n.classList.contains('con-snap-line') ||
                            n.classList.contains('con-drawing-handle') ||
@@ -20501,7 +20598,7 @@
         };
 
         (function initBoardSecondScreenPrompt() {
-          if (location.search.includes('mirror=1')) return;
+          if (location.search.includes('mirror=1') || location.search.includes('pageWindow=1')) return;
           function showSecondScreenBanner(onStartPresentation) {
             if (document.getElementById('second-screen-prompt-banner')) return;
             const promptMsg = typeof window.t === 'function' ? window.t('secondDisplayPrompt') : 'Second display detected! Would you like to launch Presentation Mode on monitor 2?';
@@ -21784,7 +21881,14 @@
       function conAttachNodeEvents(id, el) {
         // Right-click context menu
         el.addEventListener('contextmenu', function (e) {
-          conCtxOpen(e, id);
+          const _ctxNode = conNodes.find(n => n.id === id);
+          if (_ctxNode && _ctxNode.isRandom && typeof conOpenRandomPopover === 'function') {
+            e.preventDefault();
+            e.stopPropagation();
+            conOpenRandomPopover(_ctxNode);
+          } else {
+            conCtxOpen(e, id);
+          }
         });
 
         // Double-click to make a node visibly blink for attention.
@@ -22358,15 +22462,22 @@
               } else {
                 conSelect(id);
                 if (window.conNoteClearSelection) window.conNoteClearSelection();
-                if (node && node.isTimer && typeof conOpenTimerPopover === 'function') {
+                if (node && node.isRandom && typeof conRollRandomNode === 'function') {
+                  // Option A: single click = immediately re-roll the number
+                  conRollRandomNode(node.id);
+                  if (typeof conCloseTimerPopover === 'function') conCloseTimerPopover();
+                } else if (node && node.isTimer && typeof conOpenTimerPopover === 'function') {
                   conOpenTimerPopover(node);
-                } else if (typeof conCloseTimerPopover === 'function') {
-                  conCloseTimerPopover();
+                  if (typeof conCloseRandomPopover === 'function') conCloseRandomPopover();
+                } else {
+                  if (typeof conCloseTimerPopover === 'function') conCloseTimerPopover();
+                  if (typeof conCloseRandomPopover === 'function') conCloseRandomPopover();
                 }
               }
             }
-            if (dragging && typeof conCloseTimerPopover === 'function') {
-              conCloseTimerPopover();
+            if (dragging) {
+              if (typeof conCloseTimerPopover === 'function') conCloseTimerPopover();
+              if (typeof conCloseRandomPopover === 'function') conCloseRandomPopover();
             }
             dragging = false;
           }
@@ -23431,6 +23542,18 @@
         if (node.borderWidth) el.style.borderWidth = node.borderWidth + 'px';
         if (node.borderStyle) el.style.borderStyle = node.borderStyle;
 
+        // Apply per-node max-width constraint with word-wrap (rectangle + oval only)
+        const _mw = (node.fmt && typeof node.fmt.maxWidth === 'number' && node.fmt.maxWidth > 0) ? node.fmt.maxWidth : null;
+        if (_mw && shape !== 'circle' && shape !== 'square') {
+          el.style.maxWidth = _mw + 'px';
+          el.style.whiteSpace = 'normal';
+          el.style.wordBreak = 'break-word';
+        } else {
+          el.style.maxWidth = '';
+          el.style.whiteSpace = '';
+          el.style.wordBreak = '';
+        }
+
         // Rectangle is default; avoid reading layout dimensions to prevent forced reflows!
         if (shape === 'rectangle') return;
 
@@ -23782,6 +23905,19 @@
           if (sizeDisplay) sizeDisplay.textContent = sizeSlider.value;
         }
 
+        // Sync max-width slider
+        const mwSlider = document.getElementById('con-ctx-max-width');
+        const mwDisplay = document.getElementById('con-ctx-max-width-display');
+        const mwRow = document.getElementById('con-ctx-maxwidth-row');
+        if (mwSlider && node) {
+          const _shape = conNormalizeNodeShape(node.shape);
+          const _isFixedSize = _shape === 'circle' || _shape === 'square';
+          if (mwRow) { mwRow.style.opacity = _isFixedSize ? '0.35' : ''; mwRow.style.pointerEvents = _isFixedSize ? 'none' : ''; }
+          const _mwVal = (node.fmt && typeof node.fmt.maxWidth === 'number' && node.fmt.maxWidth > 0) ? node.fmt.maxWidth : 0;
+          mwSlider.value = _mwVal;
+          if (mwDisplay) mwDisplay.textContent = _mwVal > 0 ? _mwVal + 'px' : '\u2014';
+        }
+
         // Sync format buttons
         if (node) {
           conSyncFmtButtons(node);
@@ -23872,6 +24008,26 @@
           });
         }
       };
+
+      let _conApplyMaxWidthUndoPushed = false;
+      window.conCtxApplyMaxWidth = function (rawVal) {
+        if (!_conApplyMaxWidthUndoPushed) { conPushUndo(); _conApplyMaxWidthUndoPushed = true; }
+        const mw = parseInt(rawVal, 10);
+        const targets = (conMultiSelected.size > 1)
+          ? conNodes.filter(n => conMultiSelected.has(n.id))
+          : (conCtxNodeId ? [conNodes.find(n => n.id === conCtxNodeId)].filter(Boolean) : []);
+        targets.forEach(node => {
+          if (conIsNodeLocked(node)) return;
+          const fmt = conGetNodeFmt(node);
+          fmt.maxWidth = (mw > 0) ? mw : null;
+          conApplyNodeShape(node, node.shape);
+          conRenderNodeLabel(node);
+        });
+        conRedrawEdges();
+        if (window.conGroupRefitAll) window.conGroupRefitAll();
+        if (window.conMarkBoardDirty) window.conMarkBoardDirty();
+      };
+      document.addEventListener('mouseup', () => { _conApplyMaxWidthUndoPushed = false; });
 
       window.conCtxSetShape = function (shape) {
         conPushUndo();
@@ -24814,6 +24970,190 @@
       }
       window.conAddTimerNodeAt = conAddTimerNodeAt;
 
+      // ═══════════════════════════════════════════════════════
+      // RANDOM NUMBER NODE  —  =random(a,b)
+      // ═══════════════════════════════════════════════════════
+
+      /**
+       * Parse "=random(a,b)" (or "=random( a , b )") from the ctx input.
+       * Supports integers and decimals; min/max are auto-sorted so order doesn't matter.
+       * Returns { min, max } or null if not matched.
+       */
+      function conParseRandomSyntax(text) {
+        if (!text || typeof text !== 'string') return null;
+        const m = text.trim().match(/^=random\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$/i);
+        if (!m) return null;
+        const a = parseFloat(m[1]);
+        const b = parseFloat(m[2]);
+        if (!isFinite(a) || !isFinite(b)) return null;
+        return { min: Math.min(a, b), max: Math.max(a, b) };
+      }
+      window.conParseRandomSyntax = conParseRandomSyntax;
+
+      /**
+       * Create a Random Number node at (x, y) with range [min, max].
+       * Immediately rolls a value and renders the node with the dice display.
+       */
+      function conAddRandomNodeAt(min, max, x, y, pageNum) {
+        const rolled = Math.round(Math.random() * (max - min)) + Math.ceil(min);
+        const id = conAddWordAt(String(rolled), x, y, pageNum);
+        const node = conNodes.find(n => n.id === id);
+        if (node) {
+          node.isRandom = true;
+          node.randomMin = min;
+          node.randomMax = max;
+          node.randomValue = rolled;
+          node.baseWord = '=random(' + min + ',' + max + ')';
+          conRenderNodeLabel(node);
+          conRedrawEdges();
+        }
+        return id;
+      }
+      window.conAddRandomNodeAt = conAddRandomNodeAt;
+
+      /**
+       * In-place update of a random node's displayed value.
+       * Mutates only the .con-random-digits text + triggers the dice spin CSS animation.
+       * No innerHTML rebuild.
+       */
+      function conUpdateRandomNodeDisplay(node) {
+        if (!node || !node.isRandom) return;
+        if (!node.el || !node.el.parentNode) {
+          node.el = document.getElementById(node.id);
+          if (!node.el) return;
+        }
+        const digits = node.el.querySelector('.con-random-digits');
+        if (digits) {
+          digits.textContent = String(node.randomValue);
+          // Trigger the CSS dice-spin animation (GPU-composited transform only)
+          node.el.classList.remove('con-random-rolling');
+          void node.el.offsetWidth; // force reflow to restart animation
+          node.el.classList.add('con-random-rolling');
+          setTimeout(() => { if (node.el) node.el.classList.remove('con-random-rolling'); }, 360);
+        } else {
+          conRenderNodeLabel(node);
+        }
+      }
+      window.conUpdateRandomNodeDisplay = conUpdateRandomNodeDisplay;
+
+      /**
+       * Roll the random node: pick a new integer in [randomMin, randomMax],
+       * update in-place, and broadcast a micro-message to the mirror window.
+       */
+      function conRollRandomNode(nodeId) {
+        const node = conNodes.find(n => n.id === nodeId);
+        if (!node || !node.isRandom) return;
+        node.randomValue = Math.round(Math.random() * (node.randomMax - node.randomMin)) + Math.ceil(node.randomMin);
+        conUpdateRandomNodeDisplay(node);
+        if (window._conMirrorSend) {
+          window._conMirrorSend({
+            type: 'node-random-roll',
+            id: String(node.id),
+            value: node.randomValue
+          });
+        }
+      }
+      window.conRollRandomNode = conRollRandomNode;
+
+      // --- Random Node Popover (right-click / long-press: set range) ---
+      var _conActiveRandomPopoverNodeId = null;
+
+      function conOpenRandomPopover(node) {
+        const popover = document.getElementById('con-random-action-popover');
+        if (!popover || !node || !node.el) return;
+        _conActiveRandomPopoverNodeId = node.id;
+        const rect = node.el.getBoundingClientRect();
+
+        const titleEl = document.getElementById('con-random-popover-title');
+        const bodyEl  = document.getElementById('con-random-popover-actions');
+
+        if (titleEl && typeof i18n !== 'undefined') {
+          titleEl.textContent = i18n.t('randomNodeTitle') || 'Random Number Node';
+        }
+
+        if (bodyEl && typeof i18n !== 'undefined') {
+          const rangeLabel = (i18n.t('randomNodeRange') || 'Range: {min} \u2013 {max}')
+            .replace('{min}', node.randomMin)
+            .replace('{max}', node.randomMax);
+          bodyEl.innerHTML = `
+            <button type="button" class="con-timer-action-btn" onclick="conRollRandomNode('${node.id}');conCloseRandomPopover();">
+              <img src="../assets/icons/dice.svg" class="btn-icon" alt="" />
+              <span>${i18n.t('randomNodeRoll') || 'Roll'}</span>
+            </button>
+            <div style="font-size:0.72rem;color:#888;padding:2px 4px;">${rangeLabel}</div>
+            <button type="button" class="con-timer-action-btn" onclick="conRandomNodeSetRange('${node.id}');conCloseRandomPopover();">
+              <img src="../assets/icons/edit.svg" class="btn-icon" alt="" />
+              <span>${i18n.t('randomNodeSetRange') || 'Set range\u2026'}</span>
+            </button>
+          `;
+        }
+
+        popover.style.display = 'flex';
+        const popW = popover.offsetWidth || 200;
+        const popH = popover.offsetHeight || 120;
+        let px = rect.left + rect.width / 2 - popW / 2;
+        let py = rect.top - popH - 8;
+        if (py < 10) py = rect.bottom + 8;
+        px = Math.max(10, Math.min(window.innerWidth - popW - 10, px));
+        popover.style.left = px + 'px';
+        popover.style.top  = py + 'px';
+
+        setTimeout(() => {
+          document.addEventListener('mousedown', _conOnRandomPopoverOutside, true);
+        }, 20);
+      }
+      window.conOpenRandomPopover = conOpenRandomPopover;
+
+      function _conOnRandomPopoverOutside(e) {
+        const popover = document.getElementById('con-random-action-popover');
+        if (!popover || popover.style.display === 'none') {
+          document.removeEventListener('mousedown', _conOnRandomPopoverOutside, true);
+          return;
+        }
+        if (popover.contains(e.target) ||
+            (e.target && e.target.closest && e.target.closest('.con-node-random'))) {
+          return;
+        }
+        conCloseRandomPopover();
+      }
+
+      function conCloseRandomPopover() {
+        const popover = document.getElementById('con-random-action-popover');
+        if (popover) popover.style.display = 'none';
+        _conActiveRandomPopoverNodeId = null;
+        document.removeEventListener('mousedown', _conOnRandomPopoverOutside, true);
+      }
+      window.conCloseRandomPopover = conCloseRandomPopover;
+
+      /**
+       * Prompt the user to change the range of an existing random node.
+       * Accepts "=random(a,b)" or just "a,b".
+       */
+      window.conRandomNodeSetRange = async function (nodeId) {
+        const node = conNodes.find(n => n.id === nodeId);
+        if (!node || !node.isRandom) return;
+        const prompt = (typeof i18n !== 'undefined' ? i18n.t('randomNodeRangePrompt') : null)
+          || 'Enter new range as: =random(min,max)';
+        const answer = await showPrompt(prompt, '=random(' + node.randomMin + ',' + node.randomMax + ')');
+        if (!answer) return;
+        // Accept "=random(a,b)" or plain "a,b"
+        let parsed = conParseRandomSyntax(answer.trim());
+        if (!parsed) {
+          const parts = answer.trim().split(',').map(Number).filter(v => isFinite(v));
+          if (parts.length >= 2) parsed = { min: Math.min(parts[0], parts[1]), max: Math.max(parts[0], parts[1]) };
+        }
+        if (!parsed) return;
+        conPushUndo();
+        node.randomMin = parsed.min;
+        node.randomMax = parsed.max;
+        node.randomValue = Math.round(Math.random() * (parsed.max - parsed.min)) + Math.ceil(parsed.min);
+        node.baseWord = '=random(' + parsed.min + ',' + parsed.max + ')';
+        conUpdateRandomNodeDisplay(node);
+        if (window._conMirrorSend) {
+          window._conMirrorSend({ type: 'node-random-roll', id: String(node.id), value: node.randomValue });
+        }
+      };
+
       function conPlayTimerChime() {
         try {
           const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -25600,6 +25940,20 @@
         conBoardCtxClose();
         if (!raw) return;
 
+        // Check for =random(a,b) expression FIRST (before timer check)
+        if (!raw.includes(',,') && !raw.includes('--') && !raw.includes('>') && !raw.includes('<') && !raw.includes('++')) {
+          const parsedRandom = conParseRandomSyntax(raw);
+          if (parsedRandom) {
+            conPushUndo();
+            const _fp = conFindFreePositionBounded(_boardCtxX, _boardCtxY, _boardCtxX + 40, _boardCtxY + 18, 150, pendingSrc);
+            const randomId = conAddRandomNodeAt(parsedRandom.min, parsedRandom.max, _fp.x, _fp.y);
+            if (pendingSrc && randomId) {
+              conAddEdge(pendingSrc, randomId, pendingType);
+            }
+            return;
+          }
+        }
+
         // Check if raw text is a single timer shorthand (e.g. 15', 15'30", 45")
         if (!raw.includes(',,') && !raw.includes('--') && !raw.includes('>') && !raw.includes('<') && !raw.includes('++')) {
           const parsedTimer = conParseTimerSyntax(raw);
@@ -25879,6 +26233,14 @@
           dup.remainingSec = src.durationSec;
           dup.timerState = 'idle';
           dup.timerTarget = null;
+        }
+        if (src.isRandom) {
+          dup.isRandom = true;
+          dup.randomMin = src.randomMin;
+          dup.randomMax = src.randomMax;
+          // Re-roll a fresh value for the duplicate
+          dup.randomValue = Math.round(Math.random() * (src.randomMax - src.randomMin)) + Math.ceil(src.randomMin);
+          dup.baseWord = '=random(' + src.randomMin + ',' + src.randomMax + ')';
         }
         conSyncNodeLockState(dup);
 
@@ -26687,7 +27049,7 @@
       }
       window.boardTransformCasingText = boardTransformCasingText;
 
-      // Each node stores: node.fmt = { bold, italic, underline, strike, showTrans, showIpa, casing }
+      // Each node stores: node.fmt = { bold, italic, underline, strike, showTrans, showIpa, casing, maxWidth }
       function conGetNodeFmt(node) {
         if (!node.fmt) {
           node.fmt = {
@@ -26697,15 +27059,47 @@
             strike: false,
             showTrans: false,
             showIpa: false,
-            casing: 'none'
+            casing: 'none',
+            maxWidth: null  // null = unconstrained; positive number = pixel cap with word-wrap
           };
         }
         if (typeof node.fmt.strike !== 'boolean') node.fmt.strike = false;
         if (typeof node.fmt.casing !== 'string') node.fmt.casing = 'none';
+        if (node.fmt.maxWidth !== null && typeof node.fmt.maxWidth !== 'number') node.fmt.maxWidth = null;
         return node.fmt;
       }
 
       function conRenderNodeLabel(node) {
+        // --- Random Number Node ---
+        if (node && node.isRandom) {
+          const val = (node.randomValue != null) ? node.randomValue : node.randomMin;
+          const iconHtml = `<img src="../assets/icons/dice.svg" class="btn-icon con-random-dice-icon" alt="" style="width:14px;height:14px;margin-right:5px;vertical-align:-2px;pointer-events:none;display:inline-block;" />`;
+          const randomHtml = `<span class="con-node-word-row con-random-node-row" style="display:inline-flex;align-items:center;font-weight:700;">${iconHtml}<span class="con-random-digits">${val}</span></span>`;
+
+          node.el.classList.toggle('con-node-random', true);
+          node.el.classList.remove('con-node-timer', 'con-timer-running', 'con-timer-warning', 'con-timer-ended');
+
+          const _savedResizer = node.el.querySelector('.con-node-resizer');
+          const _savedEmojiDot = node.el.querySelector('.con-emoji-dot');
+          const _savedStarBtn = node.el.querySelector('.con-node-star-btn');
+          const _savedCompBadge = node.el.querySelector('.con-node-comp-badge');
+          node.el.innerHTML = randomHtml;
+          if (_savedResizer) node.el.appendChild(_savedResizer);
+          if (_savedEmojiDot) node.el.appendChild(_savedEmojiDot);
+          if (_savedStarBtn) node.el.appendChild(_savedStarBtn);
+          if (typeof conUpdateNodeCompetenceBadge === 'function') {
+            conUpdateNodeCompetenceBadge(node);
+          } else if (_savedCompBadge) {
+            node.el.appendChild(_savedCompBadge);
+          }
+          node.el.style.display = 'inline-flex';
+          node.el.style.flexDirection = 'column';
+          node.el.style.alignItems = 'center';
+          node.el.style.justifyContent = 'center';
+          conApplyNodeShape(node, node.shape);
+          return;
+        }
+
         if (node && node.isTimer) {
           const displaySec = (typeof node.remainingSec === 'number') ? node.remainingSec : (node.durationSec || 0);
           const timeStr = conFormatDurationSec(displaySec);
@@ -26717,6 +27111,7 @@
           node.el.classList.toggle('con-timer-running', isRunning);
           node.el.classList.toggle('con-timer-warning', isWarn);
           node.el.classList.toggle('con-timer-ended', isEnded);
+          node.el.classList.remove('con-node-random');
 
           const iconHtml = `<img src="../assets/icons/clock.svg" class="btn-icon" alt="" style="width:14px;height:14px;margin-right:5px;vertical-align:-2px;pointer-events:none;display:inline-block;" />`;
           const timerHtml = `<span class="con-node-word-row con-timer-node-row" style="display:inline-flex;align-items:center;font-weight:700;">${iconHtml}<span class="con-timer-digits">${timeStr}</span></span>`;
@@ -26743,8 +27138,9 @@
         }
 
         if (node && node.el) {
-          node.el.classList.remove('con-node-timer', 'con-timer-running', 'con-timer-warning', 'con-timer-ended');
+          node.el.classList.remove('con-node-timer', 'con-timer-running', 'con-timer-warning', 'con-timer-ended', 'con-node-random');
         }
+
 
         // Get the base word (always the raw word text, never the annotated version)
         const baseWord = node.baseWord || node.el.dataset.baseWord || node.el.textContent.trim();
@@ -28842,6 +29238,7 @@
                 y: Math.max(12, Math.round((brdEl.clientHeight - baseH) / 2))
               }
               : { x: 40, y: 40 };
+            // conInsertAttachmentById probes natural size internally; just pass position.
             window.conInsertAttachmentById(attachmentId, { x: pos.x, y: pos.y, silent: true });
             if (typeof mdbToast === 'function') mdbToast('🖼 Image pasted onto the board.');
             return true;
@@ -29306,6 +29703,7 @@
               }
               : { x: 40 + idx * 20, y: 40 + idx * 20 };
 
+            // conInsertAttachmentById probes natural size internally; just pass position.
             window.conInsertAttachmentById(attachmentId, { x: pos.x, y: pos.y, silent: true });
             if (typeof mdbToast === 'function') mdbToast('🖼 Image pasted onto the board.');
           });
@@ -35751,6 +36149,10 @@
       let _miniHideTimer = null;
       note.addEventListener('mouseenter', () => {
         clearTimeout(_miniHideTimer);
+        // Hide all other notes' mini-actions bars immediately
+        document.querySelectorAll('.wn-note-mini-actions').forEach(bar => {
+          if (bar !== miniActions) bar.classList.remove('wn-mini-visible');
+        });
         miniActions.classList.add('wn-mini-visible');
       });
       note.addEventListener('mouseleave', () => {
@@ -37570,6 +37972,10 @@
           remainingSec: n.remainingSec != null ? n.remainingSec : null,
           timerState: n.timerState || 'idle',
           timerTarget: (n.timerTarget === 'cms' || n.timerTarget === 'board') ? n.timerTarget : null,
+          isRandom: !!n.isRandom,
+          randomMin: n.isRandom ? (n.randomMin != null ? n.randomMin : 1) : undefined,
+          randomMax: n.isRandom ? (n.randomMax != null ? n.randomMax : 100) : undefined,
+          randomValue: n.isRandom ? (n.randomValue != null ? n.randomValue : n.randomMin) : undefined,
           competences: (Array.isArray(n.competences) && n.competences.length) ? n.competences.slice() : undefined,
           shape: (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(n.shape || (n.el && n.el.dataset.shape)) : conNormalizeNodeShapeSafe(n.shape || (n.el && n.el.dataset.shape))),
           rotation: (typeof n.rotation === 'number') ? ((typeof window.conNormalizeNodeRotation === 'function') ? window.conNormalizeNodeRotation(n.rotation) : n.rotation) : 0
@@ -38258,11 +38664,22 @@
 
     function boardUpdateDocumentTitle() {
       if (new URLSearchParams(location.search).get('mirror') === '1') return;
+      const isPageWin = window._isPageWindow || new URLSearchParams(location.search).get('pageWindow') === '1';
+      const pageParam = new URLSearchParams(location.search).get('viewPage');
+      const pageNum = pageParam !== null ? (parseInt(pageParam, 10) + 1) : ((typeof conCurrentPageIndex === 'number' ? conCurrentPageIndex : 0) + 1);
       const baseTitle = (typeof conTitle === 'string' && conTitle.trim()) ? `${conTitle.trim()} — Board` : 'Board';
+      if (isPageWin) {
+        document.title = `[Page ${pageNum}] ${baseTitle} (${typeof t === 'function' ? t('conPageWindowBadge') : 'Secondary Window'})`;
+        return;
+      }
       document.title = (_boardIsDirty ? '● ' : '') + baseTitle;
     }
 
     function boardSetDirty(dirty, options = {}) {
+      if (new URLSearchParams(location.search).get('mirror') === '1' || window._isPageWindow || new URLSearchParams(location.search).get('pageWindow') === '1') {
+        _boardIsDirty = false;
+        return;
+      }
       _boardIsDirty = !!dirty;
       boardUpdateDocumentTitle();
 
@@ -38302,7 +38719,7 @@
     }
 
     function _boardScheduleSave(section) {
-      if (new URLSearchParams(location.search).get('mirror') === '1') return;
+      if (new URLSearchParams(location.search).get('mirror') === '1' || window._isPageWindow || new URLSearchParams(location.search).get('pageWindow') === '1') return;
       if (!_conCurrentFileName && !_conCurrentFolderName) return;
 
       const debounceMs = boardGetAutosaveDebounceMs();
@@ -38360,7 +38777,7 @@
 
     let _conAutosaveHideTimer = null;
     function boardShowAutosaveToast() {
-      if (new URLSearchParams(location.search).get('mirror') === '1') return;
+      if (new URLSearchParams(location.search).get('mirror') === '1' || window._isPageWindow || new URLSearchParams(location.search).get('pageWindow') === '1') return;
       if (_conAutosaveHideTimer) {
         clearTimeout(_conAutosaveHideTimer);
         _conAutosaveHideTimer = null;
@@ -38396,7 +38813,7 @@
     }
 
     function boardAutosaveSection(section, options = {}) {
-      if (new URLSearchParams(location.search).get('mirror') === '1') return;
+      if (new URLSearchParams(location.search).get('mirror') === '1' || window._isPageWindow || new URLSearchParams(location.search).get('pageWindow') === '1') return;
       const force = !!options.force;
       if (section !== 'constellation') return;
       // Do not autosave if no constellation session file is currently opened
@@ -38522,7 +38939,7 @@
     }
 
     function initBoardSessionAutosave() {
-      if (new URLSearchParams(location.search).get('mirror') === '1') return;
+      if (new URLSearchParams(location.search).get('mirror') === '1' || window._isPageWindow || new URLSearchParams(location.search).get('pageWindow') === '1') return;
       initBoardCloseUnsavedGuard();
     }
 
@@ -38530,7 +38947,7 @@
     let _conClosePromptActive = false;
 
     async function conPerformAutosaveOnClose() {
-      if (new URLSearchParams(location.search).get('mirror') === '1') return;
+      if (new URLSearchParams(location.search).get('mirror') === '1' || window._isPageWindow || new URLSearchParams(location.search).get('pageWindow') === '1') return;
       try {
         const data = conBuildSessionData();
         if (!conSessionHasContent(data)) {
@@ -38577,7 +38994,7 @@
     let _boardCloseGuardInitialized = false;
     function initBoardCloseUnsavedGuard() {
       if (_boardCloseGuardInitialized) return;
-      if (new URLSearchParams(location.search).get('mirror') === '1') return;
+      if (new URLSearchParams(location.search).get('mirror') === '1' || window._isPageWindow || new URLSearchParams(location.search).get('pageWindow') === '1') return;
       _boardCloseGuardInitialized = true;
 
       window.addEventListener('beforeunload', function (e) {
@@ -39099,7 +39516,7 @@
         metadata.push({
           id: item.id,
           name: safeName,
-          mime: item.mime || '',
+          mime: item.mime || conGuessMimeByName(item.name, kind) || '',
           kind,
           size: Number(item.size) || (base64 ? Math.round(base64.length * 0.75) : 0),
           relativePath: base64 ? nextRelativePath : (item.relativePath || nextRelativePath)
@@ -39519,7 +39936,7 @@
                 binary += String.fromCharCode.apply(null, entryDataBytes.subarray(i, i + chunkSize));
               }
               const base64 = btoa(binary);
-              const mime = conGuessMimeByName(mediaName, kind) || (kind === 'pics' ? 'image/webp' : (kind === 'sounds' ? 'audio/wav' : 'application/octet-stream'));
+              const mime = conGuessMimeByName(mediaName, kind) || (kind === 'pics' ? 'image/webp' : (kind === 'sounds' ? 'audio/wav' : (kind === 'videos' ? 'video/webm' : 'application/octet-stream')));
               const mediaEntry = {
                 name: mediaName,
                 kind: kind,
@@ -39994,9 +40411,9 @@
           const liState = { ...ns, indentPx };
           segs.push({ ...liState, text: marker }); node.childNodes.forEach(c => _walkNote(c, liState)); return;
         }
+        if ((tag === 'div' || tag === 'p') && node !== editor && segs.length > 0 && !segs[segs.length - 1].br) segs.push({ br: true });
+        if ((tag === 'ul' || tag === 'ol') && segs.length > 0 && !segs[segs.length - 1].br) segs.push({ br: true });
         node.childNodes.forEach(c => _walkNote(c, ns));
-        if ((tag === 'div' || tag === 'p') && node !== editor && node.nextSibling) segs.push({ br: true });
-        if ((tag === 'ul' || tag === 'ol') && node.nextSibling) segs.push({ br: true });
       }
       _walkNote(editor, { bold: noteIsBold, italic: noteIsItalic, underline: noteTD.includes('underline'), strike: noteTD.includes('line-through'), color: baseColor, bgColor: null, fontSize: baseFontPx, fontFamily: baseFontFamily, indentDepth: 0 });
       while (segs.length && segs[segs.length - 1].br) segs.pop();
@@ -40771,7 +41188,7 @@
 
     let _conSilentInitialSavePromise = null;
     function conTrySilentInitialSave() {
-      if (new URLSearchParams(location.search).get('mirror') === '1') return null;
+      if (new URLSearchParams(location.search).get('mirror') === '1' || window._isPageWindow || new URLSearchParams(location.search).get('pageWindow') === '1') return null;
       if (!(window.Desktop && Desktop.isElectron())) return null;
       if (!_conCurrentFileName && !_conCurrentFolderName) return null;
       if (_conSilentInitialSavePromise) return _conSilentInitialSavePromise;
@@ -40806,6 +41223,15 @@
     }
 
     function conSaveSession() {
+      if (window._isPageWindow || new URLSearchParams(location.search).get('pageWindow') === '1') {
+        const msg = (typeof t === 'function' ? t('conPageWindowSaveDisabled') : 'Saving is disabled in secondary page windows to prevent overwriting the main session.');
+        if (typeof showToast === 'function') {
+          showToast(msg, false);
+        } else if (typeof mdbToast === 'function') {
+          mdbToast('⚠️ ' + msg);
+        }
+        return;
+      }
       const data = conBuildSessionData();
       if (!conSessionHasContent(data)) {
         mdbToast('⚠️ Nothing to save yet. Add at least one node, note, or title first.');
@@ -42298,6 +42724,12 @@
             if (existing.isTimer && existing.timerState === 'running') {
               existing.timerEndTime = Date.now() + (existing.remainingSec || existing.durationSec || 60) * 1000;
             }
+            existing.isRandom = !!n.isRandom;
+            if (existing.isRandom) {
+              existing.randomMin = (n.randomMin != null) ? n.randomMin : 1;
+              existing.randomMax = (n.randomMax != null) ? n.randomMax : 100;
+              existing.randomValue = (n.randomValue != null) ? n.randomValue : existing.randomMin;
+            }
             existing.shape = (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(n.shape || 'rectangle') : conNormalizeNodeShapeSafe(n.shape || 'rectangle'));
             existing.borderWidth = n.borderWidth || null;
             existing.borderStyle = n.borderStyle || null;
@@ -42357,6 +42789,10 @@
               remainingSec: n.remainingSec != null ? n.remainingSec : null,
               timerState: n.timerState || 'idle',
               timerTarget: (n.timerTarget === 'cms' || n.timerTarget === 'board') ? n.timerTarget : null,
+              isRandom: !!n.isRandom,
+              randomMin: n.isRandom ? (n.randomMin != null ? n.randomMin : 1) : null,
+              randomMax: n.isRandom ? (n.randomMax != null ? n.randomMax : 100) : null,
+              randomValue: n.isRandom ? (n.randomValue != null ? n.randomValue : (n.randomMin != null ? n.randomMin : 1)) : null,
               shape: (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(n.shape || 'rectangle') : conNormalizeNodeShapeSafe(n.shape || 'rectangle')),
               borderWidth: n.borderWidth || null,
               borderStyle: n.borderStyle || null,
@@ -42681,6 +43117,10 @@
           remainingSec: n.remainingSec != null ? n.remainingSec : null,
           timerState: n.timerState || 'idle',
           timerTarget: (n.timerTarget === 'cms' || n.timerTarget === 'board') ? n.timerTarget : null,
+          isRandom: !!n.isRandom,
+          randomMin: n.isRandom ? (n.randomMin != null ? n.randomMin : 1) : null,
+          randomMax: n.isRandom ? (n.randomMax != null ? n.randomMax : 100) : null,
+          randomValue: n.isRandom ? (n.randomValue != null ? n.randomValue : (n.randomMin != null ? n.randomMin : 1)) : null,
           shape: (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(n.shape || 'rectangle') : conNormalizeNodeShapeSafe(n.shape || 'rectangle')),
           borderWidth: n.borderWidth || null,
           borderStyle: n.borderStyle || null,
@@ -44841,8 +45281,85 @@
       history.replaceState(null, '', nextUrl);
     }
 
+    async function boardConsumePageWindowPayload() {
+      const params = new URLSearchParams(location.search);
+      const token = params.get('pwToken');
+      const targetPageIdx = Math.max(0, parseInt(params.get('viewPage') || '0', 10) || 0);
+      let payload = null;
+      if (token) {
+        try {
+          const raw = localStorage.getItem('cmt_board_pw_' + token);
+          if (raw) {
+            payload = JSON.parse(raw);
+            localStorage.removeItem('cmt_board_pw_' + token);
+          }
+        } catch (e) {
+          console.warn('Could not read page window payload from localStorage', e);
+        }
+      }
+
+      window._isPageWindow = true;
+      _boardIsDirty = false;
+
+      if (payload && payload.session) {
+        try {
+          if (typeof _conRestoreSession === 'function') {
+            _conRestoreSession(payload.session);
+          }
+          if (typeof window.conGoToPage === 'function') {
+            window.conGoToPage(targetPageIdx);
+          }
+          if (payload.sourceTitle && typeof window.conSetTitle === 'function') {
+            window.conSetTitle(payload.sourceTitle);
+          }
+        } catch (err) {
+          console.warn('Error restoring page window payload', err);
+        }
+      } else {
+        if (typeof window.conGoToPage === 'function') {
+          window.conGoToPage(targetPageIdx);
+        }
+      }
+
+      // Detach active file references so no background autosave or close save can target the file
+      _conCurrentFileName = '';
+      _conCurrentFolderName = '';
+      _boardIsDirty = false;
+
+      boardUpdateDocumentTitle();
+      boardRenderPageWindowBadge(targetPageIdx);
+
+      setTimeout(() => {
+        const saveBtn = document.querySelector('button[onclick*="conSaveSession"]');
+        if (saveBtn) {
+          saveBtn.style.opacity = '0.6';
+          saveBtn.title = typeof t === 'function' ? t('conPageWindowSaveDisabled') : 'Saving is disabled in secondary page windows to prevent overwriting the main session.';
+        }
+      }, 100);
+    }
+
+    function boardRenderPageWindowBadge(pageIndex) {
+      if (document.getElementById('con-page-window-badge')) return;
+      const badge = document.createElement('div');
+      badge.id = 'con-page-window-badge';
+      badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:3px 10px;background:#fef08a;color:#111;border:2px solid #000;box-shadow:2px 2px 0 #000;font-size:0.75rem;font-weight:800;border-radius:4px;margin-left:8px;flex-shrink:0;user-select:none;';
+      const label = typeof t === 'function' ? t('conPageWindowBadge') : 'Secondary Window (Saving Disabled)';
+      badge.innerHTML = `<img src="../assets/icons/monitor.svg" style="width:13px;height:13px;flex-shrink:0;" alt="" /> <span>Page ${pageIndex + 1} • ${escapeSearchHtml(label)}</span>`;
+      const titleWrap = document.getElementById('con-title-input')?.parentElement;
+      if (titleWrap) {
+        titleWrap.appendChild(badge);
+      } else {
+        const tbLeft = document.querySelector('.con-tb-left');
+        if (tbLeft) tbLeft.appendChild(badge);
+      }
+    }
+
     async function boardConsumePendingOpenRequestFromQuery() {
       if (new URLSearchParams(location.search).get('mirror') === '1') return;
+      if (new URLSearchParams(location.search).get('pageWindow') === '1') {
+        await boardConsumePageWindowPayload();
+        return;
+      }
 
       const params = new URLSearchParams(location.search);
       const wantsFile = params.get('openSession') === '1';
@@ -48156,7 +48673,29 @@
       set('bc-board-custom-width', _bcClampBoardDimension(bc.boardCustomWidthPx, 1600));
       set('bc-board-custom-height', _bcClampBoardDimension(bc.boardCustomHeightPx, 1000));
       _bcBuildSwatchList('bc-board-bg-preset-list', conExtractBoardBgPresetsFromConfig(bc));
-      set('bc-autosave-interval', bc.autosaveDebounceSec !== undefined ? bc.autosaveDebounceSec : 45);
+      const autosaveIntervalEl = document.getElementById('bc-autosave-interval');
+      const autosaveCustomRowEl = document.getElementById('bc-autosave-custom-row');
+      const autosaveCustomInputEl = document.getElementById('bc-autosave-custom-minutes');
+      const standardIntervals = [0, 15, 30, 45, 60, 90, 120, 300, 600];
+      const curAutosaveSec = bc.autosaveDebounceSec !== undefined ? Number(bc.autosaveDebounceSec) : 45;
+
+      if (standardIntervals.includes(curAutosaveSec)) {
+        set('bc-autosave-interval', curAutosaveSec);
+        if (autosaveCustomRowEl) autosaveCustomRowEl.style.display = 'none';
+        if (autosaveCustomInputEl) autosaveCustomInputEl.value = Math.max(0.5, Math.round((curAutosaveSec / 60) * 10) / 10 || 10);
+      } else {
+        set('bc-autosave-interval', 'custom');
+        if (autosaveCustomRowEl) autosaveCustomRowEl.style.display = 'flex';
+        if (autosaveCustomInputEl) autosaveCustomInputEl.value = Math.max(0.5, Math.round((curAutosaveSec / 60) * 10) / 10);
+      }
+
+      if (autosaveIntervalEl) {
+        autosaveIntervalEl.onchange = () => {
+          if (autosaveCustomRowEl) {
+            autosaveCustomRowEl.style.display = autosaveIntervalEl.value === 'custom' ? 'flex' : 'none';
+          }
+        };
+      }
 
       if (typeof t === 'function') {
         const _tr = (id, k) => { const el = document.getElementById(id); if (el) el.textContent = t(k); };
@@ -48174,6 +48713,8 @@
         _opt('bc-autosave-interval', '90', 'bcAutosave90s');
         _opt('bc-autosave-interval', '120', 'bcAutosave2m');
         _opt('bc-autosave-interval', '300', 'bcAutosave5m');
+        _opt('bc-autosave-interval', '600', 'bcAutosave10m');
+        _opt('bc-autosave-interval', 'custom', 'bcAutosaveCustom');
         _opt('bc-autosave-interval', '0', 'bcAutosaveDisabled');
       }
 
@@ -48636,7 +49177,14 @@
         penPresets: _bcGetPenPresets(),
         shortcuts: _bcGetCustomShortcutsMap(),
         quickActions: _bcGetQuickActionsList(),
-        autosaveDebounceSec: getNum('bc-autosave-interval', 45),
+        autosaveDebounceSec: (() => {
+          const autosaveIntervalVal = (document.getElementById('bc-autosave-interval')?.value || '45').trim();
+          if (autosaveIntervalVal === 'custom') {
+            const customMin = parseFloat(document.getElementById('bc-autosave-custom-minutes')?.value || '10');
+            return Math.max(5, Math.round((Number.isFinite(customMin) ? customMin : 10) * 60));
+          }
+          return getNum('bc-autosave-interval', 45);
+        })(),
       };
 
       window.BOARD_CONFIG = bc;
@@ -50154,6 +50702,55 @@
 
     window.conJumpToSelectedSearchItem = function () {
       conJumpToItem(_conSearchSelectedItem);
+    };
+
+    window.conOpenPageInNewWindow = async function (pageIndex, options = {}) {
+      const totalPages = (conPageSnapshots && conPageSnapshots.length) || 1;
+      const targetIdx = (typeof pageIndex === 'number' && pageIndex >= 0)
+        ? Math.min(pageIndex, Math.max(0, totalPages - 1))
+        : ((typeof conCurrentPageIndex === 'number') ? conCurrentPageIndex : 0);
+
+      // Snapshot current live board into in-memory page array before handoff
+      if (typeof conBuildPageSnapshot === 'function') {
+        conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
+      }
+
+      const sessionData = (typeof conBuildSessionData === 'function') ? conBuildSessionData() : null;
+      const token = 'pw_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+      const titleVal = (window.conGetTitle ? window.conGetTitle() : '').trim() || (typeof _conCurrentConstellationTitle === 'string' ? _conCurrentConstellationTitle.trim() : '') || 'Board';
+
+      if (sessionData) {
+        try {
+          localStorage.setItem('cmt_board_pw_' + token, JSON.stringify({
+            session: sessionData,
+            targetPageIndex: targetIdx,
+            sourceTitle: titleVal
+          }));
+        } catch (e) {
+          console.warn('Could not store page window session in localStorage', e);
+        }
+      }
+
+      if (window.Desktop && typeof Desktop.openTool === 'function') {
+        try {
+          await Desktop.openTool('board.html', {
+            forceNewWindow: true,
+            query: {
+              pageWindow: '1',
+              viewPage: String(targetIdx),
+              pwToken: token
+            }
+          });
+          return;
+        } catch (err) {
+          console.warn('Desktop.openTool failed, falling back to window.open', err);
+        }
+      }
+
+      // Web browser fallback
+      const sLeft = Math.round((window.screenX || 0) + 40);
+      const sTop = Math.round((window.screenY || 0) + 40);
+      window.open('board.html?pageWindow=1&viewPage=' + encodeURIComponent(targetIdx) + '&pwToken=' + encodeURIComponent(token), '_blank', 'width=1200,height=800,left=' + sLeft + ',top=' + sTop);
     };
 
     window.conOpenPageSnapshotWindow = async function (pageIndex, options = {}) {
@@ -52068,6 +52665,28 @@
               el.classList.toggle('con-timer-ended', isEnded);
               var digits = el.querySelector('.con-timer-digits');
               if (digits && digits.textContent !== timeStr) digits.textContent = timeStr;
+            }
+          }
+          return;
+        }
+
+        if (d.type === 'node-random-roll') {
+          if (_mirrorIsFrozen) return;
+          var randomNode = (window.conGetNodes ? window.conGetNodes() : []).find(function (n) { return String(n.id) === String(d.id); });
+          if (randomNode && randomNode.isRandom) {
+            randomNode.randomValue = d.value;
+            randomNode.baseWord = '=random(' + randomNode.randomMin + ',' + randomNode.randomMax + ')';
+            if (typeof conUpdateRandomNodeDisplay === 'function') {
+              conUpdateRandomNodeDisplay(randomNode);
+            } else if (typeof conRenderNodeLabel === 'function') {
+              conRenderNodeLabel(randomNode);
+            }
+          } else {
+            // Fallback: update the digits span directly if node not found in array
+            var rEl = document.getElementById(String(d.id));
+            if (rEl) {
+              var rDigits = rEl.querySelector('.con-random-digits');
+              if (rDigits) rDigits.textContent = String(d.value);
             }
           }
           return;

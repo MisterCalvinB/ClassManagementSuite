@@ -138,6 +138,10 @@
       }
     });
 
+    if (typeof window !== 'undefined' && window.LinksService && typeof window.LinksService.updatePath === 'function') {
+      window.LinksService.updatePath(normOld, normNew).catch(function() {});
+    }
+
     if (updated) {
       return await savePins(pins);
     }

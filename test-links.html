@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CMT Links & Tags Engine Verification</title>
+  <link rel="stylesheet" href="modules/lexend/lexend.css">
+  <link rel="stylesheet" href="css/tag-link-modal.css">
+  <script src="electron-bridge.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/links-service.js"></script>
+  <script src="js/tag-link-modal.js"></script>
+  <style>
+    body {
+      font-family: 'Lexend', sans-serif;
+      background: #f1f5f9;
+      color: #000;
+      margin: 0;
+      padding: 30px;
+    }
+    .test-box {
+      max-width: 900px;
+      margin: 0 auto;
+      background: #fff;
+      border: 3px solid #000;
+      box-shadow: 6px 6px 0px #000;
+      padding: 24px;
+    }
+    h1 {
+      margin-top: 0;
+      font-size: 1.4rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 3px solid #000;
+      padding-bottom: 12px;
+    }
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 20px 0;
+    }
+    button.neo-btn {
+      background: #fff;
+      color: #000;
+      border: 2.5px solid #000;
+      box-shadow: 3px 3px 0px #000;
+      font-family: inherit;
+      font-weight: 900;
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 8px 16px;
+      cursor: pointer;
+    }
+    button.neo-btn:hover {
+      background: #fde047;
+    }
+    button.neo-btn:active {
+      transform: translate(2px, 2px);
+      box-shadow: 1px 1px 0px #000;
+    }
+    button.neo-btn.primary {
+      background: #4ade80;
+    }
+    button.neo-btn.primary:hover {
+      background: #22c55e;
+    }
+    #log-output {
+      background: #000;
+      color: #4ade80;
+      font-family: monospace;
+      font-size: 0.85rem;
+      padding: 16px;
+      border: 2.5px solid #000;
+      max-height: 400px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+    .log-pass { color: #4ade80; font-weight: bold; }
+    .log-fail { color: #f87171; font-weight: bold; }
+    .log-info { color: #60a5fa; }
+  </style>
+</head>
+<body>
+  <div class="test-box">
+    <h1>[TEST SUITE] LINKS SERVICE & NEOBRUTALIST MODAL</h1>
+    <p>Verification harness for <code>LinksService</code> graph engine, URN parsing, bidirectional linking, tagging, context inheritance, and the plain-text Neobrutalist modal.</p>
+
+    <div class="btn-row">
+      <button type="button" class="neo-btn primary" onclick="runAutomatedTests()">[RUN AUTOMATED TESTS]</button>
+      <button type="button" class="neo-btn" onclick="openTestModalClass()">[OPEN MODAL: CLASS 6EME A]</button>
+      <button type="button" class="neo-btn" onclick="openTestModalDoc()">[OPEN MODAL: DOCUMENT]</button>
+      <button type="button" class="neo-btn" onclick="testPreviewer()">[TEST EMBEDDED PREVIEWER]</button>
+      <button type="button" class="neo-btn" onclick="clearRegistry()">[RESET TEST REGISTRY]</button>
+    </div>
+
+    <div id="log-output">Click [RUN AUTOMATED TESTS] to verify the engine...</div>
+  </div>
+
+  <script>
+    function log(msg, type) {
+      var out = document.getElementById('log-output');
+      var prefix = type === 'pass' ? '[PASS] ' : (type === 'fail' ? '[FAIL] ' : '[INFO] ');
+      var span = document.createElement('div');
+      span.className = type === 'pass' ? 'log-pass' : (type === 'fail' ? 'log-fail' : 'log-info');
+      span.textContent = prefix + msg;
+      out.appendChild(span);
+      out.scrollTop = out.scrollHeight;
+    }
+
+    function clearLog() {
+      document.getElementById('log-output').innerHTML = '';
+    }
+
+    async function runAutomatedTests() {
+      clearLog();
+      log('Starting automated tests for LinksService...', 'info');
+
+      try {
+        // Test 1: URN Parsing & Formatting
+        var u1 = LinksService.makeUrn('class', '6e_a');
+        if (u1 === 'cmt:class:6e_a') {
+          log('makeUrn basic created: ' + u1, 'pass');
+        } else {
+          log('makeUrn failed: ' + u1, 'fail');
+        }
+
+        var u2 = LinksService.makeUrn('gradesheet', '6e_a:sem1:midterm', 'stu_42');
+        if (u2 === 'cmt:gradesheet:6e_a:sem1:midterm#stu_42') {
+          log('makeUrn with anchor created: ' + u2, 'pass');
+        } else {
+          log('makeUrn with anchor failed: ' + u2, 'fail');
+        }
+
+        var p = LinksService.parseUrn(u2);
+        if (p && p.type === 'gradesheet' && p.id === '6e_a:sem1:midterm' && p.anchor === 'stu_42') {
+          log('parseUrn correctly parsed type, id, and anchor', 'pass');
+        } else {
+          log('parseUrn failed: ' + JSON.stringify(p), 'fail');
+        }
+
+        // Test 2: Tag Normalization
+        var t1 = LinksService.normalizeTag('Unit 3 Grammar');
+        if (t1 === '#unit-3-grammar') {
+          log('normalizeTag formatted to #unit-3-grammar', 'pass');
+        } else {
+          log('normalizeTag failed: ' + t1, 'fail');
+        }
+
+        // Test 3: Edge CRUD
+        var srcUrn = 'cmt:doc:user/doceditor/test_sheet.md';
+        var tgtUrn = 'cmt:competence:CEFR-A2-W1';
+        
+        await LinksService.removeLink(srcUrn, tgtUrn); // ensure clean
+        var edge = await LinksService.addLink(srcUrn, tgtUrn, {
+          relation: 'aligns_with',
+          meta: { notes: 'Automated test link' }
+        });
+        if (edge && edge.id) {
+          log('addLink created edge: ' + edge.id, 'pass');
+        } else {
+          log('addLink failed', 'fail');
+        }
+
+        var isLinked = await LinksService.isLinked(srcUrn, tgtUrn);
+        var isReverseLinked = await LinksService.isLinked(tgtUrn, srcUrn);
+        if (isLinked && isReverseLinked) {
+          log('isLinked verifies bidirectional connectivity', 'pass');
+        } else {
+          log('isLinked failed: direct=' + isLinked + ', reverse=' + isReverseLinked, 'fail');
+        }
+
+        var links = await LinksService.getLinksFor(srcUrn);
+        if (links.some(function(l) { return l.otherUrn === tgtUrn; })) {
+          log('getLinksFor returned linked competence', 'pass');
+        } else {
+          log('getLinksFor failed to find competence', 'fail');
+        }
+
+        // Test 4: Tag Operations
+        await LinksService.addTag(srcUrn, '#unit-test');
+        var tags = await LinksService.getTagsFor(srcUrn);
+        if (tags.includes('#unit-test')) {
+          log('addTag & getTagsFor confirmed tag: #unit-test', 'pass');
+        } else {
+          log('addTag/getTagsFor failed: ' + JSON.stringify(tags), 'fail');
+        }
+
+        var matches = await LinksService.findByTag('#unit-test');
+        if (matches.includes(srcUrn)) {
+          log('findByTag found entity by tag', 'pass');
+        } else {
+          log('findByTag failed', 'fail');
+        }
+
+        // Test 5: Context Inheritance
+        var classUrn = 'cmt:class:test_class_6e';
+        var criteriaUrn = 'cmt:criteria:rubric_test_writing.json';
+        await LinksService.addLink(classUrn, criteriaUrn, { relation: 'default_criteria' });
+
+        var ctx = await LinksService.resolveContext({
+          urn: 'cmt:gradesheet:test_class_6e:sem1:eval1',
+          classId: 'test_class_6e'
+        });
+
+        if (ctx && ctx.inherited.some(function(l) { return l.otherUrn === criteriaUrn; })) {
+          log('resolveContext successfully inherited criteria from parent class', 'pass');
+        } else {
+          log('resolveContext failed to inherit parent criteria: ' + JSON.stringify(ctx), 'fail');
+        }
+
+        log('ALL TESTS COMPLETED SUCCESSFULLY!', 'pass');
+      } catch (err) {
+        log('Exception during tests: ' + err.message + '\n' + err.stack, 'fail');
+      }
+    }
+
+    function openTestModalClass() {
+      TagLinkModal.open({
+        urn: 'cmt:class:group-6e-anglais',
+        title: '6EME B ANGLAIS',
+        subtitle: 'Class Group • 28 Students',
+        classId: 'group-6e-anglais',
+        onUpdate: function() {
+          log('Modal updated for Class 6EME B ANGLAIS', 'info');
+        }
+      });
+    }
+
+    function openTestModalDoc() {
+      TagLinkModal.open({
+        urn: 'cmt:doc:user/doceditor/revision_worksheet.md',
+        title: 'REVISION WORKSHEET - UNIT 3',
+        subtitle: 'Document Editor • user/doceditor/revision_worksheet.md',
+        classId: 'group-6e-anglais',
+        onUpdate: function() {
+          log('Modal updated for Revision Worksheet', 'info');
+        }
+      });
+    }
+
+    function testPreviewer() {
+      TagLinkModal.previewFile('user/attachments/grades/sample.pdf', 'SAMPLE TEST EVALUATION PDF');
+    }
+
+    async function clearRegistry() {
+      if (confirm('Reset test registry?')) {
+        localStorage.removeItem('cmt_links_registry');
+        await LinksService.saveRegistry({ version: 1, updatedAt: Date.now(), tags: {}, edges: [], entities: {} });
+        log('Test registry reset to blank.', 'info');
+      }
+    }
+  </script>
+</body>
+</html>

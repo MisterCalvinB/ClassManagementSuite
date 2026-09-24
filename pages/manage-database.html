@@ -1242,6 +1242,18 @@
 
       return keyOrder.map(key => {
         const customDef = customCols.find(c => c.key === key);
+        if (S.typeKey === 'criteria' && key === 'comments') {
+          return {
+            key,
+            type: 'object',
+            isLong: true,
+            longArray: false,
+            uniqueVals: [],
+            useSelect: false,
+            isCustom: Boolean(customDef),
+            customLabel: customDef?.label || 'Comments'
+          };
+        }
         const vals = records.map(r => r ? r[key] : undefined).filter(v => v !== undefined && v !== null && v !== '');
         if (!vals.length && customDef) {
           return {
@@ -1405,7 +1417,7 @@
         addNum('pointCoefficient');
         addArr('competenceIds');
         addArr('grades');
-        addObj('comments');
+        addObj('comments', { isLong: true });
         addObj('colors');
       } else if (typeKey === 'scales') {
         addStr('key');
@@ -1479,6 +1491,29 @@
               rec.competenceIds = rec.competenceIds.split(',').map(s => s.trim()).filter(Boolean);
             } else if (!Array.isArray(rec.competenceIds)) {
               rec.competenceIds = [];
+            }
+            if (typeof rec.comments === 'string') {
+              const trimmed = rec.comments.trim();
+              if (trimmed === '[object Object]' || trimmed.toLowerCase() === 'object object' || trimmed.toLowerCase().includes('object object')) {
+                rec.comments = {};
+              } else if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+                try {
+                  const parsed = JSON.parse(trimmed);
+                  rec.comments = (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
+                } catch (_) {
+                  rec.comments = {};
+                }
+              } else {
+                rec.comments = {};
+              }
+            } else if (rec.comments && typeof rec.comments === 'object' && !Array.isArray(rec.comments)) {
+              for (const [k, v] of Object.entries(rec.comments)) {
+                if (typeof v === 'string' && (v.trim() === '[object Object]' || v.trim().toLowerCase() === 'object object' || v.trim().toLowerCase().includes('object object'))) {
+                  delete rec.comments[k];
+                }
+              }
+            } else if (rec.comments === undefined || rec.comments === null) {
+              rec.comments = {};
             }
           }
         }
@@ -1572,6 +1607,9 @@
           rows = rows.filter(r => S.schema.some(f => {
             const v = r[f.key];
             if (f.type === 'array') return Array.isArray(v) && v.some(el => String(el).toLowerCase().includes(lv));
+            if (f.key === 'comments' && v && typeof v === 'object') {
+              return Object.entries(v).some(([gk, gv]) => `${gk} ${gv}`.toLowerCase().includes(lv));
+            }
             return String(v ?? '').toLowerCase().includes(lv);
           }));
           continue;
@@ -1591,6 +1629,10 @@
                 return selectedVals.includes(elStr) || selectedVals.some(target => elStr.includes(target));
               });
             }
+            if (key === 'comments' && v && typeof v === 'object') {
+              const fullStr = Object.entries(v).map(([gk, gv]) => `${gk} ${gv}`).join(' ').toLowerCase();
+              return selectedVals.some(target => fullStr.includes(target));
+            }
             const rawStr = String(v).trim().toLowerCase();
             if (selectedVals.includes(rawStr)) return true;
             if (rawStr.includes(',')) {
@@ -1606,6 +1648,9 @@
         rows = rows.filter(r => {
           const v = r[key];
           if (field.type === 'array') return Array.isArray(v) && v.some(el => String(el).toLowerCase().includes(lv));
+          if (key === 'comments' && v && typeof v === 'object') {
+            return Object.entries(v).some(([gk, gv]) => `${gk} ${gv}`.toLowerCase().includes(lv));
+          }
           return String(v ?? '').toLowerCase().includes(lv);
         });
       }
@@ -1617,6 +1662,11 @@
           let va = a[sf], vb = b[sf];
           if (field?.type === 'array') { va = (va ?? []).join(''); vb = (vb ?? []).join(''); }
           else if (field?.type === 'number') { va = Number(va) || 0; vb = Number(vb) || 0; }
+          else if (field?.key === 'comments' && (typeof va === 'object' || typeof vb === 'object')) {
+            va = (typeof va === 'object' && va) ? Object.entries(va).map(([k, v]) => `${k} ${v}`).join(' ') : String(va ?? '');
+            vb = (typeof vb === 'object' && vb) ? Object.entries(vb).map(([k, v]) => `${k} ${v}`).join(' ') : String(vb ?? '');
+            va = va.toLowerCase(); vb = vb.toLowerCase();
+          }
           else { va = String(va ?? '').toLowerCase(); vb = String(vb ?? '').toLowerCase(); }
           const c = va < vb ? -1 : va > vb ? 1 : 0;
           return S.sortDir === 'asc' ? c : -c;
@@ -1748,7 +1798,7 @@
   </div>`;
 
       if (S.schema.length) {
-        const filterFields = S.schema.filter(f => f.type !== 'object' && f.type !== 'boolean');
+        const filterFields = S.schema.filter(f => (f.type !== 'object' || (S.typeKey === 'criteria' && f.key === 'comments')) && f.type !== 'boolean');
         const selectFields = filterFields.filter(f => f.useSelect && !f.isLong)
           .sort((a, b) => a.uniqueVals.length - b.uniqueVals.length);
         const textFields = filterFields.filter(f => !f.useSelect || f.isLong);
@@ -2056,7 +2106,7 @@
       }
 
       table.classList.remove('hidden');
-      const tableCols = S.schema.filter(f => f.type !== 'object');
+      const tableCols = S.schema.filter(f => f.type !== 'object' || (S.typeKey === 'criteria' && f.key === 'comments'));
       const multiFile = S.files.length > 1;
       const isBatchMode = isBatchSupported();
       const allPageSelected = rows.length > 0 && rows.every(r => S.batchSel.has(batchKey(r._fi, r._ri)));
@@ -2087,7 +2137,7 @@
         return `<tr${isSel ? ' class="row-selected"' : ''} data-batch-row="${esc(bk)}" data-fi="${row._fi}" data-ri="${row._ri}">
       ${isBatchMode ? `<td style="width:32px;padding:7px 4px 7px 11px;"><input type="checkbox" class="batch-cb" ${isSel ? 'checked' : ''} onchange="toggleBatchSelect(${row._fi},${row._ri})"></td>` : ''}
       ${tableCols.map(f => {
-        const isEditable = f.type !== 'object' && f.key !== '_src';
+        const isEditable = (f.type !== 'object' || (S.typeKey === 'criteria' && f.key === 'comments')) && f.key !== '_src';
         const w = colWidths[f.key];
         const wStyle = w ? `style="width:${w}px;min-width:${w}px;max-width:${w}px;"` : '';
         if (isEditable) {
@@ -2134,7 +2184,26 @@
         const more = arr.length > 4 ? `<span class="tag-more">+${arr.length - 4}</span>` : '';
         return `<span class="tags">${items}${more}</span>`;
       }
+      if (field.key === 'comments' || (typeof val === 'object' && val !== null)) {
+        if (typeof val === 'object' && val !== null) {
+          const entries = Object.entries(val).filter(([k, v]) => v !== undefined && v !== null && String(v).trim() !== '');
+          if (!entries.length) return '<span class="cell-empty">—</span>';
+          const fullText = entries.map(([k, v]) => `${k}: ${String(v).trim()}`).join('\n');
+          const items = entries.slice(0, 3).map(([k, v]) => {
+            const s = String(v).trim();
+            const trunc = s.length > 30 ? s.slice(0, 30) + '…' : s;
+            return `<span class="tag" style="background:#f1f5f9;color:#1e293b;border:1.5px solid #cbd5e1;font-weight:700;">${esc(k)}</span> <span style="font-size:0.8rem;color:#334155;">${esc(trunc)}</span>`;
+          }).join(' <span style="color:#94a3b8;font-weight:bold;">•</span> ');
+          const more = entries.length > 3 ? ` <span class="tag-more">+${entries.length - 3}</span>` : '';
+          return `<span class="crit-comments-wrap" title="${esc(fullText)}">${items}${more}</span>`;
+        }
+        const strVal = String(val).trim();
+        if (strVal === '[object Object]' || strVal.toLowerCase() === 'object object') {
+          return '<span class="cell-empty">—</span>';
+        }
+      }
       const str = String(val);
+      if (str === '[object Object]' || str.toLowerCase() === 'object object') return '<span class="cell-empty">—</span>';
       if (str.length > 85) return `<span class="cell-trunc" title="${esc(str)}">${esc(str.slice(0, 85))}…</span>`;
       return esc(str);
     }
@@ -2351,16 +2420,40 @@
 
       td.classList.add('cell-editing');
 
+      const isCriteriaComments = (S.typeKey === 'criteria' && key === 'comments') || (key === 'comments' && (typeof currentVal === 'object' || (rec && Array.isArray(rec.grades))));
       let strVal = '';
-      if (Array.isArray(currentVal)) {
+      if (isCriteriaComments) {
+        if (currentVal && typeof currentVal === 'object' && !Array.isArray(currentVal)) {
+          const entries = Object.entries(currentVal);
+          if (entries.length > 0) {
+            strVal = entries.map(([k, v]) => `${k}: ${v ?? ''}`).join('\n');
+          } else if (Array.isArray(rec.grades) && rec.grades.length > 0) {
+            strVal = rec.grades.map(g => `${g}: `).join('\n');
+          } else {
+            strVal = '';
+          }
+        } else if (typeof currentVal === 'string') {
+          const trimmed = currentVal.trim();
+          if (trimmed === '[object Object]' || trimmed.toLowerCase() === 'object object') {
+            strVal = (Array.isArray(rec.grades) && rec.grades.length > 0) ? rec.grades.map(g => `${g}: `).join('\n') : '';
+          } else {
+            strVal = trimmed;
+          }
+        }
+      } else if (Array.isArray(currentVal)) {
         strVal = isLong ? currentVal.join('\n') : currentVal.join(', ');
       } else if (currentVal !== undefined && currentVal !== null) {
-        strVal = String(currentVal);
+        if (typeof currentVal === 'object') {
+          strVal = JSON.stringify(currentVal, null, 2);
+        } else {
+          strVal = String(currentVal);
+          if (strVal === '[object Object]' || strVal.toLowerCase() === 'object object') strVal = '';
+        }
       }
 
       let inputHtml = '';
-      if (isLong) {
-        inputHtml = `<textarea class="cell-inline-textarea" rows="3">${escHtml(strVal)}</textarea>`;
+      if (isLong || isCriteriaComments) {
+        inputHtml = `<textarea class="cell-inline-textarea" rows="4" placeholder="${isCriteriaComments ? '6: Excellent\n5: Good\n4: Satisfactory' : ''}">${escHtml(strVal)}</textarea>`;
       } else if (type === 'number') {
         inputHtml = `<input type="number" class="cell-inline-input" value="${esc(strVal)}" />`;
       } else {
@@ -2382,6 +2475,14 @@
           e.preventDefault();
           cancelCellEdit(td);
         } else if (e.key === 'Enter') {
+          if (isCriteriaComments) {
+            if (e.ctrlKey || e.metaKey) {
+              e.stopPropagation();
+              e.preventDefault();
+              commitCellEdit(td);
+            }
+            return;
+          }
           if (isLong && e.shiftKey) return;
           e.stopPropagation();
           e.preventDefault();
@@ -2431,13 +2532,51 @@
       const rawVal = input.value;
       let newVal;
 
-      if (type === 'number') {
+      const isCriteriaComments = (S.typeKey === 'criteria' && key === 'comments') || (key === 'comments' && (typeof rec?.comments === 'object' || (td._originalVal && typeof td._originalVal === 'object')));
+
+      if (isCriteriaComments) {
+        const trimmed = rawVal.trim();
+        if (!trimmed || trimmed === '[object Object]' || trimmed.toLowerCase() === 'object object') {
+          newVal = {};
+        } else if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+          try {
+            const parsed = JSON.parse(trimmed);
+            newVal = (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
+          } catch (_) {
+            newVal = trimmed;
+          }
+        } else {
+          const lines = rawVal.split('\n');
+          const obj = {};
+          let hasColonPairs = false;
+          for (const line of lines) {
+            const tr = line.trim();
+            if (!tr) continue;
+            const colonIdx = tr.indexOf(':');
+            if (colonIdx > 0) {
+              const k = tr.slice(0, colonIdx).trim();
+              const v = tr.slice(colonIdx + 1).trim();
+              obj[k] = v;
+              hasColonPairs = true;
+            }
+          }
+          if (hasColonPairs) {
+            newVal = obj;
+          } else {
+            newVal = trimmed;
+          }
+        }
+      } else if (type === 'number') {
         newVal = rawVal.trim() === '' ? null : Number(rawVal.trim());
       } else if (type === 'array') {
         const sep = isLong ? '\n' : ',';
         newVal = rawVal.split(sep).map(s => s.trim()).filter(Boolean);
       } else {
-        newVal = rawVal;
+        if (typeof rawVal === 'string' && (rawVal.trim() === '[object Object]' || rawVal.trim().toLowerCase() === 'object object')) {
+          newVal = '';
+        } else {
+          newVal = rawVal;
+        }
       }
 
       td.classList.remove('cell-editing');
@@ -3121,9 +3260,26 @@
                <div class="form-hint">${t('mdbHintCommaSep')}</div>`;
         }
       } else if (field.type === 'object') {
-        const sv = val !== undefined ? JSON.stringify(val, null, 2) : '';
-        input = `<textarea id="${id}" rows="5">${escHtml(sv)}</textarea>
-             <div class="form-hint">${t('mdbHintJsonFormat')}</div>`;
+        if (S.typeKey === 'criteria' && field.key === 'comments') {
+          let lines = [];
+          if (val && typeof val === 'object' && !Array.isArray(val)) {
+            for (const [k, v] of Object.entries(val)) {
+              if (v !== undefined && v !== null && String(v).trim() && String(v).trim() !== '[object Object]') {
+                lines.push(`${k}: ${v}`);
+              }
+            }
+          }
+          if (lines.length === 0 && rec && Array.isArray(rec.grades) && rec.grades.length > 0) {
+            lines = rec.grades.map(g => `${g}: `);
+          }
+          const sv = lines.join('\n');
+          input = `<textarea id="${id}" rows="5" placeholder="6: Excellent\n5: Good\n4: Satisfactory">${escHtml(sv)}</textarea>
+               <div class="form-hint" data-i18n="mdbHintCriteriaComments">${t('mdbHintCriteriaComments', 'One per line: grade: comment (e.g. 6: Excellent)')}</div>`;
+        } else {
+          const sv = val !== undefined ? JSON.stringify(val, null, 2) : '';
+          input = `<textarea id="${id}" rows="5">${escHtml(sv)}</textarea>
+               <div class="form-hint">${t('mdbHintJsonFormat')}</div>`;
+        }
       } else if (field.isLong) {
         input = `<textarea id="${id}" rows="3" placeholder="Enter details...">${escHtml(String(val ?? ''))}</textarea>`;
       } else {
@@ -3452,8 +3608,40 @@
           const s = el.value.trim();
           result[field.key] = s ? s.split(sep).map(x => x.trim()).filter(Boolean) : [];
         } else if (field.type === 'object') {
-          try { result[field.key] = JSON.parse(el.value); }
-          catch { result[field.key] = el.value; }
+          if (S.typeKey === 'criteria' && field.key === 'comments') {
+            const rawVal = el.value.trim();
+            const commentsObj = {};
+            if (rawVal.startsWith('{') && rawVal.endsWith('}')) {
+              try {
+                const parsed = JSON.parse(rawVal);
+                if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                  for (const [k, v] of Object.entries(parsed)) {
+                    if (v !== undefined && v !== null && String(v).trim() && String(v).trim() !== '[object Object]') {
+                      commentsObj[k] = String(v).trim();
+                    }
+                  }
+                }
+              } catch (_) {}
+            } else if (rawVal) {
+              const lines = rawVal.split('\n');
+              for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed) continue;
+                const colonIdx = trimmed.indexOf(':');
+                if (colonIdx > 0) {
+                  const gradeKey = trimmed.substring(0, colonIdx).trim();
+                  const commentVal = trimmed.substring(colonIdx + 1).trim();
+                  if (gradeKey && commentVal && commentVal !== '[object Object]') {
+                    commentsObj[gradeKey] = commentVal;
+                  }
+                }
+              }
+            }
+            result[field.key] = commentsObj;
+          } else {
+            try { result[field.key] = JSON.parse(el.value); }
+            catch { result[field.key] = el.value; }
+          }
         } else {
           result[field.key] = el.value;
         }
@@ -5096,9 +5284,21 @@ Rules:
 
     function exportCellValue(val, field) {
       if (val === undefined || val === null) return '';
+      if (typeof val === 'string' && val.trim() === '[object Object]') return '';
       if (field.type === 'boolean') return val ? 'true' : 'false';
       if (field.type === 'array') return Array.isArray(val) ? val.join('; ') : String(val);
-      if (field.type === 'object') return JSON.stringify(val);
+      if (field.type === 'object') {
+        if (S.typeKey === 'criteria' && field.key === 'comments') {
+          if (val && typeof val === 'object' && !Array.isArray(val)) {
+            return Object.entries(val)
+              .filter(([_, v]) => v !== undefined && v !== null && String(v).trim() && String(v).trim() !== '[object Object]')
+              .map(([k, v]) => `${k}: ${v}`)
+              .join('; ');
+          }
+          return '';
+        }
+        return JSON.stringify(val);
+      }
       return String(val);
     }
 
@@ -5120,7 +5320,7 @@ Rules:
       if (!rows.length) { showToast(t('mdbAlertNoRecords')); return; }
 
       const isPdfOrDocxOrHtml = mode === 'pdf' || mode === 'docx' || mode === 'html' || mode === 'md';
-      const cols = isPdfOrDocxOrHtml ? S.schema.filter(f => f.type !== 'object') : S.schema;
+      const cols = isPdfOrDocxOrHtml ? S.schema.filter(f => f.type !== 'object' || (S.typeKey === 'criteria' && f.key === 'comments')) : S.schema;
       const multiFile = S.files.filter(f => f.status === 'loaded').length > 1;
 
       const list = document.getElementById('col-picker-list');
@@ -5226,7 +5426,7 @@ Rules:
       const ts = exportTimestamp();
       const multiFile = S.files.filter(f => f.status === 'loaded').length > 1;
       const inclSrc = multiFile && selectedKeys.includes('_src');
-      const cols = S.schema.filter(f => f.type !== 'object' && selectedKeys.includes(f.key));
+      const cols = S.schema.filter(f => (f.type !== 'object' || (S.typeKey === 'criteria' && f.key === 'comments')) && selectedKeys.includes(f.key));
 
       let colIdx = 0;
       const hdrCells = cols.map(f => {
@@ -5446,7 +5646,7 @@ Rules:
       const ts = exportTimestamp();
       const multiFile = S.files.filter(f => f.status === 'loaded').length > 1;
       const inclSrc = multiFile && selectedKeys.includes('_src');
-      const cols = S.schema.filter(f => f.type !== 'object' && selectedKeys.includes(f.key));
+      const cols = S.schema.filter(f => (f.type !== 'object' || (S.typeKey === 'criteria' && f.key === 'comments')) && selectedKeys.includes(f.key));
 
       let md = `# ${label}\n\n`;
       md += `> **Records:** ${rows.length} | **Exported:** ${ts}\n\n`;
@@ -5592,7 +5792,7 @@ Rules:
       const ts = exportTimestamp();
       const multiFile = S.files.filter(f => f.status === 'loaded').length > 1;
       const inclSrc = multiFile && selectedKeys.includes('_src');
-      const cols = S.schema.filter(f => f.type !== 'object' && selectedKeys.includes(f.key));
+      const cols = S.schema.filter(f => (f.type !== 'object' || (S.typeKey === 'criteria' && f.key === 'comments')) && selectedKeys.includes(f.key));
 
       const hdr = cols.map(f => `<th>${escHtml(cap(f.key))}</th>`).join('') + (inclSrc ? '<th>Source</th>' : '');
       const body = rows.map(row =>

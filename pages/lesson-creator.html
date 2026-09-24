@@ -1270,18 +1270,47 @@
 
   <!-- Sequence Manager Modal -->
   <div id="sequenceModal" class="modal-overlay" style="display:none;">
-    <div class="modal-box" style="max-width:720px;">
+    <div class="modal-box" style="max-width:720px;max-height:90vh;display:flex;flex-direction:column;">
       <div class="modal-header">
         <div><span data-i18n="lcSequenceManager">Unit Sequence Manager</span></div>
         <button class="icon-btn" onclick="lcCloseModal('sequenceModal')">&times;</button>
       </div>
-      <div class="modal-body">
-        <div style="display:flex;gap:8px;">
-          <input type="text" id="seqTitleInput" class="meta-input" style="flex:1;" placeholder="Unit Title (e.g. Unit 3: Ecology & Biodiversity)">
+      <div class="modal-body" style="display:flex;flex-direction:column;gap:14px;overflow-y:auto;">
+        <!-- Existing Sequence Selector Bar -->
+        <div style="display:flex;gap:8px;align-items:center;background:var(--neo-card-bg,#fff);padding:8px 10px;border:2px solid var(--neo-dark);border-radius:var(--neo-radius-sm);box-shadow:var(--neo-shadow-sm);">
+          <span style="font-weight:900;font-size:0.82rem;white-space:nowrap;" data-i18n="lcSelectExistingSequence">Existing Sequence:</span>
+          <select id="savedSequencesSelect" class="meta-select" style="flex:1;min-width:0;" onchange="lcOnSavedSequenceSelectChange()">
+            <option value="" data-i18n="lcChooseSequencePlaceholder">-- Choose a sequence to open --</option>
+          </select>
+          <button type="button" class="neo-btn primary" id="btnOpenChosenSeq" onclick="lcOpenSelectedSequence()" disabled style="padding:4px 12px;font-size:0.8rem;white-space:nowrap;">
+            <span data-i18n="lcBtnOpenSequence">Open</span>
+          </button>
+          <button type="button" class="neo-btn" onclick="lcStartNewSequence()" style="padding:4px 10px;font-size:0.8rem;white-space:nowrap;" title="Start a new blank sequence">
+            <span data-i18n="lcBtnNewSequence">+ New</span>
+          </button>
+        </div>
+
+        <!-- Unit title -->
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="text" id="seqTitleInput" class="meta-input" style="flex:1;" placeholder="Unit Title (e.g. Unit 3: Ecology)" data-i18n-placeholder="lcSeqTitlePlaceholder">
           <button class="neo-btn primary" onclick="lcSaveSequence()"><span data-i18n="btnSave">Save Sequence</span></button>
         </div>
-        <div style="font-weight:800;font-size:0.85rem;" data-i18n="lcLessonsInSequence">Lessons in this Sequence:</div>
-        <div id="sequenceLessonsList" style="display:flex;flex-direction:column;gap:6px;"></div>
+
+        <!-- Position badge -->
+        <div id="seqPositionBadge" style="display:none;font-size:0.82rem;font-weight:800;color:var(--neo-gray-dark);"></div>
+
+        <!-- Current sequence members -->
+        <div>
+          <div style="font-weight:900;font-size:0.85rem;margin-bottom:6px;" data-i18n="lcSeqCurrentMembers">Lessons in this Sequence</div>
+          <div id="sequenceLessonsList" style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;"></div>
+        </div>
+
+        <!-- Picker: available plans to add -->
+        <div style="border-top:2px dashed var(--neo-gray-mid);padding-top:10px;">
+          <div style="font-weight:900;font-size:0.85rem;margin-bottom:6px;" data-i18n="lcSeqAvailablePlans">Add Saved Plans to Sequence</div>
+          <input type="text" id="seqPickerSearch" class="drawer-search-input" placeholder="Search plans…" oninput="lcFilterSeqPicker()" style="margin-bottom:6px;width:100%;box-sizing:border-box;">
+          <div id="seqPickerList" style="max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;"></div>
+        </div>
       </div>
       <div class="modal-footer">
         <button class="neo-btn" onclick="lcCloseModal('sequenceModal')"><span data-i18n="btnClose">Close</span></button>
@@ -2403,18 +2432,7 @@
         var tagInput = document.getElementById('newTagInput');
         if (tagInput) tagInput.value = '';
 
-        var seqBar = document.getElementById('sequenceBar');
-        if (seqBar) {
-          if (currentPlan.unitSequence && currentPlan.unitSequence.title) {
-            seqBar.style.display = 'flex';
-            var seqTitle = document.getElementById('seqTitleDisplay');
-            var seqIdx = document.getElementById('seqIndexDisplay');
-            if (seqTitle) seqTitle.textContent = currentPlan.unitSequence.title;
-            if (seqIdx) seqIdx.textContent = 'Lesson ' + (currentPlan.unitSequence.lessonIndex || 1) + ' of ' + (currentPlan.unitSequence.totalLessons || 1);
-          } else {
-            seqBar.style.display = 'none';
-          }
-        }
+        updateSequenceBar();
 
         renderTags();
         renderTeamBadge();
@@ -4590,49 +4608,740 @@
       };
 
       // ── Unit Sequence Manager ───────────────────────────────────────────
-      window.lcOpenSequenceModal = function () {
+      var initialSequencePlanIds = [];
+
+      function ensureUnitSequence() {
+        if (!currentPlan.unitSequence) {
+          currentPlan.unitSequence = { title: '', lessonIndex: 1, totalLessons: 1, lessons: [] };
+        }
+        if (!Array.isArray(currentPlan.unitSequence.lessons)) {
+          currentPlan.unitSequence.lessons = [];
+        }
+        if (currentPlan.unitSequence.lessons.length === 0 && currentPlan.id) {
+          currentPlan.unitSequence.lessons.push({
+            id: currentPlan.id,
+            title: currentPlan.title || 'Current Lesson',
+            filename: currentPlan._filename || ('lp_' + currentPlan.id + '.json')
+          });
+          currentPlan.unitSequence.lessonIndex = 1;
+          currentPlan.unitSequence.totalLessons = 1;
+        }
+        return currentPlan.unitSequence;
+      }
+
+      function updateSequenceBar() {
+        var bar = document.getElementById('sequenceBar');
+        if (!bar) return;
+        var seq = currentPlan && currentPlan.unitSequence;
+        if (!seq || !seq.title || !seq.lessons || seq.lessons.length < 2) {
+          bar.style.display = 'none';
+          return;
+        }
+        bar.style.display = 'flex';
+        var titleEl = document.getElementById('seqTitleDisplay');
+        if (titleEl) titleEl.textContent = seq.title || 'Unit Sequence';
+        var indexEl = document.getElementById('seqIndexDisplay');
+        var n = seq.lessonIndex || 1;
+        var m = seq.lessons.length;
+        if (indexEl) {
+          if (typeof tFmt === 'function') {
+            indexEl.textContent = tFmt('lcSeqPosition', { n: n, m: m });
+          } else {
+            indexEl.textContent = 'Lesson ' + n + ' of ' + m;
+          }
+        }
+        var prevBtn = document.getElementById('seqPrevBtn');
+        var nextBtn = document.getElementById('seqNextBtn');
+        var idx = n - 1;
+        if (prevBtn) prevBtn.disabled = (idx <= 0);
+        if (nextBtn) nextBtn.disabled = (idx >= seq.lessons.length - 1);
+      }
+
+      function renderSequenceMemberList() {
+        var container = document.getElementById('sequenceLessonsList');
+        if (!container) return;
+        var seq = currentPlan.unitSequence;
+        var lessons = (seq && Array.isArray(seq.lessons)) ? seq.lessons : [];
+
+        if (lessons.length === 0) {
+          container.innerHTML = '<div style="color:var(--neo-gray-dark,#666);font-size:0.85rem;padding:8px 0;" data-i18n="lcSeqEmpty">' +
+            (typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcSeqEmpty') : 'No lessons in sequence yet. Add from the list below.') +
+            '</div>';
+          return;
+        }
+
+        if (container.firstElementChild && container.firstElementChild.getAttribute('data-i18n') === 'lcSeqEmpty') {
+          container.innerHTML = '';
+        }
+
+        while (container.children.length > lessons.length) {
+          container.removeChild(container.lastChild);
+        }
+
+        lessons.forEach(function (les, idx) {
+          var isCurrent = currentPlan && (les.id === currentPlan.id);
+          var row = container.children[idx];
+          if (!row || !row.classList.contains('seq-member-row')) {
+            row = document.createElement('div');
+            row.className = 'seq-member-row';
+            if (idx < container.children.length) {
+              container.insertBefore(row, container.children[idx]);
+            } else {
+              container.appendChild(row);
+            }
+          }
+          row.className = 'seq-member-row' + (isCurrent ? ' is-current' : '');
+
+          var upTitle = typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcSeqMoveUp') : 'Move Up';
+          var downTitle = typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcSeqMoveDown') : 'Move Down';
+          var removeTxt = typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcSeqRemove') : 'Remove';
+          var openTxt = typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcOpenLessonBtn') : 'Open';
+
+          row.innerHTML =
+            '<span class="seq-member-num">' + (idx + 1) + '</span>' +
+            '<span class="seq-member-title" title="' + escapeHtml(les.title || 'Untitled') + '">' + escapeHtml(les.title || 'Untitled') + '</span>' +
+            (isCurrent
+              ? '<span style="font-size:0.72rem;font-weight:900;background:var(--neo-dark,#111);color:#fff;padding:2px 6px;border-radius:3px;">Current</span>'
+              : '<button type="button" class="neo-btn" style="padding:2px 7px;font-size:0.75rem;" onclick="lcOpenSequenceMemberLesson(\'' + escapeHtml(les.id) + '\')" title="' + escapeHtml(openTxt) + '">' + escapeHtml(openTxt) + '</button>'
+            ) +
+            '<button type="button" class="neo-btn" style="padding:2px 7px;font-size:0.75rem;" onclick="lcMoveLessonInSequence(' + idx + ',-1)" title="' + escapeHtml(upTitle) + '" ' + (idx === 0 ? 'disabled' : '') + '>▲</button>' +
+            '<button type="button" class="neo-btn" style="padding:2px 7px;font-size:0.75rem;" onclick="lcMoveLessonInSequence(' + idx + ',1)" title="' + escapeHtml(downTitle) + '" ' + (idx === lessons.length - 1 ? 'disabled' : '') + '>▼</button>' +
+            '<button type="button" class="neo-btn danger" style="padding:2px 7px;font-size:0.75rem;" onclick="lcRemoveLessonFromSequence(' + idx + ')">' + escapeHtml(removeTxt) + '</button>';
+        });
+      }
+
+      function renderSeqPickerList(filter) {
+        var container = document.getElementById('seqPickerList');
+        if (!container) return;
+        var seq = currentPlan.unitSequence;
+        var seqIds = {};
+        if (seq && Array.isArray(seq.lessons)) {
+          seq.lessons.forEach(function (l) { seqIds[l.id] = true; });
+        }
+        var available = allSavedPlans.filter(function (p) {
+          return p && p.id && !seqIds[p.id];
+        });
+        filter = (filter || '').toLowerCase().trim();
+        if (filter) {
+          available = available.filter(function (p) {
+            return (p.title || '').toLowerCase().indexOf(filter) !== -1 ||
+                   (p.subjectId || '').toLowerCase().indexOf(filter) !== -1;
+          });
+        }
+
+        container.innerHTML = '';
+        if (available.length === 0) {
+          var emptyMsg = typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcSeqNoneAvailable') : 'All saved plans are already in this sequence.';
+          container.innerHTML = '<div style="color:var(--neo-gray-dark,#666);font-size:0.85rem;padding:8px 0;">' + escapeHtml(emptyMsg) + '</div>';
+          return;
+        }
+
+        var addTxt = typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcSeqAddLesson') : '+ Add';
+
+        available.forEach(function (p) {
+          var row = document.createElement('div');
+          row.className = 'seq-picker-row';
+          row.innerHTML =
+            '<span class="seq-picker-title" title="' + escapeHtml(p.title || 'Untitled') + '">' + escapeHtml(p.title || 'Untitled') + '</span>' +
+            (p.date ? '<span style="font-size:0.75rem;color:var(--neo-gray-dark,#666);font-weight:700;">' + escapeHtml(p.date) + '</span>' : '') +
+            '<button type="button" class="neo-btn primary" style="padding:3px 8px;font-size:0.75rem;" onclick="lcAddLessonToSequence(\'' + escapeHtml(p.id) + '\')">' + escapeHtml(addTxt) + '</button>';
+          container.appendChild(row);
+        });
+      }
+
+      async function loadAllSavedSequences() {
+        var seqMap = new Map();
+        try {
+          var rawList = [];
+          if (window.Desktop && Desktop.isElectron() && typeof Desktop.readText === 'function') {
+            var readIdx = await Desktop.readText('user', 'lesson-sequences.json').catch(function () {});
+            if (readIdx && readIdx.ok && readIdx.content) {
+              try { rawList = JSON.parse(readIdx.content); } catch (_) {}
+            }
+          } else {
+            var raw = localStorage.getItem('cmt-lesson-sequences');
+            if (raw) {
+              try { rawList = JSON.parse(raw); } catch (_) {}
+            }
+          }
+          if (Array.isArray(rawList)) {
+            rawList.forEach(function (s) {
+              if (s && s.title && Array.isArray(s.lessons) && s.lessons.length > 0) {
+                seqMap.set(s.title.toLowerCase().trim(), {
+                  id: s.id || ('seq_' + Date.now()),
+                  title: s.title,
+                  lessons: s.lessons
+                });
+              }
+            });
+          }
+        } catch (_) {}
+
+        if (Array.isArray(allSavedPlans)) {
+          allSavedPlans.forEach(function (p) {
+            if (p && p.unitSequence && p.unitSequence.title) {
+              var key = p.unitSequence.title.toLowerCase().trim();
+              if (!seqMap.has(key)) {
+                var lList = (p.unitSequence.lessons && p.unitSequence.lessons.length > 0)
+                  ? p.unitSequence.lessons
+                  : [{ id: p.id, title: p.title || 'Untitled', filename: p._filename || ('lp_' + p.id + '.json') }];
+                seqMap.set(key, {
+                  id: 'seq_' + (p.id || Date.now()),
+                  title: p.unitSequence.title,
+                  lessons: lList
+                });
+              }
+            }
+          });
+        }
+
+        return Array.from(seqMap.values());
+      }
+
+      async function populateSavedSequencesDropdown() {
+        var sel = document.getElementById('savedSequencesSelect');
+        var btn = document.getElementById('btnOpenChosenSeq');
+        if (!sel) return;
+        var placeholderTxt = (typeof i18n !== 'undefined' && typeof i18n.t === 'function')
+          ? i18n.t('lcChooseSequencePlaceholder')
+          : '-- Choose a sequence to open --';
+
+        sel.innerHTML = '<option value="">' + escapeHtml(placeholderTxt) + '</option>';
+        if (btn) btn.disabled = true;
+
+        var sequences = await loadAllSavedSequences();
+        window._availableSequences = sequences;
+
+        var currentSeqTitle = (currentPlan && currentPlan.unitSequence && currentPlan.unitSequence.title)
+          ? currentPlan.unitSequence.title.trim().toLowerCase()
+          : '';
+
+        sequences.forEach(function (s, idx) {
+          var opt = document.createElement('option');
+          opt.value = String(idx);
+          var count = (s.lessons && s.lessons.length) || 0;
+          opt.textContent = s.title + ' (' + count + (count === 1 ? ' lesson' : ' lessons') + ')';
+          if (currentSeqTitle && s.title.trim().toLowerCase() === currentSeqTitle) {
+            opt.selected = true;
+          }
+          sel.appendChild(opt);
+        });
+
+        if (sel.value !== '') {
+          if (btn) btn.disabled = false;
+        }
+      }
+
+      window.lcOnSavedSequenceSelectChange = function () {
+        var sel = document.getElementById('savedSequencesSelect');
+        var btn = document.getElementById('btnOpenChosenSeq');
+        if (!sel || !btn) return;
+        btn.disabled = (sel.value === '');
+      };
+
+      window.lcOpenSelectedSequence = async function () {
+        var sel = document.getElementById('savedSequencesSelect');
+        if (!sel || sel.value === '') return;
+        var seqIdx = parseInt(sel.value, 10);
+        var sequences = window._availableSequences || [];
+        var chosenSeq = sequences[seqIdx];
+        if (!chosenSeq) return;
+
+        if (isDirty) {
+          await lcSavePlan();
+        }
+
+        var lessons = chosenSeq.lessons || [];
+        if (lessons.length === 0) {
+          if (typeof showToast === 'function') showToast('No lessons found in this sequence.', true);
+          return;
+        }
+
+        var targetLesson = lessons.find(function (l) { return currentPlan && l.id === currentPlan.id; });
+        if (!targetLesson) {
+          targetLesson = lessons[0];
+        }
+
+        var targetPlan = allSavedPlans.find(function (p) { return p.id === targetLesson.id; });
+        if (!targetPlan && window.Desktop && Desktop.isElectron() && targetLesson.filename) {
+          try {
+            var readRes = await Desktop.readByPath('user', 'lessons/' + targetLesson.filename);
+            if (readRes && readRes.ok && readRes.content) {
+              targetPlan = JSON.parse(readRes.content);
+              targetPlan._filename = targetLesson.filename;
+              targetPlan._relPath = 'lessons/' + targetLesson.filename;
+              targetPlan._target = 'user';
+              allSavedPlans.push(targetPlan);
+            }
+          } catch (_) {}
+        }
+        if (!targetPlan) {
+          var lsKey = 'cmt-lesson-' + targetLesson.id;
+          var raw = localStorage.getItem(lsKey);
+          if (raw) {
+            try {
+              targetPlan = JSON.parse(raw);
+              allSavedPlans.push(targetPlan);
+            } catch (_) {}
+          }
+        }
+
+        if (targetPlan) {
+          currentPlan = targetPlan;
+          var foundIdx = lessons.findIndex(function (l) { return l.id === targetPlan.id; });
+          currentPlan.unitSequence = {
+            title: chosenSeq.title,
+            lessonIndex: (foundIdx >= 0) ? (foundIdx + 1) : 1,
+            totalLessons: lessons.length,
+            lessons: JSON.parse(JSON.stringify(lessons))
+          };
+          renderPlan();
+          isDirty = false;
+        } else {
+          currentPlan.unitSequence = {
+            title: chosenSeq.title,
+            lessonIndex: 1,
+            totalLessons: lessons.length,
+            lessons: JSON.parse(JSON.stringify(lessons))
+          };
+          renderPlan();
+        }
+
         var titleInp = document.getElementById('seqTitleInput');
-        if (titleInp) titleInp.value = (currentPlan.unitSequence && currentPlan.unitSequence.title) || '';
-        renderSequenceLessonsList();
+        if (titleInp) titleInp.value = chosenSeq.title || '';
+        initialSequencePlanIds = (currentPlan.unitSequence && currentPlan.unitSequence.lessons)
+          ? currentPlan.unitSequence.lessons.map(function (l) { return l.id; })
+          : [];
+
+        var badge = document.getElementById('seqPositionBadge');
+        if (badge) {
+          badge.style.display = 'block';
+          var n = (currentPlan.unitSequence && currentPlan.unitSequence.lessonIndex) || 1;
+          var m = (currentPlan.unitSequence && currentPlan.unitSequence.totalLessons) || lessons.length;
+          badge.textContent = typeof tFmt === 'function' ? tFmt('lcSeqPosition', { n: n, m: m }) : ('Lesson ' + n + ' of ' + m);
+        }
+
+        renderSequenceMemberList();
+        var searchVal = document.getElementById('seqPickerSearch') ? document.getElementById('seqPickerSearch').value : '';
+        renderSeqPickerList(searchVal);
+        updateSequenceBar();
+
+        var toastMsg = typeof tFmt === 'function'
+          ? tFmt('lcSeqOpenedToast', { title: chosenSeq.title })
+          : ('Opened sequence: ' + chosenSeq.title);
+        if (typeof showToast === 'function') showToast(toastMsg);
+      };
+
+      window.lcOpenSequenceMemberLesson = async function (planId) {
+        if (!planId) return;
+        if (currentPlan && currentPlan.id === planId) return;
+
+        if (isDirty) {
+          await lcSavePlan();
+        }
+
+        var seq = currentPlan && currentPlan.unitSequence;
+        var lessons = (seq && seq.lessons) ? seq.lessons : [];
+        var targetMember = lessons.find(function (l) { return l.id === planId; });
+
+        var targetPlan = allSavedPlans.find(function (p) { return p.id === planId; });
+        if (!targetPlan && window.Desktop && Desktop.isElectron() && targetMember && targetMember.filename) {
+          try {
+            var readRes = await Desktop.readByPath('user', 'lessons/' + targetMember.filename);
+            if (readRes && readRes.ok && readRes.content) {
+              targetPlan = JSON.parse(readRes.content);
+              targetPlan._filename = targetMember.filename;
+              targetPlan._relPath = 'lessons/' + targetMember.filename;
+              targetPlan._target = 'user';
+              allSavedPlans.push(targetPlan);
+            }
+          } catch (_) {}
+        }
+        if (!targetPlan) {
+          var lsKey = 'cmt-lesson-' + planId;
+          var raw = localStorage.getItem(lsKey);
+          if (raw) {
+            try {
+              targetPlan = JSON.parse(raw);
+              allSavedPlans.push(targetPlan);
+            } catch (_) {}
+          }
+        }
+
+        if (targetPlan) {
+          currentPlan = targetPlan;
+          var newIdx = lessons.findIndex(function (l) { return l.id === planId; });
+          if (currentPlan.unitSequence) {
+            currentPlan.unitSequence.lessonIndex = (newIdx >= 0) ? (newIdx + 1) : 1;
+            currentPlan.unitSequence.totalLessons = lessons.length;
+            currentPlan.unitSequence.lessons = lessons;
+          }
+          renderPlan();
+          isDirty = false;
+
+          var badge = document.getElementById('seqPositionBadge');
+          if (badge) {
+            badge.style.display = 'block';
+            var n = (newIdx >= 0) ? (newIdx + 1) : 1;
+            var m = lessons.length;
+            badge.textContent = typeof tFmt === 'function' ? tFmt('lcSeqPosition', { n: n, m: m }) : ('Lesson ' + n + ' of ' + m);
+          }
+
+          renderSequenceMemberList();
+          updateSequenceBar();
+          if (typeof showToast === 'function') showToast((currentPlan.title || 'Lesson') + ' loaded');
+        } else {
+          if (typeof showToast === 'function') showToast('Could not load plan: ' + planId, true);
+        }
+      };
+
+      window.lcStartNewSequence = function () {
+        currentPlan.unitSequence = {
+          title: '',
+          lessonIndex: 1,
+          totalLessons: 1,
+          lessons: currentPlan.id ? [{
+            id: currentPlan.id,
+            title: currentPlan.title || 'Current Lesson',
+            filename: currentPlan._filename || ('lp_' + currentPlan.id + '.json')
+          }] : []
+        };
+        initialSequencePlanIds = (currentPlan.unitSequence.lessons || []).map(function (l) { return l.id; });
+
+        var titleInp = document.getElementById('seqTitleInput');
+        if (titleInp) titleInp.value = '';
+        var sel = document.getElementById('savedSequencesSelect');
+        if (sel) sel.value = '';
+        var btn = document.getElementById('btnOpenChosenSeq');
+        if (btn) btn.disabled = true;
+
+        var badge = document.getElementById('seqPositionBadge');
+        if (badge) {
+          if (currentPlan.unitSequence.lessons.length > 0) {
+            badge.style.display = 'block';
+            badge.textContent = typeof tFmt === 'function' ? tFmt('lcSeqPosition', { n: 1, m: 1 }) : 'Lesson 1 of 1';
+          } else {
+            badge.style.display = 'none';
+          }
+        }
+
+        isDirty = true;
+        renderSequenceMemberList();
+        var searchVal = document.getElementById('seqPickerSearch') ? document.getElementById('seqPickerSearch').value : '';
+        renderSeqPickerList(searchVal);
+        updateSequenceBar();
+        if (titleInp) titleInp.focus();
+      };
+
+      window.lcOpenSequenceModal = async function () {
+        await loadSavedPlansIndex();
+        var seq = ensureUnitSequence();
+        initialSequencePlanIds = (seq && Array.isArray(seq.lessons)) ? seq.lessons.map(function (l) { return l.id; }) : [];
+
+        var titleInp = document.getElementById('seqTitleInput');
+        if (titleInp) titleInp.value = (seq && seq.title) || '';
+
+        var badge = document.getElementById('seqPositionBadge');
+        if (badge) {
+          if (seq && seq.lessons && seq.lessons.length > 0) {
+            badge.style.display = 'block';
+            var n = seq.lessonIndex || 1;
+            var m = seq.lessons.length;
+            badge.textContent = typeof tFmt === 'function' ? tFmt('lcSeqPosition', { n: n, m: m }) : ('Lesson ' + n + ' of ' + m);
+          } else {
+            badge.style.display = 'none';
+          }
+        }
+
+        var searchEl = document.getElementById('seqPickerSearch');
+        if (searchEl) searchEl.value = '';
+
+        await populateSavedSequencesDropdown();
+
+        renderSequenceMemberList();
+        renderSeqPickerList('');
+
         var m = document.getElementById('sequenceModal');
         if (m) m.style.display = 'flex';
       };
 
-      function renderSequenceLessonsList() {
-        var container = document.getElementById('sequenceLessonsList');
-        if (!container) return;
-        container.innerHTML = '';
-        var lessons = (currentPlan.unitSequence && currentPlan.unitSequence.lessons) || [];
-        if (lessons.length === 0) {
-          container.innerHTML = '<div style="color:#888;font-size:0.85rem;padding:8px 0;">No other lessons in sequence yet.</div>';
-          return;
-        }
-        lessons.forEach(function (les, idx) {
-          var item = document.createElement('div');
-          item.style.cssText = 'padding:6px 10px;background:#f5f5f5;border-radius:4px;font-size:0.85rem;display:flex;justify-content:space-between;align-items:center;';
-          item.innerHTML = '<span><strong>Lesson ' + (idx + 1) + ':</strong> ' + escapeHtml(les.title || 'Untitled') + '</span>';
-          container.appendChild(item);
-        });
-      }
-
-      window.lcSaveSequence = function () {
-        var titleInp = document.getElementById('seqTitleInput');
-        if (!currentPlan.unitSequence) currentPlan.unitSequence = { title: '', lessonIndex: 1, totalLessons: 1, lessons: [] };
-        currentPlan.unitSequence.title = titleInp ? titleInp.value.trim() : '';
-        isDirty = true;
-        lcCloseModal('sequenceModal');
-        if (typeof showToast === 'function') showToast('Unit sequence saved');
+      window.lcFilterSeqPicker = function () {
+        var val = document.getElementById('seqPickerSearch') ? document.getElementById('seqPickerSearch').value : '';
+        renderSeqPickerList(val);
       };
 
-      window.lcNavSequence = function (dir) {
-        if (!currentPlan.unitSequence || !currentPlan.unitSequence.lessons || currentPlan.unitSequence.lessons.length === 0) {
+      window.lcAddLessonToSequence = function (planId) {
+        var plan = allSavedPlans.find(function (p) { return p.id === planId; });
+        if (!plan) return;
+        var seq = ensureUnitSequence();
+        if (seq.lessons.some(function (l) { return l.id === planId; })) return;
+        var fn = plan._filename || ('lp_' + plan.id + '.json');
+        seq.lessons.push({ id: plan.id, title: plan.title || 'Untitled', filename: fn });
+        seq.totalLessons = seq.lessons.length;
+
+        var curIdx = seq.lessons.findIndex(function (l) { return currentPlan && l.id === currentPlan.id; });
+        seq.lessonIndex = curIdx >= 0 ? (curIdx + 1) : 1;
+
+        var badge = document.getElementById('seqPositionBadge');
+        if (badge) {
+          badge.style.display = 'block';
+          badge.textContent = typeof tFmt === 'function' ? tFmt('lcSeqPosition', { n: seq.lessonIndex, m: seq.totalLessons }) : ('Lesson ' + seq.lessonIndex + ' of ' + seq.totalLessons);
+        }
+
+        isDirty = true;
+        renderSequenceMemberList();
+        var filterVal = document.getElementById('seqPickerSearch') ? document.getElementById('seqPickerSearch').value : '';
+        renderSeqPickerList(filterVal);
+        updateSequenceBar();
+      };
+
+      window.lcRemoveLessonFromSequence = function (idx) {
+        var seq = currentPlan.unitSequence;
+        if (!seq || !seq.lessons || !seq.lessons[idx]) return;
+        var removed = seq.lessons[idx];
+        seq.lessons.splice(idx, 1);
+        seq.totalLessons = seq.lessons.length;
+
+        if (currentPlan && removed.id === currentPlan.id) {
+          currentPlan.unitSequence = null;
+          var badge = document.getElementById('seqPositionBadge');
+          if (badge) badge.style.display = 'none';
+        } else {
+          var curIdx = seq.lessons.findIndex(function (l) { return currentPlan && l.id === currentPlan.id; });
+          seq.lessonIndex = curIdx >= 0 ? (curIdx + 1) : 1;
+          var badge2 = document.getElementById('seqPositionBadge');
+          if (badge2) {
+            if (seq.lessons.length > 0) {
+              badge2.style.display = 'block';
+              badge2.textContent = typeof tFmt === 'function' ? tFmt('lcSeqPosition', { n: seq.lessonIndex, m: seq.totalLessons }) : ('Lesson ' + seq.lessonIndex + ' of ' + seq.totalLessons);
+            } else {
+              badge2.style.display = 'none';
+            }
+          }
+          if (seq.lessons.length === 0) {
+            currentPlan.unitSequence = null;
+          }
+        }
+
+        isDirty = true;
+        renderSequenceMemberList();
+        var filterVal = document.getElementById('seqPickerSearch') ? document.getElementById('seqPickerSearch').value : '';
+        renderSeqPickerList(filterVal);
+        updateSequenceBar();
+      };
+
+      window.lcMoveLessonInSequence = function (idx, dir) {
+        var seq = currentPlan.unitSequence;
+        if (!seq || !seq.lessons) return;
+        var targetIdx = idx + dir;
+        if (targetIdx < 0 || targetIdx >= seq.lessons.length) return;
+        var tmp = seq.lessons[idx];
+        seq.lessons[idx] = seq.lessons[targetIdx];
+        seq.lessons[targetIdx] = tmp;
+
+        var curIdx = seq.lessons.findIndex(function (l) { return currentPlan && l.id === currentPlan.id; });
+        seq.lessonIndex = curIdx >= 0 ? (curIdx + 1) : 1;
+
+        var badge = document.getElementById('seqPositionBadge');
+        if (badge) {
+          badge.textContent = typeof tFmt === 'function' ? tFmt('lcSeqPosition', { n: seq.lessonIndex, m: seq.totalLessons }) : ('Lesson ' + seq.lessonIndex + ' of ' + seq.totalLessons);
+        }
+
+        isDirty = true;
+        renderSequenceMemberList();
+        updateSequenceBar();
+      };
+
+      window.lcSaveSequence = async function () {
+        var titleInp = document.getElementById('seqTitleInput');
+        var titleVal = titleInp ? titleInp.value.trim() : '';
+
+        if (!currentPlan.unitSequence) {
+          if (!titleVal) {
+            lcCloseModal('sequenceModal');
+            return;
+          }
+          ensureUnitSequence();
+        }
+
+        var seq = currentPlan.unitSequence;
+        seq.title = titleVal;
+        seq.totalLessons = (seq.lessons && seq.lessons.length) || 0;
+        var curIdx = seq.lessons ? seq.lessons.findIndex(function (l) { return currentPlan && l.id === currentPlan.id; }) : -1;
+        seq.lessonIndex = curIdx >= 0 ? (curIdx + 1) : 1;
+
+        if (!currentPlan.id) {
+          currentPlan.id = 'lp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+        }
+
+        if (seq.lessons && curIdx >= 0) {
+          seq.lessons[curIdx].title = currentPlan.title || 'Untitled';
+          seq.lessons[curIdx].filename = currentPlan._filename || ('lp_' + currentPlan.id + '.json');
+        }
+
+        var currentSeqIds = (seq.lessons || []).map(function (l) { return l.id; });
+
+        // Check if any previously attached lessons were removed
+        for (var r = 0; r < initialSequencePlanIds.length; r++) {
+          var removedId = initialSequencePlanIds[r];
+          if (currentSeqIds.indexOf(removedId) === -1 && removedId !== currentPlan.id) {
+            var removedPlan = allSavedPlans.find(function (p) { return p.id === removedId; });
+            if (!removedPlan && window.Desktop && Desktop.isElectron()) {
+              try {
+                var rRead = await Desktop.readByPath('user', 'lessons/lp_' + removedId + '.json');
+                if (rRead && rRead.ok && rRead.content) {
+                  removedPlan = JSON.parse(rRead.content);
+                }
+              } catch (_) {}
+            }
+            if (removedPlan) {
+              removedPlan.unitSequence = null;
+              try {
+                if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveJson === 'function') {
+                  var rfn = removedPlan._filename || ('lp_' + removedPlan.id + '.json');
+                  await Desktop.saveJson('lessons', rfn, removedPlan);
+                } else {
+                  localStorage.setItem('cmt-lesson-' + removedPlan.id, JSON.stringify(removedPlan));
+                }
+              } catch (e) {
+                console.warn('Failed to clear unitSequence on removed plan:', e);
+              }
+            }
+          }
+        }
+
+        // Propagate to all sibling plans in sequence
+        var myId = currentPlan.id;
+        var lessons = seq.lessons || [];
+        for (var i = 0; i < lessons.length; i++) {
+          var les = lessons[i];
+          if (les.id === myId) continue;
+          var siblingPlan = allSavedPlans.find(function (p) { return p.id === les.id; });
+          if (!siblingPlan && window.Desktop && Desktop.isElectron() && les.filename) {
+            try {
+              var readRes = await Desktop.readByPath('user', 'lessons/' + les.filename);
+              if (readRes && readRes.ok && readRes.content) {
+                siblingPlan = JSON.parse(readRes.content);
+              }
+            } catch (_) {}
+          }
+          if (siblingPlan) {
+            siblingPlan.unitSequence = {
+              title: seq.title,
+              lessonIndex: i + 1,
+              totalLessons: seq.totalLessons,
+              lessons: JSON.parse(JSON.stringify(seq.lessons))
+            };
+            try {
+              if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveJson === 'function') {
+                var fn = siblingPlan._filename || les.filename || ('lp_' + siblingPlan.id + '.json');
+                await Desktop.saveJson('lessons', fn, siblingPlan);
+              } else {
+                localStorage.setItem('cmt-lesson-' + siblingPlan.id, JSON.stringify(siblingPlan));
+              }
+            } catch (err) {
+              console.warn('Failed to save sibling plan ' + les.id, err);
+            }
+          }
+        }
+
+        // Save lightweight sequence index user/lesson-sequences.json
+        try {
+          var seqIndex = [];
+          if (window.Desktop && Desktop.isElectron()) {
+            var readIdx = await Desktop.readText('user', 'lesson-sequences.json').catch(function () {});
+            if (readIdx && readIdx.ok && readIdx.content) {
+              try { seqIndex = JSON.parse(readIdx.content); } catch (_) {}
+            }
+          } else {
+            var raw = localStorage.getItem('cmt-lesson-sequences');
+            if (raw) {
+              try { seqIndex = JSON.parse(raw); } catch (_) {}
+            }
+          }
+          if (!Array.isArray(seqIndex)) seqIndex = [];
+
+          var seqEntry = seqIndex.find(function (s) {
+            return s.title === seq.title || (s.lessons && s.lessons.some(function (l) { return l.id === myId; }));
+          });
+          if (!seqEntry) {
+            seqEntry = { id: 'seq_' + Date.now(), title: seq.title, lessons: [] };
+            seqIndex.push(seqEntry);
+          }
+          seqEntry.title = seq.title;
+          seqEntry.lessons = (seq.lessons || []).map(function (l) { return { id: l.id, title: l.title, filename: l.filename }; });
+
+          if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveJson === 'function') {
+            await Desktop.saveJson('user', 'lesson-sequences.json', seqIndex);
+          } else {
+            localStorage.setItem('cmt-lesson-sequences', JSON.stringify(seqIndex));
+          }
+        } catch (err) {
+          console.warn('Failed to update lesson-sequences.json:', err);
+        }
+
+        isDirty = true;
+        await lcSavePlan();
+        await populateSavedSequencesDropdown();
+        lcCloseModal('sequenceModal');
+        updateSequenceBar();
+        var savedToast = typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcSeqSavedToast') : 'Sequence saved and synced to all lessons';
+        if (typeof showToast === 'function') showToast(savedToast);
+      };
+
+      window.lcNavSequence = async function (dir) {
+        var seq = currentPlan && currentPlan.unitSequence;
+        if (!seq || !seq.lessons || seq.lessons.length === 0) {
           if (typeof showToast === 'function') showToast('No sequence lessons to navigate.', true);
           return;
         }
-        var nextIdx = (currentPlan.unitSequence.lessonIndex || 1) + dir;
-        if (nextIdx < 1 || nextIdx > currentPlan.unitSequence.lessons.length) return;
-        currentPlan.unitSequence.lessonIndex = nextIdx;
-        if (typeof showToast === 'function') showToast('Switched to sequence lesson ' + nextIdx);
+        var currentIdx = (seq.lessonIndex || 1) - 1;
+        var nextIdx = currentIdx + dir;
+        if (nextIdx < 0 || nextIdx >= seq.lessons.length) return;
+
+        if (isDirty) {
+          await lcSavePlan();
+          var navSavedToast = typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcSeqNavSaved') : 'Plan auto-saved before navigation';
+          if (typeof showToast === 'function') showToast(navSavedToast);
+        }
+
+        var targetMember = seq.lessons[nextIdx];
+        if (!targetMember || !targetMember.id) return;
+
+        var targetPlan = allSavedPlans.find(function (p) { return p.id === targetMember.id; });
+        if (!targetPlan && window.Desktop && Desktop.isElectron() && targetMember.filename) {
+          try {
+            var readRes = await Desktop.readByPath('user', 'lessons/' + targetMember.filename);
+            if (readRes && readRes.ok && readRes.content) {
+              targetPlan = JSON.parse(readRes.content);
+              targetPlan._filename = targetMember.filename;
+              targetPlan._relPath = 'lessons/' + targetMember.filename;
+              targetPlan._target = 'user';
+              allSavedPlans.push(targetPlan);
+            }
+          } catch (_) {}
+        }
+        if (!targetPlan) {
+          var lsKey = 'cmt-lesson-' + targetMember.id;
+          var raw = localStorage.getItem(lsKey);
+          if (raw) {
+            try {
+              targetPlan = JSON.parse(raw);
+              allSavedPlans.push(targetPlan);
+            } catch (_) {}
+          }
+        }
+
+        if (targetPlan) {
+          currentPlan = targetPlan;
+          if (currentPlan.unitSequence) {
+            currentPlan.unitSequence.lessonIndex = nextIdx + 1;
+          }
+          renderPlan();
+          isDirty = false;
+        } else {
+          if (typeof showToast === 'function') showToast('Could not load plan: ' + (targetMember.title || targetMember.id), true);
+        }
       };
 
       // ── Planner Link & Coverage CSV ─────────────────────────────────────

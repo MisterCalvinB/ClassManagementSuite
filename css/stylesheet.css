@@ -2430,7 +2430,7 @@ button.action-btn:hover {
   z-index: 10;
   border: 1.5px solid #444;
   border-radius: 7px;
-  background: #ffffff;
+  background: transparent;
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.16);
   overflow: hidden;
   user-select: none;
@@ -2501,8 +2501,8 @@ button.action-btn:hover {
 .con-media-asset {
   width: 100%;
   height: 100%;
-  object-fit: contain;
-  background: #ffffff;
+  object-fit: fill;
+  background: transparent;
 }
 
 .con-media-pdf-canvas {
@@ -3600,6 +3600,86 @@ body.pres-show-roles .picked-blink {
   width: 14px;
   height: 14px;
   flex-shrink: 0;
+}
+
+/* --- Random Number Node --- */
+.con-node.con-node-random {
+  min-width: 72px;
+  letter-spacing: 0.5px;
+}
+
+.con-node.con-node-random .con-random-digits {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 1.1em;
+}
+
+.con-node.con-node-random .con-random-dice-icon {
+  display: inline-block;
+  transform-origin: center;
+}
+
+.con-node.con-node-random.con-random-rolling .con-random-dice-icon {
+  animation: conRandomDiceSpin 0.35s ease;
+}
+
+@keyframes conRandomDiceSpin {
+  0%   { transform: rotate(0deg) scale(1); }
+  40%  { transform: rotate(160deg) scale(1.25); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+/* --- Random Number Action Popover --- */
+#con-random-action-popover {
+  position: fixed;
+  z-index: 9250;
+  background: var(--bg-card, #ffffff);
+  color: var(--text-primary, #111111);
+  border: 2px solid #111;
+  border-radius: 6px;
+  box-shadow: 3px 3px 0 #111;
+  padding: 8px;
+  min-width: 190px;
+  max-width: 240px;
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: auto;
+  font-family: inherit;
+}
+
+#con-random-action-popover .con-timer-popover-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px 6px;
+  border-bottom: 1px solid var(--border-subtle, #eee);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+#con-random-action-popover .con-timer-popover-header .con-timer-popover-close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.65;
+  border-radius: 4px;
+}
+
+#con-random-action-popover .con-timer-popover-header .con-timer-popover-close:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+#con-random-action-popover .con-timer-popover-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 /* --- Edge label --- */
@@ -23447,6 +23527,14 @@ textarea.det-edit-input {
   background: #000 !important;
   padding: 0 !important;
   margin: 0 !important;
+}
+
+.con-media-fullscreen .con-media-asset,
+.con-media-fullscreen img,
+.con-media-fullscreen video {
+  object-fit: contain !important;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .con-media-fullscreen .con-media-pdf-scroll {
