@@ -5,15 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Grade Sheet</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
+  <script src="../electron-bridge.js"></script>
   <script src="../js/student-name-utils.js"></script>
   <script src="../js/i18n.js"></script>
   <script src="../js/dialogs.js"></script>
   <script src="../js/shortcuts-modal.js"></script>
   <script src="../js/tutorial.js"></script>
   <script src="../modules/xlsx.min.js"></script>
-  <script src="../electron-bridge.js"></script>
   <script src="../js/competence-aggregator-service.js"></script>
   <script src="../js/menus.js"></script>
+  <link rel="stylesheet" href="../css/tag-link-modal.css">
+  <script src="../js/links-service.js"></script>
+  <script src="../js/tag-link-modal.js"></script>
   <script>
     (function () {
       function injectClassicScript(source, name) {
@@ -191,6 +194,7 @@
         </div>
         <div class="btn-row">
           <button id="btn-back-classes" class="btn" data-i18n="gsBtnBackClasses"><img src="../assets/icons/arrow-left.svg" class="btn-icon" alt="" /> Back to Classes</button>
+          <button id="btn-gs-class-links" class="btn" onclick="gsOpenClassLinksModal()" title="View and edit links and tags for this class" style="font-weight:900;letter-spacing:0.5px;"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" />[LINKS: 0]</button>
           <button id="btn-open-competence-portfolio" class="btn" onclick="gsOpenCompetencePortfolio()" title="Open Competence Portfolio" data-i18n-title="geBtnCompetencePortfolio"><img src="../assets/icons/competence-portfolio.svg" class="btn-icon" alt="" /> <span data-i18n="gsBtnCompetencePortfolio">Competences</span></button>
           <div class="dropdown" id="summary-name-display-dropdown" style="display:inline-flex;align-items:center;">
             <select id="gs-name-display-select" class="btn" style="padding:6px 10px;font-size:0.82rem;font-weight:600;background:var(--card,#fff);color:var(--text,#111);border:1px solid var(--border,#ccc);border-radius:6px;cursor:pointer;" title="Student name display mode" data-i18n-title="gsTitleNameDisplayMode">
@@ -306,6 +310,7 @@
         <div class="btn-row">
           <button id="btn-back-summary" class="btn" data-i18n="gsBtnBackSummary"><img src="../assets/icons/arrow-left.svg" class="btn-icon" alt="" /> Back to Summary</button>
           <button id="btn-test-options" class="btn primary" data-i18n="gsBtnTestOptions"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> Test Options</button>
+          <button id="btn-gs-test-links" class="btn" onclick="gsOpenTestLinksModal()" title="View and attach files, links, and tags for this test" style="font-weight:900;letter-spacing:0.5px;"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" />[LINKS: 0]</button>
           <button id="btn-criteria-ref" class="btn" data-i18n="gsBtnCriteriaRef"><img src="../assets/icons/book.svg" class="btn-icon" alt="" /> Criteria Reference</button>
           <button id="btn-edit-reference-data-test" class="btn btn-edit-reference-data" data-i18n="gsBtnEditRef"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> Edit Criteria / Scales</button>
           <div class="dropdown dropdown-hover" id="criteria-export-dropdown">
@@ -710,6 +715,7 @@
           <span id="topt-context-badge" class="topt-context-badge"></span>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
+          <button id="btn-topt-links" type="button" class="btn" onclick="gsOpenTestLinksModal()" title="View and edit links and tags for this test" style="font-weight:900;letter-spacing:0.5px;font-size:0.75rem;padding:3px 8px;"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:12px;height:12px;vertical-align:-2px;margin-right:4px;" />[LINKS: 0]</button>
           <button type="button" class="btn" onclick="showGsModalTour()" style="font-size:0.78rem;padding:3px 10px;" data-i18n="tourBtnLabel"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
           <button id="topt-close-top" type="button" class="btn" style="padding:2px 8px;font-size:1rem;line-height:1;" aria-label="Close" data-i18n-aria="gsToptClose"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
         </div>
@@ -802,7 +808,10 @@
         <!-- Tab 3: Grading Scale -->
         <div class="topt-tab-panel" data-tab="grading">
           <div class="topt-card" style="margin-bottom:16px;">
-            <div class="topt-card-title"><span data-i18n="gsGradingTitle">Grading Policy & Scale Model</span></div>
+            <div class="topt-card-title">
+              <span data-i18n="gsGradingTitle">Grading Policy &amp; Scale Model</span>
+              <span style="margin-left:auto;font-size:0.72rem;font-weight:700;border:1.5px solid #000;padding:1px 6px;background:#fef3c7;color:#92400e;letter-spacing:0.5px;" data-i18n="gsAutoLinkedBadge">[AUTO-LINKED TO GRAPH]</span>
+            </div>
             <div class="topt-grid-2col">
               <div class="form-group">
                 <label data-i18n="gsGradingLabelMode">Calculation Mode</label>
@@ -940,6 +949,7 @@
               <div class="topt-card-title">
                 <span data-i18n="gsCriteriaTitle">Active Criteria List</span>
                 <span id="topt-criteria-summary" style="margin-left:auto;font-size:0.8rem;color:var(--muted);font-weight:normal;"></span>
+                <span style="margin-left:8px;font-size:0.72rem;font-weight:700;border:1.5px solid #000;padding:1px 6px;background:#fef3c7;color:#92400e;letter-spacing:0.5px;" data-i18n="gsAutoLinkedBadge">[AUTO-LINKED TO GRAPH]</span>
               </div>
               <div id="topt-criteria-list" class="criteria-mgmt-list" style="max-height:320px;"></div>
             </div>
@@ -948,7 +958,10 @@
               <div class="topt-card-title" data-i18n="gsToptAddCriterionLoadPreset">+ Add New Criterion / Load Preset</div>
               <div class="form-group" style="margin-bottom:12px;background:var(--bg-subtle,#f8fafc);padding:8px 10px;border-radius:6px;border:1px solid var(--border,#e2e8f0);">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-                  <label for="topt-criteria-bank-select" style="font-weight:700;font-size:0.82rem;margin:0;" data-i18n="gsTestCriteriaTemplate">Test Criteria Template</label>
+                  <div style="display:inline-flex;align-items:center;">
+                    <label for="topt-criteria-bank-select" style="font-weight:700;font-size:0.82rem;margin:0;" data-i18n="gsTestCriteriaTemplate">Test Criteria Template</label>
+                    <span id="topt-criteria-inherited-badge" style="display:none;font-size:0.72rem;font-weight:900;border:1.5px solid #000;padding:1px 5px;background:#e0e7ff;color:#1e1b4b;margin-left:6px;"></span>
+                  </div>
                   <button type="button" class="btn btn-xs" id="topt-apply-all-template-criteria-btn" style="font-size:0.75rem;padding:2px 8px;" data-i18n="gsApplyTemplateAll">
                     <img src="../assets/icons/check.svg" class="btn-icon btn-icon-xs" alt="" /> Apply All
                   </button>
@@ -1478,12 +1491,14 @@
   <div id="test-row-menu" class="row-context-menu hidden" role="menu" aria-label="Student row menu" data-i18n-aria="gsAriaStudentRowMenu">
     <button id="test-row-menu-open" class="menu-item" type="button" role="menuitem" data-i18n="gsMenuOpenStudent"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" /> Open student</button>
     <button id="test-row-menu-report-student" class="menu-item" type="button" role="menuitem" data-i18n="gsReportStudentTest"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> Student Test Report</button>
+    <button id="test-row-menu-attach-work" class="menu-item" type="button" role="menuitem" style="font-weight:800;">[ATTACH STUDENT WORK / PDF]</button>
     <hr class="menu-sep">
     <button id="test-row-menu-reset" class="menu-item danger" type="button" role="menuitem" data-i18n="gsMenuResetPoints"><img src="../assets/icons/clear.svg" class="btn-icon" alt="" /> Reset points and comments</button>
   </div>
 
   <div id="class-card-menu" class="row-context-menu hidden" role="menu" aria-label="Class menu" data-i18n-aria="gsAriaClassMenu">
     <button id="class-card-menu-open" class="menu-item" type="button" role="menuitem" data-i18n="gsMenuOpenClass"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" /> Open class</button>
+    <button id="class-card-menu-links" class="menu-item" type="button" role="menuitem" style="font-weight:800;"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> [CLASS LINKS & TAGS]</button>
     <button id="class-card-menu-rename" class="menu-item" type="button" role="menuitem" data-i18n="gsMenuEditName"><img src="../assets/icons/edit-word.svg" class="btn-icon" alt="" /> Edit name</button>
     <hr class="menu-sep">
     <button id="class-card-menu-report-year" class="menu-item" type="button" role="menuitem" data-i18n="gsReportClassYear"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> Class Year Report</button>
@@ -1495,6 +1510,7 @@
 
   <div id="test-header-menu" class="row-context-menu hidden" role="menu" aria-label="Test menu" data-i18n-aria="gsAriaTestMenu">
     <button id="test-header-menu-open" class="menu-item" type="button" role="menuitem" data-i18n="gsMenuOpenTest"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" /> Open test</button>
+    <button id="test-header-menu-links" class="menu-item" type="button" role="menuitem" style="font-weight:800;"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> [TEST LINKS & ATTACHMENTS]</button>
     <button id="test-header-menu-settings" class="menu-item" type="button" role="menuitem" data-i18n="gsMenuEditTestSettings"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> Edit test settings</button>
     <hr class="menu-sep">
     <button id="test-header-menu-report-test" class="menu-item" type="button" role="menuitem" data-i18n="gsReportClassTest"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> Test Report (Whole Class)</button>
@@ -5148,6 +5164,294 @@
       _positionMenu(menu, x, y);
     }
 
+    // ── Cross-App Tagging & Linking Integration Helpers ─────────
+    async function updateGsLinksBadges() {
+      if (typeof LinksService === 'undefined') return;
+      try {
+        const classObj = getActiveClass();
+        const classBtn = document.getElementById("btn-gs-class-links");
+        const iconHtml = '<img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" />';
+        if (classBtn) {
+          if (classObj) {
+            const classUrn = 'cmt:class:' + classObj.id;
+            const links = await LinksService.getLinksFor(classUrn);
+            const tags = await LinksService.getTagsFor(classUrn);
+            const tagPart = tags.length ? ` | TAGS: ${tags.length}` : '';
+            classBtn.innerHTML = `${iconHtml}[LINKS: ${links.length}${tagPart}]`;
+            classBtn.style.display = "";
+          } else {
+            classBtn.style.display = "none";
+          }
+        }
+
+        const testBtn = document.getElementById("btn-gs-test-links");
+        const toptBtn = document.getElementById("btn-topt-links");
+        if (testBtn || toptBtn) {
+          if (classObj && appState.activeTest) {
+            const sem = appState.activeTest.semester;
+            const testIndex = appState.activeTest.testIndex;
+            const testUrn = `cmt:eval:${classObj.id}:${sem}:${testIndex}`;
+            const links = await LinksService.getLinksFor(testUrn);
+            const tags = await LinksService.getTagsFor(testUrn);
+            const tagPart = tags.length ? ` | TAGS: ${tags.length}` : '';
+            const btnHtml = `${iconHtml}[LINKS: ${links.length}${tagPart}]`;
+            if (testBtn) {
+              testBtn.innerHTML = btnHtml;
+              testBtn.style.display = "";
+            }
+            if (toptBtn) {
+              toptBtn.innerHTML = btnHtml;
+              toptBtn.style.display = "";
+            }
+          } else {
+            if (testBtn) testBtn.style.display = "none";
+            if (toptBtn) toptBtn.style.display = "none";
+          }
+        }
+      } catch (err) {
+        console.warn('updateGsLinksBadges error:', err);
+      }
+    }
+    window.updateGsLinksBadges = updateGsLinksBadges;
+
+    /**
+     * Automatically synchronizes universal graph links for an evaluation from the
+     * data configured in the Test Options Criteria and Grading Scale tabs:
+     * - Grading Scale model (data-tab="grading")
+     * - Criteria Bank / Template (data-tab="criteria")
+     * - Attached Curriculum Competences (data-tab="criteria")
+     * - Class default criteria bank
+     */
+    async function syncTestAutoLinks(classObj, sem, testIndex) {
+      if (typeof LinksService === 'undefined' || !classObj || !classObj.id || sem == null || testIndex == null) return;
+      try {
+        const config = getTestConfig(classObj, sem, testIndex);
+        if (!config) return;
+
+        const testUrn = `cmt:eval:${classObj.id}:${sem}:${testIndex}`;
+        const testName = config.testName || ('T' + (Number(testIndex) + 1));
+        const testTitle = `${testName} (${classObj.name})`;
+        const testSubtitle = (sem === 'sem1' ? 'Semester 1' : 'Semester 2') + (config.testDate ? ' • ' + config.testDate : '');
+
+        // 1. Fetch current links for this test
+        const currentLinks = await LinksService.getLinksFor(testUrn);
+
+        // ── A. Grading Scale Model (from data-tab="grading") ──
+        const targetModelKey = config.grading && (config.grading.modelKey || config.grading.pendingModelKey);
+        let desiredScaleUrn = null;
+        if (targetModelKey && targetModelKey !== 'custom' && targetModelKey !== 'none') {
+          desiredScaleUrn = LinksService.makeUrn('scale', targetModelKey);
+          const modelObj = typeof getScaleModel === 'function' ? getScaleModel(targetModelKey) : null;
+          const scaleLabel = modelObj ? (modelObj.label || modelObj.key || targetModelKey) : targetModelKey;
+          await LinksService.addLink(testUrn, desiredScaleUrn, {
+            relation: 'scale',
+            meta: {
+              category: 'scale',
+              auto: true,
+              modelKey: targetModelKey,
+              label: scaleLabel
+            },
+            targetMeta: {
+              type: 'scale',
+              title: scaleLabel,
+              subtitle: 'Grading Scale Model • ' + (modelObj ? `${modelObj.minGrade || 1}–${modelObj.maxGrade || 6}` : targetModelKey)
+            },
+            sourceMeta: {
+              type: 'evaluation',
+              title: testTitle,
+              subtitle: testSubtitle
+            }
+          });
+        }
+
+        // Clean up previous auto-linked scale models if changed or removed
+        for (const link of currentLinks) {
+          if (link.meta && link.meta.auto && link.meta.category === 'scale') {
+            if (link.otherUrn !== desiredScaleUrn) {
+              await LinksService.removeLink(testUrn, link.otherUrn);
+            }
+          }
+        }
+
+        // ── B. Criteria Bank / Template (from data-tab="criteria") ──
+        const targetBankFn = config.criteriaBank || (classObj.criteriaBanks && classObj.criteriaBanks[0]) || classObj.criteriaBank || 'correction-criteria.js';
+        let desiredBankUrn = null;
+        if (targetBankFn) {
+          desiredBankUrn = LinksService.makeUrn('criteria', targetBankFn);
+          const matchedBank = Array.isArray(_availableCriteriaBanks) ? _availableCriteriaBanks.find(b => b.filename === targetBankFn) : null;
+          const bankName = matchedBank ? (matchedBank.name || targetBankFn) : targetBankFn;
+          await LinksService.addLink(testUrn, desiredBankUrn, {
+            relation: 'criteria',
+            meta: {
+              category: 'criteria',
+              auto: true,
+              bank: targetBankFn,
+              label: bankName
+            },
+            targetMeta: {
+              type: 'criteria',
+              title: bankName,
+              subtitle: 'Criteria Rubric Bank • ' + targetBankFn
+            },
+            sourceMeta: {
+              type: 'evaluation',
+              title: testTitle,
+              subtitle: testSubtitle
+            }
+          });
+        }
+
+        // Clean up previous auto-linked criteria banks if changed
+        for (const link of currentLinks) {
+          if (link.meta && link.meta.auto && link.meta.category === 'criteria') {
+            if (link.otherUrn !== desiredBankUrn) {
+              await LinksService.removeLink(testUrn, link.otherUrn);
+            }
+          }
+        }
+
+        // ── C. Attached Curriculum Competences (from data-tab="criteria") ──
+        const desiredCompUrns = new Set();
+        if (Array.isArray(config.criteria)) {
+          for (const crit of config.criteria) {
+            if (crit && Array.isArray(crit.competenceIds)) {
+              for (const cid of crit.competenceIds) {
+                const cleanCid = String(cid || '').trim();
+                if (!cleanCid) continue;
+                const compUrn = LinksService.makeUrn('competence', cleanCid);
+                desiredCompUrns.add(compUrn);
+                const compInfo = typeof findLessonCompetence === 'function' ? findLessonCompetence(cleanCid) : null;
+                const compTitle = compInfo ? (compInfo.code || compInfo.title || cleanCid) : cleanCid;
+                await LinksService.addLink(testUrn, compUrn, {
+                  relation: 'competence',
+                  meta: {
+                    category: 'competence',
+                    auto: true,
+                    code: cleanCid,
+                    criterionName: crit.name || ''
+                  },
+                  targetMeta: {
+                    type: 'competence',
+                    title: compTitle,
+                    subtitle: compInfo && compInfo.title ? compInfo.title : 'Curriculum Competence'
+                  },
+                  sourceMeta: {
+                    type: 'evaluation',
+                    title: testTitle,
+                    subtitle: testSubtitle
+                  }
+                });
+              }
+            }
+          }
+        }
+
+        // Clean up previous auto-linked competences that were unassigned
+        for (const link of currentLinks) {
+          if (link.meta && link.meta.auto && link.meta.category === 'competence') {
+            if (!desiredCompUrns.has(link.otherUrn)) {
+              await LinksService.removeLink(testUrn, link.otherUrn);
+            }
+          }
+        }
+
+        // ── D. Class Group Default Criteria Bank Auto-Link ──
+        if (classObj.id && classObj.criteriaBank) {
+          const classUrn = 'cmt:class:' + classObj.id;
+          const classBankUrn = LinksService.makeUrn('criteria', classObj.criteriaBank);
+          const matchedClassBank = Array.isArray(_availableCriteriaBanks) ? _availableCriteriaBanks.find(b => b.filename === classObj.criteriaBank) : null;
+          const classBankName = matchedClassBank ? (matchedClassBank.name || classObj.criteriaBank) : classObj.criteriaBank;
+          await LinksService.addLink(classUrn, classBankUrn, {
+            relation: 'criteria',
+            meta: {
+              category: 'criteria',
+              auto: true,
+              bank: classObj.criteriaBank,
+              label: classBankName
+            },
+            targetMeta: {
+              type: 'criteria',
+              title: classBankName,
+              subtitle: 'Default Class Criteria • ' + classObj.criteriaBank
+            },
+            sourceMeta: {
+              type: 'class',
+              title: classObj.name,
+              subtitle: 'Class Group'
+            }
+          });
+        }
+
+        // ── E. Refresh Badges ──
+        await updateGsLinksBadges();
+      } catch (err) {
+        console.warn('syncTestAutoLinks error:', err);
+      }
+    }
+    window.syncTestAutoLinks = syncTestAutoLinks;
+    window.appState = appState;
+    window.GRADE_SHEET_CLASSES = function () { return appState.classes; };
+
+    function gsOpenClassLinksModal() {
+      const classObj = getActiveClass();
+      if (!classObj || typeof TagLinkModal === 'undefined') return;
+      TagLinkModal.open({
+        urn: 'cmt:class:' + classObj.id,
+        title: classObj.name,
+        label: classObj.name,
+        subtitle: 'Class Group • ' + ((classObj.students && classObj.students.length) || 0) + ' students' + (classObj.year ? ' • ' + classObj.year : ''),
+        type: 'class',
+        classId: classObj.id
+      });
+    }
+    window.gsOpenClassLinksModal = gsOpenClassLinksModal;
+
+    function gsOpenTestLinksModal() {
+      const classObj = getActiveClass();
+      if (!classObj || !appState.activeTest || typeof TagLinkModal === 'undefined') return;
+      const sem = appState.activeTest.semester;
+      const testIndex = appState.activeTest.testIndex;
+      const cfg = getTestConfig(classObj, sem, testIndex);
+      const testName = cfg.testName || ('T' + (testIndex + 1));
+      TagLinkModal.open({
+        urn: `cmt:eval:${classObj.id}:${sem}:${testIndex}`,
+        title: testName + ' (' + classObj.name + ')',
+        label: testName + ' (' + classObj.name + ')',
+        subtitle: (sem === 'sem1' ? 'Semester 1' : 'Semester 2') + (cfg.testDate ? ' • ' + cfg.testDate : ''),
+        type: 'evaluation',
+        classId: classObj.id,
+        evalId: `${sem}_test_${testIndex}`
+      });
+    }
+    window.gsOpenTestLinksModal = gsOpenTestLinksModal;
+
+    function gsOpenStudentWorkModal(student, classObj, sem, testIndex) {
+      if (!student || !classObj || typeof TagLinkModal === 'undefined') return;
+      const cfg = getTestConfig(classObj, sem, testIndex);
+      const testName = cfg.testName || ('T' + (testIndex + 1));
+      const studentName = ((student.firstName || '') + ' ' + (student.lastName || '')).trim() || ('Student #' + student.index);
+      const urn = `cmt:eval:${classObj.id}:${sem}:${testIndex}:student:${student.id}`;
+      TagLinkModal.open({
+        urn: urn,
+        title: `${studentName} — ${testName} (${classObj.name})`,
+        label: `${studentName} — ${testName} (${classObj.name})`,
+        subtitle: 'Student Submission • ' + classObj.name + ' • ' + (sem === 'sem1' ? 'Semester 1' : 'Semester 2'),
+        type: 'submission',
+        classId: classObj.id,
+        evalId: `${sem}_test_${testIndex}`,
+        studentId: student.id
+      });
+    }
+    window.gsOpenStudentWorkModal = gsOpenStudentWorkModal;
+
+    // Listen for links/tags changes to update badges in real-time
+    if (typeof window !== 'undefined') {
+      window.addEventListener('cmt-links-changed', () => {
+        updateGsLinksBadges();
+      });
+    }
+
+
     function isGradeOverrideEnabled(student, sem, testIndex) {
       return !!(student && student.gradeOverrides && Array.isArray(student.gradeOverrides[sem]) && student.gradeOverrides[sem][testIndex]);
     }
@@ -6706,6 +7010,7 @@
 
       document.getElementById("summary-title").textContent = classObj.name + " - " + t('gsClassSummaryLabel');
       ensureClassStructures(classObj);
+      updateGsLinksBadges();
 
       // Determine which semesters to show based on the class's semester property
       const isAll = !classObj.semester || classObj.semester === 'all' || classObj.semester === 'both';
@@ -7009,6 +7314,8 @@
       const testLabel = config.testName ? config.testName : `T${testNo}`;
       document.getElementById("test-title").textContent = `${classObj.name} - ${sem.toUpperCase()} - ${testLabel}`;
       document.getElementById("test-meta").textContent = t('gsTestMetaDesc');
+      updateGsLinksBadges();
+      syncTestAutoLinks(classObj, sem, testIndex);
 
       const configWrap = document.getElementById("test-config");
       const defaultTotal = calcCriteriaTotals(config, {});
@@ -7183,6 +7490,26 @@
           firstNameSpan.title = `${student.firstName} ${student.lastName} (Custom: ${student.customName})`;
         }
         tdFirst.appendChild(firstNameSpan);
+
+        if (typeof LinksService !== 'undefined') {
+          const studentEvalUrn = `cmt:eval:${classObj.id}:${sem}:${testIndex}:student:${student.id}`;
+          const subLinks = LinksService.getLinksForSync(studentEvalUrn);
+          const subTags = LinksService.getTagsForSync(studentEvalUrn);
+          if (subLinks.length > 0 || subTags.length > 0) {
+            const badge = document.createElement("span");
+            badge.className = "gs-submission-badge";
+            badge.style.cssText = "display:inline-block;margin-left:6px;font-size:0.68rem;padding:1px 5px;font-weight:900;border:1.5px solid #000;background:#fef08a;color:#000;cursor:pointer;line-height:1.2;vertical-align:middle;box-shadow:1.5px 1.5px 0px #000;";
+            const tagStr = subTags.length ? ` #${subTags.join(' #')}` : '';
+            badge.textContent = `[${subLinks.length > 0 ? 'WORK' : 'TAG'}${subLinks.length > 1 ? ': ' + subLinks.length : ''}${tagStr}]`;
+            badge.title = t('gsStudentWorkAttached', 'Student work attached / tags. Click to open.');
+            badge.addEventListener("click", (e) => {
+              e.stopPropagation();
+              gsOpenStudentWorkModal(student, classObj, sem, testIndex);
+            });
+            tdFirst.appendChild(badge);
+          }
+        }
+
         const lastNameSpan = document.createElement("span");
         lastNameSpan.className = "student-name-link student-name-static";
         lastNameSpan.textContent = lnText;
@@ -8782,6 +9109,29 @@
 
         updateToptPresetsForBank(selectedFilename);
 
+        if (typeof LinksService !== 'undefined') {
+          LinksService.resolveContext({ type: 'class', id: classObj.id }).then(inheritedCtx => {
+            if (!inheritedCtx) return;
+            if (inheritedCtx.criteriaPreset && !config.criteriaBank) {
+              const matchedBank = _availableCriteriaBanks.find(b => b.filename === inheritedCtx.criteriaPreset || b.name === inheritedCtx.criteriaPreset);
+              if (matchedBank) {
+                toptBankSel.value = matchedBank.filename;
+                updateToptPresetsForBank(matchedBank.filename);
+              }
+            }
+            const inheritBadge = document.getElementById("topt-criteria-inherited-badge");
+            if (inheritBadge) {
+              if (inheritedCtx.inheritedFrom || inheritedCtx.criteriaPreset) {
+                const label = inheritedCtx.inheritedFrom ? `[INHERITED: ${inheritedCtx.inheritedFrom}]` : `[LINKED: ${inheritedCtx.criteriaPreset}]`;
+                inheritBadge.textContent = label;
+                inheritBadge.style.display = "inline-block";
+              } else {
+                inheritBadge.style.display = "none";
+              }
+            }
+          }).catch(() => {});
+        }
+
         toptBankSel.onchange = () => {
           config.criteriaBank = toptBankSel.value;
           if (Array.isArray(classObj.criteriaBanks) && !classObj.criteriaBanks.includes(config.criteriaBank)) {
@@ -8822,6 +9172,7 @@
           rebuildToptCriteriaList();
           renderTestSheet();
           renderSummary();
+          syncTestAutoLinks(classObj, sem, testIndex);
           showToast(tFmt('gsCriteriaCountLabel', { n: activeBank.criteria.length }) + ' applied from ' + activeBank.name);
         };
       }
@@ -8919,6 +9270,7 @@
         saveState(); renderTestSheet(); renderSummary();
         overlay.classList.add("hidden");
         syncTestToPlanner(classObj, activeSem, activeTestIndex); // async, non-blocking
+        syncTestAutoLinks(classObj, activeSem, activeTestIndex); // async auto-link sync from criteria & scale tabs
       };
 
       const closeTestOptions = () => { overlay.classList.add("hidden"); _toptRebuildCriteriaList = null; window._toptSwitchTab = null; };
@@ -14257,6 +14609,12 @@
         if (!ctx) return;
         await resetStudentTestPoints(ctx.student, ctx.classObj, ctx.sem, ctx.testIndex, ctx.config);
       });
+      document.getElementById("test-row-menu-attach-work")?.addEventListener("click", () => {
+        const ctx = _testRowMenuCtx;
+        closeAllContextMenus();
+        if (!ctx) return;
+        gsOpenStudentWorkModal(ctx.student, ctx.classObj, ctx.sem, ctx.testIndex);
+      });
 
       // ── class-card-menu ──────────────────────────────────────────
       document.getElementById("class-card-menu-open").addEventListener("click", () => {
@@ -14266,6 +14624,21 @@
         appState.activeClassId = ctx.classObj.id;
         renderSummary();
         showScreen("summary");
+      });
+      document.getElementById("class-card-menu-links")?.addEventListener("click", () => {
+        const ctx = _classCardMenuCtx;
+        closeAllContextMenus();
+        if (!ctx || !ctx.classObj) return;
+        if (typeof TagLinkModal !== 'undefined') {
+          TagLinkModal.open({
+            urn: 'cmt:class:' + ctx.classObj.id,
+            title: ctx.classObj.name,
+            label: ctx.classObj.name,
+            subtitle: 'Class Group • ' + ((ctx.classObj.students && ctx.classObj.students.length) || 0) + ' students' + (ctx.classObj.year ? ' • ' + ctx.classObj.year : ''),
+            type: 'class',
+            classId: ctx.classObj.id
+          });
+        }
       });
       document.getElementById("class-card-menu-rename").addEventListener("click", async () => {
         const ctx = _classCardMenuCtx;
@@ -14312,6 +14685,24 @@
         appState.activeTest = { semester: ctx.sem, testIndex: ctx.testIndex };
         renderTestSheet();
         showScreen("test");
+      });
+      document.getElementById("test-header-menu-links")?.addEventListener("click", () => {
+        const ctx = _testHeaderMenuCtx;
+        closeAllContextMenus();
+        if (!ctx || !ctx.classObj) return;
+        const cfg = getTestConfig(ctx.classObj, ctx.sem, ctx.testIndex);
+        const testName = cfg.testName || ('T' + (ctx.testIndex + 1));
+        if (typeof TagLinkModal !== 'undefined') {
+          TagLinkModal.open({
+            urn: 'cmt:eval:' + ctx.classObj.id + ':' + ctx.sem + ':' + ctx.testIndex,
+            title: testName + ' (' + ctx.classObj.name + ')',
+            label: testName + ' (' + ctx.classObj.name + ')',
+            subtitle: (ctx.sem === 'sem1' ? 'Semester 1' : 'Semester 2') + (cfg.testDate ? ' • ' + cfg.testDate : ''),
+            type: 'evaluation',
+            classId: ctx.classObj.id,
+            evalId: `${ctx.sem}_test_${ctx.testIndex}`
+          });
+        }
       });
       document.getElementById("test-header-menu-settings").addEventListener("click", () => {
         const ctx = _testHeaderMenuCtx;

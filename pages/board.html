@@ -8,10 +8,13 @@
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <link rel="stylesheet" href="../modules/katex/dist/katex.min.css">
   <link rel="stylesheet" href="../css/stylesheet.css">
+  <link rel="stylesheet" href="../css/tag-link-modal.css">
   <script src="../electron-bridge.js"></script>
   <script src="../js/dialogs.js"></script>
   <script src="../js/i18n.js"></script>
   <script src="../js/competence-aggregator-service.js"></script>
+  <script src="../js/links-service.js"></script>
+  <script src="../js/tag-link-modal.js"></script>
   <script>
     let boardCmsTimerChannel = null;
     const boardCmsTimerPrefsKey = 'board-cms-timer-widget-v2';
@@ -1647,6 +1650,85 @@
       height: 10px;
       filter: brightness(0) invert(1) !important;
     }
+    /* ── Node Link Badges (Neobrutalist Plain-Text) ── */
+    .con-node-links-bar {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 3px;
+      align-items: center;
+      justify-content: center;
+      margin-top: 3px;
+      pointer-events: auto;
+      max-width: 100%;
+    }
+    .con-node-link-pill {
+      display: inline-block;
+      font-family: inherit;
+      font-size: 0.60rem;
+      font-weight: 900;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      background: #fde047;
+      color: #000000;
+      border: 1.5px solid #000000;
+      box-shadow: 1.5px 1.5px 0px #000000;
+      padding: 0 4px;
+      border-radius: 0px;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+      line-height: 1.35;
+      transition: transform 0.1s ease;
+    }
+    .con-node-link-pill:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 2.5px 2.5px 0px #000000;
+    }
+    .con-node-link-pill.plan { background: #93c5fd; }
+    .con-node-link-pill.doc { background: #a7f3d0; }
+    .con-node-link-pill.pdf { background: #fca5a5; }
+    .con-node-link-pill.test { background: #fcd34d; }
+    .con-node-link-pill.vocab { background: #fed7aa; }
+    .con-node-link-pill.tag { background: #e9d5ff; }
+    .con-node-link-pill.general { background: #e2e8f0; }
+
+    /* Highlight Pulse for deep-linked node */
+    @keyframes conNodeHighlightPulse {
+      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.8); }
+      50% { transform: scale(1.14); box-shadow: 0 0 0 12px rgba(37, 99, 235, 0); }
+      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+    }
+    .con-node-highlight-pulse {
+      animation: conNodeHighlightPulse 0.75s ease-in-out 3 !important;
+      z-index: 99999 !important;
+    }
+
+    /* Linked Lesson Plan Header Badge */
+    .con-hdr-linked-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      background: #a7f3d0;
+      color: #064e3b;
+      border: 2px solid #000000;
+      box-shadow: 2px 2px 0px #000000;
+      font-size: 0.72rem;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      cursor: pointer;
+      user-select: none;
+      border-radius: 0px;
+      margin-left: 10px;
+      transition: transform 0.1s ease;
+      vertical-align: middle;
+    }
+    .con-hdr-linked-btn:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 3px 3px 0px #000000;
+      background: #6ee7b7;
+    }
     .session-load-comp-badge {
       display: inline-flex;
       align-items: center;
@@ -2035,6 +2117,13 @@
       </div>
       <div id="con-ctx-addbaseword-btn" onclick="conCtxAddBaseWord()">＋ Add base word</div>
     </div>
+    <!-- Extract PDF Page Row (shown when node is linked to a PDF file) -->
+    <div id="con-ctx-extract-pdf-row" style="display:none; padding:4px 10px 6px; border-bottom:1.5px solid #000; background:#fee2e2;">
+      <button type="button" id="con-ctx-extract-pdf-btn" onclick="conCtxExtractPdfPageToCanvas()"
+        style="width:100%; padding:4px 8px; background:#f87171; color:#000; border:2px solid #000; box-shadow:2px 2px 0 #000; font-weight:900; font-size:0.72rem; cursor:pointer; text-align:center; text-transform:uppercase; letter-spacing:0.5px;">
+        [EXTRACT PAGE TO CANVAS]
+      </button>
+    </div>
     <!-- Word relation & connection icon row -->
     <div class="con-ctx-icon-row">
       <button class="con-ctx-icon-btn" id="con-ctx-syn-btn" onclick="conCtxAddRelated('synonyms')"
@@ -2051,6 +2140,8 @@
         title="Word Network — spawn related words radially">NET</button>
       <button class="con-ctx-icon-btn" id="con-ctx-comp-btn" onclick="conCtxOpenCompetenceModal()"
         title="Attach competence tags to this element"><img src="../assets/icons/award.svg" class="btn-icon" alt="" /></button>
+      <button class="con-ctx-icon-btn" id="con-ctx-links-btn" onclick="conCtxOpenLinksModal()"
+        title="Links & Tags for this word"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /></button>
       <span class="con-ctx-icon-sep" id="con-ctx-relations-sep"></span>
       <button class="con-ctx-icon-btn" id="con-ctx-addconn-btn" onclick="conCtxAddConnectedWord()"
         title="Add Connected Word">＋</button>
@@ -2387,10 +2478,12 @@
   <div id="con-board-ctx-menu">
     <div class="con-ctx-title">Board</div>
     <div style="padding:4px 10px 6px; display:flex; gap:5px; align-items:center;">
-      <input type="text" id="con-board-ctx-input"
+      <input type="text" id="con-board-ctx-input" list="con-board-ctx-datalist"
         placeholder="Word (spaces OK) · _ = phrase · // = 2 lines · ,, = several" maxlength="200"
+        oninput="if(typeof conBoardCtxSuggestDbWords==='function')conBoardCtxSuggestDbWords(this.value);"
         onkeydown="if(event.key==='Enter'){conBoardCtxConfirm();}if(event.key==='Escape'){conBoardCtxClose();}"
         style="flex:1; padding:5px 8px; border:1.5px solid #ccc; border-radius:3px; font-family:inherit; font-size:24px; outline:none; min-width:0;">
+      <datalist id="con-board-ctx-datalist"></datalist>
       <button onclick="conBoardCtxConfirm()"
         style="padding:5px 9px; background:#111; color:#fff; border:none; border-radius:3px; font-size:0.82rem; font-weight:700; cursor:pointer; font-family:inherit; flex-shrink:0;">＋</button>
     </div>
@@ -3348,7 +3441,7 @@
       <button class="bst-tab" onclick="navTo('main-menu')" title="Save History"><img src="../assets/icons/history.svg"
           class="btn-icon" alt="" /> History</button>
     </div>
-    <h2 data-i18n="titleConstellation"><img src="../assets/icons/board.svg" class="main-hdr-icon" alt="" /> Board</h2>
+    <h2 data-i18n="titleConstellation" style="display:inline-flex;align-items:center;"><img src="../assets/icons/board.svg" class="main-hdr-icon" alt="" /> Board <button id="con-linked-lesson-btn" class="con-hdr-linked-btn" onclick="boardOpenLinkedLessonPlan()" style="display:none;"></button></h2>
 
     <div id="con-sticky-wrapper">
       <!-- Toolbar -->
@@ -3389,6 +3482,9 @@
             <button class="action-btn btn-grey" id="con-add-competence-btn" onclick="conOpenCompetenceModal('board')"
               title="Add or manage competence tags for this board"><img src="../assets/icons/award.svg" class="btn-icon"
                 alt="" /> <span data-i18n="btnCompetenceTags">Competences</span></button>
+            <button class="action-btn btn-grey" id="con-tb-links-btn" onclick="boardOpenSessionLinksModal()"
+              title="Links & Tags for this board"><img src="../assets/icons/links.svg" class="btn-icon"
+                alt="" /> <span id="con-tb-links-btn-text" data-i18n="conBoardLinks">[LINKS: 0]</span></button>
             <input type="file" id="con-load-input" accept=".cstz,.js,.json,.zip" style="display:none"
               onchange="conLoadSession(event)">
             <input type="file" id="con-attachments-input" accept="image/*,audio/*,video/*,application/pdf,.pdf" multiple
@@ -3456,6 +3552,12 @@
             <button class="action-btn btn-grey" onclick="conDbExportOpen()"
               title="Export board words to a wordbank database"><img src="../assets/icons/add-db.svg" class="btn-icon"
                 alt="" /> DB</button>
+            <button class="action-btn btn-grey" id="con-gen-mindmap-db-btn" onclick="conGenerateMindmapFromDb()"
+              title="Automatically generate categorized node clusters from database"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" />
+              <span data-i18n="conGenerateMindmapFromDb">From DB</span></button>
+            <button class="action-btn btn-grey" id="con-sync-new-db-btn" onclick="conSyncNewNodesToDb()"
+              title="Save newly brainstormed words into persistent database"><img src="../assets/icons/upload.svg" class="btn-icon" alt="" />
+              <span data-i18n="conSyncNewNodesToDb">Sync to DB</span></button>
           </div>
         </div>
 
@@ -19519,6 +19621,7 @@
       window.conEnsureSvgDefs = function () { conEnsureSvgDefs(); };
       window.conApplyEdgeLabelStyle = function (edge) { conApplyEdgeLabelStyle(edge); };
       window.conUpdateEdge = function (edge) { conUpdateEdge(edge); };
+      window.conAddEdge = function (aId, bId, type, color, existingId) { return conAddEdge(aId, bId, type, color, existingId); };
       window.conComputeEdgeGeometry = conComputeEdgeGeometry;
       window.conGetCtxNodeId = function () { return conCtxNodeId; };
       window.conGetSelected = function () { return conSelected; };
@@ -19828,48 +19931,52 @@
       window.conGroupSelected = function () { if (typeof conGroupSelected === 'function') conGroupSelected(); };
       window.conGroupUngroup = function (groupId) { if (typeof conGroupUngroup === 'function') conGroupUngroup(groupId || conGroupFocused); };
       window.updateZoom = function (scale) {
-        const prevZoom = conGetEffectiveZoom();
-        const zoom = Math.max(0.5, Math.min(3, parseFloat(scale) || 1));
-        conCurrentZoom = zoom;
-        window.conCurrentZoom = zoom;
-        const display = document.getElementById('zoom-level-display');
-        if (display) display.textContent = Math.round(zoom * 100) + '%';
-        conNodes.forEach(node => {
-          if (!node || !node.el) return;
-          const stored = node.el.dataset ? parseFloat(node.el.dataset.baseFontSize) : NaN;
-          const currentSize = parseFloat(node.el.style.fontSize);
-          const baseSize = Number.isFinite(stored) && stored > 0
-            ? stored
-            : (Number.isFinite(currentSize) && currentSize > 0 ? currentSize / prevZoom : window.conGetDefaultWordFontSize());
-          conSetNodeBaseFontSize(node, baseSize);
-          conApplyNodeShape(node, node.shape);
-        });
-        if (window.conApplyZoomToNotes) window.conApplyZoomToNotes(zoom);
-        conRedrawEdges();
-        if (window.conGroupRefitAll) window.conGroupRefitAll();
+        window._conSuppressMirrorObserver = true;
+        try {
+          const prevZoom = conGetEffectiveZoom();
+          const zoom = Math.max(0.5, Math.min(3, parseFloat(scale) || 1));
+          conCurrentZoom = zoom;
+          window.conCurrentZoom = zoom;
+          const display = document.getElementById('zoom-level-display');
+          if (display) display.textContent = Math.round(zoom * 100) + '%';
+          conNodes.forEach(node => {
+            if (!node || !node.el) return;
+            const stored = node.el.dataset ? parseFloat(node.el.dataset.baseFontSize) : NaN;
+            const currentSize = parseFloat(node.el.style.fontSize);
+            const baseSize = Number.isFinite(stored) && stored > 0
+              ? stored
+              : (Number.isFinite(currentSize) && currentSize > 0 ? currentSize / prevZoom : window.conGetDefaultWordFontSize());
+            conSetNodeBaseFontSize(node, baseSize);
+            conApplyNodeShape(node, node.shape);
+          });
+          if (window.conApplyZoomToNotes) window.conApplyZoomToNotes(zoom);
+          conRedrawEdges();
+          if (window.conGroupRefitAll) window.conGroupRefitAll();
 
-        // Keep presenter view locked to the same zoom and viewport as the main board.
-        if (window._conMirrorSend) {
-          const brd = document.getElementById('constellation-board');
-          if (brd) {
-            const r = brd.getBoundingClientRect();
-            const vp = {
-              vW: window.innerWidth,
-              vH: window.innerHeight,
-              sx: brd.scrollLeft + Math.max(0, -r.left),
-              sy: brd.scrollTop + Math.max(0, -r.top)
-            };
-            window._conMirrorSend({
-              type: 'board-zoom',
-              zoom: zoom,
-              sx: vp.sx,
-              sy: vp.sy,
-              boardViewW: vp.vW,
-              boardViewH: vp.vH
-            });
+          // Keep presenter view locked to the same zoom and viewport as the main board.
+          if (window._conMirrorSend) {
+            const brd = document.getElementById('constellation-board');
+            if (brd) {
+              const r = brd.getBoundingClientRect();
+              const vp = {
+                vW: window.innerWidth,
+                vH: window.innerHeight,
+                sx: brd.scrollLeft + Math.max(0, -r.left),
+                sy: brd.scrollTop + Math.max(0, -r.top)
+              };
+              window._conMirrorSend({
+                type: 'board-zoom',
+                zoom: zoom,
+                sx: vp.sx,
+                sy: vp.sy,
+                boardViewW: vp.vW,
+                boardViewH: vp.vH
+              });
+            }
           }
+        } finally {
+          setTimeout(function () { window._conSuppressMirrorObserver = false; }, 60);
         }
-        if (window._conMirrorBroadcast) window._conMirrorBroadcast();
       };
       window.conGetZoom = function () {
         return conCurrentZoom;
@@ -20354,6 +20461,7 @@
               'con-timer-warning', 'con-timer-ended', 'con-masked', 'con-link-src',
               'con-table-selected', 'con-shape-selected', 'con-edge-selected',
               'con-media-selected', 'con-media-hidden', 'con-media-blink', 'tbl-locked',
+              'con-media-fullscreen', 'con-fs-mini-pinned', 'con-media-mini-visible',
               'con-linking', 'con-link-mode',
               'draw-mode', 'connect-mode',
               'con-random-rolling'
@@ -20366,6 +20474,13 @@
                 if (!t) return true;
                 // Ignore rubber-band selection element and its transient mutations
                 if (t.id === 'con-rubberband' || (t.closest && t.closest('#con-rubberband'))) return true;
+                // Ignore fullscreen media exit buttons and zoom bar buttons
+                if (t.closest && (t.closest('.con-media-fullscreen-exit-btn') || t.closest('.con-fs-zoom-btn') || t.closest('.con-fs-zoom-sep'))) return true;
+                if (t.classList && (t.classList.contains('con-media-fullscreen-exit-btn') || t.classList.contains('con-fs-zoom-btn') || t.classList.contains('con-fs-zoom-sep'))) return true;
+                // Ignore attribute mutations on media items (position, size, fullscreen, transform, and hide are handled via micro-messages)
+                if (t.closest && t.closest('.con-media-item')) {
+                  if (m.type === 'attributes') return true;
+                }
                 // Ignore draw overlay, live SVG, and eraser outline
                 if (t.id === 'con-draw-overlay' || t.id === 'con-draw-live-svg' || (t.closest && (t.closest('#con-draw-overlay') || t.closest('#con-draw-live-svg') || t.closest('.con-eraser-outline')))) return true;
                 if (t.classList && (t.classList.contains('con-eraser-outline') || t.classList.contains('con-eraser-active'))) return true;
@@ -20427,6 +20542,9 @@
                            n.classList.contains('con-drawing-handle') ||
                            n.classList.contains('con-shape-handle') ||
                            n.classList.contains('con-media-resizer') ||
+                           n.classList.contains('con-media-fullscreen-exit-btn') ||
+                           n.classList.contains('con-fs-zoom-btn') ||
+                           n.classList.contains('con-fs-zoom-sep') ||
                            n.classList.contains('con-table-resizer') ||
                            n.classList.contains('con-table-col-resizer') ||
                            n.classList.contains('con-table-row-resizer') ||
@@ -23788,6 +23906,29 @@
 
         // Show/hide Card button
         if (cardBtn) cardBtn.style.display = entries.length > 0 ? '' : 'none';
+
+        // Check for linked PDF to display Extract PDF Page button
+        const extractRow = document.getElementById('con-ctx-extract-pdf-row');
+        if (extractRow) {
+          let hasPdf = false;
+          let pdfUrn = null;
+          if (node && typeof LinksService !== 'undefined') {
+            const nodeUrn = (typeof conGetActiveNodeUrn === 'function') ? conGetActiveNodeUrn(node) : null;
+            if (nodeUrn) {
+              const nodeLinks = LinksService.getLinksForSync(nodeUrn);
+              const foundPdf = (nodeLinks || []).find(l => {
+                const p = LinksService.parseUrn(l.otherUrn);
+                return p && p.type === 'file' && (p.id.toLowerCase().endsWith('.pdf') || (l.targetMeta && l.targetMeta.relativePath && l.targetMeta.relativePath.toLowerCase().endsWith('.pdf')));
+              });
+              if (foundPdf) {
+                hasPdf = true;
+                pdfUrn = foundPdf.otherUrn;
+              }
+            }
+          }
+          extractRow.style.display = hasPdf ? '' : 'none';
+          extractRow.dataset.pdfUrn = pdfUrn || '';
+        }
         // Star button: show only when node has a db entry
         const starBtn = document.getElementById('con-ctx-star-btn');
         if (starBtn) {
@@ -27198,11 +27339,12 @@
         } else {
           el.style.fontVariant = 'normal';
         }
-        // Preserve resize handle, emoji dot, star button, and competence badge across innerHTML rebuilds
+        // Preserve resize handle, emoji dot, star button, competence badge, and links bar across innerHTML rebuilds
         const _savedResizer = el.querySelector('.con-node-resizer');
         const _savedEmojiDot = el.querySelector('.con-emoji-dot');
         const _savedStarBtn = el.querySelector('.con-node-star-btn');
         const _savedCompBadge = el.querySelector('.con-node-comp-badge');
+        const _savedLinksBar = el.querySelector('.con-node-links-bar');
         node.el.innerHTML = wordRow + annLines;
         if (_savedResizer) el.appendChild(_savedResizer);
         if (_savedEmojiDot) el.appendChild(_savedEmojiDot);
@@ -27211,6 +27353,10 @@
           conUpdateNodeCompetenceBadge(node);
         } else if (_savedCompBadge) {
           el.appendChild(_savedCompBadge);
+        }
+        if (_savedLinksBar) el.appendChild(_savedLinksBar);
+        if (typeof conUpdateNodeLinkBadges === 'function') {
+          conUpdateNodeLinkBadges(node);
         }
         // Keep node content vertically centred for all shapes
         node.el.style.display = 'inline-flex';
@@ -45362,15 +45508,30 @@
       }
 
       const params = new URLSearchParams(location.search);
+      const pendingNodeId = params.get('nodeId');
       const wantsFile = params.get('openSession') === '1';
       const wantsLocal = params.get('openLocalSession') === '1';
       if (!wantsFile && !wantsLocal) {
+        if (pendingNodeId) {
+          setTimeout(() => {
+            if (typeof conFocusAndHighlightNode === 'function') {
+              conFocusAndHighlightNode(pendingNodeId);
+            }
+          }, 400);
+        }
         try {
           const raw = sessionStorage.getItem('cmt-board-active-open-request');
           if (raw) {
             const req = JSON.parse(raw);
             if (req && req.target && req.filename) {
               await historyLoadSavedFile(req);
+              if (pendingNodeId || req.nodeId) {
+                setTimeout(() => {
+                  if (typeof conFocusAndHighlightNode === 'function') {
+                    conFocusAndHighlightNode(pendingNodeId || req.nodeId);
+                  }
+                }, 350);
+              }
               return;
             }
           }
@@ -45400,9 +45561,16 @@
           return;
         }
         try {
-          sessionStorage.setItem('cmt-board-active-open-request', JSON.stringify({ target, filename, relativePath, section }));
+          sessionStorage.setItem('cmt-board-active-open-request', JSON.stringify({ target, filename, relativePath, section, nodeId: pendingNodeId }));
         } catch (_) { }
         await historyLoadSavedFile({ target, filename, relativePath, section });
+        if (pendingNodeId) {
+          setTimeout(() => {
+            if (typeof conFocusAndHighlightNode === 'function') {
+              conFocusAndHighlightNode(pendingNodeId);
+            }
+          }, 350);
+        }
         return;
       }
 
@@ -45496,6 +45664,8 @@
           setTimeout(() => {
             boardSetAutosaveFingerprint('constellation', conBuildSessionData());
             _boardIsDirty = false;
+            if (typeof boardUpdateToolbarLinksCount === 'function') boardUpdateToolbarLinksCount();
+            if (typeof conUpdateAllNodeLinkBadges === 'function') conUpdateAllNodeLinkBadges();
           }, 200);
           navTo('constellation-section');
           return;
@@ -53236,6 +53406,78 @@
           return;
         }
 
+        if (d.type === 'media-fullscreen') {
+          if (_mirrorIsFrozen) return;
+          var _liveMediaFs = window.conGetMediaItems ? window.conGetMediaItems() : [];
+          var mFsItem = _liveMediaFs.find(function (m) { return String(m.id) === String(d.id); });
+          var mFsWrap = document.querySelector('.con-media-item[data-id="' + d.id + '"]');
+          if (!mFsWrap) return;
+          if (mFsItem) {
+            mFsItem._fullscreen = !!d.fullscreen;
+            if (typeof d.fsZoom === 'number') mFsItem._fsZoom = d.fsZoom;
+            if (typeof d.fsPanX === 'number') mFsItem._fsPanX = d.fsPanX;
+            if (typeof d.fsPanY === 'number') mFsItem._fsPanY = d.fsPanY;
+          }
+          if (d.fullscreen) {
+            if (mFsWrap.parentElement !== document.body) {
+              document.body.appendChild(mFsWrap);
+            }
+            mFsWrap.classList.add('con-media-fullscreen');
+            if (mFsItem && typeof _conFsApplyTransform === 'function') {
+              _conFsApplyTransform(mFsItem, mFsWrap);
+            }
+            if (mFsItem && mFsItem.kind === 'pdf') {
+              var _fsCvs = mFsWrap.querySelector('canvas.con-media-pdf-canvas');
+              var _fsScrDiv = mFsWrap.querySelector('.con-media-pdf-scroll');
+              var _fsCntEl = mFsWrap.querySelector('.con-media-content');
+              if (_fsCvs && typeof conRenderPdfForItem === 'function') {
+                conRenderPdfForItem(mFsItem, _fsCvs, _fsScrDiv, _fsCntEl);
+              }
+            }
+          } else {
+            mFsWrap.classList.remove('con-media-fullscreen');
+            var brdEl = document.getElementById('constellation-board');
+            if (brdEl && mFsWrap.parentElement !== brdEl) {
+              brdEl.appendChild(mFsWrap);
+            }
+            if (mFsItem) {
+              mFsWrap.style.left = mFsItem.x + 'px';
+              mFsWrap.style.top = mFsItem.y + 'px';
+              mFsWrap.style.width = mFsItem.w + 'px';
+              mFsWrap.style.height = mFsItem.h + 'px';
+              var contentEl = mFsWrap.querySelector('.con-media-content');
+              if (contentEl) {
+                contentEl.style.transform = (mFsItem.kind === 'pics' && mFsItem.rotation) ? ('rotate(' + mFsItem.rotation + 'deg)') : '';
+              }
+              if (mFsItem.kind === 'pdf') {
+                var _fsCvs2 = mFsWrap.querySelector('canvas.con-media-pdf-canvas');
+                var _fsScrDiv2 = mFsWrap.querySelector('.con-media-pdf-scroll');
+                var _fsCntEl2 = mFsWrap.querySelector('.con-media-content');
+                if (_fsCvs2 && typeof conRenderPdfForItem === 'function') {
+                  conRenderPdfForItem(mFsItem, _fsCvs2, _fsScrDiv2, _fsCntEl2);
+                }
+              }
+            }
+          }
+          return;
+        }
+
+        if (d.type === 'media-fs-transform') {
+          if (_mirrorIsFrozen) return;
+          var _liveMediaTrans = window.conGetMediaItems ? window.conGetMediaItems() : [];
+          var mTransItem = _liveMediaTrans.find(function (m) { return String(m.id) === String(d.id); });
+          var mTransWrap = document.querySelector('.con-media-item[data-id="' + d.id + '"]');
+          if (mTransItem) {
+            if (typeof d.fsZoom === 'number') mTransItem._fsZoom = d.fsZoom;
+            if (typeof d.fsPanX === 'number') mTransItem._fsPanX = d.fsPanX;
+            if (typeof d.fsPanY === 'number') mTransItem._fsPanY = d.fsPanY;
+          }
+          if (mTransWrap && mTransItem && typeof _conFsApplyTransform === 'function') {
+            _conFsApplyTransform(mTransItem, mTransWrap);
+          }
+          return;
+        }
+
         if (d.type === 'media-hide') {
           if (_mirrorIsFrozen) return;
           var _liveMedia = window.conGetMediaItems ? window.conGetMediaItems() : [];
@@ -54135,6 +54377,34 @@
       popup.style.maxHeight = Math.max(160, window.innerHeight - my - 8) + 'px';
     }
 
+    var _conFsTransformRaf = null;
+    var _conFsPendingTransformItem = null;
+
+    function _conFsSendTransform(item) {
+      if (!item || !window._conMirrorSend) return;
+      window._conMirrorSend({
+        type: 'media-fs-transform',
+        id: item.id,
+        fsZoom: item._fsZoom || 1,
+        fsPanX: item._fsPanX || 0,
+        fsPanY: item._fsPanY || 0
+      });
+    }
+
+    function _conFsSendTransformThrottled(item) {
+      if (!item || !window._conMirrorSend) return;
+      _conFsPendingTransformItem = item;
+      if (!_conFsTransformRaf) {
+        _conFsTransformRaf = requestAnimationFrame(function () {
+          _conFsTransformRaf = null;
+          if (_conFsPendingTransformItem && window._conMirrorSend) {
+            _conFsSendTransform(_conFsPendingTransformItem);
+            _conFsPendingTransformItem = null;
+          }
+        });
+      }
+    }
+
     function _conFsApplyTransform(item, wrap) {
       var contentEl = wrap.querySelector('.con-media-content');
       if (!contentEl) return;
@@ -54144,6 +54414,7 @@
       var rot = (item.kind === 'pics' ? (item.rotation || 0) : 0);
       contentEl.style.transform = 'translate(' + px + 'px,' + py + 'px) scale(' + zoom + ')' + (rot ? ' rotate(' + rot + 'deg)' : '');
     }
+    window._conFsApplyTransform = _conFsApplyTransform;
 
     function _conFsMkBar(miniActions, wrap, item) {
       if (!miniActions) return;
@@ -54162,9 +54433,21 @@
         return b;
       };
       miniActions.appendChild(sep);
-      miniActions.appendChild(mkB('−', 'Zoom out', function () { item._fsZoom = Math.max(0.1, (item._fsZoom || 1) * 0.8); _conFsApplyTransform(item, wrap); }));
-      miniActions.appendChild(mkB('+', 'Zoom in', function () { item._fsZoom = Math.min(12, (item._fsZoom || 1) * 1.25); _conFsApplyTransform(item, wrap); }));
-      miniActions.appendChild(mkB('1:1', 'Reset zoom', function () { item._fsZoom = 1; item._fsPanX = 0; item._fsPanY = 0; _conFsApplyTransform(item, wrap); }));
+      miniActions.appendChild(mkB('−', 'Zoom out', function () {
+        item._fsZoom = Math.max(0.1, (item._fsZoom || 1) * 0.8);
+        _conFsApplyTransform(item, wrap);
+        _conFsSendTransform(item);
+      }));
+      miniActions.appendChild(mkB('+', 'Zoom in', function () {
+        item._fsZoom = Math.min(12, (item._fsZoom || 1) * 1.25);
+        _conFsApplyTransform(item, wrap);
+        _conFsSendTransform(item);
+      }));
+      miniActions.appendChild(mkB('1:1', 'Reset zoom', function () {
+        item._fsZoom = 1; item._fsPanX = 0; item._fsPanY = 0;
+        _conFsApplyTransform(item, wrap);
+        _conFsSendTransform(item);
+      }));
     }
 
     // ── Emoji stickers for media ─────────────────────────────────
@@ -54312,6 +54595,7 @@
       var item = _conCtxItem;
       var wrap = _conMediaGetWrap(item);
       if (!wrap) return;
+      window._conSuppressMirrorObserver = true;
       item._fullscreen = !item._fullscreen;
       wrap.classList.toggle('con-media-fullscreen', !!item._fullscreen);
       var miniActions = wrap.querySelector('.con-media-mini-actions');
@@ -54336,6 +54620,7 @@
           var delta = ev.deltaY > 0 ? 0.9 : 1.1;
           item._fsZoom = Math.max(0.1, Math.min(12, (item._fsZoom || 1) * delta));
           _conFsApplyTransform(item, wrap);
+          _conFsSendTransformThrottled(item);
         };
         wrap.addEventListener('wheel', item._fsWheelHandler, { passive: false });
 
@@ -54343,6 +54628,7 @@
         item._fsMousedownHandler = function (ev) {
           if (ev.button !== 0) return;
           if (ev.target.closest('.con-media-fullscreen-exit-btn,.con-media-remove-btn,.con-media-mini-btn,.con-media-mini-actions,.con-media-resizer')) return;
+          window._conMirrorDragging = true;
           item._fsDragState = { x: ev.clientX, y: ev.clientY, px: item._fsPanX || 0, py: item._fsPanY || 0 };
           ev.preventDefault(); ev.stopImmediatePropagation();
         };
@@ -54351,18 +54637,26 @@
           item._fsPanX = item._fsDragState.px + (ev.clientX - item._fsDragState.x);
           item._fsPanY = item._fsDragState.py + (ev.clientY - item._fsDragState.y);
           _conFsApplyTransform(item, wrap);
+          _conFsSendTransformThrottled(item);
         };
-        item._fsMouseupHandler = function () { item._fsDragState = null; };
+        item._fsMouseupHandler = function () {
+          if (_conFsTransformRaf) { cancelAnimationFrame(_conFsTransformRaf); _conFsTransformRaf = null; }
+          _conFsSendTransform(item);
+          item._fsDragState = null;
+          setTimeout(function () { window._conMirrorDragging = false; }, 60);
+        };
         wrap.addEventListener('mousedown', item._fsMousedownHandler, true);
         document.addEventListener('mousemove', item._fsMousemoveHandler);
         document.addEventListener('mouseup', item._fsMouseupHandler);
 
       } else {
+        if (_conFsTransformRaf) { cancelAnimationFrame(_conFsTransformRaf); _conFsTransformRaf = null; }
         if (item._fsWheelHandler) { wrap.removeEventListener('wheel', item._fsWheelHandler); delete item._fsWheelHandler; }
         if (item._fsMousedownHandler) { wrap.removeEventListener('mousedown', item._fsMousedownHandler, true); delete item._fsMousedownHandler; }
         if (item._fsMousemoveHandler) { document.removeEventListener('mousemove', item._fsMousemoveHandler); delete item._fsMousemoveHandler; }
         if (item._fsMouseupHandler) { document.removeEventListener('mouseup', item._fsMouseupHandler); delete item._fsMouseupHandler; }
         item._fsDragState = null;
+        window._conMirrorDragging = false;
 
         if (miniActions) {
           miniActions.querySelectorAll('.con-fs-zoom-btn,.con-fs-zoom-sep').forEach(function (el) { el.remove(); });
@@ -54378,6 +54672,18 @@
 
       var fsBtn = document.getElementById('con-img-sp-fullscreen-btn');
       if (fsBtn) fsBtn.classList.toggle('active', !!item._fullscreen);
+
+      if (window._conMirrorSend) {
+        window._conMirrorSend({
+          type: 'media-fullscreen',
+          id: item.id,
+          fullscreen: !!item._fullscreen,
+          fsZoom: item._fsZoom || 1,
+          fsPanX: item._fsPanX || 0,
+          fsPanY: item._fsPanY || 0
+        });
+      }
+      setTimeout(function () { window._conSuppressMirrorObserver = false; }, 60);
     };
     window.conImgSpToggleLock = function () {
       if (!_conCtxItem) return;
@@ -54533,6 +54839,7 @@
       var item = _conCtxItem;
       var wrap = _conMediaGetWrap(item);
       if (!wrap) return;
+      window._conSuppressMirrorObserver = true;
       item._fullscreen = !item._fullscreen;
       wrap.classList.toggle('con-media-fullscreen', !!item._fullscreen);
       var miniActions = wrap.querySelector('.con-media-mini-actions');
@@ -54564,7 +54871,7 @@
           var delta = ev.deltaY > 0 ? 0.9 : 1.1;
           item._fsZoom = Math.max(0.1, Math.min(12, (item._fsZoom || 1) * delta));
           _conFsApplyTransform(item, wrap);
-          if (window._conMirrorBroadcast) window._conMirrorBroadcast();
+          _conFsSendTransformThrottled(item);
         };
         wrap.addEventListener('wheel', item._fsWheelHandler, { passive: false });
 
@@ -54572,6 +54879,7 @@
         item._fsMousedownHandler = function (ev) {
           if (ev.button !== 0) return;
           if (ev.target.closest('.con-media-fullscreen-exit-btn,.con-media-remove-btn,.con-media-mini-btn,.con-media-mini-actions,.con-media-resizer')) return;
+          window._conMirrorDragging = true;
           item._fsDragState = { x: ev.clientX, y: ev.clientY, px: item._fsPanX || 0, py: item._fsPanY || 0 };
           ev.preventDefault(); ev.stopImmediatePropagation();
         };
@@ -54580,19 +54888,26 @@
           item._fsPanX = item._fsDragState.px + (ev.clientX - item._fsDragState.x);
           item._fsPanY = item._fsDragState.py + (ev.clientY - item._fsDragState.y);
           _conFsApplyTransform(item, wrap);
-          if (window._conMirrorBroadcast) window._conMirrorBroadcast();
+          _conFsSendTransformThrottled(item);
         };
-        item._fsMouseupHandler = function () { item._fsDragState = null; };
+        item._fsMouseupHandler = function () {
+          if (_conFsTransformRaf) { cancelAnimationFrame(_conFsTransformRaf); _conFsTransformRaf = null; }
+          _conFsSendTransform(item);
+          item._fsDragState = null;
+          setTimeout(function () { window._conMirrorDragging = false; }, 60);
+        };
         wrap.addEventListener('mousedown', item._fsMousedownHandler, true);
         document.addEventListener('mousemove', item._fsMousemoveHandler);
         document.addEventListener('mouseup', item._fsMouseupHandler);
 
       } else {
+        if (_conFsTransformRaf) { cancelAnimationFrame(_conFsTransformRaf); _conFsTransformRaf = null; }
         if (item._fsWheelHandler) { wrap.removeEventListener('wheel', item._fsWheelHandler); delete item._fsWheelHandler; }
         if (item._fsMousedownHandler) { wrap.removeEventListener('mousedown', item._fsMousedownHandler, true); delete item._fsMousedownHandler; }
         if (item._fsMousemoveHandler) { document.removeEventListener('mousemove', item._fsMousemoveHandler); delete item._fsMousemoveHandler; }
         if (item._fsMouseupHandler) { document.removeEventListener('mouseup', item._fsMouseupHandler); delete item._fsMouseupHandler; }
         item._fsDragState = null;
+        window._conMirrorDragging = false;
 
         if (miniActions) {
           miniActions.querySelectorAll('.con-fs-zoom-btn,.con-fs-zoom-sep').forEach(function (el) { el.remove(); });
@@ -54614,7 +54929,18 @@
 
       var fsBtn = document.getElementById('con-pdf-sp-fullscreen-btn');
       if (fsBtn) fsBtn.classList.toggle('active', !!item._fullscreen);
-      if (window._conMirrorBroadcast) window._conMirrorBroadcast();
+
+      if (window._conMirrorSend) {
+        window._conMirrorSend({
+          type: 'media-fullscreen',
+          id: item.id,
+          fullscreen: !!item._fullscreen,
+          fsZoom: item._fsZoom || 1,
+          fsPanX: item._fsPanX || 0,
+          fsPanY: item._fsPanY || 0
+        });
+      }
+      setTimeout(function () { window._conSuppressMirrorObserver = false; }, 60);
     };
     window.conPdfSpToggleLock = function () {
       if (!_conCtxItem) return;
@@ -55808,6 +56134,443 @@
         launch();
       }
     }
+
+    // ================================================================
+    // BOARD LINK & TAG INTEGRATION (Planner, Docs, PDFs, Word Bank)
+    // ================================================================
+
+    window.boardGetActiveSessionUrn = function () {
+      const fn = (_conCurrentFileName || 'untitled.js').trim();
+      if (typeof LinksService !== 'undefined') {
+        if (typeof LinksService.createUrn === 'function') return LinksService.createUrn('board', fn);
+        if (typeof LinksService.makeUrn === 'function') return LinksService.makeUrn('board', fn);
+      }
+      return `cmt:board:${encodeURIComponent(fn)}`;
+    };
+
+    window.conGetActiveNodeUrn = function (node) {
+      if (!node) return '';
+      const boardId = (_conCurrentFileName || 'untitled.js').trim();
+      const nodeId = node.id || 'cn0';
+      const idPayload = `${encodeURIComponent(boardId)}:${encodeURIComponent(nodeId)}`;
+      if (typeof LinksService !== 'undefined') {
+        if (typeof LinksService.createUrn === 'function') return LinksService.createUrn('board-node', idPayload);
+        if (typeof LinksService.makeUrn === 'function') return LinksService.makeUrn('board-node', idPayload);
+      }
+      return `cmt:board-node:${idPayload}`;
+    };
+
+    window.boardOpenSessionLinksModal = function () {
+      if (typeof TagLinkModal === 'undefined') {
+        if (typeof showToast === 'function') showToast('Links module is not available.', true);
+        return;
+      }
+      const sessionUrn = boardGetActiveSessionUrn();
+      const sessionTitle = _conCurrentFileName || 'Board Session';
+      TagLinkModal.open({
+        urn: sessionUrn,
+        sourceUrn: sessionUrn,
+        title: sessionTitle,
+        label: sessionTitle,
+        type: 'board',
+        sourceMeta: {
+          title: sessionTitle,
+          type: 'board',
+          filename: _conCurrentFileName || ''
+        },
+        onUpdate: () => {
+          boardUpdateToolbarLinksCount();
+          boardUpdateLinkedLessonBadge();
+        },
+        onLinksChanged: () => {
+          boardUpdateToolbarLinksCount();
+          boardUpdateLinkedLessonBadge();
+        }
+      });
+    };
+
+    window.boardUpdateToolbarLinksCount = function () {
+      const btnText = document.getElementById('con-tb-links-btn-text');
+      if (!btnText || typeof LinksService === 'undefined') return;
+      const sessionUrn = boardGetActiveSessionUrn();
+      const sessionLinks = LinksService.getLinksForSync(sessionUrn) || [];
+      let totalLinks = sessionLinks.length;
+      const allNodes = (typeof conNodes !== 'undefined') ? conNodes : (window.conGetNodes ? window.conGetNodes() : []);
+      if (Array.isArray(allNodes)) {
+        allNodes.forEach(n => {
+          if (!n) return;
+          const u = conGetActiveNodeUrn(n);
+          const nl = LinksService.getLinksForSync(u) || [];
+          totalLinks += nl.length;
+        });
+      }
+      btnText.textContent = `[LINKS: ${totalLinks}]`;
+      boardUpdateLinkedLessonBadge();
+    };
+
+    window.boardUpdateLinkedLessonBadge = function () {
+      const hdrBtn = document.getElementById('con-linked-lesson-btn');
+      if (!hdrBtn || typeof LinksService === 'undefined') return;
+      const sessionUrn = boardGetActiveSessionUrn();
+      const sessionLinks = LinksService.getLinksForSync(sessionUrn) || [];
+      const planLink = sessionLinks.find(l => {
+        const p = LinksService.parseUrn(l.otherUrn);
+        return p && p.type === 'planner-entry';
+      });
+      if (planLink) {
+        const title = (planLink.targetMeta && planLink.targetMeta.title) ? planLink.targetMeta.title : 'Lesson Plan';
+        hdrBtn.textContent = `[PLAN: ${title.toUpperCase()}]`;
+        hdrBtn.style.display = 'inline-flex';
+        hdrBtn.dataset.urn = planLink.otherUrn;
+      } else {
+        hdrBtn.style.display = 'none';
+        hdrBtn.dataset.urn = '';
+      }
+    };
+
+    window.boardOpenLinkedLessonPlan = function () {
+      const hdrBtn = document.getElementById('con-linked-lesson-btn');
+      const urn = hdrBtn ? hdrBtn.dataset.urn : null;
+      if (urn && typeof LinksService !== 'undefined') {
+        LinksService.navigateToUrn(urn);
+      }
+    };
+
+    window.conCtxOpenLinksModal = function () {
+      const allNodes = (typeof conNodes !== 'undefined') ? conNodes : (window.conGetNodes ? window.conGetNodes() : []);
+      const nodeId = (typeof conCtxNodeId !== 'undefined') ? conCtxNodeId : (window.conGetCtxNodeId ? window.conGetCtxNodeId() : (window.conGetSelected ? window.conGetSelected() : null));
+      const node = allNodes.find(n => n && n.id === nodeId);
+      if (!node) return;
+      if (typeof conCtxClose === 'function') conCtxClose();
+      else if (typeof window.conCtxClose === 'function') window.conCtxClose();
+      else {
+        const m = document.getElementById('con-ctx-menu');
+        if (m) m.classList.remove('visible');
+      }
+      if (typeof TagLinkModal === 'undefined') {
+        if (typeof showToast === 'function') showToast('Links module is not available.', true);
+        return;
+      }
+      const nodeUrn = conGetActiveNodeUrn(node);
+      const word = node.baseWord || (node.el && node.el.dataset.baseWord) || (node.el && node.el.textContent) || 'Word';
+      TagLinkModal.open({
+        urn: nodeUrn,
+        sourceUrn: nodeUrn,
+        title: word,
+        label: word,
+        type: 'board-node',
+        sourceMeta: {
+          title: word,
+          type: 'board-node',
+          boardFile: _conCurrentFileName || '',
+          nodeId: node.id
+        },
+        onUpdate: () => {
+          conUpdateNodeLinkBadges(node);
+          boardUpdateToolbarLinksCount();
+        },
+        onLinksChanged: () => {
+          conUpdateNodeLinkBadges(node);
+          boardUpdateToolbarLinksCount();
+        }
+      });
+    };
+
+    window.conUpdateNodeLinkBadges = function (node) {
+      if (!node || !node.el || typeof LinksService === 'undefined') return;
+      let bar = node.el.querySelector('.con-node-links-bar');
+      const nodeUrn = conGetActiveNodeUrn(node);
+      const links = LinksService.getLinksForSync(nodeUrn) || [];
+
+      if (links.length === 0) {
+        if (bar) bar.remove();
+        return;
+      }
+
+      if (!bar) {
+        bar = document.createElement('div');
+        bar.className = 'con-node-links-bar';
+        node.el.appendChild(bar);
+      } else {
+        bar.innerHTML = '';
+      }
+
+      links.forEach(l => {
+        const p = LinksService.parseUrn(l.otherUrn);
+        if (!p) return;
+        let badgeText = '[LINK]';
+        let badgeClass = 'general';
+        let titleText = (l.targetMeta && l.targetMeta.title) ? l.targetMeta.title : l.otherUrn;
+
+        if (p.type === 'tag') {
+          badgeText = '#' + p.id.toUpperCase();
+          badgeClass = 'tag';
+        } else if (p.type === 'planner-entry') {
+          badgeText = '[PLAN]';
+          badgeClass = 'plan';
+        } else if (p.type === 'document') {
+          badgeText = '[DOC]';
+          badgeClass = 'doc';
+        } else if (p.type === 'file') {
+          if (p.id.toLowerCase().endsWith('.pdf') || (l.targetMeta && l.targetMeta.relativePath && l.targetMeta.relativePath.toLowerCase().endsWith('.pdf'))) {
+            badgeText = '[PDF]';
+            badgeClass = 'pdf';
+          } else {
+            badgeText = '[FILE]';
+          }
+        } else if (p.type === 'grade-test') {
+          badgeText = '[TEST]';
+          badgeClass = 'test';
+        } else if (p.type === 'vocab') {
+          badgeText = '[VOCAB]';
+          badgeClass = 'vocab';
+        } else if (p.type === 'board') {
+          badgeText = '[BOARD]';
+        }
+
+        const pill = document.createElement('span');
+        pill.className = `con-node-link-pill ${badgeClass}`;
+        const iconHtml = '<img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:10px;height:10px;vertical-align:-1px;margin-right:2px;" />';
+        pill.innerHTML = (p.type === 'tag' ? '' : iconHtml) + badgeText;
+        pill.title = titleText;
+        pill.onclick = (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          LinksService.navigateToUrn(l.otherUrn);
+        };
+        bar.appendChild(pill);
+      });
+    };
+
+    window.conUpdateAllNodeLinkBadges = function () {
+      const allNodes = (typeof conNodes !== 'undefined') ? conNodes : (window.conGetNodes ? window.conGetNodes() : []);
+      if (Array.isArray(allNodes)) {
+        allNodes.forEach(node => conUpdateNodeLinkBadges(node));
+      }
+    };
+
+    window.conFocusAndHighlightNode = function (nodeIdOrText) {
+      if (!nodeIdOrText) return;
+      const target = String(nodeIdOrText).trim().toLowerCase();
+      const allNodes = (typeof conNodes !== 'undefined') ? conNodes : (window.conGetNodes ? window.conGetNodes() : []);
+      let node = allNodes.find(n => n && String(n.id).toLowerCase() === target);
+      if (!node) {
+        node = allNodes.find(n => {
+          if (!n) return false;
+          const w = String(n.baseWord || (n.el && n.el.dataset.baseWord) || (n.el && n.el.textContent) || '').trim().toLowerCase();
+          return w === target;
+        });
+      }
+      if (!node && allNodes.length > 0) {
+        node = allNodes.find(n => {
+          if (!n) return false;
+          const w = String(n.baseWord || (n.el && n.el.dataset.baseWord) || (n.el && n.el.textContent) || '').trim().toLowerCase();
+          return w.includes(target) || target.includes(w);
+        });
+      }
+      if (!node || !node.el) return;
+
+      if (typeof conSelect === 'function') conSelect(node.id);
+      else if (typeof window.conSelect === 'function') window.conSelect(node.id);
+
+      node.el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+      node.el.classList.add('con-node-highlight-pulse');
+      setTimeout(() => {
+        if (node && node.el) node.el.classList.remove('con-node-highlight-pulse');
+      }, 2500);
+    };
+
+    window.conCtxExtractPdfPageToCanvas = async function () {
+      const extractRow = document.getElementById('con-ctx-extract-pdf-row');
+      const pdfUrn = extractRow ? extractRow.dataset.pdfUrn : null;
+      if (typeof conCtxClose === 'function') conCtxClose();
+      else if (typeof window.conCtxClose === 'function') window.conCtxClose();
+      else {
+        const m = document.getElementById('con-ctx-menu');
+        if (m) m.classList.remove('visible');
+      }
+      if (!pdfUrn) {
+        if (typeof showToast === 'function') showToast('No linked PDF found for this node.', true);
+        return;
+      }
+      const parsed = LinksService.parseUrn(pdfUrn);
+      if (!parsed || parsed.type !== 'file') return;
+      const fileNameOrRelPath = parsed.id;
+
+      const allAtts = (typeof conAttachments !== 'undefined') ? conAttachments : (window.conAttachments || []);
+      let att = allAtts.find(a => a.kind === 'pdf' && (a.name === fileNameOrRelPath || a.relativePath === fileNameOrRelPath || a.id === fileNameOrRelPath));
+      if (!att) {
+        const baseName = fileNameOrRelPath.split(/[\/\\]/).pop();
+        att = allAtts.find(a => a.kind === 'pdf' && (a.name === baseName || (a.name && a.name.toLowerCase() === baseName.toLowerCase())));
+      }
+
+      if (att && typeof conGetPdfPageCount === 'function' && typeof conPdfPagePickerOpen === 'function') {
+        const pageCount = await conGetPdfPageCount(att);
+        conPdfPagePickerOpen(att, pageCount);
+      } else {
+        LinksService.navigateToUrn(pdfUrn);
+      }
+    };
+
+    window.conBoardCtxSuggestDbWords = function (val) {
+      const dl = document.getElementById('con-board-ctx-datalist');
+      if (!dl) return;
+      if (!val || val.trim().length < 1 || typeof vocabBank === 'undefined' || !Array.isArray(vocabBank)) {
+        dl.innerHTML = '';
+        return;
+      }
+      const q = val.trim().toLowerCase();
+      const matches = [];
+      for (let i = 0; i < vocabBank.length && matches.length < 15; i++) {
+        const entry = vocabBank[i];
+        if (!entry || !entry.word) continue;
+        const w = entry.word.trim();
+        if (w.toLowerCase().startsWith(q) && !matches.includes(w)) {
+          matches.push(w);
+        }
+      }
+      dl.innerHTML = matches.map(m => `<option value="${escapeSearchHtml(m)}"></option>`).join('');
+    };
+
+    window.conGenerateMindmapFromDb = async function () {
+      if (typeof vocabBank === 'undefined' || !Array.isArray(vocabBank) || vocabBank.length === 0) {
+        if (typeof showToast === 'function') showToast('Word bank is empty or not yet loaded.', true);
+        return;
+      }
+      const categories = new Set();
+      const posSet = new Set();
+      vocabBank.forEach(e => {
+        if (e && e.category) categories.add(String(e.category).trim());
+        if (e && e.theme) categories.add(String(e.theme).trim());
+        if (e && e.pos) posSet.add(String(e.pos).trim());
+      });
+      const catList = Array.from(categories).filter(Boolean);
+      const posList = Array.from(posSet).filter(Boolean);
+
+      let defaultPrompt = catList.length > 0 ? catList[0] : (posList.length > 0 ? posList[0] : '');
+      let choice = await showPrompt('Generate Mind Map from Database\nEnter category, theme, or part of speech to cluster:', defaultPrompt);
+      if (choice === null) return;
+
+      const filter = (choice || '').trim().toLowerCase();
+      let matching = vocabBank.filter(e => {
+        if (!e) return false;
+        if (!filter) return true;
+        const cat = String(e.category || '').toLowerCase();
+        const th = String(e.theme || '').toLowerCase();
+        const pos = String(e.pos || '').toLowerCase();
+        const w = String(e.word || '').toLowerCase();
+        return cat.includes(filter) || th.includes(filter) || pos === filter || w.includes(filter);
+      });
+
+      if (matching.length === 0) {
+        if (typeof showToast === 'function') showToast('No words found matching "' + choice + '".', true);
+        return;
+      }
+
+      matching = matching.slice(0, 14);
+
+      const brd = (typeof board === 'function') ? board() : (window.conGetBoard ? window.conGetBoard() : document.getElementById('constellation-board'));
+      const cx = Math.max(300, Math.floor(((brd && brd.clientWidth) || 1000) / 2));
+      const cy = Math.max(250, Math.floor(((brd && brd.clientHeight) || 800) / 2));
+
+      if (typeof conPushUndo === 'function') conPushUndo();
+      else if (typeof window.conPushUndo === 'function') window.conPushUndo();
+
+      const addWordFn = (typeof conAddWordAt === 'function') ? conAddWordAt : (window.conAddWordAt ? window.conAddWordAt : null);
+      const addEdgeFn = (typeof conAddEdge === 'function') ? conAddEdge : (window.conAddEdge ? window.conAddEdge : null);
+      if (!addWordFn) {
+        if (typeof showToast === 'function') showToast('Board builder is not ready.', true);
+        return;
+      }
+
+      const hubTitle = (choice ? choice.toUpperCase() : 'VOCABULARY');
+      const hubId = addWordFn(hubTitle, cx - 50, cy - 20);
+      const allNodes = (typeof conNodes !== 'undefined') ? conNodes : (window.conGetNodes ? window.conGetNodes() : []);
+      const hubNode = allNodes.find(n => n && n.id === hubId);
+      if (hubNode && hubNode.el) {
+        hubNode.el.style.fontWeight = '900';
+        hubNode.el.style.backgroundColor = '#fde047';
+        hubNode.el.style.borderColor = '#000000';
+      }
+
+      const radius = 230;
+      const angleStep = (2 * Math.PI) / matching.length;
+      matching.forEach((entry, idx) => {
+        const angle = idx * angleStep;
+        const x = Math.round(cx + radius * Math.cos(angle) - 40);
+        const y = Math.round(cy + radius * Math.sin(angle) - 15);
+        const wordId = addWordFn(entry.word, x, y);
+        if (wordId && hubId && addEdgeFn) {
+          addEdgeFn(hubId, wordId, 'none');
+        }
+      });
+
+      if (typeof showToast === 'function') {
+        showToast(`Generated mind map with ${matching.length} words around "${hubTitle}".`);
+      }
+    };
+
+    window.conSyncNewNodesToDb = async function () {
+      if (typeof vocabBank === 'undefined') window.vocabBank = [];
+      const existingSet = new Set(vocabBank.map(e => e && e.word ? stripParens(e.word).toLowerCase().trim() : '').filter(Boolean));
+
+      const allNodes = (typeof conNodes !== 'undefined') ? conNodes : (window.conGetNodes ? window.conGetNodes() : []);
+      const newWords = [];
+      allNodes.forEach(n => {
+        if (!n || n.isTimer || n.isRandom) return;
+        const raw = String(n.baseWord || (n.el && n.el.dataset.baseWord) || (n.el && n.el.textContent) || '').trim();
+        if (!raw || raw.startsWith('//') || raw.startsWith('=')) return;
+        const clean = stripParens(raw).toLowerCase();
+        if (clean && !existingSet.has(clean) && !newWords.includes(raw)) {
+          newWords.push(raw);
+        }
+      });
+
+      if (newWords.length === 0) {
+        if (typeof showToast === 'function') showToast('All words on the board already exist in the database!');
+        return;
+      }
+
+      const ok = await showConfirm(`Found ${newWords.length} new brainstormed word(s) not in the database:\n\n${newWords.slice(0, 8).join(', ')}${newWords.length > 8 ? '...' : ''}\n\nAdd them to the word database now?`);
+      if (!ok) return;
+
+      newWords.forEach(w => {
+        vocabBank.push({
+          word: w,
+          created: new Date().toISOString(),
+          source: 'Board Brainstorm'
+        });
+      });
+
+      try {
+        if (window.electronBridge && typeof window.electronBridge.saveJson === 'function') {
+          await window.electronBridge.saveJson('data', 'vocab.json', vocabBank);
+        }
+      } catch (err) {
+        console.warn('Could not auto-save to vocab.json:', err);
+      }
+
+      if (typeof showToast === 'function') {
+        showToast(`Added ${newWords.length} word(s) to the database.`);
+      }
+    };
+
+    // Auto-listen to global link changes
+    window.addEventListener('cmt-links-changed', () => {
+      boardUpdateToolbarLinksCount();
+      conUpdateAllNodeLinkBadges();
+    });
+    if (typeof LinksService !== 'undefined' && typeof LinksService.on === 'function') {
+      LinksService.on('links-changed', () => {
+        boardUpdateToolbarLinksCount();
+        conUpdateAllNodeLinkBadges();
+      });
+    }
+    // Initial update
+    setTimeout(() => {
+      boardUpdateToolbarLinksCount();
+      conUpdateAllNodeLinkBadges();
+    }, 500);
   </script>
 </body>
 

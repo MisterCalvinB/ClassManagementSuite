@@ -178,6 +178,18 @@ Whenever files are exported from any tool across the suite:
 - **Semantic HTML & Stylesheets**: HTML exports across all tools adhere to the `export-standards` skill, using clean semantic CSS classes and embedded `<style>` blocks rather than repetitive inline styles, enabling rapid re-styling in Document Editor.
 </details>
 
+<details>
+<summary><strong>Universal Tagging, Bidirectional Linking & Context Inheritance</strong></summary>
+
+The suite includes a centralized graph engine and modal manager (`js/links-service.js`, `js/tag-link-modal.js`, `css/tag-link-modal.css`):
+- **Universal Linking (`[LINKS: X]` & `[TAGS: Y]`)**: Connect documents, evaluation tests, student submissions, curriculum competences, criteria presets, and files/PDFs together with bidirectional edge tracking stored in `user/links-registry.json`.
+- **Neobrutalist Plain-Text Design**: Built without emojis or icons, adhering to clean high-contrast black borders, hard offset shadows, and crisp text badges (`[LINKS: 3]`, `[ADD TAG]`, `[ATTACH FILE]`, `[WORK]`, `[INHERITED: 6E B]`).
+- **Contextual Inheritance**: Tests and assignments automatically inherit criteria presets, grading scale models, and target competences from their parent class with an explicit `[INHERITED: ...]` indicator badge.
+- **Automated Test Linking (Criteria & Scales)**: In Grade Sheet, tests automatically derive and synchronize universal graph links (`cmt:criteria:...`, `cmt:scale:...`, and `cmt:competence:...`) directly from the Criteria and Grading Scale tabs in the Test Options modal.
+- **Student Work Attachments**: Right-clicking a student in Grade Sheet allows attaching scans, PDFs, essays, or audio recordings into `user/attachments/grades/<classId>/<evalId>/` with instant in-app modal preview and OS launcher support.
+- **Cross-Window Synchronisation**: Edge and tag modifications instantly notify all active windows via `BroadcastChannel ('cmt-links-sync')`, updating link badges in real time without tearing down the DOM.
+</details>
+
 ---
 
 ### Term Date Sync: Group Editor ↔ Planner
@@ -271,6 +283,11 @@ Curriculum competences can be linked across distinct databases (e.g. mapping Nat
 
 Class Management Tools features a unified, cross-application **Tagging, Linking, and Contextual Inheritance Engine** (`js/links-service.js` & `js/tag-link-modal.js`):
 - **Universal Graph Architecture**: Stores bidirectional entity relationships and global `#tags` safely in `user/links-registry.json` using standardized Uniform Resource Names (URNs: `cmt:<type>:<id>#<anchor>`).
+- **Deep Planner Integration (`cmt:planner:<entryId>`)**: Connects scheduled slots directly to Board constellation maps (`cmt:board:...`), Grade Sheet evaluations (`cmt:gradesheet:...`), Lesson Plans (`cmt:lesson:...`), Markdown handouts (`cmt:doc:...`), and attached files or PDFs (`cmt:file:...`).
+- **Board Session & Node-Level Deep Linking**: Both active Board sessions (`cmt:board:<filename>`) and individual canvas word nodes (`cmt:board-node:<filename>:<nodeId>`) can be linked to lesson plans, handouts, assessments, and universal `#tags`. Nodes display compact plain-text badges (`[PLAN]`, `[DOC]`, `[PDF]`, `[TEST]`, `[#TAG]`) with 1-click navigation.
+- **Extract PDF Page to Canvas**: For nodes linked to PDF files, right-clicking offers **Extract Page to Canvas** to immediately select and stamp PDF pages onto the active board canvas.
+- **Deep-Link Node Focus & Pulse**: Navigating to a board node from Planner, Document Editor, or another window automatically centers the canvas and triggers a smooth pulse halo.
+- **Vocabulary Database Mind Maps & Sync**: Teachers can cluster words from `vocabBank` by category or part of speech into radial mind maps with a central hub node, and sync new brainstormed nodes back to the vocabulary database in 1 click.
 - **Contextual Inheritance**: Items automatically inherit defaults from their parent context (e.g. tests and grade sheets inherit default criteria rubrics, grading scales, and target competences tagged to their class group).
 - **Strict Plain-Text Neobrutalist UI**: A dedicated, reusable modal component (`js/tag-link-modal.js` and `css/tag-link-modal.css`) built with thick 2.5px solid borders, hard offset shadows, high contrast fills, and bold uppercase plain-text badges (`[LINKS: X]`, `[TAGS]`, `[ADD TAG]`, `[OPEN]`, `[UNLINK]`, `[ATTACH FILE]`, `[CLOSE]`) with zero emojis or icons.
 - **Embedded File Previewer**: PDFs, images, and audio attachments open in a clean in-app previewer with page pagination, audio playback, and an `[OPEN IN DEFAULT APP]` external launcher.
@@ -506,7 +523,7 @@ Comprehensive **Test & Exam Authoring Studio** featuring 11 modular question typ
 #### Key Features & Architecture
 - **Wholly Customizable Exam Header & Allowed Materials Subsystem (`Ctrl+H`)**:
   - Click the **Header & Materials…** button in the top metadata panel or press `Ctrl+H` to access the dedicated 4-tab customisation studio with live preview:
-    - **Tab 1: Allowed Materials**: Quick-toggle preset material chips (*Pen & Pencil only*, *Bilingual Dictionary*, *Monolingual Dictionary*, *Scientific Calculator*, *Basic Calculator*, *Formula Sheet*, *Open Book / Notes*, *Draft Paper*, *No Electronic Devices*) or type custom allowances. Configurable display mode (*inline comma-separated* or *individual pill badges*) and bold/italic/underline labels.
+    - **Tab 1: Allowed Materials**: Quick-toggle preset material chips (*Pen & Pencil only*, *Bilingual Dictionary*, *Monolingual Dictionary*, *Scientific Calculator*, *Basic Calculator*, *Formula Sheet*, *Open Book / Notes*, *Draft Paper*, *No Electronic Devices*) or type custom allowances with 1-click **Add & Save Preset** to expand your reusable preset library. Active materials support **direct in-place editing** (click any item text or the ✏️ Edit button to modify its text with Enter/Esc shortcuts, save/cancel controls, and live header preview updating). Configurable display mode (*inline comma-separated* or *individual pill badges*) and bold/italic/underline labels.
     - **Tab 2: Header Elements & Typography**: Granular element-by-element visibility toggles, custom labels, and Bold (**B**), Italic (*I*), Underline (<u>U</u>) styling for: *Exam Title* (with multi-unit font sizing: `pt`, `px`, `cm`, `mm`, `em`, uppercase, alignment), *Subtitle / Department / Institution* (with multi-unit font sizing), *Student Name* (with solid rule, dotted line, or bordered box), *Class / Group*, *Date*, *Teacher*, *Duration*, *Materials Allowed*, *Scope / Topic*, *Points / Score Box*, and *Group Variant Badge*. Includes an optional multi-line *Student Exam Instructions & Guidelines* notice box (bordered box, accent quote bar, or yellow tint).
     - **Tab 3: Box Layout & Border**: Outer border styling (*Classic Double Rule*, *Modern Neobrutalist with offset shadow*, *Clean Solid*, *Dashed*, *Minimal*, or *Borderless*), metadata grid layout (*3-Column Grid*, *2-Column Grid*, *Compact Inline*, or *Formal Evaluation Table*), background tints (*Soft Ivory*, *Pure White*, *Subtle Slate Grey*), and padding controls.
     - **Tab 4: Element & Metadata Order**: Interactive reordering (▲ Up / ▼ Down) of top-level header sections (*Exam Title*, *Subtitle*, *Metadata Grid/Table*, *Exam Instructions*) and individual student metadata fields (*Student Name*, *Class / Group*, *Date*, *Teacher*, *Duration*, *Materials Allowed*, *Scope / Topic*, *Points / Score Box*).
@@ -567,6 +584,7 @@ Comprehensive **Test & Exam Authoring Studio** featuring 11 modular question typ
   - Global styling controls for base font size (`9pt`–`16pt`), line spacing/height (`1.2`–`2.4`), exercise card padding (`8px`–`24px`), and line numbering.
   - Numbered lines for student writing areas and reading comprehension passages.
   - Dedicated per-exercise override modal (`🎨 Style`) and bulk matrix table with "Apply Global Settings to All" option.
+  - **Stylesheet Theme Selection & Automatic Persistence**: Choose between 3 dedicated visual themes (*Academic Classic*, *Modern Neobrutalist*, or *Dyslexic Friendly*) directly from the Print/PDF Preview toolbar, the Export Formatting & Styling modal (`Style`), or the Exam Export dialog. The chosen theme automatically persists with the test document (`test.exportStyle.theme` / `test.stylesheetTheme`) and is remembered in local preferences across sessions as the teacher's default style for future tests.
   - Strict compliance with `export-standards`: HTML exports utilize clean semantic CSS classes and an embedded `<style>` block in `<head>` without repetitive inline styles, ensuring clean document structures, easy styling overrides, and seamless ingestion into Document Editor.
 - **Exact Rendition Print Preview & Export Circuit**:
   - High-fidelity PDF.js print preview matching Document Editor's exact rendition using Electron's native `Desktop.printPdf({ previewOnly: true })` and high DPR canvas rendering.
@@ -587,6 +605,20 @@ Lesson, assessment, and holiday scheduling tool with export capabilities.
 - **Term Management**: Create terms, define weekly schedules, and flag holidays.
 - **Class Schedules**: Color-coded classes with lesson slot auto-population.
 - **Entries & Reminders**: Lesson, Test, and Assignment entries. Configurable pre-start and end-of-lesson reminder alerts.
+- **Universal Tagging & Linking Engine Integration (`cmt:planner:<entryId>`)**:
+  - **Neobrutalist Card Badges**: Scheduled slots render real-time plain-text badges without emojis or icons:
+    - `[DOC: DocumentName]`: 1-click launch into Document Editor.
+    - `[FILE: FileName]`: 1-click open of attached PDFs, handouts, or audio in the default system viewer.
+    - `[BOARD: MapName]`: 1-click launch of Board centered on the attached session or mindmap node.
+    - `[TEST: TestName]`: 1-click launch of Grade Sheet evaluation or Test Creator assessment.
+    - `[LESSON: LessonPlan]`: 1-click launch of Lesson Creator.
+    - `[LINKS: N]`: Count badge for additional linked suite resources.
+    - `[#tags]`: Color-coded topic and unit tags (e.g. `#unit-3`, `#revision`, `#oral-exam`).
+  - **Entry Modal & Card Action Triggers**: Manage tags and links from the entry modal footer (`[LINKS & TAGS]`) or directly on slot cards using the plain-text `[L]` action button.
+  - **Right-Click Context Menu**: Instant access to `Links & Tags…`, `Open Linked Document`, and `Open Attached File`.
+  - **In-Place Reactive Sync**: Graph updates across other windows update badges smoothly in real time without refreshing the agenda or table DOM.
+  - **Deep-Linking Routing**: Launch Planner directly with `?entryId=<id>` (and optional `&openLinks=1`) to automatically navigate to the target week/date, scroll to and highlight the slot card, and open the Link modal.
+  - **Grade Sheet Test Sync**: Linking a test in Planner automatically registers and establishes bidirectional graph edges with [Grade Sheet](#grade-sheethtml).
 - **Linked Board Files**: Right-click any entry to generate or open an attached [Board](#boardhtml) constellation map (`.cstz`).
 - **Weeks Navigation Drawer**: Collapsible left sidebar displaying all weeks in the active term with auto-dimming of past weeks and smooth scrolling.
 - **To-do Drawer**: Integrated task list synced with `user/todos.js` and Launcher sidebar.
@@ -756,8 +788,8 @@ Centralized content, curriculum, and assessment database editor supporting multi
 #### Features
 - **Dual Architecture (Learning Content & Assessment/Curriculum)**: Unifies 14 database types across learning activities (Word Banks, Quotes, Dictations, Grammar, Gap Fill, Error Banks, Sentences, Stories, Quizzes) and curriculum/evaluation structures (Competences & Descriptors, Lesson Phases, Evaluation Criteria, Grading Scales, Observation Chips).
 - **Competences & Descriptors Editor**: Catalog official curriculum standards with codes, domains, CEFR proficiency levels (A1–C2), grade levels, and sample tasks feeding directly into Competence Portfolio and Lesson Creator.
-- **Evaluation Criteria & Interactive Competence Picker**: Configure assessment rubrics with min/max points, intervals, point coefficients, discrete performance thresholds, and qualitative grade level descriptors (e.g. `6: Excellent`). Rendered as stylized badge chips in the table with inline multi-line editing (<kbd>Ctrl</kbd>+<kbd>Enter</kbd>) and clean export support across HTML, Markdown, PDF, CSV, and XLSX. Directly link criteria to curriculum standards using the built-in Competence Picker modal with live domain, level, and year filters.
-- **Grading Scale Models**: Define scale conversion models (e.g. Swiss 1–6, French 0–20, Percentage, Letter grades) with score thresholds and color bands for Grade Sheet and Oral Marking.
+- **Evaluation Criteria & Interactive Competence Picker**: Configure assessment rubrics with min/max points, intervals, point coefficients, discrete performance thresholds, qualitative grade level descriptors (e.g. `6: Excellent`), and grade accent colors (e.g. `6: #166534`). Rendered as stylized badge chips and color swatches in the table with inline multi-line editing (<kbd>Ctrl</kbd>+<kbd>Enter</kbd>) and clean export support across HTML, Markdown, PDF, CSV, and XLSX. Directly link criteria to curriculum standards using the built-in Competence Picker modal with live domain, level, and year filters.
+- **Grading Scale Models**: Define scale conversion models (e.g. Swiss 1–6, French 0–20, Percentage, Letter grades) with score thresholds (e.g. `6: 90`, `5.5: 80`) and color bands for Grade Sheet and Oral Marking. Rendered in the table as threshold badges (≥ 90%) and color swatches with full inline and modal multi-line editing.
 - **Lesson Phase Templates**: Store pedagogical lesson blocks with duration, interaction patterns (Whole Class, Pair, Group, Individual), and dual teacher/student action plans for Lesson Creator.
 - **Personalised Observation Chips**: Create themed qualitative observation feedback chips with seamless switching between Table View and Visual Chips View.
 - **Multi-Language Schema**: Stores English, French, German, and Italian translations for word banks; active UI language automatically selects the appropriate column.

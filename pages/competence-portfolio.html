@@ -11,6 +11,9 @@
   <script src="../js/i18n.js"></script>
   <script src="../js/dialogs.js"></script>
   <script src="../js/competence-aggregator-service.js"></script>
+  <link rel="stylesheet" href="../css/tag-link-modal.css">
+  <script src="../js/links-service.js"></script>
+  <script src="../js/tag-link-modal.js"></script>
 </head>
 <body>
 
@@ -277,7 +280,8 @@
         </div>
         <div id="modal-history-list" style="display:flex;flex-direction:column;gap:10px;"></div>
       </div>
-      <div class="cp-modal-footer">
+      <div class="cp-modal-footer" style="display:flex;justify-content:space-between;align-items:center;">
+        <button type="button" id="modal-comp-links-btn" class="cp-btn" style="font-weight:900;letter-spacing:0.5px;" onclick="cpOpenCompLinksModal()"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" />[LINKS: 0]</button>
         <button type="button" class="cp-btn primary" onclick="cpCloseDetailModal()" data-i18n="btnClose">Close</button>
       </div>
     </div>
@@ -867,8 +871,25 @@
     function cpOpenDetailModal(item) {
       const modal = document.getElementById('cp-detail-modal');
       const c = item.competence;
+      window._cpActiveCompetence = c;
       document.getElementById('modal-comp-code').textContent = c.code;
       document.getElementById('modal-comp-title').textContent = c.title;
+
+      const compUrn = 'cmt:competence:' + (c.id || c.code);
+      const linksBtn = document.getElementById('modal-comp-links-btn');
+      const iconHtml = '<img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" />';
+      if (linksBtn && typeof LinksService !== 'undefined') {
+        linksBtn.innerHTML = `${iconHtml}[LINKS: …]`;
+        Promise.all([
+          LinksService.getLinksFor(compUrn),
+          LinksService.getTagsFor(compUrn)
+        ]).then(([links, tags]) => {
+          const tagStr = tags.length ? ` | TAGS: ${tags.length}` : '';
+          linksBtn.innerHTML = `${iconHtml}[LINKS: ${links.length}${tagStr}]`;
+        }).catch(() => {
+          linksBtn.innerHTML = `${iconHtml}[LINKS: 0]`;
+        });
+      }
 
       const metaParts = [];
       if (c.category) metaParts.push(`<strong>Domain:</strong> ${cpEscapeHtml(c.category)}`);
@@ -956,6 +977,17 @@
 
     function cpCloseDetailModal() {
       document.getElementById('cp-detail-modal').style.display = 'none';
+    }
+
+    function cpOpenCompLinksModal() {
+      if (!window._cpActiveCompetence || typeof TagLinkModal === 'undefined') return;
+      const c = window._cpActiveCompetence;
+      const urn = 'cmt:competence:' + (c.id || c.code);
+      TagLinkModal.open({
+        urn: urn,
+        label: `${c.code ? c.code + ': ' : ''}${c.title || c.id}`,
+        type: 'competence'
+      });
     }
 
     function cpJumpToLinkedCompetence(targetId) {

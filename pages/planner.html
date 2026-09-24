@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Planner</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
+  <link rel="stylesheet" href="../css/tag-link-modal.css">
   <script src="../electron-bridge.js"></script>
   <script src="../js/pins.js"></script>
   <script src="../js/i18n.js"></script>
@@ -13,6 +14,9 @@
   <script src="../js/dialogs.js"></script>
   <script src="../js/menus.js"></script>
   <script src="../js/tutorial.js"></script>
+  <script src="../js/competence-aggregator-service.js"></script>
+  <script src="../js/links-service.js"></script>
+  <script src="../js/tag-link-modal.js"></script>
   <script>
     (function () {
       function injectScript(src, name) {
@@ -592,6 +596,8 @@
       <div class="modal-footer">
         <button class="danger-btn" id="del-entry-btn" style="display:none;margin-right:auto"
            onclick="deleteCurrentEntry()" data-i18n="pl_btnDeleteEntry">Delete Entry</button>
+        <button class="tb-btn" id="links-entry-btn" style="display:none" onclick="plannerOpenLinksModalFromEntryModal()"
+          data-i18n="pl_linksAndTags"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> <span data-i18n="pl_linksAndTags">[LINKS & TAGS]</span></button>
         <button class="tb-btn" id="gs-entry-btn" style="display:none" onclick="plannerOpenGradeSheetModalAction()"
           data-i18n="pl_openGradeSheet">Open in Grade Sheet</button>
         <button class="tb-btn" id="cm-entry-btn" style="display:none" onclick="plannerOpenClassManagementModalAction()"
@@ -609,6 +615,12 @@
   </div>
 
   <div id="planner-board-menu" class="planner-board-menu" onclick="event.stopPropagation()">
+    <button type="button" id="planner-links-menu-btn" onclick="plannerOpenLinksModalAction()"
+      data-i18n="pl_linksAndTags"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> <span data-i18n="pl_linksAndTags">[LINKS & TAGS]</span></button>
+    <button type="button" id="planner-open-doc-menu-btn" onclick="plannerOpenLinkedDocAction()" style="display:none;"
+      data-i18n="pl_openLinkedDoc">Open Linked Document</button>
+    <button type="button" id="planner-open-file-menu-btn" onclick="plannerOpenLinkedFileAction()" style="display:none;"
+      data-i18n="pl_openLinkedFile">Open Linked File</button>
     <button type="button" id="planner-gs-menu-btn" onclick="plannerOpenGradeSheetAction()" style="display:none;"
       data-i18n="pl_openGradeSheet">Open in Grade Sheet</button>
     <button type="button" id="planner-cm-menu-btn" onclick="plannerOpenClassManagementAction()"
@@ -1515,8 +1527,29 @@
       if (qTodo) {
         localStorage.setItem('cmt-planner-todo', qTodo);
       }
+      var qEntryId = params.get('entryId');
+      if (qEntryId) {
+        var targetEntry = entries.find(function (e) { return e && e.id === qEntryId; });
+        if (!targetEntry && window.PLANNER_ENTRIES_BY_CLASS) {
+          var allLists = Object.values(window.PLANNER_ENTRIES_BY_CLASS);
+          for (var i = 0; i < allLists.length; i++) {
+            if (Array.isArray(allLists[i])) {
+              var found = allLists[i].find(function (e) { return e && e.id === qEntryId; });
+              if (found) { targetEntry = found; break; }
+            }
+          }
+        }
+        if (targetEntry && targetEntry.date) {
+          localStorage.setItem('cmt-planner-nav', JSON.stringify({
+            date: targetEntry.date,
+            classId: targetEntry.classId || '',
+            time: targetEntry.time || '',
+            entryId: targetEntry.id
+          }));
+        }
+      }
       var qDate = params.get('navDate');
-      if (qDate) {
+      if (qDate && !qEntryId) {
         localStorage.setItem('cmt-planner-nav', JSON.stringify({
           date: qDate,
           classId: params.get('navClassId') || '',
@@ -1526,7 +1559,16 @@
 
       navigateToPending();
       navigateToPendingTodo();
+      if (qEntryId && params.get('openLinks') === '1') {
+        setTimeout(function () { openPlannerEntryLinks(qEntryId); }, 400);
+      }
       _plannerBooted = true;
+
+      window.addEventListener('cmt-links-changed', function () {
+        if (typeof plannerUpdateEntryLinkBadges === 'function') {
+          plannerUpdateEntryLinkBadges();
+        }
+      });
 
       // ── Drag-to-copy: set up delegated listeners on #agenda ────────────
       (function initAgendaDragListeners() {
@@ -1685,12 +1727,18 @@
     function _applyNavHighlight(doScroll) {
       if (!_navHighlightNav || Date.now() > _navHighlightUntil) { _navHighlightNav = null; return; }
       var nav = _navHighlightNav;
-      var sel = '.entry-row[data-date="' + nav.date + '"]';
-      if (nav.classId) sel += '[data-classid="' + nav.classId + '"]';
-      if (nav.time) sel += '[data-time="' + nav.time + '"]';
-      var el = document.querySelector(sel);
-      if (!el && nav.classId) el = document.querySelector('.entry-row[data-date="' + nav.date + '"][data-classid="' + nav.classId + '"]');
-      if (!el) el = document.querySelector('.entry-row[data-date="' + nav.date + '"]');
+      var el = null;
+      if (nav.entryId) {
+        el = document.querySelector('.entry-row[data-entry-id="' + nav.entryId + '"], .at-cell[data-entry-id="' + nav.entryId + '"]');
+      }
+      if (!el) {
+        var sel = '.entry-row[data-date="' + nav.date + '"]';
+        if (nav.classId) sel += '[data-classid="' + nav.classId + '"]';
+        if (nav.time) sel += '[data-time="' + nav.time + '"]';
+        el = document.querySelector(sel);
+        if (!el && nav.classId) el = document.querySelector('.entry-row[data-date="' + nav.date + '"][data-classid="' + nav.classId + '"]');
+        if (!el) el = document.querySelector('.entry-row[data-date="' + nav.date + '"]');
+      }
       if (!el) return;
       var group = el.closest('.week-group, .at-week-block');
       if (group && group.classList.contains('collapsed')) {
@@ -1720,6 +1768,12 @@
 
     async function loadData() {
       if (window.__plannerBoot) await window.__plannerBoot;
+
+      if (window.LinksService) {
+        try {
+          await LinksService.loadRegistry();
+        } catch (_) {}
+      }
 
       try {
         if (window.Pins) {
@@ -2592,6 +2646,277 @@
       Desktop.openTool('grade-sheet.html', { query: navPayload });
     }
 
+    // ── Universal Cross-Tool Linking & Tagging Integration ───────────────────
+    function plannerOpenUrn(urn) {
+      if (window.LinksService && typeof LinksService.openUrn === 'function') {
+        return LinksService.openUrn(urn);
+      }
+      return false;
+    }
+
+    function openPlannerEntryLinks(entryId, event) {
+      if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+      }
+      var entry = entries.find(function (e) { return e && e.id === entryId; });
+      if (!entry && window.PLANNER_ENTRIES_BY_CLASS) {
+        var allLists = Object.values(window.PLANNER_ENTRIES_BY_CLASS);
+        for (var i = 0; i < allLists.length; i++) {
+          if (Array.isArray(allLists[i])) {
+            var found = allLists[i].find(function (e) { return e && e.id === entryId; });
+            if (found) { entry = found; break; }
+          }
+        }
+      }
+      if (!entry) return;
+
+      var urn = 'cmt:planner:' + entry.id;
+      var clsName = (typeof plannerClassDisplayName === 'function' ? plannerClassDisplayName(entry.classId) : '') || entry.classId || '';
+      var typeTxt = (typeof typeLabel === 'function' ? typeLabel(entry.type) : '') || entry.type || 'Lesson';
+      var title = (entry.topic || typeTxt) + (clsName ? ' (' + clsName + ')' : '');
+      var subtitle = (entry.date || '') + (entry.time ? ' ' + entry.time : '') + (clsName ? ' • ' + clsName : '');
+
+      if (window.TagLinkModal && typeof TagLinkModal.open === 'function') {
+        TagLinkModal.open({
+          urn: urn,
+          title: title,
+          subtitle: subtitle,
+          classId: entry.classId || null,
+          onUpdate: function () {
+            plannerUpdateEntryLinkBadges(new Set([entry.id]));
+          }
+        });
+      }
+    }
+
+    function plannerOpenLinksModalFromEntryModal() {
+      if (!editingId) return;
+      openPlannerEntryLinks(editingId);
+    }
+
+    function plannerOpenLinksModalAction() {
+      var id = String(_plannerBoardMenuEntryId || '').trim();
+      plannerHideBoardEntryMenu();
+      if (!id) return;
+      openPlannerEntryLinks(id);
+    }
+
+    function plannerOpenLinkedDocAction() {
+      var btn = document.getElementById('planner-open-doc-menu-btn');
+      var urn = btn ? btn._targetUrn : null;
+      plannerHideBoardEntryMenu();
+      if (urn && window.LinksService) {
+        LinksService.openUrn(urn);
+      }
+    }
+
+    function plannerOpenLinkedFileAction() {
+      var btn = document.getElementById('planner-open-file-menu-btn');
+      var urn = btn ? btn._targetUrn : null;
+      plannerHideBoardEntryMenu();
+      if (urn && window.LinksService) {
+        LinksService.openUrn(urn);
+      }
+    }
+
+    function buildPlannerEntryLinkBadgesHtml(entry) {
+      if (!entry || !entry.id || !window.LinksService) return '';
+      var urn = 'cmt:planner:' + entry.id;
+      var links = LinksService.getLinksForSync(urn) || [];
+      var tags = LinksService.getTagsForSync(urn) || [];
+
+      if (!links.length && !tags.length) return '';
+
+      var html = '<span class="planner-badges-wrap" data-links-urn="' + esc(urn) + '">';
+
+      // 1. Plain-text Tag Badges (up to 3 tags, then overflow badge)
+      var maxTags = 3;
+      for (var ti = 0; ti < Math.min(tags.length, maxTags); ti++) {
+        var tg = tags[ti];
+        html += '<span class="planner-tag-badge" onclick="event.stopPropagation();openPlannerEntryLinks(\'' + esc(entry.id) + '\', event)" title="Tag: ' + esc(tg) + '">[' + esc(tg) + ']</span>';
+      }
+      if (tags.length > maxTags) {
+        html += '<span class="planner-tag-badge" onclick="event.stopPropagation();openPlannerEntryLinks(\'' + esc(entry.id) + '\', event)" title="' + esc(tags.slice(maxTags).join(', ')) + '">[+' + (tags.length - maxTags) + ']</span>';
+      }
+
+      // 2. Plain-text Connected Item Badges
+      var boardLinks = [];
+      var docLinks = [];
+      var testLinks = [];
+      var fileLinks = [];
+      var otherLinks = [];
+
+      links.forEach(function (l) {
+        var p = LinksService.parseUrn(l.otherUrn);
+        if (!p) return;
+        if (p.type === 'board' || p.type === 'board_node' || p.type === 'board-node') {
+          boardLinks.push(l);
+        } else if (p.type === 'doc' || p.type === 'document' || p.type === 'doc_section') {
+          docLinks.push(l);
+        } else if (p.type === 'test' || p.type === 'grade-test' || p.type === 'grade_cell' || p.type === 'gradesheet') {
+          testLinks.push(l);
+        } else if (p.type === 'file') {
+          fileLinks.push(l);
+        } else {
+          otherLinks.push(l);
+        }
+      });
+
+      // Board session badges
+      boardLinks.forEach(function (bl) {
+        var title = (bl.targetMeta && bl.targetMeta.title) || bl.otherUrn.split(':').pop() || 'Board';
+        var shortTitle = title.length > 16 ? (title.slice(0, 14) + '…') : title;
+        html += '<span class="planner-link-badge badge-board" onclick="event.stopPropagation();plannerOpenUrn(\'' + esc(bl.otherUrn) + '\')" title="Board Session: ' + esc(title) + '">[BOARD: ' + esc(shortTitle) + ']</span>';
+      });
+
+      // Document link badges
+      docLinks.forEach(function (dl) {
+        var title = (dl.targetMeta && dl.targetMeta.title) || dl.otherUrn.split('/').pop() || 'Doc';
+        var shortTitle = title.length > 16 ? (title.slice(0, 14) + '…') : title;
+        html += '<span class="planner-link-badge badge-doc" onclick="event.stopPropagation();plannerOpenUrn(\'' + esc(dl.otherUrn) + '\')" title="Document: ' + esc(title) + '">[DOC: ' + esc(shortTitle) + ']</span>';
+      });
+
+      // Grade Test link badges
+      testLinks.forEach(function (tl) {
+        var title = (tl.targetMeta && tl.targetMeta.title) || 'Test';
+        var shortTitle = title.length > 16 ? (title.slice(0, 14) + '…') : title;
+        html += '<span class="planner-link-badge badge-test" onclick="event.stopPropagation();plannerOpenUrn(\'' + esc(tl.otherUrn) + '\')" title="Grade Test: ' + esc(title) + '">[TEST: ' + esc(shortTitle) + ']</span>';
+      });
+
+      // PDF / Attachment badges
+      fileLinks.forEach(function (fl) {
+        var isPdf = fl.otherUrn.toLowerCase().endsWith('.pdf') || (fl.targetMeta && fl.targetMeta.relativePath && fl.targetMeta.relativePath.toLowerCase().endsWith('.pdf'));
+        var tagPrefix = isPdf ? 'PDF' : 'FILE';
+        var title = (fl.targetMeta && fl.targetMeta.title) || fl.otherUrn.split(/[\\/]/).pop() || 'File';
+        var shortTitle = title.length > 16 ? (title.slice(0, 14) + '…') : title;
+        html += '<span class="planner-link-badge badge-file" onclick="event.stopPropagation();plannerOpenUrn(\'' + esc(fl.otherUrn) + '\')" title="' + tagPrefix + ': ' + esc(title) + '">[' + tagPrefix + ': ' + esc(shortTitle) + ']</span>';
+      });
+
+      // Summary badge if additional relations exist (e.g. classes, competences, tests)
+      if (otherLinks.length > 0) {
+        var summaryTitle = otherLinks.map(function (ol) { return (ol.targetMeta && ol.targetMeta.title) || ol.otherUrn; }).join(', ');
+        html += '<span class="planner-link-badge" onclick="event.stopPropagation();openPlannerEntryLinks(\'' + esc(entry.id) + '\', event)" title="' + esc(summaryTitle) + '"><img src="../assets/icons/links.svg" class="badge-icon" alt="" style="width:11px;height:11px;vertical-align:-1px;margin-right:3px;" />[LINKS: ' + links.length + ']</span>';
+      }
+
+      html += '</span>';
+      return html;
+    }
+
+    function plannerUpdateEntryLinkBadges(changedEntryIds) {
+      if (!window.LinksService) return;
+      var idSet = (changedEntryIds instanceof Set) ? changedEntryIds : (Array.isArray(changedEntryIds) ? new Set(changedEntryIds) : null);
+
+      var rows = document.querySelectorAll('.entry-row[data-entry-id]');
+      rows.forEach(function (row) {
+        var entryId = row.getAttribute('data-entry-id');
+        if (!entryId) return;
+        if (idSet && !idSet.has('__all__') && !idSet.has(entryId)) return;
+        var inner = row.querySelector('.entry-inner');
+        if (!inner) return;
+        var entry = entries.find(function (e) { return e && e.id === entryId; });
+        if (!entry) return;
+
+        var existingWrap = inner.querySelector('.planner-badges-wrap');
+        var newHtml = buildPlannerEntryLinkBadgesHtml(entry);
+
+        if (newHtml) {
+          if (existingWrap) {
+            existingWrap.outerHTML = newHtml;
+          } else {
+            var actionsEl = inner.querySelector('.entry-actions');
+            if (actionsEl) {
+              actionsEl.insertAdjacentHTML('beforebegin', newHtml);
+            } else {
+              inner.insertAdjacentHTML('beforeend', newHtml);
+            }
+          }
+        } else if (existingWrap) {
+          existingWrap.remove();
+        }
+      });
+
+      var cells = document.querySelectorAll('.at-cell[data-entry-id]');
+      cells.forEach(function (cell) {
+        var entryId = cell.getAttribute('data-entry-id');
+        if (!entryId) return;
+        if (idSet && !idSet.has('__all__') && !idSet.has(entryId)) return;
+        var entry = entries.find(function (e) { return e && e.id === entryId; });
+        if (!entry) return;
+
+        var existingWrap = cell.querySelector('.planner-badges-wrap');
+        var newHtml = buildPlannerEntryLinkBadgesHtml(entry);
+
+        if (newHtml) {
+          if (existingWrap) {
+            existingWrap.outerHTML = newHtml;
+          } else {
+            cell.insertAdjacentHTML('beforeend', newHtml);
+          }
+        } else if (existingWrap) {
+          existingWrap.remove();
+        }
+      });
+    }
+
+    async function syncPlannerEntryToLinksService(entry) {
+      if (!window.LinksService || !entry || !entry.id) return;
+      try {
+        var urn = 'cmt:planner:' + entry.id;
+        var clsName = (typeof plannerClassDisplayName === 'function' ? plannerClassDisplayName(entry.classId) : '') || entry.classId || '';
+        var typeTxt = (typeof typeLabel === 'function' ? typeLabel(entry.type) : '') || entry.type || 'Lesson';
+        var title = (entry.topic || typeTxt) + (clsName ? ' (' + clsName + ')' : '');
+        var subtitle = (entry.date || '') + (entry.time ? ' ' + entry.time : '') + (clsName ? ' • ' + clsName : '');
+
+        await LinksService.registerEntity(urn, {
+          title: title,
+          subtitle: subtitle,
+          type: 'planner',
+          target: 'user',
+          relativePath: 'planner/' + (entry.classId || '__unassigned') + '.js',
+          meta: {
+            classId: entry.classId,
+            date: entry.date,
+            time: entry.time,
+            timeEnd: entry.timeEnd,
+            type: entry.type,
+            topic: entry.topic
+          }
+        });
+
+        if (entry.gsLink && entry.gsLink.classId) {
+          var sem = entry.gsLink.semester || 'sem1';
+          var testIdx = entry.gsLink.testIndex || 0;
+          var evalUrn = 'cmt:eval:' + entry.gsLink.classId + ':' + sem + ':' + testIdx;
+          await LinksService.addLink(urn, evalUrn, {
+            relation: 'eval',
+            meta: { category: 'gradesheet', auto: true }
+          });
+        }
+
+        if (entry.lessonPlanId && entry.lessonPlanId !== '__unlinked__') {
+          var lessonUrn = 'cmt:lesson:' + entry.lessonPlanId;
+          await LinksService.addLink(urn, lessonUrn, {
+            relation: 'lesson',
+            meta: { category: 'lessons', auto: true }
+          });
+        }
+      } catch (err) {
+        console.warn('syncPlannerEntryToLinksService error:', err);
+      }
+    }
+
+    async function cleanPlannerEntryFromLinksService(entryId) {
+      if (!window.LinksService || !entryId) return;
+      try {
+        var urn = 'cmt:planner:' + entryId;
+        var links = await LinksService.getLinksFor(urn);
+        for (var i = 0; i < links.length; i++) {
+          await LinksService.removeLink(urn, links[i].otherUrn);
+        }
+      } catch (_) {}
+    }
+
     // ── Active-class helpers ───────────────────────────────────────────────────
     function plannerClassDisplayName(id) {
       if (classGroupsMeta[id] && classGroupsMeta[id].name) return classGroupsMeta[id].name;
@@ -3036,6 +3361,7 @@
         var _bTitle = t('pl_boardLinked') + (_bSess.length > 1 ? ' (' + _bSess.length + ')' : '') + ': ' + _bLatest.name;
         r += '<span class="board-session-badge" onclick="event.stopPropagation();openLinkedBoard(\'' + esc(_boardLink.linkId) + '\')" title="' + esc(_bTitle) + '">' + esc(t('pl_boardOpen')) + '</span>';
       }
+      r += buildPlannerEntryLinkBadgesHtml(entry);
       r += '<div class="entry-actions" onclick="event.stopPropagation()">';
       if (entry) {
         if (isSubscribed) {
@@ -3047,6 +3373,7 @@
           var pinTitle = isPinned ? 'Unpin from sidebar' : 'Pin to sidebar';
           var pinIcon = isPinned ? '📌' : '📍';
           r += '<button class="entry-btn ' + (isPinned ? 'pinned' : '') + '" onclick="toggleEntryPin(event, \'' + esc(entry.id) + '\', \'' + esc(s.classId) + '\', \'' + esc(s.date) + '\', \'' + esc(s.time || '') + '\', \'' + esc(s.timeEnd || '') + '\')" title="' + esc(pinTitle) + '">' + pinIcon + '</button>';
+          r += '<button class="entry-btn planner-links-btn" onclick="openPlannerEntryLinks(\'' + esc(entry.id) + '\', event)" title="' + esc(t('pl_linksAndTags')) + '">[L]</button>';
           r += '<button class="entry-btn" onclick="openEditEntry(\'' + esc(entry.id) + '\')" title="Edit">✏</button>';
         }
       } else
@@ -3948,6 +4275,8 @@
       document.getElementById('entry-modal-title').textContent = t('pl_entryModalAdd');
       document.getElementById('del-entry-btn').style.display = 'none';
       document.getElementById('dup-entry-btn').style.display = 'none';
+      var linksBtn = document.getElementById('links-entry-btn');
+      if (linksBtn) linksBtn.style.display = 'none';
       var classGrp = document.getElementById('e-class-field-group');
       if (classGrp) classGrp.style.display = '';
       var slotGrp = document.getElementById('dup-slot-picker-group');
@@ -4081,6 +4410,20 @@
       else if (objVal) { objSel.value = '__other__'; objCustom.value = objVal; objCustom.style.display = ''; }
       else { objSel.value = ''; objCustom.style.display = 'none'; }
       plannerUpdateBoardEntryControls(e);
+      var linksBtn = document.getElementById('links-entry-btn');
+      if (linksBtn) {
+        linksBtn.style.display = '';
+        if (window.LinksService) {
+          var _lUrn = 'cmt:planner:' + id;
+          var _lCount = (LinksService.getLinksForSync(_lUrn) || []).length;
+          var _tCount = (LinksService.getTagsForSync(_lUrn) || []).length;
+          if (_lCount > 0 || _tCount > 0) {
+            linksBtn.textContent = '[LINKS: ' + _lCount + ' · TAGS: ' + _tCount + ']';
+          } else {
+            linksBtn.textContent = '[LINKS & TAGS]';
+          }
+        }
+      }
       openModal('entryModal');
     }
 
@@ -4236,6 +4579,47 @@
       var linkId = entry ? String(entry.id) : plannerBoardLinkId(_plannerBoardMenuSlot, null);
       var linked = !!(linkId && boardSessionsByEntryId[linkId] && boardSessionsByEntryId[linkId].length);
       if (menuBtn) menuBtn.textContent = linked ? t('pl_boardOpen') : t('pl_boardCreate');
+
+      // Update Links & Tags context menu buttons
+      var linksMenuBtn = document.getElementById('planner-links-menu-btn');
+      var openDocBtn = document.getElementById('planner-open-doc-menu-btn');
+      var openFileBtn = document.getElementById('planner-open-file-menu-btn');
+      if (linksMenuBtn) {
+        linksMenuBtn.style.display = entry ? 'block' : 'none';
+        if (entry && window.LinksService) {
+          var _lUrn = 'cmt:planner:' + entry.id;
+          var _lList = LinksService.getLinksForSync(_lUrn) || [];
+          var _tList = LinksService.getTagsForSync(_lUrn) || [];
+          if (_lList.length > 0 || _tList.length > 0) {
+            linksMenuBtn.textContent = t('pl_linksAndTags') + ' [' + _lList.length + '/' + _tList.length + ']';
+          } else {
+            linksMenuBtn.textContent = t('pl_linksAndTags');
+          }
+
+          var firstDoc = _lList.find(function (l) { return l.otherUrn.startsWith('cmt:doc:'); });
+          if (openDocBtn) {
+            openDocBtn.style.display = firstDoc ? 'block' : 'none';
+            if (firstDoc) {
+              var docName = (firstDoc.targetMeta && firstDoc.targetMeta.title) || firstDoc.otherUrn.split('/').pop() || 'Doc';
+              openDocBtn.textContent = t('pl_openLinkedDoc') + ' (' + (docName.length > 18 ? docName.slice(0, 16) + '…' : docName) + ')';
+              openDocBtn._targetUrn = firstDoc.otherUrn;
+            }
+          }
+
+          var firstFile = _lList.find(function (l) { return l.otherUrn.startsWith('cmt:file:'); });
+          if (openFileBtn) {
+            openFileBtn.style.display = firstFile ? 'block' : 'none';
+            if (firstFile) {
+              var fnName = (firstFile.targetMeta && firstFile.targetMeta.title) || firstFile.otherUrn.split(/[\\/]/).pop() || 'File';
+              openFileBtn.textContent = t('pl_openLinkedFile') + ' (' + (fnName.length > 18 ? fnName.slice(0, 16) + '…' : fnName) + ')';
+              openFileBtn._targetUrn = firstFile.otherUrn;
+            }
+          }
+        } else {
+          if (openDocBtn) openDocBtn.style.display = 'none';
+          if (openFileBtn) openFileBtn.style.display = 'none';
+        }
+      }
 
       // Update Class Management menu button
       var cmMenuBtn = document.getElementById('planner-cm-menu-btn');
@@ -5210,6 +5594,14 @@
           }
         }
       }
+
+      var targetSyncEntry = entries.find(function (e) { return e.id === (singleId || editingId); });
+      if (targetSyncEntry && typeof syncPlannerEntryToLinksService === 'function') {
+        syncPlannerEntryToLinksService(targetSyncEntry);
+        if (typeof plannerUpdateEntryLinkBadges === 'function') {
+          plannerUpdateEntryLinkBadges(new Set([targetSyncEntry.id]));
+        }
+      }
     }
 
     function deleteCurrentEntry() {
@@ -5220,11 +5612,13 @@
         return;
       }
       var doDelete = async function () {
-        entries = entries.filter(function (e) { return e.id !== editingId; });
+        var toDeleteId = editingId;
+        entries = entries.filter(function (e) { return e.id !== toDeleteId; });
         await persistEntries();
         closeModal('entryModal');
         render();
         if (entry && entry.gsLink) removeTestFromGradeSheet(entry);
+        if (typeof cleanPlannerEntryFromLinksService === 'function') cleanPlannerEntryFromLinksService(toDeleteId);
       };
       if (entry && entry.gsLink) {
         showConfirm(t('pl_confirmDeleteTest'), doDelete);
@@ -5545,6 +5939,20 @@
             };
             persistEntries();
             plannerUpdateGradeSheetBadges([entry.id]);
+            if (window.LinksService && entry.id) {
+              var pUrn = 'cmt:planner:' + entry.id;
+              var eUrn = 'cmt:eval:' + gsInfo.meta.classId + ':' + gsSem + ':' + testIndex;
+              var cName = (typeof plannerClassDisplayName === 'function' ? plannerClassDisplayName(entry.classId) : '') || entry.classId || '';
+              var tName = entry.topic || t('pl_typeTest');
+              LinksService.addLink(pUrn, eUrn, {
+                relation: 'eval',
+                meta: { category: 'gradesheet', auto: true, testIndex: testIndex, semester: gsSem, classId: gsInfo.meta.classId },
+                sourceMeta: { type: 'planner', title: tName + (cName ? ' (' + cName + ')' : ''), subtitle: entry.date || '' },
+                targetMeta: { type: 'eval', title: tName + ' (' + cName + ' • ' + (gsSem === 'sem1' ? 'Sem 1' : 'Sem 2') + ')', subtitle: 'Grade Sheet Evaluation • ' + (entry.date || '') }
+              }).then(function () {
+                if (typeof plannerUpdateEntryLinkBadges === 'function') plannerUpdateEntryLinkBadges(new Set([entry.id]));
+              }).catch(function () {});
+            }
           }
           showToast(t('pl_gsWriteOk'));
         }
@@ -5570,6 +5978,14 @@
           } else {
             await Desktop.deleteByPath('grades', relPath, { force: true });
           }
+        }
+
+        if (window.LinksService && entry.id && link.classId) {
+          var pUrn = 'cmt:planner:' + entry.id;
+          var eUrn = 'cmt:eval:' + link.classId + ':' + link.semester + ':' + link.testIndex;
+          LinksService.removeLink(pUrn, eUrn).then(function () {
+            if (typeof plannerUpdateEntryLinkBadges === 'function') plannerUpdateEntryLinkBadges(new Set([entry.id]));
+          }).catch(function () {});
         }
 
         // Recalculate testCounts in Grade Sheet's _class.js so the column is completely deleted
@@ -7820,6 +8236,7 @@
       }
       if (_atBSess && _atBSess.length)
         r += '<span class="board-session-badge" onclick="event.stopPropagation();openLinkedBoard(\'' + esc(_boardLink.linkId) + '\')" title="' + esc(t('pl_boardLinked')) + '">' + esc(t('pl_boardOpen')) + '</span>';
+      r += buildPlannerEntryLinkBadgesHtml(entry);
       r += '</div>';
       return r;
     }
@@ -7873,6 +8290,7 @@
       }
       if (_atBSess && _atBSess.length)
         r += '<span class="board-session-badge" onclick="event.stopPropagation();openLinkedBoard(\'' + esc(_boardLink.linkId) + '\')" title="' + esc(t('pl_boardLinked')) + '">' + esc(t('pl_boardOpen')) + '</span>';
+      r += buildPlannerEntryLinkBadgesHtml(entry);
       r += '</div>';
       return r;
     }

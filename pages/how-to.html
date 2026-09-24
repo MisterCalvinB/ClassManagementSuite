@@ -1124,12 +1124,15 @@
               <li><strong>Wholly Visible Context Menus:</strong> all context menus and styling popups (node menu, note menu, edge inspector, group menu, canvas menu, and drawing/media popups) automatically flip and clamp strictly within the viewport, with vertical scrolling enabled so no options or buttons are cut off on small displays or high zoom levels.</li>
               <li><strong>Fit Text:</strong> click the <img src="../assets/icons/fit-text.svg" style="width:16px;height:16px;vertical-align:middle;" alt="" /> <strong>Fit Text</strong> button in the node toolbar to instantly recalculate and snap node boundaries around its text content without manual dragging.</li>
               <li><strong>Note Word Count:</strong> right-click any note on the board to view its live word and character count directly in the inspector menu, or click the <img src="../assets/icons/sentence.svg" style="width:16px;height:16px;vertical-align:middle;" alt="" /> <strong>Count words</strong> button (or use the Command Palette) for a toast breakdown including selection, characters without spaces, and multi-note totals.</li>
-              <li><strong>Blink / Pulse Animation:</strong> click the <img src="../assets/icons/blink.svg" style="width:16px;height:16px;vertical-align:middle;" alt="" /> <strong>Blink</strong> button in the toolbar or quick action bar to activate a smooth pulsing glow on selected nodes and notes (fully mirrored and phase-synchronized in presentation view). Perfect for directing student attention to the active vocabulary topic or question prompt.</li>
-              <li><strong>Rich Hyperlinks:</strong> attach clickable links to any node:
+              <li><strong>Bi-Directional Cross-Tool Links &amp; Tag Manager:</strong> attach rich links and universal tags to any individual word node or the entire board session:
                 <ul style="margin:4px 0 0 16px;padding:0;line-height:1.6">
-                  <li><em>Web URLs</em> (e.g. <code>https://...</code>) — opens in default browser.</li>
-                  <li><em>Local Documents</em> — link to local PDFs, worksheets, or images with one-click opening.</li>
-                  <li><em>Planner Lessons</em> — link nodes directly to scheduled Planner lessons with badge indicators.</li>
+                  <li><em>Board Toolbar <strong>[LINKS: X]</strong>:</em> click to view and manage links for the active board file. If linked to a lesson, a <strong>[PLAN: TITLE]</strong> badge appears directly in the header for 1-click navigation to Planner.</li>
+                  <li><em>Node Right-Click <strong>Links &amp; Tags</strong>:</em> open the Tag &amp; Link Manager to link the word to Planner lesson plans, Document Editor files, grade evaluations, or custom tags.</li>
+                  <li><em>Plain-Text Neobrutalist Badges:</em> nodes display compact badges (<code>[PLAN]</code>, <code>[DOC]</code>, <code>[PDF]</code>, <code>[TEST]</code>, <code>[#TAG]</code>) that open the target resource directly when clicked.</li>
+                  <li><em>Extract PDF Page to Canvas:</em> right-click any node linked to a PDF and select <strong>Extract Page to Canvas</strong> to instantly pick and insert PDF pages onto the board.</li>
+                  <li><em>Deep-Linking &amp; Pulse Highlight:</em> opening a board session with a target node smoothly centers the view and activates a composite-only pulse halo.</li>
+                  <li><em>Mind Map from Database:</em> click <strong>From DB</strong> in the Mind Map dropdown to pick a category or part of speech and auto-generate a clustered radial constellation with a central hub node.</li>
+                  <li><em>Sync Board Brainstorming to Word Bank:</em> click <strong>Sync to DB</strong> to identify newly brainstormed words on the canvas and save them into the vocabulary database.</li>
                 </ul>
               </li>
               <li><strong>Node Linking &amp; Connection Inspector:</strong> right-click (or double-click) any link or arrow connecting nodes to open the enhanced link context menu. Customize stroke types (Solid, Dashes, Dots, Double Line with clean single arrowhead, Wavy cubic Bézier sine waves), routing styles (Straight, Curved with interactive midpoint arc handle, Step right-angle orthogonal routing), direction (None, Forward, Backward, Both), sleek compact terminators (Arrow, Chevron, Dot, Diamond), a wrapping multi-row colour palette with custom hex input, line-only opacity, pill background badges, quick relationship presets (<em>is a</em>, <em>causes</em>, <em>part of</em>, <em>leads to</em>, <em>synonym</em>, <em>example</em>), and magnetic docking anchors with endpoint reconnection handles. Changes save on close or outside click and cancel on <kbd>Escape</kbd>.</li>
@@ -1856,24 +1859,47 @@
       <div class="accordion" id="acc-pl-links">
         <button class="accordion-header" onclick="toggleAccordion('acc-pl-links')">
           <span class="accordion-arrow">▶</span>
-          <span class="accordion-title">Lesson Plans &amp; Class Management Linking</span>
+          <span class="accordion-title">Cross-App Linking, Universal Tags &amp; Lesson Plans</span>
         </button>
         <div class="accordion-body"><div class="accordion-inner">
-          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:12px;">Planner slots and entries integrate directly with <strong>Lesson Creator</strong> and <strong>Class Management</strong>:</p>
+          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:12px;">Planner slots and entries integrate bidirectionally with the entire desktop suite using the <strong>Universal Tagging &amp; Linking Engine</strong> (<code>js/links-service.js</code>) alongside <strong>Lesson Creator</strong>, <strong>Document Editor</strong>, <strong>Board</strong>, and <strong>Grade Sheet</strong>:</p>
           <ol class="steps">
-            <li><strong>Right-Click Slot Actions:</strong> Right-click any scheduled slot in the week view to access quick actions:
+            <li><strong>Universal Link &amp; Tag Modal:</strong>
               <ul>
-                <li><strong>Create Lesson Plan:</strong> Generates a new lesson plan in Lesson Creator pre-filled with the class name, date, and duration, and automatically links it to this slot.</li>
-                <li><strong>Open Lesson Plan:</strong> Launches Lesson Creator with the attached plan ready for editing.</li>
-                <li><strong>Link Lesson Plan:</strong> Opens a file picker allowing you to associate an existing saved <code>.json</code> lesson plan with this slot.</li>
-                <li><strong>Unlink Lesson Plan:</strong> Removes the association without deleting your lesson plan file from disk.</li>
-                <li><strong>Delete Lesson Plan:</strong> Permanently deletes the attached lesson plan file from disk and clears the link badge.</li>
-                <li><strong>Open in Class Management:</strong> Directly launches Class Management pre-loaded with the class, date, and the entry's unique UUID.</li>
+                <li>Click <strong>[LINKS &amp; TAGS]</strong> in the entry edit modal footer or click the <strong>[L]</strong> action button on any agenda slot card to open the Link Graph modal.</li>
+                <li>Browse candidate resources across tabs: <code>[ALL]</code>, <code>[DOCUMENTS]</code>, <code>[GRADE SHEET]</code>, <code>[LESSONS]</code>, <code>[BOARD]</code>, <code>[COMPETENCES]</code>, <code>[CRITERIA]</code>, and <code>[FILES/PDF]</code>.</li>
+                <li>Attach arbitrary files (PDF worksheets, handouts, images, audio recordings) with 1 click via <strong>[ATTACH FILE]</strong>.</li>
+                <li>Add or remove thematic <code>#tags</code> (e.g. <code>#unit-3</code>, <code>#revision</code>, <code>#oral-exam</code>) for instant suite-wide categorization.</li>
               </ul>
             </li>
-            <li><strong>Pure Text Badges:</strong> Slots with attached lesson plans display a clear, high-contrast text badge (<strong>Lesson Plan</strong> / <strong>Plan de cours</strong>). Clicking the badge opens the plan in Lesson Creator immediately.</li>
-            <li><strong>Drag-and-Drop Duplication:</strong> Dragging an entry to another day while holding <kbd>Alt</kbd> (or selecting duplicate) automatically duplicates the entry and clones the attached lesson plan with a fresh unique ID.</li>
-            <li><strong>Entry Modal Action:</strong> The entry modal footer includes an <strong>Open in Class Management</strong> button for fast 1-click launching into your live teaching session.</li>
+            <li><strong>Neobrutalist Plain-Text Badges:</strong>
+              <ul>
+                <li>Scheduled slots display compact, high-contrast, plain-text badges without emojis or icons:
+                  <ul>
+                    <li><code>[DOC: DocumentName]</code> — Click to immediately open the markdown worksheet or notes in Document Editor.</li>
+                    <li><code>[FILE: FileName]</code> — Click to launch the attached PDF or media in your default desktop viewer.</li>
+                    <li><code>[BOARD: MapName]</code> — Click to launch Board centered on the attached session or mindmap node.</li>
+                    <li><code>[TEST: TestName]</code> — Click to launch Grade Sheet or Test Creator.</li>
+                    <li><code>[LESSON: PlanName]</code> — Click to launch Lesson Creator.</li>
+                    <li><code>[LINKS: N]</code> — Count indicator for additional linked suite resources.</li>
+                    <li><code>[#tags]</code> — Direct thematic tag badges.</li>
+                  </ul>
+                </li>
+                <li>Badges update dynamically in-place across all open windows via background synchronization (<code>BroadcastChannel</code>) without tearing down the calendar DOM.</li>
+              </ul>
+            </li>
+            <li><strong>Right-Click Context Menu Actions:</strong> Right-click any scheduled slot in the week view to access fast shortcuts:
+              <ul>
+                <li><strong>Links &amp; Tags…:</strong> Launches the universal link graph modal for this slot.</li>
+                <li><strong>Open Linked Document:</strong> Immediately opens the slot's primary linked <code>.md</code> document in Document Editor.</li>
+                <li><strong>Open Attached File:</strong> Opens the slot's primary attached file (e.g., PDF handout) in the default desktop app.</li>
+                <li><strong>Create Lesson Plan:</strong> Generates a new lesson plan in Lesson Creator pre-filled with class, date, and duration.</li>
+                <li><strong>Open Lesson Plan:</strong> Launches Lesson Creator with the attached plan ready for editing.</li>
+                <li><strong>Open in Class Management:</strong> Directly launches Class Management pre-loaded with the class, date, and entry UUID.</li>
+              </ul>
+            </li>
+            <li><strong>Deep-Linking Routing:</strong> Launch Planner from other tools using query parameters (<code>?entryId=&lt;id&gt;&amp;openLinks=1</code>) to navigate straight to the entry's date, highlight the slot, and pop up the link modal.</li>
+            <li><strong>Automatic Grade Sheet Sync:</strong> Creating or modifying a test entry in Planner automatically registers and establishes bidirectional graph edges with Grade Sheet.</li>
           </ol>
         </div></div>
       </div>
@@ -2078,6 +2104,22 @@
             <li><strong>Duplicate / Import</strong> — copy a test structure into a new test or another class.</li>
             <li><strong>Import Participation Grades</strong> — when you export provisional grades from Participation Tracker, opening Grade Sheet will prompt you to automatically import them as a new test column named <em>Participation</em> (including the date range).</li>
             <li><strong>Universal Export Actions</strong> — All exports (Excel, CSV, Word, HTML, PDF) trigger an export completion dialog with one-click <strong>Open File</strong> and <strong>Open Folder</strong> options, plus <strong>Open with Document Editor</strong> for HTML reports.</li>
+          </ol>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-gs-tagging-linking">
+        <button class="accordion-header" onclick="toggleAccordion('acc-gs-tagging-linking')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Cross-App Linking, Tags &amp; Student Work Attachments</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li><strong>Class Links &amp; Context Inheritance:</strong> Click the <code>[LINKS: X]</code> button in the Class Summary header or right-click a class card to open the Link &amp; Tag Manager. Linking a criteria preset or grading scale to the class automatically propagates as a default to newly created tests with an <code>[INHERITED: CLASS NAME]</code> indicator badge.</li>
+            <li><strong>Automated Graph Linking from Criteria &amp; Grading Scale Tabs:</strong> When saving options or applying criteria templates in the Test Options modal, Grade Sheet automatically creates and synchronizes universal graph links (<code>cmt:criteria:...</code>, <code>cmt:scale:...</code>, and <code>cmt:competence:...</code>) directly from the active criteria bank, assigned curriculum competences, and scale model. The Test Options header provides direct access via a <code>[LINKS: X]</code> button, and indicators labeled <code>[AUTO-LINKED TO GRAPH]</code> highlight reactive synchronization.</li>
+            <li><strong>Test Links &amp; External Files:</strong> Inside any open test, click <code>[LINKS: X]</code> to attach test papers, rubric guides, or companion Markdown/HTML documents.</li>
+            <li><strong>Student Work &amp; PDF Submissions:</strong> Right-click any student row in a test table and select <strong>[ATTACH STUDENT WORK / PDF]</strong>. Attach student exam scans, essays, audio recordings, or PDF submissions directly. A bold yellow <code>[WORK]</code> badge appears next to the student's name in the table; click it to instantly preview the attachment or open it in your default desktop viewer.</li>
+            <li><strong>Global Hashtags (#tags):</strong> Assign tags like <code>#absent</code>, <code>#exempt</code>, or <code>#needs-revision</code> to individual student test evaluations. Tags display directly on the student badge and filter across the central registry.</li>
           </ol>
         </div></div>
       </div>
@@ -2634,7 +2676,7 @@
                 <li><strong>Point Coefficient:</strong> Weight multiplier applied when calculating weighted test totals.</li>
                 <li><strong>Grades &amp; Descriptors:</strong> Discrete performance thresholds and descriptive feedback rubrics for each grade band.</li>
                 <li><strong>Comments / Level Descriptors:</strong> Qualitative feedback descriptors mapped per grade level (e.g. <code>6: Excellent</code>, <code>5: Good</code>). In the table, descriptors appear as clear grade badge chips. Double-click to edit directly inline with <kbd>Ctrl</kbd>+<kbd>Enter</kbd> to save, or edit inside the record modal using line-by-line <code>grade: descriptor</code> syntax.</li>
-                <li><strong>Colors:</strong> Accent colors for rapid visual identification during live marking.</li>
+                <li><strong>Colors:</strong> Accent colors for rapid visual identification during live marking (e.g. <code>6: #166534</code>). Rendered with live color swatch chips; double-click or use the modal to edit with <code>grade: #color</code> format.</li>
               </ul>
             </li>
             <li><strong>Linking Competences via the Competence Picker:</strong>
@@ -2667,8 +2709,8 @@
                 <li><strong>Label:</strong> User-friendly display name (e.g. "Swiss 1–6 (Passing 4.0)", "Letters A–F").</li>
                 <li><strong>Min Grade &amp; Max Grade:</strong> Lowest and highest attainable scores (e.g. min <code>1.0</code>, max <code>6.0</code>).</li>
                 <li><strong>Interval:</strong> Step rounding resolution (e.g. <code>0.1</code>, <code>0.25</code>, <code>0.5</code>, or <code>1.0</code>).</li>
-                <li><strong>Thresholds:</strong> Minimum percentage or point cutoff values for each discrete grade mark.</li>
-                <li><strong>Colors:</strong> Color coding applied to grade badges (distinction, pass, borderline, fail).</li>
+                <li><strong>Thresholds:</strong> Minimum percentage cutoff values for each discrete grade mark (e.g. <code>6: 90</code>, <code>5.5: 80</code>). Rendered in the table as threshold badge chips (≥ 90%); double-click or edit in the modal using <code>grade: percentage</code> format (<kbd>Ctrl</kbd>+<kbd>Enter</kbd> to save).</li>
+                <li><strong>Colors:</strong> Color coding applied to grade badges (distinction, pass, borderline, fail). Rendered with live color swatch chips; double-click or edit in the modal using <code>grade: #color</code> syntax.</li>
               </ul>
             </li>
             <li>When configuring tests in Grade Sheet, select your scale from the dropdown to automatically generate grades from raw points.</li>
@@ -3319,7 +3361,7 @@
           <p style="font-size:0.87rem;line-height:1.6;margin-bottom:10px;">Configure all formal test parameters, allowed materials, and typography in the Header Customizer (Ctrl+H) and metadata panel:</p>
           <ol class="steps">
             <li><strong>Wholly Customizable Exam Header:</strong> Click <em>Header &amp; Materials…</em> in the metadata panel or press <kbd>Ctrl+H</kbd> to access the 4-tab customisation studio with live preview.</li>
-            <li><strong>Allowed Materials Management (Tab 1):</strong> Select preset chips (calculators, bilingual dictionaries, formula sheets, draft paper, etc.) or add custom materials. Display as inline comma-separated text or styled pill badges.</li>
+            <li><strong>Allowed Materials Management (Tab 1):</strong> Select preset chips (calculators, bilingual dictionaries, formula sheets, draft paper, etc.) or add custom materials with 1-click <em>Add &amp; Save Preset</em> to expand your reusable preset library. Active materials support <strong>direct in-place editing</strong> (click any item text or the ✏️ Edit button to modify its text with Enter/Esc shortcuts, save/cancel controls, and live header preview updating). Display as inline comma-separated text or styled pill badges.</li>
             <li><strong>Element-by-Element Typography &amp; Labels (Tab 2):</strong> Toggle visibility and customize Bold, Italic, and Underline formatting for Exam Title (with multi-unit font sizing: <code>pt</code>, <code>px</code>, <code>cm</code>, <code>mm</code>, <code>em</code>), Subtitle/Department (with multi-unit font sizing), Student Name (rule, dotted line, or box), Class, Date, Teacher, Duration, Materials, Scope, Total Points, and Variant badges.</li>
             <li><strong>Student Instructions &amp; Guidelines:</strong> Optional guidelines banner with customizable styling (bordered box, blue accent quote bar, or yellow highlight notice).</li>
             <li><strong>Box Layout &amp; Border Styling (Tab 3):</strong> Choose from 3-column, 2-column, compact, or evaluation table layouts, paired with Neobrutalist, classic double rule, solid, dashed, or borderless styles.</li>
@@ -3439,6 +3481,7 @@
             <li><strong>Configurable Page Margins (PDF &amp; Print):</strong> Set document margins directly from the Print Preview toolbar dropdown (Normal 15mm, Narrow 10mm, Wide 25mm, or Custom) or enter millimeter values for Top, Right, Bottom, and Left in the Style modal (<em>🎨 Style</em>). The CSS <code>@page</code> layout ensures the printed handout and exported PDF match the on-screen preview with pixel-perfect consistency.</li>
             <li><strong>Print / PDF Export:</strong> Print directly to your printer or export high-resolution vector PDF copies via the Electron print pipeline.</li>
             <li><strong>Personalized Batch Copies:</strong> Export 1 pre-printed test sheet per student in the class roster, featuring their student name, ID, class, date, and assigned Group variant.</li>
+            <li><strong>Stylesheet Theme Selection &amp; Persistence:</strong> Choose from 3 distinct visual themes (<em>Academic Classic</em>, <em>Modern Neobrutalist</em>, or <em>Dyslexic Friendly</em>) directly in the Print Preview toolbar, the Export Formatting &amp; Styling modal (<em>Style</em>), or the Exam Export dialog. The chosen theme automatically persists with the test document (`test.exportStyle.theme` / `test.stylesheetTheme`) and is remembered across sessions as the teacher's default style for future tests.</li>
             <li><strong>Editable Formats &amp; Export Standards:</strong> Export clean <strong>HTML</strong>, <strong>DOCX</strong> (Word package with tables and headers), or <strong>Markdown (.md)</strong> with answer keys. In strict accordance with the export standards, HTML exports employ semantic CSS classes and an embedded stylesheet in <code>&lt;head&gt;</code> without repetitive inline styles, guaranteeing clean layouts, effortless custom styling, and full compatibility with Document Editor.</li>
             <li><strong>Universal Destination &amp; Completion Workflow:</strong> Enter or modify the <strong>File Name</strong> in the destination modal before saving. Choose between quick-saving to the <strong>Print Folder (<code>user/to-print/</code>)</strong>, selecting a <strong>Custom Location</strong> via the system file browser, or dispatching straight to <strong>Document Editor</strong> (for HTML and Markdown tests, saving directly to <code>user/document-editor/docs/</code> and launching the editor immediately). Standard exports saved to disk display the universal completion modal offering <strong>Open File</strong>, <strong>Open Folder</strong>, and <strong>Open with Document Editor</strong>.</li>
           </ol>

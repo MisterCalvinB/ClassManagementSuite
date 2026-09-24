@@ -47,6 +47,9 @@
   function parseUrn(urnStr) {
     if (!urnStr || typeof urnStr !== 'string') return null;
     var trimmed = urnStr.trim();
+    if (trimmed.startsWith('urn:cmt:')) {
+      trimmed = trimmed.slice(4);
+    }
     if (!trimmed.startsWith('cmt:')) {
       // Support raw file paths or short ids by inferring
       return { type: 'unknown', id: trimmed, anchor: '', raw: trimmed };
@@ -72,6 +75,67 @@
     var base = 'cmt:' + String(type || 'general').toLowerCase() + ':' + String(id || '');
     if (anchor) base += '#' + String(anchor);
     return base;
+  }
+
+  /**
+   * Normalizes document, class, test, and evaluation URNs to standard canonical forms
+   * so slight path/target variations (e.g. user/doceditor vs docEditorDocs) match seamlessly.
+   */
+  function canonicalizeUrn(urnStr) {
+    if (!urnStr || typeof urnStr !== 'string') return urnStr;
+    var trimmed = urnStr.trim();
+    if (!trimmed.startsWith('cmt:')) return trimmed;
+    var p = parseUrn(trimmed);
+    if (!p) return trimmed;
+    var type = p.type;
+    var id = p.id;
+    if (type === 'doc' || type === 'doc_section' || type === 'docs' || type === 'document') {
+      var normId = id.replace(/\\/g, '/').replace(/^\/+/, '');
+      if (normId.startsWith('user/document-editor/docs/')) {
+        normId = 'docEditorDocs/' + normId.slice('user/document-editor/docs/'.length);
+      } else if (normId.startsWith('user/doceditor/')) {
+        normId = 'docEditorDocs/' + normId.slice('user/doceditor/'.length);
+      } else if (normId.startsWith('doceditor/')) {
+        normId = 'docEditorDocs/' + normId.slice('doceditor/'.length);
+      } else if (!normId.includes('/')) {
+        normId = 'docEditorDocs/' + normId;
+      }
+      return makeUrn('doc', normId, p.anchor);
+    }
+    if (type === 'class' || type === 'classes') {
+      return makeUrn('class', id, p.anchor);
+    }
+    if (type === 'student' || type === 'students') {
+      return makeUrn('student', id, p.anchor);
+    }
+    if (type === 'wordbank' || type === 'wordbanks') {
+      return makeUrn('wordbank', id, p.anchor);
+    }
+    if (type === 'test' || type === 'tests') {
+      return makeUrn('test', id, p.anchor);
+    }
+    if (type === 'eval' || type === 'evaluation') {
+      return makeUrn('eval', id, p.anchor);
+    }
+    if (type === 'competence' || type === 'competences') {
+      return makeUrn('competence', id, p.anchor);
+    }
+    if (type === 'criteria' || type === 'criterion') {
+      return makeUrn('criteria', id, p.anchor);
+    }
+    if (type === 'scale' || type === 'scales') {
+      return makeUrn('scale', id, p.anchor);
+    }
+    if (type === 'planner' || type === 'slot') {
+      return makeUrn('planner', id, p.anchor);
+    }
+    if (type === 'lesson' || type === 'lessons' || type === 'lessonplan') {
+      return makeUrn('lesson', id, p.anchor);
+    }
+    if (type === 'file') {
+      return makeUrn('file', id.replace(/\\/g, '/'), p.anchor);
+    }
+    return makeUrn(type, id, p.anchor);
   }
 
   function normalizeTag(tagStr) {
@@ -181,36 +245,49 @@
       } catch (_) {}
     }
 
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+      window.dispatchEvent(new CustomEvent('cmt-links-changed', { detail: { action: 'sync', updatedAt: reg.updatedAt } }));
+    }
+
     return savedOk;
   }
 
   // ── 3. Entity Metadata Registry ─────────────────────────────────────────────
   async function registerEntity(urn, meta) {
     if (!urn || !meta) return;
+    var cUrn = canonicalizeUrn(urn);
     var reg = await loadRegistry();
-    reg.entities[urn] = Object.assign({}, reg.entities[urn] || {}, meta, {
-      urn: urn,
+    reg.entities[cUrn] = Object.assign({}, reg.entities[cUrn] || reg.entities[urn] || {}, meta, {
+      urn: cUrn,
       updatedAt: Date.now()
     });
+    if (cUrn !== urn) {
+      reg.entities[urn] = reg.entities[cUrn];
+    }
     await saveRegistry(reg);
   }
 
   async function getEntityMeta(urn) {
     if (!urn) return null;
+    var cUrn = canonicalizeUrn(urn);
     var reg = await loadRegistry();
-    return reg.entities[urn] || null;
+    return reg.entities[cUrn] || reg.entities[urn] || null;
   }
 
   // ── 4. Graph Edge Operations (Bidirectional Links) ───────────────────────────
   async function addLink(sourceUrn, targetUrn, opts) {
-    if (!sourceUrn || !targetUrn || sourceUrn === targetUrn) return null;
+    if (!sourceUrn || !targetUrn) return null;
+    var cSrc = canonicalizeUrn(sourceUrn);
+    var cTgt = canonicalizeUrn(targetUrn);
+    if (cSrc === cTgt) return null;
     var reg = await loadRegistry();
     opts = opts || {};
 
-    // Check if edge already exists in either direction
+    // Check if edge already exists in either direction (canonical match)
     var existing = reg.edges.find(function(e) {
-      return (e.source === sourceUrn && e.target === targetUrn) ||
-             (e.source === targetUrn && e.target === sourceUrn);
+      var s = canonicalizeUrn(e.source);
+      var t = canonicalizeUrn(e.target);
+      return (s === cSrc && t === cTgt) || (s === cTgt && t === cSrc);
     });
 
     if (existing) {
@@ -223,8 +300,8 @@
 
     var edge = {
       id: 'edge_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7),
-      source: sourceUrn,
-      target: targetUrn,
+      source: cSrc,
+      target: cTgt,
       relation: opts.relation || 'related',
       meta: opts.meta || {},
       createdAt: Date.now()
@@ -233,14 +310,14 @@
     reg.edges.push(edge);
 
     // Optionally save entity summaries if provided in opts
-    if (opts.sourceMeta) reg.entities[sourceUrn] = Object.assign(reg.entities[sourceUrn] || {}, opts.sourceMeta);
-    if (opts.targetMeta) reg.entities[targetUrn] = Object.assign(reg.entities[targetUrn] || {}, opts.targetMeta);
+    if (opts.sourceMeta) reg.entities[cSrc] = Object.assign(reg.entities[cSrc] || {}, opts.sourceMeta);
+    if (opts.targetMeta) reg.entities[cTgt] = Object.assign(reg.entities[cTgt] || {}, opts.targetMeta);
 
     await saveRegistry(reg);
 
     if (_channel) {
       try {
-        _channel.postMessage({ action: 'link-added', source: sourceUrn, target: targetUrn, edgeId: edge.id });
+        _channel.postMessage({ action: 'link-added', source: cSrc, target: cTgt, edgeId: edge.id });
       } catch (_) {}
     }
 
@@ -249,12 +326,16 @@
 
   async function removeLink(sourceUrn, targetUrn) {
     if (!sourceUrn || !targetUrn) return false;
+    var cSrc = canonicalizeUrn(sourceUrn);
+    var cTgt = canonicalizeUrn(targetUrn);
     var reg = await loadRegistry();
     var prevLen = reg.edges.length;
 
     reg.edges = reg.edges.filter(function(e) {
-      var isDirect = (e.source === sourceUrn && e.target === targetUrn);
-      var isReverse = (e.source === targetUrn && e.target === sourceUrn);
+      var s = canonicalizeUrn(e.source);
+      var t = canonicalizeUrn(e.target);
+      var isDirect = (s === cSrc && t === cTgt);
+      var isReverse = (s === cTgt && t === cSrc);
       return !(isDirect || isReverse);
     });
 
@@ -264,7 +345,7 @@
 
     if (_channel) {
       try {
-        _channel.postMessage({ action: 'link-removed', source: sourceUrn, target: targetUrn });
+        _channel.postMessage({ action: 'link-removed', source: cSrc, target: cTgt });
       } catch (_) {}
     }
 
@@ -273,11 +354,14 @@
 
   async function getLinksFor(urn) {
     if (!urn) return [];
+    var cUrn = canonicalizeUrn(urn);
     var reg = await loadRegistry();
     var results = [];
 
     reg.edges.forEach(function(e) {
-      if (e.source === urn) {
+      var s = canonicalizeUrn(e.source);
+      var t = canonicalizeUrn(e.target);
+      if (s === cUrn) {
         results.push({
           edgeId: e.id,
           source: e.source,
@@ -285,11 +369,11 @@
           otherUrn: e.target,
           relation: e.relation,
           meta: e.meta || {},
-          targetMeta: reg.entities[e.target] || null,
+          targetMeta: reg.entities[t] || reg.entities[e.target] || null,
           createdAt: e.createdAt,
           direction: 'outbound'
         });
-      } else if (e.target === urn) {
+      } else if (t === cUrn) {
         results.push({
           edgeId: e.id,
           source: e.source,
@@ -297,7 +381,7 @@
           otherUrn: e.source,
           relation: e.relation,
           meta: e.meta || {},
-          targetMeta: reg.entities[e.source] || null,
+          targetMeta: reg.entities[s] || reg.entities[e.source] || null,
           createdAt: e.createdAt,
           direction: 'inbound'
         });
@@ -307,12 +391,52 @@
     return results;
   }
 
+  function getLinksForSync(urn) {
+    if (!urn || !_registryCache) return [];
+    var cUrn = canonicalizeUrn(urn);
+    var reg = _registryCache;
+    var results = [];
+    reg.edges.forEach(function(e) {
+      var s = canonicalizeUrn(e.source);
+      var t = canonicalizeUrn(e.target);
+      if (s === cUrn) {
+        results.push({
+          edgeId: e.id,
+          source: e.source,
+          target: e.target,
+          otherUrn: e.target,
+          relation: e.relation,
+          meta: e.meta || {},
+          targetMeta: (reg.entities && (reg.entities[t] || reg.entities[e.target])) || null,
+          createdAt: e.createdAt,
+          direction: 'outbound'
+        });
+      } else if (t === cUrn) {
+        results.push({
+          edgeId: e.id,
+          source: e.source,
+          target: e.target,
+          otherUrn: e.source,
+          relation: e.relation,
+          meta: e.meta || {},
+          targetMeta: (reg.entities && (reg.entities[s] || reg.entities[e.source])) || null,
+          createdAt: e.createdAt,
+          direction: 'inbound'
+        });
+      }
+    });
+    return results;
+  }
+
   async function isLinked(sourceUrn, targetUrn) {
     if (!sourceUrn || !targetUrn) return false;
+    var cSrc = canonicalizeUrn(sourceUrn);
+    var cTgt = canonicalizeUrn(targetUrn);
     var reg = await loadRegistry();
     return reg.edges.some(function(e) {
-      return (e.source === sourceUrn && e.target === targetUrn) ||
-             (e.source === targetUrn && e.target === sourceUrn);
+      var s = canonicalizeUrn(e.source);
+      var t = canonicalizeUrn(e.target);
+      return (s === cSrc && t === cTgt) || (s === cTgt && t === cSrc);
     });
   }
 
@@ -320,14 +444,15 @@
   async function addTag(urn, tagStr) {
     var tag = normalizeTag(tagStr);
     if (!urn || !tag) return false;
+    var cUrn = canonicalizeUrn(urn);
     var reg = await loadRegistry();
     if (!reg.tags[tag]) reg.tags[tag] = [];
-    if (!reg.tags[tag].includes(urn)) {
-      reg.tags[tag].push(urn);
+    if (!reg.tags[tag].some(function(u) { return canonicalizeUrn(u) === cUrn; })) {
+      reg.tags[tag].push(cUrn);
       await saveRegistry(reg);
       if (_channel) {
         try {
-          _channel.postMessage({ action: 'tag-added', urn: urn, tag: tag });
+          _channel.postMessage({ action: 'tag-added', urn: cUrn, tag: tag });
         } catch (_) {}
       }
     }
@@ -337,10 +462,11 @@
   async function removeTag(urn, tagStr) {
     var tag = normalizeTag(tagStr);
     if (!urn || !tag) return false;
+    var cUrn = canonicalizeUrn(urn);
     var reg = await loadRegistry();
     if (!reg.tags[tag]) return true;
 
-    reg.tags[tag] = reg.tags[tag].filter(function(u) { return u !== urn; });
+    reg.tags[tag] = reg.tags[tag].filter(function(u) { return canonicalizeUrn(u) !== cUrn; });
     if (reg.tags[tag].length === 0) {
       delete reg.tags[tag];
     }
@@ -348,7 +474,7 @@
     await saveRegistry(reg);
     if (_channel) {
       try {
-        _channel.postMessage({ action: 'tag-removed', urn: urn, tag: tag });
+        _channel.postMessage({ action: 'tag-removed', urn: cUrn, tag: tag });
       } catch (_) {}
     }
     return true;
@@ -356,10 +482,24 @@
 
   async function getTagsFor(urn) {
     if (!urn) return [];
+    var cUrn = canonicalizeUrn(urn);
     var reg = await loadRegistry();
     var tags = [];
     Object.keys(reg.tags).forEach(function(t) {
-      if (Array.isArray(reg.tags[t]) && reg.tags[t].includes(urn)) {
+      if (Array.isArray(reg.tags[t]) && reg.tags[t].some(function(u) { return canonicalizeUrn(u) === cUrn; })) {
+        tags.push(t);
+      }
+    });
+    return tags.sort();
+  }
+
+  function getTagsForSync(urn) {
+    if (!urn || !_registryCache) return [];
+    var cUrn = canonicalizeUrn(urn);
+    var reg = _registryCache;
+    var tags = [];
+    Object.keys(reg.tags || {}).forEach(function(t) {
+      if (Array.isArray(reg.tags[t]) && reg.tags[t].some(function(u) { return canonicalizeUrn(u) === cUrn; })) {
         tags.push(t);
       }
     });
@@ -424,6 +564,13 @@
       }
     });
 
+    var topCrit = criteriaPresets[0] || null;
+    var topScale = gradingScales[0] || null;
+    var topInherited = inheritedLinks[0] || null;
+    var critPresetVal = topCrit ? ((topCrit.meta && (topCrit.meta.bank || topCrit.meta.label)) || (parseUrn(topCrit.otherUrn) && parseUrn(topCrit.otherUrn).id) || null) : null;
+    var scaleVal = topScale ? ((topScale.meta && (topScale.meta.modelKey || topScale.meta.label)) || (parseUrn(topScale.otherUrn) && parseUrn(topScale.otherUrn).id) || null) : null;
+    var inhFromVal = topInherited ? ((topInherited.targetMeta && topInherited.targetMeta.title) || (topInherited.meta && topInherited.meta.label) || (parseUrn(topInherited.inheritedFrom) && parseUrn(topInherited.inheritedFrom).id) || null) : null;
+
     return {
       urn: entityUrn,
       direct: directLinks,
@@ -432,7 +579,10 @@
       criteria: criteriaPresets,
       scales: gradingScales,
       competences: competences,
-      files: files
+      files: files,
+      criteriaPreset: critPresetVal,
+      gradingScale: scaleVal,
+      inheritedFrom: inhFromVal
     };
   }
 
@@ -448,14 +598,32 @@
 
     switch (p.type) {
       case 'gradesheet':
-      case 'grade_cell': {
-        // ID format: <classId>:<sem>:<testName>
+      case 'grade_cell':
+      case 'eval':
+      case 'evaluation':
+      case 'submission':
+      case 'grade': {
+        // ID format: <classId> or <classId>:<sem>:<testIndexOrName> or <classId>:<sem>:<testIndex>:student:<studentId>
         var parts = p.id.split(':');
         var classId = parts[0] || '';
         var sem = parts[1] || 'sem1';
-        var testName = parts.slice(2).join(':') || '';
-        var query = { classId: classId, sem: sem, testName: testName };
-        if (p.anchor) query.studentId = p.anchor;
+        var testParam = parts[2] || '';
+        var query = { classId: classId };
+        if (parts.length > 1) {
+          query.sem = sem;
+        }
+        if (testParam !== '') {
+          if (/^\d+$/.test(testParam)) {
+            query.testIndex = parseInt(testParam, 10);
+          } else {
+            query.testName = testParam;
+          }
+        }
+        if (parts[3] === 'student' && parts[4]) {
+          query.studentId = parts[4];
+        } else if (p.anchor) {
+          query.studentId = p.anchor;
+        }
         if (desktop && typeof desktop.openTool === 'function') {
           return desktop.openTool('grade-sheet.html', { query: query });
         }
@@ -465,14 +633,29 @@
       }
 
       case 'doc':
+      case 'document':
       case 'doc_section': {
         // ID format: <target>/<relativePath> or <relativePath>
         var docParts = p.id.split('/');
-        var target = 'user';
+        var target = 'docEditorDocs';
         var relPath = p.id;
-        if (docParts[0] === 'user' || docParts[0] === 'doceditor') {
-          target = 'user';
+        if (docParts[0] === 'docEditorDocs') {
+          target = 'docEditorDocs';
           relPath = docParts.slice(1).join('/');
+        } else if (docParts[0] === 'doceditor') {
+          target = 'docEditorDocs';
+          relPath = docParts.slice(1).join('/');
+        } else if (docParts[0] === 'user') {
+          if (docParts[1] === 'document-editor' && docParts[2] === 'docs') {
+            target = 'docEditorDocs';
+            relPath = docParts.slice(3).join('/');
+          } else if (docParts[1] === 'doceditor') {
+            target = 'docEditorDocs';
+            relPath = docParts.slice(2).join('/');
+          } else {
+            target = 'user';
+            relPath = docParts.slice(1).join('/');
+          }
         }
         var docQuery = { editTarget: target, editRelPath: relPath };
         if (p.anchor) docQuery.section = p.anchor;
@@ -501,6 +684,22 @@
         return true;
       }
 
+      case 'student': {
+        if (desktop && typeof desktop.openTool === 'function') {
+          return desktop.openTool('group-editor.html', { query: { studentId: p.id } });
+        }
+        window.open('group-editor.html?studentId=' + encodeURIComponent(p.id), '_blank');
+        return true;
+      }
+
+      case 'wordbank': {
+        if (desktop && typeof desktop.openTool === 'function') {
+          return desktop.openTool('manage-database.html', { query: { type: 'wordbanks', file: p.id } });
+        }
+        window.open('manage-database.html?type=wordbanks&file=' + encodeURIComponent(p.id), '_blank');
+        return true;
+      }
+
       case 'test': {
         var testQuery = { testId: p.id };
         if (desktop && typeof desktop.openTool === 'function') {
@@ -519,7 +718,8 @@
         return true;
       }
 
-      case 'planner': {
+      case 'planner':
+      case 'planner-entry': {
         var planQuery = { entryId: p.id };
         if (desktop && typeof desktop.openTool === 'function') {
           return desktop.openTool('planner.html', { query: planQuery });
@@ -529,9 +729,25 @@
       }
 
       case 'board':
-      case 'board_node': {
-        var bQuery = { openSession: '1', openTarget: 'mindmaps', openFilename: p.id };
-        if (p.anchor) bQuery.nodeId = p.anchor;
+      case 'board_node':
+      case 'board-node': {
+        var bQuery = {};
+        if (p.type === 'board-node' || p.type === 'board_node') {
+          var nodeParts = p.id.split(':');
+          if (nodeParts.length > 1) {
+            bQuery.openSession = '1';
+            bQuery.openTarget = 'user';
+            bQuery.openFilename = decodeURIComponent(nodeParts[0]);
+            bQuery.nodeId = decodeURIComponent(nodeParts[1]);
+          } else {
+            bQuery.nodeId = p.id;
+          }
+        } else {
+          bQuery.openSession = '1';
+          bQuery.openTarget = 'user';
+          bQuery.openFilename = p.id;
+          if (p.anchor) bQuery.nodeId = p.anchor;
+        }
         if (desktop && typeof desktop.openTool === 'function') {
           return desktop.openTool('board.html', { query: bQuery });
         }
@@ -631,10 +847,25 @@
     return true;
   }
 
+  function on(eventName, handler) {
+    if (typeof window === 'undefined' || typeof handler !== 'function') return function () {};
+    var wrapped = function (e) {
+      handler(e && e.detail ? e.detail : e);
+    };
+    var evt = eventName === 'links-changed' ? 'cmt-links-changed' : eventName;
+    window.addEventListener(evt, wrapped);
+    return function () {
+      window.removeEventListener(evt, wrapped);
+    };
+  }
+
   // ── Export Service ──────────────────────────────────────────────────────────
   return {
     parseUrn: parseUrn,
     makeUrn: makeUrn,
+    createUrn: makeUrn,
+    on: on,
+    canonicalizeUrn: canonicalizeUrn,
     normalizeTag: normalizeTag,
     loadRegistry: loadRegistry,
     saveRegistry: saveRegistry,
@@ -643,14 +874,17 @@
     addLink: addLink,
     removeLink: removeLink,
     getLinksFor: getLinksFor,
+    getLinksForSync: getLinksForSync,
     isLinked: isLinked,
     addTag: addTag,
     removeTag: removeTag,
     getTagsFor: getTagsFor,
+    getTagsForSync: getTagsForSync,
     getAllTags: getAllTags,
     findByTag: findByTag,
     resolveContext: resolveContext,
     openUrn: openUrn,
+    navigateToUrn: openUrn,
     storeGradeAttachment: storeGradeAttachment,
     updatePath: updatePath
   };

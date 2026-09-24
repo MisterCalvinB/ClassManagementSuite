@@ -90,8 +90,9 @@
 
     <div class="btn-row">
       <button type="button" class="neo-btn primary" onclick="runAutomatedTests()">[RUN AUTOMATED TESTS]</button>
-      <button type="button" class="neo-btn" onclick="openTestModalClass()">[OPEN MODAL: CLASS 6EME A]</button>
-      <button type="button" class="neo-btn" onclick="openTestModalDoc()">[OPEN MODAL: DOCUMENT]</button>
+      <button type="button" class="neo-btn" onclick="openTestModalClass()"><img src="assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" />[OPEN MODAL: CLASS 6EME A]</button>
+      <button type="button" class="neo-btn" onclick="openTestModalDoc()"><img src="assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" />[OPEN MODAL: DOCUMENT]</button>
+      <button type="button" class="neo-btn" onclick="openTestModalPlanner()"><img src="assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" />[OPEN MODAL: PLANNER SLOT]</button>
       <button type="button" class="neo-btn" onclick="testPreviewer()">[TEST EMBEDDED PREVIEWER]</button>
       <button type="button" class="neo-btn" onclick="clearRegistry()">[RESET TEST REGISTRY]</button>
     </div>
@@ -211,6 +212,46 @@
           log('resolveContext failed to inherit parent criteria: ' + JSON.stringify(ctx), 'fail');
         }
 
+        // Test 6: Planner Slot Linking & Canonicalization
+        var slotUrn = LinksService.makeUrn('planner', 'test_entry_42');
+        var canonSlot = LinksService.canonicalizeUrn('cmt:slot:test_entry_42');
+        if (canonSlot === slotUrn) {
+          log('canonicalizeUrn correctly normalized cmt:slot to cmt:planner', 'pass');
+        } else {
+          log('canonicalizeUrn slot failed: ' + canonSlot, 'fail');
+        }
+
+        var docTargetUrn = 'cmt:doc:docEditorDocs/cell_biology.md';
+        await LinksService.addLink(slotUrn, docTargetUrn, { relation: 'handout' });
+        var slotLinks = await LinksService.getLinksFor(slotUrn);
+        if (slotLinks.some(function(l) { return l.otherUrn === docTargetUrn; })) {
+          log('getLinksFor confirmed Planner slot link to Document: ' + docTargetUrn, 'pass');
+        } else {
+          log('Planner slot link failed', 'fail');
+        }
+
+        // Test 7: Student and Wordbank URN Canonicalization
+        var stuUrn = LinksService.canonicalizeUrn('cmt:student:stu_john_doe');
+        var wbUrn = LinksService.canonicalizeUrn('cmt:wordbanks:wordDb.js');
+        if (stuUrn === 'cmt:student:stu_john_doe' && wbUrn === 'cmt:wordbank:wordDb.js') {
+          log('canonicalizeUrn verified student and wordbank URNs: ' + stuUrn + ', ' + wbUrn, 'pass');
+        } else {
+          log('canonicalizeUrn student/wordbank failed: ' + stuUrn + ', ' + wbUrn, 'fail');
+        }
+
+        // Test 8: TagLinkModal links.svg Icon Path & Badge Renderer
+        if (typeof TagLinkModal !== 'undefined' && typeof TagLinkModal.getIconPath === 'function') {
+          var iconPath = TagLinkModal.getIconPath();
+          var badgeHtml = TagLinkModal.renderBadgeHtml(3, 2);
+          if (iconPath.includes('assets/icons/links.svg') && badgeHtml.includes('links.svg') && badgeHtml.includes('[LINKS: 3 | TAGS: 2]')) {
+            log('TagLinkModal.getIconPath and renderBadgeHtml verified with links.svg: ' + iconPath, 'pass');
+          } else {
+            log('TagLinkModal icon/badge failed: ' + iconPath + ' / ' + badgeHtml, 'fail');
+          }
+        } else {
+          log('TagLinkModal.getIconPath not available', 'fail');
+        }
+
         log('ALL TESTS COMPLETED SUCCESSFULLY!', 'pass');
       } catch (err) {
         log('Exception during tests: ' + err.message + '\n' + err.stack, 'fail');
@@ -237,6 +278,18 @@
         classId: 'group-6e-anglais',
         onUpdate: function() {
           log('Modal updated for Revision Worksheet', 'info');
+        }
+      });
+    }
+
+    function openTestModalPlanner() {
+      TagLinkModal.open({
+        urn: 'cmt:planner:entry-sample-42',
+        title: 'CELL BIOLOGY & MITOSIS (6EME A)',
+        subtitle: 'Planner Slot • 2026-10-15 08:30 • Lesson',
+        classId: 'group-6e-anglais',
+        onUpdate: function() {
+          log('Modal updated for Planner Slot', 'info');
         }
       });
     }

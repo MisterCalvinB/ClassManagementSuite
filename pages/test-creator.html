@@ -6,6 +6,7 @@
   <title>Test Creator</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <link rel="stylesheet" href="../css/test-creator.css">
+  <link rel="stylesheet" href="../css/tag-link-modal.css">
   <script src="../electron-bridge.js"></script>
   <script src="../js/i18n.js"></script>
   <script src="../js/dialogs.js"></script>
@@ -13,6 +14,8 @@
   <script src="../js/tutorial.js"></script>
   <script src="../js/menus.js"></script>
   <script src="../js/competence-aggregator-service.js"></script>
+  <script src="../js/links-service.js"></script>
+  <script src="../js/tag-link-modal.js"></script>
   <script src="../js/test-creator-service.js"></script>
 </head>
 <body>
@@ -47,17 +50,17 @@
         <div class="nav-group-popup">
           <button class="nav-pop-item" onclick="tcOpenHeaderCustomizerModal()"><span data-i18n="tcBtnHeaderCustomise">Header &amp; Materials…</span> <span class="nav-pop-hint">Ctrl+H</span></button>
           <hr class="nav-pop-sep">
-          <button class="nav-pop-item" onclick="tcQuickAddExercise('cloze')">+ Cloze / Gap Fill</button>
-          <button class="nav-pop-item" onclick="tcQuickAddExercise('mcq')">+ Multiple Choice (MCQ)</button>
-          <button class="nav-pop-item" onclick="tcQuickAddExercise('open_question')">+ Open Question</button>
-          <button class="nav-pop-item" onclick="tcQuickAddExercise('composition')">+ Composition / Essay</button>
-          <button class="nav-pop-item" onclick="tcQuickAddExercise('matching')">+ Matching / Pairing</button>
-          <button class="nav-pop-item" onclick="tcQuickAddExercise('transformation')">+ Transformation</button>
-          <button class="nav-pop-item" onclick="tcQuickAddExercise('translation')">+ Translation</button>
-          <button class="nav-pop-item" onclick="tcQuickAddExercise('picture_description')">+ Picture Description</button>
-          <button class="nav-pop-item" onclick="tcQuickAddExercise('table_completion')">+ Table Completion</button>
-          <button class="nav-pop-item" onclick="tcQuickAddExercise('odd_one_out')">+ Odd One Out</button>
-          <button class="nav-pop-item" onclick="tcQuickAddExercise('reading_comprehension')">+ Reading Comprehension</button>
+          <button class="nav-pop-item" onclick="tcQuickAddExercise('cloze')"><span data-i18n="tcTypeCloze">+ Cloze / Gap Fill</span></button>
+          <button class="nav-pop-item" onclick="tcQuickAddExercise('mcq')"><span data-i18n="tcTypeMcq">+ Multiple Choice (MCQ)</span></button>
+          <button class="nav-pop-item" onclick="tcQuickAddExercise('open_question')"><span data-i18n="tcTypeOpenQuestion">+ Open Question</span></button>
+          <button class="nav-pop-item" onclick="tcQuickAddExercise('composition')"><span data-i18n="tcTypeComposition">+ Composition / Essay</span></button>
+          <button class="nav-pop-item" onclick="tcQuickAddExercise('matching')"><span data-i18n="tcTypeMatching">+ Matching / Pairing</span></button>
+          <button class="nav-pop-item" onclick="tcQuickAddExercise('transformation')"><span data-i18n="tcTypeTransformation">+ Transformation</span></button>
+          <button class="nav-pop-item" onclick="tcQuickAddExercise('translation')"><span data-i18n="tcTypeTranslation">+ Translation</span></button>
+          <button class="nav-pop-item" onclick="tcQuickAddExercise('picture_description')"><span data-i18n="tcTypePicture">+ Picture Description</span></button>
+          <button class="nav-pop-item" onclick="tcQuickAddExercise('table_completion')"><span data-i18n="tcTypeTable">+ Table Completion</span></button>
+          <button class="nav-pop-item" onclick="tcQuickAddExercise('odd_one_out')"><span data-i18n="tcTypeOddOneOut">+ Odd One Out</span></button>
+          <button class="nav-pop-item" onclick="tcQuickAddExercise('reading_comprehension')"><span data-i18n="tcTypeReading">+ Reading Comprehension</span></button>
         </div>
       </div>
 
@@ -100,7 +103,7 @@
 
       <!-- Action buttons & Hamburger -->
       <div class="hm-wrap" id="hmWrap">
-        <button id="skm-trigger" class="tut-trigger-btn" onclick="tcOpenShortcuts()" title="Keyboard Shortcuts">?</button>
+        <button id="skm-trigger" class="tut-trigger-btn" onclick="tcOpenShortcuts()" title="Keyboard Shortcuts" data-i18n-title="tcShortcutsTooltip">?</button>
         <button id="tut-trigger" class="tut-trigger-btn" onclick="tcStartTutorial()" data-i18n="tourBtnLabel">Tour</button>
         <button class="hm-btn" data-i18n-aria="navOpenMenu">Menu</button>
         <div class="hm-menu"></div>
@@ -110,56 +113,57 @@
     <!-- ── 2. Top Metadata Panel ──────────────────────────────────────────── -->
     <div class="meta-panel">
       <div class="meta-row-main">
-        <input type="text" id="testTitle" class="meta-title-input" placeholder="Test Title (e.g. Unit 3 Biology Examination)" oninput="tcOnDirty()">
+        <input type="text" id="testTitle" class="meta-title-input" placeholder="Test Title (e.g. Unit 3 Biology Examination)" data-i18n-placeholder="tcTitlePlaceholder" oninput="tcOnDirty()">
         
         <select id="testSubject" class="meta-select" onchange="tcOnSubjectChange()">
           <!-- Populated dynamically from Group Editor, Competences, Criteria, and Custom DB -->
         </select>
 
         <select id="testClass" class="meta-select" onchange="tcOnClassChange()">
-          <option value="">Select Class…</option>
+          <option value="" data-i18n="tcSelectClassPlaceholder">Select Class…</option>
         </select>
 
         <input type="date" id="testDate" class="meta-input" onchange="tcOnDirty()">
 
         <div style="display:flex;align-items:center;gap:4px;font-weight:800;font-size:0.85rem;">
           <input type="number" id="testDuration" class="meta-input" style="width:64px;text-align:center;" value="45" min="5" max="360" step="5" oninput="tcOnDirty()">
-          <span>min</span>
+          <span data-i18n="tcDurationMin">min</span>
         </div>
 
-        <div class="points-pill" id="totalPointsBadge" title="Total exam points sum">
+        <div class="points-pill" id="totalPointsBadge" title="Total exam points sum" data-i18n-title="tcPointsPillTooltip">
           <span>Total: 0 pts</span>
         </div>
 
         <div style="display:flex;align-items:center;gap:6px;margin-left:auto;">
-          <button class="neo-btn" onclick="tcOpenTemplatePicker()" title="Test Models &amp; Templates"><img src="../assets/icons/copy.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> <span data-i18n="tcTemplates">Templates</span></button>
-          <button class="neo-btn" onclick="tcOpenTestPicker()" title="Open Saved Test"><img src="../assets/icons/folder.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> <span data-i18n="btnOpen">Open</span></button>
-          <button class="neo-btn purple" onclick="tcOpenPrintPreview()" title="Dedicated Print &amp; PDF Preview"><span data-i18n="tcPrintPreviewBtn">Preview</span></button>
+          <button class="neo-btn" onclick="tcOpenTemplatePicker()" title="Test Models &amp; Templates" data-i18n-title="tcTemplatesTooltip"><img src="../assets/icons/copy.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> <span data-i18n="tcTemplates">Templates</span></button>
+          <button class="neo-btn" onclick="tcOpenTestPicker()" title="Open Saved Test" data-i18n-title="tcOpenSavedTestTooltip"><img src="../assets/icons/folder.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> <span data-i18n="btnOpen">Open</span></button>
+          <button class="neo-btn purple" onclick="tcOpenPrintPreview()" title="Dedicated Print &amp; PDF Preview" data-i18n-title="tcPrintPreviewTooltip"><span data-i18n="tcPrintPreviewBtn">Preview</span></button>
           <button class="neo-btn primary" onclick="tcSaveTest()"><span data-i18n="btnSave">Save</span></button>
           <button class="neo-btn" id="drawerToggleBtn" onclick="tcToggleDrawer()"><span data-i18n="tcDrawerBtn">Resources</span></button>
+          <button class="neo-btn" id="btn-tc-test-links" onclick="tcOpenTestLinksModal()" style="display:none;font-weight:900;letter-spacing:0.5px;" title="Test Links &amp; Tags"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" />[LINKS: 0]</button>
         </div>
       </div>
 
       <div class="meta-row-sub">
         <div class="meta-field-group" style="flex:1;">
-          <span class="meta-lbl">Scope / Units:</span>
-          <input type="text" id="testScope" class="meta-input" style="flex:1;" placeholder="e.g. Photosynthesis, Plant Cells, Ecosystems" oninput="tcOnDirty()">
+          <span class="meta-lbl" data-i18n="tcScopeLabel">Scope / Units:</span>
+          <input type="text" id="testScope" class="meta-input" style="flex:1;" placeholder="e.g. Photosynthesis, Plant Cells, Ecosystems" data-i18n-placeholder="tcScopePlaceholder" oninput="tcOnDirty()">
         </div>
 
         <div class="meta-field-group">
-          <span class="meta-lbl">Teacher:</span>
-          <input type="text" id="testTeacher" class="meta-input" style="width:140px;" placeholder="Teacher Name" oninput="tcOnDirty()">
+          <span class="meta-lbl" data-i18n="tcTeacherLabel">Teacher:</span>
+          <input type="text" id="testTeacher" class="meta-input" style="width:140px;" placeholder="Teacher Name" data-i18n-placeholder="tcTeacherPlaceholder" oninput="tcOnDirty()">
         </div>
 
         <div class="meta-field-group">
-          <span class="meta-lbl">Grade Scale:</span>
+          <span class="meta-lbl" data-i18n="tcGradeScaleLabel">Grade Scale:</span>
           <select id="testScale" class="meta-select" onchange="tcOnDirty()">
             <!-- Populated from TestCreatorService.DEFAULT_SCALES -->
           </select>
         </div>
 
         <div class="meta-field-group">
-          <button class="neo-btn yellow sm" onclick="tcOpenHeaderCustomizerModal()" title="Customise allowed materials, header elements, bold/italic/underline, and layout"><img src="../assets/icons/layout.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> <span data-i18n="tcBtnHeaderCustomise">Header &amp; Materials…</span></button>
+          <button class="neo-btn yellow sm" onclick="tcOpenHeaderCustomizerModal()" title="Customise allowed materials, header elements, bold/italic/underline, and layout" data-i18n-title="tcHeaderCustomiseTooltip"><img src="../assets/icons/layout.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> <span data-i18n="tcBtnHeaderCustomise">Header &amp; Materials…</span></button>
           <button class="neo-btn teal sm" onclick="tcOpenGradeSheetModal()"><span data-i18n="tcBtnGradeSheet">Grade Sheet</span></button>
           <button class="neo-btn sm" onclick="tcOpenVariantMatrixModal()"><span data-i18n="tcBtnGroupAB">Group A/B</span></button>
         </div>
@@ -178,7 +182,7 @@
           </div>
 
           <div style="display:flex;align-items:center;gap:8px;">
-            <button class="neo-btn sm" onclick="tcOpenGlobalStyleModal()" title="Customise base font size, line height, padding, numbered lines"><span data-i18n="tcBtnFormat">Style</span></button>
+            <button class="neo-btn sm" onclick="tcOpenGlobalStyleModal()" title="Customise base font size, line height, padding, numbered lines" data-i18n-title="tcGlobalStyleTooltip"><span data-i18n="tcBtnFormat">Style</span></button>
             <button class="neo-btn sm" onclick="tcOpenPrintPreview()"><span data-i18n="tcPrintPreview">Print Preview</span></button>
             <button class="neo-btn primary sm" onclick="tcOpenAddExerciseModal()">+ <span data-i18n="tcAddExercise">Add Exercise</span></button>
           </div>
@@ -187,8 +191,8 @@
         <!-- Test-wide Competences Bar -->
         <div id="testCompetencesBar" style="display:none;padding:10px 14px;background:#f0f7ff;border:2.5px solid #2563eb;border-radius:4px;margin:10px 15px 0 15px;box-shadow:2px 2px 0 #2563eb;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-            <span style="font-weight:900;font-size:0.8rem;color:#1e40af;text-transform:uppercase;letter-spacing:0.5px;">Test-Wide Competences & Curriculum Objectives:</span>
-            <span style="font-size:0.75rem;color:#64748b;">Tagged to complete exam</span>
+            <span style="font-weight:900;font-size:0.8rem;color:#1e40af;text-transform:uppercase;letter-spacing:0.5px;" data-i18n="tcTestWideCompetencesTitle">Test-Wide Competences & Curriculum Objectives:</span>
+            <span style="font-size:0.75rem;color:#64748b;" data-i18n="tcTaggedCompleteExam">Tagged to complete exam</span>
           </div>
           <div id="testCompetencesList" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
         </div>
@@ -218,38 +222,38 @@
 
         <!-- Add Exercise Bottom Bar -->
         <div class="add-exercise-bar">
-          <span style="font-size:0.82rem;font-weight:800;text-transform:uppercase;color:var(--neo-gray-dark);">+ Add Question:</span>
-          <button class="neo-btn sm" onclick="tcQuickAddExercise('cloze')">Cloze</button>
-          <button class="neo-btn sm" onclick="tcQuickAddExercise('mcq')">MCQ</button>
-          <button class="neo-btn sm" onclick="tcQuickAddExercise('open_question')">Open Question</button>
-          <button class="neo-btn sm" onclick="tcQuickAddExercise('composition')">Essay</button>
-          <button class="neo-btn sm" onclick="tcQuickAddExercise('matching')">Matching</button>
-          <button class="neo-btn sm" onclick="tcQuickAddExercise('transformation')">Transformation</button>
-          <button class="neo-btn sm" onclick="tcQuickAddExercise('translation')">Translation</button>
-          <button class="neo-btn sm" onclick="tcQuickAddExercise('picture_description')">Picture</button>
-          <button class="neo-btn sm" onclick="tcQuickAddExercise('table_completion')">Table</button>
-          <button class="neo-btn sm" onclick="tcQuickAddExercise('odd_one_out')">Odd One Out</button>
-          <button class="neo-btn sm" onclick="tcQuickAddExercise('reading_comprehension')">Reading</button>
+          <span style="font-size:0.82rem;font-weight:800;text-transform:uppercase;color:var(--neo-gray-dark);" data-i18n="tcAddQuestionPrompt">+ Add Question:</span>
+          <button class="neo-btn sm" onclick="tcQuickAddExercise('cloze')" data-i18n="tcTypeCloze">Cloze</button>
+          <button class="neo-btn sm" onclick="tcQuickAddExercise('mcq')" data-i18n="tcTypeMcq">MCQ</button>
+          <button class="neo-btn sm" onclick="tcQuickAddExercise('open_question')" data-i18n="tcTypeOpenQuestion">Open Question</button>
+          <button class="neo-btn sm" onclick="tcQuickAddExercise('composition')" data-i18n="tcTypeComposition">Essay</button>
+          <button class="neo-btn sm" onclick="tcQuickAddExercise('matching')" data-i18n="tcTypeMatching">Matching</button>
+          <button class="neo-btn sm" onclick="tcQuickAddExercise('transformation')" data-i18n="tcTypeTransformation">Transformation</button>
+          <button class="neo-btn sm" onclick="tcQuickAddExercise('translation')" data-i18n="tcTypeTranslation">Translation</button>
+          <button class="neo-btn sm" onclick="tcQuickAddExercise('picture_description')" data-i18n="tcTypePicture">Picture</button>
+          <button class="neo-btn sm" onclick="tcQuickAddExercise('table_completion')" data-i18n="tcTypeTable">Table</button>
+          <button class="neo-btn sm" onclick="tcQuickAddExercise('odd_one_out')" data-i18n="tcTypeOddOneOut">Odd One Out</button>
+          <button class="neo-btn sm" onclick="tcQuickAddExercise('reading_comprehension')" data-i18n="tcTypeReading">Reading</button>
         </div>
       </div>
 
       <!-- Right Panel: Resizable Resource Drawer -->
       <div class="test-drawer" id="testDrawer">
-        <div class="drawer-resizer-handle" id="drawerResizer" title="Drag to resize panel width"></div>
+        <div class="drawer-resizer-handle" id="drawerResizer" title="Drag to resize panel width" data-i18n-title="tcResizeDrawerTooltip"></div>
 
         <!-- Drawer Tab Switchers -->
         <div class="drawer-tabs-nav">
           <button type="button" class="drawer-tab-btn active" id="tabBtnTestBank" onclick="tcSwitchDrawerTab('testbank')">
-            <span>Test Bank</span>
+            <span data-i18n="tcDrawerTabTestBank">Test Bank</span>
           </button>
           <button type="button" class="drawer-tab-btn" id="tabBtnLearningDb" onclick="tcSwitchDrawerTab('learningdb')">
-            <span>Learning DB</span>
+            <span data-i18n="tcDrawerTabLearningDb">Learning DB</span>
           </button>
           <button type="button" class="drawer-tab-btn" id="tabBtnCriteriaDb" onclick="tcSwitchDrawerTab('criteriadb')">
-            <span>Criteria DB</span>
+            <span data-i18n="tcDrawerTabCriteriaDb">Criteria DB</span>
           </button>
           <button type="button" class="drawer-tab-btn" id="tabBtnCompetences" onclick="tcSwitchDrawerTab('competences')">
-            <span>Competences</span>
+            <span data-i18n="tcDrawerTabCompetences">Competences</span>
           </button>
           <button type="button" class="drawer-tab-btn" id="tabBtnScales" onclick="tcSwitchDrawerTab('scales')">
             <span data-i18n="tcDrawerTabScales">Grading Scales</span>
@@ -258,7 +262,7 @@
 
         <!-- Panel 1: Test Exercise Bank -->
         <div id="panelTestBank" class="drawer-tab-panel active">
-          <input type="text" id="drawerTestBankSearch" class="drawer-search-input" placeholder="Search saved exercises by title, type…" oninput="tcFilterTestBank()">
+          <input type="text" id="drawerTestBankSearch" class="drawer-search-input" placeholder="Search saved exercises by title, type…" data-i18n-placeholder="tcSearchExercisesPlaceholder" oninput="tcFilterTestBank()">
           <div class="drawer-items-list" id="testBankList">
             <div style="font-size:0.8rem;color:#888;text-align:center;padding:20px;">Loading test exercises…</div>
           </div>
@@ -272,7 +276,7 @@
               <option value="quizzes">Quizzes</option>
               <option value="grammarbanks">Grammar Banks</option>
               <option value="wordbanks">Word Banks</option>
-              <option value="dictations">Dictations</option>
+              <option value="dictations" data-i18n="tcFilterDictations">Dictations</option>
               <option value="errorbanks">Error Banks</option>
             </select>
             <button class="neo-btn primary sm" onclick="tcOpenAutoGeneratorModal()" title="Auto-generate an exercise from database items">Auto-Gen</button>
@@ -336,7 +340,7 @@
             </div>
           </div>
 
-          <input type="text" id="drawerLearningDbSearch" class="drawer-search-input" placeholder="Search records by theme, rule, word…" oninput="tcFilterLearningDb()">
+          <input type="text" id="drawerLearningDbSearch" class="drawer-search-input" placeholder="Search records by theme, rule, word…" data-i18n-placeholder="tcSearchRecordsPlaceholder" oninput="tcFilterLearningDb()">
           <div class="drawer-items-list" id="learningDbList">
             <div style="font-size:0.8rem;color:#888;text-align:center;padding:20px;">Select a source to load content…</div>
           </div>
@@ -349,7 +353,7 @@
               <option value="">Loading criteria banks…</option>
             </select>
           </div>
-          <input type="text" id="drawerCriteriaSearch" class="drawer-search-input" placeholder="Search assessment criteria by title…" oninput="tcFilterCriteriaDb()">
+          <input type="text" id="drawerCriteriaSearch" class="drawer-search-input" placeholder="Search assessment criteria by title…" data-i18n-placeholder="tcSearchCriteriaPlaceholder" oninput="tcFilterCriteriaDb()">
           <div class="drawer-items-list" id="criteriaDbList">
             <div style="font-size:0.8rem;color:#888;text-align:center;padding:20px;">Loading criteria…</div>
           </div>
@@ -363,7 +367,7 @@
               <option value="__exam__">Entire Exam (Test-wide)</option>
             </select>
           </div>
-          <input type="text" id="drawerCompetenceSearch" class="drawer-search-input" placeholder="Search competences by code, description…" oninput="tcFilterCompetences()">
+          <input type="text" id="drawerCompetenceSearch" class="drawer-search-input" placeholder="Search competences by code, description…" data-i18n-placeholder="tcSearchCompetencesPlaceholder" oninput="tcFilterCompetences()">
           <div class="drawer-items-list" id="competenceDbList">
             <div style="font-size:0.8rem;color:#888;text-align:center;padding:20px;">Loading competences…</div>
           </div>
@@ -382,7 +386,7 @@
               <option value="__exam__">Entire Exam (Test-wide)</option>
             </select>
           </div>
-          <input type="text" id="drawerScaleSearch" class="drawer-search-input" placeholder="Search scales by name, key, range…" oninput="tcFilterScalesDb()">
+          <input type="text" id="drawerScaleSearch" class="drawer-search-input" placeholder="Search scales by name, key, range…" data-i18n-placeholder="tcSearchScalesPlaceholder" oninput="tcFilterScalesDb()">
           <div class="drawer-items-list" id="scalesDbList">
             <div style="font-size:0.8rem;color:#888;text-align:center;padding:20px;">Loading grading scales…</div>
           </div>
@@ -415,11 +419,11 @@
         </div>
 
         <div style="display:flex;align-items:center;gap:6px;font-size:0.82rem;font-weight:700;margin-left:10px;">
-          <span>Theme:</span>
-          <select id="previewThemeSelect" class="meta-select" style="padding:2px 8px;font-size:0.8rem;" onchange="tcUpdatePrintPreview()">
-            <option value="academic">Academic Classic</option>
-            <option value="neobrutalist">Modern Neobrutalist</option>
-            <option value="dyslexic">Dyslexic Friendly</option>
+          <span data-i18n="tcThemeLabel">Theme:</span>
+          <select id="previewThemeSelect" class="meta-select" style="padding:2px 8px;font-size:0.8rem;" onchange="tcOnPreviewThemeChange(this.value)">
+            <option value="academic" data-i18n="tcThemeAcademic">Academic Classic</option>
+            <option value="neobrutalist" data-i18n="tcThemeNeobrutalist">Modern Neobrutalist</option>
+            <option value="dyslexic" data-i18n="tcThemeDyslexic">Dyslexic Friendly</option>
           </select>
         </div>
 
@@ -462,6 +466,17 @@
             <button class="neo-btn" id="expFmtHtml" onclick="tcSetExportFormat('html')">Standalone HTML</button>
             <button class="neo-btn" id="expFmtDocx" onclick="tcSetExportFormat('docx')">Word DOCX</button>
             <button class="neo-btn" id="expFmtMd" onclick="tcSetExportFormat('md')">Markdown</button>
+          </div>
+
+          <div style="border-top:1px solid #ddd;padding-top:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <label class="meta-lbl" data-i18n="tcStyleTheme">Stylesheet / Theme:</label>
+              <select id="exportThemeSelect" class="meta-select" style="padding:2px 8px;font-size:0.8rem;" onchange="tcOnExportThemeChange(this.value)">
+                <option value="academic" data-i18n="tcThemeAcademic">Academic Classic</option>
+                <option value="neobrutalist" data-i18n="tcThemeNeobrutalist">Modern Neobrutalist</option>
+                <option value="dyslexic" data-i18n="tcThemeDyslexic">Dyslexic Friendly</option>
+              </select>
+            </div>
           </div>
 
           <div style="border-top:1px solid #ddd;padding-top:10px;">
@@ -522,6 +537,15 @@
           <button type="button" class="neo-btn sm" onclick="tcCloseGlobalStyleModal(); tcOpenHeaderCustomizerModal();">Customise Header…</button>
         </div>
         <div class="style-grid-2col">
+          <div class="style-control-card">
+            <label data-i18n="tcStyleTheme">Stylesheet / Theme:</label>
+            <select id="globalStyleTheme" class="style-select" onchange="tcOnGlobalStyleChange()">
+              <option value="academic" data-i18n="tcThemeAcademic">Academic Classic</option>
+              <option value="neobrutalist" data-i18n="tcThemeNeobrutalist">Modern Neobrutalist</option>
+              <option value="dyslexic" data-i18n="tcThemeDyslexic">Dyslexic Friendly</option>
+            </select>
+          </div>
+
           <div class="style-control-card">
             <label data-i18n="tcStyleFontSize">Base Font Size:</label>
             <select id="globalStyleFontSize" class="style-select" onchange="tcOnGlobalStyleChange()">
@@ -819,18 +843,19 @@
           </div>
 
           <!-- Add Custom Material Field -->
-          <div style="display:flex;gap:6px;align-items:center;margin-bottom:12px;">
-            <input type="text" id="tcCustomMaterialInput" class="meta-input" style="flex:1;" placeholder="Add custom material (e.g. Periodic Table permitted, Graph paper provided)..." onkeydown="if(event.key==='Enter'){event.preventDefault();tcAddCustomMaterial();}">
-            <button type="button" class="neo-btn primary sm" onclick="tcAddCustomMaterial()">+ <span data-i18n="btnAdd">Add</span></button>
+          <div style="display:flex;gap:6px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
+            <input type="text" id="tcCustomMaterialInput" class="meta-input" style="flex:1;min-width:220px;" placeholder="Add custom material (e.g. Periodic Table permitted, Graph paper provided)..." data-i18n-placeholder="tcCustomMaterialPlaceholder" onkeydown="if(event.key==='Enter'){event.preventDefault();tcAddCustomMaterial(false);}">
+            <button type="button" class="neo-btn primary sm" onclick="tcAddCustomMaterial(false)">+ <span data-i18n="btnAdd">Add</span></button>
+            <button type="button" class="neo-btn sm" onclick="tcAddCustomMaterial(true)" title="Add to current test and save to presets for future exams" data-i18n-title="tcAddAndSavePresetTooltip">+ <span data-i18n="tcAddAndSavePreset">Add &amp; Save Preset</span></button>
           </div>
 
           <!-- Active Selected Materials List -->
           <div style="background:#fff;border:2px solid #000;border-radius:4px;padding:10px;margin-bottom:12px;">
-            <div style="font-size:0.8rem;font-weight:900;text-transform:uppercase;margin-bottom:6px;display:flex;justify-content:space-between;">
-              <span>Active Materials for this Test:</span>
+            <div style="font-size:0.8rem;font-weight:900;text-transform:uppercase;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+              <span data-i18n="tcActiveMaterialsTitle">Active Materials for this Test:</span>
               <button type="button" class="neo-btn sm" style="font-size:0.72rem;padding:1px 6px;color:#ef4444;" onclick="tcClearAllMaterials()">Clear All</button>
             </div>
-            <div id="hdrActiveMaterialsList" style="display:flex;flex-direction:column;gap:4px;min-height:40px;"></div>
+            <div id="hdrActiveMaterialsList" style="display:flex;flex-direction:column;gap:6px;min-height:40px;"></div>
           </div>
 
           <!-- Display & Typography Controls for Materials -->
@@ -1287,7 +1312,7 @@
       </div>
       <div class="modal-footer">
         <button class="neo-btn" onclick="tcCloseGradeSheetModal()" data-i18n="btnCancel">Cancel</button>
-        <button class="neo-btn success" onclick="tcSubmitGradeSheetRegistration()">Confirm & Register</button>
+        <button class="neo-btn success" onclick="tcSubmitGradeSheetRegistration()" data-i18n="tcConfirmAndRegister">Confirm & Register</button>
       </div>
     </div>
   </div>
@@ -1302,16 +1327,16 @@
       <div class="modal-body">
         <p style="font-size:0.85rem;color:#475569;">Assign students in this class to Group A or Group B test variants:</p>
         <div style="display:flex;gap:8px;margin-bottom:8px;">
-          <button class="neo-btn sm" onclick="tcAutoAssignVariants('alternating')">Auto-Alternate</button>
-          <button class="neo-btn sm" onclick="tcAutoAssignVariants('seating')">By Seating Plan</button>
-          <button class="neo-btn sm" onclick="tcAutoAssignVariants('all_a')">All Group A</button>
+          <button class="neo-btn sm" onclick="tcAutoAssignVariants('alternating')" data-i18n="tcAutoAlternate">Auto-Alternate</button>
+          <button class="neo-btn sm" onclick="tcAutoAssignVariants('seating')" data-i18n="tcBySeatingPlan">By Seating Plan</button>
+          <button class="neo-btn sm" onclick="tcAutoAssignVariants('all_a')" data-i18n="tcAllGroupA">All Group A</button>
         </div>
         <div id="variantMatrixTableWrap" style="max-height:300px;overflow-y:auto;border:1.5px solid #cbd5e1;border-radius:6px;">
           <!-- Populated by student rows -->
         </div>
       </div>
       <div class="modal-footer">
-        <button class="neo-btn primary" onclick="tcCloseVariantMatrixModal()">Done</button>
+        <button class="neo-btn primary" onclick="tcCloseVariantMatrixModal()" data-i18n="btnDone">Done</button>
       </div>
     </div>
   </div>
@@ -1471,12 +1496,16 @@
       // ── Bootstrap Data ───────────────────────────────────────────────────
       window.addEventListener('DOMContentLoaded', async function () {
         initHamburger();
+        if (typeof applyTranslations === 'function') {
+          applyTranslations();
+        }
         populateDropdowns();
         await loadInitialData();
         await tcLoadCustomTestTemplates();
         await tcLoadCustomHeaderTemplates();
         await tcLoadAllAvailableSubjects();
         await tcBootstrapActiveTest();
+        ensureTestStyleAndTheme();
         renderTestMeta();
         renderExerciseCards();
         tcLoadDrawerContent();
@@ -1534,6 +1563,19 @@
         } catch (_) {}
 
         currentTest = TestCreatorService.createEmptyTest();
+      }
+
+      function ensureTestStyleAndTheme() {
+        if (!currentTest) return;
+        currentTest.exercises = currentTest.exercises || [];
+        TestCreatorService.ensureHeaderConfig(currentTest);
+        TestCreatorService.ensureExportStyle(currentTest);
+        if (!currentTest.stylesheetTheme) {
+          currentTest.stylesheetTheme = (currentTest.exportStyle && currentTest.exportStyle.theme) || localStorage.getItem('cmt_default_test_theme') || 'academic';
+        }
+        if (currentTest.exportStyle && !currentTest.exportStyle.theme) {
+          currentTest.exportStyle.theme = currentTest.stylesheetTheme;
+        }
       }
 
       function populateDropdowns() {
@@ -1970,6 +2012,58 @@
         if (typeof tcRenderTestGradingScaleBar === 'function') {
           tcRenderTestGradingScaleBar();
         }
+        tcUpdateTestLinksBadge();
+      }
+
+      function tcGetActiveTestUrn() {
+        if (!currentTest) return null;
+        var fn = currentTest._filename || (currentTest.id ? (currentTest.id.endsWith('.json') ? currentTest.id : (currentTest.id + '.json')) : null);
+        if (!fn) return null;
+        return 'cmt:test:' + fn;
+      }
+
+      async function tcUpdateTestLinksBadge() {
+        var btn = document.getElementById('btn-tc-test-links');
+        if (!btn) return;
+        var urn = tcGetActiveTestUrn();
+        if (!urn || typeof LinksService === 'undefined') {
+          btn.style.display = 'none';
+          return;
+        }
+        btn.style.display = 'inline-flex';
+        var iconHtml = '<img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" />';
+        try {
+          var links = await LinksService.getLinksFor(urn);
+          var tags = await LinksService.getTagsFor(urn);
+          var tagPart = tags.length ? (' | TAGS: ' + tags.length) : '';
+          btn.innerHTML = iconHtml + '[LINKS: ' + links.length + tagPart + ']';
+        } catch (_) {
+          btn.innerHTML = iconHtml + '[LINKS: 0]';
+        }
+      }
+      window.tcUpdateTestLinksBadge = tcUpdateTestLinksBadge;
+
+      window.tcOpenTestLinksModal = function () {
+        var urn = tcGetActiveTestUrn();
+        if (!urn || typeof TagLinkModal === 'undefined') {
+          if (window.showToast) showToast('Please save the test before linking', true);
+          return;
+        }
+        TagLinkModal.open({
+          urn: urn,
+          title: currentTest.title || 'Test',
+          label: currentTest.title || 'Test',
+          subtitle: 'Test Creator • ' + (currentTest.subject || currentTest.classId || 'Test'),
+          type: 'test',
+          classId: currentTest.classId,
+          onUpdate: tcUpdateTestLinksBadge
+        });
+      };
+
+      if (typeof window !== 'undefined') {
+        window.addEventListener('cmt-links-changed', function () {
+          tcUpdateTestLinksBadge();
+        });
       }
 
       function updatePointsBadge() {
@@ -5096,7 +5190,7 @@
         var targetExId = targetSel ? targetSel.value : window._lastActiveExerciseId;
         var ex = (currentTest.exercises || []).find(function (e) { return e.id === targetExId; });
         if (!ex) {
-          if (window.showToast) showToast('Please select a target exercise card first', true);
+          if (window.showToast) showToast(i18n.t('tcSelectTargetExerciseFirst', 'Please select a target exercise card first'), true);
           return;
         }
 
@@ -5229,7 +5323,7 @@
       window.tcInsertIntoActiveInput = function (val) {
         var input = window._lastFocusedInput;
         if (!input || !document.body.contains(input)) {
-          if (window.showToast) showToast('No active field currently focused', true);
+          if (window.showToast) showToast(i18n.t('tcNoActiveFieldFocused', 'No active field currently focused'), true);
           return;
         }
         var start = input.selectionStart || 0;
@@ -5332,7 +5426,7 @@
 
         renderExerciseCards();
         updatePointsBadge();
-        if (window.showToast) showToast('Added database exercise into exam!');
+        if (window.showToast) showToast(i18n.t('tcAddedDbExerciseExam', 'Added database exercise into exam!'));
       };
 
       window.tcFilterLearningDb = function () {
@@ -5409,7 +5503,7 @@
 
       window.tcOpenAutoGeneratorModal = async function () {
         if (!_cachedLearningItems.length) {
-          if (window.showToast) showToast('No items loaded in this category yet', true);
+          if (window.showToast) showToast(i18n.t('tcNoItemsLoadedCategory', 'No items loaded in this category yet'), true);
           return;
         }
         var countStr = window.prompt ? window.prompt('How many questions would you like to auto-generate from this database?', '3') : '3';
@@ -5596,7 +5690,7 @@
           targetEx = currentTest.exercises.find(function (e) { return e.type === 'composition' || e.type === 'open_question'; }) || currentTest.exercises[0];
         }
         if (!targetEx) {
-          if (window.showToast) showToast('Add an exercise first to attach criteria rubrics', true);
+          if (window.showToast) showToast(i18n.t('tcAddExerciseFirstForCriteria', 'Add an exercise first to attach criteria rubrics'), true);
           return;
         }
         if (!Array.isArray(targetEx.markingRubric)) targetEx.markingRubric = [];
@@ -5647,7 +5741,7 @@
         if (Array.isArray(currentTest.linkedCompetenceIds)) {
           currentTest.linkedCompetenceIds.splice(cIdx, 1);
           renderTestCompetenceBadges();
-          if (window.showToast) showToast('Removed test competence');
+          if (window.showToast) showToast(i18n.t('tcRemovedTestCompetence', 'Removed test competence'));
         }
       };
 
@@ -6427,11 +6521,13 @@
       window.tcOpenGlobalStyleModal = function () {
         currentTest.exportStyle = TestCreatorService.ensureExportStyle(currentTest);
         var st = currentTest.exportStyle;
+        var tSel = document.getElementById('globalStyleTheme');
         var fSel = document.getElementById('globalStyleFontSize');
         var lSel = document.getElementById('globalStyleLineHeight');
         var pSel = document.getElementById('globalStylePadding');
         var nChk = document.getElementById('globalStyleNumberedLines');
 
+        if (tSel) tSel.value = st.theme || currentTest.stylesheetTheme || localStorage.getItem('cmt_default_test_theme') || 'academic';
         if (fSel) fSel.value = st.fontSize || '11pt';
         if (lSel) lSel.value = String(st.lineHeight || 1.5);
         if (pSel) pSel.value = st.padding || '14px';
@@ -6462,6 +6558,17 @@
 
       window.tcOnGlobalStyleChange = function () {
         if (!currentTest.exportStyle) currentTest.exportStyle = {};
+        var tSel = document.getElementById('globalStyleTheme');
+        if (tSel) {
+          var thm = tSel.value;
+          currentTest.exportStyle.theme = thm;
+          currentTest.stylesheetTheme = thm;
+          try { localStorage.setItem('cmt_default_test_theme', thm); } catch (_) {}
+          var pThm = document.getElementById('previewThemeSelect');
+          if (pThm && pThm.value !== thm) pThm.value = thm;
+          var eThm = document.getElementById('exportThemeSelect');
+          if (eThm && eThm.value !== thm) eThm.value = thm;
+        }
         currentTest.exportStyle.fontSize = document.getElementById('globalStyleFontSize').value;
         currentTest.exportStyle.lineHeight = Number(document.getElementById('globalStyleLineHeight').value);
         currentTest.exportStyle.padding = document.getElementById('globalStylePadding').value;
@@ -6718,6 +6825,27 @@
         } catch (_) {}
       };
 
+      var _userCustomMaterials = [];
+      var _editingMaterialIdx = -1;
+
+      window.tcLoadCustomMaterials = function () {
+        try {
+          var raw = localStorage.getItem('cmt_custom_material_presets');
+          if (raw) {
+            var parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              _userCustomMaterials = parsed;
+            }
+          }
+        } catch (_) {}
+      };
+
+      window.tcSaveCustomMaterials = function () {
+        try {
+          localStorage.setItem('cmt_custom_material_presets', JSON.stringify(_userCustomMaterials));
+        } catch (_) {}
+      };
+
       window.tcSaveCustomHeaderTemplatesToDisk = async function () {
         try {
           localStorage.setItem('cmt_custom_header_templates', JSON.stringify(_userCustomHeaderTemplates));
@@ -6852,13 +6980,15 @@
         await tcSaveCustomHeaderTemplatesToDisk();
         tcPopulateHeaderTemplatesDropdown();
         if (window.showToast) {
-          showToast('Deleted header template');
+          showToast(i18n.t('tcHeaderTemplateDeleted', 'Deleted header template'));
         }
       };
 
       window.tcOpenHeaderCustomizerModal = function () {
         if (!currentTest) return;
         tcPopulateHeaderTemplatesDropdown();
+        tcLoadCustomMaterials();
+        _editingMaterialIdx = -1;
         if (typeof tcOnDirty === 'function') {
           tcOnDirty();
         }
@@ -7000,6 +7130,7 @@
       };
 
       window.tcCloseHeaderCustomizerModal = function () {
+        _editingMaterialIdx = -1;
         document.getElementById('headerCustomizerModal').classList.remove('open');
         tcSaveCurrentTest(false);
         if (document.getElementById('printPreviewModal').classList.contains('open')) {
@@ -7030,13 +7161,33 @@
         var pool = document.getElementById('hdrMaterialPresetsPool');
         if (!pool) return;
         var currentMats = currentTest.materialsAllowed || [];
-        var presets = TestCreatorService.DEFAULT_MATERIALS || [];
-        pool.innerHTML = presets.map(function (preset) {
+        var builtins = TestCreatorService.DEFAULT_MATERIALS || [];
+        var customs = _userCustomMaterials || [];
+        var allPresets = builtins.slice();
+        customs.forEach(function (c) {
+          if (allPresets.indexOf(c) === -1) allPresets.push(c);
+        });
+
+        pool.innerHTML = allPresets.map(function (preset) {
           var isSel = currentMats.indexOf(preset) !== -1;
-          return '<button type="button" class="hdr-preset-chip' + (isSel ? ' selected' : '') + '" onclick="tcToggleMaterialPreset(\'' + escapeAttr(preset) + '\')">' +
-            (isSel ? '✓ ' : '+ ') + escapeHtml(preset) +
-          '</button>';
+          var isCustom = builtins.indexOf(preset) === -1;
+          return '<span class="hdr-preset-chip-wrap">' +
+            '<button type="button" class="hdr-preset-chip' + (isSel ? ' selected' : '') + '" onclick="tcToggleMaterialPreset(\'' + escapeAttr(preset) + '\')">' +
+              (isSel ? '✓ ' : '+ ') + escapeHtml(preset) +
+            '</button>' +
+            (isCustom ? '<button type="button" class="hdr-preset-remove-btn" onclick="tcDeleteCustomPreset(\'' + escapeAttr(preset) + '\')" title="' + (i18n.t('tcRemovePresetTooltip') || 'Remove custom preset') + '">&times;</button>' : '') +
+          '</span>';
         }).join(' ');
+      };
+
+      window.tcDeleteCustomPreset = function (preset) {
+        if (!_userCustomMaterials) return;
+        var idx = _userCustomMaterials.indexOf(preset);
+        if (idx !== -1) {
+          _userCustomMaterials.splice(idx, 1);
+          tcSaveCustomMaterials();
+          tcRenderMaterialsPool();
+        }
       };
 
       window.tcRenderActiveMaterials = function () {
@@ -7048,16 +7199,67 @@
           return;
         }
         list.innerHTML = currentMats.map(function (mat, idx) {
+          if (idx === _editingMaterialIdx) {
+            return '<div class="hdr-mat-item editing">' +
+              '<span class="hdr-mat-num">' + (idx + 1) + '.</span>' +
+              '<input type="text" id="hdrMatEditInput_' + idx + '" class="meta-input sm hdr-mat-edit-input" value="' + escapeAttr(mat) + '" onkeydown="if(event.key===\'Enter\'){event.preventDefault();tcSaveEditMaterial(' + idx + ');}else if(event.key===\'Escape\'){event.preventDefault();tcCancelEditMaterial();}">' +
+              '<div class="hdr-mat-actions">' +
+                '<button type="button" class="card-btn-icon sm" style="color:#16a34a;" onclick="tcSaveEditMaterial(' + idx + ')" title="' + (i18n.t('tcSaveMaterial') || 'Save') + '"><img src="../assets/icons/check.svg" alt="" style="width:12px;height:12px;" /></button>' +
+                '<button type="button" class="card-btn-icon sm" style="color:#ef4444;" onclick="tcCancelEditMaterial()" title="' + (i18n.t('tcCancelMaterial') || 'Cancel') + '"><img src="../assets/icons/close.svg" alt="" style="width:12px;height:12px;" /></button>' +
+              '</div>' +
+            '</div>';
+          }
+
           return '<div class="hdr-mat-item">' +
             '<span class="hdr-mat-num">' + (idx + 1) + '.</span>' +
-            '<span class="hdr-mat-text">' + escapeHtml(mat) + '</span>' +
+            '<span class="hdr-mat-text" onclick="tcStartEditMaterial(' + idx + ')" title="' + (i18n.t('tcEditMaterialTooltip') || 'Click to edit material text') + '">' + escapeHtml(mat) + '</span>' +
             '<div class="hdr-mat-actions">' +
+              '<button type="button" class="card-btn-icon sm" onclick="tcStartEditMaterial(' + idx + ')" title="' + (i18n.t('tcEditMaterialTooltip') || 'Edit material text') + '"><img src="../assets/icons/edit-word.svg" alt="" style="width:12px;height:12px;" /></button>' +
               (idx > 0 ? '<button type="button" class="card-btn-icon sm" onclick="tcMoveMaterial(' + idx + ', -1)" title="Move up">▲</button>' : '') +
               (idx < currentMats.length - 1 ? '<button type="button" class="card-btn-icon sm" onclick="tcMoveMaterial(' + idx + ', 1)" title="Move down">▼</button>' : '') +
               '<button type="button" class="card-btn-icon sm" style="color:#ef4444;" onclick="tcRemoveMaterial(' + idx + ')" title="Remove">&times;</button>' +
             '</div>' +
           '</div>';
         }).join('');
+      };
+
+      window.tcStartEditMaterial = function (idx) {
+        _editingMaterialIdx = idx;
+        tcRenderActiveMaterials();
+        setTimeout(function () {
+          var inp = document.getElementById('hdrMatEditInput_' + idx);
+          if (inp) {
+            inp.focus();
+            inp.select();
+          }
+        }, 30);
+      };
+
+      window.tcSaveEditMaterial = function (idx) {
+        var inp = document.getElementById('hdrMatEditInput_' + idx);
+        if (!inp) {
+          _editingMaterialIdx = -1;
+          tcRenderActiveMaterials();
+          return;
+        }
+        var val = (inp.value || '').trim();
+        if (!val) {
+          tcRemoveMaterial(idx);
+          _editingMaterialIdx = -1;
+          return;
+        }
+        if (!currentTest.materialsAllowed) currentTest.materialsAllowed = [];
+        currentTest.materialsAllowed[idx] = val;
+        _editingMaterialIdx = -1;
+        tcOnDirty();
+        tcRenderMaterialsPool();
+        tcRenderActiveMaterials();
+        tcUpdateModalHeaderPreview();
+      };
+
+      window.tcCancelEditMaterial = function () {
+        _editingMaterialIdx = -1;
+        tcRenderActiveMaterials();
       };
 
       window.tcToggleMaterialPreset = function (preset) {
@@ -7074,7 +7276,7 @@
         tcUpdateModalHeaderPreview();
       };
 
-      window.tcAddCustomMaterial = function () {
+      window.tcAddCustomMaterial = function (saveAsPreset) {
         var input = document.getElementById('tcCustomMaterialInput');
         if (!input) return;
         var text = (input.value || '').trim();
@@ -7082,6 +7284,13 @@
         if (!currentTest.materialsAllowed) currentTest.materialsAllowed = [];
         if (currentTest.materialsAllowed.indexOf(text) === -1) {
           currentTest.materialsAllowed.push(text);
+        }
+        if (saveAsPreset) {
+          if (!_userCustomMaterials) _userCustomMaterials = [];
+          if (_userCustomMaterials.indexOf(text) === -1) {
+            _userCustomMaterials.push(text);
+            tcSaveCustomMaterials();
+          }
         }
         input.value = '';
         tcOnDirty();
@@ -7093,6 +7302,11 @@
       window.tcRemoveMaterial = function (idx) {
         if (!currentTest.materialsAllowed) return;
         currentTest.materialsAllowed.splice(idx, 1);
+        if (_editingMaterialIdx === idx) {
+          _editingMaterialIdx = -1;
+        } else if (_editingMaterialIdx > idx) {
+          _editingMaterialIdx--;
+        }
         tcOnDirty();
         tcRenderMaterialsPool();
         tcRenderActiveMaterials();
@@ -7106,6 +7320,11 @@
         var temp = currentTest.materialsAllowed[idx];
         currentTest.materialsAllowed[idx] = currentTest.materialsAllowed[target];
         currentTest.materialsAllowed[target] = temp;
+        if (_editingMaterialIdx === idx) {
+          _editingMaterialIdx = target;
+        } else if (_editingMaterialIdx === target) {
+          _editingMaterialIdx = idx;
+        }
         tcOnDirty();
         tcRenderActiveMaterials();
         tcUpdateModalHeaderPreview();
@@ -7113,6 +7332,7 @@
 
       window.tcClearAllMaterials = function () {
         currentTest.materialsAllowed = [];
+        _editingMaterialIdx = -1;
         tcOnDirty();
         tcRenderMaterialsPool();
         tcRenderActiveMaterials();
@@ -7164,7 +7384,7 @@
         tcOnDirty();
         tcOpenHeaderCustomizerModal();
         if (typeof showToast === 'function') {
-          showToast('Header configuration reset to default');
+          showToast(i18n.t('tcHeaderConfigReset', 'Header configuration reset to default'));
         }
       };
 
@@ -7264,6 +7484,23 @@
         if (prevSel && currentTest && currentTest.exportStyle && currentTest.exportStyle.margins) {
           prevSel.value = currentTest.exportStyle.margins.preset || 'custom';
         }
+        var thmSel = document.getElementById('previewThemeSelect');
+        if (thmSel && currentTest) {
+          thmSel.value = (currentTest.exportStyle && currentTest.exportStyle.theme) || currentTest.stylesheetTheme || localStorage.getItem('cmt_default_test_theme') || 'academic';
+        }
+        tcUpdatePrintPreview();
+      };
+
+      window.tcOnPreviewThemeChange = function (val) {
+        if (!currentTest.exportStyle) currentTest.exportStyle = {};
+        currentTest.exportStyle.theme = val;
+        currentTest.stylesheetTheme = val;
+        try { localStorage.setItem('cmt_default_test_theme', val); } catch (_) {}
+        var gThm = document.getElementById('globalStyleTheme');
+        if (gThm && gThm.value !== val) gThm.value = val;
+        var eThm = document.getElementById('exportThemeSelect');
+        if (eThm && eThm.value !== val) eThm.value = val;
+        tcSaveCurrentTest(false);
         tcUpdatePrintPreview();
       };
 
@@ -7432,6 +7669,22 @@
       // ── Export Modal & Direct Actions ─────────────────────────────────────
       window.tcOpenExportModal = function () {
         document.getElementById('exportModal').classList.add('open');
+        var expThm = document.getElementById('exportThemeSelect');
+        if (expThm && currentTest) {
+          expThm.value = (currentTest.exportStyle && currentTest.exportStyle.theme) || currentTest.stylesheetTheme || localStorage.getItem('cmt_default_test_theme') || 'academic';
+        }
+      };
+
+      window.tcOnExportThemeChange = function (val) {
+        if (!currentTest.exportStyle) currentTest.exportStyle = {};
+        currentTest.exportStyle.theme = val;
+        currentTest.stylesheetTheme = val;
+        try { localStorage.setItem('cmt_default_test_theme', val); } catch (_) {}
+        var pThm = document.getElementById('previewThemeSelect');
+        if (pThm && pThm.value !== val) pThm.value = val;
+        var gThm = document.getElementById('globalStyleTheme');
+        if (gThm && gThm.value !== val) gThm.value = val;
+        tcSaveCurrentTest(false);
       };
 
       window.tcCloseExportModal = function () {
@@ -7462,18 +7715,19 @@
         var fileNameBase = (currentTest.title || 'Exam').replace(/[^a-zA-Z0-9_\-]+/g, '_');
         var outContent = '';
         var ext = currentExportFormat;
+        var activeTheme = (currentTest.exportStyle && currentTest.exportStyle.theme) || currentTest.stylesheetTheme || localStorage.getItem('cmt_default_test_theme') || 'academic';
 
         if (isBatch && activeStudents.length > 0) {
           var assignments = TestCreatorService.assignVariantsToStudents(activeStudents, vMode, { manualMap: manualVariantMap });
-          outContent = TestCreatorService.exportClassBatch(currentTest, activeStudents, assignments, { isTeacherKey: isTeacher });
+          outContent = TestCreatorService.exportClassBatch(currentTest, activeStudents, assignments, { isTeacherKey: isTeacher, stylesheetTheme: activeTheme });
         } else {
           if (currentExportFormat === 'md') {
             outContent = TestCreatorService.exportToMarkdown(currentTest, { isTeacherKey: isTeacher });
           } else if (currentExportFormat === 'docx') {
-            outContent = TestCreatorService.exportToDocxHtml(currentTest, { isTeacherKey: isTeacher });
+            outContent = TestCreatorService.exportToDocxHtml(currentTest, { isTeacherKey: isTeacher, stylesheetTheme: activeTheme });
             ext = 'doc';
           } else {
-            outContent = TestCreatorService.exportToHtml(currentTest, { isTeacherKey: isTeacher });
+            outContent = TestCreatorService.exportToHtml(currentTest, { isTeacherKey: isTeacher, stylesheetTheme: activeTheme });
           }
         }
 
@@ -7570,7 +7824,7 @@
       // ── Grade Sheet Registration Modal ───────────────────────────────────
       window.tcOpenGradeSheetModal = function () {
         if (!currentTest.classId) {
-          if (window.showToast) showToast('Please select a class first', true);
+          if (window.showToast) showToast(i18n.t('tcSelectClassFirst', 'Please select a class first'), true);
           return;
         }
         document.getElementById('gsTargetClass').value = currentTest.classId;
@@ -7597,7 +7851,7 @@
         var res = await TestCreatorService.registerInGradeSheet(currentTest, cId, term);
         tcCloseGradeSheetModal();
         if (res && res.ok) {
-          if (window.showToast) showToast('Test registered in Grade Sheet with sub-criteria!');
+          if (window.showToast) showToast(i18n.t('tcTestRegisteredGradeSheet', 'Test registered in Grade Sheet with sub-criteria!'));
         } else {
           if (window.showToast) showToast('Error registering: ' + (res.error || 'Failed'), true);
         }
@@ -7687,7 +7941,7 @@
             else list.push(currentTest);
             localStorage.setItem('cmt_tests', JSON.stringify(list));
           } catch (_) {}
-          if (showToastNotification && window.showToast) showToast('Test saved locally!');
+          if (showToastNotification && window.showToast) showToast(i18n.t('tcTestSavedLocally', 'Test saved locally!'));
           return true;
         }
 
@@ -7712,15 +7966,15 @@
           } catch (_) {}
 
           if (res && res.ok) {
-            if (showToastNotification && window.showToast) showToast('Test saved successfully!');
+            if (showToastNotification && window.showToast) showToast(i18n.t('tcTestSavedSuccessfully', 'Test saved successfully!'));
             await TestCreatorService.registerCompetencesInPortfolio(currentTest);
             return true;
           } else {
-            if (showToastNotification && window.showToast) showToast('Failed to save test', true);
+            if (showToastNotification && window.showToast) showToast(i18n.t('tcFailedToSaveTest', 'Failed to save test'), true);
             return false;
           }
         } catch (e) {
-          if (showToastNotification && window.showToast) showToast('Error saving test: ' + e.message, true);
+          if (showToastNotification && window.showToast) showToast((typeof tFmt === 'function' ? tFmt('tcErrorSavingTest', { error: e.message }) : ('Error saving test: ' + e.message)), true);
           return false;
         }
       };
@@ -7765,6 +8019,7 @@
               currentTest = JSON.parse(JSON.stringify(loaded));
               currentTest.exercises = currentTest.exercises || [];
               TestCreatorService.ensureHeaderConfig(currentTest);
+              ensureTestStyleAndTheme();
               if (currentTest.classId) {
                 var matching = activeClassGroups.find(function (g) {
                   return g.id === currentTest.classId || g.name === currentTest.classId;
@@ -7927,6 +8182,7 @@
         currentTest = JSON.parse(JSON.stringify(loaded));
         currentTest.exercises = currentTest.exercises || [];
         TestCreatorService.ensureHeaderConfig(currentTest);
+        ensureTestStyleAndTheme();
 
         if (currentTest.classId) {
           var matching = activeClassGroups.find(function (g) {
@@ -8250,7 +8506,7 @@
         await tcSaveCustomTestTemplatesToDisk();
         tcRenderTemplatePickerList();
         if (window.showToast) {
-          showToast('Template deleted');
+          showToast(i18n.t('tcTemplateDeleted', 'Template deleted'));
         }
       };
 
@@ -8316,7 +8572,7 @@
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
           }, 200);
-          if (window.showToast) showToast('Template exported');
+          if (window.showToast) showToast(i18n.t('tcTemplateExported', 'Template exported'));
         }
       };
 
@@ -8363,13 +8619,17 @@
 
       window.tcNewTest = function () {
         currentTest = TestCreatorService.createEmptyTest();
+        var defTheme = (typeof localStorage !== 'undefined' && localStorage.getItem('cmt_default_test_theme')) || 'academic';
+        if (!currentTest.exportStyle) currentTest.exportStyle = {};
+        currentTest.exportStyle.theme = defTheme;
+        currentTest.stylesheetTheme = defTheme;
         activeStudents = [];
         try {
           localStorage.removeItem('cmt_active_test');
         } catch (_) {}
         renderTestMeta();
         renderExerciseCards();
-        if (window.showToast) showToast('Created new blank test');
+        if (window.showToast) showToast(i18n.t('tcCreatedNewTest', 'Created new blank test'));
       };
 
       window.tcDuplicateTest = function () {
@@ -8381,7 +8641,7 @@
         } catch (_) {}
         renderTestMeta();
         renderExerciseCards();
-        if (window.showToast) showToast('Duplicated test');
+        if (window.showToast) showToast(i18n.t('tcDuplicatedTest', 'Duplicated test'));
       };
 
       window.tcResetTest = function () {
@@ -8405,7 +8665,7 @@
 
       window.tcSyncWithCompetencePortfolio = async function () {
         await TestCreatorService.registerCompetencesInPortfolio(currentTest);
-        if (window.showToast) showToast('Synced test with Competence Portfolio!');
+        if (window.showToast) showToast(i18n.t('tcSyncedPortfolio', 'Synced test with Competence Portfolio!'));
       };
 
       window.tcOpenShortcuts = function () {
@@ -8553,6 +8813,16 @@
       });
 
       if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        try {
+          var _langChannel = new BroadcastChannel('cmt_lang_channel');
+          _langChannel.onmessage = function (ev) {
+            if (ev && ev.data && ev.data.type === 'lang_changed') {
+              if (typeof applyTranslations === 'function') applyTranslations();
+              renderTestMeta();
+              renderExerciseCards();
+            }
+          };
+        } catch (_) {}
         try {
           var _dataChannel = new BroadcastChannel('cmt_data_sync');
           _dataChannel.onmessage = async function (ev) {

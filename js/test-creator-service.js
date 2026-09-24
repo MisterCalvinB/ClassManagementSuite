@@ -409,6 +409,7 @@
 
   // ── 2b3. Page Margins & Export Style Defaults ──────────────────────────────
   TestCreatorService.DEFAULT_EXPORT_STYLE = {
+    theme: 'academic',
     fontSize: '11pt',
     lineHeight: 1.5,
     padding: '14px',
@@ -436,6 +437,8 @@
     }
     var es = test.exportStyle;
     var d = TestCreatorService.DEFAULT_EXPORT_STYLE;
+    if (!es.theme) es.theme = test.stylesheetTheme || d.theme || 'academic';
+    if (!test.stylesheetTheme) test.stylesheetTheme = es.theme;
     if (!es.fontSize) es.fontSize = d.fontSize;
     if (!es.lineHeight) es.lineHeight = d.lineHeight;
     if (!es.padding) es.padding = d.padding;
@@ -1103,6 +1106,9 @@
     if (template.exportStyle && typeof template.exportStyle === 'object') {
       test.exportStyle = JSON.parse(JSON.stringify(template.exportStyle));
     }
+    test.stylesheetTheme = template.stylesheetTheme || (test.exportStyle && test.exportStyle.theme) || (typeof localStorage !== 'undefined' && localStorage.getItem('cmt_default_test_theme')) || 'academic';
+    if (!test.exportStyle) test.exportStyle = {};
+    test.exportStyle.theme = test.stylesheetTheme;
     TestCreatorService.ensureHeaderConfig(test);
     TestCreatorService.ensureExportStyle(test);
 
@@ -1141,6 +1147,7 @@
       scope: test.scope || '',
       materialsAllowed: Array.isArray(test.materialsAllowed) ? test.materialsAllowed.slice() : ['Pen & Pencil only'],
       headerConfig: JSON.parse(JSON.stringify(test.headerConfig || TestCreatorService.DEFAULT_HEADER_CONFIG)),
+      stylesheetTheme: test.stylesheetTheme || (test.exportStyle && test.exportStyle.theme) || 'academic',
       exportStyle: JSON.parse(JSON.stringify(test.exportStyle || TestCreatorService.DEFAULT_EXPORT_STYLE)),
       exercises: JSON.parse(JSON.stringify(test.exercises || [])),
       isCustom: true,
@@ -1276,6 +1283,9 @@
   }
 
   TestCreatorService.createEmptyTest = function () {
+    var defaultTheme = (typeof localStorage !== 'undefined' && localStorage.getItem('cmt_default_test_theme')) || 'academic';
+    var defaultStyle = JSON.parse(JSON.stringify(TestCreatorService.DEFAULT_EXPORT_STYLE));
+    defaultStyle.theme = defaultTheme;
     return {
       id: generateUUID(),
       title: '',
@@ -1292,7 +1302,8 @@
       targetPoints: 20,
       linkedCompetenceIds: [],
       tags: [],
-      exportStyle: JSON.parse(JSON.stringify(TestCreatorService.DEFAULT_EXPORT_STYLE)),
+      stylesheetTheme: defaultTheme,
+      exportStyle: defaultStyle,
       exercises: [],
       createdAt: Date.now(),
       updatedAt: Date.now()
@@ -3352,7 +3363,7 @@
     var opts = options || {};
     var isTeacherKey = !!opts.isTeacherKey;
     var variant = opts.variant || test.variant || 'A';
-    var themeName = opts.stylesheetTheme || 'academic';
+    var themeName = opts.stylesheetTheme || (test && test.exportStyle && (test.exportStyle.theme || test.exportStyle.stylesheetTheme)) || (test && test.stylesheetTheme) || 'academic';
     var studentName = opts.studentName || '';
     var className = opts.className || test.className || '';
     var totalPts = TestCreatorService.calculateTotalTestPoints(test);
@@ -3844,7 +3855,7 @@
 
   TestCreatorService.exportClassBatch = function (test, students, variantAssignments, options) {
     var opts = options || {};
-    var themeName = opts.stylesheetTheme || 'academic';
+    var themeName = opts.stylesheetTheme || (test && test.exportStyle && (test.exportStyle.theme || test.exportStyle.stylesheetTheme)) || (test && test.stylesheetTheme) || 'academic';
     var isTeacherKey = !!opts.isTeacherKey;
     var globalStyle = Object.assign(
       JSON.parse(JSON.stringify(TestCreatorService.DEFAULT_EXPORT_STYLE)),
