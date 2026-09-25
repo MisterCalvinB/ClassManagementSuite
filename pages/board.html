@@ -19908,26 +19908,81 @@
         if (typeof _conStartLinkMode === 'function') _conStartLinkMode(srcId);
       };
       window.conAdjustSelectedFontSize = function (delta) {
-        const hasSelection = conSelected || (conMultiSelected && conMultiSelected.size > 0);
-        if (!hasSelection) return;
-        const targets = (conMultiSelected && conMultiSelected.size > 0)
-          ? conNodes.filter(n => conMultiSelected.has(n.id))
-          : [conNodes.find(n => n.id === conSelected)].filter(Boolean);
-        if (!targets.length) return;
+        const hasNodeSelection = conSelected || (conMultiSelected && conMultiSelected.size > 0);
+        const hasNoteSelection = typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0;
+        if (!hasNodeSelection && !hasNoteSelection) return;
+        const targets = hasNodeSelection
+          ? ((conMultiSelected && conMultiSelected.size > 0)
+              ? conNodes.filter(n => conMultiSelected.has(n.id))
+              : [conNodes.find(n => n.id === conSelected)].filter(Boolean))
+          : [];
+        const allLiveNotes = (typeof window.conGetNotes === 'function') ? window.conGetNotes() : (typeof conNotes !== 'undefined' ? conNotes : []);
+        const noteTargets = hasNoteSelection
+          ? allLiveNotes.filter(n => conNoteSelected.has(n.id) || conNoteSelected.has(String(n.id)))
+          : [];
+        if (!targets.length && !noteTargets.length) return;
         conPushUndo();
-        targets.forEach(node => {
-          if (conIsNodeLocked(node)) return;
-          const current = conGetNodeBaseFontSize(node) || 13;
-          const next = delta > 0 ? Math.min(current + delta, 48) : Math.max(current + delta, 8);
-          conSetNodeBaseFontSize(node, next);
-          conApplyNodeShape(node, node.shape);
-        });
-        const lastSize = conGetNodeBaseFontSize(targets[targets.length - 1]) || 13;
-        const slider = document.getElementById('con-ctx-font-size');
-        const display = document.getElementById('con-ctx-font-size-display');
-        if (slider) slider.value = lastSize;
-        if (display) display.textContent = lastSize;
-        conRedrawEdges();
+        window._conSuppressMirrorObserver = true;
+        const resizedNodes = [];
+        const _sizeAffectedPhraseGroups = new Set();
+        try {
+          targets.forEach(node => {
+            if (conIsNodeLocked(node)) return;
+            const current = conGetNodeBaseFontSize(node) || 13;
+            const next = delta > 0 ? Math.min(current + delta, 48) : Math.max(current + delta, 8);
+            conSetNodeBaseFontSize(node, next);
+            conApplyNodeShape(node, node.shape);
+            resizedNodes.push({ id: String(node.id), fontSize: next, shape: node.shape });
+            if (typeof conGroupOfNode === 'function') {
+              const _pg = conGroupOfNode(node.id);
+              if (_pg && _pg.phraseGroup) _sizeAffectedPhraseGroups.add(_pg);
+            }
+          });
+          noteTargets.forEach(note => {
+            if (note.locked) return;
+            const current = parseFloat(note.fontSize) || 14;
+            const next = delta > 0 ? Math.min(current + delta, 72) : Math.max(current + delta, 8);
+            note.fontSize = next;
+            if (typeof note._applyStyle === 'function') note._applyStyle();
+            if (window._conMirrorSend) {
+              window._conMirrorSend({
+                type: 'note-style',
+                id: String(note.id),
+                fontSize: next
+              });
+            }
+          });
+          if (targets.length) {
+            const lastSize = conGetNodeBaseFontSize(targets[targets.length - 1]) || 13;
+            const slider = document.getElementById('con-ctx-font-size');
+            const display = document.getElementById('con-ctx-font-size-display');
+            if (slider) slider.value = lastSize;
+            if (display) display.textContent = lastSize;
+          }
+          if (_sizeAffectedPhraseGroups.size > 0 && typeof conPhraseGroupLayout === 'function') {
+            _sizeAffectedPhraseGroups.forEach(pg => conPhraseGroupLayout(pg));
+          }
+          conRedrawEdges();
+          if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
+
+          if (resizedNodes.length && window._conMirrorSend) {
+            if (resizedNodes.length === 1) {
+              window._conMirrorSend({
+                type: 'node-resize',
+                id: resizedNodes[0].id,
+                fontSize: resizedNodes[0].fontSize,
+                shape: resizedNodes[0].shape
+              });
+            } else {
+              window._conMirrorSend({
+                type: 'nodes-resize',
+                nodes: resizedNodes
+              });
+            }
+          }
+        } finally {
+          setTimeout(function () { window._conSuppressMirrorObserver = false; }, 60);
+        }
       };
       window.conGroupSelected = function () { if (typeof conGroupSelected === 'function') conGroupSelected(); };
       window.conGroupUngroup = function (groupId) { if (typeof conGroupUngroup === 'function') conGroupUngroup(groupId || conGroupFocused); };
@@ -24129,25 +24184,50 @@
 
       window.conCtxApplySize = function () {
         if (!_conApplySizeUndoPushed) { conPushUndo(); _conApplySizeUndoPushed = true; }
-        const fontSize = (document.getElementById('con-ctx-font-size').value || 16) + 'px';
+        const rawVal = document.getElementById('con-ctx-font-size') ? document.getElementById('con-ctx-font-size').value : 16;
+        const fontSize = (rawVal || 16) + 'px';
+        const numFontSize = parseFloat(rawVal) || 16;
         // Apply to multi-selected set if there are multiple; otherwise just the ctx node
         const targets = (conMultiSelected.size > 1)
           ? conNodes.filter(n => conMultiSelected.has(n.id))
           : (conCtxNodeId ? [conNodes.find(n => n.id === conCtxNodeId)].filter(Boolean) : []);
         const _sizeAffectedPhraseGroups = new Set();
-        targets.forEach(node => {
-          if (conIsNodeLocked(node)) return;
-          conSetNodeBaseFontSize(node, fontSize);
-          conApplyNodeShape(node, node.shape);
-          const _pg = conGroupOfNode(node.id);
-          if (_pg && _pg.phraseGroup) _sizeAffectedPhraseGroups.add(_pg);
-        });
-        conRedrawEdges();
-        if (_sizeAffectedPhraseGroups.size > 0) {
-          // Re-layout phrase groups in-place — don't spread
-          requestAnimationFrame(() => {
-            _sizeAffectedPhraseGroups.forEach(pg => conPhraseGroupLayout(pg));
+        const resizedNodes = [];
+        window._conSuppressMirrorObserver = true;
+        try {
+          targets.forEach(node => {
+            if (conIsNodeLocked(node)) return;
+            conSetNodeBaseFontSize(node, fontSize);
+            conApplyNodeShape(node, node.shape);
+            resizedNodes.push({ id: String(node.id), fontSize: numFontSize, shape: node.shape });
+            const _pg = conGroupOfNode(node.id);
+            if (_pg && _pg.phraseGroup) _sizeAffectedPhraseGroups.add(_pg);
           });
+          conRedrawEdges();
+          if (_sizeAffectedPhraseGroups.size > 0 && typeof conPhraseGroupLayout === 'function') {
+            // Re-layout phrase groups in-place — don't spread
+            requestAnimationFrame(() => {
+              _sizeAffectedPhraseGroups.forEach(pg => conPhraseGroupLayout(pg));
+            });
+          }
+          if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
+          if (resizedNodes.length && window._conMirrorSend) {
+            if (resizedNodes.length === 1) {
+              window._conMirrorSend({
+                type: 'node-resize',
+                id: resizedNodes[0].id,
+                fontSize: resizedNodes[0].fontSize,
+                shape: resizedNodes[0].shape
+              });
+            } else {
+              window._conMirrorSend({
+                type: 'nodes-resize',
+                nodes: resizedNodes
+              });
+            }
+          }
+        } finally {
+          setTimeout(function () { window._conSuppressMirrorObserver = false; }, 60);
         }
       };
 
@@ -29650,28 +29730,12 @@
           if (document.activeElement && document.activeElement.isContentEditable) return;
           const sec = document.getElementById('constellation-section');
           if (!sec || sec.classList.contains('hidden')) return;
-          const hasSelection = conSelected || conMultiSelected.size > 0;
+          const hasSelection = conSelected || (conMultiSelected && conMultiSelected.size > 0) || (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0);
           if (!hasSelection) return;
           e.preventDefault();
-          const targets = conMultiSelected.size > 0
-            ? conNodes.filter(n => conMultiSelected.has(n.id))
-            : [conNodes.find(n => n.id === conSelected)].filter(Boolean);
-          if (!targets.length) return;
-          conPushUndo();
-          targets.forEach(node => {
-            if (conIsNodeLocked(node)) return;
-            const current = conGetNodeBaseFontSize(node) || 13;
-            const next = e.key === 'ArrowUp' ? Math.min(current + 1, 48) : Math.max(current - 1, 8);
-            conSetNodeBaseFontSize(node, next);
-            conApplyNodeShape(node, node.shape);
-          });
-          // Sync the slider/display to the last target's size
-          const lastSize = conGetNodeBaseFontSize(targets[targets.length - 1]) || 13;
-          const slider = document.getElementById('con-ctx-font-size');
-          const display = document.getElementById('con-ctx-font-size-display');
-          if (slider) slider.value = lastSize;
-          if (display) display.textContent = lastSize;
-          conRedrawEdges();
+          if (typeof window.conAdjustSelectedFontSize === 'function') {
+            window.conAdjustSelectedFontSize(e.key === 'ArrowUp' ? 1 : -1);
+          }
           return;
         }
         if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
@@ -54129,21 +54193,35 @@
           return;
         }
 
-        if (d.type === 'node-resize') {
+        if (d.type === 'node-resize' || d.type === 'nodes-resize') {
           if (_mirrorIsFrozen) return;
           var _liveNodes = window.conGetNodes ? window.conGetNodes() : [];
-          var nObj = _liveNodes.find(function (n) { return String(n.id) === String(d.id); });
-          var nel = document.getElementById(d.id);
-          if (nObj || nel) {
-            if (typeof d.fontSize === 'number' && typeof window.conSetNodeBaseFontSize === 'function') {
-              window.conSetNodeBaseFontSize(nObj || nel, d.fontSize);
+          var items = Array.isArray(d.nodes) ? d.nodes : (d.id ? [{ id: d.id, fontSize: d.fontSize, shape: d.shape }] : []);
+          var nodeMap = new Map(_liveNodes.map(function (n) { return [String(n.id), n]; }));
+          var phraseGroupsToUpdate = new Set();
+          items.forEach(function (item) {
+            if (!item || !item.id) return;
+            var nObj = nodeMap.get(String(item.id));
+            var nel = document.getElementById(item.id);
+            if (nObj || nel) {
+              var parsedFs = parseFloat(item.fontSize);
+              if (Number.isFinite(parsedFs) && parsedFs > 0 && typeof window.conSetNodeBaseFontSize === 'function') {
+                window.conSetNodeBaseFontSize(nObj || nel, parsedFs);
+              }
+              if (nObj && typeof window.conApplyNodeShape === 'function') {
+                window.conApplyNodeShape(nObj, item.shape || nObj.shape);
+              }
+              if (typeof conGroupOfNode === 'function') {
+                var pg = conGroupOfNode(item.id);
+                if (pg && pg.phraseGroup) phraseGroupsToUpdate.add(pg);
+              }
             }
-            if (nObj && typeof window.conApplyNodeShape === 'function') {
-              window.conApplyNodeShape(nObj, d.shape || nObj.shape);
-            }
-            if (typeof conRedrawEdges === 'function') conRedrawEdges();
-            if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
+          });
+          if (phraseGroupsToUpdate.size > 0 && typeof conPhraseGroupLayout === 'function') {
+            phraseGroupsToUpdate.forEach(function (pg) { conPhraseGroupLayout(pg); });
           }
+          if (typeof conRedrawEdges === 'function') conRedrawEdges();
+          if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
           return;
         }
 
