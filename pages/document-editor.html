@@ -34,8 +34,12 @@
         <button class="nav-pop-item" id="btn-save-all-doc">Save All <span class="nav-pop-hint">Ctrl+⇧S</span></button>
         <hr class="nav-pop-sep">
         <button class="nav-pop-item" id="btn-doc-history">History</button>
+        <hr class="nav-pop-sep">
+        <button class="nav-pop-item" id="btn-de-file-gen-handout" onclick="deOpenPullLessonModal()"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="deGenHandoutFromLesson">Generate Student Handout…</span></button>
+        <button class="nav-pop-item" id="btn-de-file-attach-ref" onclick="deAttachReferenceFile()"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="deAttachReferenceFile">Attach Reference PDF / File…</span></button>
+        <button class="nav-pop-item" id="btn-de-file-mindmap" onclick="deConvertOutlineToMindmap()"><img src="../assets/icons/board.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="deConvertOutlineToMindmap">Convert Outline to Mindmap…</span></button>
         <hr class="nav-pop-sep" id="doc-pin-sep" style="display:none">
-        <button class="nav-pop-item" id="btn-pin-doc" style="display:none">📌 Pin Document</button>
+        <button class="nav-pop-item" id="btn-pin-doc" style="display:none"><img src="../assets/icons/pin.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /> Pin Document</button>
       </div>
     </div>
 
@@ -57,6 +61,9 @@
           style="display:none">
           <option value="">📂 Books…</option>
         </select>
+        <hr class="nav-pop-sep">
+        <button class="nav-pop-item" id="btn-de-insert-handout" onclick="deOpenPullLessonModal()"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="deGenHandoutFromLesson">Generate Student Handout…</span></button>
+        <button class="nav-pop-item" id="btn-de-insert-attach-ref" onclick="deAttachReferenceFile()"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="deAttachReferenceFile">Attach Reference PDF / File…</span></button>
       </div>
     </div>
 
@@ -215,6 +222,8 @@
         <button class="nav-pop-item" id="btn-export-docx">Export DOCX</button>
         <hr class="nav-pop-sep">
         <button class="nav-pop-item" id="btn-export-batch-mp">Batch Export (Mailposting)…</button>
+        <hr class="nav-pop-sep">
+        <button class="nav-pop-item" id="btn-de-export-mindmap" onclick="deConvertOutlineToMindmap()"><img src="../assets/icons/board.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="deConvertOutlineToMindmap">Convert Outline to Mindmap…</span></button>
       </div>
     </div>
 
@@ -230,8 +239,8 @@
       </div>
     </div>
 
-    <span id="mp-active-class-badge" class="mp-nav-badge" style="display:none">🎓 <span id="mp-class-badge-label">Class</span></span>
-    <span id="mp-active-preview-badge" class="mp-preview-active-badge" style="display:none">👤 <select id="mp-nav-student-select" class="mp-select-sm"></select></span>
+    <span id="mp-active-class-badge" class="mp-nav-badge" style="display:none"><img src="../assets/icons/groups.svg" class="btn-icon" alt="" style="width:12px;height:12px;vertical-align:-2px;margin-right:4px;" /><span id="mp-class-badge-label">Class</span></span>
+    <span id="mp-active-preview-badge" class="mp-preview-active-badge" style="display:none"><img src="../assets/icons/user-check.svg" class="btn-icon" alt="" style="width:12px;height:12px;vertical-align:-2px;margin-right:4px;" /><select id="mp-nav-student-select" class="mp-select-sm"></select></span>
 
     <div class="de-view-switcher" id="de-view-switcher" role="group" aria-label="View Mode">
       <button class="de-view-btn" id="btn-view-code" data-mode="code" data-i18n="deViewCode" title="Code Editor">Code</button>
@@ -254,7 +263,16 @@
     <div class="nav-sep" id="de-pres-sep" style="display:none"></div>
     <button id="btn-doc-type" title="Document type — click to toggle between Markdown, HTML, and Typst">MD</button>
     <span id="doc-name-indicator">Untitled</span>
-    <button class="nav-btn" id="btn-de-doc-links" style="display:none;font-weight:900;letter-spacing:0.5px;" onclick="deOpenDocLinksModal()" title="Document Links & Tags"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" />[LINKS: 0]</button>
+    <button class="nav-btn de-context-badge" id="btn-de-class-tag" style="display:none;font-weight:900;letter-spacing:0.5px;background:#fef08a;color:#713f12;border:2px solid #000;box-shadow:2px 2px 0px #000;padding:2px 7px;border-radius:4px;cursor:pointer;" onclick="deOpenClassLinkModal()" title="Linked Class Group">
+      <img src="../assets/icons/groups.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span id="de-class-tag-label">[CLASS: --]</span>
+    </button>
+    <button class="nav-btn de-context-badge" id="btn-de-linked-grade" style="display:none;font-weight:900;letter-spacing:0.5px;background:#e0f2fe;color:#0369a1;border:2px solid #000;box-shadow:2px 2px 0px #000;padding:2px 7px;border-radius:4px;cursor:pointer;" onclick="deOpenLinkedGradeSheet()" title="Open Linked Grade Sheet Test">
+      <img src="../assets/icons/grade-sheet.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span id="de-linked-grade-label">[GRADE SHEET]</span>
+    </button>
+    <button class="nav-btn de-context-badge" id="btn-de-linked-file" style="display:none;font-weight:900;letter-spacing:0.5px;background:#f1f5f9;color:#334155;border:2px solid #000;box-shadow:2px 2px 0px #000;padding:2px 7px;border-radius:4px;cursor:pointer;" onclick="deOpenLinkedRefFile()" title="Open Attached Reference File">
+      <img src="../assets/icons/file-text.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span id="de-linked-file-label">[ATTACHED FILE]</span>
+    </button>
+    <button class="nav-btn" id="btn-de-doc-links" style="display:none;font-weight:900;letter-spacing:0.5px;border:2px solid #000;box-shadow:2px 2px 0px #000;" onclick="deOpenDocLinksModal()" title="Document Links & Tags"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span id="btn-de-doc-links-text">[LINKS: 0]</span></button>
     <div class="hm-wrap" id="main-hm-wrap">
       <button class="nav-btn tut-trigger-btn" style="border:1px solid #555;padding:4px 8px;" onclick="openDeShortcuts()"
         data-i18n-title="skmTitle" title="Keyboard Shortcuts">?</button>
@@ -556,6 +574,177 @@
     </div>
   </div>
 
+  <!-- ── Pull Lesson / Generate Handout Modal (Section 3.D) ──── -->
+  <div id="de-pull-lesson-modal" class="modal-overlay" hidden>
+    <div class="modal-box" style="max-width:640px;border:3px solid #000;box-shadow:6px 6px 0px #000;border-radius:0;">
+      <div class="modal-header" style="background:#fef08a;border-bottom:2px solid #000;padding:10px 14px;">
+        <span class="modal-title" style="font-weight:900;letter-spacing:0.5px;color:#000;display:flex;align-items:center;gap:6px;">
+          <img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:16px;height:16px;" />
+          <span data-i18n="dePullFromLessonTitle">Generate Student Handout from Lesson Plan</span>
+        </span>
+        <button class="modal-close-btn" id="de-pull-lesson-close" onclick="deClosePullLessonModal()" style="font-weight:900;color:#000;">✕</button>
+      </div>
+      <div class="modal-body" style="padding:14px;background:#fff;">
+        <div style="margin-bottom:12px;">
+          <label style="display:block;font-size:0.8rem;font-weight:800;text-transform:uppercase;margin-bottom:4px;color:#000;" data-i18n="deSelectLessonPrompt">Select a lesson plan to extract:</label>
+          <select id="de-lesson-select" class="mp-form-select" onchange="deOnLessonSelected()" style="border:2px solid #000;border-radius:0;box-shadow:2px 2px 0px #000;font-weight:600;padding:6px 8px;width:100%;">
+            <option value="">Loading lesson plans…</option>
+          </select>
+        </div>
+
+        <!-- Lesson Preview Box -->
+        <div id="de-lesson-preview-box" style="display:none;background:#f8fafc;border:2px solid #000;padding:10px;margin-bottom:12px;box-shadow:2px 2px 0px #000;">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid #000;padding-bottom:4px;margin-bottom:6px;">
+            <div id="de-lesson-preview-title" style="font-weight:900;font-size:0.95rem;color:#000;">Lesson Title</div>
+            <div id="de-lesson-preview-meta" style="font-size:0.75rem;font-weight:700;color:#475569;">Subject • Class</div>
+          </div>
+          <div style="font-size:0.78rem;margin-bottom:6px;">
+            <strong>Vocabulary / Notions:</strong>
+            <div id="de-lesson-preview-vocab" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;"></div>
+          </div>
+          <div style="font-size:0.78rem;">
+            <strong>Lesson Phases:</strong>
+            <div id="de-lesson-preview-phases" style="max-height:90px;overflow-y:auto;margin-top:4px;border:1px solid #cbd5e1;padding:4px;background:#fff;"></div>
+          </div>
+        </div>
+
+        <!-- Handout Content Checkboxes -->
+        <div style="margin-bottom:12px;">
+          <div style="font-size:0.8rem;font-weight:800;text-transform:uppercase;margin-bottom:6px;color:#000;" data-i18n="deHandoutOptions">Handout Content & Structure:</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:0.82rem;font-weight:600;">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="checkbox" id="de-opt-header" checked style="accent-color:#000;" />
+              <span data-i18n="deOptIncludeHeader">Student Name, Date & Class header</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="checkbox" id="de-opt-objectives" checked style="accent-color:#000;" />
+              <span data-i18n="deOptIncludeObjectives">Lesson Learning Objectives</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="checkbox" id="de-opt-vocab" checked style="accent-color:#000;" />
+              <span data-i18n="deOptIncludeVocab">Vocabulary & Definitions table</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="checkbox" id="de-opt-phases" checked style="accent-color:#000;" />
+              <span data-i18n="deOptIncludePhases">Activities & Student Answer areas</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="checkbox" id="de-opt-homework" checked style="accent-color:#000;" />
+              <span data-i18n="deOptIncludeHomework">Homework & Extension reflection</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Insertion Mode -->
+        <div style="background:#f1f5f9;border:2px solid #000;padding:8px;margin-bottom:12px;">
+          <div style="font-size:0.78rem;font-weight:800;text-transform:uppercase;margin-bottom:4px;color:#000;" data-i18n="deInsertMode">Insertion Mode:</div>
+          <div style="display:flex;gap:16px;font-size:0.82rem;font-weight:700;">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="radio" name="de-insert-mode" value="cursor" checked style="accent-color:#000;" />
+              <span data-i18n="deInsertAtCursor">Insert at Current Cursor Position</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="radio" name="de-insert-mode" value="replace" style="accent-color:#000;" />
+              <span data-i18n="deReplaceDoc">Replace Entire Document</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="modal-actions" style="display:flex;justify-content:flex-end;gap:10px;margin-top:14px;">
+          <button type="button" class="modal-btn modal-btn-cancel" onclick="deClosePullLessonModal()" style="border:2px solid #000;box-shadow:2px 2px 0px #000;font-weight:700;border-radius:0;">Cancel</button>
+          <button type="button" class="modal-btn" id="de-btn-exec-handout" onclick="deExecutePullLesson()" style="background:#fef08a;color:#000;border:2px solid #000;box-shadow:3px 3px 0px #000;font-weight:900;border-radius:0;" data-i18n="deBtnGenerateHandout" disabled>Generate Handout</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Mindmap Outline Selector Modal ──────────────────── -->
+  <div id="de-mindmap-modal" class="modal-overlay" hidden>
+    <div class="modal-box" style="max-width:700px;border:3px solid #000;box-shadow:6px 6px 0px #000;border-radius:0;">
+      <div class="modal-header" style="background:#fef08a;border-bottom:2px solid #000;padding:10px 14px;">
+        <span class="modal-title" style="font-weight:900;letter-spacing:0.5px;color:#000;display:flex;align-items:center;gap:6px;">
+          <img src="../assets/icons/board.svg" class="btn-icon" alt="" style="width:16px;height:16px;" />
+          <span data-i18n="deMindmapModalTitle">Export Outline to Board Mindmap</span>
+        </span>
+        <button class="modal-close-btn" onclick="deCloseMindmapModal()" style="font-weight:900;color:#000;">✕</button>
+      </div>
+      <div class="modal-body" style="padding:14px;background:#fff;">
+        <div style="font-size:0.82rem;font-weight:600;color:#334155;margin-bottom:12px;" data-i18n="deMindmapModalDesc">
+          Select elements and headings from the document outline to include in the mindmap:
+        </div>
+
+        <!-- Central topic & Layout options -->
+        <div style="display:grid;grid-template-columns:1fr 180px;gap:10px;margin-bottom:12px;background:#f8fafc;border:2px solid #000;padding:10px;box-shadow:2px 2px 0px #000;">
+          <div>
+            <label style="display:block;font-size:0.75rem;font-weight:800;text-transform:uppercase;margin-bottom:4px;color:#000;" data-i18n="deMindmapCentralTopic">Central Topic:</label>
+            <input type="text" id="de-mm-central-topic" class="tb-input" style="width:100%;border:2px solid #000;border-radius:0;box-shadow:2px 2px 0px #000;padding:5px 8px;font-weight:700;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:0.75rem;font-weight:800;text-transform:uppercase;margin-bottom:4px;color:#000;" data-i18n="deMindmapLayout">Layout:</label>
+            <select id="de-mm-layout-select" class="mp-form-select" style="width:100%;border:2px solid #000;border-radius:0;box-shadow:2px 2px 0px #000;padding:5px 6px;font-weight:700;">
+              <option value="tree" data-i18n="deMindmapLayoutTree" selected>Horizontal Tree (Hierarchy)</option>
+              <option value="tree-v" data-i18n="deMindmapLayoutTreeV">Top-Down Tree</option>
+              <option value="radial" data-i18n="deMindmapLayoutRadial">Radial / Starburst</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Selection toolbar -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
+          <div style="display:flex;gap:6px;">
+            <button type="button" class="tb-btn" onclick="deMindmapSetSelection('all')" style="border:2px solid #000;border-radius:0;box-shadow:2px 2px 0px #000;font-size:0.75rem;font-weight:800;padding:3px 8px;background:#fff;" data-i18n="deMindmapSelectAll">Select All</button>
+            <button type="button" class="tb-btn" onclick="deMindmapSetSelection('none')" style="border:2px solid #000;border-radius:0;box-shadow:2px 2px 0px #000;font-size:0.75rem;font-weight:800;padding:3px 8px;background:#fff;" data-i18n="deMindmapDeselectAll">Deselect All</button>
+            <button type="button" class="tb-btn" onclick="deMindmapSetSelection('headings')" style="border:2px solid #000;border-radius:0;box-shadow:2px 2px 0px #000;font-size:0.75rem;font-weight:800;padding:3px 8px;background:#fff;" data-i18n="deMindmapHeadingsOnly">Headings Only</button>
+          </div>
+          <div id="de-mm-counter" style="font-size:0.78rem;font-weight:800;color:#000;background:#e0f2fe;border:2px solid #000;padding:2px 8px;box-shadow:2px 2px 0px #000;">
+            0 elements selected
+          </div>
+        </div>
+
+        <!-- Tree container -->
+        <div id="de-mm-tree-container" style="max-height:300px;min-height:120px;overflow-y:auto;border:2px solid #000;padding:6px;background:#fff;box-shadow:inset 1px 1px 0px rgba(0,0,0,0.1);">
+          <!-- Dynamic outline tree rows with checkboxes -->
+        </div>
+
+        <div class="modal-actions" style="display:flex;justify-content:flex-end;gap:10px;margin-top:14px;">
+          <button type="button" class="modal-btn modal-btn-cancel" onclick="deCloseMindmapModal()" style="border:2px solid #000;box-shadow:2px 2px 0px #000;font-weight:700;border-radius:0;">Cancel</button>
+          <button type="button" class="modal-btn" id="de-btn-exec-mindmap" onclick="deExecuteMindmapExport()" style="background:#fef08a;color:#000;border:2px solid #000;box-shadow:3px 3px 0px #000;font-weight:900;border-radius:0;display:flex;align-items:center;gap:6px;">
+            <img src="../assets/icons/board.svg" class="btn-icon" alt="" style="width:14px;height:14px;" />
+            <span data-i18n="deMindmapExportBtn">Export to Board</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Class Link Modal (Section 3.D) ────────────────────── -->
+  <div id="de-class-link-modal" class="modal-overlay" hidden>
+    <div class="modal-box" style="max-width:480px;border:3px solid #000;box-shadow:6px 6px 0px #000;border-radius:0;">
+      <div class="modal-header" style="background:#fef08a;border-bottom:2px solid #000;padding:10px 14px;">
+        <span class="modal-title" style="font-weight:900;letter-spacing:0.5px;color:#000;display:flex;align-items:center;gap:6px;">
+          <img src="../assets/icons/groups.svg" class="btn-icon" alt="" style="width:16px;height:16px;" />
+          <span data-i18n="deLinkClassTitle">Link Document to Class Curriculum</span>
+        </span>
+        <button class="modal-close-btn" onclick="deCloseClassLinkModal()" style="font-weight:900;color:#000;">✕</button>
+      </div>
+      <div class="modal-body" style="padding:14px;background:#fff;">
+        <div style="margin-bottom:14px;">
+          <label style="display:block;font-size:0.8rem;font-weight:800;text-transform:uppercase;margin-bottom:4px;color:#000;" data-i18n="deSelectClassPrompt">Choose a class group to link this document to:</label>
+          <select id="de-link-class-select" class="mp-form-select" style="border:2px solid #000;border-radius:0;box-shadow:2px 2px 0px #000;font-weight:600;padding:6px 8px;width:100%;">
+            <option value="">-- No Class Linked --</option>
+          </select>
+        </div>
+        <div class="modal-actions" style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;">
+          <button type="button" class="modal-btn" onclick="deUnlinkCurrentClass()" id="btn-de-unlink-class" style="border:2px solid #ef4444;color:#ef4444;background:#fff;font-weight:700;border-radius:0;display:none;">Unlink Class</button>
+          <div style="display:flex;gap:10px;margin-left:auto;">
+            <button type="button" class="modal-btn modal-btn-cancel" onclick="deCloseClassLinkModal()" style="border:2px solid #000;box-shadow:2px 2px 0px #000;font-weight:700;border-radius:0;">Cancel</button>
+            <button type="button" class="modal-btn" onclick="deConfirmClassLink()" style="background:#fef08a;color:#000;border:2px solid #000;box-shadow:3px 3px 0px #000;font-weight:900;border-radius:0;">Link Class</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ── Mailposting Field Picker Modal ───────────────────── -->
   <div id="mp-field-picker-modal" class="modal-overlay" hidden>
     <div class="modal-box modal-narrow">
@@ -751,6 +940,9 @@
   <script src="../js/tag-link-modal.js"></script>
   <script>
     'use strict';
+
+    const _initialSearchParams = new URLSearchParams(window.location.search);
+    let _initialLoadDone = false;
 
     // ── State ────────────────────────────────────────────────
     let mdEditor = null;
@@ -2045,7 +2237,7 @@
     if (new URLSearchParams(window.location.search).get('presentation') !== '1') {
       require.config({ paths: { vs: '../modules/monaco-editor/min/vs' } });
 
-      require(['vs/editor/editor.main'], function () {
+      require(['vs/editor/editor.main'], async function () {
       if (typeof registerTypstLanguage === 'function') {
         registerTypstLanguage(monaco);
       }
@@ -2184,8 +2376,8 @@
       });
 
       renderPreview();
-      loadPersistedState();
-      openFromQueryParams();
+      await loadPersistedState();
+      await openFromQueryParams(_initialSearchParams);
     });
     }
 
@@ -2789,21 +2981,28 @@
     async function loadDoc(relativePath) {
       if (!window.Desktop || !Desktop.isElectron()) return;
       try {
-        const r = await Desktop.readByPath('docEditorDocs', relativePath);
+        let normRel = String(relativePath || '').replace(/\\/g, '/').trim().replace(/^\/+/, '');
+        if (normRel.startsWith('docEditorDocs/')) normRel = normRel.slice('docEditorDocs/'.length);
+        else if (normRel.startsWith('user/document-editor/docs/')) normRel = normRel.slice('user/document-editor/docs/'.length);
+        else if (normRel.startsWith('document-editor/docs/')) normRel = normRel.slice('document-editor/docs/'.length);
+        else if (normRel.startsWith('doceditor/')) normRel = normRel.slice('doceditor/'.length);
+
+        const r = await Desktop.readByPath('docEditorDocs', normRel);
         if (r && r.ok) {
           const inlineState = deExtractStyleBlocks(r.content || '');
-          const legacy = await deLoadLegacyManagedDocState(relativePath);
+          const legacy = await deLoadLegacyManagedDocState(normRel);
           const mergedCss = deMergeCssText(inlineState.cssText, legacy.cssText);
           mdEditor.setValue(inlineState.content || '');
-          currentDocName = deBasename(relativePath);
-          currentDocSubdir = deDirname(relativePath) || null;
+          currentDocName = deBasename(normRel);
+          currentDocSubdir = deDirname(normRel) || null;
           currentDocStoredInDocs = true;
           currentEditTarget = 'docEditorDocs';
-          currentEditRelPath = relativePath;
+          currentEditRelPath = normRel;
           currentOpenedDiskPath = null;
-          const lowerRel = relativePath.toLowerCase();
+          const lowerRel = normRel.toLowerCase();
           currentDocType = lowerRel.endsWith('.typ') ? 'typ' : (lowerRel.endsWith('.html') ? 'html' : 'md');
           docModified = false;
+          _initialLoadDone = true;
           updateDocIndicator();
           const typeBtn = document.getElementById('btn-doc-type');
           if (typeBtn) {
@@ -2819,15 +3018,39 @@
           syncPopupToState();
           applyPageLayoutToPreview();
           renderPreview();
+        } else {
+          showToast('Could not open document: ' + ((r && r.error) || normRel), true);
         }
       } catch (e) { showToast('Could not load: ' + e.message, true); }
     }
 
-    async function openFromQueryParams() {
-      const params = new URLSearchParams(window.location.search);
-      const target = params.get('editTarget');
-      const relPath = params.get('editRelPath');
-      const absPath = params.get('editAbsPath') || params.get('editFile');
+    function deScrollToSection(section) {
+      if (!section || !mdEditor) return;
+      try {
+        const model = mdEditor.getModel();
+        if (!model) return;
+        const cleanSec = decodeURIComponent(String(section)).toLowerCase().replace(/^#+/, '').trim();
+        if (!cleanSec) return;
+        const lineCount = model.getLineCount();
+        for (let i = 1; i <= lineCount; i++) {
+          const line = model.getLineContent(i).toLowerCase();
+          if (line.includes(cleanSec)) {
+            mdEditor.revealLineInCenter(i);
+            mdEditor.setPosition({ lineNumber: i, column: 1 });
+            mdEditor.focus();
+            break;
+          }
+        }
+      } catch (_) {}
+    }
+
+    async function openFromQueryParams(forcedParams) {
+      const params = forcedParams || _initialSearchParams || new URLSearchParams(window.location.search);
+      let target = params.get('editTarget') || params.get('target');
+      let relPath = params.get('editRelPath') || params.get('relPath') || params.get('file');
+      const absPath = params.get('editAbsPath') || params.get('editFile') || params.get('absPath');
+      const section = params.get('section') || params.get('anchor');
+
       if (params.get('importPending') === 'draft') {
         try {
           const draftStr = sessionStorage.getItem('cmt_doc_editor_draft');
@@ -2846,6 +3069,7 @@
               const lower = currentDocName.toLowerCase();
               currentDocType = lower.endsWith('.typ') ? 'typ' : (lower.endsWith('.html') ? 'html' : 'md');
               docModified = false;
+              _initialLoadDone = true;
               updateDocIndicator();
               const typeBtn = document.getElementById('btn-doc-type');
               if (typeBtn) {
@@ -2860,16 +3084,28 @@
               syncPopupToState && syncPopupToState();
               applyPageLayoutToPreview && applyPageLayoutToPreview();
               renderPreview();
+              if (section) deScrollToSection(section);
               return;
             }
           }
         } catch (e) {}
       }
-      if (target && relPath) {
+
+      if (target || relPath) {
+        if (!target) target = 'docEditorDocs';
+        let normRel = String(relPath || '').replace(/\\/g, '/').trim().replace(/^\/+/, '');
         if (target === 'docEditorDocs') {
-          await loadDoc(relPath);
+          if (normRel.startsWith('docEditorDocs/')) normRel = normRel.slice('docEditorDocs/'.length);
+          else if (normRel.startsWith('user/document-editor/docs/')) normRel = normRel.slice('user/document-editor/docs/'.length);
+          else if (normRel.startsWith('document-editor/docs/')) normRel = normRel.slice('document-editor/docs/'.length);
+          else if (normRel.startsWith('doceditor/')) normRel = normRel.slice('doceditor/'.length);
+          await loadDoc(normRel);
+        } else if (target === 'user' && (normRel.startsWith('document-editor/docs/') || normRel.startsWith('doceditor/'))) {
+          if (normRel.startsWith('document-editor/docs/')) normRel = normRel.slice('document-editor/docs/'.length);
+          else normRel = normRel.slice('doceditor/'.length);
+          await loadDoc(normRel);
         } else {
-          await loadExternalDoc(target, relPath);
+          await loadExternalDoc(target, normRel);
         }
       } else if (absPath) {
         await loadExternalDocByAbsPath(absPath);
@@ -2892,6 +3128,11 @@
             }
           }
         } catch (_) {}
+      }
+
+      _initialLoadDone = true;
+      if (section) {
+        setTimeout(() => deScrollToSection(section), 250);
       }
       updateDeDocLinksBadge();
     }
@@ -2938,20 +3179,33 @@
     async function loadExternalDoc(target, relPath) {
       if (!window.Desktop || !Desktop.isElectron()) return;
       try {
-        const r = await Desktop.readByPath(target, relPath);
+        let normRel = String(relPath || '').replace(/\\/g, '/').trim().replace(/^\/+/, '');
+        let effectiveTarget = target;
+        if (effectiveTarget === 'docEditorDocs' && normRel.startsWith('docEditorDocs/')) {
+          normRel = normRel.slice('docEditorDocs/'.length);
+        } else if (effectiveTarget === 'user' && normRel.startsWith('document-editor/docs/')) {
+          effectiveTarget = 'docEditorDocs';
+          normRel = normRel.slice('document-editor/docs/'.length);
+        } else if (effectiveTarget === 'user' && normRel.startsWith('doceditor/')) {
+          effectiveTarget = 'docEditorDocs';
+          normRel = normRel.slice('doceditor/'.length);
+        }
+
+        const r = await Desktop.readByPath(effectiveTarget, normRel);
         if (r && r.ok) {
           const inlineState = deExtractStyleBlocks(r.content || '');
           mdEditor.setValue(inlineState.content || '');
-          const lastSlash = relPath.lastIndexOf('/');
-          currentDocName = lastSlash >= 0 ? relPath.slice(lastSlash + 1) : relPath;
-          currentDocSubdir = lastSlash >= 0 ? relPath.slice(0, lastSlash) : null;
-          currentEditTarget = target;
-          currentEditRelPath = relPath;
-          currentDocStoredInDocs = (target === 'docEditorDocs');
+          const lastSlash = normRel.lastIndexOf('/');
+          currentDocName = lastSlash >= 0 ? normRel.slice(lastSlash + 1) : normRel;
+          currentDocSubdir = lastSlash >= 0 ? normRel.slice(0, lastSlash) : null;
+          currentEditTarget = effectiveTarget;
+          currentEditRelPath = normRel;
+          currentDocStoredInDocs = (effectiveTarget === 'docEditorDocs');
           currentOpenedDiskPath = null;
-          const lowerRel = relPath.toLowerCase();
+          const lowerRel = normRel.toLowerCase();
           currentDocType = lowerRel.endsWith('.typ') ? 'typ' : (lowerRel.endsWith('.html') ? 'html' : 'md');
           docModified = false;
+          _initialLoadDone = true;
           updateDocIndicator();
           const typeBtn2 = document.getElementById('btn-doc-type');
           if (typeBtn2) {
@@ -2967,7 +3221,7 @@
           applyPageLayoutToPreview();
           renderPreview();
         } else {
-          showToast('Could not open file from ' + target + ': ' + relPath, true);
+          showToast('Could not open file from ' + effectiveTarget + ': ' + normRel, true);
         }
       } catch (e) { showToast('Could not load: ' + e.message, true); }
     }
@@ -3191,6 +3445,7 @@
       if (docModified && mdEditor && mdEditor.getValue().trim()) {
         if (!await showConfirm('Discard unsaved changes?')) return;
       }
+      _initialLoadDone = true;
       mdEditor && mdEditor.setValue('');
       currentDocName = null;
       currentDocSubdir = null;
@@ -5903,6 +6158,7 @@
     }
 
     function dePersistActiveDocState() {
+      if (!_initialLoadDone) return;
       try {
         if (currentOpenedDiskPath) {
           localStorage.setItem('cmt-doceditor-last-open', JSON.stringify({ diskPath: currentOpenedDiskPath, name: currentDocName }));
@@ -5953,7 +6209,14 @@
       }
     }
 
-    // ── Cross-App Document Tagging & Linking ──────────────────
+    // ── Cross-App Document Tagging & Linking (Section 3.D) ────
+    let _deLinkedGradeUrn = null;
+    let _deLinkedRefFile = null;
+    let _deLinkedClassId = null;
+    let _deLinkedClassName = null;
+    let _deAllSavedLessons = [];
+    let _deSelectedLessonData = null;
+
     function getDeActiveDocUrn() {
       if (currentOpenedDiskPath) {
         return 'cmt:file:' + currentOpenedDiskPath.replace(/\\/g, '/');
@@ -5982,21 +6245,126 @@
 
     async function updateDeDocLinksBadge() {
       const btn = document.getElementById('btn-de-doc-links');
-      if (!btn) return;
+      const textSpan = document.getElementById('btn-de-doc-links-text');
+      const classBtn = document.getElementById('btn-de-class-tag');
+      const classLabel = document.getElementById('de-class-tag-label');
+      const gradeBtn = document.getElementById('btn-de-linked-grade');
+      const gradeLabel = document.getElementById('de-linked-grade-label');
+      const fileBtn = document.getElementById('btn-de-linked-file');
+      const fileLabel = document.getElementById('de-linked-file-label');
+
       const urn = getDeActiveDocUrn();
       if (!urn || typeof LinksService === 'undefined') {
-        btn.style.display = 'none';
+        if (btn) btn.style.display = 'none';
+        if (classBtn) classBtn.style.display = 'none';
+        if (gradeBtn) gradeBtn.style.display = 'none';
+        if (fileBtn) fileBtn.style.display = 'none';
         return;
       }
-      btn.style.display = 'inline-flex';
-      const iconHtml = '<img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" />';
+
+      if (btn) btn.style.display = 'inline-flex';
+
       try {
         const links = await LinksService.getLinksFor(urn);
         const tags = await LinksService.getTagsFor(urn);
         const tagPart = tags.length ? ` | TAGS: ${tags.length}` : '';
-        btn.innerHTML = `${iconHtml}[LINKS: ${links.length}${tagPart}]`;
+        if (textSpan) {
+          textSpan.textContent = `[LINKS: ${links.length}${tagPart}]`;
+        } else if (btn) {
+          btn.innerHTML = `<img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" />[LINKS: ${links.length}${tagPart}]`;
+        }
+
+        // 1. Class Group Link
+        let classLink = links.find(l => l.otherUrn && l.otherUrn.startsWith('cmt:class:'));
+        if (classLink) {
+          _deLinkedClassId = classLink.otherUrn.slice('cmt:class:'.length);
+          let cName = (classLink.meta && classLink.meta.className) ||
+            (window.mpState && mpState.classesMeta && mpState.classesMeta[_deLinkedClassId] && mpState.classesMeta[_deLinkedClassId].name) ||
+            _deLinkedClassId;
+          _deLinkedClassName = cName;
+          if (classBtn) {
+            classBtn.style.display = 'inline-flex';
+            classBtn.style.background = '#fef08a';
+            classBtn.style.color = '#713f12';
+            classBtn.style.borderColor = '#000';
+            if (classLabel) classLabel.textContent = `[CLASS: ${cName}]`;
+          }
+        } else if (window.mpState && mpState.connectedClassId) {
+          _deLinkedClassId = mpState.connectedClassId;
+          _deLinkedClassName = (mpState.connectedClass && mpState.connectedClass.name) || mpState.connectedClassId;
+          if (classBtn) {
+            classBtn.style.display = 'inline-flex';
+            classBtn.style.background = '#fef08a';
+            classBtn.style.color = '#713f12';
+            classBtn.style.borderColor = '#000';
+            if (classLabel) classLabel.textContent = `[CLASS: ${_deLinkedClassName}]`;
+          }
+        } else {
+          _deLinkedClassId = null;
+          _deLinkedClassName = null;
+          if (classBtn) {
+            classBtn.style.display = 'inline-flex';
+            classBtn.style.background = '#f8fafc';
+            classBtn.style.color = '#475569';
+            classBtn.style.borderColor = '#000';
+            if (classLabel) classLabel.textContent = `[+ CLASS]`;
+          }
+        }
+
+        // 2. Grade Sheet Test Link
+        let gradeLink = links.find(l => {
+          if (!l.otherUrn) return false;
+          return l.otherUrn.startsWith('cmt:grade:') ||
+            l.otherUrn.startsWith('cmt:gradesheet:') ||
+            l.otherUrn.startsWith('cmt:test:') ||
+            l.otherUrn.startsWith('cmt:eval:');
+        });
+        if (gradeLink) {
+          _deLinkedGradeUrn = gradeLink.otherUrn;
+          let testName = (gradeLink.meta && (gradeLink.meta.testTitle || gradeLink.meta.label)) ||
+            (gradeLink.targetMeta && gradeLink.targetMeta.title) ||
+            'Evaluation';
+          if (testName.length > 16) testName = testName.slice(0, 15) + '…';
+          if (gradeBtn) {
+            gradeBtn.style.display = 'inline-flex';
+            gradeBtn.title = (t('deLinkedGradeSheet') || 'GRADE SHEET') + ': ' + testName;
+            if (gradeLabel) gradeLabel.textContent = `[GRADE: ${testName}]`;
+          }
+        } else {
+          _deLinkedGradeUrn = null;
+          if (gradeBtn) gradeBtn.style.display = 'none';
+        }
+
+        // 3. Attached Reference File / PDF
+        let fileLink = links.find(l => {
+          if (!l.otherUrn) return false;
+          const u = l.otherUrn.toLowerCase();
+          return u.startsWith('cmt:file:') ||
+            u.endsWith('.pdf') ||
+            u.endsWith('.docx') ||
+            u.endsWith('.doc') ||
+            (l.meta && (l.meta.isAttachment || l.relation === 'reference_attachment' || l.relation === 'attachment'));
+        });
+        if (fileLink) {
+          _deLinkedRefFile = fileLink.otherUrn;
+          let rawName = (fileLink.meta && fileLink.meta.filename) ||
+            fileLink.otherUrn.split(/[\\/]/).pop() ||
+            'File';
+          const isPdf = rawName.toLowerCase().endsWith('.pdf');
+          let shortName = rawName.replace(/\.[^.]+$/, '');
+          if (shortName.length > 14) shortName = shortName.slice(0, 13) + '…';
+          if (fileBtn) {
+            fileBtn.style.display = 'inline-flex';
+            fileBtn.title = (isPdf ? (t('deAttachedPdf') || 'ATTACHED PDF') : (t('deAttachedFile') || 'ATTACHED FILE')) + ': ' + rawName;
+            if (fileLabel) fileLabel.textContent = `[${isPdf ? 'PDF' : 'FILE'}: ${shortName}]`;
+          }
+        } else {
+          _deLinkedRefFile = null;
+          if (fileBtn) fileBtn.style.display = 'none';
+        }
+
       } catch (_) {
-        btn.innerHTML = `${iconHtml}[LINKS: 0]`;
+        if (textSpan) textSpan.textContent = `[LINKS: 0]`;
       }
     }
     window.updateDeDocLinksBadge = updateDeDocLinksBadge;
@@ -6017,6 +6385,1433 @@
       });
     }
     window.deOpenDocLinksModal = deOpenDocLinksModal;
+
+    // ── Class Group Linking (Feature 1) ──────────────────────
+    async function deOpenClassLinkModal() {
+      const urn = getDeActiveDocUrn();
+      if (!urn) {
+        showToast(t('dePleaseSaveBeforeLinking') || 'Please save document before linking.', true);
+        return;
+      }
+      if (typeof mpInit === 'function') await mpInit();
+      const select = document.getElementById('de-link-class-select');
+      const unlinkBtn = document.getElementById('btn-de-unlink-class');
+      if (select) {
+        let html = '<option value="">-- ' + (t('deSelectClassPrompt') || 'Choose a class') + ' --</option>';
+        const metas = (window.mpState && mpState.classesMeta) || {};
+        Object.keys(metas).forEach(cid => {
+          const c = metas[cid];
+          if (c && !c.archived && !c.isArchived) {
+            html += `<option value="${escHtml(cid)}">${escHtml(c.name || cid)}</option>`;
+          }
+        });
+        select.innerHTML = html;
+        if (_deLinkedClassId && metas[_deLinkedClassId]) {
+          select.value = _deLinkedClassId;
+        }
+      }
+      if (unlinkBtn) {
+        unlinkBtn.style.display = _deLinkedClassId ? 'inline-block' : 'none';
+      }
+      showModal('de-class-link-modal');
+    }
+    window.deOpenClassLinkModal = deOpenClassLinkModal;
+
+    function deCloseClassLinkModal() {
+      hideModal('de-class-link-modal');
+    }
+    window.deCloseClassLinkModal = deCloseClassLinkModal;
+
+    async function deConfirmClassLink() {
+      const select = document.getElementById('de-link-class-select');
+      const cid = select ? select.value : '';
+      const urn = getDeActiveDocUrn();
+      if (!urn) return;
+
+      if (!cid) {
+        await deUnlinkCurrentClass();
+        return;
+      }
+
+      const metas = (window.mpState && mpState.classesMeta) || {};
+      const cMeta = metas[cid];
+      const cName = cMeta ? (cMeta.name || cid) : cid;
+
+      if (typeof LinksService !== 'undefined') {
+        if (_deLinkedClassId && _deLinkedClassId !== cid) {
+          await LinksService.removeLink(urn, 'cmt:class:' + _deLinkedClassId);
+        }
+        await LinksService.addLink(urn, 'cmt:class:' + cid, {
+          relation: 'curriculum_class',
+          meta: {
+            className: cName,
+            docTitle: currentDocName || 'Document'
+          }
+        });
+      }
+
+      if (typeof mpConnectClass === 'function') {
+        mpConnectClass(cid);
+      }
+
+      _deLinkedClassId = cid;
+      _deLinkedClassName = cName;
+      hideModal('de-class-link-modal');
+      updateDeDocLinksBadge();
+      showToast((t('deClassLinked') || 'Class linked to document: ') + cName);
+    }
+    window.deConfirmClassLink = deConfirmClassLink;
+
+    async function deUnlinkCurrentClass() {
+      const urn = getDeActiveDocUrn();
+      if (urn && _deLinkedClassId && typeof LinksService !== 'undefined') {
+        await LinksService.removeLink(urn, 'cmt:class:' + _deLinkedClassId);
+      }
+      _deLinkedClassId = null;
+      _deLinkedClassName = null;
+      hideModal('de-class-link-modal');
+      updateDeDocLinksBadge();
+      showToast(t('deClassUnlinked') || 'Class unlinked from document');
+    }
+    window.deUnlinkCurrentClass = deUnlinkCurrentClass;
+
+    // ── Grade Sheet Quick Launch (Feature 3) ──────────────────
+    async function deOpenLinkedGradeSheet() {
+      if (!_deLinkedGradeUrn) return;
+      if (typeof LinksService !== 'undefined') {
+        await LinksService.openUrn(_deLinkedGradeUrn);
+      }
+    }
+    window.deOpenLinkedGradeSheet = deOpenLinkedGradeSheet;
+
+    // ── Reference File / PDF Quick Launch & Attach (Feature 4) ─
+    async function deOpenLinkedRefFile() {
+      if (!_deLinkedRefFile) return;
+      let filePath = _deLinkedRefFile;
+      if (filePath.startsWith('cmt:file:')) {
+        filePath = filePath.slice('cmt:file:'.length);
+      }
+      if (window.Desktop && typeof Desktop.openNative === 'function') {
+        Desktop.openNative({ absolutePath: filePath });
+      } else {
+        window.open(filePath, '_blank');
+      }
+    }
+    window.deOpenLinkedRefFile = deOpenLinkedRefFile;
+
+    async function deAttachReferenceFile() {
+      if (!window.Desktop || !Desktop.isElectron()) {
+        showToast(t('deOpenFromDiskNoElectron') || 'File linking requires the desktop app.', true);
+        return;
+      }
+      const r = await Desktop.pickAndReadFile([
+        { name: t('deDocFilterName') || 'Documents & PDFs', extensions: ['pdf', 'docx', 'doc', 'txt', 'html', 'md'] },
+        { name: t('deAllFilesFilter') || 'All Files', extensions: ['*'] }
+      ]);
+      if (!r || r.canceled || !r.path) return;
+
+      const urn = getDeActiveDocUrn();
+      if (!urn) {
+        showToast(t('dePleaseSaveBeforeLinking') || 'Please save document before attaching files.', true);
+        return;
+      }
+
+      const fileUrn = 'cmt:file:' + r.path.replace(/\\/g, '/');
+      if (typeof LinksService !== 'undefined') {
+        await LinksService.addLink(urn, fileUrn, {
+          relation: 'reference_attachment',
+          meta: {
+            filename: r.name,
+            isAttachment: true,
+            docTitle: currentDocName || 'Document'
+          }
+        });
+        updateDeDocLinksBadge();
+        showToast(t('deRefFileAttached') || 'Reference file attached and linked to document!');
+      }
+    }
+    window.deAttachReferenceFile = deAttachReferenceFile;
+
+    // ── Pull Lesson & Generate Handout (Feature 2) ─────────────
+    async function deOpenPullLessonModal() {
+      const modal = document.getElementById('de-pull-lesson-modal');
+      if (!modal) return;
+      showModal('de-pull-lesson-modal');
+
+      const sel = document.getElementById('de-lesson-select');
+      if (sel) sel.innerHTML = '<option value="">' + (t('commonLoading') || 'Loading…') + '</option>';
+      const previewBox = document.getElementById('de-lesson-preview-box');
+      if (previewBox) previewBox.style.display = 'none';
+
+      _deAllSavedLessons = [];
+      const isElec = window.Desktop && (typeof Desktop.isElectron === 'function' ? Desktop.isElectron() : !!Desktop.isElectron);
+
+      if (isElec && typeof Desktop.listFiles === 'function') {
+        try {
+          const res = await Desktop.listFiles('lessons', { extensions: ['.json'] });
+          const list = Array.isArray(res) ? res : ((res && Array.isArray(res.files)) ? res.files : []);
+          for (let i = 0; i < list.length; i++) {
+            const fn = typeof list[i] === 'string' ? list[i] : (list[i].filename || list[i].name);
+            if (!fn) continue;
+            try {
+              const rText = await Desktop.readText('lessons', fn);
+              if (rText && rText.ok && rText.content) {
+                const parsed = JSON.parse(rText.content);
+                if (parsed) {
+                  _deAllSavedLessons.push({
+                    filename: fn,
+                    title: parsed.title || fn.replace(/\.json$/i, ''),
+                    subject: parsed.subject || '',
+                    classId: parsed.classId || '',
+                    data: parsed
+                  });
+                }
+              }
+            } catch (_) {}
+          }
+        } catch (_) {}
+      }
+
+      if (!_deAllSavedLessons.length) {
+        try {
+          const raw = localStorage.getItem('cmt_lesson_plans');
+          if (raw) {
+            const localList = JSON.parse(raw);
+            if (Array.isArray(localList)) {
+              localList.forEach((l, idx) => {
+                _deAllSavedLessons.push({
+                  filename: 'local_lesson_' + (l.id || idx) + '.json',
+                  title: l.title || ('Lesson ' + (idx + 1)),
+                  subject: l.subject || '',
+                  classId: l.classId || '',
+                  data: l
+                });
+              });
+            }
+          }
+        } catch (_) {}
+      }
+
+      const execBtn = document.getElementById('de-btn-exec-handout');
+      if (sel) {
+        if (!_deAllSavedLessons.length) {
+          sel.innerHTML = '<option value="">' + (t('deNoLessonPlansFound') || 'No saved lesson plans found.') + '</option>';
+          if (execBtn) execBtn.disabled = true;
+        } else {
+          if (execBtn) execBtn.disabled = false;
+          sel.innerHTML = '<option value="">' + (t('deSelectLessonPrompt') || 'Select a lesson plan…') + '</option>' +
+            _deAllSavedLessons.map((l, idx) => {
+              const subPart = l.subject ? (' • ' + l.subject) : '';
+              const clsPart = l.classId ? (' [' + l.classId + ']') : '';
+              return '<option value="' + idx + '">' + escHtml(l.title + subPart + clsPart) + '</option>';
+            }).join('');
+
+          if (_deLinkedClassId) {
+            const matchingIdx = _deAllSavedLessons.findIndex(l => l.classId === _deLinkedClassId);
+            if (matchingIdx >= 0) {
+              sel.value = matchingIdx;
+              deOnLessonSelected();
+            }
+          }
+        }
+      }
+    }
+    window.deOpenPullLessonModal = deOpenPullLessonModal;
+
+    function deClosePullLessonModal() {
+      hideModal('de-pull-lesson-modal');
+    }
+    window.deClosePullLessonModal = deClosePullLessonModal;
+
+    function deOnLessonSelected() {
+      const sel = document.getElementById('de-lesson-select');
+      const idx = sel ? parseInt(sel.value, 10) : -1;
+      const previewBox = document.getElementById('de-lesson-preview-box');
+      if (isNaN(idx) || idx < 0 || !_deAllSavedLessons[idx]) {
+        _deSelectedLessonData = null;
+        if (previewBox) previewBox.style.display = 'none';
+        return;
+      }
+      const lesson = _deAllSavedLessons[idx];
+      _deSelectedLessonData = lesson;
+
+      if (previewBox) previewBox.style.display = 'block';
+      document.getElementById('de-lesson-preview-title').textContent = lesson.title || 'Lesson';
+      document.getElementById('de-lesson-preview-meta').textContent = (lesson.subject || 'Subject') + (lesson.classId ? (' • Class ' + lesson.classId) : '');
+
+      const d = lesson.data || {};
+      let words = [];
+      if (Array.isArray(d.vocabulary)) words = d.vocabulary;
+      else if (typeof d.vocabulary === 'string') words = d.vocabulary.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean);
+      if (Array.isArray(d.keyConcepts)) words = words.concat(d.keyConcepts);
+      else if (typeof d.keyConcepts === 'string') words = words.concat(d.keyConcepts.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean));
+
+      const vEl = document.getElementById('de-lesson-preview-vocab');
+      if (vEl) {
+        if (words.length) {
+          vEl.innerHTML = words.slice(0, 15).map(w => {
+            const term = typeof w === 'string' ? w : (w.word || w.term || JSON.stringify(w));
+            return '<span style="background:#fef08a;border:1px solid #000;color:#000;font-size:0.75rem;padding:2px 6px;border-radius:2px;font-weight:700;">' + escHtml(term) + '</span>';
+          }).join('');
+        } else {
+          vEl.innerHTML = '<span style="color:#888;font-size:0.75rem;">No explicit vocabulary list recorded in this lesson.</span>';
+        }
+      }
+
+      const pEl = document.getElementById('de-lesson-preview-phases');
+      const sections = Array.isArray(d.sections) ? d.sections : (Array.isArray(d.phases) ? d.phases : []);
+      if (pEl) {
+        if (sections.length) {
+          pEl.innerHTML = sections.map((s, sIdx) => {
+            const sTitle = s.title || ('Phase ' + (sIdx + 1));
+            const sObj = s.objective || s.description || '';
+            return '<div style="margin-bottom:3px;"><strong>' + escHtml(sTitle) + ':</strong> ' + escHtml(sObj || 'Core activity') + '</div>';
+          }).join('');
+        } else {
+          pEl.innerHTML = '<span style="color:#888;font-size:0.75rem;">No detailed phases found.</span>';
+        }
+      }
+    }
+    window.deOnLessonSelected = deOnLessonSelected;
+
+    async function deExecutePullLesson() {
+      if (!_deSelectedLessonData) return;
+      const d = _deSelectedLessonData.data || {};
+      const doHeader = document.getElementById('de-opt-header').checked;
+      const doObjectives = document.getElementById('de-opt-objectives').checked;
+      const doVocab = document.getElementById('de-opt-vocab').checked;
+      const doPhases = document.getElementById('de-opt-phases').checked;
+      const doHomework = document.getElementById('de-opt-homework').checked;
+
+      const modeRadio = document.querySelector('input[name="de-insert-mode"]:checked');
+      const mode = modeRadio ? modeRadio.value : 'cursor';
+
+      const title = _deSelectedLessonData.title || 'Student Handout';
+      const subject = _deSelectedLessonData.subject || '';
+      const classId = _deSelectedLessonData.classId || '';
+      const objectives = d.objectives || d.goals || [];
+      const sections = Array.isArray(d.sections) ? d.sections : (Array.isArray(d.phases) ? d.phases : []);
+
+      let words = [];
+      if (Array.isArray(d.vocabulary)) words = d.vocabulary;
+      else if (typeof d.vocabulary === 'string') words = d.vocabulary.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean);
+      if (Array.isArray(d.keyConcepts)) words = words.concat(d.keyConcepts);
+      else if (typeof d.keyConcepts === 'string') words = words.concat(d.keyConcepts.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean));
+
+      let generated = '';
+      const isHtml = currentDocType === 'html';
+
+      if (isHtml) {
+        // Semantic HTML output
+        if (doHeader) {
+          generated += `<div class="handout-header" style="border:2px solid #000;padding:12px;margin-bottom:20px;background:#fef08a;">\n` +
+            `  <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:0.85rem;font-weight:bold;">\n` +
+            `    <span>${escHtml(subject)} • ${escHtml(classId ? ('Class ' + classId) : '')}</span>\n` +
+            `    <span>Date: ________________________</span>\n` +
+            `  </div>\n` +
+            `  <h1 style="margin:4px 0 8px 0;font-size:1.6rem;text-transform:uppercase;">${escHtml(title)}</h1>\n` +
+            `  <div style="font-size:0.9rem;font-weight:bold;">Student Name: __________________________________________________</div>\n` +
+            `</div>\n\n`;
+        }
+
+        if (doObjectives) {
+          generated += `<section class="handout-objectives" style="margin-bottom:20px;">\n` +
+            `  <h2>Learning Objectives</h2>\n` +
+            `  <ul>\n`;
+          if (Array.isArray(objectives) && objectives.length) {
+            objectives.forEach(obj => {
+              const text = typeof obj === 'string' ? obj : (obj.title || obj.objective || JSON.stringify(obj));
+              generated += `    <li>${escHtml(text)}</li>\n`;
+            });
+          } else if (typeof objectives === 'string' && objectives.trim()) {
+            generated += `    <li>${escHtml(objectives)}</li>\n`;
+          } else {
+            generated += `    <li>Understand and master the core notions and vocabulary of this lesson.</li>\n` +
+              `    <li>Apply key concepts through guided activities and structured practice.</li>\n`;
+          }
+          generated += `  </ul>\n</section>\n\n`;
+        }
+
+        if (doVocab && words.length) {
+          generated += `<section class="handout-vocab" style="margin-bottom:20px;">\n` +
+            `  <h2>Key Vocabulary &amp; Terminology</h2>\n` +
+            `  <table style="width:100%;border-collapse:collapse;border:2px solid #000;margin-top:8px;">\n` +
+            `    <thead>\n` +
+            `      <tr style="background:#000;color:#fff;">\n` +
+            `        <th style="padding:6px 10px;text-align:left;border:1px solid #000;width:35%;">Term</th>\n` +
+            `        <th style="padding:6px 10px;text-align:left;border:1px solid #000;">Definition &amp; Application</th>\n` +
+            `      </tr>\n` +
+            `    </thead>\n` +
+            `    <tbody>\n`;
+          words.forEach(w => {
+            const raw = typeof w === 'string' ? w : ((w.word || w.term || '') + (w.definition ? (' = ' + w.definition) : ''));
+            const parts = raw.split('=');
+            const term = parts[0].trim();
+            const def = parts[1] ? parts[1].trim() : '_____________________________________________________';
+            generated += `      <tr>\n` +
+              `        <td style="padding:6px 10px;border:1px solid #000;font-weight:bold;">${escHtml(term)}</td>\n` +
+              `        <td style="padding:6px 10px;border:1px solid #000;">${escHtml(def)}</td>\n` +
+              `      </tr>\n`;
+          });
+          generated += `    </tbody>\n  </table>\n</section>\n\n`;
+        }
+
+        if (doPhases && sections.length) {
+          generated += `<section class="handout-activities" style="margin-bottom:20px;">\n` +
+            `  <h2>Classroom Activities</h2>\n`;
+          sections.forEach((s, idx) => {
+            const sTitle = s.title || ('Activity ' + (idx + 1));
+            const sObj = s.objective || s.description || 'Complete the exercise according to instructions.';
+            generated += `  <div class="activity-block" style="border:2px solid #000;padding:12px;margin-bottom:14px;background:#fff;">\n` +
+              `    <h3 style="margin-top:0;">${idx + 1}. ${escHtml(sTitle)}</h3>\n` +
+              `    <p style="font-weight:500;"><strong>Task:</strong> ${escHtml(sObj)}</p>\n` +
+              `    <div style="min-height:70px;border-bottom:1px dashed #94a3b8;margin-top:10px;"></div>\n` +
+              `    <div style="min-height:30px;border-bottom:1px dashed #94a3b8;margin-top:10px;"></div>\n` +
+              `  </div>\n`;
+          });
+          generated += `</section>\n\n`;
+        }
+
+        if (doHomework) {
+          const hwText = d.homework || d.followUp || 'Review the vocabulary and key notions covered in today\'s lesson.';
+          generated += `<section class="handout-homework" style="border:2px dashed #000;padding:12px;background:#f8fafc;margin-top:20px;">\n` +
+            `  <h3 style="margin-top:0;">Homework &amp; Self-Study</h3>\n` +
+            `  <p>${escHtml(hwText)}</p>\n` +
+            `  <p style="font-size:0.85rem;color:#475569;">Due Date: ________________________</p>\n` +
+            `</section>\n`;
+        }
+
+      } else {
+        // Markdown / Typst output
+        if (doHeader) {
+          generated += `# ${title}\n\n` +
+            `**Subject:** ${subject} | **Class:** ${classId} | **Date:** ________________________  \n` +
+            `**Student Name:** __________________________________________________  \n\n---\n\n`;
+        }
+
+        if (doObjectives) {
+          generated += `## Learning Objectives\n\n`;
+          if (Array.isArray(objectives) && objectives.length) {
+            objectives.forEach(obj => {
+              const text = typeof obj === 'string' ? obj : (obj.title || obj.objective || JSON.stringify(obj));
+              generated += `- ${text}\n`;
+            });
+          } else if (typeof objectives === 'string' && objectives.trim()) {
+            generated += `- ${objectives}\n`;
+          } else {
+            generated += `- Understand and master the key concepts and vocabulary of this unit.\n` +
+              `- Apply these principles in structured classroom exercises.\n`;
+          }
+          generated += `\n`;
+        }
+
+        if (doVocab && words.length) {
+          generated += `## Key Vocabulary\n\n` +
+            `| Term | Definition & Application |\n` +
+            `| :--- | :--- |\n`;
+          words.forEach(w => {
+            const raw = typeof w === 'string' ? w : ((w.word || w.term || '') + (w.definition ? (' = ' + w.definition) : ''));
+            const parts = raw.split('=');
+            const term = parts[0].trim();
+            const def = parts[1] ? parts[1].trim() : '_____________________________________________________';
+            generated += `| **${term}** | ${def} |\n`;
+          });
+          generated += `\n`;
+        }
+
+        if (doPhases && sections.length) {
+          generated += `## Guided Activities\n\n`;
+          sections.forEach((s, idx) => {
+            const sTitle = s.title || ('Activity ' + (idx + 1));
+            const sObj = s.objective || s.description || 'Complete the following exercise.';
+            generated += `### ${idx + 1}. ${sTitle}\n\n` +
+              `**Instructions:** ${sObj}\n\n` +
+              `*Your notes and answers:*\n\n` +
+              `_____________________________________________________________________\n\n` +
+              `_____________________________________________________________________\n\n`;
+          });
+        }
+
+        if (doHomework) {
+          const hwText = d.homework || d.followUp || 'Review today\'s lesson notes and practice with the vocabulary list.';
+          generated += `## Homework & Follow-up\n\n` +
+            `> ${hwText}\n\n` +
+            `**Due Date:** ________________________\n\n`;
+        }
+      }
+
+      // Apply to editor
+      if (mode === 'replace') {
+        if (mdEditor) {
+          mdEditor.setValue(generated);
+          docModified = true;
+          updateDocIndicator();
+        }
+      } else {
+        if (mdEditor) {
+          const sel = mdEditor.getSelection();
+          mdEditor.executeEdits('pull-lesson', [{ range: sel, text: generated, forceMoveMarkers: true }]);
+          docModified = true;
+          updateDocIndicator();
+        }
+      }
+
+      // Bidirectional Link in LinksService
+      const docUrn = getDeActiveDocUrn() || ('cmt:doc:docEditorDocs/' + (currentDocName || 'handout_' + Date.now() + '.' + currentDocType));
+      const lessonUrn = 'cmt:lesson:' + _deSelectedLessonData.filename;
+      if (typeof LinksService !== 'undefined') {
+        await LinksService.addLink(docUrn, lessonUrn, {
+          relation: 'handout_for_lesson',
+          meta: {
+            lessonTitle: _deSelectedLessonData.title,
+            docTitle: currentDocName || title
+          }
+        });
+        if (classId && !_deLinkedClassId) {
+          await LinksService.addLink(docUrn, 'cmt:class:' + classId, {
+            relation: 'curriculum_class',
+            meta: {
+              className: classId,
+              docTitle: currentDocName || title
+            }
+          });
+        }
+        updateDeDocLinksBadge();
+      }
+
+      deClosePullLessonModal();
+      showToast(t('deGenHandoutSuccess') || 'Student handout generated from lesson plan!');
+    }
+    window.deExecutePullLesson = deExecutePullLesson;
+
+    // ── Convert Outline to Mindmap (Feature 5) ─────────────────
+    let deOutlineExportState = {
+      items: [],
+      docTitle: '',
+      rootTitle: '',
+      layout: 'radial'
+    };
+
+    function deGetEditorRawContent() {
+      if (currentViewMode === 'wysiwyg' && currentDocType === 'html' && typeof deSyncWysiwygToEditor === 'function') {
+        deSyncWysiwygToEditor();
+      }
+      return mdEditor ? (mdEditor.getValue() || '') : '';
+    }
+
+    function deGetHtmlFromContent(rawText, docType) {
+      if (docType === 'html') {
+        return rawText;
+      }
+      if (docType === 'typ') {
+        const typNormalized = (rawText || '')
+          .replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+          .split('\n')
+          .map(line => {
+            const hm = line.match(/^(=+)\s+(.+)$/);
+            if (hm) {
+              return '#'.repeat(hm[1].length) + ' ' + hm[2];
+            }
+            return line;
+          })
+          .join('\n');
+        if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
+          try {
+            return marked.parse(typNormalized);
+          } catch (_) {}
+        }
+        return typNormalized;
+      }
+
+      // Markdown docType:
+      if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
+        try {
+          return marked.parse(rawText);
+        } catch (err) {
+          console.warn('marked.parse failed:', err);
+        }
+      }
+      return rawText;
+    }
+
+    function deExtractOutlineTreeFromDom(containerEl) {
+      const items = [];
+      let idCounter = 0;
+      const stack = []; // [ { level, item, isList } ]
+
+      function processNodes(children) {
+        for (let i = 0; i < children.length; i++) {
+          const el = children[i];
+          if (el.nodeType !== Node.ELEMENT_NODE) continue;
+          const tag = el.tagName.toUpperCase();
+
+          if (/^H[1-6]$/.test(tag)) {
+            const level = parseInt(tag.slice(1), 10);
+            const title = el.textContent.trim();
+            if (!title) continue;
+
+            while (stack.length > 0 && stack[stack.length - 1].level >= level) {
+              stack.pop();
+            }
+
+            const parent = stack.length > 0 ? stack[stack.length - 1].item : null;
+            const item = {
+              id: 'de_item_' + (++idCounter),
+              type: tag.toLowerCase(),
+              level: level,
+              depth: stack.length,
+              title: title,
+              note: '',
+              parentId: parent ? parent.id : null,
+              children: [],
+              checked: true
+            };
+
+            if (parent) {
+              parent.children.push(item);
+            }
+            items.push(item);
+            stack.push({ level: level, item: item, isList: false });
+
+          } else if (tag === 'UL' || tag === 'OL') {
+            processList(el);
+          } else if (tag === 'P' || tag === 'BLOCKQUOTE') {
+            const text = el.textContent.trim();
+            if (text && stack.length > 0) {
+              const curr = stack[stack.length - 1].item;
+              curr.note += (curr.note ? '\n' : '') + text;
+            }
+          } else if (tag === 'DETAILS') {
+            const summary = el.querySelector('summary');
+            if (summary) {
+              const title = summary.textContent.trim();
+              if (title) {
+                const currentLevel = stack.length > 0 ? stack[stack.length - 1].level + 1 : 2;
+                const parent = stack.length > 0 ? stack[stack.length - 1].item : null;
+                const item = {
+                  id: 'de_item_' + (++idCounter),
+                  type: 'h3',
+                  level: currentLevel,
+                  depth: stack.length,
+                  title: title,
+                  note: '',
+                  parentId: parent ? parent.id : null,
+                  children: [],
+                  checked: true
+                };
+                if (parent) parent.children.push(item);
+                items.push(item);
+                stack.push({ level: currentLevel, item: item, isList: false });
+              }
+            }
+            processNodes(el.children);
+          } else if (['DIV', 'SECTION', 'ARTICLE', 'MAIN', 'HEADER', 'ASIDE'].includes(tag)) {
+            processNodes(el.children);
+          }
+        }
+      }
+
+      function processList(listEl) {
+        const parentOnStack = stack.length > 0 ? stack[stack.length - 1] : null;
+        const baseLevel = parentOnStack ? parentOnStack.level + 1 : 1;
+
+        for (let j = 0; j < listEl.children.length; j++) {
+          const child = listEl.children[j];
+          if (child.tagName.toUpperCase() !== 'LI') continue;
+
+          let title = '';
+          for (const n of child.childNodes) {
+            if (n.nodeType === Node.TEXT_NODE) {
+              title += n.textContent;
+            } else if (n.nodeType === Node.ELEMENT_NODE) {
+              const ctag = n.tagName.toUpperCase();
+              if (ctag !== 'UL' && ctag !== 'OL') {
+                title += ' ' + n.textContent;
+              }
+            }
+          }
+          title = title.replace(/\s+/g, ' ').trim();
+          if (!title) continue;
+
+          const parent = stack.length > 0 ? stack[stack.length - 1].item : null;
+          const item = {
+            id: 'de_item_' + (++idCounter),
+            type: 'li',
+            level: baseLevel,
+            depth: stack.length,
+            title: title,
+            note: '',
+            parentId: parent ? parent.id : null,
+            children: [],
+            checked: true
+          };
+
+          if (parent) {
+            parent.children.push(item);
+          }
+          items.push(item);
+
+          const nestedLists = Array.from(child.children).filter(c => c.tagName === 'UL' || c.tagName === 'OL');
+          if (nestedLists.length > 0) {
+            stack.push({ level: baseLevel + 1, item: item, isList: true });
+            nestedLists.forEach(nl => processList(nl));
+            stack.pop();
+          }
+        }
+      }
+
+      processNodes(containerEl.children);
+      return items;
+    }
+
+    function deExtractOutlineFallback(rawText) {
+      const normalized = (rawText || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      const lines = normalized.split('\n');
+      const items = [];
+      let idCounter = 0;
+      const stack = [];
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+
+        let setextLevel = 0;
+        if (i + 1 < lines.length) {
+          const nextLine = lines[i + 1].trim();
+          if (/^={3,}$/.test(nextLine)) setextLevel = 1;
+          else if (/^-{3,}$/.test(nextLine) && !trimmed.startsWith('-')) setextLevel = 2;
+        }
+
+        const atxMatch = trimmed.match(/^(#{1,6})\s+(.+?)(?:\s+#+)?$/);
+        const typMatch = trimmed.match(/^(=+)\s+(.+)$/);
+        const listMatch = line.match(/^(\s*)(?:[-*+]|\d+\.)\s+(.+)$/);
+
+        if (setextLevel > 0 || atxMatch || typMatch) {
+          const level = setextLevel > 0 ? setextLevel : (atxMatch ? atxMatch[1].length : typMatch[1].length);
+          const title = setextLevel > 0 ? trimmed : (atxMatch ? atxMatch[2].trim() : typMatch[2].trim());
+          if (setextLevel > 0) i++;
+
+          while (stack.length > 0 && stack[stack.length - 1].level >= level) {
+            stack.pop();
+          }
+          const parent = stack.length > 0 ? stack[stack.length - 1].item : null;
+          const item = {
+            id: 'de_item_' + (++idCounter),
+            type: 'h' + Math.min(6, level),
+            level: level,
+            depth: stack.length,
+            title: title,
+            note: '',
+            parentId: parent ? parent.id : null,
+            children: [],
+            checked: true
+          };
+          if (parent) parent.children.push(item);
+          items.push(item);
+          stack.push({ level: level, item: item });
+
+        } else if (listMatch) {
+          const indent = listMatch[1].length;
+          const listLevel = 10 + Math.floor(indent / 2);
+          const title = listMatch[2].trim();
+
+          while (stack.length > 0 && stack[stack.length - 1].level >= listLevel) {
+            stack.pop();
+          }
+          const parent = stack.length > 0 ? stack[stack.length - 1].item : null;
+          const item = {
+            id: 'de_item_' + (++idCounter),
+            type: 'li',
+            level: listLevel,
+            depth: stack.length,
+            title: title,
+            note: '',
+            parentId: parent ? parent.id : null,
+            children: [],
+            checked: true
+          };
+          if (parent) parent.children.push(item);
+          items.push(item);
+          stack.push({ level: listLevel, item: item });
+
+        } else if (stack.length > 0 && !trimmed.startsWith('```') && !trimmed.startsWith('---')) {
+          const top = stack[stack.length - 1].item;
+          top.note += (top.note ? '\n' : '') + trimmed;
+        }
+      }
+      return items;
+    }
+
+    function deGetDocumentOutlineItems() {
+      const rawText = deGetEditorRawContent();
+      if (!rawText.trim()) return [];
+
+      const html = deGetHtmlFromContent(rawText, currentDocType);
+      let items = [];
+
+      try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        items = deExtractOutlineTreeFromDom(doc.body);
+      } catch (err) {
+        console.warn('DOM parsing of outline failed:', err);
+      }
+
+      if (!items || items.length === 0) {
+        items = deExtractOutlineFallback(rawText);
+      }
+      return items;
+    }
+
+    async function deConvertOutlineToMindmap() {
+      if (!mdEditor) return;
+      const rawText = deGetEditorRawContent();
+      if (!rawText.trim()) {
+        showToast('Document is empty', true);
+        return;
+      }
+
+      const items = deGetDocumentOutlineItems();
+      if (!items || items.length === 0) {
+        showToast(t('deNoOutlineToExport') || 'No headings or outline items found in document to build mindmap.', true);
+        return;
+      }
+
+      const docTitle = (currentDocName ? currentDocName.replace(/\.[^.]+$/, '') : 'Document Outline').trim();
+      const firstH1 = items.find(it => it.level === 1);
+      const defaultCentralTopic = firstH1 ? firstH1.title : docTitle;
+
+      deOutlineExportState = {
+        items: items,
+        docTitle: docTitle,
+        rootTitle: defaultCentralTopic,
+        layout: 'tree'
+      };
+
+      const topicInput = document.getElementById('de-mm-central-topic');
+      if (topicInput) topicInput.value = defaultCentralTopic;
+
+      const layoutSelect = document.getElementById('de-mm-layout-select');
+      if (layoutSelect) layoutSelect.value = 'tree';
+
+      deMindmapRenderTree();
+      showModal('de-mindmap-modal');
+    }
+
+    function deMindmapRenderTree() {
+      const container = document.getElementById('de-mm-tree-container');
+      const counterEl = document.getElementById('de-mm-counter');
+      if (!container) return;
+
+      const items = deOutlineExportState.items || [];
+      const total = items.length;
+      const selectedCount = items.filter(it => it.checked).length;
+
+      if (counterEl) {
+        const template = t('deMindmapSelectedCount') || '{count} of {total} elements selected';
+        counterEl.textContent = template.replace('{count}', selectedCount).replace('{total}', total);
+      }
+
+      if (items.length === 0) {
+        container.innerHTML = `<div style="padding:16px;text-align:center;color:#64748b;font-weight:600;">No outline items found.</div>`;
+        return;
+      }
+
+      const badgeColors = {
+        h1: 'background:#fef08a;color:#000;',
+        h2: 'background:#fed7aa;color:#000;',
+        h3: 'background:#bbf7d0;color:#000;',
+        h4: 'background:#bae6fd;color:#000;',
+        h5: 'background:#e0e7ff;color:#000;',
+        h6: 'background:#f3e8ff;color:#000;',
+        li: 'background:#f1f5f9;color:#334155;'
+      };
+
+      let html = '';
+      items.forEach(item => {
+        const indent = Math.min(item.depth * 18 + 6, 160);
+        const bColor = badgeColors[item.type] || badgeColors.li;
+        const isHeading = item.type.startsWith('h');
+        const titleStyle = isHeading ? 'font-weight:800;color:#000;' : 'font-weight:500;color:#1e293b;';
+        const noteBadge = item.note
+          ? `<span style="font-size:0.68rem;background:#f8fafc;border:1px solid #cbd5e1;padding:1px 4px;color:#64748b;margin-left:auto;white-space:nowrap;font-weight:600;" title="${escHtml(item.note)}">📝 note</span>`
+          : '';
+
+        html += `
+          <div class="de-mm-tree-row" style="display:flex;align-items:center;gap:8px;padding:3px 6px;padding-left:${indent}px;border-bottom:1px solid #f1f5f9;transition:background 0.1s ease;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+            <input type="checkbox" id="de-mm-chk-${item.id}" ${item.checked ? 'checked' : ''} onchange="deMindmapToggleItem('${item.id}', this.checked)" style="accent-color:#000;cursor:pointer;width:15px;height:15px;margin:0;" />
+            <span class="de-mm-badge" style="font-size:0.65rem;font-weight:900;border:1.5px solid #000;padding:1px 5px;box-shadow:1px 1px 0px #000;${bColor}">${item.type.toUpperCase()}</span>
+            <span style="font-size:0.82rem;${titleStyle}overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;" title="${escHtml(item.title)}">${escHtml(item.title)}</span>
+            ${noteBadge}
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    function deMindmapToggleItem(itemId, checked) {
+      const items = deOutlineExportState.items || [];
+      const item = items.find(it => it.id === itemId);
+      if (!item) return;
+
+      item.checked = checked;
+
+      function setSubtreeChecked(parent, val) {
+        if (!parent.children || !parent.children.length) return;
+        parent.children.forEach(child => {
+          child.checked = val;
+          setSubtreeChecked(child, val);
+        });
+      }
+      setSubtreeChecked(item, checked);
+
+      if (checked) {
+        let curr = item;
+        while (curr && curr.parentId) {
+          const p = items.find(it => it.id === curr.parentId);
+          if (p) {
+            p.checked = true;
+            curr = p;
+          } else {
+            break;
+          }
+        }
+      }
+
+      deMindmapRenderTree();
+    }
+
+    function deMindmapSetSelection(mode) {
+      const items = deOutlineExportState.items || [];
+      if (mode === 'all') {
+        items.forEach(it => it.checked = true);
+      } else if (mode === 'none') {
+        items.forEach(it => it.checked = false);
+      } else if (mode === 'headings') {
+        items.forEach(it => {
+          it.checked = it.type.startsWith('h');
+        });
+      }
+      deMindmapRenderTree();
+    }
+
+    function deCloseMindmapModal() {
+      hideModal('de-mindmap-modal');
+    }
+
+    async function deExecuteMindmapExport() {
+      const items = deOutlineExportState.items || [];
+      const activeItems = items.filter(it => it.checked);
+
+      if (activeItems.length === 0) {
+        showToast(t('deMindmapPleaseSelect') || 'Please select at least one outline element to export.', true);
+        return;
+      }
+
+      const topicInput = document.getElementById('de-mm-central-topic');
+      const rootTitle = (topicInput && topicInput.value.trim()) ? topicInput.value.trim() : (deOutlineExportState.rootTitle || 'Mindmap');
+      const layoutSelect = document.getElementById('de-mm-layout-select');
+      const layoutMode = (layoutSelect ? layoutSelect.value : '') || 'tree';
+
+      hideModal('de-mindmap-modal');
+
+      const mindmapTitle = 'Mindmap: ' + rootTitle;
+      const rootId = 'node_root_' + Date.now();
+
+      // Check if the first active item is an H1 that matches the central topic title
+      const isFirstH1Root = activeItems.length > 0 && activeItems[0].type === 'h1' &&
+        activeItems[0].title.trim().toLowerCase() === rootTitle.trim().toLowerCase();
+
+      // Determine which items to generate as child nodes
+      const exportItems = isFirstH1Root ? activeItems.slice(1) : activeItems;
+
+      // Assign unique, permanent node IDs for all nodes
+      const nodeIdMap = new Map();
+      nodeIdMap.set('root', rootId);
+      if (isFirstH1Root) {
+        nodeIdMap.set(activeItems[0].id, rootId);
+      }
+      exportItems.forEach((it, idx) => {
+        nodeIdMap.set(it.id, 'node_' + it.id + '_' + idx + '_' + Date.now());
+      });
+
+      // Resolve effective parent node ID for every item
+      exportItems.forEach(item => {
+        let pId = item.parentId;
+        let resolvedParentNodeId = rootId;
+        while (pId) {
+          if (nodeIdMap.has(pId)) {
+            resolvedParentNodeId = nodeIdMap.get(pId);
+            break;
+          }
+          const parentItem = items.find(it => it.id === pId);
+          pId = parentItem ? parentItem.parentId : null;
+        }
+        item.effectiveParentNodeId = resolvedParentNodeId;
+      });
+
+      // Build child adjacency map keyed by parent node ID
+      const childrenMap = {};
+      childrenMap[rootId] = [];
+      exportItems.forEach(it => {
+        const pNodeId = it.effectiveParentNodeId;
+        if (!childrenMap[pNodeId]) childrenMap[pNodeId] = [];
+        childrenMap[pNodeId].push(it);
+      });
+
+      const nodes = [];
+      const edges = [];
+      const notes = [];
+      const branchPalette = ['#ffffff', '#e0f2fe', '#dcfce7', '#fce7f3', '#ffedd5', '#f3e8ff', '#ccfbf1', '#fef9c3'];
+
+      if (layoutMode === 'tree') {
+        // ── Horizontal Tree (Hierarchy - Left-to-Right) ──────────
+        let currentY = 120;
+        const colWidth = 320;
+
+        function assignHorizontalPositions(nodeId, depth) {
+          const children = childrenMap[nodeId] || [];
+          const x = 140 + depth * colWidth;
+
+          if (children.length === 0) {
+            const leafItem = exportItems.find(it => nodeIdMap.get(it.id) === nodeId);
+            const hasNote = leafItem && !!leafItem.note;
+            const y = currentY;
+            currentY += hasNote ? 145 : 90;
+            return { x, y };
+          }
+
+          const childYs = [];
+          children.forEach((ch, idx) => {
+            const chNodeId = nodeIdMap.get(ch.id);
+            const pos = assignHorizontalPositions(chNodeId, depth + 1);
+            ch.x = pos.x;
+            ch.y = pos.y;
+            childYs.push(pos.y);
+
+            const isHeading = ch.type.startsWith('h');
+            const branchColor = branchPalette[idx % branchPalette.length];
+
+            nodes.push({
+              id: chNodeId,
+              baseWord: ch.title,
+              x: ch.x,
+              y: ch.y,
+              bg: isHeading ? branchColor : '#ffffff',
+              color: '#000000',
+              border: '#000000',
+              borderWidth: isHeading ? 2 : 1.5,
+              borderStyle: 'solid',
+              fontSize: isHeading ? (ch.level <= 2 ? '15px' : '13px') : '12px',
+              shape: 'rectangle',
+              fmt: { bold: isHeading },
+              rotation: 0
+            });
+
+            edges.push({
+              id: 'edge_' + nodeId + '_' + chNodeId,
+              a: nodeId,
+              b: chNodeId,
+              color: '#000000',
+              thickness: isHeading ? 2 : 1.5,
+              type: 'none',
+              strokeType: 'solid',
+              routing: 'straight'
+            });
+
+            if (ch.note) {
+              notes.push({
+                id: 'note_' + chNodeId,
+                nodeId: chNodeId,
+                x: ch.x,
+                y: ch.y + 44,
+                width: 220,
+                height: 75,
+                manualSize: true,
+                bg: '#f8fafc',
+                color: '#1e293b',
+                borderColor: '#000000',
+                borderWidth: 1.5,
+                text: ch.note.slice(0, 300),
+                html: ''
+              });
+            }
+          });
+
+          let y = Math.round((childYs[0] + childYs[childYs.length - 1]) / 2);
+          const parentItem = exportItems.find(it => nodeIdMap.get(it.id) === nodeId);
+          if (parentItem && parentItem.note && children.length === 1) {
+            currentY = Math.max(currentY, y + 105);
+          }
+          return { x, y };
+        }
+
+        const rootPos = assignHorizontalPositions(rootId, 0);
+        nodes.unshift({
+          id: rootId,
+          baseWord: rootTitle.toUpperCase(),
+          x: rootPos.x,
+          y: rootPos.y,
+          bg: '#fef08a',
+          color: '#000000',
+          border: '#000000',
+          borderWidth: 3,
+          borderStyle: 'solid',
+          fontSize: '20px',
+          shape: 'rectangle',
+          fmt: { bold: true },
+          rotation: 0
+        });
+
+      } else if (layoutMode === 'tree-v') {
+        // ── Top-Down Tree (Hierarchy - Top-to-Bottom) ────────────
+        let currentX = 140;
+        const rowHeight = 180;
+        const colWidth = 260;
+
+        function assignVerticalPositions(nodeId, depth) {
+          const children = childrenMap[nodeId] || [];
+          const y = 140 + depth * rowHeight;
+
+          if (children.length === 0) {
+            const x = currentX;
+            currentX += colWidth;
+            return { x, y };
+          }
+
+          const childXs = [];
+          children.forEach((ch, idx) => {
+            const chNodeId = nodeIdMap.get(ch.id);
+            const pos = assignVerticalPositions(chNodeId, depth + 1);
+            ch.x = pos.x;
+            ch.y = pos.y;
+            childXs.push(pos.x);
+
+            const isHeading = ch.type.startsWith('h');
+            const branchColor = branchPalette[idx % branchPalette.length];
+
+            nodes.push({
+              id: chNodeId,
+              baseWord: ch.title,
+              x: ch.x,
+              y: ch.y,
+              bg: isHeading ? branchColor : '#ffffff',
+              color: '#000000',
+              border: '#000000',
+              borderWidth: isHeading ? 2 : 1.5,
+              borderStyle: 'solid',
+              fontSize: isHeading ? (ch.level <= 2 ? '15px' : '13px') : '12px',
+              shape: 'rectangle',
+              fmt: { bold: isHeading },
+              rotation: 0
+            });
+
+            edges.push({
+              id: 'edge_' + nodeId + '_' + chNodeId,
+              a: nodeId,
+              b: chNodeId,
+              color: '#000000',
+              thickness: isHeading ? 2 : 1.5,
+              type: 'none',
+              strokeType: 'solid',
+              routing: 'straight'
+            });
+
+            if (ch.note) {
+              notes.push({
+                id: 'note_' + chNodeId,
+                nodeId: chNodeId,
+                x: ch.x,
+                y: ch.y + 44,
+                width: 200,
+                height: 75,
+                manualSize: true,
+                bg: '#f8fafc',
+                color: '#1e293b',
+                borderColor: '#000000',
+                borderWidth: 1.5,
+                text: ch.note.slice(0, 300),
+                html: ''
+              });
+            }
+          });
+
+          const x = Math.round((childXs[0] + childXs[childXs.length - 1]) / 2);
+          return { x, y };
+        }
+
+        const rootPos = assignVerticalPositions(rootId, 0);
+        nodes.unshift({
+          id: rootId,
+          baseWord: rootTitle.toUpperCase(),
+          x: rootPos.x,
+          y: rootPos.y,
+          bg: '#fef08a',
+          color: '#000000',
+          border: '#000000',
+          borderWidth: 3,
+          borderStyle: 'solid',
+          fontSize: '20px',
+          shape: 'rectangle',
+          fmt: { bold: true },
+          rotation: 0
+        });
+
+      } else {
+        // ── Radial / Starburst ────────────────────────────────────
+        nodes.push({
+          id: rootId,
+          baseWord: rootTitle.toUpperCase(),
+          x: 800,
+          y: 600,
+          bg: '#fef08a',
+          color: '#000000',
+          border: '#000000',
+          borderWidth: 3,
+          borderStyle: 'solid',
+          fontSize: '20px',
+          shape: 'rectangle',
+          fmt: { bold: true },
+          rotation: 0
+        });
+
+        const rootChildren = childrenMap[rootId] || [];
+        const nRoot = Math.max(1, rootChildren.length);
+        const R1 = Math.max(280, Math.min(460, 220 + nRoot * 18));
+
+        rootChildren.forEach((item, idx) => {
+          const angle = (2 * Math.PI * idx) / nRoot - Math.PI / 2;
+          const x = Math.round(800 + R1 * Math.cos(angle));
+          const y = Math.round(600 + R1 * Math.sin(angle));
+          const chNodeId = nodeIdMap.get(item.id);
+          item.x = x;
+          item.y = y;
+
+          const isHeading = item.type.startsWith('h');
+          const branchColor = branchPalette[idx % branchPalette.length];
+
+          nodes.push({
+            id: chNodeId,
+            baseWord: item.title,
+            x: x,
+            y: y,
+            bg: isHeading ? branchColor : '#ffffff',
+            color: '#000000',
+            border: '#000000',
+            borderWidth: isHeading ? 2 : 1.5,
+            borderStyle: 'solid',
+            fontSize: isHeading ? (item.level <= 2 ? '15px' : '13px') : '12px',
+            shape: 'rectangle',
+            fmt: { bold: isHeading },
+            rotation: 0
+          });
+
+          edges.push({
+            id: 'edge_' + rootId + '_' + chNodeId,
+            a: rootId,
+            b: chNodeId,
+            color: '#000000',
+            thickness: isHeading ? 2 : 1.5,
+            type: 'none',
+            strokeType: 'solid',
+            routing: 'straight'
+          });
+
+          if (item.note) {
+            notes.push({
+              id: 'note_' + chNodeId,
+              nodeId: chNodeId,
+              x: x,
+              y: y + 40,
+              width: 200,
+              height: 75,
+              manualSize: true,
+              bg: '#f8fafc',
+              color: '#1e293b',
+              borderColor: '#000000',
+              borderWidth: 1.5,
+              text: item.note.slice(0, 300),
+              html: ''
+            });
+          }
+
+          layoutRadialSubtree(chNodeId, angle, branchColor);
+        });
+
+        function layoutRadialSubtree(parentNodeId, parentAngle, branchColor) {
+          const children = childrenMap[parentNodeId] || [];
+          if (!children.length) return;
+          const m = children.length;
+          const arcSpan = Math.min(1.3, Math.max(0.4, (2 * Math.PI / 7) * 0.8));
+          const R2 = 190;
+          const parentNode = nodes.find(n => n.id === parentNodeId);
+          if (!parentNode) return;
+
+          children.forEach((ch, j) => {
+            const chAngle = parentAngle - arcSpan / 2 + (m > 1 ? (j / (m - 1)) * arcSpan : arcSpan / 2);
+            const chX = Math.round(parentNode.x + R2 * Math.cos(chAngle));
+            const chY = Math.round(parentNode.y + R2 * Math.sin(chAngle));
+            const chNodeId = nodeIdMap.get(ch.id);
+
+            const isHeading = ch.type.startsWith('h');
+            nodes.push({
+              id: chNodeId,
+              baseWord: ch.title,
+              x: chX,
+              y: chY,
+              bg: isHeading ? branchColor : '#ffffff',
+              color: '#000000',
+              border: '#000000',
+              borderWidth: isHeading ? 2 : 1.5,
+              borderStyle: 'solid',
+              fontSize: isHeading ? '13px' : '12px',
+              shape: 'rectangle',
+              fmt: { bold: isHeading },
+              rotation: 0
+            });
+
+            edges.push({
+              id: 'edge_' + parentNodeId + '_' + chNodeId,
+              a: parentNodeId,
+              b: chNodeId,
+              color: '#000000',
+              thickness: 1.5,
+              type: 'none',
+              strokeType: 'solid',
+              routing: 'straight'
+            });
+
+            if (ch.note) {
+              notes.push({
+                id: 'note_' + chNodeId,
+                nodeId: chNodeId,
+                x: chX,
+                y: chY + 35,
+                width: 190,
+                height: 70,
+                manualSize: true,
+                bg: '#f8fafc',
+                color: '#1e293b',
+                borderColor: '#000000',
+                borderWidth: 1.5,
+                text: ch.note.slice(0, 300),
+                html: ''
+              });
+            }
+
+            layoutRadialSubtree(chNodeId, chAngle, branchColor);
+          });
+        }
+      }
+
+      // ── Universal Bounding-Box Normalization ────────────────────
+      // Guarantees all nodes and notes appear completely inside the visible board with clean margins
+      let minX = Infinity, minY = Infinity;
+      let maxX = -Infinity, maxY = -Infinity;
+
+      nodes.forEach(n => {
+        minX = Math.min(minX, n.x);
+        minY = Math.min(minY, n.y);
+        maxX = Math.max(maxX, n.x + 240);
+        maxY = Math.max(maxY, n.y + 60);
+      });
+
+      notes.forEach(nt => {
+        minX = Math.min(minX, nt.x);
+        minY = Math.min(minY, nt.y);
+        maxX = Math.max(maxX, nt.x + (nt.width || 220));
+        maxY = Math.max(maxY, nt.y + (nt.height || 80));
+      });
+
+      const targetMarginX = 140;
+      const targetMarginY = 140;
+      const shiftX = targetMarginX - minX;
+      const shiftY = targetMarginY - minY;
+
+      nodes.forEach(n => {
+        n.x = Math.round(n.x + shiftX);
+        n.y = Math.round(n.y + shiftY);
+      });
+
+      notes.forEach(nt => {
+        nt.x = Math.round(nt.x + shiftX);
+        nt.y = Math.round(nt.y + shiftY);
+      });
+
+      const totalBoardHeight = Math.max(1600, Math.round(maxY + shiftY + 250));
+
+      const constellationData = {
+        _type: 'constellation',
+        _version: 1,
+        title: mindmapTitle,
+        dateCreated: new Date().toISOString(),
+        boardHeight: totalBoardHeight,
+        nodes: nodes,
+        edges: edges,
+        links: edges,
+        notes: notes,
+        groups: [],
+        masks: [],
+        drawings: [],
+        shapes: [],
+        tables: [],
+        media: [],
+        attachments: [],
+        competences: []
+      };
+
+      const slug = (deOutlineExportState.docTitle || rootTitle).toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 25).replace(/^_+|_+$/g, '') || 'outline';
+      const filename = 'mindmap_' + slug + '_' + Date.now() + '.json';
+
+      const isElec = window.Desktop && (typeof Desktop.isElectron === 'function' ? Desktop.isElectron() : !!Desktop.isElectron);
+
+      if (isElec && typeof Desktop.saveJson === 'function') {
+        const sRes = await Desktop.saveJson('mindmaps', filename, constellationData);
+        if (sRes && sRes.ok) {
+          const docUrn = getDeActiveDocUrn() || ('cmt:doc:docEditorDocs/' + (currentDocName || 'doc.md'));
+          if (typeof LinksService !== 'undefined') {
+            await LinksService.addLink(docUrn, 'cmt:board:' + filename, {
+              relation: 'outline_mindmap',
+              meta: {
+                docTitle: deOutlineExportState.docTitle || rootTitle,
+                mindmapTitle: mindmapTitle
+              }
+            });
+            updateDeDocLinksBadge();
+          }
+
+          const openBoard = window.showConfirm
+            ? await window.showConfirm((t('deMindmapCreated') || 'Mindmap generated from outline and linked!') + '\n\n' + (t('deOpenInBoardPrompt') || 'Open in Board now?'))
+            : confirm((t('deMindmapCreated') || 'Mindmap generated from outline and linked!') + '\n\nOpen in Board now?');
+
+          if (openBoard && typeof Desktop.openTool === 'function') {
+            Desktop.openTool('board.html', {
+              query: {
+                openSession: '1',
+                openTarget: 'mindmaps',
+                openFilename: filename,
+                openSection: 'constellation'
+              }
+            });
+          }
+        } else {
+          showToast('Failed to save mindmap session', true);
+        }
+      } else {
+        try {
+          localStorage.setItem('cmt_mindmap_' + filename, JSON.stringify(constellationData));
+        } catch (_) {}
+        showToast(t('deMindmapCreated') || 'Mindmap generated from outline!');
+      }
+    }
+    window.deConvertOutlineToMindmap = deConvertOutlineToMindmap;
+    window.deMindmapRenderTree = deMindmapRenderTree;
+    window.deMindmapToggleItem = deMindmapToggleItem;
+    window.deMindmapSetSelection = deMindmapSetSelection;
+    window.deCloseMindmapModal = deCloseMindmapModal;
+    window.deExecuteMindmapExport = deExecuteMindmapExport;
 
     if (typeof window !== 'undefined') {
       window.addEventListener('cmt-links-changed', () => {
@@ -8622,6 +10417,14 @@
       document.getElementById('btn-add-css-cancel').addEventListener('click', () => hideModal('add-custom-css-modal'));
       document.getElementById('btn-add-css-confirm').addEventListener('click', handleAddCustomCssConfirm);
 
+      // Mindmap outline modal
+      const deMindmapModalEl = document.getElementById('de-mindmap-modal');
+      if (deMindmapModalEl) {
+        deMindmapModalEl.addEventListener('click', function (e) {
+          if (e.target === this) hideModal('de-mindmap-modal');
+        });
+      }
+
       // Global keyboard shortcuts
       document.addEventListener('keydown', function (e) {
         // Avoid running the same command twice when Monaco already handles it.
@@ -8639,6 +10442,7 @@
           hideModal('syntax-help-modal');
           hideModal('add-syntax-snippet-modal');
           hideModal('add-custom-css-modal');
+          hideModal('de-mindmap-modal');
           hideFullPreview();
           deBookCloseModal();
         }

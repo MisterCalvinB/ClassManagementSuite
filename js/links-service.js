@@ -276,6 +276,15 @@
 
   // ── 4. Graph Edge Operations (Bidirectional Links) ───────────────────────────
   async function addLink(sourceUrn, targetUrn, opts) {
+    if (sourceUrn && typeof sourceUrn === 'object' && !targetUrn) {
+      opts = sourceUrn;
+      sourceUrn = opts.sourceUrn || opts.source;
+      targetUrn = opts.targetUrn || opts.target;
+      opts = {
+        relation: opts.relation || opts.rel || 'related',
+        meta: Object.assign({}, opts.meta || {}, opts.label ? { label: opts.label } : {})
+      };
+    }
     if (!sourceUrn || !targetUrn) return null;
     var cSrc = canonicalizeUrn(sourceUrn);
     var cTgt = canonicalizeUrn(targetUrn);
@@ -692,20 +701,61 @@
         return true;
       }
 
+      case 'word':
       case 'wordbank': {
+        var cleanFileW = p.id.indexOf('#') !== -1 ? p.id.split('#')[0] : p.id;
         if (desktop && typeof desktop.openTool === 'function') {
-          return desktop.openTool('manage-database.html', { query: { type: 'wordbanks', file: p.id } });
+          return desktop.openTool('manage-database.html', { query: { type: 'wordbanks', file: cleanFileW } });
         }
-        window.open('manage-database.html?type=wordbanks&file=' + encodeURIComponent(p.id), '_blank');
+        window.open('manage-database.html?type=wordbanks&file=' + encodeURIComponent(cleanFileW), '_blank');
         return true;
       }
 
-      case 'test': {
-        var testQuery = { testId: p.id };
+      case 'gapfill':
+      case 'gapfillbank': {
+        var cleanFileG = p.id.indexOf('#') !== -1 ? p.id.split('#')[0] : p.id;
+        if (desktop && typeof desktop.openTool === 'function') {
+          return desktop.openTool('manage-database.html', { query: { type: 'gapfillbanks', file: cleanFileG } });
+        }
+        window.open('manage-database.html?type=gapfillbanks&file=' + encodeURIComponent(cleanFileG), '_blank');
+        return true;
+      }
+
+      case 'grammar':
+      case 'grammarbank': {
+        var cleanFileGr = p.id.indexOf('#') !== -1 ? p.id.split('#')[0] : p.id;
+        if (desktop && typeof desktop.openTool === 'function') {
+          return desktop.openTool('manage-database.html', { query: { type: 'grammarbanks', file: cleanFileGr } });
+        }
+        window.open('manage-database.html?type=grammarbanks&file=' + encodeURIComponent(cleanFileGr), '_blank');
+        return true;
+      }
+
+      case 'phase':
+      case 'activity': {
+        if (desktop && typeof desktop.openTool === 'function') {
+          return desktop.openTool('manage-database.html', { query: { type: 'phases' } });
+        }
+        window.open('manage-database.html?type=phases', '_blank');
+        return true;
+      }
+
+      case 'test':
+      case 'test-exercise': {
+        var rawTestId = p.id;
+        var testAnchor = p.anchor || null;
+        if (rawTestId.indexOf('#') !== -1) {
+          var tParts = rawTestId.split('#');
+          rawTestId = tParts[0];
+          if (!testAnchor) testAnchor = tParts[1];
+        }
+        var testQuery = { testId: rawTestId };
+        if (testAnchor) testQuery.exerciseId = testAnchor;
         if (desktop && typeof desktop.openTool === 'function') {
           return desktop.openTool('test-creator.html', { query: testQuery });
         }
-        window.open('test-creator.html?testId=' + encodeURIComponent(p.id), '_blank');
+        var qs = new URLSearchParams(testQuery).toString();
+        window.open('test-creator.html?' + qs, '_blank');
         return true;
       }
 
@@ -736,7 +786,8 @@
           var nodeParts = p.id.split(':');
           if (nodeParts.length > 1) {
             bQuery.openSession = '1';
-            bQuery.openTarget = 'user';
+            bQuery.openTarget = 'mindmaps';
+            bQuery.openSection = 'constellation';
             bQuery.openFilename = decodeURIComponent(nodeParts[0]);
             bQuery.nodeId = decodeURIComponent(nodeParts[1]);
           } else {
@@ -744,7 +795,8 @@
           }
         } else {
           bQuery.openSession = '1';
-          bQuery.openTarget = 'user';
+          bQuery.openTarget = 'mindmaps';
+          bQuery.openSection = 'constellation';
           bQuery.openFilename = p.id;
           if (p.anchor) bQuery.nodeId = p.anchor;
         }
@@ -870,16 +922,26 @@
     loadRegistry: loadRegistry,
     saveRegistry: saveRegistry,
     registerEntity: registerEntity,
+    registerItem: function(urnOrItem, maybeMeta) {
+      if (typeof urnOrItem === 'string') return registerEntity(urnOrItem, maybeMeta || {});
+      if (urnOrItem && typeof urnOrItem === 'object') {
+        var u = urnOrItem.urn || makeUrn(urnOrItem.type, urnOrItem.id);
+        return registerEntity(u, urnOrItem);
+      }
+      return Promise.resolve();
+    },
     getEntityMeta: getEntityMeta,
     addLink: addLink,
     removeLink: removeLink,
     getLinksFor: getLinksFor,
     getLinksForSync: getLinksForSync,
+    getLinksForUrn: function(urn) { return getLinksForSync(urn) || []; },
     isLinked: isLinked,
     addTag: addTag,
     removeTag: removeTag,
     getTagsFor: getTagsFor,
     getTagsForSync: getTagsForSync,
+    getTagsForUrn: function(urn) { return getTagsForSync(urn) || []; },
     getAllTags: getAllTags,
     findByTag: findByTag,
     resolveContext: resolveContext,

@@ -13,6 +13,7 @@
   <script src="../js/tutorial.js"></script>
   <script src="../modules/xlsx.min.js"></script>
   <script src="../js/competence-aggregator-service.js"></script>
+  <script src="../js/test-creator-service.js"></script>
   <script src="../js/menus.js"></script>
   <link rel="stylesheet" href="../css/tag-link-modal.css">
   <script src="../js/links-service.js"></script>
@@ -715,6 +716,7 @@
           <span id="topt-context-badge" class="topt-context-badge"></span>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
+          <button id="btn-topt-import-tc" type="button" class="btn" onclick="gsTriggerImportFromTestCreator()" title="Import from Test Creator" style="font-weight:900;letter-spacing:0.5px;font-size:0.75rem;padding:3px 8px;background:#fde047;color:#000;border:2px solid #000;box-shadow:2px 2px 0px #000;" data-i18n="gsImportFromTestCreator"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:12px;height:12px;vertical-align:-2px;margin-right:4px;" />[IMPORT FROM TEST CREATOR]</button>
           <button id="btn-topt-links" type="button" class="btn" onclick="gsOpenTestLinksModal()" title="View and edit links and tags for this test" style="font-weight:900;letter-spacing:0.5px;font-size:0.75rem;padding:3px 8px;"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:12px;height:12px;vertical-align:-2px;margin-right:4px;" />[LINKS: 0]</button>
           <button type="button" class="btn" onclick="showGsModalTour()" style="font-size:0.78rem;padding:3px 10px;" data-i18n="tourBtnLabel"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
           <button id="topt-close-top" type="button" class="btn" style="padding:2px 8px;font-size:1rem;line-height:1;" aria-label="Close" data-i18n-aria="gsToptClose"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
@@ -914,7 +916,10 @@
             </div>
             <div id="topt-grading-model-wrap" class="form-group" style="margin-top:8px;">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-                <label data-i18n="gsGradingLabelModel">Preset Scale Models</label>
+                <div style="display:inline-flex;align-items:center;">
+                  <label data-i18n="gsGradingLabelModel">Preset Scale Models</label>
+                  <span id="topt-scale-inherited-badge" style="display:none;font-size:0.72rem;font-weight:900;border:1.5px solid #000;padding:1px 5px;background:#e0e7ff;color:#1e1b4b;margin-left:6px;"></span>
+                </div>
                 <div style="display:flex;align-items:center;gap:6px;">
                   <span style="font-size:0.75rem;color:var(--muted);font-weight:600;" data-i18n="gsScaleBank">Bank:</span>
                   <select id="topt-grading-scale-bank" class="input input-sm" style="max-width:200px;padding:2px 6px;font-size:0.75rem;"></select>
@@ -955,7 +960,12 @@
             </div>
 
             <div class="topt-card">
-              <div class="topt-card-title" data-i18n="gsToptAddCriterionLoadPreset">+ Add New Criterion / Load Preset</div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
+                <div class="topt-card-title" style="margin:0;" data-i18n="gsToptAddCriterionLoadPreset">+ Add New Criterion / Load Preset</div>
+                <button type="button" class="btn btn-xs" id="topt-import-test-creator-btn" style="font-size:0.75rem;padding:3px 8px;font-weight:900;border:1.5px solid #000;background:#fef08a;color:#000;box-shadow:1.5px 1.5px 0px #000;" data-i18n="gsImportFromTestCreator" title="Import test title, points, and exercises as criteria from Test Creator">
+                  <img src="../assets/icons/links.svg" class="btn-icon btn-icon-xs" alt="" style="width:11px;height:11px;vertical-align:-1px;margin-right:3px;" /> [IMPORT FROM TEST CREATOR]
+                </button>
+              </div>
               <div class="form-group" style="margin-bottom:12px;background:var(--bg-subtle,#f8fafc);padding:8px 10px;border-radius:6px;border:1px solid var(--border,#e2e8f0);">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
                   <div style="display:inline-flex;align-items:center;">
@@ -1126,11 +1136,45 @@
     </div>
   </div>
 
+  <!-- Test Creator Import Modal -->
+  <div id="gs-tc-import-overlay" class="crit-popup-overlay hidden" style="z-index: 10800;">
+    <div class="crit-popup-box panel" role="dialog" aria-modal="true" style="max-width: 680px; width: 92vw; border: 3px solid #000; box-shadow: 6px 6px 0px #000; background: #fff; padding: 0; display: flex; flex-direction: column;">
+      <div class="crit-popup-header" style="background:#fde047;border-bottom:2.5px solid #000;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <img src="../assets/icons/links.svg" style="width:18px;height:18px;" alt="" />
+          <span style="font-weight:900;text-transform:uppercase;letter-spacing:0.5px;font-size:0.95rem;" data-i18n="gsImportFromTestCreatorTitle">Import Assessment from Test Creator</span>
+        </div>
+        <button type="button" id="gs-tc-import-close-x" class="btn btn-sm" style="padding:2px 8px;font-size:1.1rem;line-height:1;font-weight:900;border:2px solid #000;background:#fff;" aria-label="Close">✕</button>
+      </div>
+      <div style="padding: 16px; flex: 1; overflow: hidden; display: flex; flex-direction: column;">
+        <p style="font-size:0.85rem;color:#000;margin-top:0;margin-bottom:12px;line-height:1.4;" data-i18n="gsImportFromTestCreatorDesc">
+          Select a saved test from Test Creator to import its title, date, scope, and exercise breakdown directly into this evaluation's criteria.
+        </p>
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <input type="search" id="gs-tc-import-search" class="input" style="flex:1;border:2px solid #000;font-weight:600;" placeholder="Search saved tests by title, subject, or date..." data-i18n-placeholder="tcFilterSavedTests" />
+          <button type="button" id="gs-tc-import-browse-file" class="btn" style="border:2px solid #000;font-weight:800;white-space:nowrap;background:#fff;">
+            <img src="../assets/icons/folder.svg" class="btn-icon" alt="" /> Browse JSON
+          </button>
+          <input type="file" id="gs-tc-import-file-input" accept=".json" style="display:none;" />
+        </div>
+        <div id="gs-tc-import-list" style="flex: 1; max-height: 380px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; border: 2px solid #000; padding: 10px; background: #fafafa;">
+          <!-- Test items rendered here -->
+        </div>
+      </div>
+      <div class="crit-popup-actions" style="padding:12px 16px;border-top:2.5px solid #000;background:#f1f5f9;display:flex;justify-content:flex-end;gap:10px;">
+        <button id="gs-tc-import-cancel" class="btn" type="button" data-i18n="btnCancel" style="border:2px solid #000;font-weight:800;background:#fff;">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Competence Picker Modal -->
   <div id="gs-competence-picker-overlay" class="crit-popup-overlay hidden" style="z-index: 10700;">
     <div class="crit-popup wide panel" role="dialog" aria-modal="true" style="max-width:720px;width:95%;max-height:88vh;display:flex;flex-direction:column;">
       <div class="crit-popup-title" style="display:flex;justify-content:space-between;align-items:center;">
-        <span data-i18n="gsCriteriaLinkedCompetences">Linked Competences</span>
+        <div style="display:inline-flex;align-items:center;gap:8px;">
+          <span data-i18n="gsCriteriaLinkedCompetences">Linked Competences</span>
+          <span id="gs-comp-inherited-badge" style="display:none;font-size:0.72rem;font-weight:900;border:1.5px solid #000;background:#e0e7ff;color:#1e1b4b;padding:1px 6px;"></span>
+        </div>
         <button type="button" id="gs-competence-picker-close-x" class="btn btn-sm" style="padding:2px 8px;font-size:1rem;line-height:1;" aria-label="Close">✕</button>
       </div>
       <div style="margin-bottom:8px;">
@@ -1491,7 +1535,7 @@
   <div id="test-row-menu" class="row-context-menu hidden" role="menu" aria-label="Student row menu" data-i18n-aria="gsAriaStudentRowMenu">
     <button id="test-row-menu-open" class="menu-item" type="button" role="menuitem" data-i18n="gsMenuOpenStudent"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" /> Open student</button>
     <button id="test-row-menu-report-student" class="menu-item" type="button" role="menuitem" data-i18n="gsReportStudentTest"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> Student Test Report</button>
-    <button id="test-row-menu-attach-work" class="menu-item" type="button" role="menuitem" style="font-weight:800;">[ATTACH STUDENT WORK / PDF]</button>
+    <button id="test-row-menu-attach-work" class="menu-item" type="button" role="menuitem" style="font-weight:800;"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> [ATTACH STUDENT WORK / PDF]</button>
     <hr class="menu-sep">
     <button id="test-row-menu-reset" class="menu-item danger" type="button" role="menuitem" data-i18n="gsMenuResetPoints"><img src="../assets/icons/clear.svg" class="btn-icon" alt="" /> Reset points and comments</button>
   </div>
@@ -1511,6 +1555,8 @@
   <div id="test-header-menu" class="row-context-menu hidden" role="menu" aria-label="Test menu" data-i18n-aria="gsAriaTestMenu">
     <button id="test-header-menu-open" class="menu-item" type="button" role="menuitem" data-i18n="gsMenuOpenTest"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" /> Open test</button>
     <button id="test-header-menu-links" class="menu-item" type="button" role="menuitem" style="font-weight:800;"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> [TEST LINKS & ATTACHMENTS]</button>
+    <button id="test-header-menu-tc-open" class="menu-item" type="button" role="menuitem" style="display:none;font-weight:800;" data-i18n="gsMenuOpenInTestCreator"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> [OPEN IN TEST CREATOR]</button>
+    <button id="test-header-menu-file-open" class="menu-item" type="button" role="menuitem" style="display:none;font-weight:800;" data-i18n="gsMenuOpenAttachedFile"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> [OPEN ATTACHED FILE / ANSWER KEY]</button>
     <button id="test-header-menu-settings" class="menu-item" type="button" role="menuitem" data-i18n="gsMenuEditTestSettings"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> Edit test settings</button>
     <hr class="menu-sep">
     <button id="test-header-menu-report-test" class="menu-item" type="button" role="menuitem" data-i18n="gsReportClassTest"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> Test Report (Whole Class)</button>
@@ -1521,6 +1567,7 @@
   </div>
 
   <div id="summary-student-row-menu" class="row-context-menu hidden" role="menu" aria-label="Student menu">
+    <button id="summary-student-menu-work" class="menu-item" type="button" role="menuitem" style="font-weight:800;"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> [STUDENT WORK & ATTACHMENTS]</button>
     <button id="summary-student-menu-report-year" class="menu-item" type="button" role="menuitem" data-i18n="gsReportStudentYear"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> Student Year Report</button>
     <button id="summary-student-menu-report-sem1" class="menu-item" type="button" role="menuitem" data-i18n="gsReportStudentSem1"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> Student Semester 1 Report</button>
     <button id="summary-student-menu-report-sem2" class="menu-item" type="button" role="menuitem" data-i18n="gsReportStudentSem2"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> Student Semester 2 Report</button>
@@ -5222,6 +5269,276 @@
      * - Attached Curriculum Competences (data-tab="criteria")
      * - Class default criteria bank
      */
+
+    // ── Test Creator Assessment Import Engine ─────────────────────
+    let _activeTcImportTarget = null;
+    let _cachedSavedTests = [];
+
+    async function gsTriggerImportFromTestCreator() {
+      const classObj = getActiveClass();
+      if (!classObj) return;
+      let sem = (typeof appState !== 'undefined' && appState.activeTest && appState.activeTest.semester) || 'sem1';
+      let testIndex = (typeof appState !== 'undefined' && appState.activeTest && appState.activeTest.testIndex) != null
+        ? appState.activeTest.testIndex
+        : (classObj.testCounts[sem] > 0 ? 0 : 0);
+      const config = getTestConfig(classObj, sem, testIndex);
+      openTestCreatorImportModal(config, classObj, sem, testIndex);
+    }
+    window.gsTriggerImportFromTestCreator = gsTriggerImportFromTestCreator;
+
+    async function openTestCreatorImportModal(config, classObj, sem, testIndex) {
+      _activeTcImportTarget = { config, classObj, sem, testIndex };
+      const overlay = document.getElementById('gs-tc-import-overlay');
+      const listEl = document.getElementById('gs-tc-import-list');
+      const searchEl = document.getElementById('gs-tc-import-search');
+      if (!overlay || !listEl) return;
+
+      overlay.classList.remove('hidden');
+      if (searchEl) { searchEl.value = ''; searchEl.focus(); }
+      listEl.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-weight:700;"><img src="../assets/icons/links.svg" class="btn-icon" style="animation:spin 1s linear infinite;" alt="" /> Loading saved tests from Test Creator...</div>';
+
+      await loadSavedTestsForImport();
+      renderSavedTestsForImport();
+    }
+    window.openTestCreatorImportModal = openTestCreatorImportModal;
+
+    async function loadSavedTestsForImport() {
+      _cachedSavedTests = [];
+      const testMap = new Map();
+
+      // 1. Scan user/tests directory via Electron bridge
+      if (window.Desktop && typeof Desktop.listFiles === 'function') {
+        try {
+          const res = await Desktop.listFiles('tests', { extensions: ['.json', '.js'] });
+          const flist = Array.isArray(res) ? res : ((res && Array.isArray(res.files)) ? res.files : []);
+          for (let i = 0; i < flist.length; i++) {
+            const fn = typeof flist[i] === 'string' ? flist[i] : flist[i].filename;
+            if (!fn) continue;
+            try {
+              const readRes = await Desktop.readJson('tests', fn);
+              if (readRes && readRes.ok && readRes.data) {
+                const tObj = readRes.data;
+                tObj._filename = fn;
+                tObj._source = 'disk';
+                testMap.set(tObj.id || fn, tObj);
+              }
+            } catch (_) {}
+          }
+        } catch (e) {
+          console.warn('Error reading tests directory:', e);
+        }
+      }
+
+      // 2. Scan localStorage fallback
+      try {
+        const raw = localStorage.getItem('cmt_tests');
+        if (raw) {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) {
+            list.forEach(t => {
+              if (t && (t.id || t.title) && !testMap.has(t.id || t._filename)) {
+                t._source = 'local';
+                testMap.set(t.id || ('local_' + Math.random()), t);
+              }
+            });
+          }
+        }
+      } catch (_) {}
+
+      _cachedSavedTests = Array.from(testMap.values()).sort((a, b) => {
+        const da = a.updatedAt || a.date || '';
+        const db = b.updatedAt || b.date || '';
+        return db.localeCompare(da);
+      });
+    }
+
+    function renderSavedTestsForImport(query = '') {
+      const listEl = document.getElementById('gs-tc-import-list');
+      if (!listEl) return;
+      const q = String(query || '').trim().toLowerCase();
+
+      const filtered = _cachedSavedTests.filter(t => {
+        if (!q) return true;
+        const text = [t.title, t.name, t.subject, t.scope, t.date, t._filename].filter(Boolean).join(' ').toLowerCase();
+        return text.includes(q);
+      });
+
+      if (filtered.length === 0) {
+        listEl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-weight:700;">' + (i18n.t('gsImportNoSavedTests') || 'No saved tests found in Test Creator.') + '</div>';
+        return;
+      }
+
+      listEl.innerHTML = '';
+      filtered.forEach(testObj => {
+        const card = document.createElement('div');
+        card.style.cssText = 'background:#fff;border:2px solid #000;box-shadow:2px 2px 0px #000;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:12px;';
+
+        const title = testObj.title || testObj.name || testObj._filename || 'Untitled Test';
+        const date = testObj.date ? ' • ' + testObj.date : '';
+        const subject = testObj.subject || '';
+        const scope = testObj.scope ? ' • ' + testObj.scope : '';
+        const exerciseCount = Array.isArray(testObj.exercises) ? testObj.exercises.length : 0;
+        let totalPts = 0;
+        if (Array.isArray(testObj.exercises)) {
+          totalPts = testObj.exercises.reduce((sum, ex) => sum + (Number(ex.points) || 1), 0);
+        }
+
+        const info = document.createElement('div');
+        info.style.cssText = 'flex:1;min-width:0;';
+        info.innerHTML = `
+          <div style="font-weight:900;font-size:0.92rem;text-transform:uppercase;color:#000;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(title)}</div>
+          <div style="font-size:0.78rem;color:var(--muted);margin-bottom:4px;">${escapeHtml(subject)}${escapeHtml(date)}${escapeHtml(scope)}</div>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+            <span style="font-size:0.7rem;font-weight:800;border:1px solid #000;background:#e0e7ff;color:#1e1b4b;padding:1px 5px;">${exerciseCount} EXERCISES</span>
+            <span style="font-size:0.7rem;font-weight:800;border:1px solid #000;background:#dcfce7;color:#14532d;padding:1px 5px;">${totalPts} PTS TOTAL</span>
+            ${testObj.scaleModelId ? `<span style="font-size:0.7rem;font-weight:800;border:1px solid #000;background:#fef08a;color:#713f12;padding:1px 5px;">SCALE: ${escapeHtml(testObj.scaleModelId)}</span>` : ''}
+          </div>
+        `;
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-sm primary';
+        btn.style.cssText = 'font-weight:900;border:2px solid #000;box-shadow:2px 2px 0px #000;padding:6px 14px;white-space:nowrap;';
+        btn.innerHTML = '<img src="../assets/icons/check.svg" class="btn-icon" alt="" /> Import';
+        btn.onclick = () => {
+          applyTestCreatorImport(testObj, testObj._filename || (testObj.title + '.json'));
+        };
+
+        card.appendChild(info);
+        card.appendChild(btn);
+        listEl.appendChild(card);
+      });
+    }
+
+    async function applyTestCreatorImport(testObj, filename) {
+      if (!_activeTcImportTarget) return;
+      const { config, classObj, sem, testIndex } = _activeTcImportTarget;
+
+      // 1. Populate metadata
+      config.testName = testObj.title || testObj.name || (filename ? filename.replace(/\.json$/i, '') : 'Imported Test');
+      if (testObj.date) config.testDate = testObj.date;
+      if (testObj.scope) config.scope = testObj.scope;
+      if (testObj.subject) config.type = testObj.subject;
+
+      // 2. Map exercises into sub-criteria
+      if (Array.isArray(testObj.exercises) && testObj.exercises.length > 0) {
+        config.criteria = testObj.exercises.map((ex, idx) => {
+          const exTitle = ex.title || ('Exercise ' + (idx + 1) + (ex.type ? ' (' + ex.type + ')' : ''));
+          const maxPts = Number(ex.points) || 1;
+          const compIds = Array.isArray(ex.linkedCompetenceIds) ? ex.linkedCompetenceIds : (Array.isArray(ex.competenceIds) ? ex.competenceIds : []);
+          return makeCriterion(exTitle, maxPts, 1, false, 0, null, compIds);
+        });
+      }
+
+      // 3. Scale Model
+      if (testObj.scaleModelId && testObj.scaleModelId !== 'custom') {
+        config.grading = config.grading || {};
+        config.grading.modelKey = testObj.scaleModelId;
+        config.grading.pendingModelKey = testObj.scaleModelId;
+        if (testObj.scaleBank) config.grading.scaleBank = testObj.scaleBank;
+      }
+
+      // 4. Record linkage
+      config.linkedTestFile = filename;
+      config.linkedTestId = testObj.id || null;
+
+      // 5. Establish graph link via LinksService
+      if (typeof LinksService !== 'undefined') {
+        const testUrn = `cmt:eval:${classObj.id}:${sem}:${testIndex}`;
+        const tcUrn = `cmt:test:${filename}`;
+        await LinksService.addLink(testUrn, tcUrn, {
+          relation: 'test',
+          targetMeta: {
+            type: 'test',
+            title: testObj.title || filename,
+            subtitle: (testObj.subject ? testObj.subject + ' • ' : '') + `${testObj.exercises ? testObj.exercises.length : 0} exercises`
+          },
+          sourceMeta: {
+            type: 'evaluation',
+            title: `${config.testName} (${classObj.name})`,
+            subtitle: (sem === 'sem1' ? 'Semester 1' : 'Semester 2') + (config.testDate ? ' • ' + config.testDate : '')
+          }
+        });
+      }
+
+      // 6. Update Test Options Form if open
+      const nameInput = document.getElementById("topt-info-name");
+      const dateInput = document.getElementById("topt-info-date");
+      const scopeInput = document.getElementById("topt-info-scope");
+      const typeInput = document.getElementById("topt-info-type");
+      if (nameInput) nameInput.value = config.testName;
+      if (dateInput) dateInput.value = config.testDate || '';
+      if (scopeInput) scopeInput.value = config.scope || '';
+      if (typeInput) typeInput.value = config.type || '';
+
+      // Rebuild criteria list inside modal if helper exists
+      const critList = document.getElementById("topt-criteria-list");
+      if (critList && typeof rebuildCriteriaList === 'function') {
+        rebuildCriteriaList();
+      }
+
+      // Close import overlay
+      const overlay = document.getElementById('gs-tc-import-overlay');
+      if (overlay) overlay.classList.add('hidden');
+
+      // Auto-sync links and save
+      saveState();
+      syncTestAutoLinks(classObj, sem, testIndex);
+      updateGsLinksBadges();
+      if (appState.activeScreen === 'test') renderTestSheet();
+      else if (appState.activeScreen === 'summary') renderSummary();
+
+      if (window.showToast) {
+        showToast(i18n.t('gsImportTestSuccess') || 'Test imported successfully from Test Creator!');
+      }
+    }
+
+    // Attach search and close listeners for import modal
+    document.addEventListener('DOMContentLoaded', () => {
+      const searchInput = document.getElementById('gs-tc-import-search');
+      if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+          renderSavedTestsForImport(e.target.value);
+        });
+      }
+      const closeBtn = document.getElementById('gs-tc-import-close-x');
+      if (closeBtn) {
+        closeBtn.onclick = () => {
+          document.getElementById('gs-tc-import-overlay')?.classList.add('hidden');
+        };
+      }
+      const cancelBtn = document.getElementById('gs-tc-import-cancel');
+      if (cancelBtn) {
+        cancelBtn.onclick = () => {
+          document.getElementById('gs-tc-import-overlay')?.classList.add('hidden');
+        };
+      }
+      const browseBtn = document.getElementById('gs-tc-import-browse-file');
+      const fileInput = document.getElementById('gs-tc-import-file-input');
+      if (browseBtn && fileInput) {
+        browseBtn.onclick = () => fileInput.click();
+        fileInput.onchange = (e) => {
+          const file = e.target.files && e.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            try {
+              const parsed = JSON.parse(ev.target.result);
+              applyTestCreatorImport(parsed, file.name);
+            } catch (err) {
+              showAlert('Invalid JSON test file: ' + err.message);
+            }
+          };
+          reader.readAsText(file);
+          fileInput.value = '';
+        };
+      }
+      const toptImportBtn = document.getElementById('topt-import-test-creator-btn');
+      if (toptImportBtn) {
+        toptImportBtn.onclick = () => gsTriggerImportFromTestCreator();
+      }
+    });
+
     async function syncTestAutoLinks(classObj, sem, testIndex) {
       if (typeof LinksService === 'undefined' || !classObj || !classObj.id || sem == null || testIndex == null) return;
       try {

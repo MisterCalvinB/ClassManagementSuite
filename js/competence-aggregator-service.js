@@ -1491,7 +1491,20 @@
               const results = Array.isArray(tData.results) ? tData.results : [];
 
               criteria.forEach((crit, critIdx) => {
-                const compIds = Array.isArray(crit.competenceIds) ? crit.competenceIds : [];
+                let compIds = Array.isArray(crit.competenceIds) ? [...crit.competenceIds] : [];
+                if (typeof LinksService !== 'undefined') {
+                  const critId = crit.id || crit.name || '';
+                  if (critId) {
+                    const cUrn = 'cmt:criterion:' + critId;
+                    const cLinks = LinksService.getLinksForSync ? LinksService.getLinksForSync(cUrn) : [];
+                    cLinks.forEach(l => {
+                      const p = LinksService.parseUrn(l.otherUrn);
+                      if (p && p.type === 'competence' && !compIds.includes(p.id)) {
+                        compIds.push(p.id);
+                      }
+                    });
+                  }
+                }
                 if (!compIds.length) return;
 
                 let totalPct = 0;
@@ -1544,7 +1557,20 @@
               gData.tests.forEach(test => {
                 if (!test || !Array.isArray(test.criteria)) return;
                 test.criteria.forEach((crit, critIdx) => {
-                  const compIds = Array.isArray(crit.competenceIds) ? crit.competenceIds : [];
+                  let compIds = Array.isArray(crit.competenceIds) ? [...crit.competenceIds] : [];
+                  if (typeof LinksService !== 'undefined') {
+                    const critId = crit.id || crit.name || '';
+                    if (critId) {
+                      const cUrn = 'cmt:criterion:' + critId;
+                      const cLinks = LinksService.getLinksForSync ? LinksService.getLinksForSync(cUrn) : [];
+                      cLinks.forEach(l => {
+                        const p = LinksService.parseUrn(l.otherUrn);
+                        if (p && p.type === 'competence' && !compIds.includes(p.id)) {
+                          compIds.push(p.id);
+                        }
+                      });
+                    }
+                  }
                   if (!compIds.length) return;
                   compIds.forEach(cid => {
                     recordOccurrence(cid, 'grade-sheet', {

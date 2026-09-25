@@ -17,6 +17,16 @@
   <script src="../js/links-service.js"></script>
   <script src="../js/tag-link-modal.js"></script>
   <script src="../js/test-creator-service.js"></script>
+  <style>
+    @keyframes tcPulseCard {
+      0% { outline: 4px solid #fde047; transform: scale(1.01); }
+      50% { outline: 4px solid #eab308; }
+      100% { outline: 0px solid transparent; transform: scale(1); }
+    }
+    .tc-exercise-highlight-pulse {
+      animation: tcPulseCard 1.5s ease-in-out;
+    }
+  </style>
 </head>
 <body>
   <div class="app-container">
@@ -84,6 +94,9 @@
           <hr class="nav-pop-sep">
           <button class="nav-pop-item" onclick="tcSaveAllExercisesToDb()"><span data-i18n="tcSaveAllExercisesToDb">Save All Exercises to DB</span></button>
           <button class="nav-pop-item" onclick="tcOpenManageDatabase()"><span data-i18n="tcOpenManageDb">Open Manage Database…</span></button>
+          <hr class="nav-pop-sep">
+          <button class="nav-pop-item" onclick="tcOpenPullFromLessonModal()"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="tcPullFromLesson">Pull from Lesson Plan…</span></button>
+          <button class="nav-pop-item" onclick="tcGenerateRevisionMindmap()"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="tcGenerateRevisionMindmap">Generate Revision Mindmap…</span></button>
         </div>
       </div>
 
@@ -98,6 +111,8 @@
           <button class="nav-pop-item" onclick="tcDirectExport('html')"><span data-i18n="tcExportHtml">Standalone HTML</span></button>
           <button class="nav-pop-item" onclick="tcDirectExport('docx')"><span data-i18n="tcExportDocx">Word Document (.docx)</span></button>
           <button class="nav-pop-item" onclick="tcDirectExport('md')"><span data-i18n="tcExportMd">Markdown (with KaTeX)</span></button>
+          <hr class="nav-pop-sep">
+          <button class="nav-pop-item" onclick="tcExportToDocumentEditor()"><img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="tcExportToDocEditor">Export to Document Editor</span></button>
         </div>
       </div>
 
@@ -160,6 +175,7 @@
           <select id="testScale" class="meta-select" onchange="tcOnDirty()">
             <!-- Populated from TestCreatorService.DEFAULT_SCALES -->
           </select>
+          <span id="tcScaleInheritedBadge" style="display:none;font-size:0.7rem;font-weight:900;background:#eff6ff;color:#1e40af;border:1.5px solid #2563eb;padding:3px 6px;border-radius:3px;box-shadow:1px 1px 0 #2563eb;white-space:nowrap;">[INHERITED: Class]</span>
         </div>
 
         <div class="meta-field-group">
@@ -263,6 +279,7 @@
         <!-- Panel 1: Test Exercise Bank -->
         <div id="panelTestBank" class="drawer-tab-panel active">
           <input type="text" id="drawerTestBankSearch" class="drawer-search-input" placeholder="Search saved exercises by title, type…" data-i18n-placeholder="tcSearchExercisesPlaceholder" oninput="tcFilterTestBank()">
+          <button type="button" class="neo-btn sm" onclick="tcOpenPullFromLessonModal()" style="width:100%;margin-top:6px;font-weight:900;background:#fef08a;color:#000;display:flex;align-items:center;justify-content:center;gap:6px;"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /><span data-i18n="tcPullFromLesson">Pull from Lesson Plan…</span></button>
           <div class="drawer-items-list" id="testBankList">
             <div style="font-size:0.8rem;color:#888;text-align:center;padding:20px;">Loading test exercises…</div>
           </div>
@@ -348,10 +365,11 @@
 
         <!-- Panel 3: Criteria Database -->
         <div id="panelCriteriaDb" class="drawer-tab-panel">
-          <div style="display:flex;gap:6px;margin-bottom:6px;">
+          <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">
             <select id="criteriaBankSource" class="meta-select" style="flex:1;padding:5px;" onchange="tcLoadCriteriaBankSource()">
               <option value="">Loading criteria banks…</option>
             </select>
+            <span id="tcCriteriaInheritedBadge" style="display:none;font-size:0.7rem;font-weight:900;background:#eff6ff;color:#1e40af;border:1.5px solid #2563eb;padding:3px 6px;border-radius:3px;box-shadow:1px 1px 0 #2563eb;white-space:nowrap;">[INHERITED: Class]</span>
           </div>
           <input type="text" id="drawerCriteriaSearch" class="drawer-search-input" placeholder="Search assessment criteria by title…" data-i18n-placeholder="tcSearchCriteriaPlaceholder" oninput="tcFilterCriteriaDb()">
           <div class="drawer-items-list" id="criteriaDbList">
@@ -361,6 +379,20 @@
 
         <!-- Panel 4: Competences -->
         <div id="panelCompetences" class="drawer-tab-panel">
+          <div id="tcClassObjectivesBanner" style="display:none;background:#eff6ff;border:2px solid #2563eb;padding:8px 10px;margin-bottom:8px;border-radius:4px;box-shadow:2px 2px 0 #2563eb;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:4px;">
+              <span style="font-weight:900;font-size:0.75rem;color:#1e40af;display:inline-flex;align-items:center;gap:4px;">
+                <img src="../assets/icons/links.svg" style="width:12px;height:12px;" alt="" />
+                <span data-i18n="tcClassObjectives">Class Objectives</span>
+                <span id="tcClassObjBadge" class="score-badge" style="font-size:0.65rem;background:#dbeafe;color:#1e40af;border:1px solid #2563eb;padding:1px 4px;border-radius:3px;">[INHERITED: Class]</span>
+              </span>
+              <button type="button" class="neo-btn sm primary" onclick="tcAttachClassObjectives()" style="font-size:0.72rem;padding:2px 8px;font-weight:900;">
+                <img src="../assets/icons/links.svg" style="width:11px;height:11px;vertical-align:-1px;margin-right:3px;" alt="" />
+                <span data-i18n="tcAttachClassObjectives">Attach Class Objectives</span>
+              </button>
+            </div>
+            <div id="tcClassObjectivesList" style="display:flex;flex-wrap:wrap;gap:4px;max-height:80px;overflow-y:auto;"></div>
+          </div>
           <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">
             <span style="font-size:0.75rem;font-weight:800;color:#1e40af;white-space:nowrap;">Tag to:</span>
             <select id="competenceTargetExSelect" class="meta-select" style="flex:1;padding:4px;" onchange="tcOnCompetenceTargetChange()">
@@ -375,10 +407,11 @@
 
         <!-- Panel 5: Grading Scales -->
         <div id="panelScales" class="drawer-tab-panel">
-          <div style="display:flex;gap:6px;margin-bottom:6px;">
+          <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">
             <select id="scaleBankSource" class="meta-select" style="flex:1;padding:5px;" onchange="tcLoadScaleBankSource()">
               <option value="">Loading scale banks…</option>
             </select>
+            <span id="tcScaleDrawerInheritedBadge" style="display:none;font-size:0.7rem;font-weight:900;background:#eff6ff;color:#1e40af;border:1.5px solid #2563eb;padding:3px 6px;border-radius:3px;box-shadow:1px 1px 0 #2563eb;white-space:nowrap;">[INHERITED: Class]</span>
           </div>
           <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">
             <span style="font-size:0.75rem;font-weight:800;color:#d97706;white-space:nowrap;">Target:</span>
@@ -514,9 +547,71 @@
           </div>
         </div>
       </div>
+      <div class="modal-footer" style="display:flex;justify-content:space-between;align-items:center;">
+        <button type="button" class="neo-btn yellow" onclick="tcExportToDocumentEditor()" style="font-weight:900;display:inline-flex;align-items:center;gap:6px;"><img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /><span data-i18n="tcExportToDocEditor">Export to Document Editor</span></button>
+        <div style="display:flex;gap:6px;">
+          <button class="neo-btn" onclick="tcCloseExportModal()" data-i18n="btnCancel">Cancel</button>
+          <button class="neo-btn primary" onclick="tcExecuteExport()"><span data-i18n="btnExport">Export Now</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Pull from Lesson Plan Modal ──────────────────────────────────────── -->
+  <div id="tcPullLessonModal" class="modal-overlay" onclick="if(event.target===this)tcClosePullLessonModal()">
+    <div class="modal-box" style="max-width:620px;">
+      <div class="modal-header">
+        <span class="modal-title" style="display:flex;align-items:center;gap:8px;">
+          <img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:16px;height:16px;" />
+          <span data-i18n="tcPullFromLessonModalTitle">Pull Exercises &amp; Vocab from Lesson Plan</span>
+        </span>
+        <button class="modal-close-btn" onclick="tcClosePullLessonModal()">&times;</button>
+      </div>
+      <div class="modal-bd modal-body" style="display:flex;flex-direction:column;gap:12px;">
+        <div>
+          <label class="meta-lbl" data-i18n="tcSelectLessonPrompt">Select a lesson plan to extract from:</label>
+          <select id="tcLessonSelect" class="meta-select" style="width:100%;margin-top:4px;" onchange="tcOnLessonSelected()">
+            <option value="">Loading lessons…</option>
+          </select>
+        </div>
+
+        <div id="tcLessonPreviewBox" style="display:none;background:#f8fafc;border:2px solid #000;box-shadow:2px 2px 0 #000;padding:10px;border-radius:4px;">
+          <div style="font-weight:900;font-size:0.95rem;color:#000;" id="tcLessonPreviewTitle">Lesson Title</div>
+          <div style="font-size:0.8rem;color:#475569;margin-top:2px;" id="tcLessonPreviewMeta">Subject • Class</div>
+          <div style="margin-top:8px;font-size:0.82rem;">
+            <strong>Vocabulary / Key Concepts:</strong>
+            <div id="tcLessonPreviewVocab" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;max-height:80px;overflow-y:auto;"></div>
+          </div>
+          <div style="margin-top:8px;font-size:0.82rem;">
+            <strong>Lesson Phases / Objectives:</strong>
+            <div id="tcLessonPreviewPhases" style="font-size:0.78rem;color:#334155;margin-top:4px;max-height:80px;overflow-y:auto;"></div>
+          </div>
+        </div>
+
+        <div style="border-top:2px solid #000;padding-top:10px;">
+          <label class="meta-lbl">Exercises to Generate:</label>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;font-size:0.85rem;font-weight:700;">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+              <input type="checkbox" id="tcPullOptCloze" checked>
+              <span data-i18n="tcPullClozeVocab">Create Cloze / Gap Fill from Vocabulary</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+              <input type="checkbox" id="tcPullOptMatching" checked>
+              <span data-i18n="tcPullMatchingVocab">Create Matching Exercise from Concepts</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+              <input type="checkbox" id="tcPullOptOpenQ" checked>
+              <span data-i18n="tcPullOpenQuestions">Create Open Questions from Phase Objectives</span>
+            </label>
+          </div>
+        </div>
+      </div>
       <div class="modal-footer">
-        <button class="neo-btn" onclick="tcCloseExportModal()" data-i18n="btnCancel">Cancel</button>
-        <button class="neo-btn primary" onclick="tcExecuteExport()"><span data-i18n="btnExport">Export Now</span></button>
+        <button class="neo-btn" onclick="tcClosePullLessonModal()" data-i18n="btnCancel">Cancel</button>
+        <button class="neo-btn primary" id="tcBtnExecutePullLesson" onclick="tcExecutePullFromLesson()" style="font-weight:900;">
+          <img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-1px;margin-right:4px;" />
+          <span data-i18n="tcPullConvertBtn">Pull &amp; Convert into Exercises</span>
+        </button>
       </div>
     </div>
   </div>
@@ -1510,7 +1605,34 @@
         renderExerciseCards();
         tcLoadDrawerContent();
         setupResizer();
+        tcCheckUrlExerciseDeepLink();
       });
+
+      function tcCheckUrlExerciseDeepLink() {
+        var params = new URLSearchParams(window.location.search);
+        var reqEx = params.get('exerciseId') || params.get('ex') || params.get('anchor');
+        if (!reqEx) return;
+        setTimeout(function () {
+          var cleanEx = reqEx.replace(/^ex-|^exercise-/, '');
+          var card = document.getElementById('card-' + reqEx) || document.getElementById('card-' + cleanEx);
+          if (!card) {
+            var num = parseInt(cleanEx, 10);
+            var allCards = document.querySelectorAll('.exercise-card-item');
+            if (!isNaN(num) && num >= 1 && num <= allCards.length) {
+              card = allCards[num - 1];
+            }
+          }
+          if (!card && currentTest && Array.isArray(currentTest.exercises)) {
+            var foundEx = currentTest.exercises.find(function (e) { return e && (e.id === reqEx || e.id === cleanEx); });
+            if (foundEx) card = document.getElementById('card-' + foundEx.id);
+          }
+          if (card) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            card.classList.add('tc-exercise-highlight-pulse');
+            setTimeout(function () { card.classList.remove('tc-exercise-highlight-pulse'); }, 2500);
+          }
+        }, 400);
+      }
 
       async function tcBootstrapActiveTest() {
         var params = new URLSearchParams(window.location.search);
@@ -2013,6 +2135,9 @@
           tcRenderTestGradingScaleBar();
         }
         tcUpdateTestLinksBadge();
+        if (currentTest.classId && typeof tcResolveClassInheritedContext === 'function') {
+          tcResolveClassInheritedContext(currentTest.classId);
+        }
       }
 
       function tcGetActiveTestUrn() {
@@ -2101,7 +2226,7 @@
         }
       };
 
-      window.tcOnClassChange = function () {
+      window.tcOnClassChange = async function () {
         var cId = document.getElementById('testClass').value;
         currentTest.classId = cId;
         var group = activeClassGroups.find(function (g) { return g.id === cId || g.name === cId; });
@@ -2122,7 +2247,180 @@
           currentTest.className = '';
           activeStudents = [];
         }
+        await tcResolveClassInheritedContext(cId);
         tcOnDirty();
+      };
+
+      window.tcUpdateCriteriaInheritedBadge = function (sourceLabel) {
+        var badge = document.getElementById('tcCriteriaInheritedBadge');
+        if (!badge) return;
+        if (sourceLabel) {
+          var text = (typeof i18n !== 'undefined' && typeof i18n.tFmt === 'function')
+            ? i18n.tFmt('tcCriteriaInheritedBadge', { source: sourceLabel })
+            : ('[INHERITED: ' + sourceLabel + ']');
+          badge.textContent = text;
+          badge.style.display = 'inline-block';
+        } else {
+          badge.style.display = 'none';
+        }
+      };
+
+      window.tcUpdateScaleInheritedBadge = function (sourceLabel) {
+        var b1 = document.getElementById('tcScaleInheritedBadge');
+        var b2 = document.getElementById('tcScaleDrawerInheritedBadge');
+        var text = sourceLabel
+          ? ((typeof i18n !== 'undefined' && typeof i18n.tFmt === 'function')
+              ? i18n.tFmt('tcScaleInheritedBadge', { source: sourceLabel })
+              : ('[INHERITED: ' + sourceLabel + ']'))
+          : '';
+        [b1, b2].forEach(function (b) {
+          if (!b) return;
+          if (sourceLabel) {
+            b.textContent = text;
+            b.style.display = 'inline-block';
+          } else {
+            b.style.display = 'none';
+          }
+        });
+      };
+
+      window.tcUpdateClassObjectivesBanner = function (list, className) {
+        var banner = document.getElementById('tcClassObjectivesBanner');
+        var listEl = document.getElementById('tcClassObjectivesList');
+        var badgeEl = document.getElementById('tcClassObjBadge');
+        if (!banner || !listEl) return;
+        if (!list || !list.length) {
+          banner.style.display = 'none';
+          listEl.innerHTML = '';
+          return;
+        }
+        if (badgeEl && className) {
+          badgeEl.textContent = '[INHERITED: ' + className + ']';
+        }
+        banner.style.display = 'block';
+        listEl.innerHTML = list.map(function (code) {
+          return '<span style="background:#eff6ff;border:1.5px solid #2563eb;color:#1e40af;font-size:0.72rem;font-weight:800;padding:2px 6px;border-radius:3px;">' +
+            escapeHtml(code) +
+            '</span>';
+        }).join('');
+      };
+
+      window.tcResolveClassInheritedContext = async function (cId) {
+        if (!cId) {
+          tcUpdateCriteriaInheritedBadge(null);
+          tcUpdateScaleInheritedBadge(null);
+          tcUpdateClassObjectivesBanner([], null);
+          return;
+        }
+        var group = activeClassGroups.find(function (g) { return g.id === cId || g.name === cId; });
+        var inheritedCtx = null;
+        if (typeof LinksService !== 'undefined') {
+          try {
+            inheritedCtx = await LinksService.resolveContext({ type: 'class', id: cId, classId: cId });
+          } catch (_) {}
+        }
+
+        var className = (group && (group.name || group.id)) || (inheritedCtx && inheritedCtx.inheritedFrom) || 'Class';
+
+        // 1. Criteria Rubric Inheritance
+        var critPreset = (inheritedCtx && inheritedCtx.criteriaPreset) || (group && (group.criteriaPreset || group.criteriaBank));
+        if (critPreset && Array.isArray(_allCriteriaBanks)) {
+          var bankMatch = _allCriteriaBanks.find(function (b) {
+            return b.id === critPreset || b.filename === critPreset || (b.name && b.name.toLowerCase() === String(critPreset).toLowerCase());
+          });
+          if (bankMatch) {
+            var cSel = document.getElementById('criteriaBankSource');
+            if (cSel) cSel.value = bankMatch.id;
+            _cachedCriteria = bankMatch.criteria || [];
+            tcRenderCriteriaList(_cachedCriteria);
+            tcUpdateCriteriaInheritedBadge(className);
+          } else {
+            tcUpdateCriteriaInheritedBadge(null);
+          }
+        } else {
+          tcUpdateCriteriaInheritedBadge(null);
+        }
+
+        // 2. Grading Scale Inheritance
+        var scalePreset = (inheritedCtx && inheritedCtx.gradingScale) || (group && (group.gradingScale || group.defaultScale));
+        if (scalePreset) {
+          if (typeof tcResolveAndSetScaleModel === 'function') {
+            tcResolveAndSetScaleModel(scalePreset);
+          } else {
+            currentTest.scaleModelId = scalePreset;
+            var scSel = document.getElementById('testScale');
+            if (scSel) scSel.value = scalePreset;
+          }
+          tcUpdateScaleInheritedBadge(className);
+          updatePointsBadge();
+        } else {
+          tcUpdateScaleInheritedBadge(null);
+        }
+
+        // 3. Class Objectives / Competences
+        var rawComps = (inheritedCtx && inheritedCtx.competences) || [];
+        var compList = [];
+        rawComps.forEach(function (rc) {
+          var code = (rc.targetMeta && rc.targetMeta.title) || (rc.meta && (rc.meta.code || rc.meta.label)) || (LinksService && LinksService.parseUrn(rc.otherUrn) && LinksService.parseUrn(rc.otherUrn).id);
+          if (code && compList.indexOf(code) === -1) compList.push(code);
+        });
+        if (group && Array.isArray(group.targetCompetences)) {
+          group.targetCompetences.forEach(function (tc) {
+            var cCode = typeof tc === 'string' ? tc : (tc.code || tc.id);
+            if (cCode && compList.indexOf(cCode) === -1) compList.push(cCode);
+          });
+        }
+        if (group && Array.isArray(group.competences)) {
+          group.competences.forEach(function (tc) {
+            var cCode = typeof tc === 'string' ? tc : (tc.code || tc.id);
+            if (cCode && compList.indexOf(cCode) === -1) compList.push(cCode);
+          });
+        }
+        window._activeClassObjectives = compList;
+        tcUpdateClassObjectivesBanner(compList, className);
+      };
+
+      window.tcAttachClassObjectives = function () {
+        var list = window._activeClassObjectives || [];
+        if (!list.length) {
+          if (window.showToast) showToast(i18n.t('tcNoClassObjectivesFound', 'No target objectives defined for this class.'), true);
+          return;
+        }
+        var targetSel = document.getElementById('competenceTargetExSelect');
+        var targetVal = targetSel ? targetSel.value : (_targetAttachExId || '__exam__');
+        var targetEx = null;
+        if (targetVal && targetVal !== '__exam__') {
+          targetEx = currentTest.exercises.find(function (e) { return e.id === targetVal; });
+        } else if (_targetAttachExId) {
+          targetEx = currentTest.exercises.find(function (e) { return e.id === _targetAttachExId; });
+        }
+
+        var count = 0;
+        list.forEach(function (code) {
+          var label = code;
+          if (targetEx) {
+            if (!Array.isArray(targetEx.linkedCompetenceIds)) targetEx.linkedCompetenceIds = [];
+            if (targetEx.linkedCompetenceIds.indexOf(label) === -1) {
+              targetEx.linkedCompetenceIds.push(label);
+              count++;
+            }
+          }
+          if (!Array.isArray(currentTest.linkedCompetenceIds)) currentTest.linkedCompetenceIds = [];
+          if (currentTest.linkedCompetenceIds.indexOf(label) === -1) {
+            currentTest.linkedCompetenceIds.push(label);
+            if (!targetEx) count++;
+          }
+        });
+
+        renderExerciseCards();
+        renderTestCompetenceBadges();
+        var targetName = targetEx ? ('"' + (targetEx.title || 'Exercise') + '"') : 'entire exam';
+        if (window.showToast) {
+          var msg = (typeof i18n !== 'undefined' && typeof i18n.tFmt === 'function')
+            ? i18n.tFmt('tcClassObjectivesAttached', { count: list.length, target: targetName })
+            : ('Attached ' + list.length + ' class objectives to ' + targetName);
+          showToast(msg);
+        }
       };
 
       // ── Multi-Unit Helpers & Reordering Handlers ──────────────────────────
@@ -5426,6 +5724,33 @@
 
         renderExerciseCards();
         updatePointsBadge();
+
+        // Automatically establish link in LinksService
+        if (typeof LinksService !== 'undefined' && typeof LinksService.addLink === 'function') {
+          var testUrn = 'cmt:test:' + currentTest.id;
+          var itemTitle = item.word || item.title || item.name || item.rule || item.question || 'Item';
+          var itemKey = item.word || item.removedWord || item.title || item.name || 'item';
+          var itemUrn = 'cmt:' + type + ':' + (item._sourceFile || 'db') + '#' + encodeURIComponent(itemKey);
+          if (typeof LinksService.registerEntity === 'function') {
+            LinksService.registerEntity(itemUrn, {
+              title: itemTitle,
+              type: type,
+              file: item._sourceFile || ''
+            });
+          }
+          LinksService.addLink(testUrn, itemUrn, {
+            relation: 'includes-material',
+            meta: { label: itemTitle, title: itemTitle }
+          });
+          if (ex && ex.id) {
+            LinksService.addLink(testUrn + '#' + ex.id, itemUrn, {
+              relation: 'includes-material',
+              meta: { label: itemTitle, exerciseTitle: ex.title || '' }
+            });
+          }
+          if (typeof tcUpdateTestLinksBadge === 'function') tcUpdateTestLinksBadge();
+        }
+
         if (window.showToast) showToast(i18n.t('tcAddedDbExerciseExam', 'Added database exercise into exam!'));
       };
 
@@ -5864,6 +6189,23 @@
           currentTest.linkedCompetenceIds.push(label);
         }
 
+        if (typeof LinksService !== 'undefined') {
+          var tUrn = tcGetActiveTestUrn();
+          var cCode = (comp.code || comp.id || '').trim();
+          if (tUrn && cCode) {
+            var sUrn = targetEx ? (tUrn + '#' + targetEx.id) : tUrn;
+            LinksService.addLink(sUrn, 'cmt:competence:' + cCode, {
+              relation: 'assesses',
+              meta: {
+                testTitle: currentTest.title || 'Exam',
+                exerciseTitle: targetEx ? targetEx.title : 'Exam-wide',
+                points: targetEx ? targetEx.points : null
+              }
+            }).catch(function () {});
+            tcUpdateTestLinksBadge();
+          }
+        }
+
         renderExerciseCards();
         renderTestCompetenceBadges();
         if (window.showToast) {
@@ -5895,7 +6237,15 @@
       window.tcRemoveCompFromEx = function (exId, cIdx) {
         var ex = currentTest.exercises.find(function (e) { return e.id === exId; });
         if (ex && Array.isArray(ex.linkedCompetenceIds)) {
-          ex.linkedCompetenceIds.splice(cIdx, 1);
+          var removed = ex.linkedCompetenceIds.splice(cIdx, 1);
+          if (removed && removed[0] && typeof LinksService !== 'undefined') {
+            var compCode = removed[0].replace(/^\[[^\]]+\]\s*/, '').split(' - ')[0].trim();
+            var testUrn = tcGetActiveTestUrn();
+            if (testUrn && compCode) {
+              LinksService.removeLink(testUrn + '#' + ex.id, 'cmt:competence:' + compCode).catch(function () {});
+              tcUpdateTestLinksBadge();
+            }
+          }
           renderExerciseCards();
         }
       };
@@ -7821,6 +8171,467 @@
         tcOpenExportModal();
       };
 
+      // ── Pull from Lesson Plan & Cross-Tool Integrations ──────────────────
+      window._allSavedLessons = [];
+      window._selectedLessonData = null;
+
+      window.tcOpenPullFromLessonModal = async function () {
+        var modal = document.getElementById('tcPullLessonModal');
+        if (!modal) return;
+        modal.classList.add('open');
+        var sel = document.getElementById('tcLessonSelect');
+        if (sel) sel.innerHTML = '<option value="">' + (i18n.t('commonLoading') || 'Loading…') + '</option>';
+        var previewBox = document.getElementById('tcLessonPreviewBox');
+        if (previewBox) previewBox.style.display = 'none';
+
+        _allSavedLessons = [];
+        var isElec = window.Desktop && (typeof Desktop.isElectron === 'function' ? Desktop.isElectron() : !!Desktop.isElectron);
+
+        if (isElec && typeof Desktop.listFiles === 'function') {
+          try {
+            var res = await Desktop.listFiles('lessons', { extensions: ['.json'] });
+            var list = Array.isArray(res) ? res : ((res && Array.isArray(res.files)) ? res.files : []);
+            for (var i = 0; i < list.length; i++) {
+              var fn = typeof list[i] === 'string' ? list[i] : (list[i].filename || list[i].name);
+              if (!fn) continue;
+              try {
+                var rText = await Desktop.readText('lessons', fn);
+                if (rText && rText.ok && rText.content) {
+                  var parsed = JSON.parse(rText.content);
+                  if (parsed) {
+                    _allSavedLessons.push({
+                      filename: fn,
+                      title: parsed.title || fn.replace(/\.json$/i, ''),
+                      subject: parsed.subject || '',
+                      classId: parsed.classId || '',
+                      data: parsed
+                    });
+                  }
+                }
+              } catch (_) {}
+            }
+          } catch (_) {}
+        }
+
+        if (!_allSavedLessons.length) {
+          try {
+            var raw = localStorage.getItem('cmt_lesson_plans');
+            if (raw) {
+              var localList = JSON.parse(raw);
+              if (Array.isArray(localList)) {
+                localList.forEach(function (l, idx) {
+                  _allSavedLessons.push({
+                    filename: 'local_lesson_' + (l.id || idx) + '.json',
+                    title: l.title || ('Lesson ' + (idx + 1)),
+                    subject: l.subject || '',
+                    classId: l.classId || '',
+                    data: l
+                  });
+                });
+              }
+            }
+          } catch (_) {}
+        }
+
+        if (sel) {
+          if (!_allSavedLessons.length) {
+            sel.innerHTML = '<option value="">' + (i18n.t('tcNoLessonPlansFound') || 'No saved lesson plans found in user/lessons.') + '</option>';
+            document.getElementById('tcBtnExecutePullLesson').disabled = true;
+          } else {
+            document.getElementById('tcBtnExecutePullLesson').disabled = false;
+            sel.innerHTML = '<option value="">' + (i18n.t('tcSelectLessonPrompt') || 'Select a lesson plan…') + '</option>' +
+              _allSavedLessons.map(function (l, idx) {
+                var subPart = l.subject ? (' • ' + l.subject) : '';
+                var clsPart = l.classId ? (' [' + l.classId + ']') : '';
+                return '<option value="' + idx + '">' + escapeHtml(l.title + subPart + clsPart) + '</option>';
+              }).join('');
+            if (currentTest.classId) {
+              var matchingIdx = _allSavedLessons.findIndex(function (l) { return l.classId === currentTest.classId; });
+              if (matchingIdx >= 0) {
+                sel.value = matchingIdx;
+                tcOnLessonSelected();
+              }
+            }
+          }
+        }
+      };
+
+      window.tcClosePullLessonModal = function () {
+        var modal = document.getElementById('tcPullLessonModal');
+        if (modal) modal.classList.remove('open');
+      };
+
+      window.tcOnLessonSelected = function () {
+        var sel = document.getElementById('tcLessonSelect');
+        var idx = sel ? parseInt(sel.value, 10) : -1;
+        var previewBox = document.getElementById('tcLessonPreviewBox');
+        if (isNaN(idx) || idx < 0 || !_allSavedLessons[idx]) {
+          _selectedLessonData = null;
+          if (previewBox) previewBox.style.display = 'none';
+          return;
+        }
+        var lesson = _allSavedLessons[idx];
+        _selectedLessonData = lesson;
+
+        if (previewBox) previewBox.style.display = 'block';
+        document.getElementById('tcLessonPreviewTitle').textContent = lesson.title || 'Lesson';
+        document.getElementById('tcLessonPreviewMeta').textContent = (lesson.subject || 'Subject') + (lesson.classId ? (' • Class ' + lesson.classId) : '');
+
+        var d = lesson.data || {};
+        var words = [];
+        if (Array.isArray(d.vocabulary)) words = d.vocabulary;
+        else if (typeof d.vocabulary === 'string') words = d.vocabulary.split(/[,;\n]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+        if (Array.isArray(d.keyConcepts)) words = words.concat(d.keyConcepts);
+        else if (typeof d.keyConcepts === 'string') words = words.concat(d.keyConcepts.split(/[,;\n]+/).map(function (s) { return s.trim(); }).filter(Boolean));
+
+        var vEl = document.getElementById('tcLessonPreviewVocab');
+        if (vEl) {
+          if (words.length) {
+            vEl.innerHTML = words.slice(0, 20).map(function (w) {
+              var term = typeof w === 'string' ? w : (w.word || w.term || JSON.stringify(w));
+              return '<span style="background:#fef08a;border:1px solid #ca8a04;color:#713f12;font-size:0.75rem;padding:2px 6px;border-radius:3px;font-weight:700;">' + escapeHtml(term) + '</span>';
+            }).join('');
+          } else {
+            vEl.innerHTML = '<span style="color:#888;font-size:0.75rem;">No explicit vocabulary list recorded in this lesson.</span>';
+          }
+        }
+
+        var pEl = document.getElementById('tcLessonPreviewPhases');
+        var sections = Array.isArray(d.sections) ? d.sections : (Array.isArray(d.phases) ? d.phases : []);
+        if (pEl) {
+          if (sections.length) {
+            pEl.innerHTML = sections.map(function (s, sIdx) {
+              var sTitle = s.title || ('Phase ' + (sIdx + 1));
+              var sObj = s.objective || s.description || '';
+              return '<div style="margin-bottom:3px;"><strong>' + escapeHtml(sTitle) + ':</strong> ' + escapeHtml(sObj || 'Core activity') + '</div>';
+            }).join('');
+          } else {
+            pEl.innerHTML = '<span style="color:#888;font-size:0.75rem;">No detailed phases found.</span>';
+          }
+        }
+      };
+
+      window.tcExecutePullFromLesson = async function () {
+        if (!_selectedLessonData) return;
+        var d = _selectedLessonData.data || {};
+        var doCloze = document.getElementById('tcPullOptCloze').checked;
+        var doMatching = document.getElementById('tcPullOptMatching').checked;
+        var doOpenQ = document.getElementById('tcPullOptOpenQ').checked;
+
+        var words = [];
+        if (Array.isArray(d.vocabulary)) words = d.vocabulary;
+        else if (typeof d.vocabulary === 'string') words = d.vocabulary.split(/[,;\n]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+        if (Array.isArray(d.keyConcepts)) words = words.concat(d.keyConcepts);
+        else if (typeof d.keyConcepts === 'string') words = words.concat(d.keyConcepts.split(/[,;\n]+/).map(function (s) { return s.trim(); }).filter(Boolean));
+
+        var cleanWords = words.map(function (w) {
+          return typeof w === 'string' ? w.trim() : ((w.word || w.term || '') + (w.definition ? (' = ' + w.definition) : '')).trim();
+        }).filter(Boolean);
+
+        var sections = Array.isArray(d.sections) ? d.sections : (Array.isArray(d.phases) ? d.phases : []);
+        var addedCount = 0;
+
+        // 1. Cloze / Gap Fill from vocabulary
+        if (doCloze && cleanWords.length > 0) {
+          var sampleWords = cleanWords.slice(0, 6);
+          var sentences = sampleWords.map(function (w, i) {
+            var term = w.split('=')[0].trim();
+            return (i + 1) + '. The concept of [(' + term + ')] was discussed during our exploration of ' + (d.theme || d.unit || _selectedLessonData.title) + '.';
+          }).join('\n');
+          var clozeEx = {
+            id: 'ex_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+            type: 'cloze',
+            title: 'Vocabulary & Terminology: ' + (_selectedLessonData.title || 'Lesson Concepts'),
+            instructions: 'Complete the sentences using the appropriate vocabulary words learned in class.',
+            points: sampleWords.length,
+            content: {
+              text: sentences,
+              wordBank: sampleWords.map(function (w) { return w.split('=')[0].trim(); })
+            },
+            linkedCompetenceIds: []
+          };
+          currentTest.exercises.push(clozeEx);
+          addedCount++;
+        }
+
+        // 2. Matching Exercise
+        if (doMatching && cleanWords.length >= 3) {
+          var pairs = cleanWords.slice(0, 5).map(function (w, i) {
+            var parts = w.split('=');
+            var left = parts[0].trim();
+            var right = parts[1] ? parts[1].trim() : ('Definition or key property of ' + left);
+            return { id: 'p_' + i, left: left, right: right };
+          });
+          var matchingEx = {
+            id: 'ex_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+            type: 'matching',
+            title: 'Term & Definition Matching: ' + (_selectedLessonData.title || 'Key Notions'),
+            instructions: 'Match each term on the left with its corresponding definition or explanation on the right.',
+            points: pairs.length,
+            content: {
+              pairs: pairs
+            },
+            linkedCompetenceIds: []
+          };
+          currentTest.exercises.push(matchingEx);
+          addedCount++;
+        }
+
+        // 3. Open Questions from phase objectives
+        if (doOpenQ && sections.length > 0) {
+          var subQs = sections.filter(function (s) { return s.objective && s.objective.trim(); }).slice(0, 4).map(function (s, i) {
+            return {
+              id: 'q_' + i,
+              prompt: 'Explain: ' + s.objective.trim(),
+              lines: 3,
+              points: 2
+            };
+          });
+          if (subQs.length > 0) {
+            var openEx = {
+              id: 'ex_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+              type: 'open_question',
+              title: 'Comprehension & Synthesis: ' + (_selectedLessonData.title || 'Lesson Review'),
+              instructions: 'Answer each question thoroughly using full sentences and concepts reviewed in class.',
+              points: subQs.reduce(function (sum, q) { return sum + q.points; }, 0),
+              content: {
+                questions: subQs
+              },
+              linkedCompetenceIds: []
+            };
+            currentTest.exercises.push(openEx);
+            addedCount++;
+          }
+        }
+
+        // Bidirectional link between test and lesson in LinksService
+        if (typeof LinksService !== 'undefined') {
+          var testUrn = tcGetActiveTestUrn();
+          var lessonUrn = 'cmt:lesson:' + _selectedLessonData.filename;
+          if (testUrn) {
+            await LinksService.addLink(testUrn, lessonUrn, {
+              relation: 'assesses_lesson',
+              meta: {
+                testTitle: currentTest.title || 'Class Examination',
+                lessonTitle: _selectedLessonData.title
+              }
+            });
+            tcUpdateTestLinksBadge();
+          }
+        }
+
+        renderExerciseCards();
+        updatePointsBadge();
+        tcClosePullLessonModal();
+
+        if (window.showToast) {
+          var msg = (typeof i18n !== 'undefined' && typeof i18n.tFmt === 'function')
+            ? i18n.tFmt('tcExercisesPulledSuccess', { count: addedCount })
+            : ('Extracted ' + addedCount + ' exercises from lesson plan!');
+          showToast(msg);
+        }
+      };
+
+      // ── Export to Document Editor ─────────────────────────────────────────
+      window.tcExportToDocumentEditor = async function () {
+        if (document.getElementById('exportModal')) {
+          tcCloseExportModal();
+        }
+        var isTeacher = false;
+        var activeTheme = (currentTest.exportStyle && currentTest.exportStyle.theme) || currentTest.stylesheetTheme || localStorage.getItem('cmt_default_test_theme') || 'academic';
+        var htmlContent = TestCreatorService.exportToHtml(currentTest, { isTeacherKey: isTeacher, stylesheetTheme: activeTheme });
+
+        var fileNameBase = (currentTest.title || 'Exam').replace(/[^a-zA-Z0-9_\-]+/g, '_');
+        var filename = fileNameBase + '.html';
+
+        var isElec = window.Desktop && (typeof Desktop.isElectron === 'function' ? Desktop.isElectron() : !!Desktop.isElectron);
+
+        if (isElec && typeof Desktop.saveFile === 'function') {
+          var saveRes = await Desktop.saveFile({
+            target: 'docEditorDocs',
+            filename: filename,
+            content: htmlContent
+          });
+          if (saveRes && saveRes.ok) {
+            if (typeof LinksService !== 'undefined') {
+              var testUrn = tcGetActiveTestUrn();
+              if (testUrn) {
+                await LinksService.addLink(testUrn, 'cmt:doc:' + filename, {
+                  relation: 'printable_handout',
+                  meta: { testTitle: currentTest.title, docTitle: filename }
+                });
+                tcUpdateTestLinksBadge();
+              }
+            }
+            if (typeof Desktop.openTool === 'function') {
+              Desktop.openTool('document-editor.html', { query: { target: 'docEditorDocs', relPath: filename } });
+            }
+            if (window.showToast) {
+              showToast(i18n.t('tcExportedToDocEditorSuccess', 'Test exported to Document Editor!'));
+            }
+          } else {
+            if (window.showToast) showToast('Failed to save document file', true);
+          }
+        } else {
+          try {
+            localStorage.setItem('cmt_doc_' + filename, htmlContent);
+          } catch (_) {}
+          window.open('document-editor.html?target=docEditorDocs&relPath=' + encodeURIComponent(filename), '_blank');
+          if (window.showToast) {
+            showToast(i18n.t('tcExportedToDocEditorSuccess', 'Test exported to Document Editor!'));
+          }
+        }
+      };
+
+      // ── Generate Revision Mindmap ─────────────────────────────────────────
+      window.tcGenerateRevisionMindmap = async function () {
+        var title = currentTest.title || 'Exam';
+        var mindmapTitle = 'Revision: ' + title;
+        var slug = title.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 30).replace(/^_+|_+$/g, '') || 'exam';
+        var filename = 'revision_mindmap_' + slug + '_' + (currentTest.id || Date.now()) + '.json';
+
+        var nodes = [];
+        var edges = [];
+        var notes = [];
+
+        var rootId = 'node_root_' + Date.now();
+        nodes.push({
+          id: rootId,
+          baseWord: mindmapTitle.toUpperCase(),
+          x: 450,
+          y: 120,
+          bg: '#fef08a',
+          color: '#000000',
+          border: '#000000',
+          borderWidth: 3,
+          borderStyle: 'solid',
+          fontSize: '20px',
+          shape: 'rectangle',
+          fmt: { bold: true },
+          rotation: 0
+        });
+
+        var exs = currentTest.exercises || [];
+        var totalExs = exs.length;
+        var startAngle = -Math.PI * 0.8;
+        var endAngle = Math.PI * 0.8;
+        var radius = 280;
+
+        exs.forEach(function (ex, idx) {
+          var angle = totalExs > 1 ? (startAngle + (idx / (totalExs - 1)) * (endAngle - startAngle)) : 0;
+          var nx = Math.round(450 + radius * Math.cos(angle));
+          var ny = Math.round(280 + radius * Math.sin(angle));
+          var exNodeId = 'node_ex_' + idx + '_' + Date.now();
+
+          nodes.push({
+            id: exNodeId,
+            baseWord: ('EX ' + (idx + 1) + ': ' + (ex.title || 'Exercise')).toUpperCase(),
+            x: nx,
+            y: ny,
+            bg: '#ffffff',
+            color: '#000000',
+            border: '#000000',
+            borderWidth: 2,
+            borderStyle: 'solid',
+            fontSize: '14px',
+            shape: 'rectangle',
+            fmt: { bold: true },
+            rotation: 0
+          });
+
+          edges.push({
+            id: 'edge_' + idx + '_' + Date.now(),
+            a: rootId,
+            b: exNodeId,
+            color: '#000000',
+            thickness: 2,
+            type: 'none',
+            strokeType: 'solid',
+            routing: 'straight'
+          });
+
+          var noteText = (ex.instructions ? ('Instructions: ' + ex.instructions + '\n\n') : '') +
+            'Points: ' + (ex.points || 1) + ' pts\n' +
+            (ex.type ? ('Type: ' + ex.type.toUpperCase() + '\n') : '') +
+            (Array.isArray(ex.linkedCompetenceIds) && ex.linkedCompetenceIds.length ? ('Competences: ' + ex.linkedCompetenceIds.join(', ')) : '');
+
+          notes.push({
+            id: 'note_ex_' + idx + '_' + Date.now(),
+            nodeId: exNodeId,
+            x: nx,
+            y: ny + 45,
+            width: 220,
+            height: 100,
+            manualSize: true,
+            bg: '#f8fafc',
+            color: '#1e293b',
+            borderColor: '#000000',
+            borderWidth: 1.5,
+            text: noteText,
+            html: ''
+          });
+        });
+
+        var constellationData = {
+          _type: 'constellation',
+          _version: 1,
+          title: mindmapTitle,
+          dateCreated: new Date().toISOString(),
+          nodes: nodes,
+          edges: edges,
+          links: edges,
+          notes: notes,
+          groups: [],
+          masks: [],
+          drawings: [],
+          shapes: [],
+          tables: [],
+          media: [],
+          attachments: [],
+          competences: []
+        };
+
+        var isElec = window.Desktop && (typeof Desktop.isElectron === 'function' ? Desktop.isElectron() : !!Desktop.isElectron);
+
+        if (isElec && typeof Desktop.saveJson === 'function') {
+          var sRes = await Desktop.saveJson('mindmaps', filename, constellationData);
+          if (sRes && sRes.ok) {
+            if (typeof LinksService !== 'undefined') {
+              var testUrn = tcGetActiveTestUrn();
+              if (testUrn) {
+                await LinksService.addLink(testUrn, 'cmt:board:' + filename, {
+                  relation: 'revision_mindmap',
+                  meta: { testTitle: currentTest.title, mindmapTitle: mindmapTitle }
+                });
+                tcUpdateTestLinksBadge();
+              }
+            }
+            var openBoard = window.showConfirm
+              ? await window.showConfirm((i18n.t('tcRevisionMindmapCreated') || 'Revision mindmap created and linked to test!') + '\n\n' + (i18n.t('tcOpenInBoard') || 'Open in Board') + '?')
+              : confirm((i18n.t('tcRevisionMindmapCreated') || 'Revision mindmap created and linked to test!') + '\n\nOpen in Board?');
+            if (openBoard && typeof Desktop.openTool === 'function') {
+              Desktop.openTool('board.html', {
+                query: {
+                  openSession: '1',
+                  openTarget: 'mindmaps',
+                  openFilename: filename,
+                  openSection: 'constellation'
+                }
+              });
+            }
+          } else {
+            if (window.showToast) showToast('Failed to save revision mindmap', true);
+          }
+        } else {
+          try {
+            localStorage.setItem('cmt_mindmap_' + filename, JSON.stringify(constellationData));
+          } catch (_) {}
+          if (window.showToast) {
+            showToast(i18n.t('tcRevisionMindmapCreated', 'Revision mindmap created and linked to test!'));
+          }
+        }
+      };
+
       // ── Grade Sheet Registration Modal ───────────────────────────────────
       window.tcOpenGradeSheetModal = function () {
         if (!currentTest.classId) {
@@ -7968,6 +8779,35 @@
           if (res && res.ok) {
             if (showToastNotification && window.showToast) showToast(i18n.t('tcTestSavedSuccessfully', 'Test saved successfully!'));
             await TestCreatorService.registerCompetencesInPortfolio(currentTest);
+
+            // Sync test and exercise links in LinksService
+            if (typeof LinksService !== 'undefined') {
+              try {
+                var testUrn = 'cmt:test:' + filename;
+                if (currentTest.classId) {
+                  var classUrn = 'cmt:class:' + currentTest.classId;
+                  await LinksService.addLink(testUrn, classUrn, { relation: 'assigned_to', meta: { title: currentTest.title, className: currentTest.className } });
+                }
+                var exs = currentTest.exercises || [];
+                for (var ei = 0; ei < exs.length; ei++) {
+                  var exItem = exs[ei];
+                  if (exItem && Array.isArray(exItem.linkedCompetenceIds)) {
+                    for (var ci = 0; ci < exItem.linkedCompetenceIds.length; ci++) {
+                      var cLabel = exItem.linkedCompetenceIds[ci];
+                      var cCode = cLabel.replace(/^\[[^\]]+\]\s*/, '').split(' - ')[0].trim();
+                      if (cCode) {
+                        await LinksService.addLink(testUrn + '#' + exItem.id, 'cmt:competence:' + cCode, {
+                          relation: 'assesses',
+                          meta: { exerciseTitle: exItem.title || ('Exercise ' + (ei + 1)), exercisePoints: exItem.points, testTitle: currentTest.title }
+                        });
+                      }
+                    }
+                  }
+                }
+                tcUpdateTestLinksBadge();
+              } catch (_) {}
+            }
+
             return true;
           } else {
             if (showToastNotification && window.showToast) showToast(i18n.t('tcFailedToSaveTest', 'Failed to save test'), true);

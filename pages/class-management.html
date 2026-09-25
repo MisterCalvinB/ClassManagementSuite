@@ -1643,6 +1643,7 @@
                         <strong class="clr-phase-title" id="clr-phase-title">Phase Title</strong>
                         <span class="clr-badge clr-phase-badge" id="clr-phase-badge">WARM-UP</span>
                         <span class="clr-badge clr-phase-times" id="clr-phase-times" title="Calculated start and end times for this phase">⏱ --:-- – --:--</span>
+                        <button type="button" class="action-btn" id="clr-phase-board-btn" style="display:none;background:#fef08a;color:#000;border:1.5px solid #000;font-weight:900;font-size:0.75rem;padding:2px 8px;align-items:center;gap:4px;" title="Open linked Board mindmap"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /><span id="clr-phase-board-text">[BOARD]</span></button>
                     </div>
                     <div class="clr-controls">
                         <button class="action-btn clr-btn-start" onclick="CmsLessonRunner.startActivityNow()" title="Set activity start time to current clock time" data-i18n-title="clr_start_now_title"><span data-i18n="clr_btn_start_now">▶ Start</span></button>
@@ -19816,6 +19817,27 @@ ${body}
                     var timesEl = document.getElementById('clr-phase-times');
                     if (timesEl) {
                         timesEl.textContent = '⏱ ' + currentSpan.startStr + ' – ' + currentSpan.endStr;
+                    }
+
+                    var boardBtn = document.getElementById('clr-phase-board-btn');
+                    var boardText = document.getElementById('clr-phase-board-text');
+                    if (boardBtn) {
+                        if (phase.boardFile) {
+                            boardBtn.style.display = 'inline-flex';
+                            if (boardText) boardText.textContent = '[BOARD: ' + phase.boardFile.replace(/\.(js|json)$/i, '') + ']';
+                            boardBtn.title = 'Open Board session: ' + phase.boardFile + (phase.boardNodeId ? (' (Focus: ' + phase.boardNodeId + ')') : '');
+                            boardBtn.onclick = function () {
+                                var bQuery = { file: phase.boardFile };
+                                if (phase.boardNodeId) bQuery.focusNode = phase.boardNodeId;
+                                if (window.Desktop && Desktop.isElectron() && typeof Desktop.openTool === 'function') {
+                                    Desktop.openTool('board.html', { query: bQuery });
+                                } else {
+                                    window.open('board.html?file=' + encodeURIComponent(phase.boardFile) + (phase.boardNodeId ? ('&focusNode=' + encodeURIComponent(phase.boardNodeId)) : ''), '_blank');
+                                }
+                            };
+                        } else {
+                            boardBtn.style.display = 'none';
+                        }
                     }
 
                     var tpEl = document.getElementById('clr-teacher-prompt');

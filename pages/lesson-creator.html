@@ -6,6 +6,7 @@
   <title>Lesson Creator</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <link rel="stylesheet" href="../css/lesson-creator.css">
+  <link rel="stylesheet" href="../css/tag-link-modal.css">
   <script src="../electron-bridge.js"></script>
   <script src="../js/i18n.js"></script>
   <script src="../js/dialogs.js"></script>
@@ -16,6 +17,8 @@
   <script src="../modules/xlsx.min.js"></script>
   <script src="../js/competence-aggregator-service.js"></script>
   <script src="../js/lesson-creator-service.js"></script>
+  <script src="../js/links-service.js"></script>
+  <script src="../js/tag-link-modal.js"></script>
 </head>
 <body>
   <div class="app-container">
@@ -150,6 +153,8 @@
         </div>
 
         <div class="meta-actions">
+          <button class="neo-btn" id="btn-lc-plan-links" onclick="lcOpenPlanLinksModal()" style="font-weight:900;letter-spacing:0.5px;background:#fde047;color:#000;" title="Lesson Plan Links &amp; Tags"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" />[LINKS: 0]</button>
+          <button class="neo-btn" id="btn-lc-planner-slot" onclick="lcOpenPlannerSlotLink()" style="display:none;font-weight:800;background:#dbeafe;color:#1e40af;" title="Linked Planner Slot"><img src="../assets/icons/calendar.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span id="btn-lc-planner-slot-text">[PLANNER SLOT]</span></button>
           <button class="neo-btn success" onclick="lcRunInClassManagement()" title="Launch active session runner in Class Management"><span data-i18n="lcRunCMS">Run</span></button>
           <button class="neo-btn purple" onclick="lcOpenFloatingCompanion()" title="Open floating mini-window with lesson plan & timings"><span data-i18n="lcFloatingCompanion">Companion</span></button>
           <button class="neo-btn primary" onclick="lcSavePlan()"><span data-i18n="btnSave">Save</span></button>
@@ -217,6 +222,10 @@
           <button type="button" class="drawer-tab-btn" id="tabActivityBank" onclick="lcSwitchDrawerTab('activities')">
             <img src="../assets/icons/zap.svg" class="btn-icon" alt="" />
             <span data-i18n="lcActivityBank">Activity Bank</span>
+          </button>
+          <button type="button" class="drawer-tab-btn" id="tabWordBank" onclick="lcSwitchDrawerTab('wordbank')">
+            <img src="../assets/icons/book.svg" class="btn-icon" alt="" />
+            <span data-i18n="lcWordBankTab">Word / Grammar Bank</span>
           </button>
         </div>
 
@@ -308,6 +317,45 @@
           </div>
 
           <div class="drawer-items-list" id="drawerActivitiesList">
+            <!-- Populated by JavaScript -->
+          </div>
+        </div>
+
+        <!-- Panel 3: Word & Grammar Bank -->
+        <div id="panelWordBank" class="drawer-tab-panel" style="display:none;">
+          <div class="drawer-header">
+            <div class="drawer-title"><span data-i18n="lcWordBankTitle">Word &amp; Grammar Bank</span></div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <select id="lcWordBankFileSelect" class="meta-select" style="font-size:0.75rem;padding:3px 6px;" onchange="lcOnWordBankFileChange()">
+                <option value="wordbanks">Word Banks (wordDb.js)</option>
+                <option value="grammarbanks">Grammar Banks (grammar.js)</option>
+                <option value="gapfillbanks">Gap-Fill Banks</option>
+              </select>
+            </div>
+          </div>
+
+          <input type="text" id="lcWordBankSearch" class="drawer-search-input" placeholder="Search vocabulary, terms, definitions…" data-i18n-placeholder="lcSearchWordBank" oninput="lcFilterWordBankDrawer()">
+
+          <div class="drawer-filter-grid">
+            <select id="lcWordBankThemeFilter" class="drawer-select" onchange="lcFilterWordBankDrawer()">
+              <option value="all">All Themes</option>
+            </select>
+            <select id="lcWordBankLevelFilter" class="drawer-select" onchange="lcFilterWordBankDrawer()">
+              <option value="all">All Levels</option>
+              <option value="A1">A1</option>
+              <option value="A2">A2</option>
+              <option value="B1">B1</option>
+              <option value="B2">B2</option>
+              <option value="C1">C1</option>
+              <option value="C2">C2</option>
+            </select>
+          </div>
+
+          <div class="drawer-top-info">
+            <span id="lcWordBankMatchCount" class="drawer-match-badge">0 items</span>
+          </div>
+
+          <div class="drawer-items-list" id="lcWordBankList">
             <!-- Populated by JavaScript -->
           </div>
         </div>
@@ -1390,6 +1438,77 @@
     </div>
   </div>
 
+  <!-- Phase Mindmap Link Modal -->
+  <div id="phaseMindmapModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="max-width:540px;">
+      <div class="modal-header">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:16px;height:16px;" />
+          <span data-i18n="lcLinkPhaseMindmapTitle">Link Phase to Board Mindmap</span>
+        </div>
+        <button class="icon-btn" onclick="lcCloseModal('phaseMindmapModal')">&times;</button>
+      </div>
+      <div class="modal-body" style="display:flex;flex-direction:column;gap:12px;">
+        <p style="font-size:0.84rem;color:#475569;" data-i18n="lcLinkPhaseMindmapDesc">When running this lesson in Class Management, activating this phase will automatically project the linked Board session.</p>
+        <div>
+          <label style="font-weight:800;font-size:0.85rem;display:block;margin-bottom:6px;" data-i18n="lcSelectMindmapFile">Select Mindmap File (.js / .json):</label>
+          <select id="phaseMindmapFileSelect" class="meta-select" style="width:100%;" onchange="lcOnPhaseMindmapFileChange()">
+            <option value="">-- No linked mindmap --</option>
+          </select>
+        </div>
+        <div id="phaseMindmapNodeWrap" style="display:none;">
+          <label style="font-weight:800;font-size:0.85rem;display:block;margin-bottom:6px;" data-i18n="lcOptionalFocusNode">Focus Node Label or ID (Optional):</label>
+          <input type="text" id="phaseMindmapNodeInput" class="meta-input" placeholder="e.g. Vocabulary, Photosynthesis, Node ID" style="width:100%;">
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content:space-between;">
+        <button class="neo-btn danger" onclick="lcRemovePhaseMindmapLink()"><span data-i18n="lcRemoveLink">Remove Link</span></button>
+        <div style="display:flex;gap:8px;">
+          <button class="neo-btn" onclick="lcCloseModal('phaseMindmapModal')"><span data-i18n="btnCancel">Cancel</span></button>
+          <button class="neo-btn primary" onclick="lcSavePhaseMindmapLink()"><span data-i18n="btnSave">Save Link</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Planner Link Modal -->
+  <div id="plannerLinkModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="max-width:580px;">
+      <div class="modal-header">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <img src="../assets/icons/calendar.svg" class="btn-icon" alt="" style="width:16px;height:16px;" />
+          <span data-i18n="lcLinkPlannerModalTitle">Link Lesson Plan to Planner Slot</span>
+        </div>
+        <button class="icon-btn" onclick="lcCloseModal('plannerLinkModal')">&times;</button>
+      </div>
+      <div class="modal-body" style="display:flex;flex-direction:column;gap:12px;">
+        <p style="font-size:0.84rem;color:#475569;" data-i18n="lcLinkPlannerModalDesc">Assign this lesson plan to a timetable slot in your weekly lesson planner. The slot card will display [LESSON PLAN] with right-click launch options.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div>
+            <label style="font-weight:800;font-size:0.85rem;display:block;margin-bottom:4px;" data-i18n="lcPlannerSlotClass">Target Class:</label>
+            <select id="plannerLinkClassSelect" class="meta-select" style="width:100%;" onchange="lcFilterPlannerSlotsList()">
+              <option value="all">All Classes</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-weight:800;font-size:0.85rem;display:block;margin-bottom:4px;" data-i18n="lcPlannerSlotDate">Search Date / Topic:</label>
+            <input type="text" id="plannerLinkSearchInput" class="meta-input" placeholder="Date or keyword…" oninput="lcFilterPlannerSlotsList()" style="width:100%;">
+          </div>
+        </div>
+        <div>
+          <label style="font-weight:800;font-size:0.85rem;display:block;margin-bottom:6px;" data-i18n="lcSelectPlannerSlot">Choose Timetable Slot:</label>
+          <div id="plannerSlotsList" style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;border:2px solid var(--neo-dark);border-radius:var(--neo-radius-sm);padding:8px;background:#fff;">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content:space-between;">
+        <button class="neo-btn danger" onclick="lcUnlinkPlan()"><span data-i18n="lcUnlinkPlan">Unlink from Planner</span></button>
+        <button class="neo-btn" onclick="lcCloseModal('plannerLinkModal')"><span data-i18n="btnClose">Close</span></button>
+      </div>
+    </div>
+  </div>
+
   <!-- ── 6. Client Logic Script ─────────────────────────────────────────── -->
   <script>
     (function () {
@@ -1761,6 +1880,39 @@
           if (found && found.name) return found.name;
         }
         return sId.charAt(0).toUpperCase() + sId.slice(1).replace(/_/g, ' ');
+      }
+
+      function isSubjectMatch(sub1, sub2) {
+        if (!sub1 || !sub2) return true;
+        var s1 = String(sub1).trim().toLowerCase();
+        var s2 = String(sub2).trim().toLowerCase();
+        if (s1 === 'all' || s2 === 'all') return true;
+        if (s1 === s2) return true;
+
+        var lbl1 = getSubjectLabel(s1).toLowerCase();
+        var lbl2 = getSubjectLabel(s2).toLowerCase();
+        if (lbl1 === lbl2 || s1 === lbl2 || s2 === lbl1) return true;
+
+        var aliases = [
+          ['english', 'anglais', 'engl', 'angl'],
+          ['french', 'français', 'francais'],
+          ['german', 'allemand', 'deutsch'],
+          ['spanish', 'espagnol', 'español'],
+          ['italian', 'italien', 'italiano'],
+          ['science', 'sciences', 'stem'],
+          ['math', 'mathematics', 'maths', 'mathématiques', 'mathematiques'],
+          ['history', 'histoire'],
+          ['geography', 'géographie', 'geographie']
+        ];
+
+        for (var i = 0; i < aliases.length; i++) {
+          var grp = aliases[i];
+          var m1 = grp.some(function (a) { return s1 === a || s1.indexOf(a) !== -1 || lbl1.indexOf(a) !== -1; });
+          var m2 = grp.some(function (a) { return s2 === a || s2.indexOf(a) !== -1 || lbl2.indexOf(a) !== -1; });
+          if (m1 && m2) return true;
+        }
+
+        return false;
       }
 
       function lcAddSubjectOption(name, selectIt) {
@@ -2141,42 +2293,47 @@
       }
 
       async function loadSavedDescriptors() {
-        var baseList = (typeof LessonCreatorService !== 'undefined' && Array.isArray(LessonCreatorService.DEFAULT_COMPETENCES || LessonCreatorService.DEFAULT_DESCRIPTORS))
-          ? (LessonCreatorService.DEFAULT_COMPETENCES || LessonCreatorService.DEFAULT_DESCRIPTORS).slice()
-          : [];
         var map = new Map();
 
-        function addOrUpdateItem(d) {
+        function addOrUpdateItem(d, srcFile) {
           if (!d || typeof d !== 'object') return;
-          var id = d.id || (d.code ? ('desc_' + String(d.code).toLowerCase().replace(/[^a-z0-9]/g, '_')) : ('desc_' + Math.random().toString(36).substr(2, 9)));
-          d.id = id;
-
-          if (d.code) {
-            var cCode = String(d.code).trim().toLowerCase();
-            map.forEach(function (v, k) {
-              if (v && v.code && String(v.code).trim().toLowerCase() === cCode && k !== id) {
-                map.delete(k);
+          var baseId = d.id || (d.code ? ('desc_' + String(d.code).toLowerCase().replace(/[^a-z0-9]/g, '_')) : ('desc_' + Math.random().toString(36).substr(2, 9)));
+          var id = baseId;
+          // If collision between two different items, qualify with source file
+          if (map.has(id)) {
+            var existing = map.get(id);
+            if (existing !== d && (existing.title !== d.title || existing.description !== d.description)) {
+              if (srcFile) {
+                id = srcFile.replace(/\.(js|json)$/i, '') + '::' + baseId;
+              } else {
+                id = baseId + '_' + Math.random().toString(36).substr(2, 5);
               }
-            });
+            }
           }
+          d.id = id;
+          if (srcFile && !d._sourceDb) d._sourceDb = srcFile;
           map.set(id, d);
         }
 
-        // 1. Base default list
-        baseList.forEach(addOrUpdateItem);
-
-        // 2. Local storage (web fallback or previous session cache)
-        try {
-          var localStored = localStorage.getItem('cmt-lesson-competences') || localStorage.getItem('cmt-lesson-descriptors');
-          if (localStored) {
-            var parsedLocal = JSON.parse(localStored);
-            if (Array.isArray(parsedLocal)) {
-              parsedLocal.forEach(addOrUpdateItem);
+        // 1. Unified load via CompetenceAggregatorService if available
+        if (typeof window !== 'undefined' && window.CompetenceAggregatorService && typeof window.CompetenceAggregatorService.loadAllCompetences === 'function') {
+          try {
+            var aggList = await window.CompetenceAggregatorService.loadAllCompetences(true);
+            if (Array.isArray(aggList) && aggList.length > 0) {
+              aggList.forEach(function (c) { addOrUpdateItem(c, c._sourceDb); });
             }
+          } catch (err) {
+            console.warn('CompetenceAggregatorService load in Lesson Creator error:', err);
           }
-        } catch (_) {}
+        }
 
-        // 3. User root file: lesson-competences.json
+        // 2. Base default list fallback
+        var baseList = (typeof LessonCreatorService !== 'undefined' && Array.isArray(LessonCreatorService.DEFAULT_COMPETENCES || LessonCreatorService.DEFAULT_DESCRIPTORS))
+          ? (LessonCreatorService.DEFAULT_COMPETENCES || LessonCreatorService.DEFAULT_DESCRIPTORS).slice()
+          : [];
+        baseList.forEach(function (b) { addOrUpdateItem(b); });
+
+        // 3. User root file: lesson-competences.json / lesson-descriptors.json
         try {
           if (window.Desktop && typeof Desktop.readText === 'function') {
             var res = await Desktop.readText('user', 'lesson-competences.json');
@@ -2185,13 +2342,13 @@
               try {
                 var parsed = JSON.parse(res.content);
                 var list2 = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.competences || parsed.descriptors) ? (parsed.competences || parsed.descriptors) : []);
-                list2.forEach(addOrUpdateItem);
+                list2.forEach(function (it) { addOrUpdateItem(it, 'lesson-competences.json'); });
               } catch (_) {}
             }
           }
         } catch (e) {}
 
-        // 4. Custom competence files in user/custom-data/competences/ (LAST = HIGHEST PRECEDENCE for user edits)
+        // 4. Custom competence files in user/custom-data/competences/
         try {
           if (window.Desktop && Desktop.isElectron() && typeof Desktop.listFiles === 'function') {
             var filesResult = await Desktop.listFiles('customCompetences', { extensions: ['.js', '.json'] });
@@ -2203,13 +2360,13 @@
             for (var i = 0; i < list.length; i++) {
               var f = list[i];
               var filename = typeof f === 'string' ? f : (f && f.filename);
-              if (!filename) continue;
+              if (!filename || filename === 'competence-links.json') continue;
               var rawRes = await Desktop.readText('customCompetences', filename);
               if (!rawRes || !rawRes.ok) rawRes = await Desktop.readText('customDescriptors', filename);
               if (rawRes && rawRes.ok && rawRes.content) {
                 var arr = parseDescriptorContent(rawRes.content);
                 if (Array.isArray(arr)) {
-                  arr.forEach(addOrUpdateItem);
+                  arr.forEach(function (it) { addOrUpdateItem(it, filename); });
                 }
               }
             }
@@ -2438,6 +2595,8 @@
         renderTeamBadge();
         renderPhaseCards();
         updateDurationMeter();
+        if (typeof lcUpdatePlanLinksBadge === 'function') lcUpdatePlanLinksBadge();
+        if (typeof updatePlannerSlotBadge === 'function') updatePlannerSlotBadge();
       }
 
       function renderTags() {
@@ -2517,7 +2676,7 @@
             e.preventDefault();
             card.classList.remove('drag-over');
 
-            // 1. Check application/json payload for descriptor or phase template
+            // 1. Check application/json payload for descriptor or phase template or wordbank item
             var jsonStr = e.dataTransfer.getData('application/json');
             if (jsonStr) {
               try {
@@ -2530,15 +2689,26 @@
                   lcInsertPhaseFromBank(payload.phase, idx);
                   return;
                 }
+                if (payload && payload.type === 'wordbank-item' && typeof payload.itemIdx === 'number') {
+                  lcInsertWordBankItemToPhase(payload.itemIdx, idx);
+                  return;
+                }
               } catch (_) {}
             }
 
-            // 2. Check text/plain for phase template vs descriptor ID string vs phase index number
+            // 2. Check text/plain for phase template vs descriptor ID string vs wordbank vs phase index number
             var plainText = (e.dataTransfer.getData('text/plain') || '').trim();
             if (plainText && plainText.startsWith('phase:')) {
               var pId = plainText.slice(6);
               lcInsertPhaseFromBank(pId, idx);
               return;
+            }
+            if (plainText && plainText.startsWith('wordbank:')) {
+              var wbIdx = parseInt(plainText.slice(9), 10);
+              if (!isNaN(wbIdx)) {
+                lcInsertWordBankItemToPhase(wbIdx, idx);
+                return;
+              }
             }
             if (plainText && !/^\d+$/.test(plainText)) {
               lcTagDescriptorToActivePhase(plainText, idx);
@@ -2575,11 +2745,23 @@
                       lcInsertPhaseFromBank(payload2.phase);
                       return;
                     }
+                    if (payload2 && payload2.type === 'wordbank-item' && typeof payload2.itemIdx === 'number') {
+                      lcInsertWordBankItemToPhase(payload2.itemIdx);
+                      return;
+                    }
                   } catch (_) {}
                 }
                 var plainText2 = (e.dataTransfer.getData('text/plain') || '').trim();
                 if (plainText2 && plainText2.startsWith('phase:')) {
                   lcInsertPhaseFromBank(plainText2.slice(6));
+                  return;
+                }
+                if (plainText2 && plainText2.startsWith('wordbank:')) {
+                  var wbIdx2 = parseInt(plainText2.slice(9), 10);
+                  if (!isNaN(wbIdx2)) {
+                    lcInsertWordBankItemToPhase(wbIdx2);
+                    return;
+                  }
                 }
               }
             });
@@ -2594,6 +2776,7 @@
             '<input type="text" class="phase-title-input" value="' + escapeHtml(sec.title || '') + '" placeholder="Phase Title" oninput="lcOnPhaseTitleChange(' + idx + ', this.value)">',
             '<div class="phase-duration-wrap"><input type="number" class="phase-duration-input" value="' + (sec.duration || 0) + '" min="1" max="240" oninput="lcOnPhaseDurationChange(' + idx + ', this.value)"> <span>m</span></div>',
             '<div class="phase-actions-group">',
+            (sec.boardFile ? ('  <button type="button" class="icon-btn" onclick="lcOpenPhaseMindmapLink(' + idx + ')" style="display:inline-flex;align-items:center;gap:3px;background:#fef08a;border:1.5px solid #000;font-weight:800;" title="' + escapeHtml(sec.boardFile + (sec.boardNodeId ? (' (' + sec.boardNodeId + ')') : '')) + '"><img src="../assets/icons/links.svg" class="btn-icon btn-icon-xs" alt=""><span>[BOARD: ' + escapeHtml(sec.boardFile.replace(/\.(js|json)$/i, '')) + ']</span></button>') : ('  <button type="button" class="icon-btn" onclick="lcOpenPhaseMindmapLink(' + idx + ')" title="' + (i18n.t('lcLinkBoardTitle') || 'Link to Board mindmap') + '" style="display:inline-flex;align-items:center;gap:3px;"><img src="../assets/icons/links.svg" class="btn-icon btn-icon-xs" alt=""><span>' + (i18n.t('lcLinkBoardBtn') || 'Mindmap') + '</span></button>')),
             '  <button type="button" class="icon-btn" onclick="lcOpenExportPhaseModal(' + idx + ')" title="' + (i18n.t('lcExportPhaseBtnTitle') || 'Add phase to database') + '" style="display:inline-flex;align-items:center;gap:3px;"><img src="../assets/icons/save.svg" class="btn-icon btn-icon-xs" alt=""><span>' + (i18n.t('lcExportPhaseBtn') || 'Add to DB') + '</span></button>',
             '  <button class="icon-btn" onclick="lcOpenSplitModal(' + idx + ')" title="Split Phase">Split</button>',
             '  <button class="icon-btn" onclick="lcDuplicatePhase(' + idx + ')" title="Duplicate Phase">Duplicate</button>',
@@ -2778,12 +2961,12 @@
         populateCategoryDropdown(subId);
 
         var filtered = allDescriptors.filter(function (d) {
-          var dSub = String(d.subjectId || '').toLowerCase();
-          var dYr = String(d.yearLevel || '').toLowerCase();
+          var dSub = String(d.subjectId || d.subject || '').toLowerCase();
+          var dYr = String(d.yearLevel || d.year || '').toLowerCase();
           var dCat = String(d.category || '').toLowerCase();
           var dSubCat = String(d.subCategory || '').toLowerCase();
 
-          if (subId !== 'all' && dSub && dSub !== 'all' && dSub !== subId) return false;
+          if (subId !== 'all' && !isSubjectMatch(dSub, subId)) return false;
           if (yrId !== 'all' && dYr && dYr !== 'all' && dYr !== yrId) return false;
           if (catId !== 'all' && dCat && dCat !== 'all' && dCat !== catId) return false;
           if (subCatId !== 'all' && dSubCat && dSubCat !== 'all' && dSubCat !== subCatId) return false;
@@ -2826,6 +3009,7 @@
 
         var cfg = competenceDisplayConfig;
 
+        var fragment = document.createDocumentFragment();
         filtered.forEach(function (d) {
           var card = document.createElement('div');
           
@@ -2904,8 +3088,9 @@
           }
 
           card.innerHTML = htmlParts.join('');
-          list.appendChild(card);
+          fragment.appendChild(card);
         });
+        list.appendChild(fragment);
       }
 
       window.lcOpenCompetenceCustomizeModal = function () {
@@ -3203,14 +3388,14 @@
         var subIdLower = String(subId || 'all').toLowerCase();
         var categories = new Set();
         allDescriptors.forEach(function (d) {
-          var dSub = String(d.subjectId || '').toLowerCase();
-          if (subIdLower === 'all' || !dSub || dSub === 'all' || dSub === subIdLower) {
+          var dSub = String(d.subjectId || d.subject || '').toLowerCase();
+          if (subIdLower === 'all' || isSubjectMatch(dSub, subIdLower)) {
             if (d.category) categories.add(d.category);
           }
         });
 
         catSelect.innerHTML = '<option value="all">All Categories</option>';
-        categories.forEach(function (cat) {
+        Array.from(categories).sort().forEach(function (cat) {
           var opt = document.createElement('option');
           opt.value = cat;
           opt.textContent = cat;
@@ -3310,6 +3495,15 @@
               }
             }
           }
+          if (meta.periodDuration || meta.duration) {
+            var periodDur = Number(meta.periodDuration || meta.duration || 0);
+            if (periodDur > 0) {
+              currentPlan.targetDuration = periodDur;
+              var durEl = document.getElementById('planTargetDuration');
+              if (durEl) durEl.value = periodDur;
+              if (typeof updateDurationMeter === 'function') updateDurationMeter();
+            }
+          }
           if (typeof renderDrawer === 'function') renderDrawer();
           lcOnPlanDirty();
         }
@@ -3320,6 +3514,16 @@
           CompetenceAggregatorService.getGroupMetadata(classId).then(function (meta) {
             if (meta) applyMeta(meta);
           });
+        }
+        if (typeof LinksService !== 'undefined' && currentPlan && currentPlan.id) {
+          if (classId && typeof LinksService.addLink === 'function') {
+            var srcUrn = (typeof lcGetActivePlanUrn === 'function' ? lcGetActivePlanUrn() : ('cmt:lesson:' + currentPlan.id));
+            LinksService.addLink(srcUrn, 'cmt:class:' + classId, {
+              relation: 'assigned-to',
+              meta: { label: 'Class ' + (getClassLabel(classId) || classId) }
+            });
+          }
+          if (typeof lcUpdatePlanLinksBadge === 'function') lcUpdatePlanLinksBadge();
         }
         lcOnPlanDirty();
       };
@@ -3376,26 +3580,28 @@
         currentDrawerTab = tab;
         var compTabBtn = document.getElementById('tabCompetenceBank');
         var actTabBtn = document.getElementById('tabActivityBank');
+        var wbTabBtn = document.getElementById('tabWordBank');
         var compToggleBtn = document.getElementById('drawerToggleBtn');
         var actToggleBtn = document.getElementById('drawerActivitiesToggleBtn');
         var compPanel = document.getElementById('panelCompetences');
         var actPanel = document.getElementById('panelActivities');
+        var wbPanel = document.getElementById('panelWordBank');
+
+        if (compTabBtn) compTabBtn.classList.toggle('active', tab === 'competences');
+        if (actTabBtn) actTabBtn.classList.toggle('active', tab === 'activities');
+        if (wbTabBtn) wbTabBtn.classList.toggle('active', tab === 'wordbank');
+        if (compToggleBtn) compToggleBtn.classList.toggle('active', tab === 'competences');
+        if (actToggleBtn) actToggleBtn.classList.toggle('active', tab === 'activities');
+
+        if (compPanel) compPanel.style.display = (tab === 'competences') ? 'flex' : 'none';
+        if (actPanel) actPanel.style.display = (tab === 'activities') ? 'flex' : 'none';
+        if (wbPanel) wbPanel.style.display = (tab === 'wordbank') ? 'flex' : 'none';
 
         if (tab === 'activities') {
-          if (compTabBtn) compTabBtn.classList.remove('active');
-          if (actTabBtn) actTabBtn.classList.add('active');
-          if (compToggleBtn) compToggleBtn.classList.remove('active');
-          if (actToggleBtn) actToggleBtn.classList.add('active');
-          if (compPanel) compPanel.style.display = 'none';
-          if (actPanel) actPanel.style.display = 'flex';
           renderActivityDrawer();
+        } else if (tab === 'wordbank') {
+          lcLoadWordBankItems();
         } else {
-          if (actTabBtn) actTabBtn.classList.remove('active');
-          if (compTabBtn) compTabBtn.classList.add('active');
-          if (actToggleBtn) actToggleBtn.classList.remove('active');
-          if (compToggleBtn) compToggleBtn.classList.add('active');
-          if (actPanel) actPanel.style.display = 'none';
-          if (compPanel) compPanel.style.display = 'flex';
           renderDrawer();
         }
         scheduleDrawerHeightUpdate();
@@ -3457,6 +3663,49 @@
         renderPhaseCards();
         updateDurationMeter();
         lcOnPlanDirty();
+
+        // Automatically establish links in LinksService
+        if (typeof LinksService !== 'undefined' && typeof LinksService.addLink === 'function') {
+          var planUrn = (typeof lcGetActivePlanUrn === 'function') ? lcGetActivePlanUrn() : ('cmt:lesson:' + currentPlan.id);
+          var actId = template.id || template.title || 'activity';
+          var actUrn = 'cmt:activity:' + actId;
+          if (typeof LinksService.registerEntity === 'function') {
+            LinksService.registerEntity(actUrn, {
+              title: template.title || 'Activity Phase',
+              type: 'activity',
+              activityTypeId: template.activityTypeId || '',
+              interactionTypeId: template.interactionTypeId || '',
+              duration: template.duration || 10
+            });
+          }
+          LinksService.addLink(planUrn, actUrn, {
+            relation: 'uses-activity',
+            meta: { label: template.title || actId, title: template.title || 'Activity Phase' }
+          });
+          if (newSec.id) {
+            LinksService.addLink(planUrn + '#' + newSec.id, actUrn, {
+              relation: 'uses-activity',
+              meta: { label: template.title || actId, phaseTitle: newSec.title || '' }
+            });
+          }
+          if (Array.isArray(newSec.descriptorIds)) {
+            newSec.descriptorIds.forEach(function (dId) {
+              var compUrn = 'cmt:competence:' + dId;
+              LinksService.addLink(planUrn, compUrn, {
+                relation: 'targets-competence',
+                meta: { label: dId }
+              });
+              if (newSec.id) {
+                LinksService.addLink(planUrn + '#' + newSec.id, compUrn, {
+                  relation: 'targets-competence',
+                  meta: { label: dId, phaseTitle: newSec.title || '' }
+                });
+              }
+            });
+          }
+          if (typeof lcUpdatePlanLinksBadge === 'function') lcUpdatePlanLinksBadge();
+        }
+
         if (typeof showToast === 'function') {
           showToast(i18n.t('lcPhaseAddedToast') || 'Phase added to lesson timeline!');
         }
@@ -4073,6 +4322,32 @@
           if (typeof showToast === 'function') showToast('Tagged standard to Phase ' + (pIdx + 1));
           lcOnPlanDirty();
 
+          // Automatically establish link in LinksService
+          if (typeof LinksService !== 'undefined' && typeof LinksService.addLink === 'function') {
+            var planUrn = (typeof lcGetActivePlanUrn === 'function') ? lcGetActivePlanUrn() : ('cmt:lesson:' + currentPlan.id);
+            var descObj = (Array.isArray(allDescriptors) ? allDescriptors.find(function (d) { return d.id === descId || d.code === descId || (d.qualifiedId && d.qualifiedId === descId); }) : null) || { id: descId, code: descId };
+            var compCode = descObj.code || descObj.id || descId;
+            var compUrn = 'cmt:competence:' + compCode;
+            if (typeof LinksService.registerEntity === 'function') {
+              LinksService.registerEntity(compUrn, {
+                title: descObj.title || descObj.text || compCode,
+                code: compCode,
+                type: 'competence'
+              });
+            }
+            LinksService.addLink(planUrn, compUrn, {
+              relation: 'targets-competence',
+              meta: { label: compCode, title: descObj.title || descObj.text || compCode }
+            });
+            if (targetPhase && targetPhase.id) {
+              LinksService.addLink(planUrn + '#' + targetPhase.id, compUrn, {
+                relation: 'targets-competence',
+                meta: { label: compCode, phaseTitle: targetPhase.title || ('Phase ' + (pIdx + 1)) }
+              });
+            }
+            if (typeof lcUpdatePlanLinksBadge === 'function') lcUpdatePlanLinksBadge();
+          }
+
           if (!skipPrompt && typeof CompetenceAggregatorService !== 'undefined' && typeof CompetenceAggregatorService.promptAddLinkedCompetences === 'function') {
             var compObj = (Array.isArray(allDescriptors) ? allDescriptors.find(function (d) { return d.id === descId || d.code === descId || (d.qualifiedId && d.qualifiedId === descId); }) : null) || { id: descId, code: descId };
             CompetenceAggregatorService.promptAddLinkedCompetences(compObj, targetPhase.descriptorIds, {
@@ -4088,12 +4363,30 @@
 
       window.lcRemoveDescriptorFromPhase = function (phaseIdx, descId) {
         if (currentPlan.sections[phaseIdx] && currentPlan.sections[phaseIdx].descriptorIds) {
-          var arr = currentPlan.sections[phaseIdx].descriptorIds;
+          var sec = currentPlan.sections[phaseIdx];
+          var arr = sec.descriptorIds;
           var i = arr.indexOf(descId);
           if (i !== -1) {
             arr.splice(i, 1);
             renderPhaseCards();
             lcOnPlanDirty();
+
+            if (typeof LinksService !== 'undefined' && typeof LinksService.removeLink === 'function') {
+              var planUrn = (typeof lcGetActivePlanUrn === 'function') ? lcGetActivePlanUrn() : ('cmt:lesson:' + currentPlan.id);
+              var descObj = (Array.isArray(allDescriptors) ? allDescriptors.find(function (d) { return d.id === descId || d.code === descId; }) : null) || { id: descId };
+              var compCode = descObj.code || descObj.id || descId;
+              var compUrn = 'cmt:competence:' + compCode;
+              if (sec.id) {
+                LinksService.removeLink(planUrn + '#' + sec.id, compUrn).catch(function () {});
+              }
+              var stillUsed = (currentPlan.sections || []).some(function (s) {
+                return s.descriptorIds && s.descriptorIds.indexOf(descId) !== -1;
+              });
+              if (!stillUsed) {
+                LinksService.removeLink(planUrn, compUrn).catch(function () {});
+              }
+              if (typeof lcUpdatePlanLinksBadge === 'function') lcUpdatePlanLinksBadge();
+            }
           }
         }
       };
@@ -4178,6 +4471,35 @@
           currentPlan._relPath = 'lessons/' + filename;
           currentPlan._target = 'lessons';
 
+          if (typeof LinksService !== 'undefined') {
+            var planUrn = (typeof lcGetActivePlanUrn === 'function') ? lcGetActivePlanUrn() : ('cmt:lesson:' + currentPlan.id);
+            var regFn = LinksService.registerEntity || LinksService.registerItem;
+            if (typeof regFn === 'function') {
+              regFn.call(LinksService, planUrn, {
+                title: currentPlan.title || 'Untitled Lesson Plan',
+                type: 'lesson',
+                id: currentPlan.id,
+                classId: currentPlan.classId || '',
+                date: currentPlan.date || '',
+                tags: currentPlan.tags || []
+              });
+            }
+            if (currentPlan.classId && typeof LinksService.addLink === 'function') {
+              LinksService.addLink(planUrn, 'cmt:class:' + currentPlan.classId, {
+                relation: 'assigned-to',
+                meta: { label: 'Class ' + (getClassLabel(currentPlan.classId) || currentPlan.classId) }
+              });
+            }
+            if (currentPlan.plannerEntryId && typeof LinksService.addLink === 'function') {
+              LinksService.addLink(planUrn, 'cmt:planner:' + currentPlan.plannerEntryId, {
+                relation: 'scheduled-slot',
+                meta: { label: 'Planner Slot ' + (currentPlan.date || '') }
+              });
+            }
+          }
+          if (typeof lcUpdatePlanLinksBadge === 'function') lcUpdatePlanLinksBadge();
+          if (typeof updatePlannerSlotBadge === 'function') updatePlannerSlotBadge();
+
           if (window.Desktop && Desktop.isElectron() && typeof Desktop.notifyDataChanged === 'function') {
             Desktop.notifyDataChanged({ target: 'lessons', filename: filename });
           }
@@ -4227,12 +4549,21 @@
       window.lcUnlinkPlan = async function () {
         if (!currentPlan) return;
         var hadPlannerLink = !!currentPlan.plannerEntryId;
+        var oldSlotId = currentPlan.plannerEntryId;
         currentPlan.plannerEntryId = '';
+        if (typeof LinksService !== 'undefined' && oldSlotId) {
+          var planUrn = (typeof lcGetActivePlanUrn === 'function') ? lcGetActivePlanUrn() : ('cmt:lesson:' + currentPlan.id);
+          LinksService.removeLink(planUrn, 'cmt:planner:' + oldSlotId);
+        }
         isDirty = true;
+        if (typeof updatePlannerSlotBadge === 'function') updatePlannerSlotBadge();
+        if (typeof lcUpdatePlanLinksBadge === 'function') lcUpdatePlanLinksBadge();
         await lcSavePlan();
         if (hadPlannerLink && window.Desktop && Desktop.isElectron() && typeof Desktop.notifyDataChanged === 'function') {
           Desktop.notifyDataChanged({ target: 'lessons' });
+          Desktop.notifyDataChanged({ target: 'planner' });
         }
+        lcCloseModal('plannerLinkModal');
         var msg = (typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcPlanUnlinked') : '') || 'Lesson plan unlinked from planner slot';
         if (typeof showToast === 'function') showToast(msg);
       };
@@ -5344,12 +5675,638 @@
         }
       };
 
-      // ── Planner Link & Coverage CSV ─────────────────────────────────────
-      window.lcOpenPlannerLinkModal = function () {
-        if (window.Desktop && Desktop.isElectron() && typeof Desktop.openTool === 'function') {
-          Desktop.openTool('planner.html', { query: { attachLessonId: currentPlan.id || '' } });
+      // ── Tagging & Universal Linking Integration ─────────────────────────
+      function lcGetActivePlanUrn() {
+        if (!currentPlan) return 'cmt:lesson:temp';
+        if (!currentPlan.id) {
+          currentPlan.id = (typeof LessonCreatorService !== 'undefined' && LessonCreatorService.generateId) ? LessonCreatorService.generateId('plan') : ('plan_' + Date.now());
+        }
+        return 'cmt:lesson:' + currentPlan.id;
+      }
+      window.lcGetActivePlanUrn = lcGetActivePlanUrn;
+
+      function lcUpdatePlanLinksBadge() {
+        var btn = document.getElementById('btn-lc-plan-links');
+        if (!btn || !currentPlan) return;
+        var urn = lcGetActivePlanUrn();
+        var linkCount = 0;
+        var tagCount = (currentPlan.tags && Array.isArray(currentPlan.tags)) ? currentPlan.tags.length : 0;
+        if (typeof LinksService !== 'undefined') {
+          if (typeof LinksService.getLinksFor === 'function') {
+            LinksService.getLinksFor(urn).then(function (links) {
+              if (Array.isArray(links)) {
+                var btnInner = document.getElementById('btn-lc-plan-links');
+                if (btnInner) {
+                  var curTags = (currentPlan && currentPlan.tags && Array.isArray(currentPlan.tags)) ? currentPlan.tags.length : 0;
+                  btnInner.innerHTML = '<img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" />[LINKS: ' + links.length + ' | TAGS: ' + curTags + ']';
+                }
+              }
+            }).catch(function () {});
+          }
+          if (typeof LinksService.getLinksForSync === 'function') {
+            var syncLinks = LinksService.getLinksForSync(urn);
+            if (Array.isArray(syncLinks)) linkCount = syncLinks.length;
+          }
+          if (typeof LinksService.getTagsForSync === 'function') {
+            var svcTags = LinksService.getTagsForSync(urn);
+            if (Array.isArray(svcTags) && svcTags.length > tagCount) tagCount = svcTags.length;
+          }
+        }
+        btn.innerHTML = '<img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" />[LINKS: ' + linkCount + ' | TAGS: ' + tagCount + ']';
+      }
+      window.lcUpdatePlanLinksBadge = lcUpdatePlanLinksBadge;
+
+      window.lcOpenPlanLinksModal = function () {
+        if (!currentPlan) return;
+        var urn = lcGetActivePlanUrn();
+        if (typeof LinksService !== 'undefined') {
+          var regFn = LinksService.registerEntity || LinksService.registerItem;
+          if (typeof regFn === 'function') {
+            regFn.call(LinksService, urn, {
+              title: currentPlan.title || 'Untitled Lesson Plan',
+              type: 'lesson',
+              id: currentPlan.id,
+              classId: currentPlan.classId || '',
+              date: currentPlan.date || '',
+              tags: currentPlan.tags || []
+            });
+          }
+        }
+        if (typeof TagLinkModal !== 'undefined' && TagLinkModal.open) {
+          TagLinkModal.open({
+            urn: urn,
+            title: currentPlan.title || 'Lesson Plan',
+            type: 'lesson',
+            onLinksChanged: function () {
+              lcUpdatePlanLinksBadge();
+            },
+            onTagsChanged: function (newTags) {
+              currentPlan.tags = newTags || [];
+              renderTags();
+              lcUpdatePlanLinksBadge();
+              lcOnPlanDirty();
+            }
+          });
+        } else if (typeof showToast === 'function') {
+          showToast('Links modal not available', true);
+        }
+      };
+
+      function updatePlannerSlotBadge() {
+        var btn = document.getElementById('btn-lc-planner-slot');
+        var textEl = document.getElementById('btn-lc-planner-slot-text');
+        if (!btn || !textEl) return;
+        if (currentPlan && currentPlan.plannerEntryId) {
+          btn.style.display = 'inline-flex';
+          var label = '[SLOT: ' + (currentPlan.date || currentPlan.plannerEntryId.slice(0, 8)) + ']';
+          textEl.textContent = label;
+          btn.title = 'Assigned to planner timetable slot: ' + currentPlan.plannerEntryId + ' (Click to manage)';
         } else {
-          window.open('planner.html?attachLessonId=' + encodeURIComponent(currentPlan.id || ''), '_blank');
+          btn.style.display = 'none';
+        }
+      }
+      window.updatePlannerSlotBadge = updatePlannerSlotBadge;
+
+      window.lcOpenPlannerSlotLink = function () {
+        lcOpenPlannerLinkModal();
+      };
+
+      // ── Planner Timetable Slot Linking Modal ──────────────────────────────
+      var _cachedPlannerEntries = [];
+      window.lcOpenPlannerLinkModal = async function () {
+        var modal = document.getElementById('plannerLinkModal');
+        if (!modal) return;
+        modal.style.display = 'flex';
+
+        // 1. Populate class filter
+        var clsSelect = document.getElementById('plannerLinkClassSelect');
+        if (clsSelect) {
+          var curVal = (currentPlan && currentPlan.classId) ? currentPlan.classId : 'all';
+          clsSelect.innerHTML = '<option value="all">All Classes</option>';
+          var classes = [];
+          if (window.CLASS_GROUPS && typeof window.CLASS_GROUPS === 'object') {
+            Object.keys(window.CLASS_GROUPS).forEach(function (k) {
+              var g = window.CLASS_GROUPS[k];
+              var name = (g && g.name) ? g.name : k;
+              classes.push({ id: k, name: name });
+            });
+          }
+          classes.forEach(function (c) {
+            var opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = c.name;
+            if (c.id === curVal) opt.selected = true;
+            clsSelect.appendChild(opt);
+          });
+          if (curVal !== 'all' && clsSelect.value !== curVal) {
+            clsSelect.value = 'all';
+          }
+        }
+
+        // 2. Load planner entries
+        _cachedPlannerEntries = [];
+        try {
+          if (window.PLANNER_CONFIG && Array.isArray(window.PLANNER_CONFIG.entries)) {
+            _cachedPlannerEntries = window.PLANNER_CONFIG.entries;
+          } else if (window.Desktop && Desktop.isElectron()) {
+            var res = await Desktop.readText('user', 'planner-config.js');
+            if (res && res.ok && res.content) {
+              var match = res.content.match(/window\.PLANNER_CONFIG\s*=\s*(\{[\s\S]*\});?\s*$/);
+              if (match) {
+                var cfg = JSON.parse(match[1]);
+                if (cfg && Array.isArray(cfg.entries)) _cachedPlannerEntries = cfg.entries;
+              }
+            }
+          }
+        } catch (_) {}
+
+        if (!_cachedPlannerEntries.length) {
+          try {
+            var rawLocal = localStorage.getItem('cmt_planner_config');
+            if (rawLocal) {
+              var pcfg = JSON.parse(rawLocal);
+              if (pcfg && Array.isArray(pcfg.entries)) _cachedPlannerEntries = pcfg.entries;
+            }
+          } catch (_) {}
+        }
+
+        lcFilterPlannerSlotsList();
+      };
+
+      window.lcFilterPlannerSlotsList = function () {
+        var container = document.getElementById('plannerSlotsList');
+        if (!container) return;
+        var cls = document.getElementById('plannerLinkClassSelect') ? document.getElementById('plannerLinkClassSelect').value : 'all';
+        var q = (document.getElementById('plannerLinkSearchInput') ? document.getElementById('plannerLinkSearchInput').value : '').toLowerCase().trim();
+
+        var filtered = _cachedPlannerEntries.filter(function (e) {
+          if (!e) return false;
+          if (cls !== 'all' && e.classId !== cls) return false;
+          if (q) {
+            var str = ((e.topic || '') + ' ' + (e.date || '') + ' ' + (e.time || '') + ' ' + (e.room || '') + ' ' + (e.classId || '')).toLowerCase();
+            if (str.indexOf(q) === -1) return false;
+          }
+          return true;
+        });
+
+        if (!filtered.length) {
+          container.innerHTML = '<div style="text-align:center;padding:16px;color:#64748b;font-size:0.82rem;">No timetable slots found matching criteria.</div>';
+          return;
+        }
+
+        filtered.sort(function (a, b) {
+          return String(a.date || '').localeCompare(String(b.date || ''));
+        });
+
+        container.innerHTML = filtered.map(function (e) {
+          var isLinked = currentPlan && currentPlan.plannerEntryId === e.id;
+          var className = getClassLabel(e.classId) || e.classId || 'Class';
+          var timeStr = e.time || (e.startHour ? (e.startHour + ':' + (e.startMinute || '00')) : '');
+          return '<div class="planner-slot-row" style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border:1.5px solid ' + (isLinked ? '#2563eb' : '#000') + ';background:' + (isLinked ? '#eff6ff' : '#f8fafc') + ';border-radius:4px;cursor:pointer;margin-bottom:4px;" onclick="lcSelectPlannerSlot(\'' + escapeHtml(e.id) + '\', \'' + escapeHtml(e.date || '') + '\', \'' + escapeHtml(timeStr) + '\', \'' + escapeHtml(e.classId || '') + '\', \'' + escapeHtml(e.topic || '') + '\')">' +
+            '<div>' +
+              '<div style="font-weight:800;font-size:0.85rem;color:#0f172a;">' + escapeHtml(e.date || 'No Date') + ' ' + (timeStr ? ('(' + escapeHtml(timeStr) + ')') : '') + ' &bull; ' + escapeHtml(className) + '</div>' +
+              '<div style="font-size:0.78rem;color:#475569;">' + escapeHtml(e.topic || 'No topic') + ' ' + (e.room ? ('&bull; Room ' + escapeHtml(e.room)) : '') + '</div>' +
+            '</div>' +
+            '<div>' +
+              (isLinked ? '<span style="font-weight:900;color:#2563eb;font-size:0.78rem;padding:2px 6px;background:#dbeafe;border:1px solid #2563eb;border-radius:3px;">LINKED</span>' : '<button type="button" class="neo-btn" style="font-size:0.75rem;padding:3px 8px;">Select</button>') +
+            '</div>' +
+          '</div>';
+        }).join('');
+      };
+
+      window.lcSelectPlannerSlot = async function (entryId, slotDate, slotTime, slotClassId, slotTopic) {
+        if (!currentPlan) return;
+        currentPlan.plannerEntryId = entryId;
+        if (slotDate && !currentPlan.date) {
+          currentPlan.date = slotDate;
+          var dInp = document.getElementById('planDate');
+          if (dInp) dInp.value = slotDate;
+        }
+        if (slotClassId && !currentPlan.classId) {
+          currentPlan.classId = slotClassId;
+          var cSel = document.getElementById('planClass');
+          if (cSel) cSel.value = slotClassId;
+        }
+        if (slotTime) {
+          currentPlan.startTime = slotTime;
+        }
+        if (typeof LinksService !== 'undefined' && typeof LinksService.addLink === 'function') {
+          LinksService.addLink(lcGetActivePlanUrn(), 'cmt:planner:' + entryId, {
+            relation: 'scheduled-slot',
+            meta: { label: 'Planner Slot ' + (slotDate || '') + ' ' + (slotTime || '') }
+          });
+        }
+        updatePlannerSlotBadge();
+        lcUpdatePlanLinksBadge();
+        lcCloseModal('plannerLinkModal');
+        await lcSavePlan();
+        if (window.Desktop && Desktop.isElectron() && typeof Desktop.notifyDataChanged === 'function') {
+          Desktop.notifyDataChanged({ target: 'planner' });
+        }
+        if (typeof showToast === 'function') {
+          showToast((typeof i18n !== 'undefined' && i18n.t ? i18n.t('lcPlanLinkedToSlot') : '') || 'Lesson plan linked to planner slot!');
+        }
+      };
+
+      // ── Phase Mindmap Modal Logic ─────────────────────────────────────────
+      var _activePhaseMindmapIdx = -1;
+      window.lcOpenPhaseMindmapLink = async function (phaseIdx) {
+        _activePhaseMindmapIdx = phaseIdx;
+        var modal = document.getElementById('phaseMindmapModal');
+        if (!modal) return;
+        var sec = currentPlan && currentPlan.sections ? currentPlan.sections[phaseIdx] : null;
+        if (!sec) return;
+
+        var sel = document.getElementById('phaseMindmapFileSelect');
+        var nodeInput = document.getElementById('phaseMindmapNodeInput');
+        var nodeWrap = document.getElementById('phaseMindmapNodeWrap');
+        if (nodeInput) nodeInput.value = sec.boardNodeId || '';
+        if (nodeWrap) nodeWrap.style.display = 'block';
+
+        sel.innerHTML = '<option value="">-- No linked mindmap --</option>';
+
+        var files = [];
+        try {
+          if (window.Desktop && Desktop.isElectron() && typeof Desktop.listFiles === 'function') {
+            var res = await Desktop.listFiles('mindmaps', { extensions: ['.js', '.json'] });
+            var list = Array.isArray(res) ? res : (res && res.files ? res.files : []);
+            list.forEach(function (f) {
+              var name = typeof f === 'string' ? f : (f.filename || f.name);
+              if (name && !name.endsWith('.bak')) files.push(name);
+            });
+          }
+        } catch (_) {}
+
+        try {
+          if (window.Desktop && Desktop.isElectron() && typeof Desktop.listFiles === 'function') {
+            var resC = await Desktop.listFiles('constellations', { extensions: ['.js', '.json'] });
+            var listC = Array.isArray(resC) ? resC : (resC && resC.files ? resC.files : []);
+            listC.forEach(function (f) {
+              var name = typeof f === 'string' ? f : (f.filename || f.name);
+              if (name && !name.endsWith('.bak') && files.indexOf(name) === -1) files.push(name);
+            });
+          }
+        } catch (_) {}
+
+        files.sort().forEach(function (fn) {
+          var opt = document.createElement('option');
+          opt.value = fn;
+          opt.textContent = fn.replace(/\.(js|json)$/i, '');
+          if (sec.boardFile && (sec.boardFile === fn || sec.boardFile.endsWith(fn))) {
+            opt.selected = true;
+          }
+          sel.appendChild(opt);
+        });
+
+        modal.style.display = 'flex';
+      };
+
+      window.lcOnPhaseMindmapFileChange = function () {
+        var sel = document.getElementById('phaseMindmapFileSelect');
+        var nodeWrap = document.getElementById('phaseMindmapNodeWrap');
+        if (nodeWrap) {
+          nodeWrap.style.display = (sel && sel.value) ? 'block' : 'none';
+        }
+      };
+
+      window.lcSavePhaseMindmapLink = function () {
+        if (_activePhaseMindmapIdx < 0 || !currentPlan || !currentPlan.sections) return;
+        var sec = currentPlan.sections[_activePhaseMindmapIdx];
+        if (!sec) return;
+
+        var sel = document.getElementById('phaseMindmapFileSelect');
+        var nodeInput = document.getElementById('phaseMindmapNodeInput');
+        var chosenFile = sel ? sel.value : '';
+        var chosenNode = nodeInput ? nodeInput.value.trim() : '';
+
+        if (chosenFile) {
+          sec.boardFile = chosenFile;
+          sec.boardNodeId = chosenNode || '';
+          if (typeof LinksService !== 'undefined' && typeof LinksService.addLink === 'function') {
+            LinksService.addLink(lcGetActivePlanUrn() + ':phase:' + _activePhaseMindmapIdx, 'cmt:board:' + chosenFile, {
+              relation: 'phase-mindmap',
+              meta: { label: 'Phase ' + (_activePhaseMindmapIdx + 1) + ' Board: ' + chosenFile.replace(/\.(js|json)$/i, '') }
+            });
+          }
+        } else {
+          delete sec.boardFile;
+          delete sec.boardNodeId;
+        }
+
+        lcCloseModal('phaseMindmapModal');
+        renderPhaseCards();
+        lcOnPlanDirty();
+        if (typeof showToast === 'function') {
+          showToast(chosenFile ? ('Linked phase to mindmap: ' + chosenFile) : 'Mindmap link removed');
+        }
+      };
+
+      window.lcRemovePhaseMindmapLink = function () {
+        if (_activePhaseMindmapIdx < 0 || !currentPlan || !currentPlan.sections) return;
+        var sec = currentPlan.sections[_activePhaseMindmapIdx];
+        if (sec) {
+          delete sec.boardFile;
+          delete sec.boardNodeId;
+        }
+        lcCloseModal('phaseMindmapModal');
+        renderPhaseCards();
+        lcOnPlanDirty();
+        if (typeof showToast === 'function') showToast('Mindmap link removed');
+      };
+
+      // ── Word & Grammar Bank Drawer Logic ──────────────────────────────────
+      var _cachedWordBankItems = [];
+      var _wordBankCurrentType = 'wordbanks';
+
+      function parseGenericBankContent(content) {
+        if (!content || typeof content !== 'string') return [];
+        var trimmed = content.trim();
+        if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+          try {
+            var p = JSON.parse(trimmed);
+            if (Array.isArray(p)) return p;
+          } catch (_) {}
+        }
+        var match = content.match(/\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:\[|\{)/);
+        if (match) {
+          try {
+            var fn = new Function(content + '\n;try{return ' + match[1] + ';}catch(e){return [];}');
+            var res = fn();
+            if (Array.isArray(res)) return res;
+            if (res && typeof res === 'object') {
+              if (Array.isArray(res.records)) return res.records;
+              if (Array.isArray(res.items)) return res.items;
+              return Object.values(res);
+            }
+          } catch (_) {}
+        }
+        return [];
+      }
+
+      window.lcOnWordBankFileChange = function () {
+        var sel = document.getElementById('lcWordBankFileSelect');
+        _wordBankCurrentType = sel ? sel.value : 'wordbanks';
+        lcLoadWordBankItems();
+      };
+
+      window.lcLoadWordBankItems = async function () {
+        var type = document.getElementById('lcWordBankFileSelect') ? document.getElementById('lcWordBankFileSelect').value : 'wordbanks';
+        _wordBankCurrentType = type;
+        var listEl = document.getElementById('lcWordBankList');
+        if (listEl) listEl.innerHTML = '<div style="text-align:center;padding:24px;color:#64748b;font-size:0.85rem;">Loading vocabulary &amp; grammar database...</div>';
+
+        var targetMap = {
+          wordbanks: { target: 'customWordbanks', defaultFile: 'wordDb.js' },
+          grammarbanks: { target: 'customGrammarbanks', defaultFile: 'grammar.js' },
+          gapfillbanks: { target: 'customGapfillbanks', defaultFile: 'gapFillBank.js' }
+        };
+
+        var cfg = targetMap[type] || targetMap.wordbanks;
+        var items = [];
+
+        try {
+          if (window.Desktop && Desktop.isElectron() && typeof Desktop.listFiles === 'function') {
+            var fileList = await window.Desktop.listFiles(cfg.target, { extensions: ['.js', '.json'] });
+            var files = Array.isArray(fileList) ? fileList : ((fileList && Array.isArray(fileList.files)) ? fileList.files : []);
+            var candidateFiles = files.map(function (f) {
+              return typeof f === 'string' ? f : (f.filename || f.name);
+            }).filter(function (fn) {
+              return fn && !fn.endsWith('.bak') && fn !== 'simple-wiktionary-core.zip' && fn !== 'barrasDb.js';
+            });
+
+            if (type === 'wordbanks') {
+              ['wordDb.js', 'simple-wiktionary-core.js', 'phrasalVerbs.js', 'simple-wiktionary.js'].forEach(function (wbf) {
+                if (candidateFiles.indexOf(wbf) !== -1) {
+                  candidateFiles = [wbf].concat(candidateFiles.filter(function (f) { return f !== wbf; }));
+                }
+              });
+            } else if (candidateFiles.indexOf(cfg.defaultFile) !== -1) {
+              candidateFiles = [cfg.defaultFile].concat(candidateFiles.filter(function (f) { return f !== cfg.defaultFile; }));
+            } else if (candidateFiles.length === 0 && cfg.defaultFile) {
+              candidateFiles = [cfg.defaultFile];
+            }
+
+            for (var i = 0; i < Math.min(candidateFiles.length, 6); i++) {
+              var fn = candidateFiles[i];
+              try {
+                var r = await window.Desktop.readText(cfg.target, fn);
+                if (r && r.ok && r.content) {
+                  var parsed = parseGenericBankContent(r.content);
+                  if (Array.isArray(parsed) && parsed.length > 0) {
+                    parsed.forEach(function (it) {
+                      if (it && typeof it === 'object') {
+                        it._sourceFile = fn;
+                        items.push(it);
+                      }
+                    });
+                  }
+                }
+              } catch (_) {}
+            }
+          }
+
+          if (items.length === 0 && type === 'wordbanks' && window.Desktop && typeof Desktop.readByPath === 'function') {
+            try {
+              var altRes = await window.Desktop.readByPath('customData', 'wordbanks/wordDb.js');
+              if (altRes && altRes.ok && altRes.content) {
+                var parsedAlt = parseGenericBankContent(altRes.content);
+                if (Array.isArray(parsedAlt)) {
+                  parsedAlt.forEach(function (it) {
+                    if (it && typeof it === 'object') {
+                      it._sourceFile = 'wordDb.js';
+                      items.push(it);
+                    }
+                  });
+                }
+              }
+            } catch (_) {}
+          }
+
+          if (items.length === 0) {
+            if (type === 'wordbanks' && window.vocabBank && Array.isArray(window.vocabBank)) {
+              items = window.vocabBank;
+            } else if (type === 'gapfillbanks' && window.gapFillBank && Array.isArray(window.gapFillBank)) {
+              items = window.gapFillBank;
+            } else if (type === 'grammarbanks' && window.grammarBank && Array.isArray(window.grammarBank)) {
+              items = window.grammarBank;
+            }
+          }
+        } catch (err) {
+          console.warn('lcLoadWordBankItems error:', err);
+        }
+
+        _cachedWordBankItems = items;
+
+        var themesSet = new Set();
+        (items || []).forEach(function (it) {
+          var themes = it.themes || it.theme || it.topic || it.topics || [];
+          if (Array.isArray(themes)) themes.forEach(function (t) { if (t) themesSet.add(String(t).trim()); });
+          else if (themes) themesSet.add(String(themes).trim());
+        });
+        var themeSel = document.getElementById('lcWordBankThemeFilter');
+        if (themeSel) {
+          var thOpts = ['<option value="all">All Themes (' + themesSet.size + ')</option>'];
+          Array.from(themesSet).sort().forEach(function (t) {
+            thOpts.push('<option value="' + escapeHtml(t) + '">' + escapeHtml(t) + '</option>');
+          });
+          themeSel.innerHTML = thOpts.join('');
+        }
+
+        lcFilterWordBankDrawer();
+      };
+
+      window.lcFilterWordBankDrawer = function () {
+        var listEl = document.getElementById('lcWordBankList');
+        var countEl = document.getElementById('lcWordBankMatchCount');
+        if (!listEl) return;
+
+        var q = (document.getElementById('lcWordBankSearch') ? document.getElementById('lcWordBankSearch').value : '').toLowerCase().trim();
+        var th = document.getElementById('lcWordBankThemeFilter') ? document.getElementById('lcWordBankThemeFilter').value : 'all';
+        var lvl = document.getElementById('lcWordBankLevelFilter') ? document.getElementById('lcWordBankLevelFilter').value : 'all';
+
+        var filtered = _cachedWordBankItems.filter(function (it) {
+          if (!it) return false;
+          if (th !== 'all') {
+            var itemThemes = it.themes || it.theme || it.topic || it.topics || [];
+            var matchedTh = false;
+            if (Array.isArray(itemThemes)) {
+              matchedTh = itemThemes.some(function (t) { return String(t).trim() === th; });
+            } else if (itemThemes) {
+              matchedTh = String(itemThemes).trim() === th;
+            }
+            if (!matchedTh) return false;
+          }
+          if (lvl !== 'all') {
+            var itemLvl = String(it.level || it.difficulty || '').toUpperCase();
+            if (itemLvl !== lvl.toUpperCase()) return false;
+          }
+          if (q) {
+            var searchStr = [
+              it.word, it.french, it.translation, it.ipa,
+              Array.isArray(it.definition) ? it.definition.join(' ') : it.definition,
+              it.sentence, it.removedWord, it.name, it.rule, it.explanation,
+              it.partOfSpeech, it.grammarType
+            ].filter(Boolean).join(' ').toLowerCase();
+            if (searchStr.indexOf(q) === -1) return false;
+          }
+          return true;
+        });
+
+        if (countEl) countEl.textContent = filtered.length + ' items';
+
+        if (!filtered.length) {
+          listEl.innerHTML = '<div style="text-align:center;padding:24px;color:#64748b;font-size:0.85rem;">No items found matching filter criteria.</div>';
+          return;
+        }
+
+        listEl.innerHTML = filtered.slice(0, 100).map(function (it, idx) {
+          var origIdx = _cachedWordBankItems.indexOf(it);
+          if (origIdx === -1) origIdx = idx;
+
+          var title = '';
+          var subtitle = '';
+          var badgesHtml = '';
+
+          if (it.word) {
+            title = escapeHtml(it.word) + (it.ipa ? (' <span style="font-weight:400;font-size:0.8rem;color:#64748b;">/' + escapeHtml(it.ipa) + '/</span>') : '');
+            var def = Array.isArray(it.definition) ? it.definition.join('; ') : (it.definition || it.french || it.translation || '');
+            subtitle = escapeHtml(def);
+            if (it.partOfSpeech || it.pos) badgesHtml += '<span class="comp-badge" style="background:#e0e7ff;color:#3730a3;font-size:0.7rem;padding:1px 5px;border:1px solid #3730a3;border-radius:3px;">' + escapeHtml(String(it.partOfSpeech || it.pos)) + '</span>';
+            if (it.level) badgesHtml += '<span class="comp-badge" style="background:#fef3c7;color:#92400e;font-size:0.7rem;padding:1px 5px;border:1px solid #92400e;border-radius:3px;">' + escapeHtml(String(it.level)) + '</span>';
+          } else if (it.sentence) {
+            title = escapeHtml(it.sentence);
+            subtitle = it.removedWord ? ('Gap: <strong>' + escapeHtml(it.removedWord) + '</strong>') : '';
+            if (it.grammarType) badgesHtml += '<span class="comp-badge" style="background:#e0e7ff;color:#3730a3;font-size:0.7rem;padding:1px 5px;border:1px solid #3730a3;border-radius:3px;">' + escapeHtml(String(it.grammarType)) + '</span>';
+            if (it.level) badgesHtml += '<span class="comp-badge" style="background:#fef3c7;color:#92400e;font-size:0.7rem;padding:1px 5px;border:1px solid #92400e;border-radius:3px;">' + escapeHtml(String(it.level)) + '</span>';
+          } else {
+            title = escapeHtml(it.name || it.rule || 'Grammar Item');
+            subtitle = escapeHtml(it.explanation || it.description || '');
+          }
+
+          return '<div class="drawer-comp-card" style="display:flex;flex-direction:column;gap:4px;padding:8px;border:2px solid var(--neo-dark);border-radius:var(--neo-radius-sm);background:#fff;margin-bottom:6px;cursor:grab;" draggable="true" ondragstart="event.dataTransfer.setData(\'application/json\', JSON.stringify({type:\'wordbank-item\',itemIdx:' + origIdx + '})); event.dataTransfer.setData(\'text/plain\', \'wordbank:' + origIdx + '\'); event.dataTransfer.effectAllowed=\'copy\';">' +
+            '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">' +
+              '<div style="font-weight:800;font-size:0.85rem;color:#0f172a;">' + title + '</div>' +
+              '<button type="button" class="neo-btn" style="font-size:0.72rem;padding:2px 6px;background:#fde047;border:1.5px solid #000;font-weight:900;" onclick="lcInsertWordBankItemToPhase(' + origIdx + ')" title="Insert into active lesson phase">' +
+                '<img src="../assets/icons/save.svg" class="btn-icon" alt="" style="width:11px;height:11px;vertical-align:-1px;margin-right:2px;" /><span>+ Phase</span>' +
+              '</button>' +
+            '</div>' +
+            (subtitle ? ('<div style="font-size:0.78rem;color:#475569;line-height:1.3;">' + subtitle + '</div>') : '') +
+            (badgesHtml ? ('<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px;">' + badgesHtml + '</div>') : '') +
+          '</div>';
+        }).join('');
+      };
+
+      window.lcInsertWordBankItemToPhase = function (itemIdx, targetPhaseIdx) {
+        if (!currentPlan.sections || currentPlan.sections.length === 0) {
+          lcAddPhase();
+        }
+        var pIdx = (typeof targetPhaseIdx === 'number' && targetPhaseIdx >= 0 && targetPhaseIdx < currentPlan.sections.length)
+          ? targetPhaseIdx
+          : currentPlan.sections.length - 1;
+        var sec = currentPlan.sections[pIdx];
+        var it = _cachedWordBankItems[itemIdx];
+        if (!sec || !it) return;
+
+        var textToAdd = '';
+        if (it.word) {
+          textToAdd = it.word + (it.ipa ? (' /' + it.ipa + '/') : '') + (it.definition ? (': ' + (Array.isArray(it.definition) ? it.definition.join('; ') : it.definition)) : (it.french ? (': ' + it.french) : ''));
+        } else if (it.sentence) {
+          textToAdd = it.sentence + (it.removedWord ? (' [Gap: ' + it.removedWord + ']') : '');
+        } else if (it.rule || it.name) {
+          textToAdd = (it.name || 'Grammar Rule') + ': ' + (it.explanation || it.rule || '');
+        }
+
+        if (textToAdd) {
+          if (sec.studentAction) {
+            sec.studentAction += '\n• ' + textToAdd;
+          } else {
+            sec.studentAction = '• ' + textToAdd;
+          }
+          renderPhaseCards();
+          lcOnPlanDirty();
+
+          // Automatically establish links in LinksService
+          if (typeof LinksService !== 'undefined' && typeof LinksService.addLink === 'function') {
+            var planUrn = (typeof lcGetActivePlanUrn === 'function') ? lcGetActivePlanUrn() : ('cmt:lesson:' + currentPlan.id);
+            var urnType = it.word ? 'wordbank' : (it.sentence ? 'gapfill' : 'grammar');
+            var srcFile = it._sourceFile || (urnType === 'wordbank' ? 'wordDb.js' : (urnType === 'gapfill' ? 'gapFillBank.js' : 'grammar.js'));
+            var itemKey = it.word || it.removedWord || it.name || it.rule || 'item';
+            var itemUrn = (typeof LinksService.makeUrn === 'function')
+              ? LinksService.makeUrn(urnType, srcFile, encodeURIComponent(itemKey))
+              : ('cmt:' + urnType + ':' + srcFile + '#' + encodeURIComponent(itemKey));
+
+            var itemTitle = it.word || (it.sentence ? ('Gap: ' + (it.removedWord || it.sentence.slice(0, 30))) : (it.name || it.rule || 'Grammar Rule'));
+
+            if (typeof LinksService.registerEntity === 'function') {
+              LinksService.registerEntity(itemUrn, {
+                title: itemTitle,
+                type: urnType,
+                file: srcFile,
+                word: it.word || '',
+                sentence: it.sentence || '',
+                removedWord: it.removedWord || '',
+                rule: it.rule || it.name || ''
+              });
+            }
+
+            LinksService.addLink(planUrn, itemUrn, {
+              relation: 'includes-term',
+              meta: { label: itemTitle, title: itemTitle, urnType: urnType }
+            });
+
+            if (sec.id) {
+              LinksService.addLink(planUrn + '#' + sec.id, itemUrn, {
+                relation: 'includes-term',
+                meta: { label: itemTitle, phaseTitle: sec.title || ('Phase ' + (pIdx + 1)) }
+              });
+            }
+
+            if (typeof lcUpdatePlanLinksBadge === 'function') lcUpdatePlanLinksBadge();
+          }
+
+          if (typeof showToast === 'function') {
+            showToast((typeof i18n !== 'undefined' && i18n.t ? i18n.t('lcAddedToPhase') : '') || ('Added "' + (it.word || it.name || 'Item') + '" to Phase ' + (pIdx + 1)));
+          }
         }
       };
 

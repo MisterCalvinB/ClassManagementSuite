@@ -14123,6 +14123,7 @@
               }
             });
             te.addEventListener('keydown', function (e) {
+              if (!e || typeof e.key !== 'string') return;
               if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 's') {
                 e.preventDefault();
                 e.stopPropagation();
@@ -29493,6 +29494,7 @@
         if (!e.target.closest('#con-mask-style-overlay')) window.conMaskCtxClose();
       });
       document.addEventListener('keydown', function (e) {
+        if (!e || typeof e.key !== 'string') return;
         if (typeof boardDispatchCustomShortcut === 'function' && boardDispatchCustomShortcut(e)) return;
         if (e.key === 'Escape') {
           if (document.body.classList.contains('laser-active')) { window.laserToggle(); return; }
@@ -29603,7 +29605,7 @@
           window.conSetMode('move');
           return;
         }
-        if (!e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'h') {
+        if (!e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && (e.key || '').toLowerCase() === 'h') {
           const tag = document.activeElement && document.activeElement.tagName;
           if (tag === 'INPUT' || tag === 'TEXTAREA') return;
           if (document.activeElement && document.activeElement.isContentEditable) return;
@@ -36015,6 +36017,7 @@
         if (window.conShapeClearSelection) window.conShapeClearSelection();
       });
       ta.addEventListener('keydown', e => {
+        if (!e || typeof e.key !== 'string') return;
         if (e.key === 'Enter') {
           setTimeout(() => {
             if (typeof wnRenderMathImmediate === 'function') wnRenderMathImmediate();
@@ -41803,6 +41806,20 @@
         let data;
         try { data = boardParseSessionText(e.target.result); }
         catch { mdbToast('⚠️ Could not read file — make sure it is a valid Constellation .js, .json, or .cstz file.'); return; }
+        if (data && !data._type && (Array.isArray(data.nodes) || Array.isArray(data.pages))) {
+          data._type = 'constellation';
+        }
+        if (data && Array.isArray(data.links) && !Array.isArray(data.edges)) {
+          data.edges = data.links.map(l => ({
+            id: l.id,
+            a: l.a || l.from,
+            b: l.b || l.to,
+            type: l.type || 'none',
+            label: l.label || '',
+            thickness: l.thickness || 2,
+            strokeType: l.strokeType || 'solid'
+          }));
+        }
         if (data._type !== 'constellation' && !String(data._type || '').endsWith('-constellation')) {
           mdbToast('⚠️ This file does not look like a Constellation save file.'); return;
         }
@@ -41945,6 +41962,9 @@
         let data;
         try { data = boardParseSessionText(e.target.result); }
         catch { mdbToast('⚠️ Could not read file — make sure it is a valid template .js or .json file.'); return; }
+        if (data && !data._type && (Array.isArray(data.nodes) || Array.isArray(data.pages))) {
+          data._type = 'constellation';
+        }
         if (data._type !== 'constellation-template' && data._type !== 'constellation' && !String(data._type || '').endsWith('-constellation')) {
           mdbToast('⚠️ This file does not look like a Constellation template or session file.'); return;
         }
@@ -42699,6 +42719,17 @@
 
     function _conRestoreSession(data) {
       _conIsRestoringSession = true;
+      if (data && Array.isArray(data.links) && !Array.isArray(data.edges)) {
+        data.edges = data.links.map(l => ({
+          id: l.id,
+          a: l.a || l.from,
+          b: l.b || l.to,
+          type: l.type || 'none',
+          label: l.label || '',
+          thickness: l.thickness || 2,
+          strokeType: l.strokeType || 'solid'
+        }));
+      }
       try {
         const isPageRestore = !!data._isPageRestore;
         const isMirrorSync = !!data._isMirrorSync;
@@ -45509,7 +45540,7 @@
 
       const params = new URLSearchParams(location.search);
       const pendingNodeId = params.get('nodeId');
-      const wantsFile = params.get('openSession') === '1';
+      const wantsFile = params.get('openSession') === '1' || params.has('open') || params.has('file');
       const wantsLocal = params.get('openLocalSession') === '1';
       if (!wantsFile && !wantsLocal) {
         if (pendingNodeId) {
@@ -45551,8 +45582,8 @@
       }
 
       if (wantsFile) {
-        const target = params.get('openTarget') || '';
-        const filename = params.get('openFilename') || '';
+        const target = params.get('openTarget') || (params.has('open') || params.has('file') ? 'mindmaps' : '');
+        const filename = params.get('openFilename') || params.get('open') || params.get('file') || '';
         const relativePath = params.get('openRelPath') || filename;
         const section = params.get('openSection') || historySectionFromTarget(target);
         boardClearPendingOpenQueryParams(params);
@@ -45619,7 +45650,22 @@
           data._type = data._typ;
           delete data._typ;
         }
-        const sessionType = data && data._type;
+        let sessionType = data && data._type;
+        if (!sessionType && data && (Array.isArray(data.nodes) || Array.isArray(data.pages))) {
+          data._type = 'constellation';
+          sessionType = 'constellation';
+        }
+        if (data && Array.isArray(data.links) && !Array.isArray(data.edges)) {
+          data.edges = data.links.map(l => ({
+            id: l.id,
+            a: l.a || l.from,
+            b: l.b || l.to,
+            type: l.type || 'none',
+            label: l.label || '',
+            thickness: l.thickness || 2,
+            strokeType: l.strokeType || 'solid'
+          }));
+        }
         const isConstellationCompatible = sessionType === 'constellation'
           || sessionType === 'constellation-template'
           || String(sessionType || '').endsWith('-constellation');
@@ -56301,29 +56347,39 @@
         let badgeText = '[LINK]';
         let badgeClass = 'general';
         let titleText = (l.targetMeta && l.targetMeta.title) ? l.targetMeta.title : l.otherUrn;
+        let isVocabLink = false;
 
         if (p.type === 'tag') {
           badgeText = '#' + p.id.toUpperCase();
           badgeClass = 'tag';
         } else if (p.type === 'planner-entry') {
-          badgeText = '[PLAN]';
+          let planDateOrTitle = '';
+          if (l.targetMeta && l.targetMeta.date) planDateOrTitle = ': ' + l.targetMeta.date;
+          else if (l.targetMeta && l.targetMeta.title) planDateOrTitle = ': ' + l.targetMeta.title.slice(0, 10).toUpperCase();
+          badgeText = `[PLAN${planDateOrTitle}]`;
           badgeClass = 'plan';
         } else if (p.type === 'document') {
           badgeText = '[DOC]';
           badgeClass = 'doc';
         } else if (p.type === 'file') {
-          if (p.id.toLowerCase().endsWith('.pdf') || (l.targetMeta && l.targetMeta.relativePath && l.targetMeta.relativePath.toLowerCase().endsWith('.pdf'))) {
-            badgeText = '[PDF]';
-            badgeClass = 'pdf';
-          } else {
-            badgeText = '[FILE]';
+          const isPdf = p.id.toLowerCase().endsWith('.pdf') || (l.targetMeta && l.targetMeta.relativePath && l.targetMeta.relativePath.toLowerCase().endsWith('.pdf'));
+          const pageInfo = (l.targetMeta && l.targetMeta.page) ? `: P. ${l.targetMeta.page}` : '';
+          badgeText = isPdf ? `[PDF${pageInfo}]` : '[FILE]';
+          badgeClass = isPdf ? 'pdf' : 'general';
+        } else if (p.type === 'grade-test' || p.type === 'test' || p.type === 'test-exercise') {
+          let exNum = null;
+          if (p.anchor && (p.anchor.startsWith('ex-') || p.anchor.startsWith('exercise-') || /^\d+$/.test(p.anchor))) {
+            exNum = p.anchor.replace(/^(ex-|exercise-)/, '');
+          } else if (l.targetMeta && (l.targetMeta.exerciseIndex || l.targetMeta.exerciseId)) {
+            exNum = l.targetMeta.exerciseIndex || l.targetMeta.exerciseId;
           }
-        } else if (p.type === 'grade-test') {
-          badgeText = '[TEST]';
+          badgeText = exNum ? `[TEST EX: ${exNum}]` : '[TEST]';
           badgeClass = 'test';
-        } else if (p.type === 'vocab') {
+        } else if (p.type === 'vocab' || p.type === 'word' || p.type === 'wordbank') {
           badgeText = '[VOCAB]';
           badgeClass = 'vocab';
+          isVocabLink = true;
+          titleText = titleText + ' • Click to view lexical card (IPA, definition, audio)';
         } else if (p.type === 'board') {
           badgeText = '[BOARD]';
         }
@@ -56336,7 +56392,11 @@
         pill.onclick = (e) => {
           e.stopPropagation();
           e.preventDefault();
-          LinksService.navigateToUrn(l.otherUrn);
+          if (isVocabLink && typeof conOpenNodeWordCard === 'function') {
+            conOpenNodeWordCard(node.id, e.clientX, e.clientY);
+          } else {
+            LinksService.navigateToUrn(l.otherUrn);
+          }
         };
         bar.appendChild(pill);
       });
@@ -56566,6 +56626,19 @@
         conUpdateAllNodeLinkBadges();
       });
     }
+
+    try {
+      const _dataSyncChannel = new BroadcastChannel('cmt_data_sync');
+      _dataSyncChannel.onmessage = async (ev) => {
+        if (ev && ev.data && (ev.data.file === 'vocab.json' || ev.data.file === 'wordDb.js' || ev.data.type === 'vocab' || ev.data.type === 'wordbanks')) {
+          if (typeof ensureWordDbLoaded === 'function') {
+            await ensureWordDbLoaded(true);
+          }
+          conUpdateAllNodeLinkBadges();
+        }
+      };
+    } catch (_) {}
+
     // Initial update
     setTimeout(() => {
       boardUpdateToolbarLinksCount();

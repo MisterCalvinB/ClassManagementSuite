@@ -14,6 +14,9 @@
   <script src="../js/menus.js"></script>
   <script src="../js/tutorial.js"></script>
   <script src="../js/competence-aggregator-service.js"></script>
+  <script src="../js/links-service.js"></script>
+  <script src="../js/tag-link-modal.js"></script>
+  <link rel="stylesheet" href="../css/tag-link-modal.css">
   <script>
     (function () {
       function injectClassicScript(source, name) {
@@ -473,6 +476,21 @@
     <div class="row-context-menu-item danger" id="rcm-delete">
       <img src="../assets/icons/delete.svg" class="btn-icon btn-icon-xs" alt="" />
       <span data-i18n="mdbCtxDelete">Delete</span>
+    </div>
+  </div>
+
+  <!-- Word Cross-Suite Usage & Reverse-Lookup Modal -->
+  <div id="word-usage-modal" class="modal-bg hidden" onclick="if(event.target===this)closeWordUsageModal()">
+    <div class="modal" style="max-width: 680px; width: 92%; max-height: 85vh; display: flex; flex-direction: column;">
+      <div class="modal-hd" style="background:#fde047;border-bottom:2.5px solid #000;display:flex;align-items:center;justify-content:space-between;padding:12px 18px;">
+        <span id="word-usage-title" style="font-weight:900;font-size:1.05rem;display:flex;align-items:center;color:#000;">Cross-Suite Usage</span>
+        <button class="modal-x" onclick="closeWordUsageModal()" style="font-size:1.2rem;font-weight:bold;cursor:pointer;">&times;</button>
+      </div>
+      <div class="modal-bd" id="word-usage-body" style="padding:16px 18px;overflow-y:auto;flex:1;">
+      </div>
+      <div class="modal-ft" style="display:flex;justify-content:flex-end;padding:10px 18px;border-top:2px solid #000;background:#fafafa;">
+        <button class="btn btn-secondary" onclick="closeWordUsageModal()">Close</button>
+      </div>
     </div>
   </div>
 
@@ -2176,6 +2194,8 @@
       ${multiFile ? `<td class="src-cell" title="${esc(row._src)}">${esc(row._src)}</td>` : ''}
       <td class="act-cell">
         <button class="btn btn-sm btn-secondary" onclick="openEdit(${row._fi},${row._ri})"><img src="../assets/icons/edit-word.svg" class="btn-icon btn-icon-xs" alt="" /> ${t('mdbBtnEdit')}</button>
+        ${(S.typeKey === 'criteria') ? `<button class="btn btn-sm btn-secondary" onclick="openCriteriaLinksModal(${row._fi},${row._ri})" title="Link Competence or Tags"><img src="../assets/icons/links.svg" class="btn-icon btn-icon-xs" alt="" /> [LINKS]</button>` : ''}
+        ${(S.typeKey === 'wordbanks') ? `<button class="btn btn-sm btn-secondary" onclick="openWordReverseLookup(${row._fi},${row._ri})" title="Cross-Suite Usage &amp; Reverse-Lookup"><img src="../assets/icons/links.svg" class="btn-icon btn-icon-xs" alt="" /> [USAGE]</button>` : ''}
         <button class="btn btn-sm btn-secondary" onclick="duplicateRecord(${row._fi},${row._ri})" title="${t('mdbBtnDuplicate')}"><img src="../assets/icons/copy.svg" class="btn-icon btn-icon-xs" alt="" /> ${t('mdbBtnDuplicate')}</button>
         <button class="btn btn-sm btn-secondary" onclick="openCopyToModal(${row._fi},${row._ri})" title="${t('mdbBtnCopyToFile')}"><img src="../assets/icons/file.svg" class="btn-icon btn-icon-xs" alt="" /> ${t('mdbBtnCopyToFile')}</button>
         <button class="btn btn-sm btn-danger" onclick="confirmDel(${row._fi},${row._ri})"><img src="../assets/icons/delete.svg" class="btn-icon btn-icon-xs" alt="" /> ${t('mdbBtnDel')}</button>
@@ -3679,6 +3699,40 @@
         }
       }
 
+      // Synchronize criterion competence links in LinksService
+      if (S.typeKey === 'criteria') {
+        try {
+          const fi = S.editMode === 'add' ? (Number($('ff-_target')?.value) || 0) : S.editFI;
+          const savedRec = S.editMode === 'add'
+            ? S.files[fi].records[S.files[fi].records.length - 1]
+            : S.files[fi].records[S.editRI];
+          if (savedRec && typeof LinksService !== 'undefined') {
+            const critId = String(savedRec.id || savedRec.name || '').trim();
+            if (critId) {
+              const critUrn = 'cmt:criterion:' + critId;
+              const targetCompIds = Array.isArray(savedRec.competenceIds) ? savedRec.competenceIds : [];
+              for (const cid of targetCompIds) {
+                await LinksService.addLink(critUrn, 'cmt:competence:' + cid, { label: savedRec.name || critId });
+              }
+            }
+          }
+        } catch (errCrit) {
+          console.warn('Failed to link criterion to competence:', errCrit);
+        }
+      }
+
+      // Broadcast changes for vocabulary records to update other open tools dynamically
+      if (S.typeKey === 'wordbanks') {
+        try {
+          const fi = S.editMode === 'add' ? (Number($('ff-_target')?.value) || 0) : S.editFI;
+          const savedRec = S.editMode === 'add'
+            ? S.files[fi].records[S.files[fi].records.length - 1]
+            : S.files[fi].records[S.editRI];
+          const _chan = new BroadcastChannel('cmt_data_sync');
+          _chan.postMessage({ file: 'vocab.json', type: 'vocab', action: 'updated', word: savedRec?.word });
+        } catch (_) {}
+      }
+
       closeEdit();
       S.schema = buildSchema(getAllRecords());
       renderAll();
@@ -4152,6 +4206,321 @@
       renderFormCompChips();
       closeMdbCompPicker();
     }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // CRITERIA & VOCABULARY CROSS-SUITE LINKING & REVERSE-LOOKUP
+    // ─────────────────────────────────────────────────────────────────────
+    window.openCriteriaLinksModal = function (fi, ri) {
+      const rec = S.files[fi]?.records[ri];
+      if (!rec || typeof TagLinkModal === 'undefined') return;
+      const critId = String(rec.id || rec.name || 'crit_' + ri).trim();
+      const critUrn = 'cmt:criterion:' + critId;
+      TagLinkModal.open({
+        urn: critUrn,
+        title: rec.name || critId,
+        label: rec.name || critId,
+        subtitle: `Evaluation Criterion • ${rec.minPoints ?? 0}–${rec.maxPoints ?? 10} pts`,
+        type: 'criterion',
+        onUpdate: async () => {
+          if (typeof LinksService !== 'undefined') {
+            const links = await LinksService.getLinksFor(critUrn);
+            const linkedCompCodes = [];
+            links.forEach(l => {
+              const p = LinksService.parseUrn(l.otherUrn);
+              if (p && p.type === 'competence') linkedCompCodes.push(p.id);
+            });
+            if (linkedCompCodes.length > 0) {
+              const existing = Array.isArray(rec.competenceIds) ? rec.competenceIds : [];
+              const merged = Array.from(new Set([...existing, ...linkedCompCodes]));
+              rec.competenceIds = merged;
+              await saveFile(fi);
+              renderTable();
+            }
+          }
+        }
+      });
+    };
+
+    window.openWordReverseLookup = async function (fi, ri) {
+      const rec = S.files[fi]?.records[ri];
+      if (!rec) return;
+      const word = (rec.word || rec.term || rec.lemma || '').trim();
+      if (!word) return;
+
+      const modal = document.getElementById('word-usage-modal');
+      const titleEl = document.getElementById('word-usage-title');
+      const bodyEl = document.getElementById('word-usage-body');
+      if (!modal || !titleEl || !bodyEl) return;
+
+      titleEl.innerHTML = `<img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:18px;height:18px;vertical-align:-3px;margin-right:6px;" /> WHERE TAUGHT / CROSS-SUITE USAGE: "${escHtml(word.toUpperCase())}"`;
+      modal.classList.remove('hidden');
+      bodyEl.innerHTML = `
+        <div style="padding:24px;text-align:center;color:#64748b;font-weight:700;">
+          <div style="font-size:1.1rem;margin-bottom:8px;">Scanning Class Management Tools suite…</div>
+          <div style="font-size:0.85rem;">Searching Mindmaps, Test Creator files, and Lesson Plans for "<strong>${escHtml(word)}</strong>"</div>
+        </div>
+      `;
+
+      const wordLower = word.toLowerCase();
+      const results = {
+        mindmaps: [],
+        tests: [],
+        lessons: [],
+        directLinks: []
+      };
+
+      // 1. Direct LinksService query
+      if (typeof LinksService !== 'undefined') {
+        try {
+          const links = await LinksService.getLinksFor('cmt:vocab:' + encodeURIComponent(wordLower));
+          const tags = await LinksService.getTagsFor('cmt:vocab:' + encodeURIComponent(wordLower));
+          results.directLinks = { links, tags };
+        } catch (_) {}
+      }
+
+      // 2. Scan Mindmaps
+      if (window.Desktop && typeof Desktop.listFiles === 'function') {
+        try {
+          const res = await Desktop.listFiles('mindmaps', { extensions: ['.cstz', '.json'] });
+          const flist = Array.isArray(res) ? res : ((res && Array.isArray(res.files)) ? res.files : []);
+          for (const item of flist) {
+            const fn = typeof item === 'string' ? item : (item && (item.filename || item.name));
+            if (!fn || fn.includes('-Autosave') || fn.includes('.bak')) continue;
+            let b = null;
+            if (fn.endsWith('.cstz') || fn.endsWith('.zip')) {
+              if (typeof Desktop.readBoardArchive === 'function') {
+                const arch = await Desktop.readBoardArchive('mindmaps', fn);
+                if (arch && arch.ok && arch.boardData) b = arch.boardData;
+              }
+            } else if (fn.endsWith('.json')) {
+              const r = await Desktop.readText('mindmaps', fn);
+              if (r && r.ok && r.content) {
+                try { b = JSON.parse(r.content); } catch (_) {}
+              }
+            }
+            if (!b) continue;
+            let matchCount = 0;
+            let firstNodeId = null;
+            const checkNode = (n) => {
+              if (!n) return;
+              const w = String(n.baseWord || (n.text) || '').trim().toLowerCase();
+              if (w === wordLower || w.includes(wordLower)) {
+                matchCount++;
+                if (!firstNodeId && n.id) firstNodeId = n.id;
+              }
+            };
+            if (Array.isArray(b.nodes)) b.nodes.forEach(checkNode);
+            if (Array.isArray(b.pages)) {
+              b.pages.forEach(p => {
+                if (Array.isArray(p.nodes)) p.nodes.forEach(checkNode);
+              });
+            }
+            if (matchCount > 0) {
+              results.mindmaps.push({
+                filename: fn,
+                title: b.title || fn.replace(/\.(cstz|json|zip)$/i, ''),
+                count: matchCount,
+                nodeId: firstNodeId
+              });
+            }
+          }
+        } catch (_) {}
+      }
+
+      // 3. Scan Tests
+      if (window.Desktop && typeof Desktop.listFiles === 'function') {
+        try {
+          const res = await Desktop.listFiles('tests', { extensions: ['.json'] });
+          const flist = Array.isArray(res) ? res : ((res && Array.isArray(res.files)) ? res.files : []);
+          for (const item of flist) {
+            const fn = typeof item === 'string' ? item : (item && (item.filename || item.name));
+            if (!fn) continue;
+            const r = await Desktop.readText('tests', fn);
+            if (!r || !r.ok || !r.content) continue;
+            try {
+              const tData = JSON.parse(r.content);
+              if (!tData || !Array.isArray(tData.exercises)) continue;
+              const matchingExs = [];
+              tData.exercises.forEach((ex, idx) => {
+                const exStr = JSON.stringify(ex).toLowerCase();
+                if (exStr.includes(wordLower)) {
+                  matchingExs.push(idx + 1);
+                }
+              });
+              if (matchingExs.length > 0) {
+                results.tests.push({
+                  filename: fn,
+                  title: tData.title || fn.replace(/\.json$/i, ''),
+                  exerciseIndices: matchingExs
+                });
+              }
+            } catch (_) {}
+          }
+        } catch (_) {}
+      }
+
+      // 4. Scan Lessons
+      if (window.Desktop && typeof Desktop.listFiles === 'function') {
+        try {
+          const res = await Desktop.listFiles('lessons', { extensions: ['.json'] });
+          const flist = Array.isArray(res) ? res : ((res && Array.isArray(res.files)) ? res.files : []);
+          for (const item of flist) {
+            const fn = typeof item === 'string' ? item : (item && (item.filename || item.name));
+            if (!fn) continue;
+            const r = await Desktop.readText('lessons', fn);
+            if (!r || !r.ok || !r.content) continue;
+            try {
+              const lData = JSON.parse(r.content);
+              if (!lData) continue;
+              const lStr = JSON.stringify(lData).toLowerCase();
+              if (lStr.includes(wordLower)) {
+                results.lessons.push({
+                  filename: fn,
+                  title: lData.title || fn.replace(/\.json$/i, ''),
+                  date: lData.date || ''
+                });
+              }
+            } catch (_) {}
+          }
+        } catch (_) {}
+      }
+
+      // Render Results
+      const totalMatches = results.mindmaps.length + results.tests.length + results.lessons.length;
+      let outHtml = `
+        <div style="background:#f8fafc;border:2px solid #000;border-radius:6px;padding:12px 14px;box-shadow:3px 3px 0px #000;margin-bottom:16px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+            <div>
+              <div style="font-weight:900;font-size:1.1rem;color:#0f172a;">${escHtml(word)}</div>
+              <div style="font-size:0.8rem;color:#64748b;margin-top:2px;">
+                ${rec.pos ? `<strong>${escHtml(rec.pos)}</strong> • ` : ''}
+                ${rec.ipa ? `[${escHtml(rec.ipa)}] • ` : ''}
+                Found in <strong>${totalMatches}</strong> total suite item${totalMatches === 1 ? '' : 's'}
+              </div>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="openWordTagLinkModal('${escHtml(word)}')" style="display:inline-flex;align-items:center;gap:6px;">
+              <img src="../assets/icons/links.svg" class="btn-icon btn-icon-xs" alt="" />
+              <span>[MANAGE LINKS &amp; TAGS]</span>
+            </button>
+          </div>
+          ${rec.definition ? `<div style="font-size:0.82rem;color:#334155;margin-top:8px;line-height:1.4;border-top:1px dashed #cbd5e1;padding-top:6px;"><strong>Definition:</strong> ${escHtml(rec.definition)}</div>` : ''}
+        </div>
+      `;
+
+      if (totalMatches === 0 && (!results.directLinks || !results.directLinks.links || results.directLinks.links.length === 0)) {
+        outHtml += `
+          <div style="text-align:center;padding:32px 16px;color:#94a3b8;font-weight:700;">
+            <div style="font-size:1rem;margin-bottom:6px;">No occurrences found yet across Mindmaps, Tests, or Lessons.</div>
+            <div style="font-size:0.82rem;color:#64748b;">You can connect this word to any resource or syllabus item using [MANAGE LINKS &amp; TAGS].</div>
+          </div>
+        `;
+      } else {
+        // Mindmaps
+        if (results.mindmaps.length > 0) {
+          outHtml += `
+            <div class="usage-section-hd"><img src="../assets/icons/board.svg" class="btn-icon btn-icon-xs" alt="" /> MINDMAPS &amp; BOARDS (${results.mindmaps.length})</div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              ${results.mindmaps.map(m => `
+                <div class="usage-card-item">
+                  <div>
+                    <div style="font-weight:800;font-size:0.9rem;">${escHtml(m.title)}</div>
+                    <div style="font-size:0.75rem;color:#64748b;">Appears on <strong>${m.count}</strong> node${m.count === 1 ? '' : 's'} • ${escHtml(m.filename)}</div>
+                  </div>
+                  <button class="btn btn-primary btn-sm" onclick="jumpToBoardWord('${escHtml(m.filename)}', '${escHtml(m.nodeId || '')}')" style="display:inline-flex;align-items:center;gap:4px;">
+                    <img src="../assets/icons/board.svg" class="btn-icon btn-icon-xs" alt="" />
+                    <span>[OPEN BOARD]</span>
+                  </button>
+                </div>
+              `).join('')}
+            </div>
+          `;
+        }
+
+        // Tests
+        if (results.tests.length > 0) {
+          outHtml += `
+            <div class="usage-section-hd"><img src="../assets/icons/test-creator.svg" class="btn-icon btn-icon-xs" alt="" /> TEST CREATOR ASSESSMENTS (${results.tests.length})</div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              ${results.tests.map(t => `
+                <div class="usage-card-item">
+                  <div>
+                    <div style="font-weight:800;font-size:0.9rem;">${escHtml(t.title)}</div>
+                    <div style="font-size:0.75rem;color:#64748b;">Targeted in Exercise${t.exerciseIndices.length === 1 ? '' : 's'}: <strong>${t.exerciseIndices.map(i => '#' + i).join(', ')}</strong></div>
+                  </div>
+                  <button class="btn btn-primary btn-sm" onclick="jumpToTestExercise('${escHtml(t.filename)}', '${t.exerciseIndices[0]}')" style="display:inline-flex;align-items:center;gap:4px;">
+                    <img src="../assets/icons/test-creator.svg" class="btn-icon btn-icon-xs" alt="" />
+                    <span>[OPEN TEST EX: #${t.exerciseIndices[0]}]</span>
+                  </button>
+                </div>
+              `).join('')}
+            </div>
+          `;
+        }
+
+        // Lessons
+        if (results.lessons.length > 0) {
+          outHtml += `
+            <div class="usage-section-hd"><img src="../assets/icons/lesson-creator.svg" class="btn-icon btn-icon-xs" alt="" /> LESSON PLANS (${results.lessons.length})</div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              ${results.lessons.map(l => `
+                <div class="usage-card-item">
+                  <div>
+                    <div style="font-weight:800;font-size:0.9rem;">${escHtml(l.title)}</div>
+                    <div style="font-size:0.75rem;color:#64748b;">${l.date ? `Scheduled for: <strong>${escHtml(l.date)}</strong> • ` : ''}${escHtml(l.filename)}</div>
+                  </div>
+                  <button class="btn btn-primary btn-sm" onclick="jumpToLessonPlan('${escHtml(l.filename)}')" style="display:inline-flex;align-items:center;gap:4px;">
+                    <img src="../assets/icons/lesson-creator.svg" class="btn-icon btn-icon-xs" alt="" />
+                    <span>[OPEN LESSON]</span>
+                  </button>
+                </div>
+              `).join('')}
+            </div>
+          `;
+        }
+      }
+
+      bodyEl.innerHTML = outHtml;
+    };
+
+    window.closeWordUsageModal = function () {
+      const modal = document.getElementById('word-usage-modal');
+      if (modal) modal.classList.add('hidden');
+    };
+
+    window.jumpToBoardWord = function (filename, nodeId) {
+      if (window.Desktop && typeof Desktop.openTool === 'function') {
+        Desktop.openTool('board.html', { query: { openSession: '1', openFilename: filename, openTarget: 'mindmaps', nodeId: nodeId } });
+      } else {
+        window.open(`board.html?openSession=1&openFilename=${encodeURIComponent(filename)}&nodeId=${encodeURIComponent(nodeId)}`, '_blank');
+      }
+    };
+
+    window.jumpToTestExercise = function (filename, exIndex) {
+      if (window.Desktop && typeof Desktop.openTool === 'function') {
+        Desktop.openTool('test-creator.html', { query: { file: filename, ex: exIndex } });
+      } else {
+        window.open(`test-creator.html?file=${encodeURIComponent(filename)}&ex=${encodeURIComponent(exIndex)}`, '_blank');
+      }
+    };
+
+    window.jumpToLessonPlan = function (filename) {
+      if (window.Desktop && typeof Desktop.openTool === 'function') {
+        Desktop.openTool('lesson-creator.html', { query: { planId: filename } });
+      } else {
+        window.open(`lesson-creator.html?planId=${encodeURIComponent(filename)}`, '_blank');
+      }
+    };
+
+    window.openWordTagLinkModal = function (word) {
+      if (typeof TagLinkModal === 'undefined') return;
+      TagLinkModal.open({
+        urn: 'cmt:vocab:' + encodeURIComponent(word.toLowerCase()),
+        title: word,
+        label: word,
+        subtitle: 'Vocabulary Entry • Cross-App Links',
+        type: 'vocab'
+      });
+    };
 
     // ─────────────────────────────────────────────────────────────────────
     // AUTOFILL
