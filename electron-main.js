@@ -426,6 +426,7 @@ function getSaveTargets() {
     grades: path.join(writableRoot, 'user/grades'),
     groupParticipation: path.join(writableRoot, 'user/group-participation'),
     mindmaps: path.join(writableRoot, 'user/mindmaps'),
+    constellations: path.join(writableRoot, 'user/mindmaps'),
     constellationTemplates: path.join(writableRoot, 'user/mindmaps/templates'),
     customData: customDataRoot,
     customBooks: path.join(writableRoot, 'user/custom-data/books'),
@@ -464,29 +465,29 @@ function getBundledDataRoot() {
 }
 
 const PAGE_PERMISSIONS = {
-  [PAGE_FILES.board]: new Set(['data', 'mindmaps', 'constellationTemplates', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'user', 'customBooks', 'lessons', 'customCompetences', 'customDescriptors', 'toPrint', 'docEditorDocs', 'tests', 'customCriteria', 'customScales', 'grades']),
+  [PAGE_FILES.board]: new Set(['data', 'mindmaps', 'constellations', 'constellationTemplates', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'user', 'customBooks', 'lessons', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'customChips', 'customExercises', 'docEditorTemplates', 'classPlans', 'toPrint', 'docEditorDocs', 'tests', 'customCriteria', 'customScales', 'grades']),
   [PAGE_FILES.classManagement]: new Set(['user', 'lessons', 'groupParticipation', 'data', 'grades']),
   [PAGE_FILES.groupEditor]: new Set(['user', 'groupParticipation', 'grades', 'gradeSheet']),
-  [PAGE_FILES.gradeSheet]: new Set(['grades', 'user', 'toPrint', 'customCriteria', 'customScales', 'customChips', 'customCompetences', 'customDescriptors', 'docEditorDocs', 'tests', 'mindmaps', 'lessons']),
+  [PAGE_FILES.gradeSheet]: new Set(['grades', 'user', 'toPrint', 'customCriteria', 'customScales', 'customChips', 'customCompetences', 'customDescriptors', 'docEditorDocs', 'tests', 'mindmaps', 'constellations', 'lessons', 'data', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customExercises', 'customBooks', 'docEditorTemplates', 'classPlans']),
   [PAGE_FILES.learningDb]: new Set(['data', 'user', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'customCriteria', 'customScales', 'customChips', 'customExercises', 'toPrint', 'docEditorDocs', 'tests']),
   [PAGE_FILES.learningDb2]: new Set(['data', 'user', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customBooks', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'customCriteria', 'customScales', 'customChips', 'toPrint', 'docEditorDocs', 'tests']),
   [PAGE_FILES.learningTools]: new Set(['data', 'user', 'groupParticipation', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'gameResults']),
   [PAGE_FILES.participationTracker]: new Set(['user', 'groupParticipation', 'toPrint']),
   [PAGE_FILES.launcher]: new Set(['user', 'mindmaps', 'docEditorDocs', 'toPrint', 'lessons', 'tests']),
   [PAGE_FILES.generalConfig]: new Set(['user']),
-  [PAGE_FILES.fileManager]: new Set(['user', 'lessons', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'groupParticipation', 'docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'toPrint', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'customCriteria', 'customScales', 'customChips', 'customExercises', 'tests', 'testImages']),
+  [PAGE_FILES.fileManager]: new Set(['user', 'lessons', 'mindmaps', 'constellations', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'groupParticipation', 'docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'toPrint', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'customCriteria', 'customScales', 'customChips', 'customExercises', 'tests', 'testImages']),
   [PAGE_FILES.howTo]: new Set(['user']),
   [PAGE_FILES.credits]: new Set([]),
   [PAGE_FILES.scheduleMaker]: new Set(['user', 'data', 'toPrint', 'docEditorDocs', 'grades', 'tests', 'customCriteria', 'customScales', 'customCompetences', 'lessons', 'mindmaps']),
   [PAGE_FILES.classPlan]: new Set(['user', 'classPlans']),
-  [PAGE_FILES.documentEditor]: new Set(['docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'docEditorSettings', 'user', 'app', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'groupParticipation', 'toPrint', 'tests', 'customCriteria', 'customScales', 'customCompetences', 'customDescriptors', 'lessons']),
-  [PAGE_FILES.planner]: new Set(['user', 'lessons', 'groupParticipation', 'grades', 'mindmaps', 'toPrint', 'docEditorDocs', 'tests', 'customCriteria', 'customScales', 'customCompetences']),
-  [PAGE_FILES.lessonCreator]: new Set(['user', 'lessons', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'mindmaps', 'toPrint', 'docEditorDocs', 'tests', 'customCriteria', 'customScales', 'grades']),
+  [PAGE_FILES.documentEditor]: new Set(['docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'docEditorSettings', 'user', 'app', 'mindmaps', 'constellations', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'groupParticipation', 'toPrint', 'tests', 'customCriteria', 'customScales', 'customCompetences', 'customDescriptors', 'lessons']),
+  [PAGE_FILES.planner]: new Set(['user', 'lessons', 'groupParticipation', 'grades', 'mindmaps', 'constellations', 'toPrint', 'docEditorDocs', 'tests', 'customCriteria', 'customScales', 'customCompetences', 'customDescriptors', 'data', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customBooks', 'customChips', 'customExercises', 'docEditorTemplates', 'classPlans']),
+  [PAGE_FILES.lessonCreator]: new Set(['user', 'lessons', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'mindmaps', 'constellations', 'toPrint', 'docEditorDocs', 'tests', 'customCriteria', 'customScales', 'grades', 'data', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customBooks', 'customChips', 'customExercises', 'docEditorTemplates', 'classPlans']),
   [PAGE_FILES.importTool]: new Set(['user', 'lessons', 'customWordbanks', 'customQuizzes', 'customGapfillbanks', 'customQuotes', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'data', 'docEditorDocs', 'customBooks', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'customExercises']),
   [PAGE_FILES.administrativeGroups]: new Set(['user', 'grades', 'data', 'customData', 'toPrint', 'docEditorDocs']),
   [PAGE_FILES.oralMarking]: new Set(['user', 'grades']),
-  [PAGE_FILES.competencePortfolio]: new Set(['user', 'lessons', 'mindmaps', 'grades', 'customCompetences', 'customDescriptors', 'toPrint', 'tests', 'docEditorDocs', 'customCriteria', 'customScales']),
-  [PAGE_FILES.testCreator]: new Set(['user', 'tests', 'testImages', 'customExercises', 'data', 'customData', 'grades', 'classPlans', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customCompetences', 'customDescriptors', 'customCriteria', 'customScales', 'customChips', 'toPrint', 'docEditorDocs', 'mindmaps', 'lessons']),
+  [PAGE_FILES.competencePortfolio]: new Set(['user', 'lessons', 'mindmaps', 'constellations', 'grades', 'customCompetences', 'customDescriptors', 'toPrint', 'tests', 'docEditorDocs', 'customCriteria', 'customScales', 'data', 'customData', 'customWordbanks', 'docEditorTemplates']),
+  [PAGE_FILES.testCreator]: new Set(['user', 'tests', 'testImages', 'customExercises', 'data', 'customData', 'grades', 'classPlans', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customCompetences', 'customDescriptors', 'customCriteria', 'customScales', 'customChips', 'toPrint', 'docEditorDocs', 'mindmaps', 'constellations', 'lessons']),
   [PAGE_FILES.databaseConverter]: new Set(['user', 'data', 'customData', 'toPrint', 'docEditorDocs', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'customCriteria', 'customScales', 'customChips', 'customExercises'])
 };
 
@@ -1045,6 +1046,7 @@ function setupWindowExternalLinkHandling(win) {
     writeCrashDump('render-process-gone', { pageFile, details });
     if (win === mirrorWindow) {
       mirrorWindow = null;
+      mirrorWindowSource = null;
     } else if (win === cmsPresentationWindow) {
       cmsPresentationWindow = null;
     } else if (win === oralPresenterWindow) {
@@ -1092,17 +1094,30 @@ function createToolWindow(pageFile, options = {}) {
     const currentPage = getLoadedPageFile(win);
 
     // Close associated presentation/mirror windows when their parent tool closes
-    if (currentPage === PAGE_FILES.board && mirrorWindow && !mirrorWindow.isDestroyed()) {
+    if (currentPage === PAGE_FILES.board && mirrorWindow && !mirrorWindow.isDestroyed() && win === mirrorWindowSource) {
       mirrorWindow.close();
+      mirrorWindow = null;
+      mirrorWindowSource = null;
     }
-    if (currentPage === PAGE_FILES.classManagement && cmsPresentationWindow && !cmsPresentationWindow.isDestroyed()) {
+    if (currentPage === PAGE_FILES.classManagement && cmsPresentationWindow && !cmsPresentationWindow.isDestroyed() && win === cmsPresentationSourceWindow) {
       cmsPresentationWindow.close();
+      cmsPresentationWindow = null;
+      cmsPresentationSourceWindow = null;
     }
-    if (currentPage === PAGE_FILES.learningTools && learningToolsPresentationWindow && !learningToolsPresentationWindow.isDestroyed()) {
+    if (currentPage === PAGE_FILES.learningTools && learningToolsPresentationWindow && !learningToolsPresentationWindow.isDestroyed() && win === learningToolsPresentationSourceWindow) {
       learningToolsPresentationWindow.close();
+      learningToolsPresentationWindow = null;
+      learningToolsPresentationSourceWindow = null;
     }
-    if (currentPage === PAGE_FILES.oralMarking && oralPresenterWindow && !oralPresenterWindow.isDestroyed()) {
+    if (currentPage === PAGE_FILES.oralMarking && oralPresenterWindow && !oralPresenterWindow.isDestroyed() && win === oralPresenterSourceWindow) {
       oralPresenterWindow.close();
+      oralPresenterWindow = null;
+      oralPresenterSourceWindow = null;
+    }
+    if (currentPage === PAGE_FILES.documentEditor && docPresentationWindow && !docPresentationWindow.isDestroyed() && win === docPresentationSourceWindow) {
+      docPresentationWindow.close();
+      docPresentationWindow = null;
+      docPresentationSourceWindow = null;
     }
   });
   loadTool(pageFile, win, options).catch((error) => {
@@ -5831,7 +5846,10 @@ ipcMain.handle('app:open-mirror-window', async (event, request = {}) => {
 
   mirrorWindow = new BrowserWindow(winOpts);
   setupWindowExternalLinkHandling(mirrorWindow);
-  mirrorWindow.on('closed', () => { mirrorWindow = null; });
+  mirrorWindow.on('closed', () => {
+    mirrorWindow = null;
+    mirrorWindowSource = null;
+  });
   // When no second screen: keep presentation window the same size as the main window
   if (!secondDisplay && senderWin) {
     const _syncSize = () => {

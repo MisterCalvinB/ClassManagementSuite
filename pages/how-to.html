@@ -337,6 +337,7 @@
         <div class="sidebar-children">
           <button class="sidebar-child" data-accordion="acc-fm-recent" onclick="navToAccordion('file-manager','acc-fm-recent')"><span class="sidebar-child-dot"></span>Recent Tab</button>
           <button class="sidebar-child" data-accordion="acc-fm-browse" onclick="navToAccordion('file-manager','acc-fm-browse')"><span class="sidebar-child-dot"></span>Browse Tab</button>
+          <button class="sidebar-child" data-accordion="acc-fm-tags" onclick="navToAccordion('file-manager','acc-fm-tags')"><span class="sidebar-child-dot"></span>Tags &amp; Units Tab</button>
           <button class="sidebar-child" data-accordion="acc-fm-sync" onclick="navToAccordion('file-manager','acc-fm-sync')"><span class="sidebar-child-dot"></span>Sync Tab</button>
           <button class="sidebar-child" data-accordion="acc-fm-shortcuts" onclick="navToAccordion('file-manager','acc-fm-shortcuts')"><span class="sidebar-child-dot"></span>Keyboard Shortcuts</button>
         </div>
@@ -500,14 +501,15 @@
         <strong>Tip:</strong> Open <button class="xlink" onclick="navTo('class-management')">Class Management</button> and <button class="xlink" onclick="navTo('board')">Board</button> side by side — the Board mirrors the timer and sync state from Class Management in real time. Configure this in <button class="xlink" onclick="navToAccordion('general-config','acc-cfg-startup')">Startup &amp; Launch settings</button>.
       </div>
       <div class="tip" style="margin-top:10px">
-        <strong>Sidebar panel:</strong> The launcher has a collapsible right-hand panel. Click <strong>Panel</strong> in the header to show or hide it. It contains three sections:
+        <strong>Sidebar panel:</strong> The launcher has a collapsible right-hand panel. Click <strong>Panel</strong> in the header to show or hide it. It contains four sections:
         <ul style="margin:8px 0 0 16px;padding:0;line-height:1.7">
           <li><strong>Upcoming Events</strong> — pulls lessons, tests, and assignments from the Planner with dates on or after today, sorted by date. Click any entry to jump directly to that date in the Planner.</li>
           <li><strong>To-do</strong> — lists incomplete to-do items from the Planner sorted by due date. Overdue items are highlighted in red. Click the <strong>+</strong> button to open the Planner and add a new item.</li>
           <li><strong>Recent Docs</strong> — shows the most recently modified constellation maps (Board <code>.cstz</code> archives and legacy sessions) and Document Editor files. Click any entry to open it directly in Board or Document Editor; right-click to delete the saved session.</li>
+          <li><strong>Tags &amp; Units</strong> — displays active <code>#tags</code> across all suite tools with live counts. Click any tag pill to launch the <strong>Unit &amp; Tag Explorer</strong>.</li>
         </ul>
-        <p style="margin:8px 0 0">Recent Docs updates automatically when those files are saved, renamed, moved, copied, or deleted in other tools, so names and modified dates stay in sync without reopening the launcher.</p>
-        <p style="margin:8px 0 0">The small number button (e.g. <strong>5</strong>) in each section header controls how many items are shown (1–20); the setting is saved per device. The interactive <strong>▶ Tour</strong> button in the launcher header includes steps for all three sidebar sections.</p>
+        <p style="margin:8px 0 0">Recent Docs and Tags update automatically when files or links are saved, renamed, moved, copied, or deleted across the suite, so counts and modified dates stay in sync without reopening the launcher.</p>
+        <p style="margin:8px 0 0">The small number button (e.g. <strong>5</strong>) in each section header controls how many items are shown (1–20); the setting is saved per device. The header also features a dedicated <strong>Unit Explorer</strong> button (<img src="../assets/icons/links.svg" class="ht-inline-icon" alt="" style="width:14px;height:14px;vertical-align:-2px;" />) to aggregate all documents, mindmaps, tests, lessons, and planner entries tagged under any unit or topic in 1 click.</p>
       </div>
       <div class="tip" style="margin-top:10px">
         <strong>Crash Recovery &amp; Session State:</strong> If the application closes unexpectedly or experiences a crash while working, all previously opened tool windows and their documents/contexts are automatically restored on next launch. The Launcher will also always open automatically alongside restored windows so you always have full access to navigation and tools.
@@ -703,6 +705,7 @@
             <div class="mini-card"><h4><img src="../assets/icons/schedule-maker.svg" class="ht-icon-img" alt="" /> Schedule Maker</h4><p>Reads students and SEN flags per group.</p></div>
             <div class="mini-card"><h4><img src="../assets/icons/oral-marking.svg" class="ht-icon-img" alt="" /> Oral Marking</h4><p>Loads class rosters and accommodations directly for candidate evaluation sessions.</p></div>
             <div class="mini-card"><h4><img src="../assets/icons/admin-groups.svg" class="ht-icon-img" alt="" /> Administrative Groups</h4><p>Syncs student rosters, UUIDs, classes, and accommodations.</p></div>
+            <div class="mini-card"><h4><img src="../assets/icons/board.svg" class="ht-icon-img" alt="" /> Board</h4><p>Imports class rosters, seating plans from Class Plan, and balanced teams directly onto the mindmap canvas.</p></div>
           </div>
           <p style="font-size:0.87rem;color:#000;line-height:1.6;margin:12px 0 4px;"><strong>Renaming a class</strong> — edit the name in Group Editor and click Save. Every tool picks up the new name on its next load. Historical data (grades, participation sessions, planner entries) is never affected because each class is tracked by a stable internal ID, not its name.</p>
           <p style="font-size:0.87rem;color:#000;line-height:1.6;margin:12px 0 4px;"><strong>Live cross-app notifications</strong> — when any tool saves shared data (groups, student names, class config, planner or class-plan data), all other open tool windows are notified instantly. A slide-in banner appears at the top of each affected window with three options: <em>Reload data</em> (refreshes data in place where possible, or reloads the page), <em>Save &amp; reload</em> (saves unsaved work first — available on Grade Sheet), or <em>Dismiss</em> (keep the current data and ignore the update). The banner auto-dismisses after 30 seconds.</p>
@@ -1029,7 +1032,7 @@
             <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Linking to a Planner lesson:</strong> click the <strong>Planner</strong> button in the Board toolbar to tag the open constellation to a specific lesson, test, or assignment from the Planner. Recent and upcoming entries are shown by default; click <em>Show all</em> for the full list. The link is stored in the saved archive and restored when the board is reopened. From the Planner itself, right-click an entry or use the modal button to create or open the linked <code>.cstz</code> board file.</p>
             <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Duplicating a board file:</strong> use <strong>⧉ Duplicate</strong> in the File toolbar. If the current file is linked to a Planner timeslot, a popup explains that the duplicate will break that link and offers to open the class timeslot picker so you can relink the duplicate to another slot.</p>
             <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Quick page navigation in File menu:</strong> when a saved board file is open and has at least two pages, the File menu shows a compact strip with page numbers and tiny thumbnails. Click any thumbnail to jump directly to that page.</p>
-            <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Page Thumbnails &amp; Context Menu:</strong> Right-click any page thumbnail (in the bottom toolbar mini-strip or the full Pages Drawer) to open its quick menu: choose <strong>Open page in new window</strong> to open that page in an independent, interactive secondary window (autosave, close saves, and manual session overwrites are strictly disabled to protect the primary session), choose <strong>Open image in new window</strong> to inspect the page's WebP snapshot in a read-only viewer on the teacher's monitor, or quickly duplicate or delete pages.</p>
+            <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Page Thumbnails &amp; Context Menu:</strong> Right-click any page thumbnail (in the bottom toolbar mini-strip or the full Pages Drawer) to open its quick menu: choose <strong>Open page in new window</strong> to open that page in an independent, interactive secondary window going directly to the constellation board (autosave, close saves, and manual session overwrites are strictly disabled to protect the primary session; closing the secondary window never closes the active presentation view), choose <strong>Open image in new window</strong> to inspect the page's WebP snapshot in a read-only viewer on the teacher's monitor, or quickly duplicate or delete pages.</p>
             <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Renaming Board Files:</strong> if a board has already been saved, a grey <strong>Rename file</strong> button appears next to the title input at the top. Click it to rename the active constellation archive on disk to match the new board title (Electron app only). This also updates the filename in any version history automatically.</p>
             <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Premade Library & Reusable Snippets:</strong> click <strong>Library</strong> in the Board toolbar to insert pre-built widgets, callouts, and notes, or select elements on the board and click <em>Save to Library</em> to save custom reusable components. Custom library items persist in <code>user/board-library.json</code> and stay synchronized across windows.</p>
             <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Splitting and Converting Sticky Notes:</strong> click the split icon (<img src="../assets/icons/split.svg" style="width:14px;vertical-align:middle;" alt="">) on the note styling toolbar to split a note at the cursor into two stacked notes; the initial note's height is automatically reduced to the split point. Click the convert button on any sticky note toolbar (or multiple selected notes) to open the conversion options dialog: convert as a single word node, or split into separate nodes per line, sentence, or word while retaining styling and formatting.</p>
@@ -1038,6 +1041,11 @@
             <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Responsive Board Canvas &amp; Freedom of Movement:</strong> Nodes and board elements can be moved freely across the entire canvas without being artificially clamped to the current window size. When opening a board created on a larger screen on a smaller display or laptop, nodes near or beyond the viewport border remain completely movable, editable, and draggable without getting stuck or jumping.</p>
             <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Snap-to-Align &amp; Multi-Selection Snapping:</strong> Click the <strong>Snap</strong> button in the Board toolbar to toggle automatic alignment guidelines on/off (or hold <kbd>Alt</kbd> while dragging to bypass snapping temporarily). When dragging a single node or shape, alignment lines snap to surrounding elements. When multiple nodes are selected and dragged together, snapping is enabled using the top-left element as the reference marker, ensuring the multi-node group aligns cleanly with canvas items while strictly preserving relative spacing between selected nodes.</p>
             <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Lexical Word Cards &amp; Test Exercise Deep-Linking:</strong> Word nodes linked to vocabulary entries display a <code>[VOCAB]</code> badge. Click the badge to open an interactive Neobrutalist lexical card with IPA phonetics, definitions, grammatical category, example sentences, and audio pronunciation. When nodes are linked to test exercises (e.g. <code>[TEST EX: 2]</code>), clicking the badge launches Test Creator and smoothly scrolls to and pulses the target exercise card with an animated halo. Board also listens to cross-window database events, automatically refreshing badges in real-time whenever word banks are updated in Manage Database.</p>
+            <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Importing Class Rosters, Seating Plans &amp; Teams:</strong> Click <strong>CLASS DATA</strong> in the top toolbar to open the multi-tab import modal. If the current board file is associated with a Planner timetable slot, the modal automatically filters the class selector to that exact class with a yellow notice and a <strong>[SHOW ALL CLASSES]</strong> toggle. Use the <strong>NAME FORMAT</strong> dropdown to select how student names are displayed and imported (<em>First name</em>, <em>Last name</em>, <em>First name and last name</em>, or <em>Custom name</em>) across all tabs:
+              <br>• <strong>Class Roster:</strong> Choose any class and select students to import as mindmap nodes enclosed in a styled Class Group container, as a single Roster Sticky Note card, or loaded into the Bottom Staging Tray for on-the-fly placement.
+              <br>• <strong>Seating Plan:</strong> Select any saved seating plan from Class Plan to automatically spawn desks arranged matching the classroom room layout, with options to label desks with student names and group them into a Room Group container.
+              <br>• <strong>Teams:</strong> Load saved class teams or generate balanced teams on the fly to spawn colored Team Mindmap Groups and/or set the active Board game teams for the Scoreboard and turn tracker.
+            </p>
           </div>
         </div>
       </div>
@@ -2507,6 +2515,22 @@
         </div></div>
       </div>
 
+      <div class="accordion" id="acc-db-links">
+        <button class="accordion-header" onclick="toggleAccordion('acc-db-links')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title"><img src="../assets/icons/links.svg" class="ht-icon-img" alt="" /> Universal Links &amp; Tags Across All 15 Databases</span>
+          <span class="accordion-badge">interconnected</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:12px;">Every database type in Manage Database (Word Banks, Quotes, Dictations, Grammar, Gap Fill, Error Banks, Sentences, Stories, Quizzes, Competences &amp; Descriptors, Lesson Phases, Evaluation Criteria, Grading Scales, Observation Chips) supports comprehensive entity linking and tagging:</p>
+          <ul style="font-size:0.85rem;line-height:1.6;padding-left:18px;margin-bottom:10px;">
+            <li><strong>File-Level Linking:</strong> Click <strong>[FILE LINKS: N | TAGS: M]</strong> in the actions toolbar to link entire database files to external documents, lesson plans, planner slots, board sessions, or student groups.</li>
+            <li><strong>Record-Level Linking:</strong> Click the <strong>[LINKS]</strong> button on any table row or chip card, choose <strong>Tags &amp; Connected Items</strong> in the right-click context menu, or click the <strong>Links</strong> button in the Edit Record Inspector modal. Connect individual items to students, classes, or other database entries. All modals automatically resolve and display student names and class titles instead of raw UUIDs.</li>
+            <li><strong>Deep-Link Navigation:</strong> URL parameters (<code>manage-database.html?type=...&amp;file=...&amp;record=...</code>) open the target file and highlight/inspect the record directly.</li>
+          </ul>
+        </div></div>
+      </div>
+
       <div class="accordion" id="acc-db-quotes">
         <button class="accordion-header" onclick="toggleAccordion('acc-db-quotes')">
           <span class="accordion-arrow">▶</span>
@@ -2885,7 +2909,7 @@
         <button class="open-tool-btn" onclick="openTool('file-manager.html')">Open →</button>
       </div>
       <p class="tool-overview">
-        Browse, rename, open, and duplicate your data files from one place. Three tabs cover recent sessions, full folder navigation, and all data &amp; storage settings including backup and sync.
+        Browse, rename, open, and duplicate your data files from one place. Four tabs cover recent sessions, full folder navigation, tags &amp; units explorer, and all data &amp; storage settings including backup and sync.
       </p>
 
       <div class="accordion" id="acc-fm-recent">
@@ -2899,6 +2923,7 @@
             <li><strong>Search</strong> — type to filter files by name in real time.</li>
             <li><strong>Type filter</strong> — narrow the list to Constellation maps, Session files, or Documents (PDFs, images, sounds, books).</li>
             <li><strong>Sort</strong> — order by Newest first, Oldest first, Name A→Z, or Name Z→A.</li>
+            <li><strong>Tag Badges</strong> — files associated with <code>#tags</code> display clickable tag chips below their filename. Click any tag badge to jump straight to the Tags &amp; Units tab filtered to that tag.</li>
             <li><strong>Open in Board</strong> — appears on constellation map rows and template rows; click to open them directly in the Board tool.</li>
             <li><strong>Rename</strong> — click Rename on any session or map row to edit the name inline. Press <kbd>Enter</kbd> to save, <kbd>Escape</kbd> to cancel. The file extension is preserved automatically.</li>
           </ul>
@@ -2925,10 +2950,29 @@
             <li><strong>Move to... / Copy to...</strong> — right-click a file or folder and choose these actions to open a destination-folder picker modal.</li>
             <li><strong>Open</strong> — opens the file in the default desktop application (e.g., a PDF in your PDF viewer, an image in Photos).</li>
             <li><strong>Edit in Doc Editor</strong> — Typst, HTML, and Markdown (<code>.typ</code>, <code>.html</code>, <code>.md</code>) files can be edited directly inside the Document Editor tool via context menus or action buttons.</li>
+            <li><strong>Tag Badges</strong> — files with linked tags display clickable tag pills; clicking any pill switches to the Tags &amp; Units tab filtered to that tag.</li>
             <li><strong>Pin / Unpin sidebar</strong> — right-click a folder to Pin/Unpin it from the launcher sidebar. Pinned folders appear as quick-access shortcuts in the launcher's collapsible panel.</li>
             <li><strong>Duplicate</strong> — copies the file in the same folder with a <em>– Copy</em> suffix. If that name already exists, it appends <em>– Copy (2)</em>, <em>– Copy (3)</em>, and so on. The new row appears immediately below the original.</li>
             <li><strong>Rename</strong> — edits the name inline with the same validation as the Recent tab (forbidden characters, length, conflict checks).</li>
             <li><strong>Conflict choices</strong> — when destination names collide during move/copy/paste, choose <em>Rename</em> (auto unique name), <em>Replace</em>, or <em>Skip</em> per item.</li>
+          </ul>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-fm-tags">
+        <button class="accordion-header" onclick="toggleAccordion('acc-fm-tags')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Tags &amp; Units tab</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:12px;">Discover, filter, and manage all resources across the application suite linked under common <code>#tags</code> or thematic teaching units (e.g., <code>#unit-1</code>, <code>#revision</code>, <code>#oral-exam</code>).</p>
+          <ul class="steps">
+            <li><strong>Tag Selector Bar</strong> — quick pills at the top display every active tag along with its total count of linked resources. Click any tag pill to filter.</li>
+            <li><strong>Category Filter Buttons</strong> — quickly narrow displayed items to <strong>All</strong>, <strong>Docs</strong> (Document Editor), <strong>Lessons</strong> (Lesson Creator), <strong>Mindmaps</strong> (Board), <strong>Tests</strong> (Test Creator), <strong>Planner</strong> (Lesson slots), or <strong>Grades</strong> (Grade Sheet evaluations).</li>
+            <li><strong>Search Filter</strong> — type in the search bar to filter items in real time by title, filename, or unique ID.</li>
+            <li><strong>[Open] Button</strong> — opens the resource directly in its native tool with proper routing and deep linking.</li>
+            <li><strong>[Links &amp; Tags] Button</strong> — opens the Neobrutalist Tag &amp; Link manager modal to attach additional tags, add bidirectional links, or remove existing associations.</li>
+            <li>Click <strong>↺ Refresh</strong> to rescan all tags and update counts across the suite.</li>
           </ul>
         </div></div>
       </div>

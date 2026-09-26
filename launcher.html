@@ -56,6 +56,9 @@
       } catch (e) {}
     })();
   </script>
+  <link rel="stylesheet" href="css/tag-link-modal.css">
+  <script src="js/links-service.js"></script>
+  <script src="js/tag-link-modal.js"></script>
   <link rel="stylesheet" href="css/launcher.css">
 </head>
 <body>
@@ -100,6 +103,7 @@
       <button class="l-header-btn" id="launcherTutBtn" onclick="startLauncherTutorial()" data-i18n="btnHeaderTutorial">▶ Tour</button>
       <button class="l-header-btn" id="headerSyncBtn" onclick="openModalAndSync()" title="Sync data folder now" data-i18n="btnHeaderSync">⟳ Sync</button>
       <button class="l-header-btn" onclick="openModal('pages/about.html')" title="About" data-i18n="btnHeaderAbout"><img src="assets/icons/about.svg" class="l-hdr-icon-img" alt="" /> About</button>
+      <button class="l-header-btn" id="headerUnitExplorerBtn" onclick="openUnitExplorerModal()" title="Explore all resources by Unit & Tag" data-i18n-title="btnHeaderUnitExplorer"><img src="assets/icons/links.svg" class="l-hdr-icon-img" alt="" /> <span data-i18n="headerUnitExplorer">Tags & Units</span></button>
       <button class="l-header-btn sb-toggle-btn" id="sbToggleBtn" data-i18n="sbToggleBtn">Panel</button>
     </div>
   </header>
@@ -144,6 +148,16 @@
         <button class="sb-count-btn" id="sbDocsCountBtn" data-i18n-title="sbCountTooltip">5</button>
       </div>
       <div class="sb-list" id="sbDocsList">
+        <div class="sb-empty" data-i18n="sbLoading">Loading…</div>
+      </div>
+    </div>
+    <div class="sb-section" id="sbTagSection">
+      <div class="sb-section-hd" id="sbTagSectionHd">
+        <span class="sb-chevron">▼</span>
+        <span class="sb-section-title" data-i18n="sbTagTitle">Unit / Tag Explorer</span>
+        <button class="sb-count-btn" id="sbTagOpenModalBtn" onclick="event.stopPropagation(); openUnitExplorerModal()" title="Open Unit &amp; Tag Explorer" data-i18n-title="sbTagOpenModalTitle"><img src="assets/icons/links.svg" class="btn-icon" alt="" style="width:11px;height:11px;vertical-align:-1px;margin-right:2px;" />#</button>
+      </div>
+      <div class="sb-list" id="sbTagList">
         <div class="sb-empty" data-i18n="sbLoading">Loading…</div>
       </div>
     </div>
@@ -196,6 +210,43 @@
       </div>
       <h2 class="rf-section-heading" id="rfDocsHeading" style="display:none" data-i18n="rfDocsHeading">Added Documents</h2>
       <div class="rf-file-list" id="rfDocsList"></div>
+    </div>
+  </div>
+</div>
+
+<div id="unitExplorerModal" class="lm-overlay">
+  <div class="lm-box lm-wide ue-modal-box" role="dialog" aria-modal="true">
+    <div class="ue-header">
+      <div class="ue-header-left">
+        <div class="ue-title-bar">
+          <img src="assets/icons/links.svg" class="ue-header-icon" alt="" />
+          <h2 class="ue-title" data-i18n="ueTitle">UNIT &amp; TAG EXPLORER</h2>
+        </div>
+        <p class="ue-subtitle" data-i18n="ueSubtitle">1-click aggregation of all documents, mindmaps, tests, lessons, and planner slots linked under a unit or tag.</p>
+      </div>
+      <button type="button" class="ue-close-btn" id="unitExplorerModalClose" onclick="closeUnitExplorerModal()" aria-label="Close">[CLOSE]</button>
+    </div>
+    <div class="ue-body">
+      <div class="ue-tags-bar-wrap">
+        <div class="ue-tags-bar-title" data-i18n="ueSelectTag">Select Tag / Thematic Unit:</div>
+        <div class="ue-tags-pills" id="ueTagsPills"></div>
+      </div>
+      <div class="ue-toolbar">
+        <input type="search" id="ueSearchBox" class="ue-search-input" placeholder="Filter resources by name, topic, or class…" data-i18n-placeholder="ueSearchPlaceholder">
+        <div class="ue-category-filters" id="ueCategoryFilters">
+          <button type="button" class="ue-cat-btn active" data-cat="all">[ALL]</button>
+          <button type="button" class="ue-cat-btn" data-cat="doc">[DOCS]</button>
+          <button type="button" class="ue-cat-btn" data-cat="lesson">[LESSONS]</button>
+          <button type="button" class="ue-cat-btn" data-cat="board">[MINDMAPS]</button>
+          <button type="button" class="ue-cat-btn" data-cat="test">[TESTS]</button>
+          <button type="button" class="ue-cat-btn" data-cat="planner">[PLANNER]</button>
+          <button type="button" class="ue-cat-btn" data-cat="gradesheet">[GRADES]</button>
+        </div>
+        <span class="ue-result-count" id="ueResultCount">0 items</span>
+      </div>
+      <div class="ue-resource-list" id="ueResourceList">
+        <div class="ue-empty" data-i18n="ueNoTagSelected">Select a tag above to explore its linked resources.</div>
+      </div>
     </div>
   </div>
 </div>
@@ -2303,6 +2354,54 @@
     list.replaceChildren(fragment);
   }
 
+  // Sidebar Tag Section Loader
+  async function sbLoadTags(silent) {
+    var list = document.getElementById('sbTagList');
+    if (!list) return;
+    var hasItems = !!list.querySelector('.sb-tag-row');
+    if (!silent && !hasItems) {
+      list.innerHTML = '<div class="sb-empty">' + escHtml(typeof t === 'function' ? t('sbLoading') : 'Loading…') + '</div>';
+    }
+
+    if (!window.LinksService) {
+      list.innerHTML = '<div class="sb-empty">' + escHtml(typeof t === 'function' ? t('sbEmpty') : 'Nothing here yet') + '</div>';
+      return;
+    }
+
+    var summary = await LinksService.getTagSummary();
+    if (!summary || !summary.length) {
+      list.innerHTML = '<div class="sb-empty">' + escHtml(typeof t === 'function' ? t('sbEmpty') : 'Nothing here yet') + '</div>';
+      return;
+    }
+
+    var frag = document.createDocumentFragment();
+    var topTags = summary.slice(0, 6);
+    topTags.forEach(function(item) {
+      var row = document.createElement('div');
+      row.className = 'sb-tag-row';
+      row.innerHTML =
+        '<span class="sb-tag-badge"><img src="assets/icons/links.svg" class="btn-icon" alt="" style="width:10px;height:10px;" /> ' + escHtml(item.tag) + '</span>' +
+        '<span class="sb-tag-count">' + item.count + '</span>';
+      row.addEventListener('click', function() {
+        openUnitExplorerModal(item.tag);
+      });
+      frag.appendChild(row);
+    });
+
+    if (summary.length > 6) {
+      var allBtn = document.createElement('button');
+      allBtn.type = 'button';
+      allBtn.className = 'sb-tag-view-all';
+      allBtn.textContent = 'View All Tags (' + summary.length + ')';
+      allBtn.addEventListener('click', function() {
+        openUnitExplorerModal();
+      });
+      frag.appendChild(allBtn);
+    }
+
+    list.replaceChildren(frag);
+  }
+
   async function sbLoadAll(silent) {
     // Pre-load group meta so rfPrettyName works in sidebar context menus
     if (window.Desktop && Desktop.isElectron() && Object.keys(rfGroupMeta).length === 0) {
@@ -2319,15 +2418,16 @@
       sbLoadPinned(silent),
       sbLoadEvents(silent),
       sbLoadTodos(silent),
-      sbLoadDocs(silent)
+      sbLoadDocs(silent),
+      sbLoadTags(silent)
     ]);
   }
 
   // Unified Coalesced Sync for background updates without lag or IPC storms
   var _sbSyncTimer = null;
-  var _sbPendingTasks = { pinned: false, planner: false, docs: false };
+  var _sbPendingTasks = { pinned: false, planner: false, docs: false, tags: false };
   var _sbSyncRunning = false;
-  var _sbDirtyTasksWhileInactive = { pinned: false, planner: false, docs: false };
+  var _sbDirtyTasksWhileInactive = { pinned: false, planner: false, docs: false, tags: false };
   var _isWindowFocused = (typeof document.hasFocus === 'function') ? document.hasFocus() : true;
 
   function isLauncherActive() {
@@ -2335,9 +2435,9 @@
   }
 
   function flushInactiveTasks(force) {
-    if (_sbDirtyTasksWhileInactive.pinned || _sbDirtyTasksWhileInactive.planner || _sbDirtyTasksWhileInactive.docs) {
+    if (_sbDirtyTasksWhileInactive.pinned || _sbDirtyTasksWhileInactive.planner || _sbDirtyTasksWhileInactive.docs || _sbDirtyTasksWhileInactive.tags) {
       var tasksToRun = Object.assign({}, _sbDirtyTasksWhileInactive);
-      _sbDirtyTasksWhileInactive = { pinned: false, planner: false, docs: false };
+      _sbDirtyTasksWhileInactive = { pinned: false, planner: false, docs: false, tags: false };
       sbScheduleSync(tasksToRun, force);
     }
   }
@@ -2368,11 +2468,13 @@
     if (tasks.pinned) _sbPendingTasks.pinned = true;
     if (tasks.planner) _sbPendingTasks.planner = true;
     if (tasks.docs) _sbPendingTasks.docs = true;
+    if (tasks.tags) _sbPendingTasks.tags = true;
 
     if (!isLauncherActive() && !force) {
       if (tasks.pinned) _sbDirtyTasksWhileInactive.pinned = true;
       if (tasks.planner) _sbDirtyTasksWhileInactive.planner = true;
       if (tasks.docs) _sbDirtyTasksWhileInactive.docs = true;
+      if (tasks.tags) _sbDirtyTasksWhileInactive.tags = true;
       return;
     }
 
@@ -2383,7 +2485,8 @@
         if (_sbPendingTasks.pinned) _sbDirtyTasksWhileInactive.pinned = true;
         if (_sbPendingTasks.planner) _sbDirtyTasksWhileInactive.planner = true;
         if (_sbPendingTasks.docs) _sbDirtyTasksWhileInactive.docs = true;
-        _sbPendingTasks = { pinned: false, planner: false, docs: false };
+        if (_sbPendingTasks.tags) _sbDirtyTasksWhileInactive.tags = true;
+        _sbPendingTasks = { pinned: false, planner: false, docs: false, tags: false };
         return;
       }
       if (_sbSyncRunning) {
@@ -2394,7 +2497,8 @@
       var runPinned = _sbPendingTasks.pinned;
       var runPlanner = _sbPendingTasks.planner;
       var runDocs = _sbPendingTasks.docs;
-      _sbPendingTasks = { pinned: false, planner: false, docs: false };
+      var runTags = _sbPendingTasks.tags;
+      _sbPendingTasks = { pinned: false, planner: false, docs: false, tags: false };
 
       try {
         var promises = [];
@@ -2404,10 +2508,15 @@
           if (runPlanner && typeof sbLoadEvents === 'function') promises.push(sbLoadEvents(true));
           if (runPlanner && typeof sbLoadTodos === 'function') promises.push(sbLoadTodos(true));
           if (runDocs && typeof sbLoadDocs === 'function') promises.push(sbLoadDocs(true));
+          if (runTags && typeof sbLoadTags === 'function') promises.push(sbLoadTags(true));
         }
         var rfModal = document.getElementById('rfModal');
         if (runDocs && rfModal && rfModal.classList.contains('open') && window.Desktop && Desktop.isElectron()) {
           promises.push(rfLoadRecentSources().then(function() { rfApplyFilters(); }));
+        }
+        var ueModal = document.getElementById('unitExplorerModal');
+        if (runTags && ueModal && ueModal.classList.contains('open')) {
+          if (typeof ueLoadTagsList === 'function') promises.push(ueLoadTagsList(_ueActiveTag));
         }
         await Promise.all(promises);
       } catch(e) {
@@ -2973,6 +3082,253 @@
       });
     });
   };
+})();
+</script>
+
+<!-- Unit & Tag Explorer Controller -->
+<script>
+(function() {
+  'use strict';
+
+  var _ueActiveTag = '';
+  var _ueActiveCategory = 'all';
+  var _ueSearchQuery = '';
+  var _ueCachedItems = [];
+  var _ueSearchDebounce = null;
+
+  function escHtml(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function tt(key, fallback) {
+    return (typeof window.i18n !== 'undefined' && window.i18n.t) ? window.i18n.t(key, fallback) : fallback;
+  }
+
+  window.openUnitExplorerModal = async function(preferredTag) {
+    var modal = document.getElementById('unitExplorerModal');
+    if (!modal) return;
+    modal.classList.add('open');
+    _ueActiveCategory = 'all';
+    _ueSearchQuery = '';
+    var searchBox = document.getElementById('ueSearchBox');
+    if (searchBox) searchBox.value = '';
+
+    var catBtns = document.querySelectorAll('.ue-cat-btn');
+    catBtns.forEach(function(b) {
+      if (b.dataset.cat === 'all') b.classList.add('active');
+      else b.classList.remove('active');
+    });
+
+    await ueLoadTagsList(preferredTag);
+  };
+
+  window.closeUnitExplorerModal = function() {
+    var modal = document.getElementById('unitExplorerModal');
+    if (modal) modal.classList.remove('open');
+  };
+
+  async function ueLoadTagsList(preferredTag) {
+    var pillsContainer = document.getElementById('ueTagsPills');
+    if (!pillsContainer) return;
+    pillsContainer.innerHTML = '<span style="font-size:0.8rem;font-weight:700;">' + escHtml(tt('sbLoading', 'Loading…')) + '</span>';
+
+    var summary = window.LinksService ? await LinksService.getTagSummary() : [];
+    if (!summary || !summary.length) {
+      pillsContainer.innerHTML = '<span style="font-size:0.8rem;color:#64748b;font-weight:600;">' + escHtml(tt('fmTagsNoActive', 'No tags found in the system yet. Tag items using the Links & Tags button.')) + '</span>';
+      var resList = document.getElementById('ueResourceList');
+      if (resList) resList.innerHTML = '<div class="ue-empty">' + escHtml(tt('ueNoTagSelected', 'Select a tag above to explore its linked resources.')) + '</div>';
+      var countEl = document.getElementById('ueResultCount');
+      if (countEl) countEl.textContent = '0 items';
+      return;
+    }
+
+    var chosenTag = preferredTag || _ueActiveTag || (summary[0] && summary[0].tag) || '';
+    if (!summary.some(function(s) { return s.tag === chosenTag; })) {
+      chosenTag = summary[0].tag;
+    }
+    _ueActiveTag = chosenTag;
+
+    var frag = document.createDocumentFragment();
+    summary.forEach(function(item) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'ue-tag-pill' + (item.tag === chosenTag ? ' active' : '');
+      btn.innerHTML = escHtml(item.tag) + ' <span class="ue-pill-count">' + item.count + '</span>';
+      btn.addEventListener('click', function() {
+        document.querySelectorAll('.ue-tag-pill').forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        ueSelectTag(item.tag);
+      });
+      frag.appendChild(btn);
+    });
+    pillsContainer.replaceChildren(frag);
+
+    if (chosenTag) {
+      await ueSelectTag(chosenTag);
+    }
+  }
+
+  window.ueSelectTag = async function(tag) {
+    _ueActiveTag = tag;
+    var resList = document.getElementById('ueResourceList');
+    if (!resList) return;
+    resList.innerHTML = '<div class="ue-empty">' + escHtml(tt('sbLoading', 'Loading…')) + ' ' + escHtml(tag) + '…</div>';
+
+    if (window.LinksService) {
+      _ueCachedItems = await LinksService.getItemsForTag(tag);
+    } else {
+      _ueCachedItems = [];
+    }
+    ueRenderResources();
+  };
+
+  function ueRenderResources() {
+    var resList = document.getElementById('ueResourceList');
+    var countEl = document.getElementById('ueResultCount');
+    if (!resList) return;
+
+    var filtered = _ueCachedItems.filter(function(item) {
+      // Category filter
+      if (_ueActiveCategory !== 'all') {
+        var itType = String(item.type || '').toLowerCase();
+        if (_ueActiveCategory === 'doc' && itType !== 'doc' && itType !== 'document') return false;
+        if (_ueActiveCategory === 'lesson' && itType !== 'lesson') return false;
+        if (_ueActiveCategory === 'board' && itType !== 'board' && itType !== 'board-node' && itType !== 'board_node' && itType !== 'mindmap') return false;
+        if (_ueActiveCategory === 'test' && itType !== 'test') return false;
+        if (_ueActiveCategory === 'planner' && itType !== 'planner' && itType !== 'slot') return false;
+        if (_ueActiveCategory === 'gradesheet' && itType !== 'gradesheet' && itType !== 'eval' && itType !== 'evaluation' && itType !== 'grade') return false;
+      }
+      // Search query
+      if (_ueSearchQuery) {
+        var q = _ueSearchQuery.toLowerCase();
+        var match = (item.title && item.title.toLowerCase().includes(q)) ||
+                    (item.subtitle && item.subtitle.toLowerCase().includes(q)) ||
+                    (item.urn && item.urn.toLowerCase().includes(q)) ||
+                    (Array.isArray(item.tags) && item.tags.some(function(t) { return t.toLowerCase().includes(q); }));
+        if (!match) return false;
+      }
+      return true;
+    });
+
+    if (countEl) countEl.textContent = filtered.length + ' ' + (filtered.length === 1 ? 'item' : 'items');
+
+    if (!filtered.length) {
+      resList.innerHTML = '<div class="ue-empty">' + escHtml(tt('ueNoItemsForTag', 'No resources found for this tag.')) + '</div>';
+      return;
+    }
+
+    var frag = document.createDocumentFragment();
+    filtered.forEach(function(item) {
+      var card = document.createElement('div');
+      card.className = 'ue-resource-card';
+
+      var badgeClass = 'ue-res-badge ' + (item.type || 'general').toLowerCase();
+      var tagsHtml = '';
+      if (Array.isArray(item.tags) && item.tags.length > 0) {
+        tagsHtml = '<div class="ue-res-tags">' +
+          item.tags.map(function(t) {
+            return '<span class="ue-res-tag-chip">' + escHtml(t) + '</span>';
+          }).join('') +
+        '</div>';
+      }
+
+      card.innerHTML =
+        '<div class="ue-res-info">' +
+          '<div class="ue-res-title-line">' +
+            '<span class="' + badgeClass + '">' + escHtml(item.badge || '[' + (item.type || 'ITEM').toUpperCase() + ']') + '</span>' +
+            '<span class="ue-res-title" title="' + escHtml(item.title) + '">' + escHtml(item.title) + '</span>' +
+          '</div>' +
+          (item.subtitle ? '<span class="ue-res-sub">' + escHtml(item.subtitle) + '</span>' : '') +
+          tagsHtml +
+        '</div>' +
+        '<div class="ue-res-actions">' +
+          '<button type="button" class="ue-action-btn primary" id="btn-open-res"><img src="assets/icons/links.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /> ' + escHtml(tt('ueBtnOpen', 'Open')) + '</button>' +
+          '<button type="button" class="ue-action-btn" id="btn-tag-res">' + escHtml(tt('ueBtnManageTags', 'Links & Tags')) + '</button>' +
+        '</div>';
+
+      card.querySelector('#btn-open-res').addEventListener('click', async function() {
+        if (window.LinksService) {
+          await LinksService.openUrn(item.urn);
+        }
+      });
+
+      card.querySelector('#btn-tag-res').addEventListener('click', function() {
+        if (window.TagLinkModal) {
+          TagLinkModal.open({
+            urn: item.urn,
+            title: item.title,
+            subtitle: item.subtitle,
+            onUpdate: function() {
+              ueSelectTag(_ueActiveTag);
+              if (typeof sbScheduleSync === 'function') sbScheduleSync({ tags: true });
+            }
+          });
+        }
+      });
+
+      card.querySelectorAll('.ue-res-tag-chip').forEach(function(chip) {
+        chip.addEventListener('click', function(e) {
+          e.stopPropagation();
+          ueLoadTagsList(chip.textContent.trim());
+        });
+      });
+
+      frag.appendChild(card);
+    });
+
+    resList.replaceChildren(frag);
+  }
+
+  // Category filter handlers
+  document.addEventListener('DOMContentLoaded', function() {
+    var catBtns = document.querySelectorAll('.ue-cat-btn');
+    catBtns.forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        catBtns.forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        _ueActiveCategory = btn.dataset.cat || 'all';
+        ueRenderResources();
+      });
+    });
+
+    var searchBox = document.getElementById('ueSearchBox');
+    if (searchBox) {
+      searchBox.addEventListener('input', function() {
+        if (_ueSearchDebounce) clearTimeout(_ueSearchDebounce);
+        _ueSearchDebounce = setTimeout(function() {
+          _ueSearchQuery = (searchBox.value || '').trim();
+          ueRenderResources();
+        }, 150);
+      });
+    }
+
+    var ueModal = document.getElementById('unitExplorerModal');
+    if (ueModal) {
+      ueModal.addEventListener('click', function(e) {
+        if (e.target === ueModal) closeUnitExplorerModal();
+      });
+    }
+
+    window.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        var modal = document.getElementById('unitExplorerModal');
+        if (modal && modal.classList.contains('open')) {
+          closeUnitExplorerModal();
+        }
+      }
+    });
+
+    // Real-time synchronization on link/tag updates
+    window.addEventListener('cmt-links-changed', function() {
+      if (typeof sbScheduleSync === 'function') {
+        sbScheduleSync({ tags: true });
+      }
+      var modal = document.getElementById('unitExplorerModal');
+      if (modal && modal.classList.contains('open')) {
+        ueLoadTagsList(_ueActiveTag);
+      }
+    });
+  });
 })();
 </script>
 </body>

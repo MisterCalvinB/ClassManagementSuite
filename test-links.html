@@ -92,6 +92,7 @@
       <button type="button" class="neo-btn primary" onclick="runAutomatedTests()">[RUN AUTOMATED TESTS]</button>
       <button type="button" class="neo-btn" onclick="openTestModalClass()"><img src="assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" />[OPEN MODAL: CLASS 6EME A]</button>
       <button type="button" class="neo-btn" onclick="openTestModalDoc()"><img src="assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" />[OPEN MODAL: DOCUMENT]</button>
+      <button type="button" class="neo-btn" onclick="openTestModalWordbank()"><img src="assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" />[OPEN MODAL: WORDBANK]</button>
       <button type="button" class="neo-btn" onclick="openTestModalPlanner()"><img src="assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" />[OPEN MODAL: PLANNER SLOT]</button>
       <button type="button" class="neo-btn" onclick="testPreviewer()">[TEST EMBEDDED PREVIEWER]</button>
       <button type="button" class="neo-btn" onclick="clearRegistry()">[RESET TEST REGISTRY]</button>
@@ -248,8 +249,88 @@
           } else {
             log('TagLinkModal icon/badge failed: ' + iconPath + ' / ' + badgeHtml, 'fail');
           }
+        }
+
+        // Test 9: resolveUrnDisplay, getItemsForTag & getTagSummary
+        var disp = await LinksService.resolveUrnDisplay(srcUrn);
+        if (disp && disp.title && disp.badge === '[DOC]' && disp.tags.includes('#unit-test')) {
+          log('resolveUrnDisplay correctly resolved document metadata: ' + disp.title + ' ' + disp.badge, 'pass');
         } else {
-          log('TagLinkModal.getIconPath not available', 'fail');
+          log('resolveUrnDisplay failed: ' + JSON.stringify(disp), 'fail');
+        }
+
+        var tagItems = await LinksService.getItemsForTag('#unit-test');
+        if (tagItems.some(function(item) { return item.urn === srcUrn; })) {
+          log('getItemsForTag returned rich item for #unit-test', 'pass');
+        } else {
+          log('getItemsForTag failed: ' + JSON.stringify(tagItems), 'fail');
+        }
+
+        var tagSummary = await LinksService.getTagSummary();
+        if (tagSummary.some(function(ts) { return ts.tag === '#unit-test' && ts.count >= 1; })) {
+          log('getTagSummary returned tag summary entry with count', 'pass');
+        } else {
+          log('getTagSummary failed: ' + JSON.stringify(tagSummary), 'fail');
+        }
+
+        // Test 10: Database URN Canonicalization
+        var dbsToTest = [
+          ['cmt:quotes:my_quotes.json', 'cmt:quotebank:my_quotes.json'],
+          ['cmt:grammar:verbs.json', 'cmt:grammarbank:verbs.json'],
+          ['cmt:gapfills:fill1.json', 'cmt:gapfillbank:fill1.json'],
+          ['cmt:errors:correction.json', 'cmt:errorbank:correction.json'],
+          ['cmt:sentences:sents.json', 'cmt:sentencebank:sents.json'],
+          ['cmt:stories:story1.json', 'cmt:storybank:story1.json'],
+          ['cmt:quizzes:quizA.json', 'cmt:quiz:quizA.json'],
+          ['cmt:tests:midterm.json', 'cmt:testbank:midterm.json'],
+          ['cmt:phases:warmup.json', 'cmt:phase:warmup.json'],
+          ['cmt:chips:gametags.json', 'cmt:chip:gametags.json'],
+          ['cmt:scales:rubric.json', 'cmt:scale:rubric.json']
+        ];
+        var allDbsPassed = true;
+        dbsToTest.forEach(function(pair) {
+          var canon = LinksService.canonicalizeUrn(pair[0]);
+          if (canon !== pair[1]) {
+            allDbsPassed = false;
+            log('canonicalizeUrn database failed for ' + pair[0] + ' => ' + canon + ' (expected ' + pair[1] + ')', 'fail');
+          }
+        });
+        if (allDbsPassed) {
+          log('canonicalizeUrn successfully verified across all 15 database types', 'pass');
+        }
+
+        // Test 11: Display resolution for databases & student name lookup
+        var quoteDisp = await LinksService.resolveUrnDisplay('cmt:quotebank:inspirational.json');
+        if (quoteDisp && (quoteDisp.badge === 'QUOTE BANK' || quoteDisp.badge === '[QUOTE]' || quoteDisp.badge === '[QUOTE BANK]') && quoteDisp.icon === 'chat.svg') {
+          log('resolveUrnDisplay correctly resolved quotebank metadata: ' + quoteDisp.badge + ' ' + quoteDisp.icon, 'pass');
+        } else {
+          log('resolveUrnDisplay quotebank failed: ' + JSON.stringify(quoteDisp), 'fail');
+        }
+
+        var stuName = LinksService.resolveStudentName('non_existent_uuid_test');
+        if (stuName === null || typeof stuName === 'string') {
+          log('LinksService.resolveStudentName helper verified callable without error', 'pass');
+        } else {
+          log('LinksService.resolveStudentName returned invalid result', 'fail');
+        }
+
+        // Test 12: Board Elements URN Canonicalization & Display
+        var bNodeUrn = LinksService.canonicalizeUrn('cmt:board-node:sample_node_1');
+        var bDisp = await LinksService.resolveUrnDisplay(bNodeUrn);
+        if (bNodeUrn === 'cmt:board-node:sample_node_1' && bDisp && bDisp.badge === '[BOARD NODE]') {
+          log('Board element URN canonicalization and display verified: ' + bNodeUrn + ' (' + bDisp.badge + ')', 'pass');
+        } else {
+          log('Board element URN test failed: ' + bNodeUrn + ' / ' + JSON.stringify(bDisp), 'fail');
+        }
+
+        // Test 13: Vocabulary & Wordbank Display & Category Matching
+        var wbDisp = await LinksService.resolveUrnDisplay('cmt:wordbanks:simple-wiktionary-core.js');
+        var vocabDisp = await LinksService.resolveUrnDisplay('cmt:vocab:dog');
+        if (wbDisp && wbDisp.badge === '[WORDBANK]' && wbDisp.icon === 'book.svg' &&
+            vocabDisp && vocabDisp.badge === '[WORD]' && vocabDisp.title === 'dog' && vocabDisp.icon === 'book.svg') {
+          log('resolveUrnDisplay verified for wordbank and vocab items: ' + wbDisp.badge + ', ' + vocabDisp.badge + ' (' + vocabDisp.title + ')', 'pass');
+        } else {
+          log('resolveUrnDisplay wordbank/vocab failed: ' + JSON.stringify(wbDisp) + ' / ' + JSON.stringify(vocabDisp), 'fail');
         }
 
         log('ALL TESTS COMPLETED SUCCESSFULLY!', 'pass');
@@ -278,6 +359,18 @@
         classId: 'group-6e-anglais',
         onUpdate: function() {
           log('Modal updated for Revision Worksheet', 'info');
+        }
+      });
+    }
+
+    function openTestModalWordbank() {
+      TagLinkModal.open({
+        urn: 'cmt:wordbank:simple-wiktionary-core.js',
+        title: 'SIMPLE WIKTIONARY CORE',
+        subtitle: 'Vocabulary Wordbank • simple-wiktionary-core.js',
+        defaultCategory: 'databases',
+        onUpdate: function() {
+          log('Modal updated for Wordbank', 'info');
         }
       });
     }

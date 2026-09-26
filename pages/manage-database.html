@@ -112,6 +112,9 @@
                 style="display:none" data-i18n="mdbBtnRemoveDupes"><img src="../assets/icons/clear.svg" class="btn-icon" alt="" /> Remove Dupes</button>
               <button class="btn btn-secondary btn-sm" id="merge-btn" onclick="openMerge()" style="display:none"
                 data-i18n="mdbBtnMergeFiles"><img src="../assets/icons/merge.svg" class="btn-icon" alt="" /> Merge Files</button>
+              <button class="btn btn-secondary btn-sm" id="file-links-btn" onclick="openActiveFileLinksModal()" style="display:none">
+                <img src="../assets/icons/links.svg" class="btn-icon" alt="" /> <span id="file-links-btn-text">[LINKS &amp; TAGS]</span>
+              </button>
               <div class="dropdown" id="export-dropdown" style="display:none">
                 <button class="btn btn-secondary btn-sm" id="export-btn" onclick="toggleExportMenu(event)">
                   <img src="../assets/icons/export.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExport">Export</span>
@@ -185,6 +188,7 @@
       </div>
       <div class="modal-bd" id="edit-body"></div>
       <div class="modal-ft">
+        <button class="btn btn-secondary" id="edit-links-btn" style="margin-right:8px;display:none;" onclick="openRecordTagLinkModalFromEdit()"><img src="../assets/icons/links.svg" class="btn-icon btn-icon-xs" alt="" /> <span id="edit-links-btn-text">[LINKS &amp; TAGS]</span></button>
         <button class="btn btn-secondary" id="edit-copy-to-btn" style="margin-right:auto;display:none;" onclick="openCopyToModalFromEdit()"><img src="../assets/icons/copy.svg" class="btn-icon btn-icon-xs" alt="" /> <span data-i18n="mdbBtnCopyToFile">Copy to file…</span></button>
         <button class="btn btn-secondary" onclick="closeEdit()" data-i18n="mdbBtnCancel">Cancel</button>
         <button class="btn btn-primary" onclick="submitEdit()" data-i18n="mdbBtnSave"><img src="../assets/icons/save.svg" class="btn-icon" alt="" /> Save</button>
@@ -459,6 +463,10 @@
     <div class="row-context-menu-item" id="rcm-edit">
       <img src="../assets/icons/edit-word.svg" class="btn-icon btn-icon-xs" alt="" />
       <span data-i18n="mdbCtxEdit">Edit</span>
+    </div>
+    <div class="row-context-menu-item" id="rcm-link">
+      <img src="../assets/icons/links.svg" class="btn-icon btn-icon-xs" alt="" />
+      <span data-i18n="mdbCtxLink">Links &amp; Tags</span>
     </div>
     <div class="row-context-menu-item" id="rcm-autofill">
       <img src="../assets/icons/sparkles.svg" class="btn-icon btn-icon-xs" alt="" />
@@ -961,12 +969,43 @@
       var params = new URLSearchParams(window.location.search);
       var initialType = params.get('type');
       var initialWord = params.get('word');
+      var initialFile = params.get('file');
+      var initialRecord = params.get('record') || params.get('recordId') || params.get('rec');
       if (initialType === 'descriptors') initialType = 'competences';
       if (initialType && TYPE_DEFS.some(d => d.key === initialType)) {
         selectType(initialType).then(async () => {
-          if (initialWord && initialType === 'wordbanks') {
+          const def = getTypeDef(initialType);
+          if (initialFile) {
+            let fi = S.files.findIndex(f => f.name.toLowerCase() === initialFile.toLowerCase());
+            if (fi !== -1) {
+              if (S.files[fi].status === 'pending') {
+                await loadFileContent(fi, def);
+                S.schema = buildSchema(getAllRecords());
+              }
+              if (initialType === 'wordbanks') {
+                if (!S.filters['_srcMulti']) S.filters['_srcMulti'] = new Set();
+                S.filters['_srcMulti'].add(S.files[fi].name);
+              } else {
+                S.filters['_src'] = S.files[fi].name;
+              }
+              renderFilePills();
+              renderTable();
+
+              if (initialRecord) {
+                const targetRec = String(initialRecord).trim().toLowerCase();
+                const ri = S.files[fi].records.findIndex((r, idx) => {
+                  if (!r) return false;
+                  if (String(idx) === targetRec || String(idx + 1) === targetRec) return true;
+                  const idVal = String(r.id || r.key || r.code || r.word || r.title || r.name || '').trim().toLowerCase();
+                  return idVal === targetRec || idVal.includes(targetRec);
+                });
+                if (ri !== -1) {
+                  openEdit(fi, ri);
+                }
+              }
+            }
+          } else if (initialWord && initialType === 'wordbanks') {
             const targetWord = initialWord.trim().toLowerCase();
-            const def = getTypeDef('wordbanks');
             let found = false;
             for (let fi = 0; fi < S.files.length; fi++) {
               if (S.files[fi].status === 'pending') {
@@ -1729,6 +1768,7 @@
       renderFilterBar();
       renderTable();
       updateBatchUI();
+      if (typeof updateFileLinksBadge === 'function') updateFileLinksBadge();
     }
 
     function renderFilePills() {
@@ -2194,7 +2234,7 @@
       ${multiFile ? `<td class="src-cell" title="${esc(row._src)}">${esc(row._src)}</td>` : ''}
       <td class="act-cell">
         <button class="btn btn-sm btn-secondary" onclick="openEdit(${row._fi},${row._ri})"><img src="../assets/icons/edit-word.svg" class="btn-icon btn-icon-xs" alt="" /> ${t('mdbBtnEdit')}</button>
-        ${(S.typeKey === 'criteria') ? `<button class="btn btn-sm btn-secondary" onclick="openCriteriaLinksModal(${row._fi},${row._ri})" title="Link Competence or Tags"><img src="../assets/icons/links.svg" class="btn-icon btn-icon-xs" alt="" /> [LINKS]</button>` : ''}
+        <button class="btn btn-sm btn-secondary" onclick="openRecordTagLinkModal(${row._fi},${row._ri})" title="Links &amp; Tags"><img src="../assets/icons/links.svg" class="btn-icon btn-icon-xs" alt="" /> [LINKS]</button>
         ${(S.typeKey === 'wordbanks') ? `<button class="btn btn-sm btn-secondary" onclick="openWordReverseLookup(${row._fi},${row._ri})" title="Cross-Suite Usage &amp; Reverse-Lookup"><img src="../assets/icons/links.svg" class="btn-icon btn-icon-xs" alt="" /> [USAGE]</button>` : ''}
         <button class="btn btn-sm btn-secondary" onclick="duplicateRecord(${row._fi},${row._ri})" title="${t('mdbBtnDuplicate')}"><img src="../assets/icons/copy.svg" class="btn-icon btn-icon-xs" alt="" /> ${t('mdbBtnDuplicate')}</button>
         <button class="btn btn-sm btn-secondary" onclick="openCopyToModal(${row._fi},${row._ri})" title="${t('mdbBtnCopyToFile')}"><img src="../assets/icons/file.svg" class="btn-icon btn-icon-xs" alt="" /> ${t('mdbBtnCopyToFile')}</button>
@@ -2759,6 +2799,15 @@
         }
       });
 
+      $('rcm-link')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (_rcmTarget) {
+          const { fi, ri } = _rcmTarget;
+          closeRowContextMenu();
+          openRecordTagLinkModal(fi, ri);
+        }
+      });
+
       $('rcm-autofill')?.addEventListener('click', (e) => {
         e.stopPropagation();
         if (_rcmTarget) {
@@ -3192,6 +3241,7 @@
                 </div>
               </div>
               <div style="display:flex;gap:4px;margin-left:auto;">
+                <button class="chip-del" onclick="event.stopPropagation();openRecordTagLinkModal(${row._fi},${row._ri})" title="Links &amp; Tags"><img src="../assets/icons/links.svg" class="btn-icon btn-icon-xs" alt="" /></button>
                 <button class="chip-del" onclick="openCopyToModal(${row._fi},${row._ri})" title="${t('mdbBtnCopyToFile')}"><img src="../assets/icons/copy.svg" class="btn-icon btn-icon-xs" alt="" /></button>
                 <button class="chip-del" onclick="confirmDel(${row._fi},${row._ri})" title="${t('mdbTitleDelete')}"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="" /></button>
               </div>
@@ -3220,6 +3270,7 @@
         <span class="chip-main">${esc(main) || '<span style="color:#bbb">—</span>'}</span>
         ${sub ? `<span class="chip-sep">·</span><span class="chip-sub" title="${esc(sub)}">${esc(sub)}</span>` : ''}
       </div>
+      <button class="chip-del" onclick="event.stopPropagation();openRecordTagLinkModal(${row._fi},${row._ri})" title="Links &amp; Tags"><img src="../assets/icons/links.svg" class="btn-icon btn-icon-xs" alt="" /></button>
       <button class="chip-del" onclick="openCopyToModal(${row._fi},${row._ri})" title="${t('mdbBtnCopyToFile')}"><img src="../assets/icons/copy.svg" class="btn-icon btn-icon-xs" alt="" /></button>
       <button class="chip-del" onclick="confirmDel(${row._fi},${row._ri})" title="${t('mdbTitleDelete')}"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="" /></button>
     </div>`;
@@ -3265,6 +3316,11 @@
       }
       const copyBtn = $('edit-copy-to-btn');
       if (copyBtn) copyBtn.style.display = '';
+      const linksBtn = $('edit-links-btn');
+      if (linksBtn) {
+        linksBtn.style.display = '';
+        updateEditModalLinksBadge(fi, ri);
+      }
       $('edit-bg').classList.remove('hidden');
     }
 
@@ -3282,6 +3338,8 @@
       }
       const copyBtn = $('edit-copy-to-btn');
       if (copyBtn) copyBtn.style.display = 'none';
+      const linksBtn = $('edit-links-btn');
+      if (linksBtn) linksBtn.style.display = 'none';
       $('edit-bg').classList.remove('hidden');
     }
 
@@ -4208,37 +4266,227 @@
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // CRITERIA & VOCABULARY CROSS-SUITE LINKING & REVERSE-LOOKUP
+    // UNIVERSAL DATABASE LINKING & TAGGING (FILES & RECORDS)
     // ─────────────────────────────────────────────────────────────────────
-    window.openCriteriaLinksModal = function (fi, ri) {
-      const rec = S.files[fi]?.records[ri];
-      if (!rec || typeof TagLinkModal === 'undefined') return;
-      const critId = String(rec.id || rec.name || 'crit_' + ri).trim();
-      const critUrn = 'cmt:criterion:' + critId;
+    function getActiveFile() {
+      if (!S.files || !S.files.length) return null;
+      if (S.filters['_src']) {
+        const f = S.files.find(x => x.name === S.filters['_src']);
+        if (f) return f;
+      }
+      if (S.filters['_srcMulti'] && S.filters['_srcMulti'] instanceof Set && S.filters['_srcMulti'].size === 1) {
+        const singleName = Array.from(S.filters['_srcMulti'])[0];
+        const f = S.files.find(x => x.name === singleName);
+        if (f) return f;
+      }
+      return S.files[0];
+    }
+
+    function getActiveFileUrn() {
+      const file = getActiveFile();
+      if (!file || !S.typeKey) return null;
+      const typeDef = getTypeDef(S.typeKey) || { key: S.typeKey };
+      if (typeof LinksService !== 'undefined' && typeof LinksService.canonicalizeUrn === 'function') {
+        return LinksService.canonicalizeUrn(`cmt:${typeDef.key}:${file.name}`);
+      }
+      return `cmt:${typeDef.key}:${file.name}`;
+    }
+
+    window.openActiveFileLinksModal = function () {
+      if (typeof TagLinkModal === 'undefined') return;
+      const file = getActiveFile();
+      if (!file) {
+        if (typeof showToast === 'function') showToast(t('mdbNoSelection', 'Select a file first'), true);
+        return;
+      }
+      const typeDef = getTypeDef(S.typeKey) || { key: S.typeKey };
+      const fileUrn = getActiveFileUrn();
+      const typeLabel = typeDef.labelKey ? t(typeDef.labelKey) : S.typeKey;
+
       TagLinkModal.open({
-        urn: critUrn,
-        title: rec.name || critId,
-        label: rec.name || critId,
-        subtitle: `Evaluation Criterion • ${rec.minPoints ?? 0}–${rec.maxPoints ?? 10} pts`,
-        type: 'criterion',
-        onUpdate: async () => {
-          if (typeof LinksService !== 'undefined') {
-            const links = await LinksService.getLinksFor(critUrn);
-            const linkedCompCodes = [];
-            links.forEach(l => {
-              const p = LinksService.parseUrn(l.otherUrn);
-              if (p && p.type === 'competence') linkedCompCodes.push(p.id);
+        urn: fileUrn,
+        sourceUrn: fileUrn,
+        title: file.name,
+        label: file.name,
+        subtitle: `${typeLabel} File • ${file.records ? file.records.length : 0} records`,
+        type: typeDef.key,
+        sourceMeta: {
+          title: file.name,
+          type: typeDef.key,
+          filename: file.name
+        },
+        onUpdate: () => {
+          updateFileLinksBadge();
+        },
+        onLinksChanged: () => {
+          updateFileLinksBadge();
+        }
+      });
+    };
+
+    window.updateFileLinksBadge = async function () {
+      const btn = $('file-links-btn');
+      const textSpan = $('file-links-btn-text');
+      if (!btn || !textSpan) return;
+      if (!S.typeKey || !S.files || !S.files.length) {
+        btn.style.display = 'none';
+        return;
+      }
+      btn.style.display = 'inline-flex';
+      const fileUrn = getActiveFileUrn();
+      if (!fileUrn || typeof LinksService === 'undefined') {
+        textSpan.textContent = `[LINKS & TAGS]`;
+        return;
+      }
+      try {
+        const links = LinksService.getLinksForSync ? LinksService.getLinksForSync(fileUrn) : await LinksService.getLinksFor(fileUrn);
+        const tags = LinksService.getTagsForSync ? LinksService.getTagsForSync(fileUrn) : await LinksService.getTagsFor(fileUrn);
+        textSpan.textContent = `[FILE LINKS: ${links.length} | TAGS: ${tags.length}]`;
+      } catch (_) {
+        textSpan.textContent = `[LINKS & TAGS]`;
+      }
+    };
+
+    function getRecordUrnAndMeta(fi, ri) {
+      const file = S.files[fi];
+      const rec = file?.records[ri];
+      if (!file || !rec) return null;
+      const typeDef = getTypeDef(S.typeKey) || { key: S.typeKey };
+      const filename = file.name;
+
+      let urn = '';
+      let title = '';
+      let type = typeDef.key;
+
+      if (S.typeKey === 'wordbanks') {
+        const w = (rec.word || rec.english || rec.term || '').trim();
+        urn = 'cmt:vocab:' + encodeURIComponent(w.toLowerCase());
+        title = w || 'Vocabulary';
+        type = 'vocab';
+      } else if (S.typeKey === 'criteria') {
+        const critId = String(rec.id || rec.name || ('crit_' + ri)).trim();
+        urn = 'cmt:criterion:' + encodeURIComponent(critId);
+        title = rec.name || critId;
+        type = 'criterion';
+      } else if (S.typeKey === 'competences' || S.typeKey === 'descriptors') {
+        const compCode = String(rec.code || rec.id || ('comp_' + ri)).trim();
+        urn = 'cmt:competence:' + encodeURIComponent(compCode);
+        title = rec.title || rec.name || compCode;
+        type = 'competence';
+      } else {
+        const recId = String(rec.id || rec.key || rec.name || rec.word || rec.question || ('rec_' + ri)).trim();
+        urn = typeof LinksService !== 'undefined' && LinksService.makeUrn
+          ? LinksService.makeUrn(typeDef.key, filename, recId)
+          : `cmt:${typeDef.key}:${filename}#${encodeURIComponent(recId)}`;
+        title = rec.title || rec.name || rec.word || rec.term || rec.question || rec.quote || rec.code || (`Record #${ri + 1}`);
+      }
+
+      const typeLabel = typeDef.labelKey ? t(typeDef.labelKey) : S.typeKey;
+      const subtitle = `${typeLabel} • ${filename}`;
+
+      return { urn, title, subtitle, type, filename, fi, ri, rec };
+    }
+
+    window.mdbGetActiveCandidates = function () {
+      if (!S || !Array.isArray(S.files)) return [];
+      const cands = [];
+      const maxPerFile = 300;
+      S.files.forEach(file => {
+        if (!file || !Array.isArray(file.records)) return;
+        const isWb = S.typeKey === 'wordbanks';
+        const limit = Math.min(file.records.length, maxPerFile);
+        for (let i = 0; i < limit; i++) {
+          const rec = file.records[i];
+          if (!rec) continue;
+          if (isWb) {
+            const w = (rec.word || rec.english || rec.term || '').trim();
+            if (!w) continue;
+            cands.push({
+              urn: 'cmt:vocab:' + encodeURIComponent(w.toLowerCase()),
+              type: 'wordbank',
+              badge: '[WORD]',
+              title: w,
+              subtitle: (file.name || 'Wordbank') + (rec.partOfSpeech ? ' • ' + rec.partOfSpeech : '') + (rec.definition ? ' • ' + rec.definition : '')
             });
-            if (linkedCompCodes.length > 0) {
-              const existing = Array.isArray(rec.competenceIds) ? rec.competenceIds : [];
-              const merged = Array.from(new Set([...existing, ...linkedCompCodes]));
-              rec.competenceIds = merged;
-              await saveFile(fi);
-              renderTable();
-            }
           }
         }
       });
+      return cands;
+    };
+
+    window.openRecordTagLinkModal = function (fi, ri) {
+      if (typeof TagLinkModal === 'undefined') return;
+      const meta = getRecordUrnAndMeta(fi, ri);
+      if (!meta) return;
+
+      TagLinkModal.open({
+        urn: meta.urn,
+        sourceUrn: meta.urn,
+        title: meta.title,
+        label: meta.title,
+        subtitle: meta.subtitle,
+        type: meta.type,
+        sourceMeta: {
+          title: meta.title,
+          type: meta.type,
+          filename: meta.filename,
+          recordIndex: ri
+        },
+        onUpdate: async () => {
+          updateFileLinksBadge();
+          if (S.editMode === 'edit' && S.editFI === fi && S.editRI === ri) {
+            updateEditModalLinksBadge(fi, ri);
+          }
+          if (S.typeKey === 'criteria' && typeof LinksService !== 'undefined') {
+            try {
+              const links = await LinksService.getLinksFor(meta.urn);
+              const linkedCompCodes = [];
+              links.forEach(l => {
+                const p = LinksService.parseUrn(l.otherUrn);
+                if (p && p.type === 'competence') linkedCompCodes.push(p.id);
+              });
+              if (linkedCompCodes.length > 0) {
+                const existing = Array.isArray(meta.rec.competenceIds) ? meta.rec.competenceIds : [];
+                meta.rec.competenceIds = Array.from(new Set([...existing, ...linkedCompCodes]));
+                await saveFile(fi);
+                renderTable();
+              }
+            } catch (_) {}
+          }
+        },
+        onLinksChanged: () => {
+          updateFileLinksBadge();
+          if (S.editMode === 'edit' && S.editFI === fi && S.editRI === ri) {
+            updateEditModalLinksBadge(fi, ri);
+          }
+        }
+      });
+    };
+
+    window.openRecordTagLinkModalFromEdit = function () {
+      if (S.editFI !== null && S.editRI !== null) {
+        openRecordTagLinkModal(S.editFI, S.editRI);
+      }
+    };
+
+    async function updateEditModalLinksBadge(fi, ri) {
+      const btn = $('edit-links-btn');
+      const textSpan = $('edit-links-btn-text');
+      if (!btn || !textSpan || typeof LinksService === 'undefined') return;
+      const meta = getRecordUrnAndMeta(fi, ri);
+      if (!meta) return;
+      try {
+        const links = LinksService.getLinksForSync ? LinksService.getLinksForSync(meta.urn) : await LinksService.getLinksFor(meta.urn);
+        const tags = LinksService.getTagsForSync ? LinksService.getTagsForSync(meta.urn) : await LinksService.getTagsFor(meta.urn);
+        textSpan.textContent = `[LINKS: ${links.length} | TAGS: ${tags.length}]`;
+      } catch (_) {
+        textSpan.textContent = `[LINKS & TAGS]`;
+      }
+    }
+
+    // Backwards compatibility
+    window.openCriteriaLinksModal = function (fi, ri) {
+      return openRecordTagLinkModal(fi, ri);
     };
 
     window.openWordReverseLookup = async function (fi, ri) {

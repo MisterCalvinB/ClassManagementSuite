@@ -18,8 +18,8 @@
   var _currentOpts = null;
   var _activeCategory = 'all';
   var _cachedCandidates = [];
-  var _candidatePageOffset = 50;
-  var _candidatePageSize = 50;
+  var _candidatePageOffset = 250;
+  var _candidatePageSize = 100;
   var _currentFilteredCandidates = [];
   var _currentLinkedUrns = new Set();
 
@@ -99,6 +99,7 @@
             '<div class="cmt-lm-tabs" id="cmt-lm-category-tabs">' +
               '<button type="button" class="cmt-lm-tab-btn active" data-cat="all">[ALL]</button>' +
               '<button type="button" class="cmt-lm-tab-btn" data-cat="classes">[CLASSES]</button>' +
+              '<button type="button" class="cmt-lm-tab-btn" data-cat="databases">[DATABASES]</button>' +
               '<button type="button" class="cmt-lm-tab-btn" data-cat="docs">[DOCUMENTS]</button>' +
               '<button type="button" class="cmt-lm-tab-btn" data-cat="gradesheet">[GRADE SHEET]</button>' +
               '<button type="button" class="cmt-lm-tab-btn" data-cat="competences">[COMPETENCES]</button>' +
@@ -231,20 +232,68 @@
     _currentOpts = opts;
     ensureModalDom();
 
+    // Ensure roster is loaded so student names are available immediately
+    if (window.LinksService && typeof window.LinksService.ensureRosterLoaded === 'function') {
+      try {
+        await window.LinksService.ensureRosterLoaded();
+      } catch (_) {}
+    }
+
+    // Reset search & category filters for clean opening
+    _activeCategory = (opts.defaultCategory || 'all');
+    _candidatePageOffset = 250;
+    var searchInput = document.getElementById('cmt-lm-search-input');
+    if (searchInput) searchInput.value = '';
+    var clearBtn = document.getElementById('cmt-lm-btn-clear-search');
+    if (clearBtn) clearBtn.style.display = 'none';
+
+    // Synchronize category tab classes
+    var catTabs = document.querySelectorAll('#cmt-lm-category-tabs .cmt-lm-tab-btn');
+    catTabs.forEach(function(b) {
+      var cat = b.getAttribute('data-cat') || 'all';
+      if (cat === _activeCategory) b.classList.add('active');
+      else b.classList.remove('active');
+    });
+
     var overlay = document.getElementById('cmt-link-modal-overlay');
     var p = window.LinksService ? window.LinksService.parseUrn(opts.urn) : { type: 'item' };
 
-    document.getElementById('cmt-lm-header-badge').textContent = '[' + (p ? p.type.toUpperCase() : 'ITEM') + ']';
-    document.getElementById('cmt-lm-header-title').textContent = opts.title || opts.label || opts.urn;
-    document.getElementById('cmt-lm-header-sub').textContent = opts.subtitle || opts.sub || '';
+    var displayInfo = null;
+    if (window.LinksService && typeof window.LinksService.resolveUrnDisplay === 'function') {
+      try {
+        displayInfo = await window.LinksService.resolveUrnDisplay(opts.urn);
+      } catch (_) {}
+    }
+
+    var isRawTitle = false;
+    if (opts.title) {
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(opts.title) ||
+          /^st-[a-z0-9_-]+$/i.test(opts.title) ||
+          /^student:\s*[0-9a-f-]{10,}$/i.test(opts.title) ||
+          /^class:\s*[0-9a-f-]{10,}$/i.test(opts.title)) {
+        isRawTitle = true;
+      }
+    }
+
+    var finalTitle = (opts.title && !isRawTitle) ? opts.title : (displayInfo ? displayInfo.title : (opts.label || opts.urn));
+    if (p && p.type === 'student' && (isRawTitle || !opts.title)) {
+      var resolvedSName = window.LinksService && typeof window.LinksService.resolveStudentName === 'function' ? window.LinksService.resolveStudentName(p.id) : null;
+      if (resolvedSName) finalTitle = resolvedSName;
+    }
+    var finalSub = opts.subtitle || opts.sub || (displayInfo ? displayInfo.subtitle : '');
+    var finalBadge = (displayInfo && displayInfo.badge) ? displayInfo.badge : ('[' + (p ? p.type.toUpperCase() : 'ITEM') + ']');
+
+    document.getElementById('cmt-lm-header-badge').textContent = finalBadge;
+    document.getElementById('cmt-lm-header-title').textContent = finalTitle;
+    document.getElementById('cmt-lm-header-sub').textContent = finalSub;
 
     overlay.classList.add('open');
 
     // Register this entity in the registry for future reverse discovery
     if (window.LinksService) {
       await window.LinksService.registerEntity(opts.urn, {
-        title: opts.title || opts.label || opts.urn,
-        subtitle: opts.subtitle || opts.sub || '',
+        title: finalTitle,
+        subtitle: finalSub,
         type: p ? p.type : 'general',
         classId: opts.classId || null
       });
@@ -333,10 +382,32 @@
     var row = document.createElement('div');
     row.className = 'cmt-lm-link-row';
 
-    var p = window.LinksService.parseUrn(link.otherUrn);
+    var p = window.LinksService ? window.LinksService.parseUrn(link.otherUrn) : null;
     var typeLabel = p ? p.type.toUpperCase() : 'LINK';
-    var title = (link.targetMeta && link.targetMeta.title) || link.otherUrn;
+    var rawTitle = (link.targetMeta && link.targetMeta.title) || link.otherUrn;
+    var title = rawTitle;
     var sub = (link.targetMeta && link.targetMeta.subtitle) || (link.meta && link.meta.label) || '';
+
+    // Auto-resolve human-readable names for student and class
+    if (p && window.LinksService) {
+      if (p.type === 'student') {
+        var sName = typeof window.LinksService.resolveStudentName === 'function' ? window.LinksService.resolveStudentName(p.id) : null;
+        if (sName) title = sName;
+        var sInfo = typeof window.LinksService.resolveStudentInfo === 'function' ? window.LinksService.resolveStudentInfo(p.id) : null;
+        if (sInfo && sInfo.className && !sub) sub = 'Student • ' + sInfo.className;
+      } else if (p.type === 'class') {
+        var cName = typeof window.LinksService.resolveClassName === 'function' ? window.LinksService.resolveClassName(p.id) : null;
+        if (cName) title = cName;
+      }
+    }
+
+    // Safety fallback: if title looks like a student UUID, attempt student lookup
+    if (/^st-[a-z0-9_-]+$/i.test(title) || /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(title)) {
+      if (window.LinksService && typeof window.LinksService.resolveStudentName === 'function') {
+        var candidateStudentName = window.LinksService.resolveStudentName(title);
+        if (candidateStudentName) title = candidateStudentName;
+      }
+    }
 
     var badgeClass = isInherited ? 'cmt-lm-badge inherited' : 'cmt-lm-badge';
     var badgeText = isInherited ? '[INHERITED: ' + (_currentOpts.classId || 'CLASS').toUpperCase() + ']' : '[' + typeLabel + ']';
@@ -442,21 +513,71 @@
   }
 
   // Helper to test category match between item.type and tab activeCategory
-  function matchesCategory(itemType, activeCat) {
+  function matchesCategory(itemType, activeCat, itemUrn) {
     if (!activeCat || activeCat === 'all') return true;
     if (itemType === activeCat) return true;
     var t = String(itemType || '').toLowerCase();
     var c = String(activeCat || '').toLowerCase();
-    if (c === 'classes' && (t === 'class' || t === 'classes' || t === 'student' || t === 'students')) return true;
-    if (c === 'docs' && (t === 'doc' || t === 'docs' || t === 'document' || t === 'template' || t === 'templates')) return true;
-    if (c === 'gradesheet' && (t === 'gradesheet' || t === 'eval' || t === 'evaluation' || t === 'submission' || t === 'grade' || t === 'grade_cell')) return true;
-    if (c === 'competences' && (t === 'competence' || t === 'competences')) return true;
-    if (c === 'criteria' && (t === 'criteria' || t === 'criterion')) return true;
-    if (c === 'scales' && (t === 'scale' || t === 'scales')) return true;
-    if (c === 'tests' && (t === 'test' || t === 'tests' || t === 'eval' || t === 'evaluation')) return true;
-    if (c === 'planner' && (t === 'planner' || t === 'slot' || t === 'schedule')) return true;
-    if (c === 'lessons' && (t === 'lesson' || t === 'lessons' || t === 'lessonplan' || t === 'lesson_plan')) return true;
-    if (c === 'board' && (t === 'board' || t === 'mindmap' || t === 'board_node' || t === 'wordbank' || t === 'vocab')) return true;
+    var ut = '';
+    if (itemUrn && window.LinksService && typeof window.LinksService.parseUrn === 'function') {
+      var p = window.LinksService.parseUrn(itemUrn);
+      if (p && p.type) ut = String(p.type).toLowerCase();
+    }
+    if (c === 'classes' && (t === 'class' || t === 'classes' || t === 'student' || t === 'students' || ut === 'class' || ut === 'student')) return true;
+    if (c === 'databases' && (
+      t === 'databases' || t === 'database' ||
+      t === 'wordbank' || t === 'wordbanks' || t === 'word' || t === 'words' || t === 'vocab' ||
+      t === 'quotebank' || t === 'quotebanks' || t === 'quote' || t === 'quotes' ||
+      t === 'dictation' || t === 'dictations' ||
+      t === 'grammarbank' || t === 'grammarbanks' || t === 'grammar' ||
+      t === 'gapfillbank' || t === 'gapfillbanks' || t === 'gapfill' ||
+      t === 'errorbank' || t === 'errorbanks' || t === 'error' ||
+      t === 'sentencebank' || t === 'sentencebanks' || t === 'sentence' ||
+      t === 'storybank' || t === 'storybanks' || t === 'story' ||
+      t === 'quiz' || t === 'quizzes' ||
+      t === 'testbank' || t === 'testbanks' || t === 'exercise' || t === 'exercises' ||
+      t === 'phase' || t === 'phases' ||
+      t === 'chip' || t === 'chips' ||
+      t === 'criteria' || t === 'criterion' ||
+      t === 'scale' || t === 'scales' ||
+      ut === 'databases' || ut === 'database' ||
+      ut === 'wordbank' || ut === 'wordbanks' || ut === 'word' || ut === 'words' || ut === 'vocab' ||
+      ut === 'quotebank' || ut === 'quotebanks' || ut === 'quote' || ut === 'quotes' ||
+      ut === 'dictation' || ut === 'dictations' ||
+      ut === 'grammarbank' || ut === 'grammarbanks' || ut === 'grammar' ||
+      ut === 'gapfillbank' || ut === 'gapfillbanks' || ut === 'gapfill' ||
+      ut === 'errorbank' || ut === 'errorbanks' || ut === 'error' ||
+      ut === 'sentencebank' || ut === 'sentencebanks' || ut === 'sentence' ||
+      ut === 'storybank' || ut === 'storybanks' || ut === 'story' ||
+      ut === 'quiz' || ut === 'quizzes' ||
+      ut === 'testbank' || ut === 'testbanks' || ut === 'exercise' || ut === 'exercises' ||
+      ut === 'phase' || ut === 'phases' ||
+      ut === 'chip' || ut === 'chips' ||
+      ut === 'criteria' || ut === 'criterion' ||
+      ut === 'scale' || ut === 'scales'
+    )) return true;
+    if (c === 'docs' && (t === 'doc' || t === 'docs' || t === 'document' || t === 'template' || t === 'templates' || ut === 'doc' || ut === 'document')) return true;
+    if (c === 'gradesheet' && (t === 'gradesheet' || t === 'eval' || t === 'evaluation' || t === 'submission' || t === 'grade' || t === 'grade_cell' || ut === 'gradesheet' || ut === 'eval' || ut === 'grade')) return true;
+    if (c === 'competences' && (t === 'competence' || t === 'competences' || ut === 'competence')) return true;
+    if (c === 'criteria' && (t === 'criteria' || t === 'criterion' || ut === 'criteria' || ut === 'criterion')) return true;
+    if (c === 'scales' && (t === 'scale' || t === 'scales' || ut === 'scale')) return true;
+    if (c === 'tests' && (t === 'test' || t === 'tests' || t === 'eval' || t === 'evaluation' || t === 'testbank' || ut === 'test' || ut === 'testbank')) return true;
+    if (c === 'planner' && (t === 'planner' || t === 'slot' || t === 'schedule' || ut === 'planner' || ut === 'slot')) return true;
+    if (c === 'lessons' && (t === 'lesson' || t === 'lessons' || t === 'lessonplan' || t === 'lesson_plan' || ut === 'lesson')) return true;
+    if (c === 'board' && (
+      t === 'board' || t === 'mindmap' || t === 'mindmaps' ||
+      t === 'board_node' || t === 'board-node' || t === 'boardnode' ||
+      t === 'board-note' || t === 'board_note' || t === 'boardnote' ||
+      t === 'board-group' || t === 'board_group' || t === 'boardgroup' ||
+      t === 'board-shape' || t === 'board_shape' || t === 'boardshape' ||
+      t === 'wordbank' || t === 'wordbanks' || t === 'word' || t === 'words' || t === 'vocab' ||
+      ut === 'board' || ut === 'mindmap' || ut === 'mindmaps' ||
+      ut === 'board_node' || ut === 'board-node' || ut === 'boardnode' ||
+      ut === 'board-note' || ut === 'board_note' || ut === 'boardnote' ||
+      ut === 'board-group' || ut === 'board_group' || ut === 'boardgroup' ||
+      ut === 'board-shape' || ut === 'board_shape' || ut === 'boardshape' ||
+      ut === 'wordbank' || ut === 'wordbanks' || ut === 'word' || ut === 'words' || ut === 'vocab'
+    )) return true;
     return false;
   }
 
@@ -477,14 +598,33 @@
 
     function addStudentsFromList(students, classId, className) {
       if (!Array.isArray(students)) return;
+      var cName = (window.LinksService && typeof window.LinksService.resolveClassName === 'function')
+        ? (window.LinksService.resolveClassName(classId) || className || classId || 'Class')
+        : (className || classId || 'Class');
       students.forEach(function(s) {
         if (!s) return;
         var sId = typeof s === 'string' ? s : (s.id || s.uuid);
-        var sName = typeof s === 'string' ? s : ([s.firstName, s.lastName].filter(Boolean).join(' ') || s.name || sId);
+        var sName = '';
+        if (typeof s === 'object') {
+          sName = ([s.firstName, s.lastName].filter(Boolean).join(' ') || s.customName || s.name || '').trim();
+        }
+        if (!sName && sId && window.LinksService && typeof window.LinksService.resolveStudentName === 'function') {
+          sName = window.LinksService.resolveStudentName(sId);
+        }
+        if (!sName && typeof s === 'string' && !/^st-[a-z0-9_-]+$/i.test(s) && !/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(s)) {
+          sName = s;
+        }
+        if ((!sName || /^st-[a-z0-9_-]+$/i.test(sName) || /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(sName)) && typeof window !== 'undefined' && Array.isArray(window.STUDENTS_ROSTER)) {
+          var found = window.STUDENTS_ROSTER.find(function(r) { return r && (r.uuid === sId || r.id === sId); });
+          if (found) {
+            sName = ([found.firstName, found.lastName].filter(Boolean).join(' ') || found.customName || found.name || '').trim();
+          }
+        }
+        if (!sName) sName = sId;
         if (!sId && !sName) return;
         var effectiveId = sId || sName;
         var sUrn = window.LinksService.makeUrn('student', effectiveId);
-        var subParts = ['Student', className || classId || 'Class'];
+        var subParts = ['Student', cName];
         if (typeof s === 'object' && s && s.number) subParts.push('#' + s.number);
         addCandidate({
           urn: sUrn,
@@ -634,8 +774,22 @@
         } catch (_) {}
       }
 
-      // 1d. Read class-groups.js from Desktop
+      // 1d. Read students.js and class-groups.js from Desktop
       if (desktop && typeof desktop.readText === 'function') {
+        try {
+          var stRes = await desktop.readText('user', 'students.js');
+          if (stRes && stRes.ok && stRes.content) {
+            var fnSt = new Function(
+              stRes.content +
+              '\nreturn (typeof STUDENTS_ROSTER !== "undefined") ? STUDENTS_ROSTER : [];'
+            );
+            var parsedSt = fnSt();
+            if (Array.isArray(parsedSt)) {
+              window.STUDENTS_ROSTER = parsedSt;
+            }
+          }
+        } catch (_) {}
+
         try {
           var cgRes = await desktop.readText('user', 'class-groups.js');
           if (cgRes && cgRes.ok && cgRes.content) {
@@ -681,6 +835,25 @@
             }
           }
         } catch (_) {}
+      }
+
+      // 1e. Add all students directly from STUDENTS_ROSTER to ensure no unassigned or enrolled students are missing
+      if (typeof window !== 'undefined' && Array.isArray(window.STUDENTS_ROSTER)) {
+        window.STUDENTS_ROSTER.forEach(function(st) {
+          if (!st || (!st.uuid && !st.id)) return;
+          var sid = st.uuid || st.id;
+          var sName = ([st.firstName, st.lastName].filter(Boolean).join(' ') || st.customName || st.name || sid).trim();
+          var primaryGroup = (st.enrollments && st.enrollments[0] && st.enrollments[0].groupName) || st.adminClass || '';
+          var subParts = ['Student'];
+          if (primaryGroup) subParts.push(primaryGroup);
+          addCandidate({
+            urn: window.LinksService.makeUrn('student', sid),
+            type: 'classes',
+            badge: '[STUDENT]',
+            title: sName,
+            subtitle: subParts.join(' • ')
+          });
+        });
       }
 
       // 1e. Fallback: localStorage grade sheet state
@@ -1097,21 +1270,91 @@
         });
       } catch (_) {}
     }
+    var curBoardFileName = (typeof _conCurrentFileName !== 'undefined' && _conCurrentFileName) ? _conCurrentFileName : 'untitled.js';
+
+    // 7a. Active Board Word Nodes
     if (typeof window.conGetNodes === 'function') {
       try {
         var activeNodes = window.conGetNodes();
-        var curBoardUrn = (typeof window.boardGetActiveSessionUrn === 'function') ? window.boardGetActiveSessionUrn() : null;
         if (Array.isArray(activeNodes)) {
           activeNodes.forEach(function(bn) {
             if (!bn || !bn.id) return;
-            var wText = bn.baseWord || (bn.el && bn.el.textContent) || bn.id;
-            var nUrn = curBoardUrn ? (curBoardUrn + '#' + bn.id) : window.LinksService.makeUrn('board_node', bn.id);
+            var wText = bn.baseWord || (bn.el && bn.el.dataset && bn.el.dataset.baseWord) || (bn.el && bn.el.textContent) || bn.id;
+            var nUrn = (typeof window.conGetActiveNodeUrn === 'function')
+              ? window.conGetActiveNodeUrn(bn)
+              : ('cmt:board-node:' + encodeURIComponent(curBoardFileName) + ':' + encodeURIComponent(bn.id));
             addCandidate({
               urn: nUrn,
               type: 'board',
               badge: '[BOARD NODE]',
               title: wText,
-              subtitle: 'Board Word Node • ' + bn.id + (curBoardUrn ? ' (' + curBoardUrn.split(':').pop() + ')' : '')
+              subtitle: 'Board Word Node • ' + bn.id + ' (' + curBoardFileName.replace(/\.(json|js|cstz)$/, '') + ')'
+            });
+          });
+        }
+      } catch (_) {}
+    }
+
+    // 7b. Active Board Sticky Notes
+    if (typeof window.conGetNotes === 'function') {
+      try {
+        var activeNotes = window.conGetNotes();
+        if (Array.isArray(activeNotes)) {
+          activeNotes.forEach(function(note) {
+            if (!note || !note.id) return;
+            var noteRaw = note.text || note.content || '';
+            var noteTitle = noteRaw.split('\n')[0].replace(/^#+\s*/, '').trim() || ('Note ' + note.id);
+            if (noteTitle.length > 40) noteTitle = noteTitle.slice(0, 37) + '...';
+            var noteUrn = 'cmt:board-note:' + encodeURIComponent(curBoardFileName) + ':' + encodeURIComponent(note.id);
+            addCandidate({
+              urn: noteUrn,
+              type: 'board',
+              badge: '[BOARD NOTE]',
+              title: noteTitle,
+              subtitle: 'Board Sticky Note • ' + note.id + ' (' + curBoardFileName.replace(/\.(json|js|cstz)$/, '') + ')'
+            });
+          });
+        }
+      } catch (_) {}
+    }
+
+    // 7c. Active Board Mindmap Groups
+    if (typeof window.conGetGroups === 'function') {
+      try {
+        var activeGroups = window.conGetGroups();
+        if (Array.isArray(activeGroups)) {
+          activeGroups.forEach(function(grp) {
+            if (!grp || !grp.id) return;
+            var grpTitle = grp.title || grp.name || ('Group ' + grp.id);
+            var grpUrn = 'cmt:board-group:' + encodeURIComponent(curBoardFileName) + ':' + encodeURIComponent(grp.id);
+            addCandidate({
+              urn: grpUrn,
+              type: 'board',
+              badge: '[BOARD GROUP]',
+              title: grpTitle,
+              subtitle: 'Board Mindmap Group • ' + grp.id + ' (' + curBoardFileName.replace(/\.(json|js|cstz)$/, '') + ')'
+            });
+          });
+        }
+      } catch (_) {}
+    }
+
+    // 7d. Active Board Shapes
+    if (typeof window.conGetShapes === 'function') {
+      try {
+        var activeShapes = window.conGetShapes();
+        if (Array.isArray(activeShapes)) {
+          activeShapes.forEach(function(shp) {
+            if (!shp || !shp.id) return;
+            var shpType = shp.type ? (shp.type.charAt(0).toUpperCase() + shp.type.slice(1)) : 'Shape';
+            var shpLabel = shp.label || shp.text || ('Shape ' + shp.id);
+            var shpUrn = 'cmt:board-shape:' + encodeURIComponent(curBoardFileName) + ':' + encodeURIComponent(shp.id);
+            addCandidate({
+              urn: shpUrn,
+              type: 'board',
+              badge: '[BOARD SHAPE]',
+              title: shpLabel,
+              subtitle: 'Board ' + shpType + ' • ' + shp.id + ' (' + curBoardFileName.replace(/\.(json|js|cstz)$/, '') + ')'
             });
           });
         }
@@ -1209,7 +1452,7 @@
           if (!fn) return;
           addCandidate({
             urn: window.LinksService.makeUrn('wordbank', fn),
-            type: 'board',
+            type: 'wordbank',
             badge: '[WORDBANK]',
             title: fn.replace(/\.(js|json)$/, ''),
             subtitle: 'Vocabulary Wordbank • ' + fn
@@ -1227,12 +1470,44 @@
           if (!wfn) return;
           addCandidate({
             urn: window.LinksService.makeUrn('wordbank', wfn),
-            type: 'board',
+            type: 'wordbank',
             badge: '[WORDBANK]',
             title: wfn.replace(/\.(js|json)$/, ''),
             subtitle: 'Vocabulary Wordbank • ' + wfn
           });
         });
+      } catch (_) {}
+    }
+
+    // 9b. Active Wordbank Records / Open Database records (if in manage-database.html)
+    if (typeof window.mdbGetActiveCandidates === 'function') {
+      try {
+        var mdbCands = window.mdbGetActiveCandidates();
+        if (Array.isArray(mdbCands)) {
+          mdbCands.forEach(function(c) {
+            addCandidate(c);
+          });
+        }
+      } catch (_) {}
+    }
+
+    // 9c. Board custom words (if in board.html)
+    if (typeof window.awGetCustomWords === 'function') {
+      try {
+        var cWords = window.awGetCustomWords();
+        if (Array.isArray(cWords)) {
+          cWords.forEach(function(cw) {
+            var w = typeof cw === 'string' ? cw : (cw && (cw.word || cw.term));
+            if (!w) return;
+            addCandidate({
+              urn: window.LinksService.makeUrn('wordbank', encodeURIComponent(String(w).toLowerCase())),
+              type: 'wordbank',
+              badge: '[WORD]',
+              title: String(w),
+              subtitle: 'Custom Wordbank Entry'
+            });
+          });
+        }
       } catch (_) {}
     }
 
@@ -1274,6 +1549,42 @@
       } catch (_) {}
     }
 
+    // 11. Additional Databases (Quotes, Dictations, Grammar, Gapfill, Errors, Sentences, Stories, Quizzes, Exercises, Phases, Chips)
+    var dbTargets = [
+      { target: 'customQuotes', type: 'quotebank', badge: '[QUOTE]', label: 'Quotes Bank' },
+      { target: 'customDictations', type: 'dictation', badge: '[DICTATION]', label: 'Dictations Bank' },
+      { target: 'customGrammarbanks', type: 'grammarbank', badge: '[GRAMMAR]', label: 'Grammar Bank' },
+      { target: 'customGapfillbanks', type: 'gapfillbank', badge: '[GAP-FILL]', label: 'Gap-Fill Bank' },
+      { target: 'customErrorbanks', type: 'errorbank', badge: '[ERROR BANK]', label: 'Error Correction Bank' },
+      { target: 'customSentences', type: 'sentencebank', badge: '[SENTENCE]', label: 'Sentences Bank' },
+      { target: 'customStorybanks', type: 'storybank', badge: '[STORY]', label: 'Stories Bank' },
+      { target: 'customQuizzes', type: 'quiz', badge: '[QUIZ]', label: 'Quiz Bank' },
+      { target: 'customExercises', type: 'testbank', badge: '[TEST BANK]', label: 'Exercises Bank' },
+      { target: 'customPhases', type: 'phase', badge: '[PHASE]', label: 'Lesson Phases Bank' },
+      { target: 'customChips', type: 'chip', badge: '[CHIP]', label: 'Observation Chips' }
+    ];
+
+    for (var dbi = 0; dbi < dbTargets.length; dbi++) {
+      var dbt = dbTargets[dbi];
+      if (desktop && typeof desktop.listFiles === 'function') {
+        try {
+          var dbFiles = await desktop.listFiles(dbt.target, { extensions: ['.js', '.json'] });
+          var dbList = Array.isArray(dbFiles) ? dbFiles : (dbFiles && Array.isArray(dbFiles.files) ? dbFiles.files : []);
+          dbList.forEach(function(f) {
+            var fn = typeof f === 'string' ? f : (f.filename || f.name);
+            if (!fn) return;
+            addCandidate({
+              urn: window.LinksService.makeUrn(dbt.type, fn),
+              type: 'databases',
+              badge: dbt.badge,
+              title: fn.replace(/\.(js|json)$/, ''),
+              subtitle: dbt.label + ' • ' + fn
+            });
+          });
+        } catch (_) {}
+      }
+    }
+
     renderCandidates();
   }
 
@@ -1297,13 +1608,30 @@
     var cItemUrn = window.LinksService ? window.LinksService.canonicalizeUrn(item.urn) : item.urn;
     var isAlreadyLinked = _currentLinkedUrns && _currentLinkedUrns.has(cItemUrn);
 
+    // Resolve student title if it is a raw UUID
+    var displayTitle = item.title;
+    if (item.type === 'classes' || item.type === 'student' || (item.urn && item.urn.includes(':student:'))) {
+      if (/^st-[a-z0-9_-]+$/i.test(displayTitle) || /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(displayTitle)) {
+        if (window.LinksService && typeof window.LinksService.resolveStudentName === 'function') {
+          var resolvedSt = window.LinksService.resolveStudentName(displayTitle);
+          if (resolvedSt) displayTitle = resolvedSt;
+        }
+        if ((displayTitle === item.title) && typeof window !== 'undefined' && Array.isArray(window.STUDENTS_ROSTER)) {
+          var foundSt = window.STUDENTS_ROSTER.find(function(r) { return r && (r.uuid === item.title || r.id === item.title); });
+          if (foundSt) {
+            displayTitle = ([foundSt.firstName, foundSt.lastName].filter(Boolean).join(' ') || foundSt.customName || foundSt.name || '').trim();
+          }
+        }
+      }
+    }
+
     var iconSrc = getLinksIconPath();
     row.innerHTML =
       '<div class="cmt-lm-link-info">' +
         '<div class="cmt-lm-link-title-line">' +
           (isAlreadyLinked ? '<img src="' + iconSrc + '" class="cmt-lm-ref-icon" alt="" />' : '') +
           '<span class="cmt-lm-badge">' + item.badge + '</span>' +
-          '<span class="cmt-lm-link-title">' + item.title + '</span>' +
+          '<span class="cmt-lm-link-title">' + displayTitle + '</span>' +
         '</div>' +
         '<span class="cmt-lm-link-sub">' + item.subtitle + '</span>' +
       '</div>' +
@@ -1325,7 +1653,7 @@
               type: _currentOpts.type || (pOpt ? pOpt.type : 'general')
             },
             targetMeta: {
-              title: item.title,
+              title: displayTitle,
               subtitle: item.subtitle,
               type: item.type
             }
@@ -1353,7 +1681,7 @@
     _currentFilteredCandidates = _cachedCandidates.filter(function(item) {
       var cItemUrn = window.LinksService ? window.LinksService.canonicalizeUrn(item.urn) : item.urn;
       if (cOptUrn && cItemUrn === cOptUrn) return false; // Don't link to self
-      if (!matchesCategory(item.type, _activeCategory)) return false;
+      if (!matchesCategory(item.type, _activeCategory, item.urn)) return false;
       if (tokens.length) {
         var itemText = ((item.title || '') + ' ' + (item.subtitle || '') + ' ' + (item.badge || '') + ' ' + (item.urn || '')).toLowerCase();
         for (var ti = 0; ti < tokens.length; ti++) {
@@ -1429,6 +1757,7 @@
       return;
     }
 
+    var prevScroll = container.scrollTop;
     var renderedSlice = _currentFilteredCandidates.slice(0, _candidatePageOffset);
     renderedSlice.forEach(function(item) {
       container.appendChild(buildCandidateRow(item));
@@ -1440,7 +1769,7 @@
       loadMoreRow.innerHTML =
         '<span class="cmt-lm-load-info">Showing ' + renderedSlice.length + ' of ' + _currentFilteredCandidates.length + ' items</span>' +
         '<div class="cmt-lm-load-btns">' +
-          '<button type="button" class="cmt-lm-btn" id="cmt-lm-btn-load-more">[LOAD MORE (+50)]</button>' +
+          '<button type="button" class="cmt-lm-btn" id="cmt-lm-btn-load-more">[LOAD MORE (+' + _candidatePageSize + ')]</button>' +
           '<button type="button" class="cmt-lm-btn primary" id="cmt-lm-btn-show-all">[SHOW ALL (' + _currentFilteredCandidates.length + ')]</button>' +
         '</div>';
 
@@ -1459,6 +1788,10 @@
         });
       }
       container.appendChild(loadMoreRow);
+    }
+
+    if (prevScroll > 0) {
+      container.scrollTop = prevScroll;
     }
 
     // Attach infinite scroll

@@ -12,6 +12,7 @@
   <script src="../electron-bridge.js"></script>
   <script src="../js/dialogs.js"></script>
   <script src="../js/i18n.js"></script>
+  <script src="../js/student-name-utils.js"></script>
   <script src="../js/competence-aggregator-service.js"></script>
   <script src="../js/links-service.js"></script>
   <script src="../js/tag-link-modal.js"></script>
@@ -3485,6 +3486,9 @@
             <button class="action-btn btn-grey" id="con-tb-links-btn" onclick="boardOpenSessionLinksModal()"
               title="Links & Tags for this board"><img src="../assets/icons/links.svg" class="btn-icon"
                 alt="" /> <span id="con-tb-links-btn-text" data-i18n="conBoardLinks">[LINKS: 0]</span></button>
+            <button class="action-btn btn-grey" id="con-tb-import-class-btn" onclick="conOpenClassImportModal()"
+              title="Import Class Rosters, Seating Plans, or Teams to Board"><img src="../assets/icons/groups.svg" class="btn-icon"
+                alt="" /> <span id="con-tb-import-class-text">[CLASS DATA]</span></button>
             <input type="file" id="con-load-input" accept=".cstz,.js,.json,.zip" style="display:none"
               onchange="conLoadSession(event)">
             <input type="file" id="con-attachments-input" accept="image/*,audio/*,video/*,application/pdf,.pdf" multiple
@@ -4350,6 +4354,184 @@
         <div style="display:flex;gap:8px;">
           <button type="button" class="action-btn btn-grey" onclick="conCloseCompetenceModal()" data-i18n="btnCancel">Cancel</button>
           <button type="button" class="action-btn" onclick="conApplySelectedCompetences()" style="background:#2563eb;color:#fff;border-color:#1d4ed8;font-weight:700;" data-i18n="compApplyBtn">Apply Tags</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Class Data Import Modal (Rosters, Seating Plans, Teams) -->
+  <div id="con-class-import-overlay" class="modal-bg" style="display:none;position:fixed;inset:0;z-index:100070;background:rgba(0,0,0,0.65);align-items:center;justify-content:center;" onclick="if(event.target===this)conCloseClassImportModal()">
+    <div class="modal neo-box" style="width:min(740px, 95vw);max-height:88vh;display:flex;flex-direction:column;background:#fff;border:3px solid #000;box-shadow:6px 6px 0px #000;overflow:hidden;font-family:inherit;">
+      <div class="modal-hd" style="padding:12px 18px;background:#fde047;border-bottom:3px solid #000;display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <img src="../assets/icons/groups.svg" class="btn-icon" alt="" style="width:20px;height:20px;" />
+          <span style="font-weight:900;font-size:1.1rem;text-transform:uppercase;letter-spacing:0.5px;" data-i18n="conModalClassImportTitle">IMPORT CLASS DATA TO BOARD</span>
+        </div>
+        <button type="button" onclick="conCloseClassImportModal()" style="background:#fff;border:2px solid #000;box-shadow:2px 2px 0px #000;font-weight:900;font-size:1.1rem;width:28px;height:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;">&times;</button>
+      </div>
+
+      <!-- Tab bar -->
+      <div style="display:flex;background:#f1f5f9;border-bottom:2.5px solid #000;padding:8px 14px;gap:8px;">
+        <button type="button" class="action-btn" id="con-imp-tab-roster" onclick="conSwitchClassImportTab('roster')" style="font-weight:900;border:2px solid #000;background:#000;color:#fff;">[CLASS ROSTER]</button>
+        <button type="button" class="action-btn" id="con-imp-tab-plan" onclick="conSwitchClassImportTab('plan')" style="font-weight:900;border:2px solid #000;background:#fff;color:#000;">[SEATING PLAN]</button>
+        <button type="button" class="action-btn" id="con-imp-tab-teams" onclick="conSwitchClassImportTab('teams')" style="font-weight:900;border:2px solid #000;background:#fff;color:#000;">[TEAMS]</button>
+      </div>
+
+      <!-- Planner Slot Association Banner -->
+      <div id="con-imp-planner-banner" style="display:none;background:#fef08a;border-bottom:2.5px solid #000;padding:8px 16px;align-items:center;justify-content:space-between;gap:10px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <img src="../assets/icons/planner.svg" class="btn-icon" alt="" style="width:16px;height:16px;" />
+          <span style="font-size:0.82rem;font-weight:800;" id="con-imp-planner-banner-text">Filtered to Planner slot class</span>
+        </div>
+        <button type="button" class="action-btn btn-white" id="con-imp-planner-banner-toggle" onclick="conToggleClassImportPlannerFilter()" style="padding:3px 10px;font-size:0.75rem;font-weight:900;border:2px solid #000;background:#fff;cursor:pointer;">[SHOW ALL CLASSES]</button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="modal-bd" style="padding:16px 20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:14px;">
+        
+        <!-- TAB 1: ROSTER -->
+        <div id="con-imp-panel-roster" style="display:flex;flex-direction:column;gap:12px;">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:240px;">
+              <label style="font-weight:800;font-size:0.85rem;" data-i18n="conImportSelectClass">SELECT CLASS:</label>
+              <select id="con-imp-roster-class-select" onchange="conOnRosterClassSelect(this.value)" style="flex:1;border:2px solid #000;padding:6px 10px;font-family:inherit;font-weight:700;font-size:0.88rem;background:#fff;"></select>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;min-width:220px;">
+              <label style="font-weight:800;font-size:0.85rem;" data-i18n="conImportNameFormat">NAME FORMAT:</label>
+              <select id="con-imp-roster-name-format" onchange="conOnNameFormatChange(this.value)" style="border:2px solid #000;box-shadow:2px 2px 0px #000;padding:6px 10px;font-family:inherit;font-weight:700;font-size:0.85rem;background:#fff;cursor:pointer;">
+                <option value="first" data-i18n="conImportNameFirst">First name</option>
+                <option value="last" data-i18n="conImportNameLast">Last name</option>
+                <option value="full" selected data-i18n="conImportNameFull">First name and last name</option>
+                <option value="custom" data-i18n="conImportNameCustom">Custom name</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Students checklist box -->
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span id="con-imp-roster-count" style="font-size:0.8rem;font-weight:800;color:#555;">0 students selected</span>
+            <div style="display:flex;gap:6px;">
+              <button type="button" class="action-btn btn-grey" onclick="conSelectAllRosterStudents(true)" style="padding:3px 8px;font-size:0.75rem;font-weight:800;">SELECT ALL</button>
+              <button type="button" class="action-btn btn-grey" onclick="conSelectAllRosterStudents(false)" style="padding:3px 8px;font-size:0.75rem;font-weight:800;">DESELECT ALL</button>
+            </div>
+          </div>
+          <div id="con-imp-roster-students-list" style="max-height:180px;overflow-y:auto;border:2px solid #000;padding:8px 10px;background:#f8fafc;display:flex;flex-wrap:wrap;gap:6px;"></div>
+
+          <!-- Destination Mode -->
+          <div style="border-top:2px solid #000;padding-top:10px;">
+            <label style="font-weight:800;font-size:0.85rem;display:block;margin-bottom:6px;" data-i18n="conImportTargetFormat">IMPORT FORMAT ON BOARD:</label>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;font-weight:700;cursor:pointer;">
+                <input type="radio" name="con-imp-roster-target" value="group" checked />
+                <span>Mindmap Nodes inside Class Group (Interactive student cards grouped in container)</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;font-weight:700;cursor:pointer;">
+                <input type="radio" name="con-imp-roster-target" value="note" />
+                <span>Roster Sticky Note (Single clean card with student checklist)</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;font-weight:700;cursor:pointer;">
+                <input type="radio" name="con-imp-roster-target" value="tray" />
+                <span>Bottom Staging Tray (Drag-and-drop students one by one onto the canvas)</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: SEATING PLAN -->
+        <div id="con-imp-panel-plan" style="display:none;flex-direction:column;gap:12px;">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:240px;">
+              <label style="font-weight:800;font-size:0.85rem;" data-i18n="conImportSelectClass">SELECT CLASS:</label>
+              <select id="con-imp-plan-class-select" onchange="conOnPlanClassSelect(this.value)" style="flex:1;border:2px solid #000;padding:6px 10px;font-family:inherit;font-weight:700;font-size:0.88rem;background:#fff;"></select>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;min-width:220px;">
+              <label style="font-weight:800;font-size:0.85rem;" data-i18n="conImportNameFormat">NAME FORMAT:</label>
+              <select id="con-imp-plan-name-format" onchange="conOnNameFormatChange(this.value)" style="border:2px solid #000;box-shadow:2px 2px 0px #000;padding:6px 10px;font-family:inherit;font-weight:700;font-size:0.85rem;background:#fff;cursor:pointer;">
+                <option value="first" data-i18n="conImportNameFirst">First name</option>
+                <option value="last" data-i18n="conImportNameLast">Last name</option>
+                <option value="full" selected data-i18n="conImportNameFull">First name and last name</option>
+                <option value="custom" data-i18n="conImportNameCustom">Custom name</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <label style="font-weight:800;font-size:0.85rem;" data-i18n="conImportSelectPlan">SAVED SEATING PLAN:</label>
+            <select id="con-imp-plan-select" onchange="conOnPlanSelect(this.value)" style="flex:1;min-width:200px;border:2px solid #000;padding:6px 10px;font-family:inherit;font-weight:700;font-size:0.88rem;background:#fff;"></select>
+          </div>
+
+          <div id="con-imp-plan-preview-box" style="border:2px solid #000;background:#f8fafc;padding:12px;font-size:0.85rem;line-height:1.5;">
+            Select a class and plan above to preview desk layout.
+          </div>
+
+          <div style="border-top:2px solid #000;padding-top:10px;display:flex;flex-direction:column;gap:8px;">
+            <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;font-weight:700;cursor:pointer;">
+              <input type="checkbox" id="con-imp-plan-opt-group" checked />
+              <span>Wrap Desks in Room Group (Creates bounding classroom container on board)</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;font-weight:700;cursor:pointer;">
+              <input type="checkbox" id="con-imp-plan-opt-names" checked />
+              <span>Place Student Names on Desks (Shows assigned student name, or 'Desk #' if unassigned)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- TAB 3: TEAMS -->
+        <div id="con-imp-panel-teams" style="display:none;flex-direction:column;gap:12px;">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:240px;">
+              <label style="font-weight:800;font-size:0.85rem;" data-i18n="conImportSelectClass">SELECT CLASS:</label>
+              <select id="con-imp-teams-class-select" onchange="conOnTeamsClassSelect(this.value)" style="flex:1;border:2px solid #000;padding:6px 10px;font-family:inherit;font-weight:700;font-size:0.88rem;background:#fff;"></select>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;min-width:220px;">
+              <label style="font-weight:800;font-size:0.85rem;" data-i18n="conImportNameFormat">NAME FORMAT:</label>
+              <select id="con-imp-teams-name-format" onchange="conOnNameFormatChange(this.value)" style="border:2px solid #000;box-shadow:2px 2px 0px #000;padding:6px 10px;font-family:inherit;font-weight:700;font-size:0.85rem;background:#fff;cursor:pointer;">
+                <option value="first" data-i18n="conImportNameFirst">First name</option>
+                <option value="last" data-i18n="conImportNameLast">Last name</option>
+                <option value="full" selected data-i18n="conImportNameFull">First name and last name</option>
+                <option value="custom" data-i18n="conImportNameCustom">Custom name</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:14px;align-items:center;">
+            <label style="display:flex;align-items:center;gap:6px;font-weight:800;font-size:0.82rem;cursor:pointer;">
+              <input type="radio" name="con-imp-teams-mode" value="saved" onchange="conOnTeamsModeChange(this.value)" checked />
+              <span>SAVED TEAMS (FROM CMS)</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-weight:800;font-size:0.82rem;cursor:pointer;">
+              <input type="radio" name="con-imp-teams-mode" value="random" onchange="conOnTeamsModeChange(this.value)" />
+              <span>RANDOM BALANCED TEAMS</span>
+            </label>
+          </div>
+
+          <div id="con-imp-teams-saved-row" style="display:flex;align-items:center;gap:10px;">
+            <label style="font-weight:700;font-size:0.82rem;">SETUP:</label>
+            <select id="con-imp-teams-setup-select" onchange="conOnTeamsSetupSelect(this.value)" style="flex:1;border:2px solid #000;padding:5px 8px;font-family:inherit;font-size:0.85rem;background:#fff;"></select>
+          </div>
+
+          <div id="con-imp-teams-random-row" style="display:none;align-items:center;gap:10px;">
+            <label style="font-weight:700;font-size:0.82rem;">NUMBER OF TEAMS:</label>
+            <select id="con-imp-teams-count-select" onchange="conOnTeamsCountSelect(this.value)" style="border:2px solid #000;padding:5px 8px;font-family:inherit;font-size:0.85rem;background:#fff;">
+              <option value="2">2 Teams</option>
+              <option value="3">3 Teams</option>
+              <option value="4" selected>4 Teams</option>
+              <option value="5">5 Teams</option>
+              <option value="6">6 Teams</option>
+            </select>
+            <button type="button" class="action-btn btn-grey" onclick="conReshuffleRandomTeams()" style="font-size:0.78rem;font-weight:800;">RESHUFFLE</button>
+          </div>
+
+          <!-- Teams preview list -->
+          <div id="con-imp-teams-preview-box" style="border:2px solid #000;background:#f8fafc;padding:10px;max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;"></div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="modal-ft" style="padding:12px 18px;background:#f8fafc;border-top:3px solid #000;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+        <button type="button" class="action-btn btn-grey" onclick="conCloseClassImportModal()" style="font-weight:800;border:2px solid #000;">CANCEL</button>
+        <div id="con-imp-footer-actions" style="display:flex;gap:8px;">
+          <!-- Dynamically filled based on active tab -->
         </div>
       </div>
     </div>
@@ -19613,6 +19795,12 @@
       window.CON_PALETTES = CON_PALETTES;
       window.conInitSwatches = conInitSwatches;
       window.conGroupAttach = function (group) { conGroupAttachEvents(group); };
+      window.conGroupCreate = function (nodeIds, placeholderX, placeholderY, noteIds, drawingIds, shapeIds, opts) {
+        return conGroupCreate(nodeIds, placeholderX, placeholderY, noteIds, drawingIds, shapeIds, opts);
+      };
+      window.conGroupApplyStyle = function (group) { conGroupApplyStyle(group); };
+      window.conGroupOfNode = function (nodeId) { return conGroupOfNode(nodeId); };
+      window.conGroupDissolve = function (groupId) { conGroupDissolve(groupId); };
       window.conPhraseGroupLayout = function (group) { conPhraseGroupLayout(group); };
       window.conSetNextId = function (n) { if (n > conNextId) conNextId = n; };
       window.conGetEdges = function () { return conEdges; };
@@ -45542,6 +45730,11 @@
       window._isPageWindow = true;
       _boardIsDirty = false;
 
+      // Switch view directly to constellation section so the board appears immediately
+      if (typeof navTo === 'function') {
+        navTo('constellation-section');
+      }
+
       if (payload && payload.session) {
         try {
           if (typeof _conRestoreSession === 'function') {
@@ -45570,6 +45763,10 @@
       boardUpdateDocumentTitle();
       boardRenderPageWindowBadge(targetPageIdx);
 
+      if (typeof window.conScheduleLayoutRefresh === 'function') {
+        window.conScheduleLayoutRefresh();
+      }
+
       setTimeout(() => {
         const saveBtn = document.querySelector('button[onclick*="conSaveSession"]');
         if (saveBtn) {
@@ -45585,7 +45782,7 @@
       badge.id = 'con-page-window-badge';
       badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:3px 10px;background:#fef08a;color:#111;border:2px solid #000;box-shadow:2px 2px 0 #000;font-size:0.75rem;font-weight:800;border-radius:4px;margin-left:8px;flex-shrink:0;user-select:none;';
       const label = typeof t === 'function' ? t('conPageWindowBadge') : 'Secondary Window (Saving Disabled)';
-      badge.innerHTML = `<img src="../assets/icons/monitor.svg" style="width:13px;height:13px;flex-shrink:0;" alt="" /> <span>Page ${pageIndex + 1} • ${escapeSearchHtml(label)}</span>`;
+      badge.innerHTML = `<img src="../assets/icons/monitor.svg" style="width:13px;height:13px;flex-shrink:0;" alt="" /> <span id="con-page-window-badge-text">Page ${pageIndex + 1} • ${escapeSearchHtml(label)}</span>`;
       const titleWrap = document.getElementById('con-title-input')?.parentElement;
       if (titleWrap) {
         titleWrap.appendChild(badge);
@@ -56692,6 +56889,1182 @@
         showToast(`Added ${newWords.length} word(s) to the database.`);
       }
     };
+
+    // ================================================================
+    // CLASS DATA IMPORT ENGINE (ROSTERS, SEATING PLANS, TEAMS)
+    // ================================================================
+
+    let _conImportActiveTab = 'roster';
+    let _conImportClassesCache = null;
+    let _conImportPlansCache = null;
+    let _conImportSavedTeamsCache = null;
+    let _conImportRandomTeams = null;
+    let _conImportPlannerClass = null;
+    let _conImportFilterToPlanner = false;
+    let _conImportNameDisplayMode = 'full';
+
+    function _conResolveStudentName(st, mode) {
+      if (!st) return '';
+      const m = mode || _conImportNameDisplayMode || 'full';
+      let stId = '';
+      let fallbackName = '';
+      let rawStudent = null;
+
+      if (typeof st === 'object') {
+        rawStudent = st;
+        stId = st.id || st.uuid || '';
+        fallbackName = ((st.firstName || '') + ' ' + (st.lastName || '')).trim() || st.name || '';
+      } else if (typeof st === 'string') {
+        stId = st.trim();
+        fallbackName = stId;
+      }
+
+      const cleanId = stId.replace(/^cmt:student:/i, '').replace(/^student:/i, '').trim();
+
+      // Find the student object in window.STUDENTS_ROSTER
+      const roster = window.STUDENTS_ROSTER || (typeof STUDENTS_ROSTER !== 'undefined' ? STUDENTS_ROSTER : null);
+      let found = null;
+      if (Array.isArray(roster)) {
+        found = roster.find(s => s && (s.uuid === cleanId || s.id === cleanId));
+      }
+
+      // If not in STUDENTS_ROSTER, check CLASS_GROUPS_DATA.students
+      if (!found) {
+        const cgData = window.CLASS_GROUPS_DATA || (typeof CLASS_GROUPS_DATA !== 'undefined' ? CLASS_GROUPS_DATA : null);
+        if (cgData && Array.isArray(cgData.students)) {
+          found = cgData.students.find(s => s && (s.uuid === cleanId || s.id === cleanId));
+        }
+      }
+
+      const studentObj = found || (rawStudent && (rawStudent.firstName || rawStudent.lastName || rawStudent.customName) ? rawStudent : null);
+
+      if (studentObj) {
+        if (window.StudentNameUtils && typeof StudentNameUtils.formatStudentDisplayName === 'function') {
+          const res = StudentNameUtils.formatStudentDisplayName(studentObj, m, 'firstLastInitial');
+          if (res) return res;
+        }
+        const fn = (studentObj.firstName || '').trim();
+        const ln = (studentObj.lastName || '').trim();
+        const cn = (studentObj.customName || '').trim();
+        if (m === 'first') return fn || ln || cn || cleanId;
+        if (m === 'last') return ln || fn || cn || cleanId;
+        if (m === 'custom') return cn || (fn && ln ? (fn + ' ' + ln.charAt(0).toUpperCase() + '.') : (fn || ln || cleanId));
+        return ((fn + ' ' + ln).trim()) || cn || cleanId;
+      }
+
+      // If cleanId was not found in roster but LinksService has it
+      if (window.LinksService && typeof LinksService.resolveStudentName === 'function') {
+        const lName = LinksService.resolveStudentName(cleanId);
+        if (lName && !lName.startsWith('st-') && !/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(lName)) {
+          if (window.StudentNameUtils && typeof StudentNameUtils.formatStudentDisplayName === 'function') {
+            return StudentNameUtils.formatStudentDisplayName(lName, m, 'firstLastInitial');
+          }
+          return lName;
+        }
+      }
+
+      // If fallbackName is a real name (not a UUID)
+      if (fallbackName && !fallbackName.startsWith('st-') && !/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(fallbackName)) {
+        if (window.StudentNameUtils && typeof StudentNameUtils.formatStudentDisplayName === 'function') {
+          return StudentNameUtils.formatStudentDisplayName(fallbackName, m, 'firstLastInitial');
+        }
+        return fallbackName;
+      }
+
+      return cleanId;
+    }
+
+    async function _conGetClassList() {
+      if (_conImportClassesCache && _conImportClassesCache.length > 0) {
+        return _conImportClassesCache;
+      }
+
+      if (window.LinksService && typeof LinksService.ensureRosterLoaded === 'function') {
+        try { await LinksService.ensureRosterLoaded(); } catch (_) {}
+      }
+      if (!window.STUDENTS_ROSTER && window.Desktop && typeof Desktop.readText === 'function') {
+        try {
+          const sRes = await Desktop.readText('user', 'students.js');
+          if (sRes && sRes.ok && sRes.content) {
+            const sandbox = {};
+            const fn = new Function('window', sRes.content + '; if (typeof STUDENTS_ROSTER !== "undefined") window.STUDENTS_ROSTER = STUDENTS_ROSTER;');
+            fn(sandbox);
+            if (Array.isArray(sandbox.STUDENTS_ROSTER)) {
+              window.STUDENTS_ROSTER = sandbox.STUDENTS_ROSTER;
+            }
+          }
+        } catch (_) {}
+      }
+
+      const classes = [];
+      const seen = new Set();
+
+      // 1. Try in-memory CLASS_GROUPS_META
+      const meta = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META)
+        ? CLASS_GROUPS_META
+        : ((typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA && CLASS_GROUPS_DATA.classGroupsMeta)
+          ? CLASS_GROUPS_DATA.classGroupsMeta
+          : (window.CLASS_GROUPS_DATA && window.CLASS_GROUPS_DATA.classGroupsMeta));
+
+      if (meta && typeof meta === 'object') {
+        Object.entries(meta).forEach(([key, val]) => {
+          if (!val || val.archived) return;
+          const classId = val.id || key;
+          const className = val.name || val.title || key;
+          const students = [];
+          if (Array.isArray(val.students)) {
+            val.students.forEach(st => {
+              const name = _conResolveStudentName(st, 'full');
+              const id = (typeof st === 'object' ? (st.id || st.uuid || '') : String(st || '')).trim();
+              if (name) students.push({ id, name });
+            });
+          }
+          students.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+          classes.push({ id: classId, name: className, students });
+          seen.add(classId);
+          seen.add(className);
+        });
+      }
+
+      // 2. Try legacy CLASS_GROUPS array/dict
+      const legacy = (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS) ? CLASS_GROUPS : (window.CLASS_GROUPS || null);
+      if (legacy) {
+        if (Array.isArray(legacy)) {
+          legacy.forEach(cg => {
+            if (!cg || !cg.name || seen.has(cg.id || cg.name)) return;
+            const students = [];
+            if (Array.isArray(cg.students)) {
+              cg.students.forEach(st => {
+                const name = _conResolveStudentName(st, 'full');
+                const id = (typeof st === 'object' ? (st.id || st.uuid || '') : String(st || '')).trim();
+                if (name) students.push({ id, name });
+              });
+            }
+            students.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+            classes.push({ id: cg.id || cg.name, name: cg.name, students });
+            seen.add(cg.id || cg.name);
+          });
+        } else if (typeof legacy === 'object') {
+          Object.entries(legacy).forEach(([k, list]) => {
+            if (seen.has(k)) return;
+            const students = Array.isArray(list) ? list.map(s => {
+              const name = _conResolveStudentName(s, 'full');
+              const id = (typeof s === 'object' ? (s.id || s.uuid || '') : String(s || '')).trim();
+              return { id, name };
+            }).filter(s => !!s.name) : [];
+            students.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+            classes.push({ id: k, name: k, students });
+            seen.add(k);
+          });
+        }
+      }
+
+      // 3. Fallback to reading user/class-groups.js via Desktop
+      if (classes.length === 0 && window.Desktop && typeof Desktop.readText === 'function') {
+        try {
+          const res = await Desktop.readText('user', 'class-groups.js');
+          if (res && res.ok && res.content) {
+            const sandbox = {};
+            const fn = new Function('window', res.content + '; if (typeof CLASS_GROUPS_DATA !== "undefined") window.CLASS_GROUPS_DATA = CLASS_GROUPS_DATA; if (typeof CLASS_GROUPS_META !== "undefined") window.CLASS_GROUPS_META = CLASS_GROUPS_META;');
+            fn(sandbox);
+            const loadedMeta = sandbox.CLASS_GROUPS_META || (sandbox.CLASS_GROUPS_DATA && sandbox.CLASS_GROUPS_DATA.classGroupsMeta);
+            if (loadedMeta && typeof loadedMeta === 'object') {
+              Object.entries(loadedMeta).forEach(([key, val]) => {
+                if (!val || val.archived) return;
+                const classId = val.id || key;
+                const className = val.name || val.title || key;
+                const students = [];
+                if (Array.isArray(val.students)) {
+                  val.students.forEach(st => {
+                    const name = _conResolveStudentName(st, 'full');
+                    const id = (typeof st === 'object' ? (st.id || st.uuid || '') : String(st || '')).trim();
+                    if (name) students.push({ id, name });
+                  });
+                }
+                students.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+                classes.push({ id: classId, name: className, students });
+              });
+            }
+          }
+        } catch (_) {}
+      }
+
+      _conImportClassesCache = classes;
+      return classes;
+    }
+
+    async function _conGetAssociatedPlannerClass() {
+      // 1. Direct activePlannerEntryId
+      let plannerId = typeof activePlannerEntryId === 'string' ? activePlannerEntryId.trim() : '';
+
+      // 2. Fallback: check session data in memory
+      if (!plannerId && typeof conBuildSessionData === 'function') {
+        try {
+          const curData = conBuildSessionData();
+          if (curData && (curData._plannerEntryId || curData.plannerEntryId)) {
+            plannerId = String(curData._plannerEntryId || curData.plannerEntryId).trim();
+          }
+        } catch (_) {}
+      }
+
+      // 3. Fallback: check sessionStorage active request
+      if (!plannerId) {
+        try {
+          const raw = sessionStorage.getItem('cmt-board-active-open-request');
+          if (raw) {
+            const req = JSON.parse(raw);
+            if (req && req.plannerEntryId) plannerId = String(req.plannerEntryId).trim();
+          }
+        } catch (_) {}
+      }
+
+      // 4. Fallback: check LinksService edges for the current board file
+      if (!plannerId && window.LinksService && typeof LinksService.getLinksFor === 'function') {
+        try {
+          const urnsToCheck = [];
+          if (_conCurrentFileName) {
+            urnsToCheck.push('cmt:board:' + _conCurrentFileName);
+            urnsToCheck.push('cmt:mindmap:' + _conCurrentFileName);
+            if (_conCurrentFolderName) {
+              urnsToCheck.push('cmt:board:' + _conCurrentFolderName + '/' + _conCurrentFileName);
+              urnsToCheck.push('cmt:mindmap:' + _conCurrentFolderName + '/' + _conCurrentFileName);
+            }
+          }
+          for (const u of urnsToCheck) {
+            const links = await LinksService.getLinksFor(u);
+            const pLink = links.find(l => l.otherUrn && l.otherUrn.startsWith('cmt:planner:'));
+            if (pLink) {
+              plannerId = pLink.otherUrn.replace(/^cmt:planner:/, '').trim();
+              break;
+            }
+            const cLink = links.find(l => l.otherUrn && l.otherUrn.startsWith('cmt:class:'));
+            if (cLink) {
+              return cLink.otherUrn.replace(/^cmt:class:/, '').trim();
+            }
+          }
+        } catch (_) {}
+      }
+
+      // If we have a plannerId:
+      if (plannerId) {
+        // 5a. If it's a schedule link (sched:classId:date:time)
+        if (plannerId.startsWith('sched:')) {
+          const parts = plannerId.split(':');
+          if (parts[1]) return parts[1];
+        }
+        // 5b. Search in bpGetAllEntries()
+        if (typeof bpGetAllEntries === 'function') {
+          const all = bpGetAllEntries();
+          const hit = all.find(e => e && e.id === plannerId);
+          if (hit && (hit.classId || hit.class || hit.className)) {
+            return hit.classId || hit.class || hit.className;
+          }
+        }
+        // 5c. Search in window.PLANNER_ENTRIES_BY_CLASS
+        if (window.PLANNER_ENTRIES_BY_CLASS) {
+          const byClass = window.PLANNER_ENTRIES_BY_CLASS;
+          for (const cid of Object.keys(byClass)) {
+            const arr = Array.isArray(byClass[cid]) ? byClass[cid] : [];
+            if (arr.some(e => e && (e.id === plannerId || String(e.id) === plannerId))) {
+              return cid;
+            }
+          }
+        }
+        // 5d. Check LinksService for the planner entry itself:
+        if (window.LinksService && typeof LinksService.getLinksFor === 'function') {
+          try {
+            const pLinks = await LinksService.getLinksFor('cmt:planner:' + plannerId);
+            const cLink = pLinks.find(l => l.otherUrn && l.otherUrn.startsWith('cmt:class:'));
+            if (cLink) {
+              return cLink.otherUrn.replace(/^cmt:class:/, '').trim();
+            }
+          } catch (_) {}
+        }
+      }
+
+      // 6. If no planner entry ID, but activeClassGroup is set:
+      if (typeof activeClassGroup === 'string' && activeClassGroup.trim()) {
+        return activeClassGroup.trim();
+      }
+
+      return '';
+    }
+
+    async function _conLoadClassPlans() {
+      if (_conImportPlansCache) return _conImportPlansCache;
+      let plans = {};
+      if (typeof SAVED_CLASS_PLANS !== 'undefined' && SAVED_CLASS_PLANS) {
+        plans = SAVED_CLASS_PLANS;
+      } else if (window.Desktop && typeof Desktop.readText === 'function') {
+        try {
+          const res = await Desktop.readText('classPlans', 'plans.js');
+          if (res && res.ok && res.content) {
+            const sandbox = {};
+            const fn = new Function('var SAVED_CLASS_PLANS; ' + res.content + '; return typeof SAVED_CLASS_PLANS !== "undefined" ? SAVED_CLASS_PLANS : (typeof classPlans !== "undefined" ? classPlans : {});');
+            plans = fn() || {};
+          }
+        } catch (_) {}
+      }
+      _conImportPlansCache = plans;
+      return plans;
+    }
+
+    function conRenderClassImportDropdowns(preferredClassId) {
+      const classes = _conImportClassesCache || [];
+      const banner = document.getElementById('con-imp-planner-banner');
+      const bannerText = document.getElementById('con-imp-planner-banner-text');
+      const bannerToggle = document.getElementById('con-imp-planner-banner-toggle');
+
+      const isFiltered = _conImportFilterToPlanner && _conImportPlannerClass;
+      if (banner) {
+        if (_conImportPlannerClass) {
+          banner.style.display = 'flex';
+          const tFn = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t.bind(i18n) : null;
+          if (bannerText) {
+            bannerText.textContent = isFiltered
+              ? (tFn ? tFn('conImportFilteredToPlanner', { class: _conImportPlannerClass.name }) : `Filtered to Planner slot class: ${_conImportPlannerClass.name}`)
+              : (tFn ? tFn('conImportShowingAllClasses', { class: _conImportPlannerClass.name }) : `Showing all classes (Planner slot is ${_conImportPlannerClass.name})`);
+          }
+          if (bannerToggle) {
+            bannerToggle.textContent = isFiltered
+              ? (tFn ? tFn('conImportBtnShowAll') : '[SHOW ALL CLASSES]')
+              : (tFn ? tFn('conImportBtnFilterPlanner') : '[FILTER TO PLANNER CLASS]');
+          }
+        } else {
+          banner.style.display = 'none';
+        }
+      }
+
+      const displayClasses = isFiltered ? [_conImportPlannerClass] : classes;
+
+      const rSel = document.getElementById('con-imp-roster-class-select');
+      const pSel = document.getElementById('con-imp-plan-class-select');
+      const tSel = document.getElementById('con-imp-teams-class-select');
+
+      const optionsHtml = displayClasses.length === 0
+        ? '<option value="">No classes found (check Group Editor)</option>'
+        : displayClasses.map(c => `<option value="${conEscHtml(c.id)}">${conEscHtml(c.name)} (${c.students.length} students)</option>`).join('');
+
+      if (rSel) rSel.innerHTML = optionsHtml;
+      if (pSel) pSel.innerHTML = optionsHtml;
+      if (tSel) tSel.innerHTML = optionsHtml;
+
+      // Sync name format dropdowns
+      ['con-imp-roster-name-format', 'con-imp-plan-name-format', 'con-imp-teams-name-format'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = _conImportNameDisplayMode;
+      });
+
+      const activeId = preferredClassId || (displayClasses.length > 0 ? displayClasses[0].id : '');
+      if (activeId) {
+        if (rSel) rSel.value = activeId;
+        if (pSel) pSel.value = activeId;
+        if (tSel) tSel.value = activeId;
+        conOnRosterClassSelect(activeId);
+        conOnPlanClassSelect(activeId);
+        conOnTeamsClassSelect(activeId);
+      }
+    }
+    window.conRenderClassImportDropdowns = conRenderClassImportDropdowns;
+
+    function conToggleClassImportPlannerFilter() {
+      _conImportFilterToPlanner = !_conImportFilterToPlanner;
+      window._conImportFilterToPlanner = _conImportFilterToPlanner;
+      const targetId = _conImportPlannerClass ? _conImportPlannerClass.id : '';
+      conRenderClassImportDropdowns(targetId);
+    }
+    window.conToggleClassImportPlannerFilter = conToggleClassImportPlannerFilter;
+
+    window.conOnNameFormatChange = function (mode) {
+      if (!['first', 'last', 'full', 'custom'].includes(mode)) mode = 'full';
+      _conImportNameDisplayMode = mode;
+      localStorage.setItem('cmt-gs-name-display', mode);
+      ['con-imp-roster-name-format', 'con-imp-plan-name-format', 'con-imp-teams-name-format'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el.value !== mode) el.value = mode;
+      });
+
+      // Instantly re-render current tab contents
+      const rSel = document.getElementById('con-imp-roster-class-select');
+      if (rSel && rSel.value) conOnRosterClassSelect(rSel.value);
+
+      const pSel = document.getElementById('con-imp-plan-select');
+      if (pSel && pSel.value) conOnPlanSelect(pSel.value);
+
+      const tSel = document.getElementById('con-imp-teams-class-select');
+      if (tSel && tSel.value) conOnTeamsClassSelect(tSel.value);
+    };
+
+    window.conOpenClassImportModal = async function () {
+      const modal = document.getElementById('con-class-import-overlay');
+      if (!modal) return;
+
+      _conImportClassesCache = null; // force fresh read
+      const classes = await _conGetClassList();
+
+      const savedNameMode = localStorage.getItem('cmt-gs-name-display') || (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' && CLASS_MANAGEMENT_CONFIG?.nameDisplayMode) || 'full';
+      if (['first', 'last', 'full', 'custom'].includes(savedNameMode)) {
+        _conImportNameDisplayMode = savedNameMode;
+      } else {
+        _conImportNameDisplayMode = 'full';
+      }
+
+      const associatedClass = await _conGetAssociatedPlannerClass();
+      let matchedClass = null;
+      if (associatedClass) {
+        matchedClass = classes.find(c =>
+          c.id === associatedClass ||
+          c.name === associatedClass ||
+          c.id.toLowerCase() === associatedClass.toLowerCase() ||
+          c.name.toLowerCase() === associatedClass.toLowerCase()
+        );
+      }
+
+      _conImportPlannerClass = matchedClass || null;
+      window._conImportPlannerClass = _conImportPlannerClass;
+      _conImportFilterToPlanner = !!matchedClass;
+      window._conImportFilterToPlanner = _conImportFilterToPlanner;
+
+      const defaultId = matchedClass ? matchedClass.id : (activeClassGroup || (classes.length > 0 ? classes[0].id : ''));
+      conRenderClassImportDropdowns(defaultId);
+
+      modal.style.display = 'flex';
+      conSwitchClassImportTab(_conImportActiveTab || 'roster');
+    };
+
+    window.conCloseClassImportModal = function () {
+      const modal = document.getElementById('con-class-import-overlay');
+      if (modal) modal.style.display = 'none';
+    };
+
+    window.conSwitchClassImportTab = function (tab) {
+      _conImportActiveTab = tab;
+      const tabRoster = document.getElementById('con-imp-tab-roster');
+      const tabPlan = document.getElementById('con-imp-tab-plan');
+      const tabTeams = document.getElementById('con-imp-tab-teams');
+
+      const pRoster = document.getElementById('con-imp-panel-roster');
+      const pPlan = document.getElementById('con-imp-panel-plan');
+      const pTeams = document.getElementById('con-imp-panel-teams');
+
+      if (tabRoster) {
+        tabRoster.style.background = tab === 'roster' ? '#000' : '#fff';
+        tabRoster.style.color = tab === 'roster' ? '#fff' : '#000';
+      }
+      if (tabPlan) {
+        tabPlan.style.background = tab === 'plan' ? '#000' : '#fff';
+        tabPlan.style.color = tab === 'plan' ? '#fff' : '#000';
+      }
+      if (tabTeams) {
+        tabTeams.style.background = tab === 'teams' ? '#000' : '#fff';
+        tabTeams.style.color = tab === 'teams' ? '#fff' : '#000';
+      }
+
+      if (pRoster) pRoster.style.display = tab === 'roster' ? 'flex' : 'none';
+      if (pPlan) pPlan.style.display = tab === 'plan' ? 'flex' : 'none';
+      if (pTeams) pTeams.style.display = tab === 'teams' ? 'flex' : 'none';
+
+      // Update footer actions
+      const ft = document.getElementById('con-imp-footer-actions');
+      if (!ft) return;
+      if (tab === 'roster') {
+        ft.innerHTML = `
+          <button type="button" class="action-btn btn-black" onclick="conClassImportExecuteRoster()" style="font-weight:900;background:#000;color:#fff;border:2px solid #000;box-shadow:3px 3px 0px #000;">
+            <img src="../assets/icons/plus.svg" class="btn-icon" style="filter:brightness(0) invert(1);" alt="" /> [IMPORT ROSTER TO BOARD]
+          </button>
+        `;
+      } else if (tab === 'plan') {
+        ft.innerHTML = `
+          <button type="button" class="action-btn btn-black" onclick="conClassImportExecutePlan()" style="font-weight:900;background:#000;color:#fff;border:2px solid #000;box-shadow:3px 3px 0px #000;">
+            <img src="../assets/icons/table.svg" class="btn-icon" style="filter:brightness(0) invert(1);" alt="" /> [IMPORT SEATING PLAN TO CANVAS]
+          </button>
+        `;
+      } else if (tab === 'teams') {
+        ft.innerHTML = `
+          <button type="button" class="action-btn btn-grey" onclick="conClassImportExecuteTeams('scoreboard')" style="font-weight:900;border:2px solid #000;">[SET ACTIVE TEAMS]</button>
+          <button type="button" class="action-btn btn-grey" onclick="conClassImportExecuteTeams('groups')" style="font-weight:900;border:2px solid #000;">[SPAWN TEAM GROUPS]</button>
+          <button type="button" class="action-btn btn-black" onclick="conClassImportExecuteTeams('both')" style="font-weight:900;background:#000;color:#fff;border:2px solid #000;box-shadow:3px 3px 0px #000;">[BOTH: GROUPS &amp; SCOREBOARD]</button>
+        `;
+      }
+    };
+
+    // --- Tab 1: Roster Methods ---
+    window.conOnRosterClassSelect = function (classId) {
+      const pSel = document.getElementById('con-imp-plan-class-select');
+      if (pSel && pSel.value !== classId) { pSel.value = classId; conOnPlanClassSelect(classId); }
+      const tSel = document.getElementById('con-imp-teams-class-select');
+      if (tSel && tSel.value !== classId) { tSel.value = classId; conOnTeamsClassSelect(classId); }
+      const classes = _conImportClassesCache || [];
+      const cls = classes.find(c => c.id === classId || c.name === classId);
+      const listEl = document.getElementById('con-imp-roster-students-list');
+      const countEl = document.getElementById('con-imp-roster-count');
+      if (!listEl) return;
+
+      if (!cls || !cls.students || cls.students.length === 0) {
+        listEl.innerHTML = '<span style="color:#888;font-size:0.82rem;font-style:italic;padding:8px;">No students enrolled in this class.</span>';
+        if (countEl) countEl.textContent = '0 students selected';
+        return;
+      }
+
+      listEl.innerHTML = cls.students.map((st, i) => {
+        const displayName = _conResolveStudentName(st.id || st, _conImportNameDisplayMode);
+        return `
+        <label style="display:inline-flex;align-items:center;gap:6px;background:#fff;border:1.5px solid #000;padding:4px 8px;border-radius:4px;font-size:0.8rem;font-weight:700;cursor:pointer;">
+          <input type="checkbox" class="con-imp-st-cb" value="${conEscHtml(displayName)}" data-id="${conEscHtml(st.id)}" checked onchange="conUpdateRosterSelectedCount()" />
+          <span>${conEscHtml(displayName)}</span>
+        </label>
+      `;
+      }).join('');
+
+      conUpdateRosterSelectedCount();
+    };
+
+    window.conUpdateRosterSelectedCount = function () {
+      const countEl = document.getElementById('con-imp-roster-count');
+      const cbs = document.querySelectorAll('.con-imp-st-cb:checked');
+      if (countEl) {
+        countEl.textContent = `${cbs.length} student${cbs.length === 1 ? '' : 's'} selected`;
+      }
+    };
+
+    window.conSelectAllRosterStudents = function (selectAll) {
+      document.querySelectorAll('.con-imp-st-cb').forEach(cb => {
+        cb.checked = !!selectAll;
+      });
+      conUpdateRosterSelectedCount();
+    };
+
+    window.conClassImportExecuteRoster = function () {
+      const rSel = document.getElementById('con-imp-roster-class-select');
+      const classId = rSel ? rSel.value : '';
+      const classes = _conImportClassesCache || [];
+      const cls = classes.find(c => c.id === classId || c.name === classId);
+      const className = cls ? cls.name : 'Class';
+
+      const selectedCbs = Array.from(document.querySelectorAll('.con-imp-st-cb:checked'));
+      const studentNames = selectedCbs.map(cb => cb.value.trim()).filter(Boolean);
+
+      if (studentNames.length === 0) {
+        if (typeof showToast === 'function') showToast('Please select at least one student to import.', true);
+        return;
+      }
+
+      const modeRadio = document.querySelector('input[name="con-imp-roster-target"]:checked');
+      const mode = modeRadio ? modeRadio.value : 'group';
+
+      if (mode === 'tray') {
+        if (typeof conImportTrayOpen === 'function') {
+          conImportTrayOpen(studentNames);
+        }
+        conCloseClassImportModal();
+        if (typeof showToast === 'function') showToast(`Added ${studentNames.length} students to staging tray.`);
+        return;
+      }
+
+      if (typeof conPushUndo === 'function') conPushUndo();
+      else if (typeof window.conPushUndo === 'function') window.conPushUndo();
+
+      const brd = (typeof board === 'function') ? board() : (window.conGetBoard ? window.conGetBoard() : document.getElementById('constellation-board'));
+      const startX = brd ? Math.round(brd.scrollLeft + Math.max(40, (brd.clientWidth / 2) - 340)) : 100;
+      const startY = brd ? Math.round(brd.scrollTop + Math.max(40, (brd.clientHeight / 2) - 180)) : 100;
+
+      if (mode === 'note') {
+        const text = `## ${className} Roster (${studentNames.length} Students)\n\n` +
+          studentNames.map(s => `- [ ] ${s}`).join('\n');
+        if (typeof conNoteAdd === 'function') {
+          conNoteAdd(startX, startY, text);
+        } else if (typeof window.conNoteAdd === 'function') {
+          window.conNoteAdd(startX, startY, text);
+        }
+        conCloseClassImportModal();
+        if (typeof showToast === 'function') showToast(`Created roster note card for ${className}.`);
+        return;
+      }
+
+      // mode === 'group'
+      const nodeIds = [];
+      const count = studentNames.length;
+      let cols = 4;
+      if (count <= 4) cols = Math.max(2, count);
+      else if (count <= 12) cols = 4;
+      else if (count <= 20) cols = 5;
+      else cols = 6;
+
+      const COL_W = 180;
+      const ROW_H = 60;
+      const startGridX = startX + 24;
+      const startGridY = startY + 24;
+
+      const addWordFn = (typeof conAddWordAt === 'function') ? conAddWordAt : (window.conAddWordAt || null);
+      const groupCreateFn = (typeof conGroupCreate === 'function') ? conGroupCreate : (window.conGroupCreate || null);
+      const groupRefitFn = (typeof conGroupRefit === 'function') ? conGroupRefit : (window.conGroupRefit || null);
+      const groupStyleFn = (typeof conGroupApplyStyle === 'function') ? conGroupApplyStyle : (window.conGroupApplyStyle || null);
+
+      if (!addWordFn) {
+        if (typeof showToast === 'function') showToast('Board node creator is not ready.', true);
+        return;
+      }
+
+      studentNames.forEach((name, i) => {
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        const nx = startGridX + (col * COL_W);
+        const ny = startGridY + (row * ROW_H);
+        const nid = addWordFn(name, nx, ny);
+        if (nid) {
+          nodeIds.push(nid);
+          const allNodes = (typeof conNodes !== 'undefined') ? conNodes : (window.conGetNodes ? window.conGetNodes() : []);
+          const nodeObj = allNodes.find(n => n && n.id === nid);
+          if (nodeObj && brd) {
+            const zoom = (typeof conCurrentZoom !== 'undefined' && conCurrentZoom) ? conCurrentZoom : (window.conCurrentZoom || 1);
+            const bcx = brd.clientWidth / 2, bcy = brd.clientHeight / 2;
+            nodeObj.baseX = bcx + (nodeObj.x - bcx) / zoom;
+            nodeObj.baseY = bcy + (nodeObj.y - bcy) / zoom;
+          }
+        }
+      });
+
+      if (nodeIds.length > 0 && groupCreateFn) {
+        const group = groupCreateFn(nodeIds, startX, startY);
+        if (group) {
+          group.title = `${className} — Roster`;
+          if (groupRefitFn) groupRefitFn(group);
+          if (groupStyleFn) groupStyleFn(group);
+        }
+      }
+      if (typeof conSelect === 'function') conSelect(null);
+      else if (typeof window.conSelect === 'function') window.conSelect(null);
+
+      conCloseClassImportModal();
+      if (typeof showToast === 'function') showToast(`Imported ${studentNames.length} students inside class group on board.`);
+    };
+
+    // --- Tab 2: Seating Plan Methods ---
+    window.conOnPlanClassSelect = async function (classId) {
+      const rSel = document.getElementById('con-imp-roster-class-select');
+      if (rSel && rSel.value !== classId) { rSel.value = classId; conOnRosterClassSelect(classId); }
+      const tSel = document.getElementById('con-imp-teams-class-select');
+      if (tSel && tSel.value !== classId) { tSel.value = classId; conOnTeamsClassSelect(classId); }
+      const classes = _conImportClassesCache || [];
+      const cls = classes.find(c => c.id === classId || c.name === classId);
+      const className = cls ? cls.name : classId;
+
+      const pSel = document.getElementById('con-imp-plan-select');
+      if (!pSel) return;
+
+      const allPlans = await _conLoadClassPlans();
+      const plansForClass = (allPlans && (allPlans[className] || allPlans[classId])) || [];
+
+      if (!Array.isArray(plansForClass) || plansForClass.length === 0) {
+        pSel.innerHTML = '<option value="">No saved seating plans for this class</option>';
+        conOnPlanSelect('');
+        return;
+      }
+
+      pSel.innerHTML = plansForClass.map((p, idx) => `
+        <option value="${conEscHtml(p.id || String(idx))}">${conEscHtml(p.name || ('Plan ' + (idx + 1)))}${p.roomNumber ? ' (Room ' + conEscHtml(p.roomNumber) + ')' : ''}</option>
+      `).join('');
+
+      conOnPlanSelect(pSel.value);
+    };
+
+    window.conOnPlanSelect = async function (planId) {
+      const previewBox = document.getElementById('con-imp-plan-preview-box');
+      if (!previewBox) return;
+
+      if (!planId) {
+        previewBox.innerHTML = '<span style="color:#888;font-style:italic;">No seating plan selected. You can create seating plans in Class Plan tool.</span>';
+        return;
+      }
+
+      const pClassSel = document.getElementById('con-imp-plan-class-select');
+      const classId = pClassSel ? pClassSel.value : '';
+      const classes = _conImportClassesCache || [];
+      const cls = classes.find(c => c.id === classId || c.name === classId);
+      const className = cls ? cls.name : classId;
+
+      const allPlans = await _conLoadClassPlans();
+      const plansForClass = (allPlans && (allPlans[className] || allPlans[classId])) || [];
+      const plan = plansForClass.find((p, idx) => (p.id || String(idx)) === planId);
+
+      if (!plan) {
+        previewBox.innerHTML = '<span style="color:#888;font-style:italic;">Plan details not found.</span>';
+        return;
+      }
+
+      const seats = Array.isArray(plan.seats) ? plan.seats : [];
+      const assignedCount = seats.filter(s => s && (s.studentName || s.studentId)).length;
+      const layoutType = plan.layoutType || (plan.rows && plan.cols ? 'Grid' : 'Custom');
+
+      previewBox.innerHTML = `
+        <div style="font-weight:800;font-size:0.92rem;margin-bottom:4px;color:#0f172a;">${conEscHtml(plan.name || 'Seating Plan')}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:0.8rem;color:#475569;">
+          <span><strong>Room:</strong> ${conEscHtml(plan.roomNumber || 'Default')}</span>
+          <span><strong>Layout:</strong> ${conEscHtml(layoutType)}</span>
+          <span><strong>Desks:</strong> ${seats.length || (plan.rows * plan.cols) || 0}</span>
+          <span><strong>Assigned Students:</strong> ${assignedCount}</span>
+        </div>
+      `;
+    };
+
+    window.conClassImportExecutePlan = async function () {
+      const pClassSel = document.getElementById('con-imp-plan-class-select');
+      const classId = pClassSel ? pClassSel.value : '';
+      const classes = _conImportClassesCache || [];
+      const cls = classes.find(c => c.id === classId || c.name === classId);
+      const className = cls ? cls.name : classId;
+
+      const pSel = document.getElementById('con-imp-plan-select');
+      const planId = pSel ? pSel.value : '';
+      if (!planId) {
+        if (typeof showToast === 'function') showToast('Please select a valid seating plan.', true);
+        return;
+      }
+
+      const allPlans = await _conLoadClassPlans();
+      const plansForClass = (allPlans && (allPlans[className] || allPlans[classId])) || [];
+      const plan = plansForClass.find((p, idx) => (p.id || String(idx)) === planId);
+      if (!plan) return;
+
+      if (typeof conPushUndo === 'function') conPushUndo();
+      else if (typeof window.conPushUndo === 'function') window.conPushUndo();
+
+      const brd = (typeof board === 'function') ? board() : (window.conGetBoard ? window.conGetBoard() : document.getElementById('constellation-board'));
+      const startX = brd ? Math.round(brd.scrollLeft + Math.max(40, (brd.clientWidth / 2) - 360)) : 100;
+      const startY = brd ? Math.round(brd.scrollTop + Math.max(40, (brd.clientHeight / 2) - 220)) : 100;
+
+      const wrapInGroup = document.getElementById('con-imp-plan-opt-group')?.checked ?? true;
+      const placeNames = document.getElementById('con-imp-plan-opt-names')?.checked ?? true;
+
+      const addWordFn = (typeof conAddWordAt === 'function') ? conAddWordAt : (window.conAddWordAt || null);
+      const groupCreateFn = (typeof conGroupCreate === 'function') ? conGroupCreate : (window.conGroupCreate || null);
+      const groupRefitFn = (typeof conGroupRefit === 'function') ? conGroupRefit : (window.conGroupRefit || null);
+      const groupStyleFn = (typeof conGroupApplyStyle === 'function') ? conGroupApplyStyle : (window.conGroupApplyStyle || null);
+
+      if (!addWordFn) {
+        if (typeof showToast === 'function') showToast('Board node creator is not ready.', true);
+        return;
+      }
+
+      const layoutType = String(plan.layoutType || (plan.rows && plan.cols ? 'grid' : 'grid')).toLowerCase();
+      const deskItems = [];
+
+      // Map existing assigned seats by seatId
+      const seatMap = new Map();
+      if (Array.isArray(plan.seats)) {
+        plan.seats.forEach(s => {
+          if (!s) return;
+          if (s.seatId) seatMap.set(String(s.seatId), s);
+          if (s.row !== undefined && s.col !== undefined) {
+            seatMap.set(`${s.row}:${s.col}`, s);
+          }
+        });
+      }
+
+      if (layoutType === 'ushape') {
+        const w = Math.max(3, Number(plan.uWidth) || 6);
+        const d = Math.max(1, Number(plan.uDepth) || 3);
+        const COL_GAP = 180;
+        const ROW_GAP = 60;
+        let deskCounter = 1;
+
+        // Top row (c from 0 to w - 1)
+        for (let c = 0; c < w; c++) {
+          const seatId = `top:${c}`;
+          const seat = seatMap.get(seatId);
+          deskItems.push({
+            seatId,
+            seat,
+            defaultLabel: (seat && seat.deskName) || `Desk ${deskCounter++}`,
+            x: startX + 24 + c * COL_GAP,
+            y: startY + 24
+          });
+        }
+
+        // Left and Right arms (r from 1 to d)
+        for (let r = 1; r <= d; r++) {
+          const leftSeatId = `left:${r}`;
+          const leftSeat = seatMap.get(leftSeatId);
+          deskItems.push({
+            seatId: leftSeatId,
+            seat: leftSeat,
+            defaultLabel: (leftSeat && leftSeat.deskName) || `Desk ${deskCounter++}`,
+            x: startX + 24,
+            y: startY + 24 + r * ROW_GAP
+          });
+
+          const rightSeatId = `right:${r}`;
+          const rightSeat = seatMap.get(rightSeatId);
+          deskItems.push({
+            seatId: rightSeatId,
+            seat: rightSeat,
+            defaultLabel: (rightSeat && rightSeat.deskName) || `Desk ${deskCounter++}`,
+            x: startX + 24 + (w - 1) * COL_GAP,
+            y: startY + 24 + r * ROW_GAP
+          });
+        }
+      } else if (layoutType === 'pods') {
+        const roomRows = Math.max(1, Number(plan.roomRows) || 2);
+        const roomCols = Math.max(1, Number(plan.roomCols) || 3);
+        const podRows = Math.max(1, Number(plan.podRows) || 2);
+        const podCols = Math.max(1, Number(plan.podCols) || 3);
+        const DESK_W = 160;
+        const DESK_H = 55;
+        const POD_GAP_X = 60;
+        const POD_GAP_Y = 50;
+        const POD_BLOCK_W = podCols * DESK_W;
+        const POD_BLOCK_H = podRows * DESK_H;
+        let deskCounter = 1;
+
+        for (let pr = 0; pr < roomRows; pr++) {
+          for (let pc = 0; pc < roomCols; pc++) {
+            for (let r = 0; r < podRows; r++) {
+              for (let c = 0; c < podCols; c++) {
+                const seatId = `${pr}:${pc}:${r}:${c}`;
+                const seat = seatMap.get(seatId);
+                deskItems.push({
+                  seatId,
+                  seat,
+                  defaultLabel: (seat && seat.deskName) || `Desk ${deskCounter++}`,
+                  x: startX + 24 + pc * (POD_BLOCK_W + POD_GAP_X) + c * DESK_W,
+                  y: startY + 24 + pr * (POD_BLOCK_H + POD_GAP_Y) + r * DESK_H
+                });
+              }
+            }
+          }
+        }
+      } else {
+        // Default: Grid layout
+        const rows = Math.max(1, Number(plan.rows) || 4);
+        const cols = Math.max(1, Number(plan.cols) || 5);
+        const COL_GAP = 180;
+        const ROW_GAP = 60;
+        let deskCounter = 1;
+
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const seatId = `${r}:${c}`;
+            const seat = seatMap.get(seatId);
+            deskItems.push({
+              seatId,
+              seat,
+              defaultLabel: (seat && seat.deskName) || `Desk ${deskCounter++}`,
+              x: startX + 24 + c * COL_GAP,
+              y: startY + 24 + r * ROW_GAP
+            });
+          }
+        }
+      }
+
+      // Fallback: If layout generated 0 desks but seats array has entries
+      if (deskItems.length === 0 && Array.isArray(plan.seats) && plan.seats.length > 0) {
+        const cols = 5;
+        const COL_GAP = 180;
+        const ROW_GAP = 60;
+        plan.seats.forEach((seat, idx) => {
+          if (!seat) return;
+          let dx = startX + 24 + (idx % cols) * COL_GAP;
+          let dy = startY + 24 + Math.floor(idx / cols) * ROW_GAP;
+          if (seat.x !== undefined && seat.y !== undefined) {
+            dx = startX + 24 + seat.x;
+            dy = startY + 24 + seat.y;
+          } else if (seat.col !== undefined && seat.row !== undefined) {
+            dx = startX + 24 + seat.col * COL_GAP;
+            dy = startY + 24 + seat.row * ROW_GAP;
+          }
+          deskItems.push({
+            seatId: seat.seatId || String(idx),
+            seat,
+            defaultLabel: seat.deskName || `Desk ${idx + 1}`,
+            x: dx,
+            y: dy
+          });
+        });
+      }
+
+      const nodeIds = [];
+      deskItems.forEach((item, idx) => {
+        const seat = item.seat;
+        let studentName = (seat ? (seat.studentName || seat.name || '') : '').trim();
+        if (seat && seat.studentId) {
+          studentName = _conResolveStudentName(seat.studentId, _conImportNameDisplayMode) || studentName;
+        } else if (studentName) {
+          studentName = _conResolveStudentName(studentName, _conImportNameDisplayMode) || studentName;
+        }
+
+        let label = '';
+        if (placeNames && studentName) {
+          label = studentName;
+        } else {
+          label = item.defaultLabel || `Desk ${idx + 1}`;
+        }
+
+        const nid = addWordFn(label, item.x, item.y);
+        if (nid) {
+          nodeIds.push(nid);
+          const allNodes = (typeof conNodes !== 'undefined') ? conNodes : (window.conGetNodes ? window.conGetNodes() : []);
+          const nodeObj = allNodes.find(n => n && n.id === nid);
+          if (nodeObj && brd) {
+            const zoom = (typeof conCurrentZoom !== 'undefined' && conCurrentZoom) ? conCurrentZoom : (window.conCurrentZoom || 1);
+            const bcx = brd.clientWidth / 2, bcy = brd.clientHeight / 2;
+            nodeObj.baseX = bcx + (nodeObj.x - bcx) / zoom;
+            nodeObj.baseY = bcy + (nodeObj.y - bcy) / zoom;
+          }
+        }
+      });
+
+      if (wrapInGroup && nodeIds.length > 0 && groupCreateFn) {
+        const group = groupCreateFn(nodeIds, startX, startY);
+        if (group) {
+          group.title = `${className} — ${plan.name || 'Seating Plan'}${plan.roomNumber ? ' (Room ' + plan.roomNumber + ')' : ''}`;
+          if (groupRefitFn) groupRefitFn(group);
+          if (groupStyleFn) groupStyleFn(group);
+        }
+      }
+      if (typeof conSelect === 'function') conSelect(null);
+      else if (typeof window.conSelect === 'function') window.conSelect(null);
+
+      conCloseClassImportModal();
+      if (typeof showToast === 'function') showToast(`Imported seating plan "${plan.name || 'Plan'}" onto canvas.`);
+    };
+
+    // --- Tab 3: Teams Methods ---
+    window.conOnTeamsClassSelect = function (classId) {
+      const rSel = document.getElementById('con-imp-roster-class-select');
+      if (rSel && rSel.value !== classId) { rSel.value = classId; conOnRosterClassSelect(classId); }
+      const pSel = document.getElementById('con-imp-plan-class-select');
+      if (pSel && pSel.value !== classId) { pSel.value = classId; conOnPlanClassSelect(classId); }
+      conOnTeamsModeChange(document.querySelector('input[name="con-imp-teams-mode"]:checked')?.value || 'saved');
+    };
+
+    window.conOnTeamsModeChange = function (mode) {
+      const isSaved = mode === 'saved';
+      const savedRow = document.getElementById('con-imp-teams-saved-row');
+      const randomRow = document.getElementById('con-imp-teams-random-row');
+      if (savedRow) savedRow.style.display = isSaved ? 'flex' : 'none';
+      if (randomRow) randomRow.style.display = isSaved ? 'none' : 'flex';
+
+      const tClassSel = document.getElementById('con-imp-teams-class-select');
+      const classId = tClassSel ? tClassSel.value : '';
+      const classes = _conImportClassesCache || [];
+      const cls = classes.find(c => c.id === classId || c.name === classId);
+      const className = cls ? cls.name : classId;
+
+      if (isSaved) {
+        const allSaved = JSON.parse(localStorage.getItem('cms-saved-teams') || '{}');
+        const setups = allSaved[className] || allSaved[classId] || {};
+        const titles = Object.keys(setups);
+        const setupSel = document.getElementById('con-imp-teams-setup-select');
+        if (setupSel) {
+          if (titles.length === 0) {
+            setupSel.innerHTML = '<option value="">No saved setups for this class</option>';
+          } else {
+            setupSel.innerHTML = titles.map(t => `<option value="${conEscHtml(t)}">${conEscHtml(t)}</option>`).join('');
+          }
+        }
+        conOnTeamsSetupSelect(setupSel ? setupSel.value : '');
+      } else {
+        conReshuffleRandomTeams();
+      }
+    };
+
+    window.conOnTeamsSetupSelect = function (setupTitle) {
+      const previewBox = document.getElementById('con-imp-teams-preview-box');
+      if (!previewBox) return;
+
+      const tClassSel = document.getElementById('con-imp-teams-class-select');
+      const classId = tClassSel ? tClassSel.value : '';
+      const classes = _conImportClassesCache || [];
+      const cls = classes.find(c => c.id === classId || c.name === classId);
+      const className = cls ? cls.name : classId;
+
+      const allSaved = JSON.parse(localStorage.getItem('cms-saved-teams') || '{}');
+      const setups = allSaved[className] || allSaved[classId] || {};
+      const setup = setups[setupTitle];
+
+      if (!setup || !setup.assignments) {
+        previewBox.innerHTML = '<span style="color:#888;font-style:italic;">No team setup selected. Switch to Random Balanced Teams to generate on the fly.</span>';
+        return;
+      }
+
+      // Group assignments by team
+      const byTeam = {};
+      Object.entries(setup.assignments).forEach(([stName, tId]) => {
+        const tKey = String(tId);
+        if (!byTeam[tKey]) byTeam[tKey] = [];
+        byTeam[tKey].push(_conResolveStudentName(stName, _conImportNameDisplayMode) || stName);
+      });
+
+      const teamNames = ['Team Blue', 'Team Red', 'Team Green', 'Team Yellow', 'Team Purple', 'Team Orange'];
+      previewBox.innerHTML = Object.entries(byTeam).map(([tId, members], idx) => {
+        const name = (setup.teams && setup.teams[tId] && setup.teams[tId].name) || teamNames[idx % teamNames.length] || `Team ${Number(tId) + 1}`;
+        return `
+          <div style="background:#fff;border:1.5px solid #000;border-radius:4px;padding:6px 10px;">
+            <div style="font-weight:800;font-size:0.85rem;color:#0f172a;margin-bottom:3px;">${conEscHtml(name)} (${members.length} members)</div>
+            <div style="font-size:0.78rem;color:#475569;">${members.map(conEscHtml).join(', ')}</div>
+          </div>
+        `;
+      }).join('');
+    };
+
+    window.conOnTeamsCountSelect = function () {
+      conReshuffleRandomTeams();
+    };
+
+    window.conReshuffleRandomTeams = function () {
+      const tClassSel = document.getElementById('con-imp-teams-class-select');
+      const classId = tClassSel ? tClassSel.value : '';
+      const classes = _conImportClassesCache || [];
+      const cls = classes.find(c => c.id === classId || c.name === classId);
+      const students = cls && Array.isArray(cls.students) ? cls.students.map(s => _conResolveStudentName(s.id || s, _conImportNameDisplayMode)) : [];
+
+      const countSel = document.getElementById('con-imp-teams-count-select');
+      const k = countSel ? Math.max(2, Number(countSel.value) || 4) : 4;
+
+      // Shuffle students
+      const shuffled = students.slice().sort(() => Math.random() - 0.5);
+      const teamsArr = [];
+      const defaultNames = ['Team Blue', 'Team Red', 'Team Green', 'Team Yellow', 'Team Purple', 'Team Orange'];
+
+      for (let i = 0; i < k; i++) {
+        teamsArr.push({
+          name: defaultNames[i % defaultNames.length] || `Team ${i + 1}`,
+          members: []
+        });
+      }
+
+      shuffled.forEach((name, idx) => {
+        teamsArr[idx % k].members.push(name);
+      });
+
+      _conImportRandomTeams = teamsArr;
+
+      const previewBox = document.getElementById('con-imp-teams-preview-box');
+      if (!previewBox) return;
+
+      previewBox.innerHTML = teamsArr.map((t, idx) => `
+        <div style="background:#fff;border:1.5px solid #000;border-radius:4px;padding:6px 10px;">
+          <div style="font-weight:800;font-size:0.85rem;color:#0f172a;margin-bottom:3px;">${conEscHtml(t.name)} (${t.members.length} members)</div>
+          <div style="font-size:0.78rem;color:#475569;">${t.members.map(conEscHtml).join(', ')}</div>
+        </div>
+      `).join('');
+    };
+
+    function _conGetActiveTeamsForImport() {
+      const mode = document.querySelector('input[name="con-imp-teams-mode"]:checked')?.value || 'saved';
+      if (mode === 'random') {
+        if (!_conImportRandomTeams || _conImportRandomTeams.length === 0) {
+          conReshuffleRandomTeams();
+        }
+        return _conImportRandomTeams || [];
+      }
+
+      const tClassSel = document.getElementById('con-imp-teams-class-select');
+      const classId = tClassSel ? tClassSel.value : '';
+      const classes = _conImportClassesCache || [];
+      const cls = classes.find(c => c.id === classId || c.name === classId);
+      const className = cls ? cls.name : classId;
+
+      const setupTitle = document.getElementById('con-imp-teams-setup-select')?.value || '';
+      const allSaved = JSON.parse(localStorage.getItem('cms-saved-teams') || '{}');
+      const setups = allSaved[className] || allSaved[classId] || {};
+      const setup = setups[setupTitle];
+
+      if (!setup || !setup.assignments) return [];
+
+      const byTeam = {};
+      Object.entries(setup.assignments).forEach(([stName, tId]) => {
+        const tKey = String(tId);
+        if (!byTeam[tKey]) byTeam[tKey] = [];
+        byTeam[tKey].push(_conResolveStudentName(stName, _conImportNameDisplayMode) || stName);
+      });
+
+      const teamNames = ['Team Blue', 'Team Red', 'Team Green', 'Team Yellow', 'Team Purple', 'Team Orange'];
+      return Object.entries(byTeam).map(([tId, members], idx) => ({
+        name: (setup.teams && setup.teams[tId] && setup.teams[tId].name) || teamNames[idx % teamNames.length] || `Team ${Number(tId) + 1}`,
+        members
+      }));
+    }
+
+    window.conClassImportExecuteTeams = function (action) {
+      const teamList = _conGetActiveTeamsForImport();
+      if (!teamList || teamList.length === 0) {
+        if (typeof showToast === 'function') showToast('No teams configured to import.', true);
+        return;
+      }
+
+      if (action === 'groups' || action === 'both') {
+        if (typeof conPushUndo === 'function') conPushUndo();
+        const brd = (typeof board === 'function') ? board() : document.getElementById('constellation-board');
+        const startX = brd ? Math.round(brd.scrollLeft + Math.max(40, (brd.clientWidth / 2) - 400)) : 100;
+        const startY = brd ? Math.round(brd.scrollTop + Math.max(40, (brd.clientHeight / 2) - 250)) : 100;
+
+        const addWordFn = (typeof conAddWordAt === 'function') ? conAddWordAt : (window.conAddWordAt || null);
+        const groupCreateFn = (typeof conGroupCreate === 'function') ? conGroupCreate : (window.conGroupCreate || null);
+        const groupRefitFn = (typeof conGroupRefit === 'function') ? conGroupRefit : (window.conGroupRefit || null);
+        const groupStyleFn = (typeof conGroupApplyStyle === 'function') ? conGroupApplyStyle : (window.conGroupApplyStyle || null);
+
+        teamList.forEach((team, tIdx) => {
+          const teamX = startX + (tIdx % 2) * 380;
+          const teamY = startY + Math.floor(tIdx / 2) * 260;
+          const memberNodeIds = [];
+
+          team.members.forEach((m, mIdx) => {
+            const mx = teamX + (mIdx % 2) * 160;
+            const my = teamY + Math.floor(mIdx / 2) * 50;
+            if (addWordFn) {
+              const nid = addWordFn(m, mx, my);
+              if (nid) {
+                memberNodeIds.push(nid);
+                if (typeof conNodes !== 'undefined' && conNodes[nid]) {
+                  conNodes[nid].baseX = mx;
+                  conNodes[nid].baseY = my;
+                }
+              }
+            }
+          });
+
+          if (memberNodeIds.length > 0 && groupCreateFn) {
+            const grp = groupCreateFn(memberNodeIds, teamX, teamY);
+            if (grp) {
+              grp.title = team.name;
+              grp.paletteIdx = (tIdx % 8);
+              if (groupRefitFn) groupRefitFn(grp);
+              if (groupStyleFn) groupStyleFn(grp);
+            }
+          }
+        });
+
+        if (typeof conDeselectAll === 'function') {
+          conDeselectAll();
+        }
+      }
+
+      if (action === 'scoreboard' || action === 'both') {
+        if (typeof teams !== 'undefined') {
+          teams = teamList.map(t => ({
+            name: t.name,
+            score: 0,
+            members: t.members
+          }));
+          currentTeamIdx = 0;
+          if (typeof renderMainScoreboard === 'function') {
+            renderMainScoreboard();
+          }
+        }
+      }
+
+      conCloseClassImportModal();
+      if (typeof showToast === 'function') {
+        if (action === 'both') showToast(`Spawned ${teamList.length} team groups on canvas & active scoreboard.`);
+        else if (action === 'groups') showToast(`Spawned ${teamList.length} team groups on canvas.`);
+        else showToast(`Applied ${teamList.length} teams to Board scoreboard.`);
+      }
+    };
+
+    function conEscHtml(str) {
+      return String(str ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
 
     // Auto-listen to global link changes
     window.addEventListener('cmt-links-changed', () => {
