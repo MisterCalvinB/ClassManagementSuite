@@ -256,6 +256,37 @@
     return _loadPromise;
   }
 
+  var _diskSavePromise = null;
+  var _diskSaveScheduled = false;
+
+  async function _flushRegistryToDisk() {
+    if (_diskSavePromise) {
+      _diskSaveScheduled = true;
+      return _diskSavePromise;
+    }
+    _diskSavePromise = (async function() {
+      try {
+        do {
+          _diskSaveScheduled = false;
+          var snapshot = _registryCache;
+          if (typeof window !== 'undefined' && window.Desktop && typeof Desktop.saveJson === 'function') {
+            try {
+              var res = await Desktop.saveJson(FILE_TARGET, FILE_NAME, snapshot);
+              if (!res || !res.ok) {
+                console.warn('LinksService: Desktop.saveJson returned not ok:', res);
+              }
+            } catch (saveErr) {
+              console.error('LinksService: Error saving links-registry.json:', saveErr);
+            }
+          }
+        } while (_diskSaveScheduled);
+      } finally {
+        _diskSavePromise = null;
+      }
+    })();
+    return _diskSavePromise;
+  }
+
   async function saveRegistry(reg) {
     if (!reg || typeof reg !== 'object') return false;
     reg.updatedAt = Date.now();
@@ -268,17 +299,8 @@
       } catch (_) {}
     }
 
-    // 2. Save to Electron filesystem
-    var savedOk = true;
-    if (typeof window !== 'undefined' && window.Desktop && typeof Desktop.saveJson === 'function') {
-      try {
-        var res = await Desktop.saveJson(FILE_TARGET, FILE_NAME, reg);
-        savedOk = !!(res && res.ok);
-      } catch (e) {
-        console.error('LinksService: Error saving links-registry.json:', e);
-        savedOk = false;
-      }
-    }
+    // 2. Coalesced save to Electron filesystem
+    await _flushRegistryToDisk();
 
     // 3. Broadcast sync message
     if (_channel) {
@@ -294,7 +316,7 @@
       window.dispatchEvent(new CustomEvent('cmt-links-changed', { detail: { action: 'sync', updatedAt: reg.updatedAt } }));
     }
 
-    return savedOk;
+    return true;
   }
 
   // ── 3. Entity Metadata Registry ─────────────────────────────────────────────

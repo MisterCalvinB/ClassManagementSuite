@@ -1615,16 +1615,17 @@
 
     function normalizeObservationKind(kind) {
       const v = String(kind || "").trim().toLowerCase();
-      if (v === "toremedy" || v === "to_remedy" || v === "to-remedy") return "toRemedy";
       if (v === "goodpoints" || v === "good_points" || v === "good-points") return "goodPoints";
       if (v === "goodelements" || v === "good_elements" || v === "good-elements") return "goodPoints";
+      if (v === "toremedy" || v === "to_remedy" || v === "to-remedy") return "toRemedy";
       return "";
     }
 
     function defaultObservationSections() {
       return [
-        { kind: "toRemedy", label: "To remedy", text: "", checklist: [] },
-        { kind: "goodPoints", label: "Good points", text: "", checklist: [] }
+        { kind: "goodPoints", label: "Good points", text: "", checklist: [] },
+        { kind: "toRemedy", label: "To remedy", text: "", checklist: [] }
+        
       ];
     }
 
@@ -1794,6 +1795,18 @@
     let _testHeaderMenuCtx = null;
     let _summaryStudentMenuCtx = null;
     let _toptRebuildCriteriaList = null;
+    let _toptUpdateLiveGradePreview = null;
+
+    function updateLiveGradePreview() {
+      if (typeof _toptUpdateLiveGradePreview === 'function') {
+        try {
+          _toptUpdateLiveGradePreview();
+        } catch (e) {
+          console.warn('[GradeSheet] updateLiveGradePreview error:', e);
+        }
+      }
+    }
+    window.updateLiveGradePreview = updateLiveGradePreview;
 
     function uid() {
       return "id-" + Math.random().toString(36).slice(2, 11);
@@ -2327,8 +2340,8 @@
         const color = getStopColorForPts(currentPts, ratio);
         const key = nearestCriterionGradeKey(resolved, null, currentPts, safeMin, safeMax);
         stops.push({
-          key: fmt(currentPts),
-          label: fmt(currentPts),
+          key: fmtN(currentPts),
+          label: fmtN(currentPts),
           gradeKey: key,
           value: currentPts,
           color,
@@ -2341,8 +2354,8 @@
         const color = getStopColorForPts(safeMax, 1.0);
         const key = nearestCriterionGradeKey(resolved, null, safeMax, safeMin, safeMax);
         stops.push({
-          key: fmt(safeMax),
-          label: fmt(safeMax),
+          key: fmtN(safeMax),
+          label: fmtN(safeMax),
           gradeKey: key,
           value: safeMax,
           color,
@@ -5023,6 +5036,19 @@
       };
     }
 
+    function isTdGradeDisplayEmpty(tdDelta, currentGradeHint) {
+      if (tdDelta) {
+        const row = tdDelta.closest ? tdDelta.closest("tr") : tdDelta.parentElement;
+        const gradeEl = row ? (row.querySelector(".td-grade-display") || (row.cells && row.cells[3])) : null;
+        if (gradeEl) {
+          const txt = gradeEl.textContent.trim();
+          if (txt === "" || txt === "—" || txt === "-") return true;
+          if (asGrade(txt) != null) return false;
+        }
+      }
+      return currentGradeHint == null || currentGradeHint === "" || asGrade(currentGradeHint) == null;
+    }
+
     function updateNextGradeDeltaCell(tdDelta, config, totals, currentGradeHint) {
       tdDelta.textContent = "—";
       tdDelta.style.backgroundColor = "";
@@ -5030,6 +5056,8 @@
       tdDelta.title = "";
 
       if (!config || totals.totalPossible <= 0) return;
+      if (isTdGradeDisplayEmpty(tdDelta, currentGradeHint)) return;
+
       const scored = (totals.totalScored || 0) + (totals.totalBonusScored || 0);
       const deltaInfo = getNextGradeDelta(scored, totals.totalPossible, config, currentGradeHint);
       if (!deltaInfo) return;
@@ -7641,7 +7669,7 @@
       const thresholdText = thresholds.map(t => {
         const pct = fmt(t.ratio * 100);
         if (totalPossible > 0) {
-          const pts = fmt(t.ratio * totalPossible);
+          const pts = fmtN(t.ratio * totalPossible);
           return `${t.grade}=${pct}% (${pts} pts)`;
         }
         return `${t.grade}=${pct}%`;
@@ -7708,7 +7736,7 @@
         return `${fmtN(t.grade)}≥${fmtN(parseFloat(pts.toFixed(2)))}pts`;
       }).join(" · ");
       const bonusAvail = defaultTotal.totalBonusPossible && defaultTotal.totalBonusPossible > 0 ? ` <span style="color:var(--muted);font-size:0.9em;margin-left:0.5rem;">${tFmt('gsBonusAvailableLabel', { pts: fmtN(defaultTotal.totalBonusPossible) })}</span>` : "";
-      infoSpan.innerHTML = `${tFmt('gsTotalPointsLabel', { pts: fmt(totalPts) })} <span style="color:var(--muted);font-size:0.8em;margin-left:0.5em;">${scaleStr}</span>${bonusAvail}`;
+      infoSpan.innerHTML = `${tFmt('gsTotalPointsLabel', { pts: fmtN(totalPts) })} <span style="color:var(--muted);font-size:0.8em;margin-left:0.5em;">${scaleStr}</span>${bonusAvail}`;
       configWrap.appendChild(infoSpan);
 
       const thead = document.querySelector("#test-table thead");
@@ -7730,12 +7758,12 @@
 
       config.criteria.forEach((criterion) => {
         const thPts = document.createElement("th");
-        thPts.classList.add("td-pts");
+        thPts.classList.add("td-pts", "th-criterion");
 
         const label = document.createElement("div");
         label.className = "th-label";
         label.style.cursor = "pointer";
-        label.title = t('gsClickEditCriterion');
+        label.title = `${criterion.name} (${t('gsClickEditCriterion')})`;
         const minBadge = criterion.minPoints != null && criterion.minPoints !== 0 ? `min ${criterion.minPoints}, ` : '';
         const effCompIds = getCriterionEffectiveCompetenceIds(criterion, classObj, config);
         const compBadge = effCompIds.length > 0
@@ -9541,6 +9569,7 @@
       };
 
       _toptRebuildCriteriaList = rebuildToptCriteriaList;
+      _toptUpdateLiveGradePreview = updateLiveGradePreview;
 
       // Default active tab
       switchToptTab(openSection || "info");
@@ -9590,7 +9619,7 @@
         syncTestAutoLinks(classObj, activeSem, activeTestIndex); // async auto-link sync from criteria & scale tabs
       };
 
-      const closeTestOptions = () => { overlay.classList.add("hidden"); _toptRebuildCriteriaList = null; window._toptSwitchTab = null; };
+      const closeTestOptions = () => { overlay.classList.add("hidden"); _toptRebuildCriteriaList = null; _toptUpdateLiveGradePreview = null; window._toptSwitchTab = null; };
       document.getElementById("topt-cancel").onclick = closeTestOptions;
       const topCloseBtn = document.getElementById("topt-close-top");
       if (topCloseBtn) topCloseBtn.onclick = closeTestOptions;
@@ -12738,7 +12767,7 @@
 
       // — Grade —
       const gradeSection = document.createElement("div");
-      gradeSection.className = "smod-section";
+      gradeSection.className = "smod-section smod-grade-sticky";
       const gradeTitle = document.createElement("div");
       gradeTitle.className = "smod-section-title";
       gradeTitle.textContent = t('gsStudentGradeTitle');
@@ -12880,6 +12909,160 @@
       gradeSection.appendChild(gradeRow);
       body.appendChild(gradeSection);
 
+      // — Teacher observations —
+      const noteSection = document.createElement("div");
+      noteSection.className = "smod-section";
+
+      const noteHeadRow = document.createElement("div");
+      noteHeadRow.style.cssText = "display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px;";
+      const noteTitle = document.createElement("div");
+      noteTitle.className = "smod-section-title";
+      noteTitle.style.margin = "0";
+      noteTitle.textContent = t('gsStudentObsTitle');
+      noteHeadRow.appendChild(noteTitle);
+
+      const noteBankWrap = document.createElement("div");
+      noteBankWrap.style.cssText = "display:flex;align-items:center;gap:6px;";
+      const noteBankLbl = document.createElement("span");
+      noteBankLbl.style.cssText = "font-size:0.75rem;font-weight:600;color:var(--muted);";
+      noteBankLbl.textContent = t('gsChipsBank', 'Observation Chips Bank:') + ' ';
+      const noteBankSel = document.createElement("select");
+      noteBankSel.className = "input input-sm";
+      noteBankSel.style.cssText = "padding:2px 6px;font-size:0.75rem;max-width:220px;";
+      populateChipBankSelectElement(noteBankSel, _activeChipBankFilename);
+      noteBankSel.addEventListener("change", () => {
+        _activeChipBankFilename = noteBankSel.value;
+        refreshObservationChecklists();
+      });
+      noteBankWrap.append(noteBankLbl, noteBankSel);
+      noteHeadRow.appendChild(noteBankWrap);
+      noteSection.appendChild(noteHeadRow);
+
+      const noteSectionsWrap = document.createElement("div");
+      noteSectionsWrap.className = "note-sections-container";
+
+      function buildChecklistElement(section) {
+        const groups = getObservationChecklistGroups(_activeChipBankFilename);
+        const items = groups.flatMap(g => g.items);
+        const selected = new Set(sectionChecklistSummary(section).map(v => v.toLowerCase()));
+        section.checklist = items.filter(name => selected.has(name.toLowerCase()));
+
+        const checklist = document.createElement("div");
+        checklist.className = "note-checklist";
+        groups.forEach(group => {
+          const inlineGroup = document.createElement("div");
+          inlineGroup.className = "note-checklist-inline-group";
+
+          const sectionTag = document.createElement("span");
+          sectionTag.className = "note-checklist-section-tag";
+          sectionTag.textContent = group.type;
+          inlineGroup.appendChild(sectionTag);
+
+          group.items.forEach(name => {
+            const chip = document.createElement("button");
+            chip.type = "button";
+            chip.className = "note-checklist-chip";
+            chip.textContent = name;
+            chip.title = group.type;
+            const isSelected = selected.has(name.toLowerCase());
+            chip.classList.toggle("selected", isSelected);
+            chip.setAttribute("aria-pressed", isSelected ? "true" : "false");
+            chip.addEventListener("click", () => {
+              const now = new Set(sectionChecklistSummary(section));
+              const alreadySelected = now.has(name);
+              if (alreadySelected) now.delete(name);
+              else now.add(name);
+              section.checklist = Array.from(now);
+              const selectedNow = now.has(name);
+              chip.classList.toggle("selected", selectedNow);
+              chip.setAttribute("aria-pressed", selectedNow ? "true" : "false");
+            });
+            inlineGroup.appendChild(chip);
+          });
+          checklist.appendChild(inlineGroup);
+        });
+        return checklist;
+      }
+
+      function refreshObservationChecklists() {
+        noteSectionsWrap.querySelectorAll(".note-checklist").forEach(cl => cl.remove());
+        draftSections.forEach(s => {
+          if (s.kind === "toRemedy" || s.kind === "goodPoints") {
+            const block = noteSectionsWrap.querySelector(`.note-section.kind-${s.kind === "toRemedy" ? "to-remedy" : "good-points"}`);
+            if (block) {
+              const cl = buildChecklistElement(s);
+              const ta = block.querySelector(".note-section-body");
+              if (ta) block.insertBefore(cl, ta);
+              else block.appendChild(cl);
+            }
+          }
+        });
+      }
+
+      const addBtn = document.createElement("button");
+      addBtn.innerHTML = '<img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> ' + t('gsBtnAddSection');
+      addBtn.className = "btn note-add-btn";
+      noteSectionsWrap.appendChild(addBtn);
+
+      function addNoteBlock(section) {
+        const block = document.createElement("div");
+        block.className = "note-section";
+        if (section.kind === "goodPoints") block.classList.add("kind-good-points");
+        if (section.kind === "toRemedy") block.classList.add("kind-to-remedy");
+        const header = document.createElement("div");
+        header.className = "note-section-header";
+        const labelInput = document.createElement("input");
+        labelInput.type = "text";
+        labelInput.className = "note-section-label";
+        labelInput.value = section.label;
+        labelInput.placeholder = t('gsPlaceholderSection');
+        labelInput.addEventListener("input", () => { section.label = labelInput.value; });
+
+        const isMandatoryChecklist = section.kind === "toRemedy" || section.kind === "goodPoints";
+        const delBtn = document.createElement("button");
+        delBtn.innerHTML = '<img src="../assets/icons/close.svg" class="btn-icon" alt="" />';
+        delBtn.className = "note-section-del";
+        delBtn.addEventListener("click", () => {
+          if (isMandatoryChecklist) return;
+          const idx = draftSections.indexOf(section);
+          if (idx !== -1) draftSections.splice(idx, 1);
+          block.remove();
+        });
+        if (isMandatoryChecklist) {
+          delBtn.disabled = true;
+          delBtn.title = t('gsTitleSectionRequired');
+          delBtn.style.opacity = "0.35";
+          delBtn.style.cursor = "not-allowed";
+        }
+        header.appendChild(labelInput);
+        header.appendChild(delBtn);
+        block.appendChild(header);
+
+        if (isMandatoryChecklist) {
+          const checklist = buildChecklistElement(section);
+          block.appendChild(checklist);
+        }
+
+        const ta = document.createElement("textarea");
+        ta.className = "note-section-body";
+        ta.value = section.text;
+        ta.placeholder = isMandatoryChecklist ? t('gsPlaceholderAddNotes') : t('gsPlaceholderObservation');
+        ta.addEventListener("input", () => { section.text = ta.value; autoResizeTextarea(ta); });
+        block.appendChild(ta);
+        noteSectionsWrap.insertBefore(block, addBtn);
+        autoResizeTextarea(ta);
+      }
+
+      addBtn.addEventListener("click", () => {
+        const s = { label: "", text: "" };
+        draftSections.push(s);
+        addNoteBlock(s);
+      });
+
+      draftSections.forEach(s => addNoteBlock(s));
+      noteSection.appendChild(noteSectionsWrap);
+      body.appendChild(noteSection);
+
       // — Criteria —
       if (config.criteria.length > 0) {
         const critSection = document.createElement("div");
@@ -12926,7 +13109,7 @@
           ptsInput.type = "number";
           ptsInput.step = String(critInterval); ptsInput.min = String(minPts);
           ptsInput.max = String(maxPts);
-          ptsInput.placeholder = tFmt('gsPtsPlaceholder', { min: fmt(minPts), max: fmt(maxPts) });
+          ptsInput.placeholder = tFmt('gsPtsPlaceholder', { min: fmtN(minPts), max: fmtN(maxPts) });
           ptsInput.value = dr.points == null ? "" : String(dr.points);
 
           const ptsSlider = document.createElement("input");
@@ -12976,7 +13159,7 @@
             notch.style.setProperty("--notch-color", stop.color);
             const textColor = getNotchContrastTextColor(stop.color);
             notch.style.setProperty("--notch-text-color", textColor);
-            notch.title = (stop.key !== fmt(stop.ptsValue)) ? `${stop.key} (${fmt(stop.ptsValue)} pts)` : `${fmt(stop.ptsValue)} pts`;
+            notch.title = (stop.key !== fmtN(stop.ptsValue)) ? `${stop.key} (${fmtN(stop.ptsValue)} pts)` : `${fmtN(stop.ptsValue)} pts`;
 
             const pip = document.createElement("span");
             pip.className = "smod-pts-notch-pip";
@@ -13120,6 +13303,7 @@
                   chip.type = "button";
                   chip.className = "smod-sentence-chip";
                   chip.textContent = sentence;
+                  chip.title = sentence;
                   const on = selected.has(sentence);
                   updateChipVisual(chip, on);
                   chip.addEventListener("click", () => {
@@ -13173,160 +13357,6 @@
         critSection.appendChild(table);
         body.appendChild(critSection);
       }
-
-      // — Teacher observations —
-      const noteSection = document.createElement("div");
-      noteSection.className = "smod-section";
-
-      const noteHeadRow = document.createElement("div");
-      noteHeadRow.style.cssText = "display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px;";
-      const noteTitle = document.createElement("div");
-      noteTitle.className = "smod-section-title";
-      noteTitle.style.margin = "0";
-      noteTitle.textContent = t('gsStudentObsTitle');
-      noteHeadRow.appendChild(noteTitle);
-
-      const noteBankWrap = document.createElement("div");
-      noteBankWrap.style.cssText = "display:flex;align-items:center;gap:6px;";
-      const noteBankLbl = document.createElement("span");
-      noteBankLbl.style.cssText = "font-size:0.75rem;font-weight:600;color:var(--muted);";
-      noteBankLbl.textContent = t('gsChipsBank', 'Observation Chips Bank:') + ' ';
-      const noteBankSel = document.createElement("select");
-      noteBankSel.className = "input input-sm";
-      noteBankSel.style.cssText = "padding:2px 6px;font-size:0.75rem;max-width:220px;";
-      populateChipBankSelectElement(noteBankSel, _activeChipBankFilename);
-      noteBankSel.addEventListener("change", () => {
-        _activeChipBankFilename = noteBankSel.value;
-        refreshObservationChecklists();
-      });
-      noteBankWrap.append(noteBankLbl, noteBankSel);
-      noteHeadRow.appendChild(noteBankWrap);
-      noteSection.appendChild(noteHeadRow);
-
-      const noteSectionsWrap = document.createElement("div");
-      noteSectionsWrap.className = "note-sections-container";
-
-      function buildChecklistElement(section) {
-        const groups = getObservationChecklistGroups(_activeChipBankFilename);
-        const items = groups.flatMap(g => g.items);
-        const selected = new Set(sectionChecklistSummary(section).map(v => v.toLowerCase()));
-        section.checklist = items.filter(name => selected.has(name.toLowerCase()));
-
-        const checklist = document.createElement("div");
-        checklist.className = "note-checklist";
-        groups.forEach(group => {
-          const inlineGroup = document.createElement("div");
-          inlineGroup.className = "note-checklist-inline-group";
-
-          const sectionTag = document.createElement("span");
-          sectionTag.className = "note-checklist-section-tag";
-          sectionTag.textContent = group.type;
-          inlineGroup.appendChild(sectionTag);
-
-          group.items.forEach(name => {
-            const chip = document.createElement("button");
-            chip.type = "button";
-            chip.className = "note-checklist-chip";
-            chip.textContent = name;
-            chip.title = group.type;
-            const isSelected = selected.has(name.toLowerCase());
-            chip.classList.toggle("selected", isSelected);
-            chip.setAttribute("aria-pressed", isSelected ? "true" : "false");
-            chip.addEventListener("click", () => {
-              const now = new Set(sectionChecklistSummary(section));
-              const alreadySelected = now.has(name);
-              if (alreadySelected) now.delete(name);
-              else now.add(name);
-              section.checklist = Array.from(now);
-              const selectedNow = now.has(name);
-              chip.classList.toggle("selected", selectedNow);
-              chip.setAttribute("aria-pressed", selectedNow ? "true" : "false");
-            });
-            inlineGroup.appendChild(chip);
-          });
-          checklist.appendChild(inlineGroup);
-        });
-        return checklist;
-      }
-
-      function refreshObservationChecklists() {
-        noteSectionsWrap.querySelectorAll(".note-checklist").forEach(cl => cl.remove());
-        draftSections.forEach(s => {
-          if (s.kind === "toRemedy" || s.kind === "goodPoints") {
-            const block = noteSectionsWrap.querySelector(`.note-section.kind-${s.kind === "toRemedy" ? "to-remedy" : "good-points"}`);
-            if (block) {
-              const cl = buildChecklistElement(s);
-              const ta = block.querySelector(".note-section-body");
-              if (ta) block.insertBefore(cl, ta);
-              else block.appendChild(cl);
-            }
-          }
-        });
-      }
-
-      const addBtn = document.createElement("button");
-      addBtn.innerHTML = '<img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> ' + t('gsBtnAddSection');
-      addBtn.className = "btn note-add-btn";
-      noteSectionsWrap.appendChild(addBtn);
-
-      function addNoteBlock(section) {
-        const block = document.createElement("div");
-        block.className = "note-section";
-        if (section.kind === "toRemedy") block.classList.add("kind-to-remedy");
-        if (section.kind === "goodPoints") block.classList.add("kind-good-points");
-        const header = document.createElement("div");
-        header.className = "note-section-header";
-        const labelInput = document.createElement("input");
-        labelInput.type = "text";
-        labelInput.className = "note-section-label";
-        labelInput.value = section.label;
-        labelInput.placeholder = t('gsPlaceholderSection');
-        labelInput.addEventListener("input", () => { section.label = labelInput.value; });
-
-        const isMandatoryChecklist = section.kind === "toRemedy" || section.kind === "goodPoints";
-        const delBtn = document.createElement("button");
-        delBtn.innerHTML = '<img src="../assets/icons/close.svg" class="btn-icon" alt="" />';
-        delBtn.className = "note-section-del";
-        delBtn.addEventListener("click", () => {
-          if (isMandatoryChecklist) return;
-          const idx = draftSections.indexOf(section);
-          if (idx !== -1) draftSections.splice(idx, 1);
-          block.remove();
-        });
-        if (isMandatoryChecklist) {
-          delBtn.disabled = true;
-          delBtn.title = t('gsTitleSectionRequired');
-          delBtn.style.opacity = "0.35";
-          delBtn.style.cursor = "not-allowed";
-        }
-        header.appendChild(labelInput);
-        header.appendChild(delBtn);
-        block.appendChild(header);
-
-        if (isMandatoryChecklist) {
-          const checklist = buildChecklistElement(section);
-          block.appendChild(checklist);
-        }
-
-        const ta = document.createElement("textarea");
-        ta.className = "note-section-body";
-        ta.value = section.text;
-        ta.placeholder = isMandatoryChecklist ? t('gsPlaceholderAddNotes') : t('gsPlaceholderObservation');
-        ta.addEventListener("input", () => { section.text = ta.value; autoResizeTextarea(ta); });
-        block.appendChild(ta);
-        noteSectionsWrap.insertBefore(block, addBtn);
-        autoResizeTextarea(ta);
-      }
-
-      addBtn.addEventListener("click", () => {
-        const s = { label: "", text: "" };
-        draftSections.push(s);
-        addNoteBlock(s);
-      });
-
-      draftSections.forEach(s => addNoteBlock(s));
-      noteSection.appendChild(noteSectionsWrap);
-      body.appendChild(noteSection);
 
       // — Time spent correcting (auto) —
       if (prevCorrTime != null) {
@@ -16003,6 +16033,7 @@ ${blocks}
       saveState();
       renderTestSheet();
       renderSummary();
+      if (_toptRebuildCriteriaList) _toptRebuildCriteriaList();
       updateLiveGradePreview();
       criterionPopupClose();
       showCriterionSavedToast();

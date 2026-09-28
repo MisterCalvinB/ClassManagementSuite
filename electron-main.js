@@ -1277,6 +1277,73 @@ function resolveAllowedTargetPath(pageFile, target, relativePath) {
   };
 }
 
+// Map to serialize concurrent writes to the exact same file path,
+// preventing concurrent write/rename collisions (e.g. rapid auto-saves or cloud sync).
+const _fileWriteQueues = new Map();
+
+async function _doAtomicWriteFile(filePath, finalDir, finalName, data, encoding, mtimeMs) {
+  await fs.mkdir(finalDir, { recursive: true });
+
+  // Use a unique process/timestamp-tagged sibling temp file so external watchers (OneDrive, AV)
+  // or simultaneous calls will never collide on the exact same temp filename.
+  const randTag = String(Date.now()) + '-' + Math.random().toString(36).slice(2, 8);
+  const tmpPath = path.join(finalDir, '.' + finalName + '.' + randTag + '.tmp');
+
+  try {
+    await fs.writeFile(tmpPath, data, encoding === 'base64' ? undefined : 'utf8');
+
+    // Attempt atomic rename with retry mechanism for Windows/OneDrive locks
+    let renamed = false;
+    let lastErr = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        await fs.rename(tmpPath, filePath);
+        renamed = true;
+        break;
+      } catch (renameErr) {
+        lastErr = renameErr;
+        // On Windows and cloud-synced folders (OneDrive, Dropbox), rename frequently fails with:
+        // EPERM / EACCES (file locked by scanner or OneDrive sync)
+        // EEXIST (destination exists and atomic rename unsupported on target filesystem)
+        // EBUSY (resource busy)
+        if (renameErr.code === 'EPERM' || renameErr.code === 'EEXIST' || renameErr.code === 'EBUSY' || renameErr.code === 'EACCES') {
+          if (attempt >= 1) {
+            await fs.unlink(filePath).catch(() => {});
+          }
+          await new Promise(r => setTimeout(r, (attempt + 1) * 35));
+        } else {
+          break;
+        }
+      }
+    }
+
+    if (!renamed) {
+      // Fallback: If rename persistently failed (e.g. OneDrive virtual file lock or cross-link), try copyFile + unlink
+      try {
+        await fs.copyFile(tmpPath, filePath);
+        await fs.unlink(tmpPath).catch(() => {});
+        renamed = true;
+      } catch (copyErr) {
+        throw lastErr || copyErr;
+      }
+    }
+  } catch (err) {
+    // Clean up the temp file on failure so it doesn't linger.
+    await fs.unlink(tmpPath).catch(() => {});
+    throw err;
+  }
+
+  if (mtimeMs) {
+    const t = new Date(Number(mtimeMs));
+    await fs.utimes(filePath, t, t).catch(() => {});
+  }
+
+  return {
+    filename: finalName,
+    path: filePath
+  };
+}
+
 async function writeAllowedFile(pageFile, target, file) {
   const targetDir = resolveAllowedTargetDir(pageFile, target);
 
@@ -1319,44 +1386,21 @@ async function writeAllowedFile(pageFile, target, file) {
     data = String(file.content || '');
   }
 
-  await fs.mkdir(finalDir, { recursive: true });
+  const queueKey = path.resolve(filePath);
+  const prevWritePromise = _fileWriteQueues.get(queueKey) || Promise.resolve();
+  let releaseQueue;
+  const currentWritePromise = new Promise(resolve => { releaseQueue = resolve; });
+  _fileWriteQueues.set(queueKey, currentWritePromise);
 
-  // Atomic write: write to a sibling .tmp file first, then rename over the
-  // target so a crash/premature exit never leaves the real file truncated to
-  // 0 bytes (which happens on Windows when fs.writeFile is interrupted after
-  // it has already truncated the original file but before data is flushed).
-  const tmpPath = filePath + '.tmp';
   try {
-    await fs.writeFile(tmpPath, data, encoding === 'base64' ? undefined : 'utf8');
-    // Attempt an atomic rename. On Unix this is always atomic. On Windows it
-    // succeeds when the destination is not locked. Only if rename fails with
-    // EPERM (destination open by another process) do we unlink first and retry
-    // — this minimises the window during which the original file is absent.
-    try {
-      await fs.rename(tmpPath, filePath);
-    } catch (renameErr) {
-      if (renameErr.code === 'EPERM' || renameErr.code === 'EEXIST') {
-        await fs.unlink(filePath).catch(() => {});
-        await fs.rename(tmpPath, filePath);
-      } else {
-        throw renameErr;
-      }
+    await prevWritePromise.catch(() => {});
+    return await _doAtomicWriteFile(filePath, finalDir, finalName, data, encoding, file.mtimeMs);
+  } finally {
+    releaseQueue();
+    if (_fileWriteQueues.get(queueKey) === currentWritePromise) {
+      _fileWriteQueues.delete(queueKey);
     }
-  } catch (err) {
-    // Clean up the temp file on failure so it doesn't linger.
-    await fs.unlink(tmpPath).catch(() => {});
-    throw err;
   }
-
-  if (file.mtimeMs) {
-    const t = new Date(Number(file.mtimeMs));
-    await fs.utimes(filePath, t, t).catch(() => {});
-  }
-
-  return {
-    filename: finalName,
-    path: filePath
-  };
 }
 
 function extractWrappedJsonValue(rawText) {
