@@ -4031,6 +4031,8 @@
               onclick="wnStyleToggle('italic')"><i>I</i></button>
             <button class="wn-sp-style-toggle" id="wn-sp-underline" onmousedown="event.preventDefault()"
               onclick="wnStyleToggle('underline')" style="text-decoration:underline">U</button>
+            <button class="wn-sp-style-toggle" id="wn-sp-wavy" onmousedown="event.preventDefault()"
+              onclick="wnStyleToggle('wavy')" title="Wavy underline" style="text-decoration:underline;text-decoration-style:wavy;">U</button>
             <button class="wn-sp-style-toggle" id="wn-sp-strike" onmousedown="event.preventDefault()"
               onclick="wnStyleToggle('strike')" style="text-decoration:line-through">S</button>
             <div style="position:relative; display:inline-block;">
@@ -33348,6 +33350,113 @@
       return true;
     }
 
+    /**
+     * Apply / remove wavy underline on the current selection inside the active
+     * note editor. Returns true if a selection was found and acted upon,
+     * false if there was no selection (caller should fall back to whole-note).
+     */
+    function wnApplyWavyToSelection() {
+      if (!_wnActiveNote) return false;
+      const editor = wnGetActiveEditor();
+      if (!editor || editor.tagName === 'TEXTAREA') return false;
+      // Try to restore a previously saved selection if none is live
+      if (!wnSelectionInside(editor)) wnRestoreSelection(editor);
+      if (!wnSelectionInside(editor)) return false;
+
+      editor.focus();
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return false;
+      const range = sel.getRangeAt(0);
+
+      // Detect if the entire selection is already wrapped in wavy spans
+      // by walking every text node in the range and checking ancestors.
+      function _isWavyNode(node) {
+        let el = (node.nodeType === 1) ? node : node.parentElement;
+        while (el && el !== editor) {
+          if (el.nodeType === 1 && el.tagName === 'SPAN') {
+            const td = el.style.textDecoration || '';
+            const tds = el.style.textDecorationStyle || '';
+            if ((td.includes('underline') && tds === 'wavy') ||
+                td.includes('wavy')) return true;
+          }
+          el = el.parentElement;
+        }
+        return false;
+      }
+
+      // Collect all text nodes that fall within the range
+      const treeWalker = document.createTreeWalker(
+        range.commonAncestorContainer.nodeType === 1
+          ? range.commonAncestorContainer
+          : range.commonAncestorContainer.parentElement,
+        NodeFilter.SHOW_TEXT,
+        null
+      );
+      const textNodes = [];
+      let node;
+      while ((node = treeWalker.nextNode())) {
+        if (range.intersectsNode(node)) textNodes.push(node);
+      }
+
+      const allWavy = textNodes.length > 0 && textNodes.every(_isWavyNode);
+
+      if (allWavy) {
+        // --- Remove wavy from selection ---
+        // Use execCommand to select and strip inline styles isn't reliable for
+        // custom spans; walk ancestors and remove the wavy decoration instead.
+        textNodes.forEach(tn => {
+          let el = tn.parentElement;
+          while (el && el !== editor) {
+            if (el.tagName === 'SPAN') {
+              const td = el.style.textDecoration || '';
+              const tds = el.style.textDecorationStyle || '';
+              if ((td.includes('underline') && tds === 'wavy') || td.includes('wavy')) {
+                // Remove wavy style; if span becomes style-less, unwrap it
+                el.style.textDecoration = td.replace(/underline/gi, '').replace(/wavy/gi, '').trim() || null;
+                el.style.textDecorationStyle = '';
+                if (!el.getAttribute('style') || el.getAttribute('style').trim() === '') {
+                  // Unwrap span
+                  const parent = el.parentNode;
+                  while (el.firstChild) parent.insertBefore(el.firstChild, el);
+                  parent.removeChild(el);
+                }
+                break;
+              }
+            }
+            el = el.parentElement;
+          }
+        });
+      } else {
+        // --- Apply wavy to selection ---
+        // Wrap the range contents in a span
+        try {
+          const span = document.createElement('span');
+          span.style.textDecoration = 'underline';
+          span.style.textDecorationStyle = 'wavy';
+          range.surroundContents(span);
+        } catch (e) {
+          // surroundContents fails for partial-element selections; use extractContents + insertNode
+          const frag = range.extractContents();
+          const span = document.createElement('span');
+          span.style.textDecoration = 'underline';
+          span.style.textDecorationStyle = 'wavy';
+          span.appendChild(frag);
+          range.insertNode(span);
+        }
+      }
+
+      // Normalise the editor DOM to merge adjacent identical text nodes
+      editor.normalize();
+      wnRememberSelection(editor);
+      wnSyncNoteDataFromEditor(_wnActiveNote, editor);
+      if (_wnActiveNote._applyStyle) _wnActiveNote._applyStyle();
+      if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+      if (typeof wnSyncAndBroadcastNoteSelection === 'function') {
+        wnSyncAndBroadcastNoteSelection(true);
+      }
+      return true;
+    }
+
     // ── Note style popup — constants, state, and all wn* functions ────
 
     const WN_COLORS = [
@@ -33639,6 +33748,8 @@
       document.getElementById('wn-sp-bold').classList.toggle('active', !!noteData.bold);
       document.getElementById('wn-sp-italic').classList.toggle('active', !!noteData.italic);
       document.getElementById('wn-sp-underline').classList.toggle('active', !!noteData.underline);
+      const _wavyBtn = document.getElementById('wn-sp-wavy');
+      if (_wavyBtn) _wavyBtn.classList.toggle('active', !!noteData.wavy);
       document.getElementById('wn-sp-strike').classList.toggle('active', !!noteData.strike);
       const _curCasing = noteData.casing || window._bcNoteDefaultCasing || 'none';
       const caseBtn = document.getElementById('wn-sp-case-btn');
@@ -35240,6 +35351,15 @@
         const cmd = prop === 'bold' ? 'bold' : (prop === 'italic' ? 'italic' : (prop === 'underline' ? 'underline' : 'strikeThrough'));
         if (wnApplySelectionCommand(cmd)) return;
       }
+      if (prop === 'wavy') {
+        // Try selection-level wavy first (same pattern as bold/italic/underline/strike)
+        if (wnApplyWavyToSelection()) return;
+        // No selection — toggle whole-note wavy
+        _wnActiveNote.wavy = !_wnActiveNote.wavy;
+        _wnActiveNote._applyStyle && _wnActiveNote._applyStyle();
+        document.getElementById('wn-sp-wavy').classList.toggle('active', !!_wnActiveNote.wavy);
+        return;
+      }
       _wnActiveNote[prop] = !_wnActiveNote[prop];
       _wnActiveNote._applyStyle && _wnActiveNote._applyStyle();
       document.getElementById('wn-sp-' + prop).classList.toggle('active', !!_wnActiveNote[prop]);
@@ -35669,7 +35789,7 @@
         editor.style.color = ''; editor.style.backgroundColor = ''; editor.style.fontSize = '';
         editor.style.fontWeight = ''; editor.style.fontStyle = '';
         noteData.color = '#111111'; noteData.bg = '#ffffff'; noteData.fontSize = 26;
-        noteData.bold = false; noteData.italic = false; noteData.underline = false; noteData.strike = false;
+        noteData.bold = false; noteData.italic = false; noteData.underline = false; noteData.wavy = false; noteData.strike = false;
         if (noteData._applyStyle) noteData._applyStyle();
       }
     }
@@ -36113,8 +36233,11 @@
         if (noteData.fontFamily) note.style.fontFamily = noteData.fontFamily;
         const noteDecor = [];
         if (noteData.underline) noteDecor.push('underline');
+        if (noteData.wavy) noteDecor.push('underline');
         if (noteData.strike) noteDecor.push('line-through');
         note.style.textDecoration = noteDecor.length ? noteDecor.join(' ') : 'none';
+        note.style.textDecorationStyle = noteData.wavy ? 'wavy' : '';
+        ta.style.textDecorationStyle = noteData.wavy ? 'wavy' : '';
         const noteCasing = noteData.casing || window._bcNoteDefaultCasing || 'none';
         if (noteCasing === 'uppercase') {
           note.style.textTransform = 'uppercase';
@@ -36180,7 +36303,7 @@
         if (typeof updateKatexBtnVisibility === 'function') {
           updateKatexBtnVisibility();
         }
-        if (typeof window._conMirrorSend === 'function' && !window._conSuppressMirrorObserver) {
+        if (typeof window._conMirrorSend === 'function') {
           window._conMirrorSend({
             type: 'note-style',
             id: String(noteData.id),
@@ -36190,6 +36313,7 @@
             bold: !!noteData.bold,
             italic: !!noteData.italic,
             underline: !!noteData.underline,
+            wavy: !!noteData.wavy,
             strike: !!noteData.strike,
             fontFamily: noteData.fontFamily || '',
             casing: noteData.casing || '',
@@ -36254,6 +36378,33 @@
       });
       ta.addEventListener('mouseup', () => wnRememberSelection(ta));
       ta.addEventListener('dblclick', () => {
+        // Trim trailing whitespace from the browser's default word selection
+        const sel = window.getSelection && window.getSelection();
+        if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+          const range = sel.getRangeAt(0);
+          // Walk the end container backwards while the character before the
+          // end offset is a whitespace character, shrinking the selection.
+          let endContainer = range.endContainer;
+          let endOffset = range.endOffset;
+          while (endOffset > 0) {
+            const text = endContainer.nodeType === 3
+              ? endContainer.textContent
+              : (endContainer.childNodes[endOffset - 1] && endContainer.childNodes[endOffset - 1].textContent) || '';
+            const charBefore = endContainer.nodeType === 3
+              ? text[endOffset - 1]
+              : null;
+            if (charBefore && /\s/.test(charBefore)) {
+              endOffset--;
+            } else {
+              break;
+            }
+          }
+          if (endOffset !== range.endOffset) {
+            range.setEnd(endContainer, endOffset);
+            sel.removeAllRanges();
+            sel.addRange(range);
+          }
+        }
         wnRememberSelection(ta);
         if (typeof wnSyncAndBroadcastNoteSelection === 'function') {
           wnSyncAndBroadcastNoteSelection(true);
@@ -54139,6 +54290,7 @@
             if (d.bold !== undefined) noteObj.bold = d.bold;
             if (d.italic !== undefined) noteObj.italic = d.italic;
             if (d.underline !== undefined) noteObj.underline = d.underline;
+            if (d.wavy !== undefined) noteObj.wavy = d.wavy;
             if (d.strike !== undefined) noteObj.strike = d.strike;
             if (d.fontFamily !== undefined) noteObj.fontFamily = d.fontFamily;
             if (d.casing !== undefined) noteObj.casing = d.casing;
