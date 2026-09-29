@@ -2699,6 +2699,7 @@
       tutMdb8Text: "Export your dataset to CSV, Excel (XLSX), Word (DOCX), HTML, or printable PDF formats.",
       mdbErrFailedCreate: "Failed to create file.",
       mdbColSource: "Source",
+      mdbColActions: "Actions",
       mdbBtnEdit: "Edit",
       mdbBtnDel: "Del",
       mdbBtnDuplicate: "Duplicate",
