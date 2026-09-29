@@ -1216,6 +1216,34 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
     }
+
+    // ── Sticky filter bar ─────────────────────────────────────────────────
+    (function cpStickyFilterBar() {
+      const topbar = document.querySelector('.cp-topbar');
+      const filterBar = document.querySelector('.cp-filter-bar');
+      if (!topbar || !filterBar) return;
+
+      function updateTopbarHeight() {
+        const h = topbar.getBoundingClientRect().height;
+        document.documentElement.style.setProperty('--cp-topbar-height', h + 'px');
+      }
+      updateTopbarHeight();
+
+      // Re-measure if the topbar wraps on resize
+      const ro = new ResizeObserver(updateTopbarHeight);
+      ro.observe(topbar);
+
+      // Toggle .is-stuck via a sentinel element placed just before the filter bar
+      const sentinel = document.createElement('div');
+      sentinel.style.cssText = 'position:absolute;top:0;left:0;height:1px;width:1px;pointer-events:none;';
+      filterBar.parentElement.insertBefore(sentinel, filterBar);
+
+      const io = new IntersectionObserver(
+        ([entry]) => filterBar.classList.toggle('is-stuck', !entry.isIntersecting),
+        { threshold: 1 }
+      );
+      io.observe(sentinel);
+    })();
   </script>
 </body>
 </html>
