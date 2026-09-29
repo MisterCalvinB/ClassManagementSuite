@@ -2185,7 +2185,7 @@
         });
         btn.classList.toggle('pinned', isPinned);
         btn.title = isPinned ? 'Unpin from sidebar' : 'Pin to sidebar';
-        btn.textContent = isPinned ? '📌' : '📍';
+        btn.innerHTML = '<img src="../assets/icons/pin.svg" class="btn-icon" width="12" height="12" alt="" />';
       });
       if (typeof renderTodos === 'function') renderTodos();
     }
@@ -2720,17 +2720,22 @@
       }
     }
 
+    function plannerEntryLinkCount(entry) {
+      if (!entry || !entry.id || !window.LinksService) return 0;
+      var urn = 'cmt:planner:' + entry.id;
+      return (LinksService.getLinksForSync(urn) || []).length;
+    }
+
     function buildPlannerEntryLinkBadgesHtml(entry) {
       if (!entry || !entry.id || !window.LinksService) return '';
       var urn = 'cmt:planner:' + entry.id;
-      var links = LinksService.getLinksForSync(urn) || [];
       var tags = LinksService.getTagsForSync(urn) || [];
 
-      if (!links.length && !tags.length) return '';
+      if (!tags.length) return '';
 
       var html = '<span class="planner-badges-wrap" data-links-urn="' + esc(urn) + '">';
 
-      // 1. Plain-text Tag Badges (up to 3 tags, then overflow badge)
+      // Plain-text Tag Badges (up to 3 tags, then overflow badge)
       var maxTags = 3;
       for (var ti = 0; ti < Math.min(tags.length, maxTags); ti++) {
         var tg = tags[ti];
@@ -2738,65 +2743,6 @@
       }
       if (tags.length > maxTags) {
         html += '<span class="planner-tag-badge" onclick="event.stopPropagation();openPlannerEntryLinks(\'' + esc(entry.id) + '\', event)" title="' + esc(tags.slice(maxTags).join(', ')) + '">[+' + (tags.length - maxTags) + ']</span>';
-      }
-
-      // 2. Plain-text Connected Item Badges
-      var boardLinks = [];
-      var docLinks = [];
-      var testLinks = [];
-      var fileLinks = [];
-      var otherLinks = [];
-
-      links.forEach(function (l) {
-        var p = LinksService.parseUrn(l.otherUrn);
-        if (!p) return;
-        if (p.type === 'board' || p.type === 'board_node' || p.type === 'board-node') {
-          boardLinks.push(l);
-        } else if (p.type === 'doc' || p.type === 'document' || p.type === 'doc_section') {
-          docLinks.push(l);
-        } else if (p.type === 'test' || p.type === 'grade-test' || p.type === 'grade_cell' || p.type === 'gradesheet') {
-          testLinks.push(l);
-        } else if (p.type === 'file') {
-          fileLinks.push(l);
-        } else {
-          otherLinks.push(l);
-        }
-      });
-
-      // Board session badges
-      boardLinks.forEach(function (bl) {
-        var title = (bl.targetMeta && bl.targetMeta.title) || bl.otherUrn.split(':').pop() || 'Board';
-        var shortTitle = title.length > 16 ? (title.slice(0, 14) + '…') : title;
-        html += '<span class="planner-link-badge badge-board" onclick="event.stopPropagation();plannerOpenUrn(\'' + esc(bl.otherUrn) + '\')" title="Board Session: ' + esc(title) + '">[BOARD: ' + esc(shortTitle) + ']</span>';
-      });
-
-      // Document link badges
-      docLinks.forEach(function (dl) {
-        var title = (dl.targetMeta && dl.targetMeta.title) || dl.otherUrn.split('/').pop() || 'Doc';
-        var shortTitle = title.length > 16 ? (title.slice(0, 14) + '…') : title;
-        html += '<span class="planner-link-badge badge-doc" onclick="event.stopPropagation();plannerOpenUrn(\'' + esc(dl.otherUrn) + '\')" title="Document: ' + esc(title) + '">[DOC: ' + esc(shortTitle) + ']</span>';
-      });
-
-      // Grade Test link badges
-      testLinks.forEach(function (tl) {
-        var title = (tl.targetMeta && tl.targetMeta.title) || 'Test';
-        var shortTitle = title.length > 16 ? (title.slice(0, 14) + '…') : title;
-        html += '<span class="planner-link-badge badge-test" onclick="event.stopPropagation();plannerOpenUrn(\'' + esc(tl.otherUrn) + '\')" title="Grade Test: ' + esc(title) + '">[TEST: ' + esc(shortTitle) + ']</span>';
-      });
-
-      // PDF / Attachment badges
-      fileLinks.forEach(function (fl) {
-        var isPdf = fl.otherUrn.toLowerCase().endsWith('.pdf') || (fl.targetMeta && fl.targetMeta.relativePath && fl.targetMeta.relativePath.toLowerCase().endsWith('.pdf'));
-        var tagPrefix = isPdf ? 'PDF' : 'FILE';
-        var title = (fl.targetMeta && fl.targetMeta.title) || fl.otherUrn.split(/[\\/]/).pop() || 'File';
-        var shortTitle = title.length > 16 ? (title.slice(0, 14) + '…') : title;
-        html += '<span class="planner-link-badge badge-file" onclick="event.stopPropagation();plannerOpenUrn(\'' + esc(fl.otherUrn) + '\')" title="' + tagPrefix + ': ' + esc(title) + '">[' + tagPrefix + ': ' + esc(shortTitle) + ']</span>';
-      });
-
-      // Summary badge if additional relations exist (e.g. classes, competences, tests)
-      if (otherLinks.length > 0) {
-        var summaryTitle = otherLinks.map(function (ol) { return (ol.targetMeta && ol.targetMeta.title) || ol.otherUrn; }).join(', ');
-        html += '<span class="planner-link-badge" onclick="event.stopPropagation();openPlannerEntryLinks(\'' + esc(entry.id) + '\', event)" title="' + esc(summaryTitle) + '"><img src="../assets/icons/links.svg" class="badge-icon" alt="" style="width:11px;height:11px;vertical-align:-1px;margin-right:3px;" />[LINKS: ' + links.length + ']</span>';
       }
 
       html += '</span>';
@@ -2807,6 +2753,7 @@
       if (!window.LinksService) return;
       var idSet = (changedEntryIds instanceof Set) ? changedEntryIds : (Array.isArray(changedEntryIds) ? new Set(changedEntryIds) : null);
 
+      // Update tag badges wrap
       var rows = document.querySelectorAll('.entry-row[data-entry-id]');
       rows.forEach(function (row) {
         var entryId = row.getAttribute('data-entry-id');
@@ -2817,9 +2764,9 @@
         var entry = entries.find(function (e) { return e && e.id === entryId; });
         if (!entry) return;
 
+        // Update tag badges
         var existingWrap = inner.querySelector('.planner-badges-wrap');
         var newHtml = buildPlannerEntryLinkBadgesHtml(entry);
-
         if (newHtml) {
           if (existingWrap) {
             existingWrap.outerHTML = newHtml;
@@ -2834,6 +2781,24 @@
         } else if (existingWrap) {
           existingWrap.remove();
         }
+
+        // Update link count on the links button
+        var linksBtn = row.querySelector('.planner-links-btn');
+        if (linksBtn) {
+          var count = plannerEntryLinkCount(entry);
+          var countEl = linksBtn.querySelector('.planner-links-count');
+          if (count > 0) {
+            if (countEl) {
+              countEl.textContent = count;
+            } else {
+              linksBtn.insertAdjacentHTML('beforeend', '<span class="planner-links-count">' + count + '</span>');
+            }
+            linksBtn.classList.add('has-links');
+          } else {
+            if (countEl) countEl.remove();
+            linksBtn.classList.remove('has-links');
+          }
+        }
       });
 
       var cells = document.querySelectorAll('.at-cell[data-entry-id]');
@@ -2846,7 +2811,6 @@
 
         var existingWrap = cell.querySelector('.planner-badges-wrap');
         var newHtml = buildPlannerEntryLinkBadgesHtml(entry);
-
         if (newHtml) {
           if (existingWrap) {
             existingWrap.outerHTML = newHtml;
@@ -3371,9 +3335,10 @@
             return p.type === 'planner-entry' && p.entryId === entry.id;
           });
           var pinTitle = isPinned ? 'Unpin from sidebar' : 'Pin to sidebar';
-          var pinIcon = isPinned ? '📌' : '📍';
+          var pinIcon = '<img src="../assets/icons/pin.svg" class="btn-icon" width="12" height="12" alt="" />';
           r += '<button class="entry-btn ' + (isPinned ? 'pinned' : '') + '" onclick="toggleEntryPin(event, \'' + esc(entry.id) + '\', \'' + esc(s.classId) + '\', \'' + esc(s.date) + '\', \'' + esc(s.time || '') + '\', \'' + esc(s.timeEnd || '') + '\')" title="' + esc(pinTitle) + '">' + pinIcon + '</button>';
-          r += '<button class="entry-btn planner-links-btn" onclick="openPlannerEntryLinks(\'' + esc(entry.id) + '\', event)" title="' + esc(t('pl_linksAndTags')) + '">[L]</button>';
+          var _linkCount = plannerEntryLinkCount(entry);
+          r += '<button class="entry-btn planner-links-btn' + (_linkCount > 0 ? ' has-links' : '') + '" onclick="openPlannerEntryLinks(\'' + esc(entry.id) + '\', event)" title="' + esc(t('pl_linksAndTags')) + '"><img src="../assets/icons/links.svg" class="btn-icon" width="16" height="16" alt="" />' + (_linkCount > 0 ? '<span class="planner-links-count">' + _linkCount + '</span>' : '') + '</button>';
           r += '<button class="entry-btn" onclick="openEditEntry(\'' + esc(entry.id) + '\')" title="Edit">✏</button>';
         }
       } else

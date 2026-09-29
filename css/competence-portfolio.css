@@ -385,6 +385,130 @@ body {
   border-color: var(--primary);
 }
 
+/* ── Custom Multi-Select Dropdown ─────────────────────────────── */
+.cp-multiselect {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+}
+
+.cp-multiselect-btn {
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 5px 9px 5px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+  outline: none;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  max-width: 180px;
+  min-width: 90px;
+  transition: border-color 0.12s, background 0.12s;
+  user-select: none;
+}
+
+.cp-multiselect-btn:hover {
+  border-color: var(--primary);
+  background: var(--primary-subtle);
+}
+
+.cp-multiselect.open .cp-multiselect-btn,
+.cp-multiselect-btn:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-border);
+}
+
+.cp-multiselect.has-selection .cp-multiselect-btn {
+  border-color: var(--primary);
+  background: var(--primary-subtle);
+  color: var(--primary);
+}
+
+.cp-ms-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cp-ms-arrow {
+  font-size: 0.7rem;
+  opacity: 0.6;
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+.cp-multiselect.open .cp-ms-arrow {
+  transform: rotate(180deg);
+}
+
+.cp-multiselect-panel {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 200;
+  background: var(--paper);
+  border: 2px solid #111;
+  border-radius: var(--radius-sm);
+  box-shadow: 3px 3px 0px #111;
+  min-width: 160px;
+  max-width: 260px;
+  max-height: 220px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px 0;
+}
+
+.cp-multiselect.open .cp-multiselect-panel {
+  display: block;
+  animation: cpMsSlideIn 0.12s ease;
+}
+
+@keyframes cpMsSlideIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.cp-ms-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--ink);
+  transition: background 0.08s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cp-ms-item:hover {
+  background: var(--primary-subtle);
+  color: var(--primary);
+}
+
+.cp-ms-item:has(.cp-ms-checkbox:checked) {
+  background: var(--primary-subtle);
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.cp-ms-checkbox {
+  flex-shrink: 0;
+  accent-color: var(--primary);
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
 .cp-view-switcher {
   display: flex;
   background: var(--bg-subtle);

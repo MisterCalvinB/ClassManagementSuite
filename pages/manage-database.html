@@ -563,7 +563,7 @@
       schema: [],       // [{key, type, isLong, longArray, uniqueVals, useSelect}]
       sortField: null,
       sortDir: 'asc',
-      filters: {},      // {fieldKey: value} — '_src' for source
+      filters: {},      // {fieldKey: value} — '_srcMulti' (Set) for source multi-select
       viewMode: 'table', // 'table' | 'chips'
       editMode: null,   // 'add' | 'edit'
       editFI: null,
@@ -982,12 +982,8 @@
                 await loadFileContent(fi, def);
                 S.schema = buildSchema(getAllRecords());
               }
-              if (initialType === 'wordbanks') {
-                if (!S.filters['_srcMulti']) S.filters['_srcMulti'] = new Set();
-                S.filters['_srcMulti'].add(S.files[fi].name);
-              } else {
-                S.filters['_src'] = S.files[fi].name;
-              }
+              if (!S.filters['_srcMulti']) S.filters['_srcMulti'] = new Set();
+              S.filters['_srcMulti'].add(S.files[fi].name);
               renderFilePills();
               renderTable();
 
@@ -1013,7 +1009,8 @@
               }
               const ri = S.files[fi].records.findIndex(r => r && r.word && String(r.word).trim().toLowerCase() === targetWord);
               if (ri !== -1) {
-                S.filters['_src'] = S.files[fi].name;
+                if (!S.filters['_srcMulti']) S.filters['_srcMulti'] = new Set();
+                S.filters['_srcMulti'].add(S.files[fi].name);
                 renderFilePills();
                 renderTable();
                 openEdit(fi, ri);
@@ -1227,7 +1224,8 @@
       }
 
       if (S.files.length === 1 && S.files[0].status === 'pending') {
-        S.filters['_src'] = S.files[0].name;
+        if (!S.filters['_srcMulti']) S.filters['_srcMulti'] = new Set();
+        S.filters['_srcMulti'].add(S.files[0].name);
         await loadFileContent(0, def);
       }
       S.schema = buildSchema(getAllRecords());
@@ -1683,7 +1681,7 @@
       }
       for (const [key, val] of Object.entries(S.filters)) {
         if (!val) continue;
-        if (key === '_src') { if (!hasAllSearch) rows = rows.filter(r => r._src === val); continue; }
+        if (key === '_src') continue; // legacy key — ignored; use _srcMulti
         if (key === '_srcMulti') continue;
         if (key === '_starred') { rows = rows.filter(r => r.starred === true); continue; }
         if (key === '_all') {
@@ -1777,12 +1775,10 @@
         row.innerHTML = `<span style="color:#bbb;font-size:0.82rem">${t('mdbNoFilesFound')}</span>`;
         return;
       }
-      const isWordbanks = S.typeKey === 'wordbanks';
-      const srcSet = (isWordbanks && S.filters['_srcMulti'] instanceof Set) ? S.filters['_srcMulti'] : null;
-      const activeSrc = (!isWordbanks && S.filters['_src']) || '';
+      const srcSet = (S.filters['_srcMulti'] instanceof Set) ? S.filters['_srcMulti'] : null;
 
       let pills = S.files.map((f, fi) => {
-        const isActive = srcSet ? srcSet.has(f.name) : activeSrc === f.name;
+        const isActive = srcSet ? srcSet.has(f.name) : false;
         const statusBadge = f.status === 'loading' ? '<span class="ld ld-sm"></span>'
           : f.status === 'error' ? '<span class="pill-err" title="Failed to load">✕</span>'
             : f.status === 'pending' ? '<span class="pill-pending">…</span>'
@@ -1797,7 +1793,7 @@
     </div>`;
       }).join('');
 
-      if (isWordbanks && S.files.length > 1) {
+      if (S.files.length > 1) {
         const anySelected = srcSet && srcSet.size > 0;
         const label = anySelected ? tFmt('mdbClearSrc', { n: srcSet.size, total: S.files.length }) : t('mdbSelectAllSrc');
         const btnStyle = anySelected
@@ -1811,28 +1807,10 @@
 
     async function toggleSource(filename) {
       const fi = S.files.findIndex(f => f.name === filename);
-      if (S.typeKey === 'wordbanks') {
-        if (!S.filters['_srcMulti']) S.filters['_srcMulti'] = new Set();
-        const set = S.filters['_srcMulti'];
-        if (fi !== -1 && S.files[fi].status === 'pending') {
-          set.add(filename);
-          S.page = 0;
-          const def = getTypeDef(S.typeKey);
-          await loadFileContent(fi, def);
-          S.schema = buildSchema(getAllRecords());
-          renderFilePills();
-          renderFilterBar();
-          renderTable();
-          return;
-        }
-        if (set.has(filename)) set.delete(filename); else set.add(filename);
-        S.page = 0;
-        renderFilePills();
-        renderTable();
-        return;
-      }
+      if (!S.filters['_srcMulti']) S.filters['_srcMulti'] = new Set();
+      const set = S.filters['_srcMulti'];
       if (fi !== -1 && S.files[fi].status === 'pending') {
-        S.filters['_src'] = filename;
+        set.add(filename);
         S.page = 0;
         const def = getTypeDef(S.typeKey);
         await loadFileContent(fi, def);
@@ -1842,7 +1820,7 @@
         renderTable();
         return;
       }
-      S.filters['_src'] = S.filters['_src'] === filename ? '' : filename;
+      if (set.has(filename)) set.delete(filename); else set.add(filename);
       S.page = 0;
       renderFilePills();
       renderTable();
@@ -4270,11 +4248,7 @@
     // ─────────────────────────────────────────────────────────────────────
     function getActiveFile() {
       if (!S.files || !S.files.length) return null;
-      if (S.filters['_src']) {
-        const f = S.files.find(x => x.name === S.filters['_src']);
-        if (f) return f;
-      }
-      if (S.filters['_srcMulti'] && S.filters['_srcMulti'] instanceof Set && S.filters['_srcMulti'].size === 1) {
+      if (S.filters['_srcMulti'] instanceof Set && S.filters['_srcMulti'].size === 1) {
         const singleName = Array.from(S.filters['_srcMulti'])[0];
         const f = S.files.find(x => x.name === singleName);
         if (f) return f;
@@ -5228,8 +5202,9 @@
       saveCustomColumns(S.typeKey, customCols);
 
       // 2. Update files and save to disk
-      const filesToUpdate = scope === 'current' && S.filters['_src']
-        ? S.files.filter(f => f.name === S.filters['_src'])
+      const srcMulti = S.filters['_srcMulti'];
+      const filesToUpdate = scope === 'current' && srcMulti instanceof Set && srcMulti.size > 0
+        ? S.files.filter(f => srcMulti.has(f.name) && f.status === 'loaded')
         : S.files.filter(f => f.status === 'loaded');
 
       for (const file of filesToUpdate) {
@@ -5356,7 +5331,7 @@
       S.files.splice(fi, 1);
       delete typeCache[S.typeKey];
       if (_gsc[S.typeKey]) delete _gsc[S.typeKey][file.name];
-      if (S.filters['_src'] === file.name) S.filters['_src'] = '';
+      if (S.filters['_srcMulti'] instanceof Set) S.filters['_srcMulti'].delete(file.name);
       S.batchSel = new Set([...S.batchSel].filter(k => !k.startsWith(`${fi}:`)));
       S.counts[S.typeKey] = S.files.length;
       updateSidebarCount(S.typeKey);
@@ -5493,7 +5468,7 @@
       const surviving = S.files.filter(f => !loaded.includes(f) || (f === S.files[targetFi] && !isNew));
       const mergedFile = { name: targetName, varName: targetVarName, records: combined, status: 'loaded' };
       S.files = [mergedFile, ...surviving.filter(f => f !== S.files[targetFi])];
-      S.filters['_src'] = '';
+      if (S.filters['_srcMulti'] instanceof Set) S.filters['_srcMulti'].clear();
       S.batchSel = new Set();
       S.schema = buildSchema(getAllRecords());
       S.counts[S.typeKey] = S.files.length;
@@ -7415,12 +7390,8 @@ Rules:
       if (S.files[fi].status !== 'loaded') return;
 
       // Make the file visible in the pills
-      if (typeKey === 'wordbanks') {
-        if (!S.filters['_srcMulti']) S.filters['_srcMulti'] = new Set();
-        S.filters['_srcMulti'].add(filename);
-      } else {
-        S.filters['_src'] = filename;
-      }
+      if (!S.filters['_srcMulti']) S.filters['_srcMulti'] = new Set();
+      S.filters['_srcMulti'].add(filename);
       renderFilePills();
       renderTable();
 
