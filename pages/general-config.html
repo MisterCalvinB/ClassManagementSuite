@@ -1007,6 +1007,10 @@
       document.querySelectorAll('.lang-btn').forEach(function (b) { b.classList.remove('active'); });
       btn.classList.add('active');
       patchLauncherSettings({ language: btn.dataset.lang });
+      localStorage.setItem('cmt-lang-launcher', btn.dataset.lang);
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'cmt-lang-changed', lang: btn.dataset.lang }, '*');
+      }
       flashSaved(langStatus);
     });
 

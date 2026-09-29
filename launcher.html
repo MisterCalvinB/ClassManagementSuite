@@ -103,7 +103,7 @@
       <button class="l-header-btn" id="launcherTutBtn" onclick="startLauncherTutorial()" data-i18n="btnHeaderTutorial">▶ Tour</button>
       <button class="l-header-btn" id="headerSyncBtn" onclick="openModalAndSync()" title="Sync data folder now" data-i18n="btnHeaderSync">⟳ Sync</button>
       <button class="l-header-btn" onclick="openModal('pages/about.html')" title="About" data-i18n="btnHeaderAbout"><img src="assets/icons/about.svg" class="l-hdr-icon-img" alt="" /> About</button>
-      <button class="l-header-btn" id="headerUnitExplorerBtn" onclick="openUnitExplorerModal()" title="Explore all resources by Unit & Tag" data-i18n-title="btnHeaderUnitExplorer"><img src="assets/icons/links.svg" class="l-hdr-icon-img" alt="" /> <span data-i18n="headerUnitExplorer">Tags & Units</span></button>
+      <button class="l-header-btn" id="headerUnitExplorerBtn" onclick="openUnitExplorerModal()" title="Explore all resources by Unit & Tag" data-i18n-title="btnHeaderUnitExplorer"><img src="assets/icons/links.svg" class="l-hdr-icon-img" alt="" /> <span data-i18n="headerUnitExplorer">Links</span></button>
       <button class="l-header-btn sb-toggle-btn" id="sbToggleBtn" data-i18n="sbToggleBtn">Panel</button>
     </div>
   </header>
@@ -965,6 +965,12 @@
   });
   window.addEventListener('message', function (e) {
     if (e.data === 'cmt-close-modal') closeModal();
+    if (e.data && e.data.type === 'cmt-lang-changed') {
+      if (typeof applyTranslations === 'function') applyTranslations();
+      if (typeof applyTitle === 'function') applyTitle();
+      if (typeof sbRender === 'function') sbRender();
+      if (typeof rfRender === 'function') rfRender();
+    }
   });
 
   // ── First-Run Onboarding Modal ─────────────────────────
