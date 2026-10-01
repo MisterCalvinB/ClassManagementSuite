@@ -54,6 +54,7 @@
         <button class="nav-btn" data-i18n="menuEdit">Edit</button>
         <div class="nav-group-popup">
           <button class="nav-pop-item" onclick="lcAddPhase()"><span data-i18n="lcAddPhase">Add Phase</span> <span class="nav-pop-hint">Ctrl+Shift+A</span></button>
+          <button class="nav-pop-item" onclick="lcOpenOutlineModal()"><span data-i18n="lcOutlineModalTitle">Lesson Outline &amp; Reorder…</span></button>
           <button class="nav-pop-item" onclick="lcOpenTeamModal()"><span data-i18n="lcTeamConfig">Cooperative Teams…</span></button>
           <button class="nav-pop-item" onclick="lcOpenSoundModal()"><span data-i18n="lcSoundAlert">Phase Sound Alert…</span></button>
         </div>
@@ -63,6 +64,9 @@
       <div class="nav-group">
         <button class="nav-btn" data-i18n="menuView">View</button>
         <div class="nav-group-popup">
+          <button class="nav-pop-item" onclick="lcToggleTimelineViewMode()"><span data-i18n="lcViewCompact">Toggle Compact Outline View</span></button>
+          <button class="nav-pop-item" onclick="lcOpenOutlineModal()"><span data-i18n="lcOutlineModalTitle">Lesson Outline &amp; Reorder…</span></button>
+          <hr class="nav-pop-sep">
           <button class="nav-pop-item" onclick="lcToggleDrawer('competences')"><span data-i18n="lcCompetenceBank">Competence Bank</span> <span class="nav-pop-hint">Ctrl+B</span></button>
           <button class="nav-pop-item" onclick="lcToggleDrawer('activities')"><span data-i18n="lcActivityBank">Activity Bank</span> <span class="nav-pop-hint">Ctrl+Shift+B</span></button>
           <button class="nav-pop-item" onclick="lcOpenFloatingCompanion()"><span data-i18n="lcFloatingCompanion">Floating Companion…</span></button>
@@ -191,7 +195,21 @@
             </div>
           </div>
 
-          <div style="display:flex;align-items:center;gap:8px;">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <div class="view-mode-toggle" id="timelineViewToggle">
+              <button type="button" class="view-toggle-btn active" id="btnViewDetailed" onclick="lcSetTimelineViewMode('detailed')" title="Detailed View">
+                <img src="../assets/icons/layout.svg" class="btn-icon btn-icon-xs" alt="">
+                <span data-i18n="lcViewDetailed">Detailed</span>
+              </button>
+              <button type="button" class="view-toggle-btn" id="btnViewCompact" onclick="lcSetTimelineViewMode('compact')" title="Compact Outline View">
+                <img src="../assets/icons/compact.svg" class="btn-icon btn-icon-xs" alt="">
+                <span data-i18n="lcViewCompact">Outline</span>
+              </button>
+            </div>
+            <button class="neo-btn" style="padding:5px 10px;font-size:0.82rem;" onclick="lcOpenOutlineModal()" title="Open Outline &amp; Reordering Dialog">
+              <img src="../assets/icons/order.svg" class="btn-icon btn-icon-xs" alt="">
+              <span data-i18n="lcBtnOutlineReorder">Reorder…</span>
+            </button>
             <button class="neo-btn purple" style="padding:5px 10px;font-size:0.82rem;" onclick="lcOpenFloatingCompanion()" title="Floating Lesson Companion"><span data-i18n="lcFloatingCompanion">⏱ Companion</span></button>
             <button class="neo-btn" style="padding:5px 10px;font-size:0.82rem;" onclick="lcOpenTemplatePicker()"><span data-i18n="lcTemplates">Templates</span></button>
             <button class="neo-btn primary" style="padding:5px 10px;font-size:0.82rem;" onclick="lcAddPhase()">+ <span data-i18n="lcAddPhase">Add Phase</span></button>
@@ -649,6 +667,70 @@
       </div>
       <div class="modal-footer">
         <button class="neo-btn primary" onclick="lcSaveTeamConfig()"><span data-i18n="btnOk">OK</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lesson Outline & Reorder Modal -->
+  <div id="outlineModal" class="modal-overlay" style="display:none; z-index:10001;">
+    <div class="modal-box" style="max-width:860px; width:92vw; max-height:90vh; display:flex; flex-direction:column; border:3px solid var(--neo-dark); box-shadow:var(--neo-shadow-lg);">
+      <div class="modal-header" style="border-bottom:2px solid var(--neo-dark); padding-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <img src="../assets/icons/order.svg" style="width:22px;height:22px;" alt="">
+          <span style="font-weight:900;font-size:1.1rem;letter-spacing:-0.2px;" data-i18n="lcOutlineModalTitle">Lesson Outline &amp; Reorder</span>
+        </div>
+        <button class="icon-btn" onclick="lcCloseModal('outlineModal')">&times;</button>
+      </div>
+      
+      <div class="modal-body" style="overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:12px; padding:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;background:var(--neo-gray-light);border:1.5px solid var(--neo-dark);border-radius:var(--neo-radius-sm);padding:8px 12px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="neo-badge" id="outlinePhasesCountBadge" style="background:var(--neo-dark);color:#fff;padding:3px 8px;border-radius:4px;font-weight:800;font-size:0.78rem;">0 Phases</span>
+            <span id="outlineDurationSummary" style="font-weight:800;font-size:0.85rem;color:var(--neo-dark);">Total: 0 / 60m</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <button type="button" class="neo-btn" style="padding:3px 8px;font-size:0.75rem;" onclick="lcAutoBalanceDurations()" title="Scale phase durations proportionally to match target lesson time">
+              <img src="../assets/icons/clock.svg" class="btn-icon btn-icon-xs" alt="">
+              <span data-i18n="lcAutoBalanceDurations">Auto-Balance Durations</span>
+            </button>
+            <button type="button" class="neo-btn" style="padding:3px 8px;font-size:0.75rem;" onclick="lcReversePhases()" title="Reverse entire phase sequence">
+              <img src="../assets/icons/refresh.svg" class="btn-icon btn-icon-xs" alt="">
+              <span data-i18n="lcReversePhases">Reverse Order</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Pacing Bar -->
+        <div>
+          <div style="font-size:0.74rem;font-weight:800;text-transform:uppercase;color:var(--neo-gray-dark);margin-bottom:2px;">
+            Pedagogical Pacing &amp; Timeline:
+          </div>
+          <div id="outlinePacingBar" class="outline-pacing-bar">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <p style="font-size:0.82rem;margin:0;color:var(--neo-gray-dark);" data-i18n="lcOutlineModalSubtitle">
+          Review pedagogical sequence, drag or move phases, and balance timing.
+        </p>
+
+        <!-- Reorderable Rows Container -->
+        <div id="outlinePhasesList" class="outline-phases-container">
+          <!-- Populated by JS -->
+        </div>
+
+        <!-- Add Phase inside modal -->
+        <div style="display:flex;justify-content:center;padding-top:4px;">
+          <button type="button" class="neo-btn primary" style="padding:5px 14px;font-size:0.82rem;" onclick="lcAddPhaseFromOutline()">
+            + <span data-i18n="lcAddPhase">Add Phase</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="border-top:2px solid var(--neo-dark); padding-top:10px; justify-content:flex-end;">
+        <button type="button" class="neo-btn primary" onclick="lcCloseModal('outlineModal')">
+          <span data-i18n="btnClose">Close</span>
+        </button>
       </div>
     </div>
   </div>
@@ -2776,6 +2858,298 @@
       }
       window.lcAutoResizeField = lcAutoResizeField;
 
+      window.lcTimelineViewMode = 'detailed';
+      window.lcExpandedPhaseIndices = new Set();
+
+      function formatPacingClock(mins) {
+        mins = parseInt(mins, 10) || 0;
+        var h = Math.floor(mins / 60);
+        var m = mins % 60;
+        if (h > 0) {
+          return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+        }
+        return '00:' + String(m).padStart(2, '0');
+      }
+      window.formatPacingClock = formatPacingClock;
+
+      function lcSetTimelineViewMode(mode) {
+        window.lcTimelineViewMode = (mode === 'compact') ? 'compact' : 'detailed';
+        var btnDetailed = document.getElementById('btnViewDetailed');
+        var btnCompact = document.getElementById('btnViewCompact');
+        if (btnDetailed) btnDetailed.classList.toggle('active', window.lcTimelineViewMode === 'detailed');
+        if (btnCompact) btnCompact.classList.toggle('active', window.lcTimelineViewMode === 'compact');
+        renderPhaseCards();
+      }
+      window.lcSetTimelineViewMode = lcSetTimelineViewMode;
+
+      function lcToggleTimelineViewMode() {
+        lcSetTimelineViewMode(window.lcTimelineViewMode === 'compact' ? 'detailed' : 'compact');
+      }
+      window.lcToggleTimelineViewMode = lcToggleTimelineViewMode;
+
+      function lcTogglePhaseExpand(idx) {
+        if (!window.lcExpandedPhaseIndices) window.lcExpandedPhaseIndices = new Set();
+        if (window.lcExpandedPhaseIndices.has(idx)) {
+          window.lcExpandedPhaseIndices.delete(idx);
+        } else {
+          window.lcExpandedPhaseIndices.add(idx);
+        }
+        renderPhaseCards();
+      }
+      window.lcTogglePhaseExpand = lcTogglePhaseExpand;
+
+      function lcMovePhase(fromIdx, toIdx) {
+        if (!currentPlan.sections || fromIdx < 0 || fromIdx >= currentPlan.sections.length || toIdx < 0 || toIdx >= currentPlan.sections.length || fromIdx === toIdx) {
+          return;
+        }
+        var moved = currentPlan.sections.splice(fromIdx, 1)[0];
+        currentPlan.sections.splice(toIdx, 0, moved);
+
+        // Remap expanded indices if any
+        if (window.lcExpandedPhaseIndices && window.lcExpandedPhaseIndices.size > 0) {
+          var newExpanded = new Set();
+          window.lcExpandedPhaseIndices.forEach(function (i) {
+            if (i === fromIdx) {
+              newExpanded.add(toIdx);
+            } else if (fromIdx < toIdx && i > fromIdx && i <= toIdx) {
+              newExpanded.add(i - 1);
+            } else if (fromIdx > toIdx && i >= toIdx && i < fromIdx) {
+              newExpanded.add(i + 1);
+            } else {
+              newExpanded.add(i);
+            }
+          });
+          window.lcExpandedPhaseIndices = newExpanded;
+        }
+
+        renderPhaseCards();
+        updateDurationMeter();
+        lcOnPlanDirty();
+
+        var outlineM = document.getElementById('outlineModal');
+        if (outlineM && outlineM.style.display === 'flex') {
+          renderOutlineModalList();
+        }
+      }
+      window.lcMovePhase = lcMovePhase;
+
+      function lcMovePhaseRelative(idx, delta) {
+        var target = idx + delta;
+        if (target >= 0 && target < (currentPlan.sections || []).length) {
+          lcMovePhase(idx, target);
+        }
+      }
+      window.lcMovePhaseRelative = lcMovePhaseRelative;
+
+      function lcMovePhaseToTop(idx) {
+        if (idx > 0) {
+          lcMovePhase(idx, 0);
+        }
+      }
+      window.lcMovePhaseToTop = lcMovePhaseToTop;
+
+      function lcMovePhaseToBottom(idx) {
+        var last = (currentPlan.sections || []).length - 1;
+        if (idx < last) {
+          lcMovePhase(idx, last);
+        }
+      }
+      window.lcMovePhaseToBottom = lcMovePhaseToBottom;
+
+      function lcAutoBalanceDurations() {
+        var phases = currentPlan.sections || [];
+        if (phases.length === 0) return;
+        var target = parseInt(document.getElementById('planTargetDuration').value, 10) || 60;
+        var currentTotal = phases.reduce(function (sum, p) { return sum + (parseInt(p.duration, 10) || 0); }, 0);
+        if (currentTotal <= 0) {
+          var equalShare = Math.max(1, Math.floor(target / phases.length));
+          phases.forEach(function (p) { p.duration = equalShare; });
+        } else {
+          var allocated = 0;
+          phases.forEach(function (p, i) {
+            if (i === phases.length - 1) {
+              p.duration = Math.max(1, target - allocated);
+            } else {
+              var ratio = (parseInt(p.duration, 10) || 0) / currentTotal;
+              var newDur = Math.max(1, Math.round(ratio * target));
+              p.duration = newDur;
+              allocated += newDur;
+            }
+          });
+        }
+        renderPhaseCards();
+        updateDurationMeter();
+        lcOnPlanDirty();
+        var outlineM = document.getElementById('outlineModal');
+        if (outlineM && outlineM.style.display === 'flex') {
+          renderOutlineModalList();
+        }
+        if (typeof showToast === 'function') {
+          showToast('Auto-balanced phase durations to target (' + target + 'm)');
+        }
+      }
+      window.lcAutoBalanceDurations = lcAutoBalanceDurations;
+
+      function lcReversePhases() {
+        if (!currentPlan.sections || currentPlan.sections.length <= 1) return;
+        currentPlan.sections.reverse();
+        renderPhaseCards();
+        updateDurationMeter();
+        lcOnPlanDirty();
+        var outlineM = document.getElementById('outlineModal');
+        if (outlineM && outlineM.style.display === 'flex') {
+          renderOutlineModalList();
+        }
+        if (typeof showToast === 'function') {
+          showToast('Reversed phase sequence');
+        }
+      }
+      window.lcReversePhases = lcReversePhases;
+
+      function lcOpenOutlineModal() {
+        renderOutlineModalList();
+        var m = document.getElementById('outlineModal');
+        if (m) m.style.display = 'flex';
+      }
+      window.lcOpenOutlineModal = lcOpenOutlineModal;
+
+      function renderOutlineModalList() {
+        var list = document.getElementById('outlinePhasesList');
+        if (!list) return;
+        list.innerHTML = '';
+
+        var phases = currentPlan.sections || [];
+        var target = parseInt(document.getElementById('planTargetDuration').value, 10) || 60;
+        var totalMins = 0;
+        phases.forEach(function (p) { totalMins += (parseInt(p.duration, 10) || 0); });
+
+        var countBadge = document.getElementById('outlinePhasesCountBadge');
+        if (countBadge) countBadge.textContent = phases.length + ' ' + (phases.length === 1 ? 'Phase' : 'Phases');
+
+        var durSummary = document.getElementById('outlineDurationSummary');
+        if (durSummary) {
+          durSummary.textContent = 'Total: ' + totalMins + ' / ' + target + 'm' + (totalMins === target ? ' (Balanced)' : (totalMins > target ? ' (+' + (totalMins - target) + 'm Over)' : ' (' + (target - totalMins) + 'm Under)'));
+          durSummary.style.color = (totalMins === target) ? 'var(--neo-green)' : (totalMins > target ? 'var(--neo-orange)' : 'var(--neo-dark)');
+        }
+
+        var pacingBar = document.getElementById('outlinePacingBar');
+        if (pacingBar) {
+          pacingBar.innerHTML = '';
+          if (totalMins > 0) {
+            phases.forEach(function (p, idx) {
+              var seg = document.createElement('div');
+              seg.className = 'outline-pacing-segment';
+              var pct = ((parseInt(p.duration, 10) || 0) / Math.max(totalMins, target)) * 100;
+              seg.style.width = pct + '%';
+              var actType = (LessonCreatorService.DEFAULT_ACTIVITY_TYPES || []).find(function (a) { return a.id === p.activityTypeId; });
+              seg.style.background = actType ? (actType.bg || '#e2c96e') : '#e2c96e';
+              seg.title = '#' + (idx + 1) + ' ' + (p.title || 'Phase') + ' (' + (p.duration || 0) + 'm)';
+              pacingBar.appendChild(seg);
+            });
+          }
+        }
+
+        if (phases.length === 0) {
+          list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--neo-gray-dark);font-size:0.88rem;">' +
+            'No phases in this lesson plan yet. Click "<strong>+ Add Phase</strong>" below to start.</div>';
+          return;
+        }
+
+        var cumMinutes = 0;
+        phases.forEach(function (sec, idx) {
+          var cumStart = cumMinutes;
+          var dur = parseInt(sec.duration, 10) || 0;
+          var cumEnd = cumStart + dur;
+          cumMinutes = cumEnd;
+
+          var row = document.createElement('div');
+          row.className = 'outline-row';
+          row.dataset.index = idx;
+          row.draggable = true;
+
+          row.addEventListener('dragstart', function (e) {
+            e.dataTransfer.setData('text/plain', String(idx));
+            e.dataTransfer.effectAllowed = 'move';
+            row.classList.add('dragging');
+          });
+          row.addEventListener('dragend', function () {
+            row.classList.remove('dragging');
+          });
+          row.addEventListener('dragover', function (e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            row.classList.add('drag-over');
+          });
+          row.addEventListener('dragleave', function (e) {
+            if (!row.contains(e.relatedTarget)) {
+              row.classList.remove('drag-over');
+            }
+          });
+          row.addEventListener('drop', function (e) {
+            e.preventDefault();
+            row.classList.remove('drag-over');
+            var fromIdx = parseInt(e.dataTransfer.getData('text/plain'), 10);
+            if (!isNaN(fromIdx) && fromIdx !== idx && fromIdx >= 0 && fromIdx < phases.length) {
+              lcMovePhase(fromIdx, idx);
+            }
+          });
+
+          var isFirst = (idx === 0);
+          var isLast = (idx === phases.length - 1);
+
+          var actType = (LessonCreatorService.DEFAULT_ACTIVITY_TYPES || []).find(function (a) { return a.id === sec.activityTypeId; });
+          var actLabel = actType ? getActivityLabel(actType.id, true) : 'Activity';
+          var actBg = actType ? (actType.bg || '#fef3c7') : '#f3f4f6';
+
+          row.innerHTML = [
+            '<span class="phase-handle" title="Drag to reorder" style="font-size:0.95rem;">:::</span>',
+            '<span class="phase-number-badge" style="font-size:0.75rem;padding:2px 6px;">' + (idx + 1) + '</span>',
+            '<span class="phase-time-badge" style="font-size:0.72rem;">' + formatPacingClock(cumStart) + '–' + formatPacingClock(cumEnd) + '</span>',
+            '<input type="text" class="outline-row-title-input" value="' + escapeHtml(sec.title || '') + '" placeholder="Phase Title" oninput="lcOnPhaseTitleChange(' + idx + ', this.value); if(document.getElementById(\'outlinePacingBar\')) renderOutlineModalList();">',
+            '<span style="background:' + actBg + ';border:1px solid var(--neo-dark);border-radius:12px;padding:2px 8px;font-size:0.72rem;font-weight:800;white-space:nowrap;">' + escapeHtml(actLabel) + '</span>',
+            '<div style="display:flex;align-items:center;gap:3px;">',
+            '  <input type="number" class="outline-row-duration-input" value="' + dur + '" min="1" max="240" oninput="lcOnPhaseDurationChange(' + idx + ', this.value); renderOutlineModalList();">',
+            '  <span style="font-size:0.75rem;font-weight:800;">m</span>',
+            '</div>',
+            '<div style="display:inline-flex;align-items:center;gap:3px;margin-left:auto;">',
+            '  <button type="button" class="reorder-btn" onclick="lcMovePhaseToTop(' + idx + ')" ' + (isFirst ? 'disabled' : '') + ' title="' + (i18n.t('lcMovePhaseTop') || 'Move to Top') + '">⤒</button>',
+            '  <button type="button" class="reorder-btn" onclick="lcMovePhaseRelative(' + idx + ', -1)" ' + (isFirst ? 'disabled' : '') + ' title="' + (i18n.t('lcMovePhaseUp') || 'Move Up') + '">▲</button>',
+            '  <button type="button" class="reorder-btn" onclick="lcMovePhaseRelative(' + idx + ', 1)" ' + (isLast ? 'disabled' : '') + ' title="' + (i18n.t('lcMovePhaseDown') || 'Move Down') + '">▼</button>',
+            '  <button type="button" class="reorder-btn" onclick="lcMovePhaseToBottom(' + idx + ')" ' + (isLast ? 'disabled' : '') + ' title="' + (i18n.t('lcMovePhaseBottom') || 'Move to Bottom') + '">⤓</button>',
+            '  <button type="button" class="icon-btn" onclick="lcDuplicatePhase(' + idx + '); renderOutlineModalList();" title="Duplicate Phase" style="padding:3px 6px;font-size:0.74rem;">📋</button>',
+            '  <button type="button" class="icon-btn danger" onclick="lcDeletePhase(' + idx + '); renderOutlineModalList();" title="Delete Phase" style="padding:3px 6px;font-size:0.74rem;">🗑</button>',
+            '</div>'
+          ].join('');
+
+          list.appendChild(row);
+        });
+      }
+      window.renderOutlineModalList = renderOutlineModalList;
+
+      function lcAddPhaseFromOutline() {
+        lcAddPhase();
+        renderOutlineModalList();
+      }
+      window.lcAddPhaseFromOutline = lcAddPhaseFromOutline;
+
+      function buildCompactActivityBadge(actId) {
+        var a = (LessonCreatorService.DEFAULT_ACTIVITY_TYPES || []).find(function (item) { return item.id === actId; });
+        if (!a) return '<span style="font-size:0.72rem;color:var(--neo-gray-dark);font-weight:700;">(No activity)</span>';
+        var iconHtml = a.icon ? '<img src="../assets/icons/' + escapeHtml(a.icon) + '" class="phase-pill-icon" alt="" style="width:12px;height:12px;margin-right:4px;">' : '';
+        var bg = a.bg || '#fef3c7';
+        var col = a.color || '#111';
+        return '<span style="background:' + bg + ';color:' + col + ';border:1px solid var(--neo-dark);border-radius:12px;padding:2px 8px;font-size:0.74rem;font-weight:800;display:inline-flex;align-items:center;white-space:nowrap;">' +
+          iconHtml + '<span>' + escapeHtml(getActivityLabel(a.id, true)) + '</span></span>';
+      }
+
+      function buildCompactModeBadge(modeId) {
+        var m = (LessonCreatorService.DEFAULT_INTERACTION_TYPES || []).find(function (item) { return item.id === modeId; });
+        if (!m) return '';
+        var iconHtml = m.icon ? '<img src="../assets/icons/' + escapeHtml(m.icon) + '" class="phase-pill-icon" alt="" style="width:12px;height:12px;margin-right:4px;">' : '';
+        return '<span style="background:var(--neo-gray-light);border:1px solid var(--neo-dark);border-radius:12px;padding:2px 8px;font-size:0.74rem;font-weight:800;display:inline-flex;align-items:center;white-space:nowrap;">' +
+          iconHtml + '<span>' + escapeHtml(getInteractionLabel(m.id, true)) + '</span></span>';
+      }
+
       function renderPhaseCards() {
         var list = document.getElementById('phaseCardsList');
         list.innerHTML = '';
@@ -2786,22 +3160,22 @@
           return;
         }
 
-        (currentPlan.sections || []).forEach(function (sec, idx) {
-          var card = document.createElement('div');
-          card.className = 'phase-card';
-          card.dataset.index = idx;
-          card.draggable = true;
+        var isCompact = (window.lcTimelineViewMode === 'compact');
+        var cumulativeMinutes = 0;
 
-          // Drag and drop listeners
-          card.addEventListener('dragstart', function (e) {
-            activeDraggingIndex = idx;
-            card.classList.add('dragging');
-            e.dataTransfer.setData('text/plain', String(idx));
-            e.dataTransfer.effectAllowed = 'move';
-          });
-          card.addEventListener('dragend', function () {
-            card.classList.remove('dragging');
-          });
+        (currentPlan.sections || []).forEach(function (sec, idx) {
+          var cumStart = cumulativeMinutes;
+          var dur = parseInt(sec.duration, 10) || 0;
+          var cumEnd = cumStart + dur;
+          cumulativeMinutes = cumEnd;
+          var timeBadgeText = formatPacingClock(cumStart) + '–' + formatPacingClock(cumEnd);
+          var isExpanded = (window.lcExpandedPhaseIndices && window.lcExpandedPhaseIndices.has(idx));
+
+          var card = document.createElement('div');
+          card.className = 'phase-card' + (isCompact ? ' compact-mode' : '') + (isExpanded ? ' is-expanded' : '');
+          card.dataset.index = idx;
+
+          // Drag and drop listeners for accepting drawer items (descriptors, phase templates, wordbank items)
           card.addEventListener('dragover', function (e) {
             e.preventDefault();
             var types = Array.from(e.dataTransfer.types || []);
@@ -2841,7 +3215,7 @@
               } catch (_) {}
             }
 
-            // 2. Check text/plain for phase template vs descriptor ID string vs wordbank vs phase index number
+            // 2. Check text/plain for phase template vs descriptor ID string vs wordbank item
             var plainText = (e.dataTransfer.getData('text/plain') || '').trim();
             if (plainText && plainText.startsWith('phase:')) {
               var pId = plainText.slice(6);
@@ -2859,19 +3233,9 @@
               lcTagDescriptorToActivePhase(plainText, idx);
               return;
             }
-
-            // 3. Reorder phase cards
-            var fromIdx = parseInt(plainText, 10);
-            if (!isNaN(fromIdx) && fromIdx !== idx && fromIdx >= 0 && fromIdx < currentPlan.sections.length) {
-              var moved = currentPlan.sections.splice(fromIdx, 1)[0];
-              currentPlan.sections.splice(idx, 0, moved);
-              renderPhaseCards();
-              updateDurationMeter();
-              lcOnPlanDirty();
-            }
           });
 
-          // Container drop listener for appending phases
+          // Container drop listener for appending phases from drawer
           var phaseCardsContainer = document.getElementById('phaseCardsList');
           if (phaseCardsContainer && !phaseCardsContainer._dropConfigured) {
             phaseCardsContainer._dropConfigured = true;
@@ -2912,15 +3276,27 @@
             });
           }
 
+          var isFirst = (idx === 0);
+          var isLast = (idx === (currentPlan.sections || []).length - 1);
+          var reorderBtnsHtml = [
+            '<div style="display:inline-flex;align-items:center;gap:2px;">',
+            '  <button type="button" class="reorder-btn" onclick="event.stopPropagation(); lcMovePhaseRelative(' + idx + ', -1)" ' + (isFirst ? 'disabled' : '') + ' title="' + (i18n.t('lcMovePhaseUp') || 'Move Up') + '">▲</button>',
+            '  <button type="button" class="reorder-btn" onclick="event.stopPropagation(); lcMovePhaseRelative(' + idx + ', 1)" ' + (isLast ? 'disabled' : '') + ' title="' + (i18n.t('lcMovePhaseDown') || 'Move Down') + '">▼</button>',
+            '</div>'
+          ].join('');
+
           // Header Row
           var header = document.createElement('div');
           header.className = 'phase-card-header';
           header.innerHTML = [
-            '<span class="phase-handle" title="Drag to reorder">:::</span>',
             '<span class="phase-number-badge">' + (idx + 1) + '</span>',
+            '<span class="phase-time-badge" title="Pacing schedule">' + timeBadgeText + '</span>',
+            reorderBtnsHtml,
             '<input type="text" class="phase-title-input" value="' + escapeHtml(sec.title || '') + '" placeholder="Phase Title" oninput="lcOnPhaseTitleChange(' + idx + ', this.value)">',
-            '<div class="phase-duration-wrap"><input type="number" class="phase-duration-input" value="' + (sec.duration || 0) + '" min="1" max="240" oninput="lcOnPhaseDurationChange(' + idx + ', this.value)"> <span>m</span></div>',
+            (isCompact ? ('<div style="display:inline-flex;align-items:center;gap:4px;">' + buildCompactActivityBadge(sec.activityTypeId) + buildCompactModeBadge(sec.interactionTypeId) + '</div>') : ''),
+            '<div class="phase-duration-wrap"><input type="number" class="phase-duration-input" value="' + dur + '" min="1" max="240" oninput="lcOnPhaseDurationChange(' + idx + ', this.value)"> <span>m</span></div>',
             '<div class="phase-actions-group">',
+            (isCompact ? ('  <button type="button" class="icon-btn" onclick="lcTogglePhaseExpand(' + idx + ')" title="' + (isExpanded ? (i18n.t('lcCollapseDetails') || 'Collapse Details') : (i18n.t('lcExpandDetails') || 'Expand Details')) + '" style="font-weight:800;display:inline-flex;align-items:center;gap:3px;background:' + (isExpanded ? 'var(--neo-yellow)' : '#fff') + ';"><span>' + (isExpanded ? '▲ Less' : '▼ More') + '</span></button>') : ''),
             (sec.boardFile ? ('  <button type="button" class="icon-btn" onclick="lcOpenPhaseMindmapLink(' + idx + ')" style="display:inline-flex;align-items:center;gap:3px;background:#fef08a;border:1.5px solid #000;font-weight:800;" title="' + escapeHtml(sec.boardFile + (sec.boardNodeId ? (' (' + sec.boardNodeId + ')') : '')) + '"><img src="../assets/icons/links.svg" class="btn-icon btn-icon-xs" alt=""><span>[BOARD: ' + escapeHtml(sec.boardFile.replace(/\.(js|json)$/i, '')) + ']</span></button>') : ('  <button type="button" class="icon-btn" onclick="lcOpenPhaseMindmapLink(' + idx + ')" title="' + (i18n.t('lcLinkBoardTitle') || 'Link to Board mindmap') + '" style="display:inline-flex;align-items:center;gap:3px;"><img src="../assets/icons/links.svg" class="btn-icon btn-icon-xs" alt=""><span>' + (i18n.t('lcLinkBoardBtn') || 'Mindmap') + '</span></button>')),
             '  <button type="button" class="icon-btn" onclick="lcOpenExportPhaseModal(' + idx + ')" title="' + (i18n.t('lcExportPhaseBtnTitle') || 'Add phase to database') + '" style="display:inline-flex;align-items:center;gap:3px;"><img src="../assets/icons/save.svg" class="btn-icon btn-icon-xs" alt=""><span>' + (i18n.t('lcExportPhaseBtn') || 'Add to DB') + '</span></button>',
             '  <button class="icon-btn" onclick="lcOpenSplitModal(' + idx + ')" title="Split Phase">Split</button>',
@@ -2930,7 +3306,7 @@
           ].join('');
           card.appendChild(header);
 
-          // Pills Row: Activity & Mode Chips (allows no selection / toggle)
+          // Pills Row: Activity & Mode Chips
           var pillsRow = document.createElement('div');
           pillsRow.className = 'phase-pills-row';
           pillsRow.innerHTML = [

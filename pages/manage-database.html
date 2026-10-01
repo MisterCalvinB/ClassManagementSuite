@@ -392,6 +392,18 @@
         <button class="modal-x" onclick="closeColPicker()"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="Close" /></button>
       </div>
       <div class="modal-bd" style="display:flex;flex-direction:column;gap:14px;overflow-y:auto;">
+        <!-- Card Title Element Selection -->
+        <div id="col-picker-title-section" style="border:1.5px solid #000;border-radius:6px;padding:10px 12px;background:#fefce8;box-shadow:2px 2px 0 #000;">
+          <label for="col-picker-title-select" style="display:block;font-size:0.75rem;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:#000;margin-bottom:4px;" data-i18n="mdbExportTitleFieldLabel">
+            Card Title Element
+          </label>
+          <div style="font-size:0.75rem;color:#713f12;font-weight:600;margin-bottom:8px;line-height:1.3;" data-i18n="mdbExportTitleFieldHint">
+            Select which field defines the primary card heading and groups matching records for comparison.
+          </div>
+          <select id="col-picker-title-select" style="width:100%;padding:7px 10px;border:2px solid #000;border-radius:6px;font-family:inherit;font-size:0.85rem;font-weight:700;background:#fff;box-shadow:1.5px 1.5px 0 #000;outline:none;cursor:pointer;">
+          </select>
+        </div>
+
         <!-- Columns Section -->
         <div>
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
@@ -6113,6 +6125,34 @@ Rules:
       const cols = isPdfOrDocxOrHtml ? S.schema.filter(f => f.type !== 'object' || isStructuredObjectField(S.typeKey, f.key)) : S.schema;
       const multiFile = S.files.filter(f => f.status === 'loaded').length > 1;
 
+      // Card Title Element Selection (for Interactive HTML / card-based formats)
+      const titleSection = document.getElementById('col-picker-title-section');
+      const titleSelect = document.getElementById('col-picker-title-select');
+      if (titleSection && titleSelect) {
+        titleSection.style.display = (mode === 'html-filter' || mode === 'html') ? 'block' : 'none';
+        titleSelect.innerHTML = '';
+        
+        // Check if schema has an explicit 'title' field
+        const hasExplicitTitle = cols.find(f => f.key.toLowerCase() === 'title');
+        const priorityKeys = ['title', 'term', 'word', 'name', 'label', 'sentence', 'quote', 'correct', 'category', 'topic', 'theme'];
+        let defaultKey = hasExplicitTitle ? hasExplicitTitle.key : null;
+        if (!defaultKey) {
+          for (const pk of priorityKeys) {
+            const match = cols.find(f => f.key.toLowerCase() === pk);
+            if (match) { defaultKey = match.key; break; }
+          }
+        }
+        if (!defaultKey && cols.length > 0) defaultKey = cols[0].key;
+
+        cols.forEach(f => {
+          const opt = document.createElement('option');
+          opt.value = f.key;
+          opt.textContent = cap(f.key) + (f.key.toLowerCase() === 'title' ? ' (Default)' : '');
+          if (f.key === defaultKey) opt.selected = true;
+          titleSelect.appendChild(opt);
+        });
+      }
+
       const list = document.getElementById('col-picker-list');
       list.innerHTML = '';
       cols.forEach(f => {
@@ -6161,11 +6201,11 @@ Rules:
       document.getElementById('col-picker-title').textContent = title;
       document.getElementById('col-picker-confirm').textContent = confirmText;
 
-      _colPickerCallback = function (selectedKeys) {
+      _colPickerCallback = function (selectedKeys, titleKey) {
         if (mode === 'pdf') doExportPDF(rows, selectedKeys);
         else if (mode === 'csv') doExportCSV(rows, selectedKeys);
         else if (mode === 'html') doExportHTML(rows, selectedKeys);
-        else if (mode === 'html-filter') doExportFilterableHTML(rows, selectedKeys);
+        else if (mode === 'html-filter') doExportFilterableHTML(rows, selectedKeys, titleKey);
         else if (mode === 'md') doExportMarkdown(rows, selectedKeys);
         else if (mode === 'xlsx') doExportXLSX(rows, selectedKeys);
         else if (mode === 'docx') doExportDocx(rows, selectedKeys);
@@ -6186,9 +6226,11 @@ Rules:
     function colPickerConfirm() {
       const keys = [...document.querySelectorAll('#col-picker-list input[type="checkbox"]:checked')].map(cb => cb.value);
       if (!keys.length) { showToast(t('mdbAlertSelectColumn')); return; }
+      const titleSelect = document.getElementById('col-picker-title-select');
+      const titleKey = (titleSelect && titleSelect.value) ? titleSelect.value : null;
       const cb = _colPickerCallback;
       closeColPicker();
-      if (cb) cb(keys);
+      if (cb) cb(keys, titleKey);
     }
 
     function exportCSV() { openColPicker('csv'); }
@@ -6504,13 +6546,29 @@ Rules:
       }
     }
 
-    function doExportFilterableHTML(rows, selectedKeys) {
+    function doExportFilterableHTML(rows, selectedKeys, titleKey) {
       const typeDef = getTypeDef(S.typeKey);
       const label = typeDef ? t(typeDef.labelKey) : S.typeKey;
       const ts = exportTimestamp();
       const multiFile = S.files.filter(f => f.status === 'loaded').length > 1;
       const inclSrc = multiFile && selectedKeys.includes('_src');
       const cols = S.schema.filter(f => (f.type !== 'object' || isStructuredObjectField(S.typeKey, f.key)) && selectedKeys.includes(f.key));
+
+      // Determine primary title key for card heading and comparison grouping
+      let primaryCol = (titleKey && cols.some(f => f.key === titleKey)) ? titleKey : '';
+      if (!primaryCol) {
+        const hasExplicitTitle = cols.find(f => f.key.toLowerCase() === 'title');
+        if (hasExplicitTitle) {
+          primaryCol = hasExplicitTitle.key;
+        } else {
+          const priorityKeys = ['title', 'term', 'word', 'name', 'label', 'sentence', 'quote', 'correct', 'category', 'topic', 'theme'];
+          for (const pk of priorityKeys) {
+            const match = cols.find(f => f.key.toLowerCase() === pk);
+            if (match) { primaryCol = match.key; break; }
+          }
+          if (!primaryCol && cols.length > 0) primaryCol = cols[0].key;
+        }
+      }
 
       // Prepare dataset rows keeping structured data intact
       const datasetRows = rows.map(r => {
@@ -7056,6 +7114,93 @@ Rules:
       font-size: 15px;
       box-shadow: var(--shadow);
     }
+    /* Comparison Sections for Identical Titles */
+    .rec-group-section {
+      grid-column: 1 / -1;
+      background: #ffffff;
+      border: 3px solid var(--border);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .rec-group-header {
+      background: var(--badge-yellow);
+      border-bottom: 2.5px solid var(--border);
+      padding: 12px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .rec-group-title-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .rec-group-title-label {
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: #854d0e;
+    }
+    .rec-group-title {
+      font-size: 18px;
+      font-weight: 900;
+      color: #000;
+      letter-spacing: -0.01em;
+    }
+    .rec-group-count-badge {
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: #000;
+      color: #fff;
+      padding: 4px 10px;
+      border-radius: 4px;
+      box-shadow: 1.5px 1.5px 0 var(--border);
+    }
+    .rec-comparison-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 14px;
+      padding: 16px;
+      background: #f8fafc;
+    }
+    .rec-comparison-card {
+      background: #ffffff;
+      border: 2px solid var(--border);
+      border-radius: 6px;
+      padding: 14px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .rec-comparison-card-hd {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      border-bottom: 1.5px dashed #cbd5e1;
+      padding-bottom: 6px;
+    }
+    .rec-variant-badge {
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: #e0e7ff;
+      color: #3730a3;
+      padding: 2px 7px;
+      border-radius: 3px;
+      border: 1px solid #000;
+    }
     @media (max-width: 650px) {
       body { padding: 12px; }
       .filter-grid { grid-template-columns: 1fr; }
@@ -7115,6 +7260,7 @@ Rules:
     const ROWS = ${JSON.stringify(datasetRows)};
     const COLS = ${JSON.stringify(colsMeta)};
     const ALL_UNIQUE_VALUES = ${JSON.stringify(columnUniqueMap)};
+    const TITLE_COL = ${JSON.stringify(primaryCol)};
 
     const $ = id => document.getElementById(id);
     const searchInput = $('search-box');
@@ -7284,6 +7430,173 @@ Rules:
       });
     }
 
+    function renderRecordDetails(row, isComparisonView) {
+      const badges = [];
+      const extraFields = [];
+      let longDescHtml = '';
+
+      COLS.forEach(col => {
+        const rawVal = row[col.key];
+        if (rawVal === undefined || rawVal === null || rawVal === '') return;
+        if (col.key === TITLE_COL && !isComparisonView) return;
+        if (col.key === '_src') {
+          badges.push('<span class="badge badge-src">' + esc(rawVal) + '</span>');
+          return;
+        }
+
+        // Criteria comments
+        if (col.key === 'comments' || (col.isStructured && col.key === 'comments')) {
+          if (typeof rawVal === 'object' && rawVal !== null) {
+            const entries = Object.entries(rawVal).filter(([k, v]) => v !== undefined && v !== null && String(v).trim() && !String(v).toLowerCase().includes('object object'));
+            if (entries.length) {
+              entries.sort((a, b) => {
+                const numA = parseFloat(a[0]);
+                const numB = parseFloat(b[0]);
+                if (!isNaN(numA) && !isNaN(numB)) return numB - numA;
+                return a[0].localeCompare(b[0]);
+              });
+              const critRowsHtml = entries.map(([lvl, desc]) => {
+                const color = (row.colors && row.colors[lvl]) ? { bg: row.colors[lvl], fg: '#000000' } : getScoreLevelColor(lvl);
+                return '<div class="crit-level-card">' +
+                  '<div class="crit-level-badge-wrap">' +
+                    '<span class="crit-level-badge" style="background:' + esc(color.bg) + ';color:' + esc(color.fg) + ';">' + esc(lvl) + '</span>' +
+                  '</div>' +
+                  '<div class="crit-level-body">' + esc(desc) + '</div>' +
+                '</div>';
+              }).join('');
+              longDescHtml += '<div class="crit-comments-container">' +
+                '<div class="crit-comments-header">Evaluation Criteria Levels &amp; Descriptors</div>' +
+                critRowsHtml +
+              '</div>';
+              return;
+            }
+          } else if (typeof rawVal === 'string' && rawVal.includes(':')) {
+            const parts = rawVal.split(';').map(s => s.trim()).filter(Boolean);
+            const parsed = [];
+            parts.forEach(p => {
+              const colonIdx = p.indexOf(':');
+              if (colonIdx > 0) parsed.push([p.slice(0, colonIdx).trim(), p.slice(colonIdx + 1).trim()]);
+            });
+            if (parsed.length) {
+              parsed.sort((a, b) => (parseFloat(b[0]) || 0) - (parseFloat(a[0]) || 0));
+              const critRowsHtml = parsed.map(([lvl, desc]) => {
+                const color = (row.colors && typeof row.colors === 'object' && row.colors[lvl]) ? { bg: row.colors[lvl], fg: '#000000' } : getScoreLevelColor(lvl);
+                return '<div class="crit-level-card">' +
+                  '<div class="crit-level-badge-wrap">' +
+                    '<span class="crit-level-badge" style="background:' + esc(color.bg) + ';color:' + esc(color.fg) + ';">' + esc(lvl) + '</span>' +
+                  '</div>' +
+                  '<div class="crit-level-body">' + esc(desc) + '</div>' +
+                '</div>';
+              }).join('');
+              longDescHtml += '<div class="crit-comments-container">' +
+                '<div class="crit-comments-header">Evaluation Criteria Levels &amp; Descriptors</div>' +
+                critRowsHtml +
+              '</div>';
+              return;
+            }
+          }
+        }
+
+        // Scale thresholds
+        if (col.key === 'thresholds' || (col.isStructured && col.key === 'thresholds')) {
+          if (typeof rawVal === 'object' && rawVal !== null) {
+            const entries = Object.entries(rawVal).filter(([k, v]) => v !== undefined && v !== null && String(v).trim());
+            entries.sort((a, b) => (parseFloat(b[0]) || 0) - (parseFloat(a[0]) || 0));
+            const bandsHtml = entries.map(([grade, pct]) => {
+              const color = (row.colors && row.colors[grade]) ? row.colors[grade] : getScoreLevelColor(grade).bg;
+              return '<span class="threshold-pill" style="background:' + esc(color) + ';border:1.5px solid #000;box-shadow:1.5px 1.5px 0 #000;">' +
+                '<strong>' + esc(grade) + '</strong> &ge; ' + esc(pct) + '%' +
+              '</span>';
+            }).join(' ');
+            extraFields.push('<div class="field-pill full-width"><span class="field-key">Thresholds</span><div class="thresholds-wrap">' + bandsHtml + '</div></div>');
+            return;
+          }
+        }
+
+        // Colors
+        if (col.key === 'colors' || (col.isStructured && col.key === 'colors')) {
+          if (typeof rawVal === 'object' && rawVal !== null) {
+            const swatchesHtml = Object.entries(rawVal).map(([k, c]) => {
+              return '<span class="color-badge"><span class="color-dot" style="background:' + esc(c) + '"></span> ' + esc(k) + '</span>';
+            }).join(' ');
+            extraFields.push('<div class="field-pill full-width"><span class="field-key">Colors</span><div class="swatches-wrap">' + swatchesHtml + '</div></div>');
+            return;
+          }
+        }
+
+        // CompetenceIds
+        if (col.key === 'competenceIds' || col.key === 'linkedCompetenceIds') {
+          const arr = Array.isArray(rawVal) ? rawVal : String(rawVal).split(';').map(s => s.trim()).filter(Boolean);
+          if (arr.length) {
+            const compChipsHtml = arr.map(code => '<span class="badge badge-comp">' + esc(code) + '</span>').join('');
+            extraFields.push('<div class="field-pill full-width"><span class="field-key">Competences</span><div class="comp-wrap">' + compChipsHtml + '</div></div>');
+            return;
+          }
+        }
+
+        // Quiz options
+        if (col.key === 'options' && (Array.isArray(rawVal) || typeof rawVal === 'string')) {
+          const opts = Array.isArray(rawVal) ? rawVal : String(rawVal).split(';').map(s => s.trim()).filter(Boolean);
+          if (opts.length) {
+            const correct = String(row.correctAnswer || row.answer || '').trim().toLowerCase();
+            const optsHtml = opts.map(opt => {
+              const isCorrect = correct && (opt.trim().toLowerCase() === correct);
+              return '<div class="quiz-option' + (isCorrect ? ' quiz-correct' : '') + '">' +
+                (isCorrect ? '<span>✓</span>' : '<span>•</span>') +
+                '<span>' + esc(opt) + '</span>' +
+              '</div>';
+            }).join('');
+            longDescHtml += '<div class="quiz-options-block">' + optsHtml + '</div>';
+            return;
+          }
+        }
+
+        // Lesson phase actions
+        if (col.key === 'teacherAction' || col.key === 'studentAction') {
+          const isTeacher = col.key === 'teacherAction';
+          const actionIcon = isTeacher ? '🧑‍🏫 Teacher Action' : '🧑‍🎓 Student Action';
+          const actionBg = isTeacher ? '#f0fdf4' : '#eff6ff';
+          longDescHtml += '<div class="action-box" style="background:' + actionBg + ';">' +
+            '<div class="action-box-title">' + actionIcon + '</div>' +
+            '<div>' + esc(rawVal) + '</div>' +
+          '</div>';
+          return;
+        }
+
+        // Errorbanks
+        if (col.key === 'error') {
+          badges.push('<span class="badge badge-error">❌ ' + esc(rawVal) + '</span>');
+          return;
+        }
+        if (col.key === 'correction') {
+          badges.push('<span class="badge badge-correct">✓ ' + esc(rawVal) + '</span>');
+          return;
+        }
+
+        // Quotes
+        if (col.key === 'quote') {
+          longDescHtml += '<blockquote class="quote-box">“' + esc(rawVal) + '”</blockquote>';
+          return;
+        }
+
+        // Long descriptions
+        if (col.isLong || col.key === 'description' || col.key === 'comment' || col.key === 'text' || col.key === 'definition' || col.key === 'example' || col.key === 'explanation' || col.key === 'sampleTasks') {
+          longDescHtml += '<div class="rec-desc"><span class="desc-label">' + esc(col.label) + ':</span> ' + esc(rawVal) + '</div>';
+          return;
+        }
+
+        // Badges
+        if (col.key === 'pos' || col.key === 'level' || col.key === 'category' || col.key === 'theme' || col.key === 'partofspeech' || col.key === 'cefr' || col.key === 'domain' || col.key === 'scale') {
+          badges.push('<span class="' + getBadgeClass(col.key) + '">' + esc(rawVal) + '</span>');
+          return;
+        }
+
+        extraFields.push('<div class="field-pill"><span class="field-key">' + esc(col.label) + '</span><span class="field-val">' + esc(rawVal) + '</span></div>');
+      });
+
+      return { badges, extraFields, longDescHtml };
+    }
+
     function render() {
       const filtered = getCandidateRows(null);
       const active = getActiveFilters();
@@ -7299,181 +7612,77 @@ Rules:
         return;
       }
 
-      const primaryCol = COLS[0] ? COLS[0].key : '';
+      // Group records by chosen card title element
+      const groups = {};
+      const groupKeys = [];
 
-      resultsGrid.innerHTML = filtered.map(row => {
-        const titleVal = row[primaryCol] || 'Record';
-        const badges = [];
-        const extraFields = [];
-        let longDescHtml = '';
-
-        COLS.forEach(col => {
-          const rawVal = row[col.key];
-          if (rawVal === undefined || rawVal === null || rawVal === '') return;
-          if (col.key === primaryCol) return;
-          if (col.key === '_src') {
-            badges.push('<span class="badge badge-src">' + esc(rawVal) + '</span>');
-            return;
+      filtered.forEach(row => {
+        const raw = row[TITLE_COL];
+        let titleStr = '';
+        if (raw !== undefined && raw !== null) {
+          if (typeof raw === 'object' && !Array.isArray(raw)) {
+            titleStr = Object.entries(raw).map(([k, v]) => k + ': ' + v).join('; ');
+          } else if (Array.isArray(raw)) {
+            titleStr = raw.join(', ');
+          } else {
+            titleStr = String(raw).trim();
           }
+        }
+        if (!titleStr) titleStr = '(Untitled)';
+        if (!groups[titleStr]) {
+          groups[titleStr] = [];
+          groupKeys.push(titleStr);
+        }
+        groups[titleStr].push(row);
+      });
 
-          // Criteria comments
-          if (col.key === 'comments' || (col.isStructured && col.key === 'comments')) {
-            if (typeof rawVal === 'object' && rawVal !== null) {
-              const entries = Object.entries(rawVal).filter(([k, v]) => v !== undefined && v !== null && String(v).trim() && !String(v).toLowerCase().includes('object object'));
-              if (entries.length) {
-                entries.sort((a, b) => {
-                  const numA = parseFloat(a[0]);
-                  const numB = parseFloat(b[0]);
-                  if (!isNaN(numA) && !isNaN(numB)) return numB - numA;
-                  return a[0].localeCompare(b[0]);
-                });
-                const critRowsHtml = entries.map(([lvl, desc]) => {
-                  const color = (row.colors && row.colors[lvl]) ? { bg: row.colors[lvl], fg: '#000000' } : getScoreLevelColor(lvl);
-                  return '<div class="crit-level-card">' +
-                    '<div class="crit-level-badge-wrap">' +
-                      '<span class="crit-level-badge" style="background:' + esc(color.bg) + ';color:' + esc(color.fg) + ';">' + esc(lvl) + '</span>' +
-                    '</div>' +
-                    '<div class="crit-level-body">' + esc(desc) + '</div>' +
-                  '</div>';
-                }).join('');
-                longDescHtml += '<div class="crit-comments-container">' +
-                  '<div class="crit-comments-header">Evaluation Criteria Levels &amp; Descriptors</div>' +
-                  critRowsHtml +
-                '</div>';
-                return;
-              }
-            } else if (typeof rawVal === 'string' && rawVal.includes(':')) {
-              const parts = rawVal.split(';').map(s => s.trim()).filter(Boolean);
-              const parsed = [];
-              parts.forEach(p => {
-                const colonIdx = p.indexOf(':');
-                if (colonIdx > 0) parsed.push([p.slice(0, colonIdx).trim(), p.slice(colonIdx + 1).trim()]);
-              });
-              if (parsed.length) {
-                parsed.sort((a, b) => (parseFloat(b[0]) || 0) - (parseFloat(a[0]) || 0));
-                const critRowsHtml = parsed.map(([lvl, desc]) => {
-                  const color = (row.colors && typeof row.colors === 'object' && row.colors[lvl]) ? { bg: row.colors[lvl], fg: '#000000' } : getScoreLevelColor(lvl);
-                  return '<div class="crit-level-card">' +
-                    '<div class="crit-level-badge-wrap">' +
-                      '<span class="crit-level-badge" style="background:' + esc(color.bg) + ';color:' + esc(color.fg) + ';">' + esc(lvl) + '</span>' +
-                    '</div>' +
-                    '<div class="crit-level-body">' + esc(desc) + '</div>' +
-                  '</div>';
-                }).join('');
-                longDescHtml += '<div class="crit-comments-container">' +
-                  '<div class="crit-comments-header">Evaluation Criteria Levels &amp; Descriptors</div>' +
-                  critRowsHtml +
-                '</div>';
-                return;
-              }
-            }
-          }
+      resultsGrid.innerHTML = groupKeys.map(titleStr => {
+        const items = groups[titleStr];
 
-          // Scale thresholds
-          if (col.key === 'thresholds' || (col.isStructured && col.key === 'thresholds')) {
-            if (typeof rawVal === 'object' && rawVal !== null) {
-              const entries = Object.entries(rawVal).filter(([k, v]) => v !== undefined && v !== null && String(v).trim());
-              entries.sort((a, b) => (parseFloat(b[0]) || 0) - (parseFloat(a[0]) || 0));
-              const bandsHtml = entries.map(([grade, pct]) => {
-                const color = (row.colors && row.colors[grade]) ? row.colors[grade] : getScoreLevelColor(grade).bg;
-                return '<span class="threshold-pill" style="background:' + esc(color) + ';border:1.5px solid #000;box-shadow:1.5px 1.5px 0 #000;">' +
-                  '<strong>' + esc(grade) + '</strong> &ge; ' + esc(pct) + '%' +
-                '</span>';
-              }).join(' ');
-              extraFields.push('<div class="field-pill full-width"><span class="field-key">Thresholds</span><div class="thresholds-wrap">' + bandsHtml + '</div></div>');
-              return;
-            }
-          }
+        // Single record: render standard Neobrutalist card
+        if (items.length === 1) {
+          const row = items[0];
+          const { badges, extraFields, longDescHtml } = renderRecordDetails(row, false);
+          return '<article class="rec-card">' +
+            '<div class="rec-header">' +
+              '<div class="rec-title-wrap"><h3 class="rec-title">' + esc(titleStr) + '</h3></div>' +
+              (badges.length ? '<div class="rec-badges">' + badges.join('') + '</div>' : '') +
+            '</div>' +
+            (longDescHtml ? '<div class="rec-body-content">' + longDescHtml + '</div>' : '') +
+            (extraFields.length ? '<div class="rec-fields">' + extraFields.join('') + '</div>' : '') +
+          '</article>';
+        }
 
-          // Colors
-          if (col.key === 'colors' || (col.isStructured && col.key === 'colors')) {
-            if (typeof rawVal === 'object' && rawVal !== null) {
-              const swatchesHtml = Object.entries(rawVal).map(([k, c]) => {
-                return '<span class="color-badge"><span class="color-dot" style="background:' + esc(c) + '"></span> ' + esc(k) + '</span>';
-              }).join(' ');
-              extraFields.push('<div class="field-pill full-width"><span class="field-key">Colors</span><div class="swatches-wrap">' + swatchesHtml + '</div></div>');
-              return;
-            }
-          }
+        // Multiple records with identical title: render structured comparison section
+        const comparisonCardsHtml = items.map((row, idx) => {
+          const { badges, extraFields, longDescHtml } = renderRecordDetails(row, true);
+          return '<article class="rec-comparison-card">' +
+            '<div class="rec-comparison-card-hd">' +
+              '<div style="display:flex;align-items:center;gap:6px;">' +
+                '<span class="rec-variant-badge">Entry #' + (idx + 1) + '</span>' +
+                (row._src ? '<span class="badge badge-src">' + esc(row._src) + '</span>' : '') +
+              '</div>' +
+              (badges.length ? '<div class="rec-badges">' + badges.join('') + '</div>' : '') +
+            '</div>' +
+            (longDescHtml ? '<div class="rec-body-content">' + longDescHtml + '</div>' : '') +
+            (extraFields.length ? '<div class="rec-fields">' + extraFields.join('') + '</div>' : '') +
+          '</article>';
+        }).join('');
 
-          // CompetenceIds
-          if (col.key === 'competenceIds' || col.key === 'linkedCompetenceIds') {
-            const arr = Array.isArray(rawVal) ? rawVal : String(rawVal).split(';').map(s => s.trim()).filter(Boolean);
-            if (arr.length) {
-              const compChipsHtml = arr.map(code => '<span class="badge badge-comp">' + esc(code) + '</span>').join('');
-              extraFields.push('<div class="field-pill full-width"><span class="field-key">Competences</span><div class="comp-wrap">' + compChipsHtml + '</div></div>');
-              return;
-            }
-          }
-
-          // Quiz options
-          if (col.key === 'options' && (Array.isArray(rawVal) || typeof rawVal === 'string')) {
-            const opts = Array.isArray(rawVal) ? rawVal : String(rawVal).split(';').map(s => s.trim()).filter(Boolean);
-            if (opts.length) {
-              const correct = String(row.correctAnswer || row.answer || '').trim().toLowerCase();
-              const optsHtml = opts.map(opt => {
-                const isCorrect = correct && (opt.trim().toLowerCase() === correct);
-                return '<div class="quiz-option' + (isCorrect ? ' quiz-correct' : '') + '">' +
-                  (isCorrect ? '<span>✓</span>' : '<span>•</span>') +
-                  '<span>' + esc(opt) + '</span>' +
-                '</div>';
-              }).join('');
-              longDescHtml += '<div class="quiz-options-block">' + optsHtml + '</div>';
-              return;
-            }
-          }
-
-          // Lesson phase actions
-          if (col.key === 'teacherAction' || col.key === 'studentAction') {
-            const isTeacher = col.key === 'teacherAction';
-            const actionIcon = isTeacher ? '🧑‍🏫 Teacher Action' : '🧑‍🎓 Student Action';
-            const actionBg = isTeacher ? '#f0fdf4' : '#eff6ff';
-            longDescHtml += '<div class="action-box" style="background:' + actionBg + ';">' +
-              '<div class="action-box-title">' + actionIcon + '</div>' +
-              '<div>' + esc(rawVal) + '</div>' +
-            '</div>';
-            return;
-          }
-
-          // Errorbanks
-          if (col.key === 'error') {
-            badges.push('<span class="badge badge-error">❌ ' + esc(rawVal) + '</span>');
-            return;
-          }
-          if (col.key === 'correction') {
-            badges.push('<span class="badge badge-correct">✓ ' + esc(rawVal) + '</span>');
-            return;
-          }
-
-          // Quotes
-          if (col.key === 'quote') {
-            longDescHtml += '<blockquote class="quote-box">“' + esc(rawVal) + '”</blockquote>';
-            return;
-          }
-
-          // Long descriptions
-          if (col.isLong || col.key === 'description' || col.key === 'comment' || col.key === 'text' || col.key === 'definition' || col.key === 'example' || col.key === 'explanation' || col.key === 'sampleTasks') {
-            longDescHtml += '<div class="rec-desc"><span class="desc-label">' + esc(col.label) + ':</span> ' + esc(rawVal) + '</div>';
-            return;
-          }
-
-          // Badges
-          if (col.key === 'pos' || col.key === 'level' || col.key === 'category' || col.key === 'theme' || col.key === 'partofspeech' || col.key === 'cefr' || col.key === 'domain' || col.key === 'scale') {
-            badges.push('<span class="' + getBadgeClass(col.key) + '">' + esc(rawVal) + '</span>');
-            return;
-          }
-
-          extraFields.push('<div class="field-pill"><span class="field-key">' + esc(col.label) + '</span><span class="field-val">' + esc(rawVal) + '</span></div>');
-        });
-
-        return '<article class="rec-card">' +
-          '<div class="rec-header">' +
-            '<div class="rec-title-wrap"><h3 class="rec-title">' + esc(titleVal) + '</h3></div>' +
-            (badges.length ? '<div class="rec-badges">' + badges.join('') + '</div>' : '') +
+        return '<section class="rec-group-section">' +
+          '<div class="rec-group-header">' +
+            '<div class="rec-group-title-wrap">' +
+              '<span class="rec-group-title-label">Shared Title</span>' +
+              '<h2 class="rec-group-title">' + esc(titleStr) + '</h2>' +
+            '</div>' +
+            '<div class="rec-group-meta">' +
+              '<span class="rec-group-count-badge">' + items.length + ' Matched Entries to Compare</span>' +
+            '</div>' +
           '</div>' +
-          (longDescHtml ? '<div class="rec-body-content">' + longDescHtml + '</div>' : '') +
-          (extraFields.length ? '<div class="rec-fields">' + extraFields.join('') + '</div>' : '') +
-        '</article>';
+          '<div class="rec-comparison-grid">' +
+            comparisonCardsHtml +
+          '</div>' +
+        '</section>';
       }).join('');
     }
 

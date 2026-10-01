@@ -383,9 +383,19 @@
           </div>
         </div>
 
-        <!-- Panel 4: Competences -->
+        <!-- Panel 4: Competence Bank -->
         <div id="panelCompetences" class="drawer-tab-panel">
-          <div id="tcClassObjectivesBanner" style="display:none;background:#eff6ff;border:2px solid #2563eb;padding:8px 10px;margin-bottom:8px;border-radius:4px;box-shadow:2px 2px 0 #2563eb;">
+          <div class="drawer-header">
+            <div class="drawer-title">
+              <img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:15px;height:15px;" />
+              <span data-i18n="tcCompetenceBank">Competence Bank</span>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <button type="button" class="neo-btn purple" style="padding:4px 8px;font-size:0.75rem;" onclick="tcOpenCompetenceCustomizeModal()"><span data-i18n="lcCustomiseView">Customise View</span></button>
+            </div>
+          </div>
+
+          <div id="tcClassObjectivesBanner" style="display:none;background:#eff6ff;border:2px solid #2563eb;padding:8px 10px;border-radius:4px;box-shadow:2px 2px 0 #2563eb;">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:4px;">
               <span style="font-weight:900;font-size:0.75rem;color:#1e40af;display:inline-flex;align-items:center;gap:4px;">
                 <img src="../assets/icons/links.svg" style="width:12px;height:12px;" alt="" />
@@ -399,13 +409,46 @@
             </div>
             <div id="tcClassObjectivesList" style="display:flex;flex-wrap:wrap;gap:4px;max-height:80px;overflow-y:auto;"></div>
           </div>
-          <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">
+
+          <div style="display:flex;gap:6px;align-items:center;">
             <span style="font-size:0.75rem;font-weight:800;color:#1e40af;white-space:nowrap;" data-i18n="tcTagToLabel">Tag to:</span>
             <select id="competenceTargetExSelect" class="meta-select" style="flex:1;padding:4px;" onchange="tcOnCompetenceTargetChange()">
               <option value="__exam__" data-i18n="tcEntireExamTestWide">Entire Exam (Test-wide)</option>
             </select>
           </div>
-          <input type="text" id="drawerCompetenceSearch" class="drawer-search-input" placeholder="Search competences by code, description…" data-i18n-placeholder="tcSearchCompetencesPlaceholder" oninput="tcFilterCompetences()">
+
+          <input type="text" id="drawerCompetenceSearch" class="drawer-search-input" placeholder="Search competences, code, words…" data-i18n-placeholder="lcSearchCompetences" oninput="tcFilterCompetences()">
+
+          <div class="drawer-filter-grid">
+            <select id="drawerCompFilterSubject" class="drawer-select" onchange="tcFilterCompetences()">
+              <option value="all" data-i18n="lcAllSubjects">All Subjects</option>
+            </select>
+            <select id="drawerCompFilterYear" class="drawer-select" onchange="tcFilterCompetences()">
+              <option value="all" data-i18n="lcAllYears">All Year Levels</option>
+            </select>
+            <select id="drawerCompFilterCategory" class="drawer-select" onchange="tcOnCompCategoryChange()">
+              <option value="all" data-i18n="lcAllCategories">All Categories</option>
+            </select>
+            <select id="drawerCompFilterSubCategory" class="drawer-select" onchange="tcFilterCompetences()">
+              <option value="all" data-i18n="lcAllSubCategories">All Subcategories</option>
+            </select>
+          </div>
+
+          <div class="drawer-top-info">
+            <span id="drawerCompMatchCount" class="drawer-match-badge">0 competences</span>
+            <div id="drawerCompActiveFilters" class="drawer-active-filters-bar"></div>
+          </div>
+
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+            <select id="drawerCompSort" class="drawer-select" style="flex:1;" onchange="tcFilterCompetences()">
+              <option value="code" data-i18n="lcSortCode">Sort: Code (A–Z)</option>
+              <option value="title" data-i18n="lcSortTitle">Sort: Title (A–Z)</option>
+              <option value="level" data-i18n="lcSortLevel">Sort: Level / Tier</option>
+            </select>
+            <button type="button" class="neo-btn" style="padding:4px 8px;font-size:0.75rem;" onclick="tcOpenCompetenceDb()"><span data-i18n="lcOpenCompetenceDb">Open DB</span></button>
+            <button type="button" class="neo-btn" style="padding:4px 8px;font-size:0.75rem;" onclick="tcOpenCompetenceImporter()">+ <span data-i18n="lcImport">Import</span></button>
+          </div>
+
           <div class="drawer-items-list" id="competenceDbList">
             <div style="font-size:0.8rem;color:#888;text-align:center;padding:20px;" data-i18n="tcLoadingCompetences">Loading competences…</div>
           </div>
@@ -1712,12 +1755,179 @@
     <button type="button" class="tc-fmt-btn" title="Green Accent Text" data-i18n-title="tcToolbarGreenTooltip" onmousedown="event.preventDefault(); tcApplyFormatToActiveInput('color', '#16a34a');"><span style="color:#16a34a;font-weight:900;">A</span></button>
   </div>
 
+  <!-- ── 11. Competence Customise View Modal ────────────────────────────── -->
+  <div id="competenceCustomizeModal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)tcCloseCompetenceCustomizeModal()">
+    <div class="modal-box" style="max-width:640px;">
+      <div class="modal-header">
+        <span class="modal-title">
+          <img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:16px;height:16px;" />
+          <span data-i18n="lcCustomiseTitle">Customise Competence Panel</span>
+        </span>
+        <button class="modal-close-btn" onclick="tcCloseCompetenceCustomizeModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="display:flex;flex-direction:column;gap:12px;">
+        
+        <!-- Display Preset Selection -->
+        <div>
+          <label style="font-weight:900;font-size:0.9rem;display:block;margin-bottom:6px;" data-i18n="lcPresetLabel">Display Presets:</label>
+          <div style="display:flex;gap:16px;flex-wrap:wrap;">
+            <label style="font-weight:700;font-size:0.85rem;display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="radio" name="compPresetMode" value="detailed" onchange="tcOnCompPresetChange('detailed')">
+              <span data-i18n="lcPresetDetailed">Detailed (Full)</span>
+            </label>
+            <label style="font-weight:700;font-size:0.85rem;display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="radio" name="compPresetMode" value="compact" onchange="tcOnCompPresetChange('compact')">
+              <span data-i18n="lcPresetCompact">Compact (Summary)</span>
+            </label>
+            <label style="font-weight:700;font-size:0.85rem;display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="radio" name="compPresetMode" value="minimal" onchange="tcOnCompPresetChange('minimal')">
+              <span data-i18n="lcPresetMinimal">Minimal (Code &amp; Title)</span>
+            </label>
+          </div>
+        </div>
+
+        <hr style="border:none;border-top:1px dashed var(--neo-gray-mid);margin:4px 0;">
+
+        <!-- Field Visibility Toggles Grid -->
+        <div style="font-weight:900;font-size:0.9rem;margin-bottom:4px;" data-i18n="lcFieldVisibility">Competence Card Field Visibility:</div>
+        <div class="customize-field-grid">
+          
+          <div class="customize-toggle-item">
+            <span data-i18n="lcShowCode">Competence Code</span>
+            <label class="neo-switch">
+              <input type="checkbox" id="cfgShowCode" checked>
+              <span class="neo-switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="customize-toggle-item">
+            <span data-i18n="lcShowTitle">Title &amp; Name</span>
+            <label class="neo-switch">
+              <input type="checkbox" id="cfgShowTitle" checked>
+              <span class="neo-switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="customize-toggle-item">
+            <span data-i18n="lcShowDescription">Full Description</span>
+            <label class="neo-switch">
+              <input type="checkbox" id="cfgShowDescription" checked>
+              <span class="neo-switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="customize-toggle-item">
+            <span data-i18n="lcShowLevel">Level / Tier Badge</span>
+            <label class="neo-switch">
+              <input type="checkbox" id="cfgShowLevel" checked>
+              <span class="neo-switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="customize-toggle-item">
+            <span data-i18n="lcShowCategory">Category Tags</span>
+            <label class="neo-switch">
+              <input type="checkbox" id="cfgShowCategory" checked>
+              <span class="neo-switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="customize-toggle-item">
+            <span data-i18n="lcShowTags">Keywords &amp; Tag Pills</span>
+            <label class="neo-switch">
+              <input type="checkbox" id="cfgShowTags" checked>
+              <span class="neo-switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="customize-toggle-item">
+            <span data-i18n="lcShowComments">Notes &amp; Sample Tasks</span>
+            <label class="neo-switch">
+              <input type="checkbox" id="cfgShowComments" checked>
+              <span class="neo-switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="customize-toggle-item">
+            <span data-i18n="lcShowActions">Action Buttons (+ Tag)</span>
+            <label class="neo-switch">
+              <input type="checkbox" id="cfgShowActions" checked>
+              <span class="neo-switch-slider"></span>
+            </label>
+          </div>
+
+        </div>
+
+      </div>
+      <div class="modal-footer" style="display:flex;justify-content:space-between;align-items:center;">
+        <button type="button" class="neo-btn danger" onclick="tcResetCompetenceConfig()"><span data-i18n="lcResetDefaults">Reset Defaults</span></button>
+        <div style="display:flex;gap:8px;">
+          <button type="button" class="neo-btn" onclick="tcCloseCompetenceCustomizeModal()"><span data-i18n="btnCancel">Cancel</span></button>
+          <button type="button" class="neo-btn primary" onclick="tcSaveCompetenceConfig()"><span data-i18n="btnSave">Save &amp; Apply</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ── 4. Main Controller Script ────────────────────────────────────────── -->
   <script>
     (function () {
       'use strict';
 
       var currentTest = TestCreatorService.createEmptyTest();
+
+      var DEFAULT_COMPETENCE_CONFIG = {
+        preset: 'detailed',
+        showCode: true,
+        showTitle: true,
+        showDescription: true,
+        showLevel: true,
+        showCategory: true,
+        showTags: true,
+        showComments: true,
+        showActions: true,
+        drawerWidth: 440
+      };
+      var competenceDisplayConfig = Object.assign({}, DEFAULT_COMPETENCE_CONFIG);
+
+      async function loadCompetenceDisplayConfig() {
+        try {
+          if (window.Desktop && typeof Desktop.readText === 'function') {
+            var res = await Desktop.readText('user', 'competence-display-config.json');
+            if (res && res.ok && res.content) {
+              var parsed = JSON.parse(res.content);
+              if (parsed && typeof parsed === 'object') {
+                competenceDisplayConfig = Object.assign({}, DEFAULT_COMPETENCE_CONFIG, parsed);
+                return;
+              }
+            }
+          }
+        } catch (_) {}
+
+        try {
+          var local = localStorage.getItem('cmt-competence-display-config');
+          if (local) {
+            var parsedLocal = JSON.parse(local);
+            if (parsedLocal && typeof parsedLocal === 'object') {
+              competenceDisplayConfig = Object.assign({}, DEFAULT_COMPETENCE_CONFIG, parsedLocal);
+            }
+          }
+        } catch (_) {}
+      }
+
+      async function saveCompetenceDisplayConfigToDisk() {
+        try {
+          localStorage.setItem('cmt-competence-display-config', JSON.stringify(competenceDisplayConfig));
+        } catch (_) {}
+
+        try {
+          if (window.Desktop && typeof Desktop.saveJson === 'function') {
+            await Desktop.saveJson('user', 'competence-display-config.json', competenceDisplayConfig);
+          } else if (window.Desktop && typeof Desktop.saveText === 'function') {
+            await Desktop.saveText('user', 'competence-display-config.json', JSON.stringify(competenceDisplayConfig, null, 2));
+          }
+        } catch (_) {}
+      }
       var activeClassGroups = [];
       var activeStudents = [];
       var rawMeta = {};
@@ -1728,6 +1938,7 @@
       // ── Bootstrap Data ───────────────────────────────────────────────────
       window.addEventListener('DOMContentLoaded', async function () {
         initHamburger();
+        await loadCompetenceDisplayConfig();
         if (typeof applyTranslations === 'function') {
           applyTranslations();
         }
@@ -1742,8 +1953,49 @@
         renderExerciseCards();
         tcLoadDrawerContent();
         setupResizer();
+        setupExerciseDragAndDrop();
         tcCheckUrlExerciseDeepLink();
       });
+
+      function setupExerciseDragAndDrop() {
+        var exList = document.getElementById('exerciseCardsList');
+        if (!exList) return;
+        exList.addEventListener('dragover', function (e) {
+          var card = e.target.closest('.exercise-card-item');
+          if (card) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+            card.classList.add('drag-over');
+          }
+        });
+        exList.addEventListener('dragleave', function (e) {
+          var card = e.target.closest('.exercise-card-item');
+          if (card && (!e.relatedTarget || !card.contains(e.relatedTarget))) {
+            card.classList.remove('drag-over');
+          }
+        });
+        exList.addEventListener('drop', function (e) {
+          var card = e.target.closest('.exercise-card-item');
+          if (card) {
+            e.preventDefault();
+            card.classList.remove('drag-over');
+            var cardId = card.id.replace(/^card-/, '');
+            try {
+              var rawData = e.dataTransfer.getData('application/json');
+              if (rawData) {
+                var payload = JSON.parse(rawData);
+                if (payload.type === 'descriptor') {
+                  _targetAttachExId = cardId;
+                  var desc = (_cachedCompetences || []).find(function (c) {
+                    return c.id === payload.descriptorId || c.code === payload.code;
+                  }) || { id: payload.descriptorId, code: payload.code, title: payload.title };
+                  tcAttachCompetenceByObject(desc);
+                }
+              }
+            } catch (_) {}
+          }
+        });
+      }
 
       function tcCheckUrlExerciseDeepLink() {
         var params = new URLSearchParams(window.location.search);
@@ -2225,12 +2477,18 @@
             var newSub = res.trim();
             tcAddSubjectOption(newSub, true);
             currentTest.subject = newSub;
+            var dSub = document.getElementById('drawerCompFilterSubject');
+            if (dSub) dSub.value = newSub;
+            if (typeof tcFilterCompetences === 'function') tcFilterCompetences();
             tcOnDirty();
           } else {
             sel.value = currentTest.subject || (sel.options[0] ? sel.options[0].value : 'English');
           }
         } else {
           currentTest.subject = sel.value;
+          var dSubEl = document.getElementById('drawerCompFilterSubject');
+          if (dSubEl) dSubEl.value = currentTest.subject;
+          if (typeof tcFilterCompetences === 'function') tcFilterCompetences();
           tcOnDirty();
         }
       };
@@ -2377,10 +2635,26 @@
             currentTest.subject = gSub;
             var subSel = document.getElementById('testSubject');
             if (subSel) subSel.value = gSub;
+            var dSub = document.getElementById('drawerCompFilterSubject');
+            if (dSub) dSub.value = gSub;
             if (window.showToast && typeof i18n !== 'undefined' && typeof i18n.tFmt === 'function') {
               showToast(i18n.tFmt('tcSubjectSyncedFromClass', { subject: gSub }));
             }
           }
+          if (group.level) {
+            var dYr = document.getElementById('drawerCompFilterYear');
+            if (dYr) {
+              var tLvl = String(group.level).trim().toLowerCase();
+              for (var k = 0; k < dYr.options.length; k++) {
+                var yv = dYr.options[k].value.toLowerCase();
+                if (yv === tLvl || yv.includes(tLvl) || tLvl.includes(yv)) {
+                  dYr.selectedIndex = k;
+                  break;
+                }
+              }
+            }
+          }
+          if (typeof tcFilterCompetences === 'function') tcFilterCompetences();
         } else {
           currentTest.className = '';
           activeStudents = [];
@@ -5109,7 +5383,8 @@
           } else if (activeDrawerTab === 'competences') {
             if (window.CompetenceAggregatorService) {
               _cachedCompetences = await window.CompetenceAggregatorService.loadAllCompetences();
-              tcRenderCompetenceList(_cachedCompetences);
+              tcPopulateCompFilterDropdownOptions();
+              tcFilterCompetences();
             }
           } else if (activeDrawerTab === 'scales') {
             await tcLoadAvailableScaleBanks();
@@ -6180,7 +6455,7 @@
         }
       };
 
-      // ── Drawer Tab 4: Competences ─────────────────────────────────────────
+      // ── Drawer Tab 4: Competence Bank ─────────────────────────────────────
       function renderTestCompetenceBadges() {
         var bar = document.getElementById('testCompetencesBar');
         var list = document.getElementById('testCompetencesList');
@@ -6234,44 +6509,404 @@
         var sel = document.getElementById('competenceTargetExSelect');
         var val = sel ? sel.value : '__exam__';
         _targetAttachExId = val === '__exam__' ? null : val;
-        tcRenderCompetenceList(_cachedCompetences);
+        tcFilterCompetences();
       };
 
-      function tcRenderCompetenceList(list) {
-        var el = document.getElementById('competenceDbList');
-        if (!list || !list.length) {
-          el.innerHTML = '<div style="text-align:center;padding:20px;color:#888;font-size:0.8rem;">No competences found in customCompetences.</div>';
-          return;
+      function isSubjectMatch(sub1, sub2) {
+        if (!sub1 || !sub2) return true;
+        var s1 = String(sub1).trim().toLowerCase();
+        var s2 = String(sub2).trim().toLowerCase();
+        if (s1 === 'all' || s2 === 'all') return true;
+        if (s1 === s2) return true;
+
+        var aliases = [
+          ['english', 'anglais', 'engl', 'angl'],
+          ['french', 'français', 'francais'],
+          ['german', 'allemand', 'deutsch'],
+          ['spanish', 'espagnol', 'español'],
+          ['italian', 'italien', 'italiano'],
+          ['science', 'sciences', 'stem', 'svt', 'physique', 'chimie', 'biology', 'biologie'],
+          ['math', 'mathematics', 'maths', 'mathématiques', 'mathematiques'],
+          ['history', 'histoire'],
+          ['geography', 'géographie', 'geographie']
+        ];
+
+        for (var i = 0; i < aliases.length; i++) {
+          var grp = aliases[i];
+          var m1 = grp.some(function (a) { return s1 === a || s1.indexOf(a) !== -1; });
+          var m2 = grp.some(function (a) { return s2 === a || s2.indexOf(a) !== -1; });
+          if (m1 && m2) return true;
         }
 
+        return false;
+      }
+
+      function tcHighlightMatchText(text, rawQuery) {
+        if (!text) return '';
+        var str = String(text);
+        if (!rawQuery) return escapeHtml(str);
+        var q = rawQuery.trim();
+        if (!q) return escapeHtml(str);
+        var escapedQuery = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        var regex = new RegExp('(' + escapedQuery + ')', 'gi');
+        var parts = str.split(regex);
+        return parts.map(function (part) {
+          if (part.toLowerCase() === q.toLowerCase()) {
+            return '<mark class="search-highlight">' + escapeHtml(part) + '</mark>';
+          }
+          return escapeHtml(part);
+        }).join('');
+      }
+
+      function tcPopulateCompFilterDropdownOptions() {
+        var subSelect = document.getElementById('drawerCompFilterSubject');
+        var yrSelect = document.getElementById('drawerCompFilterYear');
+        if (!subSelect && !yrSelect) return;
+
+        var currentSub = subSelect ? subSelect.value : 'all';
+        var currentYr = yrSelect ? yrSelect.value : 'all';
+
+        var subjects = new Set(['English', 'French', 'Science', 'Mathematics', 'History', 'Geography', 'Art', 'Music', 'Spanish', 'German']);
+        var yearLevels = new Set();
+
+        (activeClassGroups || []).forEach(function (g) {
+          if (g.subject && g.subject.trim()) subjects.add(g.subject.trim());
+          if (g.level) yearLevels.add(String(g.level).trim());
+        });
+
+        (_cachedCompetences || []).forEach(function (c) {
+          if (c) {
+            var s = c.subjectId || c.subject;
+            if (s && s !== 'all') subjects.add(String(s).trim());
+            var y = c.yearLevel || c.year;
+            if (y && y !== 'all') yearLevels.add(String(y).trim());
+          }
+        });
+
+        if (currentTest && currentTest.subject) {
+          subjects.add(currentTest.subject.trim());
+        }
+
+        if (subSelect) {
+          subSelect.innerHTML = '<option value="all" data-i18n="lcAllSubjects">' + (i18n.t('lcAllSubjects') || 'All Subjects') + '</option>';
+          Array.from(subjects).filter(Boolean).sort(function (a, b) {
+            return a.localeCompare(b, undefined, { sensitivity: 'base' });
+          }).forEach(function (s) {
+            var opt = document.createElement('option');
+            opt.value = s;
+            opt.textContent = s;
+            subSelect.appendChild(opt);
+          });
+          if (currentSub && (subjects.has(currentSub) || currentSub === 'all')) {
+            subSelect.value = currentSub;
+          }
+        }
+
+        if (yrSelect) {
+          yrSelect.innerHTML = '<option value="all" data-i18n="lcAllYears">' + (i18n.t('lcAllYears') || 'All Year Levels') + '</option>';
+          Array.from(yearLevels).filter(Boolean).sort().forEach(function (y) {
+            var opt = document.createElement('option');
+            opt.value = y;
+            opt.textContent = y;
+            yrSelect.appendChild(opt);
+          });
+          if (currentYr && (yearLevels.has(currentYr) || currentYr === 'all')) {
+            yrSelect.value = currentYr;
+          }
+        }
+      }
+
+      function tcPopulateCompCategoryDropdown(subId) {
+        var catSelect = document.getElementById('drawerCompFilterCategory');
+        if (!catSelect) return;
+        var currentVal = catSelect.value;
+        var subIdLower = String(subId || 'all').toLowerCase();
+        var categories = new Set();
+        (_cachedCompetences || []).forEach(function (d) {
+          var dSub = String(d.subjectId || d.subject || '').toLowerCase();
+          if (subIdLower === 'all' || isSubjectMatch(dSub, subIdLower)) {
+            if (d.category) categories.add(d.category);
+          }
+        });
+
+        catSelect.innerHTML = '<option value="all" data-i18n="lcAllCategories">' + (i18n.t('lcAllCategories') || 'All Categories') + '</option>';
+        Array.from(categories).sort().forEach(function (cat) {
+          var opt = document.createElement('option');
+          opt.value = cat;
+          opt.textContent = cat;
+          catSelect.appendChild(opt);
+        });
+        if (categories.has(currentVal)) {
+          catSelect.value = currentVal;
+        }
+      }
+
+      window.tcOnCompCategoryChange = function () {
+        var cat = document.getElementById('drawerCompFilterCategory').value;
+        var subCatSelect = document.getElementById('drawerCompFilterSubCategory');
+        var subCats = new Set();
+        (_cachedCompetences || []).forEach(function (d) {
+          if (cat === 'all' || d.category === cat) {
+            if (d.subCategory) subCats.add(d.subCategory);
+          }
+        });
+        if (subCatSelect) {
+          subCatSelect.innerHTML = '<option value="all" data-i18n="lcAllSubCategories">' + (i18n.t('lcAllSubCategories') || 'All Subcategories') + '</option>';
+          subCats.forEach(function (sub) {
+            var opt = document.createElement('option');
+            opt.value = sub;
+            opt.textContent = sub;
+            subCatSelect.appendChild(opt);
+          });
+        }
+        tcFilterCompetences();
+      };
+
+      function tcUpdateCompInfoBars(filteredCount, totalCount, rawQuery, subId, yrId, catId, subCatId) {
+        var countEl = document.getElementById('drawerCompMatchCount');
+        if (countEl) {
+          countEl.textContent = 'Showing ' + filteredCount + ' of ' + totalCount + ' competences';
+        }
+
+        var filterBar = document.getElementById('drawerCompActiveFilters');
+        if (!filterBar) return;
+        filterBar.innerHTML = '';
+
+        var activePills = [];
+        if (rawQuery) {
+          activePills.push('<span class="drawer-filter-pill">Search: "' + escapeHtml(rawQuery) + '" <span class="drawer-filter-pill-remove" onclick="tcClearActiveCompetenceFilter(\'search\')">&times;</span></span>');
+        }
+        if (subId && subId !== 'all') {
+          activePills.push('<span class="drawer-filter-pill">Subject: ' + escapeHtml(subId) + ' <span class="drawer-filter-pill-remove" onclick="tcClearActiveCompetenceFilter(\'subject\')">&times;</span></span>');
+        }
+        if (yrId && yrId !== 'all') {
+          activePills.push('<span class="drawer-filter-pill">Year: ' + escapeHtml(yrId) + ' <span class="drawer-filter-pill-remove" onclick="tcClearActiveCompetenceFilter(\'year\')">&times;</span></span>');
+        }
+        if (catId && catId !== 'all') {
+          activePills.push('<span class="drawer-filter-pill">Cat: ' + escapeHtml(catId) + ' <span class="drawer-filter-pill-remove" onclick="tcClearActiveCompetenceFilter(\'category\')">&times;</span></span>');
+        }
+        if (subCatId && subCatId !== 'all') {
+          activePills.push('<span class="drawer-filter-pill">Subcat: ' + escapeHtml(subCatId) + ' <span class="drawer-filter-pill-remove" onclick="tcClearActiveCompetenceFilter(\'subcategory\')">&times;</span></span>');
+        }
+
+        if (activePills.length > 0) {
+          activePills.push('<button type="button" class="neo-btn danger" style="padding:1px 6px;font-size:0.7rem;" onclick="tcResetAllCompetenceFilters()">Clear All</button>');
+        }
+
+        filterBar.innerHTML = activePills.join('');
+      }
+
+      window.tcResetAllCompetenceFilters = function () {
+        var sInp = document.getElementById('drawerCompetenceSearch');
+        if (sInp) sInp.value = '';
+        var fSub = document.getElementById('drawerCompFilterSubject');
+        if (fSub) fSub.value = 'all';
+        var fYr = document.getElementById('drawerCompFilterYear');
+        if (fYr) fYr.value = 'all';
+        var fCat = document.getElementById('drawerCompFilterCategory');
+        if (fCat) fCat.value = 'all';
+        var fSubCat = document.getElementById('drawerCompFilterSubCategory');
+        if (fSubCat) fSubCat.value = 'all';
+        tcFilterCompetences();
+      };
+
+      window.tcClearActiveCompetenceFilter = function (filterKey) {
+        if (filterKey === 'search') {
+          var sInp = document.getElementById('drawerCompetenceSearch');
+          if (sInp) sInp.value = '';
+        }
+        if (filterKey === 'subject') {
+          var fSub = document.getElementById('drawerCompFilterSubject');
+          if (fSub) fSub.value = 'all';
+        }
+        if (filterKey === 'year') {
+          var fYr = document.getElementById('drawerCompFilterYear');
+          if (fYr) fYr.value = 'all';
+        }
+        if (filterKey === 'category') {
+          var fCat = document.getElementById('drawerCompFilterCategory');
+          if (fCat) fCat.value = 'all';
+        }
+        if (filterKey === 'subcategory') {
+          var fSubCat = document.getElementById('drawerCompFilterSubCategory');
+          if (fSubCat) fSubCat.value = 'all';
+        }
+        tcFilterCompetences();
+      };
+
+      window.tcFilterCompetences = function () {
+        var sInp = document.getElementById('drawerCompetenceSearch');
+        var rawQuery = (sInp ? sInp.value : '').trim();
+        var query = rawQuery.toLowerCase();
+
+        var subSelect = document.getElementById('drawerCompFilterSubject');
+        var yrSelect = document.getElementById('drawerCompFilterYear');
+        var catSelect = document.getElementById('drawerCompFilterCategory');
+        var subCatSelect = document.getElementById('drawerCompFilterSubCategory');
+        var sortSelect = document.getElementById('drawerCompSort');
+
+        var subId = (subSelect ? subSelect.value : 'all').toLowerCase();
+        var yrId = (yrSelect ? yrSelect.value : 'all').toLowerCase();
+        var catId = (catSelect ? catSelect.value : 'all').toLowerCase();
+        var subCatId = (subCatSelect ? subCatSelect.value : 'all').toLowerCase();
+        var sortMode = sortSelect ? sortSelect.value : 'code';
+
+        tcPopulateCompCategoryDropdown(subId);
+
+        var filtered = (_cachedCompetences || []).filter(function (d) {
+          var dSub = String(d.subjectId || d.subject || '').toLowerCase();
+          var dYr = String(d.yearLevel || d.year || '').toLowerCase();
+          var dCat = String(d.category || '').toLowerCase();
+          var dSubCat = String(d.subCategory || '').toLowerCase();
+
+          if (subId !== 'all' && !isSubjectMatch(dSub, subId)) return false;
+          if (yrId !== 'all' && dYr && dYr !== 'all' && dYr !== yrId) return false;
+          if (catId !== 'all' && dCat && dCat !== 'all' && dCat !== catId) return false;
+          if (subCatId !== 'all' && dSubCat && dSubCat !== 'all' && dSubCat !== subCatId) return false;
+
+          if (query) {
+            var tagsStr = Array.isArray(d.tags) ? d.tags.join(' ') : String(d.tags || '');
+            var fullText = [
+              d.code || '',
+              d.title || '',
+              d.description || '',
+              d.category || '',
+              d.subCategory || '',
+              d.subjectId || '',
+              d.yearLevel || '',
+              d.level || '',
+              tagsStr,
+              d.comments || '',
+              d.sampleTasks || ''
+            ].join(' ').toLowerCase();
+
+            if (fullText.indexOf(query) === -1) return false;
+          }
+          return true;
+        });
+
+        // Sort
+        filtered.sort(function (a, b) {
+          if (sortMode === 'title') return String(a.title || '').localeCompare(String(b.title || ''));
+          if (sortMode === 'level') return String(a.level || '').localeCompare(String(b.level || ''));
+          return String(a.code || '').localeCompare(String(b.code || ''));
+        });
+
+        tcUpdateCompInfoBars(filtered.length, (_cachedCompetences || []).length, rawQuery, subId, yrId, catId, subCatId);
+        tcRenderCompetenceList(filtered, rawQuery);
+      };
+
+      function tcRenderCompetenceList(list, rawQuery) {
+        var el = document.getElementById('competenceDbList');
+        if (!el) return;
+
         updateCompetenceTargetDropdown();
+
+        if (!list || !list.length) {
+          el.innerHTML = '<div style="text-align:center;padding:25px;color:#888;font-size:0.85rem;font-weight:700;">No competences matching filters</div>';
+          return;
+        }
 
         var targetEx = _targetAttachExId ? currentTest.exercises.find(function (e) { return e.id === _targetAttachExId; }) : null;
         var targetLabel = targetEx ? ('Exercise "' + (targetEx.title || 'Exercise') + '"') : 'Entire Exam (Test-wide)';
 
         var headerNote = '<div style="background:#dbeafe;border:1.5px solid #2563eb;color:#1e40af;padding:6px 10px;border-radius:4px;font-size:0.78rem;font-weight:800;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">' +
           '<span>Tagging to: ' + escapeHtml(targetLabel) + '</span>' +
-          '<span style="font-size:0.7rem;color:#2563eb;font-weight:600;">Click item to tag</span>' +
+          '<span style="font-size:0.7rem;color:#2563eb;font-weight:600;">Click + Tag or card to attach</span>' +
           '</div>';
 
-        el.innerHTML = headerNote + list.slice(0, 150).map(function (c, idx) {
-          var codeDisplay = c.code ? c.code : (c.id || ('Comp ' + (idx + 1)));
-          var titleDisplay = c.title || c.description || codeDisplay;
-          var levelBadge = c.level ? '<span style="background:#1e40af;color:#fff;font-size:0.7rem;padding:1px 5px;border-radius:3px;font-weight:800;">' + escapeHtml(c.level) + '</span>' : '';
-          var catStr = c.category || c.subCategory || '';
+        var cfg = competenceDisplayConfig || DEFAULT_COMPETENCE_CONFIG;
+        var fragment = document.createDocumentFragment();
 
-          return '<div class="drawer-item-card" onclick="tcAttachCompetenceByIndex(' + idx + ')">' +
-            '  <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">' +
-            '    <span style="font-weight:800;font-size:0.82rem;color:#1e40af;">' + escapeHtml(codeDisplay) + '</span>' +
-            '    <div style="display:flex;gap:4px;align-items:center;">' +
-            levelBadge +
-            '      <button type="button" class="neo-btn sm" style="padding:1px 6px;font-size:0.72rem;">+ Tag</button>' +
-            '    </div>' +
-            '  </div>' +
-            '  <div style="font-size:0.78rem;color:#1f2937;font-weight:600;margin-top:3px;line-height:1.2;">' + escapeHtml(titleDisplay) + '</div>' +
-            (catStr ? '<div style="font-size:0.72rem;color:#64748b;margin-top:2px;">' + escapeHtml(catStr) + '</div>' : '') +
-            '</div>';
-        }).join('');
+        var noteDiv = document.createElement('div');
+        noteDiv.innerHTML = headerNote;
+        fragment.appendChild(noteDiv.firstElementChild);
+
+        list.slice(0, 200).forEach(function (d, idx) {
+          var card = document.createElement('div');
+          var rawSub = String(d.subjectId || d.subject || 'general').toLowerCase();
+          var subClass = 'subject-' + rawSub.replace(/[^a-z0-9_]/g, '_');
+
+          card.className = 'drawer-desc-card ' + subClass;
+          if (cfg.preset === 'compact') {
+            card.classList.add('compact-mode');
+          }
+          card.draggable = true;
+          card.dataset.id = d.id;
+
+          card.addEventListener('dragstart', function (e) {
+            card.classList.add('dragging');
+            e.dataTransfer.setData('application/json', JSON.stringify({
+              type: 'descriptor',
+              descriptorId: d.id,
+              code: d.code || d.id,
+              title: d.title || ''
+            }));
+            e.dataTransfer.setData('text/plain', d.id);
+            e.dataTransfer.effectAllowed = 'copy';
+          });
+
+          card.addEventListener('dragend', function () {
+            card.classList.remove('dragging');
+          });
+
+          card.addEventListener('click', function () {
+            tcAttachCompetenceByObject(d);
+          });
+
+          var htmlParts = [];
+
+          // Header: Code & Level
+          var codeHtml = cfg.showCode ? ('<span class="drawer-desc-code">' + tcHighlightMatchText(d.code || d.id || '', rawQuery) + '</span>') : '';
+          var levelHtml = (cfg.showLevel && d.level) ? ('<span class="drawer-desc-level">' + tcHighlightMatchText(d.level, rawQuery) + '</span>') : '';
+          if (codeHtml || levelHtml) {
+            htmlParts.push('<div class="drawer-desc-header">' + codeHtml + levelHtml + '</div>');
+          }
+
+          // Title
+          if (cfg.showTitle) {
+            htmlParts.push('<div class="drawer-desc-title">' + tcHighlightMatchText(d.title || 'Untitled Descriptor', rawQuery) + '</div>');
+          }
+
+          // Description
+          if (cfg.showDescription && d.description && cfg.preset !== 'minimal') {
+            htmlParts.push('<div class="drawer-desc-text">' + tcHighlightMatchText(d.description, rawQuery) + '</div>');
+          }
+
+          // Tags
+          if (cfg.showTags && cfg.preset !== 'minimal') {
+            var tagsArr = Array.isArray(d.tags) ? d.tags : (d.tags ? [d.tags] : []);
+            if (tagsArr.length > 0) {
+              htmlParts.push('<div class="drawer-tag-container" style="font-size:0.7rem;color:#2563eb;margin-top:2px;">' + tcHighlightMatchText(tagsArr.join(', '), rawQuery) + '</div>');
+            }
+          }
+
+          // Comments / Notes
+          if (cfg.showComments && (d.comments || d.sampleTasks) && cfg.preset !== 'minimal') {
+            var cText = d.comments || d.sampleTasks;
+            htmlParts.push('<div class="drawer-desc-comment">' + tcHighlightMatchText(cText, rawQuery) + '</div>');
+          }
+
+          // Footer: Category & Actions
+          var catLabel = cfg.showCategory ? (d.subCategory || d.category || d.subjectId || d.subject || '') : '';
+          var catHtml = catLabel ? ('<span style="font-size:0.72rem;font-weight:800;color:#666;">' + tcHighlightMatchText(catLabel, rawQuery) + '</span>') : '<span></span>';
+          var btnHtml = cfg.showActions ? ('<button type="button" class="neo-btn primary sm" style="padding:2px 8px;font-size:0.72rem;" onclick="event.stopPropagation(); tcAttachCompetenceByIndex(' + idx + ')">+ Tag</button>') : '';
+
+          if (cfg.showCategory || cfg.showActions) {
+            htmlParts.push('<div class="drawer-desc-actions">' + catHtml + btnHtml + '</div>');
+          }
+
+          // Compact Expand Toggle
+          if (cfg.preset === 'compact') {
+            htmlParts.push('<button type="button" class="card-expand-toggle" onclick="event.stopPropagation(); this.parentElement.classList.toggle(\'expanded\'); this.textContent = this.parentElement.classList.contains(\'expanded\') ? \'Details ▲\' : \'Details ▾\';">Details ▾</button>');
+          }
+
+          card.innerHTML = htmlParts.join('');
+          fragment.appendChild(card);
+        });
+
+        el.innerHTML = '';
+        el.appendChild(fragment);
       }
 
       window.tcAttachCompetenceToEx = function (exId) {
@@ -6283,16 +6918,14 @@
         if (drawer) drawer.style.display = 'flex';
         tcSwitchDrawerTab('competences');
         updateCompetenceTargetDropdown();
-        tcRenderCompetenceList(_cachedCompetences);
+        tcFilterCompetences();
         if (window.showToast) {
           showToast(i18n.tFmt('tcSelectCompetenceDrawerPrompt', { title: ex.title || i18n.t('tcExercise') }));
         }
       };
 
-      window.tcAttachCompetenceByIndex = function (idx) {
-        var comp = _cachedCompetences[idx];
+      window.tcAttachCompetenceByObject = function (comp) {
         if (!comp) return;
-
         var codeDisplay = comp.code ? comp.code : (comp.id || 'Comp');
         var label = codeDisplay;
         if (comp.title && comp.title !== codeDisplay) {
@@ -6321,7 +6954,6 @@
           }
         }
 
-        // Always also record on currentTest.linkedCompetenceIds
         if (!Array.isArray(currentTest.linkedCompetenceIds)) currentTest.linkedCompetenceIds = [];
         if (currentTest.linkedCompetenceIds.indexOf(label) === -1) {
           currentTest.linkedCompetenceIds.push(label);
@@ -6352,12 +6984,19 @@
         }
       };
 
+      window.tcAttachCompetenceByIndex = function (idx) {
+        var comp = _cachedCompetences[idx];
+        if (comp) {
+          tcAttachCompetenceByObject(comp);
+        }
+      };
+
       window.tcAttachCompetenceToTest = function (cId) {
-        var idx = _cachedCompetences.findIndex(function (c) {
+        var comp = (_cachedCompetences || []).find(function (c) {
           return c.id === cId || c.code === cId || (c.code || c.id) === cId;
         });
-        if (idx !== -1) {
-          tcAttachCompetenceByIndex(idx);
+        if (comp) {
+          tcAttachCompetenceByObject(comp);
         } else {
           var label = cId;
           var targetEx = _targetAttachExId ? currentTest.exercises.find(function (e) { return e.id === _targetAttachExId; }) : (currentTest.exercises[0] || null);
@@ -6388,18 +7027,103 @@
         }
       };
 
-      window.tcFilterCompetences = function () {
-        var q = (document.getElementById('drawerCompetenceSearch').value || '').trim().toLowerCase();
-        if (!q) {
-          tcRenderCompetenceList(_cachedCompetences);
-          return;
-        }
-        var filtered = _cachedCompetences.filter(function (c) {
-          var cd = (c.code || c.id || '').toLowerCase();
-          var ti = (c.title || c.description || '').toLowerCase();
-          return cd.indexOf(q) !== -1 || ti.indexOf(q) !== -1;
+      window.tcOpenCompetenceCustomizeModal = function () {
+        var cfg = competenceDisplayConfig || DEFAULT_COMPETENCE_CONFIG;
+        var radios = document.getElementsByName('compPresetMode');
+        radios.forEach(function (r) {
+          r.checked = (r.value === (cfg.preset || 'detailed'));
         });
-        tcRenderCompetenceList(filtered);
+
+        document.getElementById('cfgShowCode').checked = !!cfg.showCode;
+        document.getElementById('cfgShowTitle').checked = !!cfg.showTitle;
+        document.getElementById('cfgShowDescription').checked = !!cfg.showDescription;
+        document.getElementById('cfgShowLevel').checked = !!cfg.showLevel;
+        document.getElementById('cfgShowCategory').checked = !!cfg.showCategory;
+        document.getElementById('cfgShowTags').checked = !!cfg.showTags;
+        document.getElementById('cfgShowComments').checked = !!cfg.showComments;
+        document.getElementById('cfgShowActions').checked = !!cfg.showActions;
+
+        var m = document.getElementById('competenceCustomizeModal');
+        if (m) m.style.display = 'flex';
+      };
+
+      window.tcCloseCompetenceCustomizeModal = function () {
+        var m = document.getElementById('competenceCustomizeModal');
+        if (m) m.style.display = 'none';
+      };
+
+      window.tcOnCompPresetChange = function (presetMode) {
+        if (presetMode === 'detailed' || presetMode === 'compact') {
+          document.getElementById('cfgShowCode').checked = true;
+          document.getElementById('cfgShowTitle').checked = true;
+          document.getElementById('cfgShowDescription').checked = true;
+          document.getElementById('cfgShowLevel').checked = true;
+          document.getElementById('cfgShowCategory').checked = true;
+          document.getElementById('cfgShowTags').checked = true;
+          document.getElementById('cfgShowComments').checked = true;
+          document.getElementById('cfgShowActions').checked = true;
+        } else if (presetMode === 'minimal') {
+          document.getElementById('cfgShowCode').checked = true;
+          document.getElementById('cfgShowTitle').checked = true;
+          document.getElementById('cfgShowDescription').checked = false;
+          document.getElementById('cfgShowLevel').checked = true;
+          document.getElementById('cfgShowCategory').checked = true;
+          document.getElementById('cfgShowTags').checked = false;
+          document.getElementById('cfgShowComments').checked = false;
+          document.getElementById('cfgShowActions').checked = true;
+        }
+      };
+
+      window.tcSaveCompetenceConfig = async function () {
+        var selectedPreset = 'detailed';
+        var radios = document.getElementsByName('compPresetMode');
+        for (var i = 0; i < radios.length; i++) {
+          if (radios[i].checked) {
+            selectedPreset = radios[i].value;
+            break;
+          }
+        }
+
+        competenceDisplayConfig = {
+          preset: selectedPreset,
+          showCode: document.getElementById('cfgShowCode').checked,
+          showTitle: document.getElementById('cfgShowTitle').checked,
+          showDescription: document.getElementById('cfgShowDescription').checked,
+          showLevel: document.getElementById('cfgShowLevel').checked,
+          showCategory: document.getElementById('cfgShowCategory').checked,
+          showTags: document.getElementById('cfgShowTags').checked,
+          showComments: document.getElementById('cfgShowComments').checked,
+          showActions: document.getElementById('cfgShowActions').checked
+        };
+
+        await saveCompetenceDisplayConfigToDisk();
+        tcCloseCompetenceCustomizeModal();
+        tcFilterCompetences();
+        if (typeof showToast === 'function') showToast('Competence view customization saved!');
+      };
+
+      window.tcResetCompetenceConfig = async function () {
+        competenceDisplayConfig = Object.assign({}, DEFAULT_COMPETENCE_CONFIG);
+        await saveCompetenceDisplayConfigToDisk();
+        tcOpenCompetenceCustomizeModal();
+        tcFilterCompetences();
+        if (typeof showToast === 'function') showToast('Competence view reset to defaults');
+      };
+
+      window.tcOpenCompetenceDb = function () {
+        if (window.Desktop && typeof Desktop.openTool === 'function') {
+          Desktop.openTool('manage-database.html', { query: { tab: 'descriptors' } });
+        } else {
+          window.open('manage-database.html?tab=descriptors', '_blank');
+        }
+      };
+
+      window.tcOpenCompetenceImporter = function () {
+        if (window.Desktop && typeof Desktop.openTool === 'function') {
+          Desktop.openTool('import-tool.html', { query: { type: 'descriptors' } });
+        } else {
+          window.open('import-tool.html?type=descriptors', '_blank');
+        }
       };
 
       // ── Drawer Tab 5: Grading Scales ─────────────────────────────────────

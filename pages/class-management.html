@@ -7421,7 +7421,11 @@
                 return;
             }
 
-            const students = studentGroups[selectedGroupName] || [];
+            const allStudents = studentGroups[selectedGroupName] || [];
+            const _halfArr = selectedHalfGroup
+                ? ((rawMeta[selectedGroupName] && rawMeta[selectedGroupName].halfGroups && rawMeta[selectedGroupName].halfGroups[selectedHalfGroup]) || [])
+                : null;
+            const students = _halfArr ? _halfGroupFilter(allStudents, _halfArr) : allStudents;
             const activeStudents = students.filter(s => !s.isAbsent);
 
             students.forEach(s => {
@@ -7433,8 +7437,11 @@
                 return;
             }
 
-            if (currentTeamsActive) {
-                const teamIds = [...new Set(activeStudents.map(s => s.teamId).filter(id => id != null))];
+            const hasTeams = activeStudents.some(s => s.teamId != null);
+            currentTeamsActive = hasTeams;
+
+            if (hasTeams) {
+                const teamIds = [...new Set(activeStudents.map(s => s.teamId).filter(id => id != null))].sort((a, b) => a - b);
                 teamIds.forEach(tId => {
                     const teamMembers = activeStudents.filter(s => s.teamId === tId);
                     const shuffledRanks = getShuffledArray(Array.from({ length: teamMembers.length }, (_, i) => String(i + 1)));
@@ -7449,6 +7456,21 @@
                         }
                     });
                 });
+
+                const unassignedMembers = activeStudents.filter(s => s.teamId == null);
+                if (unassignedMembers.length > 0) {
+                    const unassignedRanks = getShuffledArray(Array.from({ length: unassignedMembers.length }, (_, i) => String(i + 1)));
+                    unassignedMembers.forEach((student, index) => {
+                        const previousRole = student.role || '';
+                        student.role = unassignedRanks[index];
+                        const nextRole = student.role || '';
+                        if (previousRole !== nextRole) {
+                            const fromPart = previousRole ? ` (from ${previousRole})` : '';
+                            logHistory('rank', student.name, `Assigned rank ${nextRole}${fromPart}`);
+                        }
+                    });
+                }
+
                 logHistory('rank', selectedGroupName, `Assigned random ranks to ${activeStudents.length} students across ${teamIds.length} teams`);
             } else {
                 const shuffledRanks = getShuffledArray(Array.from({ length: activeStudents.length }, (_, i) => String(i + 1)));
@@ -7467,38 +7489,8 @@
 
             closeRolesModal();
             renderRoster();
+            updateUtilityButtons();
             if (typeof autosaveToDb === 'function') autosaveToDb('random-ranks');
-        }
-
-        function assignRoles() {
-            if (activeRolePool.length === 0) { showToast("Select at least one role!"); return; }
-            const students = studentGroups[selectedGroupName];
-
-            if (currentTeamsActive) {
-                const teamIds = [...new Set(students.map(s => s.teamId).filter(id => id != null))];
-                teamIds.forEach(tId => {
-                    const teamMembers = students.filter(s => s.teamId === tId);
-                    const shuffled = [...activeRolePool].sort(() => 0.5 - Math.random());
-                    teamMembers.forEach((s, i) => s.role = shuffled[i] || "");
-                });
-            } else {
-                const shuffled = [...activeRolePool].sort(() => 0.5 - Math.random());
-                students.forEach((s, i) => s.role = shuffled[i % shuffled.length]);
-            }
-            document.getElementById('roles-modal').style.display = 'none';
-            renderRoster();
-        }
-
-        function clearAllRoles() {
-            showConfirm("Clear all assigned roles from students?", function () {
-                const students = studentGroups[selectedGroupName];
-                students.forEach(s => {
-                    delete s.role;
-                });
-                activeRolePool = []; // Optional: reset selections too
-                renderRoster();
-                closeRolesModal();
-            });
         }
 
         function setRoleValue(index, val) {
@@ -7522,7 +7514,7 @@
                 return;
             }
 
-            const allStudents = studentGroups[selectedGroupName];
+            const allStudents = studentGroups[selectedGroupName] || [];
             const _halfArr3 = selectedHalfGroup
                 ? ((rawMeta[selectedGroupName] && rawMeta[selectedGroupName].halfGroups && rawMeta[selectedGroupName].halfGroups[selectedHalfGroup]) || [])
                 : null;
@@ -7538,15 +7530,19 @@
                 return;
             }
 
-            if (currentTeamsActive) {
+            const hasTeams = activeStudents.some(s => s.teamId != null);
+            currentTeamsActive = hasTeams;
+
+            if (hasTeams) {
                 // --- TEAM LOGIC ---
-                const teamIds = [...new Set(activeStudents.map(s => s.teamId).filter(id => id != null))];
+                const teamIds = [...new Set(activeStudents.map(s => s.teamId).filter(id => id != null))].sort((a, b) => a - b);
                 teamIds.forEach(tId => {
                     const teamMembers = activeStudents.filter(s => s.teamId === tId);
-                    const shuffledRoles = [...activeRolePool].sort(() => 0.5 - Math.random());
+                    const shuffledRoles = getShuffledArray(activeRolePool);
                     teamMembers.forEach((student, index) => {
                         const previousRole = student.role || '';
-                        student.role = shuffledRoles[index] || "";
+                        const roleIndex = index % shuffledRoles.length;
+                        student.role = shuffledRoles[roleIndex] || "";
                         const nextRole = student.role || '';
                         if (previousRole !== nextRole) {
                             if (nextRole) {
@@ -7558,11 +7554,31 @@
                         }
                     });
                 });
+
+                const unassignedMembers = activeStudents.filter(s => s.teamId == null);
+                if (unassignedMembers.length > 0) {
+                    const shuffledRoles = getShuffledArray(activeRolePool);
+                    unassignedMembers.forEach((student, index) => {
+                        const previousRole = student.role || '';
+                        const roleIndex = index % shuffledRoles.length;
+                        student.role = shuffledRoles[roleIndex] || "";
+                        const nextRole = student.role || '';
+                        if (previousRole !== nextRole) {
+                            if (nextRole) {
+                                const fromPart = previousRole ? ` (from ${previousRole})` : '';
+                                logHistory('role', student.name, `Assigned role ${nextRole}${fromPart}`);
+                            } else if (previousRole) {
+                                logHistory('role', student.name, `Cleared role ${previousRole}`);
+                            }
+                        }
+                    });
+                }
+
                 logHistory('role', selectedGroupName, `Assigned roles to ${activeStudents.length} students across ${teamIds.length} teams`);
             } else {
                 // --- WHOLE CLASS LOGIC ---
                 // Shuffle the roles once, then loop through the class
-                const shuffledRoles = [...activeRolePool].sort(() => 0.5 - Math.random());
+                const shuffledRoles = getShuffledArray(activeRolePool);
 
                 activeStudents.forEach((student, index) => {
                     // Assign roles sequentially from the shuffled pool
