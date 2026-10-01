@@ -343,7 +343,126 @@
   <script src="../modules/html2canvas.js"></script>
   <script src="../modules/wavesurfer/wavesurfer.min.js"></script>
   <script src="../modules/wavesurfer/wavesurfer.regions.min.js"></script>
+  <script src="../js/speech-transcriber.js"></script>
   <style>
+    
+    /* Board Speech-to-Text / Voice Dictation Floating Pill */
+    .board-stt-floating-pill {
+      position: fixed;
+      top: 52px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100060;
+      background: #ffffff;
+      border: 2px solid #333333;
+      border-radius: 10px;
+      box-shadow: 4px 4px 0 #555555;
+      padding: 6px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #111827;
+      font-family: inherit;
+      max-width: 90vw;
+      transition: border-color 0.15s ease;
+    }
+    .board-stt-floating-pill.listening {
+      border-color: #3b82f6;
+    }
+    .board-stt-floating-pill.processing {
+      border-color: #f59e0b;
+    }
+    .board-stt-pill-drag-handle {
+      cursor: grab;
+      color: #888;
+      font-size: 0.9rem;
+      user-select: none;
+      padding: 0 2px;
+    }
+    .board-stt-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #eff6ff;
+      border: 1.5px solid #93c5fd;
+      color: #1d4ed8;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .board-stt-pulse-dot {
+      width: 8px;
+      height: 8px;
+      background: #ef4444;
+      border-radius: 50%;
+      animation: boardSttPulse 1.2s infinite ease-in-out;
+    }
+    @keyframes boardSttPulse {
+      0%, 100% { transform: scale(0.9); opacity: 0.5; }
+      50% { transform: scale(1.3); opacity: 1; }
+    }
+    .board-stt-mic-box {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .board-stt-meter-track {
+      width: 36px;
+      height: 6px;
+      background: #e2e8f0;
+      border-radius: 3px;
+      overflow: hidden;
+      border: 1px solid #cbd5e1;
+    }
+    .board-stt-meter-fill {
+      height: 100%;
+      background: #10b981;
+      width: 0%;
+      transition: width 0.08s ease;
+    }
+    .board-stt-lang-select {
+      background: #f8fafc;
+      border: 1.5px solid #333333;
+      border-radius: 6px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      padding: 2px 4px;
+      cursor: pointer;
+      color: #1e293b;
+    }
+    .board-stt-transcript-box {
+      min-width: 140px;
+      max-width: 380px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #334155;
+    }
+    .board-stt-transcript-text {
+      display: inline-block;
+    }
+    .board-stt-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .board-stt-btn {
+      padding: 3px 8px !important;
+      font-size: 0.74rem !important;
+      border-radius: 6px !important;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
     /* Board Video Recording Live Bar & Modals */
     .board-rec-floating-bar {
       position: fixed;
@@ -1829,6 +1948,49 @@
   </div>
   <button id="board-cms-timer-show-btn" class="board-cms-timer-show-btn" type="button" onclick="boardShowCmsTimer()"
     title="Show timer"><img src="../assets/icons/clock.svg" class="btn-icon" alt="" style="width:14px;height:14px;" /></button>
+
+  
+  <!-- Live Voice Dictation (Speech to Text) Floating Pill -->
+  <div id="board-stt-live-pill" class="board-stt-floating-pill" style="display:none;" aria-live="polite">
+    <div class="board-stt-pill-drag-handle" title="Drag to reposition">⋮⋮</div>
+    <div class="board-stt-status-badge">
+      <span class="board-stt-pulse-dot"></span>
+      <span id="board-stt-status-text" data-i18n="sttPillListening">Listening...</span>
+    </div>
+    <div class="board-stt-mic-box" title="Microphone Level">
+      <img src="../assets/icons/mic.svg" class="btn-icon" alt="" />
+      <div class="board-stt-meter-track"><div id="board-stt-meter-fill" class="board-stt-meter-fill" style="width:0%;"></div></div>
+    </div>
+    <div class="board-stt-lang-select-wrap">
+      <select id="board-stt-lang-select" class="board-stt-lang-select" onchange="boardSttChangeLanguage(this.value)" title="Dictation Language">
+        <option value="auto">Auto</option>
+        <option value="fr">FR</option>
+        <option value="en">EN</option>
+        <option value="de">DE</option>
+        <option value="it">IT</option>
+      </select>
+    </div>
+    <div class="board-stt-transcript-box" id="board-stt-transcript-box" title="Live transcribed text">
+      <span id="board-stt-transcript-text" class="board-stt-transcript-text" data-i18n="sttPillSpeakPrompt">Speak now...</span>
+    </div>
+    <div class="board-stt-actions">
+      <button type="button" class="action-btn btn-green board-stt-btn" onclick="boardSttInsertAsNote()" title="Insert as new note on board">
+        <img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> <span data-i18n="sttPillInsertNote">+ Note</span>
+      </button>
+      <button type="button" class="action-btn btn-grey board-stt-btn" onclick="boardSttSearch()" title="Search board with this text">
+        <img src="../assets/icons/search.svg" class="btn-icon" alt="" /> <span data-i18n="sttPillSearch">Search</span>
+      </button>
+      <button type="button" class="action-btn btn-grey board-stt-btn" onclick="boardSttCopy()" title="Copy text to clipboard">
+        <img src="../assets/icons/copy.svg" class="btn-icon" alt="" />
+      </button>
+      <button type="button" class="action-btn btn-grey board-stt-btn" onclick="boardSttClear()" title="Clear text">
+        <img src="../assets/icons/clear.svg" class="btn-icon" alt="" />
+      </button>
+      <button type="button" class="action-btn btn-orange board-stt-btn" onclick="boardStopDictation()" title="Stop dictation">
+        <img src="../assets/icons/close.svg" class="btn-icon" alt="" />
+      </button>
+    </div>
+  </div>
 
   <!-- Live Video Recording Floating Bar -->
   <div id="board-rec-live-bar" class="board-rec-floating-bar" style="display:none;" aria-live="polite">
@@ -3593,6 +3755,9 @@
             <button class="action-btn btn-grey" id="con-freeze-btn" onclick="conToggleMirrorFreeze()"
               title="Freeze the presentation window — board changes won't update until unfrozen"><img
                 src="../assets/icons/lock.svg" class="btn-icon" alt="" /> Freeze Board</button>
+                        <button class="action-btn btn-grey" id="con-dictate-btn" onclick="boardToggleDictation()"
+              data-i18n-title="btnDictateTitle" title="Voice Dictation (Speech to Text) — Ctrl+Alt+V"><img
+                src="../assets/icons/mic.svg" class="btn-icon" alt="" /> <span data-i18n="btnDictate">Dictate</span></button>
             <button class="action-btn btn-grey" id="con-record-board-btn" onclick="boardVideoOpenSetup()"
               data-i18n-title="btnRecordBoardTitle" title="Record live video and microphone audio of the board"><img
                 src="../assets/icons/record.svg" class="btn-icon" alt="" /> <span data-i18n="btnRecordBoard">Record Board</span></button>
@@ -5002,6 +5167,7 @@
             <input type="text" id="con-search-input" data-i18n-placeholder="conSearchPlaceholder"
               placeholder="Search words, notes, tables, groups..." autocomplete="off" spellcheck="false"
               oninput="conExecuteSearchDebounced()" onkeydown="conSearchInputKeyDown(event)" />
+            <button type="button" class="con-search-input-clear" id="con-search-mic-btn" onclick="boardSttTriggerSearchMic()" title="Voice search" style="right:28px;"><img src="../assets/icons/mic.svg" style="width:12px;height:12px;" alt="" /></button>
             <button type="button" class="con-search-input-clear" id="con-search-clear-btn" onclick="conClearSearchInput()" title="Clear"><img src="../assets/icons/close.svg" style="width:11px;height:11px;" alt="" /></button>
           </div>
         </div>
@@ -50536,6 +50702,220 @@
     let _conSearchBoardCanvasData = null;
     let _conSearchBoardCanvasPromise = null;
     let _conSearchOtherPagesCanvases = {};
+
+    
+    /* ==========================================================================
+       Offline Voice Recognition & Dictation Integration
+       ========================================================================== */
+    var _boardSttActive = false;
+    var _boardSttLastTranscript = '';
+    var _boardSttTargetSearch = false;
+
+    function boardToggleDictation() {
+      if (_boardSttActive) {
+        boardStopDictation();
+      } else {
+        boardStartDictation();
+      }
+    }
+
+    async function boardStartDictation(targetMode) {
+      _boardSttTargetSearch = (targetMode === 'search');
+      var pill = document.getElementById('board-stt-live-pill');
+      var btn = document.getElementById('con-dictate-btn');
+      var statusText = document.getElementById('board-stt-status-text');
+      var transcriptText = document.getElementById('board-stt-transcript-text');
+      var meterFill = document.getElementById('board-stt-meter-fill');
+
+      if (!window.SpeechTranscriber) {
+        if (typeof showToast === 'function') showToast((window.i18n ? i18n.t('sttMicError') : 'Microphone error'), true);
+        return;
+      }
+
+      if (pill) {
+        pill.style.display = 'flex';
+        pill.className = 'board-stt-floating-pill listening';
+      }
+      if (btn) btn.classList.add('con-panel-active');
+      if (statusText) statusText.textContent = (window.i18n ? i18n.t('sttPillListening') : 'Listening...');
+      if (transcriptText) transcriptText.textContent = (window.i18n ? i18n.t('sttPillSpeakPrompt') : 'Speak now...');
+      if (meterFill) meterFill.style.width = '0%';
+
+      _boardSttLastTranscript = '';
+      _boardSttActive = true;
+
+      window.SpeechTranscriber.on('onMicLevel', function (level) {
+        if (!_boardSttActive) return;
+        var fill = document.getElementById('board-stt-meter-fill');
+        if (fill) fill.style.width = Math.min(100, Math.round(level * 100)) + '%';
+      });
+
+      window.SpeechTranscriber.on('onInterimResult', function (fullPreview, interim) {
+        if (!_boardSttActive) return;
+        _boardSttLastTranscript = fullPreview;
+        var box = document.getElementById('board-stt-transcript-text');
+        if (box) box.textContent = fullPreview || (window.i18n ? i18n.t('sttPillSpeakPrompt') : 'Speak now...');
+
+        if (_boardSttTargetSearch) {
+          var sInp = document.getElementById('con-search-input');
+          if (sInp) {
+            sInp.value = fullPreview;
+            if (typeof conExecuteSearchDebounced === 'function') conExecuteSearchDebounced();
+          }
+        }
+
+        if (typeof _conMirrorSend === 'function') {
+          _conMirrorSend({ type: 'stt-caption', text: fullPreview, active: true });
+        }
+      });
+
+      window.SpeechTranscriber.on('onFinalResult', function (fullText, finalChunk) {
+        if (!_boardSttActive) return;
+        _boardSttLastTranscript = fullText;
+        var box = document.getElementById('board-stt-transcript-text');
+        if (box) box.textContent = fullText;
+
+        if (_boardSttTargetSearch) {
+          var sInp = document.getElementById('con-search-input');
+          if (sInp) {
+            sInp.value = fullText;
+            if (typeof conExecuteSearch === 'function') conExecuteSearch();
+          }
+        }
+
+        if (typeof _conMirrorSend === 'function') {
+          _conMirrorSend({ type: 'stt-caption', text: fullText, active: true });
+        }
+      });
+
+      window.SpeechTranscriber.on('onStateChange', function (newState) {
+        var p = document.getElementById('board-stt-live-pill');
+        var sTxt = document.getElementById('board-stt-status-text');
+        if (!p) return;
+        if (newState === 'listening') {
+          p.className = 'board-stt-floating-pill listening';
+          if (sTxt) sTxt.textContent = (window.i18n ? i18n.t('sttPillListening') : 'Listening...');
+        } else if (newState === 'processing') {
+          p.className = 'board-stt-floating-pill processing';
+          if (sTxt) sTxt.textContent = (window.i18n ? i18n.t('sttPillProcessing') : 'Transcribing...');
+        } else if (newState === 'idle') {
+          if (_boardSttActive) boardStopDictation();
+        }
+      });
+
+      window.SpeechTranscriber.on('onError', function (errMsg) {
+        console.warn('STT error:', errMsg);
+        if (typeof showToast === 'function') {
+          showToast(window.i18n ? i18n.t('sttMicError') : 'Microphone error', true);
+        }
+        boardStopDictation();
+      });
+
+      var langSel = document.getElementById('board-stt-lang-select');
+      var langVal = (langSel && langSel.value) ? langSel.value : 'auto';
+      var success = await window.SpeechTranscriber.start({ language: langVal });
+      if (!success) {
+        boardStopDictation();
+      }
+    }
+
+    function boardStopDictation() {
+      _boardSttActive = false;
+      _boardSttTargetSearch = false;
+      if (window.SpeechTranscriber) {
+        window.SpeechTranscriber.stop();
+      }
+      var pill = document.getElementById('board-stt-live-pill');
+      var btn = document.getElementById('con-dictate-btn');
+      var meterFill = document.getElementById('board-stt-meter-fill');
+      if (pill) pill.style.display = 'none';
+      if (btn) btn.classList.remove('con-panel-active');
+      if (meterFill) meterFill.style.width = '0%';
+
+      if (typeof _conMirrorSend === 'function') {
+        _conMirrorSend({ type: 'stt-caption', text: '', active: false });
+      }
+    }
+
+    function boardSttChangeLanguage(lang) {
+      if (window.SpeechTranscriber) {
+        window.SpeechTranscriber.setLanguage(lang);
+      }
+    }
+
+    function boardSttInsertAsNote() {
+      var text = (_boardSttLastTranscript || '').trim();
+      if (!text) {
+        if (typeof showToast === 'function') {
+          showToast(window.i18n ? i18n.t('sttPillNoText') : 'No speech text detected', true);
+        }
+        return;
+      }
+
+      var brd = (typeof board === 'function' ? board() : document.getElementById('board'));
+      var centerX = 150;
+      var centerY = 150;
+      if (brd) {
+        var scrollX = brd.scrollLeft || 0;
+        var scrollY = brd.scrollTop || 0;
+        centerX = scrollX + (brd.clientWidth / 2) - 80;
+        centerY = scrollY + (brd.clientHeight / 2) - 40;
+      }
+
+      if (typeof conAddWordAt === 'function') {
+        conAddWordAt(text, Math.max(10, Math.round(centerX)), Math.max(10, Math.round(centerY)));
+        if (typeof conMarkBoardDirty === 'function') conMarkBoardDirty();
+        if (typeof showToast === 'function') {
+          showToast(window.i18n ? i18n.t('sttPillInsertNote') + ': ' + text.substring(0, 30) + '...' : 'Note added!');
+        }
+      }
+      boardSttClear();
+    }
+
+    function boardSttSearch() {
+      var text = (_boardSttLastTranscript || '').trim();
+      if (!text) {
+        if (typeof showToast === 'function') {
+          showToast(window.i18n ? i18n.t('sttPillNoText') : 'No speech text detected', true);
+        }
+        return;
+      }
+      if (typeof conOpenSearchModal === 'function') {
+        conOpenSearchModal(text);
+      }
+    }
+
+    function boardSttCopy() {
+      var text = (_boardSttLastTranscript || '').trim();
+      if (!text) {
+        if (typeof showToast === 'function') {
+          showToast(window.i18n ? i18n.t('sttPillNoText') : 'No speech text detected', true);
+        }
+        return;
+      }
+      navigator.clipboard.writeText(text).then(function () {
+        if (typeof showToast === 'function') {
+          showToast(window.i18n ? i18n.t('sttPillCopied') : 'Copied to clipboard!');
+        }
+      });
+    }
+
+    function boardSttClear() {
+      _boardSttLastTranscript = '';
+      if (window.SpeechTranscriber && typeof window.SpeechTranscriber.reset === 'function') {
+        window.SpeechTranscriber.reset();
+      }
+      var box = document.getElementById('board-stt-transcript-text');
+      if (box) box.textContent = (window.i18n ? i18n.t('sttPillSpeakPrompt') : 'Speak now...');
+    }
+
+    function boardSttTriggerSearchMic() {
+      if (_boardSttActive) {
+        boardStopDictation();
+      } else {
+        boardStartDictation('search');
+      }
+    }
 
     function conOpenSearchModal(initialQuery) {
       const overlay = document.getElementById('con-search-overlay');

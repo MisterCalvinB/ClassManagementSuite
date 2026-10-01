@@ -297,7 +297,7 @@
       var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + width + ' ' + height + '" class="ag-svg-chart" style="width:100%; height:auto; display:block; font-family:inherit;">';
 
       // Background grid / axis
-      svg += '<line x1="' + paddingLeft + '" y1="' + paddingTop + '" x2="' + paddingLeft + '" y2="' + (height - paddingBottom) + '" stroke="#000000" stroke-width="2" />';
+      svg += '<line x1="' + paddingLeft + '" y1="' + paddingTop + '" x2="' + paddingLeft + '" y2="' + (height - paddingBottom) + '" stroke="#333333" stroke-width="2" />';
 
       items.forEach(function (it, idx) {
         var y = paddingTop + idx * (barHeight + gap);
@@ -307,14 +307,14 @@
         var valLabel = it.valueFormatted != null ? it.valueFormatted : String(it.value);
 
         // Label
-        svg += '<text x="' + (paddingLeft - 10) + '" y="' + (y + barHeight / 2 + 5) + '" text-anchor="end" font-size="12" font-weight="800" fill="#000000">' + label + '</text>';
+        svg += '<text x="' + (paddingLeft - 10) + '" y="' + (y + barHeight / 2 + 5) + '" text-anchor="end" font-size="12" font-weight="700" fill="#222222">' + label + '</text>';
 
-        // Bar (Neobrutalist solid border + hard shadow)
-        svg += '<rect x="' + (paddingLeft + 2) + '" y="' + (y + 2) + '" width="' + barW + '" height="' + barHeight + '" fill="#000000" rx="3" />';
-        svg += '<rect x="' + paddingLeft + '" y="' + y + '" width="' + barW + '" height="' + barHeight + '" fill="' + color + '" stroke="#000000" stroke-width="2" rx="3" />';
+        // Bar (Neobrutalist solid border + tactile offset shadow)
+        svg += '<rect x="' + (paddingLeft + 2) + '" y="' + (y + 2) + '" width="' + barW + '" height="' + barHeight + '" fill="#555555" rx="3" />';
+        svg += '<rect x="' + paddingLeft + '" y="' + y + '" width="' + barW + '" height="' + barHeight + '" fill="' + color + '" stroke="#333333" stroke-width="2" rx="3" />';
 
         // Value text
-        svg += '<text x="' + (paddingLeft + barW + 8) + '" y="' + (y + barHeight / 2 + 5) + '" font-size="12" font-weight="900" fill="#000000">' + escapeHtml(valLabel) + '</text>';
+        svg += '<text x="' + (paddingLeft + barW + 8) + '" y="' + (y + barHeight / 2 + 5) + '" font-size="12" font-weight="800" fill="#222222">' + escapeHtml(valLabel) + '</text>';
       });
 
       svg += '</svg>';
@@ -354,22 +354,22 @@
       }
 
       // X-Axis
-      svg += '<line x1="' + padL + '" y1="' + (height - padB) + '" x2="' + (width - padR) + '" y2="' + (height - padB) + '" stroke="#000000" stroke-width="2" />';
+      svg += '<line x1="' + padL + '" y1="' + (height - padB) + '" x2="' + (width - padR) + '" y2="' + (height - padB) + '" stroke="#333333" stroke-width="2" />';
 
       var xStep = labels.length > 1 ? chartW / (labels.length - 1) : chartW / 2;
 
       // X-Labels (Vertical / Angled downwards to prevent overlapping)
       labels.forEach(function (lbl, idx) {
         var xPos = labels.length > 1 ? (padL + idx * xStep) : (padL + chartW / 2);
-        svg += '<line x1="' + xPos + '" y1="' + (height - padB) + '" x2="' + xPos + '" y2="' + (height - padB + 6) + '" stroke="#000000" stroke-width="2" />';
+        svg += '<line x1="' + xPos + '" y1="' + (height - padB) + '" x2="' + xPos + '" y2="' + (height - padB + 6) + '" stroke="#333333" stroke-width="2" />';
         svg += '<g transform="translate(' + xPos + ', ' + (height - padB + 14) + ') rotate(-60)">' +
-          '<text x="0" y="0" text-anchor="end" font-size="11" font-weight="900" fill="#000000">' + escapeHtml(lbl) + '</text>' +
+          '<text x="0" y="0" text-anchor="end" font-size="11" font-weight="800" fill="#222222">' + escapeHtml(lbl) + '</text>' +
           '</g>';
       });
 
       // Series rendering
       seriesList.forEach(function (s) {
-        var strokeColor = s.color || '#000000';
+        var strokeColor = s.color || '#333333';
         var isDashed = s.dashed === true;
         var points = [];
 
@@ -382,14 +382,14 @@
 
         if (points.length > 1) {
           var pathD = 'M ' + points.map(function (p) { return p.x + ' ' + p.y; }).join(' L ');
-          svg += '<path d="' + pathD + '" fill="none" stroke="' + strokeColor + '" stroke-width="' + (s.width || 3) + '" ' + (isDashed ? 'stroke-dasharray="6,4"' : '') + ' />';
+          svg += '<path d="' + pathD + '" fill="none" stroke="' + strokeColor + '" stroke-width="' + (s.width || 2.5) + '" ' + (isDashed ? 'stroke-dasharray="6,4"' : '') + ' />';
         }
 
-        // Draw points with neobrutalist dots
+        // Draw points with tactile neobrutalist dots
         points.forEach(function (p) {
-          svg += '<circle cx="' + (p.x + 1.5) + '" cy="' + (p.y + 1.5) + '" r="5.5" fill="#000000" />';
-          svg += '<circle cx="' + p.x + '" cy="' + p.y + '" r="5" fill="' + (s.pointColor || strokeColor) + '" stroke="#000000" stroke-width="2" />';
-          svg += '<text x="' + p.x + '" y="' + (p.y - 10) + '" text-anchor="middle" font-size="11" font-weight="900" fill="#000000">' + roundNum(p.val, 1) + '</text>';
+          svg += '<circle cx="' + (p.x + 1.5) + '" cy="' + (p.y + 1.5) + '" r="5.5" fill="#555555" />';
+          svg += '<circle cx="' + p.x + '" cy="' + p.y + '" r="5" fill="' + (s.pointColor || strokeColor) + '" stroke="#333333" stroke-width="2" />';
+          svg += '<text x="' + p.x + '" y="' + (p.y - 10) + '" text-anchor="middle" font-size="11" font-weight="900" fill="#222222">' + roundNum(p.val, 1) + '</text>';
         });
       });
 
@@ -440,14 +440,14 @@
           'Z'
         ].join(' ');
 
-        svg += '<path d="' + pathD + '" fill="' + (s.color || '#e0f2fe') + '" stroke="#000000" stroke-width="2" />';
+        svg += '<path d="' + pathD + '" fill="' + (s.color || '#e0f2fe') + '" stroke="#333333" stroke-width="2" />';
 
         curAngle = endAngle;
       });
 
       // Center summary badge
-      svg += '<circle cx="' + cx + '" cy="' + cy + '" r="' + (innerR - 4) + '" fill="#ffffff" stroke="#000000" stroke-width="2" />';
-      svg += '<text x="' + cx + '" y="' + (cy - 2) + '" text-anchor="middle" font-size="14" font-weight="900" fill="#000000">' + total + '</text>';
+      svg += '<circle cx="' + cx + '" cy="' + cy + '" r="' + (innerR - 4) + '" fill="#ffffff" stroke="#333333" stroke-width="2" />';
+      svg += '<text x="' + cx + '" y="' + (cy - 2) + '" text-anchor="middle" font-size="14" font-weight="900" fill="#222222">' + total + '</text>';
       svg += '<text x="' + cx + '" y="' + (cy + 13) + '" text-anchor="middle" font-size="9" font-weight="800" text-transform="uppercase" fill="#64748b">' + escapeHtml(options.centerLabel || 'Total') + '</text>';
 
       svg += '</svg>';
@@ -474,7 +474,7 @@
 
       var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + width + ' ' + height + '" class="ag-svg-chart" style="width:100%; height:auto; display:block; font-family:inherit;">';
 
-      svg += '<line x1="' + padL + '" y1="' + padT + '" x2="' + padL + '" y2="' + (height - padB) + '" stroke="#000000" stroke-width="2" />';
+      svg += '<line x1="' + padL + '" y1="' + padT + '" x2="' + padL + '" y2="' + (height - padB) + '" stroke="#333333" stroke-width="2" />';
 
       items.forEach(function (it, rIdx) {
         var y = padT + rIdx * (barHeight + gap);
@@ -482,21 +482,21 @@
         var curX = padL;
         var rowSum = categories.reduce(function (sum, c) { return sum + (it.values[c.key] || 0); }, 0);
 
-        svg += '<text x="' + (padL - 10) + '" y="' + (y + barHeight / 2 + 5) + '" text-anchor="end" font-size="12" font-weight="800" fill="#000000">' + label + '</text>';
+        svg += '<text x="' + (padL - 10) + '" y="' + (y + barHeight / 2 + 5) + '" text-anchor="end" font-size="12" font-weight="700" fill="#222222">' + label + '</text>';
 
         categories.forEach(function (cat) {
           var val = it.values[cat.key] || 0;
           if (val <= 0) return;
           var segW = (val / maxRowTotal) * chartAreaW;
 
-          svg += '<rect x="' + curX + '" y="' + y + '" width="' + segW + '" height="' + barHeight + '" fill="' + (cat.color || '#fed7aa') + '" stroke="#000000" stroke-width="2" />';
+          svg += '<rect x="' + curX + '" y="' + y + '" width="' + segW + '" height="' + barHeight + '" fill="' + (cat.color || '#fed7aa') + '" stroke="#333333" stroke-width="2" />';
           if (segW > 24) {
-            svg += '<text x="' + (curX + segW / 2) + '" y="' + (y + barHeight / 2 + 4) + '" text-anchor="middle" font-size="11" font-weight="900" fill="#000000">' + val + '</text>';
+            svg += '<text x="' + (curX + segW / 2) + '" y="' + (y + barHeight / 2 + 4) + '" text-anchor="middle" font-size="11" font-weight="900" fill="#222222">' + val + '</text>';
           }
           curX += segW;
         });
 
-        svg += '<text x="' + (curX + 8) + '" y="' + (y + barHeight / 2 + 5) + '" font-size="12" font-weight="900" fill="#000000">' + rowSum + '</text>';
+        svg += '<text x="' + (curX + 8) + '" y="' + (y + barHeight / 2 + 5) + '" font-size="12" font-weight="900" fill="#222222">' + rowSum + '</text>';
       });
 
       svg += '</svg>';
@@ -506,8 +506,8 @@
 
   // ── 5. HTML Document & Report Builders (Neobrutalist Style) ──
 
-  // Palette generator for categories & charts
-  var NE表现_PALETTE = ['#fef08a', '#fed7aa', '#fca5a5', '#f87171', '#dcfce7', '#e0f2fe', '#e9d5ff', '#cbd5e1', '#fbcfe8'];
+  // Palette generator for categories & charts (Light Neobrutalist Muted Palette)
+  var NE表现_PALETTE = ['#e2c96e', '#6abf8e', '#5b8fcc', '#8b7cc2', '#d4895a', '#d97fa8', '#c96b6b', '#4aabac', '#cbd5e1'];
 
   AdminReports.buildWholeClassReport = function (students, cohortStats, selectedPeriods, options) {
     options = options || {};
@@ -963,82 +963,100 @@
   AdminReports.getEmbeddedCss = function () {
     return [
       '*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }',
-      'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #ffffff; color: #000000; padding: 24px; line-height: 1.5; }',
+      ':root {',
+      '  --neo-bg: #f5f5f0;',
+      '  --neo-card-bg: #ffffff;',
+      '  --neo-border-color: #333333;',
+      '  --neo-shadow-lg: 4px 4px 0 #555555;',
+      '  --neo-shadow-md: 3px 3px 0 #555555;',
+      '  --neo-shadow-sm: 2px 2px 0 #888888;',
+      '  --neo-radius-lg: 10px;',
+      '  --neo-radius-md: 6px;',
+      '  --neo-radius-sm: 4px;',
+      '  --neo-dark: #222222;',
+      '  --neo-yellow: #e2c96e;',
+      '  --neo-green: #6abf8e;',
+      '  --neo-blue: #5b8fcc;',
+      '  --neo-purple: #8b7cc2;',
+      '  --neo-orange: #d4895a;',
+      '  --neo-red: #c96b6b;',
+      '}',
+      'body { font-family: "Lexend", system-ui, -apple-system, sans-serif; background: var(--neo-bg); color: var(--neo-dark); padding: 24px; line-height: 1.5; }',
       '.ag-report-wrap { max-width: 960px; margin: 0 auto; }',
       
       /* Neobrutalist Headers & Cards */
-      '.ag-report-header { background: #ffffff; border: 2.5px solid #000000; box-shadow: 4px 4px 0 #000000; padding: 20px 24px; border-radius: 6px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }',
-      '.ag-report-badge { display: inline-block; background: #000000; color: #ffffff; font-size: 0.72rem; font-weight: 900; letter-spacing: 1px; padding: 3px 8px; border-radius: 3px; margin-bottom: 6px; text-transform: uppercase; }',
-      '.ag-report-title { font-size: 1.85rem; font-weight: 900; letter-spacing: -0.5px; }',
-      '.ag-report-subtitle { font-size: 0.88rem; color: #475569; font-weight: 700; margin-top: 4px; }',
+      '.ag-report-header { background: var(--neo-card-bg); border: 2.5px solid var(--neo-border-color); box-shadow: var(--neo-shadow-lg); padding: 20px 24px; border-radius: var(--neo-radius-lg); margin-bottom: 22px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }',
+      '.ag-report-badge { display: inline-block; background: var(--neo-dark); color: #ffffff; font-size: 0.72rem; font-weight: 900; letter-spacing: 0.8px; padding: 3px 8px; border-radius: var(--neo-radius-sm); margin-bottom: 6px; text-transform: uppercase; }',
+      '.ag-report-title { font-size: 1.75rem; font-weight: 900; letter-spacing: -0.5px; line-height: 1.15; }',
+      '.ag-report-subtitle { font-size: 0.86rem; color: #475569; font-weight: 600; margin-top: 4px; }',
       '.ag-report-header-meta { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }',
-      '.ag-kpi-pill { background: #f8fafc; border: 2px solid #000000; box-shadow: 2px 2px 0 #000000; padding: 6px 12px; border-radius: 4px; display: flex; align-items: baseline; gap: 6px; }',
-      '.ag-kpi-num { font-size: 1.3rem; font-weight: 900; }',
-      '.ag-kpi-lbl { font-size: 0.75rem; font-weight: 800; text-transform: uppercase; color: #475569; }',
+      '.ag-kpi-pill { background: #f8fafc; border: 2px solid var(--neo-border-color); box-shadow: var(--neo-shadow-sm); padding: 6px 12px; border-radius: var(--neo-radius-sm); display: flex; align-items: baseline; gap: 6px; }',
+      '.ag-kpi-num { font-size: 1.25rem; font-weight: 900; }',
+      '.ag-kpi-lbl { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: #475569; }',
       
       /* Section */
-      '.ag-report-section { background: #ffffff; border: 2.5px solid #000000; box-shadow: 4px 4px 0 #000000; border-radius: 6px; padding: 20px 24px; margin-bottom: 24px; break-inside: avoid; page-break-inside: avoid; }',
-      '.ag-section-title { font-size: 1.15rem; font-weight: 900; border-bottom: 2px solid #000000; padding-bottom: 8px; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.4px; }',
+      '.ag-report-section { background: var(--neo-card-bg); border: 2.5px solid var(--neo-border-color); box-shadow: var(--neo-shadow-lg); border-radius: var(--neo-radius-lg); padding: 20px 24px; margin-bottom: 22px; break-inside: avoid; page-break-inside: avoid; }',
+      '.ag-section-title { font-size: 1.1rem; font-weight: 900; border-bottom: 2px solid var(--neo-border-color); padding-bottom: 8px; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.3px; }',
       
       /* KPI Grid */
       '.ag-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }',
-      '.ag-kpi-card { background: #f8fafc; border: 2px solid #000000; box-shadow: 3px 3px 0 #000000; border-radius: 4px; padding: 12px 14px; }',
-      '.ag-kpi-top { font-size: 0.75rem; font-weight: 900; text-transform: uppercase; color: #475569; margin-bottom: 4px; }',
-      '.ag-kpi-val { font-size: 1.7rem; font-weight: 900; color: #000000; }',
-      '.ag-kpi-sub { font-size: 0.75rem; font-weight: 700; color: #64748b; margin-top: 2px; }',
+      '.ag-kpi-card { background: #f8fafc; border: 2px solid var(--neo-border-color); box-shadow: var(--neo-shadow-md); border-radius: var(--neo-radius-md); padding: 12px 14px; }',
+      '.ag-kpi-top { font-size: 0.72rem; font-weight: 900; text-transform: uppercase; color: #475569; margin-bottom: 4px; }',
+      '.ag-kpi-val { font-size: 1.6rem; font-weight: 900; color: var(--neo-dark); }',
+      '.ag-kpi-sub { font-size: 0.75rem; font-weight: 600; color: #64748b; margin-top: 2px; }',
       
       /* Two Col */
       '.ag-report-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }',
       '@media (max-width: 768px) { .ag-report-two-col { grid-template-columns: 1fr; } }',
       
       /* Charts */
-      '.ag-chart-box { background: #f8fafc; border: 2px solid #000000; box-shadow: 3px 3px 0 #000000; border-radius: 4px; padding: 14px; }',
-      '.ag-chart-title { font-size: 0.85rem; font-weight: 900; text-transform: uppercase; margin-bottom: 12px; }',
-      '.ag-chart-legend { display: flex; flex-direction: column; gap: 6px; font-size: 0.82rem; font-weight: 700; }',
+      '.ag-chart-box { background: #f8fafc; border: 2px solid var(--neo-border-color); box-shadow: var(--neo-shadow-md); border-radius: var(--neo-radius-md); padding: 14px; }',
+      '.ag-chart-title { font-size: 0.82rem; font-weight: 900; text-transform: uppercase; margin-bottom: 12px; }',
+      '.ag-chart-legend { display: flex; flex-direction: column; gap: 6px; font-size: 0.8rem; font-weight: 700; }',
       '.ag-legend-row { display: flex; align-items: center; gap: 8px; }',
-      '.ag-legend-dot { width: 12px; height: 12px; border: 1.5px solid #000000; border-radius: 2px; display: inline-block; }',
+      '.ag-legend-dot { width: 12px; height: 12px; border: 1.5px solid var(--neo-border-color); border-radius: 2px; display: inline-block; }',
 
       /* Info Grid (Student Dossier) */
       '.ag-info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }',
-      '.ag-info-block { background: #f8fafc; border: 2px solid #000000; box-shadow: 2px 2px 0 #000000; border-radius: 4px; padding: 12px 14px; }',
+      '.ag-info-block { background: #f8fafc; border: 2px solid var(--neo-border-color); box-shadow: var(--neo-shadow-sm); border-radius: var(--neo-radius-md); padding: 12px 14px; }',
       '.ag-info-label { font-size: 0.72rem; font-weight: 900; text-transform: uppercase; color: #64748b; margin-bottom: 4px; }',
       '.ag-info-val { font-size: 1.05rem; font-weight: 900; }',
-      '.ag-info-sub { font-size: 0.78rem; font-weight: 700; color: #475569; margin-top: 4px; }',
+      '.ag-info-sub { font-size: 0.78rem; font-weight: 600; color: #475569; margin-top: 4px; }',
 
       /* Table */
-      '.ag-report-table-wrap { overflow-x: auto; border: 2px solid #000000; box-shadow: 3px 3px 0 #000000; border-radius: 4px; }',
+      '.ag-report-table-wrap { overflow-x: auto; border: 2px solid var(--neo-border-color); box-shadow: var(--neo-shadow-md); border-radius: var(--neo-radius-md); }',
       '.ag-report-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem; background: #ffffff; }',
-      '.ag-report-table th, .ag-report-table td { padding: 8px 12px; border-bottom: 1px solid #000000; border-right: 1px solid #000000; }',
-      '.ag-report-table th { background: #f1f5f9; font-weight: 900; text-transform: uppercase; font-size: 0.75rem; border-bottom: 2px solid #000000; }',
+      '.ag-report-table th, .ag-report-table td { padding: 8px 12px; border-bottom: 1px solid #dcdcd4; border-right: 1px solid #dcdcd4; }',
+      '.ag-report-table th { background: #ecece4; font-weight: 900; text-transform: uppercase; font-size: 0.74rem; border-bottom: 2px solid var(--neo-border-color); }',
       '.ag-report-table tr:last-child td { border-bottom: none; }',
       '.ag-report-table tr:hover { background: #f8fafc; }',
 
       /* Badges */
-      '.badge { display: inline-block; padding: 2px 7px; font-size: 0.75rem; font-weight: 800; border-radius: 3px; border: 1.5px solid #000000; text-transform: uppercase; }',
-      '.badge-tier1 { background: #fef08a; color: #000000; }',
-      '.badge-tier2 { background: #fed7aa; color: #000000; }',
-      '.badge-tier3 { background: #fca5a5; color: #000000; }',
-      '.badge-tier4 { background: #f87171; color: #000000; }',
-      '.badge-success { background: #dcfce7; color: #000000; }',
-      '.badge-sen { background: #e9d5ff; color: #000000; }',
+      '.badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; font-size: 0.72rem; font-weight: 800; border-radius: 4px; border: 1.5px solid var(--neo-border-color); box-shadow: var(--neo-shadow-sm); text-transform: uppercase; }',
+      '.badge-tier1 { background: var(--neo-yellow); color: #854d0e; }',
+      '.badge-tier2 { background: var(--neo-orange); color: #9a3412; }',
+      '.badge-tier3 { background: #fca5a5; color: #991b1b; }',
+      '.badge-tier4 { background: var(--neo-red); color: #7f1d1d; }',
+      '.badge-success { background: #dcfce7; color: #166534; }',
+      '.badge-sen { background: #e9d5ff; color: #6b21a8; }',
 
       /* Timeline */
-      '.ag-report-timeline { display: flex; flex-direction: column; gap: 12px; }',
-      '.ag-report-timeline-item { display: flex; gap: 14px; }',
-      '.ag-timeline-date { font-size: 0.8rem; font-weight: 900; width: 95px; flex-shrink: 0; padding-top: 6px; }',
-      '.ag-timeline-card { flex-grow: 1; background: #f8fafc; border: 2px solid #000000; box-shadow: 2px 2px 0 #000000; border-radius: 4px; padding: 10px 14px; }',
+      '.ag-report-timeline { display: flex; flex-direction: column; gap: 10px; }',
+      '.ag-report-timeline-item { display: flex; gap: 12px; }',
+      '.ag-timeline-date { font-size: 0.78rem; font-weight: 900; width: 95px; flex-shrink: 0; padding-top: 6px; }',
+      '.ag-timeline-card { flex-grow: 1; background: #f8fafc; border: 2px solid var(--neo-border-color); box-shadow: var(--neo-shadow-sm); border-radius: 4px; padding: 10px 14px; }',
       '.ag-timeline-head { display: flex; align-items: center; }',
-      '.ag-timeline-summary { font-size: 0.82rem; color: #334155; margin-top: 6px; font-weight: 600; line-height: 1.4; }',
-      '.ag-empty-state { padding: 18px; text-align: center; font-weight: 700; color: #94a3b8; background: #f8fafc; border: 2px dashed #000000; border-radius: 4px; }',
+      '.ag-timeline-summary { font-size: 0.82rem; color: #334155; margin-top: 6px; font-weight: 500; line-height: 1.4; }',
+      '.ag-empty-state { padding: 18px; text-align: center; font-weight: 700; color: #94a3b8; background: #f8fafc; border: 2px dashed var(--neo-border-color); border-radius: 6px; }',
 
       /* Print Optimizations */
       '@media print {',
-      '  body { padding: 0; background: #ffffff !important; color: #000000 !important; font-size: 11pt; }',
+      '  body { padding: 0; background: #ffffff !important; color: #000000 !important; font-size: 10pt; }',
       '  .ag-report-wrap { max-width: 100%; width: 100%; margin: 0; }',
-      '  .ag-report-section { break-inside: avoid; page-break-inside: avoid; box-shadow: none !important; border-width: 1.5px !important; margin-bottom: 16px !important; }',
-      '  .ag-report-header { box-shadow: none !important; border-width: 1.5px !important; margin-bottom: 16px !important; }',
-      '  .ag-chart-box, .ag-kpi-card, .ag-info-block, .ag-report-table-wrap { box-shadow: none !important; }',
-      '  .badge { border-width: 1px !important; }',
+      '  .ag-report-section { break-inside: avoid; page-break-inside: avoid; box-shadow: none !important; border-width: 1.5px !important; margin-bottom: 14px !important; }',
+      '  .ag-report-header { box-shadow: none !important; border-width: 1.5px !important; margin-bottom: 14px !important; }',
+      '  .ag-chart-box, .ag-kpi-card, .ag-info-block, .ag-report-table-wrap, .ag-timeline-card { box-shadow: none !important; }',
+      '  .badge { border-width: 1px !important; box-shadow: none !important; }',
       '}'
     ].join('\n');
   };
@@ -1143,7 +1161,22 @@
       XLSX.utils.book_append_sheet(wb, wsPeriod, 'Period Breakdown');
     }
 
-    XLSX.writeFile(wb, (filename || 'administrative_report') + '.xlsx');
+    var finalFilename = (filename || 'administrative_report') + '.xlsx';
+    if (window.saveExportWithDestination) {
+      try {
+        var wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        var u8arr = new Uint8Array(wbout);
+        return window.saveExportWithDestination({
+          filename: finalFilename,
+          content: u8arr,
+          mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          filters: [{ name: 'Excel Spreadsheet', extensions: ['xlsx'] }, { name: 'All Files', extensions: ['*'] }]
+        });
+      } catch (err) {
+        console.warn('saveExportWithDestination failed for XLSX, falling back to writeFile:', err);
+      }
+    }
+    XLSX.writeFile(wb, finalFilename);
   };
 
   // Expose module globally

@@ -25,6 +25,36 @@
       min-height: 100vh;
     }
 
+    /* ── Common Icon Sizing (12x12px for titles and buttons) ── */
+    .btn-icon {
+      width: 12px;
+      height: 12px;
+      max-width: 12px;
+      max-height: 12px;
+      display: inline-block;
+      vertical-align: middle;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+
+    .sm-header .btn-icon,
+    .sm-title .btn-icon,
+    .sm-section-title .btn-icon,
+    .sm-back-btn .btn-icon,
+    .sm-export-btn .btn-icon,
+    .sm-btn-auto-group .btn-icon,
+    .sm-action-btn .btn-icon,
+    .sm-del-btn .btn-icon,
+    .tut-trigger-btn .btn-icon,
+    .hm-btn .btn-icon,
+    .dropdown-item .btn-icon,
+    .sm-auto-btn .btn-icon {
+      width: 12px;
+      height: 12px;
+      max-width: 12px;
+      max-height: 12px;
+    }
+
     .sm-page {
       max-width: 960px;
       margin: 0 auto;
@@ -781,7 +811,7 @@
   <div id="app-hamburger" class="hm-wrap">
     <button id="skm-trigger" class="tut-trigger-btn" onclick="ShortcutsModal.open({title:t('skmTitle'),rows:[],noShortcutsText:t('skmNone')})" data-i18n-title="skmTitle" title="Keyboard Shortcuts">?</button>
     <button id="tut-trigger" class="tut-trigger-btn" onclick="startSmTutorial()" data-i18n="tourBtnLabel" data-i18n-title="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
-    <button class="hm-btn" data-i18n-aria="navOpenMenu" aria-label="Open menu">☰</button>
+    <button class="hm-btn" data-i18n-aria="navOpenMenu" aria-label="Open menu"><img src="../assets/icons/menu.svg" class="btn-icon" alt="" /></button>
     <div class="hm-menu"></div>
   </div>
 </nav>
@@ -897,7 +927,7 @@
       <span class="sm-hint" data-i18n="smOrderHint">Drag rows to reorder students and breaks.</span>
       <button id="sm-add-break-btn" class="sm-add-break-btn" onclick="addBreak()" disabled data-i18n="smAddBreak">+ Add Break</button>
       <button id="sm-add-group-btn" class="sm-add-group-btn" onclick="openGroupModal('manual')" disabled data-i18n="smAddGroup">+ Add Group</button>
-      <button id="sm-auto-group-btn" class="sm-add-group-btn sm-auto-group-toolbar-btn" onclick="openGroupModal('auto')" disabled data-i18n="smAutoGroup">⚡ Auto-Group</button>
+      <button id="sm-auto-group-btn" class="sm-add-group-btn sm-auto-group-toolbar-btn" onclick="openGroupModal('auto')" disabled><img src="../assets/icons/zap.svg" class="btn-icon" alt="" /> <span data-i18n="smAutoGroup">Auto-Group</span></button>
     </div>
     <div id="sm-order-list" class="sm-order-list">
       <div class="sm-order-empty" data-i18n="smNoGroup">Select a group and click Apply to generate the schedule.</div>
@@ -940,16 +970,16 @@
         <span data-i18n="mdbBtnExport">Export</span> ▾
       </button>
       <div class="dropdown-menu hidden" id="sm-export-menu">
-        <button class="dropdown-item" onclick="handleExportClick('pdf')" data-i18n="mdbBtnPrintPdf">🖨 Print PDF</button>
-        <button class="dropdown-item" onclick="handleExportClick('csv')" data-i18n="mdbBtnExportCsv">⬇ CSV</button>
-        <button class="dropdown-item" onclick="handleExportClick('xlsx')" data-i18n="mdbBtnExportXlsx">📊 Export XLSX</button>
-        <button class="dropdown-item" onclick="handleExportClick('docx')" data-i18n="mdbBtnExportDocx">📝 Export DOCX</button>
-        <button class="dropdown-item" onclick="handleExportClick('html')" data-i18n="mdbBtnExportHtml">📄 Export HTML (Editable)</button>
+        <button class="dropdown-item" onclick="handleExportClick('pdf')"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnPrintPdf">Print PDF</span></button>
+        <button class="dropdown-item" onclick="handleExportClick('csv')"><img src="../assets/icons/download.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExportCsv">CSV</span></button>
+        <button class="dropdown-item" onclick="handleExportClick('xlsx')"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExportXlsx">Export XLSX</span></button>
+        <button class="dropdown-item" onclick="handleExportClick('docx')"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExportDocx">Export DOCX</span></button>
+        <button class="dropdown-item" onclick="handleExportClick('html')"><img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExportHtml">Export HTML (Editable)</span></button>
       </div>
     </div>
     <button id="sm-save-btn" class="sm-action-btn" onclick="saveSchedule()" data-i18n="smBtnSave">Save</button>
     <button id="sm-load-btn" class="sm-action-btn" onclick="openLoadModal()" data-i18n="smBtnSavedSchedules">Saved Schedules</button>
-    <button id="sm-pin-btn" class="sm-action-btn" onclick="smTogglePin()" style="display:none" data-i18n="smPinSchedule">📌 Pin</button>
+    <button id="sm-pin-btn" class="sm-action-btn" onclick="smTogglePin()" style="display:none"><img src="../assets/icons/pin.svg" class="btn-icon" alt="" /> <span class="pin-btn-text" data-i18n="smPinSchedule">Pin Schedule</span></button>
   </div>
 </div>
 
@@ -1820,7 +1850,7 @@
   function makeDelBtn(idx) {
     const btn = document.createElement('button');
     btn.className = 'sm-row-del';
-    btn.textContent = '✕';
+    btn.innerHTML = '<img src="../assets/icons/close.svg" class="btn-icon" alt="Remove" style="width:12px;height:12px;" />';
     btn.title = typeof t === 'function' ? (t('smBtnRemove') || t('btnDelete') || 'Remove') : 'Remove';
     btn.onclick = () => deleteItem(idx);
     return btn;
@@ -1965,7 +1995,7 @@
         tr.className = 'sm-gap-tr';
         const td = document.createElement('td');
         td.colSpan = 6;
-        td.textContent = '⚠ ' + gapLabel + ' (' + row.duration + ' min)';
+        td.textContent = '[' + gapLabel + '] (' + row.duration + ' min)';
         tr.appendChild(td);
         tbody.appendChild(tr);
         return;
@@ -2183,7 +2213,7 @@
 
     rows.forEach(row => {
       if (row.type === 'gap') {
-        rowsHtml += `<tr class="sm-gap-tr"><td colspan="6">⚠ ${esc(gapLabel)} (${row.duration} min)</td></tr>`;
+        rowsHtml += `<tr class="sm-gap-tr"><td colspan="6">[${esc(gapLabel)}] (${row.duration} min)</td></tr>`;
         return;
       }
       if (row.type === 'break') {
@@ -2220,7 +2250,7 @@
 
     if (rows.length === 0) {
       const noScheduleText = typeof t === 'function' ? t('smNoScheduleGenerated') : 'No schedule generated.';
-      rowsHtml = `<tr><td colspan="6" style="text-align:center;color:#888;padding:24px;">${esc(noScheduleText)}</td></tr>`;
+      rowsHtml = `<tr><td colspan="6" style="text-align:center;color:#64748b;padding:24px;">${esc(noScheduleText)}</td></tr>`;
     }
 
     const metaItems = [];
@@ -2247,39 +2277,39 @@
 
     const css = `
       * { box-sizing: border-box; margin: 0; padding: 0; }
-      body { font-family: 'Lexend', Arial, Helvetica, sans-serif; font-size: 13px; color: #111; background: #fff; margin: 0; padding: 0; line-height: 1.4; }
-      h1 { font-size: 20px; font-weight: 800; color: #111; border-bottom: 2.5px solid #111; padding-bottom: 6px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: -0.01em; }
-      .meta-box { display: flex; flex-wrap: wrap; gap: 8px 24px; font-size: 12px; color: #111; background: #f8f9fa; border: 2px solid #111; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; box-shadow: 3px 3px 0 #111; }
+      body { font-family: 'Lexend', system-ui, -apple-system, sans-serif; font-size: 13px; color: #222222; background: #ffffff; margin: 0; padding: 0; line-height: 1.4; }
+      h1 { font-size: 20px; font-weight: 800; color: #222222; border-bottom: 2px solid #333333; padding-bottom: 6px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: -0.01em; }
+      .meta-box { display: flex; flex-wrap: wrap; gap: 8px 24px; font-size: 12px; color: #222222; background: #fafaf7; border: 2px solid #333333; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; box-shadow: 3px 3px 0 #555555; }
       .meta-item { display: flex; gap: 6px; align-items: center; }
-      .meta-label { font-weight: 800; color: #111; text-transform: uppercase; font-size: 11px; letter-spacing: 0.03em; }
-      .meta-val { font-weight: 600; color: #111; }
-      table { width: 100%; border-collapse: collapse; table-layout: fixed; border: 2px solid #111; margin-top: 4px; background: #fff; }
-      th, td { border: 2px solid #111; padding: 8px 10px; font-size: 11px; color: #111; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
-      th { background: #f0f0f0; font-weight: 800; color: #111; text-align: left; text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; }
-      tr:nth-child(even) td:not(.sm-break-tr td):not(.sm-gap-tr td):not(.sm-group-tr td) { background: #fafafa; }
-      .sm-col-num { width: 50px; text-align: center; font-weight: 800; background: #f8f9fa; }
+      .meta-label { font-weight: 800; color: #222222; text-transform: uppercase; font-size: 11px; letter-spacing: 0.03em; }
+      .meta-val { font-weight: 600; color: #222222; }
+      table { width: 100%; border-collapse: collapse; table-layout: fixed; border: 2px solid #333333; margin-top: 4px; background: #ffffff; border-radius: 6px; box-shadow: 3px 3px 0 #555555; }
+      th, td { border: 1.5px solid #333333; padding: 8px 10px; font-size: 11px; color: #222222; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+      th { background: #fafaf7; font-weight: 800; color: #222222; text-align: left; text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; border-bottom: 2px solid #333333; }
+      tr:nth-child(even) td:not(.sm-break-tr td):not(.sm-gap-tr td):not(.sm-group-tr td) { background: #f8fafc; }
+      .sm-col-num { width: 50px; text-align: center; font-weight: 800; background: #fafaf7; }
       .sm-col-student { text-align: left; font-weight: 600; }
       .sm-col-sen { width: 60px; text-align: center; }
       .sm-col-time { width: 110px; text-align: center; font-weight: 700; white-space: nowrap; }
       th.sm-col-num, th.sm-col-sen, th.sm-col-time { text-align: center; }
-      .sm-sen-badge { display: inline-block; background: #ffe8cc; color: #111; border: 2px solid #111; border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: 800; box-shadow: 1.5px 1.5px 0 #111; text-transform: uppercase; }
-      tr.sm-break-tr td { background: #f0f0f0; color: #111; font-weight: 800; text-align: center; border: 2px solid #111; text-transform: uppercase; letter-spacing: 0.04em; font-size: 11px; }
-      tr.sm-group-tr td { background: #f0f0f0; color: #111; font-weight: 700; border: 2px solid #111; vertical-align: top; }
+      .sm-sen-badge { display: inline-block; background: #e2c96e; color: #111111; border: 1.5px solid #333333; border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: 800; box-shadow: 2px 2px 0 #888888; text-transform: uppercase; }
+      tr.sm-break-tr td { background: #fafaf7; color: #222222; font-weight: 800; text-align: center; border: 1.5px solid #333333; text-transform: uppercase; letter-spacing: 0.04em; font-size: 11px; }
+      tr.sm-group-tr td { background: #fafaf7; color: #222222; font-weight: 700; border: 1.5px solid #333333; vertical-align: top; }
       tr.sm-group-tr td.sm-group-names-cell { font-weight: 600; text-align: left; }
-      tr.sm-gap-tr td { background: #fff3e0; color: #b45309; font-weight: 800; text-align: center; border: 2px solid #111; font-size: 11px; }
+      tr.sm-gap-tr td { background: #fff1f2; color: #991b1b; font-weight: 800; text-align: center; border: 1.5px solid #333333; font-size: 11px; }
       .th-wrap { position: relative; display: block; padding-right: 8px; }
       .col-resizer { position: absolute; top: 0; right: -4px; width: 8px; height: 100%; cursor: col-resize; user-select: none; }
-      .col-resizer::after { content: ''; position: absolute; right: 3px; top: 18%; bottom: 18%; width: 1px; background: #111; }
-      .schedule-footer { font-size: 11px; font-weight: 600; color: #555; margin-top: 14px; text-align: right; border-top: 2px solid #111; padding-top: 6px; }
+      .col-resizer::after { content: ''; position: absolute; right: 3px; top: 18%; bottom: 18%; width: 1.5px; background: #333333; }
+      .schedule-footer { font-size: 11px; font-weight: 600; color: #475569; margin-top: 14px; text-align: right; border-top: 2px solid #333333; padding-top: 6px; }
       thead { display: table-header-group; }
       tr { page-break-inside: avoid; break-inside: avoid; }
       table { max-width: 100%; width: 100%; table-layout: auto; page-break-inside: auto; }
       @page { size: ${pdfSettings.pageSize} ${pdfSettings.orientation}; margin: ${pdfSettings.margin}; }
       @media print {
         body { margin: 0; padding: 0; }
-        table { max-width: 100% !important; width: 100% !important; }
-        .meta-box { box-shadow: none; }
-        .sm-sen-badge { box-shadow: none; }
+        table { max-width: 100% !important; width: 100% !important; box-shadow: none !important; }
+        .meta-box { box-shadow: none !important; }
+        .sm-sen-badge { box-shadow: none !important; }
       }
     `;
 
@@ -2364,12 +2394,12 @@
             showNotice(typeof t === 'function' ? t('smPdfExported') : 'PDF exported successfully.');
           }
         } else if (result && !result.ok && !result.canceled) {
-          const errPrefix = typeof t === 'function' ? t('smPdfSaveError') : '⚠️ Could not save PDF:';
+          const errPrefix = typeof t === 'function' ? t('smPdfSaveError') : 'Could not save PDF:';
           const unknownErr = typeof t === 'function' ? t('smUnknownError') : 'unknown error';
           showNotice(errPrefix + ' ' + (result.error || unknownErr), true);
         }
       } catch (err) {
-        const errPrefix = typeof t === 'function' ? t('smPdfSaveError') : '⚠️ Could not save PDF:';
+        const errPrefix = typeof t === 'function' ? t('smPdfSaveError') : 'Could not save PDF:';
         showNotice(errPrefix + ' ' + err.message, true);
       }
     } else {
@@ -2489,7 +2519,7 @@
     const schedule = computeSchedule();
     schedule.forEach(row => {
       if (row.type === 'gap') {
-        aoa.push(['', `⚠ ${gapLabel} (${row.duration} min)`, '', '', '', '']);
+        aoa.push(['', `[${gapLabel}] (${row.duration} min)`, '', '', '', '']);
         return;
       }
       if (row.type === 'break') {
@@ -2519,7 +2549,7 @@
       const filename = 'schedule-' + stamp + '.xlsx';
       downloadExportFile(filename, wbout, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     } catch (err) {
-      const errPrefix = typeof t === 'function' ? t('smXlsxSaveError') : '⚠️ Could not save XLSX:';
+      const errPrefix = typeof t === 'function' ? t('smXlsxSaveError') : 'Could not save XLSX:';
       showNotice(errPrefix + ' ' + (err && err.message ? err.message : String(err)), true);
     }
   }
@@ -2571,7 +2601,7 @@
       const schedule = computeSchedule();
       schedule.forEach(row => {
         if (row.type === 'gap') {
-          md += `| | *⚠ ${gapLabel} (${row.duration} min)* | | | | |\n`;
+          md += `| | *[${gapLabel}] (${row.duration} min)* | | | | |\n`;
           return;
         }
         if (row.type === 'break') {
@@ -2619,12 +2649,12 @@
           }
           showNotice(typeof t === 'function' ? t('smDocxExported') : 'DOCX exported successfully.');
         } else if (result && !result.ok && !result.canceled) {
-          const errPrefix = typeof t === 'function' ? t('smDocxSaveError') : '⚠️ Could not save DOCX:';
+          const errPrefix = typeof t === 'function' ? t('smDocxSaveError') : 'Could not save DOCX:';
           const unknownErr = typeof t === 'function' ? t('smUnknownError') : 'unknown error';
           showNotice(errPrefix + ' ' + (result.error || unknownErr), true);
         }
       }).catch(err => {
-        const errPrefix = typeof t === 'function' ? t('smDocxSaveError') : '⚠️ Could not save DOCX:';
+        const errPrefix = typeof t === 'function' ? t('smDocxSaveError') : 'Could not save DOCX:';
         showNotice(errPrefix + ' ' + err.message, true);
       });
     } else {
@@ -2941,9 +2971,12 @@
         relativePath: SCHEDULE_DIR + smCurrentFilename,
         target: SCHEDULE_TARGET
       });
-      pinBtn.textContent = isPinned
-        ? (typeof t === 'function' ? t('smUnpinSchedule') : '📌 Unpin Schedule')
-        : (typeof t === 'function' ? t('smPinSchedule') : '📌 Pin Schedule');
+      const label = isPinned
+        ? (typeof t === 'function' ? t('smUnpinSchedule') : 'Unpin Schedule')
+        : (typeof t === 'function' ? t('smPinSchedule') : 'Pin Schedule');
+      const textEl = pinBtn.querySelector('.pin-btn-text');
+      if (textEl) textEl.textContent = label;
+      else pinBtn.innerHTML = '<img src="../assets/icons/pin.svg" class="btn-icon" alt="" /> <span class="pin-btn-text">' + label + '</span>';
     } else {
       pinBtn.style.display = 'none';
     }
@@ -2960,11 +2993,11 @@
     const isPinned = await Pins.isPinned(itemInfo);
     if (isPinned) {
       await Pins.unpinItem(itemInfo);
-      showNotice(typeof t === 'function' ? t('smUnpinnedSuccess') : '📌 Unpinned from sidebar');
+      showNotice(typeof t === 'function' ? t('smUnpinnedSuccess') : 'Unpinned from sidebar');
     } else {
       const displayTitle = smCurrentFilename.replace(SCHEDULE_PREFIX, '').replace('.js', '');
       await Pins.pinItem(Object.assign({ title: displayTitle }, itemInfo));
-      showNotice(typeof t === 'function' ? t('smPinnedSuccess') : '📌 Pinned to sidebar');
+      showNotice(typeof t === 'function' ? t('smPinnedSuccess') : 'Pinned to sidebar');
     }
     smUpdatePinButtonState();
   }

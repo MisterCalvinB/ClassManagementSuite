@@ -761,6 +761,7 @@ Active classroom control panel for student scoring, timers, class working modes,
 Infinite-canvas mind-mapping tool for vocabulary, draw overlays, sound nodes, and live lesson projection.
 
 #### Features
+- **Offline Voice Recognition & Dictation (`Ctrl+Alt+V` / `Cmd+Alt+V`):** Standalone speech-to-text dictation running offline via Web Workers and Web Audio API with real-time audio energy VU meter, multilingual language selector (**EN**, **FR**, **DE**, **IT**, **Auto**), interim preview streaming, and one-click actions: **+ Note** (spawns transcribed text as a sticky note node at the center of the board), **Search** (populates board search query), and **Copy to clipboard**. Features an integrated voice search mic trigger in the search overlay and live subtitle caption broadcasting to secondary presentation/projector displays.
 - **Mind-Map Canvas**: Draggable nodes, synonym/antonym connections, Wiktionary definition fetching, shape formatting, and color preset swatches. Includes quick creation shorthands: `,,` for separate words, `_` for phrases, `//` for two lines, `++` for automatic group clustering (leaving single `+` available for literal text), and `--` / `>` / `<` / `<>` for links and directional arrows.
 - **Zipped Archive Storage (`.cstz`)**: Saves all canvas data, multi-page layouts, version histories, and embedded media assets into a single portable `.cstz` archive in `user/mindmaps/`. Media assets are stored uncompressed for fast, spike-free saves.
 - **Autosave & Dirty-State Tracking**: Background autosave with configurable intervals (from 15s, 30s, 45s, 1m, 1.5m, 2m, 5m, up to 10 minutes or custom minutes) and dirty tracking (uses fast cached snapshots for zero lag). Manual saves (`Ctrl+S` / Save button) explicitly rebuild fresh high-fidelity visual snapshots for all pages and persist them into the archive.
@@ -804,6 +805,7 @@ Infinite-canvas mind-mapping tool for vocabulary, draw overlays, sound nodes, an
 |---|---|
 | `Ctrl/Cmd + S` | Save constellation archive (`.cstz`) |
 | `Ctrl/Cmd + F` | Search board words, notes, tables, and groups |
+| `Ctrl/Cmd + Alt + V` | Toggle voice dictation (speech-to-text) |
 | `Ctrl/Cmd + Z` / `Y` | Undo / Redo |
 | `Ctrl/Cmd + G` | Group selected nodes |
 | `Ctrl/Cmd + ↑ / ↓` | Increase / decrease node font size |

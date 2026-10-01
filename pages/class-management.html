@@ -2857,7 +2857,10 @@
             autoFlagLowParticipation: false,
             autoFlagBottomPercent: 25,
             autoFlagElements: { plus: true, minus: true, teamPlus: true, teamMinus: true, badges: true },
-            autoFlagTimeline: { mode: 'all', weeks: 4, sinceDate: '' }
+            autoFlagTimeline: { mode: 'all', weeks: 4, sinceDate: '' },
+            flagRules: [
+                { id: 'rule_default_1', name: 'Low Net Participation', color: 'red', metric: 'bottomPercent', operator: '<=', threshold: 25, pickWeight: 3.0, enabled: true }
+            ]
         };
         let participationSettings = { ...DEFAULT_PARTICIPATION_SETTINGS };
         let availableSoundFiles = [];
@@ -5297,6 +5300,7 @@
             // Derive plusMinusCoefficient from the + badge for backward compat
             const plusBadge = badgeDefinitions.find(d => d.isBuiltin && d.icon === '+');
             participationSettings = normalizeParticipationSettings({
+                ...participationSettings,
                 plusMinusCoefficient: plusBadge && Number.isFinite(plusBadge.coefficient) ? plusBadge.coefficient : participationSettings.plusMinusCoefficient
             });
 
@@ -5313,7 +5317,11 @@
 
         function resetBadgeSettings() {
             badgeDefinitions = DEFAULT_BADGE_DEFINITIONS.map(entry => ({ ...entry }));
-            participationSettings = { ...DEFAULT_PARTICIPATION_SETTINGS };
+            const plusBadge = badgeDefinitions.find(d => d.isBuiltin && d.icon === '+');
+            participationSettings = normalizeParticipationSettings({
+                ...participationSettings,
+                plusMinusCoefficient: plusBadge && Number.isFinite(plusBadge.coefficient) ? plusBadge.coefficient : 1
+            });
             persistBadgeSettings();
             renderEditBadgesModal();
             renderRoster();

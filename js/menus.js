@@ -16,6 +16,7 @@
     '#app-nav button:hover,#app-nav .tut-trigger-btn:hover,.tut-trigger-btn:hover,.hm-btn:hover{background:#222;border-color:#888;color:#fff}',
     /* icon filters for dark buttons */
     '.btn-primary img.btn-icon,.btn-success img.btn-icon,.btn-danger img.btn-icon,.btn-primary .btn-icon,.btn-success .btn-icon,.btn-danger .btn-icon,.hm-btn img.btn-icon,.hm-btn .btn-icon,.tut-trigger-btn img.btn-icon,.tut-trigger-btn .btn-icon,#app-nav button img.btn-icon,#app-nav button .btn-icon{filter:brightness(0) invert(1) !important}',
+    '.btn-icon,.tut-trigger-btn img.btn-icon,.tut-trigger-btn .btn-icon,.hm-btn img.btn-icon,.hm-btn .btn-icon,#app-nav button img.btn-icon,#app-nav button .btn-icon{width:12px;height:12px;max-width:12px;max-height:12px;display:inline-block;vertical-align:middle;object-fit:contain;flex-shrink:0}',
     '.dropdown-item:hover img.btn-icon,.dropdown-item:hover .btn-icon,.menu-item:hover img.btn-icon,.menu-item:hover .btn-icon{filter:brightness(0) invert(1)}',
     /* hamburger wrapper */
     '.hm-wrap{position:relative;margin-left:auto;display:inline-flex;align-items:center;gap:8px}',

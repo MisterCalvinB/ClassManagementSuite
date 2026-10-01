@@ -1726,10 +1726,8 @@
       });
     } else if (fmt === 'html') {
       var fullHtml = AdminReports.buildFullStandaloneHtmlReport(reportTitle, reportBodyHtml);
-      var blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8;' });
-      downloadBlob(blob, filenameSlug + '.html');
+      await saveExportFile(filenameSlug + '.html', fullHtml, 'text/html;charset=utf-8', { allowDocEditor: true });
       window.closeExportModal();
-      if (window.showToast) window.showToast('HTML Report downloaded successfully.');
     } else if (fmt === 'pdf') {
       window.closeExportModal();
       openReportPreview(reportBodyHtml, reportTitle, {
@@ -1743,17 +1741,16 @@
       });
       setTimeout(function () { window.print(); }, 400);
     } else if (fmt === 'xlsx') {
-      AdminReports.exportToXlsxWorkbook(scopedStudents, cohortStats, activePeriods, {
+      await AdminReports.exportToXlsxWorkbook(scopedStudents, cohortStats, activePeriods, {
         groupName: groupName,
         periodLabel: periodLabel
       }, state.config, filenameSlug);
       window.closeExportModal();
-      if (window.showToast) window.showToast('Excel Workbook exported successfully.');
     } else if (fmt === 'csv') {
-      exportToCsv(scopedStudents, 'all', filenameSlug);
+      await exportToCsv(scopedStudents, 'all', filenameSlug);
       window.closeExportModal();
     } else if (fmt === 'docx') {
-      exportToDocx(scopedStudents, 'all', filenameSlug);
+      await exportToDocx(scopedStudents, 'all', filenameSlug);
       window.closeExportModal();
     }
   };
@@ -1784,17 +1781,15 @@
     window.print();
   };
 
-  window.downloadPreviewHtml = function () {
+  window.downloadPreviewHtml = async function () {
     if (!state.lastGeneratedReport) return;
     var title = state.lastGeneratedReport.title;
     var fullHtml = AdminReports.buildFullStandaloneHtmlReport(title, state.lastGeneratedReport.html);
     var filename = (title.toLowerCase().replace(/[^a-z0-9_-]/g, '_')) + '_' + (new Date().toISOString().split('T')[0]);
-    var blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8;' });
-    downloadBlob(blob, filename + '.html');
-    if (window.showToast) window.showToast('Report HTML saved.');
+    await saveExportFile(filename + '.html', fullHtml, 'text/html;charset=utf-8', { allowDocEditor: true });
   };
 
-  window.exportPreviewXlsx = function () {
+  window.exportPreviewXlsx = async function () {
     if (!state.lastGeneratedReport || !state.lastGeneratedReport.rawData) return;
     var rd = state.lastGeneratedReport.rawData;
     var students = rd.students || getFilteredStudents();
@@ -1802,14 +1797,44 @@
     var cohortStats = rd.cohortStats || AdminReports.computeCohortAnalytics(students, periods, state.config);
     var filename = rd.filename || ('report_' + (new Date().toISOString().split('T')[0]));
 
-    AdminReports.exportToXlsxWorkbook(students, cohortStats, periods, {
+    await AdminReports.exportToXlsxWorkbook(students, cohortStats, periods, {
       groupName: rd.groupName || 'All',
       periodLabel: rd.periodLabel || 'Cumulative'
     }, state.config, filename);
   };
 
-  // ── Existing Helper Exporters for Legacy Tables ──
-  function exportToXlsx(students, cat, filename) {
+  // ── Universal Export Destination & Saver Helper ──
+  async function saveExportFile(filename, content, mimeType, options) {
+    options = options || {};
+    var ext = (filename.split('.').pop() || '').toLowerCase();
+    var filterName = 'File';
+    if (ext === 'html') filterName = 'HTML Document';
+    else if (ext === 'md') filterName = 'Markdown Document';
+    else if (ext === 'csv') filterName = 'CSV Spreadsheet';
+    else if (ext === 'xlsx') filterName = 'Excel Spreadsheet';
+    else if (ext === 'docx' || ext === 'doc') filterName = 'Word Document';
+    else if (ext === 'json') filterName = 'JSON Document';
+
+    if (window.saveExportWithDestination) {
+      return await window.saveExportWithDestination({
+        filename: filename,
+        content: content,
+        mimeType: mimeType || 'text/plain;charset=utf-8',
+        allowDocEditor: (ext === 'html' || ext === 'md'),
+        filters: [{ name: filterName, extensions: [ext] }, { name: 'All Files', extensions: ['*'] }],
+        title: typeof t === 'function' ? (t('deSaveFileTitle') || 'Save File') : 'Save File'
+      });
+    }
+
+    var blob = content instanceof Blob
+      ? content
+      : new Blob([content], { type: mimeType || 'text/plain;charset=utf-8' });
+    downloadBlob(blob, filename);
+    return { ok: true };
+  }
+
+  // ── Existing Helper Exporters for Tables ──
+  async function exportToXlsx(students, cat, filename) {
     if (typeof XLSX === 'undefined') {
       if (window.showToast) window.showToast('XLSX library not loaded', true); else alert('XLSX library not loaded');
       return;
@@ -1861,10 +1886,19 @@
     var ws = XLSX.utils.json_to_sheet(rows);
     var wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Administrative');
-    XLSX.writeFile(wb, filename + '.xlsx');
+    
+    var finalFilename = filename + '.xlsx';
+    if (window.saveExportWithDestination) {
+      try {
+        var wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        var u8arr = new Uint8Array(wbout);
+        return await saveExportFile(finalFilename, u8arr, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      } catch (err) {}
+    }
+    XLSX.writeFile(wb, finalFilename);
   }
 
-  function exportToCsv(students, cat, filename) {
+  async function exportToCsv(students, cat, filename) {
     var isFr = isFrench();
     var customCols = (state.config.columns || []).filter(function (c) { return c.custom === true && c.visible !== false; });
     var headers = isFr
@@ -1897,29 +1931,30 @@
       });
       lines.push(row.join(';'));
     });
-    var blob = new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
-    downloadBlob(blob, filename + '.csv');
+    var content = '\uFEFF' + lines.join('\r\n');
+    await saveExportFile(filename + '.csv', content, 'text/csv;charset=utf-8');
   }
 
-  function exportToHtml(students, cat, filename) {
+  async function exportToHtml(students, cat, filename) {
     var isFr = isFrench();
     var customCols = (state.config.columns || []).filter(function (c) { return c.custom === true && c.visible !== false; });
     var rowsHtml = students.map(function (s) {
-      var sancName = s.sanction ? (isFr ? (s.sanction.nameFr || s.sanction.name) : s.sanction.name) : (isFr ? 'RAS' : 'None');
+      var sancName = s.sanction ? (isFr ? (s.sanction.nameFr || s.sanction.name) : s.sanction.name) : (isFr ? 'RAS' : 'Good Standing');
+      var sancBadge = s.sanction ? (s.sanction.badgeClass || 'badge-tier1') : 'badge-success';
       var tr = '<tr>' +
-        '<td contenteditable="true">' + escapeHtml(s.lastName.toUpperCase()) + '</td>' +
-        '<td contenteditable="true">' + escapeHtml(s.firstName) + '</td>' +
-        '<td contenteditable="true">' + escapeHtml(s.adminClass) + '</td>' +
-        '<td contenteditable="true">' + escapeHtml(s.dob) + '</td>' +
+        '<td><strong>' + escapeHtml(s.lastName.toUpperCase()) + '</strong></td>' +
+        '<td>' + escapeHtml(s.firstName) + '</td>' +
+        '<td>' + escapeHtml(s.adminClass) + '</td>' +
+        '<td>' + escapeHtml(s.dob) + '</td>' +
         '<td>' + escapeHtml(s.age) + '</td>' +
-        '<td contenteditable="true">' + escapeHtml(s.regime) + '</td>' +
-        '<td>' + (s.sen ? (isFr ? 'OUI' : 'YES') : (isFr ? 'NON' : 'NO')) + '</td>' +
-        '<td><strong>' + s.points + '</strong></td>' +
-        '<td>' + escapeHtml(sancName) + '</td>' +
-        '<td contenteditable="true">' + escapeHtml(s.guardian1Phone) + '</td>';
+        '<td>' + escapeHtml(s.regime || 'DP') + '</td>' +
+        '<td>' + (s.sen ? '<span class="badge badge-sen">' + escapeHtml(s.senDetails || (isFr ? 'OUI' : 'YES')) + '</span>' : '&mdash;') + '</td>' +
+        '<td style="text-align:center; font-weight:900;">' + (s.points || 0) + '</td>' +
+        '<td><span class="badge ' + sancBadge + '">' + escapeHtml(sancName) + '</span></td>' +
+        '<td>' + escapeHtml(s.guardian1Phone || '') + '</td>';
       customCols.forEach(function (c) {
         var val = (s.customFields && s.customFields[c.key]) || '';
-        tr += '<td contenteditable="true">' + escapeHtml(val) + '</td>';
+        tr += '<td>' + escapeHtml(val) + '</td>';
       });
       tr += '</tr>';
       return tr;
@@ -1930,29 +1965,45 @@
     }).join('');
 
     var thLabels = isFr
-      ? '<th>Nom</th><th>Prénom</th><th>Classe</th><th>Date naiss.</th><th>Âge</th><th>Régime</th><th>Aménagements</th><th>Points</th><th>Sanction</th><th>Téléphone</th>' + customTh
-      : '<th>Last Name</th><th>First Name</th><th>Class</th><th>DOB</th><th>Age</th><th>Regimen</th><th>SEN</th><th>Points</th><th>Sanction</th><th>Phone</th>' + customTh;
+      ? '<th>Nom</th><th>Prénom</th><th>Classe</th><th>Date naiss.</th><th>Âge</th><th>Régime</th><th>Aménagements</th><th style="text-align:center;">Points</th><th>Sanction</th><th>Téléphone</th>' + customTh
+      : '<th>Last Name</th><th>First Name</th><th>Class</th><th>DOB</th><th>Age</th><th>Regimen</th><th>SEN</th><th style="text-align:center;">Points</th><th>Sanction</th><th>Phone</th>' + customTh;
 
-    var fullHtml = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + escapeHtml(filename) + '</title>' +
-      '<style>body{font-family:sans-serif;padding:20px;} table{width:100%;border-collapse:collapse;margin-top:15px;} th,td{border:1px solid #ccc;padding:8px;text-align:left;} th{background:#f1f5f9;}</style>' +
-      '</head><body>' +
-      '<h2>' + escapeHtml(filename) + '</h2>' +
-      '<p>Exported from Class Management Tools — Administrative Group Management</p>' +
-      '<table><thead><tr>' + thLabels + '</tr></thead>' +
-      '<tbody>' + rowsHtml + '</tbody></table>' +
-      '</body></html>';
+    var fullHtml = '<!DOCTYPE html>\n<html lang="' + (isFr ? 'fr' : 'en') + '">\n<head>\n' +
+      '  <meta charset="utf-8">\n' +
+      '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
+      '  <title>' + escapeHtml(filename) + '</title>\n' +
+      '  <style>\n' +
+      AdminReports.getEmbeddedCss() +
+      '\n  </style>\n' +
+      '</head>\n<body>\n' +
+      '  <div class="ag-report-wrap">\n' +
+      '    <div class="ag-report-header">\n' +
+      '      <div class="ag-report-brand-wrap">\n' +
+      '        <div class="ag-report-badge">ADMINISTRATIVE ROSTER</div>\n' +
+      '        <h1 class="ag-report-title">' + escapeHtml(filename) + '</h1>\n' +
+      '        <div class="ag-report-subtitle">' + students.length + ' ' + (isFr ? 'élèves enregistrés' : 'students listed') + ' &bull; ' + new Date().toLocaleDateString() + '</div>\n' +
+      '      </div>\n' +
+      '    </div>\n' +
+      '    <div class="ag-report-section">\n' +
+      '      <div class="ag-report-table-wrap">\n' +
+      '        <table class="ag-report-table">\n' +
+      '          <thead><tr>' + thLabels + '</tr></thead>\n' +
+      '          <tbody>' + rowsHtml + '</tbody>\n' +
+      '        </table>\n' +
+      '      </div>\n' +
+      '    </div>\n' +
+      '  </div>\n' +
+      '</body>\n</html>';
 
-    var blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8;' });
-    downloadBlob(blob, filename + '.html');
+    await saveExportFile(filename + '.html', fullHtml, 'text/html;charset=utf-8', { allowDocEditor: true });
   }
 
-  function exportToDocx(students, cat, filename) {
+  async function exportToDocx(students, cat, filename) {
     var content = 'Administrative Group Management — ' + filename + '\n\n' +
       students.map(function (s) {
         return s.lastName.toUpperCase() + ' ' + s.firstName + ' (' + s.adminClass + ') — DOB: ' + s.dob + ' | Points: ' + s.points + ' | Phone: ' + s.guardian1Phone;
       }).join('\n');
-    var blob = new Blob([content], { type: 'application/msword;charset=utf-8;' });
-    downloadBlob(blob, filename + '.doc');
+    await saveExportFile(filename + '.doc', content, 'application/msword;charset=utf-8');
   }
 
   function downloadBlob(blob, filename) {
