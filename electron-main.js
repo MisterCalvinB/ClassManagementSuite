@@ -5657,9 +5657,25 @@ ipcMain.handle('app:open-html', async (event, request = {}) => {
   const win = new BrowserWindow(winOpts);
   setupWindowExternalLinkHandling(win);
 
-  if (request.file || request.pageFile) {
-    const p = request.file || request.pageFile;
-    const targetFile = path.isAbsolute(p) ? p : path.join(ROOT_DIR, 'pages', p);
+  if (request.file || request.pageFile || request.page) {
+    let p = request.file || request.pageFile || request.page;
+    if (typeof p === 'string') {
+      const normalizedKey = p.replace(/\.html$/i, '').toLowerCase().replace(/[-_.]/g, '');
+      if (PAGE_ARG_MAP[normalizedKey]) {
+        p = PAGE_ARG_MAP[normalizedKey];
+      } else if (PAGE_FILES[p]) {
+        p = PAGE_FILES[p];
+      } else if (!p.endsWith('.html')) {
+        p = p + '.html';
+      }
+    }
+    let targetFile = path.isAbsolute(p) ? p : path.join(ROOT_DIR, 'pages', p);
+    if (!fsSync.existsSync(targetFile)) {
+      const rootCandidate = path.join(ROOT_DIR, p);
+      if (fsSync.existsSync(rootCandidate)) {
+        targetFile = rootCandidate;
+      }
+    }
     try {
       await win.loadFile(targetFile, request.query ? { query: request.query } : undefined);
     } catch (err) {

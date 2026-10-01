@@ -18,6 +18,7 @@
   var _currentOpts = null;
   var _activeCategory = 'all';
   var _cachedCandidates = [];
+  var _cachedAvailableTags = [];
   var _candidatePageOffset = 250;
   var _candidatePageSize = 100;
   var _currentFilteredCandidates = [];
@@ -78,6 +79,13 @@
               '<input type="text" class="cmt-lm-input" id="cmt-lm-tag-input" placeholder="Type tag (e.g. #unit3) and press enter..." />' +
               '<button type="button" class="cmt-lm-btn primary" id="cmt-lm-btn-add-tag">[ADD TAG]</button>' +
             '</div>' +
+            '<div class="cmt-lm-existing-tags-wrap" id="cmt-lm-existing-tags-container" style="display:none;">' +
+              '<div class="cmt-lm-existing-tags-hdr">' +
+                '<span class="cmt-lm-existing-tags-title">' + t('lmExistingTags', 'AVAILABLE SYSTEM TAGS') + '</span>' +
+                '<span class="cmt-lm-existing-tags-hint">' + t('lmClickToAdd', '(Click to add)') + '</span>' +
+              '</div>' +
+              '<div class="cmt-lm-existing-tags-cloud" id="cmt-lm-existing-tags-cloud"></div>' +
+            '</div>' +
           '</div>' +
 
           // ── Section 2: Connected Items
@@ -132,12 +140,18 @@
 
     // Add Tag Handlers
     document.getElementById('cmt-lm-btn-add-tag').addEventListener('click', handleAddTag);
-    document.getElementById('cmt-lm-tag-input').addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        handleAddTag();
-      }
-    });
+    var tagInputEl = document.getElementById('cmt-lm-tag-input');
+    if (tagInputEl) {
+      tagInputEl.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          handleAddTag();
+        }
+      });
+      tagInputEl.addEventListener('input', function() {
+        renderAvailableTags(tagInputEl.value);
+      });
+    }
 
     // Category Tabs
     var tabBtns = overlay.querySelectorAll('.cmt-lm-tab-btn');
@@ -311,6 +325,59 @@
     }
   }
 
+  function renderAvailableTags(filterQuery) {
+    var container = document.getElementById('cmt-lm-existing-tags-container');
+    var cloud = document.getElementById('cmt-lm-existing-tags-cloud');
+    if (!container || !cloud) return;
+
+    if (!_cachedAvailableTags || _cachedAvailableTags.length === 0) {
+      container.style.display = 'none';
+      return;
+    }
+
+    var q = (filterQuery || '').trim().toLowerCase();
+    if (q.startsWith('#')) q = q.slice(1);
+
+    var filtered = _cachedAvailableTags.filter(function(item) {
+      if (!q) return true;
+      var tName = (item.tag || '').toLowerCase();
+      if (tName.startsWith('#')) tName = tName.slice(1);
+      return tName.includes(q);
+    });
+
+    if (filtered.length === 0) {
+      if (q) {
+        container.style.display = 'block';
+        cloud.innerHTML = '<span class="cmt-lm-empty" style="padding:4px 0;">' + t('lmNoOtherTags', 'No matching tags in system') + '</span>';
+      } else {
+        container.style.display = 'none';
+      }
+      return;
+    }
+
+    container.style.display = 'block';
+    cloud.innerHTML = '';
+    filtered.forEach(function(item) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'cmt-lm-existing-tag-chip';
+      btn.title = t('lmClickToAdd', 'Click to add tag');
+      btn.innerHTML =
+        '<span class="cmt-lm-chip-label">+ ' + item.tag + '</span>' +
+        (item.count ? '<span class="cmt-lm-chip-count">' + item.count + '</span>' : '');
+      btn.addEventListener('click', async function(ev) {
+        ev.preventDefault();
+        if (!_currentOpts || !window.LinksService) return;
+        await window.LinksService.addTag(_currentOpts.urn, item.tag);
+        var input = document.getElementById('cmt-lm-tag-input');
+        if (input) input.value = '';
+        await refreshModalData();
+        notifyUpdate();
+      });
+      cloud.appendChild(btn);
+    });
+  }
+
   async function refreshModalData() {
     if (!_currentOpts || !window.LinksService) return;
     var urn = _currentOpts.urn;
@@ -340,6 +407,21 @@
           tagsContainer.appendChild(pill);
         });
       }
+    }
+
+    // 1b. Load System Available Tags for Quick Add
+    try {
+      var allSummaries = (typeof window.LinksService.getTagSummary === 'function')
+        ? await window.LinksService.getTagSummary()
+        : [];
+      var attachedSet = new Set(tags.map(function(t) { return t.toLowerCase(); }));
+      _cachedAvailableTags = allSummaries.filter(function(s) {
+        return s && s.tag && !attachedSet.has(s.tag.toLowerCase());
+      });
+      var tagInput = document.getElementById('cmt-lm-tag-input');
+      renderAvailableTags(tagInput ? tagInput.value : '');
+    } catch (tagErr) {
+      console.warn('TagLinkModal: error loading tag summary', tagErr);
     }
 
     // 2. Load Links (Direct & Inherited Context)

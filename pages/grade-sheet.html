@@ -12,6 +12,7 @@
   <script src="../js/shortcuts-modal.js"></script>
   <script src="../js/tutorial.js"></script>
   <script src="../modules/xlsx.min.js"></script>
+  <script src="../modules/marked/marked.umd.js"></script>
   <script src="../js/competence-aggregator-service.js"></script>
   <script src="../js/test-creator-service.js"></script>
   <script src="../js/menus.js"></script>
@@ -173,9 +174,26 @@
           <div class="subtitle" data-i18n="gsSubtitle">Choose a class to open its semester and year summary.</div>
         </div>
         <div class="btn-row">
-          <button id="btn-export" class="btn" data-i18n="gsBtnExport"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export JSON</button>
-          <button id="btn-import" class="btn" data-i18n="gsBtnImport"><img src="../assets/icons/import.svg" class="btn-icon" alt="" /> Import JSON</button>
           <button id="btn-edit-reference-data" class="btn btn-edit-reference-data" data-i18n="gsBtnEditRef"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> Edit Criteria / Scales</button>
+          <div class="dropdown dropdown-hover" id="overview-backup-dropdown">
+            <button id="btn-overview-backup-trigger" class="btn" data-i18n="gsBtnBackupRestore"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Backup &amp; Restore ▾</button>
+            <div class="dropdown-menu hidden" id="overview-backup-menu">
+              <button class="dropdown-item" id="btn-export">
+                <img src="../assets/icons/export.svg" class="btn-icon" alt="" />
+                <div class="dropdown-item-text">
+                  <div class="dropdown-item-title" data-i18n="gsOptionExportAllJson">Export All Grade Sheets (JSON)</div>
+                  <div class="dropdown-item-desc" data-i18n="gsOptionExportAllJsonDesc">Save backup file with all classes, tests, and grades</div>
+                </div>
+              </button>
+              <button class="dropdown-item" id="btn-import">
+                <img src="../assets/icons/import.svg" class="btn-icon" alt="" />
+                <div class="dropdown-item-text">
+                  <div class="dropdown-item-title" data-i18n="gsOptionImportAllJson">Import Grade Sheets (JSON)</div>
+                  <div class="dropdown-item-desc" data-i18n="gsOptionImportAllJsonDesc">Restore or load grade sheets from a backup file</div>
+                </div>
+              </button>
+            </div>
+          </div>
           <button id="btn-add-test-overview" class="btn" data-i18n="gsBtnAddTest"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Test</button>
           <button id="btn-add-class" class="btn primary" data-i18n="gsBtnNewGradeSheet"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> New Grade Sheet</button>
         </div>
@@ -206,42 +224,41 @@
             </select>
           </div>
           <button id="btn-add-student" class="btn" data-i18n="gsBtnAddStudent"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Student</button>
-          <button id="btn-add-test" class="btn" data-i18n="gsBtnAddTest"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Test</button>
-          <button id="btn-import-test" class="btn" data-i18n="gsBtnImportTest"><img src="../assets/icons/import.svg" class="btn-icon" alt="" /> Import Test</button>
+          <button id="btn-add-test" class="btn primary" data-i18n="gsBtnAddTest"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Test</button>
           <div class="dropdown dropdown-hover" id="summary-export-dropdown">
-            <button id="btn-summary-export-trigger" class="btn" data-i18n="gsBtnExportReportsDropdown"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export & Reports ▾</button>
+            <button id="btn-summary-export-trigger" class="btn" data-i18n="gsBtnExportReportsDropdown"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export &amp; Reports ▾</button>
             <div class="dropdown-menu hidden" id="summary-export-menu">
               <div class="dropdown-section-header" data-i18n="gsSectionReports">Comprehensive Reports</div>
               <button class="dropdown-item" id="btn-report-class-year">
                 <img src="../assets/icons/file-text.svg" class="btn-icon" alt="" />
                 <div class="dropdown-item-text">
                   <div class="dropdown-item-title" data-i18n="gsReportClassYear">Whole Class: Full Year Report</div>
-                  <div class="dropdown-item-desc" data-i18n="gsReportClassYearDesc">Annual stats, grade distribution, progression & roster</div>
+                  <div class="dropdown-item-desc" data-i18n="gsReportClassYearDesc">Annual stats, grade distribution, progression &amp; roster</div>
                 </div>
               </button>
               <button class="dropdown-item" id="btn-report-class-sem1">
                 <img src="../assets/icons/file-text.svg" class="btn-icon" alt="" />
                 <div class="dropdown-item-text">
                   <div class="dropdown-item-title" data-i18n="gsReportClassSem1">Whole Class: Semester 1 Report</div>
-                  <div class="dropdown-item-desc" data-i18n="gsReportClassSem1Desc">S1 stats, distribution histogram, timeline & grades</div>
+                  <div class="dropdown-item-desc" data-i18n="gsReportClassSem1Desc">S1 stats, distribution histogram, timeline &amp; grades</div>
                 </div>
               </button>
               <button class="dropdown-item" id="btn-report-class-sem2">
                 <img src="../assets/icons/file-text.svg" class="btn-icon" alt="" />
                 <div class="dropdown-item-text">
                   <div class="dropdown-item-title" data-i18n="gsReportClassSem2">Whole Class: Semester 2 Report</div>
-                  <div class="dropdown-item-desc" data-i18n="gsReportClassSem2Desc">S2 stats, distribution histogram, timeline & grades</div>
+                  <div class="dropdown-item-desc" data-i18n="gsReportClassSem2Desc">S2 stats, distribution histogram, timeline &amp; grades</div>
                 </div>
               </button>
               <button class="dropdown-item" id="btn-report-select-student">
                 <img src="../assets/icons/file-text.svg" class="btn-icon" alt="" />
                 <div class="dropdown-item-text">
                   <div class="dropdown-item-title" data-i18n="gsReportSelectStudent">Individual Student Report…</div>
-                  <div class="dropdown-item-desc" data-i18n="gsReportSelectStudentDesc">Student profile, progression vs class mean & history</div>
+                  <div class="dropdown-item-desc" data-i18n="gsReportSelectStudentDesc">Student profile, progression vs class mean &amp; history</div>
                 </div>
               </button>
 
-              <div class="dropdown-section-header" data-i18n="gsSectionDataExports">Spreadsheets & Raw Data</div>
+              <div class="dropdown-section-header" data-i18n="gsSectionDataExports">Spreadsheets &amp; Raw Data</div>
               <button class="dropdown-item" id="btn-export-semester-xlsx">
                 <img src="../assets/icons/table.svg" class="btn-icon" alt="" />
                 <div class="dropdown-item-text">
@@ -279,11 +296,39 @@
               </button>
             </div>
           </div>
-          <button id="btn-import-grades" class="btn" data-i18n="gsBtnImportGrades"><img src="../assets/icons/import.svg" class="btn-icon" alt="" /> Import Grades</button>
-          <button id="btn-class-templates" class="btn" data-i18n="gsBtnManageTemplates"><img src="../assets/icons/check.svg" class="btn-icon" alt="" /> Criteria Templates</button>
-          <button id="btn-edit-reference-data-summary" class="btn btn-edit-reference-data" data-i18n="gsBtnEditRef"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> Edit Criteria / Scales</button>
-          <button id="btn-edit-class" class="btn" data-i18n="gsBtnEditClass"><img src="../assets/icons/edit-word.svg" class="btn-icon" alt="" /> Edit Class</button>
-          <button id="btn-delete-class" class="btn" data-i18n="gsBtnDeleteClass"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> Delete Class</button>
+          <div class="dropdown dropdown-hover" id="summary-manage-class-dropdown">
+            <button id="btn-summary-manage-trigger" class="btn" data-i18n="gsBtnManageClass"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> Manage Class ▾</button>
+            <div class="dropdown-menu hidden" id="summary-manage-menu">
+              <button class="dropdown-item" id="btn-edit-class">
+                <img src="../assets/icons/edit-word.svg" class="btn-icon" alt="" />
+                <div class="dropdown-item-text">
+                  <div class="dropdown-item-title" data-i18n="gsOptionEditClassDetails">Edit Class Details</div>
+                  <div class="dropdown-item-desc" data-i18n="gsOptionEditClassDetailsDesc">Rename class, edit term, or change criteria templates</div>
+                </div>
+              </button>
+              <button class="dropdown-item" id="btn-import-grades">
+                <img src="../assets/icons/import.svg" class="btn-icon" alt="" />
+                <div class="dropdown-item-text">
+                  <div class="dropdown-item-title" data-i18n="gsOptionImportGradesJson">Import Grades from JSON</div>
+                  <div class="dropdown-item-desc" data-i18n="gsOptionImportGradesJsonDesc">Load scores from an exported file or external tool</div>
+                </div>
+              </button>
+              <button class="dropdown-item" id="btn-import-test">
+                <img src="../assets/icons/duplicate.svg" class="btn-icon" alt="" />
+                <div class="dropdown-item-text">
+                  <div class="dropdown-item-title" data-i18n="gsOptionCopyTestConfig">Duplicate / Copy Config…</div>
+                  <div class="dropdown-item-desc" data-i18n="gsOptionCopyTestConfigDesc">Copy criteria, weights, or settings from another test</div>
+                </div>
+              </button>
+              <button class="dropdown-item danger" id="btn-delete-class" style="color:var(--warn,#dc2626);">
+                <img src="../assets/icons/delete.svg" class="btn-icon" alt="" />
+                <div class="dropdown-item-text">
+                  <div class="dropdown-item-title" data-i18n="gsOptionDeleteClass">Delete Class</div>
+                  <div class="dropdown-item-desc" data-i18n="gsOptionDeleteClassDesc">Permanently delete this class and all test data</div>
+                </div>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -313,35 +358,26 @@
           <button id="btn-test-options" class="btn primary" data-i18n="gsBtnTestOptions"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> Test Options</button>
           <button id="btn-gs-test-links" class="btn" onclick="gsOpenTestLinksModal()" title="View and attach files, links, and tags for this test" style="font-weight:900;letter-spacing:0.5px;"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" />[0]</button>
           <button id="btn-criteria-ref" class="btn" data-i18n="gsBtnCriteriaRef"><img src="../assets/icons/book.svg" class="btn-icon" alt="" /> Criteria Reference</button>
-          <button id="btn-edit-reference-data-test" class="btn btn-edit-reference-data" data-i18n="gsBtnEditRef"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> Edit Criteria / Scales</button>
-          <div class="dropdown dropdown-hover" id="criteria-export-dropdown">
-            <button id="btn-export-criteria-trigger" class="btn" data-i18n="gsBtnExportCriteriaRef"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export Criteria ▾</button>
-            <div class="dropdown-menu hidden" id="criteria-export-menu">
-              <button class="dropdown-item" id="btn-export-criteria-pdf" data-i18n="gsOptionExportPdf"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> Export to PDF</button>
-              <button class="dropdown-item" id="btn-export-criteria-md" data-i18n="gsOptionExportMd"><img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" /> Export to MD</button>
-              <button class="dropdown-item" id="btn-export-criteria-html" data-i18n="gsOptionExportHtml"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> Export to HTML</button>
-            </div>
-          </div>
           <div class="dropdown dropdown-hover" id="test-export-dropdown">
-            <button id="btn-test-export-trigger" class="btn" data-i18n="gsBtnExportReportsDropdown"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export & Reports ▾</button>
+            <button id="btn-test-export-trigger" class="btn" data-i18n="gsBtnExportReportsDropdown"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export &amp; Reports ▾</button>
             <div class="dropdown-menu hidden" id="test-export-menu">
               <div class="dropdown-section-header" data-i18n="gsSectionReports">Comprehensive Reports</div>
               <button class="dropdown-item" id="btn-report-test-class">
                 <img src="../assets/icons/file-text.svg" class="btn-icon" alt="" />
                 <div class="dropdown-item-text">
                   <div class="dropdown-item-title" data-i18n="gsReportClassTest">Whole Class: Test Report</div>
-                  <div class="dropdown-item-desc" data-i18n="gsReportClassTestDesc">Class test mean, score distribution & criteria analytics</div>
+                  <div class="dropdown-item-desc" data-i18n="gsReportClassTestDesc">Class test mean, score distribution &amp; criteria analytics</div>
                 </div>
               </button>
               <button class="dropdown-item" id="btn-report-test-student">
                 <img src="../assets/icons/file-text.svg" class="btn-icon" alt="" />
                 <div class="dropdown-item-text">
                   <div class="dropdown-item-title" data-i18n="gsReportSelectStudent">Individual Student Test Report…</div>
-                  <div class="dropdown-item-desc" data-i18n="gsReportStudentTestDesc">Student score vs class benchmark & rubric comments</div>
+                  <div class="dropdown-item-desc" data-i18n="gsReportStudentTestDesc">Student score vs class benchmark &amp; rubric comments</div>
                 </div>
               </button>
 
-              <div class="dropdown-section-header" data-i18n="gsSectionHandoutsExports">Handouts & Formats</div>
+              <div class="dropdown-section-header" data-i18n="gsSectionHandoutsExports">Handouts &amp; Formats</div>
               <button class="dropdown-item" id="btn-print-results">
                 <img src="../assets/icons/printer.svg" class="btn-icon" alt="" />
                 <div class="dropdown-item-text">
@@ -353,7 +389,7 @@
                 <img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" />
                 <div class="dropdown-item-text">
                   <div class="dropdown-item-title" data-i18n="gsOptionExportDocx">Word Document (.docx)</div>
-                  <div class="dropdown-item-desc" data-i18n="gsOptionExportTestDocxDesc">Formatted test results & student criteria comments</div>
+                  <div class="dropdown-item-desc" data-i18n="gsOptionExportTestDocxDesc">Formatted test results &amp; student criteria comments</div>
                 </div>
               </button>
               <button class="dropdown-item" id="btn-export-test-html">
@@ -363,11 +399,57 @@
                   <div class="dropdown-item-desc" data-i18n="gsOptionExportTestHtmlDesc">Offline printable test result sheets</div>
                 </div>
               </button>
+
+              <div class="dropdown-section-header" data-i18n="gsSectionCriteriaExports">Criteria &amp; Rubrics</div>
+              <button class="dropdown-item" id="btn-export-criteria-pdf">
+                <img src="../assets/icons/printer.svg" class="btn-icon" alt="" />
+                <div class="dropdown-item-text">
+                  <div class="dropdown-item-title" data-i18n="gsOptionExportPdf">Export Criteria (PDF)</div>
+                  <div class="dropdown-item-desc" data-i18n="gsOptionExportPdfDesc">Printable criteria rubric overview</div>
+                </div>
+              </button>
+              <button class="dropdown-item" id="btn-export-criteria-md">
+                <img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" />
+                <div class="dropdown-item-text">
+                  <div class="dropdown-item-title" data-i18n="gsOptionExportMd">Export Criteria (Markdown)</div>
+                  <div class="dropdown-item-desc" data-i18n="gsOptionExportDocxDesc">Markdown table with descriptors</div>
+                </div>
+              </button>
+              <button class="dropdown-item" id="btn-export-criteria-html">
+                <img src="../assets/icons/file-text.svg" class="btn-icon" alt="" />
+                <div class="dropdown-item-text">
+                  <div class="dropdown-item-title" data-i18n="gsOptionExportHtml">Export Criteria (HTML)</div>
+                  <div class="dropdown-item-desc" data-i18n="gsOptionExportHtmlDesc">Interactive criteria rubric table</div>
+                </div>
+              </button>
             </div>
           </div>
-          <button id="btn-duplicate-test" class="btn" data-i18n="gsBtnDuplicate"><img src="../assets/icons/duplicate.svg" class="btn-icon" alt="" /> Duplicate / Import</button>
-          <button id="btn-delete-test" class="btn" data-i18n="gsBtnDeleteTest"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> Delete Test</button>
-          <button id="btn-reset-test" class="btn" data-i18n="gsBtnClearTest"><img src="../assets/icons/clear.svg" class="btn-icon" alt="" /> Clear Test</button>
+          <div class="dropdown dropdown-hover" id="test-actions-dropdown">
+            <button id="btn-test-actions-trigger" class="btn" data-i18n="gsBtnTestActions"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> Test Actions ▾</button>
+            <div class="dropdown-menu hidden" id="test-actions-menu">
+              <button class="dropdown-item" id="btn-duplicate-test">
+                <img src="../assets/icons/duplicate.svg" class="btn-icon" alt="" />
+                <div class="dropdown-item-text">
+                  <div class="dropdown-item-title" data-i18n="gsOptionCopyTestConfig">Duplicate / Copy Config…</div>
+                  <div class="dropdown-item-desc" data-i18n="gsOptionCopyTestConfigDesc">Copy criteria, weights, or settings from another test</div>
+                </div>
+              </button>
+              <button class="dropdown-item" id="btn-reset-test">
+                <img src="../assets/icons/clear.svg" class="btn-icon" alt="" />
+                <div class="dropdown-item-text">
+                  <div class="dropdown-item-title" data-i18n="gsOptionClearTestScores">Clear Test Scores</div>
+                  <div class="dropdown-item-desc" data-i18n="gsOptionClearTestScoresDesc">Reset all student points and comments for this test</div>
+                </div>
+              </button>
+              <button class="dropdown-item danger" id="btn-delete-test" style="color:var(--warn,#dc2626);">
+                <img src="../assets/icons/delete.svg" class="btn-icon" alt="" />
+                <div class="dropdown-item-text">
+                  <div class="dropdown-item-title" data-i18n="gsOptionDeleteTest">Delete Test</div>
+                  <div class="dropdown-item-desc" data-i18n="gsOptionDeleteTestDesc">Permanently remove this test from the semester</div>
+                </div>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -716,7 +798,6 @@
           <span id="topt-context-badge" class="topt-context-badge"></span>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
-          <button id="btn-topt-import-tc" type="button" class="btn" onclick="gsTriggerImportFromTestCreator()" title="Import from Test Creator" style="font-weight:900;letter-spacing:0.5px;font-size:0.75rem;padding:3px 8px;background:#fde047;color:#000;border:2px solid #000;box-shadow:2px 2px 0px #000;" data-i18n="gsImportFromTestCreator"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:12px;height:12px;vertical-align:-2px;margin-right:4px;" />[IMPORT FROM TEST CREATOR]</button>
           <button id="btn-topt-links" type="button" class="btn" onclick="gsOpenTestLinksModal()" title="View and edit links and tags for this test" style="font-weight:900;letter-spacing:0.5px;font-size:0.75rem;padding:3px 8px;"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:12px;height:12px;vertical-align:-2px;margin-right:4px;" />[LINKS: 0]</button>
           <button type="button" class="btn" onclick="showGsModalTour()" style="font-size:0.78rem;padding:3px 10px;" data-i18n="tourBtnLabel"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
           <button id="topt-close-top" type="button" class="btn" style="padding:2px 8px;font-size:1rem;line-height:1;" aria-label="Close" data-i18n-aria="gsToptClose"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
@@ -729,6 +810,7 @@
         <button type="button" class="topt-tab-btn" data-tab="coeff" data-i18n="gsToptTabCoeff">Weighting</button>
         <button type="button" class="topt-tab-btn" data-tab="grading" data-i18n="gsToptTabGrading">Grading Scale</button>
         <button type="button" class="topt-tab-btn" data-tab="criteria" data-i18n="gsToptTabCriteria">Criteria</button>
+        <button type="button" class="topt-tab-btn" data-tab="chips" data-i18n="gsToptTabChips">Observation Chips</button>
       </div>
 
       <!-- Tab Content Panels Body -->
@@ -770,6 +852,10 @@
               <div class="form-group" style="margin-bottom:0;">
                 <label for="topt-info-next-grade" data-i18n="gsToptHighlight">Next-grade highlight (points, 0 = off)</label>
                 <input id="topt-info-next-grade" class="input" type="number" min="0" step="0.1" />
+              </div>
+              <div class="form-group" style="margin-top:10px;margin-bottom:0;">
+                <label for="topt-info-chips-bank" data-i18n="gsChipsBank">Observation Chips Bank</label>
+                <select id="topt-info-chips-bank" class="input" style="font-size:0.85rem;padding:4px 8px;"></select>
               </div>
             </div>
           </div>
@@ -963,7 +1049,7 @@
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
                 <div class="topt-card-title" style="margin:0;" data-i18n="gsToptAddCriterionLoadPreset">+ Add New Criterion / Load Preset</div>
                 <button type="button" class="btn btn-xs" id="topt-import-test-creator-btn" style="font-size:0.75rem;padding:3px 8px;font-weight:900;border:1.5px solid #000;background:#fef08a;color:#000;box-shadow:1.5px 1.5px 0px #000;" data-i18n="gsImportFromTestCreator" title="Import test title, points, and exercises as criteria from Test Creator">
-                  <img src="../assets/icons/links.svg" class="btn-icon btn-icon-xs" alt="" style="width:11px;height:11px;vertical-align:-1px;margin-right:3px;" /> [IMPORT FROM TEST CREATOR]
+                  <img src="../assets/icons/links.svg" class="btn-icon btn-icon-xs" alt="" style="width:11px;height:11px;vertical-align:-1px;margin-right:3px;" /> Import from Test Creator
                 </button>
               </div>
               <div class="form-group" style="margin-bottom:12px;background:var(--bg-subtle,#f8fafc);padding:8px 10px;border-radius:6px;border:1px solid var(--border,#e2e8f0);">
@@ -1011,6 +1097,38 @@
                 </label>
               </div>
               <button id="topt-criteria-add" class="btn primary" type="button" style="width:100%;" data-i18n="gsRefAddCriterion"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Criterion</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 5: Observation Chips -->
+        <div class="topt-tab-panel" data-tab="chips">
+          <div class="topt-grid-2col">
+            <div class="topt-card">
+              <div class="topt-card-title">
+                <span data-i18n="gsChipsBankTitle">Observation Chips Bank</span>
+                <span id="topt-chips-summary" style="margin-left:auto;font-size:0.8rem;color:var(--muted);font-weight:normal;"></span>
+              </div>
+              <div class="form-group" style="margin-bottom:12px;background:var(--bg-subtle,#f8fafc);padding:8px 10px;border-radius:6px;border:1px solid var(--border,#e2e8f0);">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:6px;">
+                  <label for="topt-chips-bank-select" style="font-weight:700;font-size:0.82rem;margin:0;" data-i18n="gsTestChipsTemplate">Test Observation Bank</label>
+                  <button type="button" class="btn btn-xs" id="topt-chips-add-chip-btn" style="font-size:0.75rem;padding:2px 8px;font-weight:700;">
+                    <img src="../assets/icons/plus.svg" class="btn-icon btn-icon-xs" alt="" /> <span data-i18n="gsBtnAddChip">Add Chip</span>
+                  </button>
+                </div>
+                <select id="topt-chips-bank-select" class="input" style="font-size:0.85rem;padding:4px 8px;"></select>
+              </div>
+              <div id="topt-chips-preview-list" class="criteria-mgmt-list" style="max-height:360px;overflow-y:auto;"></div>
+            </div>
+
+            <div class="topt-card">
+              <div class="topt-card-title" data-i18n="gsObsPresetSectionsTitle">Default Observation Sections</div>
+              <p style="font-size:0.8rem;color:var(--muted);margin-bottom:10px;" data-i18n="gsObsPresetSectionsHint">Configure predefined observation sections that will be automatically initialized for students in this test.</p>
+              <div id="topt-obs-sections-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;max-height:260px;overflow-y:auto;"></div>
+              <div style="display:flex;gap:6px;align-items:center;">
+                <input id="topt-new-section-label" class="input" type="text" placeholder="e.g. Points forts, To improve" data-i18n-placeholder="gsPlaceholderNewSection" style="font-size:0.85rem;" />
+                <button id="topt-add-section-btn" class="btn primary btn-sm" type="button" style="white-space:nowrap;display:inline-flex;align-items:center;gap:4px;"><img src="../assets/icons/plus.svg" class="btn-icon btn-icon-xs" alt="" /> <span data-i18n="gsAddSection">Add</span></button>
+              </div>
             </div>
           </div>
         </div>
@@ -1535,14 +1653,14 @@
   <div id="test-row-menu" class="row-context-menu hidden" role="menu" aria-label="Student row menu" data-i18n-aria="gsAriaStudentRowMenu">
     <button id="test-row-menu-open" class="menu-item" type="button" role="menuitem" data-i18n="gsMenuOpenStudent"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" /> Open student</button>
     <button id="test-row-menu-report-student" class="menu-item" type="button" role="menuitem" data-i18n="gsReportStudentTest"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> Student Test Report</button>
-    <button id="test-row-menu-attach-work" class="menu-item" type="button" role="menuitem" style="font-weight:800;"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> [ATTACH STUDENT WORK / PDF]</button>
+    <button id="test-row-menu-attach-work" class="menu-item" type="button" role="menuitem"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> <span data-i18n="gsMenuAttachStudentWork">Attach Student Work / PDF</span></button>
     <hr class="menu-sep">
     <button id="test-row-menu-reset" class="menu-item danger" type="button" role="menuitem" data-i18n="gsMenuResetPoints"><img src="../assets/icons/clear.svg" class="btn-icon" alt="" /> Reset points and comments</button>
   </div>
 
   <div id="class-card-menu" class="row-context-menu hidden" role="menu" aria-label="Class menu" data-i18n-aria="gsAriaClassMenu">
     <button id="class-card-menu-open" class="menu-item" type="button" role="menuitem" data-i18n="gsMenuOpenClass"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" /> Open class</button>
-    <button id="class-card-menu-links" class="menu-item" type="button" role="menuitem" style="font-weight:800;"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> [CLASS LINKS & TAGS]</button>
+    <button id="class-card-menu-links" class="menu-item" type="button" role="menuitem"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> <span data-i18n="gsMenuLinksTags">Links &amp; Tags</span></button>
     <button id="class-card-menu-rename" class="menu-item" type="button" role="menuitem" data-i18n="gsMenuEditName"><img src="../assets/icons/edit-word.svg" class="btn-icon" alt="" /> Edit name</button>
     <hr class="menu-sep">
     <button id="class-card-menu-report-year" class="menu-item" type="button" role="menuitem" data-i18n="gsReportClassYear"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> Class Year Report</button>
@@ -1554,9 +1672,9 @@
 
   <div id="test-header-menu" class="row-context-menu hidden" role="menu" aria-label="Test menu" data-i18n-aria="gsAriaTestMenu">
     <button id="test-header-menu-open" class="menu-item" type="button" role="menuitem" data-i18n="gsMenuOpenTest"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" /> Open test</button>
-    <button id="test-header-menu-links" class="menu-item" type="button" role="menuitem" style="font-weight:800;"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> [TEST LINKS & ATTACHMENTS]</button>
-    <button id="test-header-menu-tc-open" class="menu-item" type="button" role="menuitem" style="display:none;font-weight:800;" data-i18n="gsMenuOpenInTestCreator"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> [OPEN IN TEST CREATOR]</button>
-    <button id="test-header-menu-file-open" class="menu-item" type="button" role="menuitem" style="display:none;font-weight:800;" data-i18n="gsMenuOpenAttachedFile"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> [OPEN ATTACHED FILE / ANSWER KEY]</button>
+    <button id="test-header-menu-links" class="menu-item" type="button" role="menuitem"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> <span data-i18n="gsMenuTestLinks">Test Links &amp; Attachments</span></button>
+    <button id="test-header-menu-tc-open" class="menu-item" type="button" role="menuitem" style="display:none;"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> <span data-i18n="gsMenuOpenInTestCreator">Open in Test Creator</span></button>
+    <button id="test-header-menu-file-open" class="menu-item" type="button" role="menuitem" style="display:none;"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> <span data-i18n="gsMenuOpenAttachedFile">Open Attached File / Answer Key</span></button>
     <button id="test-header-menu-settings" class="menu-item" type="button" role="menuitem" data-i18n="gsMenuEditTestSettings"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> Edit test settings</button>
     <hr class="menu-sep">
     <button id="test-header-menu-report-test" class="menu-item" type="button" role="menuitem" data-i18n="gsReportClassTest"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> Test Report (Whole Class)</button>
@@ -1567,7 +1685,7 @@
   </div>
 
   <div id="summary-student-row-menu" class="row-context-menu hidden" role="menu" aria-label="Student menu">
-    <button id="summary-student-menu-work" class="menu-item" type="button" role="menuitem" style="font-weight:800;"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> [STUDENT WORK & ATTACHMENTS]</button>
+    <button id="summary-student-menu-work" class="menu-item" type="button" role="menuitem"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> <span data-i18n="gsMenuStudentWork">Student Work &amp; Attachments</span></button>
     <button id="summary-student-menu-report-year" class="menu-item" type="button" role="menuitem" data-i18n="gsReportStudentYear"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> Student Year Report</button>
     <button id="summary-student-menu-report-sem1" class="menu-item" type="button" role="menuitem" data-i18n="gsReportStudentSem1"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> Student Semester 1 Report</button>
     <button id="summary-student-menu-report-sem2" class="menu-item" type="button" role="menuitem" data-i18n="gsReportStudentSem2"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> Student Semester 2 Report</button>
@@ -1767,6 +1885,69 @@
 
     function sectionHasContent(section) {
       return !!sectionDisplayText(section).trim();
+    }
+
+    function renderObservationPill(name, kind, label) {
+      const k = normalizeObservationKind(kind) || (String(label || "").toLowerCase() === "to remedy" ? "toRemedy" : (String(label || "").toLowerCase() === "good points" || String(label || "").toLowerCase() === "good elements" ? "goodPoints" : ""));
+      const lbl = String(label || "").toLowerCase();
+      let pillClass = "obs-pill obs-pill-custom";
+      let bg = "#e0f2fe";
+      let color = "#0369a1";
+      let border = "#0284c7";
+
+      if (k === "goodPoints" || lbl.includes("good") || lbl.includes("fort")) {
+        pillClass = "obs-pill obs-pill-good";
+        bg = "#dcfce7";
+        color = "#166534";
+        border = "#16a34a";
+      } else if (k === "toRemedy" || lbl.includes("remedy") || lbl.includes("remédier")) {
+        pillClass = "obs-pill obs-pill-remedy";
+        bg = "#fee2e2";
+        color = "#991b1b";
+        border = "#dc2626";
+      }
+
+      return `<span class="${pillClass}" style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:10.5px;font-weight:700;line-height:1.25;margin:2px 3px 2px 0;background:${bg};color:${color};border:1.5px solid ${border};box-shadow:1px 1px 0 rgba(0,0,0,0.12);">${escapeHtml(name)}</span>`;
+    }
+
+    function renderObservationSectionHtml(section) {
+      if (!section) return "";
+      const label = String(section.label || "").trim();
+      const checklist = sectionChecklistSummary(section);
+      const text = String(section.text || "").trim();
+
+      if (checklist.length === 0 && !text) return "";
+
+      const pillsHtml = checklist.length > 0
+        ? `<div class="obs-pills-row" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:2px;margin-bottom:4px;">` +
+          checklist.map(chip => renderObservationPill(chip, section.kind, label)).join("") +
+          `</div>`
+        : "";
+
+      const feedbackHtml = text
+        ? `<div class="obs-feedback" style="margin-top:${checklist.length > 0 ? '5px' : '2px'};padding:5px 9px;background:#f8fafc;border-left:3px solid #0f172a;border-radius:0 4px 4px 0;font-size:11.5px;line-height:1.45;color:#1e293b;"><div class="obs-feedback-body">${renderMd(text)}</div></div>`
+        : "";
+
+      const labelHtml = label
+        ? `<div class="obs-label" style="font-size:11.5px;font-weight:800;color:#111;margin-bottom:2px;">${escapeHtml(label)}</div>`
+        : "";
+
+      return `<div class="obs-section" style="margin-bottom:8px;">${labelHtml}${pillsHtml}${feedbackHtml}</div>`;
+    }
+
+    function renderObservationInlineHtml(section) {
+      if (!section) return "";
+      const label = String(section.label || "").trim();
+      const checklist = sectionChecklistSummary(section);
+      const text = String(section.text || "").trim();
+
+      if (checklist.length === 0 && !text) return "";
+
+      const labelPrefix = label ? `<strong style="color:#111;margin-right:4px;">${escapeHtml(label)}:</strong>` : "";
+      const pills = checklist.map(chip => renderObservationPill(chip, section.kind, label)).join("");
+      const textPart = text ? `<span class="obs-inline-text" style="margin-left:${checklist.length > 0 ? '6px' : '0'};color:#333;font-style:italic;">${escapeHtml(text)}</span>` : "";
+
+      return `<div class="obs-inline-row" style="margin-bottom:3px;display:flex;flex-wrap:wrap;align-items:center;">${labelPrefix}${pills}${textPart}</div>`;
     }
 
     // Returns the descriptor text for a named xlsm criterion at the given grade level.
@@ -3108,6 +3289,365 @@
       populateChipBankSelectElement(document.getElementById('ref-chips-bank-select'), _refEditorActiveChipBank);
     }
 
+    async function saveNewObservationChip(bankFilename, chipText, categoryName) {
+      const cleanChip = String(chipText || '').trim();
+      const cleanCat = String(categoryName || '').trim();
+      if (!cleanChip || !cleanCat) {
+        showToast(t('gsAddChipEmptyError', 'Please enter a chip text and category.'), true);
+        return false;
+      }
+
+      const targetFn = bankFilename || _activeChipBankFilename || 'correction-criteria.js';
+      if (!Array.isArray(_availableChipBanks) || !_availableChipBanks.length) {
+        await loadAvailableChipBanks();
+      }
+
+      let bank = _availableChipBanks.find(b => b.filename === targetFn);
+      if (!bank) {
+        bank = {
+          id: targetFn === 'correction-criteria.js' ? 'default' : targetFn,
+          filename: targetFn,
+          name: targetFn.replace(/\.(js|json)$/i, ''),
+          chips: []
+        };
+        _availableChipBanks.push(bank);
+      }
+
+      // Normalize existing chips array
+      let chipGroups = [];
+      if (Array.isArray(bank.chips)) {
+        chipGroups = bank.chips.map(g => ({
+          type: String((g && (g.type || g.label || g.name)) || 'Criteria').trim() || 'Criteria',
+          items: Array.isArray(g && g.items) ? [...g.items] : []
+        }));
+      } else if (bank.chips && typeof bank.chips === 'object') {
+        chipGroups = Object.entries(bank.chips).map(([type, items]) => ({
+          type: String(type || 'Criteria').trim() || 'Criteria',
+          items: Array.isArray(items) ? [...items] : []
+        }));
+      }
+
+      // Check if group exists
+      let group = chipGroups.find(g => g.type.toLowerCase() === cleanCat.toLowerCase());
+      if (!group) {
+        group = { type: cleanCat, items: [] };
+        chipGroups.push(group);
+      }
+
+      // Check duplicate chip (case-insensitive)
+      if (group.items.some(it => String(it).trim().toLowerCase() === cleanChip.toLowerCase())) {
+        showToast(t('gsAddChipDuplicateError', 'This chip already exists in the selected category.'), true);
+        return false;
+      }
+
+      group.items.push(cleanChip);
+      bank.chips = chipGroups;
+
+      // Persist to disk and storage
+      if (targetFn === 'correction-criteria.js') {
+        window.OBSERVATION_CHECKLIST_GROUPS = chipGroups;
+        try {
+          localStorage.setItem(REFERENCE_PERSONALISED_CHIPS_STORAGE_KEY, JSON.stringify(chipGroups));
+        } catch (_) {}
+
+        if (window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron()) {
+          try {
+            let existingCriteria = [];
+            try {
+              const rootRes = await Desktop.readText('user', 'correction-criteria.js');
+              if (rootRes && rootRes.ok && rootRes.content) {
+                const critFn = new Function(rootRes.content + '\n;try{return typeof XLSM_CRITERIA !== "undefined" ? XLSM_CRITERIA : null;}catch(e){return null;}');
+                const cRes = critFn();
+                if (Array.isArray(cRes) && cRes.length) existingCriteria = cRes;
+              }
+            } catch (_) {}
+            if (!existingCriteria.length && typeof XLSM_CRITERIA !== 'undefined' && Array.isArray(XLSM_CRITERIA)) {
+              existingCriteria = XLSM_CRITERIA;
+            }
+            const content = `const XLSM_CRITERIA = ${JSON.stringify(existingCriteria, null, 2)};\n` +
+              `const OBSERVATION_CHECKLIST_GROUPS = ${JSON.stringify(chipGroups, null, 2)};\n`;
+            await Desktop.saveText('user', 'correction-criteria.js', content);
+          } catch (e) {
+            console.warn('Error saving observation chip to correction-criteria.js:', e);
+          }
+        }
+      } else {
+        // Custom chip bank
+        try {
+          const lsKey = 'cmt-chips-' + targetFn.replace(/\.(js|json)$/i, '');
+          localStorage.setItem(lsKey, JSON.stringify(chipGroups));
+        } catch (_) {}
+
+        if (window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron()) {
+          try {
+            const isJson = targetFn.endsWith('.json');
+            const customChipsText = isJson
+              ? JSON.stringify(chipGroups, null, 2)
+              : `// OBSERVATION_CHECKLIST_GROUPS\nconst OBSERVATION_CHECKLIST_GROUPS = ${JSON.stringify(chipGroups, null, 2)};\n`;
+            await Desktop.saveText('customChips', targetFn, customChipsText);
+          } catch (e) {
+            console.warn('Error saving custom observation chip bank:', e);
+          }
+        }
+      }
+
+      // Broadcast changes across windows
+      if (typeof BroadcastChannel !== 'undefined') {
+        try {
+          new BroadcastChannel('cmt-chips').postMessage({ filename: targetFn });
+        } catch (_) {}
+      }
+
+      showToast(t('gsToastChipAdded', 'Observation chip added to active bank'));
+      return true;
+    }
+
+    async function reorderObservationChip(bankFilename, sourceCategory, chipName, targetCategory, targetIndex) {
+      const targetFn = bankFilename || _activeChipBankFilename || 'correction-criteria.js';
+      if (!Array.isArray(_availableChipBanks) || !_availableChipBanks.length) {
+        await loadAvailableChipBanks();
+      }
+
+      let bank = _availableChipBanks.find(b => b.filename === targetFn);
+      if (!bank || !Array.isArray(bank.chips)) return false;
+
+      // Normalize chip groups
+      let chipGroups = bank.chips.map(g => ({
+        type: String((g && (g.type || g.label || g.name)) || 'Criteria').trim() || 'Criteria',
+        items: Array.isArray(g && g.items) ? [...g.items] : []
+      }));
+
+      // Find source group
+      const srcGroup = chipGroups.find(g => g.type.toLowerCase() === sourceCategory.toLowerCase());
+      if (!srcGroup) return false;
+
+      const srcIdx = srcGroup.items.findIndex(it => String(it).trim().toLowerCase() === chipName.trim().toLowerCase());
+      if (srcIdx === -1) return false;
+
+      // Remove from source group
+      const [removed] = srcGroup.items.splice(srcIdx, 1);
+
+      // Find or create target group
+      let tgtGroup = chipGroups.find(g => g.type.toLowerCase() === targetCategory.toLowerCase());
+      if (!tgtGroup) {
+        tgtGroup = { type: targetCategory, items: [] };
+        chipGroups.push(tgtGroup);
+      }
+
+      // Insert at targetIndex
+      if (targetIndex != null && targetIndex >= 0 && targetIndex <= tgtGroup.items.length) {
+        tgtGroup.items.splice(targetIndex, 0, removed);
+      } else {
+        tgtGroup.items.push(removed);
+      }
+
+      bank.chips = chipGroups;
+
+      // Persist to database
+      if (targetFn === 'correction-criteria.js') {
+        window.OBSERVATION_CHECKLIST_GROUPS = chipGroups;
+        try {
+          localStorage.setItem(REFERENCE_PERSONALISED_CHIPS_STORAGE_KEY, JSON.stringify(chipGroups));
+        } catch (_) {}
+
+        if (window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron()) {
+          try {
+            let existingCriteria = [];
+            try {
+              const rootRes = await Desktop.readText('user', 'correction-criteria.js');
+              if (rootRes && rootRes.ok && rootRes.content) {
+                const critFn = new Function(rootRes.content + '\n;try{return typeof XLSM_CRITERIA !== "undefined" ? XLSM_CRITERIA : null;}catch(e){return null;}');
+                const cRes = critFn();
+                if (Array.isArray(cRes) && cRes.length) existingCriteria = cRes;
+              }
+            } catch (_) {}
+            if (!existingCriteria.length && typeof XLSM_CRITERIA !== 'undefined' && Array.isArray(XLSM_CRITERIA)) {
+              existingCriteria = XLSM_CRITERIA;
+            }
+            const content = `const XLSM_CRITERIA = ${JSON.stringify(existingCriteria, null, 2)};\n` +
+              `const OBSERVATION_CHECKLIST_GROUPS = ${JSON.stringify(chipGroups, null, 2)};\n`;
+            await Desktop.saveText('user', 'correction-criteria.js', content);
+          } catch (e) {
+            console.warn('Error saving reordered observation chips to correction-criteria.js:', e);
+          }
+        }
+      } else {
+        // Custom chip bank
+        try {
+          const lsKey = 'cmt-chips-' + targetFn.replace(/\.(js|json)$/i, '');
+          localStorage.setItem(lsKey, JSON.stringify(chipGroups));
+        } catch (_) {}
+
+        if (window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron()) {
+          try {
+            const isJson = targetFn.endsWith('.json');
+            const customChipsText = isJson
+              ? JSON.stringify(chipGroups, null, 2)
+              : `// OBSERVATION_CHECKLIST_GROUPS\nconst OBSERVATION_CHECKLIST_GROUPS = ${JSON.stringify(chipGroups, null, 2)};\n`;
+            await Desktop.saveText('customChips', targetFn, customChipsText);
+          } catch (e) {
+            console.warn('Error saving custom observation chip bank order:', e);
+          }
+        }
+      }
+
+      // Broadcast changes across windows
+      if (typeof BroadcastChannel !== 'undefined') {
+        try {
+          new BroadcastChannel('cmt-chips').postMessage({ filename: targetFn });
+        } catch (_) {}
+      }
+
+      return true;
+    }
+
+    async function openAddObservationChipModal(activeBankFilename, onSavedCallback) {
+      const targetFn = activeBankFilename || _activeChipBankFilename || 'correction-criteria.js';
+      if (!Array.isArray(_availableChipBanks) || !_availableChipBanks.length) {
+        await loadAvailableChipBanks();
+      }
+
+      const bank = _availableChipBanks.find(b => b.filename === targetFn);
+      const bankDisplayName = bank ? bank.name : targetFn.replace(/\.(js|json)$/i, '');
+      const existingGroups = getObservationChecklistGroups(targetFn);
+
+      let overlay = document.getElementById('gs-add-chip-overlay');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'gs-add-chip-overlay';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
+        overlay.innerHTML = `
+          <div class="gs-add-chip-modal" style="background:var(--surface,#fff);border:3px solid #000;box-shadow:6px 6px 0px #000;border-radius:6px;width:440px;max-width:94vw;display:flex;flex-direction:column;gap:14px;padding:20px;box-sizing:border-box;">
+            <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #000;padding-bottom:10px;">
+              <div style="font-size:1.1rem;font-weight:900;letter-spacing:-0.5px;display:flex;align-items:center;gap:8px;">
+                <img src="../assets/icons/speech-bubbles.svg" style="width:20px;height:20px;" alt="" />
+                <span id="gs-add-chip-title">${t('gsAddChipModalTitle', 'Add Observation Chip')}</span>
+              </div>
+              <button type="button" id="gs-add-chip-close-btn" class="btn btn-sm" style="padding:2px 6px;line-height:1;border:2px solid #000;box-shadow:2px 2px 0px #000;">✕</button>
+            </div>
+            <div style="font-size:0.8rem;font-weight:700;color:var(--muted,#555);display:flex;align-items:center;gap:6px;">
+              <span>${t('gsAddChipTargetBank', 'Active Bank:')}</span>
+              <span id="gs-add-chip-bank-name" style="color:var(--text,#111);font-weight:900;background:var(--bg-card,#f0f0f0);border:1px solid #000;padding:2px 8px;border-radius:3px;"></span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <label style="font-size:0.8rem;font-weight:800;letter-spacing:0.3px;">${t('gsAddChipNameLabel', 'Chip Text')}</label>
+              <input type="text" id="gs-add-chip-input-text" class="input" style="border:2px solid #000;padding:6px 10px;font-weight:600;" placeholder="${t('gsPlaceholderObservation', 'e.g. Good intonation, Needs clearer examples...')}" />
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <label style="font-size:0.8rem;font-weight:800;letter-spacing:0.3px;">${t('gsAddChipCategoryLabel', 'Category / Criteria')}</label>
+              <select id="gs-add-chip-category-select" class="input" style="border:2px solid #000;padding:6px 10px;font-weight:700;"></select>
+              <input type="text" id="gs-add-chip-custom-category" class="input hidden" style="border:2px solid #000;padding:6px 10px;font-weight:600;margin-top:4px;" placeholder="${t('gsAddChipNewCategoryPlaceholder', 'Enter category name...')}" />
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:8px;padding-top:10px;border-top:1px solid #ddd;">
+              <button type="button" id="gs-add-chip-cancel-btn" class="btn" style="border:2px solid #000;font-weight:700;">${t('gsAddChipBtnCancel', 'Cancel')}</button>
+              <button type="button" id="gs-add-chip-submit-btn" class="btn btn-primary" style="border:2px solid #000;box-shadow:3px 3px 0px #000;font-weight:900;display:inline-flex;align-items:center;gap:6px;">
+                <img src="../assets/icons/plus.svg" class="btn-icon" style="width:14px;height:14px;" alt="" />
+                <span>${t('gsAddChipBtnSubmit', 'Add Chip')}</span>
+              </button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(overlay);
+      }
+
+      const bankNameEl = document.getElementById('gs-add-chip-bank-name');
+      const textInput = document.getElementById('gs-add-chip-input-text');
+      const catSelect = document.getElementById('gs-add-chip-category-select');
+      const customCatInput = document.getElementById('gs-add-chip-custom-category');
+      const submitBtn = document.getElementById('gs-add-chip-submit-btn');
+      const cancelBtn = document.getElementById('gs-add-chip-cancel-btn');
+      const closeBtn = document.getElementById('gs-add-chip-close-btn');
+
+      if (bankNameEl) bankNameEl.textContent = bankDisplayName;
+      if (textInput) {
+        textInput.value = '';
+      }
+      if (customCatInput) {
+        customCatInput.value = '';
+        customCatInput.classList.add('hidden');
+      }
+
+      // Populate categories
+      if (catSelect) {
+        catSelect.innerHTML = '';
+        (existingGroups || []).forEach(g => {
+          const opt = document.createElement('option');
+          opt.value = g.type;
+          opt.textContent = g.type;
+          catSelect.appendChild(opt);
+        });
+        const newOpt = document.createElement('option');
+        newOpt.value = '__new__';
+        newOpt.textContent = t('gsAddChipNewCategoryOpt', '+ New Category...');
+        catSelect.appendChild(newOpt);
+
+        if (!existingGroups || existingGroups.length === 0) {
+          catSelect.value = '__new__';
+          if (customCatInput) customCatInput.classList.remove('hidden');
+        } else {
+          catSelect.selectedIndex = 0;
+        }
+
+        catSelect.onchange = () => {
+          if (catSelect.value === '__new__') {
+            customCatInput.classList.remove('hidden');
+            customCatInput.focus();
+          } else {
+            customCatInput.classList.add('hidden');
+          }
+        };
+      }
+
+      function closeModal() {
+        overlay.classList.add('hidden');
+        document.removeEventListener('keydown', handleKey);
+      }
+
+      async function doSubmit() {
+        const chipText = textInput ? textInput.value.trim() : '';
+        let categoryName = catSelect ? catSelect.value : '';
+        if (categoryName === '__new__') {
+          categoryName = customCatInput ? customCatInput.value.trim() : '';
+        }
+        if (!chipText || !categoryName) {
+          showToast(t('gsAddChipEmptyError', 'Please enter a chip text and category.'), true);
+          return;
+        }
+        submitBtn.disabled = true;
+        try {
+          const ok = await saveNewObservationChip(targetFn, chipText, categoryName);
+          if (ok) {
+            closeModal();
+            if (typeof onSavedCallback === 'function') {
+              onSavedCallback();
+            }
+          }
+        } finally {
+          submitBtn.disabled = false;
+        }
+      }
+
+      function handleKey(e) {
+        if (e.key === 'Escape') {
+          closeModal();
+        } else if (e.key === 'Enter' && (document.activeElement === textInput || document.activeElement === customCatInput)) {
+          e.preventDefault();
+          doSubmit();
+        }
+      }
+
+      overlay.classList.remove('hidden');
+      document.addEventListener('keydown', handleKey);
+
+      cancelBtn.onclick = closeModal;
+      closeBtn.onclick = closeModal;
+      submitBtn.onclick = doSubmit;
+
+      setTimeout(() => {
+        if (textInput) textInput.focus();
+      }, 50);
+    }
+
     function getClassLoadedCriteriaBanks(classObj) {
       if (!classObj) return _availableCriteriaBanks.slice(0, 1);
       const names = Array.isArray(classObj.criteriaBanks) && classObj.criteriaBanks.length
@@ -3126,6 +3666,27 @@
         || ((classObj && Array.isArray(classObj.criteriaBanks) && classObj.criteriaBanks[0]))
         || 'correction-criteria.js';
       return _availableCriteriaBanks.find(b => b.filename === bankName) || _availableCriteriaBanks[0] || null;
+    }
+
+    function getClassLoadedChipBanks(classObj) {
+      if (!classObj) return _availableChipBanks.slice(0, 1);
+      const names = Array.isArray(classObj.chipBanks) && classObj.chipBanks.length
+        ? classObj.chipBanks
+        : (classObj.chipBank ? [classObj.chipBank] : ['correction-criteria.js']);
+      const matched = _availableChipBanks.filter(b => names.includes(b.filename));
+      if (!matched.length && _availableChipBanks.length) {
+        matched.push(_availableChipBanks[0]);
+      }
+      return matched;
+    }
+
+    function getTestChipBank(classObj, config) {
+      const bankName = (config && config.chipBank)
+        || (classObj && classObj.chipBank)
+        || ((classObj && Array.isArray(classObj.chipBanks) && classObj.chipBanks[0]))
+        || _activeChipBankFilename
+        || 'correction-criteria.js';
+      return _availableChipBanks.find(b => b.filename === bankName) || _availableChipBanks[0] || null;
     }
 
     function getCriterionEffectiveCompetenceIds(criterion, classObj, testConfig) {
@@ -4537,6 +5098,7 @@
         testDate: "",
         scope: "",
         type: "",
+        chipBank: "correction-criteria.js",
         nextGradeHighlightPoints: 0,
         criteria: [],
         observationSections: [],
@@ -4589,6 +5151,13 @@
         classObj.criteriaBank = classObj.criteriaBanks[0] || 'correction-criteria.js';
       }
 
+      if (!Array.isArray(classObj.chipBanks) || !classObj.chipBanks.length) {
+        classObj.chipBanks = classObj.chipBank ? [classObj.chipBank] : ['correction-criteria.js'];
+      }
+      if (!classObj.chipBank || !classObj.chipBanks.includes(classObj.chipBank)) {
+        classObj.chipBank = classObj.chipBanks[0] || 'correction-criteria.js';
+      }
+
       ["sem1", "sem2"].forEach(sem => {
         if (!Array.isArray(classObj.testConfigs[sem])) classObj.testConfigs[sem] = [];
         if (classObj.testConfigs[sem].length > TEST_COUNT_PER_SEM) {
@@ -4604,6 +5173,9 @@
             if (typeof cfg.type !== "string") cfg.type = "";
             if (!cfg.criteriaBank) {
               cfg.criteriaBank = classObj.criteriaBank || (classObj.criteriaBanks && classObj.criteriaBanks[0]) || 'correction-criteria.js';
+            }
+            if (!cfg.chipBank) {
+              cfg.chipBank = classObj.chipBank || (classObj.chipBanks && classObj.chipBanks[0]) || 'correction-criteria.js';
             }
             if (toNumber(cfg.nextGradeHighlightPoints) == null) cfg.nextGradeHighlightPoints = 0;
 
@@ -7715,6 +8287,14 @@
       critChip.addEventListener("click", () => openTestOptionsModal(config, classObj, sem, testIndex, "criteria"));
       configWrap.appendChild(critChip);
 
+      // Observation chips bank chip
+      const chipsChip = document.createElement("div");
+      chipsChip.className = "config-chip";
+      const chipBankName = (config.chipBank || classObj.chipBank || 'correction-criteria.js').replace(/\.(js|json)$/i, '');
+      chipsChip.innerHTML = `<span class="chip-icon"><img src="../assets/icons/speech-bubbles.svg" class="btn-icon" alt="" /></span><span class="chip-label">${t('gsChipsBankTitle', 'Observation Chips')}</span><span class="chip-value" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(chipBankName)}</span>`;
+      chipsChip.addEventListener("click", () => openTestOptionsModal(config, classObj, sem, testIndex, "chips"));
+      configWrap.appendChild(chipsChip);
+
       // Test info chip (date, scope, type)
       const testInfoChip = document.createElement("div");
       testInfoChip.className = "config-chip";
@@ -7879,8 +8459,9 @@
           const v = noteArray[testIndex];
           noteArray[testIndex] = (typeof v === "string" && v.trim()) ? [{ label: "", text: v }] : [];
         }
+        const _stripMd = str => str.replace(/[*_#`~>\[\]!]/g, '').replace(/\s+/g, ' ').trim();
         tdNote.textContent = noteArray[testIndex].map(s => {
-          const value = sectionDisplayText(s);
+          const value = _stripMd(sectionDisplayText(s));
           return value ? (s.label ? s.label + ": " : "") + value : "";
         }).filter(Boolean).join(" / ") || "—";
         tdNote.style.cssText = "width:80px;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:0.82rem;";
@@ -8438,6 +9019,7 @@
       let activeSem = sem;
       let activeTestIndex = testIndex;
       await loadAvailableCriteriaBanks();
+      await loadAvailableChipBanks();
 
       // Header context badge
       const badge = document.getElementById("topt-context-badge");
@@ -8464,6 +9046,21 @@
       document.getElementById("topt-info-scope").value = config.scope || "";
       document.getElementById("topt-info-type").value = config.type || "";
       document.getElementById("topt-info-next-grade").value = fmtN(Math.max(0, toNumber(config.nextGradeHighlightPoints) ?? 0));
+
+      const toptChipBankSel = document.getElementById("topt-info-chips-bank");
+      if (toptChipBankSel) {
+        populateChipBankSelectElement(toptChipBankSel, config.chipBank || classObj.chipBank || _activeChipBankFilename || 'correction-criteria.js');
+        toptChipBankSel.onchange = () => {
+          config.chipBank = toptChipBankSel.value;
+          _activeChipBankFilename = toptChipBankSel.value;
+          if (classObj) {
+            if (!Array.isArray(classObj.chipBanks)) classObj.chipBanks = [];
+            if (!classObj.chipBanks.includes(toptChipBankSel.value)) classObj.chipBanks.push(toptChipBankSel.value);
+            if (!classObj.chipBank) classObj.chipBank = toptChipBankSel.value;
+          }
+          saveState();
+        };
+      }
 
       const termChipGroup = document.getElementById("topt-info-term");
       termChipGroup.querySelectorAll(".chip").forEach(c => c.classList.toggle("active", c.dataset.value === activeSem));
@@ -9568,6 +10165,138 @@
         saveState(); rebuildToptCriteriaList(); renderTestSheet(); renderSummary();
       };
 
+      // ── Observation Chips tab controller ────────────────────────
+      const toptChipsTabBankSel = document.getElementById("topt-chips-bank-select");
+      const toptChipsAddBtn = document.getElementById("topt-chips-add-chip-btn");
+      const toptChipsPreviewList = document.getElementById("topt-chips-preview-list");
+      const toptChipsSummary = document.getElementById("topt-chips-summary");
+
+      function renderToptChipsPreview() {
+        if (!toptChipsPreviewList) return;
+        toptChipsPreviewList.innerHTML = "";
+        const targetBankFn = (toptChipsTabBankSel && toptChipsTabBankSel.value) || config.chipBank || classObj.chipBank || _activeChipBankFilename || 'correction-criteria.js';
+        const groups = getObservationChecklistGroups(targetBankFn);
+        let totalChips = 0;
+        groups.forEach(g => {
+          totalChips += (g.items || []).length;
+          const card = document.createElement("div");
+          card.className = "topt-card";
+          card.style.cssText = "margin-bottom:8px;padding:8px 10px;background:#fff;border:1.5px solid var(--border,#e2e8f0);";
+
+          const header = document.createElement("div");
+          header.style.cssText = "display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;";
+          const catTitle = document.createElement("span");
+          catTitle.style.cssText = "font-weight:700;font-size:0.82rem;color:var(--ink);";
+          catTitle.textContent = `${g.type} (${(g.items || []).length})`;
+          header.appendChild(catTitle);
+          card.appendChild(header);
+
+          const chipsWrap = document.createElement("div");
+          chipsWrap.style.cssText = "display:flex;flex-wrap:wrap;gap:4px;";
+          (g.items || []).forEach(chipText => {
+            const chipBadge = document.createElement("span");
+            chipBadge.style.cssText = "display:inline-block;padding:2px 8px;font-size:0.75rem;font-weight:600;border:1px solid var(--line);border-radius:12px;background:var(--bg-subtle,#f1f5f9);color:var(--ink);";
+            chipBadge.textContent = chipText;
+            chipsWrap.appendChild(chipBadge);
+          });
+          card.appendChild(chipsWrap);
+          toptChipsPreviewList.appendChild(card);
+        });
+
+        if (toptChipsSummary) {
+          toptChipsSummary.textContent = `${groups.length} ${t('gsCategoriesLabel', 'categories')} · ${totalChips} ${t('gsChipsLabel', 'chips')}`;
+        }
+      }
+
+      if (toptChipsTabBankSel) {
+        populateChipBankSelectElement(toptChipsTabBankSel, config.chipBank || classObj.chipBank || _activeChipBankFilename || 'correction-criteria.js');
+        toptChipsTabBankSel.onchange = () => {
+          config.chipBank = toptChipsTabBankSel.value;
+          _activeChipBankFilename = toptChipsTabBankSel.value;
+          if (toptChipBankSel) toptChipBankSel.value = toptChipsTabBankSel.value;
+          if (classObj) {
+            if (!Array.isArray(classObj.chipBanks)) classObj.chipBanks = [];
+            if (!classObj.chipBanks.includes(toptChipsTabBankSel.value)) classObj.chipBanks.push(toptChipsTabBankSel.value);
+            if (!classObj.chipBank) classObj.chipBank = toptChipsTabBankSel.value;
+          }
+          renderToptChipsPreview();
+          saveState();
+        };
+      }
+
+      if (toptChipsAddBtn) {
+        toptChipsAddBtn.onclick = () => {
+          const currentBank = (toptChipsTabBankSel && toptChipsTabBankSel.value) || _activeChipBankFilename || 'correction-criteria.js';
+          openAddObservationChipModal(currentBank, () => {
+            if (toptChipsTabBankSel) populateChipBankSelectElement(toptChipsTabBankSel, _activeChipBankFilename);
+            if (toptChipBankSel) populateChipBankSelectElement(toptChipBankSel, _activeChipBankFilename);
+            renderToptChipsPreview();
+          });
+        };
+      }
+
+      // Default Observation Sections List in topt-card
+      const toptObsSectionsList = document.getElementById("topt-obs-sections-list");
+      const toptNewSectionInput = document.getElementById("topt-new-section-label");
+      const toptAddSectionBtn = document.getElementById("topt-add-section-btn");
+
+      let obsSectionsDraft = Array.isArray(config.observationSections)
+        ? [...config.observationSections]
+        : [];
+
+      function renderToptObsSections() {
+        if (!toptObsSectionsList) return;
+        toptObsSectionsList.innerHTML = "";
+        if (!obsSectionsDraft.length) {
+          const empty = document.createElement("div");
+          empty.style.cssText = "font-size:0.8rem;color:var(--muted);font-style:italic;";
+          empty.textContent = t('gsNoObsSectionsConfigured', 'No custom observation section presets. Default sections will be generated.');
+          toptObsSectionsList.appendChild(empty);
+          return;
+        }
+        obsSectionsDraft.forEach((secName, idx) => {
+          const row = document.createElement("div");
+          row.style.cssText = "display:flex;align-items:center;justify-content:space-between;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;";
+          const nameSpan = document.createElement("span");
+          nameSpan.style.cssText = "font-size:0.82rem;font-weight:600;";
+          nameSpan.textContent = secName;
+
+          const delBtn = document.createElement("button");
+          delBtn.type = "button";
+          delBtn.className = "btn btn-xs";
+          delBtn.style.cssText = "padding:1px 6px;color:#ef4444;";
+          delBtn.textContent = "×";
+          delBtn.title = t('gsDeleteSection', 'Remove Section');
+          delBtn.onclick = () => {
+            obsSectionsDraft.splice(idx, 1);
+            renderToptObsSections();
+          };
+          row.append(nameSpan, delBtn);
+          toptObsSectionsList.appendChild(row);
+        });
+      }
+
+      if (toptAddSectionBtn && toptNewSectionInput) {
+        toptAddSectionBtn.onclick = () => {
+          const val = toptNewSectionInput.value.trim();
+          if (!val) { toptNewSectionInput.focus(); return; }
+          if (!obsSectionsDraft.includes(val)) {
+            obsSectionsDraft.push(val);
+          }
+          toptNewSectionInput.value = "";
+          renderToptObsSections();
+        };
+        toptNewSectionInput.onkeydown = (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            toptAddSectionBtn.click();
+          }
+        };
+      }
+
+      renderToptChipsPreview();
+      renderToptObsSections();
+
       _toptRebuildCriteriaList = rebuildToptCriteriaList;
       _toptUpdateLiveGradePreview = updateLiveGradePreview;
 
@@ -9582,6 +10311,18 @@
         config.scope    = document.getElementById("topt-info-scope").value.trim();
         config.type     = document.getElementById("topt-info-type").value.trim();
         config.nextGradeHighlightPoints = Math.max(0, toNumber(document.getElementById("topt-info-next-grade").value) ?? 0);
+        config.observationSections = [...obsSectionsDraft];
+        const toptChipsBankEl = document.getElementById("topt-info-chips-bank");
+        const toptSelectedChipBank = (toptChipsTabBankSel && toptChipsTabBankSel.value) || (toptChipsBankEl && toptChipsBankEl.value) || config.chipBank;
+        if (toptSelectedChipBank) {
+          config.chipBank = toptSelectedChipBank;
+          _activeChipBankFilename = toptSelectedChipBank;
+          if (classObj) {
+            if (!Array.isArray(classObj.chipBanks)) classObj.chipBanks = [];
+            if (!classObj.chipBanks.includes(toptSelectedChipBank)) classObj.chipBanks.push(toptSelectedChipBank);
+            if (!classObj.chipBank) classObj.chipBank = toptSelectedChipBank;
+          }
+        }
 
         const fixed = document.getElementById("topt-coeff-mode-fixed").checked;
         if (fixed) config.fixedWeight = Math.max(0, Math.min(100, toNumber(document.getElementById("topt-coeff-fixed-input").value) ?? 0));
@@ -9730,12 +10471,63 @@
         .total-row td { font-weight: 800; background: #f0f0f0; border-top: 2.5px solid #111; }
         .obs-section { margin-bottom: 8px; }
         .obs-label {
-          font-size: 12px;
+          font-size: 11.5px;
           font-weight: 800;
           color: #111;
           margin-bottom: 2px;
         }
-        .obs-text { font-size: 13px; line-height: 1.5; white-space: pre-wrap; color: #111; }
+        .obs-pills-row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 4px;
+          margin-top: 2px;
+          margin-bottom: 4px;
+        }
+        .obs-pill {
+          display: inline-block;
+          padding: 2px 8px;
+          border-radius: 12px;
+          font-size: 10.5px;
+          font-weight: 700;
+          line-height: 1.25;
+          margin: 2px 3px 2px 0;
+          box-shadow: 1px 1px 0 rgba(0,0,0,0.12);
+        }
+        .obs-pill-good {
+          background: #dcfce7;
+          color: #166534;
+          border: 1.5px solid #16a34a;
+        }
+        .obs-pill-remedy {
+          background: #fee2e2;
+          color: #991b1b;
+          border: 1.5px solid #dc2626;
+        }
+        .obs-pill-custom {
+          background: #e0f2fe;
+          color: #0369a1;
+          border: 1.5px solid #0284c7;
+        }
+        .obs-feedback {
+          margin-top: 4px;
+          padding: 5px 9px;
+          background: #f8fafc;
+          border-left: 3px solid #0f172a;
+          border-radius: 0 4px 4px 0;
+          font-size: 11.5px;
+          line-height: 1.45;
+          color: #1e293b;
+        }
+        .obs-feedback-body {
+          white-space: normal;
+        }
+        .obs-feedback-body p {
+          margin: 0 0 3px 0;
+        }
+        .obs-feedback-body p:last-child {
+          margin-bottom: 0;
+        }
+        .obs-text { font-size: 13px; line-height: 1.5; white-space: normal; color: #111; }
         .no-data { color: #888; font-style: italic; font-size: 12px; }
         .scale-wrap { margin-top: 2px; }
         .scale-table { font-size: 10px; border-collapse: collapse; width: 100%; border: 2px solid #111; }
@@ -9854,11 +10646,8 @@
         // Observations
         let obsHtml = "";
         if (notes.length > 0 && notes.some(s => sectionHasContent(s))) {
-          const blocks = notes.filter(s => sectionHasContent(s)).map(s => {
-            const labelHtml = s.label ? `<div class="obs-label">${esc(s.label)}</div>` : "";
-            return `<div class="obs-section">${labelHtml}<div class="obs-text">${esc(sectionDisplayText(s))}</div></div>`;
-          }).join("");
-          obsHtml = `<div><div class="section-title">${t('gsColObservations') || 'Observations'}</div>${blocks}</div>`;
+          const blocks = notes.filter(s => sectionHasContent(s)).map(s => renderObservationSectionHtml(s)).join("");
+          obsHtml = `<div><div class="section-title">${t('gsReportObservationsFeedback') || t('gsColObservations') || 'Observations & Teacher Feedback'}</div>${blocks}</div>`;
         }
 
         const gradeDisplay = grade != null ? String(grade) : "—";
@@ -10209,7 +10998,7 @@
               color: critColor,
               scoredPts: pts,
               maxPts: cr.maxPoints,
-              commentHtml: entry.comment ? escapeHtml(entry.comment) : '<span class="no-data">—</span>'
+              commentHtml: entry.comment ? renderMd(entry.comment) : '<span class="no-data">—</span>'
             };
           }),
           totalPtsText: totals.totalPossible > 0
@@ -10217,7 +11006,10 @@
             : "—",
           observations: notes.filter(s => sectionHasContent(s)).map(s => ({
             label: s.label || "",
-            text: sectionDisplayText(s)
+            kind: s.kind || "",
+            checklist: sectionChecklistSummary(s),
+            text: s.text || "",
+            html: renderObservationSectionHtml(s)
           }))
         };
       });
@@ -10342,12 +11134,63 @@
         .total-row td { font-weight: 800; background: #f0f0f0; border-top: 2.5px solid #111; }
         .obs-section { margin-bottom: 8px; }
         .obs-label {
-          font-size: 12px;
+          font-size: 11.5px;
           font-weight: 800;
           color: #111;
           margin-bottom: 2px;
         }
-        .obs-text { font-size: 13px; line-height: 1.5; white-space: pre-wrap; color: #111; }
+        .obs-pills-row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 4px;
+          margin-top: 2px;
+          margin-bottom: 4px;
+        }
+        .obs-pill {
+          display: inline-block;
+          padding: 2px 8px;
+          border-radius: 12px;
+          font-size: 10.5px;
+          font-weight: 700;
+          line-height: 1.25;
+          margin: 2px 3px 2px 0;
+          box-shadow: 1px 1px 0 rgba(0,0,0,0.12);
+        }
+        .obs-pill-good {
+          background: #dcfce7;
+          color: #166534;
+          border: 1.5px solid #16a34a;
+        }
+        .obs-pill-remedy {
+          background: #fee2e2;
+          color: #991b1b;
+          border: 1.5px solid #dc2626;
+        }
+        .obs-pill-custom {
+          background: #e0f2fe;
+          color: #0369a1;
+          border: 1.5px solid #0284c7;
+        }
+        .obs-feedback {
+          margin-top: 4px;
+          padding: 5px 9px;
+          background: #f8fafc;
+          border-left: 3px solid #0f172a;
+          border-radius: 0 4px 4px 0;
+          font-size: 11.5px;
+          line-height: 1.45;
+          color: #1e293b;
+        }
+        .obs-feedback-body {
+          white-space: normal;
+        }
+        .obs-feedback-body p {
+          margin: 0 0 3px 0;
+        }
+        .obs-feedback-body p:last-child {
+          margin-bottom: 0;
+        }
+        .obs-text { font-size: 13px; line-height: 1.5; white-space: normal; color: #111; }
         .no-data { color: #888; font-style: italic; font-size: 12px; }
         .scale-wrap { margin-top: 2px; }
         .scale-table { font-size: 10px; border-collapse: collapse; width: 100%; table-layout: fixed; border: 2px solid #111; }
@@ -10425,10 +11268,7 @@
         }
 
         const obsHtml = student.observations.length > 0
-          ? `<div><div class="section-title">${t('gsColObservations') || 'Observations'}</div>${student.observations.map(o => {
-              const labelHtml = o.label ? `<div class="obs-label">${esc(o.label)}</div>` : "";
-              return `<div class="obs-section">${labelHtml}<div class="obs-text">${esc(o.text)}</div></div>`;
-            }).join("")}</div>`
+          ? `<div><div class="section-title">${t('gsReportObservationsFeedback') || t('gsColObservations') || 'Observations & Teacher Feedback'}</div>${student.observations.map(o => o.html || renderObservationSectionHtml(o)).join("")}</div>`
           : "";
 
         const scaleModel = (typeof getScaleModel === "function" && report.scaleModelKey) ? getScaleModel(report.scaleModelKey) : null;
@@ -10792,10 +11632,20 @@
         }
 
         if (notes.length > 0 && notes.some(s => sectionHasContent(s))) {
-          sections.push(`### ${t('gsColObservations') || 'Observations'}`);
+          sections.push(`### ${t('gsReportObservationsFeedback') || t('gsColObservations') || 'Observations & Teacher Feedback'}`);
           notes.filter(s => sectionHasContent(s)).forEach(s => {
-            const label = s.label ? `${s.label}: ` : "";
-            sections.push(`- ${label}${sectionDisplayText(s)}`);
+            const label = s.label ? `**${s.label}:** ` : "";
+            const checklist = sectionChecklistSummary(s);
+            const pillsStr = checklist.length > 0 ? checklist.map(c => `\`[${c}]\``).join(" ") : "";
+            const textStr = String(s.text || "").trim();
+            if (pillsStr && textStr) {
+              sections.push(`- ${label}${pillsStr}`);
+              sections.push(`  > ${textStr}`);
+            } else if (pillsStr) {
+              sections.push(`- ${label}${pillsStr}`);
+            } else if (textStr) {
+              sections.push(`- ${label}${textStr}`);
+            }
           });
           sections.push("");
         }
@@ -11103,6 +11953,37 @@
         .cell-sem1-avg { background: #e3f2fd !important; }
         .cell-sem2-avg { background: #e8f5e9 !important; }
         .cell-year-avg { background: #fff9c4 !important; }
+        .obs-section { margin-bottom: 8px; }
+        .obs-label { font-size: 11.5px; font-weight: 800; color: #111; margin-bottom: 2px; }
+        .obs-pills-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; margin-bottom: 4px; }
+        .obs-pill {
+          display: inline-block;
+          padding: 2px 8px;
+          border-radius: 12px;
+          font-size: 10.5px;
+          font-weight: 700;
+          line-height: 1.25;
+          margin: 2px 3px 2px 0;
+          box-shadow: 1px 1px 0 rgba(0,0,0,0.12);
+        }
+        .obs-pill-good { background: #dcfce7; color: #166534; border: 1.5px solid #16a34a; }
+        .obs-pill-remedy { background: #fee2e2; color: #991b1b; border: 1.5px solid #dc2626; }
+        .obs-pill-custom { background: #e0f2fe; color: #0369a1; border: 1.5px solid #0284c7; }
+        .obs-feedback {
+          margin-top: 4px;
+          padding: 5px 9px;
+          background: #f8fafc;
+          border-left: 3px solid #0f172a;
+          border-radius: 0 4px 4px 0;
+          font-size: 11.5px;
+          line-height: 1.45;
+          color: #1e293b;
+        }
+        .obs-feedback-body { white-space: normal; }
+        .obs-feedback-body p { margin: 0 0 3px 0; }
+        .obs-feedback-body p:last-child { margin-bottom: 0; }
+        .obs-inline-row { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; margin-bottom: 2px; }
+        .obs-inline-text { font-size: 9.5px; color: #333; font-style: italic; }
         @page { size: ${size}; margin: ${pdfSettings.margin || '12mm'}; }
         @media print {
           body { background: #fff; margin: 0; padding: 0; }
@@ -12045,7 +12926,7 @@
           const deltaColor = delta != null ? (delta >= 0 ? '#2e7d32' : '#c62828') : '#111';
 
           const noteArr = student.testNotes[sem];
-          const notes = (Array.isArray(noteArr[ti]) ? noteArr[ti] : []).filter(s => sectionHasContent(s)).map(s => sectionDisplayText(s)).join(" | ");
+          const notesHtml = (Array.isArray(noteArr[ti]) ? noteArr[ti] : []).filter(s => sectionHasContent(s)).map(s => renderObservationInlineHtml(s)).join("");
 
           testRows.push(`<tr>
             <td class="center" style="font-weight:700;">${sem.toUpperCase()}</td>
@@ -12054,7 +12935,7 @@
             <td class="center ${gradeClass(g)}" style="font-weight:800;">${g != null ? fmtN(g) : '-'}</td>
             <td class="center">${cMean != null ? cMean.toFixed(2) : '-'}</td>
             <td class="center ${delta != null ? (delta >= 0 ? 'delta-pos' : 'delta-neg') : ''}" style="font-weight:800;">${deltaStr}</td>
-            <td style="font-size:9.5px;color:#333;">${escapeHtml(notes || '—')}</td>
+            <td style="font-size:9.5px;color:#333;">${notesHtml || '—'}</td>
           </tr>`);
         }
       });
@@ -12173,7 +13054,7 @@
         const deltaColor = delta != null ? (delta >= 0 ? '#2e7d32' : '#c62828') : '#111';
 
         const noteArr = student.testNotes[sem];
-        const notes = (Array.isArray(noteArr[ti]) ? noteArr[ti] : []).filter(s => sectionHasContent(s)).map(s => sectionDisplayText(s)).join(" | ");
+        const notesHtml = (Array.isArray(noteArr[ti]) ? noteArr[ti] : []).filter(s => sectionHasContent(s)).map(s => renderObservationInlineHtml(s)).join("");
 
         testRows.push(`<tr>
           <td class="center" style="font-weight:700;">T${ti + 1}</td>
@@ -12182,7 +13063,7 @@
           <td class="center ${gradeClass(g)}" style="font-weight:800;">${g != null ? fmtN(g) : '-'}</td>
           <td class="center">${cMean != null ? cMean.toFixed(2) : '-'}</td>
           <td class="center ${delta != null ? (delta >= 0 ? 'delta-pos' : 'delta-neg') : ''}" style="font-weight:800;">${deltaStr}</td>
-          <td style="font-size:9.5px;color:#333;">${escapeHtml(notes || '—')}</td>
+          <td style="font-size:9.5px;color:#333;">${notesHtml || '—'}</td>
         </tr>`);
       }
 
@@ -12284,7 +13165,7 @@
           const entry = criteriaMap[cr.id] || { points: null, comment: "" };
           const pts = entry.points;
           const ptsStr = pts != null ? `${fmtN(pts)} / ${fmtN(cr.maxPoints)}` : `— / ${fmtN(cr.maxPoints)}`;
-          const comment = entry.comment ? escapeHtml(entry.comment) : `—`;
+          const comment = entry.comment ? renderMd(entry.comment) : `—`;
           const key = nearestCriterionGradeKey(cr, null, pts, cr.minPoints, cr.maxPoints);
           const xlsm = (typeof XLSM_CRITERIA !== "undefined" && Array.isArray(XLSM_CRITERIA)) ? XLSM_CRITERIA.find(x => x.name.trim().toLowerCase() === cr.name.trim().toLowerCase()) : null;
           const critColor = (xlsm && xlsm.colors && xlsm.colors[key]) || (cr && cr.colors && cr.colors[key]) || (key ? getDefaultGradeColor(key) : null);
@@ -12312,12 +13193,9 @@
       // Observations
       let obsHtml = '';
       if (notes.length > 0 && notes.some(s => sectionHasContent(s))) {
-        const blocks = notes.filter(s => sectionHasContent(s)).map(s => {
-          const lbl = s.label ? `<strong>${escapeHtml(s.label)}:</strong> ` : '';
-          return `<div style="margin-bottom:4px;">${lbl}${escapeHtml(sectionDisplayText(s))}</div>`;
-        }).join('');
+        const blocks = notes.filter(s => sectionHasContent(s)).map(s => renderObservationSectionHtml(s)).join('');
         obsHtml = `<div style="border:2px solid #111;box-shadow:2.5px 2.5px 0 #111;border-radius:4px;padding:8px 12px;background:#fff;margin-top:6px;">
-          <div class="section-heading" style="margin-top:0;">Observations & Teacher Feedback</div>
+          <div class="section-heading" style="margin-top:0;">${t('gsReportObservationsFeedback') || 'Observations & Teacher Feedback'}</div>
           ${blocks}
         </div>`;
       }
@@ -12929,12 +13807,46 @@
       const noteBankSel = document.createElement("select");
       noteBankSel.className = "input input-sm";
       noteBankSel.style.cssText = "padding:2px 6px;font-size:0.75rem;max-width:220px;";
+      const resolvedTestChipBank = (config && config.chipBank)
+        || (classObj && classObj.chipBank)
+        || ((classObj && Array.isArray(classObj.chipBanks) && classObj.chipBanks[0]))
+        || _activeChipBankFilename
+        || 'correction-criteria.js';
+      _activeChipBankFilename = resolvedTestChipBank;
       populateChipBankSelectElement(noteBankSel, _activeChipBankFilename);
       noteBankSel.addEventListener("change", () => {
         _activeChipBankFilename = noteBankSel.value;
+        if (config) config.chipBank = noteBankSel.value;
+        if (classObj) {
+          if (!Array.isArray(classObj.chipBanks)) classObj.chipBanks = [];
+          if (!classObj.chipBanks.includes(noteBankSel.value)) classObj.chipBanks.push(noteBankSel.value);
+          classObj.chipBank = noteBankSel.value;
+        }
+        saveState();
         refreshObservationChecklists();
       });
-      noteBankWrap.append(noteBankLbl, noteBankSel);
+
+      const addChipBtn = document.createElement("button");
+      addChipBtn.type = "button";
+      addChipBtn.className = "btn btn-sm";
+      addChipBtn.style.cssText = "padding:2px 8px;font-size:0.75rem;display:inline-flex;align-items:center;gap:4px;font-weight:700;";
+      addChipBtn.innerHTML = '<img src="../assets/icons/plus.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /> ' + t('gsBtnAddChip', 'Add Chip');
+      addChipBtn.title = t('gsAddChipModalTitle', 'Add Observation Chip');
+      addChipBtn.addEventListener("click", () => {
+        openAddObservationChipModal(_activeChipBankFilename || noteBankSel.value || 'correction-criteria.js', () => {
+          populateChipBankSelectElement(noteBankSel, _activeChipBankFilename);
+          if (config) config.chipBank = _activeChipBankFilename;
+          if (classObj) {
+            if (!Array.isArray(classObj.chipBanks)) classObj.chipBanks = [];
+            if (!classObj.chipBanks.includes(_activeChipBankFilename)) classObj.chipBanks.push(_activeChipBankFilename);
+            if (!classObj.chipBank) classObj.chipBank = _activeChipBankFilename;
+          }
+          saveState();
+          refreshObservationChecklists();
+        });
+      });
+
+      noteBankWrap.append(noteBankLbl, noteBankSel, addChipBtn);
       noteHeadRow.appendChild(noteBankWrap);
       noteSection.appendChild(noteHeadRow);
 
@@ -12949,25 +13861,123 @@
 
         const checklist = document.createElement("div");
         checklist.className = "note-checklist";
+
         groups.forEach(group => {
           const inlineGroup = document.createElement("div");
           inlineGroup.className = "note-checklist-inline-group";
+          inlineGroup.dataset.category = group.type;
 
           const sectionTag = document.createElement("span");
           sectionTag.className = "note-checklist-section-tag";
           sectionTag.textContent = group.type;
           inlineGroup.appendChild(sectionTag);
 
-          group.items.forEach(name => {
+          inlineGroup.addEventListener("dragover", e => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+          });
+
+          inlineGroup.addEventListener("drop", async e => {
+            e.preventDefault();
+            const rawData = e.dataTransfer.getData("text/plain");
+            if (!rawData) return;
+            try {
+              const data = JSON.parse(rawData);
+              if (data && data.chipName && data.category) {
+                // If dropped directly on the inlineGroup container or sectionTag
+                if (e.target === inlineGroup || e.target === sectionTag) {
+                  const targetIndex = group.items.length;
+                  await reorderObservationChip(_activeChipBankFilename, data.category, data.chipName, group.type, targetIndex);
+                  refreshObservationChecklists();
+                }
+              }
+            } catch (_) {}
+          });
+
+          group.items.forEach((name, chipIdx) => {
             const chip = document.createElement("button");
             chip.type = "button";
             chip.className = "note-checklist-chip";
             chip.textContent = name;
-            chip.title = group.type;
+            chip.title = `${group.type} • ${t('gsDragToReorder', 'Drag to reorder')}`;
+            chip.draggable = true;
+            chip.dataset.category = group.type;
+            chip.dataset.chipName = name;
+            chip.dataset.chipIndex = String(chipIdx);
+
             const isSelected = selected.has(name.toLowerCase());
             chip.classList.toggle("selected", isSelected);
             chip.setAttribute("aria-pressed", isSelected ? "true" : "false");
+
+            let isDragging = false;
+
+            chip.addEventListener("dragstart", e => {
+              isDragging = true;
+              chip.classList.add("dragging");
+              e.dataTransfer.effectAllowed = "move";
+              e.dataTransfer.setData("text/plain", JSON.stringify({
+                category: group.type,
+                chipName: name,
+                index: chipIdx
+              }));
+            });
+
+            chip.addEventListener("dragend", () => {
+              chip.classList.remove("dragging");
+              document.querySelectorAll(".note-checklist-chip.drag-over-left, .note-checklist-chip.drag-over-right").forEach(el => {
+                el.classList.remove("drag-over-left", "drag-over-right");
+              });
+              setTimeout(() => { isDragging = false; }, 60);
+            });
+
+            chip.addEventListener("dragover", e => {
+              e.preventDefault();
+              e.stopPropagation();
+              e.dataTransfer.dropEffect = "move";
+              const rect = chip.getBoundingClientRect();
+              const midX = rect.left + rect.width / 2;
+              if (e.clientX < midX) {
+                chip.classList.add("drag-over-left");
+                chip.classList.remove("drag-over-right");
+              } else {
+                chip.classList.add("drag-over-right");
+                chip.classList.remove("drag-over-left");
+              }
+            });
+
+            chip.addEventListener("dragleave", () => {
+              chip.classList.remove("drag-over-left", "drag-over-right");
+            });
+
+            chip.addEventListener("drop", async e => {
+              e.preventDefault();
+              e.stopPropagation();
+              chip.classList.remove("drag-over-left", "drag-over-right");
+              const rawData = e.dataTransfer.getData("text/plain");
+              if (!rawData) return;
+              try {
+                const data = JSON.parse(rawData);
+                if (data && data.chipName && data.category) {
+                  const rect = chip.getBoundingClientRect();
+                  const midX = rect.left + rect.width / 2;
+                  let targetIdx = chipIdx;
+                  if (e.clientX >= midX) {
+                    targetIdx = chipIdx + 1;
+                  }
+                  if (data.category === group.type && data.index < targetIdx) {
+                    targetIdx--;
+                  }
+                  if (data.category === group.type && data.index === targetIdx) {
+                    return;
+                  }
+                  await reorderObservationChip(_activeChipBankFilename, data.category, data.chipName, group.type, targetIdx);
+                  refreshObservationChecklists();
+                }
+              } catch (_) {}
+            });
+
             chip.addEventListener("click", () => {
+              if (isDragging) return;
               const now = new Set(sectionChecklistSummary(section));
               const alreadySelected = now.has(name);
               if (alreadySelected) now.delete(name);
@@ -12977,6 +13987,7 @@
               chip.classList.toggle("selected", selectedNow);
               chip.setAttribute("aria-pressed", selectedNow ? "true" : "false");
             });
+
             inlineGroup.appendChild(chip);
           });
           checklist.appendChild(inlineGroup);
@@ -12991,9 +14002,14 @@
             const block = noteSectionsWrap.querySelector(`.note-section.kind-${s.kind === "toRemedy" ? "to-remedy" : "good-points"}`);
             if (block) {
               const cl = buildChecklistElement(s);
-              const ta = block.querySelector(".note-section-body");
-              if (ta) block.insertBefore(cl, ta);
-              else block.appendChild(cl);
+              const mdWrap = block.querySelector(".note-section-md-wrap") || block.querySelector(".note-section-body");
+              if (mdWrap && mdWrap.parentElement === block) {
+                block.insertBefore(cl, mdWrap);
+              } else if (mdWrap && mdWrap.parentElement) {
+                mdWrap.parentElement.insertBefore(cl, mdWrap);
+              } else {
+                block.appendChild(cl);
+              }
             }
           }
         });
@@ -13043,12 +14059,36 @@
           block.appendChild(checklist);
         }
 
+        // Build markdown editor widget for the note textarea
+        const mdNoteWrap = document.createElement('div');
+        mdNoteWrap.className = 'md-field-wrap note-section-md-wrap';
+        const mdNoteToggleRow = document.createElement('div');
+        mdNoteToggleRow.className = 'md-toggle-row';
+        const mdNoteWriteBtn = document.createElement('button');
+        mdNoteWriteBtn.type = 'button'; mdNoteWriteBtn.className = 'md-toggle-btn active';
+        mdNoteWriteBtn.textContent = t('mdbMdWrite', 'Write');
+        const mdNotePreviewBtn = document.createElement('button');
+        mdNotePreviewBtn.type = 'button'; mdNotePreviewBtn.className = 'md-toggle-btn';
+        mdNotePreviewBtn.textContent = t('mdbMdPreview', 'Preview');
+        mdNoteToggleRow.append(mdNoteWriteBtn, mdNotePreviewBtn);
         const ta = document.createElement("textarea");
-        ta.className = "note-section-body";
+        ta.className = "note-section-body md-textarea";
         ta.value = section.text;
         ta.placeholder = isMandatoryChecklist ? t('gsPlaceholderAddNotes') : t('gsPlaceholderObservation');
         ta.addEventListener("input", () => { section.text = ta.value; autoResizeTextarea(ta); });
-        block.appendChild(ta);
+        const mdNotePreview = document.createElement('div');
+        mdNotePreview.className = 'md-preview-pane hidden';
+        mdNoteWriteBtn.addEventListener('click', function() {
+          mdNoteWriteBtn.classList.add('active'); mdNotePreviewBtn.classList.remove('active');
+          ta.classList.remove('hidden'); mdNotePreview.classList.add('hidden'); ta.focus();
+        });
+        mdNotePreviewBtn.addEventListener('click', function() {
+          mdNotePreviewBtn.classList.add('active'); mdNoteWriteBtn.classList.remove('active');
+          mdNotePreview.innerHTML = renderMd(ta.value || '');
+          ta.classList.add('hidden'); mdNotePreview.classList.remove('hidden');
+        });
+        mdNoteWrap.append(mdNoteToggleRow, ta, mdNotePreview);
+        block.appendChild(mdNoteWrap);
         noteSectionsWrap.insertBefore(block, addBtn);
         autoResizeTextarea(ta);
       }
@@ -13189,13 +14229,16 @@
           const sentencePicker = document.createElement("div");
           sentencePicker.className = "smod-sentence-picker";
           sentencePickerEls[criterion.id] = sentencePicker;
-          const commentTa = document.createElement("textarea");
-          commentTa.placeholder = t('gsPlaceholderComment');
-          commentTa.value = dr.comment || "";
+          // Markdown editor widget for criterion comment
+          const mdCommentWrap = buildMdEditorWidget(
+            '', dr.comment || '', t('gsPlaceholderComment'), 2
+          );
+          mdCommentWrap.style.cssText = 'width:100%;';
+          const commentTa = mdCommentWrap.querySelector('textarea');
           commentTa.addEventListener("input", () => { dr.comment = commentTa.value; });
           commentEls[criterion.id] = commentTa;
           tdComment.appendChild(sentencePicker);
-          tdComment.appendChild(commentTa);
+          tdComment.appendChild(mdCommentWrap);
 
           function applyPtsValue(val, isInitial = false) {
             const raw = toNumber(String(val));
@@ -13411,6 +14454,15 @@
         checklist: sectionChecklistSummary(s)
       }));
 
+      if (config && _activeChipBankFilename) {
+        config.chipBank = _activeChipBankFilename;
+      }
+      if (classObj && _activeChipBankFilename) {
+        if (!Array.isArray(classObj.chipBanks)) classObj.chipBanks = [];
+        if (!classObj.chipBanks.includes(_activeChipBankFilename)) classObj.chipBanks.push(_activeChipBankFilename);
+        if (!classObj.chipBank) classObj.chipBank = _activeChipBankFilename;
+      }
+
       // Write correction time (auto-measured)
       if (!student.correctionTime) student.correctionTime = { sem1: Array(TEST_COUNT_PER_SEM).fill(null), sem2: Array(TEST_COUNT_PER_SEM).fill(null) };
       const elapsedMin = parseFloat(((Date.now() - modalOpenedAt) / 60000).toFixed(2));
@@ -13587,6 +14639,49 @@
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#39;");
+    }
+
+    // ── Markdown helpers ──────────────────────────────────────────────────────
+    function renderMd(text) {
+      if (!text || !window.marked || typeof marked.parse !== 'function') return escapeHtml(String(text || ''));
+      return marked.parse(String(text)).replace(new RegExp('<script[^>]*>[\\s\\S]*?<\\/script>', 'gi'), '');
+    }
+
+    function buildMdEditorWidget(id, value, placeholder, rows) {
+      rows = rows || 3;
+      const wrap = document.createElement('div');
+      wrap.className = 'md-field-wrap';
+      const toggleRow = document.createElement('div');
+      toggleRow.className = 'md-toggle-row';
+      const writeBtn = document.createElement('button');
+      writeBtn.type = 'button';
+      writeBtn.className = 'md-toggle-btn active';
+      writeBtn.textContent = t('mdbMdWrite', 'Write');
+      const previewBtn = document.createElement('button');
+      previewBtn.type = 'button';
+      previewBtn.className = 'md-toggle-btn';
+      previewBtn.textContent = t('mdbMdPreview', 'Preview');
+      toggleRow.appendChild(writeBtn);
+      toggleRow.appendChild(previewBtn);
+      const ta = document.createElement('textarea');
+      ta.id = id || '';
+      ta.className = 'md-textarea';
+      ta.value = value || '';
+      ta.rows = rows;
+      if (placeholder) ta.placeholder = placeholder;
+      const preview = document.createElement('div');
+      preview.className = 'md-preview-pane hidden';
+      writeBtn.addEventListener('click', function() {
+        writeBtn.classList.add('active'); previewBtn.classList.remove('active');
+        ta.classList.remove('hidden'); preview.classList.add('hidden'); ta.focus();
+      });
+      previewBtn.addEventListener('click', function() {
+        previewBtn.classList.add('active'); writeBtn.classList.remove('active');
+        preview.innerHTML = renderMd(ta.value || '');
+        ta.classList.add('hidden'); preview.classList.remove('hidden');
+      });
+      wrap.appendChild(toggleRow); wrap.appendChild(ta); wrap.appendChild(preview);
+      return wrap;
     }
 
     async function openAddClassModal() {
@@ -13943,7 +15038,10 @@
         if (isSelected("testDate")) destConfig.testDate = srcConfig.testDate || "";
         if (isSelected("scope")) destConfig.scope = srcConfig.scope || "";
         if (isSelected("type")) destConfig.type = srcConfig.type || "";
-        if (isSelected("observationSections")) destConfig.observationSections = JSON.parse(JSON.stringify(srcConfig.observationSections || []));
+        if (isSelected("observationSections")) {
+          destConfig.observationSections = JSON.parse(JSON.stringify(srcConfig.observationSections || []));
+          if (srcConfig.chipBank) destConfig.chipBank = srcConfig.chipBank;
+        }
 
         if (isSelected("coefficient")) destConfig.coefficient = srcConfig.coefficient != null ? srcConfig.coefficient : 1;
         if (isSelected("fixedWeight")) destConfig.fixedWeight = srcConfig.fixedWeight != null ? srcConfig.fixedWeight : null;
@@ -14867,9 +15965,11 @@
           }
         });
       };
-      setupExportDropdown("btn-export-criteria-trigger", "criteria-export-menu", "criteria-export-dropdown");
+      setupExportDropdown("btn-overview-backup-trigger", "overview-backup-menu", "overview-backup-dropdown");
       setupExportDropdown("btn-summary-export-trigger", "summary-export-menu", "summary-export-dropdown");
+      setupExportDropdown("btn-summary-manage-trigger", "summary-manage-menu", "summary-manage-class-dropdown");
       setupExportDropdown("btn-test-export-trigger", "test-export-menu", "test-export-dropdown");
+      setupExportDropdown("btn-test-actions-trigger", "test-actions-menu", "test-actions-dropdown");
 
       // ── Summary Report Menu Buttons ──
       document.getElementById("btn-report-class-year").addEventListener("click", () => {
@@ -16898,6 +17998,7 @@ function showGsModalTour() {
     { selector: '.topt-tab-btn[data-tab="coeff"]',      title: t('tutGsM2Title'), text: t('tutGsM2Text'), onEnter: function() { if (window._toptSwitchTab) window._toptSwitchTab('coeff'); } },
     { selector: '.topt-tab-btn[data-tab="grading"]',    title: t('tutGsM3Title'), text: t('tutGsM3Text'), onEnter: function() { if (window._toptSwitchTab) window._toptSwitchTab('grading'); } },
     { selector: '.topt-tab-btn[data-tab="criteria"]',   title: t('tutGsM4Title'), text: t('tutGsM4Text'), onEnter: function() { if (window._toptSwitchTab) window._toptSwitchTab('criteria'); } },
+    { selector: '.topt-tab-btn[data-tab="chips"]',      title: t('gsToptTabChips', 'Observation Chips'), text: t('tutGsMChipsText'), onEnter: function() { if (window._toptSwitchTab) window._toptSwitchTab('chips'); } },
     { selector: '.topt-tab-btn[data-tab="preview"]',    title: t('tutGsM6Title'), text: t('tutGsM6Text'), onEnter: function() { if (window._toptSwitchTab) window._toptSwitchTab('preview'); } },
     { selector: '#test-options-overlay .topt-footer-bar', title: t('tutGsM5Title'), text: t('tutGsM5Text') }
   ], labels);

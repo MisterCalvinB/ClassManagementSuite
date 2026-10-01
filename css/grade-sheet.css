@@ -1061,11 +1061,31 @@ th.td-pts .th-label > .score-badge {
   color: var(--ink);
   padding: 3px;
   font-size: 0.73rem;
-  font-weight:500;
+  font-weight: 500;
   line-height: 1.15;
-  cursor: pointer;
+  cursor: grab;
+  user-select: none;
   white-space: nowrap;
-  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease, transform 120ms ease, opacity 120ms ease;
+}
+
+.note-checklist-chip:active {
+  cursor: grabbing;
+}
+
+.note-checklist-chip.dragging {
+  opacity: 0.35;
+  transform: scale(0.94);
+}
+
+.note-checklist-chip.drag-over-left {
+  border-left: 3px solid var(--note-accent, #111) !important;
+  padding-left: 1px !important;
+}
+
+.note-checklist-chip.drag-over-right {
+  border-right: 3px solid var(--note-accent, #111) !important;
+  padding-right: 1px !important;
 }
 
 .note-checklist-section-tag {
@@ -3141,3 +3161,70 @@ select.nav-btn option {
   background: #1e293b;
   color: #ffffff;
 }
+/* ── Markdown Editor Widget ─────────────────────────────────────── */
+.md-field-wrap { display: flex; flex-direction: column; gap: 0; }
+
+.md-toggle-row {
+  display: flex;
+  gap: 0;
+  border: 2px solid #111;
+  border-bottom: none;
+  border-radius: 5px 5px 0 0;
+  overflow: hidden;
+  width: fit-content;
+}
+.md-toggle-btn {
+  background: #fff;
+  border: none;
+  border-right: 2px solid #111;
+  padding: 3px 12px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.1s ease, color 0.1s ease;
+}
+.md-toggle-btn:last-child { border-right: none; }
+.md-toggle-btn.active { background: #111; color: #fff; }
+.md-toggle-btn:not(.active):hover { background: #f0f0f0; }
+
+.md-textarea {
+  border: 2px solid #111;
+  border-radius: 0 5px 5px 5px;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 0.88rem;
+  resize: vertical;
+  min-height: 80px;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+.md-textarea:focus { box-shadow: 3px 3px 0 #111; }
+
+.md-preview-pane {
+  border: 2px solid #111;
+  border-radius: 0 5px 5px 5px;
+  padding: 10px 14px;
+  min-height: 80px;
+  background: #fafafa;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  overflow-y: auto;
+}
+.md-preview-pane.hidden { display: none; }
+.md-preview-pane h1, .md-preview-pane h2, .md-preview-pane h3 {
+  font-size: 1em; font-weight: 800; margin: 4px 0;
+}
+.md-preview-pane p { margin: 4px 0; }
+.md-preview-pane ul, .md-preview-pane ol { margin: 4px 0; padding-left: 20px; }
+.md-preview-pane code {
+  background: #f3f4f6; border: 1px solid #d1d5db;
+  border-radius: 3px; padding: 1px 5px; font-size: 0.85em;
+}
+.md-preview-pane blockquote {
+  border-left: 3px solid #111; margin: 4px 0; padding-left: 10px; color: #555;
+}
+.md-preview-pane strong { font-weight: 800; }

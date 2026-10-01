@@ -14058,6 +14058,7 @@
 
         let dragging = false;
         let sx = 0, sy = 0, startX = 0, startY = 0;
+        let _dragMaskRaf = null;
         el.addEventListener('mousedown', function (e) {
           if (e.button !== 0) return;
           if (conMode !== 'move') return;
@@ -14065,6 +14066,7 @@
           e.preventDefault();
           e.stopPropagation();
           dragging = true;
+          window._conMirrorDragging = true;
           sx = e.clientX;
           sy = e.clientY;
           startX = mask.x;
@@ -14079,19 +14081,50 @@
           mask.x = Math.max(0, startX + dx);
           mask.y = Math.max(0, startY + dy);
           conApplyMaskStyle(mask);
+
+          if (window._conMirrorSend) {
+            if (!_dragMaskRaf) {
+              _dragMaskRaf = requestAnimationFrame(function () {
+                _dragMaskRaf = null;
+                if (window._conMirrorSend) {
+                  window._conMirrorSend({
+                    type: 'mask-move',
+                    id: mask.id,
+                    x: mask.x,
+                    y: mask.y
+                  });
+                }
+              });
+            }
+          }
         });
         document.addEventListener('mouseup', function () {
+          if (!dragging) return;
           dragging = false;
+          if (_dragMaskRaf) { cancelAnimationFrame(_dragMaskRaf); _dragMaskRaf = null; }
+          if (window._conMirrorSend) {
+            window._conMirrorSend({
+              type: 'mask-move',
+              id: mask.id,
+              x: mask.x,
+              y: mask.y
+            });
+          }
+          setTimeout(function () {
+            window._conMirrorDragging = false;
+          }, 60);
         });
 
         let resizing = false;
         let rw = 0, rh = 0;
+        let _resizeMaskRaf = null;
         handle.addEventListener('mousedown', function (e) {
           if (e.button !== 0) return;
           if (conMode !== 'move') return;
           e.preventDefault();
           e.stopPropagation();
           resizing = true;
+          window._conMirrorDragging = true;
           sx = e.clientX;
           sy = e.clientY;
           rw = mask.width;
@@ -14106,9 +14139,42 @@
           mask.width = Math.max(20, rw + dx);
           mask.height = Math.max(20, rh + dy);
           conApplyMaskStyle(mask);
+
+          if (window._conMirrorSend) {
+            if (!_resizeMaskRaf) {
+              _resizeMaskRaf = requestAnimationFrame(function () {
+                _resizeMaskRaf = null;
+                if (window._conMirrorSend) {
+                  window._conMirrorSend({
+                    type: 'mask-resize',
+                    id: mask.id,
+                    width: mask.width,
+                    height: mask.height,
+                    x: mask.x,
+                    y: mask.y
+                  });
+                }
+              });
+            }
+          }
         });
         document.addEventListener('mouseup', function () {
+          if (!resizing) return;
           resizing = false;
+          if (_resizeMaskRaf) { cancelAnimationFrame(_resizeMaskRaf); _resizeMaskRaf = null; }
+          if (window._conMirrorSend) {
+            window._conMirrorSend({
+              type: 'mask-resize',
+              id: mask.id,
+              width: mask.width,
+              height: mask.height,
+              x: mask.x,
+              y: mask.y
+            });
+          }
+          setTimeout(function () {
+            window._conMirrorDragging = false;
+          }, 60);
         });
       }
 
@@ -14139,12 +14205,15 @@
         return mask;
       }
 
+      window.conGetMasks = function () { return conMasks; };
+      window.conAddMaskFromData = conAddMaskFromData;
+
       window.conAddMask = function (x, y) {
         const brd = board();
         if (!brd) return;
         const px = Number.isFinite(x) ? x : Math.max(24, Math.round(brd.clientWidth / 2) - 80);
         const py = Number.isFinite(y) ? y : Math.max(24, Math.round(brd.clientHeight / 2) - 32);
-        conAddMaskFromData({
+        const newMask = conAddMaskFromData({
           x: Math.max(0, Math.min(brd.clientWidth - 160, px)),
           y: Math.max(0, Math.min(brd.clientHeight - 64, py)),
           width: 160,
@@ -14152,7 +14221,20 @@
           color: '#111111',
           opacity: 0.95
         });
-        if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true });
+        if (newMask && window._conMirrorSend) {
+          window._conMirrorSend({
+            type: 'mask-add',
+            mask: {
+              id: newMask.id,
+              x: newMask.x,
+              y: newMask.y,
+              width: newMask.width,
+              height: newMask.height,
+              color: newMask.color,
+              opacity: newMask.opacity
+            }
+          });
+        }
       };
 
       window.conMasksClear = function () {
@@ -14162,6 +14244,9 @@
         _conMaskCtxId = null;
         const overlay = document.getElementById('con-mask-style-overlay');
         if (overlay) overlay.classList.remove('active');
+        if (window._conMirrorSend) {
+          window._conMirrorSend({ type: 'mask-clear' });
+        }
       };
 
       // ================================================================
@@ -16941,6 +17026,14 @@
                 if (ct) ct.value = c.toUpperCase();
                 curMask.color = c;
                 conApplyMaskStyle(curMask);
+                if (window._conMirrorSend) {
+                  window._conMirrorSend({
+                    type: 'mask-style',
+                    id: curMask.id,
+                    color: curMask.color,
+                    opacity: curMask.opacity
+                  });
+                }
                 swatchWrap.querySelectorAll('span').forEach(x => x.style.borderColor = 'transparent');
                 s.style.borderColor = '#111';
               };
@@ -16996,16 +17089,27 @@
         if (colorText && /^#[0-9a-fA-F]{6}$/.test(colorText.value.trim())) mask.color = colorText.value.trim();
         if (opacityInput) mask.opacity = Number(opacityInput.value) || 0.95;
         conApplyMaskStyle(mask);
+        if (window._conMirrorSend) {
+          window._conMirrorSend({
+            type: 'mask-style',
+            id: mask.id,
+            color: mask.color,
+            opacity: mask.opacity
+          });
+        }
       };
 
       window.conMaskCtxDelete = function () {
         if (!_conMaskCtxId) return;
         conPushUndo();
-        const mask = conGetMaskById(_conMaskCtxId);
+        const delId = _conMaskCtxId;
+        const mask = conGetMaskById(delId);
         if (mask && mask.el) mask.el.remove();
-        conMasks = conMasks.filter(m => m.id !== _conMaskCtxId);
+        conMasks = conMasks.filter(m => m.id !== delId);
         conMaskCtxClose();
-        if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true });
+        if (window._conMirrorSend) {
+          window._conMirrorSend({ type: 'mask-remove', id: delId });
+        }
       };
 
       // ---- Expose global functions ----
@@ -20765,8 +20869,8 @@
                     }
                     if (onlySelectionStatusDiff) return true;
                   } else if (m.attributeName === 'style') {
-                    if (t.classList && (t.classList.contains('wn-emoji-sticker') || t.classList.contains('con-drop-target') || t.classList.contains('con-drawing') || t.classList.contains('con-shape') || t.classList.contains('con-eraser-outline'))) return true;
-                    if (t.closest && (t.closest('.con-drawing') || t.closest('.con-shape') || t.closest('#con-draw-overlay') || t.closest('.con-eraser-outline'))) return true;
+                    if (t.classList && (t.classList.contains('wn-emoji-sticker') || t.classList.contains('con-drop-target') || t.classList.contains('con-drawing') || t.classList.contains('con-shape') || t.classList.contains('con-mask-rect') || t.classList.contains('con-mask-resizer') || t.classList.contains('con-eraser-outline'))) return true;
+                    if (t.closest && (t.closest('.con-drawing') || t.closest('.con-shape') || t.closest('.con-mask-rect') || t.closest('#con-draw-overlay') || t.closest('.con-eraser-outline'))) return true;
                     // Ignore transient CSS variables used for attention blinking (--con-blink-delay, --con-node-border, --con-group-blink-delay)
                     // and transient selection styles like z-index, cursor, pointer-events
                     const cleanStyle = s => (s || '').replace(/(?:--con-(?:blink-delay|node-border|group-blink-delay)|z-index|cursor|pointer-events)\s*:[^;]+;?/gi, '').trim();
@@ -20803,9 +20907,10 @@
                            n.id === 'con-draw-overlay' ||
                            n.id === 'con-draw-live-svg' ||
                            n.id === 'con-arrow-defs' ||
-                           // Drawing/shape removal is synced via drawing-remove/shape-remove micro-messages
+                           // Drawing/shape/mask removal is synced via dedicated micro-messages
                            n.classList.contains('con-drawing') ||
-                           n.classList.contains('con-shape');
+                           n.classList.contains('con-shape') ||
+                           n.classList.contains('con-mask-rect');
                   };
                   const addedOnlyIgnored = Array.from(m.addedNodes).every(isIgnoredNode);
                   const removedOnlyIgnored = Array.from(m.removedNodes).every(isIgnoredNode);
@@ -54049,6 +54154,89 @@
               dObj.y = p.y;
             }
           });
+          return;
+        }
+
+        if (d.type === 'mask-add') {
+          if (_mirrorIsFrozen) return;
+          if (!d.mask || !d.mask.id) return;
+          var liveMasks = window.conGetMasks ? window.conGetMasks() : [];
+          var existingMask = liveMasks.find(function (m) { return String(m.id) === String(d.mask.id); });
+          if (!existingMask) {
+            if (typeof window.conAddMaskFromData === 'function') {
+              window.conAddMaskFromData(d.mask);
+            }
+          }
+          return;
+        }
+
+        if (d.type === 'mask-move') {
+          if (_mirrorIsFrozen) return;
+          var mEl = document.querySelector('#constellation-board .con-mask-rect[data-mid="' + d.id + '"]');
+          if (mEl) {
+            if (typeof d.x === 'number') mEl.style.left = d.x + 'px';
+            if (typeof d.y === 'number') mEl.style.top = d.y + 'px';
+          }
+          var _liveMasks = window.conGetMasks ? window.conGetMasks() : [];
+          var mObj = _liveMasks.find(function (m) { return String(m.id) === String(d.id); });
+          if (mObj) {
+            if (typeof d.x === 'number') mObj.x = d.x;
+            if (typeof d.y === 'number') mObj.y = d.y;
+          }
+          return;
+        }
+
+        if (d.type === 'mask-resize') {
+          if (_mirrorIsFrozen) return;
+          var mEl2 = document.querySelector('#constellation-board .con-mask-rect[data-mid="' + d.id + '"]');
+          if (mEl2) {
+            if (typeof d.width === 'number') mEl2.style.width = d.width + 'px';
+            if (typeof d.height === 'number') mEl2.style.height = d.height + 'px';
+            if (typeof d.x === 'number') mEl2.style.left = d.x + 'px';
+            if (typeof d.y === 'number') mEl2.style.top = d.y + 'px';
+          }
+          var _liveMasks2 = window.conGetMasks ? window.conGetMasks() : [];
+          var mObj2 = _liveMasks2.find(function (m) { return String(m.id) === String(d.id); });
+          if (mObj2) {
+            if (typeof d.width === 'number') mObj2.width = d.width;
+            if (typeof d.height === 'number') mObj2.height = d.height;
+            if (typeof d.x === 'number') mObj2.x = d.x;
+            if (typeof d.y === 'number') mObj2.y = d.y;
+          }
+          return;
+        }
+
+        if (d.type === 'mask-style') {
+          if (_mirrorIsFrozen) return;
+          var mEl3 = document.querySelector('#constellation-board .con-mask-rect[data-mid="' + d.id + '"]');
+          if (mEl3) {
+            if (d.color) mEl3.style.background = d.color;
+            if (d.opacity !== undefined) mEl3.style.opacity = String(d.opacity);
+          }
+          var _liveMasks3 = window.conGetMasks ? window.conGetMasks() : [];
+          var mObj3 = _liveMasks3.find(function (m) { return String(m.id) === String(d.id); });
+          if (mObj3) {
+            if (d.color) mObj3.color = d.color;
+            if (d.opacity !== undefined) mObj3.opacity = d.opacity;
+          }
+          return;
+        }
+
+        if (d.type === 'mask-remove') {
+          if (_mirrorIsFrozen) return;
+          var mEl4 = document.querySelector('#constellation-board .con-mask-rect[data-mid="' + d.id + '"]');
+          if (mEl4) mEl4.remove();
+          var _liveMasks4 = window.conGetMasks ? window.conGetMasks() : [];
+          var mIdx = _liveMasks4.findIndex(function (m) { return String(m.id) === String(d.id); });
+          if (mIdx !== -1) _liveMasks4.splice(mIdx, 1);
+          return;
+        }
+
+        if (d.type === 'mask-clear') {
+          if (_mirrorIsFrozen) return;
+          if (typeof window.conMasksClear === 'function') {
+            window.conMasksClear();
+          }
           return;
         }
 

@@ -715,6 +715,373 @@
     }
   };
 
+  // ── 13. Unit Sequence Multi-Document Exporter Engine ───────────────────────
+  function escapeHtml(str) {
+    if (str === undefined || str === null) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  LessonCreatorService.createUnitArchiveBundle = function (unitSeq, fullLessons, fullTests) {
+    return {
+      version: '1.0',
+      exportedAt: new Date().toISOString(),
+      type: 'cmt_unit_sequence_bundle',
+      unitSequence: {
+        id: unitSeq.id || ('unit_' + Date.now()),
+        title: unitSeq.title || 'Untitled Unit Sequence',
+        subject: unitSeq.subject || (fullLessons[0] && fullLessons[0].subjectId) || '',
+        classId: unitSeq.classId || (fullLessons[0] && fullLessons[0].classId) || '',
+        totalItems: (unitSeq.lessons || []).length,
+        items: unitSeq.lessons || []
+      },
+      lessons: fullLessons || [],
+      tests: fullTests || []
+    };
+  };
+
+  LessonCreatorService.exportSequenceToHtml = function (unitSeq, fullLessons, fullTests, options) {
+    options = options || {};
+    var title = (unitSeq && unitSeq.title) || 'Unit Curriculum Booklet';
+    var subject = (unitSeq && unitSeq.subject) || (fullLessons[0] && (fullLessons[0].subject || fullLessons[0].subjectId)) || '';
+    var className = (unitSeq && unitSeq.classId) || (fullLessons[0] && fullLessons[0].classId) || '';
+    var items = (unitSeq && Array.isArray(unitSeq.lessons)) ? unitSeq.lessons : [];
+
+    var totalLessonMinutes = 0;
+    (fullLessons || []).forEach(function (l) {
+      if (l && l.sections) {
+        l.sections.forEach(function (s) { totalLessonMinutes += (Number(s.duration) || 0); });
+      }
+    });
+
+    var totalExamPoints = 0;
+    (fullTests || []).forEach(function (t) {
+      if (t && t.exercises) {
+        t.exercises.forEach(function (e) { totalExamPoints += (Number(e.points) || 0); });
+      }
+    });
+
+    var css =
+      ':root {\n' +
+      '  --neo-border: 2.5px solid #000000;\n' +
+      '  --neo-shadow: 3px 3px 0px #000000;\n' +
+      '  --neo-bg: #ffffff;\n' +
+      '  --neo-accent: #fef08a;\n' +
+      '  --neo-blue: #dbeafe;\n' +
+      '  --neo-pink: #fce7f3;\n' +
+      '}\n' +
+      '* { box-sizing: border-box; }\n' +
+      'body {\n' +
+      '  font-family: "Lexend", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;\n' +
+      '  background: #f8fafc;\n' +
+      '  color: #000000;\n' +
+      '  margin: 0;\n' +
+      '  padding: 24px;\n' +
+      '  line-height: 1.5;\n' +
+      '}\n' +
+      '.unit-container { max-width: 900px; margin: 0 auto; }\n' +
+      '.unit-hero {\n' +
+      '  background: var(--neo-bg);\n' +
+      '  border: var(--neo-border);\n' +
+      '  box-shadow: 4px 4px 0px #000000;\n' +
+      '  padding: 20px;\n' +
+      '  margin-bottom: 24px;\n' +
+      '}\n' +
+      '.unit-hero-badge {\n' +
+      '  background: #000000;\n' +
+      '  color: #ffffff;\n' +
+      '  font-size: 0.75rem;\n' +
+      '  font-weight: 900;\n' +
+      '  text-transform: uppercase;\n' +
+      '  letter-spacing: 0.5px;\n' +
+      '  padding: 3px 8px;\n' +
+      '  display: inline-block;\n' +
+      '  margin-bottom: 8px;\n' +
+      '}\n' +
+      '.unit-title { font-size: 1.75rem; font-weight: 900; margin: 0 0 10px 0; text-transform: uppercase; }\n' +
+      '.unit-meta-grid {\n' +
+      '  display: flex;\n' +
+      '  flex-wrap: wrap;\n' +
+      '  gap: 8px;\n' +
+      '  margin-top: 10px;\n' +
+      '}\n' +
+      '.unit-meta-pill {\n' +
+      '  background: #f1f5f9;\n' +
+      '  border: 1.5px solid #000000;\n' +
+      '  padding: 3px 8px;\n' +
+      '  font-size: 0.8rem;\n' +
+      '  font-weight: 700;\n' +
+      '}\n' +
+      '.unit-meta-pill.highlight { background: var(--neo-accent); }\n' +
+      '.unit-toc {\n' +
+      '  background: #ffffff;\n' +
+      '  border: var(--neo-border);\n' +
+      '  box-shadow: var(--neo-shadow);\n' +
+      '  padding: 16px;\n' +
+      '  margin-bottom: 24px;\n' +
+      '}\n' +
+      '.unit-toc-title { font-size: 1rem; font-weight: 900; text-transform: uppercase; margin: 0 0 12px 0; border-bottom: 2px solid #000; padding-bottom: 6px; }\n' +
+      '.unit-toc-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }\n' +
+      '.unit-toc-table th, .unit-toc-table td { border: 1.5px solid #000; padding: 6px 10px; text-align: left; }\n' +
+      '.unit-toc-table th { background: #e2e8f0; font-weight: 900; }\n' +
+      '.unit-item-badge {\n' +
+      '  font-size: 0.72rem;\n' +
+      '  font-weight: 900;\n' +
+      '  padding: 2px 6px;\n' +
+      '  border: 1.5px solid #000000;\n' +
+      '  display: inline-block;\n' +
+      '  text-transform: uppercase;\n' +
+      '}\n' +
+      '.unit-item-badge.lesson { background: var(--neo-blue); }\n' +
+      '.unit-item-badge.test { background: var(--neo-pink); color: #9d174d; }\n' +
+      '.unit-lesson-card {\n' +
+      '  background: #ffffff;\n' +
+      '  border: var(--neo-border);\n' +
+      '  box-shadow: var(--neo-shadow);\n' +
+      '  margin-bottom: 24px;\n' +
+      '  padding: 16px;\n' +
+      '}\n' +
+      '.unit-card-hdr {\n' +
+      '  display: flex;\n' +
+      '  justify-content: space-between;\n' +
+      '  align-items: center;\n' +
+      '  border-bottom: 2px solid #000;\n' +
+      '  padding-bottom: 10px;\n' +
+      '  margin-bottom: 12px;\n' +
+      '  flex-wrap: wrap;\n' +
+      '  gap: 8px;\n' +
+      '}\n' +
+      '.unit-card-title { font-size: 1.2rem; font-weight: 900; margin: 0; }\n' +
+      '.phase-row {\n' +
+      '  border: 1.5px solid #000;\n' +
+      '  padding: 10px;\n' +
+      '  margin-bottom: 8px;\n' +
+      '  background: #fafafa;\n' +
+      '}\n' +
+      '.phase-hdr { display: flex; justify-content: space-between; font-weight: 800; font-size: 0.9rem; margin-bottom: 6px; border-bottom: 1px dashed #000; padding-bottom: 4px; }\n' +
+      '.phase-obj { font-size: 0.85rem; margin-bottom: 6px; }\n' +
+      '.phase-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.8rem; margin-top: 6px; }\n' +
+      '.action-box { background: #ffffff; border: 1px solid #000; padding: 6px; }\n' +
+      '.action-tag { font-size: 0.7rem; font-weight: 900; text-transform: uppercase; display: block; margin-bottom: 2px; }\n' +
+      '.comp-tag-chip { background: #fef08a; border: 1px solid #000; padding: 1px 5px; font-size: 0.72rem; font-weight: 800; display: inline-block; margin-right: 4px; }\n' +
+      '.unit-exam-card {\n' +
+      '  background: #fff5f5;\n' +
+      '  border: var(--neo-border);\n' +
+      '  box-shadow: var(--neo-shadow);\n' +
+      '  margin-bottom: 24px;\n' +
+      '  padding: 16px;\n' +
+      '}\n' +
+      '.ex-item-card {\n' +
+      '  background: #ffffff;\n' +
+      '  border: 1.5px solid #000;\n' +
+      '  padding: 10px;\n' +
+      '  margin-bottom: 8px;\n' +
+      '}\n' +
+      '.unit-page-break { page-break-before: always; }\n' +
+      '@media print {\n' +
+      '  body { background: #fff !important; padding: 0 !important; font-size: 10.5pt !important; }\n' +
+      '  .unit-container { max-width: 100% !important; margin: 0 !important; }\n' +
+      '  .unit-hero, .unit-toc, .unit-lesson-card, .unit-exam-card { box-shadow: none !important; border: 2px solid #000 !important; page-break-inside: avoid; }\n' +
+      '  .unit-page-break { page-break-before: always !important; }\n' +
+      '  @page { margin: 12mm 10mm; size: A4 portrait; }\n' +
+      '}\n';
+
+    var html =
+      '<!DOCTYPE html>\n' +
+      '<html lang="en">\n' +
+      '<head>\n' +
+      '  <meta charset="UTF-8">\n' +
+      '  <title>' + escapeHtml(title) + '</title>\n' +
+      '  <style>\n' + css + '  </style>\n' +
+      '</head>\n' +
+      '<body>\n' +
+      '  <div class="unit-container">\n' +
+      '    <!-- ── 1. Unit Cover / Hero ── -->\n' +
+      '    <div class="unit-hero">\n' +
+      '      <span class="unit-hero-badge">[UNIT CURRICULUM SEQUENCE]</span>\n' +
+      '      <h1 class="unit-title">' + escapeHtml(title) + '</h1>\n' +
+      '      <div class="unit-meta-grid">\n' +
+      (subject ? '        <span class="unit-meta-pill highlight"><strong>Subject:</strong> ' + escapeHtml(subject) + '</span>\n' : '') +
+      (className ? '        <span class="unit-meta-pill"><strong>Class:</strong> ' + escapeHtml(className) + '</span>\n' : '') +
+      '        <span class="unit-meta-pill"><strong>Total Lessons:</strong> ' + (fullLessons || []).length + ' (' + totalLessonMinutes + ' min)</span>\n' +
+      (fullTests && fullTests.length > 0 ? '        <span class="unit-meta-pill highlight"><strong>Attached Assessments:</strong> ' + fullTests.length + ' (' + totalExamPoints + ' pts)</span>\n' : '') +
+      '        <span class="unit-meta-pill"><strong>Generated:</strong> ' + new Date().toLocaleDateString() + '</span>\n' +
+      '      </div>\n' +
+      '    </div>\n' +
+      '\n' +
+      '    <!-- ── 2. Unit Table of Contents ── -->\n' +
+      '    <div class="unit-toc">\n' +
+      '      <h3 class="unit-toc-title">Sequence Structure &amp; Progression</h3>\n' +
+      '      <table class="unit-toc-table">\n' +
+      '        <thead>\n' +
+      '          <tr><th style="width:40px;">#</th><th style="width:90px;">Type</th><th>Title / Topic</th><th style="width:100px;">Duration/Pts</th></tr>\n' +
+      '        </thead>\n' +
+      '        <tbody>\n';
+
+    var rowIdx = 1;
+    items.forEach(function (it) {
+      var isTest = (it.type === 'test' || it.category === 'test' || it.category === 'summative');
+      var badgeClass = isTest ? 'unit-item-badge test' : 'unit-item-badge lesson';
+      var badgeText = isTest ? '[TEST / EXAM]' : '[LESSON ' + rowIdx + ']';
+      var durOrPts = isTest ? 'Exam' : 'Lesson';
+
+      if (!isTest) {
+        var matchL = (fullLessons || []).find(function (fl) { return fl.id === it.id; });
+        if (matchL) {
+          var lDur = (matchL.sections || []).reduce(function (sum, s) { return sum + (Number(s.duration) || 0); }, 0);
+          durOrPts = (lDur || matchL.targetDuration || 60) + ' min';
+        }
+      } else {
+        var matchT = (fullTests || []).find(function (ft) { return ft.id === it.id; });
+        if (matchT) {
+          var tPts = (matchT.exercises || []).reduce(function (sum, e) { return sum + (Number(e.points) || 0); }, 0);
+          durOrPts = tPts + ' pts';
+        }
+      }
+
+      html +=
+        '          <tr>\n' +
+        '            <td><strong>' + (rowIdx++) + '</strong></td>\n' +
+        '            <td><span class="' + badgeClass + '">' + badgeText + '</span></td>\n' +
+        '            <td><strong>' + escapeHtml(it.title || 'Untitled') + '</strong></td>\n' +
+        '            <td>' + escapeHtml(durOrPts) + '</td>\n' +
+        '          </tr>\n';
+    });
+
+    html +=
+      '        </tbody>\n' +
+      '      </table>\n' +
+      '    </div>\n';
+
+    // ── 3. Full Lesson Plans in Order ──
+    (fullLessons || []).forEach(function (plan, lIdx) {
+      var planDur = (plan.sections || []).reduce(function (sum, s) { return sum + (Number(s.duration) || 0); }, 0);
+      html +=
+        '    <div class="unit-lesson-card unit-page-break">\n' +
+        '      <div class="unit-card-hdr">\n' +
+        '        <div>\n' +
+        '          <span class="unit-item-badge lesson">[LESSON ' + (lIdx + 1) + ']</span>\n' +
+        '          <h2 class="unit-card-title">' + escapeHtml(plan.title || 'Lesson Plan') + '</h2>\n' +
+        '        </div>\n' +
+        '        <div style="font-weight:800;font-size:0.85rem;">' + (planDur || plan.targetDuration || 60) + ' min' + (plan.date ? (' • ' + escapeHtml(plan.date)) : '') + '</div>\n' +
+        '      </div>\n';
+
+      (plan.sections || []).forEach(function (sec, pIdx) {
+        html +=
+          '      <div class="phase-row">\n' +
+          '        <div class="phase-hdr">\n' +
+          '          <span>Phase ' + (pIdx + 1) + ': ' + escapeHtml(sec.title || 'Activity') + '</span>\n' +
+          '          <span>' + (Number(sec.duration) || 10) + ' min</span>\n' +
+          '        </div>\n' +
+          (sec.objective ? '        <div class="phase-obj"><strong>Objective:</strong> ' + escapeHtml(sec.objective) + '</div>\n' : '') +
+          '        <div class="phase-actions">\n' +
+          '          <div class="action-box"><span class="action-tag">Teacher Actions</span>' + escapeHtml(sec.teacherAction || 'Facilitate task') + '</div>\n' +
+          '          <div class="action-box"><span class="action-tag">Student Actions</span>' + escapeHtml(sec.studentAction || 'Participate actively') + '</div>\n' +
+          '        </div>\n' +
+          (sec.resources ? '        <div style="font-size:0.75rem;margin-top:4px;"><strong>Materials:</strong> ' + escapeHtml(sec.resources) + '</div>\n' : '') +
+          '      </div>\n';
+      });
+
+      html += '    </div>\n';
+    });
+
+    // ── 4. Attached Tests in Sequence ──
+    (fullTests || []).forEach(function (test, tIdx) {
+      var tPts = (test.exercises || []).reduce(function (sum, e) { return sum + (Number(e.points) || 0); }, 0);
+      html +=
+        '    <div class="unit-exam-card unit-page-break">\n' +
+        '      <div class="unit-card-hdr">\n' +
+        '        <div>\n' +
+        '          <span class="unit-item-badge test">[ASSESSMENT / EXAM]</span>\n' +
+        '          <h2 class="unit-card-title">' + escapeHtml(test.title || 'Unit Examination') + '</h2>\n' +
+        '        </div>\n' +
+        '        <div style="font-weight:800;font-size:0.85rem;color:#9d174d;">' + tPts + ' pts • ' + (test.duration || 45) + ' min</div>\n' +
+        '      </div>\n';
+
+      (test.exercises || []).forEach(function (ex, eIdx) {
+        html +=
+          '      <div class="ex-item-card">\n' +
+          '        <div style="display:flex;justify-content:space-between;font-weight:800;font-size:0.9rem;border-bottom:1px solid #000;padding-bottom:3px;margin-bottom:6px;">\n' +
+          '          <span>Exercise ' + (eIdx + 1) + ': ' + escapeHtml(ex.title || (ex.type ? ex.type.toUpperCase() : 'Task')) + '</span>\n' +
+          '          <span>/' + (ex.points || 1) + ' pts</span>\n' +
+          '        </div>\n' +
+          (ex.instructions ? '        <div style="font-size:0.85rem;font-style:italic;margin-bottom:6px;">' + escapeHtml(ex.instructions) + '</div>\n' : '');
+
+        if (ex.type === 'cloze' && ex.content && ex.content.text) {
+          html += '        <div style="font-size:0.85rem;white-space:pre-line;line-height:1.6;">' + escapeHtml(ex.content.text) + '</div>\n';
+        } else if (ex.type === 'matching' && ex.content && Array.isArray(ex.content.pairs)) {
+          html += '        <ul style="font-size:0.85rem;margin:4px 0;padding-left:20px;">' +
+            ex.content.pairs.map(function (p) { return '<li>' + escapeHtml(p.left) + ' → ' + escapeHtml(p.right) + '</li>'; }).join('') +
+            '</ul>\n';
+        } else if (ex.type === 'open_question' && ex.content && Array.isArray(ex.content.questions)) {
+          html += '        <ol style="font-size:0.85rem;margin:4px 0;padding-left:20px;">' +
+            ex.content.questions.map(function (q) { return '<li>' + escapeHtml(q.prompt) + ' (' + (q.points || 1) + ' pts)</li>'; }).join('') +
+            '</ol>\n';
+        }
+
+        html += '      </div>\n';
+      });
+
+      html += '    </div>\n';
+    });
+
+    html +=
+      '  </div>\n' +
+      '</body>\n' +
+      '</html>';
+
+    return html;
+  };
+
+  LessonCreatorService.exportSequenceToMarkdown = function (unitSeq, fullLessons, fullTests) {
+    var title = (unitSeq && unitSeq.title) || 'Unit Curriculum Sequence';
+    var subject = (unitSeq && unitSeq.subject) || (fullLessons[0] && (fullLessons[0].subject || fullLessons[0].subjectId)) || '';
+    var className = (unitSeq && unitSeq.classId) || (fullLessons[0] && fullLessons[0].classId) || '';
+
+    var md = '# ' + title + '\n\n';
+    md += '**Subject:** ' + (subject || 'General') + ' | **Class:** ' + (className || 'N/A') + ' | **Total Lessons:** ' + (fullLessons || []).length + '\n\n';
+    md += '## Sequence Structure\n\n';
+
+    (unitSeq.lessons || []).forEach(function (it, idx) {
+      var isTest = (it.type === 'test' || it.category === 'test');
+      md += (idx + 1) + '. **[' + (isTest ? 'TEST' : 'LESSON') + ']** ' + (it.title || 'Untitled') + '\n';
+    });
+    md += '\n---\n\n';
+
+    (fullLessons || []).forEach(function (l, idx) {
+      md += '## Lesson ' + (idx + 1) + ': ' + (l.title || 'Untitled') + '\n\n';
+      if (l.date) md += '*Date: ' + l.date + '*\n\n';
+      (l.sections || []).forEach(function (s, sIdx) {
+        md += '### Phase ' + (sIdx + 1) + ': ' + (s.title || 'Activity') + ' (' + (s.duration || 10) + ' min)\n\n';
+        if (s.objective) md += '- **Objective:** ' + s.objective + '\n';
+        if (s.teacherAction) md += '- **Teacher:** ' + s.teacherAction + '\n';
+        if (s.studentAction) md += '- **Students:** ' + s.studentAction + '\n';
+        if (s.resources) md += '- **Materials:** ' + s.resources + '\n';
+        md += '\n';
+      });
+      md += '---\n\n';
+    });
+
+    (fullTests || []).forEach(function (t, idx) {
+      md += '## Assessment: ' + (t.title || 'Unit Exam') + '\n\n';
+      md += '*Duration: ' + (t.duration || 45) + ' min*\n\n';
+      (t.exercises || []).forEach(function (e, eIdx) {
+        md += '### Exercise ' + (eIdx + 1) + ': ' + (e.title || e.type || 'Task') + ' (' + (e.points || 1) + ' pts)\n\n';
+        if (e.instructions) md += '>' + e.instructions + '\n\n';
+        if (e.type === 'cloze' && e.content && e.content.text) {
+          md += '```\n' + e.content.text + '\n```\n\n';
+        }
+      });
+      md += '---\n\n';
+    });
+
+    return md;
+  };
+
   // Expose to global namespace
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = LessonCreatorService;

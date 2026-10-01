@@ -16,6 +16,7 @@
   <script src="../js/competence-aggregator-service.js"></script>
   <script src="../js/links-service.js"></script>
   <script src="../js/tag-link-modal.js"></script>
+  <script src="../js/lesson-creator-service.js"></script>
   <script src="../js/test-creator-service.js"></script>
   <style>
     @keyframes tcPulseCard {
@@ -49,6 +50,8 @@
           <button class="nav-pop-item" onclick="tcSaveTest()"><span data-i18n="tcSaveTest">Save Test</span> <span class="nav-pop-hint">Ctrl+S</span></button>
           <button class="nav-pop-item" onclick="tcSaveAsTemplate()"><span data-i18n="tcSaveAsTemplate">Save as Template…</span></button>
           <button class="nav-pop-item" onclick="tcDuplicateTest()"><span data-i18n="tcDuplicateTest">Duplicate Test</span> <span class="nav-pop-hint">Ctrl+D</span></button>
+          <hr class="nav-pop-sep">
+          <button class="nav-pop-item" onclick="tcOpenSequenceModal()"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="tcManageSequences">Unit Sequences…</span></button>
           <hr class="nav-pop-sep">
           <button class="nav-pop-item" onclick="tcResetTest()"><span data-i18n="tcResetTest">Reset to Blank</span></button>
         </div>
@@ -95,6 +98,7 @@
           <button class="nav-pop-item" onclick="tcSaveAllExercisesToDb()"><span data-i18n="tcSaveAllExercisesToDb">Save All Exercises to DB</span></button>
           <button class="nav-pop-item" onclick="tcOpenManageDatabase()"><span data-i18n="tcOpenManageDb">Open Manage Database…</span></button>
           <hr class="nav-pop-sep">
+          <button class="nav-pop-item" onclick="tcOpenSequenceModal()"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="tcManageSequences">Unit Sequences…</span></button>
           <button class="nav-pop-item" onclick="tcOpenPullFromLessonModal()"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="tcPullFromLesson">Pull from Lesson Plan…</span></button>
           <button class="nav-pop-item" onclick="tcGenerateRevisionMindmap()"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="tcGenerateRevisionMindmap">Generate Revision Mindmap…</span></button>
         </div>
@@ -105,6 +109,7 @@
         <button class="nav-btn" data-i18n="menuExport">Export</button>
         <div class="nav-group-popup">
           <button class="nav-pop-item" onclick="tcOpenExportModal()"><span data-i18n="tcExportExam">Export Exam…</span> <span class="nav-pop-hint">Ctrl+E</span></button>
+          <button class="nav-pop-item" onclick="tcOpenSequenceExportModal()"><span data-i18n="tcExportSequence">Export Entire Unit Sequence…</span></button>
           <button class="nav-pop-item" onclick="tcOpenGlobalStyleModal()"><span data-i18n="tcStyleModalTitle">Export Styling & Format…</span></button>
           <hr class="nav-pop-sep">
           <button class="nav-pop-item" onclick="tcOpenPrintPreview()"><span data-i18n="tcPrintPdf">Print / PDF Document</span></button>
@@ -155,6 +160,7 @@
           <button class="neo-btn purple" onclick="tcOpenPrintPreview()" title="Dedicated Print &amp; PDF Preview" data-i18n-title="tcPrintPreviewTooltip"><span data-i18n="tcPrintPreviewBtn">Preview</span></button>
           <button class="neo-btn primary" onclick="tcSaveTest()"><span data-i18n="btnSave">Save</span></button>
           <button class="neo-btn" id="drawerToggleBtn" onclick="tcToggleDrawer()"><span data-i18n="tcDrawerBtn">Resources</span></button>
+          <button class="neo-btn" id="btn-tc-unit-seq" onclick="tcOpenSequenceModal()" title="Manage Unit Sequence" style="display:inline-flex;align-items:center;gap:4px;font-size:0.75rem;padding:3px 8px;background:#fef08a;color:#713f12;font-weight:800;"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:12px;height:12px;vertical-align:-1px;" /><span data-i18n="tcUnitSequence">Unit:</span> <span id="tcUnitSeqDisplay" data-i18n="tcNone">None</span></button>
           <button class="neo-btn" id="btn-tc-test-links" onclick="tcOpenTestLinksModal()" style="display:none;font-weight:900;letter-spacing:0.5px;" title="Test Links &amp; Tags"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" />[0]</button>
         </div>
       </div>
@@ -175,7 +181,7 @@
           <select id="testScale" class="meta-select" onchange="tcOnDirty()">
             <!-- Populated from TestCreatorService.DEFAULT_SCALES -->
           </select>
-          <span id="tcScaleInheritedBadge" style="display:none;font-size:0.7rem;font-weight:900;background:#eff6ff;color:#1e40af;border:1.5px solid #2563eb;padding:3px 6px;border-radius:3px;box-shadow:1px 1px 0 #2563eb;white-space:nowrap;">[INHERITED: Class]</span>
+          <span id="tcScaleInheritedBadge" data-i18n="tcInheritedClassBadge" style="display:none;font-size:0.7rem;font-weight:900;background:#eff6ff;color:#1e40af;border:1.5px solid #2563eb;padding:3px 6px;border-radius:3px;box-shadow:1px 1px 0 #2563eb;white-space:nowrap;">[INHERITED: Class]</span>
         </div>
 
         <div class="meta-field-group">
@@ -281,7 +287,7 @@
           <input type="text" id="drawerTestBankSearch" class="drawer-search-input" placeholder="Search saved exercises by title, type…" data-i18n-placeholder="tcSearchExercisesPlaceholder" oninput="tcFilterTestBank()">
           <button type="button" class="neo-btn sm" onclick="tcOpenPullFromLessonModal()" style="width:100%;margin-top:6px;font-weight:700;background:#e2c96e;color:#3d2a00;border-color:#b0953a;box-shadow:2px 2px 0 #b0953a;display:flex;align-items:center;justify-content:center;gap:6px;"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /><span data-i18n="tcPullFromLesson">Pull from Lesson Plan…</span></button>
           <div class="drawer-items-list" id="testBankList">
-            <div style="font-size:0.8rem;color:#888;text-align:center;padding:20px;">Loading test exercises…</div>
+            <div style="font-size:0.8rem;color:#888;text-align:center;padding:20px;" data-i18n="tcLoadingTestExercises">Loading test exercises…</div>
           </div>
         </div>
 
@@ -289,14 +295,14 @@
         <div id="panelLearningDb" class="drawer-tab-panel">
           <div style="display:flex;gap:6px;">
             <select id="learningDbSource" class="meta-select" style="flex:1;padding:5px;" onchange="tcLoadLearningDbSource()">
-              <option value="gapfillbanks">Gap-Fill Banks</option>
-              <option value="quizzes">Quizzes</option>
-              <option value="grammarbanks">Grammar Banks</option>
-              <option value="wordbanks">Word Banks</option>
+              <option value="gapfillbanks" data-i18n="tcFilterGapFill">Gap-Fill Banks</option>
+              <option value="quizzes" data-i18n="tcFilterQuizzes">Quizzes</option>
+              <option value="grammarbanks" data-i18n="tcFilterGrammar">Grammar Banks</option>
+              <option value="wordbanks" data-i18n="tcFilterWordBanks">Word Banks</option>
               <option value="dictations" data-i18n="tcFilterDictations">Dictations</option>
-              <option value="errorbanks">Error Banks</option>
+              <option value="errorbanks" data-i18n="tcFilterErrorBanks">Error Banks</option>
             </select>
-            <button class="neo-btn primary sm" onclick="tcOpenAutoGeneratorModal()" title="Auto-generate an exercise from database items">Auto-Gen</button>
+            <button class="neo-btn primary sm" onclick="tcOpenAutoGeneratorModal()" title="Auto-generate an exercise from database items" data-i18n-title="tcAutoGenerateFromDbTooltip" data-i18n="tcAutoGenBtn">Auto-Gen</button>
           </div>
 
           <!-- Dedicated Wordbank Filter Bar (Themes, Keywords, Levels, Source, Letter, POS) -->
@@ -305,21 +311,21 @@
               <div class="wb-filter-item">
                 <label data-i18n="filterTheme">Theme:</label>
                 <select id="wbThemeFilter" class="wb-filter-select" onchange="tcFilterLearningDb()">
-                  <option value="all">All Themes</option>
+                  <option value="all" data-i18n="tcAllThemes">All Themes</option>
                 </select>
               </div>
 
               <div class="wb-filter-item">
                 <label data-i18n="filterKeyword">Keyword:</label>
                 <select id="wbKeywordFilter" class="wb-filter-select" onchange="tcFilterLearningDb()">
-                  <option value="all">All Keywords</option>
+                  <option value="all" data-i18n="tcAllKeywords">All Keywords</option>
                 </select>
               </div>
 
               <div class="wb-filter-item">
                 <label data-i18n="filterLevel">Level:</label>
                 <select id="wbLevelFilter" class="wb-filter-select" onchange="tcFilterLearningDb()">
-                  <option value="all">All Levels</option>
+                  <option value="all" data-i18n="tcAllLevels">All Levels</option>
                   <option value="A1">A1</option>
                   <option value="A2">A2</option>
                   <option value="B1">B1</option>
@@ -332,21 +338,21 @@
               <div class="wb-filter-item">
                 <label data-i18n="filterSource">Source:</label>
                 <select id="wbSourceFilter" class="wb-filter-select" onchange="tcFilterLearningDb()">
-                  <option value="all">All Sources</option>
+                  <option value="all" data-i18n="tcAllSources">All Sources</option>
                 </select>
               </div>
 
               <div class="wb-filter-item">
                 <label data-i18n="filterLetter">Letter:</label>
                 <select id="wbLetterFilter" class="wb-filter-select" onchange="tcFilterLearningDb()">
-                  <option value="all">All Letters</option>
+                  <option value="all" data-i18n="tcAllLetters">All Letters</option>
                 </select>
               </div>
 
               <div class="wb-filter-item">
                 <label data-i18n="filterType">Type / POS:</label>
                 <select id="wbPosFilter" class="wb-filter-select" onchange="tcFilterLearningDb()">
-                  <option value="all">All Types</option>
+                  <option value="all" data-i18n="tcAllTypes">All Types</option>
                 </select>
               </div>
             </div>
@@ -359,7 +365,7 @@
 
           <input type="text" id="drawerLearningDbSearch" class="drawer-search-input" placeholder="Search records by theme, rule, word…" data-i18n-placeholder="tcSearchRecordsPlaceholder" oninput="tcFilterLearningDb()">
           <div class="drawer-items-list" id="learningDbList">
-            <div style="font-size:0.8rem;color:#888;text-align:center;padding:20px;">Select a source to load content…</div>
+            <div style="font-size:0.8rem;color:#888;text-align:center;padding:20px;" data-i18n="tcSelectSourceToLoad">Select a source to load content…</div>
           </div>
         </div>
 
@@ -367,13 +373,13 @@
         <div id="panelCriteriaDb" class="drawer-tab-panel">
           <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">
             <select id="criteriaBankSource" class="meta-select" style="flex:1;padding:5px;" onchange="tcLoadCriteriaBankSource()">
-              <option value="">Loading criteria banks…</option>
+              <option value="" data-i18n="tcLoadingCriteriaBanks">Loading criteria banks…</option>
             </select>
-            <span id="tcCriteriaInheritedBadge" style="display:none;font-size:0.7rem;font-weight:900;background:#eff6ff;color:#1e40af;border:1.5px solid #2563eb;padding:3px 6px;border-radius:3px;box-shadow:1px 1px 0 #2563eb;white-space:nowrap;">[INHERITED: Class]</span>
+            <span id="tcCriteriaInheritedBadge" data-i18n="tcInheritedClassBadge" style="display:none;font-size:0.7rem;font-weight:900;background:#eff6ff;color:#1e40af;border:1.5px solid #2563eb;padding:3px 6px;border-radius:3px;box-shadow:1px 1px 0 #2563eb;white-space:nowrap;">[INHERITED: Class]</span>
           </div>
           <input type="text" id="drawerCriteriaSearch" class="drawer-search-input" placeholder="Search assessment criteria by title…" data-i18n-placeholder="tcSearchCriteriaPlaceholder" oninput="tcFilterCriteriaDb()">
           <div class="drawer-items-list" id="criteriaDbList">
-            <div style="font-size:0.8rem;color:#888;text-align:center;padding:20px;">Loading criteria…</div>
+            <div style="font-size:0.8rem;color:#888;text-align:center;padding:20px;" data-i18n="tcLoadingCriteria">Loading criteria…</div>
           </div>
         </div>
 
@@ -384,7 +390,7 @@
               <span style="font-weight:900;font-size:0.75rem;color:#1e40af;display:inline-flex;align-items:center;gap:4px;">
                 <img src="../assets/icons/links.svg" style="width:12px;height:12px;" alt="" />
                 <span data-i18n="tcClassObjectives">Class Objectives</span>
-                <span id="tcClassObjBadge" class="score-badge" style="font-size:0.65rem;background:#dbeafe;color:#1e40af;border:1px solid #2563eb;padding:1px 4px;border-radius:3px;">[INHERITED: Class]</span>
+                <span id="tcClassObjBadge" data-i18n="tcInheritedClassBadge" class="score-badge" style="font-size:0.65rem;background:#dbeafe;color:#1e40af;border:1px solid #2563eb;padding:1px 4px;border-radius:3px;">[INHERITED: Class]</span>
               </span>
               <button type="button" class="neo-btn sm primary" onclick="tcAttachClassObjectives()" style="font-size:0.72rem;padding:2px 8px;font-weight:900;">
                 <img src="../assets/icons/links.svg" style="width:11px;height:11px;vertical-align:-1px;margin-right:3px;" alt="" />
@@ -394,14 +400,14 @@
             <div id="tcClassObjectivesList" style="display:flex;flex-wrap:wrap;gap:4px;max-height:80px;overflow-y:auto;"></div>
           </div>
           <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">
-            <span style="font-size:0.75rem;font-weight:800;color:#1e40af;white-space:nowrap;">Tag to:</span>
+            <span style="font-size:0.75rem;font-weight:800;color:#1e40af;white-space:nowrap;" data-i18n="tcTagToLabel">Tag to:</span>
             <select id="competenceTargetExSelect" class="meta-select" style="flex:1;padding:4px;" onchange="tcOnCompetenceTargetChange()">
-              <option value="__exam__">Entire Exam (Test-wide)</option>
+              <option value="__exam__" data-i18n="tcEntireExamTestWide">Entire Exam (Test-wide)</option>
             </select>
           </div>
           <input type="text" id="drawerCompetenceSearch" class="drawer-search-input" placeholder="Search competences by code, description…" data-i18n-placeholder="tcSearchCompetencesPlaceholder" oninput="tcFilterCompetences()">
           <div class="drawer-items-list" id="competenceDbList">
-            <div style="font-size:0.8rem;color:#888;text-align:center;padding:20px;">Loading competences…</div>
+            <div style="font-size:0.8rem;color:#888;text-align:center;padding:20px;" data-i18n="tcLoadingCompetences">Loading competences…</div>
           </div>
         </div>
 
@@ -409,19 +415,19 @@
         <div id="panelScales" class="drawer-tab-panel">
           <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">
             <select id="scaleBankSource" class="meta-select" style="flex:1;padding:5px;" onchange="tcLoadScaleBankSource()">
-              <option value="">Loading scale banks…</option>
+              <option value="" data-i18n="tcLoadingScaleBanks">Loading scale banks…</option>
             </select>
-            <span id="tcScaleDrawerInheritedBadge" style="display:none;font-size:0.7rem;font-weight:900;background:#eff6ff;color:#1e40af;border:1.5px solid #2563eb;padding:3px 6px;border-radius:3px;box-shadow:1px 1px 0 #2563eb;white-space:nowrap;">[INHERITED: Class]</span>
+            <span id="tcScaleDrawerInheritedBadge" data-i18n="tcInheritedClassBadge" style="display:none;font-size:0.7rem;font-weight:900;background:#eff6ff;color:#1e40af;border:1.5px solid #2563eb;padding:3px 6px;border-radius:3px;box-shadow:1px 1px 0 #2563eb;white-space:nowrap;">[INHERITED: Class]</span>
           </div>
           <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">
-            <span style="font-size:0.75rem;font-weight:800;color:#d97706;white-space:nowrap;">Target:</span>
+            <span style="font-size:0.75rem;font-weight:800;color:#d97706;white-space:nowrap;" data-i18n="tcTargetLabel">Target:</span>
             <select id="scaleTargetExSelect" class="meta-select" style="flex:1;padding:4px;" onchange="tcOnScaleTargetChange()">
-              <option value="__exam__">Entire Exam (Test-wide)</option>
+              <option value="__exam__" data-i18n="tcEntireExamTestWide">Entire Exam (Test-wide)</option>
             </select>
           </div>
           <input type="text" id="drawerScaleSearch" class="drawer-search-input" placeholder="Search scales by name, key, range…" data-i18n-placeholder="tcSearchScalesPlaceholder" oninput="tcFilterScalesDb()">
           <div class="drawer-items-list" id="scalesDbList">
-            <div style="font-size:0.8rem;color:#888;text-align:center;padding:20px;">Loading grading scales…</div>
+            <div style="font-size:0.8rem;color:#888;text-align:center;padding:20px;" data-i18n="tcLoadingScales">Loading grading scales…</div>
           </div>
         </div>
 
@@ -440,14 +446,14 @@
         
         <label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;font-weight:700;cursor:pointer;">
           <input type="checkbox" id="previewTeacherKeyToggle" onchange="tcUpdatePrintPreview()">
-          <span style="color:#f87171;">Teacher Solution Key</span>
+          <span style="color:#f87171;" data-i18n="tcTeacherKeyLabel">Teacher Solution Key</span>
         </label>
 
         <div style="display:flex;align-items:center;gap:6px;font-size:0.82rem;font-weight:700;margin-left:10px;">
-          <span>Variant:</span>
+          <span data-i18n="tcVariant">Variant:</span>
           <select id="previewVariantSelect" class="meta-select" style="padding:2px 8px;font-size:0.8rem;" onchange="tcUpdatePrintPreview()">
-            <option value="A">Group A</option>
-            <option value="B">Group B</option>
+            <option value="A" data-i18n="tcVariantGroupA">Group A</option>
+            <option value="B" data-i18n="tcVariantGroupB">Group B</option>
           </select>
         </div>
 
@@ -471,9 +477,9 @@
         </div>
 
         <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
-          <button class="neo-btn sm yellow" onclick="tcOpenHeaderCustomizerModal()" title="Customise Header &amp; Materials"><img src="../assets/icons/layout.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> Header</button>
+          <button class="neo-btn sm yellow" onclick="tcOpenHeaderCustomizerModal()" title="Customise Header &amp; Materials" data-i18n-title="tcCustomiseHeaderMaterialsTooltip"><img src="../assets/icons/layout.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> <span data-i18n="tcBtnHeaderCustomise">Header</span></button>
           <button class="neo-btn sm" onclick="tcOpenGlobalStyleModal()" title="Customise font, line spacing, padding, line numbering"><span data-i18n="tcBtnFormat">Style</span></button>
-          <button class="neo-btn success sm" onclick="tcPrintDocument()"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> Print / Save PDF</button>
+          <button class="neo-btn success sm" onclick="tcPrintDocument()"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> <span data-i18n="tcPrintSavePdfBtn">Print / Save PDF</span></button>
           <button class="neo-btn sm" onclick="tcClosePrintPreview()">&times;</button>
         </div>
       </div>
@@ -493,12 +499,12 @@
       </div>
       <div class="modal-bd modal-body">
         <div style="display:flex;flex-direction:column;gap:12px;">
-          <label class="meta-lbl">Output Format:</label>
+          <label class="meta-lbl" data-i18n="tcExportOutputFormat">Output Format:</label>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-            <button class="neo-btn" id="expFmtPdf" onclick="tcSetExportFormat('pdf')">Print / PDF</button>
-            <button class="neo-btn" id="expFmtHtml" onclick="tcSetExportFormat('html')">Standalone HTML</button>
-            <button class="neo-btn" id="expFmtDocx" onclick="tcSetExportFormat('docx')">Word DOCX</button>
-            <button class="neo-btn" id="expFmtMd" onclick="tcSetExportFormat('md')">Markdown</button>
+            <button class="neo-btn" id="expFmtPdf" onclick="tcSetExportFormat('pdf')" data-i18n="tcPrintPdf">Print / PDF</button>
+            <button class="neo-btn" id="expFmtHtml" onclick="tcSetExportFormat('html')" data-i18n="tcExportHtml">Standalone HTML</button>
+            <button class="neo-btn" id="expFmtDocx" onclick="tcSetExportFormat('docx')" data-i18n="tcExportDocx">Word DOCX</button>
+            <button class="neo-btn" id="expFmtMd" onclick="tcSetExportFormat('md')" data-i18n="tcExportMd">Markdown</button>
           </div>
 
           <div style="border-top:1px solid #ddd;padding-top:10px;">
@@ -513,34 +519,34 @@
           </div>
 
           <div style="border-top:1px solid #ddd;padding-top:10px;">
-            <label class="meta-lbl">Target Copy:</label>
+            <label class="meta-lbl" data-i18n="tcExportTargetCopy">Target Copy:</label>
             <div style="display:flex;gap:14px;margin-top:6px;">
               <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:700;">
-                <input type="radio" name="expCopyType" value="student" checked> Student Exam Paper
+                <input type="radio" name="expCopyType" value="student" checked> <span data-i18n="tcStudentExamPaper">Student Exam Paper</span>
               </label>
               <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:700;">
-                <input type="radio" name="expCopyType" value="teacher"> Teacher Marking Key
+                <input type="radio" name="expCopyType" value="teacher"> <span data-i18n="tcTeacherMarkingKey">Teacher Marking Key</span>
               </label>
             </div>
           </div>
 
           <div style="border-top:1px solid #ddd;padding-top:10px;" id="batchExportSection">
-            <label class="meta-lbl">Class Set Batch Export:</label>
+            <label class="meta-lbl" data-i18n="tcBatchExportTitle">Class Set Batch Export:</label>
             <label style="display:flex;align-items:center;gap:8px;margin-top:6px;cursor:pointer;font-weight:700;">
-              <input type="checkbox" id="expBatchToggle" onchange="tcOnBatchToggle()"> Generate 1 personalized sheet per student in class roster
+              <input type="checkbox" id="expBatchToggle" onchange="tcOnBatchToggle()"> <span data-i18n="tcBatchGenerateOption">Generate 1 personalized sheet per student in class roster</span>
             </label>
             
             <div id="batchVariantOptions" style="display:none;margin-top:8px;padding:8px 12px;background:#f8fafc;border:1.5px solid #cbd5e1;border-radius:6px;">
-              <span class="meta-lbl">Group A / B Distribution:</span>
+              <span class="meta-lbl" data-i18n="tcBatchDistributionLabel">Group A / B Distribution:</span>
               <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px;font-size:0.85rem;">
                 <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
-                  <input type="radio" name="batchVariantMode" value="alternating" checked> Alternating roster order (Student 1 = A, 2 = B...)
+                  <input type="radio" name="batchVariantMode" value="alternating" checked> <span data-i18n="tcBatchModeAlternating">Alternating roster order (Student 1 = A, 2 = B...)</span>
                 </label>
                 <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
-                  <input type="radio" name="batchVariantMode" value="seating"> Seating plan adjacency (from Class Plan)
+                  <input type="radio" name="batchVariantMode" value="seating"> <span data-i18n="tcBatchModeSeating">Seating plan adjacency (from Class Plan)</span>
                 </label>
                 <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
-                  <input type="radio" name="batchVariantMode" value="manual"> Manual variant matrix overrides
+                  <input type="radio" name="batchVariantMode" value="manual"> <span data-i18n="tcBatchModeManual">Manual variant matrix overrides</span>
                 </label>
               </div>
             </div>
@@ -557,39 +563,119 @@
     </div>
   </div>
 
-  <!-- ── Pull from Lesson Plan Modal ──────────────────────────────────────── -->
-  <div id="tcPullLessonModal" class="modal-overlay" onclick="if(event.target===this)tcClosePullLessonModal()">
-    <div class="modal-box" style="max-width:620px;">
+  <!-- ── Unit Sequence Modal ────────────────────────────────────────── -->
+  <div id="tcSequenceModal" class="modal-overlay" onclick="if(event.target===this)tcCloseSequenceModal()">
+    <div class="modal-box" style="max-width:760px;max-height:92vh;display:flex;flex-direction:column;">
       <div class="modal-header">
         <span class="modal-title" style="display:flex;align-items:center;gap:8px;">
           <img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:16px;height:16px;" />
-          <span data-i18n="tcPullFromLessonModalTitle">Pull Exercises &amp; Vocab from Lesson Plan</span>
+          <span data-i18n="tcUnitSequenceManager">Unit Sequence Manager</span>
+        </span>
+        <button class="modal-close-btn" onclick="tcCloseSequenceModal()">&times;</button>
+      </div>
+      <div class="modal-bd modal-body" style="display:flex;flex-direction:column;gap:14px;overflow-y:auto;">
+        <!-- Existing Sequence Selector Bar -->
+        <div style="display:flex;gap:8px;align-items:center;background:var(--neo-card-bg,#fff);padding:8px 10px;border:2px solid var(--neo-dark,#000);border-radius:var(--neo-radius-sm,4px);box-shadow:2px 2px 0 #000;">
+          <span style="font-weight:900;font-size:0.82rem;white-space:nowrap;" data-i18n="lcSelectExistingSequence">Existing Sequence:</span>
+          <select id="tcSavedSequencesSelect" class="meta-select" style="flex:1;min-width:0;" onchange="tcOnSavedSequenceSelectChange()">
+            <option value="" data-i18n="lcChooseSequencePlaceholder">-- Choose a sequence to assign / open --</option>
+          </select>
+          <button type="button" class="neo-btn primary" id="tcBtnAssignChosenSeq" onclick="tcAssignSelectedSequence()" disabled style="padding:4px 12px;font-size:0.8rem;white-space:nowrap;">
+            <span data-i18n="tcBtnAssignSequence">Assign to Test</span>
+          </button>
+          <button type="button" class="neo-btn" onclick="tcStartNewSequence()" style="padding:4px 10px;font-size:0.8rem;white-space:nowrap;">
+            <span data-i18n="lcBtnNewSequence">+ New</span>
+          </button>
+        </div>
+
+        <!-- Unit Title and Actions -->
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <input type="text" id="tcSeqTitleInput" class="meta-input" style="flex:1;min-width:200px;" placeholder="Unit Title (e.g. Unit 3: Ecology)" data-i18n-placeholder="lcSeqTitlePlaceholder">
+          <button type="button" class="neo-btn primary" onclick="tcSaveSequence()"><span data-i18n="btnSave">Save Sequence</span></button>
+          <button type="button" class="neo-btn" onclick="tcOpenSequenceExportModal()" style="background:#bbf7d0;color:#14532d;border-color:var(--neo-dark,#000);">
+            <span data-i18n="lcBtnExportEntireSequence">Export Sequence…</span>
+          </button>
+        </div>
+
+        <!-- Current sequence members -->
+        <div>
+          <div style="font-weight:900;font-size:0.85rem;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;">
+            <span data-i18n="lcSeqCurrentMembers">Lessons & Tests in this Sequence</span>
+            <span id="tcSeqMemberCountBadge" style="font-size:0.75rem;font-weight:800;color:var(--neo-gray-dark,#666);">0 items</span>
+          </div>
+          <div id="tcSequenceMembersList" style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;"></div>
+        </div>
+
+        <!-- Picker: available plans and tests to add -->
+        <div style="border-top:2px dashed var(--neo-gray-mid,#cbd5e1);padding-top:10px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:6px;">
+            <div style="font-weight:900;font-size:0.85rem;" data-i18n="lcSeqAvailablePlans">Add Saved Lessons & Tests to Sequence</div>
+            <div style="display:flex;gap:4px;">
+              <button type="button" class="neo-btn sm" id="tcSeqFilterAll" onclick="tcSetSeqPickerFilter('all')" data-i18n="tcFilterTabAll">All</button>
+              <button type="button" class="neo-btn sm" id="tcSeqFilterLessons" onclick="tcSetSeqPickerFilter('lessons')" data-i18n="tcFilterTabLessons">Lessons</button>
+              <button type="button" class="neo-btn sm" id="tcSeqFilterTests" onclick="tcSetSeqPickerFilter('tests')" data-i18n="tcFilterTabTests">Tests</button>
+            </div>
+          </div>
+          <input type="text" id="tcSeqPickerSearch" class="drawer-search-input" placeholder="Search lessons and tests…" data-i18n-placeholder="tcSearchLessonsTestsPlaceholder" oninput="tcFilterSeqPicker()" style="margin-bottom:6px;width:100%;box-sizing:border-box;">
+          <div id="tcSeqPickerList" style="max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="neo-btn" onclick="tcCloseSequenceModal()"><span data-i18n="btnClose">Close</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Pull from Lesson Plan / Unit Sequence Modal ──────────────────────── -->
+  <div id="tcPullLessonModal" class="modal-overlay" onclick="if(event.target===this)tcClosePullLessonModal()">
+    <div class="modal-box" style="max-width:640px;">
+      <div class="modal-header">
+        <span class="modal-title" style="display:flex;align-items:center;gap:8px;">
+          <img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:16px;height:16px;" />
+          <span data-i18n="tcPullFromLessonModalTitle">Pull Exercises &amp; Vocab from Lesson / Unit</span>
         </span>
         <button class="modal-close-btn" onclick="tcClosePullLessonModal()">&times;</button>
       </div>
       <div class="modal-bd modal-body" style="display:flex;flex-direction:column;gap:12px;">
-        <div>
+        <!-- Source Mode Switcher -->
+        <div style="display:flex;gap:6px;background:#f1f5f9;padding:4px;border:2px solid #000;border-radius:4px;">
+          <button type="button" class="neo-btn sm primary" id="tcPullModeSingleBtn" onclick="tcSetPullSourceMode('single')" style="flex:1;">
+            <span data-i18n="tcPullSingleLesson">Single Lesson Plan</span>
+          </button>
+          <button type="button" class="neo-btn sm" id="tcPullModeUnitBtn" onclick="tcSetPullSourceMode('unit')" style="flex:1;">
+            <span data-i18n="tcPullEntireUnit">Entire Unit Sequence</span>
+          </button>
+        </div>
+
+        <div id="tcPullSingleContainer">
           <label class="meta-lbl" data-i18n="tcSelectLessonPrompt">Select a lesson plan to extract from:</label>
           <select id="tcLessonSelect" class="meta-select" style="width:100%;margin-top:4px;" onchange="tcOnLessonSelected()">
-            <option value="">Loading lessons…</option>
+            <option value="" data-i18n="tcLoadingLessons">Loading lessons…</option>
+          </select>
+        </div>
+
+        <div id="tcPullUnitContainer" style="display:none;">
+          <label class="meta-lbl" data-i18n="tcSelectUnitPrompt">Select a unit sequence to aggregate from:</label>
+          <select id="tcUnitSelect" class="meta-select" style="width:100%;margin-top:4px;" onchange="tcOnUnitSelected()">
+            <option value="" data-i18n="tcLoadingUnitSequences">Loading unit sequences…</option>
           </select>
         </div>
 
         <div id="tcLessonPreviewBox" style="display:none;background:#f8fafc;border:2px solid #000;box-shadow:2px 2px 0 #000;padding:10px;border-radius:4px;">
-          <div style="font-weight:900;font-size:0.95rem;color:#000;" id="tcLessonPreviewTitle">Lesson Title</div>
-          <div style="font-size:0.8rem;color:#475569;margin-top:2px;" id="tcLessonPreviewMeta">Subject • Class</div>
+          <div style="font-weight:900;font-size:0.95rem;color:#000;" id="tcLessonPreviewTitle" data-i18n="tcLessonTitleDefault">Lesson Title</div>
+          <div style="font-size:0.8rem;color:#475569;margin-top:2px;" id="tcLessonPreviewMeta" data-i18n="tcSubjectClassDefault">Subject • Class</div>
           <div style="margin-top:8px;font-size:0.82rem;">
-            <strong>Vocabulary / Key Concepts:</strong>
+            <strong data-i18n="tcVocabKeyConcepts">Vocabulary / Key Concepts:</strong>
             <div id="tcLessonPreviewVocab" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;max-height:80px;overflow-y:auto;"></div>
           </div>
           <div style="margin-top:8px;font-size:0.82rem;">
-            <strong>Lesson Phases / Objectives:</strong>
+            <strong data-i18n="tcLessonPhasesObjectives">Lesson Phases / Objectives:</strong>
             <div id="tcLessonPreviewPhases" style="font-size:0.78rem;color:#334155;margin-top:4px;max-height:80px;overflow-y:auto;"></div>
           </div>
         </div>
 
         <div style="border-top:2px solid #000;padding-top:10px;">
-          <label class="meta-lbl">Exercises to Generate:</label>
+          <label class="meta-lbl" data-i18n="tcExercisesToGenerate">Exercises to Generate:</label>
           <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;font-size:0.85rem;font-weight:700;">
             <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
               <input type="checkbox" id="tcPullOptCloze" checked>
@@ -616,6 +702,57 @@
     </div>
   </div>
 
+  <!-- ── Unit Sequence Export Modal ──────────────────────────────────────── -->
+  <div id="tcSequenceExportModal" class="modal-overlay" onclick="if(event.target===this)tcCloseSequenceExportModal()">
+    <div class="modal-box" style="max-width:680px;max-height:92vh;display:flex;flex-direction:column;">
+      <div class="modal-header">
+        <span class="modal-title" style="display:flex;align-items:center;gap:8px;">
+          <img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:16px;height:16px;" />
+          <span data-i18n="lcExportSequenceModalTitle">Export Entire Unit Sequence</span>
+        </span>
+        <button class="modal-close-btn" onclick="tcCloseSequenceExportModal()">&times;</button>
+      </div>
+      <div class="modal-bd modal-body" style="display:flex;flex-direction:column;gap:14px;overflow-y:auto;">
+        <p style="font-size:0.86rem;margin:0;color:var(--neo-gray-dark,#666);" data-i18n="lcExportSequenceDesc">
+          Bundle all lessons, tests, exercises, and vocabulary in this sequence into a comprehensive unit booklet.
+        </p>
+
+        <!-- Export Format Chooser -->
+        <div>
+          <div style="font-weight:900;font-size:0.84rem;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;color:#000;" data-i18n="lcExportFormatTitle">
+            Export Format
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:8px;">
+            <label style="cursor:pointer;border:2px solid #000;padding:10px;border-radius:4px;background:#fff;display:flex;flex-direction:column;gap:4px;box-shadow:2px 2px 0 #000;">
+              <input type="radio" name="tcSeqExportFormat" value="html" checked style="margin:0;">
+              <span style="font-weight:900;font-size:0.85rem;" data-i18n="lcExportHtmlBooklet">HTML Booklet</span>
+              <span style="font-size:0.72rem;color:#666;" data-i18n="lcExportHtmlBookletDesc">Interactive standalone web document with TOC</span>
+            </label>
+            <label style="cursor:pointer;border:2px solid #000;padding:10px;border-radius:4px;background:#fff;display:flex;flex-direction:column;gap:4px;box-shadow:2px 2px 0 #000;">
+              <input type="radio" name="tcSeqExportFormat" value="pdf" style="margin:0;">
+              <span style="font-weight:900;font-size:0.85rem;" data-i18n="lcExportPdfBooklet">Print / PDF</span>
+              <span style="font-size:0.72rem;color:#666;" data-i18n="lcExportPdfBookletDesc">Print-ready unified booklet</span>
+            </label>
+            <label style="cursor:pointer;border:2px solid #000;padding:10px;border-radius:4px;background:#fff;display:flex;flex-direction:column;gap:4px;box-shadow:2px 2px 0 #000;">
+              <input type="radio" name="tcSeqExportFormat" value="markdown" style="margin:0;">
+              <span style="font-weight:900;font-size:0.85rem;" data-i18n="lcExportMarkdownBooklet">Markdown</span>
+              <span style="font-size:0.72rem;color:#666;" data-i18n="lcExportMarkdownBookletDesc">Editable .md for Document Editor</span>
+            </label>
+            <label style="cursor:pointer;border:2px solid #000;padding:10px;border-radius:4px;background:#fff;display:flex;flex-direction:column;gap:4px;box-shadow:2px 2px 0 #000;">
+              <input type="radio" name="tcSeqExportFormat" value="json" style="margin:0;">
+              <span style="font-weight:900;font-size:0.85rem;" data-i18n="lcExportJsonBundle">JSON Archive</span>
+              <span style="font-size:0.72rem;color:#666;" data-i18n="lcExportJsonBundleDesc">Complete data bundle of all unit items</span>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="display:flex;justify-content:space-between;align-items:center;">
+        <button type="button" class="neo-btn" onclick="tcCloseSequenceExportModal()"><span data-i18n="btnCancel">Cancel</span></button>
+        <button type="button" class="neo-btn primary" onclick="tcExecuteSequenceExport()"><span data-i18n="lcExportBtnDownload">Export</span></button>
+      </div>
+    </div>
+  </div>
+
   <!-- 2b. Global Export Styling & Format Modal -->
   <div id="styleCustomisationModal" class="modal-overlay" onclick="if(event.target===this)tcCloseGlobalStyleModal()">
     <div class="modal-box style-modal-box">
@@ -626,10 +763,10 @@
       <div class="modal-body" style="padding:16px;">
         <div style="margin-bottom:14px;padding:10px 14px;background:#fef08a;border:2px solid #000;border-radius:4px;display:flex;align-items:center;justify-content:space-between;box-shadow:2px 2px 0 #000;">
           <div>
-            <div style="font-weight:900;font-size:0.85rem;text-transform:uppercase;">Exam Header &amp; Allowed Materials</div>
-            <div style="font-size:0.78rem;color:#444;">Customise title typography, header borders, allowed materials list, and student notice</div>
+            <div style="font-weight:900;font-size:0.85rem;text-transform:uppercase;" data-i18n="tcExamHeaderAndMaterials">Exam Header &amp; Allowed Materials</div>
+            <div style="font-size:0.78rem;color:#444;" data-i18n="tcExamHeaderMaterialsDesc">Customise title typography, header borders, allowed materials list, and student notice</div>
           </div>
-          <button type="button" class="neo-btn sm" onclick="tcCloseGlobalStyleModal(); tcOpenHeaderCustomizerModal();">Customise Header…</button>
+          <button type="button" class="neo-btn sm" onclick="tcCloseGlobalStyleModal(); tcOpenHeaderCustomizerModal();" data-i18n="tcHeaderCustomiseBtn">Customise Header…</button>
         </div>
         <div class="style-grid-2col">
           <div class="style-control-card">
@@ -644,37 +781,37 @@
           <div class="style-control-card">
             <label data-i18n="tcStyleFontSize">Base Font Size:</label>
             <select id="globalStyleFontSize" class="style-select" onchange="tcOnGlobalStyleChange()">
-              <option value="9pt">9 pt (Compact)</option>
-              <option value="10pt">10 pt (Small)</option>
-              <option value="11pt" selected>11 pt (Standard)</option>
-              <option value="12pt">12 pt (Large)</option>
-              <option value="13pt">13 pt (Comfortable)</option>
-              <option value="14pt">14 pt (Accessible)</option>
-              <option value="16pt">16 pt (Extra Large)</option>
+              <option value="9pt" data-i18n="tcFontSizeCompact">9 pt (Compact)</option>
+              <option value="10pt" data-i18n="tcFontSizeSmall">10 pt (Small)</option>
+              <option value="11pt" selected data-i18n="tcFontSizeStandard">11 pt (Standard)</option>
+              <option value="12pt" data-i18n="tcFontSizeLarge">12 pt (Large)</option>
+              <option value="13pt" data-i18n="tcFontSizeComfortable">13 pt (Comfortable)</option>
+              <option value="14pt" data-i18n="tcFontSizeAccessible">14 pt (Accessible)</option>
+              <option value="16pt" data-i18n="tcFontSizeExtraLarge">16 pt (Extra Large)</option>
             </select>
           </div>
 
           <div class="style-control-card">
             <label data-i18n="tcStyleLineHeight">Line Height (Spacing):</label>
             <select id="globalStyleLineHeight" class="style-select" onchange="tcOnGlobalStyleChange()">
-              <option value="1.2">1.2 (Compact / Dense)</option>
-              <option value="1.4">1.4 (Tight)</option>
-              <option value="1.5" selected>1.5 (Standard)</option>
-              <option value="1.6">1.6 (Medium)</option>
-              <option value="1.8">1.8 (Relaxed / Dyslexic)</option>
-              <option value="2.0">2.0 (Double Spaced)</option>
-              <option value="2.4">2.4 (Wide Answer Spaces)</option>
+              <option value="1.2" data-i18n="tcLineHeightCompactDense">1.2 (Compact / Dense)</option>
+              <option value="1.4" data-i18n="tcLineHeightTight">1.4 (Tight)</option>
+              <option value="1.5" selected data-i18n="tcLineHeightStandard">1.5 (Standard)</option>
+              <option value="1.6" data-i18n="tcLineHeightMedium">1.6 (Medium)</option>
+              <option value="1.8" data-i18n="tcLineHeightRelaxedDyslexic">1.8 (Relaxed / Dyslexic)</option>
+              <option value="2.0" data-i18n="tcLineHeightDoubleSpaced">2.0 (Double Spaced)</option>
+              <option value="2.4" data-i18n="tcLineHeightWideAnswerSpaces">2.4 (Wide Answer Spaces)</option>
             </select>
           </div>
 
           <div class="style-control-card">
             <label data-i18n="tcStylePadding">Exercise Card Padding:</label>
             <select id="globalStylePadding" class="style-select" onchange="tcOnGlobalStyleChange()">
-              <option value="8px">8 px (Compact)</option>
-              <option value="12px">12 px (Tight)</option>
-              <option value="14px" selected>14 px (Standard)</option>
-              <option value="18px">18 px (Spacious)</option>
-              <option value="24px">24 px (Roomy)</option>
+              <option value="8px" data-i18n="tcCardPaddingCompact">8 px (Compact)</option>
+              <option value="12px" data-i18n="tcCardPaddingTight">12 px (Tight)</option>
+              <option value="14px" selected data-i18n="tcCardPaddingStandard">14 px (Standard)</option>
+              <option value="18px" data-i18n="tcCardPaddingSpacious">18 px (Spacious)</option>
+              <option value="24px" data-i18n="tcCardPaddingRoomy">24 px (Roomy)</option>
             </select>
           </div>
 
@@ -725,12 +862,12 @@
             <thead>
               <tr>
                 <th style="width:35px;">#</th>
-                <th>Exercise Title</th>
-                <th style="width:105px;">Font Size</th>
-                <th style="width:105px;">Line Spacing</th>
-                <th style="width:100px;">Padding</th>
-                <th style="width:100px;">Numbered</th>
-                <th style="width:60px;">Action</th>
+                <th data-i18n="tcTableColExerciseTitle">Exercise Title</th>
+                <th style="width:105px;" data-i18n="tcTableColFontSize">Font Size</th>
+                <th style="width:105px;" data-i18n="tcTableColLineSpacing">Line Spacing</th>
+                <th style="width:100px;" data-i18n="tcTableColPadding">Padding</th>
+                <th style="width:100px;" data-i18n="tcTableColNumbered">Numbered</th>
+                <th style="width:60px;" data-i18n="tcTableColAction">Action</th>
               </tr>
             </thead>
             <tbody id="styleExTableBody">
@@ -749,13 +886,13 @@
   <div id="exerciseStyleModal" class="modal-overlay" onclick="if(event.target===this)tcCloseExerciseStyleModal()">
     <div class="modal-box" style="max-width:560px;">
       <div class="modal-header">
-        <span class="modal-title" id="exerciseStyleModalTitle">Exercise Export &amp; Question Style</span>
+        <span class="modal-title" id="exerciseStyleModalTitle" data-i18n="tcExerciseExportQuestionStyle">Exercise Export &amp; Question Style</span>
         <button class="modal-close-btn" onclick="tcCloseExerciseStyleModal()">&times;</button>
       </div>
       <div class="modal-body" style="padding:16px;max-height:80vh;overflow-y:auto;">
         <label class="style-checkbox-row" style="margin-bottom:12px;">
           <input type="checkbox" id="exStyleCustomToggle" onchange="tcOnExStyleCustomToggle()">
-          <span style="font-weight:800;">Override global test styling for this exercise</span>
+          <span style="font-weight:800;" data-i18n="tcOverrideGlobalStyle">Override global test styling for this exercise</span>
         </label>
 
         <div id="exStyleCustomFields" style="display:none;flex-direction:column;gap:12px;">
@@ -764,7 +901,7 @@
             <div class="style-control-card">
               <label>Font Size:</label>
               <select id="exStyleFontSize" class="style-select">
-                <option value="">Inherit Global</option>
+                <option value="" data-i18n="tcInheritedGlobal">Inherit Global</option>
                 <option value="9pt">9 pt</option>
                 <option value="10pt">10 pt</option>
                 <option value="11pt">11 pt</option>
@@ -804,19 +941,19 @@
             <div class="style-control-card">
               <label>Numbered Lines:</label>
               <select id="exStyleNumberedLines" class="style-select">
-                <option value="inherit">Inherit Global</option>
-                <option value="true">Always Numbered</option>
-                <option value="false">No Numbering</option>
+                <option value="inherit" data-i18n="tcInheritedGlobal">Inherit Global</option>
+                <option value="true" data-i18n="tcAlwaysNumbered">Always Numbered</option>
+                <option value="false" data-i18n="tcNoNumbering">No Numbering</option>
               </select>
             </div>
           </div>
 
           <!-- Exercise Title Typography -->
           <div style="border-top:1.5px solid #000;padding-top:10px;">
-            <div style="font-weight:900;font-size:0.83rem;text-transform:uppercase;margin-bottom:6px;">Exercise Title Typography:</div>
+            <div style="font-weight:900;font-size:0.83rem;text-transform:uppercase;margin-bottom:6px;" data-i18n="tcExerciseTitleTypography">Exercise Title Typography:</div>
             <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
               <select id="exStyleTitleSize" class="meta-select" style="padding:3px 6px;font-size:0.8rem;">
-                <option value="">Default Size</option>
+                <option value="" data-i18n="tcDefaultSize">Default Size</option>
                 <option value="10pt">10 pt</option>
                 <option value="11pt">11 pt</option>
                 <option value="12pt">12 pt</option>
@@ -833,7 +970,7 @@
 
           <!-- Instructions Typography -->
           <div style="border-top:1px solid #cbd5e1;padding-top:10px;">
-            <div style="font-weight:900;font-size:0.83rem;text-transform:uppercase;margin-bottom:6px;">Instructions Typography:</div>
+            <div style="font-weight:900;font-size:0.83rem;text-transform:uppercase;margin-bottom:6px;" data-i18n="tcInstructionsTypography">Instructions Typography:</div>
             <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
               <select id="exStyleInstrSize" class="meta-select" style="padding:3px 6px;font-size:0.8rem;">
                 <option value="">Default Size</option>
@@ -850,23 +987,23 @@
 
           <!-- Questions & Prompts Styling -->
           <div style="border-top:1px solid #cbd5e1;padding-top:10px;">
-            <div style="font-weight:900;font-size:0.83rem;text-transform:uppercase;margin-bottom:6px;">Questions &amp; Prompts Styling:</div>
+            <div style="font-weight:900;font-size:0.83rem;text-transform:uppercase;margin-bottom:6px;" data-i18n="tcQuestionsPromptsStyling">Questions &amp; Prompts Styling:</div>
             <div class="style-grid-2col">
               <div class="style-control-card">
-                <label>Question Items Spacing:</label>
+                <label data-i18n="tcQuestionItemsSpacing">Question Items Spacing:</label>
                 <select id="exStyleItemSpacing" class="style-select">
-                  <option value="standard">Standard (12px gap)</option>
-                  <option value="compact">Compact (6px gap)</option>
-                  <option value="relaxed">Relaxed (18px gap)</option>
+                  <option value="standard" data-i18n="tcSpacingStandard">Standard (12px gap)</option>
+                  <option value="compact" data-i18n="tcSpacingCompact">Compact (6px gap)</option>
+                  <option value="relaxed" data-i18n="tcSpacingRelaxed">Relaxed (18px gap)</option>
                 </select>
               </div>
               <div class="style-control-card">
-                <label>Exercise Card Border:</label>
+                <label data-i18n="tcExerciseCardBorder">Exercise Card Border:</label>
                 <select id="exStyleCardBorder" class="style-select">
-                  <option value="academic">Academic Classic Border</option>
-                  <option value="neobrutalist">Neobrutalist Block Border</option>
-                  <option value="minimal">Minimal Subtle Border</option>
-                  <option value="borderless">Borderless (Divider line only)</option>
+                  <option value="academic" data-i18n="tcBorderClassic">Academic Classic Border</option>
+                  <option value="neobrutalist" data-i18n="tcBorderNeobrutalist">Neobrutalist Block Border</option>
+                  <option value="minimal" data-i18n="tcBorderMinimal">Minimal Subtle Border</option>
+                  <option value="borderless" data-i18n="tcBorderNone">Borderless (Divider line only)</option>
                 </select>
               </div>
             </div>
@@ -905,8 +1042,8 @@
             <!-- Populated with built-in and user saved header templates -->
           </select>
           <button type="button" class="neo-btn sm primary" onclick="tcApplySelectedHeaderTemplate()" data-i18n="tcApplyHeaderTemplate">Apply Template</button>
-          <button type="button" class="neo-btn sm yellow" onclick="tcSaveCurrentHeaderAsTemplate()" title="Save current header settings &amp; materials as a reusable template">+ <span data-i18n="tcSaveHeaderTemplate">Save as Template…</span></button>
-          <button type="button" class="neo-btn sm danger" id="tcDeleteHeaderTemplateBtn" style="display:none;" onclick="tcDeleteSelectedHeaderTemplate()" title="Delete custom template">&times;</button>
+          <button type="button" class="neo-btn sm yellow" onclick="tcSaveCurrentHeaderAsTemplate()" title="Save current header settings &amp; materials as a reusable template" data-i18n-title="tcSaveHeaderTemplateTooltip">+ <span data-i18n="tcSaveHeaderTemplate">Save as Template…</span></button>
+          <button type="button" class="neo-btn sm danger" id="tcDeleteHeaderTemplateBtn" style="display:none;" onclick="tcDeleteSelectedHeaderTemplate()" title="Delete custom template" data-i18n-title="tcDeleteCustomTemplateTooltip">&times;</button>
         </div>
 
         <!-- Header Tabs Navigation -->
@@ -948,7 +1085,7 @@
           <div style="background:#fff;border:2px solid #000;border-radius:4px;padding:10px;margin-bottom:12px;">
             <div style="font-size:0.8rem;font-weight:900;text-transform:uppercase;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
               <span data-i18n="tcActiveMaterialsTitle">Active Materials for this Test:</span>
-              <button type="button" class="neo-btn sm" style="font-size:0.72rem;padding:1px 6px;color:#ef4444;" onclick="tcClearAllMaterials()">Clear All</button>
+              <button type="button" class="neo-btn sm" style="font-size:0.72rem;padding:1px 6px;color:#ef4444;" onclick="tcClearAllMaterials()" data-i18n="btnClearAll">Clear All</button>
             </div>
             <div id="hdrActiveMaterialsList" style="display:flex;flex-direction:column;gap:6px;min-height:40px;"></div>
           </div>
@@ -956,14 +1093,14 @@
           <!-- Display & Typography Controls for Materials -->
           <div class="style-grid-2col" style="background:#f8fafc;border:1.5px solid #cbd5e1;border-radius:4px;padding:10px;">
             <div class="style-control-card">
-              <label>Materials Display Mode:</label>
+              <label data-i18n="tcMaterialsDisplayMode">Materials Display Mode:</label>
               <select id="hdrMaterialsDisplayMode" class="style-select" onchange="tcUpdateHeaderMaterialsOpt('displayMode', this.value)">
-                <option value="inline">Inline Comma-Separated</option>
-                <option value="badges">Individual Pill Badges</option>
+                <option value="inline" data-i18n="tcMaterialsModeInline">Inline Comma-Separated</option>
+                <option value="badges" data-i18n="tcMaterialsModeBadges">Individual Pill Badges</option>
               </select>
             </div>
             <div class="style-control-card">
-              <label>Label &amp; Content Styling:</label>
+              <label data-i18n="tcLabelContentStyling">Label &amp; Content Styling:</label>
               <div style="display:flex;gap:12px;align-items:center;margin-top:4px;">
                 <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-weight:700;font-size:0.8rem;">
                   <input type="checkbox" id="hdrMatBold" onchange="tcUpdateHeaderMaterialsOpt('bold', this.checked)"> Bold Label
@@ -990,19 +1127,19 @@
             <table class="hdr-elements-table">
               <thead>
                 <tr>
-                  <th style="width:70px;">Show</th>
-                  <th style="width:140px;">Element</th>
-                  <th>Custom Label / Content</th>
-                  <th style="width:120px;">Typography</th>
-                  <th style="width:120px;">Options</th>
+                  <th style="width:70px;" data-i18n="tcTableColShow">Show</th>
+                  <th style="width:140px;" data-i18n="tcTableColElement">Element</th>
+                  <th data-i18n="tcTableColCustomLabel">Custom Label / Content</th>
+                  <th style="width:120px;" data-i18n="tcTableColTypography">Typography</th>
+                  <th style="width:120px;" data-i18n="tcTableColOptions">Options</th>
                 </tr>
               </thead>
               <tbody>
                 <!-- Row 1: Exam Title -->
                 <tr>
                   <td><input type="checkbox" id="hdrChk_showTitle" onchange="tcUpdateHdrElem('showTitle', this.checked)"></td>
-                  <td><strong>Exam Title</strong></td>
-                  <td><span style="font-size:0.8rem;color:#64748b;">(Uses Test Title input)</span></td>
+                  <td><strong data-i18n="tcElemExamTitle">Exam Title</strong></td>
+                  <td><span style="font-size:0.8rem;color:#64748b;" data-i18n="tcUsesTestTitleInput">(Uses Test Title input)</span></td>
                   <td>
                     <div class="tc-btn-toggle-group">
                       <button type="button" id="hdrBtn_title_bold" class="hdr-fmt-toggle bold" onclick="tcToggleElemFmt('titleStyle', 'bold')">B</button>
@@ -1029,8 +1166,8 @@
                 <!-- Row 2: Subtitle / Institution -->
                 <tr>
                   <td><input type="checkbox" id="hdrChk_showSubtitle" onchange="tcUpdateHdrElem('showSubtitle', this.checked)"></td>
-                  <td><strong>Subtitle / Dept</strong></td>
-                  <td><input type="text" id="hdrInput_subtitleText" class="meta-input" style="width:100%;font-size:0.8rem;" placeholder="e.g. Lycée International — Science Dept" oninput="tcUpdateHdrElem('subtitleText', this.value)" onchange="tcUpdateHdrElem('subtitleText', this.value)"></td>
+                  <td><strong data-i18n="tcElemSubtitleDept">Subtitle / Dept</strong></td>
+                  <td><input type="text" id="hdrInput_subtitleText" class="meta-input" style="width:100%;font-size:0.8rem;" placeholder="e.g. Lycée International — Science Dept" data-i18n-placeholder="tcHeaderSubtitlePlaceholder" oninput="tcUpdateHdrElem('subtitleText', this.value)" onchange="tcUpdateHdrElem('subtitleText', this.value)"></td>
                   <td>
                     <div class="tc-btn-toggle-group">
                       <button type="button" id="hdrBtn_subtitle_bold" class="hdr-fmt-toggle bold" onclick="tcToggleElemFmt('subtitleStyle', 'bold')">B</button>
@@ -1041,9 +1178,9 @@
                   <td>
                     <div style="display:inline-flex;align-items:center;gap:4px;">
                       <select id="hdrSelect_subtitleAlign" class="meta-select" style="padding:2px 4px;font-size:0.75rem;" onchange="tcUpdateElemStyle('subtitleStyle', 'align', this.value)">
-                        <option value="left">Left</option>
+                        <option value="left" data-i18n="tcAlignLeft">Left</option>
                         <option value="center">Center</option>
-                        <option value="right">Right</option>
+                        <option value="right" data-i18n="tcAlignRight">Right</option>
                       </select>
                       <div class="tc-unit-input-wrap">
                         <input type="number" id="hdrInput_subtitleSizeVal" class="tc-unit-val" style="width:38px;" min="6" max="48" step="1" value="12" onchange="tcUpdateHeaderSubtitleSize()">
@@ -1061,7 +1198,7 @@
                 <!-- Row 3: Student Name -->
                 <tr>
                   <td><input type="checkbox" id="hdrChk_showStudentName" onchange="tcUpdateHdrElem('showStudentName', this.checked)"></td>
-                  <td><strong>Student Name</strong></td>
+                  <td><strong data-i18n="tcElemStudentName">Student Name</strong></td>
                   <td><input type="text" id="hdrInput_studentNameLabel" class="meta-input" style="width:100%;font-size:0.8rem;" value="Student Name:" oninput="tcUpdateHdrElem('studentNameLabel', this.value)" onchange="tcUpdateHdrElem('studentNameLabel', this.value)"></td>
                   <td>
                     <div class="tc-btn-toggle-group">
@@ -1072,9 +1209,9 @@
                   </td>
                   <td>
                     <select id="hdrSelect_nameLineStyle" class="meta-select" style="padding:2px 4px;font-size:0.75rem;" onchange="tcUpdateElemStyle('studentNameStyle', 'lineStyle', this.value)">
-                      <option value="line">Solid Line (______)</option>
-                      <option value="dotted">Dotted Line (......)</option>
-                      <option value="box">Bordered Box [ &nbsp; ]</option>
+                      <option value="line" data-i18n="tcLineSolidName">Solid Line (______)</option>
+                      <option value="dotted" data-i18n="tcLineDottedName">Dotted Line (......)</option>
+                      <option value="box" data-i18n="tcBoxBorderedName">Bordered Box [ &nbsp; ]</option>
                     </select>
                   </td>
                 </tr>
@@ -1082,7 +1219,7 @@
                 <!-- Row 4: Class / Group -->
                 <tr>
                   <td><input type="checkbox" id="hdrChk_showClass" onchange="tcUpdateHdrElem('showClass', this.checked)"></td>
-                  <td><strong>Class / Group</strong></td>
+                  <td><strong data-i18n="tcElemClassGroup">Class / Group</strong></td>
                   <td><input type="text" id="hdrInput_classLabel" class="meta-input" style="width:100%;font-size:0.8rem;" value="Class / Group:" oninput="tcUpdateHdrElem('classLabel', this.value)" onchange="tcUpdateHdrElem('classLabel', this.value)"></td>
                   <td>
                     <div class="tc-btn-toggle-group">
@@ -1097,7 +1234,7 @@
                 <!-- Row 5: Date -->
                 <tr>
                   <td><input type="checkbox" id="hdrChk_showDate" onchange="tcUpdateHdrElem('showDate', this.checked)"></td>
-                  <td><strong>Date</strong></td>
+                  <td><strong data-i18n="tcElemDate">Date</strong></td>
                   <td><input type="text" id="hdrInput_dateLabel" class="meta-input" style="width:100%;font-size:0.8rem;" value="Date:" oninput="tcUpdateHdrElem('dateLabel', this.value)" onchange="tcUpdateHdrElem('dateLabel', this.value)"></td>
                   <td>
                     <div class="tc-btn-toggle-group">
@@ -1112,7 +1249,7 @@
                 <!-- Row 6: Teacher -->
                 <tr>
                   <td><input type="checkbox" id="hdrChk_showTeacher" onchange="tcUpdateHdrElem('showTeacher', this.checked)"></td>
-                  <td><strong>Teacher</strong></td>
+                  <td><strong data-i18n="tcElemTeacher">Teacher</strong></td>
                   <td><input type="text" id="hdrInput_teacherLabel" class="meta-input" style="width:100%;font-size:0.8rem;" value="Teacher:" oninput="tcUpdateHdrElem('teacherLabel', this.value)" onchange="tcUpdateHdrElem('teacherLabel', this.value)"></td>
                   <td>
                     <div class="tc-btn-toggle-group">
@@ -1127,7 +1264,7 @@
                 <!-- Row 7: Duration -->
                 <tr>
                   <td><input type="checkbox" id="hdrChk_showDuration" onchange="tcUpdateHdrElem('showDuration', this.checked)"></td>
-                  <td><strong>Duration</strong></td>
+                  <td><strong data-i18n="tcElemDuration">Duration</strong></td>
                   <td><input type="text" id="hdrInput_durationLabel" class="meta-input" style="width:100%;font-size:0.8rem;" value="Duration:" oninput="tcUpdateHdrElem('durationLabel', this.value)" onchange="tcUpdateHdrElem('durationLabel', this.value)"></td>
                   <td>
                     <div class="tc-btn-toggle-group">
@@ -1142,7 +1279,7 @@
                 <!-- Row 8: Allowed Materials Line -->
                 <tr>
                   <td><input type="checkbox" id="hdrChk_showMaterials" onchange="tcUpdateHdrElem('showMaterials', this.checked)"></td>
-                  <td><strong>Materials Allowed</strong></td>
+                  <td><strong data-i18n="tcElemMaterialsAllowed">Materials Allowed</strong></td>
                   <td><input type="text" id="hdrInput_materialsLabel" class="meta-input" style="width:100%;font-size:0.8rem;" value="Materials:" oninput="tcUpdateHdrElem('materialsLabel', this.value)" onchange="tcUpdateHdrElem('materialsLabel', this.value)"></td>
                   <td>
                     <div class="tc-btn-toggle-group">
@@ -1157,7 +1294,7 @@
                 <!-- Row 9: Scope / Topic -->
                 <tr>
                   <td><input type="checkbox" id="hdrChk_showScope" onchange="tcUpdateHdrElem('showScope', this.checked)"></td>
-                  <td><strong>Scope / Topic</strong></td>
+                  <td><strong data-i18n="tcElemScopeTopic">Scope / Topic</strong></td>
                   <td><input type="text" id="hdrInput_scopeLabel" class="meta-input" style="width:100%;font-size:0.8rem;" value="Scope / Topic:" oninput="tcUpdateHdrElem('scopeLabel', this.value)" onchange="tcUpdateHdrElem('scopeLabel', this.value)"></td>
                   <td>
                     <div class="tc-btn-toggle-group">
@@ -1172,7 +1309,7 @@
                 <!-- Row 10: Total Points Box -->
                 <tr>
                   <td><input type="checkbox" id="hdrChk_showTotalPoints" onchange="tcUpdateHdrElem('showTotalPoints', this.checked)"></td>
-                  <td><strong>Points / Score Box</strong></td>
+                  <td><strong data-i18n="tcElemScoreBox">Points / Score Box</strong></td>
                   <td><input type="text" id="hdrInput_pointsLabel" class="meta-input" style="width:100%;font-size:0.8rem;" value="Total Points:" oninput="tcUpdateHdrElem('pointsLabel', this.value)" onchange="tcUpdateHdrElem('pointsLabel', this.value)"></td>
                   <td>
                     <div class="tc-btn-toggle-group">
@@ -1187,8 +1324,8 @@
                 <!-- Row 11: Variant Badge -->
                 <tr>
                   <td><input type="checkbox" id="hdrChk_showVariantBadge" onchange="tcUpdateHdrElem('showVariantBadge', this.checked)"></td>
-                  <td><strong>Variant Badge</strong></td>
-                  <td><span style="font-size:0.8rem;color:#64748b;">(Displays GROUP A or GROUP B)</span></td>
+                  <td><strong data-i18n="tcElemVariantBadge">Variant Badge</strong></td>
+                  <td><span style="font-size:0.8rem;color:#64748b;" data-i18n="tcDisplaysGroupAB">(Displays GROUP A or GROUP B)</span></td>
                   <td></td>
                   <td></td>
                 </tr>
@@ -1196,7 +1333,7 @@
                 <!-- Row 12: Grading Scale Table -->
                 <tr>
                   <td><input type="checkbox" id="hdrChk_showGradingScale" onchange="tcUpdateHdrElem('showGradingScale', this.checked); tcUpdateScaleBarPrintChk();"></td>
-                  <td><strong>Grading Scale Table</strong></td>
+                  <td><strong data-i18n="tcElemGradingScaleTable">Grading Scale Table</strong></td>
                   <td><input type="text" id="hdrInput_gradingScaleLabel" class="meta-input" style="width:100%;font-size:0.8rem;" value="Grading Scale &amp; Score Conversion:" oninput="tcUpdateHdrElem('gradingScaleLabel', this.value)" onchange="tcUpdateHdrElem('gradingScaleLabel', this.value)"></td>
                   <td>
                     <div class="tc-btn-toggle-group">
@@ -1261,7 +1398,7 @@
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
               <label style="display:flex;align-items:center;gap:6px;font-weight:800;font-size:0.85rem;cursor:pointer;">
                 <input type="checkbox" id="hdrChk_showInstructions" onchange="tcUpdateHdrElem('showInstructions', this.checked)">
-                <span>Include Student Instructions / Guidelines Box</span>
+                <span data-i18n="tcIncludeStudentGuidelines">Include Student Instructions / Guidelines Box</span>
               </label>
               <div class="tc-btn-toggle-group">
                 <button type="button" id="hdrBtn_instr_bold" class="hdr-fmt-toggle bold" onclick="tcToggleElemFmt('instructionsStyle', 'bold')">B</button>
@@ -1269,13 +1406,13 @@
                 <button type="button" id="hdrBtn_instr_underline" class="hdr-fmt-toggle underline" onclick="tcToggleElemFmt('instructionsStyle', 'underline')">U</button>
               </div>
             </div>
-            <textarea id="hdrText_instructionsText" class="meta-input" style="width:100%;height:52px;font-size:0.82rem;" placeholder="e.g. Read all questions carefully before answering. Write legibly and in full sentences. Show all calculation work." oninput="tcUpdateHdrElem('instructionsText', this.value)" onchange="tcUpdateHdrElem('instructionsText', this.value)"></textarea>
+            <textarea id="hdrText_instructionsText" class="meta-input" style="width:100%;height:52px;font-size:0.82rem;" placeholder="e.g. Read all questions carefully before answering. Write legibly and in full sentences. Show all calculation work." data-i18n-placeholder="tcStudentGuidelinesPlaceholder" oninput="tcUpdateHdrElem('instructionsText', this.value)" onchange="tcUpdateHdrElem('instructionsText', this.value)"></textarea>
             <div style="display:flex;gap:10px;align-items:center;margin-top:6px;font-size:0.8rem;">
-              <span style="font-weight:700;">Box Style:</span>
+              <span style="font-weight:700;" data-i18n="tcBoxStyleLabel">Box Style:</span>
               <select id="hdrSelect_instrBorder" class="meta-select" style="padding:2px 8px;font-size:0.78rem;" onchange="tcUpdateElemStyle('instructionsStyle', 'border', this.value)">
-                <option value="box">Bordered Box (Classic)</option>
-                <option value="quote">Accent Left Bar (Blue Quote)</option>
-                <option value="tint">Highlighted Yellow Notice</option>
+                <option value="box" data-i18n="tcBoxStyleClassic">Bordered Box (Classic)</option>
+                <option value="quote" data-i18n="tcBoxStyleQuote">Accent Left Bar (Blue Quote)</option>
+                <option value="tint" data-i18n="tcBoxStyleTint">Highlighted Yellow Notice</option>
               </select>
             </div>
           </div>
@@ -1289,42 +1426,42 @@
 
           <div class="style-grid-2col">
             <div class="style-control-card">
-              <label>Header Outer Border:</label>
+              <label data-i18n="tcHeaderOuterBorderLabel">Header Outer Border:</label>
               <select id="hdrSelect_borderStyle" class="style-select" onchange="tcUpdateHdrElem('borderStyle', this.value)">
-                <option value="double">Classic Double Rule (2px double #000)</option>
-                <option value="neobrutalist">Modern Neobrutalist (3px solid #000 + shadow)</option>
-                <option value="solid">Clean Solid Border (2px solid #000)</option>
-                <option value="dashed">Dashed Border (2px dashed #444)</option>
-                <option value="minimal">Minimal (Top &amp; Bottom rules only)</option>
-                <option value="none">None (Borderless)</option>
+                <option value="double" data-i18n="tcHeaderBorderDouble">Classic Double Rule (2px double #000)</option>
+                <option value="neobrutalist" data-i18n="tcHeaderBorderNeobrutalist">Modern Neobrutalist (3px solid #000 + shadow)</option>
+                <option value="solid" data-i18n="tcHeaderBorderSolid">Clean Solid Border (2px solid #000)</option>
+                <option value="dashed" data-i18n="tcHeaderBorderDashed">Dashed Border (2px dashed #444)</option>
+                <option value="minimal" data-i18n="tcHeaderBorderMinimal">Minimal (Top &amp; Bottom rules only)</option>
+                <option value="none" data-i18n="tcHeaderBorderNone">None (Borderless)</option>
               </select>
             </div>
 
             <div class="style-control-card">
-              <label>Metadata Layout Arrangement:</label>
+              <label data-i18n="tcHeaderLayoutLabel">Metadata Layout Arrangement:</label>
               <select id="hdrSelect_layout" class="style-select" onchange="tcUpdateHdrElem('layout', this.value)">
-                <option value="3-columns">3-Column Grid (Standard Academic)</option>
-                <option value="2-columns">2-Column Grid (Spacious)</option>
-                <option value="compact">Compact Inline Flow</option>
-                <option value="table">Formal Evaluation Table</option>
+                <option value="3-columns" data-i18n="tcHeaderLayout3Col">3-Column Grid (Standard Academic)</option>
+                <option value="2-columns" data-i18n="tcHeaderLayout2Col">2-Column Grid (Spacious)</option>
+                <option value="compact" data-i18n="tcHeaderLayoutCompact">Compact Inline Flow</option>
+                <option value="table" data-i18n="tcHeaderLayoutTable">Formal Evaluation Table</option>
               </select>
             </div>
 
             <div class="style-control-card">
-              <label>Header Background Tint:</label>
+              <label data-i18n="tcHeaderBgTintLabel">Header Background Tint:</label>
               <select id="hdrSelect_bgTint" class="style-select" onchange="tcUpdateHdrElem('backgroundTint', this.value)">
-                <option value="ivory">Soft Ivory / Cream (#fdfdf6)</option>
-                <option value="white">Pure White (#ffffff)</option>
-                <option value="light_gray">Subtle Slate Grey (#f8fafc)</option>
+                <option value="ivory" data-i18n="tcHeaderBgIvory">Soft Ivory / Cream (#fdfdf6)</option>
+                <option value="white" data-i18n="tcHeaderBgWhite">Pure White (#ffffff)</option>
+                <option value="light_gray" data-i18n="tcHeaderBgSlate">Subtle Slate Grey (#f8fafc)</option>
               </select>
             </div>
 
             <div class="style-control-card">
-              <label>Header Padding &amp; Margins:</label>
+              <label data-i18n="tcHeaderPaddingLabel">Header Padding &amp; Margins:</label>
               <select id="hdrSelect_padding" class="style-select" onchange="tcUpdateHdrElem('padding', this.value)">
-                <option value="compact">Compact (8px pad, 16px bottom)</option>
-                <option value="standard" selected>Standard (14px pad, 24px bottom)</option>
-                <option value="spacious">Spacious (20px pad, 30px bottom)</option>
+                <option value="compact" data-i18n="tcHeaderPadCompact">Compact (8px pad, 16px bottom)</option>
+                <option value="standard" selected data-i18n="tcHeaderPadStandard">Standard (14px pad, 24px bottom)</option>
+                <option value="spacious" data-i18n="tcHeaderPadSpacious">Spacious (20px pad, 30px bottom)</option>
               </select>
             </div>
           </div>
@@ -1373,7 +1510,7 @@
   <div id="gradeSheetModal" class="modal-overlay" onclick="if(event.target===this)tcCloseGradeSheetModal()">
     <div class="modal-box" style="max-width:580px;">
       <div class="modal-header">
-        <span class="modal-title">Register Test in Grade Sheet</span>
+        <span class="modal-title" data-i18n="tcRegisterGradeSheetTitle">Register Test in Grade Sheet</span>
         <button class="modal-close-btn" onclick="tcCloseGradeSheetModal()">&times;</button>
       </div>
       <div class="modal-body">
@@ -1382,23 +1519,23 @@
         </p>
         <div style="display:flex;flex-direction:column;gap:8px;">
           <div class="meta-field-group">
-            <span class="meta-lbl">Target Class:</span>
+            <span class="meta-lbl" data-i18n="tcTargetClass">Target Class:</span>
             <select id="gsTargetClass" class="meta-select" style="flex:1;"></select>
           </div>
           <div class="meta-field-group">
-            <span class="meta-lbl">Term / Period:</span>
+            <span class="meta-lbl" data-i18n="tcTermPeriodLabel">Term / Period:</span>
             <select id="gsTargetTerm" class="meta-select" style="flex:1;">
-              <option value="t1">Term 1 / Semester 1</option>
-              <option value="t2">Term 2 / Semester 2</option>
-              <option value="t3">Term 3</option>
+              <option value="t1" data-i18n="tcTermOption1">Term 1 / Semester 1</option>
+              <option value="t2" data-i18n="tcTermOption2">Term 2 / Semester 2</option>
+              <option value="t3" data-i18n="tcTermOption3">Term 3</option>
             </select>
           </div>
           <div class="meta-field-group">
-            <span class="meta-lbl">Evaluation Name:</span>
+            <span class="meta-lbl" data-i18n="tcEvalNameLabel">Evaluation Name:</span>
             <input type="text" id="gsEvalName" class="meta-input" style="flex:1;">
           </div>
           <div class="meta-field-group">
-            <span class="meta-lbl">Sub-Criteria Breakdown:</span>
+            <span class="meta-lbl" data-i18n="tcSubCriteriaBreakdownLabel">Sub-Criteria Breakdown:</span>
           </div>
           <div id="gsSubCriteriaList" style="max-height:160px;overflow-y:auto;border:1.5px solid #cbd5e1;border-radius:6px;padding:6px;background:#f8fafc;font-size:0.82rem;">
             <!-- Rendered sub-criteria -->
@@ -1416,11 +1553,11 @@
   <div id="variantMatrixModal" class="modal-overlay" onclick="if(event.target===this)tcCloseVariantMatrixModal()">
     <div class="modal-box" style="max-width:600px;">
       <div class="modal-header">
-        <span class="modal-title">Student Variant Assignment Matrix</span>
+        <span class="modal-title" data-i18n="tcVariantMatrixTitle">Student Variant Assignment Matrix</span>
         <button class="modal-close-btn" onclick="tcCloseVariantMatrixModal()">&times;</button>
       </div>
       <div class="modal-body">
-        <p style="font-size:0.85rem;color:#475569;">Assign students in this class to Group A or Group B test variants:</p>
+        <p style="font-size:0.85rem;color:#475569;" data-i18n="tcVariantMatrixDesc">Assign students in this class to Group A or Group B test variants:</p>
         <div style="display:flex;gap:8px;margin-bottom:8px;">
           <button class="neo-btn sm" onclick="tcAutoAssignVariants('alternating')" data-i18n="tcAutoAlternate">Auto-Alternate</button>
           <button class="neo-btn sm" onclick="tcAutoAssignVariants('seating')" data-i18n="tcBySeatingPlan">By Seating Plan</button>
@@ -1460,7 +1597,7 @@
 
         <div style="display:flex;flex-direction:column;gap:4px;">
           <span class="field-label" id="bulkAddPasteLabel" data-i18n="tcPasteLinesLabel">Or paste lines (one item per line):</span>
-          <textarea id="bulkAddPasteArea" class="meta-input" style="width:100%;height:130px;font-family:monospace;font-size:0.85rem;line-height:1.4;" placeholder="Paste questions, sentences, or word pairs here..."></textarea>
+          <textarea id="bulkAddPasteArea" class="meta-input" style="width:100%;height:130px;font-family:monospace;font-size:0.85rem;line-height:1.4;" placeholder="Paste questions, sentences, or word pairs here..." data-i18n-placeholder="tcBulkAddPastePlaceholder"></textarea>
         </div>
       </div>
       <div class="modal-footer">
@@ -1484,8 +1621,8 @@
       <div class="modal-body" style="display:flex;flex-direction:column;gap:12px;">
         <div style="display:flex;gap:8px;align-items:center;">
           <input type="text" id="testPickerSearch" class="meta-input" style="flex:1;" placeholder="Search saved tests by title, subject, class, or topic…" data-i18n-placeholder="tcFilterSavedTests" oninput="tcFilterTestPicker()">
-          <button type="button" class="neo-btn sm" onclick="tcBrowseAndLoadFile()" title="Browse and open a JSON test file from disk"><img src="../assets/icons/folder.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> <span data-i18n="tcBrowseTestFile">Browse File…</span></button>
-          <button type="button" class="neo-btn sm" onclick="tcLoadTestPickerList()" title="Refresh list">⟳ <span data-i18n="btnRefresh">Refresh</span></button>
+          <button type="button" class="neo-btn sm" onclick="tcBrowseAndLoadFile()" title="Browse and open a JSON test file from disk" data-i18n-title="tcBrowseTestFileTooltip"><img src="../assets/icons/folder.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> <span data-i18n="tcBrowseTestFile">Browse File…</span></button>
+          <button type="button" class="neo-btn sm" onclick="tcLoadTestPickerList()" title="Refresh list" data-i18n-title="tcRefreshListTooltip">⟳ <span data-i18n="btnRefresh">Refresh</span></button>
         </div>
         <div id="testPickerList" style="display:flex;flex-direction:column;gap:8px;max-height:380px;overflow-y:auto;padding-right:4px;">
           <!-- Loaded via JavaScript -->
@@ -1516,8 +1653,8 @@
         <!-- Top Toolbar & Search -->
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <input type="text" id="templatePickerSearch" class="meta-input" style="flex:1;min-width:220px;" placeholder="Search templates by title, subject, or description…" data-i18n-placeholder="tcFilterTemplatesPlaceholder" oninput="tcFilterTemplatePicker()">
-          <button type="button" class="neo-btn sm" onclick="document.getElementById('tcTemplateFileInput').click()" title="Import a template JSON file from disk"><img src="../assets/icons/folder.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> <span data-i18n="tcImportTemplate">Import Template…</span></button>
-          <button type="button" class="neo-btn sm yellow" onclick="tcSaveAsTemplate()" title="Save current test as a template">+ <span data-i18n="tcSaveAsTemplate">Save as Template…</span></button>
+          <button type="button" class="neo-btn sm" onclick="document.getElementById('tcTemplateFileInput').click()" title="Import a template JSON file from disk" data-i18n-title="tcImportTemplateJsonTooltip"><img src="../assets/icons/folder.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> <span data-i18n="tcImportTemplate">Import Template…</span></button>
+          <button type="button" class="neo-btn sm yellow" onclick="tcSaveAsTemplate()" title="Save current test as a template" data-i18n-title="tcSaveCurrentAsTemplateTooltip">+ <span data-i18n="tcSaveAsTemplate">Save as Template…</span></button>
         </div>
 
         <!-- Filter Tabs -->
@@ -1563,16 +1700,16 @@
 
   <!-- ── Floating Rich Text Formatting Toolbar ────────────────────────── -->
   <div id="tcFloatingFmtBar" class="tc-floating-fmt-bar" style="display:none;">
-    <button type="button" class="tc-fmt-btn" title="Bold (**text** or Ctrl+B)" onmousedown="event.preventDefault(); tcApplyFormatToActiveInput('bold');">B</button>
-    <button type="button" class="tc-fmt-btn" title="Italic (*text* or Ctrl+I)" onmousedown="event.preventDefault(); tcApplyFormatToActiveInput('italic');"><em>I</em></button>
-    <button type="button" class="tc-fmt-btn" title="Underline (<u>text</u> or Ctrl+U)" onmousedown="event.preventDefault(); tcApplyFormatToActiveInput('underline');"><u>U</u></button>
-    <button type="button" class="tc-fmt-btn" title="Strikethrough (<s>text</s>)" onmousedown="event.preventDefault(); tcApplyFormatToActiveInput('strike');"><s>S</s></button>
-    <button type="button" class="tc-fmt-btn" title="Superscript (<sup>text</sup>)" onmousedown="event.preventDefault(); tcApplyFormatToActiveInput('sup');">x²</button>
-    <button type="button" class="tc-fmt-btn" title="Subscript (<sub>text</sub>)" onmousedown="event.preventDefault(); tcApplyFormatToActiveInput('sub');">x₂</button>
-    <button type="button" class="tc-fmt-btn" title="Highlight (<mark>text</mark>)" onmousedown="event.preventDefault(); tcApplyFormatToActiveInput('mark');"><mark style="background:#fef08a;padding:0 2px;">H</mark></button>
-    <button type="button" class="tc-fmt-btn" title="Red Accent Text" onmousedown="event.preventDefault(); tcApplyFormatToActiveInput('color', '#dc2626');"><span style="color:#dc2626;font-weight:900;">A</span></button>
-    <button type="button" class="tc-fmt-btn" title="Blue Accent Text" onmousedown="event.preventDefault(); tcApplyFormatToActiveInput('color', '#2563eb');"><span style="color:#2563eb;font-weight:900;">A</span></button>
-    <button type="button" class="tc-fmt-btn" title="Green Accent Text" onmousedown="event.preventDefault(); tcApplyFormatToActiveInput('color', '#16a34a');"><span style="color:#16a34a;font-weight:900;">A</span></button>
+    <button type="button" class="tc-fmt-btn" title="Bold (**text** or Ctrl+B)" data-i18n-title="tcToolbarBoldTooltip" onmousedown="event.preventDefault(); tcApplyFormatToActiveInput('bold');">B</button>
+    <button type="button" class="tc-fmt-btn" title="Italic (*text* or Ctrl+I)" data-i18n-title="tcToolbarItalicTooltip" onmousedown="event.preventDefault(); tcApplyFormatToActiveInput('italic');"><em>I</em></button>
+    <button type="button" class="tc-fmt-btn" title="Underline (<u>text</u> or Ctrl+U)" data-i18n-title="tcToolbarUnderlineTooltip" onmousedown="event.preventDefault(); tcApplyFormatToActiveInput('underline');"><u>U</u></button>
+    <button type="button" class="tc-fmt-btn" title="Strikethrough (<s>text</s>)" data-i18n-title="tcToolbarStrikeTooltip" onmousedown="event.preventDefault(); tcApplyFormatToActiveInput('strike');"><s>S</s></button>
+    <button type="button" class="tc-fmt-btn" title="Superscript (<sup>text</sup>)" data-i18n-title="tcToolbarSupTooltip" onmousedown="event.preventDefault(); tcApplyFormatToActiveInput('sup');">x²</button>
+    <button type="button" class="tc-fmt-btn" title="Subscript (<sub>text</sub>)" data-i18n-title="tcToolbarSubTooltip" onmousedown="event.preventDefault(); tcApplyFormatToActiveInput('sub');">x₂</button>
+    <button type="button" class="tc-fmt-btn" title="Highlight (<mark>text</mark>)" data-i18n-title="tcToolbarMarkTooltip" onmousedown="event.preventDefault(); tcApplyFormatToActiveInput('mark');"><mark style="background:#fef08a;padding:0 2px;">H</mark></button>
+    <button type="button" class="tc-fmt-btn" title="Red Accent Text" data-i18n-title="tcToolbarRedTooltip" onmousedown="event.preventDefault(); tcApplyFormatToActiveInput('color', '#dc2626');"><span style="color:#dc2626;font-weight:900;">A</span></button>
+    <button type="button" class="tc-fmt-btn" title="Blue Accent Text" data-i18n-title="tcToolbarBlueTooltip" onmousedown="event.preventDefault(); tcApplyFormatToActiveInput('color', '#2563eb');"><span style="color:#2563eb;font-weight:900;">A</span></button>
+    <button type="button" class="tc-fmt-btn" title="Green Accent Text" data-i18n-title="tcToolbarGreenTooltip" onmousedown="event.preventDefault(); tcApplyFormatToActiveInput('color', '#16a34a');"><span style="color:#16a34a;font-weight:900;">A</span></button>
   </div>
 
   <!-- ── 4. Main Controller Script ────────────────────────────────────────── -->
@@ -2135,6 +2272,7 @@
           tcRenderTestGradingScaleBar();
         }
         tcUpdateTestLinksBadge();
+        tcUpdateUnitSeqBadge();
         if (currentTest.classId && typeof tcResolveClassInheritedContext === 'function') {
           tcResolveClassInheritedContext(currentTest.classId);
         }
@@ -2171,7 +2309,7 @@
       window.tcOpenTestLinksModal = function () {
         var urn = tcGetActiveTestUrn();
         if (!urn || typeof TagLinkModal === 'undefined') {
-          if (window.showToast) showToast('Please save the test before linking', true);
+          if (window.showToast) showToast(i18n.t('tcPleaseSaveBeforeLinking'), true);
           return;
         }
         TagLinkModal.open({
@@ -4386,7 +4524,7 @@
         renderExerciseCards();
         updatePointsBadge();
         tcCloseBulkAddModal();
-        if (window.showToast) showToast('Added ' + count + ' item(s)');
+        if (window.showToast) showToast(i18n.tFmt('tcAddedItemsCount', { count: count }));
       };
 
       window.tcConfirmBulkAdd = function () {
@@ -4469,7 +4607,7 @@
         renderExerciseCards();
         updatePointsBadge();
         tcCloseBulkAddModal();
-        if (window.showToast) showToast('Added ' + addedCount + ' item(s)');
+        if (window.showToast) showToast(i18n.tFmt('tcAddedItemsCount', { count: addedCount }));
       };
 
       window.tcAddMcqQuestion = function (exId) {
@@ -5008,7 +5146,7 @@
         currentTest.exercises.push(clone);
         renderExerciseCards();
         updatePointsBadge();
-        if (window.showToast) showToast('Inserted ' + (clone.title || 'Exercise') + ' into test');
+        if (window.showToast) showToast(i18n.tFmt('tcInsertedIntoTest', { title: clone.title || i18n.t('tcExercise') }));
       };
 
       window.tcFilterTestBank = function () {
@@ -5450,7 +5588,7 @@
         if (!text) return;
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(text).then(function () {
-            if (window.showToast) showToast('Copied: "' + text.slice(0, 35) + (text.length > 35 ? '…' : '') + '"');
+            if (window.showToast) showToast(i18n.tFmt('tcCopiedText', { text: text.slice(0, 35) + (text.length > 35 ? '…' : '') }));
           }).catch(function () {
             tcFallbackCopy(text);
           });
@@ -5468,7 +5606,7 @@
         ta.select();
         try {
           document.execCommand('copy');
-          if (window.showToast) showToast('Copied: "' + text.slice(0, 35) + (text.length > 35 ? '…' : '') + '"');
+          if (window.showToast) showToast(i18n.tFmt('tcCopiedText', { text: text.slice(0, 35) + (text.length > 35 ? '…' : '') }));
         } catch (_) {}
         document.body.removeChild(ta);
       }
@@ -5544,7 +5682,7 @@
         renderExerciseCards();
         tcOnDirty();
         tcCloseDrawerItemModal();
-        if (window.showToast) showToast('Inserted into ' + (ex.title || 'Exercise'));
+        if (window.showToast) showToast(i18n.tFmt('tcInsertedIntoExercise', { title: ex.title || i18n.t('tcExercise') }));
       };
 
       window.tcAddDrawerItemAsExerciseSubItem = function () {
@@ -5556,7 +5694,7 @@
         var targetExId = targetSel ? targetSel.value : window._lastActiveExerciseId;
         var ex = (currentTest.exercises || []).find(function (e) { return e.id === targetExId; });
         if (!ex) {
-          if (window.showToast) showToast('Please select a target exercise card', true);
+          if (window.showToast) showToast(i18n.t('tcSelectTargetExerciseFirst'), true);
           return;
         }
 
@@ -5615,7 +5753,7 @@
         renderExerciseCards();
         tcOnDirty();
         tcCloseDrawerItemModal();
-        if (window.showToast) showToast('Added item into ' + (ex.title || 'Exercise'));
+        if (window.showToast) showToast(i18n.tFmt('tcAddedItemIntoExercise', { title: ex.title || i18n.t('tcExercise') }));
       };
 
       window.tcInsertIntoActiveInput = function (val) {
@@ -5631,7 +5769,7 @@
         input.selectionStart = input.selectionEnd = start + val.length;
         input.dispatchEvent(new Event('change', { bubbles: true }));
         tcCloseDrawerItemModal();
-        if (window.showToast) showToast('Inserted into field: ' + val.slice(0, 30));
+        if (window.showToast) showToast(i18n.tFmt('tcInsertedIntoField', { field: val.slice(0, 30) }));
       };
 
       window.tcModalCreateNewEx = function () {
@@ -5842,7 +5980,7 @@
           var origIdx = _cachedLearningItems.indexOf(item);
           if (origIdx !== -1) tcInsertLearningDbItem(origIdx);
         });
-        if (window.showToast) showToast('Generated ' + num + ' exercises into exam!');
+        if (window.showToast) showToast(i18n.tFmt('tcGeneratedExercisesCount', { count: num }));
       };
 
       // ── Drawer Tab 3: Criteria Database ───────────────────────────────────
@@ -6003,7 +6141,7 @@
         if (drawer) drawer.style.display = 'flex';
         tcSwitchDrawerTab('criteriadb');
         if (window.showToast) {
-          showToast('Select a criterion from the drawer to attach to "' + (ex.title || 'Exercise') + '"');
+          showToast(i18n.tFmt('tcSelectCriterionDrawerPrompt', { title: ex.title || i18n.t('tcExercise') }));
         }
       };
 
@@ -6029,7 +6167,7 @@
         TestCreatorService.calculateExercisePoints(targetEx);
         renderExerciseCards();
         updatePointsBadge();
-        if (window.showToast) showToast('Attached criterion "' + (crit.title || crit.name) + '" to ' + (targetEx.title || 'Exercise'));
+        if (window.showToast) showToast(i18n.tFmt('tcAttachedCriterionToEx', { name: crit.title || crit.name, title: targetEx.title || i18n.t('tcExercise') }));
       };
 
       window.tcRemoveRubricFromEx = function (exId, rIdx) {
@@ -6147,7 +6285,7 @@
         updateCompetenceTargetDropdown();
         tcRenderCompetenceList(_cachedCompetences);
         if (window.showToast) {
-          showToast('Select a competence from the drawer to tag to "' + (ex.title || 'Exercise') + '"');
+          showToast(i18n.tFmt('tcSelectCompetenceDrawerPrompt', { title: ex.title || i18n.t('tcExercise') }));
         }
       };
 
@@ -6210,7 +6348,7 @@
         renderTestCompetenceBadges();
         if (window.showToast) {
           var targetName = targetEx ? ('"' + (targetEx.title || 'Exercise') + '"') : 'entire exam';
-          showToast('Tagged ' + label.slice(0, 30) + '… to ' + targetName);
+          showToast(i18n.tFmt('tcTaggedToTarget', { label: label.slice(0, 30) + '…', target: targetName }));
         }
       };
 
@@ -6698,7 +6836,7 @@
         updateScaleTargetDropdown();
         tcRenderScalesList(_cachedScales);
         if (window.showToast) {
-          showToast('Select a grading scale from the drawer to assign to "' + (ex.title || 'Exercise') + '"');
+          showToast(i18n.tFmt('tcSelectScaleDrawerPrompt', { title: ex.title || i18n.t('tcExercise') }));
         }
       };
 
@@ -6939,7 +7077,7 @@
         });
         tcSaveCurrentTest(false);
         tcRenderStyleExTable();
-        if (window.showToast) showToast('Applied global styles to all ' + currentTest.exercises.length + ' exercises');
+        if (window.showToast) showToast(i18n.tFmt('tcAppliedGlobalStylesCount', { count: currentTest.exercises.length }));
       };
 
       window.tcRenderStyleExTable = function () {
@@ -7261,7 +7399,7 @@
           template = (_userCustomHeaderTemplates || []).find(function (t) { return t.id === cId; });
         }
         if (!template) {
-          if (window.showToast) showToast('Template not found', true);
+          if (window.showToast) showToast(i18n.t('tcTemplateNotFound'), true);
           return;
         }
 
@@ -8008,7 +8146,7 @@
             if (window.showExportSuccessPopup) {
               window.showExportSuccessPopup(res.path, res.name || defaultName);
             } else if (window.showToast) {
-              showToast('PDF exported to ' + (res.name || defaultName));
+              showToast(i18n.tFmt('tcPdfExportedTo', { path: res.name || defaultName }));
             }
           }
         } else {
@@ -8115,7 +8253,7 @@
             if (window.showExportSuccessPopup) {
               window.showExportSuccessPopup(pdfRes.path, pdfRes.name || finalPdfName);
             } else if (window.showToast) {
-              showToast('Exported ' + finalPdfName);
+              showToast(i18n.tFmt('tcExportedFile', { file: finalPdfName }));
             }
           }
           return;
@@ -8151,7 +8289,7 @@
           if (res && res.ok && window.showExportSuccessPopup) {
             window.showExportSuccessPopup(res.path || ('toPrint/' + filename), filename);
           } else if (window.showToast) {
-            showToast('Exported ' + filename);
+            showToast(i18n.tFmt('tcExportedFile', { file: filename }));
           }
         } else {
           // Web fallback
@@ -8171,22 +8309,47 @@
         tcOpenExportModal();
       };
 
-      // ── Pull from Lesson Plan & Cross-Tool Integrations ──────────────────
-      window._allSavedLessons = [];
-      window._selectedLessonData = null;
+      // ── Unit Sequence Badge & State ──────────────────────────────────────
+      function tcUpdateUnitSeqBadge() {
+        var disp = document.getElementById('tcUnitSeqDisplay');
+        if (!disp) return;
+        var seqTitle = (currentTest && currentTest.unitSequence && currentTest.unitSequence.title)
+          ? currentTest.unitSequence.title
+          : 'None';
+        disp.textContent = seqTitle;
+      }
+      window.tcUpdateUnitSeqBadge = tcUpdateUnitSeqBadge;
 
-      window.tcOpenPullFromLessonModal = async function () {
-        var modal = document.getElementById('tcPullLessonModal');
-        if (!modal) return;
-        modal.classList.add('open');
-        var sel = document.getElementById('tcLessonSelect');
-        if (sel) sel.innerHTML = '<option value="">' + (i18n.t('commonLoading') || 'Loading…') + '</option>';
-        var previewBox = document.getElementById('tcLessonPreviewBox');
-        if (previewBox) previewBox.style.display = 'none';
+      // ── Unit Sequence Manager & Exporting ────────────────────────────────
+      window._tcAllSequences = [];
+      window._tcAllLessons = [];
+      window._tcAllTests = [];
+      window._tcPickerFilterType = 'all';
 
-        _allSavedLessons = [];
+      async function tcLoadSequencesAndItems() {
+        window._tcAllSequences = [];
+        window._tcAllLessons = [];
+        window._tcAllTests = [];
+
+        // 1. Load sequence index
+        try {
+          var rawList = [];
+          if (window.Desktop && Desktop.isElectron && typeof Desktop.readText === 'function') {
+            var readIdx = await Desktop.readText('user', 'lesson-sequences.json').catch(function () {});
+            if (readIdx && readIdx.ok && readIdx.content) {
+              try { rawList = JSON.parse(readIdx.content); } catch (_) {}
+            }
+          } else {
+            var raw = localStorage.getItem('cmt-lesson-sequences');
+            if (raw) {
+              try { rawList = JSON.parse(raw); } catch (_) {}
+            }
+          }
+          if (Array.isArray(rawList)) window._tcAllSequences = rawList;
+        } catch (_) {}
+
+        // 2. Load lessons
         var isElec = window.Desktop && (typeof Desktop.isElectron === 'function' ? Desktop.isElectron() : !!Desktop.isElectron);
-
         if (isElec && typeof Desktop.listFiles === 'function') {
           try {
             var res = await Desktop.listFiles('lessons', { extensions: ['.json'] });
@@ -8198,40 +8361,676 @@
                 var rText = await Desktop.readText('lessons', fn);
                 if (rText && rText.ok && rText.content) {
                   var parsed = JSON.parse(rText.content);
-                  if (parsed) {
-                    _allSavedLessons.push({
-                      filename: fn,
-                      title: parsed.title || fn.replace(/\.json$/i, ''),
-                      subject: parsed.subject || '',
-                      classId: parsed.classId || '',
-                      data: parsed
-                    });
+                  if (parsed && parsed.id) {
+                    parsed._filename = fn;
+                    parsed._itemType = 'lesson';
+                    window._tcAllLessons.push(parsed);
                   }
                 }
               } catch (_) {}
             }
           } catch (_) {}
+        } else {
+          for (var k in localStorage) {
+            if (k && k.indexOf('cmt-lesson-') === 0) {
+              try {
+                var p = JSON.parse(localStorage.getItem(k));
+                if (p && p.id) {
+                  p._filename = 'lp_' + p.id + '.json';
+                  p._itemType = 'lesson';
+                  window._tcAllLessons.push(p);
+                }
+              } catch (_) {}
+            }
+          }
         }
 
-        if (!_allSavedLessons.length) {
+        // 3. Load tests
+        if (isElec && typeof Desktop.listFiles === 'function') {
           try {
-            var raw = localStorage.getItem('cmt_lesson_plans');
-            if (raw) {
-              var localList = JSON.parse(raw);
-              if (Array.isArray(localList)) {
-                localList.forEach(function (l, idx) {
-                  _allSavedLessons.push({
-                    filename: 'local_lesson_' + (l.id || idx) + '.json',
-                    title: l.title || ('Lesson ' + (idx + 1)),
-                    subject: l.subject || '',
-                    classId: l.classId || '',
-                    data: l
-                  });
-                });
-              }
+            var tRes = await Desktop.listFiles('tests', { extensions: ['.json'] });
+            var tList = Array.isArray(tRes) ? tRes : ((tRes && Array.isArray(tRes.files)) ? tRes.files : []);
+            for (var j = 0; j < tList.length; j++) {
+              var tfn = typeof tList[j] === 'string' ? tList[j] : (tList[j].filename || tList[j].name);
+              if (!tfn) continue;
+              try {
+                var trText = await Desktop.readText('tests', tfn);
+                if (trText && trText.ok && trText.content) {
+                  var tParsed = JSON.parse(trText.content);
+                  if (tParsed && tParsed.id) {
+                    tParsed._filename = tfn;
+                    tParsed._itemType = 'test';
+                    window._tcAllTests.push(tParsed);
+                  }
+                }
+              } catch (_) {}
+            }
+          } catch (_) {}
+        } else {
+          try {
+            var rawTests = JSON.parse(localStorage.getItem('cmt_tests'));
+            if (Array.isArray(rawTests)) {
+              rawTests.forEach(function (t) {
+                if (t && t.id) {
+                  t._filename = 'test_' + t.id + '.json';
+                  t._itemType = 'test';
+                  window._tcAllTests.push(t);
+                }
+              });
             }
           } catch (_) {}
         }
+      }
+
+      function tcEnsureCurrentTestSequence() {
+        if (!currentTest.unitSequence) {
+          currentTest.unitSequence = { title: '', lessons: [] };
+        }
+        if (!Array.isArray(currentTest.unitSequence.lessons)) {
+          currentTest.unitSequence.lessons = [];
+        }
+        var myId = currentTest.id || ('test_' + Date.now());
+        if (currentTest.unitSequence.lessons.length === 0) {
+          currentTest.unitSequence.lessons.push({
+            id: myId,
+            type: 'test',
+            title: currentTest.title || 'Current Test',
+            filename: currentTest._filename || ('test_' + myId + '.json')
+          });
+        }
+        return currentTest.unitSequence;
+      }
+
+      function tcRenderSequenceMembers() {
+        var container = document.getElementById('tcSequenceMembersList');
+        var countBadge = document.getElementById('tcSeqMemberCountBadge');
+        if (!container) return;
+        var seq = currentTest.unitSequence;
+        var lessons = (seq && Array.isArray(seq.lessons)) ? seq.lessons : [];
+
+        if (countBadge) {
+          countBadge.textContent = lessons.length + (lessons.length === 1 ? ' item' : ' items');
+        }
+
+        if (lessons.length === 0) {
+          container.innerHTML = '<div style="color:#666;font-size:0.85rem;padding:8px 0;" data-i18n="lcSeqEmpty">No lessons or tests in sequence yet. Add from the list below.</div>';
+          return;
+        }
+
+        var lessonTxt = typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcItemLesson') : 'Lesson';
+        var testTxt = typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcItemTest') : 'Test / Exam';
+
+        container.innerHTML = lessons.map(function (les, idx) {
+          var isTest = (les.type === 'test');
+          var isCurrent = (les.id === currentTest.id);
+          var badgeHtml = isTest
+            ? '<span class="seq-item-badge badge-test" style="font-size:0.68rem;font-weight:900;padding:2px 6px;border:1.5px solid #000;border-radius:3px;background:#fef08a;color:#713f12;">' + escapeHtml(testTxt) + '</span>'
+            : '<span class="seq-item-badge badge-lesson" style="font-size:0.68rem;font-weight:900;padding:2px 6px;border:1.5px solid #000;border-radius:3px;background:#bfdbfe;color:#1e3a8a;">' + escapeHtml(lessonTxt) + '</span>';
+
+          var actionHtml = '';
+          if (isCurrent) {
+            actionHtml = '<span style="font-size:0.72rem;font-weight:900;background:#000;color:#fff;padding:2px 6px;border-radius:3px;">Current</span>';
+          } else if (!isTest) {
+            actionHtml = '<button type="button" class="neo-btn" style="padding:2px 7px;font-size:0.75rem;" onclick="tcOpenSequenceMemberLesson(\'' + escapeHtml(les.id) + '\', \'' + escapeHtml(les.filename || '') + '\')" title="Open in Lesson Creator">Open</button>';
+          }
+
+          return '<div class="seq-member-row' + (isCurrent ? ' is-current' : '') + '" style="display:flex;align-items:center;gap:8px;padding:6px 10px;border:2px solid #000;border-radius:4px;background:' + (isCurrent ? '#fef08a' : '#fff') + ';margin-bottom:4px;box-shadow:2px 2px 0 #000;">' +
+            '<span style="font-weight:900;font-size:0.78rem;min-width:22px;text-align:center;background:#000;color:#fff;border-radius:3px;padding:1px 4px;">' + (idx + 1) + '</span>' +
+            badgeHtml +
+            '<span style="flex:1;font-weight:700;font-size:0.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escapeHtml(les.title || 'Untitled') + '">' + escapeHtml(les.title || 'Untitled') + '</span>' +
+            actionHtml +
+            '<button type="button" class="neo-btn" style="padding:2px 7px;font-size:0.75rem;" onclick="tcMoveMemberInSequence(' + idx + ',-1)" ' + (idx === 0 ? 'disabled' : '') + '>▲</button>' +
+            '<button type="button" class="neo-btn" style="padding:2px 7px;font-size:0.75rem;" onclick="tcMoveMemberInSequence(' + idx + ',1)" ' + (idx === lessons.length - 1 ? 'disabled' : '') + '>▼</button>' +
+            '<button type="button" class="neo-btn danger" style="padding:2px 7px;font-size:0.75rem;" onclick="tcRemoveMemberFromSequence(' + idx + ')">Remove</button>' +
+            '</div>';
+        }).join('');
+      }
+
+      function tcRenderPickerList(filter) {
+        var container = document.getElementById('tcSeqPickerList');
+        if (!container) return;
+        var seq = currentTest.unitSequence;
+        var seqIds = {};
+        if (seq && Array.isArray(seq.lessons)) {
+          seq.lessons.forEach(function (l) { seqIds[l.id] = true; });
+        }
+
+        var available = [];
+        if (_tcPickerFilterType === 'all' || _tcPickerFilterType === 'lessons') {
+          (window._tcAllLessons || []).forEach(function (p) {
+            if (p && p.id && !seqIds[p.id]) {
+              available.push({
+                id: p.id,
+                title: p.title || 'Untitled Lesson',
+                type: 'lesson',
+                subtitle: p.subjectId || p.subject || '',
+                filename: p._filename || ('lp_' + p.id + '.json')
+              });
+            }
+          });
+        }
+
+        if (_tcPickerFilterType === 'all' || _tcPickerFilterType === 'tests') {
+          (window._tcAllTests || []).forEach(function (t) {
+            if (t && t.id && !seqIds[t.id]) {
+              available.push({
+                id: t.id,
+                title: t.title || 'Untitled Test',
+                type: 'test',
+                subtitle: t.subject || 'Test',
+                filename: t._filename || ('test_' + t.id + '.json')
+              });
+            }
+          });
+        }
+
+        filter = (filter || '').toLowerCase().trim();
+        if (filter) {
+          available = available.filter(function (item) {
+            return (item.title || '').toLowerCase().indexOf(filter) !== -1 ||
+                   (item.subtitle || '').toLowerCase().indexOf(filter) !== -1;
+          });
+        }
+
+        if (available.length === 0) {
+          container.innerHTML = '<div style="color:#666;font-size:0.85rem;padding:8px 0;">No available items to add.</div>';
+          return;
+        }
+
+        container.innerHTML = available.map(function (item) {
+          var isTest = (item.type === 'test');
+          var badgeStyle = isTest ? 'background:#fef08a;color:#713f12;' : 'background:#bfdbfe;color:#1e3a8a;';
+          var badgeTxt = isTest ? 'Test' : 'Lesson';
+          return '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border:1.5px solid #cbd5e1;border-radius:4px;background:#f8fafc;margin-bottom:4px;">' +
+            '<span style="font-size:0.68rem;font-weight:900;padding:2px 6px;border:1.5px solid #000;border-radius:3px;' + badgeStyle + '">' + badgeTxt + '</span>' +
+            '<span style="flex:1;font-weight:700;font-size:0.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escapeHtml(item.title) + '">' + escapeHtml(item.title) + '</span>' +
+            (item.subtitle ? '<span style="font-size:0.75rem;color:#666;font-weight:700;">' + escapeHtml(item.subtitle) + '</span>' : '') +
+            '<button type="button" class="neo-btn primary" style="padding:3px 8px;font-size:0.75rem;" onclick="tcAddMemberToSequence(\'' + escapeHtml(item.id) + '\', \'' + item.type + '\')">+ Add</button>' +
+            '</div>';
+        }).join('');
+      }
+
+      window.tcOpenSequenceModal = async function () {
+        await tcLoadSequencesAndItems();
+        var seq = tcEnsureCurrentTestSequence();
+
+        var titleInp = document.getElementById('tcSeqTitleInput');
+        if (titleInp) titleInp.value = seq.title || '';
+
+        var sel = document.getElementById('tcSavedSequencesSelect');
+        if (sel) {
+          sel.innerHTML = '<option value="">-- Choose a sequence to assign / open --</option>' +
+            window._tcAllSequences.map(function (s, idx) {
+              var count = (s.lessons && s.lessons.length) || 0;
+              var isSel = (seq.title && s.title && seq.title.trim().toLowerCase() === s.title.trim().toLowerCase());
+              return '<option value="' + idx + '" ' + (isSel ? 'selected' : '') + '>' + escapeHtml(s.title + ' (' + count + ' items)') + '</option>';
+            }).join('');
+          tcOnSavedSequenceSelectChange();
+        }
+
+        tcRenderSequenceMembers();
+        tcRenderPickerList('');
+
+        var modal = document.getElementById('tcSequenceModal');
+        if (modal) modal.classList.add('open');
+      };
+
+      window.tcCloseSequenceModal = function () {
+        var modal = document.getElementById('tcSequenceModal');
+        if (modal) modal.classList.remove('open');
+      };
+
+      window.tcOnSavedSequenceSelectChange = function () {
+        var sel = document.getElementById('tcSavedSequencesSelect');
+        var btn = document.getElementById('tcBtnAssignChosenSeq');
+        if (btn) btn.disabled = (!sel || sel.value === '');
+      };
+
+      window.tcAssignSelectedSequence = function () {
+        var sel = document.getElementById('tcSavedSequencesSelect');
+        if (!sel || sel.value === '') return;
+        var idx = parseInt(sel.value, 10);
+        var chosenSeq = window._tcAllSequences[idx];
+        if (!chosenSeq) return;
+
+        var myId = currentTest.id || ('test_' + Date.now());
+        var lessons = JSON.parse(JSON.stringify(chosenSeq.lessons || []));
+        if (!lessons.some(function (l) { return l.id === myId; })) {
+          lessons.push({
+            id: myId,
+            type: 'test',
+            title: currentTest.title || 'Evaluation Test',
+            filename: currentTest._filename || ('test_' + myId + '.json')
+          });
+        }
+
+        currentTest.unitSequence = {
+          title: chosenSeq.title,
+          lessons: lessons
+        };
+
+        var titleInp = document.getElementById('tcSeqTitleInput');
+        if (titleInp) titleInp.value = chosenSeq.title;
+
+        tcRenderSequenceMembers();
+        tcRenderPickerList('');
+        tcUpdateUnitSeqBadge();
+        tcOnDirty();
+        if (window.showToast) showToast(i18n.tFmt('tcAssignedSequenceToast', { sequence: chosenSeq.title }));
+      };
+
+      window.tcStartNewSequence = function () {
+        var myId = currentTest.id || ('test_' + Date.now());
+        currentTest.unitSequence = {
+          title: '',
+          lessons: [{
+            id: myId,
+            type: 'test',
+            title: currentTest.title || 'Current Test',
+            filename: currentTest._filename || ('test_' + myId + '.json')
+          }]
+        };
+        var titleInp = document.getElementById('tcSeqTitleInput');
+        if (titleInp) {
+          titleInp.value = '';
+          titleInp.focus();
+        }
+        var sel = document.getElementById('tcSavedSequencesSelect');
+        if (sel) sel.value = '';
+        tcOnSavedSequenceSelectChange();
+
+        tcRenderSequenceMembers();
+        tcRenderPickerList('');
+        tcUpdateUnitSeqBadge();
+        tcOnDirty();
+      };
+
+      window.tcSaveSequence = async function () {
+        var titleInp = document.getElementById('tcSeqTitleInput');
+        var titleVal = titleInp ? titleInp.value.trim() : '';
+        if (!titleVal) {
+          tcCloseSequenceModal();
+          return;
+        }
+
+        var seq = tcEnsureCurrentTestSequence();
+        seq.title = titleVal;
+
+        // Propagate / update lesson-sequences.json index
+        try {
+          var seqList = window._tcAllSequences || [];
+          var myId = currentTest.id;
+          var found = seqList.find(function (s) { return s.title === titleVal || (s.lessons && s.lessons.some(function (l) { return l.id === myId; })); });
+          if (!found) {
+            found = { id: 'seq_' + Date.now(), title: titleVal, lessons: [] };
+            seqList.push(found);
+          }
+          found.title = titleVal;
+          found.lessons = (seq.lessons || []).map(function (l) { return { id: l.id, type: l.type || 'lesson', title: l.title, filename: l.filename }; });
+
+          if (window.Desktop && Desktop.isElectron && typeof Desktop.saveJson === 'function') {
+            await Desktop.saveJson('user', 'lesson-sequences.json', seqList);
+          } else {
+            localStorage.setItem('cmt-lesson-sequences', JSON.stringify(seqList));
+          }
+        } catch (_) {}
+
+        await tcSaveCurrentTest(false);
+        tcUpdateUnitSeqBadge();
+        tcCloseSequenceModal();
+        if (window.showToast) showToast(i18n.t('tcUnitSequenceSavedLinked'));
+      };
+
+      window.tcSetSeqPickerFilter = function (type) {
+        _tcPickerFilterType = type || 'all';
+        ['All', 'Lessons', 'Tests'].forEach(function (p) {
+          var btn = document.getElementById('tcSeqFilter' + p);
+          if (btn) {
+            if (p.toLowerCase() === _tcPickerFilterType || (_tcPickerFilterType === 'all' && p === 'All')) {
+              btn.classList.add('primary');
+            } else {
+              btn.classList.remove('primary');
+            }
+          }
+        });
+        var searchVal = document.getElementById('tcSeqPickerSearch') ? document.getElementById('tcSeqPickerSearch').value : '';
+        tcRenderPickerList(searchVal);
+      };
+
+      window.tcFilterSeqPicker = function () {
+        var searchVal = document.getElementById('tcSeqPickerSearch') ? document.getElementById('tcSeqPickerSearch').value : '';
+        tcRenderPickerList(searchVal);
+      };
+
+      window.tcAddMemberToSequence = function (id, type) {
+        type = type || 'lesson';
+        var itemTitle = 'Untitled';
+        var itemFilename = '';
+
+        if (type === 'test') {
+          var tObj = (window._tcAllTests || []).find(function (t) { return t.id === id; });
+          if (tObj) {
+            itemTitle = tObj.title || 'Untitled Test';
+            itemFilename = tObj._filename || ('test_' + tObj.id + '.json');
+          }
+        } else {
+          var pObj = (window._tcAllLessons || []).find(function (p) { return p.id === id; });
+          if (pObj) {
+            itemTitle = pObj.title || 'Untitled Lesson';
+            itemFilename = pObj._filename || ('lp_' + pObj.id + '.json');
+          }
+        }
+
+        var seq = tcEnsureCurrentTestSequence();
+        if (seq.lessons.some(function (l) { return l.id === id; })) return;
+        seq.lessons.push({ id: id, type: type, title: itemTitle, filename: itemFilename });
+
+        tcRenderSequenceMembers();
+        var searchVal = document.getElementById('tcSeqPickerSearch') ? document.getElementById('tcSeqPickerSearch').value : '';
+        tcRenderPickerList(searchVal);
+        tcOnDirty();
+      };
+
+      window.tcRemoveMemberFromSequence = function (idx) {
+        var seq = currentTest.unitSequence;
+        if (!seq || !seq.lessons || !seq.lessons[idx]) return;
+        seq.lessons.splice(idx, 1);
+        tcRenderSequenceMembers();
+        var searchVal = document.getElementById('tcSeqPickerSearch') ? document.getElementById('tcSeqPickerSearch').value : '';
+        tcRenderPickerList(searchVal);
+        tcOnDirty();
+      };
+
+      window.tcMoveMemberInSequence = function (idx, dir) {
+        var seq = currentTest.unitSequence;
+        if (!seq || !seq.lessons) return;
+        var targetIdx = idx + dir;
+        if (targetIdx < 0 || targetIdx >= seq.lessons.length) return;
+        var tmp = seq.lessons[idx];
+        seq.lessons[idx] = seq.lessons[targetIdx];
+        seq.lessons[targetIdx] = tmp;
+        tcRenderSequenceMembers();
+        tcOnDirty();
+      };
+
+      window.tcOpenSequenceMemberLesson = function (id, filename) {
+        if (!id && !filename) return;
+        var url = 'lesson-creator.html?planId=' + encodeURIComponent(id || '') + '&file=' + encodeURIComponent(filename || '');
+        if (window.Desktop && Desktop.isElectron && typeof Desktop.openTool === 'function') {
+          Desktop.openTool('lesson-creator.html', { query: { planId: id, file: filename }, forceNewWindow: true });
+        } else if (window.Desktop && Desktop.isElectron && typeof Desktop.openHtml === 'function') {
+          Desktop.openHtml({ pageFile: 'lesson-creator.html', title: 'Lesson Creator', query: { planId: id, file: filename } });
+        } else {
+          window.open(url, '_blank');
+        }
+      };
+
+      // ── Entire Unit Sequence Export Handlers ─────────────────────────────
+      window.tcOpenSequenceExportModal = async function () {
+        var seq = currentTest && currentTest.unitSequence;
+        if (!seq || !seq.title || !seq.lessons || seq.lessons.length === 0) {
+          if (window.showToast) showToast(i18n.t('tcAssignSequenceFirst'), true);
+          tcOpenSequenceModal();
+          return;
+        }
+        var modal = document.getElementById('tcSequenceExportModal');
+        if (modal) modal.classList.add('open');
+      };
+
+      window.tcCloseSequenceExportModal = function () {
+        var modal = document.getElementById('tcSequenceExportModal');
+        if (modal) modal.classList.remove('open');
+      };
+
+      window.tcExecuteSequenceExport = async function () {
+        var seq = currentTest && currentTest.unitSequence;
+        if (!seq) return;
+
+        await tcLoadSequencesAndItems();
+        var fullLessons = [];
+        var fullTests = [];
+
+        var lessons = seq.lessons || [];
+        for (var i = 0; i < lessons.length; i++) {
+          var item = lessons[i];
+          if (item.type === 'test') {
+            var tObj = (item.id === currentTest.id) ? currentTest : window._tcAllTests.find(function (t) { return t.id === item.id; });
+            if (tObj) fullTests.push(tObj);
+          } else {
+            var lObj = window._tcAllLessons.find(function (l) { return l.id === item.id; });
+            if (lObj) fullLessons.push(lObj);
+          }
+        }
+
+        var fmtInput = document.querySelector('input[name="tcSeqExportFormat"]:checked');
+        var format = fmtInput ? fmtInput.value : 'html';
+        var safeSeqName = (seq.title || 'unit_sequence').toLowerCase().replace(/[^a-z0-9_-]+/gi, '_').replace(/^_+|_+$/g, '') || 'unit_sequence';
+
+        if (typeof LessonCreatorService === 'undefined') {
+          if (window.showToast) showToast(i18n.t('tcLessonServiceNotLoaded'), true);
+          return;
+        }
+
+        if (format === 'html') {
+          var htmlContent = LessonCreatorService.exportSequenceToHtml(seq, fullLessons, fullTests, { includeSummary: true, includeVocab: true, includePhases: true, includeTests: true });
+          var htmlFilename = safeSeqName + '_booklet.html';
+          if (window.saveExportWithDestination) {
+            await window.saveExportWithDestination({
+              filename: htmlFilename,
+              content: htmlContent,
+              mimeType: 'text/html;charset=utf-8',
+              allowDocEditor: true,
+              filters: [{ name: 'HTML Document', extensions: ['html'] }],
+              modalTitle: 'Export Unit HTML Booklet'
+            });
+            tcCloseSequenceExportModal();
+          }
+        } else if (format === 'markdown') {
+          var mdContent = LessonCreatorService.exportSequenceToMarkdown(seq, fullLessons, fullTests);
+          var mdFilename = safeSeqName + '_unit.md';
+          if (window.saveExportWithDestination) {
+            await window.saveExportWithDestination({
+              filename: mdFilename,
+              content: mdContent,
+              mimeType: 'text/markdown;charset=utf-8',
+              allowDocEditor: true,
+              filters: [{ name: 'Markdown Document', extensions: ['md'] }],
+              modalTitle: 'Export Unit Markdown Document'
+            });
+            tcCloseSequenceExportModal();
+          }
+        } else if (format === 'pdf') {
+          var pdfHtml = LessonCreatorService.exportSequenceToHtml(seq, fullLessons, fullTests, { includeSummary: true, includeVocab: true, includePhases: true, includeTests: true, forPrint: true });
+          var pdfFilename = safeSeqName + '_booklet.pdf';
+          if (window.Desktop && Desktop.isElectron && typeof Desktop.printPdf === 'function') {
+            var pRes = await Desktop.printPdf({ html: pdfHtml, title: 'Save Unit PDF Booklet', defaultPath: pdfFilename });
+            if (pRes && pRes.ok && window.showExportSuccessPopup) {
+              window.showExportSuccessPopup(pRes.path, pRes.name || pdfFilename);
+            }
+          }
+          tcCloseSequenceExportModal();
+        } else if (format === 'json') {
+          var jsonBundle = LessonCreatorService.createUnitArchiveBundle(seq, fullLessons, fullTests);
+          var jsonStr = JSON.stringify(jsonBundle, null, 2);
+          var jsonFilename = safeSeqName + '_bundle.json';
+          if (window.saveExportWithDestination) {
+            await window.saveExportWithDestination({
+              filename: jsonFilename,
+              content: jsonStr,
+              mimeType: 'application/json;charset=utf-8',
+              allowDocEditor: false,
+              filters: [{ name: 'JSON Archive Bundle', extensions: ['json'] }],
+              modalTitle: 'Export Unit JSON Archive'
+            });
+            tcCloseSequenceExportModal();
+          }
+        }
+      };
+
+      // ── Pull from Lesson Plan & Unit Sequence ─────────────────────────────
+      window._allSavedLessons = [];
+      window._selectedLessonData = null;
+      window._pullSourceMode = 'single'; // 'single' or 'unit'
+
+      window.tcSetPullSourceMode = function (mode) {
+        window._pullSourceMode = mode || 'single';
+        var singleBtn = document.getElementById('tcPullModeSingleBtn');
+        var unitBtn = document.getElementById('tcPullModeUnitBtn');
+        var singleCont = document.getElementById('tcPullSingleContainer');
+        var unitCont = document.getElementById('tcPullUnitContainer');
+
+        if (singleBtn && unitBtn) {
+          if (window._pullSourceMode === 'unit') {
+            unitBtn.classList.add('primary');
+            singleBtn.classList.remove('primary');
+            if (singleCont) singleCont.style.display = 'none';
+            if (unitCont) unitCont.style.display = 'block';
+            tcPopulateUnitSequencesForPull();
+          } else {
+            singleBtn.classList.add('primary');
+            unitBtn.classList.remove('primary');
+            if (singleCont) singleCont.style.display = 'block';
+            if (unitCont) unitCont.style.display = 'none';
+          }
+        }
+      };
+
+      async function tcPopulateUnitSequencesForPull() {
+        var uSel = document.getElementById('tcUnitSelect');
+        if (!uSel) return;
+        uSel.innerHTML = '<option value="">' + (i18n.t('commonLoading') || 'Loading…') + '</option>';
+        await tcLoadSequencesAndItems();
+
+        if (!window._tcAllSequences.length) {
+          uSel.innerHTML = '<option value="">No unit sequences found in system.</option>';
+          document.getElementById('tcBtnExecutePullLesson').disabled = true;
+          return;
+        }
+
+        document.getElementById('tcBtnExecutePullLesson').disabled = false;
+        uSel.innerHTML = '<option value="">-- Select a unit sequence --</option>' +
+          window._tcAllSequences.map(function (s, idx) {
+            var count = (s.lessons && s.lessons.length) || 0;
+            return '<option value="' + idx + '">' + escapeHtml(s.title + ' (' + count + ' items)') + '</option>';
+          }).join('');
+
+        if (currentTest.unitSequence && currentTest.unitSequence.title) {
+          var mIdx = window._tcAllSequences.findIndex(function (s) {
+            return s.title && s.title.trim().toLowerCase() === currentTest.unitSequence.title.trim().toLowerCase();
+          });
+          if (mIdx >= 0) {
+            uSel.value = mIdx;
+            tcOnUnitSelected();
+          }
+        }
+      }
+
+      window.tcOnUnitSelected = function () {
+        var uSel = document.getElementById('tcUnitSelect');
+        var idx = uSel ? parseInt(uSel.value, 10) : -1;
+        var previewBox = document.getElementById('tcLessonPreviewBox');
+        if (isNaN(idx) || idx < 0 || !window._tcAllSequences[idx]) {
+          _selectedLessonData = null;
+          if (previewBox) previewBox.style.display = 'none';
+          return;
+        }
+
+        var chosenSeq = window._tcAllSequences[idx];
+        var seqLessons = chosenSeq.lessons || [];
+
+        // Aggregate all vocabulary and phase objectives across all lessons in sequence
+        var aggregatedVocab = [];
+        var aggregatedPhases = [];
+
+        seqLessons.forEach(function (item) {
+          if (item.type !== 'test') {
+            var fullL = (window._tcAllLessons || []).find(function (l) { return l.id === item.id; });
+            if (fullL) {
+              var words = [];
+              if (Array.isArray(fullL.vocabulary)) words = fullL.vocabulary;
+              else if (typeof fullL.vocabulary === 'string') words = fullL.vocabulary.split(/[,;\n]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+              if (Array.isArray(fullL.keyConcepts)) words = words.concat(fullL.keyConcepts);
+              else if (typeof fullL.keyConcepts === 'string') words = words.concat(fullL.keyConcepts.split(/[,;\n]+/).map(function (s) { return s.trim(); }).filter(Boolean));
+
+              words.forEach(function (w) {
+                var term = typeof w === 'string' ? w.trim() : (w.word || w.term || '');
+                if (term && !aggregatedVocab.some(function (x) { return (typeof x === 'string' ? x : (x.word || x.term || '')).toLowerCase() === term.toLowerCase(); })) {
+                  aggregatedVocab.push(w);
+                }
+              });
+
+              var phases = Array.isArray(fullL.sections) ? fullL.sections : (Array.isArray(fullL.phases) ? fullL.phases : []);
+              phases.forEach(function (ph) {
+                if (ph && (ph.objective || ph.title)) {
+                  aggregatedPhases.push({
+                    title: (fullL.title ? (fullL.title + ' • ') : '') + (ph.title || 'Phase'),
+                    objective: ph.objective || ph.description || ''
+                  });
+                }
+              });
+            }
+          }
+        });
+
+        _selectedLessonData = {
+          title: chosenSeq.title,
+          isUnitSequence: true,
+          data: {
+            theme: chosenSeq.title,
+            vocabulary: aggregatedVocab,
+            sections: aggregatedPhases
+          }
+        };
+
+        if (previewBox) previewBox.style.display = 'block';
+        document.getElementById('tcLessonPreviewTitle').textContent = chosenSeq.title + ' (Entire Unit)';
+        document.getElementById('tcLessonPreviewMeta').textContent = seqLessons.length + ' connected items aggregated';
+
+        var vEl = document.getElementById('tcLessonPreviewVocab');
+        if (vEl) {
+          if (aggregatedVocab.length) {
+            vEl.innerHTML = aggregatedVocab.slice(0, 30).map(function (w) {
+              var term = typeof w === 'string' ? w : (w.word || w.term || JSON.stringify(w));
+              return '<span style="background:#fef08a;border:1px solid #ca8a04;color:#713f12;font-size:0.75rem;padding:2px 6px;border-radius:3px;font-weight:700;">' + escapeHtml(term) + '</span>';
+            }).join('');
+          } else {
+            vEl.innerHTML = '<span style="color:#888;font-size:0.75rem;">No vocabulary recorded across unit lessons.</span>';
+          }
+        }
+
+        var pEl = document.getElementById('tcLessonPreviewPhases');
+        if (pEl) {
+          if (aggregatedPhases.length) {
+            pEl.innerHTML = aggregatedPhases.slice(0, 8).map(function (s) {
+              return '<div style="margin-bottom:3px;"><strong>' + escapeHtml(s.title) + ':</strong> ' + escapeHtml(s.objective || 'Activity') + '</div>';
+            }).join('');
+          } else {
+            pEl.innerHTML = '<span style="color:#888;font-size:0.75rem;">No detailed phases found across unit.</span>';
+          }
+        }
+      };
+
+      window.tcOpenPullFromLessonModal = async function () {
+        var modal = document.getElementById('tcPullLessonModal');
+        if (!modal) return;
+        modal.classList.add('open');
+        tcSetPullSourceMode('single');
+
+        var sel = document.getElementById('tcLessonSelect');
+        if (sel) sel.innerHTML = '<option value="">' + (i18n.t('commonLoading') || 'Loading…') + '</option>';
+        var previewBox = document.getElementById('tcLessonPreviewBox');
+        if (previewBox) previewBox.style.display = 'none';
+
+        await tcLoadSequencesAndItems();
+        _allSavedLessons = window._tcAllLessons.map(function (l) {
+          return {
+            filename: l._filename,
+            title: l.title || l._filename.replace(/\.json$/i, ''),
+            subject: l.subjectId || l.subject || '',
+            classId: l.classId || '',
+            data: l
+          };
+        });
 
         if (sel) {
           if (!_allSavedLessons.length) {
@@ -8341,7 +9140,7 @@
           var clozeEx = {
             id: 'ex_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
             type: 'cloze',
-            title: 'Vocabulary & Terminology: ' + (_selectedLessonData.title || 'Lesson Concepts'),
+            title: 'Vocabulary & Terminology: ' + (_selectedLessonData.title || 'Unit Review'),
             instructions: 'Complete the sentences using the appropriate vocabulary words learned in class.',
             points: sampleWords.length,
             content: {
@@ -8365,7 +9164,7 @@
           var matchingEx = {
             id: 'ex_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
             type: 'matching',
-            title: 'Term & Definition Matching: ' + (_selectedLessonData.title || 'Key Notions'),
+            title: 'Term & Definition Matching: ' + (_selectedLessonData.title || 'Unit Notions'),
             instructions: 'Match each term on the left with its corresponding definition or explanation on the right.',
             points: pairs.length,
             content: {
@@ -8391,7 +9190,7 @@
             var openEx = {
               id: 'ex_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
               type: 'open_question',
-              title: 'Comprehension & Synthesis: ' + (_selectedLessonData.title || 'Lesson Review'),
+              title: 'Comprehension & Synthesis: ' + (_selectedLessonData.title || 'Unit Synthesis'),
               instructions: 'Answer each question thoroughly using full sentences and concepts reviewed in class.',
               points: subQs.reduce(function (sum, q) { return sum + q.points; }, 0),
               content: {
@@ -8404,8 +9203,8 @@
           }
         }
 
-        // Bidirectional link between test and lesson in LinksService
-        if (typeof LinksService !== 'undefined') {
+        // Bidirectional link between test and lesson in LinksService (for single lesson mode)
+        if (typeof LinksService !== 'undefined' && _selectedLessonData.filename) {
           var testUrn = tcGetActiveTestUrn();
           var lessonUrn = 'cmt:lesson:' + _selectedLessonData.filename;
           if (testUrn) {
@@ -8427,7 +9226,7 @@
         if (window.showToast) {
           var msg = (typeof i18n !== 'undefined' && typeof i18n.tFmt === 'function')
             ? i18n.tFmt('tcExercisesPulledSuccess', { count: addedCount })
-            : ('Extracted ' + addedCount + ' exercises from lesson plan!');
+            : ('Extracted ' + addedCount + ' exercises!');
           showToast(msg);
         }
       };
@@ -8470,7 +9269,7 @@
               showToast(i18n.t('tcExportedToDocEditorSuccess', 'Test exported to Document Editor!'));
             }
           } else {
-            if (window.showToast) showToast('Failed to save document file', true);
+            if (window.showToast) showToast(i18n.t('tcFailedSaveDocFile'), true);
           }
         } else {
           try {
@@ -8620,7 +9419,7 @@
               });
             }
           } else {
-            if (window.showToast) showToast('Failed to save revision mindmap', true);
+            if (window.showToast) showToast(i18n.t('tcFailedSaveMindmap'), true);
           }
         } else {
           try {
@@ -8664,7 +9463,7 @@
         if (res && res.ok) {
           if (window.showToast) showToast(i18n.t('tcTestRegisteredGradeSheet', 'Test registered in Grade Sheet with sub-criteria!'));
         } else {
-          if (window.showToast) showToast('Error registering: ' + (res.error || 'Failed'), true);
+          if (window.showToast) showToast(i18n.tFmt('tcErrorRegisteringGradeSheet', { error: res.error || i18n.t('tcFailed') }), true);
         }
       };
 
@@ -8875,12 +9674,12 @@
               try {
                 localStorage.setItem('cmt_active_test', JSON.stringify(currentTest));
               } catch (_) {}
-              if (window.showToast) showToast('Loaded test: ' + (currentTest.title || file.name));
+              if (window.showToast) showToast(i18n.tFmt('tcLoadedTestToast', { title: currentTest.title || file.name }));
             } else {
-              if (window.showToast) showToast('Invalid test file format', true);
+              if (window.showToast) showToast(i18n.t('tcInvalidTestFormat'), true);
             }
           } catch (err) {
-            if (window.showToast) showToast('Error reading test file: ' + err.message, true);
+            if (window.showToast) showToast(i18n.tFmt('tcErrorReadingTest', { error: err.message }), true);
           }
           ev.target.value = '';
         };
@@ -9046,7 +9845,7 @@
           localStorage.setItem('cmt_active_test', JSON.stringify(currentTest));
         } catch (_) {}
 
-        if (window.showToast) showToast('Loaded test: ' + (currentTest.title || 'Untitled'));
+        if (window.showToast) showToast(i18n.tFmt('tcLoadedTestToast', { title: currentTest.title || i18n.t('tcUntitled') }));
       };
 
       window.tcDeleteSavedTest = async function (testId, filename, testTitle) {
@@ -9255,12 +10054,12 @@
           tmpl = (_userCustomTestTemplates || []).find(function (t) { return t.id === templateId; });
         }
         if (!tmpl) {
-          if (window.showToast) showToast('Template not found', true);
+          if (window.showToast) showToast(i18n.t('tcTemplateNotFound'), true);
           return;
         }
 
         if (currentTest && currentTest.exercises && currentTest.exercises.length > 0) {
-          var warnMsg = 'Using a template will replace the current exercises with the template structure. Any unsaved changes on the current test will be lost. Do you wish to continue?';
+          var warnMsg = i18n.t('tcApplyTemplateWarnMsg');
           var ok = window.showConfirm ? await window.showConfirm(warnMsg) : confirm(warnMsg);
           if (!ok) return;
         }
@@ -9358,7 +10157,7 @@
           tmpl = (_userCustomTestTemplates || []).find(function (t) { return t.id === templateId; });
         }
         if (!tmpl) {
-          if (window.showToast) showToast('Template not found', true);
+          if (window.showToast) showToast(i18n.t('tcTemplateNotFound'), true);
           return;
         }
 
@@ -9398,7 +10197,7 @@
           if (res && res.ok && window.showExportSuccessPopup) {
             window.showExportSuccessPopup(res.path || ('user/' + filename), filename);
           } else if (window.showToast) {
-            showToast('Template exported to ' + filename);
+            showToast(i18n.tFmt('tcTemplateExportedTo', { file: filename }));
           }
         } else {
           var blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8' });
@@ -9424,7 +10223,7 @@
           try {
             var data = JSON.parse(e.target.result);
             if (!data || typeof data !== 'object') {
-              if (window.showToast) showToast('Invalid template file format', true);
+              if (window.showToast) showToast(i18n.t('tcInvalidTemplateFormat'), true);
               return;
             }
             var newTmpl = {
@@ -9449,7 +10248,7 @@
             }
           } catch (err) {
             console.error('Error parsing imported template JSON:', err);
-            if (window.showToast) showToast('Failed to import template JSON: ' + err.message, true);
+            if (window.showToast) showToast(i18n.tFmt('tcFailedImportTemplate', { error: err.message }), true);
           } finally {
             event.target.value = '';
           }
@@ -9493,7 +10292,7 @@
         for (var i = 0; i < exs.length; i++) {
           await TestCreatorService.saveExerciseToDatabase(exs[i], currentTest.subject);
         }
-        if (window.showToast) showToast('Saved all ' + exs.length + ' exercises to exercise database!');
+        if (window.showToast) showToast(i18n.tFmt('tcSavedAllExercisesCount', { count: exs.length }));
         tcLoadDrawerContent();
       };
 

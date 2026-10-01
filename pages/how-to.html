@@ -209,6 +209,7 @@
         <div class="sidebar-children">
           <button class="sidebar-child" data-accordion="acc-lc-timeline" onclick="navToAccordion('lesson-creator','acc-lc-timeline')"><span class="sidebar-child-dot"></span>Timeline &amp; Phases</button>
           <button class="sidebar-child" data-accordion="acc-lc-descriptors" onclick="navToAccordion('lesson-creator','acc-lc-descriptors')"><span class="sidebar-child-dot"></span>Descriptor Bank &amp; Coverage</button>
+          <button class="sidebar-child" data-accordion="acc-lc-sequences" onclick="navToAccordion('lesson-creator','acc-lc-sequences')"><span class="sidebar-child-dot"></span>Unit Sequences</button>
           <button class="sidebar-child" data-accordion="acc-lc-runner" onclick="navToAccordion('lesson-creator','acc-lc-runner')"><span class="sidebar-child-dot"></span>Running in Class Management</button>
           <button class="sidebar-child" data-accordion="acc-lc-export" onclick="navToAccordion('lesson-creator','acc-lc-export')"><span class="sidebar-child-dot"></span>Exporting Plans</button>
           <button class="sidebar-child" data-accordion="acc-lc-board" onclick="navToAccordion('lesson-creator','acc-lc-board')"><span class="sidebar-child-dot"></span>Export to Board Mindmap</button>
@@ -226,6 +227,7 @@
           <button class="sidebar-child" data-accordion="acc-tc-header" onclick="navToAccordion('test-creator','acc-tc-header')"><span class="sidebar-child-dot"></span>Header &amp; Scoring</button>
           <button class="sidebar-child" data-accordion="acc-tc-builder" onclick="navToAccordion('test-creator','acc-tc-builder')"><span class="sidebar-child-dot"></span>11 Exercise Types</button>
           <button class="sidebar-child" data-accordion="acc-tc-banks" onclick="navToAccordion('test-creator','acc-tc-banks')"><span class="sidebar-child-dot"></span>Databases &amp; Generator</button>
+          <button class="sidebar-child" data-accordion="acc-tc-sequences" onclick="navToAccordion('test-creator','acc-tc-sequences')"><span class="sidebar-child-dot"></span>Unit Sequences</button>
           <button class="sidebar-child" data-accordion="acc-tc-variants" onclick="navToAccordion('test-creator','acc-tc-variants')"><span class="sidebar-child-dot"></span>Group A/B &amp; Seating</button>
           <button class="sidebar-child" data-accordion="acc-tc-gradesheet" onclick="navToAccordion('test-creator','acc-tc-gradesheet')"><span class="sidebar-child-dot"></span>Grade Sheet &amp; Portfolio</button>
           <button class="sidebar-child" data-accordion="acc-tc-export" onclick="navToAccordion('test-creator','acc-tc-export')"><span class="sidebar-child-dot"></span>Print Preview &amp; Export</button>
@@ -2093,10 +2095,12 @@
             <li><strong>Drag &amp; Drop Test Reordering:</strong> in the <strong>All Tests</strong> panel on the classes screen, drag and drop test chips to freely reorder tests (T1, T2, etc.) within a class. Test columns in the summary table adjust automatically.</li>
             <li>Use <strong>Test Options</strong> to assign a <button class="xlink" onclick="openAccordionAndScroll('acc-gs-scale')">grading scale</button>, set criteria, or adjust configuration.</li>
             <li>Click <strong>Apply Criteria to Grades</strong> to auto-generate grade letters from the configured scale.</li>
-            <li><strong>Import from Test Creator:</strong> click <strong>[IMPORT FROM TEST CREATOR]</strong> inside Test Options or toolbar to import any assessment created in Test Creator. Test title, date, scope, grading scale model, and all exercises (converted to sub-criteria with competence tags) import in 1 click.</li>
+            <li><strong>Import from Test Creator:</strong> click <strong>Import from Test Creator</strong> inside the <strong>Criteria</strong> tab of Test Options to import any assessment created in Test Creator. Test title, date, scope, grading scale model, and all exercises (converted to sub-criteria with competence tags) import in 1 click.</li>
             <li><strong>Contextual Inheritance:</strong> tests automatically inherit default criteria presets, grading scales, and target competences from their class group, flagged with <code>[INHERITED: Class Name]</code> badges.</li>
             <li><strong>Test & File Quick Launchers:</strong> evaluations linked to Test Creator assessments or attached exam papers / answer keys render clickable <code>[TEST]</code> and <code>[FILE]</code> badges in table headers for 1-click launch and in-app preview.</li>
-            <li><strong>Student Work &amp; Submissions:</strong> right-click any student or grade cell to attach exam scans, PDFs, essays, or oral audio files. Score cells display a <code>[WORK]</code> badge in both the summary matrix and test sheet with 1-click in-app preview.</li>
+            <li><strong>Student Work &amp; Submissions:</strong> right-click any student or grade cell and select <strong>Attach Student Work / PDF</strong> to attach exam scans, PDFs, essays, or oral audio files. Score cells display a <code>[WORK]</code> badge in both the summary matrix and test sheet with 1-click in-app preview.</li>
+            <li><strong>Student Modal with Markdown Notes &amp; Comments:</strong> click on any student's name or grade to open the detailed grading modal. The qualitative <strong>Observation Notes</strong> textarea and each individual <strong>Criterion Comment</strong> box support live Markdown editing with a <strong>Write / Preview</strong> tab switcher (supporting <code>**bold**</code>, <code>*italic*</code>, bullet lists <code>-</code>, ordered lists <code>1.</code>, code blocks <code>`code`</code>, and blockquotes <code>&gt;</code>). Full Markdown formatting is rendered in all export reports and printed feedback sheets.</li>
+            <li><strong>Personalised Observation Chips Bank, Quick-Add &amp; Drag Reordering:</strong> use preset observation chips for rapid feedback. The <strong>Test Options</strong> modal includes a dedicated <strong>Observation Chips</strong> tab in its navigation bar to select the test's active observation chip bank, view categorized chip previews, quickly define new chips with <strong>+ Add Chip</strong>, and set default observation section presets for all students. Selected observation chip banks are automatically attached and persisted per test and class across sessions and test duplications. In the student modal, drag and drop any chip within or between categories to reorder them and persist the new positions live to disk.</li>
           </ol>
         </div></div>
       </div>
@@ -2123,16 +2127,17 @@
         </button>
         <div class="accordion-body"><div class="accordion-inner">
           <ol class="steps">
-            <li><strong>Import Grades</strong> — load scores from a CSV file into an existing test.</li>
+            <li><strong>Backup &amp; Restore</strong> — export or import all grade sheets as a complete JSON backup file from the main overview screen.</li>
+            <li><strong>Import Grades</strong> — load scores from a JSON file into an existing class via the <strong>Manage Class ▾</strong> menu.</li>
             <li><strong>Excel Spreadsheet (.xlsx)</strong> — export full semester grade sheet formatted for Microsoft Excel with student names, individual test scores, semester averages, and descriptive statistics (Avg, Max, Min, Median).</li>
             <li><strong>Export CSV</strong> — export raw comma-separated grades for all terms/tests, one term, or a single test, fully localized.</li>
             <li><strong>Export DOCX</strong> — export the selected term as an editable Word document.</li>
             <li><strong>Export HTML</strong> — export the selected term as a standalone HTML report with live draggable and resizable columns.</li>
-            <li><strong>Export Test DOCX &amp; HTML</strong> — from an open test, export individual student feedback sheets (grade, criteria table, teacher observations, scale) in editable DOCX or HTML format.</li>
+            <li><strong>Export Test DOCX &amp; HTML</strong> — from an open test, export individual student feedback sheets (grade, criteria table, teacher observations, scale) in editable DOCX or HTML format via <strong>Export &amp; Reports ▾</strong>.</li>
             <li><strong>Comprehensive Analytics Reports</strong> — generate whole-class year, semester, test, or individual student reports with interactive SVG charts, grade distributions, test progression timelines, quartile boxes, and performance matrix.</li>
-            <li><strong>Correction Criteria Reference</strong> — inspect criteria rubrics in a dedicated window with an <strong>Export</strong> button offering direct export to the <code>to-print</code> folder or destination selection via file picker, or export to PDF, Markdown, and HTML. Personalised test-only criteria automatically render point-based rows (e.g., 0, 1, 2, 3 for a 3-point exercise).</li>
+            <li><strong>Correction Criteria Reference &amp; Rubrics</strong> — inspect criteria rubrics in a dedicated window or export directly to PDF, Markdown, and HTML from the unified <strong>Export &amp; Reports ▾</strong> dropdown. Personalised test-only criteria automatically render point-based rows (e.g., 0, 1, 2, 3 for a 3-point exercise).</li>
             <li><strong>Print Term / Print Results</strong> — generate printable PDF grade sheets or batch 1-page feedback sheets for every student in class.</li>
-            <li><strong>Duplicate / Import</strong> — copy a test structure into a new test or another class.</li>
+            <li><strong>Duplicate / Copy Config</strong> — copy test configuration (criteria, scale, weights) into another test slot or class via the <strong>Test Actions ▾</strong> or <strong>Manage Class ▾</strong> menu.</li>
             <li><strong>Import Participation Grades</strong> — when you export provisional grades from Participation Tracker, opening Grade Sheet will prompt you to automatically import them as a new test column named <em>Participation</em> (including the date range).</li>
             <li><strong>Universal Export Actions</strong> — All exports (Excel, CSV, Word, HTML, PDF) trigger an export completion dialog with one-click <strong>Open File</strong> and <strong>Open Folder</strong> options, plus <strong>Open with Document Editor</strong> for HTML reports.</li>
           </ol>
@@ -2146,10 +2151,10 @@
         </button>
         <div class="accordion-body"><div class="accordion-inner">
           <ol class="steps">
-            <li><strong>Class Links &amp; Context Inheritance:</strong> Click the <code>[LINKS: X]</code> button in the Class Summary header or right-click a class card to open the Link &amp; Tag Manager. Linking a criteria preset or grading scale to the class automatically propagates as a default to newly created tests with an <code>[INHERITED: CLASS NAME]</code> indicator badge.</li>
+            <li><strong>Class Links &amp; Context Inheritance:</strong> Click the <code>[0]</code> links button in the Class Summary header or right-click a class card and choose <strong>Links &amp; Tags</strong> to open the Link &amp; Tag Manager. Linking a criteria preset or grading scale to the class automatically propagates as a default to newly created tests with an <code>[INHERITED: CLASS NAME]</code> indicator badge.</li>
             <li><strong>Automated Graph Linking from Criteria &amp; Grading Scale Tabs:</strong> When saving options or applying criteria templates in the Test Options modal, Grade Sheet automatically creates and synchronizes universal graph links (<code>cmt:criteria:...</code>, <code>cmt:scale:...</code>, and <code>cmt:competence:...</code>) directly from the active criteria bank, assigned curriculum competences, and scale model. The Test Options header provides direct access via a <code>[LINKS: X]</code> button, and indicators labeled <code>[AUTO-LINKED TO GRAPH]</code> highlight reactive synchronization.</li>
-            <li><strong>Test Links &amp; External Files:</strong> Inside any open test, click <code>[LINKS: X]</code> to attach test papers, rubric guides, or companion Markdown/HTML documents.</li>
-            <li><strong>Student Work &amp; PDF Submissions:</strong> Right-click any student row in a test table and select <strong>[ATTACH STUDENT WORK / PDF]</strong>. Attach student exam scans, essays, audio recordings, or PDF submissions directly. A bold yellow <code>[WORK]</code> badge appears next to the student's name in the table; click it to instantly preview the attachment or open it in your default desktop viewer.</li>
+            <li><strong>Test Links &amp; External Files:</strong> Inside any open test, click <code>[0]</code> links button to attach test papers, rubric guides, or companion Markdown/HTML documents.</li>
+            <li><strong>Student Work &amp; PDF Submissions:</strong> Right-click any student row in a test table and select <strong>Attach Student Work / PDF</strong>. Attach student exam scans, essays, audio recordings, or PDF submissions directly. A bold yellow <code>[WORK]</code> badge appears next to the student's name in the table; click it to instantly preview the attachment or open it in your default desktop viewer.</li>
             <li><strong>Global Hashtags (#tags):</strong> Assign tags like <code>#absent</code>, <code>#exempt</code>, or <code>#needs-revision</code> to individual student test evaluations. Tags display directly on the student badge and filter across the central registry.</li>
           </ol>
         </div></div>
@@ -2854,6 +2859,9 @@
             <li><strong>Right-Click Quick Context Menu:</strong>
               <p style="font-size:0.85rem;line-height:1.6;margin:4px 0 8px;">Right-click any row in Table View or any item in Chips View to trigger an instant Neobrutalist popup menu with <strong>Edit</strong> (open the complete modal record editor), <strong>Autofill</strong> (scan across all databases to suggest matching translations, definitions, and fields with one-click direct application and saving), <strong>Copy to other file</strong> (choose destination file or create a new file), <strong>Duplicate</strong> (clone entry in place), and <strong>Delete</strong> (with confirmation safeguard).</p>
             </li>
+            <li><strong>Markdown Formatting in Multiline Fields:</strong>
+              <p style="font-size:0.85rem;line-height:1.6;margin:4px 0 8px;">In the record edit and creation modals, all multiline text fields (such as definitions, descriptors, stories, and custom multiline columns) feature a <strong>Write / Preview</strong> tab toggle. Write text using standard Markdown syntax (<code>**bold**</code>, <code>*italic*</code>, bulleted or numbered lists, inline code, blockquotes) and switch to <strong>Preview</strong> for instant formatted rendering. When exporting to HTML or PDF, multiline fields render with full Markdown formatting.</p>
+            </li>
           </ol>
         </div></div>
       </div>
@@ -3378,11 +3386,12 @@
       <div class="accordion" id="acc-lc-linking">
         <button class="accordion-header" onclick="toggleAccordion('acc-lc-linking')">
           <span class="accordion-arrow">▶</span>
-          <span class="accordion-title">Linking Planner Slots, Board Mindmaps &amp; Word Banks</span>
+          <span class="accordion-title">Linking Planner Slots, Board Mindmaps, Word Banks &amp; Universal Tags</span>
         </button>
         <div class="accordion-body"><div class="accordion-inner">
           <ol class="steps">
             <li><strong>Universal Links &amp; Tags:</strong> Click <strong>[LINKS: n | TAGS: m]</strong> in the top toolbar to view, manage, and attach bidirectional cross-tool links and custom tags to the active lesson plan.</li>
+            <li><strong>Universal Tag Discovery Cloud:</strong> The Links &amp; Tags modal features an interactive tag discovery cloud displaying all system-wide tags across lessons, tests, competences, and planner entries. Filter tags in real-time with substring search and click any pill to instantly add it to your active document.</li>
             <li><strong>Assign to Timetable Slot:</strong> Click the <strong>[PLANNER SLOT]</strong> button or open the planner modal to select an existing slot in your weekly lesson planner. The slot in Planner displays <code>[LESSON PLAN]</code> with 1-click launch in Class Management and quick jump into Lesson Creator.</li>
             <li><strong>Phase ↔ Board Mindmaps:</strong> In any phase card header, click <strong>Mindmap</strong> (or <code>[BOARD: ...]</code>) to attach a saved constellation map (<code>user/mindmaps/</code>) and optional focus node. During live lessons in Class Management, activating this phase displays a direct button to project the mindmap.</li>
             <li><strong>Word &amp; Grammar Bank Drawer:</strong> Open the right drawer and select the <strong>Word / Grammar Bank</strong> tab to search vocabulary terms, definitions, and grammar gap-fill exercises from <code>wordDb.js</code>, <code>grammar.js</code>, and <code>gapFillBank.js</code> by theme and CEFR level (A1–C2). Click <strong>+ Phase</strong> to immediately insert the item into the current phase's action notes.</li>
@@ -3394,19 +3403,27 @@
       <div class="accordion" id="acc-lc-sequences">
         <button class="accordion-header" onclick="toggleAccordion('acc-lc-sequences')">
           <span class="accordion-arrow">▶</span>
-          <span class="accordion-title">Unit Sequences &amp; Curriculum Progression</span>
+          <span class="accordion-title">Unit Sequences, Test Integration &amp; Sequence Booklet Export</span>
         </button>
         <div class="accordion-body"><div class="accordion-inner">
-          <p style="font-size:0.87rem;line-height:1.6;margin-bottom:10px;">Group multiple individual lesson plans into an organized, cohesive unit sequence:</p>
+          <p style="font-size:0.87rem;line-height:1.6;margin-bottom:10px;">Group multiple lesson plans and assessments into an organized, cohesive unit sequence:</p>
           <ol class="steps">
             <li><strong>Open Sequence Manager:</strong> Click <strong>Unit Sequences…</strong> in the File menu or click <strong>Manage</strong> on the yellow Sequence Bar at the top of the editor.</li>
-            <li><strong>Open Existing Sequences:</strong> Use the <em>Existing Sequence</em> dropdown at the top of the modal to select any saved sequence across your library and click <strong>Open</strong> to load its first lesson into the editor and view its full structure. Click <strong>+ New</strong> to start a fresh sequence for the current plan.</li>
-            <li><strong>Assign Unit Title:</strong> Enter a title for the teaching unit (e.g. <em>Unit 3: Ecology &amp; Biodiversity</em>).</li>
-            <li><strong>Add Saved Plans:</strong> Use the search filter in the <em>Add Saved Plans to Sequence</em> section to find any saved lesson plans and click <strong>+ Add</strong> to attach them to the sequence.</li>
-            <li><strong>Reorder &amp; Jump to Lessons:</strong> Click <strong>▲</strong> (Move Up) and <strong>▼</strong> (Move Down) to organize the pedagogical progression of your lessons. Click <strong>Open</strong> next to any lesson in the list to immediately switch the editor to that lesson. The active lesson is highlighted with a <em>Current</em> badge.</li>
-            <li><strong>Remove Lessons:</strong> Click <strong>Remove</strong> to detach a lesson from the sequence without deleting the plan file.</li>
-            <li><strong>Save &amp; Automatic Sibling Sync:</strong> Click <strong>Save Sequence</strong>. The unit title, ordered lesson references, and total count are automatically updated and persisted across every sibling lesson plan in the sequence and written to <code>user/lesson-sequences.json</code>.</li>
-            <li><strong>Live Sequence Bar Navigation:</strong> When a lesson belongs to a multi-lesson sequence, the yellow Sequence Bar displays your position (<em>Lesson N of M</em>). Use <strong>Prev</strong> and <strong>Next</strong> to seamlessly navigate between lessons, with unsaved changes automatically saved before transition.</li>
+            <li><strong>Open Existing Sequences:</strong> Use the <em>Existing Sequence</em> dropdown at the top of the modal to select any saved sequence across your library and click <strong>Open</strong> to load its first item into the editor. Click <strong>+ New</strong> to start a fresh sequence for the current plan.</li>
+            <li><strong>Filter Items:</strong> Filter sequence items by type using the <strong>All</strong>, <strong>Lessons</strong>, and <strong>Tests</strong> pills. Items display distinct high-contrast badges (<code>[LESSON]</code> in yellow, <code>[TEST]</code> in green).</li>
+            <li><strong>Add Saved Plans &amp; Tests:</strong> Use the search filter in the <em>Add to Sequence</em> section to find saved lesson plans (<code>user/lessons/</code>) or tests (<code>user/tests/</code>) and click <strong>+ Add</strong> to attach them to the progression.</li>
+            <li><strong>1-Click Create Test for Unit:</strong> Click <strong>+ Create Test for this Unit</strong> to immediately launch Test Creator pre-configured with the unit's title and class group, automatically registering the new test within the unit sequence.</li>
+            <li><strong>Reorder &amp; Jump to Items:</strong> Click <strong>▲</strong> (Move Up) and <strong>▼</strong> (Move Down) to organize pedagogical progression. Click <strong>Open</strong> next to any item to switch the editor immediately to that lesson or test. The active item is highlighted with a <em>Current</em> badge.</li>
+            <li><strong>Export Entire Unit Sequence:</strong> Click <strong>Export Entire Sequence…</strong> from the Sequence Manager or top Export menu to export the complete unit in one go:
+              <ul style="margin:6px 0 0 16px;padding:0;line-height:1.7;">
+                <li><strong>HTML Booklet:</strong> Full standalone multi-page document with an interactive Table of Contents, complete lesson phases, vocabulary summaries, and attached test exercises.</li>
+                <li><strong>Printable PDF:</strong> High-resolution vector PDF sequence booklet ready for printing or digital distribution.</li>
+                <li><strong>Markdown (.md):</strong> Formatted markdown document ready for editing in Document Editor.</li>
+                <li><strong>JSON Archive Bundle:</strong> Self-contained JSON package containing full plan and test payloads for cross-device backup and sharing.</li>
+              </ul>
+            </li>
+            <li><strong>Save &amp; Automatic Sibling Sync:</strong> Click <strong>Save Sequence</strong>. The unit title, ordered item references, and total counts are automatically updated and persisted across every sibling lesson plan and test in the sequence and written to <code>user/lesson-sequences.json</code>.</li>
+            <li><strong>Live Sequence Bar Navigation:</strong> The top Sequence Bar displays your position (<em>Lesson N of M</em> or <em>Test N of M</em>). Use <strong>Prev</strong> and <strong>Next</strong> to seamlessly navigate between unit items, with unsaved changes automatically saved before transition.</li>
           </ol>
         </div></div>
       </div>
@@ -3516,6 +3533,22 @@
             <li><strong>Criteria Rubrics:</strong> Pull evaluation criteria directly from <code>correction-criteria.js</code> into essay rubrics with pre-configured scales and coefficients.</li>
             <li><strong>Competence Linking:</strong> Tag CEFR or school curriculum descriptors to individual questions for standards coverage tracking.</li>
             <li><strong>Random Test Generator:</strong> Click <strong>⚡ Random Test</strong> to instantly generate a complete test by choosing target themes, CEFR level, exercise types, and total point budget.</li>
+          </ol>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-tc-sequences">
+        <button class="accordion-header" onclick="toggleAccordion('acc-tc-sequences')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Unit Sequences, Aggregated Lesson Pulling &amp; Booklet Export</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p style="font-size:0.87rem;line-height:1.6;margin-bottom:10px;">Link assessments directly with Lesson Creator plans into cohesive teaching units:</p>
+          <ol class="steps">
+            <li><strong>Unit Sequence Bar &amp; Navigation:</strong> When an assessment belongs to a unit sequence, the top Sequence Bar displays its position (<em>Test N of M</em>). Use <strong>Prev</strong> and <strong>Next</strong> to navigate across lessons and tests with automatic saving before switching.</li>
+            <li><strong>Sequence Manager Modal:</strong> Click <strong>Unit Sequences…</strong> in the File or Tools menu, or click <strong>Manage</strong> on the Sequence Bar to view unit structure, browse saved sequences, attach tests and lesson plans, and reorder items.</li>
+            <li><strong>Pull Questions from Entire Unit Sequence:</strong> Click <strong>Pull from Lesson / Unit…</strong> in the Tools menu. Choose either a single lesson plan or an <strong>Entire Unit Sequence</strong> to aggregate vocabulary decks, key concepts, and pedagogical objectives across all unit lessons into your test exercises.</li>
+            <li><strong>Export Entire Unit Sequence:</strong> Click <strong>Export Entire Sequence…</strong> to generate a complete unit package (HTML Booklet with interactive Table of Contents, printable PDF, Markdown, or JSON bundle) directly from Test Creator.</li>
           </ol>
         </div></div>
       </div>
@@ -4718,6 +4751,7 @@
     ],
     'test-creator': [
       { label: 'Saved tests', path: 'user/tests/', type: 'dir' },
+      { label: 'Lesson sequences', path: 'user/lesson-sequences.json' },
       { label: 'Custom exercise banks', path: 'user/custom-data/exercises/', type: 'dir' },
       { label: 'Test images', path: 'user/custom-data/test-images/', type: 'dir' },
       { label: 'Evaluation criteria', path: 'user/correction-criteria.js' },
