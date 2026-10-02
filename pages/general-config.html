@@ -560,6 +560,15 @@
             <div class="status" style="margin-top:8px;" id="webdavStatus"></div>
 
           </section>
+          <!-- ── Year-End & Term Archiving ────────────────────── -->
+          <section class="config-section">
+            <h2 data-i18n="gcArchiveSectionTitle">Year-End &amp; Term Archiving</h2>
+            <p class="section-desc" style="margin-bottom:10px;" data-i18n="gcArchiveSectionDesc">Archive past lessons, grades, attendance, and session files in one click to prepare a fresh workspace for the new school year.</p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+              <button class="btn" type="button" id="openArchivingWizardBtn" onclick="gcOpenArchivingWizard()" data-i18n="gcArchiveWizardBtn">Open Archiving Wizard…</button>
+            </div>
+          </section>
+
           <section class="config-section">
             <h2 data-i18n="gcBakManagerTitle">Backup Files</h2>
             <p class="setting-desc" style="margin-bottom:10px;">
@@ -881,6 +890,14 @@
       { id: 'planner', pageFile: 'planner.html', label: t('app_planner_title') || 'Planner' },
       { id: 'lessonCreator', pageFile: 'lesson-creator.html', label: t('app_lessonCreator_title') || 'Lesson Creator' }
     ];
+
+    function gcOpenArchivingWizard() {
+      if (window.Desktop && typeof Desktop.openTool === 'function') {
+        Desktop.openTool('file-manager.html', { query: { tab: 'archive' } });
+      } else {
+        window.location.href = 'file-manager.html?tab=archive';
+      }
+    }
 
     /* ── persistence ───────────────────────────────────── */
     function getGeneralConfig() {

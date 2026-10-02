@@ -340,6 +340,7 @@
           <button class="sidebar-child" data-accordion="acc-fm-recent" onclick="navToAccordion('file-manager','acc-fm-recent')"><span class="sidebar-child-dot"></span>Recent Tab</button>
           <button class="sidebar-child" data-accordion="acc-fm-browse" onclick="navToAccordion('file-manager','acc-fm-browse')"><span class="sidebar-child-dot"></span>Browse Tab</button>
           <button class="sidebar-child" data-accordion="acc-fm-tags" onclick="navToAccordion('file-manager','acc-fm-tags')"><span class="sidebar-child-dot"></span>Tags &amp; Units Tab</button>
+          <button class="sidebar-child" data-accordion="acc-fm-archive" onclick="navToAccordion('file-manager','acc-fm-archive')"><span class="sidebar-child-dot"></span>Archive &amp; Rollover Tab</button>
           <button class="sidebar-child" data-accordion="acc-fm-sync" onclick="navToAccordion('file-manager','acc-fm-sync')"><span class="sidebar-child-dot"></span>Sync Tab</button>
           <button class="sidebar-child" data-accordion="acc-fm-shortcuts" onclick="navToAccordion('file-manager','acc-fm-shortcuts')"><span class="sidebar-child-dot"></span>Keyboard Shortcuts</button>
         </div>
@@ -948,6 +949,7 @@
             <li><strong>Local Sync:</strong> Select a target sync folder (e.g., cloud drive or network share), enable automatic background sync on app events, reset baseline, or trigger <em>Sync Now</em>.</li>
             <li><strong>Cloud &amp; Server Sync (Dev):</strong> Configure settings, credentials, auto-sync schedules, and manual upload/download for <strong>WebDAV</strong> (kDrive, Nextcloud, ownCloud), <strong>FTP / FTPS (beta)</strong>, and <strong>Google Drive (beta)</strong> (OAuth 2.0 desktop credentials).</li>
             <li><strong>Backup Files:</strong> Open the backup manager to view, select, and batch delete saved backup files.</li>
+            <li><strong>Year-End &amp; Term Archiving:</strong> Launch the Batch Archiving Wizard to package and reset time-related data (Planner entries, Grades, Participation logs, Mindmaps, Schedules, and Print queues) with automatic safety snapshots while preserving student UUIDs and user settings.</li>
             <li><strong>Reset App:</strong> Multi-step wizard to permanently erase selected app data folders. Requires explicit text confirmation and offers a safety backup ZIP download first.</li>
           </ol>
         </div></div>
@@ -3008,6 +3010,43 @@
             <li><strong>[Open] Button</strong> — opens the resource directly in its native tool with proper routing and deep linking.</li>
             <li><strong>[Links &amp; Tags] Button</strong> — opens the Neobrutalist Tag &amp; Link manager modal to attach additional tags, add bidirectional links, or remove existing associations.</li>
             <li>Click <strong>↺ Refresh</strong> to rescan all tags and update counts across the suite.</li>
+          </ul>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-fm-archive">
+        <button class="accordion-header" onclick="toggleAccordion('acc-fm-archive')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title"><img src="../assets/icons/storage.svg" class="ht-icon-img" alt="" /> Archive &amp; Rollover tab — Year-End Archiving</span>
+          <span class="accordion-badge">rollover &amp; safety</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:12px;">The Archive &amp; Rollover tab provides a guided, non-destructive workflow for archiving historical time-related data at the end of a semester or school year while preserving student UUIDs and settings intact.</p>
+
+          <p style="font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin:14px 0 6px;">Archiving Wizard Workflow</p>
+          <ol class="steps">
+            <li>Click <strong>Start Archiving Wizard</strong> to launch the step-by-step modal.</li>
+            <li><strong>Step 1 — Choose Scope:</strong> Select which time-related data types to package and clear:
+              <ul style="margin:4px 0 0 16px;padding:0;line-height:1.6">
+                <li><strong>Planner Entries &amp; Lessons</strong> (<code>planner-config.js</code> entries and <code>user/planner/</code> files).</li>
+                <li><strong>Grade Sheets &amp; Evaluations</strong> (<code>user/grades/</code> evaluations and <code>user/log/grade-sheet/</code> score logs).</li>
+                <li><strong>Participation &amp; Attendance</strong> (<code>user/participation/</code> and <code>user/sessions/</code> logs).</li>
+                <li><strong>Mindmaps &amp; Canvas Drawings</strong> (<code>user/mindmaps/</code> and <code>user/constellations/</code> — templates in <code>_templates/</code> are automatically kept active).</li>
+                <li><strong>Oral Exam Schedules &amp; Markings</strong> (<code>user/schedules/</code> and <code>user/oral-marking/</code> sessions).</li>
+                <li><strong>Print Queue</strong> (<code>user/to-print/</code> generated documents).</li>
+              </ul>
+            </li>
+            <li><strong>Step 2 — Date Cut-off:</strong> Optionally specify an end-of-term cut-off date. Items and entries on or before the cut-off date are archived; more recent items remain active in the workspace. Leaving the cut-off date empty archives all items in selected scopes.</li>
+            <li><strong>Step 3 — Package Name &amp; Description:</strong> Give your archive a custom name (e.g. <em>School Year 2025-2026</em>) and descriptive notes.</li>
+            <li><strong>Step 4 — Review &amp; Confirm:</strong> Inspect the summary of items to be archived. An automatic pre-archive safety backup (<code>.zip</code>) is generated in <code>user/archives/_safety_backups/</code> before any data is modified.</li>
+          </ol>
+
+          <p style="font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin:14px 0 6px;">Archive Explorer &amp; Restoration</p>
+          <ul class="steps">
+            <li><strong>Inspect Archive:</strong> Click <strong>Inspect</strong> on any archive card to view an itemized breakdown of archived folders, file counts, sizes, date filters, and descriptions.</li>
+            <li><strong>Restore Data:</strong> Click <strong>Restore</strong> to selectively or fully restore archived data back into the active workspace. A safety backup is created automatically before restoring to prevent accidental data overwrites.</li>
+            <li><strong>Delete Archive:</strong> Remove old archive packages from disk with confirmation safeguards.</li>
+            <li><strong>Safety Guarantee:</strong> Master student rosters and UUIDs in <code>class-groups.js</code> and app preferences in <code>config.js</code> are strictly preserved so that historical student 360° dossiers remain continuously linked across school years.</li>
           </ul>
         </div></div>
       </div>

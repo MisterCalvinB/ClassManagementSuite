@@ -1029,11 +1029,74 @@
     return 1.0;
   }
 
+  async function archiveTimeData(options) {
+    if (!isElectron()) {
+      return { ok: false, error: "Desktop bridge unavailable in browser mode." };
+    }
+    const api = getDesktopApi();
+    if (!api || typeof api.archiveTimeData !== 'function') {
+      return { ok: false, error: 'archiveTimeData API unavailable' };
+    }
+    return api.archiveTimeData(options);
+  }
+
+  async function listArchives() {
+    if (!isElectron()) {
+      return { ok: true, archives: [] };
+    }
+    const api = getDesktopApi();
+    if (!api || typeof api.listArchives !== 'function') {
+      return { ok: false, error: 'listArchives API unavailable' };
+    }
+    return api.listArchives();
+  }
+
+  async function inspectArchive(request) {
+    if (!isElectron()) {
+      return { ok: false, error: "Desktop bridge unavailable in browser mode." };
+    }
+    const api = getDesktopApi();
+    if (!api || typeof api.inspectArchive !== 'function') {
+      return { ok: false, error: 'inspectArchive API unavailable' };
+    }
+    const payload = typeof request === 'string' ? { archiveId: request } : (request || {});
+    return api.inspectArchive(payload);
+  }
+
+  async function restoreArchive(request) {
+    if (!isElectron()) {
+      return { ok: false, error: "Desktop bridge unavailable in browser mode." };
+    }
+    const api = getDesktopApi();
+    if (!api || typeof api.restoreArchive !== 'function') {
+      return { ok: false, error: 'restoreArchive API unavailable' };
+    }
+    const payload = typeof request === 'string' ? { archiveId: request } : (request || {});
+    return api.restoreArchive(payload);
+  }
+
+  async function deleteArchive(request) {
+    if (!isElectron()) {
+      return { ok: false, error: "Desktop bridge unavailable in browser mode." };
+    }
+    const api = getDesktopApi();
+    if (!api || typeof api.deleteArchive !== 'function') {
+      return { ok: false, error: 'deleteArchive API unavailable' };
+    }
+    const payload = typeof request === 'string' ? { archiveId: request } : (request || {});
+    return api.deleteArchive(payload);
+  }
+
   window.Desktop = Object.freeze({
     adjustZoom,
     resetZoom,
     setZoomFactor,
     getZoomFactor,
+    archiveTimeData,
+    listArchives,
+    inspectArchive,
+    restoreArchive,
+    deleteArchive,
     sendToDocumentEditor,
     applyRestoreChoices,
     arrangeSideBySide,

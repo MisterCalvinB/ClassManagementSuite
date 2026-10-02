@@ -38,6 +38,7 @@
     <button class="tab-btn active" data-tab="recent" data-i18n="fmTabRecent">Recent</button>
     <button class="tab-btn" data-tab="browse" data-i18n="fmTabBrowse">Browse</button>
     <button class="tab-btn" data-tab="tags" id="fmTabTagsBtn" data-i18n="fmTabTags"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-1px;margin-right:4px;" />Tags &amp; Units</button>
+    <button class="tab-btn" data-tab="archive" id="fmTabArchiveBtn" data-i18n="fmTabArchive"><img src="../assets/icons/save.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-1px;margin-right:4px;" />Archive &amp; Rollover</button>
   </div>
 
   <!-- ══ RECENT TAB ══════════════════════════════════════════════ -->
@@ -135,6 +136,37 @@
     </div>
   </div>
 
+  <!-- ══ ARCHIVE & ROLLOVER TAB ═══════════════════════════════════ -->
+  <div id="tab-archive" class="tab-panel">
+    <div class="fm-archive-hero">
+      <div class="fm-archive-hero-title">
+        <img src="../assets/icons/save.svg" class="btn-icon" alt="" style="width:20px;height:20px;" />
+        <span data-i18n="fmArchiveWizardTitle">Batch Archiving &amp; Year-End Rollover</span>
+      </div>
+      <div class="fm-archive-hero-desc" data-i18n="fmArchiveWizardSubtitle">
+        Archive past lessons, grades, attendance, and session files in one go while preserving student rosters and master settings for the new school year.
+      </div>
+      <div class="fm-archive-hero-actions">
+        <button type="button" class="fm-archive-start-btn" id="fmStartArchiveWizardBtn" onclick="openArchivingWizard()">
+          <img src="../assets/icons/play.svg" class="btn-icon" alt="" style="width:14px;height:14px;" />
+          <span data-i18n="fmArchiveBtnStart">Start Archiving Wizard</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="fm-archive-explorer-header">
+      <div>
+        <div class="fm-archive-explorer-title" data-i18n="fmArchivePastArchivesTitle">Archive Explorer</div>
+        <div style="font-size:0.8rem;color:#555;" data-i18n="fmArchivePastArchivesSubtitle">Browse, inspect, restore, or export past academic archives.</div>
+      </div>
+      <button type="button" class="btn-refresh" id="fmArchiveRefreshBtn" onclick="loadArchivesTab()" data-i18n="fmRefresh">↺ Refresh</button>
+    </div>
+
+    <div id="fmArchivesList" class="file-list">
+      <div class="state-msg"><span class="state-icon">⏳</span><span data-i18n="rfLoading">Loading…</span></div>
+    </div>
+  </div>
+
 </div>
 
 <div id="fmPickerOverlay" class="fm-modal-overlay" style="display:none;" role="dialog" aria-modal="true">
@@ -167,6 +199,147 @@
         <button class="btn-outline" id="fmConflictReplaceBtn" type="button">Replace</button>
         <button class="btn-outline" id="fmConflictSkipBtn" type="button">Skip</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Archiving Wizard Modal ───────────────────────────────────── -->
+<div id="fmArchiveWizardOverlay" class="fm-modal-overlay" style="display:none;" role="dialog" aria-modal="true">
+  <div class="fm-modal" style="max-width:680px;">
+    <div class="fm-modal-header" data-i18n="fmArchiveWizardTitle">Batch Archiving &amp; Year-End Rollover</div>
+    <div class="fm-modal-body" style="max-height:68vh;overflow-y:auto;padding-right:12px;">
+
+      <div class="fm-wizard-step-title" data-i18n="fmArchiveScopeStep">1. Select Scope &amp; Date Cut-off</div>
+      <div class="fm-wizard-scope-grid">
+        <label class="fm-wizard-scope-item">
+          <input type="radio" name="fmWizardScope" id="fmWizardScopeAll" value="all" checked onchange="onWizardScopeChange('all')">
+          <span data-i18n="fmArchiveScopeAll">Full School Year</span>
+        </label>
+        <label class="fm-wizard-scope-item">
+          <input type="radio" name="fmWizardScope" value="s1" onchange="onWizardScopeChange('s1')">
+          <span data-i18n="fmArchiveScopeS1">Semester 1 (S1)</span>
+        </label>
+        <label class="fm-wizard-scope-item">
+          <input type="radio" name="fmWizardScope" value="s2" onchange="onWizardScopeChange('s2')">
+          <span data-i18n="fmArchiveScopeS2">Semester 2 (S2)</span>
+        </label>
+        <label class="fm-wizard-scope-item">
+          <input type="radio" name="fmWizardScope" value="custom" onchange="onWizardScopeChange('custom')">
+          <span data-i18n="fmArchiveScopeCustom">Custom Cut-off</span>
+        </label>
+      </div>
+
+      <div id="fmWizardCutoffRow" style="display:none;align-items:center;gap:10px;margin-bottom:12px;background:#fafaf7;padding:8px 12px;border:1.5px solid #333;border-radius:6px;">
+        <label for="fmWizardCutoffDate" style="font-size:0.82rem;font-weight:700;" data-i18n="fmArchiveCutoffLabel">Archive entries on or before:</label>
+        <input type="date" id="fmWizardCutoffDate" style="border:1.5px solid #333;border-radius:4px;padding:4px 8px;font-family:inherit;font-size:0.85rem;">
+      </div>
+
+      <div class="fm-wizard-step-title" data-i18n="fmArchiveModulesStep">2. Select Modules to Archive</div>
+      <div class="fm-wizard-mods-list">
+        <label class="fm-wizard-mod-item">
+          <input type="checkbox" id="fmModPlanner" checked>
+          <div>
+            <div data-i18n="fmArchiveModPlanner">Lesson Planner &amp; Agendas (Dated entries, weekly agendas, to-dos)</div>
+            <div class="fm-wizard-mod-desc">Archived to planner-config.js in archive folder; clears past entries in active planner.</div>
+          </div>
+        </label>
+        <label class="fm-wizard-mod-item">
+          <input type="checkbox" id="fmModGrades" checked>
+          <div>
+            <div data-i18n="fmArchiveModGrades">Grade Sheet &amp; Evaluations (Assessments, test scores, rubrics)</div>
+            <div class="fm-wizard-mod-desc">Moves user/grades/ files to archive.</div>
+          </div>
+        </label>
+        <label class="fm-wizard-mod-item">
+          <input type="checkbox" id="fmModAttendance" checked>
+          <div>
+            <div data-i18n="fmArchiveModAttendance">Attendance &amp; Participation (Daily sessions, tallies, participation)</div>
+            <div class="fm-wizard-mod-desc">Moves user/participation/, user/sessions/, and game results.</div>
+          </div>
+        </label>
+        <label class="fm-wizard-mod-item">
+          <input type="checkbox" id="fmModMindmaps" checked>
+          <div>
+            <div data-i18n="fmArchiveModMindmaps">Mindmaps &amp; Session Canvases (Classroom board sessions)</div>
+            <div class="fm-wizard-mod-desc">Moves session mindmaps; user templates in templates/ remain intact.</div>
+          </div>
+        </label>
+        <label class="fm-wizard-mod-item">
+          <input type="checkbox" id="fmModSchedules" checked>
+          <div>
+            <div data-i18n="fmArchiveModSchedules">Oral Schedules &amp; Marking (Oral exam schedules &amp; rubrics)</div>
+            <div class="fm-wizard-mod-desc">Moves user/schedules/ and user/oral-marking/ files.</div>
+          </div>
+        </label>
+        <label class="fm-wizard-mod-item">
+          <input type="checkbox" id="fmModToprint" checked>
+          <div>
+            <div data-i18n="fmArchiveModToprint">Print Queue &amp; Exported Documents</div>
+            <div class="fm-wizard-mod-desc">Clears exported printable PDFs and files in user/to-print/.</div>
+          </div>
+        </label>
+      </div>
+
+      <div class="fm-wizard-step-title" data-i18n="fmArchiveVerifyStep">3. Label &amp; Confirmation</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div>
+          <label for="fmWizardLabel" style="font-size:0.83rem;font-weight:700;display:block;margin-bottom:4px;" data-i18n="fmArchiveLabelLabel">Archive Label / School Year:</label>
+          <input type="text" id="fmWizardLabel" style="width:100%;border:1.5px solid #333;border-radius:6px;padding:7px 10px;font-family:inherit;font-size:0.88rem;" placeholder="e.g. 2025-2026 Academic Year" data-i18n-placeholder="fmArchiveLabelPlaceholder">
+        </div>
+        <div>
+          <label for="fmWizardComments" style="font-size:0.83rem;font-weight:700;display:block;margin-bottom:4px;" data-i18n="fmArchiveNotesLabel">Notes / Comments (Optional):</label>
+          <textarea id="fmWizardComments" rows="2" style="width:100%;border:1.5px solid #333;border-radius:6px;padding:7px 10px;font-family:inherit;font-size:0.85rem;resize:vertical;" placeholder="Optional comments regarding this term archive..." data-i18n-placeholder="fmArchiveNotesPlaceholder"></textarea>
+        </div>
+      </div>
+
+      <div class="fm-wizard-callout" data-i18n="fmArchiveSafetyNote">
+        🛡️ A pre-archive safety snapshot (.zip) will be automatically created. Master student rosters and class UUIDs are never deleted.
+      </div>
+
+      <div id="fmWizardStatus" style="display:none;margin-top:10px;padding:10px;border:1.5px solid #333;border-radius:6px;background:#f9f9f5;font-size:0.85rem;"></div>
+
+    </div>
+    <div class="fm-modal-footer">
+      <button class="btn-outline" type="button" onclick="closeArchivingWizard()" data-i18n="btnCancel">Cancel</button>
+      <button class="btn" id="fmWizardExecuteBtn" type="button" onclick="executeArchivingWizard()" data-i18n="fmArchiveExecuteBtn">Execute Archiving &amp; Rollover</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Inspect Modal ────────────────────────────────────────────── -->
+<div id="fmArchiveInspectOverlay" class="fm-modal-overlay" style="display:none;" role="dialog" aria-modal="true">
+  <div class="fm-modal" style="max-width:720px;">
+    <div class="fm-modal-header" id="fmInspectTitle" data-i18n="fmArchiveInspectTitle">Archive Contents Inspection</div>
+    <div class="fm-modal-body" id="fmInspectBody" style="max-height:65vh;overflow-y:auto;"></div>
+    <div class="fm-modal-footer">
+      <button class="btn" type="button" onclick="closeArchiveInspectModal()" data-i18n="btnOk">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Restore Modal ────────────────────────────────────────────── -->
+<div id="fmArchiveRestoreOverlay" class="fm-modal-overlay" style="display:none;" role="dialog" aria-modal="true">
+  <div class="fm-modal" style="max-width:600px;">
+    <div class="fm-modal-header" id="fmRestoreTitle" data-i18n="fmArchiveRestoreTitle">Restore Academic Archive</div>
+    <div class="fm-modal-body">
+      <p style="font-size:0.88rem;color:#333;line-height:1.45;margin-bottom:12px;" data-i18n="fmArchiveRestorePrompt">
+        Select which archived datasets to restore back into your active workspace:
+      </p>
+
+      <div class="fm-wizard-mods-list">
+        <label class="fm-wizard-mod-item"><input type="checkbox" id="fmRestoreModPlanner" checked> <span data-i18n="fmArchiveModPlanner">Lesson Planner</span></label>
+        <label class="fm-wizard-mod-item"><input type="checkbox" id="fmRestoreModGrades" checked> <span data-i18n="fmArchiveModGrades">Grade Sheet &amp; Evaluations</span></label>
+        <label class="fm-wizard-mod-item"><input type="checkbox" id="fmRestoreModParticipation" checked> <span data-i18n="fmArchiveModAttendance">Attendance &amp; Participation</span></label>
+        <label class="fm-wizard-mod-item"><input type="checkbox" id="fmRestoreModMindmaps" checked> <span data-i18n="fmArchiveModMindmaps">Mindmaps &amp; Sessions</span></label>
+        <label class="fm-wizard-mod-item"><input type="checkbox" id="fmRestoreModSchedules" checked> <span data-i18n="fmArchiveModSchedules">Oral Schedules &amp; Marking</span></label>
+        <label class="fm-wizard-mod-item"><input type="checkbox" id="fmRestoreModToprint" checked> <span data-i18n="fmArchiveModToprint">Print Queue &amp; Exports</span></label>
+      </div>
+
+      <div id="fmRestoreStatus" style="display:none;margin-top:10px;padding:8px 12px;border:1.5px solid #333;border-radius:6px;background:#f9f9f5;font-size:0.85rem;"></div>
+    </div>
+    <div class="fm-modal-footer">
+      <button class="btn-outline" type="button" onclick="closeArchiveRestoreModal()" data-i18n="btnCancel">Cancel</button>
+      <button class="btn" id="fmRestoreExecuteBtn" type="button" onclick="executeArchiveRestore()" data-i18n="fmArchiveRestoreExecuteBtn">Restore Selected Modules</button>
     </div>
   </div>
 </div>
@@ -234,16 +407,19 @@ var showVersions = false;
    ════════════════════════════════════════════ */
 
 var browseFirstLoad = false;
+var archiveFirstLoad = false;
+
+function switchFmTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.toggle('active', b.dataset.tab === tab); });
+  document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.toggle('active', p.id === 'tab-' + tab); });
+  if (tab === 'browse' && !browseFirstLoad) { browseFirstLoad = true; loadBrowse(); }
+  if (tab === 'tags') { loadTagsTab(); }
+  if (tab === 'archive') { loadArchivesTab(); }
+}
 
 document.querySelectorAll('.tab-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
-    var tab = btn.dataset.tab;
-    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
-    document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
-    btn.classList.add('active');
-    document.getElementById('tab-' + tab).classList.add('active');
-    if (tab === 'browse' && !browseFirstLoad) { browseFirstLoad = true; loadBrowse(); }
-    if (tab === 'tags') { loadTagsTab(); }
+    switchFmTab(btn.dataset.tab);
   });
 });
 
@@ -3178,7 +3354,385 @@ function openFmShortcuts() {
         loadTagsTab(_fmActiveTag);
       }
     });
+
+    var urlTab = new URLSearchParams(window.location.search).get('tab');
+    if (urlTab && ['recent', 'browse', 'tags', 'archive'].includes(urlTab)) {
+      switchFmTab(urlTab);
+    }
   });
+
+  /* ════════════════════════════════════════════
+     ARCHIVING & YEAR-END ROLLOVER LOGIC
+     ════════════════════════════════════════════ */
+
+  var _archivesList = [];
+
+  window.loadArchivesTab = async function() {
+    var container = document.getElementById('fmArchivesList');
+    if (!container) return;
+    container.innerHTML = '<div class="state-msg"><span class="state-icon">⏳</span><span>' + tt('rfLoading', 'Loading…') + '</span></div>';
+
+    if (!window.Desktop || typeof Desktop.listArchives !== 'function') {
+      container.innerHTML = '<div class="state-msg"><span>' + tt('fmArchiveNoArchives', 'No archives created yet.') + '</span></div>';
+      return;
+    }
+
+    try {
+      var res = await Desktop.listArchives();
+      if (!res || !res.ok) {
+        container.innerHTML = '<div class="state-msg"><span style="color:#c00;">' + (res && res.error ? escHtml(res.error) : 'Failed to load archives.') + '</span></div>';
+        return;
+      }
+      _archivesList = Array.isArray(res.archives) ? res.archives : [];
+      renderArchivesList();
+    } catch (err) {
+      container.innerHTML = '<div class="state-msg"><span style="color:#c00;">' + escHtml(err.message || String(err)) + '</span></div>';
+    }
+  };
+
+  function renderArchivesList() {
+    var container = document.getElementById('fmArchivesList');
+    if (!container) return;
+
+    if (_archivesList.length === 0) {
+      container.innerHTML = '<div class="state-msg"><span class="state-icon">📁</span><span>' + tt('fmArchiveNoArchives', 'No archives created yet.') + '</span></div>';
+      return;
+    }
+
+    var frag = document.createDocumentFragment();
+    _archivesList.forEach(function(arc) {
+      var card = document.createElement('div');
+      card.className = 'fm-archive-card';
+
+      var header = document.createElement('div');
+      header.className = 'fm-archive-card-header';
+
+      var nameWrap = document.createElement('div');
+      nameWrap.className = 'fm-archive-card-name';
+      nameWrap.innerHTML = '<img src="../assets/icons/save.svg" class="btn-icon" alt="" style="width:16px;height:16px;" /> ' + escHtml(arc.name || arc.archiveId);
+
+      var badgesWrap = document.createElement('div');
+      badgesWrap.style.display = 'flex';
+      badgesWrap.style.gap = '6px';
+      badgesWrap.style.alignItems = 'center';
+
+      var scopeBadge = document.createElement('span');
+      scopeBadge.className = 'fm-archive-badge scope';
+      var scopeText = arc.termScope ? arc.termScope.toUpperCase() : 'ALL';
+      if (arc.dateCutoff) scopeText += ' (≤ ' + arc.dateCutoff + ')';
+      scopeBadge.textContent = scopeText;
+      badgesWrap.appendChild(scopeBadge);
+
+      header.appendChild(nameWrap);
+      header.appendChild(badgesWrap);
+      card.appendChild(header);
+
+      var metaRow = document.createElement('div');
+      metaRow.className = 'fm-archive-meta-row';
+      var totalFiles = arc.recordCounts ? (arc.recordCounts.totalFiles || 0) : 0;
+      metaRow.innerHTML = '<span>📅 ' + formatDate(arc.createdAt) + '</span>' +
+        '<span>📦 ' + totalFiles + ' ' + tt('tcUnitsCountItems', 'files') + '</span>' +
+        (arc.safetyBackupZip ? '<span>🛡️ ' + tt('fmArchiveSafetyBackupLabel', 'Safety Backup:') + ' ' + escHtml(arc.safetyBackupZip) + '</span>' : '');
+      card.appendChild(metaRow);
+
+      if (arc.modules) {
+        var modsRow = document.createElement('div');
+        modsRow.className = 'fm-archive-modules-row';
+        var modLabels = {
+          planner: tt('lmGroupLessons', 'Planner'),
+          grades: tt('lmGroupGradesheet', 'Grades'),
+          participation: tt('skmSecClassroom', 'Participation'),
+          mindmaps: tt('lmGroupBoard', 'Mindmaps'),
+          schedules: tt('fmArchiveModSchedules', 'Schedules'),
+          toprint: tt('fmArchiveModToprint', 'Print Queue')
+        };
+        Object.keys(arc.modules).forEach(function(mKey) {
+          if (arc.modules[mKey]) {
+            var mBadge = document.createElement('span');
+            mBadge.className = 'fm-archive-badge mod';
+            mBadge.textContent = '✓ ' + (modLabels[mKey] || mKey);
+            modsRow.appendChild(mBadge);
+          }
+        });
+        card.appendChild(modsRow);
+      }
+
+      if (arc.comments) {
+        var comEl = document.createElement('div');
+        comEl.className = 'fm-archive-comments';
+        comEl.textContent = '“ ' + arc.comments + ' ”';
+        card.appendChild(comEl);
+      }
+
+      var actions = document.createElement('div');
+      actions.className = 'fm-archive-actions';
+
+      var inspectBtn = document.createElement('button');
+      inspectBtn.type = 'button';
+      inspectBtn.className = 'fm-archive-btn';
+      inspectBtn.innerHTML = '<img src="../assets/icons/search.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> ' + tt('fmArchiveInspectBtn', 'Inspect');
+      inspectBtn.onclick = function() { openArchiveInspectModal(arc); };
+      actions.appendChild(inspectBtn);
+
+      var restoreBtn = document.createElement('button');
+      restoreBtn.type = 'button';
+      restoreBtn.className = 'fm-archive-btn restore';
+      restoreBtn.innerHTML = '<img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> ' + tt('fmArchiveRestoreBtn', 'Restore');
+      restoreBtn.onclick = function() { openArchiveRestoreModal(arc); };
+      actions.appendChild(restoreBtn);
+
+      var folderBtn = document.createElement('button');
+      folderBtn.type = 'button';
+      folderBtn.className = 'fm-archive-btn';
+      folderBtn.innerHTML = '<img src="../assets/icons/file-manager.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> ' + tt('fmArchiveShowFolderBtn', 'Open Folder');
+      folderBtn.onclick = function() {
+        if (window.Desktop && typeof Desktop.showInFolder === 'function') {
+          Desktop.showInFolder('user', 'archives/' + arc.archiveId);
+        }
+      };
+      actions.appendChild(folderBtn);
+
+      var delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'fm-archive-btn danger';
+      delBtn.innerHTML = '<img src="../assets/icons/delete.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> ' + tt('fmArchiveDeleteBtn', 'Delete');
+      delBtn.onclick = function() { deleteArchivePrompt(arc); };
+      actions.appendChild(delBtn);
+
+      card.appendChild(actions);
+      frag.appendChild(card);
+    });
+
+    container.replaceChildren(frag);
+  }
+
+  // ── Wizard Modal Handlers ──
+
+  window.openArchivingWizard = function() {
+    var overlay = document.getElementById('fmArchiveWizardOverlay');
+    if (!overlay) return;
+    overlay.style.display = 'flex';
+
+    var now = new Date();
+    var currentYear = now.getFullYear();
+    var defaultLabel = (currentYear - 1) + '-' + currentYear + ' Academic Year';
+    var labelInput = document.getElementById('fmWizardLabel');
+    if (labelInput && !labelInput.value) labelInput.value = defaultLabel;
+
+    var cutoffInput = document.getElementById('fmWizardCutoffDate');
+    if (cutoffInput && !cutoffInput.value) cutoffInput.value = now.toISOString().slice(0, 10);
+
+    var rAll = document.getElementById('fmWizardScopeAll');
+    if (rAll) rAll.checked = true;
+    var cutRow = document.getElementById('fmWizardCutoffRow');
+    if (cutRow) cutRow.style.display = 'none';
+
+    var stEl = document.getElementById('fmWizardStatus');
+    if (stEl) { stEl.textContent = ''; stEl.style.display = 'none'; }
+    var exBtn = document.getElementById('fmWizardExecuteBtn');
+    if (exBtn) {
+      exBtn.disabled = false;
+      exBtn.textContent = tt('fmArchiveExecuteBtn', 'Execute Archiving & Rollover');
+      exBtn.onclick = executeArchivingWizard;
+    }
+  };
+
+  window.closeArchivingWizard = function() {
+    var overlay = document.getElementById('fmArchiveWizardOverlay');
+    if (overlay) overlay.style.display = 'none';
+  };
+
+  window.onWizardScopeChange = function(val) {
+    var cutoffRow = document.getElementById('fmWizardCutoffRow');
+    if (cutoffRow) {
+      cutoffRow.style.display = (val === 'custom') ? 'flex' : 'none';
+    }
+  };
+
+  window.executeArchivingWizard = async function() {
+    var label = (document.getElementById('fmWizardLabel').value || '').trim();
+    var comments = (document.getElementById('fmWizardComments').value || '').trim();
+    var scopeVal = document.querySelector('input[name="fmWizardScope"]:checked')?.value || 'all';
+    var cutoffDate = (scopeVal === 'custom') ? document.getElementById('fmWizardCutoffDate').value : null;
+
+    var modules = {
+      planner: document.getElementById('fmModPlanner').checked,
+      grades: document.getElementById('fmModGrades').checked,
+      participation: document.getElementById('fmModParticipation').checked,
+      mindmaps: document.getElementById('fmModMindmaps').checked,
+      schedules: document.getElementById('fmModSchedules').checked,
+      toprint: document.getElementById('fmModToprint').checked
+    };
+
+    var statusEl = document.getElementById('fmWizardStatus');
+    var execBtn = document.getElementById('fmWizardExecuteBtn');
+    statusEl.style.display = 'block';
+    statusEl.innerHTML = '<span style="color:#333;">⏳ Executing pre-archive safety backup and migrating data stores…</span>';
+    execBtn.disabled = true;
+
+    try {
+      var res = await Desktop.archiveTimeData({
+        label: label,
+        termScope: scopeVal,
+        dateCutoff: cutoffDate,
+        modules: modules,
+        comments: comments
+      });
+
+      if (!res || !res.ok) {
+        statusEl.innerHTML = '<span style="color:#c00;">❌ ' + (res && res.error ? escHtml(res.error) : 'Archiving failed.') + '</span>';
+        execBtn.disabled = false;
+        return;
+      }
+
+      statusEl.innerHTML = '<span style="color:#166534;font-weight:700;">✅ ' + tt('fmArchiveSuccessTitle', 'Archiving Completed Successfully!') + '</span><br>' +
+        '<span style="font-size:0.8rem;color:#333;">' + tt('fmArchiveSuccessSummary', '{count} files successfully archived into: {path}').replace('{count}', res.manifest?.recordCounts?.totalFiles || 0).replace('{path}', res.relativeArchivePath) + '</span>';
+
+      showToast(tt('fmArchiveCreatedToast', 'Academic archive created successfully!'));
+      execBtn.textContent = tt('btnDone', 'Done');
+      execBtn.disabled = false;
+      execBtn.onclick = function() {
+        closeArchivingWizard();
+        loadArchivesTab();
+      };
+    } catch (err) {
+      statusEl.innerHTML = '<span style="color:#c00;">❌ ' + escHtml(err.message || String(err)) + '</span>';
+      execBtn.disabled = false;
+    }
+  };
+
+  // ── Inspect Modal Handlers ──
+
+  window.openArchiveInspectModal = async function(arc) {
+    var overlay = document.getElementById('fmArchiveInspectOverlay');
+    if (!overlay) return;
+    overlay.style.display = 'flex';
+
+    document.getElementById('fmInspectTitle').textContent = arc.name || arc.archiveId;
+    var body = document.getElementById('fmInspectBody');
+    body.innerHTML = '<div class="state-msg"><span class="state-icon">⏳</span><span>Loading archive details…</span></div>';
+
+    try {
+      var res = await Desktop.inspectArchive({ archiveId: arc.archiveId });
+      if (!res || !res.ok) {
+        body.innerHTML = '<div style="color:#c00;">' + (res && res.error ? escHtml(res.error) : 'Failed to inspect archive.') + '</div>';
+        return;
+      }
+
+      var manifest = res.manifest || arc;
+      var files = res.files || [];
+
+      var html = '<div style="font-size:0.85rem;margin-bottom:12px;display:flex;gap:12px;flex-wrap:wrap;">' +
+        '<span><strong>Created:</strong> ' + formatDate(manifest.createdAt) + '</span>' +
+        '<span><strong>Total Files:</strong> ' + files.length + '</span>' +
+        '<span><strong>Scope:</strong> ' + (manifest.termScope || 'All').toUpperCase() + '</span>' +
+        '</div>';
+
+      if (manifest.comments) {
+        html += '<div class="fm-archive-comments" style="margin-bottom:12px;">“ ' + escHtml(manifest.comments) + ' ”</div>';
+      }
+
+      html += '<table class="fm-inspect-table"><thead><tr><th>File</th><th>Size</th><th>Date</th></tr></thead><tbody>';
+      files.forEach(function(f) {
+        html += '<tr><td><code>' + escHtml(f.name) + '</code></td><td>' + (f.size ? (Math.round(f.size / 1024) + ' KB') : '—') + '</td><td>' + formatDate(f.mtimeMs) + '</td></tr>';
+      });
+      html += '</tbody></table>';
+
+      body.innerHTML = html;
+    } catch (e) {
+      body.innerHTML = '<div style="color:#c00;">' + escHtml(e.message || String(e)) + '</div>';
+    }
+  };
+
+  window.closeArchiveInspectModal = function() {
+    var overlay = document.getElementById('fmArchiveInspectOverlay');
+    if (overlay) overlay.style.display = 'none';
+  };
+
+  // ── Restore Modal Handlers ──
+
+  var _activeRestoreArchive = null;
+
+  window.openArchiveRestoreModal = function(arc) {
+    _activeRestoreArchive = arc;
+    var overlay = document.getElementById('fmArchiveRestoreOverlay');
+    if (!overlay) return;
+    overlay.style.display = 'flex';
+
+    document.getElementById('fmRestoreTitle').textContent = arc.name || arc.archiveId;
+    var stEl = document.getElementById('fmRestoreStatus');
+    stEl.textContent = '';
+    stEl.style.display = 'none';
+    var exBtn = document.getElementById('fmRestoreExecuteBtn');
+    exBtn.disabled = false;
+    exBtn.textContent = tt('fmArchiveRestoreExecuteBtn', 'Restore Selected Modules');
+    exBtn.onclick = executeArchiveRestore;
+  };
+
+  window.closeArchiveRestoreModal = function() {
+    var overlay = document.getElementById('fmArchiveRestoreOverlay');
+    if (overlay) overlay.style.display = 'none';
+    _activeRestoreArchive = null;
+  };
+
+  window.executeArchiveRestore = async function() {
+    if (!_activeRestoreArchive) return;
+    var modules = {
+      planner: document.getElementById('fmRestoreModPlanner').checked,
+      grades: document.getElementById('fmRestoreModGrades').checked,
+      participation: document.getElementById('fmRestoreModParticipation').checked,
+      mindmaps: document.getElementById('fmRestoreModMindmaps').checked,
+      schedules: document.getElementById('fmRestoreModSchedules').checked,
+      toprint: document.getElementById('fmRestoreModToprint').checked
+    };
+
+    var statusEl = document.getElementById('fmRestoreStatus');
+    var execBtn = document.getElementById('fmRestoreExecuteBtn');
+    statusEl.style.display = 'block';
+    statusEl.innerHTML = '<span style="color:#333;">⏳ Restoring archived datasets…</span>';
+    execBtn.disabled = true;
+
+    try {
+      var res = await Desktop.restoreArchive({
+        archiveId: _activeRestoreArchive.archiveId,
+        modules: modules
+      });
+
+      if (!res || !res.ok) {
+        statusEl.innerHTML = '<span style="color:#c00;">❌ ' + (res && res.error ? escHtml(res.error) : 'Restore failed.') + '</span>';
+        execBtn.disabled = false;
+        return;
+      }
+
+      statusEl.innerHTML = '<span style="color:#166534;font-weight:700;">✅ ' + tt('fmArchiveRestoreSuccess', 'Successfully restored {count} items from archive.').replace('{count}', res.restoredCount || 0) + '</span>';
+      showToast(tt('fmArchiveRestoreSuccess', 'Successfully restored items from archive.'));
+      execBtn.textContent = tt('btnDone', 'Done');
+      execBtn.disabled = false;
+      execBtn.onclick = function() {
+        closeArchiveRestoreModal();
+      };
+    } catch (e) {
+      statusEl.innerHTML = '<span style="color:#c00;">❌ ' + escHtml(e.message || String(e)) + '</span>';
+      execBtn.disabled = false;
+    }
+  };
+
+  window.deleteArchivePrompt = async function(arc) {
+    var confirmed = await showConfirm(tt('fmArchiveDeleteConfirm', 'Are you sure you want to permanently delete this archive folder? This action cannot be undone.'));
+    if (!confirmed) return;
+
+    try {
+      var res = await Desktop.deleteArchive({ archiveId: arc.archiveId });
+      if (res && res.ok) {
+        showToast(tt('fmArchiveDeletedToast', 'Archive deleted successfully.'));
+        loadArchivesTab();
+      } else {
+        showToast(res && res.error ? res.error : 'Failed to delete archive.', true);
+      }
+    } catch (e) {
+      showToast(e.message || String(e), true);
+    }
+  };
 })();
 </script>
 </body>

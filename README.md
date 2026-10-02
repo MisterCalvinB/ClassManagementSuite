@@ -461,6 +461,7 @@ Centralized settings page organized into **four dedicated tabs** for intuitive n
   - **FTP / FTPS Sync (beta)**: Configure Host, Port, Credentials, Remote Path, FTPS security toggle, and auto-sync intervals (5 to 60 minutes).
   - **Google Drive Sync (beta)**: OAuth 2.0 Client ID & Secret configuration, Google login authentication, and selective folder upload/download.
 - **Backup Files Manager**: Open modal to browse, inspect, and batch delete saved backup files.
+- **Year-End & Term Archiving**: Launch the Batch Archiving Wizard to package and archive time-related data (Planner entries, Grade evaluations, Participation logs, Mindmaps, Schedules, and Print queues) with automatic safety snapshots while preserving student UUIDs and app settings.
 - **Reset App**: Safety wizard to permanently erase selected app data folders. Requires typing `ERASE` to confirm and offers a compulsory backup ZIP creation first.
 
 #### 3. Remote Server Tab (`data-tab="remote"`)
@@ -719,6 +720,7 @@ Data file manager with built-in search, rename, move, and synchronization featur
 - **Recent Tab**: Filter constellation map archives (`.cstz`), legacy sessions (`.js`), PDFs, images, and audio. Reopen maps in Board with one click. Rows display compact Neobrutalist tag badges (`#tag`), clicking which switches directly to the **Tags & Units** tab pre-filtered to that tag.
 - **Browse Tab**: Deep folder navigation across `user/` subdirectories. Supports multi-select (Ctrl/Shift+click), drag-and-drop moving, inline renaming, folder creation, and sidebar folder pinning. Single-file `.cstz` archives are treated as standalone atomic documents. Files with associated tags display clickable tag badges for immediate inspection.
 - **Tags & Units Tab**: Suite-wide explorer to browse, search, and aggregate resources linked to any `#tag` (e.g. `#unit-1`, `#revision`, `#oral-exam`). Features quick tag pills, real-time search filtering, category tabs (`[ALL]`, `[DOCS]`, `[LESSONS]`, `[MINDMAPS]`, `[TESTS]`, `[PLANNER]`, `[GRADES]`), and 1-click `[OPEN]` and `[LINKS & TAGS]` modals.
+- **Archive & Rollover Tab**: Complete year-end and term rollover suite. Teachers can create scoped, date-filtered archive packages (Planner lessons & entries, Grade Sheet evaluations & score logs, Participation & attendance sessions, Mindmaps/drawings, Oral exam schedules, and the Print queue) into timestamped `user/archives/` bundles. Before any archiving or rollover, an automated atomic pre-archive safety backup `.zip` is generated in `user/archives/_safety_backups/`. Features an interactive Archive Explorer with itemized data inspection modals, granular one-click restoration with overwrite confirmations, and archive deletion. Student rosters (`class-groups.js` UUIDs) and user configurations are strictly preserved to guarantee uninterrupted 360° student dossier tracking.
 - **Sync Tab**: Local and background auto-sync configuration with conflict resolution dialogs. Automatically handles `.cstz` board archives under the `mindmaps` category.
 
 <details>

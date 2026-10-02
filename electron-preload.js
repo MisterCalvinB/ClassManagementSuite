@@ -415,6 +415,13 @@ const exposedApi = {
   deleteBakFiles(request)     { return invoke('app:delete-bak-files', request); },
   restoreBakFile(request)     { return invoke('app:restore-bak-file', request); },
 
+  // ── Batch Time-Related Archiving & Rollover ─────────────────────────────────
+  archiveTimeData(options)    { return invoke('app:archive-time-data', options); },
+  listArchives()              { return invoke('app:list-archives'); },
+  inspectArchive(request)     { return invoke('app:inspect-archive', request); },
+  restoreArchive(request)     { return invoke('app:restore-archive', request); },
+  deleteArchive(request)      { return invoke('app:delete-archive', request); },
+
   // ── Clipboard (Desktop native via IPC) ──────────────────────────────────────
   clipboardReadText() {
     return invoke('app:clipboard-read-text');
