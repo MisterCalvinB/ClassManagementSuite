@@ -14,6 +14,9 @@
   <script src="../js/tutorial.js"></script>
   <script src="../js/import-utils.js"></script>
   <script src="../js/competence-aggregator-service.js"></script>
+  <link rel="stylesheet" href="../css/tag-link-modal.css">
+  <script src="../js/links-service.js"></script>
+  <script src="../js/tag-link-modal.js"></script>
   <link rel="stylesheet" href="../css/stylesheet.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -380,6 +383,22 @@
       background: #fff;
     }
     .eg-s-input:focus { border-color: #555; outline: none; }
+    .eg-s-dossier-btn {
+      background: #ffffff;
+      border: 1.5px solid #000000;
+      border-radius: 4px;
+      box-shadow: 1px 1px 0px #000000;
+      cursor: pointer;
+      padding: 3px 6px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-left: 2px;
+      transition: background 0.1s;
+    }
+    .eg-s-dossier-btn:hover {
+      background: #e2c96e;
+    }
     .eg-s-del {
       width: 28px;
       background: #fff;
@@ -1814,6 +1833,7 @@
     row.appendChild(sep);
     row.appendChild(dateToInput);
     row.appendChild(labelInput);
+    row.appendChild(dossierBtn);
     row.appendChild(delBtn);
     holList.appendChild(row);
   }
@@ -2545,6 +2565,20 @@
     senCb.title = 'SEN';
     if (isDisabled) senCb.disabled = true;
     senCell.appendChild(senCb);
+
+    const dossierBtn = document.createElement('button');
+    dossierBtn.type = 'button';
+    dossierBtn.className = 'eg-s-dossier-btn';
+    dossierBtn.title = typeof t === 'function' ? t('geStudentDossier') : '360° Academic Dossier';
+    dossierBtn.innerHTML = '<img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:12px;height:12px;" />';
+    dossierBtn.onclick = (e) => {
+      e.stopPropagation();
+      if (typeof TagLinkModal !== 'undefined') {
+        TagLinkModal.openStudentDossier(uuid, {
+          title: ((fnInput.value || '') + ' ' + (lnInput.value || '')).trim() || uuid
+        });
+      }
+    };
 
     const delBtn = document.createElement('button');
     delBtn.type = 'button';

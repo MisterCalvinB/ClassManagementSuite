@@ -160,7 +160,6 @@
           <button class="neo-btn purple" onclick="tcOpenPrintPreview()" title="Dedicated Print &amp; PDF Preview" data-i18n-title="tcPrintPreviewTooltip"><span data-i18n="tcPrintPreviewBtn">Preview</span></button>
           <button class="neo-btn primary" onclick="tcSaveTest()"><span data-i18n="btnSave">Save</span></button>
           <button class="neo-btn" id="drawerToggleBtn" onclick="tcToggleDrawer()"><span data-i18n="tcDrawerBtn">Resources</span></button>
-          <button class="neo-btn" id="btn-tc-unit-seq" onclick="tcOpenSequenceModal()" title="Manage Unit Sequence" style="display:inline-flex;align-items:center;gap:4px;font-size:0.75rem;padding:3px 8px;background:#fef08a;color:#713f12;font-weight:800;"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:12px;height:12px;vertical-align:-1px;" /><span data-i18n="tcUnitSequence">Unit:</span> <span id="tcUnitSeqDisplay" data-i18n="tcNone">None</span></button>
           <button class="neo-btn" id="btn-tc-test-links" onclick="tcOpenTestLinksModal()" style="display:none;font-weight:900;letter-spacing:0.5px;" title="Test Links &amp; Tags"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" />[0]</button>
         </div>
       </div>
@@ -188,6 +187,7 @@
           <button class="neo-btn yellow sm" onclick="tcOpenHeaderCustomizerModal()" title="Customise allowed materials, header elements, bold/italic/underline, and layout" data-i18n-title="tcHeaderCustomiseTooltip"><img src="../assets/icons/layout.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> <span data-i18n="tcBtnHeaderCustomise">Header &amp; Materials…</span></button>
           <button class="neo-btn teal sm" onclick="tcOpenGradeSheetModal()"><span data-i18n="tcBtnGradeSheet">Grade Sheet</span></button>
           <button class="neo-btn sm" onclick="tcOpenVariantMatrixModal()"><span data-i18n="tcBtnGroupAB">Group A/B</span></button>
+          <button class="neo-btn sm" id="btn-tc-unit-seq" onclick="tcOpenSequenceModal()" title="Manage Unit Sequence" data-i18n-title="tcUnitSeqTooltip" style="background:#fef08a;color:#713f12;font-weight:800;border-color:#ca8a04;display:inline-flex;align-items:center;gap:4px;"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-1px;" /><span data-i18n="tcUnitSequence">Unit:</span> <span id="tcUnitSeqDisplay" data-i18n="tcNone">None</span></button>
         </div>
       </div>
     </div>
@@ -2028,12 +2028,23 @@
         var reqFile = params.get('file') || params.get('testFile');
         var reqId = params.get('testId') || params.get('id');
 
-        if (reqFile && window.Desktop && Desktop.isElectron && typeof Desktop.readJson === 'function') {
+        var isElec = window.Desktop && (typeof Desktop.isElectron === 'function' ? Desktop.isElectron() : !!Desktop.isElectron);
+
+        if (reqFile && isElec && typeof Desktop.readJson === 'function') {
           try {
-            var readRes = await Desktop.readJson('tests', reqFile);
+            var fnToRead = reqFile.endsWith('.json') ? reqFile : (reqFile + '.json');
+            var readRes = await Desktop.readJson('tests', fnToRead);
+            if (!readRes || !readRes.ok || !readRes.data) {
+              if (typeof Desktop.readByPath === 'function') {
+                var raw = await Desktop.readByPath('user', 'tests/' + fnToRead);
+                if (raw && raw.ok && raw.content) {
+                  try { readRes = { ok: true, data: JSON.parse(raw.content) }; } catch (_) {}
+                }
+              }
+            }
             var testObj = (readRes && readRes.ok && readRes.data) ? readRes.data : (readRes && readRes.data ? readRes.data : readRes);
             if (testObj && typeof testObj === 'object' && testObj.ok !== false) {
-              testObj._filename = reqFile;
+              testObj._filename = fnToRead;
               currentTest = JSON.parse(JSON.stringify(testObj));
               currentTest.exercises = currentTest.exercises || [];
               TestCreatorService.ensureHeaderConfig(currentTest);
@@ -2043,11 +2054,39 @@
         }
 
         if (reqId) {
+          var cleanId = String(reqId).trim();
+          var cleanWithoutExt = cleanId.replace(/\.json$/i, '');
+
+          if (isElec && typeof Desktop.listFiles === 'function') {
+            try {
+              var filesRes = await Desktop.listFiles('tests', { extensions: ['.json'] });
+              var files = Array.isArray(filesRes) ? filesRes : ((filesRes && Array.isArray(filesRes.files)) ? filesRes.files : []);
+              for (var i = 0; i < files.length; i++) {
+                var f = files[i];
+                var fn = typeof f === 'string' ? f : (f.filename || f.name);
+                if (!fn) continue;
+                if (fn === cleanId || fn === cleanWithoutExt + '.json' || fn.indexOf(cleanWithoutExt) !== -1) {
+                  var r = await Desktop.readJson('tests', fn);
+                  var tObj = (r && r.ok && r.data) ? r.data : (r && r.data ? r.data : r);
+                  if (tObj && typeof tObj === 'object' && tObj.ok !== false) {
+                    tObj._filename = fn;
+                    currentTest = JSON.parse(JSON.stringify(tObj));
+                    currentTest.exercises = currentTest.exercises || [];
+                    TestCreatorService.ensureHeaderConfig(currentTest);
+                    return;
+                  }
+                }
+              }
+            } catch (_) {}
+          }
+
           try {
             var rawList = localStorage.getItem('cmt_tests');
             if (rawList) {
               var list = JSON.parse(rawList);
-              var found = Array.isArray(list) && list.find(function (t) { return t.id === reqId || t._filename === reqId; });
+              var found = Array.isArray(list) && list.find(function (t) {
+                return t.id === cleanId || t.id === cleanWithoutExt || t._filename === cleanId || (t._filename && t._filename === cleanWithoutExt + '.json');
+              });
               if (found) {
                 var loaded = (found.data && found.ok) ? found.data : (found.data ? found.data : found);
                 currentTest = JSON.parse(JSON.stringify(loaded));
@@ -9037,10 +9076,14 @@
       function tcUpdateUnitSeqBadge() {
         var disp = document.getElementById('tcUnitSeqDisplay');
         if (!disp) return;
-        var seqTitle = (currentTest && currentTest.unitSequence && currentTest.unitSequence.title)
-          ? currentTest.unitSequence.title
-          : 'None';
-        disp.textContent = seqTitle;
+        var seq = currentTest && currentTest.unitSequence;
+        var noneTxt = (typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('tcNone') : '') || 'None';
+        if (seq && seq.title && seq.title.trim()) {
+          var count = (seq.lessons && Array.isArray(seq.lessons)) ? seq.lessons.length : 1;
+          disp.textContent = seq.title + (count > 1 ? (' (' + count + ')') : '');
+        } else {
+          disp.textContent = noneTxt;
+        }
       }
       window.tcUpdateUnitSeqBadge = tcUpdateUnitSeqBadge;
 
@@ -10283,11 +10326,17 @@
           if (currentTest._filename && currentTest._filename !== filename) {
             try {
               if (typeof Desktop.deleteFile === 'function') {
-                await Desktop.deleteFile('tests', currentTest._filename);
+                await Desktop.deleteFile('tests', currentTest._filename).catch(function () {});
+              }
+              if (typeof Desktop.deleteByPath === 'function') {
+                await Desktop.deleteByPath('tests', currentTest._filename).catch(function () {});
+                await Desktop.deleteByPath('user', 'tests/' + currentTest._filename).catch(function () {});
+                await Desktop.deleteByPath('user', currentTest._filename).catch(function () {});
               }
             } catch (_) {}
           }
           currentTest._filename = filename;
+          currentTest._relPath = 'tests/' + filename;
           var res = await window.Desktop.saveJson('tests', filename, currentTest);
           try {
             localStorage.setItem('cmt_active_test', JSON.stringify(currentTest));
@@ -10297,6 +10346,15 @@
             if (exIdx >= 0) list[exIdx] = currentTest;
             else list.push(currentTest);
             localStorage.setItem('cmt_tests', JSON.stringify(list));
+
+            if (Array.isArray(_allSavedTests)) {
+              var exSavedIdx = _allSavedTests.findIndex(function (t) { return t.id === currentTest.id; });
+              if (exSavedIdx >= 0) {
+                _allSavedTests[exSavedIdx] = JSON.parse(JSON.stringify(currentTest));
+              } else {
+                _allSavedTests.unshift(JSON.parse(JSON.stringify(currentTest)));
+              }
+            }
           } catch (_) {}
 
           if (res && res.ok) {
@@ -10561,8 +10619,13 @@
           activeStudents = [];
         }
 
+        currentTest._filename = found._filename || loaded._filename || ('test_' + currentTest.id + '.json');
+        currentTest._relPath = found._relPath || loaded._relPath || ('tests/' + currentTest._filename);
+
         renderTestMeta();
         renderExerciseCards();
+        if (typeof tcUpdateUnitSeqBadge === 'function') tcUpdateUnitSeqBadge();
+        if (typeof tcUpdateTestLinksBadge === 'function') tcUpdateTestLinksBadge();
         tcCloseTestPicker();
 
         try {

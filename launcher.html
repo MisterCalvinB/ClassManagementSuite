@@ -2327,7 +2327,11 @@
       var item = document.createElement('div');
       item.className = 'sb-item' + (overdue ? ' sb-todo-overdue' : '');
       var dateLbl = td.dueDate ? sbFormatDate(td.dueDate) : '';
-      var clsName = td.classId ? ((rfGroupMeta[td.classId] && rfGroupMeta[td.classId].name) || td.classId) : '';
+      var cids = Array.isArray(td.classIds) && td.classIds.length ? td.classIds : (td.classId ? [td.classId] : []);
+      var clsNames = cids.map(function(cid) {
+        return (rfGroupMeta[cid] && rfGroupMeta[cid].name) || cid;
+      }).filter(Boolean);
+      var clsName = clsNames.join(', ');
       var subs = Array.isArray(td.subtodos) ? td.subtodos : [];
       var subsHtml = '';
       if (subs.length) {

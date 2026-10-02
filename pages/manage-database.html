@@ -6811,6 +6811,42 @@ Rules:
       background: #ffffff;
       color: var(--text);
     }
+    .view-switch {
+      display: inline-flex;
+      border: 2px solid var(--border);
+      border-radius: 6px;
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+      background: #ffffff;
+    }
+    .btn-view {
+      border: none;
+      border-right: 1.5px solid var(--border);
+      border-radius: 0;
+      padding: 8px 14px;
+      font-weight: 800;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      font-family: inherit;
+      background: #ffffff;
+      color: var(--text);
+      transition: background 0.1s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-view:last-child {
+      border-right: none;
+    }
+    .btn-view:hover {
+      background: #f0f0eb;
+    }
+    .btn-view.active {
+      background: var(--badge-yellow);
+      color: #000000;
+    }
     .status-summary {
       display: flex;
       justify-content: space-between;
@@ -6837,6 +6873,11 @@ Rules:
     .results-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+      gap: 16px;
+    }
+    .results-grid.mode-tables {
+      display: flex;
+      flex-direction: column;
       gap: 16px;
     }
     .rec-card {
@@ -7068,32 +7109,36 @@ Rules:
       color: var(--text);
       word-break: break-word;
     }
-    .thresholds-wrap, .swatches-wrap, .comp-wrap {
+    .thresholds-wrap, .swatches-wrap, .comp-wrap, .thresholds-cell, .colors-cell, .tags-cell {
       display: flex;
       flex-wrap: wrap;
       gap: 5px;
       align-items: center;
       margin-top: 2px;
     }
-    .threshold-pill {
+    .threshold-pill, .threshold-tag, .badge-tag {
       display: inline-flex;
       align-items: center;
       padding: 2px 6px;
-      border-radius: 3px;
+      border-radius: 4px;
       font-size: 11px;
       font-weight: 700;
       color: #000;
+      border: 1.5px solid var(--border);
+      box-shadow: 1px 1px 0 var(--border);
+      background: #f4f4f5;
     }
-    .color-badge {
+    .color-badge, .color-pill {
       display: inline-flex;
       align-items: center;
       gap: 4px;
       padding: 2px 6px;
       border: 1.5px solid var(--border);
-      border-radius: 3px;
+      border-radius: 4px;
       background: #fff;
       font-size: 10.5px;
       font-weight: 700;
+      box-shadow: 1px 1px 0 var(--border);
     }
     .color-dot {
       width: 9px;
@@ -7114,7 +7159,8 @@ Rules:
       font-size: 15px;
       box-shadow: var(--shadow);
     }
-    /* Comparison Sections for Identical Titles */
+
+    /* Comparison Sections for Identical Titles (Cards View) */
     .rec-group-section {
       grid-column: 1 / -1;
       background: #ffffff;
@@ -7201,6 +7247,155 @@ Rules:
       border-radius: 3px;
       border: 1px solid #000;
     }
+
+    /* Table Sections for Tables View */
+    .rec-table-section {
+      width: 100%;
+      background: #ffffff;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .rec-table-header {
+      background: var(--badge-yellow);
+      border-bottom: 2px solid var(--border);
+      padding: 12px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .rec-table-title-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .rec-table-title-label {
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: #854d0e;
+    }
+    .rec-table-title {
+      font-size: 17px;
+      font-weight: 900;
+      color: #000000;
+      letter-spacing: -0.01em;
+    }
+    .rec-table-wrap {
+      overflow-x: auto;
+      width: 100%;
+      background: #ffffff;
+    }
+    .rec-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 12.5px;
+    }
+    .rec-table th {
+      background: #f0f0eb;
+      color: var(--text);
+      font-weight: 800;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 2px solid var(--border);
+      border-right: 1.5px solid #e2e8f0;
+      padding: 10px 12px;
+      white-space: nowrap;
+      user-select: none;
+    }
+    .rec-table th:last-child {
+      border-right: none;
+    }
+    .sortable-th {
+      cursor: pointer;
+      transition: background 0.1s ease, color 0.1s ease;
+    }
+    .sortable-th:hover {
+      background: #fffbeb;
+    }
+    .sortable-th.active-sort {
+      background: #e2c96e;
+      color: #000000;
+    }
+    .sort-arrow {
+      margin-left: 6px;
+      font-size: 10px;
+      opacity: 0.6;
+      font-weight: 900;
+    }
+    .sortable-th.active-sort .sort-arrow {
+      opacity: 1;
+    }
+    .rec-table td {
+      border-bottom: 1.5px solid #e2e8f0;
+      border-right: 1.5px solid #e2e8f0;
+      padding: 10px 12px;
+      vertical-align: middle;
+      color: var(--text);
+    }
+    .rec-table td:last-child {
+      border-right: none;
+    }
+    .rec-table tr:last-child td {
+      border-bottom: none;
+    }
+    .rec-table tr:nth-child(even) td {
+      background: #fafaf8;
+    }
+    .rec-table tr:hover td {
+      background: #fefce8;
+    }
+    .table-crit-comments {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .table-crit-row {
+      display: flex;
+      gap: 6px;
+      align-items: baseline;
+      font-size: 11.5px;
+      line-height: 1.35;
+    }
+    .table-options-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+    .table-option-item {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 7px;
+      border-radius: 4px;
+      border: 1.5px solid var(--border);
+      background: #f8fafc;
+      font-size: 11px;
+      font-weight: 600;
+      box-shadow: 1px 1px 0 var(--border);
+    }
+    .table-option-item.opt-correct {
+      background: #dcfce7;
+      border-color: #166534;
+      color: #14532d;
+      font-weight: 800;
+    }
+    .table-cell-text {
+      display: block;
+      word-break: break-word;
+    }
+    .table-cell-text.long-text {
+      max-width: 420px;
+      white-space: pre-line;
+      line-height: 1.45;
+    }
+
     @media (max-width: 650px) {
       body { padding: 12px; }
       .filter-grid { grid-template-columns: 1fr; }
@@ -7211,6 +7406,8 @@ Rules:
       .panel, .action-bar, header p, .header-badge { display: none !important; }
       .results-grid { display: block; }
       .rec-card { box-shadow: none; border: 1.5px solid #000; break-inside: avoid; margin-bottom: 12px; }
+      .rec-table-section { box-shadow: none; border: 1.5px solid #000; break-inside: avoid; page-break-inside: avoid; margin-bottom: 14px; }
+      .rec-table th, .rec-table td { border-color: #333 !important; }
     }
   </style>
 </head>
@@ -7245,6 +7442,10 @@ Rules:
       <button type="button" class="btn btn-secondary" id="btn-reset">Reset Filters</button>
       <button type="button" class="btn btn-primary" id="btn-csv">Download Filtered CSV</button>
       <button type="button" class="btn btn-secondary" onclick="window.print()">Print</button>
+      <div class="view-switch" id="view-switch">
+        <button type="button" class="btn-view active" id="btn-view-cards" onclick="setViewMode('cards')">🗂️ Cards</button>
+        <button type="button" class="btn-view" id="btn-view-tables" onclick="setViewMode('tables')">📊 Tables</button>
+      </div>
       <span class="filter-hint" style="margin-left:auto;">Hold Ctrl/Cmd to multi-select. No selection = all included.</span>
     </div>
   </section>
@@ -7254,13 +7455,17 @@ Rules:
     <span class="status-badge" id="filter-state">No filters active</span>
   </div>
 
-  <section class="results-grid" id="results-grid"></section>
+  <section class="results-grid mode-cards" id="results-grid"></section>
 
   <script>
     const ROWS = ${JSON.stringify(datasetRows)};
     const COLS = ${JSON.stringify(colsMeta)};
     const ALL_UNIQUE_VALUES = ${JSON.stringify(columnUniqueMap)};
     const TITLE_COL = ${JSON.stringify(primaryCol)};
+
+    let currentViewMode = 'cards';
+    let sortColumnKey = '';
+    let sortDirection = 'asc';
 
     const $ = id => document.getElementById(id);
     const searchInput = $('search-box');
@@ -7274,6 +7479,29 @@ Rules:
     function esc(s) {
       return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     }
+
+    function setViewMode(mode) {
+      currentViewMode = mode;
+      const btnCards = $('btn-view-cards');
+      const btnTables = $('btn-view-tables');
+      if (btnCards) btnCards.classList.toggle('active', mode === 'cards');
+      if (btnTables) btnTables.classList.toggle('active', mode === 'tables');
+      resultsGrid.classList.toggle('mode-cards', mode === 'cards');
+      resultsGrid.classList.toggle('mode-tables', mode === 'tables');
+      render();
+    }
+    window.setViewMode = setViewMode;
+
+    function handleTableSort(colKey) {
+      if (sortColumnKey === colKey) {
+        sortDirection = (sortDirection === 'asc') ? 'desc' : 'asc';
+      } else {
+        sortColumnKey = colKey;
+        sortDirection = 'asc';
+      }
+      render();
+    }
+    window.handleTableSort = handleTableSort;
 
     function getActiveFilters() {
       const active = {};
@@ -7328,6 +7556,33 @@ Rules:
           return String(v).toLowerCase().includes(q);
         });
       });
+    }
+
+    function getComparableValue(row, colKey) {
+      if (!colKey) return '';
+      const raw = row[colKey];
+      if (raw === undefined || raw === null) return '';
+      if (typeof raw === 'object' && !Array.isArray(raw)) {
+        return Object.keys(raw).join(' ');
+      }
+      if (Array.isArray(raw)) {
+        return raw.join(' ');
+      }
+      return String(raw).trim();
+    }
+
+    function compareRows(a, b, colKey, dir) {
+      const valA = getComparableValue(a, colKey);
+      const valB = getComparableValue(b, colKey);
+      const numA = parseFloat(valA);
+      const numB = parseFloat(valB);
+      let res = 0;
+      if (!isNaN(numA) && !isNaN(numB) && String(numA) === valA.trim() && String(numB) === valB.trim()) {
+        res = numA - numB;
+      } else {
+        res = valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' });
+      }
+      return dir === 'desc' ? -res : res;
     }
 
     function getScoreLevelColor(lvl) {
@@ -7395,7 +7650,7 @@ Rules:
         let availableDistinct = 0;
         const allVals = ALL_UNIQUE_VALUES[col.key] || [];
 
-        Array.from(sel.options).forEach(opt => {
+        Array.from(sel.options || []).forEach(opt => {
           const val = opt.value;
           const count = counts[val] || 0;
           const isSelected = activeSet.has(val);
@@ -7597,6 +7852,90 @@ Rules:
       return { badges, extraFields, longDescHtml };
     }
 
+    function renderTableCellHtml(row, col) {
+      const rawVal = row[col.key];
+      if (rawVal === undefined || rawVal === null || rawVal === '') return '<span style="color:#cbd5e1;">—</span>';
+
+      if (col.key === '_src') {
+        return '<span class="badge badge-src">' + esc(rawVal) + '</span>';
+      }
+
+      // Criteria comments
+      if (col.key === 'comments' || (col.isStructured && col.key === 'comments')) {
+        if (typeof rawVal === 'object' && rawVal !== null) {
+          const entries = Object.entries(rawVal).filter(([k, v]) => v !== undefined && v !== null && String(v).trim() && !String(v).toLowerCase().includes('object object'));
+          if (entries.length) {
+            entries.sort((a, b) => {
+              const numA = parseFloat(a[0]);
+              const numB = parseFloat(b[0]);
+              if (!isNaN(numA) && !isNaN(numB)) return numB - numA;
+              return a[0].localeCompare(b[0]);
+            });
+            return '<div class="table-crit-comments">' + entries.map(([lvl, desc]) => {
+              const color = (row.colors && row.colors[lvl]) ? { bg: row.colors[lvl], fg: '#000000' } : getScoreLevelColor(lvl);
+              return '<div class="table-crit-row">' +
+                '<span class="crit-level-badge" style="background:' + esc(color.bg) + ';color:' + esc(color.fg) + ';">' + esc(lvl) + '</span> ' +
+                '<span style="font-weight:600;">' + esc(desc) + '</span>' +
+              '</div>';
+            }).join('') + '</div>';
+          }
+        }
+      }
+
+      // Scale thresholds
+      if (col.key === 'thresholds' || (col.isStructured && col.key === 'thresholds')) {
+        if (typeof rawVal === 'object' && rawVal !== null) {
+          const entries = Object.entries(rawVal).filter(([k, v]) => v !== undefined && v !== null && String(v).trim());
+          entries.sort((a, b) => (parseFloat(b[0]) || 0) - (parseFloat(a[0]) || 0));
+          return '<div class="thresholds-cell">' + entries.map(([grade, pct]) => {
+            const color = (row.colors && row.colors[grade]) ? row.colors[grade] : getScoreLevelColor(grade).bg;
+            return '<span class="threshold-tag" style="background:' + esc(color) + ';"><strong>' + esc(grade) + '</strong> &ge; ' + esc(pct) + '%</span>';
+          }).join(' ') + '</div>';
+        }
+      }
+
+      // Colors
+      if (col.key === 'colors' || (col.isStructured && col.key === 'colors')) {
+        if (typeof rawVal === 'object' && rawVal !== null) {
+          return '<div class="colors-cell">' + Object.entries(rawVal).map(([k, c]) => {
+            return '<span class="color-pill"><span class="color-dot" style="background:' + esc(c) + '"></span> ' + esc(k) + '</span>';
+          }).join(' ') + '</div>';
+        }
+      }
+
+      // Competences
+      if (col.key === 'competenceIds' || col.key === 'linkedCompetenceIds') {
+        const arr = Array.isArray(rawVal) ? rawVal : String(rawVal).split(';').map(s => s.trim()).filter(Boolean);
+        return '<div class="tags-cell">' + arr.map(code => '<span class="badge-tag">' + esc(code) + '</span>').join(' ') + '</div>';
+      }
+
+      // Quiz options
+      if (col.key === 'options' && (Array.isArray(rawVal) || typeof rawVal === 'string')) {
+        const opts = Array.isArray(rawVal) ? rawVal : String(rawVal).split(';').map(s => s.trim()).filter(Boolean);
+        const correct = String(row.correctAnswer || row.answer || '').trim().toLowerCase();
+        return '<div class="table-options-list">' + opts.map(opt => {
+          const isCorrect = correct && (opt.trim().toLowerCase() === correct);
+          return '<span class="table-option-item' + (isCorrect ? ' opt-correct' : '') + '">' + (isCorrect ? '✓ ' : '• ') + esc(opt) + '</span>';
+        }).join('') + '</div>';
+      }
+
+      // Error / Correction
+      if (col.key === 'error') return '<span class="badge badge-error">❌ ' + esc(rawVal) + '</span>';
+      if (col.key === 'correction') return '<span class="badge badge-correct">✓ ' + esc(rawVal) + '</span>';
+
+      // Badges
+      if (col.key === 'pos' || col.key === 'level' || col.key === 'category' || col.key === 'theme' || col.key === 'partofspeech' || col.key === 'cefr' || col.key === 'domain' || col.key === 'scale') {
+        return '<span class="' + getBadgeClass(col.key) + '">' + esc(rawVal) + '</span>';
+      }
+
+      // Long text
+      if (col.isLong || typeof rawVal === 'string' && rawVal.length > 50) {
+        return '<div class="table-cell-text long-text">' + esc(rawVal) + '</div>';
+      }
+
+      return '<span class="table-cell-text">' + esc(rawVal) + '</span>';
+    }
+
     function render() {
       const filtered = getCandidateRows(null);
       const active = getActiveFilters();
@@ -7636,6 +7975,70 @@ Rules:
         groups[titleStr].push(row);
       });
 
+      // Sort items within groups if sorting is active
+      if (sortColumnKey) {
+        groupKeys.forEach(tStr => {
+          groups[tStr].sort((a, b) => compareRows(a, b, sortColumnKey, sortDirection));
+        });
+
+        // Sort group headers by the representative value of their first item
+        groupKeys.sort((tA, tB) => {
+          const rowA = groups[tA][0];
+          const rowB = groups[tB][0];
+          return compareRows(rowA, rowB, sortColumnKey, sortDirection);
+        });
+      }
+
+      // Render Tables View
+      if (currentViewMode === 'tables') {
+        resultsGrid.innerHTML = groupKeys.map(titleStr => {
+          const items = groups[titleStr];
+          const ths = COLS.map(col => {
+            const isActive = sortColumnKey === col.key;
+            const arrow = isActive ? (sortDirection === 'asc' ? ' ▲' : ' ▼') : ' ↕';
+            const cls = 'sortable-th' + (isActive ? ' active-sort' : '');
+            return '<th class="' + cls + '" data-sort-key="' + esc(col.key) + '" onclick="handleTableSort(this.dataset.sortKey)" title="Click to sort by ' + esc(col.label) + '">' +
+              '<span>' + esc(col.label) + '</span><span class="sort-arrow">' + arrow + '</span>' +
+            '</th>';
+          }).join('');
+
+          const trs = items.map((row, idx) => {
+            const tds = COLS.map(col => '<td>' + renderTableCellHtml(row, col) + '</td>').join('');
+            return '<tr>' +
+              '<td style="text-align:center;font-weight:800;color:var(--text-muted);background:#fafafa;width:40px;">' + (idx + 1) + '</td>' +
+              tds +
+            '</tr>';
+          }).join('');
+
+          return '<section class="rec-table-section">' +
+            '<div class="rec-table-header">' +
+              '<div class="rec-table-title-wrap">' +
+                '<span class="rec-table-title-label">Shared Title</span>' +
+                '<h2 class="rec-table-title">' + esc(titleStr) + '</h2>' +
+              '</div>' +
+              '<div class="rec-table-meta">' +
+                '<span class="rec-group-count-badge">' + items.length + (items.length === 1 ? ' Matched Entry' : ' Matched Entries') + '</span>' +
+              '</div>' +
+            '</div>' +
+            '<div class="rec-table-wrap">' +
+              '<table class="rec-table">' +
+                '<thead>' +
+                  '<tr>' +
+                    '<th style="width:40px;text-align:center;">#</th>' +
+                    ths +
+                  '</tr>' +
+                '</thead>' +
+                '<tbody>' +
+                  trs +
+                '</tbody>' +
+              '</table>' +
+            '</div>' +
+          '</section>';
+        }).join('');
+        return;
+      }
+
+      // Render Cards View
       resultsGrid.innerHTML = groupKeys.map(titleStr => {
         const items = groups[titleStr];
 
@@ -7689,7 +8092,18 @@ Rules:
     function resetFilters() {
       filtersContainer.querySelectorAll('select').forEach(sel => { sel.selectedIndex = -1; });
       searchInput.value = '';
+      sortColumnKey = '';
+      sortDirection = 'asc';
       render();
+    }
+
+    function formatCsvValue(v) {
+      if (v === undefined || v === null) return '';
+      if (typeof v === 'object') {
+        if (Array.isArray(v)) return v.join('; ');
+        return Object.entries(v).map(([k, val]) => k + ': ' + val).join('; ');
+      }
+      return String(v);
     }
 
     function exportCSV() {
@@ -7697,7 +8111,7 @@ Rules:
       if (!filtered.length) return;
       const headers = COLS.map(c => c.label);
       const keys = COLS.map(c => c.key);
-      const quote = v => '"' + String(exportCellValue(v, { type: typeof v }) ?? '').replace(/"/g, '""') + '"';
+      const quote = v => '"' + formatCsvValue(v).replace(/"/g, '""') + '"';
       const lines = [headers.map(quote).join(',')];
       filtered.forEach(row => {
         lines.push(keys.map(k => quote(row[k] ?? '')).join(','));

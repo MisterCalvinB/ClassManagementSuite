@@ -176,6 +176,7 @@
         </div>
 
         <div style="display:flex;align-items:center;gap:8px;margin-left:auto;">
+          <button class="neo-btn" id="btn-lc-unit-seq" style="padding:4px 10px;font-size:0.8rem;background:#fef08a;color:#713f12;font-weight:800;border-color:#ca8a04;display:inline-flex;align-items:center;gap:4px;" onclick="lcOpenSequenceModal()" title="Manage Unit Sequence" data-i18n-title="lcUnitSeqTooltip"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-1px;" /><span data-i18n="lcUnitSequence">Unit Sequence:</span> <span id="lcUnitSeqDisplay" data-i18n="lcUnitSeqNone">None</span></button>
           <button class="neo-btn purple" style="padding:4px 10px;font-size:0.8rem;" onclick="lcOpenTeamModal()"><span id="teamBadgeText" data-i18n="lcTeamsOff">Teams: Off</span></button>
           <button class="neo-btn teal" style="padding:4px 10px;font-size:0.8rem;" onclick="lcOpenCoverageModal()"><span data-i18n="lcCoverageBtn">Coverage Matrix</span></button>
         </div>
@@ -2007,7 +2008,7 @@
 
         // Check URL parameters for linked planner slot or plan ID
         var params = new URLSearchParams(window.location.search);
-        var planId = params.get('planId');
+        var planId = params.get('planId') || params.get('id') || params.get('file');
         var plannerEntryIdParam = params.get('plannerEntryId');
         var classIdParam = params.get('classId');
         var dateParam = params.get('date');
@@ -2022,11 +2023,20 @@
           if (matchPe) {
             currentPlan = matchPe;
           } else {
-            currentPlan = LessonCreatorService.createBlankLessonPlan({ blank: false });
-            currentPlan.plannerEntryId = plannerEntryIdParam;
-            if (classIdParam) currentPlan.classId = classIdParam;
-            if (dateParam) currentPlan.date = dateParam;
-            if (topicParam) currentPlan.title = topicParam;
+            // Also check if a plan for (classId, date) exists before creating a blank one
+            var matchSlot = (classIdParam && dateParam) ? allSavedPlans.find(function (p) {
+              return p.classId === classIdParam && p.date === dateParam;
+            }) : null;
+            if (matchSlot) {
+              currentPlan = matchSlot;
+              currentPlan.plannerEntryId = plannerEntryIdParam;
+            } else {
+              currentPlan = LessonCreatorService.createBlankLessonPlan({ blank: false });
+              currentPlan.plannerEntryId = plannerEntryIdParam;
+              if (classIdParam) currentPlan.classId = classIdParam;
+              if (dateParam) currentPlan.date = dateParam;
+              if (topicParam) currentPlan.title = topicParam;
+            }
           }
         } else if (classIdParam || dateParam) {
           var matchSlot = allSavedPlans.find(function (p) {
@@ -5215,9 +5225,63 @@
       }
 
       async function loadPlanById(planId) {
-        var match = allSavedPlans.find(function (p) { return p.id === planId; });
+        if (!planId) return;
+        var cleanId = String(planId).trim();
+        var cleanWithoutExt = cleanId.replace(/\.json$/i, '');
+        var match = allSavedPlans.find(function (p) {
+          if (!p) return false;
+          if (p.id === cleanId || p.id === cleanWithoutExt) return true;
+          if (p._filename === cleanId || p._filename === cleanWithoutExt + '.json') return true;
+          if (p._relPath && (p._relPath === cleanId || p._relPath === 'lessons/' + cleanId || p._relPath === 'lessons/' + cleanWithoutExt + '.json')) return true;
+          if (p.id && (cleanId.indexOf(p.id) !== -1 || p.id.indexOf(cleanWithoutExt) !== -1)) return true;
+          return false;
+        });
         if (match) {
           currentPlan = match;
+          return;
+        }
+
+        // Direct fallback to disk in Electron
+        if (window.Desktop && Desktop.isElectron()) {
+          try {
+            var fnToRead = cleanId.endsWith('.json') ? cleanId : (cleanId + '.json');
+            var res = null;
+            if (typeof Desktop.readJson === 'function') {
+              res = await Desktop.readJson('lessons', fnToRead);
+            }
+            if (!res || !res.ok || !res.data) {
+              if (typeof Desktop.readByPath === 'function') {
+                var rawRes = await Desktop.readByPath('user', 'lessons/' + fnToRead);
+                if (rawRes && rawRes.ok && rawRes.content) {
+                  try { res = { ok: true, data: JSON.parse(rawRes.content) }; } catch (_) {}
+                }
+                if (!res || !res.ok) {
+                  var rawRes2 = await Desktop.readByPath('user', fnToRead);
+                  if (rawRes2 && rawRes2.ok && rawRes2.content) {
+                    try { res = { ok: true, data: JSON.parse(rawRes2.content) }; } catch (_) {}
+                  }
+                }
+              }
+            }
+            if (res && res.ok && res.data) {
+              var loadedPlan = (res.data.data && res.data.ok) ? res.data.data : res.data;
+              if (loadedPlan && typeof loadedPlan === 'object') {
+                loadedPlan._filename = fnToRead;
+                loadedPlan._relPath = 'lessons/' + fnToRead;
+                loadedPlan._target = 'lessons';
+                currentPlan = loadedPlan;
+                var existingIdx = allSavedPlans.findIndex(function (x) { return x.id === loadedPlan.id; });
+                if (existingIdx >= 0) {
+                  allSavedPlans[existingIdx] = loadedPlan;
+                } else {
+                  allSavedPlans.push(loadedPlan);
+                }
+                return;
+              }
+            }
+          } catch (e) {
+            console.warn('loadPlanById disk read error:', e);
+          }
         }
       }
 
@@ -5483,9 +5547,21 @@
       }
 
       function updateSequenceBar() {
+        var seq = currentPlan && currentPlan.unitSequence;
+
+        var seqBadge = document.getElementById('lcUnitSeqDisplay');
+        if (seqBadge) {
+          if (seq && seq.title && seq.lessons && seq.lessons.length > 0) {
+            var pos = (seq.lessonIndex || 1);
+            var tot = seq.lessons.length;
+            seqBadge.textContent = seq.title + ' (' + pos + '/' + tot + ')';
+          } else {
+            seqBadge.textContent = (typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcUnitSeqNone') : '') || 'None';
+          }
+        }
+
         var bar = document.getElementById('sequenceBar');
         if (!bar) return;
-        var seq = currentPlan && currentPlan.unitSequence;
         if (!seq || !seq.title || !seq.lessons || seq.lessons.length < 2) {
           bar.style.display = 'none';
           return;

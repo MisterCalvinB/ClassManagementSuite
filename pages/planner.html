@@ -212,35 +212,50 @@
             <label class="td-field-lbl" data-i18n="td_todoDueDate">Due date</label>
             <input type="date" id="td-due" class="td-input">
           </div>
-          <div>
-            <label class="td-field-lbl" data-i18n="td_todoClass">Class</label>
-            <select id="td-class" class="td-select"></select>
+          <div id="td-reminder-wrap">
+            <label class="td-field-lbl" data-i18n="td_todoReminder">Reminder</label>
+            <div class="td-rem-row">
+              <select id="td-reminder-type" class="td-select" onchange="tdToggleReminderFields()">
+                <option value="none" data-i18n="pl_reminderNone">None</option>
+                <option value="fixed" data-i18n="td_reminderFixed">On date/time</option>
+              </select>
+              <input type="datetime-local" id="td-reminder-dt" class="td-input" style="display:none">
+            </div>
           </div>
         </div>
-        <div id="td-reminder-wrap">
-          <label class="td-field-lbl" data-i18n="td_todoReminder">Reminder</label>
-          <div class="td-rem-row">
-            <select id="td-reminder-type" class="td-select" onchange="tdToggleReminderFields()">
-              <option value="none" data-i18n="pl_reminderNone">None</option>
-              <option value="fixed" data-i18n="td_reminderFixed">On date/time</option>
-            </select>
-            <input type="datetime-local" id="td-reminder-dt" class="td-input" style="display:none">
+        <div id="td-classes-wrap" class="td-section-wrap">
+          <div class="td-section-hd">
+            <label class="td-field-lbl" data-i18n="td_classes" style="margin-bottom:0">Classes</label>
+            <div class="td-section-actions">
+              <button type="button" class="td-mini-btn" onclick="_tdSelectAllClasses()" data-i18n="td_selectAll">Select All</button>
+              <button type="button" class="td-mini-btn" onclick="_tdClearAllClasses()" data-i18n="td_clearAll">Clear</button>
+            </div>
           </div>
+          <div id="td-class-chips" class="td-chips-grid"></div>
         </div>
         <div id="td-links-wrap">
           <label class="td-field-lbl" data-i18n="td_todoLinks">Links</label>
           <div class="td-links-sec">
-            <div class="td-link-row">
-              <span class="td-link-icon">📅</span>
-              <select id="td-link-entry" class="td-select td-link-select"></select>
+            <div class="td-link-item">
+              <div class="td-link-row">
+                <span class="td-link-icon"><img src="../assets/icons/planner.svg" class="td-link-svg" alt="" width="12" height="12" /></span>
+                <select id="td-link-entry" class="td-select td-link-select"></select>
+              </div>
+              <div class="td-link-subtext" data-i18n="td_linkEntryHelp">Lesson entry in Planner</div>
             </div>
-            <div class="td-link-row">
-              <span class="td-link-icon">🗺</span>
-              <select id="td-link-mm" class="td-select td-link-select"></select>
+            <div class="td-link-item">
+              <div class="td-link-row">
+                <span class="td-link-icon"><img src="../assets/icons/board.svg" class="td-link-svg" alt="" width="12" height="12" /></span>
+                <select id="td-link-mm" class="td-select td-link-select"></select>
+              </div>
+              <div class="td-link-subtext" data-i18n="td_linkBoardHelp">Board session or mindmap</div>
             </div>
-            <div class="td-link-row">
-              <span class="td-link-icon">📊</span>
-              <select id="td-link-gs" class="td-select td-link-select"></select>
+            <div class="td-link-item">
+              <div class="td-link-row">
+                <span class="td-link-icon"><img src="../assets/icons/grade-sheet.svg" class="td-link-svg" alt="" width="12" height="12" /></span>
+                <select id="td-link-gs" class="td-select td-link-select"></select>
+              </div>
+              <div class="td-link-subtext" data-i18n="td_linkGsHelp">Grade Sheet class evaluation</div>
             </div>
           </div>
         </div>
@@ -1760,6 +1775,12 @@
 
     function navigateToPendingTodo() {
       var id = localStorage.getItem('cmt-planner-todo');
+      if (!id) {
+        try {
+          var params = new URLSearchParams(window.location.search);
+          id = params.get('openTodo') || params.get('todoId');
+        } catch (_) {}
+      }
       if (!id) return;
       localStorage.removeItem('cmt-planner-todo');
       if (!_todoPanelOpen) toggleTodoPanel();
@@ -9482,6 +9503,7 @@
     var _editingTodoId = null;
     var _todoPanelOpen = false;
     var _tdModalSubtodos = [];
+    var _tdModalSelectedClassIds = new Set();
 
     function loadTodos() {
       todos = Array.isArray(window.TODOS) ? window.TODOS.slice() : [];
@@ -9566,8 +9588,11 @@
         if (td.dueDate) {
           metaParts.push('<span class="td-due">' + esc(fmtShortDate(td.dueDate)) + '</span>');
         }
-        if (td.classId) {
-          metaParts.push('<span class="td-badge td-badge-class">' + esc(plannerClassDisplayName(td.classId)) + '</span>');
+        var cids = Array.isArray(td.classIds) && td.classIds.length ? td.classIds : (td.classId ? [td.classId] : []);
+        if (cids.length) {
+          cids.forEach(function (cid) {
+            metaParts.push('<span class="td-badge td-badge-class">' + esc(plannerClassDisplayName(cid)) + '</span>');
+          });
         }
         var hasLinks = td.links && (td.links.entryId || td.links.mindmapPath || td.links.gsClassId);
         if (hasLinks) {
@@ -9639,6 +9664,9 @@
       todos = todos.filter(function (t) { return t.id !== id; });
       persistTodos();
       renderTodos();
+      if (typeof LinksService !== 'undefined' && typeof LinksService.removeLinksFor === 'function') {
+        LinksService.removeLinksFor(LinksService.makeUrn('todo', id)).catch(function () {});
+      }
     }
 
     function tdOpenEntry(entryId) {
@@ -9648,7 +9676,7 @@
 
     function openAddTodo(linkEntryId) {
       _editingTodoId = null;
-      _tdModalFill({ id: null, text: '', dueDate: '', reminderAt: null, classId: '', links: { entryId: linkEntryId || '', mindmapPath: '', gsClassId: '' } });
+      _tdModalFill({ id: null, text: '', dueDate: '', reminderAt: null, classIds: [], classId: '', links: { entryId: linkEntryId || '', mindmapPath: '', gsClassId: '' } });
       document.getElementById('td-modal-title').setAttribute('data-i18n', 'td_addTodo');
       document.getElementById('td-modal-title').textContent = t('td_addTodo');
       document.getElementById('td-modal').style.display = 'flex';
@@ -9704,6 +9732,49 @@
       addInput.focus();
     }
 
+    function _tdRenderClassChips() {
+      var container = document.getElementById('td-class-chips');
+      if (!container) return;
+      container.innerHTML = '';
+      var classIds = getPlannerClassIds();
+      if (!classIds.length) {
+        var hint = document.createElement('div');
+        hint.className = 'td-no-classes-hint';
+        hint.textContent = t('td_noClassesSelected', 'No classes available');
+        container.appendChild(hint);
+        return;
+      }
+      classIds.forEach(function (cid) {
+        var isSelected = _tdModalSelectedClassIds.has(cid);
+        var chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'td-class-chip' + (isSelected ? ' is-selected' : '');
+        chip.setAttribute('data-cid', cid);
+        var check = isSelected ? '✓ ' : '○ ';
+        var name = plannerClassDisplayName(cid);
+        chip.textContent = check + name;
+        chip.onclick = function () {
+          if (_tdModalSelectedClassIds.has(cid)) {
+            _tdModalSelectedClassIds.delete(cid);
+          } else {
+            _tdModalSelectedClassIds.add(cid);
+          }
+          _tdRenderClassChips();
+        };
+        container.appendChild(chip);
+      });
+    }
+
+    function _tdSelectAllClasses() {
+      getPlannerClassIds().forEach(function (cid) { _tdModalSelectedClassIds.add(cid); });
+      _tdRenderClassChips();
+    }
+
+    function _tdClearAllClasses() {
+      _tdModalSelectedClassIds.clear();
+      _tdRenderClassChips();
+    }
+
     function _tdModalFill(td) {
       document.getElementById('td-text').value = td.text || '';
       document.getElementById('td-due').value = td.dueDate || '';
@@ -9712,15 +9783,11 @@
       var addInput = document.getElementById('td-subtask-add');
       if (addInput) addInput.value = '';
 
-      // Class selector
-      var clsSel = document.getElementById('td-class');
-      clsSel.innerHTML = '<option value="">' + esc(t('td_noClass')) + '</option>';
-      getPlannerClassIds().forEach(function (cid) {
-        var opt = document.createElement('option');
-        opt.value = cid; opt.textContent = plannerClassDisplayName(cid);
-        if (cid === td.classId) opt.selected = true;
-        clsSel.appendChild(opt);
-      });
+      // Multi-class selection
+      _tdModalSelectedClassIds = new Set();
+      var cids = Array.isArray(td.classIds) && td.classIds.length ? td.classIds : (td.classId ? [td.classId] : []);
+      cids.forEach(function (cid) { if (cid) _tdModalSelectedClassIds.add(cid); });
+      _tdRenderClassChips();
 
       // Reminder
       var remType = document.getElementById('td-reminder-type');
@@ -9800,6 +9867,7 @@
 
       _tdModalFlushTexts();
       var cleanSubs = _tdModalSubtodos.filter(function (s) { return s.text.trim(); });
+      var selectedClassIds = Array.from(_tdModalSelectedClassIds);
 
       var td = {
         id: _editingTodoId || ('td-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6)),
@@ -9808,7 +9876,8 @@
         createdAt: Date.now(),
         dueDate: document.getElementById('td-due').value || null,
         reminderAt: remAt,
-        classId: document.getElementById('td-class').value || null,
+        classIds: selectedClassIds,
+        classId: selectedClassIds[0] || null,
         links: {
           entryId: document.getElementById('td-link-entry').value || null,
           mindmapPath: document.getElementById('td-link-mm').value || null,
@@ -9834,6 +9903,37 @@
       persistTodos();
       renderTodos();
       if (!_todoPanelOpen) toggleTodoPanel();
+
+      if (typeof LinksService !== 'undefined' && typeof LinksService.addLink === 'function') {
+        var todoUrn = LinksService.makeUrn('todo', td.id);
+        var metaObj = { title: td.text, text: td.text, type: 'todo' };
+        if (typeof LinksService.registerEntity === 'function') {
+          LinksService.registerEntity(todoUrn, metaObj).catch(function () {});
+        }
+        if (typeof LinksService.removeLinksFor === 'function') {
+          LinksService.removeLinksFor(todoUrn).then(async function () {
+            if (td.links && td.links.entryId) {
+              await LinksService.addLink(todoUrn, LinksService.makeUrn('slot', td.links.entryId), { relation: 'planner_entry', targetMeta: { title: td.text } });
+            }
+            if (td.links && td.links.mindmapPath) {
+              await LinksService.addLink(todoUrn, LinksService.makeUrn('board', td.links.mindmapPath), { relation: 'mindmap', targetMeta: { title: td.text } });
+            }
+            if (td.links && td.links.gsClassId) {
+              await LinksService.addLink(todoUrn, LinksService.makeUrn('gradesheet', td.links.gsClassId), { relation: 'gradesheet', targetMeta: { title: td.text } });
+            }
+            if (Array.isArray(td.classIds)) {
+              for (var i = 0; i < td.classIds.length; i++) {
+                var cid = td.classIds[i];
+                if (cid) {
+                  await LinksService.addLink(todoUrn, LinksService.makeUrn('class', cid), { relation: 'class', targetMeta: { title: td.text } });
+                }
+              }
+            }
+          }).catch(function (e) {
+            console.warn('LinksService: Error synchronizing todo links:', e);
+          });
+        }
+      }
     }
 
     function toggleSubtodoDone(parentId, subId) {

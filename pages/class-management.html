@@ -924,7 +924,8 @@
             title="Open student in Participation Tracker" data-i18n="ctx_open_in_tracker" data-i18n-title="ctx_open_in_tracker_title"><img
                 src="../assets/icons/participation-tracker.svg" class="btn-icon" alt="" />
             Open in Participation Tracker</button>
-        <button type="button" data-action="grades" onclick="openStudentGradesPopup(rosterContextStudentId)"
+        <button type="button" data-action="dossier" onclick="openStudentDossierPopup(rosterContextStudentId)" class="cmt-roster-ctx-item" style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:none;border:none;width:100%;text-align:left;cursor:pointer;font-family:inherit;font-size:0.84rem;font-weight:700;"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> <span data-i18n="cmMenuStudentDossier">360° Academic Dossier</span></button>
+      <button type="button" data-action="grades" onclick="openStudentGradesPopup(rosterContextStudentId)"
             title="View grades from Grade Sheet" data-i18n="ctx_grades"
             data-i18n-title="ctx_grades_title"><img src="../assets/icons/grade-sheet.svg" class="btn-icon"
                 alt="" /> Grades</button>
@@ -8260,7 +8261,14 @@
             if (popup) popup.classList.remove('open');
         }
 
-        async function openStudentGradesPopup(studentId) {
+        function openStudentDossierPopup(studentId) {
+    closeRosterContextMenu();
+    if (!studentId || typeof TagLinkModal === 'undefined') return;
+    TagLinkModal.openStudentDossier(studentId);
+  }
+  window.openStudentDossierPopup = openStudentDossierPopup;
+
+  async function openStudentGradesPopup(studentId) {
             closeRosterContextMenu();
             if (!selectedGroupName || studentId == null) return;
 

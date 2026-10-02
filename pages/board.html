@@ -9705,6 +9705,20 @@
     window.conSetAttachmentPreloadMap = function (map) {
       if (map && typeof map === 'object') {
         Object.assign(_conMirrorAttachmentPreload, map);
+        if (document.documentElement.classList.contains('con-mirror-mode') || location.search.includes('mirror=1')) {
+          document.querySelectorAll('.con-media-item.con-media-kind-pics').forEach(function (wrap) {
+            var itemId = wrap.dataset.id;
+            var mediaEl = wrap.querySelector('img');
+            if (!mediaEl) return;
+            var item = (typeof conMediaItems !== 'undefined') ? conMediaItems.find(function (m) { return String(m.id) === String(itemId); }) : null;
+            if (!item) return;
+            var key = item.attachmentId || item.id || '';
+            if (key && _conMirrorAttachmentPreload[key] && (!mediaEl.src || mediaEl.src.includes('undefined') || !mediaEl.complete || mediaEl.naturalWidth === 0)) {
+              mediaEl.src = _conMirrorAttachmentPreload[key];
+              item._cachedDataUrl = _conMirrorAttachmentPreload[key];
+            }
+          });
+        }
       }
     };
     let _conCurrentFolderName = null;
@@ -12878,6 +12892,9 @@
       conBuildMediaWidget(item);
       if (!(options && options.silent)) {
         mdbToast('🧩 Inserted: ' + att.name);
+      }
+      if (typeof window._conMirrorBroadcast === 'function') {
+        window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
       }
     };
 
@@ -18420,8 +18437,27 @@
 
       window.conGoToPage = function (idx) {
         if (idx < 0 || idx >= conPageSnapshots.length || idx === conCurrentPageIndex) return;
+        // Populate thumbnail image cache from live DOM before switching away
+        if (!window._conThumbImgCache) window._conThumbImgCache = new Map();
+        document.querySelectorAll('.con-media-item.con-media-kind-pics').forEach(wrap => {
+          const id = wrap.dataset.id;
+          const img = wrap.querySelector('img');
+          if (img && img.complete && img.naturalWidth > 0) {
+            const item = (typeof conMediaItems !== 'undefined') ? conMediaItems.find(m => String(m.id) === String(id)) : null;
+            if (item) {
+              window._conThumbImgCache.set(String(item.attachmentId || item.id), img);
+            }
+          }
+        });
         // Save current live board into in-memory snapshot
         conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
+        if (typeof conBuildPageThumbnailDataUrl === 'function' && conPageSnapshots[conCurrentPageIndex]) {
+          const freshThumb = conBuildPageThumbnailDataUrl(conPageSnapshots[conCurrentPageIndex], 480, 320);
+          if (freshThumb) {
+            if (!Array.isArray(_conPageSnapshotPngs)) _conPageSnapshotPngs = [];
+            _conPageSnapshotPngs[conCurrentPageIndex] = freshThumb;
+          }
+        }
         conCurrentPageIndex = idx;
         const targetSnap = conPageSnapshots[conCurrentPageIndex];
 
@@ -19664,20 +19700,85 @@
           ctx.fillText('PDF', px + pw / 2, py + ph / 2 + 3);
         }
 
-        // Draw Media / Images
+        // Draw Media / Images / PDF / Audio / Video
         media.forEach(m => {
           const mx = tx(m.x || 0), my = ty(m.y || 0);
-          const mw = (m.w || m.width || 120) * scale;
-          const mh = (m.h || m.height || 90) * scale;
-          ctx.fillStyle = '#e8f0fe';
-          ctx.strokeStyle = '#1a73e8';
-          ctx.lineWidth = 0.8;
-          ctx.fillRect(mx, my, mw, mh);
-          ctx.strokeRect(mx, my, mw, mh);
-          ctx.fillStyle = '#1a73e8';
-          ctx.font = '7px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.fillText('IMG', mx + mw / 2, my + mh / 2 + 2);
+          const mw = Math.max(4, (m.w || m.width || 120) * scale);
+          const mh = Math.max(4, (m.h || m.height || 90) * scale);
+          const kind = m.kind || 'pics';
+
+          if (kind === 'pics') {
+            let drawn = false;
+            const cacheKey = String(m.attachmentId || m.id || '');
+            if (!window._conThumbImgCache) window._conThumbImgCache = new Map();
+            let cachedImg = window._conThumbImgCache.get(cacheKey);
+
+            if (cachedImg && cachedImg.complete && cachedImg.naturalWidth > 0) {
+              try {
+                ctx.drawImage(cachedImg, mx, my, mw, mh);
+                drawn = true;
+              } catch (_) { }
+            }
+
+            if (!drawn) {
+              const liveImg = document.querySelector('.con-media-item[data-id="' + m.id + '"] img');
+              if (liveImg && liveImg.complete && liveImg.naturalWidth > 0) {
+                try {
+                  ctx.drawImage(liveImg, mx, my, mw, mh);
+                  drawn = true;
+                  window._conThumbImgCache.set(cacheKey, liveImg);
+                } catch (_) { }
+              }
+            }
+
+            if (!drawn) {
+              ctx.fillStyle = '#f5f5f0';
+              ctx.strokeStyle = '#333333';
+              ctx.lineWidth = 0.8;
+              ctx.fillRect(mx, my, mw, mh);
+              ctx.strokeRect(mx, my, mw, mh);
+              ctx.fillStyle = '#666666';
+              ctx.font = Math.max(6, Math.min(11, Math.round(mh * 0.3))) + 'px sans-serif';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText('🖼️', mx + mw / 2, my + mh / 2);
+
+              const att = (typeof conFindAttachmentById === 'function' ? conFindAttachmentById(m.attachmentId || m.id) : null) || m;
+              const src = (att && (att._cachedDataUrl || att._cachedObjectUrl)) || (m && m._cachedDataUrl) || (_conMirrorAttachmentPreload && _conMirrorAttachmentPreload[cacheKey]) || '';
+              if (src) {
+                const img = new Image();
+                img.onload = function () {
+                  window._conThumbImgCache.set(cacheKey, img);
+                  if (typeof conUpdatePageBar === 'function') conUpdatePageBar();
+                };
+                img.src = src;
+              }
+            }
+          } else if (kind === 'pdf') {
+            ctx.fillStyle = '#ffffff';
+            ctx.strokeStyle = '#333333';
+            ctx.lineWidth = 0.8;
+            ctx.fillRect(mx, my, mw, mh);
+            ctx.strokeRect(mx, my, mw, mh);
+            ctx.fillStyle = '#e2c96e';
+            ctx.fillRect(mx, my, mw, Math.max(3, mh * 0.18));
+            ctx.fillStyle = '#333333';
+            ctx.font = Math.max(5, Math.min(10, Math.round(mh * 0.22))) + 'px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('📄 PDF', mx + mw / 2, my + mh / 2);
+          } else {
+            ctx.fillStyle = '#f5f5f0';
+            ctx.strokeStyle = '#333333';
+            ctx.lineWidth = 0.8;
+            ctx.fillRect(mx, my, mw, mh);
+            ctx.strokeRect(mx, my, mw, mh);
+            ctx.fillStyle = '#333333';
+            ctx.font = Math.max(6, Math.min(12, Math.round(mh * 0.35))) + 'px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(kind === 'sounds' ? '🔊' : '🎬', mx + mw / 2, my + mh / 2);
+          }
         });
 
         // Draw masks
@@ -20754,31 +20855,50 @@
               }
               var url = _attachmentDataUrlCache.get(cacheKey);
               if (!url) {
-                url = await conGetAttachmentDataUrl(att);
-                if (url && url.startsWith('blob:')) {
+                if (att._cachedDataUrl && att._cachedDataUrl.startsWith('data:')) {
+                  url = att._cachedDataUrl;
+                } else if (att.base64) {
+                  var cleanB64 = att.base64.startsWith('data:') ? att.base64 : ('data:' + (att.mime || 'image/png') + ';base64,' + att.base64);
+                  url = cleanB64;
+                } else if (att.file) {
                   try {
-                    var resp = await fetch(url);
-                    var blob = await resp.blob();
-                    if (blob && blob.size > 10 * 1024 * 1024) {
-                      // Avoid serializing huge audio/video files (>10MB) into base64 over BroadcastChannel
-                      url = '';
-                    } else {
-                      url = await new Promise(function (resolve, reject) {
-                        var reader = new FileReader();
-                        reader.onload = function () { resolve(reader.result); };
-                        reader.onerror = reject;
-                        reader.readAsDataURL(blob);
-                      });
-                    }
-                  } catch (err) { url = ''; }
+                    url = await new Promise(function (resolve) {
+                      var reader = new FileReader();
+                      reader.onload = function () { resolve(reader.result || ''); };
+                      reader.onerror = function () { resolve(''); };
+                      reader.readAsDataURL(att.file);
+                    });
+                  } catch (_) { url = ''; }
+                } else {
+                  url = await conGetAttachmentDataUrl(att);
+                  if (url && url.startsWith('blob:')) {
+                    try {
+                      var resp = await fetch(url);
+                      var blob = await resp.blob();
+                      if (blob && blob.size > 10 * 1024 * 1024) {
+                        url = '';
+                      } else {
+                        url = await new Promise(function (resolve, reject) {
+                          var reader = new FileReader();
+                          reader.onload = function () { resolve(reader.result); };
+                          reader.onerror = reject;
+                          reader.readAsDataURL(blob);
+                        });
+                      }
+                    } catch (err) { url = ''; }
+                  }
                 }
-                if (url) _attachmentDataUrlCache.set(cacheKey, url);
+                if (url) {
+                  _attachmentDataUrlCache.set(cacheKey, url);
+                  att._cachedDataUrl = url;
+                }
               }
               if (url) {
                 _mirrorSentAttachmentKeys.add(cacheKey);
                 if (m.attachmentId) attachmentDataUrls[m.attachmentId] = url;
                 if (m.id) attachmentDataUrls[m.id] = url;
                 if (att && att.id) attachmentDataUrls[att.id] = url;
+                attachmentDataUrls[attId] = url;
               }
             }));
             // Also preload page background PDF delta if not yet transmitted
@@ -20800,18 +20920,31 @@
               if (!_mirrorSentAttachmentKeys.has(bgCacheKey)) {
                 var bgUrl = _attachmentDataUrlCache.get(bgCacheKey);
                 if (!bgUrl) {
-                  bgUrl = await conGetAttachmentDataUrl(bgAtt);
-                  if (bgUrl && bgUrl.startsWith('blob:')) {
+                  if (bgAtt._cachedDataUrl && bgAtt._cachedDataUrl.startsWith('data:')) {
+                    bgUrl = bgAtt._cachedDataUrl;
+                  } else if (bgAtt.file) {
                     try {
-                      var bgResp = await fetch(bgUrl);
-                      var bgBlob = await bgResp.blob();
-                      bgUrl = await new Promise(function (resolve, reject) {
-                        var bgReader = new FileReader();
-                        bgReader.onload = function () { resolve(bgReader.result); };
-                        bgReader.onerror = reject;
-                        bgReader.readAsDataURL(bgBlob);
+                      bgUrl = await new Promise(function (resolve) {
+                        var reader = new FileReader();
+                        reader.onload = function () { resolve(reader.result || ''); };
+                        reader.onerror = function () { resolve(''); };
+                        reader.readAsDataURL(bgAtt.file);
                       });
-                    } catch (err) { bgUrl = ''; }
+                    } catch (_) { bgUrl = ''; }
+                  } else {
+                    bgUrl = await conGetAttachmentDataUrl(bgAtt);
+                    if (bgUrl && bgUrl.startsWith('blob:')) {
+                      try {
+                        var bgResp = await fetch(bgUrl);
+                        var bgBlob = await bgResp.blob();
+                        bgUrl = await new Promise(function (resolve, reject) {
+                          var bgReader = new FileReader();
+                          bgReader.onload = function () { resolve(bgReader.result); };
+                          bgReader.onerror = reject;
+                          bgReader.readAsDataURL(bgBlob);
+                        });
+                      } catch (err) { bgUrl = ''; }
+                    }
                   }
                   if (bgUrl) _attachmentDataUrlCache.set(bgCacheKey, bgUrl);
                 }
@@ -33438,6 +33571,9 @@
       }
       if (_wnActiveNote && _wnActiveNote.id === nd.id) wnStyleDismiss();
       if (_wnCtxNoteData && _wnCtxNoteData.id === nd.id) wnCtxClose();
+      if (typeof _boardSttTargetNote !== 'undefined' && _boardSttTargetNote && _boardSttTargetNote.id === nd.id) {
+        if (typeof boardStopDictation === 'function') boardStopDictation();
+      }
       const noteEl = wnGetNoteElementById(nd.id);
       if (noteEl) noteEl.remove();
       if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
@@ -36887,6 +37023,23 @@
         }
       });
       miniActions.appendChild(lockQuickBtn);
+
+      // Dictate button
+      const dictateQuickBtn = document.createElement('button');
+      dictateQuickBtn.className = 'wn-note-mini-btn';
+      dictateQuickBtn.setAttribute('data-action', 'dictate');
+      dictateQuickBtn.title = (window.i18n && typeof i18n.t === 'function' ? i18n.t('conNoteDictateTitle') : 'Dictate into note (Speech to Text)');
+      dictateQuickBtn.innerHTML = '<img src="../assets/icons/mic.svg" class="btn-icon" alt="" />';
+      dictateQuickBtn.classList.toggle('active', !!(typeof _boardSttTargetNote !== 'undefined' && _boardSttTargetNote && _boardSttTargetNote.id === noteData.id));
+      dictateQuickBtn.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); });
+      dictateQuickBtn.addEventListener('click', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof wnToggleNoteDictation === 'function') {
+          wnToggleNoteDictation(noteData, ta, dictateQuickBtn);
+        }
+      });
+      miniActions.appendChild(dictateQuickBtn);
 
       // KaTeX help button
       const katexHelpBtn = document.createElement('button');
@@ -50710,6 +50863,96 @@
     var _boardSttActive = false;
     var _boardSttLastTranscript = '';
     var _boardSttTargetSearch = false;
+    var _boardSttTargetNote = null;
+    var _boardSttTargetEditor = null;
+    var _boardSttTargetNoteBtn = null;
+
+    function wnToggleNoteDictation(noteData, editorEl, btnEl) {
+      if (_boardSttActive && _boardSttTargetNote && _boardSttTargetNote.id === noteData.id) {
+        boardStopDictation();
+        return;
+      }
+      if (_boardSttActive) {
+        boardStopDictation();
+      }
+      _boardSttTargetNote = noteData;
+      _boardSttTargetEditor = editorEl;
+      _boardSttTargetNoteBtn = btnEl;
+      if (btnEl) btnEl.classList.add('active');
+      boardStartDictation('note');
+    }
+
+    function wnInsertDictationTextIntoNote(noteData, editor, text) {
+      if (!noteData || !editor || !text) return;
+      editor.focus();
+
+      var sel = window.getSelection && window.getSelection();
+      var inside = false;
+      if (sel && sel.rangeCount > 0) {
+        var range = sel.getRangeAt(0);
+        var anc = range.commonAncestorContainer;
+        if (editor === anc || editor.contains(anc)) {
+          inside = true;
+        }
+      }
+      if (!inside && typeof wnRestoreSelection === 'function') {
+        inside = wnRestoreSelection(editor);
+      }
+      if (!inside) {
+        var r = document.createRange();
+        r.selectNodeContents(editor);
+        r.collapse(false);
+        sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(r);
+      }
+
+      var precedingChar = '';
+      if (sel && sel.rangeCount > 0) {
+        var curRange = sel.getRangeAt(0);
+        if (curRange.startContainer.nodeType === 3 && curRange.startOffset > 0) {
+          precedingChar = curRange.startContainer.textContent.charAt(curRange.startOffset - 1);
+        } else if (curRange.startContainer.nodeType === 1 && curRange.startOffset > 0) {
+          var prevNode = curRange.startContainer.childNodes[curRange.startOffset - 1];
+          if (prevNode && prevNode.textContent) {
+            precedingChar = prevNode.textContent.slice(-1);
+          }
+        }
+      }
+
+      var toInsert = text;
+      if (precedingChar && !/\s/.test(precedingChar)) {
+        toInsert = ' ' + toInsert;
+      }
+
+      try {
+        document.execCommand('insertText', false, toInsert);
+      } catch (_) {
+        if (sel && sel.rangeCount > 0) {
+          var insRange = sel.getRangeAt(0);
+          insRange.deleteContents();
+          var txtNode = document.createTextNode(toInsert);
+          insRange.insertNode(txtNode);
+          insRange.setStartAfter(txtNode);
+          insRange.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(insRange);
+        }
+      }
+
+      if (typeof wnRememberSelection === 'function') wnRememberSelection(editor);
+      if (typeof wnSyncNoteDataFromEditor === 'function') wnSyncNoteDataFromEditor(noteData, editor);
+      if (typeof conNoteAutosize === 'function') conNoteAutosize(editor, noteData);
+      if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+      if (typeof window._conMirrorSend === 'function') {
+        window._conMirrorSend({
+          type: 'note-text',
+          id: String(noteData.id),
+          html: noteData.html,
+          text: noteData.text
+        });
+      }
+    }
 
     function boardToggleDictation() {
       if (_boardSttActive) {
@@ -50721,11 +50964,16 @@
 
     async function boardStartDictation(targetMode) {
       _boardSttTargetSearch = (targetMode === 'search');
+      var isNoteTarget = (targetMode === 'note' && _boardSttTargetNote && _boardSttTargetEditor);
       var pill = document.getElementById('board-stt-live-pill');
       var btn = document.getElementById('con-dictate-btn');
       var statusText = document.getElementById('board-stt-status-text');
       var transcriptText = document.getElementById('board-stt-transcript-text');
       var meterFill = document.getElementById('board-stt-meter-fill');
+
+      if (isNoteTarget && _boardSttTargetNoteBtn) {
+        _boardSttTargetNoteBtn.classList.add('active');
+      }
 
       if (!window.SpeechTranscriber) {
         if (typeof showToast === 'function') showToast((window.i18n ? i18n.t('sttMicError') : 'Microphone error'), true);
@@ -50775,6 +51023,13 @@
         var box = document.getElementById('board-stt-transcript-text');
         if (box) box.textContent = fullText;
 
+        if (_boardSttTargetNote && _boardSttTargetEditor) {
+          var chunk = (finalChunk || fullText || '').trim();
+          if (chunk) {
+            wnInsertDictationTextIntoNote(_boardSttTargetNote, _boardSttTargetEditor, chunk);
+          }
+        }
+
         if (_boardSttTargetSearch) {
           var sInp = document.getElementById('con-search-input');
           if (sInp) {
@@ -50822,6 +51077,16 @@
     function boardStopDictation() {
       _boardSttActive = false;
       _boardSttTargetSearch = false;
+      if (_boardSttTargetNoteBtn) {
+        _boardSttTargetNoteBtn.classList.remove('active');
+      }
+      document.querySelectorAll('.wn-note-mini-btn[data-action="dictate"].active').forEach(function (b) {
+        b.classList.remove('active');
+      });
+      _boardSttTargetNote = null;
+      _boardSttTargetEditor = null;
+      _boardSttTargetNoteBtn = null;
+
       if (window.SpeechTranscriber) {
         window.SpeechTranscriber.stop();
       }

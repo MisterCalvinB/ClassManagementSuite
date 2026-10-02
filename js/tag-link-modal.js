@@ -65,7 +65,7 @@
             '</div>' +
             '<p class="cmt-lm-subtitle" id="cmt-lm-header-sub"></p>' +
           '</div>' +
-          '<button type="button" class="cmt-lm-close-btn" id="cmt-lm-btn-close">[CLOSE]</button>' +
+          '<div style="display:flex;align-items:center;gap:6px;margin-left:auto;"><button type="button" class="cmt-lm-btn primary" id="cmt-lm-btn-student-dossier" style="display:none;"><img src="' + iconSrc + '" class="btn-icon" alt="" />[360° DOSSIER]</button><button type="button" class="cmt-lm-close-btn" id="cmt-lm-btn-close">[CLOSE]</button></div>' +
         '</div>' +
         '<div class="cmt-lm-body">' +
           // ── Section 1: Tags
@@ -301,7 +301,20 @@
     document.getElementById('cmt-lm-header-title').textContent = finalTitle;
     document.getElementById('cmt-lm-header-sub').textContent = finalSub;
 
+    var dossierBtn = document.getElementById('cmt-lm-btn-student-dossier');
+    if (dossierBtn) {
+      if (p && p.type === 'student') {
+        dossierBtn.style.display = 'inline-flex';
+        dossierBtn.onclick = function() {
+          openStudentDossier(p.id, opts);
+        };
+      } else {
+        dossierBtn.style.display = 'none';
+      }
+    }
+
     overlay.classList.add('open');
+    if (document.body) document.body.classList.add('cmt-modal-open');
 
     // Register this entity in the registry for future reverse discovery
     if (window.LinksService) {
@@ -320,6 +333,7 @@
   function close() {
     var overlay = document.getElementById('cmt-link-modal-overlay');
     if (overlay) overlay.classList.remove('open');
+    if (document.body) document.body.classList.remove('cmt-modal-open');
     if (_currentOpts && typeof _currentOpts.onClose === 'function') {
       _currentOpts.onClose();
     }
@@ -446,29 +460,152 @@
     if (linksContainer) {
       linksContainer.innerHTML = '';
       if (totalLinks === 0) {
-        linksContainer.innerHTML = '<div class="cmt-lm-empty">No connected items yet. Choose an item below to connect.</div>';
+        linksContainer.innerHTML = '<div class="cmt-lm-empty">' + t('lmNoLinks', 'No connected items yet. Choose an item below to connect.') + '</div>';
       } else {
-        // Render Direct Links
+        var groupsDef = [
+          {
+            id: 'docs',
+            title: t('lmGroupDocs', 'DOCUMENTS'),
+            match: function(mt, rt) {
+              return mt === 'doc' || mt === 'docs' || mt === 'document' || mt === 'doc_section' ||
+                     rt === 'doc' || rt === 'docs' || rt === 'document' || rt === 'doc_section';
+            }
+          },
+          {
+            id: 'classes',
+            title: t('lmGroupClasses', 'CLASSES & STUDENTS'),
+            match: function(mt, rt) {
+              return mt === 'class' || mt === 'classes' || mt === 'student' || mt === 'students' || mt === 'level' || mt === 'yearlevel' ||
+                     rt === 'class' || rt === 'classes' || rt === 'student' || rt === 'students' || rt === 'level' || rt === 'yearlevel';
+            }
+          },
+          {
+            id: 'lessons',
+            title: t('lmGroupLessons', 'LESSONS & PLANNER'),
+            match: function(mt, rt) {
+              return mt === 'lesson' || mt === 'lessons' || mt === 'planner' || mt === 'slot' || mt === 'lessonplan' ||
+                     rt === 'lesson' || rt === 'lessons' || rt === 'planner' || rt === 'slot' || rt === 'lessonplan';
+            }
+          },
+          {
+            id: 'board',
+            title: t('lmGroupBoard', 'BOARD MINDMAPS'),
+            match: function(mt, rt) {
+              return mt === 'board' || mt === 'mindmap' || mt === 'mindmaps' || mt.startsWith('board-') || mt.startsWith('board_') ||
+                     rt === 'board' || rt === 'mindmap' || rt === 'mindmaps' || rt.startsWith('board-') || rt.startsWith('board_');
+            }
+          },
+          {
+            id: 'gradesheet',
+            title: t('lmGroupGradesheet', 'GRADE SHEETS & EVALUATIONS'),
+            match: function(mt, rt) {
+              return mt === 'gradesheet' || mt === 'eval' || mt === 'evaluation' || mt === 'submission' || mt === 'grade' || mt === 'grade_cell' ||
+                     rt === 'gradesheet' || rt === 'eval' || rt === 'evaluation' || rt === 'submission' || rt === 'grade' || rt === 'grade_cell';
+            }
+          },
+          {
+            id: 'competences',
+            title: t('lmGroupCompetences', 'CURRICULUM & RUBRICS'),
+            match: function(mt, rt) {
+              return mt === 'competence' || mt === 'competences' || mt === 'criteria' || mt === 'criterion' || mt === 'scale' || mt === 'scales' ||
+                     rt === 'competence' || rt === 'competences' || rt === 'criteria' || rt === 'criterion' || rt === 'scale' || rt === 'scales';
+            }
+          },
+          {
+            id: 'databases',
+            title: t('lmGroupDatabases', 'DATABASES & QUESTION BANKS'),
+            match: function(mt, rt) {
+              return mt === 'databases' || mt === 'database' || mt === 'wordbank' || mt === 'word' || mt === 'vocab' ||
+                     mt === 'quotebank' || mt === 'quote' || mt === 'dictation' || mt === 'grammarbank' || mt === 'grammar' ||
+                     mt === 'gapfillbank' || mt === 'gapfill' || mt === 'errorbank' || mt === 'error' || mt === 'sentencebank' ||
+                     mt === 'sentence' || mt === 'storybank' || mt === 'story' || mt === 'quiz' || mt === 'testbank' ||
+                     mt === 'exercise' || mt === 'phase' || mt === 'chip' ||
+                     rt === 'databases' || rt === 'database' || rt === 'wordbank' || rt === 'word' || rt === 'vocab' ||
+                     rt === 'quotebank' || rt === 'quote' || rt === 'dictation' || rt === 'grammarbank' || rt === 'grammar' ||
+                     rt === 'gapfillbank' || rt === 'gapfill' || rt === 'errorbank' || rt === 'error' || rt === 'sentencebank' ||
+                     rt === 'sentence' || rt === 'storybank' || rt === 'story' || rt === 'quiz' || rt === 'testbank' ||
+                     rt === 'exercise' || rt === 'phase' || rt === 'chip';
+            }
+          },
+          {
+            id: 'files',
+            title: t('lmGroupFiles', 'FILES & ATTACHMENTS'),
+            match: function(mt, rt) {
+              return mt === 'file' || mt === 'attachment' || rt === 'file' || rt === 'attachment';
+            }
+          },
+          {
+            id: 'other',
+            title: t('lmGroupOther', 'OTHER LINKS'),
+            match: function() { return true; }
+          }
+        ];
+
+        var allItems = [];
         context.direct.forEach(function(link) {
-          linksContainer.appendChild(createLinkRow(link, false));
+          allItems.push(resolveLinkItem(link, false));
         });
-        // Render Inherited Links
         context.inherited.forEach(function(link) {
-          linksContainer.appendChild(createLinkRow(link, true));
+          allItems.push(resolveLinkItem(link, true));
+        });
+
+        var groupBuckets = groupsDef.map(function(g) {
+          return { id: g.id, title: g.title, items: [] };
+        });
+
+        allItems.forEach(function(item) {
+          for (var gi = 0; gi < groupsDef.length; gi++) {
+            if (groupsDef[gi].match(item.metaType, item.rawType)) {
+              groupBuckets[gi].items.push(item);
+              break;
+            }
+          }
+        });
+
+        // Sort items within each bucket alphabetically by title
+        groupBuckets.forEach(function(b) {
+          b.items.sort(function(a, bItem) {
+            return (a.title || '').localeCompare(bItem.title || '', undefined, { sensitivity: 'base', numeric: true });
+          });
+        });
+
+        groupBuckets.forEach(function(b) {
+          if (!b.items.length) return;
+          var groupWrap = document.createElement('div');
+          groupWrap.className = 'cmt-lm-type-group';
+
+          var groupHdr = document.createElement('div');
+          groupHdr.className = 'cmt-lm-type-group-hdr';
+          groupHdr.innerHTML =
+            '<span class="cmt-lm-type-group-title">' + b.title + '</span>' +
+            '<span class="cmt-lm-type-group-count">' + b.items.length + '</span>';
+          groupWrap.appendChild(groupHdr);
+
+          var groupList = document.createElement('div');
+          groupList.className = 'cmt-lm-type-group-items';
+          b.items.forEach(function(item) {
+            groupList.appendChild(createLinkRowFromResolved(item));
+          });
+          groupWrap.appendChild(groupList);
+
+          linksContainer.appendChild(groupWrap);
         });
       }
     }
   }
 
-  function createLinkRow(link, isInherited) {
-    var row = document.createElement('div');
-    row.className = 'cmt-lm-link-row';
-
+  function resolveLinkItem(link, isInherited) {
     var p = window.LinksService ? window.LinksService.parseUrn(link.otherUrn) : null;
+    var rawType = (p && p.type) ? p.type.toLowerCase() : 'unknown';
+    var metaType = (link.targetMeta && link.targetMeta.type) ? String(link.targetMeta.type).toLowerCase() : '';
     var typeLabel = p ? p.type.toUpperCase() : 'LINK';
     var rawTitle = (link.targetMeta && link.targetMeta.title) || link.otherUrn;
     var title = rawTitle;
     var sub = (link.targetMeta && link.targetMeta.subtitle) || (link.meta && link.meta.label) || '';
+
+    // Inferred / autonomous status
+    var isInferred = !!(link.meta && link.meta.inferred) || link.relation === 'inferred_hierarchy';
+    var cascadeType = (link.meta && link.meta.cascadeType) || '';
 
     // Auto-resolve human-readable names for student and class
     if (p && window.LinksService) {
@@ -480,6 +617,9 @@
       } else if (p.type === 'class') {
         var cName = typeof window.LinksService.resolveClassName === 'function' ? window.LinksService.resolveClassName(p.id) : null;
         if (cName) title = cName;
+      } else if (p.type === 'level' || p.type === 'yearlevel') {
+        title = (p.id || '').toUpperCase();
+        if (!sub) sub = 'Academic Level';
       }
     }
 
@@ -491,8 +631,57 @@
       }
     }
 
-    var badgeClass = isInherited ? 'cmt-lm-badge inherited' : 'cmt-lm-badge';
-    var badgeText = isInherited ? '[INHERITED: ' + (_currentOpts.classId || 'CLASS').toUpperCase() + ']' : '[' + typeLabel + ']';
+    return {
+      link: link,
+      isInherited: isInherited,
+      isInferred: isInferred,
+      cascadeType: cascadeType,
+      parsed: p,
+      rawType: rawType,
+      metaType: metaType,
+      typeLabel: typeLabel,
+      title: title,
+      sub: sub
+    };
+  }
+
+  function createLinkRowFromResolved(item) {
+    var link = item.link;
+    var isInherited = item.isInherited;
+    var isInferred = item.isInferred;
+    var cascadeType = item.cascadeType;
+    var p = item.parsed;
+    var title = item.title;
+    var sub = item.sub;
+    var typeLabel = item.typeLabel;
+
+    var row = document.createElement('div');
+    row.className = 'cmt-lm-link-row' + (isInferred ? ' cmt-lm-link-inferred' : '');
+
+    var badgeClass = 'cmt-lm-badge';
+    var badgeText = '[' + typeLabel + ']';
+
+    if (isInherited) {
+      badgeClass = 'cmt-lm-badge inherited';
+      badgeText = '[INHERITED: ' + (_currentOpts.classId || 'CLASS').toUpperCase() + ']';
+    } else if (isInferred) {
+      if (p && p.type === 'class') {
+        badgeClass = 'cmt-lm-badge inferred-class';
+        badgeText = t('lmBadgeAutoClass', '[AUTO: CLASS]');
+      } else if (p && (p.type === 'level' || p.type === 'yearlevel')) {
+        badgeClass = 'cmt-lm-badge inferred-level';
+        badgeText = t('lmBadgeAutoLevel', '[AUTO: LEVEL]');
+      } else if (p && (p.type === 'board' || p.type === 'doc' || p.type === 'lesson')) {
+        badgeClass = 'cmt-lm-badge inferred-container';
+        badgeText = t('lmBadgeAutoContainer', '[AUTO: CONTAINER]');
+      } else {
+        badgeClass = 'cmt-lm-badge inferred';
+        badgeText = t('lmBadgeInferred', '[INFERRED]');
+      }
+    } else {
+      badgeClass = 'cmt-lm-badge direct';
+      badgeText = '[' + typeLabel + ']';
+    }
 
     var iconSrc = getLinksIconPath();
     row.innerHTML =
@@ -505,9 +694,29 @@
         (sub ? '<span class="cmt-lm-link-sub">' + sub + '</span>' : '') +
       '</div>' +
       '<div class="cmt-lm-link-actions">' +
-        '<button type="button" class="cmt-lm-btn primary" id="btn-open-link">[OPEN]</button>' +
-        (!isInherited ? '<button type="button" class="cmt-lm-btn danger" id="btn-unlink">[UNLINK]</button>' : '') +
+        (isInferred ? '<button type="button" class="cmt-lm-btn" id="btn-promote" title="' + t('lmPromoteTitle', 'Convert to direct permanent link') + '">' + t('lmPromote', '[PROMOTE]') + '</button>' : '') +
+        '<button type="button" class="cmt-lm-btn primary" id="btn-open-link">' + t('lmOpen', '[OPEN]') + '</button>' +
+        (!isInherited ? '<button type="button" class="cmt-lm-btn danger" id="btn-unlink">' + t('lmUnlink', '[UNLINK]') + '</button>' : '') +
       '</div>';
+
+    var promoteBtn = row.querySelector('#btn-promote');
+    if (promoteBtn) {
+      promoteBtn.addEventListener('click', async function() {
+        promoteBtn.disabled = true;
+        promoteBtn.textContent = '...';
+        if (window.LinksService && typeof window.LinksService.promoteInferredLink === 'function') {
+          await window.LinksService.promoteInferredLink(_currentOpts.urn, link.otherUrn);
+        } else if (window.LinksService) {
+          await window.LinksService.addLink(_currentOpts.urn, link.otherUrn, {
+            relation: 'related',
+            targetMeta: link.targetMeta || {}
+          });
+        }
+        await refreshModalData();
+        await renderCandidates();
+        notifyUpdate();
+      });
+    }
 
     row.querySelector('#btn-open-link').addEventListener('click', async function() {
       if (p && p.type === 'file') {
@@ -528,6 +737,10 @@
     }
 
     return row;
+  }
+
+  function createLinkRow(link, isInherited) {
+    return createLinkRowFromResolved(resolveLinkItem(link, isInherited));
   }
 
   async function handleAddTag() {
@@ -605,7 +818,7 @@
       var p = window.LinksService.parseUrn(itemUrn);
       if (p && p.type) ut = String(p.type).toLowerCase();
     }
-    if (c === 'classes' && (t === 'class' || t === 'classes' || t === 'student' || t === 'students' || ut === 'class' || ut === 'student')) return true;
+    if (c === 'classes' && (t === 'class' || t === 'classes' || t === 'student' || t === 'students' || t === 'level' || t === 'yearlevel' || ut === 'class' || ut === 'student' || ut === 'level' || ut === 'yearlevel')) return true;
     if (c === 'databases' && (
       t === 'databases' || t === 'database' ||
       t === 'wordbank' || t === 'wordbanks' || t === 'word' || t === 'words' || t === 'vocab' ||
@@ -1934,6 +2147,7 @@
     };
 
     overlay.classList.add('open');
+    if (document.body) document.body.classList.add('cmt-modal-open');
   }
 
   function openInOs(filePath) {
@@ -1947,11 +2161,435 @@
   function closePreview() {
     var overlay = document.getElementById('cmt-preview-modal-overlay');
     if (overlay) overlay.classList.remove('open');
+    if (document.body) document.body.classList.remove('cmt-modal-open');
+  }
+
+  var _activeDossierUrn = null;
+
+  function ensureDossierDom() {
+    if (document.getElementById('cmt-dossier-modal-overlay')) return;
+    ensureStylesheet();
+
+    var iconSrc = getLinksIconPath();
+    var overlay = document.createElement('div');
+    overlay.id = 'cmt-dossier-modal-overlay';
+    overlay.innerHTML =
+      '<div class="cmt-dossier-card" id="cmt-dossier-card" role="dialog" aria-modal="true">' +
+        '<div class="cmt-dossier-header">' +
+          '<div class="cmt-dossier-title-group">' +
+            '<div class="cmt-dossier-title-line">' +
+              '<img src="' + iconSrc + '" class="cmt-lm-header-icon" alt="" />' +
+              '<span class="cmt-lm-badge" style="background:#6abf8e;color:#111;">[360° ACADEMIC DOSSIER]</span>' +
+              '<h3 class="cmt-dossier-name" id="cmt-dos-name">STUDENT DOSSIER</h3>' +
+            '</div>' +
+            '<p class="cmt-dossier-subtitle" id="cmt-dos-sub"></p>' +
+          '</div>' +
+          '<div style="display:flex;align-items:center;gap:6px;">' +
+            '<button type="button" class="cmt-lm-btn" id="cmt-dos-btn-toggle-all">[COLLAPSE ALL]</button>' +
+            '<button type="button" class="cmt-lm-btn" id="cmt-dos-btn-maximize">[MAXIMIZE]</button>' +
+            '<button type="button" class="cmt-lm-btn" id="cmt-dos-btn-open-links">[MANAGE LINKS & TAGS]</button>' +
+            '<button type="button" class="cmt-lm-close-btn" id="cmt-dos-btn-close">[CLOSE]</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="cmt-dossier-body" id="cmt-dos-body">' +
+          '<div class="cmt-lm-empty">Loading academic dossier...</div>' +
+        '</div>' +
+      '</div>';
+
+    document.body.appendChild(overlay);
+
+    document.getElementById('cmt-dos-btn-close').addEventListener('click', closeStudentDossier);
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) closeStudentDossier();
+    });
+
+    document.getElementById('cmt-dos-btn-maximize').addEventListener('click', function() {
+      var card = document.getElementById('cmt-dossier-card');
+      if (!card) return;
+      var isMax = card.classList.toggle('maximized');
+      this.textContent = isMax ? '[RESTORE]' : '[MAXIMIZE]';
+    });
+
+    document.getElementById('cmt-dos-btn-toggle-all').addEventListener('click', function() {
+      var secs = document.querySelectorAll('#cmt-dos-body .cmt-dossier-sec');
+      if (!secs.length) return;
+      var anyOpen = Array.from(secs).some(function(s) { return !s.classList.contains('collapsed'); });
+      secs.forEach(function(s) {
+        if (anyOpen) s.classList.add('collapsed');
+        else s.classList.remove('collapsed');
+      });
+      this.textContent = anyOpen ? ('[' + (t('lmExpandAll', 'EXPAND ALL') || 'EXPAND ALL').toUpperCase() + ']') : ('[' + (t('lmCollapseAll', 'COLLAPSE ALL') || 'COLLAPSE ALL').toUpperCase() + ']');
+    });
+
+    document.getElementById('cmt-dos-btn-open-links').addEventListener('click', function() {
+      var sUrn = _activeDossierUrn;
+      closeStudentDossier();
+      if (sUrn) {
+        open({ urn: sUrn });
+      }
+    });
+  }
+
+  async function openStudentDossier(studentId, opts) {
+    if (!studentId) return;
+    ensureDossierDom();
+    var cleanId = String(studentId).replace(/^cmt:student:/, '');
+    _activeDossierUrn = 'cmt:student:' + cleanId;
+
+    var overlay = document.getElementById('cmt-dossier-modal-overlay');
+    var nameEl = document.getElementById('cmt-dos-name');
+    var subEl = document.getElementById('cmt-dos-sub');
+    var bodyEl = document.getElementById('cmt-dos-body');
+
+    overlay.classList.add('open');
+    if (document.body) document.body.classList.add('cmt-modal-open');
+    bodyEl.innerHTML = '<div class="cmt-lm-empty">' + t('lmLoading', 'Loading 360° academic dossier...') + '</div>';
+
+    var dossier = null;
+    if (window.LinksService && typeof window.LinksService.getStudentAcademicDossier === 'function') {
+      dossier = await window.LinksService.getStudentAcademicDossier(cleanId);
+    }
+
+    if (!dossier || !dossier.student) {
+      bodyEl.innerHTML = '<div class="cmt-lm-empty">' + t('lmNoDossierData', 'Could not load student dossier.') + '</div>';
+      return;
+    }
+
+    var st = dossier.student;
+    nameEl.textContent = st.name;
+    var subParts = [];
+    if (st.className) subParts.push((t('lmClass', 'Class') || 'Class') + ': ' + st.className);
+    if (st.level) subParts.push((t('lmLevel', 'Level') || 'Level') + ': ' + st.level.toUpperCase());
+    if (st.id) subParts.push('ID: ' + st.id);
+    subEl.textContent = subParts.join(' • ');
+
+    var iconSrc = getLinksIconPath();
+
+    // Reset toggle-all button
+    var toggleAllBtn = document.getElementById('cmt-dos-btn-toggle-all');
+    if (toggleAllBtn) {
+      toggleAllBtn.textContent = '[' + (t('lmCollapseAll', 'COLLAPSE ALL') || 'COLLAPSE ALL').toUpperCase() + ']';
+    }
+
+    // Render Metrics & Sections
+    var html =
+      '<div class="cmt-dossier-metrics">' +
+        '<div class="cmt-dossier-metric-card">' +
+          '<span class="cmt-dossier-metric-num tests">' + dossier.evaluations.length + '</span>' +
+          '<span class="cmt-dossier-metric-label">' + t('lmDossierStatsTests', 'Evaluations & Tests') + '</span>' +
+        '</div>' +
+        '<div class="cmt-dossier-metric-card">' +
+          '<span class="cmt-dossier-metric-num comps">' + dossier.competences.length + '</span>' +
+          '<span class="cmt-dossier-metric-label">' + t('lmDossierStatsComps', 'Assessed Competences') + '</span>' +
+        '</div>' +
+        '<div class="cmt-dossier-metric-card">' +
+          '<span class="cmt-dossier-metric-num lessons">' + dossier.lessons.length + '</span>' +
+          '<span class="cmt-dossier-metric-label">' + t('lmDossierStatsLessons', 'Delivered Lessons') + '</span>' +
+        '</div>' +
+        '<div class="cmt-dossier-metric-card">' +
+          '<span class="cmt-dossier-metric-num docs">' + (dossier.documents.length + dossier.boards.length) + '</span>' +
+          '<span class="cmt-dossier-metric-label">' + t('lmDossierStatsDocs', 'Work, Files & Mindmaps') + '</span>' +
+        '</div>' +
+      '</div>';
+
+    // Grade styling helper
+    function getGradePillClass(score, maxScore) {
+      if (score == null || isNaN(score)) return 'neutral';
+      var num = Number(score);
+      var max = (maxScore && !isNaN(maxScore) && Number(maxScore) > 0) ? Number(maxScore) : 6;
+      var ratio = num / max;
+      if (ratio >= 0.85) return 'green';
+      if (ratio >= 0.70) return 'lime';
+      if (ratio >= 0.50) return 'amber';
+      return 'red';
+    }
+
+    // Note / Observation section formatting helper
+    function formatDossierNote(n) {
+      if (n == null) return '';
+      if (typeof n === 'string' || typeof n === 'number') {
+        return String(n).trim();
+      }
+      if (typeof n === 'object') {
+        var checklist = [];
+        if (Array.isArray(n.checklist)) {
+          checklist = n.checklist.map(function(c) { return String(c || '').trim(); }).filter(Boolean);
+        } else if (typeof n.checklist === 'string' && n.checklist.trim()) {
+          checklist = [n.checklist.trim()];
+        }
+
+        var text = String(n.text || n.comment || n.note || n.feedback || n.content || n.value || n.body || '').trim();
+        var label = String(n.label || n.title || '').trim();
+
+        var parts = [];
+        if (checklist.length > 0) {
+          parts.push(checklist.join(', '));
+        }
+        if (text) {
+          parts.push(text);
+        }
+
+        var combined = parts.join(' | ');
+        if (label && combined) {
+          return label + ': ' + combined;
+        } else if (label) {
+          return label;
+        }
+        if (combined) return combined;
+
+        try {
+          var nonObjKeys = Object.keys(n).filter(function(k) {
+            return k !== 'kind' && n[k] != null && typeof n[k] !== 'object' && typeof n[k] !== 'function';
+          });
+          if (nonObjKeys.length > 0) {
+            return nonObjKeys.map(function(k) { return n[k]; }).join(' | ');
+          }
+        } catch (e) {}
+        return '';
+      }
+      return String(n).trim();
+    }
+
+    var gs = dossier.gradesSummary || {};
+    var hasAverages = (gs.yearAverage != null || gs.sem1Average != null || gs.sem2Average != null || gs.gradedCount > 0);
+
+    // Section 1: Evaluations & Tests
+    html +=
+      '<div class="cmt-dossier-sec">' +
+        '<div class="cmt-dossier-sec-hdr">' +
+          '<span class="cmt-dossier-sec-title"><span class="cmt-dossier-sec-chevron">▼</span> <img src="' + iconSrc + '" class="cmt-lm-inline-icon" alt="" /> ' + (t('lmDossierAssessedComps', '1. EVALUATIONS & TESTS') || '1. EVALUATIONS & TESTS') + '</span>' +
+          '<span class="cmt-dossier-sec-count">' + dossier.evaluations.length + '</span>' +
+        '</div>';
+
+    if (hasAverages) {
+      html +=
+        '<div class="cmt-dossier-perf-bar">' +
+          (gs.sem1Average != null ?
+            ('<div class="cmt-dossier-perf-item">' +
+              '<span class="cmt-dossier-perf-label">' + (t('lmDossierSem1Avg', 'S1 Average') || 'S1 Average') + ':</span>' +
+              '<span class="cmt-dossier-grade-pill ' + getGradePillClass(gs.sem1Average, 6) + '">' + gs.sem1Average + '</span>' +
+            '</div>') : '') +
+          (gs.sem2Average != null ?
+            ('<div class="cmt-dossier-perf-item">' +
+              '<span class="cmt-dossier-perf-label">' + (t('lmDossierSem2Avg', 'S2 Average') || 'S2 Average') + ':</span>' +
+              '<span class="cmt-dossier-grade-pill ' + getGradePillClass(gs.sem2Average, 6) + '">' + gs.sem2Average + '</span>' +
+            '</div>') : '') +
+          (gs.yearAverage != null ?
+            ('<div class="cmt-dossier-perf-item" style="border-color:#333;background:#fafaf9;">' +
+              '<span class="cmt-dossier-perf-label" style="font-weight:900;color:#111;">' + (t('lmDossierYearAvg', 'Annual Avg') || 'Annual Avg') + ':</span>' +
+              '<span class="cmt-dossier-grade-pill ' + getGradePillClass(gs.yearAverage, 6) + '" style="font-size:0.82rem;">' + gs.yearAverage + '</span>' +
+            '</div>') : '') +
+          (gs.totalTests > 0 ?
+            ('<div class="cmt-dossier-perf-item" style="margin-left:auto;background:none;border:none;box-shadow:none;color:#555;font-size:0.68rem;">' +
+              (t('lmDossierGradedCount', '{count} of {total} assessments graded') || '{count} of {total} assessments graded').replace('{count}', gs.gradedCount || 0).replace('{total}', gs.totalTests || 0) +
+            '</div>') : '') +
+        '</div>';
+    }
+
+    html += '<div class="cmt-dossier-sec-list">';
+    if (!dossier.evaluations.length) {
+      html += '<div class="cmt-lm-empty" style="padding:6px 0;">' + t('lmNoEvalsStudent', 'No evaluations recorded for this student.') + '</div>';
+    } else {
+      var isSub = typeof window !== 'undefined' && window.location.pathname.includes('/pages/');
+      var gsIcon = (isSub ? '../' : '') + 'assets/icons/grade-sheet.svg';
+      dossier.evaluations.forEach(function(evItem) {
+        var isGsTest = evItem.type === 'gradesheet' || evItem.source === 'gradesheet' || (evItem.score !== undefined);
+        var scoreVal = evItem.score;
+        var maxScore = evItem.maxScore;
+        var pillClass = isGsTest ? getGradePillClass(scoreVal, maxScore) : 'neutral';
+        var scoreFormatted = scoreVal != null ? (scoreVal + (maxScore ? (' / ' + maxScore) : '')) : t('lmDossierNoScore', 'No grade recorded');
+        var coeff = evItem.coefficient;
+        var fixedW = evItem.fixedWeight;
+        var isOverridden = !!evItem.isOverridden;
+        var rawNotes = Array.isArray(evItem.testNotes) && evItem.testNotes.length > 0
+          ? evItem.testNotes
+          : (evItem.meta && Array.isArray(evItem.meta.testNotes) ? evItem.meta.testNotes : (evItem.testNotes ? [evItem.testNotes] : []));
+        var notes = rawNotes.map(formatDossierNote).map(function(s) { return s.trim(); }).filter(Boolean);
+        var critRes = evItem.criteriaResults || {};
+        var critList = Array.isArray(evItem.criteria) ? evItem.criteria : [];
+
+        html +=
+          '<div class="cmt-dossier-item">' +
+            '<div class="cmt-dossier-item-info">' +
+              '<div class="cmt-dossier-item-top">' +
+                '<span class="cmt-lm-badge" style="background:#5b8fcc;color:#fff;">' + (evItem.badge || '[EVAL]') + '</span>' +
+                '<span class="cmt-dossier-item-title">' + (evItem.title || evItem.urn) + '</span>' +
+                (isGsTest ?
+                  ('<span class="cmt-dossier-grade-pill ' + pillClass + '">' + scoreFormatted + '</span>') : '') +
+                (isGsTest && fixedW != null ?
+                  ('<span class="cmt-dossier-coeff-pill">Fixed: ' + fixedW + '%</span>') :
+                  (isGsTest && coeff != null && coeff !== 1 ? ('<span class="cmt-dossier-coeff-pill">Coeff: ' + coeff + '</span>') : '')) +
+                (isOverridden ?
+                  ('<span class="cmt-dossier-override-pill">' + (t('lmDossierOverrideBadge', 'OVERRIDE') || 'OVERRIDE') + '</span>') : '') +
+              '</div>' +
+              (evItem.subtitle && !isGsTest ? ('<span class="cmt-dossier-item-sub">' + evItem.subtitle + '</span>') : '') +
+              (isGsTest && evItem.testDate ? ('<span class="cmt-dossier-item-sub">' + evItem.testDate + '</span>') : '') +
+              (notes.length > 0 ?
+                ('<div class="cmt-dossier-item-notes"><span>💬 ' + notes.map(function(n) { return String(n).replace(/</g, '&lt;').replace(/>/g, '&gt;'); }).join(' • ') + '</span></div>') : '') +
+              (critList.length > 0 && Object.keys(critRes).length > 0 ?
+                ('<div class="cmt-dossier-item-criteria">' +
+                  critList.map(function(cr) {
+                    var r = critRes[cr.id];
+                    if (!r || r.points == null) return '';
+                    return '<span class="cmt-dossier-crit-chip">' + (cr.name || cr.label || cr.id) + ': <b>' + r.points + '</b>' + (cr.maxPoints ? '/' + cr.maxPoints : '') + '</span>';
+                  }).filter(Boolean).join('') +
+                '</div>') : '') +
+            '</div>' +
+            '<div class="cmt-dossier-item-actions">' +
+              '<button type="button" class="cmt-lm-btn primary cmt-dos-btn-open" data-urn="' + evItem.urn + '" title="' + (t('lmDossierOpenInGs', 'Open in Grade Sheet') || 'Open in Grade Sheet') + '">' +
+                (isGsTest ? ('<img src="' + gsIcon + '" class="btn-icon" alt="" style="width:11px;height:11px;vertical-align:-1px;margin-right:3px;" />') : '') +
+                t('lmOpen', '[OPEN]') +
+              '</button>' +
+            '</div>' +
+          '</div>';
+      });
+    }
+    html += '</div></div>';
+
+    // Section 2: Assessed Competences
+    html +=
+      '<div class="cmt-dossier-sec">' +
+        '<div class="cmt-dossier-sec-hdr">' +
+          '<span class="cmt-dossier-sec-title"><span class="cmt-dossier-sec-chevron">▼</span> <img src="' + iconSrc + '" class="cmt-lm-inline-icon" alt="" /> ' + t('lmGroupCompetences', '2. CURRICULUM COMPETENCES & RUBRICS') + '</span>' +
+          '<span class="cmt-dossier-sec-count">' + dossier.competences.length + '</span>' +
+        '</div>' +
+        '<div class="cmt-dossier-sec-list">';
+    if (!dossier.competences.length) {
+      html += '<div class="cmt-lm-empty" style="padding:6px 0;">' + t('lmNoCompsStudent', 'No curriculum competences linked yet.') + '</div>';
+    } else {
+      dossier.competences.forEach(function(cpItem) {
+        html +=
+          '<div class="cmt-dossier-item">' +
+            '<div class="cmt-dossier-item-info">' +
+              '<div class="cmt-dossier-item-top">' +
+                '<span class="cmt-lm-badge" style="background:#6abf8e;color:#111;">' + (cpItem.badge || '[COMPETENCE]') + '</span>' +
+                '<span class="cmt-dossier-item-title">' + (cpItem.title || cpItem.urn) + '</span>' +
+              '</div>' +
+              (cpItem.subtitle ? '<span class="cmt-dossier-item-sub">' + cpItem.subtitle + '</span>' : '') +
+            '</div>' +
+            '<div class="cmt-dossier-item-actions">' +
+              '<button type="button" class="cmt-lm-btn primary cmt-dos-btn-open" data-urn="' + cpItem.urn + '">' + t('lmOpen', '[OPEN]') + '</button>' +
+            '</div>' +
+          '</div>';
+      });
+    }
+    html += '</div></div>';
+
+    // Section 3: Delivered Lessons
+    html +=
+      '<div class="cmt-dossier-sec">' +
+        '<div class="cmt-dossier-sec-hdr">' +
+          '<span class="cmt-dossier-sec-title"><span class="cmt-dossier-sec-chevron">▼</span> <img src="' + iconSrc + '" class="cmt-lm-inline-icon" alt="" /> ' + t('lmDossierDeliveredLessons', '3. DELIVERED LESSON PLANS & TIMETABLE') + '</span>' +
+          '<span class="cmt-dossier-sec-count">' + dossier.lessons.length + '</span>' +
+        '</div>' +
+        '<div class="cmt-dossier-sec-list">';
+    if (!dossier.lessons.length) {
+      html += '<div class="cmt-lm-empty" style="padding:6px 0;">' + t('lmNoLessonsStudent', 'No lesson plans linked to cohort.') + '</div>';
+    } else {
+      dossier.lessons.forEach(function(lsItem) {
+        html +=
+          '<div class="cmt-dossier-item">' +
+            '<div class="cmt-dossier-item-info">' +
+              '<div class="cmt-dossier-item-top">' +
+                '<span class="cmt-lm-badge" style="background:#e2c96e;color:#111;">' + (lsItem.badge || '[LESSON]') + '</span>' +
+                '<span class="cmt-dossier-item-title">' + (lsItem.title || lsItem.urn) + '</span>' +
+              '</div>' +
+              (lsItem.subtitle ? '<span class="cmt-dossier-item-sub">' + lsItem.subtitle + '</span>' : '') +
+            '</div>' +
+            '<div class="cmt-dossier-item-actions">' +
+              '<button type="button" class="cmt-lm-btn primary cmt-dos-btn-open" data-urn="' + lsItem.urn + '">' + t('lmOpen', '[OPEN]') + '</button>' +
+            '</div>' +
+          '</div>';
+      });
+    }
+    html += '</div></div>';
+
+    // Section 4: Work, Documents & Mindmaps
+    var allWork = [].concat(dossier.documents, dossier.boards);
+    html +=
+      '<div class="cmt-dossier-sec">' +
+        '<div class="cmt-dossier-sec-hdr">' +
+          '<span class="cmt-dossier-sec-title"><span class="cmt-dossier-sec-chevron">▼</span> <img src="' + iconSrc + '" class="cmt-lm-inline-icon" alt="" /> ' + t('lmDossierLinkedDocs', '4. DOCUMENTS, ATTACHMENTS & MINDMAPS') + '</span>' +
+          '<span class="cmt-dossier-sec-count">' + allWork.length + '</span>' +
+        '</div>' +
+        '<div class="cmt-dossier-sec-list">';
+    if (!allWork.length) {
+      html += '<div class="cmt-lm-empty" style="padding:6px 0;">' + t('lmNoDocsStudent', 'No individual documents, work, or mindmaps attached.') + '</div>';
+    } else {
+      allWork.forEach(function(docItem) {
+        var isFile = docItem.type === 'file' || (docItem.urn && docItem.urn.startsWith('cmt:file:'));
+        html +=
+          '<div class="cmt-dossier-item">' +
+            '<div class="cmt-dossier-item-info">' +
+              '<div class="cmt-dossier-item-top">' +
+                '<span class="cmt-lm-badge" style="background:#8b7cc2;color:#fff;">' + (docItem.badge || '[DOC]') + '</span>' +
+                '<span class="cmt-dossier-item-title">' + (docItem.title || docItem.urn) + '</span>' +
+              '</div>' +
+              (docItem.subtitle ? '<span class="cmt-dossier-item-sub">' + docItem.subtitle + '</span>' : '') +
+            '</div>' +
+            '<div class="cmt-dossier-item-actions">' +
+              (isFile ? '<button type="button" class="cmt-lm-btn cmt-dos-btn-prev" data-urn="' + docItem.urn + '" data-title="' + (docItem.title || '') + '">' + t('lmPreview', '[PREVIEW]') + '</button>' : '') +
+              '<button type="button" class="cmt-lm-btn primary cmt-dos-btn-open" data-urn="' + docItem.urn + '">' + t('lmOpen', '[OPEN]') + '</button>' +
+            '</div>' +
+          '</div>';
+      });
+    }
+    html += '</div></div>';
+
+    bodyEl.innerHTML = html;
+
+    // Helper to update toggle-all button state
+    function updateToggleAllBtnState() {
+      var btn = document.getElementById('cmt-dos-btn-toggle-all');
+      if (!btn) return;
+      var secs = bodyEl.querySelectorAll('.cmt-dossier-sec');
+      if (!secs.length) return;
+      var anyOpen = Array.from(secs).some(function(s) { return !s.classList.contains('collapsed'); });
+      btn.textContent = anyOpen ? ('[' + (t('lmCollapseAll', 'COLLAPSE ALL') || 'COLLAPSE ALL').toUpperCase() + ']') : ('[' + (t('lmExpandAll', 'EXPAND ALL') || 'EXPAND ALL').toUpperCase() + ']');
+    }
+
+    // Toggle individual sections
+    bodyEl.querySelectorAll('.cmt-dossier-sec-hdr').forEach(function(hdr) {
+      hdr.addEventListener('click', function() {
+        var sec = hdr.closest('.cmt-dossier-sec');
+        if (sec) {
+          sec.classList.toggle('collapsed');
+          updateToggleAllBtnState();
+        }
+      });
+    });
+
+    // Attach click listeners to open / preview buttons
+    bodyEl.querySelectorAll('.cmt-dos-btn-open').forEach(function(btn) {
+      btn.addEventListener('click', async function() {
+        var targetUrn = btn.getAttribute('data-urn');
+        if (targetUrn && window.LinksService) {
+          await window.LinksService.openUrn(targetUrn);
+        }
+      });
+    });
+
+    bodyEl.querySelectorAll('.cmt-dos-btn-prev').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var targetUrn = btn.getAttribute('data-urn');
+        var pTitle = btn.getAttribute('data-title');
+        previewFile(targetUrn, pTitle);
+      });
+    });
+  }
+
+  function closeStudentDossier() {
+    var overlay = document.getElementById('cmt-dossier-modal-overlay');
+    if (overlay) overlay.classList.remove('open');
+    if (document.body) document.body.classList.remove('cmt-modal-open');
   }
 
   return {
     open: open,
     close: close,
+    openStudentDossier: openStudentDossier,
+    openDossier: openStudentDossier,
+    closeStudentDossier: closeStudentDossier,
     previewFile: previewFile,
     closePreview: closePreview,
     getIconPath: getLinksIconPath,

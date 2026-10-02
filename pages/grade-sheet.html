@@ -1653,6 +1653,7 @@
   <div id="test-row-menu" class="row-context-menu hidden" role="menu" aria-label="Student row menu" data-i18n-aria="gsAriaStudentRowMenu">
     <button id="test-row-menu-open" class="menu-item" type="button" role="menuitem" data-i18n="gsMenuOpenStudent"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" /> Open student</button>
     <button id="test-row-menu-report-student" class="menu-item" type="button" role="menuitem" data-i18n="gsReportStudentTest"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> Student Test Report</button>
+    <button id="test-row-menu-dossier" class="menu-item" type="button" role="menuitem"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> <span data-i18n="gsMenuStudentDossier">360° Academic Dossier</span></button>
     <button id="test-row-menu-attach-work" class="menu-item" type="button" role="menuitem"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> <span data-i18n="gsMenuAttachStudentWork">Attach Student Work / PDF</span></button>
     <hr class="menu-sep">
     <button id="test-row-menu-reset" class="menu-item danger" type="button" role="menuitem" data-i18n="gsMenuResetPoints"><img src="../assets/icons/clear.svg" class="btn-icon" alt="" /> Reset points and comments</button>
@@ -1685,6 +1686,7 @@
   </div>
 
   <div id="summary-student-row-menu" class="row-context-menu hidden" role="menu" aria-label="Student menu">
+    <button id="summary-student-menu-dossier" class="menu-item" type="button" role="menuitem"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> <span data-i18n="gsMenuStudentDossier">360° Academic Dossier</span></button>
     <button id="summary-student-menu-work" class="menu-item" type="button" role="menuitem"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> <span data-i18n="gsMenuStudentWork">Student Work &amp; Attachments</span></button>
     <button id="summary-student-menu-report-year" class="menu-item" type="button" role="menuitem" data-i18n="gsReportStudentYear"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> Student Year Report</button>
     <button id="summary-student-menu-report-sem1" class="menu-item" type="button" role="menuitem" data-i18n="gsReportStudentSem1"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> Student Semester 1 Report</button>
@@ -6341,6 +6343,22 @@
       });
     }
     window.gsOpenTestLinksModal = gsOpenTestLinksModal;
+
+    function gsOpenStudentDossierModal(student, classObj) {
+      if (!student || typeof TagLinkModal === 'undefined') return;
+      var studentId = student.id || student.uuid;
+      if (typeof TagLinkModal.openStudentDossier === 'function') {
+        TagLinkModal.openStudentDossier(studentId);
+      } else {
+        TagLinkModal.open({
+          urn: 'cmt:student:' + studentId,
+          title: ((student.firstName || '') + ' ' + (student.lastName || '')).trim() || student.name || studentId,
+          type: 'student',
+          classId: classObj ? classObj.id : null
+        });
+      }
+    }
+    window.gsOpenStudentDossierModal = gsOpenStudentDossierModal;
 
     function gsOpenStudentWorkModal(student, classObj, sem, testIndex) {
       if (!student || !classObj || typeof TagLinkModal === 'undefined') return;
@@ -13946,8 +13964,10 @@
               }
             });
 
-            chip.addEventListener("dragleave", () => {
-              chip.classList.remove("drag-over-left", "drag-over-right");
+            chip.addEventListener("dragleave", e => {
+              if (!chip.contains(e.relatedTarget)) {
+                chip.classList.remove("drag-over-left", "drag-over-right");
+              }
             });
 
             chip.addEventListener("drop", async e => {
@@ -14287,9 +14307,34 @@
                 const currentComment = dr.comment || ta.value || "";
                 let selected = new Set(sentences.filter(s => currentComment.includes(s)));
 
-                function refreshText() {
-                  ta.value = sentences.filter(s => selected.has(s)).join(" ");
-                  dr.comment = ta.value;
+                function addSentenceToText(currentText, sentenceToAdd) {
+                  const s = String(sentenceToAdd || "").trim();
+                  if (!s) return currentText || "";
+                  let txt = String(currentText || "").trim();
+                  if (!txt) return s;
+                  if (txt.includes(s)) return txt;
+                  return `${txt} ${s}`;
+                }
+
+                function removeSentenceFromText(currentText, sentenceToRemove) {
+                  const s = String(sentenceToRemove || "").trim();
+                  if (!s) return currentText || "";
+                  let txt = String(currentText || "");
+                  if (!txt.includes(s)) return txt.trim();
+                  txt = txt.replace(s, "");
+                  return txt.replace(/[ \t]{2,}/g, " ").replace(/^[ \t]+|[ \t]+$/g, "").trim();
+                }
+
+                function syncPickerFromText() {
+                  const cur = ta.value || "";
+                  selected.clear();
+                  sentences.forEach(s => {
+                    if (cur.includes(s)) selected.add(s);
+                  });
+                  sentenceBtns.forEach(({ sentence, btn }) => {
+                    updateChipVisual(btn, selected.has(sentence));
+                  });
+                  refreshAllChip();
                 }
 
                 function refreshAllChip() {
@@ -14329,13 +14374,27 @@
                 allChip.textContent = t('gsStudentAllChip');
                 allChip.addEventListener("click", () => {
                   const shouldSelectAll = selected.size !== sentences.length;
-                  selected.clear();
-                  if (shouldSelectAll) sentences.forEach(s => selected.add(s));
+                  let cur = ta.value || "";
+                  if (shouldSelectAll) {
+                    sentences.forEach(s => {
+                      if (!selected.has(s)) {
+                        cur = addSentenceToText(cur, s);
+                        selected.add(s);
+                      }
+                    });
+                  } else {
+                    sentences.forEach(s => {
+                      if (selected.has(s)) {
+                        cur = removeSentenceFromText(cur, s);
+                        selected.delete(s);
+                      }
+                    });
+                  }
+                  ta.value = cur;
+                  dr.comment = cur;
                   sentenceBtns.forEach(({ sentence, btn }) => {
-                    const on = selected.has(sentence);
-                    updateChipVisual(btn, on);
+                    updateChipVisual(btn, selected.has(sentence));
                   });
-                  refreshText();
                   refreshAllChip();
                 });
                 picker.appendChild(allChip);
@@ -14351,17 +14410,24 @@
                   const on = selected.has(sentence);
                   updateChipVisual(chip, on);
                   chip.addEventListener("click", () => {
-                    if (selected.has(sentence)) selected.delete(sentence);
-                    else selected.add(sentence);
-                    const nowOn = selected.has(sentence);
-                    updateChipVisual(chip, nowOn);
-                    refreshText();
+                    let cur = ta.value || "";
+                    if (selected.has(sentence)) {
+                      selected.delete(sentence);
+                      cur = removeSentenceFromText(cur, sentence);
+                    } else {
+                      selected.add(sentence);
+                      cur = addSentenceToText(cur, sentence);
+                    }
+                    ta.value = cur;
+                    dr.comment = cur;
+                    updateChipVisual(chip, selected.has(sentence));
                     refreshAllChip();
                   });
                   sentenceBtns.push({ sentence, btn: chip });
                   picker.appendChild(chip);
                 });
 
+                ta.addEventListener("input", syncPickerFromText);
                 refreshAllChip();
               } else if (sentencePickerEls[criterion.id]) {
                 sentencePickerEls[criterion.id].innerHTML = "";
@@ -16056,6 +16122,12 @@
         closeAllContextMenus();
         if (!ctx) return;
         await resetStudentTestPoints(ctx.student, ctx.classObj, ctx.sem, ctx.testIndex, ctx.config);
+      });
+      document.getElementById("test-row-menu-dossier")?.addEventListener("click", () => {
+        const ctx = _testRowMenuCtx;
+        closeAllContextMenus();
+        if (!ctx) return;
+        gsOpenStudentDossierModal(ctx.student, ctx.classObj);
       });
       document.getElementById("test-row-menu-attach-work")?.addEventListener("click", () => {
         const ctx = _testRowMenuCtx;

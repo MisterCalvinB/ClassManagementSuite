@@ -10,6 +10,9 @@
     <script src="../js/student-name-utils.js"></script>
     <script src="../js/shortcuts-modal.js"></script>
     <script src="../js/tutorial.js"></script>
+  <link rel="stylesheet" href="../css/tag-link-modal.css">
+  <script src="../js/links-service.js"></script>
+  <script src="../js/tag-link-modal.js"></script>
         <script src="../electron-bridge.js"></script>
         <script src="../js/dialogs.js"></script>
         <script src="../js/menus.js"></script>
@@ -607,6 +610,7 @@
             <div class="modal-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
                 <div style="display:flex; align-items:center; gap:8px;">
                     <h3 id="detailModalTitle" style="margin:0;"></h3>
+                    <button type="button" class="btn btn-xs" id="pt-btn-student-dossier" style="background:#e2c96e;border:1.5px solid #333;box-shadow:1.5px 1.5px 0 #333;font-size:0.75rem;font-weight:800;padding:2px 8px;cursor:pointer;"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:11px;height:11px;vertical-align:-1px;margin-right:3px;" />[360° DOSSIER]</button>
                     <button type="button" class="tut-trigger-btn" onclick="showPtDetailTour()" style="font-size:0.75rem;padding:2px 8px;" data-i18n="tourBtnLabel" data-i18n-title="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
                 </div>
                 <button class="modal-close" onclick="closeDetailModal()">&times;</button>
@@ -4771,6 +4775,15 @@
                 notesInput.value = targetStudent.notes || '';
             }
 
+            const dossierBtn = document.getElementById('pt-btn-student-dossier');
+            if (dossierBtn) {
+                dossierBtn.onclick = () => {
+                    const stId = editingStudentId || (targetStudent && (targetStudent.id || targetStudent.uuid)) || studentName;
+                    if (typeof TagLinkModal !== 'undefined') {
+                        TagLinkModal.openStudentDossier(stId, { title: studentName });
+                    }
+                };
+            }
             renderStudentDetailBodyContent();
             modal.classList.add('active');
         }

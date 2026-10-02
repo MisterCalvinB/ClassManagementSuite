@@ -177,6 +177,9 @@
     if (type === 'board_shape' || type === 'board-shape') {
       return makeUrn('board-shape', id, p.anchor);
     }
+    if (type === 'todo' || type === 'todos') {
+      return makeUrn('todo', id, p.anchor);
+    }
     if (type === 'file') {
       return makeUrn('file', id.replace(/\\/g, '/'), p.anchor);
     }
@@ -629,6 +632,194 @@
     return null;
   }
 
+  function resolveClassLevel(classId) {
+    if (!classId) return null;
+    var cache = _rosterNameCache || _buildRosterCache();
+    var cName = (cache && cache.classes && cache.classes[classId]) || classId;
+
+    if (typeof window !== 'undefined') {
+      var meta = (window.CLASS_GROUPS_META && window.CLASS_GROUPS_META[classId]) ||
+        (window.CLASS_GROUPS_DATA && window.CLASS_GROUPS_DATA.classGroupsMeta && window.CLASS_GROUPS_DATA.classGroupsMeta[classId]);
+      if (meta) {
+        if (meta.level) return String(meta.level).trim();
+        if (meta.yearLevel) return String(meta.yearLevel).trim();
+        if (meta.grade) return String(meta.grade).trim();
+        if (meta.year) return String(meta.year).trim();
+      }
+      if (window.PLANNER_CONFIG && window.PLANNER_CONFIG.classes && window.PLANNER_CONFIG.classes[classId]) {
+        var pc = window.PLANNER_CONFIG.classes[classId];
+        if (pc.level) return String(pc.level).trim();
+        if (pc.year) return String(pc.year).trim();
+        if (pc.grade) return String(pc.grade).trim();
+      }
+    }
+
+    var targetStr = (cName + ' ' + classId).toLowerCase();
+    if (/\b(6[eè]me?|6e\b|grade\s*6|g6|year\s*7)\b/i.test(targetStr)) return '6eme';
+    if (/\b(5[eè]me?|5e\b|grade\s*7|g7|year\s*8)\b/i.test(targetStr)) return '5eme';
+    if (/\b(4[eè]me?|4e\b|grade\s*8|g8|year\s*9)\b/i.test(targetStr)) return '4eme';
+    if (/\b(3[eè]me?|3e\b|grade\s*9|g9|year\s*10)\b/i.test(targetStr)) return '3eme';
+    if (/\b(2[nnd]de?|2de\b|seconde|grade\s*10|g10|year\s*11)\b/i.test(targetStr)) return '2nde';
+    if (/\b(1[eè]re?|1re\b|premi[eè]re|grade\s*11|g11|year\s*12)\b/i.test(targetStr)) return '1ere';
+    if (/\b(term(inale)?|tle\b|grade\s*12|g12|year\s*13)\b/i.test(targetStr)) return 'terminale';
+
+    var cefrMatch = targetStr.match(/\b([a-c][1-2])\b/i);
+    if (cefrMatch) return cefrMatch[1].toUpperCase();
+
+    return null;
+  }
+
+  // ── Declarative Entity Hierarchy & Relationship Rules ──────────────────────
+  var RELATIONSHIP_RULES = {
+    student: {
+      parents: ['class'],
+      resolveParents: function(studentId) {
+        var st = resolveStudentInfo(studentId);
+        return (st && st.classId) ? [makeUrn('class', st.classId)] : [];
+      }
+    },
+    class: {
+      parents: ['level'],
+      resolveParents: function(classId) {
+        var lvl = resolveClassLevel(classId);
+        return lvl ? [makeUrn('level', lvl)] : [];
+      }
+    },
+    'board-node': {
+      parents: ['board'],
+      resolveParents: function(nodeId) {
+        var clean = nodeId.split('#')[0].split(':')[0];
+        return clean ? [makeUrn('board', decodeURIComponent(clean))] : [];
+      }
+    },
+    'board_node': {
+      parents: ['board'],
+      resolveParents: function(nodeId) {
+        var clean = nodeId.split('#')[0].split(':')[0];
+        return clean ? [makeUrn('board', decodeURIComponent(clean))] : [];
+      }
+    },
+    'board-note': {
+      parents: ['board'],
+      resolveParents: function(noteId) {
+        var clean = noteId.split('#')[0].split(':')[0];
+        return clean ? [makeUrn('board', decodeURIComponent(clean))] : [];
+      }
+    },
+    'board_note': {
+      parents: ['board'],
+      resolveParents: function(noteId) {
+        var clean = noteId.split('#')[0].split(':')[0];
+        return clean ? [makeUrn('board', decodeURIComponent(clean))] : [];
+      }
+    },
+    'board-group': {
+      parents: ['board'],
+      resolveParents: function(groupId) {
+        var clean = groupId.split('#')[0].split(':')[0];
+        return clean ? [makeUrn('board', decodeURIComponent(clean))] : [];
+      }
+    },
+    'board_group': {
+      parents: ['board'],
+      resolveParents: function(groupId) {
+        var clean = groupId.split('#')[0].split(':')[0];
+        return clean ? [makeUrn('board', decodeURIComponent(clean))] : [];
+      }
+    },
+    'board-shape': {
+      parents: ['board'],
+      resolveParents: function(shapeId) {
+        var clean = shapeId.split('#')[0].split(':')[0];
+        return clean ? [makeUrn('board', decodeURIComponent(clean))] : [];
+      }
+    },
+    'board_shape': {
+      parents: ['board'],
+      resolveParents: function(shapeId) {
+        var clean = shapeId.split('#')[0].split(':')[0];
+        return clean ? [makeUrn('board', decodeURIComponent(clean))] : [];
+      }
+    },
+    'doc_section': {
+      parents: ['doc'],
+      resolveParents: function(secId) {
+        var clean = secId.split('#')[0];
+        return clean ? [makeUrn('doc', clean)] : [];
+      }
+    },
+    'phase': {
+      parents: ['lesson'],
+      resolveParents: function(phaseId) {
+        var clean = phaseId.split('#')[0];
+        if (clean && clean.indexOf(':') !== -1) {
+          clean = clean.split(':')[0];
+        }
+        return clean ? [makeUrn('lesson', clean)] : [];
+      }
+    },
+    'test-exercise': {
+      parents: ['test'],
+      resolveParents: function(exId) {
+        var clean = exId.split('#')[0];
+        return clean ? [makeUrn('test', clean)] : [];
+      }
+    },
+    'eval': {
+      parents: ['class'],
+      resolveParents: function(evalId) {
+        var parts = evalId.split(':');
+        return parts[0] ? [makeUrn('class', parts[0])] : [];
+      }
+    },
+    'grade_cell': {
+      parents: ['eval', 'student'],
+      resolveParents: function(cellId) {
+        var parts = cellId.split(':');
+        var results = [];
+        if (parts.length >= 3) {
+          results.push(makeUrn('eval', parts[0] + ':' + parts[1] + ':' + parts[2]));
+        }
+        if (parts[3] === 'student' && parts[4]) {
+          results.push(makeUrn('student', parts[4]));
+        }
+        return results;
+      }
+    }
+  };
+
+  function resolveEntityAncestors(urn) {
+    if (!urn) return [];
+    var p = parseUrn(urn);
+    if (!p) return [];
+    var cUrn = canonicalizeUrn(urn);
+    var ancestors = [];
+    var visited = new Set([cUrn]);
+
+    function walk(type, id) {
+      var rule = RELATIONSHIP_RULES[type];
+      if (!rule || typeof rule.resolveParents !== 'function') return;
+      try {
+        var parents = rule.resolveParents(id);
+        if (Array.isArray(parents)) {
+          parents.forEach(function(parentUrn) {
+            if (!parentUrn) return;
+            var cParent = canonicalizeUrn(parentUrn);
+            if (!visited.has(cParent)) {
+              visited.add(cParent);
+              ancestors.push(cParent);
+              var parsed = parseUrn(cParent);
+              if (parsed) walk(parsed.type, parsed.id);
+            }
+          });
+        }
+      } catch (_) {}
+    }
+
+    walk(p.type, p.id);
+    return ancestors;
+  }
+
   /**
    * Resolves an entity's display information (title, subtitle, badge, type, relativePath, tags)
    * from registered metadata or infers it gracefully from the URN.
@@ -757,6 +948,36 @@
         badge = '[PLANNER]';
         title = 'Planner Slot: ' + p.id;
         subtitle = 'Timetable Slot';
+        break;
+      }
+      case 'todo':
+      case 'todos': {
+        badge = '[TODO]';
+        icon = 'planner.svg';
+        var todoText = (meta && (meta.text || meta.title) && !isRawTitle) ? (meta.text || meta.title) : null;
+        if (!todoText && typeof window !== 'undefined' && Array.isArray(window.TODOS)) {
+          var matchedTd = window.TODOS.find(function(t) { return t && (t.id === p.id || String(t.id) === String(p.id)); });
+          if (matchedTd && matchedTd.text) todoText = matchedTd.text;
+        }
+        title = todoText || ('To-Do: ' + p.id);
+        subtitle = 'Planner To-Do';
+        break;
+      }
+      case 'level':
+      case 'yearlevel': {
+        badge = '[LEVEL]';
+        icon = 'groups.svg';
+        var lvlId = p.id.toUpperCase();
+        var lvlLabel = lvlId;
+        if (lvlId === '6EME') lvlLabel = '6ème (Grade 6)';
+        else if (lvlId === '5EME') lvlLabel = '5ème (Grade 7)';
+        else if (lvlId === '4EME') lvlLabel = '4ème (Grade 8)';
+        else if (lvlId === '3EME') lvlLabel = '3ème (Grade 9)';
+        else if (lvlId === '2NDE') lvlLabel = '2nde (Grade 10)';
+        else if (lvlId === '1ERE') lvlLabel = '1ère (Grade 11)';
+        else if (lvlId === 'TERMINALE') lvlLabel = 'Terminale (Grade 12)';
+        title = (meta && meta.title && !isRawTitle) ? meta.title : ('Level: ' + lvlLabel);
+        subtitle = 'Academic Grade Level';
         break;
       }
       case 'class': {
@@ -1031,6 +1252,64 @@
   }
 
   // ── 4. Graph Edge Operations (Bidirectional Links) ───────────────────────────
+  function _createInferredEdge(reg, urnA, urnB, primaryEdgeId, cascadeType) {
+    if (!urnA || !urnB || urnA === urnB) return null;
+    var cA = canonicalizeUrn(urnA);
+    var cB = canonicalizeUrn(urnB);
+    if (cA === cB) return null;
+
+    var exists = reg.edges.some(function(e) {
+      var s = canonicalizeUrn(e.source);
+      var t = canonicalizeUrn(e.target);
+      return (s === cA && t === cB) || (s === cB && t === cA);
+    });
+    if (exists) return null;
+
+    var infEdge = {
+      id: 'edge_inf_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7),
+      source: cA,
+      target: cB,
+      relation: 'inferred_hierarchy',
+      meta: {
+        inferred: true,
+        autoLinkedFrom: primaryEdgeId,
+        cascadeType: cascadeType
+      },
+      createdAt: Date.now()
+    };
+    reg.edges.push(infEdge);
+    return infEdge;
+  }
+
+  function expandAutonomousLinks(cSrc, cTgt, primaryEdgeId, reg) {
+    if (!cSrc || !cTgt || !reg) return [];
+    var srcAncestors = resolveEntityAncestors(cSrc);
+    var tgtAncestors = resolveEntityAncestors(cTgt);
+    var created = [];
+
+    // 1. Source connects to Target's ancestors
+    tgtAncestors.forEach(function(tgtAnc) {
+      var e = _createInferredEdge(reg, cSrc, tgtAnc, primaryEdgeId, 'upward_target');
+      if (e) created.push(e);
+    });
+
+    // 2. Target connects to Source's ancestors
+    srcAncestors.forEach(function(srcAnc) {
+      var e = _createInferredEdge(reg, cTgt, srcAnc, primaryEdgeId, 'upward_source');
+      if (e) created.push(e);
+    });
+
+    // 3. Ancestors connect to each other
+    srcAncestors.forEach(function(srcAnc) {
+      tgtAncestors.forEach(function(tgtAnc) {
+        var e = _createInferredEdge(reg, srcAnc, tgtAnc, primaryEdgeId, 'ancestor_bridge');
+        if (e) created.push(e);
+      });
+    });
+
+    return created;
+  }
+
   async function addLink(sourceUrn, targetUrn, opts) {
     if (sourceUrn && typeof sourceUrn === 'object' && !targetUrn) {
       opts = sourceUrn;
@@ -1056,7 +1335,12 @@
     });
 
     if (existing) {
-      // Update metadata / relation if changed
+      // If it was previously an inferred edge and now being explicitly added, promote it
+      if (existing.meta && existing.meta.inferred) {
+        delete existing.meta.inferred;
+        delete existing.meta.autoLinkedFrom;
+        delete existing.meta.cascadeType;
+      }
       if (opts.relation) existing.relation = opts.relation;
       if (opts.meta) existing.meta = Object.assign({}, existing.meta || {}, opts.meta);
       await saveRegistry(reg);
@@ -1078,6 +1362,12 @@
     if (opts.sourceMeta) reg.entities[cSrc] = Object.assign(reg.entities[cSrc] || {}, opts.sourceMeta);
     if (opts.targetMeta) reg.entities[cTgt] = Object.assign(reg.entities[cTgt] || {}, opts.targetMeta);
 
+    // Autonomous cascade of hierarchical links
+    if (opts.autonomous !== false) {
+      await _ensureRosterLoaded();
+      expandAutonomousLinks(cSrc, cTgt, edge.id, reg);
+    }
+
     await saveRegistry(reg);
 
     if (_channel) {
@@ -1087,6 +1377,34 @@
     }
 
     return edge;
+  }
+
+  async function promoteInferredLink(sourceUrn, targetUrn) {
+    if (!sourceUrn || !targetUrn) return false;
+    var cSrc = canonicalizeUrn(sourceUrn);
+    var cTgt = canonicalizeUrn(targetUrn);
+    var reg = await loadRegistry();
+    var found = reg.edges.find(function(e) {
+      var s = canonicalizeUrn(e.source);
+      var t = canonicalizeUrn(e.target);
+      return (s === cSrc && t === cTgt) || (s === cTgt && t === cSrc);
+    });
+    if (!found) return false;
+    if (found.meta) {
+      delete found.meta.inferred;
+      delete found.meta.autoLinkedFrom;
+      delete found.meta.cascadeType;
+    }
+    if (found.relation === 'inferred_hierarchy') {
+      found.relation = 'related';
+    }
+    await saveRegistry(reg);
+    if (_channel) {
+      try {
+        _channel.postMessage({ action: 'link-promoted', source: cSrc, target: cTgt });
+      } catch (_) {}
+    }
+    return true;
   }
 
   async function removeLink(sourceUrn, targetUrn) {
@@ -1111,6 +1429,31 @@
     if (_channel) {
       try {
         _channel.postMessage({ action: 'link-removed', source: cSrc, target: cTgt });
+      } catch (_) {}
+    }
+
+    return true;
+  }
+
+  async function removeLinksFor(urn) {
+    if (!urn) return false;
+    var cUrn = canonicalizeUrn(urn);
+    var reg = await loadRegistry();
+    var prevLen = reg.edges.length;
+
+    reg.edges = reg.edges.filter(function(e) {
+      var s = canonicalizeUrn(e.source);
+      var t = canonicalizeUrn(e.target);
+      return s !== cUrn && t !== cUrn;
+    });
+
+    if (reg.edges.length === prevLen) return true;
+
+    await saveRegistry(reg);
+
+    if (_channel) {
+      try {
+        _channel.postMessage({ action: 'links-pruned', urn: cUrn });
       } catch (_) {}
     }
 
@@ -1283,28 +1626,76 @@
     return Array.isArray(reg.tags[tag]) ? reg.tags[tag].slice() : [];
   }
 
-  // ── 6. Context Inheritance Resolver ─────────────────────────────────────────
+  // ── 6. Context Inheritance Resolver & Multi-Tier Graph Traversal ───────────
   /**
-   * Resolves direct links + parent class links + tag links for smart preselection.
+   * Resolves direct links + parent class links + level links + container links for smart preselection.
    * @param {Object} entityRef - { type, id, classId, tags, ... }
    */
   async function resolveContext(entityRef) {
     if (!entityRef) return { direct: [], inherited: [], tags: [], criteria: [], scales: [], competences: [] };
+    await _ensureRosterLoaded();
     var entityUrn = entityRef.urn || (entityRef.type && entityRef.id ? makeUrn(entityRef.type, entityRef.id, entityRef.anchor) : null);
+    var cUrn = entityUrn ? canonicalizeUrn(entityUrn) : null;
 
-    var directLinks = entityUrn ? await getLinksFor(entityUrn) : [];
-    var directTags = entityUrn ? await getTagsFor(entityUrn) : [];
+    var directLinks = cUrn ? await getLinksFor(cUrn) : [];
+    var directTags = cUrn ? await getTagsFor(cUrn) : [];
 
     var inheritedLinks = [];
-    var classId = entityRef.classId;
+    var seenInheritedUrns = new Set();
+    var parsed = cUrn ? parseUrn(cUrn) : null;
 
+    var classId = entityRef.classId;
+    if (!classId && parsed && parsed.type === 'student') {
+      var stInfo = resolveStudentInfo(parsed.id);
+      if (stInfo && stInfo.classId) classId = stInfo.classId;
+    }
+
+    var ancestors = cUrn ? resolveEntityAncestors(cUrn) : [];
+
+    // 1. Ancestor Hierarchy traversal (e.g. Student -> Class -> Level)
+    if (ancestors.length > 0) {
+      for (var ai = 0; ai < ancestors.length; ai++) {
+        var ancUrn = ancestors[ai];
+        if (ancUrn === cUrn) continue;
+        var aLinks = await getLinksFor(ancUrn);
+        var parsedAnc = parseUrn(ancUrn);
+        aLinks.forEach(function(al) {
+          var otherCan = canonicalizeUrn(al.otherUrn);
+          if (otherCan !== cUrn && !seenInheritedUrns.has(otherCan)) {
+            seenInheritedUrns.add(otherCan);
+            inheritedLinks.push(Object.assign({}, al, {
+              inheritedFrom: ancUrn,
+              inheritanceReason: (parsedAnc && parsedAnc.type) || 'hierarchy'
+            }));
+          }
+        });
+      }
+    }
+
+    // 2. Class-specific inheritance fallback if classId was passed explicitly
     if (classId) {
-      var classUrn = makeUrn('class', classId);
-      if (classUrn !== entityUrn) {
+      var classUrn = canonicalizeUrn(makeUrn('class', classId));
+      if (classUrn !== cUrn && (!ancestors || !ancestors.includes(classUrn))) {
         var cLinks = await getLinksFor(classUrn);
         cLinks.forEach(function(cl) {
-          inheritedLinks.push(Object.assign({}, cl, { inheritedFrom: classUrn, inheritanceReason: 'class' }));
+          var otherCan = canonicalizeUrn(cl.otherUrn);
+          if (otherCan !== cUrn && !seenInheritedUrns.has(otherCan)) {
+            seenInheritedUrns.add(otherCan);
+            inheritedLinks.push(Object.assign({}, cl, { inheritedFrom: classUrn, inheritanceReason: 'class' }));
+          }
         });
+        var lvl = resolveClassLevel(classId);
+        if (lvl) {
+          var lvlUrn = canonicalizeUrn(makeUrn('level', lvl));
+          var lLinks = await getLinksFor(lvlUrn);
+          lLinks.forEach(function(ll) {
+            var otherCan = canonicalizeUrn(ll.otherUrn);
+            if (otherCan !== cUrn && !seenInheritedUrns.has(otherCan)) {
+              seenInheritedUrns.add(otherCan);
+              inheritedLinks.push(Object.assign({}, ll, { inheritedFrom: lvlUrn, inheritanceReason: 'level' }));
+            }
+          });
+        }
       }
     }
 
@@ -1316,15 +1707,15 @@
     var files = [];
 
     all.forEach(function(item) {
-      var parsed = parseUrn(item.otherUrn);
-      if (!parsed) return;
-      if (parsed.type === 'criteria' || (item.meta && item.meta.category === 'criteria')) {
+      var p = parseUrn(item.otherUrn);
+      if (!p) return;
+      if (p.type === 'criteria' || (item.meta && item.meta.category === 'criteria')) {
         criteriaPresets.push(item);
-      } else if (parsed.type === 'scale' || (item.meta && item.meta.category === 'scale')) {
+      } else if (p.type === 'scale' || (item.meta && item.meta.category === 'scale')) {
         gradingScales.push(item);
-      } else if (parsed.type === 'competence' || (item.meta && item.meta.category === 'competence')) {
+      } else if (p.type === 'competence' || (item.meta && item.meta.category === 'competence')) {
         competences.push(item);
-      } else if (parsed.type === 'file' || parsed.type === 'doc') {
+      } else if (p.type === 'file' || p.type === 'doc' || p.type === 'document') {
         files.push(item);
       }
     });
@@ -1686,6 +2077,20 @@
         return true;
       }
 
+      case 'todo':
+      case 'todos': {
+        if (typeof localStorage !== 'undefined') {
+          try { localStorage.setItem('cmt-planner-todo', p.id); } catch (_) {}
+        }
+        var todoQuery = { openTodo: p.id };
+        if (desktop && typeof desktop.openTool === 'function') {
+          return desktop.openTool('planner.html', { query: todoQuery });
+        }
+        var qsTd = new URLSearchParams(todoQuery).toString();
+        window.open('planner.html?' + qsTd, '_blank');
+        return true;
+      }
+
       case 'board':
       case 'board_node':
       case 'board-node': {
@@ -1819,6 +2224,329 @@
     };
   }
 
+  function _parseGradeFileContent(content) {
+    try {
+      var sandbox = {};
+      var fn = new Function('window', content);
+      fn(sandbox);
+      return sandbox.GRADE_TEST_DATA || sandbox.GRADE_CLASS || null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /**
+   * Scans user/grades/ to extract all tests, scores, criteria rubrics, and observations
+   * recorded in Grade Sheet for a given student and computes weighted semester/annual averages.
+   */
+  async function _loadStudentGradeSheetData(studentId, classId, studentName) {
+    var emptyRes = { classId: classId || '', className: '', tests: [], sem1Average: null, sem2Average: null, yearAverage: null, gradedCount: 0, totalTests: 0 };
+    if (!studentId || typeof window === 'undefined' || !window.Desktop || typeof window.Desktop.listByPath !== 'function') {
+      return emptyRes;
+    }
+
+    try {
+      var listResult = await window.Desktop.listByPath('grades', '', { recursive: true, extensions: ['.js'] });
+      if (!listResult || !listResult.ok || !Array.isArray(listResult.files) || !listResult.files.length) {
+        return emptyRes;
+      }
+
+      var classFiles = listResult.files.filter(function(f) { return f.filename === '_class.js'; });
+      var testFiles = listResult.files.filter(function(f) { return f.filename !== '_class.js'; });
+
+      var targetName = (studentName || '').trim().toUpperCase();
+      var matchedClassId = classId || null;
+      var matchedSubdir = null;
+      var matchedClassName = '';
+      var gsStudentId = null;
+
+      // 1. Locate matching class directory and student roster entry
+      for (var i = 0; i < classFiles.length; i++) {
+        var cf = classFiles[i];
+        var res = await window.Desktop.readByPath('grades', cf.relativePath);
+        if (!res || !res.content) continue;
+        var meta = _parseGradeFileContent(res.content);
+        if (!meta) continue;
+
+        var normRel = cf.relativePath.replace(/\\/g, '/');
+        var parts = normRel.split('/');
+        var subdir = parts.slice(0, -1).join('/');
+
+        var isClassMatch = false;
+        if (classId && (meta.classId === classId || meta.groupId === classId || subdir === classId)) {
+          isClassMatch = true;
+        }
+
+        var studentMatch = (meta.students || []).find(function(s) {
+          if (s.id && s.id === studentId) return true;
+          var first = (s.firstName || '').trim().toUpperCase();
+          var last = (s.lastName || '').trim().toUpperCase();
+          var full = last ? (first + ' ' + last) : first;
+          return (targetName && (full === targetName || first === targetName));
+        });
+
+        if (isClassMatch || studentMatch) {
+          matchedClassId = meta.classId || classId;
+          matchedSubdir = subdir;
+          matchedClassName = meta.className || '';
+          if (studentMatch) gsStudentId = studentMatch.id;
+          break;
+        }
+      }
+
+      if (!matchedSubdir && classId) {
+        matchedSubdir = classId;
+      }
+
+      if (!matchedSubdir) {
+        return emptyRes;
+      }
+
+      var targetStudentId = gsStudentId || studentId;
+
+      // 2. Filter test files for the class
+      var relevantTestFiles = testFiles.filter(function(f) {
+        var p = f.relativePath.replace(/\\/g, '/');
+        return p.startsWith(matchedSubdir + '/');
+      });
+
+      var tests = [];
+      var sem1Tests = [];
+      var sem2Tests = [];
+
+      for (var j = 0; j < relevantTestFiles.length; j++) {
+        var tf = relevantTestFiles[j];
+        var tRes = await window.Desktop.readByPath('grades', tf.relativePath);
+        if (!tRes || !tRes.content) continue;
+        var testData = _parseGradeFileContent(tRes.content);
+        if (!testData) continue;
+
+        var sem = testData.semester;
+        if (sem !== 'sem1' && sem !== 'sem2') continue;
+        var idx = typeof testData.testIndex === 'number' ? testData.testIndex : 0;
+        var cfg = testData.testConfig || {};
+        var results = Array.isArray(testData.results) ? testData.results : [];
+
+        var studentResult = results.find(function(r) {
+          if (r.studentId && (r.studentId === targetStudentId || r.studentId === studentId)) return true;
+          if (targetName && r.name && r.name.trim().toUpperCase() === targetName) return true;
+          return false;
+        });
+
+        var score = (studentResult && studentResult.score != null) ? studentResult.score : null;
+        var testNotes = studentResult ? (studentResult.testNotes || []) : [];
+        if (!Array.isArray(testNotes) && testNotes) testNotes = [testNotes];
+        var criteriaResults = studentResult ? (studentResult.criteriaResults || {}) : {};
+        var isOverridden = studentResult ? !!studentResult.gradeOverride : false;
+
+        var testName = cfg.testName || ('Test ' + (idx + 1));
+        var testDate = cfg.testDate || '';
+        var testType = cfg.type || 'written';
+        var coeff = (typeof cfg.coefficient === 'number' && !isNaN(cfg.coefficient)) ? cfg.coefficient : 1;
+        var fixedW = (typeof cfg.fixedWeight === 'number' && !isNaN(cfg.fixedWeight)) ? cfg.fixedWeight : null;
+        var maxScore = cfg.maxScore || null;
+        var gradingScale = cfg.gradingScale || '';
+
+        var testUrn = 'cmt:gradesheet:' + (matchedClassId || classId || 'active') + ':' + sem + ':' + idx + ':student:' + studentId;
+        var semLabel = sem === 'sem1' ? 'SEM 1' : 'SEM 2';
+
+        var subParts = [];
+        if (score != null) {
+          subParts.push('Score: ' + score + (maxScore ? ('/' + maxScore) : ''));
+        } else {
+          subParts.push('No score recorded');
+        }
+        if (fixedW != null) {
+          subParts.push('Fixed: ' + fixedW + '%');
+        } else {
+          subParts.push('Coeff: ' + coeff);
+        }
+        if (testDate) {
+          subParts.push(testDate);
+        }
+
+        var testItem = {
+          urn: testUrn,
+          type: 'gradesheet',
+          source: 'gradesheet',
+          semester: sem,
+          testIndex: idx,
+          title: testName,
+          testDate: testDate,
+          testType: testType,
+          score: score,
+          isOverridden: isOverridden,
+          coefficient: coeff,
+          fixedWeight: fixedW,
+          maxScore: maxScore,
+          gradingScale: gradingScale,
+          testNotes: testNotes,
+          criteriaResults: criteriaResults,
+          criteria: cfg.criteria || [],
+          badge: '[' + semLabel + ' • ' + (testType || 'TEST').toUpperCase() + ']',
+          subtitle: subParts.join(' • '),
+          meta: {
+            classId: matchedClassId || classId,
+            className: matchedClassName,
+            semester: sem,
+            testIndex: idx,
+            testName: testName,
+            testDate: testDate,
+            testType: testType,
+            score: score,
+            maxScore: maxScore,
+            coefficient: coeff,
+            fixedWeight: fixedW,
+            isOverridden: isOverridden,
+            testNotes: testNotes,
+            criteriaResults: criteriaResults,
+            gradingScale: gradingScale
+          }
+        };
+
+        tests.push(testItem);
+        if (sem === 'sem1') sem1Tests.push(testItem);
+        else sem2Tests.push(testItem);
+      }
+
+      // Sort tests chronologically/index
+      tests.sort(function(a, b) {
+        if (a.semester !== b.semester) return a.semester === 'sem1' ? -1 : 1;
+        return a.testIndex - b.testIndex;
+      });
+
+      // 3. Compute Weighted Semester & Annual Averages matching Grade Sheet logic
+      function calcSemAvg(tList) {
+        var fixedSum = 0, fixedPct = 0, normalSum = 0, normalWeight = 0;
+        tList.forEach(function(t) {
+          if (t.score == null || isNaN(t.score)) return;
+          var num = Number(t.score);
+          if (t.fixedWeight != null) {
+            fixedSum += num * t.fixedWeight / 100;
+            fixedPct += t.fixedWeight / 100;
+          } else {
+            var c = Math.max(0, t.coefficient);
+            normalSum += num * c;
+            normalWeight += c;
+          }
+        });
+        if (fixedPct === 0 && normalWeight === 0) return null;
+        var normalProportion = Math.max(0, 1 - fixedPct);
+        var normalAvg = normalWeight > 0 ? normalSum / normalWeight : null;
+        return fixedSum + (normalAvg != null ? normalProportion * normalAvg : 0);
+      }
+
+      var sem1Avg = calcSemAvg(sem1Tests);
+      var sem2Avg = calcSemAvg(sem2Tests);
+      var validAvgs = [sem1Avg, sem2Avg].filter(function(v) { return v != null; });
+      var yearAvg = validAvgs.length ? (validAvgs.reduce(function(a, b) { return a + b; }, 0) / validAvgs.length) : null;
+      var gradedCount = tests.filter(function(t) { return t.score != null; }).length;
+
+      return {
+        classId: matchedClassId || classId,
+        className: matchedClassName,
+        tests: tests,
+        sem1Average: sem1Avg != null ? Number(sem1Avg.toFixed(2)) : null,
+        sem2Average: sem2Avg != null ? Number(sem2Avg.toFixed(2)) : null,
+        yearAverage: yearAvg != null ? Number(yearAvg.toFixed(2)) : null,
+        gradedCount: gradedCount,
+        totalTests: tests.length
+      };
+    } catch (err) {
+      console.warn('_loadStudentGradeSheetData error:', err);
+      return emptyRes;
+    }
+  }
+
+  /**
+   * 360° Academic Dossier Aggregator for a Student.
+   * Traverses direct and indirect links to assemble evaluations, assessed competences,
+   * delivered lesson plans, linked documents, and board constellations, seamlessly
+   * integrating all recorded tests and computed weighted averages from Grade Sheet.
+   */
+  async function getStudentAcademicDossier(studentId) {
+    if (!studentId) return null;
+    await _ensureRosterLoaded();
+    var studentUrn = makeUrn('student', studentId);
+    var stInfo = resolveStudentInfo(studentId);
+    var className = resolveClassName((stInfo && stInfo.classId) || '') || (stInfo && stInfo.className) || '';
+    var level = resolveClassLevel((stInfo && stInfo.classId) || '') || '';
+    var studentName = (stInfo && stInfo.name) || resolveStudentName(studentId) || studentId;
+
+    var studentObj = {
+      id: studentId,
+      urn: studentUrn,
+      name: studentName,
+      classId: (stInfo && stInfo.classId) || '',
+      className: className,
+      level: level
+    };
+
+    var results = await Promise.all([
+      resolveContext({
+        urn: studentUrn,
+        classId: stInfo && stInfo.classId
+      }),
+      _loadStudentGradeSheetData(studentId, stInfo && stInfo.classId, studentName)
+    ]);
+
+    var context = results[0] || { direct: [], inherited: [] };
+    var gradeData = results[1] || { tests: [], sem1Average: null, sem2Average: null, yearAverage: null, gradedCount: 0, totalTests: 0 };
+
+    var dossier = {
+      student: studentObj,
+      gradesSummary: gradeData,
+      evaluations: [].concat(gradeData.tests || []),
+      competences: [],
+      lessons: [],
+      documents: [],
+      boards: [],
+      other: []
+    };
+
+    var allEdges = [].concat(context.direct, context.inherited);
+    var seenUrns = new Set();
+    (gradeData.tests || []).forEach(function(gt) {
+      seenUrns.add(canonicalizeUrn(gt.urn));
+    });
+
+    for (var i = 0; i < allEdges.length; i++) {
+      var edge = allEdges[i];
+      var oUrn = canonicalizeUrn(edge.otherUrn);
+      if (seenUrns.has(oUrn)) continue;
+      seenUrns.add(oUrn);
+
+      var p = parseUrn(oUrn);
+      var type = (p ? p.type : '').toLowerCase();
+      var display = await resolveUrnDisplay(oUrn);
+      var item = {
+        urn: oUrn,
+        type: type,
+        title: display.title,
+        subtitle: display.subtitle,
+        badge: display.badge,
+        meta: edge.meta || {},
+        isInherited: edge.isInherited || false
+      };
+
+      if (type === 'eval' || type === 'grade' || type === 'gradesheet' || type === 'grade_cell' || type === 'test') {
+        dossier.evaluations.push(item);
+      } else if (type === 'competence' || type === 'criteria' || type === 'scale') {
+        dossier.competences.push(item);
+      } else if (type === 'lesson' || type === 'planner' || type === 'phase') {
+        dossier.lessons.push(item);
+      } else if (type === 'doc' || type === 'document' || type === 'file') {
+        dossier.documents.push(item);
+      } else if (type.startsWith('board')) {
+        dossier.boards.push(item);
+      } else {
+        dossier.other.push(item);
+      }
+    }
+
+    return dossier;
+  }
+
   // ── Export Service ──────────────────────────────────────────────────────────
   return {
     parseUrn: parseUrn,
@@ -1841,6 +2569,7 @@
     getEntityMeta: getEntityMeta,
     addLink: addLink,
     removeLink: removeLink,
+    removeLinksFor: removeLinksFor,
     getLinksFor: getLinksFor,
     getLinksForSync: getLinksForSync,
     getLinksForUrn: function(urn) { return getLinksForSync(urn) || []; },
@@ -1858,7 +2587,11 @@
     resolveStudentName: resolveStudentName,
     resolveStudentInfo: resolveStudentInfo,
     resolveClassName: resolveClassName,
+    resolveClassLevel: resolveClassLevel,
+    resolveEntityAncestors: resolveEntityAncestors,
     resolveUrnDisplay: resolveUrnDisplay,
+    promoteInferredLink: promoteInferredLink,
+    getStudentAcademicDossier: getStudentAcademicDossier,
     ensureRosterLoaded: _ensureRosterLoaded,
     getItemsForTag: getItemsForTag,
     getTagSummary: getTagSummary,
