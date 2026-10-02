@@ -14,10 +14,10 @@
     /* nav buttons */
     '#app-nav button,#app-nav .tut-trigger-btn,.tut-trigger-btn,.hm-btn{background:#111;color:#fff;border:1px solid #555;padding:5px 12px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:0.85rem;font-weight:700;display:inline-flex;align-items:center;gap:6px;transition:background 0.12s ease,border-color 0.12s ease;line-height:1.2;box-sizing:border-box}',
     '#app-nav button:hover,#app-nav .tut-trigger-btn:hover,.tut-trigger-btn:hover,.hm-btn:hover{background:#222;border-color:#888;color:#fff}',
-    /* icon filters for dark buttons */
-    '.btn-primary img.btn-icon,.btn-success img.btn-icon,.btn-danger img.btn-icon,.btn-primary .btn-icon,.btn-success .btn-icon,.btn-danger .btn-icon,.hm-btn img.btn-icon,.hm-btn .btn-icon,.tut-trigger-btn img.btn-icon,.tut-trigger-btn .btn-icon,#app-nav button img.btn-icon,#app-nav button .btn-icon{filter:brightness(0) invert(1) !important}',
-    '.btn-icon,.tut-trigger-btn img.btn-icon,.tut-trigger-btn .btn-icon,.hm-btn img.btn-icon,.hm-btn .btn-icon,#app-nav button img.btn-icon,#app-nav button .btn-icon{width:12px;height:12px;max-width:12px;max-height:12px;display:inline-block;vertical-align:middle;object-fit:contain;flex-shrink:0}',
-    '.dropdown-item:hover img.btn-icon,.dropdown-item:hover .btn-icon,.menu-item:hover img.btn-icon,.menu-item:hover .btn-icon{filter:brightness(0) invert(1)}',
+    /* icon filters for dark buttons in nav */
+    '#app-nav button img.btn-icon,#app-nav button .btn-icon,.hm-btn img.btn-icon,.hm-btn .btn-icon,.tut-trigger-btn img.btn-icon,.tut-trigger-btn .btn-icon{filter:brightness(0) invert(1) !important}',
+    '#app-nav button img.btn-icon,#app-nav button .btn-icon,.hm-btn img.btn-icon,.hm-btn .btn-icon,.tut-trigger-btn img.btn-icon,.tut-trigger-btn .btn-icon{width:12px;height:12px;max-width:12px;max-height:12px;display:inline-block;vertical-align:middle;object-fit:contain;flex-shrink:0}',
+    '#app-nav .dropdown-item:hover img.btn-icon,#app-nav .dropdown-item:hover .btn-icon,#app-nav .menu-item:hover img.btn-icon,#app-nav .menu-item:hover .btn-icon{filter:brightness(0) invert(1)}',
     /* hamburger wrapper */
     '.hm-wrap{position:relative;margin-left:auto;display:inline-flex;align-items:center;gap:8px}',
     /* dropdown panel — grid layout */

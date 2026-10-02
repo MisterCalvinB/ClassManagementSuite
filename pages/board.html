@@ -18407,6 +18407,38 @@
       }
 
 
+      window.conScrollToTop = function () {
+        const doScroll = () => {
+          try {
+            window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+          } catch (_) {
+            window.scrollTo(0, 0);
+          }
+          if (document.documentElement) {
+            document.documentElement.scrollTop = 0;
+            document.documentElement.scrollLeft = 0;
+          }
+          if (document.body) {
+            document.body.scrollTop = 0;
+            document.body.scrollLeft = 0;
+          }
+          const sec = document.getElementById('constellation-section');
+          if (sec) {
+            sec.scrollTop = 0;
+            sec.scrollLeft = 0;
+          }
+          const brd = document.getElementById('constellation-board');
+          if (brd) {
+            brd.scrollTop = 0;
+            brd.scrollLeft = 0;
+          }
+        };
+        doScroll();
+        if (typeof requestAnimationFrame === 'function') {
+          requestAnimationFrame(doScroll);
+        }
+      };
+
       window.conAddPage = function () {
         // Capture the current live board into its slot
         conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
@@ -18431,6 +18463,7 @@
         }
 
         _conRestorePageToBoard(emptySnap);
+        if (typeof window.conScrollToTop === 'function') window.conScrollToTop();
         conUpdatePageBar();
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
       };
@@ -18477,6 +18510,7 @@
         }
 
         _conRestorePageToBoard(targetSnap);
+        if (typeof window.conScrollToTop === 'function') window.conScrollToTop();
         conUpdatePageBar();
         if (window._isPageWindow) {
           const textSpan = document.getElementById('con-page-window-badge-text');
@@ -39159,6 +39193,11 @@
         boardBackgroundColor: (snapshot && (snapshot.boardBgColor || snapshot.boardBackgroundColor || snapshot.backgroundColor)) || null,
         boardStickers: (snapshot && snapshot.boardStickers) || []
       });
+      if (!isMirror && (!opts || opts.scrollToTop !== false)) {
+        if (typeof window.conScrollToTop === 'function') {
+          window.conScrollToTop();
+        }
+      }
     }
 
     // Return plain-object node data from ALL pages (for CSV / PDF export).

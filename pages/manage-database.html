@@ -6448,10 +6448,27 @@ Rules:
   .remove-col-btn { background: #fee2e2; border: 1.5px solid #333333; color: #991b1b; font-size: 12px; cursor: pointer; padding: 1px 5px; margin-left: 6px; font-weight: 800; border-radius: 4px; vertical-align: middle; box-shadow: 1px 1px 0 #555555; }
   .remove-col-btn:hover { background: #fca5a5; }
   .toast { position: fixed; bottom: 20px; right: 20px; background: #333333; color: #ffffff; padding: 10px 16px; border-radius: 6px; font-size: 12px; font-weight: 800; opacity: 0; transition: opacity 0.3s; z-index: 1000; border: 2px solid #333333; box-shadow: 3px 3px 0 #555555; }
+  .col-hidden { display: none !important; }
+  @page {
+    margin: 12mm 10mm;
+    size: auto;
+  }
   @media print {
-    .toolbar, .remove-col-btn { display: none !important; }
-    body { padding: 0; background: #ffffff; }
+    *, *:before, *:after {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    .toolbar, .remove-col-btn, .toast { display: none !important; }
+    body { padding: 0 !important; background: #ffffff !important; font-size: 10pt !important; }
     .meta-box, .btn, .search-box, p.filters { box-shadow: none !important; }
+    .table-wrap { overflow: visible !important; margin-top: 0 !important; }
+    table { width: 100% !important; border-collapse: collapse !important; page-break-inside: auto !important; break-inside: auto !important; }
+    thead { display: table-header-group !important; }
+    tr { page-break-inside: avoid !important; break-inside: avoid !important; }
+    th, td { border: 1.5px solid #333333 !important; padding: 6px 8px !important; }
+    th[style*="display: none"], td[style*="display: none"], .col-hidden {
+      display: none !important;
+    }
   }
 </style>
 </head>
@@ -6482,7 +6499,7 @@ Rules:
       rows.forEach(tr => {
         let text = '';
         tr.querySelectorAll('td').forEach(td => {
-          if (td.style.display !== 'none') {
+          if (td.style.display !== 'none' && !td.classList.contains('col-hidden')) {
             text += td.textContent.toLowerCase() + ' ';
           }
         });
@@ -6495,12 +6512,14 @@ Rules:
       const headers = table.querySelectorAll('thead th');
       if (headers[index]) {
         headers[index].style.display = 'none';
+        headers[index].classList.add('col-hidden');
       }
       const rows = table.querySelectorAll('tbody tr');
       rows.forEach(tr => {
         const cells = tr.querySelectorAll('td');
         if (cells[index]) {
           cells[index].style.display = 'none';
+          cells[index].classList.add('col-hidden');
         }
       });
       showToast('Column removed');
@@ -7395,19 +7414,287 @@ Rules:
       white-space: pre-line;
       line-height: 1.45;
     }
+    .desc-bullet-list {
+      margin: 4px 0 2px 18px;
+      padding: 0;
+      list-style-type: disc;
+    }
+    .desc-bullet-list li {
+      margin-bottom: 3px;
+      line-height: 1.45;
+      font-size: 12.5px;
+      color: var(--text);
+    }
+    .desc-bullet-list li:last-child {
+      margin-bottom: 0;
+    }
+
+    /* Settings Modal / Menu */
+    .settings-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(2px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      padding: 20px;
+    }
+    .settings-backdrop.hidden {
+      display: none !important;
+    }
+    .settings-modal {
+      background: var(--panel);
+      border: 3px solid var(--border);
+      border-radius: 10px;
+      box-shadow: 6px 6px 0 #555555;
+      max-width: 680px;
+      width: 100%;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      animation: popIn 0.15s ease-out;
+    }
+    @keyframes popIn {
+      from { transform: scale(0.96); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+    .settings-modal-header {
+      background: var(--badge-yellow);
+      border-bottom: 2.5px solid var(--border);
+      padding: 12px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .settings-modal-title {
+      font-size: 16px;
+      font-weight: 900;
+      letter-spacing: -0.01em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-close-modal {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 2px solid var(--border);
+      border-radius: 6px;
+      width: 28px;
+      height: 28px;
+      font-weight: 900;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 1.5px 1.5px 0 var(--border);
+      transition: transform 0.08s ease;
+    }
+    .btn-close-modal:hover {
+      background: #fca5a5;
+      transform: translate(-1px, -1px);
+    }
+    .settings-modal-body {
+      padding: 16px 18px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .settings-section {
+      background: #fdfdfa;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      box-shadow: 2px 2px 0 var(--border);
+    }
+    .settings-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .settings-section-header h4 {
+      font-size: 13px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .settings-section-desc {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+    .settings-quick-actions {
+      display: flex;
+      gap: 6px;
+    }
+    .btn-quick {
+      background: #ffffff;
+      border: 1.5px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-size: 10.5px;
+      font-weight: 800;
+      cursor: pointer;
+      text-transform: uppercase;
+      box-shadow: 1px 1px 0 var(--border);
+      font-family: inherit;
+    }
+    .btn-quick:hover {
+      background: #f0f0eb;
+      transform: translate(-0.5px, -0.5px);
+    }
+    .settings-checkbox-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 8px;
+    }
+    .setting-check-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      background: #ffffff;
+      border: 1.5px solid var(--border);
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      user-select: none;
+      box-shadow: 1px 1px 0 var(--border);
+      transition: background 0.1s ease;
+    }
+    .setting-check-item:hover {
+      background: #fffbeb;
+    }
+    .setting-check-item input[type="checkbox"] {
+      width: 15px;
+      height: 15px;
+      accent-color: #333333;
+      cursor: pointer;
+    }
+    .settings-modal-footer {
+      border-top: 2px solid var(--border);
+      padding: 12px 18px;
+      background: #fafaf8;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
 
     @media (max-width: 650px) {
       body { padding: 12px; }
       .filter-grid { grid-template-columns: 1fr; }
       .results-grid { grid-template-columns: 1fr; }
     }
+    .col-hidden { display: none !important; }
+    @page {
+      margin: 12mm 10mm;
+      size: auto;
+    }
     @media print {
-      body { background: #fff; padding: 0; font-size: 11pt; }
-      .panel, .action-bar, header p, .header-badge { display: none !important; }
-      .results-grid { display: block; }
-      .rec-card { box-shadow: none; border: 1.5px solid #000; break-inside: avoid; margin-bottom: 12px; }
-      .rec-table-section { box-shadow: none; border: 1.5px solid #000; break-inside: avoid; page-break-inside: avoid; margin-bottom: 14px; }
-      .rec-table th, .rec-table td { border-color: #333 !important; }
+      *, *:before, *:after {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      body {
+        background: #ffffff !important;
+        padding: 0 !important;
+        font-size: 10pt !important;
+        color: #1e293b !important;
+      }
+      .panel, .action-bar, header p, .header-badge, .settings-backdrop, .toast, .btn-view, .btn-quick, .search-row, .filter-grid, #view-switch, #status-summary, .filter-hint, .btn-close-modal, .pagination-controls {
+        display: none !important;
+      }
+      header {
+        margin-bottom: 12px !important;
+        border-bottom: 2px solid #333333 !important;
+        padding-bottom: 6px !important;
+      }
+      header h1 {
+        font-size: 18pt !important;
+        color: #1e293b !important;
+      }
+      .results-grid {
+        display: block !important;
+        gap: 0 !important;
+      }
+      .rec-card {
+        box-shadow: none !important;
+        border: 1.5px solid #333333 !important;
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+        margin-bottom: 12px !important;
+        background: #ffffff !important;
+      }
+      .rec-group-section {
+        box-shadow: none !important;
+        border: 1.5px solid #333333 !important;
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+        margin-bottom: 14px !important;
+      }
+      .rec-comparison-card {
+        box-shadow: none !important;
+        border: 1.5px solid #333333 !important;
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+        margin-bottom: 8px !important;
+      }
+      .rec-table-section {
+        box-shadow: none !important;
+        border: 1.5px solid #333333 !important;
+        break-inside: auto !important;
+        page-break-inside: auto !important;
+        margin-bottom: 14px !important;
+        background: #ffffff !important;
+      }
+      .rec-table-header {
+        border-bottom: 1.5px solid #333333 !important;
+      }
+      .rec-table-wrap {
+        overflow: visible !important;
+      }
+      .rec-table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        page-break-inside: auto !important;
+        break-inside: auto !important;
+      }
+      .rec-table thead {
+        display: table-header-group !important;
+      }
+      .rec-table tr {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+      }
+      .rec-table th, .rec-table td {
+        border: 1.5px solid #333333 !important;
+        padding: 6px 8px !important;
+        font-size: 9.5pt !important;
+      }
+      .sort-arrow {
+        display: none !important;
+      }
+      th[style*="display: none"], td[style*="display: none"], .col-hidden {
+        display: none !important;
+      }
+      .desc-bullet-list {
+        margin: 2px 0 2px 0 !important;
+        padding-left: 16px !important;
+      }
+      .desc-bullet-item {
+        margin-bottom: 2px !important;
+      }
     }
   </style>
 </head>
@@ -7421,14 +7708,14 @@ Rules:
   </header>
 
   <section class="panel">
-    <div class="search-row">
+    <div class="search-row" id="search-row">
       <input type="search" id="search-box" class="search-input" placeholder="Search keywords, details, descriptors across all columns…">
     </div>
 
     <div class="filter-grid" id="filters-container">
       ${colsMeta.map(col => {
         const uniqueVals = columnUniqueMap[col.key] || [];
-        return `<div class="filter-field">
+        return `<div class="filter-field" data-filter-col="${escHtml(col.key)}">
           <label class="filter-lbl" for="filter-${escHtml(col.key)}">${escHtml(col.label)}</label>
           <select id="filter-${escHtml(col.key)}" class="filter-select" data-col="${escHtml(col.key)}" multiple>
             ${uniqueVals.map(v => `<option value="${escHtml(v)}">${escHtml(v)}</option>`).join('')}
@@ -7442,6 +7729,7 @@ Rules:
       <button type="button" class="btn btn-secondary" id="btn-reset">Reset Filters</button>
       <button type="button" class="btn btn-primary" id="btn-csv">Download Filtered CSV</button>
       <button type="button" class="btn btn-secondary" onclick="window.print()">Print</button>
+      <button type="button" class="btn btn-secondary" id="btn-settings" onclick="openSettingsMenu(event)">⚙️ Display Settings</button>
       <div class="view-switch" id="view-switch">
         <button type="button" class="btn-view active" id="btn-view-cards" onclick="setViewMode('cards')">🗂️ Cards</button>
         <button type="button" class="btn-view" id="btn-view-tables" onclick="setViewMode('tables')">📊 Tables</button>
@@ -7450,22 +7738,80 @@ Rules:
     </div>
   </section>
 
-  <div class="status-summary">
+  <div class="status-summary" id="status-summary">
     <strong id="match-count">0 records matching</strong>
     <span class="status-badge" id="filter-state">No filters active</span>
   </div>
 
   <section class="results-grid mode-cards" id="results-grid"></section>
 
+  <!-- Display & Visibility Settings Modal -->
+  <div id="settings-backdrop" class="settings-backdrop hidden" onclick="closeSettingsMenu(event)">
+    <div class="settings-modal" onclick="event.stopPropagation()">
+      <div class="settings-modal-header">
+        <div class="settings-modal-title">
+          <span>⚙️</span> <span>Display &amp; Visibility Settings</span>
+        </div>
+        <button type="button" class="btn-close-modal" onclick="closeSettingsMenu()" title="Close Settings">×</button>
+      </div>
+      <div class="settings-modal-body">
+        
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <h4>Visible Columns &amp; Fields</h4>
+            <div class="settings-quick-actions">
+              <button type="button" class="btn-quick" onclick="setAllColumnsVisible(true)">Show All</button>
+              <button type="button" class="btn-quick" onclick="setAllColumnsVisible(false)">Hide All</button>
+            </div>
+          </div>
+          <p class="settings-section-desc">Toggle which fields and columns appear in Cards and Tables views.</p>
+          <div class="settings-checkbox-grid" id="settings-col-list"></div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <h4>UI Sections &amp; Elements</h4>
+            <div class="settings-quick-actions">
+              <button type="button" class="btn-quick" onclick="setAllElementsVisible(true)">Show All</button>
+              <button type="button" class="btn-quick" onclick="setAllElementsVisible(false)">Hide All</button>
+            </div>
+          </div>
+          <p class="settings-section-desc">Show or hide major interactive panels and visual elements.</p>
+          <div class="settings-checkbox-grid" id="settings-element-list"></div>
+        </div>
+
+      </div>
+      <div class="settings-modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="resetSettingsDefaults()">Restore Defaults</button>
+        <button type="button" class="btn btn-primary" id="btn-settings-done" onclick="closeSettingsMenu()">Done</button>
+      </div>
+    </div>
+  </div>
+
   <script>
-    const ROWS = ${JSON.stringify(datasetRows)};
-    const COLS = ${JSON.stringify(colsMeta)};
-    const ALL_UNIQUE_VALUES = ${JSON.stringify(columnUniqueMap)};
-    const TITLE_COL = ${JSON.stringify(primaryCol)};
+    const ROWS = ${JSON.stringify(datasetRows).replace(/<\/script/gi, '<\\/script')};
+    const COLS = ${JSON.stringify(colsMeta).replace(/<\/script/gi, '<\\/script')};
+    const ALL_UNIQUE_VALUES = ${JSON.stringify(columnUniqueMap).replace(/<\/script/gi, '<\\/script')};
+    const TITLE_COL = ${JSON.stringify(primaryCol).replace(/<\/script/gi, '<\\/script')};
+
+    const UI_ELEMENTS_CONFIG = [
+      { key: 'search', label: 'Search Bar' },
+      { key: 'filters', label: 'Filter Dropdowns Grid' },
+      { key: 'filterHints', label: 'Filter Counts & Hints' },
+      { key: 'status', label: 'Summary & Filter Status' },
+      { key: 'badges', label: 'Card Badges' },
+      { key: 'fields', label: 'Card Attribute Pills' },
+      { key: 'body', label: 'Descriptions & Criteria' },
+      { key: 'bulletOnLinebreaks', label: 'Bullet Points on Linebreaks' },
+      { key: 'rowNumbers', label: 'Table Row Numbers (#)' },
+      { key: 'hideFilterIfColHidden', label: 'Hide Filter if Column Hidden' }
+    ];
 
     let currentViewMode = 'cards';
     let sortColumnKey = '';
     let sortDirection = 'asc';
+    let hiddenCols = new Set();
+    let hiddenElements = new Set();
 
     const $ = id => document.getElementById(id);
     const searchInput = $('search-box');
@@ -7480,8 +7826,38 @@ Rules:
       return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     }
 
+    function getStorageKey() {
+      return 'cmt_interactive_export_' + (location.pathname || '') + '_' + encodeURIComponent(document.title || 'db');
+    }
+
+    function saveSettings() {
+      try {
+        const state = {
+          hiddenCols: Array.from(hiddenCols),
+          hiddenElements: Array.from(hiddenElements),
+          currentViewMode
+        };
+        localStorage.setItem(getStorageKey(), JSON.stringify(state));
+      } catch (err) {}
+    }
+
+    function loadSettings() {
+      try {
+        const saved = localStorage.getItem(getStorageKey());
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed.hiddenCols)) hiddenCols = new Set(parsed.hiddenCols);
+          if (Array.isArray(parsed.hiddenElements)) hiddenElements = new Set(parsed.hiddenElements);
+          if (parsed.currentViewMode && (parsed.currentViewMode === 'cards' || parsed.currentViewMode === 'tables')) {
+            currentViewMode = parsed.currentViewMode;
+          }
+        }
+      } catch (err) {}
+    }
+
     function setViewMode(mode) {
       currentViewMode = mode;
+      saveSettings();
       const btnCards = $('btn-view-cards');
       const btnTables = $('btn-view-tables');
       if (btnCards) btnCards.classList.toggle('active', mode === 'cards');
@@ -7502,6 +7878,137 @@ Rules:
       render();
     }
     window.handleTableSort = handleTableSort;
+
+    function openSettingsMenu(e) {
+      if (e) e.stopPropagation();
+      buildSettingsForm();
+      const bd = $('settings-backdrop');
+      if (bd) bd.classList.remove('hidden');
+    }
+    window.openSettingsMenu = openSettingsMenu;
+
+    function closeSettingsMenu(e) {
+      if (e && e.target !== $('settings-backdrop') && !e.target.classList.contains('btn-close-modal') && !e.target.closest('.btn-close-modal') && e.target.id !== 'btn-settings-done') {
+        return;
+      }
+      const bd = $('settings-backdrop');
+      if (bd) bd.classList.add('hidden');
+    }
+    window.closeSettingsMenu = closeSettingsMenu;
+
+    function buildSettingsForm() {
+      const colContainer = $('settings-col-list');
+      const elemContainer = $('settings-element-list');
+
+      if (colContainer) {
+        colContainer.innerHTML = COLS.map(col => {
+          const isVisible = !hiddenCols.has(col.key);
+          return '<label class="setting-check-item">' +
+            '<input type="checkbox" data-settings-col="' + esc(col.key) + '" ' + (isVisible ? 'checked' : '') + ' onchange="toggleColVisibility(\\\'' + esc(col.key) + '\\\', this.checked)">' +
+            '<span>' + esc(col.label) + '</span>' +
+          '</label>';
+        }).join('');
+      }
+
+      if (elemContainer) {
+        elemContainer.innerHTML = UI_ELEMENTS_CONFIG.map(elem => {
+          const isVisible = !hiddenElements.has(elem.key);
+          return '<label class="setting-check-item">' +
+            '<input type="checkbox" data-settings-elem="' + esc(elem.key) + '" ' + (isVisible ? 'checked' : '') + ' onchange="toggleElementVisibility(\\\'' + esc(elem.key) + '\\\', this.checked)">' +
+            '<span>' + esc(elem.label) + '</span>' +
+          '</label>';
+        }).join('');
+      }
+    }
+
+    function toggleColVisibility(colKey, isVisible) {
+      if (isVisible) {
+        hiddenCols.delete(colKey);
+      } else {
+        hiddenCols.add(colKey);
+      }
+      saveSettings();
+      applyVisibility();
+      render();
+    }
+    window.toggleColVisibility = toggleColVisibility;
+
+    function toggleElementVisibility(elemKey, isVisible) {
+      if (isVisible) {
+        hiddenElements.delete(elemKey);
+      } else {
+        hiddenElements.add(elemKey);
+      }
+      saveSettings();
+      applyVisibility();
+      render();
+    }
+    window.toggleElementVisibility = toggleElementVisibility;
+
+    function setAllColumnsVisible(visible) {
+      if (visible) {
+        hiddenCols.clear();
+      } else {
+        COLS.forEach(c => hiddenCols.add(c.key));
+      }
+      saveSettings();
+      buildSettingsForm();
+      applyVisibility();
+      render();
+    }
+    window.setAllColumnsVisible = setAllColumnsVisible;
+
+    function setAllElementsVisible(visible) {
+      if (visible) {
+        hiddenElements.clear();
+      } else {
+        UI_ELEMENTS_CONFIG.forEach(e => {
+          if (e.key !== 'hideFilterIfColHidden') hiddenElements.add(e.key);
+        });
+      }
+      saveSettings();
+      buildSettingsForm();
+      applyVisibility();
+      render();
+    }
+    window.setAllElementsVisible = setAllElementsVisible;
+
+    function resetSettingsDefaults() {
+      hiddenCols.clear();
+      hiddenElements.clear();
+      saveSettings();
+      buildSettingsForm();
+      applyVisibility();
+      render();
+    }
+    window.resetSettingsDefaults = resetSettingsDefaults;
+
+    function applyVisibility() {
+      const searchRow = $('search-row');
+      const filtersGrid = $('filters-container');
+      const statusSummary = $('status-summary');
+      
+      if (searchRow) searchRow.style.display = hiddenElements.has('search') ? 'none' : '';
+      if (filtersGrid) filtersGrid.style.display = hiddenElements.has('filters') ? 'none' : '';
+      if (statusSummary) statusSummary.style.display = hiddenElements.has('status') ? 'none' : '';
+
+      const hideFilterIfHidden = hiddenElements.has('hideFilterIfColHidden');
+      COLS.forEach(col => {
+        const fieldEl = document.querySelector('.filter-field[data-filter-col="' + col.key + '"]');
+        if (fieldEl) {
+          if (hideFilterIfHidden && hiddenCols.has(col.key)) {
+            fieldEl.style.display = 'none';
+          } else {
+            fieldEl.style.display = '';
+          }
+        }
+      });
+
+      const hideHints = hiddenElements.has('filterHints');
+      document.querySelectorAll('.filter-hint').forEach(el => {
+        el.style.display = hideHints ? 'none' : '';
+      });
+    }
 
     function getActiveFilters() {
       const active = {};
@@ -7685,76 +8192,101 @@ Rules:
       });
     }
 
+    function formatLongDescriptionText(rawVal, isBulletMode) {
+      if (rawVal === undefined || rawVal === null || rawVal === '') return '';
+      const str = String(rawVal);
+      if (isBulletMode && (str.indexOf('\\n') !== -1 || str.indexOf('\\r') !== -1)) {
+        const rawLines = str.replace(/\\r/g, '').split('\\n');
+        const lines = rawLines.map(l => l.trim()).filter(Boolean);
+        if (lines.length > 1) {
+          return '<ul class="desc-bullet-list">' + lines.map(line => {
+            const cleanLine = line.replace(/^[\\-*•]\\s*/, '');
+            return '<li>' + esc(cleanLine) + '</li>';
+          }).join('') + '</ul>';
+        }
+      }
+      return esc(str);
+    }
+
     function renderRecordDetails(row, isComparisonView) {
       const badges = [];
       const extraFields = [];
       let longDescHtml = '';
 
+      const hideBadges = hiddenElements.has('badges');
+      const hideFields = hiddenElements.has('fields');
+      const hideBody = hiddenElements.has('body');
+
       COLS.forEach(col => {
+        if (hiddenCols.has(col.key)) return;
         const rawVal = row[col.key];
         if (rawVal === undefined || rawVal === null || rawVal === '') return;
         if (col.key === TITLE_COL && !isComparisonView) return;
         if (col.key === '_src') {
-          badges.push('<span class="badge badge-src">' + esc(rawVal) + '</span>');
+          if (!hideBadges) badges.push('<span class="badge badge-src">' + esc(rawVal) + '</span>');
           return;
         }
 
         // Criteria comments
         if (col.key === 'comments' || (col.isStructured && col.key === 'comments')) {
-          if (typeof rawVal === 'object' && rawVal !== null) {
-            const entries = Object.entries(rawVal).filter(([k, v]) => v !== undefined && v !== null && String(v).trim() && !String(v).toLowerCase().includes('object object'));
-            if (entries.length) {
-              entries.sort((a, b) => {
-                const numA = parseFloat(a[0]);
-                const numB = parseFloat(b[0]);
-                if (!isNaN(numA) && !isNaN(numB)) return numB - numA;
-                return a[0].localeCompare(b[0]);
+          if (!hideBody) {
+            if (typeof rawVal === 'object' && rawVal !== null) {
+              const entries = Object.entries(rawVal).filter(([k, v]) => v !== undefined && v !== null && String(v).trim() && !String(v).toLowerCase().includes('object object'));
+              if (entries.length) {
+                entries.sort((a, b) => {
+                  const numA = parseFloat(a[0]);
+                  const numB = parseFloat(b[0]);
+                  if (!isNaN(numA) && !isNaN(numB)) return numB - numA;
+                  return a[0].localeCompare(b[0]);
+                });
+                const critRowsHtml = entries.map(([lvl, desc]) => {
+                  const color = (row.colors && row.colors[lvl]) ? { bg: row.colors[lvl], fg: '#000000' } : getScoreLevelColor(lvl);
+                  return '<div class="crit-level-card">' +
+                    '<div class="crit-level-badge-wrap">' +
+                      '<span class="crit-level-badge" style="background:' + esc(color.bg) + ';color:' + esc(color.fg) + ';">' + esc(lvl) + '</span>' +
+                    '</div>' +
+                    '<div class="crit-level-body">' + esc(desc) + '</div>' +
+                  '</div>';
+                }).join('');
+                longDescHtml += '<div class="crit-comments-container">' +
+                  '<div class="crit-comments-header">Evaluation Criteria Levels &amp; Descriptors</div>' +
+                  critRowsHtml +
+                '</div>';
+                return;
+              }
+            } else if (typeof rawVal === 'string' && rawVal.includes(':')) {
+              const parts = rawVal.split(';').map(s => s.trim()).filter(Boolean);
+              const parsed = [];
+              parts.forEach(p => {
+                const colonIdx = p.indexOf(':');
+                if (colonIdx > 0) parsed.push([p.slice(0, colonIdx).trim(), p.slice(colonIdx + 1).trim()]);
               });
-              const critRowsHtml = entries.map(([lvl, desc]) => {
-                const color = (row.colors && row.colors[lvl]) ? { bg: row.colors[lvl], fg: '#000000' } : getScoreLevelColor(lvl);
-                return '<div class="crit-level-card">' +
-                  '<div class="crit-level-badge-wrap">' +
-                    '<span class="crit-level-badge" style="background:' + esc(color.bg) + ';color:' + esc(color.fg) + ';">' + esc(lvl) + '</span>' +
-                  '</div>' +
-                  '<div class="crit-level-body">' + esc(desc) + '</div>' +
+              if (parsed.length) {
+                parsed.sort((a, b) => (parseFloat(b[0]) || 0) - (parseFloat(a[0]) || 0));
+                const critRowsHtml = parsed.map(([lvl, desc]) => {
+                  const color = (row.colors && typeof row.colors === 'object' && row.colors[lvl]) ? { bg: row.colors[lvl], fg: '#000000' } : getScoreLevelColor(lvl);
+                  return '<div class="crit-level-card">' +
+                    '<div class="crit-level-badge-wrap">' +
+                      '<span class="crit-level-badge" style="background:' + esc(color.bg) + ';color:' + esc(color.fg) + ';">' + esc(lvl) + '</span>' +
+                    '</div>' +
+                    '<div class="crit-level-body">' + esc(desc) + '</div>' +
+                  '</div>';
+                }).join('');
+                longDescHtml += '<div class="crit-comments-container">' +
+                  '<div class="crit-comments-header">Evaluation Criteria Levels &amp; Descriptors</div>' +
+                  critRowsHtml +
                 '</div>';
-              }).join('');
-              longDescHtml += '<div class="crit-comments-container">' +
-                '<div class="crit-comments-header">Evaluation Criteria Levels &amp; Descriptors</div>' +
-                critRowsHtml +
-              '</div>';
-              return;
+                return;
+              }
             }
-          } else if (typeof rawVal === 'string' && rawVal.includes(':')) {
-            const parts = rawVal.split(';').map(s => s.trim()).filter(Boolean);
-            const parsed = [];
-            parts.forEach(p => {
-              const colonIdx = p.indexOf(':');
-              if (colonIdx > 0) parsed.push([p.slice(0, colonIdx).trim(), p.slice(colonIdx + 1).trim()]);
-            });
-            if (parsed.length) {
-              parsed.sort((a, b) => (parseFloat(b[0]) || 0) - (parseFloat(a[0]) || 0));
-              const critRowsHtml = parsed.map(([lvl, desc]) => {
-                const color = (row.colors && typeof row.colors === 'object' && row.colors[lvl]) ? { bg: row.colors[lvl], fg: '#000000' } : getScoreLevelColor(lvl);
-                return '<div class="crit-level-card">' +
-                  '<div class="crit-level-badge-wrap">' +
-                    '<span class="crit-level-badge" style="background:' + esc(color.bg) + ';color:' + esc(color.fg) + ';">' + esc(lvl) + '</span>' +
-                  '</div>' +
-                  '<div class="crit-level-body">' + esc(desc) + '</div>' +
-                '</div>';
-              }).join('');
-              longDescHtml += '<div class="crit-comments-container">' +
-                '<div class="crit-comments-header">Evaluation Criteria Levels &amp; Descriptors</div>' +
-                critRowsHtml +
-              '</div>';
-              return;
-            }
+          } else {
+            return;
           }
         }
 
         // Scale thresholds
         if (col.key === 'thresholds' || (col.isStructured && col.key === 'thresholds')) {
-          if (typeof rawVal === 'object' && rawVal !== null) {
+          if (!hideFields && typeof rawVal === 'object' && rawVal !== null) {
             const entries = Object.entries(rawVal).filter(([k, v]) => v !== undefined && v !== null && String(v).trim());
             entries.sort((a, b) => (parseFloat(b[0]) || 0) - (parseFloat(a[0]) || 0));
             const bandsHtml = entries.map(([grade, pct]) => {
@@ -7765,88 +8297,112 @@ Rules:
             }).join(' ');
             extraFields.push('<div class="field-pill full-width"><span class="field-key">Thresholds</span><div class="thresholds-wrap">' + bandsHtml + '</div></div>');
             return;
+          } else {
+            return;
           }
         }
 
         // Colors
         if (col.key === 'colors' || (col.isStructured && col.key === 'colors')) {
-          if (typeof rawVal === 'object' && rawVal !== null) {
+          if (!hideFields && typeof rawVal === 'object' && rawVal !== null) {
             const swatchesHtml = Object.entries(rawVal).map(([k, c]) => {
               return '<span class="color-badge"><span class="color-dot" style="background:' + esc(c) + '"></span> ' + esc(k) + '</span>';
             }).join(' ');
             extraFields.push('<div class="field-pill full-width"><span class="field-key">Colors</span><div class="swatches-wrap">' + swatchesHtml + '</div></div>');
+            return;
+          } else {
             return;
           }
         }
 
         // CompetenceIds
         if (col.key === 'competenceIds' || col.key === 'linkedCompetenceIds') {
-          const arr = Array.isArray(rawVal) ? rawVal : String(rawVal).split(';').map(s => s.trim()).filter(Boolean);
-          if (arr.length) {
-            const compChipsHtml = arr.map(code => '<span class="badge badge-comp">' + esc(code) + '</span>').join('');
-            extraFields.push('<div class="field-pill full-width"><span class="field-key">Competences</span><div class="comp-wrap">' + compChipsHtml + '</div></div>');
+          if (!hideFields) {
+            const arr = Array.isArray(rawVal) ? rawVal : String(rawVal).split(';').map(s => s.trim()).filter(Boolean);
+            if (arr.length) {
+              const compChipsHtml = arr.map(code => '<span class="badge badge-comp">' + esc(code) + '</span>').join('');
+              extraFields.push('<div class="field-pill full-width"><span class="field-key">Competences</span><div class="comp-wrap">' + compChipsHtml + '</div></div>');
+              return;
+            }
+          } else {
             return;
           }
         }
 
         // Quiz options
         if (col.key === 'options' && (Array.isArray(rawVal) || typeof rawVal === 'string')) {
-          const opts = Array.isArray(rawVal) ? rawVal : String(rawVal).split(';').map(s => s.trim()).filter(Boolean);
-          if (opts.length) {
-            const correct = String(row.correctAnswer || row.answer || '').trim().toLowerCase();
-            const optsHtml = opts.map(opt => {
-              const isCorrect = correct && (opt.trim().toLowerCase() === correct);
-              return '<div class="quiz-option' + (isCorrect ? ' quiz-correct' : '') + '">' +
-                (isCorrect ? '<span>✓</span>' : '<span>•</span>') +
-                '<span>' + esc(opt) + '</span>' +
-              '</div>';
-            }).join('');
-            longDescHtml += '<div class="quiz-options-block">' + optsHtml + '</div>';
+          if (!hideBody) {
+            const opts = Array.isArray(rawVal) ? rawVal : String(rawVal).split(';').map(s => s.trim()).filter(Boolean);
+            if (opts.length) {
+              const correct = String(row.correctAnswer || row.answer || '').trim().toLowerCase();
+              const optsHtml = opts.map(opt => {
+                const isCorrect = correct && (opt.trim().toLowerCase() === correct);
+                return '<div class="quiz-option' + (isCorrect ? ' quiz-correct' : '') + '">' +
+                  (isCorrect ? '<span>✓</span>' : '<span>•</span>') +
+                  '<span>' + esc(opt) + '</span>' +
+                '</div>';
+              }).join('');
+              longDescHtml += '<div class="quiz-options-block">' + optsHtml + '</div>';
+              return;
+            }
+          } else {
             return;
           }
         }
 
         // Lesson phase actions
         if (col.key === 'teacherAction' || col.key === 'studentAction') {
-          const isTeacher = col.key === 'teacherAction';
-          const actionIcon = isTeacher ? '🧑‍🏫 Teacher Action' : '🧑‍🎓 Student Action';
-          const actionBg = isTeacher ? '#f0fdf4' : '#eff6ff';
-          longDescHtml += '<div class="action-box" style="background:' + actionBg + ';">' +
-            '<div class="action-box-title">' + actionIcon + '</div>' +
-            '<div>' + esc(rawVal) + '</div>' +
-          '</div>';
-          return;
+          if (!hideBody) {
+            const isTeacher = col.key === 'teacherAction';
+            const actionIcon = isTeacher ? '🧑‍🏫 Teacher Action' : '🧑‍🎓 Student Action';
+            const actionBg = isTeacher ? '#f0fdf4' : '#eff6ff';
+            longDescHtml += '<div class="action-box" style="background:' + actionBg + ';">' +
+              '<div class="action-box-title">' + actionIcon + '</div>' +
+              '<div>' + esc(rawVal) + '</div>' +
+            '</div>';
+            return;
+          } else {
+            return;
+          }
         }
 
         // Errorbanks
         if (col.key === 'error') {
-          badges.push('<span class="badge badge-error">❌ ' + esc(rawVal) + '</span>');
+          if (!hideBadges) badges.push('<span class="badge badge-error">❌ ' + esc(rawVal) + '</span>');
           return;
         }
         if (col.key === 'correction') {
-          badges.push('<span class="badge badge-correct">✓ ' + esc(rawVal) + '</span>');
+          if (!hideBadges) badges.push('<span class="badge badge-correct">✓ ' + esc(rawVal) + '</span>');
           return;
         }
 
         // Quotes
         if (col.key === 'quote') {
-          longDescHtml += '<blockquote class="quote-box">“' + esc(rawVal) + '”</blockquote>';
+          if (!hideBody) longDescHtml += '<blockquote class="quote-box">“' + esc(rawVal) + '”</blockquote>';
           return;
         }
 
         // Long descriptions
         if (col.isLong || col.key === 'description' || col.key === 'comment' || col.key === 'text' || col.key === 'definition' || col.key === 'example' || col.key === 'explanation' || col.key === 'sampleTasks') {
-          longDescHtml += '<div class="rec-desc"><span class="desc-label">' + esc(col.label) + ':</span> ' + esc(rawVal) + '</div>';
-          return;
+          if (!hideBody) {
+            const useBullets = !hiddenElements.has('bulletOnLinebreaks');
+            const formattedDesc = formatLongDescriptionText(rawVal, useBullets);
+            longDescHtml += '<div class="rec-desc"><span class="desc-label">' + esc(col.label) + ':</span> ' + formattedDesc + '</div>';
+            return;
+          } else {
+            return;
+          }
         }
 
         // Badges
         if (col.key === 'pos' || col.key === 'level' || col.key === 'category' || col.key === 'theme' || col.key === 'partofspeech' || col.key === 'cefr' || col.key === 'domain' || col.key === 'scale') {
-          badges.push('<span class="' + getBadgeClass(col.key) + '">' + esc(rawVal) + '</span>');
+          if (!hideBadges) badges.push('<span class="' + getBadgeClass(col.key) + '">' + esc(rawVal) + '</span>');
           return;
         }
 
-        extraFields.push('<div class="field-pill"><span class="field-key">' + esc(col.label) + '</span><span class="field-val">' + esc(rawVal) + '</span></div>');
+        if (!hideFields) {
+          extraFields.push('<div class="field-pill"><span class="field-key">' + esc(col.label) + '</span><span class="field-val">' + esc(rawVal) + '</span></div>');
+        }
       });
 
       return { badges, extraFields, longDescHtml };
@@ -7930,7 +8486,9 @@ Rules:
 
       // Long text
       if (col.isLong || typeof rawVal === 'string' && rawVal.length > 50) {
-        return '<div class="table-cell-text long-text">' + esc(rawVal) + '</div>';
+        const useBullets = !hiddenElements.has('bulletOnLinebreaks');
+        const formattedCell = formatLongDescriptionText(rawVal, useBullets);
+        return '<div class="table-cell-text long-text">' + formattedCell + '</div>';
       }
 
       return '<span class="table-cell-text">' + esc(rawVal) + '</span>';
@@ -7991,9 +8549,12 @@ Rules:
 
       // Render Tables View
       if (currentViewMode === 'tables') {
+        const visibleCols = COLS.filter(col => !hiddenCols.has(col.key));
+        const showRowNum = !hiddenElements.has('rowNumbers');
+
         resultsGrid.innerHTML = groupKeys.map(titleStr => {
           const items = groups[titleStr];
-          const ths = COLS.map(col => {
+          const ths = visibleCols.map(col => {
             const isActive = sortColumnKey === col.key;
             const arrow = isActive ? (sortDirection === 'asc' ? ' ▲' : ' ▼') : ' ↕';
             const cls = 'sortable-th' + (isActive ? ' active-sort' : '');
@@ -8003,12 +8564,15 @@ Rules:
           }).join('');
 
           const trs = items.map((row, idx) => {
-            const tds = COLS.map(col => '<td>' + renderTableCellHtml(row, col) + '</td>').join('');
+            const tds = visibleCols.map(col => '<td>' + renderTableCellHtml(row, col) + '</td>').join('');
+            const rowNumTd = showRowNum ? ('<td style="text-align:center;font-weight:800;color:var(--text-muted);background:#fafafa;width:40px;">' + (idx + 1) + '</td>') : '';
             return '<tr>' +
-              '<td style="text-align:center;font-weight:800;color:var(--text-muted);background:#fafafa;width:40px;">' + (idx + 1) + '</td>' +
+              rowNumTd +
               tds +
             '</tr>';
           }).join('');
+
+          const rowNumTh = showRowNum ? '<th style="width:40px;text-align:center;">#</th>' : '';
 
           return '<section class="rec-table-section">' +
             '<div class="rec-table-header">' +
@@ -8024,7 +8588,7 @@ Rules:
               '<table class="rec-table">' +
                 '<thead>' +
                   '<tr>' +
-                    '<th style="width:40px;text-align:center;">#</th>' +
+                    rowNumTh +
                     ths +
                   '</tr>' +
                 '</thead>' +
@@ -8109,8 +8673,9 @@ Rules:
     function exportCSV() {
       const filtered = getCandidateRows(null);
       if (!filtered.length) return;
-      const headers = COLS.map(c => c.label);
-      const keys = COLS.map(c => c.key);
+      const visibleCols = COLS.filter(c => !hiddenCols.has(c.key));
+      const headers = visibleCols.map(c => c.label);
+      const keys = visibleCols.map(c => c.key);
       const quote = v => '"' + formatCsvValue(v).replace(/"/g, '""') + '"';
       const lines = [headers.map(quote).join(',')];
       filtered.forEach(row => {
@@ -8130,7 +8695,19 @@ Rules:
     resetBtn.addEventListener('click', resetFilters);
     csvBtn.addEventListener('click', exportCSV);
 
-    render();
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        closeSettingsMenu();
+      }
+    });
+
+    loadSettings();
+    if (currentViewMode !== 'cards') {
+      setViewMode(currentViewMode);
+    } else {
+      applyVisibility();
+      render();
+    }
   ` + '</' + 'script>' + `
 </body>
 </html>`;
@@ -8409,10 +8986,16 @@ Rules:
     .threshold-tag, .badge-tag { display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; border: 1.5px solid #333333; border-radius: 4px; font-size: 10px; font-weight: 700; background: #f4f4f5; }
     .color-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border: 1.5px solid #333333; border-radius: 4px; font-size: 10px; font-weight: 700; background: #f8fafc; }
     .color-dot { width: 9px; height: 9px; border: 1px solid #333333; border-radius: 2px; display: inline-block; }
-    @page { margin: 15mm; }
+    @page { margin: 12mm 10mm; size: auto; }
     @media print {
-      body { padding: 0; }
+      *, *:before, *:after {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      body { padding: 0 !important; }
       .meta-box, p.filters { box-shadow: none !important; }
+      thead { display: table-header-group !important; }
+      tr { page-break-inside: avoid !important; break-inside: avoid !important; }
     }
   </style>
 </head>

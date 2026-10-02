@@ -6843,6 +6843,17 @@
         'tbody tr:nth-child(even) td { background: #f8fafc; }\n' +
         '.class-page-break { page-break-before: always; break-before: page; margin-top: 24px; }\n' +
         '[contenteditable="true"]:focus { outline: 2px solid #e2c96e; background: #fafaf7; }\n' +
+        '.col-hidden { display: none !important; }\n' +
+        '@page { margin: 12mm 10mm; size: auto; }\n' +
+        '@media print {\n' +
+        '  *, *:before, *:after { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }\n' +
+        '  body { padding: 0 !important; background: #ffffff !important; }\n' +
+        '  .table-toolbar { display: none !important; }\n' +
+        '  table { width: 100% !important; box-shadow: none !important; border-collapse: collapse !important; page-break-inside: auto !important; break-inside: auto !important; }\n' +
+        '  thead { display: table-header-group !important; }\n' +
+        '  tr { page-break-inside: avoid !important; break-inside: avoid !important; }\n' +
+        '  th[style*="display: none"], td[style*="display: none"], col[style*="display: none"], .col-hidden { display: none !important; }\n' +
+        '}\n' +
         getExportStyleCss() +
         '</style></head><body>' +
         topHeaderHtml +
@@ -6852,9 +6863,9 @@
         'var tables=document.querySelectorAll(".planner-export-table");if(!tables.length)return;' +
         'function setColVisible(colIndex,visible){' +
         'tables.forEach(function(table){' +
-        'var colEl=table.querySelector("col[data-col=\'"+colIndex+"\']");if(colEl)colEl.style.display=visible?"":"none";' +
+        'var colEl=table.querySelector("col[data-col=\'"+colIndex+"\']");if(colEl){colEl.style.display=visible?"":"none";colEl.classList.toggle("col-hidden",!visible);}' +
         'var cells=table.querySelectorAll("th[data-col=\'"+colIndex+"\'],td[data-col=\'"+colIndex+"\']");' +
-        'for(var i=0;i<cells.length;i++)cells[i].style.display=visible?"":"none";' +
+        'for(var i=0;i<cells.length;i++){cells[i].style.display=visible?"":"none";cells[i].classList.toggle("col-hidden",!visible);}' +
         '});' +
         '}' +
         'var toggles=document.querySelectorAll(".col-toggle");' +
