@@ -19,6 +19,9 @@ try {
   app.commandLine.appendSwitch('ignore-gpu-blocklist');
   app.commandLine.appendSwitch('enable-gpu-rasterization');
   app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+  app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+  app.commandLine.appendSwitch('disable-renderer-backgrounding');
+  app.commandLine.appendSwitch('disable-background-timer-throttling');
 
   // Linux hardening: prevent Chromium shared memory exhaustion in /dev/shm
   if (process.platform === 'linux') {
@@ -1075,7 +1078,8 @@ function createToolWindow(pageFile, options = {}) {
       preload: path.join(ROOT_DIR, 'electron-preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
+      sandbox: false,
+      backgroundThrottling: false
     }
   };
   if (typeof options.x === 'number') browserOpts.x = options.x;
@@ -1162,7 +1166,8 @@ function createMainWindow(initialPageFile = PAGE_FILES.launcher, options = {}) {
       preload: path.join(ROOT_DIR, 'electron-preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
+      sandbox: false,
+      backgroundThrottling: false
     }
   };
   if (options.bounds && typeof options.bounds.x === 'number') browserOpts.x = options.bounds.x;
@@ -5505,7 +5510,8 @@ ipcMain.handle('app:open-timer-window', async (event, request = {}) => {
       preload: path.join(ROOT_DIR, 'electron-preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
+      sandbox: false,
+      backgroundThrottling: false
     }
   });
   timerDetachedWindow.on('closed', () => { timerDetachedWindow = null; });
@@ -5633,7 +5639,8 @@ ipcMain.handle('app:open-html', async (event, request = {}) => {
       preload: path.join(ROOT_DIR, 'electron-preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
+      sandbox: false,
+      backgroundThrottling: false
     }
   };
 
@@ -5884,7 +5891,8 @@ ipcMain.handle('app:open-mirror-window', async (event, request = {}) => {
         preload: path.join(ROOT_DIR, 'electron-preload.js'),
         contextIsolation: true,
         nodeIntegration: false,
-        sandbox: false
+        sandbox: false,
+        backgroundThrottling: false
       }
     };
   } else {
@@ -5898,7 +5906,8 @@ ipcMain.handle('app:open-mirror-window', async (event, request = {}) => {
         preload: path.join(ROOT_DIR, 'electron-preload.js'),
         contextIsolation: true,
         nodeIntegration: false,
-        sandbox: false
+        sandbox: false,
+        backgroundThrottling: false
       }
     };
     // Place beside the main window when no second screen is available
@@ -5955,6 +5964,13 @@ ipcMain.handle('app:mirror-window-command', (event, command) => {
     case 'maximize':
       maximizePresenterWindow(mirrorWindow, mirrorWindowSource);
       break;
+    case 'ensure-visible':
+      if (mirrorWindow.isMinimized()) mirrorWindow.restore();
+      mirrorWindow.show();
+      if (mirrorWindowSource && !mirrorWindowSource.isDestroyed()) {
+        mirrorWindowSource.focus();
+      }
+      break;
     default:
       return { ok: false, reason: 'unknown-command' };
   }
@@ -5987,7 +6003,8 @@ ipcMain.handle('app:open-cms-presentation', async (event, request = {}) => {
         preload: path.join(ROOT_DIR, 'electron-preload.js'),
         contextIsolation: true,
         nodeIntegration: false,
-        sandbox: false
+        sandbox: false,
+        backgroundThrottling: false
       }
     };
   } else {
@@ -6001,7 +6018,8 @@ ipcMain.handle('app:open-cms-presentation', async (event, request = {}) => {
         preload: path.join(ROOT_DIR, 'electron-preload.js'),
         contextIsolation: true,
         nodeIntegration: false,
-        sandbox: false
+        sandbox: false,
+        backgroundThrottling: false
       }
     };
     // Place beside the main window when no second screen is available
@@ -6100,14 +6118,14 @@ ipcMain.handle('app:open-oral-presenter', async (event, request = {}) => {
     winOpts = {
       x: mappedBounds.x, y: mappedBounds.y, width: mappedBounds.width, height: mappedBounds.height,
       autoHideMenuBar: true, title: 'Oral Marking – Presenter',
-      webPreferences: { preload: path.join(ROOT_DIR, 'electron-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false }
+      webPreferences: { preload: path.join(ROOT_DIR, 'electron-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false, backgroundThrottling: false }
     };
   } else {
     const width  = sBounds ? sBounds.width  : 1200;
     const height = sBounds ? sBounds.height : 800;
     winOpts = {
       width, height, autoHideMenuBar: true, title: 'Oral Marking – Presenter',
-      webPreferences: { preload: path.join(ROOT_DIR, 'electron-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false }
+      webPreferences: { preload: path.join(ROOT_DIR, 'electron-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false, backgroundThrottling: false }
     };
     if (sBounds) { winOpts.x = sBounds.x + sBounds.width + 10; winOpts.y = sBounds.y; }
   }
@@ -6166,14 +6184,14 @@ ipcMain.handle('app:open-doc-presentation', async (event, request = {}) => {
     winOpts = {
       x: mappedBounds.x, y: mappedBounds.y, width: mappedBounds.width, height: mappedBounds.height,
       autoHideMenuBar: true, title: 'Document – Presentation Mode',
-      webPreferences: { preload: path.join(ROOT_DIR, 'electron-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false }
+      webPreferences: { preload: path.join(ROOT_DIR, 'electron-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false, backgroundThrottling: false }
     };
   } else {
     const width  = sBounds ? sBounds.width  : 1200;
     const height = sBounds ? sBounds.height : 800;
     winOpts = {
       width, height, autoHideMenuBar: true, title: 'Document – Presentation Mode',
-      webPreferences: { preload: path.join(ROOT_DIR, 'electron-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false }
+      webPreferences: { preload: path.join(ROOT_DIR, 'electron-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false, backgroundThrottling: false }
     };
     if (sBounds) { winOpts.x = sBounds.x + sBounds.width + 10; winOpts.y = sBounds.y; }
   }
@@ -9646,7 +9664,7 @@ ipcMain.handle('app:get-latest-crash-dump', async () => {
   }
 });
 
-ipcMain.handle('app:get-screen-sources', async (_event, request = {}) => {
+ipcMain.handle('app:get-screen-sources', async (event, request = {}) => {
   try {
     const types = request.types || ['screen', 'window'];
     const sources = await desktopCapturer.getSources({
@@ -9654,19 +9672,62 @@ ipcMain.handle('app:get-screen-sources', async (_event, request = {}) => {
       thumbnailSize: { width: 320, height: 180 },
       fetchWindowIcons: true
     });
+    const senderWin = BrowserWindow.fromWebContents(event.sender);
+    const senderMediaId = (senderWin && !senderWin.isDestroyed() && typeof senderWin.getMediaSourceId === 'function')
+      ? senderWin.getMediaSourceId()
+      : null;
+    const mirrorMediaId = (mirrorWindow && !mirrorWindow.isDestroyed() && typeof mirrorWindow.getMediaSourceId === 'function')
+      ? mirrorWindow.getMediaSourceId()
+      : null;
+
     return {
       ok: true,
+      senderMediaId,
+      mirrorMediaId,
       sources: sources.map(s => ({
         id: s.id,
         name: s.name,
         thumbnail: s.thumbnail ? s.thumbnail.toDataURL() : '',
-        appIcon: s.appIcon ? s.appIcon.toDataURL() : ''
+        appIcon: s.appIcon ? s.appIcon.toDataURL() : '',
+        isSender: senderMediaId ? s.id === senderMediaId : false,
+        isMirror: mirrorMediaId ? s.id === mirrorMediaId : false
       }))
     };
   } catch (err) {
     return { ok: false, error: err?.message || String(err) };
   }
 });
+
+// ── Board recording: direct WebContents (tab) capture target ─────────────────
+// OS-level window capture (desktopCapturer window sources) on Windows stops
+// receiving frames / returns black as soon as a Chromium window loses focus or
+// becomes occluded. Tab capture pulls frames straight from the renderer's
+// compositor and keeps the captured page awake, regardless of focus.
+const pendingDisplayCaptureTargets = new Map(); // senderWebContentsId -> { target, expires }
+
+ipcMain.handle('app:set-display-capture-target', (event, request = {}) => {
+  const target = request && typeof request.target === 'string' ? request.target : '';
+  if (!target) {
+    pendingDisplayCaptureTargets.delete(event.sender.id);
+    return { ok: true };
+  }
+  if (target === 'mirror' && (!mirrorWindow || mirrorWindow.isDestroyed())) {
+    return { ok: false, reason: 'mirror-not-open' };
+  }
+  pendingDisplayCaptureTargets.set(event.sender.id, { target, expires: Date.now() + 15000 });
+  return { ok: true };
+});
+
+function resolveRequestWebContents(request) {
+  try {
+    const { webContents: wcModule } = require('electron');
+    if (request && request.frame && typeof wcModule.fromFrame === 'function') {
+      const wc = wcModule.fromFrame(request.frame);
+      if (wc) return wc;
+    }
+  } catch (_) {}
+  return (request && (request.frame?.webContents || request.webContents)) || null;
+}
 
 app.whenReady().then(async () => {
   startMemoryHeartbeat();
@@ -9689,8 +9750,29 @@ app.whenReady().then(async () => {
 
   if (typeof session.defaultSession.setDisplayMediaRequestHandler === 'function') {
     session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
+      const requesterWc = resolveRequestWebContents(request);
+      const pending = requesterWc ? pendingDisplayCaptureTargets.get(requesterWc.id) : null;
+      if (pending) {
+        pendingDisplayCaptureTargets.delete(requesterWc.id);
+        if (pending.expires >= Date.now()) {
+          let targetWc = null;
+          if (pending.target === 'mirror' && mirrorWindow && !mirrorWindow.isDestroyed()) {
+            targetWc = mirrorWindow.webContents;
+          } else if (pending.target === 'self' && requesterWc && !requesterWc.isDestroyed()) {
+            targetWc = requesterWc;
+          }
+          if (targetWc && !targetWc.isDestroyed()) {
+            try {
+              callback({ video: targetWc });
+              return;
+            } catch (tabErr) {
+              console.warn('[DisplayMedia] WebContents capture failed, falling back:', tabErr?.message || tabErr);
+            }
+          }
+        }
+      }
       desktopCapturer.getSources({ types: ['screen', 'window'] }).then((sources) => {
-        const currentWin = BrowserWindow.fromWebContents(request.frame?.webContents || request.webContents);
+        const currentWin = BrowserWindow.fromWebContents(requesterWc || request.frame?.webContents || request.webContents);
         let selectedSource = sources[0];
         if (currentWin) {
           const winTitle = currentWin.getTitle();

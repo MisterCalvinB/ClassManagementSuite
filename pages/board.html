@@ -23882,20 +23882,37 @@
           if (!brd) return;
 
           const dockAnchors = [];
-          const candidateNodes = (typeof conNodes !== 'undefined' ? conNodes : []).filter(n => n.id !== oppositeId && n.el);
-          candidateNodes.forEach(n => {
-            const anchorData = conResolveLinkAnchor(n.id);
+          const candidateTargets = [];
+
+          (typeof conNodes !== 'undefined' ? conNodes : []).forEach(n => {
+            if (n && n.id !== oppositeId && n.el) candidateTargets.push({ id: n.id });
+          });
+
+          (typeof conNotes !== 'undefined' ? conNotes : []).forEach(nd => {
+            if (nd && nd.id !== oppositeId && !nd.hidden) {
+              const el = (typeof wnGetNoteElementById === 'function') ? wnGetNoteElementById(nd.id) : document.querySelector(`.con-word-note[data-id="${nd.id}"]`);
+              if (el) candidateTargets.push({ id: nd.id });
+            }
+          });
+
+          (typeof conGroups !== 'undefined' ? conGroups : []).forEach(g => {
+            if (g && g.id !== oppositeId && g.el) candidateTargets.push({ id: g.id });
+          });
+
+          candidateTargets.forEach(target => {
+            const anchorData = conResolveLinkAnchor(target.id);
             if (!anchorData) return;
             ['top', 'right', 'bottom', 'left'].forEach(pos => {
               const pt = conGetAnchorPoint(anchorData, pos);
+              if (!pt) return;
               const dot = document.createElement('div');
               dot.className = 'con-dock-anchor';
               dot.style.left = pt.x + 'px';
               dot.style.top = pt.y + 'px';
-              dot.dataset.nid = n.id;
+              dot.dataset.nid = target.id;
               dot.dataset.port = pos;
               brd.appendChild(dot);
-              dockAnchors.push({ el: dot, nodeId: n.id, port: pos, x: pt.x, y: pt.y });
+              dockAnchors.push({ el: dot, nodeId: target.id, port: pos, x: pt.x, y: pt.y });
             });
           });
 
@@ -24503,6 +24520,12 @@
           for (let i = 0; i < conNodes.length; i++) {
             conNodes[i]._cachedW = 0;
             conNodes[i]._cachedH = 0;
+          }
+        }
+        if (typeof conNotes !== 'undefined' && Array.isArray(conNotes)) {
+          for (let i = 0; i < conNotes.length; i++) {
+            conNotes[i]._cachedW = 0;
+            conNotes[i]._cachedH = 0;
           }
         }
         conEdges.forEach(e => conUpdateEdge(e));
@@ -33999,6 +34022,12 @@
       }
       const noteEl = wnGetNoteElementById(nd.id);
       if (noteEl) noteEl.remove();
+      if (typeof conEdges !== 'undefined' && Array.isArray(conEdges)) {
+        conEdges.filter(e => e.a === nd.id || e.b === nd.id).forEach(e => e.g && e.g.remove());
+        conEdges = conEdges.filter(e => e.a !== nd.id && e.b !== nd.id);
+        window.conEdges = conEdges;
+        if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
+      }
       if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
       if (typeof window._conMirrorBroadcast === 'function') window._conMirrorBroadcast();
     }
@@ -40067,7 +40096,10 @@
     let _conDirtyResetTimer = null;
 
     function boardUpdateDocumentTitle() {
-      if (new URLSearchParams(location.search).get('mirror') === '1') return;
+      if (new URLSearchParams(location.search).get('mirror') === '1') {
+        document.title = 'Board – Presentation Mode';
+        return;
+      }
       const isPageWin = window._isPageWindow || new URLSearchParams(location.search).get('pageWindow') === '1';
       const pageParam = new URLSearchParams(location.search).get('viewPage');
       const pageNum = pageParam !== null ? (parseInt(pageParam, 10) + 1) : ((typeof conCurrentPageIndex === 'number' ? conCurrentPageIndex : 0) + 1);

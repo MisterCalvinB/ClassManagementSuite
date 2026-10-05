@@ -972,6 +972,18 @@
     return { ok: false, error: 'Screen capture API unavailable' };
   }
 
+  async function setDisplayCaptureTarget(target) {
+    const api = getDesktopApi();
+    if (api && typeof api.setDisplayCaptureTarget === 'function') {
+      try {
+        return await api.setDisplayCaptureTarget({ target: target || '' });
+      } catch (e) {
+        return { ok: false, error: e?.message || String(e) };
+      }
+    }
+    return { ok: false, error: 'Capture target API unavailable' };
+  }
+
   async function sendToDocumentEditor(options) {
     if (typeof window.sendToDocumentEditor === 'function') {
       return window.sendToDocumentEditor(options);
@@ -1108,6 +1120,7 @@
     duplicateByPath,
     exportFiles,
     getScreenSources,
+    setDisplayCaptureTarget,
     goToLauncher,
     closeWindow,
     isElectron,

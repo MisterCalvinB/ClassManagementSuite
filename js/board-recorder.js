@@ -359,7 +359,30 @@
       var targetFps = Math.max(1, Math.min(60, parseInt(options.fps, 10) || 30));
 
       // 1. Acquire Video Stream
-      if (options.videoSourceId && navigator.mediaDevices.getUserMedia) {
+      // Preferred (Electron): direct WebContents/tab capture. Frames come from the
+      // renderer compositor, so capture keeps working when the window is
+      // unfocused, occluded or not maximised (OS window capture goes blank).
+      if (options.captureTarget && window.Desktop && typeof window.Desktop.setDisplayCaptureTarget === 'function'
+          && navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
+        try {
+          var targetRes = await window.Desktop.setDisplayCaptureTarget(options.captureTarget);
+          if (targetRes && targetRes.ok) {
+            videoStream = await navigator.mediaDevices.getDisplayMedia({
+              video: { frameRate: { ideal: targetFps, max: targetFps } },
+              audio: false
+            });
+          }
+        } catch (tabErr) {
+          console.warn('[BoardRecorder] WebContents capture failed, falling back to window capture:', tabErr);
+          videoStream = null;
+        } finally {
+          try { await window.Desktop.setDisplayCaptureTarget(''); } catch (_) { }
+        }
+      }
+
+      if (videoStream) {
+        // already acquired via WebContents capture
+      } else if (options.videoSourceId && navigator.mediaDevices.getUserMedia) {
         // Direct desktopCapturer source in Electron
         videoStream = await navigator.mediaDevices.getUserMedia({
           audio: false,
@@ -788,6 +811,11 @@
           window.conOpenMirrorWindow();
           // Give the mirror/presentation window time to spawn and paint
           await new Promise(function (resolve) { setTimeout(resolve, 800); });
+        } else if (window.Desktop && window.Desktop.isElectron() && typeof window.Desktop.mirrorWindowCommand === 'function') {
+          // Ensure open mirror window is not minimized so DWM & compositor keep painting it
+          try {
+            await window.Desktop.mirrorWindowCommand('ensure-visible');
+          } catch (_) {}
         }
       }
 
@@ -796,22 +824,40 @@
           var res = await window.Desktop.getScreenSources(['window', 'screen']);
           if (res && res.sources && res.sources.length > 0) {
             if (targetMode === 'presentation') {
-              var presSource = res.sources.find(function (s) {
-                var n = (s.name || '').toLowerCase();
-                return n.includes('presentation') || n.includes('présentation') || n.includes('mirror') || n.includes('miroir');
-              });
+              var presSource = null;
+              if (res.mirrorMediaId) {
+                presSource = res.sources.find(function (s) { return s.id === res.mirrorMediaId; });
+              }
+              if (!presSource) {
+                presSource = res.sources.find(function (s) { return s.isMirror; });
+              }
               if (!presSource) {
                 presSource = res.sources.find(function (s) {
                   var n = (s.name || '').toLowerCase();
-                  return n.includes('board') && s.id !== res.sources[0].id;
+                  return n.includes('presentation') || n.includes('présentation') || n.includes('mirror') || n.includes('miroir');
+                });
+              }
+              if (!presSource) {
+                presSource = res.sources.find(function (s) {
+                  var n = (s.name || '').toLowerCase();
+                  return n.includes('board') && s.id !== (res.senderMediaId || res.sources[0].id);
                 }) || res.sources[1] || res.sources[0];
               }
               if (presSource) chosenSourceId = presSource.id;
             } else {
-              var mainSource = res.sources.find(function (s) {
-                var n = (s.name || '').toLowerCase();
-                return (n.includes('board') || n.includes('tableau')) && !n.includes('presentation') && !n.includes('présentation');
-              }) || res.sources[0];
+              var mainSource = null;
+              if (res.senderMediaId) {
+                mainSource = res.sources.find(function (s) { return s.id === res.senderMediaId; });
+              }
+              if (!mainSource) {
+                mainSource = res.sources.find(function (s) { return s.isSender; });
+              }
+              if (!mainSource) {
+                mainSource = res.sources.find(function (s) {
+                  var n = (s.name || '').toLowerCase();
+                  return (n.includes('board') || n.includes('tableau')) && !n.includes('presentation') && !n.includes('présentation');
+                }) || res.sources[0];
+              }
               if (mainSource) chosenSourceId = mainSource.id;
             }
           }
@@ -821,6 +867,9 @@
       }
 
       await startRecording({
+        captureTarget: (window.Desktop && typeof window.Desktop.isElectron === 'function' && window.Desktop.isElectron())
+          ? (targetMode === 'presentation' ? 'mirror' : 'self')
+          : null,
         videoSourceId: chosenSourceId,
         micDeviceId: micDevId,
         fps: chosenFps,

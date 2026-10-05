@@ -48,6 +48,9 @@ const exposedApi = {
   getScreenSources(request) {
     return invoke('app:get-screen-sources', request);
   },
+  setDisplayCaptureTarget(request) {
+    return invoke('app:set-display-capture-target', request);
+  },
   saveFile(request) {
     return invoke('app:save-file', request);
   },
