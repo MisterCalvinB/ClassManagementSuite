@@ -2058,6 +2058,16 @@
 
         <div>
           <label style="display:block;font-size:0.75rem;font-weight:700;color:#334155;margin-bottom:6px;">
+            <span data-i18n="recFormat">Video Format</span>:
+          </label>
+          <select id="board-rec-format-select" class="search-input" style="width:100%;padding:6px 10px;font-size:0.85rem;">
+            <option value="mp4" data-i18n="recFormatMp4">MP4 (Universal — Recommended for VLC, PowerPoint & mobile)</option>
+            <option value="webm" data-i18n="recFormatWebm">WebM (High compression — Web & browser)</option>
+          </select>
+        </div>
+
+        <div>
+          <label style="display:block;font-size:0.75rem;font-weight:700;color:#334155;margin-bottom:6px;">
             <span data-i18n="recFrameRate">Frame Rate (FPS)</span>:
           </label>
           <div style="display:flex;gap:8px;align-items:center;">
@@ -2086,6 +2096,9 @@
     </div>
   </div>
 
+  <!-- Keepalive subpixel pulse element to keep Chromium capturer ticking during static board moments -->
+  <div id="board-rec-keepalive-pulse" style="position:fixed;bottom:0;right:0;width:1px;height:1px;opacity:1;pointer-events:none;z-index:1;" aria-hidden="true"></div>
+
   <!-- Record Board Preview & Save Modal -->
   <div id="board-rec-preview-overlay" class="con-modal-overlay" style="display:none;" onclick="if(event.target===this)boardVideoPromptClosePreview()">
     <div class="con-modal-dialog" style="max-width:680px;">
@@ -2112,7 +2125,7 @@
       <div class="con-modal-footer" style="display:flex;gap:8px;justify-content:space-between;align-items:center;padding-top:12px;border-top:1px solid #e2e8f0;flex-wrap:wrap;">
         <button class="action-btn btn-grey" onclick="boardVideoPromptClosePreview()" style="color:#ef4444;display:inline-flex;align-items:center;gap:6px;" data-i18n="recDiscardBtn"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" style="margin:0;" /> <span>Discard</span></button>
         <div style="display:flex;gap:8px;align-items:center;">
-          <button class="action-btn btn-grey" onclick="boardVideoExportFile()" style="display:inline-flex;align-items:center;gap:6px;" data-i18n="recExportVideoBtn"><img src="../assets/icons/download.svg" class="btn-icon" alt="" style="margin:0;" /> <span>Export Video (.webm)</span></button>
+          <button class="action-btn btn-grey" id="board-rec-export-btn" onclick="boardVideoExportFile()" style="display:inline-flex;align-items:center;gap:6px;"><img src="../assets/icons/download.svg" class="btn-icon" alt="" style="margin:0;" /> <span id="board-rec-export-label" data-i18n="recExportVideoBtn">Export Video</span></button>
           <button class="action-btn btn-blue" onclick="boardVideoSaveAndAttach()" style="display:inline-flex;align-items:center;gap:6px;" data-i18n="recSaveAttachBtn"><img src="../assets/icons/save.svg" class="btn-icon" alt="" style="margin:0;" /> <span>Save & Attach to Board</span></button>
         </div>
       </div>
@@ -5666,7 +5679,6 @@
       Loading preview…</div>
   </div>
 
-  <script src="../js/board-recorder.js"></script>
   <script src="../js/board-premade-library.js"></script>
   <script>
     // Ensure edge context menu global functions exist early to avoid ReferenceError
@@ -54020,6 +54032,47 @@
       var _lastPdfResizeMw = 0, _lastPdfResizeMh = 0;
       var _mirrorViewportRaf = null;
 
+      var _mirrorKeepaliveCanvas = null;
+      var _mirrorKeepaliveRaf = null;
+      function _mirrorStartRecorderKeepalive(targetFps) {
+        _mirrorStopRecorderKeepalive();
+        if (!_mirrorKeepaliveCanvas) {
+          _mirrorKeepaliveCanvas = document.createElement('canvas');
+          _mirrorKeepaliveCanvas.id = 'con-mirror-rec-keepalive';
+          _mirrorKeepaliveCanvas.width = 2;
+          _mirrorKeepaliveCanvas.height = 2;
+          _mirrorKeepaliveCanvas.style.cssText = 'position:fixed;bottom:0;right:0;width:2px;height:2px;pointer-events:none;z-index:2147483647;opacity:0.01;';
+          document.body.appendChild(_mirrorKeepaliveCanvas);
+        }
+        var ctx = _mirrorKeepaliveCanvas.getContext('2d');
+        var flip = false;
+        var fpsInterval = 1000 / (targetFps || 30);
+        var lastTick = 0;
+        function loop(now) {
+          if (now - lastTick >= fpsInterval) {
+            lastTick = now;
+            flip = !flip;
+            if (ctx) {
+              ctx.clearRect(0, 0, 2, 2);
+              ctx.fillStyle = flip ? 'rgba(0,0,0,0.02)' : 'rgba(255,255,255,0.02)';
+              ctx.fillRect(0, 0, 1, 1);
+            }
+          }
+          _mirrorKeepaliveRaf = requestAnimationFrame(loop);
+        }
+        _mirrorKeepaliveRaf = requestAnimationFrame(loop);
+      }
+      function _mirrorStopRecorderKeepalive() {
+        if (_mirrorKeepaliveRaf) {
+          cancelAnimationFrame(_mirrorKeepaliveRaf);
+          _mirrorKeepaliveRaf = null;
+        }
+        if (_mirrorKeepaliveCanvas && _mirrorKeepaliveCanvas.parentNode) {
+          _mirrorKeepaliveCanvas.remove();
+          _mirrorKeepaliveCanvas = null;
+        }
+      }
+
       function _mirrorScheduleApplyViewport() {
         if (_mirrorViewportRaf) return;
         _mirrorViewportRaf = requestAnimationFrame(function () {
@@ -54488,6 +54541,15 @@
       ch.onmessage = function (e) {
         if (!e.data) return;
         var d = e.data;
+
+        if (d.type === 'recorder-keepalive') {
+          if (d.active) {
+            _mirrorStartRecorderKeepalive(d.fps || 30);
+          } else {
+            _mirrorStopRecorderKeepalive();
+          }
+          return;
+        }
 
         if (d.type === 'node-timer-tick') {
           if (_mirrorIsFrozen) return;

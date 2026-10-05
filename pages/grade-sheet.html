@@ -3566,6 +3566,73 @@
       return true;
     }
 
+    async function saveChipBankGroups(bankFilename, updatedChipGroups) {
+      const targetFn = bankFilename || _activeChipBankFilename || 'correction-criteria.js';
+      if (!Array.isArray(_availableChipBanks) || !_availableChipBanks.length) {
+        await loadAvailableChipBanks();
+      }
+
+      let bank = _availableChipBanks.find(b => b.filename === targetFn);
+      if (bank) {
+        bank.chips = updatedChipGroups;
+      }
+
+      if (targetFn === 'correction-criteria.js') {
+        window.OBSERVATION_CHECKLIST_GROUPS = updatedChipGroups;
+        try {
+          localStorage.setItem(REFERENCE_PERSONALISED_CHIPS_STORAGE_KEY, JSON.stringify(updatedChipGroups));
+        } catch (_) {}
+
+        if (window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron()) {
+          try {
+            let existingCriteria = [];
+            try {
+              const rootRes = await Desktop.readText('user', 'correction-criteria.js');
+              if (rootRes && rootRes.ok && rootRes.content) {
+                const critFn = new Function(rootRes.content + '\n;try{return typeof XLSM_CRITERIA !== "undefined" ? XLSM_CRITERIA : null;}catch(e){return null;}');
+                const cRes = critFn();
+                if (Array.isArray(cRes) && cRes.length) existingCriteria = cRes;
+              }
+            } catch (_) {}
+            if (!existingCriteria.length && typeof XLSM_CRITERIA !== 'undefined' && Array.isArray(XLSM_CRITERIA)) {
+              existingCriteria = XLSM_CRITERIA;
+            }
+            const content = `const XLSM_CRITERIA = ${JSON.stringify(existingCriteria, null, 2)};\n` +
+              `const OBSERVATION_CHECKLIST_GROUPS = ${JSON.stringify(updatedChipGroups, null, 2)};\n`;
+            await Desktop.saveText('user', 'correction-criteria.js', content);
+          } catch (e) {
+            console.warn('Error saving observation chips to correction-criteria.js:', e);
+          }
+        }
+      } else {
+        try {
+          const lsKey = 'cmt-chips-' + targetFn.replace(/\.(js|json)$/i, '');
+          localStorage.setItem(lsKey, JSON.stringify(updatedChipGroups));
+        } catch (_) {}
+
+        if (window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron()) {
+          try {
+            const isJson = targetFn.endsWith('.json');
+            const customChipsText = isJson
+              ? JSON.stringify(updatedChipGroups, null, 2)
+              : `// OBSERVATION_CHECKLIST_GROUPS\nconst OBSERVATION_CHECKLIST_GROUPS = ${JSON.stringify(updatedChipGroups, null, 2)};\n`;
+            await Desktop.saveText('customChips', targetFn, customChipsText);
+          } catch (e) {
+            console.warn('Error saving custom observation chip bank:', e);
+          }
+        }
+      }
+
+      // Broadcast changes across windows
+      if (typeof BroadcastChannel !== 'undefined') {
+        try {
+          new BroadcastChannel('cmt-chips').postMessage({ filename: targetFn });
+        } catch (_) {}
+      }
+
+      return true;
+    }
+
     async function reorderObservationChip(bankFilename, sourceCategory, chipName, targetCategory, targetIndex) {
       const targetFn = bankFilename || _activeChipBankFilename || 'correction-criteria.js';
       if (!Array.isArray(_availableChipBanks) || !_availableChipBanks.length) {
@@ -3602,62 +3669,7 @@
         tgtGroup.items.push(removed);
       }
 
-      bank.chips = chipGroups;
-
-      if (targetFn === 'correction-criteria.js') {
-        window.OBSERVATION_CHECKLIST_GROUPS = chipGroups;
-        try {
-          localStorage.setItem(REFERENCE_PERSONALISED_CHIPS_STORAGE_KEY, JSON.stringify(chipGroups));
-        } catch (_) {}
-
-        if (window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron()) {
-          try {
-            let existingCriteria = [];
-            try {
-              const rootRes = await Desktop.readText('user', 'correction-criteria.js');
-              if (rootRes && rootRes.ok && rootRes.content) {
-                const critFn = new Function(rootRes.content + '\n;try{return typeof XLSM_CRITERIA !== "undefined" ? XLSM_CRITERIA : null;}catch(e){return null;}');
-                const cRes = critFn();
-                if (Array.isArray(cRes) && cRes.length) existingCriteria = cRes;
-              }
-            } catch (_) {}
-            if (!existingCriteria.length && typeof XLSM_CRITERIA !== 'undefined' && Array.isArray(XLSM_CRITERIA)) {
-              existingCriteria = XLSM_CRITERIA;
-            }
-            const content = `const XLSM_CRITERIA = ${JSON.stringify(existingCriteria, null, 2)};\n` +
-              `const OBSERVATION_CHECKLIST_GROUPS = ${JSON.stringify(chipGroups, null, 2)};\n`;
-            await Desktop.saveText('user', 'correction-criteria.js', content);
-          } catch (e) {
-            console.warn('Error saving reordered observation chips to correction-criteria.js:', e);
-          }
-        }
-      } else {
-        try {
-          const lsKey = 'cmt-chips-' + targetFn.replace(/\.(js|json)$/i, '');
-          localStorage.setItem(lsKey, JSON.stringify(chipGroups));
-        } catch (_) {}
-
-        if (window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron()) {
-          try {
-            const isJson = targetFn.endsWith('.json');
-            const customChipsText = isJson
-              ? JSON.stringify(chipGroups, null, 2)
-              : `// OBSERVATION_CHECKLIST_GROUPS\nconst OBSERVATION_CHECKLIST_GROUPS = ${JSON.stringify(chipGroups, null, 2)};\n`;
-            await Desktop.saveText('customChips', targetFn, customChipsText);
-          } catch (e) {
-            console.warn('Error saving custom observation chip bank:', e);
-          }
-        }
-      }
-
-      // Broadcast changes across windows
-      if (typeof BroadcastChannel !== 'undefined') {
-        try {
-          new BroadcastChannel('cmt-chips').postMessage({ filename: targetFn });
-        } catch (_) {}
-      }
-
-      return true;
+      return await saveChipBankGroups(targetFn, chipGroups);
     }
 
     async function openAddObservationChipModal(activeBankFilename, onSavedCallback) {
@@ -10408,6 +10420,9 @@
       const toptChipsPreviewList = document.getElementById("topt-chips-preview-list");
       const toptChipsSummary = document.getElementById("topt-chips-summary");
 
+      let _toptDragSrcSecIdx = null;
+      let _toptDragSrcCat = null; // { secIdx, catIdx }
+
       function renderToptChipsPreview() {
         if (!toptChipsPreviewList) return;
         toptChipsPreviewList.innerHTML = "";
@@ -10422,49 +10437,290 @@
           empty.textContent = t('gsNoChipsForSection', 'No preset chips defined in this bank.');
           toptChipsPreviewList.appendChild(empty);
         } else {
-          sectionTrees.forEach(sec => {
+          sectionTrees.forEach((sec, secIdx) => {
             const secWrap = document.createElement("div");
-            secWrap.className = "topt-card";
-            secWrap.style.cssText = `margin-bottom:10px;padding:10px 12px;background:#fff;border:1.5px solid var(--border,#333333);border-left:4px solid ${sec.color || '#333333'};border-radius:8px;box-shadow:2px 2px 0 rgba(0,0,0,0.06);`;
+            secWrap.className = "topt-card topt-chip-sec-card";
+            secWrap.style.cssText = `margin-bottom:10px;padding:10px 12px;background:#fff;border:1.5px solid var(--border,#333333);border-left:4px solid ${sec.color || '#333333'};border-radius:8px;box-shadow:2px 2px 0 rgba(0,0,0,0.06);transition:transform 120ms ease, opacity 120ms ease;position:relative;`;
+            secWrap.draggable = true;
+            secWrap.dataset.secIdx = String(secIdx);
 
             const secHeader = document.createElement("div");
-            secHeader.style.cssText = "display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding-bottom:4px;border-bottom:1px dashed var(--line,#e2e8f0);";
+            secHeader.style.cssText = "display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding-bottom:4px;border-bottom:1px dashed var(--line,#e2e8f0);gap:6px;";
             
             const secTitleWrap = document.createElement("div");
-            secTitleWrap.style.cssText = "display:flex;align-items:center;gap:6px;";
+            secTitleWrap.style.cssText = "display:flex;align-items:center;gap:6px;flex:1;min-width:0;";
+
+            const secDragHandle = document.createElement("span");
+            secDragHandle.className = "crit-drag-handle";
+            secDragHandle.title = t('gsDragToReorder', 'Drag to reorder');
+            secDragHandle.innerHTML = '<img src="../assets/icons/order.svg" class="btn-icon" alt="" style="width:13px;height:13px;" />';
+
             const secDot = document.createElement("span");
             secDot.style.cssText = `width:9px;height:9px;border-radius:50%;background:${sec.color || '#333333'};display:inline-block;flex-shrink:0;`;
             const secTitle = document.createElement("span");
-            secTitle.style.cssText = "font-weight:800;font-size:0.85rem;color:var(--ink,#111827);";
+            secTitle.style.cssText = "font-weight:800;font-size:0.85rem;color:var(--ink,#111827);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
             secTitle.textContent = sec.name;
-            secTitleWrap.append(secDot, secTitle);
+            secTitleWrap.append(secDragHandle, secDot, secTitle);
 
             let secChipCount = 0;
             sec.groups.forEach(g => { secChipCount += (g.items || []).length; });
             totalCategories += sec.groups.length;
             totalChips += secChipCount;
 
+            const secActionsWrap = document.createElement("div");
+            secActionsWrap.style.cssText = "display:flex;align-items:center;gap:4px;flex-shrink:0;";
+
             const secBadge = document.createElement("span");
             secBadge.style.cssText = `font-size:0.75rem;font-weight:700;color:${sec.color || '#555'};padding:1px 7px;border-radius:10px;background:${sec.color ? sec.color + '15' : '#f1f5f9'};border:1px solid ${sec.color ? sec.color + '33' : '#e2e8f0'};`;
             secBadge.textContent = `${sec.groups.length} ${t('gsCategoriesLabel', 'categories')} · ${secChipCount} ${t('gsChipsLabel', 'chips')}`;
 
-            secHeader.append(secTitleWrap, secBadge);
+            const secUpBtn = document.createElement("button");
+            secUpBtn.type = "button";
+            secUpBtn.className = "btn btn-xs";
+            secUpBtn.title = t('gsMoveUp', 'Move up');
+            secUpBtn.style.cssText = "padding:2px 5px;" + (secIdx === 0 ? "opacity:0.4;cursor:not-allowed;" : "");
+            secUpBtn.disabled = secIdx === 0;
+            secUpBtn.innerHTML = '<img src="../assets/icons/arrow-up.svg" class="btn-icon btn-icon-xs" alt="" style="width:11px;height:11px;" />';
+            secUpBtn.onclick = async (e) => {
+              e.stopPropagation();
+              if (secIdx > 0) {
+                const moved = sectionTrees.splice(secIdx, 1)[0];
+                sectionTrees.splice(secIdx - 1, 0, moved);
+                const flatGroups = sectionTrees.flatMap(s => s.groups.map(g => ({ section: s.name, color: s.color || g.color, type: g.type, items: Array.isArray(g.items) ? [...g.items] : [] })));
+                await saveChipBankGroups(targetBankFn, flatGroups);
+                renderToptChipsPreview();
+                showToast(t('gsToastChipBankReordered', 'Observation chip bank reordered'));
+              }
+            };
+
+            const secDownBtn = document.createElement("button");
+            secDownBtn.type = "button";
+            secDownBtn.className = "btn btn-xs";
+            secDownBtn.title = t('gsMoveDown', 'Move down');
+            secDownBtn.style.cssText = "padding:2px 5px;" + (secIdx === sectionTrees.length - 1 ? "opacity:0.4;cursor:not-allowed;" : "");
+            secDownBtn.disabled = secIdx === sectionTrees.length - 1;
+            secDownBtn.innerHTML = '<img src="../assets/icons/arrow-down.svg" class="btn-icon btn-icon-xs" alt="" style="width:11px;height:11px;" />';
+            secDownBtn.onclick = async (e) => {
+              e.stopPropagation();
+              if (secIdx < sectionTrees.length - 1) {
+                const moved = sectionTrees.splice(secIdx, 1)[0];
+                sectionTrees.splice(secIdx + 1, 0, moved);
+                const flatGroups = sectionTrees.flatMap(s => s.groups.map(g => ({ section: s.name, color: s.color || g.color, type: g.type, items: Array.isArray(g.items) ? [...g.items] : [] })));
+                await saveChipBankGroups(targetBankFn, flatGroups);
+                renderToptChipsPreview();
+                showToast(t('gsToastChipBankReordered', 'Observation chip bank reordered'));
+              }
+            };
+
+            secActionsWrap.append(secBadge, secUpBtn, secDownBtn);
+            secHeader.append(secTitleWrap, secActionsWrap);
             secWrap.appendChild(secHeader);
+
+            // Drag and drop for whole section card
+            secWrap.addEventListener("dragstart", (e) => {
+              if (e.target.closest && (e.target.closest(".topt-chip-cat-box") || e.target.closest("button") || e.target.closest("input") || e.target.closest("select"))) {
+                return;
+              }
+              _toptDragSrcSecIdx = secIdx;
+              e.dataTransfer.effectAllowed = "move";
+              e.dataTransfer.setData("text/plain", `sec:${secIdx}`);
+              setTimeout(() => { secWrap.classList.add("dragging"); }, 0);
+            });
+
+            secWrap.addEventListener("dragend", () => {
+              secWrap.classList.remove("dragging");
+              toptChipsPreviewList.querySelectorAll(".topt-chip-sec-card").forEach(r => r.classList.remove("dragging", "drag-over", "drag-over-top", "drag-over-bottom"));
+              _toptDragSrcSecIdx = null;
+            });
+
+            secWrap.addEventListener("dragover", (e) => {
+              if (_toptDragSrcSecIdx === null) return;
+              e.preventDefault();
+              e.stopPropagation();
+              e.dataTransfer.dropEffect = "move";
+              if (_toptDragSrcSecIdx === secIdx) {
+                secWrap.classList.remove("drag-over", "drag-over-top", "drag-over-bottom");
+                return;
+              }
+              toptChipsPreviewList.querySelectorAll(".topt-chip-sec-card").forEach(r => {
+                if (r !== secWrap) r.classList.remove("drag-over", "drag-over-top", "drag-over-bottom");
+              });
+              const rect = secWrap.getBoundingClientRect();
+              const relY = e.clientY - rect.top;
+              const isBelow = relY > rect.height / 2;
+              secWrap.classList.add("drag-over");
+              secWrap.classList.toggle("drag-over-bottom", isBelow);
+              secWrap.classList.toggle("drag-over-top", !isBelow);
+            });
+
+            secWrap.addEventListener("dragleave", (e) => {
+              if (secWrap.contains(e.relatedTarget)) return;
+              secWrap.classList.remove("drag-over", "drag-over-top", "drag-over-bottom");
+            });
+
+            secWrap.addEventListener("drop", async (e) => {
+              if (_toptDragSrcSecIdx === null) return;
+              e.preventDefault();
+              e.stopPropagation();
+              toptChipsPreviewList.querySelectorAll(".topt-chip-sec-card").forEach(r => r.classList.remove("drag-over", "drag-over-top", "drag-over-bottom"));
+              const from = _toptDragSrcSecIdx;
+              if (from === null || from === secIdx) return;
+              const rect = secWrap.getBoundingClientRect();
+              const relY = e.clientY - rect.top;
+              const isBelow = relY > rect.height / 2;
+              let to = secIdx;
+              if (from < to && !isBelow) to = to - 1;
+              else if (from > to && isBelow) to = to + 1;
+              to = Math.max(0, Math.min(sectionTrees.length - 1, to));
+              if (from === to) return;
+
+              const moved = sectionTrees.splice(from, 1)[0];
+              sectionTrees.splice(to, 0, moved);
+              const flatGroups = sectionTrees.flatMap(s => s.groups.map(g => ({ section: s.name, color: s.color || g.color, type: g.type, items: Array.isArray(g.items) ? [...g.items] : [] })));
+              _toptDragSrcSecIdx = null;
+              await saveChipBankGroups(targetBankFn, flatGroups);
+              renderToptChipsPreview();
+              showToast(t('gsToastChipBankReordered', 'Observation chip bank reordered'));
+            });
 
             const groupsContainer = document.createElement("div");
             groupsContainer.style.cssText = "display:flex;flex-direction:column;gap:6px;";
 
-            sec.groups.forEach(g => {
+            sec.groups.forEach((g, catIdx) => {
               const catBox = document.createElement("div");
-              catBox.style.cssText = "padding:6px 8px;background:var(--bg-subtle,#f8fafc);border:1px solid var(--line,#e2e8f0);border-radius:6px;";
+              catBox.className = "topt-chip-cat-box";
+              catBox.style.cssText = "padding:6px 8px;background:var(--bg-subtle,#f8fafc);border:1px solid var(--line,#e2e8f0);border-radius:6px;position:relative;transition:transform 120ms ease, opacity 120ms ease;";
+              catBox.draggable = true;
+              catBox.dataset.secIdx = String(secIdx);
+              catBox.dataset.catIdx = String(catIdx);
 
               const catHeader = document.createElement("div");
-              catHeader.style.cssText = "display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;";
+              catHeader.style.cssText = "display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;gap:6px;";
+
+              const catTitleWrap = document.createElement("div");
+              catTitleWrap.style.cssText = "display:flex;align-items:center;gap:5px;flex:1;min-width:0;";
+
+              const catDragHandle = document.createElement("span");
+              catDragHandle.className = "crit-drag-handle";
+              catDragHandle.title = t('gsDragToReorder', 'Drag to reorder');
+              catDragHandle.innerHTML = '<img src="../assets/icons/order.svg" class="btn-icon" alt="" style="width:11px;height:11px;" />';
+
               const catName = document.createElement("span");
-              catName.style.cssText = "font-weight:700;font-size:0.78rem;color:var(--ink);";
+              catName.style.cssText = "font-weight:700;font-size:0.78rem;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
               catName.textContent = `${g.type} (${(g.items || []).length})`;
-              catHeader.appendChild(catName);
+              catTitleWrap.append(catDragHandle, catName);
+
+              const catActionsWrap = document.createElement("div");
+              catActionsWrap.style.cssText = "display:flex;align-items:center;gap:3px;flex-shrink:0;";
+
+              const catUpBtn = document.createElement("button");
+              catUpBtn.type = "button";
+              catUpBtn.className = "btn btn-xs";
+              catUpBtn.title = t('gsMoveUp', 'Move up');
+              catUpBtn.style.cssText = "padding:1px 4px;font-size:0.7rem;" + (catIdx === 0 ? "opacity:0.4;cursor:not-allowed;" : "");
+              catUpBtn.disabled = catIdx === 0;
+              catUpBtn.innerHTML = '<img src="../assets/icons/arrow-up.svg" class="btn-icon btn-icon-xs" alt="" style="width:10px;height:10px;" />';
+              catUpBtn.onclick = async (e) => {
+                e.stopPropagation();
+                if (catIdx > 0) {
+                  const moved = sec.groups.splice(catIdx, 1)[0];
+                  sec.groups.splice(catIdx - 1, 0, moved);
+                  const flatGroups = sectionTrees.flatMap(s => s.groups.map(grp => ({ section: s.name, color: s.color || grp.color, type: grp.type, items: Array.isArray(grp.items) ? [...grp.items] : [] })));
+                  await saveChipBankGroups(targetBankFn, flatGroups);
+                  renderToptChipsPreview();
+                  showToast(t('gsToastChipBankReordered', 'Observation chip bank reordered'));
+                }
+              };
+
+              const catDownBtn = document.createElement("button");
+              catDownBtn.type = "button";
+              catDownBtn.className = "btn btn-xs";
+              catDownBtn.title = t('gsMoveDown', 'Move down');
+              catDownBtn.style.cssText = "padding:1px 4px;font-size:0.7rem;" + (catIdx === sec.groups.length - 1 ? "opacity:0.4;cursor:not-allowed;" : "");
+              catDownBtn.disabled = catIdx === sec.groups.length - 1;
+              catDownBtn.innerHTML = '<img src="../assets/icons/arrow-down.svg" class="btn-icon btn-icon-xs" alt="" style="width:10px;height:10px;" />';
+              catDownBtn.onclick = async (e) => {
+                e.stopPropagation();
+                if (catIdx < sec.groups.length - 1) {
+                  const moved = sec.groups.splice(catIdx, 1)[0];
+                  sec.groups.splice(catIdx + 1, 0, moved);
+                  const flatGroups = sectionTrees.flatMap(s => s.groups.map(grp => ({ section: s.name, color: s.color || grp.color, type: grp.type, items: Array.isArray(grp.items) ? [...grp.items] : [] })));
+                  await saveChipBankGroups(targetBankFn, flatGroups);
+                  renderToptChipsPreview();
+                  showToast(t('gsToastChipBankReordered', 'Observation chip bank reordered'));
+                }
+              };
+
+              catActionsWrap.append(catUpBtn, catDownBtn);
+              catHeader.append(catTitleWrap, catActionsWrap);
               catBox.appendChild(catHeader);
+
+              // Drag and drop for categories
+              catBox.addEventListener("dragstart", (e) => {
+                e.stopPropagation();
+                _toptDragSrcCat = { secIdx, catIdx };
+                e.dataTransfer.effectAllowed = "move";
+                e.dataTransfer.setData("text/plain", `cat:${secIdx}:${catIdx}`);
+                setTimeout(() => { catBox.classList.add("dragging"); }, 0);
+              });
+
+              catBox.addEventListener("dragend", (e) => {
+                e.stopPropagation();
+                catBox.classList.remove("dragging");
+                groupsContainer.querySelectorAll(".topt-chip-cat-box").forEach(r => r.classList.remove("dragging", "drag-over", "drag-over-top", "drag-over-bottom"));
+                _toptDragSrcCat = null;
+              });
+
+              catBox.addEventListener("dragover", (e) => {
+                if (!_toptDragSrcCat || _toptDragSrcCat.secIdx !== secIdx) return;
+                e.preventDefault();
+                e.stopPropagation();
+                e.dataTransfer.dropEffect = "move";
+                if (_toptDragSrcCat.catIdx === catIdx) {
+                  catBox.classList.remove("drag-over", "drag-over-top", "drag-over-bottom");
+                  return;
+                }
+                groupsContainer.querySelectorAll(".topt-chip-cat-box").forEach(r => {
+                  if (r !== catBox) r.classList.remove("drag-over", "drag-over-top", "drag-over-bottom");
+                });
+                const rect = catBox.getBoundingClientRect();
+                const relY = e.clientY - rect.top;
+                const isBelow = relY > rect.height / 2;
+                catBox.classList.add("drag-over");
+                catBox.classList.toggle("drag-over-bottom", isBelow);
+                catBox.classList.toggle("drag-over-top", !isBelow);
+              });
+
+              catBox.addEventListener("dragleave", (e) => {
+                e.stopPropagation();
+                if (catBox.contains(e.relatedTarget)) return;
+                catBox.classList.remove("drag-over", "drag-over-top", "drag-over-bottom");
+              });
+
+              catBox.addEventListener("drop", async (e) => {
+                if (!_toptDragSrcCat || _toptDragSrcCat.secIdx !== secIdx) return;
+                e.preventDefault();
+                e.stopPropagation();
+                groupsContainer.querySelectorAll(".topt-chip-cat-box").forEach(r => r.classList.remove("drag-over", "drag-over-top", "drag-over-bottom"));
+                const from = _toptDragSrcCat.catIdx;
+                if (from === null || from === catIdx) return;
+                const rect = catBox.getBoundingClientRect();
+                const relY = e.clientY - rect.top;
+                const isBelow = relY > rect.height / 2;
+                let to = catIdx;
+                if (from < to && !isBelow) to = to - 1;
+                else if (from > to && isBelow) to = to + 1;
+                to = Math.max(0, Math.min(sec.groups.length - 1, to));
+                if (from === to) return;
+
+                const moved = sec.groups.splice(from, 1)[0];
+                sec.groups.splice(to, 0, moved);
+                const flatGroups = sectionTrees.flatMap(s => s.groups.map(grp => ({ section: s.name, color: s.color || grp.color, type: grp.type, items: Array.isArray(grp.items) ? [...grp.items] : [] })));
+                _toptDragSrcCat = null;
+                await saveChipBankGroups(targetBankFn, flatGroups);
+                renderToptChipsPreview();
+                showToast(t('gsToastChipBankReordered', 'Observation chip bank reordered'));
+              });
 
               const chipsWrap = document.createElement("div");
               chipsWrap.style.cssText = "display:flex;flex-wrap:wrap;gap:4px;";
@@ -10537,6 +10793,8 @@
         ? [...config.observationSections]
         : [];
 
+      let _toptDragSrcObsSecIdx = null;
+
       function renderToptObsSections() {
         if (!toptObsSectionsList) return;
         toptObsSectionsList.innerHTML = "";
@@ -10549,22 +10807,144 @@
         }
         obsSectionsDraft.forEach((secName, idx) => {
           const row = document.createElement("div");
-          row.style.cssText = "display:flex;align-items:center;justify-content:space-between;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;";
+          row.className = "topt-obs-sec-row";
+          row.draggable = true;
+          row.dataset.idx = String(idx);
+          row.style.cssText = "display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border:1.5px solid var(--border,#333333);border-radius:6px;background:#fff;box-shadow:2px 2px 0 rgba(0,0,0,0.06);gap:8px;transition:transform 120ms ease, opacity 120ms ease;position:relative;";
+
+          const leftWrap = document.createElement("div");
+          leftWrap.style.cssText = "display:flex;align-items:center;gap:6px;flex:1;min-width:0;";
+
+          const dragHandle = document.createElement("span");
+          dragHandle.className = "crit-drag-handle";
+          dragHandle.title = t('gsDragToReorder', 'Drag to reorder');
+          dragHandle.innerHTML = '<img src="../assets/icons/order.svg" class="btn-icon" alt="" style="width:13px;height:13px;" />';
+
           const nameSpan = document.createElement("span");
-          nameSpan.style.cssText = "font-size:0.82rem;font-weight:600;";
+          nameSpan.style.cssText = "font-size:0.82rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink,#111827);";
           nameSpan.textContent = secName;
+
+          leftWrap.append(dragHandle, nameSpan);
+
+          const actionsWrap = document.createElement("div");
+          actionsWrap.style.cssText = "display:flex;align-items:center;gap:3px;flex-shrink:0;";
+
+          const upBtn = document.createElement("button");
+          upBtn.type = "button";
+          upBtn.className = "btn btn-xs";
+          upBtn.title = t('gsMoveUp', 'Move up');
+          upBtn.style.cssText = "padding:2px 5px;" + (idx === 0 ? "opacity:0.4;cursor:not-allowed;" : "");
+          upBtn.disabled = idx === 0;
+          upBtn.innerHTML = '<img src="../assets/icons/arrow-up.svg" class="btn-icon btn-icon-xs" alt="" style="width:11px;height:11px;" />';
+          upBtn.onclick = (e) => {
+            e.stopPropagation();
+            if (idx > 0) {
+              const moved = obsSectionsDraft.splice(idx, 1)[0];
+              obsSectionsDraft.splice(idx - 1, 0, moved);
+              renderToptObsSections();
+              showToast(t('gsToastSectionsReordered', 'Observation sections reordered'));
+            }
+          };
+
+          const downBtn = document.createElement("button");
+          downBtn.type = "button";
+          downBtn.className = "btn btn-xs";
+          downBtn.title = t('gsMoveDown', 'Move down');
+          downBtn.style.cssText = "padding:2px 5px;" + (idx === obsSectionsDraft.length - 1 ? "opacity:0.4;cursor:not-allowed;" : "");
+          downBtn.disabled = idx === obsSectionsDraft.length - 1;
+          downBtn.innerHTML = '<img src="../assets/icons/arrow-down.svg" class="btn-icon btn-icon-xs" alt="" style="width:11px;height:11px;" />';
+          downBtn.onclick = (e) => {
+            e.stopPropagation();
+            if (idx < obsSectionsDraft.length - 1) {
+              const moved = obsSectionsDraft.splice(idx, 1)[0];
+              obsSectionsDraft.splice(idx + 1, 0, moved);
+              renderToptObsSections();
+              showToast(t('gsToastSectionsReordered', 'Observation sections reordered'));
+            }
+          };
 
           const delBtn = document.createElement("button");
           delBtn.type = "button";
           delBtn.className = "btn btn-xs";
-          delBtn.style.cssText = "padding:1px 6px;color:#ef4444;";
+          delBtn.style.cssText = "padding:1px 6px;color:var(--warn,#ef4444);font-weight:bold;";
           delBtn.textContent = "×";
           delBtn.title = t('gsDeleteSection', 'Remove Section');
-          delBtn.onclick = () => {
+          delBtn.onclick = (e) => {
+            e.stopPropagation();
             obsSectionsDraft.splice(idx, 1);
             renderToptObsSections();
           };
-          row.append(nameSpan, delBtn);
+
+          actionsWrap.append(upBtn, downBtn, delBtn);
+          row.append(leftWrap, actionsWrap);
+
+          // Drag and drop events for reordering obsSectionsDraft
+          row.addEventListener("dragstart", (e) => {
+            if (e.target.closest && (e.target.closest("button") || e.target.closest("input"))) {
+              e.preventDefault();
+              return;
+            }
+            _toptDragSrcObsSecIdx = idx;
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData("text/plain", String(idx));
+            setTimeout(() => { row.classList.add("dragging"); }, 0);
+          });
+
+          row.addEventListener("dragend", () => {
+            row.classList.remove("dragging");
+            toptObsSectionsList.querySelectorAll(".topt-obs-sec-row").forEach(r => r.classList.remove("dragging", "drag-over", "drag-over-top", "drag-over-bottom"));
+            _toptDragSrcObsSecIdx = null;
+          });
+
+          row.addEventListener("dragover", (e) => {
+            if (_toptDragSrcObsSecIdx === null) return;
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = "move";
+            if (_toptDragSrcObsSecIdx === idx) {
+              row.classList.remove("drag-over", "drag-over-top", "drag-over-bottom");
+              return;
+            }
+            toptObsSectionsList.querySelectorAll(".topt-obs-sec-row").forEach(r => {
+              if (r !== row) r.classList.remove("drag-over", "drag-over-top", "drag-over-bottom");
+            });
+            const rect = row.getBoundingClientRect();
+            const relY = e.clientY - rect.top;
+            const isBelow = relY > rect.height / 2;
+            row.classList.add("drag-over");
+            row.classList.toggle("drag-over-bottom", isBelow);
+            row.classList.toggle("drag-over-top", !isBelow);
+          });
+
+          row.addEventListener("dragleave", (e) => {
+            if (row.contains(e.relatedTarget)) return;
+            row.classList.remove("drag-over", "drag-over-top", "drag-over-bottom");
+          });
+
+          row.addEventListener("drop", (e) => {
+            if (_toptDragSrcObsSecIdx === null) return;
+            e.preventDefault();
+            e.stopPropagation();
+            toptObsSectionsList.querySelectorAll(".topt-obs-sec-row").forEach(r => r.classList.remove("drag-over", "drag-over-top", "drag-over-bottom"));
+            const from = _toptDragSrcObsSecIdx;
+            if (from === null || from === idx) return;
+
+            const rect = row.getBoundingClientRect();
+            const relY = e.clientY - rect.top;
+            const isBelow = relY > rect.height / 2;
+            let to = idx;
+            if (from < to && !isBelow) to = to - 1;
+            else if (from > to && isBelow) to = to + 1;
+            to = Math.max(0, Math.min(obsSectionsDraft.length - 1, to));
+            if (from === to) return;
+
+            const moved = obsSectionsDraft.splice(from, 1)[0];
+            obsSectionsDraft.splice(to, 0, moved);
+            _toptDragSrcObsSecIdx = null;
+            renderToptObsSections();
+            showToast(t('gsToastSectionsReordered', 'Observation sections reordered'));
+          });
+
           toptObsSectionsList.appendChild(row);
         });
       }
@@ -10651,6 +11031,23 @@
             activeSem = sem;
             activeTestIndex = testIndex;
           }
+        }
+
+        // Apply new observation sections order to existing student test notes
+        if (Array.isArray(config.observationSections) && config.observationSections.length > 0 && Array.isArray(classObj.students)) {
+          const orderMap = new Map(config.observationSections.map((name, i) => [String(name || '').trim().toLowerCase(), i]));
+          classObj.students.forEach(st => {
+            const notes = st.testNotes?.[activeSem]?.[activeTestIndex];
+            if (Array.isArray(notes) && notes.length > 1) {
+              notes.sort((a, b) => {
+                const aKey = String((a && a.label) || '').trim().toLowerCase();
+                const bKey = String((b && b.label) || '').trim().toLowerCase();
+                const aIdx = orderMap.has(aKey) ? orderMap.get(aKey) : 9999;
+                const bIdx = orderMap.has(bKey) ? orderMap.get(bKey) : 9999;
+                return aIdx - bIdx;
+              });
+            }
+          });
         }
 
         recalcAllStudentGradesForTest(classObj, activeSem, activeTestIndex);
