@@ -13747,7 +13747,35 @@
       setTimeout(() => {
         applyLang();
         scheduleWordsSeenAutosave(loadWordsSeenTodayStore());
-      }, 150);
+
+        // Deep-link routing from Board or external calls
+        const urlParams = new URLSearchParams(window.location.search);
+        let targetSec = urlParams.get('section');
+        const isMultiplayer = urlParams.get('multiplayer') === '1';
+        if (isMultiplayer && !targetSec) targetSec = 'quiz-section';
+
+        if (targetSec && document.getElementById(targetSec)) {
+          navTo(targetSec);
+          const pTheme = urlParams.get('theme') || urlParams.get('quizTheme');
+          const pLevel = urlParams.get('level') || urlParams.get('quizLevel');
+          const pWords = urlParams.get('words');
+          const secEl = document.getElementById(targetSec);
+          if (secEl) {
+            if (pLevel) {
+              const lWrap = secEl.querySelector('.level-picker-wrap');
+              if (lWrap && typeof themePickerSetSelected === 'function') themePickerSetSelected(lWrap, [pLevel]);
+            }
+            if (pTheme) {
+              const tWrap = secEl.querySelector('.theme-picker-wrap:not(.level-picker-wrap):not(.pos-picker-wrap):not(.letter-picker-wrap):not(.length-picker-wrap):not(.keyword-picker-wrap):not(.source-picker-wrap)');
+              if (tWrap && typeof themePickerSetSelected === 'function') themePickerSetSelected(tWrap, [pTheme]);
+            }
+          }
+          if (isMultiplayer && typeof _quizMpSetMode === 'function') {
+            _quizMpSetMode('local');
+          }
+          if (typeof refreshCurrentGame === 'function') refreshCurrentGame();
+        }
+      }, 200);
     });
 
     // ================================================================

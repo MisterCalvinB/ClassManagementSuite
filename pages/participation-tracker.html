@@ -3300,6 +3300,25 @@
             const totalNetPerSession = totals.net / totalSessionDivisor;
             const totalNetPerSessionPerStudent = totals.net / totalSessionStudentDivisor;
 
+            const numGroups = summaries.length || 1;
+            const meanSessions = totals.sessions / numGroups;
+            const meanStudents = totals.students / numGroups;
+            const meanPicks = totals.picks / numGroups;
+            const meanPicksPerSession = summaries.reduce((acc, row) => acc + (row.picks / (row.sessions || 1)), 0) / numGroups;
+            const meanPositive = totals.positive / numGroups;
+            const meanPosPerSession = summaries.reduce((acc, row) => acc + (row.positive / (row.sessions || 1)), 0) / numGroups;
+            const meanPosPerSessionPerStudent = summaries.reduce((acc, row) => acc + (row.positive / ((row.sessions || 0) * (row.students || 0) || 1)), 0) / numGroups;
+            const meanNegative = totals.negative / numGroups;
+            const meanNegPerSession = summaries.reduce((acc, row) => acc + (row.negative / (row.sessions || 1)), 0) / numGroups;
+            const meanNegPerSessionPerStudent = summaries.reduce((acc, row) => acc + (row.negative / ((row.sessions || 0) * (row.students || 0) || 1)), 0) / numGroups;
+            const meanBadgePositive = totals.badgePositive / numGroups;
+            const meanBadgeNegative = totals.badgeNegative / numGroups;
+            const meanBadges = totals.badges / numGroups;
+            const meanBadgesPerSessionPerStudent = summaries.reduce((acc, row) => acc + (row.badges / ((row.sessions || 0) * (row.students || 0) || 1)), 0) / numGroups;
+            const meanNet = totals.net / numGroups;
+            const meanNetPerSession = summaries.reduce((acc, row) => acc + (row.net / (row.sessions || 1)), 0) / numGroups;
+            const meanNetPerSessionPerStudent = summaries.reduce((acc, row) => acc + (row.net / ((row.sessions || 0) * (row.students || 0) || 1)), 0) / numGroups;
+
             body.innerHTML = summaries.map(row => `
                 ${(() => {
                     const sessionDivisor = row.sessions || 1;
@@ -3338,25 +3357,45 @@
             `).join('');
 
             foot.innerHTML = `
-                <tr>
-                    <td>Total</td>
+                <tr class="compare-totals-row">
+                    <td><strong>${t('ptCmpSumTotals')}</strong></td>
                     <td>${totals.sessions}</td>
                     <td>${totals.students}</td>
                     <td>${totals.picks}</td>
-                    <td>${totalPickPerSession.toFixed(2)}</td>
+                    <td>—</td>
                     <td style="color:#2ca02c;">${totals.positive}</td>
-                    <td style="color:#2ca02c;">${totalPosPerSession.toFixed(2)}</td>
-                    <td style="color:#2ca02c;">${totalPosPerSessionPerStudent.toFixed(2)}</td>
+                    <td>—</td>
+                    <td>—</td>
                     <td style="color:#d62728;">${totals.negative}</td>
-                    <td style="color:#d62728;">${totalNegPerSession.toFixed(2)}</td>
-                    <td style="color:#d62728;">${totalNegPerSessionPerStudent.toFixed(2)}</td>
+                    <td>—</td>
+                    <td>—</td>
                     <td style="color:#2ca02c;">${formatSummaryNumber(totals.badgePositive)}</td>
                     <td style="color:#d62728;">${formatSummaryNumber(totals.badgeNegative)}</td>
                     <td>${totals.badges}</td>
-                    <td>${totalBadgesPerSessionPerStudent.toFixed(2)}</td>
+                    <td>—</td>
                     <td style="color:${totals.net >= 0 ? '#2ca02c' : '#d62728'};">${totals.net >= 0 ? '+' : ''}${formatSummaryNumber(totals.net)}</td>
-                    <td style="color:${totalNetPerSession >= 0 ? '#2ca02c' : '#d62728'};">${totalNetPerSession >= 0 ? '+' : ''}${totalNetPerSession.toFixed(2)}</td>
-                    <td style="color:${totalNetPerSessionPerStudent >= 0 ? '#2ca02c' : '#d62728'};">${totalNetPerSessionPerStudent >= 0 ? '+' : ''}${totalNetPerSessionPerStudent.toFixed(2)}</td>
+                    <td>—</td>
+                    <td>—</td>
+                </tr>
+                <tr class="compare-mean-row">
+                    <td><strong>${t('ptCmpOverallMean')}</strong></td>
+                    <td>${meanSessions.toFixed(2)}</td>
+                    <td>${meanStudents.toFixed(2)}</td>
+                    <td>${meanPicks.toFixed(2)}</td>
+                    <td>${meanPicksPerSession.toFixed(2)}</td>
+                    <td style="color:#2ca02c;">${meanPositive.toFixed(2)}</td>
+                    <td style="color:#2ca02c;">${meanPosPerSession.toFixed(2)}</td>
+                    <td style="color:#2ca02c;">${meanPosPerSessionPerStudent.toFixed(2)}</td>
+                    <td style="color:#d62728;">${meanNegative.toFixed(2)}</td>
+                    <td style="color:#d62728;">${meanNegPerSession.toFixed(2)}</td>
+                    <td style="color:#d62728;">${meanNegPerSessionPerStudent.toFixed(2)}</td>
+                    <td style="color:#2ca02c;">${meanBadgePositive.toFixed(2)}</td>
+                    <td style="color:#d62728;">${meanBadgeNegative.toFixed(2)}</td>
+                    <td>${meanBadges.toFixed(2)}</td>
+                    <td>${meanBadgesPerSessionPerStudent.toFixed(2)}</td>
+                    <td style="color:${meanNet >= 0 ? '#2ca02c' : '#d62728'};">${meanNet >= 0 ? '+' : ''}${meanNet.toFixed(2)}</td>
+                    <td style="color:${meanNetPerSession >= 0 ? '#2ca02c' : '#d62728'};">${meanNetPerSession >= 0 ? '+' : ''}${meanNetPerSession.toFixed(2)}</td>
+                    <td style="color:${meanNetPerSessionPerStudent >= 0 ? '#2ca02c' : '#d62728'};">${meanNetPerSessionPerStudent >= 0 ? '+' : ''}${meanNetPerSessionPerStudent.toFixed(2)}</td>
                 </tr>
             `;
 
@@ -6461,6 +6500,100 @@
             const headersHtml = data.headers.map(h => `<th>${escHtml(h)}</th>`).join('');
             const rowsHtml = data.rows.map(r => `<tr>${r.map(c => `<td>${escHtml(String(c))}</td>`).join('')}</tr>`).join('');
 
+            const targetGroups = (compareGroupIds && compareGroupIds.length > 0) ? compareGroupIds : extractGroupsFromData();
+            const dateRange = getDateRange();
+            const summaries = targetGroups.map(groupId => getGroupSummary(groupId, dateRange.from, dateRange.to));
+            const numGroups = summaries.length || 1;
+            const totals = summaries.reduce((acc, row) => {
+                acc.sessions += row.sessions;
+                acc.students += row.students;
+                acc.picks += row.picks;
+                acc.positive += row.positive;
+                acc.negative += row.negative;
+                acc.badgePositive += row.badgePositive;
+                acc.badgeNegative += row.badgeNegative;
+                acc.badges += row.badges;
+                acc.net += row.net;
+                return acc;
+            }, {
+                sessions: 0, students: 0, picks: 0, positive: 0, negative: 0,
+                badgePositive: 0, badgeNegative: 0, badges: 0, net: 0
+            });
+
+            const totalSessionDivisor = totals.sessions || 1;
+            const totalSessionStudentDivisor = summaries.reduce((acc, row) => acc + ((row.sessions || 0) * (row.students || 0)), 0) || 1;
+            const totalPickPerSession = totals.picks / totalSessionDivisor;
+            const totalPosPerSession = totals.positive / totalSessionDivisor;
+            const totalPosPerSessionPerStudent = totals.positive / totalSessionStudentDivisor;
+            const totalNegPerSession = totals.negative / totalSessionDivisor;
+            const totalNegPerSessionPerStudent = totals.negative / totalSessionStudentDivisor;
+            const totalBadgesPerSessionPerStudent = totals.badges / totalSessionStudentDivisor;
+            const totalNetPerSession = totals.net / totalSessionDivisor;
+            const totalNetPerSessionPerStudent = totals.net / totalSessionStudentDivisor;
+
+            const meanSessions = totals.sessions / numGroups;
+            const meanStudents = totals.students / numGroups;
+            const meanPicks = totals.picks / numGroups;
+            const meanPicksPerSession = summaries.reduce((acc, row) => acc + (row.picks / (row.sessions || 1)), 0) / numGroups;
+            const meanPositive = totals.positive / numGroups;
+            const meanPosPerSession = summaries.reduce((acc, row) => acc + (row.positive / (row.sessions || 1)), 0) / numGroups;
+            const meanPosPerSessionPerStudent = summaries.reduce((acc, row) => acc + (row.positive / ((row.sessions || 0) * (row.students || 0) || 1)), 0) / numGroups;
+            const meanNegative = totals.negative / numGroups;
+            const meanNegPerSession = summaries.reduce((acc, row) => acc + (row.negative / (row.sessions || 1)), 0) / numGroups;
+            const meanNegPerSessionPerStudent = summaries.reduce((acc, row) => acc + (row.negative / ((row.sessions || 0) * (row.students || 0) || 1)), 0) / numGroups;
+            const meanBadgePositive = totals.badgePositive / numGroups;
+            const meanBadgeNegative = totals.badgeNegative / numGroups;
+            const meanBadges = totals.badges / numGroups;
+            const meanBadgesPerSessionPerStudent = summaries.reduce((acc, row) => acc + (row.badges / ((row.sessions || 0) * (row.students || 0) || 1)), 0) / numGroups;
+            const meanNet = totals.net / numGroups;
+            const meanNetPerSession = summaries.reduce((acc, row) => acc + (row.net / (row.sessions || 1)), 0) / numGroups;
+            const meanNetPerSessionPerStudent = summaries.reduce((acc, row) => acc + (row.net / ((row.sessions || 0) * (row.students || 0) || 1)), 0) / numGroups;
+
+            const tfootHtml = `
+                <tfoot>
+                    <tr style="font-weight:bold; background:#f4f7ff;">
+                        <td><strong>${t('ptCmpSumTotals')}</strong></td>
+                        <td>${totals.sessions}</td>
+                        <td>${totals.students}</td>
+                        <td>${totals.picks}</td>
+                        <td>—</td>
+                        <td style="color:#2ca02c;">${totals.positive}</td>
+                        <td>—</td>
+                        <td>—</td>
+                        <td style="color:#d62728;">${totals.negative}</td>
+                        <td>—</td>
+                        <td>—</td>
+                        <td style="color:#2ca02c;">${formatSummaryNumber(totals.badgePositive)}</td>
+                        <td style="color:#d62728;">${formatSummaryNumber(totals.badgeNegative)}</td>
+                        <td>${totals.badges}</td>
+                        <td>—</td>
+                        <td style="color:${totals.net >= 0 ? '#2ca02c' : '#d62728'};">${totals.net >= 0 ? '+' : ''}${formatSummaryNumber(totals.net)}</td>
+                        <td>—</td>
+                        <td>—</td>
+                    </tr>
+                    <tr style="font-weight:bold; background:#e9effd;">
+                        <td><strong>${t('ptCmpOverallMean')}</strong></td>
+                        <td>${meanSessions.toFixed(2)}</td>
+                        <td>${meanStudents.toFixed(2)}</td>
+                        <td>${meanPicks.toFixed(2)}</td>
+                        <td>${meanPicksPerSession.toFixed(2)}</td>
+                        <td style="color:#2ca02c;">${meanPositive.toFixed(2)}</td>
+                        <td style="color:#2ca02c;">${meanPosPerSession.toFixed(2)}</td>
+                        <td style="color:#2ca02c;">${meanPosPerSessionPerStudent.toFixed(2)}</td>
+                        <td style="color:#d62728;">${meanNegative.toFixed(2)}</td>
+                        <td style="color:#d62728;">${meanNegPerSession.toFixed(2)}</td>
+                        <td style="color:#d62728;">${meanNegPerSessionPerStudent.toFixed(2)}</td>
+                        <td style="color:#2ca02c;">${meanBadgePositive.toFixed(2)}</td>
+                        <td style="color:#d62728;">${meanBadgeNegative.toFixed(2)}</td>
+                        <td>${meanBadges.toFixed(2)}</td>
+                        <td>${meanBadgesPerSessionPerStudent.toFixed(2)}</td>
+                        <td style="color:${meanNet >= 0 ? '#2ca02c' : '#d62728'};">${meanNet >= 0 ? '+' : ''}${meanNet.toFixed(2)}</td>
+                        <td style="color:${meanNetPerSession >= 0 ? '#2ca02c' : '#d62728'};">${meanNetPerSession >= 0 ? '+' : ''}${meanNetPerSession.toFixed(2)}</td>
+                        <td style="color:${meanNetPerSessionPerStudent >= 0 ? '#2ca02c' : '#d62728'};">${meanNetPerSessionPerStudent >= 0 ? '+' : ''}${meanNetPerSessionPerStudent.toFixed(2)}</td>
+                    </tr>
+                </tfoot>
+            `;
+
             return `
                 <div class="report-header">
                     <div>
@@ -6481,6 +6614,7 @@
                     <table>
                         <thead><tr>${headersHtml}</tr></thead>
                         <tbody>${rowsHtml}</tbody>
+                        ${tfootHtml}
                     </table>
                 </div>
             `;

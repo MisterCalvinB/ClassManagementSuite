@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <link rel="stylesheet" href="../css/document-editor.css">
   <link rel="stylesheet" href="../css/tag-link-modal.css">
+  <link rel="stylesheet" href="../css/universal-importer.css">
 </head>
 
 <body>
@@ -57,6 +58,7 @@
           style="display:none">
           <option value="">📂 Books…</option>
         </select>
+        <button class="nav-pop-item" id="btn-universal-import" onclick="deOpenUniversalImportModal()"><img src="../assets/icons/import.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="deMenuUniversalImport">Universal Import…</span></button>
         <button class="nav-pop-item" id="btn-mp-insert-field"><img src="../assets/icons/groups.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="deInsertStudentField">Insert Student Field…</span></button>
         <hr class="nav-pop-sep">
         <div id="page-layout-wrap">
@@ -936,6 +938,7 @@
   <script src="../js/competence-aggregator-service.js"></script>
   <script src="../js/links-service.js"></script>
   <script src="../js/tag-link-modal.js"></script>
+  <script src="../js/universal-importer.js"></script>
   <script>
     'use strict';
 
@@ -1699,6 +1702,31 @@
       mdEditor.executeEdits('user-insert', [{ range: sel, text, forceMoveMarkers: true }]);
       mdEditor.focus();
     }
+
+    window.deOpenUniversalImportModal = function () {
+      if (typeof UniversalImporter === 'undefined') {
+        if (typeof showToast === 'function') showToast('Universal Importer module is not loaded.', true);
+        return;
+      }
+
+      const docPath = currentDocName ? (currentDocSubdir ? currentDocSubdir + '/' + currentDocName : currentDocName) : 'active';
+      const hostUrn = 'cmt:doc:docEditorDocs/' + docPath;
+
+      UniversalImporter.open({
+        host: 'document-editor',
+        hostUrn: hostUrn,
+        autoLink: true,
+        initialDomain: 'learning',
+        initialSubType: 'wordbanks',
+        onInsert: (selectedItems, chosenFormat, meta) => {
+          const markdown = UniversalImporter.toMarkdown(selectedItems, chosenFormat, meta);
+          insertTextAtCursor('\n' + markdown + '\n');
+          if (typeof showToast === 'function') {
+            showToast(`Inserted ${selectedItems.length} items into document.`);
+          }
+        }
+      });
+    };
 
     // ── Book text import ─────────────────────────────────────
     function deBookHtmlToText(html) {

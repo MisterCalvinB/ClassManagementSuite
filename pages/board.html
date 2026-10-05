@@ -9,6 +9,8 @@
   <link rel="stylesheet" href="../modules/katex/dist/katex.min.css">
   <link rel="stylesheet" href="../css/stylesheet.css">
   <link rel="stylesheet" href="../css/tag-link-modal.css">
+  <link rel="stylesheet" href="../css/universal-importer.css">
+  <link rel="stylesheet" href="../css/board-ipa-keyboard.css">
   <script src="../electron-bridge.js"></script>
   <script src="../js/dialogs.js"></script>
   <script src="../js/i18n.js"></script>
@@ -16,6 +18,7 @@
   <script src="../js/competence-aggregator-service.js"></script>
   <script src="../js/links-service.js"></script>
   <script src="../js/tag-link-modal.js"></script>
+  <script src="../js/universal-importer.js"></script>
   <script>
     let boardCmsTimerChannel = null;
     const boardCmsTimerPrefsKey = 'board-cms-timer-widget-v2';
@@ -279,6 +282,7 @@
   <script src="../js/dialogs.js"></script>
   <script src="../js/menus.js"></script>
   <script src="../js/board-recorder.js"></script>
+  <script src="../js/board-ipa-keyboard.js"></script>
   <script>
     (function () {
       function injectClassicScript(source, name) {
@@ -2115,6 +2119,340 @@
     </div>
   </div>
 
+  <!-- Floating IPA (Phonetic Alphabet) Keyboard Panel -->
+  <div id="board-ipa-keyboard-panel" class="board-ipa-panel" style="display:none;" aria-label="IPA Phonetic Keyboard">
+    <!-- Header -->
+    <div class="board-ipa-header" id="board-ipa-header">
+      <span class="board-ipa-drag-handle" id="board-ipa-drag-handle" title="Drag to reposition">⋮⋮</span>
+      <div class="board-ipa-title-wrap">
+        <img src="../assets/icons/ipa.svg" class="btn-icon" alt="" />
+        <span data-i18n="ipaKbdHeader">IPA Phonetic Keyboard</span>
+      </div>
+      <div class="board-ipa-header-actions">
+        <button type="button" class="board-ipa-hdr-btn" id="board-ipa-collapse-btn" onclick="boardToggleIpaCollapse()" title="Collapse / Expand">–</button>
+        <button type="button" class="board-ipa-hdr-btn danger" onclick="boardCloseIpaKeyboard()" title="Close">✕</button>
+      </div>
+    </div>
+
+    <!-- Quick Tab Category Filter -->
+    <div class="board-ipa-tabs-bar" id="board-ipa-tabs-bar"></div>
+
+    <!-- Body -->
+    <div class="board-ipa-body">
+      <!-- Live Buffer Row -->
+      <div class="board-ipa-buffer-wrap">
+        <div class="board-ipa-buffer-top">
+          <input type="text" id="board-ipa-buffer-input" class="board-ipa-buffer-input"
+            data-i18n-placeholder="ipaBufferPlaceholder" placeholder="Composed IPA string or click keys…"
+            oninput="window.ipaState && (window.ipaState.buffer = this.value)">
+          <button type="button" class="board-ipa-mini-btn" onclick="boardIpaBackspaceBuffer()" title="Backspace">⌫</button>
+          <button type="button" class="board-ipa-mini-btn" onclick="boardIpaClearBuffer()" data-i18n="ipaClearBuffer" title="Clear">Clear</button>
+          <button type="button" class="board-ipa-mini-btn" onclick="boardIpaCopyBuffer()" data-i18n="ipaCopyBuffer" title="Copy"><img src="../assets/icons/copy.svg" class="btn-icon" alt="" style="width:12px;height:12px;margin:0;" /></button>
+        </div>
+        <div class="board-ipa-buffer-btns">
+          <button type="button" class="board-ipa-mini-btn btn-slashes" onclick="boardIpaWrapSlashes()" data-i18n-title="ipaWrapSlashesTitle" title="Wrap with phonetic slashes / /">/ … /</button>
+          <button type="button" class="board-ipa-mini-btn btn-brackets" onclick="boardIpaWrapBrackets()" data-i18n-title="ipaWrapBracketsTitle" title="Wrap with phonetic brackets [ ]">[ … ]</button>
+          <button type="button" class="board-ipa-mini-btn" onmousedown="event.preventDefault()" onclick="handleKeyClick('ˈ')" title="Primary stress">ˈ</button>
+          <button type="button" class="board-ipa-mini-btn" onmousedown="event.preventDefault()" onclick="handleKeyClick('ˌ')" title="Secondary stress">ˌ</button>
+          <button type="button" class="board-ipa-mini-btn" onmousedown="event.preventDefault()" onclick="handleKeyClick('ː')" title="Length mark">ː</button>
+          <button type="button" class="board-ipa-mini-btn" onmousedown="event.preventDefault()" onclick="handleKeyClick('.')" title="Syllable break">.</button>
+          <button type="button" class="board-ipa-mini-btn" onmousedown="event.preventDefault()" onclick="handleKeyClick(' ')" title="Space">␣ Space</button>
+        </div>
+      </div>
+
+      <!-- Action Buttons Row (In Note, In Node, + Node, + Note) -->
+      <div class="board-ipa-actions-bar">
+        <button type="button" class="board-ipa-act-btn btn-in-note" onclick="boardIpaInsertInNote()" title="Insert into active or selected note">
+          <img src="../assets/icons/note.svg" class="btn-icon" alt="" />
+          <span data-i18n="ipaInsertInNote">In Note</span>
+        </button>
+        <button type="button" class="board-ipa-act-btn btn-in-node" onclick="boardIpaInsertInNode()" title="Insert into active or selected node">
+          <img src="../assets/icons/text.svg" class="btn-icon" alt="" />
+          <span data-i18n="ipaInsertInNode">In Node</span>
+        </button>
+        <button type="button" class="board-ipa-act-btn btn-create-node" onclick="boardIpaCreateAsNode()" title="Create new word node on board">
+          <img src="../assets/icons/plus.svg" class="btn-icon" alt="" />
+          <span data-i18n="ipaCreateAsNode">+ Node</span>
+        </button>
+        <button type="button" class="board-ipa-act-btn btn-create-note" onclick="boardIpaCreateAsNote()" title="Create new sticky note on board">
+          <img src="../assets/icons/note.svg" class="btn-icon" alt="" />
+          <span data-i18n="ipaCreateAsNote">+ Note</span>
+        </button>
+      </div>
+
+      <!-- Direct insertion option & target status -->
+      <div class="board-ipa-options-row">
+        <label class="board-ipa-direct-check" data-i18n-title="ipaDirectInsertTitle" title="When enabled, clicking a symbol immediately inserts it into the active note, node, or input">
+          <input type="checkbox" id="board-ipa-direct-check-input" checked onchange="boardIpaSetDirectInsert(this.checked)">
+          <span data-i18n="ipaDirectInsert">Direct insert on click</span>
+        </label>
+        <span id="board-ipa-target-hint" class="board-ipa-target-hint">📋 Buffer</span>
+      </div>
+
+      <!-- Keys Grid Container -->
+      <div id="board-ipa-grid-container" class="board-ipa-grid-container"></div>
+    </div>
+  </div>
+
+  <!-- Linked Quizzes & Learning Games Modal (Strict SVG Iconography) -->
+  <div id="con-learning-import-overlay" class="con-modal-overlay" style="display:none;" onclick="if(event.target===this)conCloseLearningImportModal()">
+    <div id="con-learning-import-dialog" class="con-modal-dialog" style="max-width:880px; width:94vw; max-height:90vh; display:flex; flex-direction:column; padding:0; overflow:hidden; border:3px solid #333333; box-shadow:6px 6px 0px #555555; border-radius:10px; background:#ffffff;">
+      
+      <!-- Modal Header -->
+      <div class="con-modal-header" style="background:#fffbe6; border-bottom:2px solid #333333; padding:12px 18px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0;">
+        <h3 style="display:flex; align-items:center; gap:8px; margin:0; font-size:1.1rem; font-weight:900; color:#111;">
+          <img src="../assets/icons/learning-tools.svg" class="btn-icon" alt="" style="width:22px; height:22px; margin:0;" />
+          <span data-i18n="boardModalGamesQuizzesTitle">Insert Learning Activity or Quiz</span>
+        </h3>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <button type="button" class="action-btn btn-grey tut-trigger-btn" onclick="if(typeof conOpenLearningToolsTour==='function')conOpenLearningToolsTour();" style="padding:4px 8px; font-weight:800; border-radius:6px; cursor:pointer;" title="Help & Tour">?</button>
+          <button type="button" class="action-btn btn-grey" onclick="conCloseLearningImportModal()" style="padding:4px 8px; display:inline-flex; align-items:center; justify-content:center; border-radius:6px;" aria-label="Close">
+            <img src="../assets/icons/close.svg" class="btn-icon" alt="" style="margin:0; width:12px; height:12px;" />
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab Bar -->
+      <div class="con-learning-tab-bar" style="display:flex; gap:6px; padding:10px 18px 0; background:#f5f5f0; border-bottom:2px solid #333333; flex-shrink:0;">
+        <button type="button" class="con-learning-tab-btn active" id="con-ltab-quizzes" onclick="conSwitchLearningTab('quizzes')" style="padding:8px 16px; border:2px solid #333333; border-bottom:none; border-radius:8px 8px 0 0; background:#ffffff; font-weight:900; font-size:0.85rem; cursor:pointer; display:inline-flex; align-items:center; gap:8px; color:#111;">
+          <img src="../assets/icons/quiz.svg" class="btn-icon" alt="" style="width:16px; height:16px;" />
+          <span data-i18n="boardTabQuizzes">Quizzes</span>
+        </button>
+        <button type="button" class="con-learning-tab-btn" id="con-ltab-vocab" onclick="conSwitchLearningTab('vocab')" style="padding:8px 16px; border:2px solid #333333; border-bottom:none; border-radius:8px 8px 0 0; background:#e5e5dc; font-weight:800; font-size:0.85rem; cursor:pointer; display:inline-flex; align-items:center; gap:8px; color:#444;">
+          <img src="../assets/icons/book.svg" class="btn-icon" alt="" style="width:16px; height:16px;" />
+          <span data-i18n="boardTabVocabGames">Vocabulary Games</span>
+        </button>
+        <button type="button" class="con-learning-tab-btn" id="con-ltab-grammar" onclick="conSwitchLearningTab('grammar')" style="padding:8px 16px; border:2px solid #333333; border-bottom:none; border-radius:8px 8px 0 0; background:#e5e5dc; font-weight:800; font-size:0.85rem; cursor:pointer; display:inline-flex; align-items:center; gap:8px; color:#444;">
+          <img src="../assets/icons/grammar.svg" class="btn-icon" alt="" style="width:16px; height:16px;" />
+          <span data-i18n="boardTabGrammarTools">Grammar & Tools</span>
+        </button>
+      </div>
+
+      <!-- Tab Content Area -->
+      <div id="con-learning-tab-content" style="flex:1; overflow-y:auto; padding:16px 18px; background:#ffffff; min-height:280px; display:flex; flex-direction:column; gap:12px;">
+        <!-- Tab 1: Quizzes -->
+        <div id="con-learning-pane-quizzes" class="con-learning-tab-pane" style="display:flex; flex-direction:column; gap:12px;">
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; background:#fafafa; padding:10px 14px; border:1.5px solid #e2e8f0; border-radius:8px;">
+            <div style="display:flex; flex-direction:column; gap:4px; min-width:180px; flex:1;">
+              <label style="font-size:0.75rem; font-weight:800; color:#334155;" data-i18n="boardFilterQuizSet">Quiz Bank:</label>
+              <select id="con-lquiz-set-select" class="search-input" style="padding:5px 8px; font-size:0.82rem; font-weight:700; border:1.5px solid #333333; border-radius:6px;" onchange="conRefreshQuizTabList()">
+                <option value="all" data-i18n="boardFilterAllQuizzes">All Quiz Sets</option>
+              </select>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:4px; width:120px;">
+              <label style="font-size:0.75rem; font-weight:800; color:#334155;" data-i18n="boardFilterLevel">Level:</label>
+              <select id="con-lquiz-level-select" class="search-input" style="padding:5px 8px; font-size:0.82rem; font-weight:700; border:1.5px solid #333333; border-radius:6px;" onchange="conRefreshQuizTabList()">
+                <option value="" data-i18n="boardFilterAllLevels">All Levels</option>
+              </select>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:4px; min-width:140px; flex:1;">
+              <label style="font-size:0.75rem; font-weight:800; color:#334155;" data-i18n="boardFilterTheme">Theme:</label>
+              <select id="con-lquiz-theme-select" class="search-input" style="padding:5px 8px; font-size:0.82rem; font-weight:700; border:1.5px solid #333333; border-radius:6px;" onchange="conRefreshQuizTabList()">
+                <option value="" data-i18n="boardFilterAllThemes">All Themes</option>
+              </select>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:4px; min-width:160px; flex:1;">
+              <label style="font-size:0.75rem; font-weight:800; color:#334155;" data-i18n="boardFilterSearch">Search:</label>
+              <input type="search" id="con-lquiz-search-input" placeholder="Filter questions..." style="padding:5px 8px; font-size:0.82rem; border:1.5px solid #333333; border-radius:6px;" oninput="conDebouncedRefreshQuizTabList()" />
+            </div>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; gap:6px; align-items:center;">
+              <button type="button" class="action-btn btn-grey" style="padding:3px 8px; font-size:0.75rem; font-weight:800;" onclick="conQuizSelectAll(true)" data-i18n="boardSelectAll">Select All</button>
+              <button type="button" class="action-btn btn-grey" style="padding:3px 8px; font-size:0.75rem; font-weight:800;" onclick="conQuizSelectAll(false)" data-i18n="boardDeselectAll">Deselect All</button>
+            </div>
+            <span id="con-lquiz-counter" style="font-size:0.78rem; font-weight:700; color:#64748b;">0 questions</span>
+          </div>
+
+          <div id="con-lquiz-items-list" style="border:1.5px solid #cbd5e1; border-radius:8px; max-height:280px; overflow-y:auto; padding:6px; display:flex; flex-direction:column; gap:6px; background:#f8fafc;">
+          </div>
+        </div>
+
+        <!-- Tab 2: Vocab Games -->
+        <div id="con-learning-pane-vocab" class="con-learning-tab-pane" style="display:none; flex-direction:column; gap:12px;">
+          <!-- Game Mode Selector Grid -->
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label style="font-size:0.75rem; font-weight:800; color:#334155;" data-i18n="boardFilterGameMode">Game Mode:</label>
+            <div id="con-lvocab-game-modes" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(170px, 1fr)); gap:6px;">
+              <button type="button" class="con-lgame-mode-btn active" data-game="match" onclick="conSetVocabGameMode('match')" style="padding:6px 10px; border:2px solid #333333; border-radius:6px; background:#e0f2fe; color:#0369a1; font-weight:800; font-size:0.78rem; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:2px 2px 0 #333333;">
+                <img src="../assets/icons/match.svg" class="btn-icon" alt="" style="width:16px; height:16px; margin:0;" />
+                <span data-i18n="boardGameDefMatch">Definition Match</span>
+              </button>
+              <button type="button" class="con-lgame-mode-btn" data-game="hangman" onclick="conSetVocabGameMode('hangman')" style="padding:6px 10px; border:1.5px solid #333333; border-radius:6px; background:#ffffff; color:#333333; font-weight:800; font-size:0.78rem; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                <img src="../assets/icons/hangman.svg" class="btn-icon" alt="" style="width:16px; height:16px; margin:0;" />
+                <span data-i18n="boardGameHangman">Hangman</span>
+              </button>
+              <button type="button" class="con-lgame-mode-btn" data-game="scramble" onclick="conSetVocabGameMode('scramble')" style="padding:6px 10px; border:1.5px solid #333333; border-radius:6px; background:#ffffff; color:#333333; font-weight:800; font-size:0.78rem; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                <img src="../assets/icons/scramble.svg" class="btn-icon" alt="" style="width:16px; height:16px; margin:0;" />
+                <span data-i18n="boardGameScramble">Scrambled Word</span>
+              </button>
+              <button type="button" class="con-lgame-mode-btn" data-game="wordquest" onclick="conSetVocabGameMode('wordquest')" style="padding:6px 10px; border:1.5px solid #333333; border-radius:6px; background:#ffffff; color:#333333; font-weight:800; font-size:0.78rem; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                <img src="../assets/icons/search.svg" class="btn-icon" alt="" style="width:16px; height:16px; margin:0;" />
+                <span data-i18n="boardGameWordQuest">Word Quest</span>
+              </button>
+              <button type="button" class="con-lgame-mode-btn" data-game="phonetic" onclick="conSetVocabGameMode('phonetic')" style="padding:6px 10px; border:1.5px solid #333333; border-radius:6px; background:#ffffff; color:#333333; font-weight:800; font-size:0.78rem; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                <img src="../assets/icons/ipa.svg" class="btn-icon" alt="" style="width:16px; height:16px; margin:0;" />
+                <span data-i18n="boardGamePhonetics">Phonetics / IPA</span>
+              </button>
+              <button type="button" class="con-lgame-mode-btn" data-game="synant" onclick="conSetVocabGameMode('synant')" style="padding:6px 10px; border:1.5px solid #333333; border-radius:6px; background:#ffffff; color:#333333; font-weight:800; font-size:0.78rem; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                <img src="../assets/icons/syn.svg" class="btn-icon" alt="" style="width:16px; height:16px; margin:0;" />
+                <span data-i18n="boardGameSynAnt">Synonyms & Antonyms</span>
+              </button>
+              <button type="button" class="con-lgame-mode-btn" data-game="flashcards" onclick="conSetVocabGameMode('flashcards')" style="padding:6px 10px; border:1.5px solid #333333; border-radius:6px; background:#ffffff; color:#333333; font-weight:800; font-size:0.78rem; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                <img src="../assets/icons/word-card.svg" class="btn-icon" alt="" style="width:16px; height:16px; margin:0;" />
+                <span data-i18n="boardGameFlashCards">Flash Cards</span>
+              </button>
+              <button type="button" class="con-lgame-mode-btn" data-game="wordsearch" onclick="conSetVocabGameMode('wordsearch')" style="padding:6px 10px; border:1.5px solid #333333; border-radius:6px; background:#ffffff; color:#333333; font-weight:800; font-size:0.78rem; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                <img src="../assets/icons/wordsearch.svg" class="btn-icon" alt="" style="width:16px; height:16px; margin:0;" />
+                <span data-i18n="boardGameWordSearch">Word Search</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Vocab Filters Bar -->
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; background:#fafafa; padding:10px 14px; border:1.5px solid #e2e8f0; border-radius:8px;">
+            <div style="display:flex; flex-direction:column; gap:4px; min-width:140px; flex:1;">
+              <label style="font-size:0.75rem; font-weight:800; color:#334155;" data-i18n="boardFilterSource">Source:</label>
+              <select id="con-lvocab-source-select" class="search-input" style="padding:5px 8px; font-size:0.82rem; font-weight:700; border:1.5px solid #333333; border-radius:6px;" onchange="conRefreshVocabTabList()">
+                <option value="all" data-i18n="boardFilterAllSources">All Sources</option>
+              </select>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:4px; width:110px;">
+              <label style="font-size:0.75rem; font-weight:800; color:#334155;" data-i18n="boardFilterLevel">Level:</label>
+              <select id="con-lvocab-level-select" class="search-input" style="padding:5px 8px; font-size:0.82rem; font-weight:700; border:1.5px solid #333333; border-radius:6px;" onchange="conRefreshVocabTabList()">
+                <option value="" data-i18n="boardFilterAllLevels">All Levels</option>
+              </select>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:4px; min-width:130px; flex:1;">
+              <label style="font-size:0.75rem; font-weight:800; color:#334155;" data-i18n="boardFilterTheme">Theme:</label>
+              <select id="con-lvocab-theme-select" class="search-input" style="padding:5px 8px; font-size:0.82rem; font-weight:700; border:1.5px solid #333333; border-radius:6px;" onchange="conRefreshVocabTabList()">
+                <option value="" data-i18n="boardFilterAllThemes">All Themes</option>
+              </select>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:4px; min-width:120px; flex:1;">
+              <label style="font-size:0.75rem; font-weight:800; color:#334155;" data-i18n="boardFilterPos">Part of Speech:</label>
+              <select id="con-lvocab-pos-select" class="search-input" style="padding:5px 8px; font-size:0.82rem; font-weight:700; border:1.5px solid #333333; border-radius:6px;" onchange="conRefreshVocabTabList()">
+                <option value="" data-i18n="boardFilterAllPos">All Types</option>
+              </select>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:4px; min-width:140px; flex:1;">
+              <label style="font-size:0.75rem; font-weight:800; color:#334155;" data-i18n="boardFilterSearch">Search:</label>
+              <input type="search" id="con-lvocab-search-input" placeholder="Filter words..." style="padding:5px 8px; font-size:0.82rem; border:1.5px solid #333333; border-radius:6px;" oninput="conDebouncedRefreshVocabTabList()" />
+            </div>
+          </div>
+
+          <!-- Vocab Selection Controls & Counter -->
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; gap:6px; align-items:center;">
+              <button type="button" class="action-btn btn-grey" style="padding:3px 8px; font-size:0.75rem; font-weight:800;" onclick="conVocabSelectAll(true)" data-i18n="boardSelectAll">Select All</button>
+              <button type="button" class="action-btn btn-grey" style="padding:3px 8px; font-size:0.75rem; font-weight:800;" onclick="conVocabSelectAll(false)" data-i18n="boardDeselectAll">Deselect All</button>
+            </div>
+            <span id="con-lvocab-counter" style="font-size:0.78rem; font-weight:700; color:#64748b;">0 words</span>
+          </div>
+
+          <!-- Word Items List -->
+          <div id="con-lvocab-items-list" style="border:1.5px solid #cbd5e1; border-radius:8px; max-height:280px; overflow-y:auto; padding:6px; display:flex; flex-direction:column; gap:6px; background:#f8fafc;">
+          </div>
+        </div>
+
+        <!-- Tab 3: Grammar & Language Tools -->
+        <div id="con-learning-pane-grammar" class="con-learning-tab-pane" style="display:none; flex-direction:column; gap:12px;">
+          <!-- Grammar Tool Selector Grid -->
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label style="font-size:0.75rem; font-weight:800; color:#334155;" data-i18n="boardFilterGrammarTool">Language Tool:</label>
+            <div id="con-lgrammar-tools" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(170px, 1fr)); gap:6px;">
+              <button type="button" class="con-lgrammar-tool-btn active" data-tool="sentence" onclick="conSetGrammarTool('sentence')" style="padding:6px 10px; border:2px solid #333333; border-radius:6px; background:#fef3c7; color:#92400e; font-weight:800; font-size:0.78rem; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:2px 2px 0 #333333;">
+                <img src="../assets/icons/sentence.svg" class="btn-icon" alt="" style="width:16px; height:16px; margin:0;" />
+                <span data-i18n="boardToolSentence">Sentence Builder</span>
+              </button>
+              <button type="button" class="con-lgrammar-tool-btn" data-tool="gapfill" onclick="conSetGrammarTool('gapfill')" style="padding:6px 10px; border:1.5px solid #333333; border-radius:6px; background:#ffffff; color:#333333; font-weight:800; font-size:0.78rem; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                <img src="../assets/icons/gapfill.svg" class="btn-icon" alt="" style="width:16px; height:16px; margin:0;" />
+                <span data-i18n="boardToolGapFill">Gap Fill</span>
+              </button>
+              <button type="button" class="con-lgrammar-tool-btn" data-tool="error" onclick="conSetGrammarTool('error')" style="padding:6px 10px; border:1.5px solid #333333; border-radius:6px; background:#ffffff; color:#333333; font-weight:800; font-size:0.78rem; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                <img src="../assets/icons/error.svg" class="btn-icon" alt="" style="width:16px; height:16px; margin:0;" />
+                <span data-i18n="boardToolFindError">Find the Error</span>
+              </button>
+              <button type="button" class="con-lgrammar-tool-btn" data-tool="dictation" onclick="conSetGrammarTool('dictation')" style="padding:6px 10px; border:1.5px solid #333333; border-radius:6px; background:#ffffff; color:#333333; font-weight:800; font-size:0.78rem; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                <img src="../assets/icons/dictation.svg" class="btn-icon" alt="" style="width:16px; height:16px; margin:0;" />
+                <span data-i18n="boardToolDictation">Dictation</span>
+              </button>
+              <button type="button" class="con-lgrammar-tool-btn" data-tool="order" onclick="conSetGrammarTool('order')" style="padding:6px 10px; border:1.5px solid #333333; border-radius:6px; background:#ffffff; color:#333333; font-weight:800; font-size:0.78rem; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                <img src="../assets/icons/order.svg" class="btn-icon" alt="" style="width:16px; height:16px; margin:0;" />
+                <span data-i18n="boardToolOrder">Order Sentences</span>
+              </button>
+              <button type="button" class="con-lgrammar-tool-btn" data-tool="quote" onclick="conSetGrammarTool('quote')" style="padding:6px 10px; border:1.5px solid #333333; border-radius:6px; background:#ffffff; color:#333333; font-weight:800; font-size:0.78rem; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                <img src="../assets/icons/quote.svg" class="btn-icon" alt="" style="width:16px; height:16px; margin:0;" />
+                <span data-i18n="boardToolQuote">Quote Analyser</span>
+              </button>
+              <button type="button" class="con-lgrammar-tool-btn" data-tool="werewolf" onclick="conSetGrammarTool('werewolf')" style="padding:6px 10px; border:1.5px solid #333333; border-radius:6px; background:#ffffff; color:#333333; font-weight:800; font-size:0.78rem; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                <img src="../assets/icons/werewolf.svg" class="btn-icon" alt="" style="width:16px; height:16px; margin:0;" />
+                <span data-i18n="boardToolWerewolf">Werewolf Game</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Grammar Filters Bar -->
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; background:#fafafa; padding:10px 14px; border:1.5px solid #e2e8f0; border-radius:8px;">
+            <div style="display:flex; flex-direction:column; gap:4px; min-width:140px; flex:1;">
+              <label style="font-size:0.75rem; font-weight:800; color:#334155;" data-i18n="boardFilterTheme">Theme / Category:</label>
+              <select id="con-lgrammar-theme-select" class="search-input" style="padding:5px 8px; font-size:0.82rem; font-weight:700; border:1.5px solid #333333; border-radius:6px;" onchange="conRefreshGrammarTabList()">
+                <option value="" data-i18n="boardFilterAllThemes">All Themes</option>
+              </select>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:4px; width:120px;">
+              <label style="font-size:0.75rem; font-weight:800; color:#334155;" data-i18n="boardFilterLevel">Level:</label>
+              <select id="con-lgrammar-level-select" class="search-input" style="padding:5px 8px; font-size:0.82rem; font-weight:700; border:1.5px solid #333333; border-radius:6px;" onchange="conRefreshGrammarTabList()">
+                <option value="" data-i18n="boardFilterAllLevels">All Levels</option>
+              </select>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:4px; min-width:160px; flex:1;">
+              <label style="font-size:0.75rem; font-weight:800; color:#334155;" data-i18n="boardFilterSearch">Search:</label>
+              <input type="search" id="con-lgrammar-search-input" placeholder="Filter items..." style="padding:5px 8px; font-size:0.82rem; border:1.5px solid #333333; border-radius:6px;" oninput="conDebouncedRefreshGrammarTabList()" />
+            </div>
+          </div>
+
+          <!-- Grammar Selection Controls & Counter -->
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; gap:6px; align-items:center;">
+              <button type="button" class="action-btn btn-grey" style="padding:3px 8px; font-size:0.75rem; font-weight:800;" onclick="conGrammarSelectAll(true)" data-i18n="boardSelectAll">Select All</button>
+              <button type="button" class="action-btn btn-grey" style="padding:3px 8px; font-size:0.75rem; font-weight:800;" onclick="conGrammarSelectAll(false)" data-i18n="boardDeselectAll">Deselect All</button>
+            </div>
+            <span id="con-lgrammar-counter" style="font-size:0.78rem; font-weight:700; color:#64748b;">0 items</span>
+          </div>
+
+          <!-- Grammar Items List -->
+          <div id="con-lgrammar-items-list" style="border:1.5px solid #cbd5e1; border-radius:8px; max-height:280px; overflow-y:auto; padding:6px; display:flex; flex-direction:column; gap:6px; background:#f8fafc;">
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="con-modal-footer" style="background:#f5f5f0; border-top:2px solid #333333; padding:12px 18px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; flex-wrap:wrap; gap:10px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <label style="font-size:0.78rem; font-weight:800; color:#334155; white-space:nowrap;" data-i18n="boardInsertFormatLabel">Canvas Format:</label>
+          <select id="con-learning-format-select" class="search-input" style="padding:5px 10px; font-size:0.82rem; font-weight:800; border:2px solid #333333; border-radius:6px; background:#ffffff;">
+            <option value="launcher" data-i18n="boardFormatLauncherCard">Interactive Launcher Card</option>
+            <option value="mindmap" data-i18n="boardFormatMindmap">Mindmap Node Cluster</option>
+            <option value="note" data-i18n="boardFormatNote">Markdown Note / Checklist</option>
+            <option value="tray" data-i18n="boardFormatTray">Bottom Staging Tray</option>
+          </select>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span id="con-learning-total-selected" style="font-size:0.8rem; font-weight:800; color:#2563eb; margin-right:6px;">0 selected</span>
+          <button type="button" class="action-btn btn-grey" onclick="conCloseLearningImportModal()" data-i18n="btnCancel" style="padding:6px 14px; font-weight:800; border-radius:6px;">Cancel</button>
+          <button type="button" class="action-btn btn-blue" id="con-learning-confirm-btn" onclick="conConfirmLearningImport()" style="display:inline-flex; align-items:center; gap:6px; padding:6px 16px; font-weight:900; border-radius:6px; border:2px solid #333333; box-shadow:3px 3px 0 #333333;">
+            <img src="../assets/icons/plus.svg" class="btn-icon" alt="" style="margin:0; filter:brightness(0) invert(1);" />
+            <span data-i18n="boardBtnInsertActivity">Insert Activity</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
   <!-- Scroll to top button -->
   <button id="scroll-top-btn" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Back to top">↑</button>
 
@@ -2344,7 +2682,7 @@
       </div>
       <div class="wn-sp-row" style="margin-bottom:0;" id="con-ctx-maxwidth-row">
         <span class="wn-sp-label" data-i18n="conFmtMaxWidth">Width</span>
-        <input type="range" id="con-ctx-max-width" min="0" max="400" step="10" value="0"
+        <input type="range" id="con-ctx-max-width" min="0" max="600" step="10" value="0"
           oninput="conCtxApplyMaxWidth(this.value); document.getElementById('con-ctx-max-width-display').textContent = (parseInt(this.value) > 0 ? this.value + 'px' : '\u2014');"
           style="flex:1; cursor:pointer; accent-color:#111;">
         <span id="con-ctx-max-width-display"
@@ -2524,6 +2862,8 @@
         style="display:none"><img src="../assets/icons/learning-tools.svg" class="btn-icon" alt="" /></button>
       <button class="con-ctx-icon-btn" id="con-ctx-card-btn" onclick="conCtxViewCard()" title="View word card"><img
           src="../assets/icons/word-card.svg" class="btn-icon" alt="" /></button>
+      <button class="con-ctx-icon-btn" id="con-ctx-ipa-kbd-btn" onclick="conCtxOpenIpaKeyboard()" title="Insert IPA phonetic symbols into this node" data-i18n-title="conCtxIpaKbdTitle"><img
+          src="../assets/icons/ipa.svg" class="btn-icon" alt="" /></button>
       <button class="con-ctx-icon-btn" id="con-ctx-lib-btn" onclick="conSaveNodeToLibrary()" title="Save to Premade Library" data-i18n-title="conSaveToPremadeLibrary"><img
           src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /></button>
       <button class="con-ctx-icon-btn" id="con-ctx-edit-btn" onclick="conCtxEditWord()" title="Edit word"><img
@@ -2690,6 +3030,10 @@
     </div>
     <div class="con-ctx-item" onclick="conBoardCtxImportText()"><img src="../assets/icons/import-tool.svg"
         class="btn-icon" alt="" /> Import Text</div>
+    <div class="con-ctx-item" onclick="conBoardCtxClose(); conOpenUniversalImportModal(null, null, { x: window._boardCtxNoteX, y: window._boardCtxNoteY });"><img src="../assets/icons/import.svg"
+        class="btn-icon" alt="" /> <span data-i18n="conCtxUniversalImport">Universal Import…</span></div>
+    <div class="con-ctx-item" onclick="conBoardCtxClose(); boardOpenIpaKeyboard({ x: window._boardCtxNoteX, y: window._boardCtxNoteY });"><img src="../assets/icons/ipa.svg"
+        class="btn-icon" alt="" /> <span data-i18n="conCtxIpaKeyboard">IPA Keyboard…</span></div>
     <div class="con-ctx-item" onclick="conBoardCtxAddMask()"><img src="../assets/icons/mask.svg" class="btn-icon"
         alt="" /> Add Mask</div>
     <div style="padding:4px 10px 6px; display:flex; gap:5px; align-items:center;">
@@ -3648,9 +3992,9 @@
             <button class="action-btn btn-grey" id="con-tb-links-btn" onclick="boardOpenSessionLinksModal()"
               title="Links & Tags for this board"><img src="../assets/icons/links.svg" class="btn-icon"
                 alt="" /> <span id="con-tb-links-btn-text" data-i18n="conBoardLinks">[LINKS: 0]</span></button>
-            <button class="action-btn btn-grey" id="con-tb-import-class-btn" onclick="conOpenClassImportModal()"
-              title="Import Class Rosters, Seating Plans, or Teams to Board"><img src="../assets/icons/groups.svg" class="btn-icon"
-                alt="" /> <span id="con-tb-import-class-text">[CLASS DATA]</span></button>
+            <button class="action-btn btn-grey" id="con-tb-universal-import-btn" onclick="conOpenUniversalImportModal()"
+              title="Universal Import from Databases, Classes, Grades & Participation" data-i18n-title="conBtnUniversalImportTitle"><img src="../assets/icons/import.svg" class="btn-icon"
+                alt="" /> <span data-i18n="conBtnUniversalImport">[IMPORT]</span></button>
             <input type="file" id="con-load-input" accept=".cstz,.js,.json,.zip" style="display:none"
               onchange="conLoadSession(event)">
             <input type="file" id="con-attachments-input" accept="image/*,audio/*,video/*,application/pdf,.pdf" multiple
@@ -3712,6 +4056,9 @@
             <button class="action-btn btn-grey" id="con-toggle-ipa-btn" onclick="conToggleAllIpa()"
               title="Show/hide IPA for all words"><img src="../assets/icons/ipa.svg" class="btn-icon" alt="" />
               IPA</button>
+            <button class="action-btn btn-grey" id="con-tb-ipa-kbd-btn" onclick="boardToggleIpaKeyboard()"
+              title="IPA Phonetic Keyboard — Insert phonetic symbols into notes, nodes, or create new nodes" data-i18n-title="conIpaKbdTitle"><img src="../assets/icons/ipa.svg" class="btn-icon" alt="" />
+              <span data-i18n="conIpaKbdBtn">IPA Keyboard</span></button>
             <button class="action-btn btn-grey" id="con-toggle-french-btn" onclick="conToggleAllFrench()"
               title="Show/hide French translation for all words"><img src="../assets/icons/french.svg" class="btn-icon"
                 alt="" /> FR</button>
@@ -3724,6 +4071,9 @@
             <button class="action-btn btn-grey" id="con-sync-new-db-btn" onclick="conSyncNewNodesToDb()"
               title="Save newly brainstormed words into persistent database"><img src="../assets/icons/upload.svg" class="btn-icon" alt="" />
               <span data-i18n="conSyncNewNodesToDb">Sync to DB</span></button>
+            <button class="action-btn btn-grey" id="con-tb-vocab-games-btn" onclick="conOpenLearningImportModal('vocab')"
+              title="Vocabulary Games & Quizzes" data-i18n-title="conVocabGamesQuizzesTitle"><img src="../assets/icons/learning-tools.svg" class="btn-icon"
+                alt="" /> <span data-i18n="conBtnGamesQuizzes">[GAMES & QUIZZES]</span></button>
           </div>
         </div>
 
@@ -4263,6 +4613,7 @@
           <button class="wn-sp-action-btn" onmousedown="event.preventDefault()" onclick="wnStyleSplitNote()"
             title="Split note at cursor into two notes"><img src="../assets/icons/split.svg" class="btn-icon" alt=""></button>
           <button class="wn-sp-action-btn" id="wn-sp-wordcount-btn" onclick="wnStyleCountWords()" title="Count words" data-i18n-title="conCountWords"><img src="../assets/icons/sentence.svg" class="btn-icon" alt="" /></button>
+          <button class="wn-sp-action-btn" id="wn-sp-ipa-btn" onmousedown="event.preventDefault()" onclick="wnOpenIpaKeyboard()" title="IPA Phonetic Keyboard" data-i18n-title="conIpaKbdTitle"><img src="../assets/icons/ipa.svg" class="btn-icon" alt="" /> IPA</button>
           <button class="wn-sp-action-btn" id="wn-sp-convert-btn" onclick="wnStyleConvertToNode(event)" title="Convert note to word" data-i18n-title="wnConvertToNodeTitle"><img src="../assets/icons/text.svg" class="btn-icon" alt=""></button>
           <button class="wn-sp-action-btn" onclick="wnStyleEditNote()"><img src="../assets/icons/edit-word.svg" class="btn-icon" alt=""></button>
           <button class="wn-sp-action-btn" id="wn-sp-open-input-btn" onclick="wnStyleOpenStudentInput()"
@@ -24350,10 +24701,14 @@
           el.style.maxWidth = _mw + 'px';
           el.style.whiteSpace = 'normal';
           el.style.wordBreak = 'break-word';
+          el.style.textAlign = 'left';
+          el.style.alignItems = 'flex-start';
         } else {
           el.style.maxWidth = '';
           el.style.whiteSpace = '';
           el.style.wordBreak = '';
+          el.style.textAlign = '';
+          el.style.alignItems = '';
         }
 
         // Rectangle is default; avoid reading layout dimensions to prevent forced reflows!
@@ -27999,6 +28354,7 @@
 
         const fmt = conGetNodeFmt(node);
         const casing = fmt.casing || window._bcNodeDefaultCasing || 'none';
+        const hasMaxWidth = !!(fmt && typeof fmt.maxWidth === 'number' && fmt.maxWidth > 0 && node.shape !== 'circle' && node.shape !== 'square');
         // Retrieve DB entries for translation / IPA (supports space-separated multi-word nodes)
         const dbEntries = conLookupDbEntries(baseWord, node.dbWord);
 
@@ -28006,14 +28362,6 @@
         if (casing && casing !== 'none' && casing !== 'smallcaps') {
           wordPart = boardTransformCasingText(wordPart, casing);
         }
-        // Replace // with line break for two-line display
-        if (wordPart.includes('//')) wordPart = wordPart.split('//').map(s => s.trim()).join('<br>');
-        // Wrap in formatting tags
-        if (fmt.underline) wordPart = `<u>${wordPart}</u>`;
-        if (fmt.italic) wordPart = `<em>${wordPart}</em>`;
-        if (fmt.bold) wordPart = `<strong>${wordPart}</strong>`;
-        if (fmt.strike) wordPart = `<s>${wordPart}</s>`;
-
         // Page badge
         const pageBadge = (node.pageNum != null)
           ? `<span class="con-node-page">(${node.pageNum})</span>`
@@ -28023,8 +28371,42 @@
           : (node.relation === 'ipa'
             ? '<span class="con-node-rel-badge con-node-rel-badge-ipa">IPA</span>'
             : '');
-        const smallCapsStyle = (casing === 'smallcaps') ? ' style="font-variant:small-caps;"' : '';
-        const wordRow = `<span class="con-node-word-row"${smallCapsStyle}>${wordPart}${relationBadge}${pageBadge}</span>`;
+
+        function conApplyWordFmt(textStr) {
+          let res = textStr;
+          if (fmt.underline) res = `<u>${res}</u>`;
+          if (fmt.italic) res = `<em>${res}</em>`;
+          if (fmt.bold) res = `<strong>${res}</strong>`;
+          if (fmt.strike) res = `<s>${res}</s>`;
+          return res;
+        }
+
+        const isExplicitMultiLine = wordPart.includes('//') || wordPart.includes('\n') || /<br\s*\/?>/i.test(wordPart);
+        let wordContent = '';
+
+        if (isExplicitMultiLine) {
+          const rawLines = wordPart.split(/\/\/|\r?\n|<br\s*\/?>/i).map(s => s.trim());
+          const formattedLines = rawLines.map((line, idx) => {
+            const formatted = conApplyWordFmt(line);
+            if (idx === rawLines.length - 1) {
+              return `${formatted}${relationBadge}${pageBadge}`;
+            }
+            return formatted;
+          });
+          wordContent = formattedLines.join('<br>');
+        } else {
+          wordContent = `${conApplyWordFmt(wordPart)}${relationBadge}${pageBadge}`;
+        }
+
+        const smallCapsStyle = (casing === 'smallcaps') ? 'font-variant:small-caps;' : '';
+        let multiLineStyle = '';
+        if (hasMaxWidth) {
+          multiLineStyle = 'display:inline-block;width:100%;text-align:left;white-space:normal;word-break:break-word;';
+        } else if (isExplicitMultiLine) {
+          multiLineStyle = 'display:inline-block;text-align:center;';
+        }
+        const combinedStyle = (smallCapsStyle || multiLineStyle) ? ` style="${smallCapsStyle}${multiLineStyle}"` : '';
+        const wordRow = `<span class="con-node-word-row"${combinedStyle}>${wordContent}</span>`;
 
         // Build annotation lines below the word
         let annLines = '';
@@ -28035,11 +28417,13 @@
           } else {
             transParts = dbEntries.map(e => e.french || e.translation).filter(Boolean);
           }
-          if (transParts.length) annLines += `<div class="con-node-ann con-node-trans">(${transParts.join(' · ')})</div>`;
+          const annStyle = hasMaxWidth ? ' style="text-align:left;width:100%;"' : '';
+          if (transParts.length) annLines += `<div class="con-node-ann con-node-trans"${annStyle}>(${transParts.join(' · ')})</div>`;
         }
         if (fmt.showIpa) {
           const ipaParts = dbEntries.map(e => e.ipa).filter(Boolean);
-          if (ipaParts.length) annLines += `<div class="con-node-ann con-node-ipa">[${ipaParts.join(' / ')}]</div>`;
+          const annStyle = hasMaxWidth ? ' style="text-align:left;width:100%;"' : '';
+          if (ipaParts.length) annLines += `<div class="con-node-ann con-node-ipa"${annStyle}>[${ipaParts.join(' / ')}]</div>`;
         }
 
         const el = node.el;
@@ -28067,11 +28451,12 @@
         if (typeof conUpdateNodeLinkBadges === 'function') {
           conUpdateNodeLinkBadges(node);
         }
-        // Keep node content vertically centred for all shapes
+        // Keep node content vertically centred for all shapes, align left if hasMaxWidth
         node.el.style.display = 'inline-flex';
         node.el.style.flexDirection = 'column';
-        node.el.style.alignItems = 'center';
+        node.el.style.alignItems = hasMaxWidth ? 'flex-start' : 'center';
         node.el.style.justifyContent = 'center';
+        node.el.style.textAlign = hasMaxWidth ? 'left' : 'center';
         conApplyNodeShape(node, node.shape);
       }
 
@@ -32892,6 +33277,10 @@
     }
 
     function conImportOpen() {
+      if (typeof conOpenUniversalImportModal === 'function') {
+        conOpenUniversalImportModal('learning', 'wordbanks');
+        return;
+      }
       conImportSelected.clear();
       conImportPopulateKeywords();
       conImportPopulateSources();
@@ -41160,8 +41549,18 @@
       ctx.font = `${fontStyle} ${fontWeight} ${fontSize} ${fontFamily}`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.globalAlpha = 1;
 
+      const hasMaxWidth = !!(fmt && typeof fmt.maxWidth === 'number' && fmt.maxWidth > 0 && node.shape !== 'circle' && node.shape !== 'square');
+
       if (wordText) {
-        const wordLines = wordText.includes('//') ? wordText.split('//').map(s => s.trim()) : null;
+        let wordLines = (wordText.includes('//') || wordText.includes('\n') || /<br\s*\/?>/i.test(wordText))
+          ? wordText.split(/\/\/|\r?\n|<br\s*\/?>/i).map(s => s.trim())
+          : null;
+        if (!wordLines && hasMaxWidth && typeof canvasWrapText === 'function') {
+          const wrapped = canvasWrapText(ctx, wordText, fmt.maxWidth - 18);
+          if (wrapped && wrapped.length > 1) {
+            wordLines = wrapped;
+          }
+        }
         const fsPx = parseFloat(fontSize) || 14; const lineH = fsPx * 1.25;
         const renderLines = wordLines || [wordText];
         const lineStartY = wordLines ? wordCenterY - ((renderLines.length - 1) * lineH) / 2 : wordCenterY;
@@ -41187,7 +41586,7 @@
 
           const mainTextW = ctx.measureText(line).width;
           const totalRowW = mainTextW + badgeExtraW;
-          const mainTextX = pad + nx + (nw - totalRowW) / 2;
+          const mainTextX = hasMaxWidth ? (pad + nx + 9) : (pad + nx + (nw - totalRowW) / 2);
 
           ctx.textAlign = 'left';
 
@@ -49319,6 +49718,7 @@
       { id: 'vocab_import', name: 'Import Vocab Words', desc: 'Import words from word bank database', category: 'vocab', categoryName: 'Vocab & Language', icon: '../assets/icons/import.svg', defaultShortcut: null, fn: () => { if (typeof conImportOpen === 'function') conImportOpen(); } },
       { id: 'vocab_unknown', name: 'List Unknown Words', desc: 'List all words not in database', category: 'vocab', categoryName: 'Vocab & Language', icon: '../assets/icons/search.svg', defaultShortcut: null, fn: () => { if (typeof unknownWordsOpen === 'function') unknownWordsOpen('constellation'); } },
       { id: 'vocab_toggle_ipa', name: 'Toggle IPA Pronunciation', desc: 'Show or hide IPA for all words', category: 'vocab', categoryName: 'Vocab & Language', icon: '../assets/icons/ipa.svg', defaultShortcut: null, fn: () => { if (typeof conToggleAllIpa === 'function') conToggleAllIpa(); } },
+      { id: 'vocab_ipa_keyboard', name: 'IPA Phonetic Keyboard', desc: 'Toggle the International Phonetic Alphabet keyboard (Alt+I)', category: 'vocab', categoryName: 'Vocab & Language', icon: '../assets/icons/ipa.svg', defaultShortcut: { alt: true, key: 'i' }, fn: () => { if (typeof boardToggleIpaKeyboard === 'function') boardToggleIpaKeyboard(); } },
       { id: 'vocab_toggle_fr', name: 'Toggle French Translation', desc: 'Show or hide French translation for all words', category: 'vocab', categoryName: 'Vocab & Language', icon: '../assets/icons/french.svg', defaultShortcut: null, fn: () => { if (typeof conToggleAllFrench === 'function') conToggleAllFrench(); } },
       { id: 'vocab_export_db', name: 'Export to Word Bank', desc: 'Export board words into a custom word bank database', category: 'vocab', categoryName: 'Vocab & Language', icon: '../assets/icons/add-db.svg', defaultShortcut: null, fn: () => { if (typeof conDbExportOpen === 'function') conDbExportOpen(); } },
 
@@ -54424,6 +54824,14 @@
           return;
         }
 
+        if (d.type === 'toggle-card-preview') {
+          var pEl = document.getElementById('con-preview-list-' + d.noteId);
+          if (pEl) {
+            pEl.style.display = d.visible ? 'block' : 'none';
+          }
+          return;
+        }
+
         if (d.type === 'live-path-start') {
           if (_mirrorIsFrozen) return;
           var _lsv = document.getElementById('con-draw-live-svg');
@@ -54614,6 +55022,15 @@
             }
           }
           if (typeof conRedrawEdges === 'function') conRedrawEdges();
+          return;
+        }
+
+        if (d.type === 'toggle-card-preview') {
+          if (_mirrorIsFrozen) return;
+          var pEl = document.getElementById('con-preview-list-' + d.noteId);
+          if (pEl) {
+            pEl.style.display = d.visible ? 'block' : 'none';
+          }
           return;
         }
 
@@ -58320,6 +58737,10 @@
     };
 
     window.conOpenClassImportModal = async function () {
+      if (typeof conOpenUniversalImportModal === 'function') {
+        conOpenUniversalImportModal('class', 'roster');
+        return;
+      }
       const modal = document.getElementById('con-class-import-overlay');
       if (!modal) return;
 
@@ -59090,6 +59511,2306 @@
       return String(str ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
+    // =========================================================================
+    // PART 1: LEARNING TOOLS & QUIZ DATA BRIDGE FOR BOARD
+    // =========================================================================
+    let _boardLearningBanksLoadPromise = null;
+    window._boardLearningBanks = {
+      wordbanks: [],
+      quizzes: [],
+      gapfillbanks: [],
+      errorbanks: [],
+      sentencebanks: [],
+      dictations: [],
+      quotebanks: [],
+      grammarbanks: [],
+      storybanks: []
+    };
+
+    if (!Array.isArray(window.vocabBank)) window.vocabBank = [];
+    if (!Array.isArray(window.quizBank)) window.quizBank = [];
+    if (!Array.isArray(window.gapFillBank)) window.gapFillBank = [];
+    if (!Array.isArray(window.errorBank)) window.errorBank = [];
+    if (!Array.isArray(window.orderSentences)) window.orderSentences = [];
+    if (!Array.isArray(window.dictationBank)) window.dictationBank = [];
+    if (!Array.isArray(window.quoteBank)) window.quoteBank = [];
+    if (!Array.isArray(window.grammarData)) window.grammarData = [];
+    if (!Array.isArray(window.chooseStoryBank)) window.chooseStoryBank = [];
+
+    function _boardNormalizeQuizQuestion(raw, sourceFile = '') {
+      if (!raw || typeof raw !== 'object') return null;
+      const question = String(raw.question || raw.prompt || raw.text || '').trim();
+      if (!question) return null;
+
+      let answers = [];
+      if (Array.isArray(raw.answers)) {
+        answers = raw.answers.map(a => String(a ?? '').trim()).filter(Boolean);
+      } else {
+        const a1 = raw['answer 1'] ?? raw.answer1 ?? raw.option1 ?? raw.a;
+        const a2 = raw['answer 2'] ?? raw.answer2 ?? raw.option2 ?? raw.b;
+        const a3 = raw['answer 3'] ?? raw.answer3 ?? raw.option3 ?? raw.c;
+        const a4 = raw['answer 4'] ?? raw.answer4 ?? raw.option4 ?? raw.d;
+        [a1, a2, a3, a4].forEach(v => {
+          if (v !== undefined && v !== null && String(v).trim()) {
+            answers.push(String(v).trim());
+          }
+        });
+      }
+
+      let correctIndex = 0;
+      const cRaw = raw.correctAnswer ?? raw.correctIndex ?? raw.answer ?? raw.correct;
+      if (typeof cRaw === 'number' && Number.isFinite(cRaw)) {
+        correctIndex = (cRaw >= 1 && cRaw <= 4 && (!raw.correctIndex || raw.correctIndex > 0)) ? Math.floor(cRaw) - 1 : Math.max(0, Math.floor(cRaw));
+      } else if (typeof cRaw === 'string') {
+        const cStr = cRaw.trim().toLowerCase();
+        if (/^[1-4]$/.test(cStr)) {
+          correctIndex = Number(cStr) - 1;
+        } else {
+          const matchIdx = answers.findIndex(a => a.toLowerCase() === cStr);
+          if (matchIdx !== -1) correctIndex = matchIdx;
+        }
+      }
+
+      if (correctIndex < 0 || (answers.length > 0 && correctIndex >= answers.length)) {
+        correctIndex = 0;
+      }
+
+      const theme = String(raw.theme || raw.category || raw.topic || 'General').trim();
+      const level = String(raw.level || raw.cefr || 'All').trim().toUpperCase();
+      const keyword = String(raw.keyword || raw.tag || '').trim();
+      const explanation = String(raw.explanation || raw.feedback || raw.notes || '').trim();
+      const type = raw.type || (answers.length === 2 && /true|false|vrai|faux/i.test(answers.join(' ')) ? 'boolean' : (Array.isArray(raw.correctAnswers) ? 'multiple' : 'single'));
+
+      return {
+        id: raw.id || ('q_' + Math.random().toString(36).substring(2, 9)),
+        question,
+        answers,
+        correctIndex,
+        theme,
+        level,
+        keyword,
+        explanation,
+        type,
+        _source: sourceFile || raw._source || ''
+      };
+    }
+
+    function _boardNormalizeVocabItem(raw, sourceFile = '') {
+      if (!raw || typeof raw !== 'object') return null;
+      const word = String(raw.word || raw.term || raw.lemma || '').trim();
+      if (!word) return null;
+
+      let translation = String(raw.translation || raw.meaning || raw.definitionFr || raw.traduction || '').trim();
+      let definition = String(raw.definition || raw.def || raw.meaningEn || '').trim();
+      let ipa = String(raw.ipa || raw.phonetic || raw.pronunciation || '').trim();
+      let partOfSpeech = raw.partOfSpeech || raw.pos || raw.type || '';
+      if (Array.isArray(partOfSpeech)) partOfSpeech = partOfSpeech.join(', ');
+      partOfSpeech = String(partOfSpeech).trim();
+
+      let theme = raw.theme || raw.category || raw.topic || 'General';
+      if (Array.isArray(theme)) theme = theme.join(', ');
+      theme = String(theme).trim();
+
+      let keywords = Array.isArray(raw.keywords) ? raw.keywords : (raw.keyword ? [raw.keyword] : []);
+      let level = String(raw.level || raw.cefr || 'All').trim().toUpperCase();
+      let examples = Array.isArray(raw.examples) ? raw.examples : (raw.example ? [raw.example] : []);
+
+      return {
+        id: raw.id || ('v_' + Math.random().toString(36).substring(2, 9)),
+        word,
+        translation,
+        definition,
+        ipa,
+        partOfSpeech,
+        theme,
+        keywords,
+        level,
+        examples,
+        synonyms: Array.isArray(raw.synonyms) ? raw.synonyms : [],
+        antonyms: Array.isArray(raw.antonyms) ? raw.antonyms : [],
+        _custom: !!raw._custom,
+        _source: sourceFile || raw._source || ''
+      };
+    }
+
+    function _boardParseRecordsFromContent(content, defaultVarName = '') {
+      if (!content || typeof content !== 'string') return null;
+      const trimmed = content.trim();
+
+      // JSON parsing attempt
+      if ((trimmed.startsWith('[') && trimmed.endsWith(']')) || (trimmed.startsWith('{') && trimmed.endsWith('}'))) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (Array.isArray(parsed)) return parsed;
+          if (parsed && typeof parsed === 'object') {
+            for (const key of ['records', 'items', 'questions', 'words', 'quotes', 'data', 'exercises', defaultVarName]) {
+              if (Array.isArray(parsed[key])) return parsed[key];
+            }
+          }
+        } catch (_) {}
+      }
+
+      // JS evaluation attempt
+      try {
+        const fn = new Function(
+          String(content) +
+          '\n; return (' +
+          (defaultVarName ? `(typeof ${defaultVarName} !== "undefined" ? ${defaultVarName} : null) || ` : '') +
+          '(typeof customVocabBank !== "undefined" ? customVocabBank : null) || ' +
+          '(typeof vocabBank !== "undefined" ? vocabBank : null) || ' +
+          '(typeof customQuizBank !== "undefined" ? customQuizBank : null) || ' +
+          '(typeof quizBank !== "undefined" ? quizBank : null) || ' +
+          '(typeof quizzes !== "undefined" ? quizzes : null) || ' +
+          '(typeof customGapFillBank !== "undefined" ? customGapFillBank : null) || ' +
+          '(typeof gapFillBank !== "undefined" ? gapFillBank : null) || ' +
+          '(typeof customErrorBank !== "undefined" ? customErrorBank : null) || ' +
+          '(typeof errorBank !== "undefined" ? errorBank : null) || ' +
+          '(typeof customSentenceBank !== "undefined" ? customSentenceBank : null) || ' +
+          '(typeof orderSentences !== "undefined" ? orderSentences : null) || ' +
+          '(typeof customDictationBank !== "undefined" ? customDictationBank : null) || ' +
+          '(typeof dictationBank !== "undefined" ? dictationBank : null) || ' +
+          '(typeof customQuoteBank !== "undefined" ? customQuoteBank : null) || ' +
+          '(typeof quoteBank !== "undefined" ? quoteBank : null) || ' +
+          '(typeof customGrammarBank !== "undefined" ? customGrammarBank : null) || ' +
+          '(typeof grammarData !== "undefined" ? grammarData : null) || ' +
+          '(typeof customStoryBank !== "undefined" ? customStoryBank : null) || ' +
+          '(typeof chooseStoryBank !== "undefined" ? chooseStoryBank : null) || ' +
+          'null);'
+        );
+        const result = fn();
+        if (Array.isArray(result)) return result;
+      } catch (_) {
+        try {
+          const firstBracket = trimmed.indexOf('[');
+          const lastBracket = trimmed.lastIndexOf(']');
+          if (firstBracket !== -1 && lastBracket > firstBracket) {
+            const slice = trimmed.slice(firstBracket, lastBracket + 1);
+            const fn2 = new Function('return ' + slice + ';');
+            const res2 = fn2();
+            if (Array.isArray(res2)) return res2;
+          }
+        } catch (__) {}
+      }
+
+      return null;
+    }
+
+    async function boardEnsureLearningBanksLoaded(forceReload = false) {
+      if (_boardLearningBanksLoadPromise && !forceReload) {
+        return _boardLearningBanksLoadPromise;
+      }
+
+      const BANK_CONFIGS = [
+        {
+          key: 'wordbanks',
+          globalVar: 'vocabBank',
+          target: 'customWordbanks',
+          subFolder: 'wordbanks',
+          defaultVar: 'customVocabBank',
+          defaultFiles: ['wordDb.js'],
+          normalizer: _boardNormalizeVocabItem
+        },
+        {
+          key: 'quizzes',
+          globalVar: 'quizBank',
+          target: 'customQuizzes',
+          subFolder: 'quizzes',
+          defaultVar: 'customQuizBank',
+          defaultFiles: ['quiz.js'],
+          normalizer: _boardNormalizeQuizQuestion
+        },
+        {
+          key: 'gapfillbanks',
+          globalVar: 'gapFillBank',
+          target: 'customGapfillbanks',
+          subFolder: 'gapfillbanks',
+          defaultVar: 'customGapFillBank',
+          defaultFiles: ['gapFillBank.js', 'gapfill.js']
+        },
+        {
+          key: 'errorbanks',
+          globalVar: 'errorBank',
+          target: 'customErrorbanks',
+          subFolder: 'errorbanks',
+          defaultVar: 'customErrorBank',
+          defaultFiles: ['errorBank.js', 'error.js']
+        },
+        {
+          key: 'sentencebanks',
+          globalVar: 'orderSentences',
+          target: 'customSentences',
+          subFolder: 'sentencebanks',
+          defaultVar: 'customSentenceBank',
+          defaultFiles: ['orderSentences.js', 'sentence.js']
+        },
+        {
+          key: 'dictations',
+          globalVar: 'dictationBank',
+          target: 'customDictations',
+          subFolder: 'dictations',
+          defaultVar: 'customDictationBank',
+          defaultFiles: ['dictation.js']
+        },
+        {
+          key: 'quotebanks',
+          globalVar: 'quoteBank',
+          target: 'customQuotes',
+          subFolder: 'quotebanks',
+          defaultVar: 'customQuoteBank',
+          defaultFiles: ['quoteBank.js', 'quote.js']
+        },
+        {
+          key: 'grammarbanks',
+          globalVar: 'grammarData',
+          target: 'customGrammarbanks',
+          subFolder: 'grammarbanks',
+          defaultVar: 'customGrammarBank',
+          defaultFiles: ['grammar.js']
+        },
+        {
+          key: 'storybanks',
+          globalVar: 'chooseStoryBank',
+          target: 'customStorybanks',
+          subFolder: 'storybanks',
+          defaultVar: 'customStoryBank',
+          defaultFiles: ['chooseStory.js', 'story.js']
+        }
+      ];
+
+      const IGNORED_BULK_FILES = new Set([
+        'simple-wiktionary-core.js',
+        'simple-wiktionary.js',
+        'simple-wiktionary-core.zip',
+        'barrasdb.js'
+      ]);
+
+      _boardLearningBanksLoadPromise = (async () => {
+        const isEl = !!(window.Desktop && Desktop.isElectron());
+
+        for (const cfg of BANK_CONFIGS) {
+          const loadedFileSets = [];
+          const combinedRecords = [];
+          const seenRecordKeys = new Map();
+          const filesToTry = new Set(cfg.defaultFiles);
+
+          // 1. In Electron, discover any user-created files in the target directory
+          if (isEl && typeof Desktop.listFiles === 'function') {
+            try {
+              const listRes = await Desktop.listFiles(cfg.target, { extensions: ['.js', '.json'] });
+              const fileList = listRes?.files || (Array.isArray(listRes) ? listRes : []);
+              fileList.forEach(f => {
+                const name = typeof f === 'string' ? f : f.filename;
+                if (!name) return;
+                const lower = name.toLowerCase();
+                if (IGNORED_BULK_FILES.has(lower) || lower.endsWith('.bak') || lower.endsWith('.zip')) return;
+                filesToTry.add(name);
+              });
+            } catch (err) {
+              console.warn(`[BoardBankLoader] Failed listing files for ${cfg.target}:`, err);
+            }
+          }
+
+          // 2. Load and parse each file
+          for (const filename of filesToTry) {
+            let content = '';
+            if (isEl) {
+              try {
+                if (typeof Desktop.readText === 'function') {
+                  const r = await Desktop.readText(cfg.target, filename);
+                  if (r && r.ok && r.content) content = r.content;
+                }
+                if (!content && typeof Desktop.readByPath === 'function') {
+                  const r2 = await Desktop.readByPath('customData', `${cfg.subFolder}/${filename}`);
+                  if (r2 && r2.ok && r2.content) content = r2.content;
+                }
+              } catch (_) {}
+            }
+
+            // Web / fallback candidates
+            if (!content) {
+              const webCandidates = [
+                `user/custom-data/${cfg.subFolder}/${filename}`,
+                `data/${filename}`,
+                `js/import-modules/${filename}`
+              ];
+              for (const url of webCandidates) {
+                try {
+                  const res = await fetch(url, { cache: 'no-store' });
+                  if (res.ok) {
+                    content = await res.text();
+                    break;
+                  }
+                } catch (_) {}
+              }
+            }
+
+            if (!content) continue;
+
+            const rawRecords = _boardParseRecordsFromContent(content, cfg.defaultVar);
+            if (Array.isArray(rawRecords) && rawRecords.length > 0) {
+              const normalizedList = cfg.normalizer
+                ? rawRecords.map(r => cfg.normalizer(r, filename)).filter(Boolean)
+                : rawRecords;
+
+              if (normalizedList.length > 0) {
+                loadedFileSets.push({
+                  filename,
+                  target: cfg.target,
+                  count: normalizedList.length,
+                  records: normalizedList,
+                  title: filename.replace(/\.(js|json)$/i, '').replace(/[-_]/g, ' ')
+                });
+
+                // Fast O(1) deduplication into combined global array
+                normalizedList.forEach((item, itemIdx) => {
+                  let key = '';
+                  if (cfg.key === 'wordbanks' && item.word) {
+                    key = String(item.word).toLowerCase().trim();
+                  } else if (cfg.key === 'quizzes' && item.question) {
+                    key = String(item.question).toLowerCase().trim();
+                  } else {
+                    key = item.id || item.sentence || item.quote || item.text || item.title || ('item_' + itemIdx);
+                  }
+
+                  if (key && seenRecordKeys.has(key)) {
+                    const existingIdx = seenRecordKeys.get(key);
+                    combinedRecords[existingIdx] = item;
+                  } else {
+                    combinedRecords.push(item);
+                    if (key) seenRecordKeys.set(key, combinedRecords.length - 1);
+                  }
+                });
+              }
+            }
+          }
+
+          window._boardLearningBanks[cfg.key] = loadedFileSets;
+          window[cfg.globalVar] = combinedRecords;
+        }
+
+        console.log('[BoardBankLoader] Learning & Quiz banks successfully loaded:', {
+          wordbanks: (window.vocabBank || []).length,
+          quizzes: (window.quizBank || []).length,
+          gapfill: (window.gapFillBank || []).length,
+          errors: (window.errorBank || []).length,
+          sentences: (window.orderSentences || []).length,
+          dictations: (window.dictationBank || []).length,
+          quotes: (window.quoteBank || []).length,
+          grammar: (window.grammarData || []).length,
+          stories: (window.chooseStoryBank || []).length
+        });
+
+        return {
+          vocabBank: window.vocabBank,
+          quizBank: window.quizBank,
+          gapFillBank: window.gapFillBank,
+          errorBank: window.errorBank,
+          orderSentences: window.orderSentences,
+          dictationBank: window.dictationBank,
+          quoteBank: window.quoteBank,
+          grammarData: window.grammarData,
+          chooseStoryBank: window.chooseStoryBank,
+          fileSets: window._boardLearningBanks
+        };
+      })();
+
+      return _boardLearningBanksLoadPromise;
+    }
+
+    // =========================================================================
+    // PART 2: LEARNING IMPORT MODAL CONTROLLER & TAB SWITCHING
+    // =========================================================================
+    let _conActiveLearningTab = 'quizzes';
+    let _conSelectedQuizQuestions = new Set();
+    let _conSelectedVocabWords = new Set();
+    let _conSelectedGrammarItems = new Set();
+
+    let _conQuizDisplayLimit = 100;
+    let _conVocabDisplayLimit = 100;
+    let _conGrammarDisplayLimit = 100;
+
+    let _conLastFilteredQuizCount = 0;
+    let _conLastFilteredVocabCount = 0;
+    let _conLastFilteredGrammarCount = 0;
+
+    // =========================================================================
+    // UNIVERSAL IMPORTER INTEGRATION (5 DOMAINS)
+    // =========================================================================
+    window.conOpenUniversalImportModal = function (initialDomain = 'learning', initialSubType = null, insertPos = null) {
+      if (typeof UniversalImporter === 'undefined') {
+        console.error('[Board] UniversalImporter module is not loaded.');
+        if (typeof showToast === 'function') showToast('Universal Importer module not loaded.', true);
+        return;
+      }
+
+      const activePlannerClass = (typeof _conImportPlannerClass !== 'undefined' && _conImportPlannerClass) ? _conImportPlannerClass.id : null;
+      const hostUrn = (typeof _conCurrentFileName !== 'undefined' && _conCurrentFileName) ? ('cmt:board:' + _conCurrentFileName) : 'cmt:board:active';
+
+      const pos = insertPos || (window._lastBoardPastePoint ? { x: window._lastBoardPastePoint.x, y: window._lastBoardPastePoint.y } : (window._boardCtxNoteX != null ? { x: window._boardCtxNoteX, y: window._boardCtxNoteY } : null));
+      window._conLastInsertPos = pos;
+
+      UniversalImporter.open({
+        host: 'board',
+        hostUrn: hostUrn,
+        autoLink: true,
+        initialDomain: initialDomain || 'learning',
+        initialSubType: initialSubType || (initialDomain === 'class' ? 'roster' : (initialDomain === 'grades' ? 'grades-term' : 'wordbanks')),
+        classContext: activePlannerClass,
+        insertPosition: pos,
+        onInsert: (selectedItems, chosenFormat, meta) => {
+          conExecuteUniversalBoardInsert(selectedItems, chosenFormat, meta);
+        }
+      });
+    };
+
+    window.conExecuteUniversalBoardInsert = function (selectedItems, chosenFormat, meta) {
+      if (!Array.isArray(selectedItems) || selectedItems.length === 0) return;
+
+      const brd = document.getElementById('constellation-board');
+      if (!brd) return;
+
+      const addWordFn = (typeof conAddWordAt === 'function') ? conAddWordAt : (window.conAddWordAt || null);
+
+      if (window.conPushUndo) window.conPushUndo();
+
+      let targetX = null;
+      let targetY = null;
+
+      if (meta && meta.insertPlacement === 'center') {
+        targetX = Math.max(40, Math.round(brd.scrollLeft + (brd.clientWidth / 2)));
+        targetY = Math.max(40, Math.round(brd.scrollTop + (brd.clientHeight / 2)));
+      } else if (meta && meta.insertPos && meta.insertPos.x != null) {
+        targetX = meta.insertPos.x;
+        targetY = meta.insertPos.y;
+      } else if (window._conLastInsertPos && window._conLastInsertPos.x != null) {
+        targetX = window._conLastInsertPos.x;
+        targetY = window._conLastInsertPos.y;
+      } else if (window._lastBoardPastePoint && window._lastBoardPastePoint.x != null) {
+        targetX = window._lastBoardPastePoint.x;
+        targetY = window._lastBoardPastePoint.y;
+      } else if (window._boardCtxNoteX != null && window._boardCtxNoteY != null) {
+        targetX = window._boardCtxNoteX;
+        targetY = window._boardCtxNoteY;
+      } else {
+        targetX = Math.max(40, Math.round(brd.scrollLeft + (brd.clientWidth / 2)));
+        targetY = Math.max(40, Math.round(brd.scrollTop + (brd.clientHeight / 2)));
+      }
+
+      const centerX = targetX;
+      const centerY = targetY;
+
+      const importField = (meta && meta.importField) || 'title';
+      const nameDisplayMode = (meta && meta.nameDisplayMode) || 'full';
+
+      // Output 0: Class Plan Visual Card
+      if (chosenFormat === 'classplan' || (meta.subType === 'seating' && chosenFormat !== 'table' && chosenFormat !== 'note' && chosenFormat !== 'nodes' && chosenFormat !== 'tray' && chosenFormat !== 'mindmap')) {
+        selectedItems.forEach((it, idx) => {
+          const planPayload = it.raw?.rawPlan || it.raw || it;
+          if (typeof conCreateClassPlanCard === 'function') {
+            conCreateClassPlanCard({
+              plan: planPayload,
+              className: it.className || planPayload.className,
+              title: it.title || planPayload.name
+            }, centerX + (idx * 30), centerY + (idx * 30));
+          }
+        });
+        if (typeof showToast === 'function') showToast(`Created class plan card for ${selectedItems.length} plan(s).`);
+        return;
+      }
+
+      // Output 1: Staging Tray
+      if (chosenFormat === 'tray') {
+        const labels = selectedItems.map(it => {
+          if (typeof UniversalImporter !== 'undefined' && typeof UniversalImporter.getItemText === 'function') {
+            return UniversalImporter.getItemText(it, importField, nameDisplayMode);
+          }
+          return it.title || it.raw?.word || it.raw?.question || '';
+        }).filter(Boolean);
+        if (typeof conImportTrayOpen === 'function') {
+          conImportTrayOpen(labels);
+        }
+        if (typeof showToast === 'function') showToast(`Added ${labels.length} items to staging tray.`);
+        return;
+      }
+
+      // Output 2: Interactive Game / Activity Launcher Card
+      if (chosenFormat === 'launcher') {
+        const activityPayload = {
+          id: 'act_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+          activityType: meta.subType === 'quizzes' ? 'quizzes' : (meta.subType === 'wordbanks' ? 'vocab' : 'grammar'),
+          subType: meta.subType,
+          title: `${selectedItems[0]?.theme || selectedItems[0]?.title || 'Activity'}: ${selectedItems.length} items`,
+          icon: meta.subType === 'quizzes' ? 'quiz.svg' : (meta.subType === 'wordbanks' ? 'book.svg' : 'grammar.svg'),
+          theme: selectedItems[0]?.theme || '',
+          level: selectedItems[0]?.level || '',
+          items: selectedItems.map(it => it.raw || it)
+        };
+        if (typeof conCreateGameLauncherCard === 'function') {
+          conCreateGameLauncherCard(activityPayload, centerX, centerY);
+        }
+        if (typeof showToast === 'function') showToast(`Created launcher card for ${selectedItems.length} items.`);
+        return;
+      }
+
+      // Output 3: Mindmap Radial Cluster
+      if (chosenFormat === 'mindmap') {
+        const rootText = selectedItems[0]?.theme || selectedItems[0]?.level || (meta.subType ? meta.subType.toUpperCase() : 'Mindmap');
+        if (addWordFn) {
+          const rootId = addWordFn(rootText, centerX, centerY);
+          const radius = Math.min(260, Math.max(140, selectedItems.length * 16));
+          const step = (Math.PI * 2) / Math.max(1, selectedItems.length);
+
+          selectedItems.forEach((it, idx) => {
+            const angle = idx * step;
+            const cx = Math.round(centerX + Math.cos(angle) * radius);
+            const cy = Math.round(centerY + Math.sin(angle) * radius);
+
+            if (importField === 'both_nodes') {
+              const primaryLabel = (typeof UniversalImporter !== 'undefined' && typeof UniversalImporter.getItemText === 'function')
+                ? UniversalImporter.getItemText(it, 'title', nameDisplayMode)
+                : (it.title || 'Item');
+              const secondaryLabel = it.subtitle || primaryLabel;
+
+              const childId = addWordFn(primaryLabel, cx, cy);
+              if (childId && rootId && typeof conCreateEdge === 'function') {
+                conCreateEdge(rootId, childId);
+              }
+              const pairAngle = angle + 0.15;
+              const px = Math.round(centerX + Math.cos(pairAngle) * (radius + 90));
+              const py = Math.round(centerY + Math.sin(pairAngle) * (radius + 90));
+              const pairId = addWordFn(secondaryLabel, px, py);
+              if (pairId && childId && typeof conCreateEdge === 'function') {
+                conCreateEdge(childId, pairId);
+              }
+            } else {
+              const itemLabel = (typeof UniversalImporter !== 'undefined' && typeof UniversalImporter.getItemText === 'function')
+                ? UniversalImporter.getItemText(it, importField, nameDisplayMode)
+                : (it.title || 'Item');
+              const childId = addWordFn(itemLabel, cx, cy);
+              if (childId && rootId && typeof conCreateEdge === 'function') {
+                conCreateEdge(rootId, childId);
+              }
+            }
+          });
+          if (typeof conRedrawEdges === 'function') conRedrawEdges();
+        }
+        if (typeof showToast === 'function') showToast(`Created mindmap cluster with ${selectedItems.length} items.`);
+        return;
+      }
+
+      // Output 4: Sticky Note / Checklist Card
+      if (chosenFormat === 'note') {
+        const headerTitle = selectedItems[0]?.theme ? `${selectedItems[0].theme} (${selectedItems.length} Items)` : `Imported Items (${selectedItems.length})`;
+        const mdText = `## ${headerTitle}\n\n` +
+          selectedItems.map(it => {
+            const itemText = (typeof UniversalImporter !== 'undefined' && typeof UniversalImporter.getItemText === 'function')
+              ? UniversalImporter.getItemText(it, importField, nameDisplayMode)
+              : (`${it.title}${it.subtitle ? ' — ' + it.subtitle : ''}`);
+            return `- [ ] **${itemText}**`;
+          }).join('\n');
+        if (typeof conNoteAdd === 'function') {
+          conNoteAdd(centerX - 160, centerY - 100, mdText);
+        }
+        if (typeof showToast === 'function') showToast(`Created note card for ${selectedItems.length} items.`);
+        return;
+      }
+
+      // Output 5: Table Grid
+      if (chosenFormat === 'table') {
+        const mdTable = UniversalImporter.toMarkdown(selectedItems, 'md-table', meta);
+        if (typeof conNoteAdd === 'function') {
+          conNoteAdd(centerX - 180, centerY - 100, mdTable);
+        }
+        if (typeof showToast === 'function') showToast(`Created table for ${selectedItems.length} items.`);
+        return;
+      }
+
+      // Output 6: Spatial Seating Plan Layout (Preserves Room & Desk Topology)
+      if (meta.subType === 'seating' && selectedItems.length > 0 && selectedItems[0]?.raw) {
+        const plan = selectedItems[0].raw.rawPlan || selectedItems[0].raw;
+        const layoutType = String(plan.layoutType || (plan.rows && plan.cols ? 'grid' : 'grid')).toLowerCase();
+        const deskItems = [];
+        const seatMap = new Map();
+        if (Array.isArray(plan.seats)) {
+          plan.seats.forEach(s => {
+            if (!s) return;
+            if (s.seatId) seatMap.set(String(s.seatId), s);
+            if (s.row !== undefined && s.col !== undefined) seatMap.set(`${s.row}:${s.col}`, s);
+          });
+        }
+
+        const COL_GAP = 180;
+        const ROW_GAP = 65;
+        const planStartX = centerX - 320;
+        const planStartY = centerY - 180;
+
+        if (layoutType === 'ushape') {
+          const w = Math.max(3, Number(plan.uWidth) || 6);
+          const d = Math.max(1, Number(plan.uDepth) || 3);
+          let deskCounter = 1;
+          for (let c = 0; c < w; c++) {
+            const seatId = `top:${c}`;
+            const seat = seatMap.get(seatId);
+            deskItems.push({ seat, defaultLabel: seat?.deskName || `Desk ${deskCounter++}`, x: planStartX + c * COL_GAP, y: planStartY });
+          }
+          for (let r = 1; r <= d; r++) {
+            const leftSeat = seatMap.get(`left:${r}`);
+            deskItems.push({ seat: leftSeat, defaultLabel: leftSeat?.deskName || `Desk ${deskCounter++}`, x: planStartX, y: planStartY + r * ROW_GAP });
+            const rightSeat = seatMap.get(`right:${r}`);
+            deskItems.push({ seat: rightSeat, defaultLabel: rightSeat?.deskName || `Desk ${deskCounter++}`, x: planStartX + (w - 1) * COL_GAP, y: planStartY + r * ROW_GAP });
+          }
+        } else if (layoutType === 'pods') {
+          const roomRows = Math.max(1, Number(plan.roomRows) || 2);
+          const roomCols = Math.max(1, Number(plan.roomCols) || 3);
+          const podRows = Math.max(1, Number(plan.podRows) || 2);
+          const podCols = Math.max(1, Number(plan.podCols) || 3);
+          const DESK_W = 160, DESK_H = 55, POD_GAP_X = 60, POD_GAP_Y = 50;
+          const POD_BLOCK_W = podCols * DESK_W;
+          const POD_BLOCK_H = podRows * DESK_H;
+          let deskCounter = 1;
+          for (let pr = 0; pr < roomRows; pr++) {
+            for (let pc = 0; pc < roomCols; pc++) {
+              for (let r = 0; r < podRows; r++) {
+                for (let c = 0; c < podCols; c++) {
+                  const seat = seatMap.get(`${pr}:${pc}:${r}:${c}`);
+                  deskItems.push({
+                    seat,
+                    defaultLabel: seat?.deskName || `Desk ${deskCounter++}`,
+                    x: planStartX + pc * (POD_BLOCK_W + POD_GAP_X) + c * DESK_W,
+                    y: planStartY + pr * (POD_BLOCK_H + POD_GAP_Y) + r * DESK_H
+                  });
+                }
+              }
+            }
+          }
+        } else {
+          // Default: Grid layout
+          const rows = Math.max(1, Number(plan.rows) || 4);
+          const cols = Math.max(1, Number(plan.cols) || 5);
+          let deskCounter = 1;
+          for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+              const seat = seatMap.get(`${r}:${c}`);
+              deskItems.push({
+                seat,
+                defaultLabel: seat?.deskName || `Desk ${deskCounter++}`,
+                x: planStartX + c * COL_GAP,
+                y: planStartY + r * ROW_GAP
+              });
+            }
+          }
+        }
+
+        const planNodeIds = [];
+        deskItems.forEach((di, idx) => {
+          const seat = di.seat;
+          let studentName = (seat ? (seat.studentName || seat.name || '') : '').trim();
+          if (seat?.studentId) {
+            studentName = (typeof UniversalImporter !== 'undefined' && typeof UniversalImporter.formatStudentName === 'function')
+              ? UniversalImporter.formatStudentName(seat.studentId, nameDisplayMode, studentName)
+              : (studentName || seat.studentId);
+          }
+          const label = studentName || di.defaultLabel || `Desk ${idx + 1}`;
+          if (addWordFn) {
+            const nid = addWordFn(label, di.x, di.y);
+            if (nid) {
+              planNodeIds.push(nid);
+              if (typeof conNodes !== 'undefined') {
+                const nodeObj = conNodes.find(n => n && n.id === nid);
+                if (nodeObj) {
+                  nodeObj.urn = selectedItems[0].urn || `cmt:plan:${plan.id || plan.name}`;
+                  nodeObj.subType = 'seating';
+                  nodeObj.domain = 'class';
+                  if (nodeObj.el && nodeObj.urn) nodeObj.el.setAttribute('data-urn', nodeObj.urn);
+                }
+              }
+            }
+          }
+        });
+
+        if (planNodeIds.length > 0 && typeof conGroupCreate === 'function') {
+          const group = conGroupCreate(planNodeIds, planStartX - 20, planStartY - 20);
+          if (group) {
+            group.title = `${selectedItems[0].title || plan.name || 'Class'} — Seating Layout (${layoutType.toUpperCase()})`;
+            if (typeof conGroupRefit === 'function') conGroupRefit(group);
+            if (typeof conGroupApplyStyle === 'function') conGroupApplyStyle(group);
+          }
+        }
+        if (typeof showToast === 'function') {
+          showToast(`Imported seating plan with ${deskItems.length} desks onto the board.`);
+        }
+        return;
+      }
+
+      // Default / Output 7: Individual Canvas Nodes with Staggered Layout & URN Links
+      if (!addWordFn) {
+        if (typeof showToast === 'function') showToast('Node creator not available.', true);
+        return;
+      }
+
+      const count = selectedItems.length;
+      let cols = 4;
+      if (count <= 4) cols = Math.max(2, count);
+      else if (count <= 12) cols = 4;
+      else if (count <= 20) cols = 5;
+      else cols = 6;
+
+      const COL_W = (importField === 'both_nodes') ? 290 : 180;
+      const ROW_H = 65;
+      const startX = centerX - Math.round((cols * COL_W) / 2);
+      const startY = centerY - Math.round((Math.ceil(count / cols) * ROW_H) / 2);
+
+      const nodeIds = [];
+      selectedItems.forEach((it, i) => {
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        const nx = startX + (col * COL_W);
+        const ny = startY + (row * ROW_H);
+
+        if (importField === 'both_nodes') {
+          const primaryLabel = (typeof UniversalImporter !== 'undefined' && typeof UniversalImporter.getItemText === 'function')
+            ? UniversalImporter.getItemText(it, 'title', nameDisplayMode)
+            : (it.title || 'Item');
+          const secondaryLabel = it.subtitle || primaryLabel;
+
+          const nid1 = addWordFn(primaryLabel, nx, ny);
+          const nid2 = addWordFn(secondaryLabel, nx + 130, ny);
+          if (nid1) {
+            nodeIds.push(nid1);
+            if (typeof conNodes !== 'undefined') {
+              const nodeObj1 = conNodes.find(n => n && n.id === nid1);
+              if (nodeObj1) {
+                nodeObj1.urn = it.urn;
+                nodeObj1.subType = it.subType;
+                nodeObj1.domain = it.domain;
+                if (nodeObj1.el && it.urn) nodeObj1.el.setAttribute('data-urn', it.urn);
+              }
+            }
+          }
+          if (nid2) {
+            nodeIds.push(nid2);
+            if (typeof conNodes !== 'undefined') {
+              const nodeObj2 = conNodes.find(n => n && n.id === nid2);
+              if (nodeObj2) {
+                nodeObj2.urn = it.urn ? `${it.urn}#details` : '';
+                nodeObj2.subType = it.subType;
+                nodeObj2.domain = it.domain;
+                if (nodeObj2.el && nodeObj2.urn) nodeObj2.el.setAttribute('data-urn', nodeObj2.urn);
+              }
+            }
+          }
+          if (nid1 && nid2 && typeof conCreateEdge === 'function') {
+            conCreateEdge(nid1, nid2);
+          }
+        } else {
+          const nodeText = (typeof UniversalImporter !== 'undefined' && typeof UniversalImporter.getItemText === 'function')
+            ? UniversalImporter.getItemText(it, importField, nameDisplayMode)
+            : (it.title || 'Item');
+          const nid = addWordFn(nodeText, nx, ny);
+          if (nid) {
+            nodeIds.push(nid);
+            if (typeof conNodes !== 'undefined') {
+              const nodeObj = conNodes.find(n => n && n.id === nid);
+              if (nodeObj) {
+                nodeObj.urn = it.urn;
+                nodeObj.subType = it.subType;
+                nodeObj.domain = it.domain;
+                if (nodeObj.el && it.urn) nodeObj.el.setAttribute('data-urn', it.urn);
+              }
+            }
+          }
+        }
+      });
+
+      if (importField === 'both_nodes' && typeof conRedrawEdges === 'function') {
+        conRedrawEdges();
+      }
+
+      if (meta.domain === 'class' && nodeIds.length > 0 && typeof conGroupCreate === 'function') {
+        const group = conGroupCreate(nodeIds, startX - 10, startY - 10);
+        if (group) {
+          group.title = `${selectedItems[0]?.subtitle || 'Class'} — Roster`;
+          if (typeof conGroupRefit === 'function') conGroupRefit(group);
+          if (typeof conGroupApplyStyle === 'function') conGroupApplyStyle(group);
+        }
+      }
+
+      if (typeof showToast === 'function') {
+        showToast(`Imported ${selectedItems.length} items onto the board.`);
+      }
+    };
+
+    window.conOpenLearningImportModal = async function (initialTab = 'quizzes') {
+      const subType = initialTab === 'vocab' ? 'wordbanks' : (initialTab === 'grammar' ? 'grammarbanks' : 'quizzes');
+      conOpenUniversalImportModal('learning', subType);
+    };
+
+    window.conCloseLearningImportModal = function () {
+      const overlay = document.getElementById('con-learning-import-overlay');
+      if (overlay) {
+        overlay.style.display = 'none';
+      }
+    };
+
+    window.conSwitchLearningTab = function (tabName) {
+      const validTabs = ['quizzes', 'vocab', 'grammar'];
+      _conActiveLearningTab = validTabs.includes(tabName) ? tabName : 'quizzes';
+
+      // Update tab buttons appearance (Light Neobrutalist styling)
+      const tabs = [
+        { id: 'con-ltab-quizzes', key: 'quizzes' },
+        { id: 'con-ltab-vocab', key: 'vocab' },
+        { id: 'con-ltab-grammar', key: 'grammar' }
+      ];
+
+      tabs.forEach(t => {
+        const btn = document.getElementById(t.id);
+        if (!btn) return;
+        if (t.key === _conActiveLearningTab) {
+          btn.classList.add('active');
+          btn.style.background = '#ffffff';
+          btn.style.color = '#111111';
+          btn.style.fontWeight = '900';
+          btn.style.borderBottom = '2px solid #ffffff';
+        } else {
+          btn.classList.remove('active');
+          btn.style.background = '#e5e5dc';
+          btn.style.color = '#444444';
+          btn.style.fontWeight = '800';
+          btn.style.borderBottom = '2px solid #333333';
+        }
+      });
+
+      // Show active pane and hide others
+      const panes = [
+        { id: 'con-learning-pane-quizzes', key: 'quizzes' },
+        { id: 'con-learning-pane-vocab', key: 'vocab' },
+        { id: 'con-learning-pane-grammar', key: 'grammar' }
+      ];
+
+      panes.forEach(p => {
+        const el = document.getElementById(p.id);
+        if (!el) return;
+        el.style.display = (p.key === _conActiveLearningTab) ? 'flex' : 'none';
+      });
+
+      // Refresh contents of active tab
+      if (_conActiveLearningTab === 'quizzes' && typeof conRefreshQuizTab === 'function') {
+        conRefreshQuizTab();
+      } else if (_conActiveLearningTab === 'vocab' && typeof conRefreshVocabTab === 'function') {
+        conRefreshVocabTab();
+      } else if (_conActiveLearningTab === 'grammar' && typeof conRefreshGrammarTab === 'function') {
+        conRefreshGrammarTab();
+      }
+
+      conUpdateLearningTotalSelected();
+    };
+
+    window.conUpdateLearningTotalSelected = function () {
+      const totalEl = document.getElementById('con-learning-total-selected');
+      if (!totalEl) return;
+
+      let count = 0;
+      let label = 'selected';
+      if (_conActiveLearningTab === 'quizzes') {
+        count = _conSelectedQuizQuestions.size;
+        label = count === 1 ? 'question selected' : 'questions selected';
+      } else if (_conActiveLearningTab === 'vocab') {
+        count = _conSelectedVocabWords.size;
+        label = count === 1 ? 'word selected' : 'words selected';
+      } else if (_conActiveLearningTab === 'grammar') {
+        count = _conSelectedGrammarItems.size;
+        label = count === 1 ? 'item selected' : 'items selected';
+      }
+
+      totalEl.textContent = `${count} ${label}`;
+    };
+
+    // =========================================================================
+    // PART 3: QUIZZES TAB CONTROLLER & DYNAMIC FILTERS
+    // =========================================================================
+    window.conRefreshQuizTab = function () {
+      const setSelect = document.getElementById('con-lquiz-set-select');
+      const levelSelect = document.getElementById('con-lquiz-level-select');
+      const themeSelect = document.getElementById('con-lquiz-theme-select');
+      if (!setSelect || !levelSelect || !themeSelect) return;
+
+      const quizSets = (window._boardLearningBanks && window._boardLearningBanks.quizzes) || [];
+      const curSetVal = setSelect.value || 'all';
+      setSelect.innerHTML = '<option value="all">All Quiz Sets (' + ((window.quizBank && window.quizBank.length) || 0) + ')</option>';
+      quizSets.forEach(qs => {
+        const opt = document.createElement('option');
+        opt.value = qs.filename;
+        opt.textContent = `${qs.title || qs.filename} (${qs.count || 0})`;
+        setSelect.appendChild(opt);
+      });
+      if (quizSets.some(qs => qs.filename === curSetVal)) {
+        setSelect.value = curSetVal;
+      }
+
+      const allQuizzes = window.quizBank || [];
+      const levels = new Set();
+      const themes = new Set();
+      allQuizzes.forEach(q => {
+        if (q.level || q.cefr) levels.add(String(q.level || q.cefr).trim().toUpperCase());
+        if (q.theme || q.category) themes.add(String(q.theme || q.category).trim());
+      });
+
+      const curLevel = levelSelect.value || '';
+      levelSelect.innerHTML = '<option value="">All Levels</option>';
+      Array.from(levels).sort().forEach(lvl => {
+        const opt = document.createElement('option');
+        opt.value = lvl;
+        opt.textContent = lvl;
+        levelSelect.appendChild(opt);
+      });
+      levelSelect.value = curLevel;
+
+      const curTheme = themeSelect.value || '';
+      themeSelect.innerHTML = '<option value="">All Themes</option>';
+      Array.from(themes).sort((a, b) => a.localeCompare(b)).forEach(thm => {
+        const opt = document.createElement('option');
+        opt.value = thm;
+        opt.textContent = thm;
+        themeSelect.appendChild(opt);
+      });
+      themeSelect.value = curTheme;
+
+      _conQuizDisplayLimit = 100;
+      conRefreshQuizTabList();
+    };
+
+    window.conShowMoreQuizItems = function () {
+      _conQuizDisplayLimit += 100;
+      conRefreshQuizTabList();
+    };
+
+    window.conRefreshQuizTabList = function () {
+      const listEl = document.getElementById('con-lquiz-items-list');
+      const counterEl = document.getElementById('con-lquiz-counter');
+      const setSelect = document.getElementById('con-lquiz-set-select');
+      const levelSelect = document.getElementById('con-lquiz-level-select');
+      const themeSelect = document.getElementById('con-lquiz-theme-select');
+      const searchInput = document.getElementById('con-lquiz-search-input');
+      if (!listEl) return;
+
+      const setFilter = setSelect ? setSelect.value : 'all';
+      const levelFilter = (levelSelect ? levelSelect.value : '').toLowerCase();
+      const themeFilter = (themeSelect ? themeSelect.value : '').toLowerCase();
+      const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
+
+      let questions = window.quizBank || [];
+      if (setFilter !== 'all') {
+        questions = questions.filter(q => q.fileSet === setFilter);
+      }
+      if (levelFilter) {
+        questions = questions.filter(q => String(q.level || q.cefr || '').toLowerCase() === levelFilter);
+      }
+      if (themeFilter) {
+        questions = questions.filter(q => String(q.theme || q.category || '').toLowerCase() === themeFilter);
+      }
+      if (query) {
+        questions = questions.filter(q => {
+          const qText = String(q.question || '').toLowerCase();
+          const opts = Array.isArray(q.options) ? q.options.join(' ').toLowerCase() : '';
+          const exp = String(q.explanation || '').toLowerCase();
+          return qText.includes(query) || opts.includes(query) || exp.includes(query);
+        });
+      }
+
+      _conLastFilteredQuizCount = questions.length;
+
+      if (counterEl) {
+        counterEl.textContent = `${questions.length} questions available (${_conSelectedQuizQuestions.size} selected)`;
+      }
+
+      if (questions.length === 0) {
+        listEl.innerHTML = '<div style="padding:16px;text-align:center;color:#64748b;font-weight:700;font-size:0.85rem;">No questions match current filters.</div>';
+        return;
+      }
+
+      const visibleQuestions = questions.slice(0, _conQuizDisplayLimit);
+      let html = '';
+      visibleQuestions.forEach((q, idx) => {
+        const qId = q.id || `quiz_q_${idx}`;
+        const isChecked = _conSelectedQuizQuestions.has(qId);
+        const lvl = q.level || q.cefr || '';
+        const thm = q.theme || q.category || '';
+        const opts = Array.isArray(q.options) ? q.options : (Array.isArray(q.answers) ? q.answers : []);
+        const ans = q.correctIndex !== undefined ? q.correctIndex : q.answer;
+
+        html += `
+          <div class="con-litem-card" data-qid="${boardEscapeHtml(qId)}" style="display:flex; gap:10px; padding:8px 10px; background:#ffffff; border:1.5px solid ${isChecked ? '#2563eb' : '#cbd5e1'}; border-radius:6px; align-items:flex-start; cursor:pointer; transition:border-color 0.15s ease;" onclick="conToggleQuizItem('${boardEscapeHtml(qId)}')">
+            <input type="checkbox" style="margin-top:3px; cursor:pointer;" ${isChecked ? 'checked' : ''} onclick="event.stopPropagation(); conToggleQuizItem('${boardEscapeHtml(qId)}')" />
+            <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:6px;">
+                <span style="font-weight:800; font-size:0.85rem; color:#1e293b;">${boardEscapeHtml(q.question || '')}</span>
+                <div style="display:flex; gap:4px; flex-shrink:0;">
+                  ${lvl ? `<span style="padding:1px 5px; font-size:0.7rem; font-weight:800; background:#f1f5f9; border:1px solid #94a3b8; border-radius:4px; color:#334155;">${boardEscapeHtml(lvl)}</span>` : ''}
+                  ${thm ? `<span style="padding:1px 5px; font-size:0.7rem; font-weight:800; background:#eff6ff; border:1px solid #93c5fd; border-radius:4px; color:#1d4ed8;">${boardEscapeHtml(thm)}</span>` : ''}
+                </div>
+              </div>
+              ${opts.length > 0 ? `
+                <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:2px;">
+                  ${opts.map((opt, optIdx) => {
+                    const isCorrect = (ans === optIdx || ans === opt || (Array.isArray(ans) && (ans.includes(optIdx) || ans.includes(opt))));
+                    return `<span style="font-size:0.72rem; padding:1px 6px; border-radius:4px; border:1px solid ${isCorrect ? '#86efac' : '#e2e8f0'}; background:${isCorrect ? '#dcfce7' : '#f8fafc'}; color:${isCorrect ? '#15803d' : '#475569'}; font-weight:${isCorrect ? '800' : '600'};">${boardEscapeHtml(opt)}</span>`;
+                  }).join('')}
+                </div>
+              ` : ''}
+              ${q.explanation ? `<div style="font-size:0.72rem; color:#64748b; font-style:italic; margin-top:2px;">${boardEscapeHtml(q.explanation)}</div>` : ''}
+            </div>
+          </div>
+        `;
+      });
+
+      if (questions.length > _conQuizDisplayLimit) {
+        html += `
+          <div style="padding:10px; text-align:center; background:#f1f5f9; border:1.5px dashed #cbd5e1; border-radius:6px; margin-top:4px;">
+            <span style="font-size:0.8rem; font-weight:700; color:#475569; margin-right:10px;">Showing ${_conQuizDisplayLimit} of ${questions.length} questions</span>
+            <button type="button" class="action-btn btn-grey" onclick="conShowMoreQuizItems()" style="padding:3px 10px; font-size:0.75rem; font-weight:800; border-radius:4px; border:1.5px solid #333333; cursor:pointer;">Show More (+100)</button>
+          </div>
+        `;
+      }
+
+      listEl.innerHTML = html;
+    };
+
+    let _conQuizSearchTimer = null;
+    window.conDebouncedRefreshQuizTabList = function () {
+      clearTimeout(_conQuizSearchTimer);
+      _conQuizSearchTimer = setTimeout(() => {
+        _conQuizDisplayLimit = 100;
+        conRefreshQuizTabList();
+      }, 180);
+    };
+
+    window.conToggleQuizItem = function (qId) {
+      if (_conSelectedQuizQuestions.has(qId)) {
+        _conSelectedQuizQuestions.delete(qId);
+      } else {
+        _conSelectedQuizQuestions.add(qId);
+      }
+      const isChecked = _conSelectedQuizQuestions.has(qId);
+      const card = document.querySelector(`.con-litem-card[data-qid="${boardEscapeHtml(qId)}"]`);
+      if (card) {
+        card.style.borderColor = isChecked ? '#2563eb' : '#cbd5e1';
+        const cb = card.querySelector('input[type="checkbox"]');
+        if (cb) cb.checked = isChecked;
+      }
+      const counterEl = document.getElementById('con-lquiz-counter');
+      if (counterEl) {
+        counterEl.textContent = `${_conLastFilteredQuizCount} questions available (${_conSelectedQuizQuestions.size} selected)`;
+      }
+      conUpdateLearningTotalSelected();
+    };
+
+    window.conQuizSelectAll = function (selectAll) {
+      const setSelect = document.getElementById('con-lquiz-set-select');
+      const levelSelect = document.getElementById('con-lquiz-level-select');
+      const themeSelect = document.getElementById('con-lquiz-theme-select');
+      const searchInput = document.getElementById('con-lquiz-search-input');
+
+      const setFilter = setSelect ? setSelect.value : 'all';
+      const levelFilter = (levelSelect ? levelSelect.value : '').toLowerCase();
+      const themeFilter = (themeSelect ? themeSelect.value : '').toLowerCase();
+      const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
+
+      let questions = window.quizBank || [];
+      if (setFilter !== 'all') questions = questions.filter(q => q.fileSet === setFilter);
+      if (levelFilter) questions = questions.filter(q => String(q.level || q.cefr || '').toLowerCase() === levelFilter);
+      if (themeFilter) questions = questions.filter(q => String(q.theme || q.category || '').toLowerCase() === themeFilter);
+      if (query) {
+        questions = questions.filter(q => {
+          const qText = String(q.question || '').toLowerCase();
+          const opts = Array.isArray(q.options) ? q.options.join(' ').toLowerCase() : '';
+          const exp = String(q.explanation || '').toLowerCase();
+          return qText.includes(query) || opts.includes(query) || exp.includes(query);
+        });
+      }
+
+      questions.forEach((q, idx) => {
+        const qId = q.id || `quiz_q_${idx}`;
+        if (selectAll) {
+          _conSelectedQuizQuestions.add(qId);
+        } else {
+          _conSelectedQuizQuestions.delete(qId);
+        }
+      });
+
+      document.querySelectorAll('#con-lquiz-items-list .con-litem-card').forEach(card => {
+        const qId = card.getAttribute('data-qid');
+        const isChecked = _conSelectedQuizQuestions.has(qId);
+        card.style.borderColor = isChecked ? '#2563eb' : '#cbd5e1';
+        const cb = card.querySelector('input[type="checkbox"]');
+        if (cb) cb.checked = isChecked;
+      });
+
+      const counterEl = document.getElementById('con-lquiz-counter');
+      if (counterEl) {
+        counterEl.textContent = `${questions.length} questions available (${_conSelectedQuizQuestions.size} selected)`;
+      }
+      conUpdateLearningTotalSelected();
+    };
+
+    // =========================================================================
+    // PART 4: VOCABULARY GAMES TAB CONTROLLER
+    // =========================================================================
+    let _conActiveVocabGameMode = 'match';
+
+    window.conSetVocabGameMode = function (mode) {
+      _conActiveVocabGameMode = mode;
+      const btns = document.querySelectorAll('.con-lgame-mode-btn');
+      btns.forEach(b => {
+        if (b.dataset.game === mode) {
+          b.classList.add('active');
+          b.style.background = '#e0f2fe';
+          b.style.color = '#0369a1';
+          b.style.boxShadow = '2px 2px 0 #333333';
+          b.style.border = '2px solid #333333';
+        } else {
+          b.classList.remove('active');
+          b.style.background = '#ffffff';
+          b.style.color = '#333333';
+          b.style.boxShadow = 'none';
+          b.style.border = '1.5px solid #333333';
+        }
+      });
+    };
+
+    window.conRefreshVocabTab = function () {
+      const srcSelect = document.getElementById('con-lvocab-source-select');
+      const levelSelect = document.getElementById('con-lvocab-level-select');
+      const themeSelect = document.getElementById('con-lvocab-theme-select');
+      const posSelect = document.getElementById('con-lvocab-pos-select');
+      if (!srcSelect || !levelSelect || !themeSelect || !posSelect) return;
+
+      const wordFiles = (window._boardLearningBanks && window._boardLearningBanks.wordbanks) || [];
+      const curSrc = srcSelect.value || 'all';
+      srcSelect.innerHTML = '<option value="all">All Sources (' + ((window.vocabBank && window.vocabBank.length) || 0) + ')</option>';
+      wordFiles.forEach(wf => {
+        const opt = document.createElement('option');
+        opt.value = wf.filename;
+        opt.textContent = `${wf.title || wf.filename} (${wf.count || 0})`;
+        srcSelect.appendChild(opt);
+      });
+      srcSelect.value = curSrc;
+
+      const allWords = window.vocabBank || [];
+      const levels = new Set();
+      const themes = new Set();
+      const posSet = new Set();
+
+      allWords.forEach(w => {
+        if (w.level || w.cefr) levels.add(String(w.level || w.cefr).trim().toUpperCase());
+        if (w.theme || w.category) themes.add(String(w.theme || w.category).trim());
+        if (w.pos || w.partOfSpeech) posSet.add(String(w.pos || w.partOfSpeech).trim().toLowerCase());
+      });
+
+      const curLvl = levelSelect.value || '';
+      levelSelect.innerHTML = '<option value="">All Levels</option>';
+      Array.from(levels).sort().forEach(lvl => {
+        const opt = document.createElement('option');
+        opt.value = lvl;
+        opt.textContent = lvl;
+        levelSelect.appendChild(opt);
+      });
+      levelSelect.value = curLvl;
+
+      const curThm = themeSelect.value || '';
+      themeSelect.innerHTML = '<option value="">All Themes</option>';
+      Array.from(themes).sort((a, b) => a.localeCompare(b)).forEach(thm => {
+        const opt = document.createElement('option');
+        opt.value = thm;
+        opt.textContent = thm;
+        themeSelect.appendChild(opt);
+      });
+      themeSelect.value = curThm;
+
+      const curPos = posSelect.value || '';
+      posSelect.innerHTML = '<option value="">All Types</option>';
+      Array.from(posSet).sort().forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p;
+        opt.textContent = p;
+        posSelect.appendChild(opt);
+      });
+      posSelect.value = curPos;
+
+      _conVocabDisplayLimit = 100;
+      conRefreshVocabTabList();
+    };
+
+    window.conShowMoreVocabItems = function () {
+      _conVocabDisplayLimit += 100;
+      conRefreshVocabTabList();
+    };
+
+    window.conRefreshVocabTabList = function () {
+      const listEl = document.getElementById('con-lvocab-items-list');
+      const counterEl = document.getElementById('con-lvocab-counter');
+      const srcSelect = document.getElementById('con-lvocab-source-select');
+      const levelSelect = document.getElementById('con-lvocab-level-select');
+      const themeSelect = document.getElementById('con-lvocab-theme-select');
+      const posSelect = document.getElementById('con-lvocab-pos-select');
+      const searchInput = document.getElementById('con-lvocab-search-input');
+      if (!listEl) return;
+
+      const srcFilter = srcSelect ? srcSelect.value : 'all';
+      const levelFilter = (levelSelect ? levelSelect.value : '').toLowerCase();
+      const themeFilter = (themeSelect ? themeSelect.value : '').toLowerCase();
+      const posFilter = (posSelect ? posSelect.value : '').toLowerCase();
+      const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
+
+      let words = window.vocabBank || [];
+      if (srcFilter !== 'all') words = words.filter(w => w.fileSet === srcFilter || w._source === srcFilter);
+      if (levelFilter) words = words.filter(w => String(w.level || w.cefr || '').toLowerCase() === levelFilter);
+      if (themeFilter) words = words.filter(w => String(w.theme || w.category || '').toLowerCase() === themeFilter);
+      if (posFilter) words = words.filter(w => String(w.pos || w.partOfSpeech || '').toLowerCase() === posFilter);
+      if (query) {
+        words = words.filter(w => {
+          const wText = String(w.word || '').toLowerCase();
+          const tr = String(w.translation || w.trad || w.french || '').toLowerCase();
+          const def = String(w.definition || w.def || '').toLowerCase();
+          return wText.includes(query) || tr.includes(query) || def.includes(query);
+        });
+      }
+
+      _conLastFilteredVocabCount = words.length;
+
+      if (counterEl) {
+        counterEl.textContent = `${words.length} words available (${_conSelectedVocabWords.size} selected)`;
+      }
+
+      if (words.length === 0) {
+        listEl.innerHTML = '<div style="padding:16px;text-align:center;color:#64748b;font-weight:700;font-size:0.85rem;">No vocabulary words match current filters.</div>';
+        return;
+      }
+
+      const visibleWords = words.slice(0, _conVocabDisplayLimit);
+      let html = '';
+      visibleWords.forEach((w, idx) => {
+        const wId = w.id || w.word || `vocab_${idx}`;
+        const isChecked = _conSelectedVocabWords.has(wId);
+        const lvl = w.level || w.cefr || '';
+        const thm = w.theme || w.category || '';
+        const pos = w.pos || w.partOfSpeech || '';
+        const ipa = w.phonetic || w.ipa || '';
+        const tr = w.translation || w.trad || (Array.isArray(w.french) ? w.french.join(', ') : w.french) || '';
+        const def = w.definition || (Array.isArray(w.def) ? w.def[0] : w.def) || '';
+
+        html += `
+          <div class="con-litem-card" data-wid="${boardEscapeHtml(wId)}" style="display:flex; gap:10px; padding:8px 10px; background:#ffffff; border:1.5px solid ${isChecked ? '#0284c7' : '#cbd5e1'}; border-radius:6px; align-items:flex-start; cursor:pointer; transition:border-color 0.15s ease;" onclick="conToggleVocabItem('${boardEscapeHtml(wId)}')">
+            <input type="checkbox" style="margin-top:3px; cursor:pointer;" ${isChecked ? 'checked' : ''} onclick="event.stopPropagation(); conToggleVocabItem('${boardEscapeHtml(wId)}')" />
+            <div style="flex:1; display:flex; flex-direction:column; gap:3px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:6px;">
+                <div style="display:flex; align-items:baseline; gap:8px;">
+                  <span style="font-weight:900; font-size:0.9rem; color:#0f172a;">${boardEscapeHtml(w.word || '')}</span>
+                  ${ipa ? `<span style="font-family:monospace; font-size:0.75rem; color:#64748b;">/${boardEscapeHtml(ipa)}/</span>` : ''}
+                  ${tr ? `<span style="font-size:0.8rem; font-weight:700; color:#0369a1;">(${boardEscapeHtml(tr)})</span>` : ''}
+                </div>
+                <div style="display:flex; gap:4px; flex-shrink:0;">
+                  ${pos ? `<span style="padding:1px 5px; font-size:0.68rem; font-weight:800; background:#f1f5f9; border:1px solid #94a3b8; border-radius:4px; color:#475569;">${boardEscapeHtml(pos)}</span>` : ''}
+                  ${lvl ? `<span style="padding:1px 5px; font-size:0.68rem; font-weight:800; background:#fef9c3; border:1px solid #ca8a04; border-radius:4px; color:#854d0e;">${boardEscapeHtml(lvl)}</span>` : ''}
+                  ${thm ? `<span style="padding:1px 5px; font-size:0.68rem; font-weight:800; background:#f0fdf4; border:1px solid #86efac; border-radius:4px; color:#166534;">${boardEscapeHtml(thm)}</span>` : ''}
+                </div>
+              </div>
+              ${def ? `<div style="font-size:0.75rem; color:#475569; margin-top:1px;">${boardEscapeHtml(def)}</div>` : ''}
+            </div>
+          </div>
+        `;
+      });
+
+      if (words.length > _conVocabDisplayLimit) {
+        html += `
+          <div style="padding:10px; text-align:center; background:#f1f5f9; border:1.5px dashed #cbd5e1; border-radius:6px; margin-top:4px;">
+            <span style="font-size:0.8rem; font-weight:700; color:#475569; margin-right:10px;">Showing ${_conVocabDisplayLimit} of ${words.length} words</span>
+            <button type="button" class="action-btn btn-grey" onclick="conShowMoreVocabItems()" style="padding:3px 10px; font-size:0.75rem; font-weight:800; border-radius:4px; border:1.5px solid #333333; cursor:pointer;">Show More (+100)</button>
+          </div>
+        `;
+      }
+
+      listEl.innerHTML = html;
+    };
+
+    let _conVocabSearchTimer = null;
+    window.conDebouncedRefreshVocabTabList = function () {
+      clearTimeout(_conVocabSearchTimer);
+      _conVocabSearchTimer = setTimeout(() => {
+        _conVocabDisplayLimit = 100;
+        conRefreshVocabTabList();
+      }, 180);
+    };
+
+    window.conToggleVocabItem = function (wId) {
+      if (_conSelectedVocabWords.has(wId)) {
+        _conSelectedVocabWords.delete(wId);
+      } else {
+        _conSelectedVocabWords.add(wId);
+      }
+      const isChecked = _conSelectedVocabWords.has(wId);
+      const card = document.querySelector(`.con-litem-card[data-wid="${boardEscapeHtml(wId)}"]`);
+      if (card) {
+        card.style.borderColor = isChecked ? '#0284c7' : '#cbd5e1';
+        const cb = card.querySelector('input[type="checkbox"]');
+        if (cb) cb.checked = isChecked;
+      }
+      const counterEl = document.getElementById('con-lvocab-counter');
+      if (counterEl) {
+        counterEl.textContent = `${_conLastFilteredVocabCount} words available (${_conSelectedVocabWords.size} selected)`;
+      }
+      conUpdateLearningTotalSelected();
+    };
+
+    window.conVocabSelectAll = function (selectAll) {
+      const srcSelect = document.getElementById('con-lvocab-source-select');
+      const levelSelect = document.getElementById('con-lvocab-level-select');
+      const themeSelect = document.getElementById('con-lvocab-theme-select');
+      const posSelect = document.getElementById('con-lvocab-pos-select');
+      const searchInput = document.getElementById('con-lvocab-search-input');
+
+      const srcFilter = srcSelect ? srcSelect.value : 'all';
+      const levelFilter = (levelSelect ? levelSelect.value : '').toLowerCase();
+      const themeFilter = (themeSelect ? themeSelect.value : '').toLowerCase();
+      const posFilter = (posSelect ? posSelect.value : '').toLowerCase();
+      const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
+
+      let words = window.vocabBank || [];
+      if (srcFilter !== 'all') words = words.filter(w => w.fileSet === srcFilter || w._source === srcFilter);
+      if (levelFilter) words = words.filter(w => String(w.level || w.cefr || '').toLowerCase() === levelFilter);
+      if (themeFilter) words = words.filter(w => String(w.theme || w.category || '').toLowerCase() === themeFilter);
+      if (posFilter) words = words.filter(w => String(w.pos || w.partOfSpeech || '').toLowerCase() === posFilter);
+      if (query) {
+        words = words.filter(w => {
+          const wText = String(w.word || '').toLowerCase();
+          const tr = String(w.translation || w.trad || w.french || '').toLowerCase();
+          const def = String(w.definition || w.def || '').toLowerCase();
+          return wText.includes(query) || tr.includes(query) || def.includes(query);
+        });
+      }
+
+      words.forEach((w, idx) => {
+        const wId = w.id || w.word || `vocab_${idx}`;
+        if (selectAll) {
+          _conSelectedVocabWords.add(wId);
+        } else {
+          _conSelectedVocabWords.delete(wId);
+        }
+      });
+
+      document.querySelectorAll('#con-lvocab-items-list .con-litem-card').forEach(card => {
+        const wId = card.getAttribute('data-wid');
+        const isChecked = _conSelectedVocabWords.has(wId);
+        card.style.borderColor = isChecked ? '#0284c7' : '#cbd5e1';
+        const cb = card.querySelector('input[type="checkbox"]');
+        if (cb) cb.checked = isChecked;
+      });
+
+      const counterEl = document.getElementById('con-lvocab-counter');
+      if (counterEl) {
+        counterEl.textContent = `${words.length} words available (${_conSelectedVocabWords.size} selected)`;
+      }
+      conUpdateLearningTotalSelected();
+    };
+
+    // =========================================================================
+    // PART 5: GRAMMAR & LANGUAGE TOOLS TAB CONTROLLER
+    // =========================================================================
+    let _conActiveGrammarTool = 'sentence';
+
+    window.conSetGrammarTool = function (tool) {
+      _conActiveGrammarTool = tool;
+      const btns = document.querySelectorAll('.con-lgrammar-tool-btn');
+      btns.forEach(b => {
+        if (b.dataset.tool === tool) {
+          b.classList.add('active');
+          b.style.background = '#fef3c7';
+          b.style.color = '#92400e';
+          b.style.boxShadow = '2px 2px 0 #333333';
+          b.style.border = '2px solid #333333';
+        } else {
+          b.classList.remove('active');
+          b.style.background = '#ffffff';
+          b.style.color = '#333333';
+          b.style.boxShadow = 'none';
+          b.style.border = '1.5px solid #333333';
+        }
+      });
+      conRefreshGrammarTab();
+    };
+
+    function conGetActiveGrammarBank() {
+      switch (_conActiveGrammarTool) {
+        case 'sentence': return window.orderSentences || [];
+        case 'gapfill': return window.gapFillBank || [];
+        case 'error': return window.errorBank || [];
+        case 'dictation': return window.dictationBank || [];
+        case 'order': return window.orderSentences || [];
+        case 'quote': return window.quoteBank || [];
+        case 'werewolf': return window.chooseStoryBank || [];
+        default: return window.grammarData || [];
+      }
+    }
+
+    window.conRefreshGrammarTab = function () {
+      const levelSelect = document.getElementById('con-lgrammar-level-select');
+      const themeSelect = document.getElementById('con-lgrammar-theme-select');
+      if (!levelSelect || !themeSelect) return;
+
+      const bank = conGetActiveGrammarBank();
+      const levels = new Set();
+      const themes = new Set();
+
+      bank.forEach(item => {
+        if (item.level || item.cefr) levels.add(String(item.level || item.cefr).trim().toUpperCase());
+        if (item.theme || item.category) themes.add(String(item.theme || item.category).trim());
+      });
+
+      const curLvl = levelSelect.value || '';
+      levelSelect.innerHTML = '<option value="">All Levels</option>';
+      Array.from(levels).sort().forEach(lvl => {
+        const opt = document.createElement('option');
+        opt.value = lvl;
+        opt.textContent = lvl;
+        levelSelect.appendChild(opt);
+      });
+      levelSelect.value = curLvl;
+
+      const curThm = themeSelect.value || '';
+      themeSelect.innerHTML = '<option value="">All Themes</option>';
+      Array.from(themes).sort((a, b) => a.localeCompare(b)).forEach(thm => {
+        const opt = document.createElement('option');
+        opt.value = thm;
+        opt.textContent = thm;
+        themeSelect.appendChild(opt);
+      });
+      themeSelect.value = curThm;
+
+      _conGrammarDisplayLimit = 100;
+      conRefreshGrammarTabList();
+    };
+
+    window.conShowMoreGrammarItems = function () {
+      _conGrammarDisplayLimit += 100;
+      conRefreshGrammarTabList();
+    };
+
+    window.conRefreshGrammarTabList = function () {
+      const listEl = document.getElementById('con-lgrammar-items-list');
+      const counterEl = document.getElementById('con-lgrammar-counter');
+      const levelSelect = document.getElementById('con-lgrammar-level-select');
+      const themeSelect = document.getElementById('con-lgrammar-theme-select');
+      const searchInput = document.getElementById('con-lgrammar-search-input');
+      if (!listEl) return;
+
+      const levelFilter = (levelSelect ? levelSelect.value : '').toLowerCase();
+      const themeFilter = (themeSelect ? themeSelect.value : '').toLowerCase();
+      const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
+
+      let items = conGetActiveGrammarBank();
+      if (levelFilter) items = items.filter(i => String(i.level || i.cefr || '').toLowerCase() === levelFilter);
+      if (themeFilter) items = items.filter(i => String(i.theme || i.category || '').toLowerCase() === themeFilter);
+      if (query) {
+        items = items.filter(i => {
+          const text = String(i.text || i.sentence || i.quote || i.original || i.title || i.prompt || '').toLowerCase();
+          const ans = String(i.correction || (Array.isArray(i.answers) ? i.answers.join(' ') : (i.author || ''))).toLowerCase();
+          return text.includes(query) || ans.includes(query);
+        });
+      }
+
+      _conLastFilteredGrammarCount = items.length;
+
+      if (counterEl) {
+        counterEl.textContent = `${items.length} items available (${_conSelectedGrammarItems.size} selected)`;
+      }
+
+      if (items.length === 0) {
+        listEl.innerHTML = '<div style="padding:16px;text-align:center;color:#64748b;font-weight:700;font-size:0.85rem;">No items match current filters.</div>';
+        return;
+      }
+
+      const visibleItems = items.slice(0, _conGrammarDisplayLimit);
+      let html = '';
+      visibleItems.forEach((item, idx) => {
+        const itemId = item.id || `grammar_${_conActiveGrammarTool}_${idx}`;
+        const isChecked = _conSelectedGrammarItems.has(itemId);
+        const lvl = item.level || item.cefr || '';
+        const thm = item.theme || item.category || '';
+        const mainText = item.text || item.sentence || item.quote || item.original || item.title || item.prompt || `Item #${idx + 1}`;
+        const subText = item.correction || item.author || (Array.isArray(item.answers) ? `Answers: ${item.answers.join(', ')}` : (item.explanation || ''));
+
+        html += `
+          <div class="con-litem-card" data-gid="${boardEscapeHtml(itemId)}" style="display:flex; gap:10px; padding:8px 10px; background:#ffffff; border:1.5px solid ${isChecked ? '#d97706' : '#cbd5e1'}; border-radius:6px; align-items:flex-start; cursor:pointer; transition:border-color 0.15s ease;" onclick="conToggleGrammarItem('${boardEscapeHtml(itemId)}')">
+            <input type="checkbox" style="margin-top:3px; cursor:pointer;" ${isChecked ? 'checked' : ''} onclick="event.stopPropagation(); conToggleGrammarItem('${boardEscapeHtml(itemId)}')" />
+            <div style="flex:1; display:flex; flex-direction:column; gap:3px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:6px;">
+                <span style="font-weight:800; font-size:0.85rem; color:#1e293b;">${boardEscapeHtml(mainText)}</span>
+                <div style="display:flex; gap:4px; flex-shrink:0;">
+                  ${lvl ? `<span style="padding:1px 5px; font-size:0.68rem; font-weight:800; background:#fef3c7; border:1px solid #f59e0b; border-radius:4px; color:#92400e;">${boardEscapeHtml(lvl)}</span>` : ''}
+                  ${thm ? `<span style="padding:1px 5px; font-size:0.68rem; font-weight:800; background:#f1f5f9; border:1px solid #94a3b8; border-radius:4px; color:#334155;">${boardEscapeHtml(thm)}</span>` : ''}
+                </div>
+              </div>
+              ${subText ? `<div style="font-size:0.75rem; color:#475569; font-style:italic;">${boardEscapeHtml(subText)}</div>` : ''}
+            </div>
+          </div>
+        `;
+      });
+
+      if (items.length > _conGrammarDisplayLimit) {
+        html += `
+          <div style="padding:10px; text-align:center; background:#f1f5f9; border:1.5px dashed #cbd5e1; border-radius:6px; margin-top:4px;">
+            <span style="font-size:0.8rem; font-weight:700; color:#475569; margin-right:10px;">Showing ${_conGrammarDisplayLimit} of ${items.length} items</span>
+            <button type="button" class="action-btn btn-grey" onclick="conShowMoreGrammarItems()" style="padding:3px 10px; font-size:0.75rem; font-weight:800; border-radius:4px; border:1.5px solid #333333; cursor:pointer;">Show More (+100)</button>
+          </div>
+        `;
+      }
+
+      listEl.innerHTML = html;
+    };
+
+    let _conGrammarSearchTimer = null;
+    window.conDebouncedRefreshGrammarTabList = function () {
+      clearTimeout(_conGrammarSearchTimer);
+      _conGrammarSearchTimer = setTimeout(() => {
+        _conGrammarDisplayLimit = 100;
+        conRefreshGrammarTabList();
+      }, 180);
+    };
+
+    window.conToggleGrammarItem = function (itemId) {
+      if (_conSelectedGrammarItems.has(itemId)) {
+        _conSelectedGrammarItems.delete(itemId);
+      } else {
+        _conSelectedGrammarItems.add(itemId);
+      }
+      const isChecked = _conSelectedGrammarItems.has(itemId);
+      const card = document.querySelector(`.con-litem-card[data-gid="${boardEscapeHtml(itemId)}"]`);
+      if (card) {
+        card.style.borderColor = isChecked ? '#d97706' : '#cbd5e1';
+        const cb = card.querySelector('input[type="checkbox"]');
+        if (cb) cb.checked = isChecked;
+      }
+      const counterEl = document.getElementById('con-lgrammar-counter');
+      if (counterEl) {
+        counterEl.textContent = `${_conLastFilteredGrammarCount} items available (${_conSelectedGrammarItems.size} selected)`;
+      }
+      conUpdateLearningTotalSelected();
+    };
+
+    window.conGrammarSelectAll = function (selectAll) {
+      const levelSelect = document.getElementById('con-lgrammar-level-select');
+      const themeSelect = document.getElementById('con-lgrammar-theme-select');
+      const searchInput = document.getElementById('con-lgrammar-search-input');
+
+      const levelFilter = (levelSelect ? levelSelect.value : '').toLowerCase();
+      const themeFilter = (themeSelect ? themeSelect.value : '').toLowerCase();
+      const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
+
+      let items = conGetActiveGrammarBank();
+      if (levelFilter) items = items.filter(i => String(i.level || i.cefr || '').toLowerCase() === levelFilter);
+      if (themeFilter) items = items.filter(i => String(i.theme || i.category || '').toLowerCase() === themeFilter);
+      if (query) {
+        items = items.filter(i => {
+          const text = String(i.text || i.sentence || i.quote || i.original || i.title || i.prompt || '').toLowerCase();
+          const ans = String(i.correction || (Array.isArray(i.answers) ? i.answers.join(' ') : (i.author || ''))).toLowerCase();
+          return text.includes(query) || ans.includes(query);
+        });
+      }
+
+      items.forEach((item, idx) => {
+        const itemId = item.id || `grammar_${_conActiveGrammarTool}_${idx}`;
+        if (selectAll) {
+          _conSelectedGrammarItems.add(itemId);
+        } else {
+          _conSelectedGrammarItems.delete(itemId);
+        }
+      });
+
+      document.querySelectorAll('#con-lgrammar-items-list .con-litem-card').forEach(card => {
+        const itemId = card.getAttribute('data-gid');
+        const isChecked = _conSelectedGrammarItems.has(itemId);
+        card.style.borderColor = isChecked ? '#d97706' : '#cbd5e1';
+        const cb = card.querySelector('input[type="checkbox"]');
+        if (cb) cb.checked = isChecked;
+      });
+
+      const counterEl = document.getElementById('con-lgrammar-counter');
+      if (counterEl) {
+        counterEl.textContent = `${items.length} items available (${_conSelectedGrammarItems.size} selected)`;
+      }
+      conUpdateLearningTotalSelected();
+    };
+
+    // =========================================================================
+    // PART 6 & 7: CANVAS FORMAT BUILDERS & ACTIVITY CONFIRMATION
+    // =========================================================================
+    function conGetVocabGameIcon(mode) {
+      switch (mode) {
+        case 'match': return 'match.svg';
+        case 'hangman': return 'hangman.svg';
+        case 'scramble': return 'scramble.svg';
+        case 'wordquest': return 'search.svg';
+        case 'phonetic': return 'ipa.svg';
+        case 'synant': return 'syn.svg';
+        case 'flashcards': return 'word-card.svg';
+        case 'wordsearch': return 'wordsearch.svg';
+        default: return 'book.svg';
+      }
+    }
+
+    function conGetVocabGameTitle(mode) {
+      switch (mode) {
+        case 'match': return 'Definition Match';
+        case 'hangman': return 'Hangman';
+        case 'scramble': return 'Scrambled Word';
+        case 'wordquest': return 'Word Quest';
+        case 'phonetic': return 'Phonetics / IPA';
+        case 'synant': return 'Synonyms & Antonyms';
+        case 'flashcards': return 'Flash Cards';
+        case 'wordsearch': return 'Word Search';
+        default: return 'Vocabulary Game';
+      }
+    }
+
+    function conGetGrammarToolIcon(tool) {
+      switch (tool) {
+        case 'sentence': return 'sentence.svg';
+        case 'gapfill': return 'gapfill.svg';
+        case 'error': return 'error.svg';
+        case 'dictation': return 'dictation.svg';
+        case 'order': return 'order.svg';
+        case 'quote': return 'quote.svg';
+        case 'werewolf': return 'werewolf.svg';
+        default: return 'grammar.svg';
+      }
+    }
+
+    function conGetGrammarToolTitle(tool) {
+      switch (tool) {
+        case 'sentence': return 'Sentence Builder';
+        case 'gapfill': return 'Gap Fill';
+        case 'error': return 'Find the Error';
+        case 'dictation': return 'Dictation';
+        case 'order': return 'Order Sentences';
+        case 'quote': return 'Quote Analyser';
+        case 'werewolf': return 'Werewolf Game';
+        default: return 'Language Tool';
+      }
+    }
+
+    window.conConfirmLearningImport = function () {
+      const formatSelect = document.getElementById('con-learning-format-select');
+      const format = formatSelect ? formatSelect.value : 'launcher';
+
+      const activityType = _conActiveLearningTab; // 'quizzes' | 'vocab' | 'grammar'
+      let subType = '';
+      let title = '';
+      let icon = '';
+      let theme = '';
+      let level = '';
+      let selectedItems = [];
+
+      if (activityType === 'quizzes') {
+        subType = 'quiz';
+        icon = 'quiz.svg';
+        title = 'Classroom Quiz';
+        const allQuizzes = window.quizBank || [];
+        selectedItems = allQuizzes.filter((q, idx) => _conSelectedQuizQuestions.has(q.id || `quiz_q_${idx}`));
+        if (selectedItems.length === 0) {
+          if (typeof showToast === 'function') showToast('Please select at least one quiz question.', true);
+          return;
+        }
+        theme = selectedItems[0].theme || selectedItems[0].category || '';
+        level = selectedItems[0].level || selectedItems[0].cefr || '';
+        if (theme) title = `Quiz: ${theme}`;
+      } else if (activityType === 'vocab') {
+        subType = _conActiveVocabGameMode;
+        icon = conGetVocabGameIcon(subType);
+        title = conGetVocabGameTitle(subType);
+        const allWords = window.vocabBank || [];
+        selectedItems = allWords.filter((w, idx) => _conSelectedVocabWords.has(w.id || w.word || `vocab_${idx}`));
+        if (selectedItems.length === 0) {
+          if (typeof showToast === 'function') showToast('Please select at least one vocabulary word.', true);
+          return;
+        }
+        theme = selectedItems[0].theme || selectedItems[0].category || '';
+        level = selectedItems[0].level || selectedItems[0].cefr || '';
+        if (theme) title = `${conGetVocabGameTitle(subType)}: ${theme}`;
+      } else if (activityType === 'grammar') {
+        subType = _conActiveGrammarTool;
+        icon = conGetGrammarToolIcon(subType);
+        title = conGetGrammarToolTitle(subType);
+        const allItems = conGetActiveGrammarBank();
+        selectedItems = allItems.filter((item, idx) => _conSelectedGrammarItems.has(item.id || `grammar_${subType}_${idx}`));
+        if (selectedItems.length === 0) {
+          if (typeof showToast === 'function') showToast('Please select at least one grammar item.', true);
+          return;
+        }
+        theme = selectedItems[0].theme || selectedItems[0].category || '';
+        level = selectedItems[0].level || selectedItems[0].cefr || '';
+        if (theme) title = `${conGetGrammarToolTitle(subType)}: ${theme}`;
+      }
+
+      const activityPayload = {
+        id: 'act_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+        activityType,
+        subType,
+        title,
+        icon,
+        theme,
+        level,
+        items: selectedItems
+      };
+
+      if (format === 'launcher') {
+        conCreateGameLauncherCard(activityPayload);
+      } else if (format === 'mindmap') {
+        conCreateGameMindmapCluster(activityPayload);
+      } else if (format === 'note') {
+        conCreateGameNoteChecklist(activityPayload);
+      } else if (format === 'tray') {
+        const wordLabels = selectedItems.map(it => it.word || it.question || it.sentence || it.quote || it.text || it.original || it.title || '').filter(Boolean);
+        if (typeof conImportTrayOpen === 'function') {
+          conImportTrayOpen(wordLabels);
+        }
+      }
+
+      conCloseLearningImportModal();
+      if (typeof showToast === 'function') {
+        showToast(`Inserted "${title}" (${selectedItems.length} items)`);
+      }
+    };
+
+    // Format 0: Visual Class Plan Card Generator (Interactive Floor Plan & Deep Link)
+    function conCreateClassPlanCard(planPayload, targetX, targetY) {
+      const board = document.getElementById('constellation-board');
+      if (!board) return null;
+
+      if (window.conPushUndo) window.conPushUndo();
+
+      const x = (targetX != null) ? targetX : Math.max(40, Math.round(board.clientWidth / 2 - 220));
+      const y = (targetY != null) ? targetY : Math.max(40, Math.round(board.clientHeight / 2 - 160));
+
+      const nid = 'cnn' + (conNoteNextId++);
+      const plan = planPayload.plan || planPayload.rawPlan || planPayload.raw || planPayload;
+      const className = (planPayload.className || plan.className || 'Class').trim();
+      const planTitle = (planPayload.title || plan.name || plan.title || 'Seating Plan').trim();
+      const layoutType = String(plan.layoutType || (plan.rows && plan.cols ? 'grid' : 'grid')).toLowerCase();
+
+      // Index seats
+      const seatMap = new Map();
+      const assignedStudents = [];
+      if (Array.isArray(plan.seats)) {
+        plan.seats.forEach(s => {
+          if (!s) return;
+          if (s.seatId) seatMap.set(String(s.seatId), s);
+          if (s.row !== undefined && s.col !== undefined) seatMap.set(`${s.row}:${s.col}`, s);
+          const sName = (s.studentName || s.name || '').trim();
+          if (sName) assignedStudents.push(sName);
+        });
+      }
+
+      // Generate Floor Plan Layout HTML
+      let floorPlanHtml = '';
+      if (layoutType === 'ushape') {
+        const w = Math.max(3, Math.min(10, Number(plan.uWidth) || 6));
+        const d = Math.max(1, Math.min(6, Number(plan.uDepth) || 3));
+        let topDesksHtml = '';
+        for (let c = 0; c < w; c++) {
+          const seat = seatMap.get(`top:${c}`);
+          const sName = seat ? (seat.studentName || seat.name || '') : '';
+          topDesksHtml += `<div class="cp-mini-desk ${sName ? 'occupied' : 'empty'}" title="${boardEscapeHtml(sName || `Top Desk ${c + 1}`)}">${boardEscapeHtml(sName || `D${c+1}`)}</div>`;
+        }
+        let sidesHtml = '';
+        for (let r = 1; r <= d; r++) {
+          const leftSeat = seatMap.get(`left:${r}`);
+          const rightSeat = seatMap.get(`right:${r}`);
+          const leftName = leftSeat ? (leftSeat.studentName || leftSeat.name || '') : '';
+          const rightName = rightSeat ? (rightSeat.studentName || rightSeat.name || '') : '';
+          sidesHtml += `
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+              <div class="cp-mini-desk ${leftName ? 'occupied' : 'empty'}" title="${boardEscapeHtml(leftName || `Left Desk ${r}`)}">${boardEscapeHtml(leftName || `L${r}`)}</div>
+              <div style="flex:1; font-size:0.65rem; color:#94a3b8; text-align:center; font-style:italic;">— Aisle —</div>
+              <div class="cp-mini-desk ${rightName ? 'occupied' : 'empty'}" title="${boardEscapeHtml(rightName || `Right Desk ${r}`)}">${boardEscapeHtml(rightName || `R${r}`)}</div>
+            </div>
+          `;
+        }
+        floorPlanHtml = `
+          <div style="display:flex; flex-direction:column; gap:6px; background:#f8fafc; padding:8px; border-radius:6px; border:1.5px solid #cbd5e1;">
+            <div style="display:grid; grid-template-columns:repeat(${w}, 1fr); gap:4px;">${topDesksHtml}</div>
+            ${sidesHtml}
+          </div>
+        `;
+      } else if (layoutType === 'pods') {
+        const roomRows = Math.max(1, Math.min(4, Number(plan.roomRows) || 2));
+        const roomCols = Math.max(1, Math.min(4, Number(plan.roomCols) || 3));
+        const podRows = Math.max(1, Math.min(3, Number(plan.podRows) || 2));
+        const podCols = Math.max(1, Math.min(3, Number(plan.podCols) || 2));
+        let podsMatrixHtml = '';
+        for (let pr = 0; pr < roomRows; pr++) {
+          let podsRowHtml = '';
+          for (let pc = 0; pc < roomCols; pc++) {
+            let podDesksHtml = '';
+            for (let r = 0; r < podRows; r++) {
+              for (let c = 0; c < podCols; c++) {
+                const seat = seatMap.get(`${pr}:${pc}:${r}:${c}`);
+                const sName = seat ? (seat.studentName || seat.name || '') : '';
+                podDesksHtml += `<div class="cp-mini-desk ${sName ? 'occupied' : 'empty'}" title="${boardEscapeHtml(sName || `Pod ${pr+1}.${pc+1}`)}">${boardEscapeHtml(sName || `P${pr+1}.${pc+1}`)}</div>`;
+              }
+            }
+            podsRowHtml += `
+              <div style="border:1.5px dashed #94a3b8; border-radius:5px; padding:4px; background:#ffffff; display:grid; grid-template-columns:repeat(${podCols}, 1fr); gap:3px;">
+                ${podDesksHtml}
+              </div>
+            `;
+          }
+          podsMatrixHtml += `<div style="display:grid; grid-template-columns:repeat(${roomCols}, 1fr); gap:8px;">${podsRowHtml}</div>`;
+        }
+        floorPlanHtml = `
+          <div style="display:flex; flex-direction:column; gap:8px; background:#f8fafc; padding:8px; border-radius:6px; border:1.5px solid #cbd5e1;">
+            ${podsMatrixHtml}
+          </div>
+        `;
+      } else {
+        // Grid Layout (Default)
+        const rows = Math.max(1, Math.min(10, Number(plan.rows) || 4));
+        const cols = Math.max(1, Math.min(10, Number(plan.cols) || 5));
+        let gridCellsHtml = '';
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const seat = seatMap.get(`${r}:${c}`);
+            const sName = seat ? (seat.studentName || seat.name || '') : '';
+            gridCellsHtml += `<div class="cp-mini-desk ${sName ? 'occupied' : 'empty'}" title="${boardEscapeHtml(sName || `Row ${r+1}, Col ${c+1}`)}">${boardEscapeHtml(sName || `D${r+1}.${c+1}`)}</div>`;
+          }
+        }
+        floorPlanHtml = `
+          <div style="display:grid; grid-template-columns:repeat(${cols}, 1fr); gap:5px; background:#f8fafc; padding:8px; border-radius:6px; border:1.5px solid #cbd5e1;">
+            ${gridCellsHtml}
+          </div>
+        `;
+      }
+
+      const totalSeatsCount = Array.isArray(plan.seats) ? plan.seats.length : (plan.rows && plan.cols ? plan.rows * plan.cols : assignedStudents.length);
+
+      const cardHtml = `
+        <div class="con-class-plan-widget" data-plan-id="${boardEscapeHtml(plan.id || '')}" style="display:flex; flex-direction:column; gap:8px; min-width:340px; max-width:480px; font-family:inherit; pointer-events:auto;">
+          <style>
+            .cp-mini-desk {
+              padding: 4px 5px;
+              font-size: 0.7rem;
+              font-weight: 700;
+              text-align: center;
+              border-radius: 4px;
+              border: 1.5px solid #333333;
+              box-shadow: 1px 1px 0 #333333;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+              max-width: 100%;
+            }
+            .cp-mini-desk.occupied {
+              background: #e0f2fe;
+              color: #0369a1;
+              font-weight: 800;
+            }
+            .cp-mini-desk.empty {
+              background: #ffffff;
+              color: #94a3b8;
+              font-style: italic;
+              border-color: #94a3b8;
+              box-shadow: none;
+            }
+          </style>
+          
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; border-bottom:2px solid #333333; padding-bottom:6px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <img src="../assets/icons/class-plan.svg" class="btn-icon" alt="" style="width:22px; height:22px; margin:0;" />
+              <div>
+                <strong style="font-size:0.95rem; color:#111111; font-weight:900;">${boardEscapeHtml(planTitle)}</strong>
+                ${className ? `<div style="font-size:0.75rem; font-weight:700; color:#475569;">${boardEscapeHtml(className)}</div>` : ''}
+              </div>
+            </div>
+            <div style="display:flex; gap:4px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
+              <span style="padding:2px 6px; font-size:0.7rem; font-weight:900; background:#fef3c7; border:1.5px solid #333333; border-radius:4px; color:#92400e; box-shadow:1px 1px 0 #333333;">${boardEscapeHtml(layoutType.toUpperCase())}</span>
+              <span style="padding:2px 6px; font-size:0.7rem; font-weight:900; background:#e0f2fe; border:1.5px solid #333333; border-radius:4px; color:#0369a1; box-shadow:1px 1px 0 #333333;">${totalSeatsCount} seats</span>
+            </div>
+          </div>
+
+          <div style="background:#1e293b; color:#ffffff; font-size:0.68rem; font-weight:900; text-align:center; padding:3px 8px; border-radius:4px; letter-spacing:0.06em; border:1.5px solid #0f172a; box-shadow:1px 1px 0 #0f172a;">
+            ▲ TEACHER BOARD / FRONT OF CLASSROOM ▲
+          </div>
+
+          ${floorPlanHtml}
+
+          <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:2px; justify-content:space-between; align-items:center;">
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <button type="button" class="action-btn btn-blue" onclick="conOpenClassPlan('${boardEscapeHtml(className)}', '${boardEscapeHtml(plan.id || '')}')" style="display:inline-flex; align-items:center; gap:5px; padding:4px 10px; font-size:0.78rem; font-weight:800; border-radius:5px; border:1.5px solid #333333; box-shadow:2px 2px 0 #333333; cursor:pointer;" title="Open in Class Plan Designer">
+                <img src="../assets/icons/class-plan.svg" class="btn-icon" alt="" style="width:14px; height:14px; margin:0; filter:brightness(0) invert(1);" />
+                <span>Open in Class Plan</span>
+              </button>
+
+              <button type="button" class="action-btn btn-grey" onclick="conToggleCardItemsPreview('${nid}')" style="display:inline-flex; align-items:center; gap:5px; padding:4px 10px; font-size:0.78rem; font-weight:800; border-radius:5px; border:1.5px solid #333333; box-shadow:2px 2px 0 #333333; cursor:pointer;" title="Toggle Student Roster">
+                <img src="../assets/icons/groups.svg" class="btn-icon" alt="" style="width:14px; height:14px; margin:0;" />
+                <span>Students (${assignedStudents.length})</span>
+              </button>
+            </div>
+            
+            <div style="font-size:0.72rem; color:#64748b; font-weight:700;">
+              ${assignedStudents.length}/${totalSeatsCount} occupied
+            </div>
+          </div>
+
+          <div id="con-preview-list-${nid}" style="display:none; max-height:140px; overflow-y:auto; border:1.5px solid #cbd5e1; border-radius:6px; padding:6px; background:#f8fafc; margin-top:4px; font-size:0.75rem;">
+            ${assignedStudents.length > 0 ? assignedStudents.map((name, i) => `
+              <div style="padding:2px 0; border-bottom:1px dashed #e2e8f0; display:flex; justify-content:space-between; gap:4px;">
+                <strong style="color:#1e293b;">${i + 1}. ${boardEscapeHtml(name)}</strong>
+              </div>
+            `).join('') : '<div style="color:#94a3b8; font-style:italic;">No students assigned to seats in this plan yet.</div>'}
+          </div>
+        </div>
+      `;
+
+      const noteData = {
+        id: nid,
+        nodeId: null,
+        text: '',
+        html: cardHtml,
+        x, y,
+        color: '#111111',
+        bg: '#ffffff',
+        fontSize: 14,
+        bold: false, italic: false, underline: false, strike: false,
+        hidden: false, locked: false, manualSize: true,
+        width: 440, height: null,
+        isClassPlanCard: true,
+        planPayload: planPayload
+      };
+
+      conNotes.push(noteData);
+      conNoteBuild(noteData);
+
+      const noteEl = document.querySelector(`.con-word-note[data-id="${nid}"]`);
+      if (noteEl) {
+        noteEl.classList.add('class-plan-card');
+        noteEl.style.border = '2.5px solid #333333';
+        noteEl.style.boxShadow = '4px 4px 0px #333333';
+        noteEl.style.borderRadius = '10px';
+        noteEl.style.background = '#ffffff';
+        noteEl.style.padding = '10px 12px';
+      }
+
+      if (typeof conMarkBoardDirty === 'function') conMarkBoardDirty();
+      return noteData;
+    }
+
+    window.conOpenClassPlan = async function (classId, planId) {
+      const query = {};
+      if (classId) query.classId = classId;
+      if (planId) query.planId = planId;
+      if (window.Desktop && typeof window.Desktop.openTool === 'function') {
+        await window.Desktop.openTool('class-plan.html', { query });
+      } else {
+        const qs = new URLSearchParams(query).toString();
+        window.open('class-plan.html' + (qs ? '?' + qs : ''), '_blank');
+      }
+    };
+
+    // Format 1: Interactive Launcher Card Generator
+    function conCreateGameLauncherCard(activity, targetX, targetY) {
+      const board = document.getElementById('constellation-board');
+      if (!board) return null;
+
+      if (window.conPushUndo) window.conPushUndo();
+
+      const x = (targetX != null) ? targetX : Math.max(40, Math.round(board.clientWidth / 2 - 180 + Math.random() * 40 - 20));
+      const y = (targetY != null) ? targetY : Math.max(40, Math.round(board.clientHeight / 2 - 120 + Math.random() * 40 - 20));
+
+      const nid = 'cnn' + (conNoteNextId++);
+      const itemCount = (activity.items || []).length;
+      const itemLabel = activity.activityType === 'quizzes'
+        ? (itemCount === 1 ? 'Question' : 'Questions')
+        : (activity.activityType === 'vocab' ? (itemCount === 1 ? 'Word' : 'Words') : (itemCount === 1 ? 'Item' : 'Items'));
+
+      const cardHtml = `
+        <div class="con-game-launcher-widget" data-activity-id="${boardEscapeHtml(activity.id)}" style="display:flex; flex-direction:column; gap:8px; min-width:300px; max-width:420px; font-family:inherit; pointer-events:auto;">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; border-bottom:2px solid #333333; padding-bottom:6px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <img src="../assets/icons/${boardEscapeHtml(activity.icon)}" class="btn-icon" alt="" style="width:22px; height:22px; margin:0;" />
+              <strong style="font-size:0.95rem; color:#111111; font-weight:900;">${boardEscapeHtml(activity.title)}</strong>
+            </div>
+            <div style="display:flex; gap:4px; align-items:center;">
+              ${activity.level ? `<span style="padding:2px 6px; font-size:0.7rem; font-weight:900; background:#fef3c7; border:1.5px solid #333333; border-radius:4px; color:#92400e; box-shadow:1px 1px 0 #333333;">${boardEscapeHtml(activity.level)}</span>` : ''}
+              <span style="padding:2px 6px; font-size:0.7rem; font-weight:900; background:#e0f2fe; border:1.5px solid #333333; border-radius:4px; color:#0369a1; box-shadow:1px 1px 0 #333333;">${itemCount} ${itemLabel}</span>
+            </div>
+          </div>
+
+          <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:2px;">
+            <button type="button" class="action-btn btn-blue" onclick="conLaunchLearningActivity('${boardEscapeHtml(activity.id)}')" style="display:inline-flex; align-items:center; gap:5px; padding:4px 10px; font-size:0.78rem; font-weight:800; border-radius:5px; border:1.5px solid #333333; box-shadow:2px 2px 0 #333333; cursor:pointer;" title="Open Activity in Learning Tools / Quiz Window">
+              <img src="../assets/icons/play.svg" class="btn-icon" alt="" style="width:14px; height:14px; margin:0; filter:brightness(0) invert(1);" />
+              <span>Play Activity</span>
+            </button>
+
+            ${activity.activityType === 'quizzes' ? `
+              <button type="button" class="action-btn btn-grey" onclick="conLaunchMultiplayerQuiz('${boardEscapeHtml(activity.id)}')" style="display:inline-flex; align-items:center; gap:5px; padding:4px 10px; font-size:0.78rem; font-weight:800; border-radius:5px; border:1.5px solid #333333; box-shadow:2px 2px 0 #333333; cursor:pointer;" title="Host Multiplayer Quiz for Students">
+                <img src="../assets/icons/group.svg" class="btn-icon" alt="" style="width:14px; height:14px; margin:0;" />
+                <span>Multiplayer</span>
+              </button>
+            ` : ''}
+
+            <button type="button" class="action-btn btn-grey" onclick="conToggleCardItemsPreview('${nid}')" style="display:inline-flex; align-items:center; gap:5px; padding:4px 10px; font-size:0.78rem; font-weight:800; border-radius:5px; border:1.5px solid #333333; box-shadow:2px 2px 0 #333333; cursor:pointer;" title="Toggle Items List">
+              <img src="../assets/icons/file-text.svg" class="btn-icon" alt="" style="width:14px; height:14px; margin:0;" />
+              <span>Preview</span>
+            </button>
+          </div>
+
+          <div id="con-preview-list-${nid}" style="display:none; max-height:160px; overflow-y:auto; border:1.5px solid #cbd5e1; border-radius:6px; padding:6px; background:#f8fafc; margin-top:4px; font-size:0.75rem;">
+            ${(activity.items || []).map((item, i) => {
+              const main = item.question || item.word || item.sentence || item.quote || item.text || item.original || item.title || `Item ${i + 1}`;
+              const sub = item.translation || (Array.isArray(item.options) ? `[${item.options.length} options]` : (item.correction || ''));
+              return `<div style="padding:2px 0; border-bottom:1px dashed #e2e8f0; display:flex; justify-content:space-between; gap:4px;">
+                <strong style="color:#1e293b;">${i + 1}. ${boardEscapeHtml(main)}</strong>
+                ${sub ? `<span style="color:#64748b; font-style:italic;">${boardEscapeHtml(sub)}</span>` : ''}
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+      `;
+
+      const noteData = {
+        id: nid,
+        nodeId: null,
+        text: '',
+        html: cardHtml,
+        x, y,
+        color: '#111111',
+        bg: '#ffffff',
+        fontSize: 14,
+        bold: false, italic: false, underline: false, strike: false,
+        hidden: false, locked: false, manualSize: true,
+        width: 360, height: null,
+        isGameLauncherCard: true,
+        activityPayload: activity
+      };
+
+      conNotes.push(noteData);
+      conNoteBuild(noteData);
+
+      const noteEl = document.querySelector(`.con-word-note[data-id="${nid}"]`);
+      if (noteEl) {
+        noteEl.classList.add('game-launcher-card');
+        noteEl.style.border = '2.5px solid #333333';
+        noteEl.style.boxShadow = '4px 4px 0px #333333';
+        noteEl.style.borderRadius = '10px';
+        noteEl.style.background = '#ffffff';
+        noteEl.style.padding = '10px 12px';
+      }
+
+      if (typeof conMarkBoardDirty === 'function') conMarkBoardDirty();
+      return noteData;
+    }
+
+    // Format 2: Mindmap Node Cluster Generator
+    function conCreateGameMindmapCluster(activity) {
+      const board = document.getElementById('constellation-board');
+      if (!board) return;
+
+      if (window.conPushUndo) window.conPushUndo();
+
+      const centerX = Math.max(140, Math.round(board.clientWidth / 2 - 50));
+      const centerY = Math.max(140, Math.round(board.clientHeight / 2 - 30));
+
+      const parentText = `[${activity.title}]`;
+      const parentNodeId = conAddWordAt(parentText, centerX, centerY);
+      const createdNodeIds = [parentNodeId];
+
+      const items = (activity.items || []).slice(0, 24); // max 24 in mindmap circle
+      const N = items.length;
+      if (N > 0) {
+        const radius = Math.max(140, Math.min(260, 25 * N));
+        items.forEach((item, i) => {
+          const angle = (2 * Math.PI * i) / N;
+          const childX = Math.round(centerX + radius * Math.cos(angle));
+          const childY = Math.round(centerY + radius * Math.sin(angle));
+          const childText = item.word || item.question || item.sentence || item.quote || item.text || item.original || item.title || `Item ${i + 1}`;
+          const childNodeId = conAddWordAt(childText, childX, childY);
+          createdNodeIds.push(childNodeId);
+
+          if (typeof conAddEdge === 'function') {
+            conAddEdge(parentNodeId, childNodeId, 'solid', '#333333');
+          }
+        });
+      }
+
+      // Group all created nodes together
+      if (typeof conCreatePhraseGroup === 'function') {
+        const groupObj = {
+          id: 'cg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+          title: activity.title,
+          nodeIds: createdNodeIds,
+          noteIds: [],
+          color: '#e0f2fe'
+        };
+        if (Array.isArray(window.conGroups)) {
+          window.conGroups.push(groupObj);
+          if (typeof conRenderGroup === 'function') conRenderGroup(groupObj);
+        }
+      }
+
+      if (typeof conMarkBoardDirty === 'function') conMarkBoardDirty();
+    }
+
+    // Format 3: Markdown Note Checklist Generator
+    function conCreateGameNoteChecklist(activity) {
+      const items = activity.items || [];
+      let md = `### ${activity.title}\n\n`;
+      if (activity.level || activity.theme) {
+        md += `*${activity.level ? `[${activity.level}] ` : ''}${activity.theme || ''}*\n\n`;
+      }
+      items.forEach((item, i) => {
+        const main = item.question || item.word || item.sentence || item.quote || item.text || item.original || item.title || `Item ${i + 1}`;
+        const sub = item.translation || (item.correction ? ` -> ${item.correction}` : '');
+        md += `- [ ] **${main}** ${sub ? `*(${sub})*` : ''}\n`;
+      });
+
+      const board = document.getElementById('constellation-board');
+      const x = Math.max(40, Math.round((board ? board.clientWidth : 800) / 2 - 120));
+      const y = Math.max(40, Math.round((board ? board.clientHeight : 600) / 2 - 100));
+
+      if (window.conNoteAdd) {
+        conNoteAdd(x, y, md);
+      }
+    }
+
+    // =========================================================================
+    // PART 8 & 9: TOOL EXECUTION ENGINE & MIRROR SYNC
+    // =========================================================================
+    function conMapVocabGameToSection(mode) {
+      switch (mode) {
+        case 'match': return 'match-game-section';
+        case 'hangman': return 'hangman-game-section';
+        case 'scramble': return 'scramble-game-section';
+        case 'wordquest': return 'clue-game-section';
+        case 'phonetic': return 'ipa-game-section';
+        case 'synant': return 'synonym-game-section';
+        case 'flashcards': return 'flip-game-section';
+        case 'wordsearch': return 'wordsearch-game-section';
+        default: return 'match-game-section';
+      }
+    }
+
+    function conMapGrammarToSection(tool) {
+      switch (tool) {
+        case 'sentence': return 'sentence-game-section';
+        case 'gapfill': return 'gap-game-section';
+        case 'error': return 'error-game-section';
+        case 'dictation': return 'dictation-section';
+        case 'order': return 'order-sentences-section';
+        case 'quote': return 'quote-game-section';
+        case 'werewolf': return 'werewolf-section';
+        default: return 'sentence-game-section';
+      }
+    }
+
+    window.conLaunchLearningActivity = async function (activityId) {
+      // Look up activity payload from noteData
+      const note = conNotes.find(n => n.activityPayload && n.activityPayload.id === activityId);
+      const act = note ? note.activityPayload : null;
+
+      if (!act) {
+        if (typeof showToast === 'function') showToast('Activity details not found.', true);
+        return;
+      }
+
+      if (act.activityType === 'quizzes') {
+        const query = {
+          section: 'quiz-section',
+          quizTheme: act.theme || '',
+          quizLevel: act.level || ''
+        };
+        if (window.Desktop && typeof window.Desktop.openTool === 'function') {
+          await window.Desktop.openTool('learning-tools.html', { query });
+        } else {
+          window.open('learning-tools.html?' + new URLSearchParams(query).toString(), '_blank');
+        }
+      } else if (act.activityType === 'vocab') {
+        const targetSection = conMapVocabGameToSection(act.subType);
+        const wordList = (act.items || []).map(w => w.word).filter(Boolean);
+        const query = {
+          section: targetSection,
+          theme: act.theme || '',
+          level: act.level || '',
+          words: wordList.join(',')
+        };
+        if (window.Desktop && typeof window.Desktop.openTool === 'function') {
+          await window.Desktop.openTool('learning-tools.html', { query });
+        } else {
+          window.open('learning-tools.html?' + new URLSearchParams(query).toString(), '_blank');
+        }
+      } else if (act.activityType === 'grammar') {
+        const targetSection = conMapGrammarToSection(act.subType);
+        const query = {
+          section: targetSection,
+          theme: act.theme || '',
+          level: act.level || ''
+        };
+        if (window.Desktop && typeof window.Desktop.openTool === 'function') {
+          await window.Desktop.openTool('learning-tools.html', { query });
+        } else {
+          window.open('learning-tools.html?' + new URLSearchParams(query).toString(), '_blank');
+        }
+      }
+    };
+
+    window.conLaunchMultiplayerQuiz = async function (activityId) {
+      const note = conNotes.find(n => n.activityPayload && n.activityPayload.id === activityId);
+      const act = note ? note.activityPayload : null;
+      const query = {
+        multiplayer: '1',
+        theme: (act && act.theme) || '',
+        level: (act && act.level) || ''
+      };
+      if (window.Desktop && typeof window.Desktop.openTool === 'function') {
+        await window.Desktop.openTool('learning-tools.html', { query });
+      } else {
+        window.open('learning-tools.html?' + new URLSearchParams(query).toString(), '_blank');
+      }
+    };
+
+    window.conToggleCardItemsPreview = function (nid) {
+      const el = document.getElementById(`con-preview-list-${nid}`);
+      if (!el) return;
+      const isHidden = (el.style.display === 'none' || !el.style.display);
+      el.style.display = isHidden ? 'block' : 'none';
+
+      // Mirror / secondary display micro-message (smooth-dom-sync)
+      if (typeof _conMirrorSend === 'function') {
+        _conMirrorSend('toggle-card-preview', { noteId: nid, visible: isHidden });
+      }
+    };
+
+    // Global escape key handler to close modal
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const overlay = document.getElementById('con-learning-import-overlay');
+        if (overlay && overlay.style.display !== 'none') {
+          conCloseLearningImportModal();
+        }
+      }
+    });
+
+    // Tour helper trigger stub
+    window.conOpenLearningToolsTour = function () {
+      if (typeof window.startTour === 'function') {
+        window.startTour('board-learning-tools');
+      } else if (typeof showToast === 'function') {
+        showToast('Spotlight tour for Learning Activities will be available once tour guide is loaded.');
+      }
+    };
+
+    // Expose alias for cross-window sync
+    window.boardEnsureLearningBanksLoaded = boardEnsureLearningBanksLoaded;
+    window.ensureWordDbLoaded = boardEnsureLearningBanksLoaded;
+
     // Auto-listen to global link changes
     window.addEventListener('cmt-links-changed', () => {
       boardUpdateToolbarLinksCount();
@@ -59105,9 +61826,9 @@
     try {
       const _dataSyncChannel = new BroadcastChannel('cmt_data_sync');
       _dataSyncChannel.onmessage = async (ev) => {
-        if (ev && ev.data && (ev.data.file === 'vocab.json' || ev.data.file === 'wordDb.js' || ev.data.type === 'vocab' || ev.data.type === 'wordbanks')) {
-          if (typeof ensureWordDbLoaded === 'function') {
-            await ensureWordDbLoaded(true);
+        if (ev && ev.data && (ev.data.file === 'vocab.json' || ev.data.file === 'wordDb.js' || ev.data.type === 'vocab' || ev.data.type === 'wordbanks' || ev.data.type === 'quizzes')) {
+          if (typeof boardEnsureLearningBanksLoaded === 'function') {
+            await boardEnsureLearningBanksLoaded(true);
           }
           conUpdateAllNodeLinkBadges();
         }

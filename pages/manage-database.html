@@ -769,10 +769,12 @@
     }
 
     const DEFAULT_OBSERVATION_CHIP_GROUPS = [
-      { type: "Participation", items: ["Active contributor", "Needs encouragement", "Asks relevant questions", "Attentive listener"] },
-      { type: "Work Habits", items: ["Organized", "Punctual", "Follows instructions", "Self-directed", "Needs reminders"] },
-      { type: "Collaboration", items: ["Team player", "Helps peers", "Prefers working alone", "Leadership skills"] },
-      { type: "Language & Oral", items: ["Expressive", "Fluent", "Grammar accuracy", "Pronunciation effort"] }
+      { section: "Good points", color: "#16a34a", type: "Participation", items: ["Active contributor", "Needs encouragement", "Asks relevant questions", "Attentive listener"] },
+      { section: "Good points", color: "#16a34a", type: "Collaboration", items: ["Team player", "Helps peers", "Prefers working alone", "Leadership skills"] },
+      { section: "Good points", color: "#16a34a", type: "Language & Oral", items: ["Expressive", "Fluent", "Grammar accuracy", "Pronunciation effort"] },
+      { section: "To improve", color: "#dc2626", type: "Work Habits", items: ["Needs reminders", "Time management", "Follows instructions", "Self-directed"] },
+      { section: "To improve", color: "#dc2626", type: "Language & Oral", items: ["Grammar accuracy", "Pronunciation effort"] },
+      { section: "Action Plan", color: "#d97706", type: "Next Steps", items: ["Review unit vocabulary daily", "Practice oral fluency", "Complete homework on time"] }
     ];
 
     function isLikelyCriteriaRecord(rec) {
@@ -1567,6 +1569,8 @@
         addObj('thresholds', { isLong: true });
         addObj('colors', { isLong: true });
       } else if (typeKey === 'chips') {
+        addStr('section');
+        addStr('color');
         addStr('type');
         addArr('items', { longArray: true });
       }
@@ -1695,6 +1699,8 @@
         for (let i = 0; i < records.length; i++) {
           const rec = records[i];
           if (rec && typeof rec === 'object') {
+            if (!rec.section) rec.section = 'General Observations';
+            if (rec.color === undefined || rec.color === null) rec.color = '';
             if (!rec.type) rec.type = rec.category || rec.name || `Category ${i + 1}`;
             if (typeof rec.items === 'string') {
               rec.items = rec.items.split(/[,\n]/).map(s => s.trim()).filter(Boolean);
@@ -3289,32 +3295,70 @@
     function renderChips(rows) {
       const container = $('chips-container');
       if (S.typeKey === 'chips') {
-        container.innerHTML = rows.map(row => {
-          const catName = row.type || 'Category';
-          const items = Array.isArray(row.items) ? row.items : [];
-          const bk = batchKey(row._fi, row._ri);
-          const isSel = S.batchSel.has(bk);
-          const itemTags = items.map(it => `<span class="tag" style="background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;font-size:0.75rem;padding:2px 7px;border-radius:12px;margin:2px;">${esc(it)}</span>`).join('');
-          return `<div class="chip${isSel ? ' chip-selected' : ''}" data-fi="${row._fi}" data-ri="${row._ri}" style="width:100%;max-width:540px;flex-direction:column;align-items:flex-start;padding:12px 14px;gap:8px;">
-            <div style="display:flex;align-items:center;width:100%;justify-content:space-between;gap:8px;">
-              <div style="display:flex;align-items:center;gap:8px;">
-                <label class="chip-check" onclick="event.stopPropagation()"><input type="checkbox" data-batch-key="${esc(bk)}" ${isSel ? 'checked' : ''} onchange="toggleBatchSelect(${row._fi},${row._ri})"></label>
-                <div class="chip-body" onclick="openEdit(${row._fi},${row._ri})" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-                  <span style="font-weight:800;font-size:0.95rem;color:#0f172a;">${esc(catName)}</span>
-                  <span class="tag-more" style="background:#e0f2fe;color:#0369a1;font-weight:700;">${items.length} ${items.length === 1 ? 'chip' : 'chips'}</span>
+        const sectionsMap = new Map();
+        rows.forEach(row => {
+          const secName = String(row.section || t('gsSectionGeneral', 'General Observations')).trim() || t('gsSectionGeneral', 'General Observations');
+          if (!sectionsMap.has(secName)) {
+            sectionsMap.set(secName, []);
+          }
+          sectionsMap.get(secName).push(row);
+        });
+
+        const htmlSections = [];
+        sectionsMap.forEach((secRows, secName) => {
+          const firstWithColor = secRows.find(r => r.color);
+          const secLower = secName.toLowerCase();
+          let secColor = firstWithColor?.color || '';
+          if (!secColor) {
+            if (secLower.includes('good') || secLower.includes('fort') || secLower.includes('strength')) secColor = '#16a34a';
+            else if (secLower.includes('remedy') || secLower.includes('improv') || secLower.includes('faible')) secColor = '#dc2626';
+            else if (secLower.includes('action') || secLower.includes('plan') || secLower.includes('next')) secColor = '#d97706';
+            else secColor = '#0284c7';
+          }
+          const totalChips = secRows.reduce((acc, r) => acc + (Array.isArray(r.items) ? r.items.length : 0), 0);
+
+          const cardsHtml = secRows.map(row => {
+            const catName = row.type || 'Category';
+            const items = Array.isArray(row.items) ? row.items : [];
+            const bk = batchKey(row._fi, row._ri);
+            const isSel = S.batchSel.has(bk);
+            const itemTags = items.map(it => `<span class="tag" style="background:#f8fafc;color:#1e293b;border:1.5px solid ${secColor}40;font-size:0.75rem;padding:2px 7px;border-radius:12px;margin:2px;">${esc(it)}</span>`).join('');
+            return `<div class="chip${isSel ? ' chip-selected' : ''}" data-fi="${row._fi}" data-ri="${row._ri}" style="width:100%;flex-direction:column;align-items:flex-start;padding:12px 14px;gap:8px;border:2px solid #333;box-shadow:2px 2px 0 #555;border-radius:8px;">
+              <div style="display:flex;align-items:center;width:100%;justify-content:space-between;gap:8px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <label class="chip-check" onclick="event.stopPropagation()"><input type="checkbox" data-batch-key="${esc(bk)}" ${isSel ? 'checked' : ''} onchange="toggleBatchSelect(${row._fi},${row._ri})"></label>
+                  <div class="chip-body" onclick="openEdit(${row._fi},${row._ri})" style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:0;">
+                    <span style="font-weight:800;font-size:0.95rem;color:#0f172a;">${esc(catName)}</span>
+                    <span class="tag-more" style="background:${secColor}15;color:${secColor};border:1px solid ${secColor}40;font-weight:700;">${items.length} ${items.length === 1 ? 'chip' : 'chips'}</span>
+                  </div>
+                </div>
+                <div style="display:flex;gap:4px;margin-left:auto;">
+                  <button class="chip-del" onclick="event.stopPropagation();openRecordTagLinkModal(${row._fi},${row._ri})" title="Links &amp; Tags"><img src="../assets/icons/links.svg" class="btn-icon btn-icon-xs" alt="" /></button>
+                  <button class="chip-del" onclick="openCopyToModal(${row._fi},${row._ri})" title="${t('mdbBtnCopyToFile')}"><img src="../assets/icons/copy.svg" class="btn-icon btn-icon-xs" alt="" /></button>
+                  <button class="chip-del" onclick="confirmDel(${row._fi},${row._ri})" title="${t('mdbTitleDelete')}"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="" /></button>
                 </div>
               </div>
-              <div style="display:flex;gap:4px;margin-left:auto;">
-                <button class="chip-del" onclick="event.stopPropagation();openRecordTagLinkModal(${row._fi},${row._ri})" title="Links &amp; Tags"><img src="../assets/icons/links.svg" class="btn-icon btn-icon-xs" alt="" /></button>
-                <button class="chip-del" onclick="openCopyToModal(${row._fi},${row._ri})" title="${t('mdbBtnCopyToFile')}"><img src="../assets/icons/copy.svg" class="btn-icon btn-icon-xs" alt="" /></button>
-                <button class="chip-del" onclick="confirmDel(${row._fi},${row._ri})" title="${t('mdbTitleDelete')}"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="" /></button>
+              <div style="display:flex;flex-wrap:wrap;gap:4px;width:100%;cursor:pointer;" onclick="openEdit(${row._fi},${row._ri})">
+                ${itemTags || '<span style="color:#94a3b8;font-size:0.78rem;font-style:italic;">No chips in this category yet. Click to add.</span>'}
+              </div>
+            </div>`;
+          }).join('');
+
+          htmlSections.push(`<div class="mdb-chip-section-block" style="border-left:5px solid ${secColor};">
+            <div class="mdb-chip-section-header">
+              <div class="mdb-chip-section-title-wrap">
+                <span class="mdb-chip-section-dot" style="background:${secColor};"></span>
+                <span class="mdb-chip-section-title">${esc(secName)}</span>
+                <span class="mdb-chip-section-badge">${secRows.length} ${secRows.length === 1 ? 'category' : 'categories'} • ${totalChips} ${totalChips === 1 ? 'chip' : 'chips'}</span>
               </div>
             </div>
-            <div style="display:flex;flex-wrap:wrap;gap:4px;width:100%;cursor:pointer;" onclick="openEdit(${row._fi},${row._ri})">
-              ${itemTags || '<span style="color:#94a3b8;font-size:0.78rem;font-style:italic;">No chips in this category yet. Click to add.</span>'}
+            <div class="mdb-chip-cards-grid">
+              ${cardsHtml}
             </div>
-          </div>`;
-        }).join('');
+          </div>`);
+        });
+
+        container.innerHTML = htmlSections.join('');
         return;
       }
       const { primary, secondary } = getChipFields();
@@ -3538,6 +3582,36 @@
         }
       } else if (field.isLong) {
         input = `<textarea id="${id}" rows="3" placeholder="${t('mdbPlaceholderDetails', 'Enter details...')}" data-md-upgrade="1">${escHtml(String(val ?? ''))}</textarea>`;
+      } else if (S.typeKey === 'chips' && field.key === 'section') {
+        const allLoaded = getAllRecords();
+        const existingSections = Array.from(new Set([
+          t('gsSectionGoodPoints', 'Good points'),
+          t('gsSectionToImprove', 'To improve'),
+          t('gsSectionActionPlan', 'Action Plan'),
+          t('gsSectionGeneral', 'General Observations'),
+          ...allLoaded.map(r => r.section).filter(Boolean)
+        ]));
+        input = `<input type="text" id="${id}" list="mdb-chip-sections-list" value="${esc(String(val ?? ''))}" placeholder="${esc(t('mdbColSectionPlaceholder', 'e.g. Good points, To improve, Action Plan'))}">
+        <datalist id="mdb-chip-sections-list">
+          ${existingSections.map(s => `<option value="${esc(s)}"></option>`).join('')}
+        </datalist>`;
+      } else if (S.typeKey === 'chips' && field.key === 'color') {
+        const swatches = [
+          { color: '#16a34a', label: 'Emerald / Strengths' },
+          { color: '#dc2626', label: 'Rose / To remedy' },
+          { color: '#d97706', label: 'Amber / Action plan' },
+          { color: '#0284c7', label: 'Sky / General' },
+          { color: '#7c3aed', label: 'Purple / Focus' },
+          { color: '#475569', label: 'Slate / Neutral' }
+        ];
+        const curColor = val || '#16a34a';
+        input = `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <input type="color" id="${id}_picker" value="${esc(curColor.startsWith('#') && curColor.length === 7 ? curColor : '#16a34a')}" onchange="document.getElementById('${id}').value=this.value" style="width:36px;height:32px;padding:1px;border:1.5px solid #000;border-radius:4px;cursor:pointer;">
+          <input type="text" id="${id}" value="${esc(String(val ?? ''))}" placeholder="#16a34a" style="width:110px;font-family:monospace;font-size:0.85rem;" oninput="try{if(this.value.startsWith('#')&&this.value.length===7)document.getElementById('${id}_picker').value=this.value}catch(_){}">
+          <div style="display:flex;gap:5px;align-items:center;margin-left:4px;">
+            ${swatches.map(sw => `<button type="button" onclick="document.getElementById('${id}').value='${sw.color}';try{document.getElementById('${id}_picker').value='${sw.color}'}catch(_){}" title="${sw.label}" style="width:22px;height:22px;border-radius:50%;background:${sw.color};border:1.5px solid #000;cursor:pointer;box-shadow:1px 1px 0 #000;"></button>`).join('')}
+          </div>
+        </div>`;
       } else {
         const placeholder = (S.typeKey === 'chips' && field.key === 'type') ? 'e.g. Oral Fluency, Work Habits'
           : (S.typeKey === 'scales' && field.key === 'key') ? 'e.g. standard-1-6, custom-scale'
@@ -3568,8 +3642,10 @@
       let fieldLabel = esc(cap(field.key));
       if (isCompCriteriaField) fieldLabel = t('mdbLinkedCompetences');
       else if (isCompLinkedField) fieldLabel = t('mdbLinkedCompetencesField', 'Linked Competences (Cross-Database)');
-      else if (S.typeKey === 'chips' && field.key === 'type') fieldLabel = 'Category Name';
-      else if (S.typeKey === 'chips' && field.key === 'items') fieldLabel = 'Observation Chips';
+      else if (S.typeKey === 'chips' && field.key === 'section') fieldLabel = t('mdbColSection', 'Section');
+      else if (S.typeKey === 'chips' && field.key === 'color') fieldLabel = t('mdbColColor', 'Section Color');
+      else if (S.typeKey === 'chips' && field.key === 'type') fieldLabel = t('mdbColCategory', 'Category / Subcategory');
+      else if (S.typeKey === 'chips' && field.key === 'items') fieldLabel = t('mdbColItems', 'Observation Chips');
       else if (S.typeKey === 'scales' && field.key === 'key') fieldLabel = 'Scale Identifier (Key)';
       else if (S.typeKey === 'scales' && field.key === 'label') fieldLabel = 'Scale Display Name';
 
@@ -8457,6 +8533,15 @@ Rules:
             return '<span class="color-pill"><span class="color-dot" style="background:' + esc(c) + '"></span> ' + esc(k) + '</span>';
           }).join(' ') + '</div>';
         }
+      }
+
+      if (col.key === 'color' && typeof rawVal === 'string' && rawVal) {
+        return '<span class="color-pill" style="display:inline-flex;align-items:center;gap:6px;"><span class="color-dot" style="width:12px;height:12px;border-radius:50%;border:1.5px solid #000;background:' + esc(rawVal) + '"></span> ' + esc(rawVal) + '</span>';
+      }
+
+      if (col.key === 'section' && typeof rawVal === 'string' && rawVal) {
+        const secColor = row.color || (rawVal.toLowerCase().includes('good') || rawVal.toLowerCase().includes('fort') ? '#16a34a' : (rawVal.toLowerCase().includes('remedy') || rawVal.toLowerCase().includes('improv') ? '#dc2626' : '#0284c7'));
+        return '<span style="display:inline-flex;align-items:center;gap:6px;font-weight:700;"><span style="width:8px;height:8px;border-radius:50%;background:' + esc(secColor) + ';display:inline-block;"></span> ' + esc(rawVal) + '</span>';
       }
 
       // Competences

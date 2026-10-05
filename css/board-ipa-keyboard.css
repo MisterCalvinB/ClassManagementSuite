@@ -1,0 +1,468 @@
+/* ==========================================================================
+   Board IPA (Phonetic Alphabet) Keyboard - Light Neobrutalist Styling
+   ========================================================================== */
+
+.board-ipa-panel {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 440px;
+  max-width: calc(100vw - 32px);
+  max-height: 520px;
+  background: #ffffff;
+  border: 2px solid #333333;
+  border-radius: 10px;
+  box-shadow: 4px 4px 0 #555555;
+  font-family: 'Lexend', system-ui, -apple-system, sans-serif;
+  z-index: 99990;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  user-select: none;
+  transition: max-height 0.18s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s ease;
+}
+
+.board-ipa-panel.collapsed {
+  max-height: 46px;
+  overflow: hidden;
+}
+
+.board-ipa-panel.collapsed .board-ipa-body {
+  display: none !important;
+}
+
+/* Header */
+.board-ipa-header {
+  background: #f5f5f0;
+  border-bottom: 2px solid #333333;
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: grab;
+  flex-shrink: 0;
+}
+
+.board-ipa-header:active {
+  cursor: grabbing;
+}
+
+.board-ipa-drag-handle {
+  font-size: 1rem;
+  color: #64748b;
+  cursor: grab;
+  line-height: 1;
+  padding: 2px 4px;
+}
+
+.board-ipa-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 800;
+  font-size: 0.82rem;
+  color: #111111;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.board-ipa-title-wrap img {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.board-ipa-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.board-ipa-hdr-btn {
+  background: #ffffff;
+  border: 1.5px solid #333333;
+  border-radius: 4px;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #333333;
+  cursor: pointer;
+  box-shadow: 1.5px 1.5px 0 #333333;
+  transition: background 0.12s, transform 0.1s;
+  padding: 0;
+}
+
+.board-ipa-hdr-btn:hover {
+  background: #f1f5f9;
+  transform: translate(-1px, -1px);
+}
+
+.board-ipa-hdr-btn:active {
+  background: #e2e8f0;
+  transform: translate(1px, 1px);
+  box-shadow: 0 0 0 #333333;
+}
+
+.board-ipa-hdr-btn.danger:hover {
+  background: #fca5a5;
+  color: #991b1b;
+}
+
+/* Tabs Bar */
+.board-ipa-tabs-bar {
+  background: #f5f5f0;
+  padding: 4px 8px 6px;
+  border-bottom: 1.5px solid #e2e8f0;
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  flex-shrink: 0;
+  scrollbar-width: thin;
+}
+
+.board-ipa-tabs-bar::-webkit-scrollbar {
+  height: 4px;
+}
+
+.board-ipa-tabs-bar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 2px;
+}
+
+.board-ipa-tab {
+  background: #ffffff;
+  border: 1.5px solid #333333;
+  border-radius: 4px;
+  padding: 3px 7px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #475569;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 1.5px 1.5px 0 #333333;
+  transition: all 0.12s ease;
+}
+
+.board-ipa-tab:hover {
+  background: #f8fafc;
+  color: #0f172a;
+  transform: translate(-0.5px, -0.5px);
+}
+
+.board-ipa-tab.active {
+  background: #333333;
+  color: #ffffff;
+  box-shadow: 1px 1px 0 #000000;
+}
+
+/* Body */
+.board-ipa-body {
+  padding: 8px 10px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #ffffff;
+}
+
+/* Buffer row */
+.board-ipa-buffer-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  background: #f8fafc;
+  border: 1.5px solid #333333;
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.board-ipa-buffer-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.board-ipa-buffer-input {
+  flex: 1;
+  font-family: 'Lexend', 'Segoe UI', system-ui, sans-serif;
+  font-size: 1.05rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  border: 1.5px solid #333333;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #0f172a;
+  outline: none;
+  min-width: 0;
+  letter-spacing: 0.5px;
+}
+
+.board-ipa-buffer-input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+.board-ipa-buffer-btns {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.board-ipa-mini-btn {
+  background: #ffffff;
+  border: 1.5px solid #333333;
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #1e293b;
+  cursor: pointer;
+  box-shadow: 1.5px 1.5px 0 #333333;
+  transition: background 0.1s, transform 0.1s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+
+.board-ipa-mini-btn:hover {
+  background: #f1f5f9;
+  transform: translate(-0.5px, -0.5px);
+}
+
+.board-ipa-mini-btn:active {
+  background: #e2e8f0;
+  transform: translate(0.5px, 0.5px);
+  box-shadow: 0 0 0 #333333;
+}
+
+.board-ipa-mini-btn.btn-slashes {
+  background: #fef08a;
+  color: #854d0e;
+}
+
+.board-ipa-mini-btn.btn-brackets {
+  background: #fed7aa;
+  color: #9a3412;
+}
+
+/* Insertion actions bar */
+.board-ipa-actions-bar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.board-ipa-act-btn {
+  flex: 1;
+  min-width: 84px;
+  background: #ffffff;
+  border: 2px solid #333333;
+  border-radius: 5px;
+  padding: 5px 8px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 #333333;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: background 0.12s, transform 0.1s, box-shadow 0.1s;
+  white-space: nowrap;
+}
+
+.board-ipa-act-btn img {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+}
+
+.board-ipa-act-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 #333333;
+}
+
+.board-ipa-act-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 0.5px 0.5px 0 #333333;
+}
+
+.board-ipa-act-btn.btn-in-note {
+  background: #6abf8e;
+  color: #0f3e26;
+}
+
+.board-ipa-act-btn.btn-in-node {
+  background: #5b8fcc;
+  color: #ffffff;
+}
+
+.board-ipa-act-btn.btn-create-node {
+  background: #e2c96e;
+  color: #3b2a00;
+}
+
+.board-ipa-act-btn.btn-create-note {
+  background: #8b7cc2;
+  color: #ffffff;
+}
+
+/* Options / Status row */
+.board-ipa-options-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: #475569;
+  padding: 0 2px;
+}
+
+.board-ipa-direct-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  font-weight: 700;
+  user-select: none;
+}
+
+.board-ipa-direct-check input[type="checkbox"] {
+  accent-color: #2563eb;
+  cursor: pointer;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+}
+
+.board-ipa-target-hint {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #64748b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 180px;
+}
+
+/* Keypad Grid & Sections */
+.board-ipa-grid-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 4px;
+}
+
+.board-ipa-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.board-ipa-section-title {
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #64748b;
+  padding: 2px 2px 0;
+  border-bottom: 1px dashed #cbd5e1;
+}
+
+.board-ipa-keys-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(36px, 1fr));
+  gap: 4px;
+}
+
+.board-ipa-key {
+  min-height: 34px;
+  background: #ffffff;
+  border: 1.5px solid #333333;
+  border-radius: 5px;
+  font-family: 'Lexend', 'Segoe UI', system-ui, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #111111;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 #555555;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 4px;
+  user-select: none;
+  transition: background 0.1s, transform 0.08s, box-shadow 0.08s;
+}
+
+.board-ipa-key:hover {
+  background: #f1f5f9;
+  border-color: #111111;
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 #333333;
+}
+
+.board-ipa-key:active {
+  background: #e2e8f0;
+  transform: translate(1px, 1px);
+  box-shadow: 0.5px 0.5px 0 #333333;
+}
+
+.board-ipa-key.key-vowel {
+  background: #fefce8;
+}
+
+.board-ipa-key.key-vowel:hover {
+  background: #fef08a;
+}
+
+.board-ipa-key.key-consonant {
+  background: #eff6ff;
+}
+
+.board-ipa-key.key-consonant:hover {
+  background: #dbeafe;
+}
+
+.board-ipa-key.key-modifier {
+  background: #faf5ff;
+}
+
+.board-ipa-key.key-modifier:hover {
+  background: #f3e8ff;
+}
+
+.board-ipa-key.key-bracket {
+  background: #fff7ed;
+}
+
+.board-ipa-key.key-bracket:hover {
+  background: #ffedd5;
+}
+
+/* Custom scrollbar for keyboard body */
+.board-ipa-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.board-ipa-body::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.board-ipa-body::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 3px;
+}
+
+.board-ipa-body::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}

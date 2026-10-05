@@ -765,130 +765,500 @@
       }
     });
 
-    var css =
-      ':root {\n' +
-      '  --neo-border: 2.5px solid #000000;\n' +
-      '  --neo-shadow: 3px 3px 0px #000000;\n' +
-      '  --neo-bg: #ffffff;\n' +
-      '  --neo-accent: #fef08a;\n' +
-      '  --neo-blue: #dbeafe;\n' +
-      '  --neo-pink: #fce7f3;\n' +
-      '}\n' +
-      '* { box-sizing: border-box; }\n' +
-      'body {\n' +
-      '  font-family: "Lexend", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;\n' +
-      '  background: #f8fafc;\n' +
-      '  color: #000000;\n' +
-      '  margin: 0;\n' +
-      '  padding: 24px;\n' +
-      '  line-height: 1.5;\n' +
-      '}\n' +
-      '.unit-container { max-width: 900px; margin: 0 auto; }\n' +
-      '.unit-hero {\n' +
-      '  background: var(--neo-bg);\n' +
-      '  border: var(--neo-border);\n' +
-      '  box-shadow: 4px 4px 0px #000000;\n' +
-      '  padding: 20px;\n' +
-      '  margin-bottom: 24px;\n' +
-      '}\n' +
-      '.unit-hero-badge {\n' +
-      '  background: #000000;\n' +
-      '  color: #ffffff;\n' +
-      '  font-size: 0.75rem;\n' +
-      '  font-weight: 900;\n' +
-      '  text-transform: uppercase;\n' +
-      '  letter-spacing: 0.5px;\n' +
-      '  padding: 3px 8px;\n' +
-      '  display: inline-block;\n' +
-      '  margin-bottom: 8px;\n' +
-      '}\n' +
-      '.unit-title { font-size: 1.75rem; font-weight: 900; margin: 0 0 10px 0; text-transform: uppercase; }\n' +
-      '.unit-meta-grid {\n' +
-      '  display: flex;\n' +
-      '  flex-wrap: wrap;\n' +
-      '  gap: 8px;\n' +
-      '  margin-top: 10px;\n' +
-      '}\n' +
-      '.unit-meta-pill {\n' +
-      '  background: #f1f5f9;\n' +
-      '  border: 1.5px solid #000000;\n' +
-      '  padding: 3px 8px;\n' +
-      '  font-size: 0.8rem;\n' +
-      '  font-weight: 700;\n' +
-      '}\n' +
-      '.unit-meta-pill.highlight { background: var(--neo-accent); }\n' +
-      '.unit-toc {\n' +
-      '  background: #ffffff;\n' +
-      '  border: var(--neo-border);\n' +
-      '  box-shadow: var(--neo-shadow);\n' +
-      '  padding: 16px;\n' +
-      '  margin-bottom: 24px;\n' +
-      '}\n' +
-      '.unit-toc-title { font-size: 1rem; font-weight: 900; text-transform: uppercase; margin: 0 0 12px 0; border-bottom: 2px solid #000; padding-bottom: 6px; }\n' +
-      '.unit-toc-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }\n' +
-      '.unit-toc-table th, .unit-toc-table td { border: 1.5px solid #000; padding: 6px 10px; text-align: left; }\n' +
-      '.unit-toc-table th { background: #e2e8f0; font-weight: 900; }\n' +
-      '.unit-item-badge {\n' +
-      '  font-size: 0.72rem;\n' +
-      '  font-weight: 900;\n' +
-      '  padding: 2px 6px;\n' +
-      '  border: 1.5px solid #000000;\n' +
-      '  display: inline-block;\n' +
-      '  text-transform: uppercase;\n' +
-      '}\n' +
-      '.unit-item-badge.lesson { background: var(--neo-blue); }\n' +
-      '.unit-item-badge.test { background: var(--neo-pink); color: #9d174d; }\n' +
-      '.unit-lesson-card {\n' +
-      '  background: #ffffff;\n' +
-      '  border: var(--neo-border);\n' +
-      '  box-shadow: var(--neo-shadow);\n' +
-      '  margin-bottom: 24px;\n' +
-      '  padding: 16px;\n' +
-      '}\n' +
-      '.unit-card-hdr {\n' +
-      '  display: flex;\n' +
-      '  justify-content: space-between;\n' +
-      '  align-items: center;\n' +
-      '  border-bottom: 2px solid #000;\n' +
-      '  padding-bottom: 10px;\n' +
-      '  margin-bottom: 12px;\n' +
-      '  flex-wrap: wrap;\n' +
-      '  gap: 8px;\n' +
-      '}\n' +
-      '.unit-card-title { font-size: 1.2rem; font-weight: 900; margin: 0; }\n' +
-      '.phase-row {\n' +
-      '  border: 1.5px solid #000;\n' +
-      '  padding: 10px;\n' +
-      '  margin-bottom: 8px;\n' +
-      '  background: #fafafa;\n' +
-      '}\n' +
-      '.phase-hdr { display: flex; justify-content: space-between; font-weight: 800; font-size: 0.9rem; margin-bottom: 6px; border-bottom: 1px dashed #000; padding-bottom: 4px; }\n' +
-      '.phase-obj { font-size: 0.85rem; margin-bottom: 6px; }\n' +
-      '.phase-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.8rem; margin-top: 6px; }\n' +
-      '.action-box { background: #ffffff; border: 1px solid #000; padding: 6px; }\n' +
-      '.action-tag { font-size: 0.7rem; font-weight: 900; text-transform: uppercase; display: block; margin-bottom: 2px; }\n' +
-      '.comp-tag-chip { background: #fef08a; border: 1px solid #000; padding: 1px 5px; font-size: 0.72rem; font-weight: 800; display: inline-block; margin-right: 4px; }\n' +
-      '.unit-exam-card {\n' +
-      '  background: #fff5f5;\n' +
-      '  border: var(--neo-border);\n' +
-      '  box-shadow: var(--neo-shadow);\n' +
-      '  margin-bottom: 24px;\n' +
-      '  padding: 16px;\n' +
-      '}\n' +
-      '.ex-item-card {\n' +
-      '  background: #ffffff;\n' +
-      '  border: 1.5px solid #000;\n' +
-      '  padding: 10px;\n' +
-      '  margin-bottom: 8px;\n' +
-      '}\n' +
-      '.unit-page-break { page-break-before: always; }\n' +
-      '@media print {\n' +
-      '  body { background: #fff !important; padding: 0 !important; font-size: 10.5pt !important; }\n' +
-      '  .unit-container { max-width: 100% !important; margin: 0 !important; }\n' +
-      '  .unit-hero, .unit-toc, .unit-lesson-card, .unit-exam-card { box-shadow: none !important; border: 2px solid #000 !important; page-break-inside: avoid; }\n' +
-      '  .unit-page-break { page-break-before: always !important; }\n' +
-      '  @page { margin: 12mm 10mm; size: A4 portrait; }\n' +
-      '}\n';
+    var cssTheme = options.cssTheme || options.theme || 'neobrutalist';
+
+    function getThemeCss(theme) {
+      if (theme === 'classic') {
+        return '* { box-sizing: border-box; }\n' +
+          'body {\n' +
+          '  font-family: "Times New Roman", "Garamond", "Georgia", "Liberation Serif", serif;\n' +
+          '  background: #ffffff;\n' +
+          '  color: #111111;\n' +
+          '  margin: 0;\n' +
+          '  padding: 28px;\n' +
+          '  line-height: 1.6;\n' +
+          '  font-size: 11pt;\n' +
+          '}\n' +
+          '.unit-container { max-width: 860px; margin: 0 auto; }\n' +
+          '.unit-hero {\n' +
+          '  border: 1px solid #111111;\n' +
+          '  border-top: 4px solid #111111;\n' +
+          '  padding: 20px;\n' +
+          '  margin-bottom: 24px;\n' +
+          '  background: #ffffff;\n' +
+          '  text-align: center;\n' +
+          '}\n' +
+          '.unit-hero-badge {\n' +
+          '  font-size: 0.8rem;\n' +
+          '  font-weight: bold;\n' +
+          '  text-transform: uppercase;\n' +
+          '  letter-spacing: 2px;\n' +
+          '  display: block;\n' +
+          '  margin-bottom: 8px;\n' +
+          '  color: #333333;\n' +
+          '}\n' +
+          '.unit-title { font-size: 1.9rem; font-weight: normal; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 1px; }\n' +
+          '.unit-meta-grid { display: flex; justify-content: center; flex-wrap: wrap; gap: 14px; margin-top: 10px; border-top: 1px solid #ddd; padding-top: 8px; }\n' +
+          '.unit-meta-pill { font-size: 0.85rem; font-style: italic; color: #222; }\n' +
+          '.unit-meta-pill strong { font-style: normal; }\n' +
+          '.unit-toc { border: 1px solid #111111; padding: 18px; margin-bottom: 24px; background: #ffffff; }\n' +
+          '.unit-toc-title { font-size: 1.05rem; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 12px 0; border-bottom: 1px solid #111; padding-bottom: 4px; text-align: center; }\n' +
+          '.unit-toc-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }\n' +
+          '.unit-toc-table th, .unit-toc-table td { border: 1px solid #333; padding: 6px 10px; text-align: left; }\n' +
+          '.unit-toc-table th { background: #f4f4f4; font-weight: bold; text-transform: uppercase; font-size: 0.8rem; }\n' +
+          '.unit-item-badge { font-size: 0.75rem; font-weight: bold; text-transform: uppercase; }\n' +
+          '.unit-item-badge.lesson { color: #1e3a8a; }\n' +
+          '.unit-item-badge.test { color: #831843; }\n' +
+          '.unit-lesson-card { border: 1px solid #111111; margin-bottom: 24px; padding: 18px; background: #ffffff; }\n' +
+          '.unit-card-hdr { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1.5px solid #111; padding-bottom: 8px; margin-bottom: 12px; }\n' +
+          '.unit-card-title { font-size: 1.3rem; font-weight: bold; margin: 0; }\n' +
+          '.phase-row { border-bottom: 1px solid #ddd; padding: 10px 0; margin-bottom: 6px; }\n' +
+          '.phase-row:last-child { border-bottom: none; }\n' +
+          '.phase-hdr { display: flex; justify-content: space-between; font-weight: bold; font-size: 0.95rem; margin-bottom: 4px; }\n' +
+          '.phase-obj { font-size: 0.9rem; margin-bottom: 6px; }\n' +
+          '.phase-actions { display: flex; gap: 12px; font-size: 0.85rem; margin-top: 6px; }\n' +
+          '.action-box { border-left: 2px solid #333; padding-left: 8px; flex: 1 1 0; min-width: 0; }\n' +
+          '.action-tag { font-size: 0.75rem; font-weight: bold; text-transform: uppercase; display: block; margin-bottom: 2px; color: #444; }\n' +
+          '.comp-tag-chip { border: 1px solid #666; padding: 1px 5px; font-size: 0.75rem; display: inline-block; margin: 2px 3px 2px 0; background: #f9f9f9; }\n' +
+          '.unit-comp-matrix { margin-top: 18px; border: 1px solid #111; padding: 14px; background: #fafafa; }\n' +
+          '.unit-comp-matrix-hdr { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }\n' +
+          '.unit-comp-matrix-title { font-size: 0.95rem; font-weight: bold; text-transform: uppercase; }\n' +
+          '.unit-comp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px; }\n' +
+          '.unit-comp-card { border: 1px solid #ccc; padding: 6px 8px; background: #fff; }\n' +
+          '.test-comp-section { margin-top: 8px; padding-top: 6px; border-top: 1px solid #ddd; }\n' +
+          '.test-comp-label { font-size: 0.8rem; font-weight: bold; text-transform: uppercase; color: #333; margin-bottom: 4px; display: block; }\n' +
+          '.test-comp-cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px; margin-top: 4px; }\n' +
+          '.test-comp-card { border: 1px solid #bbb; padding: 6px 8px; background: #fff; }\n' +
+          '.test-criteria-section { margin-top: 8px; padding-top: 6px; border-top: 1px solid #ddd; }\n' +
+          '.test-criteria-label { font-size: 0.8rem; font-weight: bold; text-transform: uppercase; color: #333; margin-bottom: 4px; display: block; }\n' +
+          '.test-criteria-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 4px; }\n' +
+          '.test-criteria-table th, .test-criteria-table td { border: 1px solid #333; padding: 4px 8px; text-align: left; }\n' +
+          '.test-criteria-table th { background: #f4f4f4; font-weight: bold; }\n' +
+          '.test-criterion-card { border: 1px solid #ccc; padding: 6px 8px; margin-bottom: 4px; }\n' +
+          '.unit-exam-card { border: 1px solid #111; margin-bottom: 24px; padding: 18px; background: #ffffff; }\n' +
+          '.ex-item-card { border: 1px solid #999; padding: 10px; margin-bottom: 10px; }\n' +
+          '.unit-page-break { page-break-before: always; }\n' +
+          '@media print {\n' +
+          '  body { padding: 0 !important; font-size: 10.5pt !important; }\n' +
+          '  .unit-container { max-width: 100% !important; margin: 0 !important; }\n' +
+          '  .unit-hero, .unit-toc, .unit-lesson-card, .unit-exam-card { page-break-inside: avoid; }\n' +
+          '  .unit-page-break { page-break-before: always !important; }\n' +
+          '  @page { margin: 15mm 12mm; size: A4 portrait; }\n' +
+          '}\n';
+      }
+
+      if (theme === 'modern') {
+        return '* { box-sizing: border-box; }\n' +
+          'body {\n' +
+          '  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;\n' +
+          '  background: #f8fafc;\n' +
+          '  color: #0f172a;\n' +
+          '  margin: 0;\n' +
+          '  padding: 24px;\n' +
+          '  line-height: 1.55;\n' +
+          '  font-size: 14px;\n' +
+          '}\n' +
+          '.unit-container { max-width: 900px; margin: 0 auto; }\n' +
+          '.unit-hero {\n' +
+          '  background: #ffffff;\n' +
+          '  border: 1px solid #e2e8f0;\n' +
+          '  border-radius: 12px;\n' +
+          '  box-shadow: 0 1px 3px rgba(0,0,0,0.05);\n' +
+          '  padding: 24px;\n' +
+          '  margin-bottom: 24px;\n' +
+          '}\n' +
+          '.unit-hero-badge {\n' +
+          '  background: #e0e7ff;\n' +
+          '  color: #3730a3;\n' +
+          '  font-size: 0.72rem;\n' +
+          '  font-weight: 700;\n' +
+          '  text-transform: uppercase;\n' +
+          '  letter-spacing: 0.5px;\n' +
+          '  padding: 3px 10px;\n' +
+          '  display: inline-block;\n' +
+          '  margin-bottom: 10px;\n' +
+          '  border-radius: 9999px;\n' +
+          '}\n' +
+          '.unit-title { font-size: 1.7rem; font-weight: 800; margin: 0 0 8px 0; color: #0f172a; letter-spacing: -0.02em; }\n' +
+          '.unit-meta-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }\n' +
+          '.unit-meta-pill { background: #f1f5f9; color: #334155; padding: 4px 10px; font-size: 0.8rem; font-weight: 600; border-radius: 6px; }\n' +
+          '.unit-meta-pill.highlight { background: #e0f2fe; color: #0369a1; }\n' +
+          '.unit-toc { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); padding: 20px; margin-bottom: 24px; }\n' +
+          '.unit-toc-title { font-size: 1rem; font-weight: 700; color: #0f172a; margin: 0 0 14px 0; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0; }\n' +
+          '.unit-toc-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }\n' +
+          '.unit-toc-table th, .unit-toc-table td { border-bottom: 1px solid #e2e8f0; padding: 9px 12px; text-align: left; }\n' +
+          '.unit-toc-table th { background: #f8fafc; color: #475569; font-weight: 600; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.5px; }\n' +
+          '.unit-item-badge { font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 9999px; display: inline-block; }\n' +
+          '.unit-item-badge.lesson { background: #e0e7ff; color: #3730a3; }\n' +
+          '.unit-item-badge.test { background: #fee2e2; color: #991b1b; }\n' +
+          '.unit-lesson-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 24px; padding: 20px; }\n' +
+          '.unit-card-hdr { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }\n' +
+          '.unit-card-title { font-size: 1.25rem; font-weight: 700; color: #0f172a; margin: 0; }\n' +
+          '.phase-row { border: 1px solid #f1f5f9; border-radius: 8px; padding: 12px; margin-bottom: 10px; background: #fafafa; }\n' +
+          '.phase-hdr { display: flex; justify-content: space-between; font-weight: 600; font-size: 0.88rem; color: #1e293b; margin-bottom: 6px; }\n' +
+          '.phase-obj { font-size: 0.84rem; color: #334155; margin-bottom: 6px; }\n' +
+          '.phase-actions { display: flex; gap: 10px; font-size: 0.82rem; margin-top: 6px; }\n' +
+          '.action-box { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 10px; flex: 1 1 0; min-width: 0; }\n' +
+          '.action-tag { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: #64748b; display: block; margin-bottom: 3px; }\n' +
+          '.comp-tag-chip { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 2px 7px; font-size: 0.72rem; font-weight: 600; display: inline-block; margin: 2px 4px 2px 0; border-radius: 9999px; }\n' +
+          '.comp-tag-chip.test { background: #fef2f2; color: #991b1b; border-color: #fecaca; }\n' +
+          '.unit-comp-matrix { margin-top: 16px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 16px; border-radius: 8px; }\n' +
+          '.unit-comp-matrix-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid #e2e8f0; }\n' +
+          '.unit-comp-matrix-title { font-size: 0.88rem; font-weight: 700; color: #0f172a; text-transform: uppercase; }\n' +
+          '.unit-comp-matrix-badge { background: #475569; color: #fff; font-size: 0.7rem; font-weight: 600; padding: 2px 8px; border-radius: 9999px; }\n' +
+          '.unit-comp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 8px; }\n' +
+          '.unit-comp-card { background: #ffffff; border: 1px solid #e2e8f0; padding: 8px 10px; border-radius: 6px; }\n' +
+          '.test-comp-section { margin-top: 8px; padding-top: 6px; border-top: 1px solid #e2e8f0; }\n' +
+          '.test-comp-label { font-size: 0.74rem; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 4px; display: block; }\n' +
+          '.test-comp-cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px; margin-top: 4px; }\n' +
+          '.test-comp-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 8px; }\n' +
+          '.test-criteria-section { margin-top: 8px; padding-top: 6px; border-top: 1px solid #e2e8f0; }\n' +
+          '.test-criteria-label { font-size: 0.74rem; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 4px; display: block; }\n' +
+          '.test-criteria-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 4px; }\n' +
+          '.test-criteria-table th, .test-criteria-table td { border-bottom: 1px solid #e2e8f0; padding: 5px 8px; text-align: left; }\n' +
+          '.test-criteria-table th { background: #f8fafc; color: #475569; font-weight: 600; font-size: 0.74rem; }\n' +
+          '.test-criterion-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 10px; margin-bottom: 6px; }\n' +
+          '.unit-exam-card { background: #ffffff; border: 1px solid #fecaca; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 24px; padding: 20px; }\n' +
+          '.ex-item-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 10px; }\n' +
+          '.unit-page-break { page-break-before: always; }\n' +
+          '@media print {\n' +
+          '  body { background: #fff !important; padding: 0 !important; font-size: 10pt !important; }\n' +
+          '  .unit-container { max-width: 100% !important; margin: 0 !important; }\n' +
+          '  .unit-hero, .unit-toc, .unit-lesson-card, .unit-exam-card { box-shadow: none !important; border: 1px solid #cbd5e1 !important; page-break-inside: avoid; }\n' +
+          '  .unit-page-break { page-break-before: always !important; }\n' +
+          '  @page { margin: 12mm 10mm; size: A4 portrait; }\n' +
+          '}\n';
+      }
+
+      if (theme === 'horizontal_table') {
+        return '* { box-sizing: border-box; }\n' +
+          'body {\n' +
+          '  font-family: "Lexend", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;\n' +
+          '  background: #ffffff;\n' +
+          '  color: #111111;\n' +
+          '  margin: 0;\n' +
+          '  padding: 16px;\n' +
+          '  line-height: 1.45;\n' +
+          '  font-size: 13px;\n' +
+          '}\n' +
+          '.unit-container { width: 100%; max-width: 100%; margin: 0 auto; }\n' +
+          '.unit-hero {\n' +
+          '  background: #f8fafc;\n' +
+          '  border: 2px solid #222222;\n' +
+          '  box-shadow: 3px 3px 0 #333333;\n' +
+          '  border-radius: 6px;\n' +
+          '  padding: 14px 18px;\n' +
+          '  margin-bottom: 16px;\n' +
+          '}\n' +
+          '.unit-hero-badge {\n' +
+          '  background: #222222;\n' +
+          '  color: #ffffff;\n' +
+          '  font-size: 0.72rem;\n' +
+          '  font-weight: 900;\n' +
+          '  text-transform: uppercase;\n' +
+          '  padding: 2px 7px;\n' +
+          '  display: inline-block;\n' +
+          '  margin-bottom: 6px;\n' +
+          '  border-radius: 3px;\n' +
+          '}\n' +
+          '.unit-title { font-size: 1.5rem; font-weight: 900; margin: 0 0 6px 0; text-transform: uppercase; }\n' +
+          '.unit-meta-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }\n' +
+          '.unit-meta-pill { background: #ffffff; border: 1.5px solid #222222; padding: 2px 8px; font-size: 0.78rem; font-weight: 700; border-radius: 4px; }\n' +
+          '.unit-meta-pill.highlight { background: #fef08a; }\n' +
+          '.unit-toc { background: #ffffff; border: 2px solid #222; box-shadow: 3px 3px 0 #333; border-radius: 6px; padding: 14px; margin-bottom: 16px; }\n' +
+          '.unit-toc-title { font-size: 0.95rem; font-weight: 900; text-transform: uppercase; margin: 0 0 10px 0; border-bottom: 2px solid #222; padding-bottom: 4px; }\n' +
+          '.unit-toc-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }\n' +
+          '.unit-toc-table th, .unit-toc-table td { border: 1.5px solid #222; padding: 6px 8px; text-align: left; }\n' +
+          '.unit-toc-table th { background: #e2e8f0; font-weight: 900; }\n' +
+          '.unit-item-badge { font-size: 0.7rem; font-weight: 900; padding: 1px 5px; border: 1.5px solid #222; display: inline-block; text-transform: uppercase; border-radius: 3px; }\n' +
+          '.unit-item-badge.lesson { background: #dbeafe; }\n' +
+          '.unit-item-badge.test { background: #fce7f3; color: #9d174d; }\n' +
+          '.unit-lesson-card { background: #ffffff; border: 2px solid #222; box-shadow: 3px 3px 0 #333; border-radius: 6px; margin-bottom: 16px; padding: 14px; }\n' +
+          '.unit-card-hdr { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #222; padding-bottom: 8px; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }\n' +
+          '.unit-card-title { font-size: 1.15rem; font-weight: 900; margin: 0; }\n' +
+          '.landscape-lesson-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 6px; }\n' +
+          '.landscape-lesson-table th, .landscape-lesson-table td { border: 1.5px solid #222; padding: 6px 8px; vertical-align: top; }\n' +
+          '.landscape-lesson-table th { background: #e2e8f0; font-weight: 900; font-size: 0.76rem; text-transform: uppercase; }\n' +
+          '.landscape-pacing { font-weight: 800; font-size: 0.8rem; text-align: center; background: #f8fafc; }\n' +
+          '.landscape-phase-title { font-weight: 900; font-size: 0.82rem; color: #000; margin-bottom: 4px; }\n' +
+          '.comp-tag-chip { background: #fef08a; border: 1.5px solid #222; padding: 1px 5px; font-size: 0.68rem; font-weight: 800; display: inline-block; margin: 1px 2px 1px 0; border-radius: 3px; }\n' +
+          '.comp-tag-chip.test { background: #fce7f3; color: #9d174d; }\n' +
+          '.toc-comp-pills { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; margin-top: 3px; }\n' +
+          '.unit-comp-matrix { margin-top: 14px; background: #f8fafc; border: 1.5px solid #222; padding: 10px 12px; border-radius: 4px; }\n' +
+          '.unit-comp-matrix-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1.5px dashed #222; }\n' +
+          '.unit-comp-matrix-title { font-size: 0.85rem; font-weight: 900; text-transform: uppercase; }\n' +
+          '.unit-comp-matrix-badge { background: #222; color: #fff; font-size: 0.7rem; font-weight: 900; padding: 2px 8px; border-radius: 3px; }\n' +
+          '.unit-comp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 6px; }\n' +
+          '.unit-comp-card { background: #ffffff; border: 1.5px solid #222; padding: 6px 8px; border-radius: 3px; }\n' +
+          '.test-comp-section { margin-top: 8px; padding-top: 6px; border-top: 1px dashed #64748b; }\n' +
+          '.test-comp-label { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: #334155; margin-bottom: 4px; display: block; }\n' +
+          '.test-comp-chips { display: flex; flex-wrap: wrap; gap: 4px; }\n' +
+          '.test-comp-cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px; margin-top: 4px; }\n' +
+          '.test-comp-card { background: #ffffff; border: 1.5px solid #222; border-radius: 4px; padding: 6px 8px; }\n' +
+          '.test-criteria-section { margin-top: 8px; padding-top: 6px; border-top: 1px dashed #64748b; }\n' +
+          '.test-criteria-label { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: #334155; margin-bottom: 4px; display: block; }\n' +
+          '.test-criteria-table { width: 100%; border-collapse: collapse; font-size: 0.76rem; margin-top: 4px; background: #fff; }\n' +
+          '.test-criteria-table th, .test-criteria-table td { border: 1px solid #222; padding: 3px 6px; text-align: left; }\n' +
+          '.test-criteria-table th { background: #f1f5f9; font-weight: 800; }\n' +
+          '.test-criterion-card { background: #ffffff; border: 1.5px solid #222; border-radius: 4px; padding: 6px 8px; margin-bottom: 4px; }\n' +
+          '.unit-exam-card { background: #fff8f8; border: 2px solid #222; box-shadow: 3px 3px 0 #333; border-radius: 6px; margin-bottom: 16px; padding: 14px; }\n' +
+          '.ex-item-card { background: #ffffff; border: 1.5px solid #222; padding: 10px; margin-bottom: 8px; border-radius: 4px; }\n' +
+          '.unit-page-break { page-break-before: always; }\n' +
+          '@media print {\n' +
+          '  body { background: #fff !important; padding: 0 !important; font-size: 9.5pt !important; }\n' +
+          '  .unit-container { width: 100% !important; max-width: 100% !important; margin: 0 !important; }\n' +
+          '  .unit-hero, .unit-toc, .unit-lesson-card, .unit-exam-card { box-shadow: none !important; border: 1.5px solid #000 !important; page-break-inside: avoid; }\n' +
+          '  .unit-lesson-card, .unit-exam-card { page-break-after: always !important; }\n' +
+          '  .unit-page-break { page-break-before: always !important; }\n' +
+          '  @page { margin: 10mm 8mm; size: A4 landscape; }\n' +
+          '}\n';
+      }
+
+      // Default Light Neobrutalist
+      return ':root {\n' +
+        '  --neo-border: 2px solid #222222;\n' +
+        '  --neo-shadow: 3px 3px 0px #333333;\n' +
+        '  --neo-bg: #ffffff;\n' +
+        '  --neo-canvas: #f5f5f0;\n' +
+        '  --neo-accent: #fef08a;\n' +
+        '  --neo-blue: #dbeafe;\n' +
+        '  --neo-pink: #fce7f3;\n' +
+        '  --neo-radius: 8px;\n' +
+        '  --neo-radius-sm: 4px;\n' +
+        '}\n' +
+        '* { box-sizing: border-box; }\n' +
+        'body {\n' +
+        '  font-family: "Lexend", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;\n' +
+        '  background: var(--neo-canvas);\n' +
+        '  color: #111111;\n' +
+        '  margin: 0;\n' +
+        '  padding: 24px;\n' +
+        '  line-height: 1.5;\n' +
+        '}\n' +
+        '.unit-container { max-width: 920px; margin: 0 auto; }\n' +
+        '.unit-hero {\n' +
+        '  background: var(--neo-bg);\n' +
+        '  border: var(--neo-border);\n' +
+        '  box-shadow: 4px 4px 0px #333333;\n' +
+        '  border-radius: var(--neo-radius);\n' +
+        '  padding: 20px;\n' +
+        '  margin-bottom: 24px;\n' +
+        '}\n' +
+        '.unit-hero-badge {\n' +
+        '  background: #222222;\n' +
+        '  color: #ffffff;\n' +
+        '  font-size: 0.75rem;\n' +
+        '  font-weight: 900;\n' +
+        '  text-transform: uppercase;\n' +
+        '  letter-spacing: 0.5px;\n' +
+        '  padding: 3px 8px;\n' +
+        '  display: inline-block;\n' +
+        '  margin-bottom: 8px;\n' +
+        '  border-radius: 3px;\n' +
+        '}\n' +
+        '.unit-title { font-size: 1.75rem; font-weight: 900; margin: 0 0 10px 0; text-transform: uppercase; }\n' +
+        '.unit-meta-grid {\n' +
+        '  display: flex;\n' +
+        '  flex-wrap: wrap;\n' +
+        '  gap: 8px;\n' +
+        '  margin-top: 10px;\n' +
+        '}\n' +
+        '.unit-meta-pill {\n' +
+        '  background: #ffffff;\n' +
+        '  border: 1.5px solid #222222;\n' +
+        '  padding: 4px 10px;\n' +
+        '  font-size: 0.8rem;\n' +
+        '  font-weight: 700;\n' +
+        '  border-radius: 4px;\n' +
+        '  box-shadow: 2px 2px 0 #444444;\n' +
+        '}\n' +
+        '.unit-meta-pill.highlight { background: var(--neo-accent); }\n' +
+        '.unit-toc {\n' +
+        '  background: #ffffff;\n' +
+        '  border: var(--neo-border);\n' +
+        '  box-shadow: var(--neo-shadow);\n' +
+        '  border-radius: var(--neo-radius);\n' +
+        '  padding: 18px;\n' +
+        '  margin-bottom: 24px;\n' +
+        '}\n' +
+        '.unit-toc-title { font-size: 1rem; font-weight: 900; text-transform: uppercase; margin: 0 0 12px 0; border-bottom: 2px solid #222; padding-bottom: 6px; }\n' +
+        '.unit-toc-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }\n' +
+        '.unit-toc-table th, .unit-toc-table td { border: 1.5px solid #222; padding: 7px 10px; text-align: left; }\n' +
+        '.unit-toc-table th { background: #e2e8f0; font-weight: 900; }\n' +
+        '.unit-item-badge {\n' +
+        '  font-size: 0.72rem;\n' +
+        '  font-weight: 900;\n' +
+        '  padding: 2px 6px;\n' +
+        '  border: 1.5px solid #222;\n' +
+        '  display: inline-block;\n' +
+        '  text-transform: uppercase;\n' +
+        '  border-radius: 3px;\n' +
+        '}\n' +
+        '.unit-item-badge.lesson { background: var(--neo-blue); }\n' +
+        '.unit-item-badge.test { background: var(--neo-pink); color: #9d174d; }\n' +
+        '.unit-lesson-card {\n' +
+        '  background: #ffffff;\n' +
+        '  border: var(--neo-border);\n' +
+        '  box-shadow: var(--neo-shadow);\n' +
+        '  border-radius: var(--neo-radius);\n' +
+        '  margin-bottom: 24px;\n' +
+        '  padding: 18px;\n' +
+        '}\n' +
+        '.unit-card-hdr {\n' +
+        '  display: flex;\n' +
+        '  justify-content: space-between;\n' +
+        '  align-items: center;\n' +
+        '  border-bottom: 2px solid #222;\n' +
+        '  padding-bottom: 10px;\n' +
+        '  margin-bottom: 12px;\n' +
+        '  flex-wrap: wrap;\n' +
+        '  gap: 8px;\n' +
+        '}\n' +
+        '.unit-card-title { font-size: 1.25rem; font-weight: 900; margin: 0; }\n' +
+        '.phase-row {\n' +
+        '  border: 1.5px solid #222;\n' +
+        '  border-radius: var(--neo-radius-sm);\n' +
+        '  padding: 12px;\n' +
+        '  margin-bottom: 10px;\n' +
+        '  background: #fafafa;\n' +
+        '}\n' +
+        '.phase-hdr { display: flex; justify-content: space-between; font-weight: 800; font-size: 0.9rem; margin-bottom: 6px; border-bottom: 1px dashed #444; padding-bottom: 4px; }\n' +
+        '.phase-obj { font-size: 0.85rem; margin-bottom: 6px; }\n' +
+        '.phase-actions { display: flex; gap: 8px; font-size: 0.8rem; margin-top: 6px; }\n' +
+        '.action-box { background: #ffffff; border: 1.5px solid #222; border-radius: 4px; padding: 8px; flex: 1 1 0; min-width: 0; }\n' +
+        '.action-tag { font-size: 0.7rem; font-weight: 900; text-transform: uppercase; display: block; margin-bottom: 3px; color: #222; }\n' +
+        '.comp-tag-chip { background: var(--neo-accent, #fef08a); border: 1.5px solid #222; padding: 2px 6px; font-size: 0.72rem; font-weight: 800; display: inline-block; margin: 2px 3px 2px 0; border-radius: 4px; box-shadow: 1px 1px 0 #222; }\n' +
+        '.comp-tag-chip.test { background: #fce7f3; color: #9d174d; }\n' +
+        '.toc-comp-pills { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; margin-top: 3px; }\n' +
+        '.unit-comp-matrix { margin-top: 16px; background: #ffffff; border: var(--neo-border); padding: 14px; border-radius: var(--neo-radius-sm); box-shadow: 2px 2px 0 #333; }\n' +
+        '.unit-comp-matrix-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1.5px dashed #222; }\n' +
+        '.unit-comp-matrix-title { font-size: 0.9rem; font-weight: 900; text-transform: uppercase; }\n' +
+        '.unit-comp-matrix-badge { background: #222; color: #fff; font-size: 0.72rem; font-weight: 900; padding: 2px 8px; border-radius: 3px; }\n' +
+        '.unit-comp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px; }\n' +
+        '.unit-comp-card { background: #fdfdfd; border: 1.5px solid #222; padding: 8px 10px; border-radius: 4px; box-shadow: 2px 2px 0 #555; }\n' +
+        '.unit-comp-card-top { display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px; }\n' +
+        '.unit-comp-card-name { font-size: 0.78rem; font-weight: 800; color: #1e293b; }\n' +
+        '.unit-comp-card-links { font-size: 0.72rem; color: #475569; }\n' +
+        '.unit-comp-card-links strong { color: #0f172a; }\n' +
+        '.test-comp-section { margin-top: 8px; padding-top: 6px; border-top: 1px dashed #64748b; }\n' +
+        '.test-comp-label { font-size: 0.75rem; font-weight: 800; text-transform: uppercase; color: #334155; margin-bottom: 4px; display: block; }\n' +
+        '.test-comp-chips { display: flex; flex-wrap: wrap; gap: 4px; }\n' +
+        '.test-comp-cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px; margin-top: 4px; }\n' +
+        '.test-comp-card { background: #ffffff; border: 1.5px solid #222; border-radius: 4px; padding: 6px 8px; box-shadow: 2px 2px 0 #555; }\n' +
+        '.test-comp-card-top { display: flex; align-items: baseline; gap: 4px; flex-wrap: wrap; margin-bottom: 2px; }\n' +
+        '.test-comp-card-title { font-size: 0.78rem; font-weight: 800; color: #0f172a; }\n' +
+        '.test-comp-level-badge { font-size: 0.68rem; font-weight: 800; background: #e0e7ff; color: #3730a3; padding: 1px 4px; border-radius: 3px; }\n' +
+        '.test-comp-cat-badge { font-size: 0.68rem; font-weight: 800; background: #f1f5f9; color: #475569; padding: 1px 4px; border-radius: 3px; }\n' +
+        '.test-comp-card-desc { font-size: 0.72rem; color: #334155; line-height: 1.35; }\n' +
+        '.test-criteria-section { margin-top: 8px; padding-top: 6px; border-top: 1px dashed #64748b; }\n' +
+        '.test-criteria-label { font-size: 0.75rem; font-weight: 800; text-transform: uppercase; color: #334155; margin-bottom: 4px; display: block; }\n' +
+        '.test-criteria-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; margin-top: 4px; background: #ffffff; }\n' +
+        '.test-criteria-table th, .test-criteria-table td { border: 1.5px solid #222; padding: 4px 8px; text-align: left; }\n' +
+        '.test-criteria-table th { background: #e2e8f0; font-weight: 900; font-size: 0.74rem; text-transform: uppercase; }\n' +
+        '.test-criteria-list { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }\n' +
+        '.test-criterion-card { background: #ffffff; border: 1.5px solid #222; border-radius: 4px; padding: 6px 8px; box-shadow: 2px 2px 0 #555; }\n' +
+        '.test-criterion-top { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 4px; margin-bottom: 3px; }\n' +
+        '.test-criterion-title { font-size: 0.82rem; font-weight: 800; color: #000; }\n' +
+        '.test-criterion-meta { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; font-weight: 700; color: #475569; }\n' +
+        '.test-criterion-desc { font-size: 0.74rem; color: #334155; margin-bottom: 3px; line-height: 1.35; }\n' +
+        '.test-criterion-scale { display: flex; flex-wrap: wrap; gap: 4px; font-size: 0.7rem; color: #475569; background: #f8fafc; padding: 4px 6px; border-radius: 3px; border: 1px dashed #cbd5e1; }\n' +
+        '.unit-exam-card {\n' +
+        '  background: #fffbfb;\n' +
+        '  border: var(--neo-border);\n' +
+        '  box-shadow: var(--neo-shadow);\n' +
+        '  border-radius: var(--neo-radius);\n' +
+        '  margin-bottom: 24px;\n' +
+        '  padding: 18px;\n' +
+        '}\n' +
+        '.ex-item-card {\n' +
+        '  background: #ffffff;\n' +
+        '  border: 1.5px solid #222;\n' +
+        '  border-radius: var(--neo-radius-sm);\n' +
+        '  padding: 12px;\n' +
+        '  margin-bottom: 10px;\n' +
+        '}\n' +
+        '.unit-page-break { page-break-before: always; }\n' +
+        '@media print {\n' +
+        '  body { background: #fff !important; padding: 0 !important; font-size: 10pt !important; }\n' +
+        '  .unit-container { max-width: 100% !important; margin: 0 !important; }\n' +
+        '  .unit-hero, .unit-toc, .unit-lesson-card, .unit-exam-card { box-shadow: none !important; border: 1.5px solid #000 !important; page-break-inside: avoid; }\n' +
+        '  .unit-comp-matrix { box-shadow: none !important; border: 1.5px solid #000 !important; page-break-inside: avoid; }\n' +
+        '  .unit-page-break { page-break-before: always !important; }\n' +
+        '  @page { margin: 12mm 10mm; size: A4 portrait; }\n' +
+        '}\n';
+    }
+
+    var css = getThemeCss(cssTheme);
+
+    // Helper: Competence Lookup & Extraction
+    var compLookup = {};
+    if (Array.isArray(options.allCompetences)) {
+      options.allCompetences.forEach(function (c) {
+        if (c && (c.id || c.code)) {
+          if (c.id) compLookup[c.id] = c;
+          if (c.code) compLookup[c.code] = c;
+        }
+      });
+    }
+
+    function extractItemCompetences(it) {
+      var set = new Set();
+      var isTest = (it.type === 'test' || it.category === 'test' || it.category === 'summative');
+      if (!isTest) {
+        var matchL = (fullLessons || []).find(function (fl) { return fl.id === it.id; });
+        if (matchL) {
+          if (Array.isArray(matchL.descriptorIds)) matchL.descriptorIds.forEach(function (id) { if (id) set.add(String(id).trim()); });
+          if (Array.isArray(matchL.competences)) {
+            matchL.competences.forEach(function (c) {
+              var cid = (typeof c === 'object' && c) ? (c.id || c.code || c.title) : c;
+              if (cid) set.add(String(cid).trim());
+            });
+          }
+          (matchL.sections || []).forEach(function (sec) {
+            if (Array.isArray(sec.descriptorIds)) sec.descriptorIds.forEach(function (id) { if (id) set.add(String(id).trim()); });
+            if (Array.isArray(sec.competences)) {
+              sec.competences.forEach(function (c) {
+                var cid = (typeof c === 'object' && c) ? (c.id || c.code || c.title) : c;
+                if (cid) set.add(String(cid).trim());
+              });
+            }
+          });
+        }
+      } else {
+        var matchT = (fullTests || []).find(function (ft) { return ft.id === it.id; });
+        if (matchT) {
+          if (Array.isArray(matchT.descriptorIds)) matchT.descriptorIds.forEach(function (id) { if (id) set.add(String(id).trim()); });
+          if (Array.isArray(matchT.competences)) {
+            matchT.competences.forEach(function (c) {
+              var cid = (typeof c === 'object' && c) ? (c.id || c.code || c.title) : c;
+              if (cid) set.add(String(cid).trim());
+            });
+          }
+          (matchT.exercises || []).forEach(function (ex) {
+            if (Array.isArray(ex.descriptorIds)) ex.descriptorIds.forEach(function (id) { if (id) set.add(String(id).trim()); });
+            if (Array.isArray(ex.competenceIds)) ex.competenceIds.forEach(function (id) { if (id) set.add(String(id).trim()); });
+            if (Array.isArray(ex.competences)) {
+              ex.competences.forEach(function (c) {
+                var cid = (typeof c === 'object' && c) ? (c.id || c.code || c.title) : c;
+                if (cid) set.add(String(cid).trim());
+              });
+            }
+          });
+        }
+      }
+      return Array.from(set);
+    }
+
+    var compLayout = options.competenceLayout || 'column';
+    var showColumn = (compLayout === 'column' || compLayout === 'both');
+    var showSubrow = (compLayout === 'subrow');
+    var showMatrix = (compLayout === 'matrix' || compLayout === 'both');
+
+    var testCriteriaMode = options.testCriteriaMode || 'compact'; // 'none' | 'compact' | 'detailed'
+    var testCompetencesMode = options.testCompetencesMode || 'compact'; // 'none' | 'compact' | 'detailed'
+
+    // Coverage aggregation map
+    var sequenceCoverageMap = {};
 
     var html =
       '<!DOCTYPE html>\n' +
@@ -918,7 +1288,13 @@
       '      <h3 class="unit-toc-title">Sequence Structure &amp; Progression</h3>\n' +
       '      <table class="unit-toc-table">\n' +
       '        <thead>\n' +
-      '          <tr><th style="width:40px;">#</th><th style="width:90px;">Type</th><th>Title / Topic</th><th style="width:100px;">Duration/Pts</th></tr>\n' +
+      '          <tr>\n' +
+      '            <th style="width:40px;">#</th>\n' +
+      '            <th style="width:90px;">Type</th>\n' +
+      '            <th>Title / Topic</th>\n' +
+      (showColumn ? '            <th style="min-width:140px;">Competences / Standards</th>\n' : '') +
+      '            <th style="width:100px;">Duration/Pts</th>\n' +
+      '          </tr>\n' +
       '        </thead>\n' +
       '        <tbody>\n';
 
@@ -927,6 +1303,7 @@
       var isTest = (it.type === 'test' || it.category === 'test' || it.category === 'summative');
       var badgeClass = isTest ? 'unit-item-badge test' : 'unit-item-badge lesson';
       var badgeText = isTest ? '[TEST / EXAM]' : '[LESSON ' + rowIdx + ']';
+      var itemLabel = isTest ? ('Assessment ' + rowIdx) : ('Lesson ' + rowIdx);
       var durOrPts = isTest ? 'Exam' : 'Lesson';
 
       if (!isTest) {
@@ -943,91 +1320,360 @@
         }
       }
 
+      var itemComps = extractItemCompetences(it);
+      itemComps.forEach(function (cId) {
+        if (!sequenceCoverageMap[cId]) {
+          var compInfo = compLookup[cId] || {};
+          sequenceCoverageMap[cId] = {
+            code: cId,
+            title: compInfo.title || compInfo.name || cId,
+            category: compInfo.category || compInfo.theme || '',
+            level: compInfo.level || compInfo.tier || '',
+            targets: []
+          };
+        }
+        sequenceCoverageMap[cId].targets.push({
+          label: itemLabel,
+          title: it.title || 'Untitled',
+          isTest: isTest
+        });
+      });
+
+      var compChipsHtml = '';
+      if (itemComps.length > 0) {
+        compChipsHtml = itemComps.map(function (cId) {
+          var compInfo = compLookup[cId] || {};
+          var chipTitle = (compInfo.title ? (cId + ': ' + compInfo.title) : cId);
+          return '<span class="comp-tag-chip' + (isTest ? ' test' : '') + '" title="' + escapeHtml(chipTitle) + '">' + escapeHtml(cId) + '</span>';
+        }).join('');
+      }
+
       html +=
         '          <tr>\n' +
         '            <td><strong>' + (rowIdx++) + '</strong></td>\n' +
         '            <td><span class="' + badgeClass + '">' + badgeText + '</span></td>\n' +
-        '            <td><strong>' + escapeHtml(it.title || 'Untitled') + '</strong></td>\n' +
+        '            <td>\n' +
+        '              <strong>' + escapeHtml(it.title || 'Untitled') + '</strong>\n' +
+        (showSubrow && compChipsHtml ? ('              <div class="toc-comp-pills">' + compChipsHtml + '</div>\n') : '') +
+        '            </td>\n' +
+        (showColumn ? ('            <td>' + (compChipsHtml ? ('<div class="toc-comp-pills">' + compChipsHtml + '</div>') : '<span style="color:#94a3b8;font-size:0.75rem;">—</span>') + '</td>\n') : '') +
         '            <td>' + escapeHtml(durOrPts) + '</td>\n' +
         '          </tr>\n';
     });
 
     html +=
       '        </tbody>\n' +
-      '      </table>\n' +
-      '    </div>\n';
+      '      </table>\n';
+
+    // Competence Coverage Summary Matrix block
+    if (showMatrix) {
+      var covKeys = Object.keys(sequenceCoverageMap);
+      if (covKeys.length > 0) {
+        html +=
+          '      <div class="unit-comp-matrix">\n' +
+          '        <div class="unit-comp-matrix-hdr">\n' +
+          '          <span class="unit-comp-matrix-title">Curriculum Competences &amp; Coverage</span>\n' +
+          '          <span class="unit-comp-matrix-badge">' + covKeys.length + ' Targeted Competence' + (covKeys.length > 1 ? 's' : '') + '</span>\n' +
+          '        </div>\n' +
+          '        <div class="unit-comp-grid">\n';
+
+        covKeys.forEach(function (cId) {
+          var cov = sequenceCoverageMap[cId];
+          var targetsHtml = cov.targets.map(function (tg) {
+            return '<span style="font-weight:700;color:' + (tg.isTest ? '#9d174d' : '#1e40af') + ';">' + escapeHtml(tg.label) + '</span>';
+          }).join(', ');
+
+          html +=
+            '          <div class="unit-comp-card">\n' +
+            '            <div class="unit-comp-card-top">\n' +
+            '              <span class="comp-tag-chip">' + escapeHtml(cov.code) + '</span>\n' +
+            '              <span class="unit-comp-card-name">' + escapeHtml(cov.title) + '</span>\n' +
+            '            </div>\n' +
+            '            <div class="unit-comp-card-links"><strong>Addressed in:</strong> ' + targetsHtml + '</div>\n' +
+            '          </div>\n';
+        });
+
+        html +=
+          '        </div>\n' +
+          '      </div>\n';
+      }
+    }
+
+    html += '    </div>\n';
 
     // ── 3. Full Lesson Plans in Order ──
-    (fullLessons || []).forEach(function (plan, lIdx) {
-      var planDur = (plan.sections || []).reduce(function (sum, s) { return sum + (Number(s.duration) || 0); }, 0);
-      html +=
-        '    <div class="unit-lesson-card unit-page-break">\n' +
-        '      <div class="unit-card-hdr">\n' +
-        '        <div>\n' +
-        '          <span class="unit-item-badge lesson">[LESSON ' + (lIdx + 1) + ']</span>\n' +
-        '          <h2 class="unit-card-title">' + escapeHtml(plan.title || 'Lesson Plan') + '</h2>\n' +
-        '        </div>\n' +
-        '        <div style="font-weight:800;font-size:0.85rem;">' + (planDur || plan.targetDuration || 60) + ' min' + (plan.date ? (' • ' + escapeHtml(plan.date)) : '') + '</div>\n' +
-        '      </div>\n';
-
-      (plan.sections || []).forEach(function (sec, pIdx) {
+    if (options.includePhases !== false) {
+      (fullLessons || []).forEach(function (plan, lIdx) {
+        var planDur = (plan.sections || []).reduce(function (sum, s) { return sum + (Number(s.duration) || 0); }, 0);
         html +=
-          '      <div class="phase-row">\n' +
-          '        <div class="phase-hdr">\n' +
-          '          <span>Phase ' + (pIdx + 1) + ': ' + escapeHtml(sec.title || 'Activity') + '</span>\n' +
-          '          <span>' + (Number(sec.duration) || 10) + ' min</span>\n' +
+          '    <div class="unit-lesson-card unit-page-break">\n' +
+          '      <div class="unit-card-hdr">\n' +
+          '        <div>\n' +
+          '          <span class="unit-item-badge lesson">[LESSON ' + (lIdx + 1) + ']</span>\n' +
+          '          <h2 class="unit-card-title">' + escapeHtml(plan.title || 'Lesson Plan') + '</h2>\n' +
           '        </div>\n' +
-          (sec.objective ? '        <div class="phase-obj"><strong>Objective:</strong> ' + escapeHtml(sec.objective) + '</div>\n' : '') +
-          '        <div class="phase-actions">\n' +
-          '          <div class="action-box"><span class="action-tag">Teacher Actions</span>' + escapeHtml(sec.teacherAction || 'Facilitate task') + '</div>\n' +
-          '          <div class="action-box"><span class="action-tag">Student Actions</span>' + escapeHtml(sec.studentAction || 'Participate actively') + '</div>\n' +
-          '        </div>\n' +
-          (sec.resources ? '        <div style="font-size:0.75rem;margin-top:4px;"><strong>Materials:</strong> ' + escapeHtml(sec.resources) + '</div>\n' : '') +
+          '        <div style="font-weight:800;font-size:0.85rem;">' + (planDur || plan.targetDuration || 60) + ' min' + (plan.date ? (' • ' + escapeHtml(plan.date)) : '') + '</div>\n' +
           '      </div>\n';
-      });
 
-      html += '    </div>\n';
-    });
+        if (cssTheme === 'horizontal_table') {
+          html +=
+            '      <table class="landscape-lesson-table">\n' +
+            '        <thead>\n' +
+            '          <tr>\n' +
+            '            <th style="width:75px;text-align:center;">Pacing</th>\n' +
+            '            <th style="width:160px;">Phase &amp; Activity</th>\n' +
+            '            <th style="width:20%;">Objectives</th>\n' +
+            '            <th style="width:22%;">Teacher Actions</th>\n' +
+            '            <th style="width:22%;">Student Actions</th>\n' +
+            '            <th style="min-width:130px;">Competences &amp; Materials</th>\n' +
+            '          </tr>\n' +
+            '        </thead>\n' +
+            '        <tbody>\n';
 
-    // ── 4. Attached Tests in Sequence ──
-    (fullTests || []).forEach(function (test, tIdx) {
-      var tPts = (test.exercises || []).reduce(function (sum, e) { return sum + (Number(e.points) || 0); }, 0);
-      html +=
-        '    <div class="unit-exam-card unit-page-break">\n' +
-        '      <div class="unit-card-hdr">\n' +
-        '        <div>\n' +
-        '          <span class="unit-item-badge test">[ASSESSMENT / EXAM]</span>\n' +
-        '          <h2 class="unit-card-title">' + escapeHtml(test.title || 'Unit Examination') + '</h2>\n' +
-        '        </div>\n' +
-        '        <div style="font-weight:800;font-size:0.85rem;color:#9d174d;">' + tPts + ' pts • ' + (test.duration || 45) + ' min</div>\n' +
-        '      </div>\n';
+          (plan.sections || []).forEach(function (sec, pIdx) {
+            var secDur = (Number(sec.duration) || 10);
+            var hasTeacher = !!(sec.teacherAction && String(sec.teacherAction).trim());
+            var hasStudent = !!(sec.studentAction && String(sec.studentAction).trim());
 
-      (test.exercises || []).forEach(function (ex, eIdx) {
-        html +=
-          '      <div class="ex-item-card">\n' +
-          '        <div style="display:flex;justify-content:space-between;font-weight:800;font-size:0.9rem;border-bottom:1px solid #000;padding-bottom:3px;margin-bottom:6px;">\n' +
-          '          <span>Exercise ' + (eIdx + 1) + ': ' + escapeHtml(ex.title || (ex.type ? ex.type.toUpperCase() : 'Task')) + '</span>\n' +
-          '          <span>/' + (ex.points || 1) + ' pts</span>\n' +
-          '        </div>\n' +
-          (ex.instructions ? '        <div style="font-size:0.85rem;font-style:italic;margin-bottom:6px;">' + escapeHtml(ex.instructions) + '</div>\n' : '');
+            var secComps = [];
+            var sSet = new Set();
+            if (Array.isArray(sec.descriptorIds)) sec.descriptorIds.forEach(function (id) { if (id) sSet.add(String(id).trim()); });
+            if (Array.isArray(sec.competences)) {
+              sec.competences.forEach(function (c) {
+                var cid = (typeof c === 'object' && c) ? (c.id || c.code || c.title) : c;
+                if (cid) sSet.add(String(cid).trim());
+              });
+            }
+            sSet.forEach(function (cid) {
+              var info = compLookup[cid] || {};
+              secComps.push({ code: cid, title: info.title || info.name || cid });
+            });
 
-        if (ex.type === 'cloze' && ex.content && ex.content.text) {
-          html += '        <div style="font-size:0.85rem;white-space:pre-line;line-height:1.6;">' + escapeHtml(ex.content.text) + '</div>\n';
-        } else if (ex.type === 'matching' && ex.content && Array.isArray(ex.content.pairs)) {
-          html += '        <ul style="font-size:0.85rem;margin:4px 0;padding-left:20px;">' +
-            ex.content.pairs.map(function (p) { return '<li>' + escapeHtml(p.left) + ' → ' + escapeHtml(p.right) + '</li>'; }).join('') +
-            '</ul>\n';
-        } else if (ex.type === 'open_question' && ex.content && Array.isArray(ex.content.questions)) {
-          html += '        <ol style="font-size:0.85rem;margin:4px 0;padding-left:20px;">' +
-            ex.content.questions.map(function (q) { return '<li>' + escapeHtml(q.prompt) + ' (' + (q.points || 1) + ' pts)</li>'; }).join('') +
-            '</ol>\n';
+            var compChips = secComps.map(function (c) {
+              return '<span class="comp-tag-chip" title="' + escapeHtml(c.title ? (c.code + ': ' + c.title) : c.code) + '">' + escapeHtml(c.code) + '</span>';
+            }).join('');
+
+            var actBadge = sec.activityType ? ('<span class="unit-item-badge lesson" style="font-size:0.68rem;margin-top:2px;">' + escapeHtml(sec.activityType) + '</span>') : '';
+            var modeBadge = sec.interactionMode ? ('<span class="unit-item-badge" style="font-size:0.68rem;background:#f1f5f9;margin-top:2px;">' + escapeHtml(sec.interactionMode) + '</span>') : '';
+
+            html +=
+              '          <tr>\n' +
+              '            <td class="landscape-pacing">' + secDur + ' min</td>\n' +
+              '            <td>\n' +
+              '              <div class="landscape-phase-title">Phase ' + (pIdx + 1) + ': ' + escapeHtml(sec.title || 'Activity') + '</div>\n' +
+              '              <div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:2px;">' + actBadge + (actBadge && modeBadge ? ' ' : '') + modeBadge + '</div>\n' +
+              '            </td>\n' +
+              '            <td>' + (sec.objective ? escapeHtml(sec.objective) : '<span style="color:#94a3b8;">—</span>') + '</td>\n' +
+              '            <td>' + (hasTeacher ? escapeHtml(sec.teacherAction) : '<span style="color:#94a3b8;">—</span>') + '</td>\n' +
+              '            <td>' + (hasStudent ? escapeHtml(sec.studentAction) : '<span style="color:#94a3b8;">—</span>') + '</td>\n' +
+              '            <td>\n' +
+              (compChips ? ('              <div style="display:flex;flex-wrap:wrap;gap:2px;margin-bottom:3px;">' + compChips + '</div>\n') : '') +
+              (sec.resources ? ('              <div style="font-size:0.72rem;color:#475569;"><strong>Mat:</strong> ' + escapeHtml(sec.resources) + '</div>\n') : (!compChips ? '<span style="color:#94a3b8;">—</span>\n' : '')) +
+              '            </td>\n' +
+              '          </tr>\n';
+          });
+
+          html +=
+            '        </tbody>\n' +
+            '      </table>\n';
+        } else {
+          (plan.sections || []).forEach(function (sec, pIdx) {
+            var hasTeacher = !!(sec.teacherAction && String(sec.teacherAction).trim());
+            var hasStudent = !!(sec.studentAction && String(sec.studentAction).trim());
+
+            html +=
+              '      <div class="phase-row">\n' +
+              '        <div class="phase-hdr">\n' +
+              '          <span>Phase ' + (pIdx + 1) + ': ' + escapeHtml(sec.title || 'Activity') + '</span>\n' +
+              '          <span>' + (Number(sec.duration) || 10) + ' min</span>\n' +
+              '        </div>\n' +
+              (sec.objective ? '        <div class="phase-obj"><strong>Objective:</strong> ' + escapeHtml(sec.objective) + '</div>\n' : '');
+
+            if (hasTeacher || hasStudent) {
+              html += '        <div class="phase-actions">\n';
+              if (hasTeacher) {
+                html += '          <div class="action-box"><span class="action-tag">Teacher Actions</span>' + escapeHtml(sec.teacherAction) + '</div>\n';
+              }
+              if (hasStudent) {
+                html += '          <div class="action-box"><span class="action-tag">Student Actions</span>' + escapeHtml(sec.studentAction) + '</div>\n';
+              }
+              html += '        </div>\n';
+            }
+
+            if (sec.resources) {
+              html += '        <div style="font-size:0.75rem;margin-top:4px;"><strong>Materials:</strong> ' + escapeHtml(sec.resources) + '</div>\n';
+            }
+            html += '      </div>\n';
+          });
         }
 
-        html += '      </div>\n';
+        html += '    </div>\n';
       });
+    }
 
-      html += '    </div>\n';
-    });
+    // ── 4. Attached Tests in Sequence ──
+    if (options.includeTests !== false) {
+      (fullTests || []).forEach(function (test, tIdx) {
+        var tPts = (test.exercises || []).reduce(function (sum, e) { return sum + (Number(e.points) || 0); }, 0);
+        html +=
+          '    <div class="unit-exam-card unit-page-break">\n' +
+          '      <div class="unit-card-hdr">\n' +
+          '        <div>\n' +
+          '          <span class="unit-item-badge test">[ASSESSMENT / EXAM]</span>\n' +
+          '          <h2 class="unit-card-title">' + escapeHtml(test.title || 'Unit Examination') + '</h2>\n' +
+          '        </div>\n' +
+          '        <div style="font-weight:800;font-size:0.85rem;color:#9d174d;">' + tPts + ' pts • ' + (test.duration || 45) + ' min</div>\n' +
+          '      </div>\n';
+
+        (test.exercises || []).forEach(function (ex, eIdx) {
+          html +=
+            '      <div class="ex-item-card">\n' +
+            '        <div style="display:flex;justify-content:space-between;font-weight:800;font-size:0.9rem;border-bottom:1px solid #000;padding-bottom:3px;margin-bottom:6px;">\n' +
+            '          <span>Exercise ' + (eIdx + 1) + ': ' + escapeHtml(ex.title || (ex.type ? ex.type.toUpperCase() : 'Task')) + '</span>\n' +
+            '          <span>/' + (ex.points || 1) + ' pts</span>\n' +
+            '        </div>\n' +
+            (ex.instructions ? '        <div style="font-size:0.85rem;font-style:italic;margin-bottom:6px;">' + escapeHtml(ex.instructions) + '</div>\n' : '');
+
+          if (ex.type === 'cloze' && ex.content && ex.content.text) {
+            html += '        <div style="font-size:0.85rem;white-space:pre-line;line-height:1.6;">' + escapeHtml(ex.content.text) + '</div>\n';
+          } else if (ex.type === 'matching' && ex.content && Array.isArray(ex.content.pairs)) {
+            html += '        <ul style="font-size:0.85rem;margin:4px 0;padding-left:20px;">' +
+              ex.content.pairs.map(function (p) { return '<li>' + escapeHtml(p.left) + ' → ' + escapeHtml(p.right) + '</li>'; }).join('') +
+              '</ul>\n';
+          } else if (ex.type === 'open_question' && ex.content && Array.isArray(ex.content.questions)) {
+            html += '        <ol style="font-size:0.85rem;margin:4px 0;padding-left:20px;">' +
+              ex.content.questions.map(function (q) { return '<li>' + escapeHtml(q.prompt) + ' (' + (q.points || 1) + ' pts)</li>'; }).join('') +
+              '</ol>\n';
+          } else if (ex.type === 'composition' && ex.content && Array.isArray(ex.content.prompts)) {
+            html += '        <ul style="font-size:0.85rem;margin:4px 0;padding-left:20px;">' +
+              ex.content.prompts.map(function (p) { return '<li>' + escapeHtml(p.title || p.text || p) + '</li>'; }).join('') +
+              '</ul>\n';
+          } else if ((ex.type === 'mcq' || ex.type === 'qcm') && ex.content && Array.isArray(ex.content.questions)) {
+            html += '        <ol style="font-size:0.85rem;margin:4px 0;padding-left:20px;">' +
+              ex.content.questions.map(function (q) {
+                var opts = Array.isArray(q.options) ? q.options.map(function(o){ return '<span style="margin-right:12px;">◻ ' + escapeHtml(o.text || o) + '</span>'; }).join('') : '';
+                return '<li style="margin-bottom:6px;"><div>' + escapeHtml(q.prompt || q.text || '') + '</div><div style="margin-top:2px;">' + opts + '</div></li>';
+              }).join('') +
+              '</ol>\n';
+          }
+
+          // Exercise Competences Rendering
+          if (testCompetencesMode !== 'none') {
+            var exComps = [];
+            var cSet = new Set();
+            if (Array.isArray(ex.descriptorIds)) ex.descriptorIds.forEach(function (id) { if (id) cSet.add(String(id).trim()); });
+            if (Array.isArray(ex.competenceIds)) ex.competenceIds.forEach(function (id) { if (id) cSet.add(String(id).trim()); });
+            if (Array.isArray(ex.competences)) {
+              ex.competences.forEach(function (c) {
+                var cid = (typeof c === 'object' && c) ? (c.id || c.code || c.title) : c;
+                if (cid) cSet.add(String(cid).trim());
+              });
+            }
+            cSet.forEach(function (cid) {
+              var info = compLookup[cid] || {};
+              exComps.push({
+                code: cid,
+                title: info.title || info.name || cid,
+                description: info.description || info.desc || '',
+                category: info.category || info.theme || '',
+                level: info.level || info.tier || ''
+              });
+            });
+
+            if (exComps.length > 0) {
+              if (testCompetencesMode === 'compact') {
+                html += '        <div class="test-comp-section">\n';
+                html += '          <span class="test-comp-label">Targeted Competences:</span>\n';
+                html += '          <div class="test-comp-chips">\n';
+                exComps.forEach(function (c) {
+                  html += '            <span class="comp-tag-chip test" title="' + escapeHtml(c.title ? (c.code + ': ' + c.title) : c.code) + '">' + escapeHtml(c.code) + (c.title && c.title !== c.code ? (' — ' + escapeHtml(c.title)) : '') + '</span>\n';
+                });
+                html += '          </div>\n';
+                html += '        </div>\n';
+              } else if (testCompetencesMode === 'detailed') {
+                html += '        <div class="test-comp-section">\n';
+                html += '          <span class="test-comp-label">Targeted Standards &amp; Descriptors:</span>\n';
+                html += '          <div class="test-comp-cards-grid">\n';
+                exComps.forEach(function (c) {
+                  html += '            <div class="test-comp-card">\n';
+                  html += '              <div class="test-comp-card-top">\n';
+                  html += '                <span class="comp-tag-chip test">' + escapeHtml(c.code) + '</span>\n';
+                  html += '                <span class="test-comp-card-title">' + escapeHtml(c.title) + '</span>\n';
+                  if (c.level) html += '                <span class="test-comp-level-badge">' + escapeHtml(c.level) + '</span>\n';
+                  if (c.category) html += '                <span class="test-comp-cat-badge">' + escapeHtml(c.category) + '</span>\n';
+                  html += '              </div>\n';
+                  if (c.description) html += '              <div class="test-comp-card-desc">' + escapeHtml(c.description) + '</div>\n';
+                  html += '            </div>\n';
+                });
+                html += '          </div>\n';
+                html += '        </div>\n';
+              }
+            }
+          }
+
+          // Exercise Criteria / Rubric Rendering
+          if (testCriteriaMode !== 'none') {
+            var exRubrics = Array.isArray(ex.markingRubric) ? ex.markingRubric : (Array.isArray(ex.criteria) ? ex.criteria : (Array.isArray(ex.correctionCriteria) ? ex.correctionCriteria : []));
+            if (exRubrics.length > 0) {
+              if (testCriteriaMode === 'compact') {
+                html += '        <div class="test-criteria-section">\n';
+                html += '          <span class="test-criteria-label">Assessment &amp; Rubric Criteria:</span>\n';
+                html += '          <table class="test-criteria-table">\n';
+                html += '            <thead><tr><th>Criterion</th><th style="width:55px;text-align:center;">Max</th><th style="width:55px;text-align:center;">Weight</th><th style="width:55px;text-align:center;">Score</th></tr></thead>\n';
+                html += '            <tbody>\n';
+                exRubrics.forEach(function (r) {
+                  var rTitle = (typeof r === 'object' && r) ? (r.title || r.name || 'Criterion') : String(r);
+                  var rMax = (typeof r === 'object' && r && (r.maxPoints != null || r.points != null)) ? (r.maxPoints != null ? r.maxPoints : r.points) : 1;
+                  var rWeight = (typeof r === 'object' && r && r.weight != null) ? r.weight : 1;
+                  html += '              <tr><td><strong>' + escapeHtml(rTitle) + '</strong></td><td style="text-align:center;">/' + rMax + '</td><td style="text-align:center;">' + rWeight + 'x</td><td></td></tr>\n';
+                });
+                html += '            </tbody>\n';
+                html += '          </table>\n';
+                html += '        </div>\n';
+              } else if (testCriteriaMode === 'detailed') {
+                html += '        <div class="test-criteria-section">\n';
+                html += '          <span class="test-criteria-label">Detailed Correction Rubric:</span>\n';
+                html += '          <div class="test-criteria-list">\n';
+                exRubrics.forEach(function (r) {
+                  var rTitle = (typeof r === 'object' && r) ? (r.title || r.name || 'Criterion') : String(r);
+                  var rMax = (typeof r === 'object' && r && (r.maxPoints != null || r.points != null)) ? (r.maxPoints != null ? r.maxPoints : r.points) : 1;
+                  var rWeight = (typeof r === 'object' && r && r.weight != null) ? r.weight : 1;
+                  var rDesc = (typeof r === 'object' && r) ? (r.description || r.desc || '') : '';
+                  var rLevel = (typeof r === 'object' && r) ? (r.level || r.tier || '') : '';
+                  var rScale = (typeof r === 'object' && r && Array.isArray(r.scale)) ? r.scale : (Array.isArray(r.levels) ? r.levels : null);
+
+                  html += '            <div class="test-criterion-card">\n';
+                  html += '              <div class="test-criterion-top">\n';
+                  html += '                <span class="test-criterion-title">' + escapeHtml(rTitle) + '</span>\n';
+                  html += '                <div class="test-criterion-meta">\n';
+                  if (rLevel) html += '                  <span class="test-comp-level-badge">' + escapeHtml(rLevel) + '</span>\n';
+                  html += '                  <span>Max: /' + rMax + ' pts (' + rWeight + 'x)</span>\n';
+                  html += '                </div>\n';
+                  html += '              </div>\n';
+                  if (rDesc) html += '              <div class="test-criterion-desc">' + escapeHtml(rDesc) + '</div>\n';
+                  if (rScale && rScale.length > 0) {
+                    html += '              <div class="test-criterion-scale">\n';
+                    rScale.forEach(function (sc) {
+                      var scScore = (typeof sc === 'object' && sc) ? (sc.score != null ? sc.score : (sc.points != null ? sc.points : '')) : '';
+                      var scText = (typeof sc === 'object' && sc) ? (sc.desc || sc.title || sc.label || '') : String(sc);
+                      html += '                <span><strong>' + (scScore !== '' ? (scScore + ' pts: ') : '') + '</strong>' + escapeHtml(scText) + '</span>\n';
+                    });
+                    html += '              </div>\n';
+                  }
+                  html += '            </div>\n';
+                });
+                html += '          </div>\n';
+                html += '        </div>\n';
+              }
+            }
+          }
+
+          html += '      </div>\n';
+        });
+
+        html += '    </div>\n';
+      });
+    }
 
     html +=
       '  </div>\n' +
@@ -1037,30 +1683,97 @@
     return html;
   };
 
-  LessonCreatorService.exportSequenceToMarkdown = function (unitSeq, fullLessons, fullTests) {
+  LessonCreatorService.exportSequenceToMarkdown = function (unitSeq, fullLessons, fullTests, options) {
+    options = options || {};
     var title = (unitSeq && unitSeq.title) || 'Unit Curriculum Sequence';
     var subject = (unitSeq && unitSeq.subject) || (fullLessons[0] && (fullLessons[0].subject || fullLessons[0].subjectId)) || '';
     var className = (unitSeq && unitSeq.classId) || (fullLessons[0] && fullLessons[0].classId) || '';
+    var compLayout = options.competenceLayout || 'column';
+    var testCriteriaMode = options.testCriteriaMode || 'compact';
+    var testCompetencesMode = options.testCompetencesMode || 'compact';
 
     var md = '# ' + title + '\n\n';
     md += '**Subject:** ' + (subject || 'General') + ' | **Class:** ' + (className || 'N/A') + ' | **Total Lessons:** ' + (fullLessons || []).length + '\n\n';
     md += '## Sequence Structure\n\n';
 
+    var compLookup = {};
+    if (Array.isArray(options.allCompetences)) {
+      options.allCompetences.forEach(function (c) {
+        if (c && (c.id || c.code)) {
+          if (c.id) compLookup[c.id] = c;
+          if (c.code) compLookup[c.code] = c;
+        }
+      });
+    }
+
+    var sequenceCoverageMap = {};
+
     (unitSeq.lessons || []).forEach(function (it, idx) {
       var isTest = (it.type === 'test' || it.category === 'test');
-      md += (idx + 1) + '. **[' + (isTest ? 'TEST' : 'LESSON') + ']** ' + (it.title || 'Untitled') + '\n';
+      var itemLabel = isTest ? ('Assessment ' + (idx + 1)) : ('Lesson ' + (idx + 1));
+      var set = new Set();
+      if (!isTest) {
+        var matchL = (fullLessons || []).find(function (fl) { return fl.id === it.id; });
+        if (matchL) {
+          if (Array.isArray(matchL.descriptorIds)) matchL.descriptorIds.forEach(function (id) { if (id) set.add(String(id).trim()); });
+          (matchL.sections || []).forEach(function (sec) {
+            if (Array.isArray(sec.descriptorIds)) sec.descriptorIds.forEach(function (id) { if (id) set.add(String(id).trim()); });
+          });
+        }
+      } else {
+        var matchT = (fullTests || []).find(function (ft) { return ft.id === it.id; });
+        if (matchT) {
+          if (Array.isArray(matchT.descriptorIds)) matchT.descriptorIds.forEach(function (id) { if (id) set.add(String(id).trim()); });
+          (matchT.exercises || []).forEach(function (ex) {
+            if (Array.isArray(ex.descriptorIds)) ex.descriptorIds.forEach(function (id) { if (id) set.add(String(id).trim()); });
+            if (Array.isArray(ex.competenceIds)) ex.competenceIds.forEach(function (id) { if (id) set.add(String(id).trim()); });
+          });
+        }
+      }
+      var comps = Array.from(set);
+      comps.forEach(function (cId) {
+        if (!sequenceCoverageMap[cId]) {
+          var compInfo = compLookup[cId] || {};
+          sequenceCoverageMap[cId] = {
+            code: cId,
+            title: compInfo.title || compInfo.name || cId,
+            targets: []
+          };
+        }
+        sequenceCoverageMap[cId].targets.push(itemLabel);
+      });
+
+      var compSuffix = '';
+      if (compLayout !== 'none' && comps.length > 0) {
+        compSuffix = ' — *[' + comps.join(', ') + ']*';
+      }
+
+      md += (idx + 1) + '. **[' + (isTest ? 'TEST' : 'LESSON') + ']** ' + (it.title || 'Untitled') + compSuffix + '\n';
     });
-    md += '\n---\n\n';
+    md += '\n';
+
+    if ((compLayout === 'matrix' || compLayout === 'both') && Object.keys(sequenceCoverageMap).length > 0) {
+      md += '### Curriculum Competence Coverage Matrix\n\n';
+      md += '| Competence Code | Title / Descriptor | Addressed in |\n';
+      md += '| :--- | :--- | :--- |\n';
+      Object.keys(sequenceCoverageMap).forEach(function (cId) {
+        var cov = sequenceCoverageMap[cId];
+        md += '| **`' + cov.code + '`** | ' + (cov.title || cov.code) + ' | ' + cov.targets.join(', ') + ' |\n';
+      });
+      md += '\n';
+    }
+
+    md += '---\n\n';
 
     (fullLessons || []).forEach(function (l, idx) {
       md += '## Lesson ' + (idx + 1) + ': ' + (l.title || 'Untitled') + '\n\n';
       if (l.date) md += '*Date: ' + l.date + '*\n\n';
       (l.sections || []).forEach(function (s, sIdx) {
         md += '### Phase ' + (sIdx + 1) + ': ' + (s.title || 'Activity') + ' (' + (s.duration || 10) + ' min)\n\n';
-        if (s.objective) md += '- **Objective:** ' + s.objective + '\n';
-        if (s.teacherAction) md += '- **Teacher:** ' + s.teacherAction + '\n';
-        if (s.studentAction) md += '- **Students:** ' + s.studentAction + '\n';
-        if (s.resources) md += '- **Materials:** ' + s.resources + '\n';
+        if (s.objective && String(s.objective).trim()) md += '- **Objective:** ' + s.objective.trim() + '\n';
+        if (s.teacherAction && String(s.teacherAction).trim()) md += '- **Teacher:** ' + s.teacherAction.trim() + '\n';
+        if (s.studentAction && String(s.studentAction).trim()) md += '- **Students:** ' + s.studentAction.trim() + '\n';
+        if (s.resources && String(s.resources).trim()) md += '- **Materials:** ' + s.resources.trim() + '\n';
         md += '\n';
       });
       md += '---\n\n';
@@ -1074,6 +1787,63 @@
         if (e.instructions) md += '>' + e.instructions + '\n\n';
         if (e.type === 'cloze' && e.content && e.content.text) {
           md += '```\n' + e.content.text + '\n```\n\n';
+        }
+
+        // Test Competences in Markdown
+        if (testCompetencesMode !== 'none') {
+          var exComps = [];
+          var cSet = new Set();
+          if (Array.isArray(e.descriptorIds)) e.descriptorIds.forEach(function (id) { if (id) cSet.add(String(id).trim()); });
+          if (Array.isArray(e.competenceIds)) e.competenceIds.forEach(function (id) { if (id) cSet.add(String(id).trim()); });
+          cSet.forEach(function (cid) {
+            var info = compLookup[cid] || {};
+            exComps.push({ code: cid, title: info.title || info.name || cid, description: info.description || info.desc || '', level: info.level || '' });
+          });
+          if (exComps.length > 0) {
+            if (testCompetencesMode === 'compact') {
+              md += '- **Competences:** ' + exComps.map(function (c) { return '`' + c.code + '`' + (c.title && c.title !== c.code ? (' (' + c.title + ')') : ''); }).join(', ') + '\n\n';
+            } else if (testCompetencesMode === 'detailed') {
+              md += '#### Competence Descriptors\n\n';
+              md += '| Code | Title | Level | Description |\n';
+              md += '| :--- | :--- | :--- | :--- |\n';
+              exComps.forEach(function (c) {
+                md += '| **`' + c.code + '`** | ' + c.title + ' | ' + (c.level || '—') + ' | ' + (c.description || '—') + ' |\n';
+              });
+              md += '\n';
+            }
+          }
+        }
+
+        // Test Criteria in Markdown
+        if (testCriteriaMode !== 'none') {
+          var exRubrics = Array.isArray(e.markingRubric) ? e.markingRubric : (Array.isArray(e.criteria) ? e.criteria : (Array.isArray(e.correctionCriteria) ? e.correctionCriteria : []));
+          if (exRubrics.length > 0) {
+            if (testCriteriaMode === 'compact') {
+              md += '#### Assessment Criteria\n\n';
+              md += '| Criterion | Max Points | Weight |\n';
+              md += '| :--- | :--- | :--- |\n';
+              exRubrics.forEach(function (r) {
+                var rTitle = (typeof r === 'object' && r) ? (r.title || r.name || 'Criterion') : String(r);
+                var rMax = (typeof r === 'object' && r && (r.maxPoints != null || r.points != null)) ? (r.maxPoints != null ? r.maxPoints : r.points) : 1;
+                var rWeight = (typeof r === 'object' && r && r.weight != null) ? r.weight : 1;
+                md += '| ' + rTitle + ' | /' + rMax + ' | ' + rWeight + 'x |\n';
+              });
+              md += '\n';
+            } else if (testCriteriaMode === 'detailed') {
+              md += '#### Detailed Rubric\n\n';
+              md += '| Criterion | Level | Max Points | Description |\n';
+              md += '| :--- | :--- | :--- | :--- |\n';
+              exRubrics.forEach(function (r) {
+                var rTitle = (typeof r === 'object' && r) ? (r.title || r.name || 'Criterion') : String(r);
+                var rMax = (typeof r === 'object' && r && (r.maxPoints != null || r.points != null)) ? (r.maxPoints != null ? r.maxPoints : r.points) : 1;
+                var rWeight = (typeof r === 'object' && r && r.weight != null) ? r.weight : 1;
+                var rDesc = (typeof r === 'object' && r) ? (r.description || r.desc || '—') : '—';
+                var rLevel = (typeof r === 'object' && r) ? (r.level || '—') : '—';
+                md += '| **' + rTitle + '** | ' + rLevel + ' | /' + rMax + ' (' + rWeight + 'x) | ' + rDesc + ' |\n';
+              });
+              md += '\n';
+            }
+          }
         }
       });
       md += '---\n\n';

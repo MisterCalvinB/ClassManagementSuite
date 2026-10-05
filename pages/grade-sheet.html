@@ -1122,7 +1122,12 @@
             </div>
 
             <div class="topt-card">
-              <div class="topt-card-title" data-i18n="gsObsPresetSectionsTitle">Default Observation Sections</div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                <div class="topt-card-title" data-i18n="gsObsPresetSectionsTitle">Default Observation Sections</div>
+                <button type="button" class="btn btn-xs" id="topt-sync-sections-btn" style="font-size:0.75rem;padding:2px 8px;font-weight:700;display:inline-flex;align-items:center;gap:4px;">
+                  <img src="../assets/icons/refresh.svg" class="btn-icon btn-icon-xs" alt="" /> <span data-i18n="gsBtnSyncSectionsWithBank">Sync with Bank</span>
+                </button>
+              </div>
               <p style="font-size:0.8rem;color:var(--muted);margin-bottom:10px;" data-i18n="gsObsPresetSectionsHint">Configure predefined observation sections that will be automatically initialized for students in this test.</p>
               <div id="topt-obs-sections-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;max-height:260px;overflow-y:auto;"></div>
               <div style="display:flex;gap:6px;align-items:center;">
@@ -1180,10 +1185,16 @@
   </div>
 
   <!-- ════ PDF EXPORT DESTINATION MODAL ════ -->
-  <div id="gs-pdf-export-overlay" class="crit-popup-overlay hidden" onclick="if(event.target===this)closeGsPdfExportModal(null)">
+  <div id="gs-pdf-export-overlay" class="crit-popup-overlay hidden" style="z-index: 12000;" onclick="if(event.target===this)closeGsPdfExportModal(null)">
     <div class="crit-popup panel" role="dialog" aria-modal="true" style="max-width:420px;width:min(96vw,420px);" onclick="event.stopPropagation()">
       <div class="crit-popup-title" id="gs-pdf-export-title" data-i18n="deExportPdfDestinationTitle">Export PDF</div>
-      <p id="gs-pdf-export-text" style="margin:0 0 16px;font-size:0.92rem;line-height:1.4;color:var(--text, #333);" data-i18n="deExportPdfDestinationPrompt">Where do you want to save the PDF?</p>
+      <p id="gs-pdf-export-text" style="margin:0 0 14px;font-size:0.92rem;line-height:1.4;color:var(--text, #333);" data-i18n="deExportPdfDestinationPrompt">Where do you want to save the PDF?</p>
+      <div style="margin: 0 0 14px 0;">
+        <label id="gs-pdf-export-fit-page-wrap" style="display: inline-flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 700; cursor: pointer; user-select: none; background: #f8fafc; padding: 7px 10px; border: 1.5px solid #111; border-radius: 6px; width: 100%; box-sizing: border-box;">
+          <input type="checkbox" id="gs-pdf-export-fit-page" style="cursor: pointer; width: 16px; height: 16px;" />
+          <span data-i18n="gsPdfExportFitOnePage">Fit content to 1 page per sheet</span>
+        </label>
+      </div>
       <div style="display:flex;flex-direction:column;gap:10px;">
         <button class="btn primary" id="gs-btn-pdf-export-to-print" type="button" onclick="closeGsPdfExportModal('to-print')" style="padding:10px 14px;justify-content:center;" data-i18n="deExportPdfToPrintFolder">Export to Print folder</button>
         <button class="btn" id="gs-btn-pdf-export-picker" type="button" onclick="closeGsPdfExportModal('picker')" style="padding:10px 14px;justify-content:center;" data-i18n="deExportPdfFilePicker">Choose with file picker</button>
@@ -1607,9 +1618,17 @@
           <h2 id="gs-report-modal-title" style="margin: 0; font-size: 1.25rem; font-weight: 800;" data-i18n="gsReportModalTitle">Report Preview</h2>
         </div>
         <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-left: auto;">
-          <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.84rem; font-weight: 700; cursor: pointer; user-select: none; background: #f8fafc; padding: 4px 8px; border: 1.5px solid #111; border-radius: 4px;">
+          <label id="gs-report-toggle-competences-wrap" style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.84rem; font-weight: 700; cursor: pointer; user-select: none; background: #f8fafc; padding: 4px 8px; border: 1.5px solid #111; border-radius: 4px;">
             <input type="checkbox" id="gs-report-toggle-competences" checked style="cursor: pointer; width: 15px; height: 15px;" />
             <span data-i18n="gsReportToggleCompetences">Include Competences</span>
+          </label>
+          <label id="gs-report-toggle-exercise-means-wrap" style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.84rem; font-weight: 700; cursor: pointer; user-select: none; background: #f8fafc; padding: 4px 8px; border: 1.5px solid #111; border-radius: 4px;">
+            <input type="checkbox" id="gs-report-toggle-exercise-means" checked style="cursor: pointer; width: 15px; height: 15px;" />
+            <span data-i18n="gsReportToggleExerciseMeans">Include Exercise Means</span>
+          </label>
+          <label id="gs-report-toggle-fit-page-wrap" style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.84rem; font-weight: 700; cursor: pointer; user-select: none; background: #f8fafc; padding: 4px 8px; border: 1.5px solid #111; border-radius: 4px;">
+            <input type="checkbox" id="gs-report-toggle-fit-page" style="cursor: pointer; width: 15px; height: 15px;" />
+            <span data-i18n="gsReportToggleFitOnePage">Fit to 1 page</span>
           </label>
           <div class="btn-row" style="margin: 0;">
             <button id="gs-report-btn-print" class="btn" type="button"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> <span data-i18n="gsReportBtnPrint">Print</span></button>
@@ -1741,17 +1760,31 @@
       return "";
     }
 
-    function defaultObservationSections() {
+    function defaultObservationSections(bankFilename) {
+      const bankSections = getObservationSectionsWithGroups(bankFilename);
+      if (bankSections && bankSections.length > 0) {
+        return bankSections.map(s => {
+          const sLower = s.name.toLowerCase();
+          let kind = 'custom';
+          if (sLower === 'good points' || sLower === 'points forts' || sLower.includes('good')) kind = 'goodPoints';
+          else if (sLower === 'to remedy' || sLower === 'to improve' || sLower.includes('remedy') || sLower.includes('improve')) kind = 'toRemedy';
+          return {
+            kind,
+            label: s.name,
+            text: '',
+            checklist: []
+          };
+        });
+      }
       return [
-        { kind: "goodPoints", label: "Good points", text: "", checklist: [] },
-        { kind: "toRemedy", label: "To remedy", text: "", checklist: [] }
-        
+        { kind: "goodPoints", label: t('gsSectionGoodPoints', 'Good points'), text: "", checklist: [] },
+        { kind: "toRemedy", label: t('gsSectionToImprove', 'To improve'), text: "", checklist: [] }
       ];
     }
 
     function cloneObservationSection(section) {
       return {
-        kind: normalizeObservationKind(section && section.kind),
+        kind: normalizeObservationKind(section && section.kind) || "custom",
         label: String((section && section.label) || ""),
         text: String((section && section.text) || ""),
         checklist: Array.isArray(section && section.checklist)
@@ -1776,14 +1809,22 @@
         if (!raw) return [];
         if (Array.isArray(raw)) {
           return raw
-            .map(g => ({
-              type: String((g && (g.type || g.label || g.name)) || "").trim() || "Criteria",
-              items: normalizeGroupItems(g && g.items)
-            }))
+            .map(g => {
+              const sec = String((g && (g.section || g.sectionName)) || "").trim() || t('gsSectionGeneral', 'General Observations');
+              const col = String((g && g.color) || "").trim();
+              return {
+                section: sec,
+                color: col,
+                type: String((g && (g.type || g.label || g.name || g.category)) || "").trim() || "Criteria",
+                items: normalizeGroupItems(g && g.items)
+              };
+            })
             .filter(g => g.items.length > 0);
         } else if (typeof raw === "object") {
           return Object.entries(raw)
             .map(([type, items]) => ({
+              section: t('gsSectionGeneral', 'General Observations'),
+              color: "",
               type: String(type || "").trim() || "Criteria",
               items: normalizeGroupItems(items)
             }))
@@ -1810,7 +1851,7 @@
         const items = OBSERVATION_CHECKLIST_ITEMS
           .map(v => String(v || "").trim())
           .filter(Boolean);
-        return items.length > 0 ? [{ type: "Criteria", items }] : [];
+        return items.length > 0 ? [{ section: t('gsSectionGeneral', 'General Observations'), color: "", type: "Criteria", items }] : [];
       }
 
       if (typeof _availableChipBanks !== 'undefined' && Array.isArray(_availableChipBanks) && _availableChipBanks.length > 0) {
@@ -1837,38 +1878,69 @@
         seen.add(key);
         out.push(name);
       });
-      return out.length > 0 ? [{ type: "Criteria", items: out }] : [];
+      return out.length > 0 ? [{ section: t('gsSectionGeneral', 'General Observations'), color: "", type: "Criteria", items: out }] : [];
     }
 
-    function ensureObservationChecklistSections(sections) {
+    function getObservationSectionsWithGroups(bankFilename) {
+      const groups = getObservationChecklistGroups(bankFilename);
+      const sectionsMap = new Map();
+
+      groups.forEach(g => {
+        const secName = g.section || t('gsSectionGeneral', 'General Observations');
+        if (!sectionsMap.has(secName)) {
+          const secLower = secName.toLowerCase();
+          let fallbackColor = '#0284c7';
+          if (secLower.includes('good') || secLower.includes('fort') || secLower.includes('strength')) fallbackColor = '#16a34a';
+          else if (secLower.includes('remedy') || secLower.includes('improv') || secLower.includes('faible')) fallbackColor = '#dc2626';
+          else if (secLower.includes('action') || secLower.includes('plan') || secLower.includes('next')) fallbackColor = '#d97706';
+          sectionsMap.set(secName, {
+            name: secName,
+            color: g.color || fallbackColor,
+            groups: []
+          });
+        }
+        const secObj = sectionsMap.get(secName);
+        if (g.color && !secObj.color) secObj.color = g.color;
+        secObj.groups.push(g);
+      });
+
+      return Array.from(sectionsMap.values());
+    }
+
+    function ensureObservationChecklistSections(sections, bankFilename) {
       const list = Array.isArray(sections) ? sections.map(cloneObservationSection) : [];
+      const bankSections = getObservationSectionsWithGroups(bankFilename);
 
       list.forEach(s => {
         if (s.kind) return;
         const label = s.label.trim().toLowerCase();
-        if (label === "to remedy") s.kind = "toRemedy";
-        else if (label === "good points" || label === "good elements") s.kind = "goodPoints";
+        if (label === "to remedy" || label === "to improve" || label === "a améliorer") s.kind = "toRemedy";
+        else if (label === "good points" || label === "good elements" || label === "points forts") s.kind = "goodPoints";
+        else s.kind = "custom";
       });
 
-      const firstMandatory = [];
-      const rest = [];
-      const kindsSeen = new Set();
+      const existingLabels = new Set(list.map(s => s.label.trim().toLowerCase()));
 
-      list.forEach(s => {
-        if ((s.kind === "toRemedy" || s.kind === "goodPoints") && !kindsSeen.has(s.kind)) {
-          kindsSeen.add(s.kind);
-          firstMandatory.push(s);
-          return;
+      if (list.length === 0) {
+        return defaultObservationSections(bankFilename);
+      }
+
+      bankSections.forEach(bs => {
+        if (!existingLabels.has(bs.name.trim().toLowerCase())) {
+          const sLower = bs.name.toLowerCase();
+          let kind = 'custom';
+          if (sLower === 'good points' || sLower === 'points forts' || sLower.includes('good')) kind = 'goodPoints';
+          else if (sLower === 'to remedy' || sLower === 'to improve' || sLower.includes('remedy') || sLower.includes('improve')) kind = 'toRemedy';
+          list.push({
+            kind,
+            label: bs.name,
+            text: '',
+            checklist: []
+          });
         }
-        rest.push(s);
       });
 
-      defaultObservationSections().forEach(d => {
-        if (!kindsSeen.has(d.kind)) firstMandatory.push(d);
-      });
-
-      firstMandatory.sort((a, b) => (a.kind === "toRemedy" ? 0 : 1) - (b.kind === "toRemedy" ? 0 : 1));
-      return [...firstMandatory, ...rest];
+      return list;
     }
 
     function sectionChecklistSummary(section) {
@@ -1890,26 +1962,96 @@
     }
 
     function renderObservationPill(name, kind, label) {
-      const k = normalizeObservationKind(kind) || (String(label || "").toLowerCase() === "to remedy" ? "toRemedy" : (String(label || "").toLowerCase() === "good points" || String(label || "").toLowerCase() === "good elements" ? "goodPoints" : ""));
-      const lbl = String(label || "").toLowerCase();
-      let pillClass = "obs-pill obs-pill-custom";
+      const lbl = String(label || "").trim();
+      const lblLower = lbl.toLowerCase();
+      let border = "#0284c7";
       let bg = "#e0f2fe";
       let color = "#0369a1";
-      let border = "#0284c7";
+      let pillClass = "obs-pill obs-pill-custom";
 
-      if (k === "goodPoints" || lbl.includes("good") || lbl.includes("fort")) {
-        pillClass = "obs-pill obs-pill-good";
-        bg = "#dcfce7";
-        color = "#166534";
-        border = "#16a34a";
-      } else if (k === "toRemedy" || lbl.includes("remedy") || lbl.includes("remédier")) {
-        pillClass = "obs-pill obs-pill-remedy";
-        bg = "#fee2e2";
-        color = "#991b1b";
-        border = "#dc2626";
+      if (typeof _activeChipBankFilename !== 'undefined') {
+        const bankSections = getObservationSectionsWithGroups(_activeChipBankFilename);
+        const match = bankSections.find(bs => bs.name.toLowerCase() === lblLower);
+        if (match && match.color) {
+          border = match.color;
+          color = match.color;
+          bg = `${match.color}18`;
+        }
+      }
+
+      if (pillClass === "obs-pill obs-pill-custom") {
+        if (lblLower.includes("good") || lblLower.includes("fort") || lblLower.includes("strength")) {
+          pillClass = "obs-pill obs-pill-good";
+          bg = "#dcfce7";
+          color = "#166534";
+          border = "#16a34a";
+        } else if (lblLower.includes("remedy") || lblLower.includes("remédier") || lblLower.includes("improve") || lblLower.includes("faible")) {
+          pillClass = "obs-pill obs-pill-remedy";
+          bg = "#fee2e2";
+          color = "#991b1b";
+          border = "#dc2626";
+        } else if (lblLower.includes("action") || lblLower.includes("plan") || lblLower.includes("next")) {
+          pillClass = "obs-pill obs-pill-action";
+          bg = "#fef3c7";
+          color = "#92400e";
+          border = "#d97706";
+        }
       }
 
       return `<span class="${pillClass}" style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:10.5px;font-weight:700;line-height:1.25;margin:2px 3px 2px 0;background:${bg};color:${color};border:1.5px solid ${border};box-shadow:1px 1px 0 rgba(0,0,0,0.12);">${escapeHtml(name)}</span>`;
+    }
+
+    function groupObservationChipsByCategory(chips, sectionLabel, bankFilename) {
+      if (!Array.isArray(chips) || chips.length === 0) return [];
+      const groups = getObservationChecklistGroups(bankFilename);
+      const generalLabel = (typeof t === 'function' ? (t('gsCategoryGeneral') || 'General') : 'General');
+
+      const sLabelLower = String(sectionLabel || '').trim().toLowerCase();
+      const secGroups = groups.filter(g => String(g.section || '').trim().toLowerCase() === sLabelLower);
+      const otherGroups = groups.filter(g => String(g.section || '').trim().toLowerCase() !== sLabelLower);
+      const orderedGroups = secGroups.concat(otherGroups);
+
+      const categoryMap = new Map();
+      const uncategorized = [];
+
+      chips.forEach(chip => {
+        const chipClean = String(chip || '').trim();
+        if (!chipClean) return;
+        const chipLower = chipClean.toLowerCase();
+
+        let foundGroup = null;
+        for (const g of orderedGroups) {
+          if (Array.isArray(g.items) && g.items.some(item => String(item || '').trim().toLowerCase() === chipLower)) {
+            foundGroup = g;
+            break;
+          }
+        }
+
+        if (foundGroup) {
+          const catName = String(foundGroup.type || foundGroup.category || generalLabel).trim() || generalLabel;
+          if (!categoryMap.has(catName)) {
+            categoryMap.set(catName, {
+              category: catName,
+              color: foundGroup.color || '',
+              chips: []
+            });
+          }
+          categoryMap.get(catName).chips.push(chipClean);
+        } else {
+          uncategorized.push(chipClean);
+        }
+      });
+
+      const result = Array.from(categoryMap.values());
+      if (uncategorized.length > 0) {
+        result.push({
+          category: generalLabel,
+          color: '',
+          chips: uncategorized
+        });
+      }
+
+      return result;
     }
 
     function renderObservationSectionHtml(section) {
@@ -1920,18 +2062,42 @@
 
       if (checklist.length === 0 && !text) return "";
 
-      const pillsHtml = checklist.length > 0
-        ? `<div class="obs-pills-row" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:2px;margin-bottom:4px;">` +
-          checklist.map(chip => renderObservationPill(chip, section.kind, label)).join("") +
-          `</div>`
-        : "";
+      let secColor = "#0f172a";
+      if (typeof _activeChipBankFilename !== 'undefined') {
+        const bankSections = getObservationSectionsWithGroups(_activeChipBankFilename);
+        const match = bankSections.find(bs => bs.name.toLowerCase() === label.toLowerCase());
+        if (match && match.color) secColor = match.color;
+      }
+      if (secColor === "#0f172a") {
+        const lblLower = label.toLowerCase();
+        if (lblLower.includes("good") || lblLower.includes("fort") || lblLower.includes("strength")) secColor = "#16a34a";
+        else if (lblLower.includes("remedy") || lblLower.includes("remédier") || lblLower.includes("improve") || lblLower.includes("faible")) secColor = "#dc2626";
+        else if (lblLower.includes("action") || lblLower.includes("plan") || lblLower.includes("next")) secColor = "#d97706";
+      }
+
+      let pillsHtml = "";
+      if (checklist.length > 0) {
+        const catGroups = groupObservationChipsByCategory(checklist, label, typeof _activeChipBankFilename !== 'undefined' ? _activeChipBankFilename : null);
+        if (catGroups.length > 0) {
+          pillsHtml = `<div class="obs-categories-wrap" style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:2px;margin-bottom:3px;">` +
+            catGroups.map(cg => `
+              <span class="obs-category-span" style="display:inline-flex;align-items:center;flex-wrap:wrap;gap:3px;border:1.5px solid #333333;border-radius:6px;padding:2px 6px;margin:1px 2px 1px 0;vertical-align:middle;">
+                <span class="obs-category-tag" style="font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.03em;color:#333333;margin-right:2px;white-space:nowrap;">
+                  ${escapeHtml(cg.category)}:
+                </span>
+                ${cg.chips.map(chip => renderObservationPill(chip, section.kind, label)).join("")}
+              </span>
+            `).join("") +
+            `</div>`;
+        }
+      }
 
       const feedbackHtml = text
-        ? `<div class="obs-feedback" style="margin-top:${checklist.length > 0 ? '5px' : '2px'};padding:5px 9px;background:#f8fafc;border-left:3px solid #0f172a;border-radius:0 4px 4px 0;font-size:11.5px;line-height:1.45;color:#1e293b;"><div class="obs-feedback-body">${renderMd(text)}</div></div>`
+        ? `<div class="obs-feedback" style="margin-top:${checklist.length > 0 ? '5px' : '2px'};padding:5px 9px;background:#f8fafc;border-left:3px solid ${secColor};border-radius:0 4px 4px 0;font-size:11.5px;line-height:1.45;color:#1e293b;"><div class="obs-feedback-body">${renderMd(text)}</div></div>`
         : "";
 
       const labelHtml = label
-        ? `<div class="obs-label" style="font-size:11.5px;font-weight:800;color:#111;margin-bottom:2px;">${escapeHtml(label)}</div>`
+        ? `<div class="obs-label" style="font-size:11.5px;font-weight:800;color:#111;margin-bottom:2px;display:flex;align-items:center;gap:5px;"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${secColor};"></span>${escapeHtml(label)}</div>`
         : "";
 
       return `<div class="obs-section" style="margin-bottom:8px;">${labelHtml}${pillsHtml}${feedbackHtml}</div>`;
@@ -1946,7 +2112,16 @@
       if (checklist.length === 0 && !text) return "";
 
       const labelPrefix = label ? `<strong style="color:#111;margin-right:4px;">${escapeHtml(label)}:</strong>` : "";
-      const pills = checklist.map(chip => renderObservationPill(chip, section.kind, label)).join("");
+      let pills = "";
+      if (checklist.length > 0) {
+        const catGroups = groupObservationChipsByCategory(checklist, label, typeof _activeChipBankFilename !== 'undefined' ? _activeChipBankFilename : null);
+        pills = catGroups.map(cg => `
+          <span class="obs-category-span" style="display:inline-flex;align-items:center;flex-wrap:wrap;gap:2px;border:1.5px solid #333333;border-radius:6px;padding:1px 5px;margin:1px 3px 1px 0;vertical-align:middle;">
+            <span class="obs-category-tag" style="font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.03em;color:#333333;margin-right:2px;white-space:nowrap;">${escapeHtml(cg.category)}:</span>
+            ${cg.chips.map(chip => renderObservationPill(chip, section.kind, label)).join("")}
+          </span>
+        `).join("");
+      }
       const textPart = text ? `<span class="obs-inline-text" style="margin-left:${checklist.length > 0 ? '6px' : '0'};color:#333;font-style:italic;">${escapeHtml(text)}</span>` : "";
 
       return `<div class="obs-inline-row" style="margin-bottom:3px;display:flex;flex-wrap:wrap;align-items:center;">${labelPrefix}${pills}${textPart}</div>`;
@@ -3291,13 +3466,12 @@
       populateChipBankSelectElement(document.getElementById('ref-chips-bank-select'), _refEditorActiveChipBank);
     }
 
-    async function saveNewObservationChip(bankFilename, chipText, categoryName) {
+    async function saveNewObservationChip(bankFilename, chipText, categoryName, sectionName, sectionColor) {
       const cleanChip = String(chipText || '').trim();
-      const cleanCat = String(categoryName || '').trim();
-      if (!cleanChip || !cleanCat) {
-        showToast(t('gsAddChipEmptyError', 'Please enter a chip text and category.'), true);
-        return false;
-      }
+      const cleanCat = String(categoryName || 'General').trim();
+      const cleanSec = String(sectionName || t('gsSectionGeneral', 'General Observations')).trim() || t('gsSectionGeneral', 'General Observations');
+      const cleanCol = String(sectionColor || '').trim();
+      if (!cleanChip || !cleanCat) return false;
 
       const targetFn = bankFilename || _activeChipBankFilename || 'correction-criteria.js';
       if (!Array.isArray(_availableChipBanks) || !_availableChipBanks.length) {
@@ -3306,37 +3480,27 @@
 
       let bank = _availableChipBanks.find(b => b.filename === targetFn);
       if (!bank) {
-        bank = {
-          id: targetFn === 'correction-criteria.js' ? 'default' : targetFn,
-          filename: targetFn,
-          name: targetFn.replace(/\.(js|json)$/i, ''),
-          chips: []
-        };
+        bank = { filename: targetFn, name: targetFn.replace(/\.(js|json)$/i, ''), chips: [] };
         _availableChipBanks.push(bank);
       }
 
-      // Normalize existing chips array
-      let chipGroups = [];
-      if (Array.isArray(bank.chips)) {
-        chipGroups = bank.chips.map(g => ({
-          type: String((g && (g.type || g.label || g.name)) || 'Criteria').trim() || 'Criteria',
-          items: Array.isArray(g && g.items) ? [...g.items] : []
-        }));
-      } else if (bank.chips && typeof bank.chips === 'object') {
-        chipGroups = Object.entries(bank.chips).map(([type, items]) => ({
-          type: String(type || 'Criteria').trim() || 'Criteria',
-          items: Array.isArray(items) ? [...items] : []
-        }));
-      }
+      if (!Array.isArray(bank.chips)) bank.chips = [];
 
-      // Check if group exists
-      let group = chipGroups.find(g => g.type.toLowerCase() === cleanCat.toLowerCase());
+      let chipGroups = bank.chips.map(g => ({
+        section: String((g && (g.section || g.sectionName)) || cleanSec).trim() || cleanSec,
+        color: String((g && g.color) || '').trim(),
+        type: String((g && (g.type || g.label || g.name || g.category)) || 'Criteria').trim() || 'Criteria',
+        items: Array.isArray(g && g.items) ? [...g.items] : []
+      }));
+
+      let group = chipGroups.find(g => (g.section || '').toLowerCase() === cleanSec.toLowerCase() && g.type.toLowerCase() === cleanCat.toLowerCase());
       if (!group) {
-        group = { type: cleanCat, items: [] };
+        group = { section: cleanSec, color: cleanCol, type: cleanCat, items: [] };
         chipGroups.push(group);
+      } else if (cleanCol && !group.color) {
+        group.color = cleanCol;
       }
 
-      // Check duplicate chip (case-insensitive)
       if (group.items.some(it => String(it).trim().toLowerCase() === cleanChip.toLowerCase())) {
         showToast(t('gsAddChipDuplicateError', 'This chip already exists in the selected category.'), true);
         return false;
@@ -3374,7 +3538,6 @@
           }
         }
       } else {
-        // Custom chip bank
         try {
           const lsKey = 'cmt-chips-' + targetFn.replace(/\.(js|json)$/i, '');
           localStorage.setItem(lsKey, JSON.stringify(chipGroups));
@@ -3393,7 +3556,6 @@
         }
       }
 
-      // Broadcast changes across windows
       if (typeof BroadcastChannel !== 'undefined') {
         try {
           new BroadcastChannel('cmt-chips').postMessage({ filename: targetFn });
@@ -3413,30 +3575,27 @@
       let bank = _availableChipBanks.find(b => b.filename === targetFn);
       if (!bank || !Array.isArray(bank.chips)) return false;
 
-      // Normalize chip groups
       let chipGroups = bank.chips.map(g => ({
-        type: String((g && (g.type || g.label || g.name)) || 'Criteria').trim() || 'Criteria',
+        section: String((g && (g.section || g.sectionName)) || t('gsSectionGeneral', 'General Observations')).trim() || t('gsSectionGeneral', 'General Observations'),
+        color: String((g && g.color) || '').trim(),
+        type: String((g && (g.type || g.label || g.name || g.category)) || 'Criteria').trim() || 'Criteria',
         items: Array.isArray(g && g.items) ? [...g.items] : []
       }));
 
-      // Find source group
       const srcGroup = chipGroups.find(g => g.type.toLowerCase() === sourceCategory.toLowerCase());
       if (!srcGroup) return false;
 
       const srcIdx = srcGroup.items.findIndex(it => String(it).trim().toLowerCase() === chipName.trim().toLowerCase());
       if (srcIdx === -1) return false;
 
-      // Remove from source group
       const [removed] = srcGroup.items.splice(srcIdx, 1);
 
-      // Find or create target group
       let tgtGroup = chipGroups.find(g => g.type.toLowerCase() === targetCategory.toLowerCase());
       if (!tgtGroup) {
-        tgtGroup = { type: targetCategory, items: [] };
+        tgtGroup = { section: srcGroup.section, color: srcGroup.color, type: targetCategory, items: [] };
         chipGroups.push(tgtGroup);
       }
 
-      // Insert at targetIndex
       if (targetIndex != null && targetIndex >= 0 && targetIndex <= tgtGroup.items.length) {
         tgtGroup.items.splice(targetIndex, 0, removed);
       } else {
@@ -3445,7 +3604,6 @@
 
       bank.chips = chipGroups;
 
-      // Persist to database
       if (targetFn === 'correction-criteria.js') {
         window.OBSERVATION_CHECKLIST_GROUPS = chipGroups;
         try {
@@ -3474,7 +3632,6 @@
           }
         }
       } else {
-        // Custom chip bank
         try {
           const lsKey = 'cmt-chips-' + targetFn.replace(/\.(js|json)$/i, '');
           localStorage.setItem(lsKey, JSON.stringify(chipGroups));
@@ -3488,7 +3645,7 @@
               : `// OBSERVATION_CHECKLIST_GROUPS\nconst OBSERVATION_CHECKLIST_GROUPS = ${JSON.stringify(chipGroups, null, 2)};\n`;
             await Desktop.saveText('customChips', targetFn, customChipsText);
           } catch (e) {
-            console.warn('Error saving custom observation chip bank order:', e);
+            console.warn('Error saving custom observation chip bank:', e);
           }
         }
       }
@@ -3511,7 +3668,7 @@
 
       const bank = _availableChipBanks.find(b => b.filename === targetFn);
       const bankDisplayName = bank ? bank.name : targetFn.replace(/\.(js|json)$/i, '');
-      const existingGroups = getObservationChecklistGroups(targetFn);
+      const bankSections = getObservationSectionsWithGroups(targetFn);
 
       let overlay = document.getElementById('gs-add-chip-overlay');
       if (!overlay) {
@@ -3519,7 +3676,7 @@
         overlay.id = 'gs-add-chip-overlay';
         overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
         overlay.innerHTML = `
-          <div class="gs-add-chip-modal" style="background:var(--surface,#fff);border:3px solid #000;box-shadow:6px 6px 0px #000;border-radius:6px;width:440px;max-width:94vw;display:flex;flex-direction:column;gap:14px;padding:20px;box-sizing:border-box;">
+          <div class="gs-add-chip-modal" style="background:var(--surface,#fff);border:3px solid #000;box-shadow:6px 6px 0px #000;border-radius:6px;width:460px;max-width:94vw;display:flex;flex-direction:column;gap:14px;padding:20px;box-sizing:border-box;">
             <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #000;padding-bottom:10px;">
               <div style="font-size:1.1rem;font-weight:900;letter-spacing:-0.5px;display:flex;align-items:center;gap:8px;">
                 <img src="../assets/icons/speech-bubbles.svg" style="width:20px;height:20px;" alt="" />
@@ -3532,13 +3689,24 @@
               <span id="gs-add-chip-bank-name" style="color:var(--text,#111);font-weight:900;background:var(--bg-card,#f0f0f0);border:1px solid #000;padding:2px 8px;border-radius:3px;"></span>
             </div>
             <div style="display:flex;flex-direction:column;gap:6px;">
-              <label style="font-size:0.8rem;font-weight:800;letter-spacing:0.3px;">${t('gsAddChipNameLabel', 'Chip Text')}</label>
-              <input type="text" id="gs-add-chip-input-text" class="input" style="border:2px solid #000;padding:6px 10px;font-weight:600;" placeholder="${t('gsPlaceholderObservation', 'e.g. Good intonation, Needs clearer examples...')}" />
+              <label style="font-size:0.8rem;font-weight:800;letter-spacing:0.3px;">${t('gsAddChipSectionLabel', 'Section')}</label>
+              <select id="gs-add-chip-section-select" class="input" style="border:2px solid #000;padding:6px 10px;font-weight:700;"></select>
+              <div id="gs-add-chip-custom-section-wrap" class="hidden" style="display:flex;flex-direction:column;gap:6px;margin-top:4px;">
+                <input type="text" id="gs-add-chip-custom-section" class="input" style="border:2px solid #000;padding:6px 10px;font-weight:600;" placeholder="${t('gsAddChipNewSectionPlaceholder', 'Enter section name...')}" />
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span style="font-size:0.75rem;font-weight:700;">Color:</span>
+                  <input type="color" id="gs-add-chip-color" value="#16a34a" style="width:30px;height:24px;border:1.5px solid #000;border-radius:4px;cursor:pointer;">
+                </div>
+              </div>
             </div>
             <div style="display:flex;flex-direction:column;gap:6px;">
               <label style="font-size:0.8rem;font-weight:800;letter-spacing:0.3px;">${t('gsAddChipCategoryLabel', 'Category / Criteria')}</label>
               <select id="gs-add-chip-category-select" class="input" style="border:2px solid #000;padding:6px 10px;font-weight:700;"></select>
               <input type="text" id="gs-add-chip-custom-category" class="input hidden" style="border:2px solid #000;padding:6px 10px;font-weight:600;margin-top:4px;" placeholder="${t('gsAddChipNewCategoryPlaceholder', 'Enter category name...')}" />
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <label style="font-size:0.8rem;font-weight:800;letter-spacing:0.3px;">${t('gsAddChipNameLabel', 'Chip Text')}</label>
+              <input type="text" id="gs-add-chip-input-text" class="input" style="border:2px solid #000;padding:6px 10px;font-weight:600;" placeholder="${t('gsPlaceholderObservation', 'e.g. Good intonation, Needs clearer examples...')}" />
             </div>
             <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:8px;padding-top:10px;border-top:1px solid #ddd;">
               <button type="button" id="gs-add-chip-cancel-btn" class="btn" style="border:2px solid #000;font-weight:700;">${t('gsAddChipBtnCancel', 'Cancel')}</button>
@@ -3554,6 +3722,10 @@
 
       const bankNameEl = document.getElementById('gs-add-chip-bank-name');
       const textInput = document.getElementById('gs-add-chip-input-text');
+      const secSelect = document.getElementById('gs-add-chip-section-select');
+      const customSecWrap = document.getElementById('gs-add-chip-custom-section-wrap');
+      const customSecInput = document.getElementById('gs-add-chip-custom-section');
+      const secColorInput = document.getElementById('gs-add-chip-color');
       const catSelect = document.getElementById('gs-add-chip-category-select');
       const customCatInput = document.getElementById('gs-add-chip-custom-category');
       const submitBtn = document.getElementById('gs-add-chip-submit-btn');
@@ -3561,18 +3733,22 @@
       const closeBtn = document.getElementById('gs-add-chip-close-btn');
 
       if (bankNameEl) bankNameEl.textContent = bankDisplayName;
-      if (textInput) {
-        textInput.value = '';
-      }
+      if (textInput) textInput.value = '';
+      if (customSecInput) customSecInput.value = '';
+      if (customSecWrap) customSecWrap.classList.add('hidden');
       if (customCatInput) {
         customCatInput.value = '';
         customCatInput.classList.add('hidden');
       }
 
-      // Populate categories
-      if (catSelect) {
+      function updateCategoriesForSelectedSection() {
+        if (!catSelect) return;
         catSelect.innerHTML = '';
-        (existingGroups || []).forEach(g => {
+        const selectedSecName = secSelect ? secSelect.value : '';
+        const currentSec = bankSections.find(s => s.name === selectedSecName);
+        const groups = currentSec ? currentSec.groups : [];
+
+        groups.forEach(g => {
           const opt = document.createElement('option');
           opt.value = g.type;
           opt.textContent = g.type;
@@ -3583,19 +3759,56 @@
         newOpt.textContent = t('gsAddChipNewCategoryOpt', '+ New Category...');
         catSelect.appendChild(newOpt);
 
-        if (!existingGroups || existingGroups.length === 0) {
+        if (groups.length === 0 || selectedSecName === '__new__') {
           catSelect.value = '__new__';
           if (customCatInput) customCatInput.classList.remove('hidden');
         } else {
           catSelect.selectedIndex = 0;
+          if (customCatInput) customCatInput.classList.add('hidden');
+        }
+      }
+
+      // Populate sections
+      if (secSelect) {
+        secSelect.innerHTML = '';
+        bankSections.forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = s.name;
+          opt.textContent = s.name;
+          secSelect.appendChild(opt);
+        });
+        const newSecOpt = document.createElement('option');
+        newSecOpt.value = '__new__';
+        newSecOpt.textContent = t('gsAddChipNewSectionOpt', '+ New Section...');
+        secSelect.appendChild(newSecOpt);
+
+        if (bankSections.length === 0) {
+          secSelect.value = '__new__';
+          if (customSecWrap) customSecWrap.classList.remove('hidden');
+        } else {
+          secSelect.selectedIndex = 0;
         }
 
+        secSelect.onchange = () => {
+          if (secSelect.value === '__new__') {
+            if (customSecWrap) customSecWrap.classList.remove('hidden');
+            if (customSecInput) customSecInput.focus();
+          } else {
+            if (customSecWrap) customSecWrap.classList.add('hidden');
+          }
+          updateCategoriesForSelectedSection();
+        };
+
+        updateCategoriesForSelectedSection();
+      }
+
+      if (catSelect) {
         catSelect.onchange = () => {
           if (catSelect.value === '__new__') {
-            customCatInput.classList.remove('hidden');
-            customCatInput.focus();
+            if (customCatInput) customCatInput.classList.remove('hidden');
+            if (customCatInput) customCatInput.focus();
           } else {
-            customCatInput.classList.add('hidden');
+            if (customCatInput) customCatInput.classList.add('hidden');
           }
         };
       }
@@ -3607,17 +3820,23 @@
 
       async function doSubmit() {
         const chipText = textInput ? textInput.value.trim() : '';
+        let sectionName = secSelect ? secSelect.value : '';
+        if (sectionName === '__new__') {
+          sectionName = customSecInput ? customSecInput.value.trim() : '';
+        }
         let categoryName = catSelect ? catSelect.value : '';
         if (categoryName === '__new__') {
           categoryName = customCatInput ? customCatInput.value.trim() : '';
         }
-        if (!chipText || !categoryName) {
-          showToast(t('gsAddChipEmptyError', 'Please enter a chip text and category.'), true);
+        const sectionColor = secColorInput ? secColorInput.value : '';
+
+        if (!chipText || !categoryName || !sectionName) {
+          showToast(t('gsAddChipEmptyError', 'Please enter a chip text, section, and category.'), true);
           return;
         }
         submitBtn.disabled = true;
         try {
-          const ok = await saveNewObservationChip(targetFn, chipText, categoryName);
+          const ok = await saveNewObservationChip(targetFn, chipText, categoryName, sectionName, sectionColor);
           if (ok) {
             closeModal();
             if (typeof onSavedCallback === 'function') {
@@ -3632,7 +3851,7 @@
       function handleKey(e) {
         if (e.key === 'Escape') {
           closeModal();
-        } else if (e.key === 'Enter' && (document.activeElement === textInput || document.activeElement === customCatInput)) {
+        } else if (e.key === 'Enter' && (document.activeElement === textInput || document.activeElement === customCatInput || document.activeElement === customSecInput)) {
           e.preventDefault();
           doSubmit();
         }
@@ -10193,36 +10412,90 @@
         if (!toptChipsPreviewList) return;
         toptChipsPreviewList.innerHTML = "";
         const targetBankFn = (toptChipsTabBankSel && toptChipsTabBankSel.value) || config.chipBank || classObj.chipBank || _activeChipBankFilename || 'correction-criteria.js';
-        const groups = getObservationChecklistGroups(targetBankFn);
+        const sectionTrees = getObservationSectionsWithGroups(targetBankFn);
         let totalChips = 0;
-        groups.forEach(g => {
-          totalChips += (g.items || []).length;
-          const card = document.createElement("div");
-          card.className = "topt-card";
-          card.style.cssText = "margin-bottom:8px;padding:8px 10px;background:#fff;border:1.5px solid var(--border,#e2e8f0);";
+        let totalCategories = 0;
 
-          const header = document.createElement("div");
-          header.style.cssText = "display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;";
-          const catTitle = document.createElement("span");
-          catTitle.style.cssText = "font-weight:700;font-size:0.82rem;color:var(--ink);";
-          catTitle.textContent = `${g.type} (${(g.items || []).length})`;
-          header.appendChild(catTitle);
-          card.appendChild(header);
+        if (sectionTrees.length === 0) {
+          const empty = document.createElement("div");
+          empty.style.cssText = "font-size:0.8rem;color:var(--muted);font-style:italic;padding:12px;text-align:center;";
+          empty.textContent = t('gsNoChipsForSection', 'No preset chips defined in this bank.');
+          toptChipsPreviewList.appendChild(empty);
+        } else {
+          sectionTrees.forEach(sec => {
+            const secWrap = document.createElement("div");
+            secWrap.className = "topt-card";
+            secWrap.style.cssText = `margin-bottom:10px;padding:10px 12px;background:#fff;border:1.5px solid var(--border,#333333);border-left:4px solid ${sec.color || '#333333'};border-radius:8px;box-shadow:2px 2px 0 rgba(0,0,0,0.06);`;
 
-          const chipsWrap = document.createElement("div");
-          chipsWrap.style.cssText = "display:flex;flex-wrap:wrap;gap:4px;";
-          (g.items || []).forEach(chipText => {
-            const chipBadge = document.createElement("span");
-            chipBadge.style.cssText = "display:inline-block;padding:2px 8px;font-size:0.75rem;font-weight:600;border:1px solid var(--line);border-radius:12px;background:var(--bg-subtle,#f1f5f9);color:var(--ink);";
-            chipBadge.textContent = chipText;
-            chipsWrap.appendChild(chipBadge);
+            const secHeader = document.createElement("div");
+            secHeader.style.cssText = "display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding-bottom:4px;border-bottom:1px dashed var(--line,#e2e8f0);";
+            
+            const secTitleWrap = document.createElement("div");
+            secTitleWrap.style.cssText = "display:flex;align-items:center;gap:6px;";
+            const secDot = document.createElement("span");
+            secDot.style.cssText = `width:9px;height:9px;border-radius:50%;background:${sec.color || '#333333'};display:inline-block;flex-shrink:0;`;
+            const secTitle = document.createElement("span");
+            secTitle.style.cssText = "font-weight:800;font-size:0.85rem;color:var(--ink,#111827);";
+            secTitle.textContent = sec.name;
+            secTitleWrap.append(secDot, secTitle);
+
+            let secChipCount = 0;
+            sec.groups.forEach(g => { secChipCount += (g.items || []).length; });
+            totalCategories += sec.groups.length;
+            totalChips += secChipCount;
+
+            const secBadge = document.createElement("span");
+            secBadge.style.cssText = `font-size:0.75rem;font-weight:700;color:${sec.color || '#555'};padding:1px 7px;border-radius:10px;background:${sec.color ? sec.color + '15' : '#f1f5f9'};border:1px solid ${sec.color ? sec.color + '33' : '#e2e8f0'};`;
+            secBadge.textContent = `${sec.groups.length} ${t('gsCategoriesLabel', 'categories')} · ${secChipCount} ${t('gsChipsLabel', 'chips')}`;
+
+            secHeader.append(secTitleWrap, secBadge);
+            secWrap.appendChild(secHeader);
+
+            const groupsContainer = document.createElement("div");
+            groupsContainer.style.cssText = "display:flex;flex-direction:column;gap:6px;";
+
+            sec.groups.forEach(g => {
+              const catBox = document.createElement("div");
+              catBox.style.cssText = "padding:6px 8px;background:var(--bg-subtle,#f8fafc);border:1px solid var(--line,#e2e8f0);border-radius:6px;";
+
+              const catHeader = document.createElement("div");
+              catHeader.style.cssText = "display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;";
+              const catName = document.createElement("span");
+              catName.style.cssText = "font-weight:700;font-size:0.78rem;color:var(--ink);";
+              catName.textContent = `${g.type} (${(g.items || []).length})`;
+              catHeader.appendChild(catName);
+              catBox.appendChild(catHeader);
+
+              const chipsWrap = document.createElement("div");
+              chipsWrap.style.cssText = "display:flex;flex-wrap:wrap;gap:4px;";
+              (g.items || []).forEach(chipText => {
+                const chipBadge = document.createElement("span");
+                chipBadge.style.cssText = `display:inline-block;padding:2px 8px;font-size:0.75rem;font-weight:600;border:1px solid ${sec.color ? sec.color + '40' : 'var(--line)'};border-radius:12px;background:#fff;color:var(--ink);`;
+                chipBadge.textContent = chipText;
+                chipsWrap.appendChild(chipBadge);
+              });
+              catBox.appendChild(chipsWrap);
+              groupsContainer.appendChild(catBox);
+            });
+
+            secWrap.appendChild(groupsContainer);
+            toptChipsPreviewList.appendChild(secWrap);
           });
-          card.appendChild(chipsWrap);
-          toptChipsPreviewList.appendChild(card);
-        });
+        }
 
         if (toptChipsSummary) {
-          toptChipsSummary.textContent = `${groups.length} ${t('gsCategoriesLabel', 'categories')} · ${totalChips} ${t('gsChipsLabel', 'chips')}`;
+          toptChipsSummary.textContent = `${sectionTrees.length} ${t('mdbColSection', 'sections')} · ${totalCategories} ${t('gsCategoriesLabel', 'categories')} · ${totalChips} ${t('gsChipsLabel', 'chips')}`;
+        }
+      }
+
+      function syncDraftSectionsWithBank(bankFn) {
+        const secTrees = getObservationSectionsWithGroups(bankFn);
+        if (secTrees && secTrees.length > 0) {
+          obsSectionsDraft = secTrees.map(s => s.name);
+          renderToptObsSections();
+          if (typeof showToast === 'function') {
+            showToast(t('gsToastSectionsSynced', 'Observation sections synced with active chip bank'));
+          }
         }
       }
 
@@ -10238,6 +10511,7 @@
             if (!classObj.chipBank) classObj.chipBank = toptChipsTabBankSel.value;
           }
           renderToptChipsPreview();
+          syncDraftSectionsWithBank(toptChipsTabBankSel.value);
           saveState();
         };
       }
@@ -10257,6 +10531,7 @@
       const toptObsSectionsList = document.getElementById("topt-obs-sections-list");
       const toptNewSectionInput = document.getElementById("topt-new-section-label");
       const toptAddSectionBtn = document.getElementById("topt-add-section-btn");
+      const toptSyncSectionsBtn = document.getElementById("topt-sync-sections-btn");
 
       let obsSectionsDraft = Array.isArray(config.observationSections)
         ? [...config.observationSections]
@@ -10292,6 +10567,13 @@
           row.append(nameSpan, delBtn);
           toptObsSectionsList.appendChild(row);
         });
+      }
+
+      if (toptSyncSectionsBtn) {
+        toptSyncSectionsBtn.onclick = () => {
+          const currentBank = (toptChipsTabBankSel && toptChipsTabBankSel.value) || config.chipBank || classObj.chipBank || _activeChipBankFilename || 'correction-criteria.js';
+          syncDraftSectionsWithBank(currentBank);
+        };
       }
 
       if (toptAddSectionBtn && toptNewSectionInput) {
@@ -10393,6 +10675,8 @@
     function closeGsPdfExportModal(choice = null) {
       const overlay = document.getElementById("gs-pdf-export-overlay");
       if (overlay) overlay.classList.add("hidden");
+      const fitEl = document.getElementById("gs-pdf-export-fit-page");
+      if (fitEl) setReportFitToOnePage(fitEl.checked);
       const cb = _gsPdfExportModalCallback;
       _gsPdfExportModalCallback = null;
       if (cb) cb(choice);
@@ -10403,10 +10687,12 @@
       const textEl = document.getElementById("gs-pdf-export-text");
       const toPrintBtn = document.getElementById("gs-btn-pdf-export-to-print");
       const pickerBtn = document.getElementById("gs-btn-pdf-export-picker");
+      const fitEl = document.getElementById("gs-pdf-export-fit-page");
       if (titleEl) titleEl.textContent = t('deExportPdfDestinationTitle') || 'Export PDF';
       if (textEl) textEl.textContent = t('deExportPdfDestinationPrompt') || 'Where do you want to save the PDF?';
       if (toPrintBtn) toPrintBtn.textContent = t('deExportPdfToPrintFolder') || 'Export to Print folder';
       if (pickerBtn) pickerBtn.textContent = t('deExportPdfFilePicker') || 'Choose with file picker';
+      if (fitEl) fitEl.checked = getReportFitToOnePage();
 
       if (_gsPdfExportModalCallback) _gsPdfExportModalCallback(null);
 
@@ -10420,6 +10706,42 @@
       });
     }
 
+    function calcTestExerciseClassStats(classObj, sem, testIndex, config) {
+      const criteriaStats = {};
+      const studentTotalScoredList = [];
+
+      (config.criteria || []).forEach(cr => {
+        const scoredList = [];
+        (classObj.students || []).forEach(s => {
+          const entry = s.criteriaResults && s.criteriaResults[sem] && s.criteriaResults[sem][testIndex] && s.criteriaResults[sem][testIndex][cr.id];
+          if (entry && entry.points != null && !isNaN(Number(entry.points))) {
+            scoredList.push(Number(entry.points));
+          }
+        });
+        const avgPts = scoredList.length ? (scoredList.reduce((a, b) => a + b, 0) / scoredList.length) : null;
+        criteriaStats[cr.id] = {
+          avgPts,
+          count: scoredList.length,
+          maxPts: cr.maxPoints
+        };
+      });
+
+      (classObj.students || []).forEach(s => {
+        const cMap = (s.criteriaResults && s.criteriaResults[sem] && s.criteriaResults[sem][testIndex]) || {};
+        const t = calcCriteriaTotals(config, cMap);
+        if ((t.totalScored != null && !isNaN(t.totalScored)) || (t.totalBonusScored != null && !isNaN(t.totalBonusScored))) {
+          const scored = (t.totalScored || 0) + (t.totalBonusScored || 0);
+          studentTotalScoredList.push(scored);
+        }
+      });
+
+      const classMeanTotalScored = studentTotalScoredList.length
+        ? (studentTotalScoredList.reduce((a, b) => a + b, 0) / studentTotalScoredList.length)
+        : null;
+
+      return { criteriaStats, classMeanTotalScored };
+    }
+
     async function printTestResults() {
       const classObj = getActiveClass();
       if (!classObj || !appState.activeTest) return;
@@ -10428,87 +10750,118 @@
       const testNo = testIndex + 1;
       const config = getTestConfig(classObj, sem, testIndex);
       const defaultTotals = calcCriteriaTotals(config, {});
+      const incMeans = getReportIncludeExerciseMeans();
+      const { criteriaStats, classMeanTotalScored } = calcTestExerciseClassStats(classObj, sem, testIndex, config);
 
-      const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+      let destination = null;
+      if (window.Desktop && Desktop.isElectron()) {
+        destination = await openGsPdfExportModal();
+        if (!destination) return;
+      }
+
+      const pdfSettings = getPdfExportSettings();
+      const pageSize = pdfSettings.pageSize || 'A4';
+      const isLandscape = pdfSettings.isLandscape;
+      const orientation = isLandscape ? 'landscape' : 'portrait';
+      const margin = pdfSettings.margin || '18mm 18mm 15mm 18mm';
+      const fitToOnePage = getReportFitToOnePage();
 
       const pageCSS = `
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Lexend', Arial, Helvetica, sans-serif; font-size: 13px; color: #111; background: #fff; }
+        body { font-family: 'Lexend', Arial, Helvetica, sans-serif; font-size: ${fitToOnePage ? '10px' : '13px'}; color: #111; background: #fff; line-height: ${fitToOnePage ? '1.25' : '1.4'}; }
         .student-page {
-          width: 210mm;
-          min-height: 297mm;
-          padding: 18mm 18mm 15mm 18mm;
+          width: ${isLandscape ? '297mm' : '210mm'};
+          min-height: ${isLandscape ? '210mm' : '297mm'};
+          ${fitToOnePage ? `max-height: ${isLandscape ? '210mm' : '297mm'}; overflow: hidden;` : ''}
+          padding: ${fitToOnePage ? '6mm 9mm 5mm 9mm' : margin};
           page-break-after: always;
+          page-break-inside: avoid;
+          break-inside: avoid;
           display: flex;
           flex-direction: column;
-          gap: 14px;
+          gap: ${fitToOnePage ? '6px' : '14px'};
+        }
+        @page { size: ${pageSize} ${orientation}; margin: ${fitToOnePage ? '6mm 9mm 5mm 9mm' : margin}; }
+        @media print {
+          body { background: #fff; margin: 0; padding: 0; }
+          .student-page {
+            width: 100% !important;
+            max-width: 100% !important;
+            min-height: auto !important;
+            padding: 0 5px 6px 0 !important;
+            margin: 0 !important;
+            page-break-after: always;
+            page-break-inside: avoid;
+            break-inside: avoid;
+            box-sizing: border-box !important;
+          }
         }
         .page-header {
           border-bottom: 2.5px solid #111;
-          padding-bottom: 8px;
-          margin-bottom: 4px;
+          padding-bottom: ${fitToOnePage ? '4px' : '8px'};
+          margin-bottom: ${fitToOnePage ? '2px' : '4px'};
           display: flex;
           justify-content: space-between;
           align-items: flex-end;
         }
-        .student-name { font-size: 18px; font-weight: 800; color: #111; }
-        .test-label { font-size: 13px; color: #111; font-weight: 600; }
-        .test-meta { font-size: 11px; color: #555; margin-top: 2px; }
+        .student-name { font-size: ${fitToOnePage ? '15px' : '18px'}; font-weight: 800; color: #111; }
+        .test-label { font-size: ${fitToOnePage ? '11px' : '13px'}; color: #111; font-weight: 600; }
+        .test-meta { font-size: ${fitToOnePage ? '9.5px' : '11px'}; color: #555; margin-top: 1px; }
         .grade-badge {
-          font-size: 24px;
+          font-size: ${fitToOnePage ? '18px' : '24px'};
           font-weight: 800;
           color: #111;
           border: 2.5px solid #111;
           border-radius: 6px;
-          padding: 4px 14px;
+          padding: ${fitToOnePage ? '2px 10px' : '4px 14px'};
           white-space: nowrap;
           background: #f0f0f0;
-          box-shadow: 3px 3px 0 #111;
+          box-shadow: ${fitToOnePage ? '2px 2px 0 #111' : '3px 3px 0 #111'};
         }
         .section-title {
-          font-size: 12px;
+          font-size: ${fitToOnePage ? '10px' : '12px'};
           font-weight: 800;
           text-transform: uppercase;
           letter-spacing: 0.07em;
           color: #111;
-          border-bottom: 2.5px solid #111;
-          padding-bottom: 3px;
-          margin-bottom: 6px;
+          border-bottom: 2px solid #111;
+          padding-bottom: 2px;
+          margin-bottom: ${fitToOnePage ? '3px' : '6px'};
         }
-        table { width: 100%; border-collapse: collapse; font-size: 12px; border: 2px solid #111; }
+        table { width: 100%; border-collapse: collapse; font-size: ${fitToOnePage ? '9.5px' : '12px'}; border: 2px solid #111; }
         th {
           background: #f0f0f0;
           font-weight: 800;
           text-align: left;
-          padding: 6px 8px;
-          border: 2px solid #111;
+          padding: ${fitToOnePage ? '3px 6px' : '6px 8px'};
+          border: 1.5px solid #111;
           color: #111;
         }
-        td { padding: 6px 8px; border: 2px solid #111; vertical-align: top; color: #111; }
+        td { padding: ${fitToOnePage ? '3px 6px' : '6px 8px'}; border: 1.5px solid #111; vertical-align: top; color: #111; }
         .pts-cell { text-align: right; white-space: nowrap; font-weight: 700; }
-        .total-row td { font-weight: 800; background: #f0f0f0; border-top: 2.5px solid #111; }
-        .obs-section { margin-bottom: 8px; }
+        .total-row td { font-weight: 800; background: #f0f0f0; border-top: 2px solid #111; font-size: ${fitToOnePage ? '9px' : '11px'}; }
+        .obs-section { margin-bottom: ${fitToOnePage ? '4px' : '8px'}; }
         .obs-label {
-          font-size: 11.5px;
+          font-size: ${fitToOnePage ? '10px' : '11.5px'};
           font-weight: 800;
           color: #111;
-          margin-bottom: 2px;
+          margin-bottom: 1px;
         }
         .obs-pills-row {
           display: flex;
           flex-wrap: wrap;
-          gap: 4px;
-          margin-top: 2px;
-          margin-bottom: 4px;
+          gap: 3px;
+          margin-top: 1px;
+          margin-bottom: 2px;
         }
         .obs-pill {
           display: inline-block;
-          padding: 2px 8px;
+          padding: ${fitToOnePage ? '1px 5px' : '2px 8px'};
           border-radius: 12px;
-          font-size: 10.5px;
+          font-size: ${fitToOnePage ? '9px' : '10.5px'};
           font-weight: 700;
-          line-height: 1.25;
-          margin: 2px 3px 2px 0;
+          line-height: 1.2;
+          margin: 1px 2px 1px 0;
           box-shadow: 1px 1px 0 rgba(0,0,0,0.12);
         }
         .obs-pill-good {
@@ -10527,29 +10880,29 @@
           border: 1.5px solid #0284c7;
         }
         .obs-feedback {
-          margin-top: 4px;
-          padding: 5px 9px;
+          margin-top: ${fitToOnePage ? '2px' : '4px'};
+          padding: ${fitToOnePage ? '3px 6px' : '5px 9px'};
           background: #f8fafc;
           border-left: 3px solid #0f172a;
           border-radius: 0 4px 4px 0;
-          font-size: 11.5px;
-          line-height: 1.45;
+          font-size: ${fitToOnePage ? '10px' : '11.5px'};
+          line-height: ${fitToOnePage ? '1.3' : '1.45'};
           color: #1e293b;
         }
         .obs-feedback-body {
           white-space: normal;
         }
         .obs-feedback-body p {
-          margin: 0 0 3px 0;
+          margin: 0 0 2px 0;
         }
         .obs-feedback-body p:last-child {
           margin-bottom: 0;
         }
-        .obs-text { font-size: 13px; line-height: 1.5; white-space: normal; color: #111; }
-        .no-data { color: #888; font-style: italic; font-size: 12px; }
-        .scale-wrap { margin-top: 2px; }
-        .scale-table { font-size: 10px; border-collapse: collapse; width: 100%; border: 2px solid #111; }
-        .scale-table th, .scale-table td { padding: 3px 5px; border: 2px solid #111; text-align: center; white-space: nowrap; color: #111; }
+        .obs-text { font-size: ${fitToOnePage ? '10.5px' : '13px'}; line-height: 1.4; white-space: normal; color: #111; }
+        .no-data { color: #888; font-style: italic; font-size: ${fitToOnePage ? '9.5px' : '12px'}; }
+        .scale-wrap { margin-top: ${fitToOnePage ? '1px' : '2px'}; }
+        .scale-table { font-size: ${fitToOnePage ? '8.5px' : '10px'}; border-collapse: collapse; width: 100%; border: 1.5px solid #111; }
+        .scale-table th, .scale-table td { padding: ${fitToOnePage ? '2px 4px' : '3px 5px'}; border: 1.5px solid #111; text-align: center; white-space: nowrap; color: #111; }
         .scale-table thead th { background: #f0f0f0; font-weight: 800; }
         .scale-table .row-label { background: #f0f0f0; font-weight: 800; text-align: left; }
         .scale-grade-pass { font-weight: 800; color: #111; }
@@ -10633,6 +10986,17 @@
                 return `<span style="display:inline-block;background:#0284c7;color:#fff;border-radius:3px;padding:0px 4px;font-size:9px;font-weight:700;margin-right:3px;">${esc(label)}</span>`;
               }).join('') + '</div>';
             }
+            const stat = criteriaStats[cr.id];
+            const meanPts = (stat && stat.avgPts != null) ? fmtN(stat.avgPts) : null;
+            const meanPtsStr = meanPts != null ? `${meanPts} / ${fmtN(cr.maxPoints)}` : `— / ${fmtN(cr.maxPoints)}`;
+            if (incMeans) {
+              return `<tr>
+                <td>${esc(cr.name)}${compBadges}</td>
+                <td class="pts-cell">${ptsDisplay}</td>
+                <td class="pts-cell" style="font-weight:700;color:#475569;">${esc(meanPtsStr)}</td>
+                <td>${comment}</td>
+              </tr>`;
+            }
             return `<tr>
               <td>${esc(cr.name)}${compBadges}</td>
               <td class="pts-cell">${ptsDisplay}</td>
@@ -10644,21 +11008,43 @@
           const totalPtsStr = totals.totalPossible > 0
             ? `${displayedScored} / ${fmtN(totals.totalPossible)}${bonusText}`
             : "—";
-          criteriaHtml = `
-            <div>
-              <div class="section-title">${t('gsReportSectionCriteria') || 'Criteria'}</div>
-              <table>
-                <thead><tr><th style="width:35%">${t('gsCriteriaLabelName') || 'Criterion'}</th><th style="width:14%">${t('gsGradingManualPts') || 'Points'}</th><th>${t('gsColComments') || 'Comment'}</th></tr></thead>
-                <tbody>
-                  ${rows}
-                  <tr class="total-row">
-                    <td>${t('gsTotal') || 'Total'}</td>
-                    <td class="pts-cell">${esc(totalPtsStr)}</td>
-                    <td></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>`;
+          const displayedMeanTotal = classMeanTotalScored != null ? fmtN(classMeanTotalScored) : "—";
+          const totalMeanStr = defaultTotals.totalPossible > 0 ? `${displayedMeanTotal} / ${fmtN(defaultTotals.totalPossible)}` : "—";
+
+          if (incMeans) {
+            criteriaHtml = `
+              <div>
+                <div class="section-title">${t('gsReportSectionCriteria') || 'Criteria'}</div>
+                <table>
+                  <thead><tr><th style="width:22%">${t('gsCriteriaLabelName') || 'Criterion'}</th><th class="pts-cell" style="width:12%">${t('gsGradingManualPts') || 'Points'}</th><th class="pts-cell" style="width:12%">${t('gsReportClassMeanHeader') || 'Class Mean'}</th><th>${t('gsColComments') || 'Comment'}</th></tr></thead>
+                  <tbody>
+                    ${rows}
+                    <tr class="total-row">
+                      <td>${t('gsTotal') || 'Total'}</td>
+                      <td class="pts-cell">${esc(totalPtsStr)}</td>
+                      <td class="pts-cell" style="color:#475569;">${esc(totalMeanStr)}</td>
+                      <td></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>`;
+          } else {
+            criteriaHtml = `
+              <div>
+                <div class="section-title">${t('gsReportSectionCriteria') || 'Criteria'}</div>
+                <table>
+                  <thead><tr><th style="width:24%">${t('gsCriteriaLabelName') || 'Criterion'}</th><th class="pts-cell" style="width:14%">${t('gsGradingManualPts') || 'Points'}</th><th>${t('gsColComments') || 'Comment'}</th></tr></thead>
+                  <tbody>
+                    ${rows}
+                    <tr class="total-row">
+                      <td>${t('gsTotal') || 'Total'}</td>
+                      <td class="pts-cell">${esc(totalPtsStr)}</td>
+                      <td></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>`;
+          }
         }
 
         // Observations
@@ -10699,16 +11085,15 @@
 
       if (!pages) { await showAlert(t('gsAlertNoStudentsCriteria')); return; }
 
-      const htmlDoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${t('gsReportTestResultsTitle') || 'Results'} — ${esc(classObj.name)} ${esc(sem.toUpperCase())} T${testNo}</title><style>${pageCSS}</style></head><body>${pages}</body></html>`;
+      const autoScaleScript = (typeof getReportAutoScaleScript === 'function') ? getReportAutoScaleScript(isLandscape, fitToOnePage) : '';
+      const htmlDoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${t('gsReportTestResultsTitle') || 'Results'} — ${esc(classObj.name)} ${esc(sem.toUpperCase())} T${testNo}</title><style>${pageCSS}</style></head><body>${pages}${autoScaleScript}</body></html>`;
       if (window.Desktop && Desktop.isElectron()) {
         try {
-          const destination = await openGsPdfExportModal();
-          if (!destination) return;
-
           const defaultName = `${slugifyForPath(classObj.name || "class")}-${sem}-t${testNo}-${new Date().toISOString().slice(0, 10)}.pdf`;
           const pdfReq = {
             html: htmlDoc,
-            pdfOptions: { pageSize: 'A4', landscape: false }
+            landscape: isLandscape,
+            pdfOptions: { pageSize: pageSize, landscape: isLandscape }
           };
           if (destination === 'to-print') {
             pdfReq.target = 'toPrint';
@@ -10982,6 +11367,7 @@
         return sourceArray ? sourceArray[testIndex] : null;
       }).filter(v => v != null && !isNaN(v));
       const classMean = allValidGrades.length ? allValidGrades.reduce((a, b) => a + b, 0) / allValidGrades.length : null;
+      const { criteriaStats, classMeanTotalScored } = calcTestExerciseClassStats(classObj, sem, testIndex, config);
 
       const students = classObj.students.filter(student => {
         if (config.criteria.length === 0) return true;
@@ -11010,11 +11396,15 @@
             const key = nearestCriterionGradeKey(cr, null, pts, cr.minPoints, cr.maxPoints);
             const xlsm = (typeof XLSM_CRITERIA !== "undefined" && Array.isArray(XLSM_CRITERIA)) ? XLSM_CRITERIA.find(x => x.name.trim().toLowerCase() === cr.name.trim().toLowerCase()) : null;
             const critColor = (xlsm && xlsm.colors && xlsm.colors[key]) || (cr && cr.colors && cr.colors[key]) || (key ? getDefaultGradeColor(key) : null);
+            const stat = criteriaStats[cr.id];
+            const meanPts = (stat && stat.avgPts != null) ? fmtN(stat.avgPts) : null;
             return {
               criterionName: cr.name,
               gradeKey: key,
               color: critColor,
               scoredPts: pts,
+              meanPts: (stat && stat.avgPts != null) ? stat.avgPts : null,
+              meanPtsText: meanPts != null ? `${meanPts} / ${fmtN(cr.maxPoints)}` : `— / ${fmtN(cr.maxPoints)}`,
               maxPts: cr.maxPoints,
               commentHtml: entry.comment ? renderMd(entry.comment) : '<span class="no-data">—</span>'
             };
@@ -11046,6 +11436,8 @@
         totalPossible: defaultTotals.totalPossible,
         thresholds,
         classMean,
+        classMeanTotalScored,
+        criteriaStats,
         students
       };
     }
@@ -11157,6 +11549,35 @@
           color: #1e293b;
           margin-bottom: 2px;
         }
+        .obs-categories-wrap {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 4px;
+          margin-top: 2px;
+          margin-bottom: 3px;
+        }
+        .obs-category-span {
+          display: inline-flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 3px;
+          border: 1.5px solid #333333;
+          border-radius: 6px;
+          padding: 2px 6px;
+          margin: 1px 2px 1px 0;
+          vertical-align: middle;
+          page-break-inside: avoid;
+        }
+        .obs-category-tag {
+          font-size: 9.5px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
+          color: #333333;
+          margin-right: 2px;
+          white-space: nowrap;
+        }
         .obs-pills-row {
           display: flex;
           flex-wrap: wrap;
@@ -11229,6 +11650,10 @@
         }
       `;
 
+      const totalMeanStr = (report.classMeanTotalScored != null && report.totalPossible > 0)
+        ? `${fmtN(report.classMeanTotalScored)} / ${fmtN(report.totalPossible)}`
+        : "—";
+
       const pagesHtml = report.students.map((student, idx) => {
         const criteriaTableId = `test-report-criteria-${idx}`;
         const scaleTableId = `test-report-scale-${idx}`;
@@ -11252,6 +11677,7 @@
             return `<tr>
               <td>${esc(r.criterionName)}</td>
               <td class="pts-cell">${ptsDisplay}</td>
+              <td class="pts-cell" style="font-weight:700;color:#475569;">${esc(r.meanPtsText || '—')}</td>
               <td>${r.commentHtml}</td>
             </tr>`;
           }).join("");
@@ -11261,15 +11687,17 @@
               <div class="section-title">${t('gsReportSectionCriteria') || 'Criteria'}</div>
               <table class="resizable-table" id="${criteriaTableId}">
                 <colgroup>
-                  <col data-col="0" style="width:35%">
-                  <col data-col="1" style="width:14%">
-                  <col data-col="2" style="width:51%">
+                  <col data-col="0" style="width:34%">
+                  <col data-col="1" style="width:16%">
+                  <col data-col="2" style="width:16%">
+                  <col data-col="3" style="width:34%">
                 </colgroup>
                 <thead>
                   <tr>
                     <th><span class="th-wrap">${t('gsCriteriaLabelName') || 'Criterion'}<span class="col-resizer" data-col="0"></span></span></th>
-                    <th><span class="th-wrap">${t('gsGradingManualPts') || 'Points'}<span class="col-resizer" data-col="1"></span></span></th>
-                    <th><span class="th-wrap">${t('gsColComments') || 'Comment'}<span class="col-resizer" data-col="2"></span></span></th>
+                    <th class="pts-cell"><span class="th-wrap">${t('gsGradingManualPts') || 'Points'}<span class="col-resizer" data-col="1"></span></span></th>
+                    <th class="pts-cell"><span class="th-wrap">${t('gsReportClassMeanHeader') || 'Class Mean'}<span class="col-resizer" data-col="2"></span></span></th>
+                    <th><span class="th-wrap">${t('gsColComments') || 'Comment'}<span class="col-resizer" data-col="3"></span></span></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -11277,6 +11705,7 @@
                   <tr class="total-row">
                     <td>${t('gsTotal') || 'Total'}</td>
                     <td class="pts-cell">${esc(student.totalPtsText)}</td>
+                    <td class="pts-cell" style="color:#475569;">${esc(totalMeanStr)}</td>
                     <td></td>
                   </tr>
                 </tbody>
@@ -11630,42 +12059,52 @@
         sections.push("");
 
         if (config.criteria.length > 0) {
+          const { criteriaStats, classMeanTotalScored } = calcTestExerciseClassStats(classObj, sem, testIndex, config);
           sections.push(`### ${t('gsReportSectionCriteria') || 'Criteria'}`);
-          sections.push(`| ${t('gsCriteriaLabelName') || 'Criterion'} | ${t('gsGradingManualPts') || 'Points'} | ${t('gsColComments') || 'Comment'} |`);
-          sections.push(`| --- | --- | --- |`);
+          sections.push(`| ${t('gsCriteriaLabelName') || 'Criterion'} | ${t('gsGradingManualPts') || 'Points'} | ${t('gsReportClassMeanHeader') || 'Class Mean'} | ${t('gsColComments') || 'Comment'} |`);
+          sections.push(`| --- | --- | --- | --- |`);
           config.criteria.forEach(cr => {
             const entry = criteriaMap[cr.id] || { points: null, comment: "" };
             const pts = entry.points;
             const ptsStr = pts != null ? `${fmtN(pts)} / ${fmtN(cr.maxPoints)}` : `- / ${fmtN(cr.maxPoints)}`;
+            const stat = criteriaStats[cr.id];
+            const meanPts = (stat && stat.avgPts != null) ? fmtN(stat.avgPts) : null;
+            const meanPtsStr = meanPts != null ? `${meanPts} / ${fmtN(cr.maxPoints)}` : `- / ${fmtN(cr.maxPoints)}`;
             const comment = entry.comment ? entry.comment : "-";
-            sections.push(`| ${mdEsc(cr.name)} | ${mdEsc(ptsStr)} | ${mdEsc(comment)} |`);
+            sections.push(`| ${mdEsc(cr.name)} | ${mdEsc(ptsStr)} | ${mdEsc(meanPtsStr)} | ${mdEsc(comment)} |`);
           });
           const bonusText = (totals.totalBonusScored && totals.totalBonusScored > 0) ? ` (+${fmtN(totals.totalBonusScored)} bonus)` : "";
           const displayedScored = fmtN((totals.totalScored || 0) + (totals.totalBonusScored || 0));
           const totalPtsStr = totals.totalPossible > 0
             ? `${displayedScored} / ${fmtN(totals.totalPossible)}${bonusText}`
             : "-";
-          sections.push(`| **${t('gsTotal') || 'Total'}** | **${mdEsc(totalPtsStr)}** | |`);
+          const displayedMeanTotal = classMeanTotalScored != null ? fmtN(classMeanTotalScored) : "-";
+          const totalMeanStr = defaultTotals.totalPossible > 0 ? `${displayedMeanTotal} / ${fmtN(defaultTotals.totalPossible)}` : "-";
+          sections.push(`| **${t('gsTotal') || 'Total'}** | **${mdEsc(totalPtsStr)}** | **${mdEsc(totalMeanStr)}** | |`);
           sections.push("");
         }
 
         if (notes.length > 0 && notes.some(s => sectionHasContent(s))) {
           sections.push(`### ${t('gsReportObservationsFeedback') || t('gsColObservations') || 'Observations & Teacher Feedback'}`);
           notes.filter(s => sectionHasContent(s)).forEach(s => {
-            const label = s.label ? `**${s.label}:** ` : "";
+            const label = s.label ? `**${s.label}**` : "";
             const checklist = sectionChecklistSummary(s);
-            const pillsStr = checklist.length > 0 ? checklist.map(c => `\`[${c}]\``).join(" ") : "";
+            const catGroups = groupObservationChipsByCategory(checklist, s.label, typeof _activeChipBankFilename !== 'undefined' ? _activeChipBankFilename : null);
             const textStr = String(s.text || "").trim();
-            if (pillsStr && textStr) {
-              sections.push(`- ${label}${pillsStr}`);
-              sections.push(`  > ${textStr}`);
-            } else if (pillsStr) {
-              sections.push(`- ${label}${pillsStr}`);
-            } else if (textStr) {
-              sections.push(`- ${label}${textStr}`);
+
+            if (label) sections.push(`#### ${label}`);
+
+            if (catGroups.length > 0) {
+              catGroups.forEach(cg => {
+                const chipsStr = cg.chips.map(c => `\`[${c}]\``).join(" ");
+                sections.push(`- *${cg.category}:* ${chipsStr}`);
+              });
             }
+            if (textStr) {
+              sections.push(`> ${textStr}`);
+            }
+            sections.push("");
           });
-          sections.push("");
         }
 
         sections.push(`### ${t('gsReportSectionGradingScale') || 'Grading Scale'}`);
@@ -11866,82 +12305,86 @@
       return buckets;
     }
 
-    function getNeobrutalistReportCss(isLandscape = false) {
+    function getNeobrutalistReportCss(isLandscape = false, fitToOnePage = getReportFitToOnePage()) {
       const pdfSettings = getPdfExportSettings();
       const orientation = isLandscape ? 'landscape' : 'portrait';
       const size = `${pdfSettings.pageSize || 'A4'} ${orientation}`;
+      const pageMargin = fitToOnePage ? '6mm 8mm 6mm 8mm' : (pdfSettings.margin || '12mm');
       return `
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Lexend', system-ui, -apple-system, sans-serif; font-size: 11px; color: #1e293b; background: #fff; line-height: 1.35; }
+        body { font-family: 'Lexend', system-ui, -apple-system, sans-serif; font-size: ${fitToOnePage ? '10px' : '11px'}; color: #1e293b; background: #fff; line-height: ${fitToOnePage ? '1.25' : '1.35'}; }
         .report-page {
           width: ${isLandscape ? '297mm' : '210mm'};
           min-height: ${isLandscape ? '210mm' : '297mm'};
-          padding: 12mm 14mm 10mm 14mm;
+          ${fitToOnePage ? `max-height: ${isLandscape ? '210mm' : '297mm'}; overflow: hidden;` : ''}
+          padding: ${fitToOnePage ? '6mm 8mm 5mm 8mm' : '12mm 14mm 10mm 14mm'};
           margin: 0 auto;
           page-break-after: always;
+          page-break-inside: avoid;
+          break-inside: avoid;
           display: flex;
           flex-direction: column;
-          gap: 10px;
+          gap: ${fitToOnePage ? '5px' : '10px'};
           background: #fff;
         }
         .report-header {
           border-bottom: 2px solid #333333;
-          padding-bottom: 6px;
+          padding-bottom: ${fitToOnePage ? '4px' : '6px'};
           display: flex;
           justify-content: space-between;
           align-items: flex-end;
-          margin-bottom: 2px;
+          margin-bottom: ${fitToOnePage ? '1px' : '2px'};
         }
-        .report-title { font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: -0.02em; color: #1e293b; }
-        .report-subtitle { font-size: 11px; font-weight: 600; color: #64748b; margin-top: 2px; }
-        .report-meta { font-size: 10px; font-weight: 700; color: #4b5563; text-align: right; }
+        .report-title { font-size: ${fitToOnePage ? '13.5px' : '16px'}; font-weight: 800; text-transform: uppercase; letter-spacing: -0.02em; color: #1e293b; }
+        .report-subtitle { font-size: ${fitToOnePage ? '9.5px' : '11px'}; font-weight: 600; color: #64748b; margin-top: 1px; }
+        .report-meta { font-size: ${fitToOnePage ? '9px' : '10px'}; font-weight: 700; color: #4b5563; text-align: right; }
         .kpi-grid {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-          gap: 8px;
+          gap: ${fitToOnePage ? '5px' : '8px'};
         }
         .kpi-card {
           border: 2px solid #333333;
-          box-shadow: 3px 3px 0 #555555;
+          box-shadow: ${fitToOnePage ? '2px 2px 0 #555555' : '3px 3px 0 #555555'};
           border-radius: 6px;
-          padding: 6px 10px;
+          padding: ${fitToOnePage ? '4px 7px' : '6px 10px'};
           background: #ffffff;
         }
-        .kpi-label { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; margin-bottom: 2px; }
-        .kpi-value { font-size: 17px; font-weight: 800; color: #1e293b; }
-        .kpi-sub { font-size: 9px; font-weight: 600; color: #64748b; margin-top: 1px; }
+        .kpi-label { font-size: ${fitToOnePage ? '8px' : '9px'}; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; margin-bottom: 1px; }
+        .kpi-value { font-size: ${fitToOnePage ? '14px' : '17px'}; font-weight: 800; color: #1e293b; }
+        .kpi-sub { font-size: ${fitToOnePage ? '8px' : '9px'}; font-weight: 600; color: #64748b; margin-top: 1px; }
         .charts-row {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 10px;
+          gap: ${fitToOnePage ? '6px' : '10px'};
         }
         .section-heading {
-          font-size: 11px;
+          font-size: ${fitToOnePage ? '9.5px' : '11px'};
           font-weight: 800;
           text-transform: uppercase;
           letter-spacing: 0.06em;
           border-bottom: 2px solid #333333;
-          padding-bottom: 2px;
-          margin-top: 4px;
-          margin-bottom: 4px;
+          padding-bottom: 1px;
+          margin-top: ${fitToOnePage ? '2px' : '4px'};
+          margin-bottom: ${fitToOnePage ? '2px' : '4px'};
           color: #1e293b;
         }
         table.report-table {
           width: 100%;
           border-collapse: collapse;
           border: 2px solid #333333;
-          font-size: 10.5px;
+          font-size: ${fitToOnePage ? '9px' : '10.5px'};
         }
         table.report-table th, table.report-table td {
           border: 1.5px solid #333333;
-          padding: 4px 6px;
+          padding: ${fitToOnePage ? '2.5px 5px' : '4px 6px'};
           text-align: left;
           color: #1e293b;
         }
         table.report-table th { background: #f0f0eb; font-weight: 800; }
         table.report-table td.center, table.report-table th.center { text-align: center; }
         table.report-table td.right, table.report-table th.right { text-align: right; }
-        table.report-table tr.stats-row td { background: #f0f0eb; font-weight: 800; font-size: 9.5px; border-top: 2px solid #333333; }
+        table.report-table tr.stats-row td { background: #f0f0eb; font-weight: 800; font-size: ${fitToOnePage ? '8.5px' : '9.5px'}; border-top: 2px solid #333333; }
         table.report-table tr:nth-child(even) td:not(.stats-row td) { background: #fafafa; }
         .grade-pill {
           display: inline-block;
@@ -11949,16 +12392,16 @@
           border-radius: 4px;
           font-weight: 800;
           border: 1.5px solid #333333;
-          font-size: 10.5px;
+          font-size: ${fitToOnePage ? '9.5px' : '10.5px'};
         }
         .badge {
           display: inline-block;
-          padding: 2px 8px;
+          padding: ${fitToOnePage ? '1px 6px' : '2px 8px'};
           border: 2px solid #333333;
           box-shadow: 2px 2px 0 #555555;
           border-radius: 4px;
           font-weight: 800;
-          font-size: 12px;
+          font-size: ${fitToOnePage ? '10.5px' : '12px'};
           background: #fdfdfa;
           color: #1e293b;
         }
@@ -11972,43 +12415,80 @@
         .cell-sem1-avg { background: #e3f2fd !important; }
         .cell-sem2-avg { background: #e8f5e9 !important; }
         .cell-year-avg { background: #fff9c4 !important; }
-        .obs-section { margin-bottom: 8px; }
-        .obs-label { font-size: 11.5px; font-weight: 800; color: #1e293b; margin-bottom: 2px; }
-        .obs-pills-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; margin-bottom: 4px; }
+        .obs-section { margin-bottom: ${fitToOnePage ? '4px' : '8px'}; }
+        .obs-label { font-size: ${fitToOnePage ? '10px' : '11.5px'}; font-weight: 800; color: #1e293b; margin-bottom: 1px; }
+        .obs-pills-row { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 1px; margin-bottom: 2px; }
         .obs-pill {
           display: inline-block;
-          padding: 2px 8px;
+          padding: ${fitToOnePage ? '1px 5px' : '2px 8px'};
           border-radius: 12px;
-          font-size: 10.5px;
+          font-size: ${fitToOnePage ? '9px' : '10.5px'};
           font-weight: 700;
-          line-height: 1.25;
-          margin: 2px 3px 2px 0;
+          line-height: 1.2;
+          margin: 1px 2px 1px 0;
           box-shadow: 1px 1px 0 rgba(0,0,0,0.12);
         }
         .obs-pill-good { background: #dcfce7; color: #166534; border: 1.5px solid #16a34a; }
         .obs-pill-remedy { background: #fee2e2; color: #991b1b; border: 1.5px solid #dc2626; }
         .obs-pill-custom { background: #e0f2fe; color: #0369a1; border: 1.5px solid #0284c7; }
         .obs-feedback {
-          margin-top: 4px;
-          padding: 5px 9px;
+          margin-top: ${fitToOnePage ? '2px' : '4px'};
+          padding: ${fitToOnePage ? '3px 6px' : '5px 9px'};
           background: #f8fafc;
           border-left: 3px solid #0f172a;
           border-radius: 0 4px 4px 0;
-          font-size: 11.5px;
-          line-height: 1.45;
+          font-size: ${fitToOnePage ? '10px' : '11.5px'};
+          line-height: ${fitToOnePage ? '1.3' : '1.45'};
           color: #1e293b;
         }
         .obs-feedback-body { white-space: normal; }
-        .obs-feedback-body p { margin: 0 0 3px 0; }
+        .obs-feedback-body p { margin: 0 0 2px 0; }
         .obs-feedback-body p:last-child { margin-bottom: 0; }
-        .obs-inline-row { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; margin-bottom: 2px; }
-        .obs-inline-text { font-size: 9.5px; color: #333; font-style: italic; }
-        @page { size: ${size}; margin: ${pdfSettings.margin || '12mm'}; }
+        .obs-inline-row { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; margin-bottom: 1px; }
+        .obs-inline-text { font-size: ${fitToOnePage ? '8.5px' : '9.5px'}; color: #333; font-style: italic; }
+        @page { size: ${size}; margin: ${pageMargin}; }
         @media print {
           body { background: #fff; margin: 0; padding: 0; }
-          .report-page { width: 100% !important; min-height: auto !important; padding: 0 !important; margin: 0 !important; page-break-after: always; }
+          .report-page {
+            width: 100% !important;
+            max-width: 100% !important;
+            min-height: auto !important;
+            padding: 0 5px 6px 0 !important;
+            margin: 0 !important;
+            page-break-after: always;
+            page-break-inside: avoid;
+            break-inside: avoid;
+            box-sizing: border-box !important;
+          }
         }
       `;
+    }
+
+    function getReportAutoScaleScript(isLandscape = false, fitToOnePage = getReportFitToOnePage()) {
+      if (!fitToOnePage) return '';
+      const targetH = isLandscape ? 740 : 1050;
+      return `<script>
+        (function() {
+          function autoScale() {
+            var pages = document.querySelectorAll('.report-page, .student-page');
+            var target = ${targetH};
+            pages.forEach(function(p) {
+              p.style.transform = '';
+              p.style.transformOrigin = 'top left';
+              p.style.width = '';
+              var h = p.scrollHeight;
+              if (h > target) {
+                var scale = Math.max(0.55, Math.min(1, (target - 6) / h));
+                p.style.transform = 'scale(' + scale + ')';
+                p.style.width = (100 / scale) + '%';
+              }
+            });
+          }
+          if (document.readyState === 'complete') autoScale();
+          else { window.addEventListener('load', autoScale); setTimeout(autoScale, 60); }
+          window.addEventListener('resize', autoScale);
+        })();
+      <\\/script>`;
     }
 
     function renderNeobrutalistSvgHistogram({ buckets, title, xLabel = "Grades", yLabel = "Students" }) {
@@ -12447,8 +12927,8 @@
       const esc = escapeHtml;
       return `<!DOCTYPE html><html><head><meta charset="utf-8">
         <title>${esc(classObj.name)} - ${t('gsReportWholeClassYear') || 'Annual Class Report'}</title>
-        <style>${getNeobrutalistReportCss(true)}</style></head><body>
-        <div class="report-page landscape">
+        <style>${getNeobrutalistReportCss(true, fitToOnePage)}</style></head><body>
+        <div class="report-page landscape ${fitToOnePage ? 'fit-one-page' : ''}">
           <div class="report-header">
             <div>
               <div class="report-title">${esc(classObj.name)} — ${t('gsReportWholeClassYear') || 'Whole Class Full Year Report'}</div>
@@ -12518,10 +12998,11 @@
             </tbody>
           </table>
         </div>
+        ${getReportAutoScaleScript(true, fitToOnePage)}
       </body></html>`;
     }
 
-    function buildClassSemesterReportHtml(classObj, sem) {
+    function buildClassSemesterReportHtml(classObj, sem, fitToOnePage = getReportFitToOnePage()) {
       ensureClassStructures(classObj);
       const semLabel = sem === "sem2" ? t('gsSem2') : t('gsSem1');
       const n = classObj.testCounts[sem];
@@ -12585,8 +13066,8 @@
       const esc = escapeHtml;
       return `<!DOCTYPE html><html><head><meta charset="utf-8">
         <title>${esc(classObj.name)} - ${esc(semLabel)} ${t('gsReportClassReport') || 'Class Report'}</title>
-        <style>${getNeobrutalistReportCss(false)}</style></head><body>
-        <div class="report-page">
+        <style>${getNeobrutalistReportCss(false, fitToOnePage)}</style></head><body>
+        <div class="report-page ${fitToOnePage ? 'fit-one-page' : ''}">
           <div class="report-header">
             <div>
               <div class="report-title">${esc(classObj.name)} — ${esc(semLabel)} ${t('gsReportClassReport') || 'Class Report'}</div>
@@ -12640,10 +13121,11 @@
             </tbody>
           </table>
         </div>
+        ${getReportAutoScaleScript(false, fitToOnePage)}
       </body></html>`;
     }
 
-    function buildClassTestReportHtml(classObj, sem, testIndex, includeCompetences = getReportIncludeCompetences()) {
+    function buildClassTestReportHtml(classObj, sem, testIndex, includeCompetences = getReportIncludeCompetences(), fitToOnePage = getReportFitToOnePage()) {
       ensureClassStructures(classObj);
       const config = getTestConfig(classObj, sem, testIndex);
       const testNo = testIndex + 1;
@@ -12729,8 +13211,8 @@
       const esc = escapeHtml;
       return `<!DOCTYPE html><html><head><meta charset="utf-8">
         <title>${esc(classObj.name)} - ${esc(sem.toUpperCase())} ${esc(testLabel)} Test Report</title>
-        <style>${getNeobrutalistReportCss(false)}</style></head><body>
-        <div class="report-page">
+        <style>${getNeobrutalistReportCss(false, fitToOnePage)}</style></head><body>
+        <div class="report-page ${fitToOnePage ? 'fit-one-page' : ''}">
           <div class="report-header">
             <div>
               <div class="report-title">${esc(classObj.name)} — Test Report: ${esc(testLabel)} (${esc(semLabel)})</div>
@@ -12867,12 +13349,13 @@
             `;
           })()}
         </div>
+        ${getReportAutoScaleScript(false, fitToOnePage)}
       </body></html>`;
     }
 
     // ── Student Report HTML Builders ──
 
-    function buildStudentYearReportHtml(classObj, student) {
+    function buildStudentYearReportHtml(classObj, student, fitToOnePage = getReportFitToOnePage()) {
       ensureClassStructures(classObj);
       const n1 = classObj.testCounts.sem1;
       const n2 = classObj.testCounts.sem2;
@@ -12962,8 +13445,8 @@
       const esc = escapeHtml;
       return `<!DOCTYPE html><html><head><meta charset="utf-8">
         <title>${esc(fullName)} - Annual Student Report</title>
-        <style>${getNeobrutalistReportCss(false)}</style></head><body>
-        <div class="report-page">
+        <style>${getNeobrutalistReportCss(false, fitToOnePage)}</style></head><body>
+        <div class="report-page ${fitToOnePage ? 'fit-one-page' : ''}">
           <div class="report-header">
             <div>
               <div class="report-title">${esc(fullName)} — Annual Student Report</div>
@@ -13018,10 +13501,11 @@
             </tbody>
           </table>
         </div>
+        ${getReportAutoScaleScript(false, fitToOnePage)}
       </body></html>`;
     }
 
-    function buildStudentSemesterReportHtml(classObj, student, sem) {
+    function buildStudentSemesterReportHtml(classObj, student, sem, fitToOnePage = getReportFitToOnePage()) {
       ensureClassStructures(classObj);
       const semLabel = sem === "sem2" ? t('gsSem2') : t('gsSem1');
       const n = classObj.testCounts[sem];
@@ -13089,8 +13573,8 @@
       const esc = escapeHtml;
       return `<!DOCTYPE html><html><head><meta charset="utf-8">
         <title>${esc(fullName)} - ${esc(semLabel)} Student Report</title>
-        <style>${getNeobrutalistReportCss(false)}</style></head><body>
-        <div class="report-page">
+        <style>${getNeobrutalistReportCss(false, fitToOnePage)}</style></head><body>
+        <div class="report-page ${fitToOnePage ? 'fit-one-page' : ''}">
           <div class="report-header">
             <div>
               <div class="report-title">${esc(fullName)} — ${esc(semLabel)} Report</div>
@@ -13145,10 +13629,11 @@
             </tbody>
           </table>
         </div>
+        ${getReportAutoScaleScript(false, fitToOnePage)}
       </body></html>`;
     }
 
-    function buildStudentTestReportHtml(classObj, student, sem, testIndex, includeCompetences = getReportIncludeCompetences()) {
+    function buildStudentTestReportHtml(classObj, student, sem, testIndex, includeCompetences = getReportIncludeCompetences(), includeExerciseMeans = getReportIncludeExerciseMeans(), fitToOnePage = getReportFitToOnePage()) {
       ensureClassStructures(classObj);
       const config = getTestConfig(classObj, sem, testIndex);
       const testNo = testIndex + 1;
@@ -13165,6 +13650,7 @@
 
       const allTestGrades = classObj.students.map(s => getTestDisplayGrade(s, classObj, sem, testIndex)).filter(v => v != null);
       const classTestStats = calcComprehensiveStats(allTestGrades);
+      const { criteriaStats, classMeanTotalScored } = calcTestExerciseClassStats(classObj, sem, testIndex, config);
 
       const nameMode = getGsNameDisplayMode();
       const fullName = (window.StudentNameUtils && typeof StudentNameUtils.formatStudentName === 'function')
@@ -13184,6 +13670,9 @@
           const entry = criteriaMap[cr.id] || { points: null, comment: "" };
           const pts = entry.points;
           const ptsStr = pts != null ? `${fmtN(pts)} / ${fmtN(cr.maxPoints)}` : `— / ${fmtN(cr.maxPoints)}`;
+          const stat = criteriaStats[cr.id];
+          const meanPts = (stat && stat.avgPts != null) ? fmtN(stat.avgPts) : null;
+          const meanPtsStr = meanPts != null ? `${meanPts} / ${fmtN(cr.maxPoints)}` : `— / ${fmtN(cr.maxPoints)}`;
           const comment = entry.comment ? renderMd(entry.comment) : `—`;
           const key = nearestCriterionGradeKey(cr, null, pts, cr.minPoints, cr.maxPoints);
           const xlsm = (typeof XLSM_CRITERIA !== "undefined" && Array.isArray(XLSM_CRITERIA)) ? XLSM_CRITERIA.find(x => x.name.trim().toLowerCase() === cr.name.trim().toLowerCase()) : null;
@@ -13200,6 +13689,14 @@
               const label = c ? (c.code || c.title || cid) : cid;
               return `<span style="display:inline-block;background:#0284c7;color:#fff;border-radius:3px;padding:0px 4px;font-size:9px;font-weight:700;margin:1px;">${escapeHtml(label)}</span>`;
             }).join('') + '</div>';
+          }
+          if (includeExerciseMeans) {
+            return `<tr>
+              <td style="font-weight:700;">${escapeHtml(cr.name)}${compBadges}</td>
+              <td class="center" style="font-weight:800;">${ptsStr}</td>
+              <td class="center" style="font-weight:700;color:#475569;">${meanPtsStr}</td>
+              <td>${comment}</td>
+            </tr>`;
           }
           return `<tr>
             <td style="font-weight:700;">${escapeHtml(cr.name)}${compBadges}</td>
@@ -13237,8 +13734,8 @@
       const esc = escapeHtml;
       return `<!DOCTYPE html><html><head><meta charset="utf-8">
         <title>${esc(fullName)} - ${esc(testLabel)} Test Report</title>
-        <style>${getNeobrutalistReportCss(false)}</style></head><body>
-        <div class="report-page">
+        <style>${getNeobrutalistReportCss(false, fitToOnePage)}</style></head><body>
+        <div class="report-page ${fitToOnePage ? 'fit-one-page' : ''}">
           <div class="report-header">
             <div>
               <div class="report-title">${esc(fullName)} — Test Feedback: ${esc(testLabel)}</div>
@@ -13271,25 +13768,45 @@
 
           <div>${gaugeSvg}</div>
 
-          ${config.criteria.length > 0 ? `
-          <div class="section-heading" style="margin-top:6px;">Criteria Evaluation & Detailed Comments</div>
+          ${config.criteria.length > 0 ? (includeExerciseMeans ? `
+          <div class="section-heading" style="margin-top:6px;">${t('gsReportCriteriaEvalComments') || 'Criteria Evaluation & Detailed Comments'}</div>
           <table class="report-table">
             <thead>
               <tr>
-                <th style="width:200px;">Criterion</th>
-                <th class="center" style="width:100px;">Points Scored</th>
-                <th>Comments & Feedback</th>
+                <th style="width:22%;">${t('gsCriteriaLabelName') || 'Criterion'}</th>
+                <th class="center" style="width:12%;">${t('gsGradingManualPts') || 'Points Scored'}</th>
+                <th class="center" style="width:12%;">${t('gsReportClassMeanHeader') || 'Class Mean'}</th>
+                <th style="width:54%;">${t('gsColComments') || 'Comments & Feedback'}</th>
               </tr>
             </thead>
             <tbody>
               ${criteriaRows}
               <tr class="stats-row">
-                <td style="font-weight:800;">Total Score</td>
+                <td style="font-weight:800;">${t('gsTotal') || 'Total Score'}</td>
+                <td class="center" style="font-weight:800;">${fmtN((totals.totalScored || 0) + (totals.totalBonusScored || 0))} / ${fmtN(defaultTotals.totalPossible)}</td>
+                <td class="center" style="font-weight:800;color:#475569;">${classMeanTotalScored != null ? `${fmtN(classMeanTotalScored)} / ${fmtN(defaultTotals.totalPossible)}` : '—'}</td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>` : `
+          <div class="section-heading" style="margin-top:6px;">${t('gsReportCriteriaEvalComments') || 'Criteria Evaluation & Detailed Comments'}</div>
+          <table class="report-table">
+            <thead>
+              <tr>
+                <th style="width:24%;">${t('gsCriteriaLabelName') || 'Criterion'}</th>
+                <th class="center" style="width:14%;">${t('gsGradingManualPts') || 'Points Scored'}</th>
+                <th style="width:62%;">${t('gsColComments') || 'Comments & Feedback'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${criteriaRows}
+              <tr class="stats-row">
+                <td style="font-weight:800;">${t('gsTotal') || 'Total Score'}</td>
                 <td class="center" style="font-weight:800;">${fmtN((totals.totalScored || 0) + (totals.totalBonusScored || 0))} / ${fmtN(defaultTotals.totalPossible)}</td>
                 <td></td>
               </tr>
             </tbody>
-          </table>` : ''}
+          </table>`) : ''}
 
           ${(() => {
             if (!includeCompetences) return '';
@@ -13358,10 +13875,26 @@
           <div class="section-heading" style="margin-top:6px;">Grading Scale Reference</div>
           ${scaleTableHtml}
         </div>
+        ${getReportAutoScaleScript(false, fitToOnePage)}
       </body></html>`;
     }
 
     // ── Interactive Report Modal Handlers ──
+
+    function getReportFitToOnePage() {
+      const el = document.getElementById('gs-report-toggle-fit-page') || document.getElementById('gs-pdf-export-fit-page');
+      if (el) return !!el.checked;
+      const cached = localStorage.getItem('cmt-gs-report-fit-one-page');
+      return cached === 'true';
+    }
+
+    function setReportFitToOnePage(val) {
+      localStorage.setItem('cmt-gs-report-fit-one-page', val ? 'true' : 'false');
+      const el1 = document.getElementById('gs-report-toggle-fit-page');
+      if (el1) el1.checked = !!val;
+      const el2 = document.getElementById('gs-pdf-export-fit-page');
+      if (el2) el2.checked = !!val;
+    }
 
     function getReportIncludeCompetences() {
       const el = document.getElementById('gs-report-toggle-competences');
@@ -13376,21 +13909,51 @@
       if (el) el.checked = !!val;
     }
 
+    function getReportIncludeExerciseMeans() {
+      const el = document.getElementById('gs-report-toggle-exercise-means');
+      if (el) return !!el.checked;
+      const cached = localStorage.getItem('cmt-gs-report-include-exercise-means');
+      return cached !== 'false';
+    }
+
+    function setReportIncludeExerciseMeans(val) {
+      localStorage.setItem('cmt-gs-report-include-exercise-means', val ? 'true' : 'false');
+      const el = document.getElementById('gs-report-toggle-exercise-means');
+      if (el) el.checked = !!val;
+    }
+
     function openReportModal(reportHtml, title, defaultFilename, options = {}) {
       const incComp = getReportIncludeCompetences();
+      const incMeans = getReportIncludeExerciseMeans();
+      const fitPage = getReportFitToOnePage();
       _currentActiveReport = {
         html: reportHtml,
         title: title || t('gsReportModalTitle') || 'Report Preview',
         defaultFilename: defaultFilename || 'grade-report',
         isLandscape: !!options.isLandscape,
         markdown: options.markdown || null,
+        reportType: options.reportType || null,
         rebuild: typeof options.rebuild === 'function' ? options.rebuild : null
       };
 
       const compToggle = document.getElementById('gs-report-toggle-competences');
       if (compToggle) {
         compToggle.checked = incComp;
-        const lbl = compToggle.closest('label') || compToggle.parentElement;
+        const lbl = document.getElementById('gs-report-toggle-competences-wrap') || compToggle.closest('label') || compToggle.parentElement;
+        if (lbl) lbl.style.display = _currentActiveReport.rebuild ? 'inline-flex' : 'none';
+      }
+
+      const meanToggle = document.getElementById('gs-report-toggle-exercise-means');
+      if (meanToggle) {
+        meanToggle.checked = incMeans;
+        const lbl = document.getElementById('gs-report-toggle-exercise-means-wrap') || meanToggle.closest('label') || meanToggle.parentElement;
+        if (lbl) lbl.style.display = (_currentActiveReport.reportType === 'student-test' && _currentActiveReport.rebuild) ? 'inline-flex' : 'none';
+      }
+
+      const fitToggle = document.getElementById('gs-report-toggle-fit-page');
+      if (fitToggle) {
+        fitToggle.checked = fitPage;
+        const lbl = document.getElementById('gs-report-toggle-fit-page-wrap') || fitToggle.closest('label') || fitToggle.parentElement;
         if (lbl) lbl.style.display = _currentActiveReport.rebuild ? 'inline-flex' : 'none';
       }
 
@@ -13423,15 +13986,22 @@
 
     async function exportCurrentReportPdf() {
       if (!_currentActiveReport) return;
-      const { html, defaultFilename, isLandscape } = _currentActiveReport;
+      const report = _currentActiveReport;
+      const { html, defaultFilename, isLandscape, rebuild } = report;
       if (window.Desktop && Desktop.isElectron()) {
         try {
           const destination = await openGsPdfExportModal();
           if (!destination) return;
           const pdfSettings = getPdfExportSettings();
-          const fname = `${defaultFilename}-${new Date().toISOString().slice(0, 10)}.pdf`;
+          const fname = `${defaultFilename || 'report'}-${new Date().toISOString().slice(0, 10)}.pdf`;
+
+          let finalHtml = html;
+          if (rebuild && typeof rebuild === 'function') {
+            finalHtml = rebuild(getReportIncludeCompetences(), getReportIncludeExerciseMeans(), getReportFitToOnePage());
+          }
+
           const pdfReq = {
-            html,
+            html: finalHtml,
             landscape: isLandscape != null ? isLandscape : pdfSettings.isLandscape,
             pdfOptions: {
               pageSize: pdfSettings.pageSize || 'A4',
@@ -13521,14 +14091,22 @@
       if (!classObj) return;
       const html = buildClassYearReportHtml(classObj);
       const slug = slugifyForPath(classObj.name || "class");
-      openReportModal(html, `${classObj.name} — Annual Class Report`, `${slug}-year-report`, { isLandscape: true });
+      openReportModal(html, `${classObj.name} — Annual Class Report`, `${slug}-year-report`, {
+        isLandscape: true,
+        reportType: 'class-year',
+        rebuild: (incComp, incMeans, fitPage) => buildClassYearReportHtml(classObj, fitPage)
+      });
     }
 
     function openClassSemesterReport(classObj, sem) {
       if (!classObj) return;
       const html = buildClassSemesterReportHtml(classObj, sem);
       const slug = slugifyForPath(classObj.name || "class");
-      openReportModal(html, `${classObj.name} — ${sem.toUpperCase()} Class Report`, `${slug}-${sem}-report`, { isLandscape: false });
+      openReportModal(html, `${classObj.name} — ${sem.toUpperCase()} Class Report`, `${slug}-${sem}-report`, {
+        isLandscape: false,
+        reportType: 'class-semester',
+        rebuild: (incComp, incMeans, fitPage) => buildClassSemesterReportHtml(classObj, sem, fitPage)
+      });
     }
 
     function openClassTestReport(classObj, sem, testIndex) {
@@ -13538,7 +14116,8 @@
       const slug = slugifyForPath(classObj.name || "class");
       openReportModal(html, `${classObj.name} — ${sem.toUpperCase()} T${testIndex + 1} Test Report`, `${slug}-${sem}-t${testIndex + 1}-report`, {
         isLandscape: false,
-        rebuild: (include) => buildClassTestReportHtml(classObj, sem, testIndex, include)
+        reportType: 'class-test',
+        rebuild: (include, incMeans, fitPage) => buildClassTestReportHtml(classObj, sem, testIndex, include, fitPage)
       });
     }
 
@@ -13547,7 +14126,11 @@
       const html = buildStudentYearReportHtml(classObj, student);
       const slug = slugifyForPath(classObj.name || "class");
       const stuSlug = slugifyForPath(student.lastName || student.firstName || "student");
-      openReportModal(html, `${student.firstName} ${student.lastName} — Annual Student Report`, `${slug}-${stuSlug}-year-report`, { isLandscape: false });
+      openReportModal(html, `${student.firstName} ${student.lastName} — Annual Student Report`, `${slug}-${stuSlug}-year-report`, {
+        isLandscape: false,
+        reportType: 'student-year',
+        rebuild: (incComp, incMeans, fitPage) => buildStudentYearReportHtml(classObj, student, fitPage)
+      });
     }
 
     function openStudentSemesterReport(classObj, student, sem) {
@@ -13555,18 +14138,132 @@
       const html = buildStudentSemesterReportHtml(classObj, student, sem);
       const slug = slugifyForPath(classObj.name || "class");
       const stuSlug = slugifyForPath(student.lastName || student.firstName || "student");
-      openReportModal(html, `${student.firstName} ${student.lastName} — ${sem.toUpperCase()} Student Report`, `${slug}-${stuSlug}-${sem}-report`, { isLandscape: false });
+      openReportModal(html, `${student.firstName} ${student.lastName} — ${sem.toUpperCase()} Student Report`, `${slug}-${stuSlug}-${sem}-report`, {
+        isLandscape: false,
+        reportType: 'student-semester',
+        rebuild: (incComp, incMeans, fitPage) => buildStudentSemesterReportHtml(classObj, student, sem, fitPage)
+      });
     }
 
     function openStudentTestReport(classObj, student, sem, testIndex) {
       if (!classObj || !student) return;
-      const inc = getReportIncludeCompetences();
-      const html = buildStudentTestReportHtml(classObj, student, sem, testIndex, inc);
+      const incComp = getReportIncludeCompetences();
+      const incMeans = getReportIncludeExerciseMeans();
+      const fitPage = getReportFitToOnePage();
+      const html = buildStudentTestReportHtml(classObj, student, sem, testIndex, incComp, incMeans, fitPage);
       const slug = slugifyForPath(classObj.name || "class");
       const stuSlug = slugifyForPath(student.lastName || student.firstName || "student");
       openReportModal(html, `${student.firstName} ${student.lastName} — ${sem.toUpperCase()} T${testIndex + 1} Report`, `${slug}-${stuSlug}-${sem}-t${testIndex + 1}-report`, {
         isLandscape: false,
-        rebuild: (include) => buildStudentTestReportHtml(classObj, student, sem, testIndex, include)
+        reportType: 'student-test',
+        rebuild: (includeComp, includeMeans, fitPageVal) => {
+          const compVal = includeComp !== undefined ? includeComp : getReportIncludeCompetences();
+          const meanVal = includeMeans !== undefined ? includeMeans : getReportIncludeExerciseMeans();
+          const fitVal = fitPageVal !== undefined ? fitPageVal : getReportFitToOnePage();
+          return buildStudentTestReportHtml(classObj, student, sem, testIndex, compVal, meanVal, fitVal);
+        }
+      });
+    }
+
+    function extractReportPages(fullHtml) {
+      if (!fullHtml) return '';
+      const startIdx = fullHtml.indexOf('<div class="report-page');
+      const endIdx = fullHtml.lastIndexOf('</div>');
+      if (startIdx !== -1 && endIdx !== -1 && endIdx >= startIdx) {
+        return fullHtml.slice(startIdx, endIdx + 6);
+      }
+      return fullHtml;
+    }
+
+    function buildBatchStudentTestReportHtml(classObj, sem, testIndex, includeCompetences = getReportIncludeCompetences(), includeExerciseMeans = getReportIncludeExerciseMeans(), fitToOnePage = getReportFitToOnePage()) {
+      ensureClassStructures(classObj);
+      const esc = escapeHtml;
+      const config = getTestConfig(classObj, sem, testIndex);
+      const testNo = testIndex + 1;
+      const testLabel = config.testName ? String(config.testName) : `T${testNo}`;
+      const pages = (classObj.students || []).map(s => {
+        const singleHtml = buildStudentTestReportHtml(classObj, s, sem, testIndex, includeCompetences, includeExerciseMeans, fitToOnePage);
+        return extractReportPages(singleHtml);
+      }).join('\n');
+
+      return `<!DOCTYPE html><html><head><meta charset="utf-8">
+        <title>${esc(classObj.name)} - ${esc(testLabel)} All Student Test Reports</title>
+        <style>${getNeobrutalistReportCss(false, fitToOnePage)}</style></head><body>
+        ${pages}
+        ${getReportAutoScaleScript(false, fitToOnePage)}
+      </body></html>`;
+    }
+
+    function buildBatchStudentYearReportHtml(classObj, fitToOnePage = getReportFitToOnePage()) {
+      ensureClassStructures(classObj);
+      const esc = escapeHtml;
+      const pages = (classObj.students || []).map(s => {
+        const singleHtml = buildStudentYearReportHtml(classObj, s, fitToOnePage);
+        return extractReportPages(singleHtml);
+      }).join('\n');
+
+      return `<!DOCTYPE html><html><head><meta charset="utf-8">
+        <title>${esc(classObj.name)} - Annual Student Reports</title>
+        <style>${getNeobrutalistReportCss(false, fitToOnePage)}</style></head><body>
+        ${pages}
+        ${getReportAutoScaleScript(false, fitToOnePage)}
+      </body></html>`;
+    }
+
+    function buildBatchStudentSemesterReportHtml(classObj, sem, fitToOnePage = getReportFitToOnePage()) {
+      ensureClassStructures(classObj);
+      const esc = escapeHtml;
+      const pages = (classObj.students || []).map(s => {
+        const singleHtml = buildStudentSemesterReportHtml(classObj, s, sem, fitToOnePage);
+        return extractReportPages(singleHtml);
+      }).join('\n');
+
+      return `<!DOCTYPE html><html><head><meta charset="utf-8">
+        <title>${esc(classObj.name)} - ${sem.toUpperCase()} Student Reports</title>
+        <style>${getNeobrutalistReportCss(false, fitToOnePage)}</style></head><body>
+        ${pages}
+        ${getReportAutoScaleScript(false, fitToOnePage)}
+      </body></html>`;
+    }
+
+    function openBatchStudentTestReport(classObj, sem, testIndex) {
+      if (!classObj) return;
+      const incComp = getReportIncludeCompetences();
+      const incMeans = getReportIncludeExerciseMeans();
+      const fitPage = getReportFitToOnePage();
+      const html = buildBatchStudentTestReportHtml(classObj, sem, testIndex, incComp, incMeans, fitPage);
+      const slug = slugifyForPath(classObj.name || "class");
+      openReportModal(html, `${classObj.name} — All Students: ${sem.toUpperCase()} T${testIndex + 1} Reports`, `${slug}-all-students-${sem}-t${testIndex + 1}-report`, {
+        isLandscape: false,
+        reportType: 'student-test',
+        rebuild: (includeComp, includeMeans, fitPageVal) => {
+          const compVal = includeComp !== undefined ? includeComp : getReportIncludeCompetences();
+          const meanVal = includeMeans !== undefined ? includeMeans : getReportIncludeExerciseMeans();
+          const fitVal = fitPageVal !== undefined ? fitPageVal : getReportFitToOnePage();
+          return buildBatchStudentTestReportHtml(classObj, sem, testIndex, compVal, meanVal, fitVal);
+        }
+      });
+    }
+
+    function openBatchStudentYearReport(classObj) {
+      if (!classObj) return;
+      const html = buildBatchStudentYearReportHtml(classObj);
+      const slug = slugifyForPath(classObj.name || "class");
+      openReportModal(html, `${classObj.name} — All Students: Annual Reports`, `${slug}-all-students-year-reports`, {
+        isLandscape: false,
+        reportType: 'student-year',
+        rebuild: (incComp, incMeans, fitPage) => buildBatchStudentYearReportHtml(classObj, fitPage)
+      });
+    }
+
+    function openBatchStudentSemesterReport(classObj, sem) {
+      if (!classObj) return;
+      const html = buildBatchStudentSemesterReportHtml(classObj, sem);
+      const slug = slugifyForPath(classObj.name || "class");
+      openReportModal(html, `${classObj.name} — All Students: ${sem.toUpperCase()} Reports`, `${slug}-all-students-${sem}-reports`, {
+        isLandscape: false,
+        reportType: 'student-semester',
+        rebuild: (incComp, incMeans, fitPage) => buildBatchStudentSemesterReportHtml(classObj, sem, fitPage)
       });
     }
 
@@ -13578,8 +14275,14 @@
       const scopeSel = document.getElementById('gs-student-report-type-input');
       if (sel) {
         sel.innerHTML = '';
+        
+        const allOpt = document.createElement('option');
+        allOpt.value = '__all__';
+        allOpt.textContent = t('gsReportWholeClassOption') || '★ Whole Class (All Students)';
+        sel.appendChild(allOpt);
+
         const nameMode = getGsNameDisplayMode();
-        classObj.students.forEach(s => {
+        (classObj.students || []).forEach(s => {
           const opt = document.createElement('option');
           opt.value = s.id;
           opt.textContent = (window.StudentNameUtils && typeof StudentNameUtils.formatStudentName === 'function')
@@ -13608,7 +14311,15 @@
       const scope = scopeSel ? scopeSel.value : 'year';
       closeStudentSelectModal();
 
-      const student = classObj.students.find(s => s.id === studentId);
+      if (studentId === '__all__') {
+        if (scope === 'year') openBatchStudentYearReport(classObj);
+        else if (scope === 'sem1') openBatchStudentSemesterReport(classObj, 'sem1');
+        else if (scope === 'sem2') openBatchStudentSemesterReport(classObj, 'sem2');
+        else if (scope === 'test') openBatchStudentTestReport(classObj, sem || 'sem1', testIndex || 0);
+        return;
+      }
+
+      const student = (classObj.students || []).find(s => s.id === studentId);
       if (!student) return;
 
       if (scope === 'year') openStudentYearReport(classObj, student);
@@ -13621,6 +14332,14 @@
     function openStudentModal(student, classObj, sem, testIndex, tr, config) {
       // Deep-clone working copies
       const sourceArray = sem === "sem1" ? student.sem1Tests : student.sem2Tests;
+
+      // Resolve active chip bank for this test/class first so section presets match
+      const resolvedTestChipBank = (config && config.chipBank)
+        || (classObj && classObj.chipBank)
+        || ((classObj && Array.isArray(classObj.chipBanks) && classObj.chipBanks[0]))
+        || _activeChipBankFilename
+        || 'correction-criteria.js';
+      _activeChipBankFilename = resolvedTestChipBank;
 
       // Normalise note sections
       const noteArray = student.testNotes[sem];
@@ -13635,7 +14354,7 @@
       const baseSections = noteArray[testIndex].length > 0
         ? noteArray[testIndex].map(s => cloneObservationSection(s))
         : presets.map(label => ({ label, text: "" }));
-      const draftSections = ensureObservationChecklistSections(baseSections);
+      const draftSections = ensureObservationChecklistSections(baseSections, _activeChipBankFilename);
       let draftGrade = sourceArray[testIndex];
       let draftOverrideEnabled = isGradeOverrideEnabled(student, sem, testIndex);
       if (!student.correctionTime) student.correctionTime = { sem1: Array(TEST_COUNT_PER_SEM).fill(null), sem2: Array(TEST_COUNT_PER_SEM).fill(null) };
@@ -13826,12 +14545,6 @@
       const noteBankSel = document.createElement("select");
       noteBankSel.className = "input input-sm";
       noteBankSel.style.cssText = "padding:2px 6px;font-size:0.75rem;max-width:220px;";
-      const resolvedTestChipBank = (config && config.chipBank)
-        || (classObj && classObj.chipBank)
-        || ((classObj && Array.isArray(classObj.chipBanks) && classObj.chipBanks[0]))
-        || _activeChipBankFilename
-        || 'correction-criteria.js';
-      _activeChipBankFilename = resolvedTestChipBank;
       populateChipBankSelectElement(noteBankSel, _activeChipBankFilename);
       noteBankSel.addEventListener("change", () => {
         _activeChipBankFilename = noteBankSel.value;
@@ -13842,7 +14555,10 @@
           classObj.chipBank = noteBankSel.value;
         }
         saveState();
-        refreshObservationChecklists();
+        const updated = ensureObservationChecklistSections(draftSections, _activeChipBankFilename);
+        draftSections.length = 0;
+        updated.forEach(s => draftSections.push(s));
+        renderNoteSections();
       });
 
       const addChipBtn = document.createElement("button");
@@ -13861,7 +14577,10 @@
             if (!classObj.chipBank) classObj.chipBank = _activeChipBankFilename;
           }
           saveState();
-          refreshObservationChecklists();
+          const updated = ensureObservationChecklistSections(draftSections, _activeChipBankFilename);
+          draftSections.length = 0;
+          updated.forEach(s => draftSections.push(s));
+          renderNoteSections();
         });
       });
 
@@ -13872,11 +14591,28 @@
       const noteSectionsWrap = document.createElement("div");
       noteSectionsWrap.className = "note-sections-container";
 
+      function getGroupsForSection(sectionLabel) {
+        const bankSections = getObservationSectionsWithGroups(_activeChipBankFilename);
+        const norm = String(sectionLabel || '').trim().toLowerCase();
+        const found = bankSections.find(bs => bs.name.toLowerCase() === norm);
+        if (found) return { color: found.color, groups: found.groups };
+
+        if (norm === 'good points' || norm === 'points forts') {
+          const m = bankSections.find(bs => bs.name.toLowerCase().includes('good') || bs.name.toLowerCase().includes('fort'));
+          if (m) return { color: m.color, groups: m.groups };
+        } else if (norm === 'to remedy' || norm === 'to improve' || norm === 'a améliorer') {
+          const m = bankSections.find(bs => bs.name.toLowerCase().includes('remedy') || bs.name.toLowerCase().includes('improv') || bs.name.toLowerCase().includes('faible'));
+          if (m) return { color: m.color, groups: m.groups };
+        }
+        return { color: '', groups: [] };
+      }
+
       function buildChecklistElement(section) {
-        const groups = getObservationChecklistGroups(_activeChipBankFilename);
+        const { color: secColor, groups } = getGroupsForSection(section.label);
+        if (!groups || groups.length === 0) return null;
+
         const items = groups.flatMap(g => g.items);
         const selected = new Set(sectionChecklistSummary(section).map(v => v.toLowerCase()));
-        section.checklist = items.filter(name => selected.has(name.toLowerCase()));
 
         const checklist = document.createElement("div");
         checklist.className = "note-checklist";
@@ -13903,7 +14639,6 @@
             try {
               const data = JSON.parse(rawData);
               if (data && data.chipName && data.category) {
-                // If dropped directly on the inlineGroup container or sectionTag
                 if (e.target === inlineGroup || e.target === sectionTag) {
                   const targetIndex = group.items.length;
                   await reorderObservationChip(_activeChipBankFilename, data.category, data.chipName, group.type, targetIndex);
@@ -13982,15 +14717,9 @@
                   const rect = chip.getBoundingClientRect();
                   const midX = rect.left + rect.width / 2;
                   let targetIdx = chipIdx;
-                  if (e.clientX >= midX) {
-                    targetIdx = chipIdx + 1;
-                  }
-                  if (data.category === group.type && data.index < targetIdx) {
-                    targetIdx--;
-                  }
-                  if (data.category === group.type && data.index === targetIdx) {
-                    return;
-                  }
+                  if (e.clientX >= midX) targetIdx = chipIdx + 1;
+                  if (data.category === group.type && data.index < targetIdx) targetIdx--;
+                  if (data.category === group.type && data.index === targetIdx) return;
                   await reorderObservationChip(_activeChipBankFilename, data.category, data.chipName, group.type, targetIdx);
                   refreshObservationChecklists();
                 }
@@ -14016,22 +14745,53 @@
         return checklist;
       }
 
+      function updateSectionAppearance(block, section) {
+        const { color: secColor, groups } = getGroupsForSection(section.label);
+        const secLower = String(section.label || '').toLowerCase();
+        let borderLeftColor = secColor;
+        block.classList.remove("kind-good-points", "kind-to-remedy");
+        if (!borderLeftColor) {
+          if (secLower.includes("good") || secLower.includes("fort")) {
+            block.classList.add("kind-good-points");
+            borderLeftColor = "#16a34a";
+          } else if (secLower.includes("remedy") || secLower.includes("improv") || secLower.includes("faible")) {
+            block.classList.add("kind-to-remedy");
+            borderLeftColor = "#dc2626";
+          } else if (secLower.includes("action") || secLower.includes("plan")) {
+            borderLeftColor = "#d97706";
+          } else {
+            borderLeftColor = "#0284c7";
+          }
+        }
+        if (borderLeftColor) {
+          block.style.borderLeft = `4px solid ${borderLeftColor}`;
+        }
+
+        const existingCl = block.querySelector(".note-checklist");
+        if (existingCl) existingCl.remove();
+        const cl = buildChecklistElement(section);
+        const mdWrap = block.querySelector(".note-section-md-wrap") || block.querySelector(".note-section-body");
+        if (cl) {
+          if (mdWrap && mdWrap.parentElement === block) {
+            block.insertBefore(cl, mdWrap);
+          } else if (mdWrap && mdWrap.parentElement) {
+            mdWrap.parentElement.insertBefore(cl, mdWrap);
+          } else {
+            block.appendChild(cl);
+          }
+        }
+        const ta = block.querySelector(".note-section-body");
+        if (ta) {
+          ta.placeholder = cl ? t('gsPlaceholderAddNotes') : t('gsPlaceholderObservation');
+        }
+      }
+
       function refreshObservationChecklists() {
-        noteSectionsWrap.querySelectorAll(".note-checklist").forEach(cl => cl.remove());
-        draftSections.forEach(s => {
-          if (s.kind === "toRemedy" || s.kind === "goodPoints") {
-            const block = noteSectionsWrap.querySelector(`.note-section.kind-${s.kind === "toRemedy" ? "to-remedy" : "good-points"}`);
-            if (block) {
-              const cl = buildChecklistElement(s);
-              const mdWrap = block.querySelector(".note-section-md-wrap") || block.querySelector(".note-section-body");
-              if (mdWrap && mdWrap.parentElement === block) {
-                block.insertBefore(cl, mdWrap);
-              } else if (mdWrap && mdWrap.parentElement) {
-                mdWrap.parentElement.insertBefore(cl, mdWrap);
-              } else {
-                block.appendChild(cl);
-              }
-            }
+        const blocks = noteSectionsWrap.querySelectorAll(".note-section");
+        draftSections.forEach((s, idx) => {
+          const block = blocks[idx];
+          if (block) {
+            updateSectionAppearance(block, s);
           }
         });
       }
@@ -14044,8 +14804,26 @@
       function addNoteBlock(section) {
         const block = document.createElement("div");
         block.className = "note-section";
-        if (section.kind === "goodPoints") block.classList.add("kind-good-points");
-        if (section.kind === "toRemedy") block.classList.add("kind-to-remedy");
+        const { color: secColor, groups } = getGroupsForSection(section.label);
+        const secLower = String(section.label || '').toLowerCase();
+        let borderLeftColor = secColor;
+        if (!borderLeftColor) {
+          if (secLower.includes("good") || secLower.includes("fort")) {
+            block.classList.add("kind-good-points");
+            borderLeftColor = "#16a34a";
+          } else if (secLower.includes("remedy") || secLower.includes("improv") || secLower.includes("faible")) {
+            block.classList.add("kind-to-remedy");
+            borderLeftColor = "#dc2626";
+          } else if (secLower.includes("action") || secLower.includes("plan")) {
+            borderLeftColor = "#d97706";
+          } else {
+            borderLeftColor = "#0284c7";
+          }
+        }
+        if (borderLeftColor) {
+          block.style.borderLeft = `4px solid ${borderLeftColor}`;
+        }
+
         const header = document.createElement("div");
         header.className = "note-section-header";
         const labelInput = document.createElement("input");
@@ -14053,30 +14831,26 @@
         labelInput.className = "note-section-label";
         labelInput.value = section.label;
         labelInput.placeholder = t('gsPlaceholderSection');
-        labelInput.addEventListener("input", () => { section.label = labelInput.value; });
+        labelInput.addEventListener("input", () => {
+          section.label = labelInput.value;
+          updateSectionAppearance(block, section);
+        });
 
-        const isMandatoryChecklist = section.kind === "toRemedy" || section.kind === "goodPoints";
         const delBtn = document.createElement("button");
         delBtn.innerHTML = '<img src="../assets/icons/close.svg" class="btn-icon" alt="" />';
         delBtn.className = "note-section-del";
         delBtn.addEventListener("click", () => {
-          if (isMandatoryChecklist) return;
           const idx = draftSections.indexOf(section);
           if (idx !== -1) draftSections.splice(idx, 1);
           block.remove();
         });
-        if (isMandatoryChecklist) {
-          delBtn.disabled = true;
-          delBtn.title = t('gsTitleSectionRequired');
-          delBtn.style.opacity = "0.35";
-          delBtn.style.cursor = "not-allowed";
-        }
+
         header.appendChild(labelInput);
         header.appendChild(delBtn);
         block.appendChild(header);
 
-        if (isMandatoryChecklist) {
-          const checklist = buildChecklistElement(section);
+        const checklist = buildChecklistElement(section);
+        if (checklist) {
           block.appendChild(checklist);
         }
 
@@ -14094,8 +14868,8 @@
         mdNoteToggleRow.append(mdNoteWriteBtn, mdNotePreviewBtn);
         const ta = document.createElement("textarea");
         ta.className = "note-section-body md-textarea";
-        ta.value = section.text;
-        ta.placeholder = isMandatoryChecklist ? t('gsPlaceholderAddNotes') : t('gsPlaceholderObservation');
+        ta.value = section.text || "";
+        ta.placeholder = checklist ? t('gsPlaceholderAddNotes') : t('gsPlaceholderObservation');
         ta.addEventListener("input", () => { section.text = ta.value; autoResizeTextarea(ta); });
         const mdNotePreview = document.createElement('div');
         mdNotePreview.className = 'md-preview-pane hidden';
@@ -14114,13 +14888,18 @@
         autoResizeTextarea(ta);
       }
 
+      function renderNoteSections() {
+        noteSectionsWrap.querySelectorAll(".note-section").forEach(b => b.remove());
+        draftSections.forEach(s => addNoteBlock(s));
+      }
+
       addBtn.addEventListener("click", () => {
-        const s = { label: "", text: "" };
+        const s = { label: "", text: "", checklist: [] };
         draftSections.push(s);
         addNoteBlock(s);
       });
 
-      draftSections.forEach(s => addNoteBlock(s));
+      renderNoteSections();
       noteSection.appendChild(noteSectionsWrap);
       body.appendChild(noteSection);
 
@@ -16080,7 +16859,35 @@
           const val = compToggle.checked;
           setReportIncludeCompetences(val);
           if (_currentActiveReport && typeof _currentActiveReport.rebuild === 'function') {
-            const newHtml = _currentActiveReport.rebuild(val);
+            const newHtml = _currentActiveReport.rebuild(val, getReportIncludeExerciseMeans(), getReportFitToOnePage());
+            _currentActiveReport.html = newHtml;
+            const frame = document.getElementById("gs-report-preview-frame");
+            if (frame) frame.srcdoc = newHtml;
+          }
+        });
+      }
+
+      const meanToggle = document.getElementById("gs-report-toggle-exercise-means");
+      if (meanToggle) {
+        meanToggle.addEventListener("change", () => {
+          const val = meanToggle.checked;
+          setReportIncludeExerciseMeans(val);
+          if (_currentActiveReport && typeof _currentActiveReport.rebuild === 'function') {
+            const newHtml = _currentActiveReport.rebuild(getReportIncludeCompetences(), val, getReportFitToOnePage());
+            _currentActiveReport.html = newHtml;
+            const frame = document.getElementById("gs-report-preview-frame");
+            if (frame) frame.srcdoc = newHtml;
+          }
+        });
+      }
+
+      const fitToggle = document.getElementById("gs-report-toggle-fit-page");
+      if (fitToggle) {
+        fitToggle.addEventListener("change", () => {
+          const val = fitToggle.checked;
+          setReportFitToOnePage(val);
+          if (_currentActiveReport && typeof _currentActiveReport.rebuild === 'function') {
+            const newHtml = _currentActiveReport.rebuild(getReportIncludeCompetences(), getReportIncludeExerciseMeans(), val);
             _currentActiveReport.html = newHtml;
             const frame = document.getElementById("gs-report-preview-frame");
             if (frame) frame.srcdoc = newHtml;
@@ -16309,15 +17116,16 @@
           closeRefColorPicker();
           closeAllContextMenus();
           const overlayIds = [
-            "gs-report-modal-overlay",
-            "gs-student-select-overlay",
             "gs-pdf-export-overlay",
+            "gs-tc-import-overlay",
+            "gs-competence-picker-overlay",
+            "class-criteria-templates-overlay",
+            "gs-student-select-overlay",
+            "gs-report-modal-overlay",
             "student-modal-overlay",
             "test-options-overlay",
             "coeff-popup-overlay",
             "grading-popup-overlay",
-            "criteria-mgmt-popup-overlay",
-            "reference-data-popup-overlay",
             "criteria-mgmt-popup-overlay",
             "reference-data-popup-overlay",
             "test-info-popup-overlay",
@@ -16334,6 +17142,10 @@
             if (el && !el.classList.contains("hidden")) {
               if (id === "gs-pdf-export-overlay") {
                 closeGsPdfExportModal(null);
+              } else if (id === "gs-report-modal-overlay") {
+                closeReportModal();
+              } else if (id === "gs-student-select-overlay") {
+                closeStudentSelectModal();
               } else {
                 el.classList.add("hidden");
               }
@@ -16505,6 +17317,7 @@
           </section>`;
       }).join("") : `<div class="empty-notice">${t('gsAlertNoCriteriaToExport') || 'No criteria configured for this test.'}</div>`;
 
+      const pdfSettings = getPdfExportSettings();
       const testTitle = `${classObj ? classObj.name + " — " : ""}${sem ? sem.toUpperCase() + " — " : ""}${config.name || ("Test T" + ((testIndex || 0) + 1))}`;
       const slug = slugifyForPath(classObj ? classObj.name : "class");
       const defaultName = `${slug}-${sem}-t${testIndex + 1}-criteria-reference-${new Date().toISOString().slice(0, 10)}.pdf`;
@@ -16787,6 +17600,7 @@
     font-weight: 700;
     color: #64748b;
   }
+  @page { size: ${pdfSettings.pageSize || 'A4'} ${pdfSettings.orientation || 'portrait'}; margin: ${pdfSettings.margin || '16mm 14mm'}; }
   @media print {
     body {
       background: #ffffff;
@@ -16889,7 +17703,8 @@ ${blocks}
       try {
         const pdfReq = {
           html: document.documentElement.outerHTML,
-          pdfOptions: { pageSize: 'A4', landscape: false }
+          landscape: ${JSON.stringify(pdfSettings.isLandscape)},
+          pdfOptions: { pageSize: ${JSON.stringify(pdfSettings.pageSize || 'A4')}, landscape: ${JSON.stringify(pdfSettings.isLandscape)} }
         };
         if (dest === 'to-print') {
           pdfReq.target = 'toPrint';
@@ -17027,9 +17842,11 @@ ${blocks}
           const destination = await openGsPdfExportModal();
           if (!destination) return;
 
+          const pdfSettings = getPdfExportSettings();
           const pdfReq = {
             html,
-            pdfOptions: { pageSize: 'A4', landscape: false }
+            landscape: pdfSettings.isLandscape,
+            pdfOptions: { pageSize: pdfSettings.pageSize || 'A4', landscape: pdfSettings.isLandscape }
           };
           if (destination === 'to-print') {
             pdfReq.target = 'toPrint';
