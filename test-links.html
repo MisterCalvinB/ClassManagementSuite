@@ -332,6 +332,33 @@
         } else {
           log('resolveUrnDisplay wordbank/vocab failed: ' + JSON.stringify(wbDisp) + ' / ' + JSON.stringify(vocabDisp), 'fail');
         }
+        // Test 14: Regressive Constellation-to-Planner Slot Linking
+        var testBoardUrn = LinksService.makeUrn('board', 'cells_mindmap.js');
+        var testSlotUrn = LinksService.makeUrn('planner', 'sched:test_class_6e:2026-10-15:08:30');
+        await LinksService.addLink(testBoardUrn, testSlotUrn, { relation: 'planner_slot' });
+
+        var boardLinks = await LinksService.getLinksFor(testBoardUrn);
+        var hasClassLink = boardLinks.some(function(l) { return l.otherUrn === 'cmt:class:test_class_6e'; });
+        var hasLevelLink = boardLinks.some(function(l) { return l.otherUrn === 'cmt:level:6eme'; });
+        var hasYearLink = boardLinks.some(function(l) { return l.otherUrn.startsWith('cmt:year:'); });
+        var hasGradeLink = boardLinks.some(function(l) { return l.otherUrn === 'cmt:gradesheet:test_class_6e'; });
+
+        if (hasClassLink && hasLevelLink && hasYearLink) {
+          log('Regressive auto-linking confirmed for constellation -> class (' + hasClassLink + '), level (' + hasLevelLink + '), year (' + hasYearLink + ')', 'pass');
+        } else {
+          log('Regressive auto-linking failed: class=' + hasClassLink + ', level=' + hasLevelLink + ', year=' + hasYearLink, 'fail');
+        }
+
+        // Test 15: Regressive Class-to-Planner Linking to Grade Sheets and Board Documents
+        var slotLinksAfter = await LinksService.getLinksFor(testSlotUrn);
+        var slotHasGradeSheet = slotLinksAfter.some(function(l) { return l.otherUrn === 'cmt:gradesheet:test_class_6e'; });
+        var slotHasBoard = slotLinksAfter.some(function(l) { return l.otherUrn === testBoardUrn; });
+
+        if (slotHasGradeSheet && slotHasBoard) {
+          log('Regressive class-to-planner linking confirmed for Grade Sheet (' + slotHasGradeSheet + ') and Board (' + slotHasBoard + ')', 'pass');
+        } else {
+          log('Regressive class-to-planner linking failed: gradesheet=' + slotHasGradeSheet + ', board=' + slotHasBoard, 'fail');
+        }
 
         log('ALL TESTS COMPLETED SUCCESSFULLY!', 'pass');
       } catch (err) {

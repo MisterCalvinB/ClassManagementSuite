@@ -1541,7 +1541,7 @@
           <div style="font-weight:900;font-size:0.84rem;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;color:var(--neo-dark);" data-i18n="lcExportOptionsTitle">
             Content Inclusions
           </div>
-          <div style="display:flex;flex-direction:column;gap:6px;background:var(--neo-card-bg);padding:10px;border:2px solid var(--neo-dark);border-radius:var(--neo-radius-sm);">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:6px;background:var(--neo-card-bg);padding:10px;border:2px solid var(--neo-dark);border-radius:var(--neo-radius-sm);">
             <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;font-weight:700;cursor:pointer;">
               <input type="checkbox" id="seqOptSummary" checked>
               <span data-i18n="lcSeqOptSummary">Table of Contents & Unit Overview</span>
@@ -1557,6 +1557,14 @@
             <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;font-weight:700;cursor:pointer;">
               <input type="checkbox" id="seqOptTests" checked>
               <span data-i18n="lcSeqOptTests">Attached Tests & Review Exercises</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;font-weight:700;cursor:pointer;">
+              <input type="checkbox" id="seqOptGradingScale" checked>
+              <span data-i18n="lcSeqOptGradingScale">Test Grading Scales & Conversion Tables</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;font-weight:700;cursor:pointer;">
+              <input type="checkbox" id="seqOptAnswerKeys">
+              <span data-i18n="lcSeqOptAnswerKeys">Include Answer Keys & Teacher Solutions</span>
             </label>
           </div>
         </div>
@@ -6660,6 +6668,8 @@
           includeVocab: document.getElementById('seqOptVocab') ? document.getElementById('seqOptVocab').checked : true,
           includePhases: document.getElementById('seqOptPhases') ? document.getElementById('seqOptPhases').checked : true,
           includeTests: document.getElementById('seqOptTests') ? document.getElementById('seqOptTests').checked : true,
+          includeGradingScale: document.getElementById('seqOptGradingScale') ? document.getElementById('seqOptGradingScale').checked : true,
+          includeAnswerKeys: document.getElementById('seqOptAnswerKeys') ? document.getElementById('seqOptAnswerKeys').checked : false,
           competenceLayout: compLayout,
           testCriteriaMode: testCriteriaMode,
           testCompetencesMode: testCompetencesMode,
@@ -6694,6 +6704,8 @@
           includeVocab: document.getElementById('seqOptVocab') ? document.getElementById('seqOptVocab').checked : true,
           includePhases: document.getElementById('seqOptPhases') ? document.getElementById('seqOptPhases').checked : true,
           includeTests: document.getElementById('seqOptTests') ? document.getElementById('seqOptTests').checked : true,
+          includeGradingScale: document.getElementById('seqOptGradingScale') ? document.getElementById('seqOptGradingScale').checked : true,
+          includeAnswerKeys: document.getElementById('seqOptAnswerKeys') ? document.getElementById('seqOptAnswerKeys').checked : false,
           competenceLayout: compLayout,
           testCriteriaMode: testCriteriaMode,
           testCompetencesMode: testCompetencesMode,
@@ -8479,9 +8491,18 @@
             var compTag = i18n.t('lcExportTaggedCompetences') || 'Tagged Competences';
             html += '        <div class="sec-box descriptors-box">\n';
             html += '          <span class="box-tag">' + escapeHtml(compTag) + '</span>\n';
+            var sortedDescIds = sec.descriptorIds.slice().sort(function (a, b) {
+              var targetA = String(a || '').toLowerCase().trim();
+              var targetB = String(b || '').toLowerCase().trim();
+              var da = (allDescriptors || []).find(function (item) { return item && (String(item.id || '').toLowerCase().trim() === targetA || String(item.code || '').toLowerCase().trim() === targetA); });
+              var db = (allDescriptors || []).find(function (item) { return item && (String(item.id || '').toLowerCase().trim() === targetB || String(item.code || '').toLowerCase().trim() === targetB); });
+              var codeA = da ? (da.code || da.id || a) : a;
+              var codeB = db ? (db.code || db.id || b) : b;
+              return String(codeA).localeCompare(String(codeB), undefined, { numeric: true, sensitivity: 'base' });
+            });
             if (toggles.phaseDescText) {
               html += '          <div class="comp-list">\n';
-              sec.descriptorIds.forEach(function (id) {
+              sortedDescIds.forEach(function (id) {
                 var targetIdStr = String(id || '').toLowerCase().trim();
                 var d = (allDescriptors || []).find(function (item) {
                   return item && (String(item.id || '').toLowerCase().trim() === targetIdStr || String(item.code || '').toLowerCase().trim() === targetIdStr);
@@ -8502,7 +8523,7 @@
               html += '          </div>\n';
             } else {
               html += '          <div class="comp-chips">\n';
-              sec.descriptorIds.forEach(function (id) {
+              sortedDescIds.forEach(function (id) {
                 var targetIdStr = String(id || '').toLowerCase().trim();
                 var d = (allDescriptors || []).find(function (item) {
                   return item && (String(item.id || '').toLowerCase().trim() === targetIdStr || String(item.code || '').toLowerCase().trim() === targetIdStr);
@@ -8845,7 +8866,16 @@
           if (toggles.phaseDescriptors) {
             var descStr = '';
             if (Array.isArray(sec.descriptorIds) && sec.descriptorIds.length > 0) {
-              descStr = sec.descriptorIds.map(function (id) {
+              var sortedXlsxDescIds = sec.descriptorIds.slice().sort(function (a, b) {
+                var targetA = String(a || '').toLowerCase().trim();
+                var targetB = String(b || '').toLowerCase().trim();
+                var da = (allDescriptors || []).find(function (item) { return item && (String(item.id || '').toLowerCase().trim() === targetA || String(item.code || '').toLowerCase().trim() === targetA); });
+                var db = (allDescriptors || []).find(function (item) { return item && (String(item.id || '').toLowerCase().trim() === targetB || String(item.code || '').toLowerCase().trim() === targetB); });
+                var codeA = da ? (da.code || da.id || a) : a;
+                var codeB = db ? (db.code || db.id || b) : b;
+                return String(codeA).localeCompare(String(codeB), undefined, { numeric: true, sensitivity: 'base' });
+              });
+              descStr = sortedXlsxDescIds.map(function (id) {
                 var targetIdStr = String(id || '').toLowerCase().trim();
                 var d = (allDescriptors || []).find(function (item) {
                   return item && (String(item.id || '').toLowerCase().trim() === targetIdStr || String(item.code || '').toLowerCase().trim() === targetIdStr);
@@ -8905,7 +8935,9 @@
           });
 
           if (usedDescMap.size > 0) {
-            usedDescMap.forEach(function (val) {
+            Array.from(usedDescMap.values()).sort(function (a, b) {
+              return String(a.code || a.title).localeCompare(String(b.code || b.title), undefined, { numeric: true, sensitivity: 'base' });
+            }).forEach(function (val) {
               compRows.push([val.code, val.title, val.description, val.category, val.subject, val.phases.join(', ')]);
             });
             var ws2 = XLSX.utils.aoa_to_sheet(compRows);
@@ -9022,7 +9054,16 @@
           if (toggles.phaseStudent) r.push(sec.studentAction || '');
           if (toggles.phaseResources) r.push(sec.resources || '');
           if (toggles.phaseDescriptors) {
-            var descStr = (sec.descriptorIds || []).map(function (id) {
+            var sortedCsvDescIds = (sec.descriptorIds || []).slice().sort(function (a, b) {
+              var targetA = String(a || '').toLowerCase().trim();
+              var targetB = String(b || '').toLowerCase().trim();
+              var da = (allDescriptors || []).find(function (item) { return item && (String(item.id || '').toLowerCase().trim() === targetA || String(item.code || '').toLowerCase().trim() === targetA); });
+              var db = (allDescriptors || []).find(function (item) { return item && (String(item.id || '').toLowerCase().trim() === targetB || String(item.code || '').toLowerCase().trim() === targetB); });
+              var codeA = da ? (da.code || da.id || a) : a;
+              var codeB = db ? (db.code || db.id || b) : b;
+              return String(codeA).localeCompare(String(codeB), undefined, { numeric: true, sensitivity: 'base' });
+            });
+            var descStr = sortedCsvDescIds.map(function (id) {
               var targetIdStr = String(id || '').toLowerCase().trim();
               var d = (allDescriptors || []).find(function (item) {
                 return item && (String(item.id || '').toLowerCase().trim() === targetIdStr || String(item.code || '').toLowerCase().trim() === targetIdStr);
@@ -9445,7 +9486,16 @@
 
             // Descriptors / Competences
             if (cfg.phaseDescriptors && Array.isArray(sec.descriptorIds) && sec.descriptorIds.length > 0) {
-              var descNames = sec.descriptorIds.map(function (id) {
+              var sortedTxtDescIds = sec.descriptorIds.slice().sort(function (a, b) {
+                var targetA = String(a || '').toLowerCase().trim();
+                var targetB = String(b || '').toLowerCase().trim();
+                var da = (allDescriptors || []).find(function (item) { return item && (String(item.id || '').toLowerCase().trim() === targetA || String(item.code || '').toLowerCase().trim() === targetA); });
+                var db = (allDescriptors || []).find(function (item) { return item && (String(item.id || '').toLowerCase().trim() === targetB || String(item.code || '').toLowerCase().trim() === targetB); });
+                var codeA = da ? (da.code || da.id || a) : a;
+                var codeB = db ? (db.code || db.id || b) : b;
+                return String(codeA).localeCompare(String(codeB), undefined, { numeric: true, sensitivity: 'base' });
+              });
+              var descNames = sortedTxtDescIds.map(function (id) {
                 var targetIdStr = String(id || '').toLowerCase().trim();
                 var d = (allDescriptors || []).find(function (item) {
                   return item && (String(item.id || '').toLowerCase().trim() === targetIdStr || String(item.code || '').toLowerCase().trim() === targetIdStr);

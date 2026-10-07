@@ -3682,6 +3682,100 @@ body.pres-show-roles .picked-blink {
   gap: 4px;
 }
 
+/* --- Sound Node --- */
+.con-node.con-node-sound {
+  min-width: 90px;
+  letter-spacing: 0.3px;
+}
+
+.con-node.con-node-sound .con-sound-digits {
+  font-variant-numeric: tabular-nums;
+  font-family: 'Courier New', Courier, monospace, sans-serif;
+  font-size: 0.82em;
+  font-weight: 600;
+  opacity: 0.85;
+  margin-left: 6px;
+}
+
+.con-node.con-node-sound.con-sound-playing {
+  box-shadow: 0 0 0 2px rgba(91, 143, 204, 0.45), 0 2px 8px rgba(91, 143, 204, 0.25);
+  border-color: #5b8fcc !important;
+}
+
+.con-node.con-node-sound.con-sound-paused {
+  border-color: #e2c96e !important;
+}
+
+/* --- Sound Action Popover --- */
+#con-sound-action-popover {
+  position: fixed;
+  z-index: 9250;
+  background: var(--bg-card, #ffffff);
+  color: var(--text-primary, #111111);
+  border: 2px solid #333333;
+  border-radius: 8px;
+  box-shadow: 3px 3px 0 #555555;
+  padding: 10px;
+  min-width: 240px;
+  max-width: 320px;
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: auto;
+  font-family: inherit;
+}
+
+#con-sound-action-popover .con-timer-popover-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px 6px;
+  border-bottom: 1.5px solid var(--border-subtle, #e5e5e0);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+#con-sound-action-popover .con-timer-popover-header .con-timer-popover-close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.65;
+  border-radius: 4px;
+}
+
+#con-sound-action-popover .con-timer-popover-header .con-timer-popover-close:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.con-sound-slider {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  accent-color: #5b8fcc;
+  cursor: pointer;
+}
+
+.con-sound-time-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #555555;
+  font-variant-numeric: tabular-nums;
+}
+
+.con-sound-btn-row {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+
 /* --- Edge label --- */
 .con-line-label {
   font-size: 11px;
@@ -8866,6 +8960,61 @@ body.is-dragging-mini-thumb .con-page-mini-thumb img,
   font-size: 24px !important;
 }
 
+/* -- Attached Note Toggle Button (Top-Right Corner of Nodes, Next to Emoji Dot) -- */
+.con-node-note-btn {
+  position: absolute;
+  top: -11px;
+  right: 12px;
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  background: #ffffff;
+  border: 2px solid #333333;
+  border-radius: 50%;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.1s ease, background 0.15s ease;
+  z-index: 26;
+  user-select: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 1px 1px 0 #555555;
+  pointer-events: auto;
+}
+
+.con-node:hover .con-node-note-btn {
+  opacity: 0.85;
+}
+
+.con-node-note-btn:hover {
+  opacity: 1 !important;
+  background: #fef08a !important;
+  transform: scale(1.12);
+}
+
+.con-node-note-btn.note-hidden {
+  background: #f3f4f6;
+  border-color: #666666;
+  opacity: 0.65;
+}
+
+.con-node-note-btn.note-hidden img {
+  opacity: 0.55;
+}
+
+.con-node-note-btn img {
+  width: 11px;
+  height: 11px;
+  pointer-events: none;
+  display: block;
+}
+
+.con-mirror-mode .con-node-note-btn {
+  display: none !important;
+}
+
 /* -- Star button (top-left corner of DB-linked nodes) -- */
 .con-node-star-btn {
   position: absolute;
@@ -9227,15 +9376,6 @@ body.is-dragging-mini-thumb .con-page-mini-thumb img,
   border-bottom-color: rgba(0, 0, 0, 0.65);
 }
 
-/* marker dot on node when it has a note */
-.con-node.has-con-note::after {
-  content: '?';
-  font-size: 0.45rem;
-  vertical-align: super;
-  margin-left: 2px;
-  color: rgba(0, 0, 0, 0.4);
-  pointer-events: none;
-}
 
 /* marker on the word */
 .ta-cell.has-word-note .ta-word::after {

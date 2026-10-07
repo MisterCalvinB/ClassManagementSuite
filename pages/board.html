@@ -3433,6 +3433,38 @@
     <div class="con-timer-popover-body" id="con-random-popover-actions"></div>
   </div>
 
+  <!-- Sound Action Popover (anchored above sound node) -->
+  <div id="con-sound-action-popover" role="dialog" aria-label="Sound Actions" style="display:none; position:fixed; z-index:99100; flex-direction:column; min-width:240px; max-width:320px; background:var(--bg-card,#fff); border:2px solid #333; box-shadow:3px 3px 0 #555; border-radius:8px; font-family:inherit; overflow:hidden;">
+    <div class="con-timer-popover-header" style="display:flex; align-items:center; justify-content:space-between; padding:6px 10px; background:#e8e8e2; border-bottom:1.5px solid #333; font-weight:700; font-size:0.82rem;">
+      <div style="display:flex; align-items:center; gap:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:230px;">
+        <img src="../assets/icons/volume.svg" class="btn-icon" alt="" style="width:14px;height:14px;flex-shrink:0;" />
+        <span id="con-sound-popover-title" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Audio</span>
+      </div>
+      <button type="button" class="con-timer-popover-close" onclick="conCloseSoundPopover()" title="Close" style="background:none; border:none; cursor:pointer; padding:2px; display:flex; align-items:center;">
+        <img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" />
+      </button>
+    </div>
+    <div class="con-sound-popover-body" id="con-sound-popover-body" style="padding:10px; display:flex; flex-direction:column; gap:8px;">
+      <div style="display:flex; flex-direction:column; gap:4px;">
+        <input type="range" id="con-sound-seek-slider" class="con-sound-slider" min="0" max="100" step="0.1" value="0" oninput="conHandleSoundSeek(this.value)" />
+        <div class="con-sound-time-row">
+          <span id="con-sound-cur-time">00:00</span>
+          <span id="con-sound-total-time">00:00</span>
+        </div>
+      </div>
+      <div class="con-sound-btn-row">
+        <button type="button" id="con-sound-play-pause-btn" onclick="conHandleSoundPlayPause()" class="action-btn btn-blue" style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:5px; padding:6px 10px; font-weight:700; font-size:0.8rem; border-radius:6px; cursor:pointer;">
+          <img src="../assets/icons/play.svg" class="btn-icon" alt="" style="width:13px;height:13px;" />
+          <span id="con-sound-play-pause-label">Play</span>
+        </button>
+        <button type="button" id="con-sound-stop-btn" onclick="conHandleSoundStop()" class="action-btn btn-grey" style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:5px; padding:6px 10px; font-weight:700; font-size:0.8rem; border-radius:6px; cursor:pointer;">
+          <img src="../assets/icons/stop.svg" class="btn-icon" alt="" style="width:13px;height:13px;" />
+          <span>Stop</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Note-to-Node Conversion Options Modal -->
   <style>
     .con-convert-opt-btn {
@@ -7708,6 +7740,28 @@
         if (ok) _conPendingDuplicateRelinkRename = false;
       }
 
+      // Automatic regressive links via LinksService
+      if (window.LinksService && typeof window.LinksService.addLink === 'function') {
+        const activeFile = _conCurrentFileName || curFileName || '';
+        if (activeFile) {
+          const bUrn = window.LinksService.makeUrn('board', activeFile);
+          const sUrn = window.LinksService.makeUrn('planner', e.id);
+          const sLabel = bpBuildLabel(e);
+          const bTitle = (titleInput ? titleInput.value : '') || boardStripJsonExt(activeFile);
+          window.LinksService.addLink(bUrn, sUrn, {
+            relation: 'planner_slot',
+            sourceMeta: { title: bTitle, filename: activeFile, target: 'mindmaps' },
+            targetMeta: { title: sLabel, classId: e.classId || '', date: e.date || '', topic: e.topic || '' }
+          }).catch(() => {});
+          if (e.classId) {
+            window.LinksService.addLink(bUrn, window.LinksService.makeUrn('class', e.classId), {
+              relation: 'class_session',
+              sourceMeta: { title: bTitle, filename: activeFile, target: 'mindmaps' }
+            }).catch(() => {});
+          }
+        }
+      }
+
       // Persist timeslot linking even when board content itself is unchanged.
       if (typeof boardAutosaveAllNow === 'function') {
         boardAutosaveAllNow({ force: true });
@@ -7753,6 +7807,16 @@
     function bpSetFromEntryId(entryId) {
       activePlannerEntryId = entryId || '';
       bpUpdateBtn();
+      if (entryId && window.LinksService && typeof window.LinksService.addLink === 'function') {
+        const curFile = _conCurrentFileName || '';
+        if (curFile) {
+          const bUrn = window.LinksService.makeUrn('board', curFile);
+          const sUrn = window.LinksService.makeUrn('planner', entryId);
+          window.LinksService.addLink(bUrn, sUrn, {
+            relation: 'planner_slot'
+          }).catch(() => {});
+        }
+      }
     }
 
     function bpShowAll() {
@@ -13207,15 +13271,33 @@
         return;
       }
 
-      if (att.kind !== 'pics' && att.kind !== 'sounds' && att.kind !== 'videos') {
+      if (att.kind === 'sounds') {
+        const customX = Number(options && options.x);
+        const customY = Number(options && options.y);
+        const hasCustomPos = Number.isFinite(customX) && Number.isFinite(customY);
+        const boardEl = document.getElementById('constellation-board');
+        const posX = hasCustomPos ? customX : Math.max(20, (boardEl ? (boardEl.scrollLeft || 0) + 120 : 120));
+        const posY = hasCustomPos ? customY : Math.max(20, (boardEl ? (boardEl.scrollTop || 0) + 120 : 120));
+        const pageNum = options && options.pageNum != null ? options.pageNum : null;
+        const nodeId = conAddSoundNodeAt(att, posX, posY, pageNum);
+        if (!options.silent) {
+          if (typeof mdbToast === 'function') {
+            const toastMsg = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t('soundNodeAddedToast') : '🎵 Sound node added to board.';
+            mdbToast(toastMsg || '🎵 Sound node added to board.');
+          }
+        }
+        return nodeId;
+      }
+
+      if (att.kind !== 'pics' && att.kind !== 'videos') {
         mdbToast('⚠️ This attachment type cannot be inserted.');
         return;
       }
 
       const board = document.getElementById('constellation-board');
       if (!board) return;
-      const baseW = att.kind === 'sounds' ? (window._bcSoundInsertWidth || 320) : (att.kind === 'videos' ? (window._bcVideoInsertWidth || 260) : (window._bcImageInsertWidth || 260));
-      const baseH = att.kind === 'sounds' ? 90 : 200;
+      const baseW = att.kind === 'videos' ? (window._bcVideoInsertWidth || 260) : (window._bcImageInsertWidth || 260);
+      const baseH = 200;
       const customX = Number(options && options.x);
       const customY = Number(options && options.y);
       const hasCustomPos = Number.isFinite(customX) && Number.isFinite(customY);
@@ -19795,7 +19877,11 @@
             isRandom: !!n.isRandom,
             randomMin: n.isRandom ? (n.randomMin != null ? n.randomMin : 1) : undefined,
             randomMax: n.isRandom ? (n.randomMax != null ? n.randomMax : 100) : undefined,
-            randomValue: n.isRandom ? (n.randomValue != null ? n.randomValue : n.randomMin) : undefined
+            randomValue: n.isRandom ? (n.randomValue != null ? n.randomValue : n.randomMin) : undefined,
+            isSound: !!n.isSound,
+            soundAttachmentId: n.soundAttachmentId || null,
+            soundName: n.soundName || null,
+            soundDuration: (typeof n.soundDuration === 'number') ? n.soundDuration : null
           })),
           notes: selectedNotes.map(n => ({
             id: n.id,
@@ -19891,7 +19977,11 @@
             isRandom: !!node.isRandom,
             randomMin: node.isRandom ? (node.randomMin != null ? node.randomMin : 1) : undefined,
             randomMax: node.isRandom ? (node.randomMax != null ? node.randomMax : 100) : undefined,
-            randomValue: node.isRandom ? (node.randomValue != null ? node.randomValue : node.randomMin) : undefined
+            randomValue: node.isRandom ? (node.randomValue != null ? node.randomValue : node.randomMin) : undefined,
+            isSound: !!node.isSound,
+            soundAttachmentId: node.soundAttachmentId || null,
+            soundName: node.soundName || null,
+            soundDuration: (typeof node.soundDuration === 'number') ? node.soundDuration : null
           }],
           notes: attachedNote ? [{
             id: attachedNote.id,
@@ -21538,6 +21628,8 @@
                 if (t.closest && (t.closest('.con-node-timer') || t.closest('.con-timer-digits') || t.closest('.con-timer-node-row'))) return true;
                 // Ignore any mutations inside random nodes (roll digit changes) — handled directly by node-random-roll
                 if (t.closest && (t.closest('.con-random-digits') || t.closest('.con-random-node-row'))) return true;
+                // Ignore any mutations inside sound nodes (playback state, digits, popovers) — handled directly by node-sound-state
+                if (t.closest && (t.closest('.con-node-sound') || t.closest('.con-sound-digits') || t.closest('.con-sound-node-row') || t.closest('#con-sound-action-popover'))) return true;
                 // Ignore any mutations inside edge SVG line groups (creation, style, label changes — handled directly by edge-add, edge-remove, edge-update)
                 if (t.closest && (t.closest('.con-line-group') || t.closest('.con-line') || t.closest('.con-line-hit') || t.closest('.con-line-label') || t.id === 'con-arrow-defs' || (t.closest && t.closest('#con-arrow-defs')))) return true;
                 if (t.classList && (t.classList.contains('con-line-group') || t.classList.contains('con-line') || t.classList.contains('con-line-hit') || t.classList.contains('con-line-label'))) return true;
@@ -21583,6 +21675,9 @@
                            n.classList.contains('con-timer-node-row') ||
                            n.classList.contains('con-random-digits') ||
                            n.classList.contains('con-random-node-row') ||
+                           n.classList.contains('con-node-sound') ||
+                           n.classList.contains('con-sound-digits') ||
+                           n.classList.contains('con-sound-node-row') ||
                            n.classList.contains('wn-mirror-selection-overlay') ||
                            n.classList.contains('con-snap-line') ||
                            n.classList.contains('con-drawing-handle') ||
@@ -23148,6 +23243,7 @@
           if (e.button !== 0) return; // left button only
           if (e.target.closest('.con-node-resizer')) return; // let resizer handle it
           if (e.target.closest('.con-emoji-dot')) return; // let emoji dot handle it
+          if (e.target.closest('.con-node-note-btn')) return; // let note toggle btn handle it
           if (e.target.closest('.con-node-star-btn')) return; // let star btn handle it
 
           // Phrase-group nodes are not individually draggable in move mode — delegate to the group
@@ -23631,18 +23727,26 @@
                   // Option A: single click = immediately re-roll the number
                   conRollRandomNode(node.id);
                   if (typeof conCloseTimerPopover === 'function') conCloseTimerPopover();
+                  if (typeof conCloseSoundPopover === 'function') conCloseSoundPopover();
                 } else if (node && node.isTimer && typeof conOpenTimerPopover === 'function') {
                   conOpenTimerPopover(node);
+                  if (typeof conCloseRandomPopover === 'function') conCloseRandomPopover();
+                  if (typeof conCloseSoundPopover === 'function') conCloseSoundPopover();
+                } else if (node && node.isSound && typeof conOpenSoundPopover === 'function') {
+                  conOpenSoundPopover(node);
+                  if (typeof conCloseTimerPopover === 'function') conCloseTimerPopover();
                   if (typeof conCloseRandomPopover === 'function') conCloseRandomPopover();
                 } else {
                   if (typeof conCloseTimerPopover === 'function') conCloseTimerPopover();
                   if (typeof conCloseRandomPopover === 'function') conCloseRandomPopover();
+                  if (typeof conCloseSoundPopover === 'function') conCloseSoundPopover();
                 }
               }
             }
             if (dragging) {
               if (typeof conCloseTimerPopover === 'function') conCloseTimerPopover();
               if (typeof conCloseRandomPopover === 'function') conCloseRandomPopover();
+              if (typeof conCloseSoundPopover === 'function') conCloseSoundPopover();
             }
             dragging = false;
           }
@@ -26888,6 +26992,331 @@
       }
       window.conSyncCmsTimerDataToNodes = conSyncCmsTimerDataToNodes;
 
+      // ================================================================
+      // SOUND NODE ENGINE & POPOVER (Zero-DOM-teardown mirror sync)
+      // ================================================================
+      let _conActiveSoundNodeId = null;
+      let _conSoundAudio = null;
+      let _conSoundBroadcastPending = false;
+
+      function conGetOrInitSoundAudio() {
+        if (!_conSoundAudio) {
+          _conSoundAudio = new Audio();
+          _conSoundAudio.addEventListener('timeupdate', function () {
+            if (!_conActiveSoundNodeId) return;
+            const node = (conNodes || []).find(n => n && n.id === _conActiveSoundNodeId);
+            if (node) {
+              node.soundCurrentTime = _conSoundAudio.currentTime;
+              if (_conSoundAudio.duration && isFinite(_conSoundAudio.duration)) {
+                node.soundDuration = _conSoundAudio.duration;
+              }
+              conSyncSoundPopoverUi(node);
+              conUpdateSoundNodeDisplay(node);
+              _conThrottleBroadcastSoundState(node);
+            }
+          });
+          _conSoundAudio.addEventListener('ended', function () {
+            if (!_conActiveSoundNodeId) return;
+            const node = (conNodes || []).find(n => n && n.id === _conActiveSoundNodeId);
+            if (node) {
+              node.soundState = 'ended';
+              node.soundCurrentTime = node.soundDuration || _conSoundAudio.duration || 0;
+              conSyncSoundPopoverUi(node);
+              conUpdateSoundNodeDisplay(node);
+              _conBroadcastSoundState(node);
+            }
+          });
+          _conSoundAudio.addEventListener('play', function () {
+            if (!_conActiveSoundNodeId) return;
+            const node = (conNodes || []).find(n => n && n.id === _conActiveSoundNodeId);
+            if (node) {
+              node.soundState = 'playing';
+              conSyncSoundPopoverUi(node);
+              conUpdateSoundNodeDisplay(node);
+              _conBroadcastSoundState(node);
+            }
+          });
+          _conSoundAudio.addEventListener('pause', function () {
+            if (!_conActiveSoundNodeId) return;
+            const node = (conNodes || []).find(n => n && n.id === _conActiveSoundNodeId);
+            if (node && node.soundState !== 'ended' && node.soundState !== 'idle') {
+              node.soundState = 'paused';
+              conSyncSoundPopoverUi(node);
+              conUpdateSoundNodeDisplay(node);
+              _conBroadcastSoundState(node);
+            }
+          });
+        }
+        return _conSoundAudio;
+      }
+
+      function _conBroadcastSoundState(node) {
+        if (!node || !window._conMirrorSend) return;
+        try {
+          window._conMirrorSend({
+            type: 'node-sound-state',
+            id: String(node.id),
+            soundState: node.soundState,
+            currentTime: node.soundCurrentTime || 0,
+            duration: node.soundDuration || 0
+          });
+        } catch (_) {}
+      }
+
+      function _conThrottleBroadcastSoundState(node) {
+        if (_conSoundBroadcastPending || !window._conMirrorSend) return;
+        _conSoundBroadcastPending = true;
+        requestAnimationFrame(function () {
+          _conSoundBroadcastPending = false;
+          _conBroadcastSoundState(node);
+        });
+      }
+
+      function conAddSoundNodeAt(attOrName, x, y, pageNum) {
+        let att = null;
+        let name = '';
+        let attId = null;
+        if (typeof attOrName === 'object' && attOrName) {
+          att = attOrName;
+          attId = att.id;
+          name = att.name || 'Sound';
+        } else if (typeof attOrName === 'string') {
+          name = attOrName;
+          att = (conAttachments || []).find(a => a && (a.id === attOrName || a.name === attOrName));
+          if (att) attId = att.id;
+        }
+
+        const id = conAddWordAt(name || 'Sound', x, y, pageNum);
+        const node = conNodes.find(n => n && n.id === id);
+        if (node) {
+          node.isSound = true;
+          node.soundAttachmentId = attId || null;
+          node.soundName = name || 'Sound';
+          node.soundDuration = 0;
+          node.soundCurrentTime = 0;
+          node.soundState = 'idle';
+          node.baseWord = name || 'Sound';
+
+          if (att) {
+            conGetAttachmentDataUrl(att).then(url => {
+              if (!url) return;
+              const probeAudio = new Audio();
+              probeAudio.preload = 'metadata';
+              probeAudio.src = url;
+              probeAudio.onloadedmetadata = function () {
+                if (probeAudio.duration && isFinite(probeAudio.duration)) {
+                  node.soundDuration = probeAudio.duration;
+                  conUpdateSoundNodeDisplay(node);
+                }
+              };
+            }).catch(() => {});
+          }
+
+          conRenderNodeLabel(node);
+          conRedrawEdges();
+        }
+        return id;
+      }
+      window.conAddSoundNodeAt = conAddSoundNodeAt;
+
+      function conUpdateSoundNodeDisplay(node) {
+        if (!node || !node.isSound) return;
+        if (!node.el || !node.el.parentNode) {
+          node.el = document.getElementById(node.id);
+          if (!node.el) return;
+        }
+        const isPlaying = node.soundState === 'playing';
+        const isPaused = node.soundState === 'paused';
+        node.el.classList.toggle('con-node-sound', true);
+        node.el.classList.toggle('con-sound-playing', isPlaying);
+        node.el.classList.toggle('con-sound-paused', isPaused);
+
+        const curTime = (typeof node.soundCurrentTime === 'number') ? node.soundCurrentTime : 0;
+        const durTime = (typeof node.soundDuration === 'number') ? node.soundDuration : 0;
+        let timeStr = '';
+        if (durTime > 0) {
+          timeStr = conFormatDurationSec(Math.round(curTime)) + ' / ' + conFormatDurationSec(Math.round(durTime));
+        }
+
+        const digits = node.el.querySelector('.con-sound-digits');
+        if (digits) {
+          if (timeStr) {
+            digits.style.display = '';
+            if (digits.textContent !== timeStr) digits.textContent = timeStr;
+          } else {
+            digits.style.display = 'none';
+          }
+        } else {
+          conRenderNodeLabel(node);
+        }
+      }
+      window.conUpdateSoundNodeDisplay = conUpdateSoundNodeDisplay;
+
+      async function conOpenSoundPopover(node) {
+        const popover = document.getElementById('con-sound-action-popover');
+        if (!popover || !node || !node.el) return;
+        _conActiveSoundNodeId = node.id;
+        const audio = conGetOrInitSoundAudio();
+
+        if (audio.dataset.nodeId !== String(node.id)) {
+          if (!audio.paused) audio.pause();
+          audio.dataset.nodeId = String(node.id);
+
+          let audioSrc = '';
+          const att = (conAttachments || []).find(a => a && (a.id === node.soundAttachmentId || a.name === node.soundName || a.name === node.baseWord));
+          if (att) {
+            if (att._cachedObjectUrl) {
+              audioSrc = att._cachedObjectUrl;
+            } else if (typeof conGetAttachmentDataUrl === 'function') {
+              audioSrc = await conGetAttachmentDataUrl(att);
+            }
+          }
+          if (audioSrc) {
+            audio.src = audioSrc;
+            audio.load();
+            if (node.soundCurrentTime && node.soundCurrentTime > 0) {
+              audio.currentTime = node.soundCurrentTime;
+            }
+          }
+        }
+
+        const titleEl = document.getElementById('con-sound-popover-title');
+        if (titleEl) {
+          const trackTitle = node.soundName || node.text || node.baseWord || 'Audio';
+          titleEl.textContent = trackTitle;
+          titleEl.title = trackTitle;
+        }
+
+        conSyncSoundPopoverUi(node);
+
+        popover.style.display = 'flex';
+        const rect = node.el.getBoundingClientRect();
+        const popW = popover.offsetWidth || 260;
+        const popH = popover.offsetHeight || 120;
+        let px = rect.left + rect.width / 2 - popW / 2;
+        let py = rect.top - popH - 8;
+        if (py < 10) py = rect.bottom + 8;
+        px = Math.max(10, Math.min(window.innerWidth - popW - 10, px));
+        popover.style.left = px + 'px';
+        popover.style.top = py + 'px';
+
+        setTimeout(() => {
+          document.addEventListener('mousedown', _conOnSoundPopoverOutside, true);
+        }, 20);
+      }
+      window.conOpenSoundPopover = conOpenSoundPopover;
+
+      function _conOnSoundPopoverOutside(e) {
+        const popover = document.getElementById('con-sound-action-popover');
+        if (!popover || popover.style.display === 'none') {
+          document.removeEventListener('mousedown', _conOnSoundPopoverOutside, true);
+          return;
+        }
+        if (popover.contains(e.target) || (e.target && e.target.closest && e.target.closest('.con-node-sound'))) {
+          return;
+        }
+        conCloseSoundPopover();
+      }
+
+      function conCloseSoundPopover() {
+        const popover = document.getElementById('con-sound-action-popover');
+        if (popover) popover.style.display = 'none';
+        document.removeEventListener('mousedown', _conOnSoundPopoverOutside, true);
+      }
+      window.conCloseSoundPopover = conCloseSoundPopover;
+
+      function conSyncSoundPopoverUi(node) {
+        const popover = document.getElementById('con-sound-action-popover');
+        if (!popover || popover.style.display === 'none') return;
+        if (!node) node = (conNodes || []).find(n => n && n.id === _conActiveSoundNodeId);
+        if (!node) return;
+
+        const audio = _conSoundAudio;
+        const curSec = (audio && !isNaN(audio.currentTime)) ? audio.currentTime : (node.soundCurrentTime || 0);
+        const durSec = (audio && !isNaN(audio.duration) && isFinite(audio.duration) && audio.duration > 0) ? audio.duration : (node.soundDuration || 0);
+
+        const slider = document.getElementById('con-sound-seek-slider');
+        if (slider && document.activeElement !== slider) {
+          slider.max = durSec > 0 ? durSec : 100;
+          slider.value = curSec;
+          slider.disabled = (durSec <= 0 && (!audio || !audio.src));
+        }
+
+        const curTimeEl = document.getElementById('con-sound-cur-time');
+        if (curTimeEl) curTimeEl.textContent = (typeof conFormatDurationSec === 'function') ? conFormatDurationSec(Math.round(curSec)) : String(Math.round(curSec));
+
+        const totalTimeEl = document.getElementById('con-sound-total-time');
+        if (totalTimeEl) totalTimeEl.textContent = (typeof conFormatDurationSec === 'function') ? conFormatDurationSec(Math.round(durSec)) : String(Math.round(durSec));
+
+        const playBtn = document.getElementById('con-sound-play-pause-btn');
+        const playLabel = document.getElementById('con-sound-play-pause-label');
+        const playIcon = playBtn ? playBtn.querySelector('img') : null;
+
+        const isPlaying = audio && !audio.paused && !audio.ended;
+        if (playLabel) playLabel.textContent = isPlaying ? (typeof i18n !== 'undefined' ? i18n.t('soundNodePause') || 'Pause' : 'Pause') : (typeof i18n !== 'undefined' ? i18n.t('soundNodePlay') || 'Play' : 'Play');
+        if (playIcon) playIcon.src = isPlaying ? '../assets/icons/pause.svg' : '../assets/icons/play.svg';
+        if (playBtn) {
+          playBtn.classList.toggle('btn-blue', !isPlaying);
+          playBtn.classList.toggle('btn-grey', isPlaying);
+        }
+      }
+
+      window.conHandleSoundPlayPause = function () {
+        const node = (conNodes || []).find(n => n && n.id === _conActiveSoundNodeId);
+        if (!node) return;
+        const audio = conGetOrInitSoundAudio();
+        if (!audio.src) return;
+
+        if (!audio.paused && !audio.ended) {
+          audio.pause();
+          node.soundState = 'paused';
+        } else {
+          if (audio.ended) {
+            audio.currentTime = 0;
+            node.soundCurrentTime = 0;
+          }
+          audio.play().catch(err => {
+            console.warn('Audio playback error:', err);
+          });
+          node.soundState = 'playing';
+        }
+        conSyncSoundPopoverUi(node);
+        conUpdateSoundNodeDisplay(node);
+        _conBroadcastSoundState(node);
+      };
+
+      window.conHandleSoundStop = function () {
+        const node = (conNodes || []).find(n => n && n.id === _conActiveSoundNodeId);
+        const audio = conGetOrInitSoundAudio();
+        if (audio) {
+          audio.pause();
+          audio.currentTime = 0;
+        }
+        if (node) {
+          node.soundCurrentTime = 0;
+          node.soundState = 'idle';
+          conUpdateSoundNodeDisplay(node);
+          _conBroadcastSoundState(node);
+        }
+        conSyncSoundPopoverUi(node);
+      };
+
+      window.conHandleSoundSeek = function (val) {
+        const node = (conNodes || []).find(n => n && n.id === _conActiveSoundNodeId);
+        const audio = conGetOrInitSoundAudio();
+        const time = parseFloat(val) || 0;
+        if (audio && isFinite(time)) {
+          audio.currentTime = time;
+        }
+        if (node) {
+          node.soundCurrentTime = time;
+          conUpdateSoundNodeDisplay(node);
+          _conThrottleBroadcastSoundState(node);
+        }
+        const curTimeEl = document.getElementById('con-sound-cur-time');
+        if (curTimeEl) curTimeEl.textContent = (typeof conFormatDurationSec === 'function') ? conFormatDurationSec(Math.round(time)) : String(Math.round(time));
+      };
+
       // ---- Multi-node layout preferences & state ----
       let _conBoardLayoutPrefBoard = localStorage.getItem('con-board-layout-pref-board') || 'horizontal';
       let _conBoardLayoutPrefConnected = localStorage.getItem('con-board-layout-pref-connected') || 'circle';
@@ -27481,6 +27910,14 @@
           // Re-roll a fresh value for the duplicate
           dup.randomValue = Math.round(Math.random() * (src.randomMax - src.randomMin)) + Math.ceil(src.randomMin);
           dup.baseWord = '=random(' + src.randomMin + ',' + src.randomMax + ')';
+        }
+        if (src.isSound) {
+          dup.isSound = true;
+          dup.soundAttachmentId = src.soundAttachmentId || null;
+          dup.soundName = src.soundName || null;
+          dup.soundDuration = src.soundDuration || 0;
+          dup.soundCurrentTime = 0;
+          dup.soundState = 'idle';
         }
         conSyncNodeLockState(dup);
 
@@ -28321,12 +28758,15 @@
 
           const _savedResizer = node.el.querySelector('.con-node-resizer');
           const _savedEmojiDot = node.el.querySelector('.con-emoji-dot');
+          const _savedNoteBtn = node.el.querySelector('.con-node-note-btn');
           const _savedStarBtn = node.el.querySelector('.con-node-star-btn');
           const _savedCompBadge = node.el.querySelector('.con-node-comp-badge');
           node.el.innerHTML = randomHtml;
           if (_savedResizer) node.el.appendChild(_savedResizer);
           if (_savedEmojiDot) node.el.appendChild(_savedEmojiDot);
+          if (_savedNoteBtn) node.el.appendChild(_savedNoteBtn);
           if (_savedStarBtn) node.el.appendChild(_savedStarBtn);
+          if (typeof conUpdateNodeNoteButton === 'function') conUpdateNodeNoteButton(node);
           if (typeof conUpdateNodeCompetenceBadge === 'function') {
             conUpdateNodeCompetenceBadge(node);
           } else if (_savedCompBadge) {
@@ -28351,19 +28791,67 @@
           node.el.classList.toggle('con-timer-running', isRunning);
           node.el.classList.toggle('con-timer-warning', isWarn);
           node.el.classList.toggle('con-timer-ended', isEnded);
-          node.el.classList.remove('con-node-random');
+          node.el.classList.remove('con-node-random', 'con-node-sound', 'con-sound-playing', 'con-sound-paused');
 
           const iconHtml = `<img src="../assets/icons/clock.svg" class="btn-icon" alt="" style="width:14px;height:14px;margin-right:5px;vertical-align:-2px;pointer-events:none;display:inline-block;" />`;
           const timerHtml = `<span class="con-node-word-row con-timer-node-row" style="display:inline-flex;align-items:center;font-weight:700;">${iconHtml}<span class="con-timer-digits">${timeStr}</span></span>`;
 
           const _savedResizer = node.el.querySelector('.con-node-resizer');
           const _savedEmojiDot = node.el.querySelector('.con-emoji-dot');
+          const _savedNoteBtn = node.el.querySelector('.con-node-note-btn');
           const _savedStarBtn = node.el.querySelector('.con-node-star-btn');
           const _savedCompBadge = node.el.querySelector('.con-node-comp-badge');
           node.el.innerHTML = timerHtml;
           if (_savedResizer) node.el.appendChild(_savedResizer);
           if (_savedEmojiDot) node.el.appendChild(_savedEmojiDot);
+          if (_savedNoteBtn) node.el.appendChild(_savedNoteBtn);
           if (_savedStarBtn) node.el.appendChild(_savedStarBtn);
+          if (typeof conUpdateNodeNoteButton === 'function') conUpdateNodeNoteButton(node);
+          if (typeof conUpdateNodeCompetenceBadge === 'function') {
+            conUpdateNodeCompetenceBadge(node);
+          } else if (_savedCompBadge) {
+            node.el.appendChild(_savedCompBadge);
+          }
+          node.el.style.display = 'inline-flex';
+          node.el.style.flexDirection = 'column';
+          node.el.style.alignItems = 'center';
+          node.el.style.justifyContent = 'center';
+          conApplyNodeShape(node, node.shape);
+          return;
+        }
+
+        // --- Sound Node ---
+        if (node && node.isSound) {
+          const soundTitle = node.soundName || node.text || node.baseWord || 'Audio';
+          const isPlaying = node.soundState === 'playing';
+          const isPaused = node.soundState === 'paused';
+          const curTime = (typeof node.soundCurrentTime === 'number') ? node.soundCurrentTime : 0;
+          const durTime = (typeof node.soundDuration === 'number') ? node.soundDuration : 0;
+          let timeStr = '';
+          if (durTime > 0) {
+            timeStr = conFormatDurationSec(Math.round(curTime)) + ' / ' + conFormatDurationSec(Math.round(durTime));
+          }
+
+          node.el.classList.toggle('con-node-sound', true);
+          node.el.classList.toggle('con-sound-playing', isPlaying);
+          node.el.classList.toggle('con-sound-paused', isPaused);
+          node.el.classList.remove('con-node-timer', 'con-timer-running', 'con-timer-warning', 'con-timer-ended', 'con-node-random');
+
+          const iconHtml = `<img src="../assets/icons/volume.svg" class="btn-icon con-sound-icon" alt="" style="width:14px;height:14px;margin-right:5px;vertical-align:-2px;pointer-events:none;display:inline-block;" />`;
+          const digitsHtml = timeStr ? `<span class="con-sound-digits" style="font-size:0.8em;opacity:0.8;margin-left:6px;font-variant-numeric:tabular-nums;font-weight:600;">${timeStr}</span>` : `<span class="con-sound-digits" style="display:none;"></span>`;
+          const soundHtml = `<span class="con-node-word-row con-sound-node-row" style="display:inline-flex;align-items:center;font-weight:700;">${iconHtml}<span class="con-sound-title-text">${soundTitle}</span>${digitsHtml}</span>`;
+
+          const _savedResizer = node.el.querySelector('.con-node-resizer');
+          const _savedEmojiDot = node.el.querySelector('.con-emoji-dot');
+          const _savedNoteBtn = node.el.querySelector('.con-node-note-btn');
+          const _savedStarBtn = node.el.querySelector('.con-node-star-btn');
+          const _savedCompBadge = node.el.querySelector('.con-node-comp-badge');
+          node.el.innerHTML = soundHtml;
+          if (_savedResizer) node.el.appendChild(_savedResizer);
+          if (_savedEmojiDot) node.el.appendChild(_savedEmojiDot);
+          if (_savedNoteBtn) node.el.appendChild(_savedNoteBtn);
+          if (_savedStarBtn) node.el.appendChild(_savedStarBtn);
+          if (typeof conUpdateNodeNoteButton === 'function') conUpdateNodeNoteButton(node);
           if (typeof conUpdateNodeCompetenceBadge === 'function') {
             conUpdateNodeCompetenceBadge(node);
           } else if (_savedCompBadge) {
@@ -28378,7 +28866,7 @@
         }
 
         if (node && node.el) {
-          node.el.classList.remove('con-node-timer', 'con-timer-running', 'con-timer-warning', 'con-timer-ended', 'con-node-random');
+          node.el.classList.remove('con-node-timer', 'con-timer-running', 'con-timer-warning', 'con-timer-ended', 'con-node-random', 'con-node-sound', 'con-sound-playing', 'con-sound-paused');
         }
 
 
@@ -28467,16 +28955,19 @@
         } else {
           el.style.fontVariant = 'normal';
         }
-        // Preserve resize handle, emoji dot, star button, competence badge, and links bar across innerHTML rebuilds
+        // Preserve resize handle, emoji dot, note button, star button, competence badge, and links bar across innerHTML rebuilds
         const _savedResizer = el.querySelector('.con-node-resizer');
         const _savedEmojiDot = el.querySelector('.con-emoji-dot');
+        const _savedNoteBtn = el.querySelector('.con-node-note-btn');
         const _savedStarBtn = el.querySelector('.con-node-star-btn');
         const _savedCompBadge = el.querySelector('.con-node-comp-badge');
         const _savedLinksBar = el.querySelector('.con-node-links-bar');
         node.el.innerHTML = wordRow + annLines;
         if (_savedResizer) el.appendChild(_savedResizer);
         if (_savedEmojiDot) el.appendChild(_savedEmojiDot);
+        if (_savedNoteBtn) el.appendChild(_savedNoteBtn);
         if (_savedStarBtn) el.appendChild(_savedStarBtn);
+        if (typeof conUpdateNodeNoteButton === 'function') conUpdateNodeNoteButton(node);
         if (typeof conUpdateNodeCompetenceBadge === 'function') {
           conUpdateNodeCompetenceBadge(node);
         } else if (_savedCompBadge) {
@@ -30271,7 +30762,10 @@
             conNoteBuild(clone);
             if (mappedNodeId) {
               const linkedNode = conNodes.find(x => x.id === mappedNodeId);
-              if (linkedNode && linkedNode.el) linkedNode.el.classList.add('has-con-note');
+              if (linkedNode && linkedNode.el) {
+                linkedNode.el.classList.add('has-con-note');
+                if (typeof conUpdateNodeNoteButton === 'function') conUpdateNodeNoteButton(linkedNode);
+              }
             }
             noteIdMap.set(n.id, newId);
           });
@@ -33868,13 +34362,21 @@
       const ta = noteEl.querySelector('.wn-note-editor, textarea');
       const hidden = !!noteData.hidden;
       noteEl.classList.toggle('wn-note-hidden', hidden);
-      if (ta) {
-        ta.style.visibility = hidden ? 'hidden' : 'visible';
-        ta.style.pointerEvents = hidden ? 'none' : '';
+      if (noteData.nodeId) {
+        // When attached to a node, completely hide or show display
+        noteEl.style.display = hidden ? 'none' : '';
+        if (typeof conUpdateNodeNoteButton === 'function') {
+          conUpdateNodeNoteButton(noteData.nodeId);
+        }
+      } else {
+        if (ta) {
+          ta.style.visibility = hidden ? 'hidden' : 'visible';
+          ta.style.pointerEvents = hidden ? 'none' : '';
+        }
+        noteEl.style.borderStyle = hidden ? 'dashed' : (noteData.borderStyle || '');
+        noteEl.style.opacity = hidden ? '0.85' : '';
+        noteEl.title = hidden ? 'Hidden note (double-click to reveal)' : '';
       }
-      noteEl.style.borderStyle = hidden ? 'dashed' : (noteData.borderStyle || '');
-      noteEl.style.opacity = hidden ? '0.85' : '';
-      noteEl.title = hidden ? 'Hidden note (double-click to reveal)' : '';
     }
 
     function wnApplyStoredSize(note, ta, noteData, scale) {
@@ -34010,6 +34512,7 @@
           if (linkedNode && linkedNode.el) {
             const stillHas = conNotes.some(n => n.nodeId === nd.nodeId);
             if (!stillHas) linkedNode.el.classList.remove('has-con-note');
+            if (typeof conUpdateNodeNoteButton === 'function') conUpdateNodeNoteButton(linkedNode);
           }
         }
         const allGroups = (typeof conGroups !== 'undefined') ? conGroups : (window.conGetGroups ? window.conGetGroups() : []);
@@ -36835,7 +37338,10 @@
       };
       conNotes.push(noteData);
       conNoteBuild(noteData);
-      if (node && node.el) node.el.classList.add('has-con-note');
+      if (node && node.el) {
+        node.el.classList.add('has-con-note');
+        if (typeof conUpdateNodeNoteButton === 'function') conUpdateNodeNoteButton(node);
+      }
       const ta = document.querySelector(`.con-word-note[data-id="${nid}"] .wn-note-editor`);
       if (ta) setTimeout(() => ta.focus(), 0);
     };
@@ -36854,10 +37360,94 @@
       };
       conNotes.push(noteData);
       conNoteBuild(noteData);
-      if (node.el) node.el.classList.add('has-con-note');
+      if (node.el) {
+        node.el.classList.add('has-con-note');
+        if (typeof conUpdateNodeNoteButton === 'function') conUpdateNodeNoteButton(node);
+      }
       const ta = document.querySelector('.con-word-note[data-id="' + nid + '"] .wn-note-editor');
       if (ta) setTimeout(() => ta.focus(), 0);
     }
+
+    // Updates the note button on a node DOM element based on attached notes
+    window.conUpdateNodeNoteButton = function (nodeOrId) {
+      if (!nodeOrId) return;
+      const allNodes = (typeof conGetNodes === 'function') ? conGetNodes() : (window.conGetNodes ? window.conGetNodes() : []);
+      const node = typeof nodeOrId === 'object' ? nodeOrId : allNodes.find(n => n.id === nodeOrId);
+      if (!node || !node.el) return;
+
+      const liveNotes = (typeof conGetNotes === 'function') ? conGetNotes() : (window.conNotes || []);
+      const attachedNotes = liveNotes.filter(n => n && n.nodeId === node.id);
+      let btn = node.el.querySelector('.con-node-note-btn');
+
+      if (attachedNotes.length === 0) {
+        if (btn) btn.remove();
+        node.el.classList.remove('has-con-note');
+        return;
+      }
+
+      node.el.classList.add('has-con-note');
+      const allHidden = attachedNotes.every(n => !!n.hidden);
+
+      if (!btn) {
+        btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'con-node-note-btn';
+        btn.innerHTML = '<img src="../assets/icons/note.svg" class="btn-icon" alt="" />';
+        btn.addEventListener('mousedown', function (e) {
+          e.stopPropagation();
+        });
+        btn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          e.preventDefault();
+          window.conToggleAttachedNoteDisplay(node.id);
+        });
+        node.el.appendChild(btn);
+      }
+
+      btn.classList.toggle('note-hidden', allHidden);
+      const tt = allHidden
+        ? ((window.i18n && window.i18n.t('conShowAttachedNote')) || 'Show attached note')
+        : ((window.i18n && window.i18n.t('conHideAttachedNote')) || 'Hide attached note');
+      btn.title = tt;
+      btn.setAttribute('aria-label', tt);
+    };
+
+    // Toggles visibility (complete show/hide display) of all notes attached to a node
+    window.conToggleAttachedNoteDisplay = function (nodeId) {
+      if (!nodeId) return;
+      const liveNotes = (typeof conGetNotes === 'function') ? conGetNotes() : (window.conNotes || []);
+      const attachedNotes = liveNotes.filter(n => n && n.nodeId === nodeId);
+      if (!attachedNotes.length) return;
+
+      if (window.conPushUndo) window.conPushUndo();
+
+      // If any attached note is currently visible, toggle action is to HIDE all; otherwise SHOW all
+      const shouldHide = attachedNotes.some(n => !n.hidden);
+
+      attachedNotes.forEach(noteData => {
+        noteData.hidden = shouldHide;
+        const noteEl = (typeof wnGetNoteElementById === 'function')
+          ? wnGetNoteElementById(noteData.id)
+          : document.querySelector('.con-word-note[data-id="' + noteData.id + '"]');
+        if (noteEl) {
+          noteEl.style.display = shouldHide ? 'none' : '';
+          noteEl.classList.toggle('wn-note-hidden', shouldHide);
+          if (!shouldHide && typeof noteData._applyStyle === 'function') {
+            noteData._applyStyle();
+          }
+        }
+        if (typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({
+            type: 'note-style',
+            id: String(noteData.id),
+            hidden: shouldHide
+          });
+        }
+      });
+
+      window.conUpdateNodeNoteButton(nodeId);
+      if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+    };
 
     let _conDefPickerNode = null;
     let _conDefPickerChoices = [];
@@ -37950,6 +38540,7 @@
       conNoteSelected.clear();
       document.querySelectorAll('#constellation-board .con-word-note').forEach(n => n.remove());
       document.querySelectorAll('.con-node.has-con-note').forEach(n => n.classList.remove('has-con-note'));
+      document.querySelectorAll('.con-node-note-btn').forEach(b => b.remove());
     };
     window.conGetNotes = function () { return conNotes; };
     window.conGetNoteSelected = function () { return conNoteSelected; };
@@ -39416,6 +40007,10 @@
           randomMin: n.isRandom ? (n.randomMin != null ? n.randomMin : 1) : undefined,
           randomMax: n.isRandom ? (n.randomMax != null ? n.randomMax : 100) : undefined,
           randomValue: n.isRandom ? (n.randomValue != null ? n.randomValue : n.randomMin) : undefined,
+          isSound: !!n.isSound,
+          soundAttachmentId: n.soundAttachmentId || null,
+          soundName: n.soundName || null,
+          soundDuration: (typeof n.soundDuration === 'number') ? n.soundDuration : null,
           competences: (Array.isArray(n.competences) && n.competences.length) ? n.competences.slice() : undefined,
           shape: (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(n.shape || (n.el && n.el.dataset.shape)) : conNormalizeNodeShapeSafe(n.shape || (n.el && n.el.dataset.shape))),
           rotation: (typeof n.rotation === 'number') ? ((typeof window.conNormalizeNodeRotation === 'function') ? window.conNormalizeNodeRotation(n.rotation) : n.rotation) : 0
@@ -44216,6 +44811,10 @@
               existing.randomMax = (n.randomMax != null) ? n.randomMax : 100;
               existing.randomValue = (n.randomValue != null) ? n.randomValue : existing.randomMin;
             }
+            existing.isSound = !!n.isSound;
+            existing.soundAttachmentId = n.soundAttachmentId || null;
+            existing.soundName = n.soundName || null;
+            existing.soundDuration = (typeof n.soundDuration === 'number') ? n.soundDuration : null;
             existing.shape = (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(n.shape || 'rectangle') : conNormalizeNodeShapeSafe(n.shape || 'rectangle'));
             existing.borderWidth = n.borderWidth || null;
             existing.borderStyle = n.borderStyle || null;
@@ -44279,6 +44878,10 @@
               randomMin: n.isRandom ? (n.randomMin != null ? n.randomMin : 1) : null,
               randomMax: n.isRandom ? (n.randomMax != null ? n.randomMax : 100) : null,
               randomValue: n.isRandom ? (n.randomValue != null ? n.randomValue : (n.randomMin != null ? n.randomMin : 1)) : null,
+              isSound: !!n.isSound,
+              soundAttachmentId: n.soundAttachmentId || null,
+              soundName: n.soundName || null,
+              soundDuration: (typeof n.soundDuration === 'number') ? n.soundDuration : null,
               shape: (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(n.shape || 'rectangle') : conNormalizeNodeShapeSafe(n.shape || 'rectangle')),
               borderWidth: n.borderWidth || null,
               borderStyle: n.borderStyle || null,
@@ -44379,7 +44982,10 @@
             if (!isNaN(num)) conNoteNextId = Math.max(conNoteNextId, num + 1);
             if (n.nodeId) {
               const linkedNode = conGetNodes().find(nd => nd.id === n.nodeId);
-              if (linkedNode) linkedNode.el.classList.add('has-con-note');
+              if (linkedNode) {
+                linkedNode.el.classList.add('has-con-note');
+                if (typeof conUpdateNodeNoteButton === 'function') conUpdateNodeNoteButton(linkedNode);
+              }
             }
           }
         });
@@ -44607,6 +45213,10 @@
           randomMin: n.isRandom ? (n.randomMin != null ? n.randomMin : 1) : null,
           randomMax: n.isRandom ? (n.randomMax != null ? n.randomMax : 100) : null,
           randomValue: n.isRandom ? (n.randomValue != null ? n.randomValue : (n.randomMin != null ? n.randomMin : 1)) : null,
+          isSound: !!n.isSound,
+          soundAttachmentId: n.soundAttachmentId || null,
+          soundName: n.soundName || null,
+          soundDuration: (typeof n.soundDuration === 'number') ? n.soundDuration : null,
           shape: (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(n.shape || 'rectangle') : conNormalizeNodeShapeSafe(n.shape || 'rectangle')),
           borderWidth: n.borderWidth || null,
           borderStyle: n.borderStyle || null,
@@ -45800,6 +46410,23 @@
           modifiedAt: now
         };
         historySaveMetaCache();
+
+        if (typeof LinksService !== 'undefined' && typeof LinksService.addLink === 'function') {
+          const bUrn = LinksService.makeUrn('board', rel);
+          if (plannerEntryId) {
+            LinksService.addLink(bUrn, LinksService.makeUrn('planner', plannerEntryId), {
+              relation: 'planner_slot',
+              sourceMeta: { title: baseName, relativePath: rel, target },
+              targetMeta: { classId: classGroup || '' }
+            }).catch(() => {});
+          }
+          if (classGroup) {
+            LinksService.addLink(bUrn, LinksService.makeUrn('class', classGroup), {
+              relation: 'class_session',
+              sourceMeta: { title: baseName, relativePath: rel, target }
+            }).catch(() => {});
+          }
+        }
       }
 
       _historyNeedsRender = true;
@@ -52150,7 +52777,7 @@
             acceptNode: function (node) {
               if (!node.textContent || !node.textContent.trim()) return NodeFilter.FILTER_REJECT;
               if (node.parentElement && node.parentElement.closest &&
-                  node.parentElement.closest('.con-node-resizer, .con-node-star-btn, .wn-emoji-sticker, .wn-note-resizer, .con-node-rel-badge, .con-node-page, .con-emoji-dot, .con-node-comp-badge')) {
+                  node.parentElement.closest('.con-node-resizer, .con-node-star-btn, .con-node-note-btn, .wn-emoji-sticker, .wn-note-resizer, .con-node-rel-badge, .con-node-page, .con-emoji-dot, .con-node-comp-badge')) {
                 return NodeFilter.FILTER_REJECT;
               }
               return NodeFilter.FILTER_ACCEPT;
@@ -54598,6 +55225,37 @@
             if (rEl) {
               var rDigits = rEl.querySelector('.con-random-digits');
               if (rDigits) rDigits.textContent = String(d.value);
+            }
+          }
+          return;
+        }
+
+        if (d.type === 'node-sound-state') {
+          if (_mirrorIsFrozen) return;
+          var soundNode = (window.conGetNodes ? window.conGetNodes() : []).find(function (n) { return String(n.id) === String(d.id); });
+          if (soundNode && soundNode.isSound) {
+            soundNode.soundState = d.soundState;
+            soundNode.soundCurrentTime = d.currentTime;
+            if (d.duration != null) soundNode.soundDuration = d.duration;
+            if (typeof conUpdateSoundNodeDisplay === 'function') {
+              conUpdateSoundNodeDisplay(soundNode);
+            } else if (typeof conRenderNodeLabel === 'function') {
+              conRenderNodeLabel(soundNode);
+            }
+          } else {
+            var sEl = document.getElementById(String(d.id));
+            if (sEl) {
+              sEl.classList.toggle('con-node-sound', true);
+              sEl.classList.toggle('con-sound-playing', d.soundState === 'playing');
+              sEl.classList.toggle('con-sound-paused', d.soundState === 'paused');
+              var sDigits = sEl.querySelector('.con-sound-digits');
+              if (sDigits && d.currentTime != null && d.duration != null && d.duration > 0) {
+                var curStr = (typeof conFormatDurationSec === 'function') ? conFormatDurationSec(Math.round(d.currentTime)) : String(Math.round(d.currentTime));
+                var durStr = (typeof conFormatDurationSec === 'function') ? conFormatDurationSec(Math.round(d.duration)) : String(Math.round(d.duration));
+                var timeStr = curStr + ' / ' + durStr;
+                sDigits.style.display = '';
+                if (sDigits.textContent !== timeStr) sDigits.textContent = timeStr;
+              }
             }
           }
           return;

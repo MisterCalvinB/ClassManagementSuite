@@ -766,6 +766,10 @@
     });
 
     var cssTheme = options.cssTheme || options.theme || 'neobrutalist';
+    var testCompetencesMode = options.testCompetencesMode || 'compact';
+    var testCriteriaMode = options.testCriteriaMode || 'compact';
+    var includeGradingScale = options.includeGradingScale !== false;
+    var includeAnswerKeys = !!options.includeAnswerKeys;
 
     function getThemeCss(theme) {
       if (theme === 'classic') {
@@ -1228,6 +1232,13 @@
         var matchT = (fullTests || []).find(function (ft) { return ft.id === it.id; });
         if (matchT) {
           if (Array.isArray(matchT.descriptorIds)) matchT.descriptorIds.forEach(function (id) { if (id) set.add(String(id).trim()); });
+          if (Array.isArray(matchT.linkedCompetenceIds)) matchT.linkedCompetenceIds.forEach(function (id) { if (id) set.add(String(id).trim()); });
+          if (Array.isArray(matchT.linkedCompetences)) {
+            matchT.linkedCompetences.forEach(function (c) {
+              var cid = (typeof c === 'object' && c) ? (c.id || c.code || c.title) : c;
+              if (cid) set.add(String(cid).trim());
+            });
+          }
           if (Array.isArray(matchT.competences)) {
             matchT.competences.forEach(function (c) {
               var cid = (typeof c === 'object' && c) ? (c.id || c.code || c.title) : c;
@@ -1236,6 +1247,13 @@
           }
           (matchT.exercises || []).forEach(function (ex) {
             if (Array.isArray(ex.descriptorIds)) ex.descriptorIds.forEach(function (id) { if (id) set.add(String(id).trim()); });
+            if (Array.isArray(ex.linkedCompetenceIds)) ex.linkedCompetenceIds.forEach(function (id) { if (id) set.add(String(id).trim()); });
+            if (Array.isArray(ex.linkedCompetences)) {
+              ex.linkedCompetences.forEach(function (c) {
+                var cid = (typeof c === 'object' && c) ? (c.id || c.code || c.title) : c;
+                if (cid) set.add(String(cid).trim());
+              });
+            }
             if (Array.isArray(ex.competenceIds)) ex.competenceIds.forEach(function (id) { if (id) set.add(String(id).trim()); });
             if (Array.isArray(ex.competences)) {
               ex.competences.forEach(function (c) {
@@ -1246,7 +1264,9 @@
           });
         }
       }
-      return Array.from(set);
+      return Array.from(set).sort(function (a, b) {
+        return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+      });
     }
 
     var compLayout = options.competenceLayout || 'column';
@@ -1256,6 +1276,8 @@
 
     var testCriteriaMode = options.testCriteriaMode || 'compact'; // 'none' | 'compact' | 'detailed'
     var testCompetencesMode = options.testCompetencesMode || 'compact'; // 'none' | 'compact' | 'detailed'
+    var includeGradingScale = (options.includeGradingScale !== false);
+    var includeAnswerKeys = !!options.includeAnswerKeys;
 
     // Coverage aggregation map
     var sequenceCoverageMap = {};
@@ -1367,7 +1389,9 @@
 
     // Competence Coverage Summary Matrix block
     if (showMatrix) {
-      var covKeys = Object.keys(sequenceCoverageMap);
+      var covKeys = Object.keys(sequenceCoverageMap).sort(function (a, b) {
+        return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+      });
       if (covKeys.length > 0) {
         html +=
           '      <div class="unit-comp-matrix">\n' +
@@ -1515,6 +1539,10 @@
     if (options.includeTests !== false) {
       (fullTests || []).forEach(function (test, tIdx) {
         var tPts = (test.exercises || []).reduce(function (sum, e) { return sum + (Number(e.points) || 0); }, 0);
+        var hasSectionComps = (test.exercises || []).some(function (e) { return e && e.type === 'section_competences'; });
+        var hasSectionCrits = (test.exercises || []).some(function (e) { return e && e.type === 'section_criteria'; });
+        var hasSectionScale = (test.exercises || []).some(function (e) { return e && e.type === 'section_grading_scale'; });
+
         html +=
           '    <div class="unit-exam-card unit-page-break">\n' +
           '      <div class="unit-card-hdr">\n' +
@@ -1525,11 +1553,136 @@
           '        <div style="font-weight:800;font-size:0.85rem;color:#9d174d;">' + tPts + ' pts • ' + (test.duration || 45) + ' min</div>\n' +
           '      </div>\n';
 
+        // 4a. Test-Wide Competences (if not placed as an in-flow section block)
+        if (!hasSectionComps && testCompetencesMode !== 'none') {
+          var testWideComps = (Array.isArray(test.linkedCompetences) && test.linkedCompetences.length)
+            ? test.linkedCompetences
+            : (Array.isArray(test.linkedCompetenceIds) ? test.linkedCompetenceIds : []);
+          if (testWideComps.length > 0) {
+            testWideComps = testWideComps.slice().sort(function (a, b) {
+              var ca = (a && (a.code || a.id)) || String(a || '');
+              var cb = (b && (b.code || b.id)) || String(b || '');
+              return ca.localeCompare(cb, undefined, { numeric: true, sensitivity: 'base' });
+            });
+            if (typeof TestCreatorService !== 'undefined' && typeof TestCreatorService.renderCompetencesHtml === 'function') {
+              html += '      <div style="margin-bottom:12px;">' + TestCreatorService.renderCompetencesHtml(test, { displayMode: testCompetencesMode === 'detailed' ? 'table' : 'badges' }) + '</div>\n';
+            } else {
+              html += '      <div class="test-comp-section" style="margin-bottom:12px;">\n';
+              html += '        <span class="test-comp-label">Test-Wide Competences:</span>\n';
+              html += '        <div class="test-comp-chips">\n';
+              testWideComps.forEach(function (c) {
+                var cTitle = (c && c.title) || (c && c.code) || c;
+                html += '          <span class="comp-tag-chip test">' + escapeHtml(String(cTitle)) + '</span>\n';
+              });
+              html += '        </div>\n';
+              html += '      </div>\n';
+            }
+          }
+        }
+
+        // 4b. Test-Wide Assessment Criteria (if not placed as an in-flow section block)
+        if (!hasSectionCrits && testCriteriaMode !== 'none') {
+          var testWideCrits = (Array.isArray(test.criteria) && test.criteria.length)
+            ? test.criteria
+            : (Array.isArray(test.linkedCriteria) ? test.linkedCriteria : []);
+          if (testWideCrits.length > 0) {
+            if (typeof TestCreatorService !== 'undefined' && typeof TestCreatorService.renderCriteriaHtml === 'function') {
+              html += '      <div style="margin-bottom:12px;">' + TestCreatorService.renderCriteriaHtml(test, { displayMode: testCriteriaMode === 'detailed' ? 'table' : 'compact' }) + '</div>\n';
+            } else {
+              html += '      <div class="test-criteria-section" style="margin-bottom:12px;">\n';
+              html += '        <span class="test-criteria-label">Test Assessment Criteria:</span>\n';
+              html += '        <table class="test-criteria-table">\n';
+              html += '          <thead><tr><th>Criterion</th><th style="width:60px;text-align:center;">Max</th><th style="width:60px;text-align:center;">Weight</th></tr></thead>\n';
+              html += '          <tbody>\n';
+              testWideCrits.forEach(function (cr) {
+                var crTitle = (cr && (cr.title || cr.name)) || 'Criterion';
+                var crMax = (cr && (cr.maxPoints || cr.points)) || 1;
+                var crWeight = (cr && cr.weight) || 1;
+                html += '            <tr><td><strong>' + escapeHtml(crTitle) + '</strong></td><td style="text-align:center;">/' + crMax + '</td><td style="text-align:center;">' + crWeight + 'x</td></tr>\n';
+              });
+              html += '          </tbody>\n';
+              html += '        </table>\n';
+              html += '      </div>\n';
+            }
+          }
+        }
+
+        // 4c. Test Grading Scale & Conversion (if not placed as an in-flow section block)
+        if (!hasSectionScale && includeGradingScale && (test.scaleModel || test.scaleModelId) && test.scaleModelId !== 'none') {
+          if (typeof TestCreatorService !== 'undefined' && typeof TestCreatorService.renderGradingScaleHtml === 'function') {
+            html += '      <div style="margin-bottom:12px;">' + TestCreatorService.renderGradingScaleHtml(test, { totalPoints: tPts }) + '</div>\n';
+          }
+        }
+
+        // 4d. Exercises and In-flow Section Blocks
+        var questionCounter = 0;
         (test.exercises || []).forEach(function (ex, eIdx) {
+          if (ex.type === 'section_competences') {
+            if (typeof TestCreatorService !== 'undefined' && typeof TestCreatorService.renderCompetencesHtml === 'function') {
+              html += '      <div style="margin-bottom:12px;">' + TestCreatorService.renderCompetencesHtml(test, { title: ex.title || 'Competences & Curriculum Objectives', displayMode: (ex.options && ex.options.displayMode) || 'table' }) + '</div>\n';
+            } else {
+              var sComps = (Array.isArray(test.linkedCompetences) && test.linkedCompetences.length) ? test.linkedCompetences : (Array.isArray(test.linkedCompetenceIds) ? test.linkedCompetenceIds : []);
+              sComps = sComps.slice().sort(function (a, b) {
+                var ca = (a && (a.code || a.id)) || String(a || '');
+                var cb = (b && (b.code || b.id)) || String(b || '');
+                return ca.localeCompare(cb, undefined, { numeric: true, sensitivity: 'base' });
+              });
+              html += '      <div class="test-comp-section" style="margin-bottom:14px;border:1.5px solid #2563eb;border-radius:4px;padding:10px;background:#eff6ff;">\n';
+              html += '        <div style="font-weight:900;font-size:0.88rem;color:#1e40af;margin-bottom:6px;text-transform:uppercase;">' + escapeHtml(ex.title || 'Competences & Curriculum Objectives') + '</div>\n';
+              if (ex.instructions) html += '        <div style="font-size:0.8rem;color:#3b82f6;margin-bottom:6px;font-style:italic;">' + escapeHtml(ex.instructions) + '</div>\n';
+              html += '        <div class="test-comp-chips">\n';
+              sComps.forEach(function (c) {
+                var cTitle = (c && c.title) || (c && c.code) || c;
+                html += '          <span class="comp-tag-chip test">' + escapeHtml(String(cTitle)) + '</span>\n';
+              });
+              html += '        </div>\n      </div>\n';
+            }
+            return;
+          }
+          if (ex.type === 'section_criteria') {
+            if (typeof TestCreatorService !== 'undefined' && typeof TestCreatorService.renderCriteriaHtml === 'function') {
+              html += '      <div style="margin-bottom:12px;">' + TestCreatorService.renderCriteriaHtml(test, { title: ex.title || 'Assessment Criteria & Evaluation Rubric', displayMode: (ex.options && ex.options.displayMode) || 'table' }) + '</div>\n';
+            } else {
+              var sCrits = (Array.isArray(test.criteria) && test.criteria.length) ? test.criteria : (Array.isArray(test.linkedCriteria) ? test.linkedCriteria : []);
+              html += '      <div class="test-criteria-section" style="margin-bottom:14px;border:1.5px solid #059669;border-radius:4px;padding:10px;background:#ecfdf5;">\n';
+              html += '        <div style="font-weight:900;font-size:0.88rem;color:#065f46;margin-bottom:6px;text-transform:uppercase;">' + escapeHtml(ex.title || 'Assessment Criteria & Evaluation Rubric') + '</div>\n';
+              if (ex.instructions) html += '        <div style="font-size:0.8rem;color:#059669;margin-bottom:6px;font-style:italic;">' + escapeHtml(ex.instructions) + '</div>\n';
+              html += '        <table class="test-criteria-table">\n          <thead><tr><th>Criterion</th><th style="width:60px;text-align:center;">Max</th><th style="width:60px;text-align:center;">Weight</th></tr></thead>\n          <tbody>\n';
+              sCrits.forEach(function (cr) {
+                var crTitle = (cr && (cr.title || cr.name)) || 'Criterion';
+                var crMax = (cr && (cr.maxPoints || cr.points)) || 1;
+                var crWeight = (cr && cr.weight) || 1;
+                html += '            <tr><td><strong>' + escapeHtml(crTitle) + '</strong></td><td style="text-align:center;">/' + crMax + '</td><td style="text-align:center;">' + crWeight + 'x</td></tr>\n';
+              });
+              html += '          </tbody>\n        </table>\n      </div>\n';
+            }
+            return;
+          }
+          if (ex.type === 'section_grading_scale') {
+            if (typeof TestCreatorService !== 'undefined' && typeof TestCreatorService.renderGradingScaleHtml === 'function') {
+              html += '      <div style="margin-bottom:12px;">' + TestCreatorService.renderGradingScaleHtml(test, { title: ex.title || 'Grading Scale & Score Conversion', totalPoints: tPts }) + '</div>\n';
+            } else {
+              var sModel = test.scaleModel;
+              html += '      <div style="margin-bottom:14px;border:1.5px solid #d97706;border-radius:4px;padding:10px;background:#fffbeb;">\n';
+              html += '        <div style="font-weight:900;font-size:0.88rem;color:#92400e;margin-bottom:6px;text-transform:uppercase;">' + escapeHtml(ex.title || 'Grading Scale & Score Conversion') + '</div>\n';
+              if (ex.instructions) html += '        <div style="font-size:0.8rem;color:#b45309;margin-bottom:6px;font-style:italic;">' + escapeHtml(ex.instructions) + '</div>\n';
+              if (sModel && Array.isArray(sModel.intervals) && sModel.intervals.length > 0) {
+                html += '        <div style="display:flex;flex-wrap:wrap;gap:6px;">\n';
+                sModel.intervals.forEach(function (it) {
+                  html += '          <span style="background:#fff;border:1px solid #d97706;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:800;color:#92400e;"><strong>' + escapeHtml(it.grade) + '</strong>: ' + (it.minPoints != null ? (it.minPoints + '–' + it.maxPoints + ' pts') : (it.pct + '%')) + '</span>\n';
+                });
+                html += '        </div>\n';
+              }
+              html += '      </div>\n';
+            }
+            return;
+          }
+
+          questionCounter++;
           html +=
             '      <div class="ex-item-card">\n' +
-            '        <div style="display:flex;justify-content:space-between;font-weight:800;font-size:0.9rem;border-bottom:1px solid #000;padding-bottom:3px;margin-bottom:6px;">\n' +
-            '          <span>Exercise ' + (eIdx + 1) + ': ' + escapeHtml(ex.title || (ex.type ? ex.type.toUpperCase() : 'Task')) + '</span>\n' +
+            '        <div style="display:flex;justify-content:space-between;font-weight:800;font-size:0.9rem;border-bottom:1.5px solid #000;padding-bottom:4px;margin-bottom:6px;">\n' +
+            '          <span>Exercise ' + questionCounter + ': ' + escapeHtml(ex.title || (ex.type ? ex.type.toUpperCase() : 'Task')) + '</span>\n' +
             '          <span>/' + (ex.points || 1) + ' pts</span>\n' +
             '        </div>\n' +
             (ex.instructions ? '        <div style="font-size:0.85rem;font-style:italic;margin-bottom:6px;">' + escapeHtml(ex.instructions) + '</div>\n' : '');
@@ -1555,6 +1708,40 @@
                 return '<li style="margin-bottom:6px;"><div>' + escapeHtml(q.prompt || q.text || '') + '</div><div style="margin-top:2px;">' + opts + '</div></li>';
               }).join('') +
               '</ol>\n';
+          } else if (ex.type === 'transformation' && ex.content && Array.isArray(ex.content.items)) {
+            html += '        <ol style="font-size:0.85rem;margin:4px 0;padding-left:20px;">' +
+              ex.content.items.map(function (it) { return '<li style="margin-bottom:4px;"><div>' + escapeHtml(it.sentence || it.text || '') + '</div><div style="font-style:italic;color:#64748b;">→ ' + escapeHtml(it.prompt || '') + '</div></li>'; }).join('') +
+              '</ol>\n';
+          } else if (ex.type === 'translation' && ex.content && Array.isArray(ex.content.sentences)) {
+            html += '        <ol style="font-size:0.85rem;margin:4px 0;padding-left:20px;">' +
+              ex.content.sentences.map(function (s) { return '<li style="margin-bottom:4px;">' + escapeHtml(s.source || s.text || s) + '</li>'; }).join('') +
+              '</ol>\n';
+          } else if (ex.type === 'picture_description' && ex.content) {
+            html += '        <div style="font-size:0.85rem;margin:4px 0;">' +
+              (ex.content.prompt ? '<div>' + escapeHtml(ex.content.prompt) + '</div>' : '') +
+              (ex.content.guidingQuestions ? '<ul style="padding-left:20px;margin-top:4px;">' + ex.content.guidingQuestions.map(function (g) { return '<li>' + escapeHtml(g) + '</li>'; }).join('') + '</ul>' : '') +
+              '</div>\n';
+          } else if (ex.type === 'odd_one_out' && ex.content && Array.isArray(ex.content.items)) {
+            html += '        <ol style="font-size:0.85rem;margin:4px 0;padding-left:20px;">' +
+              ex.content.items.map(function (it) {
+                var wList = Array.isArray(it.words) ? it.words.join(' • ') : (it.words || '');
+                return '<li style="margin-bottom:4px;">' + escapeHtml(wList) + '</li>';
+              }).join('') +
+              '</ol>\n';
+          } else if (ex.type === 'reading_comprehension' && ex.content) {
+            html += '        <div style="font-size:0.85rem;line-height:1.6;background:#f8fafc;padding:8px 10px;border-left:3px solid #3b82f6;margin-bottom:8px;">' +
+              escapeHtml(ex.content.text || ex.content.passage || '') +
+              '</div>\n';
+            if (Array.isArray(ex.content.subQuestions) && ex.content.subQuestions.length > 0) {
+              html += '        <ol style="font-size:0.85rem;margin:4px 0;padding-left:20px;">' +
+                ex.content.subQuestions.map(function (sq) { return '<li style="margin-bottom:4px;">' + escapeHtml(sq.prompt || sq.text || '') + ' (' + (sq.points || 1) + ' pts)</li>'; }).join('') +
+                '</ol>\n';
+            }
+          }
+
+          // Optional Teacher Solution Key
+          if (includeAnswerKeys && ex.solution) {
+            html += '        <div style="margin-top:6px;padding:6px 8px;background:#fef3c7;border:1px dashed #d97706;border-radius:4px;font-size:0.8rem;color:#92400e;"><strong>Teacher Solution Key:</strong> ' + escapeHtml(typeof ex.solution === 'string' ? ex.solution : JSON.stringify(ex.solution)) + '</div>\n';
           }
 
           // Exercise Competences Rendering
@@ -1562,6 +1749,13 @@
             var exComps = [];
             var cSet = new Set();
             if (Array.isArray(ex.descriptorIds)) ex.descriptorIds.forEach(function (id) { if (id) cSet.add(String(id).trim()); });
+            if (Array.isArray(ex.linkedCompetenceIds)) ex.linkedCompetenceIds.forEach(function (id) { if (id) cSet.add(String(id).trim()); });
+            if (Array.isArray(ex.linkedCompetences)) {
+              ex.linkedCompetences.forEach(function (c) {
+                var cid = (typeof c === 'object' && c) ? (c.id || c.code || c.title) : c;
+                if (cid) cSet.add(String(cid).trim());
+              });
+            }
             if (Array.isArray(ex.competenceIds)) ex.competenceIds.forEach(function (id) { if (id) cSet.add(String(id).trim()); });
             if (Array.isArray(ex.competences)) {
               ex.competences.forEach(function (c) {
@@ -1578,6 +1772,10 @@
                 category: info.category || info.theme || '',
                 level: info.level || info.tier || ''
               });
+            });
+
+            exComps.sort(function (a, b) {
+              return String(a.code || a.title).localeCompare(String(b.code || b.title), undefined, { numeric: true, sensitivity: 'base' });
             });
 
             if (exComps.length > 0) {
@@ -1691,6 +1889,8 @@
     var compLayout = options.competenceLayout || 'column';
     var testCriteriaMode = options.testCriteriaMode || 'compact';
     var testCompetencesMode = options.testCompetencesMode || 'compact';
+    var includeGradingScale = (options.includeGradingScale !== false);
+    var includeAnswerKeys = !!options.includeAnswerKeys;
 
     var md = '# ' + title + '\n\n';
     md += '**Subject:** ' + (subject || 'General') + ' | **Class:** ' + (className || 'N/A') + ' | **Total Lessons:** ' + (fullLessons || []).length + '\n\n';
@@ -1724,13 +1924,29 @@
         var matchT = (fullTests || []).find(function (ft) { return ft.id === it.id; });
         if (matchT) {
           if (Array.isArray(matchT.descriptorIds)) matchT.descriptorIds.forEach(function (id) { if (id) set.add(String(id).trim()); });
+          if (Array.isArray(matchT.linkedCompetenceIds)) matchT.linkedCompetenceIds.forEach(function (id) { if (id) set.add(String(id).trim()); });
+          if (Array.isArray(matchT.linkedCompetences)) {
+            matchT.linkedCompetences.forEach(function (c) {
+              var cid = (typeof c === 'object' && c) ? (c.id || c.code || c.title) : c;
+              if (cid) set.add(String(cid).trim());
+            });
+          }
           (matchT.exercises || []).forEach(function (ex) {
             if (Array.isArray(ex.descriptorIds)) ex.descriptorIds.forEach(function (id) { if (id) set.add(String(id).trim()); });
+            if (Array.isArray(ex.linkedCompetenceIds)) ex.linkedCompetenceIds.forEach(function (id) { if (id) set.add(String(id).trim()); });
+            if (Array.isArray(ex.linkedCompetences)) {
+              ex.linkedCompetences.forEach(function (c) {
+                var cid = (typeof c === 'object' && c) ? (c.id || c.code || c.title) : c;
+                if (cid) set.add(String(cid).trim());
+              });
+            }
             if (Array.isArray(ex.competenceIds)) ex.competenceIds.forEach(function (id) { if (id) set.add(String(id).trim()); });
           });
         }
       }
-      var comps = Array.from(set);
+      var comps = Array.from(set).sort(function (a, b) {
+        return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+      });
       comps.forEach(function (cId) {
         if (!sequenceCoverageMap[cId]) {
           var compInfo = compLookup[cId] || {};
@@ -1756,7 +1972,9 @@
       md += '### Curriculum Competence Coverage Matrix\n\n';
       md += '| Competence Code | Title / Descriptor | Addressed in |\n';
       md += '| :--- | :--- | :--- |\n';
-      Object.keys(sequenceCoverageMap).forEach(function (cId) {
+      Object.keys(sequenceCoverageMap).sort(function (a, b) {
+        return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+      }).forEach(function (cId) {
         var cov = sequenceCoverageMap[cId];
         md += '| **`' + cov.code + '`** | ' + (cov.title || cov.code) + ' | ' + cov.targets.join(', ') + ' |\n';
       });
@@ -1765,89 +1983,170 @@
 
     md += '---\n\n';
 
-    (fullLessons || []).forEach(function (l, idx) {
-      md += '## Lesson ' + (idx + 1) + ': ' + (l.title || 'Untitled') + '\n\n';
-      if (l.date) md += '*Date: ' + l.date + '*\n\n';
-      (l.sections || []).forEach(function (s, sIdx) {
-        md += '### Phase ' + (sIdx + 1) + ': ' + (s.title || 'Activity') + ' (' + (s.duration || 10) + ' min)\n\n';
-        if (s.objective && String(s.objective).trim()) md += '- **Objective:** ' + s.objective.trim() + '\n';
-        if (s.teacherAction && String(s.teacherAction).trim()) md += '- **Teacher:** ' + s.teacherAction.trim() + '\n';
-        if (s.studentAction && String(s.studentAction).trim()) md += '- **Students:** ' + s.studentAction.trim() + '\n';
-        if (s.resources && String(s.resources).trim()) md += '- **Materials:** ' + s.resources.trim() + '\n';
-        md += '\n';
+    if (options.includePhases !== false) {
+      (fullLessons || []).forEach(function (l, idx) {
+        md += '## Lesson ' + (idx + 1) + ': ' + (l.title || 'Untitled') + '\n\n';
+        if (l.date) md += '*Date: ' + l.date + '*\n\n';
+        (l.sections || []).forEach(function (s, sIdx) {
+          md += '### Phase ' + (sIdx + 1) + ': ' + (s.title || 'Activity') + ' (' + (s.duration || 10) + ' min)\n\n';
+          if (s.objective && String(s.objective).trim()) md += '- **Objective:** ' + s.objective.trim() + '\n';
+          if (s.teacherAction && String(s.teacherAction).trim()) md += '- **Teacher:** ' + s.teacherAction.trim() + '\n';
+          if (s.studentAction && String(s.studentAction).trim()) md += '- **Students:** ' + s.studentAction.trim() + '\n';
+          if (s.resources && String(s.resources).trim()) md += '- **Materials:** ' + s.resources.trim() + '\n';
+          md += '\n';
+        });
+        md += '---\n\n';
       });
-      md += '---\n\n';
-    });
+    }
 
-    (fullTests || []).forEach(function (t, idx) {
-      md += '## Assessment: ' + (t.title || 'Unit Exam') + '\n\n';
-      md += '*Duration: ' + (t.duration || 45) + ' min*\n\n';
-      (t.exercises || []).forEach(function (e, eIdx) {
-        md += '### Exercise ' + (eIdx + 1) + ': ' + (e.title || e.type || 'Task') + ' (' + (e.points || 1) + ' pts)\n\n';
-        if (e.instructions) md += '>' + e.instructions + '\n\n';
-        if (e.type === 'cloze' && e.content && e.content.text) {
-          md += '```\n' + e.content.text + '\n```\n\n';
-        }
+    if (options.includeTests !== false) {
+      (fullTests || []).forEach(function (t, idx) {
+        var tPts = (t.exercises || []).reduce(function (sum, e) { return sum + (Number(e.points) || 0); }, 0);
+        md += '## Assessment: ' + (t.title || 'Unit Exam') + '\n\n';
+        md += '*Duration: ' + (t.duration || 45) + ' min | Total Points: ' + tPts + ' pts*\n\n';
 
-        // Test Competences in Markdown
+        // Test-wide Competences in Markdown
         if (testCompetencesMode !== 'none') {
-          var exComps = [];
-          var cSet = new Set();
-          if (Array.isArray(e.descriptorIds)) e.descriptorIds.forEach(function (id) { if (id) cSet.add(String(id).trim()); });
-          if (Array.isArray(e.competenceIds)) e.competenceIds.forEach(function (id) { if (id) cSet.add(String(id).trim()); });
-          cSet.forEach(function (cid) {
-            var info = compLookup[cid] || {};
-            exComps.push({ code: cid, title: info.title || info.name || cid, description: info.description || info.desc || '', level: info.level || '' });
-          });
-          if (exComps.length > 0) {
-            if (testCompetencesMode === 'compact') {
-              md += '- **Competences:** ' + exComps.map(function (c) { return '`' + c.code + '`' + (c.title && c.title !== c.code ? (' (' + c.title + ')') : ''); }).join(', ') + '\n\n';
-            } else if (testCompetencesMode === 'detailed') {
-              md += '#### Competence Descriptors\n\n';
-              md += '| Code | Title | Level | Description |\n';
-              md += '| :--- | :--- | :--- | :--- |\n';
-              exComps.forEach(function (c) {
-                md += '| **`' + c.code + '`** | ' + c.title + ' | ' + (c.level || '—') + ' | ' + (c.description || '—') + ' |\n';
-              });
-              md += '\n';
-            }
+          var tComps = (Array.isArray(t.linkedCompetences) && t.linkedCompetences.length)
+            ? t.linkedCompetences
+            : (Array.isArray(t.linkedCompetenceIds) ? t.linkedCompetenceIds : []);
+          if (tComps.length > 0) {
+            tComps = tComps.slice().sort(function (a, b) {
+              var ca = (a && (a.code || a.id)) || String(a || '');
+              var cb = (b && (b.code || b.id)) || String(b || '');
+              return ca.localeCompare(cb, undefined, { numeric: true, sensitivity: 'base' });
+            });
+            md += '### Test-Wide Objectives & Competences\n\n';
+            tComps.forEach(function (c) {
+              var cCode = (c && c.code) || (c && c.id) || c;
+              var cTitle = (c && c.title) || '';
+              var cDesc = (c && (c.description || c.descriptors)) || '';
+              md += '- **`' + cCode + '`**' + (cTitle && cTitle !== cCode ? (' ' + cTitle) : '') + (cDesc ? (' — ' + cDesc) : '') + '\n';
+            });
+            md += '\n';
           }
         }
 
-        // Test Criteria in Markdown
+        // Test-wide Criteria in Markdown
         if (testCriteriaMode !== 'none') {
-          var exRubrics = Array.isArray(e.markingRubric) ? e.markingRubric : (Array.isArray(e.criteria) ? e.criteria : (Array.isArray(e.correctionCriteria) ? e.correctionCriteria : []));
-          if (exRubrics.length > 0) {
-            if (testCriteriaMode === 'compact') {
-              md += '#### Assessment Criteria\n\n';
-              md += '| Criterion | Max Points | Weight |\n';
-              md += '| :--- | :--- | :--- |\n';
-              exRubrics.forEach(function (r) {
-                var rTitle = (typeof r === 'object' && r) ? (r.title || r.name || 'Criterion') : String(r);
-                var rMax = (typeof r === 'object' && r && (r.maxPoints != null || r.points != null)) ? (r.maxPoints != null ? r.maxPoints : r.points) : 1;
-                var rWeight = (typeof r === 'object' && r && r.weight != null) ? r.weight : 1;
-                md += '| ' + rTitle + ' | /' + rMax + ' | ' + rWeight + 'x |\n';
-              });
-              md += '\n';
-            } else if (testCriteriaMode === 'detailed') {
-              md += '#### Detailed Rubric\n\n';
-              md += '| Criterion | Level | Max Points | Description |\n';
-              md += '| :--- | :--- | :--- | :--- |\n';
-              exRubrics.forEach(function (r) {
-                var rTitle = (typeof r === 'object' && r) ? (r.title || r.name || 'Criterion') : String(r);
-                var rMax = (typeof r === 'object' && r && (r.maxPoints != null || r.points != null)) ? (r.maxPoints != null ? r.maxPoints : r.points) : 1;
-                var rWeight = (typeof r === 'object' && r && r.weight != null) ? r.weight : 1;
-                var rDesc = (typeof r === 'object' && r) ? (r.description || r.desc || '—') : '—';
-                var rLevel = (typeof r === 'object' && r) ? (r.level || '—') : '—';
-                md += '| **' + rTitle + '** | ' + rLevel + ' | /' + rMax + ' (' + rWeight + 'x) | ' + rDesc + ' |\n';
-              });
-              md += '\n';
-            }
+          var tCrits = (Array.isArray(t.criteria) && t.criteria.length)
+            ? t.criteria
+            : (Array.isArray(t.linkedCriteria) ? t.linkedCriteria : []);
+          if (tCrits.length > 0) {
+            md += '### Test Assessment Criteria\n\n';
+            md += '| Criterion | Max Points | Weight | Description |\n';
+            md += '| :--- | :--- | :--- | :--- |\n';
+            tCrits.forEach(function (cr) {
+              var crTitle = (cr && (cr.title || cr.name)) || 'Criterion';
+              var crMax = (cr && (cr.maxPoints || cr.points)) || 1;
+              var crWeight = (cr && cr.weight) || 1;
+              var crDesc = (cr && (cr.description || cr.desc || cr.domain)) || '—';
+              md += '| ' + crTitle + ' | /' + crMax + ' | ' + crWeight + 'x | ' + crDesc + ' |\n';
+            });
+            md += '\n';
           }
         }
+
+        // Test Grading Scale in Markdown
+        if (includeGradingScale && (t.scaleModel || t.scaleModelId) && t.scaleModelId !== 'none' && typeof TestCreatorService !== 'undefined') {
+          var tableData = TestCreatorService.calculateGradeConversionTable(t.scaleModel || t.scaleModelId, tPts);
+          if (tableData && tableData.rows && tableData.rows.length) {
+            md += '### Grading Scale (' + (tableData.scaleName || t.scaleModelId) + ')\n\n';
+            md += '| Grade | Threshold | Required Points | Notes |\n';
+            md += '| :--- | :--- | :--- | :--- |\n';
+            tableData.rows.forEach(function (r) {
+              md += '| **' + r.grade + '** | ' + r.thresholdStr + ' | ' + r.pointsStr + ' | ' + (r.desc || '—') + ' |\n';
+            });
+            md += '\n';
+          }
+        }
+
+        (t.exercises || []).forEach(function (e, eIdx) {
+          if (e.type === 'section_competences' || e.type === 'section_criteria' || e.type === 'section_grading_scale') {
+            md += '### Section: ' + (e.title || 'Exam Section') + '\n\n';
+            return;
+          }
+
+          md += '### Exercise ' + (eIdx + 1) + ': ' + (e.title || e.type || 'Task') + ' (' + (e.points || 1) + ' pts)\n\n';
+          if (e.instructions) md += '>' + e.instructions + '\n\n';
+          if (e.type === 'cloze' && e.content && e.content.text) {
+            md += '```\n' + e.content.text + '\n```\n\n';
+          }
+
+          // Exercise Competences in Markdown
+          if (testCompetencesMode !== 'none') {
+            var exComps = [];
+            var cSet = new Set();
+            if (Array.isArray(e.descriptorIds)) e.descriptorIds.forEach(function (id) { if (id) cSet.add(String(id).trim()); });
+            if (Array.isArray(e.linkedCompetenceIds)) e.linkedCompetenceIds.forEach(function (id) { if (id) cSet.add(String(id).trim()); });
+            if (Array.isArray(e.linkedCompetences)) {
+              e.linkedCompetences.forEach(function (c) {
+                var cid = (typeof c === 'object' && c) ? (c.id || c.code || c.title) : c;
+                if (cid) cSet.add(String(cid).trim());
+              });
+            }
+            if (Array.isArray(e.competenceIds)) e.competenceIds.forEach(function (id) { if (id) cSet.add(String(id).trim()); });
+            cSet.forEach(function (cid) {
+              var info = compLookup[cid] || {};
+              exComps.push({ code: cid, title: info.title || info.name || cid, description: info.description || info.desc || '', level: info.level || '' });
+            });
+            exComps.sort(function (a, b) {
+              return String(a.code || a.title).localeCompare(String(b.code || b.title), undefined, { numeric: true, sensitivity: 'base' });
+            });
+            if (exComps.length > 0) {
+              if (testCompetencesMode === 'compact') {
+                md += '- **Competences:** ' + exComps.map(function (c) { return '`' + c.code + '`' + (c.title && c.title !== c.code ? (' (' + c.title + ')') : ''); }).join(', ') + '\n\n';
+              } else if (testCompetencesMode === 'detailed') {
+                md += '#### Competence Descriptors\n\n';
+                md += '| Code | Title | Level | Description |\n';
+                md += '| :--- | :--- | :--- | :--- |\n';
+                exComps.forEach(function (c) {
+                  md += '| **`' + c.code + '`** | ' + c.title + ' | ' + (c.level || '—') + ' | ' + (c.description || '—') + ' |\n';
+                });
+                md += '\n';
+              }
+            }
+          }
+
+          // Exercise Criteria in Markdown
+          if (testCriteriaMode !== 'none') {
+            var exRubrics = Array.isArray(e.markingRubric) ? e.markingRubric : (Array.isArray(e.criteria) ? e.criteria : (Array.isArray(e.correctionCriteria) ? e.correctionCriteria : []));
+            if (exRubrics.length > 0) {
+              if (testCriteriaMode === 'compact') {
+                md += '#### Assessment Criteria\n\n';
+                md += '| Criterion | Max Points | Weight |\n';
+                md += '| :--- | :--- | :--- |\n';
+                exRubrics.forEach(function (r) {
+                  var rTitle = (typeof r === 'object' && r) ? (r.title || r.name || 'Criterion') : String(r);
+                  var rMax = (typeof r === 'object' && r && (r.maxPoints != null || r.points != null)) ? (r.maxPoints != null ? r.maxPoints : r.points) : 1;
+                  var rWeight = (typeof r === 'object' && r && r.weight != null) ? r.weight : 1;
+                  md += '| ' + rTitle + ' | /' + rMax + ' | ' + rWeight + 'x |\n';
+                });
+                md += '\n';
+              } else if (testCriteriaMode === 'detailed') {
+                md += '#### Detailed Rubric\n\n';
+                md += '| Criterion | Level | Max Points | Description |\n';
+                md += '| :--- | :--- | :--- | :--- |\n';
+                exRubrics.forEach(function (r) {
+                  var rTitle = (typeof r === 'object' && r) ? (r.title || r.name || 'Criterion') : String(r);
+                  var rMax = (typeof r === 'object' && r && (r.maxPoints != null || r.points != null)) ? (r.maxPoints != null ? r.maxPoints : r.points) : 1;
+                  var rWeight = (typeof r === 'object' && r && r.weight != null) ? r.weight : 1;
+                  var rDesc = (typeof r === 'object' && r) ? (r.description || r.desc || '—') : '—';
+                  var rLevel = (typeof r === 'object' && r) ? (r.level || '—') : '—';
+                  md += '| **' + rTitle + '** | ' + rLevel + ' | /' + rMax + ' (' + rWeight + 'x) | ' + rDesc + ' |\n';
+                });
+                md += '\n';
+              }
+            }
+          }
+
+          if (includeAnswerKeys && e.solution) {
+            md += '**Solution:** ' + (typeof e.solution === 'string' ? e.solution : JSON.stringify(e.solution)) + '\n\n';
+          }
+        });
+        md += '---\n\n';
       });
-      md += '---\n\n';
-    });
+    }
 
     return md;
   };

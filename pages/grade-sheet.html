@@ -1617,15 +1617,8 @@
           <img src="../assets/icons/file-text.svg" style="width: 22px; height: 22px;" alt="" />
           <h2 id="gs-report-modal-title" style="margin: 0; font-size: 1.25rem; font-weight: 800;" data-i18n="gsReportModalTitle">Report Preview</h2>
         </div>
-        <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-left: auto;">
-          <label id="gs-report-toggle-competences-wrap" style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.84rem; font-weight: 700; cursor: pointer; user-select: none; background: #f8fafc; padding: 4px 8px; border: 1.5px solid #111; border-radius: 4px;">
-            <input type="checkbox" id="gs-report-toggle-competences" checked style="cursor: pointer; width: 15px; height: 15px;" />
-            <span data-i18n="gsReportToggleCompetences">Include Competences</span>
-          </label>
-          <label id="gs-report-toggle-exercise-means-wrap" style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.84rem; font-weight: 700; cursor: pointer; user-select: none; background: #f8fafc; padding: 4px 8px; border: 1.5px solid #111; border-radius: 4px;">
-            <input type="checkbox" id="gs-report-toggle-exercise-means" checked style="cursor: pointer; width: 15px; height: 15px;" />
-            <span data-i18n="gsReportToggleExerciseMeans">Include Exercise Means</span>
-          </label>
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-left: auto;">
+          <button id="gs-report-btn-options" class="btn" type="button" style="display:inline-flex;align-items:center;gap:6px;font-weight:700;background:#f8fafc;"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> <span data-i18n="gsReportCustomizeElements">Elements &amp; Options</span></button>
           <label id="gs-report-toggle-fit-page-wrap" style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.84rem; font-weight: 700; cursor: pointer; user-select: none; background: #f8fafc; padding: 4px 8px; border: 1.5px solid #111; border-radius: 4px;">
             <input type="checkbox" id="gs-report-toggle-fit-page" style="cursor: pointer; width: 15px; height: 15px;" />
             <span data-i18n="gsReportToggleFitOnePage">Fit to 1 page</span>
@@ -1641,6 +1634,59 @@
       </div>
       <div id="gs-report-modal-body" style="flex: 1; min-height: 520px; overflow: hidden; background: #f0f0f0; border: 2px solid #111; border-radius: 4px; padding: 8px;">
         <iframe id="gs-report-preview-frame" style="width: 100%; height: 100%; min-height: 520px; border: none; background: #fff;"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── REPORT ELEMENTS CUSTOMIZATION MODAL ── -->
+  <div id="gs-report-options-modal-overlay" class="crit-popup-overlay hidden" style="z-index: 10700;">
+    <div class="crit-popup" style="max-width: 600px; width: 92vw; padding: 20px 24px; border: 2.5px solid #111; box-shadow: 6px 6px 0 #111; background: #fff;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #111; padding-bottom: 10px; margin-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <img src="../assets/icons/gear.svg" style="width: 20px; height: 20px;" alt="" />
+          <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800;" data-i18n="gsReportOptionsTitle">Customize Report Elements</h3>
+        </div>
+        <button id="gs-report-options-modal-close" class="btn btn-sm" type="button" style="padding: 2px 6px;"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
+      </div>
+      <p style="font-size: 0.82rem; color: var(--muted); margin: 0 0 12px 0;" data-i18n="gsReportOptionsHelp">Choose which sections to include in the generated report preview and exports.</p>
+      
+      <div class="report-options-grid">
+        <label class="report-option-item">
+          <input type="checkbox" id="gs-report-toggle-competences" checked />
+          <span data-i18n="gsReportToggleCompetences">Include Competences</span>
+        </label>
+        <label class="report-option-item">
+          <input type="checkbox" id="gs-report-toggle-exercise-means" checked />
+          <span data-i18n="gsReportToggleExerciseMeans">Include Exercise Means</span>
+        </label>
+        <label class="report-option-item">
+          <input type="checkbox" id="gs-report-toggle-kpi" checked />
+          <span data-i18n="gsReportToggleKpi">Include KPI Summary Cards</span>
+        </label>
+        <label class="report-option-item">
+          <input type="checkbox" id="gs-report-toggle-charts" checked />
+          <span data-i18n="gsReportToggleCharts">Include Charts &amp; Visualizations</span>
+        </label>
+        <label class="report-option-item">
+          <input type="checkbox" id="gs-report-toggle-criteria" checked />
+          <span data-i18n="gsReportToggleCriteria">Include Criteria Breakdown</span>
+        </label>
+        <label class="report-option-item">
+          <input type="checkbox" id="gs-report-toggle-comments" checked />
+          <span data-i18n="gsReportToggleComments">Include Criteria Comments</span>
+        </label>
+        <label class="report-option-item">
+          <input type="checkbox" id="gs-report-toggle-observations" checked />
+          <span data-i18n="gsReportToggleObservations">Include Observations &amp; Feedback</span>
+        </label>
+        <label class="report-option-item">
+          <input type="checkbox" id="gs-report-toggle-scale" checked />
+          <span data-i18n="gsReportToggleScale">Include Grading Scale</span>
+        </label>
+      </div>
+      
+      <div class="crit-popup-footer" style="margin-top: 16px; border-top: 1.5px solid #e2e8f0; padding-top: 12px; display: flex; justify-content: flex-end;">
+        <button id="gs-report-options-modal-done" class="btn primary" type="button"><img src="../assets/icons/check.svg" class="btn-icon" alt="" /> <span data-i18n="btnDone">Done</span></button>
       </div>
     </div>
   </div>
@@ -1782,13 +1828,43 @@
       ];
     }
 
+    function parseObservationChipItem(item) {
+      if (!item) return { name: '', count: 1 };
+      if (typeof item === 'object') {
+        const rawName = String(item.name || item.label || item.chipName || '').trim();
+        const parsed = parseObservationChipItem(rawName);
+        const count = Number(item.count) || parsed.count || 1;
+        return { name: parsed.name, count: Math.max(1, count) };
+      }
+      const str = String(item || '').trim();
+      const match = str.match(/^(.*?)(?:\s*(?:\((?:x|×)?(\d+)\)|(?:x|×)(\d+)))$/i);
+      if (match) {
+        const baseName = (match[1] || '').trim();
+        const count = parseInt(match[2] || match[3], 10) || 1;
+        return { name: baseName || str, count: Math.max(1, count) };
+      }
+      return { name: str, count: 1 };
+    }
+
+    function formatObservationChipItem(name, count) {
+      const c = Math.max(1, Number(count) || 1);
+      const n = String(name || '').trim();
+      if (c > 1) return `${n} (x${c})`;
+      return n;
+    }
+
     function cloneObservationSection(section) {
       return {
         kind: normalizeObservationKind(section && section.kind) || "custom",
         label: String((section && section.label) || ""),
         text: String((section && section.text) || ""),
         checklist: Array.isArray(section && section.checklist)
-          ? section.checklist.map(v => String(v || "").trim()).filter(Boolean)
+          ? section.checklist.map(v => {
+              if (v && typeof v === 'object' && v.name) {
+                return formatObservationChipItem(v.name, v.count);
+              }
+              return String(v || "").trim();
+            }).filter(Boolean)
           : []
       };
     }
@@ -1945,7 +2021,12 @@
 
     function sectionChecklistSummary(section) {
       return Array.isArray(section && section.checklist)
-        ? section.checklist.map(s => String(s || "").trim()).filter(Boolean)
+        ? section.checklist.map(s => {
+            if (s && typeof s === 'object' && s.name) {
+              return formatObservationChipItem(s.name, s.count);
+            }
+            return String(s || "").trim();
+          }).filter(Boolean)
         : [];
     }
 
@@ -1961,7 +2042,10 @@
       return !!sectionDisplayText(section).trim();
     }
 
-    function renderObservationPill(name, kind, label) {
+    function renderObservationPill(nameOrObj, kind, label) {
+      const parsed = parseObservationChipItem(nameOrObj);
+      const name = parsed.name;
+      const count = parsed.count;
       const lbl = String(label || "").trim();
       const lblLower = lbl.toLowerCase();
       let border = "#0284c7";
@@ -1998,7 +2082,11 @@
         }
       }
 
-      return `<span class="${pillClass}" style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:10.5px;font-weight:700;line-height:1.25;margin:2px 3px 2px 0;background:${bg};color:${color};border:1.5px solid ${border};box-shadow:1px 1px 0 rgba(0,0,0,0.12);">${escapeHtml(name)}</span>`;
+      const multiplierBadge = count > 1
+        ? `<sup class="obs-pill-multiplier" style="font-size:0.68em;font-weight:800;line-height:0;vertical-align:super;margin-left:1px;width:0;display:inline-block;white-space:nowrap;overflow:visible;pointer-events:none;">x${count}</sup>`
+        : "";
+
+      return `<span class="${pillClass}" style="display:inline-block;padding:1px 5px;border-radius:10px;font-size:9px;font-weight:700;line-height:1.15;margin:1px 2px 1px 0;background:${bg};color:${color};border:1.5px solid ${border};box-shadow:1px 1px 0 rgba(0,0,0,0.12);">${escapeHtml(name)}${multiplierBadge}</span>`;
     }
 
     function groupObservationChipsByCategory(chips, sectionLabel, bankFilename) {
@@ -2015,7 +2103,8 @@
       const uncategorized = [];
 
       chips.forEach(chip => {
-        const chipClean = String(chip || '').trim();
+        const parsed = parseObservationChipItem(chip);
+        const chipClean = parsed.name;
         if (!chipClean) return;
         const chipLower = chipClean.toLowerCase();
 
@@ -2036,9 +2125,9 @@
               chips: []
             });
           }
-          categoryMap.get(catName).chips.push(chipClean);
+          categoryMap.get(catName).chips.push(parsed);
         } else {
-          uncategorized.push(chipClean);
+          uncategorized.push(parsed);
         }
       });
 
@@ -2079,28 +2168,26 @@
       if (checklist.length > 0) {
         const catGroups = groupObservationChipsByCategory(checklist, label, typeof _activeChipBankFilename !== 'undefined' ? _activeChipBankFilename : null);
         if (catGroups.length > 0) {
-          pillsHtml = `<div class="obs-categories-wrap" style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:2px;margin-bottom:3px;">` +
-            catGroups.map(cg => `
-              <span class="obs-category-span" style="display:inline-flex;align-items:center;flex-wrap:wrap;gap:3px;border:1.5px solid #333333;border-radius:6px;padding:2px 6px;margin:1px 2px 1px 0;vertical-align:middle;">
-                <span class="obs-category-tag" style="font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.03em;color:#333333;margin-right:2px;white-space:nowrap;">
-                  ${escapeHtml(cg.category)}:
-                </span>
-                ${cg.chips.map(chip => renderObservationPill(chip, section.kind, label)).join("")}
+          pillsHtml = catGroups.map(cg => `
+            <span class="obs-category-span" style="display:inline-flex;align-items:center;flex-wrap:wrap;gap:2px;margin:0 4px 0 0;vertical-align:middle;">
+              <span class="obs-category-tag" style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.02em;color:#333333;margin-right:2px;white-space:nowrap;">
+                ${escapeHtml(cg.category)}:
               </span>
-            `).join("") +
-            `</div>`;
+              ${cg.chips.map(chip => renderObservationPill(chip, section.kind, label)).join("")}
+            </span>
+          `).join("");
         }
       }
 
       const feedbackHtml = text
-        ? `<div class="obs-feedback" style="margin-top:${checklist.length > 0 ? '5px' : '2px'};padding:5px 9px;background:#f8fafc;border-left:3px solid ${secColor};border-radius:0 4px 4px 0;font-size:11.5px;line-height:1.45;color:#1e293b;"><div class="obs-feedback-body">${renderMd(text)}</div></div>`
+        ? `<span class="obs-feedback" style="display:inline;font-size:10px;line-height:1.35;color:#1e293b;margin-left:${(checklist.length > 0 || label) ? '4px' : '0'};"><span class="obs-feedback-body" style="display:inline;">${renderMd(text)}</span></span>`
         : "";
 
       const labelHtml = label
-        ? `<div class="obs-label" style="font-size:11.5px;font-weight:800;color:#111;margin-bottom:2px;display:flex;align-items:center;gap:5px;"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${secColor};"></span>${escapeHtml(label)}</div>`
+        ? `<span class="obs-label" style="font-size:10px;font-weight:800;color:#111;display:inline-flex;align-items:center;gap:3px;margin-right:4px;"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${secColor};"></span>${escapeHtml(label)}:</span>`
         : "";
 
-      return `<div class="obs-section" style="margin-bottom:8px;">${labelHtml}${pillsHtml}${feedbackHtml}</div>`;
+      return `<div class="obs-section" style="margin-bottom:3px;display:flex;flex-wrap:wrap;align-items:center;gap:2px 4px;line-height:1.35;">${labelHtml}${pillsHtml}${feedbackHtml}</div>`;
     }
 
     function renderObservationInlineHtml(section) {
@@ -2111,20 +2198,20 @@
 
       if (checklist.length === 0 && !text) return "";
 
-      const labelPrefix = label ? `<strong style="color:#111;margin-right:4px;">${escapeHtml(label)}:</strong>` : "";
+      const labelPrefix = label ? `<strong style="color:#111;margin-right:4px;font-size:9.5px;">${escapeHtml(label)}:</strong>` : "";
       let pills = "";
       if (checklist.length > 0) {
         const catGroups = groupObservationChipsByCategory(checklist, label, typeof _activeChipBankFilename !== 'undefined' ? _activeChipBankFilename : null);
         pills = catGroups.map(cg => `
-          <span class="obs-category-span" style="display:inline-flex;align-items:center;flex-wrap:wrap;gap:2px;border:1.5px solid #333333;border-radius:6px;padding:1px 5px;margin:1px 3px 1px 0;vertical-align:middle;">
-            <span class="obs-category-tag" style="font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.03em;color:#333333;margin-right:2px;white-space:nowrap;">${escapeHtml(cg.category)}:</span>
+          <span class="obs-category-span" style="display:inline-flex;align-items:center;flex-wrap:wrap;gap:2px;margin:0 4px 0 0;vertical-align:middle;">
+            <span class="obs-category-tag" style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.02em;color:#333333;margin-right:2px;white-space:nowrap;">${escapeHtml(cg.category)}:</span>
             ${cg.chips.map(chip => renderObservationPill(chip, section.kind, label)).join("")}
           </span>
         `).join("");
       }
-      const textPart = text ? `<span class="obs-inline-text" style="margin-left:${checklist.length > 0 ? '6px' : '0'};color:#333;font-style:italic;">${escapeHtml(text)}</span>` : "";
+      const textPart = text ? `<span class="obs-inline-text" style="margin-left:${checklist.length > 0 ? '4px' : '0'};color:#1e293b;font-size:9.5px;"><span style="display:inline;">${renderMd(text)}</span></span>` : "";
 
-      return `<div class="obs-inline-row" style="margin-bottom:3px;display:flex;flex-wrap:wrap;align-items:center;">${labelPrefix}${pills}${textPart}</div>`;
+      return `<div class="obs-inline-row" style="margin-bottom:3px;display:flex;flex-wrap:wrap;align-items:center;gap:2px 4px;">${labelPrefix}${pills}${textPart}</div>`;
     }
 
     // Returns the descriptor text for a named xlsm criterion at the given grade level.
@@ -8785,8 +8872,14 @@
 
       const gradeStats = calcStats(gradeVals);
       const critScoreStats = calcStats(critScoreVals);
+      const corrTimeVals = classObj.students.map(student => {
+        const t = student.correctionTime && student.correctionTime[sem] ? student.correctionTime[sem][testIndex] : null;
+        return (t != null && !isNaN(t) && t !== '') ? Number(t) : null;
+      }).filter(v => v != null);
+      const corrTimeStats = calcStats(corrTimeVals);
+      const totalCorrTime = corrTimeVals.length > 0 ? corrTimeVals.reduce((a, b) => a + b, 0) : null;
 
-      if (gradeStats || critScoreStats || perCritStats.some(s => s != null)) {
+      if (gradeStats || critScoreStats || perCritStats.some(s => s != null) || corrTimeVals.length > 0) {
         const sepTr = document.createElement("tr");
         sepTr.dataset.statsRow = "1";
         const sepTd = document.createElement("td");
@@ -8831,6 +8924,9 @@
           str.appendChild(critScoreTd);
 
           const corrTimeStatTd = document.createElement("td");
+          corrTimeStatTd.className = "td-criteria-display";
+          const ctv = corrTimeStats ? corrTimeStats[key] : null;
+          corrTimeStatTd.textContent = ctv != null ? `${fmt(ctv)}` : "—";
           str.appendChild(corrTimeStatTd);
 
           config.criteria.forEach((criterion, ci) => {
@@ -8844,6 +8940,48 @@
 
           tbody.appendChild(str);
         });
+
+        // Total Row (Total Time & Aggregate)
+        const totTr = document.createElement("tr");
+        totTr.dataset.statsRow = "1";
+        totTr.style.cssText = "background:#f0f7f4;font-size:0.85rem;border-top:1px dashed var(--line);";
+
+        const totLabelTd = document.createElement("td");
+        totLabelTd.colSpan = 3;
+        totLabelTd.style.cssText = "font-weight:800;color:var(--accent);font-size:0.78rem;text-transform:uppercase;letter-spacing:0.05em;padding:5px 10px;";
+        totLabelTd.textContent = t('gsStatTotalTime', 'Total Time');
+        totTr.appendChild(totLabelTd);
+
+        const totGradeTd = document.createElement("td");
+        totGradeTd.className = "td-grade-display";
+        totGradeTd.textContent = "—";
+        totTr.appendChild(totGradeTd);
+
+        const totNextDeltaTd = document.createElement("td");
+        totTr.appendChild(totNextDeltaTd);
+
+        const totObsTd = document.createElement("td");
+        totTr.appendChild(totObsTd);
+
+        const totCritScoreTd = document.createElement("td");
+        totCritScoreTd.className = "td-criteria-display";
+        totCritScoreTd.textContent = "—";
+        totTr.appendChild(totCritScoreTd);
+
+        const totCorrTimeTd = document.createElement("td");
+        totCorrTimeTd.className = "td-criteria-display";
+        totCorrTimeTd.style.fontWeight = "800";
+        totCorrTimeTd.textContent = totalCorrTime != null ? `${fmt(totalCorrTime)}` : "—";
+        totTr.appendChild(totCorrTimeTd);
+
+        config.criteria.forEach(() => {
+          const td = document.createElement("td");
+          td.className = "td-criteria-display";
+          td.textContent = "—";
+          totTr.appendChild(td);
+        });
+
+        tbody.appendChild(totTr);
       }
       updateNavTabs();
     }
@@ -10199,7 +10337,7 @@
               const ids = Array.isArray(crit.competenceIds) ? crit.competenceIds : [];
               if (ids.length === 0) {
                 const emptyChip = document.createElement("span");
-                emptyChip.style.cssText = "font-size:0.78rem;color:var(--muted);font-style:italic;";
+                emptyChip.style.cssText = "font-size:0.78rem;color:var(--muted);";
                 emptyChip.textContent = t('gsNoCompetencesLinked');
                 compChipsContainer.appendChild(emptyChip);
                 return;
@@ -10433,7 +10571,7 @@
 
         if (sectionTrees.length === 0) {
           const empty = document.createElement("div");
-          empty.style.cssText = "font-size:0.8rem;color:var(--muted);font-style:italic;padding:12px;text-align:center;";
+          empty.style.cssText = "font-size:0.8rem;color:var(--muted);padding:12px;text-align:center;";
           empty.textContent = t('gsNoChipsForSection', 'No preset chips defined in this bank.');
           toptChipsPreviewList.appendChild(empty);
         } else {
@@ -10800,7 +10938,7 @@
         toptObsSectionsList.innerHTML = "";
         if (!obsSectionsDraft.length) {
           const empty = document.createElement("div");
-          empty.style.cssText = "font-size:0.8rem;color:var(--muted);font-style:italic;";
+          empty.style.cssText = "font-size:0.8rem;color:var(--muted);";
           empty.textContent = t('gsNoObsSectionsConfigured', 'No custom observation section presets. Default sections will be generated.');
           toptObsSectionsList.appendChild(empty);
           return;
@@ -11253,11 +11391,11 @@
         }
         .obs-pill {
           display: inline-block;
-          padding: ${fitToOnePage ? '1px 5px' : '2px 8px'};
-          border-radius: 12px;
-          font-size: ${fitToOnePage ? '9px' : '10.5px'};
+          padding: ${fitToOnePage ? '1px 4px' : '1.5px 5px'};
+          border-radius: 10px;
+          font-size: ${fitToOnePage ? '8px' : '9px'};
           font-weight: 700;
-          line-height: 1.2;
+          line-height: 1.15;
           margin: 1px 2px 1px 0;
           box-shadow: 1px 1px 0 rgba(0,0,0,0.12);
         }
@@ -11276,27 +11414,39 @@
           color: #0369a1;
           border: 1.5px solid #0284c7;
         }
+        .obs-pill-multiplier {
+          font-size: 0.68em;
+          font-weight: 800;
+          line-height: 0;
+          vertical-align: super;
+          margin-left: 1px;
+          width: 0;
+          display: inline-block;
+          white-space: nowrap;
+          overflow: visible;
+        }
         .obs-feedback {
-          margin-top: ${fitToOnePage ? '2px' : '4px'};
-          padding: ${fitToOnePage ? '3px 6px' : '5px 9px'};
-          background: #f8fafc;
-          border-left: 3px solid #0f172a;
-          border-radius: 0 4px 4px 0;
-          font-size: ${fitToOnePage ? '10px' : '11.5px'};
-          line-height: ${fitToOnePage ? '1.3' : '1.45'};
+          display: inline;
+          padding: 0;
+          background: transparent;
+          border: none;
+          font-size: ${fitToOnePage ? '8.5px' : '9.5px'};
+          line-height: ${fitToOnePage ? '1.2' : '1.35'};
           color: #1e293b;
         }
         .obs-feedback-body {
+          display: inline;
           white-space: normal;
         }
         .obs-feedback-body p {
-          margin: 0 0 2px 0;
+          display: inline;
+          margin: 0;
         }
         .obs-feedback-body p:last-child {
           margin-bottom: 0;
         }
         .obs-text { font-size: ${fitToOnePage ? '10.5px' : '13px'}; line-height: 1.4; white-space: normal; color: #111; }
-        .no-data { color: #888; font-style: italic; font-size: ${fitToOnePage ? '9.5px' : '12px'}; }
+        .no-data { color: #888; font-size: ${fitToOnePage ? '9.5px' : '12px'}; }
         .scale-wrap { margin-top: ${fitToOnePage ? '1px' : '2px'}; }
         .scale-table { font-size: ${fitToOnePage ? '8.5px' : '10px'}; border-collapse: collapse; width: 100%; border: 1.5px solid #111; }
         .scale-table th, .scale-table td { padding: ${fitToOnePage ? '2px 4px' : '3px 5px'}; border: 1.5px solid #111; text-align: center; white-space: nowrap; color: #111; }
@@ -11959,10 +12109,9 @@
           align-items: center;
           flex-wrap: wrap;
           gap: 3px;
-          border: 1.5px solid #333333;
-          border-radius: 6px;
-          padding: 2px 6px;
-          margin: 1px 2px 1px 0;
+          border: none;
+          padding: 0;
+          margin: 0 4px 0 0;
           vertical-align: middle;
           page-break-inside: avoid;
         }
@@ -11984,12 +12133,12 @@
         }
         .obs-pill {
           display: inline-block;
-          padding: 2px 8px;
-          border-radius: 12px;
-          font-size: 10.5px;
+          padding: 1.5px 5px;
+          border-radius: 10px;
+          font-size: 9px;
           font-weight: 700;
-          line-height: 1.25;
-          margin: 2px 3px 2px 0;
+          line-height: 1.15;
+          margin: 1px 2px 1px 0;
           box-shadow: 1px 1px 0 rgba(0,0,0,0.12);
         }
         .obs-pill-good {
@@ -12007,27 +12156,41 @@
           color: #0369a1;
           border: 1.5px solid #0284c7;
         }
+        .obs-pill-multiplier {
+          font-size: 0.68em;
+          font-weight: 800;
+          line-height: 0;
+          vertical-align: super;
+          margin-left: 1px;
+          width: 0;
+          display: inline-block;
+          white-space: nowrap;
+          overflow: visible;
+        }
         .obs-feedback {
-          margin-top: 4px;
-          padding: 5px 9px;
-          background: #f8fafc;
-          border-left: 3px solid #0f172a;
-          border-radius: 0 4px 4px 0;
-          font-size: 11.5px;
-          line-height: 1.45;
+          display: inline;
+          padding: 0;
+          background: transparent;
+          border: none;
+          font-size: 9.5px;
+          line-height: 1.35;
           color: #1e293b;
         }
         .obs-feedback-body {
+          display: inline;
           white-space: normal;
         }
         .obs-feedback-body p {
-          margin: 0 0 3px 0;
+          display: inline;
+          margin: 0;
         }
         .obs-feedback-body p:last-child {
           margin-bottom: 0;
         }
+          margin-bottom: 0;
+        }
         .obs-text { font-size: 13px; line-height: 1.5; white-space: normal; color: #1e293b; }
-        .no-data { color: #888; font-style: italic; font-size: 12px; }
+        .no-data { color: #888; font-size: 12px; }
         .scale-wrap { margin-top: 2px; }
         .scale-table { font-size: 10px; border-collapse: collapse; width: 100%; table-layout: fixed; border: 2px solid #333333; }
         .scale-table th, .scale-table td { padding: 3px 5px; border: 1.5px solid #333333; text-align: center; white-space: nowrap; color: #1e293b; }
@@ -12817,32 +12980,32 @@
         .obs-pills-row { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 1px; margin-bottom: 2px; }
         .obs-pill {
           display: inline-block;
-          padding: ${fitToOnePage ? '1px 5px' : '2px 8px'};
-          border-radius: 12px;
-          font-size: ${fitToOnePage ? '9px' : '10.5px'};
+          padding: ${fitToOnePage ? '1px 4px' : '1.5px 5px'};
+          border-radius: 10px;
+          font-size: ${fitToOnePage ? '8px' : '9px'};
           font-weight: 700;
-          line-height: 1.2;
+          line-height: 1.15;
           margin: 1px 2px 1px 0;
           box-shadow: 1px 1px 0 rgba(0,0,0,0.12);
         }
         .obs-pill-good { background: #dcfce7; color: #166534; border: 1.5px solid #16a34a; }
         .obs-pill-remedy { background: #fee2e2; color: #991b1b; border: 1.5px solid #dc2626; }
         .obs-pill-custom { background: #e0f2fe; color: #0369a1; border: 1.5px solid #0284c7; }
+        .obs-pill-multiplier { font-size: 0.68em; font-weight: 800; line-height: 0; vertical-align: super; margin-left: 1px; width: 0; display: inline-block; white-space: nowrap; overflow: visible; }
         .obs-feedback {
-          margin-top: ${fitToOnePage ? '2px' : '4px'};
-          padding: ${fitToOnePage ? '3px 6px' : '5px 9px'};
-          background: #f8fafc;
-          border-left: 3px solid #0f172a;
-          border-radius: 0 4px 4px 0;
-          font-size: ${fitToOnePage ? '10px' : '11.5px'};
-          line-height: ${fitToOnePage ? '1.3' : '1.45'};
+          display: inline;
+          padding: 0;
+          background: transparent;
+          border: none;
+          font-size: ${fitToOnePage ? '8.5px' : '9.5px'};
+          line-height: ${fitToOnePage ? '1.2' : '1.35'};
           color: #1e293b;
         }
-        .obs-feedback-body { white-space: normal; }
-        .obs-feedback-body p { margin: 0 0 2px 0; }
+        .obs-feedback-body { display: inline; white-space: normal; }
+        .obs-feedback-body p { display: inline; margin: 0; }
         .obs-feedback-body p:last-child { margin-bottom: 0; }
-        .obs-inline-row { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; margin-bottom: 1px; }
-        .obs-inline-text { font-size: ${fitToOnePage ? '8.5px' : '9.5px'}; color: #333; font-style: italic; }
+        .obs-inline-row { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; margin-bottom: 1px; }
+        .obs-inline-text { font-size: ${fitToOnePage ? '8.5px' : '9.5px'}; color: #1e293b; }
         @page { size: ${size}; margin: ${pageMargin}; }
         @media print {
           body { background: #fff; margin: 0; padding: 0; }
@@ -13522,8 +13685,15 @@
       </body></html>`;
     }
 
-    function buildClassTestReportHtml(classObj, sem, testIndex, includeCompetences = getReportIncludeCompetences(), fitToOnePage = getReportFitToOnePage()) {
+    function buildClassTestReportHtml(classObj, sem, testIndex, includeCompetences = getReportIncludeCompetences(), fitToOnePage = getReportFitToOnePage(), options = {}) {
       ensureClassStructures(classObj);
+      const opts = (typeof options === 'object' && options !== null) ? options : {};
+      const incKpi = opts.includeKpi !== undefined ? !!opts.includeKpi : getReportIncludeKpi();
+      const incCharts = opts.includeCharts !== undefined ? !!opts.includeCharts : getReportIncludeCharts();
+      const incCriteria = opts.includeCriteria !== undefined ? !!opts.includeCriteria : getReportIncludeCriteria();
+      const incComp = opts.includeCompetences !== undefined ? !!opts.includeCompetences : includeCompetences;
+      const fitPage = opts.fitToOnePage !== undefined ? !!opts.fitToOnePage : fitToOnePage;
+
       const config = getTestConfig(classObj, sem, testIndex);
       const testNo = testIndex + 1;
       const testLabel = config.testName ? String(config.testName) : `T${testNo}`;
@@ -13608,8 +13778,8 @@
       const esc = escapeHtml;
       return `<!DOCTYPE html><html><head><meta charset="utf-8">
         <title>${esc(classObj.name)} - ${esc(sem.toUpperCase())} ${esc(testLabel)} Test Report</title>
-        <style>${getNeobrutalistReportCss(false, fitToOnePage)}</style></head><body>
-        <div class="report-page ${fitToOnePage ? 'fit-one-page' : ''}">
+        <style>${getNeobrutalistReportCss(false, fitPage)}</style></head><body>
+        <div class="report-page ${fitPage ? 'fit-one-page' : ''}">
           <div class="report-header">
             <div>
               <div class="report-title">${esc(classObj.name)} — Test Report: ${esc(testLabel)} (${esc(semLabel)})</div>
@@ -13618,6 +13788,7 @@
             <div class="report-meta">${t('gsReportGenerated') || 'Generated:'} ${new Date().toLocaleDateString()}</div>
           </div>
 
+          ${incKpi ? `
           <div class="kpi-grid">
             <div class="kpi-card">
               <div class="kpi-label">${t('gsKpiTestGradeMean') || 'Test Grade Mean'}</div>
@@ -13639,15 +13810,16 @@
               <div class="kpi-value">${gradeStats.stdDev != null ? gradeStats.stdDev.toFixed(2) : '-'}</div>
               <div class="kpi-sub">${t('gsKpiExtremes') || 'Extremes'}: ${gradeStats.min != null ? gradeStats.min.toFixed(1) : '-'} / ${gradeStats.max != null ? gradeStats.max.toFixed(1) : '-'}</div>
             </div>
-          </div>
+          </div>` : ''}
 
+          ${incCharts ? `
           <div class="charts-row">
             <div>${histGradeSvg}</div>
             <div>${histPointsSvg}</div>
           </div>
+          <div style="margin-top:2px;">${critBarsSvg}</div>` : ''}
 
-          <div style="margin-top:2px;">${critBarsSvg}</div>
-
+          ${incCriteria ? `
           <div class="section-heading" style="margin-top:6px;">${t('gsReportStudentResultsCritBreakdown') || 'Student Results & Criteria Breakdown'}</div>
           <table class="report-table">
             <thead>
@@ -13659,7 +13831,7 @@
                 ${(config.criteria || []).map(cr => {
                   let compBadges = '';
                   const effCompIds = getCriterionEffectiveCompetenceIds(cr, classObj, config);
-                  if (includeCompetences && effCompIds.length > 0) {
+                  if (incComp && effCompIds.length > 0) {
                     compBadges = '<div style="margin-top:2px;">' + effCompIds.map(cid => {
                       const c = findLessonCompetence(cid);
                       const label = c ? (c.code || c.title || cid) : cid;
@@ -13673,10 +13845,10 @@
             <tbody>
               ${trs}
             </tbody>
-          </table>
+          </table>` : ''}
 
           ${(() => {
-            if (!includeCompetences) return '';
+            if (!incComp) return '';
             const compMap = new Map();
             (config.criteria || []).forEach(cr => {
               const effCompIds = getCriterionEffectiveCompetenceIds(cr, classObj, config);
@@ -13746,7 +13918,7 @@
             `;
           })()}
         </div>
-        ${getReportAutoScaleScript(false, fitToOnePage)}
+        ${getReportAutoScaleScript(false, fitPage)}
       </body></html>`;
     }
 
@@ -14030,8 +14202,19 @@
       </body></html>`;
     }
 
-    function buildStudentTestReportHtml(classObj, student, sem, testIndex, includeCompetences = getReportIncludeCompetences(), includeExerciseMeans = getReportIncludeExerciseMeans(), fitToOnePage = getReportFitToOnePage()) {
+    function buildStudentTestReportHtml(classObj, student, sem, testIndex, includeCompetences = getReportIncludeCompetences(), includeExerciseMeans = getReportIncludeExerciseMeans(), fitToOnePage = getReportFitToOnePage(), options = {}) {
       ensureClassStructures(classObj);
+      const opts = (typeof options === 'object' && options !== null) ? options : {};
+      const incKpi = opts.includeKpi !== undefined ? !!opts.includeKpi : getReportIncludeKpi();
+      const incCharts = opts.includeCharts !== undefined ? !!opts.includeCharts : getReportIncludeCharts();
+      const incCriteria = opts.includeCriteria !== undefined ? !!opts.includeCriteria : getReportIncludeCriteria();
+      const incComments = opts.includeComments !== undefined ? !!opts.includeComments : getReportIncludeComments();
+      const incObs = opts.includeObservations !== undefined ? !!opts.includeObservations : getReportIncludeObservations();
+      const incScale = opts.includeScale !== undefined ? !!opts.includeScale : getReportIncludeScale();
+      const incComp = opts.includeCompetences !== undefined ? !!opts.includeCompetences : includeCompetences;
+      const incMeans = opts.includeExerciseMeans !== undefined ? !!opts.includeExerciseMeans : includeExerciseMeans;
+      const fitPage = opts.fitToOnePage !== undefined ? !!opts.fitToOnePage : fitToOnePage;
+
       const config = getTestConfig(classObj, sem, testIndex);
       const testNo = testIndex + 1;
       const testLabel = config.testName ? String(config.testName) : `T${testNo}`;
@@ -14071,34 +14254,27 @@
           const meanPts = (stat && stat.avgPts != null) ? fmtN(stat.avgPts) : null;
           const meanPtsStr = meanPts != null ? `${meanPts} / ${fmtN(cr.maxPoints)}` : `— / ${fmtN(cr.maxPoints)}`;
           const comment = entry.comment ? renderMd(entry.comment) : `—`;
-          const key = nearestCriterionGradeKey(cr, null, pts, cr.minPoints, cr.maxPoints);
-          const xlsm = (typeof XLSM_CRITERIA !== "undefined" && Array.isArray(XLSM_CRITERIA)) ? XLSM_CRITERIA.find(x => x.name.trim().toLowerCase() === cr.name.trim().toLowerCase()) : null;
-          const critColor = (xlsm && xlsm.colors && xlsm.colors[key]) || (cr && cr.colors && cr.colors[key]) || (key ? getDefaultGradeColor(key) : null);
-          const cTextColor = getHighContrastTextColor(critColor);
-          const gradeBadge = (pts != null && key != null && critColor)
-            ? `<span style="display:inline-block;font-size:10px;font-weight:800;padding:1px 5px;border-radius:3px;margin-right:6px;background:${critColor}20;color:${cTextColor};border:1px solid ${critColor};">${escapeHtml(key)}</span>`
-            : "";
           let compBadges = '';
           const effCompIds = getCriterionEffectiveCompetenceIds(cr, classObj, config);
-          if (includeCompetences && effCompIds.length > 0) {
+          if (incComp && effCompIds.length > 0) {
             compBadges = '<div style="margin-top:2px;">' + effCompIds.map(cid => {
               const c = findLessonCompetence(cid);
               const label = c ? (c.code || c.title || cid) : cid;
               return `<span style="display:inline-block;background:#0284c7;color:#fff;border-radius:3px;padding:0px 4px;font-size:9px;font-weight:700;margin:1px;">${escapeHtml(label)}</span>`;
             }).join('') + '</div>';
           }
-          if (includeExerciseMeans) {
+          if (incMeans) {
             return `<tr>
               <td style="font-weight:700;">${escapeHtml(cr.name)}${compBadges}</td>
               <td class="center" style="font-weight:800;">${ptsStr}</td>
               <td class="center" style="font-weight:700;color:#475569;">${meanPtsStr}</td>
-              <td>${comment}</td>
+              ${incComments ? `<td>${comment}</td>` : ''}
             </tr>`;
           }
           return `<tr>
             <td style="font-weight:700;">${escapeHtml(cr.name)}${compBadges}</td>
             <td class="center" style="font-weight:800;">${ptsStr}</td>
-            <td>${comment}</td>
+            ${incComments ? `<td>${comment}</td>` : ''}
           </tr>`;
         }).join('');
       }
@@ -14107,7 +14283,7 @@
       let obsHtml = '';
       if (notes.length > 0 && notes.some(s => sectionHasContent(s))) {
         const blocks = notes.filter(s => sectionHasContent(s)).map(s => renderObservationSectionHtml(s)).join('');
-        obsHtml = `<div style="border:2px solid #111;box-shadow:2.5px 2.5px 0 #111;border-radius:4px;padding:8px 12px;background:#fff;margin-top:6px;">
+        obsHtml = `<div class="obs-feedback" style="padding:6px 0;background:transparent;margin-top:6px;">
           <div class="section-heading" style="margin-top:0;">${t('gsReportObservationsFeedback') || 'Observations & Teacher Feedback'}</div>
           ${blocks}
         </div>`;
@@ -14131,8 +14307,8 @@
       const esc = escapeHtml;
       return `<!DOCTYPE html><html><head><meta charset="utf-8">
         <title>${esc(fullName)} - ${esc(testLabel)} Test Report</title>
-        <style>${getNeobrutalistReportCss(false, fitToOnePage)}</style></head><body>
-        <div class="report-page ${fitToOnePage ? 'fit-one-page' : ''}">
+        <style>${getNeobrutalistReportCss(false, fitPage)}</style></head><body>
+        <div class="report-page ${fitPage ? 'fit-one-page' : ''}">
           <div class="report-header">
             <div>
               <div class="report-title">${esc(fullName)} — Test Feedback: ${esc(testLabel)}</div>
@@ -14143,6 +14319,7 @@
             </div>
           </div>
 
+          ${incKpi ? `
           <div class="kpi-grid">
             <div class="kpi-card">
               <div class="kpi-label">Final Grade</div>
@@ -14161,19 +14338,19 @@
               </div>
               <div class="kpi-sub">${(grade && grade >= (classTestStats.mean || 4.0)) ? 'Above average ▲' : 'Below average ▼'}</div>
             </div>
-          </div>
+          </div>` : ''}
 
-          <div>${gaugeSvg}</div>
+          ${incCharts ? `<div>${gaugeSvg}</div>` : ''}
 
-          ${config.criteria.length > 0 ? (includeExerciseMeans ? `
+          ${(incCriteria && config.criteria.length > 0) ? (incMeans ? `
           <div class="section-heading" style="margin-top:6px;">${t('gsReportCriteriaEvalComments') || 'Criteria Evaluation & Detailed Comments'}</div>
           <table class="report-table">
             <thead>
               <tr>
-                <th style="width:22%;">${t('gsCriteriaLabelName') || 'Criterion'}</th>
-                <th class="center" style="width:12%;">${t('gsGradingManualPts') || 'Points Scored'}</th>
-                <th class="center" style="width:12%;">${t('gsReportClassMeanHeader') || 'Class Mean'}</th>
-                <th style="width:54%;">${t('gsColComments') || 'Comments & Feedback'}</th>
+                <th style="${incComments ? 'width:22%;' : 'width:50%;'}">${t('gsCriteriaLabelName') || 'Criterion'}</th>
+                <th class="center" style="${incComments ? 'width:12%;' : 'width:25%;'}">${t('gsGradingManualPts') || 'Points Scored'}</th>
+                <th class="center" style="${incComments ? 'width:12%;' : 'width:25%;'}">${t('gsReportClassMeanHeader') || 'Class Mean'}</th>
+                ${incComments ? `<th style="width:54%;">${t('gsColComments') || 'Comments & Feedback'}</th>` : ''}
               </tr>
             </thead>
             <tbody>
@@ -14182,7 +14359,7 @@
                 <td style="font-weight:800;">${t('gsTotal') || 'Total Score'}</td>
                 <td class="center" style="font-weight:800;">${fmtN((totals.totalScored || 0) + (totals.totalBonusScored || 0))} / ${fmtN(defaultTotals.totalPossible)}</td>
                 <td class="center" style="font-weight:800;color:#475569;">${classMeanTotalScored != null ? `${fmtN(classMeanTotalScored)} / ${fmtN(defaultTotals.totalPossible)}` : '—'}</td>
-                <td></td>
+                ${incComments ? `<td></td>` : ''}
               </tr>
             </tbody>
           </table>` : `
@@ -14190,9 +14367,9 @@
           <table class="report-table">
             <thead>
               <tr>
-                <th style="width:24%;">${t('gsCriteriaLabelName') || 'Criterion'}</th>
-                <th class="center" style="width:14%;">${t('gsGradingManualPts') || 'Points Scored'}</th>
-                <th style="width:62%;">${t('gsColComments') || 'Comments & Feedback'}</th>
+                <th style="${incComments ? 'width:24%;' : 'width:65%;'}">${t('gsCriteriaLabelName') || 'Criterion'}</th>
+                <th class="center" style="${incComments ? 'width:14%;' : 'width:35%;'}">${t('gsGradingManualPts') || 'Points Scored'}</th>
+                ${incComments ? `<th style="width:62%;">${t('gsColComments') || 'Comments & Feedback'}</th>` : ''}
               </tr>
             </thead>
             <tbody>
@@ -14200,13 +14377,13 @@
               <tr class="stats-row">
                 <td style="font-weight:800;">${t('gsTotal') || 'Total Score'}</td>
                 <td class="center" style="font-weight:800;">${fmtN((totals.totalScored || 0) + (totals.totalBonusScored || 0))} / ${fmtN(defaultTotals.totalPossible)}</td>
-                <td></td>
+                ${incComments ? `<td></td>` : ''}
               </tr>
             </tbody>
           </table>`) : ''}
 
           ${(() => {
-            if (!includeCompetences) return '';
+            if (!incComp) return '';
             const compMap = new Map();
             (config.criteria || []).forEach(cr => {
               const effCompIds = getCriterionEffectiveCompetenceIds(cr, classObj, config);
@@ -14267,12 +14444,13 @@
             `;
           })()}
 
-          ${obsHtml}
+          ${incObs ? obsHtml : ''}
 
+          ${incScale ? `
           <div class="section-heading" style="margin-top:6px;">Grading Scale Reference</div>
-          ${scaleTableHtml}
+          ${scaleTableHtml}` : ''}
         </div>
-        ${getReportAutoScaleScript(false, fitToOnePage)}
+        ${getReportAutoScaleScript(false, fitPage)}
       </body></html>`;
     }
 
@@ -14319,10 +14497,144 @@
       if (el) el.checked = !!val;
     }
 
+    function getReportIncludeKpi() {
+      const el = document.getElementById('gs-report-toggle-kpi');
+      if (el) return !!el.checked;
+      const cached = localStorage.getItem('cmt-gs-report-include-kpi');
+      return cached !== 'false';
+    }
+
+    function setReportIncludeKpi(val) {
+      localStorage.setItem('cmt-gs-report-include-kpi', val ? 'true' : 'false');
+      const el = document.getElementById('gs-report-toggle-kpi');
+      if (el) el.checked = !!val;
+    }
+
+    function getReportIncludeCharts() {
+      const el = document.getElementById('gs-report-toggle-charts');
+      if (el) return !!el.checked;
+      const cached = localStorage.getItem('cmt-gs-report-include-charts');
+      return cached !== 'false';
+    }
+
+    function setReportIncludeCharts(val) {
+      localStorage.setItem('cmt-gs-report-include-charts', val ? 'true' : 'false');
+      const el = document.getElementById('gs-report-toggle-charts');
+      if (el) el.checked = !!val;
+    }
+
+    function getReportIncludeCriteria() {
+      const el = document.getElementById('gs-report-toggle-criteria');
+      if (el) return !!el.checked;
+      const cached = localStorage.getItem('cmt-gs-report-include-criteria');
+      return cached !== 'false';
+    }
+
+    function setReportIncludeCriteria(val) {
+      localStorage.setItem('cmt-gs-report-include-criteria', val ? 'true' : 'false');
+      const el = document.getElementById('gs-report-toggle-criteria');
+      if (el) el.checked = !!val;
+    }
+
+    function getReportIncludeComments() {
+      const el = document.getElementById('gs-report-toggle-comments');
+      if (el) return !!el.checked;
+      const cached = localStorage.getItem('cmt-gs-report-include-comments');
+      return cached !== 'false';
+    }
+
+    function setReportIncludeComments(val) {
+      localStorage.setItem('cmt-gs-report-include-comments', val ? 'true' : 'false');
+      const el = document.getElementById('gs-report-toggle-comments');
+      if (el) el.checked = !!val;
+    }
+
+    function getReportIncludeObservations() {
+      const el = document.getElementById('gs-report-toggle-observations');
+      if (el) return !!el.checked;
+      const cached = localStorage.getItem('cmt-gs-report-include-observations');
+      return cached !== 'false';
+    }
+
+    function setReportIncludeObservations(val) {
+      localStorage.setItem('cmt-gs-report-include-observations', val ? 'true' : 'false');
+      const el = document.getElementById('gs-report-toggle-observations');
+      if (el) el.checked = !!val;
+    }
+
+    function getReportIncludeScale() {
+      const el = document.getElementById('gs-report-toggle-scale');
+      if (el) return !!el.checked;
+      const cached = localStorage.getItem('cmt-gs-report-include-scale');
+      return cached !== 'false';
+    }
+
+    function setReportIncludeScale(val) {
+      localStorage.setItem('cmt-gs-report-include-scale', val ? 'true' : 'false');
+      const el = document.getElementById('gs-report-toggle-scale');
+      if (el) el.checked = !!val;
+    }
+
+    function getReportOptions() {
+      return {
+        includeKpi: getReportIncludeKpi(),
+        includeCharts: getReportIncludeCharts(),
+        includeCriteria: getReportIncludeCriteria(),
+        includeComments: getReportIncludeComments(),
+        includeObservations: getReportIncludeObservations(),
+        includeScale: getReportIncludeScale(),
+        includeCompetences: getReportIncludeCompetences(),
+        includeExerciseMeans: getReportIncludeExerciseMeans(),
+        fitToOnePage: getReportFitToOnePage()
+      };
+    }
+
+    function syncReportOptionControls() {
+      const opts = getReportOptions();
+      const elKpi = document.getElementById('gs-report-toggle-kpi');
+      if (elKpi) elKpi.checked = opts.includeKpi;
+      const elCharts = document.getElementById('gs-report-toggle-charts');
+      if (elCharts) elCharts.checked = opts.includeCharts;
+      const elCriteria = document.getElementById('gs-report-toggle-criteria');
+      if (elCriteria) elCriteria.checked = opts.includeCriteria;
+      const elComments = document.getElementById('gs-report-toggle-comments');
+      if (elComments) elComments.checked = opts.includeComments;
+      const elObs = document.getElementById('gs-report-toggle-observations');
+      if (elObs) elObs.checked = opts.includeObservations;
+      const elScale = document.getElementById('gs-report-toggle-scale');
+      if (elScale) elScale.checked = opts.includeScale;
+      const elComp = document.getElementById('gs-report-toggle-competences');
+      if (elComp) elComp.checked = opts.includeCompetences;
+      const elMeans = document.getElementById('gs-report-toggle-exercise-means');
+      if (elMeans) elMeans.checked = opts.includeExerciseMeans;
+      const elFit = document.getElementById('gs-report-toggle-fit-page');
+      if (elFit) elFit.checked = opts.fitToOnePage;
+    }
+
+    function openReportOptionsModal() {
+      syncReportOptionControls();
+      const modal = document.getElementById('gs-report-options-modal-overlay');
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    function closeReportOptionsModal() {
+      const modal = document.getElementById('gs-report-options-modal-overlay');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function refreshActiveReportPreview() {
+      if (!_currentActiveReport || typeof _currentActiveReport.rebuild !== 'function') return;
+      const opts = getReportOptions();
+      const newHtml = _currentActiveReport.rebuild(opts);
+      _currentActiveReport.html = newHtml;
+      const frame = document.getElementById('gs-report-preview-frame');
+      if (frame) {
+        frame.srcdoc = newHtml;
+      }
+    }
+
     function openReportModal(reportHtml, title, defaultFilename, options = {}) {
-      const incComp = getReportIncludeCompetences();
-      const incMeans = getReportIncludeExerciseMeans();
-      const fitPage = getReportFitToOnePage();
+      syncReportOptionControls();
       _currentActiveReport = {
         html: reportHtml,
         title: title || t('gsReportModalTitle') || 'Report Preview',
@@ -14333,23 +14645,9 @@
         rebuild: typeof options.rebuild === 'function' ? options.rebuild : null
       };
 
-      const compToggle = document.getElementById('gs-report-toggle-competences');
-      if (compToggle) {
-        compToggle.checked = incComp;
-        const lbl = document.getElementById('gs-report-toggle-competences-wrap') || compToggle.closest('label') || compToggle.parentElement;
-        if (lbl) lbl.style.display = _currentActiveReport.rebuild ? 'inline-flex' : 'none';
-      }
-
-      const meanToggle = document.getElementById('gs-report-toggle-exercise-means');
-      if (meanToggle) {
-        meanToggle.checked = incMeans;
-        const lbl = document.getElementById('gs-report-toggle-exercise-means-wrap') || meanToggle.closest('label') || meanToggle.parentElement;
-        if (lbl) lbl.style.display = (_currentActiveReport.reportType === 'student-test' && _currentActiveReport.rebuild) ? 'inline-flex' : 'none';
-      }
-
       const fitToggle = document.getElementById('gs-report-toggle-fit-page');
       if (fitToggle) {
-        fitToggle.checked = fitPage;
+        fitToggle.checked = getReportFitToOnePage();
         const lbl = document.getElementById('gs-report-toggle-fit-page-wrap') || fitToggle.closest('label') || fitToggle.parentElement;
         if (lbl) lbl.style.display = _currentActiveReport.rebuild ? 'inline-flex' : 'none';
       }
@@ -14394,7 +14692,7 @@
 
           let finalHtml = html;
           if (rebuild && typeof rebuild === 'function') {
-            finalHtml = rebuild(getReportIncludeCompetences(), getReportIncludeExerciseMeans(), getReportFitToOnePage());
+            finalHtml = rebuild(getReportOptions());
           }
 
           const pdfReq = {
@@ -14486,78 +14784,93 @@
 
     function openClassYearReport(classObj) {
       if (!classObj) return;
-      const html = buildClassYearReportHtml(classObj);
+      const opts = getReportOptions();
+      const html = buildClassYearReportHtml(classObj, opts.fitToOnePage);
       const slug = slugifyForPath(classObj.name || "class");
       openReportModal(html, `${classObj.name} — Annual Class Report`, `${slug}-year-report`, {
         isLandscape: true,
         reportType: 'class-year',
-        rebuild: (incComp, incMeans, fitPage) => buildClassYearReportHtml(classObj, fitPage)
+        rebuild: (options) => {
+          const o = (typeof options === 'object' && options !== null) ? options : getReportOptions();
+          return buildClassYearReportHtml(classObj, o.fitToOnePage);
+        }
       });
     }
 
     function openClassSemesterReport(classObj, sem) {
       if (!classObj) return;
-      const html = buildClassSemesterReportHtml(classObj, sem);
+      const opts = getReportOptions();
+      const html = buildClassSemesterReportHtml(classObj, sem, opts.fitToOnePage);
       const slug = slugifyForPath(classObj.name || "class");
       openReportModal(html, `${classObj.name} — ${sem.toUpperCase()} Class Report`, `${slug}-${sem}-report`, {
         isLandscape: false,
         reportType: 'class-semester',
-        rebuild: (incComp, incMeans, fitPage) => buildClassSemesterReportHtml(classObj, sem, fitPage)
+        rebuild: (options) => {
+          const o = (typeof options === 'object' && options !== null) ? options : getReportOptions();
+          return buildClassSemesterReportHtml(classObj, sem, o.fitToOnePage);
+        }
       });
     }
 
     function openClassTestReport(classObj, sem, testIndex) {
       if (!classObj) return;
-      const inc = getReportIncludeCompetences();
-      const html = buildClassTestReportHtml(classObj, sem, testIndex, inc);
+      const opts = getReportOptions();
+      const html = buildClassTestReportHtml(classObj, sem, testIndex, opts.includeCompetences, opts.fitToOnePage, opts);
       const slug = slugifyForPath(classObj.name || "class");
       openReportModal(html, `${classObj.name} — ${sem.toUpperCase()} T${testIndex + 1} Test Report`, `${slug}-${sem}-t${testIndex + 1}-report`, {
         isLandscape: false,
         reportType: 'class-test',
-        rebuild: (include, incMeans, fitPage) => buildClassTestReportHtml(classObj, sem, testIndex, include, fitPage)
+        rebuild: (options) => {
+          const o = (typeof options === 'object' && options !== null) ? options : getReportOptions();
+          return buildClassTestReportHtml(classObj, sem, testIndex, o.includeCompetences, o.fitToOnePage, o);
+        }
       });
     }
 
     function openStudentYearReport(classObj, student) {
       if (!classObj || !student) return;
-      const html = buildStudentYearReportHtml(classObj, student);
+      const opts = getReportOptions();
+      const html = buildStudentYearReportHtml(classObj, student, opts.fitToOnePage);
       const slug = slugifyForPath(classObj.name || "class");
       const stuSlug = slugifyForPath(student.lastName || student.firstName || "student");
       openReportModal(html, `${student.firstName} ${student.lastName} — Annual Student Report`, `${slug}-${stuSlug}-year-report`, {
         isLandscape: false,
         reportType: 'student-year',
-        rebuild: (incComp, incMeans, fitPage) => buildStudentYearReportHtml(classObj, student, fitPage)
+        rebuild: (options) => {
+          const o = (typeof options === 'object' && options !== null) ? options : getReportOptions();
+          return buildStudentYearReportHtml(classObj, student, o.fitToOnePage);
+        }
       });
     }
 
     function openStudentSemesterReport(classObj, student, sem) {
       if (!classObj || !student) return;
-      const html = buildStudentSemesterReportHtml(classObj, student, sem);
+      const opts = getReportOptions();
+      const html = buildStudentSemesterReportHtml(classObj, student, sem, opts.fitToOnePage);
       const slug = slugifyForPath(classObj.name || "class");
       const stuSlug = slugifyForPath(student.lastName || student.firstName || "student");
       openReportModal(html, `${student.firstName} ${student.lastName} — ${sem.toUpperCase()} Student Report`, `${slug}-${stuSlug}-${sem}-report`, {
         isLandscape: false,
         reportType: 'student-semester',
-        rebuild: (incComp, incMeans, fitPage) => buildStudentSemesterReportHtml(classObj, student, sem, fitPage)
+        rebuild: (options) => {
+          const o = (typeof options === 'object' && options !== null) ? options : getReportOptions();
+          return buildStudentSemesterReportHtml(classObj, student, sem, o.fitToOnePage);
+        }
       });
     }
 
     function openStudentTestReport(classObj, student, sem, testIndex) {
       if (!classObj || !student) return;
-      const incComp = getReportIncludeCompetences();
-      const incMeans = getReportIncludeExerciseMeans();
-      const fitPage = getReportFitToOnePage();
-      const html = buildStudentTestReportHtml(classObj, student, sem, testIndex, incComp, incMeans, fitPage);
+      const opts = getReportOptions();
+      const html = buildStudentTestReportHtml(classObj, student, sem, testIndex, opts.includeCompetences, opts.includeExerciseMeans, opts.fitToOnePage, opts);
       const slug = slugifyForPath(classObj.name || "class");
       const stuSlug = slugifyForPath(student.lastName || student.firstName || "student");
       openReportModal(html, `${student.firstName} ${student.lastName} — ${sem.toUpperCase()} T${testIndex + 1} Report`, `${slug}-${stuSlug}-${sem}-t${testIndex + 1}-report`, {
         isLandscape: false,
         reportType: 'student-test',
-        rebuild: (includeComp, includeMeans, fitPageVal) => {
-          const compVal = includeComp !== undefined ? includeComp : getReportIncludeCompetences();
-          const meanVal = includeMeans !== undefined ? includeMeans : getReportIncludeExerciseMeans();
-          const fitVal = fitPageVal !== undefined ? fitPageVal : getReportFitToOnePage();
-          return buildStudentTestReportHtml(classObj, student, sem, testIndex, compVal, meanVal, fitVal);
+        rebuild: (options) => {
+          const o = (typeof options === 'object' && options !== null) ? options : getReportOptions();
+          return buildStudentTestReportHtml(classObj, student, sem, testIndex, o.includeCompetences, o.includeExerciseMeans, o.fitToOnePage, o);
         }
       });
     }
@@ -14572,22 +14885,27 @@
       return fullHtml;
     }
 
-    function buildBatchStudentTestReportHtml(classObj, sem, testIndex, includeCompetences = getReportIncludeCompetences(), includeExerciseMeans = getReportIncludeExerciseMeans(), fitToOnePage = getReportFitToOnePage()) {
+    function buildBatchStudentTestReportHtml(classObj, sem, testIndex, includeCompetences = getReportIncludeCompetences(), includeExerciseMeans = getReportIncludeExerciseMeans(), fitToOnePage = getReportFitToOnePage(), options = {}) {
       ensureClassStructures(classObj);
+      const opts = (typeof options === 'object' && options !== null) ? options : {
+        includeCompetences,
+        includeExerciseMeans,
+        fitToOnePage
+      };
       const esc = escapeHtml;
       const config = getTestConfig(classObj, sem, testIndex);
       const testNo = testIndex + 1;
       const testLabel = config.testName ? String(config.testName) : `T${testNo}`;
       const pages = (classObj.students || []).map(s => {
-        const singleHtml = buildStudentTestReportHtml(classObj, s, sem, testIndex, includeCompetences, includeExerciseMeans, fitToOnePage);
+        const singleHtml = buildStudentTestReportHtml(classObj, s, sem, testIndex, opts.includeCompetences, opts.includeExerciseMeans, opts.fitToOnePage, opts);
         return extractReportPages(singleHtml);
       }).join('\n');
 
       return `<!DOCTYPE html><html><head><meta charset="utf-8">
         <title>${esc(classObj.name)} - ${esc(testLabel)} All Student Test Reports</title>
-        <style>${getNeobrutalistReportCss(false, fitToOnePage)}</style></head><body>
+        <style>${getNeobrutalistReportCss(false, opts.fitToOnePage)}</style></head><body>
         ${pages}
-        ${getReportAutoScaleScript(false, fitToOnePage)}
+        ${getReportAutoScaleScript(false, opts.fitToOnePage)}
       </body></html>`;
     }
 
@@ -14625,42 +14943,46 @@
 
     function openBatchStudentTestReport(classObj, sem, testIndex) {
       if (!classObj) return;
-      const incComp = getReportIncludeCompetences();
-      const incMeans = getReportIncludeExerciseMeans();
-      const fitPage = getReportFitToOnePage();
-      const html = buildBatchStudentTestReportHtml(classObj, sem, testIndex, incComp, incMeans, fitPage);
+      const opts = getReportOptions();
+      const html = buildBatchStudentTestReportHtml(classObj, sem, testIndex, opts.includeCompetences, opts.includeExerciseMeans, opts.fitToOnePage, opts);
       const slug = slugifyForPath(classObj.name || "class");
       openReportModal(html, `${classObj.name} — All Students: ${sem.toUpperCase()} T${testIndex + 1} Reports`, `${slug}-all-students-${sem}-t${testIndex + 1}-report`, {
         isLandscape: false,
         reportType: 'student-test',
-        rebuild: (includeComp, includeMeans, fitPageVal) => {
-          const compVal = includeComp !== undefined ? includeComp : getReportIncludeCompetences();
-          const meanVal = includeMeans !== undefined ? includeMeans : getReportIncludeExerciseMeans();
-          const fitVal = fitPageVal !== undefined ? fitPageVal : getReportFitToOnePage();
-          return buildBatchStudentTestReportHtml(classObj, sem, testIndex, compVal, meanVal, fitVal);
+        rebuild: (options) => {
+          const o = (typeof options === 'object' && options !== null) ? options : getReportOptions();
+          return buildBatchStudentTestReportHtml(classObj, sem, testIndex, o.includeCompetences, o.includeExerciseMeans, o.fitToOnePage, o);
         }
       });
     }
 
     function openBatchStudentYearReport(classObj) {
       if (!classObj) return;
-      const html = buildBatchStudentYearReportHtml(classObj);
+      const opts = getReportOptions();
+      const html = buildBatchStudentYearReportHtml(classObj, opts.fitToOnePage);
       const slug = slugifyForPath(classObj.name || "class");
       openReportModal(html, `${classObj.name} — All Students: Annual Reports`, `${slug}-all-students-year-reports`, {
         isLandscape: false,
         reportType: 'student-year',
-        rebuild: (incComp, incMeans, fitPage) => buildBatchStudentYearReportHtml(classObj, fitPage)
+        rebuild: (options) => {
+          const o = (typeof options === 'object' && options !== null) ? options : getReportOptions();
+          return buildBatchStudentYearReportHtml(classObj, o.fitToOnePage);
+        }
       });
     }
 
     function openBatchStudentSemesterReport(classObj, sem) {
       if (!classObj) return;
-      const html = buildBatchStudentSemesterReportHtml(classObj, sem);
+      const opts = getReportOptions();
+      const html = buildBatchStudentSemesterReportHtml(classObj, sem, opts.fitToOnePage);
       const slug = slugifyForPath(classObj.name || "class");
       openReportModal(html, `${classObj.name} — All Students: ${sem.toUpperCase()} Reports`, `${slug}-all-students-${sem}-reports`, {
         isLandscape: false,
         reportType: 'student-semester',
-        rebuild: (incComp, incMeans, fitPage) => buildBatchStudentSemesterReportHtml(classObj, sem, fitPage)
+        rebuild: (options) => {
+          const o = (typeof options === 'object' && options !== null) ? options : getReportOptions();
+          return buildBatchStudentSemesterReportHtml(classObj, sem, o.fitToOnePage);
+        }
       });
     }
 
@@ -15009,7 +15331,11 @@
         if (!groups || groups.length === 0) return null;
 
         const items = groups.flatMap(g => g.items);
-        const selected = new Set(sectionChecklistSummary(section).map(v => v.toLowerCase()));
+        const chipMap = new Map();
+        sectionChecklistSummary(section).forEach(item => {
+          const p = parseObservationChipItem(item);
+          if (p.name) chipMap.set(p.name.toLowerCase(), p);
+        });
 
         const checklist = document.createElement("div");
         checklist.className = "note-checklist";
@@ -15049,16 +15375,40 @@
             const chip = document.createElement("button");
             chip.type = "button";
             chip.className = "note-checklist-chip";
-            chip.textContent = name;
-            chip.title = `${group.type} • ${t('gsDragToReorder', 'Drag to reorder')}`;
             chip.draggable = true;
             chip.dataset.category = group.type;
             chip.dataset.chipName = name;
             chip.dataset.chipIndex = String(chipIdx);
 
-            const isSelected = selected.has(name.toLowerCase());
-            chip.classList.toggle("selected", isSelected);
-            chip.setAttribute("aria-pressed", isSelected ? "true" : "false");
+            const initialParsed = chipMap.get(name.toLowerCase());
+            let currentCount = initialParsed ? initialParsed.count : 0;
+
+            const updateChipVisual = (count) => {
+              const isSelected = count > 0;
+              chip.classList.toggle("selected", isSelected);
+              chip.setAttribute("aria-pressed", isSelected ? "true" : "false");
+              const badge = count > 1 ? `<sup class="chip-multiplier-badge">x${count}</sup>` : '';
+              chip.innerHTML = `${escapeHtml(name)}${badge}`;
+              chip.title = isSelected
+                ? `${group.type} • ${name}${count > 1 ? ` (x${count})` : ''} • ${t('gsChipClickHint', 'Left-click: + / Right-click: -')}`
+                : `${group.type} • ${t('gsDragToReorder', 'Drag to reorder')}`;
+            };
+
+            const saveChipState = (count) => {
+              const currentMap = new Map();
+              sectionChecklistSummary(section).forEach(item => {
+                const p = parseObservationChipItem(item);
+                if (p.name) currentMap.set(p.name.toLowerCase(), p);
+              });
+              if (count <= 0) {
+                currentMap.delete(name.toLowerCase());
+              } else {
+                currentMap.set(name.toLowerCase(), { name, count });
+              }
+              section.checklist = Array.from(currentMap.values()).map(v => formatObservationChipItem(v.name, v.count));
+            };
+
+            updateChipVisual(currentCount);
 
             let isDragging = false;
 
@@ -15125,14 +15475,19 @@
 
             chip.addEventListener("click", () => {
               if (isDragging) return;
-              const now = new Set(sectionChecklistSummary(section));
-              const alreadySelected = now.has(name);
-              if (alreadySelected) now.delete(name);
-              else now.add(name);
-              section.checklist = Array.from(now);
-              const selectedNow = now.has(name);
-              chip.classList.toggle("selected", selectedNow);
-              chip.setAttribute("aria-pressed", selectedNow ? "true" : "false");
+              currentCount = currentCount === 0 ? 1 : currentCount + 1;
+              saveChipState(currentCount);
+              updateChipVisual(currentCount);
+            });
+
+            chip.addEventListener("contextmenu", e => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (isDragging) return;
+              if (currentCount <= 0) return;
+              currentCount = currentCount - 1;
+              saveChipState(currentCount);
+              updateChipVisual(currentCount);
             });
 
             inlineGroup.appendChild(chip);
@@ -17250,47 +17605,45 @@
         if (e.target === document.getElementById("gs-report-modal-overlay")) closeReportModal();
       });
 
-      const compToggle = document.getElementById("gs-report-toggle-competences");
-      if (compToggle) {
-        compToggle.addEventListener("change", () => {
-          const val = compToggle.checked;
-          setReportIncludeCompetences(val);
-          if (_currentActiveReport && typeof _currentActiveReport.rebuild === 'function') {
-            const newHtml = _currentActiveReport.rebuild(val, getReportIncludeExerciseMeans(), getReportFitToOnePage());
-            _currentActiveReport.html = newHtml;
-            const frame = document.getElementById("gs-report-preview-frame");
-            if (frame) frame.srcdoc = newHtml;
-          }
+      // ── Report Options Modal & Toggles ──
+      const btnReportOptions = document.getElementById("gs-report-btn-options");
+      if (btnReportOptions) {
+        btnReportOptions.addEventListener("click", openReportOptionsModal);
+      }
+      const btnReportOptionsClose = document.getElementById("gs-report-options-modal-close");
+      if (btnReportOptionsClose) {
+        btnReportOptionsClose.addEventListener("click", closeReportOptionsModal);
+      }
+      const btnReportOptionsDone = document.getElementById("gs-report-options-modal-done");
+      if (btnReportOptionsDone) {
+        btnReportOptionsDone.addEventListener("click", closeReportOptionsModal);
+      }
+      const reportOptionsOverlay = document.getElementById("gs-report-options-modal-overlay");
+      if (reportOptionsOverlay) {
+        reportOptionsOverlay.addEventListener("click", e => {
+          if (e.target === reportOptionsOverlay) closeReportOptionsModal();
         });
       }
 
-      const meanToggle = document.getElementById("gs-report-toggle-exercise-means");
-      if (meanToggle) {
-        meanToggle.addEventListener("change", () => {
-          const val = meanToggle.checked;
-          setReportIncludeExerciseMeans(val);
-          if (_currentActiveReport && typeof _currentActiveReport.rebuild === 'function') {
-            const newHtml = _currentActiveReport.rebuild(getReportIncludeCompetences(), val, getReportFitToOnePage());
-            _currentActiveReport.html = newHtml;
-            const frame = document.getElementById("gs-report-preview-frame");
-            if (frame) frame.srcdoc = newHtml;
-          }
-        });
-      }
+      const bindReportToggle = (id, setter) => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.addEventListener("change", () => {
+            setter(el.checked);
+            refreshActiveReportPreview();
+          });
+        }
+      };
 
-      const fitToggle = document.getElementById("gs-report-toggle-fit-page");
-      if (fitToggle) {
-        fitToggle.addEventListener("change", () => {
-          const val = fitToggle.checked;
-          setReportFitToOnePage(val);
-          if (_currentActiveReport && typeof _currentActiveReport.rebuild === 'function') {
-            const newHtml = _currentActiveReport.rebuild(getReportIncludeCompetences(), getReportIncludeExerciseMeans(), val);
-            _currentActiveReport.html = newHtml;
-            const frame = document.getElementById("gs-report-preview-frame");
-            if (frame) frame.srcdoc = newHtml;
-          }
-        });
-      }
+      bindReportToggle("gs-report-toggle-competences", setReportIncludeCompetences);
+      bindReportToggle("gs-report-toggle-exercise-means", setReportIncludeExerciseMeans);
+      bindReportToggle("gs-report-toggle-kpi", setReportIncludeKpi);
+      bindReportToggle("gs-report-toggle-charts", setReportIncludeCharts);
+      bindReportToggle("gs-report-toggle-criteria", setReportIncludeCriteria);
+      bindReportToggle("gs-report-toggle-comments", setReportIncludeComments);
+      bindReportToggle("gs-report-toggle-observations", setReportIncludeObservations);
+      bindReportToggle("gs-report-toggle-scale", setReportIncludeScale);
+      bindReportToggle("gs-report-toggle-fit-page", setReportFitToOnePage);
 
       // ── Student Selector Modal ──
       document.getElementById("gs-student-select-cancel").addEventListener("click", closeStudentSelectModal);
@@ -18336,7 +18689,7 @@ ${blocks}
       chipsEl.innerHTML = "";
       if (!_critPopupCompetenceDraft || _critPopupCompetenceDraft.length === 0) {
         const empty = document.createElement("span");
-        empty.style.cssText = "font-size:0.78rem;color:var(--muted);font-style:italic;";
+        empty.style.cssText = "font-size:0.78rem;color:var(--muted);";
         empty.textContent = t('gsNoCompetencesLinked');
         chipsEl.appendChild(empty);
         return;

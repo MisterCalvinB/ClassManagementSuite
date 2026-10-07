@@ -165,6 +165,18 @@
     if (type === 'lesson' || type === 'lessons' || type === 'lessonplan') {
       return makeUrn('lesson', id, p.anchor);
     }
+    if (type === 'board' || type === 'mindmap' || type === 'constellation') {
+      return makeUrn('board', id.replace(/\\/g, '/'), p.anchor);
+    }
+    if (type === 'gradesheet' || type === 'gradesheets' || type === 'eval' || type === 'evaluation' || type === 'grade') {
+      return makeUrn('gradesheet', id, p.anchor);
+    }
+    if (type === 'year' || type === 'academic_year' || type === 'school_year' || type === 'academicyear') {
+      return makeUrn('year', id, p.anchor);
+    }
+    if (type === 'level' || type === 'grade_level' || type === 'yearlevel') {
+      return makeUrn('level', id, p.anchor);
+    }
     if (type === 'board_node' || type === 'board-node') {
       return makeUrn('board-node', id, p.anchor);
     }
@@ -669,6 +681,50 @@
     return null;
   }
 
+  function resolveClassYear(classId) {
+    if (!classId) return null;
+    if (typeof window !== 'undefined') {
+      var meta = (window.CLASS_GROUPS_META && window.CLASS_GROUPS_META[classId]) ||
+        (window.CLASS_GROUPS_DATA && window.CLASS_GROUPS_DATA.classGroupsMeta && window.CLASS_GROUPS_DATA.classGroupsMeta[classId]);
+      if (meta) {
+        if (meta.academicYear) return String(meta.academicYear).trim();
+        if (meta.schoolYear) return String(meta.schoolYear).trim();
+        if (meta.year && String(meta.year).includes('-')) return String(meta.year).trim();
+      }
+      if (window.PLANNER_CONFIG) {
+        if (window.PLANNER_CONFIG.academicYear) return String(window.PLANNER_CONFIG.academicYear).trim();
+        if (window.PLANNER_CONFIG.schoolYear) return String(window.PLANNER_CONFIG.schoolYear).trim();
+        if (window.PLANNER_CONFIG.year && String(window.PLANNER_CONFIG.year).includes('-')) return String(window.PLANNER_CONFIG.year).trim();
+        if (window.PLANNER_CONFIG.classes && window.PLANNER_CONFIG.classes[classId]) {
+          var pc = window.PLANNER_CONFIG.classes[classId];
+          if (pc.academicYear) return String(pc.academicYear).trim();
+          if (pc.year && String(pc.year).includes('-')) return String(pc.year).trim();
+        }
+      }
+      if (window.CONFIG && window.CONFIG.academicYear) return String(window.CONFIG.academicYear).trim();
+      if (window.USER_CONFIG && window.USER_CONFIG.academicYear) return String(window.USER_CONFIG.academicYear).trim();
+    }
+    var d = new Date();
+    var currentYear = d.getFullYear();
+    var month = d.getMonth() + 1;
+    var startY = (month >= 8) ? currentYear : (currentYear - 1);
+    return startY + '-' + (startY + 1);
+  }
+
+  function resolveClassGroupFromFilename(filename) {
+    if (!filename) return '';
+    var base = String(filename).replace(/\\/g, '/').split('/').pop().replace(/\.(js|json|cstz|zip)$/i, '');
+    var cache = _rosterNameCache || _buildRosterCache();
+    var classes = Object.keys(cache.classes || {});
+    for (var i = 0; i < classes.length; i++) {
+      var cid = classes[i];
+      var cname = cache.classes[cid];
+      if (cid && base.toLowerCase().includes(cid.toLowerCase())) return cid;
+      if (cname && base.toLowerCase().includes(cname.toLowerCase())) return cid;
+    }
+    return '';
+  }
+
   // ── Declarative Entity Hierarchy & Relationship Rules ──────────────────────
   var RELATIONSHIP_RULES = {
     student: {
@@ -679,10 +735,94 @@
       }
     },
     class: {
-      parents: ['level'],
+      parents: ['level', 'year'],
       resolveParents: function(classId) {
+        var parents = [];
         var lvl = resolveClassLevel(classId);
-        return lvl ? [makeUrn('level', lvl)] : [];
+        if (lvl) parents.push(makeUrn('level', lvl));
+        var yr = resolveClassYear(classId);
+        if (yr) parents.push(makeUrn('year', yr));
+        return parents;
+      }
+    },
+    planner: {
+      parents: ['class'],
+      resolveParents: function(slotId) {
+        var clean = slotId.split('#')[0];
+        if (clean.startsWith('sched:')) {
+          var parts = clean.split(':');
+          if (parts[1]) return [makeUrn('class', parts[1])];
+        }
+        if (typeof window !== 'undefined' && window.PLANNER_ENTRIES_BY_CLASS) {
+          var byClass = window.PLANNER_ENTRIES_BY_CLASS;
+          for (var cid in byClass) {
+            var arr = Array.isArray(byClass[cid]) ? byClass[cid] : [];
+            if (arr.some(function(e) { return e && (e.id === clean || e.plannerEntryId === clean); })) {
+              return [makeUrn('class', cid)];
+            }
+          }
+        }
+        if (typeof window !== 'undefined' && window.PLANNER_CONFIG && Array.isArray(window.PLANNER_CONFIG.entries)) {
+          var ent = window.PLANNER_CONFIG.entries.find(function(e) { return e && e.id === clean; });
+          if (ent && ent.classId) return [makeUrn('class', ent.classId)];
+        }
+        if (_registryCache && _registryCache.entities) {
+          var entMeta = _registryCache.entities[makeUrn('planner', clean)] || _registryCache.entities[makeUrn('slot', clean)] || _registryCache.entities[canonicalizeUrn(makeUrn('planner', clean))];
+          if (entMeta) {
+            var cid2 = entMeta.classId || entMeta.classGroup || (entMeta.meta && (entMeta.meta.classId || entMeta.meta.classGroup));
+            if (cid2) return [makeUrn('class', cid2)];
+          }
+        }
+        return [];
+      }
+    },
+    slot: {
+      parents: ['class'],
+      resolveParents: function(slotId) {
+        return RELATIONSHIP_RULES.planner.resolveParents(slotId);
+      }
+    },
+    board: {
+      parents: ['class', 'planner'],
+      resolveParents: function(boardId) {
+        var clean = boardId.split('#')[0];
+        var parents = [];
+        var classGroup = '';
+        var plannerId = '';
+
+        if (_registryCache && _registryCache.entities) {
+          var meta = _registryCache.entities[makeUrn('board', clean)] || _registryCache.entities[canonicalizeUrn(makeUrn('board', clean))];
+          if (meta) {
+            classGroup = meta.classGroup || meta.classId || (meta.meta && (meta.meta.classGroup || meta.meta.classId)) || '';
+            plannerId = meta.plannerEntryId || (meta.meta && (meta.meta.plannerEntryId || meta.meta.plannerId)) || '';
+          }
+        }
+        if (!classGroup && !plannerId && typeof window !== 'undefined' && window.boardHistoryMetaCache) {
+          var hMeta = window.boardHistoryMetaCache[clean] || window.boardHistoryMetaCache[clean.split('/').pop()];
+          if (hMeta) {
+            classGroup = hMeta.classGroup || '';
+            plannerId = hMeta.plannerEntryId || '';
+          }
+        }
+        if (!plannerId && typeof window !== 'undefined' && window.activePlannerEntryId) {
+          plannerId = window.activePlannerEntryId;
+        }
+        if (!classGroup && typeof window !== 'undefined' && window.activeClassGroup) {
+          classGroup = window.activeClassGroup;
+        }
+        if (!classGroup) {
+          classGroup = resolveClassGroupFromFilename(clean);
+        }
+
+        if (plannerId) parents.push(makeUrn('planner', plannerId));
+        if (classGroup) parents.push(makeUrn('class', classGroup));
+        return parents;
+      }
+    },
+    mindmap: {
+      parents: ['class', 'planner'],
+      resolveParents: function(boardId) {
+        return RELATIONSHIP_RULES.board.resolveParents(boardId);
       }
     },
     'board-node': {
@@ -770,6 +910,19 @@
       resolveParents: function(evalId) {
         var parts = evalId.split(':');
         return parts[0] ? [makeUrn('class', parts[0])] : [];
+      }
+    },
+    'gradesheet': {
+      parents: ['class'],
+      resolveParents: function(gsId) {
+        var parts = gsId.split(':');
+        return parts[0] ? [makeUrn('class', parts[0])] : [];
+      }
+    },
+    'grade': {
+      parents: ['class'],
+      resolveParents: function(gId) {
+        return RELATIONSHIP_RULES.gradesheet.resolveParents(gId);
       }
     },
     'grade_cell': {
@@ -946,8 +1099,32 @@
       case 'planner':
       case 'slot': {
         badge = '[PLANNER]';
-        title = 'Planner Slot: ' + p.id;
+        icon = 'planner.svg';
+        var slotTitle = (meta && meta.title && !isRawTitle) ? meta.title : null;
+        if (!slotTitle) {
+          if (p.id.startsWith('sched:')) {
+            var parts = p.id.split(':');
+            var cName = resolveClassName(parts[1]) || parts[1];
+            slotTitle = (cName ? cName + ' • ' : '') + (parts[2] || '') + (parts[3] ? ' ' + parts[3] : '');
+          } else if (typeof window !== 'undefined' && window.PLANNER_CONFIG && Array.isArray(window.PLANNER_CONFIG.entries)) {
+            var ent = window.PLANNER_CONFIG.entries.find(function(e) { return e && e.id === p.id; });
+            if (ent) {
+              var cName2 = resolveClassName(ent.classId) || ent.classId;
+              slotTitle = (cName2 ? cName2 + ' • ' : '') + (ent.date || '') + (ent.time ? ' ' + ent.time : '') + (ent.topic ? ' · ' + ent.topic : '');
+            }
+          }
+        }
+        title = slotTitle || ('Planner Slot: ' + p.id);
         subtitle = 'Timetable Slot';
+        break;
+      }
+      case 'year':
+      case 'academic_year':
+      case 'school_year': {
+        badge = '[YEAR]';
+        icon = 'calendar.svg';
+        title = (meta && meta.title && !isRawTitle) ? meta.title : ('Academic Year ' + p.id);
+        subtitle = 'School Year';
         break;
       }
       case 'todo':
@@ -982,6 +1159,7 @@
       }
       case 'class': {
         badge = '[CLASS]';
+        icon = 'groups.svg';
         var resolvedCName = resolveClassName(p.id) || (meta && meta.title && !isRawTitle ? meta.title : null) || p.id;
         title = resolvedCName;
         subtitle = 'Class Group';
@@ -989,6 +1167,7 @@
       }
       case 'student': {
         badge = '[STUDENT]';
+        icon = 'admin-groups.svg';
         var stObj = resolveStudentInfo(p.id);
         var stName = (stObj && stObj.name) || resolveStudentName(p.id) || (meta && meta.title && !isRawTitle ? meta.title : null) || p.id;
         title = stName;
@@ -998,7 +1177,8 @@
       case 'gradesheet':
       case 'eval':
       case 'evaluation': {
-        badge = '[GRADE]';
+        badge = '[GRADE SHEET]';
+        icon = 'grade-sheet.svg';
         var parts = p.id.split(':');
         var cId = parts[0] || '';
         var sem = parts[1] || 'sem1';
@@ -1009,6 +1189,9 @@
           var stn = resolveStudentName(parts[4]) || parts[4];
           title = stn + ' (' + cTitle + ' • ' + sLabel + ' Test ' + (parseInt(testParam, 10) + 1 || testParam) + ')';
           subtitle = 'Grade Evaluation • ' + cTitle;
+        } else if (parts.length === 1 || !testParam) {
+          title = cTitle + ' Grade Sheet';
+          subtitle = 'Class Evaluations & Assessments';
         } else {
           title = cTitle + ' (' + sLabel + (testParam !== '' ? ' • Test ' + (parseInt(testParam, 10) + 1 || testParam) : '') + ')';
           subtitle = 'Grade Sheet Evaluation • ' + cTitle;
@@ -1281,6 +1464,60 @@
     return infEdge;
   }
 
+  function _findAssociatedBoardUrnsForClassOrSlot(classId, slotId, reg) {
+    var results = new Set();
+    if (!reg) return [];
+    var cClassUrn = classId ? canonicalizeUrn(makeUrn('class', classId)) : '';
+    var cSlotUrn = slotId ? canonicalizeUrn(makeUrn('planner', slotId)) : '';
+
+    if (reg.entities) {
+      Object.keys(reg.entities).forEach(function(u) {
+        var p = parseUrn(u);
+        if (p && (p.type === 'board' || p.type === 'mindmap')) {
+          var meta = reg.entities[u];
+          var mClass = meta.classGroup || meta.classId || (meta.meta && (meta.meta.classGroup || meta.meta.classId));
+          var mSlot = meta.plannerEntryId || (meta.meta && (meta.meta.plannerEntryId || meta.meta.plannerId));
+          if ((classId && mClass === classId) || (slotId && mSlot === slotId)) {
+            results.add(canonicalizeUrn(u));
+          }
+        }
+      });
+    }
+
+    if (reg.edges) {
+      reg.edges.forEach(function(e) {
+        var s = canonicalizeUrn(e.source);
+        var t = canonicalizeUrn(e.target);
+        var sp = parseUrn(s);
+        var tp = parseUrn(t);
+        if (sp && (sp.type === 'board' || sp.type === 'mindmap')) {
+          if ((cClassUrn && t === cClassUrn) || (cSlotUrn && t === cSlotUrn)) results.add(s);
+        }
+        if (tp && (tp.type === 'board' || tp.type === 'mindmap')) {
+          if ((cClassUrn && s === cClassUrn) || (cSlotUrn && s === cSlotUrn)) results.add(t);
+        }
+      });
+    }
+
+    if (typeof window !== 'undefined' && window.boardHistoryMetaCache) {
+      Object.keys(window.boardHistoryMetaCache).forEach(function(k) {
+        var h = window.boardHistoryMetaCache[k];
+        if (h && ((classId && h.classGroup === classId) || (slotId && h.plannerEntryId === slotId))) {
+          var normFile = k.replace(/\\/g, '/');
+          results.add(canonicalizeUrn(makeUrn('board', normFile)));
+        }
+      });
+    }
+
+    return Array.from(results);
+  }
+
+  function _findAssociatedGradeSheetsForClass(classId) {
+    if (!classId) return [];
+    var results = [canonicalizeUrn(makeUrn('gradesheet', classId))];
+    return results;
+  }
+
   function expandAutonomousLinks(cSrc, cTgt, primaryEdgeId, reg) {
     if (!cSrc || !cTgt || !reg) return [];
     var srcAncestors = resolveEntityAncestors(cSrc);
@@ -1304,6 +1541,56 @@
       tgtAncestors.forEach(function(tgtAnc) {
         var e = _createInferredEdge(reg, srcAnc, tgtAnc, primaryEdgeId, 'ancestor_bridge');
         if (e) created.push(e);
+      });
+    });
+
+    // 4. Regressive Cross-Domain Auto-Linking
+    var allInvolved = [cSrc, cTgt].concat(srcAncestors, tgtAncestors);
+    var classIds = new Set();
+    var slotIds = new Set();
+    var boardUrns = new Set();
+
+    allInvolved.forEach(function(u) {
+      var p = parseUrn(u);
+      if (!p) return;
+      if (p.type === 'class') classIds.add(p.id);
+      if (p.type === 'planner' || p.type === 'slot') slotIds.add(p.id);
+      if (p.type === 'board' || p.type === 'mindmap') boardUrns.add(canonicalizeUrn(u));
+    });
+
+    classIds.forEach(function(cId) {
+      // Connect Class to Grade Sheets
+      var gsUrns = _findAssociatedGradeSheetsForClass(cId);
+      gsUrns.forEach(function(gsUrn) {
+        var eg = _createInferredEdge(reg, makeUrn('class', cId), gsUrn, primaryEdgeId, 'regressive_gradesheet');
+        if (eg) created.push(eg);
+      });
+
+      // Connect Planner Slots to Grade Sheets and Board Documents
+      slotIds.forEach(function(slotId) {
+        var slotUrn = makeUrn('planner', slotId);
+        gsUrns.forEach(function(gsUrn) {
+          var es = _createInferredEdge(reg, slotUrn, gsUrn, primaryEdgeId, 'regressive_gradesheet');
+          if (es) created.push(es);
+        });
+
+        var bUrns = _findAssociatedBoardUrnsForClassOrSlot(cId, slotId, reg);
+        bUrns.forEach(function(bUrn) {
+          var eb1 = _createInferredEdge(reg, bUrn, slotUrn, primaryEdgeId, 'regressive_board');
+          if (eb1) created.push(eb1);
+          var eb2 = _createInferredEdge(reg, bUrn, makeUrn('class', cId), primaryEdgeId, 'regressive_board');
+          if (eb2) created.push(eb2);
+        });
+      });
+
+      // Connect Board Documents directly to Grade Sheets
+      boardUrns.forEach(function(bUrn) {
+        gsUrns.forEach(function(gsUrn) {
+          var ebg = _createInferredEdge(reg, bUrn, gsUrn, primaryEdgeId, 'regressive_board_grade');
+          if (ebg) created.push(ebg);
+        });
+        var ebClass = _createInferredEdge(reg, bUrn, makeUrn('class', cId), primaryEdgeId, 'regressive_board_class');
+        if (ebClass) created.push(ebClass);
       });
     });
 
@@ -2547,6 +2834,71 @@
     return dossier;
   }
 
+  async function syncAutoRegressiveLinks() {
+    var reg = await loadRegistry();
+    var changed = false;
+
+    if (typeof window !== 'undefined') {
+      var byClass = window.PLANNER_ENTRIES_BY_CLASS || {};
+      var cfg = window.PLANNER_CONFIG;
+
+      Object.keys(byClass).forEach(function(cid) {
+        var entries = Array.isArray(byClass[cid]) ? byClass[cid] : [];
+        entries.forEach(function(ent) {
+          if (!ent || !ent.id) return;
+          var slotUrn = canonicalizeUrn(makeUrn('planner', ent.id));
+          var classUrn = canonicalizeUrn(makeUrn('class', cid));
+          var newEdges = expandAutonomousLinks(slotUrn, classUrn, 'auto_sync_' + ent.id, reg);
+          if (newEdges.length > 0) changed = true;
+        });
+      });
+
+      if (cfg && cfg.classes) {
+        Object.keys(cfg.classes).forEach(function(cid) {
+          var classUrn = canonicalizeUrn(makeUrn('class', cid));
+          var gsUrns = _findAssociatedGradeSheetsForClass(cid);
+          gsUrns.forEach(function(gsUrn) {
+            var e = _createInferredEdge(reg, classUrn, gsUrn, 'auto_sync_gs_' + cid, 'regressive_gradesheet');
+            if (e) changed = true;
+          });
+          var lvl = resolveClassLevel(cid);
+          if (lvl) {
+            var el = _createInferredEdge(reg, classUrn, makeUrn('level', lvl), 'auto_sync_lvl_' + cid, 'upward_level');
+            if (el) changed = true;
+          }
+          var yr = resolveClassYear(cid);
+          if (yr) {
+            var ey = _createInferredEdge(reg, classUrn, makeUrn('year', yr), 'auto_sync_yr_' + cid, 'upward_year');
+            if (ey) changed = true;
+          }
+        });
+      }
+
+      if (window.boardHistoryMetaCache) {
+        Object.keys(window.boardHistoryMetaCache).forEach(function(k) {
+          var h = window.boardHistoryMetaCache[k];
+          if (!h) return;
+          var bUrn = canonicalizeUrn(makeUrn('board', k.replace(/\\/g, '/')));
+          if (h.plannerEntryId) {
+            var slotUrn = canonicalizeUrn(makeUrn('planner', h.plannerEntryId));
+            var newEdges = expandAutonomousLinks(bUrn, slotUrn, 'auto_sync_board_' + h.plannerEntryId, reg);
+            if (newEdges.length > 0) changed = true;
+          }
+          if (h.classGroup) {
+            var classUrn = canonicalizeUrn(makeUrn('class', h.classGroup));
+            var newEdges2 = expandAutonomousLinks(bUrn, classUrn, 'auto_sync_board_cls_' + h.classGroup, reg);
+            if (newEdges2.length > 0) changed = true;
+          }
+        });
+      }
+    }
+
+    if (changed) {
+      await saveRegistry(reg);
+    }
+    return true;
+  }
+
   // ── Export Service ──────────────────────────────────────────────────────────
   return {
     parseUrn: parseUrn,
@@ -2588,6 +2940,7 @@
     resolveStudentInfo: resolveStudentInfo,
     resolveClassName: resolveClassName,
     resolveClassLevel: resolveClassLevel,
+    resolveClassYear: resolveClassYear,
     resolveEntityAncestors: resolveEntityAncestors,
     resolveUrnDisplay: resolveUrnDisplay,
     promoteInferredLink: promoteInferredLink,
@@ -2596,6 +2949,7 @@
     getItemsForTag: getItemsForTag,
     getTagSummary: getTagSummary,
     storeGradeAttachment: storeGradeAttachment,
+    syncAutoRegressiveLinks: syncAutoRegressiveLinks,
     updatePath: updatePath
   };
 });

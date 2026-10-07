@@ -66,7 +66,10 @@
     { id: 'picture_description', name: 'Picture Description', icon: 'board.svg', desc: 'Analyze or describe an embedded image' },
     { id: 'table_completion', name: 'Table Completion', icon: 'table.svg', desc: 'Interactive grid with fillable blank cells' },
     { id: 'odd_one_out', name: 'Odd One Out', icon: 'clear.svg', desc: 'Identify the intruder and justify choice' },
-    { id: 'reading_comprehension', name: 'Reading Comprehension', icon: 'book.svg', desc: 'Source passage followed by sub-questions' }
+    { id: 'reading_comprehension', name: 'Reading Comprehension', icon: 'book.svg', desc: 'Source passage followed by sub-questions' },
+    { id: 'section_competences', name: 'Competences Block', icon: 'award.svg', desc: 'Curriculum objectives & competence table block', isSection: true },
+    { id: 'section_criteria', name: 'Criteria Rubric Block', icon: 'check-circle.svg', desc: 'Assessment criteria & evaluation rubric block', isSection: true },
+    { id: 'section_grading_scale', name: 'Grading Scale Block', icon: 'table.svg', desc: 'Score conversion & grade threshold table block', isSection: true }
   ];
 
   // ── 2b. Default Header Configuration & Typography ─────────────────────────
@@ -87,6 +90,14 @@
     showGradingScale: false,
     gradingScaleLabel: 'Grading Scale & Score Conversion:',
     gradingScaleStyle: { bold: true, italic: false, displayMode: 'table', background: 'default', padding: 'standard', border: 'solid' }, // 'table' | 'inline' | 'inline_grades'
+    showCompetences: false,
+    showCompetenceDescriptions: true,
+    competencesLabel: 'Competences & Curriculum Objectives:',
+    competencesStyle: { bold: true, italic: false, underline: false, displayMode: 'table', background: 'default', padding: 'standard', border: 'solid' }, // 'table' | 'badges' | 'list'
+    showCriteria: false,
+    showCriteriaDescriptions: true,
+    criteriaLabel: 'Assessment Criteria & Evaluation Rubric:',
+    criteriaStyle: { bold: true, italic: false, underline: false, displayMode: 'table', background: 'default', padding: 'standard', border: 'solid' }, // 'table' | 'compact' | 'inline'
     showInstructions: false,
     instructionsText: 'Answer all questions clearly. Write legibly and respect time constraints.',
     // Custom labels
@@ -99,8 +110,8 @@
     scopeLabel: 'Scope / Topic:',
     pointsLabel: 'Total Points:',
     // Section and metadata ordering
-    sectionOrder: ['title', 'subtitle', 'metadata', 'instructions', 'gradingScale'],
-    metaOrder: ['studentName', 'class', 'date', 'teacher', 'duration', 'materials', 'scope', 'points', 'gradingScale'],
+    sectionOrder: ['title', 'subtitle', 'metadata', 'instructions', 'gradingScale', 'competences', 'criteria'],
+    metaOrder: ['studentName', 'class', 'date', 'teacher', 'duration', 'materials', 'scope', 'points', 'gradingScale', 'competences', 'criteria'],
     // Formats & typography per element: { bold, italic, underline, uppercase, size, align }
     titleStyle: { bold: true, italic: false, underline: false, uppercase: true, size: '18pt', align: 'left' },
     subtitleStyle: { bold: false, italic: true, underline: false, size: '11pt', align: 'left' },
@@ -1300,7 +1311,9 @@
       headerConfig: JSON.parse(JSON.stringify(TestCreatorService.DEFAULT_HEADER_CONFIG)),
       scaleModelId: 'pts_20',
       targetPoints: 20,
+      linkedCompetences: [],
       linkedCompetenceIds: [],
+      criteria: [],
       tags: [],
       stylesheetTheme: defaultTheme,
       exportStyle: defaultStyle,
@@ -1568,6 +1581,44 @@
         };
         ex.points = 2;
         break;
+
+      case 'section_competences':
+        ex.title = 'Competences & Curriculum Objectives';
+        ex.instructions = '';
+        ex.points = 0;
+        ex.options = {
+          displayMode: 'table',
+          showDescriptions: true,
+          background: 'default',
+          border: 'solid',
+          padding: 'standard'
+        };
+        break;
+
+      case 'section_criteria':
+        ex.title = 'Assessment Criteria & Evaluation Rubric';
+        ex.instructions = '';
+        ex.points = 0;
+        ex.options = {
+          displayMode: 'table',
+          showDescriptions: true,
+          background: 'default',
+          border: 'solid',
+          padding: 'standard'
+        };
+        break;
+
+      case 'section_grading_scale':
+        ex.title = 'Grading Scale & Score Conversion';
+        ex.instructions = '';
+        ex.points = 0;
+        ex.options = {
+          displayMode: 'table',
+          background: 'default',
+          border: 'solid',
+          padding: 'standard'
+        };
+        break;
     }
 
     TestCreatorService.ensureExerciseOptions(ex);
@@ -1582,6 +1633,29 @@
     }
     var o = ex.options;
     switch (ex.type) {
+      case 'section_competences':
+        if (o.displayMode === undefined) o.displayMode = 'table';
+        if (o.showDescriptions === undefined) o.showDescriptions = true;
+        if (o.background === undefined) o.background = 'default';
+        if (o.border === undefined) o.border = 'solid';
+        if (o.padding === undefined) o.padding = 'standard';
+        break;
+
+      case 'section_criteria':
+        if (o.displayMode === undefined) o.displayMode = 'table';
+        if (o.showDescriptions === undefined) o.showDescriptions = true;
+        if (o.background === undefined) o.background = 'default';
+        if (o.border === undefined) o.border = 'solid';
+        if (o.padding === undefined) o.padding = 'standard';
+        break;
+
+      case 'section_grading_scale':
+        if (o.displayMode === undefined) o.displayMode = 'table';
+        if (o.background === undefined) o.background = 'default';
+        if (o.border === undefined) o.border = 'solid';
+        if (o.padding === undefined) o.padding = 'standard';
+        break;
+
       case 'cloze':
         if (o.blankStyle === undefined) o.blankStyle = 'underline'; // 'underline' | 'bracketed_box' | 'length_dots'
         if (o.showFirstLetter === undefined) o.showFirstLetter = false;
@@ -1919,6 +1993,12 @@
         } else {
           pts = Number(ex.points) || 4;
         }
+        break;
+
+      case 'section_competences':
+      case 'section_criteria':
+      case 'section_grading_scale':
+        pts = 0;
         break;
 
       default:
@@ -2357,6 +2437,66 @@
       '.grading-scale-table td.scale-grade-cell { font-weight: 800; font-size: 9pt; }',
       '.grading-scale-inline-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 9pt; }',
       '.grading-scale-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border: 1.5px solid #333333; border-radius: 4px; font-weight: 700; font-size: 8pt; background: #ffffff; box-shadow: 1px 1px 0 #555555; }',
+      '/* Exam Competences & Curriculum Objectives Component */',
+      '.exam-competences-wrap { margin-top: 12px; padding: 10px 14px; border: 2px solid #2563eb; border-radius: 4px; background: #f0f7ff; break-inside: avoid; page-break-inside: avoid; }',
+      '.comp-bg-default { background: #f0f7ff; border-color: #2563eb; }',
+      '.comp-bg-white { background: #ffffff !important; }',
+      '.comp-bg-ivory { background: #fdfdf6 !important; }',
+      '.comp-bg-light_gray { background: #f8fafc !important; }',
+      '.comp-bg-tint { background: #eff6ff !important; }',
+      '.comp-bg-none { background: transparent !important; }',
+      '.comp-pad-compact { padding: 4px 8px !important; margin-top: 6px !important; }',
+      '.comp-pad-standard { padding: 8px 14px !important; margin-top: 10px !important; }',
+      '.comp-pad-spacious { padding: 14px 18px !important; margin-top: 14px !important; }',
+      '.comp-border-solid { border: 2px solid #2563eb !important; border-radius: 4px; }',
+      '.comp-border-neobrutalist { border: 2px solid #1e40af !important; box-shadow: 3px 3px 0 #1e40af !important; border-radius: 8px; }',
+      '.comp-border-double { border: 3px double #2563eb !important; border-radius: 4px; }',
+      '.comp-border-dashed { border: 2px dashed #2563eb !important; border-radius: 4px; }',
+      '.comp-border-minimal { border-top: 2px solid #2563eb !important; border-bottom: 2px solid #2563eb !important; border-left: none !important; border-right: none !important; border-radius: 0 !important; }',
+      '.comp-border-none { border: none !important; box-shadow: none !important; border-radius: 0; }',
+      '.exam-competences-title { font-weight: 800; text-transform: uppercase; font-size: 8.5pt; margin-bottom: 6px; color: #1e40af; letter-spacing: 0.5px; }',
+      '.exam-competences-title.title-bold { font-weight: 900; }',
+      '.exam-competences-title.title-italic { font-style: italic; }',
+      '.exam-competences-title.title-underline { text-decoration: underline; }',
+      '.competences-table { width: 100%; border-collapse: collapse; font-size: 8.5pt; text-align: left; }',
+      '.competences-table th, .competences-table td { border: 1.5px solid #2563eb; padding: 4px 8px; }',
+      '.competences-table th { background: #dbeafe; color: #1e40af; font-weight: 800; text-transform: uppercase; font-size: 7.5pt; letter-spacing: 0.5px; }',
+      '.col-comp-code { width: 90px; font-weight: 800; text-align: center; }',
+      '.col-comp-level { width: 75px; text-align: center; font-weight: 700; color: #1e40af; }',
+      '.comp-desc-cell { color: #334155; font-size: 8.2pt; line-height: 1.35; }',
+      '.competences-badges-wrap { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 4px; }',
+      '.comp-chip { display: inline-flex; flex-direction: column; padding: 3px 8px; background: #ffffff; border: 1.5px solid #2563eb; border-radius: 4px; box-shadow: 1px 1px 0 #2563eb; font-size: 8pt; }',
+      '.comp-chip strong { color: #1e40af; font-weight: 800; }',
+      '.comp-chip-desc { font-size: 7.2pt; color: #475569; margin-top: 1px; }',
+      '/* Exam Assessment Criteria & Evaluation Rubric Component */',
+      '.exam-criteria-wrap { margin-top: 12px; padding: 10px 14px; border: 2px solid #059669; border-radius: 4px; background: #f0fdf4; break-inside: avoid; page-break-inside: avoid; }',
+      '.crit-bg-default { background: #f0fdf4; border-color: #059669; }',
+      '.crit-bg-white { background: #ffffff !important; }',
+      '.crit-bg-ivory { background: #fdfdf6 !important; }',
+      '.crit-bg-amber { background: #fffbeb !important; border-color: #d97706 !important; }',
+      '.crit-bg-light_gray { background: #f8fafc !important; }',
+      '.crit-bg-none { background: transparent !important; }',
+      '.crit-pad-compact { padding: 4px 8px !important; margin-top: 6px !important; }',
+      '.crit-pad-standard { padding: 8px 14px !important; margin-top: 10px !important; }',
+      '.crit-pad-spacious { padding: 14px 18px !important; margin-top: 14px !important; }',
+      '.crit-border-solid { border: 2px solid #059669 !important; border-radius: 4px; }',
+      '.crit-border-neobrutalist { border: 2px solid #065f46 !important; box-shadow: 3px 3px 0 #065f46 !important; border-radius: 8px; }',
+      '.crit-border-double { border: 3px double #059669 !important; border-radius: 4px; }',
+      '.crit-border-dashed { border: 2px dashed #059669 !important; border-radius: 4px; }',
+      '.crit-border-minimal { border-top: 2px solid #059669 !important; border-bottom: 2px solid #059669 !important; border-left: none !important; border-right: none !important; border-radius: 0 !important; }',
+      '.crit-border-none { border: none !important; box-shadow: none !important; border-radius: 0; }',
+      '.exam-criteria-title { font-weight: 800; text-transform: uppercase; font-size: 8.5pt; margin-bottom: 6px; color: #065f46; letter-spacing: 0.5px; }',
+      '.exam-criteria-title.title-bold { font-weight: 900; }',
+      '.exam-criteria-title.title-italic { font-style: italic; }',
+      '.exam-criteria-title.title-underline { text-decoration: underline; }',
+      '.criteria-table { width: 100%; border-collapse: collapse; font-size: 8.5pt; text-align: left; }',
+      '.criteria-table th, .criteria-table td { border: 1.5px solid #059669; padding: 4px 8px; }',
+      '.criteria-table th { background: #d1fae5; color: #065f46; font-weight: 800; text-transform: uppercase; font-size: 7.5pt; letter-spacing: 0.5px; }',
+      '.col-crit-max { width: 65px; text-align: center; font-weight: 800; }',
+      '.col-crit-score { width: 65px; text-align: center; }',
+      '.col-crit-comments { min-width: 120px; }',
+      '.crit-desc-cell { color: #334155; font-size: 8.2pt; line-height: 1.35; }',
+      '.rubric-desc { font-size: 7.8pt; color: #475569; margin-top: 2px; line-height: 1.3; }',
       '/* Composition Component Styles (Genre Tag, Draft Box, Checklist) */',
       '.composition-genre-tag { font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.5px; color: #1e40af; background: #eff6ff; border: 1px solid #93c5fd; border-radius: 4px; padding: 2px 8px; display: inline-block; margin-bottom: 8px; }',
       '.draft-work-box { border: 1.5px dashed #94a3b8; border-radius: 4px; background: #fafafa; min-height: 85px; margin: 8px 0 12px 0; padding: 8px 12px; position: relative; break-inside: avoid; page-break-inside: avoid; }',
@@ -2582,10 +2722,18 @@
           metaItemsMap['gradingScale'] = formatItemHtml(hc.gradingScaleLabel || 'Grading Scale:', inlineGradesHtml, hc.gradingScaleStyle);
         }
       }
+      if (hc.showCompetences && hc.competencesStyle && hc.competencesStyle.displayMode === 'inline') {
+        var cCount = (test.linkedCompetences && test.linkedCompetences.length) || (test.linkedCompetenceIds && test.linkedCompetenceIds.length) || 0;
+        metaItemsMap['competences'] = formatItemHtml(hc.competencesLabel || 'Competences:', cCount + ' assessed', hc.competencesStyle);
+      }
+      if (hc.showCriteria && hc.criteriaStyle && hc.criteriaStyle.displayMode === 'inline') {
+        var crCount = (test.criteria && test.criteria.length) || (test.linkedCriteria && test.linkedCriteria.length) || 0;
+        metaItemsMap['criteria'] = formatItemHtml(hc.criteriaLabel || 'Criteria:', crCount + ' rubrics', hc.criteriaStyle);
+      }
 
       var metaOrder = (Array.isArray(hc.metaOrder) && hc.metaOrder.length)
         ? hc.metaOrder
-        : ['studentName', 'class', 'date', 'teacher', 'duration', 'materials', 'scope', 'points', 'gradingScale'];
+        : ['studentName', 'class', 'date', 'teacher', 'duration', 'materials', 'scope', 'points', 'gradingScale', 'competences', 'criteria'];
 
       var orderedItems = [];
       metaOrder.forEach(function (k) {
@@ -2641,14 +2789,34 @@
     }
 
     function buildGradingScaleSectionHtml() {
+      if ((test.exercises || []).some(function (e) { return e && e.type === 'section_grading_scale'; })) return '';
       if (!hc.showGradingScale || (hc.gradingScaleStyle && hc.gradingScaleStyle.displayMode === 'inline')) return '';
       return TestCreatorService.renderGradingScaleHtml(test, { totalPoints: tPts });
     }
 
+    function buildCompetencesSectionHtml() {
+      if ((test.exercises || []).some(function (e) { return e && e.type === 'section_competences'; })) return '';
+      if (!hc.showCompetences || (hc.competencesStyle && hc.competencesStyle.displayMode === 'inline')) return '';
+      return TestCreatorService.renderCompetencesHtml(test, { totalPoints: tPts });
+    }
+
+    function buildCriteriaSectionHtml() {
+      if ((test.exercises || []).some(function (e) { return e && e.type === 'section_criteria'; })) return '';
+      if (!hc.showCriteria || (hc.criteriaStyle && hc.criteriaStyle.displayMode === 'inline')) return '';
+      return TestCreatorService.renderCriteriaHtml(test, { totalPoints: tPts });
+    }
+
     // Dynamic Section Ordering
     var sectionOrder = (Array.isArray(hc.sectionOrder) && hc.sectionOrder.length)
-      ? hc.sectionOrder
-      : ['title', 'subtitle', 'metadata', 'instructions', 'gradingScale'];
+      ? hc.sectionOrder.slice()
+      : ['title', 'subtitle', 'metadata', 'instructions', 'gradingScale', 'competences', 'criteria'];
+
+    if (hc.showCompetences && sectionOrder.indexOf('competences') === -1) {
+      sectionOrder.push('competences');
+    }
+    if (hc.showCriteria && sectionOrder.indexOf('criteria') === -1) {
+      sectionOrder.push('criteria');
+    }
 
     sectionOrder.forEach(function (secKey) {
       var sHtml = '';
@@ -2657,10 +2825,232 @@
       else if (secKey === 'metadata') sHtml = buildMetadataHtml();
       else if (secKey === 'instructions') sHtml = buildInstructionsHtml();
       else if (secKey === 'gradingScale') sHtml = buildGradingScaleSectionHtml();
+      else if (secKey === 'competences') sHtml = buildCompetencesSectionHtml();
+      else if (secKey === 'criteria') sHtml = buildCriteriaSectionHtml();
       if (sHtml) out.push(sHtml);
     });
 
     out.push('    </div>');
+    return out.join('\n');
+  };
+
+  TestCreatorService.renderCompetencesHtml = function (test, options) {
+    if (!test) return '';
+    var opts = options || {};
+    var hc = TestCreatorService.ensureHeaderConfig(test);
+    var label = opts.title || opts.label || hc.competencesLabel || 'Competences & Curriculum Objectives:';
+    var displayMode = opts.displayMode || (hc.competencesStyle && hc.competencesStyle.displayMode) || 'table';
+    var showDesc = (opts.showDescriptions !== undefined) ? opts.showDescriptions : (hc.showCompetenceDescriptions !== false);
+
+    // Aggregate competences from test-level and exercises
+    var rawComps = (Array.isArray(test.linkedCompetences) && test.linkedCompetences.length)
+      ? test.linkedCompetences
+      : (Array.isArray(test.linkedCompetenceIds) ? test.linkedCompetenceIds : []);
+
+    if (!rawComps.length && Array.isArray(test.exercises)) {
+      test.exercises.forEach(function (ex) {
+        var exComps = ex.linkedCompetences || ex.linkedCompetenceIds || [];
+        exComps.forEach(function (c) {
+          if (rawComps.indexOf(c) === -1) rawComps.push(c);
+        });
+      });
+    }
+
+    if (!rawComps.length) return '';
+
+    var comps = rawComps.map(function (c) {
+      if (c && typeof c === 'object') {
+        return {
+          code: c.code || c.id || '',
+          title: c.title || c.name || c.code || '',
+          description: c.description || c.descriptors || c.desc || '',
+          level: c.level || c.yearLevel || '',
+          domain: c.domain || c.category || ''
+        };
+      }
+      var str = String(c || '').trim();
+      var code = str;
+      var title = str;
+      var desc = '';
+      var level = '';
+      if (str.startsWith('[')) {
+        var endBracket = str.indexOf(']');
+        if (endBracket !== -1) {
+          level = str.slice(1, endBracket).trim();
+          str = str.slice(endBracket + 1).trim();
+        }
+      }
+      if (str.indexOf(' - ') !== -1) {
+        var parts = str.split(' - ');
+        code = parts[0].trim();
+        title = parts.slice(1).join(' - ').trim();
+      } else if (str.indexOf(': ') !== -1) {
+        var parts2 = str.split(': ');
+        code = parts2[0].trim();
+        title = parts2.slice(1).join(': ').trim();
+      }
+      return { code: code, title: title, description: desc, level: level, domain: '' };
+    });
+
+    comps.sort(function (a, b) {
+      return (a.code || a.title || '').localeCompare(b.code || b.title || '', undefined, { numeric: true, sensitivity: 'base' });
+    });
+
+    var cSt = hc.competencesStyle || {};
+    var titleClasses = ['exam-competences-title'];
+    if (cSt.bold) titleClasses.push('title-bold');
+    if (cSt.italic) titleClasses.push('title-italic');
+    if (cSt.underline) titleClasses.push('title-underline');
+    var titleClsAttr = ' class="' + titleClasses.join(' ') + '"';
+
+    var bgCls = ' comp-bg-' + (opts.background || cSt.background || 'default');
+    var padCls = ' comp-pad-' + (opts.padding || cSt.padding || 'standard');
+    var borderCls = ' comp-border-' + (opts.border || cSt.border || 'solid');
+
+    if (displayMode === 'badges') {
+      var out = [];
+      out.push('      <div class="exam-competences-wrap' + bgCls + padCls + borderCls + '">');
+      out.push('        <div' + titleClsAttr + '>' + TestCreatorService.formatRichText(label) + ' <span class="scale-title-sub">(' + comps.length + ' objectives)</span></div>');
+      out.push('        <div class="competences-badges-wrap">');
+      comps.forEach(function (c) {
+        var codePart = c.code ? '<strong>' + escapeHtml(c.code) + '</strong>' : '';
+        var titlePart = c.title && c.title !== c.code ? ' <span>' + escapeHtml(c.title) + '</span>' : '';
+        var descPart = (showDesc && c.description) ? '<div class="comp-chip-desc">' + escapeHtml(c.description) + '</div>' : '';
+        out.push('          <div class="comp-chip">' + codePart + titlePart + descPart + '</div>');
+      });
+      out.push('        </div>');
+      out.push('      </div>');
+      return out.join('\n');
+    }
+
+    if (displayMode === 'list') {
+      var out = [];
+      out.push('      <div class="exam-competences-wrap' + bgCls + padCls + borderCls + '">');
+      out.push('        <div' + titleClsAttr + '>' + TestCreatorService.formatRichText(label) + '</div>');
+      out.push('        <ul style="margin-left: 20px; font-size: 8.5pt; line-height: 1.45; margin-top: 4px;">');
+      comps.forEach(function (c) {
+        var codePart = c.code ? '<strong>' + escapeHtml(c.code) + ':</strong> ' : '';
+        var titlePart = escapeHtml(c.title || '');
+        var descPart = (showDesc && c.description) ? ' — <span style="color:#475569;">' + escapeHtml(c.description) + '</span>' : '';
+        out.push('          <li>' + codePart + titlePart + descPart + '</li>');
+      });
+      out.push('        </ul>');
+      out.push('      </div>');
+      return out.join('\n');
+    }
+
+    // Default: 'table'
+    var out = [];
+    out.push('      <div class="exam-competences-wrap' + bgCls + padCls + borderCls + '">');
+    out.push('        <div' + titleClsAttr + '>' + TestCreatorService.formatRichText(label) + ' <span class="scale-title-sub">(' + comps.length + ' evaluated)</span></div>');
+    out.push('        <table class="competences-table">');
+    out.push('          <thead><tr>');
+    out.push('            <th class="col-comp-code">Code / Ref</th>');
+    out.push('            <th>Competence &amp; Learning Objective</th>');
+    if (showDesc) out.push('            <th>Descriptors &amp; Performance Criteria</th>');
+    out.push('            <th class="col-comp-level">Level</th>');
+    out.push('          </tr></thead>');
+    out.push('          <tbody>');
+    comps.forEach(function (c) {
+      out.push('            <tr>');
+      out.push('              <td class="col-comp-code"><strong>' + escapeHtml(c.code || 'COMP') + '</strong></td>');
+      out.push('              <td><strong>' + escapeHtml(c.title || c.code) + '</strong>' + (c.domain ? '<div style="font-size:7.5pt;color:#64748b;">Domain: ' + escapeHtml(c.domain) + '</div>' : '') + '</td>');
+      if (showDesc) {
+        out.push('              <td class="comp-desc-cell">' + escapeHtml(c.description || c.title || 'Demonstrates curriculum competence mastery.') + '</td>');
+      }
+      out.push('              <td class="col-comp-level">' + escapeHtml(c.level || '—') + '</td>');
+      out.push('            </tr>');
+    });
+    out.push('          </tbody>');
+    out.push('        </table>');
+    out.push('      </div>');
+    return out.join('\n');
+  };
+
+  TestCreatorService.renderCriteriaHtml = function (test, options) {
+    if (!test) return '';
+    var opts = options || {};
+    var hc = TestCreatorService.ensureHeaderConfig(test);
+    var label = opts.title || opts.label || hc.criteriaLabel || 'Assessment Criteria & Evaluation Rubric:';
+    var displayMode = opts.displayMode || (hc.criteriaStyle && hc.criteriaStyle.displayMode) || 'table';
+    var showDesc = (opts.showDescriptions !== undefined) ? opts.showDescriptions : (hc.showCriteriaDescriptions !== false);
+
+    // Aggregate criteria from test-level and exercises
+    var rawCriteria = (Array.isArray(test.criteria) && test.criteria.length)
+      ? test.criteria
+      : ((Array.isArray(test.linkedCriteria) && test.linkedCriteria.length) ? test.linkedCriteria : []);
+
+    if (!rawCriteria.length && Array.isArray(test.exercises)) {
+      test.exercises.forEach(function (ex) {
+        if (Array.isArray(ex.markingRubric) && ex.markingRubric.length) {
+          ex.markingRubric.forEach(function (r) {
+            if (!rawCriteria.some(function (existing) { return (existing.id && existing.id === r.id) || (existing.title === r.title); })) {
+              rawCriteria.push(r);
+            }
+          });
+        }
+      });
+    }
+
+    if (!rawCriteria.length) return '';
+
+    var crSt = hc.criteriaStyle || {};
+    var titleClasses = ['exam-criteria-title'];
+    if (crSt.bold) titleClasses.push('title-bold');
+    if (crSt.italic) titleClasses.push('title-italic');
+    if (crSt.underline) titleClasses.push('title-underline');
+    var titleClsAttr = ' class="' + titleClasses.join(' ') + '"';
+
+    var bgCls = ' crit-bg-' + (opts.background || crSt.background || 'default');
+    var padCls = ' crit-pad-' + (opts.padding || crSt.padding || 'standard');
+    var borderCls = ' crit-border-' + (opts.border || crSt.border || 'solid');
+
+    if (displayMode === 'compact') {
+      var out = [];
+      out.push('      <div class="exam-criteria-wrap' + bgCls + padCls + borderCls + '">');
+      out.push('        <div' + titleClsAttr + '>' + TestCreatorService.formatRichText(label) + '</div>');
+      out.push('        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">');
+      rawCriteria.forEach(function (crit) {
+        var cTitle = crit.title || crit.name || 'Criterion';
+        var cMax = crit.maxPoints || (Array.isArray(crit.grades) ? crit.grades[0] : 6) || 4;
+        var cDesc = (showDesc && (crit.description || crit.desc || crit.domain)) ? '<div class="rubric-desc">' + escapeHtml(crit.description || crit.desc || crit.domain) + '</div>' : '';
+        out.push('          <div style="background:#fff;border:1.5px solid #059669;padding:4px 8px;border-radius:4px;font-size:8pt;box-shadow:1px 1px 0 #059669;"><strong>' + escapeHtml(cTitle) + '</strong> <span style="color:#065f46;font-weight:800;">(/' + cMax + ' pts)</span>' + cDesc + '</div>');
+      });
+      out.push('        </div>');
+      out.push('      </div>');
+      return out.join('\n');
+    }
+
+    // Default: 'table'
+    var out = [];
+    out.push('      <div class="exam-criteria-wrap' + bgCls + padCls + borderCls + '">');
+    out.push('        <div' + titleClsAttr + '>' + TestCreatorService.formatRichText(label) + ' <span class="scale-title-sub">(' + rawCriteria.length + ' criteria)</span></div>');
+    out.push('        <table class="criteria-table">');
+    out.push('          <thead><tr>');
+    out.push('            <th>Assessment Criterion</th>');
+    if (showDesc) out.push('            <th>Performance Descriptors &amp; Evaluation Notes</th>');
+    out.push('            <th class="col-crit-max">Max</th>');
+    out.push('            <th class="col-crit-score">Score</th>');
+    out.push('            <th class="col-crit-comments">Feedback &amp; Comments</th>');
+    out.push('          </tr></thead>');
+    out.push('          <tbody>');
+    rawCriteria.forEach(function (crit) {
+      var cTitle = crit.title || crit.name || 'Criterion';
+      var cMax = crit.maxPoints || (Array.isArray(crit.grades) ? crit.grades[0] : 6) || 4;
+      var cDesc = crit.description || crit.desc || crit.domain || (Array.isArray(crit.grades) ? 'Scale levels: ' + crit.grades.join(', ') : 'Graded according to mastery rubric.');
+      out.push('            <tr>');
+      out.push('              <td><strong>' + escapeHtml(cTitle) + '</strong></td>');
+      if (showDesc) {
+        out.push('              <td class="crit-desc-cell">' + escapeHtml(cDesc) + '</td>');
+      }
+      out.push('              <td class="col-crit-max">/' + escapeHtml(String(cMax)) + '</td>');
+      out.push('              <td class="col-crit-score"></td>');
+      out.push('              <td class="col-crit-comments"></td>');
+      out.push('            </tr>');
+    });
+    out.push('          </tbody>');
+    out.push('        </table>');
+    out.push('      </div>');
     return out.join('\n');
   };
 
@@ -2671,7 +3061,7 @@
     var scaleModel = test.scaleModel || null;
     var scaleModelId = test.scaleModelId || 'pts_20';
     var hc = TestCreatorService.ensureHeaderConfig(test);
-    var label = hc.gradingScaleLabel || 'Grading Scale & Score Conversion:';
+    var label = opts.title || opts.label || hc.gradingScaleLabel || 'Grading Scale & Score Conversion:';
     var displayMode = opts.displayMode || (hc.gradingScaleStyle && hc.gradingScaleStyle.displayMode) || 'table';
     var tableData = TestCreatorService.calculateGradeConversionTable(scaleModel || scaleModelId, totalPts);
 
@@ -2682,9 +3072,9 @@
     if (gSt.underline) titleClasses.push('title-underline');
     var titleClsAttr = ' class="' + titleClasses.join(' ') + '"';
 
-    var bgCls = ' scale-bg-' + (gSt.background || (displayMode === 'inline_grades' ? 'amber' : 'default'));
-    var padCls = ' scale-pad-' + (gSt.padding || 'standard');
-    var borderCls = ' scale-border-' + (gSt.border || 'solid');
+    var bgCls = ' scale-bg-' + (opts.background || gSt.background || (displayMode === 'inline_grades' ? 'amber' : 'default'));
+    var padCls = ' scale-pad-' + (opts.padding || gSt.padding || 'standard');
+    var borderCls = ' scale-border-' + (opts.border || gSt.border || 'solid');
 
     if (displayMode === 'inline_grades') {
       var inlineItems = TestCreatorService.buildInlineGradeItems(tableData, totalPts, true);
@@ -2731,7 +3121,61 @@
   TestCreatorService.renderExerciseHtml = function (ex, index, isTeacherKey, options) {
     if (!ex) return '';
     var opts = options || {};
-    var num = index + 1;
+    var testContext = opts.test || null;
+    var isSection = (ex.type === 'section_competences' || ex.type === 'section_criteria' || ex.type === 'section_grading_scale');
+    var num = (opts.exerciseNumber !== undefined && opts.exerciseNumber > 0) ? opts.exerciseNumber : (index + 1);
+    var html = [];
+    var pageBreakClass = ex.forcePageBreak ? ' page-break-before' : '';
+    var exOpts = TestCreatorService.ensureExerciseOptions(ex);
+
+    if (ex.type === 'section_competences') {
+      var cOpts = Object.assign({}, ex.options || {});
+      var tObj = testContext || { linkedCompetences: ex.linkedCompetences || [], exercises: [] };
+      var compHtml = TestCreatorService.renderCompetencesHtml(tObj, {
+        title: ex.title || 'Competences & Curriculum Objectives',
+        displayMode: cOpts.displayMode || 'table',
+        showDescriptions: cOpts.showDescriptions !== false,
+        background: cOpts.background || 'default',
+        border: cOpts.border || 'solid',
+        padding: cOpts.padding || 'standard'
+      });
+      return '<div class="exercise-card section-block-card' + pageBreakClass + '" id="ex-' + ex.id + '">' +
+        (compHtml || '<div class="exam-competences-wrap"><div class="exam-competences-title">' + TestCreatorService.formatRichText(ex.title || 'Competences & Curriculum Objectives') + '</div></div>') +
+        '</div>';
+    }
+
+    if (ex.type === 'section_criteria') {
+      var crOpts = Object.assign({}, ex.options || {});
+      var tObj = testContext || { criteria: ex.criteria || [], exercises: [] };
+      var critHtml = TestCreatorService.renderCriteriaHtml(tObj, {
+        title: ex.title || 'Assessment Criteria & Evaluation Rubric',
+        displayMode: crOpts.displayMode || 'table',
+        showDescriptions: crOpts.showDescriptions !== false,
+        background: crOpts.background || 'default',
+        border: crOpts.border || 'solid',
+        padding: crOpts.padding || 'standard'
+      });
+      return '<div class="exercise-card section-block-card' + pageBreakClass + '" id="ex-' + ex.id + '">' +
+        (critHtml || '<div class="exam-criteria-wrap"><div class="exam-criteria-title">' + TestCreatorService.formatRichText(ex.title || 'Assessment Criteria') + '</div></div>') +
+        '</div>';
+    }
+
+    if (ex.type === 'section_grading_scale') {
+      var scOpts = Object.assign({}, ex.options || {});
+      var tPts = (opts.totalPoints !== undefined) ? opts.totalPoints : (testContext ? TestCreatorService.calculateTotalTestPoints(testContext) : (ex.totalPoints || 20));
+      var tObj = testContext || { scaleModel: ex.scaleModel || null, scaleModelId: ex.scaleModelId || 'pts_20' };
+      var scaleHtml = TestCreatorService.renderGradingScaleHtml(tObj, {
+        title: ex.title || 'Grading Scale & Score Conversion',
+        displayMode: scOpts.displayMode || 'table',
+        totalPoints: tPts,
+        background: scOpts.background || 'default',
+        border: scOpts.border || 'solid',
+        padding: scOpts.padding || 'standard'
+      });
+      return '<div class="exercise-card section-block-card' + pageBreakClass + '" id="ex-' + ex.id + '">' +
+        (scaleHtml || '<div class="exam-grading-scale-wrap"><div class="exam-grading-scale-title">' + TestCreatorService.formatRichText(ex.title || 'Grading Scale') + '</div></div>') +
+        '</div>';
+    }
     var html = [];
     var pageBreakClass = ex.forcePageBreak ? ' page-break-before' : '';
     var exOpts = TestCreatorService.ensureExerciseOptions(ex);
@@ -3038,7 +3482,9 @@
           rOut.push('    <thead><tr><th>Assessment Criteria</th><th class="col-rubric-max">Max</th><th class="col-rubric-score">Score</th><th>Feedback</th></tr></thead>');
           rOut.push('    <tbody>');
           ex.markingRubric.forEach(function (r) {
-            rOut.push('      <tr><td>' + TestCreatorService.formatRichText(r.title) + '</td><td>/' + (r.maxPoints || 0) + '</td><td></td><td></td></tr>');
+            var rTitle = r.title || r.name || 'Criterion';
+            var rDesc = (r.description || r.desc) ? '<div class="rubric-desc">' + escapeHtml(r.description || r.desc) + '</div>' : '';
+            rOut.push('      <tr><td><strong>' + TestCreatorService.formatRichText(rTitle) + '</strong>' + rDesc + '</td><td>/' + (r.maxPoints || 0) + '</td><td></td><td></td></tr>');
           });
           rOut.push('    </tbody>');
           rOut.push('  </table>');
@@ -3465,8 +3911,16 @@
     html.push(TestCreatorService.renderHeaderHtml(test, isTeacherKey, variant, studentName, className, totalPts));
 
     // Exercises
+    var exNum = 1;
     (test.exercises || []).forEach(function (ex, idx) {
-      html.push(TestCreatorService.renderExerciseHtml(ex, idx, isTeacherKey, { exportStyle: globalStyle }));
+      var isSec = (ex.type === 'section_competences' || ex.type === 'section_criteria' || ex.type === 'section_grading_scale');
+      var currentExNum = isSec ? 0 : exNum++;
+      html.push(TestCreatorService.renderExerciseHtml(ex, idx, isTeacherKey, {
+        exportStyle: globalStyle,
+        test: test,
+        totalPoints: totalPts,
+        exerciseNumber: currentExNum
+      }));
     });
 
     html.push('  </div>');
@@ -3513,7 +3967,12 @@
       md.push('');
       md.push('> *Instructions:* ' + hc.instructionsText);
     }
-    if (hc.showGradingScale) {
+
+    var hasScaleSection = (test.exercises || []).some(function (e) { return e && e.type === 'section_grading_scale'; });
+    var hasCompSection = (test.exercises || []).some(function (e) { return e && e.type === 'section_competences'; });
+    var hasCritSection = (test.exercises || []).some(function (e) { return e && e.type === 'section_criteria'; });
+
+    if (hc.showGradingScale && !hasScaleSection) {
       var scMode = (hc.gradingScaleStyle && hc.gradingScaleStyle.displayMode) || 'table';
       if (scMode === 'inline') {
         var sName = (test.scaleModel && (test.scaleModel.label || test.scaleModel.name)) || test.scaleModelId || 'Standard Scale';
@@ -3533,17 +3992,116 @@
         });
       }
     }
+    if (hc.showCompetences && !hasCompSection) {
+      var rawComps = (Array.isArray(test.linkedCompetences) && test.linkedCompetences.length)
+        ? test.linkedCompetences
+        : (Array.isArray(test.linkedCompetenceIds) ? test.linkedCompetenceIds : []);
+      if (rawComps.length) {
+        md.push('');
+        md.push('### ' + (hc.competencesLabel || 'Competences & Curriculum Objectives'));
+        md.push('| Code / Ref | Competence & Objective | Description |');
+        md.push('|---|---|---|');
+        var sortedComps = rawComps.map(function (c) {
+          var cCode = (c && (c.code || c.id)) || String(c || '');
+          var cTitle = (c && (c.title || c.name)) || cCode;
+          var cDesc = (c && (c.description || c.descriptors || c.desc)) || '';
+          return { code: cCode, title: cTitle, description: cDesc };
+        }).sort(function (a, b) {
+          return (a.code || a.title).localeCompare(b.code || b.title, undefined, { numeric: true, sensitivity: 'base' });
+        });
+        sortedComps.forEach(function (c) {
+          md.push('| **' + c.code + '** | ' + c.title + ' | ' + c.description + ' |');
+        });
+      }
+    }
+    if (hc.showCriteria && !hasCritSection) {
+      var rawCrits = (Array.isArray(test.criteria) && test.criteria.length)
+        ? test.criteria
+        : ((Array.isArray(test.linkedCriteria) && test.linkedCriteria.length) ? test.linkedCriteria : []);
+      if (rawCrits.length) {
+        md.push('');
+        md.push('### ' + (hc.criteriaLabel || 'Assessment Criteria & Rubric'));
+        md.push('| Criterion | Performance Descriptors | Max Points | Score | Comments |');
+        md.push('|---|---|---|---|---|');
+        rawCrits.forEach(function (crit) {
+          var crTitle = crit.title || crit.name || 'Criterion';
+          var crDesc = crit.description || crit.desc || crit.domain || '';
+          var crMax = crit.maxPoints || 6;
+          md.push('| **' + crTitle + '** | ' + crDesc + ' | /' + crMax + ' | | |');
+        });
+      }
+    }
     md.push('');
     md.push('---');
     md.push('');
 
+    var exCounter = 1;
     (test.exercises || []).forEach(function (ex, idx) {
-      var num = idx + 1;
+      var isSection = (ex.type === 'section_competences' || ex.type === 'section_criteria' || ex.type === 'section_grading_scale');
       var exOpts = TestCreatorService.ensureExerciseOptions(ex);
-      md.push('## Exercise ' + num + ': ' + (ex.title || 'Question') + ' (' + (ex.points || 0) + ' pts)');
-      if (ex.instructions) md.push('*' + ex.instructions + '*\n');
+
+      if (!isSection) {
+        var num = exCounter++;
+        md.push('## Exercise ' + num + ': ' + (ex.title || 'Question') + ' (' + (ex.points || 0) + ' pts)');
+        if (ex.instructions) md.push('*' + ex.instructions + '*\n');
+      }
 
       switch (ex.type) {
+        case 'section_competences':
+          var secComps = (Array.isArray(test.linkedCompetences) && test.linkedCompetences.length)
+            ? test.linkedCompetences
+            : (Array.isArray(test.linkedCompetenceIds) ? test.linkedCompetenceIds : []);
+          md.push('### ' + (ex.title || 'Competences & Curriculum Objectives'));
+          if (secComps.length) {
+            md.push('| Code / Ref | Competence & Objective | Description |');
+            md.push('|---|---|---|');
+            var sortedSecComps = secComps.map(function (c) {
+              var cCode = (c && (c.code || c.id)) || String(c || '');
+              var cTitle = (c && (c.title || c.name)) || cCode;
+              var cDesc = (c && (c.description || c.descriptors || c.desc)) || '';
+              return { code: cCode, title: cTitle, description: cDesc };
+            }).sort(function (a, b) {
+              return (a.code || a.title).localeCompare(b.code || b.title, undefined, { numeric: true, sensitivity: 'base' });
+            });
+            sortedSecComps.forEach(function (c) {
+              md.push('| **' + c.code + '** | ' + c.title + ' | ' + c.description + ' |');
+            });
+          } else {
+            md.push('*No competences linked to exam.*');
+          }
+          md.push('');
+          break;
+
+        case 'section_criteria':
+          var secCrits = (Array.isArray(test.criteria) && test.criteria.length)
+            ? test.criteria
+            : ((Array.isArray(test.linkedCriteria) && test.linkedCriteria.length) ? test.linkedCriteria : []);
+          md.push('### ' + (ex.title || 'Assessment Criteria & Evaluation Rubric'));
+          if (secCrits.length) {
+            md.push('| Criterion | Performance Descriptors | Max Points | Score | Comments |');
+            md.push('|---|---|---|---|---|');
+            secCrits.forEach(function (crit) {
+              var crTitle = crit.title || crit.name || 'Criterion';
+              var crDesc = crit.description || crit.desc || crit.domain || '';
+              var crMax = crit.maxPoints || 6;
+              md.push('| **' + crTitle + '** | ' + crDesc + ' | /' + crMax + ' | | |');
+            });
+          } else {
+            md.push('*No criteria linked to exam.*');
+          }
+          md.push('');
+          break;
+
+        case 'section_grading_scale':
+          var tableData = TestCreatorService.calculateGradeConversionTable(test.scaleModel || test.scaleModelId, totalPts);
+          md.push('### ' + (ex.title || 'Grading Scale & Score Conversion'));
+          md.push('| Grade / Mark | Threshold | Required Points | Assessment |');
+          md.push('|---|---|---|---|');
+          tableData.rows.forEach(function (r) {
+            md.push('| **' + r.grade + '** | ' + r.thresholdStr + ' | **' + r.pointsStr + '** | ' + (r.desc || '') + ' |');
+          });
+          md.push('');
+          break;
         case 'cloze':
           TestCreatorService.normalizeExerciseItems(ex);
           var cItems = (ex.content && ex.content.items) || [];
