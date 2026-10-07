@@ -65,6 +65,7 @@
     { href: 'file-manager.html',     icon: 'file-manager.svg',     label: 'File Manager'     },
     { href: 'import-tool.html',      icon: 'import-tool.svg',      label: 'Import'           },
     { href: 'database-converter.html', icon: 'table.svg',          label: 'Database Converter'},
+    { href: 'media-converter.html',  icon: 'media-converter.svg',  label: 'Media Converter'  },
     null,
     { href: 'general-config.html',   icon: 'general-config.svg',   label: 'General Config'  },
     { href: 'launcher.html',         icon: 'launcher.svg',         label: 'Launcher'         },

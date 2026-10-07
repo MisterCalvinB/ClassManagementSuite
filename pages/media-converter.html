@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data: blob:; script-src 'self' 'unsafe-inline' file: blob:; style-src 'self' 'unsafe-inline' file:; media-src 'self' file: data: blob:; img-src 'self' file: data: blob:;">
+  <title>Video &amp; Sound Converter</title>
+  <link rel="stylesheet" href="../modules/lexend/lexend.css">
+  <link rel="stylesheet" href="../css/media-converter.css">
+  <script src="../electron-bridge.js"></script>
+  <script src="../js/i18n.js"></script>
+  <script src="../js/shortcuts-modal.js"></script>
+  <script src="../js/dialogs.js"></script>
+  <script src="../js/tutorial.js"></script>
+  <script src="../modules/wavesurfer/wavesurfer.min.js"></script>
+  <script src="../modules/wavesurfer/wavesurfer.regions.min.js"></script>
+  <script src="../js/media-audio-encoder.js"></script>
+  <script src="../js/media-converter.js"></script>
+</head>
+<body>
+
+  <!-- App Header -->
+  <header class="app-header">
+    <div class="header-left">
+      <img src="../assets/icons/media-converter.svg" class="header-icon" alt="" />
+      <span class="header-title" data-i18n="mediaConverterTitle">Video &amp; Sound Converter</span>
+      <span id="engineBadge" class="engine-badge builtin">
+        <img src="../assets/icons/media.svg" alt="" />
+        <span id="engineBadgeText">Detecting engine...</span>
+      </span>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-sm" id="mediaTourBtn" onclick="if(window.startMediaConverterTour)window.startMediaConverterTour();" data-i18n-title="btnTour" title="Interactive Tour">
+        <img src="../assets/icons/how-to.svg" alt="" /> <span data-i18n="tour">Tour</span>
+      </button>
+      <button class="btn btn-sm" onclick="if(window.Desktop&&window.Desktop.openTool)window.Desktop.openTool('launcher.html');else window.location.href='../launcher.html';" data-i18n-title="btnLauncher" title="Back to Launcher">
+        <img src="../assets/icons/launcher.svg" alt="" /> <span data-i18n="launcher">Launcher</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="main-container">
+
+    <!-- Dropzone Panel -->
+    <section class="card-panel" id="dropzonePanel">
+      <input type="file" id="fileInput" multiple hidden accept="audio/*,video/*,.mkv,.avi,.mov,.flv,.wmv,.webp">
+      <div class="dropzone" id="dropzone">
+        <img src="../assets/icons/upload.svg" class="dropzone-icon" alt="" />
+        <div class="dropzone-title" data-i18n="dropzoneTitle">Drag &amp; Drop Media Files Here</div>
+        <div class="dropzone-subtitle" data-i18n="dropzoneSubtitle">
+          Supports MP4, WebM, WebP, MP3, OGG, WAV, M4A, AAC, FLAC, AVI, MOV, MKV, WMV
+        </div>
+        <button type="button" class="btn btn-primary" id="browseFilesBtn">
+          <img src="../assets/icons/folder.svg" alt="" /> <span data-i18n="browseFiles">Browse Files</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Quick Teacher Presets -->
+    <section class="card-panel" id="presetsPanel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <img src="../assets/icons/sparkles.svg" alt="" />
+          <span data-i18n="quickPresetsTitle">Quick Presets for Teachers</span>
+        </div>
+      </div>
+      <div class="presets-grid">
+        <button type="button" class="preset-chip active" data-preset="classroom-video">
+          <img src="../assets/icons/presentation.svg" alt="" />
+          <span data-i18n="presetClassroomVideo">Classroom Video (720p MP4)</span>
+        </button>
+        <button type="button" class="preset-chip" data-preset="oral-exam">
+          <img src="../assets/icons/mic.svg" alt="" />
+          <span data-i18n="presetOralExam">Oral Exam / Speech (128k MP3)</span>
+        </button>
+        <button type="button" class="preset-chip" data-preset="extract-audio">
+          <img src="../assets/icons/music.svg" alt="" />
+          <span data-i18n="presetExtractAudio">Extract Audio (WAV)</span>
+        </button>
+        <button type="button" class="preset-chip" data-preset="lms-small">
+          <img src="../assets/icons/download.svg" alt="" />
+          <span data-i18n="presetLmsSmall">LMS Small File (&lt;25MB MP4)</span>
+        </button>
+        <button type="button" class="preset-chip" data-preset="slow-listening">
+          <img src="../assets/icons/clock.svg" alt="" />
+          <span data-i18n="presetSlowListening">Slow Listening (0.85x MP3)</span>
+        </button>
+        <button type="button" class="preset-chip" data-preset="voice-boost">
+          <img src="../assets/icons/volume.svg" alt="" />
+          <span data-i18n="presetVoiceBoost">Voice Normalizer &amp; Boost</span>
+        </button>
+        <button type="button" class="preset-chip" data-preset="animated-webp">
+          <img src="../assets/icons/draw.svg" alt="" />
+          <span data-i18n="presetAnimatedWebp">Animated WebP Loop</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Target Format & Audio Enhancements Grid -->
+    <section class="settings-grid">
+      
+      <!-- Target Format Box -->
+      <div class="card-panel" id="formatSettingsPanel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <img src="../assets/icons/gear.svg" alt="" />
+            <span data-i18n="targetFormatSettings">Target Format &amp; Quality</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="targetFormat" data-i18n="outputFormatLabel">Output Format</label>
+          <select id="targetFormat" class="form-select">
+            <optgroup label="Video Formats">
+              <option value="mp4" selected>MP4 (H.264 / AAC — Universal)</option>
+              <option value="webm">WebM (VP9 / Opus — Web Ready)</option>
+              <option value="mkv">MKV (Matroska Container)</option>
+              <option value="mov">MOV (QuickTime)</option>
+              <option value="avi">AVI (Legacy Compatible)</option>
+            </optgroup>
+            <optgroup label="Audio Formats">
+              <option value="mp3">MP3 (Universal Speech &amp; Music)</option>
+              <option value="wav">WAV (Uncompressed 16-bit PCM)</option>
+              <option value="m4a">M4A / AAC (Apple Voice Memo)</option>
+              <option value="ogg">OGG (Vorbis Audio)</option>
+              <option value="flac">FLAC (Lossless Master)</option>
+            </optgroup>
+            <optgroup label="Animated Graphics">
+              <option value="webp">WebP (Animated Diagram Loop)</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <div class="form-group" id="videoResGroup">
+          <label class="form-label" for="videoResolution" data-i18n="videoResolutionLabel">Video Resolution</label>
+          <select id="videoResolution" class="form-select">
+            <option value="original" selected data-i18n="resOriginal">Keep Original Resolution</option>
+            <option value="1080p">1920 × 1080 (1080p Full HD)</option>
+            <option value="720p">1280 × 720 (720p HD Classroom Standard)</option>
+            <option value="480p">854 × 480 (480p SD Lightweight)</option>
+            <option value="360p">640 × 360 (360p Ultra Small)</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="videoQualGroup">
+          <label class="form-label" for="videoQuality" data-i18n="videoQualityLabel">Video Quality</label>
+          <select id="videoQuality" class="form-select">
+            <option value="high" data-i18n="qualityHigh">High Quality (Higher bitrate)</option>
+            <option value="medium" selected data-i18n="qualityMedium">Medium (Balanced standard)</option>
+            <option value="low" data-i18n="qualityLow">Low (Maximum compression)</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="audioBitrateGroup">
+          <label class="form-label" for="audioBitrate" data-i18n="audioBitrateLabel">Audio Bitrate</label>
+          <select id="audioBitrate" class="form-select">
+            <option value="320k">320 kbps (High Fidelity)</option>
+            <option value="192k" selected>192 kbps (Standard Music &amp; Video)</option>
+            <option value="128k">128 kbps (Speech &amp; Oral Exams)</option>
+            <option value="96k">96 kbps (Compact File)</option>
+            <option value="64k">64 kbps (Voice Only Small)</option>
+          </select>
+        </div>
+
+      </div>
+
+      <!-- Audio Enhancement Filters Box -->
+      <div class="card-panel" id="audioEnhancementPanel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <img src="../assets/icons/volume.svg" alt="" />
+            <span data-i18n="audioFiltersTitle">Audio Filters &amp; Speech Adjustments</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox-row" for="audioNormalize">
+            <input type="checkbox" id="audioNormalize">
+            <span data-i18n="normalizeVoicesLabel">Normalize Volume (Boost quiet student recordings)</span>
+          </label>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="audioSpeed" data-i18n="speechSpeedLabel">Listening Speed Multiplier</label>
+          <select id="audioSpeed" class="form-select">
+            <option value="0.75">0.75× (Beginner Language Learners)</option>
+            <option value="0.85">0.85× (Slow Listening Practice)</option>
+            <option value="1.0" selected>1.0× (Normal Speed)</option>
+            <option value="1.15">1.15× (Fast Listening Challenge)</option>
+            <option value="1.25">1.25× (Quick Review)</option>
+            <option value="1.5">1.5× (Speed Comprehension)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="audioChannels" data-i18n="audioChannelsLabel">Audio Channels</label>
+          <select id="audioChannels" class="form-select">
+            <option value="0" selected data-i18n="channelsAuto">Auto (Keep Original)</option>
+            <option value="1" data-i18n="channelsMono">Mono (Clear single voice)</option>
+            <option value="2" data-i18n="channelsStereo">Stereo (2 Channels)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox-row" for="losslessTrimCheck">
+            <input type="checkbox" id="losslessTrimCheck">
+            <span data-i18n="losslessTrimLabel">Fast Lossless Trimming (Stream copy without re-encoding)</span>
+          </label>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- Visual Trimmer & Preview Panel -->
+    <section class="card-panel" id="trimmerPanel" style="display: none;">
+      <div class="panel-header">
+        <div class="panel-title">
+          <img src="../assets/icons/scissors.svg" onerror="this.src='../assets/icons/media.svg'" alt="" />
+          <span data-i18n="trimmerTitle">Visual Timeline &amp; Trimming</span>
+        </div>
+      </div>
+
+      <div class="trimmer-container">
+        <div class="preview-wrapper">
+          <div class="video-preview-box" id="videoPreviewBox" style="display: none;">
+            <video id="videoPlayer" controls></video>
+          </div>
+
+          <div class="trim-controls-box">
+            <div class="waveform-box" id="waveformContainer"></div>
+            
+            <div class="trim-time-indicators">
+              <span>Start: <span id="trimStartDisplay">00:00.00</span></span>
+              <span>End: <span id="trimEndDisplay">00:00.00</span></span>
+              <span>Duration: <span id="trimDurDisplay">00:00.00</span></span>
+            </div>
+
+            <div class="trim-btn-row">
+              <button type="button" class="btn btn-sm btn-primary" id="trimPlayBtn">
+                <img src="../assets/icons/play.svg" alt="" /> <span data-i18n="playSelection">Play Selection</span>
+              </button>
+              <button type="button" class="btn btn-sm" id="trimPauseBtn">
+                <img src="../assets/icons/pause.svg" alt="" /> <span data-i18n="pause">Pause</span>
+              </button>
+              <button type="button" class="btn btn-sm" id="trimResetBtn">
+                <img src="../assets/icons/rewind.svg" alt="" /> <span data-i18n="resetSelection">Reset Range</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Conversion Queue Panel -->
+    <section class="card-panel" id="queuePanel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <img src="../assets/icons/table.svg" alt="" />
+          <span data-i18n="conversionQueueTitle">Conversion Queue</span> <span id="queueCountBadge"></span>
+        </div>
+        <div class="header-actions">
+          <button type="button" class="btn btn-sm btn-primary" id="convertAllBtn">
+            <img src="../assets/icons/refresh.svg" alt="" /> <span data-i18n="convertAllBtn">Convert All</span>
+          </button>
+          <button type="button" class="btn btn-sm btn-danger" id="clearQueueBtn">
+            <img src="../assets/icons/clear.svg" alt="" /> <span data-i18n="clearQueueBtn">Clear List</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="queue-list" id="queueList"></div>
+    </section>
+
+  </main>
+
+  <!-- Engine Download Modal -->
+  <div class="modal-backdrop" id="engineModal" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">
+          <img src="../assets/icons/zap.svg" alt="" />
+          <span data-i18n="engineRequiredTitle">Video Engine (FFmpeg) Required</span>
+        </div>
+        <button type="button" class="btn btn-sm" id="closeEngineModalBtn" aria-label="Close">
+          <img src="../assets/icons/close.svg" alt="" />
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc" data-i18n="engineRequiredDesc">
+          Converting video files (MP4, MKV, MOV, WebM) requires the fast native FFmpeg engine. Would you like to download it now into your user tools folder? (~35MB, one-time offline setup)
+        </p>
+        <div id="engineDownloadProgressArea" style="display: none;">
+          <div class="progress-track" style="margin-top: 14px; height: 16px;">
+            <div class="progress-bar" id="engineProgressBar" style="width: 0%;"></div>
+          </div>
+          <div class="progress-label" style="margin-top: 6px;">
+            <span id="engineProgressStatus" data-i18n="engineDownloading">Downloading Video Engine...</span>
+            <span id="engineProgressPercent">0%</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" id="startDownloadEngineBtn">
+          <img src="../assets/icons/download.svg" alt="" />
+          <span data-i18n="downloadEngineBtn">Download Video Engine (1-Click)</span>
+        </button>
+        <button type="button" class="btn" id="cancelEngineModalBtn">
+          <span data-i18n="cancel">Cancel</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

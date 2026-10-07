@@ -614,6 +614,15 @@
               '<div class="cmt-dest-doceditor-desc" style="font-size:0.75rem;color:#444;font-weight:600;margin-top:2px;">Direct save into documents and open immediately in Document Editor</div>' +
             '</div>' +
           '</button>' +
+          '<button type="button" class="cmt-btn-dest-samefolder" style="display:none;align-items:center;gap:12px;padding:12px 14px;background:#fff;border:2px solid #000;box-shadow:3px 3px 0 #000;border-radius:6px;cursor:pointer;text-align:left;transition:transform .08s,box-shadow .08s,background .12s;outline:none;font-family:inherit;">' +
+            '<div style="width:36px;height:36px;border:1.5px solid #000;border-radius:4px;background:#86efac;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+              '<img src="../assets/icons/media.svg" style="width:20px;height:20px;" alt="">' +
+            '</div>' +
+            '<div style="flex:1;">' +
+              '<div class="cmt-dest-samefolder-title" style="font-size:0.92rem;font-weight:800;color:#000;">Same Folder as Original Media</div>' +
+              '<div class="cmt-dest-samefolder-desc" style="font-size:0.75rem;color:#555;font-weight:600;margin-top:2px;">Save in the original source folder</div>' +
+            '</div>' +
+          '</button>' +
           '<button type="button" class="cmt-btn-dest-print" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:#fff;border:2px solid #000;box-shadow:3px 3px 0 #000;border-radius:6px;cursor:pointer;text-align:left;transition:transform .08s,box-shadow .08s,background .12s;outline:none;font-family:inherit;">' +
             '<div style="width:36px;height:36px;border:1.5px solid #000;border-radius:4px;background:#fde047;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
               '<img src="../assets/icons/printer.svg" style="width:20px;height:20px;" alt="">' +
@@ -640,6 +649,7 @@
     document.body.appendChild(destinationOverlay);
 
     var btnDocEditor = destinationOverlay.querySelector('.cmt-btn-dest-doceditor');
+    var btnSameFolder = destinationOverlay.querySelector('.cmt-btn-dest-samefolder');
     var btnPrint = destinationOverlay.querySelector('.cmt-btn-dest-print');
     var btnCustom = destinationOverlay.querySelector('.cmt-btn-dest-custom');
     var btnCancel = destinationOverlay.querySelector('.cmt-btn-dest-cancel');
@@ -660,6 +670,13 @@
       }
     }
 
+    if (btnSameFolder) {
+      btnSameFolder.addEventListener('click', function () { closeWith('same-folder'); });
+      btnSameFolder.addEventListener('mouseenter', function () { btnSameFolder.style.background = '#f0fdf4'; });
+      btnSameFolder.addEventListener('mouseleave', function () { btnSameFolder.style.background = '#fff'; });
+      btnSameFolder.addEventListener('mousedown', function () { btnSameFolder.style.transform = 'translate(1px, 1px)'; btnSameFolder.style.boxShadow = '2px 2px 0 #000'; });
+      btnSameFolder.addEventListener('mouseup', function () { btnSameFolder.style.transform = 'none'; btnSameFolder.style.boxShadow = '3px 3px 0 #000'; });
+    }
     btnDocEditor.addEventListener('click', function () { closeWith('doc-editor'); });
     btnPrint.addEventListener('click', function () { closeWith('to-print'); });
     btnCustom.addEventListener('click', function () { closeWith('custom'); });
@@ -716,6 +733,17 @@
         btnDocEditor.style.display = 'flex';
       } else {
         btnDocEditor.style.display = 'none';
+      }
+    }
+
+    var btnSameFolder = destinationOverlay.querySelector('.cmt-btn-dest-samefolder');
+    if (btnSameFolder) {
+      if (opts.allowSameFolder && opts.sameFolderPath) {
+        btnSameFolder.style.display = 'flex';
+        destinationOverlay.querySelector('.cmt-dest-samefolder-title').textContent = opts.sameFolderTitle || _getExportText('exportToSameFolder', 'Same Folder as Original Media');
+        destinationOverlay.querySelector('.cmt-dest-samefolder-desc').textContent = opts.sameFolderDesc || (_getExportText('exportToSameFolderDesc', 'Save in: ') + opts.sameFolderPath);
+      } else {
+        btnSameFolder.style.display = 'none';
       }
     }
 
@@ -981,15 +1009,26 @@
     exportOverlay.classList.remove('open');
   }
 
-  function _showExportSuccessPopup(filePath, fileName, isFolder) {
+  function _showExportSuccessPopup(filePathOrOptions, fileName, isFolder) {
     if (!window.Desktop || !Desktop.isElectron()) {
       // Browsers do standard downloads, so bypass
       return;
     }
     ensureExportOverlay();
 
-    var name = fileName || filePath.split(/[\\/]/).pop();
-    var titleText = _getExportText('exportSuccessTitle', 'Export Complete');
+    var filePath = '';
+    var customTitle = '';
+    if (filePathOrOptions && typeof filePathOrOptions === 'object') {
+      filePath = filePathOrOptions.filePath || filePathOrOptions.path || '';
+      fileName = filePathOrOptions.fileName || fileName;
+      isFolder = filePathOrOptions.isFolder !== undefined ? filePathOrOptions.isFolder : isFolder;
+      customTitle = filePathOrOptions.title || '';
+    } else {
+      filePath = String(filePathOrOptions || '');
+    }
+
+    var name = fileName || (filePath ? filePath.split(/[\\/]/).pop() : 'export');
+    var titleText = customTitle || _getExportText('exportSuccessTitle', 'Export Complete');
     var defaultMsg = '"{name}" has been successfully exported.';
     if (isFolder) {
       defaultMsg = 'Folder "{name}" has been successfully exported.';
@@ -1125,6 +1164,8 @@
         exportFileNameLabel: 'File Name:',
         exportToDocEditor: 'Document Editor (user/document-editor/docs)',
         exportToDocEditorDesc: 'Direct save into documents and open immediately in Document Editor',
+        exportToSameFolder: 'Same Folder as Original Media',
+        exportToSameFolderDesc: 'Save in the same folder alongside the original file: ',
         exportOpenedInDocEditor: 'Opened in Document Editor: "{name}"',
         btnCancel: 'Cancel'
       },
@@ -1146,6 +1187,8 @@
         exportFileNameLabel: 'Nom du fichier :',
         exportToDocEditor: "Éditeur de documents (user/document-editor/docs)",
         exportToDocEditorDesc: "Enregistrement direct dans les documents et ouverture immédiate dans l'Éditeur de documents",
+        exportToSameFolder: "Même dossier que le média d'origine",
+        exportToSameFolderDesc: "Enregistrer dans le même dossier à côté du fichier d'origine : ",
         exportOpenedInDocEditor: 'Ouvert dans l\'Éditeur de documents : "{name}"',
         btnCancel: 'Annuler'
       },
@@ -1167,6 +1210,8 @@
         exportFileNameLabel: 'Dateiname:',
         exportToDocEditor: 'Dokument-Editor (user/document-editor/docs)',
         exportToDocEditorDesc: 'Direkt in Dokumente speichern und sofort im Dokument-Editor öffnen',
+        exportToSameFolder: 'Gleicher Ordner wie Originalmedium',
+        exportToSameFolderDesc: 'Im selben Ordner neben der Originaldatei speichern: ',
         exportOpenedInDocEditor: 'Im Dokument-Editor geöffnet: "{name}"',
         btnCancel: 'Abbrechen'
       },
@@ -1188,6 +1233,8 @@
         exportFileNameLabel: 'Nome file:',
         exportToDocEditor: 'Editor di documenti (user/document-editor/docs)',
         exportToDocEditorDesc: "Salva direttamente nei documenti e apri immediatamente nell'Editor",
+        exportToSameFolder: 'Stessa cartella del file originale',
+        exportToSameFolderDesc: 'Salva nella stessa cartella accanto al file originale: ',
         exportOpenedInDocEditor: 'Aperto nell\'Editor di documenti: "{name}"',
         btnCancel: 'Annulla'
       }

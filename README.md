@@ -32,6 +32,7 @@ Welcome to the **Class Management Tools** comprehensive documentation. This guid
   - [Group Editor (`group-editor.html`)](#group-editorhtml)
   - [Import Tool (`import-tool.html`)](#import-toolhtml)
   - [Database Converter (`database-converter.html`)](#database-converterhtml)
+  - [Video & Sound Converter (`media-converter.html`)](#media-converterhtml)
   - [Planner (`planner.html`)](#plannerhtml)
   - [Lesson Creator (`lesson-creator.html`)](#lesson-creatorhtml)
   - [Test Creator (`test-creator.html`)](#test-creatorhtml)
@@ -98,6 +99,7 @@ If you downloaded a ZIP file, extract the entire folder before launching. Double
 | [`group-editor.html`](#group-editorhtml) | Single source of truth for class rosters, active terms, student UUIDs, display name formatting (First/Last, Last/First, Nicknames), and Planner terms | Sinks to all roster-aware tools |
 | [`import-tool.html`](#import-toolhtml) | Bulk-import students, classes, word banks, and quizzes from CSV, XLSX, or JSON (with custom static values mapping), or copy media files directly | Populates `students.js`, database, sounds, docs |
 | [`database-converter.html`](#database-converterhtml) | Universal bidirectional database & table converter (CSV, XLSX, JSON, TSV, ODS, JSONL, SQL, XML, HTML, Markdown) with live preview, schema editing, and direct CMT application format exports | Sinks to [Manage Database](#manage-databasehtml), [Grade Sheet](#grade-sheethtml), [Competence Portfolio](#competence-portfoliohtml), [Group Editor](#group-editorhtml) |
+| [`media-converter.html`](#media-converterhtml) | Standalone media conversion, audio extraction, volume normalization, and visual waveform trimmer with teacher presets (720p Video, Oral Exam MP3, WAV extraction, LMS compression, slow listening speed) | Sinks to [Board](#boardhtml), [Oral Marking](#oral-markinghtml), [Document Editor](#document-editorhtml) |
 | [`planner.html`](#plannerhtml) | Weekly lesson & test planner with ICS, PDF, CSV, DOCX, and HTML export options, weeks drawer, and linked Board mind maps | Connects to [Grade Sheet](#grade-sheethtml), [Board](#boardhtml), [Class Management](#class-managementhtml), [Lesson Creator](#lesson-creatorhtml) |
 | [`lesson-creator.html`](#lesson-creatorhtml) | Neobrutalist lesson planning studio with drag-and-drop phases, curriculum descriptor coverage matrix, live HUD runner in Class Management, and Board mindmap exports | Links to [Planner](#plannerhtml), [Class Management](#class-managementhtml), [Board](#boardhtml) |
 | [`test-creator.html`](#test-creatorhtml) | Neobrutalist test authoring studio with 11 exercise types, database linking, Group A/B variants, Seating Plan assignment, criteria rubrics, Grade Sheet sync, and multi-format exports | Links to [Grade Sheet](#grade-sheethtml), [Competence Portfolio](#competence-portfoliohtml), [Class Plan](#class-planhtml), [Manage Database](#manage-databasehtml) |
@@ -561,6 +563,36 @@ Comprehensive offline-first **Database & Table Converter** enabling seamless bid
   - Live syntax/code preview with instant character and line count badges.
   - 1-click **Copy Converted Output** to system clipboard with toast feedback.
   - Universal export modal (`showExportSuccessPopup`) with one-click **Open File**, **Open Folder**, and **Open with Document Editor** (for `.html` and `.md`).
+
+---
+
+### media-converter.html
+
+Offline-first **Video & Sound Converter** with visual waveform trimming, audio extraction, loudness normalization, tempo adjustment, and teacher quick presets.
+
+#### Key Features & Architecture
+- **Hybrid Engine Architecture (Approach E)**:
+  - **Tier 1 (Built-in Web Engine — <500 KB build footprint)**: Pure Web Audio API + PCM WAV encoding + LameJS MP3 encoding + Canvas-to-WebP generator. Converts speech, music, and waveforms directly in-browser/Electron without external dependencies.
+  - **Tier 2 (Native FFmpeg Engine)**: Automatically discovers system FFmpeg or prebuilt binary in `user/tools/ffmpeg/` to unlock hardware-accelerated video encoding (H.264/HEVC/VP9), instant lossless cuts (`-c copy`), and two-pass EBU R128 volume normalization.
+- **One-Click Teacher Presets**:
+  - *Classroom Video (720p MP4)*: Universal projector and screen resolution.
+  - *Oral Exam / Speech (128k MP3)*: Compact audio format optimized for student speeches.
+  - *Extract Audio (WAV)*: Instant audio track extraction from video clips.
+  - *LMS Small File (<25MB MP4)*: Highly compressed format for school portal uploads.
+  - *Slow Listening (0.85x MP3)*: Pitch-preserving speed adjustment for language learners.
+  - *Voice Normalizer & Boost*: Dual-pass loudness leveling to clarify quiet student voices.
+  - *Animated WebP Loop*: Lightweight video-to-WebP diagram loop converter.
+- **Visual WaveSurfer Timeline & Trimming**:
+  - Interactive dual-handle waveform region scrubber for millisecond-accurate clip trimming.
+  - Lossless stream copy (`-c copy`) for instant sub-second cutting.
+- **Destination Selection Dialog & Output Routing**:
+  - Prompts before conversion (single files and batch queues) to select the output destination:
+    - *Same Folder as Original Media*: Saves alongside the input file in its source directory.
+    - *Print Folder (`user/to-print`)*: Saves directly into the suite's local print directory.
+    - *Choose Other Folder*: Opens the OS folder picker for custom drives/folders.
+    - *In-place Rename*: Allows modifying the output filename before conversion starts while preserving correct format extensions.
+- **Universal Export Integration**:
+  - Export success popup with **Open File**, **Open Folder**, and **Close** actions.
 
 ---
 

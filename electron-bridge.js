@@ -1207,6 +1207,58 @@
     reloadPlannerReminders() {
       var api = getDesktopApi();
       if (api && typeof api.reloadPlannerReminders === 'function') api.reloadPlannerReminders();
+    },
+    async mediaCheckEngine() {
+      if (!isElectron()) return { ok: true, hasNative: false, isWebFallback: true };
+      var api = getDesktopApi();
+      return (api && typeof api.mediaCheckEngine === 'function') ? api.mediaCheckEngine() : { ok: true, hasNative: false };
+    },
+    async mediaSelectInputFiles(request) {
+      if (!isElectron()) return { ok: false, error: 'web-fallback' };
+      var api = getDesktopApi();
+      return (api && typeof api.mediaSelectInputFiles === 'function') ? api.mediaSelectInputFiles(request) : { ok: false };
+    },
+    async mediaSelectOutputFolder() {
+      if (!isElectron()) return { ok: false, error: 'web-fallback' };
+      var api = getDesktopApi();
+      return (api && typeof api.mediaSelectOutputFolder === 'function') ? api.mediaSelectOutputFolder() : { ok: false };
+    },
+    async mediaProbe(request) {
+      if (!isElectron()) return { ok: false, error: 'web-fallback' };
+      var api = getDesktopApi();
+      return (api && typeof api.mediaProbe === 'function') ? api.mediaProbe(request) : { ok: false };
+    },
+    async mediaConvert(request) {
+      if (!isElectron()) return { ok: false, error: 'web-fallback' };
+      var api = getDesktopApi();
+      return (api && typeof api.mediaConvert === 'function') ? api.mediaConvert(request) : { ok: false };
+    },
+    async mediaCancel(request) {
+      if (!isElectron()) return { ok: false, error: 'web-fallback' };
+      var api = getDesktopApi();
+      return (api && typeof api.mediaCancel === 'function') ? api.mediaCancel(request) : { ok: false };
+    },
+    async mediaDownloadEngine() {
+      if (!isElectron()) return { ok: false, error: 'web-fallback' };
+      var api = getDesktopApi();
+      return (api && typeof api.mediaDownloadEngine === 'function') ? api.mediaDownloadEngine() : { ok: false, error: 'unavailable' };
+    },
+    onMediaEngineDownloadProgress(callback) {
+      if (!isElectron()) return () => {};
+      var api = getDesktopApi();
+      return (api && typeof api.onMediaEngineDownloadProgress === 'function') ? api.onMediaEngineDownloadProgress(callback) : () => {};
+    },
+    onMediaProgress(callback) {
+      if (!isElectron()) return () => {};
+      var api = getDesktopApi();
+      return (api && typeof api.onMediaProgress === 'function') ? api.onMediaProgress(callback) : () => {};
+    },
+    getPathForFile(file) {
+      var api = getDesktopApi();
+      if (api && typeof api.getPathForFile === 'function' && file) {
+        return api.getPathForFile(file);
+      }
+      return file ? (file.path || '') : '';
     }
   });
 

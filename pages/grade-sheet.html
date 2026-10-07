@@ -1618,7 +1618,7 @@
           <h2 id="gs-report-modal-title" style="margin: 0; font-size: 1.25rem; font-weight: 800;" data-i18n="gsReportModalTitle">Report Preview</h2>
         </div>
         <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-left: auto;">
-          <button id="gs-report-btn-options" class="btn" type="button" style="display:inline-flex;align-items:center;gap:6px;font-weight:700;background:#f8fafc;"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> <span data-i18n="gsReportCustomizeElements">Elements &amp; Options</span></button>
+          <button id="gs-report-btn-options" class="btn" type="button" style="display:inline-flex;align-items:center;gap:6px;font-weight:700;background:#f8fafc;"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> <span data-i18n="gsReportCustomizeElements">Elements &amp; Options</span> ▾</button>
           <label id="gs-report-toggle-fit-page-wrap" style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.84rem; font-weight: 700; cursor: pointer; user-select: none; background: #f8fafc; padding: 4px 8px; border: 1.5px solid #111; border-radius: 4px;">
             <input type="checkbox" id="gs-report-toggle-fit-page" style="cursor: pointer; width: 15px; height: 15px;" />
             <span data-i18n="gsReportToggleFitOnePage">Fit to 1 page</span>
@@ -1632,61 +1632,54 @@
           </div>
         </div>
       </div>
-      <div id="gs-report-modal-body" style="flex: 1; min-height: 520px; overflow: hidden; background: #f0f0f0; border: 2px solid #111; border-radius: 4px; padding: 8px;">
-        <iframe id="gs-report-preview-frame" style="width: 100%; height: 100%; min-height: 520px; border: none; background: #fff;"></iframe>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── REPORT ELEMENTS CUSTOMIZATION MODAL ── -->
-  <div id="gs-report-options-modal-overlay" class="crit-popup-overlay hidden" style="z-index: 10700;">
-    <div class="crit-popup" style="max-width: 600px; width: 92vw; padding: 20px 24px; border: 2.5px solid #111; box-shadow: 6px 6px 0 #111; background: #fff;">
-      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #111; padding-bottom: 10px; margin-bottom: 12px;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <img src="../assets/icons/gear.svg" style="width: 20px; height: 20px;" alt="" />
-          <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800;" data-i18n="gsReportOptionsTitle">Customize Report Elements</h3>
+      <!-- ── REPORT OPTIONS COLLAPSIBLE PANEL (POSITION RELATIVE, PUSHES DOWN PREVIEW) ── -->
+      <div id="gs-report-options-menu" class="hidden" style="position: relative; margin-bottom: 12px; background: #fff; border: 2px solid #333333; box-shadow: 3px 3px 0 #555555; border-radius: 8px; padding: 12px 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 8px;">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <img src="../assets/icons/gear.svg" style="width: 15px; height: 15px;" alt="" />
+            <span style="font-size: 0.88rem; font-weight: 800;" data-i18n="gsReportOptionsTitle">Customize Report Elements</span>
+          </div>
+          <button id="gs-report-options-menu-close" class="btn btn-sm" type="button" style="padding: 2px 6px; font-size: 0.75rem;"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
         </div>
-        <button id="gs-report-options-modal-close" class="btn btn-sm" type="button" style="padding: 2px 6px;"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
+        <p style="font-size: 0.76rem; color: var(--muted); margin: 0 0 8px 0;" data-i18n="gsReportOptionsHelp">Choose which sections to include in the generated report preview and exports.</p>
+        
+        <div class="report-options-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 6px; margin-top: 0;">
+          <label class="report-option-item" style="padding: 6px 8px; font-size: 0.78rem;">
+            <input type="checkbox" id="gs-report-toggle-competences" checked />
+            <span data-i18n="gsReportToggleCompetences">Include Competences</span>
+          </label>
+          <label class="report-option-item" style="padding: 6px 8px; font-size: 0.78rem;">
+            <input type="checkbox" id="gs-report-toggle-exercise-means" checked />
+            <span data-i18n="gsReportToggleExerciseMeans">Include Exercise Means</span>
+          </label>
+          <label class="report-option-item" style="padding: 6px 8px; font-size: 0.78rem;">
+            <input type="checkbox" id="gs-report-toggle-kpi" checked />
+            <span data-i18n="gsReportToggleKpi">Include KPI Summary Cards</span>
+          </label>
+          <label class="report-option-item" style="padding: 6px 8px; font-size: 0.78rem;">
+            <input type="checkbox" id="gs-report-toggle-charts" checked />
+            <span data-i18n="gsReportToggleCharts">Include Charts &amp; Visualizations</span>
+          </label>
+          <label class="report-option-item" style="padding: 6px 8px; font-size: 0.78rem;">
+            <input type="checkbox" id="gs-report-toggle-criteria" checked />
+            <span data-i18n="gsReportToggleCriteria">Include Criteria Breakdown</span>
+          </label>
+          <label class="report-option-item" style="padding: 6px 8px; font-size: 0.78rem;">
+            <input type="checkbox" id="gs-report-toggle-comments" checked />
+            <span data-i18n="gsReportToggleComments">Include Criteria Comments</span>
+          </label>
+          <label class="report-option-item" style="padding: 6px 8px; font-size: 0.78rem;">
+            <input type="checkbox" id="gs-report-toggle-observations" checked />
+            <span data-i18n="gsReportToggleObservations">Include Observations &amp; Feedback</span>
+          </label>
+          <label class="report-option-item" style="padding: 6px 8px; font-size: 0.78rem;">
+            <input type="checkbox" id="gs-report-toggle-scale" checked />
+            <span data-i18n="gsReportToggleScale">Include Grading Scale</span>
+          </label>
+        </div>
       </div>
-      <p style="font-size: 0.82rem; color: var(--muted); margin: 0 0 12px 0;" data-i18n="gsReportOptionsHelp">Choose which sections to include in the generated report preview and exports.</p>
-      
-      <div class="report-options-grid">
-        <label class="report-option-item">
-          <input type="checkbox" id="gs-report-toggle-competences" checked />
-          <span data-i18n="gsReportToggleCompetences">Include Competences</span>
-        </label>
-        <label class="report-option-item">
-          <input type="checkbox" id="gs-report-toggle-exercise-means" checked />
-          <span data-i18n="gsReportToggleExerciseMeans">Include Exercise Means</span>
-        </label>
-        <label class="report-option-item">
-          <input type="checkbox" id="gs-report-toggle-kpi" checked />
-          <span data-i18n="gsReportToggleKpi">Include KPI Summary Cards</span>
-        </label>
-        <label class="report-option-item">
-          <input type="checkbox" id="gs-report-toggle-charts" checked />
-          <span data-i18n="gsReportToggleCharts">Include Charts &amp; Visualizations</span>
-        </label>
-        <label class="report-option-item">
-          <input type="checkbox" id="gs-report-toggle-criteria" checked />
-          <span data-i18n="gsReportToggleCriteria">Include Criteria Breakdown</span>
-        </label>
-        <label class="report-option-item">
-          <input type="checkbox" id="gs-report-toggle-comments" checked />
-          <span data-i18n="gsReportToggleComments">Include Criteria Comments</span>
-        </label>
-        <label class="report-option-item">
-          <input type="checkbox" id="gs-report-toggle-observations" checked />
-          <span data-i18n="gsReportToggleObservations">Include Observations &amp; Feedback</span>
-        </label>
-        <label class="report-option-item">
-          <input type="checkbox" id="gs-report-toggle-scale" checked />
-          <span data-i18n="gsReportToggleScale">Include Grading Scale</span>
-        </label>
-      </div>
-      
-      <div class="crit-popup-footer" style="margin-top: 16px; border-top: 1.5px solid #e2e8f0; padding-top: 12px; display: flex; justify-content: flex-end;">
-        <button id="gs-report-options-modal-done" class="btn primary" type="button"><img src="../assets/icons/check.svg" class="btn-icon" alt="" /> <span data-i18n="btnDone">Done</span></button>
+      <div id="gs-report-modal-body" style="flex: 1; min-height: 480px; overflow: hidden; background: #f0f0f0; border: 2px solid #111; border-radius: 4px; padding: 8px;">
+        <iframe id="gs-report-preview-frame" style="width: 100%; height: 100%; min-height: 480px; border: none; background: #fff;"></iframe>
       </div>
     </div>
   </div>
@@ -2179,15 +2172,20 @@
         }
       }
 
+      const hasChips = checklist.length > 0;
       const feedbackHtml = text
-        ? `<span class="obs-feedback" style="display:inline;font-size:10px;line-height:1.35;color:#1e293b;margin-left:${(checklist.length > 0 || label) ? '4px' : '0'};"><span class="obs-feedback-body" style="display:inline;">${renderMd(text)}</span></span>`
+        ? `<div class="obs-feedback" style="display:block;width:100%;font-size:10px;line-height:1.35;color:#1e293b;margin-top:${hasChips ? '3px' : '1px'};"><span class="obs-feedback-body" style="display:block;">${renderMd(text)}</span></div>`
         : "";
 
       const labelHtml = label
         ? `<span class="obs-label" style="font-size:10px;font-weight:800;color:#111;display:inline-flex;align-items:center;gap:3px;margin-right:4px;"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${secColor};"></span>${escapeHtml(label)}:</span>`
         : "";
 
-      return `<div class="obs-section" style="margin-bottom:3px;display:flex;flex-wrap:wrap;align-items:center;gap:2px 4px;line-height:1.35;">${labelHtml}${pillsHtml}${feedbackHtml}</div>`;
+      const topChipsLine = (labelHtml || pillsHtml)
+        ? `<div class="obs-chips-line" style="display:flex;flex-wrap:wrap;align-items:center;gap:2px 4px;">${labelHtml}${pillsHtml}</div>`
+        : "";
+
+      return `<div class="obs-section" style="margin-bottom:4px;line-height:1.35;">${topChipsLine}${feedbackHtml}</div>`;
     }
 
     function renderObservationInlineHtml(section) {
@@ -2209,9 +2207,14 @@
           </span>
         `).join("");
       }
-      const textPart = text ? `<span class="obs-inline-text" style="margin-left:${checklist.length > 0 ? '4px' : '0'};color:#1e293b;font-size:9.5px;"><span style="display:inline;">${renderMd(text)}</span></span>` : "";
+      const hasChips = checklist.length > 0;
+      const textPart = text ? `<div class="obs-inline-text" style="display:block;width:100%;color:#1e293b;font-size:9.5px;margin-top:${hasChips ? '2px' : '0'};"><span style="display:block;">${renderMd(text)}</span></div>` : "";
 
-      return `<div class="obs-inline-row" style="margin-bottom:3px;display:flex;flex-wrap:wrap;align-items:center;gap:2px 4px;">${labelPrefix}${pills}${textPart}</div>`;
+      const topRow = (labelPrefix || pills)
+        ? `<div class="obs-inline-chips-line" style="display:flex;flex-wrap:wrap;align-items:center;gap:2px 4px;">${labelPrefix}${pills}</div>`
+        : "";
+
+      return `<div class="obs-inline-row" style="margin-bottom:3px;">${topRow}${textPart}</div>`;
     }
 
     // Returns the descriptor text for a named xlsm criterion at the given grade level.
@@ -12993,7 +12996,7 @@
         .obs-pill-custom { background: #e0f2fe; color: #0369a1; border: 1.5px solid #0284c7; }
         .obs-pill-multiplier { font-size: 0.68em; font-weight: 800; line-height: 0; vertical-align: super; margin-left: 1px; width: 0; display: inline-block; white-space: nowrap; overflow: visible; }
         .obs-feedback {
-          display: inline;
+          display: block;
           padding: 0;
           background: transparent;
           border: none;
@@ -13001,11 +13004,11 @@
           line-height: ${fitToOnePage ? '1.2' : '1.35'};
           color: #1e293b;
         }
-        .obs-feedback-body { display: inline; white-space: normal; }
-        .obs-feedback-body p { display: inline; margin: 0; }
+        .obs-feedback-body { display: block; white-space: normal; }
+        .obs-feedback-body p { margin: 0; }
         .obs-feedback-body p:last-child { margin-bottom: 0; }
-        .obs-inline-row { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; margin-bottom: 1px; }
-        .obs-inline-text { font-size: ${fitToOnePage ? '8.5px' : '9.5px'}; color: #1e293b; }
+        .obs-inline-row { margin-bottom: 2px; }
+        .obs-inline-text { display: block; font-size: ${fitToOnePage ? '8.5px' : '9.5px'}; color: #1e293b; }
         @page { size: ${size}; margin: ${pageMargin}; }
         @media print {
           body { background: #fff; margin: 0; padding: 0; }
@@ -13331,7 +13334,7 @@
       const stuX = getX(studentVal != null ? studentVal : minVal);
       const avgX = getX(classAvg != null ? classAvg : minVal);
 
-      return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" xmlns="http://www.w3.org/2000/svg" style="background:#fff;border:2px solid #333333;box-shadow:3px 3px 0 #555555;border-radius:6px;overflow:visible;">
+      return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" style="background:#fff;border:2px solid #333333;box-shadow:3px 3px 0 #555555;border-radius:6px;overflow:visible;box-sizing:border-box;min-height:${h}px;">
         <text x="12" y="16" font-size="10" font-weight="800" fill="#1e293b" text-transform="uppercase" letter-spacing="0.04em">${label}</text>
         <rect x="${padL}" y="${barY}" width="${redW}" height="${barH}" fill="#ffcdd2" stroke="#333333" stroke-width="2"/>
         <rect x="${passX}" y="${barY}" width="${greenW}" height="${barH}" fill="#c8e6c9" stroke="#333333" stroke-width="2"/>
@@ -14319,28 +14322,28 @@
             </div>
           </div>
 
-          ${incKpi ? `
-          <div class="kpi-grid">
-            <div class="kpi-card">
-              <div class="kpi-label">Final Grade</div>
-              <div class="kpi-value ${gradeClass(grade)}">${grade != null ? fmtN(grade) : '-'}</div>
-              <div class="kpi-sub">Class Mean: ${classTestStats.mean != null ? classTestStats.mean.toFixed(2) : '-'}</div>
-            </div>
-            <div class="kpi-card">
-              <div class="kpi-label">Points Scored</div>
-              <div class="kpi-value">${fmtN((totals.totalScored || 0) + (totals.totalBonusScored || 0))} <span style="font-size:11px;font-weight:600;">/ ${fmtN(defaultTotals.totalPossible)}</span></div>
-              <div class="kpi-sub">${defaultTotals.totalPossible > 0 ? Math.round((((totals.totalScored || 0) + (totals.totalBonusScored || 0)) / defaultTotals.totalPossible) * 100) + '%' : '-'}</div>
-            </div>
-            <div class="kpi-card">
-              <div class="kpi-label">Class Benchmark</div>
-              <div class="kpi-value" style="color:${(grade && grade >= (classTestStats.mean || 4.0)) ? '#2e7d32' : '#c62828'};">
-                ${(grade != null && classTestStats.mean != null) ? ((grade - classTestStats.mean >= 0 ? '+' : '') + (grade - classTestStats.mean).toFixed(2)) : '—'}
+          ${(incKpi || incCharts) ? `
+          <div class="test-feedback-kpi-row" style="display:flex;gap:${fitPage ? '6px' : '10px'};align-items:stretch;margin-bottom:${fitPage ? '3px' : '6px'};">
+            ${incKpi ? `
+            <div class="kpi-grid" style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:${fitPage ? '5px' : '8px'};">
+              <div class="kpi-card" style="display:flex;flex-direction:column;justify-content:center;">
+                <div class="kpi-label">Points Scored</div>
+                <div class="kpi-value">${fmtN((totals.totalScored || 0) + (totals.totalBonusScored || 0))} <span style="font-size:11px;font-weight:600;">/ ${fmtN(defaultTotals.totalPossible)}</span></div>
+                <div class="kpi-sub">${defaultTotals.totalPossible > 0 ? Math.round((((totals.totalScored || 0) + (totals.totalBonusScored || 0)) / defaultTotals.totalPossible) * 100) + '%' : '-'}</div>
               </div>
-              <div class="kpi-sub">${(grade && grade >= (classTestStats.mean || 4.0)) ? 'Above average ▲' : 'Below average ▼'}</div>
-            </div>
+              <div class="kpi-card" style="display:flex;flex-direction:column;justify-content:center;">
+                <div class="kpi-label">Class Benchmark</div>
+                <div class="kpi-value" style="color:${(grade && grade >= (classTestStats.mean || 4.0)) ? '#2e7d32' : '#c62828'};">
+                  ${(grade != null && classTestStats.mean != null) ? ((grade - classTestStats.mean >= 0 ? '+' : '') + (grade - classTestStats.mean).toFixed(2)) : '—'}
+                </div>
+                <div class="kpi-sub">${(grade && grade >= (classTestStats.mean || 4.0)) ? 'Above average ▲' : 'Below average ▼'}</div>
+              </div>
+            </div>` : ''}
+            ${incCharts ? `
+            <div style="flex:1;display:flex;align-items:stretch;">
+              ${gaugeSvg}
+            </div>` : ''}
           </div>` : ''}
-
-          ${incCharts ? `<div>${gaugeSvg}</div>` : ''}
 
           ${(incCriteria && config.criteria.length > 0) ? (incMeans ? `
           <div class="section-heading" style="margin-top:6px;">${t('gsReportCriteriaEvalComments') || 'Criteria Evaluation & Detailed Comments'}</div>
@@ -14611,15 +14614,28 @@
       if (elFit) elFit.checked = opts.fitToOnePage;
     }
 
+    function toggleReportOptionsMenu(forceState) {
+      const menu = document.getElementById('gs-report-options-menu');
+      if (!menu) return;
+      const shouldOpen = typeof forceState === 'boolean' ? forceState : menu.classList.contains('hidden');
+      if (shouldOpen) {
+        syncReportOptionControls();
+        menu.classList.remove('hidden');
+      } else {
+        menu.classList.add('hidden');
+      }
+    }
+
     function openReportOptionsModal() {
-      syncReportOptionControls();
-      const modal = document.getElementById('gs-report-options-modal-overlay');
-      if (modal) modal.classList.remove('hidden');
+      toggleReportOptionsMenu(true);
     }
 
     function closeReportOptionsModal() {
-      const modal = document.getElementById('gs-report-options-modal-overlay');
-      if (modal) modal.classList.add('hidden');
+      toggleReportOptionsMenu(false);
+    }
+
+    function closeReportOptionsMenu() {
+      toggleReportOptionsMenu(false);
     }
 
     function refreshActiveReportPreview() {
@@ -14664,6 +14680,7 @@
     }
 
     function closeReportModal() {
+      closeReportOptionsMenu();
       document.getElementById('gs-report-modal-overlay').classList.add('hidden');
       const frame = document.getElementById('gs-report-preview-frame');
       if (frame) frame.srcdoc = '';
@@ -17605,25 +17622,22 @@
         if (e.target === document.getElementById("gs-report-modal-overlay")) closeReportModal();
       });
 
-      // ── Report Options Modal & Toggles ──
+      // ── Report Options Dropdown & Toggles ──
       const btnReportOptions = document.getElementById("gs-report-btn-options");
       if (btnReportOptions) {
-        btnReportOptions.addEventListener("click", openReportOptionsModal);
-      }
-      const btnReportOptionsClose = document.getElementById("gs-report-options-modal-close");
-      if (btnReportOptionsClose) {
-        btnReportOptionsClose.addEventListener("click", closeReportOptionsModal);
-      }
-      const btnReportOptionsDone = document.getElementById("gs-report-options-modal-done");
-      if (btnReportOptionsDone) {
-        btnReportOptionsDone.addEventListener("click", closeReportOptionsModal);
-      }
-      const reportOptionsOverlay = document.getElementById("gs-report-options-modal-overlay");
-      if (reportOptionsOverlay) {
-        reportOptionsOverlay.addEventListener("click", e => {
-          if (e.target === reportOptionsOverlay) closeReportOptionsModal();
+        btnReportOptions.addEventListener("click", e => {
+          e.stopPropagation();
+          toggleReportOptionsMenu();
         });
       }
+      const btnReportOptionsClose = document.getElementById("gs-report-options-menu-close");
+      if (btnReportOptionsClose) {
+        btnReportOptionsClose.addEventListener("click", e => {
+          e.stopPropagation();
+          closeReportOptionsMenu();
+        });
+      }
+
 
       const bindReportToggle = (id, setter) => {
         const el = document.getElementById(id);

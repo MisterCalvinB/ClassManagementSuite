@@ -1,12 +1,14 @@
 let contextBridge = null;
 let ipcRenderer = null;
 let webFrame = null;
+let webUtils = null;
 
 try {
   const electronApi = require('electron') || {};
   contextBridge = electronApi.contextBridge || null;
   ipcRenderer = electronApi.ipcRenderer || null;
   webFrame = electronApi.webFrame || null;
+  webUtils = electronApi.webUtils || null;
 } catch (error) {
   // Keep preload alive so renderer can still boot even if Electron internals fail.
   console.error('Failed to initialize Electron preload bridge:', error);
@@ -438,6 +440,57 @@ const exposedApi = {
   clipboardWriteText(text) {
     return invoke('app:clipboard-write-text', text);
   },
+
+  // ── Media Converter Engine ──────────────────────────────────────────────────
+  mediaCheckEngine() {
+    return invoke('media:check-engine');
+  },
+  mediaSelectInputFiles(request) {
+    return invoke('media:select-input-files', request);
+  },
+  mediaSelectOutputFolder() {
+    return invoke('media:select-output-folder');
+  },
+  mediaProbe(request) {
+    return invoke('media:probe', request);
+  },
+  mediaConvert(request) {
+    return invoke('media:convert', request);
+  },
+  mediaCancel(request) {
+    return invoke('media:cancel', request);
+  },
+  mediaDownloadEngine() {
+    return invoke('media:download-engine');
+  },
+  onMediaEngineDownloadProgress(callback) {
+    if (!ipcRenderer || typeof ipcRenderer.on !== 'function') return () => {};
+    const listener = (_event, data) => {
+      try { callback(data); } catch (e) { console.error('Media download progress listener error:', e); }
+    };
+    ipcRenderer.on('media:engine-download-progress', listener);
+    return () => {
+      try { ipcRenderer.removeListener('media:engine-download-progress', listener); } catch (_) {}
+    };
+  },
+  onMediaProgress(callback) {
+    if (!ipcRenderer || typeof ipcRenderer.on !== 'function') return () => {};
+    const listener = (_event, data) => {
+      try { callback(data); } catch (e) { console.error('Media progress listener error:', e); }
+    };
+    ipcRenderer.on('media:progress', listener);
+    return () => {
+      try { ipcRenderer.removeListener('media:progress', listener); } catch (_) {}
+    };
+  },
+  getPathForFile(file) {
+    if (webUtils && typeof webUtils.getPathForFile === 'function' && file) {
+      try {
+        return webUtils.getPathForFile(file);
+      } catch (_) {}
+    }
+    return file ? (file.path || '') : '';
+  }
 };
 
 if (contextBridge && typeof contextBridge.exposeInMainWorld === 'function') {

@@ -6,6 +6,7 @@ const path = require('path');
 const zlib = require('zlib');
 const os     = require('os');
 const http   = require('http');
+const https  = require('https');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
 
@@ -74,7 +75,8 @@ const PAGE_FILES = {
   oralMarking: 'oral-marking.html',
   competencePortfolio: 'competence-portfolio.html',
   databaseConverter: 'database-converter.html',
-  testCreator: 'test-creator.html'
+  testCreator: 'test-creator.html',
+  mediaConverter: 'media-converter.html'
 };
 
 const PAGE_ARG_MAP = {
@@ -137,7 +139,13 @@ const PAGE_ARG_MAP = {
   test: PAGE_FILES.testCreator,
   tests: PAGE_FILES.testCreator,
   examcreator: PAGE_FILES.testCreator,
-  exams: PAGE_FILES.testCreator
+  exams: PAGE_FILES.testCreator,
+  mediaconverter: PAGE_FILES.mediaConverter,
+  videoconverter: PAGE_FILES.mediaConverter,
+  audioconverter: PAGE_FILES.mediaConverter,
+  soundconverter: PAGE_FILES.mediaConverter,
+  audiotrimmer: PAGE_FILES.mediaConverter,
+  mediatool: PAGE_FILES.mediaConverter
 };
 
 const PAGE_LABELS = {
@@ -164,7 +172,8 @@ const PAGE_LABELS = {
   [PAGE_FILES.oralMarking]: 'Oral Marking',
   [PAGE_FILES.competencePortfolio]: 'Competence Portfolio',
   [PAGE_FILES.databaseConverter]: 'Database Converter',
-  [PAGE_FILES.testCreator]: 'Test Creator'
+  [PAGE_FILES.testCreator]: 'Test Creator',
+  [PAGE_FILES.mediaConverter]: 'Video & Sound Converter'
 };
 
 function getDefaultWritableRootDir() {
@@ -9728,6 +9737,516 @@ function resolveRequestWebContents(request) {
   } catch (_) {}
   return (request && (request.frame?.webContents || request.webContents)) || null;
 }
+
+// ── Media Converter IPC Handlers & Engine ────────────────────────────────────
+const _activeMediaJobs = new Map(); // jobId -> { process, outputPath }
+
+function _findFfmpegExecutable() {
+  const isWin = process.platform === 'win32';
+  const exeName = isWin ? 'ffmpeg.exe' : 'ffmpeg';
+  const writableRoot = getWritableRootDir();
+
+  // 1. Check user/tools/ffmpeg/
+  const userToolPath = path.join(writableRoot, 'user', 'tools', 'ffmpeg', exeName);
+  if (fsSync.existsSync(userToolPath)) {
+    return { path: userToolPath, isUserTools: true };
+  }
+
+  // 2. Check ROOT_DIR/tools/ffmpeg/ or ROOT_DIR/bin/
+  const appToolPath = path.join(ROOT_DIR, 'tools', 'ffmpeg', exeName);
+  if (fsSync.existsSync(appToolPath)) {
+    return { path: appToolPath, isUserTools: false };
+  }
+  const appBinPath = path.join(ROOT_DIR, 'bin', exeName);
+  if (fsSync.existsSync(appBinPath)) {
+    return { path: appBinPath, isUserTools: false };
+  }
+
+  // 3. Check system PATH
+  const envPath = process.env.PATH || '';
+  const pathDirs = envPath.split(path.delimiter);
+  for (const dir of pathDirs) {
+    if (!dir) continue;
+    const candidate = path.join(dir, exeName);
+    try {
+      if (fsSync.existsSync(candidate)) {
+        return { path: candidate, isUserTools: false };
+      }
+    } catch (_) {}
+  }
+
+  return null;
+}
+
+function _findFfprobeExecutable() {
+  const isWin = process.platform === 'win32';
+  const exeName = isWin ? 'ffprobe.exe' : 'ffprobe';
+  const writableRoot = getWritableRootDir();
+
+  const userToolPath = path.join(writableRoot, 'user', 'tools', 'ffmpeg', exeName);
+  if (fsSync.existsSync(userToolPath)) return userToolPath;
+
+  const appToolPath = path.join(ROOT_DIR, 'tools', 'ffmpeg', exeName);
+  if (fsSync.existsSync(appToolPath)) return appToolPath;
+
+  const appBinPath = path.join(ROOT_DIR, 'bin', exeName);
+  if (fsSync.existsSync(appBinPath)) return appBinPath;
+
+  const envPath = process.env.PATH || '';
+  const pathDirs = envPath.split(path.delimiter);
+  for (const dir of pathDirs) {
+    if (!dir) continue;
+    const candidate = path.join(dir, exeName);
+    try {
+      if (fsSync.existsSync(candidate)) return candidate;
+    } catch (_) {}
+  }
+  return null;
+}
+
+function _downloadBufferWithRedirect(url, onProgress, maxRedirects = 5) {
+  return new Promise((resolve, reject) => {
+    if (maxRedirects <= 0) return reject(new Error('Too many redirects'));
+    const client = url.startsWith('https:') ? https : http;
+    const req = client.get(url, { headers: { 'User-Agent': 'ClassManagementTools/1.0' } }, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        let nextUrl = res.headers.location;
+        if (!nextUrl.startsWith('http://') && !nextUrl.startsWith('https://')) {
+          const parsed = new URL(url);
+          nextUrl = new URL(nextUrl, parsed.origin).href;
+        }
+        return resolve(_downloadBufferWithRedirect(nextUrl, onProgress, maxRedirects - 1));
+      }
+      if (res.statusCode !== 200) {
+        return reject(new Error(`Download failed with HTTP ${res.statusCode}`));
+      }
+
+      const totalBytes = parseInt(res.headers['content-length'] || '0', 10);
+      let loadedBytes = 0;
+      const chunks = [];
+
+      res.on('data', (chunk) => {
+        chunks.push(chunk);
+        loadedBytes += chunk.length;
+        if (typeof onProgress === 'function') {
+          const percent = totalBytes > 0 ? Math.min(100, Math.round((loadedBytes / totalBytes) * 1000) / 10) : 0;
+          onProgress({ loadedBytes, totalBytes, percent });
+        }
+      });
+
+      res.on('end', () => {
+        resolve(Buffer.concat(chunks));
+      });
+
+      res.on('error', (err) => {
+        reject(err);
+      });
+    });
+
+    req.on('error', (err) => {
+      reject(err);
+    });
+  });
+}
+
+ipcMain.handle('media:check-engine', async () => {
+  try {
+    const found = _findFfmpegExecutable();
+    return {
+      ok: true,
+      hasNative: !!found,
+      enginePath: found ? found.path : '',
+      isUserTools: found ? found.isUserTools : false
+    };
+  } catch (err) {
+    return { ok: false, error: err?.message || String(err) };
+  }
+});
+
+ipcMain.handle('media:download-engine', async (event) => {
+  try {
+    const isWin = process.platform === 'win32';
+    const isMac = process.platform === 'darwin';
+    const isLinux = process.platform === 'linux';
+    const isArm64 = process.arch === 'arm64';
+
+    let ffmpegUrl = '';
+    if (isWin) {
+      ffmpegUrl = 'https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v4.4.1/ffmpeg-4.4.1-win-64.zip';
+    } else if (isMac) {
+      ffmpegUrl = 'https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v4.4.1/ffmpeg-4.4.1-osx-64.zip';
+    } else if (isLinux) {
+      ffmpegUrl = isArm64
+        ? 'https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v4.4.1/ffmpeg-4.4.1-linux-arm-64.zip'
+        : 'https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v4.4.1/ffmpeg-4.4.1-linux-64.zip';
+    } else {
+      return { ok: false, error: 'Unsupported operating system for automated engine download.' };
+    }
+
+    const writableRoot = getWritableRootDir();
+    const destDir = path.join(writableRoot, 'user', 'tools', 'ffmpeg');
+    await fs.mkdir(destDir, { recursive: true });
+
+    // Download with progress updates sent to renderer
+    const zipBuf = await _downloadBufferWithRedirect(ffmpegUrl, (prog) => {
+      if (event.sender && !event.sender.isDestroyed()) {
+        try {
+          event.sender.send('media:engine-download-progress', prog);
+        } catch (_) {}
+      }
+    });
+
+    // Extract entries
+    const entries = await parseZipEntries(zipBuf);
+    for (const ent of entries) {
+      const baseName = path.basename(ent.name);
+      if (baseName.toLowerCase().startsWith('ffmpeg')) {
+        const targetFilePath = path.join(destDir, baseName);
+        await fs.writeFile(targetFilePath, ent.data);
+        if (!isWin) {
+          await fs.chmod(targetFilePath, 0o755).catch(() => {});
+        }
+      }
+    }
+
+    const found = _findFfmpegExecutable();
+    return {
+      ok: !!found,
+      hasNative: !!found,
+      enginePath: found ? found.path : '',
+      isUserTools: found ? found.isUserTools : true
+    };
+  } catch (err) {
+    return { ok: false, error: err?.message || String(err) };
+  }
+});
+
+ipcMain.handle('media:select-input-files', async (_event, request = {}) => {
+  try {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      title: request.title || 'Select Media Files',
+      properties: ['openFile', 'multiSelections'],
+      filters: [
+        { name: 'Media Files', extensions: ['mp4', 'mkv', 'avi', 'mov', 'webm', 'wmv', 'flv', 'mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac', 'webp'] },
+        { name: 'Video Files', extensions: ['mp4', 'mkv', 'avi', 'mov', 'webm', 'wmv', 'flv'] },
+        { name: 'Audio Files', extensions: ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    });
+    if (canceled || !filePaths || !filePaths.length) return { ok: false, canceled: true, files: [] };
+
+    const results = [];
+    for (const fp of filePaths) {
+      const stats = await fs.stat(fp).catch(() => null);
+      results.push({
+        path: fp,
+        name: path.basename(fp),
+        size: stats ? stats.size : 0,
+        ext: path.extname(fp).replace('.', '').toLowerCase()
+      });
+    }
+    return { ok: true, files: results };
+  } catch (err) {
+    return { ok: false, error: err?.message || String(err) };
+  }
+});
+
+ipcMain.handle('media:select-output-folder', async () => {
+  try {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      title: 'Select Output Directory',
+      properties: ['openDirectory', 'createDirectory']
+    });
+    if (canceled || !filePaths || !filePaths.length) return { ok: false, canceled: true };
+    return { ok: true, folderPath: filePaths[0] };
+  } catch (err) {
+    return { ok: false, error: err?.message || String(err) };
+  }
+});
+
+ipcMain.handle('media:probe', async (_event, request = {}) => {
+  const filePath = request.filePath;
+  if (!filePath) return { ok: false, error: 'No file path provided' };
+
+  const ffprobePath = _findFfprobeExecutable();
+  const ffmpegInfo = _findFfmpegExecutable();
+
+  if (!ffprobePath && !ffmpegInfo) {
+    return { ok: false, error: 'no-native-engine' };
+  }
+
+  const binary = ffprobePath || ffmpegInfo.path;
+  const isFfprobe = !!ffprobePath;
+  const args = isFfprobe
+    ? ['-v', 'quiet', '-print_format', 'json', '-show_format', '-show_streams', filePath]
+    : ['-i', filePath];
+
+  return new Promise((resolve) => {
+    try {
+      const proc = spawn(binary, args);
+      let stdout = '';
+      let stderr = '';
+
+      proc.stdout.on('data', (d) => { stdout += d.toString(); });
+      proc.stderr.on('data', (d) => { stderr += d.toString(); });
+
+      proc.on('close', () => {
+        if (isFfprobe && stdout) {
+          try {
+            const data = JSON.parse(stdout);
+            const format = data.format || {};
+            const streams = data.streams || [];
+            const vStream = streams.find(s => s.codec_type === 'video');
+            const aStream = streams.find(s => s.codec_type === 'audio');
+
+            const duration = parseFloat(format.duration) || (vStream ? parseFloat(vStream.duration) : 0) || 0;
+            const width = vStream ? parseInt(vStream.width, 10) || 0 : 0;
+            const height = vStream ? parseInt(vStream.height, 10) || 0 : 0;
+            const videoCodec = vStream ? (vStream.codec_name || '') : '';
+            const audioCodec = aStream ? (aStream.codec_name || '') : '';
+            const bitrate = parseInt(format.bit_rate, 10) || 0;
+            const channels = aStream ? (parseInt(aStream.channels, 10) || 2) : 0;
+            const sampleRate = aStream ? (parseInt(aStream.sample_rate, 10) || 44100) : 0;
+
+            return resolve({
+              ok: true,
+              meta: { duration, width, height, videoCodec, audioCodec, bitrate, channels, sampleRate }
+            });
+          } catch (_) {}
+        }
+
+        // Fallback: parse duration and stream from stderr output
+        const durMatch = stderr.match(/Duration:\s*(\d+):(\d+):(\d+\.\d+|\d+)/);
+        let duration = 0;
+        if (durMatch) {
+          duration = (parseInt(durMatch[1], 10) * 3600) + (parseInt(durMatch[2], 10) * 60) + parseFloat(durMatch[3]);
+        }
+        const dimMatch = stderr.match(/(\d{2,5})x(\d{2,5})/);
+        const width = dimMatch ? parseInt(dimMatch[1], 10) : 0;
+        const height = dimMatch ? parseInt(dimMatch[2], 10) : 0;
+
+        const hasVideo = /Video:/.test(stderr);
+        const hasAudio = /Audio:/.test(stderr);
+
+        resolve({
+          ok: true,
+          meta: { duration, width, height, hasVideo, hasAudio }
+        });
+      });
+
+      proc.on('error', (err) => {
+        resolve({ ok: false, error: err.message });
+      });
+    } catch (e) {
+      resolve({ ok: false, error: e.message });
+    }
+  });
+});
+
+ipcMain.handle('media:convert', async (event, request = {}) => {
+  const ffmpegInfo = _findFfmpegExecutable();
+  if (!ffmpegInfo) {
+    return { ok: false, error: 'no-native-engine' };
+  }
+
+  const {
+    jobId = 'job_' + Date.now(),
+    inputPath,
+    outputPath,
+    targetFormat = 'mp4',
+    resolution,
+    videoQuality = 'medium',
+    audioBitrate = '192k',
+    audioChannels,
+    normalize = false,
+    speed = 1.0,
+    trimStart = 0,
+    trimEnd = 0,
+    losslessCut = false
+  } = request;
+
+  if (!inputPath || !fsSync.existsSync(inputPath)) {
+    return { ok: false, error: 'Input file does not exist' };
+  }
+
+  // Ensure output directory exists
+  const outDir = path.dirname(outputPath);
+  if (!fsSync.existsSync(outDir)) {
+    await fs.mkdir(outDir, { recursive: true }).catch(() => {});
+  }
+
+  const args = [];
+  args.push('-hide_banner');
+
+  // Input seek (fast seek before input if specified)
+  if (trimStart > 0) {
+    args.push('-ss', String(trimStart));
+  }
+  args.push('-i', inputPath);
+
+  if (trimEnd > 0 && trimEnd > trimStart) {
+    args.push('-to', String(trimEnd - (trimStart > 0 ? trimStart : 0)));
+  }
+
+  const audioFormats = ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'];
+  const isAudioTarget = audioFormats.includes(targetFormat.toLowerCase());
+  const isWebpTarget = targetFormat.toLowerCase() === 'webp';
+
+  if (losslessCut && !normalize && speed === 1.0) {
+    // Lossless stream copy
+    args.push('-c', 'copy');
+  } else if (isAudioTarget) {
+    args.push('-vn'); // No video
+    const fmt = targetFormat.toLowerCase();
+    if (fmt === 'mp3') {
+      args.push('-c:a', 'libmp3lame', '-b:a', String(audioBitrate || '192k'));
+    } else if (fmt === 'wav') {
+      args.push('-c:a', 'pcm_s16le');
+    } else if (fmt === 'ogg') {
+      args.push('-c:a', 'libvorbis', '-q:a', '4');
+    } else if (fmt === 'm4a' || fmt === 'aac') {
+      args.push('-c:a', 'aac', '-b:a', String(audioBitrate || '192k'));
+    } else if (fmt === 'flac') {
+      args.push('-c:a', 'flac');
+    }
+  } else if (isWebpTarget) {
+    args.push('-vcodec', 'libwebp', '-filter:v', 'fps=15', '-lossless', '0', '-compression_level', '4', '-q:v', '75', '-loop', '0', '-an');
+  } else {
+    // Video conversion
+    const fmt = targetFormat.toLowerCase();
+    if (fmt === 'mp4' || fmt === 'mov' || fmt === 'mkv') {
+      args.push('-c:v', 'libx264', '-pix_fmt', 'yuv420p');
+      if (videoQuality === 'high') args.push('-crf', '18', '-preset', 'slow');
+      else if (videoQuality === 'low') args.push('-crf', '28', '-preset', 'fast');
+      else args.push('-crf', '23', '-preset', 'medium');
+      args.push('-c:a', 'aac', '-b:a', String(audioBitrate || '192k'));
+    } else if (fmt === 'webm') {
+      args.push('-c:v', 'libvpx-vp9', '-b:v', '0', '-crf', '32');
+      args.push('-c:a', 'libopus', '-b:a', '128k');
+    } else if (fmt === 'avi') {
+      args.push('-c:v', 'mpeg4', '-qscale:v', '3');
+      args.push('-c:a', 'libmp3lame', '-b:a', '192k');
+    }
+
+    // Video scale filter
+    if (resolution && resolution !== 'original') {
+      if (resolution === '1080p') args.push('-vf', 'scale=1920:-2:flags=lanczos');
+      else if (resolution === '720p') args.push('-vf', 'scale=1280:-2:flags=lanczos');
+      else if (resolution === '480p') args.push('-vf', 'scale=854:-2:flags=lanczos');
+      else if (resolution === '360p') args.push('-vf', 'scale=640:-2:flags=lanczos');
+    }
+  }
+
+  // Audio filter chain: normalization and tempo
+  const audioFilters = [];
+  if (normalize) {
+    audioFilters.push('loudnorm=I=-16:TP=-1.5:LRA=11');
+  }
+  if (speed && speed !== 1.0) {
+    const clampedSpeed = Math.max(0.5, Math.min(2.0, speed));
+    audioFilters.push(`atempo=${clampedSpeed}`);
+  }
+  if (audioFilters.length > 0 && !losslessCut) {
+    args.push('-af', audioFilters.join(','));
+  }
+
+  if (audioChannels === 1) {
+    args.push('-ac', '1');
+  } else if (audioChannels === 2) {
+    args.push('-ac', '2');
+  }
+
+  args.push('-y', outputPath);
+
+  return new Promise((resolve) => {
+    try {
+      const proc = spawn(ffmpegInfo.path, args);
+      _activeMediaJobs.set(jobId, { process: proc, outputPath });
+
+      let totalDurationSec = 0;
+      let stderrText = '';
+
+      proc.stderr.on('data', (data) => {
+        const chunk = data.toString();
+        stderrText += chunk;
+
+        if (!totalDurationSec) {
+          const durMatch = chunk.match(/Duration:\s*(\d+):(\d+):(\d+\.\d+|\d+)/);
+          if (durMatch) {
+            totalDurationSec = (parseInt(durMatch[1], 10) * 3600) + (parseInt(durMatch[2], 10) * 60) + parseFloat(durMatch[3]);
+            if (trimEnd > 0 && trimEnd > trimStart) {
+              totalDurationSec = trimEnd - trimStart;
+            }
+          }
+        }
+
+        const timeMatch = chunk.match(/time=(\d+):(\d+):(\d+\.\d+|\d+)/);
+        if (timeMatch && totalDurationSec > 0) {
+          const currentSec = (parseInt(timeMatch[1], 10) * 3600) + (parseInt(timeMatch[2], 10) * 60) + parseFloat(timeMatch[3]);
+          const percent = Math.min(99.5, Math.max(0, (currentSec / totalDurationSec) * 100));
+          const speedMatch = chunk.match(/speed=\s*([\d.]+x)/);
+          const speedStr = speedMatch ? speedMatch[1] : '';
+
+          try {
+            if (event.sender && !event.sender.isDestroyed()) {
+              event.sender.send('media:progress', {
+                jobId,
+                percent: Math.round(percent * 10) / 10,
+                currentSec: Math.round(currentSec),
+                totalSec: Math.round(totalDurationSec),
+                speed: speedStr
+              });
+            }
+          } catch (_) {}
+        }
+      });
+
+      proc.on('close', (code) => {
+        _activeMediaJobs.delete(jobId);
+        if (code === 0) {
+          if (event.sender && !event.sender.isDestroyed()) {
+            try {
+              event.sender.send('media:progress', { jobId, percent: 100, currentSec: totalDurationSec, totalSec: totalDurationSec, speed: '' });
+            } catch (_) {}
+          }
+          resolve({ ok: true, outputPath, outputName: path.basename(outputPath) });
+        } else {
+          resolve({ ok: false, error: `Conversion exited with code ${code}`, stderr: stderrText.slice(-500) });
+        }
+      });
+
+      proc.on('error', (err) => {
+        _activeMediaJobs.delete(jobId);
+        resolve({ ok: false, error: err.message });
+      });
+    } catch (e) {
+      _activeMediaJobs.delete(jobId);
+      resolve({ ok: false, error: e.message });
+    }
+  });
+});
+
+ipcMain.handle('media:cancel', async (_event, request = {}) => {
+  const jobId = request.jobId;
+  if (!jobId || !_activeMediaJobs.has(jobId)) {
+    return { ok: false, error: 'Job not found or already finished' };
+  }
+
+  const job = _activeMediaJobs.get(jobId);
+  try {
+    if (job && job.process && !job.process.killed) {
+      job.process.kill('SIGKILL');
+    }
+    _activeMediaJobs.delete(jobId);
+    // Cleanup incomplete output file if exists
+    if (job.outputPath && fsSync.existsSync(job.outputPath)) {
+      await fs.unlink(job.outputPath).catch(() => {});
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err?.message || String(err) };
+  }
+});
 
 app.whenReady().then(async () => {
   startMemoryHeartbeat();
