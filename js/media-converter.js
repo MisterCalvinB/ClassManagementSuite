@@ -423,8 +423,12 @@
   }
 
   // ── WaveSurfer & Trimmer ───────────────────────────────────────────────────
+  var _isSyncingFromWS = false;
+  var _isSyncingFromVideo = false;
+
   function setupWaveSurfer() {
     var container = document.getElementById('waveformContainer');
+    var videoEl = document.getElementById('videoPlayer');
     if (!container || !window.WaveSurfer) return;
 
     try {
@@ -463,20 +467,165 @@
           });
           updateTrimTimeDisplay(0, duration);
         }
+        if (videoEl && videoEl.src) {
+          try { videoEl.currentTime = 0; } catch (e) {}
+        }
+      });
+
+      // ── WaveSurfer -> Video Synchronization ──
+      function syncVideoFromWS(targetTime) {
+        if (!videoEl || _isSyncingFromVideo || !videoEl.src) return;
+        _isSyncingFromWS = true;
+        try {
+          if (isFinite(targetTime) && targetTime >= 0) {
+            videoEl.currentTime = targetTime;
+          }
+        } catch (e) {}
+        setTimeout(function () { _isSyncingFromWS = false; }, 40);
+      }
+
+      _waveSurfer.on('seek', function (progress) {
+        if (_isSyncingFromVideo) return;
+        var dur = (videoEl && isFinite(videoEl.duration) && videoEl.duration > 0)
+          ? videoEl.duration
+          : _waveSurfer.getDuration();
+        if (dur && isFinite(dur)) {
+          syncVideoFromWS(progress * dur);
+        }
+      });
+
+      _waveSurfer.on('interaction', function () {
+        if (_isSyncingFromVideo) return;
+        var curr = _waveSurfer.getCurrentTime();
+        syncVideoFromWS(curr);
+      });
+
+      _waveSurfer.on('audioprocess', function (currTime) {
+        if (_isSyncingFromVideo) return;
+        if (_activeRegion && currTime >= _activeRegion.end) {
+          _waveSurfer.pause();
+          if (videoEl && !videoEl.paused) videoEl.pause();
+          return;
+        }
+        // Correct drift during playback if > 200ms
+        if (videoEl && !videoEl.paused && isFinite(videoEl.currentTime)) {
+          if (Math.abs(videoEl.currentTime - currTime) > 0.2) {
+            syncVideoFromWS(currTime);
+          }
+        }
+      });
+
+      _waveSurfer.on('play', function () {
+        if (_isSyncingFromVideo) return;
+        _isSyncingFromWS = true;
+        if (videoEl && videoEl.src && videoEl.paused) {
+          var videoBox = document.getElementById('videoPreviewBox');
+          if (videoBox && videoBox.style.display !== 'none') {
+            if (_activeRegion && (videoEl.currentTime < _activeRegion.start || videoEl.currentTime >= _activeRegion.end)) {
+              videoEl.currentTime = _activeRegion.start;
+            }
+            videoEl.muted = true; // Avoid dual-audio echo
+            videoEl.play().catch(function () {});
+          }
+        }
+        setTimeout(function () { _isSyncingFromWS = false; }, 40);
+      });
+
+      _waveSurfer.on('pause', function () {
+        if (_isSyncingFromVideo) return;
+        _isSyncingFromWS = true;
+        if (videoEl && !videoEl.paused) {
+          videoEl.pause();
+        }
+        setTimeout(function () { _isSyncingFromWS = false; }, 40);
       });
 
       if (_regionsPlugin) {
         _regionsPlugin.on('region-updated', function (region) {
           _activeRegion = region;
           updateTrimTimeDisplay(region.start, region.end);
+          if (videoEl && videoEl.paused) {
+            syncVideoFromWS(region.start);
+          }
         });
         _regionsPlugin.on('region-created', function (region) {
           _activeRegion = region;
           updateTrimTimeDisplay(region.start, region.end);
         });
+        _regionsPlugin.on('region-out', function () {
+          if (videoEl && !videoEl.paused) {
+            videoEl.pause();
+          }
+        });
       }
 
-      // Trim player controls
+      // ── Video -> WaveSurfer Synchronization ──
+      if (videoEl) {
+        function syncWSFromVideo() {
+          if (!_waveSurfer || _isSyncingFromWS) return;
+          _isSyncingFromVideo = true;
+          try {
+            var dur = _waveSurfer.getDuration() || videoEl.duration;
+            if (dur && isFinite(dur) && dur > 0) {
+              var frac = Math.max(0, Math.min(1, videoEl.currentTime / dur));
+              _waveSurfer.seekTo(frac);
+            }
+          } catch (e) {}
+          setTimeout(function () { _isSyncingFromVideo = false; }, 40);
+        }
+
+        videoEl.addEventListener('seeking', function () {
+          syncWSFromVideo();
+        });
+
+        videoEl.addEventListener('timeupdate', function () {
+          if (_isSyncingFromWS) return;
+          if (videoEl.paused) {
+            // User scrubbing video timeline
+            syncWSFromVideo();
+          } else {
+            // Region boundary check
+            if (_activeRegion && videoEl.currentTime >= _activeRegion.end) {
+              videoEl.pause();
+              if (_waveSurfer && _waveSurfer.isPlaying()) _waveSurfer.pause();
+            }
+          }
+        });
+
+        videoEl.addEventListener('play', function () {
+          if (_isSyncingFromWS || !_waveSurfer) return;
+          _isSyncingFromVideo = true;
+          videoEl.muted = true; // Ensure clean single audio source through WaveSurfer
+          if (!_waveSurfer.isPlaying()) {
+            if (_activeRegion && (videoEl.currentTime < _activeRegion.start || videoEl.currentTime >= _activeRegion.end)) {
+              videoEl.currentTime = _activeRegion.start;
+              _waveSurfer.play(_activeRegion.start, _activeRegion.end);
+            } else {
+              var dur = _waveSurfer.getDuration() || videoEl.duration;
+              if (dur > 0) {
+                _waveSurfer.seekTo(videoEl.currentTime / dur);
+              }
+              if (_activeRegion) {
+                _waveSurfer.play(videoEl.currentTime, _activeRegion.end);
+              } else {
+                _waveSurfer.play();
+              }
+            }
+          }
+          setTimeout(function () { _isSyncingFromVideo = false; }, 40);
+        });
+
+        videoEl.addEventListener('pause', function () {
+          if (_isSyncingFromWS || !_waveSurfer) return;
+          _isSyncingFromVideo = true;
+          if (_waveSurfer.isPlaying()) {
+            _waveSurfer.pause();
+          }
+          setTimeout(function () { _isSyncingFromVideo = false; }, 40);
+        });
+      }
+
+      // ── Trim Player Controls ──
       var playBtn = document.getElementById('trimPlayBtn');
       var pauseBtn = document.getElementById('trimPauseBtn');
       var resetBtn = document.getElementById('trimResetBtn');
@@ -484,6 +633,16 @@
       if (playBtn) {
         playBtn.addEventListener('click', function () {
           if (_waveSurfer) {
+            if (videoEl && videoEl.src) {
+              var videoBox = document.getElementById('videoPreviewBox');
+              if (videoBox && videoBox.style.display !== 'none') {
+                videoEl.muted = true;
+                if (_activeRegion) {
+                  videoEl.currentTime = _activeRegion.start;
+                }
+                videoEl.play().catch(function () {});
+              }
+            }
             if (_activeRegion) _waveSurfer.play(_activeRegion.start, _activeRegion.end);
             else _waveSurfer.play();
           }
@@ -493,6 +652,7 @@
       if (pauseBtn) {
         pauseBtn.addEventListener('click', function () {
           if (_waveSurfer) _waveSurfer.pause();
+          if (videoEl && !videoEl.paused) videoEl.pause();
         });
       }
 
@@ -509,6 +669,10 @@
               resize: true
             });
             updateTrimTimeDisplay(0, dur);
+            _waveSurfer.seekTo(0);
+            if (videoEl && videoEl.src) {
+              videoEl.currentTime = 0;
+            }
           }
         });
       }
@@ -552,6 +716,8 @@
         videoBox.style.display = 'flex';
         var src = item.path ? 'file://' + item.path.replace(/\\/g, '/') : (item.fileObj ? URL.createObjectURL(item.fileObj) : '');
         videoEl.src = src;
+        videoEl.currentTime = 0;
+        videoEl.muted = true;
       } else {
         videoBox.style.display = 'none';
         videoEl.src = '';
