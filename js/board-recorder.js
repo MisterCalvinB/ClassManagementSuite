@@ -1429,6 +1429,42 @@
     if (prevOverlay) prevOverlay.style.display = 'none';
   };
 
+  global.boardVideoExportMp3 = async function () {
+    if (!currentRecordingResult || !currentRecordingResult.blob) return;
+    var fnInput = document.getElementById('board-rec-filename-input');
+    var rawName = (fnInput && fnInput.value.trim()) || 'board-recording';
+    var baseName = rawName.replace(/\.(webm|mp4|mp3|wav)$/i, '') + '.mp3';
+
+    notify(t('recConvertingMp3', 'Converting recording to MP3 audio...'), false);
+    try {
+      if (global.MediaConverterService && typeof global.MediaConverterService.extractAudio === 'function') {
+        var res = await global.MediaConverterService.extractAudio(currentRecordingResult.blob, 'mp3');
+        if (res && res.blob) {
+          var url = URL.createObjectURL(res.blob);
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = baseName;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
+          notify((t('recExportedMp3Success', 'Exported MP3 audio: ') || 'Exported MP3: ') + baseName, false);
+          return;
+        }
+      }
+    } catch (e) {
+      console.error('[BoardRecorder] MP3 export error:', e);
+      notify('MP3 export failed: ' + (e.message || ''), true);
+    }
+  };
+
+  global.boardVideoOpenInConverter = function () {
+    if (!currentRecordingResult || !currentRecordingResult.blob) return;
+    if (global.MediaConverterService && typeof global.MediaConverterService.openMediaConverter === 'function') {
+      global.MediaConverterService.openMediaConverter();
+    }
+  };
+
   // Export module globally
   global.BoardVideoRecorder = {
     getAudioDevices: getAudioDevices,

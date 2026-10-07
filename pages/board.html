@@ -19,6 +19,8 @@
   <script src="../js/links-service.js"></script>
   <script src="../js/tag-link-modal.js"></script>
   <script src="../js/universal-importer.js"></script>
+  <script src="../js/media-audio-encoder.js"></script>
+  <script src="../js/media-converter-service.js"></script>
   <script>
     let boardCmsTimerChannel = null;
     const boardCmsTimerPrefsKey = 'board-cms-timer-widget-v2';
@@ -2124,7 +2126,9 @@
       </div>
       <div class="con-modal-footer" style="display:flex;gap:8px;justify-content:space-between;align-items:center;padding-top:12px;border-top:1px solid #e2e8f0;flex-wrap:wrap;">
         <button class="action-btn btn-grey" onclick="boardVideoPromptClosePreview()" style="color:#ef4444;display:inline-flex;align-items:center;gap:6px;" data-i18n="recDiscardBtn"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" style="margin:0;" /> <span>Discard</span></button>
-        <div style="display:flex;gap:8px;align-items:center;">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button class="action-btn btn-grey" id="board-rec-open-conv-btn" onclick="boardVideoOpenInConverter()" style="display:inline-flex;align-items:center;gap:6px;"><img src="../assets/icons/media-converter.svg" class="btn-icon" alt="" style="margin:0;" /> <span data-i18n="recOpenInConverterBtn">Media Converter</span></button>
+          <button class="action-btn btn-grey" id="board-rec-export-mp3-btn" onclick="boardVideoExportMp3()" style="display:inline-flex;align-items:center;gap:6px;"><img src="../assets/icons/music.svg" class="btn-icon" alt="" style="margin:0;" /> <span data-i18n="recExportMp3Btn">Export MP3</span></button>
           <button class="action-btn btn-grey" id="board-rec-export-btn" onclick="boardVideoExportFile()" style="display:inline-flex;align-items:center;gap:6px;"><img src="../assets/icons/download.svg" class="btn-icon" alt="" style="margin:0;" /> <span id="board-rec-export-label" data-i18n="recExportVideoBtn">Export Video</span></button>
           <button class="action-btn btn-blue" onclick="boardVideoSaveAndAttach()" style="display:inline-flex;align-items:center;gap:6px;" data-i18n="recSaveAttachBtn"><img src="../assets/icons/save.svg" class="btn-icon" alt="" style="margin:0;" /> <span>Save & Attach to Board</span></button>
         </div>
@@ -2637,6 +2641,27 @@
         style="width:100%; padding:4px 8px; background:#f87171; color:#000; border:2px solid #000; box-shadow:2px 2px 0 #000; font-weight:900; font-size:0.72rem; cursor:pointer; text-align:center; text-transform:uppercase; letter-spacing:0.5px;">
         [EXTRACT PAGE TO CANVAS]
       </button>
+    </div>
+    <!-- Media Converter Actions Row (shown when node is a sound node or video node) -->
+    <div id="con-ctx-media-row" style="display:none; padding:4px 8px; border-bottom:1.5px solid #000; background:#f0fdf4;">
+      <div style="font-size:0.65rem; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:#15803d; margin-bottom:4px; display:flex; align-items:center; gap:4px;">
+        <img src="../assets/icons/media-converter.svg" style="width:12px;height:12px;margin:0;" alt="" />
+        <span data-i18n="conMediaActionsTitle">Media Tools</span>
+      </div>
+      <div style="display:flex; gap:4px; flex-wrap:wrap;">
+        <button type="button" class="action-btn btn-sm btn-grey" id="con-ctx-slow-btn" onclick="conCtxSlowDownSound(0.85)" title="Slow down audio to 0.85x speed" style="font-size:0.68rem; padding:2px 6px;">
+          <img src="../assets/icons/clock.svg" class="btn-icon" style="width:12px;height:12px;" alt="" /> <span data-i18n="conMediaSlow">0.85x Speed</span>
+        </button>
+        <button type="button" class="action-btn btn-sm btn-grey" id="con-ctx-boost-btn" onclick="conCtxNormalizeVoice()" title="Normalize and boost voice volume" style="font-size:0.68rem; padding:2px 6px;">
+          <img src="../assets/icons/volume.svg" class="btn-icon" style="width:12px;height:12px;" alt="" /> <span data-i18n="conMediaVoiceBoost">Boost Voice</span>
+        </button>
+        <button type="button" class="action-btn btn-sm btn-grey" id="con-ctx-extract-audio-btn" onclick="conCtxExtractAudioToSoundNode()" title="Extract audio track to a new Sound Node" style="font-size:0.68rem; padding:2px 6px;">
+          <img src="../assets/icons/music.svg" class="btn-icon" style="width:12px;height:12px;" alt="" /> <span data-i18n="conMediaExtractAudio">Extract Audio</span>
+        </button>
+        <button type="button" class="action-btn btn-sm btn-grey" id="con-ctx-open-converter-btn" onclick="conCtxOpenInMediaConverter()" title="Open in Video & Sound Converter" style="font-size:0.68rem; padding:2px 6px;">
+          <img src="../assets/icons/sparkles.svg" class="btn-icon" style="width:12px;height:12px;" alt="" /> <span data-i18n="conMediaOpenConverter">Converter...</span>
+        </button>
+      </div>
     </div>
     <!-- Word relation & connection icon row -->
     <div class="con-ctx-icon-row">
@@ -3460,6 +3485,50 @@
         <button type="button" id="con-sound-stop-btn" onclick="conHandleSoundStop()" class="action-btn btn-grey" style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:5px; padding:6px 10px; font-weight:700; font-size:0.8rem; border-radius:6px; cursor:pointer;">
           <img src="../assets/icons/stop.svg" class="btn-icon" alt="" style="width:13px;height:13px;" />
           <span>Stop</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Video Action Popover (anchored above video node) -->
+  <div id="con-video-action-popover" role="dialog" aria-label="Video Actions" style="display:none; position:fixed; z-index:99100; flex-direction:column; min-width:280px; max-width:360px; background:var(--bg-card,#fff); border:2px solid #333; box-shadow:3px 3px 0 #555; border-radius:8px; font-family:inherit; overflow:hidden;">
+    <div class="con-timer-popover-header" style="display:flex; align-items:center; justify-content:space-between; padding:6px 10px; background:#e8e8e2; border-bottom:1.5px solid #333; font-weight:700; font-size:0.82rem;">
+      <div style="display:flex; align-items:center; gap:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:230px;">
+        <img src="../assets/icons/media.svg" class="btn-icon" alt="" style="width:14px;height:14px;flex-shrink:0;" />
+        <span id="con-video-popover-title" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Video</span>
+      </div>
+      <button type="button" class="con-timer-popover-close" onclick="conCloseVideoPopover()" title="Close" style="background:none; border:none; cursor:pointer; padding:2px; display:flex; align-items:center;">
+        <img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" />
+      </button>
+    </div>
+    <div class="con-video-popover-viewport" id="con-video-popover-viewport" style="width:100%; background:#0e0e0e; display:flex; align-items:center; justify-content:center; max-height:190px; position:relative;">
+      <video id="con-video-player-el" playsinline style="width:100%; max-height:190px; object-fit:contain; display:block; cursor:pointer;" onclick="conHandleVideoPlayPause()"></video>
+    </div>
+    <div class="con-video-popover-body" id="con-video-popover-body" style="padding:8px 10px 10px; display:flex; flex-direction:column; gap:8px;">
+      <div style="display:flex; flex-direction:column; gap:4px;">
+        <input type="range" id="con-video-seek-slider" class="con-video-slider" min="0" max="100" step="0.1" value="0" oninput="conHandleVideoSeek(this.value)" />
+        <div class="con-video-time-row" style="display:flex; justify-content:space-between; font-size:0.75rem; font-weight:600; color:#555; font-variant-numeric:tabular-nums;">
+          <span id="con-video-cur-time">00:00</span>
+          <span id="con-video-total-time">00:00</span>
+        </div>
+      </div>
+      <div class="con-video-btn-row" style="display:flex; gap:6px; align-items:center;">
+        <button type="button" id="con-video-play-pause-btn" onclick="conHandleVideoPlayPause()" class="action-btn btn-blue" style="flex:1.2; display:inline-flex; align-items:center; justify-content:center; gap:5px; padding:6px 10px; font-weight:700; font-size:0.8rem; border-radius:6px; cursor:pointer;">
+          <img src="../assets/icons/play.svg" class="btn-icon" alt="" style="width:13px;height:13px;" />
+          <span id="con-video-play-pause-label">Play</span>
+        </button>
+        <button type="button" id="con-video-stop-btn" onclick="conHandleVideoStop()" class="action-btn btn-grey" style="flex:0.8; display:inline-flex; align-items:center; justify-content:center; gap:5px; padding:6px 8px; font-weight:700; font-size:0.8rem; border-radius:6px; cursor:pointer;">
+          <img src="../assets/icons/stop.svg" class="btn-icon" alt="" style="width:13px;height:13px;" />
+          <span>Stop</span>
+        </button>
+        <button type="button" id="con-video-mute-btn" onclick="conHandleVideoMute()" class="action-btn btn-grey" title="Mute/Unmute" style="display:inline-flex; align-items:center; justify-content:center; padding:6px 8px; border-radius:6px; cursor:pointer;">
+          <img id="con-video-mute-icon" src="../assets/icons/volume.svg" class="btn-icon" alt="" style="width:13px;height:13px;" />
+        </button>
+        <button type="button" id="con-video-fs-btn" onclick="conHandleVideoFullscreen()" class="action-btn btn-grey" title="Fullscreen" style="display:inline-flex; align-items:center; justify-content:center; padding:6px 8px; border-radius:6px; cursor:pointer;">
+          <img src="../assets/icons/fullscreen.svg" class="btn-icon" alt="" style="width:13px;height:13px;" />
+        </button>
+        <button type="button" id="con-video-convert-btn" onclick="conConvertActiveVideoNodeToCanvas()" class="action-btn btn-grey" title="Convert to Canvas Box" style="display:inline-flex; align-items:center; justify-content:center; padding:6px 8px; border-radius:6px; cursor:pointer;">
+          <img src="../assets/icons/layout.svg" class="btn-icon" alt="" style="width:13px;height:13px;" />
         </button>
       </div>
     </div>
@@ -11615,11 +11684,38 @@
         const insertBtn = document.createElement('button');
         insertBtn.type = 'button';
         insertBtn.className = 'con-media-manage-btn';
-        insertBtn.textContent = 'Insert';
+        insertBtn.textContent = att.kind === 'videos' ? (typeof t === 'function' ? t('conMediaInsertNodeBtn', 'Insert as Node') : 'Insert as Node') : (typeof t === 'function' ? t('conMediaInsertBtn', 'Insert') : 'Insert');
         insertBtn.onclick = async () => {
           await window.conInsertAttachmentById(att.id);
           window.conOpenManageMediaChooser({ keepPosition: true });
         };
+        actions.appendChild(insertBtn);
+
+        if (att.kind === 'videos') {
+          const insertBoxBtn = document.createElement('button');
+          insertBoxBtn.type = 'button';
+          insertBoxBtn.className = 'con-media-manage-btn';
+          insertBoxBtn.textContent = typeof t === 'function' ? t('conMediaInsertCanvasBoxBtn', 'Insert as Canvas Box') : 'Insert as Canvas Box';
+          insertBoxBtn.onclick = async () => {
+            await window.conInsertAttachmentById(att.id, { asCanvasBox: true });
+            window.conOpenManageMediaChooser({ keepPosition: true });
+          };
+          actions.appendChild(insertBoxBtn);
+        }
+
+        if (att.kind === 'sounds' || att.kind === 'videos') {
+          const convBtn = document.createElement('button');
+          convBtn.type = 'button';
+          convBtn.className = 'con-media-manage-btn';
+          convBtn.innerHTML = '<img src="../assets/icons/media-converter.svg" style="width:11px;height:11px;vertical-align:-1px;margin-right:2px;" alt="" />' + (typeof t === 'function' ? t('conMediaConvertBtn', 'Convert') : 'Convert');
+          convBtn.title = 'Open in Media Converter';
+          convBtn.onclick = () => {
+            if (window.MediaConverterService && typeof window.MediaConverterService.openMediaConverter === 'function') {
+              window.MediaConverterService.openMediaConverter(att.relativePath || '');
+            }
+          };
+          actions.appendChild(convBtn);
+        }
 
         const removeBtn = document.createElement('button');
         removeBtn.type = 'button';
@@ -13284,6 +13380,24 @@
           if (typeof mdbToast === 'function') {
             const toastMsg = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t('soundNodeAddedToast') : '🎵 Sound node added to board.';
             mdbToast(toastMsg || '🎵 Sound node added to board.');
+          }
+        }
+        return nodeId;
+      }
+
+      if (att.kind === 'videos' && !(options && options.asCanvasBox)) {
+        const customX = Number(options && options.x);
+        const customY = Number(options && options.y);
+        const hasCustomPos = Number.isFinite(customX) && Number.isFinite(customY);
+        const boardEl = document.getElementById('constellation-board');
+        const posX = hasCustomPos ? customX : Math.max(20, (boardEl ? (boardEl.scrollLeft || 0) + 120 : 120));
+        const posY = hasCustomPos ? customY : Math.max(20, (boardEl ? (boardEl.scrollTop || 0) + 120 : 120));
+        const pageNum = options && options.pageNum != null ? options.pageNum : null;
+        const nodeId = conAddVideoNodeAt(att, posX, posY, pageNum);
+        if (!options.silent) {
+          if (typeof mdbToast === 'function') {
+            const toastMsg = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t('videoNodeAddedToast') : '🎬 Video node added to board.';
+            mdbToast(toastMsg || '🎬 Video node added to board.');
           }
         }
         return nodeId;
@@ -19881,7 +19995,11 @@
             isSound: !!n.isSound,
             soundAttachmentId: n.soundAttachmentId || null,
             soundName: n.soundName || null,
-            soundDuration: (typeof n.soundDuration === 'number') ? n.soundDuration : null
+            soundDuration: (typeof n.soundDuration === 'number') ? n.soundDuration : null,
+            isVideo: !!n.isVideo,
+            videoAttachmentId: n.videoAttachmentId || null,
+            videoName: n.videoName || null,
+            videoDuration: (typeof n.videoDuration === 'number') ? n.videoDuration : null
           })),
           notes: selectedNotes.map(n => ({
             id: n.id,
@@ -19981,7 +20099,11 @@
             isSound: !!node.isSound,
             soundAttachmentId: node.soundAttachmentId || null,
             soundName: node.soundName || null,
-            soundDuration: (typeof node.soundDuration === 'number') ? node.soundDuration : null
+            soundDuration: (typeof node.soundDuration === 'number') ? node.soundDuration : null,
+            isVideo: !!node.isVideo,
+            videoAttachmentId: node.videoAttachmentId || null,
+            videoName: node.videoName || null,
+            videoDuration: (typeof node.videoDuration === 'number') ? node.videoDuration : null
           }],
           notes: attachedNote ? [{
             id: attachedNote.id,
@@ -21600,7 +21722,8 @@
               'con-media-fullscreen', 'con-fs-mini-pinned', 'con-media-mini-visible',
               'con-linking', 'con-link-mode',
               'draw-mode', 'connect-mode',
-              'con-random-rolling'
+              'con-random-rolling',
+              'con-node-video', 'con-video-playing', 'con-video-paused'
             ]);
             new MutationObserver(function (mutations) {
               if (window._conSuppressMirrorObserver || window._conMirrorDragging || (typeof location !== 'undefined' && location.search.indexOf('mirror=1') !== -1)) return;
@@ -21630,6 +21753,8 @@
                 if (t.closest && (t.closest('.con-random-digits') || t.closest('.con-random-node-row'))) return true;
                 // Ignore any mutations inside sound nodes (playback state, digits, popovers) — handled directly by node-sound-state
                 if (t.closest && (t.closest('.con-node-sound') || t.closest('.con-sound-digits') || t.closest('.con-sound-node-row') || t.closest('#con-sound-action-popover'))) return true;
+                // Ignore any mutations inside video nodes (playback state, digits, popovers) — handled directly by node-video-state
+                if (t.closest && (t.closest('.con-node-video') || t.closest('.con-video-digits') || t.closest('.con-video-node-row') || t.closest('#con-video-action-popover'))) return true;
                 // Ignore any mutations inside edge SVG line groups (creation, style, label changes — handled directly by edge-add, edge-remove, edge-update)
                 if (t.closest && (t.closest('.con-line-group') || t.closest('.con-line') || t.closest('.con-line-hit') || t.closest('.con-line-label') || t.id === 'con-arrow-defs' || (t.closest && t.closest('#con-arrow-defs')))) return true;
                 if (t.classList && (t.classList.contains('con-line-group') || t.classList.contains('con-line') || t.classList.contains('con-line-hit') || t.classList.contains('con-line-label'))) return true;
@@ -21678,6 +21803,9 @@
                            n.classList.contains('con-node-sound') ||
                            n.classList.contains('con-sound-digits') ||
                            n.classList.contains('con-sound-node-row') ||
+                           n.classList.contains('con-node-video') ||
+                           n.classList.contains('con-video-digits') ||
+                           n.classList.contains('con-video-node-row') ||
                            n.classList.contains('wn-mirror-selection-overlay') ||
                            n.classList.contains('con-snap-line') ||
                            n.classList.contains('con-drawing-handle') ||
@@ -23728,18 +23856,27 @@
                   conRollRandomNode(node.id);
                   if (typeof conCloseTimerPopover === 'function') conCloseTimerPopover();
                   if (typeof conCloseSoundPopover === 'function') conCloseSoundPopover();
+                  if (typeof conCloseVideoPopover === 'function') conCloseVideoPopover();
                 } else if (node && node.isTimer && typeof conOpenTimerPopover === 'function') {
                   conOpenTimerPopover(node);
                   if (typeof conCloseRandomPopover === 'function') conCloseRandomPopover();
                   if (typeof conCloseSoundPopover === 'function') conCloseSoundPopover();
+                  if (typeof conCloseVideoPopover === 'function') conCloseVideoPopover();
                 } else if (node && node.isSound && typeof conOpenSoundPopover === 'function') {
                   conOpenSoundPopover(node);
                   if (typeof conCloseTimerPopover === 'function') conCloseTimerPopover();
                   if (typeof conCloseRandomPopover === 'function') conCloseRandomPopover();
+                  if (typeof conCloseVideoPopover === 'function') conCloseVideoPopover();
+                } else if (node && node.isVideo && typeof conOpenVideoPopover === 'function') {
+                  conOpenVideoPopover(node);
+                  if (typeof conCloseTimerPopover === 'function') conCloseTimerPopover();
+                  if (typeof conCloseRandomPopover === 'function') conCloseRandomPopover();
+                  if (typeof conCloseSoundPopover === 'function') conCloseSoundPopover();
                 } else {
                   if (typeof conCloseTimerPopover === 'function') conCloseTimerPopover();
                   if (typeof conCloseRandomPopover === 'function') conCloseRandomPopover();
                   if (typeof conCloseSoundPopover === 'function') conCloseSoundPopover();
+                  if (typeof conCloseVideoPopover === 'function') conCloseVideoPopover();
                 }
               }
             }
@@ -23747,6 +23884,7 @@
               if (typeof conCloseTimerPopover === 'function') conCloseTimerPopover();
               if (typeof conCloseRandomPopover === 'function') conCloseRandomPopover();
               if (typeof conCloseSoundPopover === 'function') conCloseSoundPopover();
+              if (typeof conCloseVideoPopover === 'function') conCloseVideoPopover();
             }
             dragging = false;
           }
@@ -25107,6 +25245,28 @@
           extractRow.style.display = hasPdf ? '' : 'none';
           extractRow.dataset.pdfUrn = pdfUrn || '';
         }
+
+        // Media Tools row
+        const mediaRow = document.getElementById('con-ctx-media-row');
+        const slowBtn = document.getElementById('con-ctx-slow-btn');
+        const boostBtn = document.getElementById('con-ctx-boost-btn');
+        const extractAudioBtn = document.getElementById('con-ctx-extract-audio-btn');
+        if (mediaRow) {
+          const soundAtt = node && (node.soundAttachmentId || (conAttachments || []).find(a => a && (a.id === node.soundAttachmentId || (a.kind === 'sounds' && a.name === (node.baseWord || (node.el && node.el.textContent))))));
+          const videoAtt = node && (node.videoAttachmentId || (conAttachments || []).find(a => a && (a.id === node.videoAttachmentId || (a.kind === 'videos' && a.name === (node.baseWord || (node.el && node.el.textContent))))));
+          const isSound = !!soundAtt || (node && (node.isSound || node.type === 'sound'));
+          const isVideo = !!videoAtt || (node && (node.isVideo || node.type === 'video'));
+
+          if (isSound || isVideo) {
+            mediaRow.style.display = '';
+            if (slowBtn) slowBtn.style.display = isSound ? '' : 'none';
+            if (boostBtn) boostBtn.style.display = isSound ? '' : 'none';
+            if (extractAudioBtn) extractAudioBtn.style.display = isVideo ? '' : 'none';
+          } else {
+            mediaRow.style.display = 'none';
+          }
+        }
+
         // Star button: show only when node has a db entry
         const starBtn = document.getElementById('con-ctx-star-btn');
         if (starBtn) {
@@ -25506,6 +25666,162 @@
         node.pageNum = null;
         conRenderNodeLabel(node);
         conRedrawEdges();
+      };
+
+      // ── Media Converter Integration Handlers ──────────────────────────────
+      window.conCtxGetActiveNodeMediaAttachment = function () {
+        const node = conCtxNodeId ? conNodes.find(n => n.id === conCtxNodeId) : null;
+        if (!node) return null;
+        const attId = node.soundAttachmentId || node.videoAttachmentId || null;
+        if (attId) {
+          const found = (conAttachments || []).find(a => a && a.id === attId);
+          if (found) return found;
+        }
+        const text = (node.baseWord || (node.el && node.el.textContent) || '').trim();
+        if (text) {
+          const foundName = (conAttachments || []).find(a => a && a.name && (a.name === text || a.name.startsWith(text)));
+          if (foundName) return foundName;
+        }
+        return null;
+      };
+
+      window.conCtxSlowDownSound = async function (speedRatio) {
+        speedRatio = speedRatio || 0.85;
+        const att = conCtxGetActiveNodeMediaAttachment();
+        if (!att) {
+          if (typeof mdbToast === 'function') mdbToast('No audio attachment found on this node.', true);
+          return;
+        }
+        if (typeof mdbToast === 'function') mdbToast(typeof t === 'function' ? t('conMediaConverting', 'Processing media conversion...') : 'Processing conversion...', false);
+
+        try {
+          const fileOrBlob = att.file || (att._cachedObjectUrl ? await (await fetch(att._cachedObjectUrl)).blob() : null);
+          if (!fileOrBlob) throw new Error('Could not load source audio.');
+
+          if (window.MediaConverterService && typeof window.MediaConverterService.slowDownForListening === 'function') {
+            const res = await window.MediaConverterService.slowDownForListening(fileOrBlob, speedRatio);
+            if (res && res.blob) {
+              _conAttachmentCounter += 1;
+              const newName = att.name.replace(/\.[^/.]+$/, '') + '-slow-' + Math.round(speedRatio * 100) + 'pct.mp3';
+              const newAtt = {
+                id: 'att_' + _conAttachmentCounter,
+                name: newName,
+                mime: 'audio/mp3',
+                kind: 'sounds',
+                size: res.blob.size,
+                file: res.blob,
+                relativePath: ''
+              };
+              conAttachments.push(newAtt);
+              const node = conNodes.find(n => n.id === conCtxNodeId);
+              if (node) {
+                node.soundAttachmentId = newAtt.id;
+              }
+              if (typeof conRenderAttachmentSummary === 'function') conRenderAttachmentSummary();
+              if (typeof mdbToast === 'function') mdbToast((typeof t === 'function' ? t('conMediaConvertSuccess', 'Media converted successfully') : 'Converted') + ': ' + newName, false);
+            }
+          }
+        } catch (err) {
+          console.error('[Board] Slow down error:', err);
+          if (typeof mdbToast === 'function') mdbToast('Conversion error: ' + (err.message || ''), true);
+        }
+      };
+
+      window.conCtxNormalizeVoice = async function () {
+        const att = conCtxGetActiveNodeMediaAttachment();
+        if (!att) {
+          if (typeof mdbToast === 'function') mdbToast('No audio attachment found on this node.', true);
+          return;
+        }
+        if (typeof mdbToast === 'function') mdbToast(typeof t === 'function' ? t('conMediaConverting', 'Processing media conversion...') : 'Processing conversion...', false);
+
+        try {
+          const fileOrBlob = att.file || (att._cachedObjectUrl ? await (await fetch(att._cachedObjectUrl)).blob() : null);
+          if (!fileOrBlob) throw new Error('Could not load source audio.');
+
+          if (window.MediaConverterService && typeof window.MediaConverterService.normalizeVoice === 'function') {
+            const res = await window.MediaConverterService.normalizeVoice(fileOrBlob);
+            if (res && res.blob) {
+              _conAttachmentCounter += 1;
+              const newName = att.name.replace(/\.[^/.]+$/, '') + '-boosted.mp3';
+              const newAtt = {
+                id: 'att_' + _conAttachmentCounter,
+                name: newName,
+                mime: 'audio/mp3',
+                kind: 'sounds',
+                size: res.blob.size,
+                file: res.blob,
+                relativePath: ''
+              };
+              conAttachments.push(newAtt);
+              const node = conNodes.find(n => n.id === conCtxNodeId);
+              if (node) {
+                node.soundAttachmentId = newAtt.id;
+              }
+              if (typeof conRenderAttachmentSummary === 'function') conRenderAttachmentSummary();
+              if (typeof mdbToast === 'function') mdbToast((typeof t === 'function' ? t('conMediaConvertSuccess', 'Media converted successfully') : 'Converted') + ': ' + newName, false);
+            }
+          }
+        } catch (err) {
+          console.error('[Board] Voice normalize error:', err);
+          if (typeof mdbToast === 'function') mdbToast('Conversion error: ' + (err.message || ''), true);
+        }
+      };
+
+      window.conCtxExtractAudioToSoundNode = async function () {
+        const att = conCtxGetActiveNodeMediaAttachment();
+        const node = conNodes.find(n => n.id === conCtxNodeId);
+        if (!att) {
+          if (typeof mdbToast === 'function') mdbToast('No video attachment found on this node.', true);
+          return;
+        }
+        if (typeof mdbToast === 'function') mdbToast(typeof t === 'function' ? t('conMediaConverting', 'Processing media conversion...') : 'Processing conversion...', false);
+
+        try {
+          const fileOrBlob = att.file || (att._cachedObjectUrl ? await (await fetch(att._cachedObjectUrl)).blob() : null);
+          if (!fileOrBlob) throw new Error('Could not load source video.');
+
+          if (window.MediaConverterService && typeof window.MediaConverterService.extractAudio === 'function') {
+            const res = await window.MediaConverterService.extractAudio(fileOrBlob, 'mp3');
+            if (res && res.blob) {
+              _conAttachmentCounter += 1;
+              const newName = att.name.replace(/\.[^/.]+$/, '') + '-audio.mp3';
+              const newAttId = 'att_' + _conAttachmentCounter;
+              const newAtt = {
+                id: newAttId,
+                name: newName,
+                mime: 'audio/mp3',
+                kind: 'sounds',
+                size: res.blob.size,
+                file: res.blob,
+                relativePath: ''
+              };
+              conAttachments.push(newAtt);
+              if (typeof conRenderAttachmentSummary === 'function') conRenderAttachmentSummary();
+
+              // Spawn companion sound node next to the video node
+              if (node && typeof window.conInsertAttachmentById === 'function') {
+                await window.conInsertAttachmentById(newAttId, {
+                  x: (node.x || 100) + 120,
+                  y: (node.y || 100) + 40,
+                  silent: false
+                });
+              }
+              if (typeof mdbToast === 'function') mdbToast((typeof t === 'function' ? t('conMediaConvertSuccess', 'Media converted successfully') : 'Converted') + ': ' + newName, false);
+            }
+          }
+        } catch (err) {
+          console.error('[Board] Audio extract error:', err);
+          if (typeof mdbToast === 'function') mdbToast('Extraction error: ' + (err.message || ''), true);
+        }
+      };
+
+      window.conCtxOpenInMediaConverter = function () {
+        const att = conCtxGetActiveNodeMediaAttachment();
+        const path = (att && att.relativePath) ? att.relativePath : '';
+        if (window.MediaConverterService && typeof window.MediaConverterService.openMediaConverter === 'function') {
+          window.MediaConverterService.openMediaConverter(path);
+        }
       };
 
       window.conPagePopupCancel = function () {
@@ -27317,6 +27633,395 @@
         if (curTimeEl) curTimeEl.textContent = (typeof conFormatDurationSec === 'function') ? conFormatDurationSec(Math.round(time)) : String(Math.round(time));
       };
 
+      // ================================================================
+      // VIDEO NODE ENGINE & POPOVER (Zero-DOM-teardown mirror sync)
+      // ================================================================
+      let _conActiveVideoNodeId = null;
+      let _conVideoEl = null;
+      let _conVideoBroadcastPending = false;
+
+      function conGetOrInitVideoPlayer() {
+        if (!_conVideoEl) {
+          _conVideoEl = document.getElementById('con-video-player-el');
+          if (!_conVideoEl) {
+            _conVideoEl = document.createElement('video');
+            _conVideoEl.id = 'con-video-player-el';
+            _conVideoEl.playsInline = true;
+          }
+          _conVideoEl.addEventListener('timeupdate', function () {
+            if (!_conActiveVideoNodeId) return;
+            const node = (conNodes || []).find(n => n && n.id === _conActiveVideoNodeId);
+            if (node) {
+              node.videoCurrentTime = _conVideoEl.currentTime;
+              if (_conVideoEl.duration && isFinite(_conVideoEl.duration)) {
+                node.videoDuration = _conVideoEl.duration;
+              }
+              conSyncVideoPopoverUi(node);
+              conUpdateVideoNodeDisplay(node);
+              _conThrottleBroadcastVideoState(node);
+            }
+          });
+          _conVideoEl.addEventListener('ended', function () {
+            if (!_conActiveVideoNodeId) return;
+            const node = (conNodes || []).find(n => n && n.id === _conActiveVideoNodeId);
+            if (node) {
+              node.videoState = 'ended';
+              node.videoCurrentTime = node.videoDuration || _conVideoEl.duration || 0;
+              conSyncVideoPopoverUi(node);
+              conUpdateVideoNodeDisplay(node);
+              _conBroadcastVideoState(node);
+            }
+          });
+          _conVideoEl.addEventListener('play', function () {
+            if (!_conActiveVideoNodeId) return;
+            const node = (conNodes || []).find(n => n && n.id === _conActiveVideoNodeId);
+            if (node) {
+              node.videoState = 'playing';
+              conSyncVideoPopoverUi(node);
+              conUpdateVideoNodeDisplay(node);
+              _conBroadcastVideoState(node);
+            }
+          });
+          _conVideoEl.addEventListener('pause', function () {
+            if (!_conActiveVideoNodeId) return;
+            const node = (conNodes || []).find(n => n && n.id === _conActiveVideoNodeId);
+            if (node && node.videoState !== 'ended' && node.videoState !== 'idle') {
+              node.videoState = 'paused';
+              conSyncVideoPopoverUi(node);
+              conUpdateVideoNodeDisplay(node);
+              _conBroadcastVideoState(node);
+            }
+          });
+          _conVideoEl.addEventListener('volumechange', function () {
+            if (!_conActiveVideoNodeId) return;
+            const node = (conNodes || []).find(n => n && n.id === _conActiveVideoNodeId);
+            if (node) {
+              node.videoMuted = !!_conVideoEl.muted;
+              conSyncVideoPopoverUi(node);
+              _conBroadcastVideoState(node);
+            }
+          });
+        }
+        return _conVideoEl;
+      }
+
+      function _conBroadcastVideoState(node) {
+        if (!node || !window._conMirrorSend) return;
+        try {
+          window._conMirrorSend({
+            type: 'node-video-state',
+            id: String(node.id),
+            videoState: node.videoState,
+            currentTime: node.videoCurrentTime || 0,
+            duration: node.videoDuration || 0,
+            muted: !!node.videoMuted
+          });
+        } catch (_) {}
+      }
+
+      function _conThrottleBroadcastVideoState(node) {
+        if (_conVideoBroadcastPending || !window._conMirrorSend) return;
+        _conVideoBroadcastPending = true;
+        requestAnimationFrame(function () {
+          _conVideoBroadcastPending = false;
+          _conBroadcastVideoState(node);
+        });
+      }
+
+      function conAddVideoNodeAt(attOrName, x, y, pageNum) {
+        let att = null;
+        let name = '';
+        let attId = null;
+        if (typeof attOrName === 'object' && attOrName) {
+          att = attOrName;
+          attId = att.id;
+          name = att.name || 'Video';
+        } else if (typeof attOrName === 'string') {
+          name = attOrName;
+          att = (conAttachments || []).find(a => a && (a.id === attOrName || a.name === attOrName));
+          if (att) attId = att.id;
+        }
+
+        const id = conAddWordAt(name || 'Video', x, y, pageNum);
+        const node = conNodes.find(n => n && n.id === id);
+        if (node) {
+          node.isVideo = true;
+          node.videoAttachmentId = attId || null;
+          node.videoName = name || 'Video';
+          node.videoDuration = 0;
+          node.videoCurrentTime = 0;
+          node.videoState = 'idle';
+          node.videoMuted = false;
+          node.baseWord = name || 'Video';
+
+          if (att) {
+            conGetAttachmentDataUrl(att).then(url => {
+              if (!url) return;
+              const probeVideo = document.createElement('video');
+              probeVideo.preload = 'metadata';
+              probeVideo.src = url;
+              probeVideo.onloadedmetadata = function () {
+                if (probeVideo.duration && isFinite(probeVideo.duration)) {
+                  node.videoDuration = probeVideo.duration;
+                  conUpdateVideoNodeDisplay(node);
+                }
+              };
+            }).catch(() => {});
+          }
+
+          conRenderNodeLabel(node);
+          conRedrawEdges();
+        }
+        return id;
+      }
+      window.conAddVideoNodeAt = conAddVideoNodeAt;
+
+      function conUpdateVideoNodeDisplay(node) {
+        if (!node || !node.isVideo) return;
+        if (!node.el || !node.el.parentNode) {
+          node.el = document.getElementById(node.id);
+          if (!node.el) return;
+        }
+        const isPlaying = node.videoState === 'playing';
+        const isPaused = node.videoState === 'paused';
+        node.el.classList.toggle('con-node-video', true);
+        node.el.classList.toggle('con-video-playing', isPlaying);
+        node.el.classList.toggle('con-video-paused', isPaused);
+
+        const curTime = (typeof node.videoCurrentTime === 'number') ? node.videoCurrentTime : 0;
+        const durTime = (typeof node.videoDuration === 'number') ? node.videoDuration : 0;
+        let timeStr = '';
+        if (durTime > 0) {
+          timeStr = conFormatDurationSec(Math.round(curTime)) + ' / ' + conFormatDurationSec(Math.round(durTime));
+        }
+
+        const digits = node.el.querySelector('.con-video-digits');
+        if (digits) {
+          if (timeStr) {
+            digits.style.display = '';
+            if (digits.textContent !== timeStr) digits.textContent = timeStr;
+          } else {
+            digits.style.display = 'none';
+          }
+        } else {
+          conRenderNodeLabel(node);
+        }
+      }
+      window.conUpdateVideoNodeDisplay = conUpdateVideoNodeDisplay;
+
+      async function conOpenVideoPopover(node) {
+        const popover = document.getElementById('con-video-action-popover');
+        if (!popover || !node || !node.el) return;
+        _conActiveVideoNodeId = node.id;
+        const video = conGetOrInitVideoPlayer();
+
+        if (video.dataset.nodeId !== String(node.id)) {
+          if (!video.paused) video.pause();
+          video.dataset.nodeId = String(node.id);
+
+          let videoSrc = '';
+          const att = (conAttachments || []).find(a => a && (a.id === node.videoAttachmentId || a.name === node.videoName || a.name === node.baseWord));
+          if (att) {
+            if (att._cachedObjectUrl) {
+              videoSrc = att._cachedObjectUrl;
+            } else if (typeof conGetAttachmentDataUrl === 'function') {
+              videoSrc = await conGetAttachmentDataUrl(att);
+            }
+          }
+          if (videoSrc) {
+            video.src = videoSrc;
+            video.load();
+            if (node.videoCurrentTime && node.videoCurrentTime > 0) {
+              video.currentTime = node.videoCurrentTime;
+            }
+          }
+        }
+
+        const titleEl = document.getElementById('con-video-popover-title');
+        if (titleEl) {
+          const trackTitle = node.videoName || node.text || node.baseWord || 'Video';
+          titleEl.textContent = trackTitle;
+          titleEl.title = trackTitle;
+        }
+
+        conSyncVideoPopoverUi(node);
+
+        popover.style.display = 'flex';
+        const rect = node.el.getBoundingClientRect();
+        const popW = popover.offsetWidth || 300;
+        const popH = popover.offsetHeight || 260;
+        let px = rect.left + rect.width / 2 - popW / 2;
+        let py = rect.top - popH - 8;
+        if (py < 10) py = rect.bottom + 8;
+        px = Math.max(10, Math.min(window.innerWidth - popW - 10, px));
+        popover.style.left = px + 'px';
+        popover.style.top = py + 'px';
+
+        setTimeout(() => {
+          document.addEventListener('mousedown', _conOnVideoPopoverOutside, true);
+        }, 20);
+      }
+      window.conOpenVideoPopover = conOpenVideoPopover;
+
+      function _conOnVideoPopoverOutside(e) {
+        const popover = document.getElementById('con-video-action-popover');
+        if (!popover || popover.style.display === 'none') {
+          document.removeEventListener('mousedown', _conOnVideoPopoverOutside, true);
+          return;
+        }
+        if (popover.contains(e.target) || (e.target && e.target.closest && e.target.closest('.con-node-video'))) {
+          return;
+        }
+        conCloseVideoPopover();
+      }
+
+      function conCloseVideoPopover() {
+        const popover = document.getElementById('con-video-action-popover');
+        if (popover) popover.style.display = 'none';
+        document.removeEventListener('mousedown', _conOnVideoPopoverOutside, true);
+      }
+      window.conCloseVideoPopover = conCloseVideoPopover;
+
+      function conSyncVideoPopoverUi(node) {
+        const popover = document.getElementById('con-video-action-popover');
+        if (!popover || popover.style.display === 'none') return;
+        if (!node) node = (conNodes || []).find(n => n && n.id === _conActiveVideoNodeId);
+        if (!node) return;
+
+        const video = _conVideoEl;
+        const curSec = (video && !isNaN(video.currentTime)) ? video.currentTime : (node.videoCurrentTime || 0);
+        const durSec = (video && !isNaN(video.duration) && isFinite(video.duration) && video.duration > 0) ? video.duration : (node.videoDuration || 0);
+
+        const slider = document.getElementById('con-video-seek-slider');
+        if (slider && document.activeElement !== slider) {
+          slider.max = durSec > 0 ? durSec : 100;
+          slider.value = curSec;
+          slider.disabled = (durSec <= 0 && (!video || !video.src));
+        }
+
+        const curTimeEl = document.getElementById('con-video-cur-time');
+        if (curTimeEl) curTimeEl.textContent = (typeof conFormatDurationSec === 'function') ? conFormatDurationSec(Math.round(curSec)) : String(Math.round(curSec));
+
+        const totalTimeEl = document.getElementById('con-video-total-time');
+        if (totalTimeEl) totalTimeEl.textContent = (typeof conFormatDurationSec === 'function') ? conFormatDurationSec(Math.round(durSec)) : String(Math.round(durSec));
+
+        const playBtn = document.getElementById('con-video-play-pause-btn');
+        const playLabel = document.getElementById('con-video-play-pause-label');
+        const playIcon = playBtn ? playBtn.querySelector('img') : null;
+
+        const isPlaying = video && !video.paused && !video.ended;
+        if (playLabel) playLabel.textContent = isPlaying ? (typeof i18n !== 'undefined' ? i18n.t('videoNodePause') || 'Pause' : 'Pause') : (typeof i18n !== 'undefined' ? i18n.t('videoNodePlay') || 'Play' : 'Play');
+        if (playIcon) playIcon.src = isPlaying ? '../assets/icons/pause.svg' : '../assets/icons/play.svg';
+        if (playBtn) {
+          playBtn.classList.toggle('btn-blue', !isPlaying);
+          playBtn.classList.toggle('btn-grey', isPlaying);
+        }
+
+        const muteIcon = document.getElementById('con-video-mute-icon');
+        if (muteIcon) {
+          const isMuted = video ? (video.muted || video.volume === 0) : !!node.videoMuted;
+          muteIcon.src = isMuted ? '../assets/icons/mute.svg' : '../assets/icons/volume.svg';
+        }
+      }
+
+      window.conHandleVideoPlayPause = function () {
+        const node = (conNodes || []).find(n => n && n.id === _conActiveVideoNodeId);
+        if (!node) return;
+        const video = conGetOrInitVideoPlayer();
+        if (!video.src) return;
+
+        if (!video.paused && !video.ended) {
+          video.pause();
+          node.videoState = 'paused';
+        } else {
+          if (video.ended) {
+            video.currentTime = 0;
+            node.videoCurrentTime = 0;
+          }
+          video.play().catch(err => {
+            console.warn('Video playback error:', err);
+          });
+          node.videoState = 'playing';
+        }
+        conSyncVideoPopoverUi(node);
+        conUpdateVideoNodeDisplay(node);
+        _conBroadcastVideoState(node);
+      };
+
+      window.conHandleVideoStop = function () {
+        const node = (conNodes || []).find(n => n && n.id === _conActiveVideoNodeId);
+        const video = conGetOrInitVideoPlayer();
+        if (video) {
+          video.pause();
+          video.currentTime = 0;
+        }
+        if (node) {
+          node.videoCurrentTime = 0;
+          node.videoState = 'idle';
+          conUpdateVideoNodeDisplay(node);
+          _conBroadcastVideoState(node);
+        }
+        conSyncVideoPopoverUi(node);
+      };
+
+      window.conHandleVideoSeek = function (val) {
+        const node = (conNodes || []).find(n => n && n.id === _conActiveVideoNodeId);
+        const video = conGetOrInitVideoPlayer();
+        const time = parseFloat(val) || 0;
+        if (video && isFinite(time)) {
+          video.currentTime = time;
+        }
+        if (node) {
+          node.videoCurrentTime = time;
+          conUpdateVideoNodeDisplay(node);
+          _conThrottleBroadcastVideoState(node);
+        }
+        const curTimeEl = document.getElementById('con-video-cur-time');
+        if (curTimeEl) curTimeEl.textContent = (typeof conFormatDurationSec === 'function') ? conFormatDurationSec(Math.round(time)) : String(Math.round(time));
+      };
+
+      window.conHandleVideoMute = function () {
+        const node = (conNodes || []).find(n => n && n.id === _conActiveVideoNodeId);
+        const video = conGetOrInitVideoPlayer();
+        if (video) {
+          video.muted = !video.muted;
+          if (node) node.videoMuted = video.muted;
+        }
+        conSyncVideoPopoverUi(node);
+        if (node) _conBroadcastVideoState(node);
+      };
+
+      window.conHandleVideoFullscreen = function () {
+        const video = conGetOrInitVideoPlayer();
+        if (!video) return;
+        if (video.requestFullscreen) {
+          video.requestFullscreen().catch(() => {});
+        } else if (video.webkitRequestFullscreen) {
+          video.webkitRequestFullscreen();
+        }
+      };
+
+      window.conConvertActiveVideoNodeToCanvas = function () {
+        const node = (conNodes || []).find(n => n && n.id === _conActiveVideoNodeId);
+        if (!node) return;
+        const att = (conAttachments || []).find(a => a && (a.id === node.videoAttachmentId || a.name === node.videoName || a.name === node.baseWord));
+        if (!att) {
+          if (typeof mdbToast === 'function') mdbToast('⚠️ Video attachment not found.');
+          return;
+        }
+        const x = node.x || 100;
+        const y = node.y || 100;
+        const pageNum = node.pageNum;
+        conCloseVideoPopover();
+        if (typeof conDeleteNode === 'function') {
+          conDeleteNode(node.id);
+        }
+        conInsertAttachmentById(att.id, { x, y, pageNum, asCanvasBox: true });
+        if (typeof mdbToast === 'function') {
+          mdbToast((typeof i18n !== 'undefined' && i18n.t) ? i18n.t('videoNodeConvertToCanvas') : 'Converted to canvas media box.');
+        }
+      };
+
       // ---- Multi-node layout preferences & state ----
       let _conBoardLayoutPrefBoard = localStorage.getItem('con-board-layout-pref-board') || 'horizontal';
       let _conBoardLayoutPrefConnected = localStorage.getItem('con-board-layout-pref-connected') || 'circle';
@@ -27918,6 +28623,15 @@
           dup.soundDuration = src.soundDuration || 0;
           dup.soundCurrentTime = 0;
           dup.soundState = 'idle';
+        }
+        if (src.isVideo) {
+          dup.isVideo = true;
+          dup.videoAttachmentId = src.videoAttachmentId || null;
+          dup.videoName = src.videoName || null;
+          dup.videoDuration = src.videoDuration || 0;
+          dup.videoCurrentTime = 0;
+          dup.videoState = 'idle';
+          dup.videoMuted = !!src.videoMuted;
         }
         conSyncNodeLockState(dup);
 
@@ -40011,6 +40725,10 @@
           soundAttachmentId: n.soundAttachmentId || null,
           soundName: n.soundName || null,
           soundDuration: (typeof n.soundDuration === 'number') ? n.soundDuration : null,
+          isVideo: !!n.isVideo,
+          videoAttachmentId: n.videoAttachmentId || null,
+          videoName: n.videoName || null,
+          videoDuration: (typeof n.videoDuration === 'number') ? n.videoDuration : null,
           competences: (Array.isArray(n.competences) && n.competences.length) ? n.competences.slice() : undefined,
           shape: (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(n.shape || (n.el && n.el.dataset.shape)) : conNormalizeNodeShapeSafe(n.shape || (n.el && n.el.dataset.shape))),
           rotation: (typeof n.rotation === 'number') ? ((typeof window.conNormalizeNodeRotation === 'function') ? window.conNormalizeNodeRotation(n.rotation) : n.rotation) : 0
@@ -44815,6 +45533,10 @@
             existing.soundAttachmentId = n.soundAttachmentId || null;
             existing.soundName = n.soundName || null;
             existing.soundDuration = (typeof n.soundDuration === 'number') ? n.soundDuration : null;
+            existing.isVideo = !!n.isVideo;
+            existing.videoAttachmentId = n.videoAttachmentId || null;
+            existing.videoName = n.videoName || null;
+            existing.videoDuration = (typeof n.videoDuration === 'number') ? n.videoDuration : null;
             existing.shape = (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(n.shape || 'rectangle') : conNormalizeNodeShapeSafe(n.shape || 'rectangle'));
             existing.borderWidth = n.borderWidth || null;
             existing.borderStyle = n.borderStyle || null;
@@ -44882,6 +45604,10 @@
               soundAttachmentId: n.soundAttachmentId || null,
               soundName: n.soundName || null,
               soundDuration: (typeof n.soundDuration === 'number') ? n.soundDuration : null,
+              isVideo: !!n.isVideo,
+              videoAttachmentId: n.videoAttachmentId || null,
+              videoName: n.videoName || null,
+              videoDuration: (typeof n.videoDuration === 'number') ? n.videoDuration : null,
               shape: (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(n.shape || 'rectangle') : conNormalizeNodeShapeSafe(n.shape || 'rectangle')),
               borderWidth: n.borderWidth || null,
               borderStyle: n.borderStyle || null,
@@ -45217,6 +45943,10 @@
           soundAttachmentId: n.soundAttachmentId || null,
           soundName: n.soundName || null,
           soundDuration: (typeof n.soundDuration === 'number') ? n.soundDuration : null,
+          isVideo: !!n.isVideo,
+          videoAttachmentId: n.videoAttachmentId || null,
+          videoName: n.videoName || null,
+          videoDuration: (typeof n.videoDuration === 'number') ? n.videoDuration : null,
           shape: (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(n.shape || 'rectangle') : conNormalizeNodeShapeSafe(n.shape || 'rectangle')),
           borderWidth: n.borderWidth || null,
           borderStyle: n.borderStyle || null,
@@ -55255,6 +55985,37 @@
                 var timeStr = curStr + ' / ' + durStr;
                 sDigits.style.display = '';
                 if (sDigits.textContent !== timeStr) sDigits.textContent = timeStr;
+              }
+            }
+          }
+          return;
+        }
+
+        if (d.type === 'node-video-state') {
+          if (_mirrorIsFrozen) return;
+          var videoNode = (window.conGetNodes ? window.conGetNodes() : []).find(function (n) { return String(n.id) === String(d.id); });
+          if (videoNode && videoNode.isVideo) {
+            videoNode.videoState = d.videoState;
+            videoNode.videoCurrentTime = d.currentTime;
+            if (d.duration != null) videoNode.videoDuration = d.duration;
+            if (typeof conUpdateVideoNodeDisplay === 'function') {
+              conUpdateVideoNodeDisplay(videoNode);
+            } else if (typeof conRenderNodeLabel === 'function') {
+              conRenderNodeLabel(videoNode);
+            }
+          } else {
+            var vEl = document.getElementById(String(d.id));
+            if (vEl) {
+              vEl.classList.toggle('con-node-video', true);
+              vEl.classList.toggle('con-video-playing', d.videoState === 'playing');
+              vEl.classList.toggle('con-video-paused', d.videoState === 'paused');
+              var vDigits = vEl.querySelector('.con-video-digits');
+              if (vDigits && d.currentTime != null && d.duration != null && d.duration > 0) {
+                var vCurStr = (typeof conFormatDurationSec === 'function') ? conFormatDurationSec(Math.round(d.currentTime)) : String(Math.round(d.currentTime));
+                var vDurStr = (typeof conFormatDurationSec === 'function') ? conFormatDurationSec(Math.round(d.duration)) : String(Math.round(d.duration));
+                var vTimeStr = vCurStr + ' / ' + vDurStr;
+                vDigits.style.display = '';
+                if (vDigits.textContent !== vTimeStr) vDigits.textContent = vTimeStr;
               }
             }
           }
