@@ -766,11 +766,29 @@
   }
 
   async function openTool(pageFile, opts) {
+    let cleanPage = pageFile || '';
+    const queryParams = {};
+    if (typeof cleanPage === 'string' && cleanPage.includes('?')) {
+      const qIdx = cleanPage.indexOf('?');
+      const qs = cleanPage.slice(qIdx + 1);
+      cleanPage = cleanPage.slice(0, qIdx);
+      try {
+        const sp = new URLSearchParams(qs);
+        for (const [k, v] of sp.entries()) {
+          queryParams[k] = v;
+        }
+      } catch (_) {}
+    }
+    if (opts && opts.query && typeof opts.query === 'object') {
+      Object.assign(queryParams, opts.query);
+    }
+    const hasQuery = Object.keys(queryParams).length > 0;
+
     if (!isElectron()) {
-      let url = pageFile;
-      if (opts && opts.query && typeof opts.query === 'object') {
+      let url = cleanPage;
+      if (hasQuery) {
         const params = new URLSearchParams();
-        for (const [k, v] of Object.entries(opts.query)) {
+        for (const [k, v] of Object.entries(queryParams)) {
           if (v !== undefined && v !== null) params.set(k, String(v));
         }
         const qs = params.toString();
@@ -781,9 +799,9 @@
       } catch (_) {}
       return null;
     }
-    const req = { pageFile };
-    if (opts && opts.query && typeof opts.query === 'object') {
-      req.query = opts.query;
+    const req = { pageFile: cleanPage };
+    if (hasQuery) {
+      req.query = queryParams;
     }
     if (opts && (opts.newWindow || opts.forceNewWindow)) req.newWindow = true;
     if (opts && opts.noReload) req.noReload = true;

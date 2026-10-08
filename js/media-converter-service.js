@@ -313,13 +313,14 @@
    * Launches the Media Converter tool window with optional preselected file.
    */
   MediaConverterService.openMediaConverter = function (filePath) {
-    var url = 'media-converter.html';
-    if (filePath) {
-      url += '?input=' + encodeURIComponent(filePath);
-    }
+    var cleanPath = (typeof filePath === 'string') ? filePath.trim() : '';
     if (window.Desktop && typeof window.Desktop.openTool === 'function') {
-      window.Desktop.openTool(url);
+      window.Desktop.openTool('media-converter.html', cleanPath ? { query: { input: cleanPath } } : {});
     } else {
+      var url = 'media-converter.html';
+      if (cleanPath) {
+        url += '?input=' + encodeURIComponent(cleanPath);
+      }
       window.open(url, '_blank');
     }
   };

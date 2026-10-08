@@ -578,6 +578,22 @@
       maxX = Math.max(maxX, x + w);
       maxY = Math.max(maxY, y + h);
     });
+    (data.drawings || []).forEach(d => {
+      const x = Number(d.x) || 0, y = Number(d.y) || 0;
+      const w = Number(d.w) || 100, h = Number(d.h) || 100;
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x + w);
+      maxY = Math.max(maxY, y + h);
+    });
+    (data.shapes || []).forEach(s => {
+      const x = Number(s.x) || 0, y = Number(s.y) || 0;
+      const w = Number(s.w) || 40, h = Number(s.h) || 40;
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x + w);
+      maxY = Math.max(maxY, y + h);
+    });
 
     if (!Number.isFinite(minX)) { minX = 0; maxX = 200; }
     if (!Number.isFinite(minY)) { minY = 0; maxY = 100; }
@@ -691,7 +707,83 @@
       });
     }
 
-    // 3. Process Edges
+    // 3. Process and insert Drawings
+    const insertedDrawingIds = [];
+    if (Array.isArray(data.drawings)) {
+      data.drawings.forEach(d => {
+        const origId = d.id;
+        const posX = Math.max(10, Math.round((Number(d.x) || 0) + offsetX));
+        const posY = Math.max(10, Math.round((Number(d.y) || 0) + offsetY));
+        const newDrawId = 'cd' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+        const drawData = {
+          id: newDrawId,
+          x: posX,
+          y: posY,
+          w: Number(d.w) || 100,
+          h: Number(d.h) || 100,
+          points: Array.isArray(d.points) ? JSON.parse(JSON.stringify(d.points)) : [],
+          color: d.color || '#e53935',
+          thickness: Number(d.thickness) || 4,
+          opacity: Number.isFinite(Number(d.opacity)) ? Number(d.opacity) : 1,
+          pad: d.pad || 16
+        };
+        let createdDraw = null;
+        if (typeof window.conDrawingFromData === 'function') {
+          createdDraw = window.conDrawingFromData(drawData);
+        } else {
+          const drawingsArr = (window.conGetDrawings ? window.conGetDrawings() : window.conDrawings);
+          if (Array.isArray(drawingsArr)) {
+            drawingsArr.push(drawData);
+            if (typeof window.conDrawingBuild === 'function') window.conDrawingBuild(drawData);
+            createdDraw = drawData;
+          }
+        }
+        if (createdDraw && createdDraw.id) {
+          idMap[origId] = createdDraw.id;
+          insertedDrawingIds.push(createdDraw.id);
+        }
+      });
+    }
+
+    // 4. Process and insert Shapes
+    const insertedShapeIds = [];
+    if (Array.isArray(data.shapes)) {
+      data.shapes.forEach(s => {
+        const origId = s.id;
+        const posX = Math.max(10, Math.round((Number(s.x) || 0) + offsetX));
+        const posY = Math.max(10, Math.round((Number(s.y) || 0) + offsetY));
+        const newShapeId = 'cs' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+        const shapeData = {
+          id: newShapeId,
+          type: s.type || 'rect',
+          x: posX,
+          y: posY,
+          w: Math.max(2, Number(s.w) || 40),
+          h: Math.max(2, Number(s.h) || 40),
+          lx1: s.lx1 != null ? Math.max(10, Math.round(Number(s.lx1) + offsetX)) : posX,
+          ly1: s.ly1 != null ? Math.max(10, Math.round(Number(s.ly1) + offsetY)) : posY,
+          lx2: s.lx2 != null ? Math.max(10, Math.round(Number(s.lx2) + offsetX)) : (posX + Math.max(2, Number(s.w) || 40)),
+          ly2: s.ly2 != null ? Math.max(10, Math.round(Number(s.ly2) + offsetY)) : (posY + Math.max(2, Number(s.h) || 40)),
+          color: s.color || '#333333',
+          fillColor: s.fillColor != null ? s.fillColor : 'none',
+          thickness: Number(s.thickness) || 2,
+          opacity: Number.isFinite(Number(s.opacity)) ? Number(s.opacity) : 1,
+          dashStyle: s.dashStyle || 'solid',
+          arrowheadSize: Number(s.arrowheadSize) || null,
+          pts: Array.isArray(s.pts) ? s.pts.map(p => ({ x: Number(p.x) || 0, y: Number(p.y) || 0 })) : null
+        };
+        let createdShape = null;
+        if (typeof window.conShapeFromData === 'function') {
+          createdShape = window.conShapeFromData(shapeData);
+        }
+        if (createdShape && createdShape.id) {
+          idMap[origId] = createdShape.id;
+          insertedShapeIds.push(createdShape.id);
+        }
+      });
+    }
+
+    // 5. Process Edges
     if (Array.isArray(data.edges) && typeof window.conGetEdges === 'function') {
       const edges = window.conGetEdges();
       data.edges.forEach(e => {
@@ -712,17 +804,21 @@
       });
     }
 
-    // 4. Process Groups
+    // 6. Process Groups
     if (Array.isArray(data.groups) && typeof window.conGetGroups === 'function') {
       const groups = window.conGetGroups();
       data.groups.forEach(g => {
         const mappedNodes = (g.nodeIds || []).map(nid => idMap[nid] || nid);
         const mappedNotes = (g.noteIds || []).map(nid => idMap[nid] || nid);
+        const mappedDrawings = (g.drawingIds || []).map(did => idMap[did] || did);
+        const mappedShapes = (g.shapeIds || []).map(sid => idMap[sid] || sid);
         const newGid = 'cg' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
         groups.push({
           id: newGid,
           nodeIds: mappedNodes,
           noteIds: mappedNotes,
+          drawingIds: mappedDrawings,
+          shapeIds: mappedShapes,
           title: g.title || '',
           x: Math.max(10, Math.round((Number(g.x) || 0) + offsetX)),
           y: Math.max(10, Math.round((Number(g.y) || 0) + offsetY)),
@@ -737,11 +833,21 @@
     if (typeof window.conRedrawGroups === 'function') window.conRedrawGroups();
     if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
 
-    // Automatically select newly inserted note(s) or node(s) so they are immediately draggable or deletable
+    // Automatically select newly inserted item(s) so they are immediately draggable or deletable
     if (insertedNoteIds.length > 0 && typeof window.conSelectNote === 'function') {
       insertedNoteIds.forEach((nid, i) => window.conSelectNote(nid, i > 0));
     } else if (insertedNodeIds.length > 0 && typeof window.conNodeSelect === 'function') {
       window.conNodeSelect(insertedNodeIds[0]);
+    } else if (insertedDrawingIds.length > 0 && typeof conDrawingSelected !== 'undefined') {
+      conDrawingSelected.clear();
+      insertedDrawingIds.forEach(did => {
+        conDrawingSelected.add(did);
+        const d = (window.conGetDrawings ? window.conGetDrawings() : []).find(dr => dr.id === did);
+        if (d && d.el) {
+          d.el.classList.add('con-drawing-selected');
+          if (typeof _conDrawingShowHandles === 'function') _conDrawingShowHandles(d);
+        }
+      });
     }
 
     if (typeof window.mdbToast === 'function') {

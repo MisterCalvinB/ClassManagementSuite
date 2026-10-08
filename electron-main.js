@@ -5164,13 +5164,27 @@ ipcMain.handle('app:close-window', async (event) => {
 });
 
 ipcMain.handle('app:open-tool', async (event, request = {}) => {
-  const rawPage = typeof request === 'string' ? request : (request.pageFile || request.tool || '');
+  const rawPageInput = typeof request === 'string' ? request : (request.pageFile || request.tool || '');
+  let rawPage = rawPageInput;
+  let inlineQuery = {};
+  if (typeof rawPage === 'string' && rawPage.includes('?')) {
+    const qIndex = rawPage.indexOf('?');
+    const qs = rawPage.slice(qIndex + 1);
+    rawPage = rawPage.slice(0, qIndex);
+    try {
+      const searchParams = new URLSearchParams(qs);
+      for (const [k, v] of searchParams.entries()) {
+        inlineQuery[k] = v;
+      }
+    } catch (_) {}
+  }
   const pageFile = PAGE_FILES[rawPage] || rawPage;
   const knownPages = new Set(Object.values(PAGE_FILES));
   if (!pageFile || !knownPages.has(pageFile)) {
     return { ok: false, error: `Unknown page: ${pageFile}` };
   }
-  const query = request && typeof request.query === 'object' ? request.query : null;
+  const mergedQuery = Object.assign({}, inlineQuery, (request && typeof request.query === 'object' && request.query) ? request.query : {});
+  const query = Object.keys(mergedQuery).length > 0 ? mergedQuery : null;
 
   const winSizeRatio = Number(request.windowSizeRatio) || 0;
   const winPosition  = typeof request.windowPosition === 'string' ? request.windowPosition : '';

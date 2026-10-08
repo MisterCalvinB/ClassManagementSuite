@@ -86,6 +86,9 @@
 
   // ── Initialization ──────────────────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', async function () {
+    if (window.i18n && typeof window.i18n.applyTranslations === 'function') {
+      window.i18n.applyTranslations();
+    }
     await checkEngine();
     setupDropzone();
     setupFormControls();
@@ -93,7 +96,60 @@
     setupProgressEvents();
     setupEngineModal();
     renderQueue();
+    await checkUrlInputParam();
   });
+
+  async function checkUrlInputParam() {
+    try {
+      var params = new URLSearchParams(window.location.search);
+      var inputPath = params.get('input') || params.get('file') || params.get('path');
+      if (!inputPath) return;
+      inputPath = decodeURIComponent(inputPath).trim();
+      if (!inputPath) return;
+
+      var fullPath = inputPath;
+      var size = 0;
+      var parts = inputPath.replace(/\\/g, '/').split('/');
+      var fileName = parts.pop() || 'media_file';
+      var ext = (fileName.split('.').pop() || '').toLowerCase();
+
+      if (window.Desktop) {
+        if (typeof window.Desktop.resolvePath === 'function' && !inputPath.includes(':') && !inputPath.startsWith('/') && !inputPath.startsWith('\\')) {
+          var resolved = await window.Desktop.resolvePath('user', inputPath);
+          if (resolved) {
+            fullPath = resolved.replace(/^file:\/\//, '');
+            if (fullPath.startsWith('/') && fullPath.charAt(2) === ':') fullPath = fullPath.slice(1);
+          }
+        }
+        if (typeof window.Desktop.statByPath === 'function') {
+          var statRes = await window.Desktop.statByPath(fullPath);
+          if (statRes && statRes.ok && statRes.stat) {
+            size = statRes.stat.size || 0;
+          }
+        }
+      }
+
+      addFilesToQueue([{
+        name: fileName,
+        path: fullPath,
+        file: null,
+        size: size,
+        ext: ext
+      }]);
+    } catch (err) {
+      console.warn('[MediaConverter] Error loading file from query param:', err);
+    }
+  }
+
+  function toFileUrl(filePath) {
+    if (!filePath) return '';
+    if (filePath.startsWith('file://') || filePath.startsWith('data:') || filePath.startsWith('blob:') || filePath.startsWith('http')) {
+      return filePath;
+    }
+    var norm = filePath.replace(/\\/g, '/');
+    if (!norm.startsWith('/')) norm = '/' + norm;
+    return 'file://' + encodeURI(norm).replace(/#/g, '%23').replace(/\?/g, '%3F');
+  }
 
   async function checkEngine() {
     var badge = document.getElementById('engineBadge');
@@ -709,12 +765,12 @@
 
     if (previewPanel) previewPanel.style.display = 'block';
 
-    var isVideo = ['mp4', 'mkv', 'avi', 'mov', 'webm', 'wmv'].includes(item.ext.toLowerCase());
+    var isVideo = ['mp4', 'mkv', 'avi', 'mov', 'webm', 'wmv'].includes((item.ext || '').toLowerCase());
 
     if (videoBox && videoEl) {
       if (isVideo) {
         videoBox.style.display = 'flex';
-        var src = item.path ? 'file://' + item.path.replace(/\\/g, '/') : (item.fileObj ? URL.createObjectURL(item.fileObj) : '');
+        var src = item.path ? toFileUrl(item.path) : (item.fileObj ? URL.createObjectURL(item.fileObj) : '');
         videoEl.src = src;
         videoEl.currentTime = 0;
         videoEl.muted = true;
@@ -726,7 +782,7 @@
 
     if (_waveSurfer) {
       if (item.path) {
-        _waveSurfer.load('file://' + item.path.replace(/\\/g, '/'));
+        _waveSurfer.load(toFileUrl(item.path));
       } else if (item.fileObj) {
         _waveSurfer.loadBlob(item.fileObj);
       }
@@ -1024,7 +1080,7 @@
     }
 
     item.status = 'error';
-    item.error = 'No suitable conversion engine available for this format.';
+    item.error = t('noEngineAvailable', 'No suitable conversion engine available for this format.');
     renderQueue();
   }
 
@@ -1060,7 +1116,7 @@
     for (var i = 0; i < _queue.length; i++) {
       var it = _queue[i];
       var isAudio = ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'].includes(it.ext.toLowerCase());
-      var iconSrc = isAudio ? 'assets/icons/music.svg' : 'assets/icons/media.svg';
+      var iconSrc = isAudio ? '../assets/icons/music.svg' : '../assets/icons/media.svg';
 
       var statusText = it.status === 'completed' ? t('statusCompleted', 'Completed') :
         it.status === 'converting' ? t('statusConverting', 'Converting...') :
@@ -1086,10 +1142,10 @@
           '</div>' +
         '</div>' +
         '<div class="queue-actions">' +
-          (it.status === 'queued' ? '<button class="btn btn-sm btn-primary" onclick="window.mediaConverter.convertSingle(\'' + it.id + '\')"><img src="assets/icons/play.svg" alt="" /> Convert</button>' : '') +
-          (it.status === 'converting' ? '<button class="btn btn-sm btn-danger" onclick="window.mediaConverter.cancelSingle(\'' + it.id + '\')"><img src="assets/icons/close.svg" alt="" /> Cancel</button>' : '') +
-          '<button class="btn btn-sm" onclick="window.mediaConverter.previewSingle(\'' + it.id + '\')" title="Trim & Preview"><img src="assets/icons/music.svg" alt="" /></button>' +
-          '<button class="btn btn-sm btn-danger" onclick="window.mediaConverter.removeSingle(\'' + it.id + '\')" title="Remove"><img src="assets/icons/delete.svg" alt="" /></button>' +
+          (it.status === 'queued' ? '<button class="btn btn-sm btn-primary" onclick="window.mediaConverter.convertSingle(\'' + it.id + '\')"><img src="../assets/icons/play.svg" alt="" /> ' + t('convertBtn', 'Convert') + '</button>' : '') +
+          (it.status === 'converting' ? '<button class="btn btn-sm btn-danger" onclick="window.mediaConverter.cancelSingle(\'' + it.id + '\')"><img src="../assets/icons/close.svg" alt="" /> ' + t('cancel', 'Cancel') + '</button>' : '') +
+          '<button class="btn btn-sm" onclick="window.mediaConverter.previewSingle(\'' + it.id + '\')" title="' + t('trimPreviewTooltip', 'Trim & Preview') + '"><img src="../assets/icons/music.svg" alt="" /></button>' +
+          '<button class="btn btn-sm btn-danger" onclick="window.mediaConverter.removeSingle(\'' + it.id + '\')" title="' + t('removeTooltip', 'Remove') + '"><img src="../assets/icons/delete.svg" alt="" /></button>' +
         '</div>' +
       '</div>';
     }
@@ -1129,7 +1185,7 @@
           await window.Desktop.mediaCancel({ jobId: item.id });
         }
         item.status = 'error';
-        item.error = 'Cancelled by user';
+        item.error = t('conversionCancelledByUser', 'Cancelled by user');
         renderQueue();
       }
     },

@@ -3279,6 +3279,10 @@
           style="font-size:0.72rem;color:#666;width:34px;text-align:right;flex-shrink:0;">20px</span>
       </div>
       <div class="wn-sp-actions">
+        <button type="button" class="wn-sp-action-btn" id="con-shape-ctx-lib-btn" onclick="conShapeCtxSaveToLibrary()" title="Save to Premade Library" data-i18n-title="conSaveSelectionToLibrary">
+          <img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" />
+          <span data-i18n="conSaveSelectionToLibrary">Add to Library</span>
+        </button>
         <button class="wn-sp-action-btn danger" onclick="conShapeCtxDelete()"><img src="../assets/icons/delete.svg"
             class="btn-icon" alt="" /> Delete</button>
       </div>
@@ -3313,6 +3317,10 @@
           style="font-size:0.72rem;color:#666;width:36px;text-align:right;flex-shrink:0;">100%</span>
       </div>
       <div class="wn-sp-actions">
+        <button type="button" class="wn-sp-action-btn" id="con-drawing-ctx-lib-btn" onclick="conDrawingCtxSaveToLibrary()" title="Save to Premade Library" data-i18n-title="conSaveSelectionToLibrary">
+          <img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" />
+          <span data-i18n="conSaveSelectionToLibrary">Add to Library</span>
+        </button>
         <button class="wn-sp-action-btn danger" onclick="conDrawingCtxDelete()">🗑 Delete</button>
       </div>
     </div>
@@ -11710,8 +11718,9 @@
           convBtn.innerHTML = '<img src="../assets/icons/media-converter.svg" style="width:11px;height:11px;vertical-align:-1px;margin-right:2px;" alt="" />' + (typeof t === 'function' ? t('conMediaConvertBtn', 'Convert') : 'Convert');
           convBtn.title = 'Open in Media Converter';
           convBtn.onclick = () => {
+            const targetPath = att.path || (att.file && att.file.path) || att.relativePath || att.name || '';
             if (window.MediaConverterService && typeof window.MediaConverterService.openMediaConverter === 'function') {
-              window.MediaConverterService.openMediaConverter(att.relativePath || '');
+              window.MediaConverterService.openMediaConverter(targetPath);
             }
           };
           actions.appendChild(convBtn);
@@ -14709,10 +14718,14 @@
         if (!group) return;
         const gNodes = Array.isArray(group.nodeIds) ? [...group.nodeIds] : [];
         const gNotes = Array.isArray(group.noteIds) ? [...group.noteIds] : [];
+        const gDrawings = Array.isArray(group.drawingIds) ? [...group.drawingIds] : [];
+        const gShapes = Array.isArray(group.shapeIds) ? [...group.shapeIds] : [];
         conSaveSelectionToLibraryPrompt(group.title || 'Group', {
           groupIds: [group.id],
           nodeIds: gNodes,
-          noteIds: gNotes
+          noteIds: gNotes,
+          drawingIds: gDrawings,
+          shapeIds: gShapes
         });
       };
 
@@ -15857,6 +15870,17 @@
           // If drawing belongs to a group, open group context menu instead
           const _ctxOwnerGroup = conGroups.find(g => (g.drawingIds || []).includes(d.id));
           if (_ctxOwnerGroup) { conGroupCtxOpen(e, _ctxOwnerGroup.id); return; }
+          if (!conDrawingSelected.has(d.id)) {
+            const hasOtherSelection = (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 0)
+              || (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0)
+              || (typeof conDrawingSelected !== 'undefined' && conDrawingSelected && conDrawingSelected.size > 0)
+              || (typeof _conShapeSelected !== 'undefined' && _conShapeSelected && _conShapeSelected.size > 0);
+            if (!hasOtherSelection) {
+              conDrawingSelected.add(d.id);
+              el.classList.add('con-drawing-selected');
+              _conDrawingShowHandles(d);
+            }
+          }
           conDrawingCtxOpen(e, d.id);
         });
 
@@ -16267,6 +16291,22 @@
           window.conDrawingCtxClose();
         }
       });
+
+      window.conDrawingCtxSaveToLibrary = function () {
+        const activeDid = _conDrawCtxId;
+        window.conDrawingCtxClose();
+        const hasMulti = (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 0)
+          || (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0)
+          || (typeof conDrawingSelected !== 'undefined' && conDrawingSelected && conDrawingSelected.size > 1)
+          || (typeof _conShapeSelected !== 'undefined' && _conShapeSelected && _conShapeSelected.size > 0);
+        if (hasMulti) {
+          conSaveSelectionToLibraryPrompt();
+        } else if (activeDid) {
+          conSaveSelectionToLibraryPrompt(null, { drawingIds: [activeDid] });
+        } else if (conDrawingSelected && conDrawingSelected.size > 0) {
+          conSaveSelectionToLibraryPrompt(null, { drawingIds: [...conDrawingSelected] });
+        }
+      };
 
       window.conDrawingCtxDelete = function () {
         if (!_conDrawCtxId) return;
@@ -16909,6 +16949,17 @@
           // If shape belongs to a group, open the group context menu instead
           const ownerGroup = conGroups.find(g => (g.shapeIds || []).includes(s.id));
           if (ownerGroup) { conGroupCtxOpen(e, ownerGroup.id); return; }
+          if (!_conShapeSelected.has(s.id)) {
+            const hasOtherSelection = (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 0)
+              || (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0)
+              || (typeof conDrawingSelected !== 'undefined' && conDrawingSelected && conDrawingSelected.size > 0)
+              || (_conShapeSelected && _conShapeSelected.size > 0);
+            if (!hasOtherSelection) {
+              _conShapeSelected.add(s.id);
+              if (s.el) s.el.classList.add('con-shape-selected');
+              if (typeof _conShapeShowHandles === 'function') _conShapeShowHandles(s);
+            }
+          }
           conShapeCtxOpen(e, s.id);
         });
       }
@@ -17669,6 +17720,22 @@
         const overlay = document.getElementById('con-shape-style-overlay');
         if (overlay) overlay.classList.remove('active');
         _conShapeCtxId = null;
+      };
+
+      window.conShapeCtxSaveToLibrary = function () {
+        const activeSid = _conShapeCtxId;
+        window.conShapeCtxClose();
+        const hasMulti = (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 0)
+          || (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0)
+          || (typeof conDrawingSelected !== 'undefined' && conDrawingSelected && conDrawingSelected.size > 0)
+          || (typeof _conShapeSelected !== 'undefined' && _conShapeSelected && _conShapeSelected.size > 1);
+        if (hasMulti) {
+          conSaveSelectionToLibraryPrompt();
+        } else if (activeSid) {
+          conSaveSelectionToLibraryPrompt(null, { shapeIds: [activeSid] });
+        } else if (typeof _conShapeSelected !== 'undefined' && _conShapeSelected && _conShapeSelected.size > 0) {
+          conSaveSelectionToLibraryPrompt(null, { shapeIds: [..._conShapeSelected] });
+        }
       };
 
       window.conShapeCtxDelete = function () {
@@ -19858,10 +19925,14 @@
         if (typeof wnStyleDismiss === 'function') wnStyleDismiss();
         if (typeof conBoardCtxClose === 'function') conBoardCtxClose();
         if (typeof conGroupCtxClose === 'function') conGroupCtxClose();
+        if (typeof conDrawingCtxClose === 'function') conDrawingCtxClose();
+        if (typeof conShapeCtxClose === 'function') conShapeCtxClose();
 
         let selectedNodes = [];
         let selectedNotes = [];
         let selectedGroups = [];
+        let selectedDrawings = [];
+        let selectedShapes = [];
 
         if (explicitSelection) {
           if (Array.isArray(explicitSelection.nodeIds)) {
@@ -19872,6 +19943,12 @@
           }
           if (Array.isArray(explicitSelection.groupIds)) {
             selectedGroups = conGroups.filter(g => explicitSelection.groupIds.includes(g.id));
+          }
+          if (Array.isArray(explicitSelection.drawingIds)) {
+            selectedDrawings = (typeof conDrawings !== 'undefined' ? conDrawings : []).filter(d => explicitSelection.drawingIds.includes(d.id));
+          }
+          if (Array.isArray(explicitSelection.shapeIds)) {
+            selectedShapes = (typeof conShapes !== 'undefined' ? conShapes : []).filter(s => explicitSelection.shapeIds.includes(s.id));
           }
         } else {
           // 1. Collect selected nodes
@@ -19905,8 +19982,25 @@
 
           selectedNotes = conNotes.filter(n => noteIdSet.has(n.id));
 
-          // 3. Fallback: if no nodes and no notes selected, check if a group is focused
-          if (selectedNodes.length === 0 && selectedNotes.length === 0) {
+          // 3. Collect selected drawings
+          if (typeof conDrawingSelected !== 'undefined' && conDrawingSelected && conDrawingSelected.size > 0) {
+            selectedDrawings = (typeof conDrawings !== 'undefined' ? conDrawings : []).filter(d => conDrawingSelected.has(d.id));
+          } else if (typeof _conDrawCtxId !== 'undefined' && _conDrawCtxId) {
+            const d = (typeof conDrawings !== 'undefined' ? conDrawings : []).find(dr => dr.id === _conDrawCtxId);
+            if (d) selectedDrawings.push(d);
+          }
+
+          // 4. Collect selected shapes
+          const shapeSel = typeof window.conGetShapeSelected === 'function' ? window.conGetShapeSelected() : (typeof _conShapeSelected !== 'undefined' ? _conShapeSelected : null);
+          if (shapeSel && shapeSel.size > 0) {
+            selectedShapes = (typeof conShapes !== 'undefined' ? conShapes : []).filter(s => shapeSel.has(s.id));
+          } else if (typeof _conShapeCtxId !== 'undefined' && _conShapeCtxId) {
+            const s = (typeof conShapes !== 'undefined' ? conShapes : []).find(sh => sh.id === _conShapeCtxId);
+            if (s) selectedShapes.push(s);
+          }
+
+          // 5. Fallback: if nothing selected, check if a group is focused
+          if (selectedNodes.length === 0 && selectedNotes.length === 0 && selectedDrawings.length === 0 && selectedShapes.length === 0) {
             const focusedGid = (typeof conGroupFocused !== 'undefined' ? conGroupFocused : null)
               || (typeof _conGroupCtxId !== 'undefined' ? _conGroupCtxId : null);
             if (focusedGid) {
@@ -19919,27 +20013,39 @@
                 if (Array.isArray(grp.noteIds)) {
                   selectedNotes = conNotes.filter(n => grp.noteIds.includes(n.id));
                 }
+                if (Array.isArray(grp.drawingIds)) {
+                  selectedDrawings = (typeof conDrawings !== 'undefined' ? conDrawings : []).filter(d => grp.drawingIds.includes(d.id));
+                }
+                if (Array.isArray(grp.shapeIds)) {
+                  selectedShapes = (typeof conShapes !== 'undefined' ? conShapes : []).filter(s => grp.shapeIds.includes(s.id));
+                }
               }
             }
           }
         }
 
-        if (selectedNodes.length === 0 && selectedNotes.length === 0) {
-          if (typeof mdbToast === 'function') mdbToast('Select at least one node or note on the board first.');
+        if (selectedNodes.length === 0 && selectedNotes.length === 0 && selectedDrawings.length === 0 && selectedShapes.length === 0 && selectedGroups.length === 0) {
+          if (typeof mdbToast === 'function') mdbToast('Select at least one item on the board first.');
           return;
         }
 
         // Find enclosing groups if not explicitly gathered
         const selectedNodeIdSet = new Set(selectedNodes.map(n => n.id));
         const selectedNoteIdSet = new Set(selectedNotes.map(n => n.id));
+        const selectedDrawingIdSet = new Set(selectedDrawings.map(d => d.id));
+        const selectedShapeIdSet = new Set(selectedShapes.map(s => s.id));
         if (selectedGroups.length === 0 && Array.isArray(conGroups)) {
           conGroups.forEach(g => {
             const gNodes = g.nodeIds || [];
             const gNotes = g.noteIds || [];
-            if (gNodes.length === 0 && gNotes.length === 0) return;
+            const gDrawings = g.drawingIds || [];
+            const gShapes = g.shapeIds || [];
+            if (gNodes.length === 0 && gNotes.length === 0 && gDrawings.length === 0 && gShapes.length === 0) return;
             const allNodesIn = gNodes.length > 0 && gNodes.every(nid => selectedNodeIdSet.has(nid));
             const allNotesIn = gNotes.length > 0 && gNotes.every(nid => selectedNoteIdSet.has(nid));
-            if (allNodesIn || allNotesIn) {
+            const allDrawingsIn = gDrawings.length > 0 && gDrawings.every(did => selectedDrawingIdSet.has(did));
+            const allShapesIn = gShapes.length > 0 && gShapes.every(sid => selectedShapeIdSet.has(sid));
+            if (allNodesIn || allNotesIn || allDrawingsIn || allShapesIn) {
               selectedGroups.push(g);
             }
           });
@@ -19960,6 +20066,10 @@
             defaultName = selectedNodes[0].baseWord || (selectedNodes[0].el ? selectedNodes[0].el.textContent.trim() : '') || 'Custom Preset';
           } else if (selectedNotes.length > 0) {
             defaultName = (selectedNotes[0].text || '').trim().slice(0, 24) || 'Custom Note';
+          } else if (selectedDrawings.length > 0) {
+            defaultName = selectedDrawings.length === 1 ? 'Custom Drawing' : 'Custom Drawings (' + selectedDrawings.length + ')';
+          } else if (selectedShapes.length > 0) {
+            defaultName = selectedShapes.length === 1 ? 'Custom ' + (selectedShapes[0].type || 'Shape') : 'Custom Shapes (' + selectedShapes.length + ')';
           } else {
             defaultName = 'Custom Premade Item';
           }
@@ -20024,6 +20134,37 @@
             strike: !!n.strike,
             hidden: !!n.hidden
           })),
+          drawings: selectedDrawings.map(d => ({
+            id: d.id,
+            x: Number(d.x) || 0,
+            y: Number(d.y) || 0,
+            w: Number(d.w) || 100,
+            h: Number(d.h) || 100,
+            points: Array.isArray(d.points) ? JSON.parse(JSON.stringify(d.points)) : [],
+            color: d.color || '#e53935',
+            thickness: Number(d.thickness) || 4,
+            opacity: Number.isFinite(Number(d.opacity)) ? Number(d.opacity) : 1,
+            pad: d.pad || 16
+          })),
+          shapes: selectedShapes.map(s => ({
+            id: s.id,
+            type: s.type || 'rect',
+            x: Number(s.x) || 0,
+            y: Number(s.y) || 0,
+            w: Number(s.w) || 40,
+            h: Number(s.h) || 40,
+            lx1: s.lx1 != null ? Number(s.lx1) : Number(s.x) || 0,
+            ly1: s.ly1 != null ? Number(s.ly1) : Number(s.y) || 0,
+            lx2: s.lx2 != null ? Number(s.lx2) : (Number(s.x) || 0) + (Number(s.w) || 40),
+            ly2: s.ly2 != null ? Number(s.ly2) : (Number(s.y) || 0) + (Number(s.h) || 40),
+            color: s.color || '#333333',
+            thickness: Number(s.thickness) || 2,
+            opacity: Number.isFinite(Number(s.opacity)) ? Number(s.opacity) : 1,
+            fillColor: s.fillColor || 'none',
+            dashStyle: s.dashStyle || 'solid',
+            arrowheadSize: s.arrowheadSize || null,
+            pts: Array.isArray(s.pts) ? JSON.parse(JSON.stringify(s.pts)) : null
+          })),
           edges: connectedEdges.map(e => ({
             id: e.id,
             a: e.a,
@@ -20038,6 +20179,8 @@
             title: g.title || '',
             nodeIds: Array.isArray(g.nodeIds) ? g.nodeIds.filter(nid => selectedNodeIdSet.has(nid)) : [],
             noteIds: Array.isArray(g.noteIds) ? g.noteIds.filter(nid => selectedNoteIdSet.has(nid)) : [],
+            drawingIds: Array.isArray(g.drawingIds) ? g.drawingIds.filter(did => selectedDrawingIdSet.has(did)) : [],
+            shapeIds: Array.isArray(g.shapeIds) ? g.shapeIds.filter(sid => selectedShapeIdSet.has(sid)) : [],
             x: g.x || 0,
             y: g.y || 0,
             paletteIdx: g.paletteIdx || 0,
@@ -20059,7 +20202,9 @@
 
       window.conSaveNodeToLibrary = async function () {
         if ((typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 1)
-          || (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0)) {
+          || (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0)
+          || (typeof conDrawingSelected !== 'undefined' && conDrawingSelected && conDrawingSelected.size > 0)
+          || (typeof _conShapeSelected !== 'undefined' && _conShapeSelected && _conShapeSelected.size > 0)) {
           return window.conSaveSelectionToLibraryPrompt();
         }
 
@@ -20132,7 +20277,9 @@
 
       window.wnSaveNoteToLibrary = async function () {
         if ((typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 1)
-          || (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 0)) {
+          || (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 0)
+          || (typeof conDrawingSelected !== 'undefined' && conDrawingSelected && conDrawingSelected.size > 0)
+          || (typeof _conShapeSelected !== 'undefined' && _conShapeSelected && _conShapeSelected.size > 0)) {
           return window.conSaveSelectionToLibraryPrompt();
         }
 
@@ -25355,8 +25502,9 @@
         const multiCount = document.getElementById('con-ctx-multi-count');
         conCtxCloseArrangeMenus();
         // Count all selected types
-        const totalMultiCount = conMultiSelected.size + conNoteSelected.size + conDrawingSelected.size;
-        if (conMultiSelected.size > 1 || (conMultiSelected.size >= 1 && (conNoteSelected.size > 0 || conDrawingSelected.size > 0))) {
+        const shapeSelCount = typeof window.conGetShapeSelected === 'function' ? window.conGetShapeSelected().size : (typeof _conShapeSelected !== 'undefined' && _conShapeSelected ? _conShapeSelected.size : 0);
+        const totalMultiCount = conMultiSelected.size + conNoteSelected.size + conDrawingSelected.size + shapeSelCount;
+        if (totalMultiCount > 1 || conMultiSelected.size > 1 || (conMultiSelected.size >= 1 && (conNoteSelected.size > 0 || conDrawingSelected.size > 0 || shapeSelCount > 0))) {
           multiRow.style.display = '';
           if (multiCount) multiCount.textContent = totalMultiCount;
         } else {
@@ -25818,7 +25966,7 @@
 
       window.conCtxOpenInMediaConverter = function () {
         const att = conCtxGetActiveNodeMediaAttachment();
-        const path = (att && att.relativePath) ? att.relativePath : '';
+        const path = att ? (att.path || (att.file && att.file.path) || att.relativePath || att.name || '') : '';
         if (window.MediaConverterService && typeof window.MediaConverterService.openMediaConverter === 'function') {
           window.MediaConverterService.openMediaConverter(path);
         }
@@ -27708,13 +27856,21 @@
       function _conBroadcastVideoState(node) {
         if (!node || !window._conMirrorSend) return;
         try {
+          let videoSrc = '';
+          const att = (conAttachments || []).find(a => a && (a.id === node.videoAttachmentId || a.name === node.videoName || a.name === node.baseWord));
+          if (att) {
+            videoSrc = att._cachedObjectUrl || att.relativePath || (att.file && att.file.path) || att.path || '';
+          }
           window._conMirrorSend({
             type: 'node-video-state',
             id: String(node.id),
             videoState: node.videoState,
             currentTime: node.videoCurrentTime || 0,
             duration: node.videoDuration || 0,
-            muted: !!node.videoMuted
+            muted: !!node.videoMuted,
+            videoAttachmentId: node.videoAttachmentId || (att ? att.id : null),
+            videoName: node.videoName || (att ? att.name : ''),
+            videoSrc: videoSrc
           });
         } catch (_) {}
       }
@@ -27878,6 +28034,9 @@
       function conCloseVideoPopover() {
         const popover = document.getElementById('con-video-action-popover');
         if (popover) popover.style.display = 'none';
+        if (typeof conToggleVideoCinemaModal === 'function') {
+          conToggleVideoCinemaModal(false);
+        }
         document.removeEventListener('mousedown', _conOnVideoPopoverOutside, true);
       }
       window.conCloseVideoPopover = conCloseVideoPopover;
@@ -27991,15 +28150,88 @@
         if (node) _conBroadcastVideoState(node);
       };
 
-      window.conHandleVideoFullscreen = function () {
+      window.conHandleVideoFullscreen = async function () {
         const video = conGetOrInitVideoPlayer();
         if (!video) return;
-        if (video.requestFullscreen) {
-          video.requestFullscreen().catch(() => {});
-        } else if (video.webkitRequestFullscreen) {
-          video.webkitRequestFullscreen();
+
+        // If currently in native fullscreen, exit fullscreen
+        if (document.fullscreenElement) {
+          if (document.exitFullscreen) {
+            try { await document.exitFullscreen(); } catch (_) {}
+          }
+          return;
+        }
+
+        // Try HTML5 requestFullscreen on video element with controls enabled
+        let entered = false;
+        try {
+          video.controls = true;
+          if (video.requestFullscreen) {
+            await video.requestFullscreen();
+            entered = true;
+          } else if (video.webkitRequestFullscreen) {
+            video.webkitRequestFullscreen();
+            entered = true;
+          }
+        } catch (err) {
+          console.warn('[Board] Video native fullscreen request rejected, using cinema overlay:', err);
+          video.controls = false;
+        }
+
+        if (!entered && !document.fullscreenElement) {
+          conToggleVideoCinemaModal(true);
         }
       };
+
+      function conToggleVideoCinemaModal(show) {
+        let modal = document.getElementById('con-video-cinema-modal');
+        const video = conGetOrInitVideoPlayer();
+        const viewport = document.getElementById('con-video-popover-viewport');
+        if (show) {
+          if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'con-video-cinema-modal';
+            modal.style.cssText = 'position:fixed; inset:0; z-index:999999; background:rgba(0,0,0,0.92); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px;';
+            modal.innerHTML = `
+              <div style="position:absolute; top:15px; right:20px; display:flex; gap:10px; z-index:10;">
+                <button type="button" class="action-btn btn-grey" onclick="conToggleVideoCinemaModal(false)" style="padding:6px 12px; font-weight:700; border-radius:6px; background:#fff; color:#000; cursor:pointer;">
+                  ✕ Close Fullscreen
+                </button>
+              </div>
+              <div id="con-video-cinema-container" style="width:90vw; max-width:1200px; height:80vh; max-height:800px; display:flex; align-items:center; justify-content:center; background:#000; border-radius:8px; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,0.8);">
+              </div>
+            `;
+            document.body.appendChild(modal);
+          }
+          const container = document.getElementById('con-video-cinema-container');
+          if (container && video) {
+            video.style.maxHeight = '100%';
+            video.style.height = '100%';
+            video.controls = true;
+            container.appendChild(video);
+          }
+          modal.style.display = 'flex';
+        } else if (modal && modal.style.display !== 'none') {
+          modal.style.display = 'none';
+          if (viewport && video) {
+            video.style.maxHeight = '190px';
+            video.style.height = '';
+            video.controls = false;
+            viewport.appendChild(video);
+          }
+        }
+      }
+      window.conToggleVideoCinemaModal = conToggleVideoCinemaModal;
+
+      document.addEventListener('fullscreenchange', function () {
+        const video = _conVideoEl;
+        if (!video) return;
+        if (document.fullscreenElement === video) {
+          video.controls = true;
+        } else if (!document.fullscreenElement) {
+          video.controls = false;
+        }
+      });
 
       window.conConvertActiveVideoNodeToCanvas = function () {
         const node = (conNodes || []).find(n => n && n.id === _conActiveVideoNodeId);
@@ -55895,6 +56127,105 @@
         }, remaining);
       }
 
+      function _mirrorSyncVideoNodePlayback(d, node) {
+        let pop = document.getElementById('con-mirror-video-popover');
+        if (!pop) {
+          pop = document.createElement('div');
+          pop.id = 'con-mirror-video-popover';
+          pop.style.cssText = 'display:none; position:fixed; z-index:99100; flex-direction:column; min-width:280px; max-width:380px; width:340px; background:#1e1e1e; border:2px solid #333; box-shadow:4px 4px 0 #555; border-radius:8px; overflow:hidden; font-family:inherit; color:#fff; pointer-events:none;';
+          pop.innerHTML = `
+            <div id="con-mirror-video-header" style="display:flex; align-items:center; gap:6px; padding:6px 10px; background:#2a2a2a; border-bottom:1px solid #444; font-weight:700; font-size:0.8rem;">
+              <img src="../assets/icons/media.svg" alt="" style="width:13px;height:13px;filter:invert(1);" />
+              <span id="con-mirror-video-title" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;">Video</span>
+              <span id="con-mirror-video-badge" style="font-size:0.7rem; background:#6abf8e; color:#000; padding:1px 6px; border-radius:4px; font-weight:700;">PLAYING</span>
+            </div>
+            <div style="width:100%; background:#000; display:flex; align-items:center; justify-content:center; max-height:210px; min-height:140px; position:relative;">
+              <video id="con-mirror-video-el" playsinline muted style="width:100%; max-height:210px; object-fit:contain; display:block;"></video>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 10px; background:#222; font-size:0.75rem; font-weight:600; color:#ccc; font-variant-numeric:tabular-nums;">
+              <span id="con-mirror-video-digits">00:00 / 00:00</span>
+            </div>
+          `;
+          document.body.appendChild(pop);
+        }
+
+        const vidEl = document.getElementById('con-mirror-video-el');
+        const titleEl = document.getElementById('con-mirror-video-title');
+        const badgeEl = document.getElementById('con-mirror-video-badge');
+        const digitsEl = document.getElementById('con-mirror-video-digits');
+
+        if (!d || d.videoState === 'idle' || d.videoState === 'ended' || !d.videoState) {
+          if (vidEl && !vidEl.paused) vidEl.pause();
+          pop.style.display = 'none';
+          return;
+        }
+
+        const targetNode = node || ((window.conGetNodes ? window.conGetNodes() : []).find(n => String(n.id) === String(d.id)));
+        const title = d.videoName || (targetNode && (targetNode.videoName || targetNode.text || targetNode.baseWord)) || 'Video';
+        if (titleEl) titleEl.textContent = title;
+        if (badgeEl) {
+          badgeEl.textContent = d.videoState === 'playing' ? 'PLAYING' : 'PAUSED';
+          badgeEl.style.background = d.videoState === 'playing' ? '#6abf8e' : '#e2c96e';
+        }
+
+        const curStr = (typeof conFormatDurationSec === 'function') ? conFormatDurationSec(Math.round(d.currentTime || 0)) : String(Math.round(d.currentTime || 0));
+        const durStr = (typeof conFormatDurationSec === 'function') ? conFormatDurationSec(Math.round(d.duration || 0)) : String(Math.round(d.duration || 0));
+        if (digitsEl) digitsEl.textContent = curStr + ' / ' + durStr;
+
+        // Position overlay near node
+        const nodeEl = (targetNode && targetNode.el) || document.getElementById(String(d.id));
+        if (nodeEl) {
+          const rect = nodeEl.getBoundingClientRect();
+          const popW = 340;
+          const popH = 260;
+          let px = rect.left + rect.width / 2 - popW / 2;
+          let py = rect.top - popH - 10;
+          if (py < 10) py = rect.bottom + 10;
+          px = Math.max(10, Math.min(window.innerWidth - popW - 10, px));
+          pop.style.left = px + 'px';
+          pop.style.top = py + 'px';
+        } else {
+          pop.style.left = 'calc(50vw - 170px)';
+          pop.style.top = '20px';
+        }
+
+        pop.style.display = 'flex';
+
+        // Resolve source URL
+        const attId = d.videoAttachmentId || (targetNode && targetNode.videoAttachmentId);
+        const att = (conAttachments || []).find(a => a && (a.id === attId || a.name === d.videoName || (targetNode && a.name === targetNode.videoName)));
+        let sourceUrl = d.videoSrc || (att && (att._cachedObjectUrl || att.relativePath || (att.file && att.file.path) || att.path)) || '';
+        
+        if (vidEl) {
+          vidEl.muted = true; // Always muted on mirror display to avoid audio echo
+          if (sourceUrl && vidEl.dataset.src !== sourceUrl) {
+            vidEl.dataset.src = sourceUrl;
+            if (typeof conGetAttachmentDataUrl === 'function' && att && !att._cachedObjectUrl) {
+              conGetAttachmentDataUrl(att).then(url => {
+                if (url) {
+                  vidEl.src = url;
+                  vidEl.currentTime = d.currentTime || 0;
+                  if (d.videoState === 'playing') vidEl.play().catch(() => {});
+                }
+              });
+            } else {
+              vidEl.src = (sourceUrl.startsWith('file://') || sourceUrl.startsWith('data:') || sourceUrl.startsWith('blob:') || sourceUrl.startsWith('http'))
+                ? sourceUrl
+                : (sourceUrl ? ('file://' + (sourceUrl.startsWith('/') ? '' : '/') + sourceUrl.replace(/\\/g, '/')) : '');
+              vidEl.currentTime = d.currentTime || 0;
+            }
+          }
+          if (typeof d.currentTime === 'number' && Math.abs(vidEl.currentTime - d.currentTime) > 0.4) {
+            vidEl.currentTime = d.currentTime;
+          }
+          if (d.videoState === 'playing') {
+            if (vidEl.paused) vidEl.play().catch(() => {});
+          } else if (d.videoState === 'paused') {
+            if (!vidEl.paused) vidEl.pause();
+          }
+        }
+      }
+
       ch.onmessage = function (e) {
         if (!e.data) return;
         var d = e.data;
@@ -56018,6 +56349,9 @@
                 if (vDigits.textContent !== vTimeStr) vDigits.textContent = vTimeStr;
               }
             }
+          }
+          if (typeof _mirrorSyncVideoNodePlayback === 'function') {
+            _mirrorSyncVideoNodePlayback(d, videoNode);
           }
           return;
         }

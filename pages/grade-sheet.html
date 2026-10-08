@@ -1743,6 +1743,21 @@
     <button id="test-header-menu-print-sem" class="menu-item" type="button" role="menuitem" data-i18n="gsMenuPrintSemGrades"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> Print semester grades</button>
   </div>
 
+  <div id="all-test-item-menu" class="row-context-menu hidden" role="menu" aria-label="Test item menu" data-i18n-aria="gsAriaTestItemMenu">
+    <button id="all-test-menu-open" class="menu-item" type="button" role="menuitem" data-i18n="gsMenuOpenTest"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" /> Open test</button>
+    <button id="all-test-menu-rename" class="menu-item" type="button" role="menuitem" data-i18n="gsMenuEditName"><img src="../assets/icons/edit-word.svg" class="btn-icon" alt="" /> Edit name</button>
+    <button id="all-test-menu-settings" class="menu-item" type="button" role="menuitem" data-i18n="gsMenuEditTestSettings"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> Edit test settings</button>
+    <button id="all-test-menu-duplicate" class="menu-item" type="button" role="menuitem" data-i18n="gsMenuDuplicateTest"><img src="../assets/icons/duplicate.svg" class="btn-icon" alt="" /> Duplicate / Copy test</button>
+    <button id="all-test-menu-links" class="menu-item" type="button" role="menuitem"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> <span data-i18n="gsMenuTestLinks">Test Links &amp; Attachments</span></button>
+    <hr class="menu-sep">
+    <button id="all-test-menu-report-test" class="menu-item" type="button" role="menuitem" data-i18n="gsReportClassTest"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> Test Report (Whole Class)</button>
+    <button id="all-test-menu-report-student" class="menu-item" type="button" role="menuitem" data-i18n="gsReportIndividualTestReports"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> Individual Test Reports</button>
+    <button id="all-test-menu-export-html" class="menu-item" type="button" role="menuitem" data-i18n="gsOptionExportTestHtml"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Standalone HTML Page (.html)</button>
+    <button id="all-test-menu-export-docx" class="menu-item" type="button" role="menuitem" data-i18n="gsOptionExportDocx"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Word Document (.docx)</button>
+    <hr class="menu-sep">
+    <button id="all-test-menu-delete" class="menu-item danger" type="button" role="menuitem" data-i18n="gsOptionDeleteTest"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> Delete Test</button>
+  </div>
+
   <div id="summary-student-row-menu" class="row-context-menu hidden" role="menu" aria-label="Student menu">
     <button id="summary-student-menu-dossier" class="menu-item" type="button" role="menuitem"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> <span data-i18n="gsMenuStudentDossier">360° Academic Dossier</span></button>
     <button id="summary-student-menu-work" class="menu-item" type="button" role="menuitem"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> <span data-i18n="gsMenuStudentWork">Student Work &amp; Attachments</span></button>
@@ -2242,6 +2257,7 @@
     let _classCardMenuCtx = null;
     let _testHeaderMenuCtx = null;
     let _summaryStudentMenuCtx = null;
+    let _allTestItemMenuCtx = null;
     let _toptRebuildCriteriaList = null;
     let _toptUpdateLiveGradePreview = null;
 
@@ -2292,6 +2308,36 @@
     function fmtN(value) {
       if (value == null || Number.isNaN(value)) return "-";
       return String(parseFloat(Number(value).toFixed(2)));
+    }
+
+    function formatCorrectionTime(value) {
+      if (value == null || value === "") return "—";
+      let totalSec = null;
+      if (typeof value === "string") {
+        const trimmed = value.trim();
+        if (!trimmed || trimmed === "—" || trimmed === "-") return "—";
+        if (/^\d{1,2}:\d{2}:\d{2}$/.test(trimmed)) {
+          const parts = trimmed.split(':').map(Number);
+          totalSec = parts[0] * 3600 + parts[1] * 60 + parts[2];
+        } else if (/^\d+h/i.test(trimmed) || /^\d+m/i.test(trimmed) || /^\d+s/i.test(trimmed)) {
+          return trimmed;
+        }
+      }
+      if (totalSec == null) {
+        const n = toNumber(value);
+        if (n == null || Number.isNaN(n) || n < 0) return "—";
+        totalSec = Math.round(n * 60);
+      }
+      if (totalSec === 0) return "0s";
+      const hours = Math.floor(totalSec / 3600);
+      const minutes = Math.floor((totalSec % 3600) / 60);
+      const seconds = totalSec % 60;
+
+      const parts = [];
+      if (hours > 0) parts.push(`${hours}h`);
+      if (minutes > 0) parts.push(`${minutes}m`);
+      if (seconds > 0) parts.push(`${seconds}s`);
+      return parts.length > 0 ? parts.join("") : "0s";
     }
 
     function toNumber(value) {
@@ -6059,7 +6105,7 @@
     }
 
     function closeAllContextMenus() {
-      ["test-row-menu", "class-card-menu", "test-header-menu", "summary-student-row-menu"].forEach(id => {
+      ["test-row-menu", "class-card-menu", "test-header-menu", "summary-student-row-menu", "all-test-item-menu"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.classList.add("hidden");
       });
@@ -6067,6 +6113,7 @@
       _classCardMenuCtx = null;
       _testHeaderMenuCtx = null;
       _summaryStudentMenuCtx = null;
+      _allTestItemMenuCtx = null;
     }
 
     function openSummaryStudentRowMenu(x, y, student, classObj) {
@@ -6090,6 +6137,29 @@
       if (!menu) return;
       _testRowMenuCtx = { student, classObj, sem, testIndex, config };
       _positionMenu(menu, x, y);
+    }
+
+    function openAllTestItemMenu(x, y, classObj, sem, testIndex) {
+      closeAllContextMenus();
+      const menu = document.getElementById("all-test-item-menu");
+      if (!menu) return;
+      _allTestItemMenuCtx = { classObj, sem, testIndex };
+      _positionMenu(menu, x, y);
+    }
+
+    async function renameTest(classObj, sem, ti) {
+      if (!classObj || sem == null || ti == null) return;
+      ensureClassStructures(classObj);
+      const cfg = getTestConfig(classObj, sem, ti);
+      const currentName = cfg.testName || `Test ${ti + 1}`;
+      const newName = await showPrompt(t('gsPromptRenameTest', 'Enter new test name:'), currentName);
+      if (newName == null) return;
+      cfg.testName = newName.trim() || `Test ${ti + 1}`;
+      saveState();
+      renderSummary();
+      if (appState.currentScreen === "test" && appState.activeClassId === classObj.id && appState.activeTest && appState.activeTest.semester === sem && appState.activeTest.testIndex === ti) {
+        renderTestSheet();
+      }
     }
 
     function isGroupEditorClass(classObj) {
@@ -8115,6 +8185,13 @@
             renderTestSheet();
             showScreen("test");
           });
+
+          chip.addEventListener("contextmenu", (e) => {
+            if (_gsIsDraggingTest) return;
+            e.preventDefault();
+            e.stopPropagation();
+            openAllTestItemMenu(e.clientX, e.clientY, c, sem, i);
+          });
           rows.appendChild(chip);
         };
 
@@ -8827,7 +8904,7 @@
         const tdCorrTime = document.createElement("td");
         tdCorrTime.className = "td-criteria-display";
         const ctVal = student.correctionTime[sem][testIndex];
-        tdCorrTime.textContent = ctVal != null ? String(ctVal) : "—";
+        tdCorrTime.textContent = formatCorrectionTime(ctVal);
 
         [tdIdx, tdFirst, tdLast, tdGrade, tdNextDelta, tdNote, tdCriteriaScore, tdCorrTime].forEach(td => tr.appendChild(td));
 
@@ -8929,7 +9006,7 @@
           const corrTimeStatTd = document.createElement("td");
           corrTimeStatTd.className = "td-criteria-display";
           const ctv = corrTimeStats ? corrTimeStats[key] : null;
-          corrTimeStatTd.textContent = ctv != null ? `${fmt(ctv)}` : "—";
+          corrTimeStatTd.textContent = ctv != null ? formatCorrectionTime(ctv) : "—";
           str.appendChild(corrTimeStatTd);
 
           config.criteria.forEach((criterion, ci) => {
@@ -8974,7 +9051,7 @@
         const totCorrTimeTd = document.createElement("td");
         totCorrTimeTd.className = "td-criteria-display";
         totCorrTimeTd.style.fontWeight = "800";
-        totCorrTimeTd.textContent = totalCorrTime != null ? `${fmt(totalCorrTime)}` : "—";
+        totCorrTimeTd.textContent = totalCorrTime != null ? formatCorrectionTime(totalCorrTime) : "—";
         totTr.appendChild(totCorrTimeTd);
 
         config.criteria.forEach(() => {
@@ -12550,11 +12627,8 @@
       }
     }
 
-    async function exportActiveTestHtml() {
-      const classObj = getActiveClass();
-      if (!classObj || !appState.activeTest) return;
-      const sem = appState.activeTest.semester;
-      const testIndex = appState.activeTest.testIndex;
+    async function exportTestHtml(classObj, sem, testIndex) {
+      if (!classObj || sem == null || testIndex == null) return;
       const report = buildTestReportData(classObj, sem, testIndex);
       if (!report.students || report.students.length === 0) {
         await showAlert(t('gsAlertNoStudentsCriteria'));
@@ -12564,6 +12638,12 @@
       const slug = slugifyForPath(classObj.name || "class");
       const filename = `${slug}-${sem}-t${testIndex + 1}-${new Date().toISOString().slice(0, 10)}.html`;
       downloadTextFile(html, filename, "text/html;charset=utf-8");
+    }
+
+    async function exportActiveTestHtml() {
+      const classObj = getActiveClass();
+      if (!classObj || !appState.activeTest) return;
+      return exportTestHtml(classObj, appState.activeTest.semester, appState.activeTest.testIndex);
     }
 
     function buildTestResultsDocxMarkdown(classObj, sem, testIndex) {
@@ -12684,15 +12764,12 @@
       return sections.join("\n");
     }
 
-    async function exportActiveTestDocx() {
+    async function exportTestDocx(classObj, sem, testIndex) {
       if (!window.Desktop || !Desktop.isElectron()) {
         await showAlert(t('gsAlertDocxDesktopOnly'));
         return;
       }
-      const classObj = getActiveClass();
-      if (!classObj || !appState.activeTest) return;
-      const sem = appState.activeTest.semester;
-      const testIndex = appState.activeTest.testIndex;
+      if (!classObj || sem == null || testIndex == null) return;
       const markdown = buildTestResultsDocxMarkdown(classObj, sem, testIndex);
       const slug = slugifyForPath(classObj.name || "class");
       const baseName = `${slug}-${sem}-t${testIndex + 1}-${new Date().toISOString().slice(0, 10)}`;
@@ -12730,6 +12807,12 @@
       if (result && !result.canceled) {
         await showAlert(t('gsAlertDocxExportFailed'));
       }
+    }
+
+    async function exportActiveTestDocx() {
+      const classObj = getActiveClass();
+      if (!classObj || !appState.activeTest) return;
+      return exportTestDocx(classObj, appState.activeTest.semester, appState.activeTest.testIndex);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -16025,7 +16108,7 @@
         corrTimeTitle.textContent = t('gsStudentCorrTimeTitle');
         const corrTimeVal = document.createElement("div");
         corrTimeVal.style.cssText = "font-size:0.9rem;color:var(--muted);padding:4px 0;";
-        corrTimeVal.textContent = tFmt('gsStudentCorrTimePrev', { n: fmtN(prevCorrTime) });
+        corrTimeVal.textContent = tFmt('gsStudentCorrTimePrev', { n: formatCorrectionTime(prevCorrTime) });
         corrTimeSection.appendChild(corrTimeTitle);
         corrTimeSection.appendChild(corrTimeVal);
         body.appendChild(corrTimeSection);
@@ -16144,7 +16227,7 @@
       // Correction time cell = index 7
       if (tr.cells[7]) {
         const ct = student.correctionTime ? student.correctionTime[sem][testIndex] : null;
-        tr.cells[7].textContent = ct != null ? String(ct) : "\u2014";
+        tr.cells[7].textContent = formatCorrectionTime(ct);
       }
 
       // Per-criterion cells start at index 8
@@ -17115,14 +17198,10 @@
       showScreen("classes");
     }
 
-    async function deleteActiveTest() {
-      const classObj = getActiveClass();
-      if (!classObj || !appState.activeTest) return;
-
-      const sem = appState.activeTest.semester;
-      const ti = appState.activeTest.testIndex;
-
-      if (!(await showConfirm(tFmt('gsConfirmDeleteTest', { n: ti + 1, sem: sem.toUpperCase() })))) return;
+    async function deleteTest(classObj, sem, ti) {
+      if (!classObj || !sem || ti == null) return false;
+      ensureClassStructures(classObj);
+      if (!(await showConfirm(tFmt('gsConfirmDeleteTest', { n: ti + 1, sem: sem.toUpperCase() })))) return false;
 
       // Shift testConfigs left from ti
       classObj.testConfigs[sem].splice(ti, 1);
@@ -17153,10 +17232,25 @@
       });
 
       classObj.testCounts[sem] = Math.max(0, classObj.testCounts[sem] - 1);
-      appState.activeTest = null;
+      if (appState.activeTest && appState.activeClassId === classObj.id && appState.activeTest.semester === sem && appState.activeTest.testIndex === ti) {
+        appState.activeTest = null;
+      }
       saveState();
       renderSummary();
-      showScreen("summary");
+      if (appState.currentScreen === "test") {
+        if (appState.activeTest == null) {
+          showScreen("summary");
+        } else {
+          renderTestSheet();
+        }
+      }
+      return true;
+    }
+
+    async function deleteActiveTest() {
+      const classObj = getActiveClass();
+      if (!classObj || !appState.activeTest) return;
+      return deleteTest(classObj, appState.activeTest.semester, appState.activeTest.testIndex);
     }
 
     async function clearActiveTest() {
@@ -17831,6 +17925,84 @@
         closeAllContextMenus();
         if (!ctx) return;
         printSemesterGrades(ctx.classObj, ctx.sem);
+      });
+
+      // ── all-test-item-menu ────────────────────────────────────────
+      document.getElementById("all-test-menu-open")?.addEventListener("click", () => {
+        const ctx = _allTestItemMenuCtx;
+        closeAllContextMenus();
+        if (!ctx || !ctx.classObj) return;
+        appState.activeClassId = ctx.classObj.id;
+        ensureClassStructures(ctx.classObj);
+        renderSummary();
+        appState.activeTest = { semester: ctx.sem, testIndex: ctx.testIndex };
+        renderTestSheet();
+        showScreen("test");
+      });
+      document.getElementById("all-test-menu-rename")?.addEventListener("click", () => {
+        const ctx = _allTestItemMenuCtx;
+        closeAllContextMenus();
+        if (!ctx || !ctx.classObj) return;
+        renameTest(ctx.classObj, ctx.sem, ctx.testIndex);
+      });
+      document.getElementById("all-test-menu-settings")?.addEventListener("click", () => {
+        const ctx = _allTestItemMenuCtx;
+        closeAllContextMenus();
+        if (!ctx || !ctx.classObj) return;
+        openTestOptionsModal(getTestConfig(ctx.classObj, ctx.sem, ctx.testIndex), ctx.classObj, ctx.sem, ctx.testIndex, "info");
+      });
+      document.getElementById("all-test-menu-duplicate")?.addEventListener("click", () => {
+        const ctx = _allTestItemMenuCtx;
+        closeAllContextMenus();
+        if (!ctx || !ctx.classObj) return;
+        openDuplicateTestPopup({
+          srcClassId: ctx.classObj.id,
+          srcSem: ctx.sem,
+          srcTestIndex: ctx.testIndex,
+          destClassId: ctx.classObj.id,
+          destSem: ctx.sem,
+          destTestIndex: ctx.testIndex
+        });
+      });
+      document.getElementById("all-test-menu-links")?.addEventListener("click", () => {
+        const ctx = _allTestItemMenuCtx;
+        closeAllContextMenus();
+        if (!ctx || !ctx.classObj) return;
+        appState.activeClassId = ctx.classObj.id;
+        appState.activeTest = { semester: ctx.sem, testIndex: ctx.testIndex };
+        gsOpenTestLinksModal();
+      });
+      document.getElementById("all-test-menu-report-test")?.addEventListener("click", () => {
+        const ctx = _allTestItemMenuCtx;
+        closeAllContextMenus();
+        if (!ctx || !ctx.classObj) return;
+        openClassTestReport(ctx.classObj, ctx.sem, ctx.testIndex);
+      });
+      document.getElementById("all-test-menu-report-student")?.addEventListener("click", () => {
+        const ctx = _allTestItemMenuCtx;
+        closeAllContextMenus();
+        if (!ctx || !ctx.classObj) return;
+        appState.activeClassId = ctx.classObj.id;
+        appState.activeTest = { semester: ctx.sem, testIndex: ctx.testIndex };
+        openStudentSelectModal(ctx.classObj, "test", ctx.sem, ctx.testIndex);
+      });
+      document.getElementById("all-test-menu-export-html")?.addEventListener("click", () => {
+        const ctx = _allTestItemMenuCtx;
+        closeAllContextMenus();
+        if (!ctx || !ctx.classObj) return;
+        exportTestHtml(ctx.classObj, ctx.sem, ctx.testIndex);
+      });
+      document.getElementById("all-test-menu-export-docx")?.addEventListener("click", () => {
+        const ctx = _allTestItemMenuCtx;
+        closeAllContextMenus();
+        if (!ctx || !ctx.classObj) return;
+        exportTestDocx(ctx.classObj, ctx.sem, ctx.testIndex);
+      });
+      document.getElementById("all-test-menu-delete")?.addEventListener("click", () => {
+        const ctx = _allTestItemMenuCtx;
+        closeAllContextMenus();
+        if (!ctx || !ctx.classObj) return;
+        deleteTest(ctx.classObj, ctx.sem, ctx.testIndex);
       });
 
       // ── summary-student-row-menu ──────────────────────────────────
