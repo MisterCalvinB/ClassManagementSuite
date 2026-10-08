@@ -2708,12 +2708,16 @@
   var _gradeScanPromise = null;
   var _boardScanCache = null;
   var _boardScanPromise = null;
+  var _participationScanCache = null;
+  var _participationScanPromise = null;
 
   function _invalidateDossierScanCaches() {
     _gradeScanCache = null;
     _gradeScanPromise = null;
     _boardScanCache = null;
     _boardScanPromise = null;
+    _participationScanCache = null;
+    _participationScanPromise = null;
   }
 
   async function _getOrScanGradeFiles() {
@@ -3230,10 +3234,439 @@
   }
 
   /**
+   * Scans and aggregates all live participation tracker records for a student.
+   * Loads class session logs from groupParticipation target, applies notes/tombstones,
+   * and calculates attendance rate, net score, trend, and session history.
+   */
+  async function _loadStudentParticipationData(studentId, classId, studentName) {
+    var emptyRes = {
+      classId: classId || '',
+      totalSessions: 0,
+      attendedSessions: 0,
+      absentCount: 0,
+      attendanceRate: 100,
+      picksCount: 0,
+      pluses: 0,
+      minuses: 0,
+      teamPluses: 0,
+      teamMinuses: 0,
+      badgePositive: 0,
+      badgeNegative: 0,
+      netScore: 0,
+      netRatioPerSession: 0,
+      ratio: null,
+      trend: 'flat',
+      provisionalGrade: null,
+      notesCount: 0,
+      notes: [],
+      sessions: []
+    };
+
+    if (!studentId && !studentName) return emptyRes;
+
+    try {
+      var scanData = await _getOrScanParticipationFiles();
+      var allSessions = (scanData && scanData.allSessions) ? scanData.allSessions : [];
+      var deletedIds = (scanData && scanData.deletedIds) ? scanData.deletedIds : new Set();
+      var notesPatch = (scanData && scanData.notesPatch) ? scanData.notesPatch : {};
+      var rules = (scanData && scanData.rules) ? scanData.rules : {};
+
+      if (!allSessions || allSessions.length === 0) {
+        return emptyRes;
+      }
+
+      var cleanCid = (classId || '').trim();
+      var cleanCidLower = cleanCid.toLowerCase();
+      var cleanCidNormalized = cleanCid.replace(/[-_ ]/g, '').toLowerCase();
+      var normStudentName = (studentName || '').trim().toUpperCase();
+      var normStudentId = String(studentId || '').trim().toLowerCase();
+
+      var studentObjInRoster = resolveStudentInfo(studentId) || {};
+      var candidateNames = new Set([
+        normStudentName,
+        String(studentObjInRoster.name || '').trim().toUpperCase(),
+        String(studentObjInRoster.customName || '').trim().toUpperCase(),
+        String(studentObjInRoster.firstName ? (studentObjInRoster.firstName + ' ' + (studentObjInRoster.lastName || '')) : '').trim().toUpperCase(),
+        String(studentId || '').trim().toUpperCase()
+      ].filter(Boolean));
+
+      function simplifyStr(str) {
+        if (!str) return '';
+        try {
+          return String(str)
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-zA-Z0-9]/g, '')
+            .toUpperCase();
+        } catch (_) {
+          return String(str).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+        }
+      }
+
+      var simplifiedCandidates = new Set();
+      candidateNames.forEach(function(cn) {
+        var s = simplifyStr(cn);
+        if (s) simplifiedCandidates.add(s);
+      });
+
+      var totalSessions = 0;
+      var attendedSessions = 0;
+      var absentCount = 0;
+      var picksCount = 0;
+      var totalPluses = 0;
+      var totalMinuses = 0;
+      var totalTeamPluses = 0;
+      var totalTeamMinuses = 0;
+      var totalBadgePos = 0;
+      var totalBadgeNeg = 0;
+      var notesList = [];
+      var sessionEntries = [];
+      var sessionNets = [];
+
+      // Sort sessions chronologically
+      var sortedSessions = allSessions.slice().sort(function(a, b) {
+        var tA = Date.parse(String(a.id || a.date || '')) || 0;
+        var tB = Date.parse(String(b.id || b.date || '')) || 0;
+        return tA - tB;
+      });
+
+      sortedSessions.forEach(function(session) {
+        if (!session || !session.groups) return;
+        if (session.id && deletedIds.has(String(session.id))) return;
+
+        var sessGroup = String(session.activeGroup || '').trim();
+        var sessGroupNorm = sessGroup.replace(/[-_ ]/g, '').toLowerCase();
+
+        // If class filter applies and session group is known, check match
+        if (cleanCid && sessGroup && cleanCidNormalized &&
+            sessGroupNorm !== cleanCidNormalized &&
+            _stripZeroPaddingClassToken(sessGroup) !== _stripZeroPaddingClassToken(cleanCid)) {
+          // If class doesn't match, still allow if studentId is an exact UUID
+          if (!normStudentId.startsWith('st-') && normStudentId.length < 20) {
+            return;
+          }
+        }
+
+        // Search for student across all tables/groups in session
+        var matchedSt = null;
+        var groupKeys = Object.keys(session.groups);
+        for (var gi = 0; gi < groupKeys.length; gi++) {
+          var stArr = session.groups[groupKeys[gi]];
+          if (!Array.isArray(stArr)) continue;
+          for (var si = 0; si < stArr.length; si++) {
+            var st = stArr[si];
+            if (!st) continue;
+            var stId = String(st.id || st.uuid || '').trim().toLowerCase();
+            var stName = String(st.name || '').trim().toUpperCase();
+            var stSimple = simplifyStr(stName);
+
+            var isMatch = false;
+            if (normStudentId && stId && (stId === normStudentId || stId === normStudentId.replace(/^st-/, ''))) {
+              isMatch = true;
+            } else if (stName && candidateNames.has(stName)) {
+              isMatch = true;
+            } else if (stSimple && simplifiedCandidates.has(stSimple)) {
+              isMatch = true;
+            }
+
+            if (isMatch) {
+              matchedSt = st;
+              break;
+            }
+          }
+          if (matchedSt) break;
+        }
+
+        if (!matchedSt) return;
+
+        totalSessions++;
+        var isAbsent = !!matchedSt.isAbsent;
+        if (isAbsent) {
+          absentCount++;
+        } else {
+          attendedSessions++;
+        }
+
+        if (matchedSt.isPicked) picksCount++;
+
+        var pluses = Number(matchedSt.pluses) || 0;
+        var minuses = Number(matchedSt.minuses) || 0;
+        var tPluses = Number(matchedSt.teamPluses) || 0;
+        var tMinuses = Number(matchedSt.teamMinuses) || 0;
+
+        totalPluses += pluses;
+        totalMinuses += minuses;
+        totalTeamPluses += tPluses;
+        totalTeamMinuses += tMinuses;
+
+        var badges = Array.isArray(matchedSt.badges) ? matchedSt.badges : [];
+        var sessPosBadges = 0;
+        var sessNegBadges = 0;
+        badges.forEach(function(b) {
+          if (!b) return;
+          var sent = b.sentiment || (b.isPositive ? 'positive' : (b.isNegative ? 'negative' : 'neutral'));
+          if (sent === 'positive' || b.positive) { sessPosBadges++; totalBadgePos++; }
+          else if (sent === 'negative' || b.negative) { sessNegBadges++; totalBadgeNeg++; }
+        });
+
+        // Compute session net
+        var sessNet = (pluses + tPluses) - (minuses + tMinuses) + sessPosBadges - sessNegBadges;
+        sessNet = parseFloat(sessNet.toFixed(2));
+        if (!isAbsent) {
+          sessionNets.push(sessNet);
+        }
+
+        // Apply notes patch if available
+        var stNote = matchedSt.notes || '';
+        if (notesPatch[session.id] && notesPatch[session.id][matchedSt.name] !== undefined) {
+          stNote = notesPatch[session.id][matchedSt.name];
+        }
+        if (stNote && typeof stNote === 'string' && stNote.trim()) {
+          var cleanNote = stNote.trim();
+          if (!notesList.includes(cleanNote)) notesList.push(cleanNote);
+        }
+
+        var sessDate = session.id ? session.id.split('T')[0] : (session.date || '');
+        sessionEntries.push({
+          id: session.id,
+          date: sessDate,
+          time: session.time || '',
+          isAbsent: isAbsent,
+          isPicked: !!matchedSt.isPicked,
+          pluses: pluses + tPluses,
+          minuses: minuses + tMinuses,
+          netChange: sessNet,
+          badges: badges,
+          notes: stNote ? String(stNote).trim() : ''
+        });
+      });
+
+      var attendanceRate = totalSessions > 0 ? parseFloat(((attendedSessions / totalSessions) * 100).toFixed(1)) : 100;
+      var totalGood = totalPluses + totalTeamPluses + totalBadgePos;
+      var totalBad = totalMinuses + totalTeamMinuses + totalBadgeNeg;
+      var netScore = parseFloat((totalGood - totalBad).toFixed(2));
+      var netRatioPerSession = attendedSessions > 0 ? parseFloat((netScore / attendedSessions).toFixed(2)) : 0;
+      var ratioVal = totalBad > 0 ? parseFloat((totalGood / totalBad).toFixed(2)) : (totalGood > 0 ? 999 : null);
+
+      // Trend calculation
+      var trend = 'flat';
+      if (sessionNets.length >= 2) {
+        var mid = Math.ceil(sessionNets.length / 2);
+        var firstHalf = sessionNets.slice(0, mid);
+        var secondHalf = sessionNets.slice(sessionNets.length - mid);
+        var avg1 = firstHalf.reduce(function(a, b) { return a + b; }, 0) / firstHalf.length;
+        var avg2 = secondHalf.reduce(function(a, b) { return a + b; }, 0) / secondHalf.length;
+        var diff = avg2 - avg1;
+        if (diff > 0.1) trend = 'up';
+        else if (diff < -0.1) trend = 'down';
+      }
+
+      // Provisional Grade calculation (if rules exist for class)
+      var provGrade = null;
+      var classRule = rules[cleanCid] || rules[classId] || null;
+      if (classRule && typeof classRule === 'object') {
+        var baseGrade = Number(classRule.baseGrade != null ? classRule.baseGrade : 4);
+        var targetNet = Number(classRule.targetNet || classRule.targetPoints || 10);
+        var maxGrade = Number(classRule.maxGrade || 6);
+        var minGrade = Number(classRule.minGrade || 1);
+        if (targetNet > 0) {
+          var earnedRatio = Math.max(-1, Math.min(1.5, netScore / targetNet));
+          var calcGrade = baseGrade + earnedRatio * (maxGrade - baseGrade);
+          provGrade = parseFloat(Math.max(minGrade, Math.min(maxGrade, calcGrade)).toFixed(2));
+        }
+      }
+
+      return {
+        classId: cleanCid || classId,
+        totalSessions: totalSessions,
+        attendedSessions: attendedSessions,
+        absentCount: absentCount,
+        attendanceRate: attendanceRate,
+        picksCount: picksCount,
+        pluses: totalPluses + totalTeamPluses,
+        minuses: totalMinuses + totalTeamMinuses,
+        teamPluses: totalTeamPluses,
+        teamMinuses: totalTeamMinuses,
+        badgePositive: totalBadgePos,
+        badgeNegative: totalBadgeNeg,
+        netScore: netScore,
+        netRatioPerSession: netRatioPerSession,
+        ratio: ratioVal,
+        trend: trend,
+        provisionalGrade: provGrade,
+        notesCount: notesList.length,
+        notes: notesList,
+        sessions: sessionEntries
+      };
+    } catch (err) {
+      console.warn('_loadStudentParticipationData error:', err);
+      return emptyRes;
+    }
+  }
+
+  function _parseParticipationContent(content) {
+    if (!content) return [];
+    var text = String(content).trim();
+    try {
+      var sandbox = { window: {} };
+      var fn = new Function('window', text);
+      fn(sandbox.window);
+      var res = sandbox.window.CMS_DB_EXPORT || sandbox.window.DB_EXPORT || sandbox.CMS_DB_EXPORT || sandbox.DB_EXPORT;
+      if (Array.isArray(res)) return res;
+    } catch (_) {}
+
+    try {
+      var parsed = JSON.parse(text);
+      if (Array.isArray(parsed)) return parsed;
+    } catch (_) {}
+
+    var match = text.match(/(?:const|let|var)?\s*(?:window\.)?(?:CMS_)?DB_EXPORT\s*=\s*(\[[\s\S]*?\])\s*;/);
+    if (match) {
+      try { return JSON.parse(match[1]); } catch (_) {}
+    }
+    return [];
+  }
+
+  async function _getOrScanParticipationFiles() {
+    if (_participationScanCache && (Date.now() - _participationScanCache.ts < 20000)) {
+      return _participationScanCache.data;
+    }
+    if (_participationScanPromise) return _participationScanPromise;
+
+    _participationScanPromise = (async function() {
+      var result = {
+        allSessions: [],
+        deletedIds: new Set(),
+        notesPatch: {},
+        rules: {}
+      };
+
+      if (typeof window !== 'undefined') {
+        if (Array.isArray(window.CMS_DB_EXPORT) && window.CMS_DB_EXPORT.length > 0) {
+          result.allSessions = window.CMS_DB_EXPORT.slice();
+        } else if (Array.isArray(window.DB_EXPORT) && window.DB_EXPORT.length > 0) {
+          result.allSessions = window.DB_EXPORT.slice();
+        }
+        if (window.CMS_NOTES_PATCH) result.notesPatch = window.CMS_NOTES_PATCH;
+        if (window.CMS_PARTICIPATION_RULES) result.rules = window.CMS_PARTICIPATION_RULES;
+      }
+
+      var isElectron = typeof window !== 'undefined' && window.electronApi && window.electronApi.isElectron;
+      var Desktop = (typeof window !== 'undefined' && window.Desktop) ? window.Desktop : null;
+
+      if (isElectron && Desktop && typeof Desktop.listByPath === 'function') {
+        // 1. Read deleted tombstones
+        try {
+          var tombRes = await Desktop.readText('groupParticipation', 'pt-deleted.js');
+          if (tombRes && tombRes.ok && tombRes.content) {
+            var tm = tombRes.content.match(/window\.CMS_DELETED_SESSIONS\s*=\s*(\[[\s\S]*?\]);?/);
+            if (tm) {
+              var arr = JSON.parse(tm[1]);
+              if (Array.isArray(arr)) arr.forEach(function(id) { result.deletedIds.add(String(id)); });
+            }
+          }
+        } catch (_) {}
+
+        // 2. Read notes patch
+        try {
+          var npRes = await Desktop.readText('groupParticipation', 'pt-notes.js');
+          if (npRes && npRes.ok && npRes.content) {
+            var npm = npRes.content.match(/window\.CMS_NOTES_PATCH\s*=\s*(\{[\s\S]*\});?\s*$/);
+            if (npm) result.notesPatch = JSON.parse(npm[1]) || {};
+          }
+        } catch (_) {}
+
+        // 3. Read rules
+        try {
+          var rpRes = await Desktop.readText('groupParticipation', 'pt-rules.js');
+          if (rpRes && rpRes.ok && rpRes.content) {
+            var rpm = rpRes.content.match(/window\.CMS_PARTICIPATION_RULES\s*=\s*(\{[\s\S]*\});?\s*$/);
+            if (rpm) result.rules = JSON.parse(rpm[1]) || {};
+          }
+        } catch (_) {}
+
+        // 4. Scan disk files if in-memory DB is empty
+        if (!result.allSessions.length) {
+          var sessionFiles = [];
+          try {
+            var listRes = await Desktop.listByPath('groupParticipation', '', { recursive: true, extensions: ['.js', '.json'] });
+            if (listRes && Array.isArray(listRes.files)) {
+              sessionFiles = listRes.files.filter(function(f) {
+                var p = String(f.relativePath || f.filename || '').replace(/\\/g, '/');
+                var fn = f.filename || p.split('/').pop() || '';
+                return !p.startsWith('archived/') && fn !== 'pt-deleted.js' && fn !== 'pt-notes.js' && fn !== 'pt-rules.js' && fn !== 'pt-presets.js';
+              }).map(function(f) {
+                return { target: 'groupParticipation', relativePath: f.relativePath };
+              });
+            }
+          } catch (_) {}
+
+          // Fallback: try user target
+          if (!sessionFiles.length) {
+            try {
+              var userListRes = await Desktop.listByPath('user', 'group-participation', { recursive: true, extensions: ['.js', '.json'] });
+              if (userListRes && Array.isArray(userListRes.files) && userListRes.files.length) {
+                sessionFiles = userListRes.files.filter(function(f) {
+                  var p = String(f.relativePath || f.filename || '').replace(/\\/g, '/');
+                  var fn = f.filename || p.split('/').pop() || '';
+                  return !p.startsWith('archived/') && fn !== 'pt-deleted.js' && fn !== 'pt-notes.js' && fn !== 'pt-rules.js' && fn !== 'pt-presets.js';
+                }).map(function(f) {
+                  return { target: 'user', relativePath: 'group-participation/' + f.relativePath.replace(/\\/g, '/') };
+                });
+              }
+            } catch (_) {}
+          }
+
+          if (sessionFiles.length > 0) {
+            await Promise.all(sessionFiles.map(async function(fInfo) {
+              try {
+                var res = await Desktop.readByPath(fInfo.target, fInfo.relativePath);
+                if (res && res.ok && res.content) {
+                  var extracted = _parseParticipationContent(res.content);
+                  extracted.forEach(function(s) {
+                    if (s && s.id && !result.deletedIds.has(String(s.id))) {
+                      result.allSessions.push(s);
+                    }
+                  });
+                }
+              } catch (_) {}
+            }));
+          }
+
+          // Legacy flat file candidates
+          if (!result.allSessions.length) {
+            var candidates = ['cms-db.js', 'cms-db.json', 'cms-db.txt'];
+            for (var ci = 0; ci < candidates.length; ci++) {
+              try {
+                var cRes = await Desktop.readText('groupParticipation', candidates[ci]);
+                if (cRes && cRes.ok && cRes.content) {
+                  var cExtracted = _parseParticipationContent(cRes.content);
+                  cExtracted.forEach(function(s) {
+                    if (s && s.id && !result.deletedIds.has(String(s.id))) {
+                      result.allSessions.push(s);
+                    }
+                  });
+                  if (result.allSessions.length > 0) break;
+                }
+              } catch (_) {}
+            }
+          }
+        }
+      }
+
+      _participationScanCache = { ts: Date.now(), data: result };
+      _participationScanPromise = null;
+      return result;
+    })();
+
+    return _participationScanPromise;
+  }
+
+  /**
    * 360° Academic Dossier Aggregator for a Student.
    * Traverses direct and indirect links to assemble evaluations, assessed competences,
    * delivered lesson plans, linked documents, and board constellations, seamlessly
-   * integrating all recorded tests, boards, and computed weighted averages.
+   * integrating all recorded tests, boards, participation metrics, and computed weighted averages.
    */
   async function getStudentAcademicDossier(studentId, opts) {
     if (!studentId) return null;
@@ -3262,17 +3695,41 @@
       }),
       _loadStudentGradeSheetData(studentId, classId, studentName),
       _loadStudentBoardData(studentId, classId, level),
-      _loadStudentLessonData(studentId, classId)
+      _loadStudentLessonData(studentId, classId),
+      _loadStudentParticipationData(studentId, classId, studentName)
     ]);
 
     var context = results[0] || { direct: [], inherited: [] };
     var gradeData = results[1] || { tests: [], sem1Average: null, sem2Average: null, yearAverage: null, gradedCount: 0, totalTests: 0 };
     var boardData = results[2] || [];
     var lessonData = results[3] || [];
+    var participationData = results[4] || {
+      classId: classId,
+      totalSessions: 0,
+      attendedSessions: 0,
+      absentCount: 0,
+      attendanceRate: 100,
+      picksCount: 0,
+      pluses: 0,
+      minuses: 0,
+      teamPluses: 0,
+      teamMinuses: 0,
+      badgePositive: 0,
+      badgeNegative: 0,
+      netScore: 0,
+      netRatioPerSession: 0,
+      ratio: null,
+      trend: 'flat',
+      provisionalGrade: null,
+      notesCount: 0,
+      notes: [],
+      sessions: []
+    };
 
     var dossier = {
       student: studentObj,
       gradesSummary: gradeData,
+      participationSummary: participationData,
       evaluations: [].concat(gradeData.tests || []),
       competences: [],
       lessons: [].concat(lessonData || []),

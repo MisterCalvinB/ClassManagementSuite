@@ -2206,6 +2206,87 @@
 
   var _activeDossierUrn = null;
   var _currentDossierData = null;
+  var _dossierSortOrder = 'date-desc';
+  try {
+    if (typeof localStorage !== 'undefined' && localStorage.getItem('cmt_dossier_sort')) {
+      _dossierSortOrder = localStorage.getItem('cmt_dossier_sort');
+    }
+  } catch (e) {}
+
+  function parseDossierDate(val) {
+    if (!val) return 0;
+    if (typeof val === 'number') return val;
+    var str = String(val).trim();
+    if (!str) return 0;
+    var isoMatch = str.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+    if (isoMatch) {
+      return new Date(parseInt(isoMatch[1], 10), parseInt(isoMatch[2], 10) - 1, parseInt(isoMatch[3], 10)).getTime();
+    }
+    var euMatch = str.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+    if (euMatch) {
+      return new Date(parseInt(euMatch[3], 10), parseInt(euMatch[2], 10) - 1, parseInt(euMatch[1], 10)).getTime();
+    }
+    var parsed = Date.parse(str);
+    return isNaN(parsed) ? 0 : parsed;
+  }
+
+  function getItemDateVal(item) {
+    if (!item) return 0;
+    var d = item.testDate || item.date || item.lessonDate || item.startDate || item.assessedAt || item.mtime || item.updatedAt || item.createdAt || '';
+    if (!d && item.timestamp) return item.timestamp;
+    return parseDossierDate(d);
+  }
+
+  function getItemNameVal(item) {
+    if (!item) return '';
+    return String(item.title || item.name || item.code || item.filename || item.urn || item.date || '').toLowerCase();
+  }
+
+  function getItemActivityVal(item) {
+    if (!item) return '';
+    if (item.badge) return String(item.badge).toLowerCase();
+    if (item.isAbsent !== undefined) {
+      return item.isAbsent ? 'absent' : (item.isPicked ? 'picked' : (item.netChange >= 0 ? 'positive' : 'negative'));
+    }
+    if (item.type) return String(item.type).toLowerCase();
+    if (item.source) return String(item.source).toLowerCase();
+    if (item.level) return String(item.level).toLowerCase();
+    if (item.room) return String(item.room).toLowerCase();
+    return '';
+  }
+
+  function sortDossierItemList(list, sortOrder) {
+    if (!list || !list.length) return [];
+    var copy = list.slice(0);
+    var order = sortOrder || _dossierSortOrder || 'date-desc';
+    copy.sort(function(a, b) {
+      if (order === 'date-desc') {
+        var da = getItemDateVal(a);
+        var db = getItemDateVal(b);
+        if (da !== db) return db - da;
+        return getItemNameVal(a).localeCompare(getItemNameVal(b), undefined, { numeric: true });
+      } else if (order === 'date-asc') {
+        var da = getItemDateVal(a);
+        var db = getItemDateVal(b);
+        if (da !== db) return da - db;
+        return getItemNameVal(a).localeCompare(getItemNameVal(b), undefined, { numeric: true });
+      } else if (order === 'name-asc') {
+        return getItemNameVal(a).localeCompare(getItemNameVal(b), undefined, { numeric: true });
+      } else if (order === 'name-desc') {
+        return getItemNameVal(b).localeCompare(getItemNameVal(a), undefined, { numeric: true });
+      } else if (order === 'activity') {
+        var actA = getItemActivityVal(a);
+        var actB = getItemActivityVal(b);
+        if (actA !== actB) return actA.localeCompare(actB, undefined, { numeric: true });
+        var da = getItemDateVal(a);
+        var db = getItemDateVal(b);
+        if (da !== db) return db - da;
+        return getItemNameVal(a).localeCompare(getItemNameVal(b), undefined, { numeric: true });
+      }
+      return 0;
+    });
+    return copy;
+  }
 
   function ensureDossierDom() {
     if (document.getElementById('cmt-dossier-modal-overlay')) return;
@@ -2229,6 +2310,16 @@
             '<p class="cmt-dossier-subtitle" id="cmt-dos-sub"></p>' +
           '</div>' +
           '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
+            '<div class="cmt-dos-sort-wrap" title="' + (t('lmDossierSortLabel', 'Sort:') || 'Sort:') + '">' +
+              '<span class="cmt-dos-sort-label">' + (t('lmDossierSortLabel', 'Sort:') || 'Sort:') + '</span>' +
+              '<select id="cmt-dos-sort-select" class="cmt-dos-select">' +
+                '<option value="date-desc"' + (_dossierSortOrder === 'date-desc' ? ' selected' : '') + '>' + (t('lmDossierSortDateDesc', 'Date (Newest first)') || 'Date (Newest first)') + '</option>' +
+                '<option value="date-asc"' + (_dossierSortOrder === 'date-asc' ? ' selected' : '') + '>' + (t('lmDossierSortDateAsc', 'Date (Oldest first)') || 'Date (Oldest first)') + '</option>' +
+                '<option value="name-asc"' + (_dossierSortOrder === 'name-asc' ? ' selected' : '') + '>' + (t('lmDossierSortNameAsc', 'Name (A → Z)') || 'Name (A → Z)') + '</option>' +
+                '<option value="name-desc"' + (_dossierSortOrder === 'name-desc' ? ' selected' : '') + '>' + (t('lmDossierSortNameDesc', 'Name (Z → A)') || 'Name (Z → A)') + '</option>' +
+                '<option value="activity"' + (_dossierSortOrder === 'activity' ? ' selected' : '') + '>' + (t('lmDossierSortActivity', 'Activity / Type') || 'Activity / Type') + '</option>' +
+              '</select>' +
+            '</div>' +
             '<button type="button" class="cmt-lm-btn primary" id="cmt-dos-btn-export-pdf" style="background:#5b8fcc;color:#fff;font-weight:800;" title="' + (t('lmDossierPdfExportBtn', '[EXPORT PDF]') || '[EXPORT PDF]') + '"><img src="' + printIconSrc + '" class="btn-icon" alt="" style="width:12px;height:12px;vertical-align:-1px;margin-right:4px;" />' + (t('lmDossierPdfExportBtn', '[EXPORT PDF]') || '[EXPORT PDF]') + '</button>' +
             '<button type="button" class="cmt-lm-btn" id="cmt-dos-btn-toggle-all">[COLLAPSE ALL]</button>' +
             '<button type="button" class="cmt-lm-btn" id="cmt-dos-btn-maximize">[MAXIMIZE]</button>' +
@@ -2247,6 +2338,19 @@
     overlay.addEventListener('click', function(e) {
       if (e.target === overlay) closeStudentDossier();
     });
+
+    var sortSelect = document.getElementById('cmt-dos-sort-select');
+    if (sortSelect) {
+      sortSelect.addEventListener('change', function() {
+        _dossierSortOrder = this.value || 'date-desc';
+        try {
+          if (typeof localStorage !== 'undefined') localStorage.setItem('cmt_dossier_sort', _dossierSortOrder);
+        } catch (e) {}
+        if (_currentDossierData) {
+          renderDossierBody(_currentDossierData, _dossierSortOrder);
+        }
+      });
+    }
 
     document.getElementById('cmt-dos-btn-export-pdf').addEventListener('click', function() {
       if (_currentDossierData) {
@@ -2660,6 +2764,10 @@
       work: !!(document.getElementById('cmt-dos-pdf-chk-docs') && document.getElementById('cmt-dos-pdf-chk-docs').checked),
       mindmaps: !!(document.getElementById('cmt-dos-pdf-chk-mindmaps') && document.getElementById('cmt-dos-pdf-chk-mindmaps').checked),
       mindmapMode: mmModeVal,
+      participation: !!(document.getElementById('cmt-dos-pdf-chk-participation') && document.getElementById('cmt-dos-pdf-chk-participation').checked),
+      includePtSummary: !!(document.getElementById('cmt-dos-pdf-chk-pt-summary') && document.getElementById('cmt-dos-pdf-chk-pt-summary').checked),
+      includePtSessions: !!(document.getElementById('cmt-dos-pdf-chk-pt-sessions') && document.getElementById('cmt-dos-pdf-chk-pt-sessions').checked),
+      includePtNotes: !!(document.getElementById('cmt-dos-pdf-chk-pt-notes') && document.getElementById('cmt-dos-pdf-chk-pt-notes').checked),
       teacherRemarks: !!(document.getElementById('cmt-dos-pdf-chk-remarks') && document.getElementById('cmt-dos-pdf-chk-remarks').checked),
       remarksText: remarksTa ? remarksTa.value : '',
       signatureBlock: !!(document.getElementById('cmt-dos-pdf-chk-signatures') && document.getElementById('cmt-dos-pdf-chk-signatures').checked),
@@ -2670,7 +2778,9 @@
       selectedComps: getSelectedCheckValues('cmt-dos-comps-list'),
       selectedLessons: getSelectedCheckValues('cmt-dos-lessons-list'),
       selectedDocs: getSelectedCheckValues('cmt-dos-docs-list'),
-      selectedBoards: getSelectedCheckValues('cmt-dos-mindmaps-list')
+      selectedBoards: getSelectedCheckValues('cmt-dos-mindmaps-list'),
+      selectedPtSessions: getSelectedCheckValues('cmt-dos-pt-sessions-list'),
+      sortOrder: (document.getElementById('cmt-dos-pdf-sort-select') || {}).value || _dossierSortOrder || 'date-desc'
     };
   }
 
@@ -2780,6 +2890,8 @@
     var lessons = dossier.lessons || [];
     var docs = dossier.documents || [];
     var boards = dossier.boards || [];
+    var pt = dossier.participationSummary || {};
+    var ptSessions = pt.sessions || [];
 
     var overlay = document.getElementById('cmt-dossier-pdf-modal-overlay');
     var sidebarEl = document.getElementById('cmt-dos-pdf-sidebar');
@@ -2815,6 +2927,16 @@
         '<button type="button" class="cmt-dos-preset-btn" data-preset="transcript">' + (t('lmDossierPresetTranscript', 'Official Transcript') || 'Official Transcript') + '</button>' +
         '<button type="button" class="cmt-dos-preset-btn" data-preset="evals">' + (t('lmDossierPresetEvals', 'Evaluations & Feedback') || 'Evaluations & Feedback') + '</button>' +
         '<button type="button" class="cmt-dos-preset-btn" data-preset="summary">' + (t('lmDossierPresetSummary', 'Executive Summary') || 'Executive Summary') + '</button>' +
+        '<div style="margin-left:auto;display:inline-flex;align-items:center;gap:4px;">' +
+          '<span style="font-size:0.68rem;font-weight:800;color:#333;text-transform:uppercase;">' + (t('lmDossierSortLabel', 'Sort:') || 'Sort:') + '</span>' +
+          '<select id="cmt-dos-pdf-sort-select" class="cmt-dos-select" style="padding:2px 5px;font-size:0.72rem;">' +
+            '<option value="date-desc"' + (_dossierSortOrder === 'date-desc' ? ' selected' : '') + '>' + (t('lmDossierSortDateDesc', 'Date (Newest first)') || 'Date (Newest first)') + '</option>' +
+            '<option value="date-asc"' + (_dossierSortOrder === 'date-asc' ? ' selected' : '') + '>' + (t('lmDossierSortDateAsc', 'Date (Oldest first)') || 'Date (Oldest first)') + '</option>' +
+            '<option value="name-asc"' + (_dossierSortOrder === 'name-asc' ? ' selected' : '') + '>' + (t('lmDossierSortNameAsc', 'Name (A → Z)') || 'Name (A → Z)') + '</option>' +
+            '<option value="name-desc"' + (_dossierSortOrder === 'name-desc' ? ' selected' : '') + '>' + (t('lmDossierSortNameDesc', 'Name (Z → A)') || 'Name (Z → A)') + '</option>' +
+            '<option value="activity"' + (_dossierSortOrder === 'activity' ? ' selected' : '') + '>' + (t('lmDossierSortActivity', 'Activity / Type') || 'Activity / Type') + '</option>' +
+          '</select>' +
+        '</div>' +
       '</div>' +
 
       '<!-- Section 1: Student Profile -->' +
@@ -2969,7 +3091,36 @@
         '</div>' +
       '</div>' +
 
-      '<!-- Section 8: Overall Remarks -->' +
+      '<!-- Section 8: Participation & Engagement -->' +
+      '<div class="cmt-dos-pdf-sec">' +
+        '<div class="cmt-dos-pdf-sec-hdr">' +
+          '<label class="cmt-dos-pdf-check-label">' +
+            '<input type="checkbox" id="cmt-dos-pdf-chk-participation" checked />' +
+            '<span>' + (t('lmDossierPdfSecParticipation', 'Participation & Classroom Engagement') || 'Participation & Classroom Engagement') + ' <span class="cmt-lm-badge" style="background:#059669;color:#fff;font-size:0.62rem;">' + ptSessions.length + '</span></span>' +
+          '</label>' +
+          '<span class="cmt-dossier-sec-chevron" style="font-size:0.7rem;">▼</span>' +
+        '</div>' +
+        '<div class="cmt-dos-pdf-sub-options" id="cmt-dos-pt-sub">' +
+          '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:4px;">' +
+            '<label class="cmt-dos-pdf-check-label" style="font-weight:600;"><input type="checkbox" id="cmt-dos-pdf-chk-pt-summary" checked /> ' + (t('lmDossierPdfOptPtSummary', 'Include Attendance & Engagement Overview') || 'Include Attendance & Engagement Overview') + '</label>' +
+            '<label class="cmt-dos-pdf-check-label" style="font-weight:600;"><input type="checkbox" id="cmt-dos-pdf-chk-pt-notes" checked /> ' + (t('lmDossierPdfOptPtNotes', 'Include Teacher Observation Notes') || 'Include Teacher Observation Notes') + '</label>' +
+            '<label class="cmt-dos-pdf-check-label" style="font-weight:600;"><input type="checkbox" id="cmt-dos-pdf-chk-pt-sessions" checked /> ' + (t('lmDossierPdfOptPtSessions', 'Include Session-by-Session Timeline') || 'Include Session-by-Session Timeline') + '</label>' +
+          '</div>' +
+          '<input type="text" class="cmt-dos-filter-input" id="cmt-dos-filter-pt" placeholder="' + (t('lmDossierFilterPtSessions', 'Filter participation sessions...') || 'Filter participation sessions...') + '" />' +
+          '<div class="cmt-dos-item-list" id="cmt-dos-pt-sessions-list">' +
+            (ptSessions.length ? ptSessions.map(function(ps, idx) {
+              var psId = ps.id || ('pt_' + idx);
+              var psTitle = (ps.date || 'Session ' + (idx + 1)) + (ps.time ? ' ' + ps.time : '') + (ps.isAbsent ? ' [ABSENT]' : (' (Net: ' + (ps.netChange >= 0 ? '+' : '') + ps.netChange + ')'));
+              return '<label class="cmt-dos-item-row" data-search="' + esc(psTitle.toLowerCase()) + '">' +
+                '<input type="checkbox" value="' + esc(psId) + '" checked />' +
+                '<span>' + esc(psTitle) + '</span>' +
+              '</label>';
+            }).join('') : '<div style="font-size:0.72rem;color:#888;padding:4px;">' + esc(t('lmNoPtSessionsStudent', 'No participation records found')) + '</div>') +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+
+      '<!-- Section 9: Overall Remarks -->' +
       '<div class="cmt-dos-pdf-sec">' +
         '<label class="cmt-dos-pdf-check-label">' +
           '<input type="checkbox" id="cmt-dos-pdf-chk-remarks" />' +
@@ -2980,7 +3131,7 @@
         '</div>' +
       '</div>' +
 
-      '<!-- Section 9: Signature Block -->' +
+      '<!-- Section 10: Signature Block -->' +
       '<div class="cmt-dos-pdf-sec">' +
         '<label class="cmt-dos-pdf-check-label">' +
           '<input type="checkbox" id="cmt-dos-pdf-chk-signatures" />' +
@@ -2988,7 +3139,7 @@
         '</label>' +
       '</div>' +
 
-      '<!-- Section 10: Page Format, Orientation & Font Scale -->' +
+      '<!-- Section 11: Page Format, Orientation & Font Scale -->' +
       '<div class="cmt-dos-pdf-sec">' +
         '<div class="cmt-dos-pdf-grid-options">' +
           '<div>' +
@@ -3063,9 +3214,21 @@
     setupListFilter('cmt-dos-filter-comps', 'cmt-dos-comps-list');
     setupListFilter('cmt-dos-filter-lessons', 'cmt-dos-lessons-list');
     setupListFilter('cmt-dos-filter-docs', 'cmt-dos-docs-list');
+    setupListFilter('cmt-dos-filter-pt', 'cmt-dos-pt-sessions-list');
 
-    // Attach change listeners to all checkboxes & radios for live preview sync
-    sidebarEl.querySelectorAll('input[type="checkbox"], input[type="radio"]').forEach(function(inp) {
+    // Toggle participation suboptions
+    var chkPt = document.getElementById('cmt-dos-pdf-chk-participation');
+    var ptSub = document.getElementById('cmt-dos-pt-sub');
+    if (chkPt && ptSub) {
+      chkPt.addEventListener('change', function() {
+        ptSub.style.opacity = chkPt.checked ? '1' : '0.4';
+        ptSub.style.pointerEvents = chkPt.checked ? 'auto' : 'none';
+        queueDossierPreviewUpdate();
+      });
+    }
+
+    // Attach change listeners to all checkboxes, radios & selects for live preview sync
+    sidebarEl.querySelectorAll('input[type="checkbox"], input[type="radio"], select').forEach(function(inp) {
       inp.addEventListener('change', queueDossierPreviewUpdate);
     });
 
@@ -3082,7 +3245,7 @@
         }
 
         if (preset === 'full') {
-          ['profile', 'averages', 'evals', 'comps', 'lessons', 'docs', 'mindmaps', 'criteria', 'notes'].forEach(function(k) { setCheck('cmt-dos-pdf-chk-' + k, true); });
+          ['profile', 'averages', 'evals', 'comps', 'lessons', 'docs', 'mindmaps', 'participation', 'pt-summary', 'pt-sessions', 'pt-notes', 'criteria', 'notes'].forEach(function(k) { setCheck('cmt-dos-pdf-chk-' + k, true); });
           setCheck('cmt-dos-pdf-chk-remarks', false);
           setCheck('cmt-dos-pdf-chk-signatures', false);
         } else if (preset === 'transcript') {
@@ -3095,6 +3258,10 @@
           setCheck('cmt-dos-pdf-chk-lessons', false);
           setCheck('cmt-dos-pdf-chk-docs', false);
           setCheck('cmt-dos-pdf-chk-mindmaps', false);
+          setCheck('cmt-dos-pdf-chk-participation', true);
+          setCheck('cmt-dos-pdf-chk-pt-summary', true);
+          setCheck('cmt-dos-pdf-chk-pt-sessions', false);
+          setCheck('cmt-dos-pdf-chk-pt-notes', false);
           setCheck('cmt-dos-pdf-chk-remarks', true);
           setCheck('cmt-dos-pdf-chk-signatures', true);
         } else if (preset === 'evals') {
@@ -3107,6 +3274,10 @@
           setCheck('cmt-dos-pdf-chk-lessons', false);
           setCheck('cmt-dos-pdf-chk-docs', false);
           setCheck('cmt-dos-pdf-chk-mindmaps', false);
+          setCheck('cmt-dos-pdf-chk-participation', true);
+          setCheck('cmt-dos-pdf-chk-pt-summary', true);
+          setCheck('cmt-dos-pdf-chk-pt-sessions', false);
+          setCheck('cmt-dos-pdf-chk-pt-notes', true);
           setCheck('cmt-dos-pdf-chk-remarks', true);
           setCheck('cmt-dos-pdf-chk-signatures', false);
         } else if (preset === 'summary') {
@@ -3117,6 +3288,10 @@
           setCheck('cmt-dos-pdf-chk-lessons', false);
           setCheck('cmt-dos-pdf-chk-docs', false);
           setCheck('cmt-dos-pdf-chk-mindmaps', false);
+          setCheck('cmt-dos-pdf-chk-participation', true);
+          setCheck('cmt-dos-pdf-chk-pt-summary', true);
+          setCheck('cmt-dos-pdf-chk-pt-sessions', false);
+          setCheck('cmt-dos-pdf-chk-pt-notes', false);
           setCheck('cmt-dos-pdf-chk-remarks', true);
           setCheck('cmt-dos-pdf-chk-signatures', true);
         }
@@ -3192,6 +3367,8 @@
     var lessons = (dossier && dossier.lessons) || [];
     var docs = (dossier && dossier.documents) || [];
     var boards = (dossier && dossier.boards) || [];
+    var pt = (dossier && dossier.participationSummary) || {};
+    var ptSessions = (pt && pt.sessions) || [];
 
     function esc(s) {
       if (s == null) return '';
@@ -3282,6 +3459,21 @@
       var bdId = bd.urn || ('board_' + idx);
       return !selectedBoardsSet || selectedBoardsSet.has(bdId);
     });
+
+    var selectedPtSessionsSet = options.selectedPtSessions ? new Set(options.selectedPtSessions) : null;
+    var filteredPtSessions = ptSessions.filter(function(ps, idx) {
+      var psId = ps.id || ('pt_' + idx);
+      return !selectedPtSessionsSet || selectedPtSessionsSet.has(psId);
+    });
+
+    // Apply Sorting to Exported Sections
+    var exportSortOrder = options.sortOrder || _dossierSortOrder || 'date-desc';
+    filteredEvals = sortDossierItemList(filteredEvals, exportSortOrder);
+    filteredComps = sortDossierItemList(filteredComps, exportSortOrder);
+    filteredLessons = sortDossierItemList(filteredLessons, exportSortOrder);
+    filteredDocs = sortDossierItemList(filteredDocs, exportSortOrder);
+    filteredBoards = sortDossierItemList(filteredBoards, exportSortOrder);
+    filteredPtSessions = sortDossierItemList(filteredPtSessions, exportSortOrder);
 
     var dateStr = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
     var pageSize = options.pageSize === 'Letter' ? 'letter' : 'A4';
@@ -3527,6 +3719,53 @@
       '  font-size: 7pt;\n' +
       '  font-weight: 700;\n' +
       '  color: #1e40af;\n' +
+      '}\n' +
+      '.pdf-pt-grid {\n' +
+      '  display: flex;\n' +
+      '  flex-wrap: wrap;\n' +
+      '  gap: 8px;\n' +
+      '  margin-bottom: 6px;\n' +
+      '}\n' +
+      '.pdf-pt-card {\n' +
+      '  background: #fafaf9;\n' +
+      '  border: 1.2px solid #333333;\n' +
+      '  border-radius: 4px;\n' +
+      '  padding: 4px 8px;\n' +
+      '  display: flex;\n' +
+      '  flex-direction: column;\n' +
+      '  gap: 2px;\n' +
+      '  min-width: 100px;\n' +
+      '  flex: 1 1 auto;\n' +
+      '}\n' +
+      '.pdf-pt-card-label {\n' +
+      '  font-size: 6.8pt;\n' +
+      '  font-weight: 800;\n' +
+      '  color: #666666;\n' +
+      '  text-transform: uppercase;\n' +
+      '}\n' +
+      '.pdf-pt-card-val {\n' +
+      '  font-size: 8.8pt;\n' +
+      '  font-weight: 900;\n' +
+      '  color: #111111;\n' +
+      '}\n' +
+      '.pdf-pt-table {\n' +
+      '  width: 100%;\n' +
+      '  border-collapse: collapse;\n' +
+      '  font-size: 7.5pt;\n' +
+      '  margin-top: 6px;\n' +
+      '}\n' +
+      '.pdf-pt-table th {\n' +
+      '  background: #fafaf9;\n' +
+      '  border: 1px solid #333333;\n' +
+      '  padding: 4px 6px;\n' +
+      '  text-align: left;\n' +
+      '  font-weight: 800;\n' +
+      '  text-transform: uppercase;\n' +
+      '}\n' +
+      '.pdf-pt-table td {\n' +
+      '  border: 1px solid #e2e8f0;\n' +
+      '  padding: 4px 6px;\n' +
+      '  vertical-align: middle;\n' +
       '}\n' +
       '.pdf-remarks-box {\n' +
       '  margin-bottom: 12px;\n' +
@@ -3838,6 +4077,95 @@
           html += '</div>';
         });
       }
+      html += '</div></div>';
+    }
+
+    // 8. Participation & Classroom Engagement Section
+    if (options.participation !== false && (pt.totalSessions > 0 || filteredPtSessions.length > 0)) {
+      html +=
+        '<div class="pdf-section">' +
+          '<div class="pdf-sec-hdr">' +
+            '<span>6. ' + esc(t('lmDossierPdfSecParticipation', 'PARTICIPATION & CLASSROOM ENGAGEMENT') || 'PARTICIPATION & CLASSROOM ENGAGEMENT') + '</span>' +
+            '<span class="pdf-sec-count">' + filteredPtSessions.length + '</span>' +
+          '</div>' +
+          '<div class="pdf-sec-list">';
+
+      if (options.includePtSummary !== false) {
+        var trendSymbol = pt.trend === 'up' ? '↑ ' + (t('lmDossierTrendImproving', 'Improving') || 'Improving') :
+                         (pt.trend === 'down' ? '↓ ' + (t('lmDossierTrendDeclining', 'Declining') || 'Declining') :
+                         '→ ' + (t('lmDossierTrendStable', 'Stable') || 'Stable'));
+        var trendColor = pt.trend === 'up' ? '#166534' : (pt.trend === 'down' ? '#991b1b' : '#334155');
+
+        html +=
+          '<div class="pdf-pt-grid">' +
+            '<div class="pdf-pt-card">' +
+              '<span class="pdf-pt-card-label">' + esc(t('lmDossierAttendanceRate', 'Attendance') || 'Attendance') + '</span>' +
+              '<span class="pdf-pt-card-val">' + pt.attendanceRate + '% <span style="font-size:7pt;font-weight:700;color:#666;">(' + pt.attendedSessions + '/' + pt.totalSessions + ')</span></span>' +
+            '</div>' +
+            '<div class="pdf-pt-card">' +
+              '<span class="pdf-pt-card-label">' + esc(t('lmDossierNetScore', 'Net Score') || 'Net Score') + '</span>' +
+              '<span class="pdf-pt-card-val" style="color:' + (pt.netScore >= 0 ? '#166534' : '#991b1b') + ';">' + (pt.netScore >= 0 ? '+' : '') + pt.netScore + ' pts</span>' +
+            '</div>' +
+            '<div class="pdf-pt-card">' +
+              '<span class="pdf-pt-card-label">' + esc(t('lmDossierTrend', 'Trend') || 'Trend') + '</span>' +
+              '<span class="pdf-pt-card-val" style="color:' + trendColor + ';font-size:8.5pt;">' + esc(trendSymbol) + '</span>' +
+            '</div>' +
+            (pt.provisionalGrade !== null ?
+              ('<div class="pdf-pt-card">' +
+                '<span class="pdf-pt-card-label">' + esc(t('lmDossierProvisionalGrade', 'Provisional Grade') || 'Provisional Grade') + '</span>' +
+                '<span class="pdf-pt-card-val">' + pt.provisionalGrade + '</span>' +
+              '</div>') : '') +
+            '<div class="pdf-pt-card">' +
+              '<span class="pdf-pt-card-label">' + esc(t('lmDossierPicks', 'Random Picks') || 'Random Picks') + '</span>' +
+              '<span class="pdf-pt-card-val">' + pt.picksCount + '</span>' +
+            '</div>' +
+          '</div>';
+      }
+
+      if (options.includePtNotes !== false && pt.notes && pt.notes.length > 0) {
+        html += '<div class="pdf-item-notes" style="margin-bottom:6px;">💬 <b>' + esc(t('lmDossierFeedback', 'Teacher Feedback:') || 'Teacher Feedback:') + '</b> ' + esc(pt.notes.join(' • ')) + '</div>';
+      }
+
+      if (options.includePtSessions !== false && filteredPtSessions.length > 0) {
+        html +=
+          '<table class="pdf-pt-table">' +
+            '<thead>' +
+              '<tr>' +
+                '<th>' + esc(t('lblDate', 'Date') || 'Date') + '</th>' +
+                '<th>' + esc(t('lmDossierAttendanceRate', 'Status') || 'Status') + '</th>' +
+                '<th>' + esc(t('lmDossierNetScore', 'Score Delta') || 'Score Delta') + '</th>' +
+                '<th>' + esc(t('tcEvaluationRubricTable', 'Details & Feedback') || 'Details & Feedback') + '</th>' +
+              '</tr>' +
+            '</thead>' +
+            '<tbody>';
+
+        filteredPtSessions.forEach(function(ps) {
+          var deltaColor = ps.isAbsent ? '#64748b' : (ps.netChange >= 0 ? '#166534' : '#991b1b');
+          var deltaText = ps.isAbsent ? '—' : ((ps.netChange >= 0 ? '+' : '') + ps.netChange);
+          var statusText = ps.isAbsent ? 'Absent' : (ps.isPicked ? 'Attended (Picked)' : 'Attended');
+          var detailsParts = [];
+          if (ps.pluses > 0 || ps.minuses > 0) {
+            detailsParts.push('+' + ps.pluses + ' / -' + ps.minuses);
+          }
+          if (ps.badges && ps.badges.length > 0) {
+            var bNames = ps.badges.map(function(b) { return b.label || b.name || b.icon || ''; }).filter(Boolean);
+            if (bNames.length > 0) detailsParts.push('[' + bNames.join(', ') + ']');
+          }
+          if (ps.notes) {
+            detailsParts.push('💬 ' + ps.notes);
+          }
+          html +=
+            '<tr>' +
+              '<td style="font-weight:700;">' + esc(ps.date) + (ps.time ? (' ' + esc(ps.time)) : '') + '</td>' +
+              '<td>' + esc(statusText) + '</td>' +
+              '<td style="font-weight:900;color:' + deltaColor + ';">' + esc(deltaText) + '</td>' +
+              '<td>' + esc(detailsParts.join(' • ') || '—') + '</td>' +
+            '</tr>';
+        });
+
+        html += '</tbody></table>';
+      }
+
       html += '</div></div>';
     }
 
@@ -4168,39 +4496,32 @@
     }
   }
 
-  async function openStudentDossier(studentId, opts) {
-    if (!studentId) return;
-    ensureDossierDom();
-    var cleanId = String(studentId).replace(/^cmt:student:/, '');
-    _activeDossierUrn = 'cmt:student:' + cleanId;
-
-    var overlay = document.getElementById('cmt-dossier-modal-overlay');
-    var nameEl = document.getElementById('cmt-dos-name');
-    var subEl = document.getElementById('cmt-dos-sub');
+  function renderDossierBody(dossier, sortOrder) {
     var bodyEl = document.getElementById('cmt-dos-body');
+    if (!bodyEl || !dossier || !dossier.student) return;
 
-    overlay.classList.add('open');
-    if (document.body) document.body.classList.add('cmt-modal-open');
-    bodyEl.innerHTML = '<div class="cmt-lm-empty">' + t('lmLoading', 'Loading 360° academic dossier...') + '</div>';
-
-    var dossier = null;
-    if (window.LinksService && typeof window.LinksService.getStudentAcademicDossier === 'function') {
-      dossier = await window.LinksService.getStudentAcademicDossier(cleanId);
-    }
-    _currentDossierData = dossier;
-
-    if (!dossier || !dossier.student) {
-      bodyEl.innerHTML = '<div class="cmt-lm-empty">' + t('lmNoDossierData', 'Could not load student dossier.') + '</div>';
-      return;
-    }
-
+    var order = sortOrder || _dossierSortOrder || 'date-desc';
     var st = dossier.student;
-    nameEl.textContent = st.name;
-    var subParts = [];
-    if (st.className) subParts.push((t('lmClass', 'Class') || 'Class') + ': ' + st.className);
-    if (st.level) subParts.push((t('lmLevel', 'Level') || 'Level') + ': ' + st.level.toUpperCase());
-    if (st.id) subParts.push('ID: ' + st.id);
-    subEl.textContent = subParts.join(' • ');
+    var pt = dossier.participationSummary || {};
+    var rawPtSessions = pt.sessions || [];
+
+    // Sort copies of each section
+    var sortedEvals = sortDossierItemList(dossier.evaluations || [], order);
+    var sortedComps = sortDossierItemList(dossier.competences || [], order);
+    var sortedLessons = sortDossierItemList(dossier.lessons || [], order);
+    var allWork = [].concat(dossier.documents || [], dossier.boards || []);
+    var sortedWork = sortDossierItemList(allWork, order);
+    var sortedPtSessions = sortDossierItemList(rawPtSessions, order);
+
+    function esc(s) {
+      if (s == null) return '';
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
 
     var iconSrc = getLinksIconPath();
 
@@ -4214,20 +4535,24 @@
     var html =
       '<div class="cmt-dossier-metrics">' +
         '<div class="cmt-dossier-metric-card">' +
-          '<span class="cmt-dossier-metric-num tests">' + dossier.evaluations.length + '</span>' +
+          '<span class="cmt-dossier-metric-num tests">' + (dossier.evaluations ? dossier.evaluations.length : 0) + '</span>' +
           '<span class="cmt-dossier-metric-label">' + t('lmDossierStatsTests', 'Evaluations & Tests') + '</span>' +
         '</div>' +
         '<div class="cmt-dossier-metric-card">' +
-          '<span class="cmt-dossier-metric-num comps">' + dossier.competences.length + '</span>' +
+          '<span class="cmt-dossier-metric-num comps">' + (dossier.competences ? dossier.competences.length : 0) + '</span>' +
           '<span class="cmt-dossier-metric-label">' + t('lmDossierStatsComps', 'Assessed Competences') + '</span>' +
         '</div>' +
         '<div class="cmt-dossier-metric-card">' +
-          '<span class="cmt-dossier-metric-num lessons">' + dossier.lessons.length + '</span>' +
+          '<span class="cmt-dossier-metric-num lessons">' + (dossier.lessons ? dossier.lessons.length : 0) + '</span>' +
           '<span class="cmt-dossier-metric-label">' + t('lmDossierStatsLessons', 'Delivered Lessons') + '</span>' +
         '</div>' +
         '<div class="cmt-dossier-metric-card">' +
-          '<span class="cmt-dossier-metric-num docs">' + (dossier.documents.length + dossier.boards.length) + '</span>' +
+          '<span class="cmt-dossier-metric-num docs">' + allWork.length + '</span>' +
           '<span class="cmt-dossier-metric-label">' + t('lmDossierStatsDocs', 'Work, Files & Mindmaps') + '</span>' +
+        '</div>' +
+        '<div class="cmt-dossier-metric-card">' +
+          '<span class="cmt-dossier-metric-num pt" style="color:' + (pt.netScore >= 0 ? '#166534' : '#991b1b') + ';">' + (pt.netScore > 0 ? '+' : '') + (pt.netScore || 0) + '<span style="font-size:0.85rem;margin-left:2px;font-weight:700;">pts</span></span>' +
+          '<span class="cmt-dossier-metric-label">' + t('lmDossierStatsParticipation', 'Participation & Engagement') + '</span>' +
         '</div>' +
       '</div>';
 
@@ -4297,7 +4622,7 @@
       '<div class="cmt-dossier-sec">' +
         '<div class="cmt-dossier-sec-hdr">' +
           '<span class="cmt-dossier-sec-title"><span class="cmt-dossier-sec-chevron">▼</span> <img src="' + iconSrc + '" class="cmt-lm-inline-icon" alt="" /> ' + (t('lmDossierAssessedComps', '1. EVALUATIONS & TESTS') || '1. EVALUATIONS & TESTS') + '</span>' +
-          '<span class="cmt-dossier-sec-count">' + dossier.evaluations.length + '</span>' +
+          '<span class="cmt-dossier-sec-count">' + sortedEvals.length + '</span>' +
         '</div>';
 
     if (hasAverages) {
@@ -4326,12 +4651,12 @@
     }
 
     html += '<div class="cmt-dossier-sec-list">';
-    if (!dossier.evaluations.length) {
+    if (!sortedEvals.length) {
       html += '<div class="cmt-lm-empty" style="padding:6px 0;">' + t('lmNoEvalsStudent', 'No evaluations recorded for this student.') + '</div>';
     } else {
       var isSub = typeof window !== 'undefined' && window.location.pathname.includes('/pages/');
       var gsIcon = (isSub ? '../' : '') + 'assets/icons/grade-sheet.svg';
-      dossier.evaluations.forEach(function(evItem) {
+      sortedEvals.forEach(function(evItem) {
         var isGsTest = evItem.type === 'gradesheet' || evItem.source === 'gradesheet' || (evItem.score !== undefined);
         var scoreVal = evItem.score;
         var maxScore = evItem.maxScore;
@@ -4390,13 +4715,13 @@
       '<div class="cmt-dossier-sec">' +
         '<div class="cmt-dossier-sec-hdr">' +
           '<span class="cmt-dossier-sec-title"><span class="cmt-dossier-sec-chevron">▼</span> <img src="' + iconSrc + '" class="cmt-lm-inline-icon" alt="" /> ' + t('lmGroupCompetences', '2. CURRICULUM COMPETENCES & RUBRICS') + '</span>' +
-          '<span class="cmt-dossier-sec-count">' + dossier.competences.length + '</span>' +
+          '<span class="cmt-dossier-sec-count">' + sortedComps.length + '</span>' +
         '</div>' +
         '<div class="cmt-dossier-sec-list">';
-    if (!dossier.competences.length) {
+    if (!sortedComps.length) {
       html += '<div class="cmt-lm-empty" style="padding:6px 0;">' + t('lmNoCompsStudent', 'No curriculum competences linked yet.') + '</div>';
     } else {
-      dossier.competences.forEach(function(cpItem) {
+      sortedComps.forEach(function(cpItem) {
         html +=
           '<div class="cmt-dossier-item">' +
             '<div class="cmt-dossier-item-info">' +
@@ -4419,13 +4744,13 @@
       '<div class="cmt-dossier-sec">' +
         '<div class="cmt-dossier-sec-hdr">' +
           '<span class="cmt-dossier-sec-title"><span class="cmt-dossier-sec-chevron">▼</span> <img src="' + iconSrc + '" class="cmt-lm-inline-icon" alt="" /> ' + t('lmDossierDeliveredLessons', '3. DELIVERED LESSON PLANS & TIMETABLE') + '</span>' +
-          '<span class="cmt-dossier-sec-count">' + dossier.lessons.length + '</span>' +
+          '<span class="cmt-dossier-sec-count">' + sortedLessons.length + '</span>' +
         '</div>' +
         '<div class="cmt-dossier-sec-list">';
-    if (!dossier.lessons.length) {
+    if (!sortedLessons.length) {
       html += '<div class="cmt-lm-empty" style="padding:6px 0;">' + t('lmNoLessonsStudent', 'No lesson plans linked to cohort.') + '</div>';
     } else {
-      dossier.lessons.forEach(function(lsItem) {
+      sortedLessons.forEach(function(lsItem) {
         html +=
           '<div class="cmt-dossier-item">' +
             '<div class="cmt-dossier-item-info">' +
@@ -4444,18 +4769,17 @@
     html += '</div></div>';
 
     // Section 4: Work, Documents & Mindmaps
-    var allWork = [].concat(dossier.documents, dossier.boards);
     html +=
       '<div class="cmt-dossier-sec">' +
         '<div class="cmt-dossier-sec-hdr">' +
           '<span class="cmt-dossier-sec-title"><span class="cmt-dossier-sec-chevron">▼</span> <img src="' + iconSrc + '" class="cmt-lm-inline-icon" alt="" /> ' + t('lmDossierLinkedDocs', '4. DOCUMENTS, ATTACHMENTS & MINDMAPS') + '</span>' +
-          '<span class="cmt-dossier-sec-count">' + allWork.length + '</span>' +
+          '<span class="cmt-dossier-sec-count">' + sortedWork.length + '</span>' +
         '</div>' +
         '<div class="cmt-dossier-sec-list">';
-    if (!allWork.length) {
+    if (!sortedWork.length) {
       html += '<div class="cmt-lm-empty" style="padding:6px 0;">' + t('lmNoDocsStudent', 'No individual documents, work, or mindmaps attached.') + '</div>';
     } else {
-      allWork.forEach(function(docItem) {
+      sortedWork.forEach(function(docItem) {
         var isFile = docItem.type === 'file' || (docItem.urn && docItem.urn.startsWith('cmt:file:'));
         html +=
           '<div class="cmt-dossier-item">' +
@@ -4469,6 +4793,88 @@
             '<div class="cmt-dossier-item-actions">' +
               (isFile ? '<button type="button" class="cmt-lm-btn cmt-dos-btn-prev" data-urn="' + docItem.urn + '" data-title="' + (docItem.title || '') + '">' + t('lmPreview', '[PREVIEW]') + '</button>' : '') +
               '<button type="button" class="cmt-lm-btn primary cmt-dos-btn-open" data-urn="' + docItem.urn + '">' + t('lmOpen', '[OPEN]') + '</button>' +
+            '</div>' +
+          '</div>';
+      });
+    }
+    html += '</div></div>';
+
+    // Section 5: Participation & Classroom Engagement
+    var isSubPage = typeof window !== 'undefined' && window.location.pathname.includes('/pages/');
+    var ptIcon = (isSubPage ? '../' : '') + 'assets/icons/participation-tracker.svg';
+    var hasPtData = pt.totalSessions > 0 || sortedPtSessions.length > 0;
+    var trendSymbol = pt.trend === 'up' ? '↑ ' + (t('lmDossierTrendImproving', 'Improving') || 'Improving') :
+                     (pt.trend === 'down' ? '↓ ' + (t('lmDossierTrendDeclining', 'Declining') || 'Declining') :
+                     '→ ' + (t('lmDossierTrendStable', 'Stable') || 'Stable'));
+    var trendClass = pt.trend === 'up' ? 'green' : (pt.trend === 'down' ? 'red' : 'neutral');
+
+    html +=
+      '<div class="cmt-dossier-sec">' +
+        '<div class="cmt-dossier-sec-hdr">' +
+          '<span class="cmt-dossier-sec-title"><span class="cmt-dossier-sec-chevron">▼</span> <img src="' + ptIcon + '" class="cmt-lm-inline-icon" alt="" /> ' + (t('lmDossierSecParticipation', '5. PARTICIPATION & CLASSROOM ENGAGEMENT') || '5. PARTICIPATION & CLASSROOM ENGAGEMENT') + '</span>' +
+          '<span class="cmt-dossier-sec-count">' + sortedPtSessions.length + '</span>' +
+        '</div>';
+
+    if (hasPtData) {
+      html +=
+        '<div class="cmt-dossier-perf-bar">' +
+          '<div class="cmt-dossier-perf-item">' +
+            '<span class="cmt-dossier-perf-label">' + (t('lmDossierAttendanceRate', 'Attendance') || 'Attendance') + ':</span>' +
+            '<span class="cmt-dossier-grade-pill neutral">' + pt.attendanceRate + '%</span>' +
+          '</div>' +
+          '<div class="cmt-dossier-perf-item">' +
+            '<span class="cmt-dossier-perf-label">' + (t('lmDossierNetScore', 'Net Score') || 'Net Score') + ':</span>' +
+            '<span class="cmt-dossier-grade-pill ' + (pt.netScore >= 0 ? 'green' : 'red') + '">' + (pt.netScore >= 0 ? '+' : '') + pt.netScore + ' pts</span>' +
+          '</div>' +
+          '<div class="cmt-dossier-perf-item">' +
+            '<span class="cmt-dossier-perf-label">' + (t('lmDossierTrend', 'Trend') || 'Trend') + ':</span>' +
+            '<span class="cmt-dossier-grade-pill ' + trendClass + '">' + esc(trendSymbol) + '</span>' +
+          '</div>' +
+          (pt.provisionalGrade !== null ?
+            ('<div class="cmt-dossier-perf-item" style="border-color:#333;background:#fafaf9;">' +
+              '<span class="cmt-dossier-perf-label" style="font-weight:900;color:#111;">' + (t('lmDossierProvisionalGrade', 'Prov. Grade') || 'Prov. Grade') + ':</span>' +
+              '<span class="cmt-dossier-grade-pill ' + getGradePillClass(pt.provisionalGrade, 6) + '">' + pt.provisionalGrade + '</span>' +
+            '</div>') : '') +
+          (pt.picksCount > 0 ?
+            ('<div class="cmt-dossier-perf-item">' +
+              '<span class="cmt-dossier-perf-label">' + (t('lmDossierPicks', 'Picks') || 'Picks') + ':</span>' +
+              '<span class="cmt-dossier-coeff-pill">' + pt.picksCount + '</span>' +
+            '</div>') : '') +
+          '<div class="cmt-dossier-perf-item" style="margin-left:auto;background:none;border:none;box-shadow:none;">' +
+            '<button type="button" class="cmt-lm-btn primary cmt-dos-btn-open-pt" data-group="' + esc(st.classId || '') + '" data-student="' + esc(st.name || '') + '" title="' + (t('lmDossierOpenInPt', 'Open in Participation Tracker') || 'Open in Participation Tracker') + '">' +
+              '<img src="' + ptIcon + '" class="btn-icon" alt="" style="width:11px;height:11px;vertical-align:-1px;margin-right:3px;" />' +
+              (t('lmDossierOpenInPt', 'Open in Participation Tracker') || 'Open in Participation Tracker') +
+            '</button>' +
+          '</div>' +
+        '</div>';
+    }
+
+    html += '<div class="cmt-dossier-sec-list">';
+    if (!hasPtData) {
+      html += '<div class="cmt-lm-empty" style="padding:6px 0;">' + t('lmNoPtSessionsStudent', 'No participation records found for this student.') + '</div>';
+    } else {
+      if (pt.notes && pt.notes.length > 0) {
+        html += '<div class="cmt-dossier-item" style="background:#fffbeb;border:1.5px dashed #d97706;margin-bottom:6px;"><div class="cmt-dossier-item-info"><span style="font-size:0.75rem;font-weight:800;color:#92400e;">💬 ' + (t('lmDossierFeedback', 'Teacher Feedback:') || 'Teacher Feedback:') + '</span><span class="cmt-dossier-item-sub" style="color:#78350f;margin-top:2px;">' + esc(pt.notes.join(' • ')) + '</span></div></div>';
+      }
+
+      sortedPtSessions.forEach(function(ps) {
+        var deltaBadge = ps.isAbsent ? '<span class="cmt-dossier-override-pill" style="background:#f1f5f9;border-color:#94a3b8;color:#475569;">ABSENT</span>' :
+                                      ('<span class="cmt-dossier-grade-pill ' + (ps.netChange >= 0 ? 'green' : 'red') + '">' + (ps.netChange >= 0 ? '+' : '') + ps.netChange + ' pts</span>');
+        var bChips = (ps.badges || []).map(function(b) {
+          return '<span class="cmt-dossier-crit-chip">' + esc(b.label || b.name || b.icon || '') + '</span>';
+        }).join('');
+
+        html +=
+          '<div class="cmt-dossier-item">' +
+            '<div class="cmt-dossier-item-info">' +
+              '<div class="cmt-dossier-item-top">' +
+                '<span class="cmt-lm-badge" style="background:#059669;color:#fff;">[SESSION]</span>' +
+                '<span class="cmt-dossier-item-title">' + esc(ps.date) + (ps.time ? (' • ' + esc(ps.time)) : '') + '</span>' +
+                deltaBadge +
+                (ps.isPicked ? '<span class="cmt-dossier-coeff-pill">[PICKED]</span>' : '') +
+              '</div>' +
+              (ps.notes ? ('<div class="cmt-dossier-item-notes"><span>💬 ' + esc(ps.notes) + '</span></div>') : '') +
+              (bChips ? ('<div class="cmt-dossier-item-criteria" style="margin-top:3px;">' + bChips + '</div>') : '') +
             '</div>' +
           '</div>';
       });
@@ -4508,6 +4914,23 @@
       });
     });
 
+    // Attach click listener for opening participation tracker
+    bodyEl.querySelectorAll('.cmt-dos-btn-open-pt').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var targetGroup = btn.getAttribute('data-group') || '';
+        var targetStudent = btn.getAttribute('data-student') || '';
+        if (window.Desktop && typeof window.Desktop.openTool === 'function') {
+          window.Desktop.openTool('participation-tracker.html', { query: { group: targetGroup, student: targetStudent } });
+        } else if (window.electronApi && typeof window.electronApi.openTool === 'function') {
+          window.electronApi.openTool({ pageFile: 'participation-tracker.html', query: { group: targetGroup, student: targetStudent } });
+        } else {
+          var isSub = typeof window !== 'undefined' && window.location.pathname.includes('/pages/');
+          var relTarget = (isSub ? '' : 'pages/') + 'participation-tracker.html?group=' + encodeURIComponent(targetGroup) + '&student=' + encodeURIComponent(targetStudent);
+          window.open(relTarget, '_blank');
+        }
+      });
+    });
+
     bodyEl.querySelectorAll('.cmt-dos-btn-prev').forEach(function(btn) {
       btn.addEventListener('click', function() {
         var targetUrn = btn.getAttribute('data-urn');
@@ -4515,6 +4938,48 @@
         previewFile(targetUrn, pTitle);
       });
     });
+  }
+
+  async function openStudentDossier(studentId, opts) {
+    if (!studentId) return;
+    ensureDossierDom();
+    var cleanId = String(studentId).replace(/^cmt:student:/, '');
+    _activeDossierUrn = 'cmt:student:' + cleanId;
+
+    var overlay = document.getElementById('cmt-dossier-modal-overlay');
+    var nameEl = document.getElementById('cmt-dos-name');
+    var subEl = document.getElementById('cmt-dos-sub');
+    var bodyEl = document.getElementById('cmt-dos-body');
+
+    overlay.classList.add('open');
+    if (document.body) document.body.classList.add('cmt-modal-open');
+    bodyEl.innerHTML = '<div class="cmt-lm-empty">' + t('lmLoading', 'Loading 360° academic dossier...') + '</div>';
+
+    var dossier = null;
+    if (window.LinksService && typeof window.LinksService.getStudentAcademicDossier === 'function') {
+      dossier = await window.LinksService.getStudentAcademicDossier(cleanId);
+    }
+    _currentDossierData = dossier;
+
+    if (!dossier || !dossier.student) {
+      bodyEl.innerHTML = '<div class="cmt-lm-empty">' + t('lmNoDossierData', 'Could not load student dossier.') + '</div>';
+      return;
+    }
+
+    var st = dossier.student;
+    nameEl.textContent = st.name;
+    var subParts = [];
+    if (st.className) subParts.push((t('lmClass', 'Class') || 'Class') + ': ' + st.className);
+    if (st.level) subParts.push((t('lmLevel', 'Level') || 'Level') + ': ' + st.level.toUpperCase());
+    if (st.id) subParts.push('ID: ' + st.id);
+    subEl.textContent = subParts.join(' • ');
+
+    var sortSelect = document.getElementById('cmt-dos-sort-select');
+    if (sortSelect) {
+      sortSelect.value = _dossierSortOrder;
+    }
+
+    renderDossierBody(dossier, _dossierSortOrder);
   }
 
   function closeStudentDossier() {
