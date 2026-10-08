@@ -803,6 +803,146 @@
       gap: 8px;
     }
     .dropdown-item:hover { background: #000; color: #fff; }
+
+    /* ── Export Options Modal (Neobrutalist) ────────── */
+    .sm-export-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 9200;
+      align-items: center;
+      justify-content: center;
+    }
+    .sm-export-modal-overlay.open { display: flex; }
+    .sm-export-modal-box {
+      background: #f5f5f0;
+      border: 2.5px solid #333333;
+      border-radius: 10px;
+      box-shadow: 4px 4px 0 #555555;
+      padding: 24px;
+      max-width: 520px;
+      width: 92%;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow-y: auto;
+    }
+    .sm-export-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 2px solid #333333;
+      padding-bottom: 10px;
+    }
+    .sm-export-modal-title {
+      font-size: 1.08rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #222222;
+    }
+    .sm-export-format-badge {
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border: 1.5px solid #333333;
+      border-radius: 4px;
+      background: #e2c96e;
+      color: #111111;
+      box-shadow: 1.5px 1.5px 0 #555555;
+    }
+    .sm-export-presets-bar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .sm-export-preset-btn {
+      flex: 1;
+      min-width: 130px;
+      padding: 8px 10px;
+      background: #ffffff;
+      border: 2px solid #333333;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #222222;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      box-shadow: 2px 2px 0 #555555;
+      transition: background 0.12s, color 0.12s, transform 0.12s, box-shadow 0.12s;
+    }
+    .sm-export-preset-btn:hover {
+      background: #222222;
+      color: #ffffff;
+      transform: translate(-1px, -1px);
+      box-shadow: 3px 3px 0 #555555;
+    }
+    .sm-export-preset-btn:hover .btn-icon {
+      filter: brightness(0) invert(1);
+    }
+    .sm-export-preset-btn.active {
+      background: #222222;
+      color: #ffffff;
+      border-color: #222222;
+      box-shadow: 2px 2px 0 #888888;
+    }
+    .sm-export-preset-btn.active .btn-icon {
+      filter: brightness(0) invert(1);
+    }
+    .sm-export-sections-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .sm-export-section-card {
+      background: #ffffff;
+      border: 2px solid #333333;
+      border-radius: 6px;
+      padding: 12px;
+      box-shadow: 2px 2px 0 #555555;
+    }
+    .sm-export-section-header {
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: #555555;
+      margin-bottom: 8px;
+    }
+    .sm-export-options-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 12px;
+    }
+    @media (max-width: 500px) {
+      .sm-export-options-grid { grid-template-columns: 1fr; }
+    }
+    .sm-export-checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      color: #222222;
+      user-select: none;
+    }
+    .sm-export-checkbox-label input[type=checkbox] {
+      cursor: pointer;
+      width: 15px;
+      height: 15px;
+      accent-color: #222222;
+    }
   </style>
 </head>
 <body>
@@ -1074,6 +1214,100 @@
         <button type="button" class="sm-group-modal-cancel-btn" onclick="closeGroupModal()" data-i18n="btnCancel">Cancel</button>
         <button type="button" id="sm-auto-generate-btn" class="sm-group-modal-create-btn" onclick="confirmAutoGenerateGroups()" data-i18n="smAutoGenerateBtn">Generate Groups</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Export Options Modal ── -->
+<div id="sm-export-modal" class="sm-export-modal-overlay" onclick="closeExportModal(event)">
+  <div class="sm-export-modal-box" onclick="event.stopPropagation()">
+    <div class="sm-export-modal-header">
+      <div class="sm-export-modal-title">
+        <img src="../assets/icons/export.svg" class="btn-icon" alt="" />
+        <span data-i18n="smExportModalTitle">Export Options</span>
+      </div>
+      <span id="sm-export-target-badge" class="sm-export-format-badge">PDF</span>
+    </div>
+
+    <div>
+      <div class="sm-export-section-header" data-i18n="smExportPresetLabel">Quick Presets</div>
+      <div class="sm-export-presets-bar">
+        <button type="button" class="sm-export-preset-btn active" id="sm-preset-examiner" onclick="applySmExportPreset('examiner')">
+          <img src="../assets/icons/oral-marking.svg" class="btn-icon" alt="" />
+          <span data-i18n="smExportPresetExaminer">Examiner Copy</span>
+        </button>
+        <button type="button" class="sm-export-preset-btn" id="sm-preset-student" onclick="applySmExportPreset('student')">
+          <img src="../assets/icons/file-text.svg" class="btn-icon" alt="" />
+          <span data-i18n="smExportPresetStudent">Student Noticeboard</span>
+        </button>
+        <button type="button" class="sm-export-preset-btn" id="sm-preset-custom" onclick="applySmExportPreset('custom')">
+          <img src="../assets/icons/gear.svg" class="btn-icon" alt="" />
+          <span data-i18n="smExportPresetCustom">Custom</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="sm-export-sections-grid">
+      <!-- Columns section -->
+      <div class="sm-export-section-card">
+        <div class="sm-export-section-header" data-i18n="smExportOptColumns">Columns & Indicators</div>
+        <div class="sm-export-options-grid">
+          <label class="sm-export-checkbox-label">
+            <input type="checkbox" id="sm-exp-opt-num" onchange="onSmExportOptionChange()">
+            <span data-i18n="smExportOptNum">Slot Number (#)</span>
+          </label>
+          <label class="sm-export-checkbox-label">
+            <input type="checkbox" id="sm-exp-opt-sen" onchange="onSmExportOptionChange()">
+            <span data-i18n="smExportOptSen">SEN Indicators & Badges</span>
+          </label>
+          <label class="sm-export-checkbox-label">
+            <input type="checkbox" id="sm-exp-opt-prep" onchange="onSmExportOptionChange()">
+            <span data-i18n="smExportOptPrep">Preparation Start Time</span>
+          </label>
+          <label class="sm-export-checkbox-label">
+            <input type="checkbox" id="sm-exp-opt-exam-end" onchange="onSmExportOptionChange()">
+            <span data-i18n="smExportOptExamEnd">Exam End Time</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Rows & Warnings section -->
+      <div class="sm-export-section-card">
+        <div class="sm-export-section-header" data-i18n="smExportOptRows">Rows & Warnings</div>
+        <div class="sm-export-options-grid">
+          <label class="sm-export-checkbox-label">
+            <input type="checkbox" id="sm-exp-opt-breaks" onchange="onSmExportOptionChange()">
+            <span data-i18n="smExportOptBreaks">Include Break Rows</span>
+          </label>
+          <label class="sm-export-checkbox-label">
+            <input type="checkbox" id="sm-exp-opt-gaps" onchange="onSmExportOptionChange()">
+            <span data-i18n="smExportOptGaps">Include Gap / Examiner Wait Warnings</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Headers & Summary section -->
+      <div class="sm-export-section-card">
+        <div class="sm-export-section-header" data-i18n="smExportOptMetaSection">Headers & Summary</div>
+        <div class="sm-export-options-grid">
+          <label class="sm-export-checkbox-label">
+            <input type="checkbox" id="sm-exp-opt-meta" onchange="onSmExportOptionChange()">
+            <span data-i18n="smExportOptMetadata">Header Info Box (Title, Room, Date)</span>
+          </label>
+          <label class="sm-export-checkbox-label">
+            <input type="checkbox" id="sm-exp-opt-footer" onchange="onSmExportOptionChange()">
+            <span data-i18n="smExportOptFooter">Schedule Duration Summary (Footer)</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="sm-group-modal-footer">
+      <button type="button" class="sm-group-modal-cancel-btn" onclick="closeExportModal()" data-i18n="btnCancel">Cancel</button>
+      <button type="button" id="sm-export-confirm-btn" class="sm-group-modal-create-btn" onclick="confirmSmExport()">
+        <img src="../assets/icons/export.svg" class="btn-icon" alt="" />
+        <span data-i18n="smBtnConfirmExport">Export File</span>
+      </button>
     </div>
   </div>
 </div>
@@ -2111,6 +2345,155 @@
   }
 
   // ── Export / Print dropdown ──────────────────────────────
+  // ── Export / Print dropdown & Options Modal ──────────────
+  const SM_EXPORT_STORAGE_KEY = 'cmt-sm-export-options';
+  let smExportConfig = {
+    showNum: true,
+    showSen: true,
+    showPrep: true,
+    showExamEnd: true,
+    showBreaks: true,
+    showGaps: true,
+    showMetadata: true,
+    showFooter: true
+  };
+
+  function loadSmExportConfig() {
+    try {
+      const saved = localStorage.getItem(SM_EXPORT_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') {
+          smExportConfig = Object.assign({}, smExportConfig, parsed);
+        }
+      }
+    } catch (e) {}
+  }
+  loadSmExportConfig();
+
+  function saveSmExportConfig() {
+    try {
+      localStorage.setItem(SM_EXPORT_STORAGE_KEY, JSON.stringify(smExportConfig));
+    } catch (e) {}
+  }
+
+  let smActiveExportFormat = 'pdf';
+
+  function openExportModal(format) {
+    smActiveExportFormat = format || 'pdf';
+    const modal = document.getElementById('sm-export-modal');
+    if (!modal) return;
+
+    const badge = document.getElementById('sm-export-target-badge');
+    if (badge) {
+      badge.textContent = (format || 'PDF').toUpperCase();
+    }
+
+    const confirmBtn = document.getElementById('sm-export-confirm-btn');
+    if (confirmBtn) {
+      const btnText = typeof t === 'function' ? t('smBtnConfirmExport') : 'Export File';
+      confirmBtn.innerHTML = '<img src="../assets/icons/export.svg" class="btn-icon" alt="" /> <span>' + btnText + ' (' + (format || 'PDF').toUpperCase() + ')</span>';
+    }
+
+    document.getElementById('sm-exp-opt-num').checked = !!smExportConfig.showNum;
+    document.getElementById('sm-exp-opt-sen').checked = !!smExportConfig.showSen;
+    document.getElementById('sm-exp-opt-prep').checked = !!smExportConfig.showPrep;
+    document.getElementById('sm-exp-opt-exam-end').checked = !!smExportConfig.showExamEnd;
+    document.getElementById('sm-exp-opt-breaks').checked = !!smExportConfig.showBreaks;
+    document.getElementById('sm-exp-opt-gaps').checked = !!smExportConfig.showGaps;
+    document.getElementById('sm-exp-opt-meta').checked = !!smExportConfig.showMetadata;
+    document.getElementById('sm-exp-opt-footer').checked = !!smExportConfig.showFooter;
+
+    updateSmPresetButtonsState();
+    modal.classList.add('open');
+  }
+
+  function closeExportModal(e) {
+    if (e && e.target !== document.getElementById('sm-export-modal')) return;
+    const modal = document.getElementById('sm-export-modal');
+    if (modal) modal.classList.remove('open');
+  }
+
+  function updateSmPresetButtonsState() {
+    const isExaminer = smExportConfig.showNum && smExportConfig.showSen && smExportConfig.showPrep &&
+                       smExportConfig.showExamEnd && smExportConfig.showBreaks && smExportConfig.showGaps &&
+                       smExportConfig.showMetadata && smExportConfig.showFooter;
+    const isStudent = smExportConfig.showNum && !smExportConfig.showSen && smExportConfig.showPrep &&
+                      smExportConfig.showExamEnd && smExportConfig.showBreaks && !smExportConfig.showGaps &&
+                      smExportConfig.showMetadata && !smExportConfig.showFooter;
+
+    const btnEx = document.getElementById('sm-preset-examiner');
+    const btnSt = document.getElementById('sm-preset-student');
+    const btnCust = document.getElementById('sm-preset-custom');
+
+    if (btnEx) btnEx.classList.toggle('active', isExaminer);
+    if (btnSt) btnSt.classList.toggle('active', isStudent);
+    if (btnCust) btnCust.classList.toggle('active', !isExaminer && !isStudent);
+  }
+
+  function applySmExportPreset(presetType) {
+    if (presetType === 'examiner') {
+      smExportConfig = {
+        showNum: true,
+        showSen: true,
+        showPrep: true,
+        showExamEnd: true,
+        showBreaks: true,
+        showGaps: true,
+        showMetadata: true,
+        showFooter: true
+      };
+    } else if (presetType === 'student') {
+      smExportConfig = {
+        showNum: true,
+        showSen: false,
+        showPrep: true,
+        showExamEnd: true,
+        showBreaks: true,
+        showGaps: false,
+        showMetadata: true,
+        showFooter: false
+      };
+    }
+    document.getElementById('sm-exp-opt-num').checked = !!smExportConfig.showNum;
+    document.getElementById('sm-exp-opt-sen').checked = !!smExportConfig.showSen;
+    document.getElementById('sm-exp-opt-prep').checked = !!smExportConfig.showPrep;
+    document.getElementById('sm-exp-opt-exam-end').checked = !!smExportConfig.showExamEnd;
+    document.getElementById('sm-exp-opt-breaks').checked = !!smExportConfig.showBreaks;
+    document.getElementById('sm-exp-opt-gaps').checked = !!smExportConfig.showGaps;
+    document.getElementById('sm-exp-opt-meta').checked = !!smExportConfig.showMetadata;
+    document.getElementById('sm-exp-opt-footer').checked = !!smExportConfig.showFooter;
+
+    saveSmExportConfig();
+    updateSmPresetButtonsState();
+  }
+
+  function onSmExportOptionChange() {
+    smExportConfig.showNum = document.getElementById('sm-exp-opt-num').checked;
+    smExportConfig.showSen = document.getElementById('sm-exp-opt-sen').checked;
+    smExportConfig.showPrep = document.getElementById('sm-exp-opt-prep').checked;
+    smExportConfig.showExamEnd = document.getElementById('sm-exp-opt-exam-end').checked;
+    smExportConfig.showBreaks = document.getElementById('sm-exp-opt-breaks').checked;
+    smExportConfig.showGaps = document.getElementById('sm-exp-opt-gaps').checked;
+    smExportConfig.showMetadata = document.getElementById('sm-exp-opt-meta').checked;
+    smExportConfig.showFooter = document.getElementById('sm-exp-opt-footer').checked;
+
+    saveSmExportConfig();
+    updateSmPresetButtonsState();
+  }
+
+  function confirmSmExport() {
+    const modal = document.getElementById('sm-export-modal');
+    if (modal) modal.classList.remove('open');
+
+    const fmt = smActiveExportFormat || 'pdf';
+    if (fmt === 'pdf') exportPdf(smExportConfig);
+    else if (fmt === 'csv') exportCsv(smExportConfig);
+    else if (fmt === 'xlsx') exportXlsx(smExportConfig);
+    else if (fmt === 'docx') exportDocx(smExportConfig);
+    else if (fmt === 'html') exportHtml(smExportConfig);
+  }
+
   function toggleExportMenu(e) {
     if (e) e.stopPropagation();
     const menu = document.getElementById('sm-export-menu');
@@ -2119,11 +2502,7 @@
 
   function handleExportClick(type) {
     toggleExportMenu();
-    if (type === 'pdf') exportPdf();
-    else if (type === 'csv') exportCsv();
-    else if (type === 'xlsx') exportXlsx();
-    else if (type === 'docx') exportDocx();
-    else if (type === 'html') exportHtml();
+    openExportModal(type);
   }
 
   async function downloadExportFile(filename, content, mimeType) {
@@ -2191,7 +2570,8 @@
     };
   }
 
-  function generatePrintableHtml(isContentEditable) {
+  function generatePrintableHtml(isContentEditable, opts) {
+    opts = Object.assign({}, smExportConfig, opts || {});
     const title   = document.getElementById('sm-exam-title').value.trim() || (typeof t === 'function' ? t('smTitle') : 'Schedule');
     const subject = document.getElementById('sm-subject').value.trim();
     const teacher = document.getElementById('sm-teacher').value.trim();
@@ -2205,6 +2585,15 @@
 
     const esc = s => String(s || '').replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 
+    const columns = [];
+    if (opts.showNum) columns.push({ name: '#', width: '50px', class: 'sm-col-num' });
+    columns.push({ name: typeof t === 'function' ? t('smColName') : 'Student', width: '', class: 'sm-col-student' });
+    if (opts.showSen) columns.push({ name: typeof t === 'function' ? t('smColSen') : 'SEN', width: '60px', class: 'sm-col-sen' });
+    if (opts.showPrep) columns.push({ name: typeof t === 'function' ? t('smColPrepStart') : 'Prep starts', width: '110px', class: 'sm-col-time' });
+    columns.push({ name: typeof t === 'function' ? t('smColExamStart') : 'Exam starts', width: '110px', class: 'sm-col-time' });
+    if (opts.showExamEnd) columns.push({ name: typeof t === 'function' ? t('smColExamEnd') : 'Exam ends', width: '110px', class: 'sm-col-time' });
+
+    const totalCols = columns.length || 1;
     let rowsHtml = '';
     const rows = computeSchedule();
     const senLabel = typeof t === 'function' ? t('smColSen') : 'SEN';
@@ -2213,64 +2602,61 @@
 
     rows.forEach(row => {
       if (row.type === 'gap') {
-        rowsHtml += `<tr class="sm-gap-tr"><td colspan="6">[${esc(gapLabel)}] (${row.duration} min)</td></tr>`;
+        if (opts.showGaps) {
+          rowsHtml += `<tr class="sm-gap-tr"><td colspan="${totalCols}">[${esc(gapLabel)}] (${row.duration} min)</td></tr>`;
+        }
         return;
       }
       if (row.type === 'break') {
-        rowsHtml += `<tr class="sm-break-tr"><td colspan="6">— ${esc(breakLabel)} ${minutesToTime(row.start)} &rarr; ${minutesToTime(row.start + row.duration)} (${row.duration} min) —</td></tr>`;
+        if (opts.showBreaks) {
+          rowsHtml += `<tr class="sm-break-tr"><td colspan="${totalCols}">— ${esc(breakLabel)} ${minutesToTime(row.start)} &rarr; ${minutesToTime(row.start + row.duration)} (${row.duration} min) —</td></tr>`;
+        }
         return;
       }
       if (row.type === 'group') {
-        rowsHtml += `
-          <tr class="sm-group-tr">
-            <td class="sm-col-num">${row.num}</td>
-            <td class="sm-col-student sm-group-names-cell">
-              <strong>${esc(row.label)}</strong><br>
-              <span style="font-weight:600;font-size:0.82rem;">${(row.members || []).map(esc).join(', ')}</span>
-            </td>
-            <td class="sm-col-sen">${row.sen ? `<span class="sm-sen-badge">${esc(senLabel)}</span>` : ''}</td>
-            <td class="sm-col-time">${minutesToTime(row.prepStart)}</td>
-            <td class="sm-col-time">${minutesToTime(row.examStart)}</td>
-            <td class="sm-col-time">${minutesToTime(row.examEnd)}</td>
-          </tr>
+        let cells = '';
+        if (opts.showNum) cells += `<td class="sm-col-num">${row.num}</td>`;
+        cells += `
+          <td class="sm-col-student sm-group-names-cell">
+            <strong>${esc(row.label)}</strong><br>
+            <span style="font-weight:600;font-size:0.82rem;">${(row.members || []).map(esc).join(', ')}</span>
+          </td>
         `;
+        if (opts.showSen) cells += `<td class="sm-col-sen">${row.sen ? `<span class="sm-sen-badge">${esc(senLabel)}</span>` : ''}</td>`;
+        if (opts.showPrep) cells += `<td class="sm-col-time">${minutesToTime(row.prepStart)}</td>`;
+        cells += `<td class="sm-col-time">${minutesToTime(row.examStart)}</td>`;
+        if (opts.showExamEnd) cells += `<td class="sm-col-time">${minutesToTime(row.examEnd)}</td>`;
+
+        rowsHtml += `<tr class="sm-group-tr">${cells}</tr>`;
         return;
       }
-      rowsHtml += `
-        <tr>
-          <td class="sm-col-num">${row.num}</td>
-          <td class="sm-col-student">${esc(row.name)}</td>
-          <td class="sm-col-sen">${row.sen ? `<span class="sm-sen-badge">${esc(senLabel)}</span>` : ''}</td>
-          <td class="sm-col-time">${minutesToTime(row.prepStart)}</td>
-          <td class="sm-col-time">${minutesToTime(row.examStart)}</td>
-          <td class="sm-col-time">${minutesToTime(row.examEnd)}</td>
-        </tr>
-      `;
+      let cells = '';
+      if (opts.showNum) cells += `<td class="sm-col-num">${row.num}</td>`;
+      cells += `<td class="sm-col-student">${esc(row.name)}</td>`;
+      if (opts.showSen) cells += `<td class="sm-col-sen">${row.sen ? `<span class="sm-sen-badge">${esc(senLabel)}</span>` : ''}</td>`;
+      if (opts.showPrep) cells += `<td class="sm-col-time">${minutesToTime(row.prepStart)}</td>`;
+      cells += `<td class="sm-col-time">${minutesToTime(row.examStart)}</td>`;
+      if (opts.showExamEnd) cells += `<td class="sm-col-time">${minutesToTime(row.examEnd)}</td>`;
+
+      rowsHtml += `<tr>${cells}</tr>`;
     });
 
     if (rows.length === 0) {
       const noScheduleText = typeof t === 'function' ? t('smNoScheduleGenerated') : 'No schedule generated.';
-      rowsHtml = `<tr><td colspan="6" style="text-align:center;color:#64748b;padding:24px;">${esc(noScheduleText)}</td></tr>`;
+      rowsHtml = `<tr><td colspan="${totalCols}" style="text-align:center;color:#64748b;padding:24px;">${esc(noScheduleText)}</td></tr>`;
     }
 
     const metaItems = [];
-    if (subject) metaItems.push(`<div class="meta-item"><span class="meta-label">${typeof t === 'function' ? t('smLabelSubject') : 'Subject'}:</span> <span class="meta-val">${esc(subject)}</span></div>`);
-    if (teacher) metaItems.push(`<div class="meta-item"><span class="meta-label">${typeof t === 'function' ? t('smLabelTeacher') : 'Teacher'}:</span> <span class="meta-val">${esc(teacher)}</span></div>`);
-    if (room)    metaItems.push(`<div class="meta-item"><span class="meta-label">${typeof t === 'function' ? t('smLabelRoom') : 'Room'}:</span> <span class="meta-val">${esc(room)}</span></div>`);
-    if (date)    metaItems.push(`<div class="meta-item"><span class="meta-label">${typeof t === 'function' ? t('smLabelDate') : 'Date'}:</span> <span class="meta-val">${esc(date)}</span></div>`);
-    if (group)   metaItems.push(`<div class="meta-item"><span class="meta-label">${typeof t === 'function' ? t('smLabelGroup') : 'Group'}:</span> <span class="meta-val">${esc(group)}</span></div>`);
+    if (opts.showMetadata) {
+      if (subject) metaItems.push(`<div class="meta-item"><span class="meta-label">${typeof t === 'function' ? t('smLabelSubject') : 'Subject'}:</span> <span class="meta-val">${esc(subject)}</span></div>`);
+      if (teacher) metaItems.push(`<div class="meta-item"><span class="meta-label">${typeof t === 'function' ? t('smLabelTeacher') : 'Teacher'}:</span> <span class="meta-val">${esc(teacher)}</span></div>`);
+      if (room)    metaItems.push(`<div class="meta-item"><span class="meta-label">${typeof t === 'function' ? t('smLabelRoom') : 'Room'}:</span> <span class="meta-val">${esc(room)}</span></div>`);
+      if (date)    metaItems.push(`<div class="meta-item"><span class="meta-label">${typeof t === 'function' ? t('smLabelDate') : 'Date'}:</span> <span class="meta-val">${esc(date)}</span></div>`);
+      if (group)   metaItems.push(`<div class="meta-item"><span class="meta-label">${typeof t === 'function' ? t('smLabelGroup') : 'Group'}:</span> <span class="meta-val">${esc(group)}</span></div>`);
+    }
 
     const metaHtml = metaItems.length ? `<div class="meta-box">${metaItems.join('')}</div>` : '';
-    const footerHtml = metaText ? `<div class="schedule-footer">${esc(metaText)}</div>` : '';
-
-    const columns = [
-      { name: '#', width: '50px', class: 'sm-col-num' },
-      { name: typeof t === 'function' ? t('smColName') : 'Student', width: '', class: 'sm-col-student' },
-      { name: senLabel, width: '60px', class: 'sm-col-sen' },
-      { name: typeof t === 'function' ? t('smColPrepStart') : 'Prep starts', width: '110px', class: 'sm-col-time' },
-      { name: typeof t === 'function' ? t('smColExamStart') : 'Exam starts', width: '110px', class: 'sm-col-time' },
-      { name: typeof t === 'function' ? t('smColExamEnd') : 'Exam ends', width: '110px', class: 'sm-col-time' }
-    ];
+    const footerHtml = (opts.showFooter && metaText) ? `<div class="schedule-footer">${esc(metaText)}</div>` : '';
 
     const colGroup = columns.map((col, i) => `<col data-col="${i}"${col.width ? ` style="width:${col.width}"` : ''}>`).join('');
     const headerCells = columns.map((col, i) => `<th class="${col.class}"><span class="th-wrap">${esc(col.name)}<span class="col-resizer" data-col="${i}"></span></span></th>`).join('');
@@ -2370,7 +2756,8 @@
 </html>`;
   }
 
-  async function exportPdf() {
+  async function exportPdf(opts) {
+    opts = Object.assign({}, smExportConfig, opts || {});
     if (orderItems.filter(i => (i.type === 'student' || i.type === 'group') && !i.excluded).length === 0) {
       showNotice(typeof t === 'function' ? t('smNothingToExport') : 'Nothing to export.', true);
       return;
@@ -2381,7 +2768,7 @@
     const safeTitle = title.toLowerCase().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]/g, '_');
     const defaultName = `schedule_${safeTitle}_${stamp}.pdf`;
 
-    const html = generatePrintableHtml(false);
+    const html = generatePrintableHtml(false, opts);
     const pdfSettings = getPdfExportSettings();
 
     if (window.Desktop && Desktop.isElectron() && typeof Desktop.printPdf === 'function') {
@@ -2407,7 +2794,8 @@
     }
   }
 
-  function exportCsv() {
+  function exportCsv(opts) {
+    opts = Object.assign({}, smExportConfig, opts || {});
     if (orderItems.filter(i => (i.type === 'student' || i.type === 'group') && !i.excluded).length === 0) {
       showNotice(typeof t === 'function' ? t('smNothingToExport') : 'Nothing to export.', true);
       return;
@@ -2444,30 +2832,62 @@
     const rows = [];
 
     // Metadata header block
-    if (title)   rows.push([labelTitle,   title].map(esc).join(','));
-    if (subject) rows.push([labelSubject, subject].map(esc).join(','));
-    if (teacher) rows.push([labelTeacher, teacher].map(esc).join(','));
-    if (room)    rows.push([labelRoom,    room].map(esc).join(','));
-    if (date)    rows.push([labelDate,    date].map(esc).join(','));
-    if (group)   rows.push([labelGroup,   group].map(esc).join(','));
-    if (rows.length) rows.push('');  // blank separator
+    if (opts.showMetadata) {
+      if (title)   rows.push([labelTitle,   title].map(esc).join(','));
+      if (subject) rows.push([labelSubject, subject].map(esc).join(','));
+      if (teacher) rows.push([labelTeacher, teacher].map(esc).join(','));
+      if (room)    rows.push([labelRoom,    room].map(esc).join(','));
+      if (date)    rows.push([labelDate,    date].map(esc).join(','));
+      if (group)   rows.push([labelGroup,   group].map(esc).join(','));
+      if (rows.length) rows.push('');  // blank separator
+    }
 
     // Column headers
-    rows.push(['#', colStudent, senLabel, colPrepStart, colExamStart, colExamEnd].map(esc).join(','));
+    const colHeaders = [];
+    if (opts.showNum) colHeaders.push('#');
+    colHeaders.push(colStudent);
+    if (opts.showSen) colHeaders.push(senLabel);
+    if (opts.showPrep) colHeaders.push(colPrepStart);
+    colHeaders.push(colExamStart);
+    if (opts.showExamEnd) colHeaders.push(colExamEnd);
+
+    rows.push(colHeaders.map(esc).join(','));
 
     // Data rows
     const schedule = computeSchedule();
     schedule.forEach(row => {
       if (row.type === 'gap') return;
       if (row.type === 'break') {
-        rows.push(['', `— ${breakLabel} —`, '', minutesToTime(row.start), minutesToTime(row.start + row.duration), '(' + row.duration + ' min)'].map(esc).join(','));
+        if (!opts.showBreaks) return;
+        const breakCells = [];
+        if (opts.showNum) breakCells.push('');
+        breakCells.push(`— ${breakLabel} —`);
+        if (opts.showSen) breakCells.push('');
+        if (opts.showPrep) breakCells.push(minutesToTime(row.start));
+        breakCells.push(minutesToTime(row.start + row.duration));
+        if (opts.showExamEnd) breakCells.push('(' + row.duration + ' min)');
+        rows.push(breakCells.map(esc).join(','));
         return;
       }
       if (row.type === 'group') {
-        rows.push([row.num, `[${row.label}] ${(row.members || []).join('; ')}`, row.sen ? senLabel : '', minutesToTime(row.prepStart), minutesToTime(row.examStart), minutesToTime(row.examEnd)].map(esc).join(','));
+        const groupCells = [];
+        if (opts.showNum) groupCells.push(row.num);
+        groupCells.push(`[${row.label}] ${(row.members || []).join('; ')}`);
+        if (opts.showSen) groupCells.push(row.sen ? senLabel : '');
+        if (opts.showPrep) groupCells.push(minutesToTime(row.prepStart));
+        groupCells.push(minutesToTime(row.examStart));
+        if (opts.showExamEnd) groupCells.push(minutesToTime(row.examEnd));
+        rows.push(groupCells.map(esc).join(','));
         return;
       }
-      rows.push([row.num, row.name, row.sen ? senLabel : '', minutesToTime(row.prepStart), minutesToTime(row.examStart), minutesToTime(row.examEnd)].map(esc).join(','));
+      const studentCells = [];
+      if (opts.showNum) studentCells.push(row.num);
+      studentCells.push(row.name);
+      if (opts.showSen) studentCells.push(row.sen ? senLabel : '');
+      if (opts.showPrep) studentCells.push(minutesToTime(row.prepStart));
+      studentCells.push(minutesToTime(row.examStart));
+      if (opts.showExamEnd) studentCells.push(minutesToTime(row.examEnd));
+      rows.push(studentCells.map(esc).join(','));
     });
 
     const stamp = date || new Date().toISOString().slice(0, 10);
@@ -2475,7 +2895,8 @@
     downloadExportFile('schedule-' + stamp + '.csv', content, 'text/csv');
   }
 
-  function exportXlsx() {
+  function exportXlsx(opts) {
+    opts = Object.assign({}, smExportConfig, opts || {});
     if (orderItems.filter(i => (i.type === 'student' || i.type === 'group') && !i.excluded).length === 0) {
       showNotice(typeof t === 'function' ? t('smNothingToExport') : 'Nothing to export.', true);
       return;
@@ -2504,33 +2925,69 @@
     const colExamEnd   = typeof t === 'function' ? t('smColExamEnd') : 'Exam ends';
 
     const aoa = [];
-    if (title)   aoa.push([labelTitle, title]);
-    if (subject) aoa.push([labelSubject, subject]);
-    if (teacher) aoa.push([labelTeacher, teacher]);
-    if (room)    aoa.push([labelRoom, room]);
-    if (date)    aoa.push([labelDate, date]);
-    if (group)   aoa.push([labelGroup, group]);
-    if (aoa.length) aoa.push([]); // Empty row separator
+    if (opts.showMetadata) {
+      if (title)   aoa.push([labelTitle, title]);
+      if (subject) aoa.push([labelSubject, subject]);
+      if (teacher) aoa.push([labelTeacher, teacher]);
+      if (room)    aoa.push([labelRoom, room]);
+      if (date)    aoa.push([labelDate, date]);
+      if (group)   aoa.push([labelGroup, group]);
+      if (aoa.length) aoa.push([]); // Empty row separator
+    }
 
     // Table Headers
-    aoa.push(['#', colStudent, senLabel, colPrepStart, colExamStart, colExamEnd]);
+    const colHeaders = [];
+    if (opts.showNum) colHeaders.push('#');
+    colHeaders.push(colStudent);
+    if (opts.showSen) colHeaders.push(senLabel);
+    if (opts.showPrep) colHeaders.push(colPrepStart);
+    colHeaders.push(colExamStart);
+    if (opts.showExamEnd) colHeaders.push(colExamEnd);
+    aoa.push(colHeaders);
 
     // Table Rows
     const schedule = computeSchedule();
     schedule.forEach(row => {
       if (row.type === 'gap') {
-        aoa.push(['', `[${gapLabel}] (${row.duration} min)`, '', '', '', '']);
+        if (!opts.showGaps) return;
+        const gapCells = [];
+        if (opts.showNum) gapCells.push('');
+        gapCells.push(`[${gapLabel}] (${row.duration} min)`);
+        while (gapCells.length < colHeaders.length) gapCells.push('');
+        aoa.push(gapCells);
         return;
       }
       if (row.type === 'break') {
-        aoa.push(['', `— ${breakLabel} (${row.duration} min) —`, '', minutesToTime(row.start), minutesToTime(row.start + row.duration), '']);
+        if (!opts.showBreaks) return;
+        const breakCells = [];
+        if (opts.showNum) breakCells.push('');
+        breakCells.push(`— ${breakLabel} (${row.duration} min) —`);
+        if (opts.showSen) breakCells.push('');
+        if (opts.showPrep) breakCells.push(minutesToTime(row.start));
+        breakCells.push(minutesToTime(row.start + row.duration));
+        if (opts.showExamEnd) breakCells.push('');
+        aoa.push(breakCells);
         return;
       }
       if (row.type === 'group') {
-        aoa.push([row.num, `[${row.label}] ${(row.members || []).join(', ')}`, row.sen ? senLabel : '', minutesToTime(row.prepStart), minutesToTime(row.examStart), minutesToTime(row.examEnd)]);
+        const groupCells = [];
+        if (opts.showNum) groupCells.push(row.num);
+        groupCells.push(`[${row.label}] ${(row.members || []).join(', ')}`);
+        if (opts.showSen) groupCells.push(row.sen ? senLabel : '');
+        if (opts.showPrep) groupCells.push(minutesToTime(row.prepStart));
+        groupCells.push(minutesToTime(row.examStart));
+        if (opts.showExamEnd) groupCells.push(minutesToTime(row.examEnd));
+        aoa.push(groupCells);
         return;
       }
-      aoa.push([row.num, row.name, row.sen ? senLabel : '', minutesToTime(row.prepStart), minutesToTime(row.examStart), minutesToTime(row.examEnd)]);
+      const studentCells = [];
+      if (opts.showNum) studentCells.push(row.num);
+      studentCells.push(row.name);
+      if (opts.showSen) studentCells.push(row.sen ? senLabel : '');
+      if (opts.showPrep) studentCells.push(minutesToTime(row.prepStart));
+      studentCells.push(minutesToTime(row.examStart));
+      if (opts.showExamEnd) studentCells.push(minutesToTime(row.examEnd));
+      aoa.push(studentCells);
     });
 
     if (typeof XLSX === 'undefined') {
@@ -2554,7 +3011,8 @@
     }
   }
 
-  async function exportDocx() {
+  async function exportDocx(opts) {
+    opts = Object.assign({}, smExportConfig, opts || {});
     if (orderItems.filter(i => (i.type === 'student' || i.type === 'group') && !i.excluded).length === 0) {
       showNotice(typeof t === 'function' ? t('smNothingToExport') : 'Nothing to export.', true);
       return;
@@ -2584,38 +3042,76 @@
 
     if (window.Desktop && Desktop.isElectron() && typeof Desktop.exportDocx === 'function') {
       let md = `# ${title}\n\n`;
-      if (subject) md += `**${labelSubject}:** ${subject}  \n`;
-      if (teacher) md += `**${labelTeacher}:** ${teacher}  \n`;
-      if (room)    md += `**${labelRoom}:** ${room}  \n`;
-      if (date)    md += `**${labelDate}:** ${date}  \n`;
-      if (group)   md += `**${labelGroup}:** ${group}  \n`;
-      md += `\n`;
+      if (opts.showMetadata) {
+        if (subject) md += `**${labelSubject}:** ${subject}  \n`;
+        if (teacher) md += `**${labelTeacher}:** ${teacher}  \n`;
+        if (room)    md += `**${labelRoom}:** ${room}  \n`;
+        if (date)    md += `**${labelDate}:** ${date}  \n`;
+        if (group)   md += `**${labelGroup}:** ${group}  \n`;
+        md += `\n`;
+      }
 
       const senLabel = typeof t === 'function' ? t('smColSen') : 'SEN';
       const breakLabel = typeof t === 'function' ? t('smBreakLabel') : 'Break';
       const gapLabel = typeof t === 'function' ? t('smGapWarning') : 'Gap (examiner waits)';
 
-      md += `| # | ${colStudent} | ${senLabel} | ${colPrepStart} | ${colExamStart} | ${colExamEnd} |\n`;
-      md += `|---|---------|-------------|-------------|-------------|-----------|\n`;
+      const mdHeaders = [];
+      const mdSeparators = [];
+      if (opts.showNum) { mdHeaders.push('#'); mdSeparators.push('---'); }
+      mdHeaders.push(colStudent); mdSeparators.push('---------');
+      if (opts.showSen) { mdHeaders.push(senLabel); mdSeparators.push('-------------'); }
+      if (opts.showPrep) { mdHeaders.push(colPrepStart); mdSeparators.push('-------------'); }
+      mdHeaders.push(colExamStart); mdSeparators.push('-------------');
+      if (opts.showExamEnd) { mdHeaders.push(colExamEnd); mdSeparators.push('-----------'); }
+
+      md += `| ${mdHeaders.join(' | ')} |\n`;
+      md += `| ${mdSeparators.join(' | ')} |\n`;
 
       const schedule = computeSchedule();
       schedule.forEach(row => {
         if (row.type === 'gap') {
-          md += `| | *[${gapLabel}] (${row.duration} min)* | | | | |\n`;
+          if (!opts.showGaps) return;
+          const gapRow = [];
+          if (opts.showNum) gapRow.push('');
+          gapRow.push(`*[${gapLabel}] (${row.duration} min)*`);
+          while (gapRow.length < mdHeaders.length) gapRow.push('');
+          md += `| ${gapRow.join(' | ')} |\n`;
           return;
         }
         if (row.type === 'break') {
-          md += `| | *— ${breakLabel} ${minutesToTime(row.start)} &rarr; ${minutesToTime(row.start + row.duration)} (${row.duration} min) —* | | | | |\n`;
+          if (!opts.showBreaks) return;
+          const breakRow = [];
+          if (opts.showNum) breakRow.push('');
+          breakRow.push(`*— ${breakLabel} ${minutesToTime(row.start)} &rarr; ${minutesToTime(row.start + row.duration)} (${row.duration} min) —*`);
+          if (opts.showSen) breakRow.push('');
+          if (opts.showPrep) breakRow.push('');
+          breakRow.push('');
+          if (opts.showExamEnd) breakRow.push('');
+          md += `| ${breakRow.join(' | ')} |\n`;
           return;
         }
         if (row.type === 'group') {
-          md += `| ${row.num} | **${row.label}** – ${(row.members || []).join(', ')} | ${row.sen ? senLabel : ''} | ${minutesToTime(row.prepStart)} | ${minutesToTime(row.examStart)} | ${minutesToTime(row.examEnd)} |\n`;
+          const groupRow = [];
+          if (opts.showNum) groupRow.push(row.num);
+          groupRow.push(`**${row.label}** – ${(row.members || []).join(', ')}`);
+          if (opts.showSen) groupRow.push(row.sen ? senLabel : '');
+          if (opts.showPrep) groupRow.push(minutesToTime(row.prepStart));
+          groupRow.push(minutesToTime(row.examStart));
+          if (opts.showExamEnd) groupRow.push(minutesToTime(row.examEnd));
+          md += `| ${groupRow.join(' | ')} |\n`;
           return;
         }
-        md += `| ${row.num} | ${row.name} | ${row.sen ? senLabel : ''} | ${minutesToTime(row.prepStart)} | ${minutesToTime(row.examStart)} | ${minutesToTime(row.examEnd)} |\n`;
+        const studentRow = [];
+        if (opts.showNum) studentRow.push(row.num);
+        studentRow.push(row.name);
+        if (opts.showSen) studentRow.push(row.sen ? senLabel : '');
+        if (opts.showPrep) studentRow.push(minutesToTime(row.prepStart));
+        studentRow.push(minutesToTime(row.examStart));
+        if (opts.showExamEnd) studentRow.push(minutesToTime(row.examEnd));
+        md += `| ${studentRow.join(' | ')} |\n`;
       });
 
-      if (metaText) md += `\n*${metaText}*\n`;
+      if (opts.showFooter && metaText) md += `\n*${metaText}*\n`;
 
       if (window.saveExportWithDestination) {
         return await window.saveExportWithDestination({
@@ -2658,19 +3154,20 @@
         showNotice(errPrefix + ' ' + err.message, true);
       });
     } else {
-      const htmlContent = generatePrintableHtml(false);
+      const htmlContent = generatePrintableHtml(false, opts);
       downloadExportFile(`schedule_${safeTitle}_${stamp}.doc`, htmlContent, 'application/msword');
     }
   }
 
-  function exportHtml() {
+  function exportHtml(opts) {
+    opts = Object.assign({}, smExportConfig, opts || {});
     if (orderItems.filter(i => (i.type === 'student' || i.type === 'group') && !i.excluded).length === 0) {
       showNotice(typeof t === 'function' ? t('smNothingToExport') : 'Nothing to export.', true);
       return;
     }
     const date = document.getElementById('sm-date').value;
     const stamp = date || new Date().toISOString().slice(0, 10);
-    const htmlContent = generatePrintableHtml(true);
+    const htmlContent = generatePrintableHtml(true, opts);
     downloadExportFile('schedule-' + stamp + '.html', htmlContent, 'text/html');
   }
 

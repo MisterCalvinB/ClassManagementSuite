@@ -136,6 +136,8 @@
                 style="display:none" data-i18n="mdbBtnClear"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /> Clear</button>
               <button class="btn btn-secondary btn-sm" id="batch-edit-btn" onclick="toggleBatchPanel()"
                 style="display:none" disabled data-i18n="mdbBtnBatchEdit"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> Batch Edit</button>
+              <button class="btn btn-secondary btn-sm" id="batch-autofill-btn" onclick="openBatchAutofillModal()"
+                style="display:none" disabled data-i18n="mdbBtnBatchAutofill"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> Batch Autofill</button>
               <button class="btn btn-secondary btn-sm" id="batch-copy-btn" onclick="openBatchCopyToModal()"
                 style="display:none" disabled data-i18n="mdbBtnCopyToFile"><img src="../assets/icons/copy.svg" class="btn-icon" alt="" /> Copy to file…</button>
               <button class="btn btn-danger btn-sm" id="batch-del-btn" onclick="deleteSelectedBatch()"
@@ -209,6 +211,82 @@
       <div class="modal-ft">
         <button class="btn btn-secondary" onclick="closeAutofill()" data-i18n="mdbBtnCancel">Cancel</button>
         <button class="btn btn-primary" onclick="applyAutofillSuggestions()" data-i18n="mdbAutofillApply"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> Apply Selected Suggestions</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Batch Autofill Modal -->
+  <div id="batch-autofill-bg" class="modal-bg hidden" style="z-index:1100;" onclick="if(event.target===this)closeBatchAutofillModal()">
+    <div class="modal" style="max-width:620px;">
+      <div class="modal-hd">
+        <span id="batch-autofill-title" data-i18n="mdbBatchAutofillModalTitle">Batch Autofill Settings &amp; Options</span>
+        <button class="modal-x" onclick="closeBatchAutofillModal()"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="Close" /></button>
+      </div>
+      <div class="modal-bd" id="batch-autofill-body">
+        <!-- Target Scope -->
+        <div class="form-field" style="margin-bottom:12px;">
+          <label class="form-lbl" data-i18n="mdbBatchAutofillScopeLabel">Target Records</label>
+          <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:2px;">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.85rem;font-weight:600;">
+              <input type="radio" name="baf-scope" id="baf-scope-selected" value="selected" checked onchange="updateBatchAutofillPreview()">
+              <span id="baf-scope-selected-lbl">Selected records</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.85rem;font-weight:600;">
+              <input type="radio" name="baf-scope" id="baf-scope-all" value="all" onchange="updateBatchAutofillPreview()">
+              <span id="baf-scope-all-lbl">All filtered records</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Fields to fill with Select All / None -->
+        <div class="form-field" style="margin-bottom:12px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+            <label class="form-lbl" style="margin-bottom:0;" data-i18n="mdbBatchAutofillFields">Fields to Fill</label>
+            <div style="display:flex;gap:6px;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="batchAutofillSelectAllFields(true)" style="padding:2px 7px;font-size:0.75rem;" data-i18n="mdbBtnAll">All</button>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="batchAutofillSelectAllFields(false)" style="padding:2px 7px;font-size:0.75rem;" data-i18n="mdbBtnNone">None</button>
+            </div>
+          </div>
+          <div id="baf-fields-list" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(170px, 1fr));gap:6px;max-height:160px;overflow-y:auto;border:1.5px solid #333;border-radius:6px;padding:8px 10px;background:#fafafa;">
+          </div>
+        </div>
+
+        <!-- Overwrite Policy -->
+        <div class="form-field" style="margin-bottom:12px;">
+          <label class="form-lbl" data-i18n="mdbBatchAutofillOverwriteMode">Overwrite Mode</label>
+          <div style="display:flex;flex-direction:column;gap:6px;margin-top:2px;">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.83rem;">
+              <input type="radio" name="baf-overwrite" id="baf-overwrite-empty" value="empty" checked onchange="updateBatchAutofillPreview()">
+              <span data-i18n="mdbBatchAutofillOverwriteEmpty">Fill empty / missing fields only (Recommended)</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.83rem;">
+              <input type="radio" name="baf-overwrite" id="baf-overwrite-all" value="all" onchange="updateBatchAutofillPreview()">
+              <span data-i18n="mdbBatchAutofillOverwriteAll">Overwrite existing field values with found matches</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Array Fields Strategy -->
+        <div class="form-field" style="margin-bottom:12px;">
+          <label class="form-lbl" for="baf-array-strategy" data-i18n="mdbBatchAutofillArrayStrategy">Array &amp; List Fields (Synonyms, Tags, Keywords)</label>
+          <select id="baf-array-strategy" style="width:100%;padding:5px 8px;border:1.5px solid #333;border-radius:5px;font-family:inherit;font-size:0.85rem;background:#fff;" onchange="updateBatchAutofillPreview()">
+            <option value="merge" selected data-i18n="mdbBatchAutofillArrayMerge">Merge unique items (Keep existing + add new)</option>
+            <option value="replace" data-i18n="mdbBatchAutofillArrayReplace">Replace completely with found match</option>
+            <option value="empty_only" data-i18n="mdbBatchAutofillArrayEmptyOnly">Fill only if existing array is empty</option>
+          </select>
+        </div>
+
+        <!-- Live Scan Preview Banner -->
+        <div id="baf-preview-banner" style="background:#f0fdf4;border:1.5px solid #166534;border-radius:6px;padding:8px 12px;font-size:0.82rem;color:#14532d;font-weight:700;display:flex;align-items:center;gap:6px;box-shadow:2px 2px 0 #166534;">
+          <img src="../assets/icons/sparkles.svg" class="btn-icon btn-icon-xs" alt="" />
+          <span id="baf-preview-text">Scanning records…</span>
+        </div>
+      </div>
+      <div class="modal-ft">
+        <button class="btn btn-secondary" onclick="closeBatchAutofillModal()" data-i18n="mdbBtnCancel">Cancel</button>
+        <button class="btn btn-primary" id="baf-apply-btn" onclick="executeBatchAutofill()" data-i18n="mdbBatchAutofillApply">
+          <img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBatchAutofillApply">Apply Batch Autofill</span>
+        </button>
       </div>
     </div>
   </div>
@@ -506,7 +584,7 @@
     <div class="modal" style="max-width: 680px; width: 92%; max-height: 85vh; display: flex; flex-direction: column;">
       <div class="modal-hd" style="background:#fde047;border-bottom:2.5px solid #000;display:flex;align-items:center;justify-content:space-between;padding:12px 18px;">
         <span id="word-usage-title" style="font-weight:900;font-size:1.05rem;display:flex;align-items:center;color:#000;">Cross-Suite Usage</span>
-        <button class="modal-x" onclick="closeWordUsageModal()" style="font-size:1.2rem;font-weight:bold;cursor:pointer;">&times;</button>
+        <button class="modal-x" onclick="closeWordUsageModal()"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="Close" /></button>
       </div>
       <div class="modal-bd" id="word-usage-body" style="padding:16px 18px;overflow-y:auto;flex:1;">
       </div>
@@ -521,13 +599,13 @@
     // CONFIG
     // ─────────────────────────────────────────────────────────────────────
     const TYPE_DEFS = [
-      { key: 'wordbanks', labelKey: 'mdbTypeWordBanks', icon: 'book.svg', target: 'customWordbanks', defaultView: 'chips' },
+      { key: 'wordbanks', labelKey: 'mdbTypeWordBanks', icon: 'book.svg', target: 'customWordbanks', defaultView: 'table' },
       { key: 'quotebanks', labelKey: 'mdbTypeQuotes', icon: 'quote.svg', target: 'customQuotes', defaultView: 'table' },
       { key: 'dictations', labelKey: 'mdbTypeDictations', icon: 'mic.svg', target: 'customDictations', defaultView: 'table' },
       { key: 'grammarbanks', labelKey: 'mdbTypeGrammar', icon: 'grammar.svg', target: 'customGrammarbanks', defaultView: 'table' },
       { key: 'gapfillbanks', labelKey: 'mdbTypeGapFill', icon: 'gapfill.svg', target: 'customGapfillbanks', defaultView: 'table' },
       { key: 'errorbanks', labelKey: 'mdbTypeErrorBanks', icon: 'error.svg', target: 'customErrorbanks', defaultView: 'table' },
-      { key: 'sentencebanks', labelKey: 'mdbTypeSentences', icon: 'sentence.svg', target: 'customSentences', defaultView: 'chips' },
+      { key: 'sentencebanks', labelKey: 'mdbTypeSentences', icon: 'sentence.svg', target: 'customSentences', defaultView: 'table' },
       { key: 'storybanks', labelKey: 'mdbTypeStories', icon: 'book.svg', target: 'customStorybanks', defaultView: 'table' },
       { key: 'quizzes', labelKey: 'mdbTypeQuizzes', icon: 'quiz.svg', target: 'customQuizzes', defaultView: 'table' },
       { key: 'testbanks', labelKey: 'mdbTypeTestBanks', icon: 'award.svg', target: 'customExercises', defaultView: 'table' },
@@ -535,7 +613,7 @@
       { key: 'phases', labelKey: 'mdbTypePhases', icon: 'zap.svg', target: 'customPhases', defaultView: 'table' },
       { key: 'criteria', labelKey: 'mdbTypeCriteria', icon: 'check.svg', target: 'customCriteria', defaultView: 'table' },
       { key: 'scales', labelKey: 'mdbTypeScales', icon: 'award.svg', target: 'customScales', defaultView: 'table' },
-      { key: 'chips', labelKey: 'mdbTypePersonalisedChips', icon: 'speech-bubbles.svg', target: 'customChips', defaultView: 'chips' },
+      { key: 'chips', labelKey: 'mdbTypePersonalisedChips', icon: 'speech-bubbles.svg', target: 'customChips', defaultView: 'table' },
     ];
 
     const DATABASE_SECTIONS = [
@@ -5238,6 +5316,306 @@
     }
 
     // ─────────────────────────────────────────────────────────────────────
+    // BATCH AUTOFILL
+    // ─────────────────────────────────────────────────────────────────────
+    function scoreCandidateRecord(candRec, requestedFields) {
+      if (!candRec || typeof candRec !== 'object') return 0;
+      let score = 0;
+      for (const fieldKey of requestedFields) {
+        const v = candRec[fieldKey];
+        if (v !== undefined && v !== null && v !== '') {
+          if (Array.isArray(v)) {
+            if (v.length > 0) score += 2 + Math.min(v.length, 4);
+          } else if (typeof v === 'object') {
+            score += 2 + Math.min(Object.keys(v).length, 4);
+          } else {
+            score += 2;
+          }
+        }
+      }
+      return score;
+    }
+
+    function getBatchAutofillTargetRecords(scope) {
+      const items = [];
+      if (scope === 'selected') {
+        for (const bk of S.batchSel) {
+          const [fi, ri] = bk.split(':').map(Number);
+          if (S.files[fi] && S.files[fi].records[ri]) {
+            items.push({ fi, ri, rec: S.files[fi].records[ri], file: S.files[fi] });
+          }
+        }
+      } else {
+        const displayRows = getDisplayRecords();
+        for (const r of displayRows) {
+          const fi = r._fi;
+          const ri = r._ri;
+          if (S.files[fi] && S.files[fi].records[ri]) {
+            items.push({ fi, ri, rec: S.files[fi].records[ri], file: S.files[fi] });
+          }
+        }
+      }
+      return items;
+    }
+
+    function openBatchAutofillModal() {
+      const selCount = S.batchSel.size;
+      const allRows = getDisplayRecords();
+      const allCount = allRows.length;
+
+      if (selCount === 0 && allCount === 0) {
+        showToast(t('mdbAlertNoRecords') || 'No records available to autofill.', true);
+        return;
+      }
+
+      const radioSelected = $('baf-scope-selected');
+      const radioAll = $('baf-scope-all');
+      if (radioSelected && radioAll) {
+        if (selCount > 0) {
+          radioSelected.checked = true;
+          radioSelected.disabled = false;
+        } else {
+          radioAll.checked = true;
+          radioSelected.disabled = true;
+        }
+      }
+
+      const selLbl = $('baf-scope-selected-lbl');
+      if (selLbl) selLbl.textContent = tFmt('mdbBatchAutofillScopeSelected', { n: selCount });
+      const allLbl = $('baf-scope-all-lbl');
+      if (allLbl) allLbl.textContent = tFmt('mdbBatchAutofillScopeAll', { n: allCount });
+
+      // Populate field checkboxes
+      const listEl = $('baf-fields-list');
+      if (listEl) {
+        const schema = S.schema.length ? S.schema : getDefaultSchema(S.typeKey);
+        const eligibleFields = schema.filter(f => {
+          if (!f || !f.key) return false;
+          if (f.key.startsWith('_')) return false;
+          if (S.typeKey === 'wordbanks' && f.key === 'word') return false;
+          return true;
+        });
+
+        listEl.innerHTML = eligibleFields.map(f => {
+          const label = f.customLabel || cap(f.key);
+          return `<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.8rem;padding:4px 7px;border-radius:4px;border:1.5px solid #333;background:#fff;box-shadow:1px 1px 0 #333;font-weight:600;">
+            <input type="checkbox" class="baf-field-cb" value="${esc(f.key)}" checked onchange="updateBatchAutofillPreview()" style="accent-color:#111;">
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(label)}">${esc(label)}</span>
+          </label>`;
+        }).join('');
+      }
+
+      $('batch-autofill-bg').classList.remove('hidden');
+      updateBatchAutofillPreview();
+    }
+
+    function closeBatchAutofillModal() {
+      $('batch-autofill-bg').classList.add('hidden');
+    }
+
+    function batchAutofillSelectAllFields(selectState) {
+      document.querySelectorAll('.baf-field-cb').forEach(cb => {
+        cb.checked = selectState;
+      });
+      updateBatchAutofillPreview();
+    }
+
+    function updateBatchAutofillPreview() {
+      const scope = document.querySelector('input[name="baf-scope"]:checked')?.value || 'selected';
+      const overwriteMode = document.querySelector('input[name="baf-overwrite"]:checked')?.value || 'empty';
+      const arrayStrategy = $('baf-array-strategy')?.value || 'merge';
+      const selectedFieldCbs = document.querySelectorAll('.baf-field-cb:checked');
+      const requestedFields = Array.from(selectedFieldCbs).map(cb => cb.value);
+
+      const previewText = $('baf-preview-text');
+      const applyBtn = $('baf-apply-btn');
+      if (!previewText) return;
+
+      if (!requestedFields.length) {
+        previewText.textContent = t('mdbAlertSelectColumn') || 'Please select at least one field to fill.';
+        if (applyBtn) applyBtn.disabled = true;
+        return;
+      }
+
+      const targetItems = getBatchAutofillTargetRecords(scope);
+      if (!targetItems.length) {
+        previewText.textContent = t('mdbAlertNoRecords') || 'No records in target scope.';
+        if (applyBtn) applyBtn.disabled = true;
+        return;
+      }
+
+      let matchCount = 0;
+      let totalFillableFields = 0;
+
+      for (const item of targetItems) {
+        const targetWord = getRecordSearchTerm(item.rec);
+        if (!targetWord) continue;
+        const hits = findAutofillHits(targetWord);
+        const relevantHits = hits.filter(h => !(h.filename === item.file.name && h.rec === item.rec));
+        if (!relevantHits.length) continue;
+
+        // Rank candidates by completeness
+        let bestCand = null;
+        let bestScore = -1;
+        for (const hit of relevantHits) {
+          const score = scoreCandidateRecord(hit.rec, requestedFields);
+          if (score > bestScore) {
+            bestScore = score;
+            bestCand = hit.rec;
+          }
+        }
+
+        if (!bestCand) continue;
+
+        let recordHasFill = false;
+        for (const fKey of requestedFields) {
+          const candVal = bestCand[fKey];
+          if (candVal === undefined || candVal === null || candVal === '') continue;
+          if (Array.isArray(candVal) && candVal.length === 0) continue;
+
+          const curVal = item.rec[fKey];
+          const isCurEmpty = curVal === undefined || curVal === null || curVal === '' || (Array.isArray(curVal) && curVal.length === 0);
+
+          if (isCurEmpty) {
+            recordHasFill = true;
+            totalFillableFields++;
+          } else if (overwriteMode === 'all') {
+            recordHasFill = true;
+            totalFillableFields++;
+          } else if (Array.isArray(curVal) && Array.isArray(candVal) && arrayStrategy === 'merge') {
+            const hasNew = candVal.some(valItem => !curVal.map(x => String(x).toLowerCase()).includes(String(valItem).toLowerCase()));
+            if (hasNew) {
+              recordHasFill = true;
+              totalFillableFields++;
+            }
+          }
+        }
+
+        if (recordHasFill) {
+          matchCount++;
+        }
+      }
+
+      if (matchCount > 0) {
+        previewText.textContent = tFmt('mdbBatchAutofillPreview', { matches: matchCount, total: targetItems.length, fields: totalFillableFields });
+        if (applyBtn) applyBtn.disabled = false;
+      } else {
+        previewText.textContent = t('mdbBatchAutofillPreviewNone');
+        if (applyBtn) applyBtn.disabled = true;
+      }
+    }
+
+    async function executeBatchAutofill() {
+      const scope = document.querySelector('input[name="baf-scope"]:checked')?.value || 'selected';
+      const overwriteMode = document.querySelector('input[name="baf-overwrite"]:checked')?.value || 'empty';
+      const arrayStrategy = $('baf-array-strategy')?.value || 'merge';
+      const selectedFieldCbs = document.querySelectorAll('.baf-field-cb:checked');
+      const requestedFields = Array.from(selectedFieldCbs).map(cb => cb.value);
+
+      if (!requestedFields.length) {
+        showToast(t('mdbAlertSelectColumn') || 'Please select at least one field.', true);
+        return;
+      }
+
+      const targetItems = getBatchAutofillTargetRecords(scope);
+      if (!targetItems.length) {
+        showToast(t('mdbAlertNoRecords'), true);
+        return;
+      }
+
+      const affectedFis = new Set();
+      let updatedRecordsCount = 0;
+      let updatedFieldsCount = 0;
+
+      for (const item of targetItems) {
+        const targetWord = getRecordSearchTerm(item.rec);
+        if (!targetWord) continue;
+        const hits = findAutofillHits(targetWord);
+        const relevantHits = hits.filter(h => !(h.filename === item.file.name && h.rec === item.rec));
+        if (!relevantHits.length) continue;
+
+        // Find best matching candidate
+        let bestCand = null;
+        let bestScore = -1;
+        for (const hit of relevantHits) {
+          const score = scoreCandidateRecord(hit.rec, requestedFields);
+          if (score > bestScore) {
+            bestScore = score;
+            bestCand = hit.rec;
+          }
+        }
+
+        if (!bestCand) continue;
+
+        let recordMutated = false;
+        for (const fKey of requestedFields) {
+          const candVal = bestCand[fKey];
+          if (candVal === undefined || candVal === null || candVal === '') continue;
+          if (Array.isArray(candVal) && candVal.length === 0) continue;
+
+          const curVal = item.rec[fKey];
+          const isCurEmpty = curVal === undefined || curVal === null || curVal === '' || (Array.isArray(curVal) && curVal.length === 0);
+
+          if (isCurEmpty) {
+            item.rec[fKey] = Array.isArray(candVal) ? [...candVal] : (candVal && typeof candVal === 'object' ? JSON.parse(JSON.stringify(candVal)) : candVal);
+            recordMutated = true;
+            updatedFieldsCount++;
+          } else if (overwriteMode === 'all') {
+            item.rec[fKey] = Array.isArray(candVal) ? [...candVal] : (candVal && typeof candVal === 'object' ? JSON.parse(JSON.stringify(candVal)) : candVal);
+            recordMutated = true;
+            updatedFieldsCount++;
+          } else if (Array.isArray(curVal) && Array.isArray(candVal)) {
+            if (arrayStrategy === 'merge') {
+              const prevLen = curVal.length;
+              const merged = mergeTagList(curVal, candVal);
+              if (merged.length > prevLen) {
+                item.rec[fKey] = merged;
+                recordMutated = true;
+                updatedFieldsCount++;
+              }
+            } else if (arrayStrategy === 'replace' && overwriteMode === 'all') {
+              item.rec[fKey] = [...candVal];
+              recordMutated = true;
+              updatedFieldsCount++;
+            }
+          }
+        }
+
+        if (recordMutated) {
+          affectedFis.add(item.fi);
+          updatedRecordsCount++;
+        }
+      }
+
+      if (updatedRecordsCount === 0) {
+        showToast(t('mdbBatchAutofillNoMatches'), true);
+        closeBatchAutofillModal();
+        return;
+      }
+
+      // Save all affected files
+      for (const fi of affectedFis) {
+        await saveFile(fi);
+        const file = S.files[fi];
+        if (file && _gsc[S.typeKey]?.[file.name]) {
+          _gsc[S.typeKey][file.name].records = file.records;
+        }
+      }
+
+      closeBatchAutofillModal();
+      S.schema = buildSchema(getAllRecords());
+      renderFilePills();
+      renderTable();
+
+      const successMsg = tFmt('mdbBatchAutofillSuccess', {
+        updated: updatedRecordsCount,
+        fields: updatedFieldsCount,
+        files: affectedFis.size
+      });
+      showToast(successMsg);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
     // DELETE
     // ─────────────────────────────────────────────────────────────────────
     function confirmDel(fi, ri) {
@@ -9229,14 +9607,17 @@ Rules:
     function updateBatchUI() {
       const count = S.batchSel.size;
       const show = isBatchSupported();
+      const allRows = (typeof getDisplayRecords === 'function') ? getDisplayRecords() : [];
       ['batch-select-all-btn', 'batch-clear-btn', 'batch-count'].forEach(id => {
         const el = $(id);
         if (el) el.style.display = show ? '' : 'none';
       });
       const editBtn = $('batch-edit-btn');
+      const autofillBtn = $('batch-autofill-btn');
       const copyBtn = $('batch-copy-btn');
       const delBtn = $('batch-del-btn');
       if (editBtn) { editBtn.style.display = show ? '' : 'none'; editBtn.disabled = count === 0; }
+      if (autofillBtn) { autofillBtn.style.display = show ? '' : 'none'; autofillBtn.disabled = (count === 0 && allRows.length === 0); }
       if (copyBtn) { copyBtn.style.display = show ? '' : 'none'; copyBtn.disabled = count === 0; }
       if (delBtn) { delBtn.style.display = show ? '' : 'none'; delBtn.disabled = count === 0; }
       const countEl = $('batch-count');
@@ -9491,6 +9872,9 @@ Rules:
         <div class="batch-actions-row">
           <button class="btn btn-primary" onclick="applyBatchEdit()">
             <img src="../assets/icons/check.svg" class="btn-icon" alt="" /> ${t('mdbBtnApply')}
+          </button>
+          <button class="btn btn-secondary" onclick="openBatchAutofillModal()" title="${t('mdbBtnBatchAutofill') || 'Batch Autofill'}">
+            <img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> ${t('mdbBtnBatchAutofill') || 'Batch Autofill'}
           </button>
           <button class="btn btn-secondary" onclick="closeBatchPanel()">
             ${t('mdbBtnCancel')}
@@ -9985,6 +10369,7 @@ Rules:
     // ─────────────────────────────────────────────────────────────────────
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape') {
+        closeBatchAutofillModal();
         closeColPicker();
         closeCopyModal();
         closeAllMdbDropdowns();
