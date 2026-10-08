@@ -805,15 +805,14 @@
     }
 
     // 6. Process Groups
-    if (Array.isArray(data.groups) && typeof window.conGetGroups === 'function') {
-      const groups = window.conGetGroups();
+    if (Array.isArray(data.groups)) {
       data.groups.forEach(g => {
         const mappedNodes = (g.nodeIds || []).map(nid => idMap[nid] || nid);
         const mappedNotes = (g.noteIds || []).map(nid => idMap[nid] || nid);
         const mappedDrawings = (g.drawingIds || []).map(did => idMap[did] || did);
         const mappedShapes = (g.shapeIds || []).map(sid => idMap[sid] || sid);
         const newGid = 'cg' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
-        groups.push({
+        const groupPayload = {
           id: newGid,
           nodeIds: mappedNodes,
           noteIds: mappedNotes,
@@ -823,9 +822,15 @@
           x: Math.max(10, Math.round((Number(g.x) || 0) + offsetX)),
           y: Math.max(10, Math.round((Number(g.y) || 0) + offsetY)),
           paletteIdx: g.paletteIdx || 0,
+          invisible: !!g.invisible,
           manualW: g.manualW || null,
           manualH: g.manualH || null
-        });
+        };
+        if (typeof window._conRestoreGroup === 'function') {
+          window._conRestoreGroup(groupPayload, mappedNodes);
+        } else if (typeof window.conGetGroups === 'function') {
+          window.conGetGroups().push(groupPayload);
+        }
       });
     }
 

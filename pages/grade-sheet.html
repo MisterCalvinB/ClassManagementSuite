@@ -6967,9 +6967,13 @@
       }
     }
 
-    async function saveGradesStructured() {
+    async function saveGradesStructured(targetClassId = null, targetSem = null, targetTestIndex = null) {
       const now = Date.now();
-      for (const cls of appState.classes) {
+      const classesToSave = targetClassId
+        ? appState.classes.filter(c => c.id === targetClassId)
+        : appState.classes;
+
+      for (const cls of classesToSave) {
         const subdir = cls.id;
         const classSlug = slugifyForPath(cls.name);
         const classMeta = {
@@ -6997,9 +7001,14 @@
           `// _savedAt: ${now}\nwindow.GRADE_CLASS = ${JSON.stringify(classMeta, null, 2)};`,
           subdir);
 
-        for (const sem of ['sem1', 'sem2']) {
+        const semsToSave = targetSem ? [targetSem] : ['sem1', 'sem2'];
+        for (const sem of semsToSave) {
           const configs = (cls.testConfigs && cls.testConfigs[sem]) || [];
-          for (let i = 0; i < TEST_COUNT_PER_SEM; i++) {
+          const indicesToSave = (targetTestIndex != null && targetSem === sem)
+            ? [targetTestIndex]
+            : Array.from({ length: TEST_COUNT_PER_SEM }, (_, k) => k);
+
+          for (const i of indicesToSave) {
             const cfg = configs[i];
             const testLabel = `${sem}-test-${String(i + 1).padStart(2, '0')}`;
             const hasScore = cls.students.some(s => {
@@ -7042,10 +7051,12 @@
           }
         }
 
-        // Migrate: remove old sem1/{slug} and sem2/{slug} folders if present
-        for (const sem of ['sem1', 'sem2']) {
-          Desktop.deleteByPath('grades', `${sem}/${classSlug}`, { recursive: true, force: true })
-            .catch(() => {});
+        // Migrate: remove old sem1/{slug} and sem2/{slug} folders if present (only when full save)
+        if (!targetClassId) {
+          for (const sem of ['sem1', 'sem2']) {
+            Desktop.deleteByPath('grades', `${sem}/${classSlug}`, { recursive: true, force: true })
+              .catch(() => {});
+          }
         }
       }
     }
@@ -7301,11 +7312,11 @@
       return result;
     }
 
-    function saveState() {
+    function saveState(targetClassId = null, targetSem = null, targetTestIndex = null) {
       const payload = JSON.stringify({ classes: appState.classes });
       localStorage.setItem(STORAGE_KEY, payload);
       if (window.Desktop && Desktop.isElectron()) {
-        saveGradesStructured().catch(err => {
+        saveGradesStructured(targetClassId, targetSem, targetTestIndex).catch(err => {
           console.error('Electron save failed:', err);
         });
       }
@@ -15220,7 +15231,9 @@
         if (sanctionCheck.checked && draftGrade != null) {
           sanctionGradeInput.value = String(draftGrade);
         }
+        autoSaveStudentModal(true);
       });
+      gradeInput.addEventListener("blur", flushStudentModalAutoSave);
 
       const overrideBtn = document.createElement("button");
       overrideBtn.type = "button";
@@ -15311,6 +15324,7 @@
           if (_studentModalDraft) _studentModalDraft.draftOverrideEnabled = false;
           syncGradeEditability();
         }
+        autoSaveStudentModal(false);
       });
 
       sanctionGradeInput.addEventListener("input", () => {
@@ -15321,8 +15335,10 @@
           draftOverrideEnabled = true;
           if (_studentModalDraft) _studentModalDraft.draftOverrideEnabled = true;
           syncGradeEditability();
+          autoSaveStudentModal(true);
         }
       });
+      sanctionGradeInput.addEventListener("blur", flushStudentModalAutoSave);
 
       overrideBtn.addEventListener("click", () => {
         draftOverrideEnabled = !draftOverrideEnabled;
@@ -15333,6 +15349,7 @@
         }
         if (_studentModalDraft) _studentModalDraft.draftOverrideEnabled = draftOverrideEnabled;
         syncGradeEditability();
+        autoSaveStudentModal(false);
       });
 
       gradeRow.appendChild(gradeLabel);
@@ -15373,11 +15390,12 @@
           if (!classObj.chipBanks.includes(noteBankSel.value)) classObj.chipBanks.push(noteBankSel.value);
           classObj.chipBank = noteBankSel.value;
         }
-        saveState();
+        saveState(classObj ? classObj.id : null, sem, testIndex);
         const updated = ensureObservationChecklistSections(draftSections, _activeChipBankFilename);
         draftSections.length = 0;
         updated.forEach(s => draftSections.push(s));
         renderNoteSections();
+        autoSaveStudentModal(false);
       });
 
       const addChipBtn = document.createElement("button");
@@ -15395,11 +15413,12 @@
             if (!classObj.chipBanks.includes(_activeChipBankFilename)) classObj.chipBanks.push(_activeChipBankFilename);
             if (!classObj.chipBank) classObj.chipBank = _activeChipBankFilename;
           }
-          saveState();
+          saveState(classObj ? classObj.id : null, sem, testIndex);
           const updated = ensureObservationChecklistSections(draftSections, _activeChipBankFilename);
           draftSections.length = 0;
           updated.forEach(s => draftSections.push(s));
           renderNoteSections();
+          autoSaveStudentModal(false);
         });
       });
 
@@ -15466,6 +15485,7 @@
                   const targetIndex = group.items.length;
                   await reorderObservationChip(_activeChipBankFilename, data.category, data.chipName, group.type, targetIndex);
                   refreshObservationChecklists();
+                  autoSaveStudentModal(false);
                 }
               }
             } catch (_) {}
@@ -15569,6 +15589,7 @@
                   if (data.category === group.type && data.index === targetIdx) return;
                   await reorderObservationChip(_activeChipBankFilename, data.category, data.chipName, group.type, targetIdx);
                   refreshObservationChecklists();
+                  autoSaveStudentModal(false);
                 }
               } catch (_) {}
             });
@@ -15578,6 +15599,7 @@
               currentCount = currentCount === 0 ? 1 : currentCount + 1;
               saveChipState(currentCount);
               updateChipVisual(currentCount);
+              autoSaveStudentModal(false);
             });
 
             chip.addEventListener("contextmenu", e => {
@@ -15588,6 +15610,7 @@
               currentCount = currentCount - 1;
               saveChipState(currentCount);
               updateChipVisual(currentCount);
+              autoSaveStudentModal(false);
             });
 
             inlineGroup.appendChild(chip);
@@ -15686,7 +15709,9 @@
         labelInput.addEventListener("input", () => {
           section.label = labelInput.value;
           updateSectionAppearance(block, section);
+          autoSaveStudentModal(true);
         });
+        labelInput.addEventListener("blur", flushStudentModalAutoSave);
 
         const delBtn = document.createElement("button");
         delBtn.innerHTML = '<img src="../assets/icons/close.svg" class="btn-icon" alt="" />';
@@ -15695,6 +15720,7 @@
           const idx = draftSections.indexOf(section);
           if (idx !== -1) draftSections.splice(idx, 1);
           block.remove();
+          autoSaveStudentModal(false);
         });
 
         header.appendChild(labelInput);
@@ -15722,7 +15748,8 @@
         ta.className = "note-section-body md-textarea";
         ta.value = section.text || "";
         ta.placeholder = checklist ? t('gsPlaceholderAddNotes') : t('gsPlaceholderObservation');
-        ta.addEventListener("input", () => { section.text = ta.value; autoResizeTextarea(ta); });
+        ta.addEventListener("input", () => { section.text = ta.value; autoResizeTextarea(ta); autoSaveStudentModal(true); });
+        ta.addEventListener("blur", flushStudentModalAutoSave);
         const mdNotePreview = document.createElement('div');
         mdNotePreview.className = 'md-preview-pane hidden';
         mdNoteWriteBtn.addEventListener('click', function() {
@@ -15749,6 +15776,7 @@
         const s = { label: "", text: "", checklist: [] };
         draftSections.push(s);
         addNoteBlock(s);
+        autoSaveStudentModal(false);
       });
 
       renderNoteSections();
@@ -15868,6 +15896,7 @@
               ptsSlider.value = String(stop.ptsValue);
               ptsInput.value = String(stop.ptsValue);
               applyPtsValue(stop.ptsValue);
+              autoSaveStudentModal(false);
             });
 
             notchesTrack.appendChild(notch);
@@ -15887,7 +15916,11 @@
           );
           mdCommentWrap.style.cssText = 'width:100%;';
           const commentTa = mdCommentWrap.querySelector('textarea');
-          commentTa.addEventListener("input", () => { dr.comment = commentTa.value; });
+          commentTa.addEventListener("input", () => {
+            dr.comment = commentTa.value;
+            autoSaveStudentModal(true);
+          });
+          commentTa.addEventListener("blur", flushStudentModalAutoSave);
           commentEls[criterion.id] = commentTa;
           tdComment.appendChild(sentencePicker);
           tdComment.appendChild(mdCommentWrap);
@@ -16027,6 +16060,7 @@
                     updateChipVisual(btn, selected.has(sentence));
                   });
                   refreshAllChip();
+                  autoSaveStudentModal(false);
                 });
                 picker.appendChild(allChip);
 
@@ -16053,6 +16087,7 @@
                     dr.comment = cur;
                     updateChipVisual(chip, selected.has(sentence));
                     refreshAllChip();
+                    autoSaveStudentModal(false);
                   });
                   sentenceBtns.push({ sentence, btn: chip });
                   picker.appendChild(chip);
@@ -16075,11 +16110,17 @@
           ptsInput.addEventListener("input", () => {
             applyPtsValue(ptsInput.value);
             if (ptsInput.value !== "") ptsSlider.value = ptsInput.value;
+            autoSaveStudentModal(true);
           });
+          ptsInput.addEventListener("blur", flushStudentModalAutoSave);
 
           ptsSlider.addEventListener("input", () => {
             ptsInput.value = ptsSlider.value;
             applyPtsValue(ptsSlider.value);
+            autoSaveStudentModal(true);
+          });
+          ptsSlider.addEventListener("change", () => {
+            autoSaveStudentModal(false);
           });
 
           if (dr.points != null) {
@@ -16119,7 +16160,33 @@
       if (gradeInput) gradeInput.focus();
     }
 
-    function commitStudentModal() {
+    let _studentModalAutoSaveTimer = null;
+
+    function flushStudentModalAutoSave() {
+      if (_studentModalAutoSaveTimer) {
+        clearTimeout(_studentModalAutoSaveTimer);
+        _studentModalAutoSaveTimer = null;
+        persistStudentModalDraft(false);
+      }
+    }
+
+    function autoSaveStudentModal(debounce = false) {
+      if (!_studentModalDraft) return;
+      if (_studentModalAutoSaveTimer) {
+        clearTimeout(_studentModalAutoSaveTimer);
+        _studentModalAutoSaveTimer = null;
+      }
+      if (debounce) {
+        _studentModalAutoSaveTimer = setTimeout(() => {
+          _studentModalAutoSaveTimer = null;
+          persistStudentModalDraft(false);
+        }, 200);
+      } else {
+        persistStudentModalDraft(false);
+      }
+    }
+
+    function persistStudentModalDraft(updateCorrectionTime = false) {
       if (!_studentModalDraft) return;
       const { student, classObj, sem, testIndex, tr, config, draftSections, draftCriteria, draftOverrideEnabled, modalOpenedAt } = _studentModalDraft;
 
@@ -16130,17 +16197,23 @@
       if (!Array.isArray(student.gradeOverrides[sem])) student.gradeOverrides[sem] = Array(TEST_COUNT_PER_SEM).fill(false);
       student.gradeOverrides[sem][testIndex] = !!draftOverrideEnabled;
       if (student.gradeOverrides[sem][testIndex]) {
-        if (gradeEl) sourceArray[testIndex] = asGrade(gradeEl.value);
+        if (gradeEl && gradeEl.value !== "") sourceArray[testIndex] = asGrade(gradeEl.value);
+      } else if (!config.criteria || config.criteria.length === 0) {
+        if (gradeEl && gradeEl.value !== "") sourceArray[testIndex] = asGrade(gradeEl.value);
       }
 
       // Write criteria
       const criteriaMap = student.criteriaResults[sem][testIndex] || {};
-      config.criteria.forEach(c => {
-        const dr = draftCriteria[c.id];
-        criteriaMap[c.id] = { points: dr.points, comment: dr.comment };
-      });
+      if (config.criteria && Array.isArray(config.criteria)) {
+        config.criteria.forEach(c => {
+          const dr = draftCriteria[c.id];
+          if (dr) {
+            criteriaMap[c.id] = { points: dr.points, comment: dr.comment };
+          }
+        });
+      }
       student.criteriaResults[sem][testIndex] = criteriaMap;
-      if (!student.gradeOverrides[sem][testIndex]) {
+      if (!student.gradeOverrides[sem][testIndex] && config.criteria && config.criteria.length > 0) {
         recalcStudentGradeFromCriteria(student, sem, testIndex, config);
       }
 
@@ -16162,33 +16235,44 @@
       }
 
       // Write correction time (auto-measured)
-      if (!student.correctionTime) student.correctionTime = { sem1: Array(TEST_COUNT_PER_SEM).fill(null), sem2: Array(TEST_COUNT_PER_SEM).fill(null) };
-      const elapsedMin = parseFloat(((Date.now() - modalOpenedAt) / 60000).toFixed(2));
-      const prev = student.correctionTime[sem][testIndex];
-      student.correctionTime[sem][testIndex] = prev != null ? parseFloat((prev + elapsedMin).toFixed(2)) : elapsedMin;
+      if (updateCorrectionTime) {
+        if (!student.correctionTime) student.correctionTime = { sem1: Array(TEST_COUNT_PER_SEM).fill(null), sem2: Array(TEST_COUNT_PER_SEM).fill(null) };
+        const elapsedMin = parseFloat(((Date.now() - modalOpenedAt) / 60000).toFixed(2));
+        const prev = student.correctionTime[sem][testIndex];
+        student.correctionTime[sem][testIndex] = prev != null ? parseFloat((prev + elapsedMin).toFixed(2)) : elapsedMin;
+      }
 
-      saveState();
+      saveState(classObj ? classObj.id : null, sem, testIndex);
       renderSummary();
 
       // Refresh the row in-place
-      updateStudentRow(tr, student, sem, testIndex, config, classObj);
+      const targetTr = tr || document.querySelector(`#test-table tbody tr[data-student-id="${student.id}"]`);
+      if (targetTr) {
+        updateStudentRow(targetTr, student, sem, testIndex, config, classObj);
 
-      // Refresh statistics rows
-      const tbody = tr.closest("tbody");
-      if (tbody) {
-        const perCritVals = config.criteria.map(criterion =>
-          classObj.students.map(s => {
-            const cMap = s.criteriaResults[sem][testIndex] || {};
-            return cMap[criterion.id] ? toNumber(cMap[criterion.id].points) : null;
-          }).filter(v => v != null)
-        );
-        renderTestSheetStats(tbody, classObj, sem, testIndex, config, perCritVals.map(calcStats));
+        // Refresh statistics rows
+        const tbody = targetTr.closest("tbody");
+        if (tbody) {
+          const perCritVals = (config.criteria || []).map(criterion =>
+            classObj.students.map(s => {
+              const cMap = s.criteriaResults[sem][testIndex] || {};
+              return cMap[criterion.id] ? toNumber(cMap[criterion.id].points) : null;
+            }).filter(v => v != null)
+          );
+          renderTestSheetStats(tbody, classObj, sem, testIndex, config, perCritVals.map(calcStats));
+        }
       }
+    }
 
+    function commitStudentModal() {
+      if (!_studentModalDraft) return;
+      flushStudentModalAutoSave();
+      persistStudentModalDraft(true);
       closeStudentModal();
     }
 
     function closeStudentModal() {
+      flushStudentModalAutoSave();
       document.getElementById("student-modal-overlay").classList.add("hidden");
       _studentModalDraft = null;
     }
