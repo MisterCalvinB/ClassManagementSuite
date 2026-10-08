@@ -95,47 +95,81 @@
     setupWaveSurfer();
     setupProgressEvents();
     setupEngineModal();
+    setupBroadcastListener();
     renderQueue();
     await checkUrlInputParam();
   });
+
+  function setupBroadcastListener() {
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        var bc = new BroadcastChannel('cmt-media-converter');
+        bc.onmessage = function (ev) {
+          if (ev && ev.data && ev.data.type === 'OPEN_FILE' && ev.data.path) {
+            loadFileFromPath(ev.data.path);
+          }
+        };
+      }
+    } catch (_) {}
+  }
+
+  async function loadFileFromPath(inputPath) {
+    if (!inputPath) return;
+    inputPath = decodeURIComponent(String(inputPath)).trim();
+    if (!inputPath) return;
+
+    var fullPath = inputPath;
+    if (fullPath.startsWith('file://')) {
+      fullPath = decodeURIComponent(fullPath.replace(/^file:\/\//, ''));
+      if (fullPath.startsWith('/') && fullPath.charAt(2) === ':') {
+        fullPath = fullPath.slice(1);
+      }
+    }
+
+    var size = 0;
+    if (window.Desktop) {
+      var isRelative = !fullPath.includes(':') && !fullPath.startsWith('/') && !fullPath.startsWith('\\');
+      if (isRelative && typeof window.Desktop.resolvePath === 'function') {
+        try {
+          var resolved = await window.Desktop.resolvePath('user', fullPath);
+          var resolvedStr = (typeof resolved === 'string') ? resolved : (resolved && resolved.path ? resolved.path : '');
+          if (resolvedStr) {
+            fullPath = resolvedStr.replace(/^file:\/\//, '');
+            if (fullPath.startsWith('/') && fullPath.charAt(2) === ':') fullPath = fullPath.slice(1);
+          }
+        } catch (_) {}
+      }
+    }
+
+    var parts = fullPath.replace(/\\/g, '/').split('/');
+    var fileName = parts.pop() || 'media_file';
+    var ext = (fileName.split('.').pop() || '').toLowerCase();
+
+    // Avoid duplicate item in queue
+    var existing = _queue.find(function (i) {
+      return (i.path && i.path.toLowerCase() === fullPath.toLowerCase()) ||
+             (i.name && i.name.toLowerCase() === fileName.toLowerCase() && !i.path);
+    });
+    if (existing) {
+      selectFileForPreview(existing);
+      return;
+    }
+
+    addFilesToQueue([{
+      name: fileName,
+      path: fullPath,
+      file: null,
+      size: size,
+      ext: ext
+    }]);
+  }
 
   async function checkUrlInputParam() {
     try {
       var params = new URLSearchParams(window.location.search);
       var inputPath = params.get('input') || params.get('file') || params.get('path');
       if (!inputPath) return;
-      inputPath = decodeURIComponent(inputPath).trim();
-      if (!inputPath) return;
-
-      var fullPath = inputPath;
-      var size = 0;
-      var parts = inputPath.replace(/\\/g, '/').split('/');
-      var fileName = parts.pop() || 'media_file';
-      var ext = (fileName.split('.').pop() || '').toLowerCase();
-
-      if (window.Desktop) {
-        if (typeof window.Desktop.resolvePath === 'function' && !inputPath.includes(':') && !inputPath.startsWith('/') && !inputPath.startsWith('\\')) {
-          var resolved = await window.Desktop.resolvePath('user', inputPath);
-          if (resolved) {
-            fullPath = resolved.replace(/^file:\/\//, '');
-            if (fullPath.startsWith('/') && fullPath.charAt(2) === ':') fullPath = fullPath.slice(1);
-          }
-        }
-        if (typeof window.Desktop.statByPath === 'function') {
-          var statRes = await window.Desktop.statByPath(fullPath);
-          if (statRes && statRes.ok && statRes.stat) {
-            size = statRes.stat.size || 0;
-          }
-        }
-      }
-
-      addFilesToQueue([{
-        name: fileName,
-        path: fullPath,
-        file: null,
-        size: size,
-        ext: ext
-      }]);
+      await loadFileFromPath(inputPath);
     } catch (err) {
       console.warn('[MediaConverter] Error loading file from query param:', err);
     }

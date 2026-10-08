@@ -907,18 +907,44 @@
       const yearEl = typeof selectors.yearSelectId === 'string'
         ? document.getElementById(selectors.yearSelectId)
         : selectors.yearSelectId;
-      if (yearEl && meta.level) {
-        const targetLvl = meta.level.toLowerCase();
+      const rawLvl = meta.level || meta.yearLevel || meta.year || '';
+      if (yearEl && rawLvl) {
+        const targetLvl = String(rawLvl).toLowerCase().trim();
         let matched = false;
+
+        // Pass 1: Exact match on value or text
         for (let i = 0; i < yearEl.options.length; i++) {
-          const optVal = (yearEl.options[i].value || '').toLowerCase();
-          const optTxt = (yearEl.options[i].textContent || '').toLowerCase();
-          if (optVal === targetLvl || optTxt === targetLvl || optVal.includes(targetLvl) || targetLvl.includes(optVal)) {
+          const optVal = (yearEl.options[i].value || '').toLowerCase().trim();
+          const optTxt = (yearEl.options[i].textContent || '').toLowerCase().trim();
+          if (optVal !== 'all' && optVal !== '' && (optVal === targetLvl || optTxt === targetLvl)) {
             yearEl.selectedIndex = i;
             matched = true;
             break;
           }
         }
+
+        // Pass 2: Normalized digit/token match (e.g. "4" matching "4ème", "4e", "Grade 4")
+        if (!matched) {
+          const numMatch = targetLvl.match(/\b([1-6])\b/);
+          const targetNum = numMatch ? numMatch[1] : null;
+          for (let i = 0; i < yearEl.options.length; i++) {
+            const optVal = (yearEl.options[i].value || '').toLowerCase().trim();
+            const optTxt = (yearEl.options[i].textContent || '').toLowerCase().trim();
+            if (optVal !== 'all' && optVal !== '') {
+              if (targetNum && (new RegExp('\\b' + targetNum + '([eè]me?|e|th)?\\b', 'i').test(optVal) || new RegExp('\\b' + targetNum + '([eè]me?|e|th)?\\b', 'i').test(optTxt))) {
+                yearEl.selectedIndex = i;
+                matched = true;
+                break;
+              }
+              if (targetLvl.length >= 2 && (optVal === targetLvl || optTxt === targetLvl || (optVal.includes(targetLvl) && !optVal.includes('-')))) {
+                yearEl.selectedIndex = i;
+                matched = true;
+                break;
+              }
+            }
+          }
+        }
+
         if (matched && typeof yearEl.onchange === 'function') {
           try { yearEl.onchange(new Event('change')); } catch (_) {}
         }
@@ -931,12 +957,12 @@
         ? document.getElementById(selectors.subjectSelectId)
         : selectors.subjectSelectId;
       if (subjEl && meta.subject) {
-        const targetSubj = meta.subject.toLowerCase();
+        const targetSubj = String(meta.subject).toLowerCase().trim();
         let matched = false;
         for (let i = 0; i < subjEl.options.length; i++) {
-          const optVal = (subjEl.options[i].value || '').toLowerCase();
-          const optTxt = (subjEl.options[i].textContent || '').toLowerCase();
-          if (optVal === targetSubj || optTxt === targetSubj || optVal.includes(targetSubj) || targetSubj.includes(optVal)) {
+          const optVal = (subjEl.options[i].value || '').toLowerCase().trim();
+          const optTxt = (subjEl.options[i].textContent || '').toLowerCase().trim();
+          if (optVal !== 'all' && optVal !== '' && (optVal === targetSubj || optTxt === targetSubj || (optVal.length > 2 && targetSubj.includes(optVal)) || (targetSubj.length > 2 && optVal.includes(targetSubj)))) {
             subjEl.selectedIndex = i;
             matched = true;
             break;

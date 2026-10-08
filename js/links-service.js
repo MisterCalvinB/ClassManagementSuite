@@ -32,6 +32,7 @@
         if (ev && ev.data) {
           // Invalidate cache and reload silently
           _registryCache = null;
+          _invalidateDossierScanCaches();
           if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
             window.dispatchEvent(new CustomEvent('cmt-links-changed', { detail: ev.data }));
           }
@@ -460,20 +461,22 @@
           });
         }
       }
-      if (window.CLASS_GROUPS_META && typeof window.CLASS_GROUPS_META === 'object') {
-        Object.keys(window.CLASS_GROUPS_META).forEach(function(k) {
+      var metaSource = (window.CLASS_GROUPS_META && typeof window.CLASS_GROUPS_META === 'object') ? window.CLASS_GROUPS_META : ((typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META && typeof CLASS_GROUPS_META === 'object') ? CLASS_GROUPS_META : null);
+      if (metaSource) {
+        Object.keys(metaSource).forEach(function(k) {
           if (k.startsWith('_')) return;
-          var m = window.CLASS_GROUPS_META[k];
+          var m = metaSource[k];
           addClass(k, (m && m.name) || k);
           if (m && Array.isArray(m.students)) {
             m.students.forEach(function(st) { addStudent(st, k, (m && m.name) || k); });
           }
         });
       }
-      if (window.CLASS_GROUPS && typeof window.CLASS_GROUPS === 'object') {
-        Object.keys(window.CLASS_GROUPS).forEach(function(k) {
+      var groupsSource = (window.CLASS_GROUPS && typeof window.CLASS_GROUPS === 'object') ? window.CLASS_GROUPS : ((typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS && typeof CLASS_GROUPS === 'object') ? CLASS_GROUPS : null);
+      if (groupsSource) {
+        Object.keys(groupsSource).forEach(function(k) {
           if (k.startsWith('_')) return;
-          var g = window.CLASS_GROUPS[k];
+          var g = groupsSource[k];
           addClass(k, (g && g.name) || k);
           var arr = Array.isArray(g) ? g : ((g && g.students) || []);
           arr.forEach(function(st) { addStudent(st, k, (g && g.name) || k); });
@@ -530,15 +533,20 @@
           if (res && res.ok && res.content) {
             var fn = new Function(
               res.content +
-              '\nreturn (typeof CLASS_GROUPS_DATA !== "undefined") ? CLASS_GROUPS_DATA' +
-              ' : { classGroups: (typeof CLASS_GROUPS !== "undefined" ? CLASS_GROUPS : null),' +
-              '   classGroupsMeta: (typeof CLASS_GROUPS_META !== "undefined" ? CLASS_GROUPS_META : null) };'
+              '\nreturn { ' +
+              '  classGroups: (typeof CLASS_GROUPS !== "undefined" ? CLASS_GROUPS : null),' +
+              '  classGroupsMeta: (typeof CLASS_GROUPS_META !== "undefined" ? CLASS_GROUPS_META : null),' +
+              '  classGroupsData: (typeof CLASS_GROUPS_DATA !== "undefined" ? CLASS_GROUPS_DATA : null)' +
+              '};'
             );
             var parsed = fn();
             if (parsed) {
-              if (parsed.classGroupsMeta && !window.CLASS_GROUPS_META) window.CLASS_GROUPS_META = parsed.classGroupsMeta;
-              if (parsed.classGroups && !window.CLASS_GROUPS) window.CLASS_GROUPS = parsed.classGroups;
-              if (!window.CLASS_GROUPS_DATA) window.CLASS_GROUPS_DATA = parsed;
+              var glob = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : null);
+              if (glob) {
+                if (parsed.classGroupsMeta) glob.CLASS_GROUPS_META = parsed.classGroupsMeta;
+                if (parsed.classGroups) glob.CLASS_GROUPS = parsed.classGroups;
+                if (parsed.classGroupsData) glob.CLASS_GROUPS_DATA = parsed.classGroupsData;
+              }
             }
           }
         } catch (_) {}
@@ -651,29 +659,53 @@
 
     if (typeof window !== 'undefined') {
       var meta = (window.CLASS_GROUPS_META && window.CLASS_GROUPS_META[classId]) ||
-        (window.CLASS_GROUPS_DATA && window.CLASS_GROUPS_DATA.classGroupsMeta && window.CLASS_GROUPS_DATA.classGroupsMeta[classId]);
+        (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META && CLASS_GROUPS_META[classId]) ||
+        (window.CLASS_GROUPS_DATA && window.CLASS_GROUPS_DATA.classGroupsMeta && window.CLASS_GROUPS_DATA.classGroupsMeta[classId]) ||
+        (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA && CLASS_GROUPS_DATA.classGroupsMeta && CLASS_GROUPS_DATA.classGroupsMeta[classId]);
       if (meta) {
-        if (meta.level) return String(meta.level).trim();
-        if (meta.yearLevel) return String(meta.yearLevel).trim();
-        if (meta.grade) return String(meta.grade).trim();
-        if (meta.year) return String(meta.year).trim();
+        if (meta.level !== undefined && meta.level !== null && String(meta.level).trim() !== '') return String(meta.level).trim();
+        if (meta.yearLevel !== undefined && meta.yearLevel !== null && String(meta.yearLevel).trim() !== '') return String(meta.yearLevel).trim();
+        if (meta.grade !== undefined && meta.grade !== null && String(meta.grade).trim() !== '') return String(meta.grade).trim();
+        if (meta.year !== undefined && meta.year !== null && String(meta.year).trim() !== '' && !String(meta.year).includes('-')) return String(meta.year).trim();
       }
       if (window.PLANNER_CONFIG && window.PLANNER_CONFIG.classes && window.PLANNER_CONFIG.classes[classId]) {
         var pc = window.PLANNER_CONFIG.classes[classId];
-        if (pc.level) return String(pc.level).trim();
-        if (pc.year) return String(pc.year).trim();
-        if (pc.grade) return String(pc.grade).trim();
+        if (pc.level !== undefined && pc.level !== null && String(pc.level).trim() !== '') return String(pc.level).trim();
+        if (pc.yearLevel !== undefined && pc.yearLevel !== null && String(pc.yearLevel).trim() !== '') return String(pc.yearLevel).trim();
+        if (pc.grade !== undefined && pc.grade !== null && String(pc.grade).trim() !== '') return String(pc.grade).trim();
+        if (pc.year !== undefined && pc.year !== null && String(pc.year).trim() !== '' && !String(pc.year).includes('-')) return String(pc.year).trim();
       }
     }
 
     var targetStr = (cName + ' ' + classId).toLowerCase();
-    if (/\b(6[eè]me?|6e\b|grade\s*6|g6|year\s*7)\b/i.test(targetStr)) return '6eme';
-    if (/\b(5[eè]me?|5e\b|grade\s*7|g7|year\s*8)\b/i.test(targetStr)) return '5eme';
-    if (/\b(4[eè]me?|4e\b|grade\s*8|g8|year\s*9)\b/i.test(targetStr)) return '4eme';
-    if (/\b(3[eè]me?|3e\b|grade\s*9|g9|year\s*10)\b/i.test(targetStr)) return '3eme';
-    if (/\b(2[nnd]de?|2de\b|seconde|grade\s*10|g10|year\s*11)\b/i.test(targetStr)) return '2nde';
-    if (/\b(1[eè]re?|1re\b|premi[eè]re|grade\s*11|g11|year\s*12)\b/i.test(targetStr)) return '1ere';
+
+    // Specific French / Swiss / International secondary class patterns
+    // 6ème / Grade 6 / Year 7 / 6e
+    if (/\b(6[eè]me?|6e\b|grade\s*6|g6|year\s*7|lvl\s*6|level\s*6)\b/i.test(targetStr) || /^6[a-z]{1,4}\b/i.test(classId) || /^6[a-z]\b/i.test(classId) || /^6[a-z]{1,4}\b/i.test(cName)) return '6eme';
+    // 5ème / Grade 7 / Year 8 / 5e
+    if (/\b(5[eè]me?|5e\b|grade\s*7|g7|year\s*8|lvl\s*5|level\s*5)\b/i.test(targetStr) || /^5[a-z]{1,4}\b/i.test(classId) || /^5[a-z]\b/i.test(classId) || /^5[a-z]{1,4}\b/i.test(cName)) return '5eme';
+    // 4ème / Grade 8 / Year 9 / 4e / 4ANdf / 4DF / 4OS
+    if (/\b(4[eè]me?|4e\b|grade\s*8|g8|year\s*9|lvl\s*4|level\s*4)\b/i.test(targetStr) || /^4[a-z]{1,4}\b/i.test(classId) || /^4[a-z]\b/i.test(classId) || /^4[a-z]{1,4}\b/i.test(cName)) return '4eme';
+    // 3ème / Grade 9 / Year 10 / 3e / 3ANdf / 3DF / 3OS
+    if (/\b(3[eè]me?|3e\b|grade\s*9|g9|year\s*10|lvl\s*3|level\s*3)\b/i.test(targetStr) || /^3[a-z]{1,4}\b/i.test(classId) || /^3[a-z]\b/i.test(classId) || /^3[a-z]{1,4}\b/i.test(cName)) return '3eme';
+    // 2nde / Grade 10 / Year 11 / 2de / 2ANdf / 2DF / 2OS
+    if (/\b(2[nnd]de?|2de\b|seconde|grade\s*10|g10|year\s*11|lvl\s*2|level\s*2)\b/i.test(targetStr) || /^2[a-z]{1,4}\b/i.test(classId) || /^2[a-z]\b/i.test(classId) || /^2[a-z]{1,4}\b/i.test(cName)) return '2nde';
+    // 1ère / Grade 11 / Year 12 / 1re / 1ANdf / 1DF / 1OS
+    if (/\b(1[eè]re?|1re\b|premi[eè]re|grade\s*11|g11|year\s*12|lvl\s*1|level\s*1)\b/i.test(targetStr) || /^1[a-z]{1,4}\b/i.test(classId) || /^1[a-z]\b/i.test(classId) || /^1[a-z]{1,4}\b/i.test(cName)) return '1ere';
+    // Terminale / Grade 12 / Year 13 / Tle
     if (/\b(term(inale)?|tle\b|grade\s*12|g12|year\s*13)\b/i.test(targetStr)) return 'terminale';
+
+    // Leading digit level heuristic: e.g. "4A", "4-01", "4_02", "3B", "3-01", "2C", "1A"
+    var leadMatch = classId.match(/^([1-6])[-_.\s]?[a-z0-9]/i) || cName.match(/^([1-6])[-_.\s]?[a-z0-9]/i);
+    if (leadMatch) {
+      var d = leadMatch[1];
+      if (d === '6') return '6eme';
+      if (d === '5') return '5eme';
+      if (d === '4') return '4eme';
+      if (d === '3') return '3eme';
+      if (d === '2') return '2nde';
+      if (d === '1') return '1ere';
+    }
 
     var cefrMatch = targetStr.match(/\b([a-c][1-2])\b/i);
     if (cefrMatch) return cefrMatch[1].toUpperCase();
@@ -711,16 +743,86 @@
     return startY + '-' + (startY + 1);
   }
 
+  function _normalizeClassToken(str) {
+    return String(str || '').toLowerCase().replace(/[\s\-_]/g, '');
+  }
+
+  function _stripZeroPaddingClassToken(str) {
+    return _normalizeClassToken(str).replace(/([a-z])0+(\d+)/gi, '$1$2');
+  }
+
   function resolveClassGroupFromFilename(filename) {
     if (!filename) return '';
-    var base = String(filename).replace(/\\/g, '/').split('/').pop().replace(/\.(js|json|cstz|zip)$/i, '');
+    var rawPath = String(filename).replace(/\\/g, '/');
+    var base = rawPath.split('/').pop().replace(/\.(js|json|cstz|zip)$/i, '');
     var cache = _rosterNameCache || _buildRosterCache();
     var classes = Object.keys(cache.classes || {});
+
+    // Sort classes by ID/name length descending so longer, more specific IDs match first (e.g. "3ANdf-02" before "3A")
+    classes.sort(function(a, b) {
+      var lenA = Math.max((a || '').length, ((cache.classes && cache.classes[a]) || '').length);
+      var lenB = Math.max((b || '').length, ((cache.classes && cache.classes[b]) || '').length);
+      return lenB - lenA;
+    });
+
+    var baseLower = base.toLowerCase();
+    var baseNorm = _normalizeClassToken(base);
+    var baseNoZero = _stripZeroPaddingClassToken(base);
+
     for (var i = 0; i < classes.length; i++) {
       var cid = classes[i];
       var cname = cache.classes[cid];
-      if (cid && base.toLowerCase().includes(cid.toLowerCase())) return cid;
-      if (cname && base.toLowerCase().includes(cname.toLowerCase())) return cid;
+      if (!cid) continue;
+
+      var cidLower = cid.toLowerCase();
+      var cnameLower = cname ? cname.toLowerCase() : '';
+      var cidNorm = _normalizeClassToken(cid);
+      var cnameNorm = cname ? _normalizeClassToken(cname) : '';
+      var cidNoZero = _stripZeroPaddingClassToken(cid);
+      var cnameNoZero = cname ? _stripZeroPaddingClassToken(cname) : '';
+
+      // 1. Direct match on basename
+      if (baseLower === cidLower || (cnameLower && baseLower === cnameLower)) return cid;
+      if (baseLower.startsWith(cidLower + '_') || baseLower.startsWith(cidLower + ' - ') || baseLower.startsWith(cidLower + ' ') || baseLower.startsWith(cidLower + '-')) return cid;
+      if (cnameLower && (baseLower.startsWith(cnameLower + '_') || baseLower.startsWith(cnameLower + ' - ') || baseLower.startsWith(cnameLower + ' ') || baseLower.startsWith(cnameLower + '-'))) return cid;
+
+      // 2. Check path directory segments (e.g. "3andf-02/session.json" or "archived/3andf-02/session.json")
+      var pathSegments = rawPath.split('/');
+      for (var s = 0; s < pathSegments.length; s++) {
+        var seg = pathSegments[s].trim();
+        var segLower = seg.toLowerCase();
+        var segNorm = _normalizeClassToken(seg);
+        var segNoZero = _stripZeroPaddingClassToken(seg);
+        if (segLower === cidLower || (cnameLower && segLower === cnameLower)) return cid;
+        if (segNorm === cidNorm || (cnameNorm && segNorm === cnameNorm)) return cid;
+        if (segNoZero === cidNoZero || (cnameNoZero && segNoZero === cnameNoZero)) return cid;
+      }
+
+      // 3. Check delimiter-separated tokens: " - " or "/" or " _ " or spaces (preserving internal dashes/underscores in names)
+      var tokens = base.split(/\s+-\s+|\s*[/|\\]\s*|\s+_\s+/).concat(base.split(/\s+/));
+      for (var t = 0; t < tokens.length; t++) {
+        var tok = tokens[t].trim();
+        var tokLower = tok.toLowerCase();
+        var tokNorm = _normalizeClassToken(tok);
+        var tokNoZero = _stripZeroPaddingClassToken(tok);
+        if (tokLower === cidLower || (cnameLower && tokLower === cnameLower)) return cid;
+        if (tokNorm === cidNorm || (cnameNorm && tokNorm === cnameNorm)) return cid;
+        if (tokNoZero === cidNoZero || (cnameNoZero && tokNoZero === cnameNoZero)) return cid;
+      }
+
+      // 4. Normalized prefix match
+      if (baseNorm.startsWith(cidNorm) || (cnameNorm && baseNorm.startsWith(cnameNorm))) return cid;
+      if (baseNoZero.startsWith(cidNoZero) || (cnameNoZero && baseNoZero.startsWith(cnameNoZero))) return cid;
+
+      // 5. Word boundary regex
+      try {
+        var escCid = cid.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        if (new RegExp('\\b' + escCid + '\\b', 'i').test(base)) return cid;
+        if (cname) {
+          var escCname = cname.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          if (new RegExp('\\b' + escCname + '\\b', 'i').test(base)) return cid;
+        }
+      } catch (_) {}
     }
     return '';
   }
@@ -735,13 +837,11 @@
       }
     },
     class: {
-      parents: ['level', 'year'],
+      parents: ['level'],
       resolveParents: function(classId) {
         var parents = [];
         var lvl = resolveClassLevel(classId);
         if (lvl) parents.push(makeUrn('level', lvl));
-        var yr = resolveClassYear(classId);
-        if (yr) parents.push(makeUrn('year', yr));
         return parents;
       }
     },
@@ -797,18 +897,19 @@
             plannerId = meta.plannerEntryId || (meta.meta && (meta.meta.plannerEntryId || meta.meta.plannerId)) || '';
           }
         }
-        if (!classGroup && !plannerId && typeof window !== 'undefined' && window.boardHistoryMetaCache) {
-          var hMeta = window.boardHistoryMetaCache[clean] || window.boardHistoryMetaCache[clean.split('/').pop()];
+        if (!classGroup && !plannerId) {
+          var metaCache = {};
+          if (typeof localStorage !== 'undefined') {
+            try { metaCache = JSON.parse(localStorage.getItem('board_history_meta_cache_v1') || '{}') || {}; } catch (_) {}
+          }
+          if (typeof window !== 'undefined' && window.boardHistoryMetaCache && typeof window.boardHistoryMetaCache === 'object') {
+            metaCache = Object.assign({}, metaCache, window.boardHistoryMetaCache);
+          }
+          var hMeta = metaCache[clean] || metaCache[clean.split('/').pop()];
           if (hMeta) {
             classGroup = hMeta.classGroup || '';
             plannerId = hMeta.plannerEntryId || '';
           }
-        }
-        if (!plannerId && typeof window !== 'undefined' && window.activePlannerEntryId) {
-          plannerId = window.activePlannerEntryId;
-        }
-        if (!classGroup && typeof window !== 'undefined' && window.activeClassGroup) {
-          classGroup = window.activeClassGroup;
         }
         if (!classGroup) {
           classGroup = resolveClassGroupFromFilename(clean);
@@ -1146,13 +1247,13 @@
         icon = 'groups.svg';
         var lvlId = p.id.toUpperCase();
         var lvlLabel = lvlId;
-        if (lvlId === '6EME') lvlLabel = '6ème (Grade 6)';
-        else if (lvlId === '5EME') lvlLabel = '5ème (Grade 7)';
-        else if (lvlId === '4EME') lvlLabel = '4ème (Grade 8)';
-        else if (lvlId === '3EME') lvlLabel = '3ème (Grade 9)';
-        else if (lvlId === '2NDE') lvlLabel = '2nde (Grade 10)';
-        else if (lvlId === '1ERE') lvlLabel = '1ère (Grade 11)';
-        else if (lvlId === 'TERMINALE') lvlLabel = 'Terminale (Grade 12)';
+        if (lvlId === '6EME' || lvlId === '6' || lvlId === '6E' || lvlId === '6ÈME') lvlLabel = '6ème (Grade 6)';
+        else if (lvlId === '5EME' || lvlId === '5' || lvlId === '5E' || lvlId === '5ÈME') lvlLabel = '5ème (Grade 7)';
+        else if (lvlId === '4EME' || lvlId === '4' || lvlId === '4E' || lvlId === '4ÈME') lvlLabel = '4ème (Grade 8)';
+        else if (lvlId === '3EME' || lvlId === '3' || lvlId === '3E' || lvlId === '3ÈME') lvlLabel = '3ème (Grade 9)';
+        else if (lvlId === '2NDE' || lvlId === '2DE' || lvlId === '2' || lvlId === '2È' || lvlId === 'SECONDE') lvlLabel = '2nde (Grade 10)';
+        else if (lvlId === '1ERE' || lvlId === '1RE' || lvlId === '1' || lvlId === '1È' || lvlId === 'PREMIERE' || lvlId === 'PREMIÈRE') lvlLabel = '1ère (Grade 11)';
+        else if (lvlId === 'TERMINALE' || lvlId === 'TLE' || lvlId === 'TERM') lvlLabel = 'Terminale (Grade 12)';
         title = (meta && meta.title && !isRawTitle) ? meta.title : ('Level: ' + lvlLabel);
         subtitle = 'Academic Grade Level';
         break;
@@ -1520,78 +1621,41 @@
 
   function expandAutonomousLinks(cSrc, cTgt, primaryEdgeId, reg) {
     if (!cSrc || !cTgt || !reg) return [];
+    var pSrc = parseUrn(cSrc);
+    var pTgt = parseUrn(cTgt);
+    var srcType = (pSrc ? pSrc.type : '').toLowerCase();
+    var tgtType = (pTgt ? pTgt.type : '').toLowerCase();
+
+    var isConcreteArtifact = function(t) {
+      return t.startsWith('board') || t === 'doc' || t === 'document' || t === 'file' ||
+             t === 'lesson' || t === 'test' || t === 'eval' || t === 'gradesheet' || t === 'planner' || t === 'slot';
+    };
+
     var srcAncestors = resolveEntityAncestors(cSrc);
     var tgtAncestors = resolveEntityAncestors(cTgt);
     var created = [];
 
-    // 1. Source connects to Target's ancestors
+    // 1. Source connects upward to Target's direct ancestors
     tgtAncestors.forEach(function(tgtAnc) {
+      var pAnc = parseUrn(tgtAnc);
+      var ancType = (pAnc ? pAnc.type : '').toLowerCase();
+      // Concrete artifacts must NEVER connect upward to a generic grade LEVEL
+      if (ancType === 'level' && isConcreteArtifact(srcType)) {
+        return;
+      }
       var e = _createInferredEdge(reg, cSrc, tgtAnc, primaryEdgeId, 'upward_target');
       if (e) created.push(e);
     });
 
-    // 2. Target connects to Source's ancestors
+    // 2. Target connects upward to Source's direct ancestors
     srcAncestors.forEach(function(srcAnc) {
+      var pAnc2 = parseUrn(srcAnc);
+      var ancType2 = (pAnc2 ? pAnc2.type : '').toLowerCase();
+      if (ancType2 === 'level' && isConcreteArtifact(tgtType)) {
+        return;
+      }
       var e = _createInferredEdge(reg, cTgt, srcAnc, primaryEdgeId, 'upward_source');
       if (e) created.push(e);
-    });
-
-    // 3. Ancestors connect to each other
-    srcAncestors.forEach(function(srcAnc) {
-      tgtAncestors.forEach(function(tgtAnc) {
-        var e = _createInferredEdge(reg, srcAnc, tgtAnc, primaryEdgeId, 'ancestor_bridge');
-        if (e) created.push(e);
-      });
-    });
-
-    // 4. Regressive Cross-Domain Auto-Linking
-    var allInvolved = [cSrc, cTgt].concat(srcAncestors, tgtAncestors);
-    var classIds = new Set();
-    var slotIds = new Set();
-    var boardUrns = new Set();
-
-    allInvolved.forEach(function(u) {
-      var p = parseUrn(u);
-      if (!p) return;
-      if (p.type === 'class') classIds.add(p.id);
-      if (p.type === 'planner' || p.type === 'slot') slotIds.add(p.id);
-      if (p.type === 'board' || p.type === 'mindmap') boardUrns.add(canonicalizeUrn(u));
-    });
-
-    classIds.forEach(function(cId) {
-      // Connect Class to Grade Sheets
-      var gsUrns = _findAssociatedGradeSheetsForClass(cId);
-      gsUrns.forEach(function(gsUrn) {
-        var eg = _createInferredEdge(reg, makeUrn('class', cId), gsUrn, primaryEdgeId, 'regressive_gradesheet');
-        if (eg) created.push(eg);
-      });
-
-      // Connect Planner Slots to Grade Sheets and Board Documents
-      slotIds.forEach(function(slotId) {
-        var slotUrn = makeUrn('planner', slotId);
-        gsUrns.forEach(function(gsUrn) {
-          var es = _createInferredEdge(reg, slotUrn, gsUrn, primaryEdgeId, 'regressive_gradesheet');
-          if (es) created.push(es);
-        });
-
-        var bUrns = _findAssociatedBoardUrnsForClassOrSlot(cId, slotId, reg);
-        bUrns.forEach(function(bUrn) {
-          var eb1 = _createInferredEdge(reg, bUrn, slotUrn, primaryEdgeId, 'regressive_board');
-          if (eb1) created.push(eb1);
-          var eb2 = _createInferredEdge(reg, bUrn, makeUrn('class', cId), primaryEdgeId, 'regressive_board');
-          if (eb2) created.push(eb2);
-        });
-      });
-
-      // Connect Board Documents directly to Grade Sheets
-      boardUrns.forEach(function(bUrn) {
-        gsUrns.forEach(function(gsUrn) {
-          var ebg = _createInferredEdge(reg, bUrn, gsUrn, primaryEdgeId, 'regressive_board_grade');
-          if (ebg) created.push(ebg);
-        });
-        var ebClass = _createInferredEdge(reg, bUrn, makeUrn('class', cId), primaryEdgeId, 'regressive_board_class');
-        if (ebClass) created.push(ebClass);
-      });
     });
 
     return created;
@@ -1913,6 +1977,96 @@
     return Array.isArray(reg.tags[tag]) ? reg.tags[tag].slice() : [];
   }
 
+  function _resolveUrnClassGroup(urn, targetMeta) {
+    if (!urn) return '';
+    var p = parseUrn(urn);
+    if (!p) return '';
+    if (p.type === 'class') return p.id;
+    if (p.type === 'student') {
+      var st = resolveStudentInfo(p.id);
+      return (st && st.classId) || '';
+    }
+    if (p.type === 'eval' || p.type === 'gradesheet' || p.type === 'grade') {
+      return p.id.split(':')[0] || '';
+    }
+    if (p.type === 'planner' || p.type === 'slot') {
+      var clean = p.id.split('#')[0];
+      if (clean.startsWith('sched:')) {
+        return clean.split(':')[1] || '';
+      }
+      if (typeof window !== 'undefined' && window.PLANNER_CONFIG && Array.isArray(window.PLANNER_CONFIG.entries)) {
+        var ent = window.PLANNER_CONFIG.entries.find(function(e) { return e && e.id === clean; });
+        if (ent && ent.classId) return ent.classId;
+      }
+      if (typeof window !== 'undefined' && window.PLANNER_ENTRIES_BY_CLASS) {
+        for (var cid in window.PLANNER_ENTRIES_BY_CLASS) {
+          var arr = window.PLANNER_ENTRIES_BY_CLASS[cid] || [];
+          if (arr.some(function(e) { return e && (e.id === clean || e.plannerEntryId === clean); })) {
+            return cid;
+          }
+        }
+      }
+    }
+    if (p.type === 'board' || p.type.startsWith('board-') || p.type.startsWith('board_')) {
+      var bFile = p.id.split('#')[0].split(':')[0];
+      var bClass = resolveClassGroupFromFilename(bFile);
+      if (bClass) return bClass;
+      if (_registryCache && _registryCache.entities) {
+        var entMeta = _registryCache.entities[makeUrn('board', bFile)] || _registryCache.entities[canonicalizeUrn(makeUrn('board', bFile))];
+        if (entMeta) {
+          var cId = entMeta.classGroup || entMeta.classId || (entMeta.meta && (entMeta.meta.classGroup || entMeta.meta.classId));
+          if (cId) return cId;
+          var pid = entMeta.plannerEntryId || (entMeta.meta && (entMeta.meta.plannerEntryId || entMeta.meta.plannerId));
+          if (pid) {
+            var pClass = _resolveUrnClassGroup(makeUrn('planner', pid));
+            if (pClass) return pClass;
+          }
+        }
+      }
+      var metaCache = {};
+      if (typeof localStorage !== 'undefined') {
+        try { metaCache = JSON.parse(localStorage.getItem('board_history_meta_cache_v1') || '{}') || {}; } catch (_) {}
+      }
+      if (typeof window !== 'undefined' && window.boardHistoryMetaCache && typeof window.boardHistoryMetaCache === 'object') {
+        metaCache = Object.assign({}, metaCache, window.boardHistoryMetaCache);
+      }
+      var hMeta = metaCache[bFile] || metaCache[bFile.split('/').pop()];
+      if (hMeta) {
+        if (hMeta.classGroup) return hMeta.classGroup;
+        if (hMeta.plannerEntryId) {
+          var pClass2 = _resolveUrnClassGroup(makeUrn('planner', hMeta.plannerEntryId));
+          if (pClass2) return pClass2;
+        }
+      }
+    }
+    if (p.type === 'lesson') {
+      if (_registryCache && _registryCache.entities) {
+        var lMeta = _registryCache.entities[makeUrn('lesson', p.id)] || _registryCache.entities[canonicalizeUrn(makeUrn('lesson', p.id))];
+        if (lMeta) {
+          var lcId = lMeta.classId || lMeta.classGroup || (lMeta.meta && (lMeta.meta.classId || lMeta.meta.classGroup));
+          if (lcId) return lcId;
+          var lPid = lMeta.plannerEntryId || (lMeta.meta && (lMeta.meta.plannerEntryId || lMeta.meta.plannerId));
+          if (lPid) return _resolveUrnClassGroup(makeUrn('planner', lPid));
+        }
+      }
+    }
+    if (targetMeta) {
+      var tmClass = targetMeta.classId || targetMeta.classGroup || (targetMeta.meta && (targetMeta.meta.classId || targetMeta.meta.classGroup));
+      if (tmClass) return String(tmClass);
+    }
+    return '';
+  }
+
+  function _isUrnOrMetaBoundToDifferentClass(otherUrn, targetMeta, classId) {
+    if (!classId || !otherUrn) return false;
+    var cleanCid = classId.trim().toLowerCase();
+    var boundClass = _resolveUrnClassGroup(otherUrn, targetMeta);
+    if (boundClass && boundClass.trim().toLowerCase() !== cleanCid) {
+      return true;
+    }
+    return false;
+  }
+
   // ── 6. Context Inheritance Resolver & Multi-Tier Graph Traversal ───────────
   /**
    * Resolves direct links + parent class links + level links + container links for smart preselection.
@@ -1931,10 +2085,19 @@
     var seenInheritedUrns = new Set();
     var parsed = cUrn ? parseUrn(cUrn) : null;
 
-    var classId = entityRef.classId;
-    if (!classId && parsed && parsed.type === 'student') {
-      var stInfo = resolveStudentInfo(parsed.id);
-      if (stInfo && stInfo.classId) classId = stInfo.classId;
+    var classId = entityRef.classId || entityRef.classGroup;
+    if (!classId && parsed) {
+      if (parsed.type === 'student') {
+        var stInfo = resolveStudentInfo(parsed.id);
+        if (stInfo && stInfo.classId) classId = stInfo.classId;
+      } else if (parsed.type === 'class') {
+        classId = parsed.id;
+      } else if (parsed.type === 'eval' || parsed.type === 'gradesheet') {
+        classId = parsed.id.split(':')[0];
+      } else if (parsed.type === 'board' || parsed.type.startsWith('board-')) {
+        var bFile = parsed.id.split(':')[0];
+        classId = resolveClassGroupFromFilename(bFile);
+      }
     }
 
     var ancestors = cUrn ? resolveEntityAncestors(cUrn) : [];
@@ -1949,6 +2112,18 @@
         aLinks.forEach(function(al) {
           var otherCan = canonicalizeUrn(al.otherUrn);
           if (otherCan !== cUrn && !seenInheritedUrns.has(otherCan)) {
+            var po = parseUrn(otherCan);
+            var oType = (po ? po.type : '').toLowerCase();
+            // From a generic grade LEVEL, only inherit curriculum standards (competence, criteria, scale).
+            // NEVER inherit concrete class documents, lessons, board files, or planner slots.
+            if (parsedAnc && parsedAnc.type === 'level') {
+              if (oType !== 'competence' && oType !== 'criteria' && oType !== 'criterion' && oType !== 'scale') {
+                return;
+              }
+            }
+            if (classId && _isUrnOrMetaBoundToDifferentClass(al.otherUrn, al.targetMeta, classId)) {
+              return; // Skip cross-class inherited link
+            }
             seenInheritedUrns.add(otherCan);
             inheritedLinks.push(Object.assign({}, al, {
               inheritedFrom: ancUrn,
@@ -1967,6 +2142,9 @@
         cLinks.forEach(function(cl) {
           var otherCan = canonicalizeUrn(cl.otherUrn);
           if (otherCan !== cUrn && !seenInheritedUrns.has(otherCan)) {
+            if (_isUrnOrMetaBoundToDifferentClass(cl.otherUrn, cl.targetMeta, classId)) {
+              return;
+            }
             seenInheritedUrns.add(otherCan);
             inheritedLinks.push(Object.assign({}, cl, { inheritedFrom: classUrn, inheritanceReason: 'class' }));
           }
@@ -1978,6 +2156,9 @@
           lLinks.forEach(function(ll) {
             var otherCan = canonicalizeUrn(ll.otherUrn);
             if (otherCan !== cUrn && !seenInheritedUrns.has(otherCan)) {
+              if (_isUrnOrMetaBoundToDifferentClass(ll.otherUrn, ll.targetMeta, classId)) {
+                return;
+              }
               seenInheritedUrns.add(otherCan);
               inheritedLinks.push(Object.assign({}, ll, { inheritedFrom: lvlUrn, inheritanceReason: 'level' }));
             }
@@ -2522,24 +2703,185 @@
     }
   }
 
+  // ── High-Performance In-Memory File Scanner Caches ──────────────────────────
+  var _gradeScanCache = null;
+  var _gradeScanPromise = null;
+  var _boardScanCache = null;
+  var _boardScanPromise = null;
+
+  function _invalidateDossierScanCaches() {
+    _gradeScanCache = null;
+    _gradeScanPromise = null;
+    _boardScanCache = null;
+    _boardScanPromise = null;
+  }
+
+  async function _getOrScanGradeFiles() {
+    if (_gradeScanCache && (Date.now() - _gradeScanCache.ts < 20000)) {
+      return _gradeScanCache.data;
+    }
+    if (_gradeScanPromise) return _gradeScanPromise;
+
+    _gradeScanPromise = (async function() {
+      var result = { classList: [], testList: [] };
+      if (typeof window === 'undefined' || !window.Desktop || typeof window.Desktop.listByPath !== 'function') {
+        _gradeScanCache = { ts: Date.now(), data: result };
+        _gradeScanPromise = null;
+        return result;
+      }
+      try {
+        var listResult = await window.Desktop.listByPath('grades', '', { recursive: true, extensions: ['.js'] });
+        if (!listResult || !listResult.ok || !Array.isArray(listResult.files)) {
+          _gradeScanCache = { ts: Date.now(), data: result };
+          _gradeScanPromise = null;
+          return result;
+        }
+
+        var classFiles = listResult.files.filter(function(f) { return f.filename === '_class.js'; });
+        var testFiles = listResult.files.filter(function(f) { return f.filename !== '_class.js'; });
+
+        // Read all class files in parallel once
+        await Promise.all(classFiles.map(async function(cf) {
+          try {
+            var res = await window.Desktop.readByPath('grades', cf.relativePath);
+            if (!res || !res.content) return;
+            var meta = _parseGradeFileContent(res.content);
+            if (!meta) return;
+            var normRel = cf.relativePath.replace(/\\/g, '/');
+            var subdir = normRel.split('/').slice(0, -1).join('/');
+            result.classList.push({ meta: meta, subdir: subdir, relativePath: normRel });
+          } catch (_) {}
+        }));
+
+        // Read all test files in parallel once
+        await Promise.all(testFiles.map(async function(tf) {
+          try {
+            var tRes = await window.Desktop.readByPath('grades', tf.relativePath);
+            if (!tRes || !tRes.content) return;
+            var testData = _parseGradeFileContent(tRes.content);
+            if (!testData) return;
+            var normRel = tf.relativePath.replace(/\\/g, '/');
+            result.testList.push({ data: testData, relativePath: normRel });
+          } catch (_) {}
+        }));
+
+        _gradeScanCache = { ts: Date.now(), data: result };
+      } catch (_) {
+        _gradeScanCache = { ts: Date.now(), data: result };
+      }
+      _gradeScanPromise = null;
+      return result;
+    })();
+
+    return _gradeScanPromise;
+  }
+
+  async function _getOrScanBoardFiles() {
+    if (_boardScanCache && (Date.now() - _boardScanCache.ts < 20000)) {
+      return _boardScanCache.data;
+    }
+    if (_boardScanPromise) return _boardScanPromise;
+
+    _boardScanPromise = (async function() {
+      var allBoards = [];
+      var metaCache = {};
+      if (typeof localStorage !== 'undefined') {
+        try {
+          metaCache = JSON.parse(localStorage.getItem('board_history_meta_cache_v1') || '{}') || {};
+        } catch (_) {}
+      }
+      if (typeof window !== 'undefined' && window.boardHistoryMetaCache && typeof window.boardHistoryMetaCache === 'object') {
+        metaCache = Object.assign({}, metaCache, window.boardHistoryMetaCache);
+      }
+
+      var seenPaths = new Set();
+
+      function registerRawBoard(relPath, m, source) {
+        if (!relPath) return;
+        var normRel = String(relPath).replace(/\\/g, '/').replace(/^\/+/, '');
+        var key = normRel.toLowerCase();
+        if (seenPaths.has(key)) return;
+        seenPaths.add(key);
+
+        var baseName = normRel.split('/').pop().replace(/\.(js|json|cstz|zip)$/i, '');
+        var bClass = (m && (m.classGroup || m.classId)) || resolveClassGroupFromFilename(normRel) || '';
+        var bSlot = (m && (m.plannerEntryId || m.plannerId)) || '';
+
+        allBoards.push({
+          relativePath: normRel,
+          baseName: baseName,
+          title: (m && m.title) || baseName.replace(/_/g, ' '),
+          classGroup: bClass,
+          plannerEntryId: bSlot,
+          meta: m || {},
+          source: source || 'mindmaps'
+        });
+      }
+
+      // 1. Process items from metaCache
+      Object.keys(metaCache).forEach(function(rel) {
+        registerRawBoard(rel, metaCache[rel], 'cache');
+      });
+
+      // 2. Process items from board-sessions-backup.json
+      if (typeof window !== 'undefined' && window.Desktop && typeof window.Desktop.readJson === 'function') {
+        try {
+          var backupRes = await window.Desktop.readJson('user', 'board-sessions-backup.json');
+          var store = (backupRes && backupRes.ok && backupRes.data) ? backupRes.data : null;
+          if (store) {
+            ['constellation', 'textanalysis', 'notes'].forEach(function(section) {
+              var list = Array.isArray(store[section]) ? store[section] : [];
+              list.forEach(function(e) {
+                if (!e) return;
+                var fn = e.relativePath || e.filename || (e.id ? (e.id + '.json') : '');
+                var eMeta = {
+                  classGroup: e.classGroup || (e.data && (e.data._classGroup || e.data.classGroup)) || '',
+                  plannerEntryId: e.plannerEntryId || (e.data && (e.data._plannerEntryId || e.data.plannerEntryId)) || '',
+                  title: e.name || e.title || '',
+                  competences: e.competences || (e.data && e.data.competences) || []
+                };
+                registerRawBoard(fn, eMeta, 'backup');
+              });
+            });
+          }
+        } catch (_) {}
+      }
+
+      // 3. Process items from mindmaps filesystem
+      if (typeof window !== 'undefined' && window.Desktop && typeof window.Desktop.listByPath === 'function') {
+        try {
+          var listRes = await window.Desktop.listByPath('mindmaps', '.', { recursive: true, extensions: ['.js', '.json', '.cstz', '.zip'] });
+          var files = (listRes && listRes.ok && Array.isArray(listRes.files)) ? listRes.files : [];
+          for (var i = 0; i < files.length; i++) {
+            var f = files[i];
+            var relP = (f.relativePath || f.filename || '').replace(/\\/g, '/');
+            if (!relP) continue;
+            var cachedMeta = metaCache[relP] || metaCache[relP.split('/').pop()] || null;
+            registerRawBoard(relP, cachedMeta, 'disk');
+          }
+        } catch (_) {}
+      }
+
+      _boardScanCache = { ts: Date.now(), data: allBoards };
+      _boardScanPromise = null;
+      return allBoards;
+    })();
+
+    return _boardScanPromise;
+  }
+
   /**
    * Scans user/grades/ to extract all tests, scores, criteria rubrics, and observations
    * recorded in Grade Sheet for a given student and computes weighted semester/annual averages.
    */
   async function _loadStudentGradeSheetData(studentId, classId, studentName) {
     var emptyRes = { classId: classId || '', className: '', tests: [], sem1Average: null, sem2Average: null, yearAverage: null, gradedCount: 0, totalTests: 0 };
-    if (!studentId || typeof window === 'undefined' || !window.Desktop || typeof window.Desktop.listByPath !== 'function') {
-      return emptyRes;
-    }
+    if (!studentId) return emptyRes;
 
     try {
-      var listResult = await window.Desktop.listByPath('grades', '', { recursive: true, extensions: ['.js'] });
-      if (!listResult || !listResult.ok || !Array.isArray(listResult.files) || !listResult.files.length) {
-        return emptyRes;
-      }
-
-      var classFiles = listResult.files.filter(function(f) { return f.filename === '_class.js'; });
-      var testFiles = listResult.files.filter(function(f) { return f.filename !== '_class.js'; });
+      var scanResult = await _getOrScanGradeFiles();
+      var classList = scanResult.classList || [];
+      var testList = scanResult.testList || [];
 
       var targetName = (studentName || '').trim().toUpperCase();
       var matchedClassId = classId || null;
@@ -2548,19 +2890,11 @@
       var gsStudentId = null;
 
       // 1. Locate matching class directory and student roster entry
-      for (var i = 0; i < classFiles.length; i++) {
-        var cf = classFiles[i];
-        var res = await window.Desktop.readByPath('grades', cf.relativePath);
-        if (!res || !res.content) continue;
-        var meta = _parseGradeFileContent(res.content);
-        if (!meta) continue;
-
-        var normRel = cf.relativePath.replace(/\\/g, '/');
-        var parts = normRel.split('/');
-        var subdir = parts.slice(0, -1).join('/');
-
+      for (var i = 0; i < classList.length; i++) {
+        var item = classList[i];
+        var meta = item.meta;
         var isClassMatch = false;
-        if (classId && (meta.classId === classId || meta.groupId === classId || subdir === classId)) {
+        if (classId && (meta.classId === classId || meta.groupId === classId || item.subdir === classId)) {
           isClassMatch = true;
         }
 
@@ -2574,7 +2908,7 @@
 
         if (isClassMatch || studentMatch) {
           matchedClassId = meta.classId || classId;
-          matchedSubdir = subdir;
+          matchedSubdir = item.subdir;
           matchedClassName = meta.className || '';
           if (studentMatch) gsStudentId = studentMatch.id;
           break;
@@ -2584,7 +2918,6 @@
       if (!matchedSubdir && classId) {
         matchedSubdir = classId;
       }
-
       if (!matchedSubdir) {
         return emptyRes;
       }
@@ -2592,9 +2925,8 @@
       var targetStudentId = gsStudentId || studentId;
 
       // 2. Filter test files for the class
-      var relevantTestFiles = testFiles.filter(function(f) {
-        var p = f.relativePath.replace(/\\/g, '/');
-        return p.startsWith(matchedSubdir + '/');
+      var relevantTestFiles = testList.filter(function(t) {
+        return t.relativePath.startsWith(matchedSubdir + '/');
       });
 
       var tests = [];
@@ -2602,10 +2934,7 @@
       var sem2Tests = [];
 
       for (var j = 0; j < relevantTestFiles.length; j++) {
-        var tf = relevantTestFiles[j];
-        var tRes = await window.Desktop.readByPath('grades', tf.relativePath);
-        if (!tRes || !tRes.content) continue;
-        var testData = _parseGradeFileContent(tRes.content);
+        var testData = relevantTestFiles[j].data;
         if (!testData) continue;
 
         var sem = testData.semester;
@@ -2696,13 +3025,11 @@
         else sem2Tests.push(testItem);
       }
 
-      // Sort tests chronologically/index
       tests.sort(function(a, b) {
         if (a.semester !== b.semester) return a.semester === 'sem1' ? -1 : 1;
         return a.testIndex - b.testIndex;
       });
 
-      // 3. Compute Weighted Semester & Annual Averages matching Grade Sheet logic
       function calcSemAvg(tList) {
         var fixedSum = 0, fixedPct = 0, normalSum = 0, normalWeight = 0;
         tList.forEach(function(t) {
@@ -2746,25 +3073,184 @@
   }
 
   /**
+   * Scans and aggregates all board constellation and mindmap session files
+   * associated with a student, their class group, or their class planner slots.
+   */
+  async function _loadStudentBoardData(studentId, classId, level) {
+    var boards = [];
+    var seenKeys = new Set();
+    if (!classId && !studentId) return boards;
+
+    var cleanCid = (classId || '').trim();
+    var cleanCidLower = cleanCid.toLowerCase();
+
+    // 1. Gather all planner slot IDs belonging to this class
+    var classSlotIds = new Set();
+    if (typeof window !== 'undefined') {
+      if (window.PLANNER_ENTRIES_BY_CLASS && cleanCid && window.PLANNER_ENTRIES_BY_CLASS[cleanCid]) {
+        var slots = Array.isArray(window.PLANNER_ENTRIES_BY_CLASS[cleanCid]) ? window.PLANNER_ENTRIES_BY_CLASS[cleanCid] : [];
+        slots.forEach(function(s) {
+          if (s && s.id) classSlotIds.add(String(s.id).trim());
+          if (s && s.plannerEntryId) classSlotIds.add(String(s.plannerEntryId).trim());
+        });
+      }
+      if (window.PLANNER_CONFIG && Array.isArray(window.PLANNER_CONFIG.entries)) {
+        window.PLANNER_CONFIG.entries.forEach(function(e) {
+          if (!e) return;
+          var eCid = (e.classId || e.classGroup || '').trim();
+          if (cleanCid && eCid.toLowerCase() === cleanCidLower && e.id) {
+            classSlotIds.add(String(e.id).trim());
+          }
+        });
+      }
+    }
+
+    var allRawBoards = await _getOrScanBoardFiles();
+
+    for (var i = 0; i < allRawBoards.length; i++) {
+      var item = allRawBoards[i];
+      var normRel = item.relativePath;
+      var key = normRel.toLowerCase();
+      if (seenKeys.has(key)) continue;
+
+      var bClass = item.classGroup || resolveClassGroupFromFilename(normRel) || '';
+      var bSlot = item.plannerEntryId || '';
+
+      var isMatch = false;
+      if (cleanCid && bClass && (bClass.trim().toLowerCase() === cleanCidLower || _stripZeroPaddingClassToken(bClass) === _stripZeroPaddingClassToken(cleanCid))) {
+        isMatch = true;
+      }
+      if (bSlot && classSlotIds.has(bSlot)) {
+        isMatch = true;
+      }
+      if (!isMatch && !bClass && cleanCid) {
+        var inferred = resolveClassGroupFromFilename(normRel);
+        if (inferred && (inferred.trim().toLowerCase() === cleanCidLower || _stripZeroPaddingClassToken(inferred) === _stripZeroPaddingClassToken(cleanCid))) {
+          isMatch = true;
+        }
+      }
+
+      if (!isMatch) continue;
+
+      seenKeys.add(key);
+      var bUrn = canonicalizeUrn(makeUrn('board', normRel));
+      var isArchived = normRel.startsWith('archived/');
+      var badge = isArchived ? '[ARCHIVED MINDMAP]' : '[MINDMAP]';
+      var subtitleParts = ['Board Mindmap'];
+      if (isArchived) {
+        subtitleParts.unshift('Archived');
+      }
+      if (bClass) {
+        var cName = resolveClassName(bClass) || bClass;
+        subtitleParts.push(cName);
+      }
+      if (normRel.includes('/')) {
+        subtitleParts.push(normRel);
+      }
+
+      boards.push({
+        urn: bUrn,
+        type: 'board',
+        source: item.source || 'mindmaps',
+        title: item.title || item.baseName.replace(/_/g, ' '),
+        subtitle: subtitleParts.join(' • '),
+        badge: badge,
+        isArchived: isArchived,
+        relativePath: normRel,
+        target: 'mindmaps',
+        meta: Object.assign({}, item.meta || {}, {
+          classGroup: bClass || cleanCid,
+          plannerEntryId: bSlot,
+          isArchived: isArchived,
+          relativePath: normRel,
+          target: 'mindmaps'
+        })
+      });
+    }
+
+    return boards;
+  }
+
+  /**
+   * Scans and aggregates all planner lesson slots for a student's class group.
+   */
+  async function _loadStudentLessonData(studentId, classId) {
+    var lessons = [];
+    var seenIds = new Set();
+    if (!classId) return lessons;
+    var cleanCid = classId.trim();
+    var cleanCidLower = cleanCid.toLowerCase();
+
+    if (typeof window !== 'undefined') {
+      if (window.PLANNER_ENTRIES_BY_CLASS && window.PLANNER_ENTRIES_BY_CLASS[cleanCid]) {
+        var list = Array.isArray(window.PLANNER_ENTRIES_BY_CLASS[cleanCid]) ? window.PLANNER_ENTRIES_BY_CLASS[cleanCid] : [];
+        list.forEach(function(ent) {
+          if (!ent || !ent.id) return;
+          var key = String(ent.id).trim();
+          if (seenIds.has(key)) return;
+          seenIds.add(key);
+          var lUrn = canonicalizeUrn(makeUrn('planner', ent.id));
+          var title = ent.title || ent.lessonTitle || ent.unitTitle || ('Lesson ' + (ent.slotIndex || ent.id));
+          var sub = [ent.date || '', ent.subject || '', ent.room || ''].filter(Boolean).join(' • ');
+          lessons.push({
+            urn: lUrn,
+            type: 'planner',
+            source: 'planner',
+            title: title,
+            subtitle: sub || 'Planner Lesson Slot',
+            badge: '[LESSON]',
+            meta: ent
+          });
+        });
+      }
+      if (window.PLANNER_CONFIG && Array.isArray(window.PLANNER_CONFIG.entries)) {
+        window.PLANNER_CONFIG.entries.forEach(function(ent) {
+          if (!ent || !ent.id) return;
+          var eCid = (ent.classId || ent.classGroup || '').trim();
+          if (eCid.toLowerCase() !== cleanCidLower) return;
+          var key = String(ent.id).trim();
+          if (seenIds.has(key)) return;
+          seenIds.add(key);
+          var lUrn = canonicalizeUrn(makeUrn('planner', ent.id));
+          var title = ent.title || ent.lessonTitle || ent.unitTitle || ('Lesson ' + (ent.slotIndex || ent.id));
+          var sub = [ent.date || '', ent.subject || '', ent.room || ''].filter(Boolean).join(' • ');
+          lessons.push({
+            urn: lUrn,
+            type: 'planner',
+            source: 'planner',
+            title: title,
+            subtitle: sub || 'Planner Lesson Slot',
+            badge: '[LESSON]',
+            meta: ent
+          });
+        });
+      }
+    }
+    return lessons;
+  }
+
+  /**
    * 360° Academic Dossier Aggregator for a Student.
    * Traverses direct and indirect links to assemble evaluations, assessed competences,
    * delivered lesson plans, linked documents, and board constellations, seamlessly
-   * integrating all recorded tests and computed weighted averages from Grade Sheet.
+   * integrating all recorded tests, boards, and computed weighted averages.
    */
-  async function getStudentAcademicDossier(studentId) {
+  async function getStudentAcademicDossier(studentId, opts) {
     if (!studentId) return null;
+    opts = opts || {};
     await _ensureRosterLoaded();
     var studentUrn = makeUrn('student', studentId);
-    var stInfo = resolveStudentInfo(studentId);
-    var className = resolveClassName((stInfo && stInfo.classId) || '') || (stInfo && stInfo.className) || '';
-    var level = resolveClassLevel((stInfo && stInfo.classId) || '') || '';
-    var studentName = (stInfo && stInfo.name) || resolveStudentName(studentId) || studentId;
+    var stInfo = resolveStudentInfo(studentId) || {};
+    var classId = opts.classId || stInfo.classId || '';
+    var className = opts.className || resolveClassName(classId) || stInfo.className || '';
+    var level = opts.level || resolveClassLevel(classId) || stInfo.level || '';
+    var studentName = opts.studentName || opts.title || opts.name || stInfo.name || resolveStudentName(studentId) || studentId;
 
     var studentObj = {
       id: studentId,
       urn: studentUrn,
       name: studentName,
-      classId: (stInfo && stInfo.classId) || '',
+      classId: classId,
       className: className,
       level: level
     };
@@ -2772,22 +3258,26 @@
     var results = await Promise.all([
       resolveContext({
         urn: studentUrn,
-        classId: stInfo && stInfo.classId
+        classId: classId
       }),
-      _loadStudentGradeSheetData(studentId, stInfo && stInfo.classId, studentName)
+      _loadStudentGradeSheetData(studentId, classId, studentName),
+      _loadStudentBoardData(studentId, classId, level),
+      _loadStudentLessonData(studentId, classId)
     ]);
 
     var context = results[0] || { direct: [], inherited: [] };
     var gradeData = results[1] || { tests: [], sem1Average: null, sem2Average: null, yearAverage: null, gradedCount: 0, totalTests: 0 };
+    var boardData = results[2] || [];
+    var lessonData = results[3] || [];
 
     var dossier = {
       student: studentObj,
       gradesSummary: gradeData,
       evaluations: [].concat(gradeData.tests || []),
       competences: [],
-      lessons: [],
+      lessons: [].concat(lessonData || []),
       documents: [],
-      boards: [],
+      boards: [].concat(boardData || []),
       other: []
     };
 
@@ -2795,6 +3285,12 @@
     var seenUrns = new Set();
     (gradeData.tests || []).forEach(function(gt) {
       seenUrns.add(canonicalizeUrn(gt.urn));
+    });
+    (boardData || []).forEach(function(b) {
+      seenUrns.add(canonicalizeUrn(b.urn));
+    });
+    (lessonData || []).forEach(function(l) {
+      seenUrns.add(canonicalizeUrn(l.urn));
     });
 
     for (var i = 0; i < allEdges.length; i++) {
@@ -2838,6 +3334,27 @@
     var reg = await loadRegistry();
     var changed = false;
 
+    // Purge stale inferred edges that leaked concrete files to grade levels
+    if (Array.isArray(reg.edges)) {
+      var origLen = reg.edges.length;
+      reg.edges = reg.edges.filter(function(e) {
+        if (!e.meta || !e.meta.inferred) return true;
+        var pS = parseUrn(e.source);
+        var pT = parseUrn(e.target);
+        var sT = (pS ? pS.type : '').toLowerCase();
+        var tT = (pT ? pT.type : '').toLowerCase();
+        var isArtifact = function(t) {
+          return t.startsWith('board') || t === 'doc' || t === 'document' || t === 'file' ||
+                 t === 'lesson' || t === 'test' || t === 'eval' || t === 'gradesheet' || t === 'planner' || t === 'slot';
+        };
+        if ((sT === 'level' && isArtifact(tT)) || (tT === 'level' && isArtifact(sT))) {
+          return false;
+        }
+        return true;
+      });
+      if (reg.edges.length !== origLen) changed = true;
+    }
+
     if (typeof window !== 'undefined') {
       var byClass = window.PLANNER_ENTRIES_BY_CLASS || {};
       var cfg = window.PLANNER_CONFIG;
@@ -2848,31 +3365,28 @@
           if (!ent || !ent.id) return;
           var slotUrn = canonicalizeUrn(makeUrn('planner', ent.id));
           var classUrn = canonicalizeUrn(makeUrn('class', cid));
-          var newEdges = expandAutonomousLinks(slotUrn, classUrn, 'auto_sync_' + ent.id, reg);
-          if (newEdges.length > 0) changed = true;
+          var e = _createInferredEdge(reg, slotUrn, classUrn, 'auto_sync_' + ent.id, 'upward_class');
+          if (e) changed = true;
         });
       });
 
+      var allKnownClassIds = new Set();
       if (cfg && cfg.classes) {
-        Object.keys(cfg.classes).forEach(function(cid) {
-          var classUrn = canonicalizeUrn(makeUrn('class', cid));
-          var gsUrns = _findAssociatedGradeSheetsForClass(cid);
-          gsUrns.forEach(function(gsUrn) {
-            var e = _createInferredEdge(reg, classUrn, gsUrn, 'auto_sync_gs_' + cid, 'regressive_gradesheet');
-            if (e) changed = true;
-          });
-          var lvl = resolveClassLevel(cid);
-          if (lvl) {
-            var el = _createInferredEdge(reg, classUrn, makeUrn('level', lvl), 'auto_sync_lvl_' + cid, 'upward_level');
-            if (el) changed = true;
-          }
-          var yr = resolveClassYear(cid);
-          if (yr) {
-            var ey = _createInferredEdge(reg, classUrn, makeUrn('year', yr), 'auto_sync_yr_' + cid, 'upward_year');
-            if (ey) changed = true;
-          }
-        });
+        Object.keys(cfg.classes).forEach(function(cid) { allKnownClassIds.add(cid); });
       }
+      var rosterCache = _rosterNameCache || _buildRosterCache();
+      if (rosterCache && rosterCache.classes) {
+        Object.keys(rosterCache.classes).forEach(function(cid) { allKnownClassIds.add(cid); });
+      }
+
+      allKnownClassIds.forEach(function(cid) {
+        var classUrn = canonicalizeUrn(makeUrn('class', cid));
+        var lvl = resolveClassLevel(cid);
+        if (lvl) {
+          var el = _createInferredEdge(reg, classUrn, makeUrn('level', lvl), 'auto_sync_lvl_' + cid, 'upward_level');
+          if (el) changed = true;
+        }
+      });
 
       if (window.boardHistoryMetaCache) {
         Object.keys(window.boardHistoryMetaCache).forEach(function(k) {
@@ -2881,13 +3395,13 @@
           var bUrn = canonicalizeUrn(makeUrn('board', k.replace(/\\/g, '/')));
           if (h.plannerEntryId) {
             var slotUrn = canonicalizeUrn(makeUrn('planner', h.plannerEntryId));
-            var newEdges = expandAutonomousLinks(bUrn, slotUrn, 'auto_sync_board_' + h.plannerEntryId, reg);
-            if (newEdges.length > 0) changed = true;
+            var eSlot = _createInferredEdge(reg, bUrn, slotUrn, 'auto_sync_board_' + h.plannerEntryId, 'upward_slot');
+            if (eSlot) changed = true;
           }
           if (h.classGroup) {
             var classUrn = canonicalizeUrn(makeUrn('class', h.classGroup));
-            var newEdges2 = expandAutonomousLinks(bUrn, classUrn, 'auto_sync_board_cls_' + h.classGroup, reg);
-            if (newEdges2.length > 0) changed = true;
+            var eCls = _createInferredEdge(reg, bUrn, classUrn, 'auto_sync_board_cls_' + h.classGroup, 'upward_class');
+            if (eCls) changed = true;
           }
         });
       }

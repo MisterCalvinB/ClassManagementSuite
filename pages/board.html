@@ -317,7 +317,15 @@
       }
 
       window.__boardUserBootstrapPromise = (async function () {
-        try { await loadUserScript('class-groups.js'); }
+        try {
+          await loadUserScript('class-groups.js');
+          if (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) {
+            window.CLASS_GROUPS_META = CLASS_GROUPS_META;
+          }
+          if (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS) {
+            window.CLASS_GROUPS = CLASS_GROUPS;
+          }
+        }
         catch (e) { console.warn('Failed to load user/class-groups.js:', e); }
         try { await loadUserScript('config.js'); }
         catch (e) { console.warn('Failed to load user/config.js:', e); }
@@ -2661,6 +2669,12 @@
         <button type="button" class="action-btn btn-sm btn-grey" id="con-ctx-open-converter-btn" onclick="conCtxOpenInMediaConverter()" title="Open in Video & Sound Converter" style="font-size:0.68rem; padding:2px 6px;">
           <img src="../assets/icons/sparkles.svg" class="btn-icon" style="width:12px;height:12px;" alt="" /> <span data-i18n="conMediaOpenConverter">Converter...</span>
         </button>
+        <button type="button" class="action-btn btn-sm btn-grey" id="con-ctx-open-app-btn" onclick="conCtxMediaOpenNative()" title="Open in System Application" data-i18n-title="soundNodeOpenAppTitle" style="font-size:0.68rem; padding:2px 6px;">
+          <img src="../assets/icons/media.svg" class="btn-icon" style="width:12px;height:12px;" alt="" /> <span data-i18n="soundNodeOpenApp">Open App</span>
+        </button>
+        <button type="button" class="action-btn btn-sm btn-grey" id="con-ctx-open-folder-btn" onclick="conCtxMediaOpenFolder()" title="Open Location Folder" data-i18n-title="soundNodeOpenFolderTitle" style="font-size:0.68rem; padding:2px 6px;">
+          <img src="../assets/icons/folder.svg" class="btn-icon" style="width:12px;height:12px;" alt="" /> <span data-i18n="soundNodeOpenFolder">Folder</span>
+        </button>
       </div>
     </div>
     <!-- Word relation & connection icon row -->
@@ -3500,6 +3514,16 @@
           <span>Stop</span>
         </button>
       </div>
+      <div class="con-sound-extra-row" style="display:flex; gap:6px; align-items:center;">
+        <button type="button" id="con-sound-open-native-btn" onclick="conSoundNodeOpenNative()" class="action-btn btn-grey" style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:5px; padding:5px 8px; font-weight:700; font-size:0.75rem; border-radius:6px; cursor:pointer;" title="Open with default system media player" data-i18n-title="soundNodeOpenAppTitle">
+          <img src="../assets/icons/media.svg" class="btn-icon" alt="" style="width:12px;height:12px;margin:0;" />
+          <span data-i18n="soundNodeOpenApp">Open App</span>
+        </button>
+        <button type="button" id="con-sound-open-folder-btn" onclick="conSoundNodeOpenFolder()" class="action-btn btn-grey" style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:5px; padding:5px 8px; font-weight:700; font-size:0.75rem; border-radius:6px; cursor:pointer;" title="Open file location folder" data-i18n-title="soundNodeOpenFolderTitle">
+          <img src="../assets/icons/folder.svg" class="btn-icon" alt="" style="width:12px;height:12px;margin:0;" />
+          <span data-i18n="soundNodeOpenFolder">Folder</span>
+        </button>
+      </div>
     </div>
   </div>
 
@@ -3542,6 +3566,16 @@
         </button>
         <button type="button" id="con-video-convert-btn" onclick="conConvertActiveVideoNodeToCanvas()" class="action-btn btn-grey" title="Convert to Canvas Box" style="display:inline-flex; align-items:center; justify-content:center; padding:6px 8px; border-radius:6px; cursor:pointer;">
           <img src="../assets/icons/layout.svg" class="btn-icon" alt="" style="width:13px;height:13px;" />
+        </button>
+      </div>
+      <div class="con-video-extra-row" style="display:flex; gap:6px; align-items:center;">
+        <button type="button" id="con-video-open-native-btn" onclick="conVideoNodeOpenNative()" class="action-btn btn-grey" style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:5px; padding:5px 8px; font-weight:700; font-size:0.75rem; border-radius:6px; cursor:pointer;" title="Open with default system media player" data-i18n-title="videoNodeOpenAppTitle">
+          <img src="../assets/icons/media.svg" class="btn-icon" alt="" style="width:12px;height:12px;margin:0;" />
+          <span data-i18n="videoNodeOpenApp">Open App</span>
+        </button>
+        <button type="button" id="con-video-open-folder-btn" onclick="conVideoNodeOpenFolder()" class="action-btn btn-grey" style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:5px; padding:5px 8px; font-weight:700; font-size:0.75rem; border-radius:6px; cursor:pointer;" title="Open file location folder" data-i18n-title="videoNodeOpenFolderTitle">
+          <img src="../assets/icons/folder.svg" class="btn-icon" alt="" style="width:12px;height:12px;margin:0;" />
+          <span data-i18n="videoNodeOpenFolder">Folder</span>
         </button>
       </div>
     </div>
@@ -10723,6 +10757,83 @@
       }));
     }
 
+    window.conResolveAttachmentDiskPath = async function (att) {
+      if (!att) return '';
+      let diskPath = att.path || '';
+      if (!diskPath && att.file && window.Desktop && typeof window.Desktop.getPathForFile === 'function') {
+        try { diskPath = window.Desktop.getPathForFile(att.file) || ''; } catch (_) {}
+      }
+      if (!diskPath && att.file && att.file.path) {
+        diskPath = att.file.path;
+      }
+      if (diskPath) return diskPath;
+
+      if (att.relativePath && window.Desktop && typeof window.Desktop.resolvePath === 'function') {
+        try {
+          // Check mindmaps target first (where board files live)
+          const resMm = await window.Desktop.resolvePath('mindmaps', att.relativePath);
+          const pathMm = (typeof resMm === 'string') ? resMm : (resMm && resMm.path ? resMm.path : '');
+          if (pathMm) return pathMm;
+
+          const resUser = await window.Desktop.resolvePath('user', att.relativePath);
+          const pathUser = (typeof resUser === 'string') ? resUser : (resUser && resUser.path ? resUser.path : '');
+          if (pathUser) return pathUser;
+        } catch (_) {}
+      }
+
+      // If in Electron and we only have base64 or a Blob in memory (e.g. from .cstz or embedded json), persist to temp_media
+      if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveFile === 'function') {
+        try {
+          let mediaBlob = null;
+          if (att.file && att.file instanceof Blob) {
+            mediaBlob = att.file;
+          } else if (att._cachedObjectUrl) {
+            try {
+              const r = await fetch(att._cachedObjectUrl);
+              mediaBlob = await r.blob();
+            } catch (_) {}
+          }
+          if (!mediaBlob && typeof conGetAttachmentDataUrl === 'function') {
+            try {
+              const dUrl = await conGetAttachmentDataUrl(att);
+              if (dUrl) {
+                const r = await fetch(dUrl);
+                mediaBlob = await r.blob();
+              }
+            } catch (_) {}
+          }
+
+          let content = att.base64 || '';
+          if (!content && mediaBlob) {
+            const buf = await mediaBlob.arrayBuffer();
+            const uint8 = new Uint8Array(buf);
+            let binary = '';
+            for (let i = 0; i < uint8.length; i++) binary += String.fromCharCode(uint8[i]);
+            content = btoa(binary);
+          }
+
+          if (content) {
+            const tempName = (att.name || 'temp_media').replace(/[^\w.-]/g, '_');
+            const saveRes = await window.Desktop.saveFile({
+              target: 'user',
+              subdir: 'temp_media',
+              filename: tempName,
+              content: content,
+              encoding: 'base64'
+            });
+            if (saveRes && (saveRes.file || saveRes.path)) {
+              att.path = saveRes.file || saveRes.path;
+              return att.path;
+            }
+          }
+        } catch (saveErr) {
+          console.warn('[Board] Could not save in-memory attachment to temp file for converter:', saveErr);
+        }
+      }
+
+      return att.relativePath || att.name || '';
+    };
+
     function conFindAttachmentById(id) {
       if (!id) return null;
       return conAttachments.find(item => item.id === id) || null;
@@ -11722,8 +11833,10 @@
           convBtn.className = 'con-media-manage-btn';
           convBtn.innerHTML = '<img src="../assets/icons/media-converter.svg" style="width:11px;height:11px;vertical-align:-1px;margin-right:2px;" alt="" />' + (typeof t === 'function' ? t('conMediaConvertBtn', 'Convert') : 'Convert');
           convBtn.title = 'Open in Media Converter';
-          convBtn.onclick = () => {
-            const targetPath = att.path || (att.file && att.file.path) || att.relativePath || att.name || '';
+          convBtn.onclick = async () => {
+            const targetPath = (typeof window.conResolveAttachmentDiskPath === 'function')
+              ? await window.conResolveAttachmentDiskPath(att)
+              : (att.path || (att.file && att.file.path) || att.relativePath || att.name || '');
             if (window.MediaConverterService && typeof window.MediaConverterService.openMediaConverter === 'function') {
               window.MediaConverterService.openMediaConverter(targetPath);
             }
@@ -13504,6 +13617,12 @@
           return;
         }
         _conAttachmentCounter += 1;
+        let diskPath = '';
+        if (window.Desktop && typeof window.Desktop.getPathForFile === 'function') {
+          try { diskPath = window.Desktop.getPathForFile(file) || ''; } catch (_) {}
+        } else if (file && file.path) {
+          diskPath = file.path;
+        }
         conAttachments.push({
           id: 'att_' + _conAttachmentCounter,
           name: conSanitizeAttachmentName(file.name),
@@ -13511,6 +13630,7 @@
           kind,
           size: Number(file.size) || 0,
           file,
+          path: diskPath,
           relativePath: ''
         });
       });
@@ -13544,6 +13664,12 @@
 
         _conAttachmentCounter += 1;
         const attachmentId = 'att_' + _conAttachmentCounter;
+        let diskPath = '';
+        if (window.Desktop && typeof window.Desktop.getPathForFile === 'function') {
+          try { diskPath = window.Desktop.getPathForFile(file) || ''; } catch (_) {}
+        } else if (file && file.path) {
+          diskPath = file.path;
+        }
         conAttachments.push({
           id: attachmentId,
           name: conSanitizeAttachmentName(file.name),
@@ -13551,6 +13677,7 @@
           kind,
           size: Number(file.size) || 0,
           file,
+          path: diskPath,
           relativePath: ''
         });
 
@@ -26120,9 +26247,11 @@
         }
       };
 
-      window.conCtxOpenInMediaConverter = function () {
+      window.conCtxOpenInMediaConverter = async function () {
         const att = conCtxGetActiveNodeMediaAttachment();
-        const path = att ? (att.path || (att.file && att.file.path) || att.relativePath || att.name || '') : '';
+        const path = (typeof window.conResolveAttachmentDiskPath === 'function')
+          ? await window.conResolveAttachmentDiskPath(att)
+          : (att ? (att.path || (att.file && att.file.path) || att.relativePath || att.name || '') : '');
         if (window.MediaConverterService && typeof window.MediaConverterService.openMediaConverter === 'function') {
           window.MediaConverterService.openMediaConverter(path);
         }
@@ -28408,6 +28537,192 @@
         if (typeof mdbToast === 'function') {
           mdbToast((typeof i18n !== 'undefined' && i18n.t) ? i18n.t('videoNodeConvertToCanvas') : 'Converted to canvas media box.');
         }
+      };
+
+      // ---- Media Node System App & Location Folder Engine ----
+      async function conOpenMediaNodeExternal(node, action) {
+        if (!node) return;
+        const isSnd = !!(node.isSound || node.type === 'sound');
+        const isVid = !!(node.isVideo || node.type === 'video');
+        const kind = isSnd ? 'sounds' : 'videos';
+        const defaultName = isSnd ? (node.soundName || node.baseWord || 'audio.mp3') : (node.videoName || node.baseWord || 'video.mp4');
+
+        // Find associated attachment
+        let att = (conAttachments || []).find(a => a && (
+          (isSnd && (a.id === node.soundAttachmentId || a.name === node.soundName || a.name === node.baseWord)) ||
+          (isVid && (a.id === node.videoAttachmentId || a.name === node.videoName || a.name === node.baseWord)) ||
+          (a.name === defaultName)
+        ));
+
+        const isElectron = !!(window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron());
+
+        // In standard browser environment (fallback)
+        if (!isElectron) {
+          if (action === 'folder') {
+            if (typeof showToast === 'function') {
+              showToast(typeof i18n !== 'undefined' ? i18n.t('mediaNodeFolderWebNotice') || 'Folder location is only available in the desktop application.' : 'Folder location is only available in the desktop application.', true);
+            }
+            return;
+          }
+          // action === 'open' in browser: open data URL in new tab
+          let dataUrl = '';
+          if (att) {
+            dataUrl = att._cachedObjectUrl || (typeof conGetAttachmentDataUrl === 'function' ? await conGetAttachmentDataUrl(att) : '');
+          }
+          if (dataUrl) {
+            window.open(dataUrl, '_blank');
+          } else {
+            if (typeof showToast === 'function') {
+              showToast(typeof i18n !== 'undefined' ? i18n.t('mediaNodeFileNotFound') || 'Media file could not be located on disk.' : 'Media file could not be located on disk.', true);
+            }
+          }
+          return;
+        }
+
+        // Electron environment
+        // 1. Check if direct absolute path exists
+        const absPath = att && (att.path || att.absolutePath || (att.file && att.file.path));
+        if (absPath) {
+          if (action === 'folder') {
+            await Desktop.showInFolder({ absolutePath: absPath });
+          } else {
+            await Desktop.openNative({ absolutePath: absPath });
+          }
+          return;
+        }
+
+        // 2. Check candidate relative paths on disk
+        const candidates = att ? conAttachmentCandidateRelativePaths(att) : conAttachmentCandidateRelativePaths({ name: defaultName, kind });
+        let foundRelPath = null;
+        for (const cand of candidates) {
+          try {
+            const check = await Desktop.readByPath('mindmaps', cand, { encoding: 'base64' });
+            if (check && check.ok && check.content) {
+              foundRelPath = cand;
+              break;
+            }
+          } catch (_) {}
+        }
+
+        if (foundRelPath) {
+          if (action === 'folder') {
+            await Desktop.showInFolder('mindmaps', foundRelPath);
+          } else {
+            await Desktop.openNative('mindmaps', foundRelPath);
+          }
+          return;
+        }
+
+        // 3. File not found loose on disk (e.g. packed in a .cstz archive or in memory)
+        const isCstz = !!(_conCurrentFileName && (_conCurrentFileName.endsWith('.cstz') || _conCurrentFileName.endsWith('.zip')));
+
+        if (action === 'folder') {
+          // If it's a .cstz file or saved file, reveal the archive/session file in explorer
+          if (_conCurrentFileName) {
+            await Desktop.showInFolder('mindmaps', _conCurrentFileName);
+          } else if (_conCurrentFolderName) {
+            await Desktop.showInFolder('mindmaps', _conCurrentFolderName);
+          } else {
+            await Desktop.showInFolder('mindmaps', '');
+          }
+          return;
+        }
+
+        // Action === 'open' on .cstz or memory-only media:
+        // If it is a cstz file, open the folder of the archive file first, then open the extracted audio/video
+        if (isCstz && _conCurrentFileName) {
+          try {
+            await Desktop.showInFolder('mindmaps', _conCurrentFileName);
+          } catch (_) {}
+        }
+
+        // Extract and write media to disk so system player can open it
+        try {
+          let mediaBlob = null;
+          if (att && att.file && att.file instanceof Blob) {
+            mediaBlob = att.file;
+          } else if (typeof conGetAttachmentArrayBuffer === 'function' && att) {
+            const buf = await conGetAttachmentArrayBuffer(att);
+            if (buf) {
+              const mime = att.mime || (isSnd ? 'audio/mpeg' : 'video/mp4');
+              mediaBlob = new Blob([buf], { type: mime });
+            }
+          }
+          if (!mediaBlob && att && typeof conGetAttachmentDataUrl === 'function') {
+            const dUrl = await conGetAttachmentDataUrl(att);
+            if (dUrl) {
+              const fetchRes = await fetch(dUrl);
+              mediaBlob = await fetchRes.blob();
+            }
+          }
+
+          if (!mediaBlob) {
+            // Check if active audio/video element has loaded src
+            const playerEl = isSnd ? _conSoundAudio : _conVideoEl;
+            if (playerEl && playerEl.src) {
+              const fetchRes = await fetch(playerEl.src);
+              mediaBlob = await fetchRes.blob();
+            }
+          }
+
+          if (mediaBlob) {
+            const rawFileName = (att && att.name) || defaultName;
+            const extMatch = rawFileName.match(/\.[a-zA-Z0-9]+$/);
+            const ext = extMatch ? extMatch[0] : (isSnd ? '.mp3' : '.mp4');
+            const safeBase = rawFileName.replace(/\.[a-zA-Z0-9]+$/, '');
+            const finalFileName = safeBase + ext;
+
+            const boardBase = _conCurrentFileName ? boardStripJsonExt(_conCurrentFileName) : (_conCurrentFolderName || 'temp_media');
+            const relSubdir = boardBase + '/' + kind;
+
+            await Desktop.saveBlob('mindmaps', finalFileName, mediaBlob, relSubdir);
+            const extractedRelPath = relSubdir + '/' + finalFileName;
+
+            await Desktop.openNative('mindmaps', extractedRelPath);
+            if (typeof showToast === 'function') {
+              showToast(typeof i18n !== 'undefined' ? i18n.t('mediaNodeExtractedToast') || 'Media extracted from archive and opened in system application.' : 'Media extracted from archive and opened in system application.');
+            }
+            return;
+          }
+        } catch (err) {
+          console.warn('[Board] Could not extract media for external open:', err);
+        }
+
+        // Fallback if unable to extract
+        if (_conCurrentFileName) {
+          await Desktop.showInFolder('mindmaps', _conCurrentFileName);
+        } else {
+          if (typeof showToast === 'function') {
+            showToast(typeof i18n !== 'undefined' ? i18n.t('mediaNodeFileNotFound') || 'Media file could not be located on disk.' : 'Media file could not be located on disk.', true);
+          }
+        }
+      }
+
+      window.conSoundNodeOpenNative = function () {
+        const node = (conNodes || []).find(n => n && n.id === _conActiveSoundNodeId);
+        if (node) conOpenMediaNodeExternal(node, 'open');
+      };
+      window.conSoundNodeOpenFolder = function () {
+        const node = (conNodes || []).find(n => n && n.id === _conActiveSoundNodeId);
+        if (node) conOpenMediaNodeExternal(node, 'folder');
+      };
+      window.conVideoNodeOpenNative = function () {
+        const node = (conNodes || []).find(n => n && n.id === _conActiveVideoNodeId);
+        if (node) conOpenMediaNodeExternal(node, 'open');
+      };
+      window.conVideoNodeOpenFolder = function () {
+        const node = (conNodes || []).find(n => n && n.id === _conActiveVideoNodeId);
+        if (node) conOpenMediaNodeExternal(node, 'folder');
+      };
+      window.conCtxMediaOpenNative = function () {
+        const node = (conNodes || []).find(n => n && n.id === conCtxNodeId);
+        if (node) conOpenMediaNodeExternal(node, 'open');
+        if (typeof conCtxClose === 'function') conCtxClose();
+      };
+      window.conCtxMediaOpenFolder = function () {
+        const node = (conNodes || []).find(n => n && n.id === conCtxNodeId);
+        if (node) conOpenMediaNodeExternal(node, 'folder');
+        if (typeof conCtxClose === 'function') conCtxClose();
       };
 
       // ---- Multi-node layout preferences & state ----
@@ -32761,19 +33076,19 @@
         const noteIds = [...conNoteSelected];
         const drawingIds = [...conDrawingSelected];
         const shapeIds = window.conGetShapeSelected ? [...window.conGetShapeSelected()] : [];
-        if (conMultiSelected.size > 1) {
+        if (conMultiSelected.size > 0) {
           ids = [...conMultiSelected];
+          if (conSelected && !ids.includes(conSelected)) ids.push(conSelected);
         } else if (conSelected) {
           // Single node selected — include it plus every node already in its group
           const existing = conGroupOfNode(conSelected);
           ids = existing ? [...existing.nodeIds] : [conSelected];
-          if (ids.length < 2 && noteIds.length === 0 && drawingIds.length === 0 && shapeIds.length === 0) return;
-        } else if (noteIds.length > 0 || drawingIds.length > 0 || shapeIds.length > 0) {
-          // Only notes/drawings/shapes selected — create an empty-node group
-          ids = [];
         } else {
-          return;
+          ids = [];
         }
+
+        const totalItems = ids.length + noteIds.length + drawingIds.length + shapeIds.length;
+        if (totalItems < 2) return;
 
         // Expand phrase groups: if any selected node belongs to a phrase group,
         // pull in ALL sibling nodes of that phrase so the whole phrase is grouped together.
@@ -32803,7 +33118,7 @@
           }
         });
         if (!targetGroup) {
-          if (ids.length < 2 && noteIds.length === 0 && drawingIds.length === 0 && shapeIds.length === 0) return;
+          if (totalItems < 2) return;
           targetGroup = conGroupCreate(ids, undefined, undefined, noteIds, drawingIds, shapeIds, { invisible: !!invisible });
         } else {
           ids.forEach(id => { if (!targetGroup.nodeIds.includes(id)) targetGroup.nodeIds.push(id); });
@@ -45459,21 +45774,57 @@
         CompetenceAggregatorService.getGroupMetadata(boardClassId).then(meta => {
           if (!meta) return;
           if (meta.subject && subjectSelect) {
+            const targetSubj = String(meta.subject).toLowerCase().trim();
             for (let i = 0; i < subjectSelect.options.length; i++) {
-              const v = subjectSelect.options[i].value.toLowerCase();
-              if (v === meta.subject.toLowerCase() || meta.subject.toLowerCase().includes(v) || v.includes(meta.subject.toLowerCase())) {
+              const v = subjectSelect.options[i].value.toLowerCase().trim();
+              const txt = subjectSelect.options[i].textContent.toLowerCase().trim();
+              if (v !== 'all' && v !== '' && (v === targetSubj || txt === targetSubj || (v.length > 2 && targetSubj.includes(v)) || (targetSubj.length > 2 && v.includes(targetSubj)))) {
                 subjectSelect.selectedIndex = i;
                 break;
               }
             }
           }
-          if (meta.level && yearSelect) {
-            const targetLvl = String(meta.level).toLowerCase();
-            for (let i = 0; i < yearSelect.options.length; i++) {
-              const v = yearSelect.options[i].value.toLowerCase();
-              if (v === targetLvl || targetLvl.includes(v) || v.includes(targetLvl)) {
-                yearSelect.selectedIndex = i;
-                break;
+          const rawLvl = meta.level || meta.yearLevel || meta.year || '';
+          if (rawLvl) {
+            const targetLvl = String(rawLvl).toLowerCase().trim();
+            let matchedYear = false;
+            // 1. Try exact match on yearSelect
+            if (yearSelect) {
+              for (let i = 0; i < yearSelect.options.length; i++) {
+                const v = yearSelect.options[i].value.toLowerCase().trim();
+                const txt = yearSelect.options[i].textContent.toLowerCase().trim();
+                if (v !== 'all' && v !== '' && (v === targetLvl || txt === targetLvl)) {
+                  yearSelect.selectedIndex = i;
+                  matchedYear = true;
+                  break;
+                }
+              }
+              // Normalized token match (e.g. "4" matching "4ème", "4e", "Grade 4")
+              if (!matchedYear) {
+                const numMatch = targetLvl.match(/\b([1-6])\b/);
+                const targetNum = numMatch ? numMatch[1] : null;
+                for (let i = 0; i < yearSelect.options.length; i++) {
+                  const v = yearSelect.options[i].value.toLowerCase().trim();
+                  const txt = yearSelect.options[i].textContent.toLowerCase().trim();
+                  if (v !== 'all' && v !== '') {
+                    if (targetNum && (new RegExp('\\b' + targetNum + '([eè]me?|e|th)?\\b', 'i').test(v) || new RegExp('\\b' + targetNum + '([eè]me?|e|th)?\\b', 'i').test(txt))) {
+                      yearSelect.selectedIndex = i;
+                      matchedYear = true;
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+            // 2. Try match on levelSelect (CEFR / grade levels)
+            if (levelSelect) {
+              for (let i = 0; i < levelSelect.options.length; i++) {
+                const v = levelSelect.options[i].value.toLowerCase().trim();
+                const txt = levelSelect.options[i].textContent.toLowerCase().trim();
+                if (v !== 'all' && v !== '' && (v === targetLvl || txt === targetLvl || (targetLvl.length >= 2 && (v.includes(targetLvl) || targetLvl.includes(v))))) {
+                  levelSelect.selectedIndex = i;
+                  break;
+                }
               }
             }
           }
@@ -46668,7 +47019,6 @@
         _titleW: g.titleW != null ? g.titleW : null,
         _titleFS: g.titleFS != null ? g.titleFS : null
       };
-      const groupsArr = window.conGetGroups ? window.conGetGroups() : [];
       groupsArr.push(groupObj);
       if (window.conGroupAttach) window.conGroupAttach(groupObj);
       if (groupObj.blink) el.classList.add('con-group-blink');

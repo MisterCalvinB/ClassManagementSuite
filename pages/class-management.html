@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Class Management</title>
     <link rel="stylesheet" href="../modules/lexend/lexend.css">
+    <link rel="stylesheet" href="../css/tag-link-modal.css">
     <script src="../electron-bridge.js"></script>
     <script src="../js/student-name-utils.js"></script>
     <script src="../js/dialogs.js"></script>
@@ -14,6 +15,8 @@
     <script src="../js/tutorial.js"></script>
     <script src="../js/shortcuts-modal.js"></script>
     <script src="../js/lesson-creator-service.js"></script>
+    <script src="../js/links-service.js"></script>
+    <script src="../js/tag-link-modal.js"></script>
     <script>
         (function () {
             function injectClassicScript(source, name) {
@@ -924,7 +927,10 @@
             title="Open student in Participation Tracker" data-i18n="ctx_open_in_tracker" data-i18n-title="ctx_open_in_tracker_title"><img
                 src="../assets/icons/participation-tracker.svg" class="btn-icon" alt="" />
             Open in Participation Tracker</button>
-        <button type="button" data-action="dossier" onclick="openStudentDossierPopup(rosterContextStudentId)" class="cmt-roster-ctx-item" style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:none;border:none;width:100%;text-align:left;cursor:pointer;font-family:inherit;font-size:0.84rem;font-weight:700;"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> <span data-i18n="cmMenuStudentDossier">360° Academic Dossier</span></button>
+        <button type="button" data-action="dossier" onclick="openStudentDossierPopup(rosterContextStudentId)"
+            title="Open student 360° Academic Dossier" data-i18n-title="cmMenuStudentDossier"><img
+                src="../assets/icons/links.svg" class="btn-icon" alt="" /> <span
+                data-i18n="cmMenuStudentDossier">360° Academic Dossier</span></button>
       <button type="button" data-action="grades" onclick="openStudentGradesPopup(rosterContextStudentId)"
             title="View grades from Grade Sheet" data-i18n="ctx_grades"
             data-i18n-title="ctx_grades_title"><img src="../assets/icons/grade-sheet.svg" class="btn-icon"
@@ -8187,6 +8193,11 @@
                 return;
             }
 
+            if (action === 'dossier') {
+                openStudentDossierPopup(rosterContextStudentId);
+                return;
+            }
+
             if (action === 'open-grade-sheet') {
                 openInGradeSheet(rosterContextStudentId);
                 return;
@@ -8262,11 +8273,19 @@
         }
 
         function openStudentDossierPopup(studentId) {
-    closeRosterContextMenu();
-    if (!studentId || typeof TagLinkModal === 'undefined') return;
-    TagLinkModal.openStudentDossier(studentId);
-  }
-  window.openStudentDossierPopup = openStudentDossierPopup;
+            closeRosterContextMenu();
+            if (studentId == null) studentId = rosterContextStudentId;
+            if (studentId == null) return;
+
+            const students = (selectedGroupName && studentGroups[selectedGroupName]) || [];
+            const student = students.find(s => s.id === studentId) || students[studentId];
+            const targetId = student ? (student.uuid || student.id || student.name) : studentId;
+
+            if (typeof TagLinkModal !== 'undefined' && typeof TagLinkModal.openStudentDossier === 'function') {
+                TagLinkModal.openStudentDossier(targetId, { title: student ? student.name : '' });
+            }
+        }
+        window.openStudentDossierPopup = openStudentDossierPopup;
 
   async function openStudentGradesPopup(studentId) {
             closeRosterContextMenu();

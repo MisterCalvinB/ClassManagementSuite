@@ -1458,10 +1458,31 @@
     }
   };
 
-  global.boardVideoOpenInConverter = function () {
+  global.boardVideoOpenInConverter = async function () {
     if (!currentRecordingResult || !currentRecordingResult.blob) return;
+    var targetPath = currentRecordingResult.filePath || '';
+    if (!targetPath && window.Desktop && typeof window.Desktop.saveFile === 'function') {
+      try {
+        var buf = await currentRecordingResult.blob.arrayBuffer();
+        var uint8 = new Uint8Array(buf);
+        var binary = '';
+        for (var i = 0; i < uint8.length; i++) binary += String.fromCharCode(uint8[i]);
+        var base64 = btoa(binary);
+        var recName = (currentRecordingResult.filename || ('recording_' + Date.now() + '.webm')).replace(/[^\w.-]/g, '_');
+        var res = await window.Desktop.saveFile({
+          target: 'user',
+          subdir: 'temp_media',
+          filename: recName,
+          content: base64,
+          encoding: 'base64'
+        });
+        if (res && res.file) targetPath = res.file;
+      } catch (err) {
+        console.warn('[BoardRecorder] Could not save temp recording for converter:', err);
+      }
+    }
     if (global.MediaConverterService && typeof global.MediaConverterService.openMediaConverter === 'function') {
-      global.MediaConverterService.openMediaConverter();
+      global.MediaConverterService.openMediaConverter(targetPath);
     }
   };
 

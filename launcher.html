@@ -208,6 +208,8 @@
       <div class="rf-file-list" id="rfFileList">
         <div class="rf-state-msg"><span class="rf-state-icon">⏳</span><span data-i18n="rfLoading">Loading files…</span></div>
       </div>
+      <h2 class="rf-section-heading" id="rfEditorDocsHeading" style="display:none" data-i18n="rfEditorDocsHeading">Markdown &amp; HTML Documents</h2>
+      <div class="rf-file-list" id="rfEditorDocsList"></div>
       <h2 class="rf-section-heading" id="rfDocsHeading" style="display:none" data-i18n="rfDocsHeading">Added Documents</h2>
       <div class="rf-file-list" id="rfDocsList"></div>
     </div>
@@ -220,32 +222,63 @@
       <div class="ue-header-left">
         <div class="ue-title-bar">
           <img src="assets/icons/links.svg" class="ue-header-icon" alt="" />
-          <h2 class="ue-title" data-i18n="ueTitle">UNIT &amp; TAG EXPLORER</h2>
+          <h2 class="ue-title" id="ueModalTitle" data-i18n="ueTitle">UNIT &amp; TAG EXPLORER</h2>
         </div>
-        <p class="ue-subtitle" data-i18n="ueSubtitle">1-click aggregation of all documents, mindmaps, tests, lessons, and planner slots linked under a unit or tag.</p>
+        <p class="ue-subtitle" id="ueModalSubtitle" data-i18n="ueSubtitle">1-click aggregation of all documents, mindmaps, tests, lessons, planner slots, and student 360° dossiers.</p>
       </div>
       <button type="button" class="ue-close-btn" id="unitExplorerModalClose" onclick="closeUnitExplorerModal()" aria-label="Close">[CLOSE]</button>
     </div>
+    <div class="ue-nav-tabs" id="ueNavTabs">
+      <button type="button" class="ue-nav-tab-btn active" id="ueNavTabTagsBtn" data-tab="tags"><span data-i18n="ueNavTabTags">Tags &amp; Units Explorer</span></button>
+      <button type="button" class="ue-nav-tab-btn" id="ueNavTabDossiersBtn" data-tab="dossiers"><span data-i18n="ueNavTabDossiers">Student Academic Dossiers</span></button>
+    </div>
     <div class="ue-body">
-      <div class="ue-tags-bar-wrap">
-        <div class="ue-tags-bar-title" data-i18n="ueSelectTag">Select Tag / Thematic Unit:</div>
-        <div class="ue-tags-pills" id="ueTagsPills"></div>
-      </div>
-      <div class="ue-toolbar">
-        <input type="search" id="ueSearchBox" class="ue-search-input" placeholder="Filter resources by name, topic, or class…" data-i18n-placeholder="ueSearchPlaceholder">
-        <div class="ue-category-filters" id="ueCategoryFilters">
-          <button type="button" class="ue-cat-btn active" data-cat="all">[ALL]</button>
-          <button type="button" class="ue-cat-btn" data-cat="doc">[DOCS]</button>
-          <button type="button" class="ue-cat-btn" data-cat="lesson">[LESSONS]</button>
-          <button type="button" class="ue-cat-btn" data-cat="board">[MINDMAPS]</button>
-          <button type="button" class="ue-cat-btn" data-cat="test">[TESTS]</button>
-          <button type="button" class="ue-cat-btn" data-cat="planner">[PLANNER]</button>
-          <button type="button" class="ue-cat-btn" data-cat="gradesheet">[GRADES]</button>
+      <!-- ══ TAB 1: TAGS & UNITS EXPLORER ══ -->
+      <div id="ueTagsPanel" class="ue-tab-panel active">
+        <div class="ue-tags-bar-wrap">
+          <div class="ue-tags-bar-title" data-i18n="ueSelectTag">Select Tag / Thematic Unit:</div>
+          <div class="ue-tags-pills" id="ueTagsPills"></div>
         </div>
-        <span class="ue-result-count" id="ueResultCount">0 items</span>
+        <div class="ue-toolbar">
+          <input type="search" id="ueSearchBox" class="ue-search-input" placeholder="Filter resources by name, topic, or class…" data-i18n-placeholder="ueSearchPlaceholder">
+          <div class="ue-category-filters" id="ueCategoryFilters">
+            <button type="button" class="ue-cat-btn active" data-cat="all">[ALL]</button>
+            <button type="button" class="ue-cat-btn" data-cat="doc">[DOCS]</button>
+            <button type="button" class="ue-cat-btn" data-cat="lesson">[LESSONS]</button>
+            <button type="button" class="ue-cat-btn" data-cat="board">[MINDMAPS]</button>
+            <button type="button" class="ue-cat-btn" data-cat="test">[TESTS]</button>
+            <button type="button" class="ue-cat-btn" data-cat="planner">[PLANNER]</button>
+            <button type="button" class="ue-cat-btn" data-cat="gradesheet">[GRADES]</button>
+            <button type="button" class="ue-cat-btn" data-cat="dossier">[360° DOSSIER]</button>
+          </div>
+          <span class="ue-result-count" id="ueResultCount">0 items</span>
+        </div>
+        <div class="ue-resource-list" id="ueResourceList">
+          <div class="ue-empty" data-i18n="ueNoTagSelected">Select a tag above to explore its linked resources.</div>
+        </div>
       </div>
-      <div class="ue-resource-list" id="ueResourceList">
-        <div class="ue-empty" data-i18n="ueNoTagSelected">Select a tag above to explore its linked resources.</div>
+
+      <!-- ══ TAB 2: STUDENT DOSSIERS ══ -->
+      <div id="ueDossiersPanel" class="ue-tab-panel" style="display:none;">
+        <div class="ue-toolbar ue-dos-toolbar">
+          <select id="ueDosClassFilter" class="ue-select-filter">
+            <option value="all">All Classes</option>
+          </select>
+          <input type="search" id="ueDosSearch" class="ue-search-input" placeholder="Search student by name, class, or ID…" data-i18n-placeholder="fmDosSearchPlaceholder">
+          <select id="ueDosSort" class="ue-select-filter">
+            <option value="name-asc">Name A→Z</option>
+            <option value="name-desc">Name Z→A</option>
+            <option value="class-asc">Class A→Z</option>
+            <option value="gpa-desc">Highest Average</option>
+            <option value="gpa-asc">Lowest Average</option>
+            <option value="evals-desc">Most Evaluations</option>
+          </select>
+          <button type="button" class="ue-action-btn" id="ueDosRefresh"><span data-i18n="fmRefresh">Refresh</span></button>
+          <span class="ue-result-count" id="ueDosCount">0 students</span>
+        </div>
+        <div class="ue-resource-list ue-dossiers-list" id="ueDossiersList">
+          <div class="ue-empty">Loading student dossiers…</div>
+        </div>
       </div>
     </div>
   </div>
@@ -1521,6 +1554,32 @@
     });
   }
 
+  function rfRenderEditorDocs(files) {
+    var heading = document.getElementById('rfEditorDocsHeading');
+    var list    = document.getElementById('rfEditorDocsList');
+    if (!heading || !list) return;
+    if (!files.length) { heading.style.display = 'none'; list.innerHTML = ''; return; }
+    heading.style.display = '';
+    list.innerHTML = '';
+    files.forEach(function(f) {
+      var ext = (f.filename || '').split('.').pop().toLowerCase();
+      var tag = ext.toUpperCase();
+      var kb = f.size ? (f.size / 1024).toFixed(1) + ' KB' : '';
+      var meta = rfFormatDate(f.mtimeMs || f.savedAt || 0) + (kb ? ' · ' + kb : '');
+      var btn = document.createElement('button');
+      btn.className = 'rf-open-btn';
+      btn.textContent = (typeof t === 'function' ? t('sbOpenInDocEditor') : 'Open in Doc Editor') + ' ↗';
+      btn.addEventListener('click', function() {
+        if (!window.Desktop || !Desktop.isElectron()) return;
+        Desktop.openTool('document-editor.html', { query: { editTarget: f.target || 'docEditorDocs', editRelPath: f.relativePath || f.filename } });
+      });
+      var name = (f.filename || '').replace(/\.(md|html)$/i, '');
+      var row = rfMakeRow(tag, name, f.relativePath || f.filename, meta, btn);
+      if (typeof rfAttachCtx === 'function') { rfAttachCtx(row, f); }
+      list.appendChild(row);
+    });
+  }
+
   function rfRenderDocs(files) {
     var heading = document.getElementById('rfDocsHeading');
     var list    = document.getElementById('rfDocsList');
@@ -1559,21 +1618,32 @@
     var sort   = document.getElementById('rfSortOrder').value;
     var isDoc  = RF_DOC_TYPE_FILTERS.indexOf(filter) !== -1;
     var isSess = RF_SESSION_TYPES.indexOf(filter) !== -1;
+    var isEditor = filter === 'doceditor';
+
     // When searching constellation files, include archived files too
-    var sessionPool = (search && !isDoc) ? rfAllFiles.concat(rfAllArchivedFiles) : rfAllFiles;
-    var ff = isDoc ? [] : sessionPool.filter(function(f) {
+    var sessionPool = (search && !isDoc && !isEditor) ? rfAllFiles.concat(rfAllArchivedFiles) : rfAllFiles;
+    var ff = (isDoc || isEditor) ? [] : sessionPool.filter(function(f) {
       if (isSess && f.target !== filter) return false;
       return rfMatchesSearch(f, true, search);
     });
     ff.sort(rfGetSortFn(sort));
     rfRenderFiles(ff);
-    var fd = isSess ? [] : rfAllDocs.filter(function(f) {
+
+    var editorPool = (search && !isDoc && !isSess) ? rfAllEditorDocs.concat(rfAllArchivedEditorDocs) : rfAllEditorDocs;
+    var fe = (isDoc || isSess) ? [] : editorPool.filter(function(f) {
+      return rfMatchesSearch(f, false, search);
+    });
+    fe.sort(rfGetSortFn(sort));
+    rfRenderEditorDocs(fe);
+
+    var fd = (isSess || isEditor) ? [] : rfAllDocs.filter(function(f) {
       if (isDoc && rfDocTypeInfo(f.filename).cssClass !== filter) return false;
       return rfMatchesSearch(f, false, search);
     });
     fd.sort(rfGetSortFn(sort));
     rfRenderDocs(fd);
-    var total = ff.length + fd.length;
+
+    var total = ff.length + fe.length + fd.length;
     var fileWord = typeof t === 'function' ? (total === 1 ? t('rfFile') : t('rfFiles')) : (total === 1 ? 'file' : 'files');
     document.getElementById('rfResultCount').textContent = total + ' ' + fileWord;
   }
@@ -1586,17 +1656,21 @@
   async function rfLoadRecentSources() {
     rfAllFiles = [];
     rfAllDocs = [];
+    rfAllEditorDocs = [];
     rfAllArchivedFiles = [];
+    rfAllArchivedEditorDocs = [];
 
     var results = await Promise.all([
       Desktop.listByPath('mindmaps', '', { extensions: ['.js', '.json', '.cstz', '.zip'], recursive: true }).catch(function(){ return null; }),
       Desktop.listByPath('user', 'custom-data', { extensions: RF_DOC_EXTS, recursive: true }).catch(function(){ return null; }),
+      Desktop.listByPath('docEditorDocs', '', { extensions: ['.md', '.html'], recursive: true }).catch(function(){ return null; }),
       Desktop.readByPath('user', 'class-groups.js').catch(function(){ return null; })
     ]);
 
     var r = results[0];
     var d = results[1];
-    var cgr = results[2];
+    var e = results[2];
+    var cgr = results[3];
 
     if (r && r.ok && Array.isArray(r.files)) {
       var validMindmaps = rfDeduplicateMindmapFiles(r.files);
@@ -1627,6 +1701,19 @@
       });
     }
 
+    if (e && e.ok && Array.isArray(e.files)) {
+      var allEditorDocs = e.files.filter(function(f) {
+        var rel = (f.relativePath || f.filename || '').replace(/\\/g, '/');
+        return !rel.startsWith('history/') && !/\.v\d{8}-\d{6}\.(md|html)$/i.test(f.filename || '');
+      }).map(function(f) { return Object.assign({}, f, { target: 'docEditorDocs' }); });
+      rfAllEditorDocs = allEditorDocs.filter(function(f) {
+        return (f.relativePath || f.filename || '').replace(/\\/g, '/').split('/').indexOf('archived') === -1;
+      });
+      rfAllArchivedEditorDocs = allEditorDocs.filter(function(f) {
+        return (f.relativePath || f.filename || '').replace(/\\/g, '/').split('/').indexOf('archived') !== -1;
+      });
+    }
+
     rfGroupMeta = {};
     if (cgr && cgr.content) {
       try {
@@ -1639,7 +1726,7 @@
 
   async function openRecentFilesModal() {
     var overlay = document.getElementById('rfModal');
-    rfAllFiles = []; rfAllDocs = []; rfAllArchivedFiles = [];
+    rfAllFiles = []; rfAllDocs = []; rfAllEditorDocs = []; rfAllArchivedFiles = []; rfAllArchivedEditorDocs = [];
     rfContentCache.clear();
     rfSessionTypeCache.clear();
     if (rfContentSearchTimer) { clearTimeout(rfContentSearchTimer); rfContentSearchTimer = null; }
@@ -2213,7 +2300,7 @@
     var docs = [];
     var results = await Promise.all([
       Desktop.listByPath('mindmaps', '', { extensions: ['.js', '.json', '.cstz', '.zip'], recursive: true }).catch(function(){ return null; }),
-      Desktop.listByPath('docEditorDocs', '', { extensions: ['.md', '.html'] }).catch(function(){ return null; })
+      Desktop.listByPath('docEditorDocs', '', { extensions: ['.md', '.html'], recursive: true }).catch(function(){ return null; })
     ]);
     var r = results[0];
     var r2 = results[1];
@@ -3107,11 +3194,19 @@
 (function() {
   'use strict';
 
+  var _ueActiveNavTab = 'tags';
   var _ueActiveTag = '';
   var _ueActiveCategory = 'all';
   var _ueSearchQuery = '';
   var _ueCachedItems = [];
   var _ueSearchDebounce = null;
+
+  var _ueDossiersCached = [];
+  var _ueDosSelectedClass = 'all';
+  var _ueDosSearchQuery = '';
+  var _ueDosSortOrder = 'name-asc';
+  var _ueDosDebounce = null;
+  var _ueDosInitialized = false;
 
   function escHtml(s) {
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -3121,10 +3216,57 @@
     return (typeof window.i18n !== 'undefined' && window.i18n.t) ? window.i18n.t(key, fallback) : fallback;
   }
 
-  window.openUnitExplorerModal = async function(preferredTag) {
+  function getInitials(name) {
+    if (!name) return 'ST';
+    var parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+
+  function getGradeColorClass(score, maxScore) {
+    if (score == null || isNaN(score)) return 'neutral';
+    var num = Number(score);
+    var max = (maxScore && !isNaN(maxScore) && Number(maxScore) > 0) ? Number(maxScore) : 6;
+    var ratio = num / max;
+    if (ratio >= 0.85) return 'green';
+    if (ratio >= 0.70) return 'lime';
+    if (ratio >= 0.50) return 'amber';
+    return 'red';
+  }
+
+  window.switchUeNavTab = function(tab) {
+    _ueActiveNavTab = tab || 'tags';
+    var btnTags = document.getElementById('ueNavTabTagsBtn');
+    var btnDossiers = document.getElementById('ueNavTabDossiersBtn');
+    var panelTags = document.getElementById('ueTagsPanel');
+    var panelDossiers = document.getElementById('ueDossiersPanel');
+
+    if (btnTags) btnTags.classList.toggle('active', _ueActiveNavTab === 'tags');
+    if (btnDossiers) btnDossiers.classList.toggle('active', _ueActiveNavTab === 'dossiers');
+
+    if (panelTags) panelTags.style.display = (_ueActiveNavTab === 'tags') ? 'flex' : 'none';
+    if (panelDossiers) panelDossiers.style.display = (_ueActiveNavTab === 'dossiers') ? 'flex' : 'none';
+
+    if (_ueActiveNavTab === 'dossiers') {
+      ueLoadDossiers();
+    } else {
+      if (!_ueCachedItems.length && _ueActiveTag) {
+        ueSelectTag(_ueActiveTag);
+      }
+    }
+  };
+
+  window.openUnitExplorerModal = async function(preferredTagOrTab) {
     var modal = document.getElementById('unitExplorerModal');
     if (!modal) return;
     modal.classList.add('open');
+
+    if (preferredTagOrTab === 'dossiers' || preferredTagOrTab === 'dossier') {
+      window.switchUeNavTab('dossiers');
+      return;
+    }
+
+    window.switchUeNavTab('tags');
     _ueActiveCategory = 'all';
     _ueSearchQuery = '';
     var searchBox = document.getElementById('ueSearchBox');
@@ -3136,7 +3278,7 @@
       else b.classList.remove('active');
     });
 
-    await ueLoadTagsList(preferredTag);
+    await ueLoadTagsList(preferredTagOrTab);
   };
 
   window.closeUnitExplorerModal = function() {
@@ -3214,6 +3356,7 @@
         if (_ueActiveCategory === 'test' && itType !== 'test') return false;
         if (_ueActiveCategory === 'planner' && itType !== 'planner' && itType !== 'slot') return false;
         if (_ueActiveCategory === 'gradesheet' && itType !== 'gradesheet' && itType !== 'eval' && itType !== 'evaluation' && itType !== 'grade') return false;
+        if (_ueActiveCategory === 'dossier' && itType !== 'student' && itType !== 'dossier' && itType !== 'student-360' && itType !== 'student_360') return false;
       }
       // Search query
       if (_ueSearchQuery) {
@@ -3236,10 +3379,14 @@
 
     var frag = document.createDocumentFragment();
     filtered.forEach(function(item) {
-      var card = document.createElement('div');
-      card.className = 'ue-resource-card';
+      var isStudent = (item.type === 'student' || item.type === 'dossier' || item.type === 'student-360' || item.type === 'student_360' || (item.urn && (item.urn.includes(':student:') || item.urn.includes(':dossier:'))));
+      var studentId = '';
+      if (item.urn && window.LinksService) {
+        var p = window.LinksService.parseUrn(item.urn);
+        if (p && p.type === 'student') studentId = p.id;
+      }
+      if (!studentId && item.id) studentId = item.id;
 
-      var badgeClass = 'ue-res-badge ' + (item.type || 'general').toLowerCase();
       var tagsHtml = '';
       if (Array.isArray(item.tags) && item.tags.length > 0) {
         tagsHtml = '<div class="ue-res-tags">' +
@@ -3249,55 +3396,540 @@
         '</div>';
       }
 
-      card.innerHTML =
-        '<div class="ue-res-info">' +
-          '<div class="ue-res-title-line">' +
-            '<span class="' + badgeClass + '">' + escHtml(item.badge || '[' + (item.type || 'ITEM').toUpperCase() + ']') + '</span>' +
-            '<span class="ue-res-title" title="' + escHtml(item.title) + '">' + escHtml(item.title) + '</span>' +
+      if (isStudent && studentId) {
+        var card = document.createElement('div');
+        card.className = 'ue-dos-card';
+        var initials = getInitials(item.title);
+        card.innerHTML =
+          '<div class="ue-dos-hdr">' +
+            '<div class="ue-dos-hdr-left">' +
+              '<div class="ue-dos-avatar">' + escHtml(initials) + '</div>' +
+              '<div class="ue-dos-id-block">' +
+                '<div class="ue-dos-name-row">' +
+                  '<span class="ue-dos-name">' + escHtml(item.title) + '</span>' +
+                  '<span class="ue-res-badge student">[360° DOSSIER]</span>' +
+                '</div>' +
+                (item.subtitle ? '<div class="ue-dos-meta">' + escHtml(item.subtitle) + '</div>' : '<div class="ue-dos-meta">ID: ' + escHtml(studentId) + '</div>') +
+              '</div>' +
+            '</div>' +
+            '<div class="ue-dos-gpa-badge neutral" id="ue-gpa-' + escHtml(studentId) + '">' +
+              '<span class="ue-dos-gpa-val" style="font-size:0.95rem;">--</span>' +
+              '<span class="ue-dos-gpa-lbl">GPA</span>' +
+            '</div>' +
           '</div>' +
-          (item.subtitle ? '<span class="ue-res-sub">' + escHtml(item.subtitle) + '</span>' : '') +
+          '<div class="ue-dos-kpi-grid" id="ue-kpi-' + escHtml(studentId) + '" style="display:none;"></div>' +
           tagsHtml +
-        '</div>' +
-        '<div class="ue-res-actions">' +
-          '<button type="button" class="ue-action-btn primary" id="btn-open-res"><img src="assets/icons/links.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /> ' + escHtml(tt('ueBtnOpen', 'Open')) + '</button>' +
-          '<button type="button" class="ue-action-btn" id="btn-tag-res">' + escHtml(tt('ueBtnManageTags', 'Links & Tags')) + '</button>' +
-        '</div>';
+          '<div class="ue-dos-actions">' +
+            '<button type="button" class="ue-dos-btn primary" id="btn-dos-view">' + escHtml(tt('ueBtnDossier', 'Open 360° Dossier')) + '</button>' +
+            '<button type="button" class="ue-dos-btn export" id="btn-dos-export">' + escHtml(tt('tcExportBtnDownload', 'Export Studio')) + '</button>' +
+            '<button type="button" class="ue-dos-btn" id="btn-dos-gradesheet">Grade Sheet</button>' +
+            '<button type="button" class="ue-dos-btn" id="btn-tag-res">' + escHtml(tt('ueBtnManageTags', 'Links & Tags')) + '</button>' +
+          '</div>';
 
-      card.querySelector('#btn-open-res').addEventListener('click', async function() {
-        if (window.LinksService) {
-          await LinksService.openUrn(item.urn);
-        }
-      });
-
-      card.querySelector('#btn-tag-res').addEventListener('click', function() {
-        if (window.TagLinkModal) {
-          TagLinkModal.open({
-            urn: item.urn,
-            title: item.title,
-            subtitle: item.subtitle,
-            onUpdate: function() {
-              ueSelectTag(_ueActiveTag);
-              if (typeof sbScheduleSync === 'function') sbScheduleSync({ tags: true });
-            }
-          });
-        }
-      });
-
-      card.querySelectorAll('.ue-res-tag-chip').forEach(function(chip) {
-        chip.addEventListener('click', function(e) {
-          e.stopPropagation();
-          ueLoadTagsList(chip.textContent.trim());
+        card.querySelector('#btn-dos-view').addEventListener('click', function() {
+          if (window.TagLinkModal && typeof window.TagLinkModal.openStudentDossier === 'function') {
+            window.TagLinkModal.openStudentDossier(studentId, { title: item.title });
+          }
         });
-      });
 
-      frag.appendChild(card);
+        card.querySelector('#btn-dos-export').addEventListener('click', async function() {
+          if (window.TagLinkModal && window.LinksService && typeof window.TagLinkModal.openDossierPdfExportModal === 'function') {
+            var dos = await LinksService.getStudentAcademicDossier(studentId);
+            if (dos) window.TagLinkModal.openDossierPdfExportModal(dos);
+          }
+        });
+
+        card.querySelector('#btn-dos-gradesheet').addEventListener('click', function() {
+          var cid = item.classId || '';
+          if (!cid && item.subtitle) {
+            var m = item.subtitle.match(/Class:\s*([^\s•]+)/i);
+            if (m) cid = m[1];
+          }
+          if (window.Desktop && typeof window.Desktop.openTool === 'function') {
+            window.Desktop.openTool('grade-sheet.html', { query: { classId: cid, studentId: studentId } });
+          } else {
+            window.open('pages/grade-sheet.html?classId=' + encodeURIComponent(cid) + '&studentId=' + encodeURIComponent(studentId), '_blank');
+          }
+        });
+
+        card.querySelector('#btn-tag-res').addEventListener('click', function() {
+          if (window.TagLinkModal) {
+            TagLinkModal.open({
+              urn: item.urn || ('cmt:student:' + studentId),
+              title: item.title,
+              subtitle: item.subtitle,
+              onUpdate: function() {
+                ueSelectTag(_ueActiveTag);
+                if (typeof sbScheduleSync === 'function') sbScheduleSync({ tags: true });
+              }
+            });
+          }
+        });
+
+        card.querySelectorAll('.ue-res-tag-chip').forEach(function(chip) {
+          chip.addEventListener('click', function(e) {
+            e.stopPropagation();
+            ueLoadTagsList(chip.textContent.trim());
+          });
+        });
+
+        // Asynchronously populate GPA badge and KPI summary
+        if (window.LinksService) {
+          LinksService.getStudentAcademicDossier(studentId).then(function(dossier) {
+            if (!dossier) return;
+            var gpaEl = card.querySelector('#ue-gpa-' + studentId);
+            var gs = dossier.gradesSummary;
+            if (gpaEl && gs) {
+              var avg = (gs.yearAverage != null && !isNaN(gs.yearAverage))
+                ? Number(gs.yearAverage)
+                : (gs.sem1Average != null && !isNaN(gs.sem1Average) ? Number(gs.sem1Average) : null);
+              if (avg != null) {
+                var cl = getGradeColorClass(avg, 6);
+                gpaEl.className = 'ue-dos-gpa-badge ' + cl;
+                gpaEl.innerHTML = '<span class="ue-dos-gpa-val">' + avg.toFixed(1) + '</span><span class="ue-dos-gpa-lbl">GPA</span>';
+              }
+            }
+            var kpiGrid = card.querySelector('#ue-kpi-' + studentId);
+            if (kpiGrid) {
+              var evals = dossier.evaluations || [];
+              var comps = dossier.competences || [];
+              var lessons = dossier.lessons || [];
+              var totalWork = (dossier.documents || []).length + (dossier.boards || []).length;
+              kpiGrid.style.display = 'grid';
+              kpiGrid.innerHTML =
+                '<div class="ue-dos-kpi-item"><span class="ue-dos-kpi-num">' + evals.length + '</span> evaluations</div>' +
+                '<div class="ue-dos-kpi-item"><span class="ue-dos-kpi-num">' + comps.length + '</span> competences</div>' +
+                '<div class="ue-dos-kpi-item"><span class="ue-dos-kpi-num">' + lessons.length + '</span> lessons</div>' +
+                '<div class="ue-dos-kpi-item"><span class="ue-dos-kpi-num">' + totalWork + '</span> mindmaps & docs</div>';
+            }
+          }).catch(function() {});
+        }
+
+        frag.appendChild(card);
+      } else {
+        var card = document.createElement('div');
+        card.className = 'ue-resource-card';
+        var badgeClass = 'ue-res-badge ' + (item.type || 'general').toLowerCase();
+
+        card.innerHTML =
+          '<div class="ue-res-info">' +
+            '<div class="ue-res-title-line">' +
+              '<span class="' + badgeClass + '">' + escHtml(item.badge || '[' + (item.type || 'ITEM').toUpperCase() + ']') + '</span>' +
+              '<span class="ue-res-title" title="' + escHtml(item.title) + '">' + escHtml(item.title) + '</span>' +
+            '</div>' +
+            (item.subtitle ? '<span class="ue-res-sub">' + escHtml(item.subtitle) + '</span>' : '') +
+            tagsHtml +
+          '</div>' +
+          '<div class="ue-res-actions">' +
+            '<button type="button" class="ue-action-btn primary" id="btn-open-res">' + escHtml(tt('ueBtnOpen', 'Open')) + '</button>' +
+            '<button type="button" class="ue-action-btn" id="btn-tag-res">' + escHtml(tt('ueBtnManageTags', 'Links & Tags')) + '</button>' +
+          '</div>';
+
+        card.querySelector('#btn-open-res').addEventListener('click', async function() {
+          if (window.LinksService) {
+            await LinksService.openUrn(item.urn);
+          }
+        });
+
+        card.querySelector('#btn-tag-res').addEventListener('click', function() {
+          if (window.TagLinkModal) {
+            TagLinkModal.open({
+              urn: item.urn,
+              title: item.title,
+              subtitle: item.subtitle,
+              onUpdate: function() {
+                ueSelectTag(_ueActiveTag);
+                if (typeof sbScheduleSync === 'function') sbScheduleSync({ tags: true });
+              }
+            });
+          }
+        });
+
+        card.querySelectorAll('.ue-res-tag-chip').forEach(function(chip) {
+          chip.addEventListener('click', function(e) {
+            e.stopPropagation();
+            ueLoadTagsList(chip.textContent.trim());
+          });
+        });
+
+        frag.appendChild(card);
+      }
     });
 
     resList.replaceChildren(frag);
   }
 
-  // Category filter handlers
+  /* ══════════════════════════════════════════════════════
+     STUDENT DOSSIERS TAB CONTROLLER
+     ══════════════════════════════════════════════════════ */
+
+  window.ueInitDossiersControls = function() {
+    if (_ueDosInitialized) return;
+    _ueDosInitialized = true;
+
+    var classSelect = document.getElementById('ueDosClassFilter');
+    if (classSelect) {
+      classSelect.addEventListener('change', function() {
+        _ueDosSelectedClass = classSelect.value || 'all';
+        ueRenderDossiersList();
+      });
+    }
+
+    var searchBox = document.getElementById('ueDosSearch');
+    if (searchBox) {
+      searchBox.addEventListener('input', function() {
+        if (_ueDosDebounce) clearTimeout(_ueDosDebounce);
+        _ueDosDebounce = setTimeout(function() {
+          _ueDosSearchQuery = (searchBox.value || '').trim();
+          ueRenderDossiersList();
+        }, 150);
+      });
+    }
+
+    var sortSelect = document.getElementById('ueDosSort');
+    if (sortSelect) {
+      sortSelect.addEventListener('change', function() {
+        _ueDosSortOrder = sortSelect.value || 'name-asc';
+        ueRenderDossiersList();
+      });
+    }
+
+    var refreshBtn = document.getElementById('ueDosRefresh');
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', function() {
+        ueLoadDossiers();
+      });
+    }
+  };
+
+  window.ueLoadDossiers = async function() {
+    window.ueInitDossiersControls();
+    var container = document.getElementById('ueDossiersList');
+    if (!container) return;
+    container.innerHTML = '<div class="ue-empty">' + escHtml(tt('rfLoading', 'Loading student dossiers…')) + '</div>';
+
+    var classFilterSelect = document.getElementById('ueDosClassFilter');
+
+    // 1. Ensure master roster is loaded from disk
+    if (window.LinksService && typeof window.LinksService.ensureRosterLoaded === 'function') {
+      try {
+        await window.LinksService.ensureRosterLoaded();
+      } catch (_) {}
+    }
+
+    // Direct disk fallback if window.CLASS_GROUPS is still missing
+    if (typeof window.CLASS_GROUPS === 'undefined' && window.Desktop && typeof Desktop.readText === 'function') {
+      try {
+        var res = await Desktop.readText('user', 'class-groups.js');
+        if (res && res.ok && res.content) {
+          var fn = new Function(
+            res.content +
+            '\nreturn { classGroups: (typeof CLASS_GROUPS !== "undefined" ? CLASS_GROUPS : null),' +
+            ' classGroupsMeta: (typeof CLASS_GROUPS_META !== "undefined" ? CLASS_GROUPS_META : null) };'
+          );
+          var parsed = fn();
+          if (parsed) {
+            if (parsed.classGroups) window.CLASS_GROUPS = parsed.classGroups;
+            if (parsed.classGroupsMeta) window.CLASS_GROUPS_META = parsed.classGroupsMeta;
+          }
+        }
+      } catch (_) {}
+    }
+
+    // 2. Collect all classes and students
+    var studentsList = [];
+    var classStudentCounts = {};
+
+    var metaSource = (window.CLASS_GROUPS_META && typeof window.CLASS_GROUPS_META === 'object') ? window.CLASS_GROUPS_META : null;
+    var groupsSource = (window.CLASS_GROUPS && typeof window.CLASS_GROUPS === 'object') ? window.CLASS_GROUPS : null;
+
+    if (groupsSource) {
+      Object.keys(groupsSource).forEach(function(cid) {
+        if (cid === '_meta' || cid.startsWith('_')) return;
+        var g = groupsSource[cid];
+        var cName = (metaSource && metaSource[cid] && metaSource[cid].name) || (g && g.name) || cid;
+        var level = (metaSource && metaSource[cid] && metaSource[cid].level) || (g && g.level) || '';
+        var arr = Array.isArray(g) ? g : ((g && g.students) || []);
+        classStudentCounts[cid] = arr.length;
+
+        arr.forEach(function(st) {
+          if (!st) return;
+          var sId = typeof st === 'string' ? st : (st.id || st.uuid || st.name);
+          var sName = typeof st === 'object' ? ([st.firstName, st.lastName].filter(Boolean).join(' ') || st.customName || st.name || sId) : sId;
+          if (sId) {
+            studentsList.push({
+              id: sId,
+              name: sName,
+              classId: cid,
+              className: cName,
+              level: level
+            });
+          }
+        });
+      });
+    }
+
+    if (typeof window.STUDENTS_ROSTER !== 'undefined' && Array.isArray(window.STUDENTS_ROSTER)) {
+      window.STUDENTS_ROSTER.forEach(function(st) {
+        if (!st || (!st.uuid && !st.id)) return;
+        var sId = st.uuid || st.id;
+        if (studentsList.some(function(x) { return x.id === sId; })) return;
+        var sName = ([st.firstName, st.lastName].filter(Boolean).join(' ') || st.customName || st.name || sId).trim();
+        var primaryGroup = (st.enrollments && st.enrollments[0] && st.enrollments[0].groupName) || st.adminClass || 'general';
+        var cName = primaryGroup;
+        if (groupsSource && groupsSource[primaryGroup] && groupsSource[primaryGroup].name) {
+          cName = groupsSource[primaryGroup].name;
+        }
+        studentsList.push({
+          id: sId,
+          name: sName,
+          classId: primaryGroup,
+          className: cName,
+          level: st.level || ''
+        });
+        classStudentCounts[primaryGroup] = (classStudentCounts[primaryGroup] || 0) + 1;
+      });
+    }
+
+    // 3. Populate Class Select Dropdown
+    if (classFilterSelect) {
+      var currentVal = classFilterSelect.value || 'all';
+      var optsHtml = '<option value="all">All Classes (' + studentsList.length + ' students)</option>';
+      var seenClasses = new Set();
+      studentsList.forEach(function(st) {
+        if (st.classId && !seenClasses.has(st.classId)) {
+          seenClasses.add(st.classId);
+          var count = classStudentCounts[st.classId] || 0;
+          optsHtml += '<option value="' + escHtml(st.classId) + '">' + escHtml(st.className || st.classId) + ' (' + count + ')</option>';
+        }
+      });
+      classFilterSelect.innerHTML = optsHtml;
+      if (Array.from(classFilterSelect.options).some(function(o) { return o.value === currentVal; })) {
+        classFilterSelect.value = currentVal;
+      } else {
+        classFilterSelect.value = 'all';
+        _ueDosSelectedClass = 'all';
+      }
+    }
+
+    if (!studentsList.length) {
+      container.innerHTML = '<div class="ue-empty">' + escHtml(tt('fmDosNoStudents', 'No students found in the roster.')) + '</div>';
+      var countEl = document.getElementById('ueDosCount');
+      if (countEl) countEl.textContent = '0 students';
+      return;
+    }
+
+    // 4. Load full academic dossiers for all students asynchronously
+    var loadedDossiers = await Promise.all(studentsList.map(async function(st) {
+      var dossier = null;
+      if (window.LinksService && typeof window.LinksService.getStudentAcademicDossier === 'function') {
+        try {
+          dossier = await window.LinksService.getStudentAcademicDossier(st.id, {
+            classId: st.classId,
+            className: st.className,
+            studentName: st.name,
+            level: st.level
+          });
+        } catch (_) {}
+      }
+      return {
+        id: st.id,
+        name: st.name,
+        classId: st.classId,
+        className: st.className,
+        level: st.level,
+        dossier: dossier
+      };
+    }));
+
+    _ueDossiersCached = loadedDossiers;
+    ueRenderDossiersList();
+  };
+
+  function ueRenderDossiersList() {
+    var container = document.getElementById('ueDossiersList');
+    var countEl = document.getElementById('ueDosCount');
+    if (!container) return;
+
+    var filtered = _ueDossiersCached.filter(function(item) {
+      if (_ueDosSelectedClass !== 'all' && item.classId !== _ueDosSelectedClass) {
+        return false;
+      }
+      if (_ueDosSearchQuery) {
+        var q = _ueDosSearchQuery.toLowerCase();
+        var match = (item.name && item.name.toLowerCase().includes(q)) ||
+                    (item.id && item.id.toLowerCase().includes(q)) ||
+                    (item.className && item.className.toLowerCase().includes(q));
+        if (!match) return false;
+      }
+      return true;
+    });
+
+    // Sort items
+    filtered.sort(function(a, b) {
+      if (_ueDosSortOrder === 'name-asc') {
+        return (a.name || '').localeCompare(b.name || '');
+      }
+      if (_ueDosSortOrder === 'name-desc') {
+        return (b.name || '').localeCompare(a.name || '');
+      }
+      if (_ueDosSortOrder === 'class-asc') {
+        return (a.className || '').localeCompare(b.className || '') || (a.name || '').localeCompare(b.name || '');
+      }
+      if (_ueDosSortOrder === 'gpa-desc') {
+        var aG = (a.dossier && a.dossier.gradesSummary && a.dossier.gradesSummary.yearAverage) || 0;
+        var bG = (b.dossier && b.dossier.gradesSummary && b.dossier.gradesSummary.yearAverage) || 0;
+        return bG - aG;
+      }
+      if (_ueDosSortOrder === 'gpa-asc') {
+        var aG2 = (a.dossier && a.dossier.gradesSummary && a.dossier.gradesSummary.yearAverage) || 999;
+        var bG2 = (b.dossier && b.dossier.gradesSummary && b.dossier.gradesSummary.yearAverage) || 999;
+        return aG2 - bG2;
+      }
+      if (_ueDosSortOrder === 'evals-desc') {
+        var aE = (a.dossier && a.dossier.evaluations && a.dossier.evaluations.length) || 0;
+        var bE = (b.dossier && b.dossier.evaluations && b.dossier.evaluations.length) || 0;
+        return bE - aE;
+      }
+      return 0;
+    });
+
+    if (countEl) countEl.textContent = filtered.length + ' ' + (filtered.length === 1 ? 'student' : 'students');
+
+    if (!filtered.length) {
+      container.innerHTML = '<div class="ue-empty">' + escHtml(tt('fmDosNoStudents', 'No student dossiers found matching your search.')) + '</div>';
+      return;
+    }
+
+    var frag = document.createDocumentFragment();
+    filtered.forEach(function(item) {
+      var d = item.dossier;
+      var gs = d ? d.gradesSummary : null;
+      var evals = (d && d.evaluations) ? d.evaluations : [];
+      var comps = (d && d.competences) ? d.competences : [];
+      var lessons = (d && d.lessons) ? d.lessons : [];
+      var docs = (d && d.documents) ? d.documents : [];
+      var boards = (d && d.boards) ? d.boards : [];
+      var totalWork = docs.length + boards.length;
+
+      var gpaVal = (gs && gs.yearAverage != null && !isNaN(gs.yearAverage))
+        ? Number(gs.yearAverage).toFixed(1)
+        : (gs && gs.sem1Average != null && !isNaN(gs.sem1Average) ? Number(gs.sem1Average).toFixed(1) : '--');
+      var gpaColor = getGradeColorClass(gpaVal, 6);
+
+      var card = document.createElement('div');
+      card.className = 'ue-dos-card';
+
+      var recentEvalsHtml = '';
+      if (evals.length > 0) {
+        var evalChips = evals.slice(0, 4).map(function(ev) {
+          var sc = ev.score != null ? ev.score : (ev.points != null ? ev.points : '');
+          var scCls = getGradeColorClass(sc, ev.maxScore || 6);
+          var scoreBadge = sc !== '' ? ('<span class="ue-dos-eval-score ' + scCls + '">' + sc + '</span>') : '';
+          return '<span class="ue-dos-eval-chip">' + escHtml(ev.title || ev.name || 'Test') + ' ' + scoreBadge + '</span>';
+        }).join('');
+        recentEvalsHtml = '<div class="ue-dos-recent-evals"><span style="font-size:0.72rem;font-weight:700;color:#666;">Recent Tests:</span>' + evalChips + '</div>';
+      }
+
+      card.innerHTML =
+        '<div class="ue-dos-hdr">' +
+          '<div class="ue-dos-hdr-left">' +
+            '<div class="ue-dos-avatar">' + escHtml(getInitials(item.name)) + '</div>' +
+            '<div class="ue-dos-id-block">' +
+              '<div class="ue-dos-name-row">' +
+                '<span class="ue-dos-name">' + escHtml(item.name) + '</span>' +
+                '<span class="ue-dos-badge class">' + escHtml(item.className || item.classId) + '</span>' +
+                (item.level ? ('<span class="ue-dos-badge level">Level ' + escHtml(item.level) + '</span>') : '') +
+              '</div>' +
+              '<div class="ue-dos-meta">ID: ' + escHtml(item.id) + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="ue-dos-gpa-badge ' + gpaColor + '">' +
+            '<span class="ue-dos-gpa-val">' + gpaVal + '</span>' +
+            '<span class="ue-dos-gpa-lbl">' + (gpaVal !== '--' ? 'GPA' : 'NO MARKS') + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="ue-dos-kpi-grid">' +
+          '<div class="ue-dos-kpi-item"><span class="ue-dos-kpi-num">' + evals.length + '</span> evaluations</div>' +
+          '<div class="ue-dos-kpi-item"><span class="ue-dos-kpi-num">' + comps.length + '</span> competences</div>' +
+          '<div class="ue-dos-kpi-item"><span class="ue-dos-kpi-num">' + lessons.length + '</span> lessons</div>' +
+          '<div class="ue-dos-kpi-item"><span class="ue-dos-kpi-num">' + totalWork + '</span> mindmaps & docs</div>' +
+        '</div>' +
+        recentEvalsHtml +
+        '<div class="ue-dos-actions">' +
+          '<button type="button" class="ue-dos-btn primary" id="btn-open-dossier">Open 360° Dossier</button>' +
+          '<button type="button" class="ue-dos-btn export" id="btn-export-dossier">Export Studio</button>' +
+          '<button type="button" class="ue-dos-btn" id="btn-gradesheet">Grade Sheet</button>' +
+          '<button type="button" class="ue-dos-btn" id="btn-tags">Links & Tags</button>' +
+        '</div>';
+
+      // Attach button actions
+      card.querySelector('#btn-open-dossier').addEventListener('click', function() {
+        if (window.TagLinkModal && typeof window.TagLinkModal.openStudentDossier === 'function') {
+          window.TagLinkModal.openStudentDossier(item.id, { title: item.name });
+        }
+      });
+
+      card.querySelector('#btn-export-dossier').addEventListener('click', async function() {
+        if (window.TagLinkModal && typeof window.TagLinkModal.openDossierPdfExportModal === 'function') {
+          var targetDos = item.dossier;
+          if (!targetDos && window.LinksService && typeof window.LinksService.getStudentAcademicDossier === 'function') {
+            targetDos = await window.LinksService.getStudentAcademicDossier(item.id, {
+              classId: item.classId,
+              className: item.className,
+              studentName: item.name,
+              level: item.level
+            });
+          }
+          if (targetDos) {
+            window.TagLinkModal.openDossierPdfExportModal(targetDos);
+          }
+        }
+      });
+
+      card.querySelector('#btn-gradesheet').addEventListener('click', function() {
+        if (window.Desktop && typeof window.Desktop.openTool === 'function') {
+          window.Desktop.openTool('grade-sheet.html', { query: { classId: item.classId, studentId: item.id } });
+        } else {
+          window.open('pages/grade-sheet.html?classId=' + encodeURIComponent(item.classId) + '&studentId=' + encodeURIComponent(item.id), '_blank');
+        }
+      });
+
+      card.querySelector('#btn-tags').addEventListener('click', function() {
+        if (window.TagLinkModal) {
+          TagLinkModal.open({
+            urn: 'cmt:student:' + item.id,
+            title: item.name,
+            subtitle: 'Student • ' + item.className,
+            onUpdate: function() {
+              ueLoadDossiers();
+            }
+          });
+        }
+      });
+
+      frag.appendChild(card);
+    });
+
+    container.replaceChildren(frag);
+  }
+
+  // Category & Tab filter handlers
   document.addEventListener('DOMContentLoaded', function() {
+    var tabBtnTags = document.getElementById('ueNavTabTagsBtn');
+    var tabBtnDossiers = document.getElementById('ueNavTabDossiersBtn');
+
+    if (tabBtnTags) {
+      tabBtnTags.addEventListener('click', function() {
+        window.switchUeNavTab('tags');
+      });
+    }
+    if (tabBtnDossiers) {
+      tabBtnDossiers.addEventListener('click', function() {
+        window.switchUeNavTab('dossiers');
+      });
+    }
+
     var catBtns = document.querySelectorAll('.ue-cat-btn');
     catBtns.forEach(function(btn) {
       btn.addEventListener('click', function() {
@@ -3342,7 +3974,11 @@
       }
       var modal = document.getElementById('unitExplorerModal');
       if (modal && modal.classList.contains('open')) {
-        ueLoadTagsList(_ueActiveTag);
+        if (_ueActiveNavTab === 'dossiers') {
+          ueLoadDossiers();
+        } else {
+          ueLoadTagsList(_ueActiveTag);
+        }
       }
     });
   });
@@ -3350,3 +3986,4 @@
 </script>
 </body>
 </html>
+

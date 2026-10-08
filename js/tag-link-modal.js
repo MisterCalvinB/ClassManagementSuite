@@ -19,8 +19,8 @@
   var _activeCategory = 'all';
   var _cachedCandidates = [];
   var _cachedAvailableTags = [];
-  var _candidatePageOffset = 250;
-  var _candidatePageSize = 100;
+  var _candidatePageOffset = 10000;
+  var _candidatePageSize = 1000;
   var _currentFilteredCandidates = [];
   var _currentLinkedUrns = new Set();
 
@@ -117,6 +117,7 @@
               '<button type="button" class="cmt-lm-tab-btn" data-cat="planner">[PLANNER]</button>' +
               '<button type="button" class="cmt-lm-tab-btn" data-cat="lessons">[LESSONS]</button>' +
               '<button type="button" class="cmt-lm-tab-btn" data-cat="board">[BOARD]</button>' +
+              '<button type="button" class="cmt-lm-tab-btn" data-cat="dossier">[360° DOSSIER]</button>' +
             '</div>' +
             '<div class="cmt-lm-search-row">' +
               '<input type="text" class="cmt-lm-input" id="cmt-lm-search-input" placeholder="Search available items by title, class, or code..." />' +
@@ -255,7 +256,7 @@
 
     // Reset search & category filters for clean opening
     _activeCategory = (opts.defaultCategory || 'all');
-    _candidatePageOffset = 250;
+    _candidatePageOffset = _candidatePageSize;
     var searchInput = document.getElementById('cmt-lm-search-input');
     if (searchInput) searchInput.value = '';
     var clearBtn = document.getElementById('cmt-lm-btn-clear-search');
@@ -684,20 +685,32 @@
     }
 
     var iconSrc = getLinksIconPath();
-    row.innerHTML =
-      '<div class="cmt-lm-link-info">' +
-        '<div class="cmt-lm-link-title-line">' +
-          '<img src="' + iconSrc + '" class="cmt-lm-ref-icon" alt="" />' +
-          '<span class="' + badgeClass + '">' + badgeText + '</span>' +
-          '<span class="cmt-lm-link-title">' + title + '</span>' +
+      var dossierActionBtn = (p && p.type === 'student')
+        ? '<button type="button" class="cmt-lm-btn" id="btn-dossier-link" style="background:#e2c96e;font-weight:800;" title="' + t('lmStudentDossier', '360° Academic Dossier') + '"><img src="' + iconSrc + '" class="btn-icon" alt="" style="width:12px;height:12px;vertical-align:-1px;margin-right:3px;" />[360° DOSSIER]</button>'
+        : '';
+
+      row.innerHTML =
+        '<div class="cmt-lm-link-info">' +
+          '<div class="cmt-lm-link-title-line">' +
+            '<img src="' + iconSrc + '" class="cmt-lm-ref-icon" alt="" />' +
+            '<span class="' + badgeClass + '">' + badgeText + '</span>' +
+            '<span class="cmt-lm-link-title">' + title + '</span>' +
+          '</div>' +
+          (sub ? '<span class="cmt-lm-link-sub">' + sub + '</span>' : '') +
         '</div>' +
-        (sub ? '<span class="cmt-lm-link-sub">' + sub + '</span>' : '') +
-      '</div>' +
-      '<div class="cmt-lm-link-actions">' +
-        (isInferred ? '<button type="button" class="cmt-lm-btn" id="btn-promote" title="' + t('lmPromoteTitle', 'Convert to direct permanent link') + '">' + t('lmPromote', '[PROMOTE]') + '</button>' : '') +
-        '<button type="button" class="cmt-lm-btn primary" id="btn-open-link">' + t('lmOpen', '[OPEN]') + '</button>' +
-        (!isInherited ? '<button type="button" class="cmt-lm-btn danger" id="btn-unlink">' + t('lmUnlink', '[UNLINK]') + '</button>' : '') +
-      '</div>';
+        '<div class="cmt-lm-link-actions">' +
+          dossierActionBtn +
+          (isInferred ? '<button type="button" class="cmt-lm-btn" id="btn-promote" title="' + t('lmPromoteTitle', 'Convert to direct permanent link') + '">' + t('lmPromote', '[PROMOTE]') + '</button>' : '') +
+          '<button type="button" class="cmt-lm-btn primary" id="btn-open-link">' + t('lmOpen', '[OPEN]') + '</button>' +
+          (!isInherited ? '<button type="button" class="cmt-lm-btn danger" id="btn-unlink">' + t('lmUnlink', '[UNLINK]') + '</button>' : '') +
+        '</div>';
+
+      var dBtn = row.querySelector('#btn-dossier-link');
+      if (dBtn && p) {
+        dBtn.addEventListener('click', function() {
+          openStudentDossier(p.id, { title: title });
+        });
+      }
 
     var promoteBtn = row.querySelector('#btn-promote');
     if (promoteBtn) {
@@ -818,6 +831,10 @@
       var p = window.LinksService.parseUrn(itemUrn);
       if (p && p.type) ut = String(p.type).toLowerCase();
     }
+    if ((c === 'dossier' || c === 'dossiers' || c === 'student' || c === 'students') && (
+      t === 'student' || t === 'students' || t === 'dossier' || t === 'dossiers' || t === 'student-360' || t === 'student_360' ||
+      ut === 'student' || ut === 'dossier' || (itemUrn && (itemUrn.includes(':student:') || itemUrn.includes(':dossier:')))
+    )) return true;
     if (c === 'classes' && (t === 'class' || t === 'classes' || t === 'student' || t === 'students' || t === 'level' || t === 'yearlevel' || ut === 'class' || ut === 'student' || ut === 'level' || ut === 'yearlevel')) return true;
     if (c === 'databases' && (
       t === 'databases' || t === 'database' ||
@@ -1921,6 +1938,18 @@
     }
 
     var iconSrc = getLinksIconPath();
+    var candidateStudentId = '';
+    if (item.urn && window.LinksService) {
+      var pCand = window.LinksService.parseUrn(item.urn);
+      if (pCand && pCand.type === 'student') candidateStudentId = pCand.id;
+    }
+    if (!candidateStudentId && (item.type === 'student' || item.type === 'classes') && item.id) {
+      candidateStudentId = item.id;
+    }
+    var candDossierBtn = candidateStudentId
+      ? '<button type="button" class="cmt-lm-btn" id="btn-cand-dossier" style="background:#e2c96e;font-weight:800;margin-right:4px;" title="' + t('lmStudentDossier', '360° Academic Dossier') + '"><img src="' + iconSrc + '" class="btn-icon" alt="" style="width:12px;height:12px;vertical-align:-1px;margin-right:2px;" />[360° DOSSIER]</button>'
+      : '';
+
     row.innerHTML =
       '<div class="cmt-lm-link-info">' +
         '<div class="cmt-lm-link-title-line">' +
@@ -1930,9 +1959,20 @@
         '</div>' +
         '<span class="cmt-lm-link-sub">' + item.subtitle + '</span>' +
       '</div>' +
-      (isAlreadyLinked
-        ? '<button type="button" class="cmt-lm-btn" disabled style="opacity:0.6;cursor:default;"><img src="' + iconSrc + '" class="btn-icon" alt="" style="width:12px;height:12px;vertical-align:-1px;margin-right:4px;" />[CONNECTED]</button>'
-        : '<button type="button" class="cmt-lm-btn primary cmt-lm-btn-connect"><img src="' + iconSrc + '" class="btn-icon" alt="" style="width:12px;height:12px;vertical-align:-1px;margin-right:4px;" />[CONNECT]</button>');
+      '<div style="display:flex;align-items:center;gap:4px;">' +
+        candDossierBtn +
+        (isAlreadyLinked
+          ? '<button type="button" class="cmt-lm-btn" disabled style="opacity:0.6;cursor:default;"><img src="' + iconSrc + '" class="btn-icon" alt="" style="width:12px;height:12px;vertical-align:-1px;margin-right:4px;" />[CONNECTED]</button>'
+          : '<button type="button" class="cmt-lm-btn primary cmt-lm-btn-connect"><img src="' + iconSrc + '" class="btn-icon" alt="" style="width:12px;height:12px;vertical-align:-1px;margin-right:4px;" />[CONNECT]</button>') +
+      '</div>';
+
+    var cdBtn = row.querySelector('#btn-cand-dossier');
+    if (cdBtn && candidateStudentId) {
+      cdBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        openStudentDossier(candidateStudentId, { title: displayTitle });
+      });
+    }
 
     if (!isAlreadyLinked) {
       var connBtn = row.querySelector('.cmt-lm-btn-connect');
@@ -2241,7 +2281,209 @@
     });
   }
 
-  // ── Dossier PDF Export Subsystem ─────────────────────────────────────────────
+  // ── Dossier PDF & HTML Export Subsystem ──────────────────────────────────────
+
+  var _dossierMindmapCache = {};
+  var _dossierPreviewTimer = null;
+  var _activeExportDossier = null;
+  var _dossierPreviewZoom = 1.0;
+
+  async function loadBoardMindmapData(boardUrnOrPath) {
+    if (!boardUrnOrPath) return null;
+    var rel = String(boardUrnOrPath).replace(/^cmt:board:/, '').replace(/^user\/mindmaps\//, '');
+    if (_dossierMindmapCache[rel]) return _dossierMindmapCache[rel];
+
+    if (window.Desktop && typeof window.Desktop.isElectron === 'function' && window.Desktop.isElectron()) {
+      var isArchive = rel.endsWith('.cstz') || rel.endsWith('.zip');
+      try {
+        if (isArchive && typeof window.Desktop.readBoardArchive === 'function') {
+          var res = await window.Desktop.readBoardArchive('mindmaps', rel);
+          if (res && res.ok && res.boardData) {
+            _dossierMindmapCache[rel] = res.boardData;
+            return res.boardData;
+          }
+        } else {
+          var rText = await window.Desktop.readText('mindmaps', rel);
+          if (rText && rText.ok && rText.content) {
+            var data = typeof rText.content === 'string' ? JSON.parse(rText.content) : rText.content;
+            _dossierMindmapCache[rel] = data;
+            return data;
+          }
+        }
+      } catch (err) {
+        console.warn('loadBoardMindmapData error:', err);
+      }
+    }
+    return null;
+  }
+
+  function renderMindmapSessionToSvg(boardData, opts) {
+    opts = opts || {};
+    if (!boardData) return '';
+    var nodes = Array.isArray(boardData.nodes) ? boardData.nodes : [];
+    var edges = Array.isArray(boardData.edges) ? boardData.edges : (Array.isArray(boardData.links) ? boardData.links : []);
+    var groups = Array.isArray(boardData.groups) ? boardData.groups : [];
+    var notes = Array.isArray(boardData.notes) ? boardData.notes : [];
+    var shapes = Array.isArray(boardData.shapes) ? boardData.shapes : [];
+
+    if (!nodes.length && !groups.length && !notes.length && !shapes.length) {
+      return '<div class="pdf-mindmap-empty" style="padding:10px;font-size:8pt;color:#666;font-style:italic;">Empty mindmap session</div>';
+    }
+
+    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+    function expand(x, y, w, h) {
+      x = Number(x) || 0;
+      y = Number(y) || 0;
+      w = Number(w) || 140;
+      h = Number(h) || 60;
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x + w > maxX) maxX = x + w;
+      if (y + h > maxY) maxY = y + h;
+    }
+
+    nodes.forEach(function(n) { expand(n.x, n.y, n.width || 160, n.height || 70); });
+    groups.forEach(function(g) { expand(g.x, g.y, g.width || 300, g.height || 200); });
+    notes.forEach(function(nt) { expand(nt.x, nt.y, nt.width || 140, nt.height || 90); });
+    shapes.forEach(function(s) { expand(s.x, s.y, s.width || 150, s.height || 100); });
+
+    if (!isFinite(minX) || !isFinite(minY)) {
+      minX = 0; minY = 0; maxX = 800; maxY = 500;
+    }
+
+    var pad = 60;
+    minX -= pad; minY -= pad; maxX += pad; maxY += pad;
+    var width = Math.max(400, maxX - minX);
+    var height = Math.max(300, maxY - minY);
+
+    var nodeMap = {};
+    nodes.forEach(function(n) {
+      var nid = n.id || String(n.x) + '_' + String(n.y);
+      nodeMap[nid] = n;
+    });
+
+    function esc(s) {
+      if (s == null) return '';
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' + minX + ' ' + minY + ' ' + width + ' ' + height + '" class="pdf-mindmap-svg" style="width:100%;height:auto;max-height:480px;background:#ffffff;border:1.5px solid #333333;border-radius:6px;display:block;margin:6px 0;page-break-inside:avoid;break-inside:avoid;">\n' +
+      '<defs>\n' +
+      '  <marker id="dossier-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">\n' +
+      '    <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#333333" />\n' +
+      '  </marker>\n' +
+      '</defs>\n';
+
+    // 1. Groups
+    groups.forEach(function(g) {
+      var gx = Number(g.x) || 0, gy = Number(g.y) || 0, gw = Number(g.width) || 280, gh = Number(g.height) || 180;
+      var gColor = g.color || '#e2e8f0';
+      var gTitle = g.title || g.name || '';
+      svg += '<rect x="' + gx + '" y="' + gy + '" width="' + gw + '" height="' + gh + '" rx="8" fill="' + gColor + '" fill-opacity="0.25" stroke="#333333" stroke-width="1.5" stroke-dasharray="4,4" />\n';
+      if (gTitle) {
+        svg += '<rect x="' + gx + '" y="' + gy + '" width="' + Math.min(gw, 160) + '" height="20" rx="4" fill="#333333" />\n';
+        svg += '<text x="' + (gx + 6) + '" y="' + (gy + 14) + '" fill="#ffffff" font-family="Lexend, sans-serif" font-size="10" font-weight="800">' + esc(gTitle) + '</text>\n';
+      }
+    });
+
+    // 2. Edges / Connections
+    edges.forEach(function(e) {
+      var fromNode = nodeMap[e.from || e.source];
+      var toNode = nodeMap[e.to || e.target];
+      if (fromNode && toNode) {
+        var fx = (Number(fromNode.x) || 0) + (Number(fromNode.width) || 160) / 2;
+        var fy = (Number(fromNode.y) || 0) + (Number(fromNode.height) || 70) / 2;
+        var tx = (Number(toNode.x) || 0) + (Number(toNode.width) || 160) / 2;
+        var ty = (Number(toNode.y) || 0) + (Number(toNode.height) || 70) / 2;
+        var dx = tx - fx;
+        var cx1 = fx + dx * 0.35;
+        var cy1 = fy;
+        var cx2 = tx - dx * 0.35;
+        var cy2 = ty;
+        var edgeColor = e.color || '#475569';
+        svg += '<path d="M ' + fx + ' ' + fy + ' C ' + cx1 + ' ' + cy1 + ', ' + cx2 + ' ' + cy2 + ', ' + tx + ' ' + ty + '" fill="none" stroke="' + edgeColor + '" stroke-width="2" marker-end="url(#dossier-arrow)" />\n';
+        if (e.label) {
+          var mx = (fx + tx) / 2;
+          var my = (fy + ty) / 2 - 4;
+          svg += '<text x="' + mx + '" y="' + my + '" fill="#334155" font-family="Lexend, sans-serif" font-size="9" font-weight="700" text-anchor="middle">' + esc(e.label) + '</text>\n';
+        }
+      }
+    });
+
+    // 3. Nodes
+    nodes.forEach(function(n) {
+      var nx = Number(n.x) || 0, ny = Number(n.y) || 0, nw = Number(n.width) || 160, nh = Number(n.height) || 70;
+      var nBg = n.bgColor || '#ffffff';
+      var nStroke = n.color || '#333333';
+      var nText = n.text || n.title || n.label || '';
+      var nColor = n.textColor || '#111111';
+      var isRound = n.shape === 'ellipse' || n.shape === 'circle';
+
+      if (isRound) {
+        svg += '<ellipse cx="' + (nx + nw/2) + '" cy="' + (ny + nh/2) + '" rx="' + (nw/2) + '" ry="' + (nh/2) + '" fill="' + nBg + '" stroke="' + nStroke + '" stroke-width="2" />\n';
+      } else {
+        svg += '<rect x="' + nx + '" y="' + ny + '" width="' + nw + '" height="' + nh + '" rx="6" fill="' + nBg + '" stroke="' + nStroke + '" stroke-width="2" />\n';
+      }
+
+      var words = String(nText).split(/\s+/);
+      var lines = [];
+      var curLine = '';
+      words.forEach(function(w) {
+        if ((curLine + ' ' + w).length > 20) {
+          if (curLine) lines.push(curLine);
+          curLine = w;
+        } else {
+          curLine = curLine ? (curLine + ' ' + w) : w;
+        }
+      });
+      if (curLine) lines.push(curLine);
+      if (!lines.length) lines = [''];
+
+      var lineH = 13;
+      var startTextY = ny + (nh / 2) - ((lines.length - 1) * lineH / 2) + 4;
+      lines.slice(0, 4).forEach(function(lineStr, lIdx) {
+        svg += '<text x="' + (nx + nw / 2) + '" y="' + (startTextY + lIdx * lineH) + '" fill="' + nColor + '" font-family="Lexend, sans-serif" font-size="10.5" font-weight="700" text-anchor="middle">' + esc(lineStr) + '</text>\n';
+      });
+    });
+
+    // 4. Sticky Notes
+    notes.forEach(function(nt) {
+      var tx = Number(nt.x) || 0, ty = Number(nt.y) || 0, tw = Number(nt.width) || 140, th = Number(nt.height) || 90;
+      var nBg = nt.color || nt.bgColor || '#fef3c7';
+      var nText = nt.text || nt.content || '';
+      svg += '<rect x="' + tx + '" y="' + ty + '" width="' + tw + '" height="' + th + '" rx="4" fill="' + nBg + '" stroke="#d97706" stroke-width="1.5" />\n';
+      svg += '<text x="' + (tx + 6) + '" y="' + (ty + 16) + '" fill="#78350f" font-family="Lexend, sans-serif" font-size="9" font-weight="600">' + esc(nText.slice(0, 45)) + (nText.length > 45 ? '...' : '') + '</text>\n';
+    });
+
+    svg += '</svg>\n';
+    return svg;
+  }
+
+  function renderMindmapConceptsTable(boardData) {
+    if (!boardData || !Array.isArray(boardData.nodes) || !boardData.nodes.length) return '';
+    function esc(s) {
+      if (s == null) return '';
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    var html = '<div class="pdf-mm-concepts-table-wrap" style="margin-top:6px;page-break-inside:avoid;break-inside:avoid;">' +
+      '<table class="pdf-table" style="width:100%;border-collapse:collapse;font-size:7.5pt;border:1px solid #333333;border-radius:4px;overflow:hidden;">' +
+      '<thead><tr style="background:#f1f5f9;border-bottom:1.5px solid #333333;">' +
+      '<th style="text-align:left;padding:4px 6px;width:35%;font-weight:900;text-transform:uppercase;">Topic / Concept Node</th>' +
+      '<th style="text-align:left;padding:4px 6px;width:65%;font-weight:900;text-transform:uppercase;">Content & Details</th>' +
+      '</tr></thead><tbody>';
+
+    boardData.nodes.forEach(function(n) {
+      var nText = n.text || n.title || n.label || '';
+      var nNotes = n.note || n.notes || (n.meta && n.meta.note) || '';
+      html += '<tr style="border-bottom:1px solid #e2e8f0;">' +
+        '<td style="padding:3px 6px;font-weight:700;color:#111111;vertical-align:top;">' + esc(nText) + '</td>' +
+        '<td style="padding:3px 6px;color:#475569;vertical-align:top;">' + (nNotes ? esc(nNotes) : '<span style="color:#94a3b8;font-style:italic;">--</span>') + '</td>' +
+        '</tr>';
+    });
+    html += '</tbody></table></div>';
+    return html;
+  }
 
   function ensureDossierPdfModalDom() {
     if (document.getElementById('cmt-dossier-pdf-modal-overlay')) return;
@@ -2253,17 +2495,46 @@
       '<div class="cmt-dossier-pdf-card" role="dialog" aria-modal="true">' +
         '<div class="cmt-dos-pdf-header">' +
           '<div style="display:flex;align-items:center;gap:8px;">' +
-            '<span class="cmt-lm-badge" style="background:#5b8fcc;color:#fff;">[PDF EXPORT]</span>' +
-            '<h3 style="font-size:1.05rem;font-weight:900;color:#111;margin:0;" id="cmt-dos-pdf-modal-title">' + (t('lmDossierPdfModalTitle', 'Student 360° Academic Dossier — PDF Export') || 'Student 360° Academic Dossier — PDF Export') + '</h3>' +
+            '<span class="cmt-lm-badge" style="background:#5b8fcc;color:#fff;">[EXPORT STUDIO]</span>' +
+            '<h3 style="font-size:1.05rem;font-weight:900;color:#111;margin:0;" id="cmt-dos-pdf-modal-title">' + (t('lmDossierPdfModalTitle', 'Student 360° Academic Dossier — Export Studio') || 'Student 360° Academic Dossier — Export Studio') + '</h3>' +
           '</div>' +
           '<button type="button" class="cmt-lm-close-btn" id="cmt-dos-pdf-btn-close">[CLOSE]</button>' +
         '</div>' +
-        '<div class="cmt-dos-pdf-body" id="cmt-dos-pdf-body">' +
-          '<!-- Dynamic Form Content -->' +
+        '<div class="cmt-dos-pdf-studio">' +
+          '<!-- Left Column: Detailed Selectors -->' +
+          '<div class="cmt-dos-pdf-sidebar" id="cmt-dos-pdf-sidebar">' +
+            '<!-- Form inserted dynamically -->' +
+          '</div>' +
+          '<!-- Right Column: Live Scaled Preview -->' +
+          '<div class="cmt-dos-pdf-preview-pane">' +
+            '<div class="cmt-dos-pdf-preview-header">' +
+              '<div style="display:flex;align-items:center;gap:6px;">' +
+                '<span class="cmt-lm-badge" style="background:#e2c96e;color:#111;">[LIVE PREVIEW]</span>' +
+                '<span style="font-size:0.76rem;font-weight:800;color:#444;" id="cmt-dos-preview-page-info">A4 Portrait</span>' +
+              '</div>' +
+              '<div class="cmt-dos-pdf-preview-toolbar">' +
+                '<button type="button" class="cmt-dos-preset-btn" id="cmt-dos-prev-zoom-fit">' + (t('lmDossierPreviewFit', 'Fit') || 'Fit') + '</button>' +
+                '<button type="button" class="cmt-dos-preset-btn" id="cmt-dos-prev-zoom-75">75%</button>' +
+                '<button type="button" class="cmt-dos-preset-btn active" id="cmt-dos-prev-zoom-100">' + (t('lmDossierPreviewActual', '100%') || '100%') + '</button>' +
+                '<button type="button" class="cmt-dos-preset-btn" id="cmt-dos-prev-zoom-125">125%</button>' +
+              '</div>' +
+            '</div>' +
+            '<div class="cmt-dos-pdf-preview-body" id="cmt-dos-preview-body">' +
+              '<div class="cmt-dos-preview-scaler" id="cmt-dos-preview-scaler">' +
+                '<div class="cmt-dos-preview-viewport" id="cmt-dos-preview-viewport" style="width:794px;min-height:1123px;">' +
+                  '<iframe class="cmt-dos-preview-frame" id="cmt-dos-preview-frame" title="Dossier Document Preview"></iframe>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
         '</div>' +
         '<div class="cmt-dos-pdf-footer">' +
           '<button type="button" class="cmt-lm-btn" id="cmt-dos-pdf-btn-cancel">' + (t('btnCancel', 'Cancel') || 'Cancel') + '</button>' +
-          '<button type="button" class="cmt-lm-btn primary" id="cmt-dos-pdf-btn-submit" style="background:#5b8fcc;color:#fff;font-weight:900;">' + (t('lmDossierPdfExportBtn', '[EXPORT PDF]') || '[EXPORT PDF]') + '</button>' +
+          '<div class="cmt-dos-pdf-footer-actions">' +
+            '<button type="button" class="cmt-lm-btn" id="cmt-dos-btn-export-mindmaps" style="background:#8b7cc2;color:#fff;font-weight:800;display:none;">' + (t('lmDossierExportMindmapsBtn', '[EXPORT MINDMAPS PDF ONLY]') || '[EXPORT MINDMAPS PDF ONLY]') + '</button>' +
+            '<button type="button" class="cmt-lm-btn" id="cmt-dos-btn-export-html" style="background:#e2c96e;color:#111;font-weight:800;">' + (t('lmDossierExportHtmlBtn', '[EXPORT HTML]') || '[EXPORT HTML]') + '</button>' +
+            '<button type="button" class="cmt-lm-btn primary" id="cmt-dos-pdf-btn-submit" style="background:#5b8fcc;color:#fff;font-weight:900;">' + (t('lmDossierPdfExportBtn', '[EXPORT PDF]') || '[EXPORT PDF]') + '</button>' +
+          '</div>' +
         '</div>' +
       '</div>';
 
@@ -2274,32 +2545,276 @@
     overlay.addEventListener('click', function(e) {
       if (e.target === overlay) closeDossierPdfExportModal();
     });
+
+    // Dynamic Zoom & Sizing handlers
+    function applyPreviewDimensions() {
+      var frame = document.getElementById('cmt-dos-preview-frame');
+      var vp = document.getElementById('cmt-dos-preview-viewport');
+      var scaler = document.getElementById('cmt-dos-preview-scaler');
+      if (!frame || !vp || !scaler) return;
+
+      var options = collectDossierExportOptions();
+      var isLandscape = options.orientation === 'landscape';
+      var isLetter = options.pageSize === 'Letter';
+      var naturalW = isLetter ? (isLandscape ? 1056 : 816) : (isLandscape ? 1123 : 794);
+      var minNaturalH = isLetter ? (isLandscape ? 816 : 1056) : (isLandscape ? 794 : 1123);
+
+      var docHeight = minNaturalH;
+      try {
+        var doc = frame.contentDocument || (frame.contentWindow && frame.contentWindow.document);
+        if (doc && doc.body) {
+          var scrollH = Math.max(
+            doc.body.scrollHeight || 0,
+            doc.documentElement.scrollHeight || 0,
+            doc.body.offsetHeight || 0
+          );
+          if (scrollH && scrollH > 100) {
+            docHeight = Math.max(minNaturalH, scrollH + 30);
+          }
+        }
+      } catch (err) {
+        console.warn('Preview height read error:', err);
+      }
+
+      vp.style.width = naturalW + 'px';
+      vp.style.height = docHeight + 'px';
+      vp.style.transform = 'scale(' + _dossierPreviewZoom + ')';
+      vp.style.transformOrigin = 'top left';
+
+      frame.style.width = naturalW + 'px';
+      frame.style.height = docHeight + 'px';
+
+      scaler.style.width = Math.round(naturalW * _dossierPreviewZoom) + 'px';
+      scaler.style.height = Math.round(docHeight * _dossierPreviewZoom) + 'px';
+    }
+
+    function setZoom(z, activeBtnId) {
+      _dossierPreviewZoom = z;
+      applyPreviewDimensions();
+      ['cmt-dos-prev-zoom-fit', 'cmt-dos-prev-zoom-75', 'cmt-dos-prev-zoom-100', 'cmt-dos-prev-zoom-125'].forEach(function(bid) {
+        var el = document.getElementById(bid);
+        if (el) el.classList.toggle('active', bid === activeBtnId);
+      });
+    }
+
+    document.getElementById('cmt-dos-prev-zoom-100').addEventListener('click', function() { setZoom(1.0, 'cmt-dos-prev-zoom-100'); });
+    document.getElementById('cmt-dos-prev-zoom-75').addEventListener('click', function() { setZoom(0.75, 'cmt-dos-prev-zoom-75'); });
+    document.getElementById('cmt-dos-prev-zoom-125').addEventListener('click', function() { setZoom(1.25, 'cmt-dos-prev-zoom-125'); });
+    document.getElementById('cmt-dos-prev-zoom-fit').addEventListener('click', function() {
+      var bodyW = document.getElementById('cmt-dos-preview-body');
+      if (bodyW) {
+        var options = collectDossierExportOptions();
+        var isLandscape = options.orientation === 'landscape';
+        var isLetter = options.pageSize === 'Letter';
+        var naturalW = isLetter ? (isLandscape ? 1056 : 816) : (isLandscape ? 1123 : 794);
+        var availableW = bodyW.clientWidth - 48;
+        var fitScale = Math.max(0.35, Math.min(1.2, availableW / naturalW));
+        setZoom(fitScale, 'cmt-dos-prev-zoom-fit');
+      }
+    });
   }
 
-  function openDossierPdfExportModal(dossier) {
+  function collectDossierExportOptions() {
+    var semFilterVal = 'all';
+    var semRadio = document.querySelector('input[name="cmt-dos-pdf-sem-filter"]:checked');
+    if (semRadio) semFilterVal = semRadio.value;
+
+    var pageSizeVal = 'A4';
+    var psRadio = document.querySelector('input[name="cmt-dos-pdf-pagesize"]:checked');
+    if (psRadio) pageSizeVal = psRadio.value;
+
+    var orientationVal = 'portrait';
+    var orientRadio = document.querySelector('input[name="cmt-dos-pdf-orientation"]:checked');
+    if (orientRadio) orientationVal = orientRadio.value;
+
+    var mmModeVal = 'diagram';
+    var mmRadio = document.querySelector('input[name="cmt-dos-mm-mode"]:checked');
+    if (mmRadio) mmModeVal = mmRadio.value;
+
+    var fontScaleVal = 'md';
+    var fsRadio = document.querySelector('input[name="cmt-dos-font-scale"]:checked');
+    if (fsRadio) fontScaleVal = fsRadio.value;
+
+    var remarksTa = document.getElementById('cmt-dos-pdf-remarks-text');
+
+    function getSelectedCheckValues(containerId) {
+      var container = document.getElementById(containerId);
+      if (!container) return null;
+      var checkboxes = container.querySelectorAll('input[type="checkbox"]');
+      var ids = [];
+      checkboxes.forEach(function(cb) {
+        if (cb.checked) ids.push(cb.value);
+      });
+      return ids;
+    }
+
+    return {
+      studentProfile: !!(document.getElementById('cmt-dos-pdf-chk-profile') && document.getElementById('cmt-dos-pdf-chk-profile').checked),
+      academicPerformance: !!(document.getElementById('cmt-dos-pdf-chk-averages') && document.getElementById('cmt-dos-pdf-chk-averages').checked),
+      evaluations: !!(document.getElementById('cmt-dos-pdf-chk-evals') && document.getElementById('cmt-dos-pdf-chk-evals').checked),
+      semesterFilter: semFilterVal,
+      includeCriteria: !!(document.getElementById('cmt-dos-pdf-chk-criteria') && document.getElementById('cmt-dos-pdf-chk-criteria').checked),
+      includeNotes: !!(document.getElementById('cmt-dos-pdf-chk-notes') && document.getElementById('cmt-dos-pdf-chk-notes').checked),
+      competences: !!(document.getElementById('cmt-dos-pdf-chk-comps') && document.getElementById('cmt-dos-pdf-chk-comps').checked),
+      lessons: !!(document.getElementById('cmt-dos-pdf-chk-lessons') && document.getElementById('cmt-dos-pdf-chk-lessons').checked),
+      work: !!(document.getElementById('cmt-dos-pdf-chk-docs') && document.getElementById('cmt-dos-pdf-chk-docs').checked),
+      mindmaps: !!(document.getElementById('cmt-dos-pdf-chk-mindmaps') && document.getElementById('cmt-dos-pdf-chk-mindmaps').checked),
+      mindmapMode: mmModeVal,
+      teacherRemarks: !!(document.getElementById('cmt-dos-pdf-chk-remarks') && document.getElementById('cmt-dos-pdf-chk-remarks').checked),
+      remarksText: remarksTa ? remarksTa.value : '',
+      signatureBlock: !!(document.getElementById('cmt-dos-pdf-chk-signatures') && document.getElementById('cmt-dos-pdf-chk-signatures').checked),
+      pageSize: pageSizeVal,
+      orientation: orientationVal,
+      fontScale: fontScaleVal,
+      selectedEvals: getSelectedCheckValues('cmt-dos-evals-list'),
+      selectedComps: getSelectedCheckValues('cmt-dos-comps-list'),
+      selectedLessons: getSelectedCheckValues('cmt-dos-lessons-list'),
+      selectedDocs: getSelectedCheckValues('cmt-dos-docs-list'),
+      selectedBoards: getSelectedCheckValues('cmt-dos-mindmaps-list')
+    };
+  }
+
+  async function updateDossierPreview(dossier) {
+    if (!dossier) dossier = _activeExportDossier;
     if (!dossier) return;
+
+    var options = collectDossierExportOptions();
+    var frame = document.getElementById('cmt-dos-preview-frame');
+    var vp = document.getElementById('cmt-dos-preview-viewport');
+    var pageInfo = document.getElementById('cmt-dos-preview-page-info');
+
+    if (pageInfo) {
+      pageInfo.textContent = (options.pageSize || 'A4') + ' ' + (options.orientation === 'landscape' ? 'Landscape' : 'Portrait');
+    }
+
+    if (vp) {
+      if (options.pageSize === 'Letter') {
+        vp.style.width = options.orientation === 'landscape' ? '1056px' : '816px';
+        vp.style.minHeight = options.orientation === 'landscape' ? '816px' : '1056px';
+      } else {
+        // A4
+        vp.style.width = options.orientation === 'landscape' ? '1123px' : '794px';
+        vp.style.minHeight = options.orientation === 'landscape' ? '794px' : '1123px';
+      }
+    }
+
+    // Pre-load any selected mindmap boards
+    if (options.mindmaps !== false && Array.isArray(options.selectedBoards) && options.selectedBoards.length > 0) {
+      for (var i = 0; i < options.selectedBoards.length; i++) {
+        var bUrn = options.selectedBoards[i];
+        if (!_dossierMindmapCache[bUrn]) {
+          await loadBoardMindmapData(bUrn);
+        }
+      }
+    }
+
+    var htmlDoc = generateDossierPdfHtml(dossier, options, _dossierMindmapCache);
+    if (frame && frame.contentWindow) {
+      try {
+        var doc = frame.contentDocument || frame.contentWindow.document;
+        doc.open();
+        doc.write(htmlDoc);
+        doc.close();
+
+        var isLandscape = options.orientation === 'landscape';
+        var isLetter = options.pageSize === 'Letter';
+        var naturalW = isLetter ? (isLandscape ? 1056 : 816) : (isLandscape ? 1123 : 794);
+        var minNaturalH = isLetter ? (isLandscape ? 816 : 1056) : (isLandscape ? 794 : 1123);
+
+        function fitFrameHeight() {
+          var vp = document.getElementById('cmt-dos-preview-viewport');
+          var scaler = document.getElementById('cmt-dos-preview-scaler');
+          if (!frame || !vp || !scaler) return;
+
+          var docHeight = minNaturalH;
+          try {
+            var cDoc = frame.contentDocument || (frame.contentWindow && frame.contentWindow.document);
+            if (cDoc && cDoc.body) {
+              var scrollH = Math.max(
+                cDoc.body.scrollHeight || 0,
+                cDoc.documentElement.scrollHeight || 0,
+                cDoc.body.offsetHeight || 0
+              );
+              if (scrollH && scrollH > 100) {
+                docHeight = Math.max(minNaturalH, scrollH + 30);
+              }
+            }
+          } catch (e) {}
+
+          vp.style.width = naturalW + 'px';
+          vp.style.height = docHeight + 'px';
+          vp.style.transform = 'scale(' + _dossierPreviewZoom + ')';
+          vp.style.transformOrigin = 'top left';
+
+          frame.style.width = naturalW + 'px';
+          frame.style.height = docHeight + 'px';
+
+          scaler.style.width = Math.round(naturalW * _dossierPreviewZoom) + 'px';
+          scaler.style.height = Math.round(docHeight * _dossierPreviewZoom) + 'px';
+        }
+
+        fitFrameHeight();
+        setTimeout(fitFrameHeight, 50);
+        setTimeout(fitFrameHeight, 200);
+      } catch (e) {
+        console.warn('Preview render error:', e);
+      }
+    }
+  }
+
+  function queueDossierPreviewUpdate() {
+    if (_dossierPreviewTimer) clearTimeout(_dossierPreviewTimer);
+    _dossierPreviewTimer = setTimeout(function() {
+      updateDossierPreview(_activeExportDossier);
+    }, 60);
+  }
+
+  async function openDossierPdfExportModal(dossier) {
+    if (!dossier) return;
+    _activeExportDossier = dossier;
     ensureDossierPdfModalDom();
 
     var st = dossier.student || {};
     var evals = dossier.evaluations || [];
     var comps = dossier.competences || [];
     var lessons = dossier.lessons || [];
-    var docs = [].concat(dossier.documents || [], dossier.boards || []);
+    var docs = dossier.documents || [];
+    var boards = dossier.boards || [];
 
     var overlay = document.getElementById('cmt-dossier-pdf-modal-overlay');
-    var bodyEl = document.getElementById('cmt-dos-pdf-body');
-    if (!overlay || !bodyEl) return;
+    var sidebarEl = document.getElementById('cmt-dos-pdf-sidebar');
+    var mmExportBtn = document.getElementById('cmt-dos-btn-export-mindmaps');
+    if (!overlay || !sidebarEl) return;
+
+    if (mmExportBtn) {
+      mmExportBtn.style.display = boards.length > 0 ? 'inline-flex' : 'none';
+    }
+
+    function esc(s) {
+      if (s == null) return '';
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
 
     var formHtml =
-      '<div style="background:#ffffff;border:1.5px solid #333;border-radius:6px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">' +
+      '<!-- Student Header Info -->' +
+      '<div style="background:#ffffff;border:1.5px solid #333;border-radius:6px;padding:8px 10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">' +
         '<div>' +
-          '<span style="font-size:0.95rem;font-weight:900;color:#111;text-transform:uppercase;">' + (st.name || 'Student') + '</span> ' +
-          '<span style="font-size:0.75rem;font-weight:700;color:#555;">(' + (st.className || '') + (st.level ? ' • ' + st.level.toUpperCase() : '') + ')</span>' +
+          '<span style="font-size:0.92rem;font-weight:900;color:#111;text-transform:uppercase;">' + esc(st.name || 'Student') + '</span> ' +
+          '<span style="font-size:0.75rem;font-weight:700;color:#555;">(' + esc(st.className || '') + (st.level ? ' • ' + esc(st.level.toUpperCase()) : '') + ')</span>' +
         '</div>' +
         '<div class="cmt-dos-pdf-toolbar">' +
-          '<button type="button" class="cmt-lm-btn" id="cmt-dos-pdf-btn-select-all" style="font-size:0.72rem;">' + (t('lmDossierPdfSelectAll', 'Select All') || 'Select All') + '</button>' +
-          '<button type="button" class="cmt-lm-btn" id="cmt-dos-pdf-btn-deselect-all" style="font-size:0.72rem;">' + (t('lmDossierPdfDeselectAll', 'Deselect All') || 'Deselect All') + '</button>' +
+          '<button type="button" class="cmt-dos-preset-btn" id="cmt-dos-btn-select-all">' + (t('lmDossierPdfSelectAll', 'Select All') || 'Select All') + '</button>' +
+          '<button type="button" class="cmt-dos-preset-btn" id="cmt-dos-btn-deselect-all">' + (t('lmDossierPdfDeselectAll', 'Deselect All') || 'Deselect All') + '</button>' +
         '</div>' +
+      '</div>' +
+
+      '<!-- Presets Bar -->' +
+      '<div class="cmt-dos-presets-bar">' +
+        '<span style="font-size:0.7rem;font-weight:900;color:#555;text-transform:uppercase;">' + (t('lmDossierPresetLabel', 'Presets:') || 'Presets:') + '</span>' +
+        '<button type="button" class="cmt-dos-preset-btn active" data-preset="full">' + (t('lmDossierPresetFull', 'Full 360° Dossier') || 'Full 360° Dossier') + '</button>' +
+        '<button type="button" class="cmt-dos-preset-btn" data-preset="transcript">' + (t('lmDossierPresetTranscript', 'Official Transcript') || 'Official Transcript') + '</button>' +
+        '<button type="button" class="cmt-dos-preset-btn" data-preset="evals">' + (t('lmDossierPresetEvals', 'Evaluations & Feedback') || 'Evaluations & Feedback') + '</button>' +
+        '<button type="button" class="cmt-dos-preset-btn" data-preset="summary">' + (t('lmDossierPresetSummary', 'Executive Summary') || 'Executive Summary') + '</button>' +
       '</div>' +
 
       '<!-- Section 1: Student Profile -->' +
@@ -2320,46 +2835,141 @@
 
       '<!-- Section 3: Evaluations & Assessments -->' +
       '<div class="cmt-dos-pdf-sec">' +
-        '<label class="cmt-dos-pdf-check-label">' +
-          '<input type="checkbox" id="cmt-dos-pdf-chk-evals" checked />' +
-          '<span>' + (t('lmDossierPdfSecEvals', 'Evaluations & Grade Sheet Assessments') || 'Evaluations & Grade Sheet Assessments') + ' <span class="cmt-lm-badge" style="background:#5b8fcc;color:#fff;font-size:0.62rem;">' + evals.length + '</span></span>' +
-        '</label>' +
+        '<div class="cmt-dos-pdf-sec-hdr">' +
+          '<label class="cmt-dos-pdf-check-label">' +
+            '<input type="checkbox" id="cmt-dos-pdf-chk-evals" checked />' +
+            '<span>' + (t('lmDossierPdfSecEvals', 'Evaluations & Grade Sheet Assessments') || 'Evaluations & Grade Sheet Assessments') + ' <span class="cmt-lm-badge" style="background:#5b8fcc;color:#fff;font-size:0.62rem;">' + evals.length + '</span></span>' +
+          '</label>' +
+          '<span class="cmt-dossier-sec-chevron" style="font-size:0.7rem;">▼</span>' +
+        '</div>' +
         '<div class="cmt-dos-pdf-sub-options" id="cmt-dos-pdf-evals-sub">' +
           '<div class="cmt-dos-pdf-radios">' +
             '<label class="cmt-dos-pdf-check-label" style="font-weight:600;"><input type="radio" name="cmt-dos-pdf-sem-filter" value="all" checked /> ' + (t('lmDossierPdfSemFilterAll', 'All Semesters') || 'All Semesters') + '</label>' +
-            '<label class="cmt-dos-pdf-check-label" style="font-weight:600;"><input type="radio" name="cmt-dos-pdf-sem-filter" value="sem1" /> ' + (t('lmDossierPdfSemFilterS1', 'Semester 1 (S1) Only') || 'Semester 1 (S1) Only') + '</label>' +
-            '<label class="cmt-dos-pdf-check-label" style="font-weight:600;"><input type="radio" name="cmt-dos-pdf-sem-filter" value="sem2" /> ' + (t('lmDossierPdfSemFilterS2', 'Semester 2 (S2) Only') || 'Semester 2 (S2) Only') + '</label>' +
+            '<label class="cmt-dos-pdf-check-label" style="font-weight:600;"><input type="radio" name="cmt-dos-pdf-sem-filter" value="sem1" /> ' + (t('lmDossierPdfSemFilterS1', 'Semester 1 (S1)') || 'Semester 1 (S1)') + '</label>' +
+            '<label class="cmt-dos-pdf-check-label" style="font-weight:600;"><input type="radio" name="cmt-dos-pdf-sem-filter" value="sem2" /> ' + (t('lmDossierPdfSemFilterS2', 'Semester 2 (S2)') || 'Semester 2 (S2)') + '</label>' +
           '</div>' +
-          '<label class="cmt-dos-pdf-check-label" style="font-weight:600;"><input type="checkbox" id="cmt-dos-pdf-chk-criteria" checked /> ' + (t('lmDossierPdfOptCriteria', 'Include Rubric Criteria Breakdowns') || 'Include Rubric Criteria Breakdowns') + '</label>' +
-          '<label class="cmt-dos-pdf-check-label" style="font-weight:600;"><input type="checkbox" id="cmt-dos-pdf-chk-notes" checked /> ' + (t('lmDossierPdfOptNotes', 'Include Teacher Feedback & Observation Notes') || 'Include Teacher Feedback & Observation Notes') + '</label>' +
+          '<div style="display:flex;gap:12px;flex-wrap:wrap;">' +
+            '<label class="cmt-dos-pdf-check-label" style="font-weight:600;"><input type="checkbox" id="cmt-dos-pdf-chk-criteria" checked /> ' + (t('lmDossierPdfOptCriteria', 'Include Rubric Criteria Breakdowns') || 'Include Rubric Criteria Breakdowns') + '</label>' +
+            '<label class="cmt-dos-pdf-check-label" style="font-weight:600;"><input type="checkbox" id="cmt-dos-pdf-chk-notes" checked /> ' + (t('lmDossierPdfOptNotes', 'Include Teacher Feedback & Observation Notes') || 'Include Teacher Feedback & Observation Notes') + '</label>' +
+          '</div>' +
+          '<!-- Granular Evaluations List -->' +
+          '<input type="text" class="cmt-dos-filter-input" id="cmt-dos-filter-evals" placeholder="' + (t('lmDossierFilterAssessments', 'Filter assessments...') || 'Filter assessments...') + '" />' +
+          '<div class="cmt-dos-item-list" id="cmt-dos-evals-list">' +
+            evals.map(function(ev, idx) {
+              var evId = ev.urn || ('eval_' + idx);
+              var evTitle = ev.title || ev.urn || ('Assessment ' + (idx + 1));
+              var evScore = ev.score != null ? (' (' + ev.score + (ev.maxScore ? '/' + ev.maxScore : '') + ')') : '';
+              return '<label class="cmt-dos-item-row" data-search="' + esc(evTitle.toLowerCase()) + '">' +
+                '<input type="checkbox" value="' + esc(evId) + '" checked />' +
+                '<span>' + esc(evTitle) + '<span style="color:#166534;font-weight:800;">' + esc(evScore) + '</span></span>' +
+              '</label>';
+            }).join('') +
+          '</div>' +
         '</div>' +
       '</div>' +
 
       '<!-- Section 4: Competences -->' +
       '<div class="cmt-dos-pdf-sec">' +
-        '<label class="cmt-dos-pdf-check-label">' +
-          '<input type="checkbox" id="cmt-dos-pdf-chk-comps" checked />' +
-          '<span>' + (t('lmGroupCompetences', 'Curriculum Competences & Rubrics') || 'Curriculum Competences & Rubrics') + ' <span class="cmt-lm-badge" style="background:#6abf8e;color:#111;font-size:0.62rem;">' + comps.length + '</span></span>' +
-        '</label>' +
+        '<div class="cmt-dos-pdf-sec-hdr">' +
+          '<label class="cmt-dos-pdf-check-label">' +
+            '<input type="checkbox" id="cmt-dos-pdf-chk-comps" checked />' +
+            '<span>' + (t('lmGroupCompetences', 'Curriculum Competences & Rubrics') || 'Curriculum Competences & Rubrics') + ' <span class="cmt-lm-badge" style="background:#6abf8e;color:#111;font-size:0.62rem;">' + comps.length + '</span></span>' +
+          '</label>' +
+          '<span class="cmt-dossier-sec-chevron" style="font-size:0.7rem;">▼</span>' +
+        '</div>' +
+        '<div class="cmt-dos-pdf-sub-options" id="cmt-dos-comps-sub">' +
+          '<input type="text" class="cmt-dos-filter-input" id="cmt-dos-filter-comps" placeholder="' + (t('lmDossierFilterCompetences', 'Filter competences...') || 'Filter competences...') + '" />' +
+          '<div class="cmt-dos-item-list" id="cmt-dos-comps-list">' +
+            (comps.length ? comps.map(function(cp, idx) {
+              var cpId = cp.urn || ('comp_' + idx);
+              var cpTitle = cp.title || cp.urn;
+              return '<label class="cmt-dos-item-row" data-search="' + esc(cpTitle.toLowerCase()) + '">' +
+                '<input type="checkbox" value="' + esc(cpId) + '" checked />' +
+                '<span>' + esc(cpTitle) + '</span>' +
+              '</label>';
+            }).join('') : '<div style="font-size:0.72rem;color:#888;padding:4px;">No linked competences</div>') +
+          '</div>' +
+        '</div>' +
       '</div>' +
 
       '<!-- Section 5: Lessons -->' +
       '<div class="cmt-dos-pdf-sec">' +
-        '<label class="cmt-dos-pdf-check-label">' +
-          '<input type="checkbox" id="cmt-dos-pdf-chk-lessons" checked />' +
-          '<span>' + (t('lmDossierDeliveredLessons', 'Delivered Lesson Plans & Timetable') || 'Delivered Lesson Plans & Timetable') + ' <span class="cmt-lm-badge" style="background:#e2c96e;color:#111;font-size:0.62rem;">' + lessons.length + '</span></span>' +
-        '</label>' +
+        '<div class="cmt-dos-pdf-sec-hdr">' +
+          '<label class="cmt-dos-pdf-check-label">' +
+            '<input type="checkbox" id="cmt-dos-pdf-chk-lessons" checked />' +
+            '<span>' + (t('lmDossierDeliveredLessons', 'Delivered Lesson Plans & Timetable') || 'Delivered Lesson Plans & Timetable') + ' <span class="cmt-lm-badge" style="background:#e2c96e;color:#111;font-size:0.62rem;">' + lessons.length + '</span></span>' +
+          '</label>' +
+          '<span class="cmt-dossier-sec-chevron" style="font-size:0.7rem;">▼</span>' +
+        '</div>' +
+        '<div class="cmt-dos-pdf-sub-options" id="cmt-dos-lessons-sub">' +
+          '<input type="text" class="cmt-dos-filter-input" id="cmt-dos-filter-lessons" placeholder="' + (t('lmDossierFilterLessons', 'Filter lessons...') || 'Filter lessons...') + '" />' +
+          '<div class="cmt-dos-item-list" id="cmt-dos-lessons-list">' +
+            (lessons.length ? lessons.map(function(ls, idx) {
+              var lsId = ls.urn || ('lesson_' + idx);
+              var lsTitle = ls.title || ls.urn;
+              return '<label class="cmt-dos-item-row" data-search="' + esc(lsTitle.toLowerCase()) + '">' +
+                '<input type="checkbox" value="' + esc(lsId) + '" checked />' +
+                '<span>' + esc(lsTitle) + '</span>' +
+              '</label>';
+            }).join('') : '<div style="font-size:0.72rem;color:#888;padding:4px;">No linked lessons</div>') +
+          '</div>' +
+        '</div>' +
       '</div>' +
 
       '<!-- Section 6: Work & Documents -->' +
       '<div class="cmt-dos-pdf-sec">' +
-        '<label class="cmt-dos-pdf-check-label">' +
-          '<input type="checkbox" id="cmt-dos-pdf-chk-docs" checked />' +
-          '<span>' + (t('lmDossierLinkedDocs', 'Documents, Attachments & Board Mindmaps') || 'Documents, Attachments & Board Mindmaps') + ' <span class="cmt-lm-badge" style="background:#8b7cc2;color:#fff;font-size:0.62rem;">' + docs.length + '</span></span>' +
-        '</label>' +
+        '<div class="cmt-dos-pdf-sec-hdr">' +
+          '<label class="cmt-dos-pdf-check-label">' +
+            '<input type="checkbox" id="cmt-dos-pdf-chk-docs" checked />' +
+            '<span>' + (t('lmDossierDocAttachments', 'Attached Documents & Work Submissions') || 'Attached Documents & Work Submissions') + ' <span class="cmt-lm-badge" style="background:#8b7cc2;color:#fff;font-size:0.62rem;">' + docs.length + '</span></span>' +
+          '</label>' +
+          '<span class="cmt-dossier-sec-chevron" style="font-size:0.7rem;">▼</span>' +
+        '</div>' +
+        '<div class="cmt-dos-pdf-sub-options" id="cmt-dos-docs-sub">' +
+          '<input type="text" class="cmt-dos-filter-input" id="cmt-dos-filter-docs" placeholder="' + (t('lmDossierFilterDocs', 'Filter documents...') || 'Filter documents...') + '" />' +
+          '<div class="cmt-dos-item-list" id="cmt-dos-docs-list">' +
+            (docs.length ? docs.map(function(dc, idx) {
+              var dcId = dc.urn || ('doc_' + idx);
+              var dcTitle = dc.title || dc.urn;
+              return '<label class="cmt-dos-item-row" data-search="' + esc(dcTitle.toLowerCase()) + '">' +
+                '<input type="checkbox" value="' + esc(dcId) + '" checked />' +
+                '<span>' + esc(dcTitle) + '</span>' +
+              '</label>';
+            }).join('') : '<div style="font-size:0.72rem;color:#888;padding:4px;">No attached documents</div>') +
+          '</div>' +
+        '</div>' +
       '</div>' +
 
-      '<!-- Section 7: Overall Remarks -->' +
+      '<!-- Section 7: Board Mindmaps & Constellations -->' +
+      '<div class="cmt-dos-pdf-sec">' +
+        '<div class="cmt-dos-pdf-sec-hdr">' +
+          '<label class="cmt-dos-pdf-check-label">' +
+            '<input type="checkbox" id="cmt-dos-pdf-chk-mindmaps" checked />' +
+            '<span>' + (t('lmDossierLinkedDocs', 'Board Constellation Mindmaps') || 'Board Constellation Mindmaps') + ' <span class="cmt-lm-badge" style="background:#3b82f6;color:#fff;font-size:0.62rem;">' + boards.length + '</span></span>' +
+          '</label>' +
+          '<span class="cmt-dossier-sec-chevron" style="font-size:0.7rem;">▼</span>' +
+        '</div>' +
+        '<div class="cmt-dos-pdf-sub-options" id="cmt-dos-mindmaps-sub">' +
+          '<div style="font-size:0.72rem;font-weight:800;color:#555;text-transform:uppercase;margin-bottom:2px;">' + (t('lmDossierMindmapModeLabel', 'Mindmap Inclusion Mode:') || 'Mindmap Inclusion Mode:') + '</div>' +
+          '<div class="cmt-dos-pdf-radios">' +
+            '<label class="cmt-dos-pdf-check-label" style="font-weight:600;"><input type="radio" name="cmt-dos-mm-mode" value="diagram" checked /> ' + (t('lmDossierMindmapModeDiagram', 'Full Vector Diagram (SVG)') || 'Full Vector Diagram (SVG)') + '</label>' +
+            '<label class="cmt-dos-pdf-check-label" style="font-weight:600;"><input type="radio" name="cmt-dos-mm-mode" value="full" /> ' + (t('lmDossierMindmapModeFull', 'Diagram + Node & Concept Index') || 'Diagram + Node & Concept Index') + '</label>' +
+            '<label class="cmt-dos-pdf-check-label" style="font-weight:600;"><input type="radio" name="cmt-dos-mm-mode" value="list" /> ' + (t('lmDossierMindmapModeList', 'Summary list only') || 'Summary list only') + '</label>' +
+          '</div>' +
+          '<div class="cmt-dos-item-list" id="cmt-dos-mindmaps-list" style="margin-top:4px;">' +
+            (boards.length ? boards.map(function(bd, idx) {
+              var bdId = bd.urn || ('board_' + idx);
+              var bdTitle = bd.title || bd.urn;
+              return '<label class="cmt-dos-item-row" data-search="' + esc(bdTitle.toLowerCase()) + '">' +
+                '<input type="checkbox" value="' + esc(bdId) + '" checked />' +
+                '<span>' + esc(bdTitle) + '</span>' +
+              '</label>';
+            }).join('') : '<div style="font-size:0.72rem;color:#888;padding:4px;">No linked mindmaps</div>') +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+
+      '<!-- Section 8: Overall Remarks -->' +
       '<div class="cmt-dos-pdf-sec">' +
         '<label class="cmt-dos-pdf-check-label">' +
           '<input type="checkbox" id="cmt-dos-pdf-chk-remarks" />' +
@@ -2370,7 +2980,7 @@
         '</div>' +
       '</div>' +
 
-      '<!-- Section 8: Signature Block -->' +
+      '<!-- Section 9: Signature Block -->' +
       '<div class="cmt-dos-pdf-sec">' +
         '<label class="cmt-dos-pdf-check-label">' +
           '<input type="checkbox" id="cmt-dos-pdf-chk-signatures" />' +
@@ -2378,27 +2988,35 @@
         '</label>' +
       '</div>' +
 
-      '<!-- Section 9: Page Format & Orientation Options -->' +
+      '<!-- Section 10: Page Format, Orientation & Font Scale -->' +
       '<div class="cmt-dos-pdf-sec">' +
         '<div class="cmt-dos-pdf-grid-options">' +
           '<div>' +
-            '<label style="font-size:0.72rem;font-weight:800;text-transform:uppercase;color:#555;display:block;margin-bottom:4px;">' + (t('lmDossierPdfFormatLabel', 'Page Format:') || 'Page Format:') + '</label>' +
+            '<label style="font-size:0.7rem;font-weight:800;text-transform:uppercase;color:#555;display:block;margin-bottom:2px;">' + (t('lmDossierPdfFormatLabel', 'Page Format:') || 'Page Format:') + '</label>' +
             '<div class="cmt-dos-pdf-radios">' +
               '<label class="cmt-dos-pdf-check-label" style="font-weight:700;"><input type="radio" name="cmt-dos-pdf-pagesize" value="A4" checked /> A4</label>' +
               '<label class="cmt-dos-pdf-check-label" style="font-weight:700;"><input type="radio" name="cmt-dos-pdf-pagesize" value="Letter" /> Letter</label>' +
             '</div>' +
           '</div>' +
           '<div>' +
-            '<label style="font-size:0.72rem;font-weight:800;text-transform:uppercase;color:#555;display:block;margin-bottom:4px;">' + (t('lmDossierPdfOrientationLabel', 'Orientation:') || 'Orientation:') + '</label>' +
+            '<label style="font-size:0.7rem;font-weight:800;text-transform:uppercase;color:#555;display:block;margin-bottom:2px;">' + (t('lmDossierPdfOrientationLabel', 'Orientation:') || 'Orientation:') + '</label>' +
             '<div class="cmt-dos-pdf-radios">' +
               '<label class="cmt-dos-pdf-check-label" style="font-weight:700;"><input type="radio" name="cmt-dos-pdf-orientation" value="portrait" checked /> ' + (t('lmDossierPdfPortrait', 'Portrait') || 'Portrait') + '</label>' +
               '<label class="cmt-dos-pdf-check-label" style="font-weight:700;"><input type="radio" name="cmt-dos-pdf-orientation" value="landscape" /> ' + (t('lmDossierPdfLandscape', 'Landscape') || 'Landscape') + '</label>' +
             '</div>' +
           '</div>' +
+          '<div>' +
+            '<label style="font-size:0.7rem;font-weight:800;text-transform:uppercase;color:#555;display:block;margin-bottom:2px;">' + (t('lmDossierFontScaleLabel', 'Font Scale:') || 'Font Scale:') + '</label>' +
+            '<div class="cmt-dos-pdf-radios">' +
+              '<label class="cmt-dos-pdf-check-label" style="font-weight:700;"><input type="radio" name="cmt-dos-font-scale" value="sm" /> Sm</label>' +
+              '<label class="cmt-dos-pdf-check-label" style="font-weight:700;"><input type="radio" name="cmt-dos-font-scale" value="md" checked /> Md</label>' +
+              '<label class="cmt-dos-pdf-check-label" style="font-weight:700;"><input type="radio" name="cmt-dos-font-scale" value="lg" /> Lg</label>' +
+            '</div>' +
+          '</div>' +
         '</div>' +
       '</div>';
 
-    bodyEl.innerHTML = formHtml;
+    sidebarEl.innerHTML = formHtml;
     overlay.classList.add('open');
 
     // Toggle remarks subarea
@@ -2407,11 +3025,13 @@
     if (chkRemarks && remarksSub) {
       chkRemarks.addEventListener('change', function() {
         remarksSub.style.display = chkRemarks.checked ? 'block' : 'none';
-        if (chkRemarks.checked) {
-          var ta = document.getElementById('cmt-dos-pdf-remarks-text');
-          if (ta) ta.focus();
-        }
+        queueDossierPreviewUpdate();
       });
+    }
+
+    var remarksTextEl = document.getElementById('cmt-dos-pdf-remarks-text');
+    if (remarksTextEl) {
+      remarksTextEl.addEventListener('input', queueDossierPreviewUpdate);
     }
 
     // Toggle evals suboptions
@@ -2421,74 +3041,140 @@
       chkEvals.addEventListener('change', function() {
         evalsSub.style.opacity = chkEvals.checked ? '1' : '0.4';
         evalsSub.style.pointerEvents = chkEvals.checked ? 'auto' : 'none';
+        queueDossierPreviewUpdate();
       });
     }
+
+    // Setup Filter Inputs for Lists
+    function setupListFilter(inputId, listId) {
+      var inp = document.getElementById(inputId);
+      var list = document.getElementById(listId);
+      if (!inp || !list) return;
+      inp.addEventListener('input', function() {
+        var query = inp.value.toLowerCase().trim();
+        var rows = list.querySelectorAll('.cmt-dos-item-row');
+        rows.forEach(function(r) {
+          var sTxt = r.getAttribute('data-search') || '';
+          r.style.display = (!query || sTxt.includes(query)) ? 'flex' : 'none';
+        });
+      });
+    }
+    setupListFilter('cmt-dos-filter-evals', 'cmt-dos-evals-list');
+    setupListFilter('cmt-dos-filter-comps', 'cmt-dos-comps-list');
+    setupListFilter('cmt-dos-filter-lessons', 'cmt-dos-lessons-list');
+    setupListFilter('cmt-dos-filter-docs', 'cmt-dos-docs-list');
+
+    // Attach change listeners to all checkboxes & radios for live preview sync
+    sidebarEl.querySelectorAll('input[type="checkbox"], input[type="radio"]').forEach(function(inp) {
+      inp.addEventListener('change', queueDossierPreviewUpdate);
+    });
+
+    // Preset handlers
+    sidebarEl.querySelectorAll('.cmt-dos-preset-btn[data-preset]').forEach(function(pBtn) {
+      pBtn.addEventListener('click', function() {
+        sidebarEl.querySelectorAll('.cmt-dos-preset-btn[data-preset]').forEach(function(b) { b.classList.remove('active'); });
+        pBtn.classList.add('active');
+        var preset = pBtn.getAttribute('data-preset');
+
+        function setCheck(id, val) {
+          var el = document.getElementById(id);
+          if (el) el.checked = val;
+        }
+
+        if (preset === 'full') {
+          ['profile', 'averages', 'evals', 'comps', 'lessons', 'docs', 'mindmaps', 'criteria', 'notes'].forEach(function(k) { setCheck('cmt-dos-pdf-chk-' + k, true); });
+          setCheck('cmt-dos-pdf-chk-remarks', false);
+          setCheck('cmt-dos-pdf-chk-signatures', false);
+        } else if (preset === 'transcript') {
+          setCheck('cmt-dos-pdf-chk-profile', true);
+          setCheck('cmt-dos-pdf-chk-averages', true);
+          setCheck('cmt-dos-pdf-chk-evals', true);
+          setCheck('cmt-dos-pdf-chk-criteria', false);
+          setCheck('cmt-dos-pdf-chk-notes', false);
+          setCheck('cmt-dos-pdf-chk-comps', true);
+          setCheck('cmt-dos-pdf-chk-lessons', false);
+          setCheck('cmt-dos-pdf-chk-docs', false);
+          setCheck('cmt-dos-pdf-chk-mindmaps', false);
+          setCheck('cmt-dos-pdf-chk-remarks', true);
+          setCheck('cmt-dos-pdf-chk-signatures', true);
+        } else if (preset === 'evals') {
+          setCheck('cmt-dos-pdf-chk-profile', true);
+          setCheck('cmt-dos-pdf-chk-averages', true);
+          setCheck('cmt-dos-pdf-chk-evals', true);
+          setCheck('cmt-dos-pdf-chk-criteria', true);
+          setCheck('cmt-dos-pdf-chk-notes', true);
+          setCheck('cmt-dos-pdf-chk-comps', false);
+          setCheck('cmt-dos-pdf-chk-lessons', false);
+          setCheck('cmt-dos-pdf-chk-docs', false);
+          setCheck('cmt-dos-pdf-chk-mindmaps', false);
+          setCheck('cmt-dos-pdf-chk-remarks', true);
+          setCheck('cmt-dos-pdf-chk-signatures', false);
+        } else if (preset === 'summary') {
+          setCheck('cmt-dos-pdf-chk-profile', true);
+          setCheck('cmt-dos-pdf-chk-averages', true);
+          setCheck('cmt-dos-pdf-chk-evals', false);
+          setCheck('cmt-dos-pdf-chk-comps', false);
+          setCheck('cmt-dos-pdf-chk-lessons', false);
+          setCheck('cmt-dos-pdf-chk-docs', false);
+          setCheck('cmt-dos-pdf-chk-mindmaps', false);
+          setCheck('cmt-dos-pdf-chk-remarks', true);
+          setCheck('cmt-dos-pdf-chk-signatures', true);
+        }
+
+        if (chkRemarks && remarksSub) {
+          remarksSub.style.display = chkRemarks.checked ? 'block' : 'none';
+        }
+        queueDossierPreviewUpdate();
+      });
+    });
 
     // Select All / Deselect All
-    var btnSelectAll = document.getElementById('cmt-dos-pdf-btn-select-all');
+    var btnSelectAll = document.getElementById('cmt-dos-btn-select-all');
     if (btnSelectAll) {
       btnSelectAll.addEventListener('click', function() {
-        ['profile', 'averages', 'evals', 'comps', 'lessons', 'docs', 'remarks', 'signatures'].forEach(function(k) {
-          var el = document.getElementById('cmt-dos-pdf-chk-' + k);
-          if (el) {
-            el.checked = true;
-            el.dispatchEvent(new Event('change'));
-          }
-        });
+        sidebarEl.querySelectorAll('input[type="checkbox"]').forEach(function(cb) { cb.checked = true; });
+        if (chkRemarks && remarksSub) remarksSub.style.display = 'block';
+        queueDossierPreviewUpdate();
       });
     }
 
-    var btnDeselectAll = document.getElementById('cmt-dos-pdf-btn-deselect-all');
+    var btnDeselectAll = document.getElementById('cmt-dos-btn-deselect-all');
     if (btnDeselectAll) {
       btnDeselectAll.addEventListener('click', function() {
-        ['profile', 'averages', 'evals', 'comps', 'lessons', 'docs', 'remarks', 'signatures'].forEach(function(k) {
-          var el = document.getElementById('cmt-dos-pdf-chk-' + k);
-          if (el) {
-            el.checked = false;
-            el.dispatchEvent(new Event('change'));
-          }
-        });
+        sidebarEl.querySelectorAll('input[type="checkbox"]').forEach(function(cb) { cb.checked = false; });
+        if (chkRemarks && remarksSub) remarksSub.style.display = 'none';
+        queueDossierPreviewUpdate();
       });
     }
 
-    // Submit / Export handler
+    // Submit / Export handler for PDF
     var submitBtn = document.getElementById('cmt-dos-pdf-btn-submit');
     if (submitBtn) {
       submitBtn.onclick = async function() {
-        var semFilterVal = 'all';
-        var semRadio = document.querySelector('input[name="cmt-dos-pdf-sem-filter"]:checked');
-        if (semRadio) semFilterVal = semRadio.value;
-
-        var pageSizeVal = 'A4';
-        var psRadio = document.querySelector('input[name="cmt-dos-pdf-pagesize"]:checked');
-        if (psRadio) pageSizeVal = psRadio.value;
-
-        var orientationVal = 'portrait';
-        var orientRadio = document.querySelector('input[name="cmt-dos-pdf-orientation"]:checked');
-        if (orientRadio) orientationVal = orientRadio.value;
-
-        var remarksTa = document.getElementById('cmt-dos-pdf-remarks-text');
-
-        var options = {
-          studentProfile: !!(document.getElementById('cmt-dos-pdf-chk-profile') && document.getElementById('cmt-dos-pdf-chk-profile').checked),
-          academicPerformance: !!(document.getElementById('cmt-dos-pdf-chk-averages') && document.getElementById('cmt-dos-pdf-chk-averages').checked),
-          evaluations: !!(document.getElementById('cmt-dos-pdf-chk-evals') && document.getElementById('cmt-dos-pdf-chk-evals').checked),
-          semesterFilter: semFilterVal,
-          includeCriteria: !!(document.getElementById('cmt-dos-pdf-chk-criteria') && document.getElementById('cmt-dos-pdf-chk-criteria').checked),
-          includeNotes: !!(document.getElementById('cmt-dos-pdf-chk-notes') && document.getElementById('cmt-dos-pdf-chk-notes').checked),
-          competences: !!(document.getElementById('cmt-dos-pdf-chk-comps') && document.getElementById('cmt-dos-pdf-chk-comps').checked),
-          lessons: !!(document.getElementById('cmt-dos-pdf-chk-lessons') && document.getElementById('cmt-dos-pdf-chk-lessons').checked),
-          work: !!(document.getElementById('cmt-dos-pdf-chk-docs') && document.getElementById('cmt-dos-pdf-chk-docs').checked),
-          teacherRemarks: !!(document.getElementById('cmt-dos-pdf-chk-remarks') && document.getElementById('cmt-dos-pdf-chk-remarks').checked),
-          remarksText: remarksTa ? remarksTa.value : '',
-          signatureBlock: !!(document.getElementById('cmt-dos-pdf-chk-signatures') && document.getElementById('cmt-dos-pdf-chk-signatures').checked),
-          pageSize: pageSizeVal,
-          orientation: orientationVal
-        };
-
+        var options = collectDossierExportOptions();
         await exportDossierPdf(dossier, options);
       };
     }
+
+    // Export handler for HTML
+    var exportHtmlBtn = document.getElementById('cmt-dos-btn-export-html');
+    if (exportHtmlBtn) {
+      exportHtmlBtn.onclick = async function() {
+        var options = collectDossierExportOptions();
+        await exportDossierHtml(dossier, options);
+      };
+    }
+
+    // Export handler for Standalone Mindmaps PDF
+    if (mmExportBtn) {
+      mmExportBtn.onclick = async function() {
+        var options = collectDossierExportOptions();
+        await exportDossierMindmapsPdf(dossier, options);
+      };
+    }
+
+    // Initial preview render
+    updateDossierPreview(dossier);
   }
 
   function closeDossierPdfExportModal() {
@@ -2496,14 +3182,16 @@
     if (overlay) overlay.classList.remove('open');
   }
 
-  function generateDossierPdfHtml(dossier, options) {
+  function generateDossierPdfHtml(dossier, options, mindmapCache) {
     options = options || {};
+    mindmapCache = mindmapCache || _dossierMindmapCache || {};
     var st = (dossier && dossier.student) || {};
     var gs = (dossier && dossier.gradesSummary) || {};
     var evals = (dossier && dossier.evaluations) || [];
     var comps = (dossier && dossier.competences) || [];
     var lessons = (dossier && dossier.lessons) || [];
-    var docs = [].concat((dossier && dossier.documents) || [], (dossier && dossier.boards) || []);
+    var docs = (dossier && dossier.documents) || [];
+    var boards = (dossier && dossier.boards) || [];
 
     function esc(s) {
       if (s == null) return '';
@@ -2528,9 +3216,7 @@
 
     function formatDossierNote(n) {
       if (n == null) return '';
-      if (typeof n === 'string' || typeof n === 'number') {
-        return String(n).trim();
-      }
+      if (typeof n === 'string' || typeof n === 'number') return String(n).trim();
       if (typeof n === 'object') {
         var checklist = [];
         if (Array.isArray(n.checklist)) {
@@ -2558,8 +3244,12 @@
       return String(n).trim();
     }
 
+    // Granular Filtering
     var semFilter = options.semesterFilter || 'all';
-    var filteredEvals = evals.filter(function(ev) {
+    var selectedEvalsSet = options.selectedEvals ? new Set(options.selectedEvals) : null;
+    var filteredEvals = evals.filter(function(ev, idx) {
+      var evId = ev.urn || ('eval_' + idx);
+      if (selectedEvalsSet && !selectedEvalsSet.has(evId)) return false;
       if (semFilter === 'sem1') {
         return ev.semester === 'sem1' || (!ev.semester && !String(ev.badge || '').includes('SEM 2'));
       }
@@ -2569,11 +3259,38 @@
       return true;
     });
 
+    var selectedCompsSet = options.selectedComps ? new Set(options.selectedComps) : null;
+    var filteredComps = comps.filter(function(cp, idx) {
+      var cpId = cp.urn || ('comp_' + idx);
+      return !selectedCompsSet || selectedCompsSet.has(cpId);
+    });
+
+    var selectedLessonsSet = options.selectedLessons ? new Set(options.selectedLessons) : null;
+    var filteredLessons = lessons.filter(function(ls, idx) {
+      var lsId = ls.urn || ('lesson_' + idx);
+      return !selectedLessonsSet || selectedLessonsSet.has(lsId);
+    });
+
+    var selectedDocsSet = options.selectedDocs ? new Set(options.selectedDocs) : null;
+    var filteredDocs = docs.filter(function(dc, idx) {
+      var dcId = dc.urn || ('doc_' + idx);
+      return !selectedDocsSet || selectedDocsSet.has(dcId);
+    });
+
+    var selectedBoardsSet = options.selectedBoards ? new Set(options.selectedBoards) : null;
+    var filteredBoards = boards.filter(function(bd, idx) {
+      var bdId = bd.urn || ('board_' + idx);
+      return !selectedBoardsSet || selectedBoardsSet.has(bdId);
+    });
+
     var dateStr = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
     var pageSize = options.pageSize === 'Letter' ? 'letter' : 'A4';
     var orientation = options.orientation === 'landscape' ? 'landscape' : 'portrait';
+    var baseFontSize = options.fontScale === 'sm' ? '8.5pt' : (options.fontScale === 'lg' ? '10.5pt' : '9.5pt');
 
-    var html = '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="utf-8">\n<title>' + esc(st.name || 'Student') + ' — ' + esc(t('lmDossierPdfDocHeader', 'Academic Dossier') || 'Academic Dossier') + '</title>\n<style>\n' +
+    var html = '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="utf-8">\n<title>' + esc(st.name || 'Student') + ' — ' + esc(t('lmDossierPdfDocHeader', 'Academic Dossier') || 'Academic Dossier') + '</title>\n' +
+      '<link rel="stylesheet" href="../modules/lexend/lexend.css">\n' +
+      '<style>\n' +
       '@page {\n' +
       '  size: ' + pageSize + ' ' + orientation + ';\n' +
       '  margin: 12mm 14mm 14mm 14mm;\n' +
@@ -2582,6 +3299,13 @@
       '  body {\n' +
       '    -webkit-print-color-adjust: exact;\n' +
       '    print-color-adjust: exact;\n' +
+      '    padding: 0 !important;\n' +
+      '  }\n' +
+      '}\n' +
+      '@media screen {\n' +
+      '  body {\n' +
+      '    padding: 14mm 16mm;\n' +
+      '    background: #ffffff;\n' +
       '  }\n' +
       '}\n' +
       '* { box-sizing: border-box; margin: 0; padding: 0; }\n' +
@@ -2589,7 +3313,7 @@
       '  font-family: "Lexend", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;\n' +
       '  background: #ffffff;\n' +
       '  color: #111111;\n' +
-      '  font-size: 9.5pt;\n' +
+      '  font-size: ' + baseFontSize + ';\n' +
       '  line-height: 1.35;\n' +
       '  padding: 0;\n' +
       '}\n' +
@@ -2967,7 +3691,7 @@
                     (isGsTest && coeff != null && coeff !== 1 ? ('<span class="pdf-coeff-pill">Coeff: ' + esc(coeff) + '</span>') : '')) +
                   (isOverridden ? ('<span class="pdf-override-pill">' + esc(t('lmDossierOverrideBadge', 'OVERRIDE') || 'OVERRIDE') + '</span>') : '') +
                 '</div>' +
-                (evItem.testDate ? ('<div class="pdf-item-date">' + esc(evItem.testDate) + '</div>') : '') +
+                (evItem.testDate ? ('<div class="pdf-item-date" style="font-size:7.5pt;color:#666;">' + esc(evItem.testDate) + '</div>') : '') +
               '</div>' +
               (evItem.subtitle && !isGsTest ? ('<div class="pdf-item-sub">' + esc(evItem.subtitle) + '</div>') : '');
 
@@ -2998,13 +3722,13 @@
         '<div class="pdf-section">' +
           '<div class="pdf-sec-hdr">' +
             '<span>2. ' + esc(t('lmGroupCompetences', 'CURRICULUM COMPETENCES & RUBRICS') || 'CURRICULUM COMPETENCES & RUBRICS') + '</span>' +
-            '<span class="pdf-sec-count">' + comps.length + '</span>' +
+            '<span class="pdf-sec-count">' + filteredComps.length + '</span>' +
           '</div>' +
           '<div class="pdf-sec-list">';
-      if (!comps.length) {
+      if (!filteredComps.length) {
         html += '<div style="font-size:8pt;color:#666;padding:4px;">' + esc(t('lmNoCompsStudent', 'No curriculum competences linked yet.')) + '</div>';
       } else {
-        comps.forEach(function(cpItem) {
+        filteredComps.forEach(function(cpItem) {
           html +=
             '<div class="pdf-item">' +
               '<div class="pdf-item-top">' +
@@ -3026,13 +3750,13 @@
         '<div class="pdf-section">' +
           '<div class="pdf-sec-hdr">' +
             '<span>3. ' + esc(t('lmDossierDeliveredLessons', 'DELIVERED LESSON PLANS & TIMETABLE') || 'DELIVERED LESSON PLANS & TIMETABLE') + '</span>' +
-            '<span class="pdf-sec-count">' + lessons.length + '</span>' +
+            '<span class="pdf-sec-count">' + filteredLessons.length + '</span>' +
           '</div>' +
           '<div class="pdf-sec-list">';
-      if (!lessons.length) {
+      if (!filteredLessons.length) {
         html += '<div style="font-size:8pt;color:#666;padding:4px;">' + esc(t('lmNoLessonsStudent', 'No lesson plans linked to cohort.')) + '</div>';
       } else {
-        lessons.forEach(function(lsItem) {
+        filteredLessons.forEach(function(lsItem) {
           html +=
             '<div class="pdf-item">' +
               '<div class="pdf-item-top">' +
@@ -3048,19 +3772,19 @@
       html += '</div></div>';
     }
 
-    // 6. Work, Files & Mindmaps Section
+    // 6. Documents & Work Section
     if (options.work !== false) {
       html +=
         '<div class="pdf-section">' +
           '<div class="pdf-sec-hdr">' +
-            '<span>4. ' + esc(t('lmDossierLinkedDocs', 'DOCUMENTS, ATTACHMENTS & MINDMAPS') || 'DOCUMENTS, ATTACHMENTS & MINDMAPS') + '</span>' +
-            '<span class="pdf-sec-count">' + docs.length + '</span>' +
+            '<span>4. ' + esc(t('lmDossierDocAttachments', 'DOCUMENTS & WORK ATTACHMENTS') || 'DOCUMENTS & WORK ATTACHMENTS') + '</span>' +
+            '<span class="pdf-sec-count">' + filteredDocs.length + '</span>' +
           '</div>' +
           '<div class="pdf-sec-list">';
-      if (!docs.length) {
-        html += '<div style="font-size:8pt;color:#666;padding:4px;">' + esc(t('lmNoDocsStudent', 'No individual documents, work, or mindmaps attached.')) + '</div>';
+      if (!filteredDocs.length) {
+        html += '<div style="font-size:8pt;color:#666;padding:4px;">' + esc(t('lmNoDocsStudent', 'No individual documents or work attached.')) + '</div>';
       } else {
-        docs.forEach(function(docItem) {
+        filteredDocs.forEach(function(docItem) {
           html +=
             '<div class="pdf-item">' +
               '<div class="pdf-item-top">' +
@@ -3076,7 +3800,48 @@
       html += '</div></div>';
     }
 
-    // 7. Overall Teacher Remarks
+    // 7. Mindmaps & Constellations Section
+    if (options.mindmaps !== false) {
+      var mmMode = options.mindmapMode || 'diagram';
+      html +=
+        '<div class="pdf-section">' +
+          '<div class="pdf-sec-hdr">' +
+            '<span>5. ' + esc(t('lmDossierLinkedDocs', 'BOARD CONSTELLATION MINDMAPS') || 'BOARD CONSTELLATION MINDMAPS') + '</span>' +
+            '<span class="pdf-sec-count">' + filteredBoards.length + '</span>' +
+          '</div>' +
+          '<div class="pdf-sec-list">';
+      if (!filteredBoards.length) {
+        html += '<div style="font-size:8pt;color:#666;padding:4px;">' + esc(t('lmNoDocsStudent', 'No linked board mindmaps.')) + '</div>';
+      } else {
+        filteredBoards.forEach(function(bdItem) {
+          var bUrn = bdItem.urn || '';
+          var rel = bUrn.replace(/^cmt:board:/, '').replace(/^user\/mindmaps\//, '');
+          var bData = mindmapCache[rel] || null;
+
+          html +=
+            '<div class="pdf-item">' +
+              '<div class="pdf-item-top">' +
+                '<div class="pdf-item-left">' +
+                  '<span class="pdf-badge" style="background:#3b82f6;color:#fff;">' + esc(bdItem.badge || '[MINDMAP]') + '</span>' +
+                  '<span class="pdf-item-title">' + esc(bdItem.title || bdItem.urn) + '</span>' +
+                '</div>' +
+              '</div>' +
+              (bdItem.subtitle ? ('<div class="pdf-item-sub">' + esc(bdItem.subtitle) + '</div>') : '');
+
+          if (bData && (mmMode === 'diagram' || mmMode === 'full')) {
+            html += '<div class="pdf-mindmap-container" style="margin-top:8px;">' + renderMindmapSessionToSvg(bData) + '</div>';
+          }
+          if (bData && mmMode === 'full') {
+            html += renderMindmapConceptsTable(bData);
+          }
+
+          html += '</div>';
+        });
+      }
+      html += '</div></div>';
+    }
+
+    // 8. Overall Teacher Remarks
     if (options.teacherRemarks && options.remarksText && options.remarksText.trim()) {
       html +=
         '<div class="pdf-remarks-box">' +
@@ -3085,7 +3850,7 @@
         '</div>';
     }
 
-    // 8. Signatures Block
+    // 9. Signatures Block
     if (options.signatureBlock) {
       html +=
         '<div class="pdf-signatures">' +
@@ -3100,7 +3865,7 @@
         '</div>';
     }
 
-    // 9. Footer
+    // 10. Footer
     html +=
       '<div class="pdf-footer">' +
         '<span>' + esc(t('lmDossierPdfDocHeader', 'Class Management Tools — Academic Dossier') || 'Class Management Tools — Academic Dossier') + '</span>' +
@@ -3120,14 +3885,21 @@
     var dateStamp = new Date().toISOString().slice(0, 10);
     var defaultName = 'dossier_' + cleanName + '_' + cleanClass + '_' + dateStamp + '.pdf';
 
-    var htmlDoc = generateDossierPdfHtml(dossier, options);
+    // Ensure mindmaps cached
+    if (options.mindmaps !== false && Array.isArray(options.selectedBoards)) {
+      for (var i = 0; i < options.selectedBoards.length; i++) {
+        await loadBoardMindmapData(options.selectedBoards[i]);
+      }
+    }
+
+    var htmlDoc = generateDossierPdfHtml(dossier, options, _dossierMindmapCache);
 
     if (window.Desktop && typeof window.Desktop.isElectron === 'function' && window.Desktop.isElectron()) {
       try {
         var destRes = null;
         if (typeof window.promptExportDestination === 'function') {
           destRes = await window.promptExportDestination({
-            title: t('lmDossierPdfModalTitle', 'Student 360° Academic Dossier — PDF Export') || 'Student 360° Academic Dossier — PDF Export',
+            title: t('lmDossierPdfModalTitle', 'Student 360° Academic Dossier — Export Studio') || 'Student 360° Academic Dossier — Export Studio',
             prompt: t('exportDestinationPrompt', 'Where do you want to save the exported file?') || 'Where do you want to save the exported file?',
             filename: defaultName,
             allowDocEditor: false
@@ -3201,6 +3973,197 @@
           URL.revokeObjectURL(url);
         }, 200);
         closeDossierPdfExportModal();
+      }
+    }
+  }
+
+  async function exportDossierHtml(dossier, options) {
+    if (!dossier) return;
+    options = options || {};
+    var st = dossier.student || {};
+    var cleanName = (st.name || 'student').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    var cleanClass = (st.className || 'class').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    var dateStamp = new Date().toISOString().slice(0, 10);
+    var defaultName = 'dossier_' + cleanName + '_' + cleanClass + '_' + dateStamp + '.html';
+
+    // Ensure mindmaps cached
+    if (options.mindmaps !== false && Array.isArray(options.selectedBoards)) {
+      for (var i = 0; i < options.selectedBoards.length; i++) {
+        await loadBoardMindmapData(options.selectedBoards[i]);
+      }
+    }
+
+    var htmlDoc = generateDossierPdfHtml(dossier, options, _dossierMindmapCache);
+
+    if (window.Desktop && typeof window.Desktop.isElectron === 'function' && window.Desktop.isElectron()) {
+      try {
+        var destRes = null;
+        if (typeof window.promptExportDestination === 'function') {
+          destRes = await window.promptExportDestination({
+            title: t('lmDossierPdfModalTitle', 'Student 360° Academic Dossier — Export Studio') || 'Student 360° Academic Dossier — Export Studio',
+            prompt: t('exportDestinationPrompt', 'Where do you want to save the exported file?') || 'Where do you want to save the exported file?',
+            filename: defaultName,
+            allowDocEditor: true
+          });
+          if (!destRes || destRes.canceled) return;
+        }
+
+        var targetFilename = (destRes && destRes.filename) ? destRes.filename : defaultName;
+        var saveTarget = 'docEditorDocs';
+        if (destRes && destRes.destination === 'to-print') saveTarget = 'toPrint';
+        else if (destRes && destRes.destination === 'custom') saveTarget = 'custom';
+
+        var savedPath = '';
+        if (saveTarget === 'custom' && destRes.customPath) {
+          var saveRes = await Desktop.saveFile(destRes.customPath, htmlDoc);
+          if (saveRes && saveRes.ok) savedPath = destRes.customPath;
+        } else {
+          var resSave = await Desktop.saveText(saveTarget, targetFilename, htmlDoc);
+          if (resSave && resSave.ok) savedPath = resSave.path || targetFilename;
+        }
+
+        closeDossierPdfExportModal();
+        if (typeof window.showToast === 'function') {
+          window.showToast(t('lmDossierHtmlExportSuccess', 'Student Academic Dossier HTML exported successfully!') || 'Student Academic Dossier HTML exported successfully!');
+        }
+        if (typeof window.showExportSuccessPopup === 'function' && savedPath) {
+          window.showExportSuccessPopup(savedPath, targetFilename);
+        }
+      } catch (err) {
+        console.error('exportDossierHtml error:', err);
+        if (typeof window.showToast === 'function') {
+          window.showToast((t('lmDossierHtmlExportError', 'Failed to export Student Dossier HTML') || 'Failed to export Student Dossier HTML') + ': ' + (err.message || err), true);
+        }
+      }
+    } else {
+      // Browser download
+      var blob = new Blob([htmlDoc], { type: 'text/html;charset=utf-8' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = defaultName;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function() {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 200);
+      closeDossierPdfExportModal();
+    }
+  }
+
+  async function exportDossierMindmapsPdf(dossier, options) {
+    if (!dossier) return;
+    options = options || {};
+    var st = dossier.student || {};
+    var boards = dossier.boards || [];
+    var selectedBoards = options.selectedBoards || boards.map(function(b) { return b.urn; });
+
+    if (!selectedBoards.length) {
+      if (typeof window.showToast === 'function') {
+        window.showToast(t('lmDossierNoMindmapsSelected', 'No mindmaps selected for export.') || 'No mindmaps selected for export.', true);
+      }
+      return;
+    }
+
+    var cleanName = (st.name || 'student').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    var dateStamp = new Date().toISOString().slice(0, 10);
+    var defaultName = 'mindmaps_' + cleanName + '_' + dateStamp + '.pdf';
+
+    // Pre-load all selected boards
+    for (var i = 0; i < selectedBoards.length; i++) {
+      await loadBoardMindmapData(selectedBoards[i]);
+    }
+
+    function esc(s) {
+      if (s == null) return '';
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    var dateStr = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+    var pageSize = options.pageSize === 'Letter' ? 'letter' : 'A4';
+    var orientation = 'landscape'; // Default to landscape for wide mindmap diagrams
+
+    var fullHtml = '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="utf-8">\n<title>' + esc(st.name || 'Student') + ' — Mindmaps Booklet</title>\n<style>\n' +
+      '@page { size: ' + pageSize + ' ' + orientation + '; margin: 12mm 14mm; }\n' +
+      '@media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }\n' +
+      '* { box-sizing: border-box; margin: 0; padding: 0; }\n' +
+      'body { font-family: "Lexend", sans-serif; background: #fff; color: #111; padding: 0; }\n' +
+      '.page { page-break-after: always; break-after: page; padding-bottom: 20px; }\n' +
+      '.page:last-child { page-break-after: avoid; break-after: avoid; }\n' +
+      '.mm-hdr { border: 2px solid #333; border-radius: 6px; background: #fafaf9; padding: 8px 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }\n' +
+      '.mm-title { font-size: 13pt; font-weight: 900; text-transform: uppercase; }\n' +
+      '.mm-meta { font-size: 8pt; font-weight: 700; color: #555; }\n' +
+      '</style>\n</head>\n<body>\n';
+
+    selectedBoards.forEach(function(bUrn, idx) {
+      var rel = bUrn.replace(/^cmt:board:/, '').replace(/^user\/mindmaps\//, '');
+      var bData = _dossierMindmapCache[rel];
+      var bTitle = (bData && bData.title) ? bData.title : rel.replace(/\.(cstz|json|zip)$/i, '').replace(/_/g, ' ');
+
+      fullHtml += '<div class="page">\n' +
+        '<div class="mm-hdr">' +
+          '<div>' +
+            '<h2 class="mm-title">' + (idx + 1) + '. ' + esc(bTitle) + '</h2>' +
+            '<div class="mm-meta">' + esc(st.name || '') + (st.className ? ' (' + esc(st.className) + ')' : '') + ' • ' + esc(dateStr) + '</div>' +
+          '</div>' +
+          '<span style="background:#3b82f6;color:#fff;border:1.5px solid #333;border-radius:4px;padding:2px 8px;font-size:8pt;font-weight:800;">[CONSTELLATION MINDMAP]</span>' +
+        '</div>\n';
+
+      if (bData) {
+        fullHtml += '<div style="margin-bottom:12px;">' + renderMindmapSessionToSvg(bData) + '</div>\n';
+        fullHtml += renderMindmapConceptsTable(bData);
+      } else {
+        fullHtml += '<div style="padding:20px;text-align:center;color:#666;font-style:italic;">Could not load mindmap data for ' + esc(rel) + '</div>';
+      }
+
+      fullHtml += '</div>\n';
+    });
+
+    fullHtml += '</body>\n</html>';
+
+    if (window.Desktop && typeof window.Desktop.isElectron === 'function' && window.Desktop.isElectron()) {
+      try {
+        var destRes = null;
+        if (typeof window.promptExportDestination === 'function') {
+          destRes = await window.promptExportDestination({
+            title: t('lmDossierExportMindmapsBtn', 'Export Mindmaps PDF') || 'Export Mindmaps PDF',
+            prompt: t('exportDestinationPrompt', 'Where do you want to save the exported file?') || 'Where do you want to save the exported file?',
+            filename: defaultName,
+            allowDocEditor: false
+          });
+          if (!destRes || destRes.canceled) return;
+        }
+
+        var targetFilename = (destRes && destRes.filename) ? destRes.filename : defaultName;
+        var pdfReq = {
+          html: fullHtml,
+          landscape: true,
+          pdfOptions: {
+            pageSize: options.pageSize || 'A4',
+            landscape: true,
+            printBackground: true
+          }
+        };
+
+        if (destRes && destRes.destination === 'to-print') {
+          pdfReq.target = 'toPrint';
+          pdfReq.filename = targetFilename;
+        } else {
+          pdfReq.defaultName = targetFilename;
+        }
+
+        var res = await Desktop.printPdf(pdfReq);
+        if (res && res.ok) {
+          if (typeof window.showToast === 'function') {
+            window.showToast(t('lmDossierMindmapsExportSuccess', 'Student Mindmaps PDF exported successfully!') || 'Student Mindmaps PDF exported successfully!');
+          }
+          if (typeof window.showExportSuccessPopup === 'function' && res.path) {
+            window.showExportSuccessPopup(res.path, res.name || targetFilename);
+          }
+        }
+      } catch (err) {
+        console.error('exportDossierMindmapsPdf error:', err);
       }
     }
   }
@@ -3570,6 +4533,9 @@
     closeDossierPdfExportModal: closeDossierPdfExportModal,
     generateDossierPdfHtml: generateDossierPdfHtml,
     exportDossierPdf: exportDossierPdf,
+    exportDossierHtml: exportDossierHtml,
+    exportDossierMindmapsPdf: exportDossierMindmapsPdf,
+    renderMindmapSessionToSvg: renderMindmapSessionToSvg,
     previewFile: previewFile,
     closePreview: closePreview,
     getIconPath: getLinksIconPath,

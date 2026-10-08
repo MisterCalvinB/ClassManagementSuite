@@ -314,6 +314,14 @@
    */
   MediaConverterService.openMediaConverter = function (filePath) {
     var cleanPath = (typeof filePath === 'string') ? filePath.trim() : '';
+    try {
+      if (typeof BroadcastChannel !== 'undefined' && cleanPath) {
+        var bc = new BroadcastChannel('cmt-media-converter');
+        bc.postMessage({ type: 'OPEN_FILE', path: cleanPath });
+        setTimeout(function () { bc.close(); }, 1000);
+      }
+    } catch (_) {}
+
     if (window.Desktop && typeof window.Desktop.openTool === 'function') {
       window.Desktop.openTool('media-converter.html', cleanPath ? { query: { input: cleanPath } } : {});
     } else {

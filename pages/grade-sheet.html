@@ -2091,10 +2091,10 @@
       }
 
       const multiplierBadge = count > 1
-        ? `<sup class="obs-pill-multiplier" style="font-size:0.68em;font-weight:800;line-height:0;vertical-align:super;margin-left:1px;width:0;display:inline-block;white-space:nowrap;overflow:visible;pointer-events:none;">x${count}</sup>`
+        ? `<sup class="obs-pill-multiplier" style="font-size:0.68em;font-weight:800;line-height:0;vertical-align:super;margin-left:2px;margin-right:3px;display:inline-block;white-space:nowrap;pointer-events:none;">x${count}</sup>`
         : "";
 
-      return `<span class="${pillClass}" style="display:inline-block;padding:1px 5px;border-radius:10px;font-size:9px;font-weight:700;line-height:1.15;margin:1px 2px 1px 0;background:${bg};color:${color};border:1.5px solid ${border};box-shadow:1px 1px 0 rgba(0,0,0,0.12);">${escapeHtml(name)}${multiplierBadge}</span>`;
+      return `<span class="${pillClass}" style="display:inline-block;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700;line-height:1.15;margin:1px 2px 1px 0;background:${bg};color:${color};border:1.5px solid ${border};box-shadow:1px 1px 0 rgba(0,0,0,0.12);">${escapeHtml(name)}${multiplierBadge}</span>`;
     }
 
     function groupObservationChipsByCategory(chips, sectionLabel, bankFilename) {
@@ -2288,13 +2288,20 @@
       return Math.min(6, Math.max(1, n));
     }
 
-    function applyGradeColor(el, grade) {
-      if (grade == null) return;
-      if (grade >= 6)        { el.style.backgroundColor = '#2ecc40'; el.style.color = '#fff'; }
-      else if (grade >= 5)  { el.style.backgroundColor = '#a5d6a7'; el.style.color = '#1a3a1a'; }
-      else if (grade >= 4)  { el.style.backgroundColor = '#ffb74d'; el.style.color = '#3a1800'; }
-      else if (grade >= 3)  { el.style.backgroundColor = '#ef9a9a'; el.style.color = '#3a0000'; }
-      else                  { el.style.backgroundColor = '#e53935'; el.style.color = '#fff'; }
+    function applyGradeColor(el, grade, config = null) {
+      if (!el) return;
+      if (grade == null || grade === "" || grade === "—" || grade === "-") {
+        el.style.backgroundColor = "";
+        el.style.color = "";
+        return;
+      }
+      const num = toNumber(grade);
+      if (num == null) return;
+      const color = getScaleGradeColor(num, null, config);
+      if (color) {
+        el.style.backgroundColor = color;
+        el.style.color = getNotchContrastTextColor(color);
+      }
     }
 
     function fmt(value) {
@@ -2666,11 +2673,16 @@
       const num = toNumber(key);
       if (num != null) {
         if (num >= 6) return "#16a34a";
+        if (num >= 5.5) return "#4d7c0f";
         if (num >= 5) return "#65a30d";
+        if (num >= 4.5) return "#ca8a04";
         if (num >= 4) return "#d97706";
+        if (num >= 3.5) return "#f97316";
         if (num >= 3) return "#ea580c";
+        if (num >= 2.5) return "#e11d48";
         if (num >= 2) return "#dc2626";
-        return "#991b1b";
+        if (num >= 1.5) return "#991b1b";
+        return "#7f1d1d";
       }
       if (total && total > 1 && index != null) {
         const ratio = index / (total - 1);
@@ -2681,28 +2693,99 @@
       return "#d97706";
     }
 
-    function getScaleGradeColor(gradeKey, modelKey = null) {
-      if (gradeKey == null) return null;
-      const k = String(gradeKey);
+    function getScaleGradeColor(gradeKey, modelKey = null, config = null) {
+      if (gradeKey == null || gradeKey === "" || gradeKey === "—" || gradeKey === "-") return null;
+      const k = String(gradeKey).trim();
+      const num = toNumber(gradeKey);
+
+      function findInColorsAndSteps(colors, steps) {
+        if (!colors || typeof colors !== "object") return null;
+        if (colors[k] && typeof colors[k] === "string") return colors[k].trim();
+        if (num != null) {
+          const numStr = String(num);
+          if (colors[numStr] && typeof colors[numStr] === "string") return colors[numStr].trim();
+          const fmtStr = fmtN(num);
+          if (colors[fmtStr] && typeof colors[fmtStr] === "string") return colors[fmtStr].trim();
+          if (Array.isArray(steps) && steps.length > 0) {
+            for (let i = 0; i < steps.length; i++) {
+              const stepVal = toNumber(steps[i]);
+              if (stepVal != null && num >= stepVal - 1e-4) {
+                const sKey = String(steps[i]);
+                if (colors[sKey]) return colors[sKey];
+                const sFmt = fmtN(stepVal);
+                if (colors[sFmt]) return colors[sFmt];
+              }
+            }
+            const lowest = String(steps[steps.length - 1]);
+            if (colors[lowest]) return colors[lowest];
+          }
+        }
+        return null;
+      }
+
+      // 1. Check passed config
+      if (config && config.grading) {
+        if (config.grading.colors) {
+          const steps = typeof getTestGradeSteps === "function" ? getTestGradeSteps(config) : null;
+          const c = findInColorsAndSteps(config.grading.colors, steps);
+          if (c) return c;
+        }
+        const mKey = config.grading.pendingModelKey || config.grading.modelKey;
+        if (mKey && typeof getScaleModel === "function") {
+          const model = getScaleModel(mKey, config.grading.scaleBank);
+          if (model && model.colors) {
+            const steps = typeof getScaleModelGradeSteps === "function" ? getScaleModelGradeSteps(model) : null;
+            const c = findInColorsAndSteps(model.colors, steps);
+            if (c) return c;
+          }
+        }
+      }
+
+      // 2. Check explicitly passed modelKey
       if (modelKey && typeof getScaleModel === "function") {
         const model = getScaleModel(modelKey);
-        if (model && model.colors && model.colors[k]) return model.colors[k];
+        if (model && model.colors) {
+          const steps = typeof getScaleModelGradeSteps === "function" ? getScaleModelGradeSteps(model) : null;
+          const c = findInColorsAndSteps(model.colors, steps);
+          if (c) return c;
+        }
       }
+
+      // 3. Check active test config from appState
       if (typeof appState !== "undefined" && appState && appState.activeTest && typeof getActiveClass === "function" && typeof getTestConfig === "function" && typeof getScaleModel === "function") {
         const classObj = getActiveClass();
         if (classObj) {
           const cfg = getTestConfig(classObj, appState.activeTest.semester, appState.activeTest.testIndex);
-          if (cfg && cfg.grading && cfg.grading.modelKey) {
-            const model = getScaleModel(cfg.grading.modelKey);
-            if (model && model.colors && model.colors[k]) return model.colors[k];
+          if (cfg && cfg.grading) {
+            if (cfg.grading.colors) {
+              const steps = typeof getTestGradeSteps === "function" ? getTestGradeSteps(cfg) : null;
+              const c = findInColorsAndSteps(cfg.grading.colors, steps);
+              if (c) return c;
+            }
+            const mKey = cfg.grading.pendingModelKey || cfg.grading.modelKey;
+            if (mKey) {
+              const model = getScaleModel(mKey, cfg.grading.scaleBank);
+              if (model && model.colors) {
+                const steps = typeof getScaleModelGradeSteps === "function" ? getScaleModelGradeSteps(model) : null;
+                const c = findInColorsAndSteps(model.colors, steps);
+                if (c) return c;
+              }
+            }
           }
         }
       }
+
+      // 4. Check available scale models / XLSM_SCALE_MODELS
       if (typeof XLSM_SCALE_MODELS !== "undefined" && Array.isArray(XLSM_SCALE_MODELS)) {
         for (const m of XLSM_SCALE_MODELS) {
-          if (m && m.colors && m.colors[k]) return m.colors[k];
+          if (m && m.colors) {
+            const steps = typeof getScaleModelGradeSteps === "function" ? getScaleModelGradeSteps(m) : null;
+            const c = findInColorsAndSteps(m.colors, steps);
+            if (c) return c;
+          }
         }
       }
+
       return getDefaultGradeColor(k);
     }
 
@@ -4266,22 +4349,58 @@
       // Auto pre-filter based on active class
       const activeClass = (typeof getActiveClass === 'function' && getActiveClass()) || null;
       if (activeClass) {
-        if (activeClass.level && yrSel) {
-          const targetLvl = String(activeClass.level).toLowerCase().trim();
-          for (let i = 0; i < yrSel.options.length; i++) {
-            const val = yrSel.options[i].value.toLowerCase();
-            if (val === targetLvl || val.includes(targetLvl) || targetLvl.includes(val)) {
-              yrSel.selectedIndex = i;
-              _compPickerFilters.year = yrSel.value;
-              break;
+        const rawLvl = activeClass.level || activeClass.yearLevel || activeClass.year || '';
+        if (rawLvl) {
+          const targetLvl = String(rawLvl).toLowerCase().trim();
+          let matchedYear = false;
+          if (yrSel) {
+            // Pass 1: Exact match
+            for (let i = 0; i < yrSel.options.length; i++) {
+              const val = (yrSel.options[i].value || '').toLowerCase().trim();
+              const txt = (yrSel.options[i].textContent || '').toLowerCase().trim();
+              if (val !== 'all' && val !== '' && (val === targetLvl || txt === targetLvl)) {
+                yrSel.selectedIndex = i;
+                _compPickerFilters.year = yrSel.value;
+                matchedYear = true;
+                break;
+              }
+            }
+            // Pass 2: Token match
+            if (!matchedYear) {
+              const numMatch = targetLvl.match(/\b([1-6])\b/);
+              const targetNum = numMatch ? numMatch[1] : null;
+              for (let i = 0; i < yrSel.options.length; i++) {
+                const val = (yrSel.options[i].value || '').toLowerCase().trim();
+                const txt = (yrSel.options[i].textContent || '').toLowerCase().trim();
+                if (val !== 'all' && val !== '') {
+                  if (targetNum && (new RegExp('\\b' + targetNum + '([eè]me?|e|th)?\\b', 'i').test(val) || new RegExp('\\b' + targetNum + '([eè]me?|e|th)?\\b', 'i').test(txt))) {
+                    yrSel.selectedIndex = i;
+                    _compPickerFilters.year = yrSel.value;
+                    matchedYear = true;
+                    break;
+                  }
+                }
+              }
+            }
+          }
+          if (lvlSel) {
+            for (let i = 0; i < lvlSel.options.length; i++) {
+              const val = (lvlSel.options[i].value || '').toLowerCase().trim();
+              const txt = (lvlSel.options[i].textContent || '').toLowerCase().trim();
+              if (val !== 'all' && val !== '' && (val === targetLvl || txt === targetLvl || (targetLvl.length >= 2 && (val.includes(targetLvl) || targetLvl.includes(val))))) {
+                lvlSel.selectedIndex = i;
+                _compPickerFilters.level = lvlSel.value;
+                break;
+              }
             }
           }
         }
         if (activeClass.subject && subjSel) {
           const targetSubj = String(activeClass.subject).toLowerCase().trim();
           for (let i = 0; i < subjSel.options.length; i++) {
-            const val = subjSel.options[i].value.toLowerCase();
-            if (val === targetSubj || val.includes(targetSubj) || targetSubj.includes(val)) {
+            const val = (subjSel.options[i].value || '').toLowerCase().trim();
+            const txt = (subjSel.options[i].textContent || '').toLowerCase().trim();
+            if (val !== 'all' && val !== '' && (val === targetSubj || txt === targetSubj || (val.length > 2 && targetSubj.includes(val)) || (targetSubj.length > 2 && val.includes(targetSubj)))) {
               subjSel.selectedIndex = i;
               _compPickerFilters.subject = subjSel.value;
               break;
@@ -5926,6 +6045,9 @@
       config.grading.minGrade = model.minGrade != null ? model.minGrade : 1.5;
       config.grading.maxGrade = model.maxGrade != null ? model.maxGrade : 6;
       config.grading.interval = model.interval != null ? model.interval : 0.5;
+      if (model.colors && typeof model.colors === "object") {
+        config.grading.colors = { ...model.colors };
+      }
       steps.forEach(g => {
         const k = String(g);
         config.grading.manualThresholds[k] = toNumber(model.thresholds[k]) ?? 0;
@@ -6737,13 +6859,17 @@
 
     function gsOpenStudentDossierModal(student, classObj) {
       if (!student || typeof TagLinkModal === 'undefined') return;
-      var studentId = student.id || student.uuid;
+      var studentId = typeof student === 'string' ? student : (student.id || student.uuid);
+      if (!studentId) return;
+      var title = typeof student === 'object' ? (((student.firstName || '') + ' ' + (student.lastName || '')).trim() || student.name || studentId) : studentId;
       if (typeof TagLinkModal.openStudentDossier === 'function') {
-        TagLinkModal.openStudentDossier(studentId);
+        TagLinkModal.openStudentDossier(studentId, {
+          title: title
+        });
       } else {
         TagLinkModal.open({
           urn: 'cmt:student:' + studentId,
-          title: ((student.firstName || '') + ' ' + (student.lastName || '')).trim() || student.name || studentId,
+          title: title,
           type: 'student',
           classId: classObj ? classObj.id : null
         });
@@ -8499,7 +8625,15 @@
           td.textContent = String(value);
           if (idx <= 2) td.classList.add("col-shrink");
           if (idx >= 3 && idx <= roundedFinalColIdx) td.classList.add("num");
-          if (idx >= 3 && idx <= roundedFinalColIdx) applyGradeColor(td, rowNums[idx]);
+          if (idx >= 3 && idx <= roundedFinalColIdx) {
+            let testCfg = null;
+            if (idx >= 3 && idx < 3 + n1) {
+              testCfg = getTestConfig(classObj, "sem1", idx - 3);
+            } else if (idx >= sem2TestStart && idx < sem2TestStart + n2) {
+              testCfg = getTestConfig(classObj, "sem2", idx - sem2TestStart);
+            }
+            applyGradeColor(td, rowNums[idx], testCfg);
+          }
           if (idx === roundedFinalColIdx + 1) td.style.textAlign = "center";
           if (idx === sem1AvgColIdx || idx === sem2AvgColIdx) td.style.fontWeight = "700";
           if (idx === roundedFinalColIdx) {
@@ -8592,7 +8726,15 @@
             const sem2TestRange = showSem2 ? [sem2StatStart, sem2StatStart + n2] : [sem2StatStart, sem2StatStart];
             const isTestCol = (ci >= sem1TestRange[0] && ci < sem1TestRange[1]) ||
                               (ci >= sem2TestRange[0] && ci < sem2TestRange[1]);
-            if (v != null && isTestCol) applyGradeColor(td, v);
+            if (v != null && isTestCol) {
+              let testCfg = null;
+              if (ci >= sem1TestRange[0] && ci < sem1TestRange[1]) {
+                testCfg = getTestConfig(classObj, "sem1", ci - sem1TestRange[0]);
+              } else if (ci >= sem2TestRange[0] && ci < sem2TestRange[1]) {
+                testCfg = getTestConfig(classObj, "sem2", ci - sem2TestRange[0]);
+              }
+              applyGradeColor(td, v, testCfg);
+            }
             str.appendChild(td);
           });
 
@@ -8878,7 +9020,7 @@
         tdGrade.style.cursor = "pointer";
         tdGrade.title = t('gsClickEditGrade');
         tdGrade.addEventListener("click", () => openStudentModal(student, classObj, sem, testIndex, tr, config));
-        applyGradeColor(tdGrade, displayGrade);
+        applyGradeColor(tdGrade, displayGrade, config);
 
         const tdNote = document.createElement("td");
         const noteArray = student.testNotes[sem];
@@ -8999,7 +9141,7 @@
           gradeTd.className = "td-grade-display";
           const gv = gradeStats ? gradeStats[key] : null;
           gradeTd.textContent = gv != null ? fmt(gv) : "—";
-          if (gv != null) applyGradeColor(gradeTd, gv);
+          if (gv != null) applyGradeColor(gradeTd, gv, config);
           str.appendChild(gradeTd);
 
           const nextDeltaStatTd = document.createElement("td");
@@ -11483,7 +11625,7 @@
         .obs-pill {
           display: inline-block;
           padding: ${fitToOnePage ? '1px 4px' : '1.5px 5px'};
-          border-radius: 10px;
+          border-radius: 4px;
           font-size: ${fitToOnePage ? '8px' : '9px'};
           font-weight: 700;
           line-height: 1.15;
@@ -11510,11 +11652,10 @@
           font-weight: 800;
           line-height: 0;
           vertical-align: super;
-          margin-left: 1px;
-          width: 0;
+          margin-left: 2px;
+          margin-right: 3px;
           display: inline-block;
           white-space: nowrap;
-          overflow: visible;
         }
         .obs-feedback {
           display: inline;
@@ -11806,26 +11947,23 @@
         testNames,
         testStats,
         semAvgStats,
+        testConfigs: (classObj.testConfigs && classObj.testConfigs[sem]) ? classObj.testConfigs[sem].slice(0, n) : [],
         printedDate: new Date().toLocaleDateString()
       };
     }
 
     function gradeClass(g) {
-      if (g == null) return "";
-      if (g >= 6) return "grade-band-6";
-      if (g >= 5) return "grade-band-5";
-      if (g >= 4) return "grade-band-4";
-      if (g >= 3) return "grade-band-3";
-      return "grade-band-low";
+      return "";
     }
 
-    function gradeColor(g) {
-      if (g == null) return "";
-      if (g >= 6) return "background:#2ecc40;color:#fff;";
-      if (g >= 5) return "background:#a5d6a7;color:#1a3a1a;";
-      if (g >= 4) return "background:#ffb74d;color:#3a1800;";
-      if (g >= 3) return "background:#ef9a9a;color:#3a0000;";
-      return "background:#e53935;color:#fff;";
+    function gradeColor(g, config = null) {
+      if (g == null || g === "" || g === "—" || g === "-") return "";
+      const num = toNumber(g);
+      if (num == null) return "";
+      const color = getScaleGradeColor(num, null, config);
+      if (!color) return "";
+      const textColor = getNotchContrastTextColor(color);
+      return `background:${color} !important;color:${textColor} !important;`;
     }
 
     function buildColumnResizeScript(tableId) {
@@ -11950,13 +12088,17 @@
         return `<th${cls}><span class="th-wrap">${esc(name)}<span class="col-resizer" data-col="${i}"></span></span></th>`;
       }).join("");
       const studentRows = report.rows.map(({ student, grades, semAvg }) => {
-        const gradeCells = grades.map(g => `<td class="center ${gradeClass(g)}">${g != null ? fmtN(g) : "-"}</td>`).join("");
-        const avgCls = gradeClass(semAvg);
+        const gradeCells = grades.map((g, ti) => {
+          const cfg = (report.testConfigs && report.testConfigs[ti]) || null;
+          const s = gradeColor(g, cfg);
+          return `<td class="center" style="${s}">${g != null ? fmtN(g) : "-"}</td>`;
+        }).join("");
+        const avgStyle = gradeColor(semAvg);
         return `<tr>
           <td class="left">${esc(String(student.index))}</td>
           <td class="left">${esc((student.firstName + " " + student.lastName).trim())}</td>
           ${gradeCells}
-          <td class="center ${avgCls}" style="font-weight:700;">${semAvg != null ? fmt(semAvg) : "-"}</td>
+          <td class="center" style="font-weight:700;${avgStyle}">${semAvg != null ? fmt(semAvg) : "-"}</td>
         </tr>`;
       }).join("");
 
@@ -12070,6 +12212,7 @@
         scope: config.scope || "",
         type: config.type || "",
         scaleModelKey: config.grading && config.grading.modelKey,
+        config,
         printedDate: new Date().toLocaleDateString(),
         totalPossible: defaultTotals.totalPossible,
         thresholds,
@@ -12225,7 +12368,7 @@
         .obs-pill {
           display: inline-block;
           padding: 1.5px 5px;
-          border-radius: 10px;
+          border-radius: 4px;
           font-size: 9px;
           font-weight: 700;
           line-height: 1.15;
@@ -12252,11 +12395,10 @@
           font-weight: 800;
           line-height: 0;
           vertical-align: super;
-          margin-left: 1px;
-          width: 0;
+          margin-left: 2px;
+          margin-right: 3px;
           display: inline-block;
           white-space: nowrap;
-          overflow: visible;
         }
         .obs-feedback {
           display: inline;
@@ -12374,7 +12516,7 @@
           .concat(report.thresholds.map((_, i2) => `<col data-col="${i2 + 1}" style="width:${(80 / Math.max(1, report.thresholds.length)).toFixed(4)}%">`))
           .join('');
         const scaleHeaderResized = report.thresholds.map((t, i2) => {
-          const color = (scaleModel && scaleModel.colors && scaleModel.colors[String(t.grade)]) || getScaleGradeColor(t.grade);
+          const color = (scaleModel && scaleModel.colors && scaleModel.colors[String(t.grade)]) || getScaleGradeColor(t.grade, report.scaleModelKey, report.config);
           const textColor = getHighContrastTextColor(color);
           const passMark = t.grade === 4 ? `*` : ``;
           return `<th><span class="th-wrap"><span style="display:inline-block;padding:1px 6px;border-radius:4px;background:${color}20;color:${textColor};border:1px solid ${color};font-weight:800;">${t.grade}${passMark}</span><span class="col-resizer" data-col="${i2 + 1}"></span></span></th>`;
@@ -12399,7 +12541,7 @@
         if (report.type) metaParts.push(esc(report.type));
         const metaHtml = metaParts.length ? `<div class="test-meta">${metaParts.join(" &nbsp;·&nbsp; ")}</div>` : "";
 
-        const gradeColorVal = student.grade != null ? ((scaleModel && scaleModel.colors && scaleModel.colors[String(student.grade)]) || getScaleGradeColor(student.grade)) : '#111';
+        const gradeColorVal = student.grade != null ? ((scaleModel && scaleModel.colors && scaleModel.colors[String(student.grade)]) || getScaleGradeColor(student.grade, report.scaleModelKey, report.config)) : '#111';
         const gradeTextColor = getHighContrastTextColor(gradeColorVal);
         const gradeBadgeStyle = student.grade != null
           ? `style="border-color:${gradeColorVal}; color:${gradeTextColor}; background:${gradeColorVal}18; box-shadow: 3px 3px 0 ${gradeColorVal};"`
@@ -13078,7 +13220,7 @@
         .obs-pill {
           display: inline-block;
           padding: ${fitToOnePage ? '1px 4px' : '1.5px 5px'};
-          border-radius: 10px;
+          border-radius: 4px;
           font-size: ${fitToOnePage ? '8px' : '9px'};
           font-weight: 700;
           line-height: 1.15;
@@ -13088,7 +13230,7 @@
         .obs-pill-good { background: #dcfce7; color: #166534; border: 1.5px solid #16a34a; }
         .obs-pill-remedy { background: #fee2e2; color: #991b1b; border: 1.5px solid #dc2626; }
         .obs-pill-custom { background: #e0f2fe; color: #0369a1; border: 1.5px solid #0284c7; }
-        .obs-pill-multiplier { font-size: 0.68em; font-weight: 800; line-height: 0; vertical-align: super; margin-left: 1px; width: 0; display: inline-block; white-space: nowrap; overflow: visible; }
+        .obs-pill-multiplier { font-size: 0.68em; font-weight: 800; line-height: 0; vertical-align: super; margin-left: 2px; margin-right: 3px; display: inline-block; white-space: nowrap; }
         .obs-feedback {
           display: block;
           padding: 0;
@@ -13568,16 +13710,22 @@
         const fullName = (window.StudentNameUtils && typeof StudentNameUtils.formatStudentName === 'function')
           ? StudentNameUtils.formatStudentName(r.student, nameMode)
           : `${r.student.firstName || ''} ${r.student.lastName || ''}`.trim();
-        const s1Cells = r.s1Grades.map(g => `<td class="center ${gradeClass(g)}">${g != null ? fmtN(g) : '-'}</td>`).join('');
-        const s2Cells = r.s2Grades.map(g => `<td class="center ${gradeClass(g)}">${g != null ? fmtN(g) : '-'}</td>`).join('');
+        const s1Cells = r.s1Grades.map((g, ti) => {
+          const cfg = classObj.testConfigs && classObj.testConfigs.sem1 ? classObj.testConfigs.sem1[ti] : null;
+          return `<td class="center" style="${gradeColor(g, cfg)}">${g != null ? fmtN(g) : '-'}</td>`;
+        }).join('');
+        const s2Cells = r.s2Grades.map((g, ti) => {
+          const cfg = classObj.testConfigs && classObj.testConfigs.sem2 ? classObj.testConfigs.sem2[ti] : null;
+          return `<td class="center" style="${gradeColor(g, cfg)}">${g != null ? fmtN(g) : '-'}</td>`;
+        }).join('');
         return `<tr>
           <td class="center" style="font-weight:700;">${idx + 1}</td>
           <td style="font-weight:700;">${escapeHtml(fullName)}</td>
           ${s1Cells}
-          <td class="center ${gradeClass(r.sem1Avg)}" style="font-weight:700;">${r.sem1Avg != null ? fmt(r.sem1Avg) : '-'}</td>
+          <td class="center" style="font-weight:700;${gradeColor(r.sem1Avg)}">${r.sem1Avg != null ? fmt(r.sem1Avg) : '-'}</td>
           ${s2Cells}
-          <td class="center ${gradeClass(r.sem2Avg)}" style="font-weight:700;">${r.sem2Avg != null ? fmt(r.sem2Avg) : '-'}</td>
-          <td class="center ${gradeClass(r.yearAvg)}" style="font-weight:800;">${r.yearAvg != null ? fmt(r.yearAvg) : '-'}</td>
+          <td class="center" style="font-weight:700;${gradeColor(r.sem2Avg)}">${r.sem2Avg != null ? fmt(r.sem2Avg) : '-'}</td>
+          <td class="center" style="font-weight:800;${gradeColor(r.yearAvg)}">${r.yearAvg != null ? fmt(r.yearAvg) : '-'}</td>
         </tr>`;
       }).join('');
 
@@ -13711,12 +13859,15 @@
         const fullName = (window.StudentNameUtils && typeof StudentNameUtils.formatStudentName === 'function')
           ? StudentNameUtils.formatStudentName(r.student, nameMode)
           : `${r.student.firstName || ''} ${r.student.lastName || ''}`.trim();
-        const testCells = r.grades.map(g => `<td class="center ${gradeClass(g)}">${g != null ? fmtN(g) : '-'}</td>`).join('');
+        const testCells = r.grades.map((g, ti) => {
+          const cfg = (classObj.testConfigs && classObj.testConfigs[sem]) ? classObj.testConfigs[sem][ti] : null;
+          return `<td class="center" style="${gradeColor(g, cfg)}">${g != null ? fmtN(g) : '-'}</td>`;
+        }).join('');
         return `<tr>
           <td class="center" style="font-weight:700;">${idx + 1}</td>
           <td style="font-weight:700;">${escapeHtml(fullName)}</td>
           ${testCells}
-          <td class="center ${gradeClass(r.semAvg)}" style="font-weight:800;">${r.semAvg != null ? fmt(r.semAvg) : '-'}</td>
+          <td class="center" style="font-weight:800;${gradeColor(r.semAvg)}">${r.semAvg != null ? fmt(r.semAvg) : '-'}</td>
         </tr>`;
       }).join('');
 
@@ -13866,7 +14017,7 @@
         return `<tr>
           <td class="center" style="font-weight:700;">${idx + 1}</td>
           <td style="font-weight:700;">${escapeHtml(fullName)}</td>
-          <td class="center ${gradeClass(r.grade)}" style="font-weight:800;">${r.grade != null ? fmtN(r.grade) : '-'}</td>
+          <td class="center" style="font-weight:800;${gradeColor(r.grade, config)}">${r.grade != null ? fmtN(r.grade) : '-'}</td>
           <td class="center" style="font-weight:700;">${ptsStr}</td>
           ${critCells}
         </tr>`;
@@ -14100,7 +14251,7 @@
             <td class="center" style="font-weight:700;">${sem.toUpperCase()}</td>
             <td style="font-weight:700;">${escapeHtml(tName)}</td>
             <td class="center">${escapeHtml(cfg.testDate || '-')}</td>
-            <td class="center ${gradeClass(g)}" style="font-weight:800;">${g != null ? fmtN(g) : '-'}</td>
+            <td class="center" style="font-weight:800;${gradeColor(g, cfg)}">${g != null ? fmtN(g) : '-'}</td>
             <td class="center">${cMean != null ? cMean.toFixed(2) : '-'}</td>
             <td class="center ${delta != null ? (delta >= 0 ? 'delta-pos' : 'delta-neg') : ''}" style="font-weight:800;">${deltaStr}</td>
             <td style="font-size:9.5px;color:#333;">${notesHtml || '—'}</td>
@@ -14229,7 +14380,7 @@
           <td class="center" style="font-weight:700;">T${ti + 1}</td>
           <td style="font-weight:700;">${escapeHtml(tName)}</td>
           <td class="center">${escapeHtml(cfg.testDate || '-')}</td>
-          <td class="center ${gradeClass(g)}" style="font-weight:800;">${g != null ? fmtN(g) : '-'}</td>
+          <td class="center" style="font-weight:800;${gradeColor(g, cfg)}">${g != null ? fmtN(g) : '-'}</td>
           <td class="center">${cMean != null ? cMean.toFixed(2) : '-'}</td>
           <td class="center ${delta != null ? (delta >= 0 ? 'delta-pos' : 'delta-neg') : ''}" style="font-weight:800;">${deltaStr}</td>
           <td style="font-size:9.5px;color:#333;">${notesHtml || '—'}</td>
@@ -14412,7 +14563,7 @@
               <div class="report-subtitle">Class: ${esc(classObj.name)} &nbsp;·&nbsp; ${esc(semLabel)} &nbsp;·&nbsp; Date: ${esc(config.testDate || 'N/A')}</div>
             </div>
             <div class="report-meta">
-              <div class="badge ${gradeClass(grade)}" style="font-size:16px;">Grade: ${grade != null ? fmtN(grade) : '—'}</div>
+              <div class="badge" style="font-size:16px;${gradeColor(grade, config)}">Grade: ${grade != null ? fmtN(grade) : '—'}</div>
             </div>
           </div>
 
@@ -16285,7 +16436,7 @@
 
       // Grade cell = td index 3
       tr.cells[3].textContent = sourceArray[testIndex] == null ? "\u2014" : String(sourceArray[testIndex]);
-      applyGradeColor(tr.cells[3], sourceArray[testIndex]);
+      applyGradeColor(tr.cells[3], sourceArray[testIndex], config);
 
       // Next-grade proximity cell = index 4
       updateNextGradeDeltaCell(tr.cells[4], config, totals, sourceArray[testIndex]);
@@ -18090,6 +18241,28 @@
       });
 
       // ── summary-student-row-menu ──────────────────────────────────
+      document.getElementById("summary-student-menu-dossier")?.addEventListener("click", () => {
+        const ctx = _summaryStudentMenuCtx;
+        closeAllContextMenus();
+        if (!ctx || !ctx.student) return;
+        gsOpenStudentDossierModal(ctx.student, ctx.classObj);
+      });
+      document.getElementById("summary-student-menu-work")?.addEventListener("click", () => {
+        const ctx = _summaryStudentMenuCtx;
+        closeAllContextMenus();
+        if (!ctx || !ctx.student || typeof TagLinkModal === 'undefined') return;
+        var studentId = typeof ctx.student === 'string' ? ctx.student : (ctx.student.id || ctx.student.uuid);
+        var studentName = typeof ctx.student === 'object' ? (((ctx.student.firstName || '') + ' ' + (ctx.student.lastName || '')).trim() || ctx.student.name || ('Student #' + ctx.student.index)) : studentId;
+        TagLinkModal.open({
+          urn: 'cmt:student:' + studentId,
+          title: studentName + (ctx.classObj ? ' (' + ctx.classObj.name + ')' : ''),
+          label: studentName,
+          subtitle: (typeof t === 'function' && t('gsMenuStudentWork') ? t('gsMenuStudentWork') : 'Student Work & Attachments') + (ctx.classObj ? ' • ' + ctx.classObj.name : ''),
+          type: 'student',
+          classId: ctx.classObj ? ctx.classObj.id : null,
+          studentId: studentId
+        });
+      });
       document.getElementById("summary-student-menu-report-year").addEventListener("click", () => {
         const ctx = _summaryStudentMenuCtx;
         closeAllContextMenus();
@@ -18122,7 +18295,7 @@
 
       // ── close menus on outside click / scroll / resize / Escape ──
       document.addEventListener("click", e => {
-        const menus = ["test-row-menu", "class-card-menu", "test-header-menu", "summary-student-row-menu"]
+        const menus = ["test-row-menu", "class-card-menu", "test-header-menu", "summary-student-row-menu", "all-test-item-menu"]
           .map(id => document.getElementById(id)).filter(Boolean);
         const anyVisible = menus.some(m => !m.classList.contains("hidden"));
         if (!anyVisible) return;

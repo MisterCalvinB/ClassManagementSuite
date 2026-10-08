@@ -38,6 +38,7 @@
     <button class="tab-btn active" data-tab="recent" data-i18n="fmTabRecent">Recent</button>
     <button class="tab-btn" data-tab="browse" data-i18n="fmTabBrowse">Browse</button>
     <button class="tab-btn" data-tab="tags" id="fmTabTagsBtn" data-i18n="fmTabTags"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-1px;margin-right:4px;" />Tags &amp; Units</button>
+    <button class="tab-btn" data-tab="dossiers" id="fmTabDossiersBtn" data-i18n="fmTabDossiers"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-1px;margin-right:4px;" />Student Dossiers</button>
     <button class="tab-btn" data-tab="archive" id="fmTabArchiveBtn" data-i18n="fmTabArchive"><img src="../assets/icons/save.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-1px;margin-right:4px;" />Archive &amp; Rollover</button>
   </div>
 
@@ -126,6 +127,7 @@
           <button type="button" class="fm-cat-btn" data-cat="test">[TESTS]</button>
           <button type="button" class="fm-cat-btn" data-cat="planner">[PLANNER]</button>
           <button type="button" class="fm-cat-btn" data-cat="gradesheet">[GRADES]</button>
+          <button type="button" class="fm-cat-btn" data-cat="dossier">[360° DOSSIER]</button>
         </div>
         <button type="button" class="btn-refresh" id="fmTagsRefresh" data-i18n="fmRefresh">↺ Refresh</button>
         <span class="result-count" id="fmTagsCount">0 items</span>
@@ -133,6 +135,32 @@
     </div>
     <div class="file-list fm-tagged-items-list" id="fmTaggedItemsList">
       <div class="state-msg"><span class="state-icon">⏳</span><span data-i18n="rfLoading">Loading…</span></div>
+    </div>
+  </div>
+
+
+  <!-- ══ STUDENT DOSSIERS TAB ═════════════════════════════════════ -->
+  <div id="tab-dossiers" class="tab-panel">
+    <div class="fm-tags-toolbar">
+      <div class="fm-tags-filter-row" style="margin-top:0;">
+        <select id="fmDosClassFilter" style="border:1.5px solid #000;padding:6px 10px;font-family:inherit;font-size:0.83rem;font-weight:700;background:#fff;border-radius:4px;cursor:pointer;">
+          <option value="all">All Classes</option>
+        </select>
+        <input type="search" id="fmDosSearch" class="fm-tags-search" placeholder="Search student by name, class, or ID…" data-i18n-placeholder="fmDosSearchPlaceholder">
+        <select id="fmDosSort" style="border:1.5px solid #000;padding:6px 10px;font-family:inherit;font-size:0.83rem;font-weight:700;background:#fff;border-radius:4px;cursor:pointer;">
+          <option value="name-asc">Name A→Z</option>
+          <option value="name-desc">Name Z→A</option>
+          <option value="class-asc">Class A→Z</option>
+          <option value="gpa-desc">Highest Average</option>
+          <option value="gpa-asc">Lowest Average</option>
+          <option value="evals-desc">Most Evaluations</option>
+        </select>
+        <button type="button" class="btn-refresh" id="fmDosRefresh" data-i18n="fmRefresh">Refresh</button>
+        <span class="result-count" id="fmDosCount">0 students</span>
+      </div>
+    </div>
+    <div class="file-list fm-dossiers-list" id="fmDossiersList">
+      <div class="state-msg"><span data-i18n="rfLoading">Loading student dossiers…</span></div>
     </div>
   </div>
 
@@ -414,6 +442,7 @@ function switchFmTab(tab) {
   document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.toggle('active', p.id === 'tab-' + tab); });
   if (tab === 'browse' && !browseFirstLoad) { browseFirstLoad = true; loadBrowse(); }
   if (tab === 'tags') { loadTagsTab(); }
+  if (tab === 'dossiers') { if (typeof window.loadDossiersTab === 'function') window.loadDossiersTab(); }
   if (tab === 'archive') { loadArchivesTab(); }
 }
 
@@ -3221,6 +3250,7 @@ function openFmShortcuts() {
         if (_fmActiveCat === 'test' && itType !== 'test') return false;
         if (_fmActiveCat === 'planner' && itType !== 'planner' && itType !== 'slot') return false;
         if (_fmActiveCat === 'gradesheet' && itType !== 'gradesheet' && itType !== 'eval' && itType !== 'evaluation' && itType !== 'grade') return false;
+        if (_fmActiveCat === 'dossier' && itType !== 'student' && itType !== 'dossier' && itType !== 'student-360' && itType !== 'student_360') return false;
       }
       if (_fmSearchQuery) {
         var q = _fmSearchQuery.toLowerCase();
@@ -3260,6 +3290,19 @@ function openFmShortcuts() {
         showInFolderBtn = '<button type="button" class="fm-tagged-btn" id="btn-show-folder" title="Show in folder">' + escHtml(tt('fmShowInFolder', 'Show in folder')) + '</button>';
       }
 
+      var isStudent = (item.type === 'student' || item.type === 'dossier' || item.type === 'student-360' || item.type === 'student_360' || (item.urn && (item.urn.includes(':student:') || item.urn.includes(':dossier:'))));
+      var studentId = '';
+      if (item.urn && window.LinksService) {
+        var p = window.LinksService.parseUrn(item.urn);
+        if (p && p.type === 'student') studentId = p.id;
+      }
+      if (!studentId && item.id) studentId = item.id;
+
+      var dossierBtnHtml = '';
+      if (isStudent && studentId) {
+        dossierBtnHtml = '<button type="button" class="fm-tagged-btn primary" id="btn-dossier-res" style="background:#e2c96e;border:1.5px solid #333;box-shadow:1.5px 1.5px 0 #333;font-weight:800;"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:12px;height:12px;vertical-align:-1px;margin-right:2px;" /> ' + escHtml(tt('ueBtnDossier', '360° Dossier')) + '</button>';
+      }
+
       card.innerHTML =
         '<div class="fm-tagged-info">' +
           '<div class="fm-tagged-title-line">' +
@@ -3270,13 +3313,25 @@ function openFmShortcuts() {
           tagsHtml +
         '</div>' +
         '<div class="fm-tagged-actions">' +
+          dossierBtnHtml +
           '<button type="button" class="fm-tagged-btn primary" id="btn-open-res"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /> ' + escHtml(tt('ueBtnOpen', 'Open')) + '</button>' +
           '<button type="button" class="fm-tagged-btn" id="btn-tag-res">' + escHtml(tt('ueBtnManageTags', 'Links & Tags')) + '</button>' +
           showInFolderBtn +
         '</div>';
 
+      var dossierBtn = card.querySelector('#btn-dossier-res');
+      if (dossierBtn) {
+        dossierBtn.addEventListener('click', function() {
+          if (window.TagLinkModal && typeof window.TagLinkModal.openStudentDossier === 'function') {
+            window.TagLinkModal.openStudentDossier(studentId, { title: item.title });
+          }
+        });
+      }
+
       card.querySelector('#btn-open-res').addEventListener('click', async function() {
-        if (window.LinksService) {
+        if (isStudent && studentId && window.TagLinkModal && typeof window.TagLinkModal.openStudentDossier === 'function') {
+          window.TagLinkModal.openStudentDossier(studentId, { title: item.title });
+        } else if (window.LinksService) {
           await LinksService.openUrn(item.urn);
         }
       });
@@ -3356,7 +3411,7 @@ function openFmShortcuts() {
     });
 
     var urlTab = new URLSearchParams(window.location.search).get('tab');
-    if (urlTab && ['recent', 'browse', 'tags', 'archive'].includes(urlTab)) {
+    if (urlTab && ['recent', 'browse', 'tags', 'dossiers', 'archive'].includes(urlTab)) {
       switchFmTab(urlTab);
     }
   });
@@ -3733,6 +3788,393 @@ function openFmShortcuts() {
       showToast(e.message || String(e), true);
     }
   };
+
+  /* ════════════════════════════════════════════
+     STUDENT DOSSIERS TAB CONTROLLER
+     ════════════════════════════════════════════ */
+
+  var _fmDossiersCached = [];
+  var _fmDosSearchQuery = '';
+  var _fmDosSelectedClass = 'all';
+  var _fmDosSortOrder = 'name-asc';
+  var _fmDosDebounce = null;
+  var _fmDosInitialized = false;
+
+  function getInitials(name) {
+    if (!name) return 'ST';
+    var parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+
+  function getGradeColorClass(score, maxScore) {
+    if (score == null || isNaN(score)) return 'neutral';
+    var num = Number(score);
+    var max = (maxScore && !isNaN(maxScore) && Number(maxScore) > 0) ? Number(maxScore) : 6;
+    var ratio = num / max;
+    if (ratio >= 0.85) return 'green';
+    if (ratio >= 0.70) return 'lime';
+    if (ratio >= 0.50) return 'amber';
+    return 'red';
+  }
+
+  window.initDossiersTabControls = function() {
+    if (_fmDosInitialized) return;
+    _fmDosInitialized = true;
+
+    var classSelect = document.getElementById('fmDosClassFilter');
+    if (classSelect) {
+      classSelect.addEventListener('change', function() {
+        _fmDosSelectedClass = classSelect.value || 'all';
+        renderDossiersList();
+      });
+    }
+
+    var searchBox = document.getElementById('fmDosSearch');
+    if (searchBox) {
+      searchBox.addEventListener('input', function() {
+        if (_fmDosDebounce) clearTimeout(_fmDosDebounce);
+        _fmDosDebounce = setTimeout(function() {
+          _fmDosSearchQuery = (searchBox.value || '').trim();
+          renderDossiersList();
+        }, 150);
+      });
+    }
+
+    var sortSelect = document.getElementById('fmDosSort');
+    if (sortSelect) {
+      sortSelect.addEventListener('change', function() {
+        _fmDosSortOrder = sortSelect.value || 'name-asc';
+        renderDossiersList();
+      });
+    }
+
+    var refreshBtn = document.getElementById('fmDosRefresh');
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', function() {
+        loadDossiersTab();
+      });
+    }
+  };
+
+  window.loadDossiersTab = async function() {
+    window.initDossiersTabControls();
+    var container = document.getElementById('fmDossiersList');
+    if (!container) return;
+    container.innerHTML = '<div class="state-msg"><span>' + escHtml(tt('rfLoading', 'Loading student dossiers…')) + '</span></div>';
+
+    var classFilterSelect = document.getElementById('fmDosClassFilter');
+
+    // 1. Ensure master roster is loaded from disk
+    if (window.LinksService && typeof window.LinksService.ensureRosterLoaded === 'function') {
+      try {
+        await window.LinksService.ensureRosterLoaded();
+      } catch (_) {}
+    }
+
+    // Direct disk fallback if window.CLASS_GROUPS is still missing
+    if (typeof window.CLASS_GROUPS === 'undefined' && window.Desktop && typeof Desktop.readText === 'function') {
+      try {
+        var res = await Desktop.readText('user', 'class-groups.js');
+        if (res && res.ok && res.content) {
+          var fn = new Function(
+            res.content +
+            '\nreturn { classGroups: (typeof CLASS_GROUPS !== "undefined" ? CLASS_GROUPS : null),' +
+            ' classGroupsMeta: (typeof CLASS_GROUPS_META !== "undefined" ? CLASS_GROUPS_META : null) };'
+          );
+          var parsed = fn();
+          if (parsed) {
+            if (parsed.classGroups) window.CLASS_GROUPS = parsed.classGroups;
+            if (parsed.classGroupsMeta) window.CLASS_GROUPS_META = parsed.classGroupsMeta;
+          }
+        }
+      } catch (_) {}
+    }
+
+    // 2. Collect all classes and students
+    var studentsList = [];
+    var classStudentCounts = {};
+
+    var metaSource = (window.CLASS_GROUPS_META && typeof window.CLASS_GROUPS_META === 'object') ? window.CLASS_GROUPS_META : null;
+    var groupsSource = (window.CLASS_GROUPS && typeof window.CLASS_GROUPS === 'object') ? window.CLASS_GROUPS : null;
+
+    if (groupsSource) {
+      Object.keys(groupsSource).forEach(function(cid) {
+        if (cid === '_meta' || cid.startsWith('_')) return;
+        var g = groupsSource[cid];
+        var cName = (metaSource && metaSource[cid] && metaSource[cid].name) || (g && g.name) || cid;
+        var level = (metaSource && metaSource[cid] && metaSource[cid].level) || (g && g.level) || '';
+        var arr = Array.isArray(g) ? g : ((g && g.students) || []);
+        classStudentCounts[cid] = arr.length;
+
+        arr.forEach(function(st) {
+          if (!st) return;
+          var sId = typeof st === 'string' ? st : (st.id || st.uuid || st.name);
+          var sName = typeof st === 'object' ? ([st.firstName, st.lastName].filter(Boolean).join(' ') || st.customName || st.name || sId) : sId;
+          if (sId) {
+            studentsList.push({
+              id: sId,
+              name: sName,
+              classId: cid,
+              className: cName,
+              level: level
+            });
+          }
+        });
+      });
+    }
+
+    if (typeof window.STUDENTS_ROSTER !== 'undefined' && Array.isArray(window.STUDENTS_ROSTER)) {
+      window.STUDENTS_ROSTER.forEach(function(st) {
+        if (!st || (!st.uuid && !st.id)) return;
+        var sId = st.uuid || st.id;
+        if (studentsList.some(function(x) { return x.id === sId; })) return;
+        var sName = ([st.firstName, st.lastName].filter(Boolean).join(' ') || st.customName || st.name || sId).trim();
+        var primaryGroup = (st.enrollments && st.enrollments[0] && st.enrollments[0].groupName) || st.adminClass || 'general';
+        var cName = primaryGroup;
+        if (groupsSource && groupsSource[primaryGroup] && groupsSource[primaryGroup].name) {
+          cName = groupsSource[primaryGroup].name;
+        }
+        studentsList.push({
+          id: sId,
+          name: sName,
+          classId: primaryGroup,
+          className: cName,
+          level: st.level || ''
+        });
+        classStudentCounts[primaryGroup] = (classStudentCounts[primaryGroup] || 0) + 1;
+      });
+    }
+
+    // 3. Populate Class Select Dropdown
+    if (classFilterSelect) {
+      var currentVal = classFilterSelect.value || 'all';
+      var optsHtml = '<option value="all">All Classes (' + studentsList.length + ' students)</option>';
+      var seenClasses = new Set();
+      studentsList.forEach(function(st) {
+        if (st.classId && !seenClasses.has(st.classId)) {
+          seenClasses.add(st.classId);
+          var count = classStudentCounts[st.classId] || 0;
+          optsHtml += '<option value="' + escHtml(st.classId) + '">' + escHtml(st.className || st.classId) + ' (' + count + ')</option>';
+        }
+      });
+      classFilterSelect.innerHTML = optsHtml;
+      if (Array.from(classFilterSelect.options).some(function(o) { return o.value === currentVal; })) {
+        classFilterSelect.value = currentVal;
+      } else {
+        classFilterSelect.value = 'all';
+        _fmDosSelectedClass = 'all';
+      }
+    }
+
+    if (!studentsList.length) {
+      container.innerHTML = '<div class="state-msg"><span>' + escHtml(tt('fmDosNoStudents', 'No students found in the roster.')) + '</span></div>';
+      var countEl = document.getElementById('fmDosCount');
+      if (countEl) countEl.textContent = '0 students';
+      return;
+    }
+
+    // 4. Load full academic dossiers for all students asynchronously
+    var loadedDossiers = await Promise.all(studentsList.map(async function(st) {
+      var dossier = null;
+      if (window.LinksService && typeof window.LinksService.getStudentAcademicDossier === 'function') {
+        try {
+          dossier = await window.LinksService.getStudentAcademicDossier(st.id, {
+            classId: st.classId,
+            className: st.className,
+            studentName: st.name,
+            level: st.level
+          });
+        } catch (_) {}
+      }
+      return {
+        id: st.id,
+        name: st.name,
+        classId: st.classId,
+        className: st.className,
+        level: st.level,
+        dossier: dossier
+      };
+    }));
+
+    _fmDossiersCached = loadedDossiers;
+    renderDossiersList();
+  };
+
+  function renderDossiersList() {
+    var container = document.getElementById('fmDossiersList');
+    var countEl = document.getElementById('fmDosCount');
+    if (!container) return;
+
+    var filtered = _fmDossiersCached.filter(function(item) {
+      if (_fmDosSelectedClass !== 'all' && item.classId !== _fmDosSelectedClass) {
+        return false;
+      }
+      if (_fmDosSearchQuery) {
+        var q = _fmDosSearchQuery.toLowerCase();
+        var match = (item.name && item.name.toLowerCase().includes(q)) ||
+                    (item.id && item.id.toLowerCase().includes(q)) ||
+                    (item.className && item.className.toLowerCase().includes(q));
+        if (!match) return false;
+      }
+      return true;
+    });
+
+    // Sort items
+    filtered.sort(function(a, b) {
+      if (_fmDosSortOrder === 'name-asc') {
+        return (a.name || '').localeCompare(b.name || '');
+      }
+      if (_fmDosSortOrder === 'name-desc') {
+        return (b.name || '').localeCompare(a.name || '');
+      }
+      if (_fmDosSortOrder === 'class-asc') {
+        return (a.className || '').localeCompare(b.className || '') || (a.name || '').localeCompare(b.name || '');
+      }
+      if (_fmDosSortOrder === 'gpa-desc') {
+        var aG = (a.dossier && a.dossier.gradesSummary && a.dossier.gradesSummary.yearAverage) || 0;
+        var bG = (b.dossier && b.dossier.gradesSummary && b.dossier.gradesSummary.yearAverage) || 0;
+        return bG - aG;
+      }
+      if (_fmDosSortOrder === 'gpa-asc') {
+        var aG2 = (a.dossier && a.dossier.gradesSummary && a.dossier.gradesSummary.yearAverage) || 999;
+        var bG2 = (b.dossier && b.dossier.gradesSummary && b.dossier.gradesSummary.yearAverage) || 999;
+        return aG2 - bG2;
+      }
+      if (_fmDosSortOrder === 'evals-desc') {
+        var aE = (a.dossier && a.dossier.evaluations && a.dossier.evaluations.length) || 0;
+        var bE = (b.dossier && b.dossier.evaluations && b.dossier.evaluations.length) || 0;
+        return bE - aE;
+      }
+      return 0;
+    });
+
+    if (countEl) countEl.textContent = filtered.length + ' ' + (filtered.length === 1 ? 'student' : 'students');
+
+    if (!filtered.length) {
+      container.innerHTML = '<div class="state-msg"><span>' + escHtml(tt('fmDosNoStudents', 'No student dossiers found matching your search.')) + '</span></div>';
+      return;
+    }
+
+    var frag = document.createDocumentFragment();
+    filtered.forEach(function(item) {
+      var d = item.dossier;
+      var gs = d ? d.gradesSummary : null;
+      var evals = (d && d.evaluations) ? d.evaluations : [];
+      var comps = (d && d.competences) ? d.competences : [];
+      var lessons = (d && d.lessons) ? d.lessons : [];
+      var docs = (d && d.documents) ? d.documents : [];
+      var boards = (d && d.boards) ? d.boards : [];
+      var totalWork = docs.length + boards.length;
+
+      var gpaVal = (gs && gs.yearAverage != null && !isNaN(gs.yearAverage))
+        ? Number(gs.yearAverage).toFixed(1)
+        : (gs && gs.sem1Average != null && !isNaN(gs.sem1Average) ? Number(gs.sem1Average).toFixed(1) : '--');
+      var gpaColor = getGradeColorClass(gpaVal, 6);
+
+      var card = document.createElement('div');
+      card.className = 'fm-dos-card';
+
+      var recentEvalsHtml = '';
+      if (evals.length > 0) {
+        var evalChips = evals.slice(0, 4).map(function(ev) {
+          var sc = ev.score != null ? ev.score : (ev.points != null ? ev.points : '');
+          var scCls = getGradeColorClass(sc, ev.maxScore || 6);
+          var scoreBadge = sc !== '' ? ('<span class="fm-dos-eval-score ' + scCls + '">' + sc + '</span>') : '';
+          return '<span class="fm-dos-eval-chip">' + escHtml(ev.title || ev.name || 'Test') + ' ' + scoreBadge + '</span>';
+        }).join('');
+        recentEvalsHtml = '<div class="fm-dos-recent-evals"><span style="font-size:0.72rem;font-weight:700;color:#666;">Recent Tests:</span>' + evalChips + '</div>';
+      }
+
+      card.innerHTML =
+        '<div class="fm-dos-hdr">' +
+          '<div class="fm-dos-hdr-left">' +
+            '<div class="fm-dos-avatar">' + escHtml(getInitials(item.name)) + '</div>' +
+            '<div class="fm-dos-id-block">' +
+              '<div class="fm-dos-name-row">' +
+                '<span class="fm-dos-name">' + escHtml(item.name) + '</span>' +
+                '<span class="fm-dos-badge class">' + escHtml(item.className || item.classId) + '</span>' +
+                (item.level ? ('<span class="fm-dos-badge level">Level ' + escHtml(item.level) + '</span>') : '') +
+              '</div>' +
+              '<div class="fm-dos-meta">ID: ' + escHtml(item.id) + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="fm-dos-gpa-badge ' + gpaColor + '">' +
+            '<span class="fm-dos-gpa-val">' + gpaVal + '</span>' +
+            '<span class="fm-dos-gpa-lbl">' + (gpaVal !== '--' ? 'GPA' : 'NO MARKS') + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="fm-dos-kpi-grid">' +
+          '<div class="fm-dos-kpi-item"><span class="fm-dos-kpi-num">' + evals.length + '</span> evaluations</div>' +
+          '<div class="fm-dos-kpi-item"><span class="fm-dos-kpi-num">' + comps.length + '</span> competences</div>' +
+          '<div class="fm-dos-kpi-item"><span class="fm-dos-kpi-num">' + lessons.length + '</span> lessons</div>' +
+          '<div class="fm-dos-kpi-item"><span class="fm-dos-kpi-num">' + totalWork + '</span> mindmaps & docs</div>' +
+        '</div>' +
+        recentEvalsHtml +
+        '<div class="fm-dos-actions">' +
+          '<button type="button" class="fm-dos-btn primary" id="btn-open-dossier">Open 360° Dossier</button>' +
+          '<button type="button" class="fm-dos-btn export" id="btn-export-dossier">Export Studio</button>' +
+          '<button type="button" class="fm-dos-btn" id="btn-gradesheet">Grade Sheet</button>' +
+          '<button type="button" class="fm-dos-btn" id="btn-tags">Links & Tags</button>' +
+        '</div>';
+
+      // Attach button actions
+      card.querySelector('#btn-open-dossier').addEventListener('click', function() {
+        if (window.TagLinkModal && typeof window.TagLinkModal.openStudentDossier === 'function') {
+          window.TagLinkModal.openStudentDossier(item.id, { title: item.name });
+        }
+      });
+
+      card.querySelector('#btn-export-dossier').addEventListener('click', async function() {
+        if (window.TagLinkModal && typeof window.TagLinkModal.openDossierPdfExportModal === 'function') {
+          var targetDos = item.dossier;
+          if (!targetDos && window.LinksService && typeof window.LinksService.getStudentAcademicDossier === 'function') {
+            targetDos = await window.LinksService.getStudentAcademicDossier(item.id, {
+              classId: item.classId,
+              className: item.className,
+              studentName: item.name,
+              level: item.level
+            });
+          }
+          if (targetDos) {
+            window.TagLinkModal.openDossierPdfExportModal(targetDos);
+          }
+        }
+      });
+
+      card.querySelector('#btn-gradesheet').addEventListener('click', function() {
+        if (window.Desktop && typeof window.Desktop.openTool === 'function') {
+          window.Desktop.openTool('grade-sheet.html', { query: { classId: item.classId, studentId: item.id } });
+        } else {
+          window.open('grade-sheet.html?classId=' + encodeURIComponent(item.classId) + '&studentId=' + encodeURIComponent(item.id), '_blank');
+        }
+      });
+
+      card.querySelector('#btn-tags').addEventListener('click', function() {
+        if (window.TagLinkModal) {
+          TagLinkModal.open({
+            urn: 'cmt:student:' + item.id,
+            title: item.name,
+            subtitle: 'Student • ' + item.className,
+            onUpdate: function() {
+              loadDossiersTab();
+            }
+          });
+        }
+      });
+
+      frag.appendChild(card);
+    });
+
+    container.replaceChildren(frag);
+  }
+
+  // Bind controls on script load
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', window.initDossiersTabControls);
+  } else {
+    window.initDossiersTabControls();
+  }
 })();
 </script>
 </body>
