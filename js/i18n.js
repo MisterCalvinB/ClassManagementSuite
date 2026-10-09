@@ -12,6 +12,8 @@
   var STRINGS = {
     en: {
       lblClass: "Class",
+      lmClass: "Class",
+      lmClasses: "Classes",
       lblDate: "Date",
       lblYear: "Year Level",
       lblSemester: "Semester",
@@ -7067,6 +7069,8 @@
 
     fr: {
       lblClass: "Classe",
+      lmClass: "Classe",
+      lmClasses: "Classes",
       lblDate: "Date",
       lblYear: "Niveau / Année",
       lblSemester: "Semestre",
@@ -14065,6 +14069,8 @@
 
     de: {
       lblClass: "Klasse",
+      lmClass: "Klasse",
+      lmClasses: "Klassen",
       lblDate: "Datum",
       lblYear: "Jahrgangsstufe",
       lblSemester: "Semester",
@@ -18851,6 +18857,8 @@ gsStudentAllChip: "Alle",
     },
     it: {
       lblClass: "Classe",
+      lmClass: "Classe",
+      lmClasses: "Classi",
       lblDate: "Data",
       lblYear: "Livello d'anno",
       lblSemester: "Semestre",

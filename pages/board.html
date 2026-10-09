@@ -18836,6 +18836,14 @@
       // ── End Preset Styles ─────────────────────────────────────────────
 
       window.conDeleteSelected = function () {
+        if (window._conSelectedEdgeId) {
+          conPushUndo();
+          const edgeToDelete = window._conSelectedEdgeId;
+          window._conSelectedEdgeId = null;
+          conRemoveEdge(edgeToDelete);
+          if (typeof conRedrawEdges === 'function') conRedrawEdges();
+          return;
+        }
         if (!conSelected) return;
         conRemoveNode(conSelected);
       };
@@ -21299,6 +21307,10 @@
         if (typeof window.conShapeClearSelection === 'function') window.conShapeClearSelection();
         window._conActiveMediaItem = null;
         document.querySelectorAll('.con-media-item.con-media-selected').forEach(el => el.classList.remove('con-media-selected'));
+        if (window._conSelectedEdgeId) {
+          window._conSelectedEdgeId = null;
+          if (typeof conRedrawEdges === 'function') conRedrawEdges();
+        }
       };
       window.conUndo = function () { conUndo(); };
       window.conRedo = function () { conRedo(); };
@@ -21373,6 +21385,13 @@
       window.conDeleteSelectedItems = function () {
         if (typeof BoardAudioService !== 'undefined') BoardAudioService.playAction('delete_items');
         conPushUndo();
+        if (window._conSelectedEdgeId) {
+          const edgeToDelete = window._conSelectedEdgeId;
+          window._conSelectedEdgeId = null;
+          conRemoveEdge(edgeToDelete);
+          if (typeof conRedrawEdges === 'function') conRedrawEdges();
+          return;
+        }
         if (conGroupFocused) {
           if (typeof conGroupDeleteWithContents === 'function') conGroupDeleteWithContents(conGroupFocused);
           if (typeof conGroupFocus === 'function') conGroupFocus(null);
@@ -22666,6 +22685,10 @@
         });
         conSelected = id;
         if (id) {
+          if (window._conSelectedEdgeId) {
+            window._conSelectedEdgeId = null;
+            if (typeof conRedrawEdges === 'function') conRedrawEdges();
+          }
           // Clear drawing selection
           conDrawingSelected.clear();
           document.querySelectorAll('#constellation-board .con-drawing.con-drawing-selected')
@@ -22700,6 +22723,10 @@
       function conSetMultiSelected(ids, preserveOthers) {
         // ids: array of node ids to multi-select
         conSelected = null;
+        if (ids && ids.length > 0 && window._conSelectedEdgeId) {
+          window._conSelectedEdgeId = null;
+          if (typeof conRedrawEdges === 'function') conRedrawEdges();
+        }
         conMultiSelected = new Set(ids);
         conNodes.forEach(n => {
           n.el.classList.remove('con-selected', 'con-multi-selected');
@@ -24816,7 +24843,16 @@
             return;
           }
           e.stopPropagation();
-          window._conSelectedEdgeId = (window._conSelectedEdgeId === edgeId) ? null : edgeId;
+          const nextSelected = (window._conSelectedEdgeId === edgeId) ? null : edgeId;
+          if (nextSelected) {
+            if (typeof window.conDeselectAll === 'function') {
+              window.conDeselectAll();
+            } else if (typeof conSelect === 'function') {
+              conSelect(null);
+            }
+          }
+          window._conSelectedEdgeId = nextSelected;
+          if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
           conRedrawEdges();
         });
         hit.addEventListener('dblclick', function (e) {
@@ -25452,6 +25488,9 @@
         if (idx === -1) return;
         conEdges[idx].g.remove();
         conEdges.splice(idx, 1);
+        if (window._conSelectedEdgeId === eid) {
+          window._conSelectedEdgeId = null;
+        }
         if (typeof window._conMirrorSend === 'function') {
           window._conMirrorSend({ type: 'edge-remove', id: String(eid) });
         }
@@ -26751,6 +26790,11 @@
       window.conEdgeCtxSetDir = conEdgeCtxSetDir;
 
       function conEdgeCtxOpen(e, edgeId) {
+        if (typeof window.conDeselectAll === 'function') {
+          window.conDeselectAll();
+        } else if (typeof conSelect === 'function') {
+          conSelect(null);
+        }
         _conEdgeCtxId = edgeId;
         window._conSelectedEdgeId = edgeId;
         if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
@@ -32874,6 +32918,15 @@
           const sec = document.getElementById('constellation-section');
           if (!sec || sec.classList.contains('hidden')) return;
           conPushUndo();
+          // Delete selected edge / connection line
+          if (window._conSelectedEdgeId) {
+            const edgeToDelete = window._conSelectedEdgeId;
+            window._conSelectedEdgeId = null;
+            conRemoveEdge(edgeToDelete);
+            if (typeof conRedrawEdges === 'function') conRedrawEdges();
+            e.preventDefault();
+            return;
+          }
           // Delete focused group and all its contents
           if (conGroupFocused) {
             conGroupDeleteWithContents(conGroupFocused);
@@ -35896,20 +35949,17 @@
       const hidden = !!noteData.hidden;
       noteEl.classList.toggle('wn-note-hidden', hidden);
       if (noteData.nodeId) {
-        // When attached to a node, completely hide or show display
-        noteEl.style.display = hidden ? 'none' : '';
         if (typeof conUpdateNodeNoteButton === 'function') {
           conUpdateNodeNoteButton(noteData.nodeId);
         }
-      } else {
-        if (ta) {
-          ta.style.visibility = hidden ? 'hidden' : 'visible';
-          ta.style.pointerEvents = hidden ? 'none' : '';
-        }
-        noteEl.style.borderStyle = hidden ? 'dashed' : (noteData.borderStyle || '');
-        noteEl.style.opacity = hidden ? '0.85' : '';
-        noteEl.title = hidden ? 'Hidden note (double-click to reveal)' : '';
       }
+      if (ta) {
+        ta.style.visibility = hidden ? 'hidden' : 'visible';
+        ta.style.pointerEvents = hidden ? 'none' : '';
+      }
+      noteEl.style.borderStyle = hidden ? 'dashed' : (noteData.borderStyle || '');
+      noteEl.style.opacity = hidden ? '0.85' : '';
+      noteEl.title = hidden ? 'Hidden note (double-click to reveal)' : '';
     }
 
     function wnApplyStoredSize(note, ta, noteData, scale) {
@@ -37597,13 +37647,20 @@
           type: 'note-text',
           id: String(nd.id),
           html: nd.html,
-          text: nd.text
+          text: nd.text,
+          baseWidth: nd.liveBaseWidth,
+          baseHeight: nd.liveBaseHeight,
+          width: nd.width || nd.liveBaseWidth,
+          height: nd.height || nd.liveBaseHeight,
+          manualSize: !!nd.manualSize
         });
         window._conMirrorSend({
           type: 'note-resize',
           id: String(nd.id),
           width: Number(nd.width) || Math.round(noteEl.offsetWidth / Math.max(0.5, zoom)),
           height: reducedH,
+          baseWidth: nd.liveBaseWidth,
+          baseHeight: reducedH,
           manualSize: !!nd.manualSize
         });
       }
@@ -38427,7 +38484,12 @@
               type: 'note-text',
               id: String(_wnActiveNote.id),
               html: _wnActiveNote.html,
-              text: _wnActiveNote.text
+              text: _wnActiveNote.text,
+              baseWidth: _wnActiveNote.liveBaseWidth,
+              baseHeight: _wnActiveNote.liveBaseHeight,
+              width: _wnActiveNote.width || _wnActiveNote.liveBaseWidth,
+              height: _wnActiveNote.height || _wnActiveNote.liveBaseHeight,
+              manualSize: !!_wnActiveNote.manualSize
             });
           }
           return;
@@ -38445,7 +38507,12 @@
             type: 'note-text',
             id: String(_wnActiveNote.id),
             html: _wnActiveNote.html,
-            text: _wnActiveNote.text
+            text: _wnActiveNote.text,
+            baseWidth: _wnActiveNote.liveBaseWidth,
+            baseHeight: _wnActiveNote.liveBaseHeight,
+            width: _wnActiveNote.width || _wnActiveNote.liveBaseWidth,
+            height: _wnActiveNote.height || _wnActiveNote.liveBaseHeight,
+            manualSize: !!_wnActiveNote.manualSize
           });
         }
         return;
@@ -38876,6 +38943,10 @@
         node.el.classList.add('has-con-note');
         if (typeof conUpdateNodeNoteButton === 'function') conUpdateNodeNoteButton(node);
       }
+      if (node && (typeof conAddEdge === 'function' || typeof window.conAddEdge === 'function')) {
+        const addEdgeFn = (typeof conAddEdge === 'function') ? conAddEdge : window.conAddEdge;
+        addEdgeFn(node.id, nid);
+      }
       const ta = document.querySelector(`.con-word-note[data-id="${nid}"] .wn-note-editor`);
       if (ta) setTimeout(() => ta.focus(), 0);
     };
@@ -38897,6 +38968,10 @@
       if (node.el) {
         node.el.classList.add('has-con-note');
         if (typeof conUpdateNodeNoteButton === 'function') conUpdateNodeNoteButton(node);
+      }
+      if (node && (typeof conAddEdge === 'function' || typeof window.conAddEdge === 'function')) {
+        const addEdgeFn = (typeof conAddEdge === 'function') ? conAddEdge : window.conAddEdge;
+        addEdgeFn(node.id, nid);
       }
       const ta = document.querySelector('.con-word-note[data-id="' + nid + '"] .wn-note-editor');
       if (ta) setTimeout(() => ta.focus(), 0);
@@ -38946,7 +39021,7 @@
       btn.setAttribute('aria-label', tt);
     };
 
-    // Toggles visibility (complete show/hide display) of all notes attached to a node
+    // Toggles visibility (hidden state) of all notes attached to a node
     window.conToggleAttachedNoteDisplay = function (nodeId) {
       if (!nodeId) return;
       const liveNotes = (typeof conGetNotes === 'function') ? conGetNotes() : (window.conNotes || []);
@@ -38964,8 +39039,12 @@
           ? wnGetNoteElementById(noteData.id)
           : document.querySelector('.con-word-note[data-id="' + noteData.id + '"]');
         if (noteEl) {
-          noteEl.style.display = shouldHide ? 'none' : '';
-          noteEl.classList.toggle('wn-note-hidden', shouldHide);
+          noteEl.style.display = '';
+          if (typeof wnApplyHiddenState === 'function') {
+            wnApplyHiddenState(noteData, noteEl);
+          } else {
+            noteEl.classList.toggle('wn-note-hidden', shouldHide);
+          }
           if (!shouldHide && typeof noteData._applyStyle === 'function') {
             noteData._applyStyle();
           }
@@ -39140,10 +39219,12 @@
     };
 
     function conNoteAutosize(ta, noteData) {
-      const note = ta.closest('.con-word-note');
-      const zoom = window.conGetZoom ? window.conGetZoom() : 1;
-      if (note && wnApplyStoredSize(note, ta, noteData, zoom)) {
-        const contentH = Math.ceil(ta.scrollHeight / Math.max(0.5, zoom));
+      if (!ta) return;
+      const note = ta.closest('.con-word-note, .ta-word-note');
+      if (!note) return;
+      const zoom = Math.max(0.2, Math.min(5, Number(window.conGetZoom ? window.conGetZoom() : 1) || 1));
+      if (wnApplyStoredSize(note, ta, noteData, zoom)) {
+        const contentH = Math.ceil(ta.scrollHeight / zoom);
         const neededH = Math.max(40, contentH + 12);
         if (noteData && noteData.manualSize && neededH > (Number(noteData.height) || 0)) {
           noteData.height = neededH;
@@ -39152,49 +39233,54 @@
         }
         return;
       }
-      // In mirror/presentation mode, prefer the source note width captured from main mode
-      // so auto-sizing progression (width growth first, then height growth) stays in sync.
-      if (
-        note &&
-        !noteData.manualSize &&
-        document.documentElement.classList.contains('con-mirror-mode') &&
-        Number.isFinite(Number(noteData.liveBaseWidth)) &&
-        Number(noteData.liveBaseWidth) > 0
-      ) {
-        const minW = 120, maxW = 460;
-        const baseW = Math.min(maxW, Math.max(minW, Number(noteData.liveBaseWidth)));
-        note.style.width = (baseW * Math.max(0.5, zoom)) + 'px';
+      const isMirrorMode = document.documentElement.classList.contains('con-mirror-mode') ||
+        (typeof location !== 'undefined' && location.search.indexOf('mirror=1') !== -1);
+      const minBaseW = 120;
+      const maxBaseW = 460;
+      const minBaseH = 40;
+      const padding = 33; // 24px container padding + 9px inner spacing
+
+      let baseW;
+      if (isMirrorMode && noteData && Number.isFinite(Number(noteData.liveBaseWidth)) && Number(noteData.liveBaseWidth) > 0) {
+        baseW = Math.min(maxBaseW, Math.max(minBaseW, Number(noteData.liveBaseWidth)));
+      } else {
+        note.style.width = '';
         note.style.height = '';
         ta.style.overflowY = 'hidden';
-        ta.style.width = '100%';
         ta.style.height = 'auto';
-        ta.style.height = Math.max(24, ta.scrollHeight) + 'px';
-        note.style.height = Math.max(40, ta.scrollHeight + 12) + 'px';
-        return;
+        ta.style.width = 'auto';
+        const clone = ta.cloneNode(true);
+        clone.style.cssText = `position:absolute;visibility:hidden;height:auto;width:auto;
+          white-space:pre-wrap;overflow:hidden;font:${getComputedStyle(ta).font};padding:0;border:0;`;
+        document.body.appendChild(clone);
+        const contentW = clone.scrollWidth + 2;
+        clone.remove();
+        const unzoomedContentW = contentW / zoom;
+        baseW = Math.min(maxBaseW, Math.max(minBaseW, Math.round(unzoomedContentW + padding)));
       }
-      if (note) note.style.width = '';
-      if (note) note.style.height = '';
-      ta.style.overflowY = 'hidden';
-      ta.style.height = 'auto';
-      ta.style.width = 'auto';
-      const clone = ta.cloneNode(true);
-      clone.style.cssText = `position:absolute;visibility:hidden;height:auto;width:auto;
-        white-space:pre-wrap;overflow:hidden;font:${getComputedStyle(ta).font};padding:0;border:0;`;
-      document.body.appendChild(clone);
-      const contentW = clone.scrollWidth + 2;
-      clone.remove();
-      const padding = 24 + 9;
-      const minW = 120, maxW = 460;
-      const newW = Math.min(maxW, Math.max(minW, contentW + padding));
-      if (note) note.style.width = newW + 'px';
+
+      note.style.width = (baseW * zoom) + 'px';
       ta.style.width = '100%';
       ta.style.height = 'auto';
-      ta.style.height = Math.max(24, ta.scrollHeight) + 'px';
-      const newH = Math.max(40, ta.scrollHeight + 12);
-      if (note) note.style.height = newH + 'px';
+
+      const editorScrollH = ta.scrollHeight;
+      const unzoomedScrollH = editorScrollH / zoom;
+      let baseH;
+      if (isMirrorMode && noteData && Number.isFinite(Number(noteData.liveBaseHeight)) && Number(noteData.liveBaseHeight) > 0) {
+        baseH = Math.max(minBaseH, Math.round(unzoomedScrollH + 12), Number(noteData.liveBaseHeight));
+      } else {
+        baseH = Math.max(minBaseH, Math.round(unzoomedScrollH + 12));
+      }
+
+      note.style.height = (baseH * zoom) + 'px';
+      ta.style.height = Math.max(24 * zoom, editorScrollH) + 'px';
+      ta.style.overflowY = 'hidden';
+
       if (noteData) {
-        noteData.liveBaseWidth = newW;
-        noteData.liveBaseHeight = newH;
+        noteData.liveBaseWidth = baseW;
+        noteData.liveBaseHeight = baseH;
+        noteData.width = baseW;
+        noteData.height = baseH;
       }
     }
 
@@ -39317,7 +39403,12 @@
             borderStyle: noteData.borderStyle || '',
             borderColor: noteData.borderColor || '',
             hidden: !!noteData.hidden,
-            blink: !!noteData.blink
+            blink: !!noteData.blink,
+            baseWidth: noteData.liveBaseWidth,
+            baseHeight: noteData.liveBaseHeight,
+            width: noteData.width || noteData.liveBaseWidth,
+            height: noteData.height || noteData.liveBaseHeight,
+            manualSize: !!noteData.manualSize
           });
         }
       }
@@ -39341,7 +39432,12 @@
             type: 'note-text',
             id: String(noteData.id),
             html: noteData.html,
-            text: noteData.text
+            text: noteData.text,
+            baseWidth: noteData.liveBaseWidth,
+            baseHeight: noteData.liveBaseHeight,
+            width: noteData.width || noteData.liveBaseWidth,
+            height: noteData.height || noteData.liveBaseHeight,
+            manualSize: !!noteData.manualSize
           });
         }
         if (typeof wnSyncAndBroadcastNoteSelection === 'function') {
@@ -39361,7 +39457,12 @@
             type: 'note-text',
             id: String(noteData.id),
             html: noteData.html,
-            text: noteData.text
+            text: noteData.text,
+            baseWidth: noteData.liveBaseWidth,
+            baseHeight: noteData.liveBaseHeight,
+            width: noteData.width || noteData.liveBaseWidth,
+            height: noteData.height || noteData.liveBaseHeight,
+            manualSize: !!noteData.manualSize
           });
         }
         if (typeof wnSyncAndBroadcastNoteSelection === 'function') {
@@ -40246,7 +40347,7 @@
       window._conImportTextCallback = function (importedText) {
         const x = window._boardCtxNoteX || 60;
         const y = window._boardCtxNoteY || 60;
-        window.conCreateTextNote(importedText, x, y, { fontSize: 24 });
+        window.conCreateTextNote(importedText, x, y, { fontSize: 24, hidden: true });
         // Clear the callback
         window._conImportTextCallback = null;
       };
@@ -40781,7 +40882,7 @@
         id: nid, nodeId: null, text: noteText, x: Number(x) || 60, y: Number(y) || 60,
         color: '#111111', bg: '#ffffff', fontSize: (opts && Number(opts.fontSize)) || 24,
         bold: false, italic: false, underline: false, strike: false,
-        hidden: false, locked: false, manualSize: false, width: null, height: null
+        hidden: !!(opts && opts.hidden), locked: false, manualSize: false, width: null, height: null
       };
       conNotes.push(noteData);
       conNoteBuild(noteData);
@@ -46548,6 +46649,8 @@
               manualSize: !!n.manualSize,
               width: typeof n.width === 'number' ? n.width : null,
               height: typeof n.height === 'number' ? n.height : null,
+              liveBaseWidth: n.liveBaseWidth != null ? n.liveBaseWidth : (typeof n.width === 'number' ? n.width : null),
+              liveBaseHeight: n.liveBaseHeight != null ? n.liveBaseHeight : (typeof n.height === 'number' ? n.height : null),
               borderWidth: n.borderWidth || null,
               borderStyle: n.borderStyle || null,
               borderColor: n.borderColor || null,
@@ -46566,6 +46669,7 @@
             }
             if (existing._applyStyle) existing._applyStyle();
             if (existing._updateContent) existing._updateContent();
+            if (editorEl && typeof conNoteAutosize === 'function') conNoteAutosize(editorEl, existing);
             if (typeof conNoteRebuildAllStickers === 'function') conNoteRebuildAllStickers(existing, noteEl);
             nextNotes.push(existing);
           } else {
@@ -47022,7 +47126,16 @@
           return;
         }
         e.stopPropagation();
-        window._conSelectedEdgeId = (window._conSelectedEdgeId === edgeId) ? null : edgeId;
+        const nextSelected = (window._conSelectedEdgeId === edgeId) ? null : edgeId;
+        if (nextSelected) {
+          if (typeof window.conDeselectAll === 'function') {
+            window.conDeselectAll();
+          } else if (typeof window.conSelect === 'function') {
+            window.conSelect(null);
+          }
+        }
+        window._conSelectedEdgeId = nextSelected;
+        if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
         if (window.conRedrawEdges) window.conRedrawEdges();
       });
       hit.addEventListener('dblclick', function (e) {
@@ -54026,7 +54139,12 @@
           type: 'note-text',
           id: String(noteData.id),
           html: noteData.html,
-          text: noteData.text
+          text: noteData.text,
+          baseWidth: noteData.liveBaseWidth,
+          baseHeight: noteData.liveBaseHeight,
+          width: noteData.width || noteData.liveBaseWidth,
+          height: noteData.height || noteData.liveBaseHeight,
+          manualSize: !!noteData.manualSize
         });
       }
     }
@@ -57385,11 +57503,28 @@
               if (noteObj) {
                 noteObj.html = d.html || '';
                 noteObj.text = d.text || '';
+                if (typeof d.baseWidth === 'number') {
+                  noteObj.liveBaseWidth = d.baseWidth;
+                  noteObj.width = d.baseWidth;
+                } else if (typeof d.width === 'number') {
+                  noteObj.liveBaseWidth = d.width;
+                  noteObj.width = d.width;
+                }
+                if (typeof d.baseHeight === 'number') {
+                  noteObj.liveBaseHeight = d.baseHeight;
+                  noteObj.height = d.baseHeight;
+                } else if (typeof d.height === 'number') {
+                  noteObj.liveBaseHeight = d.height;
+                  noteObj.height = d.height;
+                }
+                if (d.manualSize !== undefined) noteObj.manualSize = !!d.manualSize;
                 if (typeof conNoteAutosize === 'function') conNoteAutosize(editor, noteObj);
               }
               if (_mirrorCurrentNoteSelection && String(_mirrorCurrentNoteSelection.noteId) === String(d.id)) {
                 _mirrorApplyNoteTextSelection(_mirrorCurrentNoteSelection);
               }
+              if (typeof conRedrawEdges === 'function') conRedrawEdges();
+              if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
             }
           }
           return;
@@ -58479,6 +58614,11 @@
             if (d.borderColor !== undefined) noteObj.borderColor = d.borderColor;
             if (d.hidden !== undefined) noteObj.hidden = d.hidden;
             if (d.blink !== undefined) noteObj.blink = d.blink;
+            if (typeof d.baseWidth === 'number') { noteObj.liveBaseWidth = d.baseWidth; noteObj.width = d.baseWidth; }
+            if (typeof d.baseHeight === 'number') { noteObj.liveBaseHeight = d.baseHeight; noteObj.height = d.baseHeight; }
+            if (typeof d.width === 'number') { noteObj.width = d.width; if (noteObj.liveBaseWidth == null) noteObj.liveBaseWidth = d.width; }
+            if (typeof d.height === 'number') { noteObj.height = d.height; if (noteObj.liveBaseHeight == null) noteObj.liveBaseHeight = d.height; }
+            if (d.manualSize !== undefined) noteObj.manualSize = !!d.manualSize;
             if (typeof noteObj._applyStyle === 'function') {
               noteObj._applyStyle();
               var nEl = (typeof wnGetNoteElementById === 'function')
@@ -58501,6 +58641,8 @@
               if (noteEl) {
                 if (d.bg !== undefined) noteEl.style.background = d.bg;
                 if (d.color !== undefined) noteEl.style.color = d.color;
+                var ed = noteEl.querySelector('.wn-note-editor');
+                if (ed && typeof conNoteAutosize === 'function') conNoteAutosize(ed, noteObj);
                 if (d.blink !== undefined) {
                   noteEl.classList.remove('wn-blink');
                   if (d.blink) {
@@ -58513,6 +58655,8 @@
                 }
               }
             }
+            if (typeof conRedrawEdges === 'function') conRedrawEdges();
+            if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
           }
           return;
         }
@@ -58523,17 +58667,27 @@
           var noteObj = _liveNotes.find(function (n) { return String(n.id) === String(d.id); });
           if (noteObj) {
             if (d.manualSize !== undefined) noteObj.manualSize = !!d.manualSize;
-            if (typeof d.width === 'number') noteObj.width = d.width;
-            if (typeof d.height === 'number') noteObj.height = d.height;
+            if (typeof d.width === 'number') {
+              noteObj.width = d.width;
+              noteObj.liveBaseWidth = d.width;
+            }
+            if (typeof d.height === 'number') {
+              noteObj.height = d.height;
+              noteObj.liveBaseHeight = d.height;
+            }
+            if (typeof d.baseWidth === 'number') noteObj.liveBaseWidth = d.baseWidth;
+            if (typeof d.baseHeight === 'number') noteObj.liveBaseHeight = d.baseHeight;
           }
           var nel = document.querySelector('#constellation-board .con-word-note[data-id="' + d.id + '"]') || document.querySelector('.con-word-note[data-id="' + d.id + '"]');
           if (nel) {
             var ta = nel.querySelector('.wn-note-editor, textarea');
             var zoom = (window.conGetZoom ? window.conGetZoom() : 1);
             var applyFn = (typeof wnApplyStoredSize === 'function') ? wnApplyStoredSize : (window.wnApplyStoredSize || null);
-            if (applyFn && ta) {
-              var nData = noteObj || { width: d.width, height: d.height, manualSize: (d.manualSize !== undefined ? d.manualSize : true) };
+            var nData = noteObj || { width: d.width, height: d.height, liveBaseWidth: d.baseWidth || d.width, liveBaseHeight: d.baseHeight || d.height, manualSize: (d.manualSize !== undefined ? d.manualSize : true) };
+            if (applyFn && ta && nData.manualSize) {
               applyFn(nel, ta, nData, zoom);
+            } else if (ta && typeof conNoteAutosize === 'function') {
+              conNoteAutosize(ta, nData);
             } else {
               var z = Math.max(0.5, Math.min(3, Number(zoom) || 1));
               var w = (typeof d.width === 'number') ? d.width : (noteObj ? noteObj.width : null);

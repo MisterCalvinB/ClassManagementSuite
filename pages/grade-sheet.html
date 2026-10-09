@@ -6886,16 +6886,23 @@
       var studentId = typeof student === 'string' ? student : (student.id || student.uuid);
       if (!studentId) return;
       var title = typeof student === 'object' ? (((student.firstName || '') + ' ' + (student.lastName || '')).trim() || student.name || studentId) : studentId;
+      var currentClass = classObj || (typeof appState !== 'undefined' ? appState.currentClass : null);
+      var classId = currentClass ? currentClass.id : null;
+      var className = currentClass ? currentClass.name : null;
+      var level = currentClass ? (currentClass.level || currentClass.grade || '') : '';
       if (typeof TagLinkModal.openStudentDossier === 'function') {
         TagLinkModal.openStudentDossier(studentId, {
-          title: title
+          title: title,
+          classId: classId,
+          className: className,
+          level: level
         });
       } else {
         TagLinkModal.open({
           urn: 'cmt:student:' + studentId,
           title: title,
           type: 'student',
-          classId: classObj ? classObj.id : null
+          classId: classId
         });
       }
     }

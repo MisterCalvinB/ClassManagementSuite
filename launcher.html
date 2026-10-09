@@ -3477,19 +3477,44 @@
         if (window.LinksService) {
           LinksService.getStudentAcademicDossier(studentId).then(function(dossier) {
             if (!dossier) return;
-            var gpaEl = card.querySelector('#ue-gpa-' + studentId);
+            var gpaEl = card.querySelector('.ue-dos-gpa-badge');
             var gs = dossier.gradesSummary;
-            if (gpaEl && gs) {
-              var avg = (gs.yearAverage != null && !isNaN(gs.yearAverage))
+            if (gpaEl) {
+              var avg = (gs && gs.yearAverage != null && !isNaN(gs.yearAverage))
                 ? Number(gs.yearAverage)
-                : (gs.sem1Average != null && !isNaN(gs.sem1Average) ? Number(gs.sem1Average) : null);
+                : (gs && gs.sem1Average != null && !isNaN(gs.sem1Average) && gs.sem2Average != null && !isNaN(gs.sem2Average)
+                  ? (Number(gs.sem1Average) + Number(gs.sem2Average)) / 2
+                  : (gs && gs.sem1Average != null && !isNaN(gs.sem1Average)
+                    ? Number(gs.sem1Average)
+                    : (gs && gs.sem2Average != null && !isNaN(gs.sem2Average) ? Number(gs.sem2Average) : null)));
+
+              if (avg == null && Array.isArray(dossier.evaluations) && dossier.evaluations.length > 0) {
+                var scored = dossier.evaluations.filter(function(e) {
+                  var sc = e.score != null ? e.score : (e.meta && e.meta.score != null ? e.meta.score : (e.points != null ? e.points : null));
+                  return sc != null && !isNaN(sc);
+                });
+                if (scored.length > 0) {
+                  var totalW = 0, sumW = 0;
+                  scored.forEach(function(e) {
+                    var sc = Number(e.score != null ? e.score : (e.meta && e.meta.score != null ? e.meta.score : e.points));
+                    var max = Number(e.maxScore || (e.meta && e.meta.maxScore) || 6);
+                    var w = Number(e.coefficient || (e.meta && e.meta.coefficient) || 1);
+                    if (isNaN(w) || w <= 0) w = 1;
+                    var norm = max === 6 ? sc : (sc / max) * 6;
+                    sumW += norm * w;
+                    totalW += w;
+                  });
+                  if (totalW > 0) avg = sumW / totalW;
+                }
+              }
+
               if (avg != null) {
                 var cl = getGradeColorClass(avg, 6);
                 gpaEl.className = 'ue-dos-gpa-badge ' + cl;
                 gpaEl.innerHTML = '<span class="ue-dos-gpa-val">' + avg.toFixed(1) + '</span><span class="ue-dos-gpa-lbl">GPA</span>';
               }
             }
-            var kpiGrid = card.querySelector('#ue-kpi-' + studentId);
+            var kpiGrid = card.querySelector('.ue-dos-kpi-grid');
             if (kpiGrid) {
               var evals = dossier.evaluations || [];
               var comps = dossier.competences || [];
@@ -3502,7 +3527,9 @@
                 '<div class="ue-dos-kpi-item"><span class="ue-dos-kpi-num">' + lessons.length + '</span> lessons</div>' +
                 '<div class="ue-dos-kpi-item"><span class="ue-dos-kpi-num">' + totalWork + '</span> mindmaps & docs</div>';
             }
-          }).catch(function() {});
+          }).catch(function(err) {
+            console.warn('Error populating student GPA badge:', err);
+          });
         }
 
         frag.appendChild(card);
@@ -3812,10 +3839,36 @@
       var boards = (d && d.boards) ? d.boards : [];
       var totalWork = docs.length + boards.length;
 
-      var gpaVal = (gs && gs.yearAverage != null && !isNaN(gs.yearAverage))
-        ? Number(gs.yearAverage).toFixed(1)
-        : (gs && gs.sem1Average != null && !isNaN(gs.sem1Average) ? Number(gs.sem1Average).toFixed(1) : '--');
-      var gpaColor = getGradeColorClass(gpaVal, 6);
+      var computedAvg = (gs && gs.yearAverage != null && !isNaN(gs.yearAverage))
+        ? Number(gs.yearAverage)
+        : (gs && gs.sem1Average != null && !isNaN(gs.sem1Average) && gs.sem2Average != null && !isNaN(gs.sem2Average)
+          ? (Number(gs.sem1Average) + Number(gs.sem2Average)) / 2
+          : (gs && gs.sem1Average != null && !isNaN(gs.sem1Average)
+            ? Number(gs.sem1Average)
+            : (gs && gs.sem2Average != null && !isNaN(gs.sem2Average) ? Number(gs.sem2Average) : null)));
+
+      if (computedAvg == null && evals.length > 0) {
+        var scoredEvals = evals.filter(function(ev) {
+          var sc = ev.score != null ? ev.score : (ev.meta && ev.meta.score != null ? ev.meta.score : (ev.points != null ? ev.points : null));
+          return sc != null && !isNaN(sc);
+        });
+        if (scoredEvals.length > 0) {
+          var sumEv = 0, countEv = 0;
+          scoredEvals.forEach(function(ev) {
+            var sc = Number(ev.score != null ? ev.score : (ev.meta && ev.meta.score != null ? ev.meta.score : ev.points));
+            var max = Number(ev.maxScore || (ev.meta && ev.meta.maxScore) || 6);
+            var w = Number(ev.coefficient || (ev.meta && ev.meta.coefficient) || 1);
+            if (isNaN(w) || w <= 0) w = 1;
+            var norm = max === 6 ? sc : (sc / max) * 6;
+            sumEv += norm * w;
+            countEv += w;
+          });
+          if (countEv > 0) computedAvg = sumEv / countEv;
+        }
+      }
+
+      var gpaVal = computedAvg != null ? Number(computedAvg).toFixed(1) : '--';
+      var gpaColor = computedAvg != null ? getGradeColorClass(computedAvg, 6) : 'neutral';
 
       var card = document.createElement('div');
       card.className = 'ue-dos-card';

@@ -2394,7 +2394,7 @@
 
   async function loadBoardMindmapData(boardUrnOrPath) {
     if (!boardUrnOrPath) return null;
-    var rel = String(boardUrnOrPath).replace(/^cmt:board:/, '').replace(/^user\/mindmaps\//, '');
+    var rel = String(boardUrnOrPath).replace(/^cmt:board:/, '').replace(/^user\/mindmaps\//, '').replace(/^user\/constellations\//, '');
     if (_dossierMindmapCache[rel]) return _dossierMindmapCache[rel];
 
     if (window.Desktop && typeof window.Desktop.isElectron === 'function' && window.Desktop.isElectron()) {
@@ -2406,12 +2406,31 @@
             _dossierMindmapCache[rel] = res.boardData;
             return res.boardData;
           }
+          // Fallback: try user target subdirectories
+          var uPaths = ['constellations/' + rel, 'mindmaps/' + rel, 'board/' + rel, rel];
+          for (var pi = 0; pi < uPaths.length; pi++) {
+            var uRes = await window.Desktop.readBoardArchive('user', uPaths[pi]);
+            if (uRes && uRes.ok && uRes.boardData) {
+              _dossierMindmapCache[rel] = uRes.boardData;
+              return uRes.boardData;
+            }
+          }
         } else {
           var rText = await window.Desktop.readText('mindmaps', rel);
           if (rText && rText.ok && rText.content) {
             var data = typeof rText.content === 'string' ? JSON.parse(rText.content) : rText.content;
             _dossierMindmapCache[rel] = data;
             return data;
+          }
+          // Fallback: try user target subdirectories
+          var uTextPaths = ['constellations/' + rel, 'mindmaps/' + rel, 'board/' + rel, rel];
+          for (var ti = 0; ti < uTextPaths.length; ti++) {
+            var uTextRes = await window.Desktop.readText('user', uTextPaths[ti]);
+            if (uTextRes && uTextRes.ok && uTextRes.content) {
+              var uData = typeof uTextRes.content === 'string' ? JSON.parse(uTextRes.content) : uTextRes.content;
+              _dossierMindmapCache[rel] = uData;
+              return uData;
+            }
           }
         }
       } catch (err) {
@@ -3845,7 +3864,7 @@
             '<span class="pdf-header-badge">' + esc(t('lmDossierPdfDocHeader', '360° ACADEMIC DOSSIER') || '360° ACADEMIC DOSSIER') + '</span>' +
           '</div>' +
           '<div class="pdf-student-meta">' +
-            (st.className ? ('<div class="pdf-student-meta-item"><span class="pdf-student-meta-label">' + esc(t('lmClass', 'Class') || 'Class') + ':</span> <span>' + esc(st.className) + '</span></div>') : '') +
+            ((st.classNames && st.classNames.length > 0) ? ('<div class="pdf-student-meta-item"><span class="pdf-student-meta-label">' + esc((st.classNames.length > 1 ? (t('lmClasses', 'Classes') || 'Classes') : (t('lmClass', 'Class') || 'Class'))) + ':</span> <span>' + esc(st.classNames.join(', ')) + '</span></div>') : (st.className ? ('<div class="pdf-student-meta-item"><span class="pdf-student-meta-label">' + esc(t('lmClass', 'Class') || 'Class') + ':</span> <span>' + esc(st.className) + '</span></div>') : '')) +
             (st.level ? ('<div class="pdf-student-meta-item"><span class="pdf-student-meta-label">' + esc(t('lmLevel', 'Level') || 'Level') + ':</span> <span>' + esc(st.level.toUpperCase()) + '</span></div>') : '') +
             (st.id ? ('<div class="pdf-student-meta-item"><span class="pdf-student-meta-label">ID:</span> <span>' + esc(st.id) + '</span></div>') : '') +
             ('<div class="pdf-student-meta-item" style="margin-left:auto;"><span class="pdf-student-meta-label">' + esc(t('lmDossierPdfDateLabel', 'Date:') || 'Date:') + '</span> <span>' + esc(dateStr) + '</span></div>') +
@@ -4768,11 +4787,11 @@
     }
     html += '</div></div>';
 
-    // Section 4: Work, Documents & Mindmaps
+    // Section 4: Work, Documents, Handouts & Mindmaps
     html +=
       '<div class="cmt-dossier-sec">' +
         '<div class="cmt-dossier-sec-hdr">' +
-          '<span class="cmt-dossier-sec-title"><span class="cmt-dossier-sec-chevron">▼</span> <img src="' + iconSrc + '" class="cmt-lm-inline-icon" alt="" /> ' + t('lmDossierLinkedDocs', '4. DOCUMENTS, ATTACHMENTS & MINDMAPS') + '</span>' +
+          '<span class="cmt-dossier-sec-title"><span class="cmt-dossier-sec-chevron">▼</span> <img src="' + iconSrc + '" class="cmt-lm-inline-icon" alt="" /> ' + (t('lmDossierLinkedDocs', '4. LINKED DOCUMENTS, HANDOUTS & MINDMAPS') || '4. LINKED DOCUMENTS, HANDOUTS & MINDMAPS') + '</span>' +
           '<span class="cmt-dossier-sec-count">' + sortedWork.length + '</span>' +
         '</div>' +
         '<div class="cmt-dossier-sec-list">';
@@ -4781,11 +4800,19 @@
     } else {
       sortedWork.forEach(function(docItem) {
         var isFile = docItem.type === 'file' || (docItem.urn && docItem.urn.startsWith('cmt:file:'));
+        var badgeBg = '#8b7cc2';
+        if (docItem.badge === '[HANDOUT]') badgeBg = '#e2c96e';
+        else if (docItem.badge === '[MINDMAP]' || docItem.badge === '[ARCHIVED MINDMAP]') badgeBg = '#3b82f6';
+        else if (docItem.badge === '[TEST PAPER]') badgeBg = '#c96b6b';
+        else if (docItem.badge === '[SUBMISSION]') badgeBg = '#6abf8e';
+
+        var badgeColor = (docItem.badge === '[HANDOUT]' || docItem.badge === '[SUBMISSION]') ? '#111' : '#fff';
+
         html +=
           '<div class="cmt-dossier-item">' +
             '<div class="cmt-dossier-item-info">' +
               '<div class="cmt-dossier-item-top">' +
-                '<span class="cmt-lm-badge" style="background:#8b7cc2;color:#fff;">' + (docItem.badge || '[DOC]') + '</span>' +
+                '<span class="cmt-lm-badge" style="background:' + badgeBg + ';color:' + badgeColor + ';">' + (docItem.badge || '[DOC]') + '</span>' +
                 '<span class="cmt-dossier-item-title">' + (docItem.title || docItem.urn) + '</span>' +
               '</div>' +
               (docItem.subtitle ? '<span class="cmt-dossier-item-sub">' + docItem.subtitle + '</span>' : '') +
@@ -4942,6 +4969,7 @@
 
   async function openStudentDossier(studentId, opts) {
     if (!studentId) return;
+    opts = opts || {};
     ensureDossierDom();
     var cleanId = String(studentId).replace(/^cmt:student:/, '');
     _activeDossierUrn = 'cmt:student:' + cleanId;
@@ -4957,7 +4985,7 @@
 
     var dossier = null;
     if (window.LinksService && typeof window.LinksService.getStudentAcademicDossier === 'function') {
-      dossier = await window.LinksService.getStudentAcademicDossier(cleanId);
+      dossier = await window.LinksService.getStudentAcademicDossier(cleanId, opts);
     }
     _currentDossierData = dossier;
 
@@ -4967,10 +4995,19 @@
     }
 
     var st = dossier.student;
-    nameEl.textContent = st.name;
+    nameEl.textContent = st.name || opts.title || opts.name || cleanId;
     var subParts = [];
-    if (st.className) subParts.push((t('lmClass', 'Class') || 'Class') + ': ' + st.className);
-    if (st.level) subParts.push((t('lmLevel', 'Level') || 'Level') + ': ' + st.level.toUpperCase());
+    var classesArr = (st.classNames && st.classNames.length > 0) ? st.classNames : (st.className ? [st.className] : []);
+    if (!classesArr.length && (opts.className || opts.classId)) {
+      var fallbackName = opts.className || (opts.classId ? (window.LinksService && window.LinksService.resolveClassName ? window.LinksService.resolveClassName(opts.classId) : opts.classId) : '');
+      if (fallbackName) classesArr.push(fallbackName);
+    }
+    if (classesArr.length > 0) {
+      var classLabel = classesArr.length > 1 ? (t('lmClasses', 'Classes') || 'Classes') : (t('lmClass', 'Class') || 'Class');
+      subParts.push(classLabel + ': ' + classesArr.join(', '));
+    }
+    var lvl = st.level || opts.level || (opts.classId ? (window.LinksService && window.LinksService.resolveClassLevel ? window.LinksService.resolveClassLevel(opts.classId) : '') : '');
+    if (lvl) subParts.push((t('lmLevel', 'Level') || 'Level') + ': ' + lvl.toUpperCase());
     if (st.id) subParts.push('ID: ' + st.id);
     subEl.textContent = subParts.join(' • ');
 

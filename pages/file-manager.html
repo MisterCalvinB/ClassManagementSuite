@@ -4067,10 +4067,36 @@ function openFmShortcuts() {
       var boards = (d && d.boards) ? d.boards : [];
       var totalWork = docs.length + boards.length;
 
-      var gpaVal = (gs && gs.yearAverage != null && !isNaN(gs.yearAverage))
-        ? Number(gs.yearAverage).toFixed(1)
-        : (gs && gs.sem1Average != null && !isNaN(gs.sem1Average) ? Number(gs.sem1Average).toFixed(1) : '--');
-      var gpaColor = getGradeColorClass(gpaVal, 6);
+      var computedAvg = (gs && gs.yearAverage != null && !isNaN(gs.yearAverage))
+        ? Number(gs.yearAverage)
+        : (gs && gs.sem1Average != null && !isNaN(gs.sem1Average) && gs.sem2Average != null && !isNaN(gs.sem2Average)
+          ? (Number(gs.sem1Average) + Number(gs.sem2Average)) / 2
+          : (gs && gs.sem1Average != null && !isNaN(gs.sem1Average)
+            ? Number(gs.sem1Average)
+            : (gs && gs.sem2Average != null && !isNaN(gs.sem2Average) ? Number(gs.sem2Average) : null)));
+
+      if (computedAvg == null && evals.length > 0) {
+        var scoredEvals = evals.filter(function(ev) {
+          var sc = ev.score != null ? ev.score : (ev.meta && ev.meta.score != null ? ev.meta.score : (ev.points != null ? ev.points : null));
+          return sc != null && !isNaN(sc);
+        });
+        if (scoredEvals.length > 0) {
+          var sumEv = 0, countEv = 0;
+          scoredEvals.forEach(function(ev) {
+            var sc = Number(ev.score != null ? ev.score : (ev.meta && ev.meta.score != null ? ev.meta.score : ev.points));
+            var max = Number(ev.maxScore || (ev.meta && ev.meta.maxScore) || 6);
+            var w = Number(ev.coefficient || (ev.meta && ev.meta.coefficient) || 1);
+            if (isNaN(w) || w <= 0) w = 1;
+            var norm = max === 6 ? sc : (sc / max) * 6;
+            sumEv += norm * w;
+            countEv += w;
+          });
+          if (countEv > 0) computedAvg = sumEv / countEv;
+        }
+      }
+
+      var gpaVal = computedAvg != null ? Number(computedAvg).toFixed(1) : '--';
+      var gpaColor = computedAvg != null ? getGradeColorClass(computedAvg, 6) : 'neutral';
 
       var card = document.createElement('div');
       card.className = 'fm-dos-card';

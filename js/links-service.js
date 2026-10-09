@@ -382,13 +382,33 @@
         var sid = s.uuid || s.id;
         if (!sid) return;
         var sname = ([s.firstName, s.lastName].filter(Boolean).join(' ') || s.customName || s.name || '').trim();
-        var clsId = (s.enrollments && s.enrollments[0] && s.enrollments[0].groupUuid) || s.adminClass || '';
-        var clsName = (s.enrollments && s.enrollments[0] && s.enrollments[0].groupName) || s.adminClass || '';
+        var enrollments = Array.isArray(s.enrollments) ? s.enrollments.slice() : [];
+        var classIds = [];
+        var classNames = [];
+        enrollments.forEach(function(enr) {
+          if (!enr) return;
+          var gid = enr.groupUuid || enr.groupId || enr.id || '';
+          var gname = enr.groupName || enr.name || gid || '';
+          if (gid && !classIds.includes(gid)) classIds.push(gid);
+          if (gname && !classNames.includes(gname)) classNames.push(gname);
+        });
+        if (s.adminClass) {
+          if (!classIds.includes(s.adminClass)) classIds.push(s.adminClass);
+          if (!classNames.includes(s.adminClass)) classNames.push(s.adminClass);
+        }
+        var clsId = classIds[0] || (enrollments[0] && enrollments[0].groupUuid) || s.adminClass || '';
+        var clsName = classNames[0] || (enrollments[0] && enrollments[0].groupName) || s.adminClass || '';
         students[sid] = {
           id: sid,
           name: sname || sid,
+          firstName: s.firstName || '',
+          lastName: s.lastName || '',
+          customName: s.customName || '',
           classId: clsId,
           className: clsName,
+          classIds: classIds,
+          classNames: classNames,
+          enrollments: enrollments,
           number: s.number || null
         };
       });
@@ -415,12 +435,57 @@
         sname = s;
       }
       if (!sname) sname = sid;
-      students[sid] = {
+
+      var existing = students[sid] || {
         id: sid,
         name: sname,
-        classId: classId || (students[sid] && students[sid].classId) || '',
-        className: className || classId || (students[sid] && students[sid].className) || '',
-        number: (typeof s === 'object' && s && s.number) ? s.number : (students[sid] ? students[sid].number : null)
+        firstName: '',
+        lastName: '',
+        customName: '',
+        classId: '',
+        className: '',
+        classIds: [],
+        classNames: [],
+        enrollments: [],
+        number: null
+      };
+
+      var classIds = Array.isArray(existing.classIds) ? existing.classIds.slice() : (existing.classId ? [existing.classId] : []);
+      var classNames = Array.isArray(existing.classNames) ? existing.classNames.slice() : (existing.className ? [existing.className] : []);
+      var enrollments = Array.isArray(existing.enrollments) ? existing.enrollments.slice() : [];
+
+      if (classId && !classIds.includes(classId)) {
+        classIds.push(classId);
+      }
+      var resolvedCName = className || classId;
+      if (resolvedCName && !classNames.includes(resolvedCName)) {
+        classNames.push(resolvedCName);
+      }
+
+      if (classId) {
+        var hasEnr = enrollments.some(function(e) { return e && (e.groupUuid === classId || e.groupId === classId); });
+        if (!hasEnr) {
+          enrollments.push({ groupUuid: classId, groupName: resolvedCName || classId });
+        }
+      }
+
+      var numVal = (typeof s === 'object' && s && s.number != null) ? s.number : existing.number;
+      var fName = (typeof s === 'object' && s && s.firstName) ? s.firstName : (existing.firstName || '');
+      var lName = (typeof s === 'object' && s && s.lastName) ? s.lastName : (existing.lastName || '');
+      var cstName = (typeof s === 'object' && s && s.customName) ? s.customName : (existing.customName || '');
+
+      students[sid] = {
+        id: sid,
+        name: sname || existing.name || sid,
+        firstName: fName,
+        lastName: lName,
+        customName: cstName,
+        classId: classIds[0] || classId || existing.classId || '',
+        className: classNames[0] || resolvedCName || existing.className || '',
+        classIds: classIds,
+        classNames: classNames,
+        enrollments: enrollments,
+        number: numVal
       };
     }
 
@@ -833,7 +898,11 @@
       parents: ['class'],
       resolveParents: function(studentId) {
         var st = resolveStudentInfo(studentId);
-        return (st && st.classId) ? [makeUrn('class', st.classId)] : [];
+        if (!st) return [];
+        var ids = Array.isArray(st.classIds) && st.classIds.length > 0
+          ? st.classIds
+          : (st.classId ? [st.classId] : []);
+        return ids.filter(Boolean).map(function(cid) { return makeUrn('class', cid); });
       }
     },
     class: {
@@ -1272,7 +1341,10 @@
         var stObj = resolveStudentInfo(p.id);
         var stName = (stObj && stObj.name) || resolveStudentName(p.id) || (meta && meta.title && !isRawTitle ? meta.title : null) || p.id;
         title = stName;
-        subtitle = stObj && stObj.className ? ('Student • ' + stObj.className) : 'Student Roster';
+        var displayClasses = (stObj && Array.isArray(stObj.classNames) && stObj.classNames.length > 0)
+          ? stObj.classNames.join(', ')
+          : ((stObj && stObj.className) || '');
+        subtitle = displayClasses ? ('Student • ' + displayClasses) : 'Student Roster';
         break;
       }
       case 'gradesheet':
@@ -2057,12 +2129,20 @@
     return '';
   }
 
-  function _isUrnOrMetaBoundToDifferentClass(otherUrn, targetMeta, classId) {
-    if (!classId || !otherUrn) return false;
-    var cleanCid = classId.trim().toLowerCase();
+  function _isUrnOrMetaBoundToDifferentClass(otherUrn, targetMeta, classId, classIds) {
+    if (!classId && (!classIds || !classIds.length)) return false;
+    if (!otherUrn) return false;
     var boundClass = _resolveUrnClassGroup(otherUrn, targetMeta);
-    if (boundClass && boundClass.trim().toLowerCase() !== cleanCid) {
-      return true;
+    if (!boundClass) return false;
+    var boundLower = boundClass.trim().toLowerCase();
+    if (Array.isArray(classIds) && classIds.length > 0) {
+      var matchAny = classIds.some(function(cid) {
+        return cid && String(cid).trim().toLowerCase() === boundLower;
+      });
+      return !matchAny;
+    }
+    if (classId) {
+      return boundLower !== classId.trim().toLowerCase();
     }
     return false;
   }
@@ -2070,7 +2150,7 @@
   // ── 6. Context Inheritance Resolver & Multi-Tier Graph Traversal ───────────
   /**
    * Resolves direct links + parent class links + level links + container links for smart preselection.
-   * @param {Object} entityRef - { type, id, classId, tags, ... }
+   * @param {Object} entityRef - { type, id, classId, classIds, tags, ... }
    */
   async function resolveContext(entityRef) {
     if (!entityRef) return { direct: [], inherited: [], tags: [], criteria: [], scales: [], competences: [] };
@@ -2085,18 +2165,27 @@
     var seenInheritedUrns = new Set();
     var parsed = cUrn ? parseUrn(cUrn) : null;
 
-    var classId = entityRef.classId || entityRef.classGroup;
+    var classId = entityRef.classId || entityRef.classGroup || null;
+    var classIds = Array.isArray(entityRef.classIds) ? entityRef.classIds.slice() : (classId ? [classId] : []);
     if (!classId && parsed) {
       if (parsed.type === 'student') {
         var stInfo = resolveStudentInfo(parsed.id);
-        if (stInfo && stInfo.classId) classId = stInfo.classId;
+        if (stInfo) {
+          if (Array.isArray(stInfo.classIds) && stInfo.classIds.length > 0) {
+            classIds = stInfo.classIds.slice();
+          }
+          if (stInfo.classId) classId = stInfo.classId;
+        }
       } else if (parsed.type === 'class') {
         classId = parsed.id;
+        if (!classIds.includes(classId)) classIds.push(classId);
       } else if (parsed.type === 'eval' || parsed.type === 'gradesheet') {
         classId = parsed.id.split(':')[0];
+        if (!classIds.includes(classId)) classIds.push(classId);
       } else if (parsed.type === 'board' || parsed.type.startsWith('board-')) {
         var bFile = parsed.id.split(':')[0];
         classId = resolveClassGroupFromFilename(bFile);
+        if (classId && !classIds.includes(classId)) classIds.push(classId);
       }
     }
 
@@ -2121,7 +2210,7 @@
                 return;
               }
             }
-            if (classId && _isUrnOrMetaBoundToDifferentClass(al.otherUrn, al.targetMeta, classId)) {
+            if (_isUrnOrMetaBoundToDifferentClass(al.otherUrn, al.targetMeta, classId, classIds)) {
               return; // Skip cross-class inherited link
             }
             seenInheritedUrns.add(otherCan);
@@ -2134,35 +2223,39 @@
       }
     }
 
-    // 2. Class-specific inheritance fallback if classId was passed explicitly
-    if (classId) {
-      var classUrn = canonicalizeUrn(makeUrn('class', classId));
-      if (classUrn !== cUrn && (!ancestors || !ancestors.includes(classUrn))) {
-        var cLinks = await getLinksFor(classUrn);
-        cLinks.forEach(function(cl) {
-          var otherCan = canonicalizeUrn(cl.otherUrn);
-          if (otherCan !== cUrn && !seenInheritedUrns.has(otherCan)) {
-            if (_isUrnOrMetaBoundToDifferentClass(cl.otherUrn, cl.targetMeta, classId)) {
-              return;
-            }
-            seenInheritedUrns.add(otherCan);
-            inheritedLinks.push(Object.assign({}, cl, { inheritedFrom: classUrn, inheritanceReason: 'class' }));
-          }
-        });
-        var lvl = resolveClassLevel(classId);
-        if (lvl) {
-          var lvlUrn = canonicalizeUrn(makeUrn('level', lvl));
-          var lLinks = await getLinksFor(lvlUrn);
-          lLinks.forEach(function(ll) {
-            var otherCan = canonicalizeUrn(ll.otherUrn);
+    // 2. Class-specific inheritance fallback for all resolved classIds
+    if (classIds.length > 0) {
+      for (var ci = 0; ci < classIds.length; ci++) {
+        var cid = classIds[ci];
+        if (!cid) continue;
+        var classUrn = canonicalizeUrn(makeUrn('class', cid));
+        if (classUrn !== cUrn && (!ancestors || !ancestors.includes(classUrn))) {
+          var cLinks = await getLinksFor(classUrn);
+          cLinks.forEach(function(cl) {
+            var otherCan = canonicalizeUrn(cl.otherUrn);
             if (otherCan !== cUrn && !seenInheritedUrns.has(otherCan)) {
-              if (_isUrnOrMetaBoundToDifferentClass(ll.otherUrn, ll.targetMeta, classId)) {
+              if (_isUrnOrMetaBoundToDifferentClass(cl.otherUrn, cl.targetMeta, cid, classIds)) {
                 return;
               }
               seenInheritedUrns.add(otherCan);
-              inheritedLinks.push(Object.assign({}, ll, { inheritedFrom: lvlUrn, inheritanceReason: 'level' }));
+              inheritedLinks.push(Object.assign({}, cl, { inheritedFrom: classUrn, inheritanceReason: 'class' }));
             }
           });
+          var lvl = resolveClassLevel(cid);
+          if (lvl) {
+            var lvlUrn = canonicalizeUrn(makeUrn('level', lvl));
+            var lLinks = await getLinksFor(lvlUrn);
+            lLinks.forEach(function(ll) {
+              var otherCan = canonicalizeUrn(ll.otherUrn);
+              if (otherCan !== cUrn && !seenInheritedUrns.has(otherCan)) {
+                if (_isUrnOrMetaBoundToDifferentClass(ll.otherUrn, ll.targetMeta, cid, classIds)) {
+                  return;
+                }
+                seenInheritedUrns.add(otherCan);
+                inheritedLinks.push(Object.assign({}, ll, { inheritedFrom: lvlUrn, inheritanceReason: 'level' }));
+              }
+            });
+          }
         }
       }
     }
@@ -2708,6 +2801,8 @@
   var _gradeScanPromise = null;
   var _boardScanCache = null;
   var _boardScanPromise = null;
+  var _docScanCache = null;
+  var _docScanPromise = null;
   var _participationScanCache = null;
   var _participationScanPromise = null;
 
@@ -2716,6 +2811,8 @@
     _gradeScanPromise = null;
     _boardScanCache = null;
     _boardScanPromise = null;
+    _docScanCache = null;
+    _docScanPromise = null;
     _participationScanCache = null;
     _participationScanPromise = null;
   }
@@ -2800,7 +2897,7 @@
 
       var seenPaths = new Set();
 
-      function registerRawBoard(relPath, m, source) {
+      function registerRawBoard(relPath, m, source, target) {
         if (!relPath) return;
         var normRel = String(relPath).replace(/\\/g, '/').replace(/^\/+/, '');
         var key = normRel.toLowerCase();
@@ -2818,13 +2915,14 @@
           classGroup: bClass,
           plannerEntryId: bSlot,
           meta: m || {},
-          source: source || 'mindmaps'
+          source: source || 'mindmaps',
+          target: target || 'mindmaps'
         });
       }
 
       // 1. Process items from metaCache
       Object.keys(metaCache).forEach(function(rel) {
-        registerRawBoard(rel, metaCache[rel], 'cache');
+        registerRawBoard(rel, metaCache[rel], 'cache', 'mindmaps');
       });
 
       // 2. Process items from board-sessions-backup.json
@@ -2844,7 +2942,7 @@
                   title: e.name || e.title || '',
                   competences: e.competences || (e.data && e.data.competences) || []
                 };
-                registerRawBoard(fn, eMeta, 'backup');
+                registerRawBoard(fn, eMeta, 'backup', 'user');
               });
             });
           }
@@ -2854,16 +2952,33 @@
       // 3. Process items from mindmaps filesystem
       if (typeof window !== 'undefined' && window.Desktop && typeof window.Desktop.listByPath === 'function') {
         try {
-          var listRes = await window.Desktop.listByPath('mindmaps', '.', { recursive: true, extensions: ['.js', '.json', '.cstz', '.zip'] });
+          var listRes = await window.Desktop.listByPath('mindmaps', '', { recursive: true, extensions: ['.js', '.json', '.cstz', '.zip'] });
           var files = (listRes && listRes.ok && Array.isArray(listRes.files)) ? listRes.files : [];
           for (var i = 0; i < files.length; i++) {
             var f = files[i];
             var relP = (f.relativePath || f.filename || '').replace(/\\/g, '/');
             if (!relP) continue;
             var cachedMeta = metaCache[relP] || metaCache[relP.split('/').pop()] || null;
-            registerRawBoard(relP, cachedMeta, 'disk');
+            registerRawBoard(relP, cachedMeta, 'disk', 'mindmaps');
           }
         } catch (_) {}
+
+        // Also scan user subfolders for constellations & mindmaps
+        var userMindmapDirs = ['constellations', 'mindmaps', 'board'];
+        for (var dIdx = 0; dIdx < userMindmapDirs.length; dIdx++) {
+          try {
+            var uListRes = await window.Desktop.listByPath('user', userMindmapDirs[dIdx], { recursive: true, extensions: ['.js', '.json', '.cstz', '.zip'] });
+            if (uListRes && uListRes.ok && Array.isArray(uListRes.files)) {
+              for (var uIdx = 0; uIdx < uListRes.files.length; uIdx++) {
+                var uf = uListRes.files[uIdx];
+                var uRel = (uf.relativePath || uf.filename || '').replace(/\\/g, '/');
+                if (!uRel) continue;
+                var uCached = metaCache[uRel] || metaCache[uRel.split('/').pop()] || null;
+                registerRawBoard(uRel, uCached, 'disk', 'user');
+              }
+            }
+          } catch (_) {}
+        }
       }
 
       _boardScanCache = { ts: Date.now(), data: allBoards };
@@ -2874,12 +2989,81 @@
     return _boardScanPromise;
   }
 
+  async function _getOrScanDocEditorFiles() {
+    if (_docScanCache && (Date.now() - _docScanCache.ts < 20000)) {
+      return _docScanCache.data;
+    }
+    if (_docScanPromise) return _docScanPromise;
+
+    _docScanPromise = (async function() {
+      var allDocs = [];
+      var seenKeys = new Set();
+
+      function registerDoc(target, relPath, fileObj) {
+        if (!relPath) return;
+        var normRel = String(relPath).replace(/\\/g, '/').replace(/^\/+/, '');
+        var key = (target + ':' + normRel).toLowerCase();
+        if (seenKeys.has(key)) return;
+        seenKeys.add(key);
+
+        var fn = normRel.split('/').pop() || normRel;
+        var extMatch = fn.match(/\.([a-z0-9]+)$/i);
+        var ext = extMatch ? extMatch[1].toLowerCase() : '';
+        var baseName = fn.replace(/\.[^.]+$/, '');
+        var title = baseName.replace(/_/g, ' ');
+
+        allDocs.push({
+          target: target,
+          relativePath: normRel,
+          filename: fn,
+          baseName: baseName,
+          title: title,
+          extension: ext,
+          meta: (fileObj && fileObj.meta) || {}
+        });
+      }
+
+      var isElectron = typeof window !== 'undefined' && window.Desktop && typeof window.Desktop.listByPath === 'function';
+      if (isElectron) {
+        // 1. Scan docEditorDocs target
+        try {
+          var listDocs = await window.Desktop.listByPath('docEditorDocs', '', { recursive: true, extensions: ['.md', '.html', '.typ', '.txt', '.pdf', '.docx'] });
+          if (listDocs && Array.isArray(listDocs.files)) {
+            listDocs.files.forEach(function(f) {
+              registerDoc('docEditorDocs', f.relativePath || f.filename, f);
+            });
+          }
+        } catch (_) {}
+
+        // 2. Scan user target in document-editor / doceditor / files / attachments / tests / lessons
+        var userSubdirs = ['doceditor', 'document-editor/docs', 'files', 'attachments', 'lessons', 'tests'];
+        for (var i = 0; i < userSubdirs.length; i++) {
+          try {
+            var uList = await window.Desktop.listByPath('user', userSubdirs[i], { recursive: true, extensions: ['.md', '.html', '.typ', '.pdf', '.docx', '.txt', '.json'] });
+            if (uList && Array.isArray(uList.files)) {
+              uList.files.forEach(function(f) {
+                var p = userSubdirs[i] + '/' + (f.relativePath || f.filename).replace(/\\/g, '/');
+                registerDoc('user', p, f);
+              });
+            }
+          } catch (_) {}
+        }
+      }
+
+      _docScanCache = { ts: Date.now(), data: allDocs };
+      _docScanPromise = null;
+      return allDocs;
+    })();
+
+    return _docScanPromise;
+  }
+
   /**
    * Scans user/grades/ to extract all tests, scores, criteria rubrics, and observations
    * recorded in Grade Sheet for a given student and computes weighted semester/annual averages.
    */
-  async function _loadStudentGradeSheetData(studentId, classId, studentName) {
-    var emptyRes = { classId: classId || '', className: '', tests: [], sem1Average: null, sem2Average: null, yearAverage: null, gradedCount: 0, totalTests: 0 };
+  async function _loadStudentGradeSheetData(studentId, classId, studentName, allClassIds) {
+    var emptyRes = { classId: classId || '', className: '', classIds: [], tests: [], sem1Average: null, sem2Average: null, yearAverage: null, gradedCount: 0, totalTests: 0 };
     if (!studentId) return emptyRes;
 
     try {
@@ -2888,54 +3072,91 @@
       var testList = scanResult.testList || [];
 
       var targetName = (studentName || '').trim().toUpperCase();
-      var matchedClassId = classId || null;
-      var matchedSubdir = null;
-      var matchedClassName = '';
+      var stInfo = resolveStudentInfo(studentId) || {};
+      var targetClassIds = Array.isArray(allClassIds) && allClassIds.length > 0
+        ? allClassIds.slice()
+        : (Array.isArray(stInfo.classIds) && stInfo.classIds.length > 0
+          ? stInfo.classIds.slice()
+          : (classId ? [classId] : []));
+      if (classId && !targetClassIds.includes(classId)) {
+        targetClassIds.unshift(classId);
+      }
+
+      var matchedSubdirs = [];
+      var subdirMetaMap = {};
       var gsStudentId = null;
 
-      // 1. Locate matching class directory and student roster entry
+      // 1. Locate matching class directories and student roster entries
       for (var i = 0; i < classList.length; i++) {
         var item = classList[i];
-        var meta = item.meta;
-        var isClassMatch = false;
-        if (classId && (meta.classId === classId || meta.groupId === classId || item.subdir === classId)) {
-          isClassMatch = true;
+        var meta = item.meta || {};
+        var subdir = item.subdir;
+        var isTargetClassMatch = false;
+
+        if (classId) {
+          if (meta.classId === classId || meta.groupId === classId || subdir === classId) {
+            isTargetClassMatch = true;
+          }
+        } else if (targetClassIds.length > 0) {
+          if (targetClassIds.includes(meta.classId) || targetClassIds.includes(meta.groupId) || targetClassIds.includes(subdir)) {
+            isTargetClassMatch = true;
+          }
         }
 
         var studentMatch = (meta.students || []).find(function(s) {
-          if (s.id && s.id === studentId) return true;
+          if (s.id && (s.id === studentId || String(s.id).toLowerCase() === String(studentId).toLowerCase())) return true;
           var first = (s.firstName || '').trim().toUpperCase();
           var last = (s.lastName || '').trim().toUpperCase();
           var full = last ? (first + ' ' + last) : first;
           return (targetName && (full === targetName || first === targetName));
         });
 
-        if (isClassMatch || studentMatch) {
-          matchedClassId = meta.classId || classId;
-          matchedSubdir = item.subdir;
-          matchedClassName = meta.className || '';
-          if (studentMatch) gsStudentId = studentMatch.id;
-          break;
+        if (studentMatch && !gsStudentId) {
+          gsStudentId = studentMatch.id;
+        }
+
+        // If specific classId requested: only match that class
+        if (classId) {
+          if (isTargetClassMatch || (targetClassIds.length === 1 && studentMatch)) {
+            if (!matchedSubdirs.includes(subdir)) {
+              matchedSubdirs.push(subdir);
+              subdirMetaMap[subdir] = meta;
+            }
+          }
+        } else {
+          // Multi-class / 360 dossier: collect all classes where student is enrolled
+          if (isTargetClassMatch || studentMatch) {
+            if (!matchedSubdirs.includes(subdir)) {
+              matchedSubdirs.push(subdir);
+              subdirMetaMap[subdir] = meta;
+            }
+          }
         }
       }
 
-      if (!matchedSubdir && classId) {
-        matchedSubdir = classId;
+      if (matchedSubdirs.length === 0 && classId) {
+        matchedSubdirs.push(classId);
       }
-      if (!matchedSubdir) {
+      if (matchedSubdirs.length === 0 && targetClassIds.length > 0) {
+        targetClassIds.forEach(function(cid) { if (!matchedSubdirs.includes(cid)) matchedSubdirs.push(cid); });
+      }
+      if (matchedSubdirs.length === 0) {
         return emptyRes;
       }
 
       var targetStudentId = gsStudentId || studentId;
 
-      // 2. Filter test files for the class
+      // 2. Filter test files for all matched class subdirs
       var relevantTestFiles = testList.filter(function(t) {
-        return t.relativePath.startsWith(matchedSubdir + '/');
+        return matchedSubdirs.some(function(sub) {
+          return t.relativePath.startsWith(sub + '/');
+        });
       });
 
       var tests = [];
       var sem1Tests = [];
       var sem2Tests = [];
+      var isMultiClass = matchedSubdirs.length > 1;
 
       for (var j = 0; j < relevantTestFiles.length; j++) {
         var testData = relevantTestFiles[j].data;
@@ -2948,7 +3169,7 @@
         var results = Array.isArray(testData.results) ? testData.results : [];
 
         var studentResult = results.find(function(r) {
-          if (r.studentId && (r.studentId === targetStudentId || r.studentId === studentId)) return true;
+          if (r.studentId && (r.studentId === targetStudentId || r.studentId === studentId || String(r.studentId).toLowerCase() === String(studentId).toLowerCase())) return true;
           if (targetName && r.name && r.name.trim().toUpperCase() === targetName) return true;
           return false;
         });
@@ -2967,7 +3188,13 @@
         var maxScore = cfg.maxScore || null;
         var gradingScale = cfg.gradingScale || '';
 
-        var testUrn = 'cmt:gradesheet:' + (matchedClassId || classId || 'active') + ':' + sem + ':' + idx + ':student:' + studentId;
+        var fileRelPath = relevantTestFiles[j].relativePath;
+        var fileSubdir = fileRelPath.split('/')[0] || '';
+        var fileMeta = subdirMetaMap[fileSubdir] || {};
+        var fileClassId = fileMeta.classId || fileSubdir || classId || 'active';
+        var fileClassName = fileMeta.className || resolveClassName(fileClassId) || fileClassId;
+
+        var testUrn = 'cmt:gradesheet:' + fileClassId + ':' + sem + ':' + idx + ':student:' + studentId;
         var semLabel = sem === 'sem1' ? 'SEM 1' : 'SEM 2';
 
         var subParts = [];
@@ -2975,6 +3202,9 @@
           subParts.push('Score: ' + score + (maxScore ? ('/' + maxScore) : ''));
         } else {
           subParts.push('No score recorded');
+        }
+        if (isMultiClass && fileClassName) {
+          subParts.push(fileClassName);
         }
         if (fixedW != null) {
           subParts.push('Fixed: ' + fixedW + '%');
@@ -2984,6 +3214,8 @@
         if (testDate) {
           subParts.push(testDate);
         }
+
+        var badgeLabel = '[' + semLabel + (isMultiClass && fileClassName ? (' • ' + fileClassName) : '') + ' • ' + (testType || 'TEST').toUpperCase() + ']';
 
         var testItem = {
           urn: testUrn,
@@ -3003,11 +3235,11 @@
           testNotes: testNotes,
           criteriaResults: criteriaResults,
           criteria: cfg.criteria || [],
-          badge: '[' + semLabel + ' • ' + (testType || 'TEST').toUpperCase() + ']',
+          badge: badgeLabel,
           subtitle: subParts.join(' • '),
           meta: {
-            classId: matchedClassId || classId,
-            className: matchedClassName,
+            classId: fileClassId,
+            className: fileClassName,
             semester: sem,
             testIndex: idx,
             testName: testName,
@@ -3036,33 +3268,58 @@
 
       function calcSemAvg(tList) {
         var fixedSum = 0, fixedPct = 0, normalSum = 0, normalWeight = 0;
+        var scoredCount = 0;
         tList.forEach(function(t) {
           if (t.score == null || isNaN(t.score)) return;
+          scoredCount++;
           var num = Number(t.score);
-          if (t.fixedWeight != null) {
+          if (t.fixedWeight != null && !isNaN(t.fixedWeight) && t.fixedWeight > 0) {
             fixedSum += num * t.fixedWeight / 100;
             fixedPct += t.fixedWeight / 100;
           } else {
-            var c = Math.max(0, t.coefficient);
+            var c = (typeof t.coefficient === 'number' && !isNaN(t.coefficient) && t.coefficient > 0) ? t.coefficient : 1;
             normalSum += num * c;
             normalWeight += c;
           }
         });
+        if (scoredCount === 0) return null;
         if (fixedPct === 0 && normalWeight === 0) return null;
+        if (fixedPct > 0 && normalWeight === 0) return fixedSum / fixedPct;
         var normalProportion = Math.max(0, 1 - fixedPct);
-        var normalAvg = normalWeight > 0 ? normalSum / normalWeight : null;
-        return fixedSum + (normalAvg != null ? normalProportion * normalAvg : 0);
+        var normalAvg = normalWeight > 0 ? normalSum / normalWeight : 0;
+        return fixedSum + normalProportion * normalAvg;
       }
 
       var sem1Avg = calcSemAvg(sem1Tests);
       var sem2Avg = calcSemAvg(sem2Tests);
       var validAvgs = [sem1Avg, sem2Avg].filter(function(v) { return v != null; });
       var yearAvg = validAvgs.length ? (validAvgs.reduce(function(a, b) { return a + b; }, 0) / validAvgs.length) : null;
-      var gradedCount = tests.filter(function(t) { return t.score != null; }).length;
+      var scoredTests = tests.filter(function(t) { return t.score != null && !isNaN(t.score); });
+      var gradedCount = scoredTests.length;
+
+      // Robust fallback: if semester-specific averages could not be calculated, compute overall weighted average of all scored tests
+      if (yearAvg == null && scoredTests.length > 0) {
+        var totalW = 0, totalWScore = 0;
+        scoredTests.forEach(function(stItem) {
+          var w = (typeof stItem.coefficient === 'number' && !isNaN(stItem.coefficient) && stItem.coefficient > 0) ? stItem.coefficient : 1;
+          var sc = Number(stItem.score);
+          var max = (typeof stItem.maxScore === 'number' && stItem.maxScore > 0) ? stItem.maxScore : 6;
+          var normScore = max === 6 ? sc : (sc / max) * 6;
+          totalWScore += normScore * w;
+          totalW += w;
+        });
+        if (totalW > 0) {
+          yearAvg = totalWScore / totalW;
+        }
+      }
+
+      var primaryMatchedClassId = matchedSubdirs[0] || classId || '';
+      var primaryMatchedClassName = (subdirMetaMap[primaryMatchedClassId] && subdirMetaMap[primaryMatchedClassId].className) || resolveClassName(primaryMatchedClassId) || '';
 
       return {
-        classId: matchedClassId || classId,
-        className: matchedClassName,
+        classId: primaryMatchedClassId,
+        className: primaryMatchedClassName,
+        classIds: matchedSubdirs,
         tests: tests,
         sem1Average: sem1Avg != null ? Number(sem1Avg.toFixed(2)) : null,
         sem2Average: sem2Avg != null ? Number(sem2Avg.toFixed(2)) : null,
@@ -3078,37 +3335,123 @@
 
   /**
    * Scans and aggregates all board constellation and mindmap session files
-   * associated with a student, their class group, or their class planner slots.
+   * associated with a student, their class groups, or their class planner slots.
    */
-  async function _loadStudentBoardData(studentId, classId, level) {
+  async function _loadStudentBoardData(studentId, classId, level, allClassIds) {
     var boards = [];
     var seenKeys = new Set();
-    if (!classId && !studentId) return boards;
+    if (!classId && !studentId && (!allClassIds || !allClassIds.length)) return boards;
 
-    var cleanCid = (classId || '').trim();
-    var cleanCidLower = cleanCid.toLowerCase();
+    var stInfo = resolveStudentInfo(studentId) || {};
+    var targetClassIds = Array.isArray(allClassIds) && allClassIds.length > 0
+      ? allClassIds.slice()
+      : (Array.isArray(stInfo.classIds) && stInfo.classIds.length > 0
+        ? stInfo.classIds.slice()
+        : (classId ? [classId] : []));
+    if (classId && !targetClassIds.includes(classId)) {
+      targetClassIds.unshift(classId);
+    }
 
-    // 1. Gather all planner slot IDs belonging to this class
+    var cleanStId = String(studentId || '').trim().toLowerCase();
+    var stFirstName = (stInfo.firstName || '').trim().toLowerCase();
+    var stLastName = (stInfo.lastName || '').trim().toLowerCase();
+    var normStudentName = (stInfo.name || '').trim().toLowerCase();
+    var reg = await loadRegistry();
+
+    // 1. Gather all planner slot IDs and lesson IDs belonging to ANY of the student's classes
     var classSlotIds = new Set();
     if (typeof window !== 'undefined') {
-      if (window.PLANNER_ENTRIES_BY_CLASS && cleanCid && window.PLANNER_ENTRIES_BY_CLASS[cleanCid]) {
-        var slots = Array.isArray(window.PLANNER_ENTRIES_BY_CLASS[cleanCid]) ? window.PLANNER_ENTRIES_BY_CLASS[cleanCid] : [];
-        slots.forEach(function(s) {
-          if (s && s.id) classSlotIds.add(String(s.id).trim());
-          if (s && s.plannerEntryId) classSlotIds.add(String(s.plannerEntryId).trim());
-        });
-      }
-      if (window.PLANNER_CONFIG && Array.isArray(window.PLANNER_CONFIG.entries)) {
-        window.PLANNER_CONFIG.entries.forEach(function(e) {
-          if (!e) return;
-          var eCid = (e.classId || e.classGroup || '').trim();
-          if (cleanCid && eCid.toLowerCase() === cleanCidLower && e.id) {
-            classSlotIds.add(String(e.id).trim());
+      targetClassIds.forEach(function(cid) {
+        var cleanCid = String(cid).trim();
+        var cleanCidLower = cleanCid.toLowerCase();
+        if (window.PLANNER_ENTRIES_BY_CLASS && window.PLANNER_ENTRIES_BY_CLASS[cleanCid]) {
+          var slots = Array.isArray(window.PLANNER_ENTRIES_BY_CLASS[cleanCid]) ? window.PLANNER_ENTRIES_BY_CLASS[cleanCid] : [];
+          slots.forEach(function(s) {
+            if (s && s.id) classSlotIds.add(String(s.id).trim());
+            if (s && s.plannerEntryId) classSlotIds.add(String(s.plannerEntryId).trim());
+          });
+        }
+        if (window.PLANNER_CONFIG && Array.isArray(window.PLANNER_CONFIG.entries)) {
+          window.PLANNER_CONFIG.entries.forEach(function(e) {
+            if (!e) return;
+            var eCid = (e.classId || e.classGroup || '').trim();
+            if (cleanCid && eCid.toLowerCase() === cleanCidLower && e.id) {
+              classSlotIds.add(String(e.id).trim());
+            }
+          });
+        }
+      });
+    }
+
+    // 2. Gather relevant URNs for graph edge matching
+    var relevantUrns = new Set();
+    if (studentId) {
+      relevantUrns.add(canonicalizeUrn(makeUrn('student', studentId)));
+    }
+    targetClassIds.forEach(function(cid) {
+      if (cid) relevantUrns.add(canonicalizeUrn(makeUrn('class', cid)));
+    });
+    classSlotIds.forEach(function(sid) {
+      relevantUrns.add(canonicalizeUrn(makeUrn('planner', sid)));
+      relevantUrns.add(canonicalizeUrn(makeUrn('lesson', sid)));
+    });
+
+    // 3. Traverse registry edges for connected board mindmaps
+    if (reg && Array.isArray(reg.edges)) {
+      for (var rIdx = 0; rIdx < reg.edges.length; rIdx++) {
+        var e = reg.edges[rIdx];
+        var sCan = canonicalizeUrn(e.source);
+        var tCan = canonicalizeUrn(e.target);
+        var matchedOther = null;
+
+        if (relevantUrns.has(sCan)) {
+          matchedOther = tCan;
+        } else if (relevantUrns.has(tCan)) {
+          matchedOther = sCan;
+        }
+
+        if (matchedOther) {
+          var pOther = parseUrn(matchedOther);
+          var oType = (pOther ? pOther.type : '').toLowerCase();
+          var isBoard = oType.startsWith('board') || oType === 'mindmap' || oType === 'mindmaps' || oType === 'constellation';
+          if (!isBoard && e.meta && (e.meta.category === 'mindmap' || e.meta.category === 'board')) {
+            isBoard = true;
           }
-        });
+
+          if (isBoard) {
+            var normRelOther = (pOther ? pOther.id : matchedOther).replace(/^cmt:board:/, '').replace(/^mindmaps\//, '');
+            var keyOther = normRelOther.toLowerCase();
+            if (!seenKeys.has(keyOther)) {
+              seenKeys.add(keyOther);
+              var display = await resolveUrnDisplay(matchedOther);
+              var isArchivedOther = normRelOther.startsWith('archived/');
+              var badgeOther = isArchivedOther ? '[ARCHIVED MINDMAP]' : '[MINDMAP]';
+              var subOther = display.subtitle || ('Board Mindmap' + (targetClassIds[0] ? (' • ' + (resolveClassName(targetClassIds[0]) || targetClassIds[0])) : ''));
+
+              boards.push({
+                urn: matchedOther,
+                type: 'board',
+                source: 'registry',
+                title: display.title,
+                subtitle: subOther,
+                badge: badgeOther,
+                isArchived: isArchivedOther,
+                relativePath: normRelOther,
+                target: 'mindmaps',
+                meta: Object.assign({}, display.meta || {}, e.meta || {}, {
+                  classGroup: targetClassIds[0] || '',
+                  isArchived: isArchivedOther,
+                  relativePath: normRelOther,
+                  target: 'mindmaps'
+                })
+              });
+            }
+          }
+        }
       }
     }
 
+    // 4. Match all scanned raw boards
     var allRawBoards = await _getOrScanBoardFiles();
 
     for (var i = 0; i < allRawBoards.length; i++) {
@@ -3119,19 +3462,60 @@
 
       var bClass = item.classGroup || resolveClassGroupFromFilename(normRel) || '';
       var bSlot = item.plannerEntryId || '';
+      var relLower = normRel.toLowerCase();
+      var baseLower = (item.baseName || '').toLowerCase();
 
       var isMatch = false;
-      if (cleanCid && bClass && (bClass.trim().toLowerCase() === cleanCidLower || _stripZeroPaddingClassToken(bClass) === _stripZeroPaddingClassToken(cleanCid))) {
+
+      // Student match (UUID or name in file path/name)
+      if (cleanStId && (relLower.includes(cleanStId) || baseLower.includes(cleanStId))) {
+        isMatch = true;
+      } else if (normStudentName && normStudentName.length >= 3 && (relLower.includes(normStudentName) || baseLower.includes(normStudentName.replace(/\s+/g, '_')))) {
+        isMatch = true;
+      } else if (stFirstName && stLastName && stFirstName.length >= 2 && stLastName.length >= 2 &&
+                 (baseLower.includes(stFirstName) && baseLower.includes(stLastName))) {
         isMatch = true;
       }
-      if (bSlot && classSlotIds.has(bSlot)) {
-        isMatch = true;
-      }
-      if (!isMatch && !bClass && cleanCid) {
-        var inferred = resolveClassGroupFromFilename(normRel);
-        if (inferred && (inferred.trim().toLowerCase() === cleanCidLower || _stripZeroPaddingClassToken(inferred) === _stripZeroPaddingClassToken(cleanCid))) {
-          isMatch = true;
+
+      // Class match against any of targetClassIds
+      if (!isMatch && targetClassIds.length > 0) {
+        for (var tci = 0; tci < targetClassIds.length; tci++) {
+          var cleanCid = String(targetClassIds[tci] || '').trim();
+          var cleanCidLower = cleanCid.toLowerCase();
+          var cleanCidNoPad = _stripZeroPaddingClassToken(cleanCid);
+          if (!cleanCid) continue;
+
+          if (bClass && (bClass.trim().toLowerCase() === cleanCidLower || _stripZeroPaddingClassToken(bClass) === cleanCidNoPad)) {
+            isMatch = true;
+            break;
+          } else {
+            var inferred = resolveClassGroupFromFilename(normRel);
+            if (inferred && (inferred.trim().toLowerCase() === cleanCidLower || _stripZeroPaddingClassToken(inferred) === cleanCidNoPad)) {
+              isMatch = true;
+              break;
+            } else {
+              var pathParts = normRel.split('/');
+              for (var pIdx = 0; pIdx < pathParts.length - 1; pIdx++) {
+                var part = pathParts[pIdx].trim().toLowerCase();
+                if (part === cleanCidLower || _stripZeroPaddingClassToken(part) === cleanCidNoPad) {
+                  isMatch = true;
+                  break;
+                }
+              }
+              if (isMatch) break;
+              var fnClassTokens = baseLower.split(/[^a-z0-9]+/);
+              if (fnClassTokens.includes(cleanCidLower) || (cleanCidNoPad && fnClassTokens.includes(cleanCidNoPad))) {
+                isMatch = true;
+                break;
+              }
+            }
+          }
         }
+      }
+
+      // Slot match
+      if (!isMatch && bSlot && classSlotIds.has(bSlot)) {
+        isMatch = true;
       }
 
       if (!isMatch) continue;
@@ -3147,6 +3531,9 @@
       if (bClass) {
         var cName = resolveClassName(bClass) || bClass;
         subtitleParts.push(cName);
+      } else if (targetClassIds[0]) {
+        var cName2 = resolveClassName(targetClassIds[0]) || targetClassIds[0];
+        subtitleParts.push(cName2);
       }
       if (normRel.includes('/')) {
         subtitleParts.push(normRel);
@@ -3161,13 +3548,13 @@
         badge: badge,
         isArchived: isArchived,
         relativePath: normRel,
-        target: 'mindmaps',
+        target: item.target || 'mindmaps',
         meta: Object.assign({}, item.meta || {}, {
-          classGroup: bClass || cleanCid,
+          classGroup: bClass || targetClassIds[0] || '',
           plannerEntryId: bSlot,
           isArchived: isArchived,
           relativePath: normRel,
-          target: 'mindmaps'
+          target: item.target || 'mindmaps'
         })
       });
     }
@@ -3176,54 +3563,79 @@
   }
 
   /**
-   * Scans and aggregates all planner lesson slots for a student's class group.
+   * Scans and aggregates all planner lesson slots for a student's class groups.
    */
-  async function _loadStudentLessonData(studentId, classId) {
+  async function _loadStudentLessonData(studentId, classId, allClassIds) {
     var lessons = [];
     var seenIds = new Set();
-    if (!classId) return lessons;
-    var cleanCid = classId.trim();
-    var cleanCidLower = cleanCid.toLowerCase();
+    var stInfo = resolveStudentInfo(studentId) || {};
+    var targetClassIds = Array.isArray(allClassIds) && allClassIds.length > 0
+      ? allClassIds.slice()
+      : (Array.isArray(stInfo.classIds) && stInfo.classIds.length > 0
+        ? stInfo.classIds.slice()
+        : (classId ? [classId] : []));
+    if (classId && !targetClassIds.includes(classId)) {
+      targetClassIds.unshift(classId);
+    }
+    if (targetClassIds.length === 0) return lessons;
+
+    var targetClassIdsLower = targetClassIds.map(function(c) { return String(c).trim().toLowerCase(); });
 
     if (typeof window !== 'undefined') {
-      if (window.PLANNER_ENTRIES_BY_CLASS && window.PLANNER_ENTRIES_BY_CLASS[cleanCid]) {
-        var list = Array.isArray(window.PLANNER_ENTRIES_BY_CLASS[cleanCid]) ? window.PLANNER_ENTRIES_BY_CLASS[cleanCid] : [];
-        list.forEach(function(ent) {
-          if (!ent || !ent.id) return;
-          var key = String(ent.id).trim();
-          if (seenIds.has(key)) return;
-          seenIds.add(key);
-          var lUrn = canonicalizeUrn(makeUrn('planner', ent.id));
-          var title = ent.title || ent.lessonTitle || ent.unitTitle || ('Lesson ' + (ent.slotIndex || ent.id));
-          var sub = [ent.date || '', ent.subject || '', ent.room || ''].filter(Boolean).join(' • ');
-          lessons.push({
-            urn: lUrn,
-            type: 'planner',
-            source: 'planner',
-            title: title,
-            subtitle: sub || 'Planner Lesson Slot',
-            badge: '[LESSON]',
-            meta: ent
+      targetClassIds.forEach(function(cleanCid) {
+        if (!cleanCid) return;
+        if (window.PLANNER_ENTRIES_BY_CLASS && window.PLANNER_ENTRIES_BY_CLASS[cleanCid]) {
+          var list = Array.isArray(window.PLANNER_ENTRIES_BY_CLASS[cleanCid]) ? window.PLANNER_ENTRIES_BY_CLASS[cleanCid] : [];
+          list.forEach(function(ent) {
+            if (!ent || !ent.id) return;
+            var key = String(ent.id).trim();
+            if (seenIds.has(key)) return;
+            seenIds.add(key);
+            var lUrn = canonicalizeUrn(makeUrn('planner', ent.id));
+            var title = ent.title || ent.lessonTitle || ent.unitTitle || ('Lesson ' + (ent.slotIndex || ent.id));
+            var subParts = [ent.date || ''];
+            if (targetClassIds.length > 1) {
+              subParts.push(resolveClassName(cleanCid) || cleanCid);
+            }
+            if (ent.subject) subParts.push(ent.subject);
+            if (ent.room) subParts.push(ent.room);
+            var sub = subParts.filter(Boolean).join(' • ');
+            lessons.push({
+              urn: lUrn,
+              type: 'planner',
+              source: 'planner',
+              title: title,
+              subtitle: sub || 'Planner Lesson Slot',
+              badge: '[LESSON]',
+              meta: ent
+            });
           });
-        });
-      }
+        }
+      });
+
       if (window.PLANNER_CONFIG && Array.isArray(window.PLANNER_CONFIG.entries)) {
         window.PLANNER_CONFIG.entries.forEach(function(ent) {
           if (!ent || !ent.id) return;
           var eCid = (ent.classId || ent.classGroup || '').trim();
-          if (eCid.toLowerCase() !== cleanCidLower) return;
+          if (!targetClassIdsLower.includes(eCid.toLowerCase())) return;
           var key = String(ent.id).trim();
           if (seenIds.has(key)) return;
           seenIds.add(key);
           var lUrn = canonicalizeUrn(makeUrn('planner', ent.id));
           var title = ent.title || ent.lessonTitle || ent.unitTitle || ('Lesson ' + (ent.slotIndex || ent.id));
-          var sub = [ent.date || '', ent.subject || '', ent.room || ''].filter(Boolean).join(' • ');
+          var subParts2 = [ent.date || ''];
+          if (targetClassIds.length > 1 && eCid) {
+            subParts2.push(resolveClassName(eCid) || eCid);
+          }
+          if (ent.subject) subParts2.push(ent.subject);
+          if (ent.room) subParts2.push(ent.room);
+          var sub2 = subParts2.filter(Boolean).join(' • ');
           lessons.push({
             urn: lUrn,
             type: 'planner',
             source: 'planner',
             title: title,
-            subtitle: sub || 'Planner Lesson Slot',
+            subtitle: sub2 || 'Planner Lesson Slot',
             badge: '[LESSON]',
             meta: ent
           });
@@ -3234,13 +3646,231 @@
   }
 
   /**
+   * Scans and aggregates all documents, handouts, worksheets, and attached files
+   * associated with a student, their class groups, their evaluations/tests, or their delivered lesson plans.
+   */
+  async function _loadStudentDocumentData(studentId, classId, level, studentName, gradeData, lessonData, allClassIds) {
+    var documents = [];
+    var seenUrns = new Set();
+    var reg = await loadRegistry();
+
+    var stInfo = resolveStudentInfo(studentId) || {};
+    var targetClassIds = Array.isArray(allClassIds) && allClassIds.length > 0
+      ? allClassIds.slice()
+      : (Array.isArray(stInfo.classIds) && stInfo.classIds.length > 0
+        ? stInfo.classIds.slice()
+        : (classId ? [classId] : []));
+    if (classId && !targetClassIds.includes(classId)) {
+      targetClassIds.unshift(classId);
+    }
+
+    var cleanStId = String(studentId || '').trim().toLowerCase();
+    var normStudentName = (studentName || '').trim().toLowerCase();
+    var stFirstName = (stInfo.firstName || '').trim().toLowerCase();
+    var stLastName = (stInfo.lastName || '').trim().toLowerCase();
+
+    // 1. Gather all related URNs for graph edge matching
+    var relevantUrns = new Set();
+    if (studentId) {
+      relevantUrns.add(canonicalizeUrn(makeUrn('student', studentId)));
+    }
+    targetClassIds.forEach(function(cid) {
+      if (cid) relevantUrns.add(canonicalizeUrn(makeUrn('class', cid)));
+    });
+    (gradeData && gradeData.tests ? gradeData.tests : []).forEach(function(t) {
+      if (t.urn) relevantUrns.add(canonicalizeUrn(t.urn));
+      var tClass = (t.meta && t.meta.classId) || targetClassIds[0] || '';
+      if (tClass && t.semester && t.testIndex !== undefined) {
+        relevantUrns.add(canonicalizeUrn(makeUrn('eval', tClass + ':' + t.semester + ':' + t.testIndex)));
+        if (studentId) {
+          relevantUrns.add(canonicalizeUrn(makeUrn('eval', tClass + ':' + t.semester + ':' + t.testIndex + ':student:' + studentId)));
+        }
+      }
+    });
+    (lessonData || []).forEach(function(l) {
+      if (l.urn) relevantUrns.add(canonicalizeUrn(l.urn));
+      if (l.meta && l.meta.id) {
+        relevantUrns.add(canonicalizeUrn(makeUrn('planner', l.meta.id)));
+        relevantUrns.add(canonicalizeUrn(makeUrn('lesson', l.meta.id)));
+      }
+    });
+
+    // 2. Traverse registry edges for connected documents/files/handouts
+    if (reg && Array.isArray(reg.edges)) {
+      for (var i = 0; i < reg.edges.length; i++) {
+        var e = reg.edges[i];
+        var sCan = canonicalizeUrn(e.source);
+        var tCan = canonicalizeUrn(e.target);
+        var matchedOther = null;
+
+        if (relevantUrns.has(sCan)) {
+          matchedOther = tCan;
+        } else if (relevantUrns.has(tCan)) {
+          matchedOther = sCan;
+        }
+
+        if (matchedOther) {
+          var pOther = parseUrn(matchedOther);
+          var oType = (pOther ? pOther.type : '').toLowerCase();
+          var isDocOrFile = oType === 'doc' || oType === 'document' || oType === 'file' || oType === 'doc_section' || oType === 'submission' || oType === 'handout';
+          if (!isDocOrFile && e.meta && (e.meta.category === 'file' || e.meta.category === 'doc' || e.meta.relation === 'handout_for_lesson' || e.meta.relation === 'printable_handout')) {
+            isDocOrFile = true;
+          }
+
+          if (isDocOrFile && !seenUrns.has(matchedOther)) {
+            seenUrns.add(matchedOther);
+            var display = await resolveUrnDisplay(matchedOther);
+            var isHandout = (e.relation && e.relation.includes('handout')) || (e.meta && e.meta.relation && e.meta.relation.includes('handout')) || display.title.toLowerCase().includes('handout') || (display.subtitle && display.subtitle.toLowerCase().includes('handout'));
+            var isSubm = oType === 'submission' || (e.relation === 'submission') || (e.meta && e.meta.relation === 'submission');
+            var badge = isSubm ? '[SUBMISSION]' : (isHandout ? '[HANDOUT]' : display.badge || '[DOC]');
+
+            documents.push({
+              urn: matchedOther,
+              type: oType === 'file' ? 'file' : 'doc',
+              source: 'registry',
+              title: display.title,
+              subtitle: display.subtitle || (isHandout ? 'Class Handout' : 'Document Editor'),
+              badge: badge,
+              relativePath: display.relativePath || (pOther ? pOther.id : ''),
+              target: display.target || 'docEditorDocs',
+              meta: Object.assign({}, display.meta || {}, e.meta || {}, { edgeRelation: e.relation })
+            });
+          }
+        }
+      }
+    }
+
+    // 3. Scan filesystem for class / student documents & handouts
+    try {
+      var scannedDocs = await _getOrScanDocEditorFiles();
+      for (var j = 0; j < scannedDocs.length; j++) {
+        var d = scannedDocs[j];
+        var relLower = d.relativePath.toLowerCase();
+        var fnLower = d.filename.toLowerCase();
+        var isMatch = false;
+        var matchReason = '';
+        var matchedClass = '';
+
+        // Check student match (student uuid or student name in filename/path)
+        if (cleanStId && (relLower.includes(cleanStId) || fnLower.includes(cleanStId))) {
+          isMatch = true;
+          matchReason = 'student_id';
+        } else if (normStudentName && normStudentName.length >= 3 && (relLower.includes(normStudentName) || fnLower.includes(normStudentName.replace(/\s+/g, '_')))) {
+          isMatch = true;
+          matchReason = 'student_name';
+        } else if (stFirstName && stLastName && stFirstName.length >= 2 && stLastName.length >= 2 &&
+                   (fnLower.includes(stFirstName) && fnLower.includes(stLastName))) {
+          isMatch = true;
+          matchReason = 'student_fullname';
+        }
+
+        // Check class match against any of targetClassIds
+        if (!isMatch && targetClassIds.length > 0) {
+          for (var tIdx = 0; tIdx < targetClassIds.length; tIdx++) {
+            var cleanCid = String(targetClassIds[tIdx] || '').trim();
+            var cleanCidLower = cleanCid.toLowerCase();
+            var cleanCidNoPad = _stripZeroPaddingClassToken(cleanCid);
+            if (!cleanCid) continue;
+
+            var pathParts = d.relativePath.split('/');
+            for (var pIdx = 0; pIdx < pathParts.length - 1; pIdx++) {
+              var part = pathParts[pIdx].trim().toLowerCase();
+              if (part === cleanCidLower || _stripZeroPaddingClassToken(part) === cleanCidNoPad) {
+                isMatch = true;
+                matchReason = 'class_folder';
+                matchedClass = cleanCid;
+                break;
+              }
+            }
+
+            if (!isMatch) {
+              var fnClassTokens = fnLower.split(/[^a-z0-9]+/);
+              if (fnClassTokens.includes(cleanCidLower) || (cleanCidNoPad && fnClassTokens.includes(cleanCidNoPad))) {
+                isMatch = true;
+                matchReason = 'class_filename';
+                matchedClass = cleanCid;
+                break;
+              }
+            }
+            if (isMatch) break;
+          }
+        }
+
+        if (isMatch) {
+          var docUrn = canonicalizeUrn(makeUrn(d.target === 'user' ? 'file' : 'doc', d.target === 'docEditorDocs' ? ('docEditorDocs/' + d.relativePath) : d.relativePath));
+          if (!seenUrns.has(docUrn)) {
+            seenUrns.add(docUrn);
+            var isHandoutFn = fnLower.includes('handout') || fnLower.includes('worksheet') || fnLower.includes('exercise') || fnLower.includes('fiche') || fnLower.includes('polycopie');
+            var isTestFn = fnLower.includes('test') || fnLower.includes('eval') || fnLower.includes('exam') || fnLower.includes('quiz');
+            var isSubmFn = matchReason.startsWith('student');
+
+            var docBadge = isSubmFn ? '[SUBMISSION]' : (isHandoutFn ? '[HANDOUT]' : (isTestFn ? '[TEST PAPER]' : (d.extension === 'pdf' ? '[FILE]' : '[DOC]')));
+            var subParts = [];
+            if (d.target === 'docEditorDocs') subParts.push('Document Editor');
+            else if (d.target === 'user') subParts.push('User Files');
+            if (matchedClass || targetClassIds[0]) subParts.push(resolveClassName(matchedClass || targetClassIds[0]) || (matchedClass || targetClassIds[0]));
+            subParts.push(d.relativePath);
+
+            documents.push({
+              urn: docUrn,
+              type: d.target === 'user' ? 'file' : 'doc',
+              source: 'disk',
+              title: d.title,
+              subtitle: subParts.join(' • '),
+              badge: docBadge,
+              relativePath: d.relativePath,
+              target: d.target,
+              meta: Object.assign({}, d.meta || {}, { matchReason: matchReason, classGroup: matchedClass || targetClassIds[0] || '' })
+            });
+          }
+        }
+      }
+    } catch (_) {}
+
+    // 4. Extract attached handouts/files from Grade Sheet tests and Lesson plans
+    (gradeData && gradeData.tests ? gradeData.tests : []).forEach(function(gt) {
+      var rawAtts = [];
+      if (gt.meta) {
+        if (gt.meta.handout) rawAtts.push(gt.meta.handout);
+        if (gt.meta.handoutUrn) rawAtts.push(gt.meta.handoutUrn);
+        if (gt.meta.attachedDoc) rawAtts.push(gt.meta.attachedDoc);
+        if (Array.isArray(gt.meta.attachments)) rawAtts = rawAtts.concat(gt.meta.attachments);
+        if (Array.isArray(gt.meta.attachedFiles)) rawAtts = rawAtts.concat(gt.meta.attachedFiles);
+      }
+      rawAtts.forEach(function(att) {
+        if (!att) return;
+        var attUrn = typeof att === 'string' ? (att.startsWith('cmt:') ? canonicalizeUrn(att) : makeUrn('file', att)) : (att.urn || makeUrn('file', att.relativePath || att.filename || att.id));
+        attUrn = canonicalizeUrn(attUrn);
+        if (!seenUrns.has(attUrn)) {
+          seenUrns.add(attUrn);
+          var attTitle = typeof att === 'object' ? (att.title || att.name || att.filename) : attUrn.split(':').pop().split('/').pop();
+          documents.push({
+            urn: attUrn,
+            type: 'file',
+            source: 'gradesheet',
+            title: String(attTitle || 'Attachment').replace(/\.[^.]+$/, '').replace(/_/g, ' '),
+            subtitle: 'Test Evaluation Attachment • ' + (gt.title || gt.testName || 'Test'),
+            badge: '[HANDOUT]',
+            relativePath: typeof att === 'object' ? (att.relativePath || att.filename || '') : att,
+            target: 'user',
+            meta: typeof att === 'object' ? att : { sourceTest: gt.urn }
+          });
+        }
+      });
+    });
+
+    return documents;
+  }
+
+  /**
    * Scans and aggregates all live participation tracker records for a student.
    * Loads class session logs from groupParticipation target, applies notes/tombstones,
-   * and calculates attendance rate, net score, trend, and session history.
+   * and calculates attendance rate, net score, trend, and session history across all enrolled groups.
    */
-  async function _loadStudentParticipationData(studentId, classId, studentName) {
+  async function _loadStudentParticipationData(studentId, classId, studentName, allClassIds) {
     var emptyRes = {
       classId: classId || '',
+      classIds: [],
       totalSessions: 0,
       attendedSessions: 0,
       absentCount: 0,
@@ -3275,13 +3905,23 @@
         return emptyRes;
       }
 
+      var stInfo = resolveStudentInfo(studentId) || {};
+      var targetClassIds = Array.isArray(allClassIds) && allClassIds.length > 0
+        ? allClassIds.slice()
+        : (Array.isArray(stInfo.classIds) && stInfo.classIds.length > 0
+          ? stInfo.classIds.slice()
+          : (classId ? [classId] : []));
+      if (classId && !targetClassIds.includes(classId)) {
+        targetClassIds.unshift(classId);
+      }
+
       var cleanCid = (classId || '').trim();
       var cleanCidLower = cleanCid.toLowerCase();
       var cleanCidNormalized = cleanCid.replace(/[-_ ]/g, '').toLowerCase();
       var normStudentName = (studentName || '').trim().toUpperCase();
       var normStudentId = String(studentId || '').trim().toLowerCase();
 
-      var studentObjInRoster = resolveStudentInfo(studentId) || {};
+      var studentObjInRoster = stInfo;
       var candidateNames = new Set([
         normStudentName,
         String(studentObjInRoster.name || '').trim().toUpperCase(),
@@ -3337,8 +3977,8 @@
         var sessGroup = String(session.activeGroup || '').trim();
         var sessGroupNorm = sessGroup.replace(/[-_ ]/g, '').toLowerCase();
 
-        // If class filter applies and session group is known, check match
-        if (cleanCid && sessGroup && cleanCidNormalized &&
+        // If a specific class filter was explicitly passed and session group is known, check match
+        if (classId && sessGroup && cleanCidNormalized &&
             sessGroupNorm !== cleanCidNormalized &&
             _stripZeroPaddingClassToken(sessGroup) !== _stripZeroPaddingClassToken(cleanCid)) {
           // If class doesn't match, still allow if studentId is an exact UUID
@@ -3431,6 +4071,7 @@
           id: session.id,
           date: sessDate,
           time: session.time || '',
+          group: sessGroup || '',
           isAbsent: isAbsent,
           isPicked: !!matchedSt.isPicked,
           pluses: pluses + tPluses,
@@ -3463,7 +4104,7 @@
 
       // Provisional Grade calculation (if rules exist for class)
       var provGrade = null;
-      var classRule = rules[cleanCid] || rules[classId] || null;
+      var classRule = rules[cleanCid] || rules[classId] || (targetClassIds[0] ? rules[targetClassIds[0]] : null);
       if (classRule && typeof classRule === 'object') {
         var baseGrade = Number(classRule.baseGrade != null ? classRule.baseGrade : 4);
         var targetNet = Number(classRule.targetNet || classRule.targetPoints || 10);
@@ -3477,7 +4118,8 @@
       }
 
       return {
-        classId: cleanCid || classId,
+        classId: cleanCid || targetClassIds[0] || classId,
+        classIds: targetClassIds,
         totalSessions: totalSessions,
         attendedSessions: attendedSessions,
         absentCount: absentCount,
@@ -3666,7 +4308,7 @@
    * 360° Academic Dossier Aggregator for a Student.
    * Traverses direct and indirect links to assemble evaluations, assessed competences,
    * delivered lesson plans, linked documents, and board constellations, seamlessly
-   * integrating all recorded tests, boards, participation metrics, and computed weighted averages.
+   * integrating all recorded tests, boards, participation metrics, and computed weighted averages across all enrolled groups.
    */
   async function getStudentAcademicDossier(studentId, opts) {
     if (!studentId) return null;
@@ -3674,29 +4316,59 @@
     await _ensureRosterLoaded();
     var studentUrn = makeUrn('student', studentId);
     var stInfo = resolveStudentInfo(studentId) || {};
-    var classId = opts.classId || stInfo.classId || '';
-    var className = opts.className || resolveClassName(classId) || stInfo.className || '';
-    var level = opts.level || resolveClassLevel(classId) || stInfo.level || '';
+
+    var explicitClassId = opts.classId || null;
+    var allClassIds = Array.isArray(stInfo.classIds) && stInfo.classIds.length > 0
+      ? stInfo.classIds.slice()
+      : (stInfo.classId ? [stInfo.classId] : []);
+    if (explicitClassId && !allClassIds.includes(explicitClassId)) {
+      allClassIds.unshift(explicitClassId);
+    }
+
+    var primaryClassId = explicitClassId || stInfo.classId || allClassIds[0] || '';
+    var primaryClassName = opts.className || resolveClassName(primaryClassId) || stInfo.className || '';
+
+    var allClasses = allClassIds.map(function(cid) {
+      return {
+        id: cid,
+        name: resolveClassName(cid) || cid,
+        level: resolveClassLevel(cid) || ''
+      };
+    });
+
+    var classNames = (stInfo.classNames && stInfo.classNames.length > 0)
+      ? stInfo.classNames.slice()
+      : allClasses.map(function(c) { return c.name; });
+
+    var combinedClassName = classNames.length > 0 ? classNames.join(', ') : primaryClassName;
+    var primaryLevel = opts.level || resolveClassLevel(primaryClassId) || stInfo.level || (allClasses[0] ? allClasses[0].level : '');
     var studentName = opts.studentName || opts.title || opts.name || stInfo.name || resolveStudentName(studentId) || studentId;
 
     var studentObj = {
       id: studentId,
       urn: studentUrn,
       name: studentName,
-      classId: classId,
-      className: className,
-      level: level
+      classId: primaryClassId,
+      className: combinedClassName,
+      primaryClassId: primaryClassId,
+      primaryClassName: primaryClassName,
+      classIds: allClassIds,
+      classNames: classNames,
+      classes: allClasses,
+      enrollments: stInfo.enrollments || [],
+      level: primaryLevel
     };
 
     var results = await Promise.all([
       resolveContext({
         urn: studentUrn,
-        classId: classId
+        classId: explicitClassId || (allClassIds.length === 1 ? primaryClassId : null),
+        classIds: allClassIds
       }),
-      _loadStudentGradeSheetData(studentId, classId, studentName),
-      _loadStudentBoardData(studentId, classId, level),
-      _loadStudentLessonData(studentId, classId),
-      _loadStudentParticipationData(studentId, classId, studentName)
+      _loadStudentGradeSheetData(studentId, explicitClassId, studentName, allClassIds),
+      _loadStudentBoardData(studentId, explicitClassId, primaryLevel, allClassIds),
+      _loadStudentLessonData(studentId, explicitClassId, allClassIds),
+      _loadStudentParticipationData(studentId, explicitClassId, studentName, allClassIds)
     ]);
 
     var context = results[0] || { direct: [], inherited: [] };
@@ -3704,7 +4376,8 @@
     var boardData = results[2] || [];
     var lessonData = results[3] || [];
     var participationData = results[4] || {
-      classId: classId,
+      classId: primaryClassId,
+      classIds: allClassIds,
       totalSessions: 0,
       attendedSessions: 0,
       absentCount: 0,
@@ -3726,6 +4399,8 @@
       sessions: []
     };
 
+    var documentData = await _loadStudentDocumentData(studentId, explicitClassId, primaryLevel, studentName, gradeData, lessonData, allClassIds);
+
     var dossier = {
       student: studentObj,
       gradesSummary: gradeData,
@@ -3733,7 +4408,7 @@
       evaluations: [].concat(gradeData.tests || []),
       competences: [],
       lessons: [].concat(lessonData || []),
-      documents: [],
+      documents: [].concat(documentData || []),
       boards: [].concat(boardData || []),
       other: []
     };
@@ -3748,6 +4423,9 @@
     });
     (lessonData || []).forEach(function(l) {
       seenUrns.add(canonicalizeUrn(l.urn));
+    });
+    (documentData || []).forEach(function(d) {
+      seenUrns.add(canonicalizeUrn(d.urn));
     });
 
     for (var i = 0; i < allEdges.length; i++) {
@@ -3775,12 +4453,42 @@
         dossier.competences.push(item);
       } else if (type === 'lesson' || type === 'planner' || type === 'phase') {
         dossier.lessons.push(item);
-      } else if (type === 'doc' || type === 'document' || type === 'file') {
+      } else if (type === 'doc' || type === 'document' || type === 'file' || type === 'submission' || type === 'handout') {
         dossier.documents.push(item);
       } else if (type.startsWith('board')) {
         dossier.boards.push(item);
       } else {
         dossier.other.push(item);
+      }
+    }
+
+    // Ensure gradesSummary has valid averages whenever evaluations contain marks
+    if (dossier.gradesSummary.yearAverage == null && dossier.gradesSummary.sem1Average == null && dossier.gradesSummary.sem2Average == null) {
+      var scoredEvals = (dossier.evaluations || []).filter(function(e) {
+        var sc = e.score != null ? e.score : (e.meta && e.meta.score != null ? e.meta.score : (e.points != null ? e.points : null));
+        return sc != null && !isNaN(sc);
+      });
+      if (scoredEvals.length > 0) {
+        var totalW = 0, sumW = 0;
+        scoredEvals.forEach(function(e) {
+          var sc = Number(e.score != null ? e.score : (e.meta && e.meta.score != null ? e.meta.score : e.points));
+          var max = Number(e.maxScore || (e.meta && e.meta.maxScore) || 6);
+          var w = Number(e.coefficient || (e.meta && e.meta.coefficient) || 1);
+          if (isNaN(w) || w <= 0) w = 1;
+          var norm = max === 6 ? sc : (sc / max) * 6;
+          sumW += norm * w;
+          totalW += w;
+        });
+        if (totalW > 0) {
+          var compAvg = Number((sumW / totalW).toFixed(2));
+          dossier.gradesSummary.yearAverage = compAvg;
+          if (!dossier.gradesSummary.gradedCount) {
+            dossier.gradesSummary.gradedCount = scoredEvals.length;
+          }
+          if (!dossier.gradesSummary.totalTests) {
+            dossier.gradesSummary.totalTests = dossier.evaluations.length;
+          }
+        }
       }
     }
 

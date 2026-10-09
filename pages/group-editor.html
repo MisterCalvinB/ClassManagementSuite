@@ -2488,7 +2488,7 @@
   }
 
   // ── Student table section ────────────────────────────────────
-  function buildStudentInputRow(student, isDisabled) {
+  function buildStudentInputRow(student, isDisabled, groupName) {
     // Resolve or assign UUID: reuse from roster if same name already exists
     let uuid = student.uuid;
     let rStudent = uuid ? studentRoster[uuid] : null;
@@ -2575,7 +2575,8 @@
       e.stopPropagation();
       if (typeof TagLinkModal !== 'undefined') {
         TagLinkModal.openStudentDossier(uuid, {
-          title: ((fnInput.value || '') + ' ' + (lnInput.value || '')).trim() || uuid
+          title: ((fnInput.value || '') + ' ' + (lnInput.value || '')).trim() || uuid,
+          classId: groupName || student.adminClass || ''
         });
       }
     };
@@ -2650,7 +2651,7 @@
     return row;
   }
 
-  function buildStudentSection(students, isDisabled) {
+  function buildStudentSection(students, isDisabled, groupName) {
     const section = document.createElement('div');
     section.className = 'eg-student-section';
     section.style.display = 'none';
@@ -2709,7 +2710,7 @@
 
     const tableBody = document.createElement('div');
     tableBody.className = 'eg-student-body';
-    students.forEach(s => tableBody.appendChild(buildStudentInputRow(s, isDisabled)));
+    students.forEach(s => tableBody.appendChild(buildStudentInputRow(s, isDisabled, groupName)));
     section.appendChild(tableBody);
 
     if (!isDisabled) {
@@ -2717,7 +2718,7 @@
       addBtn.type = 'button';
       addBtn.className = 'eg-s-add';
       addBtn.textContent = '+ Student';
-      addBtn.onclick = () => tableBody.appendChild(buildStudentInputRow({ firstName: '', lastName: '', customName: '', dob: '', adminClass: '', gender: '' }, false));
+      addBtn.onclick = () => tableBody.appendChild(buildStudentInputRow({ firstName: '', lastName: '', customName: '', dob: '', adminClass: '', gender: '' }, false, groupName));
       section.appendChild(addBtn);
     }
 
@@ -2844,7 +2845,7 @@
       [yearInput, semSelect, lvlSelect].forEach(el => el.style.opacity = '0.6');
     }
 
-    const studentSection = buildStudentSection(students, isArchived);
+    const studentSection = buildStudentSection(students, isArchived, groupId);
 
     const halfSection = document.createElement('div');
     halfSection.className = 'eg-half-section';
@@ -3268,7 +3269,8 @@
     };
     const { yearInput, semSelect, lvlSelect, subjectInput } = makeMetaInputs(newMeta);
 
-    const studentSection = buildStudentSection(students, false);
+    const newGroupName = document.getElementById('new-group-name')?.value?.trim() || '';
+    const studentSection = buildStudentSection(students, false, newGroupName);
     studentSection.style.display = ''; // open by default for new groups
 
     const halfSection = document.createElement('div');
