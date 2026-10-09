@@ -5439,11 +5439,18 @@ ipcMain.handle('app:read-file', async (event, request = {}) => {
 ipcMain.handle('app:resolve-path', async (event, request = {}) => {
   const pageFile = getRequestingPage(event);
   const resolved = resolveAllowedTargetPath(pageFile, request.target, request.relativePath);
+  let finalPath = resolved.fullPath;
+  if (request.target === 'data' && !fsSync.existsSync(finalPath)) {
+    const bundledPath = path.resolve(path.join(getBundledDataRoot()), resolved.safeRelative);
+    if (fsSync.existsSync(bundledPath)) {
+      finalPath = bundledPath;
+    }
+  }
   return {
     ok: true,
     target: request.target,
     relativePath: resolved.safeRelative,
-    path: resolved.fullPath
+    path: finalPath
   };
 });
 
@@ -5885,11 +5892,25 @@ ipcMain.handle('app:has-second-display', async () => {
 });
 
 ipcMain.handle('app:open-mirror-window', async (event, request = {}) => {
+  const senderWin = BrowserWindow.fromWebContents(event.sender);
+  const targetChannel = (request && request.channel) ? String(request.channel).trim() : '';
+  const query = { mirror: '1' };
+  if (targetChannel) {
+    query.mirrorChannel = targetChannel;
+  }
+
   if (mirrorWindow && !mirrorWindow.isDestroyed()) {
+    if (mirrorWindowSource !== senderWin || targetChannel) {
+      mirrorWindowSource = senderWin || null;
+      try {
+        await mirrorWindow.loadFile(getToolPath(PAGE_FILES.board), { query });
+      } catch (err) {
+        console.error('app:open-mirror-window reload failed', err);
+      }
+    }
     mirrorWindow.focus();
     return { ok: true, alreadyOpen: true };
   }
-  const senderWin = BrowserWindow.fromWebContents(event.sender);
   const sBounds   = senderWin ? senderWin.getBounds() : null;
   mirrorWindowSource = senderWin || null;
 
@@ -5954,7 +5975,7 @@ ipcMain.handle('app:open-mirror-window', async (event, request = {}) => {
     mirrorWindow.once('closed', () => senderWin.off('resize', _syncSize));
   }
   try {
-    await mirrorWindow.loadFile(getToolPath(PAGE_FILES.board), { query: { mirror: '1' } });
+    await mirrorWindow.loadFile(getToolPath(PAGE_FILES.board), { query });
   } catch (err) {
     console.error('app:open-mirror-window load failed', err);
     return { ok: false, error: String(err) };

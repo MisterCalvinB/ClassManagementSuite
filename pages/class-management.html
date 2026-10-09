@@ -2154,7 +2154,7 @@
             </p>
             <div
                 style="background:#f7f7f7; border:1px solid #ddd; border-radius:8px; padding:10px 12px; color:#555; font-size:0.82rem; margin-bottom:14px; line-height:1.45;">
-                <strong>Tips:</strong> put any audio files in <strong>user/custom-data/sounds</strong>, click
+                <strong>Tips:</strong> put any audio files in <strong>user/custom-data/sounds</strong> (subfolders supported), click
                 <strong>Refresh Sound Files</strong>, then pick one from the list. The <strong>Timer background
                     audio</strong> slot powers the new <strong>MP3</strong> button in the timer. For JS tunes, you can
                 use helpers like <strong>playTone(...)</strong>, <strong>playToneSequence(...)</strong>, or
@@ -3630,11 +3630,71 @@
             return left.length === right.length && left.every((entry, index) => entry === right[index]);
         }
 
+        function resolveSoundFileMatch(filePath) {
+            let normalized = normalizeSoundFilePath(filePath);
+            if (!normalized) return '';
+            if (Array.isArray(availableSoundFiles) && availableSoundFiles.length) {
+                if (availableSoundFiles.includes(normalized)) return normalized;
+                const baseName = normalized.split('/').pop().toLowerCase();
+                const match = availableSoundFiles.find(f => {
+                    const fLower = f.toLowerCase();
+                    return fLower === normalized.toLowerCase() || fLower.endsWith('/' + baseName);
+                });
+                if (match) return match;
+            }
+            return normalized;
+        }
+
         function buildSoundFileOptionsHtml(selectedFile = '') {
-            const normalizedSelected = normalizeSoundFilePath(selectedFile);
-            return availableSoundFiles.length
-                ? availableSoundFiles.map(file => `<option value="${escapeSettingsHtml(file)}" ${normalizedSelected === file ? 'selected' : ''}>${escapeSettingsHtml(file.replace(/^sounds\//, ''))}</option>`).join('')
-                : '<option value="">No files found yet</option>';
+            const normalizedSelected = resolveSoundFileMatch(selectedFile);
+            if (!availableSoundFiles || !availableSoundFiles.length) {
+                return '<option value="">No files found yet</option>';
+            }
+
+            const rootFiles = [];
+            const folderGroups = new Map();
+
+            availableSoundFiles.forEach(file => {
+                const rel = file.replace(/^sounds\//, '');
+                const slashIdx = rel.lastIndexOf('/');
+                if (slashIdx === -1) {
+                    rootFiles.push({ full: file, rel, name: rel });
+                } else {
+                    const folder = rel.slice(0, slashIdx);
+                    const name = rel.slice(slashIdx + 1);
+                    if (!folderGroups.has(folder)) {
+                        folderGroups.set(folder, []);
+                    }
+                    folderGroups.get(folder).push({ full: file, rel, name });
+                }
+            });
+
+            if (folderGroups.size === 0) {
+                return rootFiles.map(item =>
+                    `<option value="${escapeSettingsHtml(item.full)}" ${normalizedSelected === item.full ? 'selected' : ''}>${escapeSettingsHtml(item.name)}</option>`
+                ).join('');
+            }
+
+            let html = '';
+            if (rootFiles.length) {
+                html += `<optgroup label="📁 General / Root">`;
+                html += rootFiles.map(item =>
+                    `<option value="${escapeSettingsHtml(item.full)}" ${normalizedSelected === item.full ? 'selected' : ''}>${escapeSettingsHtml(item.name)}</option>`
+                ).join('');
+                html += `</optgroup>`;
+            }
+
+            const sortedFolders = Array.from(folderGroups.keys()).sort((a, b) => a.localeCompare(b));
+            for (const folder of sortedFolders) {
+                const items = folderGroups.get(folder);
+                html += `<optgroup label="📁 ${escapeSettingsHtml(folder)}">`;
+                html += items.map(item =>
+                    `<option value="${escapeSettingsHtml(item.full)}" ${normalizedSelected === item.full ? 'selected' : ''}>${escapeSettingsHtml(item.name)}</option>`
+                ).join('');
+                html += `</optgroup>`;
+            }
+
+            return html;
         }
 
         function refreshSoundFileSelectOptions() {
@@ -3643,7 +3703,7 @@
                 const manualInput = card.querySelector('.sound-file-manual');
                 if (!select) return;
 
-                const currentValue = normalizeSoundFilePath(manualInput?.value || select.value || '');
+                const currentValue = resolveSoundFileMatch(manualInput?.value || select.value || '');
                 select.innerHTML = buildSoundFileOptionsHtml(currentValue);
                 if (currentValue) {
                     select.value = currentValue;
@@ -5466,12 +5526,22 @@
                         extensions: SOUND_FILE_EXTENSIONS,
                         recursive: true
                     });
-                    const files = Array.isArray(response)
+                    const rawFiles = Array.isArray(response)
                         ? response
                         : (Array.isArray(response?.files) ? response.files : []);
+                    const files = rawFiles.filter(entry => !entry?.isDirectory);
                     availableSoundFiles = files
                         .map(entry => String(entry?.relativePath || entry?.filename || '').trim())
                         .filter(Boolean);
+
+                    // Filter out common non-sound / hidden / temp system files if extensions list is open
+                    const audioExtRegex = /\.(mp3|wav|ogg|m4a|aac|flac|webm|weba|opus|mp4)$/i;
+                    const systemFilesRegex = /(^|[\\/])(\.DS_Store|desktop\.ini|Thumbs\.db|\.gitkeep)$/i;
+                    availableSoundFiles = availableSoundFiles.filter(file => {
+                        if (systemFilesRegex.test(file)) return false;
+                        if (SOUND_FILE_EXTENSIONS.length > 0) return true;
+                        return audioExtRegex.test(file) || !/\.(txt|json|md|csv|bak|tmp|zip|pdf|html|css|js)$/i.test(file);
+                    });
 
                     const previousSoundFiles = normalizeSoundFileList(getLoadedConfig().soundFiles);
                     availableSoundFiles = normalizeSoundFileList(availableSoundFiles);
@@ -5495,7 +5565,7 @@
 
             if (showFeedback) {
                 const message = availableSoundFiles.length
-                    ? `🔊 ${availableSoundFiles.length} sound file${availableSoundFiles.length === 1 ? '' : 's'} found in user/custom-data/sounds`
+                    ? `🔊 ${availableSoundFiles.length} sound file${availableSoundFiles.length === 1 ? '' : 's'} found in user/custom-data/sounds (including subfolders)`
                     : '🔊 No sound files found in user/custom-data/sounds yet';
                 if (typeof mdbToast === 'function') mdbToast(message);
                 else showToast(message);
@@ -5710,7 +5780,7 @@
 
             const select = card.querySelector('.sound-file');
             const input = card.querySelector('.sound-file-manual');
-            const normalized = normalizeSoundFilePath(select?.value || '');
+            const normalized = resolveSoundFileMatch(select?.value || '');
 
             if (input) input.value = normalized;
         }
@@ -5721,7 +5791,7 @@
 
             const select = card.querySelector('.sound-file');
             const input = card.querySelector('.sound-file-manual');
-            const normalized = normalizeSoundFilePath(input?.value || '');
+            const normalized = resolveSoundFileMatch(input?.value || '');
             if (!select) return;
 
             const hasMatch = Array.from(select.options).some(option => option.value === normalized);
@@ -10807,7 +10877,7 @@
         }
 
         async function getSoundFileUrl(relativePath) {
-            const normalized = normalizeSoundFilePath(relativePath);
+            const normalized = resolveSoundFileMatch(relativePath);
             if (!normalized) return '';
             if (/^(https?:|file:|data:|blob:)/i.test(normalized)) return normalized;
 
@@ -10831,7 +10901,7 @@
         }
 
         function playSoundFileClip(relativePath, repeatCount = 1, spacingMs = 150, volumeScale = 1.0, onComplete = null) {
-            const normalized = normalizeSoundFilePath(relativePath);
+            const normalized = resolveSoundFileMatch(relativePath);
             if (!normalized) {
                 if (typeof onComplete === 'function') onComplete();
                 return false;
@@ -11529,15 +11599,19 @@
                 await refreshSoundFileList(false);
             }
 
-            const currentFile = normalizeSoundFilePath(soundSettings?.timerBackground?.file || '');
+            const currentFile = resolveSoundFileMatch(soundSettings?.timerBackground?.file || '');
 
             if (!availableSoundFiles.length) {
-                list.innerHTML = '<div class="mp3-picker-empty">No sound files found.<br>Add .mp3 files to <strong>user/custom-data/sounds</strong> and refresh.</div>';
+                list.innerHTML = '<div class="mp3-picker-empty">No sound files found.<br>Add audio files to <strong>user/custom-data/sounds</strong> (subfolders supported) and refresh.</div>';
             } else {
                 list.innerHTML = availableSoundFiles.map(file => {
-                    const label = file.replace(/^sounds\//, '');
+                    const rel = file.replace(/^sounds\//, '');
+                    const lastSlash = rel.lastIndexOf('/');
+                    const folderPath = lastSlash !== -1 ? rel.slice(0, lastSlash) : '';
+                    const fileName = lastSlash !== -1 ? rel.slice(lastSlash + 1) : rel;
                     const sel = (file === currentFile) ? ' selected' : '';
-                    return `<button class="mp3-picker-item${sel}" onclick="selectMp3File('${file.replace(/'/g, '\\\'')}')">${label}</button>`;
+                    const folderBadge = folderPath ? `<span class="mp3-picker-folder-tag" style="display:inline-block; font-size:0.62rem; font-weight:700; opacity:0.6; margin-right:4px;">📁 ${escapeSettingsHtml(folderPath)}/</span>` : '';
+                    return `<button class="mp3-picker-item${sel}" onclick="selectMp3File('${file.replace(/'/g, '\\\'')}')">${folderBadge}<span class="mp3-picker-name">${escapeSettingsHtml(fileName)}</span></button>`;
                 }).join('');
             }
 
@@ -14021,11 +14095,8 @@ syncState();
                 select.innerHTML = '<option value="">(No sound files found)</option>';
                 return;
             }
-            select.innerHTML = availableSoundFiles.map(f => {
-                const label = f.replace(/^sounds\//, '').replace(/^user\/custom-data\/sounds\//, '');
-                const isSel = (f === selectedPath) ? ' selected' : '';
-                return `<option value="${f}"${isSel}>🎵 ${label}</option>`;
-            }).join('');
+            const normalizedSelected = resolveSoundFileMatch(selectedPath);
+            select.innerHTML = buildSoundFileOptionsHtml(normalizedSelected);
         }
 
         async function handleModeAudioUpload(event) {

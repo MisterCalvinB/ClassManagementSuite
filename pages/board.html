@@ -21,6 +21,7 @@
   <script src="../js/universal-importer.js"></script>
   <script src="../js/media-audio-encoder.js"></script>
   <script src="../js/media-converter-service.js"></script>
+  <script src="../js/board-sound-service.js"></script>
   <script>
     let boardCmsTimerChannel = null;
     const boardCmsTimerPrefsKey = 'board-cms-timer-widget-v2';
@@ -664,6 +665,41 @@
     }
 
     /* Board Customise Modal - Shortcuts Editor */
+    
+    /* Board Customise Modal - Sound Effects Editor */
+    #board-customise-modal .bc-sound-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+    }
+    #board-customise-modal .bc-sound-table th {
+      position: sticky;
+      top: 0;
+      background: #f8fafc;
+      padding: 8px 10px;
+      text-align: left;
+      font-weight: 700;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #475569;
+      border-bottom: 2px solid #e2e8f0;
+      z-index: 2;
+    }
+    #board-customise-modal .bc-sound-table td {
+      padding: 6px 10px;
+      vertical-align: middle;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    #board-customise-modal .bc-sound-table tr:hover td {
+      background: #f8fafc;
+    }
+    #board-customise-modal .bc-sound-cat-visibility { background: #dbeafe; color: #1e40af; }
+    #board-customise-modal .bc-sound-cat-creation { background: #e0f2fe; color: #075985; }
+    #board-customise-modal .bc-sound-cat-linking { background: #f3e8ff; color: #6b21a8; }
+    #board-customise-modal .bc-sound-cat-deletion { background: #fee2e2; color: #991b1b; }
+    #board-customise-modal .bc-sound-cat-presentation { background: #fce7f3; color: #9d174d; }
+    #board-customise-modal .bc-sound-cat-system { background: #e0e7ff; color: #3730a3; }
     #board-customise-modal .skm-editor-table {
       width: 100%;
       border-collapse: collapse;
@@ -4132,6 +4168,14 @@
             <button class="action-btn btn-grey" onclick="conDuplicateCurrentFile()"
               title="Duplicate the current board file"><img src="../assets/icons/duplicate.svg" class="btn-icon"
                 alt="" /> Duplicate</button>
+            <button class="action-btn btn-grey" id="con-tb-open-file-btn" onclick="conOpenCurrentFileNative()"
+              title="Open current board file in default application" data-i18n-title="conTbOpenFileTitle"><img
+                src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> <span
+                data-i18n="conTbOpenFile">Open File</span></button>
+            <button class="action-btn btn-grey" id="con-tb-open-folder-btn" onclick="conOpenCurrentFileLocationFolder()"
+              title="Open folder containing current board file" data-i18n-title="conTbOpenFolderTitle"><img
+                src="../assets/icons/folder.svg" class="btn-icon" alt="" /> <span
+                data-i18n="conTbOpenFolder">Open Folder</span></button>
             <button class="action-btn btn-grey" onclick="openSessionLoadPopup('constellation')"
               title="Load a saved board .js file"><img src="../assets/icons/folder.svg" class="btn-icon" alt="" />
               Load</button>
@@ -5263,6 +5307,7 @@
           <div class="bc-sidebar-item" data-tab="tools" onclick="boardCustomiseSetTab('tools')">Drawing &amp; Tools
           </div>
           <div class="bc-sidebar-item" data-tab="shortcuts" onclick="boardCustomiseSetTab('shortcuts')">Shortcuts &amp; Quick Actions</div>
+          <div class="bc-sidebar-item" data-tab="sounds" onclick="boardCustomiseSetTab('sounds')"><span data-i18n="bcTabSounds">Sound Effects</span></div>
         </div>
         <div class="bc-content">
           <div class="bc-collapse-controls"
@@ -5624,6 +5669,59 @@
               <div id="bc-shortcuts-table-container" style="max-height:420px; overflow-y:auto; border:1.5px solid #111; border-radius:6px; background:#fff;"></div>
             </div>
           </div>
+
+          <!-- Sound Effects Tab -->
+          <div class="bc-tab-pane" data-pane="sounds">
+            <div class="bc-section" style="gap:10px;">
+              <div class="bc-section-title" data-i18n="bcSoundEffectsTitle">Board Sound Effects &amp; Audio Feedback</div>
+              <div class="bc-section-hint" data-i18n="bcSoundEffectsHint">Configure auditory cues when actions are realised on the board (revealing words, masking notes, connecting links, tools, and saving).</div>
+
+              <!-- Master Controls Card -->
+              <div style="display:flex; flex-direction:column; gap:10px; padding:12px; border:1.5px solid #333; border-radius:6px; background:#f9fafb;">
+                <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px;">
+                  <label style="display:inline-flex; align-items:center; gap:8px; font-weight:700; cursor:pointer;">
+                    <input type="checkbox" id="bc-sound-master-enable" checked style="width:16px; height:16px; cursor:pointer;" onchange="boardSoundToggleMasterEnable(this.checked)">
+                    <span data-i18n="bcSoundMasterEnable">Enable Board Sound Effects</span>
+                  </label>
+                  <label style="display:inline-flex; align-items:center; gap:8px; font-size:0.8rem; color:#444; cursor:pointer;">
+                    <input type="checkbox" id="bc-sound-host-only" checked style="width:15px; height:15px; cursor:pointer;">
+                    <span data-i18n="bcSoundHostOnly">Play sounds only on primary display (avoids presentation echo)</span>
+                  </label>
+                </div>
+                <div style="display:flex; flex-wrap:wrap; align-items:center; gap:12px;">
+                  <label style="font-size:0.8rem; font-weight:700; min-width:110px;" data-i18n="bcSoundMasterVolume">Master Volume:</label>
+                  <input type="range" id="bc-sound-master-vol" min="0" max="100" value="60" style="flex:1; max-width:240px; cursor:pointer;" oninput="document.getElementById('bc-sound-master-vol-val').textContent = this.value + '%'">
+                  <span id="bc-sound-master-vol-val" style="min-width:40px; font-size:0.8rem; font-weight:700; color:#333;">60%</span>
+                  <div style="flex:1;"></div>
+                  <button type="button" class="action-btn btn-grey" onclick="boardSoundRescanFiles()" style="font-size:0.75rem; padding:4px 10px; display:inline-flex; align-items:center; gap:5px;">
+                    <img src="../assets/icons/folder.svg" class="btn-icon" style="width:12px;height:12px;" alt="" />
+                    <span data-i18n="bcSoundRescanBtn">Rescan Sound Folders</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Search & Category Filters -->
+              <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:4px;">
+                <input type="text" id="bc-sound-search" data-i18n-placeholder="bcSoundSearchPlaceholder" placeholder="Search actions or sound files…" class="bc-input" style="flex:1; min-width:180px; padding:5px 8px; font-size:0.8rem;" oninput="boardFilterSoundTable()">
+                <select id="bc-sound-cat-filter" class="bc-select" style="min-width:140px; padding:5px 8px; font-size:0.8rem;" onchange="boardFilterSoundTable()">
+                  <option value="all" data-i18n="bcSoundCatAll">All Categories</option>
+                  <option value="visibility" data-i18n="act_cat_visibility">Visibility &amp; Reveal</option>
+                  <option value="creation" data-i18n="act_cat_creation">Creation &amp; Placement</option>
+                  <option value="linking" data-i18n="act_cat_linking">Linking &amp; Structure</option>
+                  <option value="deletion" data-i18n="act_cat_deletion">Deletion &amp; Clearing</option>
+                  <option value="presentation" data-i18n="act_cat_presentation">Presentation &amp; Tools</option>
+                  <option value="system" data-i18n="act_cat_system">State &amp; System</option>
+                </select>
+                <button type="button" class="action-btn btn-grey" onclick="boardSoundSelectAll(true)" style="font-size:0.75rem; padding:5px 10px;"><span data-i18n="bcSoundSelectAll">Select All</span></button>
+                <button type="button" class="action-btn btn-grey" onclick="boardSoundSelectAll(false)" style="font-size:0.75rem; padding:5px 10px;"><span data-i18n="bcSoundDeselectAll">Deselect All</span></button>
+                <button type="button" class="action-btn btn-grey" onclick="resetBoardSoundsToDefault()" style="font-size:0.75rem; padding:5px 10px;">Reset to Defaults</button>
+              </div>
+
+              <!-- Sound Actions Table Container -->
+              <div id="bc-sound-table-container" style="max-height:420px; overflow-y:auto; border:1.5px solid #111; border-radius:6px; background:#fff;"></div>
+            </div>
+          </div>
+
 
         </div>
       </div>
@@ -14898,6 +14996,7 @@
         const group = conGroups.find(g => g.id === gid);
         if (!group || !group.nodeIds || !group.nodeIds.length) return;
         conPushUndo();
+        if (typeof BoardAudioService !== 'undefined') BoardAudioService.playAction(anyVisible ? 'mask_group' : 'reveal_group');
 
         // If any node in the group is visible, mask all; otherwise reveal all
         const anyVisible = group.nodeIds.some(nid => {
@@ -21272,6 +21371,7 @@
         }
       };
       window.conDeleteSelectedItems = function () {
+        if (typeof BoardAudioService !== 'undefined') BoardAudioService.playAction('delete_items');
         conPushUndo();
         if (conGroupFocused) {
           if (typeof conGroupDeleteWithContents === 'function') conGroupDeleteWithContents(conGroupFocused);
@@ -21383,6 +21483,11 @@
           const anyVisible = (hasNodeSelection && selectedNodes.some(n => !n.masked)) ||
                              (hasNoteSelection && selectedNotes.some(n => !n.hidden)) ||
                              (hasMediaSelection && selectedMedia.some(m => !m.hidden));
+
+          if (typeof BoardAudioService !== 'undefined') {
+            if (anyVisible) BoardAudioService.playAction(hasNodeSelection ? 'mask_node' : 'mask_note');
+            else BoardAudioService.playAction(hasNodeSelection ? 'reveal_node' : 'reveal_note');
+          }
 
           if (hasNodeSelection) {
             selectedNodes.forEach(node => {
@@ -21691,7 +21796,10 @@
       window._conSuppressMirrorObserver = false;
 
       if (new URLSearchParams(location.search).get('mirror') !== '1' && new URLSearchParams(location.search).get('pageWindow') !== '1') {
-        const _mirrorCh = new BroadcastChannel('constellation-mirror');
+        const _conMirrorSessionId = 'board_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+        const _conMirrorChannelName = 'constellation-mirror-' + _conMirrorSessionId;
+        window._conMirrorChannelName = _conMirrorChannelName;
+        const _mirrorCh = new BroadcastChannel(_conMirrorChannelName);
         let _mirrorPopupRef = null;
         let _mirrorTimer = null;
         let _mirrorLastSent = 0;
@@ -22395,10 +22503,13 @@
           _mirrorPeers.add('primary-mirror');
           _ensureMirrorControlMenu();
           _setPresentationActive(true);
+          try {
+            localStorage.setItem('cmt_active_board_mirror_channel', _conMirrorChannelName);
+          } catch (_) { }
           if (window.Desktop && window.Desktop.isElectron()) {
-            window.Desktop.openMirrorWindow();
+            window.Desktop.openMirrorWindow({ channel: _conMirrorChannelName });
           } else {
-            _mirrorPopupRef = window.open(location.pathname + '?mirror=1', '_blank',
+            _mirrorPopupRef = window.open(location.pathname + '?mirror=1&mirrorChannel=' + encodeURIComponent(_conMirrorChannelName), '_blank',
               'width=1200,height=800,menubar=no,toolbar=no,location=no');
           }
         };
@@ -29261,6 +29372,7 @@
         const node = { id, el, x, y, dbWord: dbMatch ? dbMatch.word : null, baseWord, pageNum: pageNum != null ? pageNum : null, locked: false, fontFamily: window._bcNodeFontFamily || null };
         conNodes.push(node);
         conSyncNodeLockState(node);
+        if (typeof BoardAudioService !== 'undefined') BoardAudioService.playAction('create_node');
         conRenderNodeLabel(node);
         conAttachNodeEvents(id, el);
         conAddNodeStarBtn(node);
@@ -30670,6 +30782,7 @@
       }
 
       window.conRevealAll = function () {
+        if (typeof BoardAudioService !== 'undefined') BoardAudioService.playAction('reveal_all');
         conNodes.forEach(node => {
           if (node.masked) {
             node.masked = false;
@@ -30683,6 +30796,7 @@
       };
 
       window.conMaskAll = function () {
+        if (typeof BoardAudioService !== 'undefined') BoardAudioService.playAction('mask_all');
         conNodes.forEach(node => {
           if (!node.masked) {
             node.masked = true;
@@ -36973,6 +37087,7 @@
     function wnCtxToggleHide() {
       const nd = _wnCtxNoteData; wnCtxClose(); if (!nd) return;
       nd.hidden = !nd.hidden;
+      if (typeof BoardAudioService !== 'undefined') BoardAudioService.playAction(nd.hidden ? 'mask_note' : 'reveal_note');
       if (nd._applyStyle) nd._applyStyle();
       wnApplyHiddenState(nd, wnGetNoteElementById(nd.id));
       if (typeof conRedrawEdges === 'function') conRedrawEdges();
@@ -40116,6 +40231,7 @@
 
     // Right-click on bare constellation board → handled by con-board-ctx-menu (word or note)
     window.conBoardCtxAddNote = function (initialText) {
+      if (typeof BoardAudioService !== 'undefined') BoardAudioService.playAction('create_note');
       const x = window._boardCtxNoteX || 60;
       const y = window._boardCtxNoteY || 60;
       const noteText = String(initialText || '').trim();
@@ -44935,6 +45051,50 @@
         mdbToast('⚠️ Could not duplicate file: ' + (error && error.message ? error.message : String(error)));
       }
     }
+
+    async function conOpenCurrentFileLocationFolder() {
+      if (!(window.Desktop && Desktop.isElectron())) {
+        mdbToast('⚠️ Opening file locations is only available in the Desktop application.');
+        return;
+      }
+      try {
+        if (_conCurrentFileName) {
+          const rel = _conCurrentFolderName ? (_conCurrentFolderName + '/' + _conCurrentFileName) : _conCurrentFileName;
+          await Desktop.showInFolder('mindmaps', rel);
+        } else if (_conCurrentFolderName) {
+          await Desktop.showInFolder('mindmaps', _conCurrentFolderName);
+        } else {
+          await Desktop.showInFolder('mindmaps', '');
+        }
+      } catch (err) {
+        console.warn('[Board] Could not show in folder:', err);
+        mdbToast('⚠️ Could not open location folder: ' + (err && err.message ? err.message : String(err)));
+      }
+    }
+    window.conOpenCurrentFileLocationFolder = conOpenCurrentFileLocationFolder;
+
+    async function conOpenCurrentFileNative() {
+      if (!(window.Desktop && Desktop.isElectron())) {
+        mdbToast('⚠️ Opening files natively is only available in the Desktop application.');
+        return;
+      }
+      try {
+        if (!_conCurrentFileName && !_conCurrentFolderName) {
+          const msg = typeof i18n !== 'undefined' && i18n.t ? (i18n.t('conSaveFirstToOpenFile') || 'Please save the board first to open the file.') : 'Please save the board first to open the file.';
+          mdbToast('⚠️ ' + msg);
+          return;
+        }
+        const rel = _conCurrentFolderName ? (_conCurrentFolderName + '/' + (_conCurrentFileName || 'index.html')) : _conCurrentFileName;
+        const res = await Desktop.openNative('mindmaps', rel || _conCurrentFolderName);
+        if (res && res.ok === false) {
+          mdbToast('⚠️ Could not open file: ' + (res.error || ''));
+        }
+      } catch (err) {
+        console.warn('[Board] Could not open file natively:', err);
+        mdbToast('⚠️ Could not open file: ' + (err && err.message ? err.message : String(err)));
+      }
+    }
+    window.conOpenCurrentFileNative = conOpenCurrentFileNative;
 
     function conFormatVersionDate(filename) {
       const m = String(filename).match(/\.v(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})\.js$/i);
@@ -51791,6 +51951,8 @@
       { id: 'file_save', name: 'Save Session', desc: 'Save board session to file', category: 'history', categoryName: 'History & File', icon: '../assets/icons/save.svg', defaultShortcut: { ctrl: true, key: 's' }, fn: () => { if (typeof window.conSaveSession === 'function') window.conSaveSession(); else if (typeof conSaveSession === 'function') conSaveSession(); } },
       { id: 'file_new', name: 'New Session', desc: 'Save current board and start a new one', category: 'history', categoryName: 'History & File', icon: '../assets/icons/plus.svg', defaultShortcut: null, fn: () => { if (typeof boardNewSession === 'function') boardNewSession('constellation'); } },
       { id: 'file_clear', name: 'Clear Board', desc: 'Remove all words and nodes from the board', category: 'history', categoryName: 'History & File', icon: '../assets/icons/clear.svg', defaultShortcut: null, fn: () => { if (typeof window.conClearAll === 'function') window.conClearAll(); else if (typeof conClearAll === 'function') conClearAll(); } },
+      { id: 'file_open_native', name: 'Open File', desc: 'Open current board file in default application', category: 'history', categoryName: 'History & File', icon: '../assets/icons/file-text.svg', defaultShortcut: null, fn: () => { if (typeof conOpenCurrentFileNative === 'function') conOpenCurrentFileNative(); } },
+      { id: 'file_open_folder', name: 'Open Location Folder', desc: 'Open folder containing current board file', category: 'history', categoryName: 'History & File', icon: '../assets/icons/folder.svg', defaultShortcut: null, fn: () => { if (typeof conOpenCurrentFileLocationFolder === 'function') conOpenCurrentFileLocationFolder(); } },
       { id: 'file_load', name: 'Load Session', desc: 'Load a saved board file', category: 'history', categoryName: 'History & File', icon: '../assets/icons/folder.svg', defaultShortcut: null, fn: () => { if (typeof openSessionLoadPopup === 'function') openSessionLoadPopup('constellation'); } },
       { id: 'file_export', name: 'Export Board', desc: 'Export words as PNG, CSV or PDF', category: 'history', categoryName: 'History & File', icon: '../assets/icons/export.svg', defaultShortcut: null, fn: () => { if (typeof conExport === 'function') conExport(); else if (typeof conExportJS === 'function') conExportJS(); } },
       { id: 'file_duplicate', name: 'Duplicate File', desc: 'Duplicate the current board file', category: 'history', categoryName: 'History & File', icon: '../assets/icons/duplicate.svg', defaultShortcut: null, fn: () => { if (typeof conDuplicateCurrentFile === 'function') conDuplicateCurrentFile(); } },
@@ -52278,6 +52440,332 @@
       return false;
     }
 
+    
+    // ---- Board Sound Effects Management in Customise Modal ----
+    let _bcSoundTableData = null;
+
+    function _bcEscapeHtml(str) {
+      if (str == null) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function _bcBuildSoundTable(soundConfig) {
+      if (typeof BoardAudioService === 'undefined') return;
+      const container = document.getElementById('bc-sound-table-container');
+      if (!container) return;
+
+      const actions = BoardAudioService.getActionMetadata();
+      const presets = BoardAudioService.getPresetDefinitions();
+      const grouped = BoardAudioService.getSubfolderGroupedFiles();
+      const cfg = soundConfig || (window.BOARD_CONFIG && window.BOARD_CONFIG.soundEffects) || BoardAudioService.getDefaultConfig();
+      _bcSoundTableData = cfg;
+
+      let html = '<table class="bc-sound-table"><thead><tr>' +
+        '<th style="width:40px; text-align:center;"><input type="checkbox" id="bc-sound-select-all-cb" title="Select / Deselect All" style="cursor:pointer;" onchange="boardSoundToggleSelectAll(this.checked)"></th>' +
+        '<th style="width:200px;">Action</th>' +
+        '<th style="width:110px;">Category</th>' +
+        '<th>Sound Source</th>' +
+        '<th style="width:140px;">Volume</th>' +
+        '<th style="width:90px; text-align:center;">Test</th>' +
+        '</tr></thead><tbody>';
+
+      actions.forEach(act => {
+        const actCfg = (cfg.actions && cfg.actions[act.id]) || { sound: 'preset:chime', volume: 1.0, enabled: true };
+        const isEnabled = actCfg.enabled !== false;
+        const currentSound = actCfg.sound || 'preset:chime';
+        const volVal = Math.round((typeof actCfg.volume === 'number' ? actCfg.volume : 1.0) * 100);
+        const nameText = (typeof t === 'function' ? t(act.nameKey) : null) || act.defaultName;
+        const catText = (typeof t === 'function' ? t(act.categoryKey) : null) || act.defaultCat;
+
+        html += '<tr class="bc-sound-row" data-action-id="' + act.id + '" data-category="' + act.category + '" data-name="' + _bcEscapeHtml(nameText.toLowerCase()) + '">';
+        
+        // Enabled checkbox
+        html += '<td style="text-align:center;"><input type="checkbox" class="bc-sound-act-enable" ' + (isEnabled ? 'checked' : '') + ' onchange="_bcUpdateSoundRowState(this.closest(\'tr\').dataset.actionId, this.checked)"></td>';
+
+        // Action Name
+        html += '<td><strong>' + _bcEscapeHtml(nameText) + '</strong><br><span style="font-size:0.68rem; color:#666;">' + act.id + '</span></td>';
+
+        // Category Badge
+        html += '<td><span class="skm-cat-tag bc-sound-cat-' + act.category + '">' + _bcEscapeHtml(catText) + '</span></td>';
+
+        // Sound Source Selector
+        html += '<td><div style="display:flex; flex-direction:column; gap:4px;">';
+        html += '<select class="bc-select bc-sound-select" id="bc-sound-sel-' + act.id + '" style="font-size:0.78rem; padding:4px 6px;" onchange="_bcHandleSoundSourceChange(this.closest(\'tr\').dataset.actionId, this.value)">';
+        
+        // None
+        html += '<option value="none" ' + (currentSound === 'none' ? 'selected' : '') + '>' + (typeof t === 'function' ? t('bcSoundSourceNone') : 'None (Disabled)') + '</option>';
+
+        // Built-in Synthesizers
+        html += '<optgroup label="' + (typeof t === 'function' ? t('bcSoundBuiltinHeader') : 'Built-in Synthesizers') + '">';
+        presets.forEach(p => {
+          html += '<option value="' + p.id + '" ' + (currentSound === p.id ? 'selected' : '') + '>' + p.name + '</option>';
+        });
+        html += '</optgroup>';
+
+        // Custom Sound Files (subfolders)
+        if (grouped.rootFiles.length || grouped.folderGroups.size > 0) {
+          if (grouped.rootFiles.length) {
+            html += '<optgroup label="General / Root">';
+            grouped.rootFiles.forEach(f => {
+              const val = 'file:' + f.full;
+              html += '<option value="' + val + '" ' + (currentSound === val ? 'selected' : '') + '>' + _bcEscapeHtml(f.name) + '</option>';
+            });
+            html += '</optgroup>';
+          }
+
+          const sortedFolders = Array.from(grouped.folderGroups.keys()).sort((a, b) => a.localeCompare(b));
+          sortedFolders.forEach(folder => {
+            html += '<optgroup label="' + _bcEscapeHtml(folder) + '">';
+            grouped.folderGroups.get(folder).forEach(f => {
+              const val = 'file:' + f.full;
+              html += '<option value="' + val + '" ' + (currentSound === val ? 'selected' : '') + '>' + _bcEscapeHtml(f.name) + '</option>';
+            });
+            html += '</optgroup>';
+          });
+        }
+
+        // Custom manual option if path not in list
+        if (currentSound && currentSound.startsWith('file:') && !html.includes('value="' + currentSound + '"')) {
+          html += '<optgroup label="Custom File">';
+          html += '<option value="' + currentSound + '" selected>' + _bcEscapeHtml(currentSound.replace(/^file:/, '')) + '</option>';
+          html += '</optgroup>';
+        }
+
+        html += '</select>';
+
+        // Browse external file button & custom path container
+        html += '<div style="display:flex; align-items:center; gap:4px;">';
+        html += '<button type="button" class="action-btn btn-grey" onclick="boardSoundBrowseCustomFile(this.closest(\'tr\').dataset.actionId)" style="font-size:0.68rem; padding:2px 6px;">' + (typeof t === 'function' ? t('bcSoundBrowseBtn') : 'Browse...') + '</button>';
+        html += '<span class="bc-sound-path-label" id="bc-sound-path-' + act.id + '" style="font-size:0.68rem; color:#777; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:200px;">' + (currentSound.startsWith('file:') ? currentSound.replace(/^file:/, '') : '') + '</span>';
+        html += '</div></div></td>';
+
+        // Volume Slider
+        html += '<td><div style="display:flex; align-items:center; gap:6px;">';
+        html += '<input type="range" class="bc-sound-vol" min="0" max="100" value="' + volVal + '" style="flex:1; cursor:pointer;" oninput="this.nextElementSibling.textContent = this.value + \'%\'">';
+        html += '<span id="bc-sound-vol-val-' + act.id + '" style="min-width:32px; font-size:0.75rem; font-weight:600; color:#444;">' + volVal + '%</span>';
+        html += '</div></td>';
+
+        // Test Preview Button
+        html += '<td style="text-align:center;">';
+        html += '<button type="button" class="action-btn btn-grey" onclick="boardSoundPreviewAction(this.closest(\'tr\').dataset.actionId)" title="Test Sound" style="padding:4px 8px; font-size:0.75rem; display:inline-flex; align-items:center; justify-content:center;">';
+        html += '<img src="../assets/icons/play.svg" class="btn-icon" style="width:12px; height:12px;" alt="" />';
+        html += '</button></td>';
+
+        html += '</tr>';
+      });
+
+      html += '</tbody></table>';
+      container.innerHTML = html;
+      _bcSyncSelectAllCheckbox();
+    }
+
+    function _bcSyncSelectAllCheckbox() {
+      const masterCb = document.getElementById('bc-sound-select-all-cb');
+      if (!masterCb) return;
+      const visibleRows = Array.from(document.querySelectorAll('#bc-sound-table-container .bc-sound-row')).filter(r => r.style.display !== 'none');
+      if (!visibleRows.length) {
+        masterCb.checked = false;
+        masterCb.indeterminate = false;
+        return;
+      }
+      const checkedCount = visibleRows.filter(r => {
+        const cb = r.querySelector('.bc-sound-act-enable');
+        return cb && cb.checked;
+      }).length;
+
+      if (checkedCount === 0) {
+        masterCb.checked = false;
+        masterCb.indeterminate = false;
+      } else if (checkedCount === visibleRows.length) {
+        masterCb.checked = true;
+        masterCb.indeterminate = false;
+      } else {
+        masterCb.checked = false;
+        masterCb.indeterminate = true;
+      }
+    }
+
+    function boardSoundToggleSelectAll(isChecked) {
+      const visibleRows = Array.from(document.querySelectorAll('#bc-sound-table-container .bc-sound-row')).filter(r => r.style.display !== 'none');
+      visibleRows.forEach(row => {
+        const cb = row.querySelector('.bc-sound-act-enable');
+        if (cb) cb.checked = isChecked;
+        const actId = row.dataset.actionId;
+        if (actId) {
+          const select = row.querySelector('.bc-sound-select');
+          const vol = row.querySelector('.bc-sound-vol');
+          if (select) select.disabled = !isChecked;
+          if (vol) vol.disabled = !isChecked;
+        }
+      });
+      _bcSyncSelectAllCheckbox();
+    }
+
+    function boardSoundSelectAll(isChecked) {
+      const masterCb = document.getElementById('bc-sound-select-all-cb');
+      if (masterCb) masterCb.checked = isChecked;
+      boardSoundToggleSelectAll(isChecked);
+    }
+
+    function _bcUpdateSoundRowState(actionId, isEnabled) {
+      const row = document.querySelector('.bc-sound-row[data-action-id="' + actionId + '"]');
+      if (!row) return;
+      const select = row.querySelector('.bc-sound-select');
+      const vol = row.querySelector('.bc-sound-vol');
+      if (select) select.disabled = !isEnabled;
+      if (vol) vol.disabled = !isEnabled;
+      _bcSyncSelectAllCheckbox();
+    }
+
+    function _bcHandleSoundSourceChange(actionId, value) {
+      const pathLbl = document.getElementById('bc-sound-path-' + actionId);
+      if (pathLbl) {
+        pathLbl.textContent = value.startsWith('file:') ? value.replace(/^file:/, '') : '';
+      }
+    }
+
+    function boardFilterSoundTable() {
+      const query = (document.getElementById('bc-sound-search')?.value || '').trim().toLowerCase();
+      const cat = (document.getElementById('bc-sound-cat-filter')?.value || 'all').toLowerCase();
+      document.querySelectorAll('#bc-sound-table-container .bc-sound-row').forEach(row => {
+        const name = (row.dataset.name || '').toLowerCase();
+        const rowCat = (row.dataset.category || '').toLowerCase();
+        const actId = (row.dataset.actionId || '').toLowerCase();
+        const selVal = (row.querySelector('.bc-sound-select')?.value || '').toLowerCase();
+        const matchesText = !query || name.includes(query) || actId.includes(query) || selVal.includes(query);
+        const matchesCat = cat === 'all' || rowCat === cat;
+        row.style.display = (matchesText && matchesCat) ? '' : 'none';
+      });
+      _bcSyncSelectAllCheckbox();
+    }
+
+    function boardSoundToggleMasterEnable(enabled) {
+      const tbl = document.getElementById('bc-sound-table-container');
+      if (tbl) {
+        tbl.style.opacity = enabled ? '1' : '0.5';
+        tbl.style.pointerEvents = enabled ? '' : 'none';
+      }
+    }
+
+    async function boardSoundRescanFiles() {
+      if (typeof BoardAudioService === 'undefined') return;
+      const btn = event?.target;
+      if (btn) btn.disabled = true;
+      try {
+        await BoardAudioService.scanSoundFiles();
+        const currentCfg = _bcGetSoundSettings();
+        _bcBuildSoundTable(currentCfg);
+        if (typeof mdbToast === 'function') {
+          mdbToast('Sound files and subfolders rescanned successfully (' + BoardAudioService.availableSoundFiles.length + ' files found)');
+        }
+      } catch (e) {
+        if (typeof mdbToast === 'function') mdbToast('Error rescanning sound folders: ' + e.message);
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    async function boardSoundBrowseCustomFile(actionId) {
+      if (!window.Desktop || !Desktop.isElectron() || typeof Desktop.chooseFile !== 'function') {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'audio/*';
+        input.onchange = (e) => {
+          const file = e.target.files && e.target.files[0];
+          if (file) {
+            _bcApplyCustomFileToAction(actionId, 'file:' + file.name);
+          }
+        };
+        input.click();
+        return;
+      }
+
+      try {
+        const res = await Desktop.chooseFile({
+          title: 'Select Sound File for Action',
+          filters: [{ name: 'Audio Files', extensions: ['mp3', 'wav', 'ogg', 'm4a', 'flac', 'aac', 'webm', 'opus'] }]
+        });
+        if (res && res.path) {
+          const relPath = res.path.replace(/\\/g, '/');
+          _bcApplyCustomFileToAction(actionId, 'file:' + relPath);
+        }
+      } catch (err) { }
+    }
+
+    function _bcApplyCustomFileToAction(actionId, customSoundVal) {
+      const sel = document.getElementById('bc-sound-sel-' + actionId);
+      if (!sel) return;
+      let opt = sel.querySelector('option[value="' + customSoundVal + '"]');
+      if (!opt) {
+        opt = document.createElement('option');
+        opt.value = customSoundVal;
+        opt.textContent = customSoundVal.replace(/^file:/, '');
+        sel.appendChild(opt);
+      }
+      sel.value = customSoundVal;
+      _bcHandleSoundSourceChange(actionId, customSoundVal);
+    }
+
+    function boardSoundPreviewAction(actionId) {
+      if (typeof BoardAudioService === 'undefined') return;
+      const row = document.querySelector('.bc-sound-row[data-action-id="' + actionId + '"]');
+      if (!row) return;
+      const sel = row.querySelector('.bc-sound-select');
+      const vol = row.querySelector('.bc-sound-vol');
+      const source = sel ? sel.value : 'preset:chime';
+      const volume = vol ? (parseInt(vol.value, 10) / 100) : 1.0;
+      BoardAudioService.testSound(source, volume);
+    }
+
+    function resetBoardSoundsToDefault() {
+      if (typeof BoardAudioService === 'undefined') return;
+      const defaultCfg = BoardAudioService.getDefaultConfig();
+      _bcBuildSoundTable(defaultCfg);
+      const enableEl = document.getElementById('bc-sound-master-enable');
+      if (enableEl) enableEl.checked = defaultCfg.enabled;
+      const hostOnlyEl = document.getElementById('bc-sound-host-only');
+      if (hostOnlyEl) hostOnlyEl.checked = defaultCfg.hostOnly;
+      const volEl = document.getElementById('bc-sound-master-vol');
+      if (volEl) volEl.value = Math.round(defaultCfg.masterVolume * 100);
+      const volLbl = document.getElementById('bc-sound-master-vol-val');
+      if (volLbl) volLbl.textContent = Math.round(defaultCfg.masterVolume * 100) + '%';
+    }
+
+    function _bcGetSoundSettings() {
+      if (typeof BoardAudioService === 'undefined') return null;
+      const enableEl = document.getElementById('bc-sound-master-enable');
+      const hostOnlyEl = document.getElementById('bc-sound-host-only');
+      const volEl = document.getElementById('bc-sound-master-vol');
+      
+      const settings = {
+        enabled: enableEl ? enableEl.checked : true,
+        masterVolume: volEl ? (parseInt(volEl.value, 10) / 100) : 0.6,
+        hostOnly: hostOnlyEl ? hostOnlyEl.checked : true,
+        actions: {}
+      };
+
+      document.querySelectorAll('#bc-sound-table-container .bc-sound-row').forEach(row => {
+        const actId = row.dataset.actionId;
+        const enableCb = row.querySelector('.bc-sound-act-enable');
+        const sel = row.querySelector('.bc-sound-select');
+        const vol = row.querySelector('.bc-sound-vol');
+        if (actId) {
+          settings.actions[actId] = {
+            enabled: enableCb ? enableCb.checked : true,
+            sound: sel ? sel.value : 'none',
+            volume: vol ? (parseInt(vol.value, 10) / 100) : 1.0
+          };
+        }
+      });
+
+      return settings;
+    }
+
     async function boardCustomiseOpen() {
       let bc = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG && Object.keys(BOARD_CONFIG).length) ? BOARD_CONFIG : {};
       if (window.Desktop && Desktop.isElectron() && typeof Desktop.readJson === 'function') {
@@ -52377,6 +52865,21 @@
       _bcSyncBoardLayoutControls();
 
       _bcBuildPenPresetList('bc-pen-preset-list', Array.isArray(bc.penPresets) && bc.penPresets.length ? bc.penPresets : _BC_PEN_PRESET_DEFAULTS.slice());
+
+      if (typeof BoardAudioService !== 'undefined') {
+        const soundCfg = bc.soundEffects || BoardAudioService.getDefaultConfig();
+        const enableEl = document.getElementById('bc-sound-master-enable');
+        if (enableEl) enableEl.checked = soundCfg.enabled !== false;
+        const hostOnlyEl = document.getElementById('bc-sound-host-only');
+        if (hostOnlyEl) hostOnlyEl.checked = soundCfg.hostOnly !== false;
+        const volEl = document.getElementById('bc-sound-master-vol');
+        const volVal = Math.round((soundCfg.masterVolume !== undefined ? soundCfg.masterVolume : 0.6) * 100);
+        if (volEl) volEl.value = volVal;
+        const volLbl = document.getElementById('bc-sound-master-vol-val');
+        if (volLbl) volLbl.textContent = volVal + '%';
+        _bcBuildSoundTable(soundCfg);
+      }
+
 
       // Font selects: inject into wrap containers
       function _bcUpdateFontPreview(type) {
@@ -52828,6 +53331,7 @@
         notePresets: Array.isArray(existing.notePresets) ? existing.notePresets : [],
         penPresets: _bcGetPenPresets(),
         shortcuts: _bcGetCustomShortcutsMap(),
+        soundEffects: _bcGetSoundSettings(),
         quickActions: _bcGetQuickActionsList(),
         autosaveDebounceSec: (() => {
           const autosaveIntervalVal = (document.getElementById('bc-autosave-interval')?.value || '45').trim();
@@ -52841,6 +53345,7 @@
 
       window.BOARD_CONFIG = bc;
       _boardCustomiseApply(bc);
+      if (typeof BoardAudioService !== 'undefined') BoardAudioService.init(bc.soundEffects);
 
       const lines = 'const BOARD_CONFIG = ' + JSON.stringify(bc, null, 2) + ';\nwindow.BOARD_CONFIG = BOARD_CONFIG;\n';
 
@@ -56133,7 +56638,17 @@
       window._conSuppressMirrorObserver = true;
       document.title = 'Board – Presentation Mode';
       document.documentElement.classList.add('con-mirror-mode');
-      const ch = new BroadcastChannel('constellation-mirror');
+      const _searchParams = new URLSearchParams(location.search);
+      let _mirrorChannelName = (_searchParams.get('mirrorChannel') || '').trim();
+      if (!_mirrorChannelName) {
+        try {
+          _mirrorChannelName = (localStorage.getItem('cmt_active_board_mirror_channel') || '').trim();
+        } catch (_) { }
+      }
+      if (!_mirrorChannelName) {
+        _mirrorChannelName = 'constellation-mirror';
+      }
+      const ch = new BroadcastChannel(_mirrorChannelName);
       var _mirrorIsFrozen = false;
       const _mirrorClientId = 'mirror-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
       function _sendMirrorPresence(online) {
@@ -58394,8 +58909,8 @@
         console.log('[BoardMirror] Sending request-state message to presenter window');
         try { ch.postMessage({ type: 'request-state' }); } catch (e) { }
       }
-      document.addEventListener('DOMContentLoaded', function () {
-        console.log('[BoardMirror] DOMContentLoaded — initializing mirror presentation window');
+      function _initMirror() {
+        console.log('[BoardMirror] initializing mirror presentation window on channel:', _mirrorChannelName);
         _sendMirrorPresence(true);
         var sec = document.getElementById('constellation-section');
         if (sec) sec.classList.remove('hidden');
@@ -58409,10 +58924,16 @@
         }
         if (typeof navTo === 'function') navTo('constellation-section');
         _req();
+        setTimeout(_req, 300);
         setTimeout(_req, 700);
-        setTimeout(_req, 1800);
-        setTimeout(_req, 4000);
-      });
+        setTimeout(_req, 1500);
+        setTimeout(_req, 3000);
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', _initMirror);
+      } else {
+        _initMirror();
+      }
       window.addEventListener('pagehide', function () { _sendMirrorPresence(false); });
       window.addEventListener('beforeunload', function () { _sendMirrorPresence(false); });
       window.addEventListener('resize', _mirrorApplyViewport);
