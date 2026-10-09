@@ -40476,44 +40476,16 @@
       return 'http://127.0.0.1:' + port;
     }
 
-    function noteStudentWait(ms) { return new Promise(resolve => setTimeout(resolve, Math.max(0, Number(ms) || 0))); }
-
-    function noteStudentProbeWsUrl(wsUrl) {
-      return new Promise((resolve) => {
-        let done = false; let ws = null;
-        const finish = function (ok) { if (done) return; done = true; try { if (ws) ws.close(); } catch (_) { } resolve(!!ok); };
-        try { ws = new WebSocket(wsUrl); } catch (_) { finish(false); return; }
-        const t = setTimeout(() => finish(false), 2000);
-        ws.onopen = function () { clearTimeout(t); finish(true); };
-        ws.onerror = function () { clearTimeout(t); finish(false); };
-        ws.onclose = function () { clearTimeout(t); if (!done) finish(false); };
-      });
-    }
-
-    async function noteStudentProbeNoteWs(baseUrl, attempts, waitMs) {
-      let wsUrl = ''; try { wsUrl = noteStudentBuildWsUrl(baseUrl); } catch (_) { return false; }
-      const total = Math.max(1, Number(attempts) || 1); const delay = Math.max(0, Number(waitMs) || 0);
-      for (let i = 0; i < total; i++) { const ok = await noteStudentProbeWsUrl(wsUrl); if (ok) return true; if (i < total - 1 && delay > 0) await noteStudentWait(delay); }
-      return false;
-    }
-
     async function noteStudentEnsureServerForElectron() {
       if (!(window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron())) return null;
       if (!(window.Desktop && typeof Desktop.quizServerStart === 'function')) return null;
       if (_noteStudentHub.mode === 'external') return null;
-      const candidatePorts = [8787, 8788];
-      for (let i = 0; i < candidatePorts.length; i++) {
-        const port = candidatePorts[i]; let res = null;
-        try { res = await Desktop.quizServerStart(port); } catch (_) { res = null; }
-        if (!res || res.ok === false) continue;
-        await noteStudentWait(250);
-        const baseUrl = noteStudentBaseFromServerInfo(res); if (!baseUrl) continue;
-        const localBaseUrl = noteStudentLocalBaseFromServerInfo(res);
-        const wsOk = await noteStudentProbeNoteWs(localBaseUrl, 3, 250);
-        if (wsOk) return Object.assign({}, res, { baseUrl: localBaseUrl, publicBaseUrl: baseUrl });
-        if (window.Desktop && typeof Desktop.quizServerStop === 'function') { try { await Desktop.quizServerStop(); } catch (_) { } await noteStudentWait(250); }
-      }
-      return null;
+      let res = null;
+      try { res = await Desktop.quizServerStart(8787); } catch (_) { res = null; }
+      if (!res || res.ok === false) return null;
+      const baseUrl = noteStudentBaseFromServerInfo(res);
+      const localBaseUrl = noteStudentLocalBaseFromServerInfo(res);
+      return Object.assign({}, res, { baseUrl: localBaseUrl || baseUrl || 'http://127.0.0.1:8787', publicBaseUrl: baseUrl || localBaseUrl || 'http://127.0.0.1:8787' });
     }
 
     async function noteStudentPrimeServerAuto() {

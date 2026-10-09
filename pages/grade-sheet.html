@@ -6209,6 +6209,30 @@
       if (student.correctionTime && Array.isArray(student.correctionTime[sem])) {
         student.correctionTime[sem][testIndex] = null;
       }
+      if (student.testNotes && Array.isArray(student.testNotes[sem]) && Array.isArray(student.testNotes[sem][testIndex])) {
+        student.testNotes[sem][testIndex].forEach(s => {
+          if (s && typeof s === 'object') {
+            s.checklist = [];
+          }
+        });
+      }
+      if (_studentModalDraft && _studentModalDraft.student && _studentModalDraft.student.id === student.id && _studentModalDraft.sem === sem && _studentModalDraft.testIndex === testIndex) {
+        if (Array.isArray(_studentModalDraft.draftSections)) {
+          _studentModalDraft.draftSections.forEach(s => {
+            if (s && typeof s === 'object') {
+              s.checklist = [];
+            }
+          });
+        }
+        const modalClChips = document.querySelectorAll("#student-modal .note-checklist-chip");
+        modalClChips.forEach(chip => {
+          chip.classList.remove("selected");
+          chip.setAttribute("aria-pressed", "false");
+          const chipName = chip.dataset.chipName || chip.textContent.replace(/x\d+$/, '').trim();
+          chip.innerHTML = escapeHtml(chipName);
+          chip.title = `${chip.dataset.category || ''} • ${t('gsDragToReorder', 'Drag to reorder')}`;
+        });
+      }
       recalcStudentGradeFromCriteria(student, sem, testIndex, config);
       saveState();
       renderTestSheet();
