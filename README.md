@@ -429,7 +429,9 @@ The central entry point for the suite. Opens on app launch and provides quick na
 - **View Density Switcher (Compact Tiles vs. Detailed Cards)**: Switch between a sleek, streamlined **Compact** view (distraction-free app tiles with centered icons, bold typography, descriptions in hover tooltips, and hidden drag handles) and **Detailed** view (full descriptive paragraphs) with preference saved in `localStorage`.
 - **Decluttered Light Neobrutalist Card Styling**: Refined warm neutral canvas (`#f5f5f0`), soft dark charcoal borders (`2px solid #333333`), tactile zero-blur offset shadows (`3px 3px 0 #555555`), and subtle hover-only controls for settings (⚙) and reordering handles (⠿).
 - **Customizable App Cards**: Hover over any card and click ⚙ to set custom titles, personal notes, card size (%), and screen position presets.
-- **Collapsible Sidebar**:
+- **Daily Companion Sidebar**:
+  - **Live Date Indicator & Quick View Tabs**: Top header displays today's live localized date with a 3-way view switcher (`[All]`, `[Agenda]`, `[Library]`). Switching to **Agenda** instantly isolates Upcoming Events and To-Dos for a distraction-free teaching routine.
+  - **Light Neobrutalist Cards**: Softened borders (`2px solid #333333`), tactile zero-blur offset shadows (`3px 3px 0 #555555`), warm `#fafaf7` headers, and individual section icon badges (📌, 📅, ✓, 📄, 🏷️) replacing monolithic black headers.
   - **Upcoming Events**: Displays lessons, tests, and assignments from [Planner](#plannerhtml) for today and upcoming dates. Click any entry to jump directly to that date in Planner.
   - **To-do List**: Shows pending tasks from Planner sorted by urgency. Overdue items are highlighted in red. Click **+** to add a new to-do.
   - **Recent Docs**: Quick links to recently modified Board constellation maps (`.cstz`) and Document Editor files. Includes real-time change tracking and item count selector (1–20).

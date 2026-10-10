@@ -130,10 +130,23 @@
   <button id="addSectionBtn" class="section-add-btn" data-i18n="sectionAddBtn">+ Add Section</button>
 </div>
 <aside class="launcher-sidebar" id="launcherSidebar">
+  <div class="sb-header-bar">
+    <div class="sb-header-meta">
+      <span class="sb-header-dot" aria-hidden="true"></span>
+      <span class="sb-companion-label" data-i18n="sbCompanionTitle">Daily Companion</span>
+      <span class="sb-header-date" id="sbHeaderDate"></span>
+    </div>
+    <div class="sb-tab-toggles" id="sbTabToggles" role="group" aria-label="Sidebar view filter">
+      <button type="button" class="sb-tab-btn active" data-tab="all" data-i18n="sbTabAll">All</button>
+      <button type="button" class="sb-tab-btn" data-tab="agenda" data-i18n="sbTabAgenda">Agenda</button>
+      <button type="button" class="sb-tab-btn" data-tab="library" data-i18n="sbTabLibrary">Library</button>
+    </div>
+  </div>
   <div class="sb-panel">
     <div class="sb-section" id="sbPinnedSection">
       <div class="sb-section-hd">
         <span class="sb-chevron">▼</span>
+        <span class="sb-section-icon" aria-hidden="true">📌</span>
         <span class="sb-section-title" data-i18n="sbPinnedTitle">Pinned Items</span>
       </div>
       <div class="sb-list" id="sbPinnedList">
@@ -143,6 +156,7 @@
     <div class="sb-section" id="sbUpcomingSection">
       <div class="sb-section-hd">
         <span class="sb-chevron">▼</span>
+        <span class="sb-section-icon" aria-hidden="true">📅</span>
         <span class="sb-section-title" data-i18n="sbUpcomingTitle">Upcoming Events</span>
         <button class="sb-count-btn" id="sbEventsCountBtn" data-i18n-title="sbCountTooltip">5</button>
       </div>
@@ -153,6 +167,7 @@
     <div class="sb-section" id="sbTodoSection">
       <div class="sb-section-hd">
         <span class="sb-chevron">▼</span>
+        <span class="sb-section-icon" aria-hidden="true">✓</span>
         <span class="sb-section-title" data-i18n="sbTodoTitle">To-do</span>
         <button class="sb-count-btn" id="sbTodoAddBtn" onclick="sbOpenPlanner()" data-i18n-title="sbTodoAdd">+</button>
       </div>
@@ -163,6 +178,7 @@
     <div class="sb-section" id="sbRecentSection">
       <div class="sb-section-hd">
         <span class="sb-chevron">▼</span>
+        <span class="sb-section-icon" aria-hidden="true">📄</span>
         <span class="sb-section-title" data-i18n="sbRecentTitle">Recent Docs</span>
         <button class="sb-count-btn" id="sbDocsCountBtn" data-i18n-title="sbCountTooltip">5</button>
       </div>
@@ -173,6 +189,7 @@
     <div class="sb-section" id="sbTagSection">
       <div class="sb-section-hd" id="sbTagSectionHd">
         <span class="sb-chevron">▼</span>
+        <span class="sb-section-icon" aria-hidden="true">🏷️</span>
         <span class="sb-section-title" data-i18n="sbTagTitle">Unit / Tag Explorer</span>
         <button class="sb-count-btn" id="sbTagOpenModalBtn" onclick="event.stopPropagation(); openUnitExplorerModal()" title="Open Unit &amp; Tag Explorer" data-i18n-title="sbTagOpenModalTitle"><img src="assets/icons/links.svg" class="btn-icon" alt="" style="width:11px;height:11px;vertical-align:-1px;margin-right:2px;" />#</button>
       </div>
@@ -1034,6 +1051,7 @@
       if (typeof applyTitle === 'function') applyTitle();
       if (typeof sbRender === 'function') sbRender();
       if (typeof rfRender === 'function') rfRender();
+      if (typeof sbUpdateHeaderDate === 'function') sbUpdateHeaderDate();
     }
   });
 
@@ -1138,6 +1156,7 @@
         if (typeof applyTitle === 'function') applyTitle();
         if (typeof sbRender === 'function') sbRender();
         if (typeof rfRender === 'function') rfRender();
+        if (typeof sbUpdateHeaderDate === 'function') sbUpdateHeaderDate();
       });
     }
 
@@ -1969,6 +1988,53 @@
     });
   }
 
+  // ── Sidebar Companion filter tabs & date ────────────────
+  function sbApplyFilterTab(tab) {
+    var validTabs = ['all', 'agenda', 'library'];
+    var activeTab = validTabs.indexOf(tab) !== -1 ? tab : 'all';
+    localStorage.setItem('cmt-launcher-sb-tab', activeTab);
+
+    var sidebar = document.getElementById('launcherSidebar');
+    if (sidebar) {
+      sidebar.classList.toggle('sb-filter-agenda', activeTab === 'agenda');
+      sidebar.classList.toggle('sb-filter-library', activeTab === 'library');
+    }
+
+    var tabBtns = document.querySelectorAll('#sbTabToggles .sb-tab-btn');
+    tabBtns.forEach(function(btn) {
+      btn.classList.toggle('active', btn.dataset.tab === activeTab);
+    });
+  }
+
+  function sbInitFilterTabs() {
+    sbUpdateHeaderDate();
+    var savedTab = localStorage.getItem('cmt-launcher-sb-tab') || 'all';
+    sbApplyFilterTab(savedTab);
+
+    var toggleContainer = document.getElementById('sbTabToggles');
+    if (toggleContainer) {
+      toggleContainer.addEventListener('click', function(e) {
+        var btn = e.target.closest('.sb-tab-btn');
+        if (!btn || !btn.dataset.tab) return;
+        sbApplyFilterTab(btn.dataset.tab);
+      });
+    }
+  }
+
+  function sbUpdateHeaderDate() {
+    var dateEl = document.getElementById('sbHeaderDate');
+    if (!dateEl) return;
+    var d = new Date();
+    var lang = (typeof getLang === 'function') ? getLang() : 'en';
+    try {
+      var locale = lang === 'fr' ? 'fr-FR' : (lang === 'de' ? 'de-DE' : (lang === 'it' ? 'it-IT' : 'en-US'));
+      var formatted = d.toLocaleDateString(locale, { weekday: 'short', month: 'short', day: 'numeric' });
+      dateEl.textContent = '• ' + formatted;
+    } catch (e) {
+      dateEl.textContent = '• ' + d.toISOString().slice(5, 10);
+    }
+  }
+
   function init() {
     const popup = document.getElementById('cfgPopup');
     if (popup) {
@@ -1983,6 +2049,7 @@
     renderSections();
     initSearchFilter();
     initSidebarCollapse();
+    sbInitFilterTabs();
     initFirstRunModalEvents();
     checkFirstRunWelcome();
 
