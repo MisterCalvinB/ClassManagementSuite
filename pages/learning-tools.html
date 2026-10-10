@@ -7861,8 +7861,11 @@
       if (!ltProjectionControlMenuEl) return;
       const freezeBtn = ltProjectionControlMenuEl.querySelector('[data-pres-action="freeze"]');
       if (freezeBtn) {
-        freezeBtn.textContent = on ? t('presUnfreeze') : t('presFreeze');
-        freezeBtn.title = on ? t('presUnfreeze') : t('presFreeze');
+        const label = on ? (t('pres_unfreeze_title') || t('presUnfreeze')) : (t('pres_freeze_title') || t('presFreeze'));
+        freezeBtn.title = label;
+        freezeBtn.setAttribute('data-tooltip', label);
+        freezeBtn.setAttribute('aria-label', label);
+        freezeBtn.classList.toggle('is-frozen', !!on);
       }
     }
 
@@ -7872,16 +7875,15 @@
       if (!root || ltProjectionControlMenuEl) return;
       const menu = document.createElement('div');
       menu.id = 'lt-pres-menu';
-      menu.style.cssText = 'position:fixed;top:8px;right:8px;z-index:100000;display:flex;flex-direction:column;gap:5px;padding:7px 8px;border:1px solid rgba(0,0,0,0.2);border-radius:10px;background:rgba(255,255,255,0.94);box-shadow:0 6px 16px rgba(0,0,0,0.14);backdrop-filter:blur(6px);opacity:0.94;min-width:138px;font-family:inherit;pointer-events:auto;';
+      menu.className = 'pres-control-menu tooltip-bottom';
+      menu.style.cssText = 'position:fixed;top:8px;right:8px;z-index:100000;pointer-events:auto;';
       menu.innerHTML = ''
-        + '<div style="font-size:0.56rem;font-weight:800;letter-spacing:0.6px;text-transform:uppercase;color:#555;line-height:1;">' + t('presMenuTitle') + '</div>'
-        + '<button type="button" data-pres-action="close" style="padding:5px 8px;border:1px solid #444;border-radius:7px;background:#111;color:#fff;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + t('presStop') + '</button>'
-        + '<button type="button" data-pres-action="freeze" style="padding:5px 8px;border:1px solid #4a90d9;border-radius:7px;background:#fff;color:#1f4f86;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + t('presFreeze') + '</button>'
-        + '<button type="button" data-pres-action="resize" style="padding:5px 8px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + t('presResize') + '</button>'
-        + '<div style="display:flex;gap:4px;">'
-        + '  <button type="button" data-pres-action="left" style="flex:1;padding:5px 6px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.72rem;line-height:1.1;cursor:pointer;">' + t('presLeft') + '</button>'
-        + '  <button type="button" data-pres-action="right" style="flex:1;padding:5px 6px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.72rem;line-height:1.1;cursor:pointer;">' + t('presRight') + '</button>'
-        + '</div>';
+        + '<div class="pres-drag-handle" title="Drag to move">⋮⋮</div>'
+        + `<button type="button" class="pres-btn" data-pres-action="close" data-tooltip="${t('pres_stop_title') || t('presStop')}" title="${t('pres_stop_title') || t('presStop')}" aria-label="${t('pres_stop_title') || t('presStop')}"><img src="../assets/icons/stop.svg" alt="" /></button>`
+        + `<button type="button" class="pres-btn" data-pres-action="freeze" data-tooltip="${t('pres_freeze_title') || t('presFreeze')}" title="${t('pres_freeze_title') || t('presFreeze')}" aria-label="${t('pres_freeze_title') || t('presFreeze')}"><img src="../assets/icons/pause.svg" alt="" /></button>`
+        + `<button type="button" class="pres-btn" data-pres-action="resize" data-tooltip="${t('pres_resize_title') || t('presResize')}" title="${t('pres_resize_title') || t('presResize')}" aria-label="${t('pres_resize_title') || t('presResize')}"><img src="../assets/icons/compact.svg" alt="" /></button>`
+        + `<button type="button" class="pres-btn" data-pres-action="left" data-tooltip="${t('pres_left_title') || t('presLeft')}" title="${t('pres_left_title') || t('presLeft')}" aria-label="${t('pres_left_title') || t('presLeft')}"><img src="../assets/icons/triangle-left.svg" alt="" /></button>`
+        + `<button type="button" class="pres-btn" data-pres-action="right" data-tooltip="${t('pres_right_title') || t('presRight')}" title="${t('pres_right_title') || t('presRight')}" aria-label="${t('pres_right_title') || t('presRight')}"><img src="../assets/icons/triangle-right.svg" alt="" /></button>`;
       menu.addEventListener('click', function (event) {
         const btn = event.target && event.target.closest ? event.target.closest('[data-pres-action]') : null;
         if (!btn) return;

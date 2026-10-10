@@ -836,6 +836,125 @@
             border-radius: 3px;
             margin-left: 6px;
         }
+
+        /* Presentation Floating Control Menu */
+        .pres-control-menu {
+            position: fixed;
+            z-index: 100000;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 6px;
+            border: 2px solid #333333;
+            border-radius: 8px;
+            background: #ffffff;
+            box-shadow: 3px 3px 0 #555555;
+            cursor: move;
+            user-select: none;
+            font-family: 'Lexend', inherit;
+            box-sizing: border-box;
+        }
+        .pres-control-menu .pres-drag-handle {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 4px 0 2px;
+            color: #888888;
+            cursor: grab;
+            user-select: none;
+            font-size: 13px;
+            line-height: 1;
+        }
+        .pres-control-menu .pres-drag-handle:active {
+            cursor: grabbing;
+        }
+        .pres-control-menu .pres-btn {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 1.5px solid #333333;
+            border-radius: 6px;
+            background: #f8f8f6;
+            box-shadow: 2px 2px 0 #555555;
+            cursor: pointer;
+            transition: transform 0.1s ease, background-color 0.1s ease, box-shadow 0.1s ease;
+            box-sizing: border-box;
+        }
+        .pres-control-menu .pres-btn:hover {
+            background: #eae8e0;
+            transform: translate(-1px, -1px);
+            box-shadow: 3px 3px 0 #555555;
+        }
+        .pres-control-menu .pres-btn:active {
+            transform: translate(1px, 1px);
+            box-shadow: 1px 1px 0 #555555;
+        }
+        .pres-control-menu .pres-btn img {
+            width: 14px;
+            height: 14px;
+            pointer-events: none;
+            display: block;
+        }
+        .pres-control-menu .pres-btn[data-pres-action="close"] {
+            background: #222222;
+            border-color: #222222;
+        }
+        .pres-control-menu .pres-btn[data-pres-action="close"]:hover {
+            background: #c96b6b;
+            border-color: #333333;
+        }
+        .pres-control-menu .pres-btn[data-pres-action="close"] img {
+            filter: invert(1);
+        }
+        .pres-control-menu .pres-btn.is-frozen {
+            background: #5b8fcc !important;
+            border-color: #333333 !important;
+        }
+        .pres-control-menu .pres-btn.is-frozen img {
+            filter: invert(1);
+        }
+        .pres-control-menu .pres-btn[data-tooltip]::before {
+            content: attr(data-tooltip);
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 4px 7px;
+            background: #222222;
+            color: #ffffff;
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
+            border-radius: 4px;
+            border: 1px solid #444444;
+            box-shadow: 2px 2px 0 rgba(0,0,0,0.3);
+            pointer-events: none;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.15s ease, transform 0.15s ease;
+            z-index: 100001;
+        }
+        .pres-control-menu.tooltip-bottom .pres-btn[data-tooltip]::before {
+            top: calc(100% + 6px);
+            bottom: auto;
+        }
+        .pres-control-menu.tooltip-top .pres-btn[data-tooltip]::before {
+            bottom: calc(100% + 6px);
+            top: auto;
+        }
+        .pres-control-menu.tooltip-bottom .pres-btn[data-tooltip]:hover::before {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(2px);
+        }
+        .pres-control-menu.tooltip-top .pres-btn[data-tooltip]:hover::before {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(-2px);
+        }
     </style>
 </head>
 
@@ -3482,8 +3601,11 @@
             }
             const popupBtn = document.querySelector('#cms-pres-popup [data-pres-action="freeze"]');
             if (popupBtn) {
-                popupBtn.innerHTML = _presFrozen ? `<img src="../assets/icons/snowflake.svg" class="btn-icon" alt="" /> ${t('pres_unfreeze')}` : `<img src="../assets/icons/snowflake.svg" class="btn-icon" style="width:12px;height:12px;" alt="" /> ${t('pres_freeze')}`;
-                popupBtn.title = _presFrozen ? t('pres_unfreeze_title') : t('pres_freeze_title');
+                const label = _presFrozen ? (t('pres_unfreeze_title') || t('pres_unfreeze')) : (t('pres_freeze_title') || t('pres_freeze'));
+                popupBtn.title = label;
+                popupBtn.setAttribute('data-tooltip', label);
+                popupBtn.setAttribute('aria-label', label);
+                popupBtn.classList.toggle('is-frozen', !!_presFrozen);
             }
         }
 
@@ -3491,17 +3613,16 @@
             if (PRESENTATION_MODE || document.getElementById('cms-pres-popup')) return;
             const popup = document.createElement('div');
             popup.id = 'cms-pres-popup';
-            popup.style.cssText = 'position:fixed;bottom:12px;right:12px;z-index:100000;display:none;flex-direction:column;gap:3px;padding:3px 6px;border:1px solid rgba(0,0,0,0.2);border-radius:8px;background:#ffffff;box-shadow:0 6px 16px rgba(0,0,0,0.18);min-width:120px;font-family:inherit;cursor:move;user-select:none;';
+            popup.className = 'pres-control-menu tooltip-top';
+            popup.style.cssText = 'position:fixed;bottom:12px;right:12px;z-index:100000;display:none;';
             popup.innerHTML = ''
-                + '<div style="font-size:0.54rem;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;color:#555;line-height:1;margin-bottom:1px;cursor:move;">' + t('pres_menu_title') + '</div>'
-                + '<button type="button" data-pres-action="close" style="padding:3px 6px;border:1px solid #444;border-radius:5px;background:#111;color:#fff;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + t('pres_stop') + '</button>'
-                + '<button type="button" data-pres-action="freeze" style="padding:3px 6px;border:1px solid #4a90d9;border-radius:5px;background:#fff;color:#1f4f86;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + t('pres_freeze') + '</button>'
-                + '<button type="button" data-pres-action="resize" style="padding:3px 6px;border:1px solid #666;border-radius:5px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + t('pres_resize') + '</button>'
-                + '<button type="button" data-pres-action="maximize" style="padding:3px 6px;border:1px solid #666;border-radius:5px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + t('pres_maximize') + '</button>'
-                + '<div style="display:flex;gap:3px;">'
-                + '  <button type="button" data-pres-action="left" style="flex:1;padding:3px 4px;border:1px solid #666;border-radius:5px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.5rem;line-height:1.1;cursor:pointer;">' + t('pres_left') + '</button>'
-                + '  <button type="button" data-pres-action="right" style="flex:1;padding:3px 4px;border:1px solid #666;border-radius:5px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + t('pres_right') + '</button>'
-                + '</div>';
+                + '<div class="pres-drag-handle" title="Drag to move">⋮⋮</div>'
+                + `<button type="button" class="pres-btn" data-pres-action="close" data-tooltip="${t('pres_stop_title') || t('pres_stop')}" title="${t('pres_stop_title') || t('pres_stop')}" aria-label="${t('pres_stop_title') || t('pres_stop')}"><img src="../assets/icons/stop.svg" alt="" /></button>`
+                + `<button type="button" class="pres-btn" data-pres-action="freeze" data-tooltip="${t('pres_freeze_title') || t('pres_freeze')}" title="${t('pres_freeze_title') || t('pres_freeze')}" aria-label="${t('pres_freeze_title') || t('pres_freeze')}"><img src="../assets/icons/pause.svg" alt="" /></button>`
+                + `<button type="button" class="pres-btn" data-pres-action="resize" data-tooltip="${t('pres_resize_title') || t('pres_resize')}" title="${t('pres_resize_title') || t('pres_resize')}" aria-label="${t('pres_resize_title') || t('pres_resize')}"><img src="../assets/icons/compact.svg" alt="" /></button>`
+                + `<button type="button" class="pres-btn" data-pres-action="maximize" data-tooltip="${t('pres_maximize_title') || t('pres_maximize')}" title="${t('pres_maximize_title') || t('pres_maximize')}"><img src="../assets/icons/maximize.svg" alt="" /></button>`
+                + `<button type="button" class="pres-btn" data-pres-action="left" data-tooltip="${t('pres_left_title') || t('pres_left')}" title="${t('pres_left_title') || t('pres_left')}" aria-label="${t('pres_left_title') || t('pres_left')}"><img src="../assets/icons/triangle-left.svg" alt="" /></button>`
+                + `<button type="button" class="pres-btn" data-pres-action="right" data-tooltip="${t('pres_right_title') || t('pres_right')}" title="${t('pres_right_title') || t('pres_right')}" aria-label="${t('pres_right_title') || t('pres_right')}"><img src="../assets/icons/triangle-right.svg" alt="" /></button>`;
             popup.addEventListener('click', (event) => {
                 const btn = event.target.closest('[data-pres-action]');
                 if (!btn) return;

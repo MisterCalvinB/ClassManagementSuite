@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="../modules/katex/dist/katex.min.css">
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <link rel="stylesheet" href="../css/document-editor.css">
+  <link rel="stylesheet" href="../css/common.css">
   <link rel="stylesheet" href="../css/tag-link-modal.css">
   <link rel="stylesheet" href="../css/universal-importer.css">
 </head>
@@ -4553,10 +4554,11 @@
     function syncPresentationFreezeButtons() {
       const popupBtn = document.querySelector('#de-pres-popup [data-pres-action="freeze"]');
       if (popupBtn) {
-        popupBtn.textContent = _dePresFrozen ? translate('pres_unfreeze') : translate('pres_freeze');
-        popupBtn.title = _dePresFrozen ? translate('pres_unfreeze_title') : translate('pres_freeze_title');
-        popupBtn.style.background = _dePresFrozen ? '#4a90d9' : '';
-        popupBtn.style.color = _dePresFrozen ? '#fff' : '';
+        const title = _dePresFrozen ? (translate('pres_unfreeze_title') || translate('pres_unfreeze')) : (translate('pres_freeze_title') || translate('pres_freeze'));
+        popupBtn.title = title;
+        popupBtn.setAttribute('data-tooltip', title);
+        popupBtn.setAttribute('aria-label', title);
+        popupBtn.classList.toggle('is-frozen', !!_dePresFrozen);
       }
     }
 
@@ -4566,24 +4568,32 @@
         en: {
           pres_menu_title: 'Presentation Menu',
           pres_stop: 'Stop',
-          pres_freeze: '❄ Freeze',
-          pres_unfreeze: '❄ Frozen',
-          pres_freeze_title: 'Freeze the presentation screen',
-          pres_unfreeze_title: 'Unfreeze the presentation screen',
+          pres_stop_title: 'Stop presentation mode',
+          pres_freeze: 'Freeze',
+          pres_unfreeze: 'Unfreeze',
+          pres_freeze_title: 'Freeze presentation display',
+          pres_unfreeze_title: 'Unfreeze presentation display',
           pres_resize: 'Fit Screen',
-          pres_left: '← Left',
-          pres_right: 'Right →'
+          pres_resize_title: 'Resize presentation display',
+          pres_left: 'Left',
+          pres_left_title: 'Dock to left half',
+          pres_right: 'Right',
+          pres_right_title: 'Dock to right half'
         },
         fr: {
           pres_menu_title: 'Menu de présentation',
           pres_stop: 'Arrêter',
-          pres_freeze: '❄ Figer',
-          pres_unfreeze: '❄ Figé',
+          pres_stop_title: 'Arrêter le mode présentation',
+          pres_freeze: 'Figer',
+          pres_unfreeze: 'Libérer',
           pres_freeze_title: 'Figer l\'écran de présentation',
           pres_unfreeze_title: 'Libérer l\'écran de présentation',
           pres_resize: 'Ajuster',
-          pres_left: '← Gauche',
-          pres_right: 'Droite →'
+          pres_resize_title: 'Redimensionner la fenêtre de présentation',
+          pres_left: 'Gauche',
+          pres_left_title: 'Ancrer sur la moitié gauche',
+          pres_right: 'Droite',
+          pres_right_title: 'Ancrer sur la moitié droite'
         }
       };
       const map = localStrings[lang] || localStrings.en;
@@ -4595,16 +4605,15 @@
       if (popup) return;
       popup = document.createElement('div');
       popup.id = 'de-pres-popup';
-      popup.style.cssText = 'position:fixed;bottom:12px;right:12px;z-index:100000;display:none;flex-direction:column;gap:5px;padding:7px 8px;border:1px solid rgba(0,0,0,0.2);border-radius:10px;background:rgba(255,255,255,0.94);box-shadow:0 6px 16px rgba(0,0,0,0.14);backdrop-filter:blur(6px);opacity:0.94;min-width:138px;font-family:inherit;cursor:move;user-select:none;';
+      popup.className = 'pres-control-menu tooltip-top';
+      popup.style.cssText = 'position:fixed;bottom:12px;right:12px;z-index:100000;display:none;';
       popup.innerHTML = ''
-        + '<div style="font-size:0.56rem;font-weight:800;letter-spacing:0.6px;text-transform:uppercase;color:#555;line-height:1;margin-bottom:2px;cursor:move;">' + translate('pres_menu_title') + '</div>'
-        + '<button type="button" data-pres-action="close" style="padding:5px 8px;border:1px solid #444;border-radius:7px;background:#111;color:#fff;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + translate('pres_stop') + '</button>'
-        + '<button type="button" data-pres-action="freeze" style="padding:5px 8px;border:1px solid #4a90d9;border-radius:7px;background:#fff;color:#1f4f86;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + translate('pres_freeze') + '</button>'
-        + '<button type="button" data-pres-action="resize" style="padding:5px 8px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + translate('pres_resize') + '</button>'
-        + '<div style="display:flex;gap:4px;">'
-        + '  <button type="button" data-pres-action="left" style="flex:1;padding:5px 6px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.72rem;line-height:1.1;cursor:pointer;">' + translate('pres_left') + '</button>'
-        + '  <button type="button" data-pres-action="right" style="flex:1;padding:5px 6px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.72rem;line-height:1.1;cursor:pointer;">' + translate('pres_right') + '</button>'
-        + '</div>';
+        + '<div class="pres-drag-handle" title="Drag to move">⋮⋮</div>'
+        + `<button type="button" class="pres-btn" data-pres-action="close" data-tooltip="${translate('pres_stop_title') || translate('pres_stop')}" title="${translate('pres_stop_title') || translate('pres_stop')}" aria-label="${translate('pres_stop_title') || translate('pres_stop')}"><img src="../assets/icons/stop.svg" alt="" /></button>`
+        + `<button type="button" class="pres-btn" data-pres-action="freeze" data-tooltip="${translate('pres_freeze_title') || translate('pres_freeze')}" title="${translate('pres_freeze_title') || translate('pres_freeze')}" aria-label="${translate('pres_freeze_title') || translate('pres_freeze')}"><img src="../assets/icons/pause.svg" alt="" /></button>`
+        + `<button type="button" class="pres-btn" data-pres-action="resize" data-tooltip="${translate('pres_resize_title') || translate('pres_resize')}" title="${translate('pres_resize_title') || translate('pres_resize')}" aria-label="${translate('pres_resize_title') || translate('pres_resize')}"><img src="../assets/icons/compact.svg" alt="" /></button>`
+        + `<button type="button" class="pres-btn" data-pres-action="left" data-tooltip="${translate('pres_left_title') || translate('pres_left')}" title="${translate('pres_left_title') || translate('pres_left')}" aria-label="${translate('pres_left_title') || translate('pres_left')}"><img src="../assets/icons/triangle-left.svg" alt="" /></button>`
+        + `<button type="button" class="pres-btn" data-pres-action="right" data-tooltip="${translate('pres_right_title') || translate('pres_right')}" title="${translate('pres_right_title') || translate('pres_right')}" aria-label="${translate('pres_right_title') || translate('pres_right')}"><img src="../assets/icons/triangle-right.svg" alt="" /></button>`;
       popup.addEventListener('click', (event) => {
         const btn = event.target.closest('[data-pres-action]');
         if (!btn) return;

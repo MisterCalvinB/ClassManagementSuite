@@ -15580,31 +15580,7 @@
         autoSaveStudentModal(false);
       });
 
-      const addChipBtn = document.createElement("button");
-      addChipBtn.type = "button";
-      addChipBtn.className = "btn btn-sm";
-      addChipBtn.style.cssText = "padding:2px 8px;font-size:0.75rem;display:inline-flex;align-items:center;gap:4px;font-weight:700;";
-      addChipBtn.innerHTML = '<img src="../assets/icons/plus.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /> ' + t('gsBtnAddChip', 'Add Chip');
-      addChipBtn.title = t('gsAddChipModalTitle', 'Add Observation Chip');
-      addChipBtn.addEventListener("click", () => {
-        openAddObservationChipModal(_activeChipBankFilename || noteBankSel.value || 'correction-criteria.js', () => {
-          populateChipBankSelectElement(noteBankSel, _activeChipBankFilename);
-          if (config) config.chipBank = _activeChipBankFilename;
-          if (classObj) {
-            if (!Array.isArray(classObj.chipBanks)) classObj.chipBanks = [];
-            if (!classObj.chipBanks.includes(_activeChipBankFilename)) classObj.chipBanks.push(_activeChipBankFilename);
-            if (!classObj.chipBank) classObj.chipBank = _activeChipBankFilename;
-          }
-          saveState(classObj ? classObj.id : null, sem, testIndex);
-          const updated = ensureObservationChecklistSections(draftSections, _activeChipBankFilename);
-          draftSections.length = 0;
-          updated.forEach(s => draftSections.push(s));
-          renderNoteSections();
-          autoSaveStudentModal(false);
-        });
-      });
-
-      noteBankWrap.append(noteBankLbl, noteBankSel, addChipBtn);
+      noteBankWrap.append(noteBankLbl, noteBankSel);
       noteHeadRow.appendChild(noteBankWrap);
       noteSection.appendChild(noteHeadRow);
 
@@ -15627,9 +15603,166 @@
         return { color: '', groups: [] };
       }
 
-      function buildChecklistElement(section) {
+      function openQuickAddChipPopup({ section, categoryName, block, secColor }) {
+        const targetBankFn = _activeChipBankFilename || 'correction-criteria.js';
+        const sectionLabel = section ? section.label : '';
+        const normSec = String(sectionLabel || '').trim();
+        const effectiveColor = secColor || '#16a34a';
+
+        let overlay = document.getElementById('gs-quick-add-chip-overlay');
+        if (!overlay) {
+          overlay = document.createElement('div');
+          overlay.id = 'gs-quick-add-chip-overlay';
+          overlay.className = 'gs-quick-add-chip-overlay';
+          document.body.appendChild(overlay);
+        }
+        overlay.classList.remove('hidden');
+        overlay.style.display = 'flex';
+
+        overlay.innerHTML = `
+          <div class="gs-quick-add-chip-card" role="dialog" aria-modal="true">
+            <div class="gs-quick-add-chip-header">
+              <div class="gs-quick-add-chip-title">
+                <img src="../assets/icons/speech-bubbles.svg" style="width:18px;height:18px;" alt="" />
+                <span>${t('gsPopupNoteTitle', 'Add Observation Note')}</span>
+              </div>
+              <button type="button" id="gs-quick-chip-close" class="btn btn-xs gs-quick-add-chip-close">✕</button>
+            </div>
+            <div class="gs-quick-add-chip-meta">
+              <span class="gs-quick-add-chip-sec-badge" style="border-left: 3px solid ${effectiveColor};">
+                ${escapeHtml(normSec || t('gsSectionGeneral', 'General Observations'))}
+              </span>
+              ${categoryName ? `
+                <span class="note-checklist-section-tag" style="pointer-events: none; ${effectiveColor ? `--note-accent:${effectiveColor};` : ''}">
+                  ${escapeHtml(categoryName)}
+                </span>
+              ` : `
+                <input type="text" id="gs-quick-chip-cat-input" class="input input-sm" style="padding:2px 8px;font-size:0.75rem;max-width:140px;font-weight:700;" placeholder="${t('gsAddChipCategoryLabel', 'Category')}..." value="${t('gsCategoryGeneral', 'General')}" />
+              `}
+            </div>
+            <div class="gs-quick-add-chip-body">
+              <label class="gs-quick-add-chip-label" for="gs-quick-chip-text-input">${t('gsAddChipNameLabel', 'Chip Text')}</label>
+              <input type="text" id="gs-quick-chip-text-input" class="input gs-quick-add-chip-input" placeholder="${t('gsPlaceholderObservation', 'e.g. Good intonation, Needs clearer examples...')}" autocomplete="off" />
+            </div>
+            <div class="gs-quick-add-chip-actions">
+              <button type="button" id="gs-quick-chip-cancel" class="btn">${t('gsAddChipBtnCancel', 'Cancel')}</button>
+              <button type="button" id="gs-quick-chip-submit" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:6px;">
+                <img src="../assets/icons/plus.svg" class="btn-icon" style="width:13px;height:13px;" alt="" />
+                <span>${t('gsAddChipBtnSubmit', 'Add Chip')}</span>
+              </button>
+            </div>
+          </div>
+        `;
+
+        const textInput = document.getElementById('gs-quick-chip-text-input');
+        const catInput = document.getElementById('gs-quick-chip-cat-input');
+        const closeBtn = document.getElementById('gs-quick-chip-close');
+        const cancelBtn = document.getElementById('gs-quick-chip-cancel');
+        const submitBtn = document.getElementById('gs-quick-chip-submit');
+
+        function closePopup() {
+          overlay.style.display = 'none';
+          overlay.classList.add('hidden');
+          document.removeEventListener('keydown', onKeyDown);
+        }
+
+        async function submitChip() {
+          const chipText = textInput ? textInput.value.trim() : '';
+          const cat = categoryName || (catInput ? catInput.value.trim() : '') || t('gsCategoryGeneral', 'General');
+          const sec = normSec || t('gsSectionGeneral', 'General Observations');
+
+          if (!chipText) {
+            if (textInput) textInput.focus();
+            return;
+          }
+
+          submitBtn.disabled = true;
+          try {
+            const saved = await saveNewObservationChip(targetBankFn, chipText, cat, sec, effectiveColor);
+            if (!saved) {
+              return;
+            }
+
+            if (!Array.isArray(section.checklist)) section.checklist = [];
+            const exists = section.checklist.some(it => {
+              const p = parseObservationChipItem(it);
+              return p.name.toLowerCase() === chipText.toLowerCase();
+            });
+            if (!exists) {
+              section.checklist.push(formatObservationChipItem(chipText, 1));
+            }
+
+            closePopup();
+
+            if (block && typeof updateSectionAppearance === 'function') {
+              updateSectionAppearance(block, section);
+            } else if (typeof refreshObservationChecklists === 'function') {
+              refreshObservationChecklists();
+            }
+
+            autoSaveStudentModal(false);
+            showToast(t('gsToastChipAdded', 'Observation chip added to active bank'));
+          } finally {
+            submitBtn.disabled = false;
+          }
+        }
+
+        if (closeBtn) closeBtn.addEventListener('click', closePopup);
+        if (cancelBtn) cancelBtn.addEventListener('click', closePopup);
+        if (submitBtn) submitBtn.addEventListener('click', submitChip);
+
+        function onKeyDown(e) {
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            closePopup();
+          } else if (e.key === 'Enter') {
+            e.preventDefault();
+            submitChip();
+          }
+        }
+
+        document.addEventListener('keydown', onKeyDown);
+
+        overlay.addEventListener('click', (e) => {
+          if (e.target === overlay) {
+            closePopup();
+          }
+        });
+
+        setTimeout(() => {
+          if (textInput) {
+            textInput.focus();
+            textInput.select();
+          }
+        }, 50);
+      }
+
+      function buildChecklistElement(section, block) {
         const { color: secColor, groups } = getGroupsForSection(section.label);
-        if (!groups || groups.length === 0) return null;
+        if (!groups || groups.length === 0) {
+          const emptyChecklist = document.createElement("div");
+          emptyChecklist.className = "note-checklist note-checklist-empty";
+          emptyChecklist.style.cssText = "display:flex;align-items:center;gap:6px;padding:4px 0;";
+
+          const addFirstTag = document.createElement("button");
+          addFirstTag.type = "button";
+          addFirstTag.className = "note-checklist-section-tag";
+          if (secColor) addFirstTag.style.setProperty("--note-accent", secColor);
+          addFirstTag.title = t('gsAddChipToSection', 'Add chip to this section');
+          addFirstTag.innerHTML = `<img src="../assets/icons/plus.svg" class="btn-icon" alt="" style="width:10px;height:10px;vertical-align:-1px;margin-right:3px;" /> ${t('gsBtnAddChip', 'Add Chip')}`;
+          addFirstTag.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            openQuickAddChipPopup({
+              section,
+              categoryName: '',
+              block: block || emptyChecklist.closest('.note-section'),
+              secColor
+            });
+          });
+          emptyChecklist.appendChild(addFirstTag);
+          return emptyChecklist;
+        }
 
         const items = groups.flatMap(g => g.items);
         const chipMap = new Map();
@@ -15646,10 +15779,24 @@
           inlineGroup.className = "note-checklist-inline-group";
           inlineGroup.dataset.category = group.type;
 
-          const sectionTag = document.createElement("span");
+          const sectionTag = document.createElement("button");
+          sectionTag.type = "button";
           sectionTag.className = "note-checklist-section-tag";
-          sectionTag.textContent = group.type;
+          if (secColor) sectionTag.style.setProperty("--note-accent", secColor);
+          sectionTag.title = (t('gsAddChipToCategoryHint', 'Click to add an observation chip to {cat}')).replace('{cat}', group.type);
+          sectionTag.innerHTML = `${escapeHtml(group.type)} <img src="../assets/icons/plus.svg" class="btn-icon" alt="" style="width:10px;height:10px;vertical-align:-1px;margin-left:3px;opacity:0.85;" />`;
           inlineGroup.appendChild(sectionTag);
+
+          sectionTag.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            openQuickAddChipPopup({
+              section,
+              categoryName: group.type,
+              block: block || checklist.closest('.note-section'),
+              secColor
+            });
+          });
 
           inlineGroup.addEventListener("dragover", e => {
             e.preventDefault();
@@ -15663,7 +15810,7 @@
             try {
               const data = JSON.parse(rawData);
               if (data && data.chipName && data.category) {
-                if (e.target === inlineGroup || e.target === sectionTag) {
+                if (e.target === inlineGroup || e.target === sectionTag || sectionTag.contains(e.target)) {
                   const targetIndex = group.items.length;
                   await reorderObservationChip(_activeChipBankFilename, data.category, data.chipName, group.type, targetIndex);
                   refreshObservationChecklists();
@@ -15826,7 +15973,7 @@
 
         const existingCl = block.querySelector(".note-checklist");
         if (existingCl) existingCl.remove();
-        const cl = buildChecklistElement(section);
+        const cl = buildChecklistElement(section, block);
         const mdWrap = block.querySelector(".note-section-md-wrap") || block.querySelector(".note-section-body");
         if (cl) {
           if (mdWrap && mdWrap.parentElement === block) {
@@ -15909,7 +16056,7 @@
         header.appendChild(delBtn);
         block.appendChild(header);
 
-        const checklist = buildChecklistElement(section);
+        const checklist = buildChecklistElement(section, block);
         if (checklist) {
           block.appendChild(checklist);
         }

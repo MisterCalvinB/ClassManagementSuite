@@ -24,7 +24,6 @@
   <script src="../js/board-sound-service.js"></script>
   <script>
     let boardCmsTimerChannel = null;
-    const boardCmsTimerPrefsKey = 'board-cms-timer-widget-v2';
     let boardCmsTimerUiState = {
       timerActive: false,
       collapsed: false,
@@ -34,211 +33,12 @@
       fontPx: 28
     };
 
-    function boardLoadCmsTimerPrefs() {
-      try {
-        var raw = localStorage.getItem(boardCmsTimerPrefsKey);
-        if (!raw) return;
-        var saved = JSON.parse(raw);
-        if (!saved || typeof saved !== 'object') return;
-        if (typeof saved.x === 'number') boardCmsTimerUiState.x = saved.x;
-        if (typeof saved.y === 'number') boardCmsTimerUiState.y = saved.y;
-        if (typeof saved.fontPx === 'number') boardCmsTimerUiState.fontPx = saved.fontPx;
-      } catch (_) { }
-    }
-
-    function boardSaveCmsTimerPrefs() {
-      try {
-        localStorage.setItem(boardCmsTimerPrefsKey, JSON.stringify({
-          x: boardCmsTimerUiState.x,
-          y: boardCmsTimerUiState.y,
-          fontPx: boardCmsTimerUiState.fontPx
-        }));
-      } catch (_) { }
-    }
-
-    function boardBroadcastCmsTimerUi() {
-      if (!window._conMirrorSend) return;
-      try {
-        window._conMirrorSend({
-          type: 'cms-timer-ui',
-          ui: {
-            x: boardCmsTimerUiState.x,
-            y: boardCmsTimerUiState.y,
-            fontPx: boardCmsTimerUiState.fontPx,
-            collapsed: !!boardCmsTimerUiState.collapsed,
-            hidden: !!boardCmsTimerUiState.hidden
-          }
-        });
-      } catch (_) { }
-    }
-
-    function boardApplyCmsTimerUiFromRemote(ui) {
-      if (!ui || typeof ui !== 'object') return;
-      if (typeof ui.x === 'number') boardCmsTimerUiState.x = ui.x;
-      if (typeof ui.y === 'number') boardCmsTimerUiState.y = ui.y;
-      if (typeof ui.fontPx === 'number') boardCmsTimerUiState.fontPx = ui.fontPx;
-      if (typeof ui.collapsed === 'boolean') boardCmsTimerUiState.collapsed = ui.collapsed;
-      if (typeof ui.hidden === 'boolean') boardCmsTimerUiState.hidden = ui.hidden;
-      boardRenderCmsTimerUi();
-    }
-
-    function boardClampCmsTimerPosition() {
-      var strip = document.getElementById('board-cms-timer-strip');
-      var ref = strip || document.getElementById('board-cms-timer-show-btn');
-      if (!ref) return;
-      var maxX = Math.max(4, window.innerWidth - Math.max(40, ref.offsetWidth) - 4);
-      var maxY = Math.max(4, window.innerHeight - Math.max(40, ref.offsetHeight) - 4);
-      boardCmsTimerUiState.x = Math.max(4, Math.min(maxX, boardCmsTimerUiState.x));
-      boardCmsTimerUiState.y = Math.max(4, Math.min(maxY, boardCmsTimerUiState.y));
-      boardCmsTimerUiState.fontPx = Math.max(18, Math.min(96, boardCmsTimerUiState.fontPx));
-    }
-
-    function boardApplyCmsTimerPlacement() {
-      var strip = document.getElementById('board-cms-timer-strip');
-      var showBtn = document.getElementById('board-cms-timer-show-btn');
-      var text = document.getElementById('board-cms-timer-text');
-      if (!strip || !showBtn || !text) return;
-      boardClampCmsTimerPosition();
-      var x = Math.round(boardCmsTimerUiState.x);
-      var y = Math.round(boardCmsTimerUiState.y);
-      strip.style.left = x + 'px';
-      strip.style.top = y + 'px';
-      showBtn.style.left = x + 'px';
-      showBtn.style.top = y + 'px';
-      text.style.fontSize = Math.round(boardCmsTimerUiState.fontPx) + 'px';
-    }
-
-    function boardApplyCmsTimerData(data) {
-      var text = document.getElementById('board-cms-timer-text');
-      if (!text) return;
-      if (!data || !data.timerActive) {
-        boardCmsTimerUiState.timerActive = false;
-        text.textContent = '--:--';
-        text.classList.remove('cms-running');
-        text.classList.remove('cms-warning');
-        text.style.opacity = '';
-        boardRenderCmsTimerUi();
-        return;
-      }
-      boardCmsTimerUiState.timerActive = true;
-      text.textContent = String(data.timerDisplayText || '--:--').trim() || '--:--';
-      var timerClass = String(data.timerDisplayClass || '');
-      text.classList.toggle('cms-running', /running/i.test(timerClass));
-      text.classList.toggle('cms-warning', /warning|warn|danger/i.test(timerClass));
-      text.style.opacity = (typeof data.timerDisplayOpacity === 'string') ? data.timerDisplayOpacity : '';
-      boardRenderCmsTimerUi();
-    }
-
-    function boardStartCmsTimerDrag(ev) {
-      if (!ev || ev.button !== 0) return;
-      var t = ev.target;
-      if (t && typeof t.closest === 'function' && t.closest('.board-cms-timer-btn,.board-cms-timer-resize')) return;
-      var startX = ev.clientX;
-      var startY = ev.clientY;
-      var baseX = boardCmsTimerUiState.x;
-      var baseY = boardCmsTimerUiState.y;
-      var prevSel = document.body.style.userSelect;
-      document.body.style.userSelect = 'none';
-
-      function onMove(mev) {
-        boardCmsTimerUiState.x = baseX + (mev.clientX - startX);
-        boardCmsTimerUiState.y = baseY + (mev.clientY - startY);
-        boardApplyCmsTimerPlacement();
-      }
-      function onUp() {
-        window.removeEventListener('pointermove', onMove);
-        window.removeEventListener('pointerup', onUp);
-        document.body.style.userSelect = prevSel;
-        boardSaveCmsTimerPrefs();
-        boardBroadcastCmsTimerUi();
-      }
-
-      window.addEventListener('pointermove', onMove);
-      window.addEventListener('pointerup', onUp);
-      ev.preventDefault();
-    }
-
-    function boardStartCmsTimerResize(ev) {
-      if (!ev || ev.button !== 0) return;
-      ev.stopPropagation();
-      var startX = ev.clientX;
-      var startY = ev.clientY;
-      var baseSize = boardCmsTimerUiState.fontPx;
-      var prevSel = document.body.style.userSelect;
-      document.body.style.userSelect = 'none';
-
-      function onMove(mev) {
-        var delta = ((mev.clientX - startX) + (mev.clientY - startY)) * 0.25;
-        boardCmsTimerUiState.fontPx = baseSize + delta;
-        boardApplyCmsTimerPlacement();
-      }
-      function onUp() {
-        window.removeEventListener('pointermove', onMove);
-        window.removeEventListener('pointerup', onUp);
-        document.body.style.userSelect = prevSel;
-        boardSaveCmsTimerPrefs();
-        boardBroadcastCmsTimerUi();
-      }
-
-      window.addEventListener('pointermove', onMove);
-      window.addEventListener('pointerup', onUp);
-      ev.preventDefault();
-    }
-
-    function boardRenderCmsTimerUi() {
-      var strip = document.getElementById('board-cms-timer-strip');
-      var showBtn = document.getElementById('board-cms-timer-show-btn');
-      var collapseBtn = document.getElementById('board-cms-timer-collapse-btn');
-      if (!strip || !showBtn || !collapseBtn) return;
-
-      strip.classList.toggle('collapsed', !!boardCmsTimerUiState.collapsed);
-      boardApplyCmsTimerPlacement();
-
-      if (!boardCmsTimerUiState.timerActive) {
-        strip.style.display = 'none';
-        showBtn.style.display = 'none';
-      } else if (boardCmsTimerUiState.hidden) {
-        strip.style.display = 'none';
-        showBtn.style.display = 'inline-flex';
-      } else {
-        strip.style.display = 'flex';
-        showBtn.style.display = 'none';
-      }
-
-      collapseBtn.textContent = boardCmsTimerUiState.collapsed ? '▢' : '–';
-      collapseBtn.title = boardCmsTimerUiState.collapsed ? 'Expand timer' : 'Collapse timer';
-    }
-
-    function boardToggleCmsTimerCollapse() {
-      boardCmsTimerUiState.collapsed = !boardCmsTimerUiState.collapsed;
-      boardRenderCmsTimerUi();
-      boardBroadcastCmsTimerUi();
-    }
-
-    function boardHideCmsTimer() {
-      boardCmsTimerUiState.hidden = true;
-      boardRenderCmsTimerUi();
-      boardBroadcastCmsTimerUi();
-    }
-
-    function boardShowCmsTimer() {
-      boardCmsTimerUiState.hidden = false;
-      boardRenderCmsTimerUi();
-      boardBroadcastCmsTimerUi();
-    }
+    function boardApplyCmsTimerUiFromRemote() { }
+    function boardApplyCmsTimerData() { }
+    function boardRenderCmsTimerUi() { }
+    function boardBroadcastCmsTimerUi() { }
 
     function boardInitCmsTimerMirror() {
-      var strip = document.getElementById('board-cms-timer-strip');
-      var resize = document.getElementById('board-cms-timer-resize');
-      if (!strip || !resize) return;
-
-      boardLoadCmsTimerPrefs();
-      strip.addEventListener('pointerdown', boardStartCmsTimerDrag);
-      resize.addEventListener('pointerdown', boardStartCmsTimerResize);
-      window.addEventListener('resize', boardRenderCmsTimerUi, { passive: true });
-
-      boardApplyCmsTimerData(null);
-      boardBroadcastCmsTimerUi();
       if (typeof BroadcastChannel === 'undefined') return;
       try {
         boardCmsTimerChannel = new BroadcastChannel('cms-presentation');
@@ -250,7 +50,6 @@
         var data = event && event.data;
         if (!data) return;
         if (data.type === 'timer-tick' || data.type === 'state') {
-          boardApplyCmsTimerData(data);
           if (typeof conSyncCmsTimerDataToNodes === 'function') {
             conSyncCmsTimerDataToNodes(data);
           }
@@ -1090,114 +889,6 @@
       border-color: #4f46e5 !important;
     }
 
-    #board-cms-timer-strip {
-      display: none;
-      align-items: center;
-      gap: 8px;
-      position: fixed;
-      top: 10px;
-      left: 10px;
-      margin: 0;
-      padding: 6px 10px;
-      border: 2px solid #111;
-      border-radius: 6px;
-      background: linear-gradient(90deg, #fff8de 0%, #ffffff 70%);
-      z-index: 100001;
-      box-shadow: 0 3px 12px rgba(0, 0, 0, 0.16);
-      cursor: grab;
-      touch-action: none;
-    }
-
-    #board-cms-timer-strip:active {
-      cursor: grabbing;
-    }
-
-    .board-cms-timer-main {
-      display: inline-flex;
-      align-items: center;
-      min-width: 0;
-      pointer-events: none;
-    }
-
-    .board-cms-timer-text {
-      font-size: 1.05rem;
-      font-weight: 900;
-      color: #111;
-      font-variant-numeric: tabular-nums;
-      line-height: 1;
-    }
-
-    .board-cms-timer-text.cms-running {
-      color: #2a9d2a;
-    }
-
-    .board-cms-timer-text.cms-warning {
-      color: #b91c1c;
-    }
-
-    .board-cms-timer-actions {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .board-cms-timer-resize {
-      width: 16px;
-      height: 22px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      color: #555;
-      cursor: nwse-resize;
-      user-select: none;
-      font-size: 0.86rem;
-      line-height: 1;
-    }
-
-    .board-cms-timer-btn,
-    .board-cms-timer-show-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 22px;
-      height: 22px;
-      padding: 0;
-      border: 1.5px solid #111;
-      border-radius: 4px;
-      background: #fff;
-      color: #111;
-      cursor: pointer;
-      font: inherit;
-      font-weight: 900;
-      line-height: 1;
-    }
-
-    .board-cms-timer-btn:hover,
-    .board-cms-timer-show-btn:hover {
-      background: #111;
-      color: #fff;
-    }
-
-    #board-cms-timer-strip.collapsed {
-      padding-right: 8px;
-    }
-
-    #board-cms-timer-strip.collapsed .board-cms-timer-text {
-      display: none;
-    }
-
-    .board-cms-timer-show-btn {
-      display: none;
-      position: fixed;
-      top: 10px;
-      left: 10px;
-      z-index: 100002;
-      width: 28px;
-      height: 28px;
-      border-radius: 6px;
-      box-shadow: 0 3px 12px rgba(0, 0, 0, 0.16);
-    }
-
     #constellation-board .con-word-note.student-input {
       outline: 2px solid #2563eb;
       outline-offset: 2px;
@@ -1985,21 +1676,6 @@
     </div>
   </nav>
 
-  <div id="board-cms-timer-strip" aria-live="polite">
-    <div class="board-cms-timer-main">
-      <span id="board-cms-timer-text" class="board-cms-timer-text">--:--</span>
-    </div>
-    <span id="board-cms-timer-resize" class="board-cms-timer-resize" title="Drag to resize">◢</span>
-    <div class="board-cms-timer-actions">
-      <button id="board-cms-timer-collapse-btn" class="board-cms-timer-btn" type="button"
-        onclick="boardToggleCmsTimerCollapse()" title="Collapse timer">–</button>
-      <button class="board-cms-timer-btn" type="button" onclick="boardHideCmsTimer()" title="Hide timer">✕</button>
-    </div>
-  </div>
-  <button id="board-cms-timer-show-btn" class="board-cms-timer-show-btn" type="button" onclick="boardShowCmsTimer()"
-    title="Show timer"><img src="../assets/icons/clock.svg" class="btn-icon" alt="" style="width:14px;height:14px;" /></button>
-
-  
   <!-- Live Voice Dictation (Speech to Text) Floating Pill -->
   <div id="board-stt-live-pill" class="board-stt-floating-pill" style="display:none;" aria-live="polite">
     <div class="board-stt-pill-drag-handle" title="Drag to reposition">⋮⋮</div>
@@ -21865,17 +21541,16 @@
           if (_mirrorControlMenuEl) return;
           const menu = document.createElement('div');
           menu.id = 'con-pres-menu';
-          menu.style.cssText = 'position:fixed;top:8px;right:8px;z-index:100000;display:flex;flex-direction:column;gap:3px;padding:3px 6px;border:1px solid rgba(0,0,0,0.2);border-radius:8px;background:rgba(255,255,255,0.94);box-shadow:0 6px 16px rgba(0,0,0,0.14);backdrop-filter:blur(6px);opacity:0.94;min-width:120px;font-family:inherit;cursor:move;user-select:none;';
+          menu.className = 'pres-control-menu tooltip-bottom';
+          menu.style.cssText = 'position:fixed;top:8px;right:8px;z-index:100000;';
           menu.innerHTML = ''
-            + '<div style="font-size:0.54rem;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;color:#555;line-height:1;margin-bottom:1px;cursor:move;">' + boardT('presMenuTitle') + '</div>'
-            + '<button type="button" data-pres-action="close" style="padding:3px 6px;border:1px solid #444;border-radius:5px;background:#111;color:#fff;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + boardT('presStop') + '</button>'
-            + '<button type="button" data-pres-action="freeze" style="padding:3px 6px;border:1px solid #4a90d9;border-radius:5px;background:#fff;color:#1f4f86;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + boardT('presFreeze') + '</button>'
-            + '<button type="button" data-pres-action="resize" style="padding:3px 6px;border:1px solid #666;border-radius:5px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + boardT('presResize') + '</button>'
-            + '<button type="button" data-pres-action="maximise" style="padding:3px 6px;border:1px solid #666;border-radius:5px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + boardT('presMaximise') + '</button>'
-            + '<div style="display:flex;gap:3px;">'
-            + '  <button type="button" data-pres-action="left" style="flex:1;padding:3px 4px;border:1px solid #666;border-radius:5px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + boardT('presLeft') + '</button>'
-            + '  <button type="button" data-pres-action="right" style="flex:1;padding:3px 4px;border:1px solid #666;border-radius:5px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + boardT('presRight') + '</button>'
-            + '</div>';
+            + '<div class="pres-drag-handle" title="Drag to move">⋮⋮</div>'
+            + '<button type="button" class="pres-btn" data-pres-action="close" data-tooltip="' + (boardT('pres_stop_title') || boardT('presStop')) + '" title="' + (boardT('pres_stop_title') || boardT('presStop')) + '" aria-label="' + (boardT('pres_stop_title') || boardT('presStop')) + '"><img src="../assets/icons/stop.svg" alt="" /></button>'
+            + '<button type="button" class="pres-btn" data-pres-action="freeze" data-tooltip="' + (boardT('pres_freeze_title') || boardT('presFreeze')) + '" title="' + (boardT('pres_freeze_title') || boardT('presFreeze')) + '" aria-label="' + (boardT('pres_freeze_title') || boardT('presFreeze')) + '"><img src="../assets/icons/pause.svg" alt="" /></button>'
+            + '<button type="button" class="pres-btn" data-pres-action="resize" data-tooltip="' + (boardT('pres_resize_title') || boardT('presResize')) + '" title="' + (boardT('pres_resize_title') || boardT('presResize')) + '" aria-label="' + (boardT('pres_resize_title') || boardT('presResize')) + '"><img src="../assets/icons/compact.svg" alt="" /></button>'
+            + '<button type="button" class="pres-btn" data-pres-action="maximise" data-tooltip="' + (boardT('pres_maximize_title') || boardT('presMaximise')) + '" title="' + (boardT('pres_maximize_title') || boardT('presMaximise')) + '" aria-label="' + (boardT('pres_maximize_title') || boardT('presMaximise')) + '"><img src="../assets/icons/maximize.svg" alt="" /></button>'
+            + '<button type="button" class="pres-btn" data-pres-action="left" data-tooltip="' + (boardT('pres_left_title') || boardT('presLeft')) + '" title="' + (boardT('pres_left_title') || boardT('presLeft')) + '" aria-label="' + (boardT('pres_left_title') || boardT('presLeft')) + '"><img src="../assets/icons/triangle-left.svg" alt="" /></button>'
+            + '<button type="button" class="pres-btn" data-pres-action="right" data-tooltip="' + (boardT('pres_right_title') || boardT('presRight')) + '" title="' + (boardT('pres_right_title') || boardT('presRight')) + '" aria-label="' + (boardT('pres_right_title') || boardT('presRight')) + '"><img src="../assets/icons/triangle-right.svg" alt="" /></button>';
           menu.addEventListener('click', function (event) {
             const btn = event.target && event.target.closest ? event.target.closest('[data-pres-action]') : null;
             if (!btn) return;
@@ -22162,17 +21837,11 @@
               selectedEdgeId: (typeof _conSelectedEdgeId !== 'undefined') ? _conSelectedEdgeId : null,
               noteTextSelection: (typeof wnGetActiveNoteSelection === 'function') ? wnGetActiveNoteSelection() : null,
               cmsTimer: {
-                timerActive: !!boardCmsTimerUiState.timerActive,
-                timerDisplayText: (function () { var t = document.getElementById('board-cms-timer-text'); return t ? t.textContent : '--:--'; })(),
-                timerDisplayClass: (function () { var t = document.getElementById('board-cms-timer-text'); return t ? t.className : ''; })(),
-                timerDisplayOpacity: (function () { var t = document.getElementById('board-cms-timer-text'); return t ? (t.style.opacity || '') : ''; })(),
-                ui: {
-                  x: boardCmsTimerUiState.x,
-                  y: boardCmsTimerUiState.y,
-                  fontPx: boardCmsTimerUiState.fontPx,
-                  collapsed: !!boardCmsTimerUiState.collapsed,
-                  hidden: !!boardCmsTimerUiState.hidden
-                }
+                timerActive: false,
+                timerDisplayText: '--:--',
+                timerDisplayClass: '',
+                timerDisplayOpacity: '',
+                ui: {}
               },
               pointerOn: window._mirrorPointerOn || false,
               frozen: _mirrorFrozen
@@ -22259,9 +21928,11 @@
             if (_mirrorControlMenuEl) {
               var dynFreezeBtn = _mirrorControlMenuEl.querySelector('[data-pres-action="freeze"]');
               if (dynFreezeBtn) {
-                var label = on ? boardT('presUnfreeze') : boardT('presFreeze');
-                dynFreezeBtn.textContent = label;
+                var label = on ? (boardT('pres_unfreeze_title') || boardT('presUnfreeze')) : (boardT('pres_freeze_title') || boardT('presFreeze'));
                 dynFreezeBtn.title = label;
+                dynFreezeBtn.setAttribute('data-tooltip', label);
+                dynFreezeBtn.setAttribute('aria-label', label);
+                dynFreezeBtn.classList.toggle('is-frozen', !!on);
               }
             }
           }
@@ -56934,25 +56605,27 @@
         if (!_mirrorControlMenuEl) return;
         var freezeBtn = _mirrorControlMenuEl.querySelector('[data-mirror-action="freeze"]');
         if (freezeBtn) {
-          freezeBtn.textContent = on ? boardT('presUnfreeze') : boardT('presFreeze');
-          freezeBtn.title = on ? boardT('presUnfreeze') : boardT('presFreeze');
+          var label = on ? (boardT('pres_unfreeze_title') || boardT('presUnfreeze')) : (boardT('pres_freeze_title') || boardT('presFreeze'));
+          freezeBtn.title = label;
+          freezeBtn.setAttribute('data-tooltip', label);
+          freezeBtn.setAttribute('aria-label', label);
+          freezeBtn.classList.toggle('is-frozen', !!on);
         }
       }
       function _ensureMirrorControlMenu() {
         if (_mirrorControlMenuEl) return;
         var menu = document.createElement('div');
         menu.id = 'con-pres-menu';
-        menu.style.cssText = 'position:fixed;top:8px;right:8px;z-index:100000;display:flex;flex-direction:column;gap:3px;padding:3px 6px;border:1px solid rgba(0,0,0,0.2);border-radius:8px;background:rgba(255,255,255,0.94);box-shadow:0 6px 16px rgba(0,0,0,0.14);backdrop-filter:blur(6px);opacity:0.94;min-width:120px;font-family:inherit;cursor:move;user-select:none;';
+        menu.className = 'pres-control-menu tooltip-bottom';
+        menu.style.cssText = 'position:fixed;top:8px;right:8px;z-index:100000;';
         menu.innerHTML = ''
-          + '<div style="font-size:0.54rem;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;color:#555;line-height:1;margin-bottom:1px;cursor:move;">' + boardT('presMenuTitle') + '</div>'
-          + '<button type="button" data-mirror-action="close" style="padding:3px 6px;border:1px solid #444;border-radius:5px;background:#111;color:#fff;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + boardT('presStop') + '</button>'
-          + '<button type="button" data-mirror-action="freeze" style="padding:3px 6px;border:1px solid #4a90d9;border-radius:5px;background:#fff;color:#1f4f86;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + boardT('presFreeze') + '</button>'
-          + '<button type="button" data-mirror-action="resize" style="padding:3px 6px;border:1px solid #666;border-radius:5px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + boardT('presResize') + '</button>'
-          + '<button type="button" data-mirror-action="maximise" style="padding:3px 6px;border:1px solid #666;border-radius:5px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + boardT('presMaximise') + '</button>'
-          + '<div style="display:flex;gap:3px;">'
-          + '  <button type="button" data-mirror-action="left" style="flex:1;padding:3px 4px;border:1px solid #666;border-radius:5px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + boardT('presLeft') + '</button>'
-          + '  <button type="button" data-mirror-action="right" style="flex:1;padding:3px 4px;border:1px solid #666;border-radius:5px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + boardT('presRight') + '</button>'
-          + '</div>';
+          + '<div class="pres-drag-handle" title="Drag to move">⋮⋮</div>'
+          + '<button type="button" class="pres-btn" data-mirror-action="close" data-tooltip="' + (boardT('pres_stop_title') || boardT('presStop')) + '" title="' + (boardT('pres_stop_title') || boardT('presStop')) + '" aria-label="' + (boardT('pres_stop_title') || boardT('presStop')) + '"><img src="../assets/icons/stop.svg" alt="" /></button>'
+          + '<button type="button" class="pres-btn" data-mirror-action="freeze" data-tooltip="' + (boardT('pres_freeze_title') || boardT('presFreeze')) + '" title="' + (boardT('pres_freeze_title') || boardT('presFreeze')) + '" aria-label="' + (boardT('pres_freeze_title') || boardT('presFreeze')) + '"><img src="../assets/icons/pause.svg" alt="" /></button>'
+          + '<button type="button" class="pres-btn" data-mirror-action="resize" data-tooltip="' + (boardT('pres_resize_title') || boardT('presResize')) + '" title="' + (boardT('pres_resize_title') || boardT('presResize')) + '" aria-label="' + (boardT('pres_resize_title') || boardT('presResize')) + '"><img src="../assets/icons/compact.svg" alt="" /></button>'
+          + '<button type="button" class="pres-btn" data-mirror-action="maximise" data-tooltip="' + (boardT('pres_maximize_title') || boardT('presMaximise')) + '" title="' + (boardT('pres_maximize_title') || boardT('presMaximise')) + '" aria-label="' + (boardT('pres_maximize_title') || boardT('presMaximise')) + '"><img src="../assets/icons/maximize.svg" alt="" /></button>'
+          + '<button type="button" class="pres-btn" data-mirror-action="left" data-tooltip="' + (boardT('pres_left_title') || boardT('presLeft')) + '" title="' + (boardT('pres_left_title') || boardT('presLeft')) + '" aria-label="' + (boardT('pres_left_title') || boardT('presLeft')) + '"><img src="../assets/icons/triangle-left.svg" alt="" /></button>'
+          + '<button type="button" class="pres-btn" data-mirror-action="right" data-tooltip="' + (boardT('pres_right_title') || boardT('presRight')) + '" title="' + (boardT('pres_right_title') || boardT('presRight')) + '" aria-label="' + (boardT('pres_right_title') || boardT('presRight')) + '"><img src="../assets/icons/triangle-right.svg" alt="" /></button>';
         menu.addEventListener('click', function (event) {
           var btn = event.target && event.target.closest ? event.target.closest('[data-mirror-action]') : null;
           if (!btn) return;
