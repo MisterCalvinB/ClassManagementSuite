@@ -386,20 +386,32 @@
     return getDesktopApi().deleteByPath({ target, relativePath, ...options });
   }
 
+  function _normalizeNativeTarget(target, relativePath) {
+    if (typeof target === 'object' && target !== null) {
+      return target;
+    }
+    const tStr = String(target || '').replace(/\\/g, '/');
+    if (!relativePath) {
+      if (/^[a-zA-Z]:\//.test(tStr) || tStr.startsWith('/') || tStr.startsWith('\\\\')) {
+        return { absolutePath: target };
+      }
+      const slashIdx = tStr.indexOf('/');
+      if (slashIdx !== -1) {
+        return { target: tStr.slice(0, slashIdx), relativePath: tStr.slice(slashIdx + 1) };
+      }
+      return { target: tStr, relativePath: '' };
+    }
+    return { target: tStr, relativePath: String(relativePath).replace(/\\/g, '/') };
+  }
+
   async function openNative(target, relativePath) {
     if (!isElectron()) return null;
-    if (typeof target === 'object' && target !== null) {
-      return getDesktopApi().openNative(target);
-    }
-    return getDesktopApi().openNative({ target, relativePath });
+    return getDesktopApi().openNative(_normalizeNativeTarget(target, relativePath));
   }
 
   async function showInFolder(target, relativePath) {
     if (!isElectron()) return null;
-    if (typeof target === 'object' && target !== null) {
-      return getDesktopApi().showInFolder(target);
-    }
-    return getDesktopApi().showInFolder({ target, relativePath });
+    return getDesktopApi().showInFolder(_normalizeNativeTarget(target, relativePath));
   }
 
   async function duplicateByPath(target, relativePath) {
@@ -1149,6 +1161,7 @@
     listFiles,
     openExternal,
     openNative,
+    openPath: openNative,
     showInFolder,
     openTool,
     openSplit,

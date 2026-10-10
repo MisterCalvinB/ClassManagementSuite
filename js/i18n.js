@@ -548,6 +548,8 @@
       lmDossierSem1Avg: "Semester 1 Average",
       lmDossierSem2Avg: "Semester 2 Average",
       lmDossierYearAvg: "Annual Average",
+      lmDossierRoundedAvg: "Rounded (0.5)",
+      lmStudentDossier: "360° Academic Dossier",
       lmDossierGradedCount: "{count} of {total} assessments graded",
       lmDossierOpenInGs: "Open in Grade Sheet",
       lmDossierNoScore: "No grade recorded",
@@ -7631,6 +7633,8 @@
       lmDossierSem1Avg: "Moyenne Semestre 1",
       lmDossierSem2Avg: "Moyenne Semestre 2",
       lmDossierYearAvg: "Moyenne annuelle",
+      lmDossierRoundedAvg: "Arrondi (0.5)",
+      lmStudentDossier: "Dossier académique 360°",
       lmDossierGradedCount: "{count} sur {total} évaluations notées",
       lmDossierOpenInGs: "Ouvrir dans le carnet",
       lmDossierNoScore: "Non noté",
@@ -14603,6 +14607,8 @@
       lmDossierSem1Avg: "Semester 1 Durchschnitt",
       lmDossierSem2Avg: "Semester 2 Durchschnitt",
       lmDossierYearAvg: "Jahresdurchschnitt",
+      lmDossierRoundedAvg: "Gerundet (0.5)",
+      lmStudentDossier: "360°-Schülerdossier",
       lmDossierGradedCount: "{count} von {total} Prüfungen benotet",
       lmDossierOpenInGs: "Im Notenbuch öffnen",
       lmDossierNoScore: "Keine Note",
@@ -19375,6 +19381,8 @@ gsStudentAllChip: "Alle",
       lmDossierSem1Avg: "Media Semestre 1",
       lmDossierSem2Avg: "Media Semestre 2",
       lmDossierYearAvg: "Media annuale",
+      lmDossierRoundedAvg: "Arrotondato (0.5)",
+      lmStudentDossier: "Dossier accademico 360°",
       lmDossierGradedCount: "{count} su {total} valutazioni registrate",
       lmDossierOpenInGs: "Apri nel Registro",
       lmDossierNoScore: "Non valutato",
@@ -23880,7 +23888,7 @@ gsStudentAllChip: "Alle",
   };
 
   window.t = function (key, fallback) {
-    var lang = getLang();
+    var lang = (typeof window !== 'undefined' && typeof window.getLang === 'function') ? window.getLang() : ((typeof getLang === 'function') ? getLang() : 'en');
     var map = STRINGS[lang] || STRINGS.en;
     if (map && map[key] !== undefined) return map[key];
     if (STRINGS.en && STRINGS.en[key] !== undefined) return STRINGS.en[key];

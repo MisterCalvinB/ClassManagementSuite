@@ -940,10 +940,11 @@
         if (typeof s === 'object' && s && s.number) subParts.push('#' + s.number);
         addCandidate({
           urn: sUrn,
-          type: 'classes',
+          type: 'student',
           badge: '[STUDENT]',
           title: sName,
-          subtitle: subParts.join(' • ')
+          subtitle: subParts.join(' • '),
+          id: effectiveId
         });
       });
     }
@@ -1160,10 +1161,11 @@
           if (primaryGroup) subParts.push(primaryGroup);
           addCandidate({
             urn: window.LinksService.makeUrn('student', sid),
-            type: 'classes',
+            type: 'student',
             badge: '[STUDENT]',
             title: sName,
-            subtitle: subParts.join(' • ')
+            subtitle: subParts.join(' • '),
+            id: sid
           });
         });
       }
@@ -3400,13 +3402,20 @@
     }
 
     function getGradePillClass(score, maxScore) {
-      if (score == null || isNaN(score)) return 'neutral';
-      var num = Number(score);
+      if (score == null) return 'neutral';
+      var num = typeof score === 'number' ? score : parseFloat(String(score).replace(',', '.'));
+      if (isNaN(num)) return 'neutral';
       var max = (maxScore && !isNaN(maxScore) && Number(maxScore) > 0) ? Number(maxScore) : 6;
+      if (max === 6) {
+        if (num >= 5.0) return 'green';
+        if (num >= 4.5) return 'lime';
+        if (num >= 4.0) return 'amber';
+        return 'red';
+      }
       var ratio = num / max;
       if (ratio >= 0.85) return 'green';
       if (ratio >= 0.70) return 'lime';
-      if (ratio >= 0.50) return 'amber';
+      if (ratio >= 0.60) return 'amber';
       return 'red';
     }
 
@@ -3454,6 +3463,51 @@
       }
       return true;
     });
+
+    // Recompute accurate performance averages if specific evaluations are filtered for export
+    if (selectedEvalsSet && filteredEvals.length !== evals.length) {
+      function calcExportSemAvg(tList) {
+        var fixedSum = 0, fixedPct = 0, normalSum = 0, normalWeight = 0, scoredCount = 0;
+        tList.forEach(function(t) {
+          if (t.score == null) return;
+          var num = typeof t.score === 'number' ? t.score : parseFloat(String(t.score).replace(',', '.'));
+          if (isNaN(num)) return;
+          scoredCount++;
+          if (t.fixedWeight != null && !isNaN(t.fixedWeight) && t.fixedWeight > 0) {
+            fixedSum += num * t.fixedWeight / 100;
+            fixedPct += t.fixedWeight / 100;
+          } else {
+            var c = (typeof t.coefficient === 'number' && !isNaN(t.coefficient) && t.coefficient > 0) ? t.coefficient : 1;
+            normalSum += num * c;
+            normalWeight += c;
+          }
+        });
+        if (scoredCount === 0 || (fixedPct === 0 && normalWeight === 0)) return null;
+        if (fixedPct > 0 && normalWeight === 0) return fixedSum / fixedPct;
+        var normalProportion = Math.max(0, 1 - fixedPct);
+        var normalAvg = normalWeight > 0 ? normalSum / normalWeight : 0;
+        return fixedSum + normalProportion * normalAvg;
+      }
+      var fS1 = filteredEvals.filter(function(e) { return e.semester === 'sem1'; });
+      var fS2 = filteredEvals.filter(function(e) { return e.semester === 'sem2'; });
+      var fS1Avg = calcExportSemAvg(fS1);
+      var fS2Avg = calcExportSemAvg(fS2);
+      var fValid = [fS1Avg, fS2Avg].filter(function(v) { return v != null; });
+      var fYearAvg = fValid.length ? (fValid.reduce(function(a, b) { return a + b; }, 0) / fValid.length) : null;
+      var fGraded = filteredEvals.filter(function(e) {
+        if (e.score == null) return false;
+        var n = typeof e.score === 'number' ? e.score : parseFloat(String(e.score).replace(',', '.'));
+        return !isNaN(n);
+      }).length;
+      gs = Object.assign({}, gs, {
+        sem1Average: fS1Avg != null ? Number(fS1Avg.toFixed(2)) : null,
+        sem2Average: fS2Avg != null ? Number(fS2Avg.toFixed(2)) : null,
+        yearAverage: fYearAvg != null ? Number(fYearAvg.toFixed(2)) : null,
+        roundedAverage: fYearAvg != null ? Number((Math.round(fYearAvg * 2) / 2).toFixed(1)) : null,
+        gradedCount: fGraded,
+        totalTests: filteredEvals.length
+      });
+    }
 
     var selectedCompsSet = options.selectedComps ? new Set(options.selectedComps) : null;
     var filteredComps = comps.filter(function(cp, idx) {
@@ -3898,6 +3952,13 @@
               '<span class="pdf-grade-pill ' + getGradePillClass(gs.yearAverage, 6) + '" style="font-size:9pt;">' + esc(gs.yearAverage) + '</span>' +
             '</div>';
         }
+        if (semFilter === 'all' && gs.roundedAverage != null) {
+          html +=
+            '<div class="pdf-perf-item" style="border-left:1.5px solid #333;padding-left:10px;">' +
+              '<span class="pdf-perf-label" style="font-weight:900;color:#111;">' + esc(t('lmDossierRoundedAvg', 'Rounded (0.5)') || 'Rounded (0.5)') + ':</span>' +
+              '<span class="pdf-grade-pill ' + getGradePillClass(gs.roundedAverage, 6) + '" style="font-size:9pt;">' + esc(gs.roundedAverage) + '</span>' +
+            '</div>';
+        }
         if (gs.totalTests > 0) {
           var countText = (t('lmDossierGradedCount', '{count} of {total} assessments graded') || '{count} of {total} assessments graded')
             .replace('{count}', gs.gradedCount || 0)
@@ -3905,6 +3966,20 @@
           html += '<div class="pdf-perf-item" style="margin-left:auto;color:#555;font-size:7.5pt;">' + esc(countText) + '</div>';
         }
         html += '</div>';
+
+        if (gs.byClass && Object.keys(gs.byClass).length > 1) {
+          html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px 0;padding:4px 8px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:4px;font-size:7pt;">';
+          Object.keys(gs.byClass).forEach(function(cId) {
+            var cData = gs.byClass[cId];
+            if (!cData) return;
+            var cAvgText = cData.yearAverage != null ? cData.yearAverage : (cData.sem1Average != null ? cData.sem1Average : (cData.sem2Average != null ? cData.sem2Average : null));
+            html += '<div style="display:inline-flex;align-items:center;gap:4px;background:#fff;border:1px solid #333;border-radius:3px;padding:1px 4px;">' +
+              '<strong>' + esc(cData.className || cId) + ':</strong> ' +
+              (cAvgText != null ? ('<span class="pdf-grade-pill ' + getGradePillClass(cAvgText, 6) + '" style="font-size:7pt;padding:1px 4px;">' + cAvgText + '</span>') : '<span>–</span>') +
+            '</div>';
+          });
+          html += '</div>';
+        }
       }
     }
 
@@ -4577,13 +4652,20 @@
 
     // Grade styling helper
     function getGradePillClass(score, maxScore) {
-      if (score == null || isNaN(score)) return 'neutral';
-      var num = Number(score);
+      if (score == null) return 'neutral';
+      var num = typeof score === 'number' ? score : parseFloat(String(score).replace(',', '.'));
+      if (isNaN(num)) return 'neutral';
       var max = (maxScore && !isNaN(maxScore) && Number(maxScore) > 0) ? Number(maxScore) : 6;
+      if (max === 6) {
+        if (num >= 5.0) return 'green';
+        if (num >= 4.5) return 'lime';
+        if (num >= 4.0) return 'amber';
+        return 'red';
+      }
       var ratio = num / max;
       if (ratio >= 0.85) return 'green';
       if (ratio >= 0.70) return 'lime';
-      if (ratio >= 0.50) return 'amber';
+      if (ratio >= 0.60) return 'amber';
       return 'red';
     }
 
@@ -4662,11 +4744,30 @@
               '<span class="cmt-dossier-perf-label" style="font-weight:900;color:#111;">' + (t('lmDossierYearAvg', 'Annual Avg') || 'Annual Avg') + ':</span>' +
               '<span class="cmt-dossier-grade-pill ' + getGradePillClass(gs.yearAverage, 6) + '" style="font-size:0.82rem;">' + gs.yearAverage + '</span>' +
             '</div>') : '') +
+          (gs.roundedAverage != null ?
+            ('<div class="cmt-dossier-perf-item" style="border-color:#333;background:#f5f5f0;">' +
+              '<span class="cmt-dossier-perf-label" style="font-weight:900;color:#111;">' + (t('lmDossierRoundedAvg', 'Rounded (0.5)') || 'Rounded (0.5)') + ':</span>' +
+              '<span class="cmt-dossier-grade-pill ' + getGradePillClass(gs.roundedAverage, 6) + '" style="font-size:0.82rem;">' + gs.roundedAverage + '</span>' +
+            '</div>') : '') +
           (gs.totalTests > 0 ?
             ('<div class="cmt-dossier-perf-item" style="margin-left:auto;background:none;border:none;box-shadow:none;color:#555;font-size:0.68rem;">' +
               (t('lmDossierGradedCount', '{count} of {total} assessments graded') || '{count} of {total} assessments graded').replace('{count}', gs.gradedCount || 0).replace('{total}', gs.totalTests || 0) +
             '</div>') : '') +
         '</div>';
+
+      if (gs.byClass && Object.keys(gs.byClass).length > 1) {
+        html += '<div class="cmt-dossier-class-breakdown" style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px 0;padding:4px 8px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:6px;font-size:0.75rem;">';
+        Object.keys(gs.byClass).forEach(function(cId) {
+          var cData = gs.byClass[cId];
+          if (!cData) return;
+          var cAvgText = cData.yearAverage != null ? cData.yearAverage : (cData.sem1Average != null ? cData.sem1Average : (cData.sem2Average != null ? cData.sem2Average : null));
+          html += '<div style="display:inline-flex;align-items:center;gap:4px;background:#fff;border:1px solid #333;border-radius:4px;padding:2px 6px;">' +
+            '<strong style="color:#111;">' + (cData.className || cId) + ':</strong> ' +
+            (cAvgText != null ? ('<span class="cmt-dossier-grade-pill ' + getGradePillClass(cAvgText, 6) + '" style="font-size:0.75rem;padding:1px 4px;">' + cAvgText + '</span>') : '<span style="color:#777;">–</span>') +
+          '</div>';
+        });
+        html += '</div>';
+      }
     }
 
     html += '<div class="cmt-dossier-sec-list">';
