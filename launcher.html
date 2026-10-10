@@ -107,6 +107,25 @@
       <button class="l-header-btn sb-toggle-btn" id="sbToggleBtn" data-i18n="sbToggleBtn">Panel</button>
     </div>
   </header>
+  <div class="launcher-toolbar" id="launcherToolbar">
+    <div class="l-search-box">
+      <span class="l-search-icon" aria-hidden="true"><img src="assets/icons/search.svg" class="l-search-icon-img" alt="" /></span>
+      <input type="search" id="launcherSearchInput" class="l-search-input" placeholder="Filter tools... (Press '/' to search)" data-i18n-placeholder="launcherSearchPlaceholder" autocomplete="off" spellcheck="false" />
+      <button type="button" id="launcherSearchClearBtn" class="l-search-clear-btn" aria-label="Clear search" data-i18n-title="launcherSearchClear" title="Clear search" hidden>✕</button>
+    </div>
+    <div class="l-view-toggles" role="group" aria-label="View Mode">
+      <button type="button" class="l-view-btn" id="viewBtnCompact" data-view="compact" data-i18n-title="viewCompactTitle" title="Compact tiles">
+        <span class="l-view-icon" aria-hidden="true">☷</span> <span data-i18n="viewCompact">Compact</span>
+      </button>
+      <button type="button" class="l-view-btn" id="viewBtnDetailed" data-view="detailed" data-i18n-title="viewDetailedTitle" title="Detailed cards">
+        <span class="l-view-icon" aria-hidden="true">☰</span> <span data-i18n="viewDetailed">Detailed</span>
+      </button>
+    </div>
+  </div>
+  <div id="launcherSearchEmpty" class="l-search-empty" hidden>
+    <div class="l-empty-icon">🔍</div>
+    <div class="l-empty-msg" data-i18n="launcherSearchNoResults">No tools match your search.</div>
+  </div>
   <div id="sectionsContainer" class="sections-container"></div>
   <button id="addSectionBtn" class="section-add-btn" data-i18n="sectionAddBtn">+ Add Section</button>
 </div>
@@ -563,6 +582,10 @@
     var groups = resolveGroups();
     groups.forEach(function(group) { container.appendChild(buildSection(group)); });
     setupSectionContainerDrag(container);
+    if (typeof filterLauncherApps === 'function') {
+      var sIn = document.getElementById('launcherSearchInput');
+      if (sIn && sIn.value) filterLauncherApps(sIn.value);
+    }
   }
 
   function buildSection(group) {
@@ -840,6 +863,7 @@
     card.className = 'app-card';
     card.draggable = true;
     card.dataset.id = app.id;
+    card.title = localDesc;
 
     const gearTitle = typeof t === 'function' ? t('cfgGearTitle') : 'Card settings';
     const dragTitle = typeof t === 'function' ? t('tutLn4Title') : 'Reorder card';
@@ -1808,6 +1832,143 @@
     });
   }
 
+  // ── View mode (density) ─────────────────────────────────
+  function setLauncherDensity(mode) {
+    var density = (mode === 'detailed') ? 'detailed' : 'compact';
+    localStorage.setItem('cmt-launcher-view-mode', density);
+    var layout = document.getElementById('launcherLayout');
+    if (layout) {
+      layout.classList.toggle('view-compact', density === 'compact');
+      layout.classList.toggle('view-detailed', density === 'detailed');
+    }
+    var btnCompact = document.getElementById('viewBtnCompact');
+    var btnDetailed = document.getElementById('viewBtnDetailed');
+    if (btnCompact) btnCompact.classList.toggle('active', density === 'compact');
+    if (btnDetailed) btnDetailed.classList.toggle('active', density === 'detailed');
+  }
+
+  function initViewMode() {
+    var saved = localStorage.getItem('cmt-launcher-view-mode') || 'compact';
+    setLauncherDensity(saved);
+
+    var btnCompact = document.getElementById('viewBtnCompact');
+    var btnDetailed = document.getElementById('viewBtnDetailed');
+    if (btnCompact) {
+      btnCompact.addEventListener('click', function() { setLauncherDensity('compact'); });
+    }
+    if (btnDetailed) {
+      btnDetailed.addEventListener('click', function() { setLauncherDensity('detailed'); });
+    }
+  }
+
+  // ── Search & Filter ─────────────────────────────────────
+  function filterLauncherApps(query) {
+    var q = (query || '').trim().toLowerCase();
+    var container = document.getElementById('sectionsContainer');
+    if (!container) return;
+    var sections = container.querySelectorAll('.app-section');
+    var totalVisible = 0;
+    var clearBtn = document.getElementById('launcherSearchClearBtn');
+    if (clearBtn) clearBtn.hidden = !q;
+
+    sections.forEach(function(sec) {
+      var cards = sec.querySelectorAll('.app-card');
+      var secVisible = 0;
+      cards.forEach(function(card) {
+        if (!q) {
+          card.classList.remove('l-card-hidden');
+          secVisible++;
+          totalVisible++;
+          return;
+        }
+        var appId = card.dataset.id || '';
+        var titleEl = card.querySelector('.card-title');
+        var descEl = card.querySelector('.card-desc');
+        var titleText = (titleEl ? titleEl.textContent : '').toLowerCase();
+        var descText = (descEl ? descEl.textContent : '').toLowerCase();
+        var cardCfg = getCardConfig(appId) || {};
+        var notesText = (cardCfg.notes || '').toLowerCase();
+
+        var match = (
+          titleText.indexOf(q) !== -1 ||
+          descText.indexOf(q) !== -1 ||
+          appId.toLowerCase().indexOf(q) !== -1 ||
+          notesText.indexOf(q) !== -1
+        );
+        if (match) {
+          card.classList.remove('l-card-hidden');
+          secVisible++;
+          totalVisible++;
+        } else {
+          card.classList.add('l-card-hidden');
+        }
+      });
+
+      if (q && secVisible === 0) {
+        sec.classList.add('l-section-hidden');
+      } else {
+        sec.classList.remove('l-section-hidden');
+      }
+    });
+
+    var emptyEl = document.getElementById('launcherSearchEmpty');
+    if (emptyEl) {
+      emptyEl.hidden = !(q && totalVisible === 0);
+    }
+  }
+
+  function initSearchFilter() {
+    var searchInput = document.getElementById('launcherSearchInput');
+    var clearBtn = document.getElementById('launcherSearchClearBtn');
+
+    if (searchInput) {
+      searchInput.addEventListener('input', function() {
+        filterLauncherApps(this.value);
+      });
+
+      searchInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          var firstVisibleCard = document.querySelector('.app-section:not(.l-section-hidden) .app-card:not(.l-card-hidden)');
+          if (firstVisibleCard) {
+            var body = firstVisibleCard.querySelector('.card-body');
+            if (body) body.click();
+          }
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          this.value = '';
+          filterLauncherApps('');
+          this.blur();
+        }
+      });
+    }
+
+    if (clearBtn) {
+      clearBtn.addEventListener('click', function() {
+        if (searchInput) {
+          searchInput.value = '';
+          searchInput.focus();
+        }
+        filterLauncherApps('');
+      });
+    }
+
+    window.addEventListener('keydown', function(e) {
+      var tag = (document.activeElement && document.activeElement.tagName) ? document.activeElement.tagName.toUpperCase() : '';
+      var isInput = tag === 'INPUT' || tag === 'TEXTAREA' || (document.activeElement && document.activeElement.isContentEditable);
+      
+      if (!isInput) {
+        if (e.key === '/' || ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K'))) {
+          e.preventDefault();
+          if (searchInput) {
+            searchInput.focus();
+            searchInput.select();
+          }
+        }
+      }
+    });
+  }
+
   function init() {
     const popup = document.getElementById('cfgPopup');
     if (popup) {
@@ -1818,7 +1979,9 @@
     }
 
     applyTitle();
+    initViewMode();
     renderSections();
+    initSearchFilter();
     initSidebarCollapse();
     initFirstRunModalEvents();
     checkFirstRunWelcome();

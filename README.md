@@ -425,6 +425,9 @@ Five tools support multi-monitor presentation modes:
 The central entry point for the suite. Opens on app launch and provides quick navigation, upcoming agenda items, and card customization.
 
 #### Key Features
+- **Instant Tool Search (`/` or `Ctrl+K`)**: Live filter input that instantly searches across tool titles, descriptions, custom names, and personal notes across all sections. Pressing `Enter` launches the top matching tool immediately; `Escape` clears the search.
+- **View Density Switcher (Compact Tiles vs. Detailed Cards)**: Switch between a sleek, streamlined **Compact** view (distraction-free app tiles with centered icons, bold typography, descriptions in hover tooltips, and hidden drag handles) and **Detailed** view (full descriptive paragraphs) with preference saved in `localStorage`.
+- **Decluttered Light Neobrutalist Card Styling**: Refined warm neutral canvas (`#f5f5f0`), soft dark charcoal borders (`2px solid #333333`), tactile zero-blur offset shadows (`3px 3px 0 #555555`), and subtle hover-only controls for settings (⚙) and reordering handles (⠿).
 - **Customizable App Cards**: Hover over any card and click ⚙ to set custom titles, personal notes, card size (%), and screen position presets.
 - **Collapsible Sidebar**:
   - **Upcoming Events**: Displays lessons, tests, and assignments from [Planner](#plannerhtml) for today and upcoming dates. Click any entry to jump directly to that date in Planner.
