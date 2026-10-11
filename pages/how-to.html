@@ -279,6 +279,7 @@
           <button class="sidebar-child" data-accordion="acc-gs-tests" onclick="navToAccordion('grade-sheet','acc-gs-tests')"><span class="sidebar-child-dot"></span>Creating Tests</button>
           <button class="sidebar-child" data-accordion="acc-gs-scale" onclick="navToAccordion('grade-sheet','acc-gs-scale')"><span class="sidebar-child-dot"></span>Grading Scale</button>
           <button class="sidebar-child" data-accordion="acc-gs-export" onclick="navToAccordion('grade-sheet','acc-gs-export')"><span class="sidebar-child-dot"></span>Import & Export</button>
+          <button class="sidebar-child" data-accordion="acc-gs-compare" onclick="navToAccordion('grade-sheet','acc-gs-compare')"><span class="sidebar-child-dot"></span>Compare Classes</button>
           <button class="sidebar-child" data-accordion="acc-gs-shortcuts" onclick="navToAccordion('grade-sheet','acc-gs-shortcuts')"><span class="sidebar-child-dot"></span>Keyboard Shortcuts</button>
         </div>
       </div>
@@ -521,6 +522,9 @@
       </div>
       <div class="tip">
         <strong>Tip:</strong> Open <button class="xlink" onclick="navTo('class-management')">Class Management</button> and <button class="xlink" onclick="navTo('board')">Board</button> side by side — the Board mirrors the timer and sync state from Class Management in real time. Configure this in <button class="xlink" onclick="navToAccordion('general-config','acc-cfg-startup')">Startup &amp; Launch settings</button>.
+      </div>
+      <div class="tip" style="margin-top:10px">
+        <strong>Collapsible Tool Sections &amp; Disk Sync:</strong> The Launcher organizes tools into customizable sections (Classroom, Students, Content, System, or custom sections). Click any section header or its chevron icon to collapse or expand it. Collapsed sections condense into compact drawer bars with a tool count badge (e.g. <em>6 tools</em>), letting primary teaching modules stand out while secondary utilities remain neatly tucked away. During tool search (<code>/</code>), collapsed sections automatically expand to reveal matching results. Section order, custom names, card assignments, and collapsed states persist directly to <code>user/launcher-config.js</code> and synchronize across your devices via the <strong>Sync</strong> feature.
       </div>
       <div class="tip" style="margin-top:10px">
         <strong>Sidebar panel:</strong> The launcher has a collapsible right-hand panel. Click <strong>Panel</strong> in the header to show or hide it. It contains four sections:
@@ -2450,6 +2454,52 @@
             <li><strong>Test Links &amp; External Files:</strong> Inside any open test, click <code>[0]</code> links button to attach test papers, rubric guides, or companion Markdown/HTML documents.</li>
             <li><strong>Student Work &amp; PDF Submissions:</strong> Right-click any student row in a test table and select <strong>Attach Student Work / PDF</strong>. Attach student exam scans, essays, audio recordings, or PDF submissions directly. A bold yellow <code>[WORK]</code> badge appears next to the student's name in the table; click it to instantly preview the attachment or open it in your default desktop viewer.</li>
             <li><strong>Global Hashtags (#tags):</strong> Assign tags like <code>#absent</code>, <code>#exempt</code>, or <code>#needs-revision</code> to individual student test evaluations. Tags display directly on the student badge and filter across the central registry.</li>
+          </ol>
+        </div></div>
+      <div class="accordion" id="acc-gs-compare">
+        <button class="accordion-header" onclick="toggleAccordion('acc-gs-compare')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Compare Classes (Cohort Analytics &amp; Cross-Class Benchmarking)</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:10px;">
+            The <strong>Compare Classes</strong> module allows teachers to evaluate, benchmark, and contrast student academic performance across multiple classes, cohorts, or levels side-by-side.
+          </p>
+          <ol class="steps">
+            <li><strong>Opening the Module</strong> — Click the <strong>Compare Classes</strong> button in the main classes overview toolbar or switch to the <strong>Compare</strong> tab (<code>#gs-tab-compare</code>) in the top navigation bar.</li>
+            <li><strong>Class Selection &amp; Checkboxes</strong> — Use the class checklist panel to check or uncheck individual classes, or click <em>Select All</em> / <em>Clear</em> to curate your comparison cohort dynamically.</li>
+            <li><strong>Evaluation Scope</strong> — Select the academic evaluation scope:
+              <ul>
+                <li><strong>Full Year (Annual Average):</strong> Aggregates cumulative annual weighted averages across all semesters.</li>
+                <li><strong>Semester 1 / Semester 2:</strong> Isolates performance in a specific academic semester.</li>
+                <li><strong>Individual Test (by Index):</strong> Directly contrasts test performances across classes (e.g. Test #1, Test #2, or common mock exams).</li>
+              </ul>
+            </li>
+            <li><strong>Comprehensive Metrics &amp; Failing Grade Stats</strong> — For each class and the aggregated cohort, the module computes and visualizes:
+              <ul>
+                <li><strong>Class Mean (&mu;) &amp; Median:</strong> Central tendency benchmarking with cohort delta indicators (&plusmn;&Delta;).</li>
+                <li><strong>Standard Deviation (&sigma;) &amp; Range:</strong> Statistical spread and score consistency metrics.</li>
+                <li><strong>Below Passing Grade (&lt; 4.00):</strong> Headcount and percentage of students failing, highlighted with soft red warning badges.</li>
+                <li><strong>Passing Rate (&ge; 4.00):</strong> High-contrast pass rate indicators.</li>
+                <li><strong>Distinction Rate (&ge; 5.50):</strong> Honors and top-tier achievement rate.</li>
+              </ul>
+            </li>
+            <li><strong>Neobrutalist Visual SVG Charts</strong> — Toggle between high-impact graphical views:
+              <ul>
+                <li><strong>Pass vs Fail Proportion Bars:</strong> Stacked horizontal comparison bars showing the ratio of passing vs below-passing students per class.</li>
+                <li><strong>Grade Distribution Histograms:</strong> Frequency charts across standardized score intervals (0–2.9, 3–3.9, 4–4.9, 5–6).</li>
+                <li><strong>Test Progression Timelines:</strong> Chronological trajectory of class test averages over time.</li>
+                <li><strong>Quartile Box Plots:</strong> Min, Q1, Median, Q3, and Max box-and-whisker distribution diagrams.</li>
+              </ul>
+            </li>
+            <li><strong>Universal Exports</strong> — Export comprehensive side-by-side comparison tables, summary KPIs, and high-resolution SVG charts via:
+              <ul>
+                <li><strong>Print / PDF:</strong> Printable Neobrutalist executive summary document formatted for landscape or portrait printing.</li>
+                <li><strong>Excel (.xlsx):</strong> Formatted multi-column workbook with class metrics, failing grade counts, and cohort deltas.</li>
+                <li><strong>Standalone HTML:</strong> Portable interactive report featuring styled tables and embedded SVG charts.</li>
+              </ul>
+            </li>
+            <li><strong>Interactive Spotlight Tour</strong> — Click the <strong>?</strong> button in the top navigation header to launch the step-by-step guided tour explaining every section and filter of the Compare Classes module.</li>
           </ol>
         </div></div>
       </div>
@@ -5004,6 +5054,7 @@
   var SECTION_STORAGE_MAP = {
     'intro': [
       { label: 'Core settings', path: 'user/config.js' },
+      { label: 'Launcher config', path: 'user/launcher-config.js' },
       { label: 'Class groups', path: 'user/class-groups.js' },
       { label: 'Students', path: 'user/students.js' },
       { label: 'Grades', path: 'user/grades/', type: 'dir' },

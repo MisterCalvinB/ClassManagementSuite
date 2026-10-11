@@ -157,6 +157,11 @@
       <img src="../assets/icons/grade-sheet.svg" class="btn-icon" alt="" />
       <span id="gs-tab-test-label" data-i18n="gsNavTabTest">Test Sheet</span>
     </button>
+    <span class="gs-nav-tab-sep">|</span>
+    <button id="gs-tab-compare" class="gs-nav-tab" type="button">
+      <img src="../assets/icons/groups.svg" class="btn-icon" alt="" />
+      <span id="gs-tab-compare-label" data-i18n="gsNavTabCompare">Compare Classes</span>
+    </button>
   </div>
 
   <div id="app-hamburger" class="hm-wrap" style="margin-left: auto;">
@@ -195,6 +200,7 @@
             </div>
           </div>
           <button id="btn-add-test-overview" class="btn" data-i18n="gsBtnAddTest"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Test</button>
+          <button id="btn-compare-classes" class="btn" data-i18n="gsBtnCompareClasses"><img src="../assets/icons/groups.svg" class="btn-icon" alt="" /> Compare Classes</button>
           <button id="btn-add-class" class="btn primary" data-i18n="gsBtnNewGradeSheet"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> New Grade Sheet</button>
         </div>
       </div>
@@ -460,6 +466,90 @@
           <thead></thead>
           <tbody></tbody>
         </table>
+      </div>
+    </section>
+
+    <section id="screen-compare" class="screen panel hidden cmp-screen">
+      <div class="topbar cmp-topbar">
+        <div class="title-wrap">
+          <h1 data-i18n="gsCmpTitle">Class Comparison</h1>
+          <div class="subtitle" data-i18n="gsCmpSubtitle">Cross-analyze semester, year, and test performance across classes.</div>
+        </div>
+        <div class="btn-row">
+          <button id="btn-cmp-back" class="btn" data-i18n="gsBtnBackClasses"><img src="../assets/icons/arrow-left.svg" class="btn-icon" alt="" /> Back to Overview</button>
+          <div class="dropdown dropdown-hover" id="cmp-export-dropdown">
+            <button id="btn-cmp-export-trigger" class="btn" data-i18n="gsBtnExportReportsDropdown"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export ▾</button>
+            <div class="dropdown-menu hidden" id="cmp-export-menu">
+              <button class="dropdown-item" id="btn-cmp-export-pdf">
+                <img src="../assets/icons/printer.svg" class="btn-icon" alt="" />
+                <div class="dropdown-item-text">
+                  <div class="dropdown-item-title" data-i18n="gsCmpExportCompareReport">Comparison Report (PDF / Print)</div>
+                  <div class="dropdown-item-desc">Printable multi-class comparative analysis sheet</div>
+                </div>
+              </button>
+              <button class="dropdown-item" id="btn-cmp-export-xlsx">
+                <img src="../assets/icons/table.svg" class="btn-icon" alt="" />
+                <div class="dropdown-item-text">
+                  <div class="dropdown-item-title" data-i18n="gsCmpExportCompareXlsx">Comparison Spreadsheet (.xlsx)</div>
+                  <div class="dropdown-item-desc">Formatted multi-class comparative workbook</div>
+                </div>
+              </button>
+              <button class="dropdown-item" id="btn-cmp-export-html">
+                <img src="../assets/icons/file-text.svg" class="btn-icon" alt="" />
+                <div class="dropdown-item-text">
+                  <div class="dropdown-item-title" data-i18n="gsCmpExportCompareHtml">Standalone HTML Page (.html)</div>
+                  <div class="dropdown-item-desc">Offline interactive comparative dashboard</div>
+                </div>
+              </button>
+            </div>
+          </div>
+          <button class="btn" id="btn-cmp-tour-trigger" onclick="showGsTour()"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
+        </div>
+      </div>
+
+      <!-- Controls & Selection Card -->
+      <div class="cmp-controls-card">
+        <div class="cmp-controls-row">
+          <div class="cmp-controls-label" data-i18n="lmClasses">Classes:</div>
+          <div id="cmp-class-chips" class="cmp-pills-row"></div>
+          <div class="cmp-controls-actions">
+            <button id="btn-cmp-select-all" class="btn" type="button" data-i18n="gsCmpSelectAll">Select All</button>
+            <button id="btn-cmp-clear-all" class="btn" type="button" data-i18n="gsCmpClearSelection">Clear</button>
+            <select id="cmp-level-filter" class="cmp-select" title="Filter classes by grade level">
+              <option value="all" data-i18n="gsCmpFilterAllLevels">All Levels</option>
+            </select>
+            <select id="cmp-year-filter" class="cmp-select" title="Filter classes by academic year">
+              <option value="all" data-i18n="gsCmpFilterAllYears">All Years</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="cmp-scope-row">
+          <div class="cmp-controls-label">Scope:</div>
+          <div class="cmp-scope-nav" id="cmp-scope-nav">
+            <button type="button" class="cmp-scope-btn active" data-scope="year" data-i18n="gsCmpScopeYear">Full Year</button>
+            <button type="button" class="cmp-scope-btn" data-scope="sem1" data-i18n="gsCmpScopeSem1">Semester 1</button>
+            <button type="button" class="cmp-scope-btn" data-scope="sem2" data-i18n="gsCmpScopeSem2">Semester 2</button>
+            <button type="button" class="cmp-scope-btn" data-scope="tests" data-i18n="gsCmpScopeTests">Individual Tests</button>
+            <button type="button" class="cmp-scope-btn" data-scope="dist" data-i18n="gsCmpScopeDist">Distributions</button>
+          </div>
+          <div id="cmp-test-alignment-wrap" class="cmp-test-alignment-wrap hidden">
+            <label for="cmp-test-select" style="font-size:0.82rem;font-weight:700;" data-i18n="gsCmpTestSelectorLabel">Test:</label>
+            <select id="cmp-test-select" class="cmp-select"></select>
+            <label for="cmp-test-match-mode" style="font-size:0.82rem;font-weight:700;margin-left:6px;">Match by:</label>
+            <select id="cmp-test-match-mode" class="cmp-select">
+              <option value="index" data-i18n="gsCmpAlignedByIndex">Test Index (T1, T2...)</option>
+              <option value="name" data-i18n="gsCmpAlignedByTitle">Test Name</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Compare Content -->
+      <div id="cmp-content-area" class="cmp-content-area">
+        <div id="cmp-kpi-container" class="cmp-kpi-container"></div>
+        <div id="cmp-matrix-container" class="cmp-matrix-container"></div>
+        <div id="cmp-charts-container" class="cmp-charts-container"></div>
       </div>
     </section>
   </div>
@@ -2250,7 +2340,8 @@
     const screens = {
       classes: document.getElementById("screen-classes"),
       summary: document.getElementById("screen-summary"),
-      test: document.getElementById("screen-test")
+      test: document.getElementById("screen-test"),
+      compare: document.getElementById("screen-compare")
     };
 
     let _testRowMenuCtx = null;
@@ -7897,11 +7988,20 @@
         const baseTest = typeof t === 'function' ? (t('gsNavTabTest') || 'Test Sheet') : 'Test Sheet';
         labelTest.textContent = hasTest && testName ? `${baseTest} (${testName})` : baseTest;
       }
+
+      // Tab 4: Compare Classes
+      const tabCompare = document.getElementById("gs-tab-compare");
+      if (tabCompare) {
+        tabCompare.classList.toggle("active", current === "compare");
+        const hasEnough = appState && Array.isArray(appState.classes) && appState.classes.length > 0;
+        tabCompare.classList.toggle("disabled", !hasEnough);
+      }
     }
 
     function showScreen(name) {
-      Object.values(screens).forEach(el => el.classList.add("hidden"));
-      screens[name].classList.remove("hidden");
+      if (!screens[name]) screens[name] = document.getElementById("screen-" + name);
+      Object.values(screens).forEach(el => el && el.classList.add("hidden"));
+      if (screens[name]) screens[name].classList.remove("hidden");
       updateNavTabs(name);
     }
 
@@ -7924,6 +8024,17 @@
           if (typeof renderTestSheet === 'function') renderTestSheet();
           showScreen("test");
         }
+      });
+      document.getElementById("gs-tab-compare")?.addEventListener("click", () => {
+        if (typeof openCompareClassesScreen === 'function') openCompareClassesScreen();
+        else if (window.openCompareClassesScreen) window.openCompareClassesScreen();
+      });
+      document.getElementById("btn-compare-classes")?.addEventListener("click", () => {
+        if (typeof openCompareClassesScreen === 'function') openCompareClassesScreen();
+        else if (window.openCompareClassesScreen) window.openCompareClassesScreen();
+      });
+      document.getElementById("btn-cmp-back")?.addEventListener("click", () => {
+        showScreen("classes");
       });
     });
 
@@ -18092,6 +18203,63 @@
       setupExportDropdown("btn-summary-manage-trigger", "summary-manage-menu", "summary-manage-class-dropdown");
       setupExportDropdown("btn-test-export-trigger", "test-export-menu", "test-export-dropdown");
       setupExportDropdown("btn-test-actions-trigger", "test-actions-menu", "test-actions-dropdown");
+      setupExportDropdown("btn-cmp-export-trigger", "cmp-export-menu", "cmp-export-dropdown");
+
+      // ── Compare Classes Controls & Exports ──
+      document.getElementById("btn-compare-classes")?.addEventListener("click", () => {
+        if (typeof openCompareClassesScreen === 'function') openCompareClassesScreen();
+        else if (window.openCompareClassesScreen) window.openCompareClassesScreen();
+      });
+      document.getElementById("gs-tab-compare")?.addEventListener("click", () => {
+        if (typeof openCompareClassesScreen === 'function') openCompareClassesScreen();
+        else if (window.openCompareClassesScreen) window.openCompareClassesScreen();
+      });
+      document.getElementById("btn-cmp-back")?.addEventListener("click", () => {
+        showScreen("classes");
+      });
+
+      document.getElementById("btn-cmp-export-pdf")?.addEventListener("click", () => {
+        if (typeof exportComparePdf === 'function') exportComparePdf();
+      });
+      document.getElementById("btn-cmp-export-xlsx")?.addEventListener("click", () => {
+        if (typeof exportCompareXlsx === 'function') exportCompareXlsx();
+      });
+      document.getElementById("btn-cmp-export-html")?.addEventListener("click", () => {
+        if (typeof exportCompareHtml === 'function') exportCompareHtml();
+      });
+
+      document.getElementById("btn-cmp-select-all")?.addEventListener("click", () => {
+        if (typeof getCompareFilteredClasses === 'function') {
+          _cmpState.selectedClassIds = getCompareFilteredClasses().map(c => c.id);
+          renderCompareClasses();
+        }
+      });
+      document.getElementById("btn-cmp-clear-all")?.addEventListener("click", () => {
+        _cmpState.selectedClassIds = [];
+        renderCompareClasses();
+      });
+      document.getElementById("cmp-level-filter")?.addEventListener("change", e => {
+        _cmpState.levelFilter = e.target.value;
+        renderCompareClasses();
+      });
+      document.getElementById("cmp-year-filter")?.addEventListener("change", e => {
+        _cmpState.yearFilter = e.target.value;
+        renderCompareClasses();
+      });
+      document.querySelectorAll("#cmp-scope-nav .cmp-scope-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          _cmpState.scope = btn.dataset.scope;
+          renderCompareClasses();
+        });
+      });
+      document.getElementById("cmp-test-select")?.addEventListener("change", e => {
+        _cmpState.testIndex = e.target.value === 'timeline' ? 'timeline' : Number(e.target.value);
+        renderCompareClasses();
+      });
+      document.getElementById("cmp-test-match-mode")?.addEventListener("change", e => {
+        _cmpState.testMatchMode = e.target.value;
+        renderCompareClasses();
+      });
 
       // ── Summary Report Menu Buttons ──
       document.getElementById("btn-report-class-year").addEventListener("click", () => {
@@ -20237,6 +20405,653 @@ ${blocks}
       window.addEventListener('focus', checkForPendingImport);
     }
 
+    // ════════════════════════════════════════════════════════════════
+    // 📊 COMPARE CLASSES MODULE (Comprehensive Cross-Class Analysis)
+    // ════════════════════════════════════════════════════════════════
+
+    let _cmpState = {
+      selectedClassIds: [],
+      scope: 'year',
+      levelFilter: 'all',
+      yearFilter: 'all',
+      testIndex: 0,
+      testMatchMode: 'index'
+    };
+
+    function renderNeobrutalistSvgPassFailBars({ items, title }) {
+      const w = 500;
+      const rowH = 28;
+      const padT = 36;
+      const padB = 16;
+      const padL = 110;
+      const padR = 75;
+      const plotW = w - padL - padR;
+      const h = padT + padB + Math.max(1, items.length) * rowH;
+
+      if (!items || !items.length) {
+        return `<svg viewBox="0 0 ${w} 50" width="100%" height="50" xmlns="http://www.w3.org/2000/svg" style="background:#fff;border:2px solid #333333;border-radius:6px;"><text x="14" y="30" font-size="11" font-weight="700" fill="#64748b">No data</text></svg>`;
+      }
+
+      let rows = '';
+      items.forEach((it, idx) => {
+        const y = padT + idx * rowH;
+        const passW = Math.max(0, (it.passRate / 100) * plotW);
+        const failW = Math.max(0, (it.failRate / 100) * plotW);
+        const nameEsc = escapeHtml(it.name || '');
+
+        rows += `
+          <g>
+            <text x="${padL - 8}" y="${y + 14}" font-size="11" font-weight="800" fill="#111" text-anchor="end">${nameEsc}</text>
+            <!-- Pass Segment (Sage Green) -->
+            ${passW > 0 ? `
+              <rect x="${padL}" y="${y + 2}" width="${passW}" height="18" fill="#6abf8e" stroke="#333333" stroke-width="1.5" rx="2" />
+              ${passW > 35 ? `<text x="${padL + passW / 2}" y="${y + 14}" font-size="9" font-weight="800" fill="#111" text-anchor="middle">${fmtN(it.passRate)}%</text>` : ''}
+            ` : ''}
+            <!-- Fail Segment (Rose Red) -->
+            ${failW > 0 ? `
+              <rect x="${padL + passW}" y="${y + 2}" width="${failW}" height="18" fill="#c96b6b" stroke="#333333" stroke-width="1.5" rx="2" />
+              ${failW > 35 ? `<text x="${padL + passW + failW / 2}" y="${y + 14}" font-size="9" font-weight="800" fill="#ffffff" text-anchor="middle">${fmtN(it.failRate)}%</text>` : ''}
+            ` : ''}
+            <text x="${padL + plotW + 8}" y="${y + 14}" font-size="10" font-weight="700" fill="#64748b">${it.failCount} fail</text>
+          </g>
+        `;
+      });
+
+      return `
+        <svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff;border:2px solid #333333;border-radius:8px;box-shadow:2px 2px 0 #555555;font-family:'Lexend',system-ui,sans-serif;">
+          <text x="${padL}" y="20" font-size="12" font-weight="900" fill="#111">${escapeHtml(title || 'Pass vs Below Passing Rate (%)')}</text>
+          <g transform="translate(${w - 190}, 10)">
+            <rect x="0" y="2" width="10" height="10" fill="#6abf8e" stroke="#333" stroke-width="1"/>
+            <text x="14" y="11" font-size="9" font-weight="700" fill="#111">Pass (≥ 4.0)</text>
+            <rect x="85" y="2" width="10" height="10" fill="#c96b6b" stroke="#333" stroke-width="1"/>
+            <text x="99" y="11" font-size="9" font-weight="700" fill="#111">Fail (< 4.0)</text>
+          </g>
+          ${rows}
+        </svg>
+      `;
+    }
+
+    function openCompareClassesScreen() {
+      if (!screens.compare) {
+        screens.compare = document.getElementById("screen-compare");
+      }
+      if (!Array.isArray(appState.classes) || !appState.classes.length) {
+        showToast((typeof t === 'function' ? t('gsCmpNeedMoreClasses') : null) || 'No classes available to compare.', true);
+        return;
+      }
+
+      // Populate filter dropdowns
+      const levels = Array.from(new Set(appState.classes.map(c => c.level).filter(Boolean))).sort();
+      const years = Array.from(new Set(appState.classes.map(c => c.year).filter(Boolean))).sort();
+
+      const lvlSelect = document.getElementById("cmp-level-filter");
+      if (lvlSelect) {
+        lvlSelect.innerHTML = `<option value="all">${t('gsCmpFilterAllLevels') || 'All Levels'}</option>` +
+          levels.map(l => `<option value="${escapeHtml(String(l))}">Level ${escapeHtml(String(l))}</option>`).join('');
+        lvlSelect.value = _cmpState.levelFilter;
+      }
+
+      const yrSelect = document.getElementById("cmp-year-filter");
+      if (yrSelect) {
+        yrSelect.innerHTML = `<option value="all">${t('gsCmpFilterAllYears') || 'All Years'}</option>` +
+          years.map(y => `<option value="${escapeHtml(String(y))}">${escapeHtml(String(y))}</option>`).join('');
+        yrSelect.value = _cmpState.yearFilter;
+      }
+
+      // Initialize selection if empty
+      if (!_cmpState.selectedClassIds || !_cmpState.selectedClassIds.length) {
+        _cmpState.selectedClassIds = appState.classes.map(c => c.id);
+      } else {
+        const validIds = new Set(appState.classes.map(c => c.id));
+        _cmpState.selectedClassIds = _cmpState.selectedClassIds.filter(id => validIds.has(id));
+        if (!_cmpState.selectedClassIds.length) {
+          _cmpState.selectedClassIds = appState.classes.map(c => c.id);
+        }
+      }
+
+      renderCompareClasses();
+      showScreen("compare");
+    }
+
+    function getCompareFilteredClasses() {
+      return appState.classes.filter(c => {
+        if (_cmpState.levelFilter !== 'all' && String(c.level) !== String(_cmpState.levelFilter)) return false;
+        if (_cmpState.yearFilter !== 'all' && String(c.year) !== String(_cmpState.yearFilter)) return false;
+        return true;
+      });
+    }
+
+    function renderCompareClasses() {
+      const filtered = getCompareFilteredClasses();
+      const chipsEl = document.getElementById("cmp-class-chips");
+      if (chipsEl) {
+        chipsEl.innerHTML = "";
+        filtered.forEach(c => {
+          const isSel = _cmpState.selectedClassIds.includes(c.id);
+          const chip = document.createElement("button");
+          chip.type = "button";
+          chip.className = `cmp-class-chip ${isSel ? 'active' : ''}`;
+          chip.innerHTML = `
+            <span>${escapeHtml(c.name)}</span>
+            <span class="cmp-badge-count">${c.students ? c.students.length : 0}</span>
+          `;
+          chip.addEventListener("click", () => {
+            if (_cmpState.selectedClassIds.includes(c.id)) {
+              _cmpState.selectedClassIds = _cmpState.selectedClassIds.filter(id => id !== c.id);
+            } else {
+              _cmpState.selectedClassIds.push(c.id);
+            }
+            renderCompareClasses();
+          });
+          chipsEl.appendChild(chip);
+        });
+      }
+
+      // Update scope navigation buttons
+      document.querySelectorAll("#cmp-scope-nav .cmp-scope-btn").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.scope === _cmpState.scope);
+      });
+
+      // Handle test alignment controls
+      const testAlignWrap = document.getElementById("cmp-test-alignment-wrap");
+      if (testAlignWrap) {
+        testAlignWrap.classList.toggle("hidden", _cmpState.scope !== 'tests');
+      }
+
+      const selectedClasses = appState.classes.filter(c => _cmpState.selectedClassIds.includes(c.id));
+      const kpiContainer = document.getElementById("cmp-kpi-container");
+      const matrixContainer = document.getElementById("cmp-matrix-container");
+      const chartsContainer = document.getElementById("cmp-charts-container");
+
+      if (!selectedClasses.length) {
+        if (kpiContainer) {
+          kpiContainer.innerHTML = `<div class="cmp-empty-notice">${t('gsCmpNoClassesSelected') || 'Please select at least one class to compare.'}</div>`;
+        }
+        if (matrixContainer) matrixContainer.innerHTML = "";
+        if (chartsContainer) chartsContainer.innerHTML = "";
+        return;
+      }
+
+      // Populate test selector if in tests scope
+      if (_cmpState.scope === 'tests') {
+        const testSelect = document.getElementById("cmp-test-select");
+        if (testSelect) {
+          const maxTests = Math.max(1, ...selectedClasses.map(c => ((c.testCounts && c.testCounts.sem1) || 0) + ((c.testCounts && c.testCounts.sem2) || 0)));
+          testSelect.innerHTML = `<option value="timeline">${t('gsCmpAllTestsTimeline') || 'All Tests Timeline'}</option>` +
+            Array.from({ length: maxTests }, (_, i) => `<option value="${i}">Test ${i + 1}</option>`).join('');
+          testSelect.value = String(_cmpState.testIndex);
+        }
+      }
+
+      // Compute data per class
+      const classDataList = selectedClasses.map(classObj => {
+        ensureClassStructures(classObj);
+        let validScores = [];
+        let s1Scores = [];
+        let s2Scores = [];
+
+        classObj.students.forEach(st => {
+          const comp = computeStudent(st);
+          if (comp.sem1Avg != null) s1Scores.push(comp.sem1Avg);
+          if (comp.sem2Avg != null) s2Scores.push(comp.sem2Avg);
+
+          if (_cmpState.scope === 'year') {
+            if (comp.yearAvg != null) validScores.push(comp.yearAvg);
+          } else if (_cmpState.scope === 'sem1') {
+            if (comp.sem1Avg != null) validScores.push(comp.sem1Avg);
+          } else if (_cmpState.scope === 'sem2') {
+            if (comp.sem2Avg != null) validScores.push(comp.sem2Avg);
+          } else if (_cmpState.scope === 'dist') {
+            if (comp.yearAvg != null) validScores.push(comp.yearAvg);
+            else if (comp.sem1Avg != null) validScores.push(comp.sem1Avg);
+          } else if (_cmpState.scope === 'tests') {
+            if (_cmpState.testIndex === 'timeline') {
+              if (comp.yearAvg != null) validScores.push(comp.yearAvg);
+            } else {
+              const tIdx = Number(_cmpState.testIndex) || 0;
+              const n1 = (classObj.testCounts && classObj.testCounts.sem1) || 0;
+              const sem = tIdx < n1 ? 'sem1' : 'sem2';
+              const localIdx = tIdx < n1 ? tIdx : tIdx - n1;
+              const grade = getTestDisplayGrade(st, classObj, sem, localIdx);
+              if (grade != null) validScores.push(grade);
+            }
+          }
+        });
+
+        const stats = calcComprehensiveStats(validScores);
+        const s1Mean = s1Scores.length ? (s1Scores.reduce((a, b) => a + b, 0) / s1Scores.length) : null;
+        const s2Mean = s2Scores.length ? (s2Scores.reduce((a, b) => a + b, 0) / s2Scores.length) : null;
+        const deltaSem = (s1Mean != null && s2Mean != null) ? (s2Mean - s1Mean) : null;
+
+        return {
+          classObj,
+          scores: validScores,
+          stats,
+          s1Mean,
+          s2Mean,
+          deltaSem
+        };
+      });
+
+      // Pooled cohort stats
+      const allCohortScores = classDataList.flatMap(cd => cd.scores);
+      const cohortStats = calcComprehensiveStats(allCohortScores);
+
+      // Render Section 1: KPI Cards
+      renderCompareKpiCards(classDataList, cohortStats, kpiContainer);
+
+      // Render Section 2: Matrix Table
+      renderCompareMatrixTable(classDataList, cohortStats, matrixContainer);
+
+      // Render Section 3: Visual Analytics
+      renderCompareChartsView(classDataList, cohortStats, chartsContainer);
+    }
+
+    function renderCompareKpiCards(classDataList, cohortStats, container) {
+      if (!container) return;
+      container.innerHTML = "";
+      const grid = document.createElement("div");
+      grid.className = "cmp-kpi-grid";
+
+      // 1. Cohort Benchmark Card
+      const cohortCard = document.createElement("div");
+      cohortCard.className = "cmp-kpi-card cohort-card";
+      const cohortColor = getScaleGradeColor(cohortStats.mean || 0);
+      cohortCard.innerHTML = `
+        <div class="cmp-kpi-header">
+          <div>
+            <h3 class="cmp-kpi-title">${t('gsCmpCohortAverage') || 'Cohort Benchmark (Combined)'}</h3>
+            <div class="cmp-kpi-meta">${cohortStats.count} students · ${classDataList.length} classes</div>
+          </div>
+          <span class="cmp-kpi-delta neutral">Benchmark</span>
+        </div>
+        <div class="cmp-kpi-main-stat">
+          <span class="cmp-kpi-mean-label">${t('gsCmpMean') || 'Cohort Mean'}:</span>
+          <span class="cmp-kpi-mean-val" style="background:${cohortColor || '#f1f5f9'};color:${getNotchContrastTextColor(cohortColor)};">${fmt(cohortStats.mean)}</span>
+        </div>
+        <div class="cmp-kpi-metrics-row">
+          <div class="cmp-kpi-sub-metric">
+            <span class="cmp-kpi-sub-label">${t('gsCmpMedian') || 'Median'}</span>
+            <span class="cmp-kpi-sub-val">${fmt(cohortStats.median)}</span>
+          </div>
+          <div class="cmp-kpi-sub-metric fail-box">
+            <span class="cmp-kpi-sub-label">${t('gsCmpBelowPassing') || 'Below 4.0'}</span>
+            <span class="cmp-kpi-sub-val">${cohortStats.failCount} (${fmtN(cohortStats.failRate)}%)</span>
+          </div>
+          <div class="cmp-kpi-sub-metric pass-box">
+            <span class="cmp-kpi-sub-label">${t('gsCmpPassingRate') || 'Pass (≥ 4.0)'}</span>
+            <span class="cmp-kpi-sub-val">${cohortStats.passCount} (${fmtN(cohortStats.passRate)}%)</span>
+          </div>
+          <div class="cmp-kpi-sub-metric">
+            <span class="cmp-kpi-sub-label">${t('gsCmpDistinction') || 'Distinction'}</span>
+            <span class="cmp-kpi-sub-val">${cohortStats.distinctionCount} (${fmtN(cohortStats.distinctionRate)}%)</span>
+          </div>
+        </div>
+        <div style="font-size:0.75rem;color:#64748b;font-weight:700;display:flex;justify-content:space-between;padding-top:4px;border-top:1px dashed #ccc;">
+          <span>σ = ${fmt(cohortStats.stdDev)}</span>
+          <span>Range: ${fmt(cohortStats.min)} – ${fmt(cohortStats.max)}</span>
+        </div>
+      `;
+      grid.appendChild(cohortCard);
+
+      // 2. Individual Class Cards
+      classDataList.forEach(cd => {
+        const card = document.createElement("div");
+        card.className = "cmp-kpi-card";
+        const cMean = cd.stats.mean;
+        const delta = (cMean != null && cohortStats.mean != null) ? (cMean - cohortStats.mean) : null;
+        const deltaSign = delta != null ? (delta > 0 ? `+${fmt(delta)}` : fmt(delta)) : "—";
+        const deltaClass = delta == null ? "neutral" : (delta >= 0.05 ? "pos" : (delta <= -0.05 ? "neg" : "neutral"));
+        const meanColor = getScaleGradeColor(cMean || 0);
+
+        let progHtml = '';
+        if (_cmpState.scope === 'year' && cd.deltaSem != null) {
+          const progSign = cd.deltaSem > 0 ? `+${fmt(cd.deltaSem)}` : fmt(cd.deltaSem);
+          const progClass = cd.deltaSem >= 0 ? 'pos' : 'neg';
+          progHtml = `<span class="cmp-kpi-delta ${progClass}" title="S1 → S2 progression">Δ ${progSign}</span>`;
+        }
+
+        card.innerHTML = `
+          <div class="cmp-kpi-header">
+            <div>
+              <h3 class="cmp-kpi-title">${escapeHtml(cd.classObj.name)}</h3>
+              <div class="cmp-kpi-meta">${cd.stats.count} students${cd.classObj.year ? ` · ${escapeHtml(cd.classObj.year)}` : ''}${cd.classObj.level ? ` · Lvl ${escapeHtml(String(cd.classObj.level))}` : ''}</div>
+            </div>
+            <div style="display:flex;gap:4px;align-items:center;">
+              ${progHtml}
+              <span class="cmp-kpi-delta ${deltaClass}" title="Delta vs cohort mean">${deltaSign}</span>
+            </div>
+          </div>
+          <div class="cmp-kpi-main-stat">
+            <span class="cmp-kpi-mean-label">${t('gsCmpMean') || 'Class Mean'}:</span>
+            <span class="cmp-kpi-mean-val" style="background:${meanColor || '#f1f5f9'};color:${getNotchContrastTextColor(meanColor)};">${fmt(cMean)}</span>
+          </div>
+          <div class="cmp-kpi-metrics-row">
+            <div class="cmp-kpi-sub-metric">
+              <span class="cmp-kpi-sub-label">${t('gsCmpMedian') || 'Median'}</span>
+              <span class="cmp-kpi-sub-val">${fmt(cd.stats.median)}</span>
+            </div>
+            <div class="cmp-kpi-sub-metric fail-box">
+              <span class="cmp-kpi-sub-label">${t('gsCmpBelowPassing') || 'Below 4.0'}</span>
+              <span class="cmp-kpi-sub-val">${cd.stats.failCount} (${fmtN(cd.stats.failRate)}%)</span>
+            </div>
+            <div class="cmp-kpi-sub-metric pass-box">
+              <span class="cmp-kpi-sub-label">${t('gsCmpPassingRate') || 'Pass (≥ 4.0)'}</span>
+              <span class="cmp-kpi-sub-val">${cd.stats.passCount} (${fmtN(cd.stats.passRate)}%)</span>
+            </div>
+            <div class="cmp-kpi-sub-metric">
+              <span class="cmp-kpi-sub-label">${t('gsCmpDistinction') || 'Distinction'}</span>
+              <span class="cmp-kpi-sub-val">${cd.stats.distinctionCount} (${fmtN(cd.stats.distinctionRate)}%)</span>
+            </div>
+          </div>
+          <div style="font-size:0.75rem;color:#64748b;font-weight:700;display:flex;justify-content:space-between;padding-top:4px;border-top:1px dashed #ccc;">
+            <span>σ = ${fmt(cd.stats.stdDev)}</span>
+            <span>Range: ${fmt(cd.stats.min)} – ${fmt(cd.stats.max)}</span>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+
+      container.appendChild(grid);
+    }
+
+    function renderCompareMatrixTable(classDataList, cohortStats, container) {
+      if (!container) return;
+      container.innerHTML = "";
+
+      const card = document.createElement("div");
+      card.className = "cmp-matrix-card";
+
+      const title = document.createElement("div");
+      title.className = "cmp-matrix-head";
+      title.innerHTML = `<h3 class="cmp-matrix-title">Side-by-Side Performance Matrix (${_cmpState.scope.toUpperCase()})</h3>`;
+      card.appendChild(title);
+
+      const tableWrap = document.createElement("div");
+      tableWrap.className = "cmp-table-wrap";
+
+      const table = document.createElement("table");
+      table.className = "cmp-table";
+
+      // Headers: Metric, Cohort Benchmark, Class 1, Class 2...
+      const thead = document.createElement("thead");
+      const hRow = document.createElement("tr");
+      hRow.innerHTML = `<th>Metric</th><th>${t('gsCmpCohortAverage') || 'Cohort Benchmark'}</th>` +
+        classDataList.map(cd => `<th>${escapeHtml(cd.classObj.name)}</th>`).join('');
+      thead.appendChild(hRow);
+      table.appendChild(thead);
+
+      const tbody = document.createElement("tbody");
+
+      const rowsDef = [
+        { label: "Students Evaluated", fn: cd => cd.stats.count, cohortVal: cohortStats.count },
+        { label: "Class Mean", fn: cd => `<span style="background:${getScaleGradeColor(cd.stats.mean)};color:${getNotchContrastTextColor(getScaleGradeColor(cd.stats.mean))};padding:2px 6px;border-radius:4px;font-weight:800;">${fmt(cd.stats.mean)}</span>`, cohortVal: `<span style="background:${getScaleGradeColor(cohortStats.mean)};color:${getNotchContrastTextColor(getScaleGradeColor(cohortStats.mean))};padding:2px 6px;border-radius:4px;font-weight:800;">${fmt(cohortStats.mean)}</span>` },
+        { label: "Median Grade", fn: cd => fmt(cd.stats.median), cohortVal: fmt(cohortStats.median) },
+        { label: "Below Passing (< 4.0)", fn: cd => `<span class="cmp-badge-fail">${cd.stats.failCount} (${fmtN(cd.stats.failRate)}%)</span>`, cohortVal: `<span class="cmp-badge-fail">${cohortStats.failCount} (${fmtN(cohortStats.failRate)}%)</span>` },
+        { label: "Passing Rate (≥ 4.0)", fn: cd => `<span class="cmp-badge-pass">${cd.stats.passCount} (${fmtN(cd.stats.passRate)}%)</span>`, cohortVal: `<span class="cmp-badge-pass">${cohortStats.passCount} (${fmtN(cohortStats.passRate)}%)</span>` },
+        { label: "Distinction (≥ 5.5)", fn: cd => `${cd.stats.distinctionCount} (${fmtN(cd.stats.distinctionRate)}%)`, cohortVal: `${cohortStats.distinctionCount} (${fmtN(cohortStats.distinctionRate)}%)` },
+        { label: "Minimum Grade", fn: cd => fmt(cd.stats.min), cohortVal: fmt(cohortStats.min) },
+        { label: "Maximum Grade", fn: cd => fmt(cd.stats.max), cohortVal: fmt(cohortStats.max) },
+        { label: "Standard Deviation (σ)", fn: cd => fmt(cd.stats.stdDev), cohortVal: fmt(cohortStats.stdDev) },
+        { label: "Interquartile Range (IQR)", fn: cd => fmt(cd.stats.iqr), cohortVal: fmt(cohortStats.iqr) }
+      ];
+
+      if (_cmpState.scope === 'year') {
+        rowsDef.push(
+          { label: "Semester 1 Mean", fn: cd => fmt(cd.s1Mean), cohortVal: "—" },
+          { label: "Semester 2 Mean", fn: cd => fmt(cd.s2Mean), cohortVal: "—" },
+          { label: "S1 → S2 Progression (Δ)", fn: cd => cd.deltaSem != null ? (cd.deltaSem >= 0 ? `+${fmt(cd.deltaSem)}` : fmt(cd.deltaSem)) : "—", cohortVal: "—" }
+        );
+      }
+
+      rowsDef.forEach(r => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td style="font-weight:800;background:#fafaf7;">${r.label}</td><td>${r.cohortVal}</td>` +
+          classDataList.map(cd => `<td>${r.fn(cd)}</td>`).join('');
+        tbody.appendChild(tr);
+      });
+
+      table.appendChild(tbody);
+      tableWrap.appendChild(table);
+      card.appendChild(tableWrap);
+      container.appendChild(card);
+    }
+
+    function renderCompareChartsView(classDataList, cohortStats, container) {
+      if (!container) return;
+      container.innerHTML = "";
+
+      const chartsGrid = document.createElement("div");
+      chartsGrid.className = "cmp-charts-grid";
+
+      // 1. Pass vs Below Passing Stacked Bar Chart
+      const passFailCard = document.createElement("div");
+      passFailCard.className = "cmp-chart-box";
+      const passFailItems = [
+        { name: "COHORT", passRate: cohortStats.passRate, failRate: cohortStats.failRate, failCount: cohortStats.failCount },
+        ...classDataList.map(cd => ({
+          name: cd.classObj.name,
+          passRate: cd.stats.passRate,
+          failRate: cd.stats.failRate,
+          failCount: cd.stats.failCount
+        }))
+      ];
+      passFailCard.innerHTML = renderNeobrutalistSvgPassFailBars({
+        items: passFailItems,
+        title: t('gsCmpChartPassFailTitle') || 'Pass vs Below Passing Distribution (%)'
+      });
+      chartsGrid.appendChild(passFailCard);
+
+      // 2. Grade Distribution Histogram
+      const histCard = document.createElement("div");
+      histCard.className = "cmp-chart-box";
+      const allScores = classDataList.flatMap(cd => cd.scores);
+      const buckets = calcGradeBuckets(allScores);
+      histCard.innerHTML = renderNeobrutalistSvgHistogram({
+        buckets,
+        title: `Grade Distribution (Combined Cohort)`
+      });
+      chartsGrid.appendChild(histCard);
+
+      // 3. Multi-Class Progression Timeline (if 2+ classes or tests)
+      const timelineCard = document.createElement("div");
+      timelineCard.className = "cmp-chart-box";
+
+      // Construct test categories and series
+      const maxTests = Math.max(1, ...classDataList.map(cd => ((cd.classObj.testCounts && cd.classObj.testCounts.sem1) || 0) + ((cd.classObj.testCounts && cd.classObj.testCounts.sem2) || 0)));
+      const categories = Array.from({ length: maxTests }, (_, i) => `T${i + 1}`);
+      const colors = ["#222222", "#5b8fcc", "#e2c96e", "#6abf8e", "#8b7cc2", "#d97fa8", "#d4895a"];
+
+      const series = classDataList.map((cd, idx) => {
+        const testMeans = [];
+        const n1 = (cd.classObj.testCounts && cd.classObj.testCounts.sem1) || 0;
+        for (let i = 0; i < maxTests; i++) {
+          const sem = i < n1 ? 'sem1' : 'sem2';
+          const localIdx = i < n1 ? i : i - n1;
+          const grades = cd.classObj.students.map(st => getTestDisplayGrade(st, cd.classObj, sem, localIdx)).filter(v => v != null);
+          testMeans.push(grades.length ? grades.reduce((a, b) => a + b, 0) / grades.length : null);
+        }
+        return {
+          name: cd.classObj.name,
+          data: testMeans,
+          color: colors[idx % colors.length],
+          strokeWidth: 3
+        };
+      });
+
+      timelineCard.innerHTML = renderNeobrutalistSvgTimeline({
+        series,
+        categories: categories.length ? categories : ["No Tests"],
+        title: t('gsCmpChartTimelineTitle') || 'Class Mean Progression Timeline'
+      });
+      chartsGrid.appendChild(timelineCard);
+
+      // 4. Quartile Box Plot for Cohort
+      const quartileCard = document.createElement("div");
+      quartileCard.className = "cmp-chart-box";
+      quartileCard.innerHTML = renderNeobrutalistSvgQuartileBox({
+        min: cohortStats.min,
+        q1: cohortStats.q1,
+        median: cohortStats.median,
+        q3: cohortStats.q3,
+        max: cohortStats.max,
+        title: `Quartiles & Extremes (Combined Cohort)`
+      });
+      chartsGrid.appendChild(quartileCard);
+
+      container.appendChild(chartsGrid);
+    }
+
+    function buildCompareClassesReportHtml() {
+      const selectedClasses = appState.classes.filter(c => _cmpState.selectedClassIds.includes(c.id));
+      if (!selectedClasses.length) return `<p>${t('gsCmpNoClassesSelected')}</p>`;
+
+      const kpiClone = document.getElementById("cmp-kpi-container") ? document.getElementById("cmp-kpi-container").innerHTML : '';
+      const matrixClone = document.getElementById("cmp-matrix-container") ? document.getElementById("cmp-matrix-container").innerHTML : '';
+      const chartsClone = document.getElementById("cmp-charts-container") ? document.getElementById("cmp-charts-container").innerHTML : '';
+
+      return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Class Comparison Report</title>
+  <style>
+    body { font-family: 'Lexend', system-ui, sans-serif; margin: 20px; color: #111; background: #fff; }
+    h1 { font-size: 1.5rem; font-weight: 900; margin-bottom: 4px; }
+    .report-sub { font-size: 0.85rem; color: #64748b; margin-bottom: 16px; }
+    .cmp-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .cmp-kpi-card { border: 2px solid #333; border-radius: 8px; padding: 12px; background: #fff; }
+    .cmp-kpi-card.cohort-card { background: #fafaf7; border-style: dashed; }
+    .cmp-kpi-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+    .cmp-kpi-title { font-size: 0.95rem; font-weight: 800; margin: 0; }
+    .cmp-kpi-delta { font-size: 0.72rem; font-weight: 800; padding: 2px 6px; border-radius: 4px; border: 1px solid #333; }
+    .cmp-kpi-delta.pos { background: #d4edda; color: #155724; }
+    .cmp-kpi-delta.neg { background: #ffd1d1; color: #721c24; }
+    .cmp-kpi-delta.neutral { background: #e2e8f0; color: #334155; }
+    .cmp-kpi-main-stat { display: flex; justify-content: space-between; align-items: baseline; padding: 6px; background: #f8fafc; border: 1px solid #333; border-radius: 4px; margin-bottom: 8px; }
+    .cmp-kpi-mean-val { font-size: 1.3rem; font-weight: 900; padding: 1px 6px; border-radius: 4px; border: 1px solid #333; }
+    .cmp-kpi-metrics-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .cmp-kpi-sub-metric { padding: 4px 6px; border: 1px solid #333; border-radius: 4px; font-size: 0.75rem; }
+    .cmp-kpi-sub-metric.fail-box { background: #fff5f5; border-color: #c96b6b; color: #b91c1c; }
+    .cmp-kpi-sub-metric.pass-box { background: #f0fdf4; border-color: #6abf8e; color: #166534; }
+    .cmp-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 14px; }
+    .cmp-table th, .cmp-table td { border: 1px solid #333; padding: 6px 10px; text-align: left; }
+    .cmp-table th { background: #111; color: #fff; font-weight: 800; }
+    .cmp-badge-fail { background: #ffd1d1; color: #991b1b; padding: 1px 4px; border-radius: 3px; font-weight: 800; }
+    .cmp-badge-pass { background: #d4edda; color: #166534; padding: 1px 4px; border-radius: 3px; font-weight: 800; }
+    .cmp-charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; page-break-inside: avoid; }
+    .cmp-chart-box { border: 1.5px solid #333; border-radius: 6px; padding: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Class Comparison Report</h1>
+  <div class="report-sub">Scope: ${_cmpState.scope.toUpperCase()} · Generated: ${new Date().toLocaleDateString()}</div>
+  ${kpiClone}
+  ${matrixClone}
+  ${chartsClone}
+</body>
+</html>`;
+    }
+
+    function exportComparePdf() {
+      const html = buildCompareClassesReportHtml();
+      openReportModal(html, "Class Comparison Report", `class-comparison-${_cmpState.scope}`, {
+        isLandscape: true,
+        reportType: 'class-comparison',
+        rebuild: () => buildCompareClassesReportHtml()
+      });
+    }
+
+    function exportCompareHtml() {
+      const html = buildCompareClassesReportHtml();
+      downloadTextFile(html, `class-comparison-${_cmpState.scope}-${new Date().toISOString().slice(0, 10)}.html`, "text/html;charset=utf-8");
+    }
+
+    function exportCompareXlsx() {
+      if (typeof XLSX === 'undefined') {
+        showToast('XLSX export library unavailable', true);
+        return;
+      }
+      const selectedClasses = appState.classes.filter(c => _cmpState.selectedClassIds.includes(c.id));
+      if (!selectedClasses.length) return;
+
+      const wb = XLSX.utils.book_new();
+
+      // Sheet 1: Side by Side Matrix
+      const matrixRows = [
+        ["Class Comparison Matrix", `Scope: ${_cmpState.scope.toUpperCase()}`],
+        ["Metric", ...selectedClasses.map(c => c.name)]
+      ];
+
+      const metricsList = [
+        { label: "Students Count", fn: c => c.students ? c.students.length : 0 },
+        { label: "Class Mean", fn: c => {
+          const scores = c.students.map(st => computeStudent(st)[_cmpState.scope === 'sem1' ? 'sem1Avg' : (_cmpState.scope === 'sem2' ? 'sem2Avg' : 'yearAvg')]).filter(v => v != null);
+          return scores.length ? Number((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2)) : "-";
+        }},
+        { label: "Median Grade", fn: c => {
+          const scores = c.students.map(st => computeStudent(st)[_cmpState.scope === 'sem1' ? 'sem1Avg' : (_cmpState.scope === 'sem2' ? 'sem2Avg' : 'yearAvg')]).filter(v => v != null);
+          return scores.length ? Number(calcComprehensiveStats(scores).median.toFixed(2)) : "-";
+        }},
+        { label: "Below Passing Rate (< 4.0 %)", fn: c => {
+          const scores = c.students.map(st => computeStudent(st)[_cmpState.scope === 'sem1' ? 'sem1Avg' : (_cmpState.scope === 'sem2' ? 'sem2Avg' : 'yearAvg')]).filter(v => v != null);
+          return scores.length ? Number(calcComprehensiveStats(scores).failRate.toFixed(1)) : "-";
+        }},
+        { label: "Passing Rate (≥ 4.0 %)", fn: c => {
+          const scores = c.students.map(st => computeStudent(st)[_cmpState.scope === 'sem1' ? 'sem1Avg' : (_cmpState.scope === 'sem2' ? 'sem2Avg' : 'yearAvg')]).filter(v => v != null);
+          return scores.length ? Number(calcComprehensiveStats(scores).passRate.toFixed(1)) : "-";
+        }},
+        { label: "Distinction Rate (≥ 5.5 %)", fn: c => {
+          const scores = c.students.map(st => computeStudent(st)[_cmpState.scope === 'sem1' ? 'sem1Avg' : (_cmpState.scope === 'sem2' ? 'sem2Avg' : 'yearAvg')]).filter(v => v != null);
+          return scores.length ? Number(calcComprehensiveStats(scores).distinctionRate.toFixed(1)) : "-";
+        }},
+        { label: "Standard Deviation (σ)", fn: c => {
+          const scores = c.students.map(st => computeStudent(st)[_cmpState.scope === 'sem1' ? 'sem1Avg' : (_cmpState.scope === 'sem2' ? 'sem2Avg' : 'yearAvg')]).filter(v => v != null);
+          return scores.length ? Number(calcComprehensiveStats(scores).stdDev.toFixed(2)) : "-";
+        }}
+      ];
+
+      metricsList.forEach(m => {
+        matrixRows.push([m.label, ...selectedClasses.map(c => m.fn(c))]);
+      });
+
+      const wsMatrix = XLSX.utils.aoa_to_sheet(matrixRows);
+      XLSX.utils.book_append_sheet(wb, wsMatrix, "Overview Matrix");
+
+      // Sheet 2: Student Level Scores
+      selectedClasses.forEach(c => {
+        const sRows = [
+          [`Class: ${c.name}`, `Level: ${c.level || '-'}`, `Year: ${c.year || '-'}`],
+          ["Index", "First Name", "Last Name", "Sem 1 Avg", "Sem 2 Avg", "Year Avg", "Rounded Final"]
+        ];
+        c.students.forEach(st => {
+          const comp = computeStudent(st);
+          sRows.push([
+            st.index || "-",
+            st.firstName || "",
+            st.lastName || "",
+            comp.sem1Avg != null ? Number(comp.sem1Avg.toFixed(2)) : "-",
+            comp.sem2Avg != null ? Number(comp.sem2Avg.toFixed(2)) : "-",
+            comp.yearAvg != null ? Number(comp.yearAvg.toFixed(2)) : "-",
+            comp.roundedFinal != null ? Number(comp.roundedFinal.toFixed(1)) : "-"
+          ]);
+        });
+        const wsClass = XLSX.utils.aoa_to_sheet(sRows);
+        const sheetName = slugifyForPath(c.name).slice(0, 28) || "Class";
+        XLSX.utils.book_append_sheet(wb, wsClass, sheetName);
+      });
+
+      try {
+        const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        const fname = `class-comparison-${_cmpState.scope}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+        downloadBinaryFile(wbout, fname, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      } catch (err) {
+        showToast('Failed to generate XLSX: ' + err.message, true);
+      }
+    }
+
+    window.openCompareClassesScreen = openCompareClassesScreen;
+
     boot();
   </script>
 <!-- Credits Modal -->
@@ -20313,6 +21128,17 @@ function showGsTestTour() {
   ], labels);
 }
 
+function showGsCompareTour() {
+  var labels = { next: t('tutNext'), prev: t('tutPrev'), skip: t('tutSkip'), done: t('tutDone') };
+  Tutorial.start([
+    { selector: '#screen-compare .title-wrap', title: t('tutGsCmp1Title') || 'Compare Classes', text: t('tutGsCmp1Text') || 'Overview of class performance comparison.' },
+    { selector: '#cmp-class-chips', title: t('tutGsCmp2Title') || 'Class Selection', text: t('tutGsCmp2Text') || 'Toggle which classes are included in the comparison.' },
+    { selector: '#cmp-scope-nav', title: t('tutGsCmp3Title') || 'Comparison Scope', text: t('tutGsCmp3Text') || 'Switch between Full Year, Semesters, Tests, and Distributions.' },
+    { selector: '#cmp-kpi-container', title: t('tutGsCmp4Title') || 'KPIs & Risk Metrics', text: t('tutGsCmp4Text') || 'View averages, medians, and below-passing percentages (< 4.0).' },
+    { selector: '#cmp-export-dropdown', title: t('tutGsCmp5Title') || 'Export Reports', text: t('tutGsCmp5Text') || 'Export as PDF, Excel, or HTML.' }
+  ], labels);
+}
+
 function showGsTour() {
   var refModalOpen = document.getElementById('reference-data-popup-overlay') && !document.getElementById('reference-data-popup-overlay').classList.contains('hidden');
   var testOptsModalOpen = document.getElementById('test-options-overlay') && !document.getElementById('test-options-overlay').classList.contains('hidden');
@@ -20326,11 +21152,14 @@ function showGsTour() {
     return;
   }
 
+  var compareScreen = document.getElementById('screen-compare');
   var classesScreen = document.getElementById('screen-classes');
   var summaryScreen = document.getElementById('screen-summary');
   var testScreen = document.getElementById('screen-test');
 
-  if (classesScreen && !classesScreen.classList.contains('hidden')) {
+  if (compareScreen && !compareScreen.classList.contains('hidden')) {
+    showGsCompareTour();
+  } else if (classesScreen && !classesScreen.classList.contains('hidden')) {
     showGsClassesTour();
   } else if (summaryScreen && !summaryScreen.classList.contains('hidden')) {
     showGsSummaryTour();

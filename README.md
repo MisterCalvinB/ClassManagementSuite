@@ -94,7 +94,7 @@ If you downloaded a ZIP file, extract the entire folder before launching. Double
 
 | File | Purpose | Key Connections |
 |---|---|---|
-| [`launcher.html`](#launcherhtml) | Home screen — one-click access to all tools, startup layout config, sidebar panels (Upcoming Events, To-do, Recent Docs), and per-card customization (custom titles, notes, size %, screen positioning presets) | Central hub |
+| [`launcher.html`](#launcherhtml) | Home screen — one-click access to all tools, collapsible sections with tool count pills and persistent `user/launcher-config.js` sync, startup layout config, sidebar panels (Upcoming Events, To-do, Recent Docs), and per-card customization (custom titles, notes, size %, screen positioning presets) | Central hub |
 | [`general-config.html`](#general-confightml) | Global settings across 4 tabs: General (App Identity, Language, PDF Export, Startup & Launch Window Arrangements/Split Screen), Storage & Sync (Data Location, Local Backup formats, Local Sync, Cloud/Server WebDAV/FTP/Google Drive, Backup Files Manager, App Reset), Remote Server (Hosted server & secret), and App Notes | Global application preferences |
 | [`group-editor.html`](#group-editorhtml) | Single source of truth for class rosters, active terms, student UUIDs, display name formatting (First/Last, Last/First, Nicknames), and Planner terms | Sinks to all roster-aware tools |
 | [`import-tool.html`](#import-toolhtml) | Bulk-import students, classes, word banks, and quizzes from CSV, XLSX, or JSON (with custom static values mapping), or copy media files directly | Populates `students.js`, database, sounds, docs |
@@ -425,6 +425,7 @@ Five tools support multi-monitor presentation modes:
 The central entry point for the suite. Opens on app launch and provides quick navigation, upcoming agenda items, and card customization.
 
 #### Key Features
+- **Collapsible Tool Sections & Disk Sync**: Organize apps into custom or default categories (*Classroom*, *Students*, *Content*, *System*). Collapse secondary sections into compact bars with tool count pills to keep primary tools front and center. Toggling or reordering sections automatically persists to `user/launcher-config.js` and synchronizes across teacher workstations. Typing in the search bar (`/`) temporarily expands matching collapsed sections.
 - **Instant Tool Search (`/` or `Ctrl+K`)**: Live filter input that instantly searches across tool titles, descriptions, custom names, and personal notes across all sections. Pressing `Enter` launches the top matching tool immediately; `Escape` clears the search.
 - **View Density Switcher (Compact Tiles vs. Detailed Cards)**: Switch between a sleek, streamlined **Compact** view (distraction-free app tiles with centered icons, bold typography, descriptions in hover tooltips, and hidden drag handles) and **Detailed** view (full descriptive paragraphs) with preference saved in `localStorage`.
 - **Decluttered Light Neobrutalist Card Styling**: Refined warm neutral canvas (`#f5f5f0`), soft dark charcoal borders (`2px solid #333333`), tactile zero-blur offset shadows (`3px 3px 0 #555555`), and subtle hover-only controls for settings (⚙) and reordering handles (⠿).
@@ -435,14 +436,18 @@ The central entry point for the suite. Opens on app launch and provides quick na
   - **Upcoming Events**: Displays lessons, tests, and assignments from [Planner](#plannerhtml) for today and upcoming dates. Click any entry to jump directly to that date in Planner.
   - **To-do List**: Shows pending tasks from Planner sorted by urgency. Overdue items are highlighted in red. Click **+** to add a new to-do.
   - **Recent Docs**: Quick links to recently modified Board constellation maps (`.cstz`) and Document Editor files. Includes real-time change tracking and item count selector (1–20).
-  - **Tags & Units**: Live aggregated count of active `#tags` across the suite with quick-select pills. Clicking any tag pill or the explorer button opens the **Unit & Tag Explorer** modal.
+- **Consolidated Top Header Navbar**:
+  - **Primary Action Buttons**: Direct, prominent buttons for **Sync** (one-click data folder synchronization), **Links** (Unit & Tag Explorer and Student Academic Dossiers), and **Panel** (toggle Daily Companion sidebar).
+  - **⋯ More Dropdown Menu**: Consolidates secondary utilities into a tactile Neobrutalist popover menu:
+    - **Config**: Launches [General Config](#general-confightml).
+    - **Shortcuts**: Displays the suite keyboard shortcuts helper modal.
+    - **How To**: Opens built-in documentation with direct *Reveal Folder* disk links.
+    - **Tour**: Triggers an interactive step-by-step onboarding guide.
+    - **About**: Opens the application credits and version modal.
 - **Header Actions**:
   - **Links / Unit & Tag Explorer**: One-click modal (`#unitExplorerModal`) with sub-tabs for **Tags & Units Explorer** and dedicated **Student Academic Dossiers**:
     - **Tags & Units Explorer**: Aggregates all documents, lessons, mindmaps, tests, planner slots, grade evaluations, and student 360° dossiers tagged under any unit or theme (e.g. `#unit-3`, `#revision`, `#oral-exam`) with category tabs (`[ALL]`, `[DOCS]`, `[LESSONS]`, `[MINDMAPS]`, `[TESTS]`, `[PLANNER]`, `[GRADES]`, `[360° DOSSIER]`).
     - **Student Academic Dossiers**: Direct suite-wide student explorer featuring class filtering dropdown (`All Classes` / individual groups), live search, multi-criteria sorting (Name, Class, GPA, Evaluations), live GPA badges, 4-metric KPI grid (evaluations, competences, lessons, mindmaps & docs), recent test scores, and 1-click `[Open 360° Dossier]`, `[Export Studio]`, `[Grade Sheet]`, and `[Links & Tags]` action buttons.
-  - **⚙ Config**: Launches [General Config](#general-confightml).
-  - **? How To**: Opens built-in documentation with direct *Reveal Folder* disk links.
-  - **▶ Tour**: Triggers an interactive step-by-step onboarding guide.
 - **First-Launch Onboarding Wizard**: Automatically appears on first launch if no data directory is configured. Offers instant interface language selection (FR, EN, DE, IT), data directory selection (custom directory/USB/cloud sync vs. recommended local default), interactive tour launch, and direct how-to guide access.
 - **Crash Recovery & Session Restoration**: Reopens on app startup even when recovering from an unexpected exit or crash, ensuring uninterrupted access to launcher navigation alongside all restored tool windows.
 
@@ -983,6 +988,17 @@ Grade and assessment tracking spreadsheet supporting custom evaluation criteria,
   - **Include Observations & Feedback**: Qualitative feedback where tags/chips and teacher markdown notes flow seamlessly inline without intrusive box borders or line breaks.
   - **Include Grading Scale**: Full grade threshold scale conversion table.
   - **Fit to 1 page**: Auto-scaling script dynamically fitting each student report cleanly onto a single sheet.
+- **Compare Classes Module (Cross-Class Performance & Below-Passing Analytics)**:
+  - Accessible directly via the **Compare Classes** navigation tab (`#gs-tab-compare`) and the Overview toolbar button (`#btn-compare-classes`).
+  - **Multi-Class Scope Filtering**: Compare any combination of classes using interactive multi-select pills, with quick filters by academic year and grade level, plus *Select All* and *Clear* actions.
+  - **Comprehensive Multi-Term Analysis**:
+    - **Full Year View**: Annual class averages, medians, dispersion ($\sigma$, range), distinction rate ($\ge 5.5$), and S1 → S2 progression delta ($\Delta$).
+    - **Semester 1 & Semester 2 Views**: Dedicated term-by-term comparative breakdowns.
+    - **Individual Tests View**: Cross-class test comparisons aligned by test order (T1, T2...) or matching test name, with per-test difficulty ratings and failure percentages.
+    - **Distributions View**: Full grade distribution histograms across achievement tiers.
+  - **Key Benchmark & Risk Metrics**: Real-time side-by-side KPI cards and matrix table highlighting **Below Passing Grade** (< 4.0) headcount and percentage in high-visibility warning badges, Passing Rate ($\ge 4.0$), Distinction Rate ($\ge 5.5$), and deviations from the pooled Cohort Benchmark ($\pm \Delta$).
+  - **Neobrutalist Visual Charts**: Stacked Pass vs Below Passing horizontal SVG bar charts, class mean progression trajectory line charts, distribution histograms, and quartile box plots.
+  - **Multi-Format Export & Tour**: Export comparative reports to printable PDF via the Report Preview modal, multi-sheet Excel workbooks (`.xlsx`) with overview matrix and student scores, standalone HTML, and a guided interactive tour (`showGsCompareTour`).
 - **Correction Criteria Reference**: View evaluation rubrics with grade descriptors and point values in a dedicated window with an **Export** button offering direct saving to the `to-print` folder or custom file picker selection, or export directly to PDF, Markdown, or HTML. Personalised test-only criteria automatically render point-based rows (e.g., 0, 1, 2, 3 for a 3-point exercise).
 - **Multi-Format Localized Exports & General Config Integration**: Export grade reports to Excel (`.xlsx`), CSV, Word (`.docx`), standalone HTML with resizable/draggable columns, and vector PDF / Print sheets respecting global page size, orientation, and margin settings from [General Config](#general-confightml). Full multilingual i18n support across English, French, German, and Italian with universal export completion dialogs offering **Open File**, **Open Folder**, and **Open with Document Editor** (for HTML).
 

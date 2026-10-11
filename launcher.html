@@ -94,40 +94,60 @@
 <div class="launcher-layout" id="launcherLayout">
 <div class="launcher">
   <header class="l-header">
-    <h1 id="appTitle">Class Management Tools</h1>
-    <p class="subtitle" data-i18n="launcherSubtitle">Select a tool to get started</p>
+    <div class="l-header-brand">
+      <h1 id="appTitle">Class Management Tools</h1>
+      <p class="subtitle" data-i18n="launcherSubtitle">Select a tool to get started</p>
+    </div>
     <div class="l-header-actions">
-      <button class="l-header-btn" onclick="openModal('pages/general-config.html')" title="General settings" data-i18n="btnHeaderConfig"><img src="assets/icons/general-config.svg" class="l-hdr-icon-img" alt="" /> Config</button>
-      <button class="l-header-btn" onclick="ShortcutsModal.open({title:t('skmTitle'),rows:[],noShortcutsText:t('skmNone')})" data-i18n-title="skmTitle" title="Keyboard Shortcuts">⌨</button>
-      <button class="l-header-btn" onclick="openApp('how-to.html')" title="How to use this app" data-i18n="btnHeaderHowTo">? How To</button>
-      <button class="l-header-btn" id="launcherTutBtn" onclick="startLauncherTutorial()" data-i18n="btnHeaderTutorial">▶ Tour</button>
-      <button class="l-header-btn" id="headerSyncBtn" onclick="openModalAndSync()" title="Sync data folder now" data-i18n="btnHeaderSync">⟳ Sync</button>
-      <button class="l-header-btn" onclick="openModal('pages/about.html')" title="About" data-i18n="btnHeaderAbout"><img src="assets/icons/about.svg" class="l-hdr-icon-img" alt="" /> About</button>
-      <button class="l-header-btn" id="headerUnitExplorerBtn" onclick="openUnitExplorerModal()" title="Explore all resources by Unit & Tag" data-i18n-title="btnHeaderUnitExplorer"><img src="assets/icons/links.svg" class="l-hdr-icon-img" alt="" /> <span data-i18n="headerUnitExplorer">Links</span></button>
+      <button class="l-header-btn" id="headerSyncBtn" onclick="openModalAndSync()" title="Sync data folder now" data-i18n-title="btnHeaderSync"><span data-i18n="btnHeaderSync">Sync</span></button>
+      <button class="l-header-btn" id="headerUnitExplorerBtn" onclick="openUnitExplorerModal()" title="Explore all resources by Unit &amp; Tag" data-i18n-title="btnHeaderUnitExplorer"><img src="assets/icons/links.svg" class="l-hdr-icon-img" alt="" /> <span data-i18n="headerUnitExplorer">Links</span></button>
       <button class="l-header-btn sb-toggle-btn" id="sbToggleBtn" data-i18n="sbToggleBtn">Panel</button>
+
+      <div class="l-more-dropdown-wrap" id="headerMoreWrap">
+        <button type="button" class="l-header-btn" id="headerMoreBtn" aria-haspopup="true" aria-expanded="false" title="More options" data-i18n-title="headerMoreOptionsTitle">
+          <img src="assets/icons/dots.svg" class="l-hdr-icon-img" alt="" /> <span data-i18n="headerMoreBtn">More</span>
+        </button>
+        <div class="l-more-menu" id="headerMoreMenu" hidden>
+          <button type="button" class="l-more-item" onclick="closeHeaderMoreMenu(); openModal('pages/general-config.html')" title="General settings">
+            <img src="assets/icons/general-config.svg" class="l-hdr-icon-img" alt="" /> <span data-i18n="btnHeaderConfig">Config</span>
+          </button>
+          <button type="button" class="l-more-item" onclick="closeHeaderMoreMenu(); ShortcutsModal.open({title:t('skmTitle'),rows:[],noShortcutsText:t('skmNone')})" data-i18n-title="skmTitle" title="Keyboard Shortcuts">
+            <img src="assets/icons/keyboard.svg" class="l-hdr-icon-img" alt="" /> <span data-i18n="skmTitle">Shortcuts</span>
+          </button>
+          <button type="button" class="l-more-item" onclick="closeHeaderMoreMenu(); openApp('how-to.html')" title="How to use this app">
+            <img src="assets/icons/how-to.svg" class="l-hdr-icon-img" alt="" /> <span data-i18n="btnHeaderHowTo">How To</span>
+          </button>
+          <button type="button" class="l-more-item" id="launcherTutBtn" onclick="closeHeaderMoreMenu(); startLauncherTutorial()">
+            <img src="assets/icons/play.svg" class="l-hdr-icon-img" alt="" /> <span data-i18n="btnHeaderTutorial">Tour</span>
+          </button>
+          <button type="button" class="l-more-item" onclick="closeHeaderMoreMenu(); openModal('pages/about.html')" title="About">
+            <img src="assets/icons/about.svg" class="l-hdr-icon-img" alt="" /> <span data-i18n="btnHeaderAbout">About</span>
+          </button>
+        </div>
+      </div>
     </div>
   </header>
   <div class="launcher-toolbar" id="launcherToolbar">
     <div class="l-search-box">
       <span class="l-search-icon" aria-hidden="true"><img src="assets/icons/search.svg" class="l-search-icon-img" alt="" /></span>
       <input type="search" id="launcherSearchInput" class="l-search-input" placeholder="Filter tools... (Press '/' to search)" data-i18n-placeholder="launcherSearchPlaceholder" autocomplete="off" spellcheck="false" />
-      <button type="button" id="launcherSearchClearBtn" class="l-search-clear-btn" aria-label="Clear search" data-i18n-title="launcherSearchClear" title="Clear search" hidden>✕</button>
+      <button type="button" id="launcherSearchClearBtn" class="l-search-clear-btn" aria-label="Clear search" data-i18n-title="launcherSearchClear" title="Clear search" hidden><img src="assets/icons/close.svg" class="l-search-clear-img" alt="" /></button>
     </div>
     <div class="l-view-toggles" role="group" aria-label="View Mode">
       <button type="button" class="l-view-btn" id="viewBtnCompact" data-view="compact" data-i18n-title="viewCompactTitle" title="Compact tiles">
-        <span class="l-view-icon" aria-hidden="true">☷</span> <span data-i18n="viewCompact">Compact</span>
+        <img src="assets/icons/grid.svg" class="l-view-icon-img" alt="" /> <span data-i18n="viewCompact">Compact</span>
       </button>
       <button type="button" class="l-view-btn" id="viewBtnDetailed" data-view="detailed" data-i18n-title="viewDetailedTitle" title="Detailed cards">
-        <span class="l-view-icon" aria-hidden="true">☰</span> <span data-i18n="viewDetailed">Detailed</span>
+        <img src="assets/icons/layout.svg" class="l-view-icon-img" alt="" /> <span data-i18n="viewDetailed">Detailed</span>
       </button>
     </div>
   </div>
   <div id="launcherSearchEmpty" class="l-search-empty" hidden>
-    <div class="l-empty-icon">🔍</div>
+    <div class="l-empty-icon"><img src="assets/icons/search.svg" class="l-empty-icon-img" alt="" /></div>
     <div class="l-empty-msg" data-i18n="launcherSearchNoResults">No tools match your search.</div>
   </div>
   <div id="sectionsContainer" class="sections-container"></div>
-  <button id="addSectionBtn" class="section-add-btn" data-i18n="sectionAddBtn">+ Add Section</button>
+  <button id="addSectionBtn" class="section-add-btn"><img src="assets/icons/plus.svg" class="btn-icon" alt="" style="margin-right:6px;" /> <span data-i18n="sectionAddBtn">Add Section</span></button>
 </div>
 <aside class="launcher-sidebar" id="launcherSidebar">
   <div class="sb-header-bar">
@@ -145,8 +165,8 @@
   <div class="sb-panel">
     <div class="sb-section" id="sbPinnedSection">
       <div class="sb-section-hd">
-        <span class="sb-chevron">▼</span>
-        <span class="sb-section-icon" aria-hidden="true">📌</span>
+        <span class="sb-chevron"><img src="assets/icons/chevron-down.svg" class="sb-chevron-img" alt="" /></span>
+        <span class="sb-section-icon" aria-hidden="true"><img src="assets/icons/pin.svg" class="sb-section-icon-img" alt="" /></span>
         <span class="sb-section-title" data-i18n="sbPinnedTitle">Pinned Items</span>
       </div>
       <div class="sb-list" id="sbPinnedList">
@@ -155,8 +175,8 @@
     </div>
     <div class="sb-section" id="sbUpcomingSection">
       <div class="sb-section-hd">
-        <span class="sb-chevron">▼</span>
-        <span class="sb-section-icon" aria-hidden="true">📅</span>
+        <span class="sb-chevron"><img src="assets/icons/chevron-down.svg" class="sb-chevron-img" alt="" /></span>
+        <span class="sb-section-icon" aria-hidden="true"><img src="assets/icons/calendar.svg" class="sb-section-icon-img" alt="" /></span>
         <span class="sb-section-title" data-i18n="sbUpcomingTitle">Upcoming Events</span>
         <button class="sb-count-btn" id="sbEventsCountBtn" data-i18n-title="sbCountTooltip">5</button>
       </div>
@@ -166,10 +186,10 @@
     </div>
     <div class="sb-section" id="sbTodoSection">
       <div class="sb-section-hd">
-        <span class="sb-chevron">▼</span>
-        <span class="sb-section-icon" aria-hidden="true">✓</span>
+        <span class="sb-chevron"><img src="assets/icons/chevron-down.svg" class="sb-chevron-img" alt="" /></span>
+        <span class="sb-section-icon" aria-hidden="true"><img src="assets/icons/check.svg" class="sb-section-icon-img" alt="" /></span>
         <span class="sb-section-title" data-i18n="sbTodoTitle">To-do</span>
-        <button class="sb-count-btn" id="sbTodoAddBtn" onclick="sbOpenPlanner()" data-i18n-title="sbTodoAdd">+</button>
+        <button class="sb-count-btn" id="sbTodoAddBtn" onclick="sbOpenPlanner()" data-i18n-title="sbTodoAdd"><img src="assets/icons/plus.svg" class="btn-icon-xs" alt="" /></button>
       </div>
       <div class="sb-list" id="sbTodoList">
         <div class="sb-empty" data-i18n="sbLoading">Loading…</div>
@@ -177,8 +197,8 @@
     </div>
     <div class="sb-section" id="sbRecentSection">
       <div class="sb-section-hd">
-        <span class="sb-chevron">▼</span>
-        <span class="sb-section-icon" aria-hidden="true">📄</span>
+        <span class="sb-chevron"><img src="assets/icons/chevron-down.svg" class="sb-chevron-img" alt="" /></span>
+        <span class="sb-section-icon" aria-hidden="true"><img src="assets/icons/file-text.svg" class="sb-section-icon-img" alt="" /></span>
         <span class="sb-section-title" data-i18n="sbRecentTitle">Recent Docs</span>
         <button class="sb-count-btn" id="sbDocsCountBtn" data-i18n-title="sbCountTooltip">5</button>
       </div>
@@ -188,10 +208,10 @@
     </div>
     <div class="sb-section" id="sbTagSection">
       <div class="sb-section-hd" id="sbTagSectionHd">
-        <span class="sb-chevron">▼</span>
-        <span class="sb-section-icon" aria-hidden="true">🏷️</span>
+        <span class="sb-chevron"><img src="assets/icons/chevron-down.svg" class="sb-chevron-img" alt="" /></span>
+        <span class="sb-section-icon" aria-hidden="true"><img src="assets/icons/links.svg" class="sb-section-icon-img" alt="" /></span>
         <span class="sb-section-title" data-i18n="sbTagTitle">Unit / Tag Explorer</span>
-        <button class="sb-count-btn" id="sbTagOpenModalBtn" onclick="event.stopPropagation(); openUnitExplorerModal()" title="Open Unit &amp; Tag Explorer" data-i18n-title="sbTagOpenModalTitle"><img src="assets/icons/links.svg" class="btn-icon" alt="" style="width:11px;height:11px;vertical-align:-1px;margin-right:2px;" />#</button>
+        <button class="sb-count-btn" id="sbTagOpenModalBtn" onclick="event.stopPropagation(); openUnitExplorerModal()" title="Open Unit &amp; Tag Explorer" data-i18n-title="sbTagOpenModalTitle"><img src="assets/icons/links.svg" class="btn-icon" alt="" style="width:11px;height:11px;vertical-align:-1px;" /></button>
       </div>
       <div class="sb-list" id="sbTagList">
         <div class="sb-empty" data-i18n="sbLoading">Loading…</div>
@@ -203,7 +223,7 @@
 
 <div id="launcherModal" class="lm-overlay">
   <div class="lm-box" id="launcherModalBox">
-    <button class="lm-close" id="launcherModalClose" aria-label="Close">✕</button>
+    <button class="lm-close" id="launcherModalClose" aria-label="Close"><img src="assets/icons/close.svg" class="btn-icon" alt="" /></button>
     <iframe class="lm-frame" id="launcherModalFrame" src="" title=""></iframe>
   </div>
 </div>
@@ -215,7 +235,7 @@
         <div class="rf-title" data-i18n="rfTitle">Recent Files</div>
         <div class="rf-subtitle" data-i18n="rfSubtitle">Board sessions and constellation maps saved to your data folder.</div>
       </div>
-      <button class="rf-close-btn" id="rfModalClose" aria-label="Close">✕</button>
+      <button class="rf-close-btn" id="rfModalClose" aria-label="Close"><img src="assets/icons/close.svg" class="btn-icon" alt="" /></button>
     </div>
     <div class="rf-body">
       <div class="rf-toolbar">
@@ -242,7 +262,7 @@
         <span class="rf-result-count" id="rfResultCount"></span>
       </div>
       <div class="rf-file-list" id="rfFileList">
-        <div class="rf-state-msg"><span class="rf-state-icon">⏳</span><span data-i18n="rfLoading">Loading files…</span></div>
+        <div class="rf-state-msg"><span class="rf-state-icon"><img src="assets/icons/clock.svg" class="rf-state-icon-img" alt="" /></span><span data-i18n="rfLoading">Loading files…</span></div>
       </div>
       <h2 class="rf-section-heading" id="rfEditorDocsHeading" style="display:none" data-i18n="rfEditorDocsHeading">Markdown &amp; HTML Documents</h2>
       <div class="rf-file-list" id="rfEditorDocsList"></div>
@@ -322,7 +342,7 @@
 
 <div id="firstRunModal" class="lm-overlay">
   <div class="fr-modal-box" id="firstRunModalBox" role="dialog" aria-modal="true">
-    <button class="lm-close" id="firstRunModalClose" aria-label="Close">✕</button>
+    <button class="lm-close" id="firstRunModalClose" aria-label="Close"><img src="assets/icons/close.svg" class="btn-icon" alt="" /></button>
 
     <div class="fr-header">
       <div class="fr-icon-wrap">
@@ -544,10 +564,10 @@
 
   // ── Group (section) data ────────────────────────────────
   var DEFAULT_GROUPS = [
-    { id: 'grp-classroom', labelKey: 'sectionClassroom', cardIds: ['board', 'classManagement', 'learningTools'] },
-    { id: 'grp-students',  labelKey: 'sectionStudents',  cardIds: ['administrativeGroups', 'competencePortfolio', 'testCreator', 'lessonCreator', 'participationTracker', 'gradeSheet', 'oralMarking', 'groupEditor', 'classPlan', 'planner', 'scheduleMaker'] },
-    { id: 'grp-content',   labelKey: 'sectionContent',   cardIds: ['manageDatabase', 'mediaConverter', 'importTool', 'databaseConverter', 'documentEditor', 'fileManager'] },
-    { id: 'grp-system',    labelKey: 'sectionSystem',    cardIds: ['generalConfig'] }
+    { id: 'grp-classroom', labelKey: 'sectionClassroom', cardIds: ['board', 'classManagement', 'learningTools'], collapsed: false },
+    { id: 'grp-students',  labelKey: 'sectionStudents',  cardIds: ['administrativeGroups', 'competencePortfolio', 'testCreator', 'lessonCreator', 'participationTracker', 'gradeSheet', 'oralMarking', 'groupEditor', 'classPlan', 'planner', 'scheduleMaker'], collapsed: false },
+    { id: 'grp-content',   labelKey: 'sectionContent',   cardIds: ['manageDatabase', 'mediaConverter', 'importTool', 'databaseConverter', 'documentEditor', 'fileManager'], collapsed: true },
+    { id: 'grp-system',    labelKey: 'sectionSystem',    cardIds: ['generalConfig'], collapsed: true }
   ];
 
   function getGroups() {
@@ -558,22 +578,85 @@
     } catch (e) { return null; }
   }
 
+  var _saveLauncherConfigTimer = null;
+  function saveLauncherConfigFile(groups) {
+    clearTimeout(_saveLauncherConfigTimer);
+    _saveLauncherConfigTimer = setTimeout(async function() {
+      if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveText === 'function') {
+        try {
+          var payload = {
+            version: 1,
+            groups: groups
+          };
+          var content = '// Launcher Configuration\n// Automatically updated\nwindow.LAUNCHER_CONFIG = ' + JSON.stringify(payload, null, 2) + ';\n';
+          await Desktop.saveText('user', 'launcher-config.js', content);
+        } catch (e) {
+          console.warn('launcher: Failed to save user/launcher-config.js:', e);
+        }
+      }
+    }, 250);
+  }
+
+  async function loadLauncherConfigFile() {
+    if (window.Desktop && Desktop.isElectron() && typeof Desktop.readText === 'function') {
+      try {
+        var r = await Desktop.readText('user', 'launcher-config.js');
+        if (r && r.ok && r.content) {
+          var match = r.content.match(/window\.LAUNCHER_CONFIG\s*=\s*(\{[\s\S]*?\});/);
+          if (match) {
+            var parsed = JSON.parse(match[1]);
+            if (parsed && Array.isArray(parsed.groups) && parsed.groups.length > 0) {
+              window.LAUNCHER_CONFIG = parsed;
+              var currentRaw = localStorage.getItem('cmt-launcher-groups');
+              var newRaw = JSON.stringify(parsed.groups);
+              if (currentRaw !== newRaw) {
+                localStorage.setItem('cmt-launcher-groups', newRaw);
+                renderSections();
+              }
+              return true;
+            }
+          }
+        } else {
+          // File does not exist yet: persist current groups to user/launcher-config.js
+          var initialGroups = resolveGroups();
+          saveLauncherConfigFile(initialGroups);
+        }
+      } catch (e) {
+        console.warn('launcher: could not load user/launcher-config.js:', e);
+      }
+    }
+    return false;
+  }
+
   function saveGroups(groups) {
     localStorage.setItem('cmt-launcher-groups', JSON.stringify(groups));
+    saveLauncherConfigFile(groups);
   }
 
   function resolveGroups() {
     var groups = getGroups();
     if (!groups) {
       groups = DEFAULT_GROUPS.map(function(dg) {
-        return { id: dg.id, label: (typeof t === 'function' ? t(dg.labelKey) : dg.labelKey), cardIds: dg.cardIds.slice() };
+        return {
+          id: dg.id,
+          labelKey: dg.labelKey,
+          label: (typeof t === 'function' ? t(dg.labelKey) : dg.labelKey),
+          cardIds: dg.cardIds.slice(),
+          collapsed: !!dg.collapsed
+        };
       });
     }
     var allIds = APPS.map(function(a) { return a.id; });
     var validIds = {};
     allIds.forEach(function(id) { validIds[id] = true; });
     var assigned = {};
-    groups.forEach(function(g) { g.cardIds.forEach(function(id) { assigned[id] = true; }); });
+    groups.forEach(function(g) {
+      if (typeof g.collapsed !== 'boolean') {
+        var dg = DEFAULT_GROUPS.find(function(d) { return d.id === g.id; });
+        g.collapsed = dg ? !!dg.collapsed : false;
+      }
+      g.cardIds.forEach(function(id) { assigned[id] = true; });
+    });
     var unassigned = allIds.filter(function(id) { return !assigned[id]; });
     if (unassigned.length && groups.length) groups[groups.length - 1].cardIds = groups[groups.length - 1].cardIds.concat(unassigned);
     groups.forEach(function(g) { g.cardIds = g.cardIds.filter(function(id) { return validIds[id]; }); });
@@ -611,15 +694,31 @@
 
     var section = document.createElement('div');
     section.className = 'app-section';
+    if (group.collapsed) {
+      section.classList.add('is-collapsed');
+    }
     section.dataset.sectionId = group.id;
 
     // Header
     var header = document.createElement('div');
     header.className = 'section-header';
 
+    // Collapse toggle button
+    var collapseBtn = document.createElement('button');
+    collapseBtn.type = 'button';
+    collapseBtn.className = 'section-collapse-btn';
+    var isCol = !!group.collapsed;
+    var colTooltip = isCol
+      ? (typeof t === 'function' ? t('sectionExpandTooltip') : 'Expand section')
+      : (typeof t === 'function' ? t('sectionCollapseTooltip') : 'Collapse section');
+    collapseBtn.title = colTooltip;
+    collapseBtn.setAttribute('aria-expanded', isCol ? 'false' : 'true');
+    collapseBtn.setAttribute('aria-label', colTooltip);
+    collapseBtn.innerHTML = '<img src="assets/icons/chevron-down.svg" class="section-chevron-img" alt="" />';
+
     var handle = document.createElement('span');
     handle.className = 'section-drag-handle';
-    handle.textContent = '⠿';
+    handle.innerHTML = '<img src="assets/icons/grip.svg" class="section-drag-handle-img" alt="" />';
     handle.title = typeof t === 'function' ? t('sectionDragHandleTitle') : 'Drag to reorder';
     handle.setAttribute('aria-hidden', 'true');
 
@@ -644,11 +743,23 @@
       if (g) { g.label = newLabel; saveGroups(groups); }
     });
 
+    var countBadge = document.createElement('span');
+    countBadge.className = 'section-count-badge';
+    var numCards = group.cardIds ? group.cardIds.length : 0;
+    var countText = (numCards === 1)
+      ? (typeof t === 'function' ? t('sectionToolCountSingle') : '1 tool')
+      : ((typeof t === 'function' ? t('sectionToolsCount') : '{n} tools').replace('{n}', numCards));
+    countBadge.textContent = countText;
+
+    var spacer = document.createElement('span');
+    spacer.className = 'section-header-spacer';
+
     var deleteBtn = document.createElement('button');
     deleteBtn.className = 'section-delete-btn';
     deleteBtn.title = typeof t === 'function' ? t('sectionDeleteTitle') : 'Delete section';
-    deleteBtn.textContent = '✕';
-    deleteBtn.addEventListener('click', function() {
+    deleteBtn.innerHTML = '<img src="assets/icons/close.svg" class="section-del-img" alt="" />';
+    deleteBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
       var groups = resolveGroups();
       var g = groups.find(function(g) { return g.id === group.id; });
       if (!g) return;
@@ -665,8 +776,37 @@
       renderSections();
     });
 
+    function toggleSectionCollapse(e) {
+      if (e) e.stopPropagation();
+      var isNowCollapsed = section.classList.toggle('is-collapsed');
+      group.collapsed = isNowCollapsed;
+      collapseBtn.setAttribute('aria-expanded', isNowCollapsed ? 'false' : 'true');
+      var tip = isNowCollapsed
+        ? (typeof t === 'function' ? t('sectionExpandTooltip') : 'Expand section')
+        : (typeof t === 'function' ? t('sectionCollapseTooltip') : 'Collapse section');
+      collapseBtn.title = tip;
+      collapseBtn.setAttribute('aria-label', tip);
+
+      var groups = resolveGroups();
+      var g = groups.find(function(item) { return item.id === group.id; });
+      if (g) {
+        g.collapsed = isNowCollapsed;
+        saveGroups(groups);
+      }
+    }
+
+    collapseBtn.addEventListener('click', toggleSectionCollapse);
+
+    header.addEventListener('click', function(e) {
+      if (e.target.closest('.section-title, .section-drag-handle, .section-delete-btn, .section-collapse-btn')) return;
+      toggleSectionCollapse(e);
+    });
+
+    header.appendChild(collapseBtn);
     header.appendChild(handle);
     header.appendChild(title);
+    header.appendChild(countBadge);
+    header.appendChild(spacer);
     header.appendChild(deleteBtn);
     setupSectionHandleDrag(handle, section, group.id);
 
@@ -885,7 +1025,7 @@
     const gearTitle = typeof t === 'function' ? t('cfgGearTitle') : 'Card settings';
     const dragTitle = typeof t === 'function' ? t('tutLn4Title') : 'Reorder card';
     card.innerHTML =
-      '<button class="card-gear-btn" title="' + escHtml(gearTitle) + '" aria-label="' + escHtml(gearTitle) + '">⚙</button>' +
+      '<button class="card-gear-btn" title="' + escHtml(gearTitle) + '" aria-label="' + escHtml(gearTitle) + '"><img src="assets/icons/gear.svg" class="card-gear-icon-img" alt="" /></button>' +
       '<div class="card-body">' +
         '<span class="card-icon" aria-hidden="true"><img src="' + app.icon + '" class="l-card-icon-img" alt="" /></span>' +
         '<div class="card-title">' + escHtml(label) + '</div>' +
@@ -995,6 +1135,46 @@
     }
   }
 
+  // ── Header More Menu ────────────────────────────────────
+  var _lastToggleHeaderMoreTime = 0;
+  function toggleHeaderMoreMenu(e) {
+    if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+    var now = Date.now();
+    if (now - _lastToggleHeaderMoreTime < 150) return;
+    _lastToggleHeaderMoreTime = now;
+
+    var menu = document.getElementById('headerMoreMenu');
+    var btn = document.getElementById('headerMoreBtn');
+    if (!menu || !btn) return;
+    var isHidden = menu.hidden || menu.hasAttribute('hidden');
+    if (isHidden) {
+      menu.hidden = false;
+      menu.removeAttribute('hidden');
+      btn.setAttribute('aria-expanded', 'true');
+      btn.classList.add('active');
+    } else {
+      menu.hidden = true;
+      menu.setAttribute('hidden', '');
+      btn.setAttribute('aria-expanded', 'false');
+      btn.classList.remove('active');
+    }
+  }
+
+  function closeHeaderMoreMenu() {
+    var menu = document.getElementById('headerMoreMenu');
+    var btn = document.getElementById('headerMoreBtn');
+    if (menu) {
+      menu.hidden = true;
+      menu.setAttribute('hidden', '');
+    }
+    if (btn) {
+      btn.setAttribute('aria-expanded', 'false');
+      btn.classList.remove('active');
+    }
+  }
+  window.toggleHeaderMoreMenu = toggleHeaderMoreMenu;
+  window.closeHeaderMoreMenu = closeHeaderMoreMenu;
+
   document.addEventListener('mousedown', function (e) {
     const popup = document.getElementById('cfgPopup');
     if (!popup.hidden && !popup.contains(e.target) && e.target !== currentGearBtn) {
@@ -1004,10 +1184,14 @@
     if (!sbPopup.hidden && !sbPopup.contains(e.target) && e.target !== _sbCountBtn) {
       sbApplyCount(document.getElementById('sbCountInput').value);
     }
+    var moreWrap = document.getElementById('headerMoreWrap');
+    if (moreWrap && !moreWrap.contains(e.target)) {
+      closeHeaderMoreMenu();
+    }
   });
 
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') { closePopup(); closeModal(); closeRecentFilesModal(); sbHideCountPopup(); closeFirstRunModal(true); }
+    if (e.key === 'Escape') { closePopup(); closeModal(); closeRecentFilesModal(); sbHideCountPopup(); closeFirstRunModal(true); closeHeaderMoreMenu(); }
   });
 
   // ── iframe modal (credits, general-config) ──────────────
@@ -1558,7 +1742,7 @@
   function rfRenderFiles(files) {
     var list = document.getElementById('rfFileList');
     if (!files.length) {
-      list.innerHTML = '<div class="rf-state-msg"><span class="rf-state-icon">📭</span>' + (typeof t === 'function' ? t('rfNoFiles') : 'No files found.') + '</div>';
+      list.innerHTML = '<div class="rf-state-msg"><span class="rf-state-icon"><img src="assets/icons/folder.svg" class="rf-state-icon-img" alt="" /></span>' + (typeof t === 'function' ? t('rfNoFiles') : 'No files found.') + '</div>';
       return;
     }
     list.innerHTML = '';
@@ -1570,7 +1754,7 @@
       var stripped = rfStripClassPrefix(f.filename);
       var meta = (stripped.className ? stripped.className + ' · ' : '') + rfFormatDate(rfFileDateMs(f)) + (kb ? ' · ' + kb : '');
       var btn = document.createElement('button');
-      btn.className = 'rf-open-btn'; btn.textContent = typeof t === 'function' ? t('rfOpenInBoard') : 'Open in Board ↗';
+      btn.className = 'rf-open-btn'; btn.textContent = typeof t === 'function' ? t('rfOpenInBoard') : 'Open in Board';
       (function(target, filename, relPath) {
         btn.addEventListener('click', function() { rfOpenFile(target, filename, relPath); });
       })(f.target, f.filename, f.relativePath);
@@ -1611,7 +1795,7 @@
       var meta = rfFormatDate(f.mtimeMs || f.savedAt || 0) + (kb ? ' · ' + kb : '');
       var btn = document.createElement('button');
       btn.className = 'rf-open-btn';
-      btn.textContent = (typeof t === 'function' ? t('sbOpenInDocEditor') : 'Open in Doc Editor') + ' ↗';
+      btn.textContent = (typeof t === 'function' ? t('sbOpenInDocEditor') : 'Open in Doc Editor');
       btn.addEventListener('click', function() {
         if (!window.Desktop || !Desktop.isElectron()) return;
         Desktop.openTool('document-editor.html', { query: { editTarget: f.target || 'docEditorDocs', editRelPath: f.relativePath || f.filename } });
@@ -1773,7 +1957,7 @@
     rfContentCache.clear();
     rfSessionTypeCache.clear();
     if (rfContentSearchTimer) { clearTimeout(rfContentSearchTimer); rfContentSearchTimer = null; }
-    document.getElementById('rfFileList').innerHTML = '<div class="rf-state-msg"><span class="rf-state-icon">⏳</span>' + (typeof t === 'function' ? t('rfLoading') : 'Loading files…') + '</div>';
+    document.getElementById('rfFileList').innerHTML = '<div class="rf-state-msg"><span class="rf-state-icon"><img src="assets/icons/clock.svg" class="rf-state-icon-img" alt="" /></span>' + (typeof t === 'function' ? t('rfLoading') : 'Loading files…') + '</div>';
     document.getElementById('rfDocsList').innerHTML = '';
     document.getElementById('rfDocsHeading').style.display = 'none';
     document.getElementById('rfResultCount').textContent = '';
@@ -1784,7 +1968,7 @@
     document.body.style.overflow = 'hidden';
 
     if (!window.Desktop || !Desktop.isElectron()) {
-      document.getElementById('rfFileList').innerHTML = '<div class="rf-state-msg"><span class="rf-state-icon">⚠</span>' + (typeof t === 'function' ? t('rfElectronRequiredPage') : 'This page requires the Electron desktop app.') + '</div>';
+      document.getElementById('rfFileList').innerHTML = '<div class="rf-state-msg"><span class="rf-state-icon"><img src="assets/icons/error.svg" class="rf-state-icon-img" alt="" /></span>' + (typeof t === 'function' ? t('rfElectronRequiredPage') : 'This page requires the Electron desktop app.') + '</div>';
       return;
     }
 
@@ -1928,6 +2112,12 @@
       } else {
         sec.classList.remove('l-section-hidden');
       }
+
+      if (q && secVisible > 0) {
+        sec.classList.add('is-search-expanded');
+      } else {
+        sec.classList.remove('is-search-expanded');
+      }
     });
 
     var emptyEl = document.getElementById('launcherSearchEmpty');
@@ -2029,9 +2219,9 @@
     try {
       var locale = lang === 'fr' ? 'fr-FR' : (lang === 'de' ? 'de-DE' : (lang === 'it' ? 'it-IT' : 'en-US'));
       var formatted = d.toLocaleDateString(locale, { weekday: 'short', month: 'short', day: 'numeric' });
-      dateEl.textContent = '• ' + formatted;
+      dateEl.textContent = formatted;
     } catch (e) {
-      dateEl.textContent = '• ' + d.toISOString().slice(5, 10);
+      dateEl.textContent = d.toISOString().slice(5, 10);
     }
   }
 
@@ -2047,11 +2237,20 @@
     applyTitle();
     initViewMode();
     renderSections();
+    loadLauncherConfigFile();
     initSearchFilter();
     initSidebarCollapse();
     sbInitFilterTabs();
     initFirstRunModalEvents();
     checkFirstRunWelcome();
+
+    var moreBtn = document.getElementById('headerMoreBtn');
+    if (moreBtn) {
+      moreBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        toggleHeaderMoreMenu(e);
+      });
+    }
 
     // Async sync config from disk in background without blocking launcher render
     if (window.Desktop && Desktop.isElectron() && typeof Desktop.readJson === 'function') {
@@ -2110,7 +2309,7 @@
     document.getElementById('addSectionBtn').addEventListener('click', function() {
       var groups = resolveGroups();
       var label = typeof t === 'function' ? t('sectionNewLabel') : 'New Section';
-      groups.push({ id: genGroupId(), label: label, cardIds: [] });
+      groups.push({ id: genGroupId(), label: label, cardIds: [], collapsed: false });
       saveGroups(groups);
       renderSections();
       requestAnimationFrame(function() {
@@ -2135,6 +2334,9 @@
         if (typeof applyTranslations === 'function') applyTranslations();
         if (typeof sbRender === 'function') sbRender();
         if (typeof rfRender === 'function') rfRender();
+      }
+      if (e.key === 'cmt-launcher-groups') {
+        renderSections();
       }
     });
   }
@@ -2256,7 +2458,7 @@
       el.innerHTML =
         '<div class="sb-item-top">' +
           '<span class="sb-tag ' + tagClass + '">' + escHtml(tagLabel) + '</span>' +
-          '<button class="sb-unpin-btn" title="' + escHtml(typeof t === 'function' ? t('ctxUnpinItem') : 'Unpin from sidebar') + '">×</button>' +
+          '<button class="sb-unpin-btn" title="' + escHtml(typeof t === 'function' ? t('ctxUnpinItem') : 'Unpin from sidebar') + '"><img src="assets/icons/close.svg" class="sb-unpin-icon-img" alt="" /></button>' +
         '</div>' +
         '<div class="sb-name" title="' + escHtml(item.title || '') + '">' + escHtml(item.title || '') + '</div>';
 
@@ -2930,14 +3132,14 @@
     var firstCard     = document.querySelector('.app-card');
     var firstGear     = document.querySelector('.card-gear-btn');
     var firstHandle   = document.querySelector('.card-drag-handle');
-    var configBtn     = document.querySelector('[data-i18n="btnHeaderConfig"]');
+    var moreBtn       = document.getElementById('headerMoreBtn');
     Tutorial.start([
       { selector: '#sectionsContainer',    title: t('tutLn1Title'), text: t('tutLn1Text') },
       firstCard   ? { selector: '.app-card',        title: t('tutLn2Title'), text: t('tutLn2Text') } : null,
       firstGear   ? { selector: '.card-gear-btn',   title: t('tutLn3Title'), text: t('tutLn3Text') } : null,
       firstHandle ? { selector: '.card-drag-handle',title: t('tutLn4Title'), text: t('tutLn4Text') } : null,
       { selector: '#addSectionBtn',        title: t('tutLn5Title'), text: t('tutLn5Text') },
-      configBtn   ? { selector: '[data-i18n="btnHeaderConfig"]', title: t('tutLn6Title'), text: t('tutLn6Text') } : null,
+      moreBtn     ? { selector: '#headerMoreBtn',   title: t('tutLn6Title'), text: t('tutLn6Text') } : null,
       { selector: '#sbToggleBtn',  title: t('tutLn7Title'), text: t('tutLn7Text') },
       { selector: '#sbEventsList', title: t('tutLn8Title'), text: t('tutLn8Text') },
       { selector: '#sbTodoList',   title: t('tutLn9Title'), text: t('tutLn9Text') },
@@ -3110,7 +3312,7 @@
         // Open in Board (session files only)
         var isSess = target === 'mindmaps' || target === 'data';
         if (isSess) {
-          items.push({ label: tl('rfOpenInBoard', 'Open in Board ↗'), action: function() {
+          items.push({ label: tl('rfOpenInBoard', 'Open in Board'), action: function() {
             Desktop.openTool('board.html', {
               query: { openSession:'1', openTarget: target, openFilename: fileObj.filename, openRelPath: relPath }
             });
@@ -3257,7 +3459,7 @@
         items.push('-');
 
         if (isMm) {
-          items.push({ label: tl('rfOpenInBoard', 'Open in Board ↗'), action: function() {
+          items.push({ label: tl('rfOpenInBoard', 'Open in Board'), action: function() {
             Desktop.openTool('board.html', { query: { openSession: '1', openTarget: 'mindmaps', openFilename: fileData.filename, openRelPath: relPath } });
           }});
         } else {
