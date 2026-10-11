@@ -527,6 +527,9 @@
         <strong>Collapsible Tool Sections &amp; Disk Sync:</strong> The Launcher organizes tools into customizable sections (Classroom, Students, Content, System, or custom sections). Click any section header or its chevron icon to collapse or expand it. Collapsed sections condense into compact drawer bars with a tool count badge (e.g. <em>6 tools</em>), letting primary teaching modules stand out while secondary utilities remain neatly tucked away. During tool search (<code>/</code>), collapsed sections automatically expand to reveal matching results. Section order, custom names, card assignments, and collapsed states persist directly to <code>user/launcher-config.js</code> and synchronize across your devices via the <strong>Sync</strong> feature.
       </div>
       <div class="tip" style="margin-top:10px">
+        <strong>Instant Tool Documentation (? Button):</strong> Hover over any tool card in the Launcher to reveal the tactile <strong>?</strong> button in the card header. Clicking <strong>?</strong> immediately opens the dedicated documentation section for that tool in How To with smooth scrolling and animated highlighting, providing instant guidance on workflows, hotkeys, and storage locations.
+      </div>
+      <div class="tip" style="margin-top:10px">
         <strong>Sidebar panel:</strong> The launcher has a collapsible right-hand panel. Click <strong>Panel</strong> in the header to show or hide it. It contains four sections:
         <ul style="margin:8px 0 0 16px;padding:0;line-height:1.7">
           <li><strong>Upcoming Events</strong> — pulls lessons, tests, and assignments from the Planner with dates on or after today, sorted by date. Click any entry to jump directly to that date in the Planner.</li>
@@ -4562,6 +4565,10 @@
     el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     setActiveSidebarSection(sectionId);
     openSidebarSection(sectionId);
+    el.classList.remove('ht-target-highlight');
+    void el.offsetWidth;
+    el.classList.add('ht-target-highlight');
+    setTimeout(function () { el.classList.remove('ht-target-highlight'); }, 1200);
   }
 
   function navToAccordion(sectionId, accordionId) {
@@ -5328,6 +5335,19 @@
       modalInput.addEventListener('keydown', handleModalKeyDown);
     }
     onScroll();
+
+    var params = new URLSearchParams(window.location.search);
+    var targetSec = params.get('section') || window.location.hash.replace(/^#/, '');
+    if (targetSec) {
+      setTimeout(function () {
+        navTo(targetSec);
+      }, 150);
+    }
+  });
+
+  window.addEventListener('hashchange', function () {
+    var h = window.location.hash.replace(/^#/, '');
+    if (h) navTo(h);
   });
 </script>
 </body>

@@ -2268,7 +2268,7 @@
         if (catGroups.length > 0) {
           pillsHtml = catGroups.map(cg => `
             <span class="obs-category-span" style="display:inline-flex;align-items:center;flex-wrap:wrap;gap:2px;margin:0 4px 0 0;vertical-align:middle;">
-              <span class="obs-category-tag" style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.02em;color:#333333;margin-right:2px;white-space:nowrap;">
+              <span class="obs-category-tag" style="font-size:8.5px;font-weight:800;letter-spacing:0.02em;color:#333333;margin-right:2px;white-space:nowrap;">
                 ${escapeHtml(cg.category)}:
               </span>
               ${cg.chips.map(chip => renderObservationPill(chip, section.kind, label)).join("")}
@@ -2283,7 +2283,7 @@
         : "";
 
       const labelHtml = label
-        ? `<span class="obs-label" style="font-size:10px;font-weight:800;color:#111;display:inline-flex;align-items:center;gap:3px;margin-right:4px;"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${secColor};"></span>${escapeHtml(label)}:</span>`
+        ? `<span class="obs-label" style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.03em;color:#111;display:inline-flex;align-items:center;gap:3px;margin-right:4px;"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${secColor};"></span>${escapeHtml(label)}:</span>`
         : "";
 
       const topChipsLine = (labelHtml || pillsHtml)
@@ -2301,13 +2301,13 @@
 
       if (checklist.length === 0 && !text) return "";
 
-      const labelPrefix = label ? `<strong style="color:#111;margin-right:4px;font-size:9.5px;">${escapeHtml(label)}:</strong>` : "";
+      const labelPrefix = label ? `<strong class="obs-label" style="color:#111;margin-right:4px;font-size:9.5px;text-transform:uppercase;letter-spacing:0.03em;">${escapeHtml(label)}:</strong>` : "";
       let pills = "";
       if (checklist.length > 0) {
         const catGroups = groupObservationChipsByCategory(checklist, label, typeof _activeChipBankFilename !== 'undefined' ? _activeChipBankFilename : null);
         pills = catGroups.map(cg => `
           <span class="obs-category-span" style="display:inline-flex;align-items:center;flex-wrap:wrap;gap:2px;margin:0 4px 0 0;vertical-align:middle;">
-            <span class="obs-category-tag" style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.02em;color:#333333;margin-right:2px;white-space:nowrap;">${escapeHtml(cg.category)}:</span>
+            <span class="obs-category-tag" style="font-size:8.5px;font-weight:800;letter-spacing:0.02em;color:#333333;margin-right:2px;white-space:nowrap;">${escapeHtml(cg.category)}:</span>
             ${cg.chips.map(chip => renderObservationPill(chip, section.kind, label)).join("")}
           </span>
         `).join("");
@@ -5851,6 +5851,23 @@
               student.criteriaResults[sem][i] = {};
             }
           }
+
+          // Clean up phantom grades on ungraded tests with criteria
+          const arr = sem === "sem1" ? student.sem1Tests : student.sem2Tests;
+          if (Array.isArray(arr)) {
+            const count = (classObj.testCounts && typeof classObj.testCounts[sem] === "number") ? classObj.testCounts[sem] : TEST_COUNT_PER_SEM;
+            for (let i = 0; i < count; i++) {
+              if (student.gradeOverrides && student.gradeOverrides[sem] && student.gradeOverrides[sem][i]) continue;
+              const cfg = classObj.testConfigs && classObj.testConfigs[sem] && classObj.testConfigs[sem][i];
+              if (cfg && Array.isArray(cfg.criteria) && cfg.criteria.length > 0) {
+                const cMap = student.criteriaResults[sem][i] || {};
+                const allFilled = cfg.criteria.every(cr => cMap[cr.id] && cMap[cr.id].points != null);
+                if (!allFilled && arr[i] != null) {
+                  arr[i] = null;
+                }
+              }
+            }
+          }
         });
       });
     }
@@ -6248,7 +6265,22 @@
 
     function recalcStudentGradeFromCriteria(student, sem, testIndex, config) {
       if (isGradeOverrideEnabled(student, sem, testIndex)) return;
-      const criteriaMap = student.criteriaResults[sem][testIndex] || {};
+      if (!config) return;
+      const criteriaMap = (student.criteriaResults && student.criteriaResults[sem] && student.criteriaResults[sem][testIndex]) || {};
+      if (config.criteria && Array.isArray(config.criteria) && config.criteria.length > 0) {
+        const allFilled = config.criteria.every(cr => {
+          const r = criteriaMap[cr.id];
+          return r && r.points != null;
+        });
+        if (!allFilled) {
+          if (sem === "sem1") {
+            student.sem1Tests[testIndex] = null;
+          } else {
+            student.sem2Tests[testIndex] = null;
+          }
+          return;
+        }
+      }
       const totals = calcCriteriaTotals(config, criteriaMap);
       if (totals.totalPossible <= 0) return;
       const scored = (totals.totalScored || 0) + (totals.totalBonusScored || 0);
@@ -7031,14 +7063,25 @@
     }
 
     function getTestDisplayGrade(student, classObj, sem, testIndex) {
+      if (!classObj) {
+        if (typeof appState === 'object' && appState && Array.isArray(appState.classes)) {
+          classObj = appState.classes.find(c => Array.isArray(c.students) && c.students.some(s => s.id === student.id)) || getActiveClass();
+        } else {
+          classObj = getActiveClass();
+        }
+      }
+      if (classObj && classObj.testCounts && typeof classObj.testCounts[sem] === "number" && testIndex >= classObj.testCounts[sem]) {
+        return null;
+      }
       const arr = sem === "sem1" ? student.sem1Tests : student.sem2Tests;
+      if (!arr) return null;
       const grade = arr[testIndex];
       if (grade == null) return null;
       if (isGradeOverrideEnabled(student, sem, testIndex)) return grade;
       if (!classObj) return grade;
       const config = getTestConfig(classObj, sem, testIndex);
-      if (!config.criteria || config.criteria.length === 0) return grade;
-      const criteriaMap = (student.criteriaResults[sem] && student.criteriaResults[sem][testIndex]) || {};
+      if (!config || !config.criteria || config.criteria.length === 0) return grade;
+      const criteriaMap = (student.criteriaResults && student.criteriaResults[sem] && student.criteriaResults[sem][testIndex]) || {};
       const allFilled = config.criteria.every(cr => {
         const r = criteriaMap[cr.id];
         return r && r.points != null;
@@ -7046,15 +7089,26 @@
       return allFilled ? grade : null;
     }
 
-    function computeStudent(student) {
-      const classObj = getActiveClass();
+    function computeStudent(student, classObj = null) {
+      if (!classObj) {
+        if (typeof appState === 'object' && appState && Array.isArray(appState.classes)) {
+          classObj = appState.classes.find(c => Array.isArray(c.students) && c.students.some(s => s.id === student.id)) || getActiveClass();
+        } else {
+          classObj = getActiveClass();
+        }
+      }
 
       function calcSemAvg(tests, sem) {
+        if (!Array.isArray(tests)) return null;
         let fixedSum = 0, fixedPct = 0;
         let normalSum = 0, normalWeight = 0;
-        tests.forEach((grade, i) => {
+        const maxCount = (classObj && classObj.testCounts && typeof classObj.testCounts[sem] === "number")
+          ? classObj.testCounts[sem]
+          : tests.length;
+        for (let i = 0; i < maxCount; i++) {
+          const grade = tests[i];
           const displayGrade = classObj ? getTestDisplayGrade(student, classObj, sem, i) : grade;
-          if (displayGrade == null) return;
+          if (displayGrade == null) continue;
           const cfg = classObj ? classObj.testConfigs[sem][i] : null;
           const fw = cfg && typeof cfg.fixedWeight === "number" ? cfg.fixedWeight : null;
           if (fw != null) {
@@ -7065,7 +7119,7 @@
             normalSum += displayGrade * coeff;
             normalWeight += coeff;
           }
-        });
+        }
         if (fixedPct === 0 && normalWeight === 0) return null;
         const normalProportion = Math.max(0, 1 - fixedPct);
         const normalAvg = normalWeight > 0 ? normalSum / normalWeight : null;
@@ -7082,7 +7136,7 @@
 
     function rankStudents(classObj) {
       const entries = classObj.students.map(s => {
-        const c = computeStudent(s);
+        const c = computeStudent(s, classObj);
         return { id: s.id, score: c.roundedFinal == null ? -Infinity : c.roundedFinal };
       });
 
@@ -8711,7 +8765,7 @@
       const nameMode = getGsNameDisplayMode();
 
       classObj.students.forEach(student => {
-        const c = computeStudent(student);
+        const c = computeStudent(student, classObj);
         const tr = document.createElement("tr");
         tr.dataset.summaryStudentId = String(student.id);
         try {
@@ -8824,13 +8878,13 @@
         ...(showSem1 ? Array.from({ length: n1 }, (_, i) =>
           classObj.students.map(s => getTestDisplayGrade(s, classObj, "sem1", i)).filter(v => v != null)
         ) : []),
-        ...(showSem1 ? [classObj.students.map(s => computeStudent(s).sem1Avg).filter(v => v != null)] : []),
+        ...(showSem1 ? [classObj.students.map(s => computeStudent(s, classObj).sem1Avg).filter(v => v != null)] : []),
         ...(showSem2 ? Array.from({ length: n2 }, (_, i) =>
           classObj.students.map(s => getTestDisplayGrade(s, classObj, "sem2", i)).filter(v => v != null)
         ) : []),
-        ...(showSem2 ? [classObj.students.map(s => computeStudent(s).sem2Avg).filter(v => v != null)] : []),
-        ...(showSem1 && showSem2 ? [classObj.students.map(s => computeStudent(s).yearAvg).filter(v => v != null)] : []),
-        classObj.students.map(s => computeStudent(s).roundedFinal).filter(v => v != null)
+        ...(showSem2 ? [classObj.students.map(s => computeStudent(s, classObj).sem2Avg).filter(v => v != null)] : []),
+        ...(showSem1 && showSem2 ? [classObj.students.map(s => computeStudent(s, classObj).yearAvg).filter(v => v != null)] : []),
+        classObj.students.map(s => computeStudent(s, classObj).roundedFinal).filter(v => v != null)
       ];
       // statCols maps to columns starting at index 3, ending before Rank and Comments
       const hasStats = statCols.some(arr => arr.length > 0);
@@ -11754,8 +11808,27 @@
         .obs-label {
           font-size: ${fitToOnePage ? '10px' : '11.5px'};
           font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
           color: #111;
           margin-bottom: 1px;
+        }
+        .obs-category-span {
+          display: inline-flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 2px;
+          margin: 0 4px 0 0;
+          vertical-align: middle;
+        }
+        .obs-category-tag {
+          font-size: ${fitToOnePage ? '8px' : '8.5px'};
+          font-weight: 800;
+          text-transform: none;
+          letter-spacing: 0.02em;
+          color: #333333;
+          margin-right: 2px;
+          white-space: nowrap;
         }
         .obs-pills-row {
           display: flex;
@@ -12069,7 +12142,7 @@
 
       const rows = classObj.students.map(student => {
         const grades = Array.from({ length: n }, (_, i) => getTestDisplayGrade(student, classObj, sem, i));
-        const c = computeStudent(student);
+        const c = computeStudent(student, classObj);
         const semAvg = sem === "sem1" ? c.sem1Avg : c.sem2Avg;
         return { student, grades, semAvg };
       });
@@ -12469,6 +12542,8 @@
         .obs-label {
           font-size: 11.5px;
           font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
           color: #1e293b;
           margin-bottom: 2px;
         }
@@ -12494,8 +12569,8 @@
         .obs-category-tag {
           font-size: 9.5px;
           font-weight: 800;
-          text-transform: uppercase;
-          letter-spacing: 0.03em;
+          text-transform: none;
+          letter-spacing: 0.02em;
           color: #333333;
           margin-right: 2px;
           white-space: nowrap;
@@ -13357,7 +13432,24 @@
         .cell-sem2-avg { background: #e8f5e9 !important; }
         .cell-year-avg { background: #fff9c4 !important; }
         .obs-section { margin-bottom: ${fitToOnePage ? '4px' : '8px'}; }
-        .obs-label { font-size: ${fitToOnePage ? '10px' : '11.5px'}; font-weight: 800; color: #1e293b; margin-bottom: 1px; }
+        .obs-label { font-size: ${fitToOnePage ? '10px' : '11.5px'}; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; color: #1e293b; margin-bottom: 1px; }
+        .obs-category-span {
+          display: inline-flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 2px;
+          margin: 0 4px 0 0;
+          vertical-align: middle;
+        }
+        .obs-category-tag {
+          font-size: ${fitToOnePage ? '8px' : '8.5px'};
+          font-weight: 800;
+          text-transform: none;
+          letter-spacing: 0.02em;
+          color: #333333;
+          margin-right: 2px;
+          white-space: nowrap;
+        }
         .obs-pills-row { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 1px; margin-bottom: 2px; }
         .obs-pill {
           display: inline-block;
@@ -13768,7 +13860,7 @@
       const n2 = classObj.testCounts.sem2;
 
       const studentRows = classObj.students.map(student => {
-        const c = computeStudent(student);
+        const c = computeStudent(student, classObj);
         const s1Grades = Array.from({ length: n1 }, (_, i) => getTestDisplayGrade(student, classObj, "sem1", i));
         const s2Grades = Array.from({ length: n2 }, (_, i) => getTestDisplayGrade(student, classObj, "sem2", i));
         return {
@@ -13955,7 +14047,7 @@
       const n = classObj.testCounts[sem];
 
       const studentRows = classObj.students.map(student => {
-        const c = computeStudent(student);
+        const c = computeStudent(student, classObj);
         const grades = Array.from({ length: n }, (_, i) => getTestDisplayGrade(student, classObj, sem, i));
         const semAvg = sem === "sem1" ? c.sem1Avg : c.sem2Avg;
         return { student, grades, semAvg, rank: c.rank };
@@ -14344,8 +14436,8 @@
         })
       ];
 
-      const c = computeStudent(student);
-      const allClassYearAvgs = classObj.students.map(s => computeStudent(s).yearAvg).filter(v => v != null);
+      const c = computeStudent(student, classObj);
+      const allClassYearAvgs = classObj.students.map(s => computeStudent(s, classObj).yearAvg).filter(v => v != null);
       const classYearStats = calcComprehensiveStats(allClassYearAvgs);
 
       const timelineSvg = renderNeobrutalistSvgTimeline({
@@ -14480,9 +14572,9 @@
         return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
       });
 
-      const c = computeStudent(student);
+      const c = computeStudent(student, classObj);
       const studentAvg = sem === "sem1" ? c.sem1Avg : c.sem2Avg;
-      const allClassSemAvgs = classObj.students.map(s => sem === "sem1" ? computeStudent(s).sem1Avg : computeStudent(s).sem2Avg).filter(v => v != null);
+      const allClassSemAvgs = classObj.students.map(s => sem === "sem1" ? computeStudent(s, classObj).sem1Avg : computeStudent(s, classObj).sem2Avg).filter(v => v != null);
       const classSemStats = calcComprehensiveStats(allClassSemAvgs);
 
       const timelineSvg = renderNeobrutalistSvgTimeline({
@@ -20479,6 +20571,7 @@ ${blocks}
         showToast((typeof t === 'function' ? t('gsCmpNeedMoreClasses') : null) || 'No classes available to compare.', true);
         return;
       }
+      appState.classes.forEach(ensureClassStructures);
 
       // Populate filter dropdowns
       const levels = Array.from(new Set(appState.classes.map(c => c.level).filter(Boolean))).sort();
@@ -20591,7 +20684,7 @@ ${blocks}
         let s2Scores = [];
 
         classObj.students.forEach(st => {
-          const comp = computeStudent(st);
+          const comp = computeStudent(st, classObj);
           if (comp.sem1Avg != null) s1Scores.push(comp.sem1Avg);
           if (comp.sem2Avg != null) s2Scores.push(comp.sem2Avg);
 
@@ -20610,10 +20703,13 @@ ${blocks}
             } else {
               const tIdx = Number(_cmpState.testIndex) || 0;
               const n1 = (classObj.testCounts && classObj.testCounts.sem1) || 0;
-              const sem = tIdx < n1 ? 'sem1' : 'sem2';
-              const localIdx = tIdx < n1 ? tIdx : tIdx - n1;
-              const grade = getTestDisplayGrade(st, classObj, sem, localIdx);
-              if (grade != null) validScores.push(grade);
+              const n2 = (classObj.testCounts && classObj.testCounts.sem2) || 0;
+              if (tIdx < (n1 + n2)) {
+                const sem = tIdx < n1 ? 'sem1' : 'sem2';
+                const localIdx = tIdx < n1 ? tIdx : tIdx - n1;
+                const grade = getTestDisplayGrade(st, classObj, sem, localIdx);
+                if (grade != null) validScores.push(grade);
+              }
             }
           }
         });
@@ -20656,7 +20752,7 @@ ${blocks}
       // 1. Cohort Benchmark Card
       const cohortCard = document.createElement("div");
       cohortCard.className = "cmp-kpi-card cohort-card";
-      const cohortColor = getScaleGradeColor(cohortStats.mean || 0);
+      const cohortColor = cohortStats.mean != null ? getScaleGradeColor(cohortStats.mean) : '#f1f5f9';
       cohortCard.innerHTML = `
         <div class="cmp-kpi-header">
           <div>
@@ -20702,7 +20798,7 @@ ${blocks}
         const delta = (cMean != null && cohortStats.mean != null) ? (cMean - cohortStats.mean) : null;
         const deltaSign = delta != null ? (delta > 0 ? `+${fmt(delta)}` : fmt(delta)) : "—";
         const deltaClass = delta == null ? "neutral" : (delta >= 0.05 ? "pos" : (delta <= -0.05 ? "neg" : "neutral"));
-        const meanColor = getScaleGradeColor(cMean || 0);
+        const meanColor = cMean != null ? getScaleGradeColor(cMean) : '#f1f5f9';
 
         let progHtml = '';
         if (_cmpState.scope === 'year' && cd.deltaSem != null) {
@@ -20785,7 +20881,7 @@ ${blocks}
 
       const rowsDef = [
         { label: "Students Evaluated", fn: cd => cd.stats.count, cohortVal: cohortStats.count },
-        { label: "Class Mean", fn: cd => `<span style="background:${getScaleGradeColor(cd.stats.mean)};color:${getNotchContrastTextColor(getScaleGradeColor(cd.stats.mean))};padding:2px 6px;border-radius:4px;font-weight:800;">${fmt(cd.stats.mean)}</span>`, cohortVal: `<span style="background:${getScaleGradeColor(cohortStats.mean)};color:${getNotchContrastTextColor(getScaleGradeColor(cohortStats.mean))};padding:2px 6px;border-radius:4px;font-weight:800;">${fmt(cohortStats.mean)}</span>` },
+        { label: "Class Mean", fn: cd => cd.stats.mean != null ? `<span style="background:${getScaleGradeColor(cd.stats.mean)};color:${getNotchContrastTextColor(getScaleGradeColor(cd.stats.mean))};padding:2px 6px;border-radius:4px;font-weight:800;">${fmt(cd.stats.mean)}</span>` : "—", cohortVal: cohortStats.mean != null ? `<span style="background:${getScaleGradeColor(cohortStats.mean)};color:${getNotchContrastTextColor(getScaleGradeColor(cohortStats.mean))};padding:2px 6px;border-radius:4px;font-weight:800;">${fmt(cohortStats.mean)}</span>` : "—" },
         { label: "Median Grade", fn: cd => fmt(cd.stats.median), cohortVal: fmt(cohortStats.median) },
         { label: "Below Passing (< 4.0)", fn: cd => `<span class="cmp-badge-fail">${cd.stats.failCount} (${fmtN(cd.stats.failRate)}%)</span>`, cohortVal: `<span class="cmp-badge-fail">${cohortStats.failCount} (${fmtN(cohortStats.failRate)}%)</span>` },
         { label: "Passing Rate (≥ 4.0)", fn: cd => `<span class="cmp-badge-pass">${cd.stats.passCount} (${fmtN(cd.stats.passRate)}%)</span>`, cohortVal: `<span class="cmp-badge-pass">${cohortStats.passCount} (${fmtN(cohortStats.passRate)}%)</span>` },
@@ -20865,7 +20961,12 @@ ${blocks}
       const series = classDataList.map((cd, idx) => {
         const testMeans = [];
         const n1 = (cd.classObj.testCounts && cd.classObj.testCounts.sem1) || 0;
+        const n2 = (cd.classObj.testCounts && cd.classObj.testCounts.sem2) || 0;
         for (let i = 0; i < maxTests; i++) {
+          if (i >= (n1 + n2)) {
+            testMeans.push(null);
+            continue;
+          }
           const sem = i < n1 ? 'sem1' : 'sem2';
           const localIdx = i < n1 ? i : i - n1;
           const grades = cd.classObj.students.map(st => getTestDisplayGrade(st, cd.classObj, sem, localIdx)).filter(v => v != null);
@@ -20983,30 +21084,49 @@ ${blocks}
         ["Metric", ...selectedClasses.map(c => c.name)]
       ];
 
+      function getCompareScopeStudentScore(st, c) {
+        if (_cmpState.scope === 'tests') {
+          if (_cmpState.testIndex === 'timeline') {
+            return computeStudent(st, c).yearAvg;
+          }
+          const tIdx = Number(_cmpState.testIndex) || 0;
+          const n1 = (c.testCounts && c.testCounts.sem1) || 0;
+          const n2 = (c.testCounts && c.testCounts.sem2) || 0;
+          if (tIdx >= (n1 + n2)) return null;
+          const sem = tIdx < n1 ? 'sem1' : 'sem2';
+          const localIdx = tIdx < n1 ? tIdx : tIdx - n1;
+          return getTestDisplayGrade(st, c, sem, localIdx);
+        }
+        const comp = computeStudent(st, c);
+        if (_cmpState.scope === 'sem1') return comp.sem1Avg;
+        if (_cmpState.scope === 'sem2') return comp.sem2Avg;
+        return comp.yearAvg;
+      }
+
       const metricsList = [
         { label: "Students Count", fn: c => c.students ? c.students.length : 0 },
         { label: "Class Mean", fn: c => {
-          const scores = c.students.map(st => computeStudent(st)[_cmpState.scope === 'sem1' ? 'sem1Avg' : (_cmpState.scope === 'sem2' ? 'sem2Avg' : 'yearAvg')]).filter(v => v != null);
+          const scores = c.students.map(st => getCompareScopeStudentScore(st, c)).filter(v => v != null);
           return scores.length ? Number((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2)) : "-";
         }},
         { label: "Median Grade", fn: c => {
-          const scores = c.students.map(st => computeStudent(st)[_cmpState.scope === 'sem1' ? 'sem1Avg' : (_cmpState.scope === 'sem2' ? 'sem2Avg' : 'yearAvg')]).filter(v => v != null);
+          const scores = c.students.map(st => getCompareScopeStudentScore(st, c)).filter(v => v != null);
           return scores.length ? Number(calcComprehensiveStats(scores).median.toFixed(2)) : "-";
         }},
         { label: "Below Passing Rate (< 4.0 %)", fn: c => {
-          const scores = c.students.map(st => computeStudent(st)[_cmpState.scope === 'sem1' ? 'sem1Avg' : (_cmpState.scope === 'sem2' ? 'sem2Avg' : 'yearAvg')]).filter(v => v != null);
+          const scores = c.students.map(st => getCompareScopeStudentScore(st, c)).filter(v => v != null);
           return scores.length ? Number(calcComprehensiveStats(scores).failRate.toFixed(1)) : "-";
         }},
         { label: "Passing Rate (≥ 4.0 %)", fn: c => {
-          const scores = c.students.map(st => computeStudent(st)[_cmpState.scope === 'sem1' ? 'sem1Avg' : (_cmpState.scope === 'sem2' ? 'sem2Avg' : 'yearAvg')]).filter(v => v != null);
+          const scores = c.students.map(st => getCompareScopeStudentScore(st, c)).filter(v => v != null);
           return scores.length ? Number(calcComprehensiveStats(scores).passRate.toFixed(1)) : "-";
         }},
         { label: "Distinction Rate (≥ 5.5 %)", fn: c => {
-          const scores = c.students.map(st => computeStudent(st)[_cmpState.scope === 'sem1' ? 'sem1Avg' : (_cmpState.scope === 'sem2' ? 'sem2Avg' : 'yearAvg')]).filter(v => v != null);
+          const scores = c.students.map(st => getCompareScopeStudentScore(st, c)).filter(v => v != null);
           return scores.length ? Number(calcComprehensiveStats(scores).distinctionRate.toFixed(1)) : "-";
         }},
         { label: "Standard Deviation (σ)", fn: c => {
-          const scores = c.students.map(st => computeStudent(st)[_cmpState.scope === 'sem1' ? 'sem1Avg' : (_cmpState.scope === 'sem2' ? 'sem2Avg' : 'yearAvg')]).filter(v => v != null);
+          const scores = c.students.map(st => getCompareScopeStudentScore(st, c)).filter(v => v != null);
           return scores.length ? Number(calcComprehensiveStats(scores).stdDev.toFixed(2)) : "-";
         }}
       ];
@@ -21025,7 +21145,7 @@ ${blocks}
           ["Index", "First Name", "Last Name", "Sem 1 Avg", "Sem 2 Avg", "Year Avg", "Rounded Final"]
         ];
         c.students.forEach(st => {
-          const comp = computeStudent(st);
+          const comp = computeStudent(st, c);
           sRows.push([
             st.index || "-",
             st.firstName || "",

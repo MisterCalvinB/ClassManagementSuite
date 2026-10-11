@@ -810,32 +810,38 @@
     header.appendChild(deleteBtn);
     setupSectionHandleDrag(handle, section, group.id);
 
-    // Grid
+    // Grid & Empty state
     var grid = document.createElement('div');
     grid.className = 'apps-grid section-grid';
     grid.dataset.sectionId = group.id;
+
+    var emptyZone = document.createElement('div');
+    emptyZone.className = 'section-empty-zone';
+    var emptyHint = typeof t === 'function' ? t('sectionEmptyDropHint') : 'Drag tools here';
+    emptyZone.innerHTML = '<img src="assets/icons/grip.svg" class="section-empty-grip-img" alt="" /> <span>' + escHtml(emptyHint) + '</span>';
+    emptyZone.style.display = (group.cardIds.length === 0) ? 'flex' : 'none';
+
     group.cardIds.forEach(function(id) {
       var app = appMap[id];
       if (app) grid.appendChild(buildCard(app));
     });
-    setupGridDrag(grid, group.id);
+
+    setupSectionCardDrop(section, grid, emptyZone, group.id);
 
     section.appendChild(header);
+    section.appendChild(emptyZone);
     section.appendChild(grid);
     return section;
   }
 
   // ── Card drag ───────────────────────────────────────────
   function setupCardHandleDrag(handle, card, appId) {
-    var _ok = false;
-    handle.addEventListener('mousedown', function(e) {
-      _ok = true;
-      e.stopPropagation();
-    });
-    handle.addEventListener('mouseup', function() { _ok = false; });
     card.addEventListener('dragstart', function(e) {
-      if (!_ok) { e.preventDefault(); return; }
-      _ok = false;
+      if (e.target.closest('.card-gear-btn') || e.target.closest('.card-help-btn')) {
+        e.preventDefault();
+        return;
+      }
+      card._justDragged = true;
       e.stopPropagation();
       var sectionEl = card.closest('.app-section');
       dragState = { type: 'card', appId: appId, fromSectionId: sectionEl ? sectionEl.dataset.sectionId : null };
@@ -846,12 +852,18 @@
       dragPlaceholder.className = 'drag-placeholder';
       requestAnimationFrame(function() { card.classList.add('is-dragging'); });
     });
+
     card.addEventListener('dragend', function() {
-      _ok = false;
       card.classList.remove('is-dragging');
       if (dragPlaceholder) { dragPlaceholder.remove(); dragPlaceholder = null; }
+      document.querySelectorAll('.app-section.drag-target-active').forEach(function(s) {
+        s.classList.remove('drag-target-active');
+      });
       dragState = null;
       draggedEl = null;
+      setTimeout(function() {
+        card._justDragged = false;
+      }, 150);
     });
   }
 
@@ -867,29 +879,76 @@
     return null;
   }
 
-  function setupGridDrag(grid, sectionId) {
-    grid.addEventListener('dragover', function(e) {
+  function setupSectionCardDrop(section, grid, emptyZone, sectionId) {
+    var expandTimer = null;
+
+    section.addEventListener('dragover', function(e) {
       if (!dragState || dragState.type !== 'card') return;
       e.preventDefault();
+      e.stopPropagation();
       e.dataTransfer.dropEffect = 'move';
+      section.classList.add('drag-target-active');
+
+      // If collapsed, auto-expand on hover dwell
+      if (section.classList.contains('is-collapsed')) {
+        if (!expandTimer) {
+          expandTimer = setTimeout(function() {
+            var colBtn = section.querySelector('.section-collapse-btn');
+            if (colBtn && section.classList.contains('is-collapsed')) {
+              colBtn.click();
+            }
+          }, 450);
+        }
+        return;
+      }
+
       if (!dragPlaceholder) return;
+
+      if (emptyZone) emptyZone.style.display = 'none';
+
       var insertBefore = findInsertionCard(grid, e.clientX, e.clientY);
-      if (insertBefore) grid.insertBefore(dragPlaceholder, insertBefore);
-      else grid.appendChild(dragPlaceholder);
+      if (insertBefore) {
+        if (dragPlaceholder.nextElementSibling !== insertBefore) {
+          grid.insertBefore(dragPlaceholder, insertBefore);
+        }
+      } else {
+        if (dragPlaceholder.parentNode !== grid || dragPlaceholder.nextElementSibling) {
+          grid.appendChild(dragPlaceholder);
+        }
+      }
     });
-    grid.addEventListener('drop', function(e) {
+
+    section.addEventListener('dragleave', function(e) {
+      if (!dragState || dragState.type !== 'card') return;
+      if (expandTimer) { clearTimeout(expandTimer); expandTimer = null; }
+      var r = section.getBoundingClientRect();
+      if (e.clientX <= r.left || e.clientX >= r.right || e.clientY <= r.top || e.clientY >= r.bottom) {
+        section.classList.remove('drag-target-active');
+        if (emptyZone && grid.querySelectorAll('.app-card:not(.is-dragging)').length === 0) {
+          emptyZone.style.display = 'flex';
+        }
+      }
+    });
+
+    section.addEventListener('drop', function(e) {
       if (!dragState || dragState.type !== 'card') return;
       e.preventDefault();
+      e.stopPropagation();
+      section.classList.remove('drag-target-active');
+      if (expandTimer) { clearTimeout(expandTimer); expandTimer = null; }
+
       var insertBeforeId = null;
       if (dragPlaceholder && dragPlaceholder.parentNode === grid && dragPlaceholder.nextElementSibling) {
         insertBeforeId = dragPlaceholder.nextElementSibling.dataset.id;
       }
+
       var appId = dragState.appId;
       var groups = resolveGroups();
       groups.forEach(function(g) {
         var i = g.cardIds.indexOf(appId);
         if (i !== -1) g.cardIds.splice(i, 1);
       });
+
       var toGroup = groups.find(function(g) { return g.id === sectionId; });
       if (toGroup) {
         if (insertBeforeId) {
@@ -899,7 +958,9 @@
         } else {
           toGroup.cardIds.push(appId);
         }
+        toGroup.collapsed = false;
       }
+
       saveGroups(groups);
       renderSections();
     });
@@ -931,7 +992,12 @@
 
   function setupSectionContainerDrag(container) {
     container.addEventListener('dragover', function(e) {
-      if (!dragState || dragState.type !== 'section') return;
+      if (!dragState) return;
+      if (dragState.type === 'card') {
+        e.preventDefault();
+        return;
+      }
+      if (dragState.type !== 'section') return;
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
       if (!sectionDropLine) {
@@ -1010,6 +1076,22 @@
     }
   }
 
+  function getAppHowToSection(app) {
+    if (!app) return 'intro';
+    if (app.howToSection) return app.howToSection;
+    const page = String(app.pageFile || '').replace(/^pages\//, '').replace(/\.html$/, '');
+    return page || 'intro';
+  }
+
+  function openHowTo(sectionId) {
+    const sec = sectionId || 'intro';
+    if (window.Desktop && Desktop.isElectron()) {
+      Desktop.openTool('how-to.html', { query: { section: sec } });
+    } else {
+      window.location.href = 'pages/how-to.html?section=' + encodeURIComponent(sec) + '#' + encodeURIComponent(sec);
+    }
+  }
+
   function buildCard(app) {
     const cfg = getCardConfig(app.id);
     const localTitle = (typeof t === 'function' ? t('app_' + app.id + '_title', app.title) : null) || app.title;
@@ -1024,17 +1106,20 @@
 
     const gearTitle = typeof t === 'function' ? t('cfgGearTitle') : 'Card settings';
     const dragTitle = typeof t === 'function' ? t('tutLn4Title') : 'Reorder card';
+    const howToTitle = typeof t === 'function' ? t('cardHowToTitle') : 'How to use this tool';
     card.innerHTML =
       '<button class="card-gear-btn" title="' + escHtml(gearTitle) + '" aria-label="' + escHtml(gearTitle) + '"><img src="assets/icons/gear.svg" class="card-gear-icon-img" alt="" /></button>' +
       '<div class="card-body">' +
         '<span class="card-icon" aria-hidden="true"><img src="' + app.icon + '" class="l-card-icon-img" alt="" /></span>' +
         '<div class="card-title">' + escHtml(label) + '</div>' +
         '<div class="card-desc">' + escHtml(localDesc) + '</div>' +
+        '<button type="button" class="card-help-btn" title="' + escHtml(howToTitle) + '" aria-label="' + escHtml(howToTitle) + '">?</button>' +
         '<div class="card-drag-handle" title="' + escHtml(dragTitle) + '" aria-label="' + escHtml(dragTitle) + '"></div>' +
       '</div>';
 
     const cardBody = card.querySelector('.card-body');
     const gearBtn  = card.querySelector('.card-gear-btn');
+    const helpBtn  = card.querySelector('.card-help-btn');
     const dragHdl  = card.querySelector('.card-drag-handle');
     setupCardHandleDrag(dragHdl, card, app.id);
 
@@ -1042,8 +1127,20 @@
       e.stopPropagation();
     });
 
+    if (helpBtn) {
+      helpBtn.addEventListener('mousedown', function (e) {
+        e.stopPropagation();
+      });
+      helpBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        const sectionId = getAppHowToSection(app);
+        openHowTo(sectionId);
+      });
+    }
+
     cardBody.addEventListener('click', function (e) {
-      if (e.target.closest('.card-drag-handle') || e.target.closest('.card-gear-btn')) return;
+      if (card._justDragged) return;
+      if (e.target.closest('.card-drag-handle') || e.target.closest('.card-gear-btn') || e.target.closest('.card-help-btn')) return;
       if (app.modal) {
         openModal(app.pageFile);
       } else {
