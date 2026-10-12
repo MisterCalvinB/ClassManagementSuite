@@ -16297,7 +16297,7 @@
               chip.classList.toggle("has-comment", hasComment);
               chip.setAttribute("aria-pressed", isSelected ? "true" : "false");
               const badge = count > 1 ? `<sup class="chip-multiplier-badge">x${count}</sup>` : '';
-              const commentBadge = hasComment ? `<span class="chip-comment-badge" title="${escapeHtml(comment)}">💬</span>` : '';
+              const commentBadge = hasComment ? `<span class="chip-comment-badge" title="${escapeHtml(comment)}"><img src="../assets/icons/comments.svg" class="chip-comment-icon" alt="" style="width:8px;height:8px;vertical-align:middle;display:inline-block;" /></span>` : '';
               chip.innerHTML = `${escapeHtml(name)}${badge}${commentBadge}`;
 
               const countPart = count > 1 ? ` (x${count})` : '';
@@ -16350,49 +16350,8 @@
             };
 
             let isDragging = false;
-            let longPressTimer = null;
-            let longPressTriggered = false;
-            let pointerStartX = 0;
-            let pointerStartY = 0;
-
-            chip.addEventListener("pointerdown", e => {
-              if (e.button !== 0) return;
-              pointerStartX = e.clientX;
-              pointerStartY = e.clientY;
-              longPressTriggered = false;
-              clearTimeout(longPressTimer);
-              longPressTimer = setTimeout(() => {
-                if (!isDragging) {
-                  longPressTriggered = true;
-                  handleCommentEdit();
-                }
-              }, 800);
-            });
-
-            chip.addEventListener("pointermove", e => {
-              if (longPressTimer) {
-                const dist = Math.hypot(e.clientX - pointerStartX, e.clientY - pointerStartY);
-                if (dist > 6) {
-                  clearTimeout(longPressTimer);
-                  longPressTimer = null;
-                }
-              }
-            });
-
-            chip.addEventListener("pointerup", () => {
-              clearTimeout(longPressTimer);
-              longPressTimer = null;
-            });
-
-            chip.addEventListener("pointercancel", () => {
-              clearTimeout(longPressTimer);
-              longPressTimer = null;
-            });
 
             chip.addEventListener("dragstart", e => {
-              clearTimeout(longPressTimer);
-              longPressTimer = null;
-              longPressTriggered = false;
               isDragging = true;
               chip.classList.add("dragging");
               e.dataTransfer.effectAllowed = "move";
@@ -16456,10 +16415,6 @@
 
             chip.addEventListener("click", (e) => {
               if (isDragging) return;
-              if (longPressTriggered) {
-                longPressTriggered = false;
-                return;
-              }
               if (e.shiftKey || (e.target && e.target.closest && e.target.closest('.chip-comment-badge'))) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -16475,8 +16430,6 @@
             chip.addEventListener("contextmenu", e => {
               e.preventDefault();
               e.stopPropagation();
-              clearTimeout(longPressTimer);
-              longPressTimer = null;
               if (isDragging) return;
               if (currentCount <= 0) return;
               currentCount = currentCount - 1;
