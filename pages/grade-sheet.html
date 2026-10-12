@@ -11724,6 +11724,7 @@
     }
 
     async function printTestResults() {
+      const esc = escapeHtml;
       const classObj = getActiveClass();
       if (!classObj || !appState.activeTest) return;
       const sem = appState.activeTest.semester;
@@ -13424,6 +13425,17 @@
         table.report-table td.right, table.report-table th.right { text-align: right; }
         table.report-table tr.stats-row td { background: #f0f0eb; font-weight: 800; font-size: ${fitToOnePage ? '8.5px' : '9.5px'}; border-top: 2px solid #333333; }
         table.report-table tr:nth-child(even) td:not(.stats-row td) { background: #fafafa; }
+        .crit-pts-scored {
+          display: inline-block;
+          padding: 1px 6px;
+          border-radius: 4px;
+          font-weight: 800;
+          color: var(--crit-fg, #111111);
+          background: var(--crit-bg, transparent);
+          border: 1px solid var(--crit-border, transparent);
+        }
+        .crit-pts-max { color: #111111; font-weight: 600; }
+        .crit-pts-empty { color: #888888; }
         .grade-pill {
           display: inline-block;
           padding: 1px 6px;
@@ -14753,7 +14765,20 @@
         criteriaRows = config.criteria.map(cr => {
           const entry = criteriaMap[cr.id] || { points: null, comment: "" };
           const pts = entry.points;
-          const ptsStr = pts != null ? `${fmtN(pts)} / ${fmtN(cr.maxPoints)}` : `— / ${fmtN(cr.maxPoints)}`;
+          const critKey = nearestCriterionGradeKey(cr, null, pts, cr.minPoints, cr.maxPoints);
+          const critXlsm = (typeof XLSM_CRITERIA !== "undefined" && Array.isArray(XLSM_CRITERIA))
+            ? XLSM_CRITERIA.find(x => x.name.trim().toLowerCase() === String(cr.name || '').trim().toLowerCase())
+            : null;
+          const critColor = (critXlsm && critXlsm.colors && critXlsm.colors[critKey]) || (cr.colors && cr.colors[critKey]) || (critKey ? getDefaultGradeColor(critKey) : null);
+          let ptsStr;
+          if (pts != null) {
+            const critVars = critColor
+              ? ` style="--crit-fg:${getHighContrastTextColor(critColor)};--crit-bg:${critColor}20;--crit-border:${critColor};"`
+              : '';
+            ptsStr = `<span class="crit-pts-scored"${critVars}>${escapeHtml(fmtN(pts))}</span> <span class="crit-pts-max">/ ${escapeHtml(fmtN(cr.maxPoints))}</span>`;
+          } else {
+            ptsStr = `<span class="crit-pts-empty">—</span> <span class="crit-pts-max">/ ${escapeHtml(fmtN(cr.maxPoints))}</span>`;
+          }
           const stat = criteriaStats[cr.id];
           const meanPts = (stat && stat.avgPts != null) ? fmtN(stat.avgPts) : null;
           const meanPtsStr = meanPts != null ? `${meanPts} / ${fmtN(cr.maxPoints)}` : `— / ${fmtN(cr.maxPoints)}`;
