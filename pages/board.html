@@ -3416,6 +3416,10 @@
     <div class="con-edge-ctx-section-title" style="margin-top:1px;">
       <span data-i18n="conEdgeColour">Colour & Line</span>
       <div style="display:flex; align-items:center; gap:2px;">
+        <button type="button" id="con-edge-ctx-auto-color-btn" class="con-edge-ctx-btn" style="padding:1px 5px; font-size:0.6rem; height:18px; display:inline-flex; align-items:center; gap:3px;" onclick="if(window.conEdgeCtxSetAutoColor)window.conEdgeCtxSetAutoColor()" data-i18n-title="con_edge_color_auto_tip" title="Automatic link colour from endpoints">
+          <img src="../assets/icons/sparkles.svg" width="10" height="10" alt="" style="vertical-align:middle; pointer-events:none;">
+          <span data-i18n="con_edge_color_auto">Auto</span>
+        </button>
         <input type="color" id="con-edge-ctx-color" value="#333333"
           style="width:16px; height:14px; border:1.5px solid #111; border-radius:3px; background:#fff; cursor:pointer; padding:0;">
         <input type="text" id="con-edge-ctx-color-text" maxlength="7" value="#333333"
@@ -5222,13 +5226,97 @@
               </div>
             </div>
 
-            <!-- 6b. Default link stroke -->
+            <!-- 6b. Default link stroke & connection style -->
             <div class="bc-section">
-              <div class="bc-section-title">Default Link Stroke</div>
+              <div class="bc-section-title" id="bc-link-stroke-title" data-i18n="bcDefaultLinkStroke">Default Link &amp; Connection Style</div>
+              <div class="bc-section-hint" id="bc-link-stroke-hint" data-i18n="bcDefaultLinkStrokeHint">Default stroke style, thickness, routing, direction, and appearance for newly created node connections.</div>
               <div class="bc-fields-grid">
-                <label>Stroke thickness</label>
-                <div class="bc-field-row"><input type="number" id="bc-link-stroke-thickness" min="1" max="20" step="0.5"
-                    value="2" class="bc-num-input"><span class="bc-unit">px</span></div>
+                <label data-i18n="bcLinkStrokeThickness">Stroke thickness</label>
+                <div class="bc-field-row">
+                  <input type="number" id="bc-link-stroke-thickness" min="1" max="20" step="0.5" value="2" class="bc-num-input">
+                  <span class="bc-unit">px</span>
+                </div>
+
+                <label data-i18n="bcLinkStrokeType">Stroke type</label>
+                <div class="bc-field-row">
+                  <select id="bc-link-stroke-type" class="bc-select">
+                    <option value="solid" data-i18n="conEdgeStrokeSolid">Solid</option>
+                    <option value="dashed" data-i18n="conEdgeStrokeDashes">Dashes</option>
+                    <option value="dotted" data-i18n="conEdgeStrokeDots">Dots</option>
+                    <option value="double" data-i18n="conEdgeStrokeDouble">Double</option>
+                    <option value="wavy" data-i18n="conEdgeStrokeWavy">Wavy</option>
+                  </select>
+                </div>
+
+                <label data-i18n="bcLinkRouting">Routing</label>
+                <div class="bc-field-row">
+                  <select id="bc-link-routing" class="bc-select">
+                    <option value="straight" data-i18n="conEdgeRoutingStraight">Straight</option>
+                    <option value="curved" data-i18n="conEdgeRoutingCurved">Curved</option>
+                    <option value="orthogonal" data-i18n="conEdgeRoutingOrthogonal">Step</option>
+                  </select>
+                </div>
+
+                <label data-i18n="bcLinkDirection">Default direction</label>
+                <div class="bc-field-row">
+                  <select id="bc-link-direction" class="bc-select">
+                    <option value="none" data-i18n="conEdgeDirNone">None (—)</option>
+                    <option value="forward" data-i18n="conEdgeDirForward">Forward (→)</option>
+                    <option value="backward" data-i18n="conEdgeDirBackward">Backward (←)</option>
+                    <option value="both" data-i18n="conEdgeDirBoth">Both (↔)</option>
+                  </select>
+                </div>
+
+                <label data-i18n="bcLinkTerminator">Arrowhead shape</label>
+                <div class="bc-field-row">
+                  <select id="bc-link-terminator" class="bc-select">
+                    <option value="arrow" data-i18n="conEdgeTermArrow">Arrow</option>
+                    <option value="open" data-i18n="conEdgeTermOpen">Chevron</option>
+                    <option value="circle" data-i18n="conEdgeTermCircle">Dot</option>
+                    <option value="diamond" data-i18n="conEdgeTermDiamond">Diamond</option>
+                  </select>
+                </div>
+
+                <label data-i18n="bcLinkColor">Default line colour</label>
+                <div class="bc-field-row">
+                  <input type="color" id="bc-link-color" value="#333333" class="bc-color-picker">
+                  <input type="text" id="bc-link-color-text" value="#333333" maxlength="7" class="bc-color-hex" style="width:65px; text-transform:uppercase; font-family:inherit; font-size:0.75rem; border:2px solid #111; border-radius:3px; padding:3px 5px;">
+                </div>
+
+                <label data-i18n="bcLinkOpacity">Default opacity</label>
+                <div class="bc-field-row">
+                  <input type="range" id="bc-link-opacity" min="10" max="100" step="5" value="100" style="width:110px; accent-color:#111; cursor:pointer;">
+                  <span id="bc-link-opacity-val" class="bc-unit" style="font-weight:700; width:36px;">100%</span>
+                </div>
+
+                <label data-i18n="bcLinkAnimated">Animated flow</label>
+                <div class="bc-field-row">
+                  <label style="font-size:0.75rem; font-weight:600; display:flex; align-items:center; gap:6px; cursor:pointer; color:#333;">
+                    <input type="checkbox" id="bc-link-animated" style="accent-color:#111; cursor:pointer;">
+                    <span data-i18n="bcLinkAnimatedDesc">Flowing dashed motion along connections</span>
+                  </label>
+                </div>
+
+                <label data-i18n="bcLinkLabelBg">Label background</label>
+                <div class="bc-field-row">
+                  <label style="font-size:0.75rem; font-weight:600; display:flex; align-items:center; gap:6px; cursor:pointer; color:#333;">
+                    <input type="checkbox" id="bc-link-label-bg" style="accent-color:#111; cursor:pointer;">
+                    <span data-i18n="bcLinkLabelBgDesc">Pill badge behind label text</span>
+                  </label>
+                </div>
+
+                <label data-i18n="bcLinkLabelFontSize">Label font size</label>
+                <div class="bc-field-row">
+                  <input type="number" id="bc-link-label-size" min="8" max="36" step="1" value="16" class="bc-num-input">
+                  <span class="bc-unit">px</span>
+                </div>
+
+                <label data-i18n="bcLinkPreview">Preview</label>
+                <div class="bc-field-row" style="flex:1;">
+                  <div id="bc-link-preview-box" style="width:100%; max-width:320px; height:44px; background:#ffffff; border:2px solid #333333; border-radius:6px; box-shadow:2px 2px 0 #555555; display:flex; align-items:center; justify-content:center; overflow:hidden; position:relative;">
+                    <svg id="bc-link-preview-svg" width="320" height="42" viewBox="0 0 320 42" style="width:100%; height:100%; overflow:visible;"></svg>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -5605,6 +5693,7 @@
   <script>
     // Ensure edge context menu global functions exist early to avoid ReferenceError
     var conEdgeCtxApplyLive = window.conEdgeCtxApplyLive = window.conEdgeCtxApplyLive || function () {};
+      var conEdgeCtxSetAutoColor = window.conEdgeCtxSetAutoColor = window.conEdgeCtxSetAutoColor || function () {};
     var conEdgeCtxSetStroke = window.conEdgeCtxSetStroke = window.conEdgeCtxSetStroke || function () {};
     var conEdgeCtxSetRouting = window.conEdgeCtxSetRouting = window.conEdgeCtxSetRouting || function () {};
     var conEdgeCtxSetDir = window.conEdgeCtxSetDir = window.conEdgeCtxSetDir || function () {};
@@ -13992,6 +14081,7 @@
             paletteIdx: group.paletteIdx
           });
         }
+        if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
       }
 
       // ── PHRASE GROUPS ──────────────────────────────────────────────────────────
@@ -20187,7 +20277,9 @@
             type: e.type || 'none',
             label: e.label || '',
             labelSize: e.labelSize || 11,
-            labelColor: e.labelColor || '#333333'
+            labelColor: e.labelColor || '#333333',
+            colorMode: e.colorMode,
+            strokeColor: e.strokeColor
           })),
           groups: selectedGroups.map(g => ({
             id: g.id,
@@ -24479,6 +24571,147 @@
         });
       }
 
+      const _CON_NEUTRAL = new Set(['', 'transparent', '#111', '#111111', '#333', '#333333', '#000', '#000000']);
+      const _CON_NEUTRAL_BG = new Set(['', 'transparent', '#fff', '#ffffff']);
+
+      function conGetAnchorColor(id) {
+        if (!id) return null;
+        const nodeArr = (typeof conNodes !== 'undefined') ? conNodes : ((typeof window.conGetNodes === 'function') ? window.conGetNodes() : []);
+        const node = nodeArr.find(n => n && n.id === id);
+        if (node) {
+          const raw = (node.el && node.el.style && node.el.style.borderColor) || node.border || '';
+          if (!raw || raw === 'transparent') return null;
+          const hex = (typeof rgbToHex === 'function' ? rgbToHex(raw) : (window.rgbToHex ? window.rgbToHex(raw) : raw)).toLowerCase();
+          return _CON_NEUTRAL.has(hex) ? null : hex;
+        }
+        const noteArr = (typeof conNotes !== 'undefined') ? conNotes : ((typeof window.conGetNotes === 'function') ? window.conGetNotes() : []);
+        const note = noteArr.find(n => n && n.id === id);
+        if (note) {
+          const raw = note.bg || (note.el && note.el.style && note.el.style.backgroundColor) || '';
+          if (!raw || raw === 'transparent') return null;
+          const hex = (typeof rgbToHex === 'function' ? rgbToHex(raw) : (window.rgbToHex ? window.rgbToHex(raw) : raw)).toLowerCase();
+          return (_CON_NEUTRAL_BG.has(hex) || _CON_NEUTRAL.has(hex)) ? null : hex;
+        }
+        const groupArr = (typeof conGroups !== 'undefined') ? conGroups : ((typeof window.conGetGroups === 'function') ? window.conGetGroups() : []);
+        const group = groupArr.find(g => g && g.id === id);
+        if (group) {
+          if (group.drawingGroup || group.phraseGroup || group.invisible) return null;
+          let border = '';
+          if (typeof conGroupPaletteBorder === 'function') {
+            border = conGroupPaletteBorder(group.paletteIdx);
+          } else {
+            const CON_PALETTES_REF = window.CON_PALETTES || [];
+            const pal = CON_PALETTES_REF[group.paletteIdx] || [];
+            border = pal[2] || '';
+          }
+          if (!border || border === 'transparent') return null;
+          const hex = (typeof rgbToHex === 'function' ? rgbToHex(border) : (window.rgbToHex ? window.rgbToHex(border) : border)).toLowerCase();
+          return _CON_NEUTRAL.has(hex) ? null : hex;
+        }
+        return null;
+      }
+      window.conGetAnchorColor = conGetAnchorColor;
+
+      function conResolveEdgeStroke(edge) {
+        if (!edge) return { solid: window._conDefaultLinkColor || '#333333' };
+        if (edge.colorMode === undefined) {
+          const ca = conGetAnchorColor(edge.a);
+          const cb = conGetAnchorColor(edge.b);
+          const defCol = (window._conDefaultLinkColor || '#333333').toLowerCase();
+          const lc = (edge.labelColor ? String(edge.labelColor) : '#333333').toLowerCase();
+          if (lc === '#333333' || lc === '#333' || lc === defCol || (ca && lc === ca) || (cb && lc === cb)) {
+            edge.colorMode = 'auto';
+            if (ca && lc === ca) {
+              edge.labelColor = '#333333';
+            }
+          } else {
+            edge.colorMode = 'manual';
+            edge.strokeColor = edge.labelColor;
+          }
+        }
+
+        if (edge.colorMode === 'manual') {
+          return { solid: edge.strokeColor || edge.labelColor || window._conDefaultLinkColor || '#333333', isManual: true };
+        }
+
+        const ca = conGetAnchorColor(edge.a);
+        const cb = conGetAnchorColor(edge.b);
+        if (ca && cb && ca !== cb) {
+          return { gradient: [ca, cb], colorA: ca, colorB: cb };
+        }
+        return { solid: ca || cb || window._conDefaultLinkColor || '#333333', colorA: ca, colorB: cb };
+      }
+      window.conResolveEdgeStroke = conResolveEdgeStroke;
+
+      function _conEnsureEdgeDefs(edge) {
+        if (!edge.defs) {
+          const existing = edge.g && edge.g.querySelector('defs');
+          if (existing) {
+            edge.defs = existing;
+          } else {
+            edge.defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            if (edge.line && edge.g) {
+              edge.g.insertBefore(edge.defs, edge.line);
+            } else if (edge.g) {
+              edge.g.appendChild(edge.defs);
+            }
+          }
+        }
+        return edge.defs;
+      }
+
+      function _conUpdateEdgeGradient(edge, x1, y1, x2, y2, colorA, colorB) {
+        const defs = _conEnsureEdgeDefs(edge);
+        if (!defs) return;
+        const gradId = 'con-edge-grad-' + edge.id;
+        let grad = edge.gradEl || defs.querySelector('#' + gradId);
+        if (!grad) {
+          grad = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+          grad.id = gradId;
+          grad.setAttribute('gradientUnits', 'userSpaceOnUse');
+          const s1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+          s1.setAttribute('offset', '0%');
+          const s2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+          s2.setAttribute('offset', '100%');
+          grad.appendChild(s1);
+          grad.appendChild(s2);
+          defs.appendChild(grad);
+          edge.gradEl = grad;
+        }
+        grad.setAttribute('x1', String(x1));
+        grad.setAttribute('y1', String(y1));
+        grad.setAttribute('x2', String(x2));
+        grad.setAttribute('y2', String(y2));
+        if (grad.children[0]) grad.children[0].setAttribute('stop-color', colorA);
+        if (grad.children[1]) grad.children[1].setAttribute('stop-color', colorB);
+      }
+
+      function _conEnsureEdgeCustomMarker(edge, whichEnd, term, color) {
+        const defs = _conEnsureEdgeDefs(edge);
+        if (!defs) return 'url(#con-' + term + '-' + whichEnd + ')';
+        const markerId = 'con-edge-marker-' + whichEnd + '-' + edge.id;
+        let m = defs.querySelector('#' + markerId);
+        if (!m) {
+          m = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+          m.id = markerId;
+          m.setAttribute('orient', 'auto');
+          m.setAttribute('markerUnits', 'userSpaceOnUse');
+          defs.appendChild(m);
+        }
+        const template = document.getElementById('con-' + term + '-' + whichEnd);
+        if (template) {
+          m.setAttribute('markerWidth', template.getAttribute('markerWidth') || '11');
+          m.setAttribute('markerHeight', template.getAttribute('markerHeight') || '9');
+          m.setAttribute('refX', template.getAttribute('refX') || '1');
+          m.setAttribute('refY', template.getAttribute('refY') || '4.5');
+          const inner = template.innerHTML.replace(/context-stroke/g, color);
+          if (m.innerHTML !== inner) {
+            m.innerHTML = inner;
+          }
+        }
+        return 'url(#' + markerId + ')';
+      }
+
       function conAddEdge(aId, bId, type, color, existingId) {
         // Don't duplicate
         if (conEdges.find(e => (e.a === aId && e.b === bId) || (e.a === bId && e.b === aId))) return;
@@ -24612,24 +24845,37 @@
         });
 
         const _defLinkThickness = (window._conDefaultLinkThickness > 0) ? window._conDefaultLinkThickness : 2;
+        const _defLinkStrokeType = window._conDefaultLinkStrokeType || 'solid';
+        const _defLinkRouting = window._conDefaultLinkRouting || 'straight';
+        const _defLinkDirection = (type !== undefined && type !== null) ? type : (window._conDefaultLinkDirection || 'none');
+        const _defLinkTerminator = window._conDefaultLinkTerminator || 'arrow';
+        const _hasExplicitColor = (typeof color === 'string' && color.trim() !== '');
+        const _defLinkColor = _hasExplicitColor ? color : (window._conDefaultLinkColor || '#333333');
+        const _defLinkOpacity = (typeof window._conDefaultLinkOpacity === 'number') ? window._conDefaultLinkOpacity : 1;
+        const _defLinkAnimated = !!window._conDefaultLinkAnimated;
+        const _defLinkLabelBg = !!window._conDefaultLinkLabelBg;
+        const _defLinkLabelSize = (window._conDefaultLinkLabelSize > 0) ? window._conDefaultLinkLabelSize : (window.conGetDefaultWordFontSize ? window.conGetDefaultWordFontSize() : 16);
+
         const edge = {
           id: edgeId,
           a: aId,
           b: bId,
-          type: type || 'none',
+          type: _defLinkDirection,
           label: '',
-          labelSize: window.conGetDefaultWordFontSize ? window.conGetDefaultWordFontSize() : 16,
-          labelColor: color || '#333333',
+          labelSize: _defLinkLabelSize,
+          labelColor: _defLinkColor,
           labelWeight: 600,
+          colorMode: _hasExplicitColor ? 'manual' : 'auto',
+          strokeColor: _hasExplicitColor ? color : null,
           thickness: _defLinkThickness,
-          dashStyle: null,
-          strokeType: 'solid',
-          routing: 'straight',
+          dashStyle: (_defLinkStrokeType === 'dashed' || _defLinkStrokeType === 'dotted') ? _defLinkStrokeType : null,
+          strokeType: _defLinkStrokeType,
+          routing: _defLinkRouting,
           curvature: 0,
-          opacity: 1,
-          terminator: 'arrow',
-          animated: false,
-          labelBgActive: false,
+          opacity: _defLinkOpacity,
+          terminator: _defLinkTerminator,
+          animated: _defLinkAnimated,
+          labelBgActive: _defLinkLabelBg,
           anchorA: null,
           anchorB: null,
           line,
@@ -24668,7 +24914,9 @@
               animated: edge.animated,
               labelBg: edge.labelBgActive,
               anchorA: edge.anchorA,
-              anchorB: edge.anchorB
+              anchorB: edge.anchorB,
+              colorMode: edge.colorMode,
+              strokeColor: edge.strokeColor
             }
           });
         }
@@ -24691,10 +24939,21 @@
         edge.labelColor = style.color;
         edge.labelWeight = style.weight;
         edge.labelEl.style.fontSize = style.size + 'px';
-        edge.labelEl.style.fill = style.color;
         edge.labelEl.style.fontWeight = String(style.weight);
+
+        const strokeInfo = conResolveEdgeStroke(edge);
+        if (strokeInfo.gradient) {
+          edge.labelEl.style.fill = (edge.colorMode === 'manual') ? style.color : '#111111';
+        } else {
+          edge.labelEl.style.fill = (edge.colorMode === 'manual') ? style.color : (edge.labelColor || '#333333');
+        }
+
         if (edge.line) {
-          edge.line.style.stroke = style.color;
+          if (strokeInfo.gradient) {
+            edge.line.style.stroke = 'url(#con-edge-grad-' + edge.id + ')';
+          } else {
+            edge.line.style.stroke = strokeInfo.solid;
+          }
           const strokeType = edge.strokeType || (edge.dashStyle === 'dashed' ? 'dashed' : 'solid');
           const sw = Math.max(1, edge.thickness || 2);
           const hasArrow = edge.type && edge.type !== 'none';
@@ -24872,9 +25131,26 @@
           edge.hit.setAttribute('d', geo.d);
         }
 
+        const strokeInfo = conResolveEdgeStroke(edge);
+        if (strokeInfo.gradient) {
+          _conUpdateEdgeGradient(edge, x1, y1, x2, y2, strokeInfo.colorA, strokeInfo.colorB);
+          if (edge.line) edge.line.style.stroke = 'url(#con-edge-grad-' + edge.id + ')';
+        } else if (edge.line) {
+          edge.line.style.stroke = strokeInfo.solid;
+        }
+
         // Terminator markers
-        const mEnd = `url(#con-${term}-end)`;
-        const mStart = `url(#con-${term}-start)`;
+        let mEnd = 'url(#con-' + term + '-end)';
+        let mStart = 'url(#con-' + term + '-start)';
+
+        if (strokeInfo.gradient) {
+          if (t === 'forward' || t === 'both') {
+            mEnd = _conEnsureEdgeCustomMarker(edge, 'end', term, strokeInfo.colorB);
+          }
+          if (t === 'backward' || t === 'both') {
+            mStart = _conEnsureEdgeCustomMarker(edge, 'start', term, strokeInfo.colorA);
+          }
+        }
 
         if (t === 'forward') {
           edge.line.setAttribute('marker-end', mEnd);
@@ -25873,17 +26149,20 @@
         conCtxClose();
       };
 
-      window.conCtxSetPage = function () {
-        const node = conNodes.find(n => n.id === conCtxNodeId);
+      window.conCtxSetPage = function (targetNodeId) {
+        const targetId = targetNodeId || (typeof conCtxNodeId !== 'undefined' && conCtxNodeId) || (window.conGetSelected && window.conGetSelected()) || window.conSelected || (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size === 1 ? Array.from(conMultiSelected)[0] : null);
+        const node = conNodes.find(n => n.id === targetId);
         if (!node) return;
-        conCtxClose();
+        if (typeof conCtxClose === 'function') conCtxClose();
         _conPagePopupNodeId = node.id;
         const popup = document.getElementById('con-page-popup');
+        if (!popup) return;
         const inp = document.getElementById('con-page-popup-input');
+        if (!inp) return;
         inp.value = node.pageNum != null ? String(node.pageNum) : '';
         const rect = node.el.getBoundingClientRect();
-        popup.style.left = Math.min(rect.right + 6, window.innerWidth - 175) + 'px';
-        popup.style.top = rect.top + 'px';
+        popup.style.left = Math.max(10, Math.min(rect.right + 6, window.innerWidth - 175)) + 'px';
+        popup.style.top = Math.max(10, Math.min(rect.top, window.innerHeight - 80)) + 'px';
         popup.classList.add('visible');
         inp.focus();
         inp.select();
@@ -26304,6 +26583,8 @@
           label: edge.label || '',
           labelSize: Number(edge.labelSize) || (window.conGetDefaultWordFontSize ? window.conGetDefaultWordFontSize() : 16),
           labelColor: edge.labelColor || '#333333',
+          colorMode: edge.colorMode || 'auto',
+          strokeColor: edge.strokeColor || null,
           labelWeight: Number(edge.labelWeight) || 600,
           thickness: Number.isFinite(edge.thickness) && edge.thickness > 0
             ? edge.thickness
@@ -26324,6 +26605,8 @@
         edge.label = String(snap.label || '');
         edge.labelSize = Number(snap.labelSize) || edge.labelSize || 16;
         edge.labelColor = String(snap.labelColor || edge.labelColor || '#333333');
+        if (snap.colorMode !== undefined) edge.colorMode = snap.colorMode;
+        if (snap.strokeColor !== undefined) edge.strokeColor = snap.strokeColor;
         edge.labelWeight = Number(snap.labelWeight) || edge.labelWeight || 600;
         const t = Math.max(1, Math.min(20, parseFloat(snap.thickness) || 2));
         edge.thickness = t;
@@ -26363,11 +26646,14 @@
         const opVal = opacityInput ? (parseInt(opacityInput.value, 10) / 100) : 1;
 
         const activeEdge = _conEdgeCtxId ? conEdges.find(e => e && e.id == _conEdgeCtxId) : null;
+        const isAuto = (window._conEdgeCtxColorMode === 'auto');
 
         return {
           label: input ? input.value.trim() : '',
           labelSize: sizeInput ? (Number(sizeInput.value) || 16) : 16,
-          labelColor: color,
+          labelColor: isAuto ? '#333333' : color,
+          colorMode: isAuto ? 'auto' : 'manual',
+          strokeColor: isAuto ? null : color,
           thickness: thicknessInput ? Math.max(1, Math.min(20, parseFloat(thicknessInput.value) || 2)) : 2,
           strokeType: strokeBtn ? strokeBtn.dataset.stroke : 'solid',
           routing: routingBtn ? routingBtn.dataset.routing : 'straight',
@@ -26408,7 +26694,9 @@
               animated: edge.animated,
               labelBg: edge.labelBgActive,
               anchorA: edge.anchorA,
-              anchorB: edge.anchorB
+              anchorB: edge.anchorB,
+              colorMode: edge.colorMode,
+              strokeColor: edge.strokeColor
             }
           });
         }
@@ -26449,6 +26737,16 @@
       }
       window.conEdgeCtxSetRouting = conEdgeCtxSetRouting;
 
+      function conEdgeCtxSetAutoColor() {
+        window._conEdgeCtxColorMode = 'auto';
+        const autoBtn = document.getElementById('con-edge-ctx-auto-color-btn');
+        if (autoBtn) autoBtn.classList.add('active');
+        const swatchWrap = document.getElementById('con-edge-ctx-swatches');
+        if (swatchWrap) swatchWrap.querySelectorAll('.con-edge-swatch').forEach(x => x.classList.remove('active'));
+        conEdgeCtxApplyLive();
+      }
+      window.conEdgeCtxSetAutoColor = conEdgeCtxSetAutoColor;
+
       function conEdgeCtxSetDir(dir) {
         const group = document.getElementById('con-edge-ctx-dir-group');
         if (group) {
@@ -26473,6 +26771,9 @@
         if (!menu) return;
         const edge = conEdges.find(ed => ed && ed.id == edgeId);
         _conEdgeCtxOriginal = conEdgeCtxCapture(edge);
+        window._conEdgeCtxColorMode = (edge && edge.colorMode) ? edge.colorMode : 'auto';
+        const autoColorBtn = document.getElementById('con-edge-ctx-auto-color-btn');
+        if (autoColorBtn) autoColorBtn.classList.toggle('active', window._conEdgeCtxColorMode === 'auto');
         const input = document.getElementById('con-edge-ctx-input');
         const sizeInput = document.getElementById('con-edge-ctx-size');
         const sizeVal = document.getElementById('con-edge-ctx-size-val');
@@ -26539,11 +26840,17 @@
         }
         if (colorInput && colorText) {
           colorInput.oninput = function () {
+            window._conEdgeCtxColorMode = 'manual';
+            const autoBtn = document.getElementById('con-edge-ctx-auto-color-btn');
+            if (autoBtn) autoBtn.classList.remove('active');
             colorText.value = this.value.toUpperCase();
             conEdgeCtxApplyLive();
           };
           colorText.oninput = function () {
             if (/^#[0-9a-fA-F]{6}$/.test(this.value)) {
+              window._conEdgeCtxColorMode = 'manual';
+              const autoBtn = document.getElementById('con-edge-ctx-auto-color-btn');
+              if (autoBtn) autoBtn.classList.remove('active');
               colorInput.value = this.value;
               conEdgeCtxApplyLive();
             }
@@ -26584,6 +26891,9 @@
               s.style.background = c;
               if (c === '#ffffff') s.style.boxShadow = 'inset 0 0 0 1.5px #ccc';
               s.onclick = () => {
+                window._conEdgeCtxColorMode = 'manual';
+                const autoBtn = document.getElementById('con-edge-ctx-auto-color-btn');
+                if (autoBtn) autoBtn.classList.remove('active');
                 if (colorInput) colorInput.value = c;
                 if (colorText) colorText.value = c.toUpperCase();
                 swatchWrap.querySelectorAll('.con-edge-swatch').forEach(x => x.classList.remove('active'));
@@ -31775,7 +32085,9 @@
             label: e.label || '',
             labelSize: Number(e.labelSize) || 11,
             labelColor: e.labelColor || '#333333',
-            labelWeight: Number(e.labelWeight) || 600
+            labelWeight: Number(e.labelWeight) || 600,
+            colorMode: e.colorMode,
+            strokeColor: e.strokeColor
           }));
 
         const rects = [];
@@ -31969,6 +32281,8 @@
               if (edge.line) edge.line.style.strokeWidth = String(edge.thickness);
               if (edge.hit) edge.hit.style.strokeWidth = String(Math.max(16, edge.thickness + 10));
             }
+            if (e.colorMode !== undefined) edge.colorMode = e.colorMode;
+            if (e.strokeColor !== undefined) edge.strokeColor = e.strokeColor;
             if (edge.labelEl) edge.labelEl.textContent = edge.label;
             conApplyEdgeLabelStyle(edge);
           }
@@ -33050,10 +33364,7 @@
           e.preventDefault();
           e.stopPropagation();
           conPushUndo();
-          const _srcNode = conNodes.find(n => n.id === _conLinkSrc);
-          const _rawBorder = _srcNode && _srcNode.el ? _srcNode.el.style.borderColor : '';
-          const _srcColor = _rawBorder ? rgbToHex(_rawBorder) : null;
-          conAddEdge(_conLinkSrc, targetId, undefined, _srcColor || undefined);
+          conAddEdge(_conLinkSrc, targetId);
           _conCancelLinkMode();
         }, true);
 
@@ -36311,7 +36622,7 @@
         s.style.background = c === 'transparent' ? 'repeating-linear-gradient(45deg,#ccc,#ccc 3px,#fff 3px,#fff 6px)' : c;
         s.style.border = '2px solid #ddd';
         s.title = c;
-        s.onclick = () => { noteData.bg = c; noteData._applyStyle && noteData._applyStyle(); wnStyleRefresh(); window.getSelection().removeAllRanges(); wnStyleDismiss(); };
+        s.onclick = () => { noteData.bg = c; noteData._applyStyle && noteData._applyStyle(); wnStyleRefresh(); if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges(); window.getSelection().removeAllRanges(); wnStyleDismiss(); };
         bgEl.appendChild(s);
       });
 
@@ -40018,7 +40329,7 @@
       window._conImportTextCallback = function (importedText) {
         const x = window._boardCtxNoteX || 60;
         const y = window._boardCtxNoteY || 60;
-        window.conCreateTextNote(importedText, x, y, { fontSize: 24, hidden: true });
+        window.conCreateTextNote(importedText, x, y, { fontSize: 18, hidden: true });
         // Clear the callback
         window._conImportTextCallback = null;
       };
@@ -41316,7 +41627,9 @@
           animated: !!e.animated,
           labelBg: !!e.labelBgActive,
           anchorA: e.anchorA || null,
-          anchorB: e.anchorB || null
+          anchorB: e.anchorB || null,
+          colorMode: (e.colorMode === 'auto' || e.colorMode === 'manual') ? e.colorMode : undefined,
+          strokeColor: e.strokeColor || null
         })),
         groups: groups.map(g => ({
           id: g.id,
@@ -46387,7 +46700,7 @@
 
         (data.edges || []).forEach(e => {
           if (e.a && e.b) {
-            _conRestoreEdge(e.a, e.b, e.type, e.label || '', e.labelSize, e.labelColor, e.labelWeight, e.thickness, e.dashStyle || null, e.id || null, e.strokeType, e.routing, e.curvature, e.opacity, e.terminator, e.animated, e.labelBg, e.anchorA, e.anchorB);
+            _conRestoreEdge(e.a, e.b, e.type, e.label || '', e.labelSize, e.labelColor, e.labelWeight, e.thickness, e.dashStyle || null, e.id || null, e.strokeType, e.routing, e.curvature, e.opacity, e.terminator, e.animated, e.labelBg, e.anchorA, e.anchorB, e.colorMode, e.strokeColor);
           }
         });
 
@@ -46647,7 +46960,10 @@
             e.labelWeight,
             e.thickness,
             e.dashStyle || null,
-            e.id || null
+            e.id || null,
+            undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+            e.colorMode,
+            e.strokeColor
           );
         }
       });
@@ -46762,7 +47078,7 @@
   }
 
     // Helper: restore a single edge (mirrors conAddEdge inside IIFE)
-    function _conRestoreEdge(aId, bId, type, label, labelSize, labelColor, labelWeight, thickness, dashStyle, existingId, strokeType, routing, curvature, opacity, terminator, animated, labelBg, anchorA, anchorB) {
+    function _conRestoreEdge(aId, bId, type, label, labelSize, labelColor, labelWeight, thickness, dashStyle, existingId, strokeType, routing, curvature, opacity, terminator, animated, labelBg, anchorA, anchorB, colorMode, strokeColor) {
       if (window.conEnsureSvgDefs) window.conEnsureSvgDefs();
       const svgEl = document.getElementById('constellation-svg');
       const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -46831,27 +47147,31 @@
       });
 
       const _restoreThickness = (thickness > 0) ? Number(thickness) : ((window._conDefaultLinkThickness > 0) ? window._conDefaultLinkThickness : 2);
-      const sType = strokeType || (dashStyle === 'dashed' ? 'dashed' : (dashStyle === 'dotted' ? 'dotted' : 'solid'));
+      const sType = strokeType || (dashStyle === 'dashed' ? 'dashed' : (dashStyle === 'dotted' ? 'dotted' : (window._conDefaultLinkStrokeType || 'solid')));
       const edge = {
         id: edgeId,
         a: aId,
         b: bId,
-        type: type || 'none',
+        type: type || (window._conDefaultLinkDirection || 'none'),
         label: label || '',
-        labelSize: Number(labelSize) || 16,
-        labelColor: labelColor || '#333333',
+        labelSize: Number(labelSize) || (window._conDefaultLinkLabelSize > 0 ? window._conDefaultLinkLabelSize : 16),
+        labelColor: labelColor || window._conDefaultLinkColor || '#333333',
         labelWeight: Number(labelWeight) || 600,
         thickness: _restoreThickness,
         dashStyle: (sType === 'dashed' || sType === 'dotted') ? sType : null,
         strokeType: sType,
-        routing: routing || 'straight',
+        routing: routing || window._conDefaultLinkRouting || 'straight',
         curvature: (typeof curvature === 'number') ? curvature : 0,
-        opacity: (typeof opacity === 'number') ? opacity : 1,
-        terminator: terminator || 'arrow',
-        animated: !!animated,
-        labelBgActive: !!labelBg,
+        opacity: (typeof opacity === 'number') ? opacity : ((typeof window._conDefaultLinkOpacity === 'number') ? window._conDefaultLinkOpacity : 1),
+        terminator: terminator || window._conDefaultLinkTerminator || 'arrow',
+        animated: (typeof animated !== 'undefined') ? !!animated : !!window._conDefaultLinkAnimated,
+        labelBgActive: (typeof labelBg !== 'undefined') ? !!labelBg : !!window._conDefaultLinkLabelBg,
         anchorA: anchorA || null,
         anchorB: anchorB || null,
+        // Link colour mode: 'auto' (derived from endpoints) | 'manual'. Left undefined for
+        // legacy saves so conApplyEdgeLabelStyle can infer it once both endpoints exist.
+        colorMode: (colorMode === 'auto' || colorMode === 'manual') ? colorMode : undefined,
+        strokeColor: strokeColor || null,
         line,
         hit,
         labelEl,
@@ -51758,6 +52078,7 @@
       { id: 'save_to_library', name: 'Save to Premade Library', desc: 'Save selected elements to the premade library', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/sparkles.svg', defaultShortcut: null, fn: () => { if (typeof window.conSaveSelectionToLibraryPrompt === 'function') window.conSaveSelectionToLibraryPrompt(); } },
       { id: 'note_count_words', name: 'Count Note Words', desc: 'Count words in selected or active note', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/sentence.svg', defaultShortcut: null, fn: () => { if (typeof wnStyleCountWords === 'function') wnStyleCountWords(); } },
       { id: 'rotate_node_90', name: 'Rotate Node 90°', desc: 'Rotate selected node(s) 90 degrees clockwise', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/refresh.svg', defaultShortcut: null, fn: () => { if (typeof window.conRotateSelectedNodes === 'function') window.conRotateSelectedNodes(90); } },
+      { id: 'node_set_page', name: 'Set Page Number', desc: 'Set or edit page number for selected node', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/page-number.svg', defaultShortcut: null, fn: () => { if (typeof window.conCtxSetPage === 'function') window.conCtxSetPage(); else if (typeof conCtxSetPage === 'function') conCtxSetPage(); } },
 
       // Clipboard
       { id: 'clipboard_copy', name: 'Copy', desc: 'Copy selected nodes or notes', category: 'clipboard', categoryName: 'Clipboard', icon: '../assets/icons/copy.svg', defaultShortcut: { ctrl: true, key: 'c' }, fn: () => { if (typeof window.conClipboardCopy === 'function') window.conClipboardCopy({ allowWhileTyping: false }); } },
@@ -52522,6 +52843,161 @@
       return settings;
     }
 
+    function _bcUpdateLinkPreview() {
+      const svgEl = document.getElementById('bc-link-preview-svg');
+      if (!svgEl) return;
+
+      const thickEl = document.getElementById('bc-link-stroke-thickness');
+      const typeEl = document.getElementById('bc-link-stroke-type');
+      const routingEl = document.getElementById('bc-link-routing');
+      const dirEl = document.getElementById('bc-link-direction');
+      const termEl = document.getElementById('bc-link-terminator');
+      const colorEl = document.getElementById('bc-link-color');
+      const opEl = document.getElementById('bc-link-opacity');
+      const animEl = document.getElementById('bc-link-animated');
+      const labelBgEl = document.getElementById('bc-link-label-bg');
+      const labelSizeEl = document.getElementById('bc-link-label-size');
+
+      const thickness = Math.max(1, Math.min(20, parseFloat(thickEl ? thickEl.value : 2) || 2));
+      const strokeType = typeEl ? typeEl.value : 'solid';
+      const routing = routingEl ? routingEl.value : 'straight';
+      const dir = dirEl ? dirEl.value : 'none';
+      const terminator = termEl ? termEl.value : 'arrow';
+      const color = (colorEl && /^#[0-9a-fA-F]{6}$/i.test(colorEl.value)) ? colorEl.value : '#333333';
+      const opacity = opEl ? (Math.max(10, Math.min(100, parseInt(opEl.value, 10) || 100)) / 100) : 1;
+      const animated = animEl ? !!animEl.checked : false;
+      const labelBg = labelBgEl ? !!labelBgEl.checked : false;
+      const labelSize = labelSizeEl ? Math.max(8, Math.min(36, parseInt(labelSizeEl.value, 10) || 16)) : 16;
+
+      const x1 = 34, y1 = (routing === 'orthogonal' ? 27 : 21);
+      const x2 = 286, y2 = (routing === 'orthogonal' ? 15 : 21);
+      const curvature = 18;
+
+      let geo;
+      if (typeof window.conComputeEdgeGeometry === 'function') {
+        geo = window.conComputeEdgeGeometry(x1, y1, x2, y2, routing, strokeType, curvature, thickness, dir, terminator);
+      } else if (typeof conComputeEdgeGeometry === 'function') {
+        geo = conComputeEdgeGeometry(x1, y1, x2, y2, routing, strokeType, curvature, thickness, dir, terminator);
+      } else {
+        geo = { d: `M ${x1} ${y1} L ${x2} ${y2}`, mx: (x1 + x2) / 2, my: (y1 + y2) / 2, angle: 0 };
+      }
+
+      const mEnd = (dir === 'forward' || dir === 'both') ? `url(#bc-pv-${terminator}-end)` : '';
+      const mStart = (dir === 'backward' || dir === 'both') ? `url(#bc-pv-${terminator}-start)` : '';
+
+      let dasharray = '';
+      let linecap = (dir !== 'none') ? 'butt' : 'round';
+      if (strokeType === 'dashed') {
+        dasharray = `${thickness * 4} ${thickness * 2}`;
+        linecap = 'butt';
+      } else if (strokeType === 'dotted') {
+        dasharray = `${thickness * 0.4} ${thickness * 2.5}`;
+        linecap = (dir !== 'none') ? 'butt' : 'round';
+      } else if (animated) {
+        dasharray = `${thickness * 4} ${thickness * 2}`;
+        linecap = (dir !== 'none') ? 'butt' : 'round';
+      }
+
+      const animClass = animated ? (dir === 'backward' ? 'con-edge-animated-reverse' : 'con-edge-animated') : '';
+
+      const labelText = 'Link';
+      const dispFontSize = Math.max(9, Math.min(15, Math.round(labelSize * 0.72)));
+      const mx = geo.mx;
+      const my = geo.my;
+      const dy = -Math.max(4, Math.round(dispFontSize * 0.45));
+      const pillW = Math.max(26, Math.round(labelText.length * dispFontSize * 0.65 + 10));
+      const pillH = Math.max(13, Math.round(dispFontSize * 1.3));
+      const pillX = Math.round(mx - pillW / 2);
+      const pillY = Math.round(my + dy - pillH * 0.75);
+
+      svgEl.innerHTML = `
+        <defs>
+          <marker id="bc-pv-arrow-end" markerWidth="11" markerHeight="9" refX="1" refY="4.5" orient="auto" markerUnits="userSpaceOnUse">
+            <path d="M 1 1 L 9.5 4.5 L 1 8 Z" fill="${color}" stroke="${color}" stroke-linejoin="round" />
+          </marker>
+          <marker id="bc-pv-arrow-start" markerWidth="11" markerHeight="9" refX="9.5" refY="4.5" orient="auto" markerUnits="userSpaceOnUse">
+            <path d="M 9.5 1 L 1 4.5 L 9.5 8 Z" fill="${color}" stroke="${color}" stroke-linejoin="round" />
+          </marker>
+          <marker id="bc-pv-open-end" markerWidth="10" markerHeight="10" refX="1.5" refY="5" orient="auto" markerUnits="userSpaceOnUse">
+            <path d="M 1.5 1.5 L 8.5 5 L 1.5 8.5" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          </marker>
+          <marker id="bc-pv-open-start" markerWidth="10" markerHeight="10" refX="8.5" refY="5" orient="auto" markerUnits="userSpaceOnUse">
+            <path d="M 8.5 1.5 L 1.5 5 L 8.5 8.5" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          </marker>
+          <marker id="bc-pv-circle-end" markerWidth="10" markerHeight="10" refX="1.5" refY="5" orient="auto" markerUnits="userSpaceOnUse">
+            <circle cx="5" cy="5" r="3.5" fill="${color}" stroke="${color}" />
+          </marker>
+          <marker id="bc-pv-circle-start" markerWidth="10" markerHeight="10" refX="8.5" refY="5" orient="auto" markerUnits="userSpaceOnUse">
+            <circle cx="5" cy="5" r="3.5" fill="${color}" stroke="${color}" />
+          </marker>
+          <marker id="bc-pv-diamond-end" markerWidth="12" markerHeight="10" refX="1" refY="5" orient="auto" markerUnits="userSpaceOnUse">
+            <polygon points="6,1 11,5 6,9 1,5" fill="${color}" stroke="${color}" stroke-linejoin="round" />
+          </marker>
+          <marker id="bc-pv-diamond-start" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto" markerUnits="userSpaceOnUse">
+            <polygon points="6,1 1,5 6,9 11,5" fill="${color}" stroke="${color}" stroke-linejoin="round" />
+          </marker>
+        </defs>
+        <!-- Mock endpoint nodes -->
+        <rect x="6" y="${y1 - 10}" width="28" height="20" rx="5" fill="#f4f4f5" stroke="#333333" stroke-width="1.8" />
+        <text x="20" y="${y1 + 4}" text-anchor="middle" font-size="10" font-weight="800" fill="#222">A</text>
+
+        <rect x="286" y="${y2 - 10}" width="28" height="20" rx="5" fill="#f4f4f5" stroke="#333333" stroke-width="1.8" />
+        <text x="300" y="${y2 + 4}" text-anchor="middle" font-size="10" font-weight="800" fill="#222">B</text>
+
+        <!-- Preview link path -->
+        <path d="${geo.d}"
+          fill="none"
+          stroke="${color}"
+          stroke-width="${thickness}"
+          stroke-opacity="${opacity}"
+          stroke-linecap="${linecap}"
+          stroke-dasharray="${dasharray}"
+          ${mEnd ? `marker-end="${mEnd}"` : ''}
+          ${mStart ? `marker-start="${mStart}"` : ''}
+          class="${animClass}"
+        />
+
+        <!-- Label pill background & text -->
+        ${labelBg ? `<rect x="${pillX}" y="${pillY}" width="${pillW}" height="${pillH}" rx="3" fill="#ffffff" stroke="#e0e0e0" stroke-width="1" />` : ''}
+        <text x="${mx}" y="${my}" dy="${dy}" text-anchor="middle" font-size="${dispFontSize}px" font-weight="700" fill="${color}" opacity="${opacity}">${labelText}</text>
+      `;
+    }
+
+    function _bcBindLinkPreviewListeners() {
+      const ids = [
+        'bc-link-stroke-thickness', 'bc-link-stroke-type', 'bc-link-routing',
+        'bc-link-direction', 'bc-link-terminator', 'bc-link-color', 'bc-link-color-text',
+        'bc-link-opacity', 'bc-link-animated', 'bc-link-label-bg', 'bc-link-label-size'
+      ];
+      ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el || el._bcLinkBound) return;
+        el._bcLinkBound = true;
+        el.addEventListener('input', () => {
+          if (id === 'bc-link-color') {
+            const txt = document.getElementById('bc-link-color-text');
+            if (txt) txt.value = el.value.toUpperCase();
+          } else if (id === 'bc-link-color-text') {
+            if (/^#[0-9a-fA-F]{6}$/i.test(el.value)) {
+              const picker = document.getElementById('bc-link-color');
+              if (picker) picker.value = el.value;
+            }
+          } else if (id === 'bc-link-opacity') {
+            const v = document.getElementById('bc-link-opacity-val');
+            if (v) v.textContent = el.value + '%';
+          }
+          _bcUpdateLinkPreview();
+        });
+        el.addEventListener('change', () => {
+          if (id === 'bc-link-color-text' && /^#[0-9a-fA-F]{6}$/i.test(el.value)) {
+            const picker = document.getElementById('bc-link-color');
+            if (picker) picker.value = el.value;
+          }
+          _bcUpdateLinkPreview();
+        });
+      });
+    }
+
     async function boardCustomiseOpen() {
       let bc = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG && Object.keys(BOARD_CONFIG).length) ? BOARD_CONFIG : {};
       if (window.Desktop && Desktop.isElectron() && typeof Desktop.readJson === 'function') {
@@ -52560,6 +53036,24 @@
       set('bc-media-pdf-width', bc.pdfInsertWidth !== undefined ? bc.pdfInsertWidth : 0);
       const lst = bc.linkDefaultStrokeThickness !== undefined ? bc.linkDefaultStrokeThickness : 2;
       set('bc-link-stroke-thickness', lst);
+      set('bc-link-stroke-type', bc.linkDefaultStrokeType || 'solid');
+      set('bc-link-routing', bc.linkDefaultRouting || 'straight');
+      set('bc-link-direction', bc.linkDefaultDirection || 'none');
+      set('bc-link-terminator', bc.linkDefaultTerminator || 'arrow');
+      const lColor = (typeof conNormalizeColorHex === 'function' ? conNormalizeColorHex(bc.linkDefaultColor) : '') || bc.linkDefaultColor || '#333333';
+      set('bc-link-color', lColor);
+      set('bc-link-color-text', lColor.toUpperCase());
+      const lOpPercent = Math.round((bc.linkDefaultOpacity !== undefined ? Number(bc.linkDefaultOpacity) : 1) * 100);
+      set('bc-link-opacity', lOpPercent);
+      const lOpVal = document.getElementById('bc-link-opacity-val');
+      if (lOpVal) lOpVal.textContent = lOpPercent + '%';
+      const lAnimEl = document.getElementById('bc-link-animated');
+      if (lAnimEl) lAnimEl.checked = !!bc.linkDefaultAnimated;
+      const lBgEl = document.getElementById('bc-link-label-bg');
+      if (lBgEl) lBgEl.checked = !!bc.linkDefaultLabelBg;
+      set('bc-link-label-size', bc.linkDefaultLabelSize !== undefined ? bc.linkDefaultLabelSize : 16);
+      _bcBindLinkPreviewListeners();
+      _bcUpdateLinkPreview();
       set('bc-media-image-width', bc.imageInsertWidth !== undefined ? bc.imageInsertWidth : 260);
       set('bc-media-video-width', bc.videoInsertWidth !== undefined ? bc.videoInsertWidth : 260);
       set('bc-media-sound-width', bc.soundInsertWidth !== undefined ? bc.soundInsertWidth : 320);
@@ -53072,6 +53566,15 @@
         penDefaultThickness: getNum('bc-pen-thickness', 4),
         laserColor: getVal('bc-laser-color', '#ff2200'),
         linkDefaultStrokeThickness: (() => { const el = document.getElementById('bc-link-stroke-thickness'); return el ? Math.max(1, Math.min(20, parseFloat(el.value) || 2)) : 2; })(),
+        linkDefaultStrokeType: getVal('bc-link-stroke-type', 'solid'),
+        linkDefaultRouting: getVal('bc-link-routing', 'straight'),
+        linkDefaultDirection: getVal('bc-link-direction', 'none'),
+        linkDefaultTerminator: getVal('bc-link-terminator', 'arrow'),
+        linkDefaultColor: (() => { const el = document.getElementById('bc-link-color'); return el && /^#[0-9a-fA-F]{6}$/i.test(el.value) ? el.value : '#333333'; })(),
+        linkDefaultOpacity: (() => { const el = document.getElementById('bc-link-opacity'); return el ? Math.max(0.1, Math.min(1, (parseInt(el.value, 10) || 100) / 100)) : 1; })(),
+        linkDefaultAnimated: (() => { const el = document.getElementById('bc-link-animated'); return !!(el && el.checked); })(),
+        linkDefaultLabelBg: (() => { const el = document.getElementById('bc-link-label-bg'); return !!(el && el.checked); })(),
+        linkDefaultLabelSize: getNum('bc-link-label-size', 16),
         pdfInsertWidth: getNum('bc-media-pdf-width', 0),
         imageInsertWidth: getNum('bc-media-image-width', 260),
         videoInsertWidth: getNum('bc-media-video-width', 260),
@@ -53236,9 +53739,36 @@
         : _BC_PEN_PRESET_DEFAULTS.slice();
       if (typeof window.conDrawInitPenPresets === 'function') window.conDrawInitPenPresets();
 
-      // Default link stroke thickness
+      // Default link stroke thickness & style customization
       if (bc.linkDefaultStrokeThickness !== undefined) {
-        window._conDefaultLinkThickness = Math.max(1, Number(bc.linkDefaultStrokeThickness) || 2);
+        window._conDefaultLinkThickness = Math.max(1, Math.min(20, Number(bc.linkDefaultStrokeThickness) || 2));
+      }
+      if (bc.linkDefaultStrokeType !== undefined) {
+        window._conDefaultLinkStrokeType = bc.linkDefaultStrokeType || 'solid';
+      }
+      if (bc.linkDefaultRouting !== undefined) {
+        window._conDefaultLinkRouting = bc.linkDefaultRouting || 'straight';
+      }
+      if (bc.linkDefaultDirection !== undefined) {
+        window._conDefaultLinkDirection = bc.linkDefaultDirection || 'none';
+      }
+      if (bc.linkDefaultTerminator !== undefined) {
+        window._conDefaultLinkTerminator = bc.linkDefaultTerminator || 'arrow';
+      }
+      if (bc.linkDefaultColor !== undefined) {
+        window._conDefaultLinkColor = bc.linkDefaultColor || '#333333';
+      }
+      if (bc.linkDefaultOpacity !== undefined) {
+        window._conDefaultLinkOpacity = Math.max(0.1, Math.min(1, Number(bc.linkDefaultOpacity) || 1));
+      }
+      if (bc.linkDefaultAnimated !== undefined) {
+        window._conDefaultLinkAnimated = !!bc.linkDefaultAnimated;
+      }
+      if (bc.linkDefaultLabelBg !== undefined) {
+        window._conDefaultLinkLabelBg = !!bc.linkDefaultLabelBg;
+      }
+      if (bc.linkDefaultLabelSize !== undefined) {
+        window._conDefaultLinkLabelSize = Math.max(8, Math.min(36, Number(bc.linkDefaultLabelSize) || 16));
       }
 
       // 8. Laser pointer colour
@@ -58057,7 +58587,18 @@
                 eData.labelWeight,
                 eData.thickness,
                 eData.dashStyle || null,
-                eData.id
+                eData.id,
+                eData.strokeType,
+                eData.routing,
+                eData.curvature,
+                eData.opacity,
+                eData.terminator,
+                eData.animated,
+                eData.labelBg,
+                eData.anchorA,
+                eData.anchorB,
+                eData.colorMode,
+                eData.strokeColor
               );
             }
           }
@@ -58110,6 +58651,8 @@
             if (eData2.labelBg !== undefined) ed2.labelBgActive = !!eData2.labelBg;
             if (eData2.anchorA !== undefined) ed2.anchorA = eData2.anchorA;
             if (eData2.anchorB !== undefined) ed2.anchorB = eData2.anchorB;
+            if (eData2.colorMode !== undefined) ed2.colorMode = eData2.colorMode;
+            if (eData2.strokeColor !== undefined) ed2.strokeColor = eData2.strokeColor;
             if (ed2.labelEl) ed2.labelEl.textContent = ed2.label || '';
             if (typeof window.conApplyEdgeLabelStyle === 'function') window.conApplyEdgeLabelStyle(ed2);
             if (typeof window.conUpdateEdge === 'function') window.conUpdateEdge(ed2);

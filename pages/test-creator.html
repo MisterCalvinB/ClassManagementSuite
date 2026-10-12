@@ -134,8 +134,8 @@
       </div>
     </nav>
 
-    <!-- ── 2. Top Metadata Panel ──────────────────────────────────────────── -->
-    <div class="meta-panel">
+    <!-- ── 2. Top Compact Metadata & Action Bar ──────────────────────────── -->
+    <div class="meta-panel tc-compact-topbar">
       <div class="meta-row-main">
         <input type="text" id="testTitle" class="meta-title-input" placeholder="Test Title (e.g. Unit 3 Biology Examination)" data-i18n-placeholder="tcTitlePlaceholder" oninput="tcOnDirty()">
         
@@ -147,166 +147,300 @@
           <option value="" data-i18n="tcSelectClassPlaceholder">Select Class…</option>
         </select>
 
-        <input type="date" id="testDate" class="meta-input" onchange="tcOnDirty()">
-
-        <div style="display:flex;align-items:center;gap:4px;font-weight:800;font-size:0.85rem;">
-          <input type="number" id="testDuration" class="meta-input" style="width:64px;text-align:center;" value="45" min="5" max="360" step="5" oninput="tcOnDirty()">
-          <span data-i18n="tcDurationMin">min</span>
-        </div>
-
         <div class="points-pill" id="totalPointsBadge" title="Total exam points sum" data-i18n-title="tcPointsPillTooltip">
           <span>Total: 0 pts</span>
         </div>
 
         <div style="display:flex;align-items:center;gap:6px;margin-left:auto;">
-          <button class="neo-btn" onclick="tcOpenTemplatePicker()" title="Test Models &amp; Templates" data-i18n-title="tcTemplatesTooltip"><img src="../assets/icons/copy.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> <span data-i18n="tcTemplates">Templates</span></button>
-          <button class="neo-btn" onclick="tcOpenTestPicker()" title="Open Saved Test" data-i18n-title="tcOpenSavedTestTooltip"><img src="../assets/icons/folder.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> <span data-i18n="btnOpen">Open</span></button>
-          <button class="neo-btn purple" onclick="tcOpenPrintPreview()" title="Dedicated Print &amp; PDF Preview" data-i18n-title="tcPrintPreviewTooltip"><span data-i18n="tcPrintPreviewBtn">Preview</span></button>
-          <button class="neo-btn primary" onclick="tcSaveTest()"><span data-i18n="btnSave">Save</span></button>
-          <button class="neo-btn" id="drawerToggleBtn" onclick="tcToggleDrawer()"><span data-i18n="tcDrawerBtn">Resources</span></button>
-          <button class="neo-btn" id="btn-tc-test-links" onclick="tcOpenTestLinksModal()" style="display:none;font-weight:900;letter-spacing:0.5px;" title="Test Links &amp; Tags"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" />[0]</button>
-        </div>
-      </div>
-
-      <div class="meta-row-sub">
-        <div class="meta-field-group" style="flex:1;">
-          <span class="meta-lbl" data-i18n="tcScopeLabel">Scope / Units:</span>
-          <input type="text" id="testScope" class="meta-input" style="flex:1;" placeholder="e.g. Photosynthesis, Plant Cells, Ecosystems" data-i18n-placeholder="tcScopePlaceholder" oninput="tcOnDirty()">
-        </div>
-
-        <div class="meta-field-group">
-          <span class="meta-lbl" data-i18n="tcTeacherLabel">Teacher:</span>
-          <input type="text" id="testTeacher" class="meta-input" style="width:140px;" placeholder="Teacher Name" data-i18n-placeholder="tcTeacherPlaceholder" oninput="tcOnDirty()">
-        </div>
-
-        <div class="meta-field-group">
-          <span class="meta-lbl" data-i18n="tcGradeScaleLabel">Grade Scale:</span>
-          <select id="testScale" class="meta-select" onchange="tcOnDirty()">
-            <!-- Populated from TestCreatorService.DEFAULT_SCALES -->
-          </select>
-          <span id="tcScaleInheritedBadge" data-i18n="tcInheritedClassBadge" style="display:none;font-size:0.7rem;font-weight:900;background:#eff6ff;color:#1e40af;border:1.5px solid #2563eb;padding:3px 6px;border-radius:3px;box-shadow:1px 1px 0 #2563eb;white-space:nowrap;">[INHERITED: Class]</span>
-        </div>
-
-        <div class="meta-field-group">
-          <button class="neo-btn yellow sm" onclick="tcOpenHeaderCustomizerModal()" title="Customise allowed materials, header elements, bold/italic/underline, and layout" data-i18n-title="tcHeaderCustomiseTooltip"><img src="../assets/icons/layout.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> <span data-i18n="tcBtnHeaderCustomise">Header &amp; Materials…</span></button>
+          <button class="neo-btn sm" id="drawerToggleBtn" onclick="tcToggleDrawer()" title="Toggle Resource Drawer (Ctrl+B)" data-i18n-title="tcToggleDrawerTooltip"><img src="../assets/icons/folder.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> <span data-i18n="tcDrawerBtn">Resources</span></button>
+          <button class="neo-btn sm" onclick="tcOpenTemplatePicker()" title="Test Models &amp; Templates" data-i18n-title="tcTemplatesTooltip"><img src="../assets/icons/copy.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> <span data-i18n="tcTemplates">Templates</span></button>
+          <button class="neo-btn sm" onclick="tcOpenTestPicker()" title="Open Saved Test" data-i18n-title="tcOpenSavedTestTooltip"><img src="../assets/icons/folder.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> <span data-i18n="btnOpen">Open</span></button>
+          <button class="neo-btn primary sm" onclick="tcSaveTest()"><span data-i18n="btnSave">Save</span></button>
           <button class="neo-btn teal sm" onclick="tcOpenGradeSheetModal()"><span data-i18n="tcBtnGradeSheet">Grade Sheet</span></button>
-          <button class="neo-btn sm" onclick="tcOpenVariantMatrixModal()"><span data-i18n="tcBtnGroupAB">Group A/B</span></button>
           <button class="neo-btn sm" id="btn-tc-unit-seq" onclick="tcOpenSequenceModal()" title="Manage Unit Sequence" data-i18n-title="tcUnitSeqTooltip" style="background:#fef08a;color:#713f12;font-weight:800;border-color:#ca8a04;display:inline-flex;align-items:center;gap:4px;"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-1px;" /><span data-i18n="tcUnitSequence">Unit:</span> <span id="tcUnitSeqDisplay" data-i18n="tcNone">None</span></button>
+          <button class="neo-btn sm" id="btn-tc-test-links" onclick="tcOpenTestLinksModal()" style="display:none;font-weight:900;letter-spacing:0.5px;" title="Test Links &amp; Tags"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" />[0]</button>
         </div>
       </div>
     </div>
 
     <!-- ── 3. Main Workspace Layout ────────────────────────────────────────── -->
     <div class="main-workspace" id="mainWorkspace">
-      
-      <!-- Left Panel: Exercise Builder -->
-      <div class="exercise-builder-card">
-        <div class="pane-header">
-          <div class="pane-title">
-            <span data-i18n="tcExercisesTitle">Exam Exercises & Questions</span>
-            <span id="exerciseCountBadge" style="font-size:0.8rem;background:#111;color:#fff;padding:2px 8px;border-radius:4px;">0 exercises</span>
-          </div>
 
-          <div style="display:flex;align-items:center;gap:8px;">
-            <button class="neo-btn sm" onclick="tcOpenGlobalStyleModal()" title="Customise base font size, line height, padding, numbered lines" data-i18n-title="tcGlobalStyleTooltip"><span data-i18n="tcBtnFormat">Style</span></button>
-            <button class="neo-btn sm" onclick="tcOpenPrintPreview()"><span data-i18n="tcPrintPreview">Print Preview</span></button>
-            <button class="neo-btn primary sm" onclick="tcOpenAddExerciseModal()">+ <span data-i18n="tcAddExercise">Add Exercise</span></button>
-          </div>
-        </div>
+      <!-- Left Column: Building Blocks Deck -->
+      <div class="tc-blocks-column" id="tcBlocksColumn">
 
-        <!-- Test-wide Competences Bar -->
-        <div id="testCompetencesBar" style="display:none;padding:10px 14px;background:#f0f7ff;border:2.5px solid #2563eb;border-radius:4px;margin:10px 15px 0 15px;box-shadow:2px 2px 0 #2563eb;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px;">
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span style="font-weight:900;font-size:0.8rem;color:#1e40af;text-transform:uppercase;letter-spacing:0.5px;" data-i18n="tcTestWideCompetencesTitle">Test-Wide Competences &amp; Curriculum Objectives:</span>
-              <span id="testCompetencesCountBadge" style="background:#dbeafe;border:1.5px solid #2563eb;color:#1e40af;font-size:0.75rem;padding:2px 8px;border-radius:3px;font-weight:900;"></span>
+        <!-- Block 1: Header, Exam Metadata & Materials Card -->
+        <div class="tc-block-card" id="blockExamHeader">
+          <div class="tc-block-header" onclick="tcToggleBlockCard('blockExamHeader')">
+            <div class="tc-block-title-wrap">
+              <img src="../assets/icons/layout.svg" style="width:16px;height:16px;" alt="" />
+              <span data-i18n="tcBlockHeader">Header &amp; Materials</span>
+              <span class="tc-block-badge amber" id="hdrSummaryBadge">45 min</span>
             </div>
+            <div class="tc-block-actions">
+              <button type="button" class="neo-btn sm yellow" onclick="event.stopPropagation(); tcOpenHeaderCustomizerModal();" title="Advanced Customizer" data-i18n-title="tcHeaderCustomiseTooltip">
+                <span data-i18n="tcAdvancedHeaderBtn">Advanced…</span>
+              </button>
+              <span class="card-drag-handle" id="blockExamHeaderChevron" style="font-size:0.9rem;">▾</span>
+            </div>
+          </div>
+          <div class="tc-block-body" id="blockExamHeaderBody">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <div class="meta-field-group" style="flex-direction:column;align-items:flex-start;">
+                <span class="meta-lbl" data-i18n="tcScopeLabel">Scope / Topics:</span>
+                <input type="text" id="testScope" class="meta-input" style="width:100%;" placeholder="e.g. Photosynthesis, Cells" data-i18n-placeholder="tcScopePlaceholder" oninput="tcOnDirty()">
+              </div>
+              <div class="meta-field-group" style="flex-direction:column;align-items:flex-start;">
+                <span class="meta-lbl" data-i18n="tcTeacherLabel">Teacher:</span>
+                <input type="text" id="testTeacher" class="meta-input" style="width:100%;" placeholder="Teacher Name" data-i18n-placeholder="tcTeacherPlaceholder" oninput="tcOnDirty()">
+              </div>
+            </div>
+
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-              <button type="button" class="neo-btn sm" style="background:#dbeafe;color:#1e40af;border-color:#2563eb;" onclick="tcAddSectionBlockToExam('section_competences')" title="Place a dedicated competences block in the exam question sequence" data-i18n-title="tcPlaceInExamFlowTooltip"><span data-i18n="tcPlaceInExamFlow">📍 Place in Exam Flow</span></button>
-              <label style="display:inline-flex;align-items:center;gap:4px;font-size:0.75rem;font-weight:700;color:#1e40af;cursor:pointer;">
-                <input type="checkbox" id="testCompetencesPrintChk" onchange="tcToggleCompetencesPrintOnTest(this.checked)">
-                <span data-i18n="tcShowCompetencesOnTest">Print on Exam Sheet</span>
-              </label>
-              <label style="display:inline-flex;align-items:center;gap:4px;font-size:0.75rem;font-weight:700;color:#1e40af;cursor:pointer;">
-                <input type="checkbox" id="testCompetencesDescPrintChk" onchange="tcToggleCompetenceDescriptionsPrint(this.checked)">
-                <span data-i18n="tcIncludeDescriptions">Include Descriptions</span>
-              </label>
-              <button type="button" style="background:none;border:none;cursor:pointer;color:#ef4444;font-weight:900;font-size:1.1rem;padding:0;line-height:1;" onclick="tcRemoveAllTestCompetences()" title="Remove all competences" data-i18n-title="tcRemoveAllCompetences">&times;</button>
+              <div class="meta-field-group">
+                <span class="meta-lbl">Date:</span>
+                <input type="date" id="testDate" class="meta-input" onchange="tcOnDirty()">
+              </div>
+              <div class="meta-field-group">
+                <span class="meta-lbl">Duration:</span>
+                <input type="number" id="testDuration" class="meta-input" style="width:68px;text-align:center;" value="45" min="5" max="360" step="5" oninput="tcOnDirty()">
+                <span data-i18n="tcDurationMin">min</span>
+              </div>
+              <div class="meta-field-group" style="margin-left:auto;">
+                <button type="button" class="neo-btn sm" onclick="tcOpenVariantMatrixModal()"><span data-i18n="tcBtnGroupAB">Group A/B</span></button>
+              </div>
+            </div>
+
+            <!-- Student fields checkboxes -->
+            <div style="border-top:1.5px dashed var(--neo-gray-mid);padding-top:8px;">
+              <span class="meta-lbl" style="display:block;margin-bottom:6px;" data-i18n="tcStudentFields">Student Details to Print:</span>
+              <div class="tc-chip-toggle-group">
+                <label class="tc-chip-toggle">
+                  <input type="checkbox" id="blockHdrNameChk" checked onchange="tcSyncHeaderBlockToState()">
+                  <span>Name</span>
+                </label>
+                <label class="tc-chip-toggle">
+                  <input type="checkbox" id="blockHdrClassChk" checked onchange="tcSyncHeaderBlockToState()">
+                  <span>Class</span>
+                </label>
+                <label class="tc-chip-toggle">
+                  <input type="checkbox" id="blockHdrDateChk" checked onchange="tcSyncHeaderBlockToState()">
+                  <span>Date</span>
+                </label>
+                <label class="tc-chip-toggle">
+                  <input type="checkbox" id="blockHdrTeacherChk" checked onchange="tcSyncHeaderBlockToState()">
+                  <span>Teacher</span>
+                </label>
+                <label class="tc-chip-toggle">
+                  <input type="checkbox" id="blockHdrDurationChk" checked onchange="tcSyncHeaderBlockToState()">
+                  <span>Duration</span>
+                </label>
+                <label class="tc-chip-toggle">
+                  <input type="checkbox" id="blockHdrPointsBoxChk" checked onchange="tcSyncHeaderBlockToState()">
+                  <span>Points Box</span>
+                </label>
+                <label class="tc-chip-toggle">
+                  <input type="checkbox" id="blockHdrGradeBoxChk" checked onchange="tcSyncHeaderBlockToState()">
+                  <span>Grade Box</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Allowed Materials Quick Presets -->
+            <div style="border-top:1.5px dashed var(--neo-gray-mid);padding-top:8px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <span class="meta-lbl" data-i18n="tcAllowedMaterials">Allowed Materials:</span>
+                <label style="display:inline-flex;align-items:center;gap:4px;font-size:0.75rem;font-weight:700;cursor:pointer;">
+                  <input type="checkbox" id="blockHdrMaterialsPrintChk" checked onchange="tcSyncHeaderBlockToState()">
+                  <span>Print on Test</span>
+                </label>
+              </div>
+              <div class="tc-chip-toggle-group" id="blockMaterialsChipsPool"></div>
+            </div>
+
+            <!-- General Instructions Field -->
+            <div style="border-top:1.5px dashed var(--neo-gray-mid);padding-top:8px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                <span class="meta-lbl" data-i18n="tcInstructionsLabel">General Instructions:</span>
+                <label style="display:inline-flex;align-items:center;gap:4px;font-size:0.75rem;font-weight:700;cursor:pointer;">
+                  <input type="checkbox" id="blockHdrInstructionsPrintChk" onchange="tcSyncHeaderBlockToState()">
+                  <span>Print on Test</span>
+                </label>
+              </div>
+              <input type="text" id="blockHdrInstructionsInput" class="meta-input" style="width:100%;" placeholder="e.g. Answer all questions clearly. Write in pen." oninput="tcSyncHeaderBlockToState()">
             </div>
           </div>
-          <div id="testCompetencesList" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;"></div>
         </div>
 
-        <!-- Test-wide Criteria Bar -->
-        <div id="testCriteriaBar" style="display:none;padding:10px 14px;background:#f0fdf4;border:2.5px solid #059669;border-radius:4px;margin:10px 15px 0 15px;box-shadow:2px 2px 0 #059669;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px;">
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span style="font-weight:900;font-size:0.8rem;color:#065f46;text-transform:uppercase;letter-spacing:0.5px;" data-i18n="tcTestCriteriaBarTitle">Active Test Assessment Criteria &amp; Rubrics:</span>
-              <span id="testCriteriaCountBadge" style="background:#d1fae5;border:1.5px solid #059669;color:#065f46;font-size:0.75rem;padding:2px 8px;border-radius:3px;font-weight:900;"></span>
+        <!-- Block 2: Competences & Objectives Card -->
+        <div class="tc-block-card" id="blockCompetences">
+          <div class="tc-block-header" onclick="tcToggleBlockCard('blockCompetences')">
+            <div class="tc-block-title-wrap">
+              <img src="../assets/icons/links.svg" style="width:16px;height:16px;" alt="" />
+              <span data-i18n="tcBlockCompetences">Competences &amp; Objectives</span>
+              <span class="tc-block-badge blue" id="blockCompCountBadge">0 linked</span>
             </div>
+            <div class="tc-block-actions">
+              <button type="button" class="neo-btn sm" style="background:#dbeafe;color:#1e40af;border-color:#2563eb;" onclick="event.stopPropagation(); tcSwitchDrawerTab('competences'); tcToggleDrawer();">
+                + <span data-i18n="tcDrawerTabCompetences">Browse</span>
+              </button>
+              <span class="card-drag-handle" id="blockCompetencesChevron" style="font-size:0.9rem;">▾</span>
+            </div>
+          </div>
+          <div class="tc-block-body" id="blockCompetencesBody">
+            <div id="testCompetencesBar" style="padding:4px 0;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span id="testCompetencesCountBadge" style="background:#dbeafe;border:1.5px solid #2563eb;color:#1e40af;font-size:0.75rem;padding:2px 8px;border-radius:3px;font-weight:900;"></span>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                  <button type="button" class="neo-btn sm" style="background:#dbeafe;color:#1e40af;border-color:#2563eb;" onclick="tcAddSectionBlockToExam('section_competences')" title="Place a dedicated competences block in the exam question sequence" data-i18n-title="tcPlaceInExamFlowTooltip"><span data-i18n="tcPlaceInExamFlow">📍 Place in Exam Flow</span></button>
+                  <label style="display:inline-flex;align-items:center;gap:4px;font-size:0.75rem;font-weight:700;color:#1e40af;cursor:pointer;">
+                    <input type="checkbox" id="testCompetencesPrintChk" onchange="tcToggleCompetencesPrintOnTest(this.checked)">
+                    <span data-i18n="tcShowCompetencesOnTest">Print on Exam Sheet</span>
+                  </label>
+                  <label style="display:inline-flex;align-items:center;gap:4px;font-size:0.75rem;font-weight:700;color:#1e40af;cursor:pointer;">
+                    <input type="checkbox" id="testCompetencesDescPrintChk" onchange="tcToggleCompetenceDescriptionsPrint(this.checked)">
+                    <span data-i18n="tcIncludeDescriptions">Include Descriptions</span>
+                  </label>
+                  <button type="button" style="background:none;border:none;cursor:pointer;color:#ef4444;font-weight:900;font-size:1.1rem;padding:0;line-height:1;" onclick="tcRemoveAllTestCompetences()" title="Remove all competences" data-i18n-title="tcRemoveAllCompetences">&times;</button>
+                </div>
+              </div>
+              <div id="testCompetencesList" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Block 3: Assessment Criteria Card -->
+        <div class="tc-block-card" id="blockCriteria">
+          <div class="tc-block-header" onclick="tcToggleBlockCard('blockCriteria')">
+            <div class="tc-block-title-wrap">
+              <img src="../assets/icons/check.svg" style="width:16px;height:16px;" alt="" />
+              <span data-i18n="tcBlockCriteria">Assessment Criteria &amp; Rubrics</span>
+              <span class="tc-block-badge green" id="blockCritCountBadge">0 active</span>
+            </div>
+            <div class="tc-block-actions">
+              <button type="button" class="neo-btn sm" style="background:#d1fae5;color:#065f46;border-color:#059669;" onclick="event.stopPropagation(); tcSwitchDrawerTab('criteriadb'); tcToggleDrawer();">
+                + <span data-i18n="tcDrawerTabCriteriaDb">Browse</span>
+              </button>
+              <span class="card-drag-handle" id="blockCriteriaChevron" style="font-size:0.9rem;">▾</span>
+            </div>
+          </div>
+          <div class="tc-block-body" id="blockCriteriaBody">
+            <div id="testCriteriaBar" style="padding:4px 0;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span id="testCriteriaCountBadge" style="background:#d1fae5;border:1.5px solid #059669;color:#065f46;font-size:0.75rem;padding:2px 8px;border-radius:3px;font-weight:900;"></span>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                  <button type="button" class="neo-btn sm" style="background:#d1fae5;color:#065f46;border-color:#059669;" onclick="tcAddSectionBlockToExam('section_criteria')" title="Place a dedicated criteria rubric block in the exam question sequence" data-i18n-title="tcPlaceInExamFlowTooltip"><span data-i18n="tcPlaceInExamFlow">📍 Place in Exam Flow</span></button>
+                  <label style="display:inline-flex;align-items:center;gap:4px;font-size:0.75rem;font-weight:700;color:#065f46;cursor:pointer;">
+                    <input type="checkbox" id="testCriteriaPrintChk" onchange="tcToggleCriteriaPrintOnTest(this.checked)">
+                    <span data-i18n="tcShowCriteriaOnTest">Print on Exam Sheet</span>
+                  </label>
+                  <label style="display:inline-flex;align-items:center;gap:4px;font-size:0.75rem;font-weight:700;color:#065f46;cursor:pointer;">
+                    <input type="checkbox" id="testCriteriaDescPrintChk" onchange="tcToggleCriteriaDescPrint(this.checked)">
+                    <span data-i18n="tcIncludeDescriptions">Include Descriptions</span>
+                  </label>
+                  <button type="button" style="background:none;border:none;cursor:pointer;color:#ef4444;font-weight:900;font-size:1.1rem;padding:0;line-height:1;" onclick="tcRemoveAllTestCriteria()" title="Remove all criteria" data-i18n-title="tcRemoveAllCriteria">&times;</button>
+                </div>
+              </div>
+              <div id="testCriteriaItemsList" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Block 4: Grade Scale & Conversion Card -->
+        <div class="tc-block-card" id="blockGradeScale">
+          <div class="tc-block-header" onclick="tcToggleBlockCard('blockGradeScale')">
+            <div class="tc-block-title-wrap">
+              <img src="../assets/icons/percent.svg" style="width:16px;height:16px;" alt="" />
+              <span data-i18n="tcBlockGradeScale">Grading Scale &amp; Conversion</span>
+              <span class="tc-block-badge amber" id="blockScaleNameBadge">None</span>
+            </div>
+            <div class="tc-block-actions">
+              <span class="card-drag-handle" id="blockGradeScaleChevron" style="font-size:0.9rem;">▾</span>
+            </div>
+          </div>
+          <div class="tc-block-body" id="blockGradeScaleBody">
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-              <button type="button" class="neo-btn sm" style="background:#d1fae5;color:#065f46;border-color:#059669;" onclick="tcAddSectionBlockToExam('section_criteria')" title="Place a dedicated criteria rubric block in the exam question sequence" data-i18n-title="tcPlaceInExamFlowTooltip"><span data-i18n="tcPlaceInExamFlow">📍 Place in Exam Flow</span></button>
-              <label style="display:inline-flex;align-items:center;gap:4px;font-size:0.75rem;font-weight:700;color:#065f46;cursor:pointer;">
-                <input type="checkbox" id="testCriteriaPrintChk" onchange="tcToggleCriteriaPrintOnTest(this.checked)">
-                <span data-i18n="tcShowCriteriaOnTest">Print on Exam Sheet</span>
-              </label>
-              <label style="display:inline-flex;align-items:center;gap:4px;font-size:0.75rem;font-weight:700;color:#065f46;cursor:pointer;">
-                <input type="checkbox" id="testCriteriaDescPrintChk" onchange="tcToggleCriteriaDescPrint(this.checked)">
-                <span data-i18n="tcIncludeDescriptions">Include Descriptions</span>
-              </label>
-              <button type="button" style="background:none;border:none;cursor:pointer;color:#ef4444;font-weight:900;font-size:1.1rem;padding:0;line-height:1;" onclick="tcRemoveAllTestCriteria()" title="Remove all criteria" data-i18n-title="tcRemoveCriteria">&times;</button>
+              <span class="meta-lbl" data-i18n="tcGradeScaleLabel">Grade Scale:</span>
+              <select id="testScale" class="meta-select" onchange="tcOnDirty()">
+                <!-- Populated from TestCreatorService.DEFAULT_SCALES -->
+              </select>
+              <span id="tcScaleInheritedBadge" data-i18n="tcInheritedClassBadge" style="display:none;font-size:0.7rem;font-weight:900;background:#eff6ff;color:#1e40af;border:1.5px solid #2563eb;padding:3px 6px;border-radius:3px;box-shadow:1px 1px 0 #2563eb;white-space:nowrap;">[INHERITED: Class]</span>
+            </div>
+            <div id="testGradingScaleBar" style="padding:4px 0;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span id="testGradingScaleNameBadge" style="background:#fef3c7;border:1.5px solid #d97706;color:#92400e;font-size:0.75rem;padding:2px 8px;border-radius:3px;font-weight:900;"></span>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <button type="button" class="neo-btn sm" style="background:#fef3c7;color:#92400e;border-color:#d97706;" onclick="tcAddSectionBlockToExam('section_grading_scale')" title="Place a dedicated grading scale conversion block in the exam question sequence" data-i18n-title="tcPlaceInExamFlowTooltip"><span data-i18n="tcPlaceInExamFlow">📍 Place in Exam Flow</span></button>
+                  <label style="display:inline-flex;align-items:center;gap:4px;font-size:0.75rem;font-weight:700;color:#92400e;cursor:pointer;">
+                    <input type="checkbox" id="testGradingScalePrintChk" onchange="tcToggleScalePrintOnTest(this.checked)">
+                    <span data-i18n="tcShowScaleOnTest">Print on Exam Sheet</span>
+                  </label>
+                  <button type="button" style="background:none;border:none;cursor:pointer;color:#ef4444;font-weight:900;font-size:1.1rem;padding:0;line-height:1;" onclick="tcRemoveTestScale()" title="Remove scale" data-i18n-title="tcRemoveScale">&times;</button>
+                </div>
+              </div>
+              <div id="testGradingScaleStepsList" style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;"></div>
             </div>
           </div>
-          <div id="testCriteriaItemsList" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;"></div>
         </div>
 
-        <!-- Test-wide Grading Scale Bar -->
-        <div id="testGradingScaleBar" style="display:none;padding:10px 14px;background:#fffbeb;border:2.5px solid #d97706;border-radius:4px;margin:10px 15px 0 15px;box-shadow:2px 2px 0 #d97706;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px;">
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span style="font-weight:900;font-size:0.8rem;color:#92400e;text-transform:uppercase;letter-spacing:0.5px;" data-i18n="tcTestGradingScaleTitle">Active Test Grading Scale &amp; Conversion:</span>
-              <span id="testGradingScaleNameBadge" style="background:#fef3c7;border:1.5px solid #d97706;color:#92400e;font-size:0.75rem;padding:2px 8px;border-radius:3px;font-weight:900;"></span>
+        <!-- Block 5: Exam Exercises & Questions List -->
+        <div class="tc-block-card" id="blockExercisesList">
+          <div class="tc-block-header">
+            <div class="tc-block-title-wrap">
+              <img src="../assets/icons/file-text.svg" style="width:16px;height:16px;" alt="" />
+              <span data-i18n="tcBlockExercises">Exam Exercises &amp; Questions</span>
+              <span id="exerciseCountBadge" style="font-size:0.8rem;background:#111;color:#fff;padding:2px 8px;border-radius:4px;">0 exercises</span>
             </div>
-            <div style="display:flex;align-items:center;gap:10px;">
-              <button type="button" class="neo-btn sm" style="background:#fef3c7;color:#92400e;border-color:#d97706;" onclick="tcAddSectionBlockToExam('section_grading_scale')" title="Place a dedicated grading scale conversion block in the exam question sequence" data-i18n-title="tcPlaceInExamFlowTooltip"><span data-i18n="tcPlaceInExamFlow">📍 Place in Exam Flow</span></button>
-              <label style="display:inline-flex;align-items:center;gap:4px;font-size:0.75rem;font-weight:700;color:#92400e;cursor:pointer;">
-                <input type="checkbox" id="testGradingScalePrintChk" onchange="tcToggleScalePrintOnTest(this.checked)">
-                <span data-i18n="tcShowScaleOnTest">Print on Exam Sheet</span>
-              </label>
-              <button type="button" style="background:none;border:none;cursor:pointer;color:#ef4444;font-weight:900;font-size:1.1rem;padding:0;line-height:1;" onclick="tcRemoveTestScale()" title="Remove scale" data-i18n-title="tcRemoveScale">&times;</button>
+            <div class="tc-block-actions">
+              <button type="button" class="neo-btn sm" onclick="tcOpenGlobalStyleModal()" title="Customise base font size, line height, padding, numbered lines" data-i18n-title="tcGlobalStyleTooltip"><span data-i18n="tcBtnFormat">Style</span></button>
+              <button type="button" class="neo-btn primary sm" onclick="tcOpenAddExerciseModal()">+ <span data-i18n="tcAddExercise">Add Exercise</span></button>
             </div>
           </div>
-          <div id="testGradingScaleStepsList" style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;"></div>
+          <div class="tc-block-body" style="padding:10px 12px;">
+            <!-- Draggable Exercise Cards List -->
+            <div class="exercise-list" id="exerciseCardsList">
+              <!-- Populated by JavaScript -->
+            </div>
+
+            <!-- Add Exercise Bottom Bar -->
+            <div class="add-exercise-bar" style="flex-wrap:wrap;gap:6px;margin-top:10px;">
+              <span style="font-size:0.82rem;font-weight:800;text-transform:uppercase;color:var(--neo-gray-dark);" data-i18n="tcAddQuestionPrompt">+ Add Question:</span>
+              <button class="neo-btn sm" onclick="tcQuickAddExercise('cloze')" data-i18n="tcTypeCloze">Cloze</button>
+              <button class="neo-btn sm" onclick="tcQuickAddExercise('mcq')" data-i18n="tcTypeMcq">MCQ</button>
+              <button class="neo-btn sm" onclick="tcQuickAddExercise('open_question')" data-i18n="tcTypeOpenQuestion">Open Question</button>
+              <button class="neo-btn sm" onclick="tcQuickAddExercise('composition')" data-i18n="tcTypeComposition">Essay</button>
+              <button class="neo-btn sm" onclick="tcQuickAddExercise('matching')" data-i18n="tcTypeMatching">Matching</button>
+              <button class="neo-btn sm" onclick="tcQuickAddExercise('transformation')" data-i18n="tcTypeTransformation">Transformation</button>
+              <button class="neo-btn sm" onclick="tcQuickAddExercise('translation')" data-i18n="tcTypeTranslation">Translation</button>
+              <button class="neo-btn sm" onclick="tcQuickAddExercise('picture_description')" data-i18n="tcTypePicture">Picture</button>
+              <button class="neo-btn sm" onclick="tcQuickAddExercise('table_completion')" data-i18n="tcTypeTable">Table</button>
+              <button class="neo-btn sm" onclick="tcQuickAddExercise('odd_one_out')" data-i18n="tcTypeOddOneOut">Odd One Out</button>
+              <button class="neo-btn sm" onclick="tcQuickAddExercise('reading_comprehension')" data-i18n="tcTypeReading">Reading</button>
+              <span style="font-size:0.75rem;font-weight:900;color:#94a3b8;margin:0 4px;">|</span>
+              <button class="neo-btn sm" style="background:#dbeafe;color:#1e40af;border-color:#2563eb;" onclick="tcAddSectionBlockToExam('section_competences')">+ <span data-i18n="tcDrawerTabCompetences">Competences</span></button>
+              <button class="neo-btn sm" style="background:#d1fae5;color:#065f46;border-color:#059669;" onclick="tcAddSectionBlockToExam('section_criteria')">+ <span data-i18n="tcDrawerTabCriteriaDb">Criteria</span></button>
+              <button class="neo-btn sm" style="background:#fde68a;color:#92400e;border-color:#d97706;" onclick="tcAddSectionBlockToExam('section_grading_scale')">+ <span data-i18n="tcDrawerTabScales">Scale</span></button>
+            </div>
+          </div>
         </div>
 
-        <!-- Draggable Exercise Cards List -->
-        <div class="exercise-list" id="exerciseCardsList">
-          <!-- Populated by JavaScript -->
-        </div>
+      </div><!-- /tc-blocks-column -->
 
-        <!-- Add Exercise Bottom Bar -->
-        <div class="add-exercise-bar" style="flex-wrap:wrap;gap:6px;">
-          <span style="font-size:0.82rem;font-weight:800;text-transform:uppercase;color:var(--neo-gray-dark);" data-i18n="tcAddQuestionPrompt">+ Add Question:</span>
-          <button class="neo-btn sm" onclick="tcQuickAddExercise('cloze')" data-i18n="tcTypeCloze">Cloze</button>
-          <button class="neo-btn sm" onclick="tcQuickAddExercise('mcq')" data-i18n="tcTypeMcq">MCQ</button>
-          <button class="neo-btn sm" onclick="tcQuickAddExercise('open_question')" data-i18n="tcTypeOpenQuestion">Open Question</button>
-          <button class="neo-btn sm" onclick="tcQuickAddExercise('composition')" data-i18n="tcTypeComposition">Essay</button>
-          <button class="neo-btn sm" onclick="tcQuickAddExercise('matching')" data-i18n="tcTypeMatching">Matching</button>
-          <button class="neo-btn sm" onclick="tcQuickAddExercise('transformation')" data-i18n="tcTypeTransformation">Transformation</button>
-          <button class="neo-btn sm" onclick="tcQuickAddExercise('translation')" data-i18n="tcTypeTranslation">Translation</button>
-          <button class="neo-btn sm" onclick="tcQuickAddExercise('picture_description')" data-i18n="tcTypePicture">Picture</button>
-          <button class="neo-btn sm" onclick="tcQuickAddExercise('table_completion')" data-i18n="tcTypeTable">Table</button>
-          <button class="neo-btn sm" onclick="tcQuickAddExercise('odd_one_out')" data-i18n="tcTypeOddOneOut">Odd One Out</button>
-          <button class="neo-btn sm" onclick="tcQuickAddExercise('reading_comprehension')" data-i18n="tcTypeReading">Reading</button>
-          <span style="font-size:0.75rem;font-weight:900;color:#94a3b8;margin:0 4px;">|</span>
-          <button class="neo-btn sm" style="background:#dbeafe;color:#1e40af;border-color:#2563eb;" onclick="tcAddSectionBlockToExam('section_competences')">+ <span data-i18n="tcDrawerTabCompetences">Competences</span></button>
-          <button class="neo-btn sm" style="background:#d1fae5;color:#065f46;border-color:#059669;" onclick="tcAddSectionBlockToExam('section_criteria')">+ <span data-i18n="tcDrawerTabCriteriaDb">Criteria</span></button>
-          <button class="neo-btn sm" style="background:#fde68a;color:#92400e;border-color:#d97706;" onclick="tcAddSectionBlockToExam('section_grading_scale')">+ <span data-i18n="tcDrawerTabScales">Scale</span></button>
+      <!-- Slide-Out Resource Drawer (Flyout) -->
+      <div class="test-drawer" id="testDrawer" style="display:none;">
+        <div class="drawer-header" style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--neo-dark);color:#fff;border-bottom:2px solid var(--neo-dark);">
+          <span style="font-weight:900;font-size:0.85rem;text-transform:uppercase;letter-spacing:0.5px;display:flex;align-items:center;gap:6px;">
+            <img src="../assets/icons/folder.svg" alt="" style="width:14px;height:14px;filter:brightness(0) invert(1);" />
+            <span data-i18n="tcDrawerBtn">Resources</span>
+          </span>
+          <button type="button" class="neo-btn sm" onclick="tcToggleDrawer()" style="background:#333;color:#fff;border-color:#555;padding:1px 6px;line-height:1;font-size:1rem;">&times;</button>
         </div>
-      </div>
-
-      <!-- Right Panel: Resizable Resource Drawer -->
-      <div class="test-drawer" id="testDrawer">
         <div class="drawer-resizer-handle" id="drawerResizer" title="Drag to resize panel width" data-i18n-title="tcResizeDrawerTooltip"></div>
 
         <!-- Drawer Tab Switchers -->
@@ -526,64 +660,72 @@
           </div>
         </div>
 
-      </div>
-    </div>
+      </div><!-- /testDrawer -->
 
-  </div>
+      <!-- Center Split Resizer Handle -->
+      <div class="tc-split-resizer" id="mainSplitResizer" title="Drag to resize blocks vs preview column"></div>
+
+      <!-- Right Column: Live A4 Print Preview -->
+      <div class="tc-preview-column zoom-fit" id="tcPreviewColumn">
+        <div class="preview-toolbar">
+          <span style="font-weight:900;text-transform:uppercase;font-size:0.8rem;display:flex;align-items:center;gap:6px;letter-spacing:0.3px;">
+            <img src="../assets/icons/printer.svg" alt="" style="width:14px;height:14px;filter:brightness(0) invert(1);" />
+            <span data-i18n="tcLivePreviewTitle">Live Print Preview</span>
+          </span>
+
+          <label style="display:flex;align-items:center;gap:5px;font-size:0.78rem;font-weight:700;cursor:pointer;margin-left:6px;">
+            <input type="checkbox" id="previewTeacherKeyToggle" onchange="tcUpdatePrintPreview()">
+            <span style="color:#f87171;" data-i18n="tcTeacherKeyLabel">Teacher Key</span>
+          </label>
+
+          <div style="display:flex;align-items:center;gap:3px;font-size:0.78rem;font-weight:700;margin-left:4px;">
+            <span data-i18n="tcVariant">Var:</span>
+            <select id="previewVariantSelect" class="meta-select" style="padding:2px 5px;font-size:0.78rem;" onchange="tcUpdatePrintPreview()">
+              <option value="A" data-i18n="tcVariantGroupA">Group A</option>
+              <option value="B" data-i18n="tcVariantGroupB">Group B</option>
+            </select>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:3px;font-size:0.78rem;font-weight:700;margin-left:4px;">
+            <select id="previewThemeSelect" class="meta-select" style="padding:2px 5px;font-size:0.78rem;" onchange="tcOnPreviewThemeChange(this.value)">
+              <option value="academic" data-i18n="tcThemeAcademic">Academic</option>
+              <option value="neobrutalist" data-i18n="tcThemeNeobrutalist">Neobrutalist</option>
+              <option value="dyslexic" data-i18n="tcThemeDyslexic">Dyslexic</option>
+            </select>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:3px;font-size:0.78rem;font-weight:700;margin-left:4px;">
+            <select id="previewMarginsSelect" class="meta-select" style="padding:2px 5px;font-size:0.78rem;" onchange="tcOnPreviewMarginsChange(this.value)">
+              <option value="normal" data-i18n="tcMarginNormal">Normal (15mm)</option>
+              <option value="narrow" data-i18n="tcMarginNarrow">Narrow (10mm)</option>
+              <option value="wide" data-i18n="tcMarginWide">Wide (25mm)</option>
+            </select>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:3px;font-size:0.78rem;font-weight:700;margin-left:4px;">
+            <select id="previewZoomSelect" class="meta-select" style="padding:2px 5px;font-size:0.78rem;" onchange="tcSetPreviewZoom(this.value)">
+              <option value="fit" data-i18n="tcZoomFit">Fit</option>
+              <option value="100" data-i18n="tcZoom100">100%</option>
+              <option value="75" data-i18n="tcZoom75">75%</option>
+            </select>
+          </div>
+
+          <div style="margin-left:auto;display:flex;align-items:center;gap:5px;">
+            <button type="button" class="neo-btn success sm" onclick="tcPrintDocument()"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /> <span data-i18n="tcPrintSavePdfBtn">Print/PDF</span></button>
+            <button type="button" class="neo-btn sm" onclick="tcOpenExportModal()" title="Export Exam…" data-i18n-title="tcExportExam"><span data-i18n="menuExport">Export</span></button>
+          </div>
+        </div>
+
+        <div class="preview-canvas-wrap" id="previewCanvasWrap">
+          <!-- Renders live A4 sheets -->
+        </div>
+      </div><!-- /tc-preview-column -->
+
+    </div><!-- /mainWorkspace -->
+
+  </div><!-- /app-container -->
 
   <!-- ── Modals ─────────────────────────────────────────────────────────────── -->
-
-  <!-- 1. Dedicated Print / PDF Preview Modal (Document Editor Style) -->
-  <div id="printPreviewModal" class="modal-overlay" onclick="if(event.target===this)tcClosePrintPreview()">
-    <div class="modal-box preview-modal-box">
-      <div class="preview-toolbar">
-        <span style="font-weight:900;text-transform:uppercase;margin-right:12px;"><span data-i18n="tcPrintPreview">Print / PDF Preview</span></span>
-        
-        <label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;font-weight:700;cursor:pointer;">
-          <input type="checkbox" id="previewTeacherKeyToggle" onchange="tcUpdatePrintPreview()">
-          <span style="color:#f87171;" data-i18n="tcTeacherKeyLabel">Teacher Solution Key</span>
-        </label>
-
-        <div style="display:flex;align-items:center;gap:6px;font-size:0.82rem;font-weight:700;margin-left:10px;">
-          <span data-i18n="tcVariant">Variant:</span>
-          <select id="previewVariantSelect" class="meta-select" style="padding:2px 8px;font-size:0.8rem;" onchange="tcUpdatePrintPreview()">
-            <option value="A" data-i18n="tcVariantGroupA">Group A</option>
-            <option value="B" data-i18n="tcVariantGroupB">Group B</option>
-          </select>
-        </div>
-
-        <div style="display:flex;align-items:center;gap:6px;font-size:0.82rem;font-weight:700;margin-left:10px;">
-          <span data-i18n="tcThemeLabel">Theme:</span>
-          <select id="previewThemeSelect" class="meta-select" style="padding:2px 8px;font-size:0.8rem;" onchange="tcOnPreviewThemeChange(this.value)">
-            <option value="academic" data-i18n="tcThemeAcademic">Academic Classic</option>
-            <option value="neobrutalist" data-i18n="tcThemeNeobrutalist">Modern Neobrutalist</option>
-            <option value="dyslexic" data-i18n="tcThemeDyslexic">Dyslexic Friendly</option>
-          </select>
-        </div>
-
-        <div style="display:flex;align-items:center;gap:6px;font-size:0.82rem;font-weight:700;margin-left:10px;">
-          <span data-i18n="tcMargins">Margins:</span>
-          <select id="previewMarginsSelect" class="meta-select" style="padding:2px 8px;font-size:0.8rem;" onchange="tcOnPreviewMarginsChange(this.value)">
-            <option value="normal" data-i18n="tcMarginNormal">Normal (15mm)</option>
-            <option value="narrow" data-i18n="tcMarginNarrow">Narrow (10mm)</option>
-            <option value="wide" data-i18n="tcMarginWide">Wide (25mm)</option>
-            <option value="custom" data-i18n="tcMarginCustom">Custom…</option>
-          </select>
-        </div>
-
-        <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
-          <button class="neo-btn sm yellow" onclick="tcOpenHeaderCustomizerModal()" title="Customise Header &amp; Materials" data-i18n-title="tcCustomiseHeaderMaterialsTooltip"><img src="../assets/icons/layout.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> <span data-i18n="tcBtnHeaderCustomise">Header</span></button>
-          <button class="neo-btn sm" onclick="tcOpenGlobalStyleModal()" title="Customise font, line spacing, padding, line numbering" data-i18n-title="tcGlobalStyleModalTooltip"><span data-i18n="tcBtnFormat">Style</span></button>
-          <button class="neo-btn success sm" onclick="tcPrintDocument()"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> <span data-i18n="tcPrintSavePdfBtn">Print / Save PDF</span></button>
-          <button class="neo-btn sm" onclick="tcClosePrintPreview()">&times;</button>
-        </div>
-      </div>
-
-      <div class="preview-canvas-wrap" id="previewCanvasWrap">
-        <!-- Renders A4 sheets -->
-      </div>
-    </div>
-  </div>
 
   <!-- 2. Export Modal -->
   <div id="exportModal" class="modal-overlay" onclick="if(event.target===this)tcCloseExportModal()">
@@ -2244,6 +2386,7 @@
         renderExerciseCards();
         tcLoadDrawerContent();
         setupResizer();
+        initMainSplitResizer();
         setupExerciseDragAndDrop();
         tcCheckUrlExerciseDeepLink();
       });
@@ -2941,6 +3084,15 @@
         if (currentTest.classId && typeof tcResolveClassInheritedContext === 'function') {
           tcResolveClassInheritedContext(currentTest.classId);
         }
+        if (typeof tcSyncHeaderBlockFromState === 'function') {
+          tcSyncHeaderBlockFromState();
+        }
+        if (typeof tcUpdateBlockBadges === 'function') {
+          tcUpdateBlockBadges();
+        }
+        if (typeof tcScheduleLivePreviewUpdate === 'function') {
+          tcScheduleLivePreviewUpdate(60);
+        }
       }
 
       function tcGetActiveTestUrn() {
@@ -3008,6 +3160,173 @@
         }
       }
 
+      var _tcLivePreviewDebounceTimer = null;
+      window.tcScheduleLivePreviewUpdate = function (delayMs) {
+        if (_tcLivePreviewDebounceTimer) clearTimeout(_tcLivePreviewDebounceTimer);
+        _tcLivePreviewDebounceTimer = setTimeout(function () {
+          if (typeof tcUpdatePrintPreview === 'function') {
+            tcUpdatePrintPreview();
+          }
+        }, typeof delayMs === 'number' ? delayMs : 180);
+      };
+
+      window.tcUpdateBlockBadges = function () {
+        if (!currentTest) return;
+        var total = typeof TestCreatorService !== 'undefined' ? TestCreatorService.calculateTotalTestPoints(currentTest) : 0;
+        var dur = currentTest.durationMinutes || 45;
+        var exCount = Array.isArray(currentTest.exercises) ? currentTest.exercises.length : 0;
+        var compCount = Array.isArray(currentTest.competences) ? currentTest.competences.length : 0;
+        var critCount = Array.isArray(currentTest.evaluationCriteria) ? currentTest.evaluationCriteria.length : 0;
+
+        var hBadge = document.getElementById('hdrSummaryBadge');
+        if (hBadge) hBadge.textContent = dur + ' min • ' + total + ' pts';
+
+        var compBadge = document.getElementById('blockCompCountBadge');
+        if (compBadge) compBadge.textContent = compCount + ' linked';
+
+        var critBadge = document.getElementById('blockCritCountBadge');
+        if (critBadge) critBadge.textContent = critCount + ' active';
+
+        var scBadge = document.getElementById('blockScaleNameBadge');
+        if (scBadge) {
+          var scId = currentTest.scaleModelId || (currentTest.scaleModel && currentTest.scaleModel.id) || 'none';
+          scBadge.textContent = scId === 'none' ? 'None' : (currentTest.scaleModel ? (currentTest.scaleModel.name || scId) : scId);
+        }
+
+        var exBadge = document.getElementById('exerciseCountBadge');
+        if (exBadge) exBadge.textContent = exCount + (exCount === 1 ? ' exercise' : ' exercises');
+      };
+
+      window.tcToggleBlockCard = function (blockId) {
+        var card = document.getElementById(blockId);
+        if (!card) return;
+        card.classList.toggle('collapsed');
+        var chevron = card.querySelector('.card-drag-handle');
+        if (chevron) {
+          chevron.textContent = card.classList.contains('collapsed') ? '▸' : '▾';
+        }
+      };
+
+      window.tcCollapseAllBlocks = function () {
+        ['blockExamHeader', 'blockCompetences', 'blockCriteria', 'blockGradeScale'].forEach(function (id) {
+          var c = document.getElementById(id);
+          if (c) {
+            c.classList.add('collapsed');
+            var ch = c.querySelector('.card-drag-handle');
+            if (ch) ch.textContent = '▸';
+          }
+        });
+      };
+
+      window.tcExpandAllBlocks = function () {
+        ['blockExamHeader', 'blockCompetences', 'blockCriteria', 'blockGradeScale'].forEach(function (id) {
+          var c = document.getElementById(id);
+          if (c) {
+            c.classList.remove('collapsed');
+            var ch = c.querySelector('.card-drag-handle');
+            if (ch) ch.textContent = '▾';
+          }
+        });
+      };
+
+      window.tcSetPreviewZoom = function (zoomVal) {
+        var col = document.getElementById('tcPreviewColumn');
+        if (!col) return;
+        col.classList.remove('zoom-fit', 'zoom-100', 'zoom-75');
+        col.classList.add('zoom-' + zoomVal);
+        var sel = document.getElementById('previewZoomSelect');
+        if (sel && sel.value !== zoomVal) sel.value = zoomVal;
+        try { localStorage.setItem('cmt_tc_preview_zoom', zoomVal); } catch (_) {}
+      };
+
+      window.tcSyncHeaderBlockFromState = function () {
+        if (!currentTest) return;
+        var hc = TestCreatorService.ensureHeaderConfig(currentTest);
+
+        var chkMap = {
+          blockHdrNameChk: hc.showStudentName !== false,
+          blockHdrClassChk: hc.showClass !== false,
+          blockHdrDateChk: hc.showDate !== false,
+          blockHdrTeacherChk: hc.showTeacher !== false,
+          blockHdrDurationChk: hc.showDuration !== false,
+          blockHdrPointsBoxChk: hc.showTotalPoints !== false,
+          blockHdrGradeBoxChk: !!hc.showGradingScale,
+          blockHdrMaterialsPrintChk: hc.showMaterials !== false,
+          blockHdrInstructionsPrintChk: !!hc.showInstructions
+        };
+        for (var k in chkMap) {
+          var el = document.getElementById(k);
+          if (el) el.checked = chkMap[k];
+        }
+
+        var instEl = document.getElementById('blockHdrInstructionsInput');
+        if (instEl) {
+          instEl.value = hc.instructionsText || '';
+        }
+
+        // Render allowed materials preset chips
+        var pool = document.getElementById('blockMaterialsChipsPool');
+        if (pool) {
+          var curMats = Array.isArray(currentTest.materialsAllowed) ? currentTest.materialsAllowed : ['Pen & Pencil only'];
+          var builtins = (TestCreatorService && TestCreatorService.DEFAULT_MATERIALS) ? TestCreatorService.DEFAULT_MATERIALS : [
+            'Pen & Pencil only', 'Ruler', 'Calculator', 'Dictionary', 'Rough paper', 'Highlighter', 'Formula sheet'
+          ];
+          var allPresets = builtins.slice();
+          curMats.forEach(function (m) {
+            if (allPresets.indexOf(m) === -1) allPresets.push(m);
+          });
+          pool.innerHTML = allPresets.map(function (mat) {
+            var isSel = curMats.indexOf(mat) !== -1;
+            return '<label class="tc-chip-toggle">' +
+              '<input type="checkbox" ' + (isSel ? 'checked' : '') + ' onchange="tcToggleBlockMaterialPreset(\'' + escapeAttr(mat) + '\', this.checked)">' +
+              '<span>' + escapeHtml(mat) + '</span>' +
+            '</label>';
+          }).join('');
+        }
+      };
+
+      window.tcToggleBlockMaterialPreset = function (mat, isChecked) {
+        if (!currentTest) return;
+        if (!Array.isArray(currentTest.materialsAllowed)) {
+          currentTest.materialsAllowed = [];
+        }
+        var idx = currentTest.materialsAllowed.indexOf(mat);
+        if (isChecked && idx === -1) {
+          currentTest.materialsAllowed.push(mat);
+        } else if (!isChecked && idx !== -1) {
+          currentTest.materialsAllowed.splice(idx, 1);
+        }
+        tcOnDirty();
+      };
+
+      window.tcSyncHeaderBlockToState = function () {
+        if (!currentTest) return;
+        var hc = TestCreatorService.ensureHeaderConfig(currentTest);
+
+        var nEl = document.getElementById('blockHdrNameChk');
+        if (nEl) hc.showStudentName = nEl.checked;
+        var cEl = document.getElementById('blockHdrClassChk');
+        if (cEl) hc.showClass = cEl.checked;
+        var dEl = document.getElementById('blockHdrDateChk');
+        if (dEl) hc.showDate = dEl.checked;
+        var tEl = document.getElementById('blockHdrTeacherChk');
+        if (tEl) hc.showTeacher = tEl.checked;
+        var duEl = document.getElementById('blockHdrDurationChk');
+        if (duEl) hc.showDuration = duEl.checked;
+        var pEl = document.getElementById('blockHdrPointsBoxChk');
+        if (pEl) hc.showTotalPoints = pEl.checked;
+        var gEl = document.getElementById('blockHdrGradeBoxChk');
+        if (gEl) hc.showGradingScale = gEl.checked;
+        var mEl = document.getElementById('blockHdrMaterialsPrintChk');
+        if (mEl) hc.showMaterials = mEl.checked;
+        var iEl = document.getElementById('blockHdrInstructionsPrintChk');
+        if (iEl) hc.showInstructions = iEl.checked;
+        var inTextEl = document.getElementById('blockHdrInstructionsInput');
+        if (inTextEl) hc.instructionsText = inTextEl.value.trim();
+
+        tcOnDirty();
+      };
+
       window.tcOnDirty = function () {
         currentTest.title = document.getElementById('testTitle').value.trim();
         currentTest.subject = document.getElementById('testSubject').value;
@@ -3024,9 +3343,10 @@
           }
         }
         updatePointsBadge();
-        if (document.getElementById('printPreviewModal') && document.getElementById('printPreviewModal').classList.contains('open')) {
-          tcUpdatePrintPreview();
+        if (typeof tcUpdateBlockBadges === 'function') {
+          tcUpdateBlockBadges();
         }
+        tcScheduleLivePreviewUpdate();
       };
 
       window.tcOnClassChange = async function () {
@@ -4953,9 +5273,8 @@
       };
 
       function tcRefreshPrintPreviewIfOpen() {
-        var modal = document.getElementById('printPreviewModal');
-        if (modal && modal.classList.contains('open')) {
-          tcUpdatePrintPreview();
+        if (typeof tcScheduleLivePreviewUpdate === 'function') {
+          tcScheduleLivePreviewUpdate();
         }
       }
 
@@ -8595,6 +8914,7 @@
       function setupResizer() {
         var handle = document.getElementById('drawerResizer');
         var drawer = document.getElementById('testDrawer');
+        if (!handle || !drawer) return;
         var isDragging = false;
 
         handle.addEventListener('mousedown', function (e) {
@@ -8618,6 +8938,65 @@
             handle.classList.remove('dragging');
             document.body.style.cursor = '';
             document.body.style.userSelect = '';
+          }
+        });
+      }
+
+      // Main Center Split Resizer (Blocks Deck vs Live Preview)
+      function initMainSplitResizer() {
+        var resizer = document.getElementById('mainSplitResizer');
+        var blocksCol = document.getElementById('tcBlocksColumn');
+        var previewCol = document.getElementById('tcPreviewColumn');
+        var workspace = document.querySelector('.main-workspace');
+        if (!resizer || !blocksCol || !previewCol || !workspace) return;
+
+        var isDragging = false;
+
+        // Restore saved ratio if available
+        try {
+          var savedRatio = localStorage.getItem('cmt_tc_split_ratio');
+          if (savedRatio) {
+            var r = parseFloat(savedRatio);
+            if (r >= 0.25 && r <= 0.75) {
+              blocksCol.style.flex = '0 0 ' + (r * 100) + '%';
+              previewCol.style.flex = '1 1 auto';
+            }
+          }
+          var savedZoom = localStorage.getItem('cmt_tc_preview_zoom');
+          if (savedZoom && typeof tcSetPreviewZoom === 'function') {
+            tcSetPreviewZoom(savedZoom);
+          }
+        } catch (_) {}
+
+        resizer.addEventListener('mousedown', function (e) {
+          isDragging = true;
+          resizer.classList.add('dragging');
+          document.body.style.cursor = 'col-resize';
+          document.body.style.userSelect = 'none';
+        });
+
+        window.addEventListener('mousemove', function (e) {
+          if (!isDragging) return;
+          var rect = workspace.getBoundingClientRect();
+          var offset = e.clientX - rect.left;
+          var totalW = rect.width;
+          if (totalW > 100) {
+            var ratio = Math.max(0.25, Math.min(0.75, offset / totalW));
+            blocksCol.style.flex = '0 0 ' + (ratio * 100) + '%';
+            previewCol.style.flex = '1 1 auto';
+            try { localStorage.setItem('cmt_tc_split_ratio', ratio.toFixed(3)); } catch (_) {}
+          }
+        });
+
+        window.addEventListener('mouseup', function () {
+          if (isDragging) {
+            isDragging = false;
+            resizer.classList.remove('dragging');
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            if (typeof tcScheduleLivePreviewUpdate === 'function') {
+              tcScheduleLivePreviewUpdate(60);
+            }
           }
         });
       }
@@ -8752,9 +9131,7 @@
       window.tcCloseGlobalStyleModal = function () {
         document.getElementById('styleCustomisationModal').classList.remove('open');
         renderExerciseCards();
-        if (document.getElementById('printPreviewModal').classList.contains('open')) {
-          tcUpdatePrintPreview();
-        }
+        tcScheduleLivePreviewUpdate();
       };
 
       window.tcOnGlobalStyleChange = function () {
@@ -8995,9 +9372,7 @@
         if (document.getElementById('styleCustomisationModal').classList.contains('open')) {
           tcRenderStyleExTable();
         }
-        if (document.getElementById('printPreviewModal').classList.contains('open')) {
-          tcUpdatePrintPreview();
-        }
+        tcScheduleLivePreviewUpdate();
       };
 
       // ── Header Customizer & Allowed Materials Controller ────────────────────
@@ -9346,9 +9721,10 @@
         document.getElementById('headerCustomizerModal').classList.remove('open');
         document.body.classList.remove('modal-open');
         tcSaveCurrentTest(false);
-        if (document.getElementById('printPreviewModal').classList.contains('open')) {
-          tcUpdatePrintPreview();
+        if (typeof tcSyncHeaderBlockFromState === 'function') {
+          tcSyncHeaderBlockFromState();
         }
+        tcScheduleLivePreviewUpdate();
       };
 
       window.tcSwitchHeaderTab = function (tabName) {
@@ -9690,9 +10066,12 @@
         container.innerHTML = html;
       };
 
-      // ── Dedicated Print & PDF Preview Modal (Exact PDF rendition) ─────────
+      // ── Live Print & PDF Preview Studio Column ───────────────────────────
       window.tcOpenPrintPreview = function () {
-        document.getElementById('printPreviewModal').classList.add('open');
+        var col = document.getElementById('tcPreviewColumn');
+        if (col) {
+          col.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
         var prevSel = document.getElementById('previewMarginsSelect');
         if (prevSel && currentTest && currentTest.exportStyle && currentTest.exportStyle.margins) {
           prevSel.value = currentTest.exportStyle.margins.preset || 'custom';
@@ -9718,7 +10097,8 @@
       };
 
       window.tcClosePrintPreview = function () {
-        document.getElementById('printPreviewModal').classList.remove('open');
+        var modal = document.getElementById('printPreviewModal');
+        if (modal) modal.classList.remove('open');
       };
 
       var _tcPreviewAbortController = 0;

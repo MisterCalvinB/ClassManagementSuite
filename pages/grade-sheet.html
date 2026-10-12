@@ -1928,28 +1928,40 @@
     }
 
     function parseObservationChipItem(item) {
-      if (!item) return { name: '', count: 1 };
+      if (!item) return { name: '', count: 1, comment: '' };
       if (typeof item === 'object') {
         const rawName = String(item.name || item.label || item.chipName || '').trim();
         const parsed = parseObservationChipItem(rawName);
         const count = Number(item.count) || parsed.count || 1;
-        return { name: parsed.name, count: Math.max(1, count) };
+        const comment = String(item.comment || parsed.comment || '').trim();
+        return { name: parsed.name, count: Math.max(1, count), comment };
       }
       const str = String(item || '').trim();
-      const match = str.match(/^(.*?)(?:\s*(?:\((?:x|×)?(\d+)\)|(?:x|×)(\d+)))$/i);
+      let comment = '';
+      let chipPart = str;
+      const colonIdx = str.indexOf(':');
+      if (colonIdx !== -1) {
+        chipPart = str.slice(0, colonIdx).trim();
+        comment = str.slice(colonIdx + 1).trim();
+      }
+      const match = chipPart.match(/^(.*?)(?:\s*(?:\((?:x|×)?(\d+)\)|(?:x|×)(\d+)))$/i);
       if (match) {
         const baseName = (match[1] || '').trim();
         const count = parseInt(match[2] || match[3], 10) || 1;
-        return { name: baseName || str, count: Math.max(1, count) };
+        return { name: baseName || chipPart, count: Math.max(1, count), comment };
       }
-      return { name: str, count: 1 };
+      return { name: chipPart, count: 1, comment };
     }
 
-    function formatObservationChipItem(name, count) {
+    function formatObservationChipItem(name, count, comment) {
       const c = Math.max(1, Number(count) || 1);
       const n = String(name || '').trim();
-      if (c > 1) return `${n} (x${c})`;
-      return n;
+      const comm = String(comment || '').trim();
+      const countPart = c > 1 ? ` (x${c})` : '';
+      if (comm) {
+        return `${n}${countPart}: ${comm}`;
+      }
+      return `${n}${countPart}`;
     }
 
     function cloneObservationSection(section) {
@@ -1960,7 +1972,7 @@
         checklist: Array.isArray(section && section.checklist)
           ? section.checklist.map(v => {
               if (v && typeof v === 'object' && v.name) {
-                return formatObservationChipItem(v.name, v.count);
+                return formatObservationChipItem(v.name, v.count, v.comment);
               }
               return String(v || "").trim();
             }).filter(Boolean)
@@ -2122,7 +2134,7 @@
       return Array.isArray(section && section.checklist)
         ? section.checklist.map(s => {
             if (s && typeof s === 'object' && s.name) {
-              return formatObservationChipItem(s.name, s.count);
+              return formatObservationChipItem(s.name, s.count, s.comment);
             }
             return String(s || "").trim();
           }).filter(Boolean)
@@ -2184,8 +2196,12 @@
       const multiplierBadge = count > 1
         ? `<sup class="obs-pill-multiplier" style="font-size:0.68em;font-weight:800;line-height:0;vertical-align:super;margin-left:2px;margin-right:3px;display:inline-block;white-space:nowrap;pointer-events:none;">x${count}</sup>`
         : "";
+      const comment = parsed.comment;
+      const commentSpan = comment
+        ? `<span class="obs-pill-comment" style="font-weight:600;margin-left:2px;font-style:italic;opacity:0.92;">: ${escapeHtml(comment)}</span>`
+        : "";
 
-      return `<span class="${pillClass}" style="display:inline-block;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700;line-height:1.15;margin:1px 2px 1px 0;background:${bg};color:${color};border:1.5px solid ${border};box-shadow:1px 1px 0 rgba(0,0,0,0.12);">${escapeHtml(name)}${multiplierBadge}</span>`;
+      return `<span class="${pillClass}" style="display:inline-block;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700;line-height:1.15;margin:1px 2px 1px 0;background:${bg};color:${color};border:1.5px solid ${border};box-shadow:1px 1px 0 rgba(0,0,0,0.12);">${escapeHtml(name)}${multiplierBadge}${commentSpan}</span>`;
     }
 
     function groupObservationChipsByCategory(chips, sectionLabel, bankFilename) {
@@ -6350,7 +6366,7 @@
         }
         const modalClChips = document.querySelectorAll("#student-modal .note-checklist-chip");
         modalClChips.forEach(chip => {
-          chip.classList.remove("selected");
+          chip.classList.remove("selected", "has-comment");
           chip.setAttribute("aria-pressed", "false");
           const chipName = chip.dataset.chipName || chip.textContent.replace(/x\d+$/, '').trim();
           chip.innerHTML = escapeHtml(chipName);
@@ -13110,7 +13126,12 @@
 
             if (catGroups.length > 0) {
               catGroups.forEach(cg => {
-                const chipsStr = cg.chips.map(c => `\`[${c}]\``).join(" ");
+                const chipsStr = cg.chips.map(c => {
+                  const p = (c && typeof c === 'object') ? c : parseObservationChipItem(c);
+                  const countStr = p.count > 1 ? ` (x${p.count})` : '';
+                  const commentStr = p.comment ? `: ${p.comment}` : '';
+                  return `\`[${p.name}${countStr}${commentStr}]\``;
+                }).join(" ");
                 sections.push(`- *${cg.category}:* ${chipsStr}`);
               });
             }
@@ -16071,6 +16092,108 @@
         }, 50);
       }
 
+      function openChipCommentPopup(opts) {
+        const { chipName, category, section, currentCount, currentComment, secColor, onSave } = opts;
+        let overlay = document.getElementById('gs-chip-comment-modal-overlay');
+        if (!overlay) {
+          overlay = document.createElement('div');
+          overlay.id = 'gs-chip-comment-modal-overlay';
+          overlay.className = 'gs-chip-comment-overlay';
+          document.body.appendChild(overlay);
+        }
+        overlay.classList.remove('hidden');
+        overlay.style.display = 'flex';
+
+        const titleText = (t('gsChipCommentPopupTitle', 'Note on Chip: {chip}')).replace('{chip}', chipName);
+        const secLabel = section && section.label ? section.label : '';
+        const effectiveColor = secColor || '#0284c7';
+
+        overlay.innerHTML = `
+          <div class="gs-chip-comment-card" role="dialog" aria-modal="true">
+            <div class="gs-chip-comment-header">
+              <div class="gs-chip-comment-title">
+                <img src="../assets/icons/speech-bubbles.svg" style="width:18px;height:18px;" alt="" />
+                <span>${escapeHtml(titleText)}</span>
+              </div>
+              <button type="button" id="gs-chip-comment-close" class="btn btn-xs gs-chip-comment-close">✕</button>
+            </div>
+            <div class="gs-chip-comment-meta">
+              ${secLabel ? `<span class="gs-chip-comment-sec-badge" style="border-left:3px solid ${effectiveColor};">${escapeHtml(secLabel)}</span>` : ''}
+              ${category ? `<span class="note-checklist-section-tag" style="pointer-events:none;${effectiveColor ? `--note-accent:${effectiveColor};` : ''}">${escapeHtml(category)}</span>` : ''}
+              <span class="gs-chip-comment-chip-name">${escapeHtml(chipName)}</span>
+            </div>
+            <div class="gs-chip-comment-body">
+              <label class="gs-chip-comment-label" for="gs-chip-comment-text-input">${t('gsChipCommentLabel', 'Secondary Note / Comment')}</label>
+              <input type="text" id="gs-chip-comment-text-input" class="input gs-chip-comment-input" placeholder="${t('gsChipCommentPlaceholder', 'e.g. Needs clearer examples, very expressive, etc.')}" autocomplete="off" value="${escapeHtml(currentComment || '')}" />
+            </div>
+            <div class="gs-chip-comment-actions">
+              <div>
+                ${currentComment ? `<button type="button" id="gs-chip-comment-clear" class="btn btn-danger-outline">${t('gsChipCommentClear', 'Remove Note')}</button>` : ''}
+              </div>
+              <div class="gs-chip-comment-actions-right">
+                <button type="button" id="gs-chip-comment-cancel" class="btn">${t('gsAddChipBtnCancel', 'Cancel')}</button>
+                <button type="button" id="gs-chip-comment-save" class="btn btn-primary">
+                  ${t('gsChipCommentSave', 'Save Note')}
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+
+        const textInput = document.getElementById('gs-chip-comment-text-input');
+        const closeBtn = document.getElementById('gs-chip-comment-close');
+        const cancelBtn = document.getElementById('gs-chip-comment-cancel');
+        const saveBtn = document.getElementById('gs-chip-comment-save');
+        const clearBtn = document.getElementById('gs-chip-comment-clear');
+
+        function closePopup() {
+          overlay.style.display = 'none';
+          overlay.classList.add('hidden');
+          document.removeEventListener('keydown', onKeyDown);
+        }
+
+        function submitComment(commentVal) {
+          closePopup();
+          if (typeof onSave === 'function') {
+            onSave(commentVal);
+          }
+        }
+
+        if (closeBtn) closeBtn.addEventListener('click', closePopup);
+        if (cancelBtn) cancelBtn.addEventListener('click', closePopup);
+        if (saveBtn) saveBtn.addEventListener('click', () => {
+          submitComment(textInput ? textInput.value.trim() : '');
+        });
+        if (clearBtn) clearBtn.addEventListener('click', () => {
+          submitComment('');
+        });
+
+        function onKeyDown(e) {
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            closePopup();
+          } else if (e.key === 'Enter') {
+            e.preventDefault();
+            submitComment(textInput ? textInput.value.trim() : '');
+          }
+        }
+
+        document.addEventListener('keydown', onKeyDown);
+
+        overlay.addEventListener('click', (e) => {
+          if (e.target === overlay) {
+            closePopup();
+          }
+        });
+
+        setTimeout(() => {
+          if (textInput) {
+            textInput.focus();
+            textInput.select();
+          }
+        }, 50);
+      }
+
       function buildChecklistElement(section, block) {
         const { color: secColor, groups } = getGroupsForSection(section.label);
         if (!groups || groups.length === 0) {
@@ -16165,19 +16288,30 @@
 
             const initialParsed = chipMap.get(name.toLowerCase());
             let currentCount = initialParsed ? initialParsed.count : 0;
+            let currentComment = (initialParsed && initialParsed.comment) ? initialParsed.comment : '';
 
-            const updateChipVisual = (count) => {
+            const updateChipVisual = (count, comment) => {
               const isSelected = count > 0;
+              const hasComment = isSelected && !!comment;
               chip.classList.toggle("selected", isSelected);
+              chip.classList.toggle("has-comment", hasComment);
               chip.setAttribute("aria-pressed", isSelected ? "true" : "false");
               const badge = count > 1 ? `<sup class="chip-multiplier-badge">x${count}</sup>` : '';
-              chip.innerHTML = `${escapeHtml(name)}${badge}`;
+              const commentBadge = hasComment ? `<span class="chip-comment-badge" title="${escapeHtml(comment)}">💬</span>` : '';
+              chip.innerHTML = `${escapeHtml(name)}${badge}${commentBadge}`;
+
+              const countPart = count > 1 ? ` (x${count})` : '';
+              const commentPart = hasComment ? `: "${comment}"` : '';
+              const hintKey = hasComment ? 'gsChipClickHintWithComment' : 'gsChipClickHintWithoutComment';
+              const defaultHint = hasComment
+                ? 'Left-click: + / Right-click: - / Shift-click: edit note'
+                : 'Left-click: + / Right-click: - / Shift-click: add note';
               chip.title = isSelected
-                ? `${group.type} • ${name}${count > 1 ? ` (x${count})` : ''} • ${t('gsChipClickHint', 'Left-click: + / Right-click: -')}`
-                : `${group.type} • ${t('gsDragToReorder', 'Drag to reorder')}`;
+                ? `${group.type} • ${name}${countPart}${commentPart} • ${t(hintKey, defaultHint)}`
+                : `${group.type} • ${t('gsDragToReorder', 'Drag to reorder')} • ${t('gsChipClickHintWithoutComment', defaultHint)}`;
             };
 
-            const saveChipState = (count) => {
+            const saveChipState = (count, comment) => {
               const currentMap = new Map();
               sectionChecklistSummary(section).forEach(item => {
                 const p = parseObservationChipItem(item);
@@ -16186,16 +16320,79 @@
               if (count <= 0) {
                 currentMap.delete(name.toLowerCase());
               } else {
-                currentMap.set(name.toLowerCase(), { name, count });
+                currentMap.set(name.toLowerCase(), { name, count, comment: (comment || '').trim() });
               }
-              section.checklist = Array.from(currentMap.values()).map(v => formatObservationChipItem(v.name, v.count));
+              section.checklist = Array.from(currentMap.values()).map(v => formatObservationChipItem(v.name, v.count, v.comment));
             };
 
-            updateChipVisual(currentCount);
+            updateChipVisual(currentCount, currentComment);
+
+            const handleCommentEdit = () => {
+              if (currentCount === 0) {
+                currentCount = 1;
+                saveChipState(currentCount, currentComment);
+                updateChipVisual(currentCount, currentComment);
+              }
+              openChipCommentPopup({
+                chipName: name,
+                category: group.type,
+                section,
+                currentCount,
+                currentComment,
+                secColor,
+                onSave: (newComment) => {
+                  currentComment = newComment;
+                  saveChipState(currentCount, currentComment);
+                  updateChipVisual(currentCount, currentComment);
+                  autoSaveStudentModal(false);
+                }
+              });
+            };
 
             let isDragging = false;
+            let longPressTimer = null;
+            let longPressTriggered = false;
+            let pointerStartX = 0;
+            let pointerStartY = 0;
+
+            chip.addEventListener("pointerdown", e => {
+              if (e.button !== 0) return;
+              pointerStartX = e.clientX;
+              pointerStartY = e.clientY;
+              longPressTriggered = false;
+              clearTimeout(longPressTimer);
+              longPressTimer = setTimeout(() => {
+                if (!isDragging) {
+                  longPressTriggered = true;
+                  handleCommentEdit();
+                }
+              }, 450);
+            });
+
+            chip.addEventListener("pointermove", e => {
+              if (longPressTimer) {
+                const dist = Math.hypot(e.clientX - pointerStartX, e.clientY - pointerStartY);
+                if (dist > 6) {
+                  clearTimeout(longPressTimer);
+                  longPressTimer = null;
+                }
+              }
+            });
+
+            chip.addEventListener("pointerup", () => {
+              clearTimeout(longPressTimer);
+              longPressTimer = null;
+            });
+
+            chip.addEventListener("pointercancel", () => {
+              clearTimeout(longPressTimer);
+              longPressTimer = null;
+            });
 
             chip.addEventListener("dragstart", e => {
+              clearTimeout(longPressTimer);
+              longPressTimer = null;
+              longPressTriggered = false;
               isDragging = true;
               chip.classList.add("dragging");
               e.dataTransfer.effectAllowed = "move";
@@ -16257,22 +16454,37 @@
               } catch (_) {}
             });
 
-            chip.addEventListener("click", () => {
+            chip.addEventListener("click", (e) => {
               if (isDragging) return;
+              if (longPressTriggered) {
+                longPressTriggered = false;
+                return;
+              }
+              if (e.shiftKey || (e.target && e.target.closest && e.target.closest('.chip-comment-badge'))) {
+                e.preventDefault();
+                e.stopPropagation();
+                handleCommentEdit();
+                return;
+              }
               currentCount = currentCount === 0 ? 1 : currentCount + 1;
-              saveChipState(currentCount);
-              updateChipVisual(currentCount);
+              saveChipState(currentCount, currentComment);
+              updateChipVisual(currentCount, currentComment);
               autoSaveStudentModal(false);
             });
 
             chip.addEventListener("contextmenu", e => {
               e.preventDefault();
               e.stopPropagation();
+              clearTimeout(longPressTimer);
+              longPressTimer = null;
               if (isDragging) return;
               if (currentCount <= 0) return;
               currentCount = currentCount - 1;
-              saveChipState(currentCount);
-              updateChipVisual(currentCount);
+              if (currentCount === 0) {
+                currentComment = '';
+              }
+              saveChipState(currentCount, currentComment);
+              updateChipVisual(currentCount, currentComment);
               autoSaveStudentModal(false);
             });
 
