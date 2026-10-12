@@ -1315,7 +1315,7 @@
         </span>
         <button class="modal-close-btn" onclick="tcCloseHeaderCustomizerModal()">&times;</button>
       </div>
-      <div class="modal-body" style="padding:14px;display:flex;flex-direction:column;gap:12px;max-height:calc(88vh - 120px);overflow-y:auto;">
+      <div class="modal-body" style="padding:14px;display:flex;flex-direction:column;gap:12px;flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;">
 
         <!-- Header Template Selector & Presets Bar -->
         <div class="hdr-template-bar" style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#fef9c3;border:2px solid #000;box-shadow:2px 2px 0 #000;border-radius:4px;flex-wrap:wrap;">
@@ -9338,11 +9338,13 @@
         tcUpdateModalHeaderPreview();
 
         document.getElementById('headerCustomizerModal').classList.add('open');
+        document.body.classList.add('modal-open');
       };
 
       window.tcCloseHeaderCustomizerModal = function () {
         _editingMaterialIdx = -1;
         document.getElementById('headerCustomizerModal').classList.remove('open');
+        document.body.classList.remove('modal-open');
         tcSaveCurrentTest(false);
         if (document.getElementById('printPreviewModal').classList.contains('open')) {
           tcUpdatePrintPreview();

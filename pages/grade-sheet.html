@@ -56,6 +56,7 @@
         try { await loadUserScript('students.js'); } catch (e) { /* students.js may not exist yet */ }
         try { await loadUserScript('grade-scale-models.js'); } catch (e) { console.warn('Failed to load user/grade-scale-models.js:', e); }
         try { await loadUserScript('correction-criteria.js'); } catch (e) { console.warn('Failed to load user/correction-criteria.js:', e); }
+        try { await loadUserScript('report-options.js'); } catch (e) { /* report-options.js may not exist yet */ }
       })();
     })();
   </script>
@@ -14938,9 +14939,106 @@
 
     // ── Interactive Report Modal Handlers ──
 
+    var _saveReportOptionsTimer = null;
+    function saveReportOptionsConfigFile() {
+      const opts = {
+        version: 1,
+        includeCompetences: getReportIncludeCompetences(),
+        includeExerciseMeans: getReportIncludeExerciseMeans(),
+        includeKpi: getReportIncludeKpi(),
+        includeCharts: getReportIncludeCharts(),
+        includeCriteria: getReportIncludeCriteria(),
+        includeComments: getReportIncludeComments(),
+        includeObservations: getReportIncludeObservations(),
+        includeScale: getReportIncludeScale(),
+        fitToOnePage: getReportFitToOnePage()
+      };
+      window.GRADE_SHEET_REPORT_OPTIONS = opts;
+      window.REPORT_OPTIONS = opts;
+
+      clearTimeout(_saveReportOptionsTimer);
+      _saveReportOptionsTimer = setTimeout(async function() {
+        if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveText === 'function') {
+          try {
+            const content = '// Grade Sheet Report Options Configuration\n// Automatically updated\nwindow.GRADE_SHEET_REPORT_OPTIONS = ' + JSON.stringify(opts, null, 2) + ';\n';
+            await Desktop.saveText('user', 'report-options.js', content);
+          } catch (e) {
+            console.warn('grade-sheet: Failed to save user/report-options.js:', e);
+          }
+        }
+      }, 250);
+    }
+
+    async function loadReportOptionsConfigFile() {
+      // 1. If already set via user script bootstrap
+      if (window.GRADE_SHEET_REPORT_OPTIONS && typeof window.GRADE_SHEET_REPORT_OPTIONS === 'object') {
+        applyReportOptions(window.GRADE_SHEET_REPORT_OPTIONS);
+        return true;
+      }
+      // 2. Read from Desktop if in Electron
+      if (window.Desktop && Desktop.isElectron() && typeof Desktop.readText === 'function') {
+        try {
+          const r = await Desktop.readText('user', 'report-options.js');
+          if (r && r.ok && r.content) {
+            const match = r.content.match(/window\.GRADE_SHEET_REPORT_OPTIONS\s*=\s*(\{[\s\S]*?\});/);
+            if (match) {
+              const parsed = JSON.parse(match[1]);
+              if (parsed && typeof parsed === 'object') {
+                window.GRADE_SHEET_REPORT_OPTIONS = parsed;
+                window.REPORT_OPTIONS = parsed;
+                applyReportOptions(parsed);
+                return true;
+              }
+            }
+          } else {
+            // File doesn't exist yet: initialize with current options and persist
+            saveReportOptionsConfigFile();
+          }
+        } catch (e) {
+          console.warn('grade-sheet: could not load user/report-options.js:', e);
+        }
+      }
+      return false;
+    }
+
+    function applyReportOptions(opts) {
+      if (!opts || typeof opts !== 'object') return;
+      if (typeof opts.includeCompetences === 'boolean') {
+        localStorage.setItem('cmt-gs-report-include-competences', opts.includeCompetences ? 'true' : 'false');
+      }
+      if (typeof opts.includeExerciseMeans === 'boolean') {
+        localStorage.setItem('cmt-gs-report-include-exercise-means', opts.includeExerciseMeans ? 'true' : 'false');
+      }
+      if (typeof opts.includeKpi === 'boolean') {
+        localStorage.setItem('cmt-gs-report-include-kpi', opts.includeKpi ? 'true' : 'false');
+      }
+      if (typeof opts.includeCharts === 'boolean') {
+        localStorage.setItem('cmt-gs-report-include-charts', opts.includeCharts ? 'true' : 'false');
+      }
+      if (typeof opts.includeCriteria === 'boolean') {
+        localStorage.setItem('cmt-gs-report-include-criteria', opts.includeCriteria ? 'true' : 'false');
+      }
+      if (typeof opts.includeComments === 'boolean') {
+        localStorage.setItem('cmt-gs-report-include-comments', opts.includeComments ? 'true' : 'false');
+      }
+      if (typeof opts.includeObservations === 'boolean') {
+        localStorage.setItem('cmt-gs-report-include-observations', opts.includeObservations ? 'true' : 'false');
+      }
+      if (typeof opts.includeScale === 'boolean') {
+        localStorage.setItem('cmt-gs-report-include-scale', opts.includeScale ? 'true' : 'false');
+      }
+      if (typeof opts.fitToOnePage === 'boolean') {
+        localStorage.setItem('cmt-gs-report-fit-one-page', opts.fitToOnePage ? 'true' : 'false');
+      }
+      syncReportOptionControls();
+    }
+
     function getReportFitToOnePage() {
       const el = document.getElementById('gs-report-toggle-fit-page') || document.getElementById('gs-pdf-export-fit-page');
       if (el) return !!el.checked;
+      if (window.GRADE_SHEET_REPORT_OPTIONS && typeof window.GRADE_SHEET_REPORT_OPTIONS.fitToOnePage === 'boolean') {
+        return window.GRADE_SHEET_REPORT_OPTIONS.fitToOnePage;
+      }
       const cached = localStorage.getItem('cmt-gs-report-fit-one-page');
       return cached === 'true';
     }
@@ -14951,11 +15049,15 @@
       if (el1) el1.checked = !!val;
       const el2 = document.getElementById('gs-pdf-export-fit-page');
       if (el2) el2.checked = !!val;
+      saveReportOptionsConfigFile();
     }
 
     function getReportIncludeCompetences() {
       const el = document.getElementById('gs-report-toggle-competences');
       if (el) return !!el.checked;
+      if (window.GRADE_SHEET_REPORT_OPTIONS && typeof window.GRADE_SHEET_REPORT_OPTIONS.includeCompetences === 'boolean') {
+        return window.GRADE_SHEET_REPORT_OPTIONS.includeCompetences;
+      }
       const cached = localStorage.getItem('cmt-gs-report-include-competences');
       return cached !== 'false';
     }
@@ -14964,11 +15066,15 @@
       localStorage.setItem('cmt-gs-report-include-competences', val ? 'true' : 'false');
       const el = document.getElementById('gs-report-toggle-competences');
       if (el) el.checked = !!val;
+      saveReportOptionsConfigFile();
     }
 
     function getReportIncludeExerciseMeans() {
       const el = document.getElementById('gs-report-toggle-exercise-means');
       if (el) return !!el.checked;
+      if (window.GRADE_SHEET_REPORT_OPTIONS && typeof window.GRADE_SHEET_REPORT_OPTIONS.includeExerciseMeans === 'boolean') {
+        return window.GRADE_SHEET_REPORT_OPTIONS.includeExerciseMeans;
+      }
       const cached = localStorage.getItem('cmt-gs-report-include-exercise-means');
       return cached !== 'false';
     }
@@ -14977,11 +15083,15 @@
       localStorage.setItem('cmt-gs-report-include-exercise-means', val ? 'true' : 'false');
       const el = document.getElementById('gs-report-toggle-exercise-means');
       if (el) el.checked = !!val;
+      saveReportOptionsConfigFile();
     }
 
     function getReportIncludeKpi() {
       const el = document.getElementById('gs-report-toggle-kpi');
       if (el) return !!el.checked;
+      if (window.GRADE_SHEET_REPORT_OPTIONS && typeof window.GRADE_SHEET_REPORT_OPTIONS.includeKpi === 'boolean') {
+        return window.GRADE_SHEET_REPORT_OPTIONS.includeKpi;
+      }
       const cached = localStorage.getItem('cmt-gs-report-include-kpi');
       return cached !== 'false';
     }
@@ -14990,11 +15100,15 @@
       localStorage.setItem('cmt-gs-report-include-kpi', val ? 'true' : 'false');
       const el = document.getElementById('gs-report-toggle-kpi');
       if (el) el.checked = !!val;
+      saveReportOptionsConfigFile();
     }
 
     function getReportIncludeCharts() {
       const el = document.getElementById('gs-report-toggle-charts');
       if (el) return !!el.checked;
+      if (window.GRADE_SHEET_REPORT_OPTIONS && typeof window.GRADE_SHEET_REPORT_OPTIONS.includeCharts === 'boolean') {
+        return window.GRADE_SHEET_REPORT_OPTIONS.includeCharts;
+      }
       const cached = localStorage.getItem('cmt-gs-report-include-charts');
       return cached !== 'false';
     }
@@ -15003,11 +15117,15 @@
       localStorage.setItem('cmt-gs-report-include-charts', val ? 'true' : 'false');
       const el = document.getElementById('gs-report-toggle-charts');
       if (el) el.checked = !!val;
+      saveReportOptionsConfigFile();
     }
 
     function getReportIncludeCriteria() {
       const el = document.getElementById('gs-report-toggle-criteria');
       if (el) return !!el.checked;
+      if (window.GRADE_SHEET_REPORT_OPTIONS && typeof window.GRADE_SHEET_REPORT_OPTIONS.includeCriteria === 'boolean') {
+        return window.GRADE_SHEET_REPORT_OPTIONS.includeCriteria;
+      }
       const cached = localStorage.getItem('cmt-gs-report-include-criteria');
       return cached !== 'false';
     }
@@ -15016,11 +15134,15 @@
       localStorage.setItem('cmt-gs-report-include-criteria', val ? 'true' : 'false');
       const el = document.getElementById('gs-report-toggle-criteria');
       if (el) el.checked = !!val;
+      saveReportOptionsConfigFile();
     }
 
     function getReportIncludeComments() {
       const el = document.getElementById('gs-report-toggle-comments');
       if (el) return !!el.checked;
+      if (window.GRADE_SHEET_REPORT_OPTIONS && typeof window.GRADE_SHEET_REPORT_OPTIONS.includeComments === 'boolean') {
+        return window.GRADE_SHEET_REPORT_OPTIONS.includeComments;
+      }
       const cached = localStorage.getItem('cmt-gs-report-include-comments');
       return cached !== 'false';
     }
@@ -15029,11 +15151,15 @@
       localStorage.setItem('cmt-gs-report-include-comments', val ? 'true' : 'false');
       const el = document.getElementById('gs-report-toggle-comments');
       if (el) el.checked = !!val;
+      saveReportOptionsConfigFile();
     }
 
     function getReportIncludeObservations() {
       const el = document.getElementById('gs-report-toggle-observations');
       if (el) return !!el.checked;
+      if (window.GRADE_SHEET_REPORT_OPTIONS && typeof window.GRADE_SHEET_REPORT_OPTIONS.includeObservations === 'boolean') {
+        return window.GRADE_SHEET_REPORT_OPTIONS.includeObservations;
+      }
       const cached = localStorage.getItem('cmt-gs-report-include-observations');
       return cached !== 'false';
     }
@@ -15042,11 +15168,15 @@
       localStorage.setItem('cmt-gs-report-include-observations', val ? 'true' : 'false');
       const el = document.getElementById('gs-report-toggle-observations');
       if (el) el.checked = !!val;
+      saveReportOptionsConfigFile();
     }
 
     function getReportIncludeScale() {
       const el = document.getElementById('gs-report-toggle-scale');
       if (el) return !!el.checked;
+      if (window.GRADE_SHEET_REPORT_OPTIONS && typeof window.GRADE_SHEET_REPORT_OPTIONS.includeScale === 'boolean') {
+        return window.GRADE_SHEET_REPORT_OPTIONS.includeScale;
+      }
       const cached = localStorage.getItem('cmt-gs-report-include-scale');
       return cached !== 'false';
     }
@@ -15055,6 +15185,7 @@
       localStorage.setItem('cmt-gs-report-include-scale', val ? 'true' : 'false');
       const el = document.getElementById('gs-report-toggle-scale');
       if (el) el.checked = !!val;
+      saveReportOptionsConfigFile();
     }
 
     function getReportOptions() {
@@ -20266,6 +20397,7 @@ ${blocks}
       initHamburger();
       if (window.applyTranslations) applyTranslations();
       await initializeReferenceData();
+      await loadReportOptionsConfigFile();
       if (window.Desktop && Desktop.isElectron() && !localStorage.getItem(DELETED_CLASS_IDS_KEY)) {
         try {
           const r = await Desktop.readJson('gradeSheet', 'deleted-class-ids-backup.json');
@@ -21302,6 +21434,12 @@ function showGsTour() {
   Desktop.onDataChanged(function (data) {
     if (data && (data.filename === 'class-groups.js' || data.filename === 'students.js')) {
       showDataChangedBanner(data);
+    } else if (data && data.filename === 'report-options.js') {
+      if (typeof loadReportOptionsConfigFile === 'function') {
+        loadReportOptionsConfigFile().then(function() {
+          if (typeof refreshActiveReportPreview === 'function') refreshActiveReportPreview();
+        });
+      }
     }
   });
 })();

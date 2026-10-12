@@ -989,6 +989,7 @@ Grade and assessment tracking spreadsheet supporting custom evaluation criteria,
   - **Include Observations & Feedback**: Qualitative feedback where tags/chips and teacher markdown notes flow seamlessly inline without intrusive box borders or line breaks.
   - **Include Grading Scale**: Full grade threshold scale conversion table.
   - **Fit to 1 page**: Auto-scaling script dynamically fitting each student report cleanly onto a single sheet.
+  All selected report element toggle preferences automatically persist to <code>user/report-options.js</code> and synchronize across teacher workstations and active windows.
 - **Compare Classes Module (Cross-Class Performance & Below-Passing Analytics)**:
   - Accessible directly via the **Compare Classes** navigation tab (`#gs-tab-compare`) and the Overview toolbar button (`#btn-compare-classes`).
   - **Multi-Class Scope Filtering**: Compare any combination of classes using interactive multi-select pills, with quick filters by academic year and grade level, plus *Select All* and *Clear* actions.
