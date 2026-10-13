@@ -2989,6 +2989,31 @@
       };
     }
 
+    /**
+     * Resolve the grade key + colour for a criterion score, using the same chain as the
+     * in-app criterion slider: custom criteria bank (test/class bank first) → criterion
+     * colours → grading-scale colours → defaults. Returns { key, color } (color is a
+     * normalised 6-digit hex when possible, so hex-alpha suffixes stay valid).
+     */
+    function resolveCriterionPointsColor(criterion, points, testConfig = null, classObj = null) {
+      const resolved = resolveCriterionProps(criterion, testConfig, classObj);
+      const minPts = (criterion && criterion.minPoints != null && !isNaN(Number(criterion.minPoints))) ? Number(criterion.minPoints) : resolved.minPoints;
+      const maxPts = (criterion && criterion.maxPoints != null && !isNaN(Number(criterion.maxPoints))) ? Number(criterion.maxPoints) : resolved.maxPoints;
+      const key = nearestCriterionGradeKey(resolved, null, points, minPts, maxPts);
+      if (key == null) return { key: null, color: null };
+      let color = lookupColorInMap(resolved.colors, key) ||
+                  (resolved.xlsm && lookupColorInMap(resolved.xlsm.colors, key)) ||
+                  lookupColorInMap(criterion && criterion.colors, key) ||
+                  getScaleGradeColor(key, null, testConfig) ||
+                  getDefaultGradeColor(key);
+      if (typeof color === "string") {
+        color = color.trim();
+        const m3 = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(color);
+        if (m3) color = `#${m3[1]}${m3[1]}${m3[2]}${m3[2]}${m3[3]}${m3[3]}`;
+      }
+      return { key, color: color || null };
+    }
+
     function getCriterionGradeStops(criterion, minPts, maxPts, testConfig = null, classObj = null) {
       const resolved = resolveCriterionProps(criterion, testConfig, classObj);
       const safeMin = minPts != null ? minPts : resolved.minPoints;
@@ -11973,9 +11998,7 @@
             const pts = entry.points;
             const ptsStr = pts != null ? `${fmtN(pts)} / ${fmtN(cr.maxPoints)}` : `— / ${fmtN(cr.maxPoints)}`;
             const comment = entry.comment ? esc(entry.comment) : `<span class="no-data">—</span>`;
-            const key = nearestCriterionGradeKey(cr, null, pts, cr.minPoints, cr.maxPoints);
-            const xlsm = (typeof XLSM_CRITERIA !== "undefined" && Array.isArray(XLSM_CRITERIA)) ? XLSM_CRITERIA.find(x => x.name.trim().toLowerCase() === cr.name.trim().toLowerCase()) : null;
-            const critColor = (xlsm && xlsm.colors && xlsm.colors[key]) || (cr && cr.colors && cr.colors[key]) || (key ? getDefaultGradeColor(key) : null);
+            const { key, color: critColor } = resolveCriterionPointsColor(cr, pts, config, classObj);
             const cTextColor = getHighContrastTextColor(critColor);
             const gradeBadge = (pts != null && key != null && critColor)
               ? `<span style="display:inline-block;font-size:11px;font-weight:800;padding:1px 6px;border-radius:4px;margin-right:6px;background:${critColor}20;color:${cTextColor};border:1px solid ${critColor};">${esc(key)}</span>`
@@ -12406,9 +12429,7 @@
           criteriaRows: config.criteria.map(cr => {
             const entry = criteriaMap[cr.id] || { points: null, comment: "" };
             const pts = entry.points;
-            const key = nearestCriterionGradeKey(cr, null, pts, cr.minPoints, cr.maxPoints);
-            const xlsm = (typeof XLSM_CRITERIA !== "undefined" && Array.isArray(XLSM_CRITERIA)) ? XLSM_CRITERIA.find(x => x.name.trim().toLowerCase() === cr.name.trim().toLowerCase()) : null;
-            const critColor = (xlsm && xlsm.colors && xlsm.colors[key]) || (cr && cr.colors && cr.colors[key]) || (key ? getDefaultGradeColor(key) : null);
+            const { key, color: critColor } = resolveCriterionPointsColor(cr, pts, config, classObj);
             const stat = criteriaStats[cr.id];
             const meanPts = (stat && stat.avgPts != null) ? fmtN(stat.avgPts) : null;
             return {
@@ -14765,11 +14786,7 @@
         criteriaRows = config.criteria.map(cr => {
           const entry = criteriaMap[cr.id] || { points: null, comment: "" };
           const pts = entry.points;
-          const critKey = nearestCriterionGradeKey(cr, null, pts, cr.minPoints, cr.maxPoints);
-          const critXlsm = (typeof XLSM_CRITERIA !== "undefined" && Array.isArray(XLSM_CRITERIA))
-            ? XLSM_CRITERIA.find(x => x.name.trim().toLowerCase() === String(cr.name || '').trim().toLowerCase())
-            : null;
-          const critColor = (critXlsm && critXlsm.colors && critXlsm.colors[critKey]) || (cr.colors && cr.colors[critKey]) || (critKey ? getDefaultGradeColor(critKey) : null);
+          const { color: critColor } = resolveCriterionPointsColor(cr, pts, config, classObj);
           let ptsStr;
           if (pts != null) {
             const critVars = critColor

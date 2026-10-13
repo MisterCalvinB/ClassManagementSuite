@@ -22063,6 +22063,9 @@
                 // Ignore draw overlay, live SVG, and eraser outline
                 if (t.id === 'con-draw-overlay' || t.id === 'con-draw-live-svg' || (t.closest && (t.closest('#con-draw-overlay') || t.closest('#con-draw-live-svg') || t.closest('.con-eraser-outline')))) return true;
                 if (t.classList && (t.classList.contains('con-eraser-outline') || t.classList.contains('con-eraser-active'))) return true;
+                // Ignore drawings, shapes, and masks added/modified (handled via drawing-add, shape-add, drawing-resize, etc.)
+                if (t.classList && (t.classList.contains('con-drawing') || t.classList.contains('con-shape') || t.classList.contains('con-mask-rect'))) return true;
+                if (t.closest && (t.closest('.con-drawing') || t.closest('.con-shape') || t.closest('.con-mask-rect'))) return true;
                 // Ignore drawing/shape/media/table/mask/node resize handles
                 if (t.closest && (t.closest('.con-drawing-handle') || t.closest('.con-shape-handle') || t.closest('.con-group-resizer') || t.closest('.con-mask-resizer') || t.closest('.con-node-resizer') || t.closest('.con-media-resizer') || t.closest('.con-table-resizer') || t.closest('.con-table-col-resizer') || t.closest('.con-table-row-resizer'))) return true;
                 // Ignore any mutations inside word notes (typing, formatting, autosize) — handled directly by note-text and note-move
@@ -36018,6 +36021,8 @@
         noteData.manualSize = true;
         noteData.width = nextW;
         noteData.height = nextH;
+        noteData.liveBaseWidth = nextW;
+        noteData.liveBaseHeight = nextH;
         wnApplyStoredSize(note, ta, noteData, scale);
         if (typeof conRedrawEdges === 'function') conRedrawEdges();
         if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
@@ -36028,6 +36033,8 @@
             id: String(noteData.id),
             width: nextW,
             height: nextH,
+            baseWidth: nextW,
+            baseHeight: nextH,
             manualSize: true
           };
           if (!_noteResizeRaf) {
@@ -36047,12 +36054,16 @@
             cancelAnimationFrame(_noteResizeRaf);
             _noteResizeRaf = null;
           }
+          noteData.liveBaseWidth = Number(noteData.width);
+          noteData.liveBaseHeight = Number(noteData.height);
           if (window._conMirrorSend) {
             window._conMirrorSend({
               type: 'note-resize',
               id: String(noteData.id),
               width: Number(noteData.width),
               height: Number(noteData.height),
+              baseWidth: Number(noteData.width),
+              baseHeight: Number(noteData.height),
               manualSize: true
             });
             _pendingNoteResizeMsg = null;
@@ -46653,7 +46664,14 @@
             }
             if (existing._applyStyle) existing._applyStyle();
             if (existing._updateContent) existing._updateContent();
-            if (editorEl && typeof conNoteAutosize === 'function') conNoteAutosize(editorEl, existing);
+            if (editorEl) {
+              const _scale = (typeof conGetZoom === 'function' ? conGetZoom() : (window.conGetZoom ? window.conGetZoom() : 1)) || 1;
+              if (existing.manualSize && typeof wnApplyStoredSize === 'function') {
+                wnApplyStoredSize(noteEl, editorEl, existing, _scale);
+              } else if (typeof conNoteAutosize === 'function') {
+                conNoteAutosize(editorEl, existing);
+              }
+            }
             if (typeof conNoteRebuildAllStickers === 'function') conNoteRebuildAllStickers(existing, noteEl);
             nextNotes.push(existing);
           } else {
