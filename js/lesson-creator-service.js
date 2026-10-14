@@ -1618,10 +1618,14 @@
         var questionCounter = 0;
         (test.exercises || []).forEach(function (ex, eIdx) {
           if (ex.type === 'section_competences') {
+            var blockComps = (Array.isArray(ex.linkedCompetences) && ex.linkedCompetences.length)
+              ? ex.linkedCompetences
+              : (Array.isArray(ex.linkedCompetenceIds) && ex.linkedCompetenceIds.length ? ex.linkedCompetenceIds : []);
+            var cContext = blockComps.length ? { linkedCompetences: blockComps, exercises: [] } : test;
             if (typeof TestCreatorService !== 'undefined' && typeof TestCreatorService.renderCompetencesHtml === 'function') {
-              html += '      <div style="margin-bottom:12px;">' + TestCreatorService.renderCompetencesHtml(test, { title: ex.title || 'Competences & Curriculum Objectives', displayMode: (ex.options && ex.options.displayMode) || 'table' }) + '</div>\n';
+              html += '      <div style="margin-bottom:12px;">' + TestCreatorService.renderCompetencesHtml(cContext, { title: ex.title || 'Competences & Curriculum Objectives', displayMode: (ex.options && ex.options.displayMode) || 'table' }) + '</div>\n';
             } else {
-              var sComps = (Array.isArray(test.linkedCompetences) && test.linkedCompetences.length) ? test.linkedCompetences : (Array.isArray(test.linkedCompetenceIds) ? test.linkedCompetenceIds : []);
+              var sComps = (Array.isArray(cContext.linkedCompetences) && cContext.linkedCompetences.length) ? cContext.linkedCompetences : (Array.isArray(cContext.linkedCompetenceIds) ? cContext.linkedCompetenceIds : []);
               sComps = sComps.slice().sort(function (a, b) {
                 var ca = (a && (a.code || a.id)) || String(a || '');
                 var cb = (b && (b.code || b.id)) || String(b || '');
@@ -1640,10 +1644,14 @@
             return;
           }
           if (ex.type === 'section_criteria') {
+            var blockCrits = (Array.isArray(ex.criteria) && ex.criteria.length)
+              ? ex.criteria
+              : ((Array.isArray(ex.markingRubric) && ex.markingRubric.length) ? ex.markingRubric : ((Array.isArray(ex.linkedCriteria) && ex.linkedCriteria.length) ? ex.linkedCriteria : []));
+            var crContext = blockCrits.length ? { criteria: blockCrits, exercises: [] } : test;
             if (typeof TestCreatorService !== 'undefined' && typeof TestCreatorService.renderCriteriaHtml === 'function') {
-              html += '      <div style="margin-bottom:12px;">' + TestCreatorService.renderCriteriaHtml(test, { title: ex.title || 'Assessment Criteria & Evaluation Rubric', displayMode: (ex.options && ex.options.displayMode) || 'table' }) + '</div>\n';
+              html += '      <div style="margin-bottom:12px;">' + TestCreatorService.renderCriteriaHtml(crContext, { title: ex.title || 'Assessment Criteria & Evaluation Rubric', displayMode: (ex.options && ex.options.displayMode) || 'table' }) + '</div>\n';
             } else {
-              var sCrits = (Array.isArray(test.criteria) && test.criteria.length) ? test.criteria : (Array.isArray(test.linkedCriteria) ? test.linkedCriteria : []);
+              var sCrits = (Array.isArray(crContext.criteria) && crContext.criteria.length) ? crContext.criteria : (Array.isArray(crContext.linkedCriteria) ? crContext.linkedCriteria : []);
               html += '      <div class="test-criteria-section" style="margin-bottom:14px;border:1.5px solid #059669;border-radius:4px;padding:10px;background:#ecfdf5;">\n';
               html += '        <div style="font-weight:900;font-size:0.88rem;color:#065f46;margin-bottom:6px;text-transform:uppercase;">' + escapeHtml(ex.title || 'Assessment Criteria & Evaluation Rubric') + '</div>\n';
               if (ex.instructions) html += '        <div style="font-size:0.8rem;color:#059669;margin-bottom:6px;font-style:italic;">' + escapeHtml(ex.instructions) + '</div>\n';

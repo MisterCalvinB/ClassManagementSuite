@@ -2442,7 +2442,30 @@
     return null;
   }
 
+  function ensureBoardExportService() {
+    if (window.BoardExportService && typeof window.BoardExportService.renderSessionToSvg === 'function') {
+      return Promise.resolve(window.BoardExportService);
+    }
+    return new Promise(function(resolve) {
+      var s = document.createElement('script');
+      var prefix = (typeof window.location !== 'undefined' && window.location.pathname && (window.location.pathname.includes('/pages/') || window.location.pathname.includes('\\pages\\'))) ? '../' : '';
+      s.src = prefix + 'js/board-export-service.js';
+      s.onload = function() { resolve(window.BoardExportService); };
+      s.onerror = function() {
+        var s2 = document.createElement('script');
+        s2.src = (prefix ? '' : '../') + 'js/board-export-service.js';
+        s2.onload = function() { resolve(window.BoardExportService); };
+        s2.onerror = function() { resolve(null); };
+        document.head.appendChild(s2);
+      };
+      document.head.appendChild(s);
+    });
+  }
+
   function renderMindmapSessionToSvg(boardData, opts) {
+    if (window.BoardExportService && typeof window.BoardExportService.renderSessionToSvg === 'function') {
+      return window.BoardExportService.renderSessionToSvg(boardData, opts);
+    }
     opts = opts || {};
     if (!boardData) return '';
     var nodes = Array.isArray(boardData.nodes) ? boardData.nodes : [];
@@ -2586,7 +2609,17 @@
   }
 
   function renderMindmapConceptsTable(boardData) {
-    if (!boardData || !Array.isArray(boardData.nodes) || !boardData.nodes.length) return '';
+    if (!boardData) return '';
+    var rawNodes = Array.isArray(boardData.nodes) ? boardData.nodes : [];
+    if (!rawNodes.length && Array.isArray(boardData.pages)) {
+      for (var pi = 0; pi < boardData.pages.length; pi++) {
+        if (boardData.pages[pi] && Array.isArray(boardData.pages[pi].nodes) && boardData.pages[pi].nodes.length) {
+          rawNodes = boardData.pages[pi].nodes;
+          break;
+        }
+      }
+    }
+    if (!rawNodes.length) return '';
     function esc(s) {
       if (s == null) return '';
       return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -2598,9 +2631,9 @@
       '<th style="text-align:left;padding:4px 6px;width:65%;font-weight:900;text-transform:uppercase;">Content & Details</th>' +
       '</tr></thead><tbody>';
 
-    boardData.nodes.forEach(function(n) {
-      var nText = n.text || n.title || n.label || '';
-      var nNotes = n.note || n.notes || (n.meta && n.meta.note) || '';
+    rawNodes.forEach(function(n) {
+      var nText = n.baseWord || n.word || n.text || n.title || n.label || '';
+      var nNotes = n.note || n.notes || (n.meta && n.meta.note) || (n.fmt && n.fmt.definition) || '';
       html += '<tr style="border-bottom:1px solid #e2e8f0;">' +
         '<td style="padding:3px 6px;font-weight:700;color:#111111;vertical-align:top;">' + esc(nText) + '</td>' +
         '<td style="padding:3px 6px;color:#475569;vertical-align:top;">' + (nNotes ? esc(nNotes) : '<span style="color:#94a3b8;font-style:italic;">--</span>') + '</td>' +
@@ -2831,6 +2864,7 @@
 
     // Pre-load any selected mindmap boards
     if (options.mindmaps !== false && Array.isArray(options.selectedBoards) && options.selectedBoards.length > 0) {
+      await ensureBoardExportService();
       for (var i = 0; i < options.selectedBoards.length; i++) {
         var bUrn = options.selectedBoards[i];
         if (!_dossierMindmapCache[bUrn]) {
@@ -4309,6 +4343,7 @@
 
     // Ensure mindmaps cached
     if (options.mindmaps !== false && Array.isArray(options.selectedBoards)) {
+      await ensureBoardExportService();
       for (var i = 0; i < options.selectedBoards.length; i++) {
         await loadBoardMindmapData(options.selectedBoards[i]);
       }
@@ -4410,6 +4445,7 @@
 
     // Ensure mindmaps cached
     if (options.mindmaps !== false && Array.isArray(options.selectedBoards)) {
+      await ensureBoardExportService();
       for (var i = 0; i < options.selectedBoards.length; i++) {
         await loadBoardMindmapData(options.selectedBoards[i]);
       }
@@ -4493,6 +4529,7 @@
     var defaultName = 'mindmaps_' + cleanName + '_' + dateStamp + '.pdf';
 
     // Pre-load all selected boards
+    await ensureBoardExportService();
     for (var i = 0; i < selectedBoards.length; i++) {
       await loadBoardMindmapData(selectedBoards[i]);
     }

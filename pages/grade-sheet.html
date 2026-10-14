@@ -18,6 +18,7 @@
   <script src="../js/menus.js"></script>
   <link rel="stylesheet" href="../css/tag-link-modal.css">
   <script src="../js/links-service.js"></script>
+  <script src="../js/board-export-service.js"></script>
   <script src="../js/tag-link-modal.js"></script>
   <script>
     (function () {
@@ -57,6 +58,7 @@
         try { await loadUserScript('grade-scale-models.js'); } catch (e) { console.warn('Failed to load user/grade-scale-models.js:', e); }
         try { await loadUserScript('correction-criteria.js'); } catch (e) { console.warn('Failed to load user/correction-criteria.js:', e); }
         try { await loadUserScript('report-options.js'); } catch (e) { /* report-options.js may not exist yet */ }
+        try { await loadUserScript('summary-display-settings.js'); } catch (e) { /* summary-display-settings.js may not exist yet */ }
       })();
     })();
   </script>
@@ -180,7 +182,7 @@
           <div class="subtitle" data-i18n="gsSubtitle">Choose a class to open its semester and year summary.</div>
         </div>
         <div class="btn-row">
-          <button id="btn-edit-reference-data" class="btn btn-edit-reference-data" data-i18n="gsBtnEditRef"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> Edit Criteria / Scales</button>
+          <button id="btn-edit-reference-data" class="btn btn-edit-reference-data" data-i18n="gsBtnSettings" title="Settings &amp; Reference Data"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> <span data-i18n="gsBtnSettings">Settings</span></button>
           <div class="dropdown dropdown-hover" id="overview-backup-dropdown">
             <button id="btn-overview-backup-trigger" class="btn" data-i18n="gsBtnBackupRestore"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Backup &amp; Restore ▾</button>
             <div class="dropdown-menu hidden" id="overview-backup-menu">
@@ -306,6 +308,13 @@
           <div class="dropdown dropdown-hover" id="summary-manage-class-dropdown">
             <button id="btn-summary-manage-trigger" class="btn" data-i18n="gsBtnManageClass"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> Manage Class ▾</button>
             <div class="dropdown-menu hidden" id="summary-manage-menu">
+              <button class="dropdown-item" id="btn-manage-summary-settings">
+                <img src="../assets/icons/gear.svg" class="btn-icon" alt="" />
+                <div class="dropdown-item-text">
+                  <div class="dropdown-item-title" data-i18n="gsOptionSummarySettings">Summary Settings &amp; Colors…</div>
+                  <div class="dropdown-item-desc" data-i18n="gsOptionSummarySettingsDesc">Customize grade colors, gradients, and table display</div>
+                </div>
+              </button>
               <button class="dropdown-item" id="btn-edit-class">
                 <img src="../assets/icons/edit-word.svg" class="btn-icon" alt="" />
                 <div class="dropdown-item-text">
@@ -336,6 +345,7 @@
               </button>
             </div>
           </div>
+          <button id="btn-summary-settings" class="btn btn-edit-reference-data" data-i18n="gsBtnSettings" title="Settings &amp; Summary Colors"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> <span data-i18n="gsBtnSettings">Settings</span></button>
         </div>
       </div>
 
@@ -559,19 +569,114 @@
   <div id="reference-data-popup-overlay" class="crit-popup-overlay hidden">
     <div class="crit-popup ref-data-editor panel" role="dialog" aria-modal="true">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-        <div class="crit-popup-title" data-i18n="gsRefEditorTitle" style="margin:0;">Reference Data Editor</div>
+        <div class="crit-popup-title" id="reference-data-popup-title" data-i18n="gsSettingsModalTitle" style="margin:0;">Settings &amp; Reference Data</div>
         <button type="button" class="btn" onclick="showGsRefDataTour()" style="font-size:0.78rem;padding:3px 10px;" data-i18n="tourBtnLabel"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
       </div>
-      <div class="ref-inline-note" style="margin-bottom:14px;" data-i18n="gsRefInlineNote">Edit the shared data stored in <strong>user/correction-criteria.js</strong> and <strong>user/grade-scale-models.js</strong>. Changes update the live page immediately and are saved to disk in Electron.</div>
+      <div class="ref-inline-note" style="margin-bottom:14px;" data-i18n="gsSettingsInlineNote">Configure summary display options, default grade colors, correction criteria, and grading scales.</div>
       
       <!-- Tab Header Buttons -->
       <div class="ref-data-tabs">
-        <button id="tab-btn-criteria" class="ref-data-tab-btn active" type="button" onclick="switchRefTab('criteria')" data-i18n="gsRefTabCriteria">Correction Criteria</button>
+        <button id="tab-btn-summary-settings" class="ref-data-tab-btn active" type="button" onclick="switchRefTab('summary-settings')" data-i18n="gsRefTabSummarySettings">Summary Display &amp; Colors</button>
+        <button id="tab-btn-criteria" class="ref-data-tab-btn" type="button" onclick="switchRefTab('criteria')" data-i18n="gsRefTabCriteria">Correction Criteria</button>
         <button id="tab-btn-scales" class="ref-data-tab-btn" type="button" onclick="switchRefTab('scales')" data-i18n="gsRefTabScales">Grading Scale Models</button>
         <button id="tab-btn-chips" class="ref-data-tab-btn" type="button" onclick="switchRefTab('chips')" data-i18n="gsRefTabChips">Personalised Chips</button>
       </div>
 
       <div class="ref-data-body" id="reference-data-body">
+        <section class="ref-data-section" id="ref-section-summary-settings">
+          <div class="ref-data-section-head">
+            <div>
+              <div class="ref-data-section-title" data-i18n="gsSummarySettingsTitle">Class Summary Display &amp; Grade Colors</div>
+              <div class="ref-data-section-subtitle" data-i18n="gsSummarySettingsSubtitle">Customize default grade colors, interpolate gradients between anchor marks, and configure table visual styling.</div>
+            </div>
+          </div>
+
+          <!-- Configuration Scope (Global vs Class) -->
+          <div id="gs-summary-scope-container" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;padding:10px 14px;background:#f8fafc;border:2px solid #333333;box-shadow:2px 2px 0 #555555;border-radius:8px;">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+              <span style="font-weight:700;font-size:0.85rem;" data-i18n="gsSummaryScopeLabel">Configuration Scope:</span>
+              <label style="display:inline-flex;align-items:center;gap:6px;font-size:0.84rem;cursor:pointer;">
+                <input type="radio" name="gs-summary-scope" id="gs-scope-global" value="global" checked />
+                <span data-i18n="gsSummaryScopeGlobal">Global Default (All Classes)</span>
+              </label>
+              <label id="gs-scope-class-label" style="display:inline-flex;align-items:center;gap:6px;font-size:0.84rem;cursor:pointer;">
+                <input type="radio" name="gs-summary-scope" id="gs-scope-class" value="class" />
+                <span id="gs-scope-class-text" data-i18n="gsSummaryScopeClass">Customize for this class</span>
+              </label>
+            </div>
+            <div id="gs-summary-scope-badge" style="font-size:0.75rem;font-weight:800;color:#1e293b;padding:3px 8px;background:#e2e8f0;border-radius:4px;">Global</div>
+          </div>
+
+          <!-- Visual Options Card -->
+          <div class="summary-settings-card">
+            <div style="font-weight:800;font-size:0.9rem;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+              <img src="../assets/icons/layout.svg" class="btn-icon" alt="" style="width:14px;height:14px;" />
+              <span data-i18n="gsSummaryVisualOptions">Table Visual Options</span>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;">
+              <label style="display:inline-flex;align-items:center;gap:6px;font-size:0.84rem;font-weight:600;cursor:pointer;">
+                <input type="checkbox" id="gs-set-compact" />
+                <span data-i18n="gsSettingCompactRows">Compact table rows (reduced padding)</span>
+              </label>
+              <label style="display:inline-flex;align-items:center;gap:6px;font-size:0.84rem;font-weight:600;cursor:pointer;">
+                <input type="checkbox" id="gs-set-zebra" />
+                <span data-i18n="gsSettingZebraStriping">Zebra striping (alternating row backgrounds)</span>
+              </label>
+              <div style="display:inline-flex;align-items:center;gap:8px;font-size:0.84rem;font-weight:600;">
+                <span data-i18n="gsSettingCellStyleMode">Grade Cell Style:</span>
+                <select id="gs-set-cell-style" class="input" style="padding:4px 8px;font-size:0.82rem;font-weight:600;border:1.5px solid #333333;border-radius:5px;background:#fff;">
+                  <option value="cell" data-i18n="gsSettingCellStyleCell">Full cell background</option>
+                  <option value="badge" data-i18n="gsSettingCellStyleBadge">Colored badge / pill</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Grade Colors & Gradient Card -->
+          <div class="summary-settings-card">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
+              <div>
+                <div style="font-weight:800;font-size:0.9rem;display:flex;align-items:center;gap:6px;">
+                  <img src="../assets/icons/draw.svg" class="btn-icon" alt="" style="width:14px;height:14px;" />
+                  <span data-i18n="gsSummaryGradeColors">Grade Colors &amp; Gradient Interpolation</span>
+                </div>
+                <div style="font-size:0.77rem;color:var(--muted);margin-top:2px;" data-i18n="gsSummaryGradeColorsHelp">Pick individual colors, or select 2+ anchor grades and click 'Interpolate Gradient' to generate a smooth transition across intermediate marks.</div>
+              </div>
+              <div class="btn-row" style="gap:6px;">
+                <button type="button" id="btn-interpolate-gradient" class="btn primary btn-sm" style="font-weight:700;"><img src="../assets/icons/draw.svg" class="btn-icon" alt="" /> <span data-i18n="gsBtnInterpolateGradient">Interpolate Gradient</span></button>
+              </div>
+            </div>
+
+            <!-- Palettes & Sources Quick-Select Bar -->
+            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;padding:6px 10px;background:#f8fafc;border:1.5px solid #333333;box-shadow:2px 2px 0 #555555;border-radius:6px;">
+              <span style="font-size:0.76rem;font-weight:700;color:var(--muted);margin-right:2px;" data-i18n="gsPresetsLabel">Presets:</span>
+              <button type="button" class="btn btn-sm gs-preset-btn" data-preset="traffic" data-i18n="gsPresetTrafficLight">Classic (Green-Red)</button>
+              <button type="button" class="btn btn-sm gs-preset-btn" data-preset="pastel" data-i18n="gsPresetPastel">Pastel</button>
+              <button type="button" class="btn btn-sm gs-preset-btn" data-preset="blue-amber" data-i18n="gsPresetBlueAmber">Blue &amp; Amber</button>
+              <button type="button" class="btn btn-sm gs-preset-btn" data-preset="cool-emerald" data-i18n="gsPresetCoolEmerald">Cool Emerald</button>
+
+              <div style="width:1px;height:18px;background:#cbd5e1;margin:0 4px;"></div>
+
+              <div style="display:inline-flex;align-items:center;gap:6px;">
+                <span style="font-size:0.76rem;font-weight:700;color:var(--muted);" data-i18n="gsCopyFromScaleLabel">Copy from scale:</span>
+                <select id="gs-select-copy-scale" class="input sm" style="font-size:0.76rem;padding:2px 8px;height:26px;border:1.5px solid #333333;border-radius:4px;box-shadow:1px 1px 0 #555555;background:#ffffff;font-weight:600;cursor:pointer;">
+                  <option value="" disabled selected data-i18n="gsSelectScalePrompt">Select scale…</option>
+                </select>
+              </div>
+
+              <button type="button" class="btn btn-sm gs-preset-btn" data-preset="reset" style="margin-left:auto;color:#b91c1c;" data-i18n="gsBtnResetColors">Reset Defaults</button>
+            </div>
+
+            <!-- Grade Items Grid -->
+            <div id="gs-grade-colors-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:8px;margin-bottom:14px;"></div>
+
+            <!-- Live Preview -->
+            <div style="padding:10px 12px;background:#f8fafc;border:1.5px solid #333333;box-shadow:2px 2px 0 #555555;border-radius:6px;">
+              <div style="font-size:0.75rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;" data-i18n="gsLivePreview">Live Preview:</div>
+              <div id="gs-summary-colors-preview" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;"></div>
+            </div>
+          </div>
+        </section>
         <section class="ref-data-section" id="ref-section-criteria">
           <div class="ref-data-section-head">
             <div>
@@ -2396,7 +2501,7 @@
       return Math.min(6, Math.max(1, n));
     }
 
-    function applyGradeColor(el, grade, config = null) {
+    function applyGradeColor(el, grade, config = null, opts = {}) {
       if (!el) return;
       if (grade == null || grade === "" || grade === "—" || grade === "-") {
         el.style.backgroundColor = "";
@@ -2405,10 +2510,34 @@
       }
       const num = toNumber(grade);
       if (num == null) return;
-      const color = getScaleGradeColor(num, null, config);
+
+      const isSummary = !!(opts && opts.isSummary);
+      const classObj = (opts && opts.classObj) || (typeof getActiveClass === "function" ? getActiveClass() : null);
+      const summarySettings = isSummary ? getActiveSummaryDisplaySettings(classObj) : null;
+
+      let color = null;
+      if (isSummary) {
+        if (config && config.grading && (config.grading.colors || config.grading.pendingModelKey || config.grading.modelKey)) {
+          color = getScaleGradeColor(num, null, config);
+        }
+        if (!color) {
+          color = getSummaryGradeColor(num, classObj);
+        }
+      } else {
+        color = getScaleGradeColor(num, null, config);
+      }
+
       if (color) {
-        el.style.backgroundColor = color;
-        el.style.color = getNotchContrastTextColor(color);
+        const textColor = getNotchContrastTextColor(color);
+        if (isSummary && summarySettings && summarySettings.cellStyleMode === "badge") {
+          el.style.backgroundColor = "";
+          el.style.color = "";
+          const textVal = el.textContent || (typeof fmt === "function" ? fmt(num) : String(num));
+          el.innerHTML = `<span class="gs-grade-badge" style="background:${color};color:${textColor};">${textVal}</span>`;
+        } else {
+          el.style.backgroundColor = color;
+          el.style.color = textColor;
+        }
       }
     }
 
@@ -2644,6 +2773,112 @@
       "1": "#7f1d1d"
     };
 
+    const SUMMARY_GRADE_STEPS = ["6", "5.5", "5", "4.5", "4", "3.5", "3", "2.5", "2", "1.5", "1"];
+
+    const DEFAULT_SUMMARY_DISPLAY_SETTINGS = {
+      version: 1,
+      compactMode: false,
+      zebraStriping: false,
+      cellStyleMode: "cell",
+      anchors: ["6", "4", "1"],
+      gradeColors: { ...DEFAULT_GRADE_COLORS }
+    };
+
+    function loadSummaryDisplaySettings() {
+      if (!window.SUMMARY_DISPLAY_SETTINGS) {
+        try {
+          const raw = localStorage.getItem("cmt-summary-display-settings");
+          if (raw) {
+            window.SUMMARY_DISPLAY_SETTINGS = JSON.parse(raw);
+          }
+        } catch (_) {}
+      }
+      if (!window.SUMMARY_DISPLAY_SETTINGS) {
+        window.SUMMARY_DISPLAY_SETTINGS = JSON.parse(JSON.stringify(DEFAULT_SUMMARY_DISPLAY_SETTINGS));
+      }
+      if (!window.SUMMARY_DISPLAY_SETTINGS.gradeColors) {
+        window.SUMMARY_DISPLAY_SETTINGS.gradeColors = { ...DEFAULT_GRADE_COLORS };
+      }
+      if (!Array.isArray(window.SUMMARY_DISPLAY_SETTINGS.anchors)) {
+        window.SUMMARY_DISPLAY_SETTINGS.anchors = ["6", "4", "1"];
+      }
+    }
+
+    function getActiveSummaryDisplaySettings(classObj = null) {
+      const targetClass = classObj || (typeof getActiveClass === "function" ? getActiveClass() : null);
+      if (targetClass && targetClass.summarySettings && targetClass.summarySettings.custom) {
+        return targetClass.summarySettings;
+      }
+      if (!window.SUMMARY_DISPLAY_SETTINGS) {
+        loadSummaryDisplaySettings();
+      }
+      return window.SUMMARY_DISPLAY_SETTINGS || DEFAULT_SUMMARY_DISPLAY_SETTINGS;
+    }
+
+    function getSummaryGradeColor(gradeVal, classObj = null) {
+      if (gradeVal == null || gradeVal === "" || gradeVal === "—" || gradeVal === "-") return null;
+      const num = toNumber(gradeVal);
+      if (num == null) return null;
+      const settings = getActiveSummaryDisplaySettings(classObj);
+      const colors = (settings && settings.gradeColors) || DEFAULT_GRADE_COLORS;
+
+      const k = fmtN(num);
+      if (colors[k]) return colors[k];
+      const sNum = String(num);
+      if (colors[sNum]) return colors[sNum];
+
+      for (let i = 0; i < SUMMARY_GRADE_STEPS.length; i++) {
+        const stepVal = Number(SUMMARY_GRADE_STEPS[i]);
+        if (num >= stepVal - 1e-4) {
+          const stepKey = SUMMARY_GRADE_STEPS[i];
+          if (colors[stepKey]) return colors[stepKey];
+        }
+      }
+      return colors["1"] || "#7f1d1d";
+    }
+
+    function hexToRgb(hex) {
+      if (!hex || typeof hex !== "string") return null;
+      let clean = hex.trim().replace(/^#/, "");
+      if (clean.length === 3) {
+        clean = clean.split("").map(c => c + c).join("");
+      }
+      if (clean.length !== 6) return null;
+      const num = parseInt(clean, 16);
+      if (isNaN(num)) return null;
+      return {
+        r: (num >> 16) & 255,
+        g: (num >> 8) & 255,
+        b: num & 255
+      };
+    }
+
+    function rgbToHex(r, g, b) {
+      const clamp = n => Math.max(0, Math.min(255, Math.round(n)));
+      const toHex = n => clamp(n).toString(16).padStart(2, "0");
+      return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+    }
+
+    function interpolateHexColor(color1, color2, t) {
+      const c1 = hexToRgb(color1) || { r: 100, g: 100, b: 100 };
+      const c2 = hexToRgb(color2) || { r: 100, g: 100, b: 100 };
+      const factor = Math.max(0, Math.min(1, t));
+      const r = c1.r + factor * (c2.r - c1.r);
+      const g = c1.g + factor * (c2.g - c1.g);
+      const b = c1.b + factor * (c2.b - c1.b);
+      return rgbToHex(r, g, b);
+    }
+
+    function applySummaryDisplaySettingsToDOM() {
+      const classObj = typeof getActiveClass === "function" ? getActiveClass() : null;
+      const settings = getActiveSummaryDisplaySettings(classObj);
+      const table = document.getElementById("summary-table");
+      if (table) {
+        table.classList.toggle("gs-compact", !!settings.compactMode);
+        table.classList.toggle("gs-zebra", !!settings.zebraStriping);
+      }
+    }
+
     const REF_GRADE_PALETTE_50 = [
       // Row 1: Deep & Rich tones (Reds, Roses, Oranges, Ambers, Limes, Greens, Teals, Blues, Violets, Fuchsias)
       "#991b1b", "#881337", "#9a3412", "#b45309", "#4d7c0f", "#14532d", "#115e59", "#1e3a8a", "#4c1d95", "#701a75",
@@ -2687,10 +2922,52 @@
       });
       popover.appendChild(grid);
 
+      // Custom color row with native picker + hex input
+      const customRow = document.createElement("div");
+      customRow.className = "ref-color-popover-custom-row";
+      customRow.style.cssText = "display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid #e2e8f0;";
+
+      const customNative = document.createElement("input");
+      customNative.type = "color";
+      customNative.className = "ref-color-custom-native";
+      customNative.value = (currentColor && currentColor.startsWith("#")) ? currentColor : "#10b981";
+      customNative.style.cssText = "-webkit-appearance:none;appearance:none;width:24px;height:24px;border:1.5px solid #333;border-radius:4px;cursor:pointer;padding:0;background:none;flex-shrink:0;";
+
+      const customLbl = document.createElement("span");
+      customLbl.style.cssText = "font-size:0.75rem;font-weight:700;color:#475569;flex:1;";
+      customLbl.textContent = (typeof i18n !== 'undefined' ? i18n.t('gsCustomColor') : null) || "Custom…";
+
+      const customHex = document.createElement("input");
+      customHex.type = "text";
+      customHex.className = "ref-color-custom-hex";
+      customHex.value = (currentColor && currentColor.startsWith("#")) ? currentColor : "#10b981";
+      customHex.maxLength = 7;
+      customHex.style.cssText = "width:64px;font-family:monospace;font-size:0.78rem;padding:2px 4px;border:1.5px solid #333;border-radius:4px;text-align:center;";
+
+      customNative.addEventListener("input", (e) => {
+        const val = e.target.value;
+        customHex.value = val;
+        onSelect(val);
+      });
+
+      customHex.addEventListener("input", (e) => {
+        let val = customHex.value.trim();
+        if (!val.startsWith("#")) val = "#" + val;
+        if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+          customNative.value = val;
+          onSelect(val);
+        }
+      });
+
+      customRow.appendChild(customNative);
+      customRow.appendChild(customLbl);
+      customRow.appendChild(customHex);
+      popover.appendChild(customRow);
+
       popover.classList.remove("hidden");
       const rect = anchorEl.getBoundingClientRect();
       const popW = 296;
-      const popH = 158;
+      const popH = 200;
       let left = rect.left;
       if (left + popW > window.innerWidth - 12) {
         left = Math.max(12, window.innerWidth - popW - 12);
@@ -4812,7 +5089,7 @@
     })();
 
     function switchRefTab(tabName) {
-      const tabs = ["criteria", "scales", "chips"];
+      const tabs = ["summary-settings", "criteria", "scales", "chips"];
       tabs.forEach(t => {
         const btn = document.getElementById(`tab-btn-${t}`);
         const sec = document.getElementById(`ref-section-${t}`);
@@ -4821,6 +5098,9 @@
       });
       if (typeof appState !== "undefined" && appState) {
         appState.activeRefTab = tabName;
+      }
+      if (tabName === "summary-settings") {
+        renderSummarySettingsTab();
       }
     }
 
@@ -5652,7 +5932,85 @@
           savePromises.push(Desktop.saveText("customChips", activeChipFn, customChipsText));
         }
 
+        // Save summary display settings
+        if (_summarySettingsDraft) {
+          if (_summarySettingsScope === 'class') {
+            const actClass = typeof getActiveClass === 'function' ? getActiveClass() : null;
+            if (actClass) {
+              actClass.summarySettings = {
+                custom: true,
+                compactMode: !!_summarySettingsDraft.compactMode,
+                zebraStriping: !!_summarySettingsDraft.zebraStriping,
+                cellStyleMode: _summarySettingsDraft.cellStyleMode || 'cell',
+                anchors: [...(_summarySettingsDraft.anchors || ["6", "4", "1"])],
+                gradeColors: { ..._summarySettingsDraft.gradeColors }
+              };
+              if (typeof saveGradesStructured === 'function') {
+                savePromises.push(saveGradesStructured().catch(err => console.error("Could not save class summary settings:", err)));
+              }
+            }
+          } else {
+            window.SUMMARY_DISPLAY_SETTINGS = {
+              version: 1,
+              compactMode: !!_summarySettingsDraft.compactMode,
+              zebraStriping: !!_summarySettingsDraft.zebraStriping,
+              cellStyleMode: _summarySettingsDraft.cellStyleMode || 'cell',
+              anchors: [...(_summarySettingsDraft.anchors || ["6", "4", "1"])],
+              gradeColors: { ..._summarySettingsDraft.gradeColors }
+            };
+            try {
+              localStorage.setItem('cmt-summary-display-settings', JSON.stringify(window.SUMMARY_DISPLAY_SETTINGS));
+            } catch (_) {}
+            if (window.Desktop && Desktop.isElectron()) {
+              const summarySettingsText = `// Class Summary Display Settings\n// Automatically updated\nwindow.SUMMARY_DISPLAY_SETTINGS = ${JSON.stringify(window.SUMMARY_DISPLAY_SETTINGS, null, 2)};\n`;
+              savePromises.push(Desktop.saveText("user", "summary-display-settings.js", summarySettingsText));
+            }
+            if (typeof BroadcastChannel !== 'undefined') {
+              try {
+                new BroadcastChannel('cmt-summary-settings').postMessage({ updated: true });
+              } catch (_) {}
+            }
+          }
+        }
+
         await Promise.all(savePromises);
+      } else {
+        // Browser fallback mode for summary settings
+        if (_summarySettingsDraft) {
+          if (_summarySettingsScope === 'class') {
+            const actClass = typeof getActiveClass === 'function' ? getActiveClass() : null;
+            if (actClass) {
+              actClass.summarySettings = {
+                custom: true,
+                compactMode: !!_summarySettingsDraft.compactMode,
+                zebraStriping: !!_summarySettingsDraft.zebraStriping,
+                cellStyleMode: _summarySettingsDraft.cellStyleMode || 'cell',
+                anchors: [...(_summarySettingsDraft.anchors || ["6", "4", "1"])],
+                gradeColors: { ..._summarySettingsDraft.gradeColors }
+              };
+              if (typeof saveGradesStructured === 'function') {
+                saveGradesStructured().catch(err => console.error("Could not save class summary settings:", err));
+              }
+            }
+          } else {
+            window.SUMMARY_DISPLAY_SETTINGS = {
+              version: 1,
+              compactMode: !!_summarySettingsDraft.compactMode,
+              zebraStriping: !!_summarySettingsDraft.zebraStriping,
+              cellStyleMode: _summarySettingsDraft.cellStyleMode || 'cell',
+              anchors: [...(_summarySettingsDraft.anchors || ["6", "4", "1"])],
+              gradeColors: { ..._summarySettingsDraft.gradeColors }
+            };
+            try {
+              localStorage.setItem('cmt-summary-display-settings', JSON.stringify(window.SUMMARY_DISPLAY_SETTINGS));
+            } catch (_) {}
+            if (typeof BroadcastChannel !== 'undefined') {
+              try {
+                new BroadcastChannel('cmt-summary-settings').postMessage({ updated: true });
+              } catch (_) {}
+            }
+          }
+        }
       }
 
       // Broadcast changes across windows
@@ -5663,6 +6021,7 @@
         } catch (_) {}
       }
 
+      applySummaryDisplaySettingsToDOM();
       refreshCriteriaPresetDropdown();
       populateScaleBankDropdowns();
       populateChipBankDropdowns();
@@ -5670,10 +6029,420 @@
       renderSummary();
       document.getElementById("reference-data-popup-overlay").classList.add("hidden");
       _referenceDataEditorDraft = null;
+      _summarySettingsDraft = null;
       await showAlert(t('gsAlertRefSaved'));
     }
 
-    async function openReferenceDataEditor() {
+    let _summarySettingsDraft = null;
+    let _summarySettingsScope = 'global';
+
+    function initSummarySettingsDraft() {
+      const activeClass = typeof getActiveClass === 'function' ? getActiveClass() : null;
+      if (activeClass && activeClass.summarySettings && activeClass.summarySettings.custom) {
+        _summarySettingsScope = 'class';
+        _summarySettingsDraft = JSON.parse(JSON.stringify(activeClass.summarySettings));
+      } else {
+        _summarySettingsScope = 'global';
+        _summarySettingsDraft = JSON.parse(JSON.stringify(window.SUMMARY_DISPLAY_SETTINGS || DEFAULT_SUMMARY_DISPLAY_SETTINGS));
+      }
+      if (!_summarySettingsDraft.gradeColors) {
+        _summarySettingsDraft.gradeColors = { ...DEFAULT_GRADE_COLORS };
+      }
+      if (!Array.isArray(_summarySettingsDraft.anchors)) {
+        _summarySettingsDraft.anchors = ["6", "4", "1"];
+      }
+    }
+
+    function renderSummarySettingsTab() {
+      if (!_summarySettingsDraft) {
+        initSummarySettingsDraft();
+      }
+      const activeClass = typeof getActiveClass === 'function' ? getActiveClass() : null;
+      const scopeClassLabel = document.getElementById("gs-scope-class-label");
+      const scopeClassText = document.getElementById("gs-scope-class-text");
+      const scopeBadge = document.getElementById("gs-summary-scope-badge");
+      const rGlobal = document.getElementById("gs-scope-global");
+      const rClass = document.getElementById("gs-scope-class");
+
+      if (activeClass) {
+        if (scopeClassLabel) scopeClassLabel.style.display = "inline-flex";
+        if (scopeClassText) scopeClassText.textContent = `${t('gsSummaryScopeClass')} (${activeClass.name})`;
+        if (_summarySettingsScope === 'class') {
+          if (rClass) rClass.checked = true;
+          if (scopeBadge) {
+            scopeBadge.textContent = `${activeClass.name}`;
+            scopeBadge.style.background = "#dbeafe";
+            scopeBadge.style.color = "#1e40af";
+          }
+        } else {
+          if (rGlobal) rGlobal.checked = true;
+          if (scopeBadge) {
+            scopeBadge.textContent = "Global";
+            scopeBadge.style.background = "#e2e8f0";
+            scopeBadge.style.color = "#1e293b";
+          }
+        }
+      } else {
+        if (scopeClassLabel) scopeClassLabel.style.display = "none";
+        _summarySettingsScope = 'global';
+        if (rGlobal) rGlobal.checked = true;
+        if (scopeBadge) {
+          scopeBadge.textContent = "Global";
+          scopeBadge.style.background = "#e2e8f0";
+          scopeBadge.style.color = "#1e293b";
+        }
+      }
+
+      // Scope radio change handlers
+      if (rGlobal) {
+        rGlobal.onchange = () => {
+          if (rGlobal.checked) {
+            _summarySettingsScope = 'global';
+            _summarySettingsDraft = JSON.parse(JSON.stringify(window.SUMMARY_DISPLAY_SETTINGS || DEFAULT_SUMMARY_DISPLAY_SETTINGS));
+            renderSummarySettingsTab();
+          }
+        };
+      }
+      if (rClass && activeClass) {
+        rClass.onchange = () => {
+          if (rClass.checked) {
+            _summarySettingsScope = 'class';
+            if (activeClass.summarySettings && activeClass.summarySettings.custom) {
+              _summarySettingsDraft = JSON.parse(JSON.stringify(activeClass.summarySettings));
+            } else {
+              _summarySettingsDraft = JSON.parse(JSON.stringify(window.SUMMARY_DISPLAY_SETTINGS || DEFAULT_SUMMARY_DISPLAY_SETTINGS));
+              _summarySettingsDraft.custom = true;
+            }
+            renderSummarySettingsTab();
+          }
+        };
+      }
+
+      // Visual options
+      const chkCompact = document.getElementById("gs-set-compact");
+      if (chkCompact) {
+        chkCompact.checked = !!_summarySettingsDraft.compactMode;
+        chkCompact.onchange = () => {
+          _summarySettingsDraft.compactMode = chkCompact.checked;
+          renderSummaryPreview();
+        };
+      }
+
+      const chkZebra = document.getElementById("gs-set-zebra");
+      if (chkZebra) {
+        chkZebra.checked = !!_summarySettingsDraft.zebraStriping;
+        chkZebra.onchange = () => {
+          _summarySettingsDraft.zebraStriping = chkZebra.checked;
+          renderSummaryPreview();
+        };
+      }
+
+      const selCellStyle = document.getElementById("gs-set-cell-style");
+      if (selCellStyle) {
+        selCellStyle.value = _summarySettingsDraft.cellStyleMode || 'cell';
+        selCellStyle.onchange = () => {
+          _summarySettingsDraft.cellStyleMode = selCellStyle.value;
+          renderSummaryPreview();
+        };
+      }
+
+      // Presets
+      document.querySelectorAll(".gs-preset-btn").forEach(btn => {
+        btn.onclick = () => {
+          const preset = btn.getAttribute("data-preset");
+          applySummaryPreset(preset);
+        };
+      });
+
+      populateCopyFromScaleDropdown();
+
+      // Interpolate Gradient button
+      const btnInterpolate = document.getElementById("btn-interpolate-gradient");
+      if (btnInterpolate) {
+        btnInterpolate.onclick = () => {
+          interpolateGradeGradients();
+        };
+      }
+
+      // Grid of grades
+      const grid = document.getElementById("gs-grade-colors-grid");
+      if (grid) {
+        grid.innerHTML = "";
+        SUMMARY_GRADE_STEPS.forEach(step => {
+          const color = _summarySettingsDraft.gradeColors[step] || DEFAULT_GRADE_COLORS[step] || "#d97706";
+          const isAnchor = (_summarySettingsDraft.anchors || []).includes(step);
+
+          const card = document.createElement("div");
+          card.className = `gs-grade-color-item ${isAnchor ? 'is-anchor' : ''}`;
+          card.id = `gs-grade-item-${step.replace('.', '_')}`;
+
+          // Anchor checkbox
+          const chkAnchor = document.createElement("input");
+          chkAnchor.type = "checkbox";
+          chkAnchor.className = "gs-anchor-chk";
+          chkAnchor.checked = isAnchor;
+          chkAnchor.title = t("gsGradeAnchorCheckbox");
+          chkAnchor.addEventListener("click", (e) => e.stopPropagation());
+          chkAnchor.addEventListener("change", () => {
+            const curAnchors = new Set(_summarySettingsDraft.anchors || []);
+            if (chkAnchor.checked) curAnchors.add(step);
+            else curAnchors.delete(step);
+            _summarySettingsDraft.anchors = Array.from(curAnchors);
+            card.classList.toggle("is-anchor", chkAnchor.checked);
+          });
+
+          // Label
+          const lbl = document.createElement("span");
+          lbl.className = "grade-label";
+          lbl.textContent = fmtN(step);
+
+          // Swatch button opening rich color popover
+          const swatchBtn = document.createElement("button");
+          swatchBtn.type = "button";
+          swatchBtn.className = "ref-color-btn gs-grade-swatch-btn";
+          swatchBtn.style.backgroundColor = color;
+          swatchBtn.title = t("gsPickColor") || "Pick color";
+
+          // Hex input
+          const hexInput = document.createElement("input");
+          hexInput.type = "text";
+          hexInput.className = "gs-grade-hex-input";
+          hexInput.value = color;
+          hexInput.maxLength = 7;
+          hexInput.addEventListener("click", (e) => e.stopPropagation());
+
+          const updateGradeColor = (newVal) => {
+            swatchBtn.style.backgroundColor = newVal;
+            hexInput.value = newVal;
+            _summarySettingsDraft.gradeColors[step] = newVal;
+            renderSummaryPreview();
+          };
+
+          swatchBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            openRefColorPicker(swatchBtn, _summarySettingsDraft.gradeColors[step] || color, updateGradeColor);
+          });
+
+          card.addEventListener("click", () => {
+            openRefColorPicker(swatchBtn, _summarySettingsDraft.gradeColors[step] || color, updateGradeColor);
+          });
+
+          hexInput.addEventListener("input", () => {
+            let val = hexInput.value.trim();
+            if (!val.startsWith('#')) val = '#' + val;
+            if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+              swatchBtn.style.backgroundColor = val;
+              _summarySettingsDraft.gradeColors[step] = val;
+              renderSummaryPreview();
+            }
+          });
+
+          card.appendChild(chkAnchor);
+          card.appendChild(lbl);
+          card.appendChild(swatchBtn);
+          card.appendChild(hexInput);
+          grid.appendChild(card);
+        });
+      }
+
+      renderSummaryPreview();
+    }
+
+    function renderSummaryPreview() {
+      const prevBox = document.getElementById("gs-summary-colors-preview");
+      if (!prevBox || !_summarySettingsDraft) return;
+      prevBox.innerHTML = "";
+      const isBadge = _summarySettingsDraft.cellStyleMode === "badge";
+      SUMMARY_GRADE_STEPS.forEach(step => {
+        const color = _summarySettingsDraft.gradeColors[step] || DEFAULT_GRADE_COLORS[step] || "#d97706";
+        const contrast = getNotchContrastTextColor(color);
+        const item = document.createElement("div");
+        if (isBadge) {
+          item.innerHTML = `<span class="gs-grade-badge" style="background:${color};color:${contrast};">${fmtN(step)}</span>`;
+        } else {
+          item.style.cssText = `padding: 4px 8px; background: ${color}; color: ${contrast}; font-weight: 700; border: 1.5px solid #333; border-radius: 4px; box-shadow: 2px 2px 0 #555; font-size: 0.85rem;`;
+          item.textContent = fmtN(step);
+        }
+        prevBox.appendChild(item);
+      });
+    }
+
+    function interpolateGradeGradients() {
+      if (!_summarySettingsDraft) return;
+      const anchors = (_summarySettingsDraft.anchors || [])
+        .map(s => ({ step: s, val: Number(s) }))
+        .filter(a => !isNaN(a.val))
+        .sort((a, b) => b.val - a.val);
+
+      if (anchors.length < 2) {
+        showAlert("Please select at least 2 anchor grades (e.g., 6.0, 4.0, 1.0) to interpolate a gradient.");
+        return;
+      }
+
+      for (let i = 0; i < anchors.length - 1; i++) {
+        const top = anchors[i];
+        const bot = anchors[i + 1];
+        const topColor = _summarySettingsDraft.gradeColors[top.step] || DEFAULT_GRADE_COLORS[top.step] || "#16a34a";
+        const botColor = _summarySettingsDraft.gradeColors[bot.step] || DEFAULT_GRADE_COLORS[bot.step] || "#7f1d1d";
+        const span = top.val - bot.val;
+
+        SUMMARY_GRADE_STEPS.forEach(stepStr => {
+          const stepVal = Number(stepStr);
+          if (stepVal < top.val && stepVal > bot.val && span > 0) {
+            const t = (top.val - stepVal) / span;
+            const interp = interpolateHexColor(topColor, botColor, t);
+            _summarySettingsDraft.gradeColors[stepStr] = interp;
+          }
+        });
+      }
+
+      renderSummarySettingsTab();
+    }
+
+    function applySummaryPreset(presetKey) {
+      if (!_summarySettingsDraft) return;
+      if (presetKey === "traffic") {
+        _summarySettingsDraft.anchors = ["6", "4", "1"];
+        _summarySettingsDraft.gradeColors = { ...DEFAULT_GRADE_COLORS };
+      } else if (presetKey === "pastel") {
+        _summarySettingsDraft.anchors = ["6", "4", "1"];
+        _summarySettingsDraft.gradeColors["6"] = "#86efac";
+        _summarySettingsDraft.gradeColors["4"] = "#fde047";
+        _summarySettingsDraft.gradeColors["1"] = "#fca5a5";
+        interpolateGradeGradients();
+        return;
+      } else if (presetKey === "blue-amber") {
+        _summarySettingsDraft.anchors = ["6", "4", "1"];
+        _summarySettingsDraft.gradeColors["6"] = "#2563eb";
+        _summarySettingsDraft.gradeColors["4"] = "#f59e0b";
+        _summarySettingsDraft.gradeColors["1"] = "#dc2626";
+        interpolateGradeGradients();
+        return;
+      } else if (presetKey === "cool-emerald") {
+        _summarySettingsDraft.anchors = ["6", "4", "1"];
+        _summarySettingsDraft.gradeColors["6"] = "#059669";
+        _summarySettingsDraft.gradeColors["4"] = "#0284c7";
+        _summarySettingsDraft.gradeColors["1"] = "#475569";
+        interpolateGradeGradients();
+        return;
+      } else if (presetKey === "reset") {
+        _summarySettingsDraft.compactMode = false;
+        _summarySettingsDraft.zebraStriping = false;
+        _summarySettingsDraft.cellStyleMode = "cell";
+        _summarySettingsDraft.anchors = ["6", "4", "1"];
+        _summarySettingsDraft.gradeColors = { ...DEFAULT_GRADE_COLORS };
+      }
+      renderSummarySettingsTab();
+    }
+
+    function populateCopyFromScaleDropdown() {
+      const sel = document.getElementById("gs-select-copy-scale");
+      if (!sel) return;
+
+      const promptText = (typeof i18n !== 'undefined' ? i18n.t('gsSelectScalePrompt') : null) || 'Select scale…';
+      sel.innerHTML = `<option value="" disabled selected>${promptText}</option>`;
+
+      const scales = (_referenceDataEditorDraft && Array.isArray(_referenceDataEditorDraft.scaleModels) && _referenceDataEditorDraft.scaleModels.length > 0)
+        ? _referenceDataEditorDraft.scaleModels
+        : (typeof getScaleModelsList === 'function' ? getScaleModelsList() : []);
+
+      scales.forEach((scale, idx) => {
+        const opt = document.createElement("option");
+        opt.value = scale.key || `scale-${idx}`;
+        opt.textContent = scale.label || scale.key || `Scale ${idx + 1}`;
+        sel.appendChild(opt);
+      });
+
+      sel.onchange = () => {
+        const chosenKey = sel.value;
+        if (!chosenKey) return;
+        const foundScale = scales.find((s, idx) => (s.key || `scale-${idx}`) === chosenKey);
+        if (foundScale) {
+          applyColorsFromScale(foundScale);
+          if (typeof showToast === 'function') {
+            const toastMsg = (typeof i18n !== 'undefined' ? i18n.t('gsCopiedFromScaleToast') : null) || 'Copied grade colors from {name}';
+            showToast(toastMsg.replace('{name}', foundScale.label || foundScale.key));
+          }
+        }
+        sel.value = "";
+      };
+    }
+
+    function applyColorsFromScale(scale) {
+      if (!scale || !scale.colors || !_summarySettingsDraft) return;
+      if (!_summarySettingsDraft.gradeColors) _summarySettingsDraft.gradeColors = {};
+
+      const scaleColors = scale.colors;
+
+      function getScaleColor(step) {
+        const sStr = String(step);
+        if (scaleColors[sStr]) return scaleColors[sStr];
+        const sNum = Number(step);
+        if (scaleColors[sNum]) return scaleColors[sNum];
+        if (sNum === Math.round(sNum)) {
+          const sInt = String(Math.round(sNum));
+          if (scaleColors[sInt]) return scaleColors[sInt];
+        }
+        const sFixed = sNum.toFixed(1);
+        if (scaleColors[sFixed]) return scaleColors[sFixed];
+        return null;
+      }
+
+      // Check direct matches
+      const directMatches = {};
+      SUMMARY_GRADE_STEPS.forEach(step => {
+        const c = getScaleColor(step);
+        if (c) directMatches[step] = c;
+      });
+
+      const matchCount = Object.keys(directMatches).length;
+
+      if (matchCount >= 2) {
+        SUMMARY_GRADE_STEPS.forEach(step => {
+          if (directMatches[step]) {
+            _summarySettingsDraft.gradeColors[step] = directMatches[step];
+          } else {
+            const num = Number(step);
+            let higherStep = null, lowerStep = null;
+            SUMMARY_GRADE_STEPS.forEach(s => {
+              const sN = Number(s);
+              if (directMatches[s]) {
+                if (sN > num && (higherStep === null || sN < Number(higherStep))) higherStep = s;
+                if (sN < num && (lowerStep === null || sN > Number(lowerStep))) lowerStep = s;
+              }
+            });
+            if (higherStep && lowerStep) {
+              const highVal = Number(higherStep);
+              const lowVal = Number(lowerStep);
+              const t = (highVal - num) / (highVal - lowVal);
+              _summarySettingsDraft.gradeColors[step] = interpolateHexColor(directMatches[higherStep], directMatches[lowerStep], t);
+            } else if (higherStep) {
+              _summarySettingsDraft.gradeColors[step] = directMatches[higherStep];
+            } else if (lowerStep) {
+              _summarySettingsDraft.gradeColors[step] = directMatches[lowerStep];
+            }
+          }
+        });
+      } else {
+        const scaleKeys = Object.keys(scaleColors)
+          .map(k => ({ key: k, val: Number(k), color: scaleColors[k] }))
+          .filter(item => !isNaN(item.val))
+          .sort((a, b) => b.val - a.val);
+
+        if (scaleKeys.length >= 2) {
+          const topColor = scaleKeys[0].color;
+          const botColor = scaleKeys[scaleKeys.length - 1].color;
+          SUMMARY_GRADE_STEPS.forEach((step, idx) => {
+            const t = idx / (SUMMARY_GRADE_STEPS.length - 1);
+            _summarySettingsDraft.gradeColors[step] = interpolateHexColor(topColor, botColor, t);
+          });
+        }
+      }
+
+      renderSummarySettingsTab();
+    }
+
+    async function openReferenceDataEditor(initialTab = null) {
       // Ensure all bank lists are loaded before building the draft
       await Promise.all([
         loadAvailableCriteriaBanks(),
@@ -5681,15 +6450,19 @@
         loadAvailableChipBanks()
       ]).catch(() => {});
       _referenceDataEditorDraft = cloneReferenceDrafts();
+      initSummarySettingsDraft();
       document.getElementById("reference-data-popup-overlay").classList.remove("hidden");
       renderReferenceDataEditor({ initial: true });
-      switchRefTab((typeof appState !== "undefined" && appState && appState.activeRefTab) || "criteria");
+      const targetTab = initialTab || (appState.activeScreen === 'summary' ? 'summary-settings' : ((typeof appState !== "undefined" && appState && appState.activeRefTab) || "summary-settings"));
+      switchRefTab(targetTab);
     }
 
     async function initializeReferenceData() {
       await Promise.resolve(window.__gsUserBootstrapPromise).catch(function () {});
       loadReferenceDataOverrides();
+      loadSummaryDisplaySettings();
       refreshCriteriaPresetDropdown();
+      applySummaryDisplaySettingsToDOM();
     }
 
     function makeCriterion(name = "Criterion", maxPoints = null, pointCoefficient = 1, isBonus = false, minPoints = null, interval = null, competenceIds = []) {
@@ -8719,6 +9492,7 @@
       document.getElementById("summary-title").textContent = classObj.name + " - " + t('gsClassSummaryLabel');
       ensureClassStructures(classObj);
       updateGsLinksBadges();
+      applySummaryDisplaySettingsToDOM();
 
       // Determine which semesters to show based on the class's semester property
       const isAll = !classObj.semester || classObj.semester === 'all' || classObj.semester === 'both';
@@ -8870,7 +9644,7 @@
             } else if (idx >= sem2TestStart && idx < sem2TestStart + n2) {
               testCfg = getTestConfig(classObj, "sem2", idx - sem2TestStart);
             }
-            applyGradeColor(td, rowNums[idx], testCfg);
+            applyGradeColor(td, rowNums[idx], testCfg, { classObj, isSummary: true });
           }
           if (idx === roundedFinalColIdx + 1) td.style.textAlign = "center";
           if (idx === sem1AvgColIdx || idx === sem2AvgColIdx) td.style.fontWeight = "700";
@@ -8971,7 +9745,7 @@
               } else if (ci >= sem2TestRange[0] && ci < sem2TestRange[1]) {
                 testCfg = getTestConfig(classObj, "sem2", ci - sem2TestRange[0]);
               }
-              applyGradeColor(td, v, testCfg);
+              applyGradeColor(td, v, testCfg, { classObj, isSummary: true });
             }
             str.appendChild(td);
           });
@@ -18558,8 +19332,15 @@
         btnClassTemplates.addEventListener("click", () => openClassTemplatesModal());
       }
       document.querySelectorAll(".btn-edit-reference-data, #btn-edit-reference-data").forEach(btn => {
-        btn.addEventListener("click", openReferenceDataEditor);
+        btn.addEventListener("click", () => {
+          const tab = (btn.id === 'btn-summary-settings' || appState.activeScreen === 'summary') ? 'summary-settings' : null;
+          openReferenceDataEditor(tab);
+        });
       });
+      const btnManageSummary = document.getElementById("btn-manage-summary-settings");
+      if (btnManageSummary) {
+        btnManageSummary.addEventListener("click", () => openReferenceDataEditor('summary-settings'));
+      }
       document.getElementById("edit-class-save").addEventListener("click", saveEditClass);
       document.getElementById("edit-class-cancel").addEventListener("click", () => document.getElementById("edit-class-overlay").classList.add("hidden"));
       document.getElementById("edit-class-overlay").addEventListener("click", e => { if (e.target === document.getElementById("edit-class-overlay")) document.getElementById("edit-class-overlay").classList.add("hidden"); });

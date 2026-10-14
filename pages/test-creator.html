@@ -78,6 +78,7 @@
           <button class="nav-pop-item" onclick="tcAddSectionBlockToExam('section_competences')"><span data-i18n="tcTypeSectionCompetences">+ Competences / Objectives Block</span></button>
           <button class="nav-pop-item" onclick="tcAddSectionBlockToExam('section_criteria')"><span data-i18n="tcTypeSectionCriteria">+ Criteria / Rubric Block</span></button>
           <button class="nav-pop-item" onclick="tcAddSectionBlockToExam('section_grading_scale')"><span data-i18n="tcTypeSectionGradingScale">+ Grading Scale / Conversion Block</span></button>
+          <button class="nav-pop-item" onclick="tcAddSectionBlockToExam('section_custom')"><span data-i18n="tcTypeSectionCustom">+ Custom Block (HTML / WYSIWYG)</span></button>
         </div>
       </div>
 
@@ -281,7 +282,7 @@
               <span class="tc-block-badge blue" id="blockCompCountBadge">0 linked</span>
             </div>
             <div class="tc-block-actions">
-              <button type="button" class="neo-btn sm" style="background:#dbeafe;color:#1e40af;border-color:#2563eb;" onclick="event.stopPropagation(); tcSwitchDrawerTab('competences'); tcToggleDrawer();">
+              <button type="button" class="neo-btn sm" style="background:#dbeafe;color:#1e40af;border-color:#2563eb;" onclick="event.stopPropagation(); _targetAttachExId = '__exam__'; tcSwitchDrawerTab('competences'); tcToggleDrawer(); updateCompetenceTargetDropdown(); if (typeof tcFilterCompetences === 'function') tcFilterCompetences();">
                 + <span data-i18n="tcDrawerTabCompetences">Browse</span>
               </button>
               <span class="card-drag-handle" id="blockCompetencesChevron" style="font-size:0.9rem;">▾</span>
@@ -320,7 +321,7 @@
               <span class="tc-block-badge green" id="blockCritCountBadge">0 active</span>
             </div>
             <div class="tc-block-actions">
-              <button type="button" class="neo-btn sm" style="background:#d1fae5;color:#065f46;border-color:#059669;" onclick="event.stopPropagation(); tcSwitchDrawerTab('criteriadb'); tcToggleDrawer();">
+              <button type="button" class="neo-btn sm" style="background:#d1fae5;color:#065f46;border-color:#059669;" onclick="event.stopPropagation(); _targetAttachExId = '__exam__'; tcSwitchDrawerTab('criteriadb'); tcToggleDrawer(); updateCriteriaTargetDropdown(); if (typeof tcRenderCriteriaList === 'function' && Array.isArray(_cachedCriteria)) tcRenderCriteriaList(_cachedCriteria);">
                 + <span data-i18n="tcDrawerTabCriteriaDb">Browse</span>
               </button>
               <span class="card-drag-handle" id="blockCriteriaChevron" style="font-size:0.9rem;">▾</span>
@@ -426,6 +427,7 @@
               <button class="neo-btn sm" style="background:#dbeafe;color:#1e40af;border-color:#2563eb;" onclick="tcAddSectionBlockToExam('section_competences')">+ <span data-i18n="tcDrawerTabCompetences">Competences</span></button>
               <button class="neo-btn sm" style="background:#d1fae5;color:#065f46;border-color:#059669;" onclick="tcAddSectionBlockToExam('section_criteria')">+ <span data-i18n="tcDrawerTabCriteriaDb">Criteria</span></button>
               <button class="neo-btn sm" style="background:#fde68a;color:#92400e;border-color:#d97706;" onclick="tcAddSectionBlockToExam('section_grading_scale')">+ <span data-i18n="tcDrawerTabScales">Scale</span></button>
+              <button class="neo-btn sm" style="background:#f3e8ff;color:#6b21a8;border-color:#9333ea;" onclick="tcAddSectionBlockToExam('section_custom')">+ <span data-i18n="tcBtnCustomBlock">Custom Block</span></button>
             </div>
           </div>
         </div>
@@ -673,14 +675,29 @@
             <span data-i18n="tcLivePreviewTitle">Live Print Preview</span>
           </span>
 
+          <!-- Freeze Toggle & Refresh Buttons -->
+          <button type="button" class="neo-btn sm tc-preview-freeze-btn" id="previewFreezeToggle" onclick="tcToggleFreezePreview()" title="Freeze preview updates while editing" data-i18n-title="tcFreezePreviewTooltip" style="padding:2px 8px;font-size:0.75rem;display:inline-flex;align-items:center;gap:4px;">
+            <img src="../assets/icons/snowflake.svg" class="btn-icon" alt="" style="width:12px;height:12px;" />
+            <span id="previewFreezeLabel" data-i18n="tcFreezePreview">Freeze</span>
+          </button>
+          <button type="button" class="neo-btn sm tc-preview-refresh-btn" id="previewRefreshBtn" onclick="tcForceRefreshPreview()" title="Refresh print preview now" data-i18n-title="tcRefreshPreviewTooltip" style="padding:2px 6px;font-size:0.75rem;display:inline-flex;align-items:center;">
+            <img src="../assets/icons/refresh.svg" class="btn-icon" alt="" style="width:12px;height:12px;" />
+          </button>
+
+          <!-- Subtle Non-obtrusive Update Indicator -->
+          <span id="tcPreviewStatusIndicator" class="tc-preview-status-indicator" style="display:none;">
+            <span class="tc-preview-pulse-dot"></span>
+            <span data-i18n="tcPreviewUpdating">Updating…</span>
+          </span>
+
           <label style="display:flex;align-items:center;gap:5px;font-size:0.78rem;font-weight:700;cursor:pointer;margin-left:6px;">
-            <input type="checkbox" id="previewTeacherKeyToggle" onchange="tcUpdatePrintPreview()">
+            <input type="checkbox" id="previewTeacherKeyToggle" onchange="tcUpdatePrintPreview({ force: true })">
             <span style="color:#f87171;" data-i18n="tcTeacherKeyLabel">Teacher Key</span>
           </label>
 
           <div style="display:flex;align-items:center;gap:3px;font-size:0.78rem;font-weight:700;margin-left:4px;">
             <span data-i18n="tcVariant">Var:</span>
-            <select id="previewVariantSelect" class="meta-select" style="padding:2px 5px;font-size:0.78rem;" onchange="tcUpdatePrintPreview()">
+            <select id="previewVariantSelect" class="meta-select" style="padding:2px 5px;font-size:0.78rem;" onchange="tcUpdatePrintPreview({ force: true })">
               <option value="A" data-i18n="tcVariantGroupA">Group A</option>
               <option value="B" data-i18n="tcVariantGroupB">Group B</option>
             </select>
@@ -2389,6 +2406,9 @@
         initMainSplitResizer();
         setupExerciseDragAndDrop();
         tcCheckUrlExerciseDeepLink();
+        if (typeof tcUpdateFreezePreviewUI === 'function') {
+          tcUpdateFreezePreviewUI();
+        }
       });
 
       var _draggedExerciseIdx = null;
@@ -2494,6 +2514,9 @@
                     return c.id === payload.descriptorId || c.code === payload.code;
                   }) || { id: payload.descriptorId, code: payload.code, title: payload.title };
                   tcAttachCompetenceByObject(desc);
+                } else if (payload.type === 'criterion') {
+                  _targetAttachExId = cardId;
+                  tcPullCriteriaToActiveEx(payload.critId, payload, cardId);
                 }
               }
             } catch (_) {}
@@ -3091,7 +3114,7 @@
           tcUpdateBlockBadges();
         }
         if (typeof tcScheduleLivePreviewUpdate === 'function') {
-          tcScheduleLivePreviewUpdate(60);
+          tcScheduleLivePreviewUpdate();
         }
       }
 
@@ -3162,12 +3185,14 @@
 
       var _tcLivePreviewDebounceTimer = null;
       window.tcScheduleLivePreviewUpdate = function (delayMs) {
+        if (window._tcPreviewIsFrozen) return;
         if (_tcLivePreviewDebounceTimer) clearTimeout(_tcLivePreviewDebounceTimer);
+        var effectiveDelay = typeof delayMs === 'number' ? Math.max(delayMs, 450) : 450;
         _tcLivePreviewDebounceTimer = setTimeout(function () {
           if (typeof tcUpdatePrintPreview === 'function') {
             tcUpdatePrintPreview();
           }
-        }, typeof delayMs === 'number' ? delayMs : 180);
+        }, effectiveDelay);
       };
 
       window.tcUpdateBlockBadges = function () {
@@ -3630,7 +3655,7 @@
         var list = document.getElementById('exerciseCardsList');
         var badge = document.getElementById('exerciseCountBadge');
         var exs = currentTest.exercises || [];
-        var regularCount = exs.filter(function (e) { return !e.type || !e.type.startsWith('section_'); }).length;
+        var regularCount = exs.filter(function (e) { return !e.type || (!e.type.startsWith('section_') && e.type !== 'custom_block'); }).length;
         var sectionCount = exs.length - regularCount;
         if (badge) {
           badge.textContent = regularCount + ' exercise' + (regularCount === 1 ? '' : 's') + (sectionCount > 0 ? ' (' + sectionCount + ' section block' + (sectionCount === 1 ? '' : 's') + ')' : '');
@@ -3654,6 +3679,8 @@
             return buildCriteriaSectionCardHtml(ex, idx);
           } else if (ex.type === 'section_grading_scale') {
             return buildGradingScaleSectionCardHtml(ex, idx);
+          } else if (ex.type === 'section_custom' || ex.type === 'custom_block') {
+            return buildCustomSectionCardHtml(ex, idx);
           } else {
             exIndexCounter++;
             return buildExerciseCardHtml(ex, idx, exIndexCounter);
@@ -3663,20 +3690,23 @@
         renderTestCompetenceBadges();
         if (typeof window.tcRenderTestCriteriaBar === 'function') window.tcRenderTestCriteriaBar();
         if (typeof window.tcRenderTestGradingScaleBar === 'function') window.tcRenderTestGradingScaleBar();
+        if (typeof updateCompetenceTargetDropdown === 'function') updateCompetenceTargetDropdown();
+        if (typeof updateCriteriaTargetDropdown === 'function') updateCriteriaTargetDropdown();
+        if (typeof updateScaleTargetDropdown === 'function') updateScaleTargetDropdown();
       }
       window.tcRenderAllExercises = renderExerciseCards;
 
       function buildCompetencesSectionCardHtml(ex, idx) {
         var isOpen = window._openOptionsExerciseIds && window._openOptionsExerciseIds.has(ex.id);
         var opts = ex.options || {};
-        var rawComps = (Array.isArray(currentTest.linkedCompetences) && currentTest.linkedCompetences.length)
-          ? currentTest.linkedCompetences
-          : (Array.isArray(currentTest.linkedCompetenceIds) ? currentTest.linkedCompetenceIds : []);
+        var rawComps = (Array.isArray(ex.linkedCompetences) && ex.linkedCompetences.length)
+          ? ex.linkedCompetences
+          : (Array.isArray(ex.linkedCompetenceIds) && ex.linkedCompetenceIds.length ? ex.linkedCompetenceIds : []);
 
         var previewContent = '';
         if (rawComps.length === 0) {
           previewContent = '<div style="font-size:0.8rem;color:#64748b;font-style:italic;padding:4px 0;">' +
-            escapeHtml(i18n.t('tcNoCompetencesActive') || 'No test-wide competences defined yet. Open drawer to add objectives.') +
+            escapeHtml(i18n.t('tcNoCompetencesInBlock') || 'No objectives attached to this block yet. Click \'Open Drawer…\' to add competences.') +
             '</div>';
         } else {
           previewContent = '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">' +
@@ -3686,7 +3716,7 @@
               return '<span style="background:#eff6ff;border:1.5px solid #2563eb;color:#1e40af;font-size:0.75rem;padding:3px 8px;border-radius:4px;font-weight:900;display:inline-flex;align-items:center;gap:6px;">' +
                 '<span>' + escapeHtml(title) + '</span>' +
                 (desc && opts.showDescriptions !== false ? ' <span style="font-size:0.68rem;font-weight:700;color:#3b82f6;">[+desc]</span>' : '') +
-                ' <button type="button" style="background:none;border:none;cursor:pointer;color:#ef4444;font-weight:900;font-size:0.85rem;padding:0;line-height:1;" onclick="tcRemoveTestComp(' + cIdx + ')" title="Remove objective">&times;</button>' +
+                ' <button type="button" style="background:none;border:none;cursor:pointer;color:#ef4444;font-weight:900;font-size:0.85rem;padding:0;line-height:1;" onclick="tcRemoveCompFromSection(\'' + ex.id + '\', ' + cIdx + ')" title="Remove objective">&times;</button>' +
                 '</span>';
             }).join('') +
             '</div>';
@@ -3757,14 +3787,14 @@
       function buildCriteriaSectionCardHtml(ex, idx) {
         var isOpen = window._openOptionsExerciseIds && window._openOptionsExerciseIds.has(ex.id);
         var opts = ex.options || {};
-        var rawCrits = (Array.isArray(currentTest.criteria) && currentTest.criteria.length)
-          ? currentTest.criteria
-          : ((Array.isArray(currentTest.linkedCriteria) && currentTest.linkedCriteria.length) ? currentTest.linkedCriteria : []);
+        var rawCrits = (Array.isArray(ex.criteria) && ex.criteria.length)
+          ? ex.criteria
+          : ((Array.isArray(ex.markingRubric) && ex.markingRubric.length) ? ex.markingRubric : ((Array.isArray(ex.linkedCriteria) && ex.linkedCriteria.length) ? ex.linkedCriteria : []));
 
         var previewContent = '';
         if (rawCrits.length === 0) {
           previewContent = '<div style="font-size:0.8rem;color:#64748b;font-style:italic;padding:4px 0;">' +
-            escapeHtml(i18n.t('tcNoCriteriaActive') || 'No test criteria defined yet. Open Criteria DB in drawer to attach rubrics.') +
+            escapeHtml(i18n.t('tcNoCriteriaInBlock') || 'No assessment criteria attached to this block yet. Click \'Open Drawer…\' to attach rubrics.') +
             '</div>';
         } else {
           previewContent = '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">' +
@@ -3775,7 +3805,7 @@
               return '<span style="background:#ecfdf5;border:1.5px solid #059669;color:#065f46;font-size:0.75rem;padding:3px 8px;border-radius:4px;font-weight:900;display:inline-flex;align-items:center;gap:6px;">' +
                 '<span>' + escapeHtml(title) + (pts !== '' ? ' (/' + pts + ' pts)' : '') + '</span>' +
                 (desc && opts.showDescriptions !== false ? ' <span style="font-size:0.68rem;font-weight:700;color:#10b981;">[+desc]</span>' : '') +
-                ' <button type="button" style="background:none;border:none;cursor:pointer;color:#ef4444;font-weight:900;font-size:0.85rem;padding:0;line-height:1;" onclick="tcRemoveTestCriterion(' + cIdx + ')" title="Remove criterion">&times;</button>' +
+                ' <button type="button" style="background:none;border:none;cursor:pointer;color:#ef4444;font-weight:900;font-size:0.85rem;padding:0;line-height:1;" onclick="tcRemoveCriterionFromSection(\'' + ex.id + '\', ' + cIdx + ')" title="Remove criterion">&times;</button>' +
                 '</span>';
             }).join('') +
             '</div>';
@@ -3929,6 +3959,175 @@
           '    <div style="display:flex;align-items:center;gap:6px;">' +
           '      <button type="button" id="optionsBtn_' + ex.id + '" class="neo-btn sm tc-options-btn' + (isOpen ? ' yellow' : '') + '" onclick="tcToggleExerciseOptions(\'' + ex.id + '\')">Options</button>' +
           '      <button type="button" class="' + (ex.exportStyle && (ex.exportStyle.fontSize || ex.exportStyle.lineHeight || ex.exportStyle.padding) ? 'neo-btn sm primary' : 'neo-btn sm') + '" onclick="tcOpenExerciseStyleModal(\'' + ex.id + '\')" title="Customise export formatting">Style</button>' +
+          '    </div>' +
+          '  </div>' +
+          '</div>';
+      }
+
+      function buildCustomSectionCardHtml(ex, idx) {
+        var isOpen = window._openOptionsExerciseIds && window._openOptionsExerciseIds.has(ex.id);
+        var opts = ex.options || {};
+        var content = ex.content || {};
+        var mode = content.mode || 'wysiwyg';
+        var htmlContent = content.html || '';
+        var isWysiwyg = (mode === 'wysiwyg');
+
+        return '<div class="exercise-card-item section-card-purple" id="card-' + ex.id + '" draggable="true" data-index="' + idx + '" data-id="' + ex.id + '">' +
+          '  <div class="exercise-card-header">' +
+          '    <span class="card-drag-handle" title="Drag to reorder">⋮⋮</span>' +
+          '    <span class="card-type-badge badge-purple">' + (i18n.t('tcTypeSectionCustom') || 'Custom Block') + '</span>' +
+          '    <div style="display:flex;align-items:center;gap:4px;flex:2;min-width:200px;">' +
+          '      <input type="text" id="exTitle_' + ex.id + '" class="card-title-input" style="flex:1;" value="' + escapeAttr(ex.title || 'Custom Block') + '" placeholder="Custom Block Title" onchange="tcUpdateExField(\'' + ex.id + '\', \'title\', this.value)">' +
+          '      ' + buildMiniFormatToolbar('exTitle_' + ex.id) +
+          '    </div>' +
+          '    <div style="display:flex;align-items:center;gap:4px;">' +
+          '      <span style="font-size:0.75rem;font-weight:800;">PTS:</span>' +
+          '      <input type="number" class="card-points-input" value="' + (ex.points || 0) + '" step="0.5" min="0" onchange="tcUpdateExField(\'' + ex.id + '\', \'points\', Number(this.value)); updatePointsBadge();">' +
+          '    </div>' +
+          '    <div class="card-actions">' +
+          '      <button class="card-btn-icon" onclick="tcMoveExercise(' + idx + ', -1)" title="Move up">▲</button>' +
+          '      <button class="card-btn-icon" onclick="tcMoveExercise(' + idx + ', 1)" title="Move down">▼</button>' +
+          '      <button class="card-btn-icon" onclick="tcDuplicateExercise(\'' + ex.id + '\')" title="Duplicate"><img src="../assets/icons/duplicate.svg" alt="Duplicate" style="width:13px;height:13px;"></button>' +
+          '      <button class="card-btn-icon" style="color:#ef4444;" onclick="tcDeleteExercise(\'' + ex.id + '\')" title="Delete"><img src="../assets/icons/delete.svg" alt="Delete" style="width:13px;height:13px;"></button>' +
+          '    </div>' +
+          '  </div>' +
+          '  <div class="card-body">' +
+          '    <div style="display:flex;align-items:center;gap:4px;margin-bottom:8px;">' +
+          '      <input type="text" id="exInstr_' + ex.id + '" class="instructions-input" style="flex:1;" value="' + escapeAttr(ex.instructions || '') + '" placeholder="Optional instructions or subtitle for this block" onchange="tcUpdateExField(\'' + ex.id + '\', \'instructions\', this.value)">' +
+          '      ' + buildMiniFormatToolbar('exInstr_' + ex.id) +
+          '    </div>' +
+          '    <!-- Mode Selector: WYSIWYG vs Pure HTML -->' +
+          '    <div class="tc-custom-mode-bar">' +
+          '      <div class="tc-custom-mode-pills">' +
+          '        <button type="button" class="tc-mode-btn' + (isWysiwyg ? ' active' : '') + '" id="modeBtnWysiwyg_' + ex.id + '" onclick="tcSetCustomBlockMode(\'' + ex.id + '\', \'wysiwyg\')">' +
+          '          <img src="../assets/icons/layout.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> <span data-i18n="tcCustomModeWysiwyg">' + (i18n.t('tcCustomModeWysiwyg') || 'WYSIWYG') + '</span>' +
+          '        </button>' +
+          '        <button type="button" class="tc-mode-btn' + (!isWysiwyg ? ' active' : '') + '" id="modeBtnHtml_' + ex.id + '" onclick="tcSetCustomBlockMode(\'' + ex.id + '\', \'html\')">' +
+          '          <img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> <span data-i18n="tcCustomModeHtml">' + (i18n.t('tcCustomModeHtml') || 'Pure HTML') + '</span>' +
+          '        </button>' +
+          '      </div>' +
+          '      <span class="tc-custom-mode-hint" id="modeHint_' + ex.id + '">' + (isWysiwyg ? (i18n.t('tcCustomModeWysiwyg') || 'WYSIWYG Visual Editor') : (i18n.t('tcCustomModeHtml') || 'Pure HTML Code Editor')) + '</span>' +
+          '    </div>' +
+          '    <!-- WYSIWYG Editor View -->' +
+          '    <div class="tc-wysiwyg-container" id="wysiwygWrap_' + ex.id + '" style="display:' + (isWysiwyg ? 'block' : 'none') + ';">' +
+          '      <div class="tc-wysiwyg-toolbar">' +
+          '        <div class="tc-wysiwyg-toolbar-grp">' +
+          '          <select class="tc-wysiwyg-select" onchange="tcCustomWysiwygFormatBlock(\'' + ex.id + '\', this.value); this.value=\'\';" title="Paragraph Style">' +
+          '            <option value="">Style…</option>' +
+          '            <option value="p">Paragraph (&lt;p&gt;)</option>' +
+          '            <option value="h2">Heading 2 (&lt;h2&gt;)</option>' +
+          '            <option value="h3">Heading 3 (&lt;h3&gt;)</option>' +
+          '            <option value="h4">Heading 4 (&lt;h4&gt;)</option>' +
+          '            <option value="blockquote">Quote (&lt;blockquote&gt;)</option>' +
+          '            <option value="pre">Code / Monospace (&lt;pre&gt;)</option>' +
+          '          </select>' +
+          '        </div>' +
+          '        <div class="tc-wysiwyg-toolbar-grp">' +
+          '          <button type="button" class="tc-wysiwyg-btn" title="Bold (Ctrl+B)" onmousedown="event.preventDefault(); tcCustomWysiwygExec(\'' + ex.id + '\', \'bold\');"><strong>B</strong></button>' +
+          '          <button type="button" class="tc-wysiwyg-btn" title="Italic (Ctrl+I)" onmousedown="event.preventDefault(); tcCustomWysiwygExec(\'' + ex.id + '\', \'italic\');"><em>I</em></button>' +
+          '          <button type="button" class="tc-wysiwyg-btn" title="Underline (Ctrl+U)" onmousedown="event.preventDefault(); tcCustomWysiwygExec(\'' + ex.id + '\', \'underline\');"><u>U</u></button>' +
+          '          <button type="button" class="tc-wysiwyg-btn" title="Strikethrough" onmousedown="event.preventDefault(); tcCustomWysiwygExec(\'' + ex.id + '\', \'strikeThrough\');"><s>S</s></button>' +
+          '          <button type="button" class="tc-wysiwyg-btn" title="Superscript" onmousedown="event.preventDefault(); tcCustomWysiwygExec(\'' + ex.id + '\', \'superscript\');">x²</button>' +
+          '          <button type="button" class="tc-wysiwyg-btn" title="Subscript" onmousedown="event.preventDefault(); tcCustomWysiwygExec(\'' + ex.id + '\', \'subscript\');">x₂</button>' +
+          '          <button type="button" class="tc-wysiwyg-btn" title="Clear Formatting" onmousedown="event.preventDefault(); tcCustomWysiwygExec(\'' + ex.id + '\', \'removeFormat\');">🧹</button>' +
+          '        </div>' +
+          '        <div class="tc-wysiwyg-toolbar-grp">' +
+          '          <button type="button" class="tc-wysiwyg-btn" title="Align Left" onmousedown="event.preventDefault(); tcCustomWysiwygExec(\'' + ex.id + '\', \'justifyLeft\');">⇤</button>' +
+          '          <button type="button" class="tc-wysiwyg-btn" title="Align Center" onmousedown="event.preventDefault(); tcCustomWysiwygExec(\'' + ex.id + '\', \'justifyCenter\');">≡</button>' +
+          '          <button type="button" class="tc-wysiwyg-btn" title="Align Right" onmousedown="event.preventDefault(); tcCustomWysiwygExec(\'' + ex.id + '\', \'justifyRight\');">⇥</button>' +
+          '          <button type="button" class="tc-wysiwyg-btn" title="Justify" onmousedown="event.preventDefault(); tcCustomWysiwygExec(\'' + ex.id + '\', \'justifyFull\');">≣</button>' +
+          '        </div>' +
+          '        <div class="tc-wysiwyg-toolbar-grp">' +
+          '          <button type="button" class="tc-wysiwyg-btn" title="Bullet List" onmousedown="event.preventDefault(); tcCustomWysiwygExec(\'' + ex.id + '\', \'insertUnorderedList\');">• List</button>' +
+          '          <button type="button" class="tc-wysiwyg-btn" title="Numbered List" onmousedown="event.preventDefault(); tcCustomWysiwygExec(\'' + ex.id + '\', \'insertOrderedList\');">1. List</button>' +
+          '        </div>' +
+          '        <div style="display:inline-flex;align-items:center;gap:3px;">' +
+          '          <button type="button" class="tc-wysiwyg-btn" title="Insert Table" onmousedown="event.preventDefault(); tcCustomWysiwygInsertTable(\'' + ex.id + '\');">⊞ <span data-i18n="tcInsertTable">' + (i18n.t('tcInsertTable') || 'Table') + '</span></button>' +
+          '          <button type="button" class="tc-wysiwyg-btn" title="Insert Callout Box" onmousedown="event.preventDefault(); tcCustomWysiwygInsertCallout(\'' + ex.id + '\');">💬 <span data-i18n="tcInsertCallout">' + (i18n.t('tcInsertCallout') || 'Callout') + '</span></button>' +
+          '          <button type="button" class="tc-wysiwyg-btn" title="Insert Writing Lines" onmousedown="event.preventDefault(); tcCustomWysiwygInsertLines(\'' + ex.id + '\');">📝 <span data-i18n="tcInsertLines">' + (i18n.t('tcInsertLines') || 'Lines') + '</span></button>' +
+          '          <button type="button" class="tc-wysiwyg-btn" title="Insert Horizontal Rule" onmousedown="event.preventDefault(); tcCustomWysiwygExec(\'' + ex.id + '\', \'insertHorizontalRule\');">―</button>' +
+          '          <button type="button" class="tc-wysiwyg-btn" title="Insert Link" onmousedown="event.preventDefault(); tcCustomWysiwygInsertLink(\'' + ex.id + '\');">🔗</button>' +
+          '          <button type="button" class="tc-wysiwyg-btn" title="Insert Image" onmousedown="event.preventDefault(); tcCustomWysiwygInsertImage(\'' + ex.id + '\');">🖼️</button>' +
+          '        </div>' +
+          '      </div>' +
+          '      <div class="tc-custom-wysiwyg-area" id="wysiwyg_' + ex.id + '" contenteditable="true" spellcheck="true" oninput="tcOnCustomWysiwygInput(\'' + ex.id + '\')" onblur="tcOnCustomWysiwygBlur(\'' + ex.id + '\')">' + htmlContent + '</div>' +
+          '    </div>' +
+          '    <!-- Pure HTML Editor View -->' +
+          '    <div class="tc-html-container" id="htmlWrap_' + ex.id + '" style="display:' + (!isWysiwyg ? 'block' : 'none') + ';">' +
+          '      <div class="tc-snippets-bar">' +
+          '        <span style="font-size:0.75rem;font-weight:900;text-transform:uppercase;color:#7c3aed;margin-right:4px;">HTML Snippets:</span>' +
+          '        <button type="button" class="neo-btn sm" onclick="tcInsertCustomHtmlSnippet(\'' + ex.id + '\', \'table\')">+ Table</button>' +
+          '        <button type="button" class="neo-btn sm" onclick="tcInsertCustomHtmlSnippet(\'' + ex.id + '\', \'callout\')">+ Callout Box</button>' +
+          '        <button type="button" class="neo-btn sm" onclick="tcInsertCustomHtmlSnippet(\'' + ex.id + '\', \'two_cols\')">+ 2 Columns</button>' +
+          '        <button type="button" class="neo-btn sm" onclick="tcInsertCustomHtmlSnippet(\'' + ex.id + '\', \'ruled_lines\')">+ Writing Lines</button>' +
+          '        <button type="button" class="neo-btn sm" onclick="tcInsertCustomHtmlSnippet(\'' + ex.id + '\', \'badge\')">+ Badge</button>' +
+          '        <button type="button" class="neo-btn sm" onclick="tcInsertCustomHtmlSnippet(\'' + ex.id + '\', \'image\')">+ Image Tag</button>' +
+          '      </div>' +
+          '      <textarea class="tc-custom-html-textarea" id="htmlTextarea_' + ex.id + '" spellcheck="false" placeholder="Write pure HTML code..." oninput="tcOnCustomHtmlInput(\'' + ex.id + '\', this.value)">' + escapeHtml(htmlContent) + '</textarea>' +
+          '      <div class="tc-custom-html-preview-wrap">' +
+          '        <div class="tc-preview-hdr"><span data-i18n="tcLivePreview">' + (i18n.t('tcLivePreview') || 'Live HTML Preview') + '</span></div>' +
+          '        <div class="tc-custom-html-preview" id="htmlPreview_' + ex.id + '">' + htmlContent + '</div>' +
+          '      </div>' +
+          '    </div>' +
+          '    <!-- Options Panel -->' +
+          '    <div class="exercise-options-panel" id="optionsPanel_' + ex.id + '" style="display:' + (isOpen ? 'block' : 'none') + ';">' +
+          '      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:10px;padding:8px 0;">' +
+          '        <div>' +
+          '          <label style="display:block;font-size:0.75rem;font-weight:800;margin-bottom:3px;">Background Tint:</label>' +
+          '          <select class="meta-input sm" style="width:100%;" onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'background\', this.value)">' +
+          '            <option value="default"' + (opts.background === 'default' ? ' selected' : '') + '>Default (White)</option>' +
+          '            <option value="bordered"' + (opts.background === 'bordered' ? ' selected' : '') + '>Light Slate (#fafafa)</option>' +
+          '            <option value="highlight"' + (opts.background === 'highlight' ? ' selected' : '') + '>Soft Amber / Highlight</option>' +
+          '            <option value="callout"' + (opts.background === 'callout' ? ' selected' : '') + '>Soft Blue / Notice</option>' +
+          '            <option value="soft_purple"' + (opts.background === 'soft_purple' ? ' selected' : '') + '>Soft Purple</option>' +
+          '            <option value="none"' + (opts.background === 'none' ? ' selected' : '') + '>Transparent / None</option>' +
+          '          </select>' +
+          '        </div>' +
+          '        <div>' +
+          '          <label style="display:block;font-size:0.75rem;font-weight:800;margin-bottom:3px;">Border Style:</label>' +
+          '          <select class="meta-input sm" style="width:100%;" onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'border\', this.value)">' +
+          '            <option value="solid"' + (opts.border === 'solid' ? ' selected' : '') + '>Solid Charcoal Border (2px)</option>' +
+          '            <option value="dashed"' + (opts.border === 'dashed' ? ' selected' : '') + '>Dashed Border (2px)</option>' +
+          '            <option value="double"' + (opts.border === 'double' ? ' selected' : '') + '>Double Border (3px)</option>' +
+          '            <option value="neobrutalist"' + (opts.border === 'neobrutalist' ? ' selected' : '') + '>Neobrutalist Solid Shadow</option>' +
+          '            <option value="minimal"' + (opts.border === 'minimal' ? ' selected' : '') + '>Minimal (Top & Bottom rules)</option>' +
+          '            <option value="none"' + (opts.border === 'none' ? ' selected' : '') + '>No Border</option>' +
+          '          </select>' +
+          '        </div>' +
+          '        <div>' +
+          '          <label style="display:block;font-size:0.75rem;font-weight:800;margin-bottom:3px;">Padding Spacing:</label>' +
+          '          <select class="meta-input sm" style="width:100%;" onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'padding\', this.value)">' +
+          '            <option value="compact"' + (opts.padding === 'compact' ? ' selected' : '') + '>Compact (4px 8px)</option>' +
+          '            <option value="standard"' + (opts.padding === 'standard' || !opts.padding ? ' selected' : '') + '>Standard (10px 14px)</option>' +
+          '            <option value="spacious"' + (opts.padding === 'spacious' ? ' selected' : '') + '>Spacious (16px 20px)</option>' +
+          '          </select>' +
+          '        </div>' +
+          '        <div style="display:flex;flex-direction:column;justify-content:center;gap:6px;">' +
+          '          <label class="card-checkbox-label" style="font-size:0.78rem;">' +
+          '            <input type="checkbox" ' + (opts.showTitle !== false ? 'checked' : '') + ' onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'showTitle\', this.checked)">' +
+          '            <span data-i18n="tcCustomShowTitle">' + (i18n.t('tcCustomShowTitle') || 'Display Title in Exam Output') + '</span>' +
+          '          </label>' +
+          '          <label class="card-checkbox-label" style="font-size:0.78rem;">' +
+          '            <input type="checkbox" ' + (opts.showInstructions !== false ? 'checked' : '') + ' onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'showInstructions\', this.checked)">' +
+          '            <span data-i18n="tcCustomShowInstructions">' + (i18n.t('tcCustomShowInstructions') || 'Display Subtitle / Instructions in Exam Output') + '</span>' +
+          '          </label>' +
+          '        </div>' +
+          '      </div>' +
+          '    </div>' +
+          renderExerciseTagsHtml(ex) +
+          '  </div>' +
+          '  <div class="card-footer">' +
+          '    <div class="card-toggles">' +
+          '      <label class="card-checkbox-label">' +
+          '        <input type="checkbox" ' + (ex.forcePageBreak ? 'checked' : '') + ' onchange="tcUpdateExField(\'' + ex.id + '\', \'forcePageBreak\', this.checked)">' +
+          '        <span>Force Page Break before this section</span>' +
+          '      </label>' +
+          '    </div>' +
+          '    <div style="display:flex;align-items:center;gap:6px;">' +
+          '      <button type="button" id="optionsBtn_' + ex.id + '" class="neo-btn sm tc-options-btn' + (isOpen ? ' yellow' : '') + '" onclick="tcToggleExerciseOptions(\'' + ex.id + '\')">Options</button>' +
+          '      <button type="button" class="' + (ex.exportStyle && (ex.exportStyle.fontSize || ex.exportStyle.lineHeight || ex.exportStyle.padding) ? 'neo-btn sm primary' : 'neo-btn sm') + '" onclick="tcOpenExerciseStyleModal(\'' + ex.id + '\')" title="Customise export formatting">Style</button>' +
+          '      <button class="neo-btn sm" onclick="tcAttachCriteriaToEx(\'' + ex.id + '\')">+ Rubric Criteria</button>' +
+          '      <button class="neo-btn sm" onclick="tcAttachCompetenceToEx(\'' + ex.id + '\')">+ Competence</button>' +
           '    </div>' +
           '  </div>' +
           '</div>';
@@ -5455,6 +5654,295 @@
         }
       };
 
+      // ── Custom Block (WYSIWYG & Pure HTML) Handlers ───────────────────────
+      window.tcSetCustomBlockMode = function (exId, newMode) {
+        var ex = (currentTest.exercises || []).find(function (e) { return e.id === exId; });
+        if (!ex) return;
+        if (!ex.content) ex.content = {};
+
+        var wysiwygWrap = document.getElementById('wysiwygWrap_' + exId);
+        var htmlWrap = document.getElementById('htmlWrap_' + exId);
+        var wysiwygEl = document.getElementById('wysiwyg_' + exId);
+        var htmlTextarea = document.getElementById('htmlTextarea_' + exId);
+        var htmlPreview = document.getElementById('htmlPreview_' + exId);
+        var modeBtnWysiwyg = document.getElementById('modeBtnWysiwyg_' + exId);
+        var modeBtnHtml = document.getElementById('modeBtnHtml_' + exId);
+        var modeHint = document.getElementById('modeHint_' + exId);
+
+        if (newMode === 'html') {
+          // Sync from WYSIWYG to HTML
+          if (wysiwygEl) {
+            ex.content.html = wysiwygEl.innerHTML;
+          }
+          if (htmlTextarea) {
+            htmlTextarea.value = ex.content.html || '';
+          }
+          if (htmlPreview) {
+            htmlPreview.innerHTML = ex.content.html || '';
+          }
+          if (wysiwygWrap) wysiwygWrap.style.display = 'none';
+          if (htmlWrap) htmlWrap.style.display = 'block';
+          if (modeBtnWysiwyg) modeBtnWysiwyg.classList.remove('active');
+          if (modeBtnHtml) modeBtnHtml.classList.add('active');
+          if (modeHint) modeHint.textContent = i18n.t('tcCustomModeHtml') || 'Pure HTML Code Editor';
+        } else {
+          // Sync from HTML to WYSIWYG
+          if (htmlTextarea) {
+            ex.content.html = htmlTextarea.value;
+          }
+          if (wysiwygEl) {
+            wysiwygEl.innerHTML = ex.content.html || '';
+          }
+          if (htmlWrap) htmlWrap.style.display = 'none';
+          if (wysiwygWrap) wysiwygWrap.style.display = 'block';
+          if (modeBtnHtml) modeBtnHtml.classList.remove('active');
+          if (modeBtnWysiwyg) modeBtnWysiwyg.classList.add('active');
+          if (modeHint) modeHint.textContent = i18n.t('tcCustomModeWysiwyg') || 'WYSIWYG Visual Editor';
+        }
+
+        ex.content.mode = newMode;
+        tcOnDirty();
+      };
+
+      window.tcOnCustomWysiwygInput = function (exId) {
+        var ex = (currentTest.exercises || []).find(function (e) { return e.id === exId; });
+        if (!ex) return;
+        if (!ex.content) ex.content = {};
+        var wysiwygEl = document.getElementById('wysiwyg_' + exId);
+        if (wysiwygEl) {
+          ex.content.html = wysiwygEl.innerHTML;
+          var htmlTextarea = document.getElementById('htmlTextarea_' + exId);
+          if (htmlTextarea && ex.content.mode === 'wysiwyg') {
+            htmlTextarea.value = ex.content.html;
+          }
+          var htmlPreview = document.getElementById('htmlPreview_' + exId);
+          if (htmlPreview) {
+            htmlPreview.innerHTML = ex.content.html;
+          }
+        }
+        tcOnDirty();
+        if (typeof tcScheduleLivePreviewUpdate === 'function') {
+          tcScheduleLivePreviewUpdate(300);
+        }
+      };
+
+      window.tcOnCustomWysiwygBlur = function (exId) {
+        window.tcOnCustomWysiwygInput(exId);
+        var ex = (currentTest.exercises || []).find(function (e) { return e.id === exId; });
+        if (ex && ex.autoSaveToDb) {
+          TestCreatorService.saveExerciseToDatabase(ex, currentTest.subject);
+        }
+      };
+
+      window.tcCustomWysiwygExec = function (exId, cmd, val) {
+        var wysiwygEl = document.getElementById('wysiwyg_' + exId);
+        if (wysiwygEl) wysiwygEl.focus();
+        try {
+          document.execCommand(cmd, false, val || null);
+        } catch (e) {
+          console.warn('WYSIWYG execCommand error:', cmd, e);
+        }
+        window.tcOnCustomWysiwygInput(exId);
+      };
+
+      window.tcCustomWysiwygFormatBlock = function (exId, tag) {
+        if (!tag) return;
+        var wysiwygEl = document.getElementById('wysiwyg_' + exId);
+        if (wysiwygEl) wysiwygEl.focus();
+        var blockTag = tag.startsWith('<') ? tag : ('<' + tag + '>');
+        try {
+          document.execCommand('formatBlock', false, blockTag);
+        } catch (e) {
+          console.warn('WYSIWYG formatBlock error:', tag, e);
+        }
+        window.tcOnCustomWysiwygInput(exId);
+      };
+
+      window.tcCustomWysiwygInsertTable = function (exId) {
+        var wysiwygEl = document.getElementById('wysiwyg_' + exId);
+        if (wysiwygEl) wysiwygEl.focus();
+        var tableHtml = '<table style="width:100%; border-collapse:collapse; margin:8px 0;">' +
+          '<thead><tr style="background:#f3f4f6;">' +
+          '<th style="border:1.5px solid #333333; padding:6px 10px;">Header 1</th>' +
+          '<th style="border:1.5px solid #333333; padding:6px 10px;">Header 2</th>' +
+          '<th style="border:1.5px solid #333333; padding:6px 10px;">Header 3</th>' +
+          '</tr></thead>' +
+          '<tbody>' +
+          '<tr><td style="border:1.5px solid #333333; padding:6px 10px;">Cell 1</td><td style="border:1.5px solid #333333; padding:6px 10px;">Cell 2</td><td style="border:1.5px solid #333333; padding:6px 10px;">Cell 3</td></tr>' +
+          '<tr><td style="border:1.5px solid #333333; padding:6px 10px;">Cell 4</td><td style="border:1.5px solid #333333; padding:6px 10px;">Cell 5</td><td style="border:1.5px solid #333333; padding:6px 10px;">Cell 6</td></tr>' +
+          '</tbody></table><p><br></p>';
+        try {
+          document.execCommand('insertHTML', false, tableHtml);
+        } catch (e) {
+          if (wysiwygEl) wysiwygEl.innerHTML += tableHtml;
+        }
+        window.tcOnCustomWysiwygInput(exId);
+      };
+
+      window.tcCustomWysiwygInsertCallout = function (exId) {
+        var wysiwygEl = document.getElementById('wysiwyg_' + exId);
+        if (wysiwygEl) wysiwygEl.focus();
+        var calloutHtml = '<div style="background:#eff6ff; border:2px solid #2563eb; border-radius:6px; padding:10px 14px; margin:8px 0;">' +
+          '<strong style="color:#1e40af;">ℹ️ Note / Instructions:</strong> Enter important details, context, or guidelines here.' +
+          '</div><p><br></p>';
+        try {
+          document.execCommand('insertHTML', false, calloutHtml);
+        } catch (e) {
+          if (wysiwygEl) wysiwygEl.innerHTML += calloutHtml;
+        }
+        window.tcOnCustomWysiwygInput(exId);
+      };
+
+      window.tcCustomWysiwygInsertLines = function (exId) {
+        var wysiwygEl = document.getElementById('wysiwyg_' + exId);
+        if (wysiwygEl) wysiwygEl.focus();
+        var linesHtml = '<div style="margin:8px 0;">' +
+          '<div style="border-bottom:1.5px solid #888888; height:26px;"></div>' +
+          '<div style="border-bottom:1.5px solid #888888; height:26px;"></div>' +
+          '<div style="border-bottom:1.5px solid #888888; height:26px;"></div>' +
+          '</div><p><br></p>';
+        try {
+          document.execCommand('insertHTML', false, linesHtml);
+        } catch (e) {
+          if (wysiwygEl) wysiwygEl.innerHTML += linesHtml;
+        }
+        window.tcOnCustomWysiwygInput(exId);
+      };
+
+      window.tcCustomWysiwygInsertLink = function (exId) {
+        var wysiwygEl = document.getElementById('wysiwyg_' + exId);
+        if (wysiwygEl) wysiwygEl.focus();
+        if (typeof showPrompt === 'function') {
+          showPrompt('Enter link URL (e.g. https://...):', 'https://').then(function (url) {
+            if (url && url.trim()) {
+              if (wysiwygEl) wysiwygEl.focus();
+              try {
+                document.execCommand('createLink', false, url.trim());
+              } catch (e) {
+                console.warn(e);
+              }
+              window.tcOnCustomWysiwygInput(exId);
+            }
+          });
+        } else {
+          var url = prompt('Enter link URL (e.g. https://...):', 'https://');
+          if (url && url.trim()) {
+            if (wysiwygEl) wysiwygEl.focus();
+            document.execCommand('createLink', false, url.trim());
+            window.tcOnCustomWysiwygInput(exId);
+          }
+        }
+      };
+
+      window.tcCustomWysiwygInsertImage = function (exId) {
+        var wysiwygEl = document.getElementById('wysiwyg_' + exId);
+        if (wysiwygEl) wysiwygEl.focus();
+        if (typeof showPrompt === 'function') {
+          showPrompt('Enter Image URL or path (e.g. assets/... or https://...):', '').then(function (url) {
+            if (url && url.trim()) {
+              if (wysiwygEl) wysiwygEl.focus();
+              try {
+                document.execCommand('insertImage', false, url.trim());
+              } catch (e) {
+                console.warn(e);
+              }
+              window.tcOnCustomWysiwygInput(exId);
+            }
+          });
+        } else {
+          var url = prompt('Enter Image URL or path (e.g. assets/... or https://...):', '');
+          if (url && url.trim()) {
+            if (wysiwygEl) wysiwygEl.focus();
+            document.execCommand('insertImage', false, url.trim());
+            window.tcOnCustomWysiwygInput(exId);
+          }
+        }
+      };
+
+      window.tcOnCustomHtmlInput = function (exId, val) {
+        var ex = (currentTest.exercises || []).find(function (e) { return e.id === exId; });
+        if (!ex) return;
+        if (!ex.content) ex.content = {};
+        ex.content.html = val;
+        var prev = document.getElementById('htmlPreview_' + exId);
+        if (prev) {
+          prev.innerHTML = val;
+        }
+        var wysiwygEl = document.getElementById('wysiwyg_' + exId);
+        if (wysiwygEl && ex.content.mode === 'html') {
+          wysiwygEl.innerHTML = val;
+        }
+        tcOnDirty();
+        if (typeof tcScheduleLivePreviewUpdate === 'function') {
+          tcScheduleLivePreviewUpdate(300);
+        }
+      };
+
+      window.tcInsertCustomHtmlSnippet = function (exId, snippetType) {
+        var ta = document.getElementById('htmlTextarea_' + exId);
+        if (!ta) return;
+        var snippet = '';
+        switch (snippetType) {
+          case 'table':
+            snippet = '\n<table style="width:100%; border-collapse:collapse; margin:8px 0;">\n' +
+              '  <thead>\n' +
+              '    <tr style="background:#f3f4f6;">\n' +
+              '      <th style="border:1.5px solid #333333; padding:6px 10px;">Header 1</th>\n' +
+              '      <th style="border:1.5px solid #333333; padding:6px 10px;">Header 2</th>\n' +
+              '      <th style="border:1.5px solid #333333; padding:6px 10px;">Header 3</th>\n' +
+              '    </tr>\n' +
+              '  </thead>\n' +
+              '  <tbody>\n' +
+              '    <tr><td style="border:1.5px solid #333333; padding:6px 10px;">Data 1</td><td style="border:1.5px solid #333333; padding:6px 10px;">Data 2</td><td style="border:1.5px solid #333333; padding:6px 10px;">Data 3</td></tr>\n' +
+              '    <tr><td style="border:1.5px solid #333333; padding:6px 10px;">Data 4</td><td style="border:1.5px solid #333333; padding:6px 10px;">Data 5</td><td style="border:1.5px solid #333333; padding:6px 10px;">Data 6</td></tr>\n' +
+              '  </tbody>\n' +
+              '</table>\n';
+            break;
+          case 'callout':
+            snippet = '\n<div style="background:#eff6ff; border:2px solid #2563eb; border-radius:6px; padding:10px 14px; margin:8px 0;">\n' +
+              '  <strong style="color:#1e40af;">ℹ️ Note:</strong> Important notice or instructions.\n' +
+              '</div>\n';
+            break;
+          case 'two_cols':
+            snippet = '\n<div style="display:flex; gap:16px; margin:8px 0;">\n' +
+              '  <div style="flex:1; border:1.5px solid #333333; border-radius:6px; padding:10px;">\n' +
+              '    <h4>Column 1</h4>\n' +
+              '    <p>Content for column 1...</p>\n' +
+              '  </div>\n' +
+              '  <div style="flex:1; border:1.5px solid #333333; border-radius:6px; padding:10px;">\n' +
+              '    <h4>Column 2</h4>\n' +
+              '    <p>Content for column 2...</p>\n' +
+              '  </div>\n' +
+              '</div>\n';
+            break;
+          case 'ruled_lines':
+            snippet = '\n<div style="margin:8px 0;">\n' +
+              '  <div style="border-bottom:1.5px solid #888888; height:26px;"></div>\n' +
+              '  <div style="border-bottom:1.5px solid #888888; height:26px;"></div>\n' +
+              '  <div style="border-bottom:1.5px solid #888888; height:26px;"></div>\n' +
+              '</div>\n';
+            break;
+          case 'badge':
+            snippet = '<span style="background:#fef08a; border:1.5px solid #ca8a04; color:#713f12; font-weight:800; padding:2px 8px; border-radius:4px; font-size:0.85em;">Badge</span>';
+            break;
+          case 'image':
+            snippet = '\n<figure style="margin:8px 0; text-align:center;">\n' +
+              '  <img src="assets/..." alt="Figure description" style="max-width:100%; height:auto; border:1.5px solid #333333; border-radius:6px;" />\n' +
+              '  <figcaption style="font-size:0.85em; font-style:italic; color:#64748b; margin-top:4px;">Figure Caption</figcaption>\n' +
+              '</figure>\n';
+            break;
+        }
+
+        var start = ta.selectionStart !== undefined ? ta.selectionStart : ta.value.length;
+        var end = ta.selectionEnd !== undefined ? ta.selectionEnd : ta.value.length;
+        var before = ta.value.substring(0, start);
+        var after = ta.value.substring(end);
+        ta.value = before + snippet + after;
+        ta.selectionStart = ta.selectionEnd = start + snippet.length;
+        ta.focus();
+        window.tcOnCustomHtmlInput(exId, ta.value);
+      };
+
       // ── Exercise Mutation Actions ─────────────────────────────────────────
       window.tcUpdateExField = function (exId, field, value) {
         var ex = (currentTest.exercises || []).find(function (e) { return e.id === exId; });
@@ -6338,6 +6826,23 @@
       window.tcAddSectionBlockToExam = function (type, insertAtIdx) {
         var ex = TestCreatorService.createEmptyExercise(type);
         if (!Array.isArray(currentTest.exercises)) currentTest.exercises = [];
+        if (type === 'section_competences') {
+          ex.linkedCompetences = [];
+          ex.linkedCompetenceIds = [];
+        } else if (type === 'section_criteria') {
+          ex.criteria = [];
+          ex.linkedCriteria = [];
+          ex.markingRubric = [];
+          ex.points = 0;
+        } else if (type === 'section_custom' || type === 'custom_block') {
+          ex.title = i18n.t('tcCustomBlockTitle') || 'Custom Block';
+          ex.instructions = '';
+          ex.points = 0;
+          ex.content = {
+            mode: 'wysiwyg',
+            html: '<p>' + (i18n.t('tcCustomBlockDefaultHtml') || 'Enter your custom content here. You can format text, insert tables, images, formulas, or custom layouts.') + '</p>'
+          };
+        }
         if (typeof insertAtIdx === 'number' && insertAtIdx >= 0 && insertAtIdx <= currentTest.exercises.length) {
           currentTest.exercises.splice(insertAtIdx, 0, ex);
         } else {
@@ -6363,27 +6868,41 @@
       };
 
       window.tcOpenCompetenceDrawerForSection = function (exId) {
+        _targetAttachExId = exId;
         var drawer = document.getElementById('testDrawer');
         if (drawer) drawer.style.display = 'flex';
         tcSwitchDrawerTab('competences');
+        updateCompetenceTargetDropdown();
+        if (typeof tcFilterCompetences === 'function') tcFilterCompetences();
+        var ex = (currentTest && currentTest.exercises) ? currentTest.exercises.find(function (e) { return e.id === exId; }) : null;
+        var title = ex ? (ex.title || 'Competences Block') : 'Competences Block';
         if (window.showToast) {
-          showToast(i18n.t('tcManageInDrawer') || 'Open & Edit in Drawer…');
+          showToast((i18n.t('tcTargetingCompetenceBlock') || "Targeting block '{title}'. Competences added will belong to this block.").replace('{title}', title));
         }
       };
 
       window.tcOpenCriteriaDrawerForSection = function (exId) {
+        _targetAttachExId = exId;
         var drawer = document.getElementById('testDrawer');
         if (drawer) drawer.style.display = 'flex';
         tcSwitchDrawerTab('criteriadb');
+        updateCriteriaTargetDropdown();
+        if (typeof tcRenderCriteriaList === 'function' && Array.isArray(_cachedCriteria)) {
+          tcRenderCriteriaList(_cachedCriteria);
+        }
+        var ex = (currentTest && currentTest.exercises) ? currentTest.exercises.find(function (e) { return e.id === exId; }) : null;
+        var title = ex ? (ex.title || 'Criteria Block') : 'Criteria Block';
         if (window.showToast) {
-          showToast(i18n.t('tcManageInDrawer') || 'Open & Edit in Drawer…');
+          showToast((i18n.t('tcTargetingCriteriaBlock') || "Targeting block '{title}'. Criteria added will belong to this block.").replace('{title}', title));
         }
       };
 
       window.tcOpenScalesDrawerForSection = function (exId) {
+        _targetAttachExId = exId;
         var drawer = document.getElementById('testDrawer');
         if (drawer) drawer.style.display = 'flex';
         tcSwitchDrawerTab('scales');
+        if (typeof updateScaleTargetDropdown === 'function') updateScaleTargetDropdown();
         if (window.showToast) {
           showToast(i18n.t('tcManageInDrawer') || 'Open & Edit in Drawer…');
         }
@@ -6419,12 +6938,15 @@
         } else if (tabId === 'criteriadb') {
           document.getElementById('tabBtnCriteriaDb').classList.add('active');
           document.getElementById('panelCriteriaDb').classList.add('active');
+          updateCriteriaTargetDropdown();
         } else if (tabId === 'competences') {
           document.getElementById('tabBtnCompetences').classList.add('active');
           document.getElementById('panelCompetences').classList.add('active');
+          updateCompetenceTargetDropdown();
         } else if (tabId === 'scales') {
           document.getElementById('tabBtnScales').classList.add('active');
           document.getElementById('panelScales').classList.add('active');
+          if (typeof updateScaleTargetDropdown === 'function') updateScaleTargetDropdown();
         }
         tcLoadDrawerContent();
       };
@@ -7441,15 +7963,29 @@
 
       function tcRenderCriteriaList(list) {
         var el = document.getElementById('criteriaDbList');
+        if (!el) return;
+        updateCriteriaTargetDropdown();
         if (!list || !list.length) {
           el.innerHTML = '<div style="text-align:center;padding:20px;color:#888;font-size:0.8rem;">No criteria found in this bank.</div>';
           return;
         }
-        el.innerHTML = list.map(function (c, idx) {
+
+        var targetEx = (_targetAttachExId && _targetAttachExId !== '__exam__') ? currentTest.exercises.find(function (e) { return e.id === _targetAttachExId; }) : null;
+        var targetLabel = targetEx
+          ? ((targetEx.type === 'section_criteria' ? 'Block: "' : 'Exercise "') + (targetEx.title || 'Section') + '"')
+          : (typeof i18n !== 'undefined' && i18n.t ? (i18n.t('tcTargetEntireExam') || 'Entire Exam (Test-wide Header)') : 'Entire Exam (Test-wide Header)');
+
+        var headerNote = '<div style="background:#d1fae5;border:1.5px solid #059669;color:#065f46;padding:6px 10px;border-radius:4px;font-size:0.78rem;font-weight:800;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">' +
+          '<span>Tagging to: ' + escapeHtml(targetLabel) + '</span>' +
+          '<span style="font-size:0.7rem;color:#059669;font-weight:600;">Click card or + Target</span>' +
+          '</div>';
+
+        var itemsHtml = list.map(function (c, idx) {
           var title = c.title || c.name || 'Criterion';
           var maxPts = c.maxPoints || (Array.isArray(c.grades) && c.grades[0] ? Number(c.grades[0]) : 6) || 3;
           var desc = c.description || c.domain || c.category || (Array.isArray(c.grades) ? 'Scale: ' + c.grades.join(', ') : 'Criteria');
-          return '<div class="drawer-item-card" style="cursor:pointer;" onclick="tcOnCriteriaCardClick(' + idx + ')">' +
+          var targetBtnText = targetEx ? '+ ' + (targetEx.type === 'section_criteria' ? 'Block' : 'Exercise') : '+ Target';
+          return '<div class="drawer-item-card" style="cursor:pointer;" draggable="true" data-index="' + idx + '" onclick="tcOnCriteriaCardClick(' + idx + ')">' +
             '  <div style="display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:0.85rem;">' +
             '    <span>' + escapeHtml(title) + '</span>' +
             '    <span style="color:#059669;background:#d1fae5;padding:1px 6px;border-radius:3px;border:1px solid #10b981;">/' + maxPts + ' pts</span>' +
@@ -7457,27 +7993,54 @@
             '  <div style="font-size:0.75rem;color:#475569;margin-top:3px;line-height:1.35;">' + escapeHtml(desc) + '</div>' +
             '  <div style="display:flex;gap:6px;margin-top:6px;align-items:center;">' +
             '    <button type="button" class="neo-btn sm primary" style="padding:2px 8px;font-size:0.72rem;" onclick="event.stopPropagation(); tcAttachCriteriaByIndex(' + idx + ', \'__exam__\')">+ Exam</button>' +
-            '    <button type="button" class="neo-btn sm" style="padding:2px 8px;font-size:0.72rem;" onclick="event.stopPropagation(); tcAttachCriteriaByIndex(' + idx + ', \'active_ex\')">+ Exercise</button>' +
+            '    <button type="button" class="neo-btn sm" style="padding:2px 8px;font-size:0.72rem;" onclick="event.stopPropagation(); tcAttachCriteriaByIndex(' + idx + ', \'active_target\')">' + escapeHtml(targetBtnText) + '</button>' +
             '  </div>' +
             '</div>';
         }).join('');
+
+        el.innerHTML = headerNote + itemsHtml;
+
+        var cards = el.querySelectorAll('.drawer-item-card[draggable="true"]');
+        cards.forEach(function (cEl) {
+          cEl.addEventListener('dragstart', function (e) {
+            var cIdx = parseInt(cEl.dataset.index, 10);
+            var item = list[cIdx];
+            if (!item) return;
+            var maxPts = item.maxPoints || (Array.isArray(item.grades) && item.grades[0] ? Number(item.grades[0]) : 6) || 3;
+            e.dataTransfer.setData('application/json', JSON.stringify({
+              type: 'criterion',
+              critId: item.id || item.name || item.title,
+              title: item.title || item.name || 'Criterion',
+              maxPoints: maxPts,
+              description: item.description || item.domain || item.category || '',
+              grades: item.grades || null,
+              domain: item.domain || ''
+            }));
+            e.dataTransfer.setData('text/plain', item.title || item.name || '');
+            e.dataTransfer.effectAllowed = 'copy';
+          });
+        });
       }
 
       window.tcOnCriteriaCardClick = function (idx) {
         var sel = document.getElementById('criteriaTargetExSelect');
-        var targetVal = sel ? sel.value : '__exam__';
+        var targetVal = sel ? sel.value : (_targetAttachExId || '__exam__');
         tcAttachCriteriaByIndex(idx, targetVal);
       };
 
       window.tcAttachCriteriaByIndex = function (idx, targetMode) {
         var crit = _cachedCriteria[idx];
         if (!crit) return;
-        var mode = targetMode || (document.getElementById('criteriaTargetExSelect') ? document.getElementById('criteriaTargetExSelect').value : '__exam__');
+        var sel = document.getElementById('criteriaTargetExSelect');
+        var mode = targetMode;
+        if (!mode || mode === 'active_target' || mode === 'active_ex') {
+          mode = (sel && sel.value) ? sel.value : (_targetAttachExId || '__exam__');
+        }
         if (mode === '__exam__') {
           tcAttachCriteriaToTest(crit);
         } else {
-          _targetAttachExId = (mode === 'active_ex') ? null : mode;
-          tcPullCriteriaToActiveEx(crit.id || crit.name || crit.title, crit);
+          _targetAttachExId = mode;
+          tcPullCriteriaToActiveEx(crit.id || crit.name || crit.title, crit, mode);
         }
       };
 
@@ -7499,9 +8062,23 @@
         var sel = document.getElementById('criteriaTargetExSelect');
         if (!sel || !currentTest) return;
         var exs = currentTest.exercises || [];
-        var opts = '<option value="__exam__">' + (typeof i18n !== 'undefined' && i18n.t ? (i18n.t('tcTargetEntireExam') || 'Entire Exam (Test-wide)') : 'Entire Exam (Test-wide)') + '</option>' +
-          exs.map(function (e, idx) {
-            return '<option value="' + e.id + '">Ex ' + (idx + 1) + ': ' + escapeHtml(e.title || 'Exercise') + '</option>';
+        var exCounter = 0;
+        var opts = '<option value="__exam__">' + (typeof i18n !== 'undefined' && i18n.t ? (i18n.t('tcTargetEntireExam') || 'Entire Exam (Test-wide Header)') : 'Entire Exam (Test-wide Header)') + '</option>' +
+          exs.map(function (e) {
+            var label = '';
+            if (e.type === 'section_criteria') {
+              label = '📋 ' + (i18n.t('tcBlockCriteriaSection') || 'Section Block: ') + (e.title || 'Criteria & Rubrics');
+            } else if (e.type === 'section_competences') {
+              label = '📋 ' + (i18n.t('tcBlockCompetencesSection') || 'Section Block: ') + (e.title || 'Competences & Objectives');
+            } else if (e.type === 'section_grading_scale') {
+              label = '📋 ' + (i18n.t('tcBlockScaleSection') || 'Section Block: ') + (e.title || 'Grading Scale');
+            } else if (e.type === 'section_custom' || e.type === 'custom_block') {
+              label = '📋 ' + (i18n.t('tcBlockCustomSection') || 'Section Block: ') + (e.title || 'Custom Block');
+            } else {
+              exCounter++;
+              label = 'Ex ' + exCounter + ': ' + (e.title || 'Exercise');
+            }
+            return '<option value="' + e.id + '">' + escapeHtml(label) + '</option>';
           }).join('');
         sel.innerHTML = opts;
         if (_targetAttachExId && exs.some(function (e) { return e.id === _targetAttachExId; })) {
@@ -7517,6 +8094,7 @@
         var sel = document.getElementById('criteriaTargetExSelect');
         var val = sel ? sel.value : '__exam__';
         _targetAttachExId = val === '__exam__' ? '__exam__' : val;
+        tcRenderCriteriaList(_cachedCriteria);
       };
 
       window.tcAttachCriteriaToEx = function (exId) {
@@ -7528,36 +8106,83 @@
         if (drawer) drawer.style.display = 'flex';
         tcSwitchDrawerTab('criteriadb');
         updateCriteriaTargetDropdown();
+        if (typeof tcRenderCriteriaList === 'function' && Array.isArray(_cachedCriteria)) {
+          tcRenderCriteriaList(_cachedCriteria);
+        }
         if (window.showToast) {
           showToast(i18n.tFmt('tcSelectCriterionDrawerPrompt', { title: ex.title || i18n.t('tcExercise') }));
         }
       };
 
-      window.tcPullCriteriaToActiveEx = function (cId, critObj) {
+      window.tcPullCriteriaToActiveEx = function (cId, critObj, targetExId) {
         var crit = critObj || _cachedCriteria.find(function (c) { return (c.id || c.name || c.title) === cId; });
         if (!crit) return;
-        var targetEx = (_targetAttachExId && _targetAttachExId !== '__exam__') ? currentTest.exercises.find(function (e) { return e.id === _targetAttachExId; }) : null;
+        var reqId = targetExId || _targetAttachExId;
+        var targetEx = (reqId && reqId !== '__exam__') ? currentTest.exercises.find(function (e) { return e.id === reqId; }) : null;
         if (!targetEx) {
-          targetEx = currentTest.exercises.find(function (e) { return e.type === 'composition' || e.type === 'open_question'; }) || currentTest.exercises[0];
+          targetEx = currentTest.exercises.find(function (e) { return e.type === 'section_criteria' || e.type === 'composition' || e.type === 'open_question'; }) || currentTest.exercises[0];
         }
         if (!targetEx) {
-          if (window.showToast) showToast(i18n.t('tcAddExerciseFirstForCriteria', 'Add an exercise first to attach criteria rubrics'), true);
+          if (window.showToast) showToast(i18n.t('tcAddExerciseFirstForCriteria', 'Add an exercise or criteria block first to attach criteria rubrics'), true);
           return;
         }
-        if (!Array.isArray(targetEx.markingRubric)) targetEx.markingRubric = [];
         var maxPts = crit.maxPoints || (Array.isArray(crit.grades) && crit.grades[0] ? Number(crit.grades[0]) : 6) || 3;
-        targetEx.markingRubric.push({
+        var critObjToStore = {
           id: crit.id || crit.name || ('crit_' + Date.now()),
-          title: crit.title || crit.name || 'Criterion',
+          title: crit.title || crit.name || 'Assessment Criterion',
           description: crit.description || crit.desc || crit.domain || '',
           maxPoints: maxPts,
-          weight: Number(crit.pointCoefficient) || 1
+          weight: Number(crit.pointCoefficient) || 1,
+          grades: crit.grades || null,
+          domain: crit.domain || ''
+        };
+
+        if (targetEx.type === 'section_criteria') {
+          if (!Array.isArray(targetEx.criteria)) targetEx.criteria = [];
+          var isDup = targetEx.criteria.some(function (c) {
+            return (c.id && critObjToStore.id && c.id === critObjToStore.id) || (c.title && critObjToStore.title && c.title === critObjToStore.title);
+          });
+          if (isDup) {
+            if (window.showToast) showToast(i18n.t('tcCritAlreadyInBlock') || 'Criterion already added to this block', true);
+            return;
+          }
+          targetEx.criteria.push(critObjToStore);
+          targetEx.points = 0;
+          renderExerciseCards();
+          updatePointsBadge();
+          tcOnDirty();
+          if (window.showToast) showToast(i18n.tFmt('tcAttachedCriterionToEx', { name: critObjToStore.title, title: targetEx.title || 'Criteria Block' }));
+          return;
+        }
+
+        if (!Array.isArray(targetEx.markingRubric)) targetEx.markingRubric = [];
+        var isRubricDup = targetEx.markingRubric.some(function (r) {
+          return (r.id && critObjToStore.id && r.id === critObjToStore.id) || (r.title && critObjToStore.title && r.title === critObjToStore.title);
         });
+        if (isRubricDup) {
+          if (window.showToast) showToast(i18n.t('tcCritAlreadyInBlock') || 'Criterion already in exercise rubric', true);
+          return;
+        }
+        targetEx.markingRubric.push(critObjToStore);
         TestCreatorService.calculateExercisePoints(targetEx);
         renderExerciseCards();
         updatePointsBadge();
         tcOnDirty();
         if (window.showToast) showToast(i18n.tFmt('tcAttachedCriterionToEx', { name: crit.title || crit.name, title: targetEx.title || i18n.t('tcExercise') }));
+      };
+
+      window.tcRemoveCriterionFromSection = function (exId, cIdx) {
+        var ex = (currentTest && currentTest.exercises) ? currentTest.exercises.find(function (e) { return e.id === exId; }) : null;
+        if (!ex) return;
+        var list = Array.isArray(ex.criteria) ? ex.criteria : (Array.isArray(ex.markingRubric) ? ex.markingRubric : null);
+        if (list && list[cIdx]) {
+          list.splice(cIdx, 1);
+          ex.points = 0;
+          renderExerciseCards();
+          updatePointsBadge();
+          tcOnDirty();
+          if (window.showToast) showToast(i18n.t('tcCriteriaRemovedToast') || 'Criterion removed from block');
+        }
       };
 
       window.tcRemoveRubricFromEx = function (exId, rIdx) {
@@ -7777,9 +8402,23 @@
         var sel = document.getElementById('competenceTargetExSelect');
         if (!sel || !currentTest) return;
         var exs = currentTest.exercises || [];
-        var opts = '<option value="__exam__">' + (typeof i18n !== 'undefined' && i18n.t ? (i18n.t('tcTargetEntireExam') || 'Entire Exam (Test-wide)') : 'Entire Exam (Test-wide)') + '</option>' +
-          exs.map(function (e, idx) {
-            return '<option value="' + e.id + '">Ex ' + (idx + 1) + ': ' + escapeHtml(e.title || 'Exercise') + '</option>';
+        var exCounter = 0;
+        var opts = '<option value="__exam__">' + (typeof i18n !== 'undefined' && i18n.t ? (i18n.t('tcTargetEntireExam') || 'Entire Exam (Test-wide Header)') : 'Entire Exam (Test-wide Header)') + '</option>' +
+          exs.map(function (e) {
+            var label = '';
+            if (e.type === 'section_competences') {
+              label = '📋 ' + (i18n.t('tcBlockCompetencesSection') || 'Section Block: ') + (e.title || 'Competences & Objectives');
+            } else if (e.type === 'section_criteria') {
+              label = '📋 ' + (i18n.t('tcBlockCriteriaSection') || 'Section Block: ') + (e.title || 'Criteria & Rubrics');
+            } else if (e.type === 'section_grading_scale') {
+              label = '📋 ' + (i18n.t('tcBlockScaleSection') || 'Section Block: ') + (e.title || 'Grading Scale');
+            } else if (e.type === 'section_custom' || e.type === 'custom_block') {
+              label = '📋 ' + (i18n.t('tcBlockCustomSection') || 'Section Block: ') + (e.title || 'Custom Block');
+            } else {
+              exCounter++;
+              label = 'Ex ' + exCounter + ': ' + (e.title || 'Exercise');
+            }
+            return '<option value="' + e.id + '">' + escapeHtml(label) + '</option>';
           }).join('');
         sel.innerHTML = opts;
         if (_targetAttachExId && _targetAttachExId !== '__exam__' && exs.some(function (e) { return e.id === _targetAttachExId; })) {
@@ -8095,7 +8734,9 @@
         }
 
         var targetEx = (_targetAttachExId && _targetAttachExId !== '__exam__') ? currentTest.exercises.find(function (e) { return e.id === _targetAttachExId; }) : null;
-        var targetLabel = targetEx ? ('Exercise "' + (targetEx.title || 'Exercise') + '"') : (typeof i18n !== 'undefined' && i18n.t ? (i18n.t('tcTargetEntireExam') || 'Entire Exam (Test-wide)') : 'Entire Exam (Test-wide)');
+        var targetLabel = targetEx
+          ? ((targetEx.type === 'section_competences' ? 'Block: "' : 'Exercise "') + (targetEx.title || 'Section') + '"')
+          : (typeof i18n !== 'undefined' && i18n.t ? (i18n.t('tcTargetEntireExam') || 'Entire Exam (Test-wide Header)') : 'Entire Exam (Test-wide Header)');
 
         var headerNote = '<div style="background:#dbeafe;border:1.5px solid #2563eb;color:#1e40af;padding:6px 10px;border-radius:4px;font-size:0.78rem;font-weight:800;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">' +
           '<span>Tagging to: ' + escapeHtml(targetLabel) + '</span>' +
@@ -8238,24 +8879,38 @@
           var targetEx = currentTest.exercises.find(function (e) { return e.id === targetVal; });
           if (targetEx) {
             if (!Array.isArray(targetEx.linkedCompetences)) targetEx.linkedCompetences = [];
-            if (!targetEx.linkedCompetences.some(function (c) { return (c.code && c.code === compObj.code) || (c.title === compObj.title); })) {
-              targetEx.linkedCompetences.push(compObj);
+            var isDup = targetEx.linkedCompetences.some(function (c) {
+              return (c.code && compObj.code && c.code === compObj.code) ||
+                     (c.id && compObj.id && c.id === compObj.id) ||
+                     (c.title && compObj.title && c.title === compObj.title);
+            });
+            if (isDup) {
+              if (window.showToast) showToast(i18n.t('tcCompAlreadyInTarget') || 'Objective already attached to this block/exercise.', true);
+              return;
             }
+            targetEx.linkedCompetences.push(compObj);
             if (!Array.isArray(targetEx.linkedCompetenceIds)) targetEx.linkedCompetenceIds = [];
             if (targetEx.linkedCompetenceIds.indexOf(label) === -1) {
               targetEx.linkedCompetenceIds.push(label);
             }
             renderExerciseCards();
             if (window.showToast) {
-              showToast(i18n.tFmt('tcTaggedToTarget', { label: label.slice(0, 30) + '…', target: targetEx.title || 'Exercise' }));
+              showToast(i18n.tFmt('tcTaggedToTarget', { label: (compObj.title || label).slice(0, 30) + '…', target: targetEx.title || (targetEx.type === 'section_competences' ? 'Competences Block' : 'Exercise') }));
             }
           }
         } else {
-          // Entire exam / Test-wide
+          // Entire exam / Test-wide header
           if (!Array.isArray(currentTest.linkedCompetences)) currentTest.linkedCompetences = [];
-          if (!currentTest.linkedCompetences.some(function (c) { return (c.code && c.code === compObj.code) || (c.title === compObj.title); })) {
-            currentTest.linkedCompetences.push(compObj);
+          var isExamDup = currentTest.linkedCompetences.some(function (c) {
+            return (c.code && compObj.code && c.code === compObj.code) ||
+                   (c.id && compObj.id && c.id === compObj.id) ||
+                   (c.title && compObj.title && c.title === compObj.title);
+          });
+          if (isExamDup) {
+            if (window.showToast) showToast(i18n.t('tcCompAlreadyInTarget') || 'Objective already attached to this test.', true);
+            return;
           }
+          currentTest.linkedCompetences.push(compObj);
           if (!Array.isArray(currentTest.linkedCompetenceIds)) currentTest.linkedCompetenceIds = [];
           if (currentTest.linkedCompetenceIds.indexOf(label) === -1) {
             currentTest.linkedCompetenceIds.push(label);
@@ -8264,7 +8919,7 @@
           hc.showCompetences = true;
           renderTestCompetenceBadges();
           if (window.showToast) {
-            showToast(i18n.tFmt('tcTaggedToTarget', { label: label.slice(0, 30) + '…', target: 'entire exam' }));
+            showToast(i18n.tFmt('tcTaggedToTarget', { label: (compObj.title || label).slice(0, 30) + '…', target: 'entire exam' }));
           }
         }
 
@@ -8303,10 +8958,16 @@
           tcAttachCompetenceByObject(comp);
         } else {
           var label = cId;
-          var targetEx = (_targetAttachExId && _targetAttachExId !== '__exam__') ? currentTest.exercises.find(function (e) { return e.id === _targetAttachExId; }) : null;
+          var targetSel = document.getElementById('competenceTargetExSelect');
+          var targetVal = targetSel ? targetSel.value : (_targetAttachExId || '__exam__');
+          var targetEx = (targetVal && targetVal !== '__exam__') ? currentTest.exercises.find(function (e) { return e.id === targetVal; }) : null;
           if (targetEx) {
             if (!Array.isArray(targetEx.linkedCompetenceIds)) targetEx.linkedCompetenceIds = [];
             if (targetEx.linkedCompetenceIds.indexOf(label) === -1) targetEx.linkedCompetenceIds.push(label);
+            if (!Array.isArray(targetEx.linkedCompetences)) targetEx.linkedCompetences = [];
+            if (!targetEx.linkedCompetences.some(function (c) { return (c.code || c.id || c.title) === label; })) {
+              targetEx.linkedCompetences.push({ id: label, code: label, title: label, description: '', level: '', domain: '' });
+            }
             renderExerciseCards();
           } else {
             if (!Array.isArray(currentTest.linkedCompetenceIds)) currentTest.linkedCompetenceIds = [];
@@ -8319,20 +8980,51 @@
         }
       };
 
+      window.tcRemoveCompFromSection = function (exId, cIdx) {
+        var ex = (currentTest && currentTest.exercises) ? currentTest.exercises.find(function (e) { return e.id === exId; }) : null;
+        if (!ex) return;
+        var removed = null;
+        if (Array.isArray(ex.linkedCompetences) && ex.linkedCompetences[cIdx]) {
+          removed = ex.linkedCompetences.splice(cIdx, 1)[0];
+        }
+        if (Array.isArray(ex.linkedCompetenceIds) && ex.linkedCompetenceIds[cIdx]) {
+          ex.linkedCompetenceIds.splice(cIdx, 1);
+        }
+        if (removed && typeof LinksService !== 'undefined') {
+          var compCode = (removed.code || removed.id || '').trim();
+          var testUrn = tcGetActiveTestUrn();
+          if (testUrn && compCode) {
+            LinksService.removeLink(testUrn + '#' + ex.id, 'cmt:competence:' + compCode).catch(function () {});
+            tcUpdateTestLinksBadge();
+          }
+        }
+        renderExerciseCards();
+        tcOnDirty();
+        if (window.showToast) showToast(i18n.t('tcRemovedTestCompetence') || 'Objective removed from block');
+      };
+
       window.tcRemoveCompFromEx = function (exId, cIdx) {
         var ex = currentTest.exercises.find(function (e) { return e.id === exId; });
-        if (ex && Array.isArray(ex.linkedCompetenceIds)) {
+        if (!ex) return;
+        var removedCode = null;
+        if (Array.isArray(ex.linkedCompetenceIds) && ex.linkedCompetenceIds[cIdx]) {
           var removed = ex.linkedCompetenceIds.splice(cIdx, 1);
-          if (removed && removed[0] && typeof LinksService !== 'undefined') {
-            var compCode = removed[0].replace(/^\[[^\]]+\]\s*/, '').split(' - ')[0].trim();
-            var testUrn = tcGetActiveTestUrn();
-            if (testUrn && compCode) {
-              LinksService.removeLink(testUrn + '#' + ex.id, 'cmt:competence:' + compCode).catch(function () {});
-              tcUpdateTestLinksBadge();
-            }
+          if (removed && removed[0]) {
+            removedCode = removed[0].replace(/^\[[^\]]+\]\s*/, '').split(' - ')[0].trim();
           }
-          renderExerciseCards();
         }
+        if (Array.isArray(ex.linkedCompetences) && ex.linkedCompetences[cIdx]) {
+          ex.linkedCompetences.splice(cIdx, 1);
+        }
+        if (removedCode && typeof LinksService !== 'undefined') {
+          var testUrn = tcGetActiveTestUrn();
+          if (testUrn) {
+            LinksService.removeLink(testUrn + '#' + ex.id, 'cmt:competence:' + removedCode).catch(function () {});
+            tcUpdateTestLinksBadge();
+          }
+        }
+        renderExerciseCards();
+        tcOnDirty();
       };
 
       window.tcOpenCompetenceCustomizeModal = function () {
@@ -8547,9 +9239,23 @@
         var sel = document.getElementById('scaleTargetExSelect');
         if (!sel) return;
         var exs = (currentTest && currentTest.exercises) || [];
-        var opts = '<option value="__exam__">Entire Exam (Test-wide)</option>' +
-          exs.map(function (e, idx) {
-            return '<option value="' + e.id + '">Ex ' + (idx + 1) + ': ' + escapeHtml(e.title || 'Exercise') + '</option>';
+        var exCounter = 0;
+        var opts = '<option value="__exam__">' + (typeof i18n !== 'undefined' && i18n.t ? (i18n.t('tcTargetEntireExam') || 'Entire Exam (Test-wide)') : 'Entire Exam (Test-wide)') + '</option>' +
+          exs.map(function (e) {
+            var label = '';
+            if (e.type === 'section_criteria') {
+              label = '📋 ' + (i18n.t('tcBlockCriteriaSection') || 'Section Block: ') + (e.title || 'Criteria & Rubrics');
+            } else if (e.type === 'section_competences') {
+              label = '📋 ' + (i18n.t('tcBlockCompetencesSection') || 'Section Block: ') + (e.title || 'Competences & Objectives');
+            } else if (e.type === 'section_grading_scale') {
+              label = '📋 ' + (i18n.t('tcBlockScaleSection') || 'Section Block: ') + (e.title || 'Grading Scale');
+            } else if (e.type === 'section_custom' || e.type === 'custom_block') {
+              label = '📋 ' + (i18n.t('tcBlockCustomSection') || 'Section Block: ') + (e.title || 'Custom Block');
+            } else {
+              exCounter++;
+              label = 'Ex ' + exCounter + ': ' + (e.title || 'Exercise');
+            }
+            return '<option value="' + e.id + '">' + escapeHtml(label) + '</option>';
           }).join('');
         sel.innerHTML = opts;
         if (_targetAttachScaleExId && exs.some(function (e) { return e.id === _targetAttachScaleExId; })) {
@@ -8995,7 +9701,7 @@
             document.body.style.cursor = '';
             document.body.style.userSelect = '';
             if (typeof tcScheduleLivePreviewUpdate === 'function') {
-              tcScheduleLivePreviewUpdate(60);
+              tcScheduleLivePreviewUpdate(150);
             }
           }
         });
@@ -10080,7 +10786,7 @@
         if (thmSel && currentTest) {
           thmSel.value = (currentTest.exportStyle && currentTest.exportStyle.theme) || currentTest.stylesheetTheme || localStorage.getItem('cmt_default_test_theme') || 'academic';
         }
-        tcUpdatePrintPreview();
+        tcUpdatePrintPreview({ force: true });
       };
 
       window.tcOnPreviewThemeChange = function (val) {
@@ -10093,7 +10799,7 @@
         var eThm = document.getElementById('exportThemeSelect');
         if (eThm && eThm.value !== val) eThm.value = val;
         tcSaveCurrentTest(false);
-        tcUpdatePrintPreview();
+        tcUpdatePrintPreview({ force: true });
       };
 
       window.tcClosePrintPreview = function () {
@@ -10102,119 +10808,222 @@
       };
 
       var _tcPreviewAbortController = 0;
+      window._tcPreviewIsFrozen = false;
+      try {
+        window._tcPreviewIsFrozen = localStorage.getItem('cmt_tc_preview_frozen') === 'true';
+      } catch (_) {}
 
-      window.tcUpdatePrintPreview = async function () {
-        var isTeacher = document.getElementById('previewTeacherKeyToggle').checked;
-        var variant = document.getElementById('previewVariantSelect').value;
-        var theme = document.getElementById('previewThemeSelect').value;
+      window.tcSetPreviewUpdatingIndicator = function (isUpdating) {
+        var ind = document.getElementById('tcPreviewStatusIndicator');
+        if (ind) {
+          ind.style.display = isUpdating ? 'inline-flex' : 'none';
+        }
+        var refreshBtn = document.getElementById('previewRefreshBtn');
+        if (refreshBtn) {
+          refreshBtn.classList.toggle('is-refreshing', !!isUpdating);
+        }
+      };
+
+      window.tcToggleFreezePreview = function () {
+        window._tcPreviewIsFrozen = !window._tcPreviewIsFrozen;
+        try {
+          localStorage.setItem('cmt_tc_preview_frozen', window._tcPreviewIsFrozen ? 'true' : 'false');
+        } catch (_) {}
+        tcUpdateFreezePreviewUI();
+        if (!window._tcPreviewIsFrozen) {
+          tcUpdatePrintPreview({ force: true });
+        }
+      };
+
+      window.tcForceRefreshPreview = function () {
+        tcUpdatePrintPreview({ force: true });
+      };
+
+      window.tcUpdateFreezePreviewUI = function () {
+        var btn = document.getElementById('previewFreezeToggle');
+        var label = document.getElementById('previewFreezeLabel');
+        var isFrozen = !!window._tcPreviewIsFrozen;
+        if (!btn) return;
+
+        btn.classList.toggle('is-frozen', isFrozen);
+        if (isFrozen) {
+          var tUnfreeze = typeof i18n !== 'undefined' && typeof i18n.t === 'function'
+            ? i18n.t('tcUnfreezePreviewTooltip')
+            : 'Resume live preview updates';
+          var tFrozen = typeof i18n !== 'undefined' && typeof i18n.t === 'function'
+            ? i18n.t('tcPreviewFrozen')
+            : 'Frozen';
+          btn.title = tUnfreeze;
+          btn.setAttribute('data-i18n-title', 'tcUnfreezePreviewTooltip');
+          if (label) {
+            label.textContent = tFrozen;
+            label.setAttribute('data-i18n', 'tcPreviewFrozen');
+          }
+        } else {
+          var tFreezeTitle = typeof i18n !== 'undefined' && typeof i18n.t === 'function'
+            ? i18n.t('tcFreezePreviewTooltip')
+            : 'Freeze preview updates while editing';
+          var tFreeze = typeof i18n !== 'undefined' && typeof i18n.t === 'function'
+            ? i18n.t('tcFreezePreview')
+            : 'Freeze';
+          btn.title = tFreezeTitle;
+          btn.setAttribute('data-i18n-title', 'tcFreezePreviewTooltip');
+          if (label) {
+            label.textContent = tFreeze;
+            label.setAttribute('data-i18n', 'tcFreezePreview');
+          }
+        }
+      };
+
+      window.tcUpdatePrintPreview = async function (options) {
+        if (!currentTest) return;
+
+        var force = (options === true) || (options && options.force === true);
+        if (window._tcPreviewIsFrozen && !force) {
+          return;
+        }
+
+        var isTeacher = document.getElementById('previewTeacherKeyToggle') ? document.getElementById('previewTeacherKeyToggle').checked : false;
+        var variant = document.getElementById('previewVariantSelect') ? document.getElementById('previewVariantSelect').value : 'A';
+        var theme = document.getElementById('previewThemeSelect') ? document.getElementById('previewThemeSelect').value : 'academic';
         var wrap = document.getElementById('previewCanvasWrap');
+        if (!wrap) return;
 
         var currentRequestId = ++_tcPreviewAbortController;
 
-        wrap.innerHTML =
-          '<div class="full-preview-loading">' +
-          '  <div class="full-preview-spinner"></div>' +
-          '  <div>Rendering high-fidelity print preview…</div>' +
-          '</div>';
+        var hasExistingContent = wrap.children.length > 0 && !wrap.querySelector('.full-preview-loading');
 
-        var variantTest = TestCreatorService.generateVariant(currentTest, variant);
-        var previewHtml = TestCreatorService.exportToHtml(variantTest, {
-          isTeacherKey: isTeacher,
-          variant: variant,
-          stylesheetTheme: theme,
-          studentName: '',
-          className: currentTest.className || ''
-        });
-
-        // Exact PDF.js rendering if running in Electron
-        if (window.Desktop && Desktop.isElectron && typeof Desktop.printPdf === 'function') {
-          try {
-            var req = {
-              html: previewHtml,
-              pdfOptions: {
-                landscape: false,
-                pageSize: 'A4',
-                marginsType: 1,
-                preferCSSPageSize: true,
-                printBackground: true
-              },
-              previewOnly: true
-            };
-
-            var res = await Desktop.printPdf(req);
-            if (currentRequestId !== _tcPreviewAbortController) return;
-
-            if (res && res.ok && res.base64) {
-              var pdfjsLib = await tcEnsurePdfjsLib();
-              var binaryStr = atob(res.base64);
-              var bytes = new Uint8Array(binaryStr.length);
-              for (var i = 0; i < binaryStr.length; i++) {
-                bytes[i] = binaryStr.charCodeAt(i);
-              }
-
-              var pdfDoc = await pdfjsLib.getDocument({
-                data: bytes,
-                standardFontDataUrl: new URL('../modules/standard_fonts/', location.href).href,
-                disableFontFace: false
-              }).promise;
-
-              if (currentRequestId !== _tcPreviewAbortController) return;
-
-              wrap.innerHTML = '';
-              var pagesWrapper = document.createElement('div');
-              pagesWrapper.className = 'full-preview-pdf-pages';
-
-              var dpr = Math.max(window.devicePixelRatio || 1, 2);
-
-              for (var pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
-                var page = await pdfDoc.getPage(pageNum);
-                var unscaledViewport = page.getViewport({ scale: 1.0 });
-                var displayWidth = Math.min(unscaledViewport.width, 860);
-                var scale = (displayWidth / unscaledViewport.width) * dpr;
-                var viewport = page.getViewport({ scale: scale });
-
-                var pageW = Math.round(displayWidth);
-                var pageH = Math.round(unscaledViewport.height * (displayWidth / unscaledViewport.width));
-
-                var canvasWrap = document.createElement('div');
-                canvasWrap.className = 'full-preview-pdf-canvas-wrap';
-                canvasWrap.style.width = pageW + 'px';
-                canvasWrap.style.height = pageH + 'px';
-
-                var canvas = document.createElement('canvas');
-                canvas.className = 'full-preview-pdf-canvas';
-                canvas.width = Math.round(viewport.width);
-                canvas.height = Math.round(viewport.height);
-                canvas.style.width = pageW + 'px';
-                canvas.style.height = pageH + 'px';
-
-                var ctx = canvas.getContext('2d');
-                await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-
-                canvasWrap.appendChild(canvas);
-                pagesWrapper.appendChild(canvasWrap);
-              }
-
-              wrap.appendChild(pagesWrapper);
-              return;
-            }
-          } catch (err) {
-            console.warn('Exact PDF print preview failed, falling back to DOM A4 preview:', err);
-          }
+        // Only display full loading placeholder if there is NO existing content (initial first load)
+        if (!hasExistingContent) {
+          wrap.innerHTML =
+            '<div class="full-preview-loading">' +
+            '  <div class="full-preview-spinner"></div>' +
+            '  <div>Rendering high-fidelity print preview…</div>' +
+            '</div>';
         }
 
-        // Web / Fallback rendering
-        if (currentRequestId !== _tcPreviewAbortController) return;
-        var themeCss = TestCreatorService.getThemeCss(theme);
-        var scopedCss = themeCss
-          .replace(/\bbody\s*\{/g, '#previewCanvasWrap .a4-sheet {')
-          .replace(/\.exam-sheet\s*\{[^}]*\}/g, '.exam-sheet { width: 100%; max-width: 100%; margin: 0; }');
+        tcSetPreviewUpdatingIndicator(true);
 
-        var match = previewHtml.match(/<div class="exam-sheet">[\s\S]*<\/body>/);
-        var content = match ? match[0].replace('</body>', '') : previewHtml;
+        try {
+          var variantTest = TestCreatorService.generateVariant(currentTest, variant);
+          var previewHtml = TestCreatorService.exportToHtml(variantTest, {
+            isTeacherKey: isTeacher,
+            variant: variant,
+            stylesheetTheme: theme,
+            studentName: '',
+            className: currentTest.className || ''
+          });
 
-        wrap.innerHTML = '<style id="tcThemePreviewStyles">' + scopedCss + '</style>' +
-          '<div class="a4-sheet theme-' + theme + '">' + content + '</div>';
+          // Exact PDF.js rendering if running in Electron
+          if (window.Desktop && Desktop.isElectron && typeof Desktop.printPdf === 'function') {
+            try {
+              var req = {
+                html: previewHtml,
+                pdfOptions: {
+                  landscape: false,
+                  pageSize: 'A4',
+                  marginsType: 1,
+                  preferCSSPageSize: true,
+                  printBackground: true
+                },
+                previewOnly: true
+              };
+
+              var res = await Desktop.printPdf(req);
+              if (currentRequestId !== _tcPreviewAbortController) return;
+
+              if (res && res.ok && res.base64) {
+                var pdfjsLib = await tcEnsurePdfjsLib();
+                var binaryStr = atob(res.base64);
+                var bytes = new Uint8Array(binaryStr.length);
+                for (var i = 0; i < binaryStr.length; i++) {
+                  bytes[i] = binaryStr.charCodeAt(i);
+                }
+
+                var pdfDoc = await pdfjsLib.getDocument({
+                  data: bytes,
+                  standardFontDataUrl: new URL('../modules/standard_fonts/', location.href).href,
+                  disableFontFace: false
+                }).promise;
+
+                if (currentRequestId !== _tcPreviewAbortController) return;
+
+                var pagesWrapper = document.createElement('div');
+                pagesWrapper.className = 'full-preview-pdf-pages';
+
+                var dpr = Math.max(window.devicePixelRatio || 1, 2);
+
+                for (var pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+                  var page = await pdfDoc.getPage(pageNum);
+                  var unscaledViewport = page.getViewport({ scale: 1.0 });
+                  var displayWidth = Math.min(unscaledViewport.width, 860);
+                  var scale = (displayWidth / unscaledViewport.width) * dpr;
+                  var viewport = page.getViewport({ scale: scale });
+
+                  var pageW = Math.round(displayWidth);
+                  var pageH = Math.round(unscaledViewport.height * (displayWidth / unscaledViewport.width));
+
+                  var canvasWrap = document.createElement('div');
+                  canvasWrap.className = 'full-preview-pdf-canvas-wrap';
+                  canvasWrap.style.width = pageW + 'px';
+                  canvasWrap.style.height = pageH + 'px';
+
+                  var canvas = document.createElement('canvas');
+                  canvas.className = 'full-preview-pdf-canvas';
+                  canvas.width = Math.round(viewport.width);
+                  canvas.height = Math.round(viewport.height);
+                  canvas.style.width = pageW + 'px';
+                  canvas.style.height = pageH + 'px';
+
+                  var ctx = canvas.getContext('2d');
+                  await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+
+                  canvasWrap.appendChild(canvas);
+                  pagesWrapper.appendChild(canvasWrap);
+                }
+
+                if (currentRequestId !== _tcPreviewAbortController) return;
+
+                var prevScrollTop = wrap.scrollTop;
+                var prevScrollLeft = wrap.scrollLeft;
+
+                wrap.replaceChildren(pagesWrapper);
+
+                wrap.scrollTop = prevScrollTop;
+                wrap.scrollLeft = prevScrollLeft;
+                return;
+              }
+            } catch (err) {
+              console.warn('Exact PDF print preview failed, falling back to DOM A4 preview:', err);
+            }
+          }
+
+          // Web / Fallback rendering
+          if (currentRequestId !== _tcPreviewAbortController) return;
+          var themeCss = TestCreatorService.getThemeCss(theme);
+          var scopedCss = themeCss
+            .replace(/\bbody\s*\{/g, '#previewCanvasWrap .a4-sheet {')
+            .replace(/\.exam-sheet\s*\{[^}]*\}/g, '.exam-sheet { width: 100%; max-width: 100%; margin: 0; }');
+
+          var match = previewHtml.match(/<div class="exam-sheet">[\s\S]*<\/body>/);
+          var content = match ? match[0].replace('</body>', '') : previewHtml;
+
+          var tempContainer = document.createElement('div');
+          tempContainer.innerHTML = '<style id="tcThemePreviewStyles">' + scopedCss + '</style>' +
+            '<div class="a4-sheet theme-' + theme + '">' + content + '</div>';
+
+          var prevScrollTopFallback = wrap.scrollTop;
+          var prevScrollLeftFallback = wrap.scrollLeft;
+
+          wrap.replaceChildren.apply(wrap, Array.from(tempContainer.childNodes));
+
+          wrap.scrollTop = prevScrollTopFallback;
+          wrap.scrollLeft = prevScrollLeftFallback;
+        } finally {
+          if (currentRequestId === _tcPreviewAbortController) {
+            tcSetPreviewUpdatingIndicator(false);
+          }
+        }
       };
 
       window.tcPrintDocument = async function () {
@@ -12770,6 +13579,16 @@
         } else if (e.key === 'h' || e.key === 'H') {
           e.preventDefault();
           tcOpenHeaderCustomizerModal();
+        } else if ((e.key === 'r' || e.key === 'R') && !isTextInput) {
+          e.preventDefault();
+          tcForceRefreshPreview();
+        }
+      });
+
+      window.addEventListener('keydown', function (e) {
+        if (e.key === 'F5') {
+          e.preventDefault();
+          tcForceRefreshPreview();
         }
       });
 
@@ -12779,6 +13598,7 @@
           _langChannel.onmessage = function (ev) {
             if (ev && ev.data && ev.data.type === 'lang_changed') {
               if (typeof applyTranslations === 'function') applyTranslations();
+              if (typeof tcUpdateFreezePreviewUI === 'function') tcUpdateFreezePreviewUI();
               renderTestMeta();
               renderExerciseCards();
             }

@@ -17,6 +17,7 @@
   <script src="../js/student-name-utils.js"></script>
   <script src="../js/competence-aggregator-service.js"></script>
   <script src="../js/links-service.js"></script>
+  <script src="../js/board-export-service.js"></script>
   <script src="../js/tag-link-modal.js"></script>
   <script src="../js/universal-importer.js"></script>
   <script src="../js/media-audio-encoder.js"></script>
@@ -42847,8 +42848,7 @@
 
     // Offer CSV or PDF export. PDF exports only the words/definitions table (printable HTML -> print/save as PDF).
     function conExport() {
-      // Inline chooser shown next to the Export button (better than confirm/popups).
-      // Remove any existing chooser
+      // Inline chooser shown next to the Export button
       const existing = document.getElementById('con-export-chooser');
       if (existing) { existing.remove(); return; }
 
@@ -42857,67 +42857,85 @@
 
       const chooser = document.createElement('div');
       chooser.id = 'con-export-chooser';
-      chooser.style.position = 'absolute';
-      chooser.style.left = (rect.left + window.scrollX) + 'px';
-      chooser.style.top = (rect.top + window.scrollY + rect.height + 6) + 'px';
-      chooser.style.background = '#fff';
-      chooser.style.border = '1px solid #bbb';
-      chooser.style.boxShadow = '0 4px 12px rgba(0,0,0,0.12)';
-      chooser.style.padding = '6px';
-      chooser.style.zIndex = 9999;
-      chooser.style.borderRadius = '4px';
-      chooser.style.fontFamily = 'Segoe UI, Arial, sans-serif';
+      chooser.style.position = 'fixed';
+      chooser.style.left = Math.max(10, Math.min(window.innerWidth - 240, rect.left)) + 'px';
+      chooser.style.top = (rect.bottom + 6) + 'px';
+      chooser.style.background = '#f5f5f0';
+      chooser.style.border = '2px solid #333333';
+      chooser.style.boxShadow = '4px 4px 0 #555555';
+      chooser.style.padding = '8px';
+      chooser.style.zIndex = 99999;
+      chooser.style.borderRadius = '8px';
+      chooser.style.fontFamily = '"Lexend", "Segoe UI", Arial, sans-serif';
+      chooser.style.width = '210px';
+      chooser.style.display = 'flex';
+      chooser.style.flexDirection = 'column';
+      chooser.style.gap = '4px';
 
-      const csvBtn = document.createElement('button');
-      csvBtn.textContent = 'Export CSV';
-      csvBtn.style.display = 'block';
-      csvBtn.style.margin = '4px';
-      csvBtn.onclick = e => { e.stopPropagation(); chooser.remove(); conExportCSV(); };
+      const titleEl = document.createElement('div');
+      titleEl.textContent = 'EXPORT OPTIONS';
+      titleEl.style.fontSize = '9.5px';
+      titleEl.style.fontWeight = '800';
+      titleEl.style.letterSpacing = '0.5px';
+      titleEl.style.color = '#555555';
+      titleEl.style.padding = '2px 4px 6px';
+      titleEl.style.borderBottom = '1.5px solid #ddddda';
+      titleEl.style.marginBottom = '2px';
+      chooser.appendChild(titleEl);
 
-      const pdfBtn = document.createElement('button');
-      pdfBtn.textContent = 'Export PDF';
-      pdfBtn.style.display = 'block';
-      pdfBtn.style.margin = '4px';
-      pdfBtn.onclick = e => {
-        e.stopPropagation(); chooser.remove();
-        conExportPDF();
-      };
+      function createExportBtn(text, bg, isPrimary) {
+        const b = document.createElement('button');
+        b.textContent = text;
+        b.style.display = 'flex';
+        b.style.alignItems = 'center';
+        b.style.width = '100%';
+        b.style.padding = '6px 10px';
+        b.style.fontSize = '11px';
+        b.style.fontWeight = isPrimary ? '800' : '700';
+        b.style.border = '2px solid #333333';
+        b.style.borderRadius = '6px';
+        b.style.boxShadow = '2px 2px 0 #555555';
+        b.style.background = bg || '#ffffff';
+        b.style.color = '#111111';
+        b.style.cursor = 'pointer';
+        b.style.textAlign = 'left';
+        b.style.transition = 'transform 0.1s, box-shadow 0.1s';
+        b.onmouseenter = () => { b.style.transform = 'translate(-1px, -1px)'; b.style.boxShadow = '3px 3px 0 #555555'; };
+        b.onmouseleave = () => { b.style.transform = 'none'; b.style.boxShadow = '2px 2px 0 #555555'; };
+        b.onmousedown = () => { b.style.transform = 'translate(1px, 1px)'; b.style.boxShadow = '1px 1px 0 #555555'; };
+        b.onmouseup = () => { b.style.transform = 'none'; b.style.boxShadow = '2px 2px 0 #555555'; };
+        return b;
+      }
 
-      const cancelBtn = document.createElement('button');
-      cancelBtn.textContent = 'Cancel';
-      cancelBtn.style.display = 'block';
-      cancelBtn.style.margin = '4px';
-      cancelBtn.onclick = e => { e.stopPropagation(); chooser.remove(); };
-
-      const pngBtn = document.createElement('button');
-      pngBtn.textContent = '🖼 Export PNG';
-      pngBtn.style.display = 'block';
-      pngBtn.style.margin = '4px';
-      pngBtn.onclick = e => { e.stopPropagation(); chooser.remove(); conExportPNG(); };
-
-      const copyPngBtn = document.createElement('button');
-      copyPngBtn.textContent = '📋 Copy PNG';
-      copyPngBtn.style.display = 'block';
-      copyPngBtn.style.margin = '4px';
-      copyPngBtn.onclick = e => { e.stopPropagation(); chooser.remove(); conCopyPNG(); };
-
-      const pagesPdfBtn = document.createElement('button');
-      pagesPdfBtn.textContent = '📄 Export Pages PDF';
-      pagesPdfBtn.style.display = 'block';
-      pagesPdfBtn.style.margin = '4px';
+      const pagesPdfBtn = createExportBtn('📄 Export Pages PDF', '#e2c96e', true);
       pagesPdfBtn.onclick = e => { e.stopPropagation(); chooser.remove(); conExportPagesPDF(); };
 
-      const jsBtn = document.createElement('button');
-      jsBtn.textContent = '💾 Export as JS';
-      jsBtn.style.display = 'block';
-      jsBtn.style.margin = '4px';
+      const pdfBtn = createExportBtn('📋 Export Words Table PDF', '#ffffff');
+      pdfBtn.onclick = e => { e.stopPropagation(); chooser.remove(); conExportPDF(); };
+
+      const pngBtn = createExportBtn('🖼 Export PNG', '#ffffff');
+      pngBtn.onclick = e => { e.stopPropagation(); chooser.remove(); conExportPNG(); };
+
+      const copyPngBtn = createExportBtn('📋 Copy PNG', '#ffffff');
+      copyPngBtn.onclick = e => { e.stopPropagation(); chooser.remove(); conCopyPNG(); };
+
+      const csvBtn = createExportBtn('📊 Export CSV', '#ffffff');
+      csvBtn.onclick = e => { e.stopPropagation(); chooser.remove(); conExportCSV(); };
+
+      const jsBtn = createExportBtn('💾 Export as JS', '#ffffff');
       jsBtn.onclick = e => { e.stopPropagation(); chooser.remove(); conExportJS(); };
 
+      const cancelBtn = createExportBtn('✕ Cancel', '#f1f1f0');
+      cancelBtn.style.color = '#666666';
+      cancelBtn.style.boxShadow = '1px 1px 0 #888888';
+      cancelBtn.style.border = '1.5px solid #666666';
+      cancelBtn.onclick = e => { e.stopPropagation(); chooser.remove(); };
+
+      chooser.appendChild(pagesPdfBtn);
+      chooser.appendChild(pdfBtn);
       chooser.appendChild(pngBtn);
       chooser.appendChild(copyPngBtn);
-      chooser.appendChild(pagesPdfBtn);
       chooser.appendChild(csvBtn);
-      chooser.appendChild(pdfBtn);
       chooser.appendChild(jsBtn);
       chooser.appendChild(cancelBtn);
       document.body.appendChild(chooser);
@@ -43124,17 +43142,47 @@
       if (window.Desktop && Desktop.isElectron() && typeof Desktop.printPdf === 'function') {
         const safeTitle = titleVal.replace(/[\\/:*?"<>|]/g, '_') || 'vocabulary';
         const defaultName = safeTitle + '.pdf';
-        Desktop.printPdf({ html, defaultName, landscape: pdfSettings.isLandscape, pdfOptions: { pageSize: pdfSettings.pageSize, landscape: pdfSettings.isLandscape } }).then(result => {
-          if (result && result.ok) {
-            if (window.showExportSuccessPopup && result.path) {
-              showExportSuccessPopup(result.path, result.name || defaultName);
-            }
-          } else if (!result.ok && !result.canceled) {
-            mdbToast('⚠️ Could not save PDF: ' + (result.error || 'unknown error'));
+
+        const doPrint = (targetFilename, isToPrint) => {
+          const pdfReq = {
+            html,
+            landscape: pdfSettings.isLandscape,
+            pdfOptions: { pageSize: pdfSettings.pageSize, landscape: pdfSettings.isLandscape, printBackground: true }
+          };
+          if (isToPrint) {
+            pdfReq.target = 'toPrint';
+            pdfReq.filename = targetFilename;
+          } else {
+            pdfReq.defaultName = targetFilename;
           }
-        }).catch(err => {
-          mdbToast('⚠️ Could not save PDF: ' + (err && err.message ? err.message : String(err)));
-        });
+          Desktop.printPdf(pdfReq).then(result => {
+            if (result && result.ok) {
+              if (window.showExportSuccessPopup && result.path) {
+                showExportSuccessPopup(result.path, result.name || targetFilename);
+              } else if (typeof mdbToast === 'function') {
+                mdbToast('✓ PDF saved: ' + (result.name || targetFilename));
+              }
+            } else if (!result.ok && !result.canceled) {
+              mdbToast('⚠️ Could not save PDF: ' + (result.error || 'unknown error'));
+            }
+          }).catch(err => {
+            mdbToast('⚠️ Could not save PDF: ' + (err && err.message ? err.message : String(err)));
+          });
+        };
+
+        if (typeof window.promptExportDestination === 'function') {
+          promptExportDestination({
+            title: 'Export Vocabulary Table PDF',
+            prompt: 'Where do you want to save the exported PDF?',
+            filename: defaultName,
+            allowDocEditor: false
+          }).then(destRes => {
+            if (!destRes || destRes.canceled) return;
+            doPrint(destRes.filename || defaultName, destRes.destination === 'to-print');
+          });
+        } else {
+          doPrint(defaultName, false);
+        }
       } else {
         let iframe = document.getElementById('con-pdf-iframe');
         if (!iframe) {
@@ -44667,9 +44715,27 @@
       conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
       const allPages = conPageSnapshots.slice();
       const titleVal = (document.getElementById('con-title-input')?.value || '').trim() || 'constellation';
-      function escapeHtml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
-      const displayTitle = escapeHtml(titleVal);
-      const origIndex = conCurrentPageIndex; const dataUrls = [];
+
+      const isPageNonEmpty = p => {
+        if (!p) return false;
+        return (p.nodes && p.nodes.length > 0) ||
+          (p.groups && p.groups.length > 0) ||
+          (p.shapes && p.shapes.length > 0) ||
+          (p.notes && p.notes.length > 0) ||
+          (p.drawings && p.drawings.length > 0) ||
+          (p.tables && p.tables.length > 0) ||
+          (p.media && p.media.length > 0) ||
+          (p.masks && p.masks.length > 0) ||
+          (p.boardStickers && p.boardStickers.length > 0) ||
+          (p.backgroundPdf && (p.backgroundPdf.relativePath || p.backgroundPdf.attachmentId));
+      };
+
+      const pagesToProcess = (allPages.length > 1)
+        ? (allPages.filter(isPageNonEmpty).length > 0 ? allPages.filter(isPageNonEmpty) : allPages.slice(0, 1))
+        : allPages;
+
+      const origIndex = conCurrentPageIndex;
+      const dataUrls = [];
 
       let overlay = document.getElementById('con-pdf-export-loading-overlay');
       if (!overlay) {
@@ -44695,15 +44761,15 @@
 
       try {
         const progressEl = document.getElementById('con-pdf-export-loading-progress');
-        for (let i = 0; i < allPages.length; i++) {
-          if (progressEl) progressEl.textContent = `Processing page ${i + 1} of ${allPages.length}...`;
-          _conRestorePageToBoard(allPages[i]);
+        for (let i = 0; i < pagesToProcess.length; i++) {
+          if (progressEl) progressEl.textContent = `Processing page ${i + 1} of ${pagesToProcess.length}...`;
+          _conRestorePageToBoard(pagesToProcess[i]);
           if (typeof conAwaitAllPdfRendersOnBoard === 'function') {
             try { await conAwaitAllPdfRendersOnBoard(); } catch (_) { }
           }
-          await new Promise(r => setTimeout(r, 60));
+          await new Promise(r => setTimeout(r, 80));
           const res = await _conBuildBoardCanvas();
-          if (res) dataUrls.push(res.canvas.toDataURL('image/png'));
+          if (res && res.canvas) dataUrls.push(res.canvas.toDataURL('image/png'));
         }
       } finally {
         _conRestorePageToBoard(allPages[origIndex]);
@@ -44714,17 +44780,58 @@
         }
       }
 
+      if (window.BoardExportService && typeof window.BoardExportService.exportCanvasPagesPdf === 'function') {
+        return window.BoardExportService.exportCanvasPagesPdf(dataUrls, { title: titleVal, orientation: 'landscape' });
+      }
+
+      function escapeHtml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+      const displayTitle = escapeHtml(titleVal);
       const imgTags = dataUrls.map((url, i) => `<div class="pg"><img src="${url}" alt="Page ${i + 1}"></div>`).join('\n');
-      const html = `<!doctype html><html><head><meta charset="utf-8"><title>${displayTitle}</title><style>@page{margin:0}html,body{margin:0;padding:0;background:#fff}.pg{width:100vw;height:100vh;page-break-after:always;display:flex;align-items:center;justify-content:center;overflow:hidden;box-sizing:border-box}.pg:last-child{page-break-after:auto}img{max-width:100%;max-height:100%;object-fit:contain;display:block}</style></head><body>\n${imgTags}\n</body></html>`;
+      const html = `<!doctype html><html><head><meta charset="utf-8"><title>${displayTitle}</title><style>@page{margin:0;size:landscape}html,body{margin:0;padding:0;background:#fff;width:100%;height:100%}.pg{width:100vw;height:100vh;page-break-after:always;display:flex;align-items:center;justify-content:center;overflow:hidden;box-sizing:border-box}.pg:last-child{page-break-after:auto}img{max-width:100%;max-height:100%;object-fit:contain;display:block}</style></head><body>\n${imgTags}\n</body></html>`;
       const safeTitle = titleVal.replace(/[\\/:*?"<>|]/g, '_') || 'constellation';
+      const defaultName = safeTitle + '_pages.pdf';
+
       if (window.Desktop && Desktop.isElectron() && typeof Desktop.printPdf === 'function') {
-        Desktop.printPdf({ html, defaultName: safeTitle + '_pages.pdf' }).then(result => {
-          if (result && result.ok) {
-            if (window.showExportSuccessPopup && result.path) {
-              showExportSuccessPopup(result.path, result.name || (safeTitle + '_pages.pdf'));
+        const doPrint = (targetFilename, isToPrint) => {
+          const pdfReq = {
+            html,
+            landscape: true,
+            pdfOptions: { pageSize: 'A4', landscape: true, printBackground: true }
+          };
+          if (isToPrint) {
+            pdfReq.target = 'toPrint';
+            pdfReq.filename = targetFilename;
+          } else {
+            pdfReq.defaultName = targetFilename;
+          }
+          Desktop.printPdf(pdfReq).then(result => {
+            if (result && result.ok) {
+              if (window.showExportSuccessPopup && result.path) {
+                showExportSuccessPopup(result.path, result.name || targetFilename);
+              } else if (typeof mdbToast === 'function') {
+                mdbToast('✓ PDF saved: ' + (result.name || targetFilename));
+              }
+            } else if (!result.ok && !result.canceled) {
+              mdbToast('⚠️ Could not save PDF: ' + (result.error || 'unknown error'));
             }
-          } else if (!result.ok && !result.canceled) mdbToast('⚠️ Could not save PDF: ' + (result.error || 'unknown error'));
-        }).catch(err => { mdbToast('⚠️ Could not save PDF: ' + (err && err.message ? err.message : String(err))); });
+          }).catch(err => {
+            mdbToast('⚠️ Could not save PDF: ' + (err && err.message ? err.message : String(err)));
+          });
+        };
+
+        if (typeof window.promptExportDestination === 'function') {
+          promptExportDestination({
+            title: 'Export Board PDF',
+            prompt: 'Where do you want to save the exported PDF?',
+            filename: defaultName,
+            allowDocEditor: false
+          }).then(destRes => {
+            if (!destRes || destRes.canceled) return;
+            doPrint(destRes.filename || defaultName, destRes.destination === 'to-print');
+          });
+        } else {
+          doPrint(defaultName, false);
+        }
       } else {
         let iframe = document.getElementById('con-pages-pdf-iframe');
         if (!iframe) { iframe = document.createElement('iframe'); iframe.id = 'con-pages-pdf-iframe'; iframe.style.cssText = 'position:fixed;width:0;height:0;border:0;left:-9999px;top:-9999px'; document.body.appendChild(iframe); }
