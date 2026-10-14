@@ -2790,15 +2790,16 @@
     </div>
 
     <!-- MINIMISED MODE FLOATING PILL (Main view only) -->
-    <div id="mode-minimized-pill" class="mode-minimized-pill" style="display: none;" onclick="restoreMode()" title="Click to expand mode" data-i18n-title="mode_expand_title">
+    <div id="mode-minimized-pill" class="mode-minimized-pill" style="display: none;" title="Click to expand mode" data-i18n-title="mode_expand_title">
+        <div class="mode-pill-drag-handle" title="Drag to move" data-i18n-title="mode_drag_title">⋮⋮</div>
         <span class="mode-pill-icon" id="mode-pill-icon">🎭</span>
         <span class="mode-pill-title" id="mode-pill-title">Class Mode</span>
         <span class="mode-pill-timer" id="mode-pill-timer" style="display: none;"></span>
-        <div class="mode-pill-actions" onclick="event.stopPropagation()">
-            <button class="mode-pill-btn mode-pill-restore-btn" onclick="restoreMode()" title="Expand mode" data-i18n-title="mode_expand_title">
+        <div class="mode-pill-actions">
+            <button type="button" class="mode-pill-btn mode-pill-restore-btn" onclick="event.stopPropagation(); restoreMode()" title="Expand mode" data-i18n-title="mode_expand_title">
                 <img src="../assets/icons/maximize.svg" class="btn-icon" alt="" />
             </button>
-            <button class="mode-pill-btn mode-pill-close-btn" onclick="closeMode()" title="Close mode" data-i18n-title="mode_close_title">
+            <button type="button" class="mode-pill-btn mode-pill-close-btn" onclick="event.stopPropagation(); closeMode()" title="Close mode" data-i18n-title="mode_close_title">
                 <img src="../assets/icons/close.svg" class="btn-icon" alt="" />
             </button>
         </div>
@@ -3017,7 +3018,12 @@
             const el = document.getElementById('rsp-pres-controls');
             if (el) el.style.display = _presWindowOpen ? '' : 'none';
             const popup = document.getElementById('cms-pres-popup');
-            if (popup) popup.style.display = _presWindowOpen ? 'flex' : 'none';
+            if (popup) {
+                popup.style.display = _presWindowOpen ? 'flex' : 'none';
+                if (_presWindowOpen) {
+                    requestAnimationFrame(() => positionFloatingWidgetsWithoutOverlap());
+                }
+            }
         }
 
         function _broadcastPresentationState() {
@@ -3609,6 +3615,249 @@
             }
         }
 
+        let _modePillPos = null;
+
+        function applyMagneticRepulse(activeEl, passiveEl) {
+            if (!activeEl || !passiveEl) return;
+            if (activeEl.style.display === 'none' || passiveEl.style.display === 'none') return;
+            if (activeEl.offsetParent === null || passiveEl.offsetParent === null) return;
+
+            const rectA = activeEl.getBoundingClientRect();
+            const rectB = passiveEl.getBoundingClientRect();
+
+            const BUFFER = 16; // Magnetic repulsion cushion (px)
+            const pad = 8;     // Screen boundary padding (px)
+
+            const cxA = (rectA.left + rectA.right) / 2;
+            const cyA = (rectA.top + rectA.bottom) / 2;
+            const cxB = (rectB.left + rectB.right) / 2;
+            const cyB = (rectB.top + rectB.bottom) / 2;
+
+            const minDistX = (rectA.width + rectB.width) / 2 + BUFFER;
+            const minDistY = (rectA.height + rectB.height) / 2 + BUFFER;
+
+            const dx = cxB - cxA;
+            const dy = cyB - cyA;
+
+            const overlapX = minDistX - Math.abs(dx);
+            const overlapY = minDistY - Math.abs(dy);
+
+            if (overlapX <= 0 || overlapY <= 0) return;
+
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+
+            const minLeft = pad;
+            const maxLeft = Math.max(pad, viewportWidth - rectB.width - pad);
+            const minTop = pad;
+            const maxTop = Math.max(pad, viewportHeight - rectB.height - pad);
+
+            const dirX = dx >= 0 ? 1 : -1;
+            const dirY = dy >= 0 ? 1 : -1;
+
+            const pushDistX = (dirX > 0) ? (rectA.right + BUFFER - rectB.left) : (rectA.left - BUFFER - rectB.right);
+            const pushDistY = (dirY > 0) ? (rectA.bottom + BUFFER - rectB.top) : (rectA.top - BUFFER - rectB.bottom);
+
+            const candTopY = rectB.top + pushDistY;
+            const candLeftX = rectB.left + pushDistX;
+
+            let chosenLeft = rectB.left;
+            let chosenTop = rectB.top;
+
+            const preferY = overlapY < overlapX;
+
+            if (preferY) {
+                if (candTopY >= minTop && candTopY <= maxTop) {
+                    chosenTop = candTopY;
+                } else {
+                    const altTopY = (dirY > 0) ? (rectA.top - BUFFER - rectB.height) : (rectA.bottom + BUFFER);
+                    if (altTopY >= minTop && altTopY <= maxTop) {
+                        chosenTop = altTopY;
+                    } else if (candLeftX >= minLeft && candLeftX <= maxLeft) {
+                        chosenLeft = candLeftX;
+                    } else {
+                        const altLeftX = (dirX > 0) ? (rectA.left - BUFFER - rectB.width) : (rectA.right + BUFFER);
+                        chosenLeft = Math.min(maxLeft, Math.max(minLeft, altLeftX));
+                        chosenTop = Math.min(maxTop, Math.max(minTop, candTopY));
+                    }
+                }
+            } else {
+                if (candLeftX >= minLeft && candLeftX <= maxLeft) {
+                    chosenLeft = candLeftX;
+                } else {
+                    const altLeftX = (dirX > 0) ? (rectA.left - BUFFER - rectB.width) : (rectA.right + BUFFER);
+                    if (altLeftX >= minLeft && altLeftX <= maxLeft) {
+                        chosenLeft = altLeftX;
+                    } else if (candTopY >= minTop && candTopY <= maxTop) {
+                        chosenTop = candTopY;
+                    } else {
+                        const altTopY = (dirY > 0) ? (rectA.top - BUFFER - rectB.height) : (rectA.bottom + BUFFER);
+                        chosenLeft = Math.min(maxLeft, Math.max(minLeft, candLeftX));
+                        chosenTop = Math.min(maxTop, Math.max(minTop, altTopY));
+                    }
+                }
+            }
+
+            chosenLeft = Math.min(maxLeft, Math.max(minLeft, chosenLeft));
+            chosenTop = Math.min(maxTop, Math.max(minTop, chosenTop));
+
+            passiveEl.style.transition = 'left 0.18s cubic-bezier(0.2, 0.9, 0.3, 1), top 0.18s cubic-bezier(0.2, 0.9, 0.3, 1)';
+            passiveEl.style.left = chosenLeft + 'px';
+            passiveEl.style.top = chosenTop + 'px';
+            passiveEl.style.right = 'auto';
+            passiveEl.style.bottom = 'auto';
+
+            if (passiveEl.id === 'mode-minimized-pill') {
+                _modePillPos = { left: chosenLeft, top: chosenTop };
+            }
+        }
+
+        function positionFloatingWidgetsWithoutOverlap() {
+            const pill = document.getElementById('mode-minimized-pill');
+            const popup = document.getElementById('cms-pres-popup');
+            if (!pill || !popup) return;
+            if (pill.style.display === 'none' || popup.style.display === 'none') return;
+            if (pill.offsetParent === null || popup.offsetParent === null) return;
+
+            const rectPill = pill.getBoundingClientRect();
+            const rectPopup = popup.getBoundingClientRect();
+            const BUFFER = 14;
+            const pad = 8;
+
+            const isOverlapping = !(rectPill.right < rectPopup.left - BUFFER ||
+                                    rectPill.left > rectPopup.right + BUFFER ||
+                                    rectPill.bottom < rectPopup.top - BUFFER ||
+                                    rectPill.top > rectPopup.bottom + BUFFER);
+
+            if (isOverlapping) {
+                let newTop = rectPopup.top - rectPill.height - BUFFER;
+                let newLeft = rectPopup.right - rectPill.width;
+                if (newTop < pad) {
+                    newTop = rectPopup.top;
+                    newLeft = rectPopup.left - rectPill.width - BUFFER;
+                }
+                newLeft = Math.max(pad, Math.min(window.innerWidth - rectPill.width - pad, newLeft));
+                newTop = Math.max(pad, Math.min(window.innerHeight - rectPill.height - pad, newTop));
+
+                pill.style.transition = 'left 0.18s cubic-bezier(0.2, 0.9, 0.3, 1), top 0.18s cubic-bezier(0.2, 0.9, 0.3, 1)';
+                pill.style.left = newLeft + 'px';
+                pill.style.top = newTop + 'px';
+                pill.style.right = 'auto';
+                pill.style.bottom = 'auto';
+                _modePillPos = { left: newLeft, top: newTop };
+            }
+        }
+
+        function initModeMinimisedPill() {
+            const pill = document.getElementById('mode-minimized-pill');
+            if (!pill || pill._dragInitialized) return;
+            pill._dragInitialized = true;
+
+            let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+            let startX = 0, startY = 0;
+            let hasDragged = false;
+            let pillDragRaf = null;
+
+            pill.addEventListener('mousedown', dragMouseDown);
+            pill.addEventListener('touchstart', dragMouseDown, { passive: false });
+
+            function dragMouseDown(e) {
+                if (e.target.tagName === 'BUTTON' || e.target.closest('button') || e.target.closest('.mode-pill-actions')) return;
+                e = e || window.event;
+                hasDragged = false;
+                if (e.type === 'touchstart') {
+                    pos3 = e.touches[0].clientX;
+                    pos4 = e.touches[0].clientY;
+                } else {
+                    pos3 = e.clientX;
+                    pos4 = e.clientY;
+                }
+                startX = pos3;
+                startY = pos4;
+
+                document.addEventListener('mouseup', closeDragElement);
+                document.addEventListener('mousemove', elementDrag);
+                document.addEventListener('touchend', closeDragElement);
+                document.addEventListener('touchmove', elementDrag, { passive: false });
+            }
+
+            function elementDrag(e) {
+                e = e || window.event;
+                let clientX, clientY;
+                if (e.type === 'touchmove') {
+                    clientX = e.touches[0].clientX;
+                    clientY = e.touches[0].clientY;
+                } else {
+                    clientX = e.clientX;
+                    clientY = e.clientY;
+                }
+
+                if (!hasDragged) {
+                    if (Math.hypot(clientX - startX, clientY - startY) < 4) {
+                        return;
+                    }
+                    hasDragged = true;
+                    pill.classList.add('is-dragging');
+                    pill.style.transition = 'none';
+                }
+
+                if (e.type !== 'touchstart' && e.cancelable) {
+                    e.preventDefault();
+                }
+
+                pos1 = pos3 - clientX;
+                pos2 = pos4 - clientY;
+                pos3 = clientX;
+                pos4 = clientY;
+
+                let newTop = pill.offsetTop - pos2;
+                let newLeft = pill.offsetLeft - pos1;
+
+                const rect = pill.getBoundingClientRect();
+                const viewportWidth = window.innerWidth;
+                const viewportHeight = window.innerHeight;
+                const pad = 6;
+
+                if (newTop < pad) newTop = pad;
+                if (newTop + rect.height > viewportHeight - pad) newTop = viewportHeight - rect.height - pad;
+                if (newLeft < pad) newLeft = pad;
+                if (newLeft + rect.width > viewportWidth - pad) newLeft = viewportWidth - rect.width - pad;
+
+                pill.style.top = newTop + 'px';
+                pill.style.left = newLeft + 'px';
+                pill.style.right = 'auto';
+                pill.style.bottom = 'auto';
+
+                _modePillPos = { left: newLeft, top: newTop };
+
+                if (pillDragRaf) cancelAnimationFrame(pillDragRaf);
+                pillDragRaf = requestAnimationFrame(() => {
+                    applyMagneticRepulse(pill, document.getElementById('cms-pres-popup'));
+                });
+            }
+
+            function closeDragElement(e) {
+                document.removeEventListener('mouseup', closeDragElement);
+                document.removeEventListener('mousemove', elementDrag);
+                document.removeEventListener('touchend', closeDragElement);
+                document.removeEventListener('touchmove', elementDrag);
+
+                pill.classList.remove('is-dragging');
+                pill.style.transition = '';
+
+                if (pillDragRaf) {
+                    cancelAnimationFrame(pillDragRaf);
+                    pillDragRaf = null;
+                }
+
+                if (!hasDragged) {
+                    restoreMode();
+                } else {
+                    applyMagneticRepulse(pill, document.getElementById('cms-pres-popup'));
+                }
+            }
+        }
+
         function ensurePresentationPopupMenu() {
             if (PRESENTATION_MODE || document.getElementById('cms-pres-popup')) return;
             const popup = document.createElement('div');
@@ -3637,8 +3886,9 @@
                 else if (action === 'left') cmsPresentationDockLeft();
             });
 
-            // Make the popup draggable
+            // Make the popup draggable with magnetic repulsion
             let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+            let presDragRaf = null;
             popup.addEventListener('mousedown', dragMouseDown);
             popup.addEventListener('touchstart', dragMouseDown, { passive: false });
 
@@ -3648,6 +3898,8 @@
                 if (e.type !== 'touchstart') {
                     e.preventDefault();
                 }
+                popup.classList.add('is-dragging');
+                popup.style.transition = 'none';
                 if (e.type === 'touchstart') {
                     pos3 = e.touches[0].clientX;
                     pos4 = e.touches[0].clientY;
@@ -3682,16 +3934,22 @@
                 const rect = popup.getBoundingClientRect();
                 const viewportWidth = window.innerWidth;
                 const viewportHeight = window.innerHeight;
+                const pad = 8;
 
-                if (newTop < 0) newTop = 0;
-                if (newTop + rect.height > viewportHeight) newTop = viewportHeight - rect.height;
-                if (newLeft < 0) newLeft = 0;
-                if (newLeft + rect.width > viewportWidth) newLeft = viewportWidth - rect.width;
+                if (newTop < pad) newTop = pad;
+                if (newTop + rect.height > viewportHeight - pad) newTop = viewportHeight - rect.height - pad;
+                if (newLeft < pad) newLeft = pad;
+                if (newLeft + rect.width > viewportWidth - pad) newLeft = viewportWidth - rect.width - pad;
 
                 popup.style.top = newTop + 'px';
                 popup.style.left = newLeft + 'px';
                 popup.style.right = 'auto';
                 popup.style.bottom = 'auto';
+
+                if (presDragRaf) cancelAnimationFrame(presDragRaf);
+                presDragRaf = requestAnimationFrame(() => {
+                    applyMagneticRepulse(popup, document.getElementById('mode-minimized-pill'));
+                });
             }
 
             function closeDragElement() {
@@ -3699,6 +3957,13 @@
                 document.removeEventListener('mousemove', elementDrag);
                 document.removeEventListener('touchend', closeDragElement);
                 document.removeEventListener('touchmove', elementDrag);
+                popup.classList.remove('is-dragging');
+                popup.style.transition = '';
+                if (presDragRaf) {
+                    cancelAnimationFrame(presDragRaf);
+                    presDragRaf = null;
+                }
+                applyMagneticRepulse(popup, document.getElementById('mode-minimized-pill'));
             }
 
             document.body.appendChild(popup);
@@ -14487,7 +14752,25 @@ syncState();
 
             updateModeMinimisedPill();
             const pill = document.getElementById('mode-minimized-pill');
-            if (pill) pill.style.display = 'inline-flex';
+            if (pill) {
+                pill.style.display = 'inline-flex';
+                initModeMinimisedPill();
+                if (_modePillPos) {
+                    const rect = pill.getBoundingClientRect();
+                    const pad = 6;
+                    const maxLeft = Math.max(pad, window.innerWidth - (rect.width || 120) - pad);
+                    const maxTop = Math.max(pad, window.innerHeight - (rect.height || 26) - pad);
+                    const left = Math.min(maxLeft, Math.max(pad, _modePillPos.left));
+                    const top = Math.min(maxTop, Math.max(pad, _modePillPos.top));
+                    pill.style.left = left + 'px';
+                    pill.style.top = top + 'px';
+                    pill.style.right = 'auto';
+                    pill.style.bottom = 'auto';
+                }
+                requestAnimationFrame(() => {
+                    positionFloatingWidgetsWithoutOverlap();
+                });
+            }
         }
 
         function restoreMode() {
@@ -17162,6 +17445,29 @@ syncState();
                 });
             } else {
                 ensurePresentationPopupMenu();
+                initModeMinimisedPill();
+                window.addEventListener('resize', () => {
+                    const pill = document.getElementById('mode-minimized-pill');
+                    if (pill && pill.style.display !== 'none' && pill.style.top) {
+                        const r = pill.getBoundingClientRect();
+                        const pad = 6;
+                        let l = Math.max(pad, Math.min(window.innerWidth - r.width - pad, r.left));
+                        let t = Math.max(pad, Math.min(window.innerHeight - r.height - pad, r.top));
+                        pill.style.left = l + 'px';
+                        pill.style.top = t + 'px';
+                        _modePillPos = { left: l, top: t };
+                    }
+                    const popup = document.getElementById('cms-pres-popup');
+                    if (popup && popup.style.display !== 'none' && popup.style.top) {
+                        const r = popup.getBoundingClientRect();
+                        const pad = 8;
+                        let l = Math.max(pad, Math.min(window.innerWidth - r.width - pad, r.left));
+                        let t = Math.max(pad, Math.min(window.innerHeight - r.height - pad, r.top));
+                        popup.style.left = l + 'px';
+                        popup.style.top = t + 'px';
+                    }
+                    positionFloatingWidgetsWithoutOverlap();
+                });
                 window.addEventListener('scroll', _broadcastScrollState, { passive: true });
                 document.addEventListener('scroll', (e) => {
                     if (_openBadgePopupKey) {
