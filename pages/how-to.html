@@ -437,6 +437,7 @@
           <button class="sidebar-child" data-accordion="acc-ag-grid" onclick="navToAccordion('administrative-groups','acc-ag-grid')"><span class="sidebar-child-dot"></span>Spreadsheet Views &amp; Filters</button>
           <button class="sidebar-child" data-accordion="acc-ag-discipline" onclick="navToAccordion('administrative-groups','acc-ag-discipline')"><span class="sidebar-child-dot"></span>Discipline &amp; Sanction Rules</button>
           <button class="sidebar-child" data-accordion="acc-ag-timeline" onclick="navToAccordion('administrative-groups','acc-ag-timeline')"><span class="sidebar-child-dot"></span>Student Profile &amp; Action Timeline</button>
+          <button class="sidebar-child" data-accordion="acc-ag-attachments" onclick="navToAccordion('administrative-groups','acc-ag-attachments')"><span class="sidebar-child-dot"></span>PDF Attachments &amp; Links</button>
           <button class="sidebar-child" data-accordion="acc-ag-import" onclick="navToAccordion('administrative-groups','acc-ag-import')"><span class="sidebar-child-dot"></span>Importing Administrative Data</button>
           <button class="sidebar-child" data-accordion="acc-ag-export" onclick="navToAccordion('administrative-groups','acc-ag-export')"><span class="sidebar-child-dot"></span>Multi-Format Export &amp; Reports</button>
           <button class="sidebar-child" data-accordion="acc-ag-settings" onclick="navToAccordion('administrative-groups','acc-ag-settings')"><span class="sidebar-child-dot"></span>Custom Tabs, Columns &amp; Rules</button>
@@ -1109,6 +1110,7 @@
             <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Duplicating a board file:</strong> use <strong>⧉ Duplicate</strong> in the File toolbar. If the current file is linked to a Planner timeslot, a popup explains that the duplicate will break that link and offers to open the class timeslot picker so you can relink the duplicate to another slot.</p>
             <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Open File &amp; Open Location Folder:</strong> in the File toolbar of an opened board, click <strong>Open File</strong> to launch the current board file (<code>.cstz</code>, <code>.js</code>, or <code>.json</code>) directly in the operating system's default application, or click <strong>Open Folder</strong> to reveal and highlight the file or archive inside its location directory in your desktop file manager.</p>
             <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Quick page navigation in File menu:</strong> when a saved board file is open and has at least two pages, the File menu shows a compact strip with page numbers and tiny thumbnails. Click any thumbnail to jump directly to that page.</p>
+            <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Instant In-Memory Page Switching:</strong> When navigating between pages in a multi-page constellation board, pages are cached in memory as detached DOM subtrees. Returning to a visited page renders instantaneously (&lt; 3ms) at 60fps without tearing down the DOM, re-evaluating KaTeX math, or causing layout stutter. An LRU memory safeguard manages cache retention for decks with dozens of pages while preserving exact disk autosaves.</p>
             <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Page Thumbnails &amp; Context Menu:</strong> Right-click any page thumbnail (in the bottom toolbar mini-strip or the full Pages Drawer) to open its quick menu: choose <strong>Open page in new window</strong> to open that page in an independent, interactive secondary window going directly to the constellation board (autosave, close saves, and manual session overwrites are strictly disabled to protect the primary session; closing the secondary window never closes the active presentation view), choose <strong>Open image in new window</strong> to inspect the page's WebP snapshot in a read-only viewer on the teacher's monitor, or quickly duplicate or delete pages.</p>
             <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Splitting Words / Nodes:</strong> right-click any word node and click the split button (<img src="../assets/icons/split.svg" style="width:14px;vertical-align:middle;" alt="">) to open the split options popover. Choose <strong>Split by space</strong> to divide phrases or compound words into individual word nodes, or <strong>Split by letter</strong> to decompose words into individual character nodes (whitespace stripped). If multiple nodes are selected, the popover provides distinct sections to split either the active word or all selected words in batch.</p>
             <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Session Autosave Customization:</strong> configure autosave intervals under Customise Settings (from 15s, 30s, 45s, 1m, 1.5m, 2m, 5m, 10m, or any custom minute duration). In mirror mode (<code>?mirror=1</code>) and secondary page windows (<code>?pageWindow=1</code>), autosaves and silent initial saves are strictly disabled to prevent overwriting active sessions.</p>
@@ -4402,6 +4404,34 @@
             <li><strong>Period Chips Scope</strong> — Set whether a sanction rule applies cumulatively across the entire year, within each individual term, or only to specific designated periods.</li>
           </ul>
           <div class="tip">Configure sanction thresholds, consequence descriptions, and badge styles under <strong>⚙ Settings → 3. Sanction Rules &amp; Thresholds</strong>.</div>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-ag-attachments">
+        <button class="accordion-header" onclick="toggleAccordion('acc-ag-attachments')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">PDF Attachments &amp; Universal Links Graph</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p>Attach official PDF documents directly to individual students or to academic periods, automatically establishing bidirectional connections in the CMT Links graph:</p>
+          <ul>
+            <li><strong>Attaching PDFs to a Student</strong>:
+              <ul>
+                <li>Open any student's profile modal and click <strong>+ Attach PDF</strong> (or click the paperclip badge next to their name in the table).</li>
+                <li>Select any PDF file (medical certificate, PAI protocol, PAP accommodation form, parental agreement, or disciplinary contract).</li>
+                <li>The file is saved to <code>user/attachments/admin-groups/students/&lt;studentUuid&gt;/</code>, registered as a <code>cmt:file:...</code> entity, and linked to <code>cmt:student:&lt;uuid&gt;</code>.</li>
+                <li>Click <strong>Open</strong> to view the PDF in your default PDF viewer, or click <strong>Links &amp; Tags</strong> to inspect connected entities, add tags, or attach additional files.</li>
+              </ul>
+            </li>
+            <li><strong>Attaching PDFs to a Period</strong>:
+              <ul>
+                <li>Click <strong>Period PDFs / Attach ▾</strong> in the period chips bar, click the paperclip badge on any active period chip, or manage attachments in <strong>⚙ Settings → 4. Periods &amp; Terms</strong>.</li>
+                <li>Attach period directives, class council minutes, trimester exam timetables, or attendance summaries.</li>
+                <li>The file is saved to <code>user/attachments/admin-groups/periods/&lt;periodId&gt;/</code>, registered as a <code>cmt:file:...</code> entity, and linked to <code>cmt:period:&lt;periodId&gt;</code>.</li>
+                <li>Click <strong>Links &amp; Tags</strong> to browse the complete web of linked lessons, tests, and student records for that period.</li>
+              </ul>
+            </li>
+          </ul>
         </div></div>
       </div>
 

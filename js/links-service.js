@@ -197,6 +197,9 @@
     if (type === 'todo' || type === 'todos') {
       return makeUrn('todo', id, p.anchor);
     }
+    if (type === 'period' || type === 'periods') {
+      return makeUrn('period', id, p.anchor);
+    }
     if (type === 'file') {
       return makeUrn('file', id.replace(/\\/g, '/'), p.anchor);
     }
@@ -1555,6 +1558,16 @@
         target = 'customChips';
         break;
       }
+      case 'period': {
+        badge = '[PERIOD]';
+        icon = 'clock.svg';
+        var pParts = p.id.split(':');
+        var periodId = pParts.pop();
+        var classScope = pParts.length ? pParts.join(':') : '';
+        title = (meta && meta.title) ? meta.title : ('Period ' + periodId.toUpperCase());
+        subtitle = (meta && meta.subtitle) ? meta.subtitle : ('Administrative Term / Period' + (classScope ? ' • ' + classScope : ''));
+        break;
+      }
       case 'file': {
         badge = '[FILE]';
         var fn = p.id.split('/').pop() || p.id;
@@ -2765,13 +2778,92 @@
         return true;
       }
 
+      case 'period': {
+        var pQuery = { period: p.id };
+        if (desktop && typeof desktop.openTool === 'function') {
+          return desktop.openTool('administrative-groups.html', { query: pQuery });
+        }
+        var qsP = new URLSearchParams(pQuery).toString();
+        window.open(resolvePageUrl('administrative-groups.html') + '?' + qsP, '_blank');
+        return true;
+      }
+
       default:
         console.warn('LinksService: Unknown URN type for openUrn:', p.type);
         return false;
     }
   }
 
-  // ── 8. Managed Grade Sheet Attachment Store ─────────────────────────────────
+  // ── 8. Managed Attachment Stores ───────────────────────────────────────────
+  /**
+   * Generic Attachment Store
+   * Securely saves an attachment into user/attachments/...
+   */
+  async function storeAttachment(opts) {
+    if (!opts || !opts.filename || !opts.content) {
+      return { ok: false, error: 'Missing filename or content' };
+    }
+    var cleanFilename = String(opts.filename).replace(/[^a-zA-Z0-9._-]/g, '_');
+    var subdir = opts.subdir ? String(opts.subdir).replace(/\\/g, '/').replace(/^\/+|\/+$/g, '') : 'attachments/general';
+
+    var desktop = (typeof window !== 'undefined' && window.Desktop) ? window.Desktop : null;
+    if (desktop && typeof desktop.saveFile === 'function') {
+      try {
+        var res = await desktop.saveFile({
+          target: 'user',
+          subdir: subdir,
+          filename: cleanFilename,
+          content: opts.content,
+          encoding: opts.encoding || 'utf8'
+        });
+        if (res && res.ok) {
+          var relPath = subdir + '/' + cleanFilename;
+          var fileUrn = makeUrn('file', 'user/' + relPath);
+          await registerEntity(fileUrn, {
+            title: opts.title || cleanFilename,
+            subtitle: opts.subtitle || ('Attached PDF • ' + cleanFilename),
+            type: 'file',
+            target: 'user',
+            relativePath: relPath
+          });
+          if (opts.linkToUrn) {
+            await addLink(opts.linkToUrn, fileUrn, {
+              relation: opts.relation || 'attachment',
+              targetMeta: {
+                title: opts.title || cleanFilename,
+                subtitle: opts.subtitle || ('Attached PDF • ' + cleanFilename),
+                type: 'file',
+                target: 'user',
+                relativePath: relPath
+              }
+            });
+          }
+          return { ok: true, relPath: relPath, urn: fileUrn };
+        }
+      } catch (e) {
+        return { ok: false, error: e.message };
+      }
+    }
+
+    // Browser fallback
+    var fallbackUrn = makeUrn('file', cleanFilename);
+    if (opts.linkToUrn) {
+      try {
+        await addLink(opts.linkToUrn, fallbackUrn, {
+          relation: opts.relation || 'attachment',
+          targetMeta: {
+            title: opts.title || cleanFilename,
+            subtitle: opts.subtitle || ('Attached PDF • ' + cleanFilename),
+            type: 'file',
+            target: 'user',
+            relativePath: cleanFilename
+          }
+        });
+      } catch (_) {}
+    }
+    return { ok: true, relPath: cleanFilename, urn: fallbackUrn };
+  }
+
   /**
    * Securely saves an attachment into user/attachments/grades/<classId>/<evalId>/
    */
@@ -4917,6 +5009,7 @@
     ensureRosterLoaded: _ensureRosterLoaded,
     getItemsForTag: getItemsForTag,
     getTagSummary: getTagSummary,
+    storeAttachment: storeAttachment,
     storeGradeAttachment: storeGradeAttachment,
     syncAutoRegressiveLinks: syncAutoRegressiveLinks,
     updatePath: updatePath

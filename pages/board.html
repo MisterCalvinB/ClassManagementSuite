@@ -4244,6 +4244,7 @@
         <svg id="con-draw-live-svg" xmlns="http://www.w3.org/2000/svg"></svg>
         <div id="con-draw-overlay"></div>
         <div id="con-board-title"></div>
+        <div id="con-rubberband"></div>
         <button id="con-board-expand-btn" class="action-btn btn-grey con-board-expand-btn" onclick="conExpandBoardHeight(400)" title="Expand board height (+400px)"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Expand Board (+400px)</button>
       </div>
       <div id="con-instructions" data-i18n="conInstructions">System: right-click the board to add words (,, = several ·
@@ -13719,6 +13720,7 @@
         if (_conUndoStack.length === 0) return;
         _conRedoStack.push(conBuildPageSnapshot());
         const snap = _conUndoStack.pop();
+        if (typeof _conInvalidatePageDomCache === 'function') _conInvalidatePageDomCache(conCurrentPageIndex);
         _conRestorePageToBoard(snap);
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
       }
@@ -13726,6 +13728,7 @@
         if (_conRedoStack.length === 0) return;
         _conUndoStack.push(conBuildPageSnapshot());
         const snap = _conRedoStack.pop();
+        if (typeof _conInvalidatePageDomCache === 'function') _conInvalidatePageDomCache(conCurrentPageIndex);
         _conRestorePageToBoard(snap);
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
       }
@@ -18905,14 +18908,430 @@
         }, 0);
       }
 
+      /* =========================================================================
+       * IN-MEMORY DETACHED DOM CACHE FOR BOARD PAGES
+       * ========================================================================= */
+      const _CON_DOM_CACHE_MAX_PAGES = 8;
+      const _conPageDomCache = new Map();
+
+      /**
+       * Detaches the currently active page DOM elements from #constellation-board
+       * and #constellation-svg, and saves them along with live JS arrays into the cache.
+       */
+      function _conCacheCurrentPageDom() {
+        const curIdx = conCurrentPageIndex;
+        const boardEl = document.getElementById('constellation-board');
+        const svgEl = document.getElementById('constellation-svg');
+        if (!boardEl || !svgEl) return;
+
+        // 1. Commit any currently focused note editor
+        try {
+          const ae = document.activeElement;
+          const ed = ae ? (ae.classList && ae.classList.contains('wn-note-editor') ? ae : (ae.closest && ae.closest('.wn-note-editor'))) : null;
+          if (ed) {
+            const noteEl = ed.closest('.con-word-note');
+            if (noteEl && noteEl.dataset && noteEl.dataset.id) {
+              const currNotes = window.conGetNotes ? window.conGetNotes() : [];
+              const nd = currNotes.find(n => String(n.id) === String(noteEl.dataset.id));
+              if (nd && typeof wnSyncNoteDataFromEditor === 'function') wnSyncNoteDataFromEditor(nd, ed);
+            }
+          }
+        } catch (_) { }
+
+        // 2. Pause any playing audio or video elements to prevent background sound bleed
+        boardEl.querySelectorAll('video, audio').forEach(mediaEl => {
+          try {
+            if (!mediaEl.paused) mediaEl.pause();
+          } catch (_) { }
+        });
+
+        // 3. Clear active selections so state is clean
+        if (typeof conClearSelection === 'function') conClearSelection();
+        if (window.conDrawingSelected && window.conDrawingSelected.clear) window.conDrawingSelected.clear();
+        if (window._conShapeSelected && window._conShapeSelected.clear) window._conShapeSelected.clear();
+        if (window.conTableSelected && window.conTableSelected.clear) window.conTableSelected.clear();
+        if (window.conNoteSelected && window.conNoteSelected.clear) window.conNoteSelected.clear();
+
+        // 4. Capture plain JSON snapshot to keep file save / auto-save / PDF export 100% synchronized
+        conPageSnapshots[curIdx] = conBuildPageSnapshot();
+
+        // 5. Harvest live board DOM elements into a detached holder div (excluding static chrome)
+        const boardHolder = document.createElement('div');
+        const staticIds = new Set([
+          'constellation-svg',
+          'con-draw-live-svg',
+          'con-draw-overlay',
+          'con-board-title',
+          'con-board-expand-btn',
+          'con-rubberband'
+        ]);
+        const elementsToDetach = Array.from(boardEl.children).filter(el => !staticIds.has(el.id));
+        elementsToDetach.forEach(el => boardHolder.appendChild(el));
+
+        // 6. Harvest live edge SVG groups into a detached SVG container
+        const svgHolder = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        const edgeGroups = Array.from(svgEl.children).filter(el => el.classList && el.classList.contains('con-line-group'));
+        edgeGroups.forEach(el => svgHolder.appendChild(el));
+
+        // 7. Store state record in cache
+        _conPageDomCache.set(curIdx, {
+          pageIndex: curIdx,
+          boardHolder,
+          svgHolder,
+          state: {
+            nodes: (window.conGetNodes ? window.conGetNodes() : (typeof conNodes !== 'undefined' ? conNodes : [])).slice(),
+            edges: (window.conGetEdges ? window.conGetEdges() : (typeof conEdges !== 'undefined' ? conEdges : [])).slice(),
+            groups: (window.conGetGroups ? window.conGetGroups() : (typeof conGroups !== 'undefined' ? conGroups : [])).slice(),
+            drawings: (window.conGetDrawings ? window.conGetDrawings() : (typeof conDrawings !== 'undefined' ? conDrawings : [])).slice(),
+            shapes: (window.conGetShapes ? window.conGetShapes() : (typeof conShapes !== 'undefined' ? conShapes : [])).slice(),
+            notes: (window.conGetNotes ? window.conGetNotes() : (typeof conNotes !== 'undefined' ? conNotes : [])).slice(),
+            tables: (window.conTables ? window.conTables.slice() : []),
+            mediaItems: (typeof conMediaItems !== 'undefined' ? conMediaItems.slice() : []),
+            masks: (window.conMasks ? window.conMasks.slice() : []),
+            backgroundPdf: (typeof conPageBackgroundPdf !== 'undefined' && conPageBackgroundPdf) ? Object.assign({}, conPageBackgroundPdf) : null,
+            boardBg: (typeof _conBoardBg !== 'undefined' && _conBoardBg) ? Object.assign({}, _conBoardBg) : null,
+            boardBgColor: (typeof _conBoardBgColor !== 'undefined' ? _conBoardBgColor : ''),
+            boardStickers: Array.isArray(window._conBoardStickers) ? window._conBoardStickers.slice() : [],
+            boardHeight: boardEl.style.height || null,
+            undoStack: (typeof _conUndoStack !== 'undefined' && _conUndoStack) ? _conUndoStack.slice() : [],
+            redoStack: (typeof _conRedoStack !== 'undefined' && _conRedoStack) ? _conRedoStack.slice() : []
+          },
+          lastVisited: Date.now()
+        });
+
+        // 8. Empty active live JS arrays so subsequent page restores or clear operations
+        //    NEVER call el.remove() on the detached DOM nodes preserved in cache.
+        const liveNodes = window.conGetNodes ? window.conGetNodes() : (typeof conNodes !== 'undefined' ? conNodes : null);
+        if (liveNodes) liveNodes.length = 0;
+        const liveEdges = window.conGetEdges ? window.conGetEdges() : (typeof conEdges !== 'undefined' ? conEdges : null);
+        if (liveEdges) liveEdges.length = 0;
+        const liveGroups = window.conGetGroups ? window.conGetGroups() : (typeof conGroups !== 'undefined' ? conGroups : null);
+        if (liveGroups) liveGroups.length = 0;
+        const liveDrawings = window.conGetDrawings ? window.conGetDrawings() : (typeof conDrawings !== 'undefined' ? conDrawings : null);
+        if (liveDrawings) liveDrawings.length = 0;
+        const liveShapes = window.conGetShapes ? window.conGetShapes() : (typeof conShapes !== 'undefined' ? conShapes : null);
+        if (liveShapes) liveShapes.length = 0;
+        const liveNotes = window.conGetNotes ? window.conGetNotes() : (typeof conNotes !== 'undefined' ? conNotes : null);
+        if (liveNotes) liveNotes.length = 0;
+        if (window.conTables && Array.isArray(window.conTables)) window.conTables.length = 0;
+        if (typeof conMediaItems !== 'undefined' && Array.isArray(conMediaItems)) conMediaItems.length = 0;
+        if (window.conMasks && Array.isArray(window.conMasks)) window.conMasks.length = 0;
+        if (Array.isArray(window._conBoardStickers)) window._conBoardStickers.length = 0;
+
+        // 9. Enforce LRU cache limits
+        _conEvictLruPageDomCache();
+      }
+
+      /**
+       * Mounts a cached page's detached DOM elements and live JS arrays back to the active board.
+       * Returns true on successful mount, false on cache miss.
+       */
+      function _conMountCachedPage(targetIdx) {
+        const cached = _conPageDomCache.get(targetIdx);
+        if (!cached || !cached.boardHolder || !cached.svgHolder) return false;
+
+        // Defensive integrity check: if cached state expected nodes or notes, but the boardHolder
+        // was somehow emptied or has 0 children, reject cache and let clean snapshot restore run.
+        const expectedElementCount = (cached.state.nodes ? cached.state.nodes.length : 0)
+          + (cached.state.notes ? cached.state.notes.length : 0)
+          + (cached.state.groups ? cached.state.groups.length : 0)
+          + (cached.state.tables ? cached.state.tables.length : 0)
+          + (cached.state.drawings ? cached.state.drawings.length : 0)
+          + (cached.state.shapes ? cached.state.shapes.length : 0)
+          + (cached.state.mediaItems ? cached.state.mediaItems.length : 0)
+          + (cached.state.masks ? cached.state.masks.length : 0);
+        if (expectedElementCount > 0 && cached.boardHolder.children.length === 0) {
+          _conInvalidatePageDomCache(targetIdx);
+          return false;
+        }
+
+        const boardEl = document.getElementById('constellation-board');
+        const svgEl = document.getElementById('constellation-svg');
+        const expandBtn = document.getElementById('con-board-expand-btn');
+        if (!boardEl || !svgEl) return false;
+
+        // Ensure boardEl and svgEl do not retain any lingering dynamic elements from an aborted state
+        const staticIds = new Set([
+          'constellation-svg',
+          'con-draw-live-svg',
+          'con-draw-overlay',
+          'con-board-title',
+          'con-board-expand-btn',
+          'con-rubberband'
+        ]);
+        Array.from(boardEl.children).filter(el => !staticIds.has(el.id)).forEach(el => el.remove());
+        Array.from(svgEl.children).filter(el => el.classList && el.classList.contains('con-line-group')).forEach(el => el.remove());
+
+        // 1. Re-attach board elements via DocumentFragment in a single atomic batch
+        const boardFrag = document.createDocumentFragment();
+        while (cached.boardHolder.firstChild) {
+          boardFrag.appendChild(cached.boardHolder.firstChild);
+        }
+        if (expandBtn) {
+          boardEl.insertBefore(boardFrag, expandBtn);
+        } else {
+          boardEl.appendChild(boardFrag);
+        }
+
+        // 2. Re-attach SVG edge groups via DocumentFragment
+        const svgFrag = document.createDocumentFragment();
+        while (cached.svgHolder.firstChild) {
+          svgFrag.appendChild(cached.svgHolder.firstChild);
+        }
+        svgEl.appendChild(svgFrag);
+
+        // 3. Restore live JavaScript arrays (mutating in place to preserve outer references)
+        const liveNodes = window.conGetNodes ? window.conGetNodes() : (typeof conNodes !== 'undefined' ? conNodes : []);
+        liveNodes.length = 0;
+        liveNodes.push(...cached.state.nodes);
+
+        const liveEdges = window.conGetEdges ? window.conGetEdges() : (typeof conEdges !== 'undefined' ? conEdges : []);
+        liveEdges.length = 0;
+        liveEdges.push(...cached.state.edges);
+
+        const liveGroups = window.conGetGroups ? window.conGetGroups() : (typeof conGroups !== 'undefined' ? conGroups : []);
+        liveGroups.length = 0;
+        liveGroups.push(...cached.state.groups);
+
+        const liveDrawings = window.conGetDrawings ? window.conGetDrawings() : (typeof conDrawings !== 'undefined' ? conDrawings : []);
+        liveDrawings.length = 0;
+        liveDrawings.push(...cached.state.drawings);
+
+        const liveShapes = window.conGetShapes ? window.conGetShapes() : (typeof conShapes !== 'undefined' ? conShapes : []);
+        liveShapes.length = 0;
+        liveShapes.push(...cached.state.shapes);
+
+        const liveNotes = window.conGetNotes ? window.conGetNotes() : (typeof conNotes !== 'undefined' ? conNotes : []);
+        liveNotes.length = 0;
+        liveNotes.push(...cached.state.notes);
+
+        if (window.conTables) {
+          window.conTables.length = 0;
+          window.conTables.push(...cached.state.tables);
+        }
+        if (typeof conMediaItems !== 'undefined') {
+          conMediaItems.length = 0;
+          conMediaItems.push(...cached.state.mediaItems);
+        }
+        if (window.conMasks) {
+          window.conMasks.length = 0;
+          window.conMasks.push(...cached.state.masks);
+        }
+
+        // 4. Verify node element references and display visibility
+        for (let i = 0; i < liveNodes.length; i++) {
+          const n = liveNodes[i];
+          if (!n.el || !boardEl.contains(n.el)) {
+            const found = document.getElementById(n.id);
+            if (found) n.el = found;
+          }
+          if (n.el && n.el.style.display === 'none') {
+            n.el.style.display = '';
+          }
+        }
+
+        // 5. Restore backgrounds and dimensions
+        conPageBackgroundPdf = cached.state.backgroundPdf;
+        if (typeof conRenderPagePdfBackground === 'function') conRenderPagePdfBackground({ silent: true });
+
+        _conBoardBg = cached.state.boardBg;
+        if (typeof conRenderBoardBg === 'function') conRenderBoardBg({ silent: true });
+
+        _conBoardBgColor = cached.state.boardBgColor || '';
+        if (typeof conApplyBoardBgColor === 'function') conApplyBoardBgColor();
+
+        window._conBoardStickers = cached.state.boardStickers.slice();
+        boardEl.style.height = cached.state.boardHeight || '';
+
+        // 6. Restore page undo/redo stacks
+        if (typeof _conUndoStack !== 'undefined') _conUndoStack = cached.state.undoStack.slice();
+        if (typeof _conRedoStack !== 'undefined') _conRedoStack = cached.state.redoStack.slice();
+
+        // 7. Geometry and edge alignments
+        if (window.conGroupRefitAll) window.conGroupRefitAll();
+        if (window.conRedrawEdges) window.conRedrawEdges();
+        if (typeof window._conSyncDrawOverlaySize === 'function') window._conSyncDrawOverlaySize();
+
+        // 8. Delete this page from detached cache Map because it is now LIVE in the DOM.
+        // When departing from targetIdx, _conCacheCurrentPageDom() will harvest it cleanly.
+        _conPageDomCache.delete(targetIdx);
+
+        return true;
+      }
+
+      /**
+       * LRU eviction: if cache exceeds _CON_DOM_CACHE_MAX_PAGES, evict the oldest
+       * inactive page from memory.
+       */
+      function _conEvictLruPageDomCache() {
+        if (_conPageDomCache.size <= _CON_DOM_CACHE_MAX_PAGES) return;
+
+        let oldestKey = null;
+        let oldestTime = Infinity;
+        for (const [key, record] of _conPageDomCache.entries()) {
+          if (key === conCurrentPageIndex) continue; // Never evict active page
+          if (record.lastVisited < oldestTime) {
+            oldestTime = record.lastVisited;
+            oldestKey = key;
+          }
+        }
+
+        if (oldestKey !== null) {
+          const evicted = _conPageDomCache.get(oldestKey);
+          if (evicted) {
+            if (evicted.boardHolder) evicted.boardHolder.innerHTML = '';
+            if (evicted.svgHolder) evicted.svgHolder.innerHTML = '';
+          }
+          _conPageDomCache.delete(oldestKey);
+        }
+      }
+
+      /**
+       * Completely resets the DOM cache (e.g. on loading a new file or session reset).
+       */
+      function _conClearPageDomCache(opts = {}) {
+        _conPageDomCache.forEach(record => {
+          try {
+            if (record.boardHolder) record.boardHolder.innerHTML = '';
+            if (record.svgHolder) record.svgHolder.innerHTML = '';
+          } catch (_) { }
+        });
+        _conPageDomCache.clear();
+        if (!opts.silent && typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({ type: 'page-cache-clear' });
+        }
+      }
+
+      /**
+       * Drops a specific page from cache (used on page deletion or destructive edit).
+       */
+      function _conInvalidatePageDomCache(pageIdx, opts = {}) {
+        const rec = _conPageDomCache.get(pageIdx);
+        if (rec) {
+          if (rec.boardHolder) rec.boardHolder.innerHTML = '';
+          if (rec.svgHolder) rec.svgHolder.innerHTML = '';
+          _conPageDomCache.delete(pageIdx);
+        }
+        if (!opts.silent && typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({ type: 'page-cache-invalidate', pageIdx });
+        }
+      }
+
+      /**
+       * Remaps cache indices when a page is deleted.
+       */
+      function _conRemapPageDomCacheOnDelete(deletedIdx, opts = {}) {
+        _conInvalidatePageDomCache(deletedIdx, { silent: true });
+        const nextCache = new Map();
+        for (const [idx, rec] of _conPageDomCache.entries()) {
+          if (idx < deletedIdx) {
+            nextCache.set(idx, rec);
+          } else if (idx > deletedIdx) {
+            rec.pageIndex = idx - 1;
+            nextCache.set(idx - 1, rec);
+          }
+        }
+        _conPageDomCache.clear();
+        nextCache.forEach((v, k) => _conPageDomCache.set(k, v));
+        if (!opts.silent && typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({ type: 'page-cache-delete', deletedIdx });
+        }
+      }
+
+      /**
+       * Remaps cache indices when a page is moved/reordered.
+       */
+      function _conRemapPageDomCacheOnMove(fromIdx, toIdx, opts = {}) {
+        if (fromIdx === toIdx) return;
+        const targetRec = _conPageDomCache.get(fromIdx);
+        _conPageDomCache.delete(fromIdx);
+
+        const tempArr = [];
+        const maxIdx = Math.max(...Array.from(_conPageDomCache.keys()), fromIdx, toIdx, conPageSnapshots.length);
+        for (let i = 0; i <= maxIdx; i++) {
+          tempArr[i] = _conPageDomCache.get(i) || null;
+        }
+        const [moved] = tempArr.splice(fromIdx, 1);
+        tempArr.splice(toIdx, 0, targetRec || moved || null);
+
+        _conPageDomCache.clear();
+        for (let i = 0; i < tempArr.length; i++) {
+          if (tempArr[i]) {
+            tempArr[i].pageIndex = i;
+            _conPageDomCache.set(i, tempArr[i]);
+          }
+        }
+        if (!opts.silent && typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({ type: 'page-cache-move', fromIdx, toIdx });
+        }
+      }
+
+      /**
+       * Remaps cache indices when 1 page is inserted.
+       */
+      function _conRemapPageDomCacheOnInsert(insertIdx, opts = {}) {
+        const nextCache = new Map();
+        for (const [cIdx, rec] of _conPageDomCache.entries()) {
+          if (cIdx >= insertIdx) {
+            rec.pageIndex = cIdx + 1;
+            nextCache.set(cIdx + 1, rec);
+          } else {
+            nextCache.set(cIdx, rec);
+          }
+        }
+        _conPageDomCache.clear();
+        nextCache.forEach((v, k) => _conPageDomCache.set(k, v));
+        if (!opts.silent && typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({ type: 'page-cache-insert', insertIdx });
+        }
+      }
+
+      /**
+       * Remaps cache indices when multiple pages are inserted.
+       */
+      function _conRemapPageDomCacheOnInsertCount(insertIdx, count, opts = {}) {
+        if (count <= 0) return;
+        const nextCache = new Map();
+        for (const [cIdx, rec] of _conPageDomCache.entries()) {
+          if (cIdx >= insertIdx) {
+            rec.pageIndex = cIdx + count;
+            nextCache.set(cIdx + count, rec);
+          } else {
+            nextCache.set(cIdx, rec);
+          }
+        }
+        _conPageDomCache.clear();
+        nextCache.forEach((v, k) => _conPageDomCache.set(k, v));
+        if (!opts.silent && typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({ type: 'page-cache-insert-count', insertIdx, count });
+        }
+      }
+
+      window._conPageDomCache = _conPageDomCache;
+      window._conCacheCurrentPageDom = _conCacheCurrentPageDom;
+      window._conMountCachedPage = _conMountCachedPage;
+      window._conClearPageDomCache = _conClearPageDomCache;
+      window._conInvalidatePageDomCache = _conInvalidatePageDomCache;
+      window._conRemapPageDomCacheOnDelete = _conRemapPageDomCacheOnDelete;
+      window._conRemapPageDomCacheOnMove = _conRemapPageDomCacheOnMove;
+      window._conRemapPageDomCacheOnInsert = _conRemapPageDomCacheOnInsert;
+      window._conRemapPageDomCacheOnInsertCount = _conRemapPageDomCacheOnInsertCount;
+
       function conDuplicatePageMiniThumb(idx) {
-        conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
+        if (typeof _conCacheCurrentPageDom === 'function') {
+          _conCacheCurrentPageDom();
+        } else {
+          conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
+        }
         if (typeof conQueueCurrentPageSnapshotPng === 'function') {
           conQueueCurrentPageSnapshotPng(conCurrentPageIndex);
         }
         const snap = conPageSnapshots[idx] || conBuildEmptyPageSnapshot();
         const clone = JSON.parse(JSON.stringify(snap));
         const insertIdx = idx + 1;
+        if (typeof _conRemapPageDomCacheOnInsert === 'function') {
+          _conRemapPageDomCacheOnInsert(insertIdx);
+        }
         conPageSnapshots.splice(insertIdx, 0, clone);
         if (Array.isArray(_conPageSnapshotPngs)) {
           _conPageSnapshotPngs.splice(insertIdx, 0, _conPageSnapshotPngs[idx] || null);
@@ -18943,6 +19362,9 @@
           }
           return;
         }
+        if (typeof _conRemapPageDomCacheOnDelete === 'function') {
+          _conRemapPageDomCacheOnDelete(idx);
+        }
         conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
 
         if (idx === conCurrentPageIndex) {
@@ -18950,7 +19372,9 @@
           conPageSnapshots.splice(idx, 1);
           if (Array.isArray(_conPageSnapshotPngs)) _conPageSnapshotPngs.splice(idx, 1);
           conCurrentPageIndex = Math.min(goTo, conPageSnapshots.length - 1);
-          _conRestorePageToBoard(conPageSnapshots[conCurrentPageIndex]);
+          if (typeof _conMountCachedPage !== 'function' || !_conMountCachedPage(conCurrentPageIndex)) {
+            _conRestorePageToBoard(conPageSnapshots[conCurrentPageIndex]);
+          }
         } else {
           conPageSnapshots.splice(idx, 1);
           if (Array.isArray(_conPageSnapshotPngs)) _conPageSnapshotPngs.splice(idx, 1);
@@ -18960,7 +19384,9 @@
           if (conCurrentPageIndex >= conPageSnapshots.length) {
             conCurrentPageIndex = conPageSnapshots.length - 1;
           }
-          _conRestorePageToBoard(conPageSnapshots[conCurrentPageIndex]);
+          if (typeof _conMountCachedPage !== 'function' || !_conMountCachedPage(conCurrentPageIndex)) {
+            _conRestorePageToBoard(conPageSnapshots[conCurrentPageIndex]);
+          }
         }
 
         const strip = document.getElementById('con-page-mini-strip');
@@ -18984,6 +19410,9 @@
         if (!Array.isArray(conPageSnapshots)) return;
         if (fromIdx < 0 || fromIdx >= conPageSnapshots.length || toIdx < 0 || toIdx >= conPageSnapshots.length) return;
 
+        if (typeof _conRemapPageDomCacheOnMove === 'function') {
+          _conRemapPageDomCacheOnMove(fromIdx, toIdx);
+        }
         conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
 
         const draggedSnap = conPageSnapshots.splice(fromIdx, 1)[0];
@@ -19001,7 +19430,9 @@
           conCurrentPageIndex++;
         }
 
-        _conRestorePageToBoard(conPageSnapshots[conCurrentPageIndex]);
+        if (typeof _conMountCachedPage !== 'function' || !_conMountCachedPage(conCurrentPageIndex)) {
+          _conRestorePageToBoard(conPageSnapshots[conCurrentPageIndex]);
+        }
 
         const strip = document.getElementById('con-page-mini-strip');
         if (strip) strip.dataset.pageCount = '';
@@ -19263,8 +19694,12 @@
       };
 
       window.conAddPage = function () {
-        // Capture the current live board into its slot
-        conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
+        if (typeof _conCacheCurrentPageDom === 'function') {
+          _conCacheCurrentPageDom();
+        } else {
+          // Capture the current live board into its slot
+          conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
+        }
         // Create a new empty page and switch to it
         const emptySnap = conBuildEmptyPageSnapshot();
         conPageSnapshots.push(emptySnap);
@@ -19294,8 +19729,15 @@
             }
           }
         });
-        // Save current live board into in-memory snapshot
-        conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
+
+        // Detach & cache active departing page DOM and live JS state
+        if (typeof _conCacheCurrentPageDom === 'function') {
+          _conCacheCurrentPageDom();
+        } else {
+          // Save current live board into in-memory snapshot
+          conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
+        }
+
         if (typeof conBuildPageThumbnailDataUrl === 'function' && conPageSnapshots[conCurrentPageIndex]) {
           const freshThumb = conBuildPageThumbnailDataUrl(conPageSnapshots[conCurrentPageIndex], 480, 320);
           if (freshThumb) {
@@ -19304,9 +19746,16 @@
           }
         }
         conCurrentPageIndex = idx;
-        const targetSnap = conPageSnapshots[conCurrentPageIndex];
 
-        _conRestorePageToBoard(targetSnap);
+        // Attempt fast in-memory mount (cache hit)
+        const mountedFromCache = (typeof _conMountCachedPage === 'function') && _conMountCachedPage(idx);
+
+        // Fallback: Cache miss (first visit to this page or cache was cleared)
+        if (!mountedFromCache) {
+          const targetSnap = conPageSnapshots[conCurrentPageIndex];
+          _conRestorePageToBoard(targetSnap);
+        }
+
         if (typeof window.conScrollToTop === 'function') window.conScrollToTop();
         conUpdatePageBar();
         if (window._isPageWindow) {
@@ -19558,6 +20007,12 @@
           return clone;
         });
 
+        if (typeof _conCacheCurrentPageDom === 'function') {
+          _conCacheCurrentPageDom();
+        }
+        if (typeof _conRemapPageDomCacheOnInsertCount === 'function') {
+          _conRemapPageDomCacheOnInsertCount(insertIdx, clones.length);
+        }
         conPageSnapshots.splice(insertIdx, 0, ...clones);
         conCurrentPageIndex = insertIdx;
         _conRestorePageToBoard(clones[0]);
@@ -33540,15 +33995,22 @@
         });
 
         // Rubber-band selection rect element
-        const rbEl = document.createElement('div');
-        rbEl.id = 'con-rubberband';
-        brd.appendChild(rbEl);
+        let rbEl = document.getElementById('con-rubberband');
+        if (!rbEl) {
+          rbEl = document.createElement('div');
+          rbEl.id = 'con-rubberband';
+          brd.appendChild(rbEl);
+        }
 
         // Board mousedown → start rubber-band (only in move mode, only on bare board)
         brd.addEventListener('mousedown', function (e) {
           if (conMode !== 'move') return;
           if (document.body.classList.contains('laser-active')) return; // disable during laser trail
-          if (e.target !== brd && e.target !== rbEl) return; // only on bare board
+          let curRbEl = document.getElementById('con-rubberband') || rbEl;
+          if (!brd.contains(curRbEl)) {
+            brd.appendChild(curRbEl);
+          }
+          if (e.target !== brd && e.target !== curRbEl) return; // only on bare board
           e.preventDefault();
           window._conMirrorDragging = true; // suppress heavy MutationObserver broadcast during rubber-band drag
 
@@ -33557,28 +34019,28 @@
           const y0 = e.clientY - brdRect.top + brd.scrollTop;
           let x1 = x0, y1 = y0;
 
-          rbEl.style.display = 'block';
-          rbEl.style.left = x0 + 'px';
-          rbEl.style.top = y0 + 'px';
-          rbEl.style.width = '0px';
-          rbEl.style.height = '0px';
+          curRbEl.style.display = 'block';
+          curRbEl.style.left = x0 + 'px';
+          curRbEl.style.top = y0 + 'px';
+          curRbEl.style.width = '0px';
+          curRbEl.style.height = '0px';
 
           function onMove(e) {
             x1 = e.clientX - brdRect.left + brd.scrollLeft;
             y1 = e.clientY - brdRect.top + brd.scrollTop;
             const rx = Math.min(x0, x1), ry = Math.min(y0, y1);
             const rw = Math.abs(x1 - x0), rh = Math.abs(y1 - y0);
-            rbEl.style.left = rx + 'px';
-            rbEl.style.top = ry + 'px';
-            rbEl.style.width = rw + 'px';
-            rbEl.style.height = rh + 'px';
+            curRbEl.style.left = rx + 'px';
+            curRbEl.style.top = ry + 'px';
+            curRbEl.style.width = rw + 'px';
+            curRbEl.style.height = rh + 'px';
           }
 
           function onUp(e) {
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onUp);
             window._conMirrorDragging = false;
-            rbEl.style.display = 'none';
+            curRbEl.style.display = 'none';
 
             const rx0 = Math.min(x0, x1), ry0 = Math.min(y0, y1);
             const rx1 = Math.max(x0, x1), ry1 = Math.max(y0, y1);
@@ -41866,6 +42328,9 @@
     // Restore a page snapshot to the live board, preserving the current title and session date.
     function _conRestorePageToBoard(snapshot, opts = {}) {
       const isMirror = !!(opts && opts.mirrorSync);
+      if (!isMirror && typeof _conInvalidatePageDomCache === 'function') {
+        _conInvalidatePageDomCache(conCurrentPageIndex);
+      }
       console.log('[Board] _conRestorePageToBoard' + (isMirror ? ' (Mirror Sync)' : '') + ':', {
         nodeCount: (snapshot && snapshot.nodes || []).length,
         drawingCount: (snapshot && snapshot.drawings || []).length,
@@ -46503,6 +46968,7 @@
         const isPageRestore = !!data._isPageRestore;
         const isMirrorSync = !!data._isMirrorSync;
         if (!isPageRestore) {
+          if (typeof _conClearPageDomCache === 'function') _conClearPageDomCache();
           _conUndoStack = []; _conRedoStack = [];
           if (window._conPdfDocCache) {
             window._conPdfDocCache.forEach(doc => {
@@ -57770,6 +58236,31 @@
         if (!e.data) return;
         var d = e.data;
 
+        if (d.type === 'page-cache-clear') {
+          if (typeof _conClearPageDomCache === 'function') _conClearPageDomCache({ silent: true });
+          return;
+        }
+        if (d.type === 'page-cache-invalidate') {
+          if (typeof _conInvalidatePageDomCache === 'function') _conInvalidatePageDomCache(d.pageIdx, { silent: true });
+          return;
+        }
+        if (d.type === 'page-cache-delete') {
+          if (typeof _conRemapPageDomCacheOnDelete === 'function') _conRemapPageDomCacheOnDelete(d.deletedIdx, { silent: true });
+          return;
+        }
+        if (d.type === 'page-cache-move') {
+          if (typeof _conRemapPageDomCacheOnMove === 'function') _conRemapPageDomCacheOnMove(d.fromIdx, d.toIdx, { silent: true });
+          return;
+        }
+        if (d.type === 'page-cache-insert') {
+          if (typeof _conRemapPageDomCacheOnInsert === 'function') _conRemapPageDomCacheOnInsert(d.insertIdx, { silent: true });
+          return;
+        }
+        if (d.type === 'page-cache-insert-count') {
+          if (typeof _conRemapPageDomCacheOnInsertCount === 'function') _conRemapPageDomCacheOnInsertCount(d.insertIdx, d.count, { silent: true });
+          return;
+        }
+
         if (d.type === 'recorder-keepalive') {
           if (d.active) {
             _mirrorStartRecorderKeepalive(d.fps || 30);
@@ -58007,14 +58498,34 @@
           }
 
           const incomingRevision = d.snapshot && (d.snapshot._revision || d.snapshot._conRevision);
-          const skipRestore = !d.forceRender && !!(incomingRevision && _lastRenderedRevision && incomingRevision === _lastRenderedRevision);
+          const isPageChange = (typeof d.pageIndex === 'number' && typeof conCurrentPageIndex === 'number' && d.pageIndex !== conCurrentPageIndex);
+          const skipRestore = !isPageChange && !d.forceRender && !!(incomingRevision && _lastRenderedRevision && incomingRevision === _lastRenderedRevision);
 
-          if (!skipRestore && d.snapshot && typeof window.conRestorePageToBoard === 'function') {
-            if (typeof d.pageIndex === 'number' && typeof conCurrentPageIndex === 'number') {
+          if (!skipRestore && d.snapshot) {
+            let mountedFromCache = false;
+
+            if (isPageChange) {
+              // 1. Detach & cache departing mirror page DOM into memory
+              if (typeof _conCacheCurrentPageDom === 'function') {
+                _conCacheCurrentPageDom();
+              }
+              conCurrentPageIndex = d.pageIndex;
+              if (typeof conUpdatePageBar === 'function') conUpdatePageBar();
+
+              // 2. Attempt fast in-memory mount from mirror cache (instant < 2ms switch)
+              if (typeof _conMountCachedPage === 'function') {
+                mountedFromCache = _conMountCachedPage(d.pageIndex);
+              }
+            } else if (typeof d.pageIndex === 'number' && typeof conCurrentPageIndex === 'number') {
               conCurrentPageIndex = d.pageIndex;
               if (typeof conUpdatePageBar === 'function') conUpdatePageBar();
             }
-            window.conRestorePageToBoard(d.snapshot, { mirrorSync: true });
+
+            if (!mountedFromCache && typeof window.conRestorePageToBoard === 'function') {
+              // Fallback: Cache miss (first time visit to this page on mirror) or forced same-page restore
+              window.conRestorePageToBoard(d.snapshot, { mirrorSync: true });
+            }
+
             _lastRenderedRevision = incomingRevision || null;
             // conDrawingsClear (called during restore) wipes con-draw-live-svg; re-attach the
             // in-progress live path so a mid-stroke board-state doesn't erase it from view.

@@ -776,27 +776,54 @@
       var isBinary = file.type.startsWith('image/') || file.type === 'application/pdf' || file.type.startsWith('audio/');
       var encoding = isBinary ? 'base64' : 'utf8';
 
-      var storeRes = await window.LinksService.storeGradeAttachment({
-        classId: _currentOpts.classId || 'general',
-        evalId: _currentOpts.evalId || 'eval',
-        studentId: _currentOpts.studentId || null,
-        filename: file.name,
-        content: content,
-        encoding: encoding,
-        title: file.name
-      });
+      var p = window.LinksService ? window.LinksService.parseUrn(_currentOpts.urn) : null;
+      var storeRes = null;
+
+      if (p && p.type === 'period' && typeof window.LinksService.storeAttachment === 'function') {
+        storeRes = await window.LinksService.storeAttachment({
+          subdir: 'attachments/admin-groups/periods/' + p.id.replace(/[^a-zA-Z0-9_-]/g, '_'),
+          filename: file.name,
+          content: content,
+          encoding: encoding,
+          title: file.name,
+          subtitle: 'Period attachment • ' + p.id.toUpperCase(),
+          linkToUrn: _currentOpts.urn
+        });
+      } else if (p && p.type === 'student' && typeof window.LinksService.storeAttachment === 'function') {
+        storeRes = await window.LinksService.storeAttachment({
+          subdir: 'attachments/admin-groups/students/' + p.id.replace(/[^a-zA-Z0-9_-]/g, '_'),
+          filename: file.name,
+          content: content,
+          encoding: encoding,
+          title: file.name,
+          subtitle: (_currentOpts.title ? _currentOpts.title + ' • ' : '') + 'Student attachment',
+          linkToUrn: _currentOpts.urn
+        });
+      } else {
+        storeRes = await window.LinksService.storeGradeAttachment({
+          classId: _currentOpts.classId || 'general',
+          evalId: _currentOpts.evalId || 'eval',
+          studentId: _currentOpts.studentId || null,
+          filename: file.name,
+          content: content,
+          encoding: encoding,
+          title: file.name
+        });
+      }
 
       if (storeRes && storeRes.ok && storeRes.urn) {
-        await window.LinksService.addLink(_currentOpts.urn, storeRes.urn, {
-          relation: 'attachment',
-          targetMeta: {
-            title: file.name,
-            subtitle: 'Attached file • ' + (file.size ? Math.round(file.size / 1024) + ' KB' : ''),
-            type: 'file',
-            target: 'user',
-            relativePath: storeRes.relPath
-          }
-        });
+        if (!storeRes.alreadyLinked) {
+          await window.LinksService.addLink(_currentOpts.urn, storeRes.urn, {
+            relation: 'attachment',
+            targetMeta: {
+              title: file.name,
+              subtitle: 'Attached file • ' + (file.size ? Math.round(file.size / 1024) + ' KB' : ''),
+              type: 'file',
+              target: 'user',
+              relativePath: storeRes.relPath
+            }
+          });
+        }
         await refreshModalData();
         notifyUpdate();
       }

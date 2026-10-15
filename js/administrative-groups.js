@@ -44,6 +44,23 @@
     setupEventListeners();
     populateGroupSelector();
     populatePeriodSelector();
+
+    // Check URL query parameters for direct navigation
+    try {
+      var params = new URLSearchParams(window.location.search);
+      var paramPeriod = params.get('period');
+      var paramStudentId = params.get('studentId') || params.get('student');
+      if (paramPeriod) {
+        state.selectedPeriods = [paramPeriod];
+        state.currentPeriodId = paramPeriod;
+      }
+      if (paramStudentId) {
+        setTimeout(function () {
+          window.openStudentProfileModal(paramStudentId);
+        }, 150);
+      }
+    } catch (_) {}
+
     renderAll();
     if (typeof applyTranslations === 'function') applyTranslations();
     if (window._cmtApplyNavBrand) window._cmtApplyNavBrand();
@@ -507,10 +524,19 @@
       if (p.startDate && p.endDate) {
         dateRange = ' (' + p.startDate + ' → ' + p.endDate + ')';
       }
+      var pAtts = getPeriodAttachments(p.id);
+      var attBadge = pAtts.length ? (' <span class="ag-chip-att-badge" title="' + pAtts.length + ' ' + (isFr ? 'PDF(s) joint(s)' : 'attached PDF(s)') + '">' + svgIcon('file-text') + ' ' + pAtts.length + '</span>') : '';
+
       html += '<button type="button" class="ag-period-chip' + (isChipActive ? ' active' : '') + '" onclick="window.toggleMainPeriodFilter(\'' + escapeHtml(p.id) + '\')" title="' + escapeHtml(pName + dateRange) + '">';
-      html += (isChipActive ? svgIcon('check') : '') + ' <span>' + escapeHtml(p.id.toUpperCase() + (pName ? ': ' + pName : '')) + '</span>';
+      html += (isChipActive ? svgIcon('check') : '') + ' <span>' + escapeHtml(p.id.toUpperCase() + (pName ? ': ' + pName : '')) + '</span>' + attBadge;
       html += '</button>';
     });
+
+    // Button to manage/attach Period PDFs
+    var periodAttachTitle = isFr ? 'PDFs de période / Joindre' : (typeof t === 'function' ? t('agBtnPeriodPdfs', 'Period PDFs / Attach ▾') : 'Period PDFs / Attach ▾');
+    html += '<button type="button" class="btn btn-secondary ag-period-attach-btn" onclick="window.openPeriodAttachmentsModal()" title="' + (isFr ? 'Gérer ou joindre des PDFs aux périodes' : 'Manage or attach PDFs to periods') + '">';
+    html += svgIcon('file-text') + ' <span>' + escapeHtml(periodAttachTitle) + '</span>';
+    html += '</button>';
 
     container.innerHTML = html;
   }
@@ -697,9 +723,12 @@
 
           if (type === 'student' || key === 'student') {
             var delTitle = typeof t === 'function' ? t('agBtnEraseStudent', 'Erase Student') : 'Erase Student';
+            var sAtts = getStudentAttachments(s.uuid);
+            var attBadge = sAtts.length ? ('<span class="ag-att-mini-badge" title="' + sAtts.length + ' ' + (isFr ? 'document(s) PDF joint(s) (cliquer pour voir)' : 'attached PDF document(s) (click to view)') + '" onclick="event.stopPropagation(); window.openStudentProfileModal(\'' + s.uuid + '\')">' + svgIcon('file-text') + ' ' + sAtts.length + '</span>') : '';
+
             html += '<td class="col-sticky-name">' +
               '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">' +
-              '<span onclick="window.openStudentProfileModal(\'' + s.uuid + '\')" style="color:#0284c7; cursor:pointer; font-weight:800; flex:1;">' + escapeHtml(s.lastName.toUpperCase() + ' ' + s.firstName) + '</span>' +
+              '<span onclick="window.openStudentProfileModal(\'' + s.uuid + '\')" style="color:#0284c7; cursor:pointer; font-weight:800; flex:1;">' + escapeHtml(s.lastName.toUpperCase() + ' ' + s.firstName) + attBadge + '</span>' +
               '<button type="button" class="ag-row-del-btn" title="' + escapeHtml(delTitle) + '" onclick="event.stopPropagation(); window.promptEraseStudent(\'' + s.uuid + '\')">' + svgIcon('delete') + '</button>' +
               '</div></td>';
           } else if (type === 'infraction') {
@@ -880,6 +909,7 @@
     if (!modal) return;
 
     document.getElementById('modalStudentName').textContent = s.lastName.toUpperCase() + ' ' + s.firstName + ' (' + s.adminClass + ')';
+    renderStudentAttachments(uuid);
     renderStudentActionsTimeline(uuid);
     modal.classList.add('active');
   };
@@ -921,6 +951,468 @@
     html += '</div>';
     container.innerHTML = html;
   }
+
+  // ── PDF Attachments & Links Management for Students & Periods ──
+  function getStudentAttachments(uuid) {
+    var stored = (state.adminData && state.adminData.students && state.adminData.students[uuid] && state.adminData.students[uuid].attachments) || [];
+    return Array.isArray(stored) ? stored : [];
+  }
+
+  function renderStudentAttachments(uuid) {
+    var container = document.getElementById('studentAttachmentsContainer');
+    if (!container) return;
+    var atts = getStudentAttachments(uuid);
+    var isFr = isFrench();
+
+    var html = '<div class="ag-attachments-card">';
+    html += '<div class="ag-attachments-header">';
+    html += '<div class="ag-attachments-title">' + svgIcon('file-text') + ' <span>' + (isFr ? 'Documents & PDFs joints' : (typeof t === 'function' ? t('agAttachedDocumentsTitle', 'Attached Documents & PDFs (Links)') : 'Attached Documents & PDFs (Links)')) + ' (' + atts.length + ')</span></div>';
+    html += '<button type="button" class="btn btn-secondary" style="padding:2px 8px; font-size:0.75rem;" onclick="window.attachPdfToStudent(\'' + escapeHtml(uuid) + '\')">' + svgIcon('plus') + ' ' + (isFr ? 'Joindre un PDF' : (typeof t === 'function' ? t('agBtnAttachPdf', 'Attach PDF') : 'Attach PDF')) + '</button>';
+    html += '</div>';
+
+    if (!atts.length) {
+      html += '<div class="ag-attachment-empty">' + (isFr ? 'Aucun document PDF attaché pour le moment. Cliquez sur « + Joindre un PDF » pour ajouter contrats, certificats ou aménagements.' : (typeof t === 'function' ? t('agNoAttachedPdfsStudent', 'No PDF documents attached yet. Click \'+ Attach PDF\' to add parental contracts, medical certificates, or pedagogical agreements.') : 'No PDF documents attached yet. Click \'+ Attach PDF\' to add parental contracts, medical certificates, or pedagogical agreements.')) + '</div>';
+    } else {
+      html += '<div class="ag-attachments-list">';
+      atts.forEach(function (att) {
+        var sizeStr = att.size ? Math.round(att.size / 1024) + ' KB' : '';
+        var dateStr = att.attachedAt || att.date || '';
+        if (dateStr && dateStr.indexOf('T') !== -1) dateStr = dateStr.slice(0, 10);
+        var metaStr = [dateStr, sizeStr].filter(Boolean).join(' • ');
+
+        html += '<div class="ag-attachment-item">';
+        html += '<div class="ag-attachment-info">';
+        html += '<div class="ag-attachment-icon">' + svgIcon('file-text') + '</div>';
+        html += '<div class="ag-attachment-texts">';
+        html += '<div class="ag-attachment-name" onclick="window.openAttachment(\'' + escapeHtml(att.relPath) + '\', \'' + escapeHtml(att.urn || '') + '\', \'' + escapeHtml(att.filename) + '\')" title="' + (isFr ? 'Cliquer pour ouvrir le document' : 'Click to open document') + '">' + escapeHtml(att.filename) + '</div>';
+        if (metaStr) html += '<div class="ag-attachment-meta">' + escapeHtml(metaStr) + '</div>';
+        html += '</div>';
+        html += '</div>';
+
+        html += '<div class="ag-attachment-actions">';
+        html += '<button type="button" class="btn btn-secondary" style="padding:3px 8px; font-size:0.75rem;" onclick="window.openAttachment(\'' + escapeHtml(att.relPath) + '\', \'' + escapeHtml(att.urn || '') + '\', \'' + escapeHtml(att.filename) + '\')" title="' + (isFr ? 'Ouvrir' : 'Open PDF') + '">' + svgIcon('eye') + ' ' + (isFr ? 'Ouvrir' : 'Open') + '</button>';
+        html += '<button type="button" class="btn btn-secondary" style="padding:3px 8px; font-size:0.75rem; color:#b91c1c;" onclick="window.removeStudentAttachment(\'' + escapeHtml(uuid) + '\', \'' + escapeHtml(att.relPath) + '\', \'' + escapeHtml(att.urn || '') + '\')" title="' + (isFr ? 'Retirer / Dissocier' : 'Remove / Unlink') + '">' + svgIcon('delete') + '</button>';
+        html += '</div>';
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+
+    html += '</div>';
+    container.innerHTML = html;
+  }
+
+  window.attachPdfToStudent = function (uuid) {
+    uuid = uuid || state.selectedStudentId;
+    if (!uuid) return;
+    var student = state.students.find(function (st) { return st.uuid === uuid; });
+    var studentName = student ? (student.lastName.toUpperCase() + ' ' + student.firstName) : 'Student';
+
+    var fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.pdf,application/pdf';
+    fileInput.style.display = 'none';
+    document.body.appendChild(fileInput);
+
+    fileInput.addEventListener('change', async function (ev) {
+      var file = ev.target.files && ev.target.files[0];
+      if (!file) {
+        if (fileInput.parentNode) fileInput.parentNode.removeChild(fileInput);
+        return;
+      }
+
+      var reader = new FileReader();
+      reader.onload = async function (e) {
+        var content = e.target.result;
+        var cleanFilename = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        var studentUrn = 'cmt:student:' + uuid;
+        var subdir = 'attachments/admin-groups/students/' + uuid.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+        var storeRes = null;
+        if (window.LinksService && typeof window.LinksService.storeAttachment === 'function') {
+          storeRes = await window.LinksService.storeAttachment({
+            subdir: subdir,
+            filename: cleanFilename,
+            content: content,
+            encoding: 'base64',
+            title: file.name,
+            subtitle: studentName + ' • Attached PDF',
+            linkToUrn: studentUrn
+          });
+        } else if (window.Desktop && Desktop.isElectron()) {
+          var res = await Desktop.saveFile({
+            target: 'user',
+            subdir: subdir,
+            filename: cleanFilename,
+            content: content,
+            encoding: 'base64'
+          });
+          if (res && res.ok) {
+            var relPath = subdir + '/' + cleanFilename;
+            storeRes = { ok: true, relPath: relPath, urn: 'cmt:file:user/' + relPath };
+          }
+        } else {
+          storeRes = { ok: true, relPath: cleanFilename, urn: 'cmt:file:' + cleanFilename };
+        }
+
+        if (storeRes && storeRes.ok) {
+          state.adminData.students = state.adminData.students || {};
+          state.adminData.students[uuid] = state.adminData.students[uuid] || {};
+          state.adminData.students[uuid].attachments = state.adminData.students[uuid].attachments || [];
+
+          var existingIdx = state.adminData.students[uuid].attachments.findIndex(function (a) { return a.relPath === storeRes.relPath; });
+          var attEntry = {
+            filename: file.name,
+            relPath: storeRes.relPath,
+            urn: storeRes.urn,
+            size: file.size,
+            attachedAt: new Date().toISOString()
+          };
+          if (existingIdx !== -1) {
+            state.adminData.students[uuid].attachments[existingIdx] = attEntry;
+          } else {
+            state.adminData.students[uuid].attachments.push(attEntry);
+          }
+
+          autoSave();
+          renderStudentAttachments(uuid);
+          renderTable();
+          if (window.showToast) window.showToast(t('agPdfAttachedSuccess', 'PDF attached successfully and added to Links.'));
+        } else {
+          if (window.showToast) window.showToast((storeRes && storeRes.error) || 'Failed to save attachment.', true);
+        }
+
+        if (fileInput.parentNode) fileInput.parentNode.removeChild(fileInput);
+      };
+
+      reader.readAsDataURL(file);
+    });
+
+    fileInput.click();
+  };
+
+  window.attachPdfToCurrentStudent = function () {
+    if (state.selectedStudentId) {
+      window.attachPdfToStudent(state.selectedStudentId);
+    }
+  };
+
+  window.openCurrentStudentLinks = function () {
+    var uuid = state.selectedStudentId;
+    if (!uuid) return;
+    window.openStudentLinksModal(uuid);
+  };
+
+  window.openStudentLinksModal = function (uuid) {
+    if (!uuid) return;
+    var s = state.students.find(function (st) { return st.uuid === uuid; });
+    var studentName = s ? (s.lastName.toUpperCase() + ' ' + s.firstName) : 'Student';
+    if (window.TagLinkModal && typeof window.TagLinkModal.open === 'function') {
+      window.TagLinkModal.open({
+        urn: 'cmt:student:' + uuid,
+        title: studentName,
+        subtitle: 'Student • ' + (s ? (s.adminClass || '') : ''),
+        onUpdate: function () {
+          renderTable();
+          if (state.selectedStudentId === uuid) {
+            renderStudentAttachments(uuid);
+          }
+        }
+      });
+    }
+  };
+
+  window.removeStudentAttachment = async function (uuid, relPath, urn) {
+    var isFr = isFrench();
+    var confirmMsg = isFr ? 'Êtes-vous sûr de vouloir retirer et dissocier ce document PDF ?' : 'Are you sure you want to remove and unlink this PDF?';
+    var confirmed = (typeof showConfirm === 'function') ? await showConfirm(confirmMsg) : confirm(confirmMsg);
+    if (!confirmed) return;
+
+    if (state.adminData.students && state.adminData.students[uuid] && state.adminData.students[uuid].attachments) {
+      state.adminData.students[uuid].attachments = state.adminData.students[uuid].attachments.filter(function (a) {
+        return a.relPath !== relPath && (!urn || a.urn !== urn);
+      });
+    }
+
+    if (window.LinksService && urn) {
+      try {
+        await window.LinksService.removeLink('cmt:student:' + uuid, urn);
+      } catch (_) {}
+    }
+
+    autoSave();
+    renderStudentAttachments(uuid);
+    renderTable();
+    if (window.showToast) window.showToast(t('agPdfRemovedSuccess', 'Attachment removed and unlinked.'));
+  };
+
+  function getPeriodAttachments(periodId) {
+    var stored = (state.adminData && state.adminData.periodAttachments && state.adminData.periodAttachments[periodId]) || [];
+    return Array.isArray(stored) ? stored : [];
+  }
+
+  window.attachPdfToPeriod = function (periodId) {
+    if (!periodId || periodId === 'all') {
+      var pFirst = (state.selectedPeriods && state.selectedPeriods.length === 1 && state.selectedPeriods[0] !== 'all')
+        ? state.selectedPeriods[0]
+        : ((state.config.periods && state.config.periods[0] && state.config.periods[0].id) || 'p1');
+      periodId = pFirst;
+    }
+
+    var pObj = (state.config.periods || []).find(function (p) { return p.id === periodId; }) || { id: periodId, name: periodId };
+    var isFr = isFrench();
+    var pName = isFr ? (pObj.nameFr || pObj.name) : pObj.name;
+
+    var fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.pdf,application/pdf';
+    fileInput.style.display = 'none';
+    document.body.appendChild(fileInput);
+
+    fileInput.addEventListener('change', async function (ev) {
+      var file = ev.target.files && ev.target.files[0];
+      if (!file) {
+        if (fileInput.parentNode) fileInput.parentNode.removeChild(fileInput);
+        return;
+      }
+
+      var reader = new FileReader();
+      reader.onload = async function (e) {
+        var content = e.target.result;
+        var cleanFilename = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        var periodUrn = 'cmt:period:' + periodId;
+        var subdir = 'attachments/admin-groups/periods/' + periodId.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+        var storeRes = null;
+        if (window.LinksService && typeof window.LinksService.storeAttachment === 'function') {
+          storeRes = await window.LinksService.storeAttachment({
+            subdir: subdir,
+            filename: cleanFilename,
+            content: content,
+            encoding: 'base64',
+            title: file.name,
+            subtitle: pName + ' • Attached PDF',
+            linkToUrn: periodUrn
+          });
+        } else if (window.Desktop && Desktop.isElectron()) {
+          var res = await Desktop.saveFile({
+            target: 'user',
+            subdir: subdir,
+            filename: cleanFilename,
+            content: content,
+            encoding: 'base64'
+          });
+          if (res && res.ok) {
+            var relPath = subdir + '/' + cleanFilename;
+            storeRes = { ok: true, relPath: relPath, urn: 'cmt:file:user/' + relPath };
+          }
+        } else {
+          storeRes = { ok: true, relPath: cleanFilename, urn: 'cmt:file:' + cleanFilename };
+        }
+
+        if (storeRes && storeRes.ok) {
+          state.adminData.periodAttachments = state.adminData.periodAttachments || {};
+          state.adminData.periodAttachments[periodId] = state.adminData.periodAttachments[periodId] || [];
+
+          var existingIdx = state.adminData.periodAttachments[periodId].findIndex(function (a) { return a.relPath === storeRes.relPath; });
+          var attEntry = {
+            filename: file.name,
+            relPath: storeRes.relPath,
+            urn: storeRes.urn,
+            size: file.size,
+            attachedAt: new Date().toISOString()
+          };
+          if (existingIdx !== -1) {
+            state.adminData.periodAttachments[periodId][existingIdx] = attEntry;
+          } else {
+            state.adminData.periodAttachments[periodId].push(attEntry);
+          }
+
+          autoSave();
+          renderPeriodChips();
+          renderSettingsPeriods();
+          if (document.getElementById('agPeriodAttachmentsModal') && document.getElementById('agPeriodAttachmentsModal').classList.contains('active')) {
+            renderPeriodAttachmentsModalContent(periodId);
+          }
+          if (window.showToast) window.showToast(t('agPdfAttachedPeriodSuccess', 'PDF attached to period and added to Links.'));
+        } else {
+          if (window.showToast) window.showToast((storeRes && storeRes.error) || 'Failed to save attachment.', true);
+        }
+
+        if (fileInput.parentNode) fileInput.parentNode.removeChild(fileInput);
+      };
+
+      reader.readAsDataURL(file);
+    });
+
+    fileInput.click();
+  };
+
+  window.promptAttachPdfToPeriod = function () {
+    window.openPeriodAttachmentsModal();
+  };
+
+  window.removePeriodAttachment = async function (periodId, relPath, urn) {
+    var isFr = isFrench();
+    var confirmMsg = isFr ? 'Êtes-vous sûr de vouloir retirer et dissocier ce document PDF de cette période ?' : 'Are you sure you want to remove and unlink this PDF from this period?';
+    var confirmed = (typeof showConfirm === 'function') ? await showConfirm(confirmMsg) : confirm(confirmMsg);
+    if (!confirmed) return;
+
+    if (state.adminData.periodAttachments && state.adminData.periodAttachments[periodId]) {
+      state.adminData.periodAttachments[periodId] = state.adminData.periodAttachments[periodId].filter(function (a) {
+        return a.relPath !== relPath && (!urn || a.urn !== urn);
+      });
+    }
+
+    if (window.LinksService && urn) {
+      try {
+        await window.LinksService.removeLink('cmt:period:' + periodId, urn);
+      } catch (_) {}
+    }
+
+    autoSave();
+    renderPeriodChips();
+    renderSettingsPeriods();
+    if (document.getElementById('agPeriodAttachmentsModal') && document.getElementById('agPeriodAttachmentsModal').classList.contains('active')) {
+      renderPeriodAttachmentsModalContent(periodId);
+    }
+    if (window.showToast) window.showToast(t('agPdfRemovedSuccess', 'Attachment removed and unlinked.'));
+  };
+
+  window.openPeriodLinksModal = function (periodId) {
+    if (!periodId || periodId === 'all') {
+      var pFirst = (state.selectedPeriods && state.selectedPeriods.length === 1 && state.selectedPeriods[0] !== 'all')
+        ? state.selectedPeriods[0]
+        : ((state.config.periods && state.config.periods[0] && state.config.periods[0].id) || 'p1');
+      periodId = pFirst;
+    }
+    var pObj = (state.config.periods || []).find(function (p) { return p.id === periodId; }) || { id: periodId, name: periodId };
+    var isFr = isFrench();
+    var pName = isFr ? (pObj.nameFr || pObj.name) : pObj.name;
+
+    if (window.TagLinkModal && typeof window.TagLinkModal.open === 'function') {
+      window.TagLinkModal.open({
+        urn: 'cmt:period:' + periodId,
+        title: pName,
+        subtitle: 'Period • ' + periodId.toUpperCase() + (pObj.startDate && pObj.endDate ? ' (' + pObj.startDate + ' → ' + pObj.endDate + ')' : ''),
+        onUpdate: function () {
+          renderPeriodChips();
+          renderSettingsPeriods();
+          if (document.getElementById('agPeriodAttachmentsModal') && document.getElementById('agPeriodAttachmentsModal').classList.contains('active')) {
+            renderPeriodAttachmentsModalContent(periodId);
+          }
+        }
+      });
+    }
+  };
+
+  window.openPeriodAttachmentsModal = function (periodId) {
+    var modal = document.getElementById('agPeriodAttachmentsModal');
+    var sel = document.getElementById('agPeriodModalSelect');
+    if (!modal || !sel) return;
+
+    var periods = (state.config && state.config.periods) || [];
+    var isFr = isFrench();
+    sel.innerHTML = '';
+    periods.forEach(function (p) {
+      var opt = document.createElement('option');
+      opt.value = p.id;
+      var pName = isFr ? (p.nameFr || p.name) : p.name;
+      opt.textContent = p.id.toUpperCase() + ': ' + pName;
+      sel.appendChild(opt);
+    });
+
+    var targetPid = periodId;
+    if (!targetPid || targetPid === 'all') {
+      targetPid = (state.selectedPeriods && state.selectedPeriods.length === 1 && state.selectedPeriods[0] !== 'all')
+        ? state.selectedPeriods[0]
+        : ((periods[0] && periods[0].id) || 'p1');
+    }
+    sel.value = targetPid;
+    state.activeModalPeriodId = targetPid;
+
+    renderPeriodAttachmentsModalContent(targetPid);
+    modal.classList.add('active');
+  };
+
+  window.closePeriodAttachmentsModal = function () {
+    var modal = document.getElementById('agPeriodAttachmentsModal');
+    if (modal) modal.classList.remove('active');
+  };
+
+  window.onPeriodModalSelectChange = function (val) {
+    state.activeModalPeriodId = val;
+    renderPeriodAttachmentsModalContent(val);
+  };
+
+  window.attachPdfToModalPeriod = function () {
+    var pid = state.activeModalPeriodId || (document.getElementById('agPeriodModalSelect') && document.getElementById('agPeriodModalSelect').value);
+    if (pid) {
+      window.attachPdfToPeriod(pid);
+    }
+  };
+
+  window.openModalPeriodLinks = function () {
+    var pid = state.activeModalPeriodId || (document.getElementById('agPeriodModalSelect') && document.getElementById('agPeriodModalSelect').value);
+    if (pid) {
+      window.openPeriodLinksModal(pid);
+    }
+  };
+
+  function renderPeriodAttachmentsModalContent(periodId) {
+    var container = document.getElementById('periodAttachmentsContainer');
+    if (!container) return;
+    var atts = getPeriodAttachments(periodId);
+    var isFr = isFrench();
+
+    var html = '<div class="ag-attachments-list">';
+    if (!atts.length) {
+      html += '<div class="ag-attachment-empty">' + (isFr ? 'Aucun document PDF attaché à cette période. Cliquez sur « + Joindre un PDF » pour ajouter directives, comptes-rendus ou rapports.' : (typeof t === 'function' ? t('agNoAttachedPdfsPeriod', 'No PDF documents attached to this period yet. Click \'+ Attach PDF\' to add period directives, council minutes, or evaluation reports.') : 'No PDF documents attached to this period yet. Click \'+ Attach PDF\' to add period directives, council minutes, or evaluation reports.')) + '</div>';
+    } else {
+      atts.forEach(function (att) {
+        var sizeStr = att.size ? Math.round(att.size / 1024) + ' KB' : '';
+        var dateStr = att.attachedAt || att.date || '';
+        if (dateStr && dateStr.indexOf('T') !== -1) dateStr = dateStr.slice(0, 10);
+        var metaStr = [dateStr, sizeStr].filter(Boolean).join(' • ');
+
+        html += '<div class="ag-attachment-item">';
+        html += '<div class="ag-attachment-info">';
+        html += '<div class="ag-attachment-icon">' + svgIcon('file-text') + '</div>';
+        html += '<div class="ag-attachment-texts">';
+        html += '<div class="ag-attachment-name" onclick="window.openAttachment(\'' + escapeHtml(att.relPath) + '\', \'' + escapeHtml(att.urn || '') + '\', \'' + escapeHtml(att.filename) + '\')" title="' + (isFr ? 'Cliquer pour ouvrir le document' : 'Click to open document') + '">' + escapeHtml(att.filename) + '</div>';
+        if (metaStr) html += '<div class="ag-attachment-meta">' + escapeHtml(metaStr) + '</div>';
+        html += '</div>';
+        html += '</div>';
+
+        html += '<div class="ag-attachment-actions">';
+        html += '<button type="button" class="btn btn-secondary" style="padding:3px 8px; font-size:0.75rem;" onclick="window.openAttachment(\'' + escapeHtml(att.relPath) + '\', \'' + escapeHtml(att.urn || '') + '\', \'' + escapeHtml(att.filename) + '\')" title="' + (isFr ? 'Ouvrir' : 'Open PDF') + '">' + svgIcon('eye') + ' ' + (isFr ? 'Ouvrir' : 'Open') + '</button>';
+        html += '<button type="button" class="btn btn-secondary" style="padding:3px 8px; font-size:0.75rem; color:#b91c1c;" onclick="window.removePeriodAttachment(\'' + escapeHtml(periodId) + '\', \'' + escapeHtml(att.relPath) + '\', \'' + escapeHtml(att.urn || '') + '\')" title="' + (isFr ? 'Retirer / Dissocier' : 'Remove / Unlink') + '">' + svgIcon('delete') + '</button>';
+        html += '</div>';
+        html += '</div>';
+      });
+    }
+    html += '</div>';
+    container.innerHTML = html;
+  }
+
+  window.openAttachment = function (relPath, urn, filename) {
+    if (!relPath) return;
+    if (window.Desktop && Desktop.isElectron()) {
+      if (typeof Desktop.openNative === 'function') {
+        Desktop.openNative('user', relPath);
+        return;
+      }
+      if (typeof Desktop.openPath === 'function') {
+        Desktop.openPath('user', relPath);
+        return;
+      }
+    }
+    if (window.TagLinkModal && typeof window.TagLinkModal.previewFile === 'function') {
+      window.TagLinkModal.previewFile('user/' + relPath, filename || 'Attached PDF');
+      return;
+    }
+    window.open(relPath, '_blank');
+  };
 
   window.openQuickActionMenu = function (uuid) {
     uuid = uuid || state.selectedStudentId;
@@ -2652,14 +3144,30 @@
     var tbody = document.getElementById('cfgPeriodsBody');
     if (!tbody) return;
     var list = (state.tempConfig && state.tempConfig.periods) || [];
+    var isFr = isFrench();
     var html = '';
     list.forEach(function (p, idx) {
+      var pAtts = getPeriodAttachments(p.id);
+      var attCount = pAtts.length;
+
       html += '<tr>';
       html += '<td><input type="text" class="ag-input" style="width:90px; font-weight:800;" value="' + escapeHtml(p.id || '') + '" onchange="window.updateTempPeriod(' + idx + ', \'id\', this.value)"></td>';
       html += '<td><input type="text" class="ag-input" style="width:100%; font-weight:700;" value="' + escapeHtml(p.name || '') + '" onchange="window.updateTempPeriod(' + idx + ', \'name\', this.value)"></td>';
       html += '<td><input type="text" class="ag-input" style="width:100%; font-weight:700;" value="' + escapeHtml(p.nameFr || '') + '" onchange="window.updateTempPeriod(' + idx + ', \'nameFr\', this.value)"></td>';
       html += '<td><input type="date" class="ag-input" style="width:130px; text-align:center;" value="' + escapeHtml(p.startDate || '') + '" onchange="window.updateTempPeriod(' + idx + ', \'startDate\', this.value)"></td>';
       html += '<td><input type="date" class="ag-input" style="width:130px; text-align:center;" value="' + escapeHtml(p.endDate || '') + '" onchange="window.updateTempPeriod(' + idx + ', \'endDate\', this.value)"></td>';
+
+      // Attached PDFs column
+      html += '<td style="text-align:center;"><div style="display:flex; align-items:center; justify-content:center; gap:6px;">';
+      if (attCount > 0) {
+        html += '<button type="button" class="badge" style="background:#fee2e2; color:#991b1b; cursor:pointer;" onclick="window.openPeriodAttachmentsModal(\'' + escapeHtml(p.id) + '\')" title="' + attCount + ' PDF(s)">' + svgIcon('file-text') + ' ' + attCount + '</button>';
+      } else {
+        html += '<span style="color:#94a3b8; font-size:0.75rem;">—</span>';
+      }
+      html += '<button type="button" class="btn btn-secondary" style="padding:2px 6px; font-size:0.72rem;" onclick="window.attachPdfToPeriod(\'' + escapeHtml(p.id) + '\')" title="' + (isFr ? 'Joindre un PDF' : 'Attach PDF') + '">' + svgIcon('plus') + '</button>';
+      html += '<button type="button" class="btn btn-secondary" style="padding:2px 6px; font-size:0.72rem;" onclick="window.openPeriodLinksModal(\'' + escapeHtml(p.id) + '\')" title="' + (isFr ? 'Liens & Tags' : 'Links & Tags') + '">' + svgIcon('links') + '</button>';
+      html += '</div></td>';
+
       html += '<td style="text-align:center;"><button type="button" class="btn btn-secondary" style="padding:2px 6px; color:#b91c1c;" onclick="window.removeSettingPeriod(' + idx + ')"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /></button></td>';
       html += '</tr>';
     });
