@@ -171,7 +171,9 @@
       return makeUrn('lesson', id, p.anchor);
     }
     if (type === 'board' || type === 'mindmap' || type === 'constellation') {
-      return makeUrn('board', id.replace(/\\/g, '/'), p.anchor);
+      var normId = id.replace(/\\/g, '/').replace(/^\/+/, '');
+      normId = normId.replace(/^user\/(?:mindmaps|constellations|board)\//i, '').replace(/^(?:mindmaps|constellations|board)\//i, '');
+      return makeUrn('board', normId, p.anchor);
     }
     if (type === 'gradesheet' || type === 'gradesheets' || type === 'eval' || type === 'evaluation' || type === 'grade') {
       return makeUrn('gradesheet', id, p.anchor);
@@ -3210,6 +3212,7 @@
       function registerRawBoard(relPath, m, source, target) {
         if (!relPath) return;
         var normRel = String(relPath).replace(/\\/g, '/').replace(/^\/+/, '');
+        normRel = normRel.replace(/^user\/(?:mindmaps|constellations|board)\//i, '').replace(/^(?:mindmaps|constellations|board)\//i, '');
         var key = normRel.toLowerCase();
         if (seenPaths.has(key)) return;
         seenPaths.add(key);
@@ -3226,7 +3229,7 @@
           plannerEntryId: bSlot,
           meta: m || {},
           source: source || 'mindmaps',
-          target: target || 'mindmaps'
+          target: 'mindmaps'
         });
       }
 
@@ -3795,7 +3798,7 @@
           }
 
           if (isBoard) {
-            var normRelOther = (pOther ? pOther.id : matchedOther).replace(/^cmt:board:/, '').replace(/^mindmaps\//, '');
+            var normRelOther = (pOther ? pOther.id : matchedOther).replace(/^cmt:(?:board|mindmap|constellation):/i, '').replace(/^user\/(?:mindmaps|constellations|board)\//i, '').replace(/^(?:mindmaps|constellations|board)\//i, '').replace(/\\/g, '/').replace(/^\/+/, '');
             var keyOther = normRelOther.toLowerCase();
             if (!seenKeys.has(keyOther)) {
               seenKeys.add(keyOther);
@@ -3805,7 +3808,7 @@
               var subOther = display.subtitle || ('Board Mindmap' + (targetClassIds[0] ? (' • ' + (resolveClassName(targetClassIds[0]) || targetClassIds[0])) : ''));
 
               boards.push({
-                urn: matchedOther,
+                urn: canonicalizeUrn(makeUrn('board', normRelOther)),
                 type: 'board',
                 source: 'registry',
                 title: display.title,
@@ -3832,7 +3835,7 @@
 
     for (var i = 0; i < allRawBoards.length; i++) {
       var item = allRawBoards[i];
-      var normRel = item.relativePath;
+      var normRel = String(item.relativePath || '').replace(/^user\/(?:mindmaps|constellations|board)\//i, '').replace(/^(?:mindmaps|constellations|board)\//i, '').replace(/\\/g, '/').replace(/^\/+/, '');
       var key = normRel.toLowerCase();
       if (seenKeys.has(key)) continue;
 
@@ -4837,6 +4840,21 @@
         dossier.other.push(item);
       }
     }
+
+    // Deduplicate boards by canonical URN and normalized relative path
+    var seenBoardKeys = new Set();
+    dossier.boards = (dossier.boards || []).filter(function(b) {
+      if (!b) return false;
+      var cUrn = canonicalizeUrn(b.urn);
+      var pB = parseUrn(cUrn);
+      var bRel = (pB ? pB.id : '').replace(/^user\/(?:mindmaps|constellations|board)\//i, '').replace(/^(?:mindmaps|constellations|board)\//i, '');
+      var bKey = (bRel || cUrn).toLowerCase();
+      if (seenBoardKeys.has(bKey)) return false;
+      seenBoardKeys.add(bKey);
+      b.urn = cUrn;
+      b.relativePath = bRel;
+      return true;
+    });
 
     // Ensure gradesSummary has valid averages whenever evaluations contain marks
     if (dossier.gradesSummary.yearAverage == null && dossier.gradesSummary.sem1Average == null && dossier.gradesSummary.sem2Average == null) {

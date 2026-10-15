@@ -2151,12 +2151,15 @@
         if (Array.isArray(raw)) {
           return raw
             .map(g => {
-              const sec = String((g && (g.section || g.sectionName)) || "").trim() || t('gsSectionGeneral', 'General Observations');
-              const col = String((g && g.color) || "").trim();
+              const sec = String((g && (g.section || g.sectionName || g.sectionTitle)) || "").trim() || t('gsSectionGeneral', 'General Observations');
+              const col = String((g && (g.color || g.sectionColor)) || "").trim();
+              const cat = String((g && (g.type || g.category || g.name || g.label)) || "").trim();
               return {
                 section: sec,
                 color: col,
-                type: String((g && (g.type || g.label || g.name || g.category)) || "").trim() || "Criteria",
+                sectionColor: col,
+                type: cat || "Criteria",
+                category: cat,
                 items: normalizeGroupItems(g && g.items)
               };
             })
@@ -2166,7 +2169,9 @@
             .map(([type, items]) => ({
               section: t('gsSectionGeneral', 'General Observations'),
               color: "",
+              sectionColor: "",
               type: String(type || "").trim() || "Criteria",
+              category: String(type || "").trim(),
               items: normalizeGroupItems(items)
             }))
             .filter(g => g.items.length > 0);
@@ -2176,7 +2181,12 @@
 
       const targetBank = bankFilename || (typeof _activeChipBankFilename !== 'undefined' ? _activeChipBankFilename : null);
       if (targetBank && typeof _availableChipBanks !== 'undefined' && Array.isArray(_availableChipBanks)) {
-        const b = _availableChipBanks.find(x => x.filename === targetBank);
+        const b = _availableChipBanks.find(x =>
+          x.filename === targetBank ||
+          x.id === targetBank ||
+          x.name === targetBank ||
+          (x.filename && String(x.filename).replace(/\.(js|json)$/i, '') === String(targetBank).replace(/\.(js|json)$/i, ''))
+        );
         if (b && Array.isArray(b.chips) && b.chips.length > 0) {
           const res = normalizeRawGroups(b.chips);
           if (res.length > 0) return res;
@@ -2192,7 +2202,7 @@
         const items = OBSERVATION_CHECKLIST_ITEMS
           .map(v => String(v || "").trim())
           .filter(Boolean);
-        return items.length > 0 ? [{ section: t('gsSectionGeneral', 'General Observations'), color: "", type: "Criteria", items }] : [];
+        return items.length > 0 ? [{ section: t('gsSectionGeneral', 'General Observations'), color: "", sectionColor: "", type: "Criteria", category: "", items }] : [];
       }
 
       if (typeof _availableChipBanks !== 'undefined' && Array.isArray(_availableChipBanks) && _availableChipBanks.length > 0) {
@@ -2219,7 +2229,7 @@
         seen.add(key);
         out.push(name);
       });
-      return out.length > 0 ? [{ section: t('gsSectionGeneral', 'General Observations'), color: "", type: "Criteria", items: out }] : [];
+      return out.length > 0 ? [{ section: t('gsSectionGeneral', 'General Observations'), color: "", sectionColor: "", type: "Criteria", category: "", items: out }] : [];
     }
 
     function getObservationSectionsWithGroups(bankFilename) {
@@ -2228,21 +2238,38 @@
 
       groups.forEach(g => {
         const secName = g.section || t('gsSectionGeneral', 'General Observations');
-        if (!sectionsMap.has(secName)) {
-          const secLower = secName.toLowerCase();
-          let fallbackColor = '#0284c7';
-          if (secLower.includes('good') || secLower.includes('fort') || secLower.includes('strength')) fallbackColor = '#16a34a';
-          else if (secLower.includes('remedy') || secLower.includes('improv') || secLower.includes('faible')) fallbackColor = '#dc2626';
-          else if (secLower.includes('action') || secLower.includes('plan') || secLower.includes('next')) fallbackColor = '#d97706';
-          sectionsMap.set(secName, {
+        const secKey = secName.trim().toLowerCase();
+        const rawColor = String(g.color || g.sectionColor || '').trim();
+
+        if (!sectionsMap.has(secKey)) {
+          sectionsMap.set(secKey, {
             name: secName,
-            color: g.color || fallbackColor,
+            color: rawColor || '',
+            explicitColor: rawColor || '',
             groups: []
           });
         }
-        const secObj = sectionsMap.get(secName);
-        if (g.color && !secObj.color) secObj.color = g.color;
+        const secObj = sectionsMap.get(secKey);
+        if (!secObj.explicitColor && rawColor) {
+          secObj.explicitColor = rawColor;
+          secObj.color = rawColor;
+        }
         secObj.groups.push(g);
+      });
+
+      sectionsMap.forEach(secObj => {
+        if (!secObj.color) {
+          const secLower = secObj.name.toLowerCase();
+          if (secLower.includes('good') || secLower.includes('fort') || secLower.includes('strength') || secLower.includes('bien') || secLower.includes('positif')) {
+            secObj.color = '#16a34a';
+          } else if (secLower.includes('remedy') || secLower.includes('improv') || secLower.includes('faible') || secLower.includes('amélio') || secLower.includes('difficul')) {
+            secObj.color = '#dc2626';
+          } else if (secLower.includes('action') || secLower.includes('plan') || secLower.includes('next') || secLower.includes('étape') || secLower.includes('conseil')) {
+            secObj.color = '#d97706';
+          } else {
+            secObj.color = '#0284c7';
+          }
+        }
       });
 
       return Array.from(sectionsMap.values());
@@ -2309,7 +2336,7 @@
 
     function resolveObservationSectionColor(secOrLabel, kind = '', bankFilename = null) {
       if (secOrLabel && typeof secOrLabel === 'object') {
-        if (secOrLabel.color && String(secOrLabel.color).trim()) {
+        if (secOrLabel.color && String(secOrLabel.color).trim() && secOrLabel.color !== '#555555' && secOrLabel.color !== '#555') {
           return String(secOrLabel.color).trim();
         }
         if (!kind && secOrLabel.kind) kind = secOrLabel.kind;
@@ -2319,32 +2346,81 @@
       const lblLower = label.toLowerCase();
       const k = String(kind || '').trim().toLowerCase();
 
-      // 1. Kind checks
+      // Helper to search a specific chip bank for matching section or group color
+      function findColorInBank(bankFn) {
+        if (typeof getObservationSectionsWithGroups === 'function') {
+          const bankSections = getObservationSectionsWithGroups(bankFn);
+          if (Array.isArray(bankSections) && bankSections.length > 0) {
+            // 1. Exact section name match
+            const exactMatch = bankSections.find(bs => String(bs.name || '').trim().toLowerCase() === lblLower);
+            if (exactMatch) {
+              if (exactMatch.explicitColor) return exactMatch.explicitColor;
+              if (exactMatch.color) return exactMatch.color;
+            }
+
+            // 2. Semantic match by kind or multilingual keywords
+            const isGood = k === 'goodpoints' || lblLower.includes('good') || lblLower.includes('fort') || lblLower.includes('strength') || lblLower.includes('bien') || lblLower.includes('positif');
+            const isRemedy = k === 'toremedy' || lblLower.includes('remedy') || lblLower.includes('improv') || lblLower.includes('amélio') || lblLower.includes('faible') || lblLower.includes('difficul') || lblLower.includes('lacune');
+            const isAction = k === 'action' || lblLower.includes('action') || lblLower.includes('next') || lblLower.includes('étape') || lblLower.includes('conseil');
+
+            if (isGood) {
+              const goodSec = bankSections.find(bs => {
+                const bName = String(bs.name || '').toLowerCase();
+                return bName.includes('good') || bName.includes('fort') || bName.includes('strength') || bName.includes('bien') || bName.includes('positif');
+              });
+              if (goodSec && (goodSec.explicitColor || goodSec.color)) return goodSec.explicitColor || goodSec.color;
+            } else if (isRemedy) {
+              const remedySec = bankSections.find(bs => {
+                const bName = String(bs.name || '').toLowerCase();
+                return bName.includes('remedy') || bName.includes('improv') || bName.includes('amélio') || bName.includes('faible') || bName.includes('difficul');
+              });
+              if (remedySec && (remedySec.explicitColor || remedySec.color)) return remedySec.explicitColor || remedySec.color;
+            } else if (isAction) {
+              const actionSec = bankSections.find(bs => {
+                const bName = String(bs.name || '').toLowerCase();
+                return bName.includes('action') || bName.includes('next') || bName.includes('étape') || bName.includes('conseil');
+              });
+              if (actionSec && (actionSec.explicitColor || actionSec.color)) return actionSec.explicitColor || actionSec.color;
+            }
+          }
+        }
+
+        if (typeof getObservationChecklistGroups === 'function') {
+          const groups = getObservationChecklistGroups(bankFn);
+          if (Array.isArray(groups)) {
+            const gMatch = groups.find(g =>
+              (g.section && String(g.section).trim().toLowerCase() === lblLower) ||
+              (g.type && String(g.type).trim().toLowerCase() === lblLower)
+            );
+            if (gMatch && (gMatch.color || gMatch.sectionColor)) return gMatch.color || gMatch.sectionColor;
+          }
+        }
+        return null;
+      }
+
+      // 1. Check specified bankFilename or active chip bank first
+      const targetBank = bankFilename || (typeof _activeChipBankFilename !== 'undefined' ? _activeChipBankFilename : null);
+      if (targetBank) {
+        const found = findColorInBank(targetBank);
+        if (found) return found;
+      }
+
+      // 2. Check all available custom chip banks if targetBank didn't match
+      if (typeof _availableChipBanks !== 'undefined' && Array.isArray(_availableChipBanks)) {
+        for (const b of _availableChipBanks) {
+          if (b.filename && b.filename !== targetBank) {
+            const found = findColorInBank(b.filename);
+            if (found) return found;
+          }
+        }
+      }
+
+      // 3. Fallback to default Kind checks (standard application theme)
       if (k === 'goodpoints') return '#16a34a';
       if (k === 'toremedy') return '#dc2626';
       if (k === 'action') return '#d97706';
 
-      // 2. Chip bank section checks
-      const targetBank = bankFilename || (typeof _activeChipBankFilename !== 'undefined' ? _activeChipBankFilename : null);
-      if (typeof getObservationSectionsWithGroups === 'function') {
-        const bankSections = getObservationSectionsWithGroups(targetBank);
-        if (Array.isArray(bankSections)) {
-          const match = bankSections.find(bs => String(bs.name || '').trim().toLowerCase() === lblLower);
-          if (match && match.color) return match.color;
-        }
-      }
-      if (typeof getObservationChecklistGroups === 'function') {
-        const groups = getObservationChecklistGroups(targetBank);
-        if (Array.isArray(groups)) {
-          const gMatch = groups.find(g =>
-            String(g.section || '').trim().toLowerCase() === lblLower ||
-            String(g.type || '').trim().toLowerCase() === lblLower
-          );
-          if (gMatch && gMatch.color) return gMatch.color;
-        }
-      }
-
-      // 3. Multilingual keyword matching (FR, EN, DE, IT)
+      // 4. Multilingual keyword matching fallbacks
       if (
         lblLower.includes('good') || lblLower.includes('bien') || lblLower.includes('fort') ||
         lblLower.includes('strength') || lblLower.includes('positif') || lblLower.includes('succès') ||
@@ -2564,13 +2640,48 @@
       return `<div class="obs-inline-row" style="margin-bottom:3px;">${topRow}${textPart}</div>`;
     }
 
+    // ── Helper to determine if a string is a section name / dummy label rather than a genuine category ──
+    function isSectionNameOrDummy(catCandidate, secName = '', sampleLabel = '') {
+      if (!catCandidate || typeof catCandidate !== 'string') return true;
+      const clean = catCandidate.trim().toLowerCase();
+      if (!clean || clean === 'criteria' || clean === '—' || clean === '-') return true;
+
+      if (secName && clean === String(secName).trim().toLowerCase()) return true;
+      if (sampleLabel && clean === String(sampleLabel).trim().toLowerCase()) return true;
+
+      const sectionKeywords = [
+        'good points', 'good elements', 'points forts', 'stärken', 'punti di forza',
+        'to remedy', 'to improve', 'points faibles', 'à améliorer', 'a ameliorer', 'schwächen', 'da migliorare',
+        'action', 'next steps', 'prochaines étapes', 'prochaines etapes', 'prossimi passi', 'nächste schritte',
+        'general observations', 'observations générales', 'observations generales', 'allgemeine beobachtungen', 'osservazioni generali',
+        'general', 'allgemein', 'generale'
+      ];
+      if (sectionKeywords.includes(clean)) return true;
+
+      if (typeof t === 'function') {
+        const locGood = String(t('gsSectionGoodPoints', '') || '').trim().toLowerCase();
+        const locRemedy = String(t('gsSectionToImprove', '') || '').trim().toLowerCase();
+        const locGen = String(t('gsSectionGeneral', '') || '').trim().toLowerCase();
+        if (locGood && clean === locGood) return true;
+        if (locRemedy && clean === locRemedy) return true;
+        if (locGen && clean === locGen) return true;
+      }
+
+      return false;
+    }
+
     // ── Top Observation Chips Aggregator & UI ─────────────────────
     function getTopObservationChips(classObj, options = {}) {
       if (!classObj || !Array.isArray(classObj.students) || classObj.students.length === 0) return [];
       const semFilter = options.semester || 'all';
       const testIndex = options.testIndex != null ? Number(options.testIndex) : null;
       const limit = options.limit || 10;
-      const bankFilename = options.bankFilename || classObj.chipBank || (typeof _activeChipBankFilename !== 'undefined' ? _activeChipBankFilename : null);
+      const testCfg = (testIndex != null && classObj.testConfigs && classObj.testConfigs[options.semester] && classObj.testConfigs[options.semester][testIndex]) || null;
+      const bankFilename = options.bankFilename
+        || (testCfg && testCfg.chipBank)
+        || classObj.chipBank
+        || (Array.isArray(classObj.chipBanks) && classObj.chipBanks[0])
+        || (typeof _activeChipBankFilename !== 'undefined' ? _activeChipBankFilename : null);
 
       const bankSections = typeof getObservationSectionsWithGroups === 'function' ? getObservationSectionsWithGroups(bankFilename) : [];
       const bankGroups = typeof getObservationChecklistGroups === 'function' ? getObservationChecklistGroups(bankFilename) : [];
@@ -2618,7 +2729,7 @@
                 });
               }
               const secEntry = sectionCountsMap.get(secKey);
-              if (secColor && (!secEntry.color || secEntry.color === '#0284c7' || secEntry.color === '#555555')) {
+              if (secColor && (!secEntry.color || secEntry.color === '#0284c7' || secEntry.color === '#555555' || (secColor !== '#16a34a' && secColor !== '#dc2626'))) {
                 secEntry.color = secColor;
               }
 
@@ -2682,19 +2793,14 @@
         let category = '';
         for (const g of bankGroups) {
           if (Array.isArray(g.items) && g.items.some(item => String(item || '').trim().toLowerCase() === e.key)) {
-            category = g.type || g.category || g.section || '';
-            break;
+            const rawCat = String(g.type || g.category || '').trim();
+            if (rawCat && !isSectionNameOrDummy(rawCat, g.section, e.sampleLabel)) {
+              category = rawCat;
+              break;
+            }
           }
         }
-        if (!category && bankSections.length > 0) {
-          const secMatch = bankSections.find(s => String(s.name || '').trim().toLowerCase() === String(e.sampleLabel || '').trim().toLowerCase());
-          if (secMatch) {
-            category = secMatch.name || '';
-          }
-        }
-        if (!category) {
-          category = e.sampleLabel || (e.sampleKind === 'goodPoints' ? 'Good points' : (e.sampleKind === 'toRemedy' ? 'To improve' : 'General'));
-        }
+        // Only genuine category names are used. Category must never fall back to section names.
 
         const studentCount = e.students.size;
         const percentage = totalRelevantStudents > 0 ? Math.round((studentCount / totalRelevantStudents) * 100) : 0;
@@ -2720,7 +2826,14 @@
 
       // Best 5 per section separately
       const sectionsList = Array.from(sectionCountsMap.values()).map(sec => {
-        const secChips = Array.from(sec.map.values()).map(e => resolveChipMetadata(e, sec.color));
+        let effectiveSecColor = sec.color;
+        const secChips = Array.from(sec.map.values()).map(e => resolveChipMetadata(e, effectiveSecColor));
+        if ((!effectiveSecColor || effectiveSecColor === '#0284c7' || effectiveSecColor === '#555555') && secChips.length > 0) {
+          const chipWithColor = secChips.find(c => c.color && c.color !== '#0284c7' && c.color !== '#555555');
+          if (chipWithColor) {
+            effectiveSecColor = chipWithColor.color;
+          }
+        }
         secChips.sort((a, b) => {
           if (b.occurrences !== a.occurrences) return b.occurrences - a.occurrences;
           if (b.studentCount !== a.studentCount) return b.studentCount - a.studentCount;
@@ -2729,7 +2842,7 @@
         return {
           name: sec.name,
           kind: sec.kind,
-          color: sec.color,
+          color: effectiveSecColor,
           topChips: secChips.slice(0, 5)
         };
       }).filter(s => s.topChips.length > 0);
@@ -3107,7 +3220,10 @@
 
               const secName = String(sec.label || '').trim() || (sec.kind === 'goodPoints' ? 'Good points' : (sec.kind === 'toRemedy' ? 'To improve' : 'General'));
               const secKey = secName.toLowerCase();
-              const secColor = resolveObservationSectionColor(sec, sec.kind, classObj.chipBank);
+              const classBank = classObj.chipBank
+                || (Array.isArray(classObj.chipBanks) ? classObj.chipBanks[0] : null)
+                || (typeof _activeChipBankFilename !== 'undefined' ? _activeChipBankFilename : null);
+              const secColor = resolveObservationSectionColor(sec, sec.kind, classBank);
               if (!sectionCountsMap.has(secKey)) {
                 sectionCountsMap.set(secKey, {
                   key: secKey,
@@ -3118,7 +3234,7 @@
                 });
               }
               const secEntry = sectionCountsMap.get(secKey);
-              if (secColor && (!secEntry.color || secEntry.color === '#0284c7' || secEntry.color === '#555555')) {
+              if (secColor && (!secEntry.color || secEntry.color === '#0284c7' || secEntry.color === '#555555' || (secColor !== '#16a34a' && secColor !== '#dc2626'))) {
                 secEntry.color = secColor;
               }
 
@@ -3207,20 +3323,22 @@
 
         let category = '';
         for (const classObj of classesList) {
-          const bankFilename = classObj.chipBank || (typeof _activeChipBankFilename !== 'undefined' ? _activeChipBankFilename : null);
+          const bankFilename = classObj.chipBank
+            || (Array.isArray(classObj.chipBanks) ? classObj.chipBanks[0] : null)
+            || (typeof _activeChipBankFilename !== 'undefined' ? _activeChipBankFilename : null);
           const bankGroups = typeof getObservationChecklistGroups === 'function' ? getObservationChecklistGroups(bankFilename) : [];
           for (const g of bankGroups) {
             if (Array.isArray(g.items) && g.items.some(item => String(item || '').trim().toLowerCase() === e.key)) {
-              category = g.type || g.category || g.section || '';
-              break;
+              const rawCat = String(g.type || g.category || '').trim();
+              if (rawCat && !isSectionNameOrDummy(rawCat, g.section, e.sampleLabel)) {
+                category = rawCat;
+                break;
+              }
             }
           }
           if (category) break;
         }
-
-        if (!category) {
-          category = e.sampleLabel || (e.sampleKind === 'goodPoints' ? 'Good points' : (e.sampleKind === 'toRemedy' ? 'To improve' : 'General'));
-        }
+        // Only genuine category names are used. Category must never fall back to section names.
 
         const studentCount = e.students.size;
         const percentage = totalCohortStudents > 0 ? Math.round((studentCount / totalCohortStudents) * 100) : 0;
@@ -3254,7 +3372,14 @@
 
       // Best 5 per section separately for cohort
       const sectionsList = Array.from(sectionCountsMap.values()).map(sec => {
-        const secChips = Array.from(sec.map.values()).map(e => resolveCohortChipMetadata(e, sec.color));
+        let effectiveSecColor = sec.color;
+        const secChips = Array.from(sec.map.values()).map(e => resolveCohortChipMetadata(e, effectiveSecColor));
+        if ((!effectiveSecColor || effectiveSecColor === '#0284c7' || effectiveSecColor === '#555555') && secChips.length > 0) {
+          const chipWithColor = secChips.find(c => c.color && c.color !== '#0284c7' && c.color !== '#555555');
+          if (chipWithColor) {
+            effectiveSecColor = chipWithColor.color;
+          }
+        }
         secChips.sort((a, b) => {
           if (b.occurrences !== a.occurrences) return b.occurrences - a.occurrences;
           if (b.studentCount !== a.studentCount) return b.studentCount - a.studentCount;
@@ -3263,7 +3388,7 @@
         return {
           name: sec.name,
           kind: sec.kind,
-          color: sec.color,
+          color: effectiveSecColor,
           topChips: secChips.slice(0, 5)
         };
       }).filter(s => s.topChips.length > 0);
@@ -4937,6 +5062,10 @@
           if (Array.isArray(obj.chips)) return obj.chips;
           if (Array.isArray(obj.records)) return obj.records;
           if (Array.isArray(obj.OBSERVATION_CHECKLIST_GROUPS)) return obj.OBSERVATION_CHECKLIST_GROUPS;
+          if (Array.isArray(obj.groups)) return obj.groups;
+          if (Array.isArray(obj.sections)) return obj.sections;
+          if (Array.isArray(obj.personalisedChips)) return obj.personalisedChips;
+          if (Array.isArray(obj.observationChips)) return obj.observationChips;
         } catch (_) {}
       }
       try {
@@ -5072,6 +5201,32 @@
       populateChipBankSelectElement(document.getElementById('ref-chips-bank-select'), _refEditorActiveChipBank);
     }
 
+    function sortSectionChecklistByBank(checklist, bankFilename) {
+      if (!Array.isArray(checklist) || checklist.length <= 1) return checklist;
+      const groups = typeof getObservationChecklistGroups === 'function' ? getObservationChecklistGroups(bankFilename) : [];
+      const allBankItems = [];
+      groups.forEach(g => {
+        if (Array.isArray(g.items)) {
+          g.items.forEach(it => {
+            const k = String(it || '').trim().toLowerCase();
+            if (k && !allBankItems.includes(k)) allBankItems.push(k);
+          });
+        }
+      });
+      const indexMap = new Map();
+      allBankItems.forEach((name, i) => indexMap.set(name, i));
+
+      return [...checklist].sort((a, b) => {
+        const parsedA = (typeof parseObservationChipItem === 'function') ? parseObservationChipItem(a) : { name: String(a || '') };
+        const parsedB = (typeof parseObservationChipItem === 'function') ? parseObservationChipItem(b) : { name: String(b || '') };
+        const nameA = String(parsedA.name || '').trim().toLowerCase();
+        const nameB = String(parsedB.name || '').trim().toLowerCase();
+        const idxA = indexMap.has(nameA) ? indexMap.get(nameA) : 999999;
+        const idxB = indexMap.has(nameB) ? indexMap.get(nameB) : 999999;
+        return idxA - idxB;
+      });
+    }
+
     async function saveNewObservationChip(bankFilename, chipText, categoryName, sectionName, sectionColor) {
       const cleanChip = String(chipText || '').trim();
       const cleanCat = String(categoryName || 'General').trim();
@@ -5084,7 +5239,12 @@
         await loadAvailableChipBanks();
       }
 
-      let bank = _availableChipBanks.find(b => b.filename === targetFn);
+      let bank = _availableChipBanks.find(b =>
+        b.filename === targetFn ||
+        b.id === targetFn ||
+        b.name === targetFn ||
+        (b.filename && String(b.filename).replace(/\.(js|json)$/i, '') === String(targetFn).replace(/\.(js|json)$/i, ''))
+      );
       if (!bank) {
         bank = { filename: targetFn, name: targetFn.replace(/\.(js|json)$/i, ''), chips: [] };
         _availableChipBanks.push(bank);
@@ -5092,19 +5252,36 @@
 
       if (!Array.isArray(bank.chips)) bank.chips = [];
 
-      let chipGroups = bank.chips.map(g => ({
-        section: String((g && (g.section || g.sectionName)) || cleanSec).trim() || cleanSec,
-        color: String((g && g.color) || '').trim(),
-        type: String((g && (g.type || g.label || g.name || g.category)) || 'Criteria').trim() || 'Criteria',
-        items: Array.isArray(g && g.items) ? [...g.items] : []
-      }));
+      let chipGroups = bank.chips.map(g => {
+        const secVal = String((g && (g.section || g.sectionName)) || '').trim();
+        return {
+          section: secVal || cleanSec || t('gsSectionGeneral', 'General Observations'),
+          color: String((g && g.color) || '').trim(),
+          type: String((g && (g.type || g.label || g.name || g.category)) || 'Criteria').trim() || 'Criteria',
+          items: Array.isArray(g && g.items) ? [...g.items] : []
+        };
+      });
 
-      let group = chipGroups.find(g => (g.section || '').toLowerCase() === cleanSec.toLowerCase() && g.type.toLowerCase() === cleanCat.toLowerCase());
+      function normSec(s) {
+        const str = String(s || '').trim().toLowerCase();
+        if (str === 'good points' || str === 'points forts') return 'good';
+        if (str === 'to remedy' || str === 'to improve' || str === 'a améliorer') return 'remedy';
+        return str;
+      }
+
+      let group = chipGroups.find(g =>
+        (normSec(g.section) === normSec(cleanSec) || (g.section || '').trim().toLowerCase() === cleanSec.toLowerCase()) &&
+        (g.type || '').trim().toLowerCase() === cleanCat.toLowerCase()
+      );
+      if (!group) {
+        group = chipGroups.find(g => (g.type || '').trim().toLowerCase() === cleanCat.toLowerCase());
+      }
       if (!group) {
         group = { section: cleanSec, color: cleanCol, type: cleanCat, items: [] };
         chipGroups.push(group);
-      } else if (cleanCol && !group.color) {
-        group.color = cleanCol;
+      } else {
+        if (!group.section) group.section = cleanSec;
+        if (cleanCol && !group.color) group.color = cleanCol;
       }
 
       if (group.items.some(it => String(it).trim().toLowerCase() === cleanChip.toLowerCase())) {
@@ -5115,61 +5292,11 @@
       group.items.push(cleanChip);
       bank.chips = chipGroups;
 
-      // Persist to disk and storage
-      if (targetFn === 'correction-criteria.js') {
-        window.OBSERVATION_CHECKLIST_GROUPS = chipGroups;
-        try {
-          localStorage.setItem(REFERENCE_PERSONALISED_CHIPS_STORAGE_KEY, JSON.stringify(chipGroups));
-        } catch (_) {}
-
-        if (window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron()) {
-          try {
-            let existingCriteria = [];
-            try {
-              const rootRes = await Desktop.readText('user', 'correction-criteria.js');
-              if (rootRes && rootRes.ok && rootRes.content) {
-                const critFn = new Function(rootRes.content + '\n;try{return typeof XLSM_CRITERIA !== "undefined" ? XLSM_CRITERIA : null;}catch(e){return null;}');
-                const cRes = critFn();
-                if (Array.isArray(cRes) && cRes.length) existingCriteria = cRes;
-              }
-            } catch (_) {}
-            if (!existingCriteria.length && typeof XLSM_CRITERIA !== 'undefined' && Array.isArray(XLSM_CRITERIA)) {
-              existingCriteria = XLSM_CRITERIA;
-            }
-            const content = `const XLSM_CRITERIA = ${JSON.stringify(existingCriteria, null, 2)};\n` +
-              `const OBSERVATION_CHECKLIST_GROUPS = ${JSON.stringify(chipGroups, null, 2)};\n`;
-            await Desktop.saveText('user', 'correction-criteria.js', content);
-          } catch (e) {
-            console.warn('Error saving observation chip to correction-criteria.js:', e);
-          }
-        }
-      } else {
-        try {
-          const lsKey = 'cmt-chips-' + targetFn.replace(/\.(js|json)$/i, '');
-          localStorage.setItem(lsKey, JSON.stringify(chipGroups));
-        } catch (_) {}
-
-        if (window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron()) {
-          try {
-            const isJson = targetFn.endsWith('.json');
-            const customChipsText = isJson
-              ? JSON.stringify(chipGroups, null, 2)
-              : `// OBSERVATION_CHECKLIST_GROUPS\nconst OBSERVATION_CHECKLIST_GROUPS = ${JSON.stringify(chipGroups, null, 2)};\n`;
-            await Desktop.saveText('customChips', targetFn, customChipsText);
-          } catch (e) {
-            console.warn('Error saving custom observation chip bank:', e);
-          }
-        }
+      const ok = await saveChipBankGroups(targetFn, chipGroups);
+      if (ok) {
+        showToast(t('gsToastChipAdded', 'Observation chip added to active bank'));
       }
-
-      if (typeof BroadcastChannel !== 'undefined') {
-        try {
-          new BroadcastChannel('cmt-chips').postMessage({ filename: targetFn });
-        } catch (_) {}
-      }
-
-      showToast(t('gsToastChipAdded', 'Observation chip added to active bank'));
-      return true;
+      return ok;
     }
 
     async function saveChipBankGroups(bankFilename, updatedChipGroups) {
@@ -5178,12 +5305,18 @@
         await loadAvailableChipBanks();
       }
 
-      let bank = _availableChipBanks.find(b => b.filename === targetFn);
+      let bank = _availableChipBanks.find(b =>
+        b.filename === targetFn ||
+        b.id === targetFn ||
+        b.name === targetFn ||
+        (b.filename && String(b.filename).replace(/\.(js|json)$/i, '') === String(targetFn).replace(/\.(js|json)$/i, ''))
+      );
       if (bank) {
         bank.chips = updatedChipGroups;
       }
 
-      if (targetFn === 'correction-criteria.js') {
+      const isDefault = targetFn === 'correction-criteria.js' || targetFn === 'default';
+      if (isDefault) {
         window.OBSERVATION_CHECKLIST_GROUPS = updatedChipGroups;
         try {
           localStorage.setItem(REFERENCE_PERSONALISED_CHIPS_STORAGE_KEY, JSON.stringify(updatedChipGroups));
@@ -5229,6 +5362,20 @@
         }
       }
 
+      // Keep Reference Data Editor draft in sync if open
+      if (typeof _refEditorDraft !== 'undefined' && _refEditorDraft && isDefault) {
+        _refEditorDraft.personalisedChips = updatedChipGroups;
+        const refPopup = document.querySelector('.ref-data-editor');
+        if (refPopup && !refPopup.closest('.hidden') && typeof renderReferenceDataEditor === 'function') {
+          try { renderReferenceDataEditor(); } catch (_) {}
+        }
+      }
+
+      // Refresh Test Options chip preview if that modal is active
+      if (typeof renderToptChipsPreview === 'function') {
+        try { renderToptChipsPreview(); } catch (_) {}
+      }
+
       // Broadcast changes across windows
       if (typeof BroadcastChannel !== 'undefined') {
         try {
@@ -5239,33 +5386,71 @@
       return true;
     }
 
-    async function reorderObservationChip(bankFilename, sourceCategory, chipName, targetCategory, targetIndex) {
+    async function reorderObservationChip(bankFilename, sourceCategory, chipName, targetCategory, targetIndex, sourceSection = null, targetSection = null) {
       const targetFn = bankFilename || _activeChipBankFilename || 'correction-criteria.js';
       if (!Array.isArray(_availableChipBanks) || !_availableChipBanks.length) {
         await loadAvailableChipBanks();
       }
 
-      let bank = _availableChipBanks.find(b => b.filename === targetFn);
+      let bank = _availableChipBanks.find(b =>
+        b.filename === targetFn ||
+        b.id === targetFn ||
+        b.name === targetFn ||
+        (b.filename && String(b.filename).replace(/\.(js|json)$/i, '') === String(targetFn).replace(/\.(js|json)$/i, ''))
+      );
       if (!bank || !Array.isArray(bank.chips)) return false;
 
-      let chipGroups = bank.chips.map(g => ({
-        section: String((g && (g.section || g.sectionName)) || t('gsSectionGeneral', 'General Observations')).trim() || t('gsSectionGeneral', 'General Observations'),
-        color: String((g && g.color) || '').trim(),
-        type: String((g && (g.type || g.label || g.name || g.category)) || 'Criteria').trim() || 'Criteria',
-        items: Array.isArray(g && g.items) ? [...g.items] : []
-      }));
+      let chipGroups = bank.chips.map(g => {
+        const secVal = String((g && (g.section || g.sectionName)) || '').trim();
+        return {
+          section: secVal || t('gsSectionGeneral', 'General Observations'),
+          color: String((g && g.color) || '').trim(),
+          type: String((g && (g.type || g.label || g.name || g.category)) || 'Criteria').trim() || 'Criteria',
+          items: Array.isArray(g && g.items) ? [...g.items] : []
+        };
+      });
 
-      const srcGroup = chipGroups.find(g => g.type.toLowerCase() === sourceCategory.toLowerCase());
+      function normSec(s) {
+        const str = String(s || '').trim().toLowerCase();
+        if (str === 'good points' || str === 'points forts') return 'good';
+        if (str === 'to remedy' || str === 'to improve' || str === 'a améliorer') return 'remedy';
+        return str;
+      }
+
+      let srcGroup = chipGroups.find(g => {
+        const catMatch = (g.type || '').trim().toLowerCase() === String(sourceCategory || '').trim().toLowerCase();
+        const secMatch = sourceSection ? (normSec(g.section) === normSec(sourceSection) || (g.section || '').trim().toLowerCase() === sourceSection.trim().toLowerCase()) : true;
+        const hasItem = Array.isArray(g.items) && g.items.some(it => String(it).trim().toLowerCase() === String(chipName || '').trim().toLowerCase());
+        return catMatch && secMatch && hasItem;
+      });
+
+      if (!srcGroup) {
+        srcGroup = chipGroups.find(g =>
+          (g.type || '').trim().toLowerCase() === String(sourceCategory || '').trim().toLowerCase() &&
+          Array.isArray(g.items) && g.items.some(it => String(it).trim().toLowerCase() === String(chipName || '').trim().toLowerCase())
+        );
+      }
+
       if (!srcGroup) return false;
 
-      const srcIdx = srcGroup.items.findIndex(it => String(it).trim().toLowerCase() === chipName.trim().toLowerCase());
+      const srcIdx = srcGroup.items.findIndex(it => String(it).trim().toLowerCase() === String(chipName || '').trim().toLowerCase());
       if (srcIdx === -1) return false;
 
       const [removed] = srcGroup.items.splice(srcIdx, 1);
 
-      let tgtGroup = chipGroups.find(g => g.type.toLowerCase() === targetCategory.toLowerCase());
+      const effTgtSec = targetSection || sourceSection || srcGroup.section || t('gsSectionGeneral', 'General Observations');
+      let tgtGroup = chipGroups.find(g => {
+        const catMatch = (g.type || '').trim().toLowerCase() === String(targetCategory || '').trim().toLowerCase();
+        const secMatch = normSec(g.section) === normSec(effTgtSec) || (g.section || '').trim().toLowerCase() === effTgtSec.trim().toLowerCase();
+        return catMatch && secMatch;
+      });
+
       if (!tgtGroup) {
-        tgtGroup = { section: srcGroup.section, color: srcGroup.color, type: targetCategory, items: [] };
+        tgtGroup = chipGroups.find(g => (g.type || '').trim().toLowerCase() === String(targetCategory || '').trim().toLowerCase());
+      }
+
+      if (!tgtGroup) {
+        tgtGroup = { section: effTgtSec, color: srcGroup.color || '', type: targetCategory, items: [] };
         chipGroups.push(tgtGroup);
       }
 
@@ -17934,17 +18119,38 @@
             if (!exists) {
               section.checklist.push(formatObservationChipItem(chipText, 1));
             }
+            if (typeof sortSectionChecklistByBank === 'function') {
+              section.checklist = sortSectionChecklistByBank(section.checklist, _activeChipBankFilename);
+            }
 
             closePopup();
 
-            if (block && typeof updateSectionAppearance === 'function') {
-              updateSectionAppearance(block, section);
-            } else if (typeof refreshObservationChecklists === 'function') {
-              refreshObservationChecklists();
+            // If section label was empty, assign section name to it so it matches the bank
+            if (!section.label) {
+              section.label = sec;
+              if (block) {
+                const lblInput = block.querySelector('.note-section-label');
+                if (lblInput) lblInput.value = sec;
+              }
+            }
+
+            // Always refresh all observation checklist sections in the student scoring modal
+            refreshObservationChecklists();
+
+            // Refresh Test Options preview if that modal is active
+            if (typeof renderToptChipsPreview === 'function') {
+              try { renderToptChipsPreview(); } catch (_) {}
+            }
+
+            // Refresh Reference Data Editor chips if open
+            if (typeof renderReferenceDataEditor === 'function') {
+              const refPopup = document.querySelector('.ref-data-editor');
+              if (refPopup && !refPopup.closest('.hidden')) {
+                try { renderReferenceDataEditor(); } catch (_) {}
+              }
             }
 
             autoSaveStudentModal(false);
-            showToast(t('gsToastChipAdded', 'Observation chip added to active bank'));
           } finally {
             submitBtn.disabled = false;
           }
@@ -18157,7 +18363,18 @@
               if (data && data.chipName && data.category) {
                 if (e.target === inlineGroup || e.target === sectionTag || sectionTag.contains(e.target)) {
                   const targetIndex = group.items.length;
-                  await reorderObservationChip(_activeChipBankFilename, data.category, data.chipName, group.type, targetIndex);
+                  await reorderObservationChip(
+                    _activeChipBankFilename,
+                    data.category,
+                    data.chipName,
+                    group.type,
+                    targetIndex,
+                    data.section || section.label,
+                    section.label
+                  );
+                  if (typeof sortSectionChecklistByBank === 'function') {
+                    section.checklist = sortSectionChecklistByBank(section.checklist, _activeChipBankFilename);
+                  }
                   refreshObservationChecklists();
                   autoSaveStudentModal(false);
                 }
@@ -18210,7 +18427,10 @@
               } else {
                 currentMap.set(name.toLowerCase(), { name, count, comment: (comment || '').trim() });
               }
-              section.checklist = Array.from(currentMap.values()).map(v => formatObservationChipItem(v.name, v.count, v.comment));
+              const formattedList = Array.from(currentMap.values()).map(v => formatObservationChipItem(v.name, v.count, v.comment));
+              section.checklist = typeof sortSectionChecklistByBank === 'function'
+                ? sortSectionChecklistByBank(formattedList, _activeChipBankFilename)
+                : formattedList;
             };
 
             updateChipVisual(currentCount, currentComment);
@@ -18244,6 +18464,7 @@
               chip.classList.add("dragging");
               e.dataTransfer.effectAllowed = "move";
               e.dataTransfer.setData("text/plain", JSON.stringify({
+                section: section.label || '',
                 category: group.type,
                 chipName: name,
                 index: chipIdx
@@ -18292,9 +18513,21 @@
                   const midX = rect.left + rect.width / 2;
                   let targetIdx = chipIdx;
                   if (e.clientX >= midX) targetIdx = chipIdx + 1;
-                  if (data.category === group.type && data.index < targetIdx) targetIdx--;
-                  if (data.category === group.type && data.index === targetIdx) return;
-                  await reorderObservationChip(_activeChipBankFilename, data.category, data.chipName, group.type, targetIdx);
+                  const isSameCategoryAndSection = (data.category === group.type) && (!data.section || !section.label || data.section.toLowerCase() === section.label.toLowerCase());
+                  if (isSameCategoryAndSection && data.index < targetIdx) targetIdx--;
+                  if (isSameCategoryAndSection && data.index === targetIdx) return;
+                  await reorderObservationChip(
+                    _activeChipBankFilename,
+                    data.category,
+                    data.chipName,
+                    group.type,
+                    targetIdx,
+                    data.section || section.label,
+                    section.label
+                  );
+                  if (typeof sortSectionChecklistByBank === 'function') {
+                    section.checklist = sortSectionChecklistByBank(section.checklist, _activeChipBankFilename);
+                  }
                   refreshObservationChecklists();
                   autoSaveStudentModal(false);
                 }
@@ -18960,6 +19193,9 @@
 
       saveState(classObj ? classObj.id : null, sem, testIndex);
       renderSummary();
+      if (classObj && sem && testIndex != null && typeof renderTestTopChips === 'function') {
+        renderTestTopChips(classObj, sem, testIndex);
+      }
 
       // Refresh the row in-place
       const targetTr = tr || document.querySelector(`#test-table tbody tr[data-student-id="${student.id}"]`);
@@ -18988,9 +19224,17 @@
     }
 
     function closeStudentModal() {
-      flushStudentModalAutoSave();
-      document.getElementById("student-modal-overlay").classList.add("hidden");
-      _studentModalDraft = null;
+      if (_studentModalDraft) {
+        const { classObj, sem, testIndex } = _studentModalDraft;
+        flushStudentModalAutoSave();
+        document.getElementById("student-modal-overlay").classList.add("hidden");
+        _studentModalDraft = null;
+        if (classObj && sem && testIndex != null && typeof renderTestTopChips === 'function') {
+          renderTestTopChips(classObj, sem, testIndex);
+        }
+      } else {
+        document.getElementById("student-modal-overlay").classList.add("hidden");
+      }
     }
 
     function updateStudentRow(tr, student, sem, testIndex, config, classObj) {

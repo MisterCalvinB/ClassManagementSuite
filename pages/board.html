@@ -10720,6 +10720,7 @@
       if (!id) return null;
       return conAttachments.find(item => item.id === id) || null;
     }
+    window.conFindAttachmentById = conFindAttachmentById;
 
     function conResolvePdfBackgroundAttachment(bg) {
       if (!bg) return null;
@@ -19661,35 +19662,64 @@
       }
 
 
-      window.conScrollToTop = function () {
-        const doScroll = () => {
+      window.conScrollToTop = function (opts) {
+        opts = opts || {};
+        const threshold = (typeof opts.threshold === 'number') ? opts.threshold : 400;
+        const behavior = opts.behavior || 'smooth';
+        const force = !!opts.force;
+
+        const brd = document.getElementById('constellation-board');
+        const stickyWrapper = document.getElementById('con-sticky-wrapper');
+        const sec = document.getElementById('constellation-section');
+
+        const pageScrollY = window.pageYOffset || window.scrollY || (document.documentElement ? document.documentElement.scrollTop : 0) || (document.body ? document.body.scrollTop : 0) || 0;
+        const brdScrollY = brd ? (brd.scrollTop || 0) : 0;
+        const brdScrollX = brd ? (brd.scrollLeft || 0) : 0;
+
+        // Calculate target scroll position that aligns the constellation board / sticky toolbar at the top of the viewport
+        let targetPageY = 0;
+        if (brd) {
+          const brdRect = brd.getBoundingClientRect();
+          const boardDocTop = brdRect.top + pageScrollY;
+          const wrapperHeight = (stickyWrapper && stickyWrapper.offsetHeight) ? stickyWrapper.offsetHeight : 0;
+          targetPageY = Math.max(0, Math.round(boardDocTop - wrapperHeight));
+        }
+
+        const pageScrolledDown = (pageScrollY - targetPageY) > threshold;
+        const boardScrolledDown = (brdScrollY > threshold) || (brdScrollX > threshold);
+
+        // Only scroll if a certain scroll down is present (> 400px) or forced
+        if (!force && !pageScrolledDown && !boardScrolledDown) {
+          return;
+        }
+
+        // 1. Scroll outer window/page to top of constellation board / sticky toolbar if scrolled down
+        if (force || pageScrolledDown) {
           try {
-            window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+            window.scrollTo({ top: targetPageY, left: 0, behavior: behavior });
           } catch (_) {
-            window.scrollTo(0, 0);
+            window.scrollTo(0, targetPageY);
           }
-          if (document.documentElement) {
-            document.documentElement.scrollTop = 0;
-            document.documentElement.scrollLeft = 0;
-          }
-          if (document.body) {
-            document.body.scrollTop = 0;
-            document.body.scrollLeft = 0;
-          }
-          const sec = document.getElementById('constellation-section');
-          if (sec) {
-            sec.scrollTop = 0;
-            sec.scrollLeft = 0;
-          }
-          const brd = document.getElementById('constellation-board');
-          if (brd) {
+        }
+
+        // 2. Reset internal board canvas scroll smoothly if canvas was scrolled down or outer page adjusted
+        if (brd && (force || boardScrolledDown || brdScrollY > 0 || brdScrollX > 0)) {
+          try {
+            brd.scrollTo({ top: 0, left: 0, behavior: behavior });
+          } catch (_) {
             brd.scrollTop = 0;
             brd.scrollLeft = 0;
           }
-        };
-        doScroll();
-        if (typeof requestAnimationFrame === 'function') {
-          requestAnimationFrame(doScroll);
+        }
+
+        // 3. Reset section scroll if it has any overflow scroll
+        if (sec && (force || sec.scrollTop > threshold || sec.scrollLeft > threshold)) {
+          try {
+            sec.scrollTo({ top: 0, left: 0, behavior: behavior });
+          } catch (_) {
+            sec.scrollTop = 0;
+            sec.scrollLeft = 0;
+          }
         }
       };
 
@@ -19706,7 +19736,7 @@
         if (Array.isArray(_conPageSnapshotPngs)) _conPageSnapshotPngs.push(null);
         conCurrentPageIndex = conPageSnapshots.length - 1;
 
-        _conRestorePageToBoard(emptySnap);
+        _conRestorePageToBoard(emptySnap, { scrollToTop: false });
         if (typeof window.conScrollToTop === 'function') window.conScrollToTop();
         conUpdatePageBar();
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
@@ -19753,7 +19783,7 @@
         // Fallback: Cache miss (first visit to this page or cache was cleared)
         if (!mountedFromCache) {
           const targetSnap = conPageSnapshots[conCurrentPageIndex];
-          _conRestorePageToBoard(targetSnap);
+          _conRestorePageToBoard(targetSnap, { scrollToTop: false });
         }
 
         if (typeof window.conScrollToTop === 'function') window.conScrollToTop();
@@ -45199,6 +45229,22 @@
         ? (allPages.filter(isPageNonEmpty).length > 0 ? allPages.filter(isPageNonEmpty) : allPages.slice(0, 1))
         : allPages;
 
+      // 1. PRIMARY: Headless vector SVG BoardExportService (instant, crisp vector PDF, no DOM teardowns or slider reloading)
+      if (window.BoardExportService && typeof window.BoardExportService.exportPagesPdf === 'function') {
+        try {
+          const res = await window.BoardExportService.exportPagesPdf(pagesToProcess, {
+            title: titleVal,
+            orientation: 'landscape'
+          });
+          if (res && (res.ok || res.canceled)) {
+            return res;
+          }
+        } catch (err) {
+          console.warn('[Board Export] Headless exportPagesPdf error, falling back to raster canvas loader:', err);
+        }
+      }
+
+      // 2. FALLBACK: Canvas rasterization loader if headless service is unavailable or encountered an error
       const origIndex = conCurrentPageIndex;
       const dataUrls = [];
 

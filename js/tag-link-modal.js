@@ -2421,9 +2421,93 @@
   var _activeExportDossier = null;
   var _dossierPreviewZoom = 1.0;
 
+  function normalizeMindmapRelPath(pathOrUrn) {
+    if (!pathOrUrn) return '';
+    var str = String(pathOrUrn).trim().replace(/\\/g, '/');
+    try {
+      if (str.includes('%')) str = decodeURIComponent(str);
+    } catch (_) {}
+    str = str.replace(/^cmt:(?:board|mindmap|constellation):/i, '');
+    str = str.replace(/^\/+/, '');
+    str = str.replace(/^user\/(?:mindmaps|constellations|board)\//i, '');
+    str = str.replace(/^(?:mindmaps|constellations|board)\//i, '');
+    return str.replace(/^\/+/, '');
+  }
+
+  function sanitizeDossier(dossier) {
+    if (!dossier) return dossier;
+    if (Array.isArray(dossier.boards)) {
+      var seenBoardKeys = new Set();
+      var cleanBoards = [];
+      dossier.boards.forEach(function(b) {
+        if (!b) return;
+        var rel = normalizeMindmapRelPath(b.relativePath || b.urn || b.title);
+        var key = rel.toLowerCase();
+        if (seenBoardKeys.has(key)) return;
+        seenBoardKeys.add(key);
+        var cUrn = 'cmt:board:' + rel;
+        var cleanSub = b.subtitle || '';
+        if (cleanSub) {
+          var parts = cleanSub.split(/\s*•\s*/);
+          var filteredParts = [];
+          parts.forEach(function(p) {
+            var trimmed = p.trim();
+            if (!trimmed) return;
+            var normP = normalizeMindmapRelPath(trimmed);
+            if (/^(?:user\/)?(?:mindmaps|constellations|board)\//i.test(trimmed)) {
+              if (normP.includes('/')) {
+                filteredParts.push(normP);
+              }
+              return;
+            }
+            filteredParts.push(trimmed);
+          });
+          cleanSub = filteredParts.join(' • ');
+        }
+        cleanBoards.push(Object.assign({}, b, {
+          urn: cUrn,
+          relativePath: rel,
+          subtitle: cleanSub
+        }));
+      });
+      dossier.boards = cleanBoards;
+    }
+
+    if (Array.isArray(dossier.documents)) {
+      var seenDocKeys = new Set();
+      var cleanDocs = [];
+      dossier.documents.forEach(function(d) {
+        if (!d) return;
+        var dUrn = d.urn || '';
+        var dRel = (d.relativePath || '').replace(/\\/g, '/');
+        var isMindmapDoc = dRel.startsWith('user/mindmaps/') || dRel.startsWith('mindmaps/') ||
+          dUrn.includes(':board:') || (d.badge && (d.badge.includes('MINDMAP') || d.badge.includes('CONSTELLATION')));
+        if (isMindmapDoc) {
+          var mRel = normalizeMindmapRelPath(dRel || dUrn || d.title);
+          var mKey = 'mindmap:' + mRel.toLowerCase();
+          if (seenDocKeys.has(mKey)) return;
+          seenDocKeys.add(mKey);
+          if (Array.isArray(dossier.boards)) {
+            var inBoards = dossier.boards.some(function(b) {
+              return normalizeMindmapRelPath(b.relativePath || b.urn).toLowerCase() === mRel.toLowerCase();
+            });
+            if (inBoards) return;
+          }
+        }
+        var docKey = (dUrn || dRel || d.title || '').toLowerCase();
+        if (seenDocKeys.has(docKey)) return;
+        seenDocKeys.add(docKey);
+        cleanDocs.push(d);
+      });
+      dossier.documents = cleanDocs;
+    }
+    return dossier;
+  }
+
   async function loadBoardMindmapData(boardUrnOrPath) {
     if (!boardUrnOrPath) return null;
-    var rel = String(boardUrnOrPath).replace(/^cmt:board:/, '').replace(/^user\/mindmaps\//, '').replace(/^user\/constellations\//, '');
+    var rel = normalizeMindmapRelPath(boardUrnOrPath);
+    if (!rel) return null;
     if (_dossierMindmapCache[rel]) return _dossierMindmapCache[rel];
 
     if (window.Desktop && typeof window.Desktop.isElectron === 'function' && window.Desktop.isElectron()) {
@@ -2963,6 +3047,7 @@
 
   async function openDossierPdfExportModal(dossier) {
     if (!dossier) return;
+    sanitizeDossier(dossier);
     _activeExportDossier = dossier;
     ensureDossierPdfModalDom();
 
@@ -3440,6 +3525,7 @@
   }
 
   function generateDossierPdfHtml(dossier, options, mindmapCache) {
+    if (dossier) sanitizeDossier(dossier);
     options = options || {};
     mindmapCache = mindmapCache || _dossierMindmapCache || {};
     var st = (dossier && dossier.student) || {};
@@ -4209,7 +4295,7 @@
       } else {
         filteredBoards.forEach(function(bdItem) {
           var bUrn = bdItem.urn || '';
-          var rel = bUrn.replace(/^cmt:board:/, '').replace(/^user\/mindmaps\//, '');
+          var rel = normalizeMindmapRelPath(bdItem.urn || bdItem.relativePath || '');
           var bData = mindmapCache[rel] || null;
 
           html +=
@@ -4539,6 +4625,7 @@
 
   async function exportDossierMindmapsPdf(dossier, options) {
     if (!dossier) return;
+    sanitizeDossier(dossier);
     options = options || {};
     var st = dossier.student || {};
     var boards = dossier.boards || [];
@@ -4583,7 +4670,7 @@
       '</style>\n</head>\n<body>\n';
 
     selectedBoards.forEach(function(bUrn, idx) {
-      var rel = bUrn.replace(/^cmt:board:/, '').replace(/^user\/mindmaps\//, '');
+      var rel = normalizeMindmapRelPath(bUrn);
       var bData = _dossierMindmapCache[rel];
       var bTitle = (bData && bData.title) ? bData.title : rel.replace(/\.(cstz|json|zip)$/i, '').replace(/_/g, ' ');
 
@@ -4658,6 +4745,8 @@
     var bodyEl = document.getElementById('cmt-dos-body');
     if (!bodyEl || !dossier || !dossier.student) return;
 
+    sanitizeDossier(dossier);
+
     var order = sortOrder || _dossierSortOrder || 'date-desc';
     var st = dossier.student;
     var pt = dossier.participationSummary || {};
@@ -4667,7 +4756,19 @@
     var sortedEvals = sortDossierItemList(dossier.evaluations || [], order);
     var sortedComps = sortDossierItemList(dossier.competences || [], order);
     var sortedLessons = sortDossierItemList(dossier.lessons || [], order);
-    var allWork = [].concat(dossier.documents || [], dossier.boards || []);
+    var allWorkRaw = [].concat(dossier.documents || [], dossier.boards || []);
+    var seenWorkKeys = new Set();
+    var allWork = [];
+    allWorkRaw.forEach(function(item) {
+      if (!item) return;
+      var isMm = item.type === 'board' || (item.urn && item.urn.startsWith('cmt:board:')) || (item.badge && item.badge.includes('MINDMAP'));
+      var workKey = isMm
+        ? ('mm:' + normalizeMindmapRelPath(item.relativePath || item.urn || item.title).toLowerCase())
+        : ('doc:' + (item.urn || item.relativePath || item.title || '').toLowerCase());
+      if (seenWorkKeys.has(workKey)) return;
+      seenWorkKeys.add(workKey);
+      allWork.push(item);
+    });
     var sortedWork = sortDossierItemList(allWork, order);
     var sortedPtSessions = sortDossierItemList(rawPtSessions, order);
 
@@ -5151,6 +5252,9 @@
     var dossier = null;
     if (window.LinksService && typeof window.LinksService.getStudentAcademicDossier === 'function') {
       dossier = await window.LinksService.getStudentAcademicDossier(cleanId, opts);
+    }
+    if (dossier) {
+      sanitizeDossier(dossier);
     }
     _currentDossierData = dossier;
 

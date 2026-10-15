@@ -197,6 +197,7 @@
       masks: masks,
       boardStickers: boardStickers,
       backgroundPdf: raw.backgroundPdf || null,
+      boardBg: raw.boardBg || null,
       boardBgColor: raw.boardBgColor || raw.boardBackgroundColor || raw._conBoardBgColor || '#ffffff'
     };
   }
@@ -351,6 +352,20 @@
       '  </marker>\n' +
       '</defs>\n';
 
+    // Background image
+    if (data.boardBg) {
+      var bgSrc = data.boardBg._cachedDataUrl || data.boardBg.dataUrl || '';
+      if (!bgSrc && typeof window !== 'undefined' && typeof window.conFindAttachmentById === 'function' && data.boardBg.attachmentId) {
+        var bgAtt = window.conFindAttachmentById(data.boardBg.attachmentId);
+        if (bgAtt) {
+          bgSrc = bgAtt._cachedDataUrl || bgAtt.dataUrl || (bgAtt.base64 ? ('data:' + (bgAtt.mime || 'image/png') + ';base64,' + bgAtt.base64) : (bgAtt._cachedObjectUrl || bgAtt.relativePath || ''));
+        }
+      }
+      if (bgSrc) {
+        svg += '  <image href="' + escapeXml(bgSrc) + '" x="' + minX + '" y="' + minY + '" width="' + width + '" height="' + height + '" preserveAspectRatio="none" opacity="0.9" />\n';
+      }
+    }
+
     // 1. Groups
     groups.forEach(function (g) {
       if (g.invisible) return;
@@ -391,6 +406,11 @@
           var domImg = document.querySelector('.con-media-item[data-id="' + m.id + '"] img') ||
             document.querySelector('img[data-attachment-id="' + m.attachmentId + '"]');
           if (domImg && domImg.src) imgSrc = domImg.src;
+          var domCanvas = document.querySelector('.con-media-item[data-id="' + m.id + '"] canvas.con-media-pdf-canvas') ||
+            document.querySelector('.con-media-item[data-id="' + m.id + '"] canvas');
+          if (!imgSrc && domCanvas && typeof domCanvas.toDataURL === 'function') {
+            try { imgSrc = domCanvas.toDataURL('image/png'); } catch (_) { }
+          }
         }
       }
 
@@ -628,7 +648,10 @@
 
       var nText = nt.text || nt.content || '';
       if (!nText && nt.html) {
-        nText = String(nt.html)
+        nText = nt.html;
+      }
+      if (nText && /<[a-z][\s\S]*>/i.test(nText)) {
+        nText = String(nText)
           .replace(/<br\s*\/?>/gi, '\n')
           .replace(/<\/p>/gi, '\n')
           .replace(/<\/div>/gi, '\n')
@@ -1153,11 +1176,12 @@
     var pagesHtml = '';
     for (var i = 0; i < pages.length; i++) {
       var p = pages[i];
-      var svgStr = renderSessionToSvg(p, { maxHeight: '92vh', padding: 40 });
+      var svgStr = renderSessionToSvg(p, { maxHeight: 'calc(100vh - 46px)', padding: 40 });
+      var badgeText = pages.length > 1 ? ('[PAGE ' + (i + 1) + ' OF ' + pages.length + ']') : '[BOARD]';
       pagesHtml += '<div class="pg">\n' +
         '  <div class="pg-hdr">\n' +
         '    <span class="pg-title">' + escapeHtml(title) + '</span>\n' +
-        '    <span class="pg-badge">[PAGE ' + (i + 1) + ' OF ' + pages.length + ']</span>\n' +
+        '    <span class="pg-badge">' + badgeText + '</span>\n' +
         '  </div>\n' +
         svgStr + '\n' +
         '</div>\n';
@@ -1171,11 +1195,12 @@
       '@media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } button { display: none; } }\n' +
       '* { box-sizing: border-box; margin: 0; padding: 0; }\n' +
       'body { font-family: "Lexend", "Segoe UI", Arial, sans-serif; background: #fff; color: #111; margin: 0; padding: 0; }\n' +
-      '.pg { page-break-after: always; break-after: page; display: flex; flex-direction: column; justify-content: flex-start; height: 100vh; overflow: hidden; padding: 10px 0; }\n' +
+      '.pg { page-break-after: always; break-after: page; display: flex; flex-direction: column; justify-content: flex-start; height: 100vh; max-height: 100vh; overflow: hidden; padding: 10px 0; box-sizing: border-box; page-break-inside: avoid; break-inside: avoid; }\n' +
       '.pg:last-child { page-break-after: avoid; break-after: avoid; }\n' +
-      '.pg-hdr { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; padding-bottom: 6px; margin-bottom: 10px; }\n' +
+      '.pg-hdr { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; padding-bottom: 6px; margin-bottom: 10px; flex-shrink: 0; }\n' +
       '.pg-title { font-size: 13pt; font-weight: 800; text-transform: uppercase; color: #111; }\n' +
       '.pg-badge { font-size: 8pt; font-weight: 800; background: #3b82f6; color: #fff; padding: 2px 8px; border: 1.5px solid #333; border-radius: 4px; }\n' +
+      '.bes-mindmap-svg { flex: 1; width: 100%; max-height: calc(100vh - 46px); object-fit: contain; }\n' +
       '</style>\n</head>\n<body>\n' + pagesHtml + '</body>\n</html>';
 
     return html;
@@ -1203,7 +1228,7 @@
             filename: defaultName,
             allowDocEditor: false
           });
-          if (!destRes || destRes.canceled) return;
+          if (!destRes || destRes.canceled) return { ok: false, canceled: true };
         }
 
         var targetFilename = (destRes && destRes.filename) ? destRes.filename : defaultName;

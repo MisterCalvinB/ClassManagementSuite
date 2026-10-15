@@ -1909,13 +1909,9 @@ async function deleteFolderConfirm(folderName, fileCount, prefix, row) {
     fileCount + ' ' + (fileCount === 1 ? 'file' : 'files') + ' inside. This cannot be undone.';
   if (!await showConfirm(msg)) return;
   var folderPath = prefix + folderName;
-  Desktop.deleteByPath(browseTarget, folderPath).then(function(res) {
+  Desktop.deleteByPath(browseTarget, folderPath).then(async function(res) {
     if (res && res.ok) {
-      browseAllFiles = browseAllFiles.filter(function(f) {
-        var rel = normPath(f.relativePath || f.filename || '');
-        return rel !== folderPath && !rel.startsWith(folderPath + '/');
-      });
-      renderBrowse();
+      await loadBrowse({ preservePath: true });
     } else {
       showToast(tt('fmDeleteFailed', 'Delete failed.'), true);
     }
@@ -2557,8 +2553,7 @@ document.getElementById('browseTarget').addEventListener('change', function() {
   loadBrowse();
 });
 document.getElementById('browseRefresh').addEventListener('click', function() {
-  browsePath = '';
-  loadBrowse();
+  loadBrowse({ preservePath: true });
 });
 document.getElementById('browseAddFolder').addEventListener('click', async function() {
   if (!window.Desktop || !Desktop.isElectron() || typeof Desktop.createDirectoryByPath !== 'function') {
@@ -3033,8 +3028,11 @@ document.addEventListener('DOMContentLoaded', function() {
           try {
             var r = await Desktop.deleteByPath(file.target, relPath, { trash: true });
             if (r && r.ok) {
-              browseAllFiles = browseAllFiles.filter(function(x) { return x !== file; });
-              renderBrowse();
+              rfSessions = rfSessions.filter(function(x) { return (x.relativePath || x.filename) !== relPath; });
+              rfArchivedSessions = rfArchivedSessions.filter(function(x) { return (x.relativePath || x.filename) !== relPath; });
+              rfDocs = rfDocs.filter(function(x) { return (x.relativePath || x.filename) !== relPath; });
+              rfArchivedDocs = rfArchivedDocs.filter(function(x) { return (x.relativePath || x.filename) !== relPath; });
+              await loadBrowse({ preservePath: true });
             } else { showToast(tt('fmDeleteFailed','Delete failed.'), true); }
           } catch(ex) { showToast(tt('fmDeleteFailed','Delete failed.'), true); }
         }});
