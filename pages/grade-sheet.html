@@ -356,6 +356,22 @@
         <button id="gs-rename-review-btn" class="btn" type="button" data-i18n="gsRenamesReviewBtn">Review</button>
       </div>
 
+      <div id="summary-top-chips-card" class="gs-top-chips-card">
+        <div class="gs-top-chips-header" onclick="toggleSummaryTopChips()">
+          <div class="gs-top-chips-title-wrap">
+            <img src="../assets/icons/speech-bubbles.svg" class="btn-icon" alt="" />
+            <span class="gs-top-chips-title" data-i18n="gsTopChipsClassTitle">Top 10 Most Frequent Observation Chips</span>
+            <span id="summary-top-chips-badge" class="gs-top-chips-count-badge">0 chips</span>
+          </div>
+          <button id="summary-top-chips-toggle-btn" class="btn btn-xs gs-top-chips-toggle" type="button" aria-label="Toggle observation chips summary" data-i18n-title="gsTopChipsCollapse" title="Toggle observation chips summary">
+            <img src="../assets/icons/chevron-down.svg" class="btn-icon" alt="" id="summary-top-chips-arrow" />
+          </button>
+        </div>
+        <div id="summary-top-chips-body" class="gs-top-chips-body">
+          <div id="summary-top-chips-list" class="gs-top-chips-grid"></div>
+        </div>
+      </div>
+
       <div class="table-wrap" style="margin-top: 10px;">
         <table id="summary-table">
           <thead></thead>
@@ -472,6 +488,22 @@
 
       <div id="test-config" class="test-config"></div>
 
+      <div id="test-top-chips-card" class="gs-top-chips-card">
+        <div class="gs-top-chips-header" onclick="toggleTestTopChips()">
+          <div class="gs-top-chips-title-wrap">
+            <img src="../assets/icons/speech-bubbles.svg" class="btn-icon" alt="" />
+            <span class="gs-top-chips-title" data-i18n="gsTopChipsTestTitle">Top 10 Observation Chips for this Test</span>
+            <span id="test-top-chips-badge" class="gs-top-chips-count-badge">0 chips</span>
+          </div>
+          <button id="test-top-chips-toggle-btn" class="btn btn-xs gs-top-chips-toggle" type="button" aria-label="Toggle observation chips summary" data-i18n-title="gsTopChipsCollapse" title="Toggle observation chips summary">
+            <img src="../assets/icons/chevron-down.svg" class="btn-icon" alt="" id="test-top-chips-arrow" />
+          </button>
+        </div>
+        <div id="test-top-chips-body" class="gs-top-chips-body">
+          <div id="test-top-chips-list" class="gs-top-chips-grid"></div>
+        </div>
+      </div>
+
       <div class="table-wrap editable-table">
         <table id="test-table">
           <thead></thead>
@@ -559,6 +591,23 @@
       <!-- Main Compare Content -->
       <div id="cmp-content-area" class="cmp-content-area">
         <div id="cmp-kpi-container" class="cmp-kpi-container"></div>
+
+        <!-- Top 10 Observation Chips Card (Cohort Comparison) -->
+        <div id="cmp-top-chips-card" class="gs-top-chips-card cmp-top-chips-card hidden">
+          <div class="gs-top-chips-header" id="cmp-top-chips-header" role="button" tabindex="0" aria-expanded="true">
+            <div class="gs-top-chips-title-wrap">
+              <span class="gs-top-chips-title" data-i18n="gsTopChipsCompareTitle">Top 10 Most Frequent Observation Chips (Cohort)</span>
+              <span class="gs-top-chips-count-badge" id="cmp-top-chips-badge">0</span>
+            </div>
+            <button class="gs-top-chips-toggle" type="button" aria-label="Toggle Top Chips" data-i18n-title="gsTopChipsCollapse" title="Collapse / Expand">
+              <img src="../assets/icons/chevron-down.svg" alt="" />
+            </button>
+          </div>
+          <div class="gs-top-chips-body" id="cmp-top-chips-body">
+            <div class="gs-top-chips-grid" id="cmp-top-chips-grid"></div>
+          </div>
+        </div>
+
         <div id="cmp-matrix-container" class="cmp-matrix-container"></div>
         <div id="cmp-charts-container" class="cmp-charts-container"></div>
       </div>
@@ -2258,45 +2307,127 @@
       return !!sectionDisplayText(section).trim();
     }
 
+    function resolveObservationSectionColor(secOrLabel, kind = '', bankFilename = null) {
+      if (secOrLabel && typeof secOrLabel === 'object') {
+        if (secOrLabel.color && String(secOrLabel.color).trim()) {
+          return String(secOrLabel.color).trim();
+        }
+        if (!kind && secOrLabel.kind) kind = secOrLabel.kind;
+        secOrLabel = secOrLabel.label || secOrLabel.name || '';
+      }
+      const label = String(secOrLabel || '').trim();
+      const lblLower = label.toLowerCase();
+      const k = String(kind || '').trim().toLowerCase();
+
+      // 1. Kind checks
+      if (k === 'goodpoints') return '#16a34a';
+      if (k === 'toremedy') return '#dc2626';
+      if (k === 'action') return '#d97706';
+
+      // 2. Chip bank section checks
+      const targetBank = bankFilename || (typeof _activeChipBankFilename !== 'undefined' ? _activeChipBankFilename : null);
+      if (typeof getObservationSectionsWithGroups === 'function') {
+        const bankSections = getObservationSectionsWithGroups(targetBank);
+        if (Array.isArray(bankSections)) {
+          const match = bankSections.find(bs => String(bs.name || '').trim().toLowerCase() === lblLower);
+          if (match && match.color) return match.color;
+        }
+      }
+      if (typeof getObservationChecklistGroups === 'function') {
+        const groups = getObservationChecklistGroups(targetBank);
+        if (Array.isArray(groups)) {
+          const gMatch = groups.find(g =>
+            String(g.section || '').trim().toLowerCase() === lblLower ||
+            String(g.type || '').trim().toLowerCase() === lblLower
+          );
+          if (gMatch && gMatch.color) return gMatch.color;
+        }
+      }
+
+      // 3. Multilingual keyword matching (FR, EN, DE, IT)
+      if (
+        lblLower.includes('good') || lblLower.includes('bien') || lblLower.includes('fort') ||
+        lblLower.includes('strength') || lblLower.includes('positif') || lblLower.includes('succès') ||
+        lblLower.includes('stärk') || lblLower.includes('lob') || lblLower.includes('positi') ||
+        lblLower.includes('ottim') || lblLower.includes('bene') || lblLower.includes('reussi') ||
+        lblLower.includes('acquis') || lblLower.includes('maîtris')
+      ) {
+        return '#16a34a';
+      }
+
+      if (
+        lblLower.includes('remedy') || lblLower.includes('remédi') || lblLower.includes('improv') ||
+        lblLower.includes('amélio') || lblLower.includes('faible') || lblLower.includes('difficul') ||
+        lblLower.includes('progress') || lblLower.includes('attention') || lblLower.includes('schwach') ||
+        lblLower.includes('schwäch') || lblLower.includes('fehler') || lblLower.includes('criti') ||
+        lblLower.includes('lacune') || lblLower.includes('manque')
+      ) {
+        return '#dc2626';
+      }
+
+      if (
+        lblLower.includes('action') || lblLower.includes('plan') || lblLower.includes('next') ||
+        lblLower.includes('étape') || lblLower.includes('conseil') || lblLower.includes('objectif') ||
+        lblLower.includes('but') || lblLower.includes('ziel') || lblLower.includes('prossim')
+      ) {
+        return '#d97706';
+      }
+
+      if (
+        lblLower.includes('gramm') || lblLower.includes('orthog') || lblLower.includes('vocab') ||
+        lblLower.includes('lexiq') || lblLower.includes('lang') || lblLower.includes('syntax') ||
+        lblLower.includes('sprach') || lblLower.includes('lingua')
+      ) {
+        return '#0284c7';
+      }
+
+      if (
+        lblLower.includes('méthod') || lblLower.includes('method') || lblLower.includes('organis') ||
+        lblLower.includes('travail') || lblLower.includes('soin') || lblLower.includes('structur') ||
+        lblLower.includes('zeit') || lblLower.includes('gest')
+      ) {
+        return '#7c3aed';
+      }
+
+      return '#0284c7';
+    }
+
+    function resolveObservationChipColor(chipName, sectionColor = '', sampleKind = '', sampleLabel = '', bankFilename = null) {
+      const nameLower = String(chipName || '').trim().toLowerCase();
+      const targetBank = bankFilename || (typeof _activeChipBankFilename !== 'undefined' ? _activeChipBankFilename : null);
+
+      if (typeof getObservationChecklistGroups === 'function') {
+        const groups = getObservationChecklistGroups(targetBank);
+        if (Array.isArray(groups)) {
+          for (const g of groups) {
+            if (Array.isArray(g.items) && g.items.some(item => String(item || '').trim().toLowerCase() === nameLower)) {
+              if (g.color) return g.color;
+              if (g.section) {
+                const secCol = resolveObservationSectionColor(g.section, '', targetBank);
+                if (secCol) return secCol;
+              }
+            }
+          }
+        }
+      }
+
+      if (sectionColor && sectionColor !== '#555555' && sectionColor !== '#555' && sectionColor !== '#0f172a') {
+        return sectionColor;
+      }
+
+      return resolveObservationSectionColor(sampleLabel, sampleKind, targetBank);
+    }
+
     function renderObservationPill(nameOrObj, kind, label) {
       const parsed = parseObservationChipItem(nameOrObj);
       const name = parsed.name;
       const count = parsed.count;
       const lbl = String(label || "").trim();
-      const lblLower = lbl.toLowerCase();
-      let border = "#0284c7";
-      let bg = "#e0f2fe";
-      let color = "#0369a1";
-      let pillClass = "obs-pill obs-pill-custom";
-
-      if (typeof _activeChipBankFilename !== 'undefined') {
-        const bankSections = getObservationSectionsWithGroups(_activeChipBankFilename);
-        const match = bankSections.find(bs => bs.name.toLowerCase() === lblLower);
-        if (match && match.color) {
-          border = match.color;
-          color = match.color;
-          bg = `${match.color}18`;
-        }
-      }
-
-      if (pillClass === "obs-pill obs-pill-custom") {
-        if (lblLower.includes("good") || lblLower.includes("fort") || lblLower.includes("strength")) {
-          pillClass = "obs-pill obs-pill-good";
-          bg = "#dcfce7";
-          color = "#166534";
-          border = "#16a34a";
-        } else if (lblLower.includes("remedy") || lblLower.includes("remédier") || lblLower.includes("improve") || lblLower.includes("faible")) {
-          pillClass = "obs-pill obs-pill-remedy";
-          bg = "#fee2e2";
-          color = "#991b1b";
-          border = "#dc2626";
-        } else if (lblLower.includes("action") || lblLower.includes("plan") || lblLower.includes("next")) {
-          pillClass = "obs-pill obs-pill-action";
-          bg = "#fef3c7";
-          color = "#92400e";
-          border = "#d97706";
-        }
-      }
+      const chipCol = resolveObservationChipColor(name, '', kind, lbl);
+      const border = chipCol;
+      const color = chipCol;
+      const bg = `${chipCol}18`;
+      const pillClass = "obs-pill obs-pill-custom";
 
       const multiplierBadge = count > 1
         ? `<sup class="obs-pill-multiplier" style="font-size:0.68em;font-weight:800;line-height:0;vertical-align:super;margin-left:2px;margin-right:3px;display:inline-block;white-space:nowrap;pointer-events:none;">x${count}</sup>`
@@ -2371,18 +2502,7 @@
 
       if (checklist.length === 0 && !text) return "";
 
-      let secColor = "#0f172a";
-      if (typeof _activeChipBankFilename !== 'undefined') {
-        const bankSections = getObservationSectionsWithGroups(_activeChipBankFilename);
-        const match = bankSections.find(bs => bs.name.toLowerCase() === label.toLowerCase());
-        if (match && match.color) secColor = match.color;
-      }
-      if (secColor === "#0f172a") {
-        const lblLower = label.toLowerCase();
-        if (lblLower.includes("good") || lblLower.includes("fort") || lblLower.includes("strength")) secColor = "#16a34a";
-        else if (lblLower.includes("remedy") || lblLower.includes("remédier") || lblLower.includes("improve") || lblLower.includes("faible")) secColor = "#dc2626";
-        else if (lblLower.includes("action") || lblLower.includes("plan") || lblLower.includes("next")) secColor = "#d97706";
-      }
+      const secColor = resolveObservationSectionColor(section, section.kind);
 
       let pillsHtml = "";
       if (checklist.length > 0) {
@@ -2443,6 +2563,863 @@
 
       return `<div class="obs-inline-row" style="margin-bottom:3px;">${topRow}${textPart}</div>`;
     }
+
+    // ── Top Observation Chips Aggregator & UI ─────────────────────
+    function getTopObservationChips(classObj, options = {}) {
+      if (!classObj || !Array.isArray(classObj.students) || classObj.students.length === 0) return [];
+      const semFilter = options.semester || 'all';
+      const testIndex = options.testIndex != null ? Number(options.testIndex) : null;
+      const limit = options.limit || 10;
+      const bankFilename = options.bankFilename || classObj.chipBank || (typeof _activeChipBankFilename !== 'undefined' ? _activeChipBankFilename : null);
+
+      const bankSections = typeof getObservationSectionsWithGroups === 'function' ? getObservationSectionsWithGroups(bankFilename) : [];
+      const bankGroups = typeof getObservationChecklistGroups === 'function' ? getObservationChecklistGroups(bankFilename) : [];
+
+      const countsMap = new Map();
+      const sectionCountsMap = new Map();
+      const totalRelevantStudents = classObj.students.length;
+
+      classObj.students.forEach(student => {
+        if (!student.testNotes) return;
+        const sems = (semFilter === 'sem1' || semFilter === 'sem2') ? [semFilter] : ['sem1', 'sem2'];
+
+        sems.forEach(sem => {
+          const noteArr = student.testNotes[sem];
+          if (!Array.isArray(noteArr)) return;
+
+          const maxTestCount = (classObj.testCounts && typeof classObj.testCounts[sem] === 'number')
+            ? classObj.testCounts[sem]
+            : noteArr.length;
+
+          const testIndicesToCheck = testIndex != null ? [testIndex] : Array.from({ length: maxTestCount }, (_, i) => i);
+
+          testIndicesToCheck.forEach(ti => {
+            const sections = noteArr[ti];
+            if (!Array.isArray(sections)) return;
+
+            sections.forEach(sec => {
+              if (!sec) return;
+              const checklist = (typeof sectionChecklistSummary === 'function')
+                ? sectionChecklistSummary(sec)
+                : (Array.isArray(sec.checklist) ? sec.checklist : []);
+
+              if (!checklist || !checklist.length) return;
+
+              const secName = String(sec.label || '').trim() || (sec.kind === 'goodPoints' ? 'Good points' : (sec.kind === 'toRemedy' ? 'To improve' : 'General'));
+              const secKey = secName.toLowerCase();
+              const secColor = resolveObservationSectionColor(sec, sec.kind, bankFilename);
+              if (!sectionCountsMap.has(secKey)) {
+                sectionCountsMap.set(secKey, {
+                  key: secKey,
+                  name: secName,
+                  kind: sec.kind || 'custom',
+                  color: secColor,
+                  map: new Map()
+                });
+              }
+              const secEntry = sectionCountsMap.get(secKey);
+              if (secColor && (!secEntry.color || secEntry.color === '#0284c7' || secEntry.color === '#555555')) {
+                secEntry.color = secColor;
+              }
+
+              checklist.forEach(chipRaw => {
+                const parsed = (typeof parseObservationChipItem === 'function')
+                  ? parseObservationChipItem(chipRaw)
+                  : { name: String(chipRaw || '').trim(), count: 1, comment: '' };
+
+                const chipName = String(parsed.name || '').trim();
+                if (!chipName) return;
+                const chipKey = chipName.toLowerCase();
+                const count = Math.max(1, Number(parsed.count) || 1);
+                const stId = student.id || student.index || (student.firstName + ' ' + student.lastName);
+
+                // Overall map
+                if (!countsMap.has(chipKey)) {
+                  countsMap.set(chipKey, {
+                    key: chipKey,
+                    name: chipName,
+                    occurrences: 0,
+                    students: new Set(),
+                    sampleKind: sec.kind || '',
+                    sampleLabel: sec.label || '',
+                    sampleColor: secColor || ''
+                  });
+                }
+                const entry = countsMap.get(chipKey);
+                entry.occurrences += count;
+                entry.students.add(stId);
+                if (!entry.sampleKind && sec.kind) entry.sampleKind = sec.kind;
+                if (!entry.sampleLabel && sec.label) entry.sampleLabel = sec.label;
+                if (!entry.sampleColor && secColor) entry.sampleColor = secColor;
+
+                // Section map
+                if (!secEntry.map.has(chipKey)) {
+                  secEntry.map.set(chipKey, {
+                    key: chipKey,
+                    name: chipName,
+                    occurrences: 0,
+                    students: new Set(),
+                    sampleKind: sec.kind || '',
+                    sampleLabel: sec.label || '',
+                    sampleColor: secColor || ''
+                  });
+                }
+                const sItem = secEntry.map.get(chipKey);
+                sItem.occurrences += count;
+                sItem.students.add(stId);
+                if (!sItem.sampleKind && sec.kind) sItem.sampleKind = sec.kind;
+                if (!sItem.sampleLabel && sec.label) sItem.sampleLabel = sec.label;
+                if (!sItem.sampleColor && secColor) sItem.sampleColor = secColor;
+              });
+            });
+          });
+        });
+      });
+
+      function resolveChipMetadata(e, defaultColor = '') {
+        const color = resolveObservationChipColor(e.name, e.sampleColor || defaultColor, e.sampleKind, e.sampleLabel, bankFilename);
+
+        let category = '';
+        for (const g of bankGroups) {
+          if (Array.isArray(g.items) && g.items.some(item => String(item || '').trim().toLowerCase() === e.key)) {
+            category = g.type || g.category || g.section || '';
+            break;
+          }
+        }
+        if (!category && bankSections.length > 0) {
+          const secMatch = bankSections.find(s => String(s.name || '').trim().toLowerCase() === String(e.sampleLabel || '').trim().toLowerCase());
+          if (secMatch) {
+            category = secMatch.name || '';
+          }
+        }
+        if (!category) {
+          category = e.sampleLabel || (e.sampleKind === 'goodPoints' ? 'Good points' : (e.sampleKind === 'toRemedy' ? 'To improve' : 'General'));
+        }
+
+        const studentCount = e.students.size;
+        const percentage = totalRelevantStudents > 0 ? Math.round((studentCount / totalRelevantStudents) * 100) : 0;
+
+        return {
+          name: e.name,
+          occurrences: e.occurrences,
+          studentCount,
+          percentage,
+          category,
+          color,
+          kind: e.sampleKind,
+          label: e.sampleLabel
+        };
+      }
+
+      const list = Array.from(countsMap.values()).map(e => resolveChipMetadata(e));
+      list.sort((a, b) => {
+        if (b.occurrences !== a.occurrences) return b.occurrences - a.occurrences;
+        if (b.studentCount !== a.studentCount) return b.studentCount - a.studentCount;
+        return a.name.localeCompare(b.name);
+      });
+
+      // Best 5 per section separately
+      const sectionsList = Array.from(sectionCountsMap.values()).map(sec => {
+        const secChips = Array.from(sec.map.values()).map(e => resolveChipMetadata(e, sec.color));
+        secChips.sort((a, b) => {
+          if (b.occurrences !== a.occurrences) return b.occurrences - a.occurrences;
+          if (b.studentCount !== a.studentCount) return b.studentCount - a.studentCount;
+          return a.name.localeCompare(b.name);
+        });
+        return {
+          name: sec.name,
+          kind: sec.kind,
+          color: sec.color,
+          topChips: secChips.slice(0, 5)
+        };
+      }).filter(s => s.topChips.length > 0);
+
+      sectionsList.sort((a, b) => {
+        const order = { goodPoints: 1, toRemedy: 2 };
+        const oA = order[a.kind] || 99;
+        const oB = order[b.kind] || 99;
+        if (oA !== oB) return oA - oB;
+        return a.name.localeCompare(b.name);
+      });
+
+      const result = list.slice(0, limit);
+      result.sections = sectionsList;
+      return result;
+    }
+
+    function renderChipsTableHtml(chips, isCohort = false, totalStudents = null, selectedClasses = null) {
+      if (!Array.isArray(chips) || chips.length === 0) {
+        return `<div class="gs-top-chips-empty">${typeof t === 'function' ? (t(isCohort ? 'gsTopChipsCompareEmpty' : 'gsTopChipsEmpty') || 'No observation chips recorded yet') : 'No observation chips recorded yet'}</div>`;
+      }
+      const esc = escapeHtml;
+      const thRank = "#";
+      const thChip = typeof t === 'function' ? (t('gsColObservations') || 'Observation Chip') : 'Observation Chip';
+      const thCat = typeof t === 'function' ? (t('gsTopChipsCategory') || 'Category') : 'Category';
+      const thUses = typeof t === 'function' ? (t('gsStatCount') || 'Uses') : 'Uses';
+      const thStudents = isCohort
+        ? (typeof t === 'function' ? (t('gsTopChipsCohortStudentsLabel') || 'Cohort Students') : 'Cohort Students')
+        : (typeof t === 'function' ? (t('gsTopChipsStudentsCountLabel') || 'Students') : 'Students');
+
+      const classHeaders = (isCohort && Array.isArray(selectedClasses) && selectedClasses.length > 0)
+        ? selectedClasses.map(c => `<th class="center" style="width:55px;">${esc(c.name)}</th>`).join('')
+        : '';
+
+      const rows = chips.map((chip, idx) => {
+        const pillColor = chip.color || resolveObservationSectionColor(chip.category || chip.label, chip.kind);
+        const pillBg = `${pillColor}18`;
+        const usesText = chip.occurrences;
+        const studentsText = isCohort && totalStudents != null
+          ? `${chip.studentCount}/${totalStudents} (${chip.percentage}%)`
+          : `${chip.studentCount} (${chip.percentage}%)`;
+        const studentsTitle = isCohort
+          ? `${chip.studentCount} students (${chip.percentage}% of cohort)`
+          : `${chip.studentCount} students (${chip.percentage}% of class)`;
+
+        const classCols = (isCohort && Array.isArray(selectedClasses) && selectedClasses.length > 0)
+          ? selectedClasses.map(c => {
+              const matched = Array.isArray(chip.byClass) ? chip.byClass.find(bc => bc.classId === c.id) : null;
+              if (matched && matched.occurrences > 0) {
+                return `<td class="center" style="font-weight:700;"><span style="display:inline-block;padding:0 4px;border-radius:2px;border:1px solid #777;background:#fff;">${matched.occurrences}</span></td>`;
+              }
+              return `<td class="center" style="color:#94a3b8;">-</td>`;
+            }).join('')
+          : '';
+
+        return `
+          <tr>
+            <td class="center" style="width:28px;font-weight:800;color:#555;">#${idx + 1}</td>
+            <td style="text-align:left;">
+              <span class="gs-top-chip-pill" style="border:1.5px solid ${pillColor};border-left:4px solid ${pillColor};background:${pillBg};color:#111111;" title="${esc(chip.name)}">${esc(chip.name)}</span>
+            </td>
+            <td style="text-align:left;">
+              ${chip.category ? `<span class="gs-top-chip-category" style="border:1px solid ${pillColor}55;background:${pillBg};color:#1e293b;" title="${esc(chip.category)}"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${pillColor};margin-right:4px;vertical-align:middle;"></span>${esc(chip.category)}</span>` : '<span style="color:#94a3b8;">—</span>'}
+            </td>
+            <td class="center" style="font-weight:800;">${usesText}</td>
+            <td class="center" title="${studentsTitle}">${studentsText}</td>
+            ${classCols}
+          </tr>
+        `;
+      }).join('');
+
+      return `
+        <table class="gs-top-chips-table">
+          <thead>
+            <tr>
+              <th class="center" style="width:28px;">${thRank}</th>
+              <th style="text-align:left;">${thChip}</th>
+              <th style="width:130px;text-align:left;">${thCat}</th>
+              <th class="center" style="width:50px;">${thUses}</th>
+              <th class="center" style="width:120px;">${thStudents}</th>
+              ${classHeaders}
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function renderTopChipsContentHtml(containerEl, topChips, storageKey, isCohort = false, totalStudents = null, selectedClasses = null) {
+      if (!containerEl) return;
+      const sections = topChips.sections || [];
+      const hasOverall = topChips.length > 0;
+      const hasSections = sections.some(s => s.topChips && s.topChips.length > 0);
+
+      if (!hasOverall && !hasSections) {
+        containerEl.innerHTML = `<div class="gs-top-chips-empty">${typeof t === 'function' ? (t(isCohort ? 'gsTopChipsCompareEmpty' : 'gsTopChipsEmpty') || 'No observation chips recorded yet') : 'No observation chips recorded yet'}</div>`;
+        return;
+      }
+
+      const viewMode = localStorage.getItem(storageKey) || 'sections';
+
+      const tabOverall = typeof t === 'function' ? (t('gsTopChipsTabOverall') || 'Overall (Top 10)') : 'Overall (Top 10)';
+      const tabBySection = typeof t === 'function' ? (t('gsTopChipsTabBySection') || 'By Section (Top 5)') : 'By Section (Top 5)';
+      const tabBoth = typeof t === 'function' ? (t('gsTopChipsTabBoth') || 'All Views') : 'All Views';
+
+      let html = `
+        <div class="gs-top-chips-toolbar">
+          <span class="gs-top-chips-toolbar-label">${typeof t === 'function' ? (t('gsTopChipsCategory') || 'Display') : 'Display'}:</span>
+          <div class="gs-top-chips-mode-tabs" role="tablist">
+            <button type="button" class="gs-top-chips-mode-tab${viewMode === 'sections' ? ' active' : ''}" data-mode="sections">${tabBySection}</button>
+            <button type="button" class="gs-top-chips-mode-tab${viewMode === 'overall' ? ' active' : ''}" data-mode="overall">${tabOverall}</button>
+            <button type="button" class="gs-top-chips-mode-tab${viewMode === 'both' ? ' active' : ''}" data-mode="both">${tabBoth}</button>
+          </div>
+        </div>
+      `;
+
+      // 1. By Section (Top 5 each)
+      if (viewMode === 'sections' || viewMode === 'both') {
+        if (viewMode === 'both') {
+          html += `<div class="gs-top-chips-section-heading"><span>📂</span> <span>${typeof t === 'function' ? (t('gsTopChipsBySectionTitle') || 'Top 5 Observation Chips by Section') : 'Top 5 Observation Chips by Section'}</span></div>`;
+        }
+        if (sections.length === 0) {
+          html += `<div class="gs-top-chips-empty">${typeof t === 'function' ? (t('gsTopChipsSectionEmpty') || 'No observation chips recorded in this section') : 'No observation chips recorded in this section'}</div>`;
+        } else {
+          sections.forEach(sec => {
+            const secChips = sec.topChips || [];
+            if (!secChips.length) return;
+            html += `
+              <div class="gs-top-chip-sec-title">
+                <span class="gs-top-chip-sec-indicator" style="background:${sec.color};border:1px solid ${sec.color};"></span>
+                <span class="gs-top-chip-sec-name" style="color:#111;">${escapeHtml(sec.name)} (Top 5)</span>
+              </div>
+              ${renderChipsTableHtml(secChips, isCohort, totalStudents, selectedClasses)}
+            `;
+          });
+        }
+      }
+
+      // 2. Overall Top 10
+      if (viewMode === 'overall' || viewMode === 'both') {
+        if (viewMode === 'both') {
+          html += `<div class="gs-top-chips-section-heading"><span>🏆</span> <span>${typeof t === 'function' ? (t('gsTopChipsOverallTitle') || 'Top 10 Overall Observation Chips') : 'Top 10 Overall Observation Chips'}</span></div>`;
+        }
+        html += renderChipsTableHtml(topChips, isCohort, totalStudents, selectedClasses);
+      }
+
+      containerEl.innerHTML = html;
+
+      // Event delegation for tab switcher
+      const tabsWrap = containerEl.querySelector('.gs-top-chips-mode-tabs');
+      if (tabsWrap) {
+        tabsWrap.addEventListener('click', (e) => {
+          const tabBtn = e.target.closest('.gs-top-chips-mode-tab');
+          if (!tabBtn) return;
+          const newMode = tabBtn.dataset.mode;
+          if (!newMode) return;
+          localStorage.setItem(storageKey, newMode);
+          renderTopChipsContentHtml(containerEl, topChips, storageKey, isCohort, totalStudents, selectedClasses);
+        });
+      }
+    }
+
+    function renderSummaryTopChips(classObj, semFilter) {
+      const card = document.getElementById("summary-top-chips-card");
+      if (!card) return;
+      if (!classObj) {
+        card.classList.add("hidden");
+        return;
+      }
+      card.classList.remove("hidden");
+
+      const isCollapsed = localStorage.getItem("gsTopChipsSummaryCollapsed") === "true";
+      card.classList.toggle("collapsed", isCollapsed);
+
+      const topChips = getTopObservationChips(classObj, { semester: semFilter, limit: 10 });
+      const badge = document.getElementById("summary-top-chips-badge");
+      const listEl = document.getElementById("summary-top-chips-list");
+
+      if (badge) {
+        const secCount = (topChips.sections || []).length;
+        badge.textContent = secCount > 0
+          ? `${topChips.length} chips · ${secCount} sec`
+          : `${topChips.length} chip${topChips.length === 1 ? '' : 's'}`;
+      }
+
+      renderTopChipsContentHtml(listEl, topChips, "gsTopChipsSummaryViewMode", false);
+    }
+
+    function toggleSummaryTopChips() {
+      const card = document.getElementById("summary-top-chips-card");
+      if (!card) return;
+      card.classList.toggle("collapsed");
+      localStorage.setItem("gsTopChipsSummaryCollapsed", card.classList.contains("collapsed") ? "true" : "false");
+    }
+
+    function renderTestTopChips(classObj, sem, testIndex) {
+      const card = document.getElementById("test-top-chips-card");
+      if (!card) return;
+      if (!classObj || sem == null || testIndex == null) {
+        card.classList.add("hidden");
+        return;
+      }
+      card.classList.remove("hidden");
+
+      const isCollapsed = localStorage.getItem("gsTopChipsTestCollapsed") === "true";
+      card.classList.toggle("collapsed", isCollapsed);
+
+      const topChips = getTopObservationChips(classObj, { semester: sem, testIndex: testIndex, limit: 10 });
+      const badge = document.getElementById("test-top-chips-badge");
+      const listEl = document.getElementById("test-top-chips-list");
+
+      if (badge) {
+        const secCount = (topChips.sections || []).length;
+        badge.textContent = secCount > 0
+          ? `${topChips.length} chips · ${secCount} sec`
+          : `${topChips.length} chip${topChips.length === 1 ? '' : 's'}`;
+      }
+
+      renderTopChipsContentHtml(listEl, topChips, "gsTopChipsTestViewMode", false);
+    }
+
+    function toggleTestTopChips() {
+      const card = document.getElementById("test-top-chips-card");
+      if (!card) return;
+      card.classList.toggle("collapsed");
+      localStorage.setItem("gsTopChipsTestCollapsed", card.classList.contains("collapsed") ? "true" : "false");
+    }
+
+    function renderTopChipsReportSection(topChips, totalStudents) {
+      if (!Array.isArray(topChips) || topChips.length === 0) {
+        return `<div class="top-chips-empty-note" style="font-size:10px;color:#64748b;font-style:italic;padding:4px 0;">${typeof t === 'function' ? (t('gsTopChipsEmpty') || 'No observation chips recorded yet') : 'No observation chips recorded yet'}</div>`;
+      }
+      const esc = escapeHtml;
+
+      function renderChipTableRows(chips) {
+        return chips.map((chip, idx) => {
+          const pillColor = chip.color || resolveObservationSectionColor(chip.category || chip.label, chip.kind);
+          const pillBg = `${pillColor}18`;
+          const rankBadge = `<span style="display:inline-block;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:900;background:#333333;color:#ffffff;">#${idx + 1}</span>`;
+          const chipPill = `<span style="display:inline-block;padding:2px 7px;border-radius:4px;border:1.5px solid ${pillColor};border-left:4px solid ${pillColor};background:${pillBg};color:#111;font-weight:700;font-size:10.5px;white-space:normal;word-break:break-word;">${esc(chip.name)}</span>`;
+          const catBadge = chip.category ? `<span style="display:inline-flex;align-items:center;padding:1px 5px;border-radius:3px;font-size:9.5px;color:#1e293b;font-weight:600;background:${pillColor}15;border:1px solid ${pillColor}44;"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${pillColor};margin-right:4px;"></span>${esc(chip.category)}</span>` : '—';
+          const usesBadge = `<span style="display:inline-block;padding:1px 6px;border-radius:3px;background:#f0f0ea;border:1px solid #555;font-weight:800;font-size:10px;">${chip.occurrences}</span>`;
+          const pctBar = `<div style="display:flex;align-items:center;gap:6px;justify-content:center;">
+            <span style="font-weight:700;font-size:10px;">${chip.studentCount} (${chip.percentage}%)</span>
+            <div style="width:48px;height:6px;background:#e2e8f0;border-radius:3px;border:1px solid #94a3b8;overflow:hidden;flex-shrink:0;">
+              <div style="width:${Math.min(100, chip.percentage)}%;height:100%;background:${pillColor};"></div>
+            </div>
+          </div>`;
+
+          return `<tr>
+            <td class="center">${rankBadge}</td>
+            <td style="text-align:left;">${chipPill}</td>
+            <td style="text-align:left;">${catBadge}</td>
+            <td class="center">${usesBadge}</td>
+            <td class="center">${pctBar}</td>
+          </tr>`;
+        }).join('');
+      }
+
+      let html = `
+        <div style="font-weight:800;font-size:11px;color:#333;margin-top:6px;margin-bottom:4px;">${typeof t === 'function' ? (t('gsTopChipsOverallTitle') || 'Top 10 Overall Observation Chips') : 'Top 10 Overall Observation Chips'}</div>
+        <table class="report-table" style="margin-top:2px;margin-bottom:8px;">
+          <thead>
+            <tr>
+              <th class="center" style="width:36px;">#</th>
+              <th style="text-align:left;">${typeof t === 'function' ? (t('gsColObservations') || 'Observation Chip') : 'Observation Chip'}</th>
+              <th style="width:140px;text-align:left;">${typeof t === 'function' ? (t('gsTopChipsCategory') || 'Category') : 'Category'}</th>
+              <th class="center" style="width:80px;">${typeof t === 'function' ? (t('gsStatCount') || 'Uses') : 'Uses'}</th>
+              <th class="center" style="width:140px;">${typeof t === 'function' ? (t('gsTopChipsStudentsCountLabel') || 'Students (% of Class)') : 'Students (% of Class)'}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${renderChipTableRows(topChips)}
+          </tbody>
+        </table>
+      `;
+
+      if (Array.isArray(topChips.sections) && topChips.sections.length > 0) {
+        html += `<div style="font-weight:800;font-size:11px;color:#333;margin-top:10px;margin-bottom:4px;">${typeof t === 'function' ? (t('gsTopChipsBySectionTitle') || 'Top 5 Observation Chips by Section') : 'Top 5 Observation Chips by Section'}</div>`;
+        topChips.sections.forEach(sec => {
+          const sChips = sec.topChips || [];
+          if (!sChips.length) return;
+          html += `
+            <div style="margin-top:6px;margin-bottom:3px;font-size:10px;font-weight:800;color:#111;display:flex;align-items:center;gap:5px;">
+              <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${sec.color};border:1px solid #333;"></span>
+              <span>${esc(sec.name)} (Top 5)</span>
+            </div>
+            <table class="report-table" style="margin-top:2px;margin-bottom:6px;">
+              <thead>
+                <tr>
+                  <th class="center" style="width:36px;">#</th>
+                  <th style="text-align:left;">${typeof t === 'function' ? (t('gsColObservations') || 'Observation Chip') : 'Observation Chip'}</th>
+                  <th style="width:140px;text-align:left;">${typeof t === 'function' ? (t('gsTopChipsCategory') || 'Category') : 'Category'}</th>
+                  <th class="center" style="width:80px;">${typeof t === 'function' ? (t('gsStatCount') || 'Uses') : 'Uses'}</th>
+                  <th class="center" style="width:140px;">${typeof t === 'function' ? (t('gsTopChipsStudentsCountLabel') || 'Students (% of Class)') : 'Students (% of Class)'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${renderChipTableRows(sChips)}
+              </tbody>
+            </table>
+          `;
+        });
+      }
+
+      return html;
+    }
+
+    window.toggleSummaryTopChips = toggleSummaryTopChips;
+    window.toggleTestTopChips = toggleTestTopChips;
+
+    function getCohortTopObservationChips(classesList, options = {}) {
+      if (!Array.isArray(classesList) || classesList.length === 0) return [];
+      const scope = options.scope || (typeof _cmpState !== 'undefined' && _cmpState.scope) || 'year';
+      const testIndex = options.testIndex != null ? options.testIndex : (typeof _cmpState !== 'undefined' ? _cmpState.testIndex : null);
+      const limit = options.limit || 10;
+
+      const totalCohortStudents = classesList.reduce((acc, c) => acc + (Array.isArray(c.students) ? c.students.length : 0), 0);
+      const countsMap = new Map();
+      const sectionCountsMap = new Map();
+
+      classesList.forEach(classObj => {
+        if (!classObj || !Array.isArray(classObj.students)) return;
+        const bankFilename = classObj.chipBank || (typeof _activeChipBankFilename !== 'undefined' ? _activeChipBankFilename : null);
+        const bankSections = typeof getObservationSectionsWithGroups === 'function' ? getObservationSectionsWithGroups(bankFilename) : [];
+        const bankGroups = typeof getObservationChecklistGroups === 'function' ? getObservationChecklistGroups(bankFilename) : [];
+
+        classObj.students.forEach(student => {
+          if (!student.testNotes) return;
+
+          let checks = [];
+          if (scope === 'sem1') {
+            const count = (classObj.testCounts && typeof classObj.testCounts.sem1 === 'number') ? classObj.testCounts.sem1 : ((student.testNotes.sem1 || []).length);
+            for (let i = 0; i < count; i++) checks.push({ sem: 'sem1', ti: i });
+          } else if (scope === 'sem2') {
+            const count = (classObj.testCounts && typeof classObj.testCounts.sem2 === 'number') ? classObj.testCounts.sem2 : ((student.testNotes.sem2 || []).length);
+            for (let i = 0; i < count; i++) checks.push({ sem: 'sem2', ti: i });
+          } else if (scope === 'tests') {
+            if (testIndex === 'timeline') {
+              const c1 = (classObj.testCounts && typeof classObj.testCounts.sem1 === 'number') ? classObj.testCounts.sem1 : ((student.testNotes.sem1 || []).length);
+              for (let i = 0; i < c1; i++) checks.push({ sem: 'sem1', ti: i });
+              const c2 = (classObj.testCounts && typeof classObj.testCounts.sem2 === 'number') ? classObj.testCounts.sem2 : ((student.testNotes.sem2 || []).length);
+              for (let i = 0; i < c2; i++) checks.push({ sem: 'sem2', ti: i });
+            } else {
+              const tIdx = Number(testIndex) || 0;
+              const n1 = (classObj.testCounts && classObj.testCounts.sem1) || 0;
+              const n2 = (classObj.testCounts && classObj.testCounts.sem2) || 0;
+              if (tIdx < (n1 + n2)) {
+                const sem = tIdx < n1 ? 'sem1' : 'sem2';
+                const localIdx = tIdx < n1 ? tIdx : tIdx - n1;
+                checks.push({ sem, ti: localIdx });
+              }
+            }
+          } else {
+            const c1 = (classObj.testCounts && typeof classObj.testCounts.sem1 === 'number') ? classObj.testCounts.sem1 : ((student.testNotes.sem1 || []).length);
+            for (let i = 0; i < c1; i++) checks.push({ sem: 'sem1', ti: i });
+            const c2 = (classObj.testCounts && typeof classObj.testCounts.sem2 === 'number') ? classObj.testCounts.sem2 : ((student.testNotes.sem2 || []).length);
+            for (let i = 0; i < c2; i++) checks.push({ sem: 'sem2', ti: i });
+          }
+
+          checks.forEach(({ sem, ti }) => {
+            const noteArr = student.testNotes[sem];
+            if (!Array.isArray(noteArr)) return;
+            const sections = noteArr[ti];
+            if (!Array.isArray(sections)) return;
+
+            sections.forEach(sec => {
+              if (!sec) return;
+              const checklist = (typeof sectionChecklistSummary === 'function')
+                ? sectionChecklistSummary(sec)
+                : (Array.isArray(sec.checklist) ? sec.checklist : []);
+              if (!checklist || !checklist.length) return;
+
+              const secName = String(sec.label || '').trim() || (sec.kind === 'goodPoints' ? 'Good points' : (sec.kind === 'toRemedy' ? 'To improve' : 'General'));
+              const secKey = secName.toLowerCase();
+              const secColor = resolveObservationSectionColor(sec, sec.kind, classObj.chipBank);
+              if (!sectionCountsMap.has(secKey)) {
+                sectionCountsMap.set(secKey, {
+                  key: secKey,
+                  name: secName,
+                  kind: sec.kind || 'custom',
+                  color: secColor,
+                  map: new Map()
+                });
+              }
+              const secEntry = sectionCountsMap.get(secKey);
+              if (secColor && (!secEntry.color || secEntry.color === '#0284c7' || secEntry.color === '#555555')) {
+                secEntry.color = secColor;
+              }
+
+              checklist.forEach(chipRaw => {
+                const parsed = (typeof parseObservationChipItem === 'function')
+                  ? parseObservationChipItem(chipRaw)
+                  : { name: String(chipRaw || '').trim(), count: 1, comment: '' };
+
+                const chipName = String(parsed.name || '').trim();
+                if (!chipName) return;
+                const chipKey = chipName.toLowerCase();
+                const count = Math.max(1, Number(parsed.count) || 1);
+                const studentUid = `${classObj.id}_${student.id || student.index || (student.firstName + '_' + student.lastName)}`;
+
+                // Overall map
+                if (!countsMap.has(chipKey)) {
+                  countsMap.set(chipKey, {
+                    key: chipKey,
+                    name: chipName,
+                    occurrences: 0,
+                    students: new Set(),
+                    sampleKind: sec.kind || '',
+                    sampleLabel: sec.label || '',
+                    sampleColor: secColor || '',
+                    classBreakdown: new Map()
+                  });
+                }
+                const entry = countsMap.get(chipKey);
+                entry.occurrences += count;
+                entry.students.add(studentUid);
+                if (!entry.sampleKind && sec.kind) entry.sampleKind = sec.kind;
+                if (!entry.sampleLabel && sec.label) entry.sampleLabel = sec.label;
+                if (!entry.sampleColor && secColor) entry.sampleColor = secColor;
+
+                if (!entry.classBreakdown.has(classObj.id)) {
+                  entry.classBreakdown.set(classObj.id, {
+                    classId: classObj.id,
+                    className: classObj.name,
+                    occurrences: 0,
+                    students: new Set()
+                  });
+                }
+                const cEntry = entry.classBreakdown.get(classObj.id);
+                cEntry.occurrences += count;
+                cEntry.students.add(studentUid);
+
+                // Section map
+                if (!secEntry.map.has(chipKey)) {
+                  secEntry.map.set(chipKey, {
+                    key: chipKey,
+                    name: chipName,
+                    occurrences: 0,
+                    students: new Set(),
+                    sampleKind: sec.kind || '',
+                    sampleLabel: sec.label || '',
+                    sampleColor: secColor || '',
+                    classBreakdown: new Map()
+                  });
+                }
+                const secItem = secEntry.map.get(chipKey);
+                secItem.occurrences += count;
+                secItem.students.add(studentUid);
+                if (!secItem.sampleKind && sec.kind) secItem.sampleKind = sec.kind;
+                if (!secItem.sampleLabel && sec.label) secItem.sampleLabel = sec.label;
+                if (!secItem.sampleColor && secColor) secItem.sampleColor = secColor;
+
+                if (!secItem.classBreakdown.has(classObj.id)) {
+                  secItem.classBreakdown.set(classObj.id, {
+                    classId: classObj.id,
+                    className: classObj.name,
+                    occurrences: 0,
+                    students: new Set()
+                  });
+                }
+                const secCEntry = secItem.classBreakdown.get(classObj.id);
+                secCEntry.occurrences += count;
+                secCEntry.students.add(studentUid);
+              });
+            });
+          });
+        });
+      });
+
+      function resolveCohortChipMetadata(e, defaultColor = '') {
+        const color = resolveObservationChipColor(e.name, e.sampleColor || defaultColor, e.sampleKind, e.sampleLabel);
+
+        let category = '';
+        for (const classObj of classesList) {
+          const bankFilename = classObj.chipBank || (typeof _activeChipBankFilename !== 'undefined' ? _activeChipBankFilename : null);
+          const bankGroups = typeof getObservationChecklistGroups === 'function' ? getObservationChecklistGroups(bankFilename) : [];
+          for (const g of bankGroups) {
+            if (Array.isArray(g.items) && g.items.some(item => String(item || '').trim().toLowerCase() === e.key)) {
+              category = g.type || g.category || g.section || '';
+              break;
+            }
+          }
+          if (category) break;
+        }
+
+        if (!category) {
+          category = e.sampleLabel || (e.sampleKind === 'goodPoints' ? 'Good points' : (e.sampleKind === 'toRemedy' ? 'To improve' : 'General'));
+        }
+
+        const studentCount = e.students.size;
+        const percentage = totalCohortStudents > 0 ? Math.round((studentCount / totalCohortStudents) * 100) : 0;
+
+        const byClass = Array.from(e.classBreakdown.values()).map(b => ({
+          classId: b.classId,
+          className: b.className,
+          occurrences: b.occurrences,
+          studentCount: b.students.size
+        })).sort((a, b) => b.occurrences - a.occurrences);
+
+        return {
+          name: e.name,
+          occurrences: e.occurrences,
+          studentCount,
+          percentage,
+          category,
+          color,
+          kind: e.sampleKind,
+          label: e.sampleLabel,
+          byClass
+        };
+      }
+
+      const list = Array.from(countsMap.values()).map(e => resolveCohortChipMetadata(e));
+      list.sort((a, b) => {
+        if (b.occurrences !== a.occurrences) return b.occurrences - a.occurrences;
+        if (b.studentCount !== a.studentCount) return b.studentCount - a.studentCount;
+        return a.name.localeCompare(b.name);
+      });
+
+      // Best 5 per section separately for cohort
+      const sectionsList = Array.from(sectionCountsMap.values()).map(sec => {
+        const secChips = Array.from(sec.map.values()).map(e => resolveCohortChipMetadata(e, sec.color));
+        secChips.sort((a, b) => {
+          if (b.occurrences !== a.occurrences) return b.occurrences - a.occurrences;
+          if (b.studentCount !== a.studentCount) return b.studentCount - a.studentCount;
+          return a.name.localeCompare(b.name);
+        });
+        return {
+          name: sec.name,
+          kind: sec.kind,
+          color: sec.color,
+          topChips: secChips.slice(0, 5)
+        };
+      }).filter(s => s.topChips.length > 0);
+
+      sectionsList.sort((a, b) => {
+        const order = { goodPoints: 1, toRemedy: 2 };
+        const oA = order[a.kind] || 99;
+        const oB = order[b.kind] || 99;
+        if (oA !== oB) return oA - oB;
+        return a.name.localeCompare(b.name);
+      });
+
+      const result = list.slice(0, limit);
+      result.sections = sectionsList;
+      return result;
+    }
+
+    function renderCompareTopChips(selectedClasses, cardEl) {
+      const card = cardEl || document.getElementById("cmp-top-chips-card");
+      if (!card) return;
+      if (!Array.isArray(selectedClasses) || selectedClasses.length === 0) {
+        card.classList.add("hidden");
+        return;
+      }
+      card.classList.remove("hidden");
+
+      const isCollapsed = localStorage.getItem("gsTopChipsCompareCollapsed") === "true";
+      card.classList.toggle("collapsed", isCollapsed);
+      const header = document.getElementById("cmp-top-chips-header");
+      if (header) header.setAttribute("aria-expanded", isCollapsed ? "false" : "true");
+
+      const topChips = getCohortTopObservationChips(selectedClasses, { limit: 10 });
+      const badge = document.getElementById("cmp-top-chips-badge");
+      const gridEl = document.getElementById("cmp-top-chips-grid");
+
+      if (badge) {
+        const secCount = (topChips.sections || []).length;
+        badge.textContent = secCount > 0
+          ? `${topChips.length} chips · ${secCount} sec`
+          : `${topChips.length} chip${topChips.length === 1 ? '' : 's'}`;
+      }
+
+      const totalCohortStudents = selectedClasses.reduce((acc, c) => acc + (Array.isArray(c.students) ? c.students.length : 0), 0);
+      renderTopChipsContentHtml(gridEl, topChips, "gsTopChipsCompareViewMode", true, totalCohortStudents, selectedClasses);
+    }
+
+    function toggleCompareTopChips() {
+      const card = document.getElementById("cmp-top-chips-card");
+      if (!card) return;
+      card.classList.toggle("collapsed");
+      const isCollapsed = card.classList.contains("collapsed");
+      localStorage.setItem("gsTopChipsCompareCollapsed", isCollapsed ? "true" : "false");
+      const header = document.getElementById("cmp-top-chips-header");
+      if (header) header.setAttribute("aria-expanded", isCollapsed ? "false" : "true");
+    }
+
+    function renderCompareTopChipsReportSection(topChips, totalStudents, selectedClasses) {
+      if (!Array.isArray(topChips) || topChips.length === 0) {
+        return `<div class="top-chips-empty-note" style="margin-top:14px;padding:8px 12px;background:#fafaf7;border:1.5px solid #333;border-radius:6px;font-size:11px;color:#64748b;font-style:italic;">${typeof t === 'function' ? (t('gsTopChipsCompareEmpty') || 'No observation chips recorded for the selected classes and scope') : 'No observation chips recorded for the selected classes and scope'}</div>`;
+      }
+      const esc = escapeHtml;
+      const title = typeof t === 'function' ? (t('gsTopChipsCompareTitle') || 'Top 10 Most Frequent Observation Chips (Cohort)') : 'Top 10 Most Frequent Observation Chips (Cohort)';
+      
+      const classHeaders = Array.isArray(selectedClasses) ? selectedClasses.map(c => `<th class="center" style="font-size:10px;">${esc(c.name)}</th>`).join('') : '';
+
+      function renderCohortTableRows(chips) {
+        return chips.map((chip, idx) => {
+          const pillColor = chip.color || resolveObservationSectionColor(chip.category || chip.label, chip.kind);
+          const pillBg = `${pillColor}18`;
+          const rankBadge = `<span style="display:inline-block;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:900;background:#333333;color:#ffffff;">#${idx + 1}</span>`;
+          const chipPill = `<span style="display:inline-block;padding:2px 7px;border-radius:4px;border:1.5px solid ${pillColor};border-left:4px solid ${pillColor};background:${pillBg};color:#111;font-weight:700;font-size:10.5px;white-space:normal;word-break:break-word;">${esc(chip.name)}</span>`;
+          const catBadge = chip.category ? `<span style="display:inline-flex;align-items:center;padding:1px 5px;border-radius:3px;font-size:9.5px;color:#1e293b;font-weight:600;background:${pillColor}15;border:1px solid ${pillColor}44;"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${pillColor};margin-right:4px;"></span>${esc(chip.category)}</span>` : '—';
+          const usesBadge = `<span style="display:inline-block;padding:1px 6px;border-radius:3px;background:#f0f0ea;border:1px solid #555;font-weight:800;font-size:10px;">${chip.occurrences}</span>`;
+          const pctBar = `<div style="display:flex;align-items:center;gap:6px;justify-content:center;">
+            <span style="font-weight:700;font-size:10px;">${chip.studentCount}/${totalStudents} (${chip.percentage}%)</span>
+            <div style="width:40px;height:5px;background:#e2e8f0;border-radius:3px;border:1px solid #94a3b8;overflow:hidden;flex-shrink:0;">
+              <div style="width:${Math.min(100, chip.percentage)}%;height:100%;background:${pillColor};"></div>
+            </div>
+          </div>`;
+
+          const classCols = Array.isArray(selectedClasses) ? selectedClasses.map(c => {
+            const matched = Array.isArray(chip.byClass) ? chip.byClass.find(bc => bc.classId === c.id) : null;
+            if (matched && matched.occurrences > 0) {
+              return `<td class="center" style="font-size:10px;font-weight:700;"><span style="display:inline-block;padding:1px 5px;border-radius:3px;border:1px solid #777;background:#fff;">${matched.occurrences}</span></td>`;
+            }
+            return `<td class="center" style="font-size:10px;color:#94a3b8;">-</td>`;
+          }).join('') : '';
+
+          return `<tr>
+            <td class="center">${rankBadge}</td>
+            <td style="text-align:left;">${chipPill}</td>
+            <td style="text-align:left;">${catBadge}</td>
+            <td class="center">${usesBadge}</td>
+            <td class="center">${pctBar}</td>
+            ${classCols}
+          </tr>`;
+        }).join('');
+      }
+
+      let secTablesHtml = '';
+      if (Array.isArray(topChips.sections) && topChips.sections.length > 0) {
+        secTablesHtml = `
+          <div style="font-weight:800;font-size:0.95rem;color:#111;margin-top:16px;margin-bottom:6px;">${typeof t === 'function' ? (t('gsTopChipsBySectionTitle') || 'Top 5 Observation Chips by Section') : 'Top 5 Observation Chips by Section'}</div>
+          ${topChips.sections.map(sec => {
+            const sChips = sec.topChips || [];
+            if (!sChips.length) return '';
+            return `
+              <div style="margin-top:8px;margin-bottom:3px;font-size:11px;font-weight:800;color:#111;display:flex;align-items:center;gap:6px;">
+                <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${sec.color};border:1px solid #333;"></span>
+                <span>${esc(sec.name)} (Top 5)</span>
+              </div>
+              <table class="cmp-table" style="margin-top:2px;margin-bottom:10px;">
+                <thead>
+                  <tr>
+                    <th class="center" style="width:36px;">#</th>
+                    <th style="text-align:left;">${typeof t === 'function' ? (t('gsColObservations') || 'Observation Chip') : 'Observation Chip'}</th>
+                    <th style="width:130px;text-align:left;">${typeof t === 'function' ? (t('gsTopChipsCategory') || 'Category') : 'Category'}</th>
+                    <th class="center" style="width:70px;">${typeof t === 'function' ? (t('gsStatCount') || 'Uses') : 'Uses'}</th>
+                    <th class="center" style="width:130px;">${typeof t === 'function' ? (t('gsTopChipsCohortStudentsLabel') || 'Cohort Students') : 'Cohort Students'}</th>
+                    ${classHeaders}
+                  </tr>
+                </thead>
+                <tbody>${renderCohortTableRows(sChips)}</tbody>
+              </table>
+            `;
+          }).join('')}
+        `;
+      }
+
+      return `
+        <div class="cmp-report-chips-section" style="margin-top:16px;margin-bottom:16px;border:2px solid #333;border-radius:8px;padding:12px;background:#ffffff;box-shadow:3px 3px 0 #555;">
+          <div style="font-weight:800;font-size:1rem;color:#111;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+            <span>${esc(title)}</span>
+            <span style="font-size:0.75rem;padding:2px 7px;background:#333;color:#fff;border-radius:999px;">${topChips.length}</span>
+          </div>
+          <table class="cmp-table" style="margin-top:4px;">
+            <thead>
+              <tr>
+                <th class="center" style="width:36px;">#</th>
+                <th style="text-align:left;">${typeof t === 'function' ? (t('gsColObservations') || 'Observation Chip') : 'Observation Chip'}</th>
+                <th style="width:130px;text-align:left;">${typeof t === 'function' ? (t('gsTopChipsCategory') || 'Category') : 'Category'}</th>
+                <th class="center" style="width:70px;">${typeof t === 'function' ? (t('gsStatCount') || 'Uses') : 'Uses'}</th>
+                <th class="center" style="width:130px;">${typeof t === 'function' ? (t('gsTopChipsCohortStudentsLabel') || 'Cohort Students') : 'Cohort Students'}</th>
+                ${classHeaders}
+              </tr>
+            </thead>
+            <tbody>
+              ${renderCohortTableRows(topChips)}
+            </tbody>
+          </table>
+          ${secTablesHtml}
+        </div>
+      `;
+    }
+
+    window.toggleCompareTopChips = toggleCompareTopChips;
 
     // Returns the descriptor text for a named xlsm criterion at the given grade level.
     // Grade is mapped to the nearest available descriptor level: 6, 5, 4, 3, 2, or 1.5.
@@ -9523,6 +10500,9 @@
         chips.appendChild(el);
       });
 
+      const summarySem = (showSem1 && !showSem2) ? 'sem1' : ((showSem2 && !showSem1) ? 'sem2' : 'all');
+      renderSummaryTopChips(classObj, summarySem);
+
       const thead = document.querySelector("#summary-table thead");
       const tbody = document.querySelector("#summary-table tbody");
       thead.innerHTML = "";
@@ -9899,6 +10879,8 @@
       const bonusAvail = defaultTotal.totalBonusPossible && defaultTotal.totalBonusPossible > 0 ? ` <span style="color:var(--muted);font-size:0.9em;margin-left:0.5rem;">${tFmt('gsBonusAvailableLabel', { pts: fmtN(defaultTotal.totalBonusPossible) })}</span>` : "";
       infoSpan.innerHTML = `${tFmt('gsTotalPointsLabel', { pts: fmtN(totalPts) })} <span style="color:var(--muted);font-size:0.8em;margin-left:0.5em;">${scaleStr}</span>${bonusAvail}`;
       configWrap.appendChild(infoSpan);
+
+      renderTestTopChips(classObj, sem, testIndex);
 
       const thead = document.querySelector("#test-table thead");
       const tbody = document.querySelector("#test-table tbody");
@@ -12977,6 +13959,7 @@
         testNames,
         testStats,
         semAvgStats,
+        topObservationChips: getTopObservationChips(classObj, { semester: sem, limit: 10 }),
         testConfigs: (classObj.testConfigs && classObj.testConfigs[sem]) ? classObj.testConfigs[sem].slice(0, n) : [],
         printedDate: new Date().toLocaleDateString()
       };
@@ -13160,6 +14143,14 @@
             ${statRow(t('gsStatMedian') || "Median", "median")}
           </tbody>
         </table>
+        ${(report.topObservationChips && report.topObservationChips.length > 0) ? `
+          <div style="margin-top:20px;">
+            <div style="font-size:14px;font-weight:800;border-bottom:2px solid #333333;padding-bottom:4px;margin-bottom:8px;text-transform:uppercase;">
+              ${t('gsTopChipsClassTitle') || 'Top 10 Most Frequent Observation Chips'}
+            </div>
+            ${renderTopChipsReportSection(report.topObservationChips, report.rows.length)}
+          </div>
+        ` : ''}
         ${'<script>' + buildColumnResizeScript("semester-report-table") + '; (function(){ document.querySelectorAll("body *").forEach(function(el){ if(!el.classList.contains("col-resizer")) el.contentEditable = "true"; }); })();' + '</' + 'script>'}
       </body></html>`;
     }
@@ -13795,6 +14786,59 @@
       aoa.push(statRow(t('gsStatMax') || "Max", "max"));
       aoa.push(statRow(t('gsStatMin') || "Min", "min"));
       aoa.push(statRow(t('gsStatMedian') || "Median", "median"));
+
+      const topChips = getTopObservationChips(classObj, { semester: sem, limit: 10 });
+      aoa.push([]);
+      aoa.push([t('gsTopChipsClassTitle') || "Top 10 Most Frequent Observation Chips"]);
+      aoa.push([
+        "#",
+        t('gsColObservations') || "Observation Chip",
+        t('gsTopChipsCategory') || "Category",
+        t('gsStatCount') || "Uses",
+        t('gsReportTotalStudents') || "Students",
+        t('gsTopChipsPercentage') || "% of Class"
+      ]);
+      if (topChips && topChips.length > 0) {
+        topChips.forEach((chip, i) => {
+          aoa.push([
+            i + 1,
+            chip.name,
+            chip.category || "",
+            chip.occurrences,
+            chip.studentCount,
+            `${chip.percentage}%`
+          ]);
+        });
+      } else {
+        aoa.push(["-", t('gsTopChipsEmpty') || "No observation chips recorded", "", "", "", ""]);
+      }
+
+      if (Array.isArray(topChips.sections) && topChips.sections.length > 0) {
+        topChips.sections.forEach(sec => {
+          const sChips = sec.topChips || [];
+          if (!sChips.length) return;
+          aoa.push([]);
+          aoa.push([`${sec.name} (Top 5)`]);
+          aoa.push([
+            "#",
+            t('gsColObservations') || "Observation Chip",
+            t('gsTopChipsCategory') || "Category",
+            t('gsStatCount') || "Uses",
+            t('gsReportTotalStudents') || "Students",
+            t('gsTopChipsPercentage') || "% of Class"
+          ]);
+          sChips.forEach((chip, i) => {
+            aoa.push([
+              i + 1,
+              chip.name,
+              chip.category || "",
+              chip.occurrences,
+              chip.studentCount,
+              `${chip.percentage}%`
+            ]);
+          });
+        });
+      }
 
       const ws = XLSX.utils.aoa_to_sheet(aoa);
       const wb = XLSX.utils.book_new();
@@ -14865,6 +15909,15 @@
               ${trs}
             </tbody>
           </table>
+          ${(() => {
+            if (typeof getReportIncludeObservations === 'function' && !getReportIncludeObservations()) return '';
+            const topChips = getTopObservationChips(classObj, { semester: 'all', limit: 10 });
+            if (!topChips.length) return '';
+            return `
+              <div class="section-heading" style="margin-top:10px;">${t('gsTopChipsClassTitle') || 'Top 10 Most Frequent Observation Chips'}</div>
+              ${renderTopChipsReportSection(topChips, classObj.students.length)}
+            `;
+          })()}
         </div>
         ${getReportAutoScaleScript(true, fitToOnePage)}
       </body></html>`;
@@ -14991,6 +16044,15 @@
               ${trs}
             </tbody>
           </table>
+          ${(() => {
+            if (typeof getReportIncludeObservations === 'function' && !getReportIncludeObservations()) return '';
+            const topChips = getTopObservationChips(classObj, { semester: sem, limit: 10 });
+            if (!topChips.length) return '';
+            return `
+              <div class="section-heading" style="margin-top:10px;">${t('gsTopChipsClassTitle') || 'Top 10 Most Frequent Observation Chips'}</div>
+              ${renderTopChipsReportSection(topChips, classObj.students.length)}
+            `;
+          })()}
         </div>
         ${getReportAutoScaleScript(false, fitToOnePage)}
       </body></html>`;
@@ -15226,6 +16288,16 @@
                   ${rows}
                 </tbody>
               </table>
+            `;
+          })()}
+
+          ${(() => {
+            if (typeof getReportIncludeObservations === 'function' && !getReportIncludeObservations()) return '';
+            const topChips = getTopObservationChips(classObj, { semester: sem, testIndex: testIndex, limit: 10 });
+            if (!topChips.length) return '';
+            return `
+              <div class="section-heading" style="margin-top:10px;">${t('gsTopChipsTestTitle') || 'Top 10 Observation Chips for this Test'}</div>
+              ${renderTopChipsReportSection(topChips, classObj.students.length)}
             `;
           })()}
         </div>
@@ -19429,6 +20501,16 @@
         showScreen("classes");
       });
 
+      document.getElementById("cmp-top-chips-header")?.addEventListener("click", () => {
+        if (typeof toggleCompareTopChips === 'function') toggleCompareTopChips();
+      });
+      document.getElementById("cmp-top-chips-header")?.addEventListener("keydown", e => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          if (typeof toggleCompareTopChips === 'function') toggleCompareTopChips();
+        }
+      });
+
       document.getElementById("btn-cmp-export-pdf")?.addEventListener("click", () => {
         if (typeof exportComparePdf === 'function') exportComparePdf();
       });
@@ -21780,6 +22862,8 @@ ${blocks}
         if (kpiContainer) {
           kpiContainer.innerHTML = `<div class="cmp-empty-notice">${t('gsCmpNoClassesSelected') || 'Please select at least one class to compare.'}</div>`;
         }
+        const topChipsCard = document.getElementById("cmp-top-chips-card");
+        if (topChipsCard) topChipsCard.classList.add("hidden");
         if (matrixContainer) matrixContainer.innerHTML = "";
         if (chartsContainer) chartsContainer.innerHTML = "";
         return;
@@ -21855,6 +22939,9 @@ ${blocks}
 
       // Render Section 1: KPI Cards
       renderCompareKpiCards(classDataList, cohortStats, kpiContainer);
+
+      // Render Top 10 Observation Chips Card
+      renderCompareTopChips(selectedClasses);
 
       // Render Section 2: Matrix Table
       renderCompareMatrixTable(classDataList, cohortStats, matrixContainer);
@@ -22131,6 +23218,10 @@ ${blocks}
       const matrixClone = document.getElementById("cmp-matrix-container") ? document.getElementById("cmp-matrix-container").innerHTML : '';
       const chartsClone = document.getElementById("cmp-charts-container") ? document.getElementById("cmp-charts-container").innerHTML : '';
 
+      const cohortTopChips = getCohortTopObservationChips(selectedClasses, { limit: 10 });
+      const totalCohortStudents = selectedClasses.reduce((acc, c) => acc + (Array.isArray(c.students) ? c.students.length : 0), 0);
+      const topChipsHtml = renderCompareTopChipsReportSection(cohortTopChips, totalCohortStudents, selectedClasses);
+
       return `<!DOCTYPE html>
 <html>
 <head>
@@ -22162,12 +23253,14 @@ ${blocks}
     .cmp-badge-pass { background: #d4edda; color: #166534; padding: 1px 4px; border-radius: 3px; font-weight: 800; }
     .cmp-charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; page-break-inside: avoid; }
     .cmp-chart-box { border: 1.5px solid #333; border-radius: 6px; padding: 10px; }
+    .cmp-report-chips-section { border: 2px solid #333; border-radius: 8px; padding: 12px; background: #fff; margin-top: 14px; margin-bottom: 14px; }
   </style>
 </head>
 <body>
   <h1>Class Comparison Report</h1>
   <div class="report-sub">Scope: ${_cmpState.scope.toUpperCase()} · Generated: ${new Date().toLocaleDateString()}</div>
   ${kpiClone}
+  ${topChipsHtml}
   ${matrixClone}
   ${chartsClone}
 </body>
@@ -22255,8 +23348,130 @@ ${blocks}
         matrixRows.push([m.label, ...selectedClasses.map(c => m.fn(c))]);
       });
 
+      // Append Top 10 Most Frequent Observation Chips (Cohort) to Overview Matrix
+      const cohortTopChips = getCohortTopObservationChips(selectedClasses, { limit: 10 });
+      const totalCohortStudents = selectedClasses.reduce((acc, c) => acc + (Array.isArray(c.students) ? c.students.length : 0), 0);
+
+      matrixRows.push([]);
+      matrixRows.push([]);
+      matrixRows.push([
+        "TOP 10 MOST FREQUENT OBSERVATION CHIPS (COHORT)",
+        `Scope: ${_cmpState.scope.toUpperCase()}`,
+        `Total Cohort Students: ${totalCohortStudents}`
+      ]);
+      matrixRows.push([
+        "Rank",
+        "Observation Chip",
+        "Category",
+        "Total Uses",
+        "Cohort Students",
+        "% of Cohort",
+        ...selectedClasses.map(c => `${c.name} Uses`)
+      ]);
+
+      if (cohortTopChips.length === 0) {
+        matrixRows.push(["-", "No observation chips recorded", "-", "-", "-", "-", ...selectedClasses.map(() => "-")]);
+      } else {
+        cohortTopChips.forEach((chip, idx) => {
+          const classCounts = selectedClasses.map(c => {
+            const matched = Array.isArray(chip.byClass) ? chip.byClass.find(bc => bc.classId === c.id) : null;
+            return (matched && matched.occurrences > 0) ? matched.occurrences : 0;
+          });
+          matrixRows.push([
+            idx + 1,
+            chip.name,
+            chip.category || "-",
+            chip.occurrences,
+            chip.studentCount,
+            `${chip.percentage}%`,
+            ...classCounts
+          ]);
+        });
+      }
+
       const wsMatrix = XLSX.utils.aoa_to_sheet(matrixRows);
       XLSX.utils.book_append_sheet(wb, wsMatrix, "Overview Matrix");
+
+      // Sheet 2: Dedicated Observation Chips Sheet with Uses and Students breakdown
+      const chipRows = [
+        ["Top 10 Most Frequent Observation Chips (Cohort Comparison)"],
+        [`Scope: ${_cmpState.scope.toUpperCase()}`, `Total Cohort Students: ${totalCohortStudents}`],
+        [],
+        [
+          "Rank",
+          "Observation Chip",
+          "Category",
+          "Total Uses",
+          "Cohort Students",
+          "% of Cohort",
+          ...selectedClasses.map(c => `${c.name} Uses`),
+          ...selectedClasses.map(c => `${c.name} Students`)
+        ]
+      ];
+      if (cohortTopChips.length === 0) {
+        chipRows.push(["-", "No observation chips recorded", "-", "-", "-", "-", ...selectedClasses.map(() => "-"), ...selectedClasses.map(() => "-")]);
+      } else {
+        cohortTopChips.forEach((chip, idx) => {
+          const classUses = selectedClasses.map(c => {
+            const m = Array.isArray(chip.byClass) ? chip.byClass.find(bc => bc.classId === c.id) : null;
+            return (m && m.occurrences > 0) ? m.occurrences : 0;
+          });
+          const classSt = selectedClasses.map(c => {
+            const m = Array.isArray(chip.byClass) ? chip.byClass.find(bc => bc.classId === c.id) : null;
+            return (m && m.studentCount > 0) ? m.studentCount : 0;
+          });
+          chipRows.push([
+            idx + 1,
+            chip.name,
+            chip.category || "-",
+            chip.occurrences,
+            chip.studentCount,
+            `${chip.percentage}%`,
+            ...classUses,
+            ...classSt
+          ]);
+        });
+      }
+      if (Array.isArray(cohortTopChips.sections) && cohortTopChips.sections.length > 0) {
+        cohortTopChips.sections.forEach(sec => {
+          const sChips = sec.topChips || [];
+          if (!sChips.length) return;
+          chipRows.push([]);
+          chipRows.push([`${sec.name} (Top 5)`]);
+          chipRows.push([
+            "Rank",
+            "Observation Chip",
+            "Category",
+            "Total Uses",
+            "Cohort Students",
+            "% of Cohort",
+            ...selectedClasses.map(c => `${c.name} Uses`),
+            ...selectedClasses.map(c => `${c.name} Students`)
+          ]);
+          sChips.forEach((chip, idx) => {
+            const classUses = selectedClasses.map(c => {
+              const m = Array.isArray(chip.byClass) ? chip.byClass.find(bc => bc.classId === c.id) : null;
+              return (m && m.occurrences > 0) ? m.occurrences : 0;
+            });
+            const classSt = selectedClasses.map(c => {
+              const m = Array.isArray(chip.byClass) ? chip.byClass.find(bc => bc.classId === c.id) : null;
+              return (m && m.studentCount > 0) ? m.studentCount : 0;
+            });
+            chipRows.push([
+              idx + 1,
+              chip.name,
+              chip.category || "-",
+              chip.occurrences,
+              chip.studentCount,
+              `${chip.percentage}%`,
+              ...classUses,
+              ...classSt
+            ]);
+          });
+        });
+      }
+      const wsChips = XLSX.utils.aoa_to_sheet(chipRows);
+      XLSX.utils.book_append_sheet(wb, wsChips, "Observation Chips");
 
       // Sheet 2: Student Level Scores
       selectedClasses.forEach(c => {

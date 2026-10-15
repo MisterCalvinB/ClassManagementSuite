@@ -71,6 +71,7 @@
           <button class="nav-pop-item" onclick="lcToggleDrawer('activities')"><span data-i18n="lcActivityBank">Activity Bank</span> <span class="nav-pop-hint">Ctrl+Shift+B</span></button>
           <button class="nav-pop-item" onclick="lcOpenFloatingCompanion()"><span data-i18n="lcFloatingCompanion">Floating Companion…</span></button>
           <button class="nav-pop-item" onclick="lcOpenCoverageModal()"><span data-i18n="lcCoverageMatrix">Curriculum Coverage…</span> <span class="nav-pop-hint">Ctrl+M</span></button>
+          <button class="nav-pop-item" onclick="lcOpenPillsGuideModal('activities')"><span data-i18n="lcPillsGuideTitle">Phase Activities &amp; Modes Guide…</span></button>
         </div>
       </div>
 
@@ -668,6 +669,35 @@
       </div>
       <div class="modal-footer">
         <button class="neo-btn primary" onclick="lcSaveTeamConfig()"><span data-i18n="btnOk">OK</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Phase Activities & Modes Beginner Guide Modal -->
+  <div id="pillsGuideModal" class="modal-overlay" style="display:none; z-index:10005;">
+    <div class="modal-box" style="max-width:820px; width:92vw; max-height:90vh; display:flex; flex-direction:column; border:3px solid var(--neo-dark); box-shadow:var(--neo-shadow-lg);">
+      <div class="modal-header" style="border-bottom:2px solid var(--neo-dark); padding-bottom:12px;">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <img src="../assets/icons/book.svg" class="btn-icon" alt="" style="width:20px;height:20px;">
+            <span style="font-weight:900;font-size:1.1rem;" data-i18n="lcPillsGuideTitle">Phase Activities &amp; Modes Guide</span>
+          </div>
+          <div style="font-size:0.8rem;color:var(--neo-gray-dark);margin-top:4px;" data-i18n="lcPillsGuideSub">A beginner's guide to structuring effective lesson phases and student grouping.</div>
+        </div>
+        <button class="icon-btn" onclick="lcCloseModal('pillsGuideModal')">&times;</button>
+      </div>
+      <div style="display:flex;gap:8px;padding:12px 18px 0 18px;border-bottom:1.5px solid var(--neo-dark);background:var(--neo-canvas);">
+        <button type="button" class="drawer-tab-btn active" id="tabGuideActivities" onclick="lcSwitchPillsGuideTab('activities')">
+          <span data-i18n="lcTabActivities">Activity Types</span>
+        </button>
+        <button type="button" class="drawer-tab-btn" id="tabGuideModes" onclick="lcSwitchPillsGuideTab('modes')">
+          <span data-i18n="lcTabModes">Interaction Modes</span>
+        </button>
+      </div>
+      <div class="modal-body" id="pillsGuideModalBody" style="overflow-y:auto; flex:1; padding:16px; display:flex; flex-direction:column; gap:12px;"></div>
+      <div class="modal-footer" style="border-top:2px solid var(--neo-dark); padding-top:10px; justify-content:space-between; align-items:center;">
+        <span style="font-size:0.75rem;color:var(--neo-gray-dark);" data-i18n="lcPillsGuideTip">Tip: Hover over any activity or mode pill in the timeline to see a quick reminder.</span>
+        <button type="button" class="neo-btn" onclick="lcCloseModal('pillsGuideModal')"><span data-i18n="btnOk">Close</span></button>
       </div>
     </div>
   </div>
@@ -3267,7 +3297,10 @@
         var iconHtml = a.icon ? '<img src="../assets/icons/' + escapeHtml(a.icon) + '" class="phase-pill-icon" alt="" style="width:12px;height:12px;margin-right:4px;">' : '';
         var bg = a.bg || '#fef3c7';
         var col = a.color || '#111';
-        return '<span style="background:' + bg + ';color:' + col + ';border:1px solid var(--neo-dark);border-radius:12px;padding:2px 8px;font-size:0.74rem;font-weight:800;display:inline-flex;align-items:center;white-space:nowrap;">' +
+        var actName = getActivityLabel(a.id, false);
+        var actExp = getActivityExplanation(a.id);
+        var fullTip = actName + (actExp ? ('\n\n' + actExp) : '');
+        return '<span style="background:' + bg + ';color:' + col + ';border:1px solid var(--neo-dark);border-radius:12px;padding:2px 8px;font-size:0.74rem;font-weight:800;display:inline-flex;align-items:center;white-space:nowrap;" title="' + escapeHtml(fullTip) + '">' +
           iconHtml + '<span>' + escapeHtml(getActivityLabel(a.id, true)) + '</span></span>';
       }
 
@@ -3275,7 +3308,10 @@
         var m = (LessonCreatorService.DEFAULT_INTERACTION_TYPES || []).find(function (item) { return item.id === modeId; });
         if (!m) return '';
         var iconHtml = m.icon ? '<img src="../assets/icons/' + escapeHtml(m.icon) + '" class="phase-pill-icon" alt="" style="width:12px;height:12px;margin-right:4px;">' : '';
-        return '<span style="background:var(--neo-gray-light);border:1px solid var(--neo-dark);border-radius:12px;padding:2px 8px;font-size:0.74rem;font-weight:800;display:inline-flex;align-items:center;white-space:nowrap;">' +
+        var modeName = getInteractionLabel(m.id, false);
+        var modeExp = getInteractionExplanation(m.id);
+        var fullTip = modeName + (modeExp ? ('\n\n' + modeExp) : '');
+        return '<span style="background:var(--neo-gray-light);border:1px solid var(--neo-dark);border-radius:12px;padding:2px 8px;font-size:0.74rem;font-weight:800;display:inline-flex;align-items:center;white-space:nowrap;" title="' + escapeHtml(fullTip) + '">' +
           iconHtml + '<span>' + escapeHtml(getInteractionLabel(m.id, true)) + '</span></span>';
       }
 
@@ -3438,13 +3474,22 @@
           // Pills Row: Activity & Mode Chips
           var pillsRow = document.createElement('div');
           pillsRow.className = 'phase-pills-row';
+          var actLabelText = (typeof i18n !== 'undefined' && i18n.t) ? (i18n.t('lcPillsActivityLabel') || 'Activity:') : 'Activity:';
+          var modeLabelText = (typeof i18n !== 'undefined' && i18n.t) ? (i18n.t('lcPillsModeLabel') || 'Mode:') : 'Mode:';
+          var helpBtnTitle = (typeof i18n !== 'undefined' && i18n.t) ? (i18n.t('lcPillsHelpBtnTitle') || 'Explain activities and interaction modes') : 'Explain activities and interaction modes';
           pillsRow.innerHTML = [
             '<div class="phase-pills-group">',
-            '  <span class="phase-pills-label">Activity:</span>',
+            '  <div class="phase-pills-header">',
+            '    <span class="phase-pills-label">' + escapeHtml(actLabelText) + '</span>',
+            '    <button type="button" class="phase-pills-help-btn" onclick="lcOpenPillsGuideModal(\'activities\')" title="' + escapeHtml(helpBtnTitle) + '">?</button>',
+            '  </div>',
             '  <div class="phase-pills-list">' + buildActivityPills(sec.activityTypeId, idx) + '</div>',
             '</div>',
             '<div class="phase-pills-group">',
-            '  <span class="phase-pills-label">Mode:</span>',
+            '  <div class="phase-pills-header">',
+            '    <span class="phase-pills-label">' + escapeHtml(modeLabelText) + '</span>',
+            '    <button type="button" class="phase-pills-help-btn" onclick="lcOpenPillsGuideModal(\'modes\')" title="' + escapeHtml(helpBtnTitle) + '">?</button>',
+            '  </div>',
             '  <div class="phase-pills-list">' + buildModePills(sec.interactionTypeId, idx) + '</div>',
             '</div>'
           ].join('');
@@ -3480,9 +3525,11 @@
           var iconHtml = a.icon ? '<img src="../assets/icons/' + escapeHtml(a.icon) + '" class="phase-pill-icon" alt="">' : '';
           var displayName = getActivityLabel(a.id, true);
           var fullTitle = getActivityLabel(a.id, false);
+          var exp = getActivityExplanation(a.id);
+          var combinedTooltip = fullTitle + (exp ? ('\n\n' + exp) : '');
           return '<button type="button" class="phase-pill activity-pill' + selectedClass + '" ' +
             'style="' + inlineStyle + '" ' +
-            'title="' + escapeHtml(fullTitle) + '" ' +
+            'title="' + escapeHtml(combinedTooltip) + '" ' +
             'onclick="lcTogglePhaseActivity(' + phaseIndex + ', \'' + escapeHtml(a.id) + '\')">' +
             iconHtml + '<span>' + escapeHtml(displayName) + '</span>' +
             '</button>';
@@ -3496,8 +3543,10 @@
           var iconHtml = m.icon ? '<img src="../assets/icons/' + escapeHtml(m.icon) + '" class="phase-pill-icon" alt="">' : '';
           var displayName = getInteractionLabel(m.id, true);
           var fullTitle = getInteractionLabel(m.id, false);
+          var exp = getInteractionExplanation(m.id);
+          var combinedTooltip = fullTitle + (exp ? ('\n\n' + exp) : '');
           return '<button type="button" class="phase-pill mode-pill' + selectedClass + '" ' +
-            'title="' + escapeHtml(fullTitle) + '" ' +
+            'title="' + escapeHtml(combinedTooltip) + '" ' +
             'onclick="lcTogglePhaseMode(' + phaseIndex + ', \'' + escapeHtml(m.id) + '\')">' +
             iconHtml + '<span>' + escapeHtml(displayName) + '</span>' +
             '</button>';
@@ -4768,18 +4817,22 @@
 
           var actLabel = getActivityLabel(p.activityTypeId, true);
           var modeLabel = getInteractionLabel(p.interactionTypeId, true);
+          var actExp = getActivityExplanation(p.activityTypeId);
+          var actFullTip = getActivityLabel(p.activityTypeId, false) + (actExp ? ('\n\n' + actExp) : '');
+          var modeExp = getInteractionExplanation(p.interactionTypeId);
+          var modeFullTip = getInteractionLabel(p.interactionTypeId, false) + (modeExp ? ('\n\n' + modeExp) : '');
 
           var actPillHtml = actDef
-            ? ('<span class="drawer-act-pill" style="background:' + (actDef.bg || '#fef3c7') + ';color:' + (actDef.color || '#111') + ';">' +
+            ? ('<span class="drawer-act-pill" style="background:' + (actDef.bg || '#fef3c7') + ';color:' + (actDef.color || '#111') + ';" title="' + escapeHtml(actFullTip) + '">' +
                (actDef.icon ? ('<img src="../assets/icons/' + escapeHtml(actDef.icon) + '" alt="">') : '') +
                '<span>' + escapeHtml(actLabel || actDef.shortName || actDef.name) + '</span></span>')
-            : (p.activityTypeId ? ('<span class="drawer-act-pill">' + escapeHtml(actLabel || p.activityTypeId) + '</span>') : '');
+            : (p.activityTypeId ? ('<span class="drawer-act-pill" title="' + escapeHtml(actFullTip) + '">' + escapeHtml(actLabel || p.activityTypeId) + '</span>') : '');
 
           var modePillHtml = modeDef
-            ? ('<span class="drawer-act-pill" style="background:#f1f5f9;color:#334155;">' +
+            ? ('<span class="drawer-act-pill" style="background:#f1f5f9;color:#334155;" title="' + escapeHtml(modeFullTip) + '">' +
                (modeDef.icon ? ('<img src="../assets/icons/' + escapeHtml(modeDef.icon) + '" alt="">') : '') +
                '<span>' + escapeHtml(modeLabel || modeDef.shortName || modeDef.name) + '</span></span>')
-            : (p.interactionTypeId ? ('<span class="drawer-act-pill">' + escapeHtml(modeLabel || p.interactionTypeId) + '</span>') : '');
+            : (p.interactionTypeId ? ('<span class="drawer-act-pill" title="' + escapeHtml(modeFullTip) + '">' + escapeHtml(modeLabel || p.interactionTypeId) + '</span>') : '');
 
           var catPillHtml = p.category
             ? ('<span class="drawer-act-pill" style="background:#f3e8ff;color:#6b21a8;border-color:#d8b4fe;">' + escapeHtml(p.category) + '</span>')
@@ -7724,7 +7777,7 @@
         if (typeof Tutorial !== 'undefined') {
           Tutorial.start([
             { selector: '#planTitle', title: 'Lesson Title & Subject', text: 'Set your lesson topic, target subject, class group, and planned duration.' },
-            { selector: '#phaseCardsList', title: 'Interactive Timeline Builder', text: 'Add, drag to reorder, split, and edit timing, objectives, and instructions for each lesson phase.' },
+            { selector: '#phaseCardsList', title: 'Interactive Timeline Builder', text: 'Add, drag to reorder, split, and edit timing, objectives, activity types, and interaction modes with built-in beginner explanations (click "?" on any phase).' },
             { selector: '#descriptorDrawer', title: 'Descriptor Bank', text: 'Filter curriculum standards by year, semester, and category. Click "+ Tag" to link standards to phases.' },
             { selector: '#app-nav', title: 'Tools & Navigation', text: 'Instantly launch your plan in Class Management, export to mindmaps, or manage your descriptor database.' }
           ]);
@@ -9341,6 +9394,137 @@
         }
         return iId.charAt(0).toUpperCase() + iId.slice(1).replace(/_/g, ' ');
       }
+
+      function getActivityExplanation(aId) {
+        if (!aId) return '';
+        var lang = (typeof i18n !== 'undefined') ? (i18n.getLang ? i18n.getLang() : (i18n.getLanguage ? i18n.getLanguage() : 'en')) : 'en';
+        var idToToken = {
+          'warm_up': 'lcActWarmUpDesc',
+          'direct_instruction': 'lcActDirectInstructionDesc',
+          'guided_practice': 'lcActGuidedPracticeDesc',
+          'independent_work': 'lcActIndependentWorkDesc',
+          'group_activity': 'lcActGroupActivityDesc',
+          'discussion': 'lcActDiscussionDesc',
+          'assessment': 'lcActAssessmentDesc',
+          'plenary': 'lcActPlenaryDesc'
+        };
+        var token = idToToken[aId];
+        if (token && typeof i18n !== 'undefined' && i18n.t) {
+          var val = i18n.t(token);
+          if (val && val !== token) return val;
+        }
+        if (typeof LessonCreatorService !== 'undefined' && Array.isArray(LessonCreatorService.DEFAULT_ACTIVITY_TYPES)) {
+          var found = LessonCreatorService.DEFAULT_ACTIVITY_TYPES.find(function (a) { return a.id === aId; });
+          if (found) {
+            if (lang === 'fr' && found.desc_fr) return found.desc_fr;
+            if (lang === 'de' && found.desc_de) return found.desc_de;
+            if (lang === 'it' && found.desc_it) return found.desc_it;
+            if (found.desc) return found.desc;
+          }
+        }
+        return '';
+      }
+
+      function getInteractionExplanation(iId) {
+        if (!iId) return '';
+        var lang = (typeof i18n !== 'undefined') ? (i18n.getLang ? i18n.getLang() : (i18n.getLanguage ? i18n.getLanguage() : 'en')) : 'en';
+        var idToToken = {
+          'whole_class': 'lcModeWholeClassDesc',
+          'teacher_led': 'lcModeTeacherLedDesc',
+          'individual': 'lcModeIndividualDesc',
+          'pairs': 'lcModePairsDesc',
+          'small_groups': 'lcModeSmallGroupsDesc',
+          'stations': 'lcModeStationsDesc'
+        };
+        var token = idToToken[iId];
+        if (token && typeof i18n !== 'undefined' && i18n.t) {
+          var val = i18n.t(token);
+          if (val && val !== token) return val;
+        }
+        if (typeof LessonCreatorService !== 'undefined' && Array.isArray(LessonCreatorService.DEFAULT_INTERACTION_TYPES)) {
+          var found = LessonCreatorService.DEFAULT_INTERACTION_TYPES.find(function (i) { return i.id === iId; });
+          if (found) {
+            if (lang === 'fr' && found.desc_fr) return found.desc_fr;
+            if (lang === 'de' && found.desc_de) return found.desc_de;
+            if (lang === 'it' && found.desc_it) return found.desc_it;
+            if (found.desc) return found.desc;
+          }
+        }
+        return '';
+      }
+      window.getActivityExplanation = getActivityExplanation;
+      window.getInteractionExplanation = getInteractionExplanation;
+
+      function lcOpenPillsGuideModal(tab) {
+        window._currentPillsGuideTab = (tab === 'modes') ? 'modes' : 'activities';
+        lcRenderPillsGuideContent();
+        lcOpenModal('pillsGuideModal');
+      }
+      window.lcOpenPillsGuideModal = lcOpenPillsGuideModal;
+
+      function lcSwitchPillsGuideTab(tab) {
+        window._currentPillsGuideTab = (tab === 'modes') ? 'modes' : 'activities';
+        lcRenderPillsGuideContent();
+      }
+      window.lcSwitchPillsGuideTab = lcSwitchPillsGuideTab;
+
+      function lcRenderPillsGuideContent() {
+        var tab = window._currentPillsGuideTab || 'activities';
+        var tabActBtn = document.getElementById('tabGuideActivities');
+        var tabModeBtn = document.getElementById('tabGuideModes');
+        if (tabActBtn) tabActBtn.classList.toggle('active', tab === 'activities');
+        if (tabModeBtn) tabModeBtn.classList.toggle('active', tab === 'modes');
+
+        var container = document.getElementById('pillsGuideModalBody');
+        if (!container) return;
+
+        if (tab === 'activities') {
+          var items = LessonCreatorService.DEFAULT_ACTIVITY_TYPES || [];
+          container.innerHTML = items.map(function (a) {
+            var iconHtml = a.icon ? '<img src="../assets/icons/' + escapeHtml(a.icon) + '" class="phase-pill-icon" alt="" style="width:15px;height:15px;">' : '';
+            var displayName = getActivityLabel(a.id, true);
+            var fullTitle = getActivityLabel(a.id, false);
+            var exp = getActivityExplanation(a.id);
+            var bg = a.bg || '#fef3c7';
+            var col = a.color || '#111';
+            var whenToken = 'lcAct_' + a.id + '_when';
+            var whenText = (typeof i18n !== 'undefined' && i18n.t(whenToken) !== whenToken) ? i18n.t(whenToken) : (a.when || '');
+            var whenLabel = (typeof i18n !== 'undefined' && i18n.t('lcPillWhenToUse')) || 'When to use:';
+            return '<div class="guide-item-card">' +
+              '  <div class="guide-item-header">' +
+              '    <span class="phase-pill" style="background:' + bg + ';color:' + col + ';border-color:var(--neo-dark);font-weight:800;cursor:default;">' +
+                     iconHtml + '<span>' + escapeHtml(displayName) + '</span>' +
+              '    </span>' +
+              '    <span class="guide-item-title">' + escapeHtml(fullTitle) + '</span>' +
+              '  </div>' +
+              '  <div class="guide-item-desc">' + escapeHtml(exp) + '</div>' +
+              (whenText ? ('  <div class="guide-item-when"><strong>' + escapeHtml(whenLabel) + '</strong> ' + escapeHtml(whenText) + '</div>') : '') +
+              '</div>';
+          }).join('');
+        } else {
+          var modes = LessonCreatorService.DEFAULT_INTERACTION_TYPES || [];
+          container.innerHTML = modes.map(function (m) {
+            var iconHtml = m.icon ? '<img src="../assets/icons/' + escapeHtml(m.icon) + '" class="phase-pill-icon" alt="" style="width:15px;height:15px;">' : '';
+            var displayName = getInteractionLabel(m.id, true);
+            var fullTitle = getInteractionLabel(m.id, false);
+            var exp = getInteractionExplanation(m.id);
+            var whenToken = 'lcMode_' + m.id + '_when';
+            var whenText = (typeof i18n !== 'undefined' && i18n.t(whenToken) !== whenToken) ? i18n.t(whenToken) : (m.when || '');
+            var whenLabel = (typeof i18n !== 'undefined' && i18n.t('lcPillPedagogy')) || 'Pedagogical focus:';
+            return '<div class="guide-item-card">' +
+              '  <div class="guide-item-header">' +
+              '    <span class="phase-pill mode-pill active" style="cursor:default;">' +
+                     iconHtml + '<span>' + escapeHtml(displayName) + '</span>' +
+              '    </span>' +
+              '    <span class="guide-item-title">' + escapeHtml(fullTitle) + '</span>' +
+              '  </div>' +
+              '  <div class="guide-item-desc">' + escapeHtml(exp) + '</div>' +
+              (whenText ? ('  <div class="guide-item-when"><strong>' + escapeHtml(whenLabel) + '</strong> ' + escapeHtml(whenText) + '</div>') : '') +
+              '</div>';
+          }).join('');
+        }
+      }
+      window.lcRenderPillsGuideContent = lcRenderPillsGuideContent;
 
       function lcGetCopyTextToggles() {
         return {
