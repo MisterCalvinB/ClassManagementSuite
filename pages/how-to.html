@@ -828,6 +828,10 @@
               <p>Export HTML and Markdown tables, tests, lesson plans, database vocab decks, and schedules directly into Document Editor. Selecting the Document Editor destination card saves files directly to the user's document library (<code>user/document-editor/docs/</code>) and launches Document Editor with the document loaded, inline stylesheets extracted, and Monaco syntax highlighting active.</p>
             </div>
             <div class="mini-card">
+              <h4><img src="../assets/icons/layout.svg" class="ht-icon-img" alt="" /> Multi-Model CSS Export System &amp; Live Preview</h4>
+              <p>Choose between 4 professional CSS export models (<em>Light Neobrutalist</em>, <em>Modern Minimalist</em>, <em>Classic Academic</em>, and <em>Plain / Eco (Black &amp; White)</em>) or drop your own custom <code>.css</code> files into <code>user/export-css/</code>. Available across Lesson Creator, Test Creator, Grade Sheet, Schedule Maker, and Planner with full-screen Live Preview modals, instant in-place style swapping, and 1-click Print/PDF export.</p>
+            </div>
+            <div class="mini-card">
               <h4><img src="../assets/icons/competence-portfolio.svg" class="ht-icon-img" alt="" /> Competence Portfolio ↔ Grade Sheet, Planner, Lesson Creator &amp; Board</h4>
               <p>Centralized curriculum auditing across the suite: aggregates planned objectives from Planner, completed phases from Lesson Creator and Board constellation mindmaps, and evaluated test results from Grade Sheet to compute cohort mastery percentages, domain progress bars, and historical audit timelines automatically.</p>
             </div>
@@ -1099,7 +1103,7 @@
               <li>Click <strong>+</strong> in the context menu to add a connected word; choose arrow direction (→, ←, ↔) or no arrow.</li>
               <li>Select a node and use the format panel to change shape (oval, circle, square, rectangle), border style, and colour.</li>
               <li>Use <strong>Group</strong> to assign nodes to a colour group for visual clustering.</li>
-              <li>Export: click <strong>Export</strong> in the top toolbar to choose between <strong>Export Pages PDF</strong> (full multi-page PDF booklet capturing all canvas pages with pixel-perfect images, complete rich notes, and exact font sizes and styling), <strong>Export Words Table PDF</strong> (structured table of vocabulary with translations, IPA, and definitions), <strong>Export PNG</strong>, <strong>CSV</strong>, or <strong>JS</strong>.</li>
+              <li>Export: click <strong>Export</strong> in the top toolbar to choose between <strong>Export Pages PDF (Vector)</strong> (vector PDF booklet powered by <code>BoardExportService</code> capturing exact node/note dimensions, font sizes, text alignments, and rich HTML/KaTeX math), <strong>Export Pages PDF (Snapshots)</strong> (PDF booklet created from customizable WebP canvas captures), <strong>Export WebP Image</strong> (standalone WebP image or multi-page zip bundle with configurable resolution 1.0×/1.5×/2.0× and WebP compression quality 40%–100%), <strong>Export Words Table PDF</strong> (structured table of vocabulary with translations, IPA, and definitions), <strong>Export PNG</strong>, <strong>CSV</strong>, or <strong>JS</strong>.</li>
             </ol>
             <div class="tip"><strong>Tip:</strong> Use <strong>DEF</strong> in the node context menu to auto-fetch a definition, or <strong>FR</strong> for a French translation via Wiktionary. When adding words via right-click, use <code>++</code> (e.g. <code>noun ++ verb</code>) to automatically group the words, leaving single <code>+</code> available for literal text.</div>
             <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Invisible Groups (Border &amp; Background Removal):</strong> When grouping elements (<kbd>Ctrl+G</kbd> or <kbd>Ctrl+Shift+G</kbd>), you can remove the group's border and background for a completely invisible grouping. Toggle invisibility at any time via the <strong>Invisible</strong> button or the transparent <code>⊘</code> swatch in the group right-click context menu. Invisible groups allow dragging and manipulating complex arrangements of nodes, notes, drawings, and shapes together as a single cohesive unit without visual framing on primary and presentation displays.</p>
@@ -4297,6 +4301,28 @@
             <li><strong>Open with Document Editor</strong> — whenever any tool exports Markdown (<code>.md</code>) or HTML (<code>.html</code>) files, the export completion popup includes an <strong>Open with Document Editor</strong> button. Clicking it instantly launches Document Editor with the exported file loaded for review and editing.</li>
             <li><strong>Direct File Saving</strong> — edits made to exported documents can be saved directly back to the original file on disk with <code>Ctrl+S</code> or <strong>File ▾ → Save</strong>.</li>
             <li><strong>Semantic Stylesheets</strong> — exported HTML documents throughout the suite use clean CSS classes and embedded stylesheets instead of repetitive inline styles, allowing you to easily adjust margins, colors, and fonts via Document Settings or custom CSS rules.</li>
+          </ul>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-export-styles">
+        <button class="accordion-header" onclick="toggleAccordion('acc-export-styles')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title"><img src="../assets/icons/layout.svg" class="ht-icon-img" alt="" /> Multi-Model CSS Export System &amp; Live Preview</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p>The application features a centralized CSS export engine (<code>js/export-styles-service.js</code>) allowing teachers to customize document layouts and visual aesthetics across <strong>Lesson Creator</strong>, <strong>Test Creator</strong>, <strong>Grade Sheet</strong>, <strong>Schedule Maker</strong>, and <strong>Planner</strong>:</p>
+          <ul>
+            <li><strong>4 Foundation Models:</strong>
+              <ul>
+                <li><strong>Light Neobrutalist</strong> — Default suite aesthetic with warm neutral canvas (<code>#f5f5f0</code>), 2px charcoal borders, crisp <code>3px 3px 0 #555555</code> block drop shadows, and Lexend typography.</li>
+                <li><strong>Modern Minimalist</strong> — Contemporary clean look with crisp white/slate palette, subtle hairline dividers, sans-serif typography, and alternating table rows.</li>
+                <li><strong>Classic Academic</strong> — Editorial serif typography (Georgia, Garamond), formal booktabs horizontal table rules (no vertical borders), and centered headings.</li>
+                <li><strong>Plain / Eco (Black &amp; White)</strong> — High-contrast monochrome design with zero background fills and zero drop shadows, optimized for bulk black-and-white school photocopiers.</li>
+              </ul>
+            </li>
+            <li><strong>Live Preview Modal:</strong> Click <strong>Live Preview</strong> in any export dialog to inspect the rendered document in an interactive modal iframe. Changing the style from the header dropdown hot-swaps the stylesheet instantly without reloading or resetting scroll. Includes <strong>Print</strong>, <strong>Open in System Browser</strong>, and direct <strong>Export</strong> buttons.</li>
+            <li><strong>Custom User Styles (<code>user/export-css/</code>):</strong> Drop any custom <code>.css</code> file into the <code>user/export-css/</code> directory. You can include an optional header comment (<code>/* Name: My Style \n Description: Custom school styling */</code>) and the suite will automatically discover and load it in the export dropdown.</li>
           </ul>
         </div></div>
       </div>

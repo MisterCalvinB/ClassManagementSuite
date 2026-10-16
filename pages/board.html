@@ -2345,6 +2345,86 @@
     </div>
   </div>
 
+  <!-- Constellation PDF & WebP Export Options Modal -->
+  <div id="con-export-settings-overlay" style="display:none; position:fixed; inset:0; z-index:99998; background:rgba(0,0,0,0.45); backdrop-filter:blur(3px); align-items:center; justify-content:center;" onclick="if(event.target===this)conCloseExportSettingsModal()">
+    <div id="con-export-settings-modal" class="pdf-page-picker-modal" style="width: min(530px, 96vw); background:#ffffff; border:2px solid #333333; border-radius:10px; box-shadow:4px 4px 0 #555555; overflow:hidden; font-family:'Lexend','Segoe UI',Arial,sans-serif;">
+      <h3 style="margin:0; padding:12px 16px; background:#f5f5f0; border-bottom:2px solid #333333; display:flex; align-items:center; justify-content:space-between; font-size:1.05rem; font-weight:700; color:#111111;">
+        <span>🖼 <span data-i18n="conExportSettingsTitle">Export Board (PDF &amp; WebP)</span></span>
+        <button type="button" onclick="conCloseExportSettingsModal()" style="background:none; border:none; font-size:1.2rem; cursor:pointer; color:#555; padding:2px 6px; border-radius:4px;">✕</button>
+      </h3>
+      <div class="pdf-page-picker-body" style="padding:16px 18px; display:flex; flex-direction:column; gap:14px; max-height:80vh; overflow-y:auto;">
+        
+        <!-- Format selection -->
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <div style="font-size:0.82rem; font-weight:700; color:#333; text-transform:uppercase; letter-spacing:0.5px;" data-i18n="conExportFormatLabel">Format:</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <label style="display:flex; align-items:center; gap:8px; padding:10px 12px; border:2px solid #333; border-radius:6px; background:#f9f9f6; cursor:pointer; font-size:0.85rem; font-weight:600; box-shadow:2px 2px 0 #555555; user-select:none;">
+              <input type="radio" name="con-export-format" id="con-export-fmt-pdf" value="pdf_snapshots" checked onchange="conOnExportSettingsChange()" style="accent-color:#2d7d46; cursor:pointer;">
+              <span data-i18n="conExportFormatPdfSnapshots">PDF Booklet (WebP Snapshots)</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; padding:10px 12px; border:2px solid #333; border-radius:6px; background:#f9f9f6; cursor:pointer; font-size:0.85rem; font-weight:600; box-shadow:2px 2px 0 #555555; user-select:none;">
+              <input type="radio" name="con-export-format" id="con-export-fmt-webp" value="webp" onchange="conOnExportSettingsChange()" style="accent-color:#2d7d46; cursor:pointer;">
+              <span data-i18n="conExportFormatWebp">WebP Image (.webp)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Scope selection (current vs all pages) -->
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <div style="font-size:0.82rem; font-weight:700; color:#333; text-transform:uppercase; letter-spacing:0.5px;" data-i18n="conExportScopeLabel">Page Selection:</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <label style="display:flex; align-items:center; gap:8px; padding:8px 12px; border:1.5px solid #444; border-radius:6px; background:#ffffff; cursor:pointer; font-size:0.82rem; font-weight:600; user-select:none;">
+              <input type="radio" name="con-export-scope" id="con-export-scope-current" value="current" onchange="conOnExportSettingsChange()" style="accent-color:#2d7d46; cursor:pointer;">
+              <span id="con-export-scope-current-label" data-i18n="conExportScopeCurrent">Current page only</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; padding:8px 12px; border:1.5px solid #444; border-radius:6px; background:#ffffff; cursor:pointer; font-size:0.82rem; font-weight:600; user-select:none;">
+              <input type="radio" name="con-export-scope" id="con-export-scope-all" value="all" checked onchange="conOnExportSettingsChange()" style="accent-color:#2d7d46; cursor:pointer;">
+              <span id="con-export-scope-all-label" data-i18n="conExportScopeAll">All pages booklet</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Image Resolution / Size dropdown -->
+        <div style="display:flex; flex-direction:column; gap:6px; padding:12px 14px; background:#f9f9f6; border:1.5px solid #444; border-radius:8px;">
+          <div style="display:flex; align-items:center; justify-content:space-between;">
+            <label for="con-export-scale-select" style="font-size:0.82rem; font-weight:700; color:#333; text-transform:uppercase; letter-spacing:0.5px;" data-i18n="conExportResolutionLabel">Resolution / Size:</label>
+            <span id="con-export-dims-preview" style="font-size:0.75rem; font-weight:600; color:#555; background:#eee; padding:2px 6px; border-radius:4px;">~1800 × 1200 px</span>
+          </div>
+          <select id="con-export-scale-select" onchange="conOnExportSettingsChange()" style="padding:7px 10px; border:2px solid #333; border-radius:6px; font-size:0.85rem; font-weight:600; background:#fff; cursor:pointer; box-shadow:1.5px 1.5px 0 #555;">
+            <option value="1.0" data-i18n="conExportScaleStandard">1.0× (~1200px - Standard / Compact)</option>
+            <option value="1.5" selected data-i18n="conExportScaleRecommended">1.5× (~1800px - Recommended / Sharp)</option>
+            <option value="2.0" data-i18n="conExportScaleHighRes">2.0× (~2400px - High-DPI / Crisp)</option>
+          </select>
+        </div>
+
+        <!-- WebP Quality / Compression slider and preset chips -->
+        <div style="display:flex; flex-direction:column; gap:8px; padding:12px 14px; background:#f9f9f6; border:1.5px solid #444; border-radius:8px;">
+          <div style="display:flex; align-items:center; justify-content:space-between;">
+            <label for="con-export-quality-slider" style="font-size:0.82rem; font-weight:700; color:#333; text-transform:uppercase; letter-spacing:0.5px;" data-i18n="conExportQualityLabel">WebP Quality / Compression:</label>
+            <span id="con-export-quality-badge" style="font-size:0.85rem; font-weight:800; color:#2d7d46; background:#e8f5e9; border:1.5px solid #2d7d46; padding:1px 8px; border-radius:12px;">82%</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <input type="range" id="con-export-quality-slider" min="40" max="100" value="82" step="2" oninput="conOnExportQualitySlider(this.value)" style="flex:1; accent-color:#2d7d46; cursor:pointer; height:6px;">
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:2px;">
+            <button type="button" class="action-btn btn-grey" onclick="conApplyExportQualityPreset(65)" style="padding:3px 8px; font-size:0.74rem; font-weight:700;" data-i18n="conExportPresetCompact">Compact (65%)</button>
+            <button type="button" class="action-btn btn-grey" onclick="conApplyExportQualityPreset(82)" style="padding:3px 8px; font-size:0.74rem; font-weight:700;" data-i18n="conExportPresetBalanced">Balanced (82%)</button>
+            <button type="button" class="action-btn btn-grey" onclick="conApplyExportQualityPreset(92)" style="padding:3px 8px; font-size:0.74rem; font-weight:700;" data-i18n="conExportPresetHigh">High (92%)</button>
+            <button type="button" class="action-btn btn-grey" onclick="conApplyExportQualityPreset(100)" style="padding:3px 8px; font-size:0.74rem; font-weight:700;" data-i18n="conExportPresetMax">Max (100%)</button>
+          </div>
+          <div style="font-size:0.74rem; color:#666; margin-top:2px; line-height:1.4;" data-i18n="conExportQualityHint">
+            (Lower = smaller file size; 80-85% is visually sharp)
+          </div>
+        </div>
+
+      </div>
+      <div class="pdf-page-picker-footer" style="padding:12px 18px; background:#f5f5f0; border-top:2px solid #333333; display:flex; align-items:center; justify-content:flex-end; gap:10px;">
+        <button class="action-btn btn-grey" type="button" onclick="conCloseExportSettingsModal()" data-i18n="btnCancel" style="padding:7px 14px; font-size:0.85rem; font-weight:700; border:1.5px solid #444; border-radius:6px; background:#fff; cursor:pointer; box-shadow:1.5px 1.5px 0 #888;">Cancel</button>
+        <button class="action-btn" type="button" id="con-export-confirm-btn" onclick="conExecuteExportWithOptions()" style="padding:7px 18px; font-size:0.85rem; font-weight:800; border:2px solid #333; border-radius:6px; background:#e2c96e; color:#111; cursor:pointer; box-shadow:3px 3px 0 #555;" data-i18n="conExportBtnConfirm">Export Now</button>
+      </div>
+    </div>
+  </div>
+
   <div id="con-ctx-menu">
     <div class="con-ctx-title" id="con-ctx-word-label">Word</div>
     <!-- Base-word origin row (shown when node is a synonym/antonym/related word) -->
@@ -43402,31 +43482,39 @@
         return b;
       }
 
-      const pagesPdfBtn = createExportBtn('📄 Export Pages PDF', '#e2c96e', true);
-      pagesPdfBtn.onclick = e => { e.stopPropagation(); chooser.remove(); conExportPagesPDF(); };
+      const pagesPdfVectorBtn = createExportBtn('Export Pages PDF (Vector)', '#e2c96e', true);
+      pagesPdfVectorBtn.onclick = e => { e.stopPropagation(); chooser.remove(); conExportPagesPDF('vector'); };
 
-      const pdfBtn = createExportBtn('📋 Export Words Table PDF', '#ffffff');
+      const pagesPdfSnapshotBtn = createExportBtn('Export Pages PDF (Snapshots)', '#ffffff');
+      pagesPdfSnapshotBtn.onclick = e => { e.stopPropagation(); chooser.remove(); conOpenExportSettingsModal('pdf_snapshots'); };
+
+      const webpBtn = createExportBtn(window.i18n ? i18n.t('conExportOptWebpImg') : 'Export WebP Image', '#ffffff');
+      webpBtn.onclick = e => { e.stopPropagation(); chooser.remove(); conOpenExportSettingsModal('webp'); };
+
+      const pdfBtn = createExportBtn('Export Words Table PDF', '#ffffff');
       pdfBtn.onclick = e => { e.stopPropagation(); chooser.remove(); conExportPDF(); };
 
-      const pngBtn = createExportBtn('🖼 Export PNG', '#ffffff');
+      const pngBtn = createExportBtn('Export PNG', '#ffffff');
       pngBtn.onclick = e => { e.stopPropagation(); chooser.remove(); conExportPNG(); };
 
-      const copyPngBtn = createExportBtn('📋 Copy PNG', '#ffffff');
+      const copyPngBtn = createExportBtn('Copy PNG', '#ffffff');
       copyPngBtn.onclick = e => { e.stopPropagation(); chooser.remove(); conCopyPNG(); };
 
-      const csvBtn = createExportBtn('📊 Export CSV', '#ffffff');
+      const csvBtn = createExportBtn('Export CSV', '#ffffff');
       csvBtn.onclick = e => { e.stopPropagation(); chooser.remove(); conExportCSV(); };
 
-      const jsBtn = createExportBtn('💾 Export as JS', '#ffffff');
+      const jsBtn = createExportBtn('Export as JS', '#ffffff');
       jsBtn.onclick = e => { e.stopPropagation(); chooser.remove(); conExportJS(); };
 
-      const cancelBtn = createExportBtn('✕ Cancel', '#f1f1f0');
+      const cancelBtn = createExportBtn('Cancel', '#f1f1f0');
       cancelBtn.style.color = '#666666';
       cancelBtn.style.boxShadow = '1px 1px 0 #888888';
       cancelBtn.style.border = '1.5px solid #666666';
       cancelBtn.onclick = e => { e.stopPropagation(); chooser.remove(); };
 
-      chooser.appendChild(pagesPdfBtn);
+      chooser.appendChild(pagesPdfVectorBtn);
+      chooser.appendChild(pagesPdfSnapshotBtn);
+      chooser.appendChild(webpBtn);
       chooser.appendChild(pdfBtn);
       chooser.appendChild(pngBtn);
       chooser.appendChild(copyPngBtn);
@@ -44882,7 +44970,7 @@
       });
     }
 
-    async function _conBuildBoardCanvas() {
+    async function _conBuildBoardCanvas(opts = {}) {
       const board = document.getElementById('constellation-board');
       if (!board) return null;
 
@@ -44998,10 +45086,12 @@
 
       const bw = (maxX > 0) ? Math.max(600, maxX + 40) : Math.max(600, board.clientWidth || 800);
       const bh = (maxY > 0) ? Math.max(400, maxY + 40) : Math.max(400, board.clientHeight || 600);
-      const PAD = 24; const scale = Math.max(window.devicePixelRatio || 1, 2);
+      const PAD = 24;
+      const defaultScale = Math.max(window.devicePixelRatio || 1, 2);
+      const scale = (opts && typeof opts.scale === 'number' && opts.scale > 0) ? opts.scale : defaultScale;
       const canvas = document.createElement('canvas');
-      canvas.width = (bw + PAD * 2) * scale;
-      canvas.height = (bh + PAD * 2) * scale;
+      canvas.width = Math.round((bw + PAD * 2) * scale);
+      canvas.height = Math.round((bh + PAD * 2) * scale);
       const ctx = canvas.getContext('2d'); ctx.scale(scale, scale);
 
       const computedBg = board ? getComputedStyle(board).backgroundColor : '';
@@ -45206,7 +45296,439 @@
       }, 'image/png');
     }
 
-    async function conExportPagesPDF() {
+    // ── Export Settings Modal & Export Execution ────────────────────────
+    function conOpenExportSettingsModal(defaultFormat = 'pdf_snapshots') {
+      const overlay = document.getElementById('con-export-settings-overlay');
+      if (!overlay) return;
+
+      const pdfRadio = document.getElementById('con-export-fmt-pdf');
+      const webpRadio = document.getElementById('con-export-fmt-webp');
+      if (defaultFormat === 'webp' && webpRadio) {
+        webpRadio.checked = true;
+      } else if (pdfRadio) {
+        pdfRadio.checked = true;
+      }
+
+      // Update scope labels with actual page count
+      const curPageIdx = (typeof conCurrentPageIndex === 'number') ? conCurrentPageIndex : 0;
+      const totalPages = (Array.isArray(conPageSnapshots) && conPageSnapshots.length > 0) ? conPageSnapshots.length : 1;
+      const curLabel = document.getElementById('con-export-scope-current-label');
+      if (curLabel) {
+        curLabel.textContent = (window.i18n ? i18n.t('conExportScopeCurrent') : 'Current page only') + ` (Page ${curPageIdx + 1})`;
+      }
+      const allLabel = document.getElementById('con-export-scope-all-label');
+      if (allLabel) {
+        allLabel.textContent = (window.i18n ? i18n.t('conExportScopeAll') : 'All pages booklet') + ` (${totalPages} ${totalPages > 1 ? 'pages' : 'page'})`;
+      }
+
+      // Default scope: for webp, default to current page; for pdf, default to all pages
+      const scopeCurrent = document.getElementById('con-export-scope-current');
+      const scopeAll = document.getElementById('con-export-scope-all');
+      if (defaultFormat === 'webp') {
+        if (scopeCurrent) scopeCurrent.checked = true;
+      } else {
+        if (scopeAll) scopeAll.checked = true;
+      }
+
+      conOnExportSettingsChange();
+      overlay.style.display = 'flex';
+    }
+
+    function conCloseExportSettingsModal() {
+      const overlay = document.getElementById('con-export-settings-overlay');
+      if (overlay) overlay.style.display = 'none';
+    }
+
+    function conOnExportQualitySlider(val) {
+      const badge = document.getElementById('con-export-quality-badge');
+      if (badge) badge.textContent = val + '%';
+      conUpdateExportEstimate();
+    }
+
+    function conApplyExportQualityPreset(val) {
+      const slider = document.getElementById('con-export-quality-slider');
+      if (slider) {
+        slider.value = val;
+        conOnExportQualitySlider(val);
+      }
+    }
+
+    function conOnExportSettingsChange() {
+      conUpdateExportEstimate();
+    }
+
+    function conUpdateExportEstimate() {
+      const scaleSelect = document.getElementById('con-export-scale-select');
+      const scale = scaleSelect ? parseFloat(scaleSelect.value) || 1.5 : 1.5;
+      const slider = document.getElementById('con-export-quality-slider');
+      const quality = slider ? parseInt(slider.value, 10) || 82 : 82;
+
+      const board = document.getElementById('constellation-board');
+      const baseW = Math.max(600, board ? board.clientWidth : 1200);
+      const baseH = Math.max(400, board ? board.clientHeight : 800);
+      const estW = Math.round(baseW * scale);
+      const estH = Math.round(baseH * scale);
+
+      const dimsEl = document.getElementById('con-export-dims-preview');
+      if (dimsEl) {
+        const pixels = estW * estH;
+        const approxKb = Math.round((pixels / 10000) * (quality / 100) * 0.18);
+        dimsEl.textContent = `~${estW} × ${estH} px (≈${Math.max(40, approxKb)} KB / page)`;
+      }
+    }
+
+    async function conExecuteExportWithOptions() {
+      const isWebp = document.getElementById('con-export-fmt-webp')?.checked;
+      const scope = document.getElementById('con-export-scope-current')?.checked ? 'current' : 'all';
+      const scaleSelect = document.getElementById('con-export-scale-select');
+      const scale = scaleSelect ? parseFloat(scaleSelect.value) || 1.5 : 1.5;
+      const slider = document.getElementById('con-export-quality-slider');
+      const quality = slider ? parseInt(slider.value, 10) || 82 : 82;
+
+      conCloseExportSettingsModal();
+
+      const options = {
+        format: isWebp ? 'webp' : 'pdf_snapshots',
+        scope,
+        scale,
+        quality
+      };
+
+      if (isWebp) {
+        await conExportWebP(options);
+      } else {
+        await conExportPagesPDF('snapshots', options);
+      }
+    }
+
+    function conCreateStoreZipUint8Array(entries) {
+      const prepared = entries.map(e => {
+        let fileBytes;
+        if (e.data instanceof Uint8Array) {
+          fileBytes = e.data;
+        } else if (typeof e.data === 'string') {
+          if (e.encoding === 'base64') {
+            const bin = atob(e.data);
+            fileBytes = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) fileBytes[i] = bin.charCodeAt(i);
+          } else {
+            fileBytes = new TextEncoder().encode(e.data);
+          }
+        } else {
+          fileBytes = new Uint8Array(0);
+        }
+        const nameBytes = new TextEncoder().encode(e.name);
+        return { nameBytes, fileBytes };
+      });
+
+      const crcTable = (function () {
+        const t = new Uint32Array(256);
+        for (let i = 0; i < 256; i++) {
+          let c = i;
+          for (let k = 0; k < 8; k++) c = ((c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1));
+          t[i] = c;
+        }
+        return t;
+      })();
+
+      function calcCrc32(bytes) {
+        let crc = 0xFFFFFFFF;
+        for (let i = 0; i < bytes.length; i++) {
+          crc = crcTable[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8);
+        }
+        return (crc ^ 0xFFFFFFFF) >>> 0;
+      }
+
+      let localSize = 0;
+      let cdSize = 0;
+      prepared.forEach(p => {
+        p.crc = calcCrc32(p.fileBytes);
+        localSize += 30 + p.nameBytes.length + p.fileBytes.length;
+        cdSize += 46 + p.nameBytes.length;
+      });
+      const endSize = 22;
+      const totalLen = localSize + cdSize + endSize;
+      const buf = new Uint8Array(totalLen);
+      const view = new DataView(buf.buffer);
+
+      let offset = 0;
+      const cdOffsets = [];
+
+      prepared.forEach(p => {
+        cdOffsets.push(offset);
+        view.setUint32(offset, 0x04034b50, true);
+        view.setUint16(offset + 4, 10, true);
+        view.setUint16(offset + 6, 0, true);
+        view.setUint16(offset + 8, 0, true);
+        view.setUint16(offset + 10, 0, true);
+        view.setUint16(offset + 12, 0, true);
+        view.setUint32(offset + 14, p.crc, true);
+        view.setUint32(offset + 18, p.fileBytes.length, true);
+        view.setUint32(offset + 22, p.fileBytes.length, true);
+        view.setUint16(offset + 26, p.nameBytes.length, true);
+        view.setUint16(offset + 28, 0, true);
+        offset += 30;
+        buf.set(p.nameBytes, offset);
+        offset += p.nameBytes.length;
+        buf.set(p.fileBytes, offset);
+        offset += p.fileBytes.length;
+      });
+
+      const cdStartOffset = offset;
+      prepared.forEach((p, idx) => {
+        view.setUint32(offset, 0x02014b50, true);
+        view.setUint16(offset + 4, 10, true);
+        view.setUint16(offset + 6, 10, true);
+        view.setUint16(offset + 8, 0, true);
+        view.setUint16(offset + 10, 0, true);
+        view.setUint16(offset + 12, 0, true);
+        view.setUint16(offset + 14, 0, true);
+        view.setUint32(offset + 16, p.crc, true);
+        view.setUint32(offset + 20, p.fileBytes.length, true);
+        view.setUint32(offset + 24, p.fileBytes.length, true);
+        view.setUint16(offset + 28, p.nameBytes.length, true);
+        view.setUint16(offset + 30, 0, true);
+        view.setUint16(offset + 32, 0, true);
+        view.setUint16(offset + 34, 0, true);
+        view.setUint16(offset + 36, 0, true);
+        view.setUint32(offset + 38, 0, true);
+        view.setUint32(offset + 42, cdOffsets[idx], true);
+        offset += 46;
+        buf.set(p.nameBytes, offset);
+        offset += p.nameBytes.length;
+      });
+
+      view.setUint32(offset, 0x06054b50, true);
+      view.setUint16(offset + 4, 0, true);
+      view.setUint16(offset + 6, 0, true);
+      view.setUint16(offset + 8, prepared.length, true);
+      view.setUint16(offset + 10, prepared.length, true);
+      view.setUint32(offset + 12, cdSize, true);
+      view.setUint32(offset + 16, cdStartOffset, true);
+      view.setUint16(offset + 20, 0, true);
+
+      return buf;
+    }
+
+    async function conExportWebP(exportOpts = {}) {
+      conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
+      const allPages = conPageSnapshots.slice();
+      const titleVal = (document.getElementById('con-title-input')?.value || '').trim() || 'constellation';
+      const safeTitle = titleVal.replace(/[\\/:*?"<>|]/g, '_') || 'constellation';
+      const targetScale = (exportOpts && typeof exportOpts.scale === 'number') ? exportOpts.scale : 1.5;
+      const targetQuality = (exportOpts && typeof exportOpts.quality === 'number') ? Math.max(0.2, Math.min(1.0, exportOpts.quality / 100)) : 0.82;
+      const scope = (exportOpts && exportOpts.scope) || 'current';
+
+      const isPageNonEmpty = p => {
+        if (!p) return false;
+        return (p.nodes && p.nodes.length > 0) ||
+          (p.groups && p.groups.length > 0) ||
+          (p.shapes && p.shapes.length > 0) ||
+          (p.notes && p.notes.length > 0) ||
+          (p.drawings && p.drawings.length > 0) ||
+          (p.tables && p.tables.length > 0) ||
+          (p.media && p.media.length > 0) ||
+          (p.masks && p.masks.length > 0) ||
+          (p.boardStickers && p.boardStickers.length > 0) ||
+          (p.backgroundPdf && (p.backgroundPdf.relativePath || p.backgroundPdf.attachmentId));
+      };
+
+      const now = new Date();
+      const timeStamp = now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0') + '_' + String(now.getHours()).padStart(2, '0') + String(now.getMinutes()).padStart(2, '0');
+
+      if (scope === 'current') {
+        const result = await _conBuildBoardCanvas({ scale: targetScale });
+        if (!result || !result.canvas) return;
+        const pageNumPadded = String(conCurrentPageIndex + 1).padStart(2, '0');
+        const defaultFilename = safeTitle + '_p' + pageNumPadded + '_' + timeStamp + '.webp';
+
+        result.canvas.toBlob(blob => {
+          if (!blob) {
+            mdbToast('⚠️ Failed to encode WebP image.');
+            return;
+          }
+          if (window.Desktop && Desktop.isElectron()) {
+            const reader = new FileReader();
+            reader.onloadend = function () {
+              const base64data = reader.result.split(',')[1];
+              Desktop.saveToDisk({
+                title: 'Save WebP Image',
+                defaultPath: defaultFilename,
+                filters: [{ name: 'WebP Images', extensions: ['webp'] }],
+                content: base64data,
+                encoding: 'base64'
+              }).then(res => {
+                if (res && res.ok) {
+                  const savedName = res.name || defaultFilename;
+                  if (typeof showToast === 'function') {
+                    showToast(i18n.t('conExportWebpSaved', { name: savedName }));
+                  } else {
+                    mdbToast('✓ ' + i18n.t('conExportWebpSaved', { name: savedName }));
+                  }
+                  if (window.showExportSuccessPopup && res.path) {
+                    showExportSuccessPopup(res.path, savedName);
+                  }
+                } else if (res && !res.ok && !res.canceled) {
+                  mdbToast('⚠️ Save failed: ' + (res.error || 'unknown'));
+                }
+              });
+            };
+            reader.readAsDataURL(blob);
+          } else {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = defaultFilename;
+            a.click();
+            URL.revokeObjectURL(a.href);
+          }
+        }, 'image/webp', targetQuality);
+      } else {
+        const origIndex = conCurrentPageIndex;
+        const pagesToProcess = (allPages.length > 1)
+          ? (allPages.filter(isPageNonEmpty).length > 0 ? allPages.filter(isPageNonEmpty) : allPages.slice(0, 1))
+          : allPages;
+
+        let overlay = document.getElementById('con-pdf-export-loading-overlay');
+        if (!overlay) {
+          overlay = document.createElement('div');
+          overlay.id = 'con-pdf-export-loading-overlay';
+          overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,0.85);backdrop-filter:blur(4px);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-family:sans-serif;transition:opacity 0.2s ease;';
+          overlay.innerHTML = `
+            <div style="background:rgba(30,41,59,0.9);padding:24px 36px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);box-shadow:0 20px 25px -5px rgba(0,0,0,0.5);display:flex;flex-direction:column;align-items:center;gap:12px;">
+              <div style="width:32px;height:32px;border:3px solid rgba(255,255,255,0.2);border-top-color:#3b82f6;border-radius:50%;animation:con-pdf-spin 0.8s linear infinite;"></div>
+              <div id="con-pdf-export-loading-title" style="font-weight:600;font-size:15px;letter-spacing:0.3px;">Exporting WebP Images...</div>
+              <div id="con-pdf-export-loading-progress" style="font-size:13px;color:#94a3b8;">Preparing pages...</div>
+            </div>
+            <style>@keyframes con-pdf-spin { to { transform: rotate(360deg); } }</style>
+          `;
+          document.body.appendChild(overlay);
+        }
+        overlay.style.display = 'flex';
+        overlay.style.opacity = '1';
+
+        const boardEl = document.getElementById('constellation-board');
+        const prevVisibility = boardEl ? boardEl.style.visibility : '';
+        if (boardEl) boardEl.style.visibility = 'hidden';
+
+        const webpEntries = [];
+        try {
+          const progressEl = document.getElementById('con-pdf-export-loading-progress');
+          for (let i = 0; i < pagesToProcess.length; i++) {
+            if (progressEl) progressEl.textContent = `Processing page ${i + 1} of ${pagesToProcess.length}...`;
+            _conRestorePageToBoard(pagesToProcess[i]);
+            if (typeof conAwaitAllPdfRendersOnBoard === 'function') {
+              try { await conAwaitAllPdfRendersOnBoard(); } catch (_) { }
+            }
+            await new Promise(r => setTimeout(r, 80));
+            const res = await _conBuildBoardCanvas({ scale: targetScale });
+            if (res && res.canvas) {
+              let u = res.canvas.toDataURL('image/webp', targetQuality);
+              if (!u || !u.startsWith('data:image/webp')) u = res.canvas.toDataURL('image/png');
+              const b64 = u.split(',')[1];
+              const pageNumPadded = String(i + 1).padStart(3, '0');
+              webpEntries.push({
+                name: safeTitle + '_page_' + pageNumPadded + '.webp',
+                data: b64,
+                encoding: 'base64',
+                store: true
+              });
+            }
+          }
+        } finally {
+          _conRestorePageToBoard(allPages[origIndex]);
+          if (boardEl) boardEl.style.visibility = prevVisibility;
+          if (overlay) {
+            overlay.style.opacity = '0';
+            setTimeout(() => { overlay.style.display = 'none'; }, 200);
+          }
+        }
+
+        if (webpEntries.length === 0) {
+          mdbToast('⚠️ No pages could be converted to WebP.');
+          return;
+        }
+
+        if (webpEntries.length === 1) {
+          const single = webpEntries[0];
+          if (window.Desktop && Desktop.isElectron()) {
+            Desktop.saveToDisk({
+              title: 'Save WebP Image',
+              defaultPath: single.name,
+              filters: [{ name: 'WebP Images', extensions: ['webp'] }],
+              content: single.data,
+              encoding: 'base64'
+            }).then(res => {
+              if (res && res.ok) {
+                const savedName = res.name || single.name;
+                if (typeof showToast === 'function') {
+                  showToast(i18n.t('conExportWebpSaved', { name: savedName }));
+                } else {
+                  mdbToast('✓ ' + i18n.t('conExportWebpSaved', { name: savedName }));
+                }
+                if (window.showExportSuccessPopup && res.path) {
+                  showExportSuccessPopup(res.path, savedName);
+                }
+              }
+            });
+          } else {
+            const byteCharacters = atob(single.data);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) byteNumbers[i] = byteCharacters.charCodeAt(i);
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: 'image/webp' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = single.name;
+            a.click();
+            URL.revokeObjectURL(a.href);
+          }
+          return;
+        }
+
+        const zipBytes = conCreateStoreZipUint8Array(webpEntries);
+        const zipFilename = safeTitle + '_webp_pages_' + timeStamp + '.zip';
+
+        if (window.Desktop && Desktop.isElectron()) {
+          let binary = '';
+          const chunkSize = 8192;
+          for (let i = 0; i < zipBytes.length; i += chunkSize) {
+            binary += String.fromCharCode.apply(null, zipBytes.subarray(i, i + chunkSize));
+          }
+          const base64Zip = btoa(binary);
+
+          Desktop.saveToDisk({
+            title: 'Save WebP Pages Archive',
+            defaultPath: zipFilename,
+            filters: [{ name: 'ZIP Archive', extensions: ['zip'] }],
+            content: base64Zip,
+            encoding: 'base64'
+          }).then(res => {
+            if (res && res.ok) {
+              const savedName = res.name || zipFilename;
+              if (typeof showToast === 'function') {
+                showToast('WebP archive exported: ' + savedName);
+              } else {
+                mdbToast('✓ WebP archive exported: ' + savedName);
+              }
+              if (window.showExportSuccessPopup && res.path) {
+                showExportSuccessPopup(res.path, savedName, true);
+              }
+            } else if (res && !res.ok && !res.canceled) {
+              mdbToast('⚠️ Save failed: ' + (res.error || 'unknown'));
+            }
+          });
+        } else {
+          const blob = new Blob([zipBytes], { type: 'application/zip' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = zipFilename;
+          a.click();
+          URL.revokeObjectURL(a.href);
+        }
+      }
+    }
+
+    async function conExportPagesPDF(mode = 'vector', exportOpts = {}) {
       conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
       const allPages = conPageSnapshots.slice();
       const titleVal = (document.getElementById('con-title-input')?.value || '').trim() || 'constellation';
@@ -45225,16 +45747,25 @@
           (p.backgroundPdf && (p.backgroundPdf.relativePath || p.backgroundPdf.attachmentId));
       };
 
-      const pagesToProcess = (allPages.length > 1)
-        ? (allPages.filter(isPageNonEmpty).length > 0 ? allPages.filter(isPageNonEmpty) : allPages.slice(0, 1))
-        : allPages;
+      let pagesToProcess;
+      if (exportOpts && exportOpts.scope === 'current') {
+        pagesToProcess = [allPages[conCurrentPageIndex]];
+      } else {
+        pagesToProcess = (allPages.length > 1)
+          ? (allPages.filter(isPageNonEmpty).length > 0 ? allPages.filter(isPageNonEmpty) : allPages.slice(0, 1))
+          : allPages;
+      }
 
-      // 1. PRIMARY: Headless vector SVG BoardExportService (instant, crisp vector PDF, no DOM teardowns or slider reloading)
-      if (window.BoardExportService && typeof window.BoardExportService.exportPagesPdf === 'function') {
+      const targetScale = (exportOpts && typeof exportOpts.scale === 'number') ? exportOpts.scale : 1.5;
+      const targetQuality = (exportOpts && typeof exportOpts.quality === 'number') ? Math.max(0.2, Math.min(1.0, exportOpts.quality / 100)) : 0.82;
+
+      // 1. PRIMARY: Headless vector SVG BoardExportService (if mode is 'vector' or default)
+      if (mode !== 'snapshots' && window.BoardExportService && typeof window.BoardExportService.exportPagesPdf === 'function') {
         try {
           const res = await window.BoardExportService.exportPagesPdf(pagesToProcess, {
             title: titleVal,
-            orientation: 'landscape'
+            orientation: 'landscape',
+            renderMode: 'vector'
           });
           if (res && (res.ok || res.canceled)) {
             return res;
@@ -45244,7 +45775,7 @@
         }
       }
 
-      // 2. FALLBACK: Canvas rasterization loader if headless service is unavailable or encountered an error
+      // 2. High-DPI Canvas rasterization loader (for 'snapshots' mode or fallback)
       const origIndex = conCurrentPageIndex;
       const dataUrls = [];
 
@@ -45256,7 +45787,7 @@
         overlay.innerHTML = `
           <div style="background:rgba(30,41,59,0.9);padding:24px 36px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);box-shadow:0 20px 25px -5px rgba(0,0,0,0.5);display:flex;flex-direction:column;align-items:center;gap:12px;">
             <div style="width:32px;height:32px;border:3px solid rgba(255,255,255,0.2);border-top-color:#3b82f6;border-radius:50%;animation:con-pdf-spin 0.8s linear infinite;"></div>
-            <div id="con-pdf-export-loading-title" style="font-weight:600;font-size:15px;letter-spacing:0.3px;">📄 Generating PDF...</div>
+            <div id="con-pdf-export-loading-title" style="font-weight:600;font-size:15px;letter-spacing:0.3px;">Generating PDF...</div>
             <div id="con-pdf-export-loading-progress" style="font-size:13px;color:#94a3b8;">Preparing pages...</div>
           </div>
           <style>@keyframes con-pdf-spin { to { transform: rotate(360deg); } }</style>
@@ -45279,8 +45810,12 @@
             try { await conAwaitAllPdfRendersOnBoard(); } catch (_) { }
           }
           await new Promise(r => setTimeout(r, 80));
-          const res = await _conBuildBoardCanvas();
-          if (res && res.canvas) dataUrls.push(res.canvas.toDataURL('image/png'));
+          const res = await _conBuildBoardCanvas({ scale: targetScale });
+          if (res && res.canvas) {
+            let u = res.canvas.toDataURL('image/webp', targetQuality);
+            if (!u || !u.startsWith('data:image/webp')) u = res.canvas.toDataURL('image/png');
+            dataUrls.push(u);
+          }
         }
       } finally {
         _conRestorePageToBoard(allPages[origIndex]);
@@ -45292,7 +45827,12 @@
       }
 
       if (window.BoardExportService && typeof window.BoardExportService.exportCanvasPagesPdf === 'function') {
-        return window.BoardExportService.exportCanvasPagesPdf(dataUrls, { title: titleVal, orientation: 'landscape' });
+        return window.BoardExportService.exportCanvasPagesPdf(dataUrls, {
+          title: titleVal,
+          orientation: 'landscape',
+          quality: targetQuality,
+          scale: targetScale
+        });
       }
 
       function escapeHtml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }

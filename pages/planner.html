@@ -18,6 +18,7 @@
   <script src="../js/links-service.js"></script>
   <script src="../js/board-export-service.js"></script>
   <script src="../js/tag-link-modal.js"></script>
+  <script src="../js/export-styles-service.js"></script>
   <script>
     (function () {
       function injectScript(src, name) {
@@ -779,6 +780,15 @@
           </div>
           <div class="exp-style-accordion" id="exp-style-accordion"></div>
         </div>
+        <div class="field-group" style="margin-top:4px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; background: #fafaf7; border: 1.5px solid #333333; border-radius: 6px; padding: 8px 12px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <img src="../assets/icons/layout.svg" style="width:16px;height:16px;" alt="" />
+              <span class="modal-section-label" style="margin: 0;" data-i18n="exportStyleLabel">Export Style:</span>
+            </div>
+            <div id="pl-export-style-selector-wrap" style="display:inline-flex;align-items:center;"></div>
+          </div>
+        </div>
         <div class="export-grid">
           <button class="export-card" onclick="doExportIcs()">
             <span class="ec-icon">📅</span>
@@ -807,8 +817,58 @@
           </button>
         </div>
       </div>
-      <div class="modal-footer">
+      <div class="modal-footer" style="display:flex;justify-content:space-between;align-items:center;">
         <button class="tb-btn" onclick="closeModal('exportModal')" data-i18n="btnCancel">Cancel</button>
+        <button class="tb-btn" type="button" onclick="openPlannerPreviewModal()" style="display:inline-flex;align-items:center;gap:6px;font-weight:700;background:#fff;border:2px solid #333;border-radius:6px;box-shadow:2px 2px 0 #555;cursor:pointer;">
+          <img src="../assets/icons/eye.svg" class="btn-icon" alt="" style="width:14px;height:14px;" />
+          <span data-i18n="exportPreviewBtn">Live Preview</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ FULL-SCREEN LIVE PREVIEW MODAL FOR PLANNER ════ -->
+  <div id="pl-preview-modal" class="modal-overlay" style="display:none; z-index:10002; position:fixed; inset:0; background:rgba(0,0,0,0.45); align-items:center; justify-content:center;">
+    <div class="modal-box" style="max-width:1100px; width:95vw; height:90vh; display:flex; flex-direction:column; padding:18px; border:3px solid #222; box-shadow:6px 6px 0 #222; background:#fff; border-radius:10px;">
+      <div class="modal-header" style="border-bottom:2.5px solid #222; padding-bottom:10px; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <img src="../assets/icons/eye.svg" style="width:22px;height:22px;" alt="" />
+          <span style="font-weight:900;font-size:1.15rem;letter-spacing:-0.3px;" data-i18n="exportLivePreviewModalTitle">Live Export Preview</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div id="pl-preview-style-selector-wrap" style="display:inline-flex;align-items:center;"></div>
+          <button type="button" class="tb-btn" onclick="plOpenPreviewInExternalBrowser()" style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;font-size:0.78rem;border:2px solid #333;border-radius:6px;background:#fff;box-shadow:2px 2px 0 #555;cursor:pointer;">
+            <img src="../assets/icons/fullscreen.svg" class="btn-icon btn-icon-xs" alt="" style="width:13px;height:13px;" />
+            <span data-i18n="tcPreviewOpenExternal">Open in System Browser</span>
+          </button>
+          <button type="button" class="tb-btn" onclick="plPrintPreviewIframe()" style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;font-size:0.78rem;border:2px solid #333;border-radius:6px;background:#fff;box-shadow:2px 2px 0 #555;cursor:pointer;">
+            <img src="../assets/icons/printer.svg" class="btn-icon btn-icon-xs" alt="" style="width:13px;height:13px;" />
+            <span data-i18n="btnPrint">Print</span>
+          </button>
+          <button class="modal-close" onclick="closePlannerPreviewModal()" style="padding:4px 8px;font-weight:800;border:2px solid #333;border-radius:6px;cursor:pointer;">✕</button>
+        </div>
+      </div>
+      <div style="font-size:0.76rem;color:#555;font-weight:700;margin-bottom:8px;" data-i18n="exportLivePreviewModalSub">
+        Live rendered view with chosen CSS model before exporting.
+      </div>
+      <div style="flex:1;border:2.5px solid #222;box-shadow:3px 3px 0 #222;border-radius:6px;overflow:hidden;background:#f8fafc;min-height:0;">
+        <iframe id="plPreviewIframe" style="width:100%;height:100%;border:none;background:#fff;" title="Planner Preview"></iframe>
+      </div>
+      <div class="modal-footer" style="margin-top:12px;border-top:2px solid #222;padding-top:10px;display:flex;justify-content:space-between;align-items:center;">
+        <button type="button" class="tb-btn" onclick="closePlannerPreviewModal()" style="display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border:2px solid #333;border-radius:6px;background:#fff;cursor:pointer;">
+          <img src="../assets/icons/arrow-left.svg" class="btn-icon btn-icon-xs" alt="" style="width:13px;height:13px;" />
+          <span data-i18n="tcPreviewBackBtn">Back to Options</span>
+        </button>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button type="button" class="tb-btn" onclick="doExportHtmlFromPreview()" style="display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border:2px solid #333;border-radius:6px;background:#fff;font-weight:700;cursor:pointer;box-shadow:2px 2px 0 #555;">
+            <img src="../assets/icons/download.svg" class="btn-icon btn-icon-xs" alt="" style="width:13px;height:13px;" />
+            <span data-i18n="pl_exportMdLabel">HTML Table</span>
+          </button>
+          <button type="button" class="tb-btn primary" onclick="doExportPdfFromPreview()" style="display:inline-flex;align-items:center;gap:4px;padding:6px 14px;border:2px solid #333;border-radius:6px;background:#e2c96e;font-weight:800;cursor:pointer;box-shadow:2px 2px 0 #555;">
+            <img src="../assets/icons/printer.svg" class="btn-icon btn-icon-xs" alt="" style="width:13px;height:13px;" />
+            <span data-i18n="pl_exportPdfLabel">PDF</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -6149,6 +6209,19 @@
       syncExpClsSelect();
       renderExportClassChips();
       renderExportStyleControls();
+
+      if (window.ExportStylesService) {
+        ExportStylesService.renderStyleSelector(document.getElementById('pl-export-style-selector-wrap'), {
+          toolKey: 'planner',
+          onChange: function (styleId) {
+            var ifr = document.getElementById('plPreviewIframe');
+            if (ifr && document.getElementById('pl-preview-modal').style.display === 'flex') {
+              ExportStylesService.applyStyleToIframe(ifr, styleId);
+            }
+          }
+        });
+      }
+
       openModal('exportModal');
     }
 
@@ -6740,23 +6813,109 @@
       return groups;
     }
 
+    // ── Live Preview Modal for Planner ─────────────────────────────────────────
+    function openPlannerPreviewModal() {
+      var modal = document.getElementById('pl-preview-modal');
+      var iframe = document.getElementById('plPreviewIframe');
+      if (!modal || !iframe) return;
+
+      var clsFilter = document.getElementById('exp-cls').value;
+      var filters = getExportFilters();
+      var previewFilters = Object.assign({}, filters, { separateClassFiles: false });
+      var html = buildExportHtml(clsFilter, previewFilters);
+
+      iframe.srcdoc = html;
+      iframe.onload = function () {
+        if (window.ExportStylesService) {
+          var sId = ExportStylesService.getSelectedStyle('planner');
+          ExportStylesService.applyStyleToIframe(iframe, sId);
+        }
+      };
+
+      modal.style.display = 'flex';
+
+      if (window.ExportStylesService) {
+        ExportStylesService.renderStyleSelector(document.getElementById('pl-preview-style-selector-wrap'), {
+          toolKey: 'planner',
+          onChange: function (styleId) {
+            var ifr = document.getElementById('plPreviewIframe');
+            if (ifr) ExportStylesService.applyStyleToIframe(ifr, styleId);
+          }
+        });
+      }
+    }
+
+    function closePlannerPreviewModal() {
+      var modal = document.getElementById('pl-preview-modal');
+      if (modal) modal.style.display = 'none';
+    }
+
+    function plPrintPreviewIframe() {
+      var ifr = document.getElementById('plPreviewIframe');
+      if (ifr && ifr.contentWindow) {
+        try {
+          ifr.contentWindow.focus();
+          ifr.contentWindow.print();
+        } catch (_) {
+          window.print();
+        }
+      }
+    }
+
+    async function plOpenPreviewInExternalBrowser() {
+      var clsFilter = document.getElementById('exp-cls').value;
+      var filters = getExportFilters();
+      var previewFilters = Object.assign({}, filters, { separateClassFiles: false });
+      var html = buildExportHtml(clsFilter, previewFilters);
+      if (window.ExportStylesService) {
+        html = await ExportStylesService.injectStyleIntoHtml(html, ExportStylesService.getSelectedStyle('planner'));
+      }
+      if (window.Desktop && Desktop.isElectron()) {
+        try {
+          var tempName = '_preview_planner.html';
+          var result = await Desktop.saveText('toPrint', tempName, html);
+          var filePath = (result && result.path) || (result && result.file && result.file.path);
+          if (filePath && typeof Desktop.openNative === 'function') {
+            await Desktop.openNative({ absolutePath: filePath });
+          }
+        } catch (err) {
+          showToast('Could not open external browser: ' + err.message, true);
+        }
+      } else {
+        var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+        var url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+      }
+    }
+
+    function doExportHtmlFromPreview() {
+      closePlannerPreviewModal();
+      doExportHtml();
+    }
+
+    function doExportPdfFromPreview() {
+      closePlannerPreviewModal();
+      doExportPdf();
+    }
+
     // ── HTML table export ───────────────────────────────────────────────────────
-    function doExportHtml() {
+    async function doExportHtml() {
       var clsFilter = document.getElementById('exp-cls').value;
       var filters = getExportFilters();
 
       if (filters.separateClassFiles) {
         var classes = getSeparateExportClassList();
         closeModal('exportModal');
-        (async function () {
-          for (var i = 0; i < classes.length; i++) {
-            var cf = classes[i];
-            var fileBase = getExportFilenameBase(cf);
-            var singleFilters = Object.assign({}, filters, { separateClassTables: false, separateClassFiles: false });
-            var html = buildExportHtml(cf, singleFilters);
-            await downloadText(html, fileBase + '.html', 'text/html;charset=utf-8');
+        for (var i = 0; i < classes.length; i++) {
+          var cf = classes[i];
+          var fileBase = getExportFilenameBase(cf);
+          var singleFilters = Object.assign({}, filters, { separateClassTables: false, separateClassFiles: false });
+          var html = buildExportHtml(cf, singleFilters);
+          if (window.ExportStylesService) {
+            html = await ExportStylesService.injectStyleIntoHtml(html, ExportStylesService.getSelectedStyle('planner'));
           }
-        })();
+          await downloadText(html, fileBase + '.html', 'text/html;charset=utf-8');
+        }
         return;
       }
 
@@ -6878,7 +7037,11 @@
         '})();<\/script>' +
         '</body></html>';
 
-      downloadText(html,
+      if (window.ExportStylesService) {
+        html = await ExportStylesService.injectStyleIntoHtml(html, ExportStylesService.getSelectedStyle('planner'));
+      }
+
+      await downloadText(html,
         fileBase + '.html', 'text/html;charset=utf-8');
       closeModal('exportModal');
     }
@@ -7023,6 +7186,9 @@
             var fileBase = getExportFilenameBase(cf);
             var singleFilters = Object.assign({}, filters, { separateClassTables: false, separateClassFiles: false });
             var html = buildExportHtml(cf, singleFilters);
+            if (window.ExportStylesService) {
+              html = await ExportStylesService.injectStyleIntoHtml(html, ExportStylesService.getSelectedStyle('planner'));
+            }
             const result = await Desktop.printPdf({
               html: html,
               target: 'toPrint',
@@ -7061,6 +7227,9 @@
             var fileBase = getExportFilenameBase(cf);
             var singleFilters = Object.assign({}, filters, { separateClassTables: false, separateClassFiles: false });
             var html = buildExportHtml(cf, singleFilters);
+            if (window.ExportStylesService) {
+              html = await ExportStylesService.injectStyleIntoHtml(html, ExportStylesService.getSelectedStyle('planner'));
+            }
             var absPath = destDir.replace(/[\\/]+$/, '') + '/' + fileBase + '.pdf';
             const result = await Desktop.printPdf({
               html: html,
@@ -7087,6 +7256,9 @@
         var fileBase = getExportFilenameBase(cf);
         var singleFilters = Object.assign({}, filters, { separateClassTables: false, separateClassFiles: false });
         var html = buildExportHtml(cf, singleFilters);
+        if (window.ExportStylesService) {
+          html = await ExportStylesService.injectStyleIntoHtml(html, ExportStylesService.getSelectedStyle('planner'));
+        }
         const result = await Desktop.printPdf({
           html: html,
           defaultName: fileBase + '.pdf',
@@ -7106,6 +7278,9 @@
       // Combined single PDF file export
       var fileBase = getExportFilenameBase(clsFilter);
       var html = buildExportHtml(clsFilter, filters);
+      if (window.ExportStylesService) {
+        html = await ExportStylesService.injectStyleIntoHtml(html, ExportStylesService.getSelectedStyle('planner'));
+      }
       var pdfReq = { html: html, pdfOptions: pdfOpts };
       if (destination === 'to-print') {
         pdfReq.target = 'toPrint';
@@ -7319,7 +7494,7 @@
         var secHeading = (separateTables && classList.length > 1) ? ('<h2 class="class-heading">' + esc(classTitle) + '</h2>') : '';
 
         var sectionHtml = '<div' + breakStyle + '>' + secHeading +
-          '<table class="exp-table"><thead><tr><th class="col-week">' +
+          '<table class="exp-table planner-export-table"><thead><tr><th class="col-week">' +
           esc(weekColHeader) + '</th><th class="col-date">' +
           esc(dateColHeader) + '</th><th class="col-acts">' +
           esc(detailsColHeader) + '</th></tr></thead><tbody>';

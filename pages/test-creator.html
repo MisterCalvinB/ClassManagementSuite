@@ -18,6 +18,7 @@
   <script src="../js/tag-link-modal.js"></script>
   <script src="../js/lesson-creator-service.js"></script>
   <script src="../js/test-creator-service.js"></script>
+  <script src="../js/export-styles-service.js"></script>
   <style>
     @keyframes tcPulseCard {
       0% { outline: 4px solid #fde047; transform: scale(1.01); }
@@ -763,8 +764,9 @@
 
           <div style="border-top:1px solid #ddd;padding-top:10px;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
-              <label class="meta-lbl" data-i18n="tcStyleTheme">Stylesheet / Theme:</label>
-              <select id="exportThemeSelect" class="meta-select" style="padding:2px 8px;font-size:0.8rem;" onchange="tcOnExportThemeChange(this.value)">
+              <label class="meta-lbl" data-i18n="exportStyleLabel">Export Style:</label>
+              <div id="tc-export-style-selector-wrap" style="display:inline-flex;align-items:center;"></div>
+              <select id="exportThemeSelect" class="meta-select" style="display:none;" onchange="tcOnExportThemeChange(this.value)">
                 <option value="academic" data-i18n="tcThemeAcademic">Academic Classic</option>
                 <option value="neobrutalist" data-i18n="tcThemeNeobrutalist">Modern Neobrutalist</option>
                 <option value="dyslexic" data-i18n="tcThemeDyslexic">Dyslexic Friendly</option>
@@ -830,6 +832,7 @@
           <span style="font-weight:900;font-size:1.15rem;letter-spacing:-0.3px;" data-i18n="tcPreviewModalTitle">Live Exam Preview</span>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
+          <div id="tc-preview-style-selector-wrap" style="display:inline-flex;align-items:center;"></div>
           <button type="button" class="neo-btn" onclick="tcOpenPreviewInExternalBrowser()" style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;font-size:0.78rem;">
             <img src="../assets/icons/fullscreen.svg" class="btn-icon btn-icon-xs" alt="" style="width:13px;height:13px;">
             <span data-i18n="tcPreviewOpenExternal">Open in System Browser</span>
@@ -1043,33 +1046,13 @@
           </div>
         </div>
 
-        <!-- Visual Theme & Layout Style Chooser -->
-        <div id="tcSeqThemeSection">
-          <div style="font-weight:900;font-size:0.84rem;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;color:#000;" data-i18n="lcSeqThemeTitle">
-            Theme &amp; Visual Layout Style
+        <!-- Export Style Chooser -->
+        <div id="tcSeqThemeSection" style="margin-top: 4px; display: flex; align-items: center; justify-content: space-between; background: #fafaf7; border: 1.5px solid #333333; border-radius: 6px; padding: 8px 12px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <img src="../assets/icons/layout.svg" style="width:16px;height:16px;" alt="" />
+            <span class="modal-section-label" style="margin: 0;font-weight:900;font-size:0.84rem;text-transform:uppercase;letter-spacing:0.5px;color:#000;" data-i18n="exportStyleLabel">Export Style:</span>
           </div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:8px;">
-            <label style="cursor:pointer;border:2px solid #000;padding:8px;border-radius:4px;background:#fff;display:flex;flex-direction:column;gap:3px;box-shadow:2px 2px 0 #000;">
-              <input type="radio" name="tcSeqCssTheme" value="neobrutalist" checked style="margin:0;">
-              <span style="font-weight:900;font-size:0.82rem;" data-i18n="lcSeqThemeNeobrutalist">Light Neobrutalist</span>
-              <span style="font-size:0.7rem;color:#666;" data-i18n="lcSeqThemeNeobrutalistDesc">Warm neutral canvas, bold borders &amp; solid shadows</span>
-            </label>
-            <label style="cursor:pointer;border:2px solid #000;padding:8px;border-radius:4px;background:#fff;display:flex;flex-direction:column;gap:3px;box-shadow:2px 2px 0 #000;">
-              <input type="radio" name="tcSeqCssTheme" value="classic" style="margin:0;">
-              <span style="font-weight:900;font-size:0.82rem;" data-i18n="lcSeqThemeClassic">Classic Academic</span>
-              <span style="font-size:0.7rem;color:#666;" data-i18n="lcSeqThemeClassicDesc">Formal serif typography, thin rules &amp; grayscale print</span>
-            </label>
-            <label style="cursor:pointer;border:2px solid #000;padding:8px;border-radius:4px;background:#fff;display:flex;flex-direction:column;gap:3px;box-shadow:2px 2px 0 #000;">
-              <input type="radio" name="tcSeqCssTheme" value="modern" style="margin:0;">
-              <span style="font-weight:900;font-size:0.82rem;" data-i18n="lcSeqThemeModern">Modern &amp; Simple</span>
-              <span style="font-size:0.7rem;color:#666;" data-i18n="lcSeqThemeModernDesc">Minimalist sans-serif, soft borders &amp; pill tags</span>
-            </label>
-            <label style="cursor:pointer;border:2px solid #000;padding:8px;border-radius:4px;background:#fff;display:flex;flex-direction:column;gap:3px;box-shadow:2px 2px 0 #000;">
-              <input type="radio" name="tcSeqCssTheme" value="horizontal_table" style="margin:0;">
-              <span style="font-weight:900;font-size:0.82rem;" data-i18n="lcSeqThemeHorizontalTable">Horizontal A4 Tables</span>
-              <span style="font-size:0.7rem;color:#666;" data-i18n="lcSeqThemeHorizontalTableDesc">Full landscape grid with action &amp; pacing columns</span>
-            </label>
-          </div>
+          <div id="tc-seq-export-style-selector-wrap" style="display:inline-flex;align-items:center;"></div>
         </div>
 
         <!-- Content Inclusions -->
@@ -11075,6 +11058,17 @@
         if (expThm && currentTest) {
           expThm.value = (currentTest.exportStyle && currentTest.exportStyle.theme) || currentTest.stylesheetTheme || localStorage.getItem('cmt_default_test_theme') || 'academic';
         }
+        if (window.ExportStylesService) {
+          ExportStylesService.renderStyleSelector(document.getElementById('tc-export-style-selector-wrap'), {
+            toolKey: 'testCreator',
+            onChange: function (styleId) {
+              var ifr = document.getElementById('exportPreviewIframe');
+              if (ifr && document.getElementById('exportPreviewModal').classList.contains('open')) {
+                ExportStylesService.applyStyleToIframe(ifr, styleId);
+              }
+            }
+          });
+        }
       };
 
       window.tcOnExportThemeChange = function (val) {
@@ -11131,6 +11125,10 @@
           } else {
             outContent = TestCreatorService.exportToHtml(currentTest, { isTeacherKey: isTeacher, stylesheetTheme: activeTheme });
           }
+        }
+
+        if (ext !== 'md' && window.ExportStylesService) {
+          outContent = await ExportStylesService.injectStyleIntoHtml(outContent, ExportStylesService.getSelectedStyle('testCreator'));
         }
 
         var filename = fileNameBase + (isTeacher ? '_Solution_Key' : '') + '.' + ext;
@@ -11233,10 +11231,25 @@
         var iframe = document.getElementById('exportPreviewIframe');
         if (iframe) {
           iframe.srcdoc = html;
+          iframe.onload = function () {
+            if (window.ExportStylesService) {
+              var sId = ExportStylesService.getSelectedStyle('testCreator');
+              ExportStylesService.applyStyleToIframe(iframe, sId);
+            }
+          };
         }
         if (modal) {
           modal.style.display = 'flex';
           modal.classList.add('open');
+        }
+        if (window.ExportStylesService) {
+          ExportStylesService.renderStyleSelector(document.getElementById('tc-preview-style-selector-wrap'), {
+            toolKey: 'testCreator',
+            onChange: function (styleId) {
+              var ifr = document.getElementById('exportPreviewIframe');
+              if (ifr) ExportStylesService.applyStyleToIframe(ifr, styleId);
+            }
+          });
         }
       };
 
@@ -11295,6 +11308,9 @@
         }
 
         if (!html) return;
+        if (window.ExportStylesService) {
+          html = await ExportStylesService.injectStyleIntoHtml(html, ExportStylesService.getSelectedStyle('testCreator'));
+        }
         var tempName = '_preview_' + fileNameBase + '.html';
 
         if (window.Desktop && Desktop.isElectron) {
@@ -11807,6 +11823,17 @@
         }
         var modal = document.getElementById('tcSequenceExportModal');
         if (modal) modal.classList.add('open');
+        if (window.ExportStylesService) {
+          ExportStylesService.renderStyleSelector(document.getElementById('tc-seq-export-style-selector-wrap'), {
+            toolKey: 'testCreator',
+            onChange: function (styleId) {
+              var ifr = document.getElementById('exportPreviewIframe');
+              if (ifr && document.getElementById('exportPreviewModal').classList.contains('open')) {
+                ExportStylesService.applyStyleToIframe(ifr, styleId);
+              }
+            }
+          });
+        }
       };
 
       window.tcCloseSequenceExportModal = function () {
@@ -11883,6 +11910,9 @@
 
         if (opts.format === 'html') {
           var htmlContent = LessonCreatorService.exportSequenceToHtml(seq, fullLessons, fullTests, opts);
+          if (window.ExportStylesService) {
+            htmlContent = await ExportStylesService.injectStyleIntoHtml(htmlContent, ExportStylesService.getSelectedStyle('testCreator'));
+          }
           var htmlFilename = safeSeqName + '_booklet.html';
           if (window.saveExportWithDestination) {
             await window.saveExportWithDestination({
@@ -11912,6 +11942,9 @@
         } else if (opts.format === 'pdf') {
           var pdfOpts = Object.assign({}, opts, { forPrint: true });
           var pdfHtml = LessonCreatorService.exportSequenceToHtml(seq, fullLessons, fullTests, pdfOpts);
+          if (window.ExportStylesService) {
+            pdfHtml = await ExportStylesService.injectStyleIntoHtml(pdfHtml, ExportStylesService.getSelectedStyle('testCreator'));
+          }
           var pdfFilename = safeSeqName + '_booklet.pdf';
           if (window.Desktop && Desktop.isElectron && typeof Desktop.printPdf === 'function') {
             var pRes = await Desktop.printPdf({ html: pdfHtml, title: 'Save Unit PDF Booklet', defaultPath: pdfFilename });
@@ -11965,12 +11998,21 @@
         }
 
         var htmlContent = LessonCreatorService.exportSequenceToHtml(seq, fullLessons, fullTests, opts);
+        if (window.ExportStylesService) {
+          htmlContent = await ExportStylesService.injectStyleIntoHtml(htmlContent, ExportStylesService.getSelectedStyle('testCreator'));
+        }
         window._tcLastPreviewType = 'sequence';
 
         var modal = document.getElementById('exportPreviewModal');
         var iframe = document.getElementById('exportPreviewIframe');
         if (iframe) {
           iframe.srcdoc = htmlContent;
+          iframe.onload = function () {
+            if (window.ExportStylesService) {
+              var sId = ExportStylesService.getSelectedStyle('testCreator');
+              ExportStylesService.applyStyleToIframe(iframe, sId);
+            }
+          };
         }
         if (modal) {
           modal.style.display = 'flex';

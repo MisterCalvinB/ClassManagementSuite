@@ -20,6 +20,7 @@
   <script src="../js/links-service.js"></script>
   <script src="../js/board-export-service.js"></script>
   <script src="../js/tag-link-modal.js"></script>
+  <script src="../js/export-styles-service.js"></script>
   <script>
     (function () {
       function injectClassicScript(source, name) {
@@ -1863,6 +1864,7 @@
           <h2 id="gs-report-modal-title" style="margin: 0; font-size: 1.25rem; font-weight: 800;" data-i18n="gsReportModalTitle">Report Preview</h2>
         </div>
         <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-left: auto;">
+          <div id="gs-report-style-selector-wrap" style="display:inline-flex;align-items:center;"></div>
           <button id="gs-report-btn-options" class="btn" type="button" style="display:inline-flex;align-items:center;gap:6px;font-weight:700;background:#f8fafc;"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> <span data-i18n="gsReportCustomizeElements">Elements &amp; Options</span> ▾</button>
           <label id="gs-report-toggle-fit-page-wrap" style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.84rem; font-weight: 700; cursor: pointer; user-select: none; background: #f8fafc; padding: 4px 8px; border: 1.5px solid #111; border-radius: 4px;">
             <input type="checkbox" id="gs-report-toggle-fit-page" style="cursor: pointer; width: 15px; height: 15px;" />
@@ -17378,6 +17380,22 @@
       const frame = document.getElementById('gs-report-preview-frame');
       if (frame) {
         frame.srcdoc = reportHtml;
+        frame.onload = function () {
+          if (window.ExportStylesService) {
+            var sId = ExportStylesService.getSelectedStyle('gradeSheet');
+            ExportStylesService.applyStyleToIframe(frame, sId);
+          }
+        };
+      }
+
+      if (window.ExportStylesService) {
+        ExportStylesService.renderStyleSelector(document.getElementById('gs-report-style-selector-wrap'), {
+          toolKey: 'gradeSheet',
+          onChange: function (styleId) {
+            var f = document.getElementById('gs-report-preview-frame');
+            if (f) ExportStylesService.applyStyleToIframe(f, styleId);
+          }
+        });
       }
 
       document.getElementById('gs-report-modal-overlay').classList.remove('hidden');
@@ -17415,6 +17433,10 @@
           if (rebuild && typeof rebuild === 'function') {
             finalHtml = rebuild(getReportOptions());
           }
+          if (window.ExportStylesService) {
+            var sId = ExportStylesService.getSelectedStyle('gradeSheet');
+            finalHtml = await ExportStylesService.injectStyleIntoHtml(finalHtml, sId);
+          }
 
           const pdfReq = {
             html: finalHtml,
@@ -17450,9 +17472,16 @@
       printCurrentReport();
     }
 
-    function exportCurrentReportHtml() {
+    async function exportCurrentReportHtml() {
       if (!_currentActiveReport) return;
-      const { html, defaultFilename } = _currentActiveReport;
+      let { html, defaultFilename, rebuild } = _currentActiveReport;
+      if (rebuild && typeof rebuild === 'function') {
+        html = rebuild(getReportOptions());
+      }
+      if (window.ExportStylesService) {
+        var sId = ExportStylesService.getSelectedStyle('gradeSheet');
+        html = await ExportStylesService.injectStyleIntoHtml(html, sId);
+      }
       const fname = `${defaultFilename}-${new Date().toISOString().slice(0, 10)}.html`;
       downloadTextFile(html, fname, "text/html;charset=utf-8");
     }
@@ -21777,8 +21806,13 @@ ${blocks}
       }
 
       try {
+        let exportHtml = document.documentElement.outerHTML;
+        if (window.ExportStylesService) {
+          var sId = ExportStylesService.getSelectedStyle('gradeSheet');
+          exportHtml = await ExportStylesService.injectStyleIntoHtml(exportHtml, sId);
+        }
         const pdfReq = {
-          html: document.documentElement.outerHTML,
+          html: exportHtml,
           landscape: ${JSON.stringify(pdfSettings.isLandscape)},
           pdfOptions: { pageSize: ${JSON.stringify(pdfSettings.pageSize || 'A4')}, landscape: ${JSON.stringify(pdfSettings.isLandscape)} }
         };

@@ -14,6 +14,7 @@
   <script src="../js/menus.js"></script>
   <script src="../js/tutorial.js"></script>
   <script src="../modules/xlsx.min.js"></script>
+  <script src="../js/export-styles-service.js"></script>
   <link rel="stylesheet" href="../css/stylesheet.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1247,6 +1248,11 @@
       </div>
     </div>
 
+    <div style="margin-top: 10px; display: flex; align-items: center; justify-content: space-between; background: #fafaf7; border: 1.5px solid #333333; border-radius: 6px; padding: 8px 12px;">
+      <span class="sm-export-section-header" style="margin: 0;" data-i18n="exportStyleLabel">Export Style:</span>
+      <div id="sm-export-style-selector-wrap" style="display:inline-flex;align-items:center;"></div>
+    </div>
+
     <div class="sm-export-sections-grid">
       <!-- Columns section -->
       <div class="sm-export-section-card">
@@ -1302,11 +1308,57 @@
       </div>
     </div>
 
-    <div class="sm-group-modal-footer">
+    <div class="sm-group-modal-footer" style="display:flex;justify-content:space-between;align-items:center;">
       <button type="button" class="sm-group-modal-cancel-btn" onclick="closeExportModal()" data-i18n="btnCancel">Cancel</button>
-      <button type="button" id="sm-export-confirm-btn" class="sm-group-modal-create-btn" onclick="confirmSmExport()">
-        <img src="../assets/icons/export.svg" class="btn-icon" alt="" />
-        <span data-i18n="smBtnConfirmExport">Export File</span>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button type="button" id="sm-btn-preview" class="btn" style="display:inline-flex;align-items:center;gap:6px;font-weight:700;padding:8px 12px;border:2px solid #333;border-radius:6px;background:#fff;box-shadow:2px 2px 0 #555;cursor:pointer;" onclick="openSmPreviewModal()">
+          <img src="../assets/icons/eye.svg" class="btn-icon" alt="" />
+          <span data-i18n="exportPreviewBtn">Live Preview</span>
+        </button>
+        <button type="button" id="sm-export-confirm-btn" class="sm-group-modal-create-btn" onclick="confirmSmExport()">
+          <img src="../assets/icons/export.svg" class="btn-icon" alt="" />
+          <span data-i18n="smBtnConfirmExport">Export File</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Full-screen Live Preview Modal for Schedule Maker ── -->
+<div id="sm-preview-modal" class="modal-overlay" style="display:none; z-index:10002; position:fixed; inset:0; background:rgba(0,0,0,0.45); align-items:center; justify-content:center;">
+  <div class="modal-box" style="max-width:1100px; width:95vw; height:90vh; display:flex; flex-direction:column; padding:18px; border:3px solid #222; box-shadow:6px 6px 0 #222; background:#fff; border-radius:10px;">
+    <div class="modal-header" style="border-bottom:2.5px solid #222; padding-bottom:10px; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <img src="../assets/icons/eye.svg" style="width:22px;height:22px;" alt="" />
+        <span style="font-weight:900;font-size:1.15rem;letter-spacing:-0.3px;" data-i18n="exportLivePreviewModalTitle">Live Export Preview</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div id="sm-preview-style-selector-wrap" style="display:inline-flex;align-items:center;"></div>
+        <button type="button" class="btn" onclick="smOpenPreviewInExternalBrowser()" style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;font-size:0.78rem;border:2px solid #333;border-radius:6px;background:#fff;box-shadow:2px 2px 0 #555;cursor:pointer;">
+          <img src="../assets/icons/fullscreen.svg" class="btn-icon btn-icon-xs" alt="" style="width:13px;height:13px;" />
+          <span data-i18n="tcPreviewOpenExternal">Open in System Browser</span>
+        </button>
+        <button type="button" class="btn" onclick="smPrintPreviewIframe()" style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;font-size:0.78rem;border:2px solid #333;border-radius:6px;background:#fff;box-shadow:2px 2px 0 #555;cursor:pointer;">
+          <img src="../assets/icons/printer.svg" class="btn-icon btn-icon-xs" alt="" style="width:13px;height:13px;" />
+          <span data-i18n="btnPrint">Print</span>
+        </button>
+        <button class="btn" onclick="closeSmPreviewModal()" style="padding:4px 8px;font-weight:800;border:2px solid #333;border-radius:6px;cursor:pointer;">&times;</button>
+      </div>
+    </div>
+    <div style="font-size:0.76rem;color:#555;font-weight:700;margin-bottom:8px;" data-i18n="exportLivePreviewModalSub">
+      Live rendered view with chosen CSS model before exporting.
+    </div>
+    <div style="flex:1;border:2.5px solid #222;box-shadow:3px 3px 0 #222;border-radius:6px;overflow:hidden;background:#f8fafc;min-height:0;">
+      <iframe id="smPreviewIframe" style="width:100%;height:100%;border:none;background:#fff;" title="Schedule Preview"></iframe>
+    </div>
+    <div class="modal-footer" style="margin-top:12px;border-top:2px solid #222;padding-top:10px;display:flex;justify-content:space-between;align-items:center;">
+      <button type="button" class="btn" onclick="closeSmPreviewModal()" style="display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border:2px solid #333;border-radius:6px;background:#fff;cursor:pointer;">
+        <img src="../assets/icons/arrow-left.svg" class="btn-icon btn-icon-xs" alt="" style="width:13px;height:13px;" />
+        <span data-i18n="tcPreviewBackBtn">Back to Options</span>
+      </button>
+      <button type="button" class="btn primary" onclick="confirmSmExportFromPreview()" style="display:inline-flex;align-items:center;gap:4px;padding:6px 14px;border:2px solid #333;border-radius:6px;background:#e2c96e;font-weight:800;cursor:pointer;box-shadow:2px 2px 0 #555;">
+        <img src="../assets/icons/download.svg" class="btn-icon btn-icon-xs" alt="" style="width:13px;height:13px;" />
+        <span data-i18n="btnExport">Export</span>
       </button>
     </div>
   </div>
@@ -2405,6 +2457,17 @@
     document.getElementById('sm-exp-opt-footer').checked = !!smExportConfig.showFooter;
 
     updateSmPresetButtonsState();
+    if (window.ExportStylesService) {
+      ExportStylesService.renderStyleSelector(document.getElementById('sm-export-style-selector-wrap'), {
+        toolKey: 'scheduleMaker',
+        onChange: function (styleId) {
+          const ifr = document.getElementById('smPreviewIframe');
+          if (ifr && document.getElementById('sm-preview-modal').style.display === 'flex') {
+            ExportStylesService.applyStyleToIframe(ifr, styleId);
+          }
+        }
+      });
+    }
     modal.classList.add('open');
   }
 
@@ -2492,6 +2555,75 @@
     else if (fmt === 'xlsx') exportXlsx(smExportConfig);
     else if (fmt === 'docx') exportDocx(smExportConfig);
     else if (fmt === 'html') exportHtml(smExportConfig);
+  }
+
+  function openSmPreviewModal() {
+    const modal = document.getElementById('sm-preview-modal');
+    const iframe = document.getElementById('smPreviewIframe');
+    if (!modal || !iframe) return;
+    let html = generatePrintableHtml(false, smExportConfig);
+    iframe.srcdoc = html;
+    iframe.onload = function () {
+      if (window.ExportStylesService) {
+        var sId = ExportStylesService.getSelectedStyle('scheduleMaker');
+        ExportStylesService.applyStyleToIframe(iframe, sId);
+      }
+    };
+    modal.style.display = 'flex';
+    if (window.ExportStylesService) {
+      ExportStylesService.renderStyleSelector(document.getElementById('sm-preview-style-selector-wrap'), {
+        toolKey: 'scheduleMaker',
+        onChange: function (styleId) {
+          var ifr = document.getElementById('smPreviewIframe');
+          if (ifr) ExportStylesService.applyStyleToIframe(ifr, styleId);
+        }
+      });
+    }
+  }
+
+  function closeSmPreviewModal() {
+    const modal = document.getElementById('sm-preview-modal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  function smPrintPreviewIframe() {
+    const ifr = document.getElementById('smPreviewIframe');
+    if (ifr && ifr.contentWindow) {
+      try {
+        ifr.contentWindow.focus();
+        ifr.contentWindow.print();
+      } catch (_) {
+        window.print();
+      }
+    }
+  }
+
+  async function smOpenPreviewInExternalBrowser() {
+    let html = generatePrintableHtml(false, smExportConfig);
+    if (window.ExportStylesService) {
+      html = await ExportStylesService.injectStyleIntoHtml(html, ExportStylesService.getSelectedStyle('scheduleMaker'));
+    }
+    if (window.Desktop && Desktop.isElectron()) {
+      try {
+        var tempName = '_preview_schedule.html';
+        var result = await Desktop.saveText('toPrint', tempName, html);
+        var filePath = (result && result.path) || (result && result.file && result.file.path);
+        if (filePath && typeof Desktop.openNative === 'function') {
+          await Desktop.openNative({ absolutePath: filePath });
+        }
+      } catch (err) {
+        showNotice('Could not open external browser: ' + err.message, true);
+      }
+    } else {
+      var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      var url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    }
+  }
+
+  function confirmSmExportFromPreview() {
+    closeSmPreviewModal();
+    confirmSmExport();
   }
 
   function toggleExportMenu(e) {
@@ -2768,7 +2900,10 @@
     const safeTitle = title.toLowerCase().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]/g, '_');
     const defaultName = `schedule_${safeTitle}_${stamp}.pdf`;
 
-    const html = generatePrintableHtml(false, opts);
+    let html = generatePrintableHtml(false, opts);
+    if (window.ExportStylesService) {
+      html = await ExportStylesService.injectStyleIntoHtml(html, ExportStylesService.getSelectedStyle('scheduleMaker'));
+    }
     const pdfSettings = getPdfExportSettings();
 
     if (window.Desktop && Desktop.isElectron() && typeof Desktop.printPdf === 'function') {
@@ -3159,7 +3294,7 @@
     }
   }
 
-  function exportHtml(opts) {
+  async function exportHtml(opts) {
     opts = Object.assign({}, smExportConfig, opts || {});
     if (orderItems.filter(i => (i.type === 'student' || i.type === 'group') && !i.excluded).length === 0) {
       showNotice(typeof t === 'function' ? t('smNothingToExport') : 'Nothing to export.', true);
@@ -3167,7 +3302,10 @@
     }
     const date = document.getElementById('sm-date').value;
     const stamp = date || new Date().toISOString().slice(0, 10);
-    const htmlContent = generatePrintableHtml(true, opts);
+    let htmlContent = generatePrintableHtml(true, opts);
+    if (window.ExportStylesService) {
+      htmlContent = await ExportStylesService.injectStyleIntoHtml(htmlContent, ExportStylesService.getSelectedStyle('scheduleMaker'));
+    }
     downloadExportFile('schedule-' + stamp + '.html', htmlContent, 'text/html');
   }
 

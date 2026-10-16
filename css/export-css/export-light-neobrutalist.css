@@ -1,0 +1,441 @@
+/*
+ * Name: Light Neobrutalist
+ * Description: Bold charcoal borders, solid block offset shadows, warm neutral canvas, and tactile Lexend typography.
+ * Category: Graphic / Expressive
+ * Tags: default, neobrutalist, bold, colorful, tactile
+ */
+
+:root {
+  --exp-font-family: 'Lexend', system-ui, -apple-system, sans-serif;
+  --exp-font-size: 13px;
+  --exp-line-height: 1.45;
+  --exp-bg-page: #f5f5f0;
+  --exp-bg-surface: #ffffff;
+  --exp-bg-alt: #fafaf7;
+  --exp-text-color: #222222;
+  --exp-text-muted: #555555;
+  --exp-border-color: #333333;
+  --exp-border-width: 2px;
+  --exp-border-radius: 8px;
+  --exp-border-radius-sm: 4px;
+  --exp-shadow: 3px 3px 0 #555555;
+  --exp-shadow-sm: 2px 2px 0 #555555;
+  --exp-accent-yellow: #e2c96e;
+  --exp-accent-green: #6abf8e;
+  --exp-accent-blue: #5b8fcc;
+  --exp-accent-coral: #c96b6b;
+  --exp-accent-purple: #8b7cc2;
+  --exp-table-th-bg: #fafaf7;
+  --exp-table-row-even: #f8fafc;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--exp-font-family);
+  font-size: var(--exp-font-size);
+  color: var(--exp-text-color);
+  background: var(--exp-bg-page);
+  padding: 24px;
+  line-height: var(--exp-line-height);
+}
+
+h1 {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--exp-text-color);
+  border-bottom: var(--exp-border-width) solid var(--exp-border-color);
+  padding-bottom: 8px;
+  margin: 0 0 12px;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+}
+
+h2, .class-heading {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--exp-text-color);
+  border-bottom: var(--exp-border-width) solid var(--exp-border-color);
+  padding-bottom: 6px;
+  margin: 22px 0 10px;
+}
+
+h3 {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--exp-text-color);
+  margin: 14px 0 6px;
+}
+
+p {
+  margin-bottom: 8px;
+}
+
+.meta, .report-meta {
+  font-size: 12px;
+  color: var(--exp-text-muted);
+  margin: 0 0 14px;
+  font-weight: 600;
+}
+
+/* ── Meta Info Box ── */
+.meta-box, .report-header-box {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  font-size: 12px;
+  color: var(--exp-text-color);
+  background: var(--exp-bg-surface);
+  border: var(--exp-border-width) solid var(--exp-border-color);
+  border-radius: var(--exp-border-radius);
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  box-shadow: var(--exp-shadow);
+}
+
+.meta-item {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.meta-label {
+  font-weight: 800;
+  color: var(--exp-text-color);
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.03em;
+}
+
+.meta-val {
+  font-weight: 600;
+  color: var(--exp-text-color);
+}
+
+/* ── Tables ── */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  table-layout: fixed;
+  margin-bottom: 20px;
+  border: var(--exp-border-width) solid var(--exp-border-color);
+  background: var(--exp-bg-surface);
+  border-radius: var(--exp-border-radius);
+  overflow: hidden;
+  box-shadow: var(--exp-shadow);
+}
+
+th, td {
+  border: 1.5px solid var(--exp-border-color);
+  padding: 8px 10px;
+  vertical-align: top;
+  text-align: left;
+  word-break: break-word;
+  color: var(--exp-text-color);
+}
+
+thead th {
+  background: var(--exp-table-th-bg);
+  font-weight: 800;
+  color: var(--exp-text-color);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  position: relative;
+  border-bottom: var(--exp-border-width) solid var(--exp-border-color);
+}
+
+tbody tr:nth-child(even) td:not(.sm-break-tr td):not(.sm-gap-tr td):not(.sm-group-tr td) {
+  background: var(--exp-table-row-even);
+}
+
+/* ── Resizers & Hidden columns ── */
+.th-wrap, .th-label {
+  display: block;
+  padding-right: 10px;
+}
+
+.col-resizer {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+  user-select: none;
+  touch-action: none;
+  z-index: 2;
+}
+
+.col-resizer::after {
+  content: "";
+  position: absolute;
+  right: 3px;
+  top: 18%;
+  bottom: 18%;
+  width: 1.5px;
+  background: var(--exp-border-color);
+}
+
+.col-hidden {
+  display: none !important;
+}
+
+/* ── Interactive Toolbar in exported HTML ── */
+.table-toolbar {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  border: var(--exp-border-width) solid var(--exp-border-color);
+  background: var(--exp-bg-surface);
+  border-radius: var(--exp-border-radius-sm);
+  box-shadow: var(--exp-shadow);
+}
+
+.tb-label {
+  font-size: 11px;
+  color: var(--exp-text-color);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  line-height: 1.9;
+}
+
+.col-options {
+  display: flex;
+  gap: 10px 14px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.col-opt {
+  font-size: 12px;
+  color: var(--exp-text-color);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* ── Badges ── */
+.badge, .neo-badge, .status-badge {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: var(--exp-border-radius-sm);
+  border: 1.5px solid var(--exp-border-color);
+  font-size: 10px;
+  font-weight: 800;
+  box-shadow: var(--exp-shadow-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: var(--exp-accent-yellow);
+  color: #111111;
+}
+
+.badge-green, .badge-pass { background: var(--exp-accent-green); color: #111; }
+.badge-blue { background: var(--exp-accent-blue); color: #fff; }
+.badge-red, .badge-fail { background: var(--exp-accent-coral); color: #fff; }
+.badge-purple { background: var(--exp-accent-purple); color: #fff; }
+
+/* ── Tool Specific: Planner ── */
+.planner-export-table .exp-week, .exp-table .exp-week, .exp-week {
+  font-weight: 800;
+  display: inline-block;
+  padding: 2px 6px;
+  background: var(--exp-accent-yellow);
+  border: 1.5px solid var(--exp-border-color);
+  border-radius: var(--exp-border-radius-sm);
+  box-shadow: var(--exp-shadow-sm);
+  color: #111;
+}
+
+.class-page-break {
+  page-break-before: always;
+  break-before: page;
+  margin-top: 24px;
+}
+
+/* ── Tool Specific: Schedule Maker ── */
+.sm-col-num { width: 50px; text-align: center; font-weight: 800; background: var(--exp-bg-alt); }
+.sm-col-student { text-align: left; font-weight: 600; }
+.sm-col-sen { width: 60px; text-align: center; }
+.sm-col-time { width: 110px; text-align: center; font-weight: 700; white-space: nowrap; }
+th.sm-col-num, th.sm-col-sen, th.sm-col-time { text-align: center; }
+
+.sm-sen-badge {
+  display: inline-block;
+  background: var(--exp-accent-yellow);
+  color: #111111;
+  border: 1.5px solid var(--exp-border-color);
+  border-radius: var(--exp-border-radius-sm);
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 800;
+  box-shadow: var(--exp-shadow-sm);
+  text-transform: uppercase;
+}
+
+tr.sm-break-tr td {
+  background: var(--exp-bg-alt);
+  color: var(--exp-text-color);
+  font-weight: 800;
+  text-align: center;
+  border: 1.5px solid var(--exp-border-color);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 11px;
+}
+
+tr.sm-group-tr td {
+  background: var(--exp-bg-alt);
+  color: var(--exp-text-color);
+  font-weight: 700;
+  border: 1.5px solid var(--exp-border-color);
+  vertical-align: top;
+}
+
+tr.sm-group-tr td.sm-group-names-cell {
+  font-weight: 600;
+  text-align: left;
+}
+
+tr.sm-gap-tr td {
+  background: #fff1f2;
+  color: #991b1b;
+  font-weight: 800;
+  text-align: center;
+  border: 1.5px solid var(--exp-border-color);
+  font-size: 11px;
+}
+
+.schedule-footer {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--exp-text-muted);
+  margin-top: 14px;
+  text-align: right;
+  border-top: var(--exp-border-width) solid var(--exp-border-color);
+  padding-top: 6px;
+}
+
+/* ── Tool Specific: Lesson Creator & Test Creator ── */
+.plan-hero, .exam-header, .report-container {
+  background: var(--exp-bg-surface);
+  border: var(--exp-border-width) solid var(--exp-border-color);
+  border-radius: var(--exp-border-radius);
+  box-shadow: var(--exp-shadow);
+  padding: 16px 20px;
+  margin-bottom: 16px;
+}
+
+.phase-export-card, .exercise-card, .lc-phase-card, .tc-exercise-box, .exercise-box {
+  background: var(--exp-bg-surface);
+  border: var(--exp-border-width) solid var(--exp-border-color);
+  border-radius: var(--exp-border-radius);
+  box-shadow: var(--exp-shadow);
+  margin-bottom: 14px;
+  overflow: hidden;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.phase-header, .exercise-header {
+  border-bottom: var(--exp-border-width) solid var(--exp-border-color);
+  background: var(--exp-bg-alt);
+  padding: 10px 14px;
+}
+
+.lc-phase-title, .tc-exercise-title, .phase-title, .exercise-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--exp-text-color);
+  margin-bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tc-points-badge, .phase-badge-duration {
+  display: inline-block;
+  background: var(--exp-accent-yellow);
+  color: #111;
+  border: 1.5px solid var(--exp-border-color);
+  border-radius: var(--exp-border-radius-sm);
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 800;
+  box-shadow: var(--exp-shadow-sm);
+}
+
+.tc-answer-line {
+  border-bottom: 1.5px dotted var(--exp-border-color);
+  height: 24px;
+  margin: 8px 0;
+}
+
+/* ── Tool Specific: Grade Sheet Reports ── */
+.gs-report-header {
+  border-bottom: var(--exp-border-width) solid var(--exp-border-color);
+  padding-bottom: 8px;
+  margin-bottom: 14px;
+}
+
+.gs-stat-box {
+  display: inline-block;
+  border: var(--exp-border-width) solid var(--exp-border-color);
+  border-radius: var(--exp-border-radius-sm);
+  padding: 6px 12px;
+  background: var(--exp-bg-surface);
+  box-shadow: var(--exp-shadow-sm);
+  margin: 4px;
+  font-weight: 700;
+}
+
+/* ── Print & PDF Optimizations ── */
+@page {
+  margin: 12mm 10mm;
+  size: auto;
+}
+
+@media print {
+  *, *:before, *:after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  body {
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+  .table-toolbar {
+    display: none !important;
+  }
+  table {
+    width: 100% !important;
+    box-shadow: none !important;
+    border-collapse: collapse !important;
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+  }
+  thead {
+    display: table-header-group !important;
+  }
+  tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  .meta-box, .lc-phase-card, .tc-exercise-box, .badge, .planner-export-table .exp-week, .sm-sen-badge {
+    box-shadow: none !important;
+  }
+  th[style*="display: none"], td[style*="display: none"], col[style*="display: none"], .col-hidden {
+    display: none !important;
+  }
+}

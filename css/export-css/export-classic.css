@@ -1,0 +1,393 @@
+/*
+ * Name: Classic Academic
+ * Description: Traditional academic styling with serif typography, formal horizontal rules, booktabs table layout, and elegant editorial margins.
+ * Category: Academic / Editorial
+ * Tags: classic, academic, serif, editorial, formal, booktabs
+ */
+
+:root {
+  --exp-font-family: 'Georgia', 'Times New Roman', Times, Garamond, serif;
+  --exp-font-size: 13.5px;
+  --exp-line-height: 1.55;
+  --exp-bg-page: #ffffff;
+  --exp-bg-surface: #ffffff;
+  --exp-bg-alt: #fdfdfc;
+  --exp-text-color: #111111;
+  --exp-text-muted: #555555;
+  --exp-border-color: #222222;
+  --exp-border-light: #d1d5db;
+  --exp-table-rule: 1.5px solid #111111;
+  --exp-table-subrule: 1px solid #e5e7eb;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--exp-font-family);
+  font-size: var(--exp-font-size);
+  color: var(--exp-text-color);
+  background: var(--exp-bg-page);
+  padding: 36px 32px;
+  line-height: var(--exp-line-height);
+}
+
+h1 {
+  font-size: 23px;
+  font-weight: 700;
+  color: var(--exp-text-color);
+  border-bottom: 2px solid var(--exp-border-color);
+  padding-bottom: 6px;
+  margin: 0 0 10px;
+  letter-spacing: 0.02em;
+}
+
+h2, .class-heading {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--exp-text-color);
+  border-bottom: 1px solid var(--exp-border-color);
+  padding-bottom: 4px;
+  margin: 24px 0 10px;
+  font-style: italic;
+}
+
+h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--exp-text-color);
+  margin: 16px 0 6px;
+}
+
+p {
+  margin-bottom: 10px;
+  text-align: justify;
+}
+
+.meta, .report-meta {
+  font-size: 12.5px;
+  color: var(--exp-text-muted);
+  font-style: italic;
+  margin: 0 0 18px;
+}
+
+/* ── Meta Info Box ── */
+.meta-box, .report-header-box {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 24px;
+  font-size: 12px;
+  color: var(--exp-text-color);
+  background: #fdfdfd;
+  border-top: 1.5px solid var(--exp-border-color);
+  border-bottom: 1.5px solid var(--exp-border-color);
+  padding: 8px 0;
+  margin-bottom: 20px;
+}
+
+.meta-item {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.meta-label {
+  font-weight: 700;
+  color: var(--exp-text-color);
+  font-variant: small-caps;
+  font-size: 12px;
+}
+
+.meta-val {
+  font-weight: 400;
+  color: var(--exp-text-color);
+}
+
+/* ── Tables (Booktabs Academic Style: No vertical borders, crisp horizontal rules) ── */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  table-layout: fixed;
+  margin-bottom: 26px;
+  border-top: 2px solid var(--exp-border-color);
+  border-bottom: 2px solid var(--exp-border-color);
+  background: transparent;
+}
+
+th, td {
+  border: none;
+  border-bottom: var(--exp-table-subrule);
+  padding: 8px 10px;
+  vertical-align: top;
+  text-align: left;
+  word-break: break-word;
+  color: var(--exp-text-color);
+}
+
+thead th {
+  border-bottom: var(--exp-table-rule);
+  font-weight: 700;
+  color: var(--exp-text-color);
+  font-variant: small-caps;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  background: transparent;
+  position: relative;
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+tbody tr:nth-child(even) td:not(.sm-break-tr td):not(.sm-gap-tr td):not(.sm-group-tr td) {
+  background: #fafaf9;
+}
+
+/* ── Resizers & Hidden columns ── */
+.th-wrap, .th-label {
+  display: block;
+  padding-right: 10px;
+}
+
+.col-resizer {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+  user-select: none;
+  touch-action: none;
+  z-index: 2;
+}
+
+.col-resizer::after {
+  content: "";
+  position: absolute;
+  right: 3px;
+  top: 25%;
+  bottom: 25%;
+  width: 1px;
+  background: #888888;
+}
+
+.col-hidden {
+  display: none !important;
+}
+
+/* ── Interactive Toolbar in exported HTML ── */
+.table-toolbar {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0 0 16px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--exp-border-color);
+  border-bottom: 1px solid var(--exp-border-color);
+  background: #fdfdfd;
+}
+
+.tb-label {
+  font-size: 11px;
+  color: var(--exp-text-color);
+  font-weight: 700;
+  font-variant: small-caps;
+  line-height: 1.9;
+}
+
+.col-options {
+  display: flex;
+  gap: 12px 16px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.col-opt {
+  font-size: 12px;
+  color: var(--exp-text-color);
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* ── Badges ── */
+.badge, .neo-badge, .status-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border: 1px solid var(--exp-border-color);
+  font-size: 10.5px;
+  font-weight: 600;
+  font-style: italic;
+  background: #ffffff;
+  color: #111111;
+}
+
+.badge-green, .badge-pass { background: #f0fdf4; color: #166534; border-color: #86efac; }
+.badge-blue { background: #eff6ff; color: #1e40af; border-color: #93c5fd; }
+.badge-red, .badge-fail { background: #fef2f2; color: #991b1b; border-color: #fca5a5; }
+
+/* ── Tool Specific: Planner ── */
+.planner-export-table .exp-week, .exp-table .exp-week, .exp-week {
+  font-weight: 700;
+  font-variant: small-caps;
+  display: inline-block;
+  border-bottom: 1px solid var(--exp-border-color);
+  color: var(--exp-text-color);
+}
+
+.class-page-break {
+  page-break-before: always;
+  break-before: page;
+  margin-top: 28px;
+}
+
+/* ── Tool Specific: Schedule Maker ── */
+.sm-col-num { width: 50px; text-align: center; font-weight: 700; }
+.sm-col-student { text-align: left; font-weight: 500; }
+.sm-col-sen { width: 60px; text-align: center; }
+.sm-col-time { width: 110px; text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
+th.sm-col-num, th.sm-col-sen, th.sm-col-time { text-align: center; }
+
+.sm-sen-badge {
+  display: inline-block;
+  border: 1px solid var(--exp-border-color);
+  padding: 1px 5px;
+  font-size: 10px;
+  font-variant: small-caps;
+}
+
+tr.sm-break-tr td {
+  font-style: italic;
+  text-align: center;
+  border-top: 1px solid var(--exp-border-color);
+  border-bottom: 1px solid var(--exp-border-color);
+  font-size: 12px;
+}
+
+tr.sm-group-tr td {
+  border-top: 1px solid var(--exp-border-color);
+  vertical-align: top;
+}
+
+tr.sm-group-tr td.sm-group-names-cell {
+  font-weight: 400;
+  text-align: left;
+}
+
+tr.sm-gap-tr td {
+  font-style: italic;
+  color: #7f1d1d;
+  text-align: center;
+  font-size: 11.5px;
+}
+
+.schedule-footer {
+  font-size: 11.5px;
+  font-style: italic;
+  color: var(--exp-text-muted);
+  margin-top: 18px;
+  text-align: right;
+  border-top: 1px solid var(--exp-border-color);
+  padding-top: 6px;
+}
+
+/* ── Tool Specific: Lesson Creator & Test Creator ── */
+.plan-hero, .exam-header, .report-container {
+  background: transparent;
+  border-top: 2px solid var(--exp-border-color);
+  border-bottom: 2px solid var(--exp-border-color);
+  padding: 14px 4px;
+  margin-bottom: 20px;
+}
+
+.phase-export-card, .exercise-card, .lc-phase-card, .tc-exercise-box, .exercise-box {
+  background: var(--exp-bg-surface);
+  border-top: 1.5px solid var(--exp-border-color);
+  border-bottom: 1px solid var(--exp-border-light);
+  padding: 12px 4px;
+  margin-bottom: 16px;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.phase-header, .exercise-header {
+  border-bottom: 1px solid var(--exp-border-color);
+  background: transparent;
+  padding: 8px 4px;
+}
+
+.lc-phase-title, .tc-exercise-title, .phase-title, .exercise-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--exp-text-color);
+  margin-bottom: 6px;
+  font-variant: small-caps;
+}
+
+.tc-points-badge, .phase-badge-duration {
+  display: inline-block;
+  border: 1px solid var(--exp-border-color);
+  padding: 1px 6px;
+  font-size: 11px;
+  font-style: italic;
+}
+
+.tc-answer-line {
+  border-bottom: 1px solid #777777;
+  height: 24px;
+  margin: 10px 0;
+}
+
+/* ── Tool Specific: Grade Sheet Reports ── */
+.gs-report-header {
+  border-bottom: 2px solid var(--exp-border-color);
+  padding-bottom: 8px;
+  margin-bottom: 16px;
+}
+
+.gs-stat-box {
+  display: inline-block;
+  border: 1px solid var(--exp-border-color);
+  padding: 4px 10px;
+  margin: 4px;
+  font-size: 12px;
+}
+
+/* ── Print & PDF Optimizations ── */
+@page {
+  margin: 16mm 14mm;
+  size: auto;
+}
+
+@media print {
+  body {
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+  .table-toolbar {
+    display: none !important;
+  }
+  table {
+    width: 100% !important;
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+  }
+  thead {
+    display: table-header-group !important;
+  }
+  tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  th[style*="display: none"], td[style*="display: none"], col[style*="display: none"], .col-hidden {
+    display: none !important;
+  }
+}
