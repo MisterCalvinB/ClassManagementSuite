@@ -706,9 +706,11 @@
 
           <div style="display:flex;align-items:center;gap:3px;font-size:0.78rem;font-weight:700;margin-left:4px;">
             <select id="previewThemeSelect" class="meta-select" style="padding:2px 5px;font-size:0.78rem;" onchange="tcOnPreviewThemeChange(this.value)">
-              <option value="academic" data-i18n="tcThemeAcademic">Academic</option>
-              <option value="neobrutalist" data-i18n="tcThemeNeobrutalist">Neobrutalist</option>
-              <option value="dyslexic" data-i18n="tcThemeDyslexic">Dyslexic</option>
+              <option value="export-light-neobrutalist.css" data-i18n="tcThemeNeobrutalist">Light Neobrutalist</option>
+              <option value="export-modern.css" data-i18n="tcThemeModern">Modern Minimalist</option>
+              <option value="export-classic.css" data-i18n="tcThemeAcademic">Classic Academic</option>
+              <option value="export-plain.css" data-i18n="tcThemePlain">Plain / Eco (Black &amp; White)</option>
+              <option value="export-dys.css" data-i18n="tcThemeDyslexic">Dyslexic &amp; ADHD Friendly</option>
             </select>
           </div>
 
@@ -767,9 +769,11 @@
               <label class="meta-lbl" data-i18n="exportStyleLabel">Export Style:</label>
               <div id="tc-export-style-selector-wrap" style="display:inline-flex;align-items:center;"></div>
               <select id="exportThemeSelect" class="meta-select" style="display:none;" onchange="tcOnExportThemeChange(this.value)">
-                <option value="academic" data-i18n="tcThemeAcademic">Academic Classic</option>
-                <option value="neobrutalist" data-i18n="tcThemeNeobrutalist">Modern Neobrutalist</option>
-                <option value="dyslexic" data-i18n="tcThemeDyslexic">Dyslexic Friendly</option>
+                <option value="export-light-neobrutalist.css" data-i18n="tcThemeNeobrutalist">Light Neobrutalist</option>
+                <option value="export-modern.css" data-i18n="tcThemeModern">Modern Minimalist</option>
+                <option value="export-classic.css" data-i18n="tcThemeAcademic">Classic Academic</option>
+                <option value="export-plain.css" data-i18n="tcThemePlain">Plain / Eco (Black &amp; White)</option>
+                <option value="export-dys.css" data-i18n="tcThemeDyslexic">Dyslexic &amp; ADHD Friendly</option>
               </select>
             </div>
           </div>
@@ -1199,9 +1203,11 @@
           <div class="style-control-card">
             <label data-i18n="tcStyleTheme">Stylesheet / Theme:</label>
             <select id="globalStyleTheme" class="style-select" onchange="tcOnGlobalStyleChange()">
-              <option value="academic" data-i18n="tcThemeAcademic">Academic Classic</option>
-              <option value="neobrutalist" data-i18n="tcThemeNeobrutalist">Modern Neobrutalist</option>
-              <option value="dyslexic" data-i18n="tcThemeDyslexic">Dyslexic Friendly</option>
+              <option value="export-light-neobrutalist.css" data-i18n="tcThemeNeobrutalist">Light Neobrutalist</option>
+              <option value="export-modern.css" data-i18n="tcThemeModern">Modern Minimalist</option>
+              <option value="export-classic.css" data-i18n="tcThemeAcademic">Classic Academic</option>
+              <option value="export-plain.css" data-i18n="tcThemePlain">Plain / Eco (Black &amp; White)</option>
+              <option value="export-dys.css" data-i18n="tcThemeDyslexic">Dyslexic &amp; ADHD Friendly</option>
             </select>
           </div>
 
@@ -2376,6 +2382,7 @@
           applyTranslations();
         }
         populateDropdowns();
+        await tcPopulateThemeDropdowns();
         await loadInitialData();
         await tcLoadCustomTestTemplates();
         await tcLoadCustomHeaderTemplates();
@@ -2626,17 +2633,131 @@
         currentTest = TestCreatorService.createEmptyTest();
       }
 
+      function tcNormalizeThemeId(theme) {
+        if (!theme) return 'export-light-neobrutalist.css';
+        var t = String(theme).trim().toLowerCase();
+        if (t === 'academic' || t === 'classic' || t === 'classic academic' || t === 'export-classic.css') return 'export-classic.css';
+        if (t === 'neobrutalist' || t === 'light neobrutalist' || t === 'export-light-neobrutalist.css') return 'export-light-neobrutalist.css';
+        if (t === 'dyslexic' || t === 'dys' || t === 'dyslexic & adhd friendly' || t === 'export-dys.css') return 'export-dys.css';
+        if (t === 'modern' || t === 'modern minimalist' || t === 'export-modern.css') return 'export-modern.css';
+        if (t === 'plain' || t === 'eco' || t === 'plain / eco (black & white)' || t === 'export-plain.css') return 'export-plain.css';
+        return theme;
+      }
+
+      function tcSyncActiveThemeDropdowns() {
+        if (!currentTest) return;
+        var chosen = (currentTest.exportStyle && currentTest.exportStyle.theme) || currentTest.stylesheetTheme || (window.ExportStylesService && ExportStylesService.getSelectedStyle('testCreator')) || localStorage.getItem('cmt_default_test_theme') || 'export-light-neobrutalist.css';
+        var norm = tcNormalizeThemeId(chosen);
+
+        var pThm = document.getElementById('previewThemeSelect');
+        if (pThm) {
+          pThm.value = norm;
+          if (!pThm.value && pThm.options.length > 0) {
+            pThm.selectedIndex = 0;
+          }
+        }
+        var gThm = document.getElementById('globalStyleTheme');
+        if (gThm) {
+          gThm.value = norm;
+          if (!gThm.value && gThm.options.length > 0) {
+            gThm.selectedIndex = 0;
+          }
+        }
+        var eThm = document.getElementById('exportThemeSelect');
+        if (eThm) {
+          eThm.value = norm;
+          if (!eThm.value && eThm.options.length > 0) {
+            eThm.selectedIndex = 0;
+          }
+        }
+      }
+
+      async function tcPopulateThemeDropdowns() {
+        var pThm = document.getElementById('previewThemeSelect');
+        var gThm = document.getElementById('globalStyleTheme');
+        var eThm = document.getElementById('exportThemeSelect');
+        if (!pThm && !gThm && !eThm) return;
+
+        var styles = [];
+        if (window.ExportStylesService && typeof ExportStylesService.loadAvailableStyles === 'function') {
+          try {
+            styles = await ExportStylesService.loadAvailableStyles();
+          } catch (e) {
+            console.warn('Failed to load export styles via ExportStylesService:', e);
+          }
+        }
+
+        if (!styles || !styles.length) {
+          styles = [
+            { id: 'export-light-neobrutalist.css', name: 'Light Neobrutalist', isCustom: false },
+            { id: 'export-modern.css', name: 'Modern Minimalist', isCustom: false },
+            { id: 'export-classic.css', name: 'Classic Academic', isCustom: false },
+            { id: 'export-plain.css', name: 'Plain / Eco (Black & White)', isCustom: false },
+            { id: 'export-dys.css', name: 'Dyslexic & ADHD Friendly', isCustom: false }
+          ];
+        }
+
+        function getStyleI18nLabel(styleObj) {
+          if (styleObj.isCustom) return styleObj.name || styleObj.filename || styleObj.id;
+          var sid = styleObj.id || styleObj.filename;
+          if (sid === 'export-light-neobrutalist.css') return (window.i18n && i18n.t('tcThemeNeobrutalist')) || styleObj.name;
+          if (sid === 'export-modern.css') return (window.i18n && i18n.t('tcThemeModern')) || styleObj.name;
+          if (sid === 'export-classic.css') return (window.i18n && i18n.t('tcThemeAcademic')) || styleObj.name;
+          if (sid === 'export-plain.css') return (window.i18n && i18n.t('tcThemePlain')) || styleObj.name;
+          if (sid === 'export-dys.css') return (window.i18n && i18n.t('tcThemeDyslexic')) || styleObj.name;
+          return styleObj.name || sid;
+        }
+
+        var builtinStyles = styles.filter(function (s) { return !s.isCustom; });
+        var customStyles = styles.filter(function (s) { return !!s.isCustom; });
+
+        var html = '';
+        if (customStyles.length > 0) {
+          var lblBuiltin = (window.i18n && i18n.t('exportStyleBuiltInHeader')) || 'Standard Models';
+          var lblCustom = (window.i18n && i18n.t('exportStyleUserCustomHeader')) || 'Custom Styles (user/)';
+          html += '<optgroup label="' + escapeAttr(lblBuiltin) + '">';
+          builtinStyles.forEach(function (s) {
+            html += '<option value="' + escapeAttr(s.id) + '">' + escapeHtml(getStyleI18nLabel(s)) + '</option>';
+          });
+          html += '</optgroup>';
+          html += '<optgroup label="' + escapeAttr(lblCustom) + '">';
+          customStyles.forEach(function (s) {
+            html += '<option value="' + escapeAttr(s.id) + '">' + escapeHtml(getStyleI18nLabel(s)) + '</option>';
+          });
+          html += '</optgroup>';
+        } else {
+          builtinStyles.forEach(function (s) {
+            html += '<option value="' + escapeAttr(s.id) + '">' + escapeHtml(getStyleI18nLabel(s)) + '</option>';
+          });
+        }
+
+        [pThm, gThm, eThm].forEach(function (el) {
+          if (!el) return;
+          var prevVal = el.value;
+          el.innerHTML = html;
+          if (prevVal) {
+            el.value = tcNormalizeThemeId(prevVal);
+          }
+        });
+
+        tcSyncActiveThemeDropdowns();
+      }
+
       function ensureTestStyleAndTheme() {
         if (!currentTest) return;
         currentTest.exercises = currentTest.exercises || [];
         TestCreatorService.ensureHeaderConfig(currentTest);
         TestCreatorService.ensureExportStyle(currentTest);
         if (!currentTest.stylesheetTheme) {
-          currentTest.stylesheetTheme = (currentTest.exportStyle && currentTest.exportStyle.theme) || localStorage.getItem('cmt_default_test_theme') || 'academic';
+          var chosenThm = (currentTest.exportStyle && currentTest.exportStyle.theme) || (window.ExportStylesService && ExportStylesService.getSelectedStyle('testCreator')) || localStorage.getItem('cmt_default_test_theme') || 'export-light-neobrutalist.css';
+          currentTest.stylesheetTheme = tcNormalizeThemeId(chosenThm);
+        } else {
+          currentTest.stylesheetTheme = tcNormalizeThemeId(currentTest.stylesheetTheme);
         }
-        if (currentTest.exportStyle && !currentTest.exportStyle.theme) {
+        if (currentTest.exportStyle) {
           currentTest.exportStyle.theme = currentTest.stylesheetTheme;
         }
+        tcSyncActiveThemeDropdowns();
       }
 
       function populateDropdowns() {
@@ -3099,6 +3220,7 @@
         if (typeof tcScheduleLivePreviewUpdate === 'function') {
           tcScheduleLivePreviewUpdate();
         }
+        tcSyncActiveThemeDropdowns();
       }
 
       function tcGetActiveTestUrn() {
@@ -9796,7 +9918,7 @@
         var pSel = document.getElementById('globalStylePadding');
         var nChk = document.getElementById('globalStyleNumberedLines');
 
-        if (tSel) tSel.value = st.theme || currentTest.stylesheetTheme || localStorage.getItem('cmt_default_test_theme') || 'academic';
+        if (tSel) tSel.value = tcNormalizeThemeId(st.theme || currentTest.stylesheetTheme || (window.ExportStylesService && ExportStylesService.getSelectedStyle('testCreator')) || localStorage.getItem('cmt_default_test_theme') || 'export-light-neobrutalist.css');
         if (fSel) fSel.value = st.fontSize || '11pt';
         if (lSel) lSel.value = String(st.lineHeight || 1.5);
         if (pSel) pSel.value = st.padding || '14px';
@@ -9827,10 +9949,13 @@
         if (!currentTest.exportStyle) currentTest.exportStyle = {};
         var tSel = document.getElementById('globalStyleTheme');
         if (tSel) {
-          var thm = tSel.value;
+          var thm = tcNormalizeThemeId(tSel.value);
           currentTest.exportStyle.theme = thm;
           currentTest.stylesheetTheme = thm;
           try { localStorage.setItem('cmt_default_test_theme', thm); } catch (_) {}
+          if (window.ExportStylesService) {
+            ExportStylesService.setSelectedStyle('testCreator', thm);
+          }
           var pThm = document.getElementById('previewThemeSelect');
           if (pThm && pThm.value !== thm) pThm.value = thm;
           var eThm = document.getElementById('exportThemeSelect');
@@ -10767,20 +10892,24 @@
         }
         var thmSel = document.getElementById('previewThemeSelect');
         if (thmSel && currentTest) {
-          thmSel.value = (currentTest.exportStyle && currentTest.exportStyle.theme) || currentTest.stylesheetTheme || localStorage.getItem('cmt_default_test_theme') || 'academic';
+          thmSel.value = tcNormalizeThemeId((currentTest.exportStyle && currentTest.exportStyle.theme) || currentTest.stylesheetTheme || (window.ExportStylesService && ExportStylesService.getSelectedStyle('testCreator')) || localStorage.getItem('cmt_default_test_theme') || 'export-light-neobrutalist.css');
         }
         tcUpdatePrintPreview({ force: true });
       };
 
       window.tcOnPreviewThemeChange = function (val) {
+        var normVal = tcNormalizeThemeId(val);
         if (!currentTest.exportStyle) currentTest.exportStyle = {};
-        currentTest.exportStyle.theme = val;
-        currentTest.stylesheetTheme = val;
-        try { localStorage.setItem('cmt_default_test_theme', val); } catch (_) {}
+        currentTest.exportStyle.theme = normVal;
+        currentTest.stylesheetTheme = normVal;
+        try { localStorage.setItem('cmt_default_test_theme', normVal); } catch (_) {}
+        if (window.ExportStylesService) {
+          ExportStylesService.setSelectedStyle('testCreator', normVal);
+        }
         var gThm = document.getElementById('globalStyleTheme');
-        if (gThm && gThm.value !== val) gThm.value = val;
+        if (gThm && gThm.value !== normVal) gThm.value = normVal;
         var eThm = document.getElementById('exportThemeSelect');
-        if (eThm && eThm.value !== val) eThm.value = val;
+        if (eThm && eThm.value !== normVal) eThm.value = normVal;
         tcSaveCurrentTest(false);
         tcUpdatePrintPreview({ force: true });
       };
@@ -10868,7 +10997,7 @@
 
         var isTeacher = document.getElementById('previewTeacherKeyToggle') ? document.getElementById('previewTeacherKeyToggle').checked : false;
         var variant = document.getElementById('previewVariantSelect') ? document.getElementById('previewVariantSelect').value : 'A';
-        var theme = document.getElementById('previewThemeSelect') ? document.getElementById('previewThemeSelect').value : 'academic';
+        var theme = document.getElementById('previewThemeSelect') ? tcNormalizeThemeId(document.getElementById('previewThemeSelect').value) : 'export-light-neobrutalist.css';
         var wrap = document.getElementById('previewCanvasWrap');
         if (!wrap) return;
 
@@ -10896,6 +11025,10 @@
             studentName: '',
             className: currentTest.className || ''
           });
+
+          if (window.ExportStylesService) {
+            previewHtml = await ExportStylesService.injectStyleIntoHtml(previewHtml, theme, 'testCreator');
+          }
 
           // Exact PDF.js rendering if running in Electron
           if (window.Desktop && Desktop.isElectron && typeof Desktop.printPdf === 'function') {
@@ -10983,7 +11116,15 @@
 
           // Web / Fallback rendering
           if (currentRequestId !== _tcPreviewAbortController) return;
-          var themeCss = TestCreatorService.getThemeCss(theme);
+          var themeCss = '';
+          if (window.ExportStylesService) {
+            try {
+              themeCss = await ExportStylesService.getStyleContent(theme);
+            } catch (_) {}
+          }
+          if (!themeCss) {
+            themeCss = TestCreatorService.getThemeCss(theme);
+          }
           var scopedCss = themeCss
             .replace(/\bbody\s*\{/g, '#previewCanvasWrap .a4-sheet {')
             .replace(/\.exam-sheet\s*\{[^}]*\}/g, '.exam-sheet { width: 100%; max-width: 100%; margin: 0; }');
@@ -10993,7 +11134,7 @@
 
           var tempContainer = document.createElement('div');
           tempContainer.innerHTML = '<style id="tcThemePreviewStyles">' + scopedCss + '</style>' +
-            '<div class="a4-sheet theme-' + theme + '">' + content + '</div>';
+            '<div class="a4-sheet theme-' + theme.replace(/[^a-zA-Z0-9_\-]+/g, '_') + '">' + content + '</div>';
 
           var prevScrollTopFallback = wrap.scrollTop;
           var prevScrollLeftFallback = wrap.scrollLeft;
@@ -11012,7 +11153,7 @@
       window.tcPrintDocument = async function () {
         var isTeacher = document.getElementById('previewTeacherKeyToggle').checked;
         var variant = document.getElementById('previewVariantSelect').value;
-        var theme = document.getElementById('previewThemeSelect').value;
+        var theme = document.getElementById('previewThemeSelect') ? tcNormalizeThemeId(document.getElementById('previewThemeSelect').value) : 'export-light-neobrutalist.css';
 
         var variantTest = TestCreatorService.generateVariant(currentTest, variant);
         var exportHtml = TestCreatorService.exportToHtml(variantTest, {
@@ -11022,6 +11163,10 @@
           studentName: '',
           className: currentTest.className || ''
         });
+
+        if (window.ExportStylesService) {
+          exportHtml = await ExportStylesService.injectStyleIntoHtml(exportHtml, theme, 'testCreator');
+        }
 
         var fileNameBase = (currentTest.title || 'Exam').replace(/[^a-zA-Z0-9_\-]+/g, '_');
         var defaultName = fileNameBase + (isTeacher ? '_Solution_Key' : '') + '.pdf';
@@ -11056,12 +11201,23 @@
         document.getElementById('exportModal').classList.add('open');
         var expThm = document.getElementById('exportThemeSelect');
         if (expThm && currentTest) {
-          expThm.value = (currentTest.exportStyle && currentTest.exportStyle.theme) || currentTest.stylesheetTheme || localStorage.getItem('cmt_default_test_theme') || 'academic';
+          var curThm = (currentTest.exportStyle && currentTest.exportStyle.theme) || currentTest.stylesheetTheme || (window.ExportStylesService && ExportStylesService.getSelectedStyle('testCreator')) || localStorage.getItem('cmt_default_test_theme') || 'export-light-neobrutalist.css';
+          expThm.value = tcNormalizeThemeId(curThm);
         }
         if (window.ExportStylesService) {
           ExportStylesService.renderStyleSelector(document.getElementById('tc-export-style-selector-wrap'), {
             toolKey: 'testCreator',
+            currentStyleId: tcNormalizeThemeId((currentTest && currentTest.exportStyle && currentTest.exportStyle.theme) || (currentTest && currentTest.stylesheetTheme) || ExportStylesService.getSelectedStyle('testCreator')),
             onChange: function (styleId) {
+              if (currentTest) {
+                if (!currentTest.exportStyle) currentTest.exportStyle = {};
+                currentTest.exportStyle.theme = styleId;
+                currentTest.stylesheetTheme = styleId;
+              }
+              var pThm = document.getElementById('previewThemeSelect');
+              if (pThm && pThm.value !== styleId) pThm.value = styleId;
+              var gThm = document.getElementById('globalStyleTheme');
+              if (gThm && gThm.value !== styleId) gThm.value = styleId;
               var ifr = document.getElementById('exportPreviewIframe');
               if (ifr && document.getElementById('exportPreviewModal').classList.contains('open')) {
                 ExportStylesService.applyStyleToIframe(ifr, styleId);
@@ -11072,14 +11228,18 @@
       };
 
       window.tcOnExportThemeChange = function (val) {
+        var normVal = tcNormalizeThemeId(val);
         if (!currentTest.exportStyle) currentTest.exportStyle = {};
-        currentTest.exportStyle.theme = val;
-        currentTest.stylesheetTheme = val;
-        try { localStorage.setItem('cmt_default_test_theme', val); } catch (_) {}
+        currentTest.exportStyle.theme = normVal;
+        currentTest.stylesheetTheme = normVal;
+        try { localStorage.setItem('cmt_default_test_theme', normVal); } catch (_) {}
+        if (window.ExportStylesService) {
+          ExportStylesService.setSelectedStyle('testCreator', normVal);
+        }
         var pThm = document.getElementById('previewThemeSelect');
-        if (pThm && pThm.value !== val) pThm.value = val;
+        if (pThm && pThm.value !== normVal) pThm.value = normVal;
         var gThm = document.getElementById('globalStyleTheme');
-        if (gThm && gThm.value !== val) gThm.value = val;
+        if (gThm && gThm.value !== normVal) gThm.value = normVal;
         tcSaveCurrentTest(false);
       };
 
@@ -11111,7 +11271,7 @@
         var fileNameBase = (currentTest.title || 'Exam').replace(/[^a-zA-Z0-9_\-]+/g, '_');
         var outContent = '';
         var ext = currentExportFormat;
-        var activeTheme = (currentTest.exportStyle && currentTest.exportStyle.theme) || currentTest.stylesheetTheme || localStorage.getItem('cmt_default_test_theme') || 'academic';
+        var activeTheme = tcNormalizeThemeId((currentTest.exportStyle && currentTest.exportStyle.theme) || currentTest.stylesheetTheme || (window.ExportStylesService && ExportStylesService.getSelectedStyle('testCreator')) || localStorage.getItem('cmt_default_test_theme') || 'export-light-neobrutalist.css');
 
         if (isBatch && activeStudents.length > 0) {
           var assignments = TestCreatorService.assignVariantsToStudents(activeStudents, vMode, { manualMap: manualVariantMap });
@@ -11220,7 +11380,7 @@
         if (!currentTest) return;
         window._tcLastPreviewType = 'single';
         var isTeacher = document.querySelector('input[name="expCopyType"]:checked') ? (document.querySelector('input[name="expCopyType"]:checked').value === 'teacher') : false;
-        var activeTheme = (currentTest.exportStyle && currentTest.exportStyle.theme) || currentTest.stylesheetTheme || localStorage.getItem('cmt_default_test_theme') || 'academic';
+        var activeTheme = tcNormalizeThemeId((currentTest.exportStyle && currentTest.exportStyle.theme) || currentTest.stylesheetTheme || (window.ExportStylesService && ExportStylesService.getSelectedStyle('testCreator')) || localStorage.getItem('cmt_default_test_theme') || 'export-light-neobrutalist.css');
 
         var html = TestCreatorService.exportToHtml(currentTest, {
           isTeacherKey: isTeacher,
@@ -11233,7 +11393,7 @@
           iframe.srcdoc = html;
           iframe.onload = function () {
             if (window.ExportStylesService) {
-              var sId = ExportStylesService.getSelectedStyle('testCreator');
+              var sId = activeTheme || ExportStylesService.getSelectedStyle('testCreator');
               ExportStylesService.applyStyleToIframe(iframe, sId);
             }
           };
@@ -11245,7 +11405,17 @@
         if (window.ExportStylesService) {
           ExportStylesService.renderStyleSelector(document.getElementById('tc-preview-style-selector-wrap'), {
             toolKey: 'testCreator',
+            currentStyleId: activeTheme,
             onChange: function (styleId) {
+              if (currentTest) {
+                if (!currentTest.exportStyle) currentTest.exportStyle = {};
+                currentTest.exportStyle.theme = styleId;
+                currentTest.stylesheetTheme = styleId;
+              }
+              var pThm = document.getElementById('previewThemeSelect');
+              if (pThm && pThm.value !== styleId) pThm.value = styleId;
+              var gThm = document.getElementById('globalStyleTheme');
+              if (gThm && gThm.value !== styleId) gThm.value = styleId;
               var ifr = document.getElementById('exportPreviewIframe');
               if (ifr) ExportStylesService.applyStyleToIframe(ifr, styleId);
             }
@@ -11302,7 +11472,7 @@
         } else {
           if (!currentTest) return;
           var isTeacher = document.querySelector('input[name="expCopyType"]:checked') ? (document.querySelector('input[name="expCopyType"]:checked').value === 'teacher') : false;
-          var activeTheme = (currentTest.exportStyle && currentTest.exportStyle.theme) || currentTest.stylesheetTheme || localStorage.getItem('cmt_default_test_theme') || 'academic';
+          var activeTheme = tcNormalizeThemeId((currentTest.exportStyle && currentTest.exportStyle.theme) || currentTest.stylesheetTheme || (window.ExportStylesService && ExportStylesService.getSelectedStyle('testCreator')) || localStorage.getItem('cmt_default_test_theme') || 'export-light-neobrutalist.css');
           html = TestCreatorService.exportToHtml(currentTest, { isTeacherKey: isTeacher, stylesheetTheme: activeTheme });
           fileNameBase = (currentTest.title || 'Exam').replace(/[^a-zA-Z0-9_\-]+/g, '_');
         }
@@ -12390,7 +12560,7 @@
           tcCloseExportModal();
         }
         var isTeacher = false;
-        var activeTheme = (currentTest.exportStyle && currentTest.exportStyle.theme) || currentTest.stylesheetTheme || localStorage.getItem('cmt_default_test_theme') || 'academic';
+        var activeTheme = tcNormalizeThemeId((currentTest.exportStyle && currentTest.exportStyle.theme) || currentTest.stylesheetTheme || (window.ExportStylesService && ExportStylesService.getSelectedStyle('testCreator')) || localStorage.getItem('cmt_default_test_theme') || 'export-light-neobrutalist.css');
         var htmlContent = TestCreatorService.exportToHtml(currentTest, { isTeacherKey: isTeacher, stylesheetTheme: activeTheme });
 
         var fileNameBase = (currentTest.title || 'Exam').replace(/[^a-zA-Z0-9_\-]+/g, '_');
@@ -13640,6 +13810,7 @@
           _langChannel.onmessage = function (ev) {
             if (ev && ev.data && ev.data.type === 'lang_changed') {
               if (typeof applyTranslations === 'function') applyTranslations();
+              if (typeof tcPopulateThemeDropdowns === 'function') tcPopulateThemeDropdowns();
               if (typeof tcUpdateFreezePreviewUI === 'function') tcUpdateFreezePreviewUI();
               renderTestMeta();
               renderExerciseCards();

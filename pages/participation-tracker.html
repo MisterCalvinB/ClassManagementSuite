@@ -280,6 +280,7 @@
                 <div style="display:flex;gap:8px;align-items:center;">
                     <button class="btn-secondary btn-icon" id="classOverviewColsBtn" type="button" onclick="openColumnsConfigModal('classOverviewTable')"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> <span data-i18n="ptColumns">Columns ▾</span></button>
                     <button id="clearSessionFilterBtn" class="btn-secondary hidden" type="button" data-i18n="ptMsgClearSessionFilter">Clear Session Filter</button>
+                    <button id="sessionExamToggleBtn" class="btn-secondary btn-icon hidden" type="button" onclick="toggleSelectedSessionExam()"><img src="../assets/icons/test-creator.svg" class="btn-icon" alt="" /> <span id="sessionExamToggleBtnText" data-i18n="ptActionMakeExam">Mark as Exam</span></button>
                 </div>
             </div>
             <div class="table-container">
@@ -1077,7 +1078,7 @@
                 { id: 'badges',           label: 'Badges',           i18nKey: 'ptColBadges',           defaultWidth: 100, minWidth: 60 },
                 { id: 'objectives',       label: 'Objectives',       i18nKey: 'ptColObjectives',       defaultWidth: 150, minWidth: 80 },
                 { id: 'notes',            label: 'Notes',            i18nKey: 'ptColNotes',            defaultWidth: 150, minWidth: 80 },
-                { id: 'actions',          label: '',                 i18nKey: '',                      defaultWidth: 80,  minWidth: 60,  canHide: false, fixed: true, noSort: true }
+                { id: 'actions',          label: '',                 i18nKey: '',                      defaultWidth: 155, minWidth: 120, canHide: false, fixed: true, noSort: true }
             ],
             studentTable: [
                 { id: 'date',             label: 'Date',             i18nKey: 'ptColDate',             defaultWidth: 130, minWidth: 85,  canHide: false, fixed: true },
@@ -3119,6 +3120,20 @@
             });
         }
 
+        function isExamSession(session, groupId) {
+            if (!session) return false;
+            if (session.isExam === true || session.examSession === true) return true;
+            if (groupId && session.groups && session.groups[groupId]) {
+                const grp = session.groups[groupId];
+                return grp.length > 0 && grp.every(s => s.inExam === true);
+            }
+            if (session.groups) {
+                const anyGrp = Object.values(session.groups).find(g => Array.isArray(g) && g.length > 0);
+                if (anyGrp && anyGrp.every(s => s.inExam === true)) return true;
+            }
+            return false;
+        }
+
         function getFilteredSessions() {
             if (!currentGroupId) return [];
             const dateRange = getDateRange();
@@ -3135,15 +3150,18 @@
                 showMessage(t('ptMsgNoDataRange'), 'info');
             }
 
-            // Update chart
-            renderChart(sessions);
+            // Exclude exam sessions from general participation stats and overview
+            const participationSessions = sessions.filter(s => !isExamSession(s, currentGroupId));
 
-            // Update stats
-            updateStats(sessions);
+            // Update chart (participation sessions)
+            renderChart(participationSessions);
+
+            // Update stats (participation sessions)
+            updateStats(participationSessions);
             // Update multi-group comparison summary (uses active date range)
             renderCompareGroupsSummary();
 
-            // Update history table
+            // Update history table (ALL sessions, so exam sessions appear with badge)
             updateHistoryTable(sessions);
 
             // Update class overview table (full range or selected history session)
@@ -3155,11 +3173,12 @@
                 selectedHistorySessionId = null;
             }
 
-            updateClassOverviewTable(selectedSession ? [selectedSession] : sessions);
+            updateClassOverviewTable(selectedSession ? [selectedSession] : participationSessions);
             setClassOverviewTitle(selectedSession || null);
         }
         function getGroupSummary(groupId, dateFrom, dateTo) {
-            const sessions = filterSessionsByDateAndGroup(groupId, dateFrom, dateTo);
+            const allSessions = filterSessionsByDateAndGroup(groupId, dateFrom, dateTo);
+            const sessions = allSessions.filter(s => !isExamSession(s, groupId));
             const students = new Set();
             const totals = {
                 sessions: sessions.length,
@@ -3422,11 +3441,14 @@
         function setClassOverviewTitle(session) {
             const titleEl = document.getElementById('classOverviewTitle');
             const clearBtn = document.getElementById('clearSessionFilterBtn');
+            const examBtn = document.getElementById('sessionExamToggleBtn');
+            const examText = document.getElementById('sessionExamToggleBtnText');
             if (!titleEl) return;
 
             if (!session) {
                 titleEl.textContent = t('ptClassOverviewTitle');
                 if (clearBtn) clearBtn.classList.add('hidden');
+                if (examBtn) examBtn.classList.add('hidden');
                 return;
             }
 
@@ -3440,6 +3462,18 @@
             const timeStr = session.time ? ` ${session.time}` : '';
             titleEl.textContent = `${t('ptClassOverviewTitle')} - ${dateStr}${timeStr}`;
             if (clearBtn) clearBtn.classList.remove('hidden');
+
+            if (examBtn && examText) {
+                const isExam = isExamSession(session, currentGroupId);
+                examBtn.classList.remove('hidden');
+                examText.textContent = isExam ? t('ptActionExitExam') : t('ptActionMakeExam');
+                examBtn.title = isExam ? t('ptActionExitExamTitle') : t('ptActionMakeExamTitle');
+                if (isExam) {
+                    examBtn.classList.add('active-exam');
+                } else {
+                    examBtn.classList.remove('active-exam');
+                }
+            }
         }
 
         let classOverviewData = [];
@@ -3452,7 +3486,7 @@
 
             // Compute overall student data across the active date range sessions
             // so provisional grades remain overall and are not collapsed to a single selected session
-            const allRangeSessions = getFilteredSessions();
+            const allRangeSessions = getFilteredSessions().filter(s => !isExamSession(s, currentGroupId));
             const overallStudentMap = {};
             allRangeSessions.forEach(session => {
                 (session.groups[currentGroupId] || []).filter(s => isStudentInCurrentHalfGroup(s.name)).forEach(student => {
@@ -4271,6 +4305,8 @@
 
                 // Find the session for notes
                 const session = sessions.find(s => s.id === metric.date);
+                const isExam = isExamSession(session, currentGroupId);
+                const examBadge = isExam ? ` <span class="pt-exam-pill" title="${t('ptActionExitExamTitle') || t('ptBadgeExam')}" onclick="event.stopPropagation(); toggleSessionExam('${session ? session.id : metric.date}')">${t('ptBadgeExam')}</span>` : '';
                 const notes = getGroupSessionNotes(session);
                 const notesPreview = notes ? notes.substring(0, 50) : '';
                 const objectives = getSessionObjectives(session);
@@ -4278,7 +4314,7 @@
                 const sessionEvents = getSessionTeamRoleEvents(session, currentGroupId);
 
                 const cells = {
-                    date: `<td>${dateStr}</td>`,
+                    date: `<td>${dateStr}${examBadge}</td>`,
                     time: `<td>${metric.time || '-'}</td>`,
                     picks: `<td>${metric.picks}</td>`,
                     pluses: `<td>${metric.pluses}</td>`,
@@ -4306,15 +4342,33 @@
 
                 const actionsCell = row.querySelector('td[data-col="actions"]') || row.cells[row.cells.length - 1];
                 if (actionsCell) {
+                    actionsCell.innerHTML = '';
+                    const actionsWrap = document.createElement('div');
+                    actionsWrap.className = 'history-row-actions';
+
+                    const examBtn = document.createElement('button');
+                    examBtn.type = 'button';
+                    examBtn.className = isExam ? 'btn-exam-row active' : 'btn-exam-row';
+                    examBtn.title = isExam ? t('ptActionExitExamTitle') : t('ptActionMakeExamTitle');
+                    examBtn.innerHTML = `<img src="../assets/icons/test-creator.svg" class="btn-icon" alt="" /> <span>${isExam ? t('ptActionExitExam') : t('ptActionMakeExam')}</span>`;
+                    examBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        toggleSessionExam(session ? session.id : metric.date);
+                    });
+                    actionsWrap.appendChild(examBtn);
+
                     const deleteBtn = document.createElement('button');
+                    deleteBtn.type = 'button';
                     deleteBtn.className = 'btn-reset-row';
-                    deleteBtn.innerHTML = '<img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> Delete';
+                    deleteBtn.innerHTML = '<img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> <span>Delete</span>';
                     deleteBtn.title = 'Delete this session';
                     deleteBtn.addEventListener('click', (e) => {
                         e.stopPropagation();
                         openResetModal('session', metric.date);
                     });
-                    actionsCell.appendChild(deleteBtn);
+                    actionsWrap.appendChild(deleteBtn);
+
+                    actionsCell.appendChild(actionsWrap);
                 }
 
                 row.addEventListener('click', () => {
@@ -4334,6 +4388,74 @@
                 tbody.appendChild(row);
             });
             applyHiddenCols('historyTable');
+        }
+
+        function toggleSelectedSessionExam() {
+            if (!selectedHistorySessionId) return;
+            toggleSessionExam(selectedHistorySessionId);
+        }
+
+        async function toggleSessionExam(sessionId) {
+            if (!sessionId) return;
+            const session = DB_EXPORT.find(s => s && (s.id === sessionId || s.date === sessionId));
+            if (!session) return;
+
+            const currentExam = isExamSession(session, currentGroupId);
+            const newExam = !currentExam;
+
+            session.isExam = newExam;
+            session.examSession = newExam;
+
+            if (session.groups && typeof session.groups === 'object') {
+                const targetGroups = (currentGroupId && session.groups[currentGroupId])
+                    ? [session.groups[currentGroupId]]
+                    : Object.values(session.groups);
+                targetGroups.forEach(grp => {
+                    if (Array.isArray(grp)) {
+                        grp.forEach(st => {
+                            st.inExam = newExam;
+                        });
+                    }
+                });
+            }
+
+            // Sync to localStorage 'cms-db' if present
+            try {
+                const raw = localStorage.getItem('cms-db');
+                if (raw) {
+                    const localSessions = JSON.parse(raw);
+                    const lsIdx = localSessions.findIndex(s => s && (s.id === session.id || s.date === session.date));
+                    if (lsIdx !== -1) {
+                        localSessions[lsIdx].isExam = newExam;
+                        localSessions[lsIdx].examSession = newExam;
+                        if (localSessions[lsIdx].groups && typeof localSessions[lsIdx].groups === 'object') {
+                            Object.values(localSessions[lsIdx].groups).forEach(grp => {
+                                if (Array.isArray(grp)) {
+                                    grp.forEach(st => { st.inExam = newExam; });
+                                }
+                            });
+                        }
+                        localStorage.setItem('cms-db', JSON.stringify(localSessions));
+                    }
+                }
+            } catch (_) {}
+
+            syncGlobalDbExport();
+
+            if (currentGroupId) {
+                await persistEditedGroupSessionsToDisk(currentGroupId);
+            }
+
+            const msg = newExam 
+                ? (t('ptMsgSessionMarkedExam') || 'Session marked as exam retroactively.')
+                : (t('ptMsgSessionUnmarkedExam') || 'Exam status removed from session.');
+            showMessage(msg, 'success');
+
+            updateDashboard();
+
+            if (currentStudentName) {
+                updateStudentDetails();
+            }
         }
 
         function getStudentNotesText(student) {
@@ -4712,8 +4834,11 @@
                 const teamRoleEvents = getSessionTeamRoleEvents(session, currentGroupId, currentStudentName);
                 const teamRolePreview = formatTeamRoleEventsPreview(teamRoleEvents, 70);
 
+                const isExam = isExamSession(session, currentGroupId);
+                const examBadge = isExam ? ` <span class="pt-exam-pill" title="${t('ptBadgeExam')}">${t('ptBadgeExam')}</span>` : '';
+
                 const cells = {
-                    date: `<td>${dateStr}</td>`,
+                    date: `<td>${dateStr}${examBadge}</td>`,
                     time: `<td>${session.time || '-'}</td>`,
                     picked: `<td>${student.isPicked ? '✓' : '-'}</td>`,
                     absent: `<td>${student.isAbsent ? '✓' : '-'}</td>`,
@@ -5883,7 +6008,7 @@
 
 
         function aggregateMetricsForGroup(groupId, fromDate, toDate) {
-            const sessions = filterSessionsByDateAndGroup(groupId, fromDate, toDate);
+            const sessions = filterSessionsByDateAndGroup(groupId, fromDate, toDate).filter(s => !isExamSession(s, groupId));
             const sessionCount = sessions.length;
             
             const studentSet = new Set();
@@ -9033,7 +9158,7 @@
             }
 
             const dateRange = getDateRange();
-            const totalSessions = filterSessionsByDateAndGroup(currentGroupId, dateRange.from, dateRange.to).length;
+            const totalSessions = filterSessionsByDateAndGroup(currentGroupId, dateRange.from, dateRange.to).filter(s => !isExamSession(s, currentGroupId)).length;
             const sessionDenom = Math.max(1, totalSessions || dataToUse.sessions || 1);
             
             const picks = dataToUse.picks;

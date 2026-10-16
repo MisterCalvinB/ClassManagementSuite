@@ -950,10 +950,54 @@
             visibility: visible;
             transform: translateX(-50%) translateY(2px);
         }
-        .pres-control-menu.tooltip-top .pres-btn[data-tooltip]:hover::before {
-            opacity: 1;
-            visibility: visible;
-            transform: translateX(-50%) translateY(-2px);
+        /* Exam Session Styling */
+        .cm-exam-session-banner {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 12px;
+            margin: 4px 0 8px 0;
+            background: #ede9fe;
+            color: #4c1d95;
+            border: 2px solid #333333;
+            border-radius: 6px;
+            box-shadow: 2px 2px 0 #555555;
+            font-size: 0.82rem;
+            font-weight: 700;
+            max-width: fit-content;
+        }
+        .cm-exam-exit-btn {
+            background: transparent;
+            border: none;
+            color: #6b21a8;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 800;
+            padding: 0 4px;
+            border-radius: 4px;
+            line-height: 1;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+        .cm-exam-exit-btn:hover {
+            background: #c4b5fd;
+            color: #1e1b4b;
+        }
+        .student-exam-badge {
+            font-size: 0.68rem;
+            font-weight: 700;
+            background: #ede9fe;
+            color: #5b21b6;
+            border: 1.5px solid #333333;
+            border-radius: 4px;
+            padding: 1px 5px;
+            margin-left: 6px;
+            display: inline-flex;
+            align-items: center;
+            box-shadow: 1px 1px 0 #666666;
+            vertical-align: middle;
+        }
+        .roster-item.in-exam {
+            border-left: 4px solid #8b7cc2 !important;
         }
     </style>
 </head>
@@ -1010,6 +1054,11 @@
     <div id="roster-context-menu" class="roster-context-menu">
         <button type="button" data-action="absent" onclick="handleRosterContextAction('absent')"
             data-i18n="ctx_absent">Absent</button>
+        <button type="button" data-action="exam-session" onclick="handleRosterContextAction('exam-session')"
+            title="Mark session as an exam session (excluded from participation grading and attendance)"
+            data-i18n-title="ctx_exam_session_title"><img
+                src="../assets/icons/test-creator.svg" class="btn-icon" alt="" />
+            <span id="ctx-exam-session-text" data-i18n="ctx_exam_session">Exam Session</span></button>
         <details id="ctx-flags-details" class="ctx-flags-details"
             style="border-top: 1px solid #e0e0e0; border-bottom: 1px solid #e0e0e0; margin: 3px 0;">
             <summary
@@ -1842,6 +1891,12 @@
                         title="Save current seat arrangement to file" data-i18n="rp_save_seats"
                         data-i18n-title="rp_save_seats_title" style="display:none"><img src="../assets/icons/save.svg"
                             class="btn-icon" alt="" /> Save seats</button>
+                </div>
+                <div id="cm-exam-session-banner" class="cm-exam-session-banner" style="display:none;">
+                    <img src="../assets/icons/test-creator.svg" class="btn-icon" alt="" />
+                    <span id="cm-exam-session-text" data-i18n="cmExamSessionActive">Exam Session Active</span>
+                    <button type="button" class="cm-exam-exit-btn" onclick="toggleExamSessionMode(selectedGroupName)"
+                        title="Exit Exam Session" data-i18n-title="ctx_exit_exam_session">✕</button>
                 </div>
                 <ul id="roster-list" class="roster-list">
                     <li style="color:#999; padding: 20px; text-align: center;" data-i18n="roster_select_group">Select a
@@ -2859,6 +2914,8 @@
         let teamPickStateByGroup = {};
         let rosterContextStudentId = null;
         let currentPlannerEntryId = '';
+        let groupExamModes = {}; // { [groupName]: boolean }
+        let _promptedExamSessionKeys = new Set(); // Prevent repeated prompts per class per day
 
         const DEFAULT_TEAM_COLORS = teamColors.map(entry => ({ ...entry }));
         const EXTRA_TEAM_COLOR_PRESETS = [
@@ -6829,9 +6886,11 @@
             updateUtilityButtons();
             _cmsUpdatePlanChip();
             renderRoster();
+            updateExamSessionBanner();
             renderRanking();
             updateDbAutosaveStatusLabel();
             applyAutoFlags(groupName);
+            checkScheduledPlannerTest(groupName);
 
             if (typeof _updateClassBtnLabel === 'function') _updateClassBtnLabel();
             closeClassSelectionPopup();
@@ -8296,7 +8355,7 @@
 
                 const isBlinking = typeof _activeBlinkStudentId !== 'undefined' && _activeBlinkStudentId === student.id && (Date.now() - _activeBlinkTime < 4000);
                 const li = document.createElement('li');
-                li.className = `roster-item ${student.isPicked ? 'picked' : ''} ${student.isAbsent ? 'absent' : ''} ${student.isFlagged ? 'flagged-student' : ''} ${isBlinking ? 'picked-blink' : ''}`;
+                li.className = `roster-item ${student.isPicked ? 'picked' : ''} ${student.isAbsent ? 'absent' : ''} ${student.isFlagged ? 'flagged-student' : ''} ${student.inExam ? 'in-exam' : ''} ${isBlinking ? 'picked-blink' : ''}`;
                 li.setAttribute('draggable', currentTeamsActive && !student.isAbsent ? 'true' : 'false');
                 li.setAttribute('data-student-id', student.id);
                 li.addEventListener('contextmenu', function (event) {
@@ -8344,11 +8403,12 @@
                 const hasNotes = student.comments && student.comments.length > 0;
                 const isSen = !!(student.sen || (student.uuid && studentRoster[student.uuid]?.sen));
                 const senStarHtml = (senVisible && !PRESENTATION_MODE && isSen) ? '<span class="sen-indicator" title="SEN" style="color:#e11d48;font-weight:bold;margin-left:2px;">*</span>' : '';
+                const examBadgeHtml = student.inExam ? `<span class="student-exam-badge" title="${window.i18n ? i18n.t('studentInExamBadge') : 'In Exam'}"><img src="../assets/icons/test-creator.svg" class="btn-icon" style="width:12px;height:12px;vertical-align:middle;margin-right:2px;" alt="" />${window.i18n ? i18n.t('studentInExamBadge') : 'In Exam'}</span>` : '';
 
                 li.innerHTML = `
     <div class="student-info">
         <span class="student-name" onclick="toggleStrike(${student.id})">
-            ${getDisplayName(student)}${senStarHtml}${renderStudentFlagsHtml(student)}
+            ${getDisplayName(student)}${senStarHtml}${renderStudentFlagsHtml(student)}${examBadgeHtml}
             ${student.role && rolesVisible ? `<i class="student-role-tag" onclick="event.stopPropagation(); changeStudentRole(${student.id})" title="Click to change role" style="color: #444; font-size: 0.9rem; margin-left: 8px; cursor: pointer; border-bottom: 1px dashed #aaa;">(${student.role})</i>` : ''}
         </span>
         <span class="comment-dot ${hasNotes ? 'has-comment' : ''}" onclick="openCommentPopup(event, ${student.id})" title="${hasNotes ? 'View notes' : 'Add note'}"></span>
@@ -8462,6 +8522,15 @@
             const student = selectedGroupName && studentGroups[selectedGroupName] ? studentGroups[selectedGroupName].find(s => s.id === studentId) : null;
             const absentBtn = menu.querySelector('[data-action="absent"]');
             if (absentBtn) absentBtn.textContent = student && student.isAbsent ? 'Present' : 'Absent';
+
+            const examBtn = menu.querySelector('[data-action="exam-session"]');
+            if (examBtn) {
+                const isExam = isExamSessionActive(selectedGroupName);
+                const textSpan = examBtn.querySelector('#ctx-exam-session-text') || examBtn;
+                textSpan.textContent = isExam
+                    ? (window.i18n ? i18n.t('ctx_exit_exam_session') : 'Exit Exam Session')
+                    : (window.i18n ? i18n.t('ctx_exam_session') : 'Exam Session');
+            }
 
             // Collapse flags details on fresh open
             const flagsDetails = document.getElementById('ctx-flags-details');
@@ -8659,7 +8728,87 @@
                 return;
             }
 
+            if (action === 'exam-session') {
+                closeRosterContextMenu();
+                toggleExamSessionMode(selectedGroupName);
+                return;
+            }
+
             closeRosterContextMenu();
+        }
+
+        function isExamSessionActive(groupName = selectedGroupName) {
+            if (!groupName) return false;
+            if (groupExamModes[groupName] !== undefined) return !!groupExamModes[groupName];
+            const students = studentGroups[groupName] || [];
+            if (students.length > 0 && students.every(s => s.inExam === true)) {
+                groupExamModes[groupName] = true;
+                return true;
+            }
+            return false;
+        }
+
+        function setExamSessionMode(groupName, enable) {
+            if (!groupName) return;
+            groupExamModes[groupName] = !!enable;
+            const students = studentGroups[groupName] || [];
+            students.forEach(s => {
+                s.inExam = !!enable;
+            });
+            renderRoster();
+            updateExamSessionBanner();
+            const msg = enable 
+                ? (window.i18n ? i18n.t('msg_exam_session_started') : 'Exam session enabled. Students marked in exam.')
+                : (window.i18n ? i18n.t('msg_exam_session_ended') : 'Exam session ended.');
+            if (typeof showToast === 'function') {
+                showToast(msg);
+            }
+            if (typeof forceSaveCurrentSessionToDb === 'function') {
+                forceSaveCurrentSessionToDb('exam-toggle');
+            } else if (typeof autosaveToDb === 'function') {
+                autosaveToDb('exam-toggle');
+            }
+        }
+
+        function toggleExamSessionMode(groupName = selectedGroupName) {
+            if (!groupName) return;
+            const current = isExamSessionActive(groupName);
+            setExamSessionMode(groupName, !current);
+        }
+
+        function updateExamSessionBanner() {
+            const banner = document.getElementById('cm-exam-session-banner');
+            if (!banner) return;
+            const isActive = isExamSessionActive(selectedGroupName);
+            banner.style.display = isActive ? 'inline-flex' : 'none';
+        }
+
+        async function checkScheduledPlannerTest(groupName) {
+            if (!groupName) return;
+            const todayStr = new Date().toISOString().slice(0, 10);
+            const promptKey = `${groupName}_${todayStr}`;
+            if (_promptedExamSessionKeys.has(promptKey)) return;
+            if (isExamSessionActive(groupName)) return;
+
+            try {
+                const entries = await loadPlannerEntriesForClass(groupName);
+                if (!entries || !entries.length) return;
+                const testEntry = entries.find(e => e && e.date === todayStr && (e.type === 'test' || e.isTest === true));
+                if (!testEntry) return;
+
+                _promptedExamSessionKeys.add(promptKey);
+
+                const testTitle = testEntry.title || (window.i18n ? i18n.t('pl_typeTest') : 'Test');
+                const rawMsg = window.i18n ? i18n.t('msg_prompt_exam_session') : 'A test ({title}) is scheduled for this class today in the Planner. Do you want to mark the whole session as an exam session?';
+                const msg = rawMsg.replace('{title}', testTitle);
+
+                const confirmed = await (typeof showConfirm === 'function' ? showConfirm(msg) : Promise.resolve(confirm(msg)));
+                if (confirmed) {
+                    setExamSessionMode(groupName, true);
+                }
+            } catch (err) {
+                console.warn('checkScheduledPlannerTest error:', err);
+            }
         }
 
         function openInParticipationTracker(studentId) {
@@ -15595,6 +15744,7 @@ syncState();
         function studentHasInteraction(student) {
             if (!student) return false;
             return (
+                student.inExam === true ||
                 student.pluses > 0 ||
                 student.minuses > 0 ||
                 student.isPicked ||
@@ -15609,7 +15759,7 @@ syncState();
             const snapshot = {};
             Object.keys(sourceGroups || {}).forEach(gName => {
                 const groupStudents = sourceGroups[gName] || [];
-                if (groupStudents.some(studentHasInteraction)) {
+                if (groupStudents.some(studentHasInteraction) || isExamSessionActive(gName)) {
                     snapshot[gName] = _ensureUniqueStudentSessionIds(JSON.parse(JSON.stringify(groupStudents)));
                 }
             });
@@ -15671,6 +15821,7 @@ syncState();
                 time: timeStr,
                 activeGroup: selectedGroupName,
                 activeGroupTitle: activeGroupTitle,
+                isExam: isExamSessionActive(selectedGroupName),
                 groups: activeGroupSnapshot,
                 lessonObjectives: currentObjectives,
                 sessionHistory: activeGroupHistory,
@@ -15718,6 +15869,7 @@ syncState();
             try {
                 return JSON.stringify({
                     activeGroup: selectedGroupName,
+                    isExam: isExamSessionActive(selectedGroupName),
                     groups: studentGroups,
                     sessionHistory: typeof sessionHistory !== 'undefined' ? sessionHistory : [],
                     lessonObjectives: currentObjectives,
@@ -15763,7 +15915,7 @@ syncState();
                 return sDate.toDateString() === todayStr && s.activeGroup === selectedGroupName;
             });
 
-            const hasInteractions = groupHasInteraction(selectedGroupName);
+            const hasInteractions = groupHasInteraction(selectedGroupName) || isExamSessionActive(selectedGroupName);
 
             if (!hasInteractions) {
                 if (existingIdx !== -1) {
@@ -15786,6 +15938,7 @@ syncState();
             if (!session) return false;
 
             if (existingIdx !== -1) {
+                if (sessions[existingIdx].id) session.id = sessions[existingIdx].id;
                 sessions[existingIdx] = session;
             } else {
                 sessions.unshift(session);
@@ -15801,6 +15954,52 @@ syncState();
                 console.info(`[DB autosave] Saved on ${trigger}`);
             }
 
+            return true;
+        }
+
+        function forceSaveCurrentSessionToDb(trigger = 'manual') {
+            if (!selectedGroupName || isViewingPastSession) return false;
+            if (dbAutosaveDebounceTimer) {
+                clearTimeout(dbAutosaveDebounceTimer);
+                dbAutosaveDebounceTimer = null;
+            }
+            const now = new Date();
+            const sessions = getDb();
+            const todayStr = now.toDateString();
+            const existingIdx = sessions.findIndex(s => {
+                const sDate = new Date(s.id);
+                return sDate.toDateString() === todayStr && s.activeGroup === selectedGroupName;
+            });
+
+            const hasInteractions = groupHasInteraction(selectedGroupName) || isExamSessionActive(selectedGroupName);
+            if (!hasInteractions) {
+                if (existingIdx !== -1) {
+                    sessions.splice(existingIdx, 1);
+                    saveDb(sessions);
+                    updateDbSessionCountLabel();
+                    syncDbAutosaveBaseline();
+                    updateDbAutosaveStatusLabel();
+                    return true;
+                }
+                updateDbAutosaveStatusLabel();
+                return false;
+            }
+
+            const session = buildLiveSessionSnapshot(now);
+            if (!session) return false;
+
+            if (existingIdx !== -1) {
+                if (sessions[existingIdx].id) session.id = sessions[existingIdx].id;
+                sessions[existingIdx] = session;
+            } else {
+                sessions.unshift(session);
+            }
+
+            saveDb(sessions);
+            updateDbSessionCountLabel();
+            syncDbAutosaveBaseline();
+            updateDbAutosaveStatusLabel();
+            console.info(`[DB forceSave] Saved on ${trigger}`);
             return true;
         }
 
@@ -15982,6 +16181,9 @@ syncState();
                 const source = todaySessions.find(s => s.groups && Array.isArray(s.groups[groupName]));
                 if (!source) return;
                 studentGroups[groupName] = JSON.parse(JSON.stringify(source.groups[groupName]));
+                if (source.isExam || studentGroups[groupName].every(s => s.inExam === true)) {
+                    groupExamModes[groupName] = true;
+                }
                 restoredGroups++;
             });
 
@@ -16006,6 +16208,7 @@ syncState();
             if (selectedGroupName && studentGroups[selectedGroupName]) {
                 currentTeamsActive = studentGroups[selectedGroupName].some(s => s.teamId != null);
                 updateUtilityButtons();
+                updateExamSessionBanner();
                 renderRoster();
                 renderRanking();
             }
@@ -16020,7 +16223,7 @@ syncState();
                 return;
             }
 
-            if (!groupHasInteraction(selectedGroupName)) {
+            if (!groupHasInteraction(selectedGroupName) && !isExamSessionActive(selectedGroupName)) {
                 showToast('This class has no interactions yet, so it was not saved.');
                 return;
             }
@@ -16050,6 +16253,7 @@ syncState();
                 date: dateStr,
                 time: timeStr,
                 activeGroup: selectedGroupName,
+                isExam: isExamSessionActive(selectedGroupName),
                 groups: snapshot,
                 lessonObjectives: currentObjectives,
                 sessionHistory: typeof sessionHistory !== 'undefined' ? JSON.parse(JSON.stringify(sessionHistory)) : [],
@@ -16086,6 +16290,7 @@ syncState();
         }
 
         function groupHasInteraction(gName) {
+            if (isExamSessionActive(gName)) return true;
             const students = studentGroups[gName] || [];
             return students.some(studentHasInteraction);
         }
@@ -16132,6 +16337,7 @@ syncState();
                     date: dateStr,
                     time: timeStr,
                     activeGroup: gName,
+                    isExam: isExamSessionActive(gName),
                     groups: snapshot,
                     lessonObjectives: currentObjectives,
                     sessionHistory: typeof sessionHistory !== 'undefined' ? JSON.parse(JSON.stringify(sessionHistory)) : [],
@@ -16183,7 +16389,7 @@ syncState();
 
             Object.keys(studentGroups).forEach((gName, i) => {
                 const groupStudents = studentGroups[gName] || [];
-                const hasInteractions = groupStudents.some(studentHasInteraction);
+                const hasInteractions = groupStudents.some(studentHasInteraction) || isExamSessionActive(gName);
 
                 const existingIdx = sessions.findIndex(s => {
                     const sDate = new Date(s.id);
@@ -16214,6 +16420,7 @@ syncState();
                     date: dateStr,
                     time: timeStr,
                     activeGroup: gName,
+                    isExam: isExamSessionActive(gName),
                     groups: { [gName]: _ensureUniqueStudentSessionIds(JSON.parse(JSON.stringify(groupStudents))) },
                     lessonObjectives: gName === selectedGroupName ? currentObjectives : existingObjectives,
                     sessionHistory: groupHistory,
@@ -16398,6 +16605,7 @@ syncState();
                     _activeGroup: selectedGroupName,
                     _objectives: currentObjectives,
                     _plannerEntryId: currentPlannerEntryId,
+                    _groupExamModes: { ...groupExamModes },
                     _viewingId: session.id
                 };
             } else {
@@ -16417,6 +16625,7 @@ syncState();
 
             // Re-select the group from the snapshot
             selectedGroupName = session.activeGroup;
+            groupExamModes[session.activeGroup] = !!session.isExam;
 
             // Restore objectives from this session
             restoreObjectivesFromSession(session);
@@ -16480,7 +16689,9 @@ syncState();
             selectedGroupName = liveStudentGroups._activeGroup;
             currentObjectives = liveStudentGroups._objectives || '';
             currentPlannerEntryId = liveStudentGroups._plannerEntryId || '';
+            groupExamModes = liveStudentGroups._groupExamModes || {};
             liveStudentGroups = null;
+            updateExamSessionBanner();
 
             // Re-render group buttons
             const gc = document.getElementById('group-container');

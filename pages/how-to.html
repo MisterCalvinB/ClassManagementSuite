@@ -1504,6 +1504,21 @@
         </div></div>
       </div>
 
+      <div class="accordion" id="acc-cm-exam-session">
+        <button class="accordion-header" onclick="toggleAccordion('acc-cm-exam-session')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title"><img src="../assets/icons/test-creator.svg" class="ht-icon-img" alt="" /> Exam Session Mode &amp; Automated Planner Detection</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p>When students are sitting a test, quiz, or formal examination, activate Exam Session mode to designate the session accordingly:</p>
+          <ol class="steps">
+            <li><strong>Manual Activation:</strong> Right-click any student on the roster and choose <strong>Exam Session</strong> from the context menu. An active purple <em>Exam Session Active</em> banner appears above the roster, and all student cards are marked with an <em>In Exam</em> badge and a purple border accent. Click the <strong>✕</strong> on the banner or re-select the context menu item to exit Exam Session mode.</li>
+            <li><strong>Automated Planner Detection:</strong> When you select a class that has an evaluation or test scheduled for today in the Planner, Class Management prompts you automatically: <em>"A test ({title}) is scheduled for this class today in the Planner. Do you want to mark the whole session as an exam session?"</em>. Clicking Confirm instantly enables Exam Session mode.</li>
+            <li><strong>Isolated Participation Grading:</strong> Exam sessions are tagged with <code>isExam: true</code> in saved session data. Marking a session as an exam session immediately creates and persists the session file to disk (`user/groupParticipation/<class>/YYYY-MM-DD_<class>.js`) even without any student points or interactions. In <button class="xlink" onclick="navTo('participation-tracker')">Participation Tracker</button>, exam sessions are tracked with an <em>EXAM</em> pill in Session History, but are completely excluded from attendance rates and participation grading calculations to ensure evaluations do not skew classroom engagement records.</li>
+          </ol>
+        </div></div>
+      </div>
+
       <div class="accordion" id="acc-cm-picker">
         <button class="accordion-header" onclick="toggleAccordion('acc-cm-picker')">
           <span class="accordion-arrow">▶</span>
@@ -2330,6 +2345,7 @@
             <li>Click any row to view individual student scores for that session. Selecting a session filters overview metrics to that specific lesson while preserving each student's period-wide provisional participation grade.</li>
             <li>Delete a session recorded in error using the delete button on that row.</li>
             <li><strong>Collision Auto-Healing</strong> — When reading past sessions from disk, Participation Tracker automatically detects colliding session timestamps or duplicate student records. It safely re-keys duplicates in-memory and persists the fix back to the file so no historical classes are dropped or lost.</li>
+            <li><strong>Exam Sessions Tracking, Isolation &amp; Retroactive Designation:</strong> Sessions flagged as exam sessions appear with a purple <strong>EXAM</strong> badge next to their date in the Session History table and student drill-downs. Teachers can also retroactively mark any past session as an exam (or remove exam status) at any time by clicking the <strong>Exam</strong> button in the Session History actions column, clicking directly on the <strong>EXAM</strong> badge pill, or clicking <strong>Mark as Exam</strong> in the Class Overview toolbar when a session row is selected. Changes persist immediately to disk, and all provisional grades and attendance rates recalculate dynamically in real time without evaluations distorting classroom records.</li>
           </ol>
         </div></div>
       </div>
@@ -3930,7 +3946,7 @@
                 <li><strong>Block 5 — Exam Exercises &amp; Questions:</strong> Question builder cards with multi-item reordering, points, and styling.</li>
               </ul>
             </li>
-            <li><strong>Right Live Print Preview Studio:</strong> Continuous, real-time A4 print preview updates seamlessly without white flashes or layout jumps via double-buffered background rendering (preserving existing pages and scroll position until the new render is 100% complete). Includes a <strong>Freeze Preview toggle</strong> (<kbd>[Freeze]</kbd> / <kbd>[Frozen]</kbd>) to pause automatic live updates during intensive editing sessions, a manual <strong>Refresh button</strong> (or <kbd>F5</kbd> / <kbd>Ctrl+R</kbd>), an unobtrusive <em>Updating…</em> indicator, <strong>Teacher Key toggle</strong>, <strong>Group A / B variant switch</strong>, <strong>Theme selector</strong> (Academic, Neobrutalist, Dyslexic), <strong>Margins</strong>, <strong>Zoom controls</strong> (Fit, 100%, 75%), and instant <strong>Print/PDF</strong> and <strong>Export</strong> buttons.</li>
+            <li><strong>Right Live Print Preview Studio:</strong> Continuous, real-time A4 print preview updates seamlessly without white flashes or layout jumps via double-buffered background rendering (preserving existing pages and scroll position until the new render is 100% complete). Includes a <strong>Freeze Preview toggle</strong> (<kbd>[Freeze]</kbd> / <kbd>[Frozen]</kbd>) to pause automatic live updates during intensive editing sessions, a manual <strong>Refresh button</strong> (or <kbd>F5</kbd> / <kbd>Ctrl+R</kbd>), an unobtrusive <em>Updating…</em> indicator, <strong>Teacher Key toggle</strong>, <strong>Group A / B variant switch</strong>, <strong>Export Stylesheet selector</strong> (Light Neobrutalist, Modern Minimalist, Classic Academic, Plain / Eco B&amp;W, and Dyslexic &amp; ADHD Friendly, with dynamic discovery of custom <code>.css</code> stylesheets from <code>user/export-css/</code>), <strong>Margins</strong>, <strong>Zoom controls</strong> (Fit, 100%, 75%), and instant <strong>Print/PDF</strong> and <strong>Export</strong> buttons.</li>
             <li><strong>Draggable Split Resizer:</strong> Drag the center dividing line to customize column proportions. Your preferred ratio and preview zoom level are automatically saved in local storage.</li>
             <li><strong>Slide-Out Resource Drawer (<kbd>Ctrl+B</kbd>):</strong> Clean flyout overlay providing instant access to exercise banks, vocabulary decks, criteria, competences, and grading scales without covering the print preview.</li>
             <li><strong>Wholly Customizable Exam Header:</strong> Click <em>Advanced…</em> in Block 1 or press <kbd>Ctrl+H</kbd> to access the 4-tab customisation studio with live preview.</li>

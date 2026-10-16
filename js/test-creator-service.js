@@ -2271,7 +2271,19 @@
   }
 
   TestCreatorService.getThemeCss = function (themeName) {
-    var theme = themeName || 'academic';
+    var rawTheme = String(themeName || 'academic').trim();
+    var theme = 'academic';
+    if (rawTheme === 'export-light-neobrutalist.css' || rawTheme === 'neobrutalist' || rawTheme === 'light neobrutalist') {
+      theme = 'neobrutalist';
+    } else if (rawTheme === 'export-dys.css' || rawTheme === 'dyslexic' || rawTheme === 'dys' || rawTheme === 'dyslexic & adhd friendly') {
+      theme = 'dyslexic';
+    } else if (rawTheme === 'export-modern.css' || rawTheme === 'modern' || rawTheme === 'modern minimalist') {
+      theme = 'modern';
+    } else if (rawTheme === 'export-plain.css' || rawTheme === 'plain' || rawTheme === 'eco' || rawTheme === 'plain / eco (black & white)') {
+      theme = 'plain';
+    } else {
+      theme = 'academic';
+    }
     var css = '';
 
     if (theme === 'neobrutalist') {
@@ -2321,6 +2333,92 @@
         '.rubric-table th { background: #f0f0eb; font-weight: 700; }',
         '.page-break-before { page-break-before: always; }',
         '@media print { body { padding: 0; background: #ffffff; } .exercise-card, .exam-header { box-shadow: none; border-color: #333333; } }'
+      ].join('\n');
+    } else if (theme === 'modern') {
+      css = [
+        'body { font-family: "Inter", system-ui, -apple-system, sans-serif; color: #0f172a; background: #ffffff; margin: 0; padding: 24px; font-size: 11pt; line-height: 1.5; }',
+        '.exam-sheet { max-width: 820px; margin: 0 auto; }',
+        '.exam-header { border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; background: #f8fafc; break-after: avoid; page-break-after: avoid; }',
+        '.exam-title { font-size: 18pt; font-weight: 700; margin: 0 0 10px; color: #0f172a; letter-spacing: -0.02em; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px; }',
+        '.header-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-size: 10pt; font-weight: 600; }',
+        '.header-item { padding: 4px 0; }',
+        '.header-item span.lbl { text-transform: uppercase; font-size: 8pt; color: #64748b; display: block; }',
+        '.score-badge-box { grid-column: span 3; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #e2e8f0; margin-top: 8px; padding-top: 8px; font-weight: 700; font-size: 11pt; }',
+        '.exercise-card { border: 1.5px solid #e2e8f0; border-radius: 8px; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.06); padding: 14px 16px; margin-bottom: 20px; background: #ffffff; break-inside: auto; page-break-inside: auto; }',
+        '.exercise-card:first-of-type:not(.page-break-before) { break-before: avoid; page-break-before: avoid; }',
+        '.exercise-header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 10px; break-after: avoid; page-break-after: avoid; }',
+        '.exercise-title { font-size: 12pt; font-weight: 700; color: #0f172a; }',
+        '.exercise-points { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; padding: 2px 8px; border-radius: 9999px; font-size: 9pt; font-weight: 700; }',
+        '.exercise-instructions { font-style: italic; font-size: 10pt; color: #475569; margin-bottom: 12px; break-after: avoid; page-break-after: avoid; }',
+        '.cloze-text { font-size: 11pt; line-height: 2.2; }',
+        '.cloze-blank { display: inline-block; min-width: 90px; border-bottom: 1.5px solid #475569; text-align: center; font-weight: 600; color: #0f172a; padding: 0 4px; }',
+        '.cloze-blank.teacher-key { color: #dc2626; border-color: #dc2626; }',
+        '.word-bank-pool { display: flex; flex-wrap: wrap; gap: 6px; border: 1px dashed #cbd5e1; border-radius: 6px; padding: 8px; margin-bottom: 12px; background: #f8fafc; font-size: 9.5pt; font-weight: 600; }',
+        '.word-chip { background: #ffffff; border: 1px solid #cbd5e1; padding: 2px 8px; border-radius: 4px; }',
+        '.mcq-item { margin-bottom: 12px; font-size: 10.5pt; }',
+        '.mcq-prompt { font-weight: 600; margin-bottom: 6px; }',
+        '.mcq-options { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding-left: 10px; }',
+        '.mcq-option { display: flex; align-items: center; gap: 8px; font-size: 10pt; }',
+        '.mcq-box { width: 14px; height: 14px; border: 1.5px solid #64748b; border-radius: 3px; display: inline-block; }',
+        '.mcq-option.correct .mcq-box { background: #dc2626; border-color: #dc2626; }',
+        '.mcq-option.correct { color: #dc2626; font-weight: 700; }',
+        '.writing-lines { margin-top: 8px; }',
+        '.writing-line { border-bottom: 1px solid #cbd5e1; height: 26px; }',
+        '.writing-grid { height: 120px; border: 1px solid #cbd5e1; border-radius: 6px; background-size: 20px 20px; background-image: linear-gradient(to right, #f1f5f9 1px, transparent 1px), linear-gradient(to bottom, #f1f5f9 1px, transparent 1px); }',
+        '.writing-box { min-height: 90px; border: 1px solid #cbd5e1; border-radius: 6px; margin-top: 8px; padding: 8px; }',
+        '.table-exercise { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 10pt; }',
+        '.table-exercise th, .table-exercise td { border: 1px solid #cbd5e1; padding: 6px 10px; text-align: left; }',
+        '.table-exercise th { background: #f1f5f9; font-weight: 700; }',
+        '.table-blank-cell { background: #ffffff; color: #0f172a; min-height: 24px; }',
+        '.table-blank-cell.teacher-key { color: #dc2626; font-weight: 700; }',
+        '.matching-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px dashed #e2e8f0; font-size: 10.5pt; }',
+        '.matching-box { width: 34px; height: 22px; border: 1.5px solid #64748b; border-radius: 4px; text-align: center; line-height: 22px; font-weight: 700; }',
+        '.rubric-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 9pt; }',
+        '.rubric-table th, .rubric-table td { border: 1px solid #cbd5e1; padding: 4px 8px; }',
+        '.rubric-table th { background: #f1f5f9; font-weight: 700; }',
+        '.page-break-before { page-break-before: always; }',
+        '@media print { body { padding: 0; background: #ffffff; } .exercise-card, .exam-header { box-shadow: none; } }'
+      ].join('\n');
+    } else if (theme === 'plain') {
+      css = [
+        'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; color: #000000; background: #ffffff; margin: 0; padding: 20px; font-size: 11pt; line-height: 1.45; }',
+        '.exam-sheet { max-width: 820px; margin: 0 auto; }',
+        '.exam-header { border: 1px solid #000000; padding: 12px 16px; margin-bottom: 20px; background: #ffffff; break-after: avoid; page-break-after: avoid; }',
+        '.exam-title { font-size: 16pt; font-weight: bold; margin: 0 0 8px; text-transform: uppercase; border-bottom: 1px solid #000000; padding-bottom: 4px; }',
+        '.header-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; font-size: 10pt; }',
+        '.header-item span.lbl { font-weight: bold; margin-right: 4px; text-transform: uppercase; font-size: 8pt; display: block; }',
+        '.score-badge-box { grid-column: span 3; display: flex; justify-content: space-between; border-top: 1px solid #000000; margin-top: 6px; padding-top: 6px; font-weight: bold; }',
+        '.exercise-card { border: 1px solid #000000; padding: 12px 14px; margin-bottom: 18px; background: #ffffff; break-inside: auto; page-break-inside: auto; }',
+        '.exercise-card:first-of-type:not(.page-break-before) { break-before: avoid; page-break-before: avoid; }',
+        '.exercise-header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #000000; padding-bottom: 4px; margin-bottom: 8px; break-after: avoid; page-break-after: avoid; }',
+        '.exercise-title { font-size: 11.5pt; font-weight: bold; }',
+        '.exercise-points { border: 1px solid #000000; padding: 1px 6px; font-size: 9pt; font-weight: bold; }',
+        '.exercise-instructions { font-style: italic; font-size: 10pt; margin-bottom: 10px; break-after: avoid; page-break-after: avoid; }',
+        '.cloze-text { font-size: 11pt; line-height: 2.2; }',
+        '.cloze-blank { display: inline-block; min-width: 90px; border-bottom: 1px solid #000000; text-align: center; font-weight: bold; }',
+        '.cloze-blank.teacher-key { font-weight: bold; text-decoration: underline; }',
+        '.word-bank-pool { border: 1px solid #000000; padding: 6px 10px; margin-bottom: 10px; font-size: 9.5pt; }',
+        '.word-chip { display: inline-block; border: 1px solid #000000; padding: 1px 6px; margin: 2px 4px; }',
+        '.mcq-item { margin-bottom: 10px; font-size: 10.5pt; }',
+        '.mcq-prompt { font-weight: bold; margin-bottom: 4px; }',
+        '.mcq-options { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding-left: 10px; }',
+        '.mcq-option { display: flex; align-items: center; gap: 6px; font-size: 10pt; }',
+        '.mcq-box { width: 12px; height: 12px; border: 1px solid #000000; display: inline-block; }',
+        '.mcq-option.correct { font-weight: bold; }',
+        '.mcq-option.correct .mcq-box { background: #000000; }',
+        '.writing-lines { margin-top: 6px; }',
+        '.writing-line { border-bottom: 1px solid #000000; height: 26px; }',
+        '.writing-grid { height: 120px; border: 1px solid #000000; }',
+        '.writing-box { min-height: 90px; border: 1px solid #000000; margin-top: 6px; padding: 6px; }',
+        '.table-exercise { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 10pt; }',
+        '.table-exercise th, .table-exercise td { border: 1px solid #000000; padding: 5px 8px; text-align: left; }',
+        '.table-exercise th { background: transparent; font-weight: bold; }',
+        '.matching-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px dotted #000000; font-size: 10.5pt; }',
+        '.matching-box { width: 28px; height: 20px; border: 1px solid #000000; text-align: center; line-height: 20px; font-weight: bold; }',
+        '.rubric-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 9pt; }',
+        '.rubric-table th, .rubric-table td { border: 1px solid #000000; padding: 4px 6px; }',
+        '.page-break-before { page-break-before: always; }',
+        '@media print { body { padding: 0; } }'
       ].join('\n');
     } else if (theme === 'dyslexic') {
       css = [

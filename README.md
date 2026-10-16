@@ -652,7 +652,7 @@ Comprehensive **Test & Exam Authoring Studio** featuring 11 modular question typ
     - **Right Pane (Live A4 Print Preview Studio)**: Continuous, real-time A4 print preview updating seamlessly as questions and options are edited (debounced), complete with a top utility bar featuring:
       - **Teacher Key Toggle**: Instant answer key and solution display switch.
       - **Group A / B Variant Switcher**: Instant variant sheet preview.
-      - **Stylesheet Theme Selector**: Academic Classic, Modern Neobrutalist, and Dyslexic Friendly.
+      - **Export Stylesheet Selector**: Live in-place selection across all foundation models (*Light Neobrutalist*, *Modern Minimalist*, *Classic Academic*, *Plain / Eco (Black & White)*, and *Dyslexic & ADHD Friendly*) with dynamic auto-discovery of custom `.css` stylesheets dropped into `user/export-css/`.
       - **Margin Selector**: Normal (15mm), Narrow (10mm), and Wide (25mm).
       - **Zoom Controls**: Fit to view, 100% scale, and 75% compact view.
       - **1-Click Print/PDF & Export Buttons**: Fast access to PDF generation and universal multi-format export.
@@ -860,6 +860,7 @@ Active classroom control panel for student scoring, timers, class working modes,
   - *Local Mode*: Node server on port `8787` for local WiFi mobile scoring.
   - *External Mode*: Connects via WebSocket relay (`js/classroom-server.js`) for internet access.
 - **Session & Student ID Integrity Safeguards**: Guarantees strictly unique session timestamps (`session.id`) across quick saves, autosaves, and multi-class batches, preventing accidental state clobbering.
+- **Exam Session Mode & Automated Planner Test Detection**: Right-clicking any student on the roster offers **Exam Session** to mark all students as sitting an examination with a purple status banner and student exam badges. Selecting a class with a test scheduled for today in Weekly Lesson Planner automatically prompts the teacher to activate Exam Session mode. Marking a session as an exam immediately creates and persists the session file to disk (`user/groupParticipation/<class>/YYYY-MM-DD_<class>.js`) even without any student points or interactions, and tags the session with `isExam: true` so it is isolated from regular classroom participation scoring.
 
 ---
 
@@ -1082,6 +1083,7 @@ Comprehensive analytics dashboard sourcing session data from [Class Management](
 - **Session & Student Overviews**: Detailed tabular logs per session and per student.
 - **Collision Auto-Healing**: Automatically de-collides session timestamps and student IDs on load and disk persistence, ensuring overlapping saves from multiple classes or devices are never dropped, overwritten, or cross-contaminated.
 - **Provisional Grading Engine**: Custom rule configurator converting participation points into grades, with direct one-click **Export to Grade Sheet**.
+- **Exam Session Tracking, Participation Isolation & Retroactive Designation**: Sessions marked as exam sessions in Class Management display an **EXAM** pill badge in the Session History table and individual student timelines. Exam sessions are automatically and completely excluded from participation statistics, provisional grading calculations, and attendance rate denominators to prevent test days from diluting or distorting student evaluation. Teachers can also retroactively mark any past session as an exam (or remove exam status) at any time directly in Participation Tracker via the History table action button, clicking the **EXAM** badge pill, or the Class Overview header toolbar button.
 - **Multi-Format Analytics Exports**: Export exhaustive reports (HTML) and category breakdowns (XLSX, DOCX) with universal completion popups for immediate opening and editing.
 
 ---
