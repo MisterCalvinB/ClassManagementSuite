@@ -10,6 +10,7 @@
   <script src="../electron-bridge.js"></script>
   <script src="../js/i18n.js"></script>
   <script src="../js/dialogs.js"></script>
+  <script src="../js/export-styles-service.js"></script>
   <script src="../js/shortcuts-modal.js"></script>
   <script src="../js/menus.js"></script>
   <script src="../js/links-service.js"></script>
@@ -254,8 +255,17 @@
           </div>
         </div>
 
-        <!-- Step 3: Output Format -->
-        <h4 style="font-size:0.82rem; font-weight:800; text-transform:uppercase; color:#64748b; margin-bottom:8px;" data-i18n="agExportFormatLabel">3. Select Output Action & Format</h4>
+        <!-- Step 3: Export Style -->
+        <div style="margin-bottom:16px;">
+          <h4 style="font-size:0.82rem; font-weight:800; text-transform:uppercase; color:#64748b; margin-bottom:8px;" data-i18n="exportStyleLabel">3. Export Style Model</h4>
+          <div style="display:flex; align-items:center; justify-content:space-between; background: #fafaf7; border: 1.5px solid var(--neo-border-color); border-radius: 6px; padding: 8px 12px;">
+            <span style="font-size:0.82rem; font-weight:800; text-transform:uppercase; color:#64748b;" data-i18n="exportStyleLabel">Export Style:</span>
+            <div id="ag-export-style-selector-wrap" style="display:inline-flex;align-items:center;"></div>
+          </div>
+        </div>
+
+        <!-- Step 4: Output Format -->
+        <h4 style="font-size:0.82rem; font-weight:800; text-transform:uppercase; color:#64748b; margin-bottom:8px;" data-i18n="agExportFormatLabel">4. Select Output Action & Format</h4>
         <div class="ag-format-pills">
           <div class="ag-format-pill selected" data-fmt="preview" onclick="window.selectExportFormat('preview')">
             <img src="../assets/icons/search.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> <span data-i18n="agReportFormatPreview">Live Interactive Preview</span>
@@ -297,6 +307,7 @@
           <strong id="agPreviewReportTitle" style="font-size:0.95rem; text-transform:uppercase; letter-spacing:0.5px;">Report Live Preview</strong>
         </div>
         <div class="ag-preview-toolbar-actions">
+          <div id="ag-preview-style-selector-wrap" style="display:inline-flex;align-items:center;margin-right:6px;"></div>
           <button type="button" class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem;" onclick="window.printPreviewReport()">
             <img src="../assets/icons/printer.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
             <span data-i18n="agBtnPrintReport">Print / PDF</span>
@@ -316,9 +327,7 @@
         </div>
       </div>
       <div class="ag-preview-scroll-area" id="agReportPreviewScrollArea">
-        <div class="ag-report-wrap" id="agReportPreviewContent">
-          <!-- Rendered Report Content -->
-        </div>
+        <iframe id="agReportPreviewIframe" class="ag-preview-iframe" title="Report Live Preview"></iframe>
       </div>
     </div>
   </div>

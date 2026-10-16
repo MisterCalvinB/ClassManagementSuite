@@ -16,6 +16,7 @@
   <script src="../js/tag-link-modal.js"></script>
         <script src="../electron-bridge.js"></script>
         <script src="../js/dialogs.js"></script>
+        <script src="../js/export-styles-service.js"></script>
         <script src="../js/menus.js"></script>
         <script>
         (function () {
@@ -593,6 +594,10 @@
                         </div>
                     </label>
                 </div>
+                <div style="margin-top: 14px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; background: var(--neo-card-bg-subtle, #fafaf7); border: 1.5px solid var(--neo-border-color, #333333); border-radius: 6px; padding: 8px 12px; box-shadow: var(--neo-shadow-sm, 2px 2px 0 #888888);">
+                    <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--neo-dark, #222222);" data-i18n="exportStyleLabel">Export Style:</span>
+                    <div id="pt-rules-style-selector-wrap" style="display:inline-flex;align-items:center;"></div>
+                </div>
                 <div id="rulesExportFormatHint" class="pt-export-hint" style="margin-top:12px;"></div>
             </div>
 
@@ -882,6 +887,11 @@
                         </label>
                     </div>
 
+                    <div style="margin-top: 14px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; background: var(--neo-card-bg-subtle, #fafaf7); border: 1.5px solid var(--neo-border-color, #333333); border-radius: 6px; padding: 8px 12px; box-shadow: var(--neo-shadow-sm, 2px 2px 0 #888888);">
+                        <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--neo-dark, #222222);" data-i18n="exportStyleLabel">Export Style:</span>
+                        <div id="pt-export-style-selector-wrap" style="display:inline-flex;align-items:center;"></div>
+                    </div>
+
                     <div id="ptExportFormatHint" class="pt-export-hint"></div>
                 </div>
             </div>
@@ -902,7 +912,10 @@
                     <img src="../assets/icons/eye.svg" class="btn-icon" alt="" />
                     <span id="ptExportPreviewTitle">Live Export & Report Preview</span>
                 </h3>
-                <button class="modal-close" onclick="closePtExportPreviewModal()">&times;</button>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <div id="pt-preview-style-selector-wrap" style="display:inline-flex;align-items:center;"></div>
+                    <button class="modal-close" onclick="closePtExportPreviewModal()">&times;</button>
+                </div>
             </div>
             <div style="font-size: 11px; color: var(--neo-gray-dark, #475569); font-weight: 700; margin-bottom: 10px;" id="ptExportPreviewSub">
                 Visualise full formatting, embedded charts, and formatted tables before downloading or printing.
@@ -5735,6 +5748,18 @@
             const repNameEl = document.getElementById('ptReportActiveStudentName');
             if (repNameEl) repNameEl.textContent = currentStudentName || 'Active Student';
             if (typeof togglePtReportSubOptions === 'function') togglePtReportSubOptions();
+
+            if (window.ExportStylesService) {
+                ExportStylesService.renderStyleSelector(document.getElementById('pt-export-style-selector-wrap'), {
+                    toolKey: 'participationTracker',
+                    onChange: function (styleId) {
+                        const ifr = document.getElementById('ptExportPreviewIframe');
+                        if (ifr && document.getElementById('ptExportPreviewModal')?.classList.contains('active')) {
+                            ExportStylesService.applyStyleToIframe(ifr, styleId);
+                        }
+                    }
+                });
+            }
         }
 
         function closePtExportModal() {
@@ -6762,7 +6787,26 @@
             const iframe = document.getElementById('ptExportPreviewIframe');
 
             if (titleEl) titleEl.textContent = title || 'Live Export & Report Preview';
-            if (iframe) iframe.srcdoc = htmlContent;
+            if (iframe) {
+                iframe.srcdoc = htmlContent;
+                if (window.ExportStylesService) {
+                    var sId = ExportStylesService.getSelectedStyle('participationTracker');
+                    iframe.onload = function () {
+                        ExportStylesService.applyStyleToIframe(iframe, sId);
+                    };
+                }
+            }
+
+            if (window.ExportStylesService) {
+                var sId = ExportStylesService.getSelectedStyle('participationTracker');
+                ExportStylesService.renderStyleSelector(document.getElementById('pt-preview-style-selector-wrap'), {
+                    toolKey: 'participationTracker',
+                    currentStyleId: sId,
+                    onChange: function (styleId) {
+                        if (iframe) ExportStylesService.applyStyleToIframe(iframe, styleId);
+                    }
+                });
+            }
 
             if (modal) modal.classList.add('active');
         }
@@ -6783,8 +6827,12 @@
 
         async function executeExhaustiveReport(reportType, format) {
             const doc = generateExhaustiveReportDocument(reportType);
-            const fullHtml = doc.fullHtml;
+            let fullHtml = doc.fullHtml;
             const filenameBase = doc.filenameBase;
+
+            if (window.ExportStylesService) {
+                fullHtml = await ExportStylesService.injectStyleIntoHtml(fullHtml, ExportStylesService.getSelectedStyle('participationTracker'));
+            }
 
             if (format === 'pdf') {
                 const pdfSettings = getPdfExportSettings();
@@ -6860,7 +6908,7 @@
             closePtExportModal();
 
             if (format === 'html') {
-                exportCategoryAsHtml(category, data);
+                await exportCategoryAsHtml(category, data);
             } else if (format === 'pdf') {
                 await exportCategoryAsPdf(category, data);
             } else if (format === 'docx') {
@@ -6927,19 +6975,19 @@
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { width: 100%; }
-        body { font-family: 'Lexend', system-ui, -apple-system, sans-serif; font-size: 12px; color: #222222; background: #ffffff; margin: 0; padding: 0; line-height: 1.4; }
-        h1 { font-size: 18px; font-weight: 900; color: #222222; border-bottom: 2px solid #333333; padding-bottom: 6px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .meta-box { display: flex; flex-wrap: wrap; gap: 8px 24px; font-size: 11px; color: #222222; background: #fafaf7; border: 2px solid #333333; border-radius: 6px; padding: 8px 12px; margin-bottom: 14px; box-shadow: 3px 3px 0 #555555; }
+        body { font-family: var(--exp-font-family, 'Lexend', system-ui, -apple-system, sans-serif); font-size: 12px; color: var(--exp-text-color, #222222); background: var(--exp-bg-page, #ffffff); margin: 0; padding: 0; line-height: 1.4; }
+        h1 { font-size: 18px; font-weight: 900; color: var(--exp-text-color, #222222); border-bottom: var(--exp-border-width, 2px) solid var(--exp-border-color, #333333); padding-bottom: 6px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .meta-box { display: flex; flex-wrap: wrap; gap: 8px 24px; font-size: 11px; color: var(--exp-text-color, #222222); background: var(--exp-bg-surface, #fafaf7); border: var(--exp-border-width, 2px) solid var(--exp-border-color, #333333); border-radius: var(--exp-border-radius, 6px); padding: 8px 12px; margin-bottom: 14px; box-shadow: var(--exp-shadow, 3px 3px 0 #555555); }
         .meta-item { display: flex; gap: 6px; align-items: center; }
-        .meta-label { font-weight: 800; color: #222222; text-transform: uppercase; font-size: 10px; letter-spacing: 0.03em; }
-        .meta-val { font-weight: 600; color: #222222; }
-        table { width: 100%; max-width: 100%; border-collapse: collapse; border: 2px solid #333333; margin-top: 4px; background: #ffffff; page-break-inside: auto; table-layout: auto; }
+        .meta-label { font-weight: 800; color: var(--exp-text-muted, #222222); text-transform: uppercase; font-size: 10px; letter-spacing: 0.03em; }
+        .meta-val { font-weight: 600; color: var(--exp-text-color, #222222); }
+        table { width: 100%; max-width: 100%; border-collapse: var(--exp-table-border-collapse, collapse); border: var(--exp-border-width, 2px) solid var(--exp-border-color, #333333); margin-top: 4px; background: var(--exp-bg-surface, #ffffff); page-break-inside: auto; table-layout: auto; }
         thead { display: table-header-group; }
         tr { page-break-inside: avoid; break-inside: avoid; }
-        th, td { border: 1.5px solid #333333; padding: ${cellPadding}; vertical-align: middle; word-wrap: break-word; overflow-wrap: break-word; word-break: break-word; }
-        th { background: #f5f5f0; font-weight: 800; color: #222222; text-align: left; text-transform: uppercase; font-size: ${thFontSize}; letter-spacing: 0.03em; }
-        td { font-size: ${tdFontSize}; color: #222222; }
-        tr:nth-child(even) td { background: #fafaf7; }
+        th, td { border: var(--exp-table-cell-border, 1.5px solid #333333); padding: ${cellPadding}; vertical-align: middle; word-wrap: break-word; overflow-wrap: break-word; word-break: break-word; }
+        th { background: var(--exp-table-th-bg, #f5f5f0); font-weight: 800; color: var(--exp-text-color, #222222); text-align: left; text-transform: uppercase; font-size: ${thFontSize}; letter-spacing: 0.03em; }
+        td { font-size: ${tdFontSize}; color: var(--exp-text-color, #222222); }
+        tr:nth-child(even) td { background: var(--exp-table-row-even, #fafaf7); }
         @page { size: ${pdfSettings.pageSize} ${pdfSettings.orientation}; margin: ${pdfSettings.margin}; }
         @media print {
             body { margin: 0; padding: 0; }
@@ -6964,7 +7012,7 @@
 </html>`;
         }
 
-        function exportCategoryAsHtml(category, data) {
+        async function exportCategoryAsHtml(category, data) {
             const editableAttr = ' contenteditable="true"';
             let tableHeadersHtml = data.headers.map(h => `
                 <th onclick="onThClick(event, this)">
@@ -7189,12 +7237,18 @@
 </body>
 </html>`;
 
+            if (window.ExportStylesService) {
+                htmlContent = await ExportStylesService.injectStyleIntoHtml(htmlContent, ExportStylesService.getSelectedStyle('participationTracker'));
+            }
             downloadFile(`${data.filenameBase}.html`, htmlContent, 'text/html');
             showMessage('Editable HTML report exported successfully!', 'success');
         }
 
         async function exportCategoryAsPdf(category, data) {
-            const html = generatePrintableHtmlReport(data);
+            let html = generatePrintableHtmlReport(data);
+            if (window.ExportStylesService) {
+                html = await ExportStylesService.injectStyleIntoHtml(html, ExportStylesService.getSelectedStyle('participationTracker'));
+            }
             const pdfSettings = getPdfExportSettings();
             const defaultName = `${data.filenameBase}.pdf`;
 
@@ -8024,6 +8078,16 @@
             if (scaleEl) scaleEl.textContent = scaleToMax ? 'Yes' : 'No';
             if (countEl) countEl.textContent = `${rules.length} rule${rules.length === 1 ? '' : 's'}`;
 
+            if (window.ExportStylesService) {
+                const wrap = document.getElementById('pt-rules-style-selector-wrap');
+                if (wrap) {
+                    ExportStylesService.renderSelector(wrap, {
+                        toolKey: 'participationTracker',
+                        className: 'pt-rules-export-style-select'
+                    });
+                }
+            }
+
             updateRulesExportHint();
 
             const modal = document.getElementById('rulesExportModal');
@@ -8180,7 +8244,7 @@
             closeExportRulesModal();
 
             if (format === 'html') {
-                exportRulesAsHtml(rulesData);
+                await exportRulesAsHtml(rulesData);
             } else if (format === 'pdf') {
                 await exportRulesAsPdf(rulesData);
             } else if (format === 'md') {
@@ -8215,21 +8279,21 @@
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { width: 100%; }
-        body { font-family: 'Lexend', system-ui, -apple-system, sans-serif; font-size: 12px; color: #222222; background: #ffffff; line-height: 1.4; }
-        h1 { font-size: 18px; font-weight: 900; color: #222222; border-bottom: 2px solid #333333; padding-bottom: 6px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .meta-box { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 11px; color: #222222; background: #fafaf7; border: 2px solid #333333; border-radius: 6px; padding: 10px 14px; margin-bottom: 14px; box-shadow: 3px 3px 0 #555555; }
+        body { font-family: var(--exp-font-family, 'Lexend', system-ui, -apple-system, sans-serif); font-size: var(--exp-font-size-base, 12px); color: var(--exp-text-color, #222222); background: var(--exp-bg-page, #ffffff); line-height: var(--exp-line-height, 1.4); }
+        h1 { font-size: 18px; font-weight: 900; color: var(--exp-text-color, #222222); border-bottom: var(--exp-border-width, 2px) solid var(--exp-border-color, #333333); padding-bottom: 6px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .meta-box { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 11px; color: var(--exp-text-color, #222222); background: var(--exp-bg-surface, #fafaf7); border: var(--exp-border-width, 2px) solid var(--exp-border-color, #333333); border-radius: var(--exp-radius-card, 6px); padding: 10px 14px; margin-bottom: 14px; box-shadow: var(--exp-shadow, 3px 3px 0 #555555); }
         .meta-item { display: flex; gap: 6px; align-items: center; }
-        .meta-label { font-weight: 800; color: #222222; text-transform: uppercase; font-size: 10px; letter-spacing: 0.03em; }
-        .meta-val { font-weight: 700; color: #222222; background: #ffffff; border: 1.5px solid #333333; padding: 1px 6px; border-radius: 4px; }
-        table { width: 100%; max-width: 100%; border-collapse: collapse; border: 2px solid #333333; margin-top: 6px; background: #ffffff; page-break-inside: auto; }
+        .meta-label { font-weight: 800; color: var(--exp-text-color, #222222); text-transform: uppercase; font-size: 10px; letter-spacing: 0.03em; }
+        .meta-val { font-weight: 700; color: var(--exp-text-color, #222222); background: var(--exp-bg-page, #ffffff); border: 1.5px solid var(--exp-border-color, #333333); padding: 1px 6px; border-radius: 4px; }
+        table { width: 100%; max-width: 100%; border-collapse: collapse; border: var(--exp-border-width, 2px) solid var(--exp-border-color, #333333); margin-top: 6px; background: var(--exp-bg-page, #ffffff); page-break-inside: auto; }
         thead { display: table-header-group; }
         tr { page-break-inside: avoid; break-inside: avoid; }
-        th, td { border: 1.5px solid #333333; padding: 7px 10px; vertical-align: middle; word-break: break-word; }
-        th { background: #f5f5f0; font-weight: 900; color: #222222; text-align: left; text-transform: uppercase; font-size: 10.5px; letter-spacing: 0.03em; }
-        td { font-size: 11px; color: #222222; }
-        tr:nth-child(even) td { background: #fafaf7; }
-        .notes-card { background: #fafaf7; border: 2px solid #333333; border-radius: 6px; padding: 12px 14px; margin-top: 16px; box-shadow: 3px 3px 0 #555555; font-size: 11px; line-height: 1.5; }
-        .notes-card h3 { font-size: 12px; font-weight: 900; text-transform: uppercase; margin-bottom: 6px; color: #222222; border-bottom: 1.5px solid #333333; padding-bottom: 3px; }
+        th, td { border: 1.5px solid var(--exp-border-color, #333333); padding: 7px 10px; vertical-align: middle; word-break: break-word; }
+        th { background: var(--exp-table-th-bg, #f5f5f0); font-weight: 900; color: var(--exp-text-color, #222222); text-align: left; text-transform: uppercase; font-size: 10.5px; letter-spacing: 0.03em; }
+        td { font-size: 11px; color: var(--exp-text-color, #222222); }
+        tr:nth-child(even) td { background: var(--exp-table-row-even, #fafaf7); }
+        .notes-card { background: var(--exp-bg-surface, #fafaf7); border: var(--exp-border-width, 2px) solid var(--exp-border-color, #333333); border-radius: var(--exp-radius-card, 6px); padding: 12px 14px; margin-top: 16px; box-shadow: var(--exp-shadow, 3px 3px 0 #555555); font-size: 11px; line-height: 1.5; color: var(--exp-text-color, #222222); }
+        .notes-card h3 { font-size: 12px; font-weight: 900; text-transform: uppercase; margin-bottom: 6px; color: var(--exp-text-color, #222222); border-bottom: 1.5px solid var(--exp-border-color, #333333); padding-bottom: 3px; }
         @page { size: ${pdfSettings.pageSize} ${pdfSettings.orientation}; margin: ${pdfSettings.margin}; }
         @media print {
             body { margin: 0; padding: 0; }
@@ -8313,7 +8377,7 @@
             return md;
         }
 
-        function exportRulesAsHtml(data) {
+        async function exportRulesAsHtml(data) {
             const rulesRowsHtml = data.rules.map(r => {
                 const isFormula = r.metric === 'formula';
                 const conditionDisplay = isFormula
@@ -8326,7 +8390,7 @@
                     <td contenteditable="true">${escHtml(r.minText)}</td>
                     <td contenteditable="true">${escHtml(r.passText)}</td>
                     <td>${conditionDisplay}</td>
-                    <td contenteditable="true" style="font-weight:800; text-align:center; background:#fafaf7;">${escHtml(String(r.points))} pts</td>
+                    <td contenteditable="true" style="font-weight:800; text-align:center; background:var(--exp-table-row-even, #fafaf7);">${escHtml(String(r.points))} pts</td>
                 </tr>`;
             }).join('\n');
 
@@ -8340,30 +8404,30 @@
     <title>${escHtml(data.title)}</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Lexend', system-ui, -apple-system, sans-serif; font-size: 13px; color: #222222; background: #f5f5f0; padding: 24px; line-height: 1.5; }
-        .report-card { max-width: 960px; margin: 0 auto; background: #ffffff; border: 2px solid #333333; border-radius: 10px; box-shadow: 4px 4px 0 #555555; padding: 24px 28px; }
+        body { font-family: var(--exp-font-family, 'Lexend', system-ui, -apple-system, sans-serif); font-size: var(--exp-font-size-base, 13px); color: var(--exp-text-color, #222222); background: var(--exp-bg-page, #f5f5f0); padding: 24px; line-height: var(--exp-line-height, 1.5); }
+        .report-card { max-width: 960px; margin: 0 auto; background: var(--exp-bg-surface, #ffffff); border: var(--exp-border-width, 2px) solid var(--exp-border-color, #333333); border-radius: var(--exp-radius-card, 10px); box-shadow: var(--exp-shadow, 4px 4px 0 #555555); padding: 24px 28px; }
         .toolbar { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; margin-bottom: 20px; }
-        .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; font-family: inherit; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; border: 2px solid #333333; border-radius: 6px; cursor: pointer; background: #ffffff; color: #222222; box-shadow: 3px 3px 0 #555555; transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease; }
+        .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; font-family: inherit; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; border: var(--exp-border-width, 2px) solid var(--exp-border-color, #333333); border-radius: 6px; cursor: pointer; background: var(--exp-bg-surface, #ffffff); color: var(--exp-text-color, #222222); box-shadow: var(--exp-shadow, 3px 3px 0 #555555); transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease; }
         .btn:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 #555555; background: #fdfdfd; }
         .btn:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 #888888; }
-        .btn-primary { background: #222222; color: #ffffff; }
+        .btn-primary { background: var(--exp-text-color, #222222); color: var(--exp-bg-surface, #ffffff); }
         .btn-primary:hover { background: #333333; color: #ffffff; }
-        h1 { font-size: 22px; font-weight: 900; color: #222222; border-bottom: 2px solid #333333; padding-bottom: 8px; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .meta-box { display: flex; flex-wrap: wrap; gap: 10px 20px; font-size: 12px; color: #222222; background: #fafaf7; border: 2px solid #333333; border-radius: 6px; padding: 12px 16px; margin-bottom: 20px; box-shadow: 3px 3px 0 #555555; align-items: center; }
+        h1 { font-size: 22px; font-weight: 900; color: var(--exp-text-color, #222222); border-bottom: var(--exp-border-width, 2px) solid var(--exp-border-color, #333333); padding-bottom: 8px; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .meta-box { display: flex; flex-wrap: wrap; gap: 10px 20px; font-size: 12px; color: var(--exp-text-color, #222222); background: var(--exp-bg-surface, #fafaf7); border: var(--exp-border-width, 2px) solid var(--exp-border-color, #333333); border-radius: 6px; padding: 12px 16px; margin-bottom: 20px; box-shadow: var(--exp-shadow, 3px 3px 0 #555555); align-items: center; }
         .meta-item { display: flex; gap: 6px; align-items: center; }
-        .meta-label { font-weight: 800; color: #222222; text-transform: uppercase; font-size: 10.5px; letter-spacing: 0.04em; }
-        .meta-val { font-weight: 700; color: #222222; background: #ffffff; border: 1.5px solid #333333; padding: 2px 8px; border-radius: 4px; }
-        .table-wrap { overflow-x: auto; border: 2px solid #333333; border-radius: 6px; margin-bottom: 20px; box-shadow: 3px 3px 0 #555555; background: #ffffff; }
+        .meta-label { font-weight: 800; color: var(--exp-text-color, #222222); text-transform: uppercase; font-size: 10.5px; letter-spacing: 0.04em; }
+        .meta-val { font-weight: 700; color: var(--exp-text-color, #222222); background: var(--exp-bg-surface, #ffffff); border: 1.5px solid var(--exp-border-color, #333333); padding: 2px 8px; border-radius: 4px; }
+        .table-wrap { overflow-x: auto; border: var(--exp-border-width, 2px) solid var(--exp-border-color, #333333); border-radius: 6px; margin-bottom: 20px; box-shadow: var(--exp-shadow, 3px 3px 0 #555555); background: var(--exp-bg-surface, #ffffff); }
         table { width: 100%; border-collapse: collapse; text-align: left; }
-        th, td { border: 1.5px solid #333333; padding: 10px 12px; vertical-align: middle; }
-        th { background: #f5f5f0; font-weight: 900; color: #222222; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
-        td { font-size: 12px; color: #222222; }
-        tr:nth-child(even) td { background: #fafaf7; }
+        th, td { border: 1.5px solid var(--exp-border-color, #333333); padding: 10px 12px; vertical-align: middle; }
+        th { background: var(--exp-table-th-bg, #f5f5f0); font-weight: 900; color: var(--exp-text-color, #222222); text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
+        td { font-size: 12px; color: var(--exp-text-color, #222222); }
+        tr:nth-child(even) td { background: var(--exp-table-row-even, #fafaf7); }
         td[contenteditable="true"]:hover { background: #fffbe6 !important; outline: 1.5px dashed #e2c96e; }
-        td[contenteditable="true"]:focus { background: #fffbe6 !important; outline: 2px solid #333333; }
-        .guide-card { background: #fafaf7; border: 2px solid #333333; border-radius: 6px; padding: 16px; box-shadow: 3px 3px 0 #555555; margin-top: 10px; font-size: 12px; }
-        .guide-card h3 { font-size: 13px; font-weight: 900; text-transform: uppercase; margin-bottom: 8px; color: #222222; border-bottom: 1.5px solid #333333; padding-bottom: 4px; }
-        .guide-card p { margin-bottom: 6px; line-height: 1.5; color: #222222; }
+        td[contenteditable="true"]:focus { background: #fffbe6 !important; outline: 2px solid var(--exp-border-color, #333333); }
+        .guide-card { background: var(--exp-bg-surface, #fafaf7); border: var(--exp-border-width, 2px) solid var(--exp-border-color, #333333); border-radius: 6px; padding: 16px; box-shadow: var(--exp-shadow, 3px 3px 0 #555555); margin-top: 10px; font-size: 12px; color: var(--exp-text-color, #222222); }
+        .guide-card h3 { font-size: 13px; font-weight: 900; text-transform: uppercase; margin-bottom: 8px; color: var(--exp-text-color, #222222); border-bottom: 1.5px solid var(--exp-border-color, #333333); padding-bottom: 4px; }
+        .guide-card p { margin-bottom: 6px; line-height: 1.5; color: var(--exp-text-color, #222222); }
         code { background: #f0f0eb; border: 1px solid #d0d0c8; border-radius: 4px; padding: 2px 6px; font-family: monospace; font-size: 11.5px; color: #222222; }
         .btn-icon { width: 14px; height: 14px; display: inline-block; vertical-align: middle; }
         @media print {
@@ -8450,12 +8514,21 @@
 </body>
 </html>`;
 
-            downloadFile(`${data.filenameBase}.html`, htmlContent, 'text/html');
+            let finalHtml = htmlContent;
+            if (window.ExportStylesService) {
+                const styleId = ExportStylesService.getSelectedStyle('participationTracker');
+                finalHtml = await ExportStylesService.injectStyleIntoHtml(htmlContent, styleId, 'participationTracker');
+            }
+            downloadFile(`${data.filenameBase}.html`, finalHtml, 'text/html');
             showMessage(t('ptRulesExportSuccessHtml') || 'HTML rules document exported successfully!', 'success');
         }
 
         async function exportRulesAsPdf(data) {
-            const html = generateRulesPrintableHtml(data);
+            let html = generateRulesPrintableHtml(data);
+            if (window.ExportStylesService) {
+                const styleId = ExportStylesService.getSelectedStyle('participationTracker');
+                html = await ExportStylesService.injectStyleIntoHtml(html, styleId, 'participationTracker');
+            }
             const pdfSettings = getPdfExportSettings();
             const defaultName = `${data.filenameBase}.pdf`;
 

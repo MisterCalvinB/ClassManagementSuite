@@ -2584,8 +2584,9 @@
     var groups = Array.isArray(boardData.groups) ? boardData.groups : [];
     var notes = Array.isArray(boardData.notes) ? boardData.notes : [];
     var shapes = Array.isArray(boardData.shapes) ? boardData.shapes : [];
+    var drawings = Array.isArray(boardData.drawings) ? boardData.drawings : [];
 
-    if (!nodes.length && !groups.length && !notes.length && !shapes.length) {
+    if (!nodes.length && !groups.length && !notes.length && !shapes.length && !drawings.length) {
       return '<div class="pdf-mindmap-empty" style="padding:10px;font-size:8pt;color:#666;font-style:italic;">Empty mindmap session</div>';
     }
 
@@ -2606,6 +2607,13 @@
     groups.forEach(function(g) { expand(g.x, g.y, g.width || 300, g.height || 200); });
     notes.forEach(function(nt) { expand(nt.x, nt.y, nt.width || 140, nt.height || 90); });
     shapes.forEach(function(s) { expand(s.x, s.y, s.width || 150, s.height || 100); });
+    drawings.forEach(function(d) {
+      if (Array.isArray(d.points)) {
+        d.points.forEach(function(p) {
+          if (p) expand((d.x || 0) + p.x, (d.y || 0) + p.y, 4, 4);
+        });
+      }
+    });
 
     if (!isFinite(minX) || !isFinite(minY)) {
       minX = 0; minY = 0; maxX = 800; maxY = 500;
@@ -2713,6 +2721,21 @@
       var nText = nt.text || nt.content || '';
       svg += '<rect x="' + tx + '" y="' + ty + '" width="' + tw + '" height="' + th + '" rx="4" fill="' + nBg + '" stroke="#d97706" stroke-width="1.5" />\n';
       svg += '<text x="' + (tx + 6) + '" y="' + (ty + 16) + '" fill="#78350f" font-family="Lexend, sans-serif" font-size="9" font-weight="600">' + esc(nText.slice(0, 45)) + (nText.length > 45 ? '...' : '') + '</text>\n';
+    });
+
+    // 5. Freehand Drawings (rendered on top of nodes and notes)
+    drawings.forEach(function(d) {
+      if (!Array.isArray(d.points) || d.points.length < 2) return;
+      var pts = d.points;
+      var ox = Number(d.x) || 0, oy = Number(d.y) || 0;
+      var pathD = 'M ' + (ox + pts[0].x) + ' ' + (oy + pts[0].y);
+      for (var i = 1; i < pts.length; i++) {
+        if (pts[i]) pathD += ' L ' + (ox + pts[i].x) + ' ' + (oy + pts[i].y);
+      }
+      var strokeColor = d.color || '#e53935';
+      var strokeWidth = d.thickness || 3;
+      var strokeOp = Number.isFinite(d.opacity) ? d.opacity : 1;
+      svg += '<path d="' + pathD + '" fill="none" stroke="' + strokeColor + '" stroke-width="' + strokeWidth + '" stroke-opacity="' + strokeOp + '" stroke-linecap="round" stroke-linejoin="round" />\n';
     });
 
     svg += '</svg>\n';

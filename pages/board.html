@@ -14649,6 +14649,12 @@
         dissolved.el.remove();
         conGroups.splice(idx, 1);
         if (conGroupFocused === gid) conGroupFocused = null;
+        if (typeof conEdges !== 'undefined' && Array.isArray(conEdges)) {
+          conEdges.filter(e => e.a === gid || e.b === gid).forEach(e => e.g && e.g.remove());
+          conEdges = conEdges.filter(e => e.a !== gid && e.b !== gid);
+          window.conEdges = conEdges;
+          if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
+        }
       }
 
       function conGroupFocus(gid) {
@@ -16020,11 +16026,17 @@
       window.conDrawingClearSelection = function () {
         conDrawingSelected.forEach(did => {
           const d = conDrawings.find(x => x.id === did);
-          if (d) _conDrawingHideHandles(d);
+          if (d) {
+            _conDrawingHideHandles(d);
+            if (d.el) d.el.style.zIndex = '600';
+          }
         });
         conDrawingSelected.clear();
         document.querySelectorAll('#constellation-board .con-drawing.con-drawing-selected')
-          .forEach(el => el.classList.remove('con-drawing-selected'));
+          .forEach(el => {
+            el.classList.remove('con-drawing-selected');
+            el.style.zIndex = '600';
+          });
         if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
       };
       window.conGetDrawingSelected = function () { return conDrawingSelected; };
@@ -16091,7 +16103,7 @@
         el.style.top = (d.y - PAD) + 'px';
         el.style.width = (d.w + 2 * PAD) + 'px';
         el.style.height = (d.h + 2 * PAD) + 'px';
-        el.style.zIndex = '550';
+        el.style.zIndex = '600';
         el.style.pointerEvents = 'none'; // hit path handles events
 
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -16200,7 +16212,7 @@
           dsx = e.clientX; dsy = e.clientY;
           startX = d.x; startY = d.y;
           hitPath.style.cursor = 'grabbing';
-          el.style.zIndex = '560';
+          el.style.zIndex = '660';
 
           // Snapshot all selected drawings for joint drag
           _dragDrawSnaps = [];
@@ -16295,7 +16307,7 @@
           }
           dragging = false;
           hitPath.style.cursor = 'grab';
-          el.style.zIndex = '560'; // keep slight elevation while selected
+          el.style.zIndex = '660'; // keep slight elevation while selected
           _dragDrawSnaps = []; _dragNodeSnaps = []; _dragNoteSnaps = [];
           setTimeout(() => {
             window._conMirrorDragging = false;
@@ -17003,9 +17015,20 @@
       window.conShapeClearSelection = function () {
         _conShapeSelected.forEach(sid => {
           const s = conShapes.find(x => x.id === sid);
-          if (s) { if (s.el) s.el.classList.remove('con-shape-selected'); _conShapeHideHandles(s); }
+          if (s) {
+            if (s.el) {
+              s.el.classList.remove('con-shape-selected');
+              s.el.style.zIndex = '500';
+            }
+            _conShapeHideHandles(s);
+          }
         });
         _conShapeSelected.clear();
+        document.querySelectorAll('#constellation-board .con-shape.con-shape-selected')
+          .forEach(el => {
+            el.classList.remove('con-shape-selected');
+            el.style.zIndex = '500';
+          });
         if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
       };
       window.conGetShapeSelected = function () { return _conShapeSelected; };
@@ -17050,7 +17073,7 @@
           if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
           dragging = true;
           window._conMirrorDragging = true;
-          s.el.style.zIndex = '560';
+          s.el.style.zIndex = '520';
           s.hitEl.style.cursor = 'grabbing';
           const snaps = [];
           let _dragShapeRaf = null;
@@ -17192,7 +17215,7 @@
               _pendingShapeMoveMsg = null;
             }
             dragging = false;
-            s.el.style.zIndex = '552';
+            s.el.style.zIndex = '500';
             if (s.hitEl) s.hitEl.style.cursor = 'grab';
             // Clear snap lines
             document.querySelectorAll('.con-snap-line').forEach(l => l.remove());
@@ -17236,7 +17259,7 @@
         el.dataset.sid = s.id;
         el.style.cssText = 'position:absolute;left:' + (s.x - PAD) + 'px;top:' + (s.y - PAD) +
           'px;width:' + (s.w + 2 * PAD) + 'px;height:' + (s.h + 2 * PAD) +
-          'px;z-index:552;pointer-events:none;overflow:visible;';
+          'px;z-index:500;pointer-events:none;overflow:visible;';
         const svgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         svgEl.style.cssText = 'position:absolute;top:0;left:0;overflow:visible;width:100%;height:100%;pointer-events:none;';
         el.appendChild(svgEl);
@@ -21304,23 +21327,7 @@
           }
         });
 
-        // Build node id -> position map
-        const nodePos = {};
-        nodes.forEach(n => { nodePos[n.id] = { x: tx(n.x), y: ty(n.y) }; });
-
-        // Draw edges
-        edges.forEach(e => {
-          const pa = nodePos[e.a], pb = nodePos[e.b];
-          if (!pa || !pb) return;
-          ctx.beginPath();
-          ctx.moveTo(pa.x, pa.y);
-          ctx.lineTo(pb.x, pb.y);
-          ctx.strokeStyle = '#aaa';
-          ctx.lineWidth = 0.8;
-          ctx.stroke();
-        });
-
-        // Draw groups
+        // Draw groups first (behind edges and nodes)
         const groups = (snap && snap.groups) || [];
         groups.forEach(g => {
           const gx = tx(g.x || 0), gy = ty(g.y || 0);
@@ -21330,6 +21337,42 @@
           ctx.strokeStyle = g.borderColor || '#aaa';
           ctx.lineWidth = 1;
           ctx.strokeRect(gx, gy, gw, gh);
+        });
+
+        // Build anchor id -> center position map covering nodes, notes, and groups
+        const anchorPos = {};
+        nodes.forEach(n => {
+          const nw = (Number(n.w || n.width) || 80) * scale;
+          const nh = (Number(n.h || n.height) || 32) * scale;
+          const pt = { x: tx(n.x) + nw / 2, y: ty(n.y) + nh / 2 };
+          anchorPos[n.id] = pt;
+          anchorPos[String(n.id)] = pt;
+        });
+        (notes || []).forEach(nt => {
+          const nw = (Number(nt.w || nt.width) || 140) * scale;
+          const nh = (Number(nt.h || nt.height) || 100) * scale;
+          const pt = { x: tx(nt.x) + nw / 2, y: ty(nt.y) + nh / 2 };
+          anchorPos[nt.id] = pt;
+          anchorPos[String(nt.id)] = pt;
+        });
+        groups.forEach(g => {
+          const gw = (Number(g.w || g.width) || 200) * scale;
+          const gh = (Number(g.h || g.height) || 150) * scale;
+          const pt = { x: tx(g.x || 0) + gw / 2, y: ty(g.y || 0) + gh / 2 };
+          anchorPos[g.id] = pt;
+          anchorPos[String(g.id)] = pt;
+        });
+
+        // Draw edges between any anchors (nodes, notes, groups)
+        edges.forEach(e => {
+          const pa = anchorPos[e.a], pb = anchorPos[e.b];
+          if (!pa || !pb) return;
+          ctx.beginPath();
+          ctx.moveTo(pa.x, pa.y);
+          ctx.lineTo(pb.x, pb.y);
+          ctx.strokeStyle = e.strokeColor || e.color || '#888888';
+          ctx.lineWidth = Math.max(0.6, (e.thickness || 1.5) * scale * 0.8);
+          ctx.stroke();
         });
 
         // Draw nodes
@@ -45282,6 +45325,45 @@
       });
     }
 
+    function _conDrawCanvasTerminator(ctx, term, x, y, angle, color) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle);
+      ctx.fillStyle = color || '#333333';
+      ctx.strokeStyle = color || '#333333';
+      ctx.lineWidth = 1.8;
+      if (term === 'circle' || term === 'dot') {
+        ctx.beginPath();
+        ctx.arc(0, 0, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      } else if (term === 'diamond' || term === 'square') {
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(-5, -4);
+        ctx.lineTo(-10, 0);
+        ctx.lineTo(-5, 4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      } else if (term === 'open') {
+        ctx.beginPath();
+        ctx.moveTo(-7, -4);
+        ctx.lineTo(0, 0);
+        ctx.lineTo(-7, 4);
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(-9, -4.5);
+        ctx.lineTo(-9, 4.5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
     async function _conBuildBoardCanvas(opts = {}) {
       const board = document.getElementById('constellation-board');
       if (!board) return null;
@@ -45419,35 +45501,7 @@
       // Render media widgets (Images, PDFs, Videos, Sounds) first so they act as background elements underneath lines, groups, tables, shapes, nodes, notes, and drawings (matching DOM z-index)
       conDrawMediaWidgetsToCanvas(ctx, PAD);
 
-      const svgEl = document.getElementById('constellation-svg');
-      if (svgEl) {
-        svgEl.querySelectorAll('.con-line-group').forEach(grp => {
-          const line = grp.querySelector('.con-line'); if (!line) return;
-          const x1 = parseFloat(line.getAttribute('x1')); const y1 = parseFloat(line.getAttribute('y1'));
-          const x2 = parseFloat(line.getAttribute('x2')); const y2 = parseFloat(line.getAttribute('y2'));
-          ctx.strokeStyle = line.style.stroke || '#111111';
-          ctx.lineWidth = parseFloat(line.style.strokeWidth) || parseFloat(line.getAttribute('stroke-width')) || 2;
-          const markerEnd = line.getAttribute('marker-end'); const markerStart = line.getAttribute('marker-start');
-          const dx = x2 - x1, dy = y2 - y1; const dist = Math.sqrt(dx * dx + dy * dy);
-          ctx.beginPath(); ctx.moveTo(PAD + x1, PAD + y1); ctx.lineTo(PAD + x2, PAD + y2); ctx.stroke();
-          const aw = 9, ah = 6;
-          if (markerEnd && dist > 1) { const angle = Math.atan2(dy, dx); ctx.save(); ctx.translate(PAD + x2, PAD + y2); ctx.rotate(angle); ctx.fillStyle = '#444'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-aw, -ah / 2); ctx.lineTo(-aw, ah / 2); ctx.closePath(); ctx.fill(); ctx.restore(); }
-          if (markerStart && dist > 1) { const angle = Math.atan2(dy, dx); ctx.save(); ctx.translate(PAD + x1, PAD + y1); ctx.rotate(angle + Math.PI); ctx.fillStyle = '#444'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-aw, -ah / 2); ctx.lineTo(-aw, ah / 2); ctx.closePath(); ctx.fill(); ctx.restore(); }
-          const labelEl = grp.querySelector('.con-line-label');
-          if (labelEl && labelEl.textContent.trim()) {
-            const mx = (x1 + x2) / 2, my = (y1 + y2) / 2; const angle = Math.atan2(y2 - y1, x2 - x1);
-            const a = (angle > Math.PI / 2 || angle < -Math.PI / 2) ? angle + Math.PI : angle;
-            const labelStyles = getComputedStyle(labelEl); const dy2 = parseFloat(labelEl.getAttribute('dy') || '-5');
-            const strokeWidth = parseFloat(labelStyles.strokeWidth);
-            ctx.save(); ctx.translate(PAD + mx, PAD + my); ctx.rotate(a);
-            ctx.font = conCanvasFontFromStyles(labelStyles, '"Segoe UI", Arial, sans-serif');
-            ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-            ctx.strokeStyle = labelStyles.stroke || 'rgba(255,255,255,0.85)'; ctx.lineWidth = Number.isFinite(strokeWidth) ? strokeWidth : 4; ctx.lineJoin = 'round';
-            ctx.strokeText(labelEl.textContent.trim(), 0, Number.isFinite(dy2) ? dy2 : -5);
-            ctx.fillStyle = labelStyles.fill || '#333'; ctx.fillText(labelEl.textContent.trim(), 0, Number.isFinite(dy2) ? dy2 : -5); ctx.restore();
-          }
-        });
-      }
+      // 1. Render groups first so they serve as background containers underneath lines, nodes, and notes
       document.querySelectorAll('.con-group').forEach(grp => {
         const rx = grp.offsetLeft; const ry = grp.offsetTop; const rw = grp.offsetWidth; const rh = grp.offsetHeight;
         const grpCS = getComputedStyle(grp);
@@ -45473,6 +45527,166 @@
           ctx.save(); ctx.rect(PAD + tx + 2, PAD + ty, tw - 4, th); ctx.clip(); ctx.fillText(titleEl.textContent.trim(), PAD + tx + 7, PAD + ty + th / 2); ctx.restore();
         }
       });
+
+      // 2. Render constellation SVG lines & edges (connecting nodes, notes, and groups)
+      const svgEl = document.getElementById('constellation-svg');
+      if (svgEl) {
+        svgEl.querySelectorAll('.con-line-group').forEach(grp => {
+          const line = grp.querySelector('.con-line'); if (!line) return;
+          const pathD = line.getAttribute('d');
+          const edgeId = grp.dataset.eid;
+          const edge = (typeof conEdges !== 'undefined' && Array.isArray(conEdges)) ? conEdges.find(ed => ed && ed.id == edgeId) : null;
+          let strokeColor = line.style.stroke || '#111111';
+          if (strokeColor.startsWith('url(') && edge) {
+            const strokeInfo = (typeof conResolveEdgeStroke === 'function') ? conResolveEdgeStroke(edge) : null;
+            strokeColor = (strokeInfo && strokeInfo.solid) ? strokeInfo.solid : '#111111';
+          }
+          const sw = parseFloat(line.style.strokeWidth) || parseFloat(line.getAttribute('stroke-width')) || 2;
+          const dashStyle = edge ? edge.dashStyle : null;
+          const strokeType = edge ? edge.strokeType : null;
+
+          if (pathD) {
+            ctx.save();
+            ctx.translate(PAD, PAD);
+            const pathObj = new Path2D(pathD);
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = sw;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            if (strokeType === 'dashed' || dashStyle === 'dashed') {
+              ctx.setLineDash([sw * 3, sw * 2]);
+            } else if (strokeType === 'dotted' || dashStyle === 'dotted') {
+              ctx.setLineDash([sw, sw * 1.5]);
+            } else {
+              ctx.setLineDash([]);
+            }
+            ctx.stroke(pathObj);
+            ctx.restore();
+          }
+
+          let x1 = 0, y1 = 0, x2 = 0, y2 = 0;
+          let hasEndpoints = false;
+          if (edge && edge.a && edge.b && typeof conResolveLinkAnchor === 'function') {
+            const na = conResolveLinkAnchor(edge.a);
+            const nb = conResolveLinkAnchor(edge.b);
+            if (na && nb) {
+              let ax = na.cx, ay = na.cy, bx = nb.cx, by = nb.cy;
+              if (edge.anchorA && typeof conGetAnchorPoint === 'function') {
+                const ptA = conGetAnchorPoint(na, edge.anchorA);
+                if (ptA) { ax = ptA.x; ay = ptA.y; }
+              }
+              if (edge.anchorB && typeof conGetAnchorPoint === 'function') {
+                const ptB = conGetAnchorPoint(nb, edge.anchorB);
+                if (ptB) { bx = ptB.x; by = ptB.y; }
+              }
+              x1 = ax; y1 = ay; x2 = bx; y2 = by;
+              const dx = bx - ax, dy = by - ay;
+              const dist = Math.hypot(dx, dy);
+              if (dist > 8) {
+                const nx = dx / dist, ny = dy / dist;
+                const rawRA = !edge.anchorA && typeof conNodeEdgeOffset === 'function' ? conNodeEdgeOffset(na, dx, dy) : 0;
+                const rawRB = !edge.anchorB && typeof conNodeEdgeOffset === 'function' ? conNodeEdgeOffset(nb, -dx, -dy) : 0;
+                let rA = rawRA, rB = rawRB;
+                if (rawRA + rawRB + 8 > dist) {
+                  const scale = Math.max(0, (dist - 8) / ((rawRA + rawRB) || 1));
+                  rA = rawRA * scale;
+                  rB = rawRB * scale;
+                }
+                if (!edge.anchorA) { x1 = ax + nx * rA; y1 = ay + ny * rA; }
+                if (!edge.anchorB) { x2 = bx - nx * rB; y2 = by - ny * rB; }
+              }
+              hasEndpoints = true;
+
+              const t = edge.type || 'none';
+              const term = edge.terminator || 'arrow';
+              const routing = edge.routing || 'straight';
+              const curv = (typeof edge.curvature === 'number' && Number.isFinite(edge.curvature)) ? edge.curvature : 30;
+              let endAngle = Math.atan2(y2 - y1, x2 - x1);
+              let startAngle = endAngle + Math.PI;
+              if (routing === 'curved') {
+                const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+                const cx = mx + (-dy / (dist || 1)) * curv;
+                const cy = my + (dx / (dist || 1)) * curv;
+                endAngle = Math.atan2(y2 - cy, x2 - cx);
+                startAngle = Math.atan2(y1 - cy, x1 - cx);
+              } else if (routing === 'orthogonal') {
+                if (Math.abs(dx) >= Math.abs(dy)) {
+                  endAngle = (x2 >= x1) ? 0 : Math.PI;
+                  startAngle = (x2 >= x1) ? 0 : Math.PI;
+                } else {
+                  endAngle = (y2 >= y1) ? Math.PI / 2 : -Math.PI / 2;
+                  startAngle = (y2 >= y1) ? Math.PI / 2 : -Math.PI / 2;
+                }
+              }
+              if (t === 'forward' || t === 'both') {
+                _conDrawCanvasTerminator(ctx, term, PAD + x2, PAD + y2, endAngle, strokeColor);
+              }
+              if (t === 'backward' || t === 'both') {
+                _conDrawCanvasTerminator(ctx, term, PAD + x1, PAD + y1, startAngle, strokeColor);
+              }
+            }
+          }
+
+          const labelEl = grp.querySelector('.con-line-label');
+          const labelBgEl = grp.querySelector('.con-line-label-bg');
+          if (labelEl && labelEl.textContent.trim()) {
+            const labelText = labelEl.textContent.trim();
+            const lx = parseFloat(labelEl.getAttribute('x')) || (hasEndpoints ? (x1 + x2) / 2 : 0);
+            const ly = parseFloat(labelEl.getAttribute('y')) || (hasEndpoints ? (y1 + y2) / 2 : 0);
+            const dyAttr = parseFloat(labelEl.getAttribute('dy') || '-5');
+            const rotTransform = labelEl.getAttribute('transform');
+            let rotDeg = 0;
+            if (rotTransform) {
+              const rm = rotTransform.match(/rotate\(([-0-9.]+)/);
+              if (rm) rotDeg = parseFloat(rm[1]) || 0;
+            }
+            const labelStyles = getComputedStyle(labelEl);
+            const fontSize = parseFloat(labelStyles.fontSize) || (edge && edge.labelSize) || 14;
+
+            ctx.save();
+            ctx.translate(PAD + lx, PAD + ly);
+            if (rotDeg) ctx.rotate(rotDeg * Math.PI / 180);
+
+            if (labelBgEl && labelBgEl.style.display !== 'none') {
+              const bw = parseFloat(labelBgEl.getAttribute('width')) || Math.max(20, labelText.length * fontSize * 0.6 + 12);
+              const bh = parseFloat(labelBgEl.getAttribute('height')) || Math.max(14, fontSize * 1.25);
+              const bx = parseFloat(labelBgEl.getAttribute('x')) - lx || (-bw / 2);
+              const by = parseFloat(labelBgEl.getAttribute('y')) - ly || (dyAttr - bh * 0.75);
+              ctx.fillStyle = labelBgEl.getAttribute('fill') || '#ffffff';
+              ctx.strokeStyle = labelBgEl.getAttribute('stroke') || '#111111';
+              ctx.lineWidth = parseFloat(labelBgEl.getAttribute('stroke-width')) || 1.5;
+              ctx.beginPath();
+              const r = 4;
+              ctx.moveTo(bx + r, by);
+              ctx.lineTo(bx + bw - r, by);
+              ctx.quadraticCurveTo(bx + bw, by, bx + bw, by + r);
+              ctx.lineTo(bx + bw, by + bh - r);
+              ctx.quadraticCurveTo(bx + bw, by + bh, bx + bw - r, by + bh);
+              ctx.lineTo(bx + r, by + bh);
+              ctx.quadraticCurveTo(bx, by + bh, bx, by + bh - r);
+              ctx.lineTo(bx, by + r);
+              ctx.quadraticCurveTo(bx, by, bx + r, by);
+              ctx.closePath();
+              ctx.fill();
+              ctx.stroke();
+            }
+
+            ctx.font = conCanvasFontFromStyles(labelStyles, '"Segoe UI", Arial, sans-serif');
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            const strokeW = parseFloat(labelStyles.strokeWidth);
+            if (Number.isFinite(strokeW) && strokeW > 0) {
+              ctx.strokeStyle = labelStyles.stroke || 'rgba(255,255,255,0.85)';
+              ctx.lineWidth = strokeW;
+              ctx.lineJoin = 'round';
+              ctx.strokeText(labelText, 0, dyAttr);
+            }
+            ctx.fillStyle = labelStyles.fill || '#333333';
+            ctx.fillText(labelText, 0, dyAttr);
+            ctx.restore();
+          }
+        });
+      }
 
       conDrawTablesToCanvas(ctx, PAD);
 
@@ -45542,6 +45756,15 @@
         _conCanvasRichNote(ctx, note, PAD + nx, PAD + ny, nw, nh);
         const noteMeta = (typeof conNotes !== 'undefined') ? conNotes.find(m => m.id === note.dataset.id) : null;
         if (noteMeta && noteMeta.emoji) { const dotEl = note.querySelector('.con-emoji-dot'); if (dotEl) { const _noteRect = note.getBoundingClientRect(); const dr = dotEl.getBoundingClientRect(); const dx = dr.left - _noteRect.left + dr.width / 2; const dy = dr.top - _noteRect.top + dr.height / 2; const dotFontPx = parseFloat(getComputedStyle(dotEl).fontSize) || 11; ctx.font = `${dotFontPx}px "Segoe UI",Arial,sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(noteMeta.emoji, PAD + nx + dx, PAD + ny + dy); } }
+      });
+      (window._conBoardStickers || []).forEach(st => {
+        if (!st || !st.emoji) return;
+        const sx = PAD + (Number(st.x) || 0), sy = PAD + (Number(st.y) || 0);
+        const sz = Number(st.size) || 36;
+        ctx.save();
+        ctx.font = `${sz}px "Segoe UI Emoji", Apple Color Emoji, sans-serif`;
+        ctx.fillText(st.emoji, sx, sy + sz * 0.85);
+        ctx.restore();
       });
       (window.conGetDrawings ? window.conGetDrawings() : []).forEach(d => {
         if (!d.points || d.points.length < 2) return;
@@ -48571,7 +48794,15 @@
             e.thickness,
             e.dashStyle || null,
             e.id || null,
-            undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+            e.strokeType,
+            e.routing,
+            e.curvature,
+            e.opacity,
+            e.terminator,
+            e.animated,
+            e.labelBg,
+            e.anchorA,
+            e.anchorB,
             e.colorMode,
             e.strokeColor
           );
@@ -62841,7 +63072,7 @@
     // ================================================================
 
     window.boardGetActiveSessionUrn = function () {
-      const fn = (_conCurrentFileName || 'untitled.js').trim();
+      const fn = ((typeof _conCurrentFileName !== 'undefined' && _conCurrentFileName) ? _conCurrentFileName : 'untitled.js').trim();
       if (typeof LinksService !== 'undefined') {
         if (typeof LinksService.createUrn === 'function') return LinksService.createUrn('board', fn);
         if (typeof LinksService.makeUrn === 'function') return LinksService.makeUrn('board', fn);
@@ -62851,7 +63082,7 @@
 
     window.conGetActiveNodeUrn = function (node) {
       if (!node) return '';
-      const boardId = (_conCurrentFileName || 'untitled.js').trim();
+      const boardId = ((typeof _conCurrentFileName !== 'undefined' && _conCurrentFileName) ? _conCurrentFileName : 'untitled.js').trim();
       const nodeId = node.id || 'cn0';
       const idPayload = `${encodeURIComponent(boardId)}:${encodeURIComponent(nodeId)}`;
       if (typeof LinksService !== 'undefined') {

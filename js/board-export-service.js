@@ -344,6 +344,281 @@
   }
 
   /**
+   * Helper: Calculate distance from an anchor's center to its boundary in direction (dx, dy)
+   * Supports word nodes (rect, circle, oval, diamond), sticky notes (rect), and groups (rect).
+   */
+  function computeAnchorEdgeOffset(anchor, dx, dy) {
+    if (!anchor) return 0;
+    var rawW = Math.max(20, Number(anchor.w) || 80);
+    var rawH = Math.max(10, Number(anchor.h) || 30);
+    var rot = Number(anchor.rotation) || 0;
+    var localDx = dx, localDy = dy;
+    if (rot && rot % 360 !== 0) {
+      var rad = -rot * Math.PI / 180;
+      localDx = dx * Math.cos(rad) - dy * Math.sin(rad);
+      localDy = dx * Math.sin(rad) + dy * Math.cos(rad);
+    }
+    var len = Math.sqrt(localDx * localDx + localDy * localDy);
+    if (len < 0.01) return rawW / 2;
+    var nx = Math.abs(localDx / len), ny = Math.abs(localDy / len);
+    var shape = String(anchor.shape || '').toLowerCase();
+    if (shape === 'circle') return (Math.max(rawW, rawH) / 2) + 3;
+    if (shape === 'oval' || shape === 'ellipse') {
+      var a = rawW / 2, b = rawH / 2;
+      var denom = Math.sqrt(((nx * nx) / (a * a)) + ((ny * ny) / (b * b)));
+      return (denom > 0 ? 1 / denom : Math.max(a, b)) + 3;
+    }
+    if (shape === 'diamond' || shape === 'losange') {
+      var dDenom = (nx / (rawW / 2)) + (ny / (rawH / 2));
+      return (dDenom > 0 ? 1 / dDenom : Math.min(rawW, rawH) / 2) + 3;
+    }
+    var rw = nx > 0.01 ? (rawW / 2) / nx : Infinity;
+    var rh = ny > 0.01 ? (rawH / 2) / ny : Infinity;
+    return Math.min(rw, rh) + 3;
+  }
+
+  /**
+   * Helper: Calculate absolute anchor port point ('top' | 'bottom' | 'left' | 'right')
+   */
+  function computeAnchorPoint(anchor, pos) {
+    if (!anchor) return null;
+    var halfW = (Number(anchor.w) || 80) / 2;
+    var halfH = (Number(anchor.h) || 30) / 2;
+    var ox = 0, oy = 0;
+    if (pos === 'top') { ox = 0; oy = -halfH; }
+    else if (pos === 'bottom') { ox = 0; oy = halfH; }
+    else if (pos === 'left') { ox = -halfW; oy = 0; }
+    else if (pos === 'right') { ox = halfW; oy = 0; }
+    var rot = Number(anchor.rotation) || 0;
+    if (rot && rot % 360 !== 0) {
+      var rad = rot * Math.PI / 180;
+      var rx = ox * Math.cos(rad) - oy * Math.sin(rad);
+      var ry = ox * Math.sin(rad) + oy * Math.cos(rad);
+      return { x: anchor.cx + rx, y: anchor.cy + ry };
+    }
+    return { x: anchor.cx + ox, y: anchor.cy + oy };
+  }
+
+  /**
+   * Helper: Generate SVG path 'd', midpoint (mx, my), and label rotation angle for edges
+   * Supports 'straight', 'curved', 'orthogonal', 'double', and 'wavy' styles with terminator spacing.
+   */
+  function computeEdgeGeometry(x1, y1, x2, y2, routing, strokeType, curvature, thickness, type, terminator) {
+    var dx = x2 - x1;
+    var dy = y2 - y1;
+    var dist = Math.hypot(dx, dy);
+    if (dist < 1) {
+      return { d: 'M ' + x1.toFixed(1) + ' ' + y1.toFixed(1) + ' L ' + x2.toFixed(1) + ' ' + y2.toFixed(1), mx: x1, my: y1, angle: 0, cx: x1, cy: y1 };
+    }
+    var ux = dx / dist;
+    var uy = dy / dist;
+    var nx = -uy;
+    var ny = ux;
+    var sw = Math.max(1, Number(thickness) || 2);
+    var isDouble = strokeType === 'double';
+    var isWavy = strokeType === 'wavy';
+    var hasStartArrow = type === 'backward' || type === 'both';
+    var hasEndArrow = type === 'forward' || type === 'both';
+
+    var termLengths = { arrow: 8.5, open: 7.0, circle: 7.0, dot: 7.0, diamond: 10.0, square: 10.0 };
+    var term = terminator || 'arrow';
+    var rawTermLen = termLengths[term] || 8.5;
+    var neededLen = (hasStartArrow ? rawTermLen : 0) + (hasEndArrow ? rawTermLen : 0);
+    var scale = (dist > 2 && neededLen > 0 && dist < neededLen + 4) ? Math.max(0.1, (dist - 4) / neededLen) : 1;
+    var startLen = hasStartArrow ? (rawTermLen * scale) : 0;
+    var endLen = hasEndArrow ? (rawTermLen * scale) : 0;
+
+    var d = '';
+    var mx = (x1 + x2) / 2;
+    var my = (y1 + y2) / 2;
+    var cx = mx;
+    var cy = my;
+    var angle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+    if (routing === 'curved') {
+      var curv = (typeof curvature === 'number' && isFinite(curvature)) ? curvature : 30;
+      cx = mx + nx * curv;
+      cy = my + ny * curv;
+      mx = 0.25 * x1 + 0.5 * cx + 0.25 * x2;
+      my = 0.25 * y1 + 0.5 * cy + 0.25 * y2;
+
+      var sTanX = cx - x1, sTanY = cy - y1;
+      var sTanDist = Math.hypot(sTanX, sTanY) || 1;
+      var sux = sTanX / sTanDist, suy = sTanY / sTanDist;
+
+      var eTanX = x2 - cx, eTanY = y2 - cy;
+      var eTanDist = Math.hypot(eTanX, eTanY) || 1;
+      var eux = eTanX / eTanDist, euy = eTanY / eTanDist;
+
+      var sx = x1 + sux * startLen;
+      var sy = y1 + suy * startLen;
+      var ex = x2 - eux * endLen;
+      var ey = y2 - euy * endLen;
+
+      if (isDouble) {
+        var off = Math.max(2, sw * 0.9);
+        d = 'M ' + (sx + nx * off).toFixed(1) + ' ' + (sy + ny * off).toFixed(1) + ' ' +
+            'Q ' + (cx + nx * off).toFixed(1) + ' ' + (cy + ny * off).toFixed(1) + ' ' + (ex + nx * off).toFixed(1) + ' ' + (ey + ny * off).toFixed(1) + ' ' +
+            'M ' + (sx - nx * off).toFixed(1) + ' ' + (sy - ny * off).toFixed(1) + ' ' +
+            'Q ' + (cx - nx * off).toFixed(1) + ' ' + (cy - ny * off).toFixed(1) + ' ' + (ex - nx * off).toFixed(1) + ' ' + (ey - ny * off).toFixed(1);
+      } else if (isWavy) {
+        var steps = Math.max(4, Math.round(dist / 14));
+        var amp = Math.min(7, Math.max(3, sw * 1.3));
+        d = 'M ' + sx.toFixed(1) + ' ' + sy.toFixed(1);
+        for (var i = 1; i <= steps; i++) {
+          var t = i / steps;
+          var sgn = (i % 2 === 0) ? 1 : -1;
+          var curAmp = ((i === steps && hasEndArrow) || (i === 1 && hasStartArrow)) ? 0 : amp * sgn;
+          var bx = (1 - t) * (1 - t) * sx + 2 * (1 - t) * t * cx + t * t * ex;
+          var by = (1 - t) * (1 - t) * sy + 2 * (1 - t) * t * cy + t * t * ey;
+          d += ' Q ' + (bx + nx * curAmp).toFixed(1) + ' ' + (by + ny * curAmp).toFixed(1) + ' ' + bx.toFixed(1) + ' ' + by.toFixed(1);
+        }
+      } else {
+        d = 'M ' + sx.toFixed(1) + ' ' + sy.toFixed(1) + ' Q ' + cx.toFixed(1) + ' ' + cy.toFixed(1) + ' ' + ex.toFixed(1) + ' ' + ey.toFixed(1);
+      }
+    } else if (routing === 'orthogonal') {
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        var midX = (x1 + x2) / 2;
+        var sSign = (midX >= x1 ? 1 : -1);
+        var eSign = (x2 >= midX ? 1 : -1);
+        var sx = x1 + sSign * startLen;
+        var sy = y1;
+        var ex = x2 - eSign * endLen;
+        var ey = y2;
+        d = 'M ' + sx.toFixed(1) + ' ' + sy.toFixed(1) + ' L ' + midX.toFixed(1) + ' ' + y1.toFixed(1) + ' L ' + midX.toFixed(1) + ' ' + y2.toFixed(1) + ' L ' + ex.toFixed(1) + ' ' + ey.toFixed(1);
+        mx = midX;
+        my = (y1 + y2) / 2;
+        angle = 0;
+      } else {
+        var midY = (y1 + y2) / 2;
+        var sSign = (midY >= y1 ? 1 : -1);
+        var eSign = (y2 >= midY ? 1 : -1);
+        var sx = x1;
+        var sy = y1 + sSign * startLen;
+        var ex = x2;
+        var ey = y2 - eSign * endLen;
+        d = 'M ' + sx.toFixed(1) + ' ' + sy.toFixed(1) + ' L ' + x1.toFixed(1) + ' ' + midY.toFixed(1) + ' L ' + x2.toFixed(1) + ' ' + midY.toFixed(1) + ' L ' + ex.toFixed(1) + ' ' + ey.toFixed(1);
+        mx = (x1 + x2) / 2;
+        my = midY;
+        angle = 0;
+      }
+    } else {
+      // Straight
+      var sx = x1 + ux * startLen;
+      var sy = y1 + uy * startLen;
+      var ex = x2 - ux * endLen;
+      var ey = y2 - uy * endLen;
+      var straightDist = Math.hypot(ex - sx, ey - sy);
+
+      if (isDouble) {
+        var off = Math.max(2, sw * 0.9);
+        d = 'M ' + (sx + nx * off).toFixed(1) + ' ' + (sy + ny * off).toFixed(1) + ' L ' + (ex + nx * off).toFixed(1) + ' ' + (ey + ny * off).toFixed(1) + ' ' +
+            'M ' + (sx - nx * off).toFixed(1) + ' ' + (sy - ny * off).toFixed(1) + ' L ' + (ex - nx * off).toFixed(1) + ' ' + (ey - ny * off).toFixed(1);
+      } else if (isWavy) {
+        var waveLen = Math.max(16, sw * 5);
+        var halfWaves = Math.max(2, Math.round(straightDist / (waveLen / 2)));
+        var hwLen = straightDist / halfWaves;
+        var amp = Math.min(8, Math.max(3.5, sw * 1.5));
+        d = 'M ' + sx.toFixed(1) + ' ' + sy.toFixed(1);
+        for (var i = 0; i < halfWaves; i++) {
+          var sgn = (i % 2 === 0) ? 1 : -1;
+          var curAmp = ((i === halfWaves - 1 && hasEndArrow) || (i === 0 && hasStartArrow)) ? 0 : (amp * sgn);
+          var p0 = i * hwLen;
+          var p3 = (i + 1) * hwLen;
+          var cp1x = sx + ux * (p0 + hwLen * 0.35) + nx * curAmp;
+          var cp1y = sy + uy * (p0 + hwLen * 0.35) + ny * curAmp;
+          var cp2x = sx + ux * (p0 + hwLen * 0.65) + nx * curAmp;
+          var cp2y = sy + uy * (p0 + hwLen * 0.65) + ny * curAmp;
+          var endX = sx + ux * p3;
+          var endY = sy + uy * p3;
+          d += ' C ' + cp1x.toFixed(1) + ' ' + cp1y.toFixed(1) + ' ' + cp2x.toFixed(1) + ' ' + cp2y.toFixed(1) + ' ' + endX.toFixed(1) + ' ' + endY.toFixed(1);
+        }
+      } else {
+        d = 'M ' + sx.toFixed(1) + ' ' + sy.toFixed(1) + ' L ' + ex.toFixed(1) + ' ' + ey.toFixed(1);
+      }
+    }
+
+    return { d: d, mx: mx, my: my, angle: angle, cx: cx, cy: cy };
+  }
+
+  /**
+   * Helper: Build SVG <marker> definition for arrow, open, circle, diamond terminators
+   */
+  function buildSvgMarker(id, whichEnd, term, color) {
+    color = color || '#333333';
+    term = term || 'arrow';
+    if (term === 'circle' || term === 'dot') {
+      var cRefX = whichEnd === 'end' ? 1.5 : 8.5;
+      return '    <marker id="' + id + '" markerWidth="10" markerHeight="10" refX="' + cRefX + '" refY="5" orient="auto" markerUnits="userSpaceOnUse">\n' +
+             '      <circle cx="5" cy="5" r="3.5" fill="' + escapeXml(color) + '" stroke="' + escapeXml(color) + '" />\n' +
+             '    </marker>\n';
+    }
+    if (term === 'diamond' || term === 'square') {
+      var dPts = whichEnd === 'end' ? '6,1 11,5 6,9 1,5' : '6,1 1,5 6,9 11,5';
+      var dRefX = whichEnd === 'end' ? 1 : 11;
+      return '    <marker id="' + id + '" markerWidth="12" markerHeight="10" refX="' + dRefX + '" refY="5" orient="auto" markerUnits="userSpaceOnUse">\n' +
+             '      <polygon points="' + dPts + '" fill="' + escapeXml(color) + '" stroke="' + escapeXml(color) + '" stroke-linejoin="round" />\n' +
+             '    </marker>\n';
+    }
+    if (term === 'open') {
+      var oD = whichEnd === 'end' ? 'M 1.5 1.5 L 8.5 5 L 1.5 8.5' : 'M 8.5 1.5 L 1.5 5 L 8.5 8.5';
+      var oRefX = whichEnd === 'end' ? 1.5 : 8.5;
+      return '    <marker id="' + id + '" markerWidth="10" markerHeight="10" refX="' + oRefX + '" refY="5" orient="auto" markerUnits="userSpaceOnUse">\n' +
+             '      <path d="' + oD + '" fill="none" stroke="' + escapeXml(color) + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />\n' +
+             '    </marker>\n';
+    }
+    // Default: arrow
+    var aD = whichEnd === 'end' ? 'M 1 1 L 9.5 4.5 L 1 8 Z' : 'M 9.5 1 L 1 4.5 L 9.5 8 Z';
+    var aRefX = whichEnd === 'end' ? 1 : 9.5;
+    return '    <marker id="' + id + '" markerWidth="11" markerHeight="9" refX="' + aRefX + '" refY="4.5" orient="auto" markerUnits="userSpaceOnUse">\n' +
+           '      <path d="' + aD + '" fill="' + escapeXml(color) + '" stroke="' + escapeXml(color) + '" stroke-linejoin="round" />\n' +
+           '    </marker>\n';
+  }
+
+  /**
+   * Helper: Render arrow / marker terminator onto Canvas 2D context
+   */
+  function drawCanvasTerminator(ctx, term, x, y, angle, color) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    ctx.fillStyle = color || '#333333';
+    ctx.strokeStyle = color || '#333333';
+    ctx.lineWidth = 1.8;
+    if (term === 'circle' || term === 'dot') {
+      ctx.beginPath();
+      ctx.arc(0, 0, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    } else if (term === 'diamond' || term === 'square') {
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(-5, -4);
+      ctx.lineTo(-10, 0);
+      ctx.lineTo(-5, 4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    } else if (term === 'open') {
+      ctx.beginPath();
+      ctx.moveTo(-7, -4);
+      ctx.lineTo(0, 0);
+      ctx.lineTo(-7, 4);
+      ctx.stroke();
+    } else {
+      // Default: arrow
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(-9, -4.5);
+      ctx.lineTo(-9, 4.5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  /**
    * 1. Vector SVG Rendering Engine
    * Converts a board session or snapshot directly into clean, scalable SVG vector XML.
    */
@@ -483,6 +758,179 @@
     masks.forEach(function (m) { expand(m.x, m.y, m.w || m.width || 120, m.h || m.height || 60); });
     boardStickers.forEach(function (st) { expand(st.x, st.y, st.size || 36, st.size || 36); });
 
+    // Universal Anchor Map for links between nodes, sticky notes, and groups
+    var anchorMap = {};
+    nodes.forEach(function (n) {
+      var d = resolveNodeDims(n);
+      var nx = Number(n.x) || 0, ny = Number(n.y) || 0;
+      var a = {
+        id: n.id,
+        type: 'node',
+        x: nx, y: ny, w: d.w, h: d.h,
+        cx: nx + d.w / 2, cy: ny + d.h / 2,
+        shape: String(n.shape || '').toLowerCase(),
+        rotation: Number(n.rotation) || 0,
+        color: n.border || n.borderColor || n.color || '#333333'
+      };
+      if (n.id != null) {
+        anchorMap[String(n.id)] = a;
+        anchorMap[n.id] = a;
+      }
+      var pKey = String(n.x) + '_' + String(n.y);
+      if (!anchorMap[pKey]) anchorMap[pKey] = a;
+    });
+
+    notes.forEach(function (nt) {
+      if (nt.hidden) return;
+      var d = resolveNoteDims(nt);
+      var ntx = Number(nt.x) || 0, nty = Number(nt.y) || 0;
+      var a = {
+        id: nt.id,
+        type: 'note',
+        x: ntx, y: nty, w: d.w, h: d.h,
+        cx: ntx + d.w / 2, cy: nty + d.h / 2,
+        shape: 'rect',
+        rotation: Number(nt.rotation) || 0,
+        color: nt.borderColor || nt.color || '#555555'
+      };
+      if (nt.id != null) {
+        anchorMap[String(nt.id)] = a;
+        anchorMap[nt.id] = a;
+      }
+    });
+
+    groups.forEach(function (g) {
+      if (g.invisible) return;
+      var gx = Number(g.x) || 0, gy = Number(g.y) || 0;
+      var gw = Number(g._resolvedW || g.w || g.width || g.manualW || g._manualW) || 280;
+      var gh = Number(g._resolvedH || g.h || g.height || g.manualH || g._manualH) || 180;
+      var a = {
+        id: g.id,
+        type: 'group',
+        x: gx, y: gy, w: gw, h: gh,
+        cx: gx + gw / 2, cy: gy + gh / 2,
+        shape: 'rect',
+        rotation: 0,
+        color: g.borderColor || '#555555'
+      };
+      if (g.id != null) {
+        anchorMap[String(g.id)] = a;
+        anchorMap[g.id] = a;
+      }
+    });
+
+    // Precompute Edges, custom markers, and linear gradients
+    var edgeDefs = '';
+    var edgesSvg = '';
+
+    edges.forEach(function (e, eIdx) {
+      var aId = e.a != null ? e.a : (e.from != null ? e.from : e.source);
+      var bId = e.b != null ? e.b : (e.to != null ? e.to : e.target);
+      var na = anchorMap[aId] || anchorMap[String(aId)];
+      var nb = anchorMap[bId] || anchorMap[String(bId)];
+      if (!na || !nb) return;
+
+      var ax = na.cx, ay = na.cy, bx = nb.cx, by = nb.cy;
+      if (e.anchorA) {
+        var ptA = computeAnchorPoint(na, e.anchorA);
+        if (ptA) { ax = ptA.x; ay = ptA.y; }
+      }
+      if (e.anchorB) {
+        var ptB = computeAnchorPoint(nb, e.anchorB);
+        if (ptB) { bx = ptB.x; by = ptB.y; }
+      }
+
+      var dx = bx - ax, dy = by - ay;
+      var dist = Math.hypot(dx, dy);
+      var x1 = ax, y1 = ay, x2 = bx, y2 = by;
+
+      if (dist > 8) {
+        var nx = dx / dist, ny = dy / dist;
+        var rawRA = !e.anchorA ? computeAnchorEdgeOffset(na, dx, dy) : 0;
+        var rawRB = !e.anchorB ? computeAnchorEdgeOffset(nb, -dx, -dy) : 0;
+        var rA = rawRA, rB = rawRB;
+        if (rawRA + rawRB + 8 > dist) {
+          var sScale = Math.max(0, (dist - 8) / ((rawRA + rawRB) || 1));
+          rA = rawRA * sScale;
+          rB = rawRB * sScale;
+        }
+        if (!e.anchorA) { x1 = ax + nx * rA; y1 = ay + ny * rA; }
+        if (!e.anchorB) { x2 = bx - nx * rB; y2 = by - ny * rB; }
+      }
+
+      var routing = e.routing || 'straight';
+      var strokeType = e.strokeType || (e.dashStyle === 'dashed' ? 'dashed' : (e.dashStyle === 'dotted' ? 'dotted' : 'solid'));
+      var curvature = (typeof e.curvature === 'number' && isFinite(e.curvature)) ? e.curvature : 0;
+      var edgeThick = Number(e.thickness) > 0 ? Number(e.thickness) : 2;
+      var t = e.type || 'none';
+      var term = e.terminator || 'arrow';
+
+      var geo = computeEdgeGeometry(x1, y1, x2, y2, routing, strokeType, curvature, edgeThick, t, term);
+
+      // Stroke Color & Gradients
+      var edgeColor = e.strokeColor || e.color || '#333333';
+      var colorA = edgeColor, colorB = edgeColor;
+      var edgeStroke = edgeColor;
+
+      if (e.colorMode === 'auto' && na.color && nb.color && na.color !== nb.color) {
+        var gradId = 'bes-eg-' + eIdx + '-' + Math.random().toString(36).substring(2, 7);
+        edgeDefs += '    <linearGradient id="' + gradId + '" x1="' + x1.toFixed(1) + '" y1="' + y1.toFixed(1) + '" x2="' + x2.toFixed(1) + '" y2="' + y2.toFixed(1) + '" gradientUnits="userSpaceOnUse">\n' +
+          '      <stop offset="0%" stop-color="' + escapeXml(na.color) + '" />\n' +
+          '      <stop offset="100%" stop-color="' + escapeXml(nb.color) + '" />\n' +
+          '    </linearGradient>\n';
+        edgeStroke = 'url(#' + gradId + ')';
+        colorA = na.color;
+        colorB = nb.color;
+      }
+
+      var mEndAttr = '', mStartAttr = '';
+      if (t === 'forward' || t === 'both') {
+        var mEndId = 'bes-m-end-' + eIdx + '-' + Math.random().toString(36).substring(2, 7);
+        edgeDefs += buildSvgMarker(mEndId, 'end', term, colorB);
+        mEndAttr = ' marker-end="url(#' + mEndId + ')"';
+      }
+      if (t === 'backward' || t === 'both') {
+        var mStartId = 'bes-m-start-' + eIdx + '-' + Math.random().toString(36).substring(2, 7);
+        edgeDefs += buildSvgMarker(mStartId, 'start', term, colorA);
+        mStartAttr = ' marker-start="url(#' + mStartId + ')"';
+      }
+
+      var edgeDash = '';
+      if (strokeType === 'dashed' || e.dashStyle === 'dashed') {
+        edgeDash = 'stroke-dasharray="' + (edgeThick * 4) + ',' + (edgeThick * 2) + '" stroke-linecap="butt"';
+      } else if (strokeType === 'dotted' || e.dashStyle === 'dotted') {
+        edgeDash = 'stroke-dasharray="' + Math.max(1, Math.round(edgeThick * 0.4)) + ',' + Math.max(3, Math.round(edgeThick * 2.5)) + '" stroke-linecap="' + (t === 'none' ? 'round' : 'butt') + '"';
+      } else {
+        edgeDash = 'stroke-linecap="' + (t === 'none' ? 'round' : 'butt') + '"';
+      }
+
+      var edgeOp = (typeof e.opacity === 'number' && e.opacity >= 0.05 && e.opacity <= 1) ? e.opacity : 1;
+      var opAttr = edgeOp < 1 ? (' stroke-opacity="' + edgeOp + '"') : '';
+
+      edgesSvg += '  <path class="bes-edge" d="' + geo.d + '" fill="none" stroke="' + edgeStroke + '" stroke-width="' + edgeThick + '"' + opAttr + ' ' + edgeDash + mEndAttr + mStartAttr + ' />\n';
+
+      // Edge Label
+      var labelText = e.label ? String(e.label).trim() : '';
+      if (labelText) {
+        var mx = geo.mx, my = geo.my, angle = geo.angle;
+        var a = (angle > 90 || angle < -90) ? angle + 180 : angle;
+        var lSize = Number(e.labelSize) > 0 ? Number(e.labelSize) : 11;
+        var lColor = e.labelColor || '#333333';
+        var lWeight = Number(e.labelWeight) || 600;
+        var dy = -Math.max(4, Math.round(lSize * 0.45));
+
+        if (e.labelBg || e.labelBgActive) {
+          var approxW = Math.max(20, Math.round(labelText.length * (lSize * 0.6) + 12));
+          var approxH = Math.max(14, Math.round(lSize * 1.25));
+          var rRot = ' transform="rotate(' + a.toFixed(1) + ' ' + mx.toFixed(1) + ' ' + my.toFixed(1) + ')"';
+          edgesSvg += '  <rect x="' + (mx - approxW / 2).toFixed(1) + '" y="' + (my + dy - approxH * 0.75).toFixed(1) + '" width="' + approxW + '" height="' + approxH + '" rx="4" fill="#ffffff" stroke="#111111" stroke-width="1.5"' + rRot + ' />\n';
+        }
+
+        var tRot = ' transform="rotate(' + a.toFixed(1) + ' ' + mx.toFixed(1) + ' ' + my.toFixed(1) + ')"';
+        edgesSvg += '  <text x="' + mx.toFixed(1) + '" y="' + my.toFixed(1) + '" dy="' + dy + '" fill="' + escapeXml(lColor) + '" font-family="Lexend, sans-serif" font-size="' + lSize + '" font-weight="' + lWeight + '" text-anchor="middle"' + tRot + '>' + escapeXml(labelText) + '</text>\n';
+      }
+    });
+
     if (!isFinite(minX) || !isFinite(minY)) {
       minX = 0; minY = 0; maxX = 800; maxY = 500;
     }
@@ -499,6 +947,7 @@
       '  <marker id="' + markerId + '" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">\n' +
       '    <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#333333" />\n' +
       '  </marker>\n' +
+      edgeDefs +
       '</defs>\n';
 
     // Background image
@@ -617,24 +1066,7 @@
       svg += '  </g>\n';
     });
 
-    // 4. Freehand Drawings
-    drawings.forEach(function (d) {
-      if (!Array.isArray(d.points) || d.points.length < 2) return;
-      var pts = d.points;
-      var ox = Number(d.x) || 0, oy = Number(d.y) || 0;
-      var pathD = 'M ' + (ox + pts[0].x) + ' ' + (oy + pts[0].y);
-      for (var i = 1; i < pts.length; i++) {
-        if (pts[i]) {
-          pathD += ' L ' + (ox + pts[i].x) + ' ' + (oy + pts[i].y);
-        }
-      }
-      var strokeColor = d.color || '#e53935';
-      var strokeWidth = d.thickness || 3;
-      var strokeOp = Number.isFinite(d.opacity) ? d.opacity : 1;
-      svg += '  <path d="' + pathD + '" fill="none" stroke="' + strokeColor + '" stroke-width="' + strokeWidth + '" stroke-opacity="' + strokeOp + '" stroke-linecap="round" stroke-linejoin="round" />\n';
-    });
-
-    // 5. Shapes
+    // 4. Shapes
     shapes.forEach(function (s) {
       var sColor = s.color || '#333333';
       var sFill = s.fillColor && s.fillColor !== 'none' ? s.fillColor : 'none';
@@ -660,42 +1092,8 @@
       }
     });
 
-    // 6. Edges / Connectors
-    edges.forEach(function (e) {
-      var fromNode = nodeMap[e.from || e.source || e.a];
-      var toNode = nodeMap[e.to || e.target || e.b];
-      if (fromNode && toNode) {
-        var fnd = resolveNodeDims(fromNode);
-        var fnW = fnd.w;
-        var fnH = fnd.h;
-        var tnd = resolveNodeDims(toNode);
-        var tnW = tnd.w;
-        var tnH = tnd.h;
-
-        var fx = (Number(fromNode.x) || 0) + fnW / 2;
-        var fy = (Number(fromNode.y) || 0) + fnH / 2;
-        var tx = (Number(toNode.x) || 0) + tnW / 2;
-        var ty = (Number(toNode.y) || 0) + tnH / 2;
-
-        var dx = tx - fx;
-        var cx1 = fx + dx * 0.35;
-        var cy1 = fy;
-        var cx2 = tx - dx * 0.35;
-        var cy2 = ty;
-        var edgeColor = e.strokeColor || e.color || '#475569';
-        var edgeThick = Number(e.thickness) || 2;
-        var edgeDash = e.strokeType === 'dashed' || e.dashStyle === 'dashed' ? 'stroke-dasharray="5,4"' : (e.strokeType === 'dotted' ? 'stroke-dasharray="2,3"' : '');
-        var markerAttr = e.terminator !== 'none' ? ('marker-end="url(#' + markerId + ')"') : '';
-
-        svg += '  <path d="M ' + fx + ' ' + fy + ' C ' + cx1 + ' ' + cy1 + ', ' + cx2 + ' ' + cy2 + ', ' + tx + ' ' + ty + '" fill="none" stroke="' + edgeColor + '" stroke-width="' + edgeThick + '" ' + edgeDash + ' ' + markerAttr + ' />\n';
-
-        if (e.label) {
-          var mx = (fx + tx) / 2;
-          var my = (fy + ty) / 2 - 4;
-          svg += '  <text x="' + mx + '" y="' + my + '" fill="#334155" font-family="Lexend, sans-serif" font-size="9" font-weight="700" text-anchor="middle">' + escapeXml(e.label) + '</text>\n';
-        }
-      }
-    });
+    // 6. Edges / Connectors (between nodes, notes, groups)
+    svg += edgesSvg;
 
     // 7. Nodes
     nodes.forEach(function (n) {
@@ -1022,7 +1420,32 @@
       svg += '  </g>\n';
     });
 
-    // 9. Masks
+    // 8. Board Stickers
+    boardStickers.forEach(function (st) {
+      if (!st.emoji) return;
+      var sx = Number(st.x) || 0, sy = Number(st.y) || 0;
+      var sz = Number(st.size) || 36;
+      svg += '  <text x="' + sx + '" y="' + (sy + sz * 0.85) + '" font-size="' + sz + '" font-family="Segoe UI Emoji, Apple Color Emoji, sans-serif">' + st.emoji + '</text>\n';
+    });
+
+    // 9. Freehand Drawings (rendered on top of nodes, notes, stickers, shapes, edges, and media)
+    drawings.forEach(function (d) {
+      if (!Array.isArray(d.points) || d.points.length < 2) return;
+      var pts = d.points;
+      var ox = Number(d.x) || 0, oy = Number(d.y) || 0;
+      var pathD = 'M ' + (ox + pts[0].x) + ' ' + (oy + pts[0].y);
+      for (var i = 1; i < pts.length; i++) {
+        if (pts[i]) {
+          pathD += ' L ' + (ox + pts[i].x) + ' ' + (oy + pts[i].y);
+        }
+      }
+      var strokeColor = d.color || '#e53935';
+      var strokeWidth = d.thickness || 3;
+      var strokeOp = Number.isFinite(d.opacity) ? d.opacity : 1;
+      svg += '  <path d="' + pathD + '" fill="none" stroke="' + strokeColor + '" stroke-width="' + strokeWidth + '" stroke-opacity="' + strokeOp + '" stroke-linecap="round" stroke-linejoin="round" />\n';
+    });
+
+    // 10. Masks (conceal elements beneath them)
     masks.forEach(function (m) {
       var mx = Number(m.x) || 0, my = Number(m.y) || 0;
       var mw = Number(m.w || m.width) || 120, mh = Number(m.h || m.height) || 60;
@@ -1031,14 +1454,6 @@
       svg += '  <g class="bes-mask">\n' +
         '    <rect x="' + mx + '" y="' + my + '" width="' + mw + '" height="' + mh + '" rx="4" fill="' + mColor + '" opacity="' + mOp + '" />\n' +
         '  </g>\n';
-    });
-
-    // 10. Stickers
-    boardStickers.forEach(function (st) {
-      if (!st.emoji) return;
-      var sx = Number(st.x) || 0, sy = Number(st.y) || 0;
-      var sz = Number(st.size) || 36;
-      svg += '  <text x="' + sx + '" y="' + (sy + sz * 0.85) + '" font-size="' + sz + '" font-family="Segoe UI Emoji, Apple Color Emoji, sans-serif">' + st.emoji + '</text>\n';
     });
 
     svg += '</svg>\n';
@@ -1193,30 +1608,7 @@
       ctx.restore();
     });
 
-    // Edges
-    var nodeMap = {};
-    nodes.forEach(function (n) { nodeMap[n.id || (String(n.x) + '_' + String(n.y))] = n; });
-    edges.forEach(function (e) {
-      var a = nodeMap[e.from || e.source || e.a];
-      var b = nodeMap[e.to || e.target || e.b];
-      if (a && b) {
-        var ad = resolveNodeDims(a);
-        var bd = resolveNodeDims(b);
-        var ax = PAD + (a.x || 0) + ad.w / 2;
-        var ay = PAD + (a.y || 0) + ad.h / 2;
-        var bx = PAD + (b.x || 0) + bd.w / 2;
-        var by = PAD + (b.y || 0) + bd.h / 2;
-
-        ctx.strokeStyle = e.strokeColor || e.color || '#475569';
-        ctx.lineWidth = Number(e.thickness) || 2;
-        ctx.beginPath();
-        ctx.moveTo(ax, ay);
-        ctx.lineTo(bx, by);
-        ctx.stroke();
-      }
-    });
-
-    // Media Widgets
+    // Media Widgets (drawn before edges so they act as background elements)
     media.forEach(function (m) {
       if (m.hidden) return;
       var mx = PAD + (Number(m.x) || 0), my = PAD + (Number(m.y) || 0);
@@ -1238,6 +1630,195 @@
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
       ctx.fillText(mKind + ': ' + mName.slice(0, 24), mx + 8, my + 12);
+      ctx.restore();
+    });
+
+    // Universal Anchor Map for links between nodes, sticky notes, and groups
+    var anchorMap = {};
+    nodes.forEach(function (n) {
+      var d = resolveNodeDims(n);
+      var nx = PAD + (Number(n.x) || 0), ny = PAD + (Number(n.y) || 0);
+      var a = {
+        id: n.id,
+        type: 'node',
+        x: nx, y: ny, w: d.w, h: d.h,
+        cx: nx + d.w / 2, cy: ny + d.h / 2,
+        shape: String(n.shape || '').toLowerCase(),
+        rotation: Number(n.rotation) || 0,
+        color: n.border || n.borderColor || n.color || '#333333'
+      };
+      if (n.id != null) {
+        anchorMap[String(n.id)] = a;
+        anchorMap[n.id] = a;
+      }
+      var pKey = String(n.x) + '_' + String(n.y);
+      if (!anchorMap[pKey]) anchorMap[pKey] = a;
+    });
+
+    notes.forEach(function (nt) {
+      if (nt.hidden) return;
+      var d = resolveNoteDims(nt);
+      var ntx = PAD + (Number(nt.x) || 0), nty = PAD + (Number(nt.y) || 0);
+      var a = {
+        id: nt.id,
+        type: 'note',
+        x: ntx, y: nty, w: d.w, h: d.h,
+        cx: ntx + d.w / 2, cy: nty + d.h / 2,
+        shape: 'rect',
+        rotation: Number(nt.rotation) || 0,
+        color: nt.borderColor || nt.color || '#555555'
+      };
+      if (nt.id != null) {
+        anchorMap[String(nt.id)] = a;
+        anchorMap[nt.id] = a;
+      }
+    });
+
+    groups.forEach(function (g) {
+      if (g.invisible) return;
+      var gx = PAD + (Number(g.x) || 0), gy = PAD + (Number(g.y) || 0);
+      var gw = Number(g.w || g.width || 280), gh = Number(g.h || g.height || 180);
+      var a = {
+        id: g.id,
+        type: 'group',
+        x: gx, y: gy, w: gw, h: gh,
+        cx: gx + gw / 2, cy: gy + gh / 2,
+        shape: 'rect',
+        rotation: 0,
+        color: g.borderColor || '#555555'
+      };
+      if (g.id != null) {
+        anchorMap[String(g.id)] = a;
+        anchorMap[g.id] = a;
+      }
+    });
+
+    // Edges (between nodes, notes, groups)
+    edges.forEach(function (e) {
+      var aId = e.a != null ? e.a : (e.from != null ? e.from : e.source);
+      var bId = e.b != null ? e.b : (e.to != null ? e.to : e.target);
+      var na = anchorMap[aId] || anchorMap[String(aId)];
+      var nb = anchorMap[bId] || anchorMap[String(bId)];
+      if (!na || !nb) return;
+
+      var ax = na.cx, ay = na.cy, bx = nb.cx, by = nb.cy;
+      if (e.anchorA) {
+        var ptA = computeAnchorPoint(na, e.anchorA);
+        if (ptA) { ax = ptA.x; ay = ptA.y; }
+      }
+      if (e.anchorB) {
+        var ptB = computeAnchorPoint(nb, e.anchorB);
+        if (ptB) { bx = ptB.x; by = ptB.y; }
+      }
+
+      var dx = bx - ax, dy = by - ay;
+      var dist = Math.hypot(dx, dy);
+      var x1 = ax, y1 = ay, x2 = bx, y2 = by;
+
+      if (dist > 8) {
+        var nx = dx / dist, ny = dy / dist;
+        var rawRA = !e.anchorA ? computeAnchorEdgeOffset(na, dx, dy) : 0;
+        var rawRB = !e.anchorB ? computeAnchorEdgeOffset(nb, -dx, -dy) : 0;
+        var rA = rawRA, rB = rawRB;
+        if (rawRA + rawRB + 8 > dist) {
+          var sScale = Math.max(0, (dist - 8) / ((rawRA + rawRB) || 1));
+          rA = rawRA * sScale;
+          rB = rawRB * sScale;
+        }
+        if (!e.anchorA) { x1 = ax + nx * rA; y1 = ay + ny * rA; }
+        if (!e.anchorB) { x2 = bx - nx * rB; y2 = by - ny * rB; }
+      }
+
+      var routing = e.routing || 'straight';
+      var strokeType = e.strokeType || (e.dashStyle === 'dashed' ? 'dashed' : (e.dashStyle === 'dotted' ? 'dotted' : 'solid'));
+      var curvature = (typeof e.curvature === 'number' && isFinite(curvature)) ? curvature : 0;
+      var edgeThick = Number(e.thickness) > 0 ? Number(e.thickness) : 2;
+      var t = e.type || 'none';
+      var term = e.terminator || 'arrow';
+
+      var geo = computeEdgeGeometry(x1, y1, x2, y2, routing, strokeType, curvature, edgeThick, t, term);
+
+      ctx.save();
+      var edgeColor = e.strokeColor || e.color || '#333333';
+      if (e.colorMode === 'auto' && na.color && nb.color && na.color !== nb.color) {
+        var grad = ctx.createLinearGradient(x1, y1, x2, y2);
+        grad.addColorStop(0, na.color);
+        grad.addColorStop(1, nb.color);
+        ctx.strokeStyle = grad;
+      } else {
+        ctx.strokeStyle = edgeColor;
+      }
+
+      ctx.lineWidth = edgeThick;
+      var edgeOp = (typeof e.opacity === 'number' && e.opacity >= 0.05 && e.opacity <= 1) ? e.opacity : 1;
+      ctx.globalAlpha = edgeOp;
+
+      if (strokeType === 'dashed' || e.dashStyle === 'dashed') {
+        ctx.setLineDash([edgeThick * 4, edgeThick * 2]);
+      } else if (strokeType === 'dotted' || e.dashStyle === 'dotted') {
+        ctx.setLineDash([Math.max(1, Math.round(edgeThick * 0.4)), Math.max(3, Math.round(edgeThick * 2.5))]);
+      } else {
+        ctx.setLineDash([]);
+      }
+
+      if (typeof Path2D !== 'undefined' && geo && geo.d) {
+        ctx.stroke(new Path2D(geo.d));
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+
+      // Draw terminators on canvas
+      if (t === 'forward' || t === 'both') {
+        var endAngle = Math.atan2(y2 - geo.cy, x2 - geo.cx);
+        drawCanvasTerminator(ctx, term, x2, y2, endAngle, edgeColor);
+      }
+      if (t === 'backward' || t === 'both') {
+        var startAngle = Math.atan2(geo.cy - y1, geo.cx - x1) + Math.PI;
+        drawCanvasTerminator(ctx, term, x1, y1, startAngle, edgeColor);
+      }
+
+      // Draw Label
+      var labelText = e.label ? String(e.label).trim() : '';
+      if (labelText) {
+        var lSize = Number(e.labelSize) > 0 ? Number(e.labelSize) : 11;
+        var lColor = e.labelColor || '#333333';
+        var lWeight = Number(e.labelWeight) || 600;
+        var dy = -Math.max(4, Math.round(lSize * 0.45));
+        var a = (geo.angle > 90 || geo.angle < -90) ? geo.angle + 180 : geo.angle;
+        var rad = a * Math.PI / 180;
+
+        ctx.save();
+        ctx.translate(geo.mx, geo.my);
+        ctx.rotate(rad);
+        ctx.font = lWeight + ' ' + lSize + 'px "Lexend", "Segoe UI", Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        if (e.labelBg || e.labelBgActive) {
+          var approxW = Math.max(20, Math.round(labelText.length * (lSize * 0.6) + 12));
+          var approxH = Math.max(14, Math.round(lSize * 1.25));
+          ctx.fillStyle = '#ffffff';
+          ctx.strokeStyle = '#111111';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          if (typeof ctx.roundRect === 'function') {
+            ctx.roundRect(-approxW / 2, dy - approxH / 2, approxW, approxH, 4);
+          } else {
+            ctx.rect(-approxW / 2, dy - approxH / 2, approxW, approxH);
+          }
+          ctx.fill();
+          ctx.stroke();
+        }
+
+        ctx.fillStyle = lColor;
+        ctx.fillText(labelText, 0, dy);
+        ctx.restore();
+      }
+
       ctx.restore();
     });
 
@@ -1483,7 +2064,18 @@
       ctx.restore();
     });
 
-    // Freehand Drawings
+    // Stickers (rendered before drawings so drawings are on top)
+    boardStickers.forEach(function (st) {
+      if (!st.emoji) return;
+      var sx = PAD + (Number(st.x) || 0), sy = PAD + (Number(st.y) || 0);
+      var sz = Number(st.size) || 36;
+      ctx.save();
+      ctx.font = sz + 'px "Segoe UI Emoji", Apple Color Emoji, sans-serif';
+      ctx.fillText(st.emoji, sx, sy + sz * 0.85);
+      ctx.restore();
+    });
+
+    // Freehand Drawings (rendered on top of nodes, notes, stickers, shapes, edges, and media)
     drawings.forEach(function (d) {
       if (!Array.isArray(d.points) || d.points.length < 2) return;
       ctx.save();
@@ -1510,17 +2102,6 @@
       ctx.globalAlpha = mOp;
       ctx.fillStyle = mColor;
       ctx.fillRect(mx, my, mw, mh);
-      ctx.restore();
-    });
-
-    // Stickers
-    boardStickers.forEach(function (st) {
-      if (!st.emoji) return;
-      var sx = PAD + (Number(st.x) || 0), sy = PAD + (Number(st.y) || 0);
-      var sz = Number(st.size) || 36;
-      ctx.save();
-      ctx.font = sz + 'px "Segoe UI Emoji", Apple Color Emoji, sans-serif';
-      ctx.fillText(st.emoji, sx, sy + sz * 0.85);
       ctx.restore();
     });
 

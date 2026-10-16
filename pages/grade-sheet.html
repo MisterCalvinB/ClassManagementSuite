@@ -871,6 +871,7 @@
           <div style="font-size:0.75rem;font-weight:700;color:var(--muted);margin-bottom:6px;text-transform:uppercase;" data-i18n="gsDupElemCriteria">Criteria</div>
           <div class="chip-group">
             <button type="button" class="chip active" data-elem="criteria" data-i18n="gsRefTabCriteria">Correction Criteria</button>
+            <button type="button" class="chip active" data-elem="markingDecisions" data-i18n="gsDupElemMarkingDecisions">Marking Decisions</button>
           </div>
         </div>
       </div>
@@ -4742,17 +4743,665 @@
       return null;
     }
 
+    function syncCriteriaRecordScoringDecisions(critArray, decList) {
+      if (!Array.isArray(critArray) || !Array.isArray(decList)) return;
+      for (const crit of critArray) {
+        if (!crit || !crit.name) continue;
+        const critDecs = [];
+        for (const testEntry of decList) {
+          if (!testEntry || !testEntry.criteriaDecisions) continue;
+          const rules = testEntry.criteriaDecisions[crit.name];
+          if (Array.isArray(rules)) {
+            const activeRules = rules.filter(r => String(r || '').trim().length > 0);
+            if (activeRules.length > 0) {
+              critDecs.push({
+                classTitle: testEntry.classTitle || '',
+                testName: testEntry.testName || '',
+                year: testEntry.year || '',
+                semester: testEntry.semester || '',
+                testDate: testEntry.testDate || '',
+                rules: activeRules
+              });
+            }
+          }
+        }
+        crit.scoringDecisions = critDecs;
+      }
+    }
+
+    function parseScoringDecisionsFileContent(content) {
+      if (!content || typeof content !== 'string') return [];
+      try {
+        const fn = new Function(content + '\n;try{return (typeof SCORING_DECISIONS !== "undefined" && Array.isArray(SCORING_DECISIONS)) ? SCORING_DECISIONS : ((typeof window !== "undefined" && Array.isArray(window.SCORING_DECISIONS)) ? window.SCORING_DECISIONS : []); }catch(e){return [];}');
+        const res = fn();
+        if (Array.isArray(res) && res.length) return res;
+      } catch (_) {}
+      try {
+        const obj = JSON.parse(content);
+        if (obj && Array.isArray(obj.scoringDecisions)) return obj.scoringDecisions;
+        if (obj && Array.isArray(obj.SCORING_DECISIONS)) return obj.SCORING_DECISIONS;
+      } catch (_) {}
+      // Fallback: reconstruct from criteria records if they contain scoringDecisions
+      try {
+        const critList = parseCriteriaFileContent(content);
+        if (Array.isArray(critList)) {
+          const synthesized = [];
+          for (const crit of critList) {
+            if (crit && crit.name && Array.isArray(crit.scoringDecisions)) {
+              for (const dec of crit.scoringDecisions) {
+                let entry = synthesized.find(e =>
+                  String(e.classTitle || '').trim().toLowerCase() === String(dec.classTitle || '').trim().toLowerCase() &&
+                  String(e.testName || '').trim().toLowerCase() === String(dec.testName || '').trim().toLowerCase()
+                );
+                if (!entry) {
+                  entry = {
+                    classTitle: dec.classTitle || '',
+                    testName: dec.testName || '',
+                    year: dec.year || '',
+                    semester: dec.semester || '',
+                    testDate: dec.testDate || '',
+                    criteriaDecisions: {}
+                  };
+                  synthesized.push(entry);
+                }
+                if (Array.isArray(dec.rules)) {
+                  entry.criteriaDecisions[crit.name] = [...dec.rules];
+                }
+              }
+            }
+          }
+          if (synthesized.length > 0) return synthesized;
+        }
+      } catch (_) {}
+      return [];
+    }
+
+    let _saveScoringDecisionsTimer = null;
+
+    function getTestCriteriaBankFilename(classObj, config) {
+      if (config && config.criteriaBank) return config.criteriaBank;
+      if (classObj && classObj.criteriaBank) return classObj.criteriaBank;
+      if (classObj && Array.isArray(classObj.criteriaBanks) && classObj.criteriaBanks.length && classObj.criteriaBanks[0]) {
+        return classObj.criteriaBanks[0];
+      }
+      return 'correction-criteria.js';
+    }
+
+    function getScoringDecisionsBank(bankFilename) {
+      const fn = bankFilename || 'correction-criteria.js';
+      const bank = (_availableCriteriaBanks || []).find(b => b.filename === fn);
+      if (bank) {
+        if (!Array.isArray(bank.scoringDecisions)) bank.scoringDecisions = [];
+        return { bank, filename: fn, list: bank.scoringDecisions };
+      }
+      if (!Array.isArray(window.SCORING_DECISIONS)) window.SCORING_DECISIONS = [];
+      return { bank: null, filename: fn || 'correction-criteria.js', list: window.SCORING_DECISIONS };
+    }
+
+    function findScoringDecisionsEntry({ classTitle, testName, criterionName, year, semester, testDate, bankFilename }) {
+      const { list } = getScoringDecisionsBank(bankFilename);
+      const cleanClass = String(classTitle || '').trim().toLowerCase();
+      const cleanTest = String(testName || '').trim().toLowerCase();
+      const cleanCrit = String(criterionName || '').trim();
+
+      // 1. Exact match on (classTitle, testName)
+      const exactMatch = list.find(entry =>
+        String(entry.classTitle || '').trim().toLowerCase() === cleanClass &&
+        String(entry.testName || '').trim().toLowerCase() === cleanTest
+      );
+
+      if (exactMatch && (!exactMatch.criteriaDecisions || typeof exactMatch.criteriaDecisions !== 'object')) {
+        exactMatch.criteriaDecisions = {};
+      }
+
+      if (exactMatch && cleanCrit) {
+        const rules = exactMatch.criteriaDecisions[cleanCrit];
+        if (Array.isArray(rules) && rules.some(r => String(r || '').trim().length > 0)) {
+          return {
+            entry: exactMatch,
+            rules: rules.filter(r => String(r || '').trim().length > 0),
+            rawRules: rules,
+            isCohort: false,
+            matchedClass: exactMatch.classTitle
+          };
+        }
+      }
+
+      // 2. Cohort match: parallel classes taking the same test in same year, semester, and date +/- 10 days
+      if (cleanTest) {
+        const targetYear = String(year || '').trim();
+        const targetSem = String(semester || '').trim().toLowerCase();
+        let targetDate = null;
+        if (testDate) {
+          const d = new Date(testDate);
+          if (!isNaN(d.getTime())) targetDate = d;
+        }
+
+        for (const entry of list) {
+          if (String(entry.classTitle || '').trim().toLowerCase() === cleanClass) continue;
+          if (String(entry.testName || '').trim().toLowerCase() !== cleanTest) continue;
+
+          // Check Year
+          if (targetYear && entry.year && String(entry.year).trim() !== targetYear) continue;
+
+          // Check Semester
+          if (targetSem && entry.semester && String(entry.semester).trim().toLowerCase() !== targetSem) continue;
+
+          // Check Date within 10 days if both have dates
+          if (targetDate && entry.testDate) {
+            const ed = new Date(entry.testDate);
+            if (!isNaN(ed.getTime())) {
+              const diffDays = Math.abs(targetDate.getTime() - ed.getTime()) / (1000 * 60 * 60 * 24);
+              if (diffDays > 10) continue;
+            }
+          }
+
+          if (cleanCrit) {
+            const rules = (entry.criteriaDecisions && entry.criteriaDecisions[cleanCrit]) || [];
+            const activeRules = rules.filter(r => String(r || '').trim().length > 0);
+            if (activeRules.length > 0) {
+              return {
+                entry,
+                rules: activeRules,
+                rawRules: rules,
+                isCohort: true,
+                matchedClass: entry.classTitle
+              };
+            }
+          }
+        }
+      }
+
+      return {
+        entry: exactMatch || null,
+        rules: [],
+        rawRules: exactMatch && cleanCrit ? (exactMatch.criteriaDecisions[cleanCrit] || []) : [],
+        isCohort: false,
+        matchedClass: classTitle
+      };
+    }
+
+    function getScoringDecisionsForTest(classTitle, testName, bankFilename, opts = {}) {
+      const res = findScoringDecisionsEntry({
+        classTitle,
+        testName,
+        criterionName: opts.criterionName,
+        year: opts.year,
+        semester: opts.semester,
+        testDate: opts.testDate,
+        bankFilename
+      });
+      return res.entry;
+    }
+
+    function ensureScoringDecisionsForTest(classTitle, testName, bankFilename, opts = {}) {
+      const { list, filename } = getScoringDecisionsBank(bankFilename);
+      const cleanClass = String(classTitle || '').trim().toLowerCase();
+      const cleanTest = String(testName || '').trim().toLowerCase();
+      let match = list.find(entry => 
+        String(entry.classTitle || '').trim().toLowerCase() === cleanClass &&
+        String(entry.testName || '').trim().toLowerCase() === cleanTest
+      );
+      if (!match) {
+        match = {
+          classTitle: String(classTitle || '').trim(),
+          testName: String(testName || '').trim(),
+          year: opts.year || '',
+          semester: opts.semester || '',
+          testDate: opts.testDate || '',
+          criteriaDecisions: {}
+        };
+        list.push(match);
+      } else {
+        if (!match.criteriaDecisions || typeof match.criteriaDecisions !== 'object') match.criteriaDecisions = {};
+        if (opts.year && !match.year) match.year = opts.year;
+        if (opts.semester && !match.semester) match.semester = opts.semester;
+        if (opts.testDate && !match.testDate) match.testDate = opts.testDate;
+      }
+      return match;
+    }
+
+    async function saveScoringDecisionsToBank(bankFilename) {
+      const targetFn = bankFilename || 'correction-criteria.js';
+      const { bank, list } = getScoringDecisionsBank(targetFn);
+
+      // Sync into in-memory criteria structures
+      if (typeof window.XLSM_CRITERIA !== 'undefined' && Array.isArray(window.XLSM_CRITERIA)) {
+        syncCriteriaRecordScoringDecisions(window.XLSM_CRITERIA, list);
+      }
+      if (bank && Array.isArray(bank.criteria)) {
+        syncCriteriaRecordScoringDecisions(bank.criteria, list);
+      }
+
+      try {
+        if (targetFn === 'correction-criteria.js') {
+          window.SCORING_DECISIONS = list;
+          localStorage.setItem('gradeSheetReferenceScoringDecisions.v1', JSON.stringify(list));
+          if (typeof window.XLSM_CRITERIA !== 'undefined' && Array.isArray(window.XLSM_CRITERIA)) {
+            localStorage.setItem('gradeSheetReferenceCriteria.v1', JSON.stringify(window.XLSM_CRITERIA));
+          }
+        } else {
+          localStorage.setItem('cmt-decisions-' + targetFn.replace(/\.(js|json)$/i, ''), JSON.stringify(list));
+          if (bank && Array.isArray(bank.criteria)) {
+            localStorage.setItem('cmt-criteria-' + targetFn.replace(/\.(js|json)$/i, ''), JSON.stringify(bank.criteria));
+          }
+        }
+      } catch (_) {}
+
+      if (window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron()) {
+        clearTimeout(_saveScoringDecisionsTimer);
+        _saveScoringDecisionsTimer = setTimeout(async () => {
+          try {
+            if (targetFn === 'correction-criteria.js') {
+              let existingCrit = (typeof XLSM_CRITERIA !== 'undefined' && Array.isArray(XLSM_CRITERIA)) ? XLSM_CRITERIA : [];
+              let existingChips = (typeof OBSERVATION_CHECKLIST_GROUPS !== 'undefined' && Array.isArray(OBSERVATION_CHECKLIST_GROUPS)) ? OBSERVATION_CHECKLIST_GROUPS : [];
+              try {
+                const rootRes = await Desktop.readText('user', 'correction-criteria.js');
+                if (rootRes && rootRes.ok && rootRes.content) {
+                  const parsedCrit = parseCriteriaFileContent(rootRes.content);
+                  if (Array.isArray(parsedCrit) && parsedCrit.length) existingCrit = parsedCrit;
+                  const chipFn = new Function(rootRes.content + '\n;try{return (typeof OBSERVATION_CHECKLIST_GROUPS !== "undefined") ? OBSERVATION_CHECKLIST_GROUPS : [];}catch(e){return [];}');
+                  const parsedChips = chipFn();
+                  if (Array.isArray(parsedChips) && parsedChips.length) existingChips = parsedChips;
+                }
+              } catch (_) {}
+              syncCriteriaRecordScoringDecisions(existingCrit, list);
+              const fileContent = `const XLSM_CRITERIA = ${JSON.stringify(existingCrit, null, 2)};\n` +
+                `const OBSERVATION_CHECKLIST_GROUPS = ${JSON.stringify(existingChips, null, 2)};\n` +
+                `const SCORING_DECISIONS = ${JSON.stringify(list, null, 2)};\n`;
+              await Desktop.saveText('user', 'correction-criteria.js', fileContent);
+            } else {
+              const isJson = targetFn.endsWith('.json');
+              if (isJson) {
+                let obj = {};
+                try {
+                  const res = await Desktop.readText('customCriteria', targetFn);
+                  if (res && res.content) obj = JSON.parse(res.content);
+                } catch (_) {}
+                if (Array.isArray(obj.criteria)) {
+                  syncCriteriaRecordScoringDecisions(obj.criteria, list);
+                }
+                obj.scoringDecisions = list;
+                await Desktop.saveText('customCriteria', targetFn, JSON.stringify(obj, null, 2));
+              } else {
+                let existingCrit = [];
+                try {
+                  const res = await Desktop.readText('customCriteria', targetFn);
+                  if (res && res.content) {
+                    const parsed = parseCriteriaFileContent(res.content);
+                    if (Array.isArray(parsed)) existingCrit = parsed;
+                  }
+                } catch (_) {}
+                syncCriteriaRecordScoringDecisions(existingCrit, list);
+                const fileContent = `// Criteria Bank: ${targetFn}\n` +
+                  `const XLSM_CRITERIA = ${JSON.stringify(existingCrit, null, 2)};\n` +
+                  `const SCORING_DECISIONS = ${JSON.stringify(list, null, 2)};\n`;
+                await Desktop.saveText('customCriteria', targetFn, fileContent);
+              }
+            }
+          } catch (err) {
+            console.warn('saveScoringDecisionsToBank error:', err);
+          }
+        }, 300);
+      }
+    }
+
+    let _activeCriterionPopover = null;
+
+    function closeCriterionDecisionsPopover() {
+      const popover = document.getElementById("smod-criterion-decisions-popover");
+      if (popover) {
+        popover.style.display = "none";
+        popover.dataset.activeCriterion = "";
+      }
+      if (_activeCriterionPopover) {
+        if (_activeCriterionPopover.rulesRef) {
+          const rList = _activeCriterionPopover.rulesRef;
+          for (let i = rList.length - 1; i >= 0; i--) {
+            if (String(rList[i] || '').trim() === '') {
+              rList.splice(i, 1);
+            }
+          }
+          if (_activeCriterionPopover.cohortSourceEntry && _activeCriterionPopover.critName) {
+            const srcEntry = _activeCriterionPopover.cohortSourceEntry;
+            if (!srcEntry.criteriaDecisions) srcEntry.criteriaDecisions = {};
+            srcEntry.criteriaDecisions[_activeCriterionPopover.critName] = JSON.parse(JSON.stringify(rList));
+          }
+          if (typeof _activeCriterionPopover.onUpdate === 'function') {
+            _activeCriterionPopover.onUpdate();
+          }
+          if (typeof _activeCriterionPopover.bankFn === 'string') {
+            saveScoringDecisionsToBank(_activeCriterionPopover.bankFn);
+          }
+        }
+        if (_activeCriterionPopover.cleanup) {
+          _activeCriterionPopover.cleanup();
+        }
+      }
+      _activeCriterionPopover = null;
+    }
+
+    function openCriterionDecisionsPopover({ buttonEl, criterion, classObj, config, commentTextarea, onUpdate }) {
+      let popover = document.getElementById("smod-criterion-decisions-popover");
+      if (!popover) {
+        popover = document.createElement("div");
+        popover.id = "smod-criterion-decisions-popover";
+        popover.className = "smod-crit-popover";
+        document.body.appendChild(popover);
+      }
+
+      if (popover.dataset.activeCriterion === criterion.name && popover.style.display !== 'none') {
+        closeCriterionDecisionsPopover();
+        return;
+      }
+      closeCriterionDecisionsPopover();
+
+      popover.dataset.activeCriterion = criterion.name;
+      popover.style.display = "flex";
+
+      const classTitle = classObj ? classObj.name : '';
+      const testName = (config && config.testName) ? config.testName : '';
+      const curYear = classObj?.year || (typeof CLASS_GROUPS !== 'undefined' ? CLASS_GROUPS.activeYear : '') || '';
+      const curSem = (typeof appState !== 'undefined' && appState.activeSemester) || (classObj && classObj.semester) || '';
+      const curDate = config?.testDate || '';
+      const criteriaBankFn = getTestCriteriaBankFilename(classObj, config);
+
+      const decInfo = findScoringDecisionsEntry({
+        classTitle,
+        testName,
+        criterionName: criterion.name,
+        year: curYear,
+        semester: curSem,
+        testDate: curDate,
+        bankFilename: criteriaBankFn
+      });
+
+      const localRecord = ensureScoringDecisionsForTest(classTitle, testName, criteriaBankFn, {
+        year: curYear,
+        semester: curSem,
+        testDate: curDate
+      });
+
+      if (!localRecord.criteriaDecisions || typeof localRecord.criteriaDecisions !== 'object') {
+        localRecord.criteriaDecisions = {};
+      }
+      if (!Array.isArray(localRecord.criteriaDecisions[criterion.name])) {
+        localRecord.criteriaDecisions[criterion.name] = [];
+      }
+
+      // If local record has no rules but cohort match does, seed from cohort
+      let cohortSourceEntry = null;
+      if (decInfo.isCohort && decInfo.rules.length > 0) {
+        cohortSourceEntry = decInfo.entry;
+        if (localRecord.criteriaDecisions[criterion.name].length === 0 || localRecord.criteriaDecisions[criterion.name].every(r => !String(r || '').trim())) {
+          localRecord.criteriaDecisions[criterion.name] = JSON.parse(JSON.stringify(decInfo.rules));
+        }
+      }
+
+      const rules = localRecord.criteriaDecisions[criterion.name];
+      if (rules.length === 0) {
+        rules.push("");
+      }
+
+      function renderPopoverContent() {
+        popover.innerHTML = "";
+
+        // Header
+        const header = document.createElement("div");
+        header.className = "smod-crit-popover-header";
+
+        const titleWrap = document.createElement("div");
+        titleWrap.className = "smod-crit-popover-title-wrap";
+
+        const titleEl = document.createElement("div");
+        titleEl.className = "smod-crit-popover-title";
+        const titleText = (typeof tFmt === 'function' ? tFmt('gsCritMarkingDecisionsTitle', { criterion: criterion.name }) : null) || `Marking Decisions: ${criterion.name}`;
+        titleEl.innerHTML = `<span>⚖</span> <span>${escapeHtml(titleText)}</span>`;
+
+        const subEl = document.createElement("div");
+        subEl.className = "smod-crit-popover-sub";
+        const displayTestName = testName || (t('gsDupLabelTest') + ' ' + ((config && config.testIndex != null ? config.testIndex + 1 : 1)));
+        const subText = (typeof tFmt === 'function' ? tFmt('gsCritMarkingDecisionsSub', { class: classTitle || 'Class', test: displayTestName }) : null) || `Class: ${classTitle || 'Class'} • Test: ${displayTestName}`;
+        subEl.textContent = subText;
+
+        titleWrap.appendChild(titleEl);
+        titleWrap.appendChild(subEl);
+
+        if (decInfo.isCohort && decInfo.matchedClass) {
+          const cohortBadge = document.createElement("div");
+          cohortBadge.className = "smod-popover-cohort-badge";
+          const syncLabel = (typeof tFmt === 'function' ? tFmt('gsCohortSyncWith', { class: decInfo.matchedClass }) : null) || `Cohort synced with ${decInfo.matchedClass}`;
+          cohortBadge.textContent = `🔗 ${syncLabel}`;
+          cohortBadge.title = t('gsCohortSyncDesc', 'Decisions automatically synchronized across parallel classes within 10 days');
+          titleWrap.appendChild(cohortBadge);
+        }
+
+        const closeBtn = document.createElement("button");
+        closeBtn.type = "button";
+        closeBtn.className = "smod-crit-popover-close";
+        closeBtn.textContent = "✕";
+        closeBtn.onclick = closeCriterionDecisionsPopover;
+
+        header.appendChild(titleWrap);
+        header.appendChild(closeBtn);
+        popover.appendChild(header);
+
+        // Body
+        const bodyEl = document.createElement("div");
+        bodyEl.className = "smod-crit-popover-body";
+
+        const list = document.createElement("ol");
+        list.className = "smod-decision-list";
+
+        rules.forEach((ruleText, idx) => {
+          const item = document.createElement("li");
+          item.className = "smod-decision-item";
+
+          const numSpan = document.createElement("span");
+          numSpan.className = "smod-decision-num";
+          numSpan.textContent = `${idx + 1}.`;
+
+          const input = document.createElement("input");
+          input.type = "text";
+          input.className = "smod-decision-input";
+          input.value = ruleText;
+          input.placeholder = t('gsPlaceholderDecision', 'Describe scoring rule or decision...');
+          input.addEventListener("input", () => {
+            rules[idx] = input.value;
+            if (cohortSourceEntry) {
+              if (!cohortSourceEntry.criteriaDecisions) cohortSourceEntry.criteriaDecisions = {};
+              cohortSourceEntry.criteriaDecisions[criterion.name] = [...rules];
+            }
+            saveScoringDecisionsToBank(criteriaBankFn);
+            if (typeof onUpdate === 'function') onUpdate();
+          });
+
+          const actionsWrap = document.createElement("div");
+          actionsWrap.className = "smod-decision-actions";
+
+          // Up button
+          const upBtn = document.createElement("button");
+          upBtn.type = "button";
+          upBtn.className = "smod-decision-btn";
+          upBtn.textContent = "▲";
+          upBtn.title = "Move Up";
+          upBtn.disabled = (idx === 0);
+          upBtn.onclick = () => {
+            if (idx > 0) {
+              const tmp = rules[idx];
+              rules[idx] = rules[idx - 1];
+              rules[idx - 1] = tmp;
+              if (cohortSourceEntry) {
+                if (!cohortSourceEntry.criteriaDecisions) cohortSourceEntry.criteriaDecisions = {};
+                cohortSourceEntry.criteriaDecisions[criterion.name] = [...rules];
+              }
+              saveScoringDecisionsToBank(criteriaBankFn);
+              if (typeof onUpdate === 'function') onUpdate();
+              renderPopoverContent();
+            }
+          };
+
+          // Down button
+          const downBtn = document.createElement("button");
+          downBtn.type = "button";
+          downBtn.className = "smod-decision-btn";
+          downBtn.textContent = "▼";
+          downBtn.title = "Move Down";
+          downBtn.disabled = (idx === rules.length - 1);
+          downBtn.onclick = () => {
+            if (idx < rules.length - 1) {
+              const tmp = rules[idx];
+              rules[idx] = rules[idx + 1];
+              rules[idx + 1] = tmp;
+              if (cohortSourceEntry) {
+                if (!cohortSourceEntry.criteriaDecisions) cohortSourceEntry.criteriaDecisions = {};
+                cohortSourceEntry.criteriaDecisions[criterion.name] = [...rules];
+              }
+              saveScoringDecisionsToBank(criteriaBankFn);
+              if (typeof onUpdate === 'function') onUpdate();
+              renderPopoverContent();
+            }
+          };
+
+          // Insert into comment button
+          const insertBtn = document.createElement("button");
+          insertBtn.type = "button";
+          insertBtn.className = "smod-decision-btn smod-decision-btn-comment";
+          insertBtn.textContent = t('gsBtnInsertComment', '➔ Comment');
+          insertBtn.title = t('gsBtnInsertCommentTitle', "Insert this decision into the student's comment");
+          insertBtn.onclick = () => {
+            const ruleVal = String(rules[idx] || '').trim();
+            if (ruleVal && commentTextarea) {
+              const cur = commentTextarea.value.trim();
+              commentTextarea.value = cur ? `${cur}\n• ${ruleVal}` : `• ${ruleVal}`;
+              commentTextarea.dispatchEvent(new Event('input', { bubbles: true }));
+              if (typeof showToast === 'function') {
+                showToast(t('gsDecisionInserted', 'Inserted into comment'));
+              }
+            }
+          };
+
+          // Delete button
+          const delBtn = document.createElement("button");
+          delBtn.type = "button";
+          delBtn.className = "smod-decision-btn smod-decision-btn-del";
+          delBtn.textContent = "✕";
+          delBtn.title = "Delete";
+          delBtn.onclick = () => {
+            rules.splice(idx, 1);
+            if (rules.length === 0) {
+              rules.push("");
+            }
+            if (cohortSourceEntry) {
+              if (!cohortSourceEntry.criteriaDecisions) cohortSourceEntry.criteriaDecisions = {};
+              cohortSourceEntry.criteriaDecisions[criterion.name] = [...rules];
+            }
+            saveScoringDecisionsToBank(criteriaBankFn);
+            if (typeof onUpdate === 'function') onUpdate();
+            renderPopoverContent();
+          };
+
+          actionsWrap.append(upBtn, downBtn, insertBtn, delBtn);
+          item.append(numSpan, input, actionsWrap);
+          list.appendChild(item);
+        });
+
+        bodyEl.appendChild(list);
+        popover.appendChild(bodyEl);
+
+        // Footer
+        const footer = document.createElement("div");
+        footer.className = "smod-crit-popover-footer";
+
+        const addBtn = document.createElement("button");
+        addBtn.type = "button";
+        addBtn.className = "smod-crit-popover-add-btn";
+        addBtn.textContent = t('gsBtnAddDecision', '+ Add decision');
+        addBtn.onclick = () => {
+          rules.push("");
+          if (cohortSourceEntry) {
+            if (!cohortSourceEntry.criteriaDecisions) cohortSourceEntry.criteriaDecisions = {};
+            cohortSourceEntry.criteriaDecisions[criterion.name] = [...rules];
+          }
+          saveScoringDecisionsToBank(criteriaBankFn);
+          if (typeof onUpdate === 'function') onUpdate();
+          renderPopoverContent();
+          const inputs = popover.querySelectorAll(".smod-decision-input");
+          if (inputs.length) {
+            const last = inputs[inputs.length - 1];
+            last.focus();
+          }
+        };
+
+        footer.appendChild(addBtn);
+        popover.appendChild(footer);
+
+        // Position popover relative to buttonEl
+        const rect = buttonEl.getBoundingClientRect();
+        const popWidth = 380;
+        let left = rect.left;
+        if (left + popWidth > window.innerWidth - 12) {
+          left = Math.max(12, window.innerWidth - popWidth - 12);
+        }
+        let top = rect.bottom + 6;
+        const popHeight = 280;
+        if (top + popHeight > window.innerHeight - 12) {
+          top = Math.max(12, rect.top - popHeight - 6);
+        }
+        popover.style.left = `${left}px`;
+        popover.style.top = `${top}px`;
+      }
+
+      renderPopoverContent();
+
+      const firstInput = popover.querySelector(".smod-decision-input");
+      if (firstInput && !firstInput.value) {
+        setTimeout(() => firstInput.focus(), 30);
+      }
+
+      function onDocClick(e) {
+        if (!popover.contains(e.target) && !buttonEl.contains(e.target)) {
+          closeCriterionDecisionsPopover();
+        }
+      }
+      function onDocKeydown(e) {
+        if (e.key === 'Escape') {
+          closeCriterionDecisionsPopover();
+        }
+      }
+
+      setTimeout(() => {
+        document.addEventListener("click", onDocClick);
+        document.addEventListener("keydown", onDocKeydown);
+      }, 10);
+
+      _activeCriterionPopover = {
+        rulesRef: rules,
+        critName: criterion.name,
+        cohortSourceEntry,
+        onUpdate,
+        bankFn: criteriaBankFn,
+        cleanup() {
+          document.removeEventListener("click", onDocClick);
+          document.removeEventListener("keydown", onDocKeydown);
+        }
+      };
+    }
+
     async function loadAvailableCriteriaBanks() {
       const banks = [];
 
-      // 1. Default bank from correction-criteria.js (XLSM_CRITERIA)
+      // 1. Default bank from correction-criteria.js (XLSM_CRITERIA & SCORING_DECISIONS)
       let defaultCriteria = (typeof XLSM_CRITERIA !== 'undefined' && Array.isArray(XLSM_CRITERIA)) ? XLSM_CRITERIA : [];
-      if (!defaultCriteria.length && window.Desktop && typeof Desktop.readText === 'function') {
+      let defaultDecisions = (typeof SCORING_DECISIONS !== 'undefined' && Array.isArray(SCORING_DECISIONS)) ? SCORING_DECISIONS : [];
+      if (window.Desktop && typeof Desktop.readText === 'function') {
         try {
           const rootRes = await Desktop.readText('user', 'correction-criteria.js');
           if (rootRes && rootRes.ok && rootRes.content) {
             const parsed = parseCriteriaFileContent(rootRes.content);
             if (Array.isArray(parsed) && parsed.length) defaultCriteria = parsed;
+            const parsedDec = parseScoringDecisionsFileContent(rootRes.content);
+            if (Array.isArray(parsedDec) && parsedDec.length) defaultDecisions = parsedDec;
           }
         } catch (_) {}
       }
@@ -4765,12 +5414,24 @@
           }
         } catch (_) {}
       }
+      if (!defaultDecisions.length) {
+        try {
+          const lsDec = localStorage.getItem('gradeSheetReferenceScoringDecisions.v1');
+          if (lsDec) {
+            const parsedDec = JSON.parse(lsDec);
+            if (Array.isArray(parsedDec) && parsedDec.length) defaultDecisions = parsedDec;
+          }
+        } catch (_) {}
+      }
+
+      window.SCORING_DECISIONS = defaultDecisions;
 
       banks.push({
         id: 'default',
         filename: 'correction-criteria.js',
         name: t('gsCriteriaBankDefault', 'Default (correction-criteria.js)'),
-        criteria: defaultCriteria
+        criteria: defaultCriteria,
+        scoringDecisions: defaultDecisions
       });
 
       // 2. Custom criteria banks in customCriteria (user/custom-data/criteria)
@@ -4787,13 +5448,15 @@
               const content = fileRes?.content || (typeof fileRes === 'string' ? fileRes : null);
               if (content) {
                 const critArr = parseCriteriaFileContent(content);
+                const decArr = parseScoringDecisionsFileContent(content);
                 if (Array.isArray(critArr)) {
                   if (!banks.some(b => b.filename === fn)) {
                     banks.push({
                       id: fn,
                       filename: fn,
                       name: fn.replace(/\.(js|json)$/i, ''),
-                      criteria: critArr
+                      criteria: critArr,
+                      scoringDecisions: decArr
                     });
                   }
                 }
@@ -4814,6 +5477,12 @@
           if (key && (key.startsWith('cmt-criteria-') || key.startsWith('custom-criteria-'))) {
             try {
               const val = JSON.parse(localStorage.getItem(key));
+              const decKey = 'cmt-decisions-' + key.replace(/^(cmt|custom)-criteria-/, '');
+              let decArr = [];
+              try {
+                const decLs = localStorage.getItem(decKey);
+                if (decLs) decArr = JSON.parse(decLs);
+              } catch (_) {}
               if (Array.isArray(val)) {
                 const fname = key.replace(/^(cmt|custom)-criteria-/, '') + '.js';
                 if (!banks.some(b => b.filename === fname)) {
@@ -4821,7 +5490,8 @@
                     id: fname,
                     filename: fname,
                     name: fname.replace(/\.(js|json)$/i, ''),
-                    criteria: val
+                    criteria: val,
+                    scoringDecisions: decArr
                   });
                 }
               }
@@ -5338,8 +6008,11 @@
             if (!existingCriteria.length && typeof XLSM_CRITERIA !== 'undefined' && Array.isArray(XLSM_CRITERIA)) {
               existingCriteria = XLSM_CRITERIA;
             }
+            const decToSave = (typeof window.SCORING_DECISIONS !== 'undefined' && Array.isArray(window.SCORING_DECISIONS)) ? window.SCORING_DECISIONS : [];
+            syncCriteriaRecordScoringDecisions(existingCriteria, decToSave);
             const content = `const XLSM_CRITERIA = ${JSON.stringify(existingCriteria, null, 2)};\n` +
-              `const OBSERVATION_CHECKLIST_GROUPS = ${JSON.stringify(updatedChipGroups, null, 2)};\n`;
+              `const OBSERVATION_CHECKLIST_GROUPS = ${JSON.stringify(updatedChipGroups, null, 2)};\n` +
+              `const SCORING_DECISIONS = ${JSON.stringify(decToSave, null, 2)};\n`;
             await Desktop.saveText('user', 'correction-criteria.js', content);
           } catch (e) {
             console.warn('Error saving observation chips to correction-criteria.js:', e);
@@ -7052,25 +7725,33 @@
         const savePromises = [];
 
         // Save correction-criteria.js (default criteria + default chips if default, or only chips if editing a different criteria bank)
+        const decToSave = (typeof window.SCORING_DECISIONS !== 'undefined' && Array.isArray(window.SCORING_DECISIONS)) ? window.SCORING_DECISIONS : [];
+        syncCriteriaRecordScoringDecisions(criteria, decToSave);
         if (activeCriteriaFn === 'correction-criteria.js') {
           const chipsToSaveInCriteriaFile = (activeChipFn === 'correction-criteria.js')
             ? personalisedChips
             : (typeof OBSERVATION_CHECKLIST_GROUPS !== 'undefined' ? OBSERVATION_CHECKLIST_GROUPS : []);
           const criteriaText = `const XLSM_CRITERIA = ${JSON.stringify(criteria, null, 2)};\n` +
-            `const OBSERVATION_CHECKLIST_GROUPS = ${JSON.stringify(chipsToSaveInCriteriaFile, null, 2)};\n`;
+            `const OBSERVATION_CHECKLIST_GROUPS = ${JSON.stringify(chipsToSaveInCriteriaFile, null, 2)};\n` +
+            `const SCORING_DECISIONS = ${JSON.stringify(decToSave, null, 2)};\n`;
           savePromises.push(Desktop.saveText("user", "correction-criteria.js", criteriaText));
         } else {
           // Save to custom criteria file
+          const customDecToSave = criteriaBankEntry?.scoringDecisions || [];
+          syncCriteriaRecordScoringDecisions(criteria, customDecToSave);
           const isJson = activeCriteriaFn.endsWith('.json');
           const customCriteriaText = isJson
-            ? JSON.stringify(criteria, null, 2)
-            : `// XLSM_CRITERIA\nconst XLSM_CRITERIA = ${JSON.stringify(criteria, null, 2)};\n`;
+            ? JSON.stringify({ criteria, scoringDecisions: customDecToSave }, null, 2)
+            : `// XLSM_CRITERIA\nconst XLSM_CRITERIA = ${JSON.stringify(criteria, null, 2)};\n` +
+              `const SCORING_DECISIONS = ${JSON.stringify(customDecToSave, null, 2)};\n`;
           savePromises.push(Desktop.saveText("customCriteria", activeCriteriaFn, customCriteriaText));
           // Also make sure correction-criteria.js is preserved (chips may still live there)
           if (activeChipFn === 'correction-criteria.js') {
             const existingCriteria = (typeof XLSM_CRITERIA !== 'undefined' && Array.isArray(XLSM_CRITERIA)) ? XLSM_CRITERIA : [];
+            syncCriteriaRecordScoringDecisions(existingCriteria, decToSave);
             const defaultCriteriaText = `const XLSM_CRITERIA = ${JSON.stringify(existingCriteria, null, 2)};\n` +
-              `const OBSERVATION_CHECKLIST_GROUPS = ${JSON.stringify(personalisedChips, null, 2)};\n`;
+              `const OBSERVATION_CHECKLIST_GROUPS = ${JSON.stringify(personalisedChips, null, 2)};\n` +
+              `const SCORING_DECISIONS = ${JSON.stringify(decToSave, null, 2)};\n`;
             savePromises.push(Desktop.saveText("user", "correction-criteria.js", defaultCriteriaText));
           }
         }
@@ -14064,7 +14745,11 @@
       if (!pages) { await showAlert(t('gsAlertNoStudentsCriteria')); return; }
 
       const autoScaleScript = (typeof getReportAutoScaleScript === 'function') ? getReportAutoScaleScript(isLandscape, fitToOnePage) : '';
-      const htmlDoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${t('gsReportTestResultsTitle') || 'Results'} — ${esc(classObj.name)} ${esc(sem.toUpperCase())} T${testNo}</title><style>${pageCSS}</style></head><body>${pages}${autoScaleScript}</body></html>`;
+      let htmlDoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${t('gsReportTestResultsTitle') || 'Results'} — ${esc(classObj.name)} ${esc(sem.toUpperCase())} T${testNo}</title><style>${pageCSS}</style></head><body>${pages}${autoScaleScript}</body></html>`;
+      if (window.ExportStylesService) {
+        const sId = ExportStylesService.getSelectedStyle('gradeSheet');
+        htmlDoc = await ExportStylesService.injectStyleIntoHtml(htmlDoc, sId, 'gradeSheet');
+      }
       if (window.Desktop && Desktop.isElectron()) {
         try {
           const defaultName = `${slugifyForPath(classObj.name || "class")}-${sem}-t${testNo}-${new Date().toISOString().slice(0, 10)}.pdf`;
@@ -18795,9 +19480,67 @@
           const tr2 = document.createElement("tr");
 
           const tdName = document.createElement("td");
-          tdName.style.fontWeight = "600";
-          tdName.style.whiteSpace = "nowrap";
-          tdName.textContent = criterion.name;
+          tdName.className = "smod-crit-name-cell";
+          const nameWrap = document.createElement("div");
+          nameWrap.className = "smod-crit-name-wrap";
+
+          const nameSpan = document.createElement("span");
+          nameSpan.className = "smod-crit-name-text";
+          nameSpan.textContent = criterion.name;
+          nameWrap.appendChild(nameSpan);
+
+          const decBtn = document.createElement("button");
+          decBtn.type = "button";
+          decBtn.className = "smod-crit-decisions-btn";
+          decBtn.title = t('gsCritMarkingDecisions', 'Marking Decisions');
+
+          function updateCritDecBtn() {
+            const curYear = classObj?.year || (typeof CLASS_GROUPS !== 'undefined' ? CLASS_GROUPS.activeYear : '') || '';
+            const curSem = sem || (typeof appState !== 'undefined' && appState.activeSemester) || (classObj && classObj.semester) || '';
+            const critBankFn = getTestCriteriaBankFilename(classObj, config);
+            const decInfo = findScoringDecisionsEntry({
+              classTitle: classObj ? classObj.name : '',
+              testName: config ? config.testName : '',
+              criterionName: criterion.name,
+              year: curYear,
+              semester: curSem,
+              testDate: config ? config.testDate : '',
+              bankFilename: critBankFn
+            });
+            const critRules = decInfo.rules || [];
+            if (critRules.length > 0) {
+              decBtn.classList.add("has-decisions");
+              if (decInfo.isCohort) {
+                decBtn.classList.add("is-cohort");
+                const syncMsg = (typeof tFmt === 'function' ? tFmt('gsCohortSyncWith', { class: decInfo.matchedClass }) : null) || `Cohort synced with ${decInfo.matchedClass}`;
+                decBtn.title = `${t('gsCritMarkingDecisions', 'Marking Decisions')} (${syncMsg})`;
+              } else {
+                decBtn.classList.remove("is-cohort");
+                decBtn.title = t('gsCritMarkingDecisions', 'Marking Decisions');
+              }
+              decBtn.textContent = `? ${critRules.length}`;
+            } else {
+              decBtn.classList.remove("has-decisions", "is-cohort");
+              decBtn.title = t('gsCritMarkingDecisions', 'Marking Decisions');
+              decBtn.textContent = "+";
+            }
+          }
+          updateCritDecBtn();
+
+          decBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            openCriterionDecisionsPopover({
+              buttonEl: decBtn,
+              criterion,
+              classObj,
+              config,
+              commentTextarea: commentEls[criterion.id],
+              onUpdate: updateCritDecBtn
+            });
+          });
+
+          nameWrap.appendChild(decBtn);
+          tdName.appendChild(nameWrap);
 
           const tdPts = document.createElement("td");
           const ptsCellWrap = document.createElement("div");
@@ -19826,6 +20569,20 @@
         if (isSelected("nextGradeHighlightPoints")) destConfig.nextGradeHighlightPoints = srcConfig.nextGradeHighlightPoints != null ? srcConfig.nextGradeHighlightPoints : 0;
 
         if (isSelected("criteria")) destConfig.criteria = JSON.parse(JSON.stringify(srcConfig.criteria || []));
+
+        if (isSelected("markingDecisions")) {
+          const bankFn = getTestCriteriaBankFilename(destClass, destConfig);
+          const srcDec = getScoringDecisionsForTest(srcClass.name, srcConfig.testName, bankFn);
+          if (srcDec && srcDec.criteriaDecisions) {
+            const destDec = ensureScoringDecisionsForTest(destClass.name, destConfig.testName, bankFn, {
+              year: destClass.year || '',
+              semester: destSem || '',
+              testDate: destConfig.testDate || ''
+            });
+            destDec.criteriaDecisions = JSON.parse(JSON.stringify(srcDec.criteriaDecisions));
+            saveScoringDecisionsToBank(bankFn);
+          }
+        }
 
         destClass.testConfigs[destSem][destTestIdx] = destConfig;
 
@@ -21949,6 +22706,10 @@ ${blocks}
       // Ensure criteria banks are loaded so getTestCriteriaBank() works for custom banks
       await loadAvailableCriteriaBanks().catch(() => {});
       let html = buildCriteriaRefHtml(config, classObj, semester, testIndex);
+      if (window.ExportStylesService) {
+        const sId = ExportStylesService.getSelectedStyle('gradeSheet');
+        html = await ExportStylesService.injectStyleIntoHtml(html, sId, 'gradeSheet');
+      }
       const slug = slugifyForPath(classObj.name || "class");
       const defaultName = `${slug}-${semester}-t${testIndex + 1}-criteria-reference-${new Date().toISOString().slice(0, 10)}.pdf`;
 
@@ -22676,7 +23437,11 @@ ${blocks}
     async function printSemesterGrades(classObj, sem) {
       ensureClassStructures(classObj);
       const report = buildSemesterReportData(classObj, sem);
-      const html = buildSemesterReportHtml(report);
+      let html = buildSemesterReportHtml(report);
+      if (window.ExportStylesService) {
+        const sId = ExportStylesService.getSelectedStyle('gradeSheet');
+        html = await ExportStylesService.injectStyleIntoHtml(html, sId, 'gradeSheet');
+      }
 
       if (window.Desktop && Desktop.isElectron()) {
         try {

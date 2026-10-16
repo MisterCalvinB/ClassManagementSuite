@@ -1964,6 +1964,18 @@
     window.selectReportScope(state.reportScope);
     window.selectExportFormat(state.exportFormat || 'preview');
 
+    // Ensure no stale poisoned style tag in document.head
+    var staleTheme = document.getElementById('ag-preview-export-theme');
+    if (staleTheme && staleTheme.parentNode) {
+      staleTheme.parentNode.removeChild(staleTheme);
+    }
+
+    if (window.ExportStylesService) {
+      ExportStylesService.renderStyleSelector(document.getElementById('ag-export-style-selector-wrap'), {
+        toolKey: 'adminGroups'
+      });
+    }
+
     modal.classList.add('active');
   };
 
@@ -2195,7 +2207,22 @@
       else if (fmt === 'csv') exportToCsv(scopedStudents, cat, baseFilename);
       else if (fmt === 'docx') exportToDocx(scopedStudents, cat, baseFilename);
       else if (fmt === 'html') exportToHtml(scopedStudents, cat, baseFilename);
-      else if (fmt === 'pdf' || fmt === 'preview') window.print();
+      else if (fmt === 'pdf') {
+        var catTitle = 'Administrative Roster — ' + (state.currentGroupId === 'all' ? (isFrench() ? 'Toutes les classes' : 'All Classes') : state.currentGroupId) + ' (' + cat + ')';
+        var catHtml = buildCategoryTableFullHtml(scopedStudents, cat, baseFilename);
+        if (window.ExportStylesService) {
+          catHtml = await ExportStylesService.injectStyleIntoHtml(catHtml, ExportStylesService.getSelectedStyle('adminGroups'), 'adminGroups');
+        }
+        await exportHtmlToPdf(catHtml, baseFilename, catTitle);
+      } else if (fmt === 'preview') {
+        var catTitle = 'Administrative Roster — ' + (state.currentGroupId === 'all' ? (isFrench() ? 'Toutes les classes' : 'All Classes') : state.currentGroupId) + ' (' + cat + ')';
+        var catReportHtml = buildCategoryTableBodyHtml(scopedStudents, cat, baseFilename);
+        openReportPreview(catReportHtml, catTitle, {
+          students: scopedStudents,
+          category: cat,
+          filename: baseFilename
+        });
+      }
 
       window.closeExportModal();
       return;
@@ -2218,20 +2245,18 @@
       });
     } else if (fmt === 'html') {
       var fullHtml = AdminReports.buildFullStandaloneHtmlReport(reportTitle, reportBodyHtml);
+      if (window.ExportStylesService) {
+        fullHtml = await ExportStylesService.injectStyleIntoHtml(fullHtml, ExportStylesService.getSelectedStyle('adminGroups'), 'adminGroups');
+      }
       await saveExportFile(filenameSlug + '.html', fullHtml, 'text/html;charset=utf-8', { allowDocEditor: true });
       window.closeExportModal();
     } else if (fmt === 'pdf') {
       window.closeExportModal();
-      openReportPreview(reportBodyHtml, reportTitle, {
-        students: scopedStudents,
-        cohortStats: cohortStats,
-        activePeriods: activePeriods,
-        scope: scope,
-        groupName: groupName,
-        periodLabel: periodLabel,
-        filename: filenameSlug
-      });
-      setTimeout(function () { window.print(); }, 400);
+      var fullPdfHtml = AdminReports.buildFullStandaloneHtmlReport(reportTitle, reportBodyHtml);
+      if (window.ExportStylesService) {
+        fullPdfHtml = await ExportStylesService.injectStyleIntoHtml(fullPdfHtml, ExportStylesService.getSelectedStyle('adminGroups'), 'adminGroups');
+      }
+      await exportHtmlToPdf(fullPdfHtml, filenameSlug, reportTitle);
     } else if (fmt === 'xlsx') {
       await AdminReports.exportToXlsxWorkbook(scopedStudents, cohortStats, activePeriods, {
         groupName: groupName,
@@ -2257,10 +2282,39 @@
 
     var modal = document.getElementById('agReportPreviewModal');
     var titleEl = document.getElementById('agPreviewReportTitle');
-    var contentEl = document.getElementById('agReportPreviewContent');
+    var iframe = document.getElementById('agReportPreviewIframe');
 
     if (titleEl) titleEl.textContent = title || 'Report Live Preview';
-    if (contentEl) contentEl.innerHTML = htmlContent;
+
+    var reportTitle = title || 'Administrative Report';
+    var fullHtml = AdminReports.buildFullStandaloneHtmlReport(reportTitle, htmlContent);
+
+    if (iframe) {
+      iframe.srcdoc = fullHtml;
+      var sId = window.ExportStylesService ? ExportStylesService.getSelectedStyle('adminGroups') : 'export-light-neobrutalist.css';
+      iframe.onload = function () {
+        if (window.ExportStylesService) {
+          ExportStylesService.applyStyleToIframe(iframe, sId);
+        }
+      };
+      if (window.ExportStylesService) {
+        ExportStylesService.applyStyleToIframe(iframe, sId);
+      }
+    }
+
+    if (window.ExportStylesService) {
+      var curStyleId = ExportStylesService.getSelectedStyle('adminGroups');
+      ExportStylesService.renderStyleSelector(document.getElementById('ag-preview-style-selector-wrap'), {
+        toolKey: 'adminGroups',
+        currentStyleId: curStyleId,
+        onChange: function (newStyleId) {
+          if (iframe) {
+            ExportStylesService.applyStyleToIframe(iframe, newStyleId);
+          }
+        }
+      });
+    }
+
     if (modal) modal.classList.add('active');
   }
 
@@ -2269,17 +2323,91 @@
     if (modal) modal.classList.remove('active');
   };
 
-  window.printPreviewReport = function () {
-    window.print();
+  window.printPreviewReport = async function () {
+    if (!state.lastGeneratedReport) return;
+    var title = state.lastGeneratedReport.title || 'Administrative Report';
+    var fullHtml = AdminReports.buildFullStandaloneHtmlReport(title, state.lastGeneratedReport.html);
+    if (window.ExportStylesService) {
+      fullHtml = await ExportStylesService.injectStyleIntoHtml(fullHtml, ExportStylesService.getSelectedStyle('adminGroups'), 'adminGroups');
+    }
+    var filename = (title.toLowerCase().replace(/[^a-z0-9_-]/g, '_')) + '_' + (new Date().toISOString().split('T')[0]);
+    await exportHtmlToPdf(fullHtml, filename, title);
   };
 
   window.downloadPreviewHtml = async function () {
     if (!state.lastGeneratedReport) return;
     var title = state.lastGeneratedReport.title;
     var fullHtml = AdminReports.buildFullStandaloneHtmlReport(title, state.lastGeneratedReport.html);
+    if (window.ExportStylesService) {
+      fullHtml = await ExportStylesService.injectStyleIntoHtml(fullHtml, ExportStylesService.getSelectedStyle('adminGroups'), 'adminGroups');
+    }
     var filename = (title.toLowerCase().replace(/[^a-z0-9_-]/g, '_')) + '_' + (new Date().toISOString().split('T')[0]);
     await saveExportFile(filename + '.html', fullHtml, 'text/html;charset=utf-8', { allowDocEditor: true });
   };
+
+  // ── Vector PDF Exporter (Electron Desktop.printPdf & Browser Fallback) ──
+  async function exportHtmlToPdf(fullHtml, filenameSlug, title) {
+    var defaultName = filenameSlug + '.pdf';
+    if (window.Desktop && Desktop.isElectron && typeof Desktop.printPdf === 'function') {
+      try {
+        var destRes = window.promptExportDestination
+          ? await window.promptExportDestination({
+              title: typeof t === 'function' ? (t('agBtnPrintReport') || 'Export PDF') : 'Export PDF',
+              filename: defaultName,
+              allowDocEditor: false
+            })
+          : { destination: 'to-print', filename: defaultName };
+        if (!destRes || !destRes.destination) return;
+        var finalPdfName = destRes.filename || defaultName;
+        var pdfReq = {
+          html: fullHtml,
+          defaultName: finalPdfName,
+          title: title || 'Administrative Report',
+          pdfOptions: {
+            landscape: false,
+            pageSize: 'A4',
+            marginsType: 1,
+            preferCSSPageSize: true,
+            printBackground: true
+          }
+        };
+        if (destRes.destination === 'to-print' || destRes.destination === 'print') {
+          pdfReq.target = 'toPrint';
+          pdfReq.filename = finalPdfName;
+        }
+        var pdfRes = await Desktop.printPdf(pdfReq);
+
+        if (pdfRes && pdfRes.ok && pdfRes.path) {
+          if (window.showExportSuccessPopup) {
+            window.showExportSuccessPopup(pdfRes.path, pdfRes.name || finalPdfName);
+          } else if (window.showToast) {
+            showToast('PDF exported successfully: ' + finalPdfName);
+          }
+        } else if (pdfRes && !pdfRes.ok && !pdfRes.canceled) {
+          if (window.showToast) showToast('PDF export error: ' + (pdfRes.error || 'failed'), true);
+        }
+      } catch (err) {
+        console.error('PDF export error:', err);
+        if (window.showToast) showToast('PDF export error: ' + (err.message || String(err)), true);
+      }
+    } else {
+      var ifr = document.getElementById('agReportPreviewIframe');
+      if (ifr && ifr.contentWindow) {
+        try {
+          ifr.contentWindow.focus();
+          ifr.contentWindow.print();
+          return;
+        } catch (_) {}
+      }
+      var win = window.open('', '_blank');
+      if (win && win.document) {
+        win.document.write(fullHtml);
+        win.document.close();
+        win.focus();
+        setTimeout(function () { win.print(); }, 400);
+      }
+    }
+  }
 
   window.exportPreviewXlsx = async function () {
     if (!state.lastGeneratedReport || !state.lastGeneratedReport.rawData) return;
@@ -2427,7 +2555,7 @@
     await saveExportFile(filename + '.csv', content, 'text/csv;charset=utf-8');
   }
 
-  async function exportToHtml(students, cat, filename) {
+  function buildCategoryTableBodyHtml(students, cat, filename) {
     var isFr = isFrench();
     var customCols = (state.config.columns || []).filter(function (c) { return c.custom === true && c.visible !== false; });
     var rowsHtml = students.map(function (s) {
@@ -2460,33 +2588,33 @@
       ? '<th>Nom</th><th>Prénom</th><th>Classe</th><th>Date naiss.</th><th>Âge</th><th>Régime</th><th>Aménagements</th><th style="text-align:center;">Points</th><th>Sanction</th><th>Téléphone</th>' + customTh
       : '<th>Last Name</th><th>First Name</th><th>Class</th><th>DOB</th><th>Age</th><th>Regimen</th><th>SEN</th><th style="text-align:center;">Points</th><th>Sanction</th><th>Phone</th>' + customTh;
 
-    var fullHtml = '<!DOCTYPE html>\n<html lang="' + (isFr ? 'fr' : 'en') + '">\n<head>\n' +
-      '  <meta charset="utf-8">\n' +
-      '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
-      '  <title>' + escapeHtml(filename) + '</title>\n' +
-      '  <style>\n' +
-      AdminReports.getEmbeddedCss() +
-      '\n  </style>\n' +
-      '</head>\n<body>\n' +
-      '  <div class="ag-report-wrap">\n' +
-      '    <div class="ag-report-header">\n' +
-      '      <div class="ag-report-brand-wrap">\n' +
-      '        <div class="ag-report-badge">ADMINISTRATIVE ROSTER</div>\n' +
-      '        <h1 class="ag-report-title">' + escapeHtml(filename) + '</h1>\n' +
-      '        <div class="ag-report-subtitle">' + students.length + ' ' + (isFr ? 'élèves enregistrés' : 'students listed') + ' &bull; ' + new Date().toLocaleDateString() + '</div>\n' +
-      '      </div>\n' +
-      '    </div>\n' +
-      '    <div class="ag-report-section">\n' +
-      '      <div class="ag-report-table-wrap">\n' +
-      '        <table class="ag-report-table">\n' +
-      '          <thead><tr>' + thLabels + '</tr></thead>\n' +
-      '          <tbody>' + rowsHtml + '</tbody>\n' +
-      '        </table>\n' +
-      '      </div>\n' +
-      '    </div>\n' +
+    return '<div class="ag-report-header report-header report-header-box meta-box">\n' +
+      '  <div class="ag-report-brand-wrap">\n' +
+      '    <div class="ag-report-badge">ADMINISTRATIVE ROSTER</div>\n' +
+      '    <h1 class="ag-report-title report-title">' + escapeHtml(filename) + '</h1>\n' +
+      '    <div class="ag-report-subtitle report-meta meta">' + students.length + ' ' + (isFr ? 'élèves enregistrés' : 'students listed') + ' &bull; ' + new Date().toLocaleDateString() + '</div>\n' +
       '  </div>\n' +
-      '</body>\n</html>';
+      '</div>\n' +
+      '<div class="ag-report-section report-card card">\n' +
+      '  <div class="ag-report-table-wrap report-table-wrap">\n' +
+      '    <table class="ag-report-table report-table data-table exp-table">\n' +
+      '      <thead><tr>' + thLabels + '</tr></thead>\n' +
+      '      <tbody>' + rowsHtml + '</tbody>\n' +
+      '    </table>\n' +
+      '  </div>\n' +
+      '</div>';
+  }
 
+  function buildCategoryTableFullHtml(students, cat, filename) {
+    var body = buildCategoryTableBodyHtml(students, cat, filename);
+    return AdminReports.buildFullStandaloneHtmlReport(filename, body);
+  }
+
+  async function exportToHtml(students, cat, filename) {
+    var fullHtml = buildCategoryTableFullHtml(students, cat, filename);
+    if (window.ExportStylesService) {
+      fullHtml = await ExportStylesService.injectStyleIntoHtml(fullHtml, ExportStylesService.getSelectedStyle('adminGroups'), 'adminGroups');
+    }
     await saveExportFile(filename + '.html', fullHtml, 'text/html;charset=utf-8', { allowDocEditor: true });
   }
 

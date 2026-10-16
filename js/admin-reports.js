@@ -519,11 +519,11 @@
     var html = '';
 
     // 5.1 Hero Header Card
-    html += '<div class="ag-report-header">';
+    html += '<div class="ag-report-header report-header report-header-box meta-box">';
     html += '  <div class="ag-report-brand-wrap">';
     html += '    <div class="ag-report-badge">ADMINISTRATIVE REPORT</div>';
-    html += '    <h1 class="ag-report-title">' + escapeHtml(groupTitle) + '</h1>';
-    html += '    <div class="ag-report-subtitle">' + escapeHtml(periodLabel) + ' &bull; ' + escapeHtml(timestamp) + '</div>';
+    html += '    <h1 class="ag-report-title report-title">' + escapeHtml(groupTitle) + '</h1>';
+    html += '    <div class="ag-report-subtitle report-meta meta">' + escapeHtml(periodLabel) + ' &bull; ' + escapeHtml(timestamp) + '</div>';
     html += '  </div>';
     html += '  <div class="ag-report-header-meta">';
     html += '    <div class="ag-kpi-pill"><span class="ag-kpi-num">' + cohortStats.totalStudents + '</span> <span class="ag-kpi-lbl">' + tr('agRptTotalStudents', 'Students') + '</span></div>';
@@ -533,11 +533,11 @@
     html += '</div>';
 
     // 5.2 KPI Overview Grid
-    html += '<div class="ag-report-section">';
+    html += '<div class="ag-report-section report-card card">';
     html += '  <h2 class="ag-section-title">' + tr('agRptKpiOverview', '1. Cohort Performance & Statistical Summary') + '</h2>';
     html += '  <div class="ag-kpi-grid">';
     
-    html += '    <div class="ag-kpi-card">';
+    html += '    <div class="ag-kpi-card kpi-card">';
     html += '      <div class="ag-kpi-top">' + tr('agRptMeanPoints', 'Class Mean Points') + '</div>';
     html += '      <div class="ag-kpi-val">' + cohortStats.pointStats.mean + '</div>';
     html += '      <div class="ag-kpi-sub">' + tr('agRptStdDev', 'Std Dev') + ': &plusmn;' + cohortStats.pointStats.stdDev + '</div>';
@@ -643,10 +643,10 @@
     }
 
     // 5.5 Full Cohort Roster Table with Individual Metrics
-    html += '<div class="ag-report-section">';
+    html += '<div class="ag-report-section report-card card">';
     html += '  <h2 class="ag-section-title">' + tr('agRptStudentRosterDetails', '4. Complete Student Administrative & Discipline Roster') + '</h2>';
-    html += '  <div class="ag-report-table-wrap">';
-    html += '    <table class="ag-report-table">';
+    html += '  <div class="ag-report-table-wrap report-table-wrap">';
+    html += '    <table class="ag-report-table report-table data-table exp-table">';
     html += '      <thead>';
     html += '        <tr>';
     html += '          <th>' + tr('agColStudent', 'Student Name') + '</th>';
@@ -700,11 +700,11 @@
     var html = '';
 
     // Header Card
-    html += '<div class="ag-report-header">';
+    html += '<div class="ag-report-header report-header report-header-box meta-box">';
     html += '  <div class="ag-report-brand-wrap">';
     html += '    <div class="ag-report-badge">INDIVIDUAL STUDENT DOSSIER</div>';
-    html += '    <h1 class="ag-report-title">' + escapeHtml(student.lastName.toUpperCase()) + ' ' + escapeHtml(student.firstName) + '</h1>';
-    html += '    <div class="ag-report-subtitle">' + escapeHtml(student.adminClass) + ' &bull; ' + tr('agColDob', 'DOB') + ': ' + escapeHtml(student.dob || 'N/A') + ' (' + escapeHtml(student.age || '') + ' ' + tr('agAgeYears', 'yrs') + ') &bull; ' + escapeHtml(timestamp) + '</div>';
+    html += '    <h1 class="ag-report-title report-title">' + escapeHtml(student.lastName.toUpperCase()) + ' ' + escapeHtml(student.firstName) + '</h1>';
+    html += '    <div class="ag-report-subtitle report-meta meta">' + escapeHtml(student.adminClass) + ' &bull; ' + tr('agColDob', 'DOB') + ': ' + escapeHtml(student.dob || 'N/A') + ' (' + escapeHtml(student.age || '') + ' ' + tr('agAgeYears', 'yrs') + ') &bull; ' + escapeHtml(timestamp) + '</div>';
     html += '  </div>';
     
     // Status Badge & Sanction Pill
@@ -718,7 +718,7 @@
     html += '</div>';
 
     // Demographics & Medical / Contact Summary Card
-    html += '<div class="ag-report-section">';
+    html += '<div class="ag-report-section report-card card">';
     html += '  <h2 class="ag-section-title">' + tr('agRptDemographicsContact', '1. Demographics, Health & Emergency Contacts') + '</h2>';
     html += '  <div class="ag-info-grid">';
 
@@ -843,11 +843,11 @@
 
     var html = '';
 
-    html += '<div class="ag-report-header">';
+    html += '<div class="ag-report-header report-header report-header-box meta-box">';
     html += '  <div class="ag-report-brand-wrap">';
     html += '    <div class="ag-report-badge">COMPARATIVE ANALYSIS</div>';
-    html += '    <h1 class="ag-report-title">' + tr('agRptMultiStudentComparison', 'Multi-Student Side-by-Side Comparison') + '</h1>';
-    html += '    <div class="ag-report-subtitle">' + students.length + ' ' + tr('agRptStudentsSelected', 'students compared against class benchmarks') + ' &bull; ' + escapeHtml(timestamp) + '</div>';
+    html += '    <h1 class="ag-report-title report-title">' + tr('agRptMultiStudentComparison', 'Multi-Student Side-by-Side Comparison') + '</h1>';
+    html += '    <div class="ag-report-subtitle report-meta meta">' + students.length + ' ' + tr('agRptStudentsSelected', 'students compared against class benchmarks') + ' &bull; ' + escapeHtml(timestamp) + '</div>';
     html += '  </div>';
     html += '</div>';
 
@@ -861,7 +861,7 @@
       };
     });
 
-    html += '<div class="ag-report-section">';
+    html += '<div class="ag-report-section report-card card">';
     html += '  <h2 class="ag-section-title">' + tr('agRptDisciplinePointComparison', '1. Discipline Points Comparison') + '</h2>';
     html += '  <div class="ag-chart-box">';
     html += '    <div class="ag-chart-title">' + tr('agRptPointsComparisonBenchmark', 'Student Total Discipline Points (Class Median: ' + cohortStats.pointStats.median + ')') + '</div>';
@@ -900,10 +900,10 @@
     html += '</div>';
 
     // Comparative Data Matrix Table
-    html += '<div class="ag-report-section">';
+    html += '<div class="ag-report-section report-card card">';
     html += '  <h2 class="ag-section-title">' + tr('agRptComparisonMatrix', '3. Detailed Comparative Matrix') + '</h2>';
-    html += '  <div class="ag-report-table-wrap">';
-    html += '    <table class="ag-report-table">';
+    html += '  <div class="ag-report-table-wrap report-table-wrap">';
+    html += '    <table class="ag-report-table report-table data-table exp-table">';
     html += '      <thead>';
     html += '        <tr>';
     html += '          <th>' + tr('agColStudent', 'Student') + '</th>';
@@ -964,75 +964,77 @@
     return [
       '*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }',
       ':root {',
-      '  --neo-bg: #f5f5f0;',
-      '  --neo-card-bg: #ffffff;',
-      '  --neo-border-color: #333333;',
-      '  --neo-shadow-lg: 4px 4px 0 #555555;',
-      '  --neo-shadow-md: 3px 3px 0 #555555;',
-      '  --neo-shadow-sm: 2px 2px 0 #888888;',
-      '  --neo-radius-lg: 10px;',
-      '  --neo-radius-md: 6px;',
-      '  --neo-radius-sm: 4px;',
-      '  --neo-dark: #222222;',
-      '  --neo-yellow: #e2c96e;',
-      '  --neo-green: #6abf8e;',
-      '  --neo-blue: #5b8fcc;',
-      '  --neo-purple: #8b7cc2;',
-      '  --neo-orange: #d4895a;',
-      '  --neo-red: #c96b6b;',
+      '  --neo-bg: var(--exp-bg-page, #f5f5f0);',
+      '  --neo-card-bg: var(--exp-bg-surface, #ffffff);',
+      '  --neo-border-color: var(--exp-border-color, #333333);',
+      '  --neo-border-width: var(--exp-border-width, 2px);',
+      '  --neo-shadow-lg: var(--exp-shadow, 4px 4px 0 #555555);',
+      '  --neo-shadow-md: var(--exp-shadow, 3px 3px 0 #555555);',
+      '  --neo-shadow-sm: var(--exp-shadow-sm, var(--exp-shadow, 2px 2px 0 #888888));',
+      '  --neo-radius-lg: var(--exp-border-radius, 10px);',
+      '  --neo-radius-md: var(--exp-border-radius-sm, var(--exp-border-radius, 6px));',
+      '  --neo-radius-sm: var(--exp-border-radius-sm, 4px);',
+      '  --neo-dark: var(--exp-text-color, #222222);',
+      '  --neo-yellow: var(--exp-accent-amber, #e2c96e);',
+      '  --neo-green: var(--exp-accent-green, #6abf8e);',
+      '  --neo-blue: var(--exp-accent-blue, #5b8fcc);',
+      '  --neo-purple: var(--exp-accent-purple, #8b7cc2);',
+      '  --neo-orange: var(--exp-accent-orange, #d4895a);',
+      '  --neo-red: var(--exp-accent-red, #c96b6b);',
       '}',
-      'body { font-family: "Lexend", system-ui, -apple-system, sans-serif; background: var(--neo-bg); color: var(--neo-dark); padding: 24px; line-height: 1.5; }',
+      'body { font-family: var(--exp-font-family, "Lexend", system-ui, -apple-system, sans-serif); background: var(--neo-bg); color: var(--neo-dark); padding: 24px; line-height: var(--exp-line-height, 1.5); letter-spacing: var(--exp-letter-spacing, normal); word-spacing: var(--exp-word-spacing, normal); }',
       '.ag-report-wrap { max-width: 960px; margin: 0 auto; }',
       
-      /* Neobrutalist Headers & Cards */
-      '.ag-report-header { background: var(--neo-card-bg); border: 2.5px solid var(--neo-border-color); box-shadow: var(--neo-shadow-lg); padding: 20px 24px; border-radius: var(--neo-radius-lg); margin-bottom: 22px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }',
+      /* Headers & Cards */
+      '.ag-report-header, .report-header, .report-header-box { background: var(--neo-card-bg); border: var(--neo-border-width) solid var(--neo-border-color); box-shadow: var(--neo-shadow-lg); padding: 20px 24px; border-radius: var(--neo-radius-lg); margin-bottom: 22px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }',
       '.ag-report-badge { display: inline-block; background: var(--neo-dark); color: #ffffff; font-size: 0.72rem; font-weight: 900; letter-spacing: 0.8px; padding: 3px 8px; border-radius: var(--neo-radius-sm); margin-bottom: 6px; text-transform: uppercase; }',
-      '.ag-report-title { font-size: 1.75rem; font-weight: 900; letter-spacing: -0.5px; line-height: 1.15; }',
-      '.ag-report-subtitle { font-size: 0.86rem; color: #475569; font-weight: 600; margin-top: 4px; }',
+      '.ag-report-title, .report-title { font-size: 1.75rem; font-weight: 900; letter-spacing: -0.5px; line-height: 1.15; color: var(--neo-dark); font-family: var(--exp-font-family, inherit); }',
+      '.ag-report-subtitle, .report-meta, .meta { font-size: 0.86rem; color: var(--exp-text-muted, #475569); font-weight: 600; margin-top: 4px; }',
       '.ag-report-header-meta { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }',
-      '.ag-kpi-pill { background: #f8fafc; border: 2px solid var(--neo-border-color); box-shadow: var(--neo-shadow-sm); padding: 6px 12px; border-radius: var(--neo-radius-sm); display: flex; align-items: baseline; gap: 6px; }',
-      '.ag-kpi-num { font-size: 1.25rem; font-weight: 900; }',
-      '.ag-kpi-lbl { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: #475569; }',
+      '.ag-kpi-pill { background: var(--exp-bg-surface, #f8fafc); border: var(--neo-border-width) solid var(--neo-border-color); box-shadow: var(--neo-shadow-sm); padding: 6px 12px; border-radius: var(--neo-radius-sm); display: flex; align-items: baseline; gap: 6px; }',
+      '.ag-kpi-num { font-size: 1.25rem; font-weight: 900; color: var(--neo-dark); }',
+      '.ag-kpi-lbl { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: var(--exp-text-muted, #475569); }',
       
-      /* Section */
-      '.ag-report-section { background: var(--neo-card-bg); border: 2.5px solid var(--neo-border-color); box-shadow: var(--neo-shadow-lg); border-radius: var(--neo-radius-lg); padding: 20px 24px; margin-bottom: 22px; break-inside: avoid; page-break-inside: avoid; }',
-      '.ag-section-title { font-size: 1.1rem; font-weight: 900; border-bottom: 2px solid var(--neo-border-color); padding-bottom: 8px; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.3px; }',
+      /* Sections */
+      '.ag-report-section, .report-card { background: var(--neo-card-bg); border: var(--neo-border-width) solid var(--neo-border-color); box-shadow: var(--neo-shadow-lg); border-radius: var(--neo-radius-lg); padding: 20px 24px; margin-bottom: 22px; break-inside: avoid; page-break-inside: avoid; }',
+      '.ag-section-title { font-size: 1.1rem; font-weight: 900; border-bottom: var(--neo-border-width) solid var(--neo-border-color); padding-bottom: 8px; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.3px; color: var(--neo-dark); }',
       
       /* KPI Grid */
       '.ag-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }',
-      '.ag-kpi-card { background: #f8fafc; border: 2px solid var(--neo-border-color); box-shadow: var(--neo-shadow-md); border-radius: var(--neo-radius-md); padding: 12px 14px; }',
-      '.ag-kpi-top { font-size: 0.72rem; font-weight: 900; text-transform: uppercase; color: #475569; margin-bottom: 4px; }',
+      '.ag-kpi-card, .kpi-card { background: var(--exp-bg-surface, #f8fafc); border: var(--neo-border-width) solid var(--neo-border-color); box-shadow: var(--neo-shadow-md); border-radius: var(--neo-radius-md); padding: 12px 14px; }',
+      '.ag-kpi-top { font-size: 0.72rem; font-weight: 900; text-transform: uppercase; color: var(--exp-text-muted, #475569); margin-bottom: 4px; }',
       '.ag-kpi-val { font-size: 1.6rem; font-weight: 900; color: var(--neo-dark); }',
-      '.ag-kpi-sub { font-size: 0.75rem; font-weight: 600; color: #64748b; margin-top: 2px; }',
+      '.ag-kpi-sub { font-size: 0.75rem; font-weight: 600; color: var(--exp-text-muted, #64748b); margin-top: 2px; }',
       
       /* Two Col */
       '.ag-report-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }',
       '@media (max-width: 768px) { .ag-report-two-col { grid-template-columns: 1fr; } }',
       
       /* Charts */
-      '.ag-chart-box { background: #f8fafc; border: 2px solid var(--neo-border-color); box-shadow: var(--neo-shadow-md); border-radius: var(--neo-radius-md); padding: 14px; }',
-      '.ag-chart-title { font-size: 0.82rem; font-weight: 900; text-transform: uppercase; margin-bottom: 12px; }',
-      '.ag-chart-legend { display: flex; flex-direction: column; gap: 6px; font-size: 0.8rem; font-weight: 700; }',
+      '.ag-chart-box, .chart-card { background: var(--exp-bg-surface, #f8fafc); border: var(--neo-border-width) solid var(--neo-border-color); box-shadow: var(--neo-shadow-md); border-radius: var(--neo-radius-md); padding: 14px; }',
+      '.ag-chart-title { font-size: 0.82rem; font-weight: 900; text-transform: uppercase; margin-bottom: 12px; color: var(--neo-dark); }',
+      '.ag-chart-legend { display: flex; flex-direction: column; gap: 6px; font-size: 0.8rem; font-weight: 700; color: var(--neo-dark); }',
       '.ag-legend-row { display: flex; align-items: center; gap: 8px; }',
       '.ag-legend-dot { width: 12px; height: 12px; border: 1.5px solid var(--neo-border-color); border-radius: 2px; display: inline-block; }',
 
       /* Info Grid (Student Dossier) */
       '.ag-info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }',
-      '.ag-info-block { background: #f8fafc; border: 2px solid var(--neo-border-color); box-shadow: var(--neo-shadow-sm); border-radius: var(--neo-radius-md); padding: 12px 14px; }',
-      '.ag-info-label { font-size: 0.72rem; font-weight: 900; text-transform: uppercase; color: #64748b; margin-bottom: 4px; }',
-      '.ag-info-val { font-size: 1.05rem; font-weight: 900; }',
-      '.ag-info-sub { font-size: 0.78rem; font-weight: 600; color: #475569; margin-top: 4px; }',
+      '.ag-info-block, .info-card { background: var(--exp-bg-surface, #f8fafc); border: var(--neo-border-width) solid var(--neo-border-color); box-shadow: var(--neo-shadow-sm); border-radius: var(--neo-radius-md); padding: 12px 14px; }',
+      '.ag-info-label { font-size: 0.72rem; font-weight: 900; text-transform: uppercase; color: var(--exp-text-muted, #64748b); margin-bottom: 4px; }',
+      '.ag-info-val { font-size: 1.05rem; font-weight: 900; color: var(--neo-dark); }',
+      '.ag-info-sub { font-size: 0.78rem; font-weight: 600; color: var(--exp-text-muted, #475569); margin-top: 4px; }',
 
-      /* Table */
-      '.ag-report-table-wrap { overflow-x: auto; border: 2px solid var(--neo-border-color); box-shadow: var(--neo-shadow-md); border-radius: var(--neo-radius-md); }',
-      '.ag-report-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem; background: #ffffff; }',
-      '.ag-report-table th, .ag-report-table td { padding: 8px 12px; border-bottom: 1px solid #dcdcd4; border-right: 1px solid #dcdcd4; }',
-      '.ag-report-table th { background: #ecece4; font-weight: 900; text-transform: uppercase; font-size: 0.74rem; border-bottom: 2px solid var(--neo-border-color); }',
-      '.ag-report-table tr:last-child td { border-bottom: none; }',
-      '.ag-report-table tr:hover { background: #f8fafc; }',
+      /* Table Wrap & Tables */
+      '.ag-report-table-wrap, .report-table-wrap { overflow-x: auto; border: var(--exp-table-wrap-border, var(--neo-border-width) solid var(--neo-border-color)); box-shadow: var(--neo-shadow-md); border-radius: var(--neo-radius-md); background: var(--exp-bg-surface, #ffffff); }',
+      '.ag-report-table, table.report-table, table.data-table, table.exp-table { width: 100%; border-collapse: var(--exp-table-border-collapse, collapse); text-align: left; font-size: 0.85rem; background: var(--exp-bg-surface, #ffffff); color: var(--neo-dark); }',
+      '.ag-report-table th, .ag-report-table td, table.report-table th, table.report-table td { padding: 8px 12px; border: var(--exp-table-cell-border, 1px solid var(--neo-border-color)); color: var(--neo-dark); }',
+      '.ag-report-table th, table.report-table th { background: var(--exp-table-th-bg, #ecece4); font-weight: 900; text-transform: uppercase; font-size: 0.74rem; border-bottom: var(--neo-border-width) solid var(--neo-border-color); color: var(--neo-dark); }',
+      '.ag-report-table tr:last-child td, table.report-table tr:last-child td { border-bottom: none; }',
+      '.ag-report-table tr:hover, table.report-table tr:hover { background: var(--exp-table-row-hover, var(--exp-table-row-even, #f8fafc)); }',
+      'tr:nth-child(even) td { background: var(--exp-table-row-even, transparent); }',
 
       /* Badges */
-      '.badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; font-size: 0.72rem; font-weight: 800; border-radius: 4px; border: 1.5px solid var(--neo-border-color); box-shadow: var(--neo-shadow-sm); text-transform: uppercase; }',
+      '.badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; font-size: 0.72rem; font-weight: 800; border-radius: var(--neo-radius-sm); border: 1.5px solid var(--neo-border-color); box-shadow: var(--neo-shadow-sm); text-transform: uppercase; }',
       '.badge-tier1 { background: var(--neo-yellow); color: #854d0e; }',
       '.badge-tier2 { background: var(--neo-orange); color: #9a3412; }',
       '.badge-tier3 { background: #fca5a5; color: #991b1b; }',
@@ -1043,19 +1045,19 @@
       /* Timeline */
       '.ag-report-timeline { display: flex; flex-direction: column; gap: 10px; }',
       '.ag-report-timeline-item { display: flex; gap: 12px; }',
-      '.ag-timeline-date { font-size: 0.78rem; font-weight: 900; width: 95px; flex-shrink: 0; padding-top: 6px; }',
-      '.ag-timeline-card { flex-grow: 1; background: #f8fafc; border: 2px solid var(--neo-border-color); box-shadow: var(--neo-shadow-sm); border-radius: 4px; padding: 10px 14px; }',
+      '.ag-timeline-date { font-size: 0.78rem; font-weight: 900; width: 95px; flex-shrink: 0; padding-top: 6px; color: var(--neo-dark); }',
+      '.ag-timeline-card, .timeline-card { flex-grow: 1; background: var(--exp-bg-surface, #f8fafc); border: var(--neo-border-width) solid var(--neo-border-color); box-shadow: var(--neo-shadow-sm); border-radius: var(--neo-radius-sm); padding: 10px 14px; }',
       '.ag-timeline-head { display: flex; align-items: center; }',
-      '.ag-timeline-summary { font-size: 0.82rem; color: #334155; margin-top: 6px; font-weight: 500; line-height: 1.4; }',
-      '.ag-empty-state { padding: 18px; text-align: center; font-weight: 700; color: #94a3b8; background: #f8fafc; border: 2px dashed var(--neo-border-color); border-radius: 6px; }',
+      '.ag-timeline-summary { font-size: 0.82rem; color: var(--exp-text-muted, #334155); margin-top: 6px; font-weight: 500; line-height: 1.4; }',
+      '.ag-empty-state { padding: 18px; text-align: center; font-weight: 700; color: var(--exp-text-muted, #94a3b8); background: var(--exp-bg-surface, #f8fafc); border: 2px dashed var(--neo-border-color); border-radius: 6px; }',
 
       /* Print Optimizations */
       '@media print {',
       '  body { padding: 0; background: #ffffff !important; color: #000000 !important; font-size: 10pt; }',
       '  .ag-report-wrap { max-width: 100%; width: 100%; margin: 0; }',
-      '  .ag-report-section { break-inside: avoid; page-break-inside: avoid; box-shadow: none !important; border-width: 1.5px !important; margin-bottom: 14px !important; }',
-      '  .ag-report-header { box-shadow: none !important; border-width: 1.5px !important; margin-bottom: 14px !important; }',
-      '  .ag-chart-box, .ag-kpi-card, .ag-info-block, .ag-report-table-wrap, .ag-timeline-card { box-shadow: none !important; }',
+      '  .ag-report-section, .report-card { break-inside: avoid; page-break-inside: avoid; box-shadow: none !important; border-width: 1.5px !important; margin-bottom: 14px !important; }',
+      '  .ag-report-header, .report-header { box-shadow: none !important; border-width: 1.5px !important; margin-bottom: 14px !important; }',
+      '  .ag-chart-box, .ag-kpi-card, .ag-info-block, .ag-report-table-wrap, .report-table-wrap, .ag-timeline-card { box-shadow: none !important; }',
       '  .badge { border-width: 1px !important; box-shadow: none !important; }',
       '}'
     ].join('\n');

@@ -124,7 +124,7 @@
                   <button class="dropdown-item" onclick="handleExportClick('csv')" data-i18n="mdbBtnExportCsv"><img src="../assets/icons/download.svg" class="btn-icon" alt="" /> CSV</button>
                   <button class="dropdown-item" onclick="handleExportClick('pdf')" data-i18n="mdbBtnPrintPdf"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> Print PDF</button>
                   <button class="dropdown-item" onclick="handleExportClick('html')" data-i18n="mdbBtnExportHtml"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> Export HTML (Editable)</button>
-                  <button class="dropdown-item" onclick="handleExportClick('html-filter')" data-i18n="mdbBtnExportFilterHtml"><img src="../assets/icons/filter.svg" class="btn-icon" alt="" /> Export HTML (Interactive &amp; Filterable)</button>
+                  <button class="dropdown-item" onclick="handleExportClick('html-filter')" data-i18n="mdbBtnExportFilterHtml"><img src="../assets/icons/search.svg" class="btn-icon" alt="" /> Export HTML (Interactive &amp; Filterable)</button>
                   <button class="dropdown-item" onclick="handleExportClick('md')" data-i18n="mdbBtnExportMd"><img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" /> Export Markdown</button>
                   <button class="dropdown-item" onclick="handleExportClick('xlsx')" data-i18n="mdbBtnExportXlsx"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> Export XLSX</button>
                   <button class="dropdown-item" onclick="handleExportClick('docx')" data-i18n="mdbBtnExportDocx"><img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" /> Export DOCX</button>
@@ -1054,6 +1054,47 @@
             if (ls) records = JSON.parse(ls);
           } catch (_) {}
         }
+        if (records && Array.isArray(records)) {
+          let decs = null;
+          if (content) {
+            try {
+              const fn = new Function(content + '\n;try{return (typeof SCORING_DECISIONS !== "undefined" && Array.isArray(SCORING_DECISIONS)) ? SCORING_DECISIONS : [];}catch(e){return [];}');
+              decs = fn();
+            } catch (_) {}
+          }
+          if ((!decs || !decs.length) && filename === 'correction-criteria.js') {
+            try {
+              const ls = localStorage.getItem('gradeSheetReferenceScoringDecisions.v1');
+              if (ls) decs = JSON.parse(ls);
+            } catch (_) {}
+          }
+          if (Array.isArray(decs) && decs.length) {
+            for (const crit of records) {
+              if (!crit || !crit.name) continue;
+              if (!Array.isArray(crit.scoringDecisions) || crit.scoringDecisions.length === 0) {
+                const critDecs = [];
+                for (const testEntry of decs) {
+                  if (!testEntry || !testEntry.criteriaDecisions) continue;
+                  const rules = testEntry.criteriaDecisions[crit.name];
+                  if (Array.isArray(rules)) {
+                    const active = rules.filter(r => String(r || '').trim().length > 0);
+                    if (active.length > 0) {
+                      critDecs.push({
+                        classTitle: testEntry.classTitle || '',
+                        testName: testEntry.testName || '',
+                        year: testEntry.year || '',
+                        semester: testEntry.semester || '',
+                        testDate: testEntry.testDate || '',
+                        rules: active
+                      });
+                    }
+                  }
+                }
+                crit.scoringDecisions = critDecs;
+              }
+            }
+          }
+        }
       } else {
         if (content) {
           varName = detectVarName(content) || varName;
@@ -1638,6 +1679,7 @@
         addArr('grades');
         addObj('comments', { isLong: true });
         addObj('colors', { isLong: true });
+        addArr('scoringDecisions', { isLong: true });
       } else if (typeKey === 'scales') {
         addStr('key');
         addStr('label');
@@ -1737,6 +1779,26 @@
             }
             rec.comments = cleanObj(rec.comments);
             rec.colors = cleanObj(rec.colors);
+            if (typeof rec.scoringDecisions === 'string') {
+              const tr = rec.scoringDecisions.trim();
+              if (tr === '[object Object]' || tr.toLowerCase().includes('object object')) {
+                rec.scoringDecisions = [];
+              } else if (tr.startsWith('[') || tr.startsWith('{')) {
+                try {
+                  const p = JSON.parse(tr);
+                  rec.scoringDecisions = Array.isArray(p) ? p : [p];
+                } catch (_) {
+                  rec.scoringDecisions = [];
+                }
+              } else {
+                rec.scoringDecisions = [];
+              }
+            }
+            if (Array.isArray(rec.scoringDecisions)) {
+              rec.scoringDecisions = rec.scoringDecisions.filter(d => d && typeof d === 'object' && !(typeof d === 'string'));
+            } else {
+              rec.scoringDecisions = [];
+            }
           }
         }
       } else if (typeKey === 'scales') {
@@ -2345,7 +2407,7 @@
         const cls = S.sortField === f.key ? (S.sortDir === 'asc' ? 'sort-asc' : 'sort-desc') : '';
         const w = colWidths[f.key];
         const wStyle = w ? `style="width:${w}px;min-width:${w}px;max-width:${w}px;"` : '';
-        const displayLabel = esc(f.customLabel || cap(f.key));
+        const displayLabel = esc(f.customLabel || (f.key === 'scoringDecisions' ? t('mdbColScoringDecisions') : cap(f.key)));
         const badge = f.isCustom ? `<span class="th-custom-badge">custom</span>` : '';
         return `<th class="${cls}" data-col="${esc(f.key)}" ${wStyle} onclick="setSort('${f.key}')">
           <span class="th-label">${displayLabel}</span>${badge}
@@ -2379,7 +2441,7 @@
         <button class="btn btn-sm btn-secondary" onclick="openRecordTagLinkModal(${row._fi},${row._ri})" title="Links &amp; Tags"><img src="../assets/icons/links.svg" class="btn-icon btn-icon-xs" alt="" /></button>
         ${(S.typeKey === 'wordbanks') ? `<button class="btn btn-sm btn-secondary" onclick="openWordReverseLookup(${row._fi},${row._ri})" title="Cross-Suite Usage &amp; Reverse-Lookup"><img src="../assets/icons/links.svg" class="btn-icon btn-icon-xs" alt="" /> [USAGE]</button>` : ''}
         <button class="btn btn-sm btn-secondary" onclick="duplicateRecord(${row._fi},${row._ri})" title="${t('mdbBtnDuplicate')}"><img src="../assets/icons/copy.svg" class="btn-icon btn-icon-xs" alt="" /> ${t('mdbBtnDuplicate')}</button>
-        <button class="btn btn-sm btn-secondary" onclick="openCopyToModal(${row._fi},${row._ri})" title="${t('mdbBtnCopyToFile')}"><img src="../assets/icons/file.svg" class="btn-icon btn-icon-xs" alt="" /> ${t('mdbBtnCopyToFile')}</button>
+        <button class="btn btn-sm btn-secondary" onclick="openCopyToModal(${row._fi},${row._ri})" title="${t('mdbBtnCopyToFile')}"><img src="../assets/icons/file-text.svg" class="btn-icon btn-icon-xs" alt="" /> ${t('mdbBtnCopyToFile')}</button>
         <button class="btn btn-sm btn-danger" onclick="confirmDel(${row._fi},${row._ri})"><img src="../assets/icons/delete.svg" class="btn-icon btn-icon-xs" alt="" /> ${t('mdbBtnDel')}</button>
       </td>
     </tr>`;
@@ -2397,6 +2459,22 @@
       if (field.type === 'array') {
         const arr = Array.isArray(val) ? val : [val];
         if (!arr.length) return '<span class="cell-empty">—</span>';
+        if (field.key === 'scoringDecisions' || field.key === 'markingDecisions') {
+          const items = arr.slice(0, 3).map(entry => {
+            if (!entry || typeof entry !== 'object') return '';
+            const cls = entry.classTitle || '';
+            const tst = entry.testName || '';
+            const numRules = Array.isArray(entry.rules) ? entry.rules.length : 0;
+            const fullRules = Array.isArray(entry.rules) ? entry.rules.map((r, i) => `${i + 1}. ${r}`).join('\n') : '';
+            const yr = entry.year ? ` • ${entry.year}` : '';
+            const sm = entry.semester ? ` • ${entry.semester}` : '';
+            const dt = entry.testDate ? ` • ${entry.testDate}` : '';
+            const tip = `${cls} • ${tst}${yr}${sm}${dt}\n${fullRules}`;
+            return `<span class="tag" style="background:#fef3c7;color:#92400e;border:1.5px solid #b45309;font-weight:700;" title="${esc(tip)}">⚖ ${esc(cls)}: ${esc(tst)} (${numRules})</span>`;
+          }).filter(Boolean).join(' ');
+          const more = arr.length > 3 ? ` <span class="tag-more">+${arr.length - 3}</span>` : '';
+          return items ? `<span class="tags">${items}${more}</span>` : '<span class="cell-empty">—</span>';
+        }
         if (field.key === 'competenceIds' || field.key === 'linkedCompetenceIds' || (S.typeKey === 'criteria' && field.key === 'competenceIds')) {
           const items = arr.slice(0, 4).map(t => {
             const cid = String(t).trim();
@@ -2702,6 +2780,23 @@
             strVal = trimmed;
           }
         }
+      } else if (key === 'scoringDecisions' || key === 'markingDecisions') {
+        try {
+          if (currentVal && Array.isArray(currentVal) && currentVal.length) {
+            strVal = JSON.stringify(currentVal, null, 2);
+          } else if (currentVal && typeof currentVal === 'object' && !Array.isArray(currentVal)) {
+            strVal = JSON.stringify([currentVal], null, 2);
+          } else if (typeof currentVal === 'string') {
+            const tr = currentVal.trim();
+            if (tr && tr !== '[object Object]' && !tr.toLowerCase().includes('object object')) {
+              strVal = tr;
+            } else {
+              strVal = '';
+            }
+          } else {
+            strVal = '';
+          }
+        } catch (_) { strVal = ''; }
       } else if (Array.isArray(currentVal)) {
         strVal = isLong ? currentVal.join('\n') : currentVal.join(', ');
       } else if (currentVal !== undefined && currentVal !== null) {
@@ -2717,9 +2812,10 @@
       if (key === 'comments') placeholder = '6: Excellent\n5: Good\n4: Satisfactory';
       else if (key === 'colors') placeholder = '6: #166534\n5: #22c55e\n4: #eab308';
       else if (key === 'thresholds') placeholder = '6: 90\n5.5: 80\n5: 70';
+      else if (key === 'scoringDecisions' || key === 'markingDecisions') placeholder = '[\n  {\n    "classTitle": "6A",\n    "testName": "Test 1",\n    "rules": ["Rule 1", "Rule 2"]\n  }\n]';
 
       let inputHtml = '';
-      if (isLong || isStructuredKeyValue) {
+      if (isLong || isStructuredKeyValue || key === 'scoringDecisions' || key === 'markingDecisions') {
         inputHtml = `<textarea class="cell-inline-textarea" rows="4" placeholder="${esc(placeholder)}">${escHtml(strVal)}</textarea>`;
       } else if (type === 'number') {
         inputHtml = `<input type="number" class="cell-inline-input" value="${esc(strVal)}" />`;
@@ -2841,6 +2937,25 @@
         }
       } else if (type === 'number') {
         newVal = rawVal.trim() === '' ? null : Number(rawVal.trim());
+      } else if (key === 'scoringDecisions' || key === 'markingDecisions') {
+        const trimmed = rawVal.trim();
+        if (!trimmed) {
+          newVal = [];
+        } else if (trimmed.startsWith('[')) {
+          try {
+            const parsed = JSON.parse(trimmed);
+            newVal = Array.isArray(parsed) ? parsed : [];
+          } catch (_) {
+            newVal = Array.isArray(td._originalVal) ? td._originalVal : [];
+          }
+        } else {
+          const lines = rawVal.split('\n').map(s => s.trim()).filter(Boolean);
+          if (lines.length) {
+            newVal = [{ classTitle: 'All', testName: 'General', rules: lines }];
+          } else {
+            newVal = [];
+          }
+        }
       } else if (type === 'array') {
         const sep = isLong ? '\n' : ',';
         newVal = rawVal.split(sep).map(s => s.trim()).filter(Boolean);
@@ -3595,6 +3710,34 @@
         input = `<input type="checkbox" id="${id}"${val ? ' checked' : ''} style="width:auto">`;
       } else if (field.type === 'number') {
         input = `<input type="number" id="${id}" value="${esc(String(val ?? ''))}">`;
+      } else if (field.key === 'scoringDecisions' || field.key === 'markingDecisions') {
+        let sv = '';
+        if (Array.isArray(val) && val.length > 0) {
+          try {
+            sv = JSON.stringify(val, null, 2);
+          } catch (_) {
+            sv = '';
+          }
+        } else if (val && typeof val === 'object' && !Array.isArray(val)) {
+          try {
+            sv = JSON.stringify([val], null, 2);
+          } catch (_) {
+            sv = '';
+          }
+        } else if (typeof val === 'string') {
+          const tr = val.trim();
+          if (tr && tr !== '[object Object]' && !tr.toLowerCase().includes('object object')) {
+            try {
+              const parsed = JSON.parse(tr);
+              sv = JSON.stringify(Array.isArray(parsed) ? parsed : [parsed], null, 2);
+            } catch (_) {
+              sv = tr;
+            }
+          }
+        }
+        const placeholder = '[\n  {\n    "classTitle": "6A",\n    "testName": "Test 1",\n    "rules": ["Rule 1", "Rule 2"]\n  }\n]';
+        input = `<textarea id="${id}" rows="6" style="font-family:monospace;font-size:0.8rem;" placeholder="${esc(placeholder)}">${escHtml(sv)}</textarea>
+             <div class="form-hint" data-i18n="mdbHintScoringDecisions">${t('mdbHintScoringDecisions', 'Test scoring rules and decisions per class')}</div>`;
       } else if (field.type === 'array') {
         if ((S.typeKey === 'criteria' && field.key === 'competenceIds') || ((S.typeKey === 'competences' || S.typeKey === 'descriptors') && field.key === 'linkedCompetenceIds')) {
           const arrVal = Array.isArray(val) ? val : (typeof val === 'string' ? val.split(',').map(s => s.trim()).filter(Boolean) : []);
@@ -3720,6 +3863,7 @@
       let fieldLabel = esc(cap(field.key));
       if (isCompCriteriaField) fieldLabel = t('mdbLinkedCompetences');
       else if (isCompLinkedField) fieldLabel = t('mdbLinkedCompetencesField', 'Linked Competences (Cross-Database)');
+      else if (field.key === 'scoringDecisions' || field.key === 'markingDecisions') fieldLabel = t('mdbColScoringDecisions', 'Marking Decisions');
       else if (S.typeKey === 'chips' && field.key === 'section') fieldLabel = t('mdbColSection', 'Section');
       else if (S.typeKey === 'chips' && field.key === 'color') fieldLabel = t('mdbColColor', 'Section Color');
       else if (S.typeKey === 'chips' && field.key === 'type') fieldLabel = t('mdbColCategory', 'Category / Subcategory');
@@ -4047,7 +4191,29 @@
         keysProcessed.add(field.key);
         if (field.type === 'boolean') result[field.key] = el.checked;
         else if (field.type === 'number') result[field.key] = el.value === '' ? null : Number(el.value);
-        else if (field.type === 'array') {
+        else if (field.key === 'scoringDecisions' || field.key === 'markingDecisions') {
+          const trimmed = el.value.trim();
+          if (!trimmed || trimmed === '[]' || trimmed === '[object Object]' || trimmed.toLowerCase().includes('object object')) {
+            result[field.key] = [];
+          } else if (trimmed.startsWith('[')) {
+            try {
+              const parsed = JSON.parse(trimmed);
+              result[field.key] = Array.isArray(parsed) ? parsed : [];
+            } catch (_) {
+              result[field.key] = [];
+            }
+          } else if (trimmed.startsWith('{')) {
+            try {
+              const parsed = JSON.parse(trimmed);
+              result[field.key] = parsed ? [parsed] : [];
+            } catch (_) {
+              result[field.key] = [];
+            }
+          } else {
+            const lines = trimmed.split('\n').map(s => s.trim()).filter(Boolean);
+            result[field.key] = lines.length ? [{ classTitle: 'All', testName: 'General', rules: lines }] : [];
+          }
+        } else if (field.type === 'array') {
           const sep = field.longArray ? '\n' : ',';
           const s = el.value.trim();
           result[field.key] = s ? s.split(sep).map(x => x.trim()).filter(Boolean) : [];
@@ -4104,6 +4270,30 @@
       document.querySelectorAll('[id^="ff-"]').forEach(el => {
         const key = el.id.replace('ff-', '');
         if (key.startsWith('_') || keysProcessed.has(key)) return;
+        if (key === 'scoringDecisions' || key === 'markingDecisions') {
+          const trimmed = el.value.trim();
+          if (!trimmed || trimmed === '[]' || trimmed === '[object Object]' || trimmed.toLowerCase().includes('object object')) {
+            result[key] = [];
+          } else if (trimmed.startsWith('[')) {
+            try {
+              const parsed = JSON.parse(trimmed);
+              result[key] = Array.isArray(parsed) ? parsed : [];
+            } catch (_) {
+              result[key] = [];
+            }
+          } else if (trimmed.startsWith('{')) {
+            try {
+              const parsed = JSON.parse(trimmed);
+              result[key] = parsed ? [parsed] : [];
+            } catch (_) {
+              result[key] = [];
+            }
+          } else {
+            const lines = trimmed.split('\n').map(s => s.trim()).filter(Boolean);
+            result[key] = lines.length ? [{ classTitle: 'All', testName: 'General', rules: lines }] : [];
+          }
+          return;
+        }
         result[key] = el.value;
       });
 
@@ -6051,11 +6241,14 @@
 
       if (S.typeKey === 'criteria' && file.name === 'correction-criteria.js') {
         let chips = [];
+        let scoringDecisions = [];
         try {
           const rawRes = await Desktop.readText('user', 'correction-criteria.js');
           if (rawRes && rawRes.ok) {
-            const fn = new Function(rawRes.content + '\n;try{return typeof OBSERVATION_CHECKLIST_GROUPS !== "undefined" ? OBSERVATION_CHECKLIST_GROUPS : [];}catch(e){return [];}');
-            chips = fn() || [];
+            const fnChips = new Function(rawRes.content + '\n;try{return typeof OBSERVATION_CHECKLIST_GROUPS !== "undefined" ? OBSERVATION_CHECKLIST_GROUPS : [];}catch(e){return [];}');
+            chips = fnChips() || [];
+            const fnDecs = new Function(rawRes.content + '\n;try{return (typeof SCORING_DECISIONS !== "undefined" && Array.isArray(SCORING_DECISIONS)) ? SCORING_DECISIONS : [];}catch(e){return [];}');
+            scoringDecisions = fnDecs() || [];
           }
         } catch (_) {}
         if (!chips.length) {
@@ -6064,11 +6257,46 @@
             if (ls) chips = JSON.parse(ls);
           } catch (_) {}
         }
+        if (!scoringDecisions.length) {
+          try {
+            const ls = localStorage.getItem('gradeSheetReferenceScoringDecisions.v1');
+            if (ls) scoringDecisions = JSON.parse(ls);
+          } catch (_) {}
+        }
+        if (Array.isArray(file.records)) {
+          for (const crit of file.records) {
+            if (crit && crit.name && Array.isArray(crit.scoringDecisions)) {
+              for (const dec of crit.scoringDecisions) {
+                let entry = scoringDecisions.find(e => 
+                  String(e.classTitle || '').trim().toLowerCase() === String(dec.classTitle || '').trim().toLowerCase() &&
+                  String(e.testName || '').trim().toLowerCase() === String(dec.testName || '').trim().toLowerCase()
+                );
+                if (!entry) {
+                  entry = {
+                    classTitle: dec.classTitle || '',
+                    testName: dec.testName || '',
+                    year: dec.year || '',
+                    semester: dec.semester || '',
+                    testDate: dec.testDate || '',
+                    criteriaDecisions: {}
+                  };
+                  scoringDecisions.push(entry);
+                }
+                if (!entry.criteriaDecisions) entry.criteriaDecisions = {};
+                if (Array.isArray(dec.rules)) {
+                  entry.criteriaDecisions[crit.name] = [...dec.rules];
+                }
+              }
+            }
+          }
+        }
         const content = `const XLSM_CRITERIA = ${JSON.stringify(file.records, null, 2)};\n` +
-          `const OBSERVATION_CHECKLIST_GROUPS = ${JSON.stringify(chips, null, 2)};\n`;
+          `const OBSERVATION_CHECKLIST_GROUPS = ${JSON.stringify(chips, null, 2)};\n` +
+          `const SCORING_DECISIONS = ${JSON.stringify(scoringDecisions, null, 2)};\n`;
         result = await Desktop.saveText('user', 'correction-criteria.js', content);
         try {
           localStorage.setItem('gradeSheetReferenceCriteria.v1', JSON.stringify(file.records));
+          localStorage.setItem('gradeSheetReferenceScoringDecisions.v1', JSON.stringify(scoringDecisions));
         } catch (_) {}
       } else if (S.typeKey === 'scales' && file.name === 'grade-scale-models.js') {
         const content = `// XLSM_SCALE_MODELS\nconst XLSM_SCALE_MODELS = ${JSON.stringify(file.records, null, 2)};\n`;
@@ -6078,11 +6306,14 @@
         } catch (_) {}
       } else if (S.typeKey === 'chips' && file.name === 'correction-criteria.js') {
         let criteria = [];
+        let scoringDecisions = [];
         try {
           const rawRes = await Desktop.readText('user', 'correction-criteria.js');
           if (rawRes && rawRes.ok) {
-            const fn = new Function(rawRes.content + '\n;try{return typeof XLSM_CRITERIA !== "undefined" ? XLSM_CRITERIA : [];}catch(e){return [];}');
-            criteria = fn() || [];
+            const fnCrit = new Function(rawRes.content + '\n;try{return typeof XLSM_CRITERIA !== "undefined" ? XLSM_CRITERIA : [];}catch(e){return [];}');
+            criteria = fnCrit() || [];
+            const fnDecs = new Function(rawRes.content + '\n;try{return (typeof SCORING_DECISIONS !== "undefined" && Array.isArray(SCORING_DECISIONS)) ? SCORING_DECISIONS : [];}catch(e){return [];}');
+            scoringDecisions = fnDecs() || [];
           }
         } catch (_) {}
         if (!criteria.length) {
@@ -6091,11 +6322,19 @@
             if (ls) criteria = JSON.parse(ls);
           } catch (_) {}
         }
+        if (!scoringDecisions.length) {
+          try {
+            const ls = localStorage.getItem('gradeSheetReferenceScoringDecisions.v1');
+            if (ls) scoringDecisions = JSON.parse(ls);
+          } catch (_) {}
+        }
         const content = `const XLSM_CRITERIA = ${JSON.stringify(criteria, null, 2)};\n` +
-          `const OBSERVATION_CHECKLIST_GROUPS = ${JSON.stringify(file.records, null, 2)};\n`;
+          `const OBSERVATION_CHECKLIST_GROUPS = ${JSON.stringify(file.records, null, 2)};\n` +
+          `const SCORING_DECISIONS = ${JSON.stringify(scoringDecisions, null, 2)};\n`;
         result = await Desktop.saveText('user', 'correction-criteria.js', content);
         try {
           localStorage.setItem('gradeSheetPersonalisedChips.v1', JSON.stringify(file.records));
+          localStorage.setItem('gradeSheetReferenceScoringDecisions.v1', JSON.stringify(scoringDecisions));
         } catch (_) {}
       } else {
         result = await Desktop.saveText(def.target, file.name, buildJsContent(file.varName, file.records));
@@ -9860,7 +10099,7 @@ Rules:
         ${fieldsHtml ? `
         <div class="batch-section-box">
           <div class="batch-section-title">
-            <img src="../assets/icons/sliders.svg" class="btn-icon btn-icon-xs" alt="" />
+            <img src="../assets/icons/gear.svg" class="btn-icon btn-icon-xs" alt="" />
             <span>${t('mdbBatchSectionFields') || 'Batch Fields & Properties'}</span>
           </div>
           <div class="batch-form-grid">

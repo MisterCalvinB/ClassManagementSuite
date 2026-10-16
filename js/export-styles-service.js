@@ -183,6 +183,9 @@
       if (_styleListCache && !forceRefresh) {
         return _styleListCache;
       }
+      if (forceRefresh) {
+        _styleListCache = null;
+      }
 
       var styles = [];
       var isElectron = !!(window.Desktop && Desktop.isElectron());
@@ -198,7 +201,7 @@
               if (!/\.css$/i.test(filename)) continue;
 
               var styleId = filename;
-              var content = await this.getStyleContent(styleId, 'exportCss');
+              var content = await this.getStyleContent(styleId, 'exportCss', forceRefresh);
               var meta = parseCssMetadata(content, filename);
 
               styles.push({
@@ -216,32 +219,44 @@
           console.warn('[ExportStylesService] Built-in styles scan failed:', err);
         }
 
-        // 2. Scan user custom styles in user/export-css
+        // 2. Scan user custom styles in user/export-css (with fallback to user target)
+        var userFiles = [];
         try {
           var resUser = await Desktop.listByPath('userExportCss', '', { extensions: ['.css'], recursive: false });
-          if (resUser && resUser.ok && Array.isArray(resUser.files) && resUser.files.length) {
-            for (var j = 0; j < resUser.files.length; j++) {
-              var uf = resUser.files[j];
-              var uFilename = uf.name || uf.relativePath.split('/').pop() || uf.relativePath;
-              if (!/\.css$/i.test(uFilename)) continue;
-
-              var uStyleId = 'user:' + uFilename;
-              var uContent = await this.getStyleContent(uStyleId, 'userExportCss');
-              var uMeta = parseCssMetadata(uContent, uFilename);
-
-              styles.push({
-                id: uStyleId,
-                filename: uFilename,
-                name: uMeta.name || uFilename,
-                description: uMeta.description || '',
-                tags: uMeta.tags || [],
-                isCustom: true,
-                target: 'userExportCss'
-              });
-            }
+          if (resUser && resUser.ok && Array.isArray(resUser.files)) {
+            userFiles = resUser.files;
           }
         } catch (err) {
-          // If user/export-css directory doesn't exist yet, it's normal
+          // If userExportCss target failed, fall back to checking user/export-css
+        }
+
+        if (!userFiles.length) {
+          try {
+            var resUserFallback = await Desktop.listByPath('user', 'export-css', { extensions: ['.css'], recursive: false });
+            if (resUserFallback && resUserFallback.ok && Array.isArray(resUserFallback.files)) {
+              userFiles = resUserFallback.files;
+            }
+          } catch (_) {}
+        }
+
+        for (var j = 0; j < userFiles.length; j++) {
+          var uf = userFiles[j];
+          var uFilename = uf.name || uf.relativePath.split('/').pop() || uf.relativePath;
+          if (!/\.css$/i.test(uFilename)) continue;
+
+          var uStyleId = 'user:' + uFilename;
+          var uContent = await this.getStyleContent(uStyleId, 'userExportCss', forceRefresh);
+          var uMeta = parseCssMetadata(uContent, uFilename);
+
+          styles.push({
+            id: uStyleId,
+            filename: uFilename,
+            name: uMeta.name || uFilename,
+            description: uMeta.description || '',
+            tags: uMeta.tags || [],
+            isCustom: true,
+            target: 'userExportCss'
+          });
         }
       }
 
@@ -264,11 +279,12 @@
      * Get CSS content by styleId with memory caching
      * @param {string} styleId e.g. "export-light-neobrutalist.css" or "user:custom.css"
      * @param {string} [target] "exportCss" or "userExportCss"
+     * @param {boolean} [forceRefresh] Bypass cache
      * @returns {Promise<string>} CSS text
      */
-    async getStyleContent(styleId, target) {
+    async getStyleContent(styleId, target, forceRefresh) {
       if (!styleId) styleId = this.DEFAULT_STYLE_ID;
-      if (_styleContentCache[styleId]) {
+      if (!forceRefresh && _styleContentCache[styleId]) {
         return _styleContentCache[styleId];
       }
 
@@ -283,8 +299,21 @@
           var r = await Desktop.readByPath(fileTarget, filename);
           if (r && r.ok && r.content) {
             cssText = r.content;
+          } else if (isUser) {
+            var rFb = await Desktop.readByPath('user', 'export-css/' + filename);
+            if (rFb && rFb.ok && rFb.content) {
+              cssText = rFb.content;
+            }
           }
         } catch (err) {
+          if (isUser) {
+            try {
+              var rFb2 = await Desktop.readByPath('user', 'export-css/' + filename);
+              if (rFb2 && rFb2.ok && rFb2.content) {
+                cssText = rFb2.content;
+              }
+            } catch (_) {}
+          }
           console.warn('[ExportStylesService] Read by path failed for ' + styleId + ':', err);
         }
       }
@@ -350,7 +379,7 @@
       var head = doc.head || doc.getElementsByTagName('head')[0];
       if (!head) return;
 
-      var cssText = await this.getStyleContent(styleId);
+      var cssText = await this.getStyleContent(styleId, null, true);
       if (!cssText) return;
 
       var existing = doc.getElementById('cmt-export-theme');
@@ -367,11 +396,18 @@
     /**
      * Embed chosen CSS into an HTML string before exporting to file or printPdf
      * @param {string} html
-     * @param {string} styleId
+     * @param {string} [styleId]
+     * @param {string} [toolKey] Optional toolKey fallback to resolve preference if styleId is omitted
      * @returns {Promise<string>} modified HTML string
      */
-    async injectStyleIntoHtml(html, styleId) {
-      var css = await this.getStyleContent(styleId);
+    async injectStyleIntoHtml(html, styleId, toolKey) {
+      if (!styleId && toolKey) {
+        styleId = this.getSelectedStyle(toolKey);
+      }
+      if (!styleId) {
+        styleId = this.getSelectedStyle();
+      }
+      var css = await this.getStyleContent(styleId, null, true);
       if (!css) return html;
 
       var styleTag = '<style id="cmt-export-theme">\n' + css + '\n</style>';
@@ -529,13 +565,16 @@
         appendGroup(t('exportStyleUserCustomHeader', 'Custom Styles (user/)'), custom, true);
       }
 
-      triggerBtn.addEventListener('click', function (e) {
+      triggerBtn.addEventListener('click', async function (e) {
         e.stopPropagation();
         var isOpen = popover.classList.contains('open');
         _activeDropdowns.forEach(function (d) { d.popoverEl.classList.remove('open'); });
         if (!isOpen) {
           popover.classList.add('open');
           searchInput.value = '';
+          try {
+            allStyles = await ExportStylesService.loadAvailableStyles(true);
+          } catch (_) {}
           renderList('');
           setTimeout(function () { searchInput.focus(); }, 50);
         }
