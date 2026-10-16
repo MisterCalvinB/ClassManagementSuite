@@ -37,6 +37,65 @@
   }
 
   /**
+   * Helper: Render KaTeX math formulas within a text string if katex is available
+   */
+  function renderMathInString(str) {
+    if (!str) return '';
+    var hasKatex = typeof window !== 'undefined' && typeof window.katex !== 'undefined' && window.katex && typeof window.katex.renderToString === 'function';
+    if (!/\$/.test(str)) {
+      return /<[a-z][\s\S]*>/i.test(str) ? str : escapeHtml(str);
+    }
+    if (!hasKatex) {
+      return /<[a-z][\s\S]*>/i.test(str) ? str : escapeHtml(str);
+    }
+    function replaceTex(raw) {
+      // First display math $$...$$
+      var s = raw.replace(/\$\$([\s\S]+?)\$\$/g, function (m, tex) {
+        try {
+          return window.katex.renderToString(tex.trim(), { displayMode: true, throwOnError: false });
+        } catch (_) {
+          return m;
+        }
+      });
+      // Then inline math $...$
+      s = s.replace(/\$([^\$\n\r]+?)\$/g, function (match, tex) {
+        try {
+          return window.katex.renderToString(tex.trim(), { displayMode: false, throwOnError: false });
+        } catch (_) {
+          return match;
+        }
+      });
+      return s;
+    }
+
+    if (/<[a-z][\s\S]*>/i.test(str) && typeof document !== 'undefined') {
+      try {
+        var tempDiv = document.createElement('div');
+        tempDiv.innerHTML = str;
+        var walk = function (node) {
+          Array.from(node.childNodes).forEach(function (child) {
+            if (child.nodeType === 3) {
+              if (/\$/.test(child.nodeValue)) {
+                var span = document.createElement('span');
+                span.innerHTML = replaceTex(child.nodeValue);
+                child.replaceWith(span);
+              }
+            } else if (child.nodeType === 1 && !child.classList.contains('katex')) {
+              walk(child);
+            }
+          });
+        };
+        walk(tempDiv);
+        return tempDiv.innerHTML;
+      } catch (_) {
+        return replaceTex(str);
+      }
+    }
+
+    return replaceTex(escapeHtml(str));
+  }
+
+  /**
    * Load and cache embedded Lexend WOFF2 fonts for offline PDF printing
    */
   async function getEmbeddedLexendFontsCss() {
@@ -203,17 +262,30 @@
   }
 
   /**
+   * Helper: Parse positive numeric dimension from number, string ("250px"), or style property
+   */
+  function parseDim(val) {
+    if (val == null || val === '') return 0;
+    var num = typeof val === 'number' ? val : parseFloat(val);
+    return (!isNaN(num) && num > 0) ? num : 0;
+  }
+
+  /**
    * Helper: Resolve accurate visual geometry for a node
    */
   function resolveNodeDims(n) {
     if (!n) return { w: 120, h: 40, fs: 16 };
-    var rawW = Number(n.w != null ? n.w : (n.width != null ? n.width : n._cachedW)) || 0;
-    var rawH = Number(n.h != null ? n.h : (n.height != null ? n.height : n._cachedH)) || 0;
+    var rawW = parseDim(n.w) || parseDim(n.width) || parseDim(n._cachedW) || parseDim(n.offsetWidth) || parseDim(n.clientWidth) || (n.el ? (parseDim(n.el.offsetWidth) || parseDim(n.el.clientWidth)) : 0);
+    var rawH = parseDim(n.h) || parseDim(n.height) || parseDim(n._cachedH) || parseDim(n.offsetHeight) || parseDim(n.clientHeight) || (n.el ? (parseDim(n.el.offsetHeight) || parseDim(n.el.clientHeight)) : 0);
     var fs = parseFloat(n.fontSize || n.fontPx || (n.fmt && n.fmt.fontSize)) || 16;
     var shape = String(n.shape || '').toLowerCase();
     var isSquareOrCircle = shape === 'circle' || shape === 'square';
 
     if (rawW > 0 && rawH > 0) {
+      if (isSquareOrCircle) {
+        var maxD = Math.max(rawW, rawH);
+        return { w: maxD, h: maxD, fs: fs };
+      }
       return { w: rawW, h: rawH, fs: fs };
     }
 
@@ -222,11 +294,11 @@
     var maxLineLen = 0;
     rawLines.forEach(function (l) { if (l.length > maxLineLen) maxLineLen = l.length; });
 
-    // In Board, bold Lexend character width is ~0.60 * fontSize + 18px container padding + 4px border
-    var charW = fs * 0.60;
-    var estimatedW = Math.max(48, Math.round(maxLineLen * charW + 24));
-    var lineH = Math.max(16, Math.round(fs * 1.3));
-    var estimatedH = Math.max(28, Math.round(rawLines.length * lineH + 10));
+    // In Board, bold Lexend character width is ~0.68 * fontSize + 28px container padding + 4px border (32px total)
+    var charW = fs * 0.68;
+    var estimatedW = Math.max(48, Math.round(maxLineLen * charW + 32));
+    var lineH = Math.max(16, Math.round(fs * 1.35));
+    var estimatedH = Math.max(28, Math.round(rawLines.length * lineH + 16));
 
     if (n.relation === 'translation' || n.relation === 'ipa') estimatedW += 24;
     if (n.pageNum != null) estimatedW += 20;
@@ -248,18 +320,26 @@
    * Helper: Resolve accurate visual geometry for a sticky note
    */
   function resolveNoteDims(nt) {
-    if (!nt) return { w: 140, h: 80, fs: 14 };
-    var rawW = Number(nt.w != null ? nt.w : (nt.width != null ? nt.width : nt.liveBaseWidth)) || 0;
-    var rawH = Number(nt.h != null ? nt.h : (nt.height != null ? nt.height : nt.liveBaseHeight)) || 0;
-    var fs = parseFloat(nt.fontSize || nt.fontPx || (nt.fmt && nt.fmt.fontSize)) || 14;
+    if (!nt) return { w: 140, h: 80, fs: 16 };
+    var rawW = parseDim(nt.w) || parseDim(nt.width) || parseDim(nt.liveBaseWidth) || parseDim(nt.styleWidth) || (nt.style ? parseDim(nt.style.width) : 0) || parseDim(nt._cachedW) || parseDim(nt.offsetWidth) || parseDim(nt.clientWidth) || (nt.el ? (parseDim(nt.el.offsetWidth) || parseDim(nt.el.clientWidth)) : 0);
+    var rawH = parseDim(nt.h) || parseDim(nt.height) || parseDim(nt.liveBaseHeight) || parseDim(nt.styleHeight) || (nt.style ? parseDim(nt.style.height) : 0) || parseDim(nt._cachedH) || parseDim(nt.offsetHeight) || parseDim(nt.clientHeight) || (nt.el ? (parseDim(nt.el.offsetHeight) || parseDim(nt.el.clientHeight)) : 0);
+    var fs = parseFloat(nt.fontSize || nt.fontPx || (nt.fmt && nt.fmt.fontSize)) || 16;
 
     if (rawW > 0 && rawH > 0) {
       return { w: rawW, h: rawH, fs: fs };
     }
 
     var text = String(nt.text || nt.content || nt.html || '').trim();
-    var finalW = rawW > 0 ? rawW : (text.length > 60 ? 240 : (text.length > 25 ? 180 : 130));
-    var finalH = rawH > 0 ? rawH : (text.length > 100 ? 120 : (text.length > 40 ? 80 : 50));
+    var lines = text ? text.split(/\r?\n|<br\s*\/?>/i) : [''];
+    var lineH = Math.max(16, Math.round(fs * 1.4));
+    var estContentH = Math.max(40, lines.length * lineH + 16);
+
+    // Never override non-zero dimensions with character-length presets
+    var fallbackW = text.length > 60 ? 240 : (text.length > 25 ? 180 : 130);
+    var fallbackH = Math.max(estContentH, text.length > 100 ? 120 : (text.length > 40 ? 80 : 50));
+
+    var finalW = rawW > 0 ? rawW : fallbackW;
+    var finalH = rawH > 0 ? rawH : fallbackH;
     return { w: finalW, h: finalH, fs: fs };
   }
 
@@ -676,35 +756,104 @@
         svg += '    <rect x="' + nx + '" y="' + ny + '" width="' + nw + '" height="' + nh + '" rx="' + rxVal + '" fill="' + nBg + '" stroke="' + nStroke + '" stroke-width="' + nStrokeW + '" ' + strokeDash + ' />\n';
       }
 
-      // Support manual breaks // or \n or <br>
-      var rawLines = String(nText).split(/\/\/|\r?\n|<br\s*\/?>/i).map(function (s) { return s.trim(); });
-      var lines = [];
-      var availW = Math.max(30, nw - padX * 2);
-      var avgCharW = fs * 0.58;
-      var maxChars = Math.max(10, Math.floor(availW / avgCharW));
-      rawLines.forEach(function (rawSeg) {
-        if (rawSeg.length <= maxChars || !/\s+/.test(rawSeg)) {
-          lines.push(rawSeg);
-        } else {
-          var words = rawSeg.split(/\s+/);
-          var cur = '';
-          words.forEach(function (w) {
-            if ((cur + ' ' + w).trim().length > maxChars) {
-              if (cur) lines.push(cur.trim());
-              cur = w;
-            } else {
-              cur = cur ? (cur + ' ' + w) : w;
-            }
-          });
-          if (cur) lines.push(cur.trim());
-        }
-      });
-      if (!lines.length) lines = [''];
+      // Phase 4: Shape Inscribed Bounds & ClipPaths
+      // 1. Generate an SVG <clipPath> matching the exact node geometry
+      var nodeClipId = 'bes-node-clip-' + Math.random().toString(36).substring(2, 9);
+      svg += '    <defs>\n' +
+        '      <clipPath id="' + nodeClipId + '">\n';
+      if (isRound) {
+        svg += '        <ellipse cx="' + (nx + nw / 2) + '" cy="' + (ny + nh / 2) + '" rx="' + (nw / 2) + '" ry="' + (nh / 2) + '" />\n';
+      } else if (isDiamond) {
+        var dcx = nx + nw / 2, dcy = ny + nh / 2;
+        var ptsStr = dcx + ',' + ny + ' ' + (nx + nw) + ',' + dcy + ' ' + dcx + ',' + (ny + nh) + ' ' + nx + ',' + dcy;
+        svg += '        <polygon points="' + ptsStr + '" />\n';
+      } else {
+        var rxVal = isSquare ? 0 : 4;
+        svg += '        <rect x="' + nx + '" y="' + ny + '" width="' + nw + '" height="' + nh + '" rx="' + rxVal + '" />\n';
+      }
+      svg += '      </clipPath>\n' +
+        '    </defs>\n';
 
-      var startTextY = ny + (nh / 2) - ((lines.length - 1) * lineH / 2) + Math.round(fs * 0.35);
-      lines.forEach(function (lStr, lIdx) {
-        svg += '    <text x="' + textX + '" y="' + (startTextY + lIdx * lineH) + '" fill="' + nColor + '" font-family="' + escapeXml(ff) + '" font-size="' + fs + '" font-weight="' + fw + '" font-style="' + fst + '" ' + td + ' text-anchor="' + anchor + '">' + escapeXml(lStr) + '</text>\n';
-      });
+      // 2. For diamond and circle shapes, scale the text container by sqrt(2)/2 ≈ 0.7071
+      // so text fits cleanly inside the widest inscribed part of the shape.
+      var shapeScale = (isDiamond || isRound) ? 0.7071 : 1.0;
+      var tW = Math.max(20, Math.round(nw * shapeScale));
+      var tH = Math.max(16, Math.round(nh * shapeScale));
+      var tX = Math.round(nx + (nw - tW) / 2);
+      var tY = Math.round(ny + (nh - tH) / 2);
+
+      // Phase 3: Implement <foreignObject> for Word Nodes in renderSessionToSvg
+      // Check if options.renderMode === 'vector' (Chromium / Electron print engine)
+      var isVectorMode = (opts.renderMode === 'vector');
+      var hasHtml = !!(n.html || (n.el && n.el.querySelector && n.el.querySelector('.katex, .wn-katex-inline, .wn-katex-display, i, b, strong, em, br, sub, sup')) || /<[a-z][\s\S]*>/i.test(nText));
+      var hasMath = /\$|\\\(|\\\[/.test(nText) || (n.html && /\$|\\\(|\\\[/.test(n.html));
+      var hasMultiLine = /\/\/|\r?\n|<br\s*\/?>/i.test(nText);
+      var useForeignObject = isVectorMode && (hasHtml || hasMath || hasMultiLine || true);
+
+      var align = (n.textAlign || (n.fmt && (n.fmt.align || n.fmt.textAlign)) || (n.align) || 'center').toLowerCase();
+      if (align !== 'left' && align !== 'right' && align !== 'center') align = 'center';
+      var justifyVal = align === 'center' ? 'center' : (align === 'right' ? 'flex-end' : 'flex-start');
+
+      if (useForeignObject) {
+        var contentHtml = '';
+        if (n.html) {
+          contentHtml = renderMathInString(String(n.html));
+        } else if (n.el && n.el.querySelector && n.el.querySelector('.katex, .wn-katex-inline, .wn-katex-display, i, b, strong, em, br, sub, sup')) {
+          contentHtml = n.el.innerHTML;
+        } else {
+          var rawSegs = String(nText).split(/\/\/|\r?\n|<br\s*\/?>/i).map(function (s) { return s.trim(); });
+          var processedSegs = rawSegs.map(function (seg) {
+            return renderMathInString(seg);
+          });
+          contentHtml = processedSegs.join('<br/>');
+        }
+
+        var tdCss = td ? 'underline' : 'none';
+        svg += '    <g class="bes-node-text-wrap" clip-path="url(#' + nodeClipId + ')">\n' +
+          '      <foreignObject x="' + tX + '" y="' + tY + '" width="' + tW + '" height="' + tH + '">\n' +
+          '        <div xmlns="http://www.w3.org/1999/xhtml" style="width:' + tW + 'px;height:' + tH + 'px;display:flex;align-items:center;justify-content:' + justifyVal + ';text-align:' + align + ';word-break:break-word;box-sizing:border-box;overflow:hidden;padding:0 2px;">\n' +
+          '          <div style="width:100%;font-family:' + escapeXml(ff) + ';font-size:' + fs + 'px;font-weight:' + fw + ';font-style:' + fst + ';text-decoration:' + tdCss + ';color:' + nColor + ';line-height:1.25;text-align:' + align + ';word-break:break-word;overflow:hidden;">\n' +
+          '            ' + contentHtml + '\n' +
+          '          </div>\n' +
+          '        </div>\n' +
+          '      </foreignObject>\n' +
+          '    </g>\n';
+      } else {
+        // Fallback to standard SVG <text> elements
+        var rawLines = String(nText).split(/\/\/|\r?\n|<br\s*\/?>/i).map(function (s) { return s.trim(); });
+        var lines = [];
+        var availW = Math.max(20, tW - padX * 2);
+        var avgCharW = fs * 0.58;
+        var maxChars = Math.max(6, Math.floor(availW / avgCharW));
+        rawLines.forEach(function (rawSeg) {
+          if (rawSeg.length <= maxChars || !/\s+/.test(rawSeg)) {
+            lines.push(rawSeg);
+          } else {
+            var words = rawSeg.split(/\s+/);
+            var cur = '';
+            words.forEach(function (w) {
+              if ((cur + ' ' + w).trim().length > maxChars) {
+                if (cur) lines.push(cur.trim());
+                cur = w;
+              } else {
+                cur = cur ? (cur + ' ' + w) : w;
+              }
+            });
+            if (cur) lines.push(cur.trim());
+          }
+        });
+        if (!lines.length) lines = [''];
+
+        var textAnchor = align === 'center' ? 'middle' : (align === 'right' ? 'end' : 'start');
+        var textAnchorX = textAnchor === 'middle' ? (tX + tW / 2) : (textAnchor === 'end' ? (tX + tW - padX) : (tX + padX));
+        var startTextY = tY + (tH / 2) - ((lines.length - 1) * lineH / 2) + Math.round(fs * 0.35);
+
+        svg += '    <g class="bes-node-text-wrap" clip-path="url(#' + nodeClipId + ')">\n';
+        lines.forEach(function (lStr, lIdx) {
+          svg += '      <text x="' + textAnchorX + '" y="' + (startTextY + lIdx * lineH) + '" fill="' + nColor + '" font-family="' + escapeXml(ff) + '" font-size="' + fs + '" font-weight="' + fw + '" font-style="' + fst + '" ' + td + ' text-anchor="' + textAnchor + '">' + escapeXml(lStr) + '</text>\n';
+        });
+        svg += '    </g>\n';
+      }
 
       // Relation or page number badge
       var rel = String(n.relation || '').toLowerCase();
@@ -744,12 +893,25 @@
       var fw = nt.bold ? '700' : '400';
       var fst = nt.italic ? 'italic' : 'normal';
       var td = nt.underline ? 'underline' : (nt.strike ? 'line-through' : 'none');
+      if (nt.wavy) td = 'underline';
+      var tdStyle = nt.wavy ? 'text-decoration-style:wavy;' : '';
+
+      var casing = String(nt.casing || '').toLowerCase();
+      var textTransform = 'none';
+      var fontVariant = 'normal';
+      if (casing === 'uppercase') textTransform = 'uppercase';
+      else if (casing === 'lowercase') textTransform = 'lowercase';
+      else if (casing === 'titlecase') textTransform = 'capitalize';
+      else if (casing === 'smallcaps') fontVariant = 'small-caps';
+
       var nTextColor = nt.textColor || nt.color || '#111111';
       if (nTextColor === nBg) nTextColor = '#111111';
-      var lineH = Math.max(14, Math.round(fs * 1.35));
+      var lineH = Math.max(14, Math.round(fs * 1.4));
       var align = (nt.textAlign || (nt.fmt && nt.fmt.textAlign) || 'left').toLowerCase();
       if (align !== 'left' && align !== 'right' && align !== 'center') align = 'left';
       var anchor = align === 'center' ? 'middle' : (align === 'right' ? 'end' : 'start');
+
+      var padTop = 6, padRight = 12, padBottom = 10, padLeft = 8;
 
       var rawHtml = nt.html || '';
       var rawText = nt.text || nt.content || '';
@@ -758,6 +920,16 @@
         cleanHtml = String(rawHtml).trim();
       } else if (rawText) {
         cleanHtml = escapeHtml(rawText).replace(/\r?\n/g, '<br/>');
+      }
+
+      // Process math formulas via KaTeX
+      if (cleanHtml && typeof renderMathInString === 'function') {
+        cleanHtml = renderMathInString(cleanHtml);
+      }
+
+      var hasBlockTags = /<(?:div|p|ul|ol|li|table|h[1-6])[\s\S]*>/i.test(cleanHtml);
+      if (hasBlockTags) {
+        cleanHtml = cleanHtml.replace(/(<\/(?:div|p|li|h[1-6])>)\s*[\r\n]+\s*(<(?:div|p|ul|ol|li|h[1-6]))/gi, '$1$2');
       }
 
       // Plain-text lines for fallback or pure SVG parsers
@@ -774,10 +946,8 @@
         .replace(/&gt;/g, '>')
         .trim();
 
-      var padX = 10;
-      var padY = 8;
-      var availW = Math.max(30, tw - padX * 2);
-      var avgCharW = fs * 0.55;
+      var availW = Math.max(30, tw - padLeft - padRight);
+      var avgCharW = fs * 0.58;
       var maxCharsPerLine = Math.max(8, Math.floor(availW / avgCharW));
 
       var paragraphs = plainText ? plainText.split(/\r?\n/) : [''];
@@ -806,28 +976,41 @@
       svg += '  <g class="bes-note">\n' +
         '    <defs>\n' +
         '      <clipPath id="' + clipId + '">\n' +
-        '        <rect x="' + tx + '" y="' + ty + '" width="' + tw + '" height="' + th + '" rx="4" />\n' +
+        '        <rect x="' + tx + '" y="' + ty + '" width="' + tw + '" height="' + th + '" rx="6" />\n' +
         '      </clipPath>\n' +
         '    </defs>\n' +
-        '    <rect x="' + tx + '" y="' + ty + '" width="' + tw + '" height="' + th + '" rx="4" fill="' + nBg + '" stroke="' + nBorder + '" stroke-width="' + nBorderW + '" ' + nBorderDash + ' />\n';
+        '    <rect x="' + tx + '" y="' + ty + '" width="' + tw + '" height="' + th + '" rx="6" fill="' + nBg + '" stroke="' + nBorder + '" stroke-width="' + nBorderW + '" ' + nBorderDash + ' />\n';
 
       // Use foreignObject for Chromium / Electron printPdf (preserves full rich HTML, KaTeX math, bullet lists, CSS word wrap)
       if (cleanHtml) {
-        var fontStyleAttr = 'font-family:' + escapeHtml(ff) + ';font-size:' + fs + 'px;font-weight:' + fw + ';font-style:' + fst + ';text-decoration:' + td + ';text-align:' + align + ';color:' + nTextColor + ';';
-        svg += '    <foreignObject x="' + tx + '" y="' + ty + '" width="' + tw + '" height="' + th + '">\n' +
-          '      <div xmlns="http://www.w3.org/1999/xhtml" style="width:' + tw + 'px;height:' + th + 'px;box-sizing:border-box;padding:' + padY + 'px ' + padX + 'px;' + fontStyleAttr + 'overflow:hidden;word-break:break-word;white-space:pre-wrap;line-height:1.35;">\n' +
-          '        ' + cleanHtml + '\n' +
-          '      </div>\n' +
+        var wsStyle = hasBlockTags ? 'white-space:normal;' : 'white-space:pre-wrap;';
+        var fontStyleAttr = 'font-family:' + escapeHtml(ff) + ';font-size:' + fs + 'px;font-weight:' + fw + ';font-style:' + fst + ';text-decoration:' + td + ';' + tdStyle + 'text-transform:' + textTransform + ';font-variant:' + fontVariant + ';text-align:' + align + ';color:' + nTextColor + ';';
+        svg += '    <foreignObject x="' + tx + '" y="' + ty + '" width="' + tw + '" height="' + th + '" clip-path="url(#' + clipId + ')">\n' +
+          '      <div xmlns="http://www.w3.org/1999/xhtml" class="bes-note-inner" style="width:' + tw + 'px;height:' + th + 'px;box-sizing:border-box;padding:' + padTop + 'px ' + padRight + 'px ' + padBottom + 'px ' + padLeft + 'px;' + fontStyleAttr + 'overflow:hidden;word-break:break-word;' + wsStyle + 'line-height:1.4;">' +
+          '<style>.bes-note-inner p,.bes-note-inner div{margin:0;padding:0;}.bes-note-inner ul,.bes-note-inner ol{margin:0;padding-left:1.6em;box-sizing:border-box;}.bes-note-inner ul[data-checkbox-list="true"]{list-style:none;padding-left:0;}.bes-note-inner ul[data-checkbox-list="true"]>li{list-style:none;display:flex;align-items:center;}.bes-note-inner ul[data-checkbox-list="true"]>li>input[type="checkbox"]{margin:0 6px 0 0;vertical-align:middle;}</style>' +
+          cleanHtml +
+          '</div>\n' +
           '    </foreignObject>\n';
       } else {
-        var textX = anchor === 'middle' ? (tx + tw / 2) : (anchor === 'end' ? (tx + tw - padX) : (tx + padX));
-        var startY = ty + padY + fs;
-        var maxLines = Math.max(1, Math.floor((th - padY * 2) / lineH));
+        var textX = anchor === 'middle' ? (tx + tw / 2) : (anchor === 'end' ? (tx + tw - padRight) : (tx + padLeft));
+        var startY = ty + padTop + fs;
+        var maxLines = Math.max(1, Math.floor((th - padTop - padBottom) / lineH));
 
         allLines.forEach(function (l, i) {
           if (i < maxLines + 2) {
             svg += '    <text x="' + textX + '" y="' + (startY + i * lineH) + '" fill="' + nTextColor + '" font-family="' + escapeXml(ff) + '" font-size="' + fs + '" font-weight="' + fw + '" font-style="' + fst + '" text-decoration="' + td + '" text-anchor="' + anchor + '" clip-path="url(#' + clipId + ')">' + escapeXml(l) + '</text>\n';
           }
+        });
+      }
+
+      // Emoji stickers attached to note
+      if (Array.isArray(nt.emojiStickers) && nt.emojiStickers.length > 0) {
+        nt.emojiStickers.forEach(function (st) {
+          if (!st || !st.emoji) return;
+          var sx = tx + (Number(st.x) || 0);
+          var sy = ty + (Number(st.y) || 0);
+          var sz = Number(st.size) || 28;
+          svg += '    <text x="' + sx + '" y="' + (sy + sz * 0.85) + '" font-size="' + sz + '" font-family="Segoe UI Emoji, Apple Color Emoji, sans-serif">' + st.emoji + '</text>\n';
         });
       }
 
@@ -1191,18 +1374,27 @@
       var ff = nt.fontFamily || '"Lexend", "Segoe UI", Arial, sans-serif';
       var fw = nt.bold ? 'bold' : 'normal';
       var fst = nt.italic ? 'italic' : 'normal';
-      var lineH = Math.max(14, Math.round(fs * 1.35));
+      var lineH = Math.max(14, Math.round(fs * 1.4));
       var align = (nt.textAlign || (nt.fmt && nt.fmt.textAlign) || 'left').toLowerCase();
       if (align !== 'left' && align !== 'right' && align !== 'center') align = 'left';
 
+      var padTop = 6, padRight = 12, padBottom = 10, padLeft = 8;
+
       ctx.save();
       ctx.fillStyle = bg;
-      ctx.fillRect(tx, ty, tw, th);
       ctx.strokeStyle = border;
       ctx.lineWidth = nt.borderWidth || 1.5;
       if (nt.borderStyle === 'dashed') ctx.setLineDash([6, 3]);
       else if (nt.borderStyle === 'dotted') ctx.setLineDash([2, 3]);
-      ctx.strokeRect(tx, ty, tw, th);
+
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(tx, ty, tw, th, 6);
+      } else {
+        ctx.rect(tx, ty, tw, th);
+      }
+      ctx.fill();
+      ctx.stroke();
       ctx.setLineDash([]);
 
       var nText = nt.text || nt.content || '';
@@ -1226,9 +1418,8 @@
       ctx.textAlign = align === 'center' ? 'center' : (align === 'right' ? 'right' : 'left');
       ctx.textBaseline = 'top';
 
-      var padX = 10, padY = 8;
-      var availW = Math.max(30, tw - padX * 2);
-      var textX = align === 'center' ? (tx + tw / 2) : (align === 'right' ? (tx + tw - padX) : (tx + padX));
+      var availW = Math.max(30, tw - padLeft - padRight);
+      var textX = align === 'center' ? (tx + tw / 2) : (align === 'right' ? (tx + tw - padRight) : (tx + padLeft));
 
       var paragraphs = String(nText).split(/\r?\n/);
       var allLines = [];
@@ -1250,17 +1441,45 @@
         if (cur) allLines.push(cur);
       });
 
-      var maxLines = Math.max(1, Math.floor((th - padY * 2) / lineH));
+      var maxLines = Math.max(1, Math.floor((th - padTop - padBottom) / lineH));
       ctx.save();
       ctx.beginPath();
-      ctx.rect(tx, ty, tw, th);
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(tx, ty, tw, th, 6);
+      } else {
+        ctx.rect(tx, ty, tw, th);
+      }
       ctx.clip();
       allLines.forEach(function (l, i) {
         if (i < maxLines + 1) {
-          ctx.fillText(l, textX, ty + padY + i * lineH);
+          ctx.fillText(l, textX, ty + padTop + i * lineH);
         }
       });
       ctx.restore();
+
+      // Render attached emoji stickers on canvas
+      if (Array.isArray(nt.emojiStickers) && nt.emojiStickers.length > 0) {
+        nt.emojiStickers.forEach(function (st) {
+          if (!st || !st.emoji) return;
+          var sx = tx + (Number(st.x) || 0);
+          var sy = ty + (Number(st.y) || 0);
+          var sz = Number(st.size) || 28;
+          ctx.save();
+          ctx.font = sz + 'px "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
+          ctx.fillText(st.emoji, sx, sy + sz * 0.85);
+          ctx.restore();
+        });
+      }
+
+      // Render emoji dot
+      if (nt.emoji) {
+        ctx.save();
+        ctx.font = '12px "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(nt.emoji, tx + tw - 12, ty + 14);
+        ctx.restore();
+      }
+
       ctx.restore();
     });
 
@@ -1364,7 +1583,7 @@
           '  <img src="' + snapUrl + '" class="bes-mindmap-img" alt="Page ' + (i + 1) + '" style="flex:1;width:100%;max-height:calc(100vh - 46px);object-fit:contain;border:2px solid #333333;border-radius:8px;background:' + (p.boardBgColor || '#ffffff') + ';" />\n' +
           '</div>\n';
       } else {
-        var svgStr = renderSessionToSvg(p, { maxHeight: 'calc(100vh - 46px)', padding: 40 });
+        var svgStr = renderSessionToSvg(p, { maxHeight: 'calc(100vh - 46px)', padding: 40, renderMode: options.renderMode || 'vector' });
         pagesHtml += '<div class="pg">\n' +
           '  <div class="pg-hdr">\n' +
           '    <span class="pg-title">' + escapeHtml(title) + '</span>\n' +
@@ -1377,6 +1596,7 @@
 
     var html = '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="utf-8">\n' +
       '<title>' + escapeHtml(title) + '</title>\n' +
+      '<link rel="stylesheet" href="../modules/katex/dist/katex.min.css">\n' +
       '<style>\n' +
       lexendCss + '\n' +
       '@page { size: ' + pdfSettings.pageSize + ' ' + pdfSettings.orientation + '; margin: ' + pdfSettings.margin + '; }\n' +

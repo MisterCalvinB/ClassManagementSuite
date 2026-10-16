@@ -184,11 +184,12 @@ Whenever files are exported from any tool across the suite:
 <summary><strong>Multi-Model CSS Export System & Live Preview Engine</strong></summary>
 
 The suite features a centralized CSS export engine (`js/export-styles-service.js`) providing selectable typography, styling, and table formatting for document exports across **Lesson Creator**, **Test Creator**, **Grade Sheet**, **Schedule Maker**, and **Planner**:
-- **4 Foundation CSS Models**:
+- **5 Foundation CSS Models**:
   - **Light Neobrutalist**: Warm neutral background (`#f5f5f0`), 2px solid `#333333` charcoal borders, tactile `3px 3px 0 #555555` drop shadows, blocky radii, and Lexend typography.
   - **Modern Minimalist**: Crisp white/slate canvas, refined 1px hairline dividers (`#e2e8f0`), clean sans-serif typography, subtle rounded corners, and alternating table rows.
   - **Classic Academic**: Traditional formal ivory aesthetic, serif typography (Georgia, Garamond), formal booktabs horizontal table rules (no vertical borders), and centered headings.
   - **Plain / Eco (Black & White)**: High-contrast pure monochrome styling with zero backgrounds, zero ink-waste fills, and compact spacing designed for bulk school photocopiers.
+  - **Dyslexic & ADHD Friendly**: High-readability OpenDyslexic & Lexend typography, increased letter and line spacing, warm anti-glare ivory canvas (`#fbf9f4`), and chunked visual focus anchors designed for neurodivergent learners.
 - **Searchable Style Dropdown**: Interactive filter-as-you-type selector grouping built-in and user custom stylesheets with keyboard navigation and per-tool preference persistence.
 - **Live Preview Modals with Zero-Flicker In-Place Sync**: Full-screen live preview modals allow teachers to inspect documents before generating files. Changing styles hot-swaps the `<style id="cmt-export-theme">` inside the iframe DOM in real-time (`smooth-dom-sync`) without reloading `srcdoc`, keeping scroll position intact and eliminating flash.
 - **User Custom Styles**: Teachers can drop custom `.css` files directly into `user/export-css/` (with optional metadata headers `/* Name: ... Description: ... */`), which are automatically discovered and available across all export tools.

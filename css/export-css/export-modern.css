@@ -26,6 +26,7 @@
   --exp-accent-red: #dc2626;
   --exp-table-th-bg: #f1f5f9;
   --exp-table-row-even: #f8fafc;
+  --exp-table-border-collapse: separate;
 }
 
 * {
@@ -117,7 +118,7 @@ p {
 }
 
 /* ── Tables ── */
-table {
+table, table.report-table, .report-table, .data-table, .exp-table {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
@@ -130,7 +131,7 @@ table {
   overflow: hidden;
 }
 
-th, td {
+th, td, table.report-table th, table.report-table td, .report-table th, .report-table td {
   border-bottom: var(--exp-border-width) solid var(--exp-border-color);
   border-right: var(--exp-border-width) solid var(--exp-border-color);
   padding: 10px 12px;
@@ -140,15 +141,15 @@ th, td {
   color: var(--exp-text-color);
 }
 
-th:last-child, td:last-child {
+th:last-child, td:last-child, table.report-table th:last-child, table.report-table td:last-child {
   border-right: none;
 }
 
-tbody tr:last-child td {
+tbody tr:last-child td, table.report-table tbody tr:last-child td {
   border-bottom: none;
 }
 
-thead th {
+thead th, table.report-table th, .report-table th {
   background: var(--exp-table-th-bg);
   font-weight: 600;
   color: #334155;
@@ -159,8 +160,15 @@ thead th {
   border-bottom: 1.5px solid #cbd5e1;
 }
 
-tbody tr:nth-child(even) td:not(.sm-break-tr td):not(.sm-gap-tr td):not(.sm-group-tr td) {
+tbody tr:nth-child(even) td:not(.sm-break-tr td):not(.sm-gap-tr td):not(.sm-group-tr td):not(.stats-row td),
+table.report-table tr:nth-child(even) td:not(.stats-row td) {
   background: var(--exp-table-row-even);
+}
+
+table.report-table tr.stats-row td, tr.stats-row td, .total-row td {
+  background: var(--exp-table-th-bg);
+  font-weight: 700;
+  border-top: 1.5px solid #cbd5e1;
 }
 
 /* ── Resizers & Hidden columns ── */
@@ -380,10 +388,28 @@ tr.sm-gap-tr td {
 }
 
 /* ── Tool Specific: Grade Sheet Reports ── */
-.gs-report-header {
+.gs-report-header, .report-header {
   border-bottom: 1.5px solid var(--exp-border-color);
-  padding-bottom: 10px;
-  margin-bottom: 16px;
+  padding-bottom: 8px;
+  margin-bottom: 14px;
+}
+
+.section-heading {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1.5px solid var(--exp-border-color);
+  padding-bottom: 2px;
+  margin: 14px 0 8px;
+  color: var(--exp-text-color);
+}
+
+.kpi-card {
+  border: 1px solid var(--exp-border-color);
+  box-shadow: var(--exp-shadow);
+  border-radius: var(--exp-border-radius);
+  background: var(--exp-bg-surface);
 }
 
 .gs-stat-box {

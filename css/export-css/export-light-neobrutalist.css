@@ -27,6 +27,7 @@
   --exp-accent-purple: #8b7cc2;
   --exp-table-th-bg: #fafaf7;
   --exp-table-row-even: #f8fafc;
+  --exp-table-border-collapse: separate;
 }
 
 * {
@@ -117,9 +118,10 @@ p {
 }
 
 /* ── Tables ── */
-table {
+table, table.report-table, .report-table, .data-table, .exp-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 12px;
   table-layout: fixed;
   margin-bottom: 20px;
@@ -130,8 +132,9 @@ table {
   box-shadow: var(--exp-shadow);
 }
 
-th, td {
-  border: 1.5px solid var(--exp-border-color);
+th, td, table.report-table th, table.report-table td, .report-table th, .report-table td {
+  border-bottom: 1.5px solid var(--exp-border-color);
+  border-right: 1.5px solid var(--exp-border-color);
   padding: 8px 10px;
   vertical-align: top;
   text-align: left;
@@ -139,7 +142,15 @@ th, td {
   color: var(--exp-text-color);
 }
 
-thead th {
+th:last-child, td:last-child, table.report-table th:last-child, table.report-table td:last-child {
+  border-right: none;
+}
+
+tbody tr:last-child td, table.report-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+thead th, table.report-table th, .report-table th {
   background: var(--exp-table-th-bg);
   font-weight: 800;
   color: var(--exp-text-color);
@@ -149,8 +160,15 @@ thead th {
   border-bottom: var(--exp-border-width) solid var(--exp-border-color);
 }
 
-tbody tr:nth-child(even) td:not(.sm-break-tr td):not(.sm-gap-tr td):not(.sm-group-tr td) {
+tbody tr:nth-child(even) td:not(.sm-break-tr td):not(.sm-gap-tr td):not(.sm-group-tr td):not(.stats-row td),
+table.report-table tr:nth-child(even) td:not(.stats-row td) {
   background: var(--exp-table-row-even);
+}
+
+table.report-table tr.stats-row td, tr.stats-row td, .total-row td {
+  background: var(--exp-table-th-bg);
+  font-weight: 800;
+  border-top: var(--exp-border-width) solid var(--exp-border-color);
 }
 
 /* ── Resizers & Hidden columns ── */
@@ -383,10 +401,28 @@ tr.sm-gap-tr td {
 }
 
 /* ── Tool Specific: Grade Sheet Reports ── */
-.gs-report-header {
+.gs-report-header, .report-header {
   border-bottom: var(--exp-border-width) solid var(--exp-border-color);
   padding-bottom: 8px;
   margin-bottom: 14px;
+}
+
+.section-heading {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: var(--exp-border-width) solid var(--exp-border-color);
+  padding-bottom: 2px;
+  margin: 14px 0 8px;
+  color: var(--exp-text-color);
+}
+
+.kpi-card {
+  border: var(--exp-border-width) solid var(--exp-border-color);
+  box-shadow: var(--exp-shadow);
+  border-radius: var(--exp-border-radius);
+  background: var(--exp-bg-surface);
 }
 
 .gs-stat-box {

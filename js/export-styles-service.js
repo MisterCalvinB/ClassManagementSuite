@@ -1,7 +1,7 @@
 /**
  * export-styles-service.js
  * Centralized service for discovering, caching, previewing, and embedding
- * selectable CSS export styles (Light Neobrutalist, Modern, Classic, Plain, plus user custom styles).
+ * selectable CSS export styles (Light Neobrutalist, Modern, Classic, Plain, Dyslexic & ADHD Friendly, plus user custom styles).
  *
  * Conforms to:
  * - export-standards: clean semantic CSS classes, embedded stylesheet, no inline styles
@@ -47,6 +47,15 @@
       name: 'Plain / Eco (Black & White)',
       description: 'High-contrast, zero-ink-waste stylesheet designed for school photocopiers and monochrome handouts.',
       tags: ['plain', 'eco', 'bw', 'monochrome', 'print'],
+      isCustom: false,
+      target: 'exportCss'
+    },
+    {
+      id: 'export-dys.css',
+      filename: 'export-dys.css',
+      name: 'Dyslexic & ADHD Friendly',
+      description: 'High-readability OpenDyslexic & Lexend typography, increased letter and line spacing, warm anti-glare canvas, and chunked focus anchors.',
+      tags: ['dys', 'dyslexia', 'adhd', 'accessibility', 'inclusive', 'readable', 'sen'],
       isCustom: false,
       target: 'exportCss'
     }
@@ -372,7 +381,12 @@
         return html.replace(/<style\s+id="cmt-export-theme"[^>]*>[\s\S]*?<\/style>/i, styleTag);
       }
 
-      // If document has <head>, prepend right after <head>
+      // If document has </head>, append right before </head> so theme overrides base inline styles
+      if (/<\/head>/i.test(html)) {
+        return html.replace(/<\/head>/i, '  ' + styleTag + '\n</head>');
+      }
+
+      // If document has <head> without </head>, append after <head>
       if (/<head[^>]*>/i.test(html)) {
         return html.replace(/(<head[^>]*>)/i, '$1\n  ' + styleTag);
       }

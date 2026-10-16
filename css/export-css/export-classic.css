@@ -107,7 +107,7 @@ p {
 }
 
 /* ── Tables (Booktabs Academic Style: No vertical borders, crisp horizontal rules) ── */
-table {
+table, table.report-table, .report-table, .data-table, .exp-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 12.5px;
@@ -115,12 +115,14 @@ table {
   margin-bottom: 26px;
   border-top: 2px solid var(--exp-border-color);
   border-bottom: 2px solid var(--exp-border-color);
+  border-left: none !important;
+  border-right: none !important;
   background: transparent;
 }
 
-th, td {
-  border: none;
-  border-bottom: var(--exp-table-subrule);
+th, td, table.report-table th, table.report-table td, .report-table th, .report-table td {
+  border: none !important;
+  border-bottom: var(--exp-table-subrule) !important;
   padding: 8px 10px;
   vertical-align: top;
   text-align: left;
@@ -128,23 +130,31 @@ th, td {
   color: var(--exp-text-color);
 }
 
-thead th {
-  border-bottom: var(--exp-table-rule);
+thead th, table.report-table th, .report-table th {
+  border-bottom: var(--exp-table-rule) !important;
   font-weight: 700;
   color: var(--exp-text-color);
   font-variant: small-caps;
   font-size: 12px;
   letter-spacing: 0.04em;
-  background: transparent;
+  background: transparent !important;
   position: relative;
 }
 
-tbody tr:last-child td {
-  border-bottom: none;
+tbody tr:last-child td, table.report-table tbody tr:last-child td {
+  border-bottom: none !important;
 }
 
-tbody tr:nth-child(even) td:not(.sm-break-tr td):not(.sm-gap-tr td):not(.sm-group-tr td) {
+tbody tr:nth-child(even) td:not(.sm-break-tr td):not(.sm-gap-tr td):not(.sm-group-tr td):not(.stats-row td),
+table.report-table tr:nth-child(even) td:not(.stats-row td) {
   background: #fafaf9;
+}
+
+table.report-table tr.stats-row td, tr.stats-row td, .total-row td {
+  background: transparent !important;
+  font-weight: 700;
+  border-top: var(--exp-table-rule) !important;
+  border-bottom: var(--exp-table-rule) !important;
 }
 
 /* ── Resizers & Hidden columns ── */
@@ -347,10 +357,28 @@ tr.sm-gap-tr td {
 }
 
 /* ── Tool Specific: Grade Sheet Reports ── */
-.gs-report-header {
-  border-bottom: 2px solid var(--exp-border-color);
+.gs-report-header, .report-header {
+  border-bottom: var(--exp-table-rule);
   padding-bottom: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
+}
+
+.section-heading {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--exp-border-color);
+  padding-bottom: 2px;
+  margin: 14px 0 8px;
+  color: var(--exp-text-color);
+}
+
+.kpi-card {
+  border: 1px solid var(--exp-border-color);
+  box-shadow: none;
+  border-radius: 0;
+  background: transparent;
 }
 
 .gs-stat-box {

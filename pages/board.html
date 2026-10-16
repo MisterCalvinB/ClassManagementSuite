@@ -42196,6 +42196,185 @@
     // CONSTELLATION — MULTI-PAGE HELPERS
     // ================================================================
 
+    // Fast offscreen measurement helper to guarantee accurate pixel dimensions for detached nodes
+    let _conOffscreenMeasureNode = null;
+    function conMeasureNodeDimensions(node) {
+      if (!node) return { w: 80, h: 32 };
+      if (typeof node.w === 'number' && node.w > 0 && typeof node.h === 'number' && node.h > 0) {
+        return { w: node.w, h: node.h };
+      }
+      if (typeof node._cachedW === 'number' && node._cachedW > 0 && typeof node._cachedH === 'number' && node._cachedH > 0) {
+        return { w: node._cachedW, h: node._cachedH };
+      }
+      if (node.el && node.el.offsetWidth > 0 && node.el.offsetHeight > 0) {
+        node._cachedW = node.el.offsetWidth;
+        node._cachedH = node.el.offsetHeight;
+        return { w: node._cachedW, h: node._cachedH };
+      }
+      try {
+        if (!_conOffscreenMeasureNode) {
+          _conOffscreenMeasureNode = document.createElement('div');
+          _conOffscreenMeasureNode.id = 'con-offscreen-measure-node';
+          _conOffscreenMeasureNode.style.cssText = 'position:fixed;left:-9999px;top:-9999px;visibility:hidden;pointer-events:none;z-index:-1;margin:0;box-sizing:border-box;';
+          document.body.appendChild(_conOffscreenMeasureNode);
+        }
+        const measurer = _conOffscreenMeasureNode;
+        measurer.className = 'con-node';
+        measurer.style.width = '';
+        measurer.style.height = '';
+        measurer.style.minWidth = '';
+        measurer.style.minHeight = '';
+        measurer.style.maxWidth = '';
+        measurer.style.fontSize = node.fontSize || '16px';
+        measurer.style.fontFamily = node.fontFamily || '';
+        if (node.borderWidth) measurer.style.borderWidth = node.borderWidth + 'px';
+        if (node.borderStyle) measurer.style.borderStyle = node.borderStyle;
+
+        const tempNode = {
+          ...node,
+          el: measurer
+        };
+        if (typeof conRenderNodeLabel === 'function') {
+          conRenderNodeLabel(tempNode);
+        } else {
+          measurer.textContent = node.baseWord || '';
+        }
+        const shape = (typeof conNormalizeNodeShape === 'function')
+          ? conNormalizeNodeShape(node.shape)
+          : (node.shape || 'rectangle');
+        if (typeof conApplyNodeShape === 'function') {
+          conApplyNodeShape(tempNode, shape);
+        }
+        const mw = Math.max(32, measurer.offsetWidth || measurer.scrollWidth || 80);
+        const mh = Math.max(20, measurer.offsetHeight || measurer.scrollHeight || 32);
+        node._cachedW = mw;
+        node._cachedH = mh;
+        return { w: mw, h: mh };
+      } catch (_) {
+        // Fallback using Lexend Bold font metric approximation (0.68 * fs + 32px padding/borders)
+        const fs = parseFloat(node.fontSize) || 16;
+        const text = String(node.baseWord || '').split('//')[0].trim();
+        const estW = Math.max(48, Math.round(text.length * (fs * 0.68) + 32));
+        const estH = Math.max(32, Math.round(fs * 1.5 + 16));
+        node._cachedW = estW;
+        node._cachedH = estH;
+        return { w: estW, h: estH };
+      }
+    }
+
+    let _conOffscreenMeasureNote = null;
+    function conMeasureNoteDimensions(note) {
+      if (!note) return { w: 120, h: 40 };
+      if (typeof note.w === 'number' && note.w > 0 && typeof note.h === 'number' && note.h > 0 && note.manualSize) {
+        return { w: note.w, h: note.h };
+      }
+      if (typeof note.liveBaseWidth === 'number' && note.liveBaseWidth > 0 && typeof note.liveBaseHeight === 'number' && note.liveBaseHeight > 0 && note.manualSize) {
+        return { w: note.liveBaseWidth, h: note.liveBaseHeight };
+      }
+      const _noteEl = (typeof wnGetNoteElementById === 'function') ? wnGetNoteElementById(note.id) : (document.querySelector ? document.querySelector('.con-word-note[data-id="' + note.id + '"]') : null);
+      if (_noteEl && _noteEl.offsetWidth > 0 && _noteEl.offsetHeight > 0) {
+        const zoom = window.conGetZoom ? Math.max(0.2, Number(window.conGetZoom()) || 1) : 1;
+        const mw = Math.round(_noteEl.offsetWidth / zoom);
+        const mh = Math.round(_noteEl.offsetHeight / zoom);
+        note._cachedW = mw;
+        note._cachedH = mh;
+        return { w: mw, h: mh };
+      }
+      if (typeof note._cachedW === 'number' && note._cachedW > 0 && typeof note._cachedH === 'number' && note._cachedH > 0) {
+        return { w: note._cachedW, h: note._cachedH };
+      }
+      try {
+        if (!_conOffscreenMeasureNote) {
+          _conOffscreenMeasureNote = document.createElement('div');
+          _conOffscreenMeasureNote.id = 'con-offscreen-measure-note';
+          _conOffscreenMeasureNote.style.cssText = 'position:fixed;left:-9999px;top:-9999px;visibility:hidden;pointer-events:none;z-index:-1;margin:0;box-sizing:border-box;padding:6px 12px 10px 8px;border-radius:6px;';
+          document.body.appendChild(_conOffscreenMeasureNote);
+        }
+        const measurer = _conOffscreenMeasureNote;
+        measurer.className = 'con-word-note';
+        measurer.style.width = '';
+        measurer.style.height = '';
+        measurer.style.minWidth = '120px';
+        measurer.style.maxWidth = '460px';
+        measurer.style.minHeight = '40px';
+        measurer.style.padding = '6px 12px 10px 8px';
+        measurer.style.fontSize = (note.fontSize || 16) + 'px';
+        measurer.style.fontFamily = note.fontFamily || '';
+        measurer.style.fontWeight = note.bold ? '700' : '400';
+        measurer.style.fontStyle = note.italic ? 'italic' : 'normal';
+
+        let editor = measurer.querySelector('.wn-note-editor');
+        if (!editor) {
+          editor = document.createElement('div');
+          editor.className = 'wn-note-editor';
+          editor.style.cssText = 'width:100%;box-sizing:border-box;white-space:pre-wrap;word-break:break-word;line-height:1.4;';
+          measurer.appendChild(editor);
+        }
+        const rawContent = note.html ? String(note.html) : (note.text ? (typeof boardEscapeHtml === 'function' ? boardEscapeHtml(note.text).replace(/\n/g, '<br>') : String(note.text).replace(/\n/g, '<br>')) : '');
+        editor.innerHTML = (typeof wnRenderMathHtml === 'function') ? wnRenderMathHtml(rawContent) : rawContent;
+
+        const minBaseW = 120, maxBaseW = 460, minBaseH = 40;
+        let baseW = (typeof note.width === 'number' && note.width > 0 && note.manualSize)
+          ? note.width
+          : Math.min(maxBaseW, Math.max(minBaseW, Math.round(editor.scrollWidth + 33)));
+        measurer.style.width = baseW + 'px';
+        editor.style.width = '100%';
+
+        let baseH = (typeof note.height === 'number' && note.height > 0 && note.manualSize)
+          ? note.height
+          : Math.max(minBaseH, Math.round(editor.scrollHeight + 12));
+
+        note._cachedW = baseW;
+        note._cachedH = baseH;
+        return { w: baseW, h: baseH };
+      } catch (_) {
+        const text = String(note.text || note.content || '').trim();
+        const estW = text.length > 60 ? 240 : (text.length > 25 ? 180 : 130);
+        const estH = text.length > 100 ? 120 : (text.length > 40 ? 80 : 50);
+        note._cachedW = estW;
+        note._cachedH = estH;
+        return { w: estW, h: estH };
+      }
+    }
+
+    function conEnsureSnapshotDimensions(snapshot) {
+      if (!snapshot) return;
+      if (Array.isArray(snapshot.nodes)) {
+        snapshot.nodes.forEach(n => {
+          if (!n) return;
+          if ((typeof n.w !== 'number' || n.w <= 0) || (typeof n.h !== 'number' || n.h <= 0)) {
+            const dims = conMeasureNodeDimensions(n);
+            n.w = dims.w;
+            n.h = dims.h;
+            n._cachedW = dims.w;
+            n._cachedH = dims.h;
+          } else if (typeof n._cachedW !== 'number' || n._cachedW <= 0) {
+            n._cachedW = n.w;
+            n._cachedH = n.h;
+          }
+        });
+      }
+      if (Array.isArray(snapshot.notes)) {
+        snapshot.notes.forEach(nt => {
+          if (!nt) return;
+          if ((typeof nt.w !== 'number' || nt.w <= 0) || (typeof nt.h !== 'number' || nt.h <= 0)) {
+            const dims = conMeasureNoteDimensions(nt);
+            nt.w = dims.w;
+            nt.h = dims.h;
+            nt.width = dims.w;
+            nt.height = dims.h;
+            nt.liveBaseWidth = dims.w;
+            nt.liveBaseHeight = dims.h;
+            nt._cachedW = dims.w;
+            nt._cachedH = dims.h;
+          } else if (typeof nt._cachedW !== 'number' || nt._cachedW <= 0) {
+            nt._cachedW = nt.w;
+            nt._cachedH = nt.h;
+          }
+        });
+      }
+    }
+
     // Capture the current live board state as a plain page-snapshot object.
     function conBuildPageSnapshot() {
       try {
@@ -42216,53 +42395,79 @@
       const masks = window.conGetMasks ? window.conGetMasks() : [];
       const _noteZoom = window.conGetZoom ? Math.max(0.5, Number(window.conGetZoom()) || 1) : 1;
       return {
-        nodes: nodes.map(n => ({
-          id: n.id,
-          baseWord: n.baseWord || (n.el ? n.el.textContent.trim() : ''),
-          dbWord: n.dbWord || null,
-          sourceWord: n.sourceWord || null,
-          relation: n.relation || null,
-          x: n.x, y: n.y,
-          w: (typeof n.w === 'number' && n.w > 0) ? n.w : (n.el ? n.el.offsetWidth : (n._cachedW || 80)),
-          h: (typeof n.h === 'number' && n.h > 0) ? n.h : (n.el ? n.el.offsetHeight : (n._cachedH || 32)),
-          bg: n.el ? n.el.style.background || '' : '',
-          color: n.el ? n.el.style.color || '' : '',
-          border: n.el ? n.el.style.borderColor || '' : '',
-          borderWidth: n.borderWidth || null,
-          borderStyle: n.borderStyle || null,
-          highlight: n.highlight || null,
-          preset: n.preset || null,
-          fontFamily: n.fontFamily || null,
-          fontSize: ((window.conGetNodeBaseFontSize ? window.conGetNodeBaseFontSize(n) : parseFloat((n.el && n.el.style && n.el.style.fontSize) || '16')) || 16) + 'px',
-          textStrokeColor: n.textStrokeColor || null,
-          textStrokeWidth: n.textStrokeWidth || null,
-          fmt: n.fmt ? { ...n.fmt } : {},
-          masked: n.masked || false,
-          locked: !!n.locked,
-          pageNum: n.pageNum != null ? n.pageNum : null,
-          phraseOrder: n.phraseOrder != null ? n.phraseOrder : null,
-          emoji: n.emoji || null,
-          isTimer: !!n.isTimer,
-          durationSec: n.durationSec || null,
-          remainingSec: n.remainingSec != null ? n.remainingSec : null,
-          timerState: n.timerState || 'idle',
-          timerTarget: (n.timerTarget === 'cms' || n.timerTarget === 'board') ? n.timerTarget : null,
-          isRandom: !!n.isRandom,
-          randomMin: n.isRandom ? (n.randomMin != null ? n.randomMin : 1) : undefined,
-          randomMax: n.isRandom ? (n.randomMax != null ? n.randomMax : 100) : undefined,
-          randomValue: n.isRandom ? (n.randomValue != null ? n.randomValue : n.randomMin) : undefined,
-          isSound: !!n.isSound,
-          soundAttachmentId: n.soundAttachmentId || null,
-          soundName: n.soundName || null,
-          soundDuration: (typeof n.soundDuration === 'number') ? n.soundDuration : null,
-          isVideo: !!n.isVideo,
-          videoAttachmentId: n.videoAttachmentId || null,
-          videoName: n.videoName || null,
-          videoDuration: (typeof n.videoDuration === 'number') ? n.videoDuration : null,
-          competences: (Array.isArray(n.competences) && n.competences.length) ? n.competences.slice() : undefined,
-          shape: (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(n.shape || (n.el && n.el.dataset.shape)) : conNormalizeNodeShapeSafe(n.shape || (n.el && n.el.dataset.shape))),
-          rotation: (typeof n.rotation === 'number') ? ((typeof window.conNormalizeNodeRotation === 'function') ? window.conNormalizeNodeRotation(n.rotation) : n.rotation) : 0
-        })),
+        nodes: nodes.map(n => {
+          let nw = (typeof n.w === 'number' && n.w > 0) ? n.w : null;
+          let nh = (typeof n.h === 'number' && n.h > 0) ? n.h : null;
+          if (nw == null || nh == null) {
+            if (n.el && n.el.offsetWidth > 0 && n.el.offsetHeight > 0) {
+              nw = nw || n.el.offsetWidth;
+              nh = nh || n.el.offsetHeight;
+              n._cachedW = nw;
+              n._cachedH = nh;
+            } else if (typeof n._cachedW === 'number' && n._cachedW > 0 && typeof n._cachedH === 'number' && n._cachedH > 0) {
+              nw = nw || n._cachedW;
+              nh = nh || n._cachedH;
+            } else {
+              const measured = conMeasureNodeDimensions(n);
+              nw = nw || measured.w;
+              nh = nh || measured.h;
+            }
+          }
+          const finalW = nw || 80;
+          const finalH = nh || 32;
+          n._cachedW = finalW;
+          n._cachedH = finalH;
+          return {
+            id: n.id,
+            baseWord: n.baseWord || (n.el ? n.el.textContent.trim() : ''),
+            html: n.html || (n.el && (n.el.querySelector('.katex, .wn-katex-inline, .wn-katex-display, i, b, strong, em, br, sub, sup') ? n.el.innerHTML : '')) || null,
+            dbWord: n.dbWord || null,
+            sourceWord: n.sourceWord || null,
+            relation: n.relation || null,
+            x: n.x, y: n.y,
+            w: finalW,
+            h: finalH,
+            _cachedW: finalW,
+            _cachedH: finalH,
+            bg: n.el ? n.el.style.background || '' : (n.bg || ''),
+            color: n.el ? n.el.style.color || '' : (n.color || ''),
+            border: n.el ? n.el.style.borderColor || '' : (n.border || ''),
+            borderWidth: n.borderWidth || null,
+            borderStyle: n.borderStyle || null,
+            highlight: n.highlight || null,
+            preset: n.preset || null,
+            fontFamily: n.fontFamily || null,
+            fontSize: ((window.conGetNodeBaseFontSize ? window.conGetNodeBaseFontSize(n) : parseFloat((n.el && n.el.style && n.el.style.fontSize) || '16')) || 16) + 'px',
+            textStrokeColor: n.textStrokeColor || null,
+            textStrokeWidth: n.textStrokeWidth || null,
+            fmt: n.fmt ? { ...n.fmt } : {},
+            masked: n.masked || false,
+            locked: !!n.locked,
+            pageNum: n.pageNum != null ? n.pageNum : null,
+            phraseOrder: n.phraseOrder != null ? n.phraseOrder : null,
+            emoji: n.emoji || null,
+            isTimer: !!n.isTimer,
+            durationSec: n.durationSec || null,
+            remainingSec: n.remainingSec != null ? n.remainingSec : null,
+            timerState: n.timerState || 'idle',
+            timerTarget: (n.timerTarget === 'cms' || n.timerTarget === 'board') ? n.timerTarget : null,
+            isRandom: !!n.isRandom,
+            randomMin: n.isRandom ? (n.randomMin != null ? n.randomMin : 1) : undefined,
+            randomMax: n.isRandom ? (n.randomMax != null ? n.randomMax : 100) : undefined,
+            randomValue: n.isRandom ? (n.randomValue != null ? n.randomValue : n.randomMin) : undefined,
+            isSound: !!n.isSound,
+            soundAttachmentId: n.soundAttachmentId || null,
+            soundName: n.soundName || null,
+            soundDuration: (typeof n.soundDuration === 'number') ? n.soundDuration : null,
+            isVideo: !!n.isVideo,
+            videoAttachmentId: n.videoAttachmentId || null,
+            videoName: n.videoName || null,
+            videoDuration: (typeof n.videoDuration === 'number') ? n.videoDuration : null,
+            competences: (Array.isArray(n.competences) && n.competences.length) ? n.competences.slice() : undefined,
+            shape: (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(n.shape || (n.el && n.el.dataset.shape)) : conNormalizeNodeShapeSafe(n.shape || (n.el && n.el.dataset.shape))),
+            rotation: (typeof n.rotation === 'number') ? ((typeof window.conNormalizeNodeRotation === 'function') ? window.conNormalizeNodeRotation(n.rotation) : n.rotation) : 0
+          };
+        }),
         edges: edges.map(e => ({
           id: e.id,
           a: e.a, b: e.b,
@@ -42313,33 +42518,82 @@
           opacity: Number(m.opacity) || 0.95
         })),
         notes: (window.conGetNotes ? window.conGetNotes() : []).map(n => {
-          const _noteEl = (typeof wnGetNoteElementById === 'function') ? wnGetNoteElementById(n.id) : null;
-          let _w = n.liveBaseWidth != null ? n.liveBaseWidth : (typeof n.width === 'number' && n.width > 0 ? n.width : null);
-          let _h = n.liveBaseHeight != null ? n.liveBaseHeight : (typeof n.height === 'number' && n.height > 0 ? n.height : null);
+          const _noteEl = (typeof wnGetNoteElementById === 'function') ? wnGetNoteElementById(n.id) : document.querySelector('.con-word-note[data-id="' + n.id + '"]');
+          
+          let probedW = null;
+          if (typeof n.liveBaseWidth === 'number' && n.liveBaseWidth > 0) probedW = n.liveBaseWidth;
+          else if (typeof n.width === 'number' && n.width > 0) probedW = n.width;
+          else if (typeof n.w === 'number' && n.w > 0) probedW = n.w;
+          else if (typeof n.styleWidth === 'number' && n.styleWidth > 0) probedW = n.styleWidth;
+          else if (typeof n.styleWidth === 'string' && parseFloat(n.styleWidth) > 0) probedW = parseFloat(n.styleWidth);
+
+          let probedH = null;
+          if (typeof n.liveBaseHeight === 'number' && n.liveBaseHeight > 0) probedH = n.liveBaseHeight;
+          else if (typeof n.height === 'number' && n.height > 0) probedH = n.height;
+          else if (typeof n.h === 'number' && n.h > 0) probedH = n.h;
+          else if (typeof n.styleHeight === 'number' && n.styleHeight > 0) probedH = n.styleHeight;
+          else if (typeof n.styleHeight === 'string' && parseFloat(n.styleHeight) > 0) probedH = parseFloat(n.styleHeight);
+
           if (_noteEl) {
-            const sw = parseFloat(_noteEl.style.width) || _noteEl.offsetWidth || 0;
-            const sh = parseFloat(_noteEl.style.height) || _noteEl.offsetHeight || 0;
-            if (_w == null && sw > 0) _w = Math.round(sw / _noteZoom);
-            if (_h == null && sh > 0) _h = Math.round(sh / _noteZoom);
+            const sw = parseFloat(_noteEl.style.width) || _noteEl.offsetWidth || _noteEl.clientWidth || 0;
+            const sh = parseFloat(_noteEl.style.height) || _noteEl.offsetHeight || _noteEl.clientHeight || 0;
+            if (sw > 0) {
+              const unzoomedW = Math.round(sw / _noteZoom);
+              if (probedW == null || n.manualSize || _noteEl.style.width) probedW = unzoomedW;
+            }
+            if (sh > 0) {
+              const unzoomedH = Math.round(sh / _noteZoom);
+              if (probedH == null || n.manualSize || _noteEl.style.height) probedH = unzoomedH;
+            }
+            const editorEl = _noteEl.querySelector('.wn-note-editor');
+            if (editorEl) {
+              if (probedW == null && (editorEl.offsetWidth > 0 || parseFloat(editorEl.style.width) > 0)) {
+                probedW = Math.round((parseFloat(editorEl.style.width) || editorEl.offsetWidth) / _noteZoom);
+              }
+              if (probedH == null && (editorEl.offsetHeight > 0 || parseFloat(editorEl.style.height) > 0)) {
+                probedH = Math.round((parseFloat(editorEl.style.height) || editorEl.offsetHeight) / _noteZoom);
+              }
+            }
           }
-          const finalW = _w || (typeof n.width === 'number' ? n.width : 120);
-          const finalH = _h || (typeof n.height === 'number' ? n.height : 40);
+
+          if (probedW == null || probedH == null || (!n.manualSize && (probedW <= 0 || probedH <= 0))) {
+            const measured = conMeasureNoteDimensions(n);
+            probedW = probedW || measured.w;
+            probedH = probedH || measured.h;
+          }
+
+          const finalW = probedW || (typeof n.width === 'number' && n.width > 0 ? n.width : 120);
+          const finalH = probedH || (typeof n.height === 'number' && n.height > 0 ? n.height : 40);
+
+          n.liveBaseWidth = finalW;
+          n.liveBaseHeight = finalH;
+          n.width = finalW;
+          n.height = finalH;
+          n.w = finalW;
+          n.h = finalH;
+          n._cachedW = finalW;
+          n._cachedH = finalH;
+
           return {
             id: n.id, nodeId: n.nodeId,
             text: n.text, html: n.html || '',
             x: n.x, y: n.y,
             w: finalW,
             h: finalH,
-            liveBaseWidth: _w || finalW,
-            liveBaseHeight: _h || finalH,
+            liveBaseWidth: finalW,
+            liveBaseHeight: finalH,
             color: n.color, bg: n.bg,
             fontSize: n.fontSize,
             fontFamily: n.fontFamily || null,
             bold: n.bold, italic: n.italic, underline: n.underline,
+            wavy: !!n.wavy,
+            casing: n.casing || null,
             strike: !!n.strike, hidden: !!n.hidden, locked: !!n.locked,
             manualSize: !!n.manualSize,
-            width: typeof n.width === 'number' ? n.width : finalW,
-            height: typeof n.height === 'number' ? n.height : finalH,
+            width: finalW,
+            height: finalH,
+            styleWidth: finalW,
+            styleHeight: finalH,
             emoji: null,
             emojiStickers: (n.emojiStickers || []).map(s => ({ id: s.id, emoji: s.emoji, x: Number(s.x) || 0, y: Number(s.y) || 0, size: Number(s.size) || 32 })),
             borderWidth: n.borderWidth || null,
@@ -42472,6 +42726,55 @@
         boardBackgroundColor: (snapshot && (snapshot.boardBgColor || snapshot.boardBackgroundColor || snapshot.backgroundColor)) || null,
         boardStickers: (snapshot && snapshot.boardStickers) || []
       });
+
+      // Maintain dimensional caches in live nodes, notes, and the snapshot
+      if (snapshot && Array.isArray(snapshot.nodes)) {
+        const liveNodes = window.conGetNodes ? window.conGetNodes() : [];
+        const liveNodeMap = new Map(liveNodes.map(n => [n.id, n]));
+        snapshot.nodes.forEach(sn => {
+          const ln = liveNodeMap.get(sn.id);
+          if (ln) {
+            const w = (ln.el && ln.el.offsetWidth > 0) ? ln.el.offsetWidth : (sn.w || sn._cachedW || 0);
+            const h = (ln.el && ln.el.offsetHeight > 0) ? ln.el.offsetHeight : (sn.h || sn._cachedH || 0);
+            if (w > 0) {
+              ln._cachedW = w;
+              sn._cachedW = w;
+              if (typeof sn.w !== 'number' || sn.w <= 0) sn.w = w;
+            }
+            if (h > 0) {
+              ln._cachedH = h;
+              sn._cachedH = h;
+              if (typeof sn.h !== 'number' || sn.h <= 0) sn.h = h;
+            }
+          }
+        });
+      }
+      if (snapshot && Array.isArray(snapshot.notes)) {
+        const liveNotes = window.conGetNotes ? window.conGetNotes() : [];
+        const liveNotesMap = new Map(liveNotes.map(n => [String(n.id), n]));
+        const zoom = (typeof conGetZoom === 'function' ? conGetZoom() : 1) || 1;
+        snapshot.notes.forEach(snt => {
+          const lnt = liveNotesMap.get(String(snt.id));
+          const el = (typeof wnGetNoteElementById === 'function') ? wnGetNoteElementById(snt.id) : document.querySelector('.con-word-note[data-id="' + snt.id + '"]');
+          if (el && el.offsetWidth > 0) {
+            const unzoomedW = Math.round((parseFloat(el.style.width) || el.offsetWidth) / zoom);
+            const unzoomedH = Math.round((parseFloat(el.style.height) || el.offsetHeight) / zoom);
+            if (lnt) {
+              if (lnt.liveBaseWidth == null) lnt.liveBaseWidth = unzoomedW;
+              if (lnt.liveBaseHeight == null) lnt.liveBaseHeight = unzoomedH;
+              if (typeof lnt.width !== 'number') lnt.width = unzoomedW;
+              if (typeof lnt.height !== 'number') lnt.height = unzoomedH;
+              lnt._cachedW = unzoomedW;
+              lnt._cachedH = unzoomedH;
+            }
+            if (snt.liveBaseWidth == null) snt.liveBaseWidth = unzoomedW;
+            if (snt.liveBaseHeight == null) snt.liveBaseHeight = unzoomedH;
+            if (typeof snt.w !== 'number' || snt.w <= 0) snt.w = unzoomedW;
+            if (typeof snt.h !== 'number' || snt.h <= 0) snt.h = unzoomedH;
+          }
+        });
+      }
+
       if (!isMirror && (!opts || opts.scrollToTop !== false)) {
         if (typeof window.conScrollToTop === 'function') {
           window.conScrollToTop();
@@ -42482,6 +42785,12 @@
     // Return plain-object node data from ALL pages (for CSV / PDF export).
     function conGetAllPagesNodeData() {
       const currentSnap = conBuildPageSnapshot();
+      if (typeof conCurrentPageIndex === 'number' && conCurrentPageIndex >= 0 && Array.isArray(conPageSnapshots)) {
+        conPageSnapshots[conCurrentPageIndex] = currentSnap;
+      }
+      if (Array.isArray(conPageSnapshots) && typeof conEnsureSnapshotDimensions === 'function') {
+        conPageSnapshots.forEach(snap => conEnsureSnapshotDimensions(snap));
+      }
       const allPages = conPageSnapshots.slice();
       allPages[conCurrentPageIndex] = currentSnap;
       const result = [];
@@ -42496,6 +42805,9 @@
       const currentSnap = conBuildPageSnapshot();
       if (typeof conCurrentPageIndex === 'number' && conCurrentPageIndex >= 0 && Array.isArray(conPageSnapshots)) {
         conPageSnapshots[conCurrentPageIndex] = currentSnap;
+      }
+      if (Array.isArray(conPageSnapshots) && typeof conEnsureSnapshotDimensions === 'function') {
+        conPageSnapshots.forEach(snap => conEnsureSnapshotDimensions(snap));
       }
       const allPages = conPageSnapshots.slice();
       allPages[conCurrentPageIndex] = currentSnap;
@@ -45730,6 +46042,9 @@
 
     async function conExportPagesPDF(mode = 'vector', exportOpts = {}) {
       conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
+      if (Array.isArray(conPageSnapshots) && typeof conEnsureSnapshotDimensions === 'function') {
+        conPageSnapshots.forEach(snap => conEnsureSnapshotDimensions(snap));
+      }
       const allPages = conPageSnapshots.slice();
       const titleVal = (document.getElementById('con-title-input')?.value || '').trim() || 'constellation';
 
@@ -47703,6 +48018,10 @@
               existing.y = n.y;
               existing.baseX = n.x;
               existing.baseY = n.y;
+              if (typeof n.w === 'number' && n.w > 0) existing.w = n.w;
+              if (typeof n.h === 'number' && n.h > 0) existing.h = n.h;
+              if (typeof n._cachedW === 'number' && n._cachedW > 0) existing._cachedW = n._cachedW;
+              if (typeof n._cachedH === 'number' && n._cachedH > 0) existing._cachedH = n._cachedH;
               existing.el.style.left = n.x + 'px';
               existing.el.style.top = n.y + 'px';
               if (n.bg) existing.el.style.background = n.bg;
@@ -47757,6 +48076,10 @@
             window.conRenderNodeLabel(existing);
             if (window.conSetNodeBaseFontSize) window.conSetNodeBaseFontSize(existing, n.fontSize || '16px');
             conApplyNodeShape(existing, existing.shape);
+            if (existing.el && existing.el.offsetWidth > 0) {
+              existing._cachedW = existing.el.offsetWidth;
+              existing._cachedH = existing.el.offsetHeight;
+            }
             existing.rotation = (typeof n.rotation === 'number') ? ((typeof window.conNormalizeNodeRotation === 'function') ? window.conNormalizeNodeRotation(n.rotation) : n.rotation) : 0;
             if (typeof conApplyNodeRotation === 'function') conApplyNodeRotation(existing, existing.rotation);
             existing.el.dataset.baseWord = n.baseWord || '';
@@ -47787,6 +48110,10 @@
             brd.appendChild(el);
             const nodeObj = {
               id: n.id, el, x: n.x, y: n.y, baseX: n.x, baseY: n.y,
+              w: (typeof n.w === 'number' && n.w > 0) ? n.w : undefined,
+              h: (typeof n.h === 'number' && n.h > 0) ? n.h : undefined,
+              _cachedW: (typeof n._cachedW === 'number' && n._cachedW > 0) ? n._cachedW : ((typeof n.w === 'number' && n.w > 0) ? n.w : undefined),
+              _cachedH: (typeof n._cachedH === 'number' && n._cachedH > 0) ? n._cachedH : ((typeof n.h === 'number' && n.h > 0) ? n.h : undefined),
               dbWord: n.dbWord || null,
               baseWord: n.baseWord || '',
               sourceWord: n.sourceWord || null,
@@ -47832,6 +48159,10 @@
             window.conRenderNodeLabel(nodeObj);
             if (window.conSetNodeBaseFontSize) window.conSetNodeBaseFontSize(nodeObj, n.fontSize || '16px');
             conApplyNodeShape(nodeObj, nodeObj.shape);
+            if (el.offsetWidth > 0) {
+              nodeObj._cachedW = el.offsetWidth;
+              nodeObj._cachedH = el.offsetHeight;
+            }
             nodeObj.rotation = (typeof n.rotation === 'number') ? ((typeof window.conNormalizeNodeRotation === 'function') ? window.conNormalizeNodeRotation(n.rotation) : n.rotation) : 0;
             if (typeof conApplyNodeRotation === 'function') conApplyNodeRotation(nodeObj, nodeObj.rotation);
             el.dataset.baseWord = n.baseWord || '';
@@ -47877,10 +48208,14 @@
               bold: !!n.bold, italic: !!n.italic, underline: !!n.underline,
               strike: !!n.strike, hidden: !!n.hidden, locked: !!n.locked,
               manualSize: !!n.manualSize,
-              width: typeof n.width === 'number' ? n.width : null,
-              height: typeof n.height === 'number' ? n.height : null,
-              liveBaseWidth: n.liveBaseWidth != null ? n.liveBaseWidth : (typeof n.width === 'number' ? n.width : null),
-              liveBaseHeight: n.liveBaseHeight != null ? n.liveBaseHeight : (typeof n.height === 'number' ? n.height : null),
+              width: typeof n.width === 'number' ? n.width : (typeof n.liveBaseWidth === 'number' ? n.liveBaseWidth : (typeof n.w === 'number' ? n.w : null)),
+              height: typeof n.height === 'number' ? n.height : (typeof n.liveBaseHeight === 'number' ? n.liveBaseHeight : (typeof n.h === 'number' ? n.h : null)),
+              liveBaseWidth: n.liveBaseWidth != null ? n.liveBaseWidth : (typeof n.width === 'number' ? n.width : (typeof n.w === 'number' ? n.w : null)),
+              liveBaseHeight: n.liveBaseHeight != null ? n.liveBaseHeight : (typeof n.height === 'number' ? n.height : (typeof n.h === 'number' ? n.h : null)),
+              w: n.w != null ? n.w : (n.liveBaseWidth != null ? n.liveBaseWidth : n.width),
+              h: n.h != null ? n.h : (n.liveBaseHeight != null ? n.liveBaseHeight : n.height),
+              _cachedW: n._cachedW != null ? n._cachedW : (n.liveBaseWidth != null ? n.liveBaseWidth : (n.width != null ? n.width : n.w)),
+              _cachedH: n._cachedH != null ? n._cachedH : (n.liveBaseHeight != null ? n.liveBaseHeight : (n.height != null ? n.height : n.h)),
               borderWidth: n.borderWidth || null,
               borderStyle: n.borderStyle || null,
               borderColor: n.borderColor || null,
@@ -47917,6 +48252,20 @@
               manualSize: false, width: null, height: null,
               ...n
             };
+            const resolvedNoteW = Number(n.liveBaseWidth != null ? n.liveBaseWidth : (n.width != null ? n.width : (n.w != null ? n.w : n.styleWidth))) || null;
+            const resolvedNoteH = Number(n.liveBaseHeight != null ? n.liveBaseHeight : (n.height != null ? n.height : (n.h != null ? n.h : n.styleHeight))) || null;
+            if (resolvedNoteW) {
+              noteData.width = resolvedNoteW;
+              noteData.w = resolvedNoteW;
+              noteData.liveBaseWidth = resolvedNoteW;
+              noteData._cachedW = resolvedNoteW;
+            }
+            if (resolvedNoteH) {
+              noteData.height = resolvedNoteH;
+              noteData.h = resolvedNoteH;
+              noteData.liveBaseHeight = resolvedNoteH;
+              noteData._cachedH = resolvedNoteH;
+            }
             nextNotes.push(noteData);
             conNoteBuild(noteData);
             const num = parseInt(String(n.id).replace(/^cn+/, ''));
@@ -48137,6 +48486,10 @@
         brd.appendChild(el);
         const nodeObj = {
           id: n.id, el, x: n.x, y: n.y, baseX: n.x, baseY: n.y,
+          w: (typeof n.w === 'number' && n.w > 0) ? n.w : undefined,
+          h: (typeof n.h === 'number' && n.h > 0) ? n.h : undefined,
+          _cachedW: (typeof n._cachedW === 'number' && n._cachedW > 0) ? n._cachedW : ((typeof n.w === 'number' && n.w > 0) ? n.w : undefined),
+          _cachedH: (typeof n._cachedH === 'number' && n._cachedH > 0) ? n._cachedH : ((typeof n.h === 'number' && n.h > 0) ? n.h : undefined),
           dbWord: n.dbWord || null,
           baseWord: n.baseWord || '',
           sourceWord: n.sourceWord || null,
@@ -48183,6 +48536,10 @@
         window.conRenderNodeLabel(nodeObj);
         if (window.conSetNodeBaseFontSize) window.conSetNodeBaseFontSize(nodeObj, n.fontSize || '16px');
         conApplyNodeShape(nodeObj, nodeObj.shape);
+        if (el.offsetWidth > 0) {
+          nodeObj._cachedW = el.offsetWidth;
+          nodeObj._cachedH = el.offsetHeight;
+        }
         nodeObj.rotation = (typeof n.rotation === 'number') ? ((typeof window.conNormalizeNodeRotation === 'function') ? window.conNormalizeNodeRotation(n.rotation) : n.rotation) : 0;
         if (typeof conApplyNodeRotation === 'function') conApplyNodeRotation(nodeObj, nodeObj.rotation);
         el.dataset.baseWord = n.baseWord || '';
@@ -48252,6 +48609,20 @@
           manualSize: false, width: null, height: null,
           ...n
         };
+        const resolvedNoteW = Number(n.liveBaseWidth != null ? n.liveBaseWidth : (n.width != null ? n.width : (n.w != null ? n.w : n.styleWidth))) || null;
+        const resolvedNoteH = Number(n.liveBaseHeight != null ? n.liveBaseHeight : (n.height != null ? n.height : (n.h != null ? n.h : n.styleHeight))) || null;
+        if (resolvedNoteW) {
+          noteData.width = resolvedNoteW;
+          noteData.w = resolvedNoteW;
+          noteData.liveBaseWidth = resolvedNoteW;
+          noteData._cachedW = resolvedNoteW;
+        }
+        if (resolvedNoteH) {
+          noteData.height = resolvedNoteH;
+          noteData.h = resolvedNoteH;
+          noteData.liveBaseHeight = resolvedNoteH;
+          noteData._cachedH = resolvedNoteH;
+        }
         _liveNotes.push(noteData);
         conNoteBuild(noteData);
         const num = parseInt(String(n.id).replace(/^cn+/, ''));
