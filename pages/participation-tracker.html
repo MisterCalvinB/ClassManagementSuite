@@ -270,6 +270,124 @@
             </table>
         </div>
 
+        <!-- Session Interaction & Participation Timeline Panel -->
+        <div id="sessionTimelineSection" class="pt-timeline-panel hidden">
+            <div class="pt-timeline-header">
+                <div class="pt-timeline-title-wrap">
+                    <img src="../assets/icons/clock.svg" class="btn-icon" alt="" />
+                    <h3 id="sessionTimelineTitle" data-i18n="ptTimelineTitle">Session Timeline & Interaction Flow</h3>
+                    <span id="sessionTimelineSubtitle" class="pt-timeline-subtitle"></span>
+                </div>
+                <div class="pt-timeline-header-actions">
+                    <button type="button" class="btn-secondary btn-icon" id="ptTimelineExpandBtn" onclick="openSessionTimelineModal()" title="Full-screen timeline inspector">
+                        <img src="../assets/icons/fullscreen.svg" class="btn-icon" alt="" />
+                    </button>
+                    <button type="button" class="btn-secondary btn-icon" id="ptTimelineClosePanelBtn" onclick="closeSessionTimelinePanel()" title="Close timeline panel">
+                        <img src="../assets/icons/close.svg" class="btn-icon" alt="" />
+                    </button>
+                </div>
+            </div>
+
+            <!-- Toolbar & Filter Controls -->
+            <div class="pt-timeline-toolbar">
+                <div class="pt-timeline-controls-left">
+                    <div class="pt-timeline-control-group">
+                        <label for="ptSlotDurationSelect" data-i18n="ptTimelineSlotDuration">Slot Duration</label>
+                        <select id="ptSlotDurationSelect" class="pt-timeline-select" onchange="onTimelineSlotDurationChange(this.value)">
+                            <option value="auto" data-i18n="ptTimelineSlotAuto">Auto (Span of events)</option>
+                            <option value="45">45 min</option>
+                            <option value="50">50 min</option>
+                            <option value="55" selected>55 min</option>
+                            <option value="60">60 min</option>
+                            <option value="90">90 min</option>
+                            <option value="custom">Custom...</option>
+                        </select>
+                    </div>
+
+                    <div class="pt-timeline-control-group">
+                        <label for="ptTimeDisplaySelect">Display</label>
+                        <select id="ptTimeDisplaySelect" class="pt-timeline-select" onchange="onTimelineTimeDisplayChange(this.value)">
+                            <option value="elapsed" selected data-i18n="ptTimelineDisplayElapsed">Elapsed Time (+00:00)</option>
+                            <option value="clock" data-i18n="ptTimelineDisplayClock">Clock Time (HH:MM)</option>
+                        </select>
+                    </div>
+
+                    <div class="pt-timeline-control-group">
+                        <label for="ptStudentFilterSelect" data-i18n="ptColStudent">Student</label>
+                        <select id="ptStudentFilterSelect" class="pt-timeline-select" onchange="onTimelineStudentFilterChange(this.value)">
+                            <option value="" data-i18n="ptTimelineAllStudents">All Students</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="pt-timeline-controls-right">
+                    <button type="button" class="btn-secondary btn-icon" onclick="exportTimelinePng()" data-i18n-title="ptTimelineExportPng" title="Export Timeline (PNG)">
+                        <img src="../assets/icons/download.svg" class="btn-icon" alt="" /> <span>PNG</span>
+                    </button>
+                    <button type="button" class="btn-secondary btn-icon" onclick="exportTimelineSvg()" data-i18n-title="ptTimelineExportSvg" title="Export Timeline (SVG)">
+                        <img src="../assets/icons/export.svg" class="btn-icon" alt="" /> <span>SVG</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filter Chips -->
+            <div class="pt-timeline-filter-chips">
+                <button type="button" class="pt-filter-chip active" data-filter="points" onclick="toggleTimelineFilter('points', this)">
+                    <span class="pt-chip-dot" style="background:#6abf8e;"></span> <span data-i18n="ptTimelineFilterPoints">Points (+/-)</span>
+                </button>
+                <button type="button" class="pt-filter-chip active" data-filter="picks" onclick="toggleTimelineFilter('picks', this)">
+                    <span class="pt-chip-dot" style="background:#8b7cc2;"></span> <span data-i18n="ptTimelineFilterPicks">Picks & Calls</span>
+                </button>
+                <button type="button" class="pt-filter-chip active" data-filter="timers" onclick="toggleTimelineFilter('timers', this)">
+                    <span class="pt-chip-dot" style="background:#e2c96e;"></span> <span data-i18n="ptTimelineFilterTimers">Timers & Modes</span>
+                </button>
+                <button type="button" class="pt-filter-chip active" data-filter="teams" onclick="toggleTimelineFilter('teams', this)">
+                    <span class="pt-chip-dot" style="background:#5b8fcc;"></span> <span data-i18n="ptTimelineFilterTeams">Teams & Roles</span>
+                </button>
+                <button type="button" class="pt-filter-chip active" data-filter="badges" onclick="toggleTimelineFilter('badges', this)">
+                    <span class="pt-chip-dot" style="background:#e59a5a;"></span> <span data-i18n="ptTimelineFilterBadges">Badges & Notes</span>
+                </button>
+                <button type="button" class="pt-filter-chip active" data-filter="attendance" onclick="toggleTimelineFilter('attendance', this)">
+                    <span class="pt-chip-dot" style="background:#94a3b8;"></span> <span data-i18n="ptTimelineFilterAttendance">Attendance</span>
+                </button>
+            </div>
+
+            <!-- Canvas Container -->
+            <div class="pt-timeline-canvas-wrap" id="ptTimelineCanvasWrap">
+                <canvas id="ptTimelineCanvas" class="pt-timeline-canvas" height="420"></canvas>
+                <div id="ptTimelineTooltip" class="pt-timeline-tooltip"></div>
+                <div id="ptTimelineEmptyState" class="pt-timeline-empty-state hidden">
+                    <img src="../assets/icons/clock.svg" class="pt-empty-icon" alt="" />
+                    <h4 data-i18n="ptTimelineNoHistory">No detailed timeline events recorded for this session.</h4>
+                    <p id="ptTimelineEmptyStats" class="pt-empty-text"></p>
+                </div>
+            </div>
+
+            <!-- Session KPIs Summary Bar -->
+            <div class="pt-timeline-kpi-bar" id="ptTimelineKpiBar">
+                <div class="pt-kpi-pill">
+                    <span class="pt-kpi-label" data-i18n="ptTimelineKpiTotal">Total Events</span>
+                    <span class="pt-kpi-value" id="ptKpiTotalEvents">0</span>
+                </div>
+                <div class="pt-kpi-pill">
+                    <span class="pt-kpi-label" data-i18n="ptTimelineKpiPace">Interactive Pace</span>
+                    <span class="pt-kpi-value" id="ptKpiPace">0/min</span>
+                </div>
+                <div class="pt-kpi-pill">
+                    <span class="pt-kpi-label" data-i18n="ptTimelineKpiTimers">Active Timers</span>
+                    <span class="pt-kpi-value" id="ptKpiActiveTimers">0m (0%)</span>
+                </div>
+                <div class="pt-kpi-pill">
+                    <span class="pt-kpi-label" data-i18n="ptTimelineKpiTeams">Group Work</span>
+                    <span class="pt-kpi-value" id="ptKpiGroupWork">0m</span>
+                </div>
+                <div class="pt-kpi-pill">
+                    <span class="pt-kpi-label" data-i18n="ptTimelineKpiUncalled">Uncalled Students</span>
+                    <span class="pt-kpi-value" id="ptKpiUncalled">0</span>
+                </div>
+            </div>
+        </div>
+
         <!-- Student Drill-Down Section -->
         <div class="student-section">
             <div class="class-overview-header">
@@ -930,6 +1048,117 @@
                 <button type="button" class="btn-secondary" onclick="closePtExportPreviewModal()"><img src="../assets/icons/arrow-left.svg" class="btn-icon" alt="" /> Back to Options</button>
                 <div style="display: flex; gap: 10px;">
                     <button type="button" class="btn-primary" onclick="confirmExportFromPreview()" id="ptPreviewConfirmExportBtn"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Confirm & Save File</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ════ FULL-SCREEN SESSION TIMELINE MODAL ════ -->
+    <div id="sessionTimelineModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header" style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid var(--neo-border-color, #333333); padding-bottom: 10px; margin-bottom: 8px;">
+                <h3 style="margin: 0; display: flex; align-items: center; gap: 8px; font-size: 1.15rem; color: var(--neo-dark, #222222);">
+                    <img src="../assets/icons/clock.svg" class="btn-icon" alt="" />
+                    <span id="modalTimelineTitle" data-i18n="ptTimelineTitle">Session Timeline & Interaction Flow</span>
+                    <span id="modalTimelineSubtitle" class="pt-timeline-subtitle"></span>
+                </h3>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <button type="button" class="btn-secondary btn-icon" onclick="exportTimelinePng()" data-i18n-title="ptTimelineExportPng" title="Export Timeline (PNG)">
+                        <img src="../assets/icons/download.svg" class="btn-icon" alt="" /> <span>PNG</span>
+                    </button>
+                    <button type="button" class="btn-secondary btn-icon" onclick="exportTimelineSvg()" data-i18n-title="ptTimelineExportSvg" title="Export Timeline (SVG)">
+                        <img src="../assets/icons/export.svg" class="btn-icon" alt="" /> <span>SVG</span>
+                    </button>
+                    <button class="modal-close" onclick="closeSessionTimelineModal()">&times;</button>
+                </div>
+            </div>
+
+            <!-- Modal Toolbar Controls -->
+            <div class="pt-timeline-toolbar" style="margin-bottom: 8px;">
+                <div class="pt-timeline-controls-left">
+                    <div class="pt-timeline-control-group">
+                        <label for="modalSlotDurationSelect" data-i18n="ptTimelineSlotDuration">Slot Duration</label>
+                        <select id="modalSlotDurationSelect" class="pt-timeline-select" onchange="onTimelineSlotDurationChange(this.value, true)">
+                            <option value="auto" data-i18n="ptTimelineSlotAuto">Auto (Span of events)</option>
+                            <option value="45">45 min</option>
+                            <option value="50">50 min</option>
+                            <option value="55" selected>55 min</option>
+                            <option value="60">60 min</option>
+                            <option value="90">90 min</option>
+                            <option value="custom">Custom...</option>
+                        </select>
+                    </div>
+
+                    <div class="pt-timeline-control-group">
+                        <label for="modalTimeDisplaySelect">Display</label>
+                        <select id="modalTimeDisplaySelect" class="pt-timeline-select" onchange="onTimelineTimeDisplayChange(this.value, true)">
+                            <option value="elapsed" selected data-i18n="ptTimelineDisplayElapsed">Elapsed Time (+00:00)</option>
+                            <option value="clock" data-i18n="ptTimelineDisplayClock">Clock Time (HH:MM)</option>
+                        </select>
+                    </div>
+
+                    <div class="pt-timeline-control-group">
+                        <label for="modalStudentFilterSelect" data-i18n="ptColStudent">Student</label>
+                        <select id="modalStudentFilterSelect" class="pt-timeline-select" onchange="onTimelineStudentFilterChange(this.value, true)">
+                            <option value="" data-i18n="ptTimelineAllStudents">All Students</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="pt-timeline-filter-chips">
+                    <button type="button" class="pt-filter-chip active" data-filter="points" onclick="toggleTimelineFilter('points', this, true)">
+                        <span class="pt-chip-dot" style="background:#6abf8e;"></span> <span data-i18n="ptTimelineFilterPoints">Points (+/-)</span>
+                    </button>
+                    <button type="button" class="pt-filter-chip active" data-filter="picks" onclick="toggleTimelineFilter('picks', this, true)">
+                        <span class="pt-chip-dot" style="background:#8b7cc2;"></span> <span data-i18n="ptTimelineFilterPicks">Picks & Calls</span>
+                    </button>
+                    <button type="button" class="pt-filter-chip active" data-filter="timers" onclick="toggleTimelineFilter('timers', this, true)">
+                        <span class="pt-chip-dot" style="background:#e2c96e;"></span> <span data-i18n="ptTimelineFilterTimers">Timers & Modes</span>
+                    </button>
+                    <button type="button" class="pt-filter-chip active" data-filter="teams" onclick="toggleTimelineFilter('teams', this, true)">
+                        <span class="pt-chip-dot" style="background:#5b8fcc;"></span> <span data-i18n="ptTimelineFilterTeams">Teams & Roles</span>
+                    </button>
+                    <button type="button" class="pt-filter-chip active" data-filter="badges" onclick="toggleTimelineFilter('badges', this, true)">
+                        <span class="pt-chip-dot" style="background:#e59a5a;"></span> <span data-i18n="ptTimelineFilterBadges">Badges & Notes</span>
+                    </button>
+                    <button type="button" class="pt-filter-chip active" data-filter="attendance" onclick="toggleTimelineFilter('attendance', this, true)">
+                        <span class="pt-chip-dot" style="background:#94a3b8;"></span> <span data-i18n="ptTimelineFilterAttendance">Attendance</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Modal Canvas Container -->
+            <div class="pt-timeline-canvas-wrap" id="modalTimelineCanvasWrap" style="flex: 1; min-height: 480px;">
+                <canvas id="modalTimelineCanvas" class="pt-timeline-canvas"></canvas>
+                <div id="modalTimelineTooltip" class="pt-timeline-tooltip"></div>
+                <div id="modalTimelineEmptyState" class="pt-timeline-empty-state hidden">
+                    <img src="../assets/icons/clock.svg" class="pt-empty-icon" alt="" />
+                    <h4 data-i18n="ptTimelineNoHistory">No detailed timeline events recorded for this session.</h4>
+                    <p id="modalTimelineEmptyStats" class="pt-empty-text"></p>
+                </div>
+            </div>
+
+            <!-- Modal KPIs Summary Bar -->
+            <div class="pt-timeline-kpi-bar" id="modalTimelineKpiBar" style="margin-top: 10px;">
+                <div class="pt-kpi-pill">
+                    <span class="pt-kpi-label" data-i18n="ptTimelineKpiTotal">Total Events</span>
+                    <span class="pt-kpi-value" id="modalKpiTotalEvents">0</span>
+                </div>
+                <div class="pt-kpi-pill">
+                    <span class="pt-kpi-label" data-i18n="ptTimelineKpiPace">Interactive Pace</span>
+                    <span class="pt-kpi-value" id="modalKpiPace">0/min</span>
+                </div>
+                <div class="pt-kpi-pill">
+                    <span class="pt-kpi-label" data-i18n="ptTimelineKpiTimers">Active Timers</span>
+                    <span class="pt-kpi-value" id="modalKpiActiveTimers">0m (0%)</span>
+                </div>
+                <div class="pt-kpi-pill">
+                    <span class="pt-kpi-label" data-i18n="ptTimelineKpiTeams">Group Work</span>
+                    <span class="pt-kpi-value" id="modalKpiGroupWork">0m</span>
+                </div>
+                <div class="pt-kpi-pill">
+                    <span class="pt-kpi-label" data-i18n="ptTimelineKpiUncalled">Uncalled Students</span>
+                    <span class="pt-kpi-value" id="modalKpiUncalled">0</span>
                 </div>
             </div>
         </div>
@@ -4220,6 +4449,1222 @@
             });
         }
 
+        // ================================================================
+        // SESSION TIMELINE & INTERACTION FLOW ENGINE
+        // ================================================================
+
+        let _timelineState = {
+            session: null,
+            sessionId: null,
+            slotDuration: '55',
+            timeDisplay: 'elapsed',
+            activeFilters: new Set(['points', 'picks', 'timers', 'teams', 'badges', 'attendance']),
+            selectedStudentId: '',
+            selectedStudentName: '',
+            events: [],
+            rawEvents: [],
+            timeBounds: { startMs: 0, endMs: 0, durationMs: 0 },
+            timerIntervals: [],
+            modeIntervals: [],
+            teamIntervals: [],
+            hoverTarget: null,
+            hoverX: null,
+            isModalOpen: false
+        };
+
+        const _timelineIcons = {};
+        const _timelineIconDefs = {
+            plus: '../assets/icons/plus.svg',
+            minus: '../assets/icons/close.svg',
+            pick: '../assets/icons/dice.svg',
+            timer: '../assets/icons/clock.svg',
+            team: '../assets/icons/groups.svg',
+            badge: '../assets/icons/award.svg',
+            comment: '../assets/icons/comments.svg',
+            attendance: '../assets/icons/user-check.svg',
+            exam: '../assets/icons/test-creator.svg'
+        };
+        let _timelineIconsLoaded = false;
+
+        function preloadTimelineIcons() {
+            if (_timelineIconsLoaded) return;
+            _timelineIconsLoaded = true;
+            Object.keys(_timelineIconDefs).forEach(key => {
+                const img = new Image();
+                img.onload = () => {
+                    requestAnimationFrame(() => {
+                        redrawActiveTimeline();
+                    });
+                };
+                img.src = _timelineIconDefs[key];
+                _timelineIcons[key] = img;
+            });
+        }
+
+        function normalizeTimelineEvents(rawHistory, session) {
+            if (!Array.isArray(rawHistory) || rawHistory.length === 0) return [];
+            const baseDate = session && session.id && String(session.id).match(/^\d{4}-\d{2}-\d{2}/)
+                ? String(session.id).slice(0, 10)
+                : (session && session.date ? String(session.date).slice(0, 10) : new Date().toISOString().slice(0, 10));
+
+            return rawHistory.map((item, idx) => {
+                let ts = item.timestamp ? new Date(item.timestamp).getTime() : NaN;
+                if (Number.isNaN(ts) && item.time) {
+                    ts = new Date(`${baseDate}T${item.time}`).getTime();
+                }
+                if (Number.isNaN(ts)) {
+                    const fallbackStart = session ? new Date(session.id || session.date || Date.now()).getTime() : Date.now();
+                    ts = (Number.isNaN(fallbackStart) ? Date.now() : fallbackStart) + (idx * 30000);
+                }
+
+                const type = String(item.type || '').toLowerCase();
+                let category = 'points';
+                let iconKey = 'plus';
+                let badgeColor = '#6abf8e';
+
+                if (type === 'plus') {
+                    category = 'points';
+                    iconKey = 'plus';
+                    badgeColor = '#6abf8e';
+                } else if (type === 'minus') {
+                    category = 'points';
+                    iconKey = 'minus';
+                    badgeColor = '#c96b6b';
+                } else if (type === 'team-plus') {
+                    category = 'points';
+                    iconKey = 'team';
+                    badgeColor = '#5b8fcc';
+                } else if (type === 'team-minus') {
+                    category = 'points';
+                    iconKey = 'minus';
+                    badgeColor = '#c96b6b';
+                } else if (type === 'pick') {
+                    category = 'picks';
+                    iconKey = 'pick';
+                    badgeColor = '#8b7cc2';
+                } else if (type === 'team-pick') {
+                    category = 'picks';
+                    iconKey = 'pick';
+                    badgeColor = '#8b7cc2';
+                } else if (type.startsWith('timer-')) {
+                    category = 'timers';
+                    iconKey = 'timer';
+                    badgeColor = '#e2c96e';
+                } else if (type.startsWith('mode-')) {
+                    category = 'timers';
+                    iconKey = 'timer';
+                    badgeColor = '#b8a6e8';
+                } else if (type === 'teams' || type === 'role' || type === 'rank' || type === 'role-change') {
+                    category = 'teams';
+                    iconKey = 'team';
+                    badgeColor = '#5b8fcc';
+                } else if (type === 'badge') {
+                    category = 'badges';
+                    iconKey = 'badge';
+                    badgeColor = '#e2c96e';
+                } else if (type === 'comment') {
+                    category = 'badges';
+                    iconKey = 'comment';
+                    badgeColor = '#e59a5a';
+                } else if (type === 'attendance') {
+                    category = 'attendance';
+                    iconKey = 'attendance';
+                    badgeColor = '#94a3b8';
+                } else if (type === 'exam-toggle') {
+                    category = 'timers';
+                    iconKey = 'exam';
+                    badgeColor = '#475569';
+                } else if (type === 'remove') {
+                    category = 'points';
+                    iconKey = 'minus';
+                    badgeColor = '#c96b6b';
+                }
+
+                return {
+                    type,
+                    studentName: item.studentName || 'Student',
+                    detail: item.detail || '',
+                    time: item.time || '',
+                    timestamp: item.timestamp || '',
+                    timestampMs: ts,
+                    group: item.group || '',
+                    meta: item.meta || {},
+                    category,
+                    iconKey,
+                    badgeColor
+                };
+            }).sort((a, b) => a.timestampMs - b.timestampMs);
+        }
+
+        function getSessionTimeBounds(session, slotDuration, events) {
+            const defaultDurationMinutes = 55;
+            let startMs = NaN;
+
+            if (session) {
+                if (session.time && session.id && String(session.id).match(/^\d{4}-\d{2}-\d{2}/)) {
+                    const dt = new Date(`${String(session.id).slice(0, 10)}T${session.time}`);
+                    if (!Number.isNaN(dt.getTime())) startMs = dt.getTime();
+                }
+                if (Number.isNaN(startMs) && session.id) {
+                    const dt = new Date(session.id);
+                    if (!Number.isNaN(dt.getTime())) startMs = dt.getTime();
+                }
+            }
+
+            if (events && events.length > 0) {
+                const firstEventMs = events[0].timestampMs;
+                if (Number.isNaN(startMs) || Math.abs(startMs - firstEventMs) > 12 * 3600 * 1000) {
+                    startMs = firstEventMs;
+                } else {
+                    startMs = Math.min(startMs, firstEventMs);
+                }
+            }
+
+            if (Number.isNaN(startMs)) {
+                startMs = Date.now();
+            }
+
+            if (slotDuration && slotDuration !== 'auto') {
+                const mins = Math.max(5, parseInt(slotDuration, 10) || defaultDurationMinutes);
+                const durationMs = mins * 60 * 1000;
+                return { startMs, endMs: startMs + durationMs, durationMs };
+            }
+
+            // Auto fit: span of events + 3 min padding
+            if (events && events.length > 0) {
+                const lastEventMs = events[events.length - 1].timestampMs;
+                const span = Math.max(10 * 60 * 1000, (lastEventMs - startMs) + 3 * 60 * 1000);
+                return { startMs, endMs: startMs + span, durationMs: span };
+            }
+
+            const durationMs = defaultDurationMinutes * 60 * 1000;
+            return { startMs, endMs: startMs + durationMs, durationMs };
+        }
+
+        function computeTimelineIntervals(events, bounds) {
+            const timerIntervals = [];
+            const modeIntervals = [];
+            const teamIntervals = [];
+
+            let activeTimer = null;
+            let activeMode = null;
+            let activeTeam = null;
+
+            events.forEach(ev => {
+                if (ev.type === 'timer-start') {
+                    if (activeTimer) {
+                        timerIntervals.push({ ...activeTimer, endMs: Math.max(activeTimer.startMs + 5000, ev.timestampMs) });
+                    }
+                    const explicitSec = ev.meta?.durationSec ? ev.meta.durationSec * 1000 : null;
+                    activeTimer = {
+                        startMs: ev.timestampMs,
+                        title: ev.studentName || 'Timer',
+                        detail: ev.detail || 'Timer running',
+                        explicitEndMs: explicitSec ? ev.timestampMs + explicitSec : null
+                    };
+                } else if (ev.type === 'timer-stop' || ev.type === 'timer-end') {
+                    if (activeTimer) {
+                        timerIntervals.push({ ...activeTimer, endMs: Math.max(activeTimer.startMs + 5000, ev.timestampMs) });
+                        activeTimer = null;
+                    }
+                } else if (ev.type === 'mode-start') {
+                    if (activeMode) {
+                        modeIntervals.push({ ...activeMode, endMs: Math.max(activeMode.startMs + 5000, ev.timestampMs) });
+                    }
+                    activeMode = {
+                        startMs: ev.timestampMs,
+                        title: ev.studentName || 'Working Mode',
+                        detail: ev.detail || 'Working Mode'
+                    };
+                } else if (ev.type === 'mode-end') {
+                    if (activeMode) {
+                        modeIntervals.push({ ...activeMode, endMs: Math.max(activeMode.startMs + 5000, ev.timestampMs) });
+                        activeMode = null;
+                    }
+                } else if (ev.type === 'teams' && ((ev.detail || '').toLowerCase().includes('created') || (ev.detail || '').toLowerCase().includes('loaded') || (ev.detail || '').toLowerCase().includes('assigned'))) {
+                    if (!activeTeam) {
+                        activeTeam = {
+                            startMs: ev.timestampMs,
+                            title: 'Teams Active',
+                            detail: ev.detail
+                        };
+                    }
+                } else if (ev.type === 'teams' && (ev.detail || '').toLowerCase().includes('cleared')) {
+                    if (activeTeam) {
+                        teamIntervals.push({ ...activeTeam, endMs: Math.max(activeTeam.startMs + 5000, ev.timestampMs) });
+                        activeTeam = null;
+                    }
+                }
+            });
+
+            if (activeTimer) {
+                const endMs = activeTimer.explicitEndMs && activeTimer.explicitEndMs <= bounds.endMs
+                    ? activeTimer.explicitEndMs
+                    : bounds.endMs;
+                timerIntervals.push({ ...activeTimer, endMs: Math.max(activeTimer.startMs + 5000, endMs) });
+            }
+            if (activeMode) {
+                modeIntervals.push({ ...activeMode, endMs: bounds.endMs });
+            }
+            if (activeTeam) {
+                teamIntervals.push({ ...activeTeam, endMs: bounds.endMs });
+            }
+
+            return { timerIntervals, modeIntervals, teamIntervals };
+        }
+
+        function formatTimelineTimeLabel(ms, startMs, mode) {
+            if (mode === 'clock') {
+                const d = new Date(ms);
+                return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+            }
+            const elapsedSec = Math.max(0, Math.floor((ms - startMs) / 1000));
+            const mins = Math.floor(elapsedSec / 60);
+            const secs = elapsedSec % 60;
+            return `+${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        }
+
+        function formatTimelineDuration(ms) {
+            const totalSec = Math.max(0, Math.round(ms / 1000));
+            const mins = Math.floor(totalSec / 60);
+            const secs = totalSec % 60;
+            if (mins === 0) return `${secs}s`;
+            if (secs === 0) return `${mins}m`;
+            return `${mins}m ${secs}s`;
+        }
+
+        function updateTimelineKpiBar(prefix, events, bounds, intervals, session) {
+            const totalEvents = events.length;
+            const durationMinutes = Math.max(1, bounds.durationMs / 60000);
+            const pace = (totalEvents / durationMinutes).toFixed(2);
+
+            let timerTotalMs = 0;
+            intervals.timerIntervals.forEach(ti => {
+                timerTotalMs += Math.max(0, ti.endMs - ti.startMs);
+            });
+            const timerPct = Math.min(100, Math.round((timerTotalMs / bounds.durationMs) * 100));
+
+            let groupWorkMs = 0;
+            intervals.modeIntervals.forEach(mi => {
+                groupWorkMs += Math.max(0, mi.endMs - mi.startMs);
+            });
+            intervals.teamIntervals.forEach(ti => {
+                groupWorkMs = Math.max(groupWorkMs, ti.endMs - ti.startMs);
+            });
+
+            // Calculate uncalled students in current group
+            let uncalledCount = 0;
+            if (session && session.groups && currentGroupId && Array.isArray(session.groups[currentGroupId])) {
+                const groupStudents = session.groups[currentGroupId];
+                const activeNames = new Set(events.map(e => String(e.studentName || '').trim().toLowerCase()));
+                const uncalled = groupStudents.filter(s => {
+                    const name = String(s.name || '').trim().toLowerCase();
+                    const hasPoints = (s.pluses || 0) + (s.minuses || 0) + (s.picks || 0) > 0;
+                    return !activeNames.has(name) && !hasPoints && !s.isAbsent;
+                });
+                uncalledCount = uncalled.length;
+            }
+
+            const totalEl = document.getElementById(prefix + 'TotalEvents');
+            const paceEl = document.getElementById(prefix + 'Pace');
+            const timersEl = document.getElementById(prefix + 'ActiveTimers');
+            const groupEl = document.getElementById(prefix + 'GroupWork');
+            const uncalledEl = document.getElementById(prefix + 'Uncalled');
+
+            if (totalEl) totalEl.textContent = totalEvents;
+            if (paceEl) paceEl.textContent = `${pace}/min`;
+            if (timersEl) timersEl.textContent = `${formatTimelineDuration(timerTotalMs)} (${timerPct}%)`;
+            if (groupEl) groupEl.textContent = formatTimelineDuration(groupWorkMs);
+            if (uncalledEl) uncalledEl.textContent = uncalledCount;
+        }
+
+        function drawSessionTimeline(canvas, isModal) {
+            if (!canvas) return;
+            preloadTimelineIcons();
+
+            const rect = canvas.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            const width = rect.width || canvas.offsetWidth || 900;
+            const height = rect.height || canvas.offsetHeight || 420;
+
+            canvas.width = Math.round(width * dpr);
+            canvas.height = Math.round(height * dpr);
+
+            const ctx = canvas.getContext('2d');
+            ctx.scale(dpr, dpr);
+
+            // Clear canvas background
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, width, height);
+
+            const session = _timelineState.session;
+            const bounds = _timelineState.timeBounds;
+            const emptyStateEl = document.getElementById(isModal ? 'modalTimelineEmptyState' : 'ptTimelineEmptyState');
+
+            if (!session || !_timelineState.rawEvents || _timelineState.rawEvents.length === 0) {
+                if (emptyStateEl) emptyStateEl.classList.remove('hidden');
+                return;
+            }
+            if (emptyStateEl) emptyStateEl.classList.add('hidden');
+
+            const filteredEvents = _timelineState.events.filter(e => _timelineState.activeFilters.has(e.category));
+
+            // Layout dimensions
+            const padLeft = 60;
+            const padRight = 30;
+            const padTop = 24;
+            const padBottom = 34;
+            const plotW = Math.max(100, width - padLeft - padRight);
+
+            // Track vertical splits
+            const track1Top = padTop;
+            const track1Height = 85;
+            const track2Top = track1Top + track1Height + 10;
+            const track2Height = 115;
+            const track3Top = track2Top + track2Height + 10;
+            const track3Bottom = height - padBottom;
+            const track3Height = Math.max(60, track3Bottom - track3Top);
+
+            function getX(timeMs) {
+                if (bounds.durationMs <= 0) return padLeft;
+                const ratio = Math.max(0, Math.min(1, (timeMs - bounds.startMs) / bounds.durationMs));
+                return padLeft + ratio * plotW;
+            }
+
+            // ── Background track bands ──
+            ctx.fillStyle = '#fafaf7';
+            ctx.fillRect(padLeft, track1Top, plotW, track1Height);
+            ctx.strokeStyle = '#e8e8e2';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(padLeft, track1Top, plotW, track1Height);
+
+            // Track 1 label
+            ctx.fillStyle = '#888888';
+            ctx.font = '700 9px Lexend, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText('INTERVALS & MODES', padLeft + 6, track1Top + 13);
+
+            // Track 2 label
+            ctx.fillStyle = '#888888';
+            ctx.font = '700 9px Lexend, sans-serif';
+            ctx.fillText('INTERACTIVE PACING (CUMULATIVE)', padLeft + 6, track2Top + 13);
+
+            // ── TRACK 1: Duration & State Bands ──
+            const { timerIntervals, modeIntervals, teamIntervals } = _timelineState;
+
+            // Helper to draw Light Neobrutalist rounded rectangle
+            function drawNeoBand(x1, x2, y, h, fill, border, label, iconKey) {
+                const bandW = Math.max(18, x2 - x1);
+                const r = 5;
+                ctx.save();
+                ctx.fillStyle = '#555555';
+                ctx.fillRect(x1 + 2, y + 2, bandW, h); // shadow
+                ctx.fillStyle = fill;
+                ctx.strokeStyle = border;
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.roundRect ? ctx.roundRect(x1, y, bandW, h, r) : ctx.rect(x1, y, bandW, h);
+                ctx.fill();
+                ctx.stroke();
+
+                // Icon & Label
+                const icon = _timelineIcons[iconKey];
+                let textStartX = x1 + 6;
+                if (icon && icon.complete && icon.naturalWidth > 0 && bandW > 28) {
+                    ctx.drawImage(icon, x1 + 4, y + Math.floor((h - 12) / 2), 12, 12);
+                    textStartX = x1 + 19;
+                }
+                if (bandW > 35) {
+                    ctx.fillStyle = '#222222';
+                    ctx.font = '700 10px Lexend, sans-serif';
+                    ctx.textAlign = 'left';
+                    const maxTextW = bandW - (textStartX - x1) - 4;
+                    let displayTxt = label;
+                    if (ctx.measureText(displayTxt).width > maxTextW) {
+                        while (displayTxt.length > 3 && ctx.measureText(displayTxt + '…').width > maxTextW) {
+                            displayTxt = displayTxt.slice(0, -1);
+                        }
+                        displayTxt += '…';
+                    }
+                    ctx.fillText(displayTxt, textStartX, y + Math.floor(h / 2) + 3.5);
+                }
+                ctx.restore();
+            }
+
+            // Timers: row 1 (y: track1Top + 18, h: 18)
+            timerIntervals.forEach(ti => {
+                const x1 = getX(ti.startMs);
+                const x2 = getX(ti.endMs);
+                drawNeoBand(x1, x2, track1Top + 20, 18, '#fef3c7', '#333333', `${ti.title} (${formatTimelineDuration(ti.endMs - ti.startMs)})`, 'timer');
+            });
+
+            // Modes: row 2 (y: track1Top + 42, h: 18)
+            modeIntervals.forEach(mi => {
+                const x1 = getX(mi.startMs);
+                const x2 = getX(mi.endMs);
+                drawNeoBand(x1, x2, track1Top + 42, 18, '#ede9fe', '#333333', `${mi.title} (${formatTimelineDuration(mi.endMs - mi.startMs)})`, 'team');
+            });
+
+            // Teams: row 3 (y: track1Top + 64, h: 16)
+            teamIntervals.forEach(ti => {
+                const x1 = getX(ti.startMs);
+                const x2 = getX(ti.endMs);
+                drawNeoBand(x1, x2, track1Top + 64, 16, '#dbeafe', '#333333', `${ti.title}`, 'team');
+            });
+
+            // ── TRACK 2: Cumulative Engagement Area/Step Curve ──
+            const curveEvents = filteredEvents.filter(e => {
+                if (!_timelineState.selectedStudentName) return true;
+                return String(e.studentName || '').toLowerCase() === _timelineState.selectedStudentName.toLowerCase();
+            });
+
+            // Grid lines for Track 2
+            ctx.save();
+            ctx.strokeStyle = '#eeeeee';
+            ctx.lineWidth = 1;
+            for (let g = 0; g <= 3; g++) {
+                const gy = track2Top + (track2Height / 3) * g;
+                ctx.beginPath();
+                ctx.moveTo(padLeft, gy);
+                ctx.lineTo(padLeft + plotW, gy);
+                ctx.stroke();
+            }
+
+            let cumulative = 0;
+            const points = [{ x: padLeft, y: track2Top + track2Height, count: 0 }];
+            curveEvents.forEach(e => {
+                cumulative += 1;
+                const ex = getX(e.timestampMs);
+                points.push({ x: ex, count: cumulative });
+            });
+            points.push({ x: padLeft + plotW, count: cumulative });
+
+            const maxCount = Math.max(1, cumulative);
+            points.forEach(p => {
+                p.y = (track2Top + track2Height) - ((p.count / maxCount) * (track2Height - 16));
+            });
+
+            // Draw shaded area
+            if (points.length > 1) {
+                ctx.beginPath();
+                ctx.moveTo(points[0].x, track2Top + track2Height);
+                points.forEach(p => ctx.lineTo(p.x, p.y));
+                ctx.lineTo(padLeft + plotW, track2Top + track2Height);
+                ctx.closePath();
+                ctx.fillStyle = 'rgba(106, 191, 142, 0.22)';
+                ctx.fill();
+
+                // Draw curve line
+                ctx.beginPath();
+                ctx.moveTo(points[0].x, points[0].y);
+                points.forEach(p => ctx.lineTo(p.x, p.y));
+                ctx.strokeStyle = '#2e7d32';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+
+            // Y-axis ticks for Track 2
+            ctx.fillStyle = '#666666';
+            ctx.font = '600 9px Lexend, sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText(String(maxCount), padLeft - 6, track2Top + 14);
+            ctx.fillText(String(Math.round(maxCount / 2)), padLeft - 6, track2Top + (track2Height / 2) + 3);
+            ctx.fillText('0', padLeft - 6, track2Top + track2Height + 2);
+            ctx.restore();
+
+            // ── TRACK 3: Event Stems & Node Scatter ──
+            const stemBaselineY = track3Bottom - 18;
+            ctx.save();
+            ctx.strokeStyle = '#dddddd';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(padLeft, stemBaselineY);
+            ctx.lineTo(padLeft + plotW, stemBaselineY);
+            ctx.stroke();
+
+            // Sort & cluster close events to stagger stems vertically
+            const nodeRadius = 10;
+            const hitTargets = [];
+
+            filteredEvents.forEach((ev, idx) => {
+                const ex = getX(ev.timestampMs);
+                let clusterIdx = 0;
+                for (let j = Math.max(0, idx - 5); j < idx; j++) {
+                    const prevX = getX(filteredEvents[j].timestampMs);
+                    if (Math.abs(ex - prevX) < 14) {
+                        clusterIdx++;
+                    }
+                }
+
+                const staggerY = (clusterIdx % 3) * 16;
+                const nodeCenterY = stemBaselineY - 14 - staggerY;
+
+                const isTargetStudent = !_timelineState.selectedStudentName ||
+                    String(ev.studentName || '').toLowerCase() === _timelineState.selectedStudentName.toLowerCase();
+                const nodeAlpha = isTargetStudent ? 1.0 : 0.16;
+
+                ctx.save();
+                ctx.globalAlpha = nodeAlpha;
+
+                // Vertical stem line
+                ctx.strokeStyle = '#444444';
+                ctx.lineWidth = 1.2;
+                ctx.beginPath();
+                ctx.moveTo(ex, stemBaselineY);
+                ctx.lineTo(ex, nodeCenterY + nodeRadius);
+                ctx.stroke();
+
+                // Drop shadow for node circle
+                ctx.fillStyle = '#555555';
+                ctx.beginPath();
+                ctx.arc(ex + 1.5, nodeCenterY + 1.5, nodeRadius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Node circle
+                ctx.fillStyle = ev.badgeColor || '#6abf8e';
+                ctx.beginPath();
+                ctx.arc(ex, nodeCenterY, nodeRadius, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.strokeStyle = isTargetStudent && _timelineState.selectedStudentName ? '#111111' : '#333333';
+                ctx.lineWidth = isTargetStudent && _timelineState.selectedStudentName ? 2.5 : 1.5;
+                ctx.stroke();
+
+                // Icon centered inside node
+                const icon = _timelineIcons[ev.iconKey];
+                if (icon && icon.complete && icon.naturalWidth > 0) {
+                    ctx.drawImage(icon, ex - 6, nodeCenterY - 6, 12, 12);
+                } else {
+                    // Crisp fallback glyph
+                    ctx.fillStyle = '#111111';
+                    ctx.font = '700 9px Lexend, sans-serif';
+                    ctx.textAlign = 'center';
+                    const symbol = ev.type === 'plus' ? '+' : (ev.type === 'minus' ? '−' : (ev.type === 'pick' ? 'P' : '★'));
+                    ctx.fillText(symbol, ex, nodeCenterY + 3);
+                }
+
+                // Student name below baseline
+                if (isTargetStudent && (idx % 2 === 0 || filteredEvents.length <= 25)) {
+                    ctx.fillStyle = '#333333';
+                    ctx.font = '600 8.5px Lexend, sans-serif';
+                    ctx.textAlign = 'center';
+                    let shortName = ev.studentName || '';
+                    if (shortName.length > 10) shortName = shortName.slice(0, 9) + '…';
+                    ctx.fillText(shortName, ex, stemBaselineY + 11);
+                }
+
+                ctx.restore();
+
+                hitTargets.push({
+                    event: ev,
+                    x: ex,
+                    y: nodeCenterY,
+                    radius: nodeRadius + 3
+                });
+            });
+            ctx.restore();
+
+            // ── X-AXIS: Bottom Time Scale ──
+            ctx.save();
+            ctx.strokeStyle = '#333333';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(padLeft, stemBaselineY + 18);
+            ctx.lineTo(padLeft + plotW, stemBaselineY + 18);
+            ctx.stroke();
+
+            // Determine tick interval: every 5 or 10 min
+            const durationMins = bounds.durationMs / 60000;
+            const tickMins = durationMins > 65 ? 10 : (durationMins > 30 ? 5 : 2);
+            const totalTicks = Math.floor(durationMins / tickMins);
+
+            ctx.fillStyle = '#444444';
+            ctx.font = '700 9.5px Lexend, sans-serif';
+            ctx.textAlign = 'center';
+
+            for (let ti = 0; ti <= totalTicks; ti++) {
+                const tickMs = bounds.startMs + (ti * tickMins * 60 * 1000);
+                if (tickMs > bounds.endMs) break;
+                const tx = getX(tickMs);
+
+                // Tick line
+                ctx.strokeStyle = '#333333';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(tx, stemBaselineY + 18);
+                ctx.lineTo(tx, stemBaselineY + 23);
+                ctx.stroke();
+
+                // Vertical dotted grid line up through the chart
+                ctx.strokeStyle = '#eaeae4';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(tx, track1Top);
+                ctx.lineTo(tx, stemBaselineY + 18);
+                ctx.stroke();
+
+                // Label
+                const label = formatTimelineTimeLabel(tickMs, bounds.startMs, _timelineState.timeDisplay);
+                ctx.fillText(label, tx, stemBaselineY + 33);
+            }
+            ctx.restore();
+
+            // ── Hover Guide & Active Hit Inspection ──
+            if (_timelineState.hoverX !== null && _timelineState.hoverX >= padLeft && _timelineState.hoverX <= padLeft + plotW) {
+                const hx = _timelineState.hoverX;
+
+                // Vertical dashed cursor line
+                ctx.save();
+                ctx.strokeStyle = '#333333';
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.moveTo(hx, track1Top);
+                ctx.lineTo(hx, stemBaselineY + 18);
+                ctx.stroke();
+                ctx.restore();
+
+                // Time badge on hover line
+                const hoverMs = bounds.startMs + ((hx - padLeft) / plotW) * bounds.durationMs;
+                const hoverLabel = formatTimelineTimeLabel(hoverMs, bounds.startMs, _timelineState.timeDisplay);
+                ctx.save();
+                ctx.fillStyle = '#333333';
+                ctx.fillRect(hx - 24, stemBaselineY + 19, 48, 14);
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '700 9px Lexend, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(hoverLabel, hx, stemBaselineY + 29.5);
+                ctx.restore();
+            }
+
+            canvas._timelineHitTargets = hitTargets;
+        }
+
+        function redrawActiveTimeline() {
+            const inlineCanvas = document.getElementById('ptTimelineCanvas');
+            if (inlineCanvas && !document.getElementById('sessionTimelineSection').classList.contains('hidden')) {
+                drawSessionTimeline(inlineCanvas, false);
+            }
+            const modalCanvas = document.getElementById('modalTimelineCanvas');
+            if (modalCanvas && document.getElementById('sessionTimelineModal').classList.contains('active')) {
+                drawSessionTimeline(modalCanvas, true);
+            }
+        }
+
+        function initTimelineCanvasEvents(canvasId, isModal) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas || canvas._hasTimelineEvents) return;
+            canvas._hasTimelineEvents = true;
+
+            const tooltip = document.getElementById(isModal ? 'modalTimelineTooltip' : 'ptTimelineTooltip');
+
+            function handleMouseMove(e) {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+
+                _timelineState.hoverX = mouseX;
+
+                // Hit test for nodes
+                const targets = canvas._timelineHitTargets || [];
+                let closest = null;
+                let minDist = 18;
+
+                for (let i = 0; i < targets.length; i++) {
+                    const t = targets[i];
+                    const dist = Math.hypot(t.x - mouseX, t.y - mouseY);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        closest = t.event;
+                    }
+                }
+
+                // Hit test for Track 1 intervals
+                let hoveredInterval = null;
+                if (!closest && mouseY >= 24 && mouseY <= 110) {
+                    const hoverMs = _timelineState.timeBounds.startMs + ((mouseX - 60) / Math.max(1, rect.width - 90)) * _timelineState.timeBounds.durationMs;
+                    hoveredInterval = _timelineState.timerIntervals.find(ti => hoverMs >= ti.startMs && hoverMs <= ti.endMs)
+                        || _timelineState.modeIntervals.find(mi => hoverMs >= mi.startMs && hoverMs <= mi.endMs)
+                        || _timelineState.teamIntervals.find(ti => hoverMs >= ti.startMs && hoverMs <= ti.endMs);
+                }
+
+                if (closest) {
+                    const timeClock = new Date(closest.timestampMs).toLocaleTimeString('en-GB');
+                    const timeElapsed = formatTimelineTimeLabel(closest.timestampMs, _timelineState.timeBounds.startMs, 'elapsed');
+                    tooltip.innerHTML = `
+                        <div class="pt-tooltip-time">
+                            <span>${timeElapsed}</span>
+                            <span>${timeClock}</span>
+                        </div>
+                        <span class="pt-tooltip-badge" style="background:${closest.badgeColor}; color:#111;">${closest.type.toUpperCase()}</span>
+                        <div class="pt-tooltip-title">${escapeHtml(closest.studentName)}</div>
+                        <div class="pt-tooltip-detail">${escapeHtml(closest.detail || '')}</div>
+                    `;
+                    tooltip.style.display = 'block';
+                    const tipX = Math.min(rect.width - 240, Math.max(10, mouseX + 14));
+                    const tipY = Math.min(rect.height - 110, Math.max(10, mouseY - 40));
+                    tooltip.style.left = tipX + 'px';
+                    tooltip.style.top = tipY + 'px';
+                } else if (hoveredInterval) {
+                    const durStr = formatTimelineDuration(hoveredInterval.endMs - hoveredInterval.startMs);
+                    tooltip.innerHTML = `
+                        <div class="pt-tooltip-time">
+                            <span>${escapeHtml(hoveredInterval.title)}</span>
+                            <span>${durStr}</span>
+                        </div>
+                        <div class="pt-tooltip-detail">${escapeHtml(hoveredInterval.detail || '')}</div>
+                    `;
+                    tooltip.style.display = 'block';
+                    const tipX = Math.min(rect.width - 220, Math.max(10, mouseX + 14));
+                    const tipY = Math.min(rect.height - 80, Math.max(10, mouseY - 30));
+                    tooltip.style.left = tipX + 'px';
+                    tooltip.style.top = tipY + 'px';
+                } else {
+                    tooltip.style.display = 'none';
+                }
+
+                if (!_timelineState._rafPending) {
+                    _timelineState._rafPending = true;
+                    requestAnimationFrame(() => {
+                        _timelineState._rafPending = false;
+                        drawSessionTimeline(canvas, isModal);
+                    });
+                }
+            }
+
+            function handleMouseLeave() {
+                _timelineState.hoverX = null;
+                if (tooltip) tooltip.style.display = 'none';
+                drawSessionTimeline(canvas, isModal);
+            }
+
+            canvas.addEventListener('mousemove', handleMouseMove);
+            canvas.addEventListener('mouseleave', handleMouseLeave);
+        }
+
+        function populateTimelineStudentSelect(selectId, session) {
+            const select = document.getElementById(selectId);
+            if (!select) return;
+
+            const currentVal = select.value;
+            select.innerHTML = `<option value="">${t('ptTimelineAllStudents') || 'All Students'}</option>`;
+
+            const studentNames = new Set();
+            if (session && session.groups && currentGroupId && Array.isArray(session.groups[currentGroupId])) {
+                session.groups[currentGroupId].forEach(st => {
+                    if (st && st.name) studentNames.add(st.name);
+                });
+            } else if (session && session.groups) {
+                Object.values(session.groups).forEach(grp => {
+                    if (Array.isArray(grp)) grp.forEach(st => { if (st && st.name) studentNames.add(st.name); });
+                });
+            }
+
+            Array.from(studentNames).sort().forEach(name => {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                select.appendChild(opt);
+            });
+
+            if (studentNames.has(currentVal)) {
+                select.value = currentVal;
+            }
+        }
+
+        function renderSessionTimeline(sessionOrId, options = {}) {
+            let session = null;
+            if (typeof sessionOrId === 'object' && sessionOrId !== null) {
+                session = sessionOrId;
+            } else if (typeof sessionOrId === 'string') {
+                session = DB_EXPORT.find(s => s && (s.id === sessionOrId || s.date === sessionOrId));
+            }
+
+            if (!session) {
+                closeSessionTimelinePanel();
+                return;
+            }
+
+            preloadTimelineIcons();
+            _timelineState.session = session;
+            _timelineState.sessionId = session.id || session.date;
+
+            const groupName = currentGroupId || (session.groups && Object.keys(session.groups)[0]) || '';
+            const sessionDate = session.id ? session.id.slice(0, 10) : (session.date || '');
+            const subtitleText = `${groupName ? groupName + ' — ' : ''}${sessionDate}${session.time ? ' ' + session.time : ''}`;
+
+            const subEl = document.getElementById('sessionTimelineSubtitle');
+            if (subEl) subEl.textContent = subtitleText;
+            const modalSubEl = document.getElementById('modalTimelineSubtitle');
+            if (modalSubEl) modalSubEl.textContent = subtitleText;
+
+            // Normalize raw events
+            _timelineState.rawEvents = Array.isArray(session.sessionHistory) ? session.sessionHistory : [];
+            _timelineState.events = normalizeTimelineEvents(_timelineState.rawEvents, session);
+            _timelineState.timeBounds = getSessionTimeBounds(session, _timelineState.slotDuration, _timelineState.events);
+
+            const intervals = computeTimelineIntervals(_timelineState.events, _timelineState.timeBounds);
+            _timelineState.timerIntervals = intervals.timerIntervals;
+            _timelineState.modeIntervals = intervals.modeIntervals;
+            _timelineState.teamIntervals = intervals.teamIntervals;
+
+            // Populate student filter dropdowns
+            populateTimelineStudentSelect('ptStudentFilterSelect', session);
+            populateTimelineStudentSelect('modalStudentFilterSelect', session);
+
+            // Update KPIs
+            updateTimelineKpiBar('ptKpi', _timelineState.events, _timelineState.timeBounds, intervals, session);
+            updateTimelineKpiBar('modalKpi', _timelineState.events, _timelineState.timeBounds, intervals, session);
+
+            // If empty legacy session, populate empty state details
+            if (_timelineState.events.length === 0) {
+                let statsSummary = '';
+                if (session.groups && currentGroupId && Array.isArray(session.groups[currentGroupId])) {
+                    const stList = session.groups[currentGroupId];
+                    const plusSum = stList.reduce((acc, s) => acc + (s.pluses || 0), 0);
+                    const minusSum = stList.reduce((acc, s) => acc + (s.minuses || 0), 0);
+                    const pickSum = stList.reduce((acc, s) => acc + (s.picks || 0), 0);
+                    statsSummary = `Aggregate session totals: ${plusSum} pluses, ${minusSum} minuses, ${pickSum} picks across ${stList.length} students.`;
+                }
+                const ptStatsEl = document.getElementById('ptTimelineEmptyStats');
+                if (ptStatsEl) ptStatsEl.textContent = statsSummary;
+                const modalStatsEl = document.getElementById('modalTimelineEmptyStats');
+                if (modalStatsEl) modalStatsEl.textContent = statsSummary;
+            }
+
+            // Show panel
+            const panel = document.getElementById('sessionTimelineSection');
+            if (panel) {
+                panel.classList.remove('hidden');
+                initTimelineCanvasEvents('ptTimelineCanvas', false);
+            }
+
+            if (options.openModal) {
+                openSessionTimelineModal();
+            } else {
+                requestAnimationFrame(() => {
+                    const canvas = document.getElementById('ptTimelineCanvas');
+                    if (canvas) drawSessionTimeline(canvas, false);
+                });
+            }
+        }
+
+        function openSessionTimeline(sessionOrId, options = {}) {
+            renderSessionTimeline(sessionOrId, options);
+        }
+
+        function openSessionTimelineModal() {
+            const modal = document.getElementById('sessionTimelineModal');
+            if (!modal) return;
+            modal.classList.add('active');
+            _timelineState.isModalOpen = true;
+
+            initTimelineCanvasEvents('modalTimelineCanvas', true);
+            requestAnimationFrame(() => {
+                const canvas = document.getElementById('modalTimelineCanvas');
+                if (canvas) drawSessionTimeline(canvas, true);
+            });
+        }
+
+        function closeSessionTimelineModal() {
+            const modal = document.getElementById('sessionTimelineModal');
+            if (modal) modal.classList.remove('active');
+            _timelineState.isModalOpen = false;
+        }
+
+        function closeSessionTimelinePanel() {
+            const panel = document.getElementById('sessionTimelineSection');
+            if (panel) panel.classList.add('hidden');
+        }
+
+        function toggleTimelineFilter(filterKey, buttonEl, isModal) {
+            if (_timelineState.activeFilters.has(filterKey)) {
+                if (_timelineState.activeFilters.size > 1) {
+                    _timelineState.activeFilters.delete(filterKey);
+                }
+            } else {
+                _timelineState.activeFilters.add(filterKey);
+            }
+
+            // Sync all filter buttons with this data-filter
+            document.querySelectorAll(`button.pt-filter-chip[data-filter="${filterKey}"]`).forEach(btn => {
+                btn.classList.toggle('active', _timelineState.activeFilters.has(filterKey));
+            });
+
+            redrawActiveTimeline();
+        }
+
+        function onTimelineSlotDurationChange(durationVal, isModal) {
+            if (durationVal === 'custom') {
+                const promptFn = typeof showPrompt === 'function' ? showPrompt : prompt;
+                const res = promptFn('Enter slot duration in minutes (e.g. 75):', '75');
+                Promise.resolve(res).then(val => {
+                    const parsed = parseInt(val, 10);
+                    if (parsed && parsed >= 5 && parsed <= 360) {
+                        _timelineState.slotDuration = String(parsed);
+                    } else {
+                        _timelineState.slotDuration = '55';
+                    }
+                    syncSlotDurationInputs(_timelineState.slotDuration);
+                    refreshTimelineBoundsAndRedraw();
+                });
+                return;
+            }
+
+            _timelineState.slotDuration = durationVal;
+            syncSlotDurationInputs(durationVal);
+            refreshTimelineBoundsAndRedraw();
+        }
+
+        function syncSlotDurationInputs(val) {
+            const el1 = document.getElementById('ptSlotDurationSelect');
+            const el2 = document.getElementById('modalSlotDurationSelect');
+            if (el1) el1.value = val;
+            if (el2) el2.value = val;
+        }
+
+        function onTimelineTimeDisplayChange(displayVal, isModal) {
+            _timelineState.timeDisplay = displayVal;
+            const el1 = document.getElementById('ptTimeDisplaySelect');
+            const el2 = document.getElementById('modalTimeDisplaySelect');
+            if (el1) el1.value = displayVal;
+            if (el2) el2.value = displayVal;
+            redrawActiveTimeline();
+        }
+
+        function onTimelineStudentFilterChange(studentVal, isModal) {
+            _timelineState.selectedStudentName = studentVal;
+            const el1 = document.getElementById('ptStudentFilterSelect');
+            const el2 = document.getElementById('modalStudentFilterSelect');
+            if (el1) el1.value = studentVal;
+            if (el2) el2.value = studentVal;
+            redrawActiveTimeline();
+        }
+
+        function refreshTimelineBoundsAndRedraw() {
+            if (!_timelineState.session) return;
+            _timelineState.timeBounds = getSessionTimeBounds(_timelineState.session, _timelineState.slotDuration, _timelineState.events);
+            const intervals = computeTimelineIntervals(_timelineState.events, _timelineState.timeBounds);
+            _timelineState.timerIntervals = intervals.timerIntervals;
+            _timelineState.modeIntervals = intervals.modeIntervals;
+            _timelineState.teamIntervals = intervals.teamIntervals;
+            updateTimelineKpiBar('ptKpi', _timelineState.events, _timelineState.timeBounds, intervals, _timelineState.session);
+            updateTimelineKpiBar('modalKpi', _timelineState.events, _timelineState.timeBounds, intervals, _timelineState.session);
+            redrawActiveTimeline();
+        }
+
+        async function saveTimelineFile(filename, data, format) {
+            const groupName = currentGroupId || (_timelineState.session?.groups && Object.keys(_timelineState.session.groups)[0]) || 'Class';
+            const safeName = filename || `Session_Timeline_${groupName}_${_timelineState.session?.id || 'session'}.${format}`;
+
+            if (window.Desktop && Desktop.isElectron()) {
+                try {
+                    let res;
+                    if (format === 'svg') {
+                        res = await Desktop.saveText('toPrint', safeName, data);
+                    } else {
+                        res = await Desktop.saveBlob('toPrint', safeName, data);
+                    }
+                    if (res && res.ok && res.path) {
+                        if (window.showExportSuccessPopup) {
+                            showExportSuccessPopup(res.path, res.name || safeName);
+                        } else {
+                            showMessage('Timeline exported: ' + (res.name || safeName), 'success');
+                        }
+                        return;
+                    }
+                } catch (err) {
+                    console.warn('Desktop timeline export failed, falling back:', err);
+                }
+            }
+
+            // Web browser fallback
+            const blob = format === 'svg' ? new Blob([data], { type: 'image/svg+xml;charset=utf-8' }) : data;
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = safeName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showMessage('Timeline exported: ' + safeName, 'success');
+        }
+
+        function exportTimelinePng() {
+            const activeCanvas = _timelineState.isModalOpen
+                ? document.getElementById('modalTimelineCanvas')
+                : document.getElementById('ptTimelineCanvas');
+
+            if (!activeCanvas) return;
+
+            activeCanvas.toBlob(blob => {
+                if (!blob) return;
+                const groupName = currentGroupId || (_timelineState.session?.groups && Object.keys(_timelineState.session.groups)[0]) || 'Class';
+                const dateStr = _timelineState.session?.id ? _timelineState.session.id.slice(0, 10) : 'session';
+                const filename = `Session_Timeline_${groupName}_${dateStr}.png`;
+                saveTimelineFile(filename, blob, 'png');
+            }, 'image/png');
+        }
+
+        function exportTimelineSvg() {
+            const session = _timelineState.session;
+            if (!session) return;
+
+            const groupName = currentGroupId || (session.groups && Object.keys(session.groups)[0]) || 'Class';
+            const dateStr = session.id ? session.id.slice(0, 10) : 'session';
+            const filename = `Session_Timeline_${groupName}_${dateStr}.svg`;
+
+            const bounds = _timelineState.timeBounds;
+            const filteredEvents = _timelineState.events.filter(e => _timelineState.activeFilters.has(e.category));
+            const width = 1100;
+            const height = 480;
+            const padLeft = 65;
+            const padRight = 35;
+            const padTop = 30;
+            const padBottom = 40;
+            const plotW = width - padLeft - padRight;
+
+            function getSvgX(timeMs) {
+                if (bounds.durationMs <= 0) return padLeft;
+                const ratio = Math.max(0, Math.min(1, (timeMs - bounds.startMs) / bounds.durationMs));
+                return padLeft + ratio * plotW;
+            }
+
+            const track1Top = padTop;
+            const track1Height = 85;
+            const track2Top = track1Top + track1Height + 12;
+            const track2Height = 125;
+            const stemBaselineY = height - padBottom - 18;
+
+            let svg = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+            svg += `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">\n`;
+            svg += `<style>
+                text { font-family: 'Lexend', system-ui, -apple-system, sans-serif; }
+                .track-title { font-weight: 800; font-size: 10px; fill: #666666; }
+                .stem-line { stroke: #444444; stroke-width: 1.2; }
+                .axis-line { stroke: #333333; stroke-width: 2; }
+                .grid-line { stroke: #eaeae4; stroke-width: 1; }
+                .tick-label { font-weight: 700; font-size: 10px; fill: #444444; text-anchor: middle; }
+                .student-label { font-weight: 600; font-size: 9px; fill: #333333; text-anchor: middle; }
+                .band-rect { stroke: #333333; stroke-width: 1.5; rx: 5; ry: 5; }
+                .band-text { font-weight: 700; font-size: 10px; fill: #222222; }
+            </style>\n`;
+
+            // Canvas Background
+            svg += `<rect width="100%" height="100%" fill="#ffffff" stroke="#333333" stroke-width="2" rx="8" />\n`;
+
+            // Track 1 background
+            svg += `<rect x="${padLeft}" y="${track1Top}" width="${plotW}" height="${track1Height}" fill="#fafaf7" stroke="#e8e8e2" stroke-width="1" />\n`;
+            svg += `<text x="${padLeft + 8}" y="${track1Top + 14}" class="track-title">INTERVALS &amp; MODES</text>\n`;
+
+            // Track 1 bands
+            _timelineState.timerIntervals.forEach(ti => {
+                const x1 = getSvgX(ti.startMs);
+                const x2 = getSvgX(ti.endMs);
+                const bw = Math.max(20, x2 - x1);
+                svg += `<rect x="${x1 + 2}" y="${track1Top + 22}" width="${bw}" height="18" fill="#555555" rx="5" />\n`;
+                svg += `<rect x="${x1}" y="${track1Top + 20}" width="${bw}" height="18" fill="#fef3c7" class="band-rect" />\n`;
+                if (bw > 35) svg += `<text x="${x1 + 6}" y="${track1Top + 33}" class="band-text">${escapeHtml(ti.title)} (${formatTimelineDuration(ti.endMs - ti.startMs)})</text>\n`;
+            });
+
+            _timelineState.modeIntervals.forEach(mi => {
+                const x1 = getSvgX(mi.startMs);
+                const x2 = getSvgX(mi.endMs);
+                const bw = Math.max(20, x2 - x1);
+                svg += `<rect x="${x1 + 2}" y="${track1Top + 44}" width="${bw}" height="18" fill="#555555" rx="5" />\n`;
+                svg += `<rect x="${x1}" y="${track1Top + 42}" width="${bw}" height="18" fill="#ede9fe" class="band-rect" />\n`;
+                if (bw > 35) svg += `<text x="${x1 + 6}" y="${track1Top + 55}" class="band-text">${escapeHtml(mi.title)}</text>\n`;
+            });
+
+            _timelineState.teamIntervals.forEach(ti => {
+                const x1 = getSvgX(ti.startMs);
+                const x2 = getSvgX(ti.endMs);
+                const bw = Math.max(20, x2 - x1);
+                svg += `<rect x="${x1 + 2}" y="${track1Top + 66}" width="${bw}" height="16" fill="#555555" rx="5" />\n`;
+                svg += `<rect x="${x1}" y="${track1Top + 64}" width="${bw}" height="16" fill="#dbeafe" class="band-rect" />\n`;
+                if (bw > 35) svg += `<text x="${x1 + 6}" y="${track1Top + 76}" class="band-text">${escapeHtml(ti.title)}</text>\n`;
+            });
+
+            // Track 2: Cumulative curve
+            svg += `<text x="${padLeft + 8}" y="${track2Top + 14}" class="track-title">INTERACTIVE PACING (CUMULATIVE)</text>\n`;
+            let cum = 0;
+            const pts = [{ x: padLeft, y: track2Top + track2Height, count: 0 }];
+            filteredEvents.forEach(e => {
+                cum += 1;
+                pts.push({ x: getSvgX(e.timestampMs), count: cum });
+            });
+            pts.push({ x: padLeft + plotW, count: cum });
+
+            const maxC = Math.max(1, cum);
+            pts.forEach(p => {
+                p.y = (track2Top + track2Height) - ((p.count / maxC) * (track2Height - 16));
+            });
+
+            if (pts.length > 1) {
+                let areaD = `M ${pts[0].x} ${track2Top + track2Height}`;
+                pts.forEach(p => { areaD += ` L ${p.x.toFixed(1)} ${p.y.toFixed(1)}`; });
+                areaD += ` L ${padLeft + plotW} ${track2Top + track2Height} Z`;
+                svg += `<path d="${areaD}" fill="#6abf8e" fill-opacity="0.22" />\n`;
+
+                let lineD = `M ${pts[0].x} ${pts[0].y.toFixed(1)}`;
+                pts.forEach(p => { lineD += ` L ${p.x.toFixed(1)} ${p.y.toFixed(1)}`; });
+                svg += `<path d="${lineD}" fill="none" stroke="#2e7d32" stroke-width="2" />\n`;
+            }
+
+            // Track 3: Event Stems & Scatter Nodes
+            svg += `<line x1="${padLeft}" y1="${stemBaselineY}" x2="${padLeft + plotW}" y2="${stemBaselineY}" stroke="#dddddd" stroke-width="1" />\n`;
+
+            filteredEvents.forEach((ev, idx) => {
+                const ex = getSvgX(ev.timestampMs);
+                let clusterIdx = 0;
+                for (let j = Math.max(0, idx - 5); j < idx; j++) {
+                    const prevX = getSvgX(filteredEvents[j].timestampMs);
+                    if (Math.abs(ex - prevX) < 14) clusterIdx++;
+                }
+                const staggerY = (clusterIdx % 3) * 16;
+                const nodeCenterY = stemBaselineY - 14 - staggerY;
+
+                svg += `<line x1="${ex.toFixed(1)}" y1="${stemBaselineY}" x2="${ex.toFixed(1)}" y2="${(nodeCenterY + 10).toFixed(1)}" class="stem-line" />\n`;
+                svg += `<circle cx="${(ex + 1.5).toFixed(1)}" cy="${(nodeCenterY + 1.5).toFixed(1)}" r="10" fill="#555555" />\n`;
+                svg += `<circle cx="${ex.toFixed(1)}" cy="${nodeCenterY.toFixed(1)}" r="10" fill="${ev.badgeColor || '#6abf8e'}" stroke="#333333" stroke-width="1.5" />\n`;
+
+                const sym = ev.type === 'plus' ? '+' : (ev.type === 'minus' ? '−' : (ev.type === 'pick' ? 'P' : '★'));
+                svg += `<text x="${ex.toFixed(1)}" y="${(nodeCenterY + 3.5).toFixed(1)}" font-weight="800" font-size="9" fill="#111111" text-anchor="middle">${sym}</text>\n`;
+
+                if (idx % 2 === 0 || filteredEvents.length <= 25) {
+                    let sName = ev.studentName || '';
+                    if (sName.length > 9) sName = sName.slice(0, 8) + '…';
+                    svg += `<text x="${ex.toFixed(1)}" y="${stemBaselineY + 11}" class="student-label">${escapeHtml(sName)}</text>\n`;
+                }
+            });
+
+            // Bottom Axis
+            svg += `<line x1="${padLeft}" y1="${stemBaselineY + 18}" x2="${padLeft + plotW}" y2="${stemBaselineY + 18}" class="axis-line" />\n`;
+            const durationM = bounds.durationMs / 60000;
+            const tickM = durationM > 65 ? 10 : (durationM > 30 ? 5 : 2);
+            const totalT = Math.floor(durationM / tickM);
+
+            for (let ti = 0; ti <= totalT; ti++) {
+                const tickMs = bounds.startMs + (ti * tickM * 60 * 1000);
+                if (tickMs > bounds.endMs) break;
+                const tx = getSvgX(tickMs);
+                svg += `<line x1="${tx.toFixed(1)}" y1="${stemBaselineY + 18}" x2="${tx.toFixed(1)}" y2="${stemBaselineY + 23}" stroke="#333333" stroke-width="1.5" />\n`;
+                svg += `<line x1="${tx.toFixed(1)}" y1="${track1Top}" x2="${tx.toFixed(1)}" y2="${stemBaselineY + 18}" class="grid-line" stroke-dasharray="3,3" />\n`;
+                const lbl = formatTimelineTimeLabel(tickMs, bounds.startMs, _timelineState.timeDisplay);
+                svg += `<text x="${tx.toFixed(1)}" y="${stemBaselineY + 34}" class="tick-label">${lbl}</text>\n`;
+            }
+
+            svg += `</svg>`;
+            saveTimelineFile(filename, svg, 'svg');
+        }
+
+        window.addEventListener('resize', () => {
+            if (_timelineState.session) {
+                redrawActiveTimeline();
+            }
+        });
+
         function updateStats(sessions) {
             const metrics = aggregateMetrics(sessions);
             const sessionCount = metrics.length;
@@ -4346,6 +5791,17 @@
                     const actionsWrap = document.createElement('div');
                     actionsWrap.className = 'history-row-actions';
 
+                    const timelineBtn = document.createElement('button');
+                    timelineBtn.type = 'button';
+                    timelineBtn.className = 'btn-timeline-row';
+                    timelineBtn.title = t('ptTimelineBtnTitle') || 'View detailed interaction timeline for this session';
+                    timelineBtn.innerHTML = `<img src="../assets/icons/clock.svg" class="btn-icon" alt="" /> <span>${t('ptTimelineBtn') || 'Timeline'}</span>`;
+                    timelineBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        openSessionTimeline(session ? session.id : metric.date, { openModal: true });
+                    });
+                    actionsWrap.appendChild(timelineBtn);
+
                     const examBtn = document.createElement('button');
                     examBtn.type = 'button';
                     examBtn.className = isExam ? 'btn-exam-row active' : 'btn-exam-row';
@@ -4383,6 +5839,12 @@
                     updateClassOverviewTable(selectedOnlySession);
                     setClassOverviewTitle(selectedHistorySessionId ? session : null);
                     updateHistoryTable(sessions);
+
+                    if (selectedHistorySessionId) {
+                        renderSessionTimeline(session, { openModal: false });
+                    } else {
+                        closeSessionTimelinePanel();
+                    }
                 });
 
                 tbody.appendChild(row);
@@ -10317,6 +11779,7 @@ function showPtMainWindowTour() {
     { selector: '#openRulesBtn', title: t('tutPtM4Title'), text: t('tutPtM4Text') },
     { selector: '.dashboard', title: t('tutPtM5Title'), text: t('tutPtM5Text') },
     { selector: '#historyTable', title: t('tutPtM6Title'), text: t('tutPtM6Text') },
+    { selector: '#sessionTimelineSection, #historyTable', title: t('tutPtTimelineTitle'), text: t('tutPtTimelineText') },
     { selector: '#classOverviewTable', title: t('tutPtM7Title'), text: t('tutPtM7Text') }
   ];
   Tutorial.start(steps.filter(function (s) { return Boolean(document.querySelector(s.selector)); }), labels);

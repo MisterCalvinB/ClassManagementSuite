@@ -8704,6 +8704,7 @@
                 } else {
                     student.isPicked = false;
                 }
+                logHistory('attendance', student.name, student.isAbsent ? 'Marked absent' : 'Marked present', { studentId: student.id, isAbsent: student.isAbsent });
                 renderRoster();
                 renderRanking();
             }
@@ -8755,6 +8756,7 @@
             students.forEach(s => {
                 s.inExam = !!enable;
             });
+            logHistory('exam-toggle', groupName, enable ? 'Exam session mode enabled' : 'Exam session mode ended', { inExam: !!enable });
             renderRoster();
             updateExamSessionBanner();
             const msg = enable 
@@ -10115,9 +10117,9 @@
 
             // Log to history
             if (val > 0) {
-                logHistory(type === 'p' ? 'plus' : 'minus', student.name, type === 'p' ? '+1 point' : '-1 point');
+                logHistory(type === 'p' ? 'plus' : 'minus', student.name, type === 'p' ? '+1 point' : '-1 point', { studentId: student.id, value: type === 'p' ? 1 : -1 });
             } else {
-                logHistory('remove', student.name, type === 'p' ? 'corrected +1' : 'corrected -1');
+                logHistory('remove', student.name, type === 'p' ? 'corrected +1' : 'corrected -1', { studentId: student.id, value: type === 'p' ? -1 : 1 });
             }
 
             renderRoster();
@@ -10136,7 +10138,7 @@
                 if (student) {
                     if (type === 'p') student.teamPluses = Math.max(0, (student.teamPluses || 0) + val);
                     else student.teamMinuses = Math.max(0, (student.teamMinuses || 0) + val);
-                    logHistory('remove', student.name, type === 'p' ? 'corrected team +1' : 'corrected team -1');
+                    logHistory('remove', student.name, type === 'p' ? 'corrected team +1' : 'corrected team -1', { studentId: student.id, value: type === 'p' ? -1 : 1 });
                 }
                 renderRoster();
                 renderRanking();
@@ -10163,7 +10165,7 @@
             const tColor = teamColors[teamIndex];
             if (!tColor) return;
             const tName = tColor.customName || tColor.name + ' Team';
-            logHistory(type === 'p' ? 'team-plus' : 'team-minus', tName, (type === 'p' ? 't+1' : 't-1') + ' to whole team');
+            logHistory(type === 'p' ? 'team-plus' : 'team-minus', tName, (type === 'p' ? 't+1' : 't-1') + ' to whole team', { teamId: teamId, value: type === 'p' ? 1 : -1 });
 
             renderRoster();
             renderRanking();
@@ -11142,6 +11144,7 @@
             renderRoster();
 
             triggerStudentPickBlink(winner.id);
+            logHistory('pick', winner.name, 'Selected by random picker', { studentId: winner.id });
 
             // Notify presentation windows to also animate the picked student and sync state
             if (!PRESENTATION_MODE) {
@@ -11183,6 +11186,7 @@
                 dn.classList.remove('blinking');
                 dn.style.color = '';
             }, 4000);
+            logHistory('team-pick', displayName, 'Team selected by random picker', { teamId: pickedId });
             _broadcastPresentationState();
         }
 
@@ -13049,6 +13053,7 @@ syncState();
             if (moa) moa.style.display = '';
             const mos = document.getElementById('mode-overlay-sub30s-btn');
             if (mos) mos.style.display = '';
+            logHistory('timer-start', 'Timer', `Started countdown (${hours > 0 ? hours + 'h ' : ''}${minutes}m)`, { durationSec: Math.round(totalMs / 1000), timerMode: 'timer' });
             if (!PRESENTATION_MODE) _broadcastTimerTick();
         }
 
@@ -13092,11 +13097,13 @@ syncState();
             if (document.getElementById('popup-pause-btn')) document.getElementById('popup-pause-btn').style.display = 'block';
 
             updateOverlayTransportControls();
+            logHistory('timer-start', 'Timer', `Started countdown (${Math.floor(sec / 60)}m ${sec % 60}s)`, { durationSec: sec, timerMode: 'timer' });
             if (!PRESENTATION_MODE) _broadcastTimerTick();
         }
         window.startCountdownWithSeconds = startCountdownWithSeconds;
 
         function stopCountdown() {
+            const remSec = timerEndTime ? Math.max(0, Math.round((timerEndTime - Date.now()) / 1000)) : 0;
             if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
             timerEndTime = null;
             timerTotalMs = 0;
@@ -13126,6 +13133,7 @@ syncState();
             const mos2 = document.getElementById('mode-overlay-sub30s-btn');
             if (mos2) mos2.style.display = 'none';
             updateOverlayTransportControls();
+            logHistory('timer-stop', 'Timer', `Stopped countdown (${remSec}s remaining)`, { remainingSec: remSec });
             if (!PRESENTATION_MODE) _broadcastTimerTick();
         }
 
@@ -13294,6 +13302,7 @@ syncState();
             updateStopwatchDisplay();
             // Keep popup open — do NOT close it
             updateOverlayTransportControls();
+            logHistory('timer-start', 'Stopwatch', 'Started stopwatch', { timerMode: 'stopwatch' });
         }
 
         function toggleStopwatchPause() {
@@ -13322,6 +13331,7 @@ syncState();
         }
 
         function stopStopwatch() {
+            const elapsedSec = stopwatchStart ? Math.max(0, Math.round((Date.now() - stopwatchStart) / 1000)) : (stopwatchElapsedMs ? Math.round(stopwatchElapsedMs / 1000) : 0);
             if (stopwatchInterval) { clearInterval(stopwatchInterval); stopwatchInterval = null; }
             stopwatchStart = null;
             stopwatchElapsedMs = 0;
@@ -13334,6 +13344,7 @@ syncState();
 
             document.getElementById('timer-overlay-display').textContent = '00:00';
             updateOverlayTransportControls();
+            logHistory('timer-stop', 'Stopwatch', `Stopped stopwatch (${elapsedSec}s elapsed)`, { elapsedSec });
             if (!PRESENTATION_MODE) _broadcastTimerTick();
         }
 
@@ -13403,6 +13414,7 @@ syncState();
                 timerInterval = null;
                 timerEndTime = null;
                 updateOverlayTransportControls();
+                logHistory('timer-end', 'Timer', 'Countdown timer completed', { durationSec: Math.round(timerTotalMs / 1000) });
 
                 // Reset popup buttons after a moment
                 setTimeout(() => {
@@ -13802,6 +13814,7 @@ syncState();
                     delete student.teamId;
                     delete student.role;
                     student.isPicked = false;
+                    logHistory('attendance', student.name, 'Marked absent (RV badge)', { studentId: student.id, isAbsent: true });
                 }
             });
 
@@ -13824,7 +13837,13 @@ syncState();
 
             // Flash animation feedback
             showBadgeFlash(icon);
-            logHistory('badge', targetType === 'team' ? _getTeamLabel(targetId) : validStudents[0].name, icon + ' ' + label);
+            logHistory('badge', targetType === 'team' ? _getTeamLabel(targetId) : validStudents[0].name, icon + ' ' + label, {
+                badgeIcon: icon,
+                badgeLabel: label,
+                targetType: targetType,
+                targetId: targetId,
+                studentId: targetType === 'individual' ? validStudents[0]?.id : undefined
+            });
 
             renderRoster();
             renderRanking();
@@ -13986,12 +14005,16 @@ syncState();
 
         let sessionHistory = [];
 
-        function logHistory(type, studentName, detail) {
+        function logHistory(type, studentName, detail, meta) {
             const now = new Date();
             const time = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
             const timestamp = now.toISOString();
-            sessionHistory.push({ type: type, studentName: studentName, detail: detail, time: time, timestamp: timestamp, group: selectedGroupName });
-            if (document.getElementById('history-modal').style.display === 'flex') {
+            const entry = { type: type, studentName: studentName, detail: detail, time: time, timestamp: timestamp, group: selectedGroupName };
+            if (meta && typeof meta === 'object') {
+                entry.meta = meta;
+            }
+            sessionHistory.push(entry);
+            if (document.getElementById('history-modal') && document.getElementById('history-modal').style.display === 'flex') {
                 renderHistoryList();
             }
         }
@@ -14012,6 +14035,7 @@ syncState();
 
         function renderHistoryList() {
             const ul = document.getElementById('history-list');
+            if (!ul) return;
             if (sessionHistory.length === 0) {
                 ul.innerHTML = '<li class="history-empty">No events yet this session.</li>';
                 return;
@@ -14025,18 +14049,31 @@ syncState();
                     : entry.type === 'minus' ? 'minus'
                         : entry.type === 'team-plus' ? 'team-plus'
                             : entry.type === 'team-minus' ? 'team-minus'
-                                : entry.type === 'teams' ? 'teams'
-                                    : entry.type === 'role' ? 'role'
-                                        : entry.type === 'rank' ? 'role'
-                                            : entry.type === 'role-change' ? 'role-change'
-                                                : entry.type === 'badge' ? 'badge'
-                                                    : entry.type === 'comment' ? 'comment'
-                                                        : 'remove';
+                                : entry.type === 'pick' || entry.type === 'team-pick' ? 'pick'
+                                    : entry.type === 'timer-start' || entry.type === 'timer-stop' || entry.type === 'timer-end' ? 'timer'
+                                        : entry.type === 'attendance' ? 'attendance'
+                                            : entry.type === 'mode-start' || entry.type === 'mode-end' ? 'mode'
+                                                : entry.type === 'exam-toggle' ? 'exam'
+                                                    : entry.type === 'teams' ? 'teams'
+                                                        : entry.type === 'role' ? 'role'
+                                                            : entry.type === 'rank' ? 'role'
+                                                                : entry.type === 'role-change' ? 'role-change'
+                                                                    : entry.type === 'badge' ? 'badge'
+                                                                        : entry.type === 'comment' ? 'comment'
+                                                                            : 'remove';
                 const typeLabel = entry.type === 'team-plus' ? 't+'
                     : entry.type === 'team-minus' ? 't-'
                         : entry.type === 'role-change' ? 'role*'
                             : entry.type === 'rank' ? 'rank'
-                                : entry.type;
+                                : entry.type === 'pick' ? 'pick'
+                                    : entry.type === 'team-pick' ? 't-pick'
+                                        : entry.type === 'timer-start' ? 'timer'
+                                            : entry.type === 'timer-stop' ? 't-stop'
+                                                : entry.type === 'timer-end' ? 't-end'
+                                                    : entry.type === 'mode-start' ? 'mode'
+                                                        : entry.type === 'mode-end' ? 'mode*'
+                                                            : entry.type === 'exam-toggle' ? 'exam'
+                                                                : entry.type;
                 const groupTag = entry.group ? ' <span style="color:#bbb;font-size:0.7rem;">(' + entry.group + ')</span>' : '';
                 li.innerHTML = '<span class="history-time">' + entry.time + '</span>'
                     + '<span class="history-tag ' + tagClass + '">' + typeLabel + '</span>'
@@ -14920,6 +14957,9 @@ syncState();
             const btns = document.querySelectorAll('.mode-overlay-shortcut-btn');
             if (btns[modeIndex]) btns[modeIndex].classList.add('active-mode');
 
+            const modeTitle = mode ? (mode.text?.title || mode.name || mode.id) : modeId;
+            logHistory('mode-start', modeTitle, `Working mode started: ${modeTitle}`, { modeId: mode ? mode.id : modeId });
+
             if (!PRESENTATION_MODE && presSettings.modes) _broadcastAnimation('mode-activate', { mode: modeId });
         }
 
@@ -15060,6 +15100,11 @@ syncState();
 
         function closeMode() {
             clearModeAnimationTimers();
+            if (activeWorkingModeId) {
+                const prevMode = classModes.find(m => m.id === activeWorkingModeId || m.name.toLowerCase() === (activeWorkingModeId || '').toLowerCase());
+                const prevTitle = prevMode ? (prevMode.text?.title || prevMode.name || prevMode.id) : activeWorkingModeId;
+                logHistory('mode-end', prevTitle, `Working mode ended: ${prevTitle}`, { modeId: activeWorkingModeId });
+            }
             isModeMinimised = false;
             activeWorkingModeId = null;
             stopWhiteNoise();
