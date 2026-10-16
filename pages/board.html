@@ -7107,6 +7107,7 @@
       } catch { }
       return key;
     }
+    window._cgDisplayName = _cgDisplayName;
 
     function setActiveClassGroup(groupName, options = {}) {
       const preserveBoardState = !!options.preserveBoardState;
@@ -65177,9 +65178,11 @@
         selectedItems.forEach((it, idx) => {
           const planPayload = it.raw?.rawPlan || it.raw || it;
           if (typeof conCreateClassPlanCard === 'function') {
+            const rawClassName = it.className || planPayload.className || '';
+            const resolvedClass = (typeof _cgDisplayName === 'function' ? _cgDisplayName(rawClassName) : '') || rawClassName;
             conCreateClassPlanCard({
               plan: planPayload,
-              className: it.className || planPayload.className,
+              className: resolvedClass,
               title: it.title || planPayload.name
             }, centerX + (idx * 30), centerY + (idx * 30));
           }
@@ -66463,7 +66466,8 @@
 
       const nid = 'cnn' + (conNoteNextId++);
       const plan = planPayload.plan || planPayload.rawPlan || planPayload.raw || planPayload;
-      const className = (planPayload.className || plan.className || 'Class').trim();
+      const rawCName = (planPayload.className || plan.className || 'Class').trim();
+      const className = (typeof _cgDisplayName === 'function' ? _cgDisplayName(rawCName) : '') || rawCName;
       const planTitle = (planPayload.title || plan.name || plan.title || 'Seating Plan').trim();
       const layoutType = String(plan.layoutType || (plan.rows && plan.cols ? 'grid' : 'grid')).toLowerCase();
 

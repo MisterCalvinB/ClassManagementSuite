@@ -9117,11 +9117,8 @@
             }
             function valClass(n) { return n > 0 ? 'pos' : (n < 0 ? 'neg' : 'neutral'); }
 
-            const el = participationSettings.autoFlagElements || {};
-            const tl = participationSettings.autoFlagTimeline || {};
-            let tlLabel = 'All time';
-            if (tl.mode === 'weeks' && tl.weeks > 0) tlLabel = `Last ${tl.weeks} week${tl.weeks > 1 ? 's' : ''}`;
-            else if (tl.mode === 'date' && tl.sinceDate) tlLabel = `Since ${tl.sinceDate}`;
+            const historyLabel = (typeof t === 'function' ? (t('btn_history') || 'History') : 'History');
+            const allSessionsLabel = (typeof t === 'function' ? (t('af_all_sessions') || 'All sessions') : 'All sessions');
 
             let html = '';
             html += '<div class="stats-section-label">This session</div>';
@@ -9145,7 +9142,7 @@
             }
 
             html += '<hr class="stats-divider">';
-            html += `<div class="stats-section-label">History <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#bbb;">(${tlLabel})</span></div>`;
+            html += `<div class="stats-section-label">${historyLabel} <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#bbb;">(${allSessionsLabel})</span></div>`;
             html += '<div id="student-stats-history" class="stats-loading">Loading…</div>';
 
             body.innerHTML = html;
@@ -9168,19 +9165,10 @@
                 popup.style.top = Math.min(Math.max(pad, y), window.innerHeight - ph - pad) + 'px';
             });
 
-            // Async: load historical data
+            // Async: load historical data (dissociated from auto-flag date range)
             const sessions = await getTimeMachineSessions();
             const histEl = document.getElementById('student-stats-history');
             if (!histEl) return; // popup was closed
-
-            // Compute timeline cut-off
-            let cutoffDate = null;
-            if (tl.mode === 'weeks' && tl.weeks > 0) {
-                cutoffDate = new Date();
-                cutoffDate.setDate(cutoffDate.getDate() - tl.weeks * 7);
-            } else if (tl.mode === 'date' && tl.sinceDate) {
-                cutoffDate = new Date(tl.sinceDate);
-            }
 
             let sessionCount = 0;
             let attendedSessions = 0;
@@ -9194,11 +9182,6 @@
             sessions.forEach(session => {
                 const grpStudents = _getGroupStudentsFromSession(session, selectedGroupName);
                 if (!grpStudents) return;
-
-                if (cutoffDate) {
-                    const sd = new Date(session.date || session.savedAt || session._savedAt || session.createdAt || session.id || 0);
-                    if (!isNaN(sd.getTime()) && sd < cutoffDate) return;
-                }
 
                 const match = _findStudentInSessionList(grpStudents, student);
                 if (!match) return;
@@ -10389,8 +10372,10 @@
             if (tl.mode === 'weeks' && tl.weeks > 0) {
                 cutoffDate = new Date();
                 cutoffDate.setDate(cutoffDate.getDate() - tl.weeks * 7);
+                cutoffDate.setHours(0, 0, 0, 0);
             } else if (tl.mode === 'date' && tl.sinceDate) {
                 cutoffDate = new Date(tl.sinceDate);
+                cutoffDate.setHours(0, 0, 0, 0);
             }
 
             let totalNet = 0, totalPluses = 0, totalMinuses = 0, totalTeamPluses = 0, totalTeamMinuses = 0;
@@ -10400,12 +10385,16 @@
             const sessionNets = [];
             let totalTeamRoleEvents = 0;
 
+            // Overall accumulators across all sessions for provisional grade (dissociated from auto-flag date range)
+            let allSessionCount = 0, allAttendedCount = 0, allPicks = 0;
+            let allPluses = 0, allMinuses = 0, allTeamPluses = 0, allTeamMinuses = 0;
+            let allBadgePos = 0, allBadgeNeg = 0;
+            let allAccumulatedBadges = [];
+            const allSessionNets = [];
+            let allTeamRoleEvents = 0;
+
             sessions.forEach(session => {
                 if (session.activeGroup !== groupName) return;
-                if (cutoffDate) {
-                    const sessionDate = new Date(session.date || session.savedAt || session._savedAt || session.createdAt || 0);
-                    if (!isNaN(sessionDate.getTime()) && sessionDate < cutoffDate) return;
-                }
 
                 const students = (session.groups && session.groups[groupName]) || [];
                 // Match by uuid, then id, then name
@@ -10415,6 +10404,35 @@
                     return s.name === studentName;
                 });
                 if (!match) return;
+
+                // Track overall session counters for provisional grade
+                allSessionCount++;
+                if (match.isAbsent) {
+                    // absent
+                } else {
+                    allAttendedCount++;
+                    if (typeof getStudentSessionNetForStudent === 'function') {
+                        allSessionNets.push(getStudentSessionNetForStudent(match));
+                    }
+                }
+                allPicks += (match.picks || 0);
+                allPluses += match.pluses || 0;
+                allMinuses += match.minuses || 0;
+                allTeamPluses += match.teamPluses || 0;
+                allTeamMinuses += match.teamMinuses || 0;
+                const matchBadges = match.badges || [];
+                allAccumulatedBadges = allAccumulatedBadges.concat(matchBadges);
+                const matchSent = countBadgeSentimentForStudent(matchBadges);
+                allBadgePos += matchSent.positive;
+                allBadgeNeg += matchSent.negative;
+                const matchRoleEvents = (typeof getSessionTeamRoleEvents === 'function') ? getSessionTeamRoleEvents(session, groupName, studentName) : [];
+                allTeamRoleEvents += matchRoleEvents.length;
+
+                // Auto-flag timeline cutoff
+                if (cutoffDate) {
+                    const sessionDate = new Date(session.date || session.savedAt || session._savedAt || session.createdAt || 0);
+                    if (!isNaN(sessionDate.getTime()) && sessionDate < cutoffDate) return;
+                }
 
                 sessionCount++;
                 if (match.isAbsent) {
@@ -10457,8 +10475,7 @@
                 totalBadgePos += sessionBadgePos;
                 totalBadgeNeg += sessionBadgeNeg;
 
-                const events = (typeof getSessionTeamRoleEvents === 'function') ? getSessionTeamRoleEvents(session, groupName, studentName) : [];
-                totalTeamRoleEvents += events.length;
+                totalTeamRoleEvents += matchRoleEvents.length;
 
                 const netPlus = usePlus ? (p * plusCoeff) : 0;
                 const netMinus = useMinus ? (m * minusCoeff) : 0;
@@ -10486,19 +10503,19 @@
             let participationGrade = null;
             if (groupRulesConfig && groupRulesConfig.rules && groupRulesConfig.rules.length > 0 && typeof calculateStudentProvisionalGrade === 'function') {
                 const mockOverviewData = {
-                    picks: totalPicks,
-                    attendedSessions: attendedCount,
-                    pluses: totalPluses,
-                    minuses: totalMinuses,
-                    teamPluses: totalTeamPluses,
-                    teamMinuses: totalTeamMinuses,
-                    badgePositive: totalBadgePos,
-                    badgeNegative: totalBadgeNeg,
-                    badges: accumulatedBadges,
-                    sessions: sessionCount,
-                    absent: sessionCount - attendedCount,
-                    teamRoleEvents: totalTeamRoleEvents,
-                    sessionNets: sessionNets
+                    picks: allPicks,
+                    attendedSessions: allAttendedCount,
+                    pluses: allPluses,
+                    minuses: allMinuses,
+                    teamPluses: allTeamPluses,
+                    teamMinuses: allTeamMinuses,
+                    badgePositive: allBadgePos,
+                    badgeNegative: allBadgeNeg,
+                    badges: allAccumulatedBadges,
+                    sessions: allSessionCount,
+                    absent: allSessionCount - allAttendedCount,
+                    teamRoleEvents: allTeamRoleEvents,
+                    sessionNets: allSessionNets
                 };
                 try {
                     participationGrade = calculateStudentProvisionalGrade(mockOverviewData, groupRulesConfig, groupName);
@@ -10896,6 +10913,22 @@
             const tlMode = document.querySelector('input[name="af-timeline"]:checked')?.value || 'all';
             const tlWeeks = parseInt(document.getElementById('af-tl-weeks-value').value, 10);
             const tlDate = document.getElementById('af-tl-date-value').value;
+
+            // Flush active DOM inputs into tempFlagRules
+            const rows = document.querySelectorAll('#af-rules-tbody tr[data-rule-idx]');
+            rows.forEach(tr => {
+                const idx = parseInt(tr.getAttribute('data-rule-idx'), 10);
+                if (tempFlagRules[idx]) {
+                    const nameInput = tr.querySelector('.af-rule-name');
+                    if (nameInput) tempFlagRules[idx].name = nameInput.value;
+                    const threshInput = tr.querySelector('.af-rule-thresh');
+                    if (threshInput) tempFlagRules[idx].threshold = parseFloat(threshInput.value) || 0;
+                    const formulaInput = tr.querySelector('.af-rule-formula');
+                    if (formulaInput) tempFlagRules[idx].formula = formulaInput.value;
+                    const weightInput = tr.querySelector('.af-rule-weight');
+                    if (weightInput) tempFlagRules[idx].pickWeight = parseFloat(weightInput.value) || 1.0;
+                }
+            });
 
             participationSettings = normalizeParticipationSettings({
                 ...participationSettings,

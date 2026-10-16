@@ -3450,6 +3450,61 @@
             const tbody = document.getElementById('classOverviewTableBody');
             tbody.innerHTML = '';
 
+            // Compute overall student data across the active date range sessions
+            // so provisional grades remain overall and are not collapsed to a single selected session
+            const allRangeSessions = getFilteredSessions();
+            const overallStudentMap = {};
+            allRangeSessions.forEach(session => {
+                (session.groups[currentGroupId] || []).filter(s => isStudentInCurrentHalfGroup(s.name)).forEach(student => {
+                    if (!overallStudentMap[student.name]) {
+                        overallStudentMap[student.name] = {
+                            name: student.name,
+                            sessions: 0,
+                            attendedSessions: 0,
+                            picks: 0,
+                            absent: 0,
+                            pluses: 0,
+                            minuses: 0,
+                            teamPluses: 0,
+                            teamMinuses: 0,
+                            badges: [],
+                            badgePositive: 0,
+                            badgeNegative: 0,
+                            teamRoleEvents: 0,
+                            teamRolePreview: '',
+                            notes: '',
+                            notesCount: 0,
+                            sessionNets: []
+                        };
+                    }
+                    const os = overallStudentMap[student.name];
+                    os.sessions++;
+                    if (!student.isAbsent) os.attendedSessions++;
+                    if (student.isPicked) os.picks++;
+                    if (student.isAbsent) os.absent++;
+                    os.pluses += student.pluses || 0;
+                    os.minuses += student.minuses || 0;
+                    os.teamPluses += student.teamPluses || 0;
+                    os.teamMinuses += student.teamMinuses || 0;
+                    const studentBadges = student.badges || [];
+                    const badgeSentiment = countBadgeSentiment(studentBadges);
+                    os.badges = os.badges.concat(studentBadges);
+                    os.badgePositive += badgeSentiment.positive;
+                    os.badgeNegative += badgeSentiment.negative;
+
+                    const studentEvents = getSessionTeamRoleEvents(session, currentGroupId, student.name);
+                    os.teamRoleEvents += studentEvents.length;
+
+                    const studentNotes = getStudentNotesText(student);
+                    if (studentNotes) {
+                        os.notesCount++;
+                    }
+                    if (!student.isAbsent) {
+                        os.sessionNets.push(getStudentSessionNet(student));
+                    }
+                });
+            });
+
             const studentMap = {};
             sessions.forEach(session => {
                 (session.groups[currentGroupId] || []).filter(s => isStudentInCurrentHalfGroup(s.name)).forEach(student => {
@@ -3471,7 +3526,8 @@
                             teamRolePreview: '',
                             notes: '',
                             notesCount: 0,
-                            sessionNets: []
+                            sessionNets: [],
+                            overall: overallStudentMap[student.name] || null
                         };
                     }
                     const s = studentMap[student.name];
@@ -3503,6 +3559,9 @@
                     }
                     if (!student.isAbsent) {
                         s.sessionNets.push(getStudentSessionNet(student));
+                    }
+                    if (!s.overall && overallStudentMap[student.name]) {
+                        s.overall = overallStudentMap[student.name];
                     }
                 });
             });
@@ -3822,6 +3881,10 @@
                 
                 const pGrade = calculateStudentProvisionalGrade(data);
                 const displayGrade = pGrade !== null ? formatSummaryNumber(pGrade) : '—';
+                const isSingleSession = !!selectedHistorySessionId;
+                const pGradeTitle = isSingleSession
+                    ? `${t('ptProvisionalGradeTitle')} (${t('af_all_sessions') || 'Period'})`
+                    : t('ptProvisionalGradeTitle');
 
                 const displayName = getPtStudentDisplayName(data.name);
                 const sObj = resolvePtStudent(data.name);
@@ -3859,7 +3922,7 @@
                     badges: `<td>${formatBadges(data.badges)}</td>`,
                     teamRoleEvents: `<td><span title="${escapeHtml(teamRoleText)}" class="notes-preview ${data.teamRoleEvents ? '' : 'empty'}">${data.teamRoleEvents ? `${data.teamRoleEvents} · ${escapeHtml(teamRolePreview)}` : t('ptNone')}</span></td>`,
                     notes: `<td><span title="${escapeHtml(notesText)}" class="notes-preview ${data.notes ? '' : 'empty'}">${escapeHtml(notesPreview)}</span></td>`,
-                    provisionalGrade: `<td>${displayGrade}</td>`,
+                    provisionalGrade: `<td title="${escapeHtml(pGradeTitle)}">${displayGrade}</td>`,
                     net: `<td style="color: ${net >= 0 ? '#2ca02c' : '#d62728'}; font-weight: 600;">${net >= 0 ? '+' : ''}${net}</td>`,
                     posRatio: `<td style="color: #2ca02c; font-weight: 600;">+${posRatio.toFixed(2)}</td>`,
                     negRatio: `<td style="color: #d62728; font-weight: 600;">-${negRatio.toFixed(2)}</td>`,
@@ -8962,6 +9025,8 @@
         }
 
         function calculateStudentProvisionalGradeDetails(studentData, customRulesConfig = null) {
+            const dataToUse = (studentData && studentData.overall) ? studentData.overall : studentData;
+            if (!dataToUse) return null;
             const groupRulesConfig = customRulesConfig || (window.CMS_PARTICIPATION_RULES && window.CMS_PARTICIPATION_RULES[currentGroupId]) || null;
             if (!groupRulesConfig || !groupRulesConfig.rules || groupRulesConfig.rules.length === 0) {
                 return null;
@@ -8969,14 +9034,14 @@
 
             const dateRange = getDateRange();
             const totalSessions = filterSessionsByDateAndGroup(currentGroupId, dateRange.from, dateRange.to).length;
-            const sessionDenom = Math.max(1, totalSessions || studentData.sessions || 1);
+            const sessionDenom = Math.max(1, totalSessions || dataToUse.sessions || 1);
             
-            const picks = studentData.picks;
-            const net = getClassOverviewNet(studentData);
-            const attendanceRate = totalSessions > 0 ? (studentData.attendedSessions / totalSessions) * 100 : 0;
-            const badgePositive = studentData.badgePositive;
-            const positivePoints = studentData.pluses + studentData.teamPluses;
-            const badgeCounts = getStudentBadgeCounts(studentData.badges);
+            const picks = dataToUse.picks;
+            const net = getClassOverviewNet(dataToUse);
+            const attendanceRate = totalSessions > 0 ? (dataToUse.attendedSessions / totalSessions) * 100 : 0;
+            const badgePositive = dataToUse.badgePositive;
+            const positivePoints = dataToUse.pluses + dataToUse.teamPluses;
+            const badgeCounts = getStudentBadgeCounts(dataToUse.badges);
 
             const badgeSessionCounts = {};
             Object.keys(badgeCounts).forEach(k => {
@@ -8985,14 +9050,14 @@
                 badgeSessionCounts[k + '_per_session'] = val;
             });
 
-            const attendedSessions = studentData.attendedSessions || 0;
-            const posRatio = attendedSessions ? (studentData.pluses + studentData.teamPluses + studentData.badgePositive) / attendedSessions : 0;
-            const negRatio = attendedSessions ? (studentData.minuses + studentData.teamMinuses + studentData.badgeNegative) / attendedSessions : 0;
+            const attendedSessions = dataToUse.attendedSessions || 0;
+            const posRatio = attendedSessions ? (dataToUse.pluses + dataToUse.teamPluses + dataToUse.badgePositive) / attendedSessions : 0;
+            const negRatio = attendedSessions ? (dataToUse.minuses + dataToUse.teamMinuses + dataToUse.badgeNegative) / attendedSessions : 0;
             const netRatio = attendedSessions ? net / attendedSessions : 0;
-            const totalGood = studentData.pluses + studentData.teamPluses + studentData.badgePositive;
-            const totalBad = studentData.minuses + studentData.teamMinuses + studentData.badgeNegative;
+            const totalGood = dataToUse.pluses + dataToUse.teamPluses + dataToUse.badgePositive;
+            const totalBad = dataToUse.minuses + dataToUse.teamMinuses + dataToUse.badgeNegative;
             const ratio = totalBad > 0 ? totalGood / totalBad : (totalGood > 0 ? 999 : 0);
-            const trend = (studentData.sessionNets && typeof computeTrend !== 'undefined') ? (computeTrend(studentData.sessionNets) === 'up' ? 1 : computeTrend(studentData.sessionNets) === 'down' ? -1 : 0) : 0;
+            const trend = (dataToUse.sessionNets && typeof computeTrend !== 'undefined') ? (computeTrend(dataToUse.sessionNets) === 'up' ? 1 : computeTrend(dataToUse.sessionNets) === 'down' ? -1 : 0) : 0;
 
             let achievedPoints = 0;
             let totalPossiblePoints = 0;
@@ -9010,14 +9075,14 @@
                 if (rule.metric === 'formula') {
                     const context = {
                         netPoints: net, net: net, picks: picks, attendanceRate: attendanceRate, attendance: attendanceRate,
-                        positivePoints: positivePoints, positive: positivePoints, pluses: studentData.pluses,
-                        minuses: studentData.minuses, teamPluses: studentData.teamPluses, teamMinuses: studentData.teamMinuses,
-                        badgePositive: badgePositive, badgeNegative: studentData.badgeNegative,
+                        positivePoints: positivePoints, positive: positivePoints, pluses: dataToUse.pluses,
+                        minuses: dataToUse.minuses, teamPluses: dataToUse.teamPluses, teamMinuses: dataToUse.teamMinuses,
+                        badgePositive: badgePositive, badgeNegative: dataToUse.badgeNegative,
                         badgePositiveSession: parseFloat((badgePositive / sessionDenom).toFixed(2)),
-                        badgeNegativeSession: parseFloat((studentData.badgeNegative / sessionDenom).toFixed(2)),
-                        sessions: studentData.sessions,
-                        absent: studentData.absent, posRatio: posRatio, negRatio: negRatio, netRatio: netRatio, ratio: ratio,
-                        trend: trend, teamRoleEvents: studentData.teamRoleEvents, ...badgeCounts, ...badgeSessionCounts
+                        badgeNegativeSession: parseFloat((dataToUse.badgeNegative / sessionDenom).toFixed(2)),
+                        sessions: dataToUse.sessions,
+                        absent: dataToUse.absent, posRatio: posRatio, negRatio: negRatio, netRatio: netRatio, ratio: ratio,
+                        trend: trend, teamRoleEvents: dataToUse.teamRoleEvents, ...badgeCounts, ...badgeSessionCounts
                     };
                     try {
                         const formulaResult = evaluateExpression(rule.value || rule.formulaVal, context);
@@ -9044,20 +9109,20 @@
                     else if (rule.metric === 'positivePoints') studentValue = positivePoints;
                     else if (rule.metric === 'badgePositive') studentValue = badgePositive;
                     else if (rule.metric === 'badgePositiveSession') studentValue = parseFloat((badgePositive / sessionDenom).toFixed(2));
-                    else if (rule.metric === 'badgeNegative') studentValue = studentData.badgeNegative;
-                    else if (rule.metric === 'badgeNegativeSession') studentValue = parseFloat((studentData.badgeNegative / sessionDenom).toFixed(2));
-                    else if (rule.metric === 'pluses') studentValue = studentData.pluses;
-                    else if (rule.metric === 'minuses') studentValue = studentData.minuses;
-                    else if (rule.metric === 'teamPluses') studentValue = studentData.teamPluses;
-                    else if (rule.metric === 'teamMinuses') studentValue = studentData.teamMinuses;
-                    else if (rule.metric === 'absent') studentValue = studentData.absent;
-                    else if (rule.metric === 'sessions') studentValue = studentData.sessions;
+                    else if (rule.metric === 'badgeNegative') studentValue = dataToUse.badgeNegative;
+                    else if (rule.metric === 'badgeNegativeSession') studentValue = parseFloat((dataToUse.badgeNegative / sessionDenom).toFixed(2));
+                    else if (rule.metric === 'pluses') studentValue = dataToUse.pluses;
+                    else if (rule.metric === 'minuses') studentValue = dataToUse.minuses;
+                    else if (rule.metric === 'teamPluses') studentValue = dataToUse.teamPluses;
+                    else if (rule.metric === 'teamMinuses') studentValue = dataToUse.teamMinuses;
+                    else if (rule.metric === 'absent') studentValue = dataToUse.absent;
+                    else if (rule.metric === 'sessions') studentValue = dataToUse.sessions;
                     else if (rule.metric === 'posRatio') studentValue = posRatio;
                     else if (rule.metric === 'negRatio') studentValue = negRatio;
                     else if (rule.metric === 'netRatio') studentValue = netRatio;
                     else if (rule.metric === 'ratio') studentValue = ratio;
                     else if (rule.metric === 'trend') studentValue = trend;
-                    else if (rule.metric === 'teamRoleEvents') studentValue = studentData.teamRoleEvents;
+                    else if (rule.metric === 'teamRoleEvents') studentValue = dataToUse.teamRoleEvents;
                     else if (rule.metric.startsWith('badge_icon_session:')) {
                         const icon = rule.metric.replace('badge_icon_session:', '');
                         studentValue = parseFloat(((badgeCounts[icon] || 0) / sessionDenom).toFixed(2));

@@ -51,14 +51,91 @@
 
   function isUuid(str) {
     if (!str || typeof str !== 'string') return false;
-    return /^st-[a-z0-9_-]+$/i.test(str) ||
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str) ||
-      /^[0-9a-f]{16,}$/i.test(str) ||
-      /^plan_[a-z0-9_-]+$/i.test(str);
+    const s = str.trim();
+    return /^st-[a-z0-9_-]+$/i.test(s) ||
+      /^ge-[a-z0-9_-]+$/i.test(s) ||
+      /^grp[-_][a-z0-9_-]+$/i.test(s) ||
+      /^cls[-_][a-z0-9_-]+$/i.test(s) ||
+      /^class[-_][a-z0-9_-]+$/i.test(s) ||
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s) ||
+      /^[0-9a-f]{16,}$/i.test(s) ||
+      /^plan_[0-9a-f]{8,}$/i.test(s) ||
+      /^plan_[a-z0-9_-]{12,}$/i.test(s);
   }
 
   // Fast student lookup cache: id/uuid -> full readable name
   const _studentLookupMap = new Map();
+  // Fast class lookup cache: id/uuid -> full readable class title
+  const _classLookupMap = new Map();
+  // Fast class level cache: id/uuid -> level string (e.g. "2", "3")
+  const _classLevelMap = new Map();
+
+  function _resolveReadableClassName(idOrName, fallbackName) {
+    if (!idOrName && !fallbackName) return '';
+    const rawVal = String(idOrName || fallbackName || '').trim();
+
+    // 1. Direct hit in internal lookup map
+    if (_classLookupMap.has(rawVal)) {
+      const cached = _classLookupMap.get(rawVal);
+      if (cached && !isUuid(cached)) return cached;
+    }
+    if (idOrName && _classLookupMap.has(idOrName)) {
+      const cached = _classLookupMap.get(idOrName);
+      if (cached && !isUuid(cached)) return cached;
+    }
+
+    // 2. Check window / in-scope sources
+    if (typeof window !== 'undefined') {
+      try {
+        if (typeof window._cgDisplayName === 'function') {
+          const dn = window._cgDisplayName(rawVal) || (idOrName ? window._cgDisplayName(idOrName) : '');
+          if (dn && dn !== rawVal && dn !== idOrName && !isUuid(dn)) return dn;
+        }
+        const meta = window.CLASS_GROUPS_META || (window.CLASS_GROUPS_DATA && window.CLASS_GROUPS_DATA.classGroupsMeta);
+        if (meta) {
+          const m = meta[rawVal] || (idOrName ? meta[idOrName] : null);
+          if (m && m.name && !isUuid(m.name)) return m.name;
+        }
+        if (window.PLANNER_CONFIG && window.PLANNER_CONFIG.classes) {
+          const pCls = window.PLANNER_CONFIG.classes[rawVal] || (idOrName ? window.PLANNER_CONFIG.classes[idOrName] : null);
+          if (pCls && pCls.name && !isUuid(pCls.name)) return pCls.name;
+        }
+      } catch (_) {}
+    }
+
+    // 3. Fallback name if readable and not UUID
+    if (fallbackName && !isUuid(fallbackName) && String(fallbackName).trim()) {
+      return String(fallbackName).trim();
+    }
+
+    // 4. If rawVal itself is not a UUID, return it
+    if (!isUuid(rawVal) && rawVal.length > 0) {
+      return rawVal;
+    }
+
+    return (fallbackName && !isUuid(fallbackName)) ? fallbackName : '';
+  }
+
+  function _resolveClassLevel(idOrName) {
+    if (!idOrName) return '';
+    const key = String(idOrName).trim();
+    if (_classLevelMap.has(key)) {
+      const lvl = _classLevelMap.get(key);
+      if (lvl && !isUuid(lvl)) return lvl;
+    }
+    if (typeof window !== 'undefined') {
+      try {
+        const meta = window.CLASS_GROUPS_META || (window.CLASS_GROUPS_DATA && window.CLASS_GROUPS_DATA.classGroupsMeta);
+        const m = meta ? (meta[key] || meta[idOrName]) : null;
+        if (m && m.level != null && m.level !== '' && !isUuid(String(m.level))) return String(m.level);
+        if (window.PLANNER_CONFIG && window.PLANNER_CONFIG.classes) {
+          const pCls = window.PLANNER_CONFIG.classes[key] || window.PLANNER_CONFIG.classes[idOrName];
+          if (pCls && pCls.level != null && pCls.level !== '' && !isUuid(String(pCls.level))) return String(pCls.level);
+        }
+      } catch (_) {}
+    }
+    return '';
+  }
 
   function _resolveReadableStudentName(idOrName, fallbackName) {
     if (!idOrName && !fallbackName) return '';
@@ -369,24 +446,27 @@
 
       case 'seating': {
         const rawP = raw.rawPlan || raw || {};
-        const pTitle = item.title || rawP.name || rawP.title || 'Seating Plan';
-        const pClass = rawP.className || item.level || '';
-        const pLayout = (rawP.layoutType || rawP.layout || 'GRID').toUpperCase();
+        const pClass = _resolveReadableClassName(rawP.className || raw.className || item.fileSet || item.level || '');
+        let pTitle = item.title || rawP.name || rawP.title || '';
+        if (!pTitle || isUuid(pTitle)) {
+          pTitle = pClass && pClass !== 'Class' ? `${pClass} Plan` : 'Seating Plan';
+        }
+        const pLayout = (rawP.layoutType || rawP.layout || item.theme || 'GRID').toUpperCase();
         const seats = Array.isArray(rawP.seats) ? rawP.seats : [];
         const seatCount = seats.length || (rawP.rows && rawP.cols ? rawP.rows * rawP.cols : 0);
         const assignedNames = seats.filter(s => s && (s.studentId || s.studentName || s.name)).map(s => _resolveReadableStudentName(s.studentId || s.studentName || s.name, s.studentName || s.name)).filter(Boolean);
 
         switch (fieldChoice) {
           case 'plan_title':
-            return pClass ? `${pTitle} (${pClass})` : pTitle;
+            return pClass && pClass !== 'Class' ? `${pTitle} (${pClass})` : pTitle;
           case 'plan_full_details':
-            return `${pTitle} [${pClass || 'Class'}] — ${pLayout}${seatCount ? ` (${seatCount} seats)` : ''}`;
+            return `${pTitle}${pClass && pClass !== 'Class' ? ` [${pClass}]` : ''} — ${pLayout}${seatCount ? ` (${seatCount} seats)` : ''}`;
           case 'desk_matrix':
             return rawP.rows && rawP.cols ? `${pTitle} (${rawP.rows}×${rawP.cols} Grid)` : `${pTitle} (${pLayout})`;
           case 'assigned_list':
-            return assignedNames.length > 0 ? `${pTitle} (${pClass}): ${assignedNames.join(', ')}` : (pClass ? `${pTitle} (${pClass})` : pTitle);
+            return assignedNames.length > 0 ? `${pTitle}${pClass && pClass !== 'Class' ? ` (${pClass})` : ''}: ${assignedNames.join(', ')}` : (pClass && pClass !== 'Class' ? `${pTitle} (${pClass})` : pTitle);
           default:
-            return pClass ? `${pTitle} (${pClass})` : pTitle;
+            return pClass && pClass !== 'Class' ? `${pTitle} (${pClass})` : pTitle;
         }
       }
 
@@ -740,11 +820,30 @@
         title = raw.name || raw.fullName || raw.displayName || (raw.id && !isUuid(raw.id) ? _resolveReadableStudentName(raw.id) : '') || `Student #${idx + 1}`;
         subtitle = raw.className ? `Class: ${raw.className}` : (raw.email || '');
         break;
-      case 'seating':
-        title = raw.name || raw.title || (raw.id && !isUuid(raw.id) ? String(raw.id).replace(/^plan_/i, '').replace(/[-_]/g, ' ') : `Seating Plan #${idx + 1}`);
-        if (isUuid(title)) title = `Seating Plan (${raw.className || 'Class'})`;
-        subtitle = raw.className ? `Class: ${raw.className}${raw.layout ? ` | Layout: ${raw.layout}` : ''}` : (raw.layout ? `Layout: ${raw.layout}` : '');
+      case 'seating': {
+        const cTitle = _resolveReadableClassName(raw.className || raw.classId);
+        let sTitle = (raw.name && !isUuid(raw.name)) ? raw.name : ((raw.title && !isUuid(raw.title)) ? raw.title : '');
+        if (!sTitle) {
+          if (raw.id && !isUuid(raw.id)) {
+            const idClean = String(raw.id).replace(/^plan_/i, '').replace(/[-_]/g, ' ').trim();
+            if (idClean && isNaN(Number(idClean)) && idClean.length > 2) {
+              sTitle = idClean;
+            } else {
+              sTitle = cTitle && cTitle !== 'Class' ? `${cTitle} Plan #${idx + 1}` : `Seating Plan #${idx + 1}`;
+            }
+          } else {
+            sTitle = cTitle && cTitle !== 'Class' ? `${cTitle} Plan #${idx + 1}` : `Seating Plan #${idx + 1}`;
+          }
+        }
+        title = sTitle;
+        const layoutName = raw.theme || raw.layout || raw.layoutType || (raw.rawPlan && (raw.rawPlan.layoutType || raw.rawPlan.layout));
+        const layoutStr = layoutName ? `Layout: ${String(layoutName).toUpperCase()}` : '';
+        subtitle = raw.subtitle || [cTitle && cTitle !== 'Class' ? `Class: ${cTitle}` : '', layoutStr].filter(Boolean).join(' | ');
+        if (!level || isUuid(level)) {
+          level = _resolveClassLevel(raw.className || raw.classId) || '';
+        }
         break;
+      }
       case 'teams':
         title = raw.teamName || raw.name || `Team #${idx + 1}`;
         if (isUuid(title)) title = `Team ${idx + 1}`;
@@ -994,6 +1093,36 @@
           });
         }
 
+        const _recordClassInfo = (cid, cname, clevel) => {
+          if (!cid && !cname) return;
+          const nameClean = (cname && !isUuid(cname)) ? String(cname).trim() : '';
+          const levelClean = (clevel != null && clevel !== '' && !isUuid(String(clevel))) ? String(clevel).trim() : '';
+          if (cid) {
+            if (nameClean) _classLookupMap.set(cid, nameClean);
+            if (levelClean) _classLevelMap.set(cid, levelClean);
+          }
+          if (nameClean) {
+            _classLookupMap.set(nameClean, nameClean);
+            if (levelClean) _classLevelMap.set(nameClean, levelClean);
+          }
+        };
+
+        if (rawMeta && typeof rawMeta === 'object') {
+          Object.entries(rawMeta).forEach(([k, m]) => {
+            if (m && typeof m === 'object') {
+              _recordClassInfo(k, m.name, m.level);
+            }
+          });
+        }
+
+        if (typeof window !== 'undefined' && window.PLANNER_CONFIG && window.PLANNER_CONFIG.classes) {
+          Object.entries(window.PLANNER_CONFIG.classes).forEach(([k, c]) => {
+            if (c && typeof c === 'object') {
+              _recordClassInfo(k, c.name, c.level);
+            }
+          });
+        }
+
         // B. Load user/class-groups.js from disk if not already fully populated
         if (isEl && typeof window.Desktop.readText === 'function') {
           const r = await window.Desktop.readText('user', 'class-groups.js').catch(() => null);
@@ -1002,7 +1131,12 @@
               const fn = new Function('var window = {}; ' + r.content + '; return { cgd: (typeof CLASS_GROUPS_DATA !== "undefined" ? CLASS_GROUPS_DATA : window.CLASS_GROUPS_DATA), cg: (typeof CLASS_GROUPS !== "undefined" ? CLASS_GROUPS : window.CLASS_GROUPS), meta: (typeof CLASS_GROUPS_META !== "undefined" ? CLASS_GROUPS_META : window.CLASS_GROUPS_META), stRoster: (typeof STUDENTS_ROSTER !== "undefined" ? STUDENTS_ROSTER : window.STUDENTS_ROSTER) };');
               const parsed = fn();
               if (parsed.cgd || parsed.cg) rawRosterData = parsed.cgd || parsed.cg;
-              if (parsed.meta) rawMeta = parsed.meta;
+              if (parsed.meta) {
+                rawMeta = parsed.meta;
+                Object.entries(parsed.meta).forEach(([k, m]) => {
+                  if (m && typeof m === 'object') _recordClassInfo(k, m.name, m.level);
+                });
+              }
               if (parsed.stRoster && Array.isArray(parsed.stRoster)) {
                 parsed.stRoster.forEach(s => {
                   if (s && (s.id || s.uuid)) {
@@ -1023,7 +1157,12 @@
                 const fn2 = new Function('var window = {}; ' + r2.content + '; return { cgd: (typeof CLASS_GROUPS_DATA !== "undefined" ? CLASS_GROUPS_DATA : window.CLASS_GROUPS_DATA), cg: (typeof CLASS_GROUPS !== "undefined" ? CLASS_GROUPS : window.CLASS_GROUPS), meta: (typeof CLASS_GROUPS_META !== "undefined" ? CLASS_GROUPS_META : window.CLASS_GROUPS_META), stRoster: (typeof STUDENTS_ROSTER !== "undefined" ? STUDENTS_ROSTER : window.STUDENTS_ROSTER) };');
                 const parsed2 = fn2();
                 if (parsed2.cgd || parsed2.cg) rawRosterData = parsed2.cgd || parsed2.cg;
-                if (parsed2.meta) rawMeta = parsed2.meta;
+                if (parsed2.meta) {
+                  rawMeta = parsed2.meta;
+                  Object.entries(parsed2.meta).forEach(([k, m]) => {
+                    if (m && typeof m === 'object') _recordClassInfo(k, m.name, m.level);
+                  });
+                }
               } catch (_) {}
             }
           }
@@ -1038,7 +1177,12 @@
                   const fn = new Function('var window = {}; ' + txt + '; return { cgd: (typeof CLASS_GROUPS_DATA !== "undefined" ? CLASS_GROUPS_DATA : window.CLASS_GROUPS_DATA), cg: (typeof CLASS_GROUPS !== "undefined" ? CLASS_GROUPS : window.CLASS_GROUPS), meta: (typeof CLASS_GROUPS_META !== "undefined" ? CLASS_GROUPS_META : window.CLASS_GROUPS_META), stRoster: (typeof STUDENTS_ROSTER !== "undefined" ? STUDENTS_ROSTER : window.STUDENTS_ROSTER) };');
                   const parsed = fn();
                   if (parsed.cgd || parsed.cg) rawRosterData = parsed.cgd || parsed.cg;
-                  if (parsed.meta) rawMeta = parsed.meta;
+                  if (parsed.meta) {
+                    rawMeta = parsed.meta;
+                    Object.entries(parsed.meta).forEach(([k, m]) => {
+                      if (m && typeof m === 'object') _recordClassInfo(k, m.name, m.level);
+                    });
+                  }
                   if (rawRosterData) break;
                 }
               }
@@ -1121,7 +1265,10 @@
               if (className.startsWith('_')) return;
               if (!isExplicitDict && IGNORED_CLASS_KEYS.has(lowerKey)) return;
 
-              const meta = (rawMeta && rawMeta[className]) || {};
+              const resolvedCls = _resolveReadableClassName(className);
+              const meta = (rawMeta && (rawMeta[className] || (resolvedCls && rawMeta[resolvedCls]))) || {};
+              const displayClassName = resolvedCls || (isUuid(className) ? 'Class' : className);
+              const classLevel = (meta.level != null && meta.level !== '' && !isUuid(String(meta.level))) ? String(meta.level) : (_resolveClassLevel(className) || '');
               let stList = [];
               if (Array.isArray(students)) {
                 stList = students;
@@ -1159,12 +1306,12 @@
                 const item = _normalizeRecord({
                   id: isUuid(stId) ? stId : `${className}_${stId || idx}`,
                   name: stName || `Student #${idx + 1}`,
-                  className: className,
-                  level: meta.level != null && meta.level !== '' ? String(meta.level) : '',
-                  theme: className,
+                  className: displayClassName,
+                  level: classLevel,
+                  theme: displayClassName,
                   badge: meta.year || (meta.semester ? `S${meta.semester}` : ''),
-                  rawStudent: typeof st === 'object' ? st : { id: stId, name: stName, className }
-                }, 'roster', 'class', className, idx);
+                  rawStudent: typeof st === 'object' ? st : { id: stId, name: stName, className: displayClassName }
+                }, 'roster', 'class', displayClassName, idx);
 
                 classRosterItems.push(item);
                 rosterRecords.push(item);
@@ -1172,7 +1319,7 @@
 
               if (classRosterItems.length > 0) {
                 rosterFileSets.push({
-                  filename: className,
+                  filename: displayClassName,
                   count: classRosterItems.length,
                   records: classRosterItems
                 });
@@ -1186,18 +1333,18 @@
 
               const teamItem = _normalizeRecord({
                 id: `team_${className}`,
-                name: className,
-                teamName: className,
-                className: className,
-                level: meta.level != null && meta.level !== '' ? String(meta.level) : '',
-                theme: className,
+                name: displayClassName,
+                teamName: displayClassName,
+                className: displayClassName,
+                level: classLevel,
+                theme: displayClassName,
                 badge: `${stList.length} students`,
                 members: memberNames
-              }, 'teams', 'class', className, teamRecords.length);
+              }, 'teams', 'class', displayClassName, teamRecords.length);
 
               teamRecords.push(teamItem);
               teamFileSets.push({
-                filename: className,
+                filename: displayClassName,
                 count: 1,
                 records: [teamItem]
               });
@@ -1205,8 +1352,10 @@
           } else if (Array.isArray(rawRosterData)) {
             rawRosterData.forEach((cls, cIdx) => {
               if (!cls) return;
-              const cName = cls.name || cls.title || cls.className || cls.id || `Class ${cIdx + 1}`;
-              const meta = (rawMeta && (rawMeta[cName] || (cls.id && rawMeta[cls.id]))) || (typeof cls === 'object' ? cls : {});
+              const resolvedName = _resolveReadableClassName(cls.id || cls.uuid || cls.name || cls.title || cls.className);
+              const cName = resolvedName || cls.name || cls.title || cls.className || (isUuid(cls.id) ? 'Class' : cls.id) || `Class ${cIdx + 1}`;
+              const meta = (rawMeta && (rawMeta[cls.id] || rawMeta[cls.uuid] || rawMeta[cName])) || (typeof cls === 'object' ? cls : {});
+              const classLevel = (meta.level != null && meta.level !== '' && !isUuid(String(meta.level))) ? String(meta.level) : (_resolveClassLevel(cls.id || cls.uuid || cName) || '');
               const stList = Array.isArray(cls.students) ? cls.students : (Array.isArray(cls) ? cls : (Array.isArray(meta.students) ? meta.students : []));
               if (!Array.isArray(stList) || stList.length === 0) return;
 
@@ -1228,7 +1377,7 @@
                   id: isUuid(stId) ? stId : `${cName}_${stId || idx}`,
                   name: stName || `Student #${idx + 1}`,
                   className: cName,
-                  level: meta.level != null && meta.level !== '' ? String(meta.level) : '',
+                  level: classLevel,
                   theme: cName,
                   badge: meta.year || (meta.semester ? `S${meta.semester}` : ''),
                   rawStudent: typeof st === 'object' ? st : { id: stId, name: stName, className: cName }
@@ -1255,7 +1404,7 @@
                 name: cName,
                 teamName: cName,
                 className: cName,
-                level: meta.level != null && meta.level !== '' ? String(meta.level) : '',
+                level: classLevel,
                 theme: cName,
                 badge: `${stList.length} students`,
                 members: memberNames
@@ -1325,10 +1474,17 @@
 
         // Ingest dictionary format { [className]: [plans...] }
         if (globalPlans && typeof globalPlans === 'object') {
+          const seatingFileSetsMap = new Map();
+
           Object.entries(globalPlans).forEach(([cName, plans]) => {
             if (cName.startsWith('_')) return;
             const pList = Array.isArray(plans) ? plans : [plans];
             const classPlanItems = [];
+
+            // Resolve human-readable class title and level
+            const resolvedClass = _resolveReadableClassName(cName);
+            const classTitle = resolvedClass || (isUuid(cName) ? '' : cName) || 'Class';
+            const classLevel = _resolveClassLevel(cName) || '';
 
             pList.forEach((p, pIdx) => {
               if (!p || typeof p !== 'object') return;
@@ -1337,34 +1493,63 @@
               const isPlan = hasSeats || hasLayout || (p.id && String(p.id).startsWith('plan_'));
               if (!isPlan) return;
 
-              const planTitle = p.name || p.title || (p.id && !isUuid(p.id) ? String(p.id).replace(/^plan_/i, '').replace(/[-_]/g, ' ') : `${cName} Plan #${pIdx + 1}`);
+              const itemClass = _resolveReadableClassName(p.className, classTitle) || classTitle;
+              const itemLevel = _resolveClassLevel(p.className) || classLevel || (p.level != null && p.level !== '' && !isUuid(String(p.level)) ? String(p.level) : '');
+
+              let planTitle = (p.name && !isUuid(p.name)) ? p.name : ((p.title && !isUuid(p.title)) ? p.title : '');
+              if (!planTitle) {
+                if (p.id && !isUuid(p.id)) {
+                  const idClean = String(p.id).replace(/^plan_/i, '').replace(/[-_]/g, ' ').trim();
+                  if (idClean && isNaN(Number(idClean)) && idClean.length > 2) {
+                    planTitle = idClean;
+                  } else {
+                    planTitle = itemClass && itemClass !== 'Class' ? `${itemClass} Plan #${pIdx + 1}` : `Seating Plan #${pIdx + 1}`;
+                  }
+                } else {
+                  planTitle = itemClass && itemClass !== 'Class' ? `${itemClass} Plan #${pIdx + 1}` : `Seating Plan #${pIdx + 1}`;
+                }
+              }
+
               const planLayout = (p.layoutType || p.layout || 'GRID').toUpperCase();
               const seatCount = Array.isArray(p.seats) ? p.seats.length : (p.rows && p.cols ? p.rows * p.cols : 0);
+
+              const subText = itemClass && itemClass !== 'Class'
+                ? `Class: ${itemClass} | Layout: ${planLayout} (${seatCount} seats)`
+                : `Layout: ${planLayout} (${seatCount} seats)`;
 
               const item = _normalizeRecord({
                 id: p.id || `plan_${cName}_${pIdx}`,
                 name: planTitle,
                 title: planTitle,
-                className: cName,
-                level: cName,
+                className: itemClass,
+                classId: cName,
+                level: itemLevel,
                 theme: planLayout,
                 badge: seatCount ? `${seatCount} seats` : planLayout,
-                subtitle: `Class: ${cName} | Layout: ${planLayout} (${seatCount} seats)`,
+                subtitle: subText,
                 rawPlan: p
-              }, 'seating', 'class', cName, seatingRecords.length);
+              }, 'seating', 'class', itemClass, seatingRecords.length);
 
               classPlanItems.push(item);
               seatingRecords.push(item);
             });
 
             if (classPlanItems.length > 0) {
-              seatingFileSets.push({
-                filename: cName,
-                count: classPlanItems.length,
-                records: classPlanItems
-              });
+              const setName = resolvedClass || (isUuid(cName) ? (classTitle !== 'Class' ? classTitle : 'Seating Plans') : cName);
+              if (!seatingFileSetsMap.has(setName)) {
+                seatingFileSetsMap.set(setName, {
+                  filename: setName,
+                  count: 0,
+                  records: []
+                });
+              }
+              const fsEntry = seatingFileSetsMap.get(setName);
+              fsEntry.count += classPlanItems.length;
+              fsEntry.records.push(...classPlanItems);
             }
           });
+
+          seatingFileSets.push(...seatingFileSetsMap.values());
         }
 
         _cache.recordsBySubType.set('seating', seatingRecords);
@@ -2100,7 +2285,7 @@
     // 1. Compute Available File Sets
     if (setSelect) {
       setSelect.innerHTML = `<option value="all">All Sources / Sets (${allRecords.length})</option>` +
-        fileSets.map(fs => `<option value="${escHtml(fs.filename)}">${escHtml(fs.filename)} (${fs.count})</option>`).join('');
+        fileSets.map(fs => `<option value="${escHtml(fs.filename)}">${escHtml(fs.displayName || _resolveReadableClassName(fs.filename) || fs.filename)} (${fs.count})</option>`).join('');
       setSelect.value = _state.fileFilter || 'all';
     }
 
@@ -2120,6 +2305,7 @@
       }
       let lvlHtml = `<option value="">All Levels (${matchingFileRecords.length})</option>`;
       Array.from(levelCounts.keys()).sort().forEach(lvl => {
+        if (!lvl || isUuid(lvl)) return;
         lvlHtml += `<option value="${escHtml(lvl)}">${escHtml(lvl)} (${levelCounts.get(lvl)})</option>`;
       });
       lvlSelect.innerHTML = lvlHtml;
@@ -2381,7 +2567,7 @@
             <div class="uimp-card-top">
               <span class="uimp-card-title">${escHtml(item.title)}</span>
               <div class="uimp-card-badges">
-                ${item.level ? `<span class="uimp-badge uimp-badge-level">${escHtml(item.level)}</span>` : ''}
+                ${item.level && !isUuid(item.level) ? `<span class="uimp-badge uimp-badge-level">${escHtml(item.level)}</span>` : ''}
                 ${item.theme ? `<span class="uimp-badge uimp-badge-theme">${escHtml(item.theme)}</span>` : ''}
                 ${item.badge ? `<span class="uimp-badge uimp-badge-pos">${escHtml(item.badge)}</span>` : ''}
               </div>
