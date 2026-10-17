@@ -13803,7 +13803,7 @@
         _conRedoStack.push(conBuildPageSnapshot());
         const snap = _conUndoStack.pop();
         if (typeof _conInvalidatePageDomCache === 'function') _conInvalidatePageDomCache(conCurrentPageIndex);
-        _conRestorePageToBoard(snap);
+        _conRestorePageToBoard(snap, { isUndoRedo: true, scrollToTop: false });
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
       }
       function conRedo() {
@@ -13811,7 +13811,7 @@
         _conUndoStack.push(conBuildPageSnapshot());
         const snap = _conRedoStack.pop();
         if (typeof _conInvalidatePageDomCache === 'function') _conInvalidatePageDomCache(conCurrentPageIndex);
-        _conRestorePageToBoard(snap);
+        _conRestorePageToBoard(snap, { isUndoRedo: true, scrollToTop: false });
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
       }
       let _pendingConnectSrcId = null; // for "add connected word" feature
@@ -33372,7 +33372,7 @@
         }
         if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) {
           const tag = document.activeElement && document.activeElement.tagName;
-          if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+          if (tag === 'INPUT' || tag === 'TEXTAREA' || (document.activeElement && (document.activeElement.isContentEditable || (document.activeElement.closest && document.activeElement.closest('[contenteditable="true"]'))))) return;
           const sec = document.getElementById('constellation-section');
           if (!sec || sec.classList.contains('hidden')) return;
           e.preventDefault();
@@ -33381,7 +33381,7 @@
         }
         if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
           const tag = document.activeElement && document.activeElement.tagName;
-          if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+          if (tag === 'INPUT' || tag === 'TEXTAREA' || (document.activeElement && (document.activeElement.isContentEditable || (document.activeElement.closest && document.activeElement.closest('[contenteditable="true"]'))))) return;
           const sec = document.getElementById('constellation-section');
           if (!sec || sec.classList.contains('hidden')) return;
           e.preventDefault();
@@ -42736,10 +42736,11 @@
     // Restore a page snapshot to the live board, preserving the current title and session date.
     function _conRestorePageToBoard(snapshot, opts = {}) {
       const isMirror = !!(opts && opts.mirrorSync);
-      if (!isMirror && typeof _conInvalidatePageDomCache === 'function') {
+      const isUndoRedo = !!(opts && opts.isUndoRedo);
+      if (!isMirror && !isUndoRedo && typeof _conInvalidatePageDomCache === 'function') {
         _conInvalidatePageDomCache(conCurrentPageIndex);
       }
-      console.log('[Board] _conRestorePageToBoard' + (isMirror ? ' (Mirror Sync)' : '') + ':', {
+      console.log('[Board] _conRestorePageToBoard' + (isMirror ? ' (Mirror Sync)' : (isUndoRedo ? ' (Undo/Redo)' : '')) + ':', {
         nodeCount: (snapshot && snapshot.nodes || []).length,
         drawingCount: (snapshot && snapshot.drawings || []).length,
         groupCount: (snapshot && snapshot.groups || []).length,
@@ -42752,6 +42753,7 @@
         _type: 'constellation',
         _isPageRestore: true,
         _isMirrorSync: !!(opts && opts.mirrorSync),
+        _isUndoRedo: isUndoRedo,
         title: title,
         dateCreated: dateCreated,
         boardHeight: (snapshot && snapshot.boardHeight) || null,
@@ -42819,7 +42821,7 @@
         });
       }
 
-      if (!isMirror && (!opts || opts.scrollToTop !== false)) {
+      if (!isMirror && !isUndoRedo && (!opts || opts.scrollToTop !== false)) {
         if (typeof window.conScrollToTop === 'function') {
           window.conScrollToTop();
         }
@@ -48092,6 +48094,7 @@
       try {
         const isPageRestore = !!data._isPageRestore;
         const isMirrorSync = !!data._isMirrorSync;
+        const isUndoRedo = !!data._isUndoRedo;
         if (!isPageRestore) {
           if (typeof _conClearPageDomCache === 'function') _conClearPageDomCache();
           _conUndoStack = []; _conRedoStack = [];
@@ -48217,8 +48220,9 @@
           boardSetSessionFileMeta('constellation', resolvedCreatedAt, Number(data._savedAt || data.savedAt) || 0);
         }
 
-        if (isMirrorSync) {
-          // ── Non-destructive in-place reconciliation for Mirror Presentation Mode ──
+        if (isMirrorSync || isUndoRedo) {
+          window._conSuppressMirrorObserver = true;
+          // ── Non-destructive in-place reconciliation for Mirror Presentation Mode & Undo/Redo ──
           const brd = conGetBoard();
           if (brd) {
             if (data && data.boardHeight && Number(data.boardHeight) > 0) {
@@ -48229,6 +48233,29 @@
               brd.style.height = '';
             }
           }
+          if (!isMirrorSync) {
+            const curPIdx = (typeof conCurrentPageIndex === 'number') ? conCurrentPageIndex : 0;
+            if (typeof conPageSnapshots !== 'undefined' && conPageSnapshots[curPIdx]) {
+              conPageSnapshots[curPIdx].boardHeight = (data && data.boardHeight && Number(data.boardHeight) > 0) ? Number(data.boardHeight) : null;
+            }
+          }
+
+          // Advance numeric IDs past snapshot so subsequent additions don't collide
+          const savedMasksData = Array.isArray(data.masks) ? data.masks : (Array.isArray(data.conMasks) ? data.conMasks : []);
+          const allNumericIds = []
+            .concat((data.nodes || []).map(n => n.id))
+            .concat((data.edges || []).map(e => [e.a, e.b]).flat())
+            .concat((data.groups || []).map(g => g.id))
+            .concat(savedMasksData.map(m => m.id))
+            .concat((data.drawings || []).map(d => d.id));
+          let maxNum = 0;
+          allNumericIds.forEach(id => {
+            const m = String(id).match(/\d+$/);
+            if (m) maxNum = Math.max(maxNum, parseInt(m[0]));
+          });
+          if (window.conSetNextId) window.conSetNextId(maxNum + 2);
+          if (typeof window.conSyncGroupNextId === 'function') window.conSyncGroupNextId(maxNum + 2);
+
           const existingNodes = conGetNodes();
           const existingNodeMap = new Map(existingNodes.map(n => [n.id, n]));
           const keepNodeIds = new Set();
@@ -48514,53 +48541,294 @@
         _liveNotes.length = 0;
         _liveNotes.push(...nextNotes);
 
-        // Clear and rebuild edges & groups
-        const edges = window.conGetEdges ? window.conGetEdges() : [];
-        edges.forEach(e => e.g && e.g.remove());
-        edges.length = 0;
-        const groups = window.conGetGroups ? window.conGetGroups() : [];
-        groups.forEach(g => g.el && g.el.remove());
-        groups.length = 0;
-        const svgEl = document.getElementById('constellation-svg');
-        if (svgEl) svgEl.innerHTML = '';
-
+        // ── Reconcile Edges In-Place (Zero SVG Teardown) ──
+        const existingEdges = window.conGetEdges ? window.conGetEdges() : [];
+        const existingEdgesMap = new Map();
+        existingEdges.forEach(e => {
+          if (e.id) existingEdgesMap.set(String(e.id), e);
+          if (e.a && e.b) existingEdgesMap.set(String(e.a) + '->' + String(e.b), e);
+        });
+        const keepEdgeIds = new Set();
         (data.edges || []).forEach(e => {
-          if (e.a && e.b) {
+          if (!e.a || !e.b) return;
+          const lookupKey = e.id ? String(e.id) : (String(e.a) + '->' + String(e.b));
+          keepEdgeIds.add(lookupKey);
+          const existing = existingEdgesMap.get(lookupKey);
+          if (existing && existing.g) {
+            existing.type = e.type || 'none';
+            existing.label = e.label || '';
+            existing.labelSize = Number(e.labelSize) || 16;
+            existing.labelColor = e.labelColor || '#333333';
+            existing.labelWeight = Number(e.labelWeight) || 600;
+            existing.thickness = Number(e.thickness) > 0 ? Number(e.thickness) : null;
+            existing.dashStyle = e.dashStyle || null;
+            existing.strokeType = e.strokeType || (e.dashStyle === 'dashed' ? 'dashed' : (e.dashStyle === 'dotted' ? 'dotted' : 'solid'));
+            existing.routing = e.routing || 'straight';
+            existing.curvature = (typeof e.curvature === 'number') ? e.curvature : 0;
+            existing.opacity = (typeof e.opacity === 'number') ? e.opacity : 1;
+            existing.terminator = e.terminator || 'arrow';
+            existing.animated = !!e.animated;
+            existing.labelBgActive = !!e.labelBg;
+            existing.anchorA = e.anchorA || null;
+            existing.anchorB = e.anchorB || null;
+            existing.colorMode = (e.colorMode === 'auto' || e.colorMode === 'manual') ? e.colorMode : undefined;
+            existing.strokeColor = e.strokeColor || null;
+            if (existing.labelEl) {
+              existing.labelEl.textContent = existing.label;
+            }
+          } else {
             _conRestoreEdge(e.a, e.b, e.type, e.label || '', e.labelSize, e.labelColor, e.labelWeight, e.thickness, e.dashStyle || null, e.id || null, e.strokeType, e.routing, e.curvature, e.opacity, e.terminator, e.animated, e.labelBg, e.anchorA, e.anchorB, e.colorMode, e.strokeColor);
           }
         });
-
-        const savedMasksMirror = Array.isArray(data.masks) ? data.masks : (Array.isArray(data.conMasks) ? data.conMasks : []);
-        if (data.groups) {
-          data.groups.forEach(g => {
-            const validIds = (g.nodeIds || []).filter(id => conGetNodes().find(n => n.id === id));
-            const noteIds = g.noteIds || [];
-            const drawingIds = g.drawingIds || [];
-            const shapeIds = g.shapeIds || [];
-            if (validIds.length >= 1 || noteIds.length >= 1 || drawingIds.length >= 1 || shapeIds.length >= 1 || (g.manualW != null && g.manualH != null))
-              _conRestoreGroup({ ...g, noteIds, drawingIds, shapeIds }, validIds);
-          });
+        for (let i = existingEdges.length - 1; i >= 0; i--) {
+          const e = existingEdges[i];
+          const key = e.id ? String(e.id) : (String(e.a) + '->' + String(e.b));
+          if (!keepEdgeIds.has(key)) {
+            if (e.g && e.g.remove) e.g.remove();
+            existingEdges.splice(i, 1);
+          }
         }
 
-        if (window.conMasksClear) window.conMasksClear();
-        savedMasksMirror.forEach(m => {
-          if (window.conAddMaskFromData) window.conAddMaskFromData(m);
+        // ── Reconcile Groups In-Place (Zero Group Teardown) ──
+        const existingGroups = window.conGetGroups ? window.conGetGroups() : [];
+        const existingGroupsMap = new Map(existingGroups.map(g => [String(g.id), g]));
+        const keepGroupIds = new Set();
+        (data.groups || []).forEach(g => {
+          const gid = String(g.id);
+          keepGroupIds.add(gid);
+          const validIds = (g.nodeIds || []).filter(id => conGetNodes().find(n => n.id === id));
+          const noteIds = g.noteIds || [];
+          const drawingIds = g.drawingIds || [];
+          const shapeIds = g.shapeIds || [];
+          const existing = existingGroupsMap.get(gid);
+          if (existing && existing.el) {
+            existing.nodeIds = [...validIds];
+            existing.noteIds = [...noteIds];
+            existing.drawingIds = [...drawingIds];
+            existing.shapeIds = [...shapeIds];
+            existing.title = g.title || '';
+            existing.paletteIdx = g.paletteIdx || 0;
+            existing.invisible = !!g.invisible;
+            existing.blink = !!g.blink;
+            existing.drawingGroup = !!g.drawingGroup;
+            existing.phraseGroup = !!g.phraseGroup;
+            existing._manualW = (g.manualW != null ? g.manualW : null);
+            existing._manualH = (g.manualH != null ? g.manualH : null);
+            existing._px = (g.x != null ? g.x : null);
+            existing._py = (g.y != null ? g.y : null);
+            if (!existing.drawingGroup && !existing.phraseGroup) {
+              if (existing.invisible) {
+                existing.el.classList.add('con-group-invisible');
+                existing.el.style.borderColor = 'transparent';
+                existing.el.style.background = 'transparent';
+              } else {
+                existing.el.classList.remove('con-group-invisible');
+                const CON_PALETTES_REF = window.CON_PALETTES || [];
+                const pal = CON_PALETTES_REF[existing.paletteIdx] || ['rgba(240,240,240,0.5)', '#111', '#111'];
+                existing.el.style.borderColor = pal[2] || '#111';
+                existing.el.style.color = pal[1] || '#111';
+                const bgRaw = pal[0] || '#ffffff';
+                if (bgRaw === '#ffffff') {
+                  existing.el.style.background = 'rgba(240,240,240,0.5)';
+                } else {
+                  const r = parseInt(bgRaw.slice(1, 3), 16);
+                  const gv = parseInt(bgRaw.slice(3, 5), 16);
+                  const b = parseInt(bgRaw.slice(5, 7), 16);
+                  existing.el.style.background = `rgba(${r},${gv},${b},0.28)`;
+                }
+              }
+            }
+          } else {
+            if (validIds.length >= 1 || noteIds.length >= 1 || drawingIds.length >= 1 || shapeIds.length >= 1 || (g.manualW != null && g.manualH != null)) {
+              _conRestoreGroup({ ...g, noteIds, drawingIds, shapeIds }, validIds);
+            }
+          }
         });
+        for (let i = existingGroups.length - 1; i >= 0; i--) {
+          const g = existingGroups[i];
+          if (!keepGroupIds.has(String(g.id))) {
+            if (g.el && g.el.remove) g.el.remove();
+            existingGroups.splice(i, 1);
+          }
+        }
 
-        if (window.conDrawingsClear) window.conDrawingsClear();
-        (data.drawings || []).forEach(d => {
-          if (window.conDrawingFromData) window.conDrawingFromData(d);
+        // ── Reconcile Masks In-Place ──
+        const savedMasksList = Array.isArray(data.masks) ? data.masks : (Array.isArray(data.conMasks) ? data.conMasks : []);
+        const existingMasks = window.conGetMasks ? window.conGetMasks() : [];
+        const existingMasksMap = new Map(existingMasks.map(m => [String(m.id), m]));
+        const keepMaskIds = new Set();
+        savedMasksList.forEach(src => {
+          const mid = String(src.id);
+          keepMaskIds.add(mid);
+          const existing = existingMasksMap.get(mid);
+          if (existing && existing.el) {
+            existing.x = Number(src.x) || 0;
+            existing.y = Number(src.y) || 0;
+            existing.width = Number(src.width) || 160;
+            existing.height = Number(src.height) || 64;
+            existing.color = src.color || '#111111';
+            existing.opacity = Number(src.opacity) || 0.95;
+            existing.el.style.left = existing.x + 'px';
+            existing.el.style.top = existing.y + 'px';
+            existing.el.style.width = existing.width + 'px';
+            existing.el.style.height = existing.height + 'px';
+            existing.el.style.backgroundColor = existing.color;
+            existing.el.style.opacity = String(existing.opacity);
+          } else {
+            if (window.conAddMaskFromData) window.conAddMaskFromData(src);
+          }
         });
+        for (let i = existingMasks.length - 1; i >= 0; i--) {
+          const m = existingMasks[i];
+          if (!keepMaskIds.has(String(m.id))) {
+            if (m.el && m.el.remove) m.el.remove();
+            existingMasks.splice(i, 1);
+          }
+        }
 
-        if (window.conShapesClear) window.conShapesClear();
-        (data.shapes || []).forEach(s => {
-          if (window.conShapeFromData) window.conShapeFromData(s);
+        // ── Reconcile Drawings In-Place (Zero Path Destruction) ──
+        const existingDrawings = window.conGetDrawings ? window.conGetDrawings() : [];
+        const existingDrawingsMap = new Map(existingDrawings.map(d => [String(d.id), d]));
+        const keepDrawingIds = new Set();
+        (data.drawings || []).forEach(src => {
+          const did = String(src.id);
+          keepDrawingIds.add(did);
+          const existing = existingDrawingsMap.get(did);
+          if (existing && existing.el) {
+            existing.x = Number(src.x) || 0;
+            existing.y = Number(src.y) || 0;
+            existing.w = Number(src.w) || 1;
+            existing.h = Number(src.h) || 1;
+            existing.color = src.color || '#e53935';
+            existing.thickness = Number(src.thickness) || 4;
+            existing.opacity = Number.isFinite(Number(src.opacity)) && Number(src.opacity) > 0 ? Number(src.opacity) : 1;
+            existing.points = (src.points || []).map(p => (p === null || p === undefined) ? null : ({ x: Number(p.x) || 0, y: Number(p.y) || 0 }));
+            const PAD = Math.max(existing.thickness + 4, 12);
+            existing.pad = PAD;
+            existing.el.style.left = (existing.x - PAD) + 'px';
+            existing.el.style.top = (existing.y - PAD) + 'px';
+            existing.el.style.width = (existing.w + 2 * PAD) + 'px';
+            existing.el.style.height = (existing.h + 2 * PAD) + 'px';
+            if (existing.visPath) {
+              existing.visPath.setAttribute('stroke', existing.color);
+              existing.visPath.setAttribute('stroke-width', String(existing.thickness));
+              existing.visPath.setAttribute('opacity', String(existing.opacity));
+            }
+            if (existing.hitPath) {
+              existing.hitPath.setAttribute('stroke-width', String(Math.max(20, existing.thickness + 10)));
+            }
+            if (typeof _conBuildPathD === 'function') {
+              const pathD = _conBuildPathD(existing.points.map(p => p === null ? null : ({ x: p.x + PAD, y: p.y + PAD })));
+              if (existing.hitPath) existing.hitPath.setAttribute('d', pathD);
+              if (existing.visPath) existing.visPath.setAttribute('d', pathD);
+            }
+          } else {
+            if (window.conDrawingFromData) window.conDrawingFromData(src);
+          }
         });
+        for (let i = existingDrawings.length - 1; i >= 0; i--) {
+          const d = existingDrawings[i];
+          if (!keepDrawingIds.has(String(d.id))) {
+            if (d.el && d.el.remove) d.el.remove();
+            existingDrawings.splice(i, 1);
+          }
+        }
 
-        if (window.conTablesClear) window.conTablesClear();
-        (data.tables || []).forEach(t => {
-          if (window.conAddTableFromData) window.conAddTableFromData(t);
+        // ── Reconcile Shapes In-Place (Zero Shape Destruction) ──
+        const existingShapes = window.conGetShapes ? window.conGetShapes() : [];
+        const existingShapesMap = new Map(existingShapes.map(s => [String(s.id), s]));
+        const keepShapeIds = new Set();
+        (data.shapes || []).forEach(src => {
+          const sid = String(src.id);
+          keepShapeIds.add(sid);
+          const existing = existingShapesMap.get(sid);
+          if (existing && existing.el) {
+            existing.type = src.type || existing.type || 'rect';
+            existing.x = Number(src.x) || 0;
+            existing.y = Number(src.y) || 0;
+            existing.w = Math.max(2, Number(src.w) || 40);
+            existing.h = Math.max(2, Number(src.h) || 40);
+            existing.lx1 = Number(src.lx1) !== 0 ? Number(src.lx1) : existing.x;
+            existing.ly1 = Number(src.ly1) !== 0 ? Number(src.ly1) : existing.y;
+            existing.lx2 = Number(src.lx2) !== 0 ? Number(src.lx2) : existing.x + existing.w;
+            existing.ly2 = Number(src.ly2) !== 0 ? Number(src.ly2) : existing.y + existing.h;
+            existing.color = src.color || existing.color || '#333333';
+            existing.fillColor = src.fillColor || 'none';
+            existing.thickness = Number(src.thickness) || 3;
+            existing.opacity = Number.isFinite(Number(src.opacity)) && Number(src.opacity) > 0 ? Number(src.opacity) : 1;
+            existing.dashStyle = src.dashStyle || 'solid';
+            if (typeof conShapeFullRebuild === 'function') {
+              conShapeFullRebuild(existing);
+            } else if (existing.el) {
+              existing.el.style.left = existing.x + 'px';
+              existing.el.style.top = existing.y + 'px';
+              existing.el.style.width = existing.w + 'px';
+              existing.el.style.height = existing.h + 'px';
+            }
+          } else {
+            if (window.conShapeFromData) window.conShapeFromData(src);
+          }
         });
+        for (let i = existingShapes.length - 1; i >= 0; i--) {
+          const s = existingShapes[i];
+          if (!keepShapeIds.has(String(s.id))) {
+            if (s.el && s.el.remove) s.el.remove();
+            existingShapes.splice(i, 1);
+          }
+        }
+
+        // ── Reconcile Tables In-Place (Zero Table Destruction for move/edit) ──
+        const existingTables = window.conGetTables ? window.conGetTables() : (typeof conTables !== 'undefined' ? conTables : []);
+        const existingTablesMap = new Map(existingTables.map(t => [String(t.id), t]));
+        const keepTableIds = new Set();
+        (data.tables || []).forEach(src => {
+          const tid = String(src.id);
+          keepTableIds.add(tid);
+          const existing = existingTablesMap.get(tid);
+          if (existing && existing.el) {
+            existing.x = Number(src.x) || 0;
+            existing.y = Number(src.y) || 0;
+            existing.el.style.left = existing.x + 'px';
+            existing.el.style.top = existing.y + 'px';
+            existing.locked = !!src.locked;
+            existing.hasHeader = !!src.hasHeader;
+            if (existing.locked) existing.el.classList.add('tbl-locked');
+            else existing.el.classList.remove('tbl-locked');
+            if (existing.rows === src.rows && existing.cols === src.cols && Array.isArray(src.cells) && Array.isArray(existing.cells)) {
+              if (Array.isArray(src.colWidths)) existing.colWidths = [...src.colWidths];
+              if (Array.isArray(src.rowHeights)) existing.rowHeights = [...src.rowHeights];
+              const gridWrap = existing.el.querySelector('.con-table-grid-wrap');
+              if (gridWrap && typeof _totalW === 'function' && typeof _totalH === 'function') {
+                gridWrap.style.width = _totalW(existing) + 'px';
+                gridWrap.style.height = _totalH(existing) + 'px';
+              }
+              src.cells.forEach((sc, idx) => {
+                const ec = existing.cells[idx];
+                if (ec) {
+                  Object.assign(ec, sc);
+                  if (typeof _applyCellStyle === 'function') {
+                    const r = Math.floor(idx / existing.cols);
+                    const c = idx % existing.cols;
+                    _applyCellStyle(existing, r, c);
+                  }
+                }
+              });
+            } else {
+              existing.el.remove();
+              Object.assign(existing, src);
+              if (typeof _buildDOM === 'function') _buildDOM(existing);
+            }
+          } else {
+            if (window.conAddTableFromData) window.conAddTableFromData(src);
+          }
+        });
+        for (let i = existingTables.length - 1; i >= 0; i--) {
+          const t = existingTables[i];
+          if (!keepTableIds.has(String(t.id))) {
+            if (t.el && t.el.remove) t.el.remove();
+            existingTables.splice(i, 1);
+          }
+        }
 
         conRestoreMediaItems(data.media || []);
         conPageBackgroundPdf = data.backgroundPdf ? {
@@ -48580,17 +48848,43 @@
         conApplyBoardBgColor();
 
         // Restore board-level emoji stickers (placed near nodes)
-        const _brdMirror = document.getElementById('constellation-board');
-        if (_brdMirror) {
-          _brdMirror.querySelectorAll(':scope > .wn-emoji-sticker').forEach(s => s.remove());
+        const _brdHost = document.getElementById('constellation-board');
+        if (_brdHost) {
+          _brdHost.querySelectorAll(':scope > .wn-emoji-sticker').forEach(s => s.remove());
           if (Array.isArray(data.boardStickers) && data.boardStickers.length) {
             window._conBoardStickers = data.boardStickers.map(s => ({ id: s.id, emoji: s.emoji, x: Number(s.x) || 0, y: Number(s.y) || 0, size: Number(s.size) || 40 }));
             window._conBoardStickers.forEach(sd => {
-              if (typeof conNoteBuildSticker === 'function') conNoteBuildSticker(sd, { emojiStickers: window._conBoardStickers }, _brdMirror);
+              if (typeof conNoteBuildSticker === 'function') conNoteBuildSticker(sd, { emojiStickers: window._conBoardStickers }, _brdHost);
             });
           } else {
             window._conBoardStickers = [];
           }
+        }
+
+        // Selection hygiene: remove IDs of deleted elements from selections
+        if (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size) {
+          const survivingNodeIds = new Set((window.conGetNodes ? window.conGetNodes() : []).map(n => n.id));
+          conMultiSelected.forEach(id => {
+            if (!survivingNodeIds.has(id)) conMultiSelected.delete(id);
+          });
+        }
+        if (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size) {
+          const survivingNoteIds = new Set((window.conGetNotes ? window.conGetNotes() : []).map(n => String(n.id)));
+          conNoteSelected.forEach(id => {
+            if (!survivingNoteIds.has(String(id))) conNoteSelected.delete(id);
+          });
+        }
+        if (typeof conDrawingSelected !== 'undefined' && conDrawingSelected && conDrawingSelected.size) {
+          const survivingDrawIds = new Set((window.conGetDrawings ? window.conGetDrawings() : []).map(d => String(d.id)));
+          conDrawingSelected.forEach(id => {
+            if (!survivingDrawIds.has(String(id))) conDrawingSelected.delete(id);
+          });
+        }
+        if (typeof _conShapeSelected !== 'undefined' && _conShapeSelected && _conShapeSelected.size) {
+          const survivingShapeIds = new Set((window.conGetShapes ? window.conGetShapes() : []).map(s => String(s.id)));
+          _conShapeSelected.forEach(id => {
+            if (!survivingShapeIds.has(String(id))) _conShapeSelected.delete(id);
+          });
         }
 
         if (window.conGroupRefitAll) window.conGroupRefitAll();
@@ -48598,6 +48892,13 @@
         if (window.conUpdatePageBar) window.conUpdatePageBar();
         conScheduleLayoutRefresh();
         if (typeof window._conSyncDrawOverlaySize === 'function') window._conSyncDrawOverlaySize();
+
+        if (!isMirrorSync && typeof conQueueCurrentPageSnapshotPng === 'function') {
+          conQueueCurrentPageSnapshotPng(conCurrentPageIndex);
+        }
+        if (!isMirrorSync && typeof window._conMirrorBroadcast === 'function') {
+          window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
+        }
         return;
       }
 
@@ -48932,6 +49233,7 @@
     } finally {
       setTimeout(() => {
         _conIsRestoringSession = false;
+        window._conSuppressMirrorObserver = false;
       }, 150);
     }
   }

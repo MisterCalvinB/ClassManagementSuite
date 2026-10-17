@@ -289,13 +289,49 @@ tr.sm-gap-tr td {
   margin-bottom: 14px;
 }
 
-.phase-export-card, .exercise-card, .lc-phase-card, .tc-exercise-box, .exercise-box {
+.phase-export-card, .exercise-card, .lc-phase-card, .tc-exercise-box, .exercise-box, .section-block-card {
   background: #ffffff;
   border: 1px solid #000000;
   padding: 8px 10px;
   margin-bottom: 12px;
+  page-break-inside: auto;
+  break-inside: auto;
+}
+
+.exam-header {
+  page-break-after: avoid;
+  break-after: avoid;
+}
+
+.phase-header, .exercise-header {
+  page-break-after: avoid;
+  break-after: avoid;
+}
+
+.exercise-instructions {
+  page-break-after: avoid;
+  break-after: avoid;
+}
+
+.exercise-card:first-of-type:not(.page-break-before),
+.section-block-card:first-of-type:not(.page-break-before) {
+  break-before: avoid;
+  page-break-before: avoid;
+}
+
+/* Atomic test items stay together, but the parent exercise card flows across pages */
+.mcq-item, .matching-row, .open-question-item, .rc-subquestion-block,
+.pic-prompt-row, .odd-item-block, .composition-task-block,
+.draft-work-box, .composition-checklist, .writing-box, .writing-grid,
+.table-exercise tr, .rubric-table tr, .grading-scale-table tr, .cloze-text {
   page-break-inside: avoid;
   break-inside: avoid;
+}
+
+/* User-forced page break */
+.page-break-before {
+  page-break-before: always;
+  break-before: page;
 }
 
 .phase-header, .exercise-header {
@@ -398,6 +434,31 @@ tr.sm-gap-tr td {
     display: table-header-group !important;
   }
   tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  .exercise-card, .phase-export-card, .lc-phase-card, .tc-exercise-box, .exercise-box, .section-block-card {
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+    overflow: visible !important;
+  }
+  .exercise-card:first-of-type:not(.page-break-before),
+  .section-block-card:first-of-type:not(.page-break-before) {
+    break-before: avoid !important;
+    page-break-before: avoid !important;
+  }
+  .exam-header, .exercise-header, .phase-header, .exercise-instructions {
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+  .page-break-before {
+    page-break-before: always !important;
+    break-before: page !important;
+  }
+  .mcq-item, .matching-row, .open-question-item, .rc-subquestion-block,
+  .pic-prompt-row, .odd-item-block, .composition-task-block,
+  .draft-work-box, .composition-checklist, .writing-box, .writing-grid,
+  .table-exercise tr, .rubric-table tr, .grading-scale-table tr, .cloze-text {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }

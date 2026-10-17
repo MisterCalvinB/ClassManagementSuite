@@ -1112,7 +1112,8 @@
           '@media print {\n' +
           '  body { background: #fff !important; padding: 0 !important; font-size: 10pt !important; }\n' +
           '  .unit-container { max-width: 100% !important; margin: 0 !important; }\n' +
-          '  .unit-hero, .unit-toc, .unit-lesson-card, .unit-exam-card { box-shadow: none !important; border: 1px solid #cbd5e1 !important; page-break-inside: avoid; }\n' +
+          '  .unit-hero, .unit-toc, .unit-lesson-card { box-shadow: none !important; border: 1px solid #cbd5e1 !important; page-break-inside: avoid; }\n' +
+          '  .unit-exam-card { box-shadow: none !important; border: 1px solid #cbd5e1 !important; page-break-inside: auto; }\n' +
           '  .unit-page-break { page-break-before: always !important; }\n' +
           '  @page { margin: 12mm 10mm; size: A4 portrait; }\n' +
           '}\n';
@@ -1369,7 +1370,8 @@
         '@media print {\n' +
         '  body { background: #fff !important; padding: 0 !important; font-size: 10pt !important; }\n' +
         '  .unit-container { max-width: 100% !important; margin: 0 !important; }\n' +
-        '  .unit-hero, .unit-toc, .unit-lesson-card, .unit-exam-card { box-shadow: none !important; border: 1.5px solid #000 !important; page-break-inside: avoid; }\n' +
+        '  .unit-hero, .unit-toc, .unit-lesson-card { box-shadow: none !important; border: 1.5px solid #000 !important; page-break-inside: avoid; }\n' +
+          '  .unit-exam-card { box-shadow: none !important; border: 1.5px solid #000 !important; page-break-inside: auto; }\n' +
         '  .unit-comp-matrix { box-shadow: none !important; border: 1.5px solid #000 !important; page-break-inside: avoid; }\n' +
         '  .unit-page-break { page-break-before: always !important; }\n' +
         '  @page { margin: 12mm 10mm; size: A4 portrait; }\n' +

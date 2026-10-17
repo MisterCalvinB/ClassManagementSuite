@@ -19494,7 +19494,10 @@
           decBtn.className = "smod-crit-decisions-btn";
           decBtn.title = t('gsCritMarkingDecisions', 'Marking Decisions');
 
-          function updateCritDecBtn() {
+          const inlineDecsWrap = document.createElement("div");
+          inlineDecsWrap.className = "smod-crit-inline-decisions";
+
+          function updateCritDecisions() {
             const curYear = classObj?.year || (typeof CLASS_GROUPS !== 'undefined' ? CLASS_GROUPS.activeYear : '') || '';
             const curSem = sem || (typeof appState !== 'undefined' && appState.activeSemester) || (classObj && classObj.semester) || '';
             const critBankFn = getTestCriteriaBankFilename(classObj, config);
@@ -19507,7 +19510,7 @@
               testDate: config ? config.testDate : '',
               bankFilename: critBankFn
             });
-            const critRules = decInfo.rules || [];
+            const critRules = (decInfo.rules || []).filter(r => r && String(r).trim().length > 0);
             if (critRules.length > 0) {
               decBtn.classList.add("has-decisions");
               if (decInfo.isCohort) {
@@ -19524,8 +19527,55 @@
               decBtn.title = t('gsCritMarkingDecisions', 'Marking Decisions');
               decBtn.textContent = "+";
             }
+
+            inlineDecsWrap.innerHTML = "";
+            if (critRules.length > 0) {
+              inlineDecsWrap.style.display = "flex";
+              if (decInfo.isCohort) {
+                inlineDecsWrap.classList.add("is-cohort");
+              } else {
+                inlineDecsWrap.classList.remove("is-cohort");
+              }
+
+              critRules.forEach((ruleText, idx) => {
+                const item = document.createElement("div");
+                item.className = "smod-crit-inline-decision-item";
+                item.title = t('gsInlineDecisionClickToComment', "Click to insert into comment (or click button above to edit)");
+
+                const num = document.createElement("span");
+                num.className = "smod-crit-inline-decision-num";
+                num.textContent = `${idx + 1}.`;
+
+                const text = document.createElement("span");
+                text.className = "smod-crit-inline-decision-text";
+                text.textContent = ruleText;
+
+                item.appendChild(num);
+                item.appendChild(text);
+
+                item.addEventListener("click", (e) => {
+                  e.stopPropagation();
+                  const commentTa = commentEls[criterion.id];
+                  if (commentTa) {
+                    const cur = commentTa.value.trim();
+                    const trimmedRule = String(ruleText || '').trim();
+                    if (trimmedRule) {
+                      commentTa.value = cur ? `${cur}\n• ${trimmedRule}` : `• ${trimmedRule}`;
+                      commentTa.dispatchEvent(new Event("input", { bubbles: true }));
+                      if (typeof showToast === 'function') {
+                        showToast(t('gsDecisionInserted', 'Inserted into comment'));
+                      }
+                    }
+                  }
+                });
+
+                inlineDecsWrap.appendChild(item);
+              });
+            } else {
+              inlineDecsWrap.style.display = "none";
+            }
           }
-          updateCritDecBtn();
+          updateCritDecisions();
 
           decBtn.addEventListener("click", (e) => {
             e.stopPropagation();
@@ -19535,12 +19585,13 @@
               classObj,
               config,
               commentTextarea: commentEls[criterion.id],
-              onUpdate: updateCritDecBtn
+              onUpdate: updateCritDecisions
             });
           });
 
           nameWrap.appendChild(decBtn);
           tdName.appendChild(nameWrap);
+          tdName.appendChild(inlineDecsWrap);
 
           const tdPts = document.createElement("td");
           const ptsCellWrap = document.createElement("div");

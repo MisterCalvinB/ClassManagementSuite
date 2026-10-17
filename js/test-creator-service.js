@@ -2533,7 +2533,7 @@
       '.val-italic { font-style: italic; }',
       '.val-underline { text-decoration: underline; }',
       '/* Exam Grading Scale Component & Container Modifiers */',
-      '.exam-grading-scale-wrap { margin-top: 12px; padding: 10px 14px; border: 2px solid #000; border-radius: 4px; background: #fafafa; break-inside: avoid; page-break-inside: avoid; }',
+      '.exam-grading-scale-wrap { margin-top: 12px; padding: 10px 14px; border: 2px solid #000; border-radius: 4px; background: #fafafa; break-inside: auto; page-break-inside: auto; }',
       '.exam-grading-scale-wrap.exam-grading-scale-inline { padding: 6px 12px; margin-top: 8px; background: #fffbeb; }',
       '.scale-bg-default { background: #fafafa; }',
       '.exam-grading-scale-inline.scale-bg-default { background: #fffbeb; }',
@@ -2574,7 +2574,7 @@
       '.grading-scale-inline-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 9pt; }',
       '.grading-scale-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border: 1.5px solid #333333; border-radius: 4px; font-weight: 700; font-size: 8pt; background: #ffffff; box-shadow: 1px 1px 0 #555555; }',
       '/* Exam Competences & Curriculum Objectives Component */',
-      '.exam-competences-wrap { margin-top: 12px; padding: 10px 14px; border: 2px solid #2563eb; border-radius: 4px; background: #f0f7ff; break-inside: avoid; page-break-inside: avoid; }',
+      '.exam-competences-wrap { margin-top: 12px; padding: 10px 14px; border: 2px solid #2563eb; border-radius: 4px; background: #f0f7ff; break-inside: auto; page-break-inside: auto; }',
       '.comp-bg-default { background: #f0f7ff; border-color: #2563eb; }',
       '.comp-bg-white { background: #ffffff !important; }',
       '.comp-bg-ivory { background: #fdfdf6 !important; }',
@@ -2605,7 +2605,7 @@
       '.comp-chip strong { color: #1e40af; font-weight: 800; }',
       '.comp-chip-desc { font-size: 7.2pt; color: #475569; margin-top: 1px; }',
       '/* Exam Assessment Criteria & Evaluation Rubric Component */',
-      '.exam-criteria-wrap { margin-top: 12px; padding: 10px 14px; border: 2px solid #059669; border-radius: 4px; background: #f0fdf4; break-inside: avoid; page-break-inside: avoid; }',
+      '.exam-criteria-wrap { margin-top: 12px; padding: 10px 14px; border: 2px solid #059669; border-radius: 4px; background: #f0fdf4; break-inside: auto; page-break-inside: auto; }',
       '.crit-bg-default { background: #f0fdf4; border-color: #059669; }',
       '.crit-bg-white { background: #ffffff !important; }',
       '.crit-bg-ivory { background: #fdfdf6 !important; }',
@@ -2746,9 +2746,10 @@
       '.exam-header { break-after: avoid !important; page-break-after: avoid !important; }',
       '.exercise-header { break-after: avoid !important; page-break-after: avoid !important; }',
       '.exercise-instructions { break-after: avoid !important; page-break-after: avoid !important; }',
-      '.exercise-card { break-inside: auto; page-break-inside: auto; }',
-      '.exercise-card:first-of-type:not(.page-break-before) { break-before: avoid !important; page-break-before: avoid !important; }',
-      '.mcq-item, .matching-row, .table-exercise tr, .rubric-table tr, .grading-scale-table tr, .cloze-text, .writing-box, .writing-grid { break-inside: avoid; page-break-inside: avoid; }'
+      '.exercise-card { break-inside: auto !important; page-break-inside: auto !important; }',
+      '.exercise-card:first-of-type:not(.page-break-before), .section-block-card:first-of-type:not(.page-break-before) { break-before: avoid !important; page-break-before: avoid !important; }',
+      '.page-break-before { break-before: page !important; page-break-before: always !important; }',
+      '.mcq-item, .matching-row, .open-question-item, .rc-subquestion-block, .pic-prompt-row, .odd-item-block, .composition-task-block, .draft-work-box, .composition-checklist, .table-exercise tr, .rubric-table tr, .grading-scale-table tr, .cloze-text, .writing-box, .writing-grid { break-inside: avoid; page-break-inside: avoid; }'
     ].join('\n');
 
     return css + '\n' + commonNumberedLineCss + '\n' + commonHeaderAndQuestionCss;
@@ -4044,9 +4045,10 @@
     customCssRules.push('.exam-header { break-after: avoid !important; page-break-after: avoid !important; }');
     customCssRules.push('.exercise-header { break-after: avoid !important; page-break-after: avoid !important; }');
     customCssRules.push('.exercise-instructions { break-after: avoid !important; page-break-after: avoid !important; }');
-    customCssRules.push('.exercise-card { break-inside: auto; page-break-inside: auto; }');
-    customCssRules.push('.exercise-card:first-of-type:not(.page-break-before) { break-before: avoid !important; page-break-before: avoid !important; }');
-    customCssRules.push('.mcq-item, .matching-row, .table-exercise tr, .rubric-table tr, .cloze-text, .writing-box, .writing-grid { break-inside: avoid; page-break-inside: avoid; }');
+    customCssRules.push('.exercise-card, .section-block-card { break-inside: auto !important; page-break-inside: auto !important; }');
+    customCssRules.push('.exercise-card:first-of-type:not(.page-break-before), .section-block-card:first-of-type:not(.page-break-before) { break-before: avoid !important; page-break-before: avoid !important; }');
+    customCssRules.push('.page-break-before { break-before: page !important; page-break-before: always !important; }');
+    customCssRules.push('.mcq-item, .matching-row, .open-question-item, .rc-subquestion-block, .pic-prompt-row, .odd-item-block, .composition-task-block, .draft-work-box, .composition-checklist, .table-exercise tr, .rubric-table tr, .grading-scale-table tr, .cloze-text, .writing-box, .writing-grid { break-inside: avoid; page-break-inside: avoid; }');
 
     if (globalStyle.fontSize) {
       customCssRules.push('.exam-sheet { font-size: ' + globalStyle.fontSize + '; }');
@@ -4668,7 +4670,7 @@
       var bodyContent = sheetHtml.match(/<div class="exam-sheet">[\s\S]*<\/div>\s*<\/body>/);
       if (bodyContent) {
         var cleanBody = bodyContent[0].replace('</body>', '');
-        var pageBreak = idx > 0 ? '<div style="page-break-before: always; height: 1px;"></div>' : '';
+        var pageBreak = idx > 0 ? '<div class="class-page-break" style="page-break-before: always; break-before: page;"></div>' : '';
         compiledSheets.push(pageBreak + cleanBody);
       }
     });
