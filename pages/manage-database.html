@@ -10608,11 +10608,105 @@ Rules:
     // ─────────────────────────────────────────────────────────────────────
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape') {
-        closeBatchAutofillModal();
-        closeColPicker();
-        closeCopyModal();
-        closeAllMdbDropdowns();
-        closeRowContextMenu();
+        // 1. Row context menu
+        const rcm = $('row-context-menu');
+        if (rcm && !rcm.classList.contains('hidden') && rcm.style.visibility !== 'hidden') {
+          closeRowContextMenu();
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+          return;
+        }
+
+        // 2. Multi-select filter dropdowns
+        if (document.querySelector('.mdb-ms-wrap.open')) {
+          closeAllMdbDropdowns();
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+          return;
+        }
+
+        // 3. Higher z-index modals / subdialogs
+        if ($('autofill-bg') && !$('autofill-bg').classList.contains('hidden')) {
+          closeAutofill();
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+          return;
+        }
+        if ($('batch-autofill-bg') && !$('batch-autofill-bg').classList.contains('hidden')) {
+          closeBatchAutofillModal();
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+          return;
+        }
+        if ($('mdb-comp-picker-bg') && !$('mdb-comp-picker-bg').classList.contains('hidden')) {
+          closeMdbCompPicker();
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+          return;
+        }
+        if ($('col-picker-bg') && !$('col-picker-bg').classList.contains('hidden')) {
+          closeColPicker();
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+          return;
+        }
+        if ($('add-col-bg') && !$('add-col-bg').classList.contains('hidden')) {
+          closeAddColumnModal();
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+          return;
+        }
+        if ($('copy-modal-bg') && !$('copy-modal-bg').classList.contains('hidden')) {
+          closeCopyModal();
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+          return;
+        }
+        const wum = $('word-usage-modal');
+        if (wum && !wum.classList.contains('hidden')) {
+          if (typeof closeWordUsageModal === 'function') closeWordUsageModal();
+          else wum.classList.add('hidden');
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+          return;
+        }
+        if ($('merge-bg') && !$('merge-bg').classList.contains('hidden')) {
+          closeMerge();
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+          return;
+        }
+        if ($('del-bg') && !$('del-bg').classList.contains('hidden')) {
+          closeDel();
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+          return;
+        }
+        if ($('nf-bg') && !$('nf-bg').classList.contains('hidden')) {
+          closeNF();
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+          return;
+        }
+        if ($('edit-bg') && !$('edit-bg').classList.contains('hidden')) {
+          closeEdit();
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+          return;
+        }
       }
     });
     document.addEventListener('click', e => {

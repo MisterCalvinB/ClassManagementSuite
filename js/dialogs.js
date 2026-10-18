@@ -80,6 +80,71 @@
   ].join('');
   document.head.appendChild(style);
 
+  // ── Universal Modal / Popover Escape Stack Manager ─────────────────────────
+  window.cmtEscapeStack = window.cmtEscapeStack || [];
+
+  window.cmtPushEscapeHandler = function (handlerOrOpts) {
+    if (!handlerOrOpts) return function () {};
+    var entry = typeof handlerOrOpts === 'function' ? { close: handlerOrOpts, el: null } : handlerOrOpts;
+    if (typeof entry.close !== 'function') return function () {};
+
+    // Remove any existing duplicate
+    window.cmtRemoveEscapeHandler(entry);
+    window.cmtEscapeStack.push(entry);
+
+    var removed = false;
+    return function unregister() {
+      if (removed) return;
+      removed = true;
+      window.cmtRemoveEscapeHandler(entry);
+    };
+  };
+
+  window.cmtRemoveEscapeHandler = function (handlerOrOpts) {
+    if (!window.cmtEscapeStack || !window.cmtEscapeStack.length) return;
+    for (var i = window.cmtEscapeStack.length - 1; i >= 0; i--) {
+      var item = window.cmtEscapeStack[i];
+      if (item === handlerOrOpts || (item && item.close === handlerOrOpts) || (item && handlerOrOpts && item.el && item.el === handlerOrOpts.el)) {
+        window.cmtEscapeStack.splice(i, 1);
+        break;
+      }
+    }
+  };
+
+  // Global capture-phase Escape key handler ensures ONLY the topmost modal/popover closes
+  window.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+
+    // Process explicit cmtEscapeStack from top (last opened) to bottom
+    while (window.cmtEscapeStack && window.cmtEscapeStack.length > 0) {
+      var entry = window.cmtEscapeStack.pop();
+      if (!entry) continue;
+
+      // If tied to an element, verify element is still attached and visible
+      if (entry.el) {
+        if (!document.body || !document.body.contains(entry.el)) continue;
+        try {
+          var cs = window.getComputedStyle(entry.el);
+          if (entry.el.classList.contains('hidden') || cs.display === 'none' || cs.visibility === 'hidden') {
+            continue;
+          }
+        } catch (err) {}
+      }
+
+      if (typeof entry.close === 'function') {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        try {
+          entry.close(e);
+        } catch (err) {
+          console.warn('[EscapeManager] Error closing item:', err);
+        }
+        return; // Handled topmost item only! Stop all other handlers.
+      }
+    }
+  }, true);
+
   // ── Toast ──────────────────────────────────────────────────────────────────
   var toastEl = null;
   var toastTimer = null;
@@ -125,12 +190,14 @@
     confirmOverlay.querySelector('.cmt-btn-ok').addEventListener('click', function () { resolveConfirm(true); });
     confirmOverlay.querySelector('.cmt-btn-cancel').addEventListener('click', function () { resolveConfirm(false); });
     confirmOverlay.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter')  { e.preventDefault(); resolveConfirm(true);  }
-      if (e.key === 'Escape') { e.preventDefault(); resolveConfirm(false); }
+      if (e.key === 'Enter')  { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); resolveConfirm(true);  }
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); resolveConfirm(false); }
     });
   }
 
+  var _confirmEscUnreg = null;
   function resolveConfirm(val) {
+    if (_confirmEscUnreg) { _confirmEscUnreg(); _confirmEscUnreg = null; }
     if (!confirmOverlay) return;
     confirmOverlay.classList.remove('open');
     if (confirmResolve) { var r = confirmResolve; confirmResolve = null; r(val); }
@@ -141,6 +208,12 @@
     confirmOverlay.querySelector('.cmt-dialog-msg').textContent = msg;
     applyDialogI18n(confirmOverlay);
     confirmOverlay.classList.add('open');
+    if (window.cmtPushEscapeHandler) {
+      _confirmEscUnreg = window.cmtPushEscapeHandler({
+        el: confirmOverlay,
+        close: function () { resolveConfirm(false); }
+      });
+    }
     setTimeout(function () {
       var ok = confirmOverlay.querySelector('.cmt-btn-ok');
       if (ok) ok.focus();
@@ -173,12 +246,14 @@
     promptOverlay.querySelector('.cmt-btn-ok').addEventListener('click', function () { resolvePrompt(input.value); });
     promptOverlay.querySelector('.cmt-btn-cancel').addEventListener('click', function () { resolvePrompt(null); });
     input.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter')  { e.preventDefault(); resolvePrompt(input.value); }
-      if (e.key === 'Escape') { e.preventDefault(); resolvePrompt(null); }
+      if (e.key === 'Enter')  { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); resolvePrompt(input.value); }
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); resolvePrompt(null); }
     });
   }
 
+  var _promptEscUnreg = null;
   function resolvePrompt(val) {
+    if (_promptEscUnreg) { _promptEscUnreg(); _promptEscUnreg = null; }
     if (!promptOverlay) return;
     promptOverlay.classList.remove('open');
     if (promptResolve) { var r = promptResolve; promptResolve = null; r(val); }
@@ -191,6 +266,12 @@
     input.value = defaultVal != null ? String(defaultVal) : '';
     applyDialogI18n(promptOverlay);
     promptOverlay.classList.add('open');
+    if (window.cmtPushEscapeHandler) {
+      _promptEscUnreg = window.cmtPushEscapeHandler({
+        el: promptOverlay,
+        close: function () { resolvePrompt(null); }
+      });
+    }
     setTimeout(function () { input.focus(); input.select(); }, 50);
     return new Promise(function (resolve) { promptResolve = resolve; });
   }
@@ -223,12 +304,14 @@
     timedConfirmOverlay.querySelector('.cmt-timed-btn-yes').addEventListener('click', function () { resolveTimedConfirm(true); });
     timedConfirmOverlay.querySelector('.cmt-timed-btn-no').addEventListener('click', function () { resolveTimedConfirm(false); });
     timedConfirmOverlay.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter')  { e.preventDefault(); resolveTimedConfirm(true);  }
-      if (e.key === 'Escape') { e.preventDefault(); resolveTimedConfirm(false); }
+      if (e.key === 'Enter')  { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); resolveTimedConfirm(true);  }
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); resolveTimedConfirm(false); }
     });
   }
 
+  var _timedConfirmEscUnreg = null;
   function resolveTimedConfirm(val) {
+    if (_timedConfirmEscUnreg) { _timedConfirmEscUnreg(); _timedConfirmEscUnreg = null; }
     if (timedConfirmTimer) {
       clearInterval(timedConfirmTimer);
       timedConfirmTimer = null;
@@ -314,6 +397,12 @@
     }, 1000);
 
     timedConfirmOverlay.classList.add('open');
+    if (window.cmtPushEscapeHandler) {
+      _timedConfirmEscUnreg = window.cmtPushEscapeHandler({
+        el: timedConfirmOverlay,
+        close: function () { resolveTimedConfirm(false); }
+      });
+    }
     setTimeout(function () {
       var yesBtn = timedConfirmOverlay.querySelector('.cmt-timed-btn-yes');
       if (yesBtn) yesBtn.focus();
@@ -656,7 +745,9 @@
     var btnCloseX = destinationOverlay.querySelector('.cmt-dest-close-x');
     var filenameInput = destinationOverlay.querySelector('#cmt-dest-filename-input');
 
+    var _destinationEscUnreg = null;
     function closeWith(res) {
+      if (_destinationEscUnreg) { _destinationEscUnreg(); _destinationEscUnreg = null; }
       destinationOverlay.classList.remove('open');
       if (_destinationResolver) {
         var fn = _destinationResolver;
@@ -705,7 +796,7 @@
     }
 
     destinationOverlay.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') { e.preventDefault(); closeWith(null); }
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); closeWith(null); }
     });
   }
 
@@ -766,6 +857,12 @@
       }
       _destinationResolver = resolve;
       destinationOverlay.classList.add('open');
+      if (window.cmtPushEscapeHandler) {
+        _destinationEscUnreg = window.cmtPushEscapeHandler({
+          el: destinationOverlay,
+          close: function () { closeWith(null); }
+        });
+      }
 
       if (filenameInput) {
         setTimeout(function () {
@@ -991,9 +1088,11 @@
 
     // Key event listener for dialog
     exportOverlay.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') { e.preventDefault(); closeExportOverlay(); }
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); closeExportOverlay(); }
       if (e.key === 'Enter') {
         e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
         var primaryBtn = exportOverlay.querySelector('.cmt-btn-open-file');
         if (primaryBtn && primaryBtn.style.display !== 'none') primaryBtn.click();
         else {
@@ -1004,7 +1103,9 @@
     });
   }
 
+  var _exportEscUnreg = null;
   function closeExportOverlay() {
+    if (_exportEscUnreg) { _exportEscUnreg(); _exportEscUnreg = null; }
     if (!exportOverlay) return;
     exportOverlay.classList.remove('open');
   }
@@ -1124,6 +1225,12 @@
     });
 
     exportOverlay.classList.add('open');
+    if (window.cmtPushEscapeHandler) {
+      _exportEscUnreg = window.cmtPushEscapeHandler({
+        el: exportOverlay,
+        close: closeExportOverlay
+      });
+    }
     setTimeout(function () {
       if (isDoc) {
         newDocEditorBtn.focus();

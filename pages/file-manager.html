@@ -679,7 +679,12 @@ function startInlineRename(row, file, target, onRenamed, siblings) {
   inp.addEventListener('input', function() { showWarn(''); });
   inp.addEventListener('keydown', function(e) {
     if (e.key === 'Enter') confirmRename();
-    if (e.key === 'Escape') cancelRename();
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+      cancelRename();
+    }
   });
   inp.addEventListener('blur', function() {
     setTimeout(function() { if (!done) cancelRename(); }, 180);
@@ -1901,7 +1906,12 @@ function startFolderRename(row, folderName, nameEl, prefix) {
   inp.addEventListener('input', function() { showWarn(''); });
   inp.addEventListener('keydown', function(e) {
     if (e.key === 'Enter') confirmFolderRename();
-    if (e.key === 'Escape') cancelFolderRename();
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+      cancelFolderRename();
+    }
   });
   inp.addEventListener('blur', function() { setTimeout(function() { if (!done) cancelFolderRename(); }, 180); });
   inp.focus();
@@ -2612,6 +2622,29 @@ document.addEventListener('keydown', function(ev) {
   var isBrowseActive = document.getElementById('tab-browse').classList.contains('active');
   var inEditable = !!(ev.target && (ev.target.closest('input,textarea,[contenteditable="true"]')));
   if (ev.key === 'Escape') {
+    var ctxMenu = document.getElementById('fm-ctx-menu');
+    if (ctxMenu && ctxMenu.classList.contains('open')) {
+      return;
+    }
+    var overlays = [
+      'fmPickerOverlay',
+      'fmConflictOverlay',
+      'fmArchiveWizardOverlay',
+      'fmArchiveInspectOverlay',
+      'fmArchiveRestoreOverlay'
+    ];
+    for (var i = 0; i < overlays.length; i++) {
+      var ov = document.getElementById(overlays[i]);
+      if (ov && ov.style.display !== 'none') {
+        var cancelBtn = ov.querySelector('.btn-cancel, button[id*="Cancel"], button[onclick*="Cancel"], button[onclick*="close"]');
+        if (cancelBtn) cancelBtn.click();
+        else ov.style.display = 'none';
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+        return;
+      }
+    }
     fmClearSelection();
     return;
   }
@@ -2715,7 +2748,14 @@ document.addEventListener('DOMContentLoaded', function() {
   document.addEventListener('contextmenu', function(e) {
     if (menu.classList.contains('open') && !menu.contains(e.target)) hideCtx();
   });
-  document.addEventListener('keydown', function(e) { if (e.key === 'Escape') hideCtx(); });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && menu.classList.contains('open')) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+      hideCtx();
+    }
+  }, true);
 
   function showCtx(x, y, items) {
     hideCtx();

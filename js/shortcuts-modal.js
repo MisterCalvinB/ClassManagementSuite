@@ -113,11 +113,26 @@
     overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
     overlay.classList.add('open');
 
-    _escHandler = function (e) { if (e.key === 'Escape') close(); };
+    _escHandler = function (e) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        close();
+      }
+    };
+    if (window.cmtPushEscapeHandler) {
+      _escUnreg = window.cmtPushEscapeHandler({ el: overlay, close: close });
+    }
     document.addEventListener('keydown', _escHandler);
   }
 
+  var _escUnreg = null;
   function close() {
+    if (_escUnreg) {
+      _escUnreg();
+      _escUnreg = null;
+    }
     var overlay = document.getElementById(OVERLAY_ID);
     if (overlay) overlay.classList.remove('open');
     if (_escHandler) {

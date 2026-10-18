@@ -196,9 +196,16 @@
     // Escape Key Listener
     window.addEventListener('keydown', function(e) {
       if (e.key === 'Escape') {
-        if (document.getElementById('cmt-preview-modal-overlay')?.classList.contains('open')) {
+        var preview = document.getElementById('cmt-preview-modal-overlay');
+        if (preview && preview.classList.contains('open')) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
           closePreview();
-        } else if (overlay.classList.contains('open')) {
+        } else if (overlay && overlay.classList.contains('open')) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
           close();
         }
       }

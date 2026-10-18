@@ -5295,9 +5295,15 @@
       });
       document.addEventListener('keydown', function (event) {
         if (event.key === 'Escape') {
-          _plannerBoardMenuEntryId = '';
-          _plannerBoardMenuSlot = null;
-          plannerHideBoardEntryMenu();
+          var menu = document.getElementById('planner-board-menu');
+          if (menu && menu.style.display !== 'none') {
+            _plannerBoardMenuEntryId = '';
+            _plannerBoardMenuSlot = null;
+            plannerHideBoardEntryMenu();
+            event.preventDefault();
+            event.stopPropagation();
+            if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+          }
         }
       });
     }
@@ -8469,11 +8475,57 @@
     }
 
     // ── Modal helpers ──────────────────────────────────────────────────────────
-    function openModal(id) { document.getElementById(id).classList.add('active'); }
-    function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+    var _plannerOpenModalStack = [];
+    function openModal(id) {
+      var el = document.getElementById(id);
+      if (el) el.classList.add('active');
+      var idx = _plannerOpenModalStack.indexOf(id);
+      if (idx !== -1) _plannerOpenModalStack.splice(idx, 1);
+      _plannerOpenModalStack.push(id);
+    }
+    function closeModal(id) {
+      var el = document.getElementById(id);
+      if (el) el.classList.remove('active');
+      var idx = _plannerOpenModalStack.indexOf(id);
+      if (idx !== -1) _plannerOpenModalStack.splice(idx, 1);
+    }
     function toggleDispPopover() { document.getElementById('dispWrap').classList.toggle('open'); }
     document.addEventListener('click', function (e) {
       if (!e.target.closest('#dispWrap')) document.getElementById('dispWrap').classList.remove('open');
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        var dispWrap = document.getElementById('dispWrap');
+        if (dispWrap && dispWrap.classList.contains('open')) {
+          dispWrap.classList.remove('open');
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+          return;
+        }
+
+        while (_plannerOpenModalStack.length > 0) {
+          var topId = _plannerOpenModalStack.pop();
+          var el = document.getElementById(topId);
+          if (el && el.classList.contains('active')) {
+            closeModal(topId);
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+            return;
+          }
+        }
+
+        var activeModal = document.querySelector('.modal-overlay.active');
+        if (activeModal) {
+          activeModal.classList.remove('active');
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+          return;
+        }
+      }
     });
 
     // ── Utils ──────────────────────────────────────────────────────────────────
@@ -10241,6 +10293,9 @@
           var pop = document.getElementById('drag-copy-popover');
           if (pop && pop.style.display !== 'none') {
             if (typeof dragCopyCancel === 'function') dragCopyCancel();
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.stopImmediatePropagation) e.stopImmediatePropagation();
           }
         }
       });

@@ -4091,10 +4091,20 @@
           closeRefColorPicker();
         }
       };
+      let colorPickerUnreg = null;
       const onDocKey = (e) => {
-        if (e.key === "Escape") closeRefColorPicker();
+        if (e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          closeRefColorPicker();
+        }
       };
+      if (window.cmtPushEscapeHandler) {
+        colorPickerUnreg = window.cmtPushEscapeHandler({ el: popover, close: closeRefColorPicker });
+      }
       _refColorPickerCleanup = () => {
+        if (colorPickerUnreg) { colorPickerUnreg(); colorPickerUnreg = null; }
         document.removeEventListener("pointerdown", onDocClick, true);
         document.removeEventListener("keydown", onDocKey, true);
       };
@@ -5359,6 +5369,7 @@
         setTimeout(() => firstInput.focus(), 30);
       }
 
+      let critDecUnreg = null;
       function onDocClick(e) {
         if (!popover.contains(e.target) && !buttonEl.contains(e.target)) {
           closeCriterionDecisionsPopover();
@@ -5366,8 +5377,15 @@
       }
       function onDocKeydown(e) {
         if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
           closeCriterionDecisionsPopover();
         }
+      }
+
+      if (window.cmtPushEscapeHandler) {
+        critDecUnreg = window.cmtPushEscapeHandler({ el: popover, close: closeCriterionDecisionsPopover });
       }
 
       setTimeout(() => {
@@ -5382,6 +5400,7 @@
         onUpdate,
         bankFn: criteriaBankFn,
         cleanup() {
+          if (critDecUnreg) { critDecUnreg(); critDecUnreg = null; }
           document.removeEventListener("click", onDocClick);
           document.removeEventListener("keydown", onDocKeydown);
         }
@@ -6291,9 +6310,11 @@
         };
       }
 
+      let unreg = null;
       function closeModal() {
+        if (unreg) { unreg(); unreg = null; }
         overlay.classList.add('hidden');
-        document.removeEventListener('keydown', handleKey);
+        document.removeEventListener('keydown', handleKey, true);
       }
 
       async function doSubmit() {
@@ -6328,6 +6349,9 @@
 
       function handleKey(e) {
         if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
           closeModal();
         } else if (e.key === 'Enter' && (document.activeElement === textInput || document.activeElement === customCatInput || document.activeElement === customSecInput)) {
           e.preventDefault();
@@ -6336,7 +6360,10 @@
       }
 
       overlay.classList.remove('hidden');
-      document.addEventListener('keydown', handleKey);
+      if (window.cmtPushEscapeHandler) {
+        unreg = window.cmtPushEscapeHandler({ el: overlay, close: closeModal });
+      }
+      document.addEventListener('keydown', handleKey, true);
 
       cancelBtn.onclick = closeModal;
       closeBtn.onclick = closeModal;
@@ -18807,10 +18834,12 @@
         const cancelBtn = document.getElementById('gs-quick-chip-cancel');
         const submitBtn = document.getElementById('gs-quick-chip-submit');
 
+        let unreg = null;
         function closePopup() {
+          if (unreg) { unreg(); unreg = null; }
           overlay.style.display = 'none';
           overlay.classList.add('hidden');
-          document.removeEventListener('keydown', onKeyDown);
+          document.removeEventListener('keydown', onKeyDown, true);
         }
 
         async function submitChip() {
@@ -18882,6 +18911,8 @@
         function onKeyDown(e) {
           if (e.key === 'Escape') {
             e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
             closePopup();
           } else if (e.key === 'Enter') {
             e.preventDefault();
@@ -18889,7 +18920,10 @@
           }
         }
 
-        document.addEventListener('keydown', onKeyDown);
+        if (window.cmtPushEscapeHandler) {
+          unreg = window.cmtPushEscapeHandler({ el: overlay, close: closePopup });
+        }
+        document.addEventListener('keydown', onKeyDown, true);
 
         overlay.addEventListener('click', (e) => {
           if (e.target === overlay) {
@@ -18959,10 +18993,12 @@
         const saveBtn = document.getElementById('gs-chip-comment-save');
         const clearBtn = document.getElementById('gs-chip-comment-clear');
 
+        let unreg = null;
         function closePopup() {
+          if (unreg) { unreg(); unreg = null; }
           overlay.style.display = 'none';
           overlay.classList.add('hidden');
-          document.removeEventListener('keydown', onKeyDown);
+          document.removeEventListener('keydown', onKeyDown, true);
         }
 
         function submitComment(commentVal) {
@@ -18984,6 +19020,8 @@
         function onKeyDown(e) {
           if (e.key === 'Escape') {
             e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
             closePopup();
           } else if (e.key === 'Enter') {
             e.preventDefault();
@@ -18991,7 +19029,10 @@
           }
         }
 
-        document.addEventListener('keydown', onKeyDown);
+        if (window.cmtPushEscapeHandler) {
+          unreg = window.cmtPushEscapeHandler({ el: overlay, close: closePopup });
+        }
+        document.addEventListener('keydown', onKeyDown, true);
 
         overlay.addEventListener('click', (e) => {
           if (e.target === overlay) {
@@ -19933,6 +19974,13 @@
       }
 
       document.getElementById("student-modal-overlay").classList.remove("hidden");
+      if (window.cmtPushEscapeHandler) {
+        if (_studentModalUnregEscape) _studentModalUnregEscape();
+        _studentModalUnregEscape = window.cmtPushEscapeHandler({
+          el: document.getElementById("student-modal-overlay"),
+          close: closeStudentModal
+        });
+      }
       syncGradeEditability();
       if (gradeInput) gradeInput.focus();
     }
@@ -20051,7 +20099,12 @@
       closeStudentModal();
     }
 
+    let _studentModalUnregEscape = null;
     function closeStudentModal() {
+      if (_studentModalUnregEscape) {
+        _studentModalUnregEscape();
+        _studentModalUnregEscape = null;
+      }
       if (_studentModalDraft) {
         const { classObj, sem, testIndex } = _studentModalDraft;
         flushStudentModalAutoSave();
@@ -21434,8 +21487,8 @@
       document.getElementById("add-class-confirm").addEventListener("click", addClassFromInput);
       document.getElementById("add-class-cancel").addEventListener("click", closeAddClassModal);
       document.getElementById("add-class-overlay").addEventListener("click", e => { if (e.target === document.getElementById("add-class-overlay")) closeAddClassModal(); });
-      document.getElementById("add-class-name").addEventListener("keydown", e => { if (e.key === "Enter") addClassFromInput(); if (e.key === "Escape") closeAddClassModal(); });
-      document.getElementById("add-class-year").addEventListener("keydown", e => { if (e.key === "Enter") addClassFromInput(); if (e.key === "Escape") closeAddClassModal(); });
+      document.getElementById("add-class-name").addEventListener("keydown", e => { if (e.key === "Enter") addClassFromInput(); if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); closeAddClassModal(); } });
+      document.getElementById("add-class-year").addEventListener("keydown", e => { if (e.key === "Enter") addClassFromInput(); if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); closeAddClassModal(); } });
 
       document.getElementById("btn-add-test-overview").addEventListener("click", openAddTestFromOverviewModal);
       document.getElementById("add-test-overview-confirm").addEventListener("click", () => {
@@ -21502,7 +21555,7 @@
       document.getElementById("edit-class-save").addEventListener("click", saveEditClass);
       document.getElementById("edit-class-cancel").addEventListener("click", () => document.getElementById("edit-class-overlay").classList.add("hidden"));
       document.getElementById("edit-class-overlay").addEventListener("click", e => { if (e.target === document.getElementById("edit-class-overlay")) document.getElementById("edit-class-overlay").classList.add("hidden"); });
-      document.getElementById("edit-class-name").addEventListener("keydown", e => { if (e.key === "Enter") saveEditClass(); if (e.key === "Escape") document.getElementById("edit-class-overlay").classList.add("hidden"); });
+      document.getElementById("edit-class-name").addEventListener("keydown", e => { if (e.key === "Enter") saveEditClass(); if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); document.getElementById("edit-class-overlay").classList.add("hidden"); } });
       document.getElementById("btn-duplicate-test").addEventListener("click", openDuplicateTestPopup);
       document.getElementById("btn-test-options").addEventListener("click", () => {
         const classObj = getActiveClass();
@@ -22030,45 +22083,127 @@
       document.addEventListener("scroll", closeAllContextMenus, true);
       window.addEventListener("resize", closeAllContextMenus);
       document.addEventListener("keydown", e => {
-        if (e.key === "Escape") {
+        if (e.key !== "Escape" || e.defaultPrevented) return;
+
+        // 1. Color picker
+        const refPop = document.getElementById("ref-color-picker-popover");
+        if (refPop && !refPop.classList.contains("hidden")) {
+          e.preventDefault();
           closeRefColorPicker();
+          return;
+        }
+
+        // 2. Context menus
+        const menus = ["test-row-menu", "class-card-menu", "test-header-menu", "summary-student-row-menu", "all-test-item-menu"]
+          .map(id => document.getElementById(id)).filter(Boolean);
+        if (menus.some(m => !m.classList.contains("hidden"))) {
+          e.preventDefault();
           closeAllContextMenus();
-          const overlayIds = [
-            "gs-pdf-export-overlay",
-            "gs-tc-import-overlay",
-            "gs-competence-picker-overlay",
-            "class-criteria-templates-overlay",
-            "gs-student-select-overlay",
-            "gs-report-modal-overlay",
-            "student-modal-overlay",
-            "test-options-overlay",
-            "coeff-popup-overlay",
-            "grading-popup-overlay",
-            "criteria-mgmt-popup-overlay",
-            "reference-data-popup-overlay",
-            "test-info-popup-overlay",
-            "csv-export-popup-overlay",
-            "criterion-popup-overlay",
-            "import-grades-overlay",
-            "add-class-overlay",
-            "edit-class-overlay",
-            "gs-rename-overlay",
-            "gs-add-students-overlay"
-          ];
-          for (const id of overlayIds) {
-            const el = document.getElementById(id);
-            if (el && !el.classList.contains("hidden")) {
-              if (id === "gs-pdf-export-overlay") {
-                closeGsPdfExportModal(null);
-              } else if (id === "gs-report-modal-overlay") {
-                closeReportModal();
-              } else if (id === "gs-student-select-overlay") {
-                closeStudentSelectModal();
-              } else {
-                el.classList.add("hidden");
-              }
-              break;
+          return;
+        }
+
+        // 3. Child/topmost observation chip popups
+        const chipComment = document.getElementById("gs-chip-comment-modal-overlay");
+        if (chipComment && !chipComment.classList.contains("hidden") && chipComment.style.display !== "none") {
+          e.preventDefault();
+          chipComment.style.display = "none";
+          chipComment.classList.add("hidden");
+          return;
+        }
+
+        const quickChip = document.getElementById("gs-quick-add-chip-overlay");
+        if (quickChip && !quickChip.classList.contains("hidden") && quickChip.style.display !== "none") {
+          e.preventDefault();
+          quickChip.style.display = "none";
+          quickChip.classList.add("hidden");
+          return;
+        }
+
+        const addChip = document.getElementById("gs-add-chip-overlay");
+        if (addChip && !addChip.classList.contains("hidden") && addChip.style.display !== "none") {
+          e.preventDefault();
+          addChip.classList.add("hidden");
+          return;
+        }
+
+        if (typeof _activeCriterionPopover !== "undefined" && _activeCriterionPopover) {
+          e.preventDefault();
+          closeCriterionDecisionsPopover();
+          return;
+        }
+
+        if (typeof _critPopupCtx !== "undefined" && _critPopupCtx) {
+          e.preventDefault();
+          criterionPopupClose();
+          return;
+        }
+
+        const pdfExp = document.getElementById("pdf-export-overlay");
+        if (pdfExp && !pdfExp.classList.contains("hidden")) {
+          e.preventDefault();
+          pdfExp.classList.add("hidden");
+          return;
+        }
+
+        // 4. In-page alert/confirm/prompt
+        const alertEl = document.getElementById("gs-alert-overlay");
+        if (alertEl && !alertEl.classList.contains("hidden")) {
+          e.preventDefault();
+          alertEl.classList.add("hidden");
+          return;
+        }
+        const confirmEl = document.getElementById("gs-confirm-overlay");
+        if (confirmEl && !confirmEl.classList.contains("hidden")) {
+          e.preventDefault();
+          confirmEl.classList.add("hidden");
+          return;
+        }
+        const promptEl = document.getElementById("gs-prompt-overlay");
+        if (promptEl && !promptEl.classList.contains("hidden")) {
+          e.preventDefault();
+          promptEl.classList.add("hidden");
+          return;
+        }
+
+        // 5. Main overlay IDs (close only the topmost open one)
+        const overlayIds = [
+          "gs-pdf-export-overlay",
+          "gs-tc-import-overlay",
+          "gs-competence-picker-overlay",
+          "class-criteria-templates-overlay",
+          "gs-student-select-overlay",
+          "gs-report-modal-overlay",
+          "student-modal-overlay",
+          "test-options-overlay",
+          "coeff-popup-overlay",
+          "grading-popup-overlay",
+          "criteria-mgmt-popup-overlay",
+          "reference-data-popup-overlay",
+          "test-info-popup-overlay",
+          "csv-export-popup-overlay",
+          "criterion-popup-overlay",
+          "import-grades-overlay",
+          "add-class-overlay",
+          "edit-class-overlay",
+          "gs-rename-overlay",
+          "gs-add-students-overlay"
+        ];
+        for (const id of overlayIds) {
+          const el = document.getElementById(id);
+          if (el && !el.classList.contains("hidden")) {
+            e.preventDefault();
+            if (id === "gs-pdf-export-overlay") {
+              closeGsPdfExportModal(null);
+            } else if (id === "gs-report-modal-overlay") {
+              closeReportModal();
+            } else if (id === "gs-student-select-overlay") {
+              closeStudentSelectModal();
+            } else if (id === "student-modal-overlay") {
+              closeStudentModal();
+            } else {
+              el.classList.add("hidden");
             }
+            break;
           }
         }
       });
@@ -22594,7 +22729,15 @@ ${blocks}
     };
 
     document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') window.closeExportModal();
+      if (e.key === 'Escape') {
+        const overlay = document.getElementById('pdf-export-overlay');
+        if (overlay && !overlay.classList.contains('hidden')) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+          window.closeExportModal();
+        }
+      }
     });
 
     let toastTimer = null;
@@ -22891,6 +23034,7 @@ ${blocks}
         chipsEl.appendChild(chip);
       });
     }
+    let _critPopupUnregEscape = null;
     function criterionPopupOpen(criterion, classObj, sem, testIndex) {
       _critPopupCtx = { criterion, classObj, sem, testIndex };
       const testConfig = classObj?.testConfigs?.[sem]?.[testIndex];
@@ -22910,9 +23054,16 @@ ${blocks}
       renderCritPopupChips();
       document.getElementById("criterion-popup-overlay").classList.remove("hidden");
       document.getElementById("crit-popup-name").focus();
+      if (window.cmtPushEscapeHandler) {
+        _critPopupUnregEscape = window.cmtPushEscapeHandler(() => criterionPopupClose());
+      }
     }
 
     function criterionPopupClose() {
+      if (_critPopupUnregEscape) {
+        _critPopupUnregEscape();
+        _critPopupUnregEscape = null;
+      }
       document.getElementById("criterion-popup-overlay").classList.add("hidden");
       _critPopupCtx = null;
       _critPopupCompetenceDraft = [];
@@ -22980,8 +23131,13 @@ ${blocks}
     });
 
     document.addEventListener("keydown", evt => {
-      if (evt.key === "Escape" && _critPopupCtx) criterionPopupClose();
-    });
+      if (evt.key === "Escape" && _critPopupCtx) {
+        evt.preventDefault();
+        evt.stopPropagation();
+        if (evt.stopImmediatePropagation) evt.stopImmediatePropagation();
+        criterionPopupClose();
+      }
+    }, true);
 
     // Populate criterion popup preset dropdown
     (function wirePopupPreset() {
@@ -23050,15 +23206,27 @@ ${blocks}
         document.getElementById('gs-alert-message').textContent = message;
         overlay.classList.remove('hidden');
         const ok = document.getElementById('gs-alert-ok');
-        function onKey(e) { if (e.key === 'Enter' || e.key === 'Escape') done(); }
+        let unreg = null;
         function done() {
+          if (unreg) { unreg(); unreg = null; }
           overlay.classList.add('hidden');
           ok.removeEventListener('click', done);
-          document.removeEventListener('keydown', onKey);
+          document.removeEventListener('keydown', onKey, true);
           resolve();
         }
+        function onKey(e) {
+          if (e.key === 'Enter' || e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+            done();
+          }
+        }
+        if (window.cmtPushEscapeHandler) {
+          unreg = window.cmtPushEscapeHandler(done);
+        }
         ok.addEventListener('click', done);
-        document.addEventListener('keydown', onKey);
+        document.addEventListener('keydown', onKey, true);
         ok.focus();
       });
     }
@@ -23070,25 +23238,39 @@ ${blocks}
         overlay.classList.remove('hidden');
         const okBtn = document.getElementById('gs-confirm-ok');
         const cancelBtn = document.getElementById('gs-confirm-cancel');
+        let unreg = null;
         function done(result) {
+          if (unreg) { unreg(); unreg = null; }
           overlay.classList.add('hidden');
           okBtn.removeEventListener('click', onOk);
           cancelBtn.removeEventListener('click', onCancel);
           overlay.removeEventListener('click', onOverlay);
-          document.removeEventListener('keydown', onKey);
+          document.removeEventListener('keydown', onKey, true);
           resolve(result);
         }
         function onOk() { done(true); }
         function onCancel() { done(false); }
         function onOverlay(e) { if (e.target === overlay) done(false); }
         function onKey(e) {
-          if (e.key === 'Enter') done(true);
-          if (e.key === 'Escape') done(false);
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+            done(true);
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+            done(false);
+          }
+        }
+        if (window.cmtPushEscapeHandler) {
+          unreg = window.cmtPushEscapeHandler(() => done(false));
         }
         okBtn.addEventListener('click', onOk);
         cancelBtn.addEventListener('click', onCancel);
         overlay.addEventListener('click', onOverlay);
-        document.addEventListener('keydown', onKey);
+        document.addEventListener('keydown', onKey, true);
         cancelBtn.focus();
       });
     }
@@ -23102,25 +23284,49 @@ ${blocks}
         overlay.classList.remove('hidden');
         const okBtn = document.getElementById('gs-prompt-ok');
         const cancelBtn = document.getElementById('gs-prompt-cancel');
+        let unreg = null;
         function done(result) {
+          if (unreg) { unreg(); unreg = null; }
           overlay.classList.add('hidden');
           okBtn.removeEventListener('click', onOk);
           cancelBtn.removeEventListener('click', onCancel);
           overlay.removeEventListener('click', onOverlay);
           input.removeEventListener('keydown', onKey);
+          document.removeEventListener('keydown', onDocKey, true);
           resolve(result);
         }
         function onOk() { done(input.value); }
         function onCancel() { done(null); }
         function onOverlay(e) { if (e.target === overlay) done(null); }
         function onKey(e) {
-          if (e.key === 'Enter') done(input.value);
-          if (e.key === 'Escape') done(null);
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+            done(input.value);
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+            done(null);
+          }
+        }
+        function onDocKey(e) {
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+            done(null);
+          }
+        }
+        if (window.cmtPushEscapeHandler) {
+          unreg = window.cmtPushEscapeHandler(() => done(null));
         }
         okBtn.addEventListener('click', onOk);
         cancelBtn.addEventListener('click', onCancel);
         overlay.addEventListener('click', onOverlay);
         input.addEventListener('keydown', onKey);
+        document.addEventListener('keydown', onDocKey, true);
         setTimeout(() => { input.focus(); input.select(); }, 30);
       });
     }

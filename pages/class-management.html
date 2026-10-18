@@ -13781,8 +13781,35 @@ syncState();
                 if (_openBadgePopupKey) {
                     _closeBadgePopupByKey(_openBadgePopupKey);
                     _openBadgePopupKey = null;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+                    return;
                 }
-                closeRosterContextMenu(); closeStudentStatsPopup(); closeStudentGradesPopup();
+                const rosterMenu = document.getElementById('roster-context-menu');
+                if (rosterMenu && rosterMenu.classList.contains('open')) {
+                    closeRosterContextMenu();
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+                    return;
+                }
+                const stats = document.getElementById('student-stats-popup');
+                if (stats && stats.classList.contains('open')) {
+                    closeStudentStatsPopup();
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+                    return;
+                }
+                const grades = document.getElementById('student-grades-popup');
+                if (grades && grades.classList.contains('open')) {
+                    closeStudentGradesPopup();
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+                    return;
+                }
             }
         });
 
@@ -13993,7 +14020,13 @@ syncState();
         document.addEventListener('keydown', function (e) {
             if (PRESENTATION_MODE) return;
             if (e.key === 'Escape') {
-                closeObjectivesModal();
+                const modal = document.getElementById('objectives-modal');
+                if (modal && modal.style.display !== 'none') {
+                    closeObjectivesModal();
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+                }
             }
         });
 

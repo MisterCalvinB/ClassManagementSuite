@@ -2296,8 +2296,42 @@
     document.removeEventListener('keydown', _presetMenuEsc);
   }
   function _presetMenuEsc(e) {
-    if (e.key === 'Escape') _closePresetMenu();
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+      _closePresetMenu();
+    }
   }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      if (_activePresetMenu) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+        _closePresetMenu();
+        return;
+      }
+      const overlays = [
+        { id: 'ge-delete-warn-overlay', close: () => cancelDeleteWarn() },
+        { id: 'ge-confirm-overlay', close: () => cancelConfirm() },
+        { id: 'ge-merge-modal', close: () => { const btn = document.getElementById('ge-merge-modal')?.querySelector('button[onclick*="Cancel"], button[onclick*="cancel"], button[onclick*="Close"]'); if (btn) btn.click(); else document.getElementById('ge-merge-modal').style.display = 'none'; } },
+        { id: 'ge-match-modal', close: () => { if (window._geMatchCancelCb) window._geMatchCancelCb(); else document.getElementById('ge-match-modal').style.display = 'none'; } },
+        { id: 'ge-all-students-modal', close: () => { if (typeof closeAllStudentsModal === 'function') closeAllStudentsModal(); else document.getElementById('ge-all-students-modal').style.display = 'none'; } }
+      ];
+      for (const item of overlays) {
+        const el = document.getElementById(item.id);
+        if (el && el.style.display !== 'none') {
+          item.close();
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+          return;
+        }
+      }
+    }
+  });
 
   function _positionPresetMenu(menu, anchor) {
     const rect = anchor.getBoundingClientRect();

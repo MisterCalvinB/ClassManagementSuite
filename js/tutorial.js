@@ -48,11 +48,26 @@
     _tooltip.className = 'tut-tooltip';
     document.body.appendChild(_tooltip);
 
-    _escHandler = function (e) { if (e.key === 'Escape') _teardown(); };
+    _escHandler = function (e) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        _teardown();
+      }
+    };
+    if (window.cmtPushEscapeHandler) {
+      _escUnreg = window.cmtPushEscapeHandler({ close: _teardown });
+    }
     document.addEventListener('keydown', _escHandler);
   }
 
+  var _escUnreg = null;
   function _teardown() {
+    if (_escUnreg) {
+      _escUnreg();
+      _escUnreg = null;
+    }
     ['top', 'bottom', 'left', 'right'].forEach(function (s) {
       if (_panels[s]) { _panels[s].remove(); delete _panels[s]; }
     });

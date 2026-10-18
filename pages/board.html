@@ -14685,17 +14685,25 @@
           const nd = conNotes.find(n => n.id === nid);
           if (nd) wnDeleteNoteData(nd);
         });
+        const removedDrawIds = [];
         if (group.drawingIds) [...group.drawingIds].forEach(did => {
           const dr = conDrawings.find(x => x.id === did);
           if (dr && dr.el) dr.el.remove();
           conDrawings = conDrawings.filter(x => x.id !== did);
+          removedDrawIds.push(String(did));
         });
+        const removedShapeIds = [];
         if (group.shapeIds) [...group.shapeIds].forEach(sid => {
           const s = conShapes.find(x => x.id === sid);
           if (s && s.el) s.el.remove();
           conShapes = conShapes.filter(x => x.id !== sid);
+          removedShapeIds.push(String(sid));
         });
         conGroupDissolve(gid);
+        if (typeof window._conMirrorSend === 'function') {
+          if (removedDrawIds.length > 0) window._conMirrorSend({ type: 'drawing-remove', ids: removedDrawIds });
+          if (removedShapeIds.length > 0) window._conMirrorSend({ type: 'shape-remove', ids: removedShapeIds });
+        }
       }
 
       // Try to merge two groups or create one
@@ -15457,7 +15465,13 @@
                 tbl.colWidths[col] = Math.max(30, sw + (e.clientX - sx));
                 _applyGridStyle(tbl); _rebuildResizers(tbl);
               });
-              document.addEventListener('mouseup', function () { drag = false; });
+              document.addEventListener('mouseup', function () {
+                if (drag) {
+                  drag = false;
+                  if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+                  if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
+                }
+              });
             })(c, xAcc);
           }
           let yAcc = 0;
@@ -15481,7 +15495,13 @@
                 tbl.rowHeights[row] = Math.max(24, sh + (e.clientY - sy));
                 _applyGridStyle(tbl); _rebuildResizers(tbl);
               });
-              document.addEventListener('mouseup', function () { drag = false; });
+              document.addEventListener('mouseup', function () {
+                if (drag) {
+                  drag = false;
+                  if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+                  if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
+                }
+              });
             })(r);
           }
         }
@@ -15576,7 +15596,8 @@
 
           // Drag (bar)
           let _drag = false, _ox = 0, _oy = 0, _sx = 0, _sy = 0, _pre = null;
-          let _tableOffsets = [];
+          let _tableOffsets = [], _tblNodeOffsets = [], _tblNoteOffsets = [], _tblDrawOffsets = [], _tblShapeOffsets = [];
+          let _tblMoveRaf = null;
           bar.addEventListener('mousedown', function (e) {
             if (e.button !== 0 || tbl.locked) return;
             if (e.target.closest('.con-table-header-toggle, .con-table-bar-btn')) return;
@@ -15595,11 +15616,11 @@
                 if (typeof conTableClearSelection === 'function') conTableClearSelection();
                 conTableSelected.add(tbl.id);
                 el.classList.add('con-table-selected');
+                if (window.conNodeClearSelection) window.conNodeClearSelection();
+                if (window.conNoteClearSelection) window.conNoteClearSelection();
+                if (window.conDrawingClearSelection) window.conDrawingClearSelection();
+                if (window.conShapeClearSelection) window.conShapeClearSelection();
               }
-              if (window.conNodeClearSelection) window.conNodeClearSelection();
-              if (window.conNoteClearSelection) window.conNoteClearSelection();
-              if (window.conDrawingClearSelection) window.conDrawingClearSelection();
-              if (window.conShapeClearSelection) window.conShapeClearSelection();
             }
             if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
 
@@ -15612,6 +15633,51 @@
                 if (other && !other.locked) _tableOffsets.push({ tbl: other, sx: other.x, sy: other.y });
               });
             }
+
+            // Snapshot co-selected nodes for joint drag
+            _tblNodeOffsets = [];
+            const _tAllNodes = new Set(window.conGetMultiSelected ? window.conGetMultiSelected() : (typeof conMultiSelected !== 'undefined' ? conMultiSelected : []));
+            if (typeof conSelected !== 'undefined' && conSelected) _tAllNodes.add(conSelected);
+            if (window.conGetSelected && window.conGetSelected()) _tAllNodes.add(window.conGetSelected());
+            const _tNodesList = window.conGetNodes ? window.conGetNodes() : [];
+            _tAllNodes.forEach(nid => {
+              const nd = _tNodesList.find(n => n.id === nid);
+              if (nd && !(typeof conIsNodeLocked === 'function' && conIsNodeLocked(nd))) {
+                _tblNodeOffsets.push({ nd, sx: nd.x, sy: nd.y });
+              }
+            });
+
+            // Snapshot co-selected notes for joint drag
+            _tblNoteOffsets = [];
+            const _tNoteSel = window.conGetNoteSelected ? window.conGetNoteSelected() : (typeof conNoteSelected !== 'undefined' ? conNoteSelected : new Set());
+            const _tNotesList = window.conGetNotes ? window.conGetNotes() : [];
+            _tNoteSel.forEach(nid => {
+              const nd = _tNotesList.find(n => n.id === nid);
+              if (nd && !nd.locked) _tblNoteOffsets.push({ nd, sx: nd.x, sy: nd.y });
+            });
+
+            // Snapshot co-selected drawings for joint drag
+            _tblDrawOffsets = [];
+            const _tDrawSel = window.conGetDrawingSelected ? window.conGetDrawingSelected() : (typeof conDrawingSelected !== 'undefined' ? conDrawingSelected : new Set());
+            const _tDrawList = window.conGetDrawings ? window.conGetDrawings() : [];
+            _tDrawSel.forEach(did => {
+              const dr = _tDrawList.find(x => x.id === did);
+              if (dr) _tblDrawOffsets.push({ dr, sx: dr.x, sy: dr.y, pad: dr.pad || Math.max((dr.thickness || 2) + 4, 12) });
+            });
+
+            // Snapshot co-selected shapes for joint drag
+            _tblShapeOffsets = [];
+            const _tShapeSel = window.conGetShapeSelected ? window.conGetShapeSelected() : (typeof _conShapeSelected !== 'undefined' ? _conShapeSelected : new Set());
+            const _tShapeList = window.conGetShapes ? window.conGetShapes() : [];
+            _tShapeSel.forEach(sid => {
+              const s = _tShapeList.find(x => x.id === sid);
+              if (s) _tblShapeOffsets.push({
+                s, sx: s.x, sy: s.y,
+                slx1: s.lx1, sly1: s.ly1, slx2: s.lx2, sly2: s.ly2,
+                spts: s.pts ? s.pts.map(p => ({ ...p })) : null,
+                pad: s.pad || (typeof _conShapeGetPAD === 'function' ? _conShapeGetPAD(s) : 16)
+              });
+            });
           });
           document.addEventListener('mousemove', function (e) {
             if (!_sx && !_sy) return;
@@ -15619,6 +15685,7 @@
             const dx = e.clientX - _sx, dy = e.clientY - _sy;
             if (!_drag && (Math.abs(dx) > 2 || Math.abs(dy) > 2)) {
               _drag = true; _pre = typeof conBuildPageSnapshot === 'function' ? conBuildPageSnapshot() : null;
+              window._conMirrorDragging = true;
             }
             if (!_drag) return;
             tbl.x = Math.max(0, _ox + dx); tbl.y = Math.max(0, _oy + dy);
@@ -15628,10 +15695,117 @@
               other.y = Math.max(0, sy + dy);
               if (other.el) { other.el.style.left = other.x + 'px'; other.el.style.top = other.y + 'px'; }
             });
+            if (_tblNodeOffsets.length > 0) {
+              _tblNodeOffsets.forEach(({ nd, sx, sy }) => {
+                nd.x = sx + dx; nd.y = sy + dy;
+                if (nd.el) { nd.el.style.left = nd.x + 'px'; nd.el.style.top = nd.y + 'px'; }
+              });
+              if (window.conRedrawEdges) window.conRedrawEdges();
+              if (window.conGroupRefitAll) window.conGroupRefitAll();
+            }
+            if (_tblNoteOffsets.length > 0) {
+              _tblNoteOffsets.forEach(({ nd, sx, sy }) => {
+                nd.x = sx + dx; nd.y = sy + dy;
+                const noteEl = (typeof wnGetNoteElementById === 'function') ? wnGetNoteElementById(nd.id) : document.querySelector(`.con-word-note[data-id="${nd.id}"]`);
+                if (noteEl) { noteEl.style.left = nd.x + 'px'; noteEl.style.top = nd.y + 'px'; }
+              });
+            }
+            if (_tblDrawOffsets.length > 0) {
+              _tblDrawOffsets.forEach(({ dr, sx, sy, pad }) => {
+                dr.x = sx + dx; dr.y = sy + dy;
+                const p = pad !== undefined ? pad : (dr.pad || 12);
+                if (dr.el) { dr.el.style.left = (dr.x - p) + 'px'; dr.el.style.top = (dr.y - p) + 'px'; }
+              });
+            }
+            if (_tblShapeOffsets.length > 0) {
+              _tblShapeOffsets.forEach(({ s, sx, sy, slx1, sly1, slx2, sly2, spts, pad }) => {
+                s.x = sx + dx; s.y = sy + dy;
+                if (s.lx1 !== undefined && slx1 !== undefined) {
+                  s.lx1 = slx1 + dx; s.ly1 = sly1 + dy;
+                  s.lx2 = slx2 + dx; s.ly2 = sly2 + dy;
+                }
+                if (s.pts && spts) s.pts = spts.map(p => ({ x: p.x + dx, y: p.y + dy }));
+                const p = pad !== undefined ? pad : (s.pad || 16);
+                if (s.el) { s.el.style.left = (s.x - p) + 'px'; s.el.style.top = (s.y - p) + 'px'; }
+                if (typeof _conShapeUpdateHandles === 'function') _conShapeUpdateHandles(s);
+              });
+            }
+            if (window._conMirrorSend) {
+              if (!_tblMoveRaf) {
+                _tblMoveRaf = requestAnimationFrame(function () {
+                  _tblMoveRaf = null;
+                  if (!window._conMirrorSend) return;
+                  const _tPositions = [{ id: tbl.id, x: tbl.x, y: tbl.y }];
+                  _tableOffsets.forEach(({ tbl: other }) => _tPositions.push({ id: other.id, x: other.x, y: other.y }));
+                  window._conMirrorSend({ type: 'table-move', positions: _tPositions });
+                  if (_tblNodeOffsets.length > 0) {
+                    window._conMirrorSend({ type: 'node-move', positions: _tblNodeOffsets.map(({ nd }) => ({ id: nd.id, x: nd.x, y: nd.y })) });
+                  }
+                  if (_tblNoteOffsets.length > 0) {
+                    window._conMirrorSend({ type: 'note-move', positions: _tblNoteOffsets.map(({ nd }) => ({ id: nd.id, x: nd.x, y: nd.y })) });
+                  }
+                  if (_tblDrawOffsets.length > 0) {
+                    window._conMirrorSend({ type: 'drawing-move', positions: _tblDrawOffsets.map(({ dr }) => ({ id: dr.id, x: dr.x, y: dr.y })) });
+                  }
+                  if (_tblShapeOffsets.length > 0) {
+                    window._conMirrorSend({
+                      type: 'shape-move',
+                      positions: _tblShapeOffsets.map(({ s }) => ({
+                        id: s.id, x: s.x, y: s.y,
+                        lx1: s.lx1, ly1: s.ly1, lx2: s.lx2, ly2: s.ly2,
+                        pts: s.pts ? s.pts.map(p => ({ ...p })) : undefined
+                      }))
+                    });
+                  }
+                });
+              }
+            }
           });
-          document.addEventListener('mouseup', function () {
-            if (_drag && _pre) { conPushUndo(_pre); }
-            _drag = false; _sx = 0; _sy = 0; _pre = null; _tableOffsets = [];
+          document.addEventListener('mouseup', function (e) {
+            if (_tblMoveRaf) { cancelAnimationFrame(_tblMoveRaf); _tblMoveRaf = null; }
+            if (_drag) {
+              if (window._conMirrorSend) {
+                const _tPositions = [{ id: tbl.id, x: tbl.x, y: tbl.y }];
+                _tableOffsets.forEach(({ tbl: other }) => _tPositions.push({ id: other.id, x: other.x, y: other.y }));
+                window._conMirrorSend({ type: 'table-move', positions: _tPositions });
+                if (_tblNodeOffsets.length > 0) {
+                  window._conMirrorSend({ type: 'node-move', positions: _tblNodeOffsets.map(({ nd }) => ({ id: nd.id, x: nd.x, y: nd.y })) });
+                }
+                if (_tblNoteOffsets.length > 0) {
+                  window._conMirrorSend({ type: 'note-move', positions: _tblNoteOffsets.map(({ nd }) => ({ id: nd.id, x: nd.x, y: nd.y })) });
+                }
+                if (_tblDrawOffsets.length > 0) {
+                  window._conMirrorSend({ type: 'drawing-move', positions: _tblDrawOffsets.map(({ dr }) => ({ id: dr.id, x: dr.x, y: dr.y })) });
+                }
+                if (_tblShapeOffsets.length > 0) {
+                  window._conMirrorSend({
+                    type: 'shape-move',
+                    positions: _tblShapeOffsets.map(({ s }) => ({
+                      id: s.id, x: s.x, y: s.y,
+                      lx1: s.lx1, ly1: s.ly1, lx2: s.lx2, ly2: s.ly2,
+                      pts: s.pts ? s.pts.map(p => ({ ...p })) : undefined
+                    }))
+                  });
+                }
+              }
+              if (_pre) { conPushUndo(_pre); }
+              if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
+            } else if (_sx && _sy && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+              const totalOther = (conTableSelected.size > 1 ? conTableSelected.size - 1 : 0) + _tblNodeOffsets.length + _tblNoteOffsets.length + _tblDrawOffsets.length + _tblShapeOffsets.length;
+              if (totalOther > 0) {
+                if (typeof conTableClearSelection === 'function') conTableClearSelection();
+                conTableSelected.add(tbl.id);
+                el.classList.add('con-table-selected');
+                if (window.conNodeClearSelection) window.conNodeClearSelection();
+                if (window.conNoteClearSelection) window.conNoteClearSelection();
+                if (window.conDrawingClearSelection) window.conDrawingClearSelection();
+                if (window.conShapeClearSelection) window.conShapeClearSelection();
+                if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
+              }
+            }
+            _drag = false; _sx = 0; _sy = 0; _pre = null;
+            _tableOffsets = []; _tblNodeOffsets = []; _tblNoteOffsets = []; _tblDrawOffsets = []; _tblShapeOffsets = [];
+            setTimeout(() => { window._conMirrorDragging = false; }, 60);
           });
 
           // Corner resize
@@ -15653,7 +15827,13 @@
             tbl.rowHeights = _rrh.map(h => Math.max(24, Math.round(h * nh / oldH)));
             _applyGridStyle(tbl); _rebuildResizers(tbl);
           });
-          document.addEventListener('mouseup', function () { _rs = false; });
+          document.addEventListener('mouseup', function () {
+            if (_rs) {
+              _rs = false;
+              if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+              if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
+            }
+          });
 
           // Right-click on table
           el.addEventListener('contextmenu', function (e) {
@@ -16162,9 +16342,9 @@
         // Drag in move mode (mouse)
         let dragging = false, dsx = 0, dsy = 0, startX = 0, startY = 0;
         // Snapshot of co-selected drawings and other items for joint drag
-        let _dragDrawSnaps = [], _dragNodeSnaps = [], _dragNoteSnaps = [];
+        let _dragDrawSnaps = [], _dragNodeSnaps = [], _dragNoteSnaps = [], _dragShapeSnaps = [], _dragTableSnaps = [];
         let _dragDrawRaf = null;
-        let _pendingDrawMoveMsg = null, _pendingNodeMoveMsg = null, _pendingNoteMoveMsg = null;
+        let _pendingDrawMoveMsg = null, _pendingNodeMoveMsg = null, _pendingNoteMoveMsg = null, _pendingShapeMoveMsg = null, _pendingTableMoveMsg = null;
         hitPath.addEventListener('mousedown', function (e) {
           if (document.body.classList.contains('laser-active')) return;
           if (e.button !== 0 || conMode !== 'move') return;
@@ -16201,6 +16381,7 @@
             if (window.conNodeClearSelection) window.conNodeClearSelection();
             if (window.conNoteClearSelection) window.conNoteClearSelection();
             if (window.conShapeClearSelection) window.conShapeClearSelection();
+            if (typeof conTableClearSelection === 'function') conTableClearSelection();
             // Now select only this drawing
             conDrawingSelected.add(d.id);
             el.classList.add('con-drawing-selected');
@@ -16223,14 +16404,16 @@
           });
           // Snapshot selected nodes for joint drag
           _dragNodeSnaps = [];
-          const multiSel = window.conGetMultiSelected && window.conGetMultiSelected();
-          if (multiSel && multiSel.size > 0) {
-            const nodes = window.conGetNodes ? window.conGetNodes() : [];
-            multiSel.forEach(nid => {
-              const nd = nodes.find(n => n.id === nid);
-              if (nd) _dragNodeSnaps.push({ nd, sx: nd.x, sy: nd.y });
-            });
-          }
+          const _allSelNodes = new Set(window.conGetMultiSelected ? window.conGetMultiSelected() : (typeof conMultiSelected !== 'undefined' ? conMultiSelected : []));
+          if (typeof conSelected !== 'undefined' && conSelected) _allSelNodes.add(conSelected);
+          if (window.conGetSelected && window.conGetSelected()) _allSelNodes.add(window.conGetSelected());
+          const _allNodesList = window.conGetNodes ? window.conGetNodes() : [];
+          _allSelNodes.forEach(nid => {
+            const nd = _allNodesList.find(n => n.id === nid);
+            if (nd && !(typeof conIsNodeLocked === 'function' && conIsNodeLocked(nd))) {
+              _dragNodeSnaps.push({ nd, sx: nd.x, sy: nd.y });
+            }
+          });
           // Snapshot selected notes for joint drag
           _dragNoteSnaps = [];
           if (window.conGetNoteSelected) {
@@ -16238,9 +16421,30 @@
             const allNotes = window.conGetNotes ? window.conGetNotes() : [];
             noteSel.forEach(nid => {
               const nd = allNotes.find(n => n.id === nid);
-              if (nd) _dragNoteSnaps.push({ nd, sx: nd.x, sy: nd.y });
+              if (nd && !nd.locked) _dragNoteSnaps.push({ nd, sx: nd.x, sy: nd.y });
             });
           }
+          // Snapshot selected shapes for joint drag
+          _dragShapeSnaps = [];
+          const _shapeSel = window.conGetShapeSelected ? window.conGetShapeSelected() : (typeof _conShapeSelected !== 'undefined' ? _conShapeSelected : new Set());
+          const _allShapesList = window.conGetShapes ? window.conGetShapes() : [];
+          _shapeSel.forEach(sid => {
+            const s = _allShapesList.find(x => x.id === sid);
+            if (s) _dragShapeSnaps.push({
+              s, sx: s.x, sy: s.y,
+              slx1: s.lx1, sly1: s.ly1, slx2: s.lx2, sly2: s.ly2,
+              spts: s.pts ? s.pts.map(p => ({ ...p })) : null,
+              pad: s.pad || (typeof _conShapeGetPAD === 'function' ? _conShapeGetPAD(s) : 16)
+            });
+          });
+          // Snapshot selected tables for joint drag
+          _dragTableSnaps = [];
+          const _tableSel = window.conGetTableSelected ? window.conGetTableSelected() : (typeof conTableSelected !== 'undefined' ? conTableSelected : new Set());
+          const _allTablesList = window.conGetTables ? window.conGetTables() : [];
+          _tableSel.forEach(tid => {
+            const tbl = _allTablesList.find(t => t.id === tid);
+            if (tbl && !tbl.locked) _dragTableSnaps.push({ tbl, sx: tbl.x, sy: tbl.y });
+          });
         });
         document.addEventListener('mousemove', function (e) {
           if (!dragging) return;
@@ -16265,8 +16469,29 @@
           if (_dragNoteSnaps.length > 0) {
             _dragNoteSnaps.forEach(({ nd, sx, sy }) => {
               nd.x = sx + dx; nd.y = sy + dy;
-              const noteEl = document.querySelector(`.con-word-note[data-id="${nd.id}"]`);
+              const noteEl = (typeof wnGetNoteElementById === 'function') ? wnGetNoteElementById(nd.id) : document.querySelector(`.con-word-note[data-id="${nd.id}"]`);
               if (noteEl) { noteEl.style.left = nd.x + 'px'; noteEl.style.top = nd.y + 'px'; }
+            });
+          }
+          // Move co-selected shapes
+          if (_dragShapeSnaps.length > 0) {
+            _dragShapeSnaps.forEach(({ s, sx, sy, slx1, sly1, slx2, sly2, spts, pad }) => {
+              s.x = sx + dx; s.y = sy + dy;
+              if (s.lx1 !== undefined && slx1 !== undefined) {
+                s.lx1 = slx1 + dx; s.ly1 = sly1 + dy;
+                s.lx2 = slx2 + dx; s.ly2 = sly2 + dy;
+              }
+              if (s.pts && spts) s.pts = spts.map(p => ({ x: p.x + dx, y: p.y + dy }));
+              const p = pad !== undefined ? pad : (s.pad || 16);
+              if (s.el) { s.el.style.left = (s.x - p) + 'px'; s.el.style.top = (s.y - p) + 'px'; }
+              if (typeof _conShapeUpdateHandles === 'function') _conShapeUpdateHandles(s);
+            });
+          }
+          // Move co-selected tables
+          if (_dragTableSnaps.length > 0) {
+            _dragTableSnaps.forEach(({ tbl, sx, sy }) => {
+              tbl.x = Math.max(0, sx + dx); tbl.y = Math.max(0, sy + dy);
+              if (tbl.el) { tbl.el.style.left = tbl.x + 'px'; tbl.el.style.top = tbl.y + 'px'; }
             });
           }
           if (window._conMirrorSend) {
@@ -16286,6 +16511,22 @@
                 positions: _dragNoteSnaps.map(({ nd }) => ({ id: nd.id, x: nd.x, y: nd.y }))
               };
             }
+            if (_dragShapeSnaps.length > 0) {
+              _pendingShapeMoveMsg = {
+                type: 'shape-move',
+                positions: _dragShapeSnaps.map(({ s }) => ({
+                  id: s.id, x: s.x, y: s.y,
+                  lx1: s.lx1, ly1: s.ly1, lx2: s.lx2, ly2: s.ly2,
+                  pts: s.pts ? s.pts.map(p => ({ ...p })) : undefined
+                }))
+              };
+            }
+            if (_dragTableSnaps.length > 0) {
+              _pendingTableMoveMsg = {
+                type: 'table-move',
+                positions: _dragTableSnaps.map(({ tbl }) => ({ id: tbl.id, x: tbl.x, y: tbl.y }))
+              };
+            }
             if (!_dragDrawRaf) {
               _dragDrawRaf = requestAnimationFrame(function () {
                 _dragDrawRaf = null;
@@ -16293,23 +16534,71 @@
                   if (_pendingDrawMoveMsg) window._conMirrorSend(_pendingDrawMoveMsg);
                   if (_pendingNodeMoveMsg) { window._conMirrorSend(_pendingNodeMoveMsg); _pendingNodeMoveMsg = null; }
                   if (_pendingNoteMoveMsg) { window._conMirrorSend(_pendingNoteMoveMsg); _pendingNoteMoveMsg = null; }
+                  if (_pendingShapeMoveMsg) { window._conMirrorSend(_pendingShapeMoveMsg); _pendingShapeMoveMsg = null; }
+                  if (_pendingTableMoveMsg) { window._conMirrorSend(_pendingTableMoveMsg); _pendingTableMoveMsg = null; }
                 }
               });
             }
           }
         });
-        document.addEventListener('mouseup', function () {
+        document.addEventListener('mouseup', function (e) {
           if (!dragging) return;
           if (_dragDrawRaf) { cancelAnimationFrame(_dragDrawRaf); _dragDrawRaf = null; }
-          if (window._conMirrorSend) {
-            if (_pendingDrawMoveMsg) { window._conMirrorSend(_pendingDrawMoveMsg); _pendingDrawMoveMsg = null; }
-            if (_pendingNodeMoveMsg) { window._conMirrorSend(_pendingNodeMoveMsg); _pendingNodeMoveMsg = null; }
-            if (_pendingNoteMoveMsg) { window._conMirrorSend(_pendingNoteMoveMsg); _pendingNoteMoveMsg = null; }
+          const _hasActuallyMoved = (Math.abs(e.clientX - dsx) > 2 || Math.abs(e.clientY - dsy) > 2);
+          if (window._conMirrorSend && _hasActuallyMoved) {
+            window._conMirrorSend({
+              type: 'drawing-move',
+              positions: _dragDrawSnaps.map(({ dr }) => ({ id: dr.id, x: dr.x, y: dr.y }))
+            });
+            if (_dragNodeSnaps.length > 0) {
+              window._conMirrorSend({
+                type: 'node-move',
+                positions: _dragNodeSnaps.map(({ nd }) => ({ id: nd.id, x: nd.x, y: nd.y }))
+              });
+            }
+            if (_dragNoteSnaps.length > 0) {
+              window._conMirrorSend({
+                type: 'note-move',
+                positions: _dragNoteSnaps.map(({ nd }) => ({ id: nd.id, x: nd.x, y: nd.y }))
+              });
+            }
+            if (_dragShapeSnaps.length > 0) {
+              window._conMirrorSend({
+                type: 'shape-move',
+                positions: _dragShapeSnaps.map(({ s }) => ({
+                  id: s.id, x: s.x, y: s.y,
+                  lx1: s.lx1, ly1: s.ly1, lx2: s.lx2, ly2: s.ly2,
+                  pts: s.pts ? s.pts.map(p => ({ ...p })) : undefined
+                }))
+              });
+            }
+            if (_dragTableSnaps.length > 0) {
+              window._conMirrorSend({
+                type: 'table-move',
+                positions: _dragTableSnaps.map(({ tbl }) => ({ id: tbl.id, x: tbl.x, y: tbl.y }))
+              });
+            }
+            if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
+          } else if (!_hasActuallyMoved && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+            const _totalOther = (conDrawingSelected.size > 1 ? conDrawingSelected.size - 1 : 0) + _dragNodeSnaps.length + _dragNoteSnaps.length + _dragShapeSnaps.length + _dragTableSnaps.length;
+            if (_totalOther > 0) {
+              if (window.conNodeClearSelection) window.conNodeClearSelection();
+              if (window.conNoteClearSelection) window.conNoteClearSelection();
+              if (window.conShapeClearSelection) window.conShapeClearSelection();
+              if (typeof conTableClearSelection === 'function') conTableClearSelection();
+              conDrawingSelected.clear();
+              document.querySelectorAll('#constellation-board .con-drawing.con-drawing-selected')
+                .forEach(el => el.classList.remove('con-drawing-selected'));
+              conDrawingSelected.add(d.id);
+              el.classList.add('con-drawing-selected');
+              _conDrawingShowHandles(d);
+              if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
+            }
           }
           dragging = false;
           hitPath.style.cursor = 'grab';
           el.style.zIndex = '660'; // keep slight elevation while selected
-          _dragDrawSnaps = []; _dragNodeSnaps = []; _dragNoteSnaps = [];
+          _dragDrawSnaps = []; _dragNodeSnaps = []; _dragNoteSnaps = []; _dragShapeSnaps = []; _dragTableSnaps = [];
           setTimeout(() => {
             window._conMirrorDragging = false;
           }, 60);
@@ -16357,6 +16646,8 @@
               positions: [{ id: d.id, x: d.x, y: d.y }]
             });
           }
+          if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+          if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
           pDragging = false;
           setTimeout(() => {
             window._conMirrorDragging = false;
@@ -16367,13 +16658,28 @@
       window.conDrawingBuild = conDrawingBuild;
 
       function _conDrawingUpdateGeom(d) {
-        if (!d.el || !d.hitPath || !d.visPath) return;
+        if (!d) return;
+        if (!d.el) {
+          try {
+            const escaped = (typeof CSS !== 'undefined' && CSS.escape) ? CSS.escape(String(d.id)) : String(d.id).replace(/["\\]/g, '\\$&');
+            d.el = document.querySelector('#constellation-board .con-drawing[data-did="' + escaped + '"], .con-drawing[data-did="' + escaped + '"]');
+          } catch (_) {
+            document.querySelectorAll('.con-drawing').forEach(el => {
+              if (el.dataset && el.dataset.did === String(d.id)) d.el = el;
+            });
+          }
+        }
+        if (!d.el) return;
+        if (!d.hitPath) d.hitPath = d.el.querySelector('path[stroke="transparent"]');
+        if (!d.visPath) d.visPath = d.el.querySelectorAll('path')[1] || d.el.querySelector('path:not([stroke="transparent"])');
+        if (!d.hitPath || !d.visPath) return;
         const PAD = d.pad || Math.max((d.thickness || 4) + 4, 12);
         d.el.style.left = (d.x - PAD) + 'px';
         d.el.style.top = (d.y - PAD) + 'px';
         d.el.style.width = (d.w + 2 * PAD) + 'px';
         d.el.style.height = (d.h + 2 * PAD) + 'px';
-        const pathD = _conBuildPathD(d.points.map(p => p === null ? null : ({ x: p.x + PAD, y: p.y + PAD })));
+        const pts = Array.isArray(d.points) ? d.points : [];
+        const pathD = (typeof _conBuildPathD === 'function') ? _conBuildPathD(pts.map(p => p === null ? null : ({ x: p.x + PAD, y: p.y + PAD }))) : '';
         d.hitPath.setAttribute('d', pathD);
         d.visPath.setAttribute('d', pathD);
       }
@@ -16585,11 +16891,15 @@
 
       window.conDrawingCtxDelete = function () {
         if (!_conDrawCtxId) return;
+        const targetId = String(_conDrawCtxId);
         conPushUndo();
         const d = conDrawings.find(dr => dr.id === _conDrawCtxId);
         if (d && d.el) d.el.remove();
         conDrawings = conDrawings.filter(dr => dr.id !== _conDrawCtxId);
         window.conDrawingCtxClose();
+        if (typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({ type: 'drawing-remove', ids: [targetId] });
+        }
       };
       window.conDrawingsClear = function () {
         conDrawings.forEach(d => { if (d.el) d.el.remove(); });
@@ -16604,13 +16914,16 @@
         if (liveSvg) liveSvg.innerHTML = '';
         // Also clear shapes
         if (window.conShapesClear) window.conShapesClear();
+        if (typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({ type: 'drawings-clear', clearShapes: true });
+        }
       };
       window.conGetDrawings = function () { return conDrawings; };
 
       function conDrawingFromData(src) {
         const _nonNullPts = Array.isArray(src.points) ? src.points.filter(p => p !== null && p !== undefined) : [];
         if (_nonNullPts.length < 2) return null;
-        const idStr = (typeof src.id === 'string' && src.id.trim()) ? src.id.trim() : 'cd' + (_conDrawNextId++);
+        const idStr = (src.id != null && String(src.id).trim()) ? String(src.id).trim() : 'cd' + (_conDrawNextId++);
         const idNum = parseInt(String(idStr).replace(/^cd/, ''), 10);
         if (!isNaN(idNum)) _conDrawNextId = Math.max(_conDrawNextId, idNum + 1);
         const d = {
@@ -17067,6 +17380,7 @@
             if (window.conNodeClearSelection) window.conNodeClearSelection();
             if (window.conDrawingClearSelection) window.conDrawingClearSelection();
             if (window.conNoteClearSelection) window.conNoteClearSelection();
+            if (typeof conTableClearSelection === 'function') conTableClearSelection();
             window.conShapeClearSelection();
             _conShapeSelected.add(s.id); s.el.classList.add('con-shape-selected');
             _conShapeShowHandles(s);
@@ -17086,6 +17400,42 @@
               slx1: sh.lx1, sly1: sh.ly1, slx2: sh.lx2, sly2: sh.ly2,
               spts: sh.pts ? sh.pts.map(p => ({ ...p })) : null
             });
+          });
+          // Snapshot co-selected nodes
+          const _shapeNodeSnaps = [];
+          const _sAllNodes = new Set(window.conGetMultiSelected ? window.conGetMultiSelected() : (typeof conMultiSelected !== 'undefined' ? conMultiSelected : []));
+          if (typeof conSelected !== 'undefined' && conSelected) _sAllNodes.add(conSelected);
+          if (window.conGetSelected && window.conGetSelected()) _sAllNodes.add(window.conGetSelected());
+          const _sNodesList = window.conGetNodes ? window.conGetNodes() : [];
+          _sAllNodes.forEach(nid => {
+            const nd = _sNodesList.find(n => n.id === nid);
+            if (nd && !(typeof conIsNodeLocked === 'function' && conIsNodeLocked(nd))) {
+              _shapeNodeSnaps.push({ nd, sx: nd.x, sy: nd.y });
+            }
+          });
+          // Snapshot co-selected notes
+          const _shapeNoteSnaps = [];
+          const _sNoteSel = window.conGetNoteSelected ? window.conGetNoteSelected() : (typeof conNoteSelected !== 'undefined' ? conNoteSelected : new Set());
+          const _sNotesList = window.conGetNotes ? window.conGetNotes() : [];
+          _sNoteSel.forEach(nid => {
+            const nd = _sNotesList.find(n => n.id === nid);
+            if (nd && !nd.locked) _shapeNoteSnaps.push({ nd, sx: nd.x, sy: nd.y });
+          });
+          // Snapshot co-selected drawings
+          const _shapeDrawSnaps = [];
+          const _sDrawSel = window.conGetDrawingSelected ? window.conGetDrawingSelected() : (typeof conDrawingSelected !== 'undefined' ? conDrawingSelected : new Set());
+          const _sDrawList = window.conGetDrawings ? window.conGetDrawings() : [];
+          _sDrawSel.forEach(did => {
+            const dr = _sDrawList.find(x => x.id === did);
+            if (dr) _shapeDrawSnaps.push({ dr, sx: dr.x, sy: dr.y, pad: dr.pad || Math.max((dr.thickness || 2) + 4, 12) });
+          });
+          // Snapshot co-selected tables
+          const _shapeTableSnaps = [];
+          const _sTableSel = window.conGetTableSelected ? window.conGetTableSelected() : (typeof conTableSelected !== 'undefined' ? conTableSelected : new Set());
+          const _sTablesList = window.conGetTables ? window.conGetTables() : [];
+          _sTableSel.forEach(tid => {
+            const tbl = _sTablesList.find(t => t.id === tid);
+            if (tbl && !tbl.locked) _shapeTableSnaps.push({ tbl, sx: tbl.x, sy: tbl.y });
           });
           function onMove(ev) {
             if (!dragging) return;
@@ -17185,6 +17535,38 @@
               }
               _conShapeUpdateHandles(sh);
             });
+            // Move co-selected nodes
+            if (_shapeNodeSnaps.length > 0) {
+              _shapeNodeSnaps.forEach(({ nd, sx, sy }) => {
+                nd.x = sx + dx; nd.y = sy + dy;
+                if (nd.el) { nd.el.style.left = nd.x + 'px'; nd.el.style.top = nd.y + 'px'; }
+              });
+              if (window.conRedrawEdges) window.conRedrawEdges();
+              if (window.conGroupRefitAll) window.conGroupRefitAll();
+            }
+            // Move co-selected notes
+            if (_shapeNoteSnaps.length > 0) {
+              _shapeNoteSnaps.forEach(({ nd, sx, sy }) => {
+                nd.x = sx + dx; nd.y = sy + dy;
+                const noteEl = (typeof wnGetNoteElementById === 'function') ? wnGetNoteElementById(nd.id) : document.querySelector(`.con-word-note[data-id="${nd.id}"]`);
+                if (noteEl) { noteEl.style.left = nd.x + 'px'; noteEl.style.top = nd.y + 'px'; }
+              });
+            }
+            // Move co-selected drawings
+            if (_shapeDrawSnaps.length > 0) {
+              _shapeDrawSnaps.forEach(({ dr, sx, sy, pad }) => {
+                dr.x = sx + dx; dr.y = sy + dy;
+                const p = pad !== undefined ? pad : (dr.pad || 12);
+                if (dr.el) { dr.el.style.left = (dr.x - p) + 'px'; dr.el.style.top = (dr.y - p) + 'px'; }
+              });
+            }
+            // Move co-selected tables
+            if (_shapeTableSnaps.length > 0) {
+              _shapeTableSnaps.forEach(({ tbl, sx, sy }) => {
+                tbl.x = Math.max(0, sx + dx); tbl.y = Math.max(0, sy + dy);
+                if (tbl.el) { tbl.el.style.left = tbl.x + 'px'; tbl.el.style.top = tbl.y + 'px'; }
+              });
+            }
             if (window._conMirrorSend) {
               _pendingShapeMoveMsg = {
                 type: 'shape-move',
@@ -17202,19 +17584,69 @@
               if (!_dragShapeRaf) {
                 _dragShapeRaf = requestAnimationFrame(function () {
                   _dragShapeRaf = null;
-                  if (window._conMirrorSend && _pendingShapeMoveMsg) {
-                    window._conMirrorSend(_pendingShapeMoveMsg);
+                  if (window._conMirrorSend) {
+                    if (_pendingShapeMoveMsg) window._conMirrorSend(_pendingShapeMoveMsg);
+                    if (_shapeNodeSnaps.length > 0) {
+                      window._conMirrorSend({ type: 'node-move', positions: _shapeNodeSnaps.map(({ nd }) => ({ id: nd.id, x: nd.x, y: nd.y })) });
+                    }
+                    if (_shapeNoteSnaps.length > 0) {
+                      window._conMirrorSend({ type: 'note-move', positions: _shapeNoteSnaps.map(({ nd }) => ({ id: nd.id, x: nd.x, y: nd.y })) });
+                    }
+                    if (_shapeDrawSnaps.length > 0) {
+                      window._conMirrorSend({ type: 'drawing-move', positions: _shapeDrawSnaps.map(({ dr }) => ({ id: dr.id, x: dr.x, y: dr.y })) });
+                    }
+                    if (_shapeTableSnaps.length > 0) {
+                      window._conMirrorSend({ type: 'table-move', positions: _shapeTableSnaps.map(({ tbl }) => ({ id: tbl.id, x: tbl.x, y: tbl.y })) });
+                    }
                   }
                 });
               }
             }
           }
-          function onUp() {
+          function onUp(ev) {
             if (_dragShapeRaf) { cancelAnimationFrame(_dragShapeRaf); _dragShapeRaf = null; }
-            if (window._conMirrorSend && _pendingShapeMoveMsg) {
-              window._conMirrorSend(_pendingShapeMoveMsg);
-              _pendingShapeMoveMsg = null;
+            const _hasActuallyMoved = ev ? (Math.abs(ev.clientX - e.clientX) > 2 || Math.abs(ev.clientY - e.clientY) > 2) : false;
+            if (window._conMirrorSend && _hasActuallyMoved) {
+              window._conMirrorSend({
+                type: 'shape-move',
+                positions: snaps.map(({ sh }) => ({
+                  id: sh.id,
+                  x: sh.x,
+                  y: sh.y,
+                  lx1: sh.lx1,
+                  ly1: sh.ly1,
+                  lx2: sh.lx2,
+                  ly2: sh.ly2,
+                  pts: sh.pts ? sh.pts.map(p => ({ ...p })) : undefined
+                }))
+              });
+              if (_shapeNodeSnaps.length > 0) {
+                window._conMirrorSend({ type: 'node-move', positions: _shapeNodeSnaps.map(({ nd }) => ({ id: nd.id, x: nd.x, y: nd.y })) });
+              }
+              if (_shapeNoteSnaps.length > 0) {
+                window._conMirrorSend({ type: 'note-move', positions: _shapeNoteSnaps.map(({ nd }) => ({ id: nd.id, x: nd.x, y: nd.y })) });
+              }
+              if (_shapeDrawSnaps.length > 0) {
+                window._conMirrorSend({ type: 'drawing-move', positions: _shapeDrawSnaps.map(({ dr }) => ({ id: dr.id, x: dr.x, y: dr.y })) });
+              }
+              if (_shapeTableSnaps.length > 0) {
+                window._conMirrorSend({ type: 'table-move', positions: _shapeTableSnaps.map(({ tbl }) => ({ id: tbl.id, x: tbl.x, y: tbl.y })) });
+              }
+              if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
+            } else if (!_hasActuallyMoved && ev && !ev.shiftKey && !ev.ctrlKey && !ev.metaKey) {
+              const _totalOther = (_conShapeSelected.size > 1 ? _conShapeSelected.size - 1 : 0) + _shapeNodeSnaps.length + _shapeNoteSnaps.length + _shapeDrawSnaps.length + _shapeTableSnaps.length;
+              if (_totalOther > 0) {
+                if (window.conNodeClearSelection) window.conNodeClearSelection();
+                if (window.conNoteClearSelection) window.conNoteClearSelection();
+                if (window.conDrawingClearSelection) window.conDrawingClearSelection();
+                if (typeof conTableClearSelection === 'function') conTableClearSelection();
+                window.conShapeClearSelection();
+                _conShapeSelected.add(s.id); s.el.classList.add('con-shape-selected');
+                _conShapeShowHandles(s);
+                if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
+              }
             }
+            _pendingShapeMoveMsg = null;
             dragging = false;
             s.el.style.zIndex = '500';
             if (s.hitEl) s.hitEl.style.cursor = 'grab';
@@ -17306,7 +17738,7 @@
       };
 
       function conShapeFromData(src) {
-        const idStr = (typeof src.id === 'string' && src.id.trim()) ? src.id.trim() : 'cs' + (_conShapeNextId++);
+        const idStr = (src.id != null && String(src.id).trim()) ? String(src.id).trim() : 'cs' + (_conShapeNextId++);
         const idNum = parseInt(String(idStr).replace(/^cs/, ''), 10);
         if (!isNaN(idNum)) _conShapeNextId = Math.max(_conShapeNextId, idNum + 1);
         const s = {
@@ -21852,23 +22284,42 @@
           conRemoveNode(conSelected);
         }
         if (typeof conDrawingSelected !== 'undefined' && conDrawingSelected.size > 0) {
+          const removedDrawingIds = [];
           [...conDrawingSelected].forEach(did => {
             const dr = (typeof conDrawings !== 'undefined' ? conDrawings : []).find(x => x.id === did);
             if (dr && dr.el) dr.el.remove();
             if (typeof conDrawings !== 'undefined') conDrawings = conDrawings.filter(x => x.id !== did);
+            removedDrawingIds.push(String(did));
           });
           conDrawingSelected.clear();
+          const overlay = document.getElementById('con-drawing-style-overlay');
+          if (overlay) overlay.classList.remove('active');
+          if (typeof window.conDrawingCtxClose === 'function') window.conDrawingCtxClose();
+          conGroups.forEach(g => {
+            if (g.drawingIds && removedDrawingIds.length > 0) {
+              const dDelSet = new Set(removedDrawingIds);
+              g.drawingIds = g.drawingIds.filter(id => !dDelSet.has(String(id)));
+            }
+          });
+          if (typeof window._conMirrorSend === 'function' && removedDrawingIds.length > 0) {
+            window._conMirrorSend({ type: 'drawing-remove', ids: removedDrawingIds });
+          }
         }
         if (window.conGetShapeSelected) {
           const shapeSel = window.conGetShapeSelected();
           if (shapeSel && shapeSel.size > 0) {
+            const removedShapeIds = [];
             [...shapeSel].forEach(sid => {
               const s = (typeof conShapes !== 'undefined' ? conShapes : []).find(x => x.id === sid);
               if (s && s.el) s.el.remove();
               if (typeof conShapes !== 'undefined') conShapes = conShapes.filter(x => x.id !== sid);
               conGroups.forEach(g => { if (g.shapeIds) g.shapeIds = g.shapeIds.filter(id => id !== sid); });
+              removedShapeIds.push(String(sid));
             });
             if (window.conShapeClearSelection) window.conShapeClearSelection();
+            if (typeof window._conMirrorSend === 'function' && removedShapeIds.length > 0) {
+              window._conMirrorSend({ type: 'shape-remove', ids: removedShapeIds });
+            }
           }
         }
         if (typeof conNoteSelected !== 'undefined' && conNoteSelected.size > 0) {
@@ -21890,6 +22341,8 @@
           });
           conTableSelected.clear();
         }
+        if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
+        if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
       };
       window.conToggleMaskSelected = function () {
         const allNotes = (typeof conNotes !== 'undefined' && Array.isArray(conNotes))
@@ -23148,6 +23601,9 @@
           if (typeof window.conShapeClearSelection === 'function') {
             window.conShapeClearSelection();
           }
+          if (typeof window.conTableClearSelection === 'function') {
+            window.conTableClearSelection();
+          }
           const node = conNodes.find(n => n.id === id);
           if (node) node.el.classList.add('con-selected');
           // Sync active palette to match the node's current colour
@@ -23184,8 +23640,14 @@
             document.querySelectorAll('#constellation-board .con-word-note.wn-selected')
               .forEach(el => el.classList.remove('wn-selected'));
           }
+          if (typeof window.conDrawingClearSelection === 'function') {
+            window.conDrawingClearSelection();
+          }
           if (typeof window.conShapeClearSelection === 'function') {
             window.conShapeClearSelection();
+          }
+          if (typeof window.conTableClearSelection === 'function') {
+            window.conTableClearSelection();
           }
         }
         if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
@@ -24462,14 +24924,19 @@
           const drawGroupSnap = (conDrawingSelected.size > 0 && isSelected)
             ? Array.from(conDrawingSelected).map(did => {
               const dr = conDrawings.find(d => d.id === did);
-              return dr ? { dr, snapX: dr.x, snapY: dr.y } : null;
+              return dr ? { dr, snapX: dr.x, snapY: dr.y, pad: dr.pad || 12 } : null;
             }).filter(Boolean)
             : [];
           // Snapshot selected shapes for joint drag
           const shapeGroupSnap = (shapeSel.size > 0 && isSelected)
             ? Array.from(shapeSel).map(sid => {
               const s = (typeof conShapes !== 'undefined' ? conShapes : []).find(x => x.id === sid);
-              return s ? { s, snapX: s.x, snapY: s.y } : null;
+              return s ? {
+                s, snapX: s.x, snapY: s.y,
+                snapLx1: s.lx1, snapLy1: s.ly1, snapLx2: s.lx2, snapLy2: s.ly2,
+                snapPts: s.pts ? s.pts.map(p => ({ ...p })) : null,
+                pad: s.pad || (typeof _conShapeGetPAD === 'function' ? _conShapeGetPAD(s) : 16)
+              } : null;
             }).filter(Boolean)
             : [];
           // Snapshot selected tables for joint drag
@@ -24677,19 +25144,29 @@
             // Move jointly-selected drawings
             if (drawGroupSnap.length > 0) {
               const ddx = node.x - nodeStartX, ddy = node.y - nodeStartY;
-              drawGroupSnap.forEach(({ dr, snapX, snapY }) => {
+              drawGroupSnap.forEach(({ dr, snapX, snapY, pad }) => {
                 dr.x = snapX + ddx;
                 dr.y = snapY + ddy;
-                if (dr.el) { dr.el.style.left = (dr.x - dr.pad) + 'px'; dr.el.style.top = (dr.y - dr.pad) + 'px'; }
+                const p = pad !== undefined ? pad : (dr.pad || 12);
+                if (dr.el) { dr.el.style.left = (dr.x - p) + 'px'; dr.el.style.top = (dr.y - p) + 'px'; }
               });
             }
             // Move jointly-selected shapes
             if (shapeGroupSnap.length > 0) {
               const ddx = node.x - nodeStartX, ddy = node.y - nodeStartY;
-              shapeGroupSnap.forEach(({ s, snapX, snapY }) => {
+              shapeGroupSnap.forEach(({ s, snapX, snapY, snapLx1, snapLy1, snapLx2, snapLy2, snapPts, pad }) => {
                 s.x = snapX + ddx;
                 s.y = snapY + ddy;
-                if (s.el) { s.el.style.left = s.x + 'px'; s.el.style.top = s.y + 'px'; }
+                if (s.lx1 !== undefined && snapLx1 !== undefined) {
+                  s.lx1 = snapLx1 + ddx; s.ly1 = snapLy1 + ddy;
+                  s.lx2 = snapLx2 + ddx; s.ly2 = snapLy2 + ddy;
+                }
+                if (s.pts && snapPts) {
+                  s.pts = snapPts.map(p => ({ x: p.x + ddx, y: p.y + ddy }));
+                }
+                const p = pad !== undefined ? pad : (s.pad || 16);
+                if (s.el) { s.el.style.left = (s.x - p) + 'px'; s.el.style.top = (s.y - p) + 'px'; }
+                if (typeof _conShapeUpdateHandles === 'function') _conShapeUpdateHandles(s);
               });
             }
             // Move jointly-selected tables
@@ -24714,11 +25191,13 @@
             }
             conRedrawEdges();
             conGroupRefitAll();
-            // Send lightweight node-move message to mirror throttled to rAF — avoids full snapshot during drag
+            // Send lightweight move messages to mirror throttled to rAF — avoids full snapshot during drag
             if (window._conMirrorSend) {
+              window._conMirrorDragging = true;
               if (!_conNodeMoveRaf) {
                 _conNodeMoveRaf = requestAnimationFrame(function () {
                   _conNodeMoveRaf = null;
+                  if (!window._conMirrorSend) return;
                   const _mirrorPositions = [];
                   if (groupSnap) {
                     groupSnap.forEach(function ({ n }) { _mirrorPositions.push({ id: n.id, x: n.x, y: n.y }); });
@@ -24726,6 +25205,34 @@
                     _mirrorPositions.push({ id: node.id, x: node.x, y: node.y });
                   }
                   window._conMirrorSend({ type: 'node-move', positions: _mirrorPositions });
+                  if (noteGroupSnap.length > 0) {
+                    window._conMirrorSend({
+                      type: 'note-move',
+                      positions: noteGroupSnap.map(({ nd }) => ({ id: nd.id, x: nd.x, y: nd.y }))
+                    });
+                  }
+                  if (drawGroupSnap.length > 0) {
+                    window._conMirrorSend({
+                      type: 'drawing-move',
+                      positions: drawGroupSnap.map(({ dr }) => ({ id: dr.id, x: dr.x, y: dr.y }))
+                    });
+                  }
+                  if (shapeGroupSnap.length > 0) {
+                    window._conMirrorSend({
+                      type: 'shape-move',
+                      positions: shapeGroupSnap.map(({ s }) => ({
+                        id: s.id, x: s.x, y: s.y,
+                        lx1: s.lx1, ly1: s.ly1, lx2: s.lx2, ly2: s.ly2,
+                        pts: s.pts ? s.pts.map(p => ({ ...p })) : undefined
+                      }))
+                    });
+                  }
+                  if (tableGroupSnap.length > 0) {
+                    window._conMirrorSend({
+                      type: 'table-move',
+                      positions: tableGroupSnap.map(({ tbl }) => ({ id: tbl.id, x: tbl.x, y: tbl.y }))
+                    });
+                  }
                 });
               }
             }
@@ -24736,6 +25243,43 @@
             if (_conNodeMoveRaf) {
               cancelAnimationFrame(_conNodeMoveRaf);
               _conNodeMoveRaf = null;
+            }
+            if (dragging && window._conMirrorSend) {
+              const _mirrorPositions = [];
+              if (groupSnap) {
+                groupSnap.forEach(function ({ n }) { _mirrorPositions.push({ id: n.id, x: n.x, y: n.y }); });
+              } else {
+                _mirrorPositions.push({ id: node.id, x: node.x, y: node.y });
+              }
+              window._conMirrorSend({ type: 'node-move', positions: _mirrorPositions });
+              if (noteGroupSnap.length > 0) {
+                window._conMirrorSend({
+                  type: 'note-move',
+                  positions: noteGroupSnap.map(({ nd }) => ({ id: nd.id, x: nd.x, y: nd.y }))
+                });
+              }
+              if (drawGroupSnap.length > 0) {
+                window._conMirrorSend({
+                  type: 'drawing-move',
+                  positions: drawGroupSnap.map(({ dr }) => ({ id: dr.id, x: dr.x, y: dr.y }))
+                });
+              }
+              if (shapeGroupSnap.length > 0) {
+                window._conMirrorSend({
+                  type: 'shape-move',
+                  positions: shapeGroupSnap.map(({ s }) => ({
+                    id: s.id, x: s.x, y: s.y,
+                    lx1: s.lx1, ly1: s.ly1, lx2: s.lx2, ly2: s.ly2,
+                    pts: s.pts ? s.pts.map(p => ({ ...p })) : undefined
+                  }))
+                });
+              }
+              if (tableGroupSnap.length > 0) {
+                window._conMirrorSend({
+                  type: 'table-move',
+                  positions: tableGroupSnap.map(({ tbl }) => ({ id: tbl.id, x: tbl.x, y: tbl.y }))
+                });
+              }
             }
             // Lift drag suppression so the MutationObserver resumes normal operation
             window._conMirrorDragging = false;
@@ -24819,7 +25363,7 @@
               });
             }
             // Full mirror sync on drag end so the mirror state is always consistent
-            if (dragging && window._conMirrorBroadcast) window._conMirrorBroadcast();
+            if (dragging && window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
 
             if (!dragging) {
               // It was a click — check modifiers
@@ -24843,7 +25387,7 @@
                   conMultiSelected.add(id);
                   el.classList.add('con-multi-selected');
                 }
-              } else if (e.shiftKey && (conMultiSelected.size > 0 || conSelected || (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0))) {
+              } else if (e.shiftKey && (conMultiSelected.size > 0 || conSelected || (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0) || (typeof conDrawingSelected !== 'undefined' && conDrawingSelected && conDrawingSelected.size > 0) || (typeof _conShapeSelected !== 'undefined' && _conShapeSelected && _conShapeSelected.size > 0) || (typeof conTableSelected !== 'undefined' && conTableSelected && conTableSelected.size > 0))) {
                 // Shift-click: also toggle
                 if (conSelected && conSelected !== id) {
                   const prevEl = conNodes.find(n => n.id === conSelected);
@@ -32873,20 +33417,28 @@
           });
         }
 
+        const cutDrawIds = [];
         if (payload.drawings && payload.drawings.length && typeof conDrawings !== 'undefined') {
           payload.drawings.forEach(d => {
             const dr = conDrawings.find(x => x.id === d.id);
             if (dr && dr.el) dr.el.remove();
             conDrawings = conDrawings.filter(x => x.id !== d.id);
+            cutDrawIds.push(String(d.id));
           });
         }
 
+        const cutShapeIds = [];
         if (payload.shapes && payload.shapes.length && typeof conShapes !== 'undefined') {
           payload.shapes.forEach(s => {
             const sh = conShapes.find(x => x.id === s.id);
             if (sh && sh.el) sh.el.remove();
             conShapes = conShapes.filter(x => x.id !== s.id);
+            cutShapeIds.push(String(s.id));
           });
+        }
+        if (typeof window._conMirrorSend === 'function') {
+          if (cutDrawIds.length > 0) window._conMirrorSend({ type: 'drawing-remove', ids: cutDrawIds });
+          if (cutShapeIds.length > 0) window._conMirrorSend({ type: 'shape-remove', ids: cutShapeIds });
         }
 
         conClipboardClearVisualSelection();
@@ -34808,12 +35360,18 @@
           function _conFlushEraserMirrorMessages() {
             if (typeof window._conMirrorSend !== 'function') return;
             if (window._conEraserMirrorPendingDrawIds && window._conEraserMirrorPendingDrawIds.length > 0) {
-              window._conMirrorSend({ type: 'drawing-remove', ids: window._conEraserMirrorPendingDrawIds });
+              const uniqueDrawIds = Array.from(new Set(window._conEraserMirrorPendingDrawIds.map(String))).filter(Boolean);
               window._conEraserMirrorPendingDrawIds = [];
+              if (uniqueDrawIds.length > 0) {
+                window._conMirrorSend({ type: 'drawing-remove', ids: uniqueDrawIds });
+              }
             }
             if (window._conEraserMirrorPendingShapeIds && window._conEraserMirrorPendingShapeIds.length > 0) {
-              window._conMirrorSend({ type: 'shape-remove', ids: window._conEraserMirrorPendingShapeIds });
+              const uniqueShapeIds = Array.from(new Set(window._conEraserMirrorPendingShapeIds.map(String))).filter(Boolean);
               window._conEraserMirrorPendingShapeIds = [];
+              if (uniqueShapeIds.length > 0) {
+                window._conMirrorSend({ type: 'shape-remove', ids: uniqueShapeIds });
+              }
             }
             if (window._conEraserMirrorPendingModifiedDrawings && window._conEraserMirrorPendingModifiedDrawings.size > 0) {
               window._conEraserMirrorPendingModifiedDrawings.forEach(modData => {
@@ -40548,10 +41106,13 @@
       });
 
       // Drag — grab the note div (not textarea); supports multi-select via Shift/Ctrl+click
-      let dragging = false, startMX = 0, startMY = 0;
+      let dragging = false, hasDragged = false, startMX = 0, startMY = 0;
       let _dragOffsets = [];
       let _nodeOffsets = [];
       let _drawOffsets = [];
+      let _shapeOffsets = [];
+      let _tableOffsets = [];
+      let _preDragSnap = null;
       let _conNoteMoveRaf = null;
       note.addEventListener('mousedown', e => {
         if (e.target.closest('.wn-note-editor') || e.target.closest('.wn-note-resizer')) return;
@@ -40560,7 +41121,8 @@
           document.activeElement.blur();
         }
         // Selection handling
-        if (e.shiftKey || e.ctrlKey || e.metaKey) {
+        const isModifier = e.shiftKey || e.ctrlKey || e.metaKey;
+        if (isModifier) {
           if (typeof conSelected !== 'undefined' && conSelected) {
             const prevEl = conNodes.find(n => n.id === conSelected);
             if (prevEl) {
@@ -40584,11 +41146,12 @@
             conNoteSelected.clear();
             conNoteSelected.add(noteData.id);
             note.classList.add('wn-selected');
+            // Plain click on an unselected note — clear node, drawing, shape, and table selections
+            if (window.conNodeClearSelection) window.conNodeClearSelection();
+            if (window.conDrawingClearSelection) window.conDrawingClearSelection();
+            if (window.conShapeClearSelection) window.conShapeClearSelection();
+            if (typeof window.conTableClearSelection === 'function') window.conTableClearSelection();
           }
-          // Plain click on a note — clear node, drawing, and shape selections
-          if (window.conNodeClearSelection) window.conNodeClearSelection();
-          if (window.conDrawingClearSelection) window.conDrawingClearSelection();
-          if (window.conShapeClearSelection) window.conShapeClearSelection();
         }
         if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
         // Check if any selected notes are locked — if so, don't allow dragging
@@ -40604,6 +41167,8 @@
         }
         // Snapshot start positions for all selected notes
         dragging = true;
+        hasDragged = false;
+        _preDragSnap = typeof conBuildPageSnapshot === 'function' ? conBuildPageSnapshot() : null;
         startMX = e.clientX;
         startMY = e.clientY;
         _dragOffsets = [];
@@ -40613,32 +41178,71 @@
         });
         // Snapshot selected nodes for joint drag
         _nodeOffsets = [];
-        const multiSel = window.conGetMultiSelected && window.conGetMultiSelected();
-        if (multiSel && multiSel.size > 0) {
-          const nodes = window.conGetNodes ? window.conGetNodes() : [];
-          multiSel.forEach(nid => {
-            const nd = nodes.find(n => n.id === nid);
-            if (nd) _nodeOffsets.push({ nd, sx: nd.x, sy: nd.y });
+        const _nAllNodes = new Set(window.conGetMultiSelected ? window.conGetMultiSelected() : (typeof conMultiSelected !== 'undefined' ? conMultiSelected : []));
+        if (typeof conSelected !== 'undefined' && conSelected) _nAllNodes.add(conSelected);
+        if (window.conGetSelected && window.conGetSelected()) _nAllNodes.add(window.conGetSelected());
+        if (typeof conGroups !== 'undefined' && Array.isArray(conGroups)) {
+          const _expandedNodeIds = new Set(_nAllNodes);
+          _nAllNodes.forEach(nid => {
+            const pg = conGroups.find(g => g.phraseGroup && g.nodeIds && g.nodeIds.includes(nid));
+            if (pg) pg.nodeIds.forEach(sid => _expandedNodeIds.add(sid));
           });
+          _expandedNodeIds.forEach(nid => _nAllNodes.add(nid));
         }
+        const _nNodesList = window.conGetNodes ? window.conGetNodes() : [];
+        _nAllNodes.forEach(nid => {
+          const nd = _nNodesList.find(n => n.id === nid);
+          if (nd && !(typeof conIsNodeLocked === 'function' && conIsNodeLocked(nd))) {
+            _nodeOffsets.push({ nd, sx: nd.x, sy: nd.y });
+          }
+        });
         // Snapshot selected drawings for joint drag
         _drawOffsets = [];
-        if (window.conGetDrawingSelected && window.conGetDrawings) {
-          const drawSel = window.conGetDrawingSelected();
-          const allDrawings = window.conGetDrawings();
-          drawSel.forEach(did => {
-            const dr = allDrawings.find(x => x.id === did);
-            if (dr) _drawOffsets.push({ dr, sx: dr.x, sy: dr.y });
+        const _nDrawSel = window.conGetDrawingSelected ? window.conGetDrawingSelected() : (typeof conDrawingSelected !== 'undefined' ? conDrawingSelected : new Set());
+        const _nDrawList = window.conGetDrawings ? window.conGetDrawings() : [];
+        _nDrawSel.forEach(did => {
+          const dr = _nDrawList.find(x => x.id === did);
+          if (dr) _drawOffsets.push({ dr, sx: dr.x, sy: dr.y, pad: dr.pad || Math.max((dr.thickness || 2) + 4, 12) });
+        });
+        // Snapshot selected shapes for joint drag
+        _shapeOffsets = [];
+        const _nShapeSel = window.conGetShapeSelected ? window.conGetShapeSelected() : (typeof _conShapeSelected !== 'undefined' ? _conShapeSelected : new Set());
+        const _nShapeList = window.conGetShapes ? window.conGetShapes() : [];
+        _nShapeSel.forEach(sid => {
+          const s = _nShapeList.find(x => x.id === sid);
+          if (s) _shapeOffsets.push({
+            s, sx: s.x, sy: s.y,
+            slx1: s.lx1, sly1: s.ly1, slx2: s.lx2, sly2: s.ly2,
+            spts: s.pts ? s.pts.map(p => ({ ...p })) : null,
+            pad: s.pad || (typeof _conShapeGetPAD === 'function' ? _conShapeGetPAD(s) : 16)
           });
-        }
+        });
+        // Snapshot selected tables for joint drag
+        _tableOffsets = [];
+        const _nTableSel = (typeof conTableSelected !== 'undefined') ? conTableSelected : new Set();
+        const _nTableList = (typeof conTables !== 'undefined') ? conTables : [];
+        _nTableSel.forEach(tid => {
+          const tbl = _nTableList.find(t => t.id === tid);
+          if (tbl && !tbl.locked) _tableOffsets.push({ tbl, sx: tbl.x, sy: tbl.y });
+        });
         note.style.cursor = 'grabbing';
         e.preventDefault();
         e.stopPropagation();
       });
       document.addEventListener('mousemove', e => {
         if (!dragging) return;
+        if (e.buttons === 0) {
+          dragging = false;
+          window._conMirrorDragging = false;
+          note.style.cursor = '';
+          return;
+        }
         const dx = e.clientX - startMX;
         const dy = e.clientY - startMY;
+        if (!hasDragged && (Math.abs(dx) > 2 || Math.abs(dy) > 2)) {
+          hasDragged = true;
+          window._conMirrorDragging = true;
+        }
         // Remove any previous snap lines for this frame
         const svgEl = document.getElementById('constellation-svg');
         const brdEl = document.getElementById('constellation-board');
@@ -40758,48 +41362,162 @@
           _nodeOffsets.forEach(({ nd, sx, sy }) => {
             nd.x = sx + dx;
             nd.y = sy + dy;
-            nd.el.style.left = nd.x + 'px';
-            nd.el.style.top = nd.y + 'px';
+            if (nd.el) {
+              nd.el.style.left = nd.x + 'px';
+              nd.el.style.top = nd.y + 'px';
+            }
           });
           if (window.conRedrawEdges) window.conRedrawEdges();
           if (window.conGroupRefitAll) window.conGroupRefitAll();
         }
         if (_drawOffsets.length > 0) {
-          _drawOffsets.forEach(({ dr, sx, sy }) => {
+          _drawOffsets.forEach(({ dr, sx, sy, pad }) => {
             dr.x = sx + dx;
             dr.y = sy + dy;
-            if (dr.el) { dr.el.style.left = (dr.x - dr.pad) + 'px'; dr.el.style.top = (dr.y - dr.pad) + 'px'; }
+            const p = pad !== undefined ? pad : (dr.pad || 12);
+            if (dr.el) { dr.el.style.left = (dr.x - p) + 'px'; dr.el.style.top = (dr.y - p) + 'px'; }
           });
         }
-        // Lightweight mirror update — send note positions directly, no snapshot
-        if (window._conMirrorSend && _dragOffsets.length > 0) {
-          window._conMirrorDragging = true;
+        if (_shapeOffsets.length > 0) {
+          _shapeOffsets.forEach(({ s, sx, sy, slx1, sly1, slx2, sly2, spts, pad }) => {
+            s.x = sx + dx;
+            s.y = sy + dy;
+            if (s.lx1 !== undefined && slx1 !== undefined) {
+              s.lx1 = slx1 + dx; s.ly1 = sly1 + dy;
+              s.lx2 = slx2 + dx; s.ly2 = sly2 + dy;
+            }
+            if (s.pts && spts) s.pts = spts.map(p => ({ x: p.x + dx, y: p.y + dy }));
+            const p = pad !== undefined ? pad : (s.pad || 16);
+            if (s.el) { s.el.style.left = (s.x - p) + 'px'; s.el.style.top = (s.y - p) + 'px'; }
+            if (typeof _conShapeUpdateHandles === 'function') _conShapeUpdateHandles(s);
+          });
+        }
+        if (_tableOffsets.length > 0) {
+          _tableOffsets.forEach(({ tbl, sx, sy }) => {
+            tbl.x = Math.max(0, sx + dx);
+            tbl.y = Math.max(0, sy + dy);
+            if (tbl.el) { tbl.el.style.left = tbl.x + 'px'; tbl.el.style.top = tbl.y + 'px'; }
+          });
+        }
+        // Lightweight mirror update — send object positions directly
+        if (hasDragged && window._conMirrorSend) {
           if (!_conNoteMoveRaf) {
             _conNoteMoveRaf = requestAnimationFrame(function () {
               _conNoteMoveRaf = null;
-              const _notePositions = _dragOffsets.map(({ nd }) => ({ id: nd.id, x: nd.x, y: nd.y }));
-              window._conMirrorSend({ type: 'note-move', positions: _notePositions });
+              if (!window._conMirrorSend) return;
+              if (_dragOffsets.length > 0) {
+                const _notePositions = _dragOffsets.map(({ nd }) => ({ id: nd.id, x: nd.x, y: nd.y }));
+                window._conMirrorSend({ type: 'note-move', positions: _notePositions });
+              }
+              if (_nodeOffsets.length > 0) {
+                window._conMirrorSend({ type: 'node-move', positions: _nodeOffsets.map(({ nd }) => ({ id: nd.id, x: nd.x, y: nd.y })) });
+              }
+              if (_drawOffsets.length > 0) {
+                window._conMirrorSend({ type: 'drawing-move', positions: _drawOffsets.map(({ dr }) => ({ id: dr.id, x: dr.x, y: dr.y })) });
+              }
+              if (_shapeOffsets.length > 0) {
+                window._conMirrorSend({
+                  type: 'shape-move',
+                  positions: _shapeOffsets.map(({ s }) => ({
+                    id: s.id, x: s.x, y: s.y,
+                    lx1: s.lx1, ly1: s.ly1, lx2: s.lx2, ly2: s.ly2,
+                    pts: s.pts ? s.pts.map(p => ({ ...p })) : undefined
+                  }))
+                });
+              }
+              if (_tableOffsets.length > 0) {
+                window._conMirrorSend({
+                  type: 'table-move',
+                  positions: _tableOffsets.map(({ tbl }) => ({ id: tbl.id, x: tbl.x, y: tbl.y }))
+                });
+              }
             });
           }
         }
       });
-      document.addEventListener('mouseup', () => {
+      document.addEventListener('mouseup', e => {
         if (!dragging) return;
-        dragging = false;
         if (_conNoteMoveRaf) {
           cancelAnimationFrame(_conNoteMoveRaf);
           _conNoteMoveRaf = null;
         }
-        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
-        // Lift drag suppression and do a full mirror sync
-        window._conMirrorDragging = false;
-        if (window._conMirrorBroadcast) window._conMirrorBroadcast();
+
+        if (hasDragged) {
+          // Send final positions
+          if (window._conMirrorSend) {
+            if (_dragOffsets.length > 0) {
+              const _notePositions = _dragOffsets.map(({ nd }) => ({ id: nd.id, x: nd.x, y: nd.y }));
+              window._conMirrorSend({ type: 'note-move', positions: _notePositions });
+            }
+            if (_nodeOffsets.length > 0) {
+              window._conMirrorSend({ type: 'node-move', positions: _nodeOffsets.map(({ nd }) => ({ id: nd.id, x: nd.x, y: nd.y })) });
+            }
+            if (_drawOffsets.length > 0) {
+              window._conMirrorSend({ type: 'drawing-move', positions: _drawOffsets.map(({ dr }) => ({ id: dr.id, x: dr.x, y: dr.y })) });
+            }
+            if (_shapeOffsets.length > 0) {
+              window._conMirrorSend({
+                type: 'shape-move',
+                positions: _shapeOffsets.map(({ s }) => ({
+                  id: s.id, x: s.x, y: s.y,
+                  lx1: s.lx1, ly1: s.ly1, lx2: s.lx2, ly2: s.ly2,
+                  pts: s.pts ? s.pts.map(p => ({ ...p })) : undefined
+                }))
+              });
+            }
+            if (_tableOffsets.length > 0) {
+              window._conMirrorSend({
+                type: 'table-move',
+                positions: _tableOffsets.map(({ tbl }) => ({ id: tbl.id, x: tbl.x, y: tbl.y }))
+              });
+            }
+          }
+          if (_nodeOffsets.length > 0) {
+            const board = document.getElementById('constellation-board');
+            if (board) {
+              const boardCenterX = board.clientWidth / 2;
+              const boardCenterY = board.clientHeight / 2;
+              const z = (typeof conCurrentZoom !== 'undefined') ? conCurrentZoom : 1;
+              _nodeOffsets.forEach(({ nd }) => {
+                nd.baseX = boardCenterX + (nd.x - boardCenterX) / z;
+                nd.baseY = boardCenterY + (nd.y - boardCenterY) / z;
+              });
+            }
+          }
+          if (_preDragSnap && typeof conPushUndo === 'function') conPushUndo(_preDragSnap);
+          if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+          // Full mirror sync with revision bumped
+          if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
+        } else if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
+          const totalOther = (conNoteSelected.size > 1 ? conNoteSelected.size - 1 : 0) + _nodeOffsets.length + _drawOffsets.length + _shapeOffsets.length + _tableOffsets.length;
+          if (totalOther > 0) {
+            document.querySelectorAll('#constellation-board .con-word-note.wn-selected')
+              .forEach(n => n.classList.remove('wn-selected'));
+            conNoteSelected.clear();
+            conNoteSelected.add(noteData.id);
+            note.classList.add('wn-selected');
+            if (window.conNodeClearSelection) window.conNodeClearSelection();
+            if (window.conDrawingClearSelection) window.conDrawingClearSelection();
+            if (window.conShapeClearSelection) window.conShapeClearSelection();
+            if (typeof window.conTableClearSelection === 'function') window.conTableClearSelection();
+            if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
+          }
+        }
+
+        dragging = false;
+        hasDragged = false;
+        _preDragSnap = null;
         // Clear snap lines
         document.querySelectorAll('.con-snap-line').forEach(l => l.remove());
         note.style.cursor = '';
         _dragOffsets = [];
         _nodeOffsets = [];
         _drawOffsets = [];
+        _shapeOffsets = [];
+        _tableOffsets = [];
+        setTimeout(() => {
+          window._conMirrorDragging = false;
+        }, 60);
       });
     }
 
@@ -60635,17 +61353,21 @@
 
         if (d.type === 'table-move') {
           if (_mirrorIsFrozen) return;
-          var tEl = document.querySelector('.con-table-el[data-tid="' + d.id + '"]');
-          if (tEl) {
-            if (typeof d.x === 'number') tEl.style.left = d.x + 'px';
-            if (typeof d.y === 'number') tEl.style.top = d.y + 'px';
-          }
+          var _tPositions = Array.isArray(d.positions) ? d.positions : (d.id ? [{ id: d.id, x: d.x, y: d.y }] : []);
+          if (!_tPositions.length) return;
           var _liveTables = window.conGetTables ? window.conGetTables() : [];
-          var tObj = _liveTables.find(function (t) { return String(t.id) === String(d.id); });
-          if (tObj) {
-            if (typeof d.x === 'number') tObj.x = d.x;
-            if (typeof d.y === 'number') tObj.y = d.y;
-          }
+          _tPositions.forEach(function (tp) {
+            var tEl = document.querySelector('.con-table-el[data-tid="' + tp.id + '"]');
+            if (tEl) {
+              if (typeof tp.x === 'number') tEl.style.left = tp.x + 'px';
+              if (typeof tp.y === 'number') tEl.style.top = tp.y + 'px';
+            }
+            var tObj = _liveTables.find(function (t) { return String(t.id) === String(tp.id); });
+            if (tObj) {
+              if (typeof tp.x === 'number') tObj.x = tp.x;
+              if (typeof tp.y === 'number') tObj.y = tp.y;
+            }
+          });
           return;
         }
 
@@ -61130,18 +61852,37 @@
           return;
         }
 
-        if (d.type === 'drawing-remove') {
+        if (d.type === 'drawing-remove' || d.type === 'drawings-remove' || d.type === 'drawing-delete') {
           if (_mirrorIsFrozen) return;
           var _liveDrawings2 = window.conGetDrawings ? window.conGetDrawings() : [];
-          var _removeIds = Array.isArray(d.ids) ? d.ids.map(String) : (d.id ? [String(d.id)] : []);
+          var _removeIds = Array.from(new Set(Array.isArray(d.ids) ? d.ids.map(String) : (d.id != null ? [String(d.id)] : []))).filter(Boolean);
           _removeIds.forEach(function (did) {
-            var drEl = document.querySelector('#constellation-board .con-drawing[data-did="' + did + '"]');
-            if (drEl) drEl.remove();
             var idx = _liveDrawings2.findIndex(function (dr) { return String(dr.id) === did; });
-            if (idx !== -1) _liveDrawings2.splice(idx, 1);
+            if (idx !== -1) {
+              var dr = _liveDrawings2[idx];
+              if (dr && dr.el && dr.el.remove) {
+                try { dr.el.remove(); } catch (_) { }
+              }
+              _liveDrawings2.splice(idx, 1);
+            }
+            try {
+              var escaped = (typeof CSS !== 'undefined' && CSS.escape) ? CSS.escape(did) : did.replace(/["\\]/g, '\\$&');
+              document.querySelectorAll('#constellation-board .con-drawing[data-did="' + escaped + '"], .con-drawing[data-did="' + escaped + '"]').forEach(function (el) {
+                try { el.remove(); } catch (_) { }
+              });
+            } catch (_) {
+              document.querySelectorAll('.con-drawing').forEach(function (el) {
+                if (el.dataset && el.dataset.did === did) {
+                  try { el.remove(); } catch (_) { }
+                }
+              });
+            }
+            if (typeof conDrawingSelected !== 'undefined' && conDrawingSelected.has(did)) {
+              conDrawingSelected.delete(did);
+            }
           });
-          if (Array.isArray(d.ids)) {
-            var delSet = new Set(d.ids.map(String));
+          if (_removeIds.length > 0) {
+            var delSet = new Set(_removeIds);
             var liveGroups = window.conGetGroups ? window.conGetGroups() : [];
             liveGroups.forEach(function (g) {
               if (g.drawingIds) g.drawingIds = g.drawingIds.filter(function (id) { return !delSet.has(String(id)); });
@@ -61151,18 +61892,78 @@
           return;
         }
 
-        if (d.type === 'shape-remove') {
+        if (d.type === 'drawings-clear' || d.type === 'drawing-clear') {
+          if (_mirrorIsFrozen) return;
+          var _liveDrawingsClear = window.conGetDrawings ? window.conGetDrawings() : [];
+          _liveDrawingsClear.forEach(function (dr) {
+            if (dr && dr.el && dr.el.remove) {
+              try { dr.el.remove(); } catch (_) { }
+            }
+          });
+          if (window.conGetDrawings) {
+            var allDrs = window.conGetDrawings();
+            allDrs.length = 0;
+          }
+          document.querySelectorAll('#constellation-board .con-drawing, .con-drawing').forEach(function (el) {
+            try { el.remove(); } catch (_) { }
+          });
+          var lsv = document.getElementById('con-draw-live-svg');
+          if (lsv) lsv.innerHTML = '';
+          if (d.clearShapes) {
+            var _liveShapesClear = window.conGetShapes ? window.conGetShapes() : [];
+            _liveShapesClear.forEach(function (s) {
+              if (s && s.el && s.el.remove) {
+                try { s.el.remove(); } catch (_) { }
+              }
+            });
+            if (window.conGetShapes) {
+              var allShs = window.conGetShapes();
+              allShs.length = 0;
+            }
+            document.querySelectorAll('#constellation-board .con-shape, .con-shape').forEach(function (el) {
+              try { el.remove(); } catch (_) { }
+            });
+          }
+          var liveGroupsClear = window.conGetGroups ? window.conGetGroups() : [];
+          liveGroupsClear.forEach(function (g) {
+            if (g.drawingIds) g.drawingIds = [];
+            if (d.clearShapes && g.shapeIds) g.shapeIds = [];
+          });
+          if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
+          return;
+        }
+
+        if (d.type === 'shape-remove' || d.type === 'shapes-remove' || d.type === 'shape-delete') {
           if (_mirrorIsFrozen) return;
           var _liveShapes2 = window.conGetShapes ? window.conGetShapes() : [];
-          var _removeShapeIds = Array.isArray(d.ids) ? d.ids.map(String) : (d.id ? [String(d.id)] : []);
+          var _removeShapeIds = Array.from(new Set(Array.isArray(d.ids) ? d.ids.map(String) : (d.id != null ? [String(d.id)] : []))).filter(Boolean);
           _removeShapeIds.forEach(function (sid) {
-            var sEl = document.querySelector('#constellation-board .con-shape[data-sid="' + sid + '"]');
-            if (sEl) sEl.remove();
             var idx = _liveShapes2.findIndex(function (s) { return String(s.id) === sid; });
-            if (idx !== -1) _liveShapes2.splice(idx, 1);
+            if (idx !== -1) {
+              var s = _liveShapes2[idx];
+              if (s && s.el && s.el.remove) {
+                try { s.el.remove(); } catch (_) { }
+              }
+              _liveShapes2.splice(idx, 1);
+            }
+            try {
+              var escaped = (typeof CSS !== 'undefined' && CSS.escape) ? CSS.escape(sid) : sid.replace(/["\\]/g, '\\$&');
+              document.querySelectorAll('#constellation-board .con-shape[data-sid="' + escaped + '"], .con-shape[data-sid="' + escaped + '"]').forEach(function (el) {
+                try { el.remove(); } catch (_) { }
+              });
+            } catch (_) {
+              document.querySelectorAll('.con-shape').forEach(function (el) {
+                if (el.dataset && el.dataset.sid === sid) {
+                  try { el.remove(); } catch (_) { }
+                }
+              });
+            }
+            if (typeof _conShapeSelected !== 'undefined' && _conShapeSelected.has(sid)) {
+              _conShapeSelected.delete(sid);
+            }
           });
-          if (Array.isArray(d.ids)) {
-            var delShapeSet = new Set(d.ids.map(String));
+          if (_removeShapeIds.length > 0) {
+            var delShapeSet = new Set(_removeShapeIds);
             var liveGroups = window.conGetGroups ? window.conGetGroups() : [];
             liveGroups.forEach(function (g) {
               if (g.shapeIds) g.shapeIds = g.shapeIds.filter(function (id) { return !delShapeSet.has(String(id)); });
@@ -61271,6 +62072,20 @@
             if (Array.isArray(d.points)) dObj.points = d.points;
             if (typeof window._conDrawingUpdateGeom === 'function') {
               window._conDrawingUpdateGeom(dObj);
+            }
+          } else {
+            var fallbackDr = {
+              id: d.id,
+              x: d.x,
+              y: d.y,
+              w: d.w,
+              h: d.h,
+              points: d.points,
+              thickness: d.thickness,
+              pad: d.pad
+            };
+            if (typeof window._conDrawingUpdateGeom === 'function') {
+              window._conDrawingUpdateGeom(fallbackDr);
             }
           }
           return;
