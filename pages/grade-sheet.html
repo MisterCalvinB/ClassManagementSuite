@@ -1921,6 +1921,10 @@
             <span data-i18n="gsReportToggleObservations">Include Observations &amp; Feedback</span>
           </label>
           <label class="report-option-item" style="padding: 6px 8px; font-size: 0.78rem;">
+            <input type="checkbox" id="gs-report-toggle-observation-chips" checked />
+            <span data-i18n="gsReportToggleObservationChips">Include Observation Chips Stats</span>
+          </label>
+          <label class="report-option-item" style="padding: 6px 8px; font-size: 0.78rem;">
             <input type="checkbox" id="gs-report-toggle-scale" checked />
             <span data-i18n="gsReportToggleScale">Include Grading Scale</span>
           </label>
@@ -5190,7 +5194,13 @@
         closeBtn.type = "button";
         closeBtn.className = "smod-crit-popover-close";
         closeBtn.textContent = "✕";
-        closeBtn.onclick = closeCriterionDecisionsPopover;
+        closeBtn.onclick = (e) => {
+          if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+          closeCriterionDecisionsPopover();
+        };
 
         header.appendChild(titleWrap);
         header.appendChild(closeBtn);
@@ -5225,6 +5235,12 @@
             saveScoringDecisionsToBank(criteriaBankFn);
             if (typeof onUpdate === 'function') onUpdate();
           });
+          input.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              addBtn.click();
+            }
+          });
 
           const actionsWrap = document.createElement("div");
           actionsWrap.className = "smod-decision-actions";
@@ -5236,7 +5252,11 @@
           upBtn.textContent = "▲";
           upBtn.title = "Move Up";
           upBtn.disabled = (idx === 0);
-          upBtn.onclick = () => {
+          upBtn.onclick = (e) => {
+            if (e) {
+              e.preventDefault();
+              e.stopPropagation();
+            }
             if (idx > 0) {
               const tmp = rules[idx];
               rules[idx] = rules[idx - 1];
@@ -5258,7 +5278,11 @@
           downBtn.textContent = "▼";
           downBtn.title = "Move Down";
           downBtn.disabled = (idx === rules.length - 1);
-          downBtn.onclick = () => {
+          downBtn.onclick = (e) => {
+            if (e) {
+              e.preventDefault();
+              e.stopPropagation();
+            }
             if (idx < rules.length - 1) {
               const tmp = rules[idx];
               rules[idx] = rules[idx + 1];
@@ -5279,7 +5303,11 @@
           insertBtn.className = "smod-decision-btn smod-decision-btn-comment";
           insertBtn.textContent = t('gsBtnInsertComment', '➔ Comment');
           insertBtn.title = t('gsBtnInsertCommentTitle', "Insert this decision into the student's comment");
-          insertBtn.onclick = () => {
+          insertBtn.onclick = (e) => {
+            if (e) {
+              e.preventDefault();
+              e.stopPropagation();
+            }
             const ruleVal = String(rules[idx] || '').trim();
             if (ruleVal && commentTextarea) {
               const cur = commentTextarea.value.trim();
@@ -5297,7 +5325,11 @@
           delBtn.className = "smod-decision-btn smod-decision-btn-del";
           delBtn.textContent = "✕";
           delBtn.title = "Delete";
-          delBtn.onclick = () => {
+          delBtn.onclick = (e) => {
+            if (e) {
+              e.preventDefault();
+              e.stopPropagation();
+            }
             rules.splice(idx, 1);
             if (rules.length === 0) {
               rules.push("");
@@ -5327,7 +5359,11 @@
         addBtn.type = "button";
         addBtn.className = "smod-crit-popover-add-btn";
         addBtn.textContent = t('gsBtnAddDecision', '+ Add decision');
-        addBtn.onclick = () => {
+        addBtn.onclick = (e) => {
+          if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
           rules.push("");
           if (cohortSourceEntry) {
             if (!cohortSourceEntry.criteriaDecisions) cohortSourceEntry.criteriaDecisions = {};
@@ -5340,6 +5376,9 @@
           if (inputs.length) {
             const last = inputs[inputs.length - 1];
             last.focus();
+            if (typeof last.scrollIntoView === 'function') {
+              last.scrollIntoView({ block: 'nearest' });
+            }
           }
         };
 
@@ -5371,9 +5410,16 @@
 
       let critDecUnreg = null;
       function onDocClick(e) {
-        if (!popover.contains(e.target) && !buttonEl.contains(e.target)) {
-          closeCriterionDecisionsPopover();
+        if (e.composedPath && (e.composedPath().includes(popover) || (buttonEl && e.composedPath().includes(buttonEl)))) {
+          return;
         }
+        if (popover.contains(e.target) || (buttonEl && buttonEl.contains(e.target))) {
+          return;
+        }
+        closeCriterionDecisionsPopover();
+      }
+      function onPopoverClick(e) {
+        e.stopPropagation();
       }
       function onDocKeydown(e) {
         if (e.key === 'Escape') {
@@ -5383,6 +5429,8 @@
           closeCriterionDecisionsPopover();
         }
       }
+
+      popover.addEventListener("click", onPopoverClick);
 
       if (window.cmtPushEscapeHandler) {
         critDecUnreg = window.cmtPushEscapeHandler({ el: popover, close: closeCriterionDecisionsPopover });
@@ -5401,6 +5449,7 @@
         bankFn: criteriaBankFn,
         cleanup() {
           if (critDecUnreg) { critDecUnreg(); critDecUnreg = null; }
+          popover.removeEventListener("click", onPopoverClick);
           document.removeEventListener("click", onDocClick);
           document.removeEventListener("keydown", onDocKeydown);
         }
@@ -16631,8 +16680,12 @@
 
     // ── Class Report HTML Builders ──
 
-    function buildClassYearReportHtml(classObj) {
+    function buildClassYearReportHtml(classObj, fitToOnePage = getReportFitToOnePage(), options = {}) {
       ensureClassStructures(classObj);
+      const opts = (typeof options === 'object' && options !== null) ? options : {};
+      const incChips = opts.includeObservationChips !== undefined
+        ? !!opts.includeObservationChips
+        : (opts.includeObservations !== undefined ? !!opts.includeObservations : getReportIncludeObservationChips());
       const n1 = classObj.testCounts.sem1;
       const n2 = classObj.testCounts.sem2;
 
@@ -16814,7 +16867,7 @@
             </tbody>
           </table>
           ${(() => {
-            if (typeof getReportIncludeObservations === 'function' && !getReportIncludeObservations()) return '';
+            if (!incChips) return '';
             const topChips = getTopObservationChips(classObj, { semester: 'all', limit: 10 });
             if (!topChips.length) return '';
             return `
@@ -16827,8 +16880,12 @@
       </body></html>`;
     }
 
-    function buildClassSemesterReportHtml(classObj, sem, fitToOnePage = getReportFitToOnePage()) {
+    function buildClassSemesterReportHtml(classObj, sem, fitToOnePage = getReportFitToOnePage(), options = {}) {
       ensureClassStructures(classObj);
+      const opts = (typeof options === 'object' && options !== null) ? options : {};
+      const incChips = opts.includeObservationChips !== undefined
+        ? !!opts.includeObservationChips
+        : (opts.includeObservations !== undefined ? !!opts.includeObservations : getReportIncludeObservationChips());
       const semLabel = sem === "sem2" ? t('gsSem2') : t('gsSem1');
       const n = classObj.testCounts[sem];
 
@@ -16949,7 +17006,7 @@
             </tbody>
           </table>
           ${(() => {
-            if (typeof getReportIncludeObservations === 'function' && !getReportIncludeObservations()) return '';
+            if (!incChips) return '';
             const topChips = getTopObservationChips(classObj, { semester: sem, limit: 10 });
             if (!topChips.length) return '';
             return `
@@ -16969,6 +17026,9 @@
       const incCharts = opts.includeCharts !== undefined ? !!opts.includeCharts : getReportIncludeCharts();
       const incCriteria = opts.includeCriteria !== undefined ? !!opts.includeCriteria : getReportIncludeCriteria();
       const incComp = opts.includeCompetences !== undefined ? !!opts.includeCompetences : includeCompetences;
+      const incChips = opts.includeObservationChips !== undefined
+        ? !!opts.includeObservationChips
+        : (opts.includeObservations !== undefined ? !!opts.includeObservations : getReportIncludeObservationChips());
       const fitPage = opts.fitToOnePage !== undefined ? !!opts.fitToOnePage : fitToOnePage;
 
       const config = getTestConfig(classObj, sem, testIndex);
@@ -17196,7 +17256,7 @@
           })()}
 
           ${(() => {
-            if (typeof getReportIncludeObservations === 'function' && !getReportIncludeObservations()) return '';
+            if (!incChips) return '';
             const topChips = getTopObservationChips(classObj, { semester: sem, testIndex: testIndex, limit: 10 });
             if (!topChips.length) return '';
             return `
@@ -17763,6 +17823,7 @@
         includeCriteria: getReportIncludeCriteria(),
         includeComments: getReportIncludeComments(),
         includeObservations: getReportIncludeObservations(),
+        includeObservationChips: getReportIncludeObservationChips(),
         includeScale: getReportIncludeScale(),
         fitToOnePage: getReportFitToOnePage()
       };
@@ -17836,6 +17897,9 @@
       }
       if (typeof opts.includeObservations === 'boolean') {
         localStorage.setItem('cmt-gs-report-include-observations', opts.includeObservations ? 'true' : 'false');
+      }
+      if (typeof opts.includeObservationChips === 'boolean') {
+        localStorage.setItem('cmt-gs-report-include-observation-chips', opts.includeObservationChips ? 'true' : 'false');
       }
       if (typeof opts.includeScale === 'boolean') {
         localStorage.setItem('cmt-gs-report-include-scale', opts.includeScale ? 'true' : 'false');
@@ -17984,6 +18048,23 @@
       saveReportOptionsConfigFile();
     }
 
+    function getReportIncludeObservationChips() {
+      const el = document.getElementById('gs-report-toggle-observation-chips');
+      if (el) return !!el.checked;
+      if (window.GRADE_SHEET_REPORT_OPTIONS && typeof window.GRADE_SHEET_REPORT_OPTIONS.includeObservationChips === 'boolean') {
+        return window.GRADE_SHEET_REPORT_OPTIONS.includeObservationChips;
+      }
+      const cached = localStorage.getItem('cmt-gs-report-include-observation-chips');
+      return cached !== 'false';
+    }
+
+    function setReportIncludeObservationChips(val) {
+      localStorage.setItem('cmt-gs-report-include-observation-chips', val ? 'true' : 'false');
+      const el = document.getElementById('gs-report-toggle-observation-chips');
+      if (el) el.checked = !!val;
+      saveReportOptionsConfigFile();
+    }
+
     function getReportIncludeScale() {
       const el = document.getElementById('gs-report-toggle-scale');
       if (el) return !!el.checked;
@@ -18008,6 +18089,7 @@
         includeCriteria: getReportIncludeCriteria(),
         includeComments: getReportIncludeComments(),
         includeObservations: getReportIncludeObservations(),
+        includeObservationChips: getReportIncludeObservationChips(),
         includeScale: getReportIncludeScale(),
         includeCompetences: getReportIncludeCompetences(),
         includeExerciseMeans: getReportIncludeExerciseMeans(),
@@ -18027,6 +18109,8 @@
       if (elComments) elComments.checked = opts.includeComments;
       const elObs = document.getElementById('gs-report-toggle-observations');
       if (elObs) elObs.checked = opts.includeObservations;
+      const elChips = document.getElementById('gs-report-toggle-observation-chips');
+      if (elChips) elChips.checked = opts.includeObservationChips;
       const elScale = document.getElementById('gs-report-toggle-scale');
       if (elScale) elScale.checked = opts.includeScale;
       const elComp = document.getElementById('gs-report-toggle-competences');
@@ -18259,7 +18343,7 @@
         reportType: 'class-year',
         rebuild: (options) => {
           const o = (typeof options === 'object' && options !== null) ? options : getReportOptions();
-          return buildClassYearReportHtml(classObj, o.fitToOnePage);
+          return buildClassYearReportHtml(classObj, o.fitToOnePage, o);
         }
       });
     }
@@ -18267,14 +18351,14 @@
     function openClassSemesterReport(classObj, sem) {
       if (!classObj) return;
       const opts = getReportOptions();
-      const html = buildClassSemesterReportHtml(classObj, sem, opts.fitToOnePage);
+      const html = buildClassSemesterReportHtml(classObj, sem, opts.fitToOnePage, opts);
       const slug = slugifyForPath(classObj.name || "class");
       openReportModal(html, `${classObj.name} — ${sem.toUpperCase()} Class Report`, `${slug}-${sem}-report`, {
         isLandscape: false,
         reportType: 'class-semester',
         rebuild: (options) => {
           const o = (typeof options === 'object' && options !== null) ? options : getReportOptions();
-          return buildClassSemesterReportHtml(classObj, sem, o.fitToOnePage);
+          return buildClassSemesterReportHtml(classObj, sem, o.fitToOnePage, o);
         }
       });
     }
@@ -21763,6 +21847,7 @@
       bindReportToggle("gs-report-toggle-criteria", setReportIncludeCriteria);
       bindReportToggle("gs-report-toggle-comments", setReportIncludeComments);
       bindReportToggle("gs-report-toggle-observations", setReportIncludeObservations);
+      bindReportToggle("gs-report-toggle-observation-chips", setReportIncludeObservationChips);
       bindReportToggle("gs-report-toggle-scale", setReportIncludeScale);
       bindReportToggle("gs-report-toggle-fit-page", setReportFitToOnePage);
 

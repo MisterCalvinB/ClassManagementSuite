@@ -3073,12 +3073,18 @@
 
         function _updatePresWindowControls() {
             const el = document.getElementById('rsp-pres-controls');
-            if (el) el.style.display = _presWindowOpen ? '' : 'none';
+            if (typeof ensurePresentationPopupMenu === 'function') {
+                ensurePresentationPopupMenu();
+            }
             const popup = document.getElementById('cms-pres-popup');
             if (popup) {
-                popup.style.display = _presWindowOpen ? 'flex' : 'none';
                 if (_presWindowOpen) {
-                    requestAnimationFrame(() => positionFloatingWidgetsWithoutOverlap());
+                    if (typeof preparePresentationPopupBeforeApparition === 'function') {
+                        preparePresentationPopupBeforeApparition();
+                    }
+                    popup.style.display = 'flex';
+                } else {
+                    popup.style.display = 'none';
                 }
             }
         }
@@ -3674,10 +3680,187 @@
 
         let _modePillPos = null;
 
+        function isWidgetVisible(el) {
+            if (!el || !document.body.contains(el)) return false;
+            if (el.style.display === 'none') return false;
+            if (typeof window !== 'undefined' && window.getComputedStyle) {
+                try {
+                    const cs = window.getComputedStyle(el);
+                    if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+                } catch (_) {}
+            }
+            return true;
+        }
+
+        function getFloatingWidgetMetrics(el, fallbackW, fallbackH) {
+            if (!el) return { width: fallbackW, height: fallbackH, left: null, top: null, visible: false };
+            const isVis = isWidgetVisible(el);
+            let width = el.offsetWidth;
+            let height = el.offsetHeight;
+            if (!width || !height) {
+                const prevVis = el.style.visibility;
+                const prevDisp = el.style.display;
+                el.style.visibility = 'hidden';
+                el.style.display = (el.id === 'cms-pres-popup') ? 'flex' : 'inline-flex';
+                width = el.offsetWidth || fallbackW;
+                height = el.offsetHeight || fallbackH;
+                el.style.display = prevDisp;
+                el.style.visibility = prevVis;
+            }
+            let left = null;
+            let top = null;
+            if (el.style.left && el.style.top) {
+                left = parseFloat(el.style.left);
+                top = parseFloat(el.style.top);
+            } else if (isVis) {
+                const rect = el.getBoundingClientRect();
+                left = rect.left;
+                top = rect.top;
+            }
+            return { el, width, height, left, top, visible: isVis };
+        }
+
+        function rectsOverlap(r1, r2, buffer = 16) {
+            const r1Left = r1.left;
+            const r1Top = r1.top;
+            const r1Right = r1.right !== undefined ? r1.right : (r1.left + r1.width);
+            const r1Bottom = r1.bottom !== undefined ? r1.bottom : (r1.top + r1.height);
+
+            const r2Left = r2.left;
+            const r2Top = r2.top;
+            const r2Right = r2.right !== undefined ? r2.right : (r2.left + r2.width);
+            const r2Bottom = r2.bottom !== undefined ? r2.bottom : (r2.top + r2.height);
+
+            return !(
+                r1Right + buffer <= r2Left ||
+                r1Left >= r2Right + buffer ||
+                r1Bottom + buffer <= r2Top ||
+                r1Top >= r2Bottom + buffer
+            );
+        }
+
+        function prepareModePillPositionBeforeCollapse() {
+            const pill = document.getElementById('mode-minimized-pill');
+            if (!pill) return;
+            if (typeof ensurePresentationPopupMenu === 'function') {
+                ensurePresentationPopupMenu();
+            }
+            const popup = document.getElementById('cms-pres-popup');
+            const pad = 8;
+            const BUFFER = 16;
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+
+            const pillMetrics = getFloatingWidgetMetrics(pill, 160, 26);
+            const pillW = pillMetrics.width;
+            const pillH = pillMetrics.height;
+
+            const popupVisible = isWidgetVisible(popup);
+
+            let targetLeft = null;
+            let targetTop = null;
+
+            if (_modePillPos && typeof _modePillPos.left === 'number' && typeof _modePillPos.top === 'number') {
+                targetLeft = _modePillPos.left;
+                targetTop = _modePillPos.top;
+            } else {
+                targetLeft = viewportWidth - pillW - 20;
+                targetTop = viewportHeight - pillH - 20;
+            }
+
+            targetLeft = Math.max(pad, Math.min(viewportWidth - pillW - pad, targetLeft));
+            targetTop = Math.max(pad, Math.min(viewportHeight - pillH - pad, targetTop));
+
+            if (popupVisible && popup) {
+                const popRect = popup.getBoundingClientRect();
+                const candRect = { left: targetLeft, top: targetTop, width: pillW, height: pillH };
+
+                if (rectsOverlap(candRect, popRect, BUFFER)) {
+                    // Position pill cleanly above presentation menu
+                    let candTop = popRect.top - pillH - BUFFER;
+                    let candLeft = Math.max(pad, Math.min(viewportWidth - pillW - pad, popRect.right - pillW));
+
+                    if (candTop < pad) {
+                        candTop = Math.max(pad, Math.min(viewportHeight - pillH - pad, popRect.top));
+                        candLeft = popRect.left - pillW - BUFFER;
+                    }
+                    if (candLeft < pad) {
+                        candTop = popRect.bottom + BUFFER;
+                        candLeft = Math.max(pad, Math.min(viewportWidth - pillW - pad, popRect.left));
+                    }
+
+                    targetLeft = Math.max(pad, Math.min(viewportWidth - pillW - pad, candLeft));
+                    targetTop = Math.max(pad, Math.min(viewportHeight - pillH - pad, candTop));
+                }
+            }
+
+            pill.style.transition = 'none';
+            pill.style.left = targetLeft + 'px';
+            pill.style.top = targetTop + 'px';
+            pill.style.right = 'auto';
+            pill.style.bottom = 'auto';
+            _modePillPos = { left: targetLeft, top: targetTop };
+        }
+
+        function preparePresentationPopupBeforeApparition() {
+            const popup = document.getElementById('cms-pres-popup');
+            if (!popup) return;
+            const pill = document.getElementById('mode-minimized-pill');
+            const pad = 8;
+            const BUFFER = 16;
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+
+            const popupMetrics = getFloatingWidgetMetrics(popup, 215, 34);
+            const popW = popupMetrics.width;
+            const popH = popupMetrics.height;
+
+            let popLeft = (popupMetrics.left !== null) ? popupMetrics.left : (viewportWidth - popW - 12);
+            let popTop = (popupMetrics.top !== null) ? popupMetrics.top : (viewportHeight - popH - 12);
+
+            popLeft = Math.max(pad, Math.min(viewportWidth - popW - pad, popLeft));
+            popTop = Math.max(pad, Math.min(viewportHeight - popH - pad, popTop));
+
+            const pillVisible = isWidgetVisible(pill);
+
+            if (pillVisible && pill) {
+                const pillRect = pill.getBoundingClientRect();
+                const popRect = { left: popLeft, top: popTop, width: popW, height: popH };
+
+                if (rectsOverlap(popRect, pillRect, BUFFER)) {
+                    let newPillTop = popTop - pillRect.height - BUFFER;
+                    let newPillLeft = Math.max(pad, Math.min(viewportWidth - pillRect.width - pad, (popLeft + popW) - pillRect.width));
+
+                    if (newPillTop < pad) {
+                        newPillTop = Math.max(pad, Math.min(viewportHeight - pillRect.height - pad, popTop));
+                        newPillLeft = popLeft - pillRect.width - BUFFER;
+                    }
+                    if (newPillLeft < pad) {
+                        newPillTop = popTop + popH + BUFFER;
+                        newPillLeft = Math.max(pad, Math.min(viewportWidth - pillRect.width - pad, popLeft));
+                    }
+
+                    newPillLeft = Math.max(pad, Math.min(viewportWidth - pillRect.width - pad, newPillLeft));
+                    newPillTop = Math.max(pad, Math.min(viewportHeight - pillRect.height - pad, newPillTop));
+
+                    pill.style.transition = 'left 0.18s cubic-bezier(0.2, 0.9, 0.3, 1), top 0.18s cubic-bezier(0.2, 0.9, 0.3, 1)';
+                    pill.style.left = newPillLeft + 'px';
+                    pill.style.top = newPillTop + 'px';
+                    pill.style.right = 'auto';
+                    pill.style.bottom = 'auto';
+                    _modePillPos = { left: newPillLeft, top: newPillTop };
+                }
+            }
+
+            popup.style.left = popLeft + 'px';
+            popup.style.top = popTop + 'px';
+            popup.style.right = 'auto';
+            popup.style.bottom = 'auto';
+        }
+
         function applyMagneticRepulse(activeEl, passiveEl) {
             if (!activeEl || !passiveEl) return;
-            if (activeEl.style.display === 'none' || passiveEl.style.display === 'none') return;
-            if (activeEl.offsetParent === null || passiveEl.offsetParent === null) return;
+            if (!isWidgetVisible(activeEl) || !isWidgetVisible(passiveEl)) return;
 
             const rectA = activeEl.getBoundingClientRect();
             const rectB = passiveEl.getBoundingClientRect();
@@ -3773,25 +3956,23 @@
             const pill = document.getElementById('mode-minimized-pill');
             const popup = document.getElementById('cms-pres-popup');
             if (!pill || !popup) return;
-            if (pill.style.display === 'none' || popup.style.display === 'none') return;
-            if (pill.offsetParent === null || popup.offsetParent === null) return;
+            if (!isWidgetVisible(pill) || !isWidgetVisible(popup)) return;
 
             const rectPill = pill.getBoundingClientRect();
             const rectPopup = popup.getBoundingClientRect();
-            const BUFFER = 14;
+            const BUFFER = 16;
             const pad = 8;
 
-            const isOverlapping = !(rectPill.right < rectPopup.left - BUFFER ||
-                                    rectPill.left > rectPopup.right + BUFFER ||
-                                    rectPill.bottom < rectPopup.top - BUFFER ||
-                                    rectPill.top > rectPopup.bottom + BUFFER);
-
-            if (isOverlapping) {
+            if (rectsOverlap(rectPill, rectPopup, BUFFER)) {
                 let newTop = rectPopup.top - rectPill.height - BUFFER;
-                let newLeft = rectPopup.right - rectPill.width;
+                let newLeft = Math.max(pad, Math.min(window.innerWidth - rectPill.width - pad, rectPopup.right - rectPill.width));
                 if (newTop < pad) {
-                    newTop = rectPopup.top;
+                    newTop = Math.max(pad, Math.min(window.innerHeight - rectPill.height - pad, rectPopup.top));
                     newLeft = rectPopup.left - rectPill.width - BUFFER;
+                }
+                if (newLeft < pad) {
+                    newTop = rectPopup.bottom + BUFFER;
+                    newLeft = Math.max(pad, Math.min(window.innerWidth - rectPill.width - pad, rectPopup.left));
                 }
                 newLeft = Math.max(pad, Math.min(window.innerWidth - rectPill.width - pad, newLeft));
                 newTop = Math.max(pad, Math.min(window.innerHeight - rectPill.height - pad, newTop));
@@ -15008,23 +15189,11 @@ syncState();
             updateModeMinimisedPill();
             const pill = document.getElementById('mode-minimized-pill');
             if (pill) {
-                pill.style.display = 'inline-flex';
                 initModeMinimisedPill();
-                if (_modePillPos) {
-                    const rect = pill.getBoundingClientRect();
-                    const pad = 6;
-                    const maxLeft = Math.max(pad, window.innerWidth - (rect.width || 120) - pad);
-                    const maxTop = Math.max(pad, window.innerHeight - (rect.height || 26) - pad);
-                    const left = Math.min(maxLeft, Math.max(pad, _modePillPos.left));
-                    const top = Math.min(maxTop, Math.max(pad, _modePillPos.top));
-                    pill.style.left = left + 'px';
-                    pill.style.top = top + 'px';
-                    pill.style.right = 'auto';
-                    pill.style.bottom = 'auto';
+                if (typeof prepareModePillPositionBeforeCollapse === 'function') {
+                    prepareModePillPositionBeforeCollapse();
                 }
-                requestAnimationFrame(() => {
-                    positionFloatingWidgetsWithoutOverlap();
-                });
+                pill.style.display = 'inline-flex';
             }
         }
 
