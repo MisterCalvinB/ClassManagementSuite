@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data: blob:; script-src 'self' 'unsafe-inline' file: blob:; style-src 'self' 'unsafe-inline' file:; media-src 'self' file: data: blob:; img-src 'self' file: data: blob:;">
+  <title data-i18n="swTitle">Setup Wizard</title>
+  <link rel="stylesheet" href="../modules/lexend/lexend.css">
+  <link rel="stylesheet" href="../css/setup-wizard.css">
+  <script src="../electron-bridge.js"></script>
+  <script src="../js/i18n.js"></script>
+  <script src="../js/dialogs.js"></script>
+  <script src="../js/tutorial.js"></script>
+  <script src="../js/setup-wizard.js"></script>
+</head>
+
+<body>
+  <div class="sw-container">
+
+    <!-- ── Header ─────────────────────────────────────── -->
+    <header class="sw-header">
+      <div class="sw-header-top">
+        <div class="sw-brand" id="swBrandHeader">
+          <div class="sw-brand-icon">
+            <img src="../assets/icons/sparkles.svg" alt="Setup Wizard">
+          </div>
+          <div class="sw-brand-text">
+            <h1 data-i18n="swTitle">Setup Wizard</h1>
+            <p data-i18n="swSubtitle">Complete the initial checklist to configure your classroom suite.</p>
+          </div>
+        </div>
+
+        <div class="sw-header-actions">
+          <button type="button" class="sw-btn primary" id="swDemoBtn" onclick="swLoadSampleData()">
+            <img src="../assets/icons/sparkles.svg" alt="">
+            <span data-i18n="swLoadDemoBtn">Load Sample School Data</span>
+          </button>
+          <button type="button" class="sw-btn outline" id="swTourBtn" onclick="startSwTutorial()" title="Interactive Tour" aria-label="Interactive Tour" style="font-weight:800; min-width:36px;">
+            ?
+          </button>
+        </div>
+      </div>
+
+      <!-- Live Progress Bar -->
+      <div class="sw-progress-card" id="swProgressCard">
+        <div class="sw-progress-meta">
+          <span class="sw-progress-count" id="swProgressCount">0 of 7 completed</span>
+          <span class="sw-progress-pct" id="swProgressPct">0%</span>
+        </div>
+        <div class="sw-progress-track">
+          <div class="sw-progress-fill" id="swProgressFill"></div>
+        </div>
+      </div>
+
+      <!-- All Done Celebration Banner -->
+      <div class="sw-all-done-banner" id="swAllDoneBanner">
+        <img src="../assets/icons/check.svg" alt="Done" style="width:20px; height:20px;">
+        <span data-i18n="swAllDoneBanner">Excellent! All 7 setup pillars are complete. You are ready to teach!</span>
+      </div>
+    </header>
+
+    <!-- ── 7 Steps List ───────────────────────────────── -->
+    <main class="sw-steps-list" id="swStepsList">
+
+      <!-- STEP 1: Language & Storage -->
+      <article class="sw-step-card" id="swStepCard1">
+        <div class="sw-step-header" onclick="swToggleAccordion(1)">
+          <div class="sw-step-title-wrap">
+            <div class="sw-step-num">
+              <span>1</span>
+              <img src="../assets/icons/check-white.svg" alt="Done">
+            </div>
+            <div class="sw-step-info">
+              <h3 data-i18n="swStep1Title">App Language &amp; Storage</h3>
+              <p data-i18n="swStep1Desc">Set your preferred suite language and storage workspace folder.</p>
+            </div>
+          </div>
+          <div class="sw-step-status-wrap">
+            <span class="sw-status-pill pending" id="swStatusPill1" data-i18n="swStepPending">Needs setup</span>
+            <button type="button" class="sw-btn xs outline" id="swToggleBtn1" onclick="event.stopPropagation(); swToggleStep(1)" data-i18n="swMarkDone">Mark as done</button>
+            <img src="../assets/icons/chevron-down.svg" class="sw-accordion-chevron" alt="Toggle">
+          </div>
+        </div>
+        <div class="sw-step-body">
+          <div class="sw-step-columns">
+            <div class="sw-inline-pane">
+              <div class="sw-form-group">
+                <label class="sw-label">Suite Language</label>
+                <div class="sw-chip-group">
+                  <label class="sw-chip">
+                    <input type="radio" name="swLang" value="en" checked style="margin-right:4px;"> English
+                  </label>
+                  <label class="sw-chip">
+                    <input type="radio" name="swLang" value="fr" style="margin-right:4px;"> Français
+                  </label>
+                  <label class="sw-chip">
+                    <input type="radio" name="swLang" value="de" style="margin-right:4px;"> Deutsch
+                  </label>
+                  <label class="sw-chip">
+                    <input type="radio" name="swLang" value="it" style="margin-right:4px;"> Italiano
+                  </label>
+                </div>
+              </div>
+              <div class="sw-step-footer-actions">
+                <span style="font-size:0.75rem; color:#666;">Data is stored locally in your <code>user/</code> folder.</span>
+                <button type="button" class="sw-btn primary" onclick="swSaveStep1()" data-i18n="swSaveInline">Save</button>
+              </div>
+            </div>
+            <div class="sw-guide-pane">
+              <div class="sw-guide-text" data-i18n="swStep1Guide">
+                Configure global UI language, custom data paths, auto-sync backup, and presentation defaults.
+              </div>
+              <button type="button" class="sw-btn info sw-btn-full" onclick="swOpenTool('general-config.html')">
+                <img src="../assets/icons/general-config.svg" alt="">
+                <span data-i18n="swOpenFullTool">Open Full Tool</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- STEP 2: Class Groups & Rosters -->
+      <article class="sw-step-card" id="swStepCard2">
+        <div class="sw-step-header" onclick="swToggleAccordion(2)">
+          <div class="sw-step-title-wrap">
+            <div class="sw-step-num">
+              <span>2</span>
+              <img src="../assets/icons/check-white.svg" alt="Done">
+            </div>
+            <div class="sw-step-info">
+              <h3 data-i18n="swStep2Title">Class Groups &amp; Rosters</h3>
+              <p data-i18n="swStep2Desc">Add your classes and student names (single source of truth).</p>
+            </div>
+          </div>
+          <div class="sw-step-status-wrap">
+            <span class="sw-status-pill pending" id="swStatusPill2" data-i18n="swStepPending">Needs setup</span>
+            <button type="button" class="sw-btn xs outline" id="swToggleBtn2" onclick="event.stopPropagation(); swToggleStep(2)" data-i18n="swMarkDone">Mark as done</button>
+            <img src="../assets/icons/chevron-down.svg" class="sw-accordion-chevron" alt="Toggle">
+          </div>
+        </div>
+        <div class="sw-step-body">
+          <div class="sw-step-columns">
+            <div class="sw-inline-pane">
+              <div class="sw-form-group">
+                <label class="sw-label" for="swClassNameInput">Quick Add Class Name</label>
+                <input type="text" class="sw-input" id="swClassNameInput" placeholder="e.g. Class 9A">
+              </div>
+              <div class="sw-form-group">
+                <label class="sw-label" for="swStudentsInput">Student Names (comma or line separated)</label>
+                <textarea class="sw-textarea" id="swStudentsInput" placeholder="Alice, Benjamin, Clara, Daniel..."></textarea>
+              </div>
+              <div style="margin-top:8px;">
+                <label class="sw-label">Existing Classes</label>
+                <div class="sw-existing-list" id="swExistingClassesList"></div>
+              </div>
+              <div class="sw-step-footer-actions">
+                <span style="font-size:0.75rem; color:#666;">Adds directly to master <code>class-groups.js</code></span>
+                <button type="button" class="sw-btn primary" onclick="swQuickAddClass()" data-i18n="swSaveInline">Save</button>
+              </div>
+            </div>
+            <div class="sw-guide-pane">
+              <div class="sw-guide-text" data-i18n="swStep2Guide">
+                Manage full student details, accommodations, gender, import from Excel/CSV, and organize teams.
+              </div>
+              <div style="display:flex; flex-direction:column; gap:8px;">
+                <button type="button" class="sw-btn info sw-btn-full" onclick="swOpenTool('group-editor.html')">
+                  <img src="../assets/icons/group-editor.svg" alt="">
+                  <span data-i18n="swOpenFullTool">Group Editor</span>
+                </button>
+                <button type="button" class="sw-btn outline sw-btn-full" onclick="swOpenTool('import-tool.html')">
+                  <img src="../assets/icons/import.svg" alt="">
+                  <span>Import CSV / Excel</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- STEP 3: Semester Dates & School Holidays -->
+      <article class="sw-step-card" id="swStepCard3">
+        <div class="sw-step-header" onclick="swToggleAccordion(3)">
+          <div class="sw-step-title-wrap">
+            <div class="sw-step-num">
+              <span>3</span>
+              <img src="../assets/icons/check-white.svg" alt="Done">
+            </div>
+            <div class="sw-step-info">
+              <h3 data-i18n="swStep3Title">Semester Dates &amp; Holidays</h3>
+              <p data-i18n="swStep3Desc">Configure academic term bounds and school vacation periods.</p>
+            </div>
+          </div>
+          <div class="sw-step-status-wrap">
+            <span class="sw-status-pill pending" id="swStatusPill3" data-i18n="swStepPending">Needs setup</span>
+            <button type="button" class="sw-btn xs outline" id="swToggleBtn3" onclick="event.stopPropagation(); swToggleStep(3)" data-i18n="swMarkDone">Mark as done</button>
+            <img src="../assets/icons/chevron-down.svg" class="sw-accordion-chevron" alt="Toggle">
+          </div>
+        </div>
+        <div class="sw-step-body">
+          <div class="sw-step-columns">
+            <div class="sw-inline-pane">
+              <div class="sw-form-group">
+                <label class="sw-label" for="swAcademicYear">Academic Year</label>
+                <input type="text" class="sw-input" id="swAcademicYear" value="2025-2026">
+              </div>
+              <div class="sw-form-row">
+                <div class="sw-form-group">
+                  <label class="sw-label" for="swS1Start">Semester 1 Start</label>
+                  <input type="date" class="sw-input" id="swS1Start" value="2025-08-18">
+                </div>
+                <div class="sw-form-group">
+                  <label class="sw-label" for="swS1End">Semester 1 End</label>
+                  <input type="date" class="sw-input" id="swS1End" value="2026-01-23">
+                </div>
+              </div>
+              <div class="sw-form-row">
+                <div class="sw-form-group">
+                  <label class="sw-label" for="swS2Start">Semester 2 Start</label>
+                  <input type="date" class="sw-input" id="swS2Start" value="2026-02-09">
+                </div>
+                <div class="sw-form-group">
+                  <label class="sw-label" for="swS2End">Semester 2 End</label>
+                  <input type="date" class="sw-input" id="swS2End" value="2026-06-26">
+                </div>
+              </div>
+              <div class="sw-step-footer-actions">
+                <span style="font-size:0.75rem; color:#666;">Dates sync across Planner and Grade Sheet</span>
+                <button type="button" class="sw-btn primary" onclick="swSaveSemesterDates()" data-i18n="swSaveInline">Save</button>
+              </div>
+            </div>
+            <div class="sw-guide-pane">
+              <div class="sw-guide-text" data-i18n="swStep3Guide">
+                Set exact school holiday breaks, calendar sync feeds, and multi-semester lesson planners.
+              </div>
+              <button type="button" class="sw-btn info sw-btn-full" onclick="swOpenTool('planner.html')">
+                <img src="../assets/icons/planner.svg" alt="">
+                <span data-i18n="swOpenFullTool">Open Planner</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- STEP 4: Weekly Timetable & Period Hours -->
+      <article class="sw-step-card" id="swStepCard4">
+        <div class="sw-step-header" onclick="swToggleAccordion(4)">
+          <div class="sw-step-title-wrap">
+            <div class="sw-step-num">
+              <span>4</span>
+              <img src="../assets/icons/check-white.svg" alt="Done">
+            </div>
+            <div class="sw-step-info">
+              <h3 data-i18n="swStep4Title">Weekly Timetable &amp; Period Hours</h3>
+              <p data-i18n="swStep4Desc">Set standard period bell schedules and class day timings.</p>
+            </div>
+          </div>
+          <div class="sw-step-status-wrap">
+            <span class="sw-status-pill pending" id="swStatusPill4" data-i18n="swStepPending">Needs setup</span>
+            <button type="button" class="sw-btn xs outline" id="swToggleBtn4" onclick="event.stopPropagation(); swToggleStep(4)" data-i18n="swMarkDone">Mark as done</button>
+            <img src="../assets/icons/chevron-down.svg" class="sw-accordion-chevron" alt="Toggle">
+          </div>
+        </div>
+        <div class="sw-step-body">
+          <div class="sw-step-columns">
+            <div class="sw-inline-pane">
+              <div class="sw-form-group">
+                <label class="sw-label">Period Schedule Preset</label>
+                <div class="sw-chip-group">
+                  <label class="sw-chip">
+                    <input type="radio" name="swPeriodPreset" value="45" checked style="margin-right:4px;"> 45-min periods (Swiss / Standard)
+                  </label>
+                  <label class="sw-chip">
+                    <input type="radio" name="swPeriodPreset" value="50" style="margin-right:4px;"> 50-min periods
+                  </label>
+                  <label class="sw-chip">
+                    <input type="radio" name="swPeriodPreset" value="60" style="margin-right:4px;"> 60-min periods
+                  </label>
+                </div>
+              </div>
+              <div style="font-size:0.75rem; color:#555; line-height:1.4; margin-top:8px;">
+                Pre-configures 6 standard morning/afternoon periods (P1 to P6) with break intervals.
+              </div>
+              <div class="sw-step-footer-actions">
+                <span style="font-size:0.75rem; color:#666;">Can be adjusted anytime in Planner settings</span>
+                <button type="button" class="sw-btn primary" onclick="swSavePeriods()" data-i18n="swSaveInline">Save</button>
+              </div>
+            </div>
+            <div class="sw-guide-pane">
+              <div class="sw-guide-text" data-i18n="swStep4Guide">
+                Map recurring class periods to weekdays, assign custom class colors, and write weekly lesson objectives.
+              </div>
+              <button type="button" class="sw-btn info sw-btn-full" onclick="swOpenTool('planner.html')">
+                <img src="../assets/icons/planner.svg" alt="">
+                <span data-i18n="swOpenFullTool">Open Planner</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- STEP 5: Grading Scales & Evaluation Criteria -->
+      <article class="sw-step-card" id="swStepCard5">
+        <div class="sw-step-header" onclick="swToggleAccordion(5)">
+          <div class="sw-step-title-wrap">
+            <div class="sw-step-num">
+              <span>5</span>
+              <img src="../assets/icons/check-white.svg" alt="Done">
+            </div>
+            <div class="sw-step-info">
+              <h3 data-i18n="swStep5Title">Grading Scales &amp; Rubrics</h3>
+              <p data-i18n="swStep5Desc">Choose grading scale models (Swiss 1-6, French 0-20, US A-F, or %).</p>
+            </div>
+          </div>
+          <div class="sw-step-status-wrap">
+            <span class="sw-status-pill pending" id="swStatusPill5" data-i18n="swStepPending">Needs setup</span>
+            <button type="button" class="sw-btn xs outline" id="swToggleBtn5" onclick="event.stopPropagation(); swToggleStep(5)" data-i18n="swMarkDone">Mark as done</button>
+            <img src="../assets/icons/chevron-down.svg" class="sw-accordion-chevron" alt="Toggle">
+          </div>
+        </div>
+        <div class="sw-step-body">
+          <div class="sw-step-columns">
+            <div class="sw-inline-pane">
+              <div class="sw-form-group">
+                <label class="sw-label">Grading System</label>
+                <div class="sw-chip-group">
+                  <label class="sw-chip">
+                    <input type="radio" name="swScale" value="swiss" checked style="margin-right:4px;"> Swiss (1.0 to 6.0, 4.0 Pass)
+                  </label>
+                  <label class="sw-chip">
+                    <input type="radio" name="swScale" value="french" style="margin-right:4px;"> French (0 to 20, 10 Pass)
+                  </label>
+                  <label class="sw-chip">
+                    <input type="radio" name="swScale" value="us" style="margin-right:4px;"> US Letter (A, B, C, D, F)
+                  </label>
+                  <label class="sw-chip">
+                    <input type="radio" name="swScale" value="percent" style="margin-right:4px;"> Percentage (0-100%)
+                  </label>
+                </div>
+              </div>
+              <div class="sw-step-footer-actions">
+                <span style="font-size:0.75rem; color:#666;">Writes to <code>user/grade-scale-models.js</code></span>
+                <button type="button" class="sw-btn primary" onclick="swSaveGradingScale()" data-i18n="swSaveInline">Save</button>
+              </div>
+            </div>
+            <div class="sw-guide-pane">
+              <div class="sw-guide-text" data-i18n="swStep5Guide">
+                Configure grade weights, oral marking rubrics, custom thresholds, and competence levels.
+              </div>
+              <button type="button" class="sw-btn info sw-btn-full" onclick="swOpenTool('grade-sheet.html')">
+                <img src="../assets/icons/grade-sheet.svg" alt="">
+                <span data-i18n="swOpenFullTool">Open Grade Sheet</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- STEP 6: Personalised Observation Chips & Roles -->
+      <article class="sw-step-card" id="swStepCard6">
+        <div class="sw-step-header" onclick="swToggleAccordion(6)">
+          <div class="sw-step-title-wrap">
+            <div class="sw-step-num">
+              <span>6</span>
+              <img src="../assets/icons/check-white.svg" alt="Done">
+            </div>
+            <div class="sw-step-info">
+              <h3 data-i18n="swStep6Title">Observation Chips &amp; Classroom Roles</h3>
+              <p data-i18n="swStep6Desc">Quick behavioural observation tags, scoring chips, and roles.</p>
+            </div>
+          </div>
+          <div class="sw-step-status-wrap">
+            <span class="sw-status-pill pending" id="swStatusPill6" data-i18n="swStepPending">Needs setup</span>
+            <button type="button" class="sw-btn xs outline" id="swToggleBtn6" onclick="event.stopPropagation(); swToggleStep(6)" data-i18n="swMarkDone">Mark as done</button>
+            <img src="../assets/icons/chevron-down.svg" class="sw-accordion-chevron" alt="Toggle">
+          </div>
+        </div>
+        <div class="sw-step-body">
+          <div class="sw-step-columns">
+            <div class="sw-inline-pane">
+              <label class="sw-label">Standard Observation Chips</label>
+              <div class="sw-chip-group" style="margin-bottom:12px;">
+                <span class="sw-tag-item" style="background:#d4edda; border-color:#28a745; color:#155724;">+ Active Participation</span>
+                <span class="sw-tag-item" style="background:#d4edda; border-color:#28a745; color:#155724;">+ Bonus Star (★)</span>
+                <span class="sw-tag-item" style="background:#fff3cd; border-color:#ffc107; color:#856404;">+ Homework Done</span>
+                <span class="sw-tag-item" style="background:#f8d7da; border-color:#dc3545; color:#721c24;">- Off-task / Talking</span>
+                <span class="sw-tag-item" style="background:#f8d7da; border-color:#dc3545; color:#721c24;">- Late Arrival</span>
+              </div>
+              <div class="sw-step-footer-actions">
+                <span style="font-size:0.75rem; color:#666;">Used in Class Management &amp; Grade Sheet</span>
+                <button type="button" class="sw-btn primary" onclick="swSaveChipsAndRoles()" data-i18n="swSaveInline">Save Defaults</button>
+              </div>
+            </div>
+            <div class="sw-guide-pane">
+              <div class="sw-guide-text" data-i18n="swStep6Guide">
+                Customize chips with custom scoring multipliers, color palettes, and classroom helper roles in Database Manager.
+              </div>
+              <button type="button" class="sw-btn info sw-btn-full" onclick="swOpenTool('manage-database.html')">
+                <img src="../assets/icons/manage-database.svg" alt="">
+                <span data-i18n="swOpenFullTool">Open Database</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- STEP 7: Classroom Layout & Seating Plan -->
+      <article class="sw-step-card" id="swStepCard7">
+        <div class="sw-step-header" onclick="swToggleAccordion(7)">
+          <div class="sw-step-title-wrap">
+            <div class="sw-step-num">
+              <span>7</span>
+              <img src="../assets/icons/check-white.svg" alt="Done">
+            </div>
+            <div class="sw-step-info">
+              <h3 data-i18n="swStep7Title">Classroom Layout &amp; Seating Plan</h3>
+              <p data-i18n="swStep7Desc">Create initial desk arrangements (Rows, U-Shape, or Pods).</p>
+            </div>
+          </div>
+          <div class="sw-step-status-wrap">
+            <span class="sw-status-pill pending" id="swStatusPill7" data-i18n="swStepPending">Needs setup</span>
+            <button type="button" class="sw-btn xs outline" id="swToggleBtn7" onclick="event.stopPropagation(); swToggleStep(7)" data-i18n="swMarkDone">Mark as done</button>
+            <img src="../assets/icons/chevron-down.svg" class="sw-accordion-chevron" alt="Toggle">
+          </div>
+        </div>
+        <div class="sw-step-body">
+          <div class="sw-step-columns">
+            <div class="sw-inline-pane">
+              <div class="sw-form-group">
+                <label class="sw-label">Initial Room Arrangement</label>
+                <div class="sw-chip-group">
+                  <label class="sw-chip">
+                    <input type="radio" name="swLayout" value="grid" checked style="margin-right:4px;"> Standard Rows / Grid
+                  </label>
+                  <label class="sw-chip">
+                    <input type="radio" name="swLayout" value="ushape" style="margin-right:4px;"> U-Shape / Horseshoe
+                  </label>
+                  <label class="sw-chip">
+                    <input type="radio" name="swLayout" value="pods" style="margin-right:4px;"> Collaborative Pods
+                  </label>
+                </div>
+              </div>
+              <div class="sw-step-footer-actions">
+                <span style="font-size:0.75rem; color:#666;">Generates starter room in <code>user/class-plans/</code></span>
+                <button type="button" class="sw-btn primary" onclick="swSaveRoomLayout()" data-i18n="swSaveInline">Save</button>
+              </div>
+            </div>
+            <div class="sw-guide-pane">
+              <div class="sw-guide-text" data-i18n="swStep7Guide">
+                Drag-and-drop student seats, print classroom plans, and view student notes with Seating Plan.
+              </div>
+              <button type="button" class="sw-btn info sw-btn-full" onclick="swOpenTool('class-plan.html')">
+                <img src="../assets/icons/class-plan.svg" alt="">
+                <span data-i18n="swOpenFullTool">Open Seating Plan</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </article>
+
+    </main>
+
+    <!-- ── Footer ─────────────────────────────────────── -->
+    <footer class="sw-footer" id="swFooter">
+      <div class="sw-footer-left">
+        <label class="sw-checkbox-label">
+          <input type="checkbox" id="swDontShowCb">
+          <span data-i18n="swDontShowStartup">Don't show this wizard on startup</span>
+        </label>
+      </div>
+      <div class="sw-footer-right">
+        <button type="button" class="sw-btn outline" onclick="swRemindLater()" data-i18n="swRemindLater">Remind Me Later</button>
+        <button type="button" class="sw-btn primary" onclick="swFinishAndClose()" data-i18n="swFinishBtn">Finish Setup</button>
+      </div>
+    </footer>
+
+  </div>
+</body>
+
+</html>

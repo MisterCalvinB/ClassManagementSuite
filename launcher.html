@@ -134,6 +134,10 @@
           <img src="assets/icons/dots.svg" class="l-hdr-icon-img" alt="" /> <span data-i18n="headerMoreBtn">More</span>
         </button>
         <div class="l-more-menu" id="headerMoreMenu" hidden>
+          <button type="button" class="l-more-item" id="headerSetupWizardBtn" onclick="closeHeaderMoreMenu(); openModal('pages/setup-wizard.html')" title="Setup Wizard" data-i18n-title="btnHeaderSetupWizard">
+            <img src="assets/icons/sparkles.svg" class="l-hdr-icon-img" alt="" /> <span data-i18n="btnHeaderSetupWizard">Setup Wizard</span>
+            <span class="l-wizard-progress-badge" id="launcherWizardBadge">0/7</span>
+          </button>
           <button type="button" class="l-more-item" onclick="closeHeaderMoreMenu(); openModal('pages/general-config.html')" title="General settings">
             <img src="assets/icons/general-config.svg" class="l-hdr-icon-img" alt="" /> <span data-i18n="btnHeaderConfig">Config</span>
           </button>
@@ -1404,9 +1408,9 @@
     if (e.key === 'Escape') { closePopup(); closeModal(); closeRecentFilesModal(); sbHideCountPopup(); closeFirstRunModal(true); closeHeaderMoreMenu(); }
   });
 
-  // ── iframe modal (credits, general-config) ──────────────
-  var MODAL_WIDE   = { 'pages/about.html': true, 'pages/general-config.html': true };
-  var MODAL_HEIGHT = { 'pages/about.html': '80vh', 'pages/credits.html': '80vh', 'pages/general-config.html': '86vh' };
+  // ── iframe modal (credits, general-config, setup-wizard) ──
+  var MODAL_WIDE   = { 'pages/about.html': true, 'pages/general-config.html': true, 'pages/setup-wizard.html': true };
+  var MODAL_HEIGHT = { 'pages/about.html': '80vh', 'pages/credits.html': '80vh', 'pages/general-config.html': '86vh', 'pages/setup-wizard.html': '88vh' };
 
   function openModalAndSync() {
     sessionStorage.setItem('cmt-config-tab', 'storage');
@@ -1440,6 +1444,9 @@
   });
   window.addEventListener('message', function (e) {
     if (e.data === 'cmt-close-modal') closeModal();
+    if (e.data && e.data.type === 'cmt-setup-progress-changed') {
+      updateLauncherWizardBadge(e.data.done, e.data.total);
+    }
     if (e.data && e.data.type === 'cmt-lang-changed') {
       if (typeof applyTranslations === 'function') applyTranslations();
       if (typeof applyTitle === 'function') applyTitle();
@@ -1449,18 +1456,52 @@
     }
   });
 
+  // ── Setup Wizard Progress Badge & Startup Check ─────────
+  function updateLauncherWizardBadge(done, total) {
+    var badge = document.getElementById('launcherWizardBadge');
+    if (!badge) return;
+    if (typeof done === 'undefined' || typeof total === 'undefined') {
+      try {
+        var saved = JSON.parse(localStorage.getItem('cmt-setup-progress') || '{}');
+        done = typeof saved.done === 'number' ? saved.done : 0;
+        total = typeof saved.total === 'number' ? saved.total : 7;
+      } catch (_) {
+        done = 0;
+        total = 7;
+      }
+    }
+    badge.textContent = done + '/' + total;
+    badge.classList.toggle('all-done', done >= total);
+  }
+
+  function checkSetupWizardFirstRun() {
+    var isDone = localStorage.getItem('cmt-setup-completed') === 'true';
+    var isDeferred = sessionStorage.getItem('cmt-setup-deferred') === 'true';
+    if (!isDone && !isDeferred) {
+      setTimeout(function () {
+        openModal('pages/setup-wizard.html');
+      }, 350);
+    }
+  }
+
   // ── First-Run Onboarding Modal ─────────────────────────
   var _frCompleted = false;
 
   async function checkFirstRunWelcome() {
-    if (!window.electronApi || !window.electronApi.getDataLocation) return;
+    if (!window.electronApi || !window.electronApi.getDataLocation) {
+      checkSetupWizardFirstRun();
+      return;
+    }
     try {
       var res = await window.electronApi.getDataLocation();
       if (res && res.ok && res.isFirstRun) {
         openFirstRunModal(res.resolvedWritableRoot, res.folderMissingReason, res.lastConfiguredPath);
+      } else {
+        checkSetupWizardFirstRun();
       }
     } catch (err) {
       console.warn('[FirstRun] Could not check data location:', err);
+      checkSetupWizardFirstRun();
     }
   }
 
@@ -1527,6 +1568,7 @@
         await window.electronApi.confirmDefaultDataLocation();
       } catch (e) {}
     }
+    checkSetupWizardFirstRun();
   }
 
   function initFirstRunModalEvents() {
@@ -2458,6 +2500,7 @@
     sbInitFilterTabs();
     initFirstRunModalEvents();
     checkFirstRunWelcome();
+    updateLauncherWizardBadge();
 
     var moreBtn = document.getElementById('headerMoreBtn');
     if (moreBtn) {

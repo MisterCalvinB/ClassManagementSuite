@@ -117,6 +117,7 @@ If you downloaded a ZIP file, extract the entire folder before launching. Double
 | [`administrative-groups.html`](#administrative-groupshtml) | Comprehensive student administrative tracker, medical & SEN accommodation manager, infraction point scoring, automated sanction rules engine, period chips, student action timeline, and multi-format reports | Syncs with [Group Editor](#group-editorhtml) & master student roster |
 | [`document-editor.html`](#document-editorhtml) | Multi-format document editor supporting Typst (`.typ`), Markdown (`.md`), and HTML (`.html`) with WebAssembly live preview, Monaco syntax highlighting, native vector PDF export, Mailposting batch student reports, and built-in Syntax Guide | Edits `.typ` / `.md` / `.html` files suite-wide |
 | [`how-to.html`](#how-tohtml) | Comprehensive built-in user guide, interactive tool manuals, and local storage inspector with instant Neobrutalist search modal (`Ctrl+K`), keyword previews, keyboard navigation, and target highlight pulses | Accessible from tool headers via **?** buttons and Launcher |
+| [`setup-wizard.html`](#setup-wizardhtml) | 7-pillar classroom setup checklist and onboarding wizard with live progress tracking, sample demo data loader, and dual-mode quick/advanced controls | Accessible on startup or from Launcher **More** menu |
 | [`data-location.html`](#data-locationhtml) | Legacy data-folder configuration page (superseded by General Config) | Deprecated |
 
 ---
@@ -456,6 +457,7 @@ The central entry point for the suite. Opens on app launch and provides quick na
 - **Consolidated Top Header Navbar**:
   - **Primary Action Buttons**: Direct, prominent buttons for **Sync** (one-click data folder synchronization), **Links** (Unit & Tag Explorer and Student Academic Dossiers), and **Panel** (toggle Daily Companion sidebar).
   - **⋯ More Dropdown Menu**: Consolidates secondary utilities into a tactile Neobrutalist popover menu:
+    - **Setup Wizard**: Launches [Setup Wizard](#setup-wizardhtml) with a live progress badge (`X/7`), guiding the user across the 7 essential classroom setup pillars.
     - **Config**: Launches [General Config](#general-confightml).
     - **Shortcuts**: Displays the suite keyboard shortcuts helper modal.
     - **How To**: Opens built-in documentation with direct *Reveal Folder* disk links.
@@ -467,6 +469,27 @@ The central entry point for the suite. Opens on app launch and provides quick na
     - **Student Academic Dossiers**: Direct suite-wide student explorer featuring class filtering dropdown (`All Classes` / individual groups), live search, multi-criteria sorting (Name, Class, GPA, Evaluations), live GPA badges, 4-metric KPI grid (evaluations, competences, lessons, mindmaps & docs), recent test scores, and 1-click `[Open 360° Dossier]`, `[Export Studio]`, `[Grade Sheet]`, and `[Links & Tags]` action buttons.
 - **First-Launch Onboarding Wizard**: Automatically appears on first launch if no data directory is configured. Offers instant interface language selection (FR, EN, DE, IT), data directory selection (custom directory/USB/cloud sync vs. recommended local default), interactive tour launch, and direct how-to guide access.
 - **Crash Recovery & Session Restoration**: Reopens on app startup even when recovering from an unexpected exit or crash, ensuring uninterrupted access to launcher navigation alongside all restored tool windows.
+
+---
+
+### setup-wizard.html
+
+Interactive 7-step classroom setup checklist and onboarding wizard accessible anytime from the Launcher **More** dropdown menu (with real-time progress pill badge `X/7`) or displayed automatically on first application launch.
+
+#### Features
+- **7-Pillar Setup Checklist**:
+  1. **App Language & Storage**: Set interface language (EN, FR, DE, IT) and local workspace directory.
+  2. **Class Groups & Rosters**: Quick-add class names and student rosters directly to master `class-groups.js`, with instant link to Group Editor and CSV/Excel import tool.
+  3. **Semester Dates & Holidays**: Set academic year and Semester 1 & 2 start/end dates, automatically propagated across Planner and Grade Sheet.
+  4. **Weekly Timetable & Period Hours**: Choose period bell schedule presets (45-min, 50-min, 60-min) with direct access to Planner.
+  5. **Grading Scales & Rubrics**: Select active grading scale systems (Swiss 1–6, French 0–20, US A–F, or percentage) with link to Grade Sheet.
+  6. **Observation Chips & Roles**: Pre-configure standard behavioral and participation observation chips and helper roles.
+  7. **Classroom Layout & Seating Plan**: Set initial desk configurations (Rows/Grid, U-Shape, or Pods) with instant link to Seating Plan.
+- **Dual-Mode Workflow**: Each step offers an inline quick-save panel for immediate configuration plus a dedicated guide pane with an **Open Full Tool** button.
+- **Automatic Status Detection & Manual Overrides**: Dynamically scans user data files to auto-detect completed configurations while allowing manual completion toggle buttons.
+- **1-Click "Load Sample School Data"**: Immediately seeds sample classes (Class 9A, 10B), students, semester schedules, periods, grading scales, and chips for testing.
+- **Live Progress Tracking**: Visual progress bar with completion percentage and dynamic launcher badge (`Setup Wizard (X/7)`).
+- **Startup Controls**: Includes "Remind Me Later" (defers to next launch) and "Don't show this wizard on startup" checkbox.
 
 ---
 
