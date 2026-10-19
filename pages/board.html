@@ -18,6 +18,7 @@
   <script src="../js/competence-aggregator-service.js"></script>
   <script src="../js/links-service.js"></script>
   <script src="../js/board-export-service.js"></script>
+  <script src="../js/board-units.js"></script>
   <script src="../js/tag-link-modal.js"></script>
   <script src="../js/universal-importer.js"></script>
   <script src="../js/media-audio-encoder.js"></script>
@@ -160,6 +161,40 @@
   <script src="../modules/wavesurfer/wavesurfer.regions.min.js"></script>
   <script src="../js/speech-transcriber.js"></script>
   <style>
+    /* Board Unit Segmented Toggle Pills (Light Neobrutalist) */
+    .con-unit-toggle {
+      display: inline-flex;
+      align-items: center;
+      background: #e8e8e3;
+      border: 1.5px solid #333333;
+      border-radius: 5px;
+      padding: 1px;
+      gap: 1px;
+      vertical-align: middle;
+      user-select: none;
+    }
+    .con-unit-pill {
+      border: none;
+      background: transparent;
+      color: #555555;
+      font-family: inherit;
+      font-size: 0.62rem;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 3px;
+      cursor: pointer;
+      line-height: 1.2;
+      transition: background 0.12s ease, color 0.12s ease;
+    }
+    .con-unit-pill:hover {
+      color: #111111;
+      background: rgba(0, 0, 0, 0.05);
+    }
+    .con-unit-pill.active {
+      background: #ffffff;
+      color: #111111;
+      box-shadow: 1px 1px 0 #555555;
+    }
     
     /* Board Speech-to-Text / Voice Dictation Floating Pill */
     .board-stt-floating-pill {
@@ -2518,12 +2553,18 @@
         <div id="con-ctx-swatches" class="wn-sp-swatches"></div>
       </div>
       <div class="wn-sp-row" style="margin-bottom:0;">
-        <span class="wn-sp-label">Size</span>
-        <input type="range" id="con-ctx-font-size" min="8" max="48" value="13"
-          oninput="conCtxApplySize(); document.getElementById('con-ctx-font-size-display').textContent = this.value;"
+        <div style="display:flex;align-items:center;gap:4px;">
+          <span class="wn-sp-label">Size</span>
+          <div class="con-unit-toggle" id="con-ctx-font-unit-toggle" data-unit-type="font" title="Font size unit (pt or px)">
+            <button type="button" class="con-unit-pill" data-unit="pt" onclick="conSwitchFontUnit('pt')">pt</button>
+            <button type="button" class="con-unit-pill" data-unit="px" onclick="conSwitchFontUnit('px')">px</button>
+          </div>
+        </div>
+        <input type="range" id="con-ctx-font-size" min="6" max="72" value="12"
+          oninput="conCtxApplySize();"
           style="flex:1; cursor:pointer; accent-color:#111;">
         <span id="con-ctx-font-size-display"
-          style="min-width:2em; text-align:right; font-size:0.72rem; color:#555;">13</span>
+          style="min-width:3.2em; text-align:right; font-size:0.72rem; color:#555;">12 pt</span>
       </div>
       <div class="wn-sp-row" style="margin-bottom:0;" id="con-ctx-maxwidth-row">
         <span class="wn-sp-label" data-i18n="conFmtMaxWidth">Width</span>
@@ -3063,11 +3104,18 @@
           style="flex:1;min-width:0;padding:4px 7px;border:1.5px solid #ccc;border-radius:3px;font-family:inherit;font-size:0.78rem;outline:none;text-transform:uppercase;">
       </div>
       <div class="wn-sp-row">
-        <span class="wn-sp-label">Thickness</span>
-        <input type="range" id="con-shape-ctx-thickness" min="1" max="24" step="1" value="2"
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span class="wn-sp-label" data-i18n="conDrawThickness">Thickness</span>
+          <div class="con-unit-toggle" id="con-shape-thick-unit-toggle" data-unit-type="thickness" title="Thickness unit (mm, pt, px)">
+            <button type="button" class="con-unit-pill" data-unit="mm" onclick="conSwitchThicknessUnit('mm')">mm</button>
+            <button type="button" class="con-unit-pill" data-unit="pt" onclick="conSwitchThicknessUnit('pt')">pt</button>
+            <button type="button" class="con-unit-pill" data-unit="px" onclick="conSwitchThicknessUnit('px')">px</button>
+          </div>
+        </div>
+        <input type="range" id="con-shape-ctx-thickness" min="0.2" max="6.0" step="0.1" value="0.5"
           style="flex:1;accent-color:#111;cursor:pointer;">
         <span id="con-shape-ctx-thickness-val"
-          style="font-size:0.72rem;color:#666;width:34px;text-align:right;flex-shrink:0;">2px</span>
+          style="font-size:0.72rem;color:#666;width:40px;text-align:right;flex-shrink:0;">0.5 mm</span>
       </div>
       <div class="wn-sp-row">
         <span class="wn-sp-label">Opacity</span>
@@ -3112,11 +3160,18 @@
           style="flex:1;min-width:0;padding:4px 7px;border:1.5px solid #ccc;border-radius:3px;font-family:inherit;font-size:0.78rem;outline:none;text-transform:uppercase;">
       </div>
       <div class="wn-sp-row">
-        <span class="wn-sp-label">Thickness</span>
-        <input type="range" id="con-drawing-ctx-thickness" min="1" max="40" step="1" value="4"
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span class="wn-sp-label" data-i18n="conDrawThickness">Thickness</span>
+          <div class="con-unit-toggle" id="con-drawing-thick-unit-toggle" data-unit-type="thickness" title="Thickness unit (mm, pt, px)">
+            <button type="button" class="con-unit-pill" data-unit="mm" onclick="conSwitchThicknessUnit('mm')">mm</button>
+            <button type="button" class="con-unit-pill" data-unit="pt" onclick="conSwitchThicknessUnit('pt')">pt</button>
+            <button type="button" class="con-unit-pill" data-unit="px" onclick="conSwitchThicknessUnit('px')">px</button>
+          </div>
+        </div>
+        <input type="range" id="con-drawing-ctx-thickness" min="0.2" max="10.0" step="0.1" value="1.0"
           style="flex:1;accent-color:#111;cursor:pointer;">
         <span id="con-drawing-ctx-thickness-val"
-          style="font-size:0.72rem;color:#666;width:34px;text-align:right;flex-shrink:0;">4px</span>
+          style="font-size:0.72rem;color:#666;width:40px;text-align:right;flex-shrink:0;">1.0 mm</span>
       </div>
       <div class="wn-sp-row">
         <span class="wn-sp-label">Opacity</span>
@@ -3515,9 +3570,9 @@
     <div style="padding:1px 8px 2px; display:flex; align-items:center; justify-content:space-between; gap:6px;">
       <div style="display:flex; align-items:center; gap:2px;">
         <span style="font-size:0.58rem; font-weight:900; text-transform:uppercase; color:#777;" data-i18n="conEdgeThickness">Thick</span>
-        <input type="number" id="con-edge-ctx-thickness" min="1" max="20" step="0.5" value="2"
-          style="width:34px; font-family:inherit; font-size:0.68rem; border:1.5px solid #111; border-radius:3px; padding:1px 2px; outline:none; text-align:right;">
-        <span style="font-size:0.6rem; color:#666;">px</span>
+        <input type="number" id="con-edge-ctx-thickness" min="0.2" max="5.0" step="0.1" value="0.5"
+          style="width:36px; font-family:inherit; font-size:0.68rem; border:1.5px solid #111; border-radius:3px; padding:1px 2px; outline:none; text-align:right;">
+        <span id="con-edge-ctx-thickness-unit" style="font-size:0.6rem; color:#666; font-weight:700;">mm</span>
       </div>
       <div style="display:flex; align-items:center; gap:2px;">
         <span style="font-size:0.58rem; font-weight:900; text-transform:uppercase; color:#777;" data-i18n="conEdgeOpacity">Opacity</span>
@@ -4056,8 +4111,13 @@
             </div>
             <div class="con-tb-inline-row">
               <span class="con-label">Size:</span>
-              <input type="number" id="con-default-font-size-input" min="8" max="48" step="1" value="16"
-                onchange="conSetDefaultWordFontSize(this.value)" title="Default font size for newly added words">
+              <input type="number" id="con-default-font-size-input" min="6" max="72" step="1" value="12"
+                onchange="conSetDefaultWordFontSize(this.value, true)" title="Default font size for newly added words"
+                style="width:38px; text-align:right;">
+              <div class="con-unit-toggle" id="con-tb-font-unit-toggle" data-unit-type="font" title="Font size unit (pt or px)">
+                <button type="button" class="con-unit-pill" data-unit="pt" onclick="conSwitchFontUnit('pt')">pt</button>
+                <button type="button" class="con-unit-pill" data-unit="px" onclick="conSwitchFontUnit('px')">px</button>
+              </div>
             </div>
             <button class="action-btn btn-grey" id="con-mirror-btn" onclick="conOpenMirrorWindow()"
               title="Open presentation mode on second monitor"><img src="../assets/icons/presentation.svg"
@@ -4259,11 +4319,18 @@
             <div class="con-draw-menu-section-title" data-i18n="conDrawDash">Style</div>
             <div id="con-shape-dash-btns" class="con-draw-dash-row"></div>
             <div class="con-draw-menu-sep"></div>
-            <div class="con-draw-menu-section-title" data-i18n="conDrawThickness">Thickness</div>
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:2px;">
+              <div class="con-draw-menu-section-title" data-i18n="conDrawThickness" style="margin:0;">Thickness</div>
+              <div class="con-unit-toggle" id="con-draw-thick-unit-toggle" data-unit-type="thickness" title="Thickness unit (mm, pt, px)">
+                <button type="button" class="con-unit-pill" data-unit="mm" onclick="conSwitchThicknessUnit('mm')">mm</button>
+                <button type="button" class="con-unit-pill" data-unit="pt" onclick="conSwitchThicknessUnit('pt')">pt</button>
+                <button type="button" class="con-unit-pill" data-unit="px" onclick="conSwitchThicknessUnit('px')">px</button>
+              </div>
+            </div>
             <div class="con-draw-slider-row">
-              <input type="range" id="con-draw-thickness" min="1" max="40" value="4"
-                oninput="conDrawSetThickness(this.value)">
-              <span id="con-draw-thickness-val">4px</span>
+              <input type="range" id="con-draw-thickness" min="0.2" max="10.0" step="0.1" value="1.0"
+                oninput="conDrawSetThickness(this.value, true)">
+              <span id="con-draw-thickness-val" style="min-width:38px; text-align:right;">1.0 mm</span>
             </div>
             <div class="con-draw-menu-sep"></div>
             <div class="con-draw-menu-section-title" data-i18n="conDrawOpacity">Opacity</div>
@@ -4475,11 +4542,16 @@
           <span class="wn-sp-label" style="padding-top:3px;">Border</span>
           <div style="display:flex; flex-direction:column; gap:4px; flex:1;">
             <div style="display:flex; align-items:center; gap:4px;">
+              <div class="con-unit-toggle" id="wn-sp-thickness-unit-toggle" data-unit-type="thickness" title="Thickness unit (mm, pt, or px)">
+                <button type="button" class="con-unit-pill" data-unit="mm" onclick="conSwitchThicknessUnit('mm')">mm</button>
+                <button type="button" class="con-unit-pill" data-unit="pt" onclick="conSwitchThicknessUnit('pt')">pt</button>
+                <button type="button" class="con-unit-pill" data-unit="px" onclick="conSwitchThicknessUnit('px')">px</button>
+              </div>
               <input type="range" id="wn-sp-border-width" min="0" max="8" step="1" value="0"
                 style="flex:1;accent-color:#111;cursor:pointer;"
-                oninput="wnStyleSetBorderWidth(+this.value); document.getElementById('wn-sp-border-width-val').textContent=this.value+'px';">
+                oninput="wnStyleSetBorderWidth(this.value, true)">
               <span id="wn-sp-border-width-val"
-                style="font-size:0.72rem;color:#555;width:28px;text-align:right;flex-shrink:0;">0px</span>
+                style="font-size:0.72rem;color:#555;min-width:3.2em;text-align:right;flex-shrink:0;">0px</span>
             </div>
             <div id="wn-sp-border-colors" class="wn-sp-swatches" style="gap:3px;flex-wrap:wrap;margin-bottom:1px;">
             </div>
@@ -4498,11 +4570,17 @@
           </div>
         </div>
         <div class="wn-sp-row">
-          <span class="wn-sp-label">Size</span>
-          <input type="range" id="wn-sp-size-slider" min="4" max="72" step="1"
-            style="flex:1;accent-color:#111;cursor:pointer;" oninput="wnStyleSetSize(this.value)">
+          <div style="display:flex;align-items:center;gap:4px;">
+            <span class="wn-sp-label">Size</span>
+            <div class="con-unit-toggle" id="wn-sp-font-unit-toggle" data-unit-type="font" title="Font size unit (pt or px)">
+              <button type="button" class="con-unit-pill" data-unit="pt" onclick="conSwitchFontUnit('pt')">pt</button>
+              <button type="button" class="con-unit-pill" data-unit="px" onclick="conSwitchFontUnit('px')">px</button>
+            </div>
+          </div>
+          <input type="range" id="wn-sp-size-slider" min="3" max="72" step="1"
+            style="flex:1;accent-color:#111;cursor:pointer;" oninput="wnStyleSetSize(this.value, true)">
           <span id="wn-sp-size-val"
-            style="font-size:0.72rem;color:#555;width:28px;text-align:right;flex-shrink:0;">26px</span>
+            style="font-size:0.72rem;color:#555;min-width:3.2em;text-align:right;flex-shrink:0;">26px</span>
         </div>
         <div class="wn-sp-row">
           <span class="wn-sp-label">Style</span>
@@ -5112,7 +5190,7 @@
               <div class="bc-section-title">Default Typography (Nodes)</div>
               <div class="bc-fields-grid">
                 <label>Default font size</label>
-                <div class="bc-field-row"><input type="number" id="bc-node-font-size" min="8" max="48" value="16"
+                <div class="bc-field-row"><input type="number" id="bc-node-font-size" min="8" max="96" value="16"
                     class="bc-num-input"><span class="bc-unit">px</span></div>
                 <label>Default font family</label>
                 <div class="bc-field-row" id="bc-node-font-family-wrap"
@@ -5215,10 +5293,10 @@
               <div class="bc-section-title">Default Typography (Notes)</div>
               <div class="bc-fields-grid">
                 <label>Font size (free floating)</label>
-                <div class="bc-field-row"><input type="number" id="bc-note-font-free" min="8" max="72" value="26"
+                <div class="bc-field-row"><input type="number" id="bc-note-font-free" min="8" max="96" value="26"
                     class="bc-num-input"><span class="bc-unit">px</span></div>
                 <label>Font size (node-linked)</label>
-                <div class="bc-field-row"><input type="number" id="bc-note-font-linked" min="8" max="72" value="14"
+                <div class="bc-field-row"><input type="number" id="bc-note-font-linked" min="8" max="96" value="14"
                     class="bc-num-input"><span class="bc-unit">px</span></div>
                 <label>Default font family</label>
                 <div class="bc-field-row" id="bc-note-font-family-wrap"
@@ -5446,6 +5524,29 @@
                     <input type="number" id="bc-autosave-custom-minutes" min="0.5" max="1440" step="0.5" value="10" class="bc-num-input" style="width:90px;" />
                     <span class="bc-unit">min</span>
                   </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Measurement Units -->
+            <div class="bc-section">
+              <div class="bc-section-title" data-i18n="bcUnitsTitle">Measurement Units</div>
+              <div class="bc-section-hint" data-i18n="bcUnitsHint">Configure active units for font size (px, pt) and stroke thickness (px, pt, mm) across all tools and menus.</div>
+              <div class="bc-fields-grid">
+                <label data-i18n="bcFontUnit">Font Size Unit</label>
+                <div class="bc-field-row">
+                  <select id="bc-font-unit-select" class="bc-select" onchange="conSwitchFontUnit(this.value)">
+                    <option value="pt">pt (Points)</option>
+                    <option value="px">px (Pixels)</option>
+                  </select>
+                </div>
+                <label data-i18n="bcThicknessUnit">Stroke & Border Unit</label>
+                <div class="bc-field-row">
+                  <select id="bc-thickness-unit-select" class="bc-select" onchange="conSwitchThicknessUnit(this.value)">
+                    <option value="mm">mm (Millimetres)</option>
+                    <option value="pt">pt (Points)</option>
+                    <option value="px">px (Pixels)</option>
+                  </select>
                 </div>
               </div>
             </div>
@@ -13820,9 +13921,243 @@
       window.conCurrentZoom = 1; // track zoom scale
       let conCurrentZoom = window.conCurrentZoom;
       let conTitle = ''; // board title for export filename
+      // ========================================================
+      // Universal Unit Management System (pt/px for Font, mm/pt/px for Thickness)
+      // ========================================================
+      const CON_FONT_UNIT_KEY = 'con_pref_font_unit';
+      const CON_THICKNESS_UNIT_KEY = 'con_pref_thickness_unit';
+
+      window.conFontUnit = (function () {
+        try {
+          const u = localStorage.getItem(CON_FONT_UNIT_KEY);
+          if (u === 'pt' || u === 'px') return u;
+        } catch (e) { }
+        return 'pt'; // Standard typographic unit
+      })();
+
+      window.conThicknessUnit = (function () {
+        try {
+          const u = localStorage.getItem(CON_THICKNESS_UNIT_KEY);
+          if (u === 'mm' || u === 'pt' || u === 'px') return u;
+        } catch (e) { }
+        return 'mm'; // Standard physical line/stroke unit
+      })();
+
+      function conPxToFontUnit(px, unit) {
+        unit = unit || window.conFontUnit || 'pt';
+        const num = parseFloat(px) || 0;
+        if (unit === 'px') return Math.round(num);
+        // pt: 1px = 0.75pt (96dpi: 72pt/inch, 96px/inch)
+        return Math.round(num * 0.75 * 10) / 10;
+      }
+
+      function conFontUnitToPx(val, unit) {
+        unit = unit || window.conFontUnit || 'pt';
+        const num = parseFloat(val) || 0;
+        if (unit === 'px') return Math.round(num);
+        // 1pt = 4/3 px
+        return Math.round((num / 0.75) * 10) / 10;
+      }
+
+      function conFormatFontSize(px, unit) {
+        unit = unit || window.conFontUnit || 'pt';
+        const val = conPxToFontUnit(px, unit);
+        return val + ' ' + unit;
+      }
+
+      function conPxToThicknessUnit(px, unit) {
+        unit = unit || window.conThicknessUnit || 'mm';
+        const num = parseFloat(px) || 0;
+        if (unit === 'px') return Math.round(num * 10) / 10;
+        if (unit === 'pt') return Math.round(num * 0.75 * 10) / 10;
+        // mm: 1px = 25.4 / 96 mm
+        return Math.round((num * 25.4 / 96) * 10) / 10;
+      }
+
+      function conThicknessUnitToPx(val, unit) {
+        unit = unit || window.conThicknessUnit || 'mm';
+        const num = parseFloat(val) || 0;
+        if (unit === 'px') return Math.round(num * 10) / 10;
+        if (unit === 'pt') return Math.round((num / 0.75) * 10) / 10;
+        // mm: 1mm = 96 / 25.4 px
+        return Math.round((num * 96 / 25.4) * 10) / 10;
+      }
+
+      function conFormatThickness(px, unit) {
+        unit = unit || window.conThicknessUnit || 'mm';
+        const val = conPxToThicknessUnit(px, unit);
+        return val + ' ' + unit;
+      }
+
+      function _conSetupFontSizeSlider(el, unit, context) {
+        if (!el) return;
+        unit = unit || window.conFontUnit || 'pt';
+        const isNote = context === 'note' || (el && el.id === 'wn-sp-size-slider');
+        if (unit === 'pt') {
+          el.min = isNote ? '3' : '6';
+          el.max = '72';
+          el.step = '1';
+        } else {
+          el.min = isNote ? '4' : '8';
+          el.max = '96';
+          el.step = '1';
+        }
+      }
+
+      function _conSetupThicknessSlider(el, unit, context) {
+        if (!el) return;
+        unit = unit || window.conThicknessUnit || 'mm';
+        if (unit === 'mm') {
+          if (context === 'shape') { el.min = '0.2'; el.max = '6.0'; el.step = '0.1'; }
+          else if (context === 'edge') { el.min = '0.2'; el.max = '5.0'; el.step = '0.1'; }
+          else if (context === 'noteBorder') { el.min = '0'; el.max = '6.0'; el.step = '0.1'; }
+          else { el.min = '0.2'; el.max = '10.0'; el.step = '0.1'; }
+        } else if (unit === 'pt') {
+          if (context === 'shape') { el.min = '0.5'; el.max = '18.0'; el.step = '0.5'; }
+          else if (context === 'edge') { el.min = '0.5'; el.max = '15.0'; el.step = '0.5'; }
+          else if (context === 'noteBorder') { el.min = '0'; el.max = '18.0'; el.step = '0.5'; }
+          else { el.min = '0.5'; el.max = '30.0'; el.step = '0.5'; }
+        } else { // px
+          if (context === 'shape') { el.min = '1'; el.max = '24'; el.step = '1'; }
+          else if (context === 'edge') { el.min = '1'; el.max = '20'; el.step = '0.5'; }
+          else if (context === 'noteBorder') { el.min = '0'; el.max = '18'; el.step = '1'; }
+          else { el.min = '1'; el.max = '40'; el.step = '1'; }
+        }
+      }
+
+      function _conSyncUnitToggleButtons() {
+        document.querySelectorAll('.con-unit-toggle[data-unit-type="font"]').forEach(tg => {
+          tg.querySelectorAll('.con-unit-pill').forEach(pill => {
+            pill.classList.toggle('active', pill.dataset.unit === window.conFontUnit);
+          });
+        });
+        document.querySelectorAll('.con-unit-toggle[data-unit-type="thickness"]').forEach(tg => {
+          tg.querySelectorAll('.con-unit-pill').forEach(pill => {
+            pill.classList.toggle('active', pill.dataset.unit === window.conThicknessUnit);
+          });
+        });
+        const edgeThickUnit = document.getElementById('con-edge-ctx-thickness-unit');
+        if (edgeThickUnit) edgeThickUnit.textContent = window.conThicknessUnit;
+      }
+
+      function _conSyncFontSizeSliders() {
+        // 1. Toolbar default font size input
+        const defaultInput = document.getElementById('con-default-font-size-input');
+        if (defaultInput) {
+          _conSetupFontSizeSlider(defaultInput, window.conFontUnit);
+          defaultInput.value = String(conPxToFontUnit(conDefaultNewWordFontSize, window.conFontUnit));
+        }
+        // 2. Node context menu font size slider
+        const ctxSlider = document.getElementById('con-ctx-font-size');
+        const ctxDisplay = document.getElementById('con-ctx-font-size-display');
+        if (ctxSlider) {
+          _conSetupFontSizeSlider(ctxSlider, window.conFontUnit);
+          const targetNode = conCtxNodeId ? conNodes.find(n => n.id === conCtxNodeId) : null;
+          const px = targetNode ? (conGetNodeBaseFontSize(targetNode) || 16) : 16;
+          const unitVal = conPxToFontUnit(px, window.conFontUnit);
+          ctxSlider.value = String(unitVal);
+          if (ctxDisplay) ctxDisplay.textContent = unitVal + ' ' + window.conFontUnit;
+        }
+        // 3. Word note style popup font size slider
+        const wnSlider = document.getElementById('wn-sp-size-slider');
+        const wnVal = document.getElementById('wn-sp-size-val');
+        if (wnSlider) {
+          _conSetupFontSizeSlider(wnSlider, window.conFontUnit, 'note');
+          if (typeof _wnActiveNote !== 'undefined' && _wnActiveNote) {
+            const px = _wnActiveNote.fontSize || 16;
+            wnSlider.value = String(conPxToFontUnit(px, window.conFontUnit));
+            if (wnVal) wnVal.textContent = conFormatFontSize(px, window.conFontUnit);
+          }
+        }
+      }
+
+      function _conSyncThicknessSliders() {
+        // 1. Draw line menu slider
+        const drawSlider = document.getElementById('con-draw-thickness');
+        const drawVal = document.getElementById('con-draw-thickness-val');
+        if (drawSlider) {
+          _conSetupThicknessSlider(drawSlider, window.conThicknessUnit, 'drawing');
+          drawSlider.value = String(conPxToThicknessUnit(_conDrawThickness, window.conThicknessUnit));
+          if (drawVal) drawVal.textContent = conFormatThickness(_conDrawThickness, window.conThicknessUnit);
+        }
+        // 2. Shape context menu slider
+        const shapeSlider = document.getElementById('con-shape-ctx-thickness');
+        const shapeVal = document.getElementById('con-shape-ctx-thickness-val');
+        if (shapeSlider && typeof _conShapeCtxId !== 'undefined' && _conShapeCtxId) {
+          const sh = conShapes.find(x => x.id === _conShapeCtxId);
+          if (sh) {
+            _conSetupThicknessSlider(shapeSlider, window.conThicknessUnit, 'shape');
+            shapeSlider.value = String(conPxToThicknessUnit(sh.thickness || 2, window.conThicknessUnit));
+            if (shapeVal) shapeVal.textContent = conFormatThickness(sh.thickness || 2, window.conThicknessUnit);
+          }
+        }
+        // 3. Drawing stroke context menu slider
+        const strokeSlider = document.getElementById('con-drawing-ctx-thickness');
+        const strokeVal = document.getElementById('con-drawing-ctx-thickness-val');
+        if (strokeSlider && typeof _conDrawCtxId !== 'undefined' && _conDrawCtxId) {
+          const dr = conDrawings.find(dr => dr.id === _conDrawCtxId);
+          if (dr) {
+            _conSetupThicknessSlider(strokeSlider, window.conThicknessUnit, 'drawing');
+            strokeSlider.value = String(conPxToThicknessUnit(dr.thickness || 4, window.conThicknessUnit));
+            if (strokeVal) strokeVal.textContent = conFormatThickness(dr.thickness || 4, window.conThicknessUnit);
+          }
+        }
+        // 4. Edge context menu thickness input
+        const edgeThickInput = document.getElementById('con-edge-ctx-thickness');
+        const edgeThickUnit = document.getElementById('con-edge-ctx-thickness-unit');
+        if (edgeThickUnit) edgeThickUnit.textContent = window.conThicknessUnit;
+        if (edgeThickInput && typeof _conEdgeCtxId !== 'undefined' && _conEdgeCtxId) {
+          const edge = conEdges.find(e => e && e.id == _conEdgeCtxId);
+          if (edge) {
+            _conSetupThicknessSlider(edgeThickInput, window.conThicknessUnit, 'edge');
+            const px = Number.isFinite(edge.thickness) && edge.thickness > 0 ? edge.thickness : 2;
+            edgeThickInput.value = String(conPxToThicknessUnit(px, window.conThicknessUnit));
+          }
+        }
+        // 5. Word note style popup border width slider
+        const wnBwSlider = document.getElementById('wn-sp-border-width');
+        const wnBwVal = document.getElementById('wn-sp-border-width-val');
+        if (wnBwSlider) {
+          _conSetupThicknessSlider(wnBwSlider, window.conThicknessUnit, 'noteBorder');
+          if (typeof _wnActiveNote !== 'undefined' && _wnActiveNote) {
+            const px = _wnActiveNote.borderWidth || 0;
+            wnBwSlider.value = String(conPxToThicknessUnit(px, window.conThicknessUnit));
+            if (wnBwVal) wnBwVal.textContent = conFormatThickness(px, window.conThicknessUnit);
+          }
+        }
+      }
+
+      window.conSwitchFontUnit = function (newUnit) {
+        if (newUnit !== 'pt' && newUnit !== 'px') return;
+        window.conFontUnit = newUnit;
+        try { localStorage.setItem(CON_FONT_UNIT_KEY, newUnit); } catch (e) { }
+        _conSyncUnitToggleButtons();
+        _conSyncFontSizeSliders();
+      };
+
+      window.conSwitchThicknessUnit = function (newUnit) {
+        if (newUnit !== 'mm' && newUnit !== 'pt' && newUnit !== 'px') return;
+        window.conThicknessUnit = newUnit;
+        try { localStorage.setItem(CON_THICKNESS_UNIT_KEY, newUnit); } catch (e) { }
+        _conSyncUnitToggleButtons();
+        _conSyncThicknessSliders();
+      };
+
+      window.conPxToFontUnit = conPxToFontUnit;
+      window.conFontUnitToPx = conFontUnitToPx;
+      window.conFormatFontSize = conFormatFontSize;
+      window.conPxToThicknessUnit = conPxToThicknessUnit;
+      window.conThicknessUnitToPx = conThicknessUnitToPx;
+      window.conFormatThickness = conFormatThickness;
+      window._conSetupFontSizeSlider = _conSetupFontSizeSlider;
+      window._conSetupThicknessSlider = _conSetupThicknessSlider;
+      window._conSyncUnitToggleButtons = _conSyncUnitToggleButtons;
+      window._conSyncFontSizeSliders = _conSyncFontSizeSliders;
+      window._conSyncThicknessSliders = _conSyncThicknessSliders;
+
       const CON_NEW_WORD_FONT_STORAGE_KEY = 'con_new_word_font_size';
       const CON_NEW_WORD_FONT_MIN = 8;
-      const CON_NEW_WORD_FONT_MAX = 48;
+      const CON_NEW_WORD_FONT_MAX = 96;
       const CON_NEW_WORD_FONT_DEFAULT = 16;
       let conDefaultNewWordFontSize = (() => {
         try {
@@ -13834,21 +14169,25 @@
         return CON_NEW_WORD_FONT_DEFAULT;
       })();
 
-      function conClampDefaultWordFontSize(value) {
-        const parsed = parseInt(value, 10);
-        if (!Number.isFinite(parsed)) return conDefaultNewWordFontSize;
-        return Math.min(CON_NEW_WORD_FONT_MAX, Math.max(CON_NEW_WORD_FONT_MIN, parsed));
+      function conClampDefaultWordFontSize(value, isInputUnit) {
+        const px = isInputUnit ? conFontUnitToPx(value, window.conFontUnit) : parseFloat(value);
+        if (!Number.isFinite(px)) return conDefaultNewWordFontSize;
+        return Math.min(CON_NEW_WORD_FONT_MAX, Math.max(CON_NEW_WORD_FONT_MIN, Math.round(px)));
       }
 
       window.conGetDefaultWordFontSize = function () {
         return conDefaultNewWordFontSize;
       };
 
-      window.conSetDefaultWordFontSize = function (value) {
-        const next = conClampDefaultWordFontSize(value);
+      window.conSetDefaultWordFontSize = function (value, isInputUnit) {
+        const next = conClampDefaultWordFontSize(value, isInputUnit);
         conDefaultNewWordFontSize = next;
         const input = document.getElementById('con-default-font-size-input');
-        if (input && String(input.value) !== String(next)) input.value = String(next);
+        if (input) {
+          _conSetupFontSizeSlider(input, window.conFontUnit);
+          const unitVal = conPxToFontUnit(next, window.conFontUnit);
+          if (String(input.value) !== String(unitVal)) input.value = String(unitVal);
+        }
         try { localStorage.setItem(CON_NEW_WORD_FONT_STORAGE_KEY, String(next)); } catch (e) { }
         return next;
       };
@@ -13888,7 +14227,7 @@
       function conSetNodeBaseFontSize(nodeOrEl, value) {
         const el = nodeOrEl && nodeOrEl.el ? nodeOrEl.el : nodeOrEl;
         if (!el) return window.conGetDefaultWordFontSize();
-        const baseSize = Math.max(CON_NEW_WORD_FONT_MIN, Math.min(72, conNormalizeNodeFontSize(value)));
+        const baseSize = Math.max(CON_NEW_WORD_FONT_MIN, Math.min(96, conNormalizeNodeFontSize(value)));
         const zoom = conGetEffectiveZoom();
         if (el.dataset) el.dataset.baseFontSize = String(baseSize);
         el.style.fontSize = (baseSize * zoom) + 'px';
@@ -16804,11 +17143,14 @@
         const opacityVal = document.getElementById('con-drawing-ctx-opacity-val');
         const dOpacity = Number.isFinite(d.opacity) ? d.opacity : 1;
         if (colorInput) colorInput.value = d.color;
-        if (colorText) colorText.value = d.color.toUpperCase();
-        if (thickSlider) thickSlider.value = String(d.thickness);
-        if (thickVal) thickVal.textContent = d.thickness + 'px';
+        if (thickSlider) {
+          _conSetupThicknessSlider(thickSlider, window.conThicknessUnit, 'drawing');
+          thickSlider.value = String(conPxToThicknessUnit(d.thickness || 4, window.conThicknessUnit));
+        }
+        if (thickVal) thickVal.textContent = conFormatThickness(d.thickness || 4, window.conThicknessUnit);
         if (opacitySlider) opacitySlider.value = String(dOpacity);
         if (opacityVal) opacityVal.textContent = Math.round(dOpacity * 100) + '%';
+        _conSyncUnitToggleButtons();
 
         if (colorInput) colorInput.oninput = function () {
           d.color = this.value;
@@ -16823,8 +17165,8 @@
           if (d.visPath) d.visPath.setAttribute('stroke', d.color);
         };
         if (thickSlider) thickSlider.oninput = function () {
-          d.thickness = Number(this.value);
-          if (thickVal) thickVal.textContent = d.thickness + 'px';
+          d.thickness = conThicknessUnitToPx(this.value, window.conThicknessUnit);
+          if (thickVal) thickVal.textContent = conFormatThickness(d.thickness, window.conThicknessUnit);
           if (d.visPath) d.visPath.setAttribute('stroke-width', String(d.thickness));
           if (d.hitPath) d.hitPath.setAttribute('stroke-width', String(Math.max(20, d.thickness + 10)));
         };
@@ -17960,10 +18302,15 @@
         _conShapeSyncPanelState();
         _conDrawSyncOverlayCursor();
       };
-      window.conDrawSetThickness = function (v) {
-        _conDrawThickness = Number(v) || 4;
+      window.conDrawSetThickness = function (v, isUnitValue) {
+        _conDrawThickness = isUnitValue ? conThicknessUnitToPx(v, window.conThicknessUnit) : (Number(v) || 4);
+        const slider = document.getElementById('con-draw-thickness');
+        if (slider) {
+          _conSetupThicknessSlider(slider, window.conThicknessUnit, 'drawing');
+          slider.value = String(conPxToThicknessUnit(_conDrawThickness, window.conThicknessUnit));
+        }
         const val = document.getElementById('con-draw-thickness-val');
-        if (val) val.textContent = _conDrawThickness + 'px';
+        if (val) val.textContent = conFormatThickness(_conDrawThickness, window.conThicknessUnit);
       };
       window.conDrawSetOpacity = function (v) {
         _conDrawOpacity = Math.max(0.05, Math.min(1, Number(v) || 1));
@@ -18287,10 +18634,14 @@
         }
         if (fillInput && s.fillColor && s.fillColor !== 'none') fillInput.value = s.fillColor;
         if (fillText) fillText.value = s.fillColor && s.fillColor !== 'none' ? s.fillColor.toUpperCase() : 'NONE';
-        if (thickSlider) thickSlider.value = String(s.thickness || 2);
-        if (thickVal) thickVal.textContent = (s.thickness || 2) + 'px';
+        if (thickSlider) {
+          _conSetupThicknessSlider(thickSlider, window.conThicknessUnit, 'shape');
+          thickSlider.value = String(conPxToThicknessUnit(s.thickness || 2, window.conThicknessUnit));
+        }
+        if (thickVal) thickVal.textContent = conFormatThickness(s.thickness || 2, window.conThicknessUnit);
         if (opSlider) opSlider.value = String(op);
         if (opVal) opVal.textContent = Math.round(op * 100) + '%';
+        _conSyncUnitToggleButtons();
         // Sync type buttons
         const typeBtns = document.getElementById('con-shape-ctx-type-btns');
         if (typeBtns) typeBtns.querySelectorAll('button[data-stype]').forEach(btn => {
@@ -18377,8 +18728,8 @@
         if (thickSlider) thickSlider.oninput = function () {
           const sh = conShapes.find(x => x.id === _conShapeCtxId);
           if (!sh) return;
-          sh.thickness = Number(this.value);
-          if (thickVal) thickVal.textContent = sh.thickness + 'px';
+          sh.thickness = conThicknessUnitToPx(this.value, window.conThicknessUnit);
+          if (thickVal) thickVal.textContent = conFormatThickness(sh.thickness, window.conThicknessUnit);
           _conShapeUpdateStyle(sh);
         };
         if (opSlider) opSlider.oninput = function () {
@@ -18789,8 +19140,8 @@
         const [bg, text, border] = CON_PALETTES[conActivePalette];
         node.el.style.background = bg;
         node.el.style.color = text;
-        node.el.style.borderColor = border;
-        conSetNodeBaseFontSize(node, document.getElementById('con-ctx-font-size').value || 16);
+        const rawSize = document.getElementById('con-ctx-font-size') ? document.getElementById('con-ctx-font-size').value : 12;
+        conSetNodeBaseFontSize(node, conFontUnitToPx(rawSize, window.conFontUnit) || 16);
         conApplyNodeShape(node, node.shape);
         conRedrawEdges();
       };
@@ -19008,7 +19359,7 @@
               <option value="square"    ${p.shape === 'square' ? 'selected' : ''}>${t('conShapeSquare')}</option>
             </select>
             <div class="pe-font-wrap"></div>
-            <input type="number" class="pe-fs" min="6" max="72" value="${p.fontSize != null ? p.fontSize : ''}" placeholder="—" title="${t('conPresetFontSizeTitle')}" style="font-family:inherit;font-size:0.78rem;border:1.5px solid #ccc;border-radius:3px;padding:3px 4px;outline:none;min-width:0;width:100%;">
+            <input type="number" class="pe-fs" min="6" max="96" value="${p.fontSize != null ? p.fontSize : ''}" placeholder="—" title="${t('conPresetFontSizeTitle')}" style="font-family:inherit;font-size:0.78rem;border:1.5px solid #ccc;border-radius:3px;padding:3px 4px;outline:none;min-width:0;width:100%;">
             <div class="pe-color-cell">
               <input type="color" class="pe-color-btn pe-tsc-btn" value="${_safeHex(p.textStrokeColor || '#000000', '#000000')}" title="${t('conPresetStrokeColorTitle')}">
               <input type="text" class="pe-color-input pe-tsc" value="${_esc(p.textStrokeColor || '')}" placeholder="stroke (rgba/hex)" title="${t('conPresetStrokeColorTitle')}">
@@ -19162,7 +19513,7 @@
           const fontSel = row.querySelector('.pe-font');
           const fontFamily = fontSel ? (fontSel.value || '') : '';
           const fsInput = row.querySelector('.pe-fs');
-          const fontSize = fsInput && fsInput.value.trim() !== '' ? Math.max(6, Math.min(72, parseInt(fsInput.value))) : null;
+          const fontSize = fsInput && fsInput.value.trim() !== '' ? Math.max(6, Math.min(96, parseInt(fsInput.value))) : null;
           const tscInput = row.querySelector('.pe-tsc');
           const textStrokeColor = tscInput ? tscInput.value.trim() : '';
           const tswInput = row.querySelector('.pe-tsw');
@@ -22554,7 +22905,7 @@
           targets.forEach(node => {
             if (conIsNodeLocked(node)) return;
             const current = conGetNodeBaseFontSize(node) || 13;
-            const next = delta > 0 ? Math.min(current + delta, 48) : Math.max(current + delta, 8);
+            const next = delta > 0 ? Math.min(current + delta, 96) : Math.max(current + delta, 8);
             conSetNodeBaseFontSize(node, next);
             conApplyNodeShape(node, node.shape);
             resizedNodes.push({ id: String(node.id), fontSize: next, shape: node.shape });
@@ -22566,7 +22917,7 @@
           noteTargets.forEach(note => {
             if (note.locked) return;
             const current = parseFloat(note.fontSize) || 14;
-            const next = delta > 0 ? Math.min(current + delta, 72) : Math.max(current + delta, 8);
+            const next = delta > 0 ? Math.min(current + delta, 96) : Math.max(current + delta, 8);
             note.fontSize = next;
             if (typeof note._applyStyle === 'function') note._applyStyle();
             if (window._conMirrorSend) {
@@ -22581,8 +22932,12 @@
             const lastSize = conGetNodeBaseFontSize(targets[targets.length - 1]) || 13;
             const slider = document.getElementById('con-ctx-font-size');
             const display = document.getElementById('con-ctx-font-size-display');
-            if (slider) slider.value = lastSize;
-            if (display) display.textContent = lastSize;
+            if (slider) {
+              _conSetupFontSizeSlider(slider, window.conFontUnit);
+              const uVal = conPxToFontUnit(lastSize, window.conFontUnit);
+              slider.value = uVal;
+              if (display) display.textContent = uVal + ' ' + window.conFontUnit;
+            }
           }
           if (_sizeAffectedPhraseGroups.size > 0 && typeof conPhraseGroupLayout === 'function') {
             _sizeAffectedPhraseGroups.forEach(pg => conPhraseGroupLayout(pg));
@@ -24871,7 +25226,7 @@
             const dx = e.clientX - _rx;
             const newWidth = Math.max(20, _rWidth + dx);
             const scale = newWidth / _rWidth;
-            const newFs = Math.max(8, Math.min(72, Math.round(_rFontSize * scale)));
+            const newFs = Math.max(8, Math.min(96, Math.round(_rFontSize * scale)));
             const node = conNodes.find(n => n.id === id);
             conSetNodeBaseFontSize(node || el, newFs);
             if (node) conApplyNodeShape(node, node.shape);
@@ -27207,10 +27562,14 @@
         // Sync size slider
         const sizeSlider = document.getElementById('con-ctx-font-size');
         if (sizeSlider && node) {
-          sizeSlider.value = Math.round(conGetNodeBaseFontSize(node) || 16);
+          _conSetupFontSizeSlider(sizeSlider, window.conFontUnit);
+          const pxVal = conGetNodeBaseFontSize(node) || 16;
+          const uVal = conPxToFontUnit(pxVal, window.conFontUnit);
+          sizeSlider.value = String(uVal);
           const sizeDisplay = document.getElementById('con-ctx-font-size-display');
-          if (sizeDisplay) sizeDisplay.textContent = sizeSlider.value;
+          if (sizeDisplay) sizeDisplay.textContent = uVal + ' ' + window.conFontUnit;
         }
+        _conSyncUnitToggleButtons();
 
         // Sync max-width slider
         const mwSlider = document.getElementById('con-ctx-max-width');
@@ -27294,9 +27653,11 @@
 
       window.conCtxApplySize = function () {
         if (!_conApplySizeUndoPushed) { conPushUndo(); _conApplySizeUndoPushed = true; }
-        const rawVal = document.getElementById('con-ctx-font-size') ? document.getElementById('con-ctx-font-size').value : 16;
-        const fontSize = (rawVal || 16) + 'px';
-        const numFontSize = parseFloat(rawVal) || 16;
+        const rawVal = document.getElementById('con-ctx-font-size') ? parseFloat(document.getElementById('con-ctx-font-size').value) : 12;
+        const numFontSize = conFontUnitToPx(rawVal, window.conFontUnit);
+        const fontSize = numFontSize + 'px';
+        const display = document.getElementById('con-ctx-font-size-display');
+        if (display) display.textContent = rawVal + ' ' + window.conFontUnit;
         // Apply to multi-selected set if there are multiple; otherwise just the ctx node
         const targets = (conMultiSelected.size > 1)
           ? conNodes.filter(n => conMultiSelected.has(n.id))
@@ -27950,11 +28311,11 @@
 
         return {
           label: input ? input.value.trim() : '',
-          labelSize: sizeInput ? (Number(sizeInput.value) || 16) : 16,
+          labelSize: sizeInput ? (conFontUnitToPx(sizeInput.value, window.conFontUnit) || 16) : 16,
           labelColor: isAuto ? '#333333' : color,
           colorMode: isAuto ? 'auto' : 'manual',
           strokeColor: isAuto ? null : color,
-          thickness: thicknessInput ? Math.max(1, Math.min(20, parseFloat(thicknessInput.value) || 2)) : 2,
+          thickness: thicknessInput ? Math.max(0.2, Math.min(60, conThicknessUnitToPx(thicknessInput.value, window.conThicknessUnit) || 2)) : 2,
           strokeType: strokeBtn ? strokeBtn.dataset.stroke : 'solid',
           routing: routingBtn ? routingBtn.dataset.routing : 'straight',
           type: dirBtn ? dirBtn.dataset.dir : 'forward',
@@ -28088,11 +28449,20 @@
 
         if (input) input.value = edge ? (edge.label || '') : '';
         const style = conNormalizeEdgeLabelStyle(edge || {});
-        if (sizeInput) sizeInput.value = String(style.size);
-        if (sizeVal) sizeVal.textContent = style.size + 'px';
+        if (sizeInput) {
+          _conSetupFontSizeSlider(sizeInput, window.conFontUnit);
+          const uSize = conPxToFontUnit(style.size || 16, window.conFontUnit);
+          sizeInput.value = String(uSize);
+        }
+        if (sizeVal) sizeVal.textContent = conPxToFontUnit(style.size || 16, window.conFontUnit) + ' ' + window.conFontUnit;
         if (colorInput) colorInput.value = style.color;
         if (colorText) colorText.value = style.color.toUpperCase();
-        if (thicknessInput) thicknessInput.value = String(Number.isFinite(edge && edge.thickness) && edge.thickness > 0 ? edge.thickness : (window._conDefaultLinkThickness > 0 ? window._conDefaultLinkThickness : 2));
+        if (thicknessInput) {
+          _conSetupThicknessNumberInput(thicknessInput, window.conThicknessUnit, 'edge');
+          const rawPxThick = Number.isFinite(edge && edge.thickness) && edge.thickness > 0 ? edge.thickness : (window._conDefaultLinkThickness > 0 ? window._conDefaultLinkThickness : 2);
+          thicknessInput.value = String(conPxToThicknessUnit(rawPxThick, window.conThicknessUnit));
+        }
+        _conSyncUnitToggleButtons();
 
         const opPercent = Math.round(((edge && typeof edge.opacity === 'number') ? edge.opacity : 1) * 100);
         if (opacityInput) opacityInput.value = String(opPercent);
@@ -28134,7 +28504,7 @@
         }
         if (sizeInput) {
           sizeInput.oninput = function () {
-            if (sizeVal) sizeVal.textContent = this.value + 'px';
+            if (sizeVal) sizeVal.textContent = this.value + ' ' + window.conFontUnit;
             conEdgeCtxApplyLive();
           };
         }
@@ -37761,7 +38131,7 @@
     window.WN_HIGHLIGHT_COLORS = WN_HIGHLIGHT_COLORS;
     const WN_BORDER_SWATCHES = ['#111111', '#555555', '#dc2626', '#ea580c', '#d97706', '#16a34a', '#0d9488', '#2563eb', '#0284c7', '#7c3aed', '#db2777'];
     window.WN_BORDER_SWATCHES = WN_BORDER_SWATCHES;
-    const WN_SIZE_MIN = 4, WN_SIZE_MAX = 72;
+    const WN_SIZE_MIN = 4, WN_SIZE_MAX = 96;
 
     let _wnActiveNote = null;
     let _wnSavedSelectionRange = null;
@@ -37996,15 +38366,30 @@
 
       const szSlider = document.getElementById('wn-sp-size-slider');
       const szVal = document.getElementById('wn-sp-size-val');
-      szSlider.min = WN_SIZE_MIN;
-      szSlider.max = WN_SIZE_MAX;
-      szSlider.value = noteData.fontSize;
-      szVal.textContent = noteData.fontSize + 'px';
+      const setupFontSlider = window._conSetupFontSizeSlider || (typeof _conSetupFontSizeSlider === 'function' ? _conSetupFontSizeSlider : null);
+      const pxToFont = window.conPxToFontUnit || (typeof conPxToFontUnit === 'function' ? conPxToFontUnit : null);
+      const fmtFont = window.conFormatFontSize || (typeof conFormatFontSize === 'function' ? conFormatFontSize : null);
+      if (szSlider) {
+        if (setupFontSlider) setupFontSlider(szSlider, window.conFontUnit, 'note');
+        if (pxToFont) szSlider.value = String(pxToFont(noteData.fontSize || 16, window.conFontUnit));
+      }
+      if (szVal) {
+        szVal.textContent = fmtFont ? fmtFont(noteData.fontSize || 16, window.conFontUnit) : (noteData.fontSize || 16) + 'px';
+      }
 
       const bwSlider = document.getElementById('wn-sp-border-width');
       const bwVal = document.getElementById('wn-sp-border-width-val');
-      if (bwSlider) { bwSlider.value = noteData.borderWidth || 0; }
-      if (bwVal) { bwVal.textContent = (noteData.borderWidth || 0) + 'px'; }
+      const setupThickSlider = window._conSetupThicknessSlider || (typeof _conSetupThicknessSlider === 'function' ? _conSetupThicknessSlider : null);
+      const pxToThick = window.conPxToThicknessUnit || (typeof conPxToThicknessUnit === 'function' ? conPxToThicknessUnit : null);
+      const fmtThick = window.conFormatThickness || (typeof conFormatThickness === 'function' ? conFormatThickness : null);
+      if (bwSlider) {
+        if (setupThickSlider) setupThickSlider(bwSlider, window.conThicknessUnit, 'noteBorder');
+        if (pxToThick) bwSlider.value = String(pxToThick(noteData.borderWidth || 0, window.conThicknessUnit));
+      }
+      if (bwVal) {
+        bwVal.textContent = fmtThick ? fmtThick(noteData.borderWidth || 0, window.conThicknessUnit) : (noteData.borderWidth || 0) + 'px';
+      }
+      if (typeof window._conSyncUnitToggleButtons === 'function') window._conSyncUnitToggleButtons();
       const bcPicker = document.getElementById('wn-sp-border-color');
       if (bcPicker) { bcPicker.value = (noteData.borderColor && /^#[0-9a-fA-F]{6}$/.test(noteData.borderColor)) ? noteData.borderColor : '#111111'; }
       const curBs = noteData.borderStyle || '';
@@ -38246,7 +38631,7 @@
             <option value="double" ${p.borderStyle === 'double' ? 'selected' : ''}>${t('conPresetDouble')}</option>
           </select>
           <div class="pe-font-wrap"></div>
-          <input type="number" class="pe-fs" min="6" max="72" value="${p.fontSize != null ? p.fontSize : ''}" placeholder="—" title="${t('conPresetFontSizeTitle')}" style="font-family:inherit;font-size:0.78rem;border:1.5px solid #ccc;border-radius:3px;padding:3px 4px;outline:none;min-width:0;width:100%;">
+          <input type="number" class="pe-fs" min="6" max="96" value="${p.fontSize != null ? p.fontSize : ''}" placeholder="—" title="${t('conPresetFontSizeTitle')}" style="font-family:inherit;font-size:0.78rem;border:1.5px solid #ccc;border-radius:3px;padding:3px 4px;outline:none;min-width:0;width:100%;">
           <div class="pe-fmt-btns">
             <button class="pe-fmt-btn${p.fmt.bold ? ' active' : ''}" data-fmt="bold" onclick="this.classList.toggle('active')" title="${t('conPresetBoldTitle')}"><b>B</b></button>
             <button class="pe-fmt-btn${p.fmt.italic ? ' active' : ''}" data-fmt="italic" onclick="this.classList.toggle('active')" title="${t('conPresetItalicTitle')}"><i>I</i></button>
@@ -38293,7 +38678,7 @@
         const fontSel = row.querySelector('.pe-font');
         const fontFamily = fontSel ? (fontSel.value || '') : '';
         const fsInput = row.querySelector('.pe-fs');
-        const fontSize = fsInput && fsInput.value.trim() !== '' ? Math.max(6, Math.min(72, parseInt(fsInput.value))) : null;
+        const fontSize = fsInput && fsInput.value.trim() !== '' ? Math.max(6, Math.min(96, parseInt(fsInput.value))) : null;
         flushed.push({ key, label, bg, color, borderColor, borderWidth, borderStyle, fontFamily, fontSize, fmt });
       });
       if (flushed.length > 0) _notePresetEditorDraft = flushed;
@@ -38363,7 +38748,7 @@
         const fontSel = row.querySelector('.pe-font');
         const fontFamily = fontSel ? (fontSel.value || '') : '';
         const fsInput = row.querySelector('.pe-fs');
-        const fontSize = fsInput && fsInput.value.trim() !== '' ? Math.max(6, Math.min(72, parseInt(fsInput.value))) : null;
+        const fontSize = fsInput && fsInput.value.trim() !== '' ? Math.max(6, Math.min(96, parseInt(fsInput.value))) : null;
         result.push({ key, label, bg, color, borderColor, borderWidth, borderStyle, fontFamily, fontSize, fmt });
       });
       const bc = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG) ? BOARD_CONFIG : {};
@@ -38551,7 +38936,7 @@
       const x = Number.isFinite(noteData.x) ? noteData.x : 100;
       const startY = Number.isFinite(noteData.y) ? noteData.y : 100;
       const pageNum = noteData.pageNum != null ? noteData.pageNum : null;
-      const baseFs = noteData.fontSize ? Math.max(8, Math.min(72, Number(noteData.fontSize) || 16)) : 16;
+      const baseFs = noteData.fontSize ? Math.max(8, Math.min(96, Number(noteData.fontSize) || 16)) : 16;
       const stepY = Math.max(48, Math.round(baseFs * 2.2));
 
       const createdNodes = [];
@@ -39729,10 +40114,14 @@
       }
     }
 
-    function wnStyleSetSize(sizePx) {
+    function wnStyleSetSize(sizeVal, isUnitValue) {
       if (!_wnActiveNote) return;
-      const value = Math.max(WN_SIZE_MIN, Math.min(WN_SIZE_MAX, Number(sizePx) || _wnActiveNote.fontSize || 16));
-      document.getElementById('wn-sp-size-val').textContent = value + 'px';
+      const fnFontUnitToPx = window.conFontUnitToPx || (typeof conFontUnitToPx === 'function' ? conFontUnitToPx : null);
+      const fnFmtFont = window.conFormatFontSize || (typeof conFormatFontSize === 'function' ? conFormatFontSize : null);
+      const px = (isUnitValue && fnFontUnitToPx) ? fnFontUnitToPx(sizeVal, window.conFontUnit) : (Number(sizeVal) || _wnActiveNote.fontSize || 16);
+      const value = Math.max(WN_SIZE_MIN, Math.min(WN_SIZE_MAX, Math.round(px)));
+      const szVal = document.getElementById('wn-sp-size-val');
+      if (szVal) szVal.textContent = fnFmtFont ? fnFmtFont(value, window.conFontUnit) : value + 'px';
       if (wnApplySelectionCommand('fontSize', '7')) {
         const editor = wnGetActiveEditor();
         if (editor) {
@@ -39832,12 +40221,17 @@
       wnApplySelectionCommand('backColor', color);
     }
 
-    function wnStyleSetBorderWidth(val) {
+    function wnStyleSetBorderWidth(val, isUnitValue) {
       if (!_wnActiveNote) return;
-      const w = Math.max(0, Math.min(8, Number(val) || 0));
+      const fnThickUnitToPx = window.conThicknessUnitToPx || (typeof conThicknessUnitToPx === 'function' ? conThicknessUnitToPx : null);
+      const fnFmtThick = window.conFormatThickness || (typeof conFormatThickness === 'function' ? conFormatThickness : null);
+      const px = (isUnitValue && fnThickUnitToPx) ? fnThickUnitToPx(val, window.conThicknessUnit) : (Number(val) || 0);
+      const w = Math.max(0, Math.min(18, Math.round(px)));
       _wnActiveNote.borderWidth = w > 0 ? w : null;
       if (!_wnActiveNote.borderStyle && w > 0) _wnActiveNote.borderStyle = 'solid';
       if (!_wnActiveNote.borderColor && w > 0) _wnActiveNote.borderColor = '#111111';
+      const bwVal = document.getElementById('wn-sp-border-width-val');
+      if (bwVal) bwVal.textContent = fnFmtThick ? fnFmtThick(w, window.conThicknessUnit) : w + 'px';
       _wnActiveNote._applyStyle && _wnActiveNote._applyStyle();
     }
     function wnStyleSetBorderStyle(style) {
@@ -39847,7 +40241,14 @@
       if (!_wnActiveNote.borderColor) _wnActiveNote.borderColor = '#111111';
       const bwSlider = document.getElementById('wn-sp-border-width');
       const bwVal = document.getElementById('wn-sp-border-width-val');
-      if (bwSlider && Number(bwSlider.value) === 0) { bwSlider.value = 1; if (bwVal) bwVal.textContent = '1px'; }
+      if (bwSlider && Number(bwSlider.value) === 0) {
+        const fnSetupThick = window._conSetupThicknessSlider || (typeof _conSetupThicknessSlider === 'function' ? _conSetupThicknessSlider : null);
+        const fnPxToThick = window.conPxToThicknessUnit || (typeof conPxToThicknessUnit === 'function' ? conPxToThicknessUnit : null);
+        const fnFmtThick = window.conFormatThickness || (typeof conFormatThickness === 'function' ? conFormatThickness : null);
+        if (fnSetupThick) fnSetupThick(bwSlider, window.conThicknessUnit, 'noteBorder');
+        if (fnPxToThick) bwSlider.value = String(fnPxToThick(1, window.conThicknessUnit));
+        if (bwVal) bwVal.textContent = fnFmtThick ? fnFmtThick(1, window.conThicknessUnit) : '1px';
+      }
       _wnActiveNote._applyStyle && _wnActiveNote._applyStyle();
       ['solid', 'dashed', 'dotted', 'double'].forEach(s => {
         const btn = document.getElementById('wn-sp-bs-' + s);
@@ -56016,6 +56417,8 @@
       set('bc-board-custom-width', _bcClampBoardDimension(bc.boardCustomWidthPx, 1600));
       set('bc-board-custom-height', _bcClampBoardDimension(bc.boardCustomHeightPx, 1000));
       _bcBuildSwatchList('bc-board-bg-preset-list', conExtractBoardBgPresetsFromConfig(bc));
+      set('bc-font-unit-select', bc.fontUnit || window.conFontUnit || 'pt');
+      set('bc-thickness-unit-select', bc.thicknessUnit || window.conThicknessUnit || 'mm');
       const autosaveIntervalEl = document.getElementById('bc-autosave-interval');
       const autosaveCustomRowEl = document.getElementById('bc-autosave-custom-row');
       const autosaveCustomInputEl = document.getElementById('bc-autosave-custom-minutes');
@@ -56553,6 +56956,8 @@
           }
           return getNum('bc-autosave-interval', 45);
         })(),
+        fontUnit: document.getElementById('bc-font-unit-select')?.value || window.conFontUnit || 'pt',
+        thicknessUnit: document.getElementById('bc-thickness-unit-select')?.value || window.conThicknessUnit || 'mm',
       };
 
       window.BOARD_CONFIG = bc;
@@ -56581,6 +56986,13 @@
 
     function _boardCustomiseApply(bc) {
       if (!bc) return;
+
+      if (bc.fontUnit && typeof window.conSwitchFontUnit === 'function') {
+        window.conSwitchFontUnit(bc.fontUnit);
+      }
+      if (bc.thicknessUnit && typeof window.conSwitchThicknessUnit === 'function') {
+        window.conSwitchThicknessUnit(bc.thicknessUnit);
+      }
 
       // 1. Node colour palette
       if (Array.isArray(bc.nodePalette) && bc.nodePalette.length > 0) {
