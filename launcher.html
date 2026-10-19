@@ -88,7 +88,32 @@
         <option value="bottom-right" data-i18n="cfgPosBottomRight">Bottom-right</option>
         <option value="left" data-i18n="cfgPosLeft">Left (full height)</option>
         <option value="right" data-i18n="cfgPosRight">Right (full height)</option>
+        <option value="maximize" data-i18n="cfgPosMaximize">Maximized</option>
       </select>
+    </div>
+  </div>
+  <div class="cfg-pres-section" id="cfgPresSection" style="display:none;">
+    <hr class="cfg-section-divider">
+    <div class="cfg-label" data-i18n="cfgLabelPresSection" style="margin-bottom:8px;color:#222;">Mirrored / Presentation Window</div>
+    <div class="cfg-row" style="margin-top:0;">
+      <div>
+        <label class="cfg-label" data-i18n="cfgLabelPresSize">Size (%)</label>
+        <input class="cfg-input cfg-pres-size-input" type="number" min="20" max="100" step="5" placeholder="Default" data-i18n-placeholder="cfgSizePlaceholder">
+      </div>
+      <div>
+        <label class="cfg-label" data-i18n="cfgLabelPresPosition">Position</label>
+        <select class="cfg-input cfg-pres-pos-select">
+          <option value="" data-i18n="cfgPosDefault">Default</option>
+          <option value="center" data-i18n="cfgPosCenter">Center</option>
+          <option value="top-left" data-i18n="cfgPosTopLeft">Top-left</option>
+          <option value="top-right" data-i18n="cfgPosTopRight">Top-right</option>
+          <option value="bottom-left" data-i18n="cfgPosBottomLeft">Bottom-left</option>
+          <option value="bottom-right" data-i18n="cfgPosBottomRight">Bottom-right</option>
+          <option value="left" data-i18n="cfgPosLeft">Left (full height)</option>
+          <option value="right" data-i18n="cfgPosRight">Right (full height)</option>
+          <option value="maximize" data-i18n="cfgPosMaximize">Maximized</option>
+        </select>
+      </div>
     </div>
   </div>
 </div>
@@ -579,15 +604,47 @@
     } catch (e) { return null; }
   }
 
+  const PRESENTATION_APP_IDS = new Set([
+    'board',
+    'classManagement',
+    'class-management',
+    'learningTools',
+    'learning-tools',
+    'oralMarking',
+    'oral-marking',
+    'documentEditor',
+    'document-editor'
+  ]);
+
+  function getAllCardConfigs() {
+    var configs = {};
+    if (window.LAUNCHER_CONFIG && typeof window.LAUNCHER_CONFIG.cardConfigs === 'object' && window.LAUNCHER_CONFIG.cardConfigs) {
+      Object.assign(configs, window.LAUNCHER_CONFIG.cardConfigs);
+    }
+    try {
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && k.indexOf('cmt-card-config-') === 0) {
+          var appId = k.replace('cmt-card-config-', '');
+          try {
+            configs[appId] = JSON.parse(localStorage.getItem(k));
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
+    return configs;
+  }
+
   var _saveLauncherConfigTimer = null;
-  function saveLauncherConfigFile(groups) {
+  function saveLauncherConfigFile(groups, immediate) {
     clearTimeout(_saveLauncherConfigTimer);
-    _saveLauncherConfigTimer = setTimeout(async function() {
-      if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveText === 'function') {
+    var doSave = async function() {
+      if (window.Desktop && Desktop.isElectron && Desktop.isElectron() && typeof Desktop.saveText === 'function') {
         try {
           var payload = {
             version: 1,
-            groups: groups
+            groups: groups || getGroups() || [],
+            cardConfigs: getAllCardConfigs()
           };
           var content = '// Launcher Configuration\n// Automatically updated\nwindow.LAUNCHER_CONFIG = ' + JSON.stringify(payload, null, 2) + ';\n';
           await Desktop.saveText('user', 'launcher-config.js', content);
@@ -595,24 +652,46 @@
           console.warn('launcher: Failed to save user/launcher-config.js:', e);
         }
       }
-    }, 250);
+    };
+    if (immediate) {
+      doSave();
+    } else {
+      _saveLauncherConfigTimer = setTimeout(doSave, 250);
+    }
   }
 
   async function loadLauncherConfigFile() {
-    if (window.Desktop && Desktop.isElectron() && typeof Desktop.readText === 'function') {
+    if (window.Desktop && Desktop.isElectron && Desktop.isElectron() && typeof Desktop.readText === 'function') {
       try {
         var r = await Desktop.readText('user', 'launcher-config.js');
         if (r && r.ok && r.content) {
           var match = r.content.match(/window\.LAUNCHER_CONFIG\s*=\s*(\{[\s\S]*?\});/);
           if (match) {
             var parsed = JSON.parse(match[1]);
-            if (parsed && Array.isArray(parsed.groups) && parsed.groups.length > 0) {
+            if (parsed) {
               window.LAUNCHER_CONFIG = parsed;
-              var currentRaw = localStorage.getItem('cmt-launcher-groups');
-              var newRaw = JSON.stringify(parsed.groups);
-              if (currentRaw !== newRaw) {
-                localStorage.setItem('cmt-launcher-groups', newRaw);
-                renderSections();
+              if (parsed.cardConfigs && typeof parsed.cardConfigs === 'object') {
+                for (var appId in parsed.cardConfigs) {
+                  if (Object.prototype.hasOwnProperty.call(parsed.cardConfigs, appId)) {
+                    try {
+                      localStorage.setItem('cmt-card-config-' + appId, JSON.stringify(parsed.cardConfigs[appId]));
+                    } catch (_) {}
+                  }
+                }
+              } else {
+                var currentCardConfigs = getAllCardConfigs();
+                if (Object.keys(currentCardConfigs).length > 0) {
+                  window.LAUNCHER_CONFIG.cardConfigs = currentCardConfigs;
+                  saveLauncherConfigFile(parsed.groups, true);
+                }
+              }
+              if (Array.isArray(parsed.groups) && parsed.groups.length > 0) {
+                var currentRaw = localStorage.getItem('cmt-launcher-groups');
+                var newRaw = JSON.stringify(parsed.groups);
+                if (currentRaw !== newRaw) {
+                  localStorage.setItem('cmt-launcher-groups', newRaw);
+                  renderSections();
+                }
               }
               return true;
             }
@@ -620,7 +699,7 @@
         } else {
           // File does not exist yet: persist current groups to user/launcher-config.js
           var initialGroups = resolveGroups();
-          saveLauncherConfigFile(initialGroups);
+          saveLauncherConfigFile(initialGroups, true);
         }
       } catch (e) {
         console.warn('launcher: could not load user/launcher-config.js:', e);
@@ -1042,8 +1121,14 @@
     try { return JSON.parse(localStorage.getItem('cmt-card-config-' + id) || '{}'); } catch { return {}; }
   }
 
-  function saveCardConfig(id, data) {
-    localStorage.setItem('cmt-card-config-' + id, JSON.stringify(data));
+  function saveCardConfig(id, data, immediate) {
+    try {
+      localStorage.setItem('cmt-card-config-' + id, JSON.stringify(data));
+    } catch (_) {}
+    if (!window.LAUNCHER_CONFIG) window.LAUNCHER_CONFIG = {};
+    if (!window.LAUNCHER_CONFIG.cardConfigs) window.LAUNCHER_CONFIG.cardConfigs = {};
+    window.LAUNCHER_CONFIG.cardConfigs[id] = data;
+    saveLauncherConfigFile(getGroups(), immediate);
   }
 
   function getGeneralConfig() {
@@ -1180,6 +1265,19 @@
     popup.querySelector('.cfg-size-input').value   = cfg.windowSize || '';
     popup.querySelector('.cfg-pos-select').value   = cfg.windowPosition || '';
 
+    const presSection = popup.querySelector('#cfgPresSection');
+    if (presSection) {
+      if (PRESENTATION_APP_IDS.has(app.id)) {
+        presSection.style.display = 'block';
+        const sizeInput = popup.querySelector('.cfg-pres-size-input');
+        const posSelect = popup.querySelector('.cfg-pres-pos-select');
+        if (sizeInput) sizeInput.value = cfg.presWindowSize || '';
+        if (posSelect) posSelect.value = cfg.presWindowPosition || '';
+      } else {
+        presSection.style.display = 'none';
+      }
+    }
+
     // Measure off-screen then position
     popup.style.visibility = 'hidden';
     popup.hidden = false;
@@ -1208,6 +1306,7 @@
   }
 
   function closePopup() {
+    persistPopupConfig();
     const popup = document.getElementById('cfgPopup');
     popup.hidden = true;
     if (currentGearBtn) currentGearBtn.classList.remove('active');
@@ -1215,18 +1314,31 @@
     currentPopupApp = null;
     currentGearBtn  = null;
     currentCard     = null;
+    saveLauncherConfigFile(getGroups(), true);
   }
 
   function persistPopupConfig() {
     if (!currentPopupApp) return;
     const popup = document.getElementById('cfgPopup');
-    const labelVal = popup.querySelector('.cfg-label-input').value;
-    saveCardConfig(currentPopupApp.id, {
+    const existing = getCardConfig(currentPopupApp.id) || {};
+    const labelInput = popup.querySelector('.cfg-label-input');
+    const notesInput = popup.querySelector('.cfg-notes');
+    const sizeInput  = popup.querySelector('.cfg-size-input');
+    const posSelect  = popup.querySelector('.cfg-pos-select');
+    const labelVal   = labelInput ? labelInput.value : (existing.customLabel || '');
+    const cardData = Object.assign({}, existing, {
       customLabel:    labelVal,
-      notes:          popup.querySelector('.cfg-notes').value,
-      windowSize:     popup.querySelector('.cfg-size-input').value,
-      windowPosition: popup.querySelector('.cfg-pos-select').value
+      notes:          notesInput ? notesInput.value : (existing.notes || ''),
+      windowSize:     sizeInput ? sizeInput.value : (existing.windowSize || ''),
+      windowPosition: posSelect ? posSelect.value : (existing.windowPosition || '')
     });
+    if (PRESENTATION_APP_IDS.has(currentPopupApp.id)) {
+      const presSizeInput = popup.querySelector('.cfg-pres-size-input');
+      const presPosSelect = popup.querySelector('.cfg-pres-pos-select');
+      cardData.presWindowSize = presSizeInput ? presSizeInput.value.trim() : (existing.presWindowSize || '');
+      cardData.presWindowPosition = presPosSelect ? presPosSelect.value : (existing.presWindowPosition || '');
+    }
+    saveCardConfig(currentPopupApp.id, cardData);
     if (currentCard) {
       const fallbackTitle = (typeof t === 'function' ? t('app_' + currentPopupApp.id + '_title', currentPopupApp.title) : null) || currentPopupApp.title;
       currentCard.querySelector('.card-title').textContent = labelVal.trim() || fallbackTitle;
@@ -2326,10 +2438,15 @@
   function init() {
     const popup = document.getElementById('cfgPopup');
     if (popup) {
+      popup.addEventListener('input', persistPopupConfig);
+      popup.addEventListener('change', persistPopupConfig);
       popup.querySelector('.cfg-label-input')?.addEventListener('input',  persistPopupConfig);
       popup.querySelector('.cfg-notes')?.addEventListener('input',        persistPopupConfig);
       popup.querySelector('.cfg-size-input')?.addEventListener('input',   persistPopupConfig);
       popup.querySelector('.cfg-pos-select')?.addEventListener('change',  persistPopupConfig);
+      popup.querySelector('.cfg-pres-size-input')?.addEventListener('input',  persistPopupConfig);
+      popup.querySelector('.cfg-pres-size-input')?.addEventListener('change', persistPopupConfig);
+      popup.querySelector('.cfg-pres-pos-select')?.addEventListener('change', persistPopupConfig);
     }
 
     applyTitle();

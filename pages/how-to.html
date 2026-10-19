@@ -528,6 +528,9 @@
         <strong>Collapsible Tool Sections &amp; Disk Sync:</strong> The Launcher organizes tools into customizable sections (Classroom, Students, Content, System, or custom sections). Click any section header or its chevron icon to collapse or expand it. Collapsed sections condense into compact drawer bars with a tool count badge (e.g. <em>6 tools</em>), letting primary teaching modules stand out while secondary utilities remain neatly tucked away. During tool search (<code>/</code>), collapsed sections automatically expand to reveal matching results. Section order, custom names, card assignments, and collapsed states persist directly to <code>user/launcher-config.js</code> and synchronize across your devices via the <strong>Sync</strong> feature.
       </div>
       <div class="tip" style="margin-top:10px">
+        <strong>Card Settings &amp; Mirrored Window Defaults:</strong> Click the gear icon (⚙) on any app card in the Launcher to customize its label, notes, window size ratio, and screen placement. For tools supporting presentation views (like <strong>Board</strong> and <strong>Class Management</strong>), you can also set the <strong>Mirrored / Presentation Window Size (%)</strong> and <strong>Position</strong> presets (Center, Maximized, Left/Right, or Corners). These settings are stored directly in <code>user/launcher-config.js</code> and serve as the initial size when launching presentation mode and the target dimensions when clicking the <strong>Default size</strong> button (<img src="../assets/icons/monitor.svg" class="ht-inline-icon" alt="" style="width:14px;height:14px;vertical-align:-2px;" />) in the floating presentation menu.
+      </div>
+      <div class="tip" style="margin-top:10px">
         <strong>Instant Tool Documentation (? Button):</strong> Hover over any tool card in the Launcher to reveal the tactile <strong>?</strong> button in the card header. Clicking <strong>?</strong> immediately opens the dedicated documentation section for that tool in How To with smooth scrolling and animated highlighting, providing instant guidance on workflows, hotkeys, and storage locations.
       </div>
       <div class="tip" style="margin-top:10px">
@@ -910,11 +913,11 @@
           <div class="mini-grid">
             <div class="mini-card">
               <h4><img src="../assets/icons/board.svg" class="ht-icon-img" alt="" /> Board</h4>
-              <p>Toolbar → <strong>📽️ Presentation Mode</strong>. Mirrors the live canvas with optional mouse-pointer dot, Freeze, and a compact popup menu for stop / resize / left / right window controls. See <button class="xlink" onclick="navToAccordion('board','acc-board-presentation')">Board → Presentation Mode</button>.</p>
+              <p>Toolbar → <strong>📽️ Presentation Mode</strong>. Mirrors the live canvas with optional mouse-pointer dot, Freeze, and a compact popup menu for stop / freeze / always on top (pin) / resize / left / right window controls. See <button class="xlink" onclick="navToAccordion('board','acc-board-presentation')">Board → Presentation Mode</button>.</p>
             </div>
             <div class="mini-card">
               <h4><img src="../assets/icons/class-management.svg" class="ht-icon-img" alt="" /> Class Management</h4>
-              <p>Top menu → <strong>Presentation</strong>. Projects the roster with roles, badges, and effects, with a compact popup menu for stop / freeze / resize / left / right window controls. Can be frozen independently. See <button class="xlink" onclick="navToAccordion('class-management','acc-cm-presentation')">Class Management → Presentation Mode</button>.</p>
+              <p>Top menu → <strong>Presentation</strong>. Projects the roster with roles, badges, and effects, with a compact popup menu for stop / freeze / always on top (pin) / resize / left / right window controls. Can be frozen independently. See <button class="xlink" onclick="navToAccordion('class-management','acc-cm-presentation')">Class Management → Presentation Mode</button>.</p>
             </div>
             <div class="mini-card">
               <h4><img src="../assets/icons/learning-tools.svg" class="ht-icon-img" alt="" /> Learning Tools</h4>
@@ -1401,6 +1404,8 @@
             <li><strong>Zoom Synchronization</strong>: Adjusting zoom on the main view with <kbd>Ctrl</kbd> <kbd>+</kbd> / <kbd>Ctrl</kbd> <kbd>-</kbd> (or <kbd>Ctrl</kbd> + Mouse Wheel) automatically syncs to the presentation mirror in real-time. Use <kbd>Ctrl</kbd> <kbd>0</kbd> to reset both views to 100%.</li>
             <li><strong>🖱 Mouse Pointer</strong>: enable this to show a coloured dot at your cursor position in the presentation window — useful for pointing at words without leaving permanent marks.</li>
             <li><strong>❄️ Freeze Board</strong>: pauses the presentation from updating while you rearrange content or switch/prepare other pages on the main screen — the mirrored view stays frozen on the current page until unfrozen (an inline <strong>Frozen</strong> status badge appears in the toolbar next to the competence badge, which can also be clicked to unfreeze). Click again to resume live updates.</li>
+            <li><strong>📌 Always on Top</strong>: click the pin button in the floating presentation control bar to keep the mirrored presentation window floating on top of all other windows on your desktop — ideal for single-monitor teaching and multitasking.</li>
+            <li><strong>🖥️ Default Size</strong>: click the default size button (<img src="../assets/icons/monitor.svg" class="ht-inline-icon" alt="" style="width:14px;height:14px;vertical-align:-2px;" />) in the floating presentation menu to instantly restore the presentation window to the dimensions and position configured in the Launcher card settings.</li>
             <li>A green indicator in the toolbar shows the presentation is active. Close the presentation window or click the indicator to end the session.</li>
           </ol>
           <div class="tip">Open the presentation window, then drag the main Board window to your primary monitor. Your audience sees only the clean canvas on the second screen while you control everything on your own display.</div>
@@ -1652,6 +1657,23 @@
         </div></div>
       </div>
 
+      <div class="accordion" id="acc-cm-roster-settings">
+        <button class="accordion-header" onclick="toggleAccordion('acc-cm-roster-settings')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title"><img src="../assets/icons/gear.svg" class="ht-icon-img" alt="" /> Roster Settings &amp; Configuration Persistence</span>
+          <span class="accordion-badge">persists in user/config.js</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Click the gear icon <strong>Roster Settings</strong> in the top controls to open the 3-tab configuration popup (<em>Display</em>, <em>Grouping</em>, and <em>Tools</em>).</li>
+            <li><strong>Board &amp; Presentation Font Sizes:</strong> Scale student name sizes using <code>A−</code>, <code>A</code> (reset), and <code>A+</code>. The live rem indicator shows current size for the main board and presentation display independently.</li>
+            <li><strong>Interface Toggles:</strong> Quickly toggle score buzzer sounds, SEN indicators, student roles, badge ribbons, autoflag status, animations, and the interactive seating plan view.</li>
+            <li><strong>Sort Names:</strong> Switch student ordering between first name and last name.</li>
+            <li><strong>Automatic Configuration Persistence:</strong> Font sizes (<code>studentNameSizeRem</code>, <code>presNameSizeRem</code>), roster toggles, sort order, seating plan view, and presentation mirror options are saved automatically into <code>user/config.js</code> under <code>CLASS_MANAGEMENT_CONFIG.rosterSettings</code> and <code>uiSettings</code>, restoring seamlessly across application reboots and sessions.</li>
+          </ol>
+        </div></div>
+      </div>
+
       <div class="accordion" id="acc-cm-presentation">
         <button class="accordion-header" onclick="toggleAccordion('acc-cm-presentation')">
           <span class="accordion-arrow">▶</span>
@@ -1663,6 +1685,8 @@
             <li>Open <strong>Presentation</strong> from the top menu to open a second window for projection.</li>
             <li>The window projects the student roster with configurable overlays: student roles, badges, autoflag indicators, and animated pick effects.</li>
             <li><strong>Freeze</strong>: click the Freeze button to pause live updates while you set up the next activity — students won't see the changes until you unfreeze.</li>
+            <li><strong>Always on Top</strong>: click the pin button in the floating presentation menu (or use the shortcut) to keep the presentation window always on top of other desktop windows when teaching on a single laptop screen.</li>
+            <li><strong>Default Size</strong>: click the default size button (<img src="../assets/icons/monitor.svg" class="ht-inline-icon" alt="" style="width:14px;height:14px;vertical-align:-2px;" />) in the floating presentation menu to immediately snap the presentation window back to the default size and placement configured in the Launcher.</li>
             <li>The presentation window can be minimised, docked, or maximised independently from the main control panel.</li>
           </ol>
           <div class="tip">When the <button class="xlink" onclick="navTo('board')">Board</button> is also open, timer events and group-activity updates broadcast to it in real time — both tools stay in sync without any manual action.</div>

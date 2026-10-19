@@ -917,6 +917,14 @@
         .pres-control-menu .pres-btn.is-frozen img {
             filter: invert(1);
         }
+        .pres-control-menu .pres-btn.is-pinned {
+            background: #e2c96e !important;
+            border-color: #333333 !important;
+            box-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.25) !important;
+        }
+        .pres-control-menu .pres-btn.is-pinned img {
+            filter: none !important;
+        }
         .pres-control-menu .pres-btn[data-tooltip]::before {
             content: attr(data-tooltip);
             position: absolute;
@@ -1538,7 +1546,10 @@
                         <!-- Tab 1: Display (Controls & Screen combined, Controls first) -->
                         <div id="rsp-tab-display" class="rsp-tab-content active">
                             <div class="rsp-tab-section">
-                                <div class="rsp-row-label" data-i18n="rsp_board_name_size">Board Name Size</div>
+                                <div class="rsp-row-label" style="display:flex; justify-content:space-between; align-items:center;">
+                                    <span data-i18n="rsp_board_name_size">Board Name Size</span>
+                                    <span id="rsp-board-size-indicator" style="font-size:0.75rem; color:#475569; font-weight:700;"></span>
+                                </div>
                                 <div class="rsp-size-row">
                                     <div class="rsp-size-btns">
                                         <button onclick="changeNameSize(-1)" title="Decrease name size"
@@ -1660,7 +1671,10 @@
                             </div>
 
                             <div class="rsp-tab-section">
-                                <div class="rsp-row-label" data-i18n="rsp_pres_name_size">Presentation Font Size</div>
+                                <div class="rsp-row-label" style="display:flex; justify-content:space-between; align-items:center;">
+                                    <span data-i18n="rsp_pres_name_size">Presentation Font Size</span>
+                                    <span id="rsp-pres-size-indicator" style="font-size:0.75rem; color:#475569; font-weight:700;"></span>
+                                </div>
                                 <div class="rsp-size-row">
                                     <div class="rsp-size-btns">
                                         <button onclick="changePresentationNameSize(-1)"
@@ -3061,6 +3075,12 @@
         let soundFileRefreshTimer = null;
         let classPlans = {};  // { groupName: [ {id, name, rows, cols, roomNumber, schedule, seats, isTemporary, isActive, createdAt} ] }
         let rosterPlanView = false;
+        const NAME_SIZE_DEFAULT = 0.90;
+        const NAME_SIZE_MIN = 0.55;
+        const NAME_SIZE_MAX = 2.2;
+        const NAME_SIZE_STEP = 0.10;
+        let studentNameSizeRem = NAME_SIZE_DEFAULT;
+        let presNameSizeRem = NAME_SIZE_DEFAULT;
         let soundFileRefreshInFlight = false;
         const SOUND_FILE_REFRESH_MS = 1500;
 
@@ -3542,16 +3562,26 @@
         async function openCmsPresentation() {
             closeRosterSettingsPopup();
             _presWindowOpen = true;
+            _presAlwaysOnTop = false;
+            syncPresentationPinButtons();
             _updatePresWindowControls();
+            let cardCfg = {};
+            try { cardCfg = JSON.parse(localStorage.getItem('cmt-card-config-classManagement') || localStorage.getItem('cmt-card-config-class-management') || '{}'); } catch (_) {}
             if (window.Desktop && typeof Desktop.openCmsPresentation === 'function') {
-                const result = await Desktop.openCmsPresentation();
+                const result = await Desktop.openCmsPresentation({ cardConfig: cardCfg });
                 if (result && result.ok) {
                     _presWindowOpen = true;
                     _updatePresWindowControls();
                 }
             } else {
+                const sizeNum = Number(cardCfg.presWindowSize || cardCfg.presSize);
+                const ratio = (!isNaN(sizeNum) && sizeNum >= 10 && sizeNum <= 100) ? (sizeNum / 100) : 0.8;
+                const sw = (window.screen && window.screen.availWidth) || 1200;
+                const sh = (window.screen && window.screen.availHeight) || 800;
+                const w = Math.max(420, Math.round(sw * ratio));
+                const h = Math.max(300, Math.round(sh * ratio));
                 window.open(location.pathname + '?presentation=1', '_blank',
-                    'width=1200,height=800,menubar=no,toolbar=no,location=no');
+                    'width=' + w + ',height=' + h + ',menubar=no,toolbar=no,location=no');
             }
         }
 
@@ -3622,6 +3652,8 @@
                 await Desktop.cmsPresentationCommand('close');
             }
             _presWindowOpen = false;
+            _presAlwaysOnTop = false;
+            syncPresentationPinButtons();
             _updatePresWindowControls();
         }
 
@@ -3661,6 +3693,12 @@
             }
         }
 
+        async function cmsPresentationDefaultSize() {
+            if (window.Desktop && typeof Desktop.cmsPresentationCommand === 'function') {
+                await Desktop.cmsPresentationCommand('default-size');
+            }
+        }
+
         function syncPresentationFreezeButtons() {
             const btn = document.getElementById('rsp-pres-freeze-btn');
             if (btn) {
@@ -3675,6 +3713,41 @@
                 popupBtn.setAttribute('data-tooltip', label);
                 popupBtn.setAttribute('aria-label', label);
                 popupBtn.classList.toggle('is-frozen', !!_presFrozen);
+            }
+        }
+
+        let _presAlwaysOnTop = false;
+
+        function syncPresentationPinButtons() {
+            const popupBtn = document.querySelector('#cms-pres-popup [data-pres-action="pin"]');
+            if (popupBtn) {
+                const label = _presAlwaysOnTop
+                    ? (t('pres_unpin_title') || 'Disable always on top for presentation window')
+                    : (t('pres_pin_title') || 'Keep presentation window always on top');
+                popupBtn.title = label;
+                popupBtn.setAttribute('data-tooltip', label);
+                popupBtn.setAttribute('aria-label', label);
+                popupBtn.classList.toggle('is-pinned', !!_presAlwaysOnTop);
+            }
+        }
+
+        async function toggleAlwaysOnTopPresentation() {
+            if (window.Desktop && window.Desktop.isElectron() && typeof window.Desktop.cmsPresentationCommand === 'function') {
+                const res = await window.Desktop.cmsPresentationCommand('toggle-always-on-top');
+                if (res && typeof res.alwaysOnTop === 'boolean') {
+                    _presAlwaysOnTop = res.alwaysOnTop;
+                } else {
+                    _presAlwaysOnTop = !_presAlwaysOnTop;
+                }
+            } else {
+                _presAlwaysOnTop = !_presAlwaysOnTop;
+                if (typeof showToast === 'function') {
+                    showToast(t('pres_pin_web_notice') || 'Always on top is only available in the desktop application', true);
+                }
+            }
+            syncPresentationPinButtons();
+            if (_presChannel) {
+                try { _presChannel.postMessage({ type: 'pres-pin-state', on: _presAlwaysOnTop }); } catch (_) { }
             }
         }
 
@@ -3811,7 +3884,7 @@
             const viewportWidth = window.innerWidth;
             const viewportHeight = window.innerHeight;
 
-            const popupMetrics = getFloatingWidgetMetrics(popup, 215, 34);
+            const popupMetrics = getFloatingWidgetMetrics(popup, 250, 34);
             const popW = popupMetrics.width;
             const popH = popupMetrics.height;
 
@@ -4106,7 +4179,9 @@
                 + '<div class="pres-drag-handle" title="Drag to move">⋮⋮</div>'
                 + `<button type="button" class="pres-btn" data-pres-action="close" data-tooltip="${t('pres_stop_title') || t('pres_stop')}" title="${t('pres_stop_title') || t('pres_stop')}" aria-label="${t('pres_stop_title') || t('pres_stop')}"><img src="../assets/icons/stop.svg" alt="" /></button>`
                 + `<button type="button" class="pres-btn" data-pres-action="freeze" data-tooltip="${t('pres_freeze_title') || t('pres_freeze')}" title="${t('pres_freeze_title') || t('pres_freeze')}" aria-label="${t('pres_freeze_title') || t('pres_freeze')}"><img src="../assets/icons/pause.svg" alt="" /></button>`
+                + `<button type="button" class="pres-btn" data-pres-action="pin" data-tooltip="${t('pres_pin_title') || 'Keep presentation window always on top'}" title="${t('pres_pin_title') || 'Keep presentation window always on top'}" aria-label="${t('pres_pin_title') || 'Keep presentation window always on top'}"><img src="../assets/icons/pin.svg" alt="" /></button>`
                 + `<button type="button" class="pres-btn" data-pres-action="resize" data-tooltip="${t('pres_resize_title') || t('pres_resize')}" title="${t('pres_resize_title') || t('pres_resize')}" aria-label="${t('pres_resize_title') || t('pres_resize')}"><img src="../assets/icons/compact.svg" alt="" /></button>`
+                + `<button type="button" class="pres-btn" data-pres-action="default-size" data-tooltip="${t('pres_default_size_title') || t('pres_default_size') || 'Default size'}" title="${t('pres_default_size_title') || t('pres_default_size') || 'Default size'}" aria-label="${t('pres_default_size_title') || t('pres_default_size') || 'Default size'}"><img src="../assets/icons/monitor.svg" alt="" /></button>`
                 + `<button type="button" class="pres-btn" data-pres-action="maximize" data-tooltip="${t('pres_maximize_title') || t('pres_maximize')}" title="${t('pres_maximize_title') || t('pres_maximize')}"><img src="../assets/icons/maximize.svg" alt="" /></button>`
                 + `<button type="button" class="pres-btn" data-pres-action="left" data-tooltip="${t('pres_left_title') || t('pres_left')}" title="${t('pres_left_title') || t('pres_left')}" aria-label="${t('pres_left_title') || t('pres_left')}"><img src="../assets/icons/triangle-left.svg" alt="" /></button>`
                 + `<button type="button" class="pres-btn" data-pres-action="right" data-tooltip="${t('pres_right_title') || t('pres_right')}" title="${t('pres_right_title') || t('pres_right')}" aria-label="${t('pres_right_title') || t('pres_right')}"><img src="../assets/icons/triangle-right.svg" alt="" /></button>`;
@@ -4118,7 +4193,9 @@
                 const action = btn.getAttribute('data-pres-action');
                 if (action === 'close') cmsPresentationClose();
                 else if (action === 'freeze') toggleFreezePresentation();
+                else if (action === 'pin') toggleAlwaysOnTopPresentation();
                 else if (action === 'resize') cmsPresentationResizeWindow();
+                else if (action === 'default-size') cmsPresentationDefaultSize();
                 else if (action === 'maximize') cmsPresentationMaximize();
                 else if (action === 'right') cmsPresentationDockRight();
                 else if (action === 'left') cmsPresentationDockLeft();
@@ -4206,6 +4283,7 @@
 
             document.body.appendChild(popup);
             syncPresentationFreezeButtons();
+            syncPresentationPinButtons();
         }
 
         function toggleFreezePresentation() {
@@ -4666,8 +4744,46 @@
             actionButtonSettings = normalizeActionButtonSettings(config?.uiSettings?.actionButtons);
             availableSoundFiles = normalizeSoundFileList(Array.isArray(config?.soundFiles) && config.soundFiles.length ? config.soundFiles : availableSoundFiles);
             participationSettings = normalizeParticipationSettings(config?.participationSettings);
+            const rosterCfg = config?.rosterSettings || config?.uiSettings?.rosterSettings || null;
+            if (rosterCfg && typeof rosterCfg === 'object') {
+                if (typeof rosterCfg.studentNameSizeRem === 'number' && !isNaN(rosterCfg.studentNameSizeRem) && rosterCfg.studentNameSizeRem >= NAME_SIZE_MIN && rosterCfg.studentNameSizeRem <= NAME_SIZE_MAX) {
+                    studentNameSizeRem = +(Number(rosterCfg.studentNameSizeRem).toFixed(2));
+                }
+                if (typeof rosterCfg.presNameSizeRem === 'number' && !isNaN(rosterCfg.presNameSizeRem) && rosterCfg.presNameSizeRem >= NAME_SIZE_MIN && rosterCfg.presNameSizeRem <= NAME_SIZE_MAX) {
+                    presNameSizeRem = +(Number(rosterCfg.presNameSizeRem).toFixed(2));
+                }
+                if (typeof rosterCfg.sortOrder === 'string' && ['first', 'last'].includes(rosterCfg.sortOrder)) {
+                    rosterSortOrder = rosterCfg.sortOrder;
+                }
+                if (typeof rosterCfg.scoreMuted === 'boolean') scoreMuted = rosterCfg.scoreMuted;
+                if (typeof rosterCfg.senVisible === 'boolean') senVisible = rosterCfg.senVisible;
+                if (typeof rosterCfg.rolesVisible === 'boolean') rolesVisible = rosterCfg.rolesVisible;
+                if (typeof rosterCfg.badgesVisible === 'boolean') badgesVisible = rosterCfg.badgesVisible;
+                if (typeof rosterCfg.autoFlagVisible === 'boolean') autoFlagVisible = rosterCfg.autoFlagVisible;
+                if (typeof rosterCfg.animationsEnabled === 'boolean') animationsEnabled = rosterCfg.animationsEnabled;
+                if (typeof rosterCfg.rosterPlanView === 'boolean') rosterPlanView = rosterCfg.rosterPlanView;
+                if (typeof rosterCfg.lessonRunnerLayout === 'string' && ['compact', 'collapsible', 'single'].includes(rosterCfg.lessonRunnerLayout)) {
+                    lessonRunnerLayout = rosterCfg.lessonRunnerLayout;
+                }
+                if (rosterCfg.presSettings && typeof rosterCfg.presSettings === 'object') {
+                    ['sen', 'plan', 'anim', 'autoflag', 'badges', 'roles', 'modes', 'lessonPlan'].forEach(k => {
+                        if (typeof rosterCfg.presSettings[k] === 'boolean') presSettings[k] = rosterCfg.presSettings[k];
+                    });
+                }
+            }
             if (config?.uiSettings) {
                 const ui = config.uiSettings;
+                if (typeof ui.studentNameSizeRem === 'number' && !isNaN(ui.studentNameSizeRem) && ui.studentNameSizeRem >= NAME_SIZE_MIN && ui.studentNameSizeRem <= NAME_SIZE_MAX) {
+                    studentNameSizeRem = +(Number(ui.studentNameSizeRem).toFixed(2));
+                } else if (typeof ui.nameSizeRem === 'number' && !isNaN(ui.nameSizeRem) && ui.nameSizeRem >= NAME_SIZE_MIN && ui.nameSizeRem <= NAME_SIZE_MAX) {
+                    studentNameSizeRem = +(Number(ui.nameSizeRem).toFixed(2));
+                }
+                if (typeof ui.presNameSizeRem === 'number' && !isNaN(ui.presNameSizeRem) && ui.presNameSizeRem >= NAME_SIZE_MIN && ui.presNameSizeRem <= NAME_SIZE_MAX) {
+                    presNameSizeRem = +(Number(ui.presNameSizeRem).toFixed(2));
+                }
+                if (typeof ui.rosterPlanView === 'boolean') {
+                    rosterPlanView = ui.rosterPlanView;
+                }
                 if (typeof ui.senVisible === 'boolean') senVisible = ui.senVisible;
                 if (typeof ui.badgesVisible === 'boolean') badgesVisible = ui.badgesVisible;
                 if (typeof ui.rolesVisible === 'boolean') rolesVisible = ui.rolesVisible;
@@ -4682,6 +4798,7 @@
                     if (typeof ui.presSettings.badges === 'boolean') presSettings.badges = ui.presSettings.badges;
                     if (typeof ui.presSettings.roles === 'boolean') presSettings.roles = ui.presSettings.roles;
                     if (typeof ui.presSettings.modes === 'boolean') presSettings.modes = ui.presSettings.modes;
+                    if (typeof ui.presSettings.lessonPlan === 'boolean') presSettings.lessonPlan = ui.presSettings.lessonPlan;
                 }
                 if (typeof ui.planAbbrevLen === 'number' && ui.planAbbrevLen >= 1 && ui.planAbbrevLen <= 20) planAbbrevLen = Math.round(ui.planAbbrevLen);
                 if (typeof ui.nameDisplayMode === 'string' && ['full', 'first', 'last', 'custom'].includes(ui.nameDisplayMode)) {
@@ -4723,6 +4840,24 @@
                     }
                 } catch (_) {}
             }
+
+            try {
+                if (config?.rosterSettings?.studentNameSizeRem === undefined && config?.uiSettings?.studentNameSizeRem === undefined && config?.uiSettings?.nameSizeRem === undefined) {
+                    const lsName = parseFloat(localStorage.getItem('cms-student-name-size'));
+                    if (!isNaN(lsName) && lsName >= NAME_SIZE_MIN && lsName <= NAME_SIZE_MAX) studentNameSizeRem = +(lsName.toFixed(2));
+                }
+                if (config?.rosterSettings?.presNameSizeRem === undefined && config?.uiSettings?.presNameSizeRem === undefined) {
+                    const lsPres = parseFloat(localStorage.getItem('cms-pres-name-size'));
+                    if (!isNaN(lsPres) && lsPres >= NAME_SIZE_MIN && lsPres <= NAME_SIZE_MAX) presNameSizeRem = +(lsPres.toFixed(2));
+                }
+                if (config?.rosterSettings?.rosterPlanView === undefined && config?.uiSettings?.rosterPlanView === undefined) {
+                    const lsPlan = localStorage.getItem('cms-roster-plan-view');
+                    if (lsPlan !== null) rosterPlanView = (lsPlan === '1');
+                }
+            } catch (_) { }
+
+            if (typeof applyNameSize === 'function') applyNameSize();
+            if (typeof applyPresNameSize === 'function') applyPresNameSize();
             if (Array.isArray(config?.classModes) && config.classModes.length > 0) {
                 classModes = config.classModes.map(m => {
                     const copy = { ...m };
@@ -4918,7 +5053,38 @@
                     nameDisplayMode: nameDisplayMode,
                     rosterSortOrder: rosterSortOrder,
                     lessonRunnerLayout: lessonRunnerLayout,
-                    actionButtons: normalizeActionButtonSettings(actionButtonSettings)
+                    actionButtons: normalizeActionButtonSettings(actionButtonSettings),
+                    studentNameSizeRem: studentNameSizeRem,
+                    presNameSizeRem: presNameSizeRem,
+                    rosterPlanView: rosterPlanView,
+                    rosterSettings: {
+                        studentNameSizeRem: studentNameSizeRem,
+                        presNameSizeRem: presNameSizeRem,
+                        sortOrder: rosterSortOrder,
+                        scoreMuted: scoreMuted,
+                        senVisible: senVisible,
+                        rolesVisible: rolesVisible,
+                        badgesVisible: badgesVisible,
+                        autoFlagVisible: autoFlagVisible,
+                        animationsEnabled: animationsEnabled,
+                        rosterPlanView: rosterPlanView,
+                        lessonRunnerLayout: lessonRunnerLayout,
+                        presSettings: { ...presSettings }
+                    }
+                },
+                rosterSettings: {
+                    studentNameSizeRem: studentNameSizeRem,
+                    presNameSizeRem: presNameSizeRem,
+                    sortOrder: rosterSortOrder,
+                    scoreMuted: scoreMuted,
+                    senVisible: senVisible,
+                    rolesVisible: rolesVisible,
+                    badgesVisible: badgesVisible,
+                    autoFlagVisible: autoFlagVisible,
+                    animationsEnabled: animationsEnabled,
+                    rosterPlanView: rosterPlanView,
+                    lessonRunnerLayout: lessonRunnerLayout,
+                    presSettings: { ...presSettings }
                 },
                 launcherSettings: loadedConfig.launcherSettings || {},
                 shortcuts: (overrides && overrides.shortcuts !== undefined)
@@ -8590,7 +8756,7 @@
     <div class="student-info">
         <span class="student-name" onclick="toggleStrike(${student.id})">
             ${getDisplayName(student)}${senStarHtml}${renderStudentFlagsHtml(student)}${examBadgeHtml}
-            ${student.role && rolesVisible ? `<i class="student-role-tag" onclick="event.stopPropagation(); changeStudentRole(${student.id})" title="Click to change role" style="color: #444; font-size: 0.9rem; margin-left: 8px; cursor: pointer; border-bottom: 1px dashed #aaa;">(${student.role})</i>` : ''}
+            ${student.role && rolesVisible ? `<i class="student-role-tag" onclick="event.stopPropagation(); changeStudentRole(${student.id})" title="Click to change role" style="color: #444; font-size: var(--student-role-size, 0.81rem); margin-left: 8px; cursor: pointer; border-bottom: 1px dashed #aaa;">(${student.role})</i>` : ''}
         </span>
         <span class="comment-dot ${hasNotes ? 'has-comment' : ''}" onclick="openCommentPopup(event, ${student.id})" title="${hasNotes ? 'View notes' : 'Add note'}"></span>
         <div class="badges" id="badges-row-${student.id}" style="${badgesVisible ? '' : 'display:none'}">
@@ -8664,6 +8830,7 @@
 
             updatePresentCount();
             updateRosterSettingsPopupContext();
+            applyNameSize();
             if (PRESENTATION_MODE) _presAdjustRosterColumns();
         }
 
@@ -12003,6 +12170,13 @@
                 animationsBtn.title = animationsEnabled ? 'Animations on' : 'Animations off';
             }
 
+            const planViewBtn = document.getElementById('roster-plan-view-btn');
+            if (planViewBtn) {
+                planViewBtn.classList.toggle('active', !!rosterPlanView);
+                planViewBtn.classList.toggle('is-off', !rosterPlanView);
+                planViewBtn.title = rosterPlanView ? 'Seating plan view on' : 'Seating plan view off';
+            }
+
             ['plan', 'anim', 'autoflag', 'badges', 'roles', 'modes', 'sen', 'lessonPlan'].forEach(key => {
                 const btn = document.getElementById('rsp-pres-' + key + '-btn');
                 if (btn) btn.classList.toggle('is-off', !presSettings[key]);
@@ -12017,6 +12191,10 @@
                 rspSortLast.classList.toggle('active', rosterSortOrder === 'last');
                 rspSortLast.classList.toggle('is-off', rosterSortOrder !== 'last');
             }
+            const bInd = document.getElementById('rsp-board-size-indicator');
+            if (bInd) bInd.textContent = studentNameSizeRem.toFixed(2) + 'rem';
+            const pInd = document.getElementById('rsp-pres-size-indicator');
+            if (pInd) pInd.textContent = presNameSizeRem.toFixed(2) + 'rem';
         }
 
         function toggleScoreMute() {
@@ -13414,24 +13592,55 @@ syncState();
             if (!PRESENTATION_MODE) _broadcastTimerTick();
         }
 
-        // Name size control
-        let studentNameSizeRem = 0.90; // matches .student-name default
-        const NAME_SIZE_DEFAULT = 0.90;
-        const NAME_SIZE_MIN = 0.55;
-        const NAME_SIZE_MAX = 2.2;
-        const NAME_SIZE_STEP = 0.10;
-        let presNameSizeRem = NAME_SIZE_DEFAULT; // presentation-window-only name size
+        // Name size control & persistence
+        let _saveNameSizeTimeout = null;
+        function _debounceSaveNameSize(immediate = false) {
+            if (PRESENTATION_MODE) return;
+            try { localStorage.setItem('cms-student-name-size', String(studentNameSizeRem)); } catch (_) { }
+            if (_saveNameSizeTimeout) clearTimeout(_saveNameSizeTimeout);
+            const doSave = () => {
+                _saveNameSizeTimeout = null;
+                if (typeof persistSettingsToUserFile === 'function') {
+                    persistSettingsToUserFile().catch(err => console.warn('persistSettingsToUserFile (name size) failed:', err));
+                }
+            };
+            if (immediate) {
+                doSave();
+            } else {
+                _saveNameSizeTimeout = setTimeout(doSave, 500);
+            }
+        }
+
+        let _savePresNameSizeTimeout = null;
+        function _debounceSavePresNameSize(immediate = false) {
+            if (PRESENTATION_MODE) return;
+            try { localStorage.setItem('cms-pres-name-size', String(presNameSizeRem)); } catch (_) { }
+            if (_savePresNameSizeTimeout) clearTimeout(_savePresNameSizeTimeout);
+            const doSave = () => {
+                _savePresNameSizeTimeout = null;
+                if (typeof persistSettingsToUserFile === 'function') {
+                    persistSettingsToUserFile().catch(err => console.warn('persistSettingsToUserFile (pres name size) failed:', err));
+                }
+            };
+            if (immediate) {
+                doSave();
+            } else {
+                _savePresNameSizeTimeout = setTimeout(doSave, 500);
+            }
+        }
 
         function changeNameSize(dir) {
             studentNameSizeRem = Math.min(NAME_SIZE_MAX, Math.max(NAME_SIZE_MIN, +(studentNameSizeRem + dir * NAME_SIZE_STEP).toFixed(2)));
             applyNameSize();
             if (!PRESENTATION_MODE) _broadcastPresentationState();
+            _debounceSaveNameSize();
         }
 
         function resetNameSize() {
             studentNameSizeRem = NAME_SIZE_DEFAULT;
             applyNameSize();
             if (!PRESENTATION_MODE) _broadcastPresentationState();
+            _debounceSaveNameSize(true);
         }
 
         function applyNameSize() {
@@ -13446,6 +13655,8 @@ syncState();
             // Persist via CSS variables for future renders
             document.documentElement.style.setProperty('--student-name-size', studentNameSizeRem + 'rem');
             document.documentElement.style.setProperty('--student-role-size', (studentNameSizeRem * roleMultiplier).toFixed(2) + 'rem');
+            const ind = document.getElementById('rsp-board-size-indicator');
+            if (ind) ind.textContent = studentNameSizeRem.toFixed(2) + 'rem';
         }
 
         function applyPresNameSize() {
@@ -13454,17 +13665,21 @@ syncState();
             document.documentElement.style.setProperty('--pres-student-role-size', (presNameSizeRem * roleMultiplier).toFixed(2) + 'rem');
             const badgeMultiplier = 0.8 / 0.9; // badges default is 0.8rem, names default is 0.9rem
             document.documentElement.style.setProperty('--pres-badge-size', (presNameSizeRem * badgeMultiplier).toFixed(2) + 'rem');
+            const ind = document.getElementById('rsp-pres-size-indicator');
+            if (ind) ind.textContent = presNameSizeRem.toFixed(2) + 'rem';
             if (!PRESENTATION_MODE) _broadcastPresentationState();
         }
 
         function changePresentationNameSize(dir) {
             presNameSizeRem = Math.min(NAME_SIZE_MAX, Math.max(NAME_SIZE_MIN, +(presNameSizeRem + dir * NAME_SIZE_STEP).toFixed(2)));
             applyPresNameSize();
+            _debounceSavePresNameSize();
         }
 
         function resetPresentationNameSize() {
             presNameSizeRem = NAME_SIZE_DEFAULT;
             applyPresNameSize();
+            _debounceSavePresNameSize(true);
         }
 
         // ---- Stopwatch ----
@@ -15485,6 +15700,7 @@ syncState();
             // --- Presentation & Mirroring ---
             { id: 'open_presentation', nameKey: 'rsp_present_title', defaultName: 'Open presentation window', category: 'presentation', defaultKeys: null, fn: () => openCmsPresentation() },
             { id: 'freeze_presentation', nameKey: 'rsp_freeze_title', defaultName: 'Freeze presentation window', category: 'presentation', defaultKeys: null, fn: () => toggleFreezePresentation() },
+            { id: 'pin_presentation', nameKey: 'pres_pin_title', defaultName: 'Keep presentation window always on top', category: 'presentation', defaultKeys: null, fn: () => toggleAlwaysOnTopPresentation() },
             { id: 'close_presentation', nameKey: 'rsp_close_pres_title', defaultName: 'Close presentation window', category: 'presentation', defaultKeys: null, fn: () => cmsPresentationClose() },
             { id: 'fullscreen_presentation', nameKey: 'rsp_full_pres_title', defaultName: 'Toggle fullscreen on presentation', category: 'presentation', defaultKeys: null, fn: () => cmsPresentationFullscreen() },
             { id: 'maximize_presentation', nameKey: 'rsp_max_pres_title', defaultName: 'Maximise presentation window', category: 'presentation', defaultKeys: null, fn: () => cmsPresentationMaximize() },
@@ -17993,6 +18209,7 @@ syncState();
                         if (e.data && e.data.type === 'pres-control') {
                             if (e.data.command === 'close') cmsPresentationClose();
                             else if (e.data.command === 'freeze') toggleFreezePresentation();
+                            else if (e.data.command === 'pin') toggleAlwaysOnTopPresentation();
                             else if (e.data.command === 'resize') cmsPresentationResizeWindow();
                             else if (e.data.command === 'right') cmsPresentationDockRight();
                             else if (e.data.command === 'left') cmsPresentationDockLeft();
@@ -18000,6 +18217,10 @@ syncState();
                         if (e.data && e.data.type === 'pres-frozen-state') {
                             _presFrozen = !!e.data.on;
                             syncPresentationFreezeButtons();
+                        }
+                        if (e.data && e.data.type === 'pres-pin-state') {
+                            _presAlwaysOnTop = !!e.data.on;
+                            syncPresentationPinButtons();
                         }
                         if (e.data && e.data.type === 'pres-window-closing') {
                             _presWindowOpen = false;
@@ -19389,20 +19610,34 @@ ${body}
 
         // ── Roster Plan View toggle ────────────────────────────────────────────────────
 
-        function toggleRosterPlanView() {
-            rosterPlanView = !rosterPlanView;
+        function toggleRosterPlanView(forceVal, persist = true) {
+            if (typeof forceVal === 'boolean') {
+                rosterPlanView = forceVal;
+            } else {
+                rosterPlanView = !rosterPlanView;
+            }
             const btn = document.getElementById('roster-plan-view-btn');
-            if (btn) btn.classList.toggle('active', rosterPlanView);
+            if (btn) {
+                btn.classList.toggle('active', rosterPlanView);
+                btn.classList.toggle('is-off', !rosterPlanView);
+            }
             const toolbar = document.getElementById('roster-plan-toolbar');
             if (toolbar) toolbar.style.display = rosterPlanView ? 'flex' : 'none';
             if (!rosterPlanView) {
                 const listEl = document.getElementById('roster-list');
-                listEl.classList.remove('roster-plan-view');
-                listEl.style.removeProperty('--cp-cols');
-                listEl.style.height = '';
-                listEl.style.gridAutoRows = '';
+                if (listEl) {
+                    listEl.classList.remove('roster-plan-view');
+                    listEl.style.removeProperty('--cp-cols');
+                    listEl.style.height = '';
+                    listEl.style.gridAutoRows = '';
+                }
             }
             renderRoster();
+            if (persist) {
+                try { localStorage.setItem('cms-roster-plan-view', rosterPlanView ? '1' : '0'); } catch (_) { }
+                if (!PRESENTATION_MODE) _broadcastPresentationState();
+                persistSettingsToUserFile().catch(err => console.warn('toggleRosterPlanView: could not save config:', err));
+            }
         }
 
         function renderRosterPlanView() {

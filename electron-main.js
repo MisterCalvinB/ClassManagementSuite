@@ -5890,6 +5890,112 @@ function dockTargetWindow(targetWindow, edge, ratio = 0.2, sourceWindow = null) 
   return true;
 }
 
+function readUserLauncherCardConfig(toolId) {
+  try {
+    const configPath = path.join(getWritableRootDir(), 'user', 'launcher-config.js');
+    if (!fs.existsSync(configPath)) return null;
+    const content = fs.readFileSync(configPath, 'utf8');
+    const match = content.match(/window\.LAUNCHER_CONFIG\s*=\s*(\{[\s\S]*?\});/);
+    if (!match) return null;
+    const parsed = JSON.parse(match[1]);
+    if (parsed && parsed.cardConfigs && typeof parsed.cardConfigs === 'object') {
+      return parsed.cardConfigs[toolId] || null;
+    }
+  } catch (err) {
+    console.warn('Could not read user/launcher-config.js card config:', err);
+  }
+  return null;
+}
+
+function getPresentationDefaultBounds(toolId, targetWindow, sourceWindow, overrideConfig = null) {
+  const cardCfg = overrideConfig || readUserLauncherCardConfig(toolId) || {};
+  const targetDisplay = getPresenterTargetDisplay(targetWindow, sourceWindow);
+  const wa = targetDisplay ? targetDisplay.workArea : screen.getPrimaryDisplay().workArea;
+
+  const rawSize = cardCfg.presWindowSize || cardCfg.presSize;
+  const numSize = Number(rawSize);
+  const hasRatio = !isNaN(numSize) && numSize >= 10 && numSize <= 100;
+  const ratio = hasRatio ? (numSize / 100) : 0.8;
+
+  const pos = String(cardCfg.presWindowPosition || cardCfg.presPosition || '').trim();
+
+  if (pos === 'maximize') {
+    return { x: wa.x, y: wa.y, width: wa.width, height: wa.height, maximize: true };
+  }
+
+  let width = Math.max(420, Math.min(wa.width, Math.round(wa.width * ratio)));
+  let height = Math.max(300, Math.min(wa.height, Math.round(wa.height * ratio)));
+
+  if (pos === 'left' || pos === 'right') {
+    height = wa.height;
+    if (!hasRatio) width = Math.max(260, Math.round(wa.width * 0.2));
+  }
+
+  let x = wa.x + Math.round((wa.width - width) / 2);
+  let y = wa.y + Math.round((wa.height - height) / 2);
+
+  switch (pos) {
+    case 'center':
+      x = wa.x + Math.round((wa.width - width) / 2);
+      y = wa.y + Math.round((wa.height - height) / 2);
+      break;
+    case 'top-left':
+      x = wa.x;
+      y = wa.y;
+      break;
+    case 'top-right':
+      x = wa.x + wa.width - width;
+      y = wa.y;
+      break;
+    case 'bottom-left':
+      x = wa.x;
+      y = wa.y + wa.height - height;
+      break;
+    case 'bottom-right':
+      x = wa.x + wa.width - width;
+      y = wa.y + wa.height - height;
+      break;
+    case 'left':
+      x = wa.x;
+      y = wa.y;
+      break;
+    case 'right':
+      x = wa.x + wa.width - width;
+      y = wa.y;
+      break;
+    default:
+      if (screen.getAllDisplays().length <= 1 && sourceWindow && !sourceWindow.isDestroyed()) {
+        const sBounds = sourceWindow.getBounds();
+        const availableRight = wa.x + wa.width - (sBounds.x + sBounds.width + 10);
+        if (availableRight >= 300) {
+          x = sBounds.x + sBounds.width + 10;
+          y = sBounds.y;
+          width = Math.min(width, availableRight);
+          height = Math.min(height, wa.height);
+        }
+      }
+      break;
+  }
+
+  return { x, y, width, height, maximize: false };
+}
+
+function applyPresentationDefaultBounds(targetWindow, sourceWindow, toolId, overrideConfig = null) {
+  if (!targetWindow || targetWindow.isDestroyed()) return false;
+  if (targetWindow.isFullScreen()) targetWindow.setFullScreen(false);
+  if (targetWindow.isMaximized()) targetWindow.unmaximize();
+  const bounds = getPresentationDefaultBounds(toolId, targetWindow, sourceWindow, overrideConfig);
+  if (bounds) {
+    if (bounds.maximize) {
+      maximizePresenterWindow(targetWindow, sourceWindow);
+    } else {
+      _applySafeBounds(targetWindow, bounds);
+    }
+    return true;
+  }
+  return false;
+}
+
 ipcMain.handle('app:has-second-display', async () => {
   return screen.getAllDisplays().length > 1;
 });
@@ -5921,8 +6027,25 @@ ipcMain.handle('app:open-mirror-window', async (event, request = {}) => {
   const secondDisplay = getExtendedDisplayForBounds(sBounds);
   const primaryDisplay = screen.getPrimaryDisplay();
 
+  const cardCfg = (request && request.cardConfig) || readUserLauncherCardConfig('board') || {};
+  const hasCustomPres = !!(cardCfg.presWindowSize || cardCfg.presWindowPosition);
+  const defaultBounds = hasCustomPres ? getPresentationDefaultBounds('board', null, senderWin, cardCfg) : null;
+
   let winOpts;
-  if (secondDisplay) {
+  if (hasCustomPres && defaultBounds) {
+    winOpts = {
+      x: defaultBounds.x, y: defaultBounds.y, width: defaultBounds.width, height: defaultBounds.height,
+      autoHideMenuBar: true,
+      title: 'Board – Presentation Mode',
+      webPreferences: {
+        preload: path.join(ROOT_DIR, 'electron-preload.js'),
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: false,
+        backgroundThrottling: false
+      }
+    };
+  } else if (secondDisplay) {
     // Mirror the same relative position and size ratio from the main window's display onto the second display
     const srcDisplay = sBounds
       ? (screen.getDisplayMatching(sBounds) || primaryDisplay)
@@ -5962,13 +6085,16 @@ ipcMain.handle('app:open-mirror-window', async (event, request = {}) => {
   }
 
   mirrorWindow = new BrowserWindow(winOpts);
+  if (defaultBounds && defaultBounds.maximize) {
+    mirrorWindow.maximize();
+  }
   setupWindowExternalLinkHandling(mirrorWindow);
   mirrorWindow.on('closed', () => {
     mirrorWindow = null;
     mirrorWindowSource = null;
   });
-  // When no second screen: keep presentation window the same size as the main window
-  if (!secondDisplay && senderWin) {
+  // When no second screen and no custom presentation size: keep presentation window the same size as the main window
+  if (!secondDisplay && !hasCustomPres && senderWin) {
     const _syncSize = () => {
       if (!mirrorWindow || mirrorWindow.isDestroyed()) return;
       const b = senderWin.getBounds();
@@ -6001,6 +6127,9 @@ ipcMain.handle('app:mirror-window-command', (event, command) => {
     case 'resize-window':
       syncTargetWindowToSource(mirrorWindow, mirrorWindowSource);
       break;
+    case 'default-size':
+      applyPresentationDefaultBounds(mirrorWindow, mirrorWindowSource, 'board');
+      break;
     case 'dock-left':
       dockTargetWindow(mirrorWindow, 'left', 0.2, mirrorWindowSource);
       break;
@@ -6018,6 +6147,13 @@ ipcMain.handle('app:mirror-window-command', (event, command) => {
         mirrorWindowSource.focus();
       }
       break;
+    case 'toggle-always-on-top': {
+      const nextTop = !mirrorWindow.isAlwaysOnTop();
+      mirrorWindow.setAlwaysOnTop(nextTop, 'floating');
+      return { ok: true, alwaysOnTop: mirrorWindow.isAlwaysOnTop() };
+    }
+    case 'get-always-on-top':
+      return { ok: true, alwaysOnTop: mirrorWindow.isAlwaysOnTop() };
     default:
       return { ok: false, reason: 'unknown-command' };
   }
@@ -6035,8 +6171,25 @@ ipcMain.handle('app:open-cms-presentation', async (event, request = {}) => {
 
   const secondDisplay = getExtendedDisplayForBounds(sBounds);
 
+  const cardCfg = (request && request.cardConfig) || readUserLauncherCardConfig('classManagement') || readUserLauncherCardConfig('class-management') || {};
+  const hasCustomPres = !!(cardCfg.presWindowSize || cardCfg.presWindowPosition);
+  const defaultBounds = hasCustomPres ? getPresentationDefaultBounds('classManagement', null, senderWin, cardCfg) : null;
+
   let winOpts;
-  if (secondDisplay) {
+  if (hasCustomPres && defaultBounds) {
+    winOpts = {
+      x: defaultBounds.x, y: defaultBounds.y, width: defaultBounds.width, height: defaultBounds.height,
+      autoHideMenuBar: true,
+      title: 'Class Management – Presentation',
+      webPreferences: {
+        preload: path.join(ROOT_DIR, 'electron-preload.js'),
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: false,
+        backgroundThrottling: false
+      }
+    };
+  } else if (secondDisplay) {
     const sourceDisplay = sBounds
       ? (screen.getDisplayMatching(sBounds) || screen.getPrimaryDisplay())
       : screen.getPrimaryDisplay();
@@ -6074,6 +6227,9 @@ ipcMain.handle('app:open-cms-presentation', async (event, request = {}) => {
   }
 
   cmsPresentationWindow = new BrowserWindow(winOpts);
+  if (defaultBounds && defaultBounds.maximize) {
+    cmsPresentationWindow.maximize();
+  }
   setupWindowExternalLinkHandling(cmsPresentationWindow);
   cmsPresentationWindow.on('closed', () => { cmsPresentationWindow = null; });
 
@@ -6105,11 +6261,19 @@ ipcMain.handle('app:cms-presentation-command', (event, command) => {
     case 'close':      cmsPresentationWindow.close(); break;
     case 'fullscreen': cmsPresentationWindow.setFullScreen(!cmsPresentationWindow.isFullScreen()); break;
     case 'resize-window': syncTargetWindowToSource(cmsPresentationWindow, cmsPresentationSourceWindow); break;
+    case 'default-size':  applyPresentationDefaultBounds(cmsPresentationWindow, cmsPresentationSourceWindow, 'classManagement'); break;
     case 'maximize':
     case 'maximise':   maximizePresenterWindow(cmsPresentationWindow, cmsPresentationSourceWindow); break;
     case 'minimize':   cmsPresentationWindow.minimize(); break;
     case 'dock-left':  dockTargetWindow(cmsPresentationWindow, 'left', 0.2, cmsPresentationSourceWindow); break;
     case 'dock-right': dockTargetWindow(cmsPresentationWindow, 'right', 0.2, cmsPresentationSourceWindow); break;
+    case 'toggle-always-on-top': {
+      const nextTop = !cmsPresentationWindow.isAlwaysOnTop();
+      cmsPresentationWindow.setAlwaysOnTop(nextTop, 'floating');
+      return { ok: true, alwaysOnTop: cmsPresentationWindow.isAlwaysOnTop() };
+    }
+    case 'get-always-on-top':
+      return { ok: true, alwaysOnTop: cmsPresentationWindow.isAlwaysOnTop() };
     default: return { ok: false, reason: 'unknown-command' };
   }
   return { ok: true };
@@ -6128,6 +6292,9 @@ ipcMain.handle('app:learning-tools-presentation-command', (event, command) => {
       break;
     case 'resize-window':
       syncTargetWindowToSource(learningToolsPresentationWindow, learningToolsPresentationSourceWindow);
+      break;
+    case 'default-size':
+      applyPresentationDefaultBounds(learningToolsPresentationWindow, learningToolsPresentationSourceWindow, 'learningTools');
       break;
     case 'dock-left':
       dockTargetWindow(learningToolsPresentationWindow, 'left', 0.2, learningToolsPresentationSourceWindow);

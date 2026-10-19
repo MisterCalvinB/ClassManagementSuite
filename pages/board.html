@@ -22772,7 +22772,9 @@
             + '<div class="pres-drag-handle" title="Drag to move">⋮⋮</div>'
             + '<button type="button" class="pres-btn" data-pres-action="close" data-tooltip="' + (boardT('pres_stop_title') || boardT('presStop')) + '" title="' + (boardT('pres_stop_title') || boardT('presStop')) + '" aria-label="' + (boardT('pres_stop_title') || boardT('presStop')) + '"><img src="../assets/icons/stop.svg" alt="" /></button>'
             + '<button type="button" class="pres-btn" data-pres-action="freeze" data-tooltip="' + (boardT('pres_freeze_title') || boardT('presFreeze')) + '" title="' + (boardT('pres_freeze_title') || boardT('presFreeze')) + '" aria-label="' + (boardT('pres_freeze_title') || boardT('presFreeze')) + '"><img src="../assets/icons/pause.svg" alt="" /></button>'
+            + '<button type="button" class="pres-btn" data-pres-action="pin" data-tooltip="' + (boardT('pres_pin_title') || 'Keep presentation window always on top') + '" title="' + (boardT('pres_pin_title') || 'Keep presentation window always on top') + '" aria-label="' + (boardT('pres_pin_title') || 'Keep presentation window always on top') + '"><img src="../assets/icons/pin.svg" alt="" /></button>'
             + '<button type="button" class="pres-btn" data-pres-action="resize" data-tooltip="' + (boardT('pres_resize_title') || boardT('presResize')) + '" title="' + (boardT('pres_resize_title') || boardT('presResize')) + '" aria-label="' + (boardT('pres_resize_title') || boardT('presResize')) + '"><img src="../assets/icons/compact.svg" alt="" /></button>'
+            + '<button type="button" class="pres-btn" data-pres-action="default-size" data-tooltip="' + (boardT('pres_default_size_title') || boardT('pres_default_size') || 'Default size') + '" title="' + (boardT('pres_default_size_title') || boardT('pres_default_size') || 'Default size') + '" aria-label="' + (boardT('pres_default_size_title') || boardT('pres_default_size') || 'Default size') + '"><img src="../assets/icons/monitor.svg" alt="" /></button>'
             + '<button type="button" class="pres-btn" data-pres-action="maximise" data-tooltip="' + (boardT('pres_maximize_title') || boardT('presMaximise')) + '" title="' + (boardT('pres_maximize_title') || boardT('presMaximise')) + '" aria-label="' + (boardT('pres_maximize_title') || boardT('presMaximise')) + '"><img src="../assets/icons/maximize.svg" alt="" /></button>'
             + '<button type="button" class="pres-btn" data-pres-action="left" data-tooltip="' + (boardT('pres_left_title') || boardT('presLeft')) + '" title="' + (boardT('pres_left_title') || boardT('presLeft')) + '" aria-label="' + (boardT('pres_left_title') || boardT('presLeft')) + '"><img src="../assets/icons/triangle-left.svg" alt="" /></button>'
             + '<button type="button" class="pres-btn" data-pres-action="right" data-tooltip="' + (boardT('pres_right_title') || boardT('presRight')) + '" title="' + (boardT('pres_right_title') || boardT('presRight')) + '" aria-label="' + (boardT('pres_right_title') || boardT('presRight')) + '"><img src="../assets/icons/triangle-right.svg" alt="" /></button>';
@@ -22784,7 +22786,9 @@
             const action = btn.getAttribute('data-pres-action');
             if (action === 'close') window.conCloseMirrorWindow();
             else if (action === 'freeze') window.conToggleMirrorFreeze();
+            else if (action === 'pin') window.conToggleMirrorAlwaysOnTop();
             else if (action === 'resize') window.conMirrorResizeWindow();
+            else if (action === 'default-size') window.conMirrorDefaultSize();
             else if (action === 'maximise') window.conMirrorMaximiseWindow();
             else if (action === 'right') window.conMirrorDockRight();
             else if (action === 'left') window.conMirrorDockLeft();
@@ -22856,6 +22860,7 @@
 
           document.body.appendChild(menu);
           _mirrorControlMenuEl = menu;
+          if (typeof _syncMirrorPinButtons === 'function') _syncMirrorPinButtons();
           _updateMirrorControlMenuVisibility();
         }
         function _setPresentationActive(on) {
@@ -23089,6 +23094,8 @@
               window.conCloseMirrorWindow();
             } else if (e.data.command === 'freeze') {
               window.conToggleMirrorFreeze();
+            } else if (e.data.command === 'pin') {
+              window.conToggleMirrorAlwaysOnTop();
             } else if (e.data.command === 'resize') {
               window.conMirrorResizeWindow();
             } else if (e.data.command === 'maximise') {
@@ -23109,6 +23116,9 @@
                 _mirrorDoSendFrozen();
               } else {
                 _mirrorBroadcast({ bumpRevision: true });
+              }
+              if (typeof window._conMirrorSend === 'function') {
+                window._conMirrorSend({ type: 'mirror-pin-state', on: _mirrorAlwaysOnTop });
               }
             } else {
               _mirrorPeers.delete(mirrorId);
@@ -23158,6 +23168,20 @@
                 dynFreezeBtn.setAttribute('data-tooltip', label);
                 dynFreezeBtn.setAttribute('aria-label', label);
                 dynFreezeBtn.classList.toggle('is-frozen', !!on);
+              }
+            }
+          }
+          function _syncMirrorPinButtons() {
+            if (_mirrorControlMenuEl) {
+              var dynPinBtn = _mirrorControlMenuEl.querySelector('[data-pres-action="pin"]');
+              if (dynPinBtn) {
+                var label = _mirrorAlwaysOnTop
+                  ? (boardT('pres_unpin_title') || 'Disable always on top for presentation window')
+                  : (boardT('pres_pin_title') || 'Keep presentation window always on top');
+                dynPinBtn.title = label;
+                dynPinBtn.setAttribute('data-tooltip', label);
+                dynPinBtn.setAttribute('aria-label', label);
+                dynPinBtn.classList.toggle('is-pinned', !!_mirrorAlwaysOnTop);
               }
             }
           }
@@ -23419,16 +23443,26 @@
         });
         window.conOpenMirrorWindow = function () {
           _mirrorPeers.add('primary-mirror');
+          _mirrorAlwaysOnTop = false;
           _ensureMirrorControlMenu();
+          if (typeof _syncMirrorPinButtons === 'function') _syncMirrorPinButtons();
           _setPresentationActive(true);
           try {
             localStorage.setItem('cmt_active_board_mirror_channel', _conMirrorChannelName);
           } catch (_) { }
+          let cardCfg = {};
+          try { cardCfg = JSON.parse(localStorage.getItem('cmt-card-config-board') || '{}'); } catch (_) {}
           if (window.Desktop && window.Desktop.isElectron()) {
-            window.Desktop.openMirrorWindow({ channel: _conMirrorChannelName });
+            window.Desktop.openMirrorWindow({ channel: _conMirrorChannelName, cardConfig: cardCfg });
           } else {
+            const sizeNum = Number(cardCfg.presWindowSize || cardCfg.presSize);
+            const ratio = (!isNaN(sizeNum) && sizeNum >= 10 && sizeNum <= 100) ? (sizeNum / 100) : 0.8;
+            const sw = (window.screen && window.screen.availWidth) || 1200;
+            const sh = (window.screen && window.screen.availHeight) || 800;
+            const w = Math.max(420, Math.round(sw * ratio));
+            const h = Math.max(300, Math.round(sh * ratio));
             _mirrorPopupRef = window.open(location.pathname + '?mirror=1&mirrorChannel=' + encodeURIComponent(_conMirrorChannelName), '_blank',
-              'width=1200,height=800,menubar=no,toolbar=no,location=no');
+              'width=' + w + ',height=' + h + ',menubar=no,toolbar=no,location=no');
           }
         };
         window.conCloseMirrorWindow = async function () {
@@ -23441,6 +23475,8 @@
           // the mirror's beforeunload mirror-presence message may not arrive
           // before the window is destroyed (especially in Electron).
           _mirrorPeers.clear();
+          _mirrorAlwaysOnTop = false;
+          if (typeof _syncMirrorPinButtons === 'function') _syncMirrorPinButtons();
           _setPresentationActive(false);
         };
 
@@ -23515,6 +23551,23 @@
             _mirrorPopupRef.resizeTo(width, height);
           }
         };
+        window.conMirrorDefaultSize = async function () {
+          if (window.Desktop && window.Desktop.isElectron() && typeof window.Desktop.mirrorWindowCommand === 'function') {
+            await window.Desktop.mirrorWindowCommand('default-size');
+            return;
+          }
+          if (_mirrorPopupRef && !_mirrorPopupRef.closed) {
+            let cardCfg = {};
+            try { cardCfg = JSON.parse(localStorage.getItem('cmt-card-config-board') || '{}'); } catch (_) {}
+            const sizeNum = Number(cardCfg.presWindowSize || cardCfg.presSize);
+            const ratio = (!isNaN(sizeNum) && sizeNum >= 10 && sizeNum <= 100) ? (sizeNum / 100) : 0.8;
+            const sw = (window.screen && window.screen.availWidth) || 1200;
+            const sh = (window.screen && window.screen.availHeight) || 800;
+            const width = Math.max(420, Math.round(sw * ratio));
+            const height = Math.max(300, Math.round(sh * ratio));
+            _mirrorPopupRef.resizeTo(width, height);
+          }
+        };
         window.conMirrorDockLeft = async function () {
           if (window.Desktop && window.Desktop.isElectron() && typeof window.Desktop.mirrorWindowCommand === 'function') {
             await window.Desktop.mirrorWindowCommand('dock-left');
@@ -23552,6 +23605,26 @@
               const sh = window.screen && window.screen.availHeight ? window.screen.availHeight : screen.availHeight;
               _mirrorPopupRef.resizeTo(sw, sh);
             } catch (e) { }
+          }
+        };
+        var _mirrorAlwaysOnTop = false;
+        window.conToggleMirrorAlwaysOnTop = async function () {
+          if (window.Desktop && window.Desktop.isElectron() && typeof window.Desktop.mirrorWindowCommand === 'function') {
+            var res = await window.Desktop.mirrorWindowCommand('toggle-always-on-top');
+            if (res && typeof res.alwaysOnTop === 'boolean') {
+              _mirrorAlwaysOnTop = res.alwaysOnTop;
+            } else {
+              _mirrorAlwaysOnTop = !_mirrorAlwaysOnTop;
+            }
+          } else {
+            _mirrorAlwaysOnTop = !_mirrorAlwaysOnTop;
+            if (typeof showToast === 'function') {
+              showToast(boardT('pres_pin_web_notice') || 'Always on top is only available in the desktop application', true);
+            }
+          }
+          if (typeof _syncMirrorPinButtons === 'function') _syncMirrorPinButtons();
+          if (typeof window._conMirrorSend === 'function') {
+            window._conMirrorSend({ type: 'mirror-pin-state', on: _mirrorAlwaysOnTop });
           }
         };
       } else {
@@ -54988,6 +55061,7 @@
       { id: 'open_presentation', name: 'Open Presentation Window', desc: 'Open presentation mode window on secondary display', category: 'presentation', categoryName: 'Presentation & View', icon: '../assets/icons/presentation.svg', defaultShortcut: null, fn: () => { if (typeof conOpenMirrorWindow === 'function') conOpenMirrorWindow(); } },
       { id: 'close_presentation', name: 'Close Presentation Window', desc: 'Close active presentation mode window', category: 'presentation', categoryName: 'Presentation & View', icon: '../assets/icons/monitor.svg', defaultShortcut: null, fn: () => { if (typeof conCloseMirrorWindow === 'function') conCloseMirrorWindow(); } },
       { id: 'freeze_presentation', name: 'Freeze Presentation', desc: 'Freeze or unfreeze presentation window', category: 'presentation', categoryName: 'Presentation & View', icon: '../assets/icons/snowflake.svg', defaultShortcut: null, fn: () => { if (typeof conToggleMirrorFreeze === 'function') conToggleMirrorFreeze(); } },
+      { id: 'pin_presentation', name: 'Always on Top', desc: 'Keep presentation window always on top', category: 'presentation', categoryName: 'Presentation & View', icon: '../assets/icons/pin.svg', defaultShortcut: null, fn: () => { if (typeof conToggleMirrorAlwaysOnTop === 'function') conToggleMirrorAlwaysOnTop(); } },
       { id: 'mouse_pointer', name: 'Presentation Mouse Pointer', desc: 'Show mouse position as laser dot in presentation window', category: 'presentation', categoryName: 'Presentation & View', icon: '../assets/icons/sparkles.svg', defaultShortcut: null, fn: () => { if (typeof conToggleMirrorPointer === 'function') conToggleMirrorPointer(); } },
       { id: 'zoom_in', name: 'Zoom In', desc: 'Increase board zoom by 10%', category: 'presentation', categoryName: 'Presentation & View', icon: '../assets/icons/zoom-in.svg', defaultShortcut: null, fn: () => { if (typeof updateZoom === 'function') updateZoom((window.conCurrentZoom || 1) + 0.1); } },
       { id: 'zoom_out', name: 'Zoom Out', desc: 'Decrease board zoom by 10%', category: 'presentation', categoryName: 'Presentation & View', icon: '../assets/icons/zoom-out.svg', defaultShortcut: null, fn: () => { if (typeof updateZoom === 'function') updateZoom((window.conCurrentZoom || 1) - 0.1); } },
@@ -60021,6 +60095,17 @@
           freezeBtn.classList.toggle('is-frozen', !!on);
         }
       }
+      function _setMirrorMenuPinned(on) {
+        if (!_mirrorControlMenuEl) return;
+        var pinBtn = _mirrorControlMenuEl.querySelector('[data-mirror-action="pin"]');
+        if (pinBtn) {
+          var label = on ? (boardT('pres_unpin_title') || 'Disable always on top for presentation window') : (boardT('pres_pin_title') || 'Keep presentation window always on top');
+          pinBtn.title = label;
+          pinBtn.setAttribute('data-tooltip', label);
+          pinBtn.setAttribute('aria-label', label);
+          pinBtn.classList.toggle('is-pinned', !!on);
+        }
+      }
       function _ensureMirrorControlMenu() {
         if (_mirrorControlMenuEl) return;
         var menu = document.createElement('div');
@@ -60031,6 +60116,7 @@
           + '<div class="pres-drag-handle" title="Drag to move">⋮⋮</div>'
           + '<button type="button" class="pres-btn" data-mirror-action="close" data-tooltip="' + (boardT('pres_stop_title') || boardT('presStop')) + '" title="' + (boardT('pres_stop_title') || boardT('presStop')) + '" aria-label="' + (boardT('pres_stop_title') || boardT('presStop')) + '"><img src="../assets/icons/stop.svg" alt="" /></button>'
           + '<button type="button" class="pres-btn" data-mirror-action="freeze" data-tooltip="' + (boardT('pres_freeze_title') || boardT('presFreeze')) + '" title="' + (boardT('pres_freeze_title') || boardT('presFreeze')) + '" aria-label="' + (boardT('pres_freeze_title') || boardT('presFreeze')) + '"><img src="../assets/icons/pause.svg" alt="" /></button>'
+          + '<button type="button" class="pres-btn" data-mirror-action="pin" data-tooltip="' + (boardT('pres_pin_title') || 'Keep presentation window always on top') + '" title="' + (boardT('pres_pin_title') || 'Keep presentation window always on top') + '" aria-label="' + (boardT('pres_pin_title') || 'Keep presentation window always on top') + '"><img src="../assets/icons/pin.svg" alt="" /></button>'
           + '<button type="button" class="pres-btn" data-mirror-action="resize" data-tooltip="' + (boardT('pres_resize_title') || boardT('presResize')) + '" title="' + (boardT('pres_resize_title') || boardT('presResize')) + '" aria-label="' + (boardT('pres_resize_title') || boardT('presResize')) + '"><img src="../assets/icons/compact.svg" alt="" /></button>'
           + '<button type="button" class="pres-btn" data-mirror-action="maximise" data-tooltip="' + (boardT('pres_maximize_title') || boardT('presMaximise')) + '" title="' + (boardT('pres_maximize_title') || boardT('presMaximise')) + '" aria-label="' + (boardT('pres_maximize_title') || boardT('presMaximise')) + '"><img src="../assets/icons/maximize.svg" alt="" /></button>'
           + '<button type="button" class="pres-btn" data-mirror-action="left" data-tooltip="' + (boardT('pres_left_title') || boardT('presLeft')) + '" title="' + (boardT('pres_left_title') || boardT('presLeft')) + '" aria-label="' + (boardT('pres_left_title') || boardT('presLeft')) + '"><img src="../assets/icons/triangle-left.svg" alt="" /></button>'
@@ -60966,6 +61052,11 @@
             _reapplyMirrorBlinks();
             try { ch.postMessage({ type: 'request-state' }); } catch (e) { }
           }
+          return;
+        }
+
+        if (d.type === 'mirror-pin-state') {
+          _setMirrorMenuPinned(!!d.on);
           return;
         }
 
