@@ -1222,6 +1222,23 @@
       display: none !important;
     }
 
+    /* Video and Audio media widgets above groups (groups: z-index 150/160) */
+    .con-media-item.con-media-kind-sounds,
+    .con-media-item.con-media-kind-sound,
+    .con-media-item.con-media-kind-audio,
+    .con-media-item.con-media-kind-videos,
+    .con-media-item.con-media-kind-video {
+      z-index: 180;
+    }
+
+    .con-media-item.con-media-kind-sounds.con-media-selected,
+    .con-media-item.con-media-kind-sound.con-media-selected,
+    .con-media-item.con-media-kind-audio.con-media-selected,
+    .con-media-item.con-media-kind-videos.con-media-selected,
+    .con-media-item.con-media-kind-video.con-media-selected {
+      z-index: 190;
+    }
+
     .board-casing-dropdown {
       position: absolute;
       top: calc(100% + 4px);
@@ -4004,6 +4021,9 @@
             <button class="action-btn btn-grey" id="con-tb-btn-library" onclick="conOpenPremadeLibraryModal()"
               title="Premade notes, widgets & reusable nodes library" data-i18n-title="premadeLibraryTooltip"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" />
               <span data-i18n="btnPremadeLibrary">Library</span></button>
+            <button class="action-btn btn-grey" id="con-tb-btn-showcase" onclick="conLoadWelcomeShowcaseBoard(true)"
+              title="Showcase Board demonstrating nodes, notes, media, links & tables" data-i18n-title="conTbShowcaseTitle"><img src="../assets/icons/star.svg" class="btn-icon" alt="" />
+              <span data-i18n="conTbShowcase">Showcase</span></button>
             <button class="action-btn btn-grey" id="con-manage-media-btn" onclick="conOpenManageMediaChooser(this)"
               title="Attach, insert, remove from board, or delete media"><img src="../assets/icons/media.svg"
                 class="btn-icon" alt="" /> Media</button>
@@ -5873,6 +5893,7 @@
   </div>
 
   <script src="../js/board-premade-library.js"></script>
+  <script src="../js/board-welcome-showcase.js"></script>
   <script>
     // Ensure edge context menu global functions exist early to avoid ReferenceError
     var conEdgeCtxApplyLive = window.conEdgeCtxApplyLive = window.conEdgeCtxApplyLive || function () {};
@@ -46401,11 +46422,13 @@
       ctx.lineTo(x, y + rr); ctx.quadraticCurveTo(x, y, x + rr, y); ctx.closePath();
     }
 
-    function conDrawMediaWidgetsToCanvas(ctx, PAD) {
+    function conDrawMediaWidgetsToCanvas(ctx, PAD, allowedKinds) {
       const board = document.getElementById('constellation-board');
       if (!board) return;
       const widgets = Array.from(board.querySelectorAll('.con-media-item'));
       widgets.forEach(wrap => {
+        const kind = wrap.classList.contains('con-media-kind-pdf') ? 'pdf' : wrap.classList.contains('con-media-kind-pics') ? 'pics' : (wrap.classList.contains('con-media-kind-videos') || wrap.classList.contains('con-media-kind-video')) ? 'videos' : (wrap.classList.contains('con-media-kind-sounds') || wrap.classList.contains('con-media-kind-sound') || wrap.classList.contains('con-media-kind-audio')) ? 'sounds' : '';
+        if (allowedKinds && Array.isArray(allowedKinds) && !allowedKinds.includes(kind)) return;
         const x = PAD + wrap.offsetLeft; const y = PAD + wrap.offsetTop;
         const w = Math.max(1, wrap.offsetWidth); const h = Math.max(1, wrap.offsetHeight);
         if (w < 2 || h < 2) return;
@@ -46443,7 +46466,6 @@
         const contentStyles = getComputedStyle(content);
         ctx.save(); ctx.fillStyle = contentStyles.backgroundColor || '#fafafa'; ctx.fillRect(contentX, contentY, contentW, contentH);
         ctx.beginPath(); ctx.rect(contentX, contentY, contentW, contentH); ctx.clip();
-        const kind = wrap.classList.contains('con-media-kind-pdf') ? 'pdf' : wrap.classList.contains('con-media-kind-pics') ? 'pics' : wrap.classList.contains('con-media-kind-videos') ? 'videos' : wrap.classList.contains('con-media-kind-sounds') ? 'sounds' : '';
         const drawSource = src => {
           try {
             if (!src) return false;
@@ -46693,10 +46715,10 @@
       }
       ctx.strokeStyle = '#111111'; ctx.lineWidth = 2; ctx.strokeRect(1, 1, bw + PAD * 2 - 2, bh + PAD * 2 - 2);
 
-      // Render media widgets (Images, PDFs, Videos, Sounds) first so they act as background elements underneath lines, groups, tables, shapes, nodes, notes, and drawings (matching DOM z-index)
-      conDrawMediaWidgetsToCanvas(ctx, PAD);
+      // Render background media widgets (Images, PDFs) first so they act as background elements underneath groups
+      conDrawMediaWidgetsToCanvas(ctx, PAD, ['pics', 'pdf']);
 
-      // 1. Render groups first so they serve as background containers underneath lines, nodes, and notes
+      // 1. Render groups first so they serve as background containers underneath video/audio, lines, nodes, and notes
       document.querySelectorAll('.con-group').forEach(grp => {
         const rx = grp.offsetLeft; const ry = grp.offsetTop; const rw = grp.offsetWidth; const rh = grp.offsetHeight;
         const grpCS = getComputedStyle(grp);
@@ -46722,6 +46744,9 @@
           ctx.save(); ctx.rect(PAD + tx + 2, PAD + ty, tw - 4, th); ctx.clip(); ctx.fillText(titleEl.textContent.trim(), PAD + tx + 7, PAD + ty + th / 2); ctx.restore();
         }
       });
+
+      // Render foreground media widgets (Videos, Sounds) above groups (matching DOM z-index)
+      conDrawMediaWidgetsToCanvas(ctx, PAD, ['sounds', 'videos']);
 
       // 2. Render constellation SVG lines & edges (connecting nodes, notes, and groups)
       const svgEl = document.getElementById('constellation-svg');
@@ -52600,6 +52625,9 @@
             }
           }
         } catch (_) { }
+        if (window.BoardWelcomeShowcase && typeof window.BoardWelcomeShowcase.checkAndAutoLoadOnFirstOpen === 'function') {
+          await window.BoardWelcomeShowcase.checkAndAutoLoadOnFirstOpen();
+        }
         return;
       }
 

@@ -76,7 +76,8 @@ const PAGE_FILES = {
   competencePortfolio: 'competence-portfolio.html',
   databaseConverter: 'database-converter.html',
   testCreator: 'test-creator.html',
-  mediaConverter: 'media-converter.html'
+  mediaConverter: 'media-converter.html',
+  setupWizard: 'setup-wizard.html'
 };
 
 const PAGE_ARG_MAP = {
@@ -173,7 +174,8 @@ const PAGE_LABELS = {
   [PAGE_FILES.competencePortfolio]: 'Competence Portfolio',
   [PAGE_FILES.databaseConverter]: 'Database Converter',
   [PAGE_FILES.testCreator]: 'Test Creator',
-  [PAGE_FILES.mediaConverter]: 'Video & Sound Converter'
+  [PAGE_FILES.mediaConverter]: 'Video & Sound Converter',
+  [PAGE_FILES.setupWizard]: 'Setup Wizard'
 };
 
 function getDefaultWritableRootDir() {
@@ -503,7 +505,8 @@ const PAGE_PERMISSIONS = {
   [PAGE_FILES.oralMarking]: new Set(['user', 'grades', 'groupParticipation']),
   [PAGE_FILES.competencePortfolio]: new Set(['user', 'lessons', 'mindmaps', 'constellations', 'grades', 'groupParticipation', 'customCompetences', 'customDescriptors', 'toPrint', 'tests', 'docEditorDocs', 'customCriteria', 'customScales', 'data', 'customData', 'customWordbanks', 'docEditorTemplates']),
   [PAGE_FILES.testCreator]: new Set(['user', 'tests', 'testImages', 'customExercises', 'data', 'customData', 'grades', 'groupParticipation', 'classPlans', 'seatingPlans', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customCompetences', 'customDescriptors', 'customCriteria', 'customScales', 'customChips', 'toPrint', 'docEditorDocs', 'mindmaps', 'constellations', 'lessons', 'exportCss', 'userExportCss']),
-  [PAGE_FILES.databaseConverter]: new Set(['user', 'data', 'customData', 'toPrint', 'docEditorDocs', 'groupParticipation', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'customCriteria', 'customScales', 'customChips', 'customExercises'])
+  [PAGE_FILES.databaseConverter]: new Set(['user', 'data', 'customData', 'toPrint', 'docEditorDocs', 'groupParticipation', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'customCriteria', 'customScales', 'customChips', 'customExercises']),
+  [PAGE_FILES.setupWizard]: new Set(['user', 'classPlans', 'seatingPlans', 'grades', 'gradeSheet'])
 };
 
 let mainWindow;
@@ -5181,7 +5184,8 @@ ipcMain.handle('app:open-tool', async (event, request = {}) => {
       }
     } catch (_) {}
   }
-  const pageFile = PAGE_FILES[rawPage] || rawPage;
+  let cleanPageKey = typeof rawPage === 'string' ? rawPage.replace(/^[./\\]*pages[/\\]/, '') : rawPage;
+  const pageFile = PAGE_FILES[cleanPageKey] || PAGE_FILES[rawPage] || cleanPageKey;
   const knownPages = new Set(Object.values(PAGE_FILES));
   if (!pageFile || !knownPages.has(pageFile)) {
     return { ok: false, error: `Unknown page: ${pageFile}` };

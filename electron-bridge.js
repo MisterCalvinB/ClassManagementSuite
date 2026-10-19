@@ -1,5 +1,20 @@
 (function () {
-  function getDesktopApi() { return window.electronApi; }
+  function getDesktopApi() {
+    if (typeof window !== 'undefined' && window.electronApi) {
+      return window.electronApi;
+    }
+    try {
+      if (typeof window !== 'undefined' && window.parent && window.parent !== window && window.parent.electronApi) {
+        return window.parent.electronApi;
+      }
+    } catch (_) {}
+    try {
+      if (typeof window !== 'undefined' && window.top && window.top !== window && window.top.electronApi) {
+        return window.top.electronApi;
+      }
+    } catch (_) {}
+    return null;
+  }
 
   function isElectron() {
     const desktopApi = getDesktopApi();

@@ -10,6 +10,14 @@
   const STOCK_PREMADE_ITEMS = [
     // --- TEMPLATES ---
     {
+      id: 'stock_board_showcase',
+      name: '🌟 Complete Board Feature Showcase',
+      category: 'templates',
+      description: 'Comprehensive interactive board featuring nodes, math formulas, timers, dice, rich checklists, audio player, video walkthrough, visual links & tables.',
+      isShowcaseTemplate: true,
+      data: { nodes: [], notes: [] }
+    },
+    {
       id: 'stock_lesson_objectives',
       name: 'Lesson Objectives',
       category: 'templates',
@@ -531,7 +539,12 @@
    * Insert a premade library item onto the active board at (targetX, targetY).
    */
   window.conInsertPremadeItem = function (item, targetX, targetY) {
-    if (!item || !item.data) return false;
+    if (!item) return false;
+    if (item.isShowcaseTemplate && typeof window.conLoadWelcomeShowcaseBoard === 'function') {
+      window.conLoadWelcomeShowcaseBoard(true);
+      return true;
+    }
+    if (!item.data) return false;
     const boardEl = document.getElementById('constellation-board');
     if (!boardEl) return false;
 

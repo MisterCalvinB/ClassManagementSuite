@@ -257,10 +257,15 @@
 
   // ── Navigation Helper: Open Tool ───────────────────────────
   window.swOpenTool = function (pageFile) {
+    var clean = String(pageFile || '').replace(/^[./\\]*pages[/\\]/, '');
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: 'cmt-open-app', pageFile: clean }, '*');
+      return;
+    }
     if (window.Desktop && typeof Desktop.openTool === 'function') {
-      Desktop.openTool(pageFile);
+      Desktop.openTool(clean);
     } else {
-      window.open(pageFile, '_blank');
+      window.open(clean, '_blank');
     }
   };
 

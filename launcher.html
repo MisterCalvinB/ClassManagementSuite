@@ -1444,6 +1444,11 @@
   });
   window.addEventListener('message', function (e) {
     if (e.data === 'cmt-close-modal') closeModal();
+    if (e.data && e.data.type === 'cmt-open-app' && e.data.pageFile) {
+      if (typeof openApp === 'function') {
+        openApp(e.data.pageFile);
+      }
+    }
     if (e.data && e.data.type === 'cmt-setup-progress-changed') {
       updateLauncherWizardBadge(e.data.done, e.data.total);
     }
