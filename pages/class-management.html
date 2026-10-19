@@ -511,8 +511,95 @@
         }
 
         /* ------------------------------------------------------------
-           4. ROSTER SETTINGS POPUP (#roster-settings-popup)
+           4. ROSTER SETTINGS, CLASS SELECTION & TIMER POPUPS
            ------------------------------------------------------------ */
+        .popup-close-x-btn {
+            width: 24px !important;
+            height: 24px !important;
+            min-width: 24px !important;
+            padding: 0 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background: #ffffff !important;
+            border: 1.5px solid #333333 !important;
+            border-radius: 6px !important;
+            box-shadow: 1.5px 1.5px 0 #555555 !important;
+            cursor: pointer !important;
+            box-sizing: border-box !important;
+            transition: background-color 0.1s ease, border-color 0.1s ease, transform 0.08s ease, box-shadow 0.08s ease !important;
+        }
+
+        .popup-close-x-btn .btn-icon {
+            width: 12px !important;
+            height: 12px !important;
+            display: block !important;
+            margin: 0 !important;
+        }
+
+        .popup-close-x-btn:hover {
+            background: #fee2e2 !important;
+            border-color: #dc2626 !important;
+            transform: translate(-1px, -1px) !important;
+            box-shadow: 2px 2px 0 #b91c1c !important;
+        }
+
+        .popup-close-x-btn:active {
+            transform: translate(1px, 1px) !important;
+            box-shadow: 0.5px 0.5px 0 #555555 !important;
+        }
+
+        .class-selection-title-bar {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            margin-bottom: 10px !important;
+            padding-bottom: 6px !important;
+            border-bottom: 2px solid #111111 !important;
+        }
+
+        .class-selection-title {
+            font-size: 0.76rem !important;
+            font-weight: 900 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.5px !important;
+            color: #111111 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 6px !important;
+        }
+
+        .class-selection-title .btn-icon {
+            width: 15px !important;
+            height: 15px !important;
+        }
+
+        .timer-popup-header {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            margin-bottom: 12px !important;
+            padding-bottom: 6px !important;
+            border-bottom: 2px solid #111111 !important;
+        }
+
+        .timer-popup-header h3 {
+            margin: 0 !important;
+            font-size: 0.76rem !important;
+            font-weight: 900 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.5px !important;
+            color: #111111 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 6px !important;
+        }
+
+        .timer-popup-header h3 .btn-icon {
+            width: 15px !important;
+            height: 15px !important;
+        }
+
         #roster-settings-popup {
             background: #ffffff !important;
             border: 2px solid #111111 !important;
@@ -1007,6 +1094,903 @@
         .roster-item.in-exam {
             border-left: 4px solid #8b7cc2 !important;
         }
+
+        /* ------------------------------------------------------------
+           5. STICKY ACTIVE TIMER (#timer-active-area) — LIGHT NEOBRUTALISM
+           ------------------------------------------------------------ */
+        #timer-active-area {
+            position: sticky !important;
+            top: 8px !important;
+            z-index: 1200 !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            gap: 12px !important;
+            padding: 8px 14px !important;
+            margin: 4px 0 12px 0 !important;
+            background: #ffffff !important;
+            border: 2px solid #333333 !important;
+            border-radius: 10px !important;
+            box-shadow: 3px 3px 0 #555555 !important;
+            transition: box-shadow 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+        }
+
+        #timer-active-display {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            flex: 1 1 auto !important;
+            min-width: 0 !important;
+            font-size: 2.2rem !important;
+            font-weight: 900 !important;
+            color: #222222 !important;
+            font-family: 'Lexend', system-ui, -apple-system, sans-serif !important;
+            background: #fafaf7 !important;
+            border: 2px solid #333333 !important;
+            border-radius: 8px !important;
+            padding: 4px 16px !important;
+            cursor: pointer !important;
+            text-align: center !important;
+            letter-spacing: 4px !important;
+            box-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.05) !important;
+            user-select: none !important;
+            transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease, transform 0.1s ease !important;
+        }
+
+        #timer-active-display:hover {
+            background: #f4f4ee !important;
+            border-color: #111111 !important;
+            transform: translateY(-1px) !important;
+        }
+
+        #timer-active-display.running {
+            border-color: #2e7d4d !important;
+            color: #166534 !important;
+            background: #eefaf2 !important;
+            box-shadow: inset 2px 2px 0 rgba(22, 101, 52, 0.08) !important;
+        }
+
+        #timer-active-display.warning {
+            border-color: #c2410c !important;
+            color: #c2410c !important;
+            background: #fff7ed !important;
+            animation: timerWarn 1s ease-in-out infinite !important;
+        }
+
+        #timer-active-display.stopwatch-mode {
+            border-color: #2563eb !important;
+            color: #1d4ed8 !important;
+            background: #eff6ff !important;
+            box-shadow: inset 2px 2px 0 rgba(37, 99, 235, 0.08) !important;
+        }
+
+        #timer-inline-controls {
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            gap: 6px !important;
+            flex-shrink: 0 !important;
+        }
+
+        #timer-inline-pp-btn,
+        #timer-inline-add30s-btn,
+        #timer-inline-stop-btn,
+        #timer-inline-detach-btn {
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            min-width: 38px !important;
+            height: 38px !important;
+            padding: 0 10px !important;
+            background: #ffffff !important;
+            color: #222222 !important;
+            border: 2px solid #333333 !important;
+            border-radius: 6px !important;
+            box-shadow: 2px 2px 0 #555555 !important;
+            cursor: pointer !important;
+            font-size: 0.88rem !important;
+            font-weight: 800 !important;
+            font-family: 'Lexend', inherit !important;
+            line-height: 1 !important;
+            user-select: none !important;
+            transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.12s ease !important;
+            box-sizing: border-box !important;
+        }
+
+        #timer-inline-pp-btn .btn-icon,
+        #timer-inline-stop-btn .btn-icon,
+        #timer-inline-detach-btn .btn-icon {
+            width: 16px !important;
+            height: 16px !important;
+            margin: 0 !important;
+            vertical-align: middle !important;
+        }
+
+        #timer-inline-pp-btn:hover {
+            background: #eefaf2 !important;
+            border-color: #2e7d4d !important;
+            transform: translate(-1px, -1px) !important;
+            box-shadow: 3px 3px 0 #555555 !important;
+        }
+
+        #timer-inline-add30s-btn {
+            background: #fdfdfd !important;
+            font-size: 0.78rem !important;
+            letter-spacing: -0.2px !important;
+            color: #334155 !important;
+        }
+
+        #timer-inline-add30s-btn:hover {
+            background: #eff6ff !important;
+            border-color: #2563eb !important;
+            color: #1d4ed8 !important;
+            transform: translate(-1px, -1px) !important;
+            box-shadow: 3px 3px 0 #555555 !important;
+        }
+
+        #timer-inline-stop-btn:hover {
+            background: #fff1f2 !important;
+            border-color: #dc2626 !important;
+            color: #dc2626 !important;
+            transform: translate(-1px, -1px) !important;
+            box-shadow: 3px 3px 0 #555555 !important;
+        }
+
+        #timer-inline-detach-btn:hover {
+            background: #f8fafc !important;
+            border-color: #475569 !important;
+            transform: translate(-1px, -1px) !important;
+            box-shadow: 3px 3px 0 #555555 !important;
+        }
+
+        #timer-inline-detach-btn.active {
+            background: #5b8fcc !important;
+            border-color: #333333 !important;
+            color: #ffffff !important;
+        }
+
+        #timer-inline-pp-btn:active,
+        #timer-inline-add30s-btn:active,
+        #timer-inline-stop-btn:active,
+        #timer-inline-detach-btn:active {
+            transform: translate(1px, 1px) !important;
+            box-shadow: 1px 1px 0 #555555 !important;
+        }
+
+        #timer-resize-handle {
+            position: absolute !important;
+            bottom: 2px !important;
+            right: 2px !important;
+            width: 12px !important;
+            height: 12px !important;
+            cursor: se-resize !important;
+            opacity: 0.35 !important;
+            background:
+                linear-gradient(135deg, transparent 40%, #555 40%, #555 55%, transparent 55%),
+                linear-gradient(135deg, transparent 60%, #555 60%, #555 75%, transparent 75%) !important;
+            transition: opacity 0.15s ease !important;
+            border-radius: 0 0 8px 0 !important;
+            pointer-events: auto !important;
+        }
+
+        #timer-resize-handle:hover {
+            opacity: 0.9 !important;
+        }
+
+        /* ------------------------------------------------------------
+           6. ROSTER PANEL & ITEMS — LIGHT NEOBRUTALISM
+           ------------------------------------------------------------ */
+        .roster-panel {
+            background: #ffffff !important;
+            border: 2px solid #333333 !important;
+            border-radius: 10px !important;
+            box-shadow: 4px 4px 0 #555555 !important;
+            padding: 14px 18px !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+        }
+
+        .roster-panel-header {
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            border-bottom: 2px solid #e2e8f0 !important;
+            padding-bottom: 10px !important;
+            margin-bottom: 12px !important;
+        }
+
+        .roster-panel-header h2 {
+            margin: 0 !important;
+            font-size: 1.15rem !important;
+            font-weight: 800 !important;
+            color: #222222 !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 8px !important;
+        }
+
+        #students-present-count {
+            font-size: 0.8rem !important;
+            font-weight: 700 !important;
+            background: #f1f5f9 !important;
+            color: #475569 !important;
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 999px !important;
+            padding: 2px 8px !important;
+        }
+
+        .roster-list:not(.roster-plan-view) {
+            list-style: none !important;
+            padding: 0 !important;
+            margin: 2px 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 1.5px !important;
+        }
+
+        .roster-item {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            padding: 1px 8px !important;
+            border: 1.5px solid #e2e8f0 !important;
+            border-radius: 4px !important;
+            background: #ffffff;
+            min-height: 24px !important;
+            box-sizing: border-box !important;
+            transition: background-color 0.12s ease, border-color 0.12s ease, transform 0.08s ease !important;
+        }
+
+        .roster-item:not(.absent):not(.picked):hover {
+            filter: brightness(0.97) !important;
+            border-color: #cbd5e1 !important;
+        }
+
+        /* Picked student state — distinct warm amber highlight */
+        .roster-item.picked {
+            background: #fefce8 !important;
+            border-color: #e2c96e !important;
+            box-shadow: inset 4px 0 0 #e2c96e !important;
+        }
+
+        .roster-item.picked .student-name {
+            text-decoration: line-through 2px #d97706 !important;
+            color: #78350f !important;
+        }
+
+        /* Absent student state — muted dashed appearance */
+        .roster-item.absent {
+            opacity: 0.52 !important;
+            background: #f8fafc !important;
+            border-style: dashed !important;
+            border-color: #cbd5e1 !important;
+        }
+
+        .roster-item.absent .student-name {
+            text-decoration: line-through 1.5px #94a3b8 !important;
+            color: #94a3b8 !important;
+        }
+
+        /* Flagged student state — indicated solely by inline flag icons */
+        .roster-item.flagged-student {
+            /* Red inset box-shadow removed as requested; flags are displayed via inline flag icons */
+        }
+
+        /* Picked Blink animation */
+        .roster-item.picked-blink {
+            animation: pickedBlinkAnim 0.6s ease-in-out infinite alternate !important;
+        }
+
+        @keyframes pickedBlinkAnim {
+            0% { background: #fef08a !important; transform: scale(1); }
+            100% { background: #fde047 !important; transform: scale(1.015); box-shadow: 0 0 12px rgba(234, 179, 8, 0.4) !important; }
+        }
+
+        /* Student Info Area */
+        .student-info {
+            display: flex !important;
+            align-items: center !important;
+            gap: 6px !important;
+            flex: 1 1 auto !important;
+            min-width: 0 !important;
+        }
+
+        .student-name {
+            font-weight: 700 !important;
+            color: #1e293b !important;
+            font-size: var(--student-name-size, 0.90rem) !important;
+            line-height: 1.2 !important;
+            white-space: nowrap !important;
+            cursor: pointer !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 4px !important;
+            transition: color 0.12s ease !important;
+        }
+
+        .student-name:hover {
+            color: #0f172a !important;
+            text-decoration: underline !important;
+        }
+
+        .student-role-tag {
+            font-style: normal !important;
+            font-size: var(--student-role-size, 0.78rem) !important;
+            font-weight: 600 !important;
+            color: #475569 !important;
+            background: #f1f5f9 !important;
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 4px !important;
+            padding: 0 5px !important;
+            cursor: pointer !important;
+            margin-left: 3px !important;
+            line-height: 1.2 !important;
+            transition: background-color 0.12s ease !important;
+        }
+
+        .student-role-tag:hover {
+            background: #e2e8f0 !important;
+            color: #1e293b !important;
+        }
+
+        .sen-indicator {
+            color: #e11d48 !important;
+            font-weight: 900 !important;
+            font-size: 1.15rem !important;
+            line-height: 1 !important;
+        }
+
+        .comment-dot {
+            width: 7px !important;
+            height: 7px !important;
+            border-radius: 50% !important;
+            background: #cbd5e1 !important;
+            cursor: pointer !important;
+            flex-shrink: 0 !important;
+            transition: background-color 0.12s ease, transform 0.12s ease !important;
+        }
+
+        .comment-dot:hover {
+            transform: scale(1.3) !important;
+        }
+
+        .comment-dot.has-comment {
+            background: #3b82f6 !important;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25) !important;
+        }
+
+        /* Badges & Scores Container */
+        .badges {
+            display: flex !important;
+            align-items: center !important;
+            gap: 4px !important;
+            margin-left: auto !important;
+            margin-right: 8px !important;
+            flex-shrink: 0 !important;
+        }
+
+        .earned-badge-chip {
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 2px !important;
+            padding: 0 4px !important;
+            border: 1.5px solid #333333 !important;
+            border-radius: 3px !important;
+            font-size: 0.72rem !important;
+            font-weight: 700 !important;
+            line-height: 1.2 !important;
+            box-shadow: 1px 1px 0 #555555 !important;
+            cursor: pointer !important;
+        }
+
+        .earned-badge-chip.badge-chip-positive {
+            background: #ecfdf5 !important;
+        }
+
+        .earned-badge-chip.badge-chip-negative {
+            background: #fef2f2 !important;
+        }
+
+        /* Score Pills */
+        .p-plus {
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background: #ecfdf5 !important;
+            color: #047857 !important;
+            border: 1.5px solid #059669 !important;
+            border-radius: 3px !important;
+            font-weight: 800 !important;
+            font-size: 0.70rem !important;
+            line-height: 1.1 !important;
+            padding: 0 3px !important;
+            height: 19px !important;
+            min-width: 17px !important;
+            cursor: pointer !important;
+            box-shadow: 1px 1px 0 #059669 !important;
+            transition: transform 0.08s ease, background-color 0.08s ease !important;
+        }
+
+        .p-plus:hover {
+            background: #d1fae5 !important;
+            transform: translateY(-1px) !important;
+        }
+
+        .p-minus {
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background: #fef2f2 !important;
+            color: #b91c1c !important;
+            border: 1.5px solid #dc2626 !important;
+            border-radius: 3px !important;
+            font-weight: 800 !important;
+            font-size: 0.70rem !important;
+            line-height: 1.1 !important;
+            padding: 0 3px !important;
+            height: 19px !important;
+            min-width: 17px !important;
+            cursor: pointer !important;
+            box-shadow: 1px 1px 0 #dc2626 !important;
+            transition: transform 0.08s ease, background-color 0.08s ease !important;
+        }
+
+        .p-minus:hover {
+            background: #fee2e2 !important;
+            transform: translateY(-1px) !important;
+        }
+
+        .p-team-plus {
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background: #f0fdf4 !important;
+            color: #166534 !important;
+            border: 1.5px solid #86efac !important;
+            border-radius: 3px !important;
+            font-weight: 700 !important;
+            font-size: 0.65rem !important;
+            line-height: 1.1 !important;
+            padding: 0 3px !important;
+            height: 19px !important;
+            min-width: 17px !important;
+        }
+
+        .p-team-minus {
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background: #fff1f2 !important;
+            color: #9f1239 !important;
+            border: 1.5px solid #fca5a5 !important;
+            border-radius: 3px !important;
+            font-weight: 700 !important;
+            font-size: 0.65rem !important;
+            line-height: 1.1 !important;
+            padding: 0 3px !important;
+            height: 19px !important;
+            min-width: 17px !important;
+        }
+
+        .p-plus:empty,
+        .p-minus:empty,
+        .p-team-plus:empty,
+        .p-team-minus:empty {
+            display: none !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            min-width: 0 !important;
+            width: 0 !important;
+            height: 0 !important;
+        }
+
+        /* Roster Action Controls */
+        .roster-controls {
+            display: flex !important;
+            align-items: center !important;
+            gap: 2px !important;
+            flex-shrink: 0 !important;
+        }
+
+        .btn-mini {
+            min-width: 20px !important;
+            height: 20px !important;
+            padding: 0 !important;
+            font-size: 10px !important;
+            font-weight: 900 !important;
+            line-height: 1 !important;
+            border: 1.5px solid #333333 !important;
+            border-radius: 3px !important;
+            background: #ffffff !important;
+            color: #222222 !important;
+            box-shadow: 1px 1px 0 #555555 !important;
+            cursor: pointer !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-family: inherit !important;
+            user-select: none !important;
+            transition: transform 0.08s ease, box-shadow 0.08s ease, background-color 0.08s ease !important;
+            box-sizing: border-box !important;
+        }
+
+        .btn-mini:hover {
+            transform: translate(-1px, -1px) !important;
+            box-shadow: 2px 2px 0 #555555 !important;
+        }
+
+        .btn-mini:active {
+            transform: translate(1px, 1px) !important;
+            box-shadow: 0.5px 0.5px 0 #555555 !important;
+        }
+
+        .btn-mini.btn-plus {
+            background: #ecfdf5 !important;
+            color: #047857 !important;
+            border-color: #059669 !important;
+        }
+
+        .btn-mini.btn-plus:hover {
+            background: #d1fae5 !important;
+            color: #065f46 !important;
+        }
+
+        .btn-mini.btn-minus {
+            background: #fef2f2 !important;
+            color: #b91c1c !important;
+            border-color: #dc2626 !important;
+        }
+
+        .btn-mini.btn-minus:hover {
+            background: #fee2e2 !important;
+            color: #991b1b !important;
+        }
+
+        .btn-mini.btn-badge-open {
+            background: #fefce8 !important;
+            color: #b45309 !important;
+            border-color: #d97706 !important;
+        }
+
+        .btn-mini.btn-badge-open:hover {
+            background: #fef3c7 !important;
+            color: #92400e !important;
+        }
+
+        /* Team Dividers (Drag headers) */
+        li[data-team-id] {
+            border: 2px solid #333333 !important;
+            border-radius: 6px 6px 0 0 !important;
+            box-shadow: 2px 2px 0 #555555 !important;
+            margin-top: 6px !important;
+            margin-bottom: 2px !important;
+            padding: 2px 8px !important;
+            font-size: 0.80rem !important;
+        }
+
+        /* Random Picker Buttons */
+        #drumroll-and-pick {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 8px !important;
+            margin-top: 18px !important;
+            padding-top: 14px !important;
+            border-top: 2px dashed #cbd5e1 !important;
+        }
+
+        .btn-pick {
+            background: #e2c96e !important;
+            color: #111111 !important;
+            border: 2px solid #333333 !important;
+            border-radius: 8px !important;
+            box-shadow: 3px 3px 0 #555555 !important;
+            font-size: 0.95rem !important;
+            font-weight: 800 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.5px !important;
+            padding: 10px 18px !important;
+            cursor: pointer !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 8px !important;
+            user-select: none !important;
+            transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.12s ease !important;
+        }
+
+        .btn-pick:hover:not(:disabled) {
+            background: #ecd67e !important;
+            transform: translate(-1px, -1px) !important;
+            box-shadow: 4px 4px 0 #555555 !important;
+        }
+
+        .btn-pick:active:not(:disabled) {
+            transform: translate(1px, 1px) !important;
+            box-shadow: 1px 1px 0 #555555 !important;
+        }
+
+        .btn-pick:disabled {
+            opacity: 0.45 !important;
+            cursor: not-allowed !important;
+            transform: none !important;
+            box-shadow: 2px 2px 0 #888888 !important;
+        }
+
+        /* ------------------------------------------------------------
+           7. NARROW SCREENS (<= 600px & 340px) RESPONSIVE OPTIMIZATIONS
+           ------------------------------------------------------------ */
+        @media (max-width: 600px) {
+            body {
+                padding: 0 4px 6px 4px !important;
+                overflow-x: hidden !important;
+            }
+
+            .main-wrapper {
+                width: 100% !important;
+                max-width: 100% !important;
+                overflow-x: hidden !important;
+                box-sizing: border-box !important;
+            }
+
+            .container {
+                width: 100% !important;
+                max-width: 100% !important;
+                gap: 6px !important;
+                margin-bottom: 8px !important;
+                box-sizing: border-box !important;
+            }
+
+            .top-right-controls {
+                gap: 4px !important;
+                top: 4px !important;
+            }
+
+            .top-right-controls #class-selection-btn,
+            .top-right-controls #timer-open-btn,
+            .top-right-controls #roster-settings-btn {
+                width: 32px !important;
+                height: 32px !important;
+                min-width: 32px !important;
+                padding: 0 !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
+
+            .top-right-controls .btn-icon {
+                width: 15px !important;
+                height: 15px !important;
+            }
+
+            /* Sticky Timer in Narrow Screens: 2-Row Stacked Command Strip */
+            #timer-active-area {
+                top: 4px !important;
+                padding: 6px 8px !important;
+                gap: 6px !important;
+                flex-direction: column !important;
+                align-items: stretch !important;
+                border-radius: 8px !important;
+                box-shadow: 2.5px 2.5px 0 #555555 !important;
+                margin: 2px 0 8px 0 !important;
+                box-sizing: border-box !important;
+            }
+
+            #timer-active-display {
+                width: 100% !important;
+                box-sizing: border-box !important;
+                font-size: 1.65rem !important;
+                letter-spacing: 2.5px !important;
+                padding: 3px 8px !important;
+                text-align: center !important;
+                border-radius: 6px !important;
+            }
+
+            #timer-inline-controls {
+                width: 100% !important;
+                display: flex !important;
+                flex-direction: row !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+                gap: 4px !important;
+                box-sizing: border-box !important;
+            }
+
+            #timer-inline-pp-btn,
+            #timer-inline-add30s-btn,
+            #timer-inline-stop-btn,
+            #timer-inline-detach-btn {
+                flex: 1 1 0 !important;
+                min-width: 0 !important;
+                height: 32px !important;
+                padding: 0 2px !important;
+                font-size: 0.74rem !important;
+                border-radius: 5px !important;
+                box-shadow: 1.5px 1.5px 0 #555555 !important;
+            }
+
+            #timer-inline-pp-btn .btn-icon,
+            #timer-inline-stop-btn .btn-icon,
+            #timer-inline-detach-btn .btn-icon {
+                width: 14px !important;
+                height: 14px !important;
+            }
+
+            /* Objectives Bar in Narrow Screens */
+            #objectives-bar {
+                padding: 6px 48px 6px 8px !important;
+                box-sizing: border-box !important;
+            }
+
+            #objectives-bar-text {
+                font-size: 0.82rem !important;
+                line-height: 1.35 !important;
+            }
+
+            #objectives-edit-btn {
+                top: 6px !important;
+                right: 6px !important;
+                padding: 2px 7px !important;
+                font-size: 0.72rem !important;
+            }
+
+            /* Roster Panel in Narrow Screens */
+            .roster-panel {
+                padding: 6px 6px !important;
+                border-radius: 8px !important;
+                box-shadow: 2.5px 2.5px 0 #555555 !important;
+                min-width: 0 !important;
+                box-sizing: border-box !important;
+            }
+
+            .roster-panel-header {
+                flex-wrap: wrap !important;
+                gap: 4px !important;
+                padding-bottom: 4px !important;
+                margin-bottom: 6px !important;
+            }
+
+            .roster-panel-header h2 {
+                font-size: 0.92rem !important;
+                flex-wrap: wrap !important;
+                gap: 4px !important;
+            }
+
+            #students-present-count {
+                font-size: 0.70rem !important;
+                padding: 1px 5px !important;
+            }
+
+            /* Student Row in Narrow Screens: ultra-compact single line */
+            .roster-item {
+                display: flex !important;
+                flex-direction: row !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+                padding: 1px 4px !important;
+                gap: 2px !important;
+                min-height: 24px !important;
+                box-sizing: border-box !important;
+            }
+
+            .student-info {
+                display: flex !important;
+                flex-wrap: nowrap !important;
+                align-items: center !important;
+                gap: 2px 4px !important;
+                flex: 1 1 auto !important;
+                min-width: 0 !important;
+            }
+
+            .student-name {
+                font-size: calc(var(--student-name-size, 0.90rem) * 0.88) !important;
+                max-width: 100% !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+                white-space: nowrap !important;
+            }
+
+            .student-role-tag {
+                font-size: calc(var(--student-role-size, 0.78rem) * 0.85) !important;
+                padding: 0 3px !important;
+                line-height: 1.1 !important;
+            }
+
+            /* Badges stay inline and ultra-compact */
+            .badges {
+                flex-basis: auto !important;
+                display: flex !important;
+                align-items: center !important;
+                flex-wrap: nowrap !important;
+                gap: 2px !important;
+                margin: 0 2px !important;
+                flex-shrink: 0 !important;
+            }
+
+            .badges:empty {
+                display: none !important;
+            }
+
+            .p-plus,
+            .p-minus,
+            .p-team-plus,
+            .p-team-minus {
+                font-size: 0.65rem !important;
+                padding: 0 3px !important;
+                height: 18px !important;
+                min-width: 16px !important;
+                line-height: 1.1 !important;
+            }
+
+            .earned-badge-chip {
+                font-size: 0.68rem !important;
+                padding: 0 2px !important;
+                line-height: 1.1 !important;
+            }
+
+            /* Roster Controls: ultra-compact 20px buttons aligned on right */
+            .roster-controls {
+                gap: 2px !important;
+                flex-shrink: 0 !important;
+                margin-left: 2px !important;
+            }
+
+            .btn-mini {
+                min-width: 20px !important;
+                height: 20px !important;
+                font-size: 10px !important;
+                padding: 0 !important;
+                box-shadow: 1px 1px 0 #555555 !important;
+            }
+
+            /* Team Dividers in Narrow Screens */
+            li[data-team-id] {
+                padding: 2px 6px !important;
+                margin-top: 5px !important;
+                margin-bottom: 2px !important;
+                flex-wrap: wrap !important;
+                gap: 3px !important;
+                font-size: 0.76rem !important;
+                box-sizing: border-box !important;
+            }
+
+            /* Random Pick Button */
+            #drumroll-and-pick {
+                margin-top: 10px !important;
+                padding-top: 8px !important;
+                gap: 6px !important;
+            }
+
+            .btn-pick {
+                font-size: 0.85rem !important;
+                padding: 6px 10px !important;
+                width: 100% !important;
+                letter-spacing: 0.3px !important;
+            }
+
+            /* Popups fit cleanly centered across viewport without right-edge clamping */
+            .class-selection-popup,
+            #timer-popup,
+            .roster-settings-popup,
+            #settings-popup,
+            #mp3-picker-popup {
+                position: fixed !important;
+                top: 48px !important;
+                left: 8px !important;
+                right: 8px !important;
+                margin: 0 auto !important;
+                width: auto !important;
+                max-width: min(360px, calc(100vw - 16px)) !important;
+                max-height: calc(100vh - 56px) !important;
+                overflow-y: auto !important;
+                z-index: 99999 !important;
+                box-sizing: border-box !important;
+                transform: none !important;
+            }
+        }
     </style>
 </head>
 
@@ -1395,6 +2379,12 @@
                         data-i18n-title="btn_select_class_title"><img src="../assets/icons/class-management.svg"
                             class="btn-icon" alt="" /></button>
                     <div id="class-selection-popup" class="class-selection-popup">
+                        <div class="class-selection-title-bar">
+                            <span class="class-selection-title" data-i18n="btn_select_class_title"><img src="../assets/icons/class-management.svg" class="btn-icon" alt="" /> Select Class</span>
+                            <button class="popup-close-x-btn" onclick="closeClassSelectionPopup()" title="Close" data-i18n-title="btn_close" aria-label="Close">
+                                <img src="../assets/icons/close.svg" class="btn-icon" alt="" />
+                            </button>
+                        </div>
                         <div class="class-selection-header">
                             <div class="class-filter-bar" id="class-filter-bar">
                                 <div class="weekday-tabs" id="weekday-tabs"></div>
@@ -1415,8 +2405,13 @@
                         data-i18n-title="btn_timer"><img src="../assets/icons/clock.svg" class="btn-icon"
                             alt="" /></button>
                     <div id="timer-popup">
-                        <h3 id="timer-popup-title" data-i18n="timer_title"><img src="../assets/icons/clock.svg"
-                                class="btn-icon" alt="" /> Timer</h3>
+                        <div class="timer-popup-header">
+                            <h3 id="timer-popup-title" data-i18n="timer_title"><img src="../assets/icons/clock.svg"
+                                    class="btn-icon" alt="" /> Timer</h3>
+                            <button class="popup-close-x-btn" onclick="closeTimerPopup()" title="Close" data-i18n-title="btn_close" aria-label="Close">
+                                <img src="../assets/icons/close.svg" class="btn-icon" alt="" />
+                            </button>
+                        </div>
                         <!-- Mode toggle -->
                         <div class="timer-mode-toggle">
                             <button class="timer-mode-btn active" id="mode-btn-timer" onclick="setTimerMode('timer')"
@@ -1529,6 +2524,9 @@
                     <div id="roster-settings-popup" class="roster-settings-popup">
                         <div class="rsp-header">
                             <span class="rsp-header-title" data-i18n="rsp_roster_settings_title">Roster Settings</span>
+                            <button class="popup-close-x-btn" onclick="closeRosterSettingsPopup()" title="Close" data-i18n-title="btn_close" aria-label="Close">
+                                <img src="../assets/icons/close.svg" class="btn-icon" alt="" />
+                            </button>
                         </div>
 
                         <div class="rsp-tabs-nav">
@@ -1815,6 +2813,8 @@
                     <button id="timer-inline-pp-btn" title="Play / Pause" data-i18n-title="timer_pp_title"
                         onclick="overlayPlayPauseTimer()"><img src="../assets/icons/play.svg" class="btn-icon"
                             alt="" /></button>
+                    <button id="timer-inline-add30s-btn" title="+30 seconds" data-i18n-title="timer_add30s_title"
+                        onclick="timerAdd30s()">+30s</button>
                     <button id="timer-inline-stop-btn" title="Stop" data-i18n-title="timer_stop_title"
                         onclick="overlayStopTimer()"><img src="../assets/icons/stop.svg" class="btn-icon"
                             alt="" /></button>
@@ -8761,10 +9761,10 @@
         <span class="comment-dot ${hasNotes ? 'has-comment' : ''}" onclick="openCommentPopup(event, ${student.id})" title="${hasNotes ? 'View notes' : 'Add note'}"></span>
         <div class="badges" id="badges-row-${student.id}" style="${badgesVisible ? '' : 'display:none'}">
             <span class="student-badges-earned">${badgeSpans}</span>
-            <span class="p-plus" onclick="mod(${student.id}, 'p', -1)">${plusDisplay}</span>
-            <span class="p-minus" onclick="mod(${student.id}, 'm', -1)">${minusDisplay}</span>
-            <span class="p-team-plus" ${teamPlusDisplay ? `onclick="modTeam(${student.teamId || 'null'}, 'p', -1, ${student.id})"` : ''} title="${teamPlusDisplay ? 'Click to remove one team plus' : 'Team pluses'}" style="${teamPlusDisplay ? 'cursor:pointer;' : 'cursor:default;'}">${teamPlusDisplay}</span>
-            <span class="p-team-minus" ${teamMinusDisplay ? `onclick="modTeam(${student.teamId || 'null'}, 'm', -1, ${student.id})"` : ''} title="${teamMinusDisplay ? 'Click to remove one team minus' : 'Team minuses'}" style="${teamMinusDisplay ? 'cursor:pointer;' : 'cursor:default;'}">${teamMinusDisplay}</span>
+            ${plusDisplay ? `<span class="p-plus" onclick="mod(${student.id}, 'p', -1)">${plusDisplay}</span>` : ''}
+            ${minusDisplay ? `<span class="p-minus" onclick="mod(${student.id}, 'm', -1)">${minusDisplay}</span>` : ''}
+            ${teamPlusDisplay ? `<span class="p-team-plus" onclick="modTeam(${student.teamId || 'null'}, 'p', -1, ${student.id})" title="Click to remove one team plus" style="cursor:pointer;">${teamPlusDisplay}</span>` : ''}
+            ${teamMinusDisplay ? `<span class="p-team-minus" onclick="modTeam(${student.teamId || 'null'}, 'm', -1, ${student.id})" title="Click to remove one team minus" style="cursor:pointer;">${teamMinusDisplay}</span>` : ''}
             ${teamBadgeSpans ? `<span class="team-badges-earned">${teamBadgeSpans}</span>` : ''}
         </div>
     </div>
@@ -19854,10 +20854,10 @@ ${body}
                     ${flagsHtml ? `<div class="rpc-flags">${flagsHtml}</div>` : ''}
                     <div class="badges rpc-badges" id="badges-row-${student.id}" style="${badgesVisible ? '' : 'display:none'}">
                         <span class="student-badges-earned">${badgeSpans}</span>
-                        <span class="p-plus" onclick="mod(${student.id}, 'p', -1)">${plusDisplay}</span>
-                        <span class="p-minus" onclick="mod(${student.id}, 'm', -1)">${minusDisplay}</span>
-                        <span class="p-team-plus" ${teamPlusDisplay ? `onclick="modTeam(${student.teamId || 'null'}, 'p', -1, ${student.id})"` : ''} title="${teamPlusDisplay ? 'Click to remove one team plus' : 'Team pluses'}" style="${teamPlusDisplay ? 'cursor:pointer;' : 'cursor:default;'}">${teamPlusDisplay}</span>
-                        <span class="p-team-minus" ${teamMinusDisplay ? `onclick="modTeam(${student.teamId || 'null'}, 'm', -1, ${student.id})"` : ''} title="${teamMinusDisplay ? 'Click to remove one team minus' : 'Team minuses'}" style="${teamMinusDisplay ? 'cursor:pointer;' : 'cursor:default;'}">${teamMinusDisplay}</span>
+                        ${plusDisplay ? `<span class="p-plus" onclick="mod(${student.id}, 'p', -1)">${plusDisplay}</span>` : ''}
+                        ${minusDisplay ? `<span class="p-minus" onclick="mod(${student.id}, 'm', -1)">${minusDisplay}</span>` : ''}
+                        ${teamPlusDisplay ? `<span class="p-team-plus" onclick="modTeam(${student.teamId || 'null'}, 'p', -1, ${student.id})" title="Click to remove one team plus" style="cursor:pointer;">${teamPlusDisplay}</span>` : ''}
+                        ${teamMinusDisplay ? `<span class="p-team-minus" onclick="modTeam(${student.teamId || 'null'}, 'm', -1, ${student.id})" title="Click to remove one team minus" style="cursor:pointer;">${teamMinusDisplay}</span>` : ''}
                     </div>
                     <div class="rpc-controls">
                         <button class="btn-mini btn-badge-open" onclick="toggleBadgePopup(event, ${student.id}, 'individual')" title="Award a badge" ${student.isAbsent ? 'style="display:none"' : ''}>…</button>
@@ -19957,10 +20957,10 @@ ${body}
         ${flagsHtml ? `<div class="rpc-flags">${flagsHtml}</div>` : ''}
         <div class="badges rpc-badges" id="badges-row-${student.id}" style="${badgesVisible ? '' : 'display:none'}">
             <span class="student-badges-earned">${badgeSpans}</span>
-            <span class="p-plus" onclick="mod(${student.id}, 'p', -1)">${plusDisplay}</span>
-            <span class="p-minus" onclick="mod(${student.id}, 'm', -1)">${minusDisplay}</span>
-            <span class="p-team-plus" ${teamPlusDisplay ? `onclick="modTeam(${student.teamId || 'null'}, 'p', -1, ${student.id})"` : ''} title="${teamPlusDisplay ? 'Click to remove one team plus' : 'Team pluses'}" style="${teamPlusDisplay ? 'cursor:pointer;' : 'cursor:default;'}">${teamPlusDisplay}</span>
-            <span class="p-team-minus" ${teamMinusDisplay ? `onclick="modTeam(${student.teamId || 'null'}, 'm', -1, ${student.id})"` : ''} title="${teamMinusDisplay ? 'Click to remove one team minus' : 'Team minuses'}" style="${teamMinusDisplay ? 'cursor:pointer;' : 'cursor:default;'}">${teamMinusDisplay}</span>
+            ${plusDisplay ? `<span class="p-plus" onclick="mod(${student.id}, 'p', -1)">${plusDisplay}</span>` : ''}
+            ${minusDisplay ? `<span class="p-minus" onclick="mod(${student.id}, 'm', -1)">${minusDisplay}</span>` : ''}
+            ${teamPlusDisplay ? `<span class="p-team-plus" onclick="modTeam(${student.teamId || 'null'}, 'p', -1, ${student.id})" title="Click to remove one team plus" style="cursor:pointer;">${teamPlusDisplay}</span>` : ''}
+            ${teamMinusDisplay ? `<span class="p-team-minus" onclick="modTeam(${student.teamId || 'null'}, 'm', -1, ${student.id})" title="Click to remove one team minus" style="cursor:pointer;">${teamMinusDisplay}</span>` : ''}
             ${teamBadgeSpans ? `<span class="team-badges-earned">${teamBadgeSpans}</span>` : ''}
         </div>
         <div class="rpc-controls">

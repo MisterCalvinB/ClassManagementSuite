@@ -1044,7 +1044,18 @@
 
     var micSelect = document.getElementById('board-rec-mic-select');
     if (micSelect) {
-      micSelect.innerHTML = '<option value="default">Default Microphone</option><option value="none">No Microphone (Video only)</option>';
+      var defaultMicText = (typeof i18n !== 'undefined' ? i18n.t('recDefaultMic') : (typeof t === 'function' ? t('recDefaultMic') : null)) || 'Default Microphone';
+      var noMicText = (typeof i18n !== 'undefined' ? i18n.t('recNoMic') : (typeof t === 'function' ? t('recNoMic') : null)) || 'No Microphone (Video only)';
+      var micFallback = (typeof i18n !== 'undefined' ? i18n.t('recSelectMic') : (typeof t === 'function' ? t('recSelectMic') : null)) || 'Microphone';
+      micSelect.innerHTML = '';
+      var optDef = document.createElement('option');
+      optDef.value = 'default';
+      optDef.textContent = defaultMicText;
+      micSelect.appendChild(optDef);
+      var optNoneInit = document.createElement('option');
+      optNoneInit.value = 'none';
+      optNoneInit.textContent = noMicText;
+      micSelect.appendChild(optNoneInit);
       try {
         var devs = await getAudioDevices();
         if (devs && devs.length > 0) {
@@ -1052,12 +1063,12 @@
           devs.forEach(function (d) {
             var opt = document.createElement('option');
             opt.value = d.deviceId;
-            opt.textContent = d.label || 'Microphone';
+            opt.textContent = d.label || micFallback;
             micSelect.appendChild(opt);
           });
           var noneOpt = document.createElement('option');
           noneOpt.value = 'none';
-          noneOpt.textContent = 'No Microphone (Video only)';
+          noneOpt.textContent = noMicText;
           micSelect.appendChild(noneOpt);
         }
       } catch (_) {}

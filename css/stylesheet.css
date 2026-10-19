@@ -13054,6 +13054,21 @@ button:hover {
   opacity: 0.9;
 }
 
+.p-plus:empty,
+.p-minus:empty,
+.p-team-plus:empty,
+.p-team-minus:empty {
+  display: none !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  min-width: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
 
 .roster-controls {
   display: flex;
@@ -13623,13 +13638,30 @@ h1#main-title {
   display: block;
 }
 
-#timer-popup h3 {
-  margin: 0 0 12px 0;
+.timer-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid #111;
+}
+
+.timer-popup-header h3 {
+  margin: 0 !important;
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 1px;
   color: #111;
   font-weight: 900;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.timer-popup-header h3 .btn-icon {
+  width: 15px;
+  height: 15px;
 }
 
 .timer-popup-row {
@@ -15356,6 +15388,67 @@ button > img.btn-icon:only-child {
 
 .class-selection-popup.open {
   display: block;
+}
+
+.class-selection-title-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid #111;
+}
+
+.class-selection-title {
+  font-size: 0.76rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #111;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.class-selection-title .btn-icon {
+  width: 15px;
+  height: 15px;
+}
+
+.popup-close-x-btn {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border: 1.5px solid #333333;
+  border-radius: 6px;
+  box-shadow: 1.5px 1.5px 0 #555555;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: background-color 0.1s ease, border-color 0.1s ease, transform 0.08s ease, box-shadow 0.08s ease;
+}
+
+.popup-close-x-btn .btn-icon {
+  width: 12px;
+  height: 12px;
+  display: block;
+  margin: 0 !important;
+}
+
+.popup-close-x-btn:hover {
+  background: #fee2e2;
+  border-color: #dc2626;
+  transform: translate(-1px, -1px);
+  box-shadow: 2px 2px 0 #b91c1c;
+}
+
+.popup-close-x-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 0.5px 0.5px 0 #555555;
 }
 
 #roster-settings-btn {
@@ -17216,30 +17309,24 @@ button > img.btn-icon:only-child {
   #class-selection-anchor,
   #timer-anchor,
   #roster-settings-anchor {
-    position: static !important;
+    position: relative !important;
   }
 
   .class-selection-popup,
   #timer-popup,
   .roster-settings-popup {
-    position: absolute !important;
-    left: auto !important;
-    right: 0 !important;
-    transform: none !important;
-    top: calc(100% + 6px) !important;
-    max-height: calc(100vh - 65px) !important;
+    position: fixed !important;
+    top: 48px !important;
+    left: 8px !important;
+    right: 8px !important;
+    margin: 0 auto !important;
+    width: auto !important;
+    max-width: min(360px, calc(100vw - 16px)) !important;
+    max-height: calc(100vh - 56px) !important;
     overflow-y: auto !important;
-  }
-
-  .class-selection-popup {
-    width: min(320px, calc(100vw - 16px)) !important;
-    max-width: 320px !important;
-  }
-
-  #timer-popup,
-  .roster-settings-popup {
-    width: min(295px, calc(100vw - 16px)) !important;
-    max-width: 295px !important;
+    z-index: 99999 !important;
+    box-sizing: border-box !important;
+    transform: none !important;
   }
 
   h2 {

@@ -413,14 +413,14 @@
     if (tagsContainer) {
       tagsContainer.innerHTML = '';
       if (!tags.length) {
-        tagsContainer.innerHTML = '<span class="cmt-lm-empty" style="padding:4px 0;">No tags attached</span>';
+        tagsContainer.innerHTML = '<span class="cmt-lm-empty" style="padding:4px 0;">' + escapeHtml(t('lmNoTagsAttached', 'No tags attached')) + '</span>';
       } else {
         tags.forEach(function(tag) {
           var pill = document.createElement('span');
           pill.className = 'cmt-lm-tag-pill';
           pill.innerHTML =
             '<span>' + tag + '</span>' +
-            '<button type="button" class="cmt-lm-tag-del" title="Remove tag">[X]</button>';
+            '<button type="button" class="cmt-lm-tag-del" title="' + escapeHtml(t('lmRemoveTagTooltip', 'Remove tag')) + '">[X]</button>';
           pill.querySelector('.cmt-lm-tag-del').addEventListener('click', async function() {
             await window.LinksService.removeTag(urn, tag);
             await refreshModalData();
