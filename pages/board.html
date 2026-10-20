@@ -24,6 +24,7 @@
   <script src="../js/media-audio-encoder.js"></script>
   <script src="../js/media-converter-service.js"></script>
   <script src="../js/board-sound-service.js"></script>
+  <script src="../js/character-network-service.js"></script>
   <script>
     let boardCmsTimerChannel = null;
     let boardCmsTimerUiState = {
@@ -2477,6 +2478,335 @@
     </div>
   </div>
 
+  <!-- ============================================================ -->
+  <!-- CHARACTER NETWORK MODAL (NOVEL VISUALIZATION)                -->
+  <!-- ============================================================ -->
+  <style>
+    #character-network-overlay, #char-net-excerpts-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 99995;
+      background: rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(2px);
+      align-items: center;
+      justify-content: center;
+    }
+    #character-network-dialog {
+      width: min(880px, 96vw);
+      max-height: 92vh;
+      background: #ffffff;
+      border: 2.5px solid #333333;
+      border-radius: 10px;
+      box-shadow: 5px 5px 0 #555555;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      font-family: 'Lexend', 'Segoe UI', Arial, sans-serif;
+    }
+    .char-net-header {
+      padding: 12px 18px;
+      background: #f5f5f0;
+      border-bottom: 2px solid #333333;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .char-net-header h3 {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: #111111;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .char-net-body {
+      padding: 16px 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      background: #ffffff;
+    }
+    .char-net-card {
+      padding: 12px 14px;
+      background: #fafafa;
+      border: 1.5px solid #333333;
+      border-radius: 8px;
+      box-shadow: 2px 2px 0 #888888;
+    }
+    .char-net-section-title {
+      font-size: 0.8rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #333333;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .char-net-table-wrapper {
+      max-height: 240px;
+      overflow-y: auto;
+      border: 1.5px solid #333333;
+      border-radius: 6px;
+      background: #ffffff;
+    }
+    .char-net-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+    }
+    .char-net-table th {
+      position: sticky;
+      top: 0;
+      background: #f0f0eb;
+      color: #111111;
+      font-weight: 800;
+      padding: 7px 10px;
+      border-bottom: 2px solid #333333;
+      text-align: left;
+      z-index: 2;
+    }
+    .char-net-table td {
+      padding: 5px 10px;
+      border-bottom: 1px solid #e0e0e0;
+      vertical-align: middle;
+    }
+    .char-net-table tr:hover {
+      background: #f9f9f5;
+    }
+    .char-net-badge {
+      display: inline-block;
+      padding: 1px 7px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      border-radius: 10px;
+      border: 1.5px solid #333333;
+      background: #e2c96e;
+      color: #111111;
+    }
+    .char-net-alias-input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 4px 8px;
+      font-size: 0.78rem;
+      font-family: inherit;
+      border: 1.5px solid #444444;
+      border-radius: 4px;
+      outline: none;
+      background: #ffffff;
+    }
+    .char-net-alias-input:focus {
+      border-color: #111111;
+      box-shadow: 1px 1px 0 #555555;
+    }
+    .char-net-progress-wrap {
+      display: none;
+      margin-top: 8px;
+      background: #e0e0e0;
+      border: 1.5px solid #333333;
+      border-radius: 6px;
+      overflow: hidden;
+      height: 14px;
+      position: relative;
+    }
+    .char-net-progress-fill {
+      height: 100%;
+      width: 0%;
+      background: #6abf8e;
+      transition: width 0.1s ease;
+    }
+    .char-net-footer {
+      padding: 12px 18px;
+      background: #f5f5f0;
+      border-top: 2px solid #333333;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    #char-net-excerpts-dialog {
+      width: min(720px, 94vw);
+      max-height: 85vh;
+      background: #ffffff;
+      border: 2.5px solid #333333;
+      border-radius: 10px;
+      box-shadow: 5px 5px 0 #555555;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      font-family: 'Lexend', 'Segoe UI', Arial, sans-serif;
+    }
+    .char-excerpt-card {
+      padding: 10px 14px;
+      margin-bottom: 10px;
+      background: #fdfdfc;
+      border: 1.5px solid #444444;
+      border-left: 4px solid #e2c96e;
+      border-radius: 4px;
+      box-shadow: 2px 2px 0 #aaaaaa;
+      font-size: 0.84rem;
+      line-height: 1.5;
+      color: #222222;
+    }
+    .char-mark-a {
+      background: #fed7aa;
+      color: #9a3412;
+      font-weight: 800;
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+    .char-mark-b {
+      background: #bbf7d0;
+      color: #166534;
+      font-weight: 800;
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+  </style>
+
+  <div id="character-network-overlay" onclick="if(event.target===this)characterNetworkCloseModal()">
+    <div id="character-network-dialog">
+      <div class="char-net-header">
+        <h3>
+          <img src="../assets/icons/links.svg" style="width:18px;height:18px;" alt="" />
+          <span data-i18n="charNetModalTitle">Novel Character Network</span>
+        </h3>
+        <button type="button" class="action-btn btn-grey" onclick="characterNetworkCloseModal()"
+          style="padding:2px 8px; font-weight:800; font-size:1rem; min-width:auto; border-radius:4px;">✕</button>
+      </div>
+
+      <div class="char-net-body">
+        <!-- 1. Novel Selection & Scan -->
+        <div class="char-net-card">
+          <div class="char-net-section-title">
+            <span data-i18n="charNetSelectBook">Select Novel from Books Folder</span>
+            <span id="char-net-book-status" style="font-size:0.75rem; font-weight:600; color:#555;"></span>
+          </div>
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <select id="char-net-book-select" onchange="characterNetworkOnBookChange()"
+              style="flex:1; min-width:240px; padding:7px 10px; border:2px solid #333; border-radius:6px; font-weight:600; background:#fff; font-size:0.84rem;">
+              <option value="" data-i18n="charNetChooseBookPrompt">-- Choose a novel --</option>
+            </select>
+            <button type="button" class="action-btn" id="char-net-scan-btn" onclick="characterNetworkScanText()"
+              style="padding:7px 16px; background:#e2c96e; font-weight:800; display:inline-flex; align-items:center; gap:6px;">
+              <img src="../assets/icons/search.svg" class="btn-icon" alt="" />
+              <span data-i18n="charNetScanBtn">Scan Characters</span>
+            </button>
+          </div>
+          <div id="char-net-progress-wrap" class="char-net-progress-wrap">
+            <div id="char-net-progress-fill" class="char-net-progress-fill"></div>
+          </div>
+        </div>
+
+        <!-- 2. Detected Characters & Alias Curation -->
+        <div class="char-net-card">
+          <div class="char-net-section-title">
+            <span data-i18n="charNetDetectedHeading">Detected Characters & Aliases</span>
+            <div style="display:flex; gap:6px;">
+              <button type="button" class="action-btn btn-grey btn-sm" onclick="characterNetworkToggleAll(true)"
+                style="padding:2px 8px; font-size:0.72rem;" data-i18n="charNetSelectAll">Select All</button>
+              <button type="button" class="action-btn btn-grey btn-sm" onclick="characterNetworkToggleAll(false)"
+                style="padding:2px 8px; font-size:0.72rem;" data-i18n="charNetDeselectAll">Deselect All</button>
+              <button type="button" class="action-btn btn-grey btn-sm" onclick="characterNetworkAddCustomChar()"
+                style="padding:2px 8px; font-size:0.72rem;" data-i18n="charNetAddCharBtn">+ Add Character</button>
+            </div>
+          </div>
+          <div style="font-size:0.74rem; color:#666; margin-bottom:8px;" data-i18n="charNetDetectedSubtitle">
+            Toggle characters, edit names, or add aliases (comma-separated):
+          </div>
+          <div class="char-net-table-wrapper">
+            <table class="char-net-table" id="char-net-chars-table">
+              <thead>
+                <tr>
+                  <th style="width:36px; text-align:center;" data-i18n="charNetIncludeCol">✓</th>
+                  <th style="width:170px;" data-i18n="charNetCharCol">Character</th>
+                  <th style="width:80px; text-align:center;" data-i18n="charNetOccurrencesCol">Mentions</th>
+                  <th data-i18n="charNetAliasesCol">Aliases (comma-separated)</th>
+                </tr>
+              </thead>
+              <tbody id="char-net-chars-tbody">
+                <tr><td colspan="4" style="text-align:center; color:#888; padding:16px;">Scan a novel to detect characters.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 3. Network & Interaction Settings -->
+        <div class="char-net-card">
+          <div class="char-net-section-title">
+            <span data-i18n="charNetSettingsHeading">Network & Interaction Settings</span>
+          </div>
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap:12px;">
+            <!-- Interaction Window -->
+            <div>
+              <label for="char-net-window-mode" style="font-size:0.75rem; font-weight:700; display:block; margin-bottom:4px;" data-i18n="charNetWindowMode">Interaction Window:</label>
+              <select id="char-net-window-mode" style="width:100%; padding:6px 8px; border:1.5px solid #333; border-radius:6px; font-size:0.8rem; background:#fff; font-weight:600;">
+                <option value="sliding" selected data-i18n="charNetWindowSliding">Sliding Window (150 words)</option>
+                <option value="paragraph" data-i18n="charNetWindowParagraph">Same Paragraph</option>
+                <option value="chapter" data-i18n="charNetWindowChapter">Same Chapter</option>
+              </select>
+            </div>
+
+            <!-- Min Co-occurrences -->
+            <div>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                <label for="char-net-min-cooc" style="font-size:0.75rem; font-weight:700;" data-i18n="charNetMinCooc">Minimum Co-occurrences:</label>
+                <span id="char-net-min-cooc-val" class="char-net-badge">1</span>
+              </div>
+              <input type="range" id="char-net-min-cooc" min="1" max="10" value="1" step="1"
+                oninput="document.getElementById('char-net-min-cooc-val').textContent=this.value"
+                style="width:100%; accent-color:#333; cursor:pointer;">
+            </div>
+
+            <!-- Target Placement -->
+            <div>
+              <label for="char-net-target-location" style="font-size:0.75rem; font-weight:700; display:block; margin-bottom:4px;" data-i18n="charNetTargetLocation">Target Location:</label>
+              <select id="char-net-target-location" style="width:100%; padding:6px 8px; border:1.5px solid #333; border-radius:6px; font-size:0.8rem; background:#fff; font-weight:600;">
+                <option value="new_page" selected data-i18n="charNetTargetNewPage">Create on New Page</option>
+                <option value="current" data-i18n="charNetTargetCurrent">Add to Current Board</option>
+                <option value="clear" data-i18n="charNetTargetClear">Clear Current Board & Replace</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="char-net-footer">
+        <button type="button" class="action-btn btn-grey" onclick="characterNetworkCloseModal()" data-i18n="btnCancel">Cancel</button>
+        <button type="button" class="action-btn" id="char-net-generate-btn" onclick="characterNetworkGenerate()"
+          style="padding:8px 20px; background:#e2c96e; font-weight:800; display:inline-flex; align-items:center; gap:6px;">
+          <img src="../assets/icons/links.svg" class="btn-icon" alt="" />
+          <span data-i18n="charNetGenerateBtn">Generate Network Constellation</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Excerpts Inspection Modal -->
+  <div id="char-net-excerpts-overlay" onclick="if(event.target===this)characterNetworkCloseExcerpts()">
+    <div id="char-net-excerpts-dialog">
+      <div class="char-net-header">
+        <h3>
+          <img src="../assets/icons/book.svg" style="width:18px;height:18px;" alt="" />
+          <span id="char-net-excerpts-title" data-i18n="charNetExcerptsTitle">Character Interaction Excerpts</span>
+        </h3>
+        <button type="button" class="action-btn btn-grey" onclick="characterNetworkCloseExcerpts()"
+          style="padding:2px 8px; font-weight:800; font-size:1rem; min-width:auto; border-radius:4px;">✕</button>
+      </div>
+      <div class="char-net-body">
+        <div id="char-net-excerpts-count" style="font-size:0.8rem; font-weight:700; color:#444; margin-bottom:4px;"></div>
+        <div id="char-net-excerpts-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+      </div>
+      <div class="char-net-footer">
+        <button type="button" class="action-btn btn-grey" onclick="characterNetworkCloseExcerpts()" data-i18n="charNetCloseBtn">Close</button>
+      </div>
+    </div>
+  </div>
+
   <div id="con-ctx-menu">
     <div class="con-ctx-title" id="con-ctx-word-label">Word</div>
     <!-- Base-word origin row (shown when node is a synonym/antonym/related word) -->
@@ -3599,6 +3929,14 @@
       </div>
     </div>
 
+    <div id="con-edge-ctx-excerpts-row" style="display:none; padding:2px 8px;">
+      <button type="button" class="con-edge-ctx-btn" onclick="characterNetworkOpenExcerptsFromActiveEdge()"
+        style="width:100%; background:#e2c96e; color:#111; font-weight:800; border-color:#333; padding:3px 6px; display:flex; align-items:center; justify-content:center; gap:4px;">
+        <img src="../assets/icons/book.svg" style="width:12px;height:12px;" alt="" />
+        <span data-i18n="charNetExcerptsTitle">Novel Excerpts</span>
+      </button>
+    </div>
+
     <div class="con-edge-ctx-footer" style="display:flex; gap:4px; padding:3px 8px 4px;">
       <button type="button" class="con-edge-ctx-btn" onclick="if(window.conEdgeCtxDelete)window.conEdgeCtxDelete()"
         style="background:#fee2e2; border-color:#b91c1c; color:#b91c1c; padding:2px 6px; flex:1;" data-i18n="conEdgeDelete">🗑 Delete</button>
@@ -3963,6 +4301,8 @@
       <div class="search-sep"></div>
       <button class="action-btn btn-grey" onclick="wfaOpen('search')"
         title="Analyse word frequency in the loaded book">Word Freq</button>
+      <button class="action-btn btn-grey" onclick="characterNetworkOpenModal(searchBookText)"
+        title="Generate Character Network from loaded novel"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> <span data-i18n="btnCharacterNetwork">Character Network</span></button>
     </div>
 
     <div id="search-results"></div>
@@ -4115,6 +4455,9 @@
             <button class="action-btn btn-grey" id="con-tb-vocab-games-btn" onclick="conOpenLearningImportModal('vocab')"
               title="Vocabulary Games & Quizzes" data-i18n-title="conVocabGamesQuizzesTitle"><img src="../assets/icons/learning-tools.svg" class="btn-icon"
                 alt="" /> <span data-i18n="conBtnGamesQuizzes">[GAMES & QUIZZES]</span></button>
+            <button class="action-btn btn-grey" id="con-tb-character-network-btn" onclick="characterNetworkOpenModal()"
+              title="Generate Character Network from books" data-i18n-title="btnCharacterNetwork"><img src="../assets/icons/links.svg" class="btn-icon" alt="" />
+              <span data-i18n="btnCharacterNetwork">Character Network</span></button>
           </div>
         </div>
 
@@ -26388,9 +26731,10 @@
         return 'url(#' + markerId + ')';
       }
 
-      function conAddEdge(aId, bId, type, color, existingId) {
+      function conAddEdge(aId, bId, type, color, existingId, explicitThickness) {
         // Don't duplicate
-        if (conEdges.find(e => (e.a === aId && e.b === bId) || (e.a === bId && e.b === aId))) return;
+        const existingEdge = conEdges.find(e => (e.a === aId && e.b === bId) || (e.a === bId && e.b === aId));
+        if (existingEdge) return existingEdge;
         conEnsureSvgDefs();
         const svgEl = svg();
         const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -26438,6 +26782,11 @@
         hit.addEventListener('dblclick', function (e) {
           e.preventDefault();
           e.stopPropagation();
+          const edgeRef = conEdges.find(ed => ed && ed.id === edgeId);
+          if (edgeRef && edgeRef.excerpts && edgeRef.excerpts.length > 0 && typeof characterNetworkShowExcerpts === 'function') {
+            characterNetworkShowExcerpts(edgeId);
+            return;
+          }
           conEdgeCtxOpen(e, edgeId);
         });
         hit.addEventListener('contextmenu', function (e) {
@@ -26460,6 +26809,11 @@
         labelEl.addEventListener('dblclick', function (e) {
           e.preventDefault();
           e.stopPropagation();
+          const edgeRef = conEdges.find(ed => ed && ed.id === edgeId);
+          if (edgeRef && edgeRef.excerpts && edgeRef.excerpts.length > 0 && typeof characterNetworkShowExcerpts === 'function') {
+            characterNetworkShowExcerpts(edgeId);
+            return;
+          }
           conEdgeCtxOpen(e, edgeId);
         });
         labelEl.addEventListener('contextmenu', function (e) {
@@ -26520,7 +26874,7 @@
           document.addEventListener('mouseup', onUp);
         });
 
-        const _defLinkThickness = (window._conDefaultLinkThickness > 0) ? window._conDefaultLinkThickness : 2;
+        const _defLinkThickness = (explicitThickness > 0) ? Number(explicitThickness) : ((window._conDefaultLinkThickness > 0) ? window._conDefaultLinkThickness : 2);
         const _defLinkStrokeType = window._conDefaultLinkStrokeType || 'solid';
         const _defLinkRouting = window._conDefaultLinkRouting || 'straight';
         const _defLinkDirection = (type !== undefined && type !== null) ? type : (window._conDefaultLinkDirection || 'none');
@@ -26563,8 +26917,8 @@
           endHandleB: null,
           g
         };
-        line.style.strokeWidth = String(_defLinkThickness);
-        hit.style.strokeWidth = String(Math.max(16, _defLinkThickness + 10));
+        line.style.strokeWidth = String(_defLinkThickness) + 'px';
+        hit.style.strokeWidth = String(Math.max(16, _defLinkThickness + 10)) + 'px';
         conEdges.push(edge);
         conApplyEdgeLabelStyle(edge);
         conUpdateEdge(edge);
@@ -26596,6 +26950,7 @@
             }
           });
         }
+        return edge;
       }
 
       function conNormalizeEdgeLabelStyle(edge) {
@@ -26802,9 +27157,12 @@
 
         if (edge.line) {
           edge.line.setAttribute('d', geo.d);
+          edge.line.style.setProperty('stroke-width', sw + 'px', 'important');
+          edge.line.setAttribute('stroke-width', String(sw));
         }
         if (edge.hit) {
           edge.hit.setAttribute('d', geo.d);
+          edge.hit.style.strokeWidth = Math.max(16, sw + 10) + 'px';
         }
 
         const strokeInfo = conResolveEdgeStroke(edge);
@@ -28491,6 +28849,11 @@
 
         if (labelBgInput) labelBgInput.checked = !!(edge && edge.labelBgActive);
         if (animatedInput) animatedInput.checked = !!(edge && edge.animated);
+
+        const excerptsRow = document.getElementById('con-edge-ctx-excerpts-row');
+        if (excerptsRow) {
+          excerptsRow.style.display = (edge && edge.excerpts && edge.excerpts.length > 0) ? 'block' : 'none';
+        }
 
         const currentStroke = (edge && (edge.strokeType || (edge.dashStyle === 'dashed' ? 'dashed' : (edge.dashStyle === 'dotted' ? 'dotted' : 'solid')))) || 'solid';
         const strokeGroup = document.getElementById('con-edge-ctx-stroke-group');
@@ -53945,8 +54308,12 @@
     }
 
     function taImportHtmlToText(html) {
+      // Strip <img> and <source> tags before parsing to avoid browser ERR_FILE_NOT_FOUND for relative book images
+      const sanitizedHtml = String(html || '')
+        .replace(/<img\b[^>]*>/gi, '')
+        .replace(/<source\b[^>]*>/gi, '');
       const tmp = document.createElement('div');
-      tmp.innerHTML = html;
+      tmp.innerHTML = sanitizedHtml;
       tmp.querySelectorAll('p, div, br, h1, h2, h3, h4, h5, h6, li, tr, blockquote').forEach(el => {
         el.insertAdjacentText('afterend', '\n');
       });
@@ -68672,6 +69039,496 @@
       boardUpdateToolbarLinksCount();
       conUpdateAllNodeLinkBadges();
     }, 500);
+
+    // ================================================================
+    // NOVEL CHARACTER NETWORK CONTROLLER
+    // ================================================================
+    const characterNetworkState = {
+      rawText: '',
+      bookLabel: '',
+      detectedCharacters: [],
+      pairExcerpts: {},
+      isScanning: false
+    };
+
+    async function characterNetworkOpenModal(presetText) {
+      const overlay = document.getElementById('character-network-overlay');
+      if (!overlay) return;
+
+      const bookSelect = document.getElementById('char-net-book-select');
+      const bookStatus = document.getElementById('char-net-book-status');
+
+      if (typeof searchInitShortcutMenu === 'function' && (!searchAvailableBooks || searchAvailableBooks.length === 0)) {
+        try { await searchInitShortcutMenu(); } catch (_) {}
+      }
+
+      if (bookSelect) {
+        bookSelect.innerHTML = '<option value="">' + (typeof i18n !== 'undefined' ? i18n.t('charNetChooseBookPrompt') : '-- Choose a novel --') + '</option>';
+        if (typeof searchBookText === 'string' && searchBookText.trim().length > 0) {
+          const optLoaded = document.createElement('option');
+          optLoaded.value = '__loaded_search_book__';
+          optLoaded.textContent = '★ ' + (typeof i18n !== 'undefined' ? i18n.t('charNetLoadedSearchBook') : 'Currently Loaded Book');
+          bookSelect.appendChild(optLoaded);
+        }
+
+        if (Array.isArray(searchAvailableBooks)) {
+          searchAvailableBooks.forEach(b => {
+            const opt = document.createElement('option');
+            opt.value = b.id || b.path;
+            opt.textContent = b.label || b.fileName;
+            bookSelect.appendChild(opt);
+          });
+        }
+      }
+
+      if (typeof presetText === 'string' && presetText.trim().length > 0) {
+        characterNetworkState.rawText = presetText;
+        characterNetworkState.bookLabel = 'Current Book';
+        if (bookSelect) bookSelect.value = '__loaded_search_book__';
+        if (bookStatus) bookStatus.textContent = 'Ready (' + Math.round(presetText.length / 1024) + ' KB)';
+      } else if (typeof searchBookText === 'string' && searchBookText.trim().length > 0) {
+        characterNetworkState.rawText = searchBookText;
+        characterNetworkState.bookLabel = 'Current Book';
+        if (bookSelect) bookSelect.value = '__loaded_search_book__';
+        if (bookStatus) bookStatus.textContent = 'Ready (' + Math.round(searchBookText.length / 1024) + ' KB)';
+      } else {
+        characterNetworkState.rawText = '';
+        characterNetworkState.bookLabel = '';
+        if (bookStatus) bookStatus.textContent = '';
+      }
+
+      overlay.style.display = 'flex';
+      if (typeof i18n !== 'undefined' && typeof i18n.applyTranslations === 'function') {
+        i18n.applyTranslations(overlay);
+      }
+    }
+    window.characterNetworkOpenModal = characterNetworkOpenModal;
+
+    function characterNetworkCloseModal() {
+      const overlay = document.getElementById('character-network-overlay');
+      if (overlay) overlay.style.display = 'none';
+    }
+    window.characterNetworkCloseModal = characterNetworkCloseModal;
+
+    async function characterNetworkOnBookChange() {
+      const bookSelect = document.getElementById('char-net-book-select');
+      const bookStatus = document.getElementById('char-net-book-status');
+      if (!bookSelect || !bookSelect.value) {
+        characterNetworkState.rawText = '';
+        characterNetworkState.bookLabel = '';
+        if (bookStatus) bookStatus.textContent = '';
+        return;
+      }
+
+      if (bookSelect.value === '__loaded_search_book__') {
+        characterNetworkState.rawText = searchBookText || '';
+        characterNetworkState.bookLabel = 'Current Book';
+        if (bookStatus) bookStatus.textContent = 'Ready (' + Math.round(characterNetworkState.rawText.length / 1024) + ' KB)';
+        return;
+      }
+
+      const match = Array.isArray(searchAvailableBooks) ? searchAvailableBooks.find(b => b.id === bookSelect.value || b.path === bookSelect.value) : null;
+      if (!match) return;
+
+      try {
+        if (bookStatus) bookStatus.textContent = 'Loading text...';
+        const target = match.target || (match.path.startsWith('books/') ? 'data' : 'customBooks');
+        const text = await searchReadShortcutBook(match.path, target);
+        if (!text) throw new Error('File produced no readable text.');
+
+        characterNetworkState.rawText = text;
+        characterNetworkState.bookLabel = match.label || match.fileName;
+        if (bookStatus) bookStatus.textContent = 'Loaded (' + Math.round(text.length / 1024) + ' KB)';
+      } catch (err) {
+        console.error('Character network book read error:', err);
+        if (bookStatus) bookStatus.textContent = 'Failed to load';
+        if (typeof showToast === 'function') showToast(err && err.message ? err.message : 'Failed to read novel', true);
+      }
+    }
+    window.characterNetworkOnBookChange = characterNetworkOnBookChange;
+
+    async function characterNetworkScanText() {
+      if (!characterNetworkState.rawText || characterNetworkState.rawText.trim().length === 0) {
+        const msg = typeof i18n !== 'undefined' ? i18n.t('charNetNoBookError') : 'Please select or load a novel first.';
+        if (typeof showToast === 'function') showToast(msg, true);
+        else alert(msg);
+        return;
+      }
+
+      const scanBtn = document.getElementById('char-net-scan-btn');
+      const progressWrap = document.getElementById('char-net-progress-wrap');
+      const progressFill = document.getElementById('char-net-progress-fill');
+
+      try {
+        if (scanBtn) scanBtn.disabled = true;
+        if (progressWrap) progressWrap.style.display = 'block';
+        if (progressFill) progressFill.style.width = '30%';
+
+        await new Promise(r => setTimeout(r, 40));
+
+        if (typeof CharacterNetworkService === 'undefined') {
+          throw new Error('CharacterNetworkService module not loaded.');
+        }
+
+        const candidates = CharacterNetworkService.detectCandidates(characterNetworkState.rawText, {
+          minOccurrences: 3,
+          maxCandidates: 35
+        });
+
+        if (progressFill) progressFill.style.width = '100%';
+        await new Promise(r => setTimeout(r, 60));
+
+        characterNetworkState.detectedCharacters = candidates;
+        characterNetworkRenderTable();
+
+        if (typeof showToast === 'function') {
+          showToast(candidates.length + ' character entities identified.', false);
+        }
+      } catch (e) {
+        console.error('Error scanning characters:', e);
+        if (typeof showToast === 'function') showToast(e && e.message ? e.message : 'Error scanning characters', true);
+      } finally {
+        if (scanBtn) scanBtn.disabled = false;
+        if (progressWrap) progressWrap.style.display = 'none';
+        if (progressFill) progressFill.style.width = '0%';
+      }
+    }
+    window.characterNetworkScanText = characterNetworkScanText;
+
+    function characterNetworkRenderTable() {
+      const tbody = document.getElementById('char-net-chars-tbody');
+      if (!tbody) return;
+
+      const chars = characterNetworkState.detectedCharacters;
+      if (!chars || chars.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#888; padding:16px;">No character entities detected. Try adding a custom character below.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = '';
+      chars.forEach((c) => {
+        const tr = document.createElement('tr');
+
+        // Checkbox
+        const tdCheck = document.createElement('td');
+        tdCheck.style.textAlign = 'center';
+        const chk = document.createElement('input');
+        chk.type = 'checkbox';
+        chk.checked = c.enabled !== false;
+        chk.style.cursor = 'pointer';
+        chk.style.accentColor = '#333';
+        chk.onchange = function () { c.enabled = this.checked; };
+        tdCheck.appendChild(chk);
+        tr.appendChild(tdCheck);
+
+        // Name (editable)
+        const tdName = document.createElement('td');
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.value = c.name || '';
+        nameInput.className = 'char-net-alias-input';
+        nameInput.style.fontWeight = '700';
+        nameInput.onchange = function () { c.name = this.value.trim(); };
+        tdName.appendChild(nameInput);
+        tr.appendChild(tdName);
+
+        // Mentions Badge
+        const tdCount = document.createElement('td');
+        tdCount.style.textAlign = 'center';
+        const badge = document.createElement('span');
+        badge.className = 'char-net-badge';
+        badge.textContent = c.count || 0;
+        tdCount.appendChild(badge);
+        tr.appendChild(tdCount);
+
+        // Aliases (comma-separated editable)
+        const tdAlias = document.createElement('td');
+        const aliasInput = document.createElement('input');
+        aliasInput.type = 'text';
+        aliasInput.value = (c.aliases || []).join(', ');
+        aliasInput.className = 'char-net-alias-input';
+        aliasInput.placeholder = 'e.g. Nickname, Title';
+        aliasInput.onchange = function () {
+          c.aliases = this.value.split(',').map(s => s.trim()).filter(Boolean);
+        };
+        tdAlias.appendChild(aliasInput);
+        tr.appendChild(tdAlias);
+
+        tbody.appendChild(tr);
+      });
+    }
+    window.characterNetworkRenderTable = characterNetworkRenderTable;
+
+    function characterNetworkToggleAll(state) {
+      if (!Array.isArray(characterNetworkState.detectedCharacters)) return;
+      characterNetworkState.detectedCharacters.forEach(c => { c.enabled = !!state; });
+      characterNetworkRenderTable();
+    }
+    window.characterNetworkToggleAll = characterNetworkToggleAll;
+
+    function characterNetworkAddCustomChar() {
+      const name = prompt(typeof i18n !== 'undefined' ? i18n.t('charNetCharCol') : 'Character name:');
+      if (!name || !name.trim()) return;
+
+      const newChar = {
+        id: 'char_' + (characterNetworkState.detectedCharacters.length + 1) + '_' + Date.now().toString(36),
+        name: name.trim(),
+        count: 1,
+        aliases: [],
+        enabled: true
+      };
+
+      characterNetworkState.detectedCharacters.unshift(newChar);
+      characterNetworkRenderTable();
+    }
+    window.characterNetworkAddCustomChar = characterNetworkAddCustomChar;
+
+    async function characterNetworkGenerate() {
+      if (!characterNetworkState.rawText || characterNetworkState.rawText.trim().length === 0) {
+        const msg = typeof i18n !== 'undefined' ? i18n.t('charNetNoBookError') : 'Please select or load a novel first.';
+        if (typeof showToast === 'function') showToast(msg, true);
+        return;
+      }
+
+      const activeChars = (characterNetworkState.detectedCharacters || []).filter(c => c && c.enabled !== false && c.name && c.name.trim());
+      if (activeChars.length < 2) {
+        const msg = typeof i18n !== 'undefined' ? i18n.t('charNetNoCharsSelected') : 'Please select at least 2 characters to analyze.';
+        if (typeof showToast === 'function') showToast(msg, true);
+        return;
+      }
+
+      const winMode = (document.getElementById('char-net-window-mode') || {}).value || 'sliding';
+      const minCooc = Number((document.getElementById('char-net-min-cooc') || {}).value) || 1;
+      const targetLoc = (document.getElementById('char-net-target-location') || {}).value || 'new_page';
+
+      const generateBtn = document.getElementById('char-net-generate-btn');
+      const progressWrap = document.getElementById('char-net-progress-wrap');
+      const progressFill = document.getElementById('char-net-progress-fill');
+
+      try {
+        if (generateBtn) generateBtn.disabled = true;
+        if (progressWrap) progressWrap.style.display = 'block';
+        if (progressFill) progressFill.style.width = '10%';
+
+        // 1. Build Co-occurrence matrix asynchronously
+        const matrixResult = await CharacterNetworkService.buildCooccurrenceMatrix(
+          characterNetworkState.rawText,
+          activeChars,
+          { windowMode: winMode, minCooccurrences: minCooc },
+          pct => {
+            if (progressFill) progressFill.style.width = Math.min(85, Math.max(10, pct)) + '%';
+          }
+        );
+
+        characterNetworkState.pairExcerpts = matrixResult.pairExcerpts || {};
+
+        if (Object.keys(matrixResult.matrix).length === 0) {
+          const msg = typeof i18n !== 'undefined' ? i18n.t('charNetNoCooccurrences') : 'No interactions met the minimum co-occurrence threshold.';
+          if (typeof showToast === 'function') showToast(msg, true);
+          return;
+        }
+
+        // 2. Compute centrality metrics
+        const metrics = CharacterNetworkService.computeMetrics(matrixResult.matrix, activeChars);
+
+        // 3. Switch to constellation section first so container dimensions & DOM element fonts are active
+        characterNetworkCloseModal();
+        if (typeof navTo === 'function') navTo('constellation-section');
+
+        // 4. Handle target location (new page / clear / current)
+        if (typeof window.conPushUndo === 'function') window.conPushUndo();
+
+        if (targetLoc === 'new_page' && typeof window.conAddPage === 'function') {
+          window.conAddPage();
+        } else if (targetLoc === 'clear') {
+          if (typeof window.conClearAll === 'function') {
+            window.conClearAll({ skipConfirm: true });
+          }
+        }
+
+        // 5. Force-directed layout calculation dynamically proportioned to character count
+        const brd = document.getElementById('constellation-board');
+        const viewW = (brd && brd.clientWidth > 400) ? brd.clientWidth : (window.innerWidth - 60);
+        const viewH = (brd && brd.clientHeight > 300) ? brd.clientHeight : (window.innerHeight - 180);
+        const scrollX = (brd && brd.scrollLeft > 0) ? brd.scrollLeft : 0;
+        const scrollY = (brd && brd.scrollTop > 0) ? brd.scrollTop : 0;
+
+        const nodeCount = metrics.nodes.length;
+        const dynamicW = Math.round(Math.sqrt(nodeCount) * 340) + 260;
+        const dynamicH = Math.round(Math.sqrt(nodeCount) * 230) + 200;
+
+        const bWidth = Math.max(viewW, dynamicW);
+        const bHeight = Math.max(viewH, dynamicH);
+        const offsetX = scrollX + 40;
+        const offsetY = scrollY + 40;
+
+        const layoutNodes = CharacterNetworkService.computeLayout(metrics.nodes, metrics.edges, bWidth, bHeight, {
+          iterations: 140,
+          paddingX: 90,
+          paddingY: 70,
+          offsetX: offsetX,
+          offsetY: offsetY
+        });
+
+        // Palette presets for character nodes (Light Neobrutalist accents)
+        const charColorPalette = [
+          { bg: '#ffffff', color: '#111111', border: '#2d7d46' }, // sage green
+          { bg: '#ffffff', color: '#111111', border: '#2563eb' }, // slate blue
+          { bg: '#ffffff', color: '#111111', border: '#d97706' }, // amber
+          { bg: '#ffffff', color: '#111111', border: '#7c3aed' }, // violet
+          { bg: '#ffffff', color: '#111111', border: '#dc2626' }, // rose
+          { bg: '#ffffff', color: '#111111', border: '#0891b2' }  // teal
+        ];
+
+        const addWordFn = (typeof conAddWordAt === 'function') ? conAddWordAt : window.conAddWordAt;
+        const addEdgeFn = (typeof conAddEdge === 'function') ? conAddEdge : window.conAddEdge;
+        const getNodesFn = (typeof window.conGetNodes === 'function') ? window.conGetNodes : () => [];
+        const getEdgesFn = (typeof window.conGetEdges === 'function') ? window.conGetEdges : () => [];
+        const updateEdgeFn = (typeof conUpdateEdge === 'function') ? conUpdateEdge : window.conUpdateEdge;
+        const redrawEdgesFn = (typeof window.conRedrawEdges === 'function') ? window.conRedrawEdges : (typeof conRedrawEdges === 'function' ? conRedrawEdges : null);
+
+        // 6. Create Board Nodes
+        const createdNodeMap = new Map(); // char.id -> boardNode.id
+        layoutNodes.forEach((nd, idx) => {
+          if (typeof addWordFn !== 'function') return;
+
+          const nodeId = addWordFn(nd.name, nd.x, nd.y);
+          createdNodeMap.set(nd.id, nodeId);
+
+          const liveNode = getNodesFn().find(n => n.id === nodeId);
+          if (liveNode) {
+            const pal = charColorPalette[idx % charColorPalette.length];
+            liveNode.color = pal.color;
+            liveNode.border = pal.border;
+            liveNode.borderWidth = (nd.normDegree > 0.5) ? 3 : 2;
+
+            if (liveNode.el) {
+              liveNode.el.style.color = pal.color;
+              liveNode.el.style.borderColor = pal.border;
+              liveNode.el.style.borderWidth = liveNode.borderWidth + 'px';
+
+              const fontSize = Math.round(13 + (nd.normDegree * 9));
+              liveNode.el.style.fontSize = fontSize + 'px';
+              liveNode.el.style.fontWeight = (nd.normDegree > 0.3) ? '800' : '600';
+            }
+            if (typeof conSyncNodeBasePosition === 'function') conSyncNodeBasePosition(liveNode);
+          }
+        });
+
+        // 7. Create Board Links with thickness proportional to shared co-occurrences
+        let maxWeight = 1;
+        metrics.edges.forEach(e => { if (e.weight > maxWeight) maxWeight = e.weight; });
+
+        const minThick = 2.8;
+        const maxThick = 13.0;
+
+        metrics.edges.forEach(edge => {
+          const aNodeId = createdNodeMap.get(edge.source);
+          const bNodeId = createdNodeMap.get(edge.target);
+          if (!aNodeId || !bNodeId) return;
+
+          if (typeof addEdgeFn !== 'function') return;
+
+          // Rich logarithmic thickness scaling:
+          // gives clear, bold differentiation between single meetings, moderate ties, and deep relationships
+          let thickness = minThick;
+          if (maxWeight > 1) {
+            const tNorm = Math.log(1 + (edge.weight - 1)) / Math.log(1 + (maxWeight - 1));
+            thickness = Math.round((minThick + tNorm * (maxThick - minThick)) * 10) / 10;
+          } else {
+            thickness = 4.5;
+          }
+
+          const createdEdge = addEdgeFn(aNodeId, bNodeId, 'none', '#333333', null, thickness);
+          const liveEdge = createdEdge || getEdgesFn().find(e => (e.a === aNodeId && e.b === bNodeId) || (e.a === bNodeId && e.b === aNodeId));
+          if (liveEdge) {
+            liveEdge.thickness = thickness;
+            liveEdge.label = String(edge.weight);
+            liveEdge.labelBgActive = true;
+            liveEdge.labelSize = Math.max(12, Math.min(18, Math.round(11 + Math.sqrt(edge.weight))));
+            liveEdge.labelWeight = 700;
+
+            if (liveEdge.line) {
+              liveEdge.line.style.setProperty('stroke-width', thickness + 'px', 'important');
+              liveEdge.line.setAttribute('stroke-width', String(thickness));
+            }
+            if (liveEdge.hit) {
+              liveEdge.hit.style.strokeWidth = Math.max(18, thickness + 12) + 'px';
+            }
+
+            const pk = (edge.source < edge.target) ? (edge.source + '::' + edge.target) : (edge.target + '::' + edge.source);
+            liveEdge.excerpts = matrixResult.pairExcerpts[pk] || [];
+            liveEdge.charAName = (activeChars.find(c => c.id === edge.source) || {}).name || '';
+            liveEdge.charBName = (activeChars.find(c => c.id === edge.target) || {}).name || '';
+
+            if (typeof updateEdgeFn === 'function') updateEdgeFn(liveEdge);
+          }
+        });
+
+        if (typeof redrawEdgesFn === 'function') redrawEdgesFn();
+        if (typeof window.conMirrorBroadcastAll === 'function') window.conMirrorBroadcastAll();
+
+        if (typeof showToast === 'function') {
+          showToast('Character network generated: ' + layoutNodes.length + ' characters, ' + metrics.edges.length + ' links.', false);
+        }
+      } catch (err) {
+        console.error('Character network generation error:', err);
+        if (typeof showToast === 'function') showToast(err && err.message ? err.message : 'Error generating network', true);
+      } finally {
+        if (generateBtn) generateBtn.disabled = false;
+        if (progressWrap) progressWrap.style.display = 'none';
+        if (progressFill) progressFill.style.width = '0%';
+      }
+    }
+    window.characterNetworkGenerate = characterNetworkGenerate;
+
+    function characterNetworkShowExcerpts(edgeId) {
+      const getEdgesFn = (typeof window.conGetEdges === 'function') ? window.conGetEdges : () => [];
+      const edge = getEdgesFn().find(e => e && e.id === edgeId);
+      if (!edge || !Array.isArray(edge.excerpts) || edge.excerpts.length === 0) return;
+
+      const overlay = document.getElementById('char-net-excerpts-overlay');
+      const titleEl = document.getElementById('char-net-excerpts-title');
+      const countEl = document.getElementById('char-net-excerpts-count');
+      const listEl = document.getElementById('char-net-excerpts-list');
+
+      const nameA = edge.charAName || 'Character A';
+      const nameB = edge.charBName || 'Character B';
+
+      if (titleEl) titleEl.textContent = nameA + ' ⟷ ' + nameB;
+      if (countEl) {
+        const tpl = typeof i18n !== 'undefined' ? i18n.t('charNetExcerptCount') : '{count} shared scene(s) found in novel text.';
+        countEl.textContent = tpl.replace('{count}', edge.excerpts.length);
+      }
+
+      if (listEl && typeof CharacterNetworkService !== 'undefined') {
+        listEl.innerHTML = '';
+        const formatted = CharacterNetworkService.formatExcerpts(edge.excerpts, nameA, nameB);
+        formatted.forEach(html => {
+          const card = document.createElement('div');
+          card.className = 'char-excerpt-card';
+          card.innerHTML = html;
+          listEl.appendChild(card);
+        });
+      }
+
+      if (overlay) overlay.style.display = 'flex';
+    }
+    window.characterNetworkShowExcerpts = characterNetworkShowExcerpts;
+
+    function characterNetworkCloseExcerpts() {
+      const overlay = document.getElementById('char-net-excerpts-overlay');
+      if (overlay) overlay.style.display = 'none';
+    }
+    window.characterNetworkCloseExcerpts = characterNetworkCloseExcerpts;
+
+    function characterNetworkOpenExcerptsFromActiveEdge() {
+      if (window._conEdgeCtxId) {
+        if (typeof window.conEdgeCtxClose === 'function') window.conEdgeCtxClose(false);
+        characterNetworkShowExcerpts(window._conEdgeCtxId);
+      }
+    }
+    window.characterNetworkOpenExcerptsFromActiveEdge = characterNetworkOpenExcerptsFromActiveEdge;
   </script>
 </body>
 

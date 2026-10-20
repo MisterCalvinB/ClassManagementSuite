@@ -270,7 +270,12 @@
       // Pre-compile regular expressions for fast searching of each character (name + aliases)
       const compiledChars = activeChars.map(c => {
         const terms = [c.name, ...(c.aliases || [])].filter(Boolean);
-        const pattern = terms.map(t => '\\b' + escapeRegex(t.trim()) + '\\b').join('|');
+        const pattern = terms.map(t => {
+          const clean = t.trim();
+          const startBound = /^\w/.test(clean) ? '\\b' : '';
+          const endBound = /\w$/.test(clean) ? '\\b' : '(?![\\w])';
+          return startBound + escapeRegex(clean) + endBound;
+        }).join('|');
         return {
           id: c.id,
           name: c.name,
@@ -501,125 +506,258 @@
     computeLayout(nodes, edges, width = 1200, height = 800, options = {}) {
       if (!nodes || nodes.length === 0) return [];
 
-      const padX = Math.max(60, options.paddingX || 100);
-      const padY = Math.max(60, options.paddingY || 100);
-      const usableW = Math.max(400, width - (padX * 2));
-      const usableH = Math.max(300, height - (padY * 2));
-      const centerX = width / 2;
-      const centerY = height / 2;
-
       const n = nodes.length;
-      const area = usableW * usableH;
-      // Optimal distance between vertices
-      const k = Math.sqrt(area / Math.max(1, n)) * 0.85;
+      if (n === 1) {
+        return [{
+          ...nodes[0],
+          x: Math.round((width / 2) + (Number(options.offsetX) || 0)),
+          y: Math.round((height / 2) + (Number(options.offsetY) || 0))
+        }];
+      }
 
-      // Initialize positions in a circle around center to avoid zero-division singularities
-      const pos = {};
-      const disp = {};
-      const angleStep = (2 * Math.PI) / n;
-      const initRadius = Math.min(usableW, usableH) * 0.35;
+      // Dynamic canvas dimensions scaling with node count so characters never crowd or clamp
+      const minRequiredW = Math.max(width, Math.round(Math.sqrt(n) * 320) + 220);
+      const minRequiredH = Math.max(height, Math.round(Math.sqrt(n) * 220) + 180);
+      const simW = Math.max(width, minRequiredW);
+      const simH = Math.max(height, minRequiredH);
 
-      nodes.forEach((node, idx) => {
-        const angle = idx * angleStep;
-        pos[node.id] = {
-          x: centerX + initRadius * Math.cos(angle) + (Math.random() - 0.5) * 20,
-          y: centerY + initRadius * Math.sin(angle) + (Math.random() - 0.5) * 20
-        };
-        disp[node.id] = { x: 0, y: 0 };
+      const centerX = simW / 2;
+      const centerY = simH / 2;
+      const maxRx = simW * 0.44;
+      const maxRy = simH * 0.44;
+
+      // Distinguish connected nodes from isolated (0 co-occurrence) nodes
+      const connectedIds = new Set();
+      (edges || []).forEach(e => {
+        if (e && e.source && e.target && e.source !== e.target) {
+          connectedIds.add(e.source);
+          connectedIds.add(e.target);
+        }
       });
 
-      const iterations = Math.max(50, options.iterations || 120);
-      let temp = usableW / 10;
-      const coolingFactor = temp / iterations;
+      const connectedNodes = nodes.filter(nd => connectedIds.has(nd.id));
+      const isolatedNodes = nodes.filter(nd => !connectedIds.has(nd.id));
 
-      for (let iter = 0; iter < iterations; iter++) {
-        // Reset displacements
-        nodes.forEach(node => {
+      // Sort connected nodes by degree descending (central characters start closer to core)
+      connectedNodes.sort((a, b) => (b.normDegree || 0) - (a.normDegree || 0));
+
+      const pos = {};
+      const disp = {};
+      const goldenAngle = 2.39996;
+      const cCount = connectedNodes.length;
+
+      // 1. Initial organic distribution: Fermat spiral for connected nodes
+      if (cCount === 0) {
+        nodes.forEach((node, idx) => {
+          const r = Math.sqrt((idx + 0.5) / n) * (Math.min(maxRx, maxRy) * 0.70);
+          const theta = idx * goldenAngle;
+          pos[node.id] = {
+            x: centerX + r * Math.cos(theta),
+            y: centerY + r * Math.sin(theta)
+          };
           disp[node.id] = { x: 0, y: 0 };
         });
+      } else {
+        connectedNodes.forEach((node, idx) => {
+          const r = (cCount > 1)
+            ? Math.sqrt((idx + 0.5) / cCount) * (Math.min(maxRx, maxRy) * 0.65)
+            : 0;
+          const theta = idx * goldenAngle;
+          pos[node.id] = {
+            x: centerX + r * Math.cos(theta),
+            y: centerY + r * Math.sin(theta)
+          };
+          disp[node.id] = { x: 0, y: 0 };
+        });
+      }
 
-        // 1. Repulsive forces between ALL pairs of vertices
-        for (let i = 0; i < n; i++) {
-          const u = nodes[i].id;
-          for (let j = i + 1; j < n; j++) {
-            const v = nodes[j].id;
+      // 2. Force-directed simulation for connected components
+      if (cCount >= 2) {
+        const k = Math.min(260, Math.max(130, Math.sqrt((simW * simH) / (cCount * 2.2))));
+        const iterations = Math.max(100, options.iterations || 140);
+        let temp = Math.min(maxRx, maxRy) * 0.16;
+        const coolingFactor = (temp - 0.5) / iterations;
+
+        for (let iter = 0; iter < iterations; iter++) {
+          connectedNodes.forEach(node => { disp[node.id] = { x: 0, y: 0 }; });
+
+          // Soft-core repulsion between connected vertices
+          for (let i = 0; i < cCount; i++) {
+            const u = connectedNodes[i].id;
+            for (let j = i + 1; j < cCount; j++) {
+              const v = connectedNodes[j].id;
+              let dx = pos[u].x - pos[v].x;
+              let dy = pos[u].y - pos[v].y;
+              let dist = Math.hypot(dx, dy);
+              if (dist < 1) {
+                dx = (Math.random() - 0.5) * 8;
+                dy = (Math.random() - 0.5) * 8;
+                dist = Math.hypot(dx, dy);
+              }
+
+              if (dist < k * 3.5) {
+                const force = (k * k) / (dist + 35);
+                const maxStep = temp * 0.85;
+                const fx = (dx / dist) * Math.min(force, maxStep);
+                const fy = (dy / dist) * Math.min(force, maxStep);
+
+                disp[u].x += fx;
+                disp[u].y += fy;
+                disp[v].x -= fx;
+                disp[v].y -= fy;
+              }
+            }
+          }
+
+          // Spring attractive forces along active edges
+          (edges || []).forEach(edge => {
+            const u = edge.source;
+            const v = edge.target;
+            if (!pos[u] || !pos[v]) return;
+
             let dx = pos[u].x - pos[v].x;
             let dy = pos[u].y - pos[v].y;
-            let dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist < 0.01) {
-              dx = (Math.random() - 0.5) * 2;
-              dy = (Math.random() - 0.5) * 2;
-              dist = Math.sqrt(dx * dx + dy * dy);
+            let dist = Math.hypot(dx, dy);
+            if (dist < 1) dist = 1;
+
+            const weightFactor = Math.pow(Math.max(1, edge.weight || 1), 0.32);
+            const force = ((dist * dist) / k) * 0.42 * weightFactor;
+            const fx = (dx / dist) * Math.min(force, temp);
+            const fy = (dy / dist) * Math.min(force, temp);
+
+            disp[u].x -= fx;
+            disp[u].y -= fy;
+            disp[v].x += fx;
+            disp[v].y += fy;
+          });
+
+          // Quadratic centripetal gravity well (draws vertices harmonically toward core, preventing corner drift)
+          connectedNodes.forEach(node => {
+            const u = node.id;
+            const dx = centerX - pos[u].x;
+            const dy = centerY - pos[u].y;
+            const normRad = Math.hypot(dx / maxRx, dy / maxRy);
+
+            const grav = 0.06 + (normRad * normRad * 0.22);
+            disp[u].x += dx * grav;
+            disp[u].y += dy * grav;
+          });
+
+          // Displace vertices capped by temperature
+          connectedNodes.forEach(node => {
+            const u = node.id;
+            const dLen = Math.hypot(disp[u].x, disp[u].y);
+            if (dLen > 0) {
+              const step = Math.min(dLen, temp);
+              pos[u].x += (disp[u].x / dLen) * step;
+              pos[u].y += (disp[u].y / dLen) * step;
+            }
+          });
+
+          temp = Math.max(0.5, temp - coolingFactor);
+        }
+      }
+
+      // 3. Isolated nodes arranged in an organized arc along lower shelf
+      const iCount = isolatedNodes.length;
+      if (iCount > 0) {
+        const shelfY = centerY + maxRy * 0.88;
+        const shelfSpacing = Math.min(170, (simW * 0.85) / (iCount + 1));
+        const shelfStartX = centerX - ((iCount - 1) * shelfSpacing) / 2;
+        isolatedNodes.forEach((node, idx) => {
+          pos[node.id] = {
+            x: shelfStartX + idx * shelfSpacing,
+            y: shelfY + ((idx % 2 === 0) ? 0 : 32)
+          };
+          disp[node.id] = { x: 0, y: 0 };
+        });
+      }
+
+      // 4. Overlap & Collision Resolution with 2D Pushback (NO Hard Corner Box Clamping!)
+      const relaxSteps = 50;
+      for (let rStep = 0; rStep < relaxSteps; rStep++) {
+        for (let i = 0; i < n; i++) {
+          const u = nodes[i].id;
+          const nameU = nodes[i].name || '';
+          const wU = Math.max(120, (nameU.length * 8.5) + 38);
+          const hU = 48;
+
+          for (let j = i + 1; j < n; j++) {
+            const v = nodes[j].id;
+            const nameV = nodes[j].name || '';
+            const wV = Math.max(120, (nameV.length * 8.5) + 38);
+            const hV = 48;
+
+            const reqDistX = (wU + wV) / 2 + 20;
+            const reqDistY = (hU + hV) / 2 + 16;
+
+            let dx = pos[u].x - pos[v].x;
+            let dy = pos[u].y - pos[v].y;
+
+            if (Math.abs(dx) < 1 && Math.abs(dy) < 1) {
+              dx = (i % 2 === 0 ? 1 : -1) * 20;
+              dy = (j % 2 === 0 ? 1 : -1) * 20;
             }
 
-            // Electrical repulsion: f_r = k^2 / dist
-            const force = (k * k) / dist;
-            const fx = (dx / dist) * force;
-            const fy = (dy / dist) * force;
+            const absDx = Math.abs(dx);
+            const absDy = Math.abs(dy);
 
-            disp[u].x += fx;
-            disp[u].y += fy;
-            disp[v].x -= fx;
-            disp[v].y -= fy;
+            if (absDx < reqDistX && absDy < reqDistY) {
+              const overlapX = reqDistX - absDx;
+              const overlapY = reqDistY - absDy;
+
+              // Push along axis of least penetration
+              if (overlapX / reqDistX < overlapY / reqDistY) {
+                const pushX = (overlapX * 0.55) * (dx >= 0 ? 1 : -1);
+                pos[u].x += pushX;
+                pos[v].x -= pushX;
+              } else {
+                const pushY = (overlapY * 0.55) * (dy >= 0 ? 1 : -1);
+                pos[u].y += pushY;
+                pos[v].y -= pushY;
+              }
+            }
           }
         }
 
-        // 2. Attractive forces along active edges
-        edges.forEach(edge => {
-          const u = edge.source;
-          const v = edge.target;
-          if (!pos[u] || !pos[v]) return;
-
-          let dx = pos[u].x - pos[v].x;
-          let dy = pos[u].y - pos[v].y;
-          let dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 0.01) dist = 0.01;
-
-          // Spring attraction: f_a = (dist^2 / k) * weight^0.25
-          const weightFactor = Math.pow(Math.max(1, edge.weight || 1), 0.25);
-          const force = ((dist * dist) / k) * weightFactor;
-          const fx = (dx / dist) * force;
-          const fy = (dy / dist) * force;
-
-          disp[u].x += fx;
-          disp[u].y += fy;
-          disp[v].x -= fx;
-          disp[v].y -= fy;
+        // Global centroid normalization so expansion doesn't drift away from canvas center
+        let sumX = 0, sumY = 0;
+        nodes.forEach(nd => {
+          sumX += pos[nd.id].x;
+          sumY += pos[nd.id].y;
         });
-
-        // 3. Weak gravitational attraction toward canvas center (prevents disconnected components from floating away)
-        nodes.forEach(node => {
-          const u = node.id;
-          const dx = centerX - pos[u].x;
-          const dy = centerY - pos[u].y;
-          disp[u].x += dx * 0.04;
-          disp[u].y += dy * 0.04;
+        const shiftX = (centerX - (sumX / n)) * 0.20;
+        const shiftY = (centerY - (sumY / n)) * 0.20;
+        nodes.forEach(nd => {
+          pos[nd.id].x += shiftX;
+          pos[nd.id].y += shiftY;
         });
-
-        // 4. Position update bounded by temperature and canvas limits
-        nodes.forEach(node => {
-          const u = node.id;
-          const dLen = Math.sqrt(disp[u].x * disp[u].x + disp[u].y * disp[u].y);
-          if (dLen > 0) {
-            const step = Math.min(dLen, temp);
-            pos[u].x += (disp[u].x / dLen) * step;
-            pos[u].y += (disp[u].y / dLen) * step;
-          }
-
-          // Clamp within boundaries
-          pos[u].x = Math.max(padX, Math.min(width - padX, pos[u].x));
-          pos[u].y = Math.max(padY, Math.min(height - padY, pos[u].y));
-        });
-
-        // Cool temperature
-        temp = Math.max(0.5, temp - coolingFactor);
       }
 
-      // Return nodes with assigned (x, y) coordinates rounded to integers
+      // 5. Final Bounding Box Alignment & Centering
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      nodes.forEach(nd => {
+        const p = pos[nd.id];
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.y > maxY) maxY = p.y;
+      });
+
+      const bboxMidX = (minX + maxX) / 2;
+      const bboxMidY = (minY + maxY) / 2;
+
+      const targetMidX = simW / 2;
+      const targetMidY = simH / 2;
+
+      const offsetX = Number(options.offsetX) || 0;
+      const offsetY = Number(options.offsetY) || 0;
+
+      // Return rounded integer coordinates
       return nodes.map(node => ({
         ...node,
-        x: Math.round(pos[node.id].x),
-        y: Math.round(pos[node.id].y)
+        x: Math.round(targetMidX + (pos[node.id].x - bboxMidX) + offsetX),
+        y: Math.round(targetMidY + (pos[node.id].y - bboxMidY) + offsetY)
       }));
     },
 
@@ -634,8 +772,15 @@
     formatExcerpts(rawExcerpts, nameA, nameB) {
       if (!Array.isArray(rawExcerpts) || rawExcerpts.length === 0) return [];
 
-      const regA = new RegExp('(\\b' + escapeRegex(nameA) + '\\b)', 'gi');
-      const regB = new RegExp('(\\b' + escapeRegex(nameB) + '\\b)', 'gi');
+      function buildNameRegex(name) {
+        const clean = String(name || '').trim();
+        const startBound = /^\w/.test(clean) ? '\\b' : '';
+        const endBound = /\w$/.test(clean) ? '\\b' : '(?![\\w])';
+        return new RegExp('(' + startBound + escapeRegex(clean) + endBound + ')', 'gi');
+      }
+
+      const regA = buildNameRegex(nameA);
+      const regB = buildNameRegex(nameB);
 
       return rawExcerpts.map(ex => {
         let clean = String(ex.text || '').replace(/\s+/g, ' ').trim();
