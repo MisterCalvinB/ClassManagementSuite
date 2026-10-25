@@ -9,6 +9,7 @@ const http   = require('http');
 const https  = require('https');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
+const { createDictionaryService } = require('./js/dictionary-service');
 
 try {
   const totalMemMB = Math.round(os.totalmem() / (1024 * 1024));
@@ -77,6 +78,7 @@ const PAGE_FILES = {
   databaseConverter: 'database-converter.html',
   testCreator: 'test-creator.html',
   mediaConverter: 'media-converter.html',
+  dictionary: 'dictionary.html',
   setupWizard: 'setup-wizard.html'
 };
 
@@ -146,7 +148,10 @@ const PAGE_ARG_MAP = {
   audioconverter: PAGE_FILES.mediaConverter,
   soundconverter: PAGE_FILES.mediaConverter,
   audiotrimmer: PAGE_FILES.mediaConverter,
-  mediatool: PAGE_FILES.mediaConverter
+  mediatool: PAGE_FILES.mediaConverter,
+  dictionary: PAGE_FILES.dictionary,
+  dict: PAGE_FILES.dictionary,
+  quickdictionary: PAGE_FILES.dictionary
 };
 
 const PAGE_LABELS = {
@@ -175,6 +180,7 @@ const PAGE_LABELS = {
   [PAGE_FILES.databaseConverter]: 'Database Converter',
   [PAGE_FILES.testCreator]: 'Test Creator',
   [PAGE_FILES.mediaConverter]: 'Video & Sound Converter',
+  [PAGE_FILES.dictionary]: 'Quick Dictionary',
   [PAGE_FILES.setupWizard]: 'Setup Wizard'
 };
 
@@ -460,6 +466,7 @@ function getSaveTargets() {
     customCriteria: path.join(writableRoot, 'user/custom-data/criteria'),
     customScales: path.join(writableRoot, 'user/custom-data/scales'),
     customChips: path.join(writableRoot, 'user/custom-data/chips'),
+    customBadges: path.join(writableRoot, 'user/custom-data/badges'),
     classPlans: path.join(writableRoot, 'user/class-plans'),
     seatingPlans: path.join(writableRoot, 'user/class-plans'),
     customExercises: path.join(writableRoot, 'user/custom-data/exercises'),
@@ -482,17 +489,17 @@ function getBundledDataRoot() {
 }
 
 const PAGE_PERMISSIONS = {
-  [PAGE_FILES.board]: new Set(['data', 'mindmaps', 'constellations', 'constellationTemplates', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'user', 'customBooks', 'lessons', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'customChips', 'customExercises', 'docEditorTemplates', 'docEditorStylesheets', 'docEditorSettings', 'classPlans', 'seatingPlans', 'toPrint', 'docEditorDocs', 'tests', 'customCriteria', 'customScales', 'grades', 'groupParticipation', 'gradeSheet']),
-  [PAGE_FILES.classManagement]: new Set(['user', 'lessons', 'groupParticipation', 'data', 'grades', 'classPlans', 'seatingPlans']),
+  [PAGE_FILES.board]: new Set(['data', 'mindmaps', 'constellations', 'constellationTemplates', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'user', 'customBooks', 'lessons', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'customChips', 'customBadges', 'customExercises', 'docEditorTemplates', 'docEditorStylesheets', 'docEditorSettings', 'classPlans', 'seatingPlans', 'toPrint', 'docEditorDocs', 'tests', 'customCriteria', 'customScales', 'grades', 'groupParticipation', 'gradeSheet']),
+  [PAGE_FILES.classManagement]: new Set(['user', 'lessons', 'groupParticipation', 'data', 'grades', 'classPlans', 'seatingPlans', 'customBadges']),
   [PAGE_FILES.groupEditor]: new Set(['user', 'groupParticipation', 'grades', 'gradeSheet', 'classPlans', 'seatingPlans']),
-  [PAGE_FILES.gradeSheet]: new Set(['grades', 'user', 'toPrint', 'customCriteria', 'customScales', 'customChips', 'customCompetences', 'customDescriptors', 'docEditorDocs', 'tests', 'mindmaps', 'constellations', 'lessons', 'data', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customExercises', 'customBooks', 'docEditorTemplates', 'classPlans', 'seatingPlans', 'groupParticipation', 'gradeSheet', 'exportCss', 'userExportCss']),
-  [PAGE_FILES.learningDb]: new Set(['data', 'user', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'customCriteria', 'customScales', 'customChips', 'customExercises', 'toPrint', 'docEditorDocs', 'tests']),
-  [PAGE_FILES.learningDb2]: new Set(['data', 'user', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customBooks', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'customCriteria', 'customScales', 'customChips', 'toPrint', 'docEditorDocs', 'tests']),
+  [PAGE_FILES.gradeSheet]: new Set(['grades', 'user', 'toPrint', 'customCriteria', 'customScales', 'customChips', 'customBadges', 'customCompetences', 'customDescriptors', 'docEditorDocs', 'tests', 'mindmaps', 'constellations', 'lessons', 'data', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customExercises', 'customBooks', 'docEditorTemplates', 'classPlans', 'seatingPlans', 'groupParticipation', 'gradeSheet', 'exportCss', 'userExportCss']),
+  [PAGE_FILES.learningDb]: new Set(['data', 'user', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'customCriteria', 'customScales', 'customChips', 'customBadges', 'customExercises', 'toPrint', 'docEditorDocs', 'tests']),
+  [PAGE_FILES.learningDb2]: new Set(['data', 'user', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customBooks', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'customCriteria', 'customScales', 'customChips', 'customBadges', 'toPrint', 'docEditorDocs', 'tests']),
   [PAGE_FILES.learningTools]: new Set(['data', 'user', 'groupParticipation', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'gameResults']),
-  [PAGE_FILES.participationTracker]: new Set(['user', 'groupParticipation', 'toPrint', 'grades', 'exportCss', 'userExportCss']),
-  [PAGE_FILES.launcher]: new Set(['user', 'grades', 'gradeSheet', 'mindmaps', 'constellations', 'docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'toPrint', 'lessons', 'tests', 'data', 'customData', 'groupParticipation', 'classPlans', 'seatingPlans', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'customCriteria', 'customScales', 'customChips', 'customExercises', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'exportCss', 'userExportCss']),
+  [PAGE_FILES.participationTracker]: new Set(['user', 'groupParticipation', 'toPrint', 'grades', 'exportCss', 'userExportCss', 'customBadges']),
+  [PAGE_FILES.launcher]: new Set(['user', 'grades', 'gradeSheet', 'mindmaps', 'constellations', 'docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'toPrint', 'lessons', 'tests', 'data', 'customData', 'groupParticipation', 'classPlans', 'seatingPlans', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'customCriteria', 'customScales', 'customChips', 'customBadges', 'customExercises', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'exportCss', 'userExportCss']),
   [PAGE_FILES.generalConfig]: new Set(['user']),
-  [PAGE_FILES.fileManager]: new Set(['user', 'lessons', 'mindmaps', 'constellations', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'groupParticipation', 'docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'toPrint', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'customCriteria', 'customScales', 'customChips', 'customExercises', 'tests', 'testImages', 'classPlans', 'seatingPlans', 'gradeSheet', 'exportCss', 'userExportCss']),
+  [PAGE_FILES.fileManager]: new Set(['user', 'lessons', 'mindmaps', 'constellations', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'groupParticipation', 'docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'toPrint', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'customCriteria', 'customScales', 'customChips', 'customBadges', 'customExercises', 'tests', 'testImages', 'classPlans', 'seatingPlans', 'gradeSheet', 'exportCss', 'userExportCss']),
   [PAGE_FILES.howTo]: new Set(['user']),
   [PAGE_FILES.credits]: new Set([]),
   [PAGE_FILES.scheduleMaker]: new Set(['user', 'data', 'toPrint', 'docEditorDocs', 'grades', 'groupParticipation', 'tests', 'customCriteria', 'customScales', 'customCompetences', 'lessons', 'mindmaps', 'exportCss', 'userExportCss']),
@@ -2268,6 +2275,7 @@ async function ensureWritableSeedData() {
     fs.mkdir(saveTargets.customCriteria, { recursive: true }),
     fs.mkdir(saveTargets.customScales, { recursive: true }),
     fs.mkdir(saveTargets.customChips, { recursive: true }),
+    fs.mkdir(saveTargets.customBadges, { recursive: true }),
     fs.mkdir(saveTargets.groupParticipation, { recursive: true }),
     fs.mkdir(saveTargets.mindmaps, { recursive: true }),
     fs.mkdir(saveTargets.constellationTemplates, { recursive: true }),
@@ -5366,10 +5374,13 @@ function _isCrossAppDataChange(payload = {}) {
 
   if (target === 'docEditorDocs' || target === 'mindmaps') return true;
 
+  if (target === 'grades' || target === 'gradeSheet') return true;
+
   if (target === 'user') {
     if (['class-groups.js', 'config.js', 'planner-config.js', 'todos.js'].includes(filename)) return true;
     if (subdir === 'planner' || relativePath.startsWith('planner/') || oldRelativePath.startsWith('planner/') || newRelativePath.startsWith('planner/')) return true;
     if (subdir === 'custom-data' || subdir.startsWith('custom-data/') || relativePath.startsWith('custom-data/') || oldRelativePath.startsWith('custom-data/') || newRelativePath.startsWith('custom-data/')) return true;
+    if (subdir === 'grades' || subdir.startsWith('grades/') || relativePath.startsWith('grades/') || oldRelativePath.startsWith('grades/') || newRelativePath.startsWith('grades/')) return true;
   }
 
   if (target === 'classPlans' && filename === 'plans.js') return true;
@@ -10058,6 +10069,49 @@ function _downloadBufferWithRedirect(url, onProgress, maxRedirects = 5) {
   });
 }
 
+// ── Quick Dictionary (worker-thread backed word bank search) ─────────────────
+const _dictionaryService = createDictionaryService({
+  workerPath: path.join(ROOT_DIR, 'js', 'dictionary-worker.js'),
+  getBankDirs: () => [
+    getSaveTargets().customWordbanks,
+    path.join(getBundledDataRoot(), 'wordbanks')
+  ]
+});
+
+ipcMain.handle('dictionary:list-banks', async () => {
+  try {
+    return { ok: true, banks: await _dictionaryService.listBanks(), status: _dictionaryService.getStatus() };
+  } catch (err) {
+    return { ok: false, error: err?.message || String(err), banks: [] };
+  }
+});
+
+ipcMain.handle('dictionary:set-banks', async (event, request = {}) => {
+  try {
+    const names = Array.isArray(request?.banks) ? request.banks : [];
+    return { ok: true, status: await _dictionaryService.setBanks(names) };
+  } catch (err) {
+    return { ok: false, error: err?.message || String(err) };
+  }
+});
+
+ipcMain.handle('dictionary:search', async (event, request = {}) => {
+  try {
+    const limit = Math.max(1, Math.min(200, Number(request?.limit) || 50));
+    const outcome = await _dictionaryService.search({ q: request?.q, scope: request?.scope, limit });
+    return Object.assign({ ok: true }, outcome);
+  } catch (err) {
+    return { ok: false, error: err?.message || String(err), results: [], total: 0, suggestions: [] };
+  }
+});
+
+ipcMain.handle('dictionary:status', async () => ({ ok: true, status: _dictionaryService.getStatus() }));
+
+ipcMain.handle('dictionary:dispose', async () => {
+  _dictionaryService.dispose();
+  return { ok: true };
+});
+
 ipcMain.handle('media:check-engine', async () => {
   try {
     const found = _findFfmpegExecutable();
@@ -10605,6 +10659,7 @@ app.on('before-quit', (event) => {
     saveSessionStateSync(!hasTools);
   } catch (_) {}
   stopQuizServer();
+  try { _dictionaryService.dispose(); } catch (_) {}
   if (_remoteQuitSyncDone) return;
   Promise.all([loadFtpConfig(), loadWebdavConfig()]).then(([ftpCfg, wdCfg]) => {
     const tasks = [];

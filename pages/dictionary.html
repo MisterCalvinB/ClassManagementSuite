@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data:; script-src 'self' 'unsafe-inline' file:; style-src 'self' 'unsafe-inline' file:; font-src 'self' file: data:; img-src 'self' file: data:;">
+  <meta name="description" content="Quick Dictionary: lightning-fast search through your Class Management Tools word banks.">
+  <title>Quick Dictionary</title>
+  <link rel="stylesheet" href="../modules/lexend/lexend.css">
+  <link rel="stylesheet" href="../css/dictionary.css">
+  <script src="../electron-bridge.js"></script>
+  <script src="../js/i18n.js"></script>
+  <script src="../js/dialogs.js"></script>
+  <script src="../js/tutorial.js"></script>
+  <script src="../js/dictionary.js" defer></script>
+</head>
+<body>
+
+  <header class="app-header">
+    <div class="header-left">
+      <img src="../assets/icons/dictionary.svg" class="header-icon" alt="">
+      <h1 class="header-title" data-i18n="qdTitle">Quick Dictionary</h1>
+      <span id="dictStatus" class="status-badge" role="status" aria-live="polite">
+        <span id="dictStatusText">Ready</span>
+      </span>
+    </div>
+    <div class="header-actions">
+      <button type="button" class="btn btn-sm" id="dictTourBtn" data-i18n-title="btnTour" title="Interactive Tour">
+        <img src="../assets/icons/how-to.svg" alt=""> <span data-i18n="tour">Tour</span>
+      </button>
+      <button type="button" class="btn btn-sm" id="dictLauncherBtn" data-i18n-title="btnLauncher" title="Back to Launcher">
+        <img src="../assets/icons/launcher.svg" alt=""> <span data-i18n="launcher">Launcher</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="main-container">
+
+    <section class="card-panel toolbar-panel" id="dictToolbar">
+      <div class="search-box" id="dictSearchBox">
+        <img src="../assets/icons/search.svg" class="search-icon" alt="">
+        <input type="search" id="dictSearchInput" class="search-input" autocomplete="off" spellcheck="false"
+               data-i18n-placeholder="qdSearchPlaceholder" data-i18n-aria="qdSearchLabel"
+               placeholder="Type a word to look up..." aria-label="Search">
+      </div>
+
+      <div class="toolbar-field" id="dictScopeField">
+        <label class="field-label" for="dictScopeSelect" data-i18n="qdScopeLabel">Search in</label>
+        <select id="dictScopeSelect" class="select-input">
+          <option value="word" data-i18n="qdScopeWord">Word only (fastest)</option>
+          <option value="forms" data-i18n="qdScopeForms">Word + other forms</option>
+          <option value="syn" data-i18n="qdScopeSyn">Word + forms + synonyms/antonyms</option>
+          <option value="all" data-i18n="qdScopeAll">Everything (definitions &amp; examples)</option>
+        </select>
+      </div>
+
+      <div class="toolbar-field banks-field" id="dictBanksField">
+        <button type="button" class="btn" id="dictBanksBtn" aria-haspopup="true" aria-expanded="false">
+          <img src="../assets/icons/manage-database.svg" alt="">
+          <span data-i18n="qdBanksBtn">Word banks</span>
+          <span class="count-pill" id="dictBanksCount">0</span>
+        </button>
+        <div class="banks-popover" id="dictBanksPopover" role="dialog" hidden>
+          <div class="popover-head">
+            <strong data-i18n="qdBanksTitle">Word banks to search</strong>
+            <span class="popover-actions">
+              <button type="button" class="chip-btn" id="dictBanksAllBtn" data-i18n="qdBanksAll">All</button>
+              <button type="button" class="chip-btn" id="dictBanksNoneBtn" data-i18n="qdBanksNone">None</button>
+            </span>
+          </div>
+          <p class="popover-hint" data-i18n="qdBanksHint">Only ticked banks are loaded in memory.</p>
+          <div class="banks-list" id="dictBanksList"></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="results-layout">
+      <section class="card-panel results-panel" id="dictResultsPanel">
+        <div class="panel-meta" id="dictResultMeta" aria-live="polite"></div>
+        <div class="suggest-row" id="dictSuggestRow" hidden>
+          <span class="suggest-label" data-i18n="qdDidYouMean">Did you mean:</span>
+          <span class="suggest-chips" id="dictSuggestChips"></span>
+        </div>
+        <div class="results-list" id="dictResultsList" role="listbox" aria-label="Results"></div>
+        <div class="empty-state" id="dictEmpty">
+          <img src="../assets/icons/dictionary.svg" alt="">
+          <p id="dictEmptyText">Type to search the selected word banks.</p>
+        </div>
+      </section>
+
+      <section class="card-panel detail-panel" id="dictDetailPanel">
+        <div class="empty-state" id="dictDetailEmpty">
+          <p data-i18n="qdPickResult">Select a result to see its details.</p>
+        </div>
+        <article class="detail-body" id="dictDetail" hidden>
+          <header class="detail-head">
+            <h2 class="detail-word" id="dictDetailWord"></h2>
+            <span class="detail-ipa" id="dictDetailIpa"></span>
+          </header>
+          <div class="chip-row" id="dictDetailChips"></div>
+          <section class="detail-section" id="dictSecDefinition">
+            <h3 data-i18n="qdDefinition">Definition</h3>
+            <p class="detail-text" id="dictDetailDef"></p>
+          </section>
+          <section class="detail-section" id="dictSecExamples">
+            <h3 data-i18n="qdExamples">Examples</h3>
+            <ul class="detail-list" id="dictDetailExamples"></ul>
+          </section>
+          <section class="detail-section" id="dictSecSynonyms">
+            <h3 data-i18n="qdSynonyms">Synonyms</h3>
+            <div class="chip-row" id="dictDetailSynonyms"></div>
+          </section>
+          <section class="detail-section" id="dictSecAntonyms">
+            <h3 data-i18n="qdAntonyms">Antonyms</h3>
+            <div class="chip-row" id="dictDetailAntonyms"></div>
+          </section>
+          <section class="detail-section" id="dictSecForms">
+            <h3 data-i18n="qdForms">Other forms</h3>
+            <div class="chip-row" id="dictDetailForms"></div>
+          </section>
+        </article>
+      </section>
+    </div>
+
+  </main>
+
+</body>
+</html>

@@ -463,6 +463,21 @@ const exposedApi = {
   mediaDownloadEngine() {
     return invoke('media:download-engine');
   },
+  dictionaryListBanks() {
+    return invoke('dictionary:list-banks');
+  },
+  dictionarySetBanks(request) {
+    return invoke('dictionary:set-banks', request);
+  },
+  dictionarySearch(request) {
+    return invoke('dictionary:search', request);
+  },
+  dictionaryStatus() {
+    return invoke('dictionary:status');
+  },
+  dictionaryDispose() {
+    return invoke('dictionary:dispose');
+  },
   onMediaEngineDownloadProgress(callback) {
     if (!ipcRenderer || typeof ipcRenderer.on !== 'function') return () => {};
     const listener = (_event, data) => {

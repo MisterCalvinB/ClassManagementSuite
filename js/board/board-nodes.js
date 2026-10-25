@@ -1,0 +1,20626 @@
+/**
+ * Class Management Tools — Board Nodes, Edges & Canvas Layout Engine
+ * Word nodes, connectors, arrow edges, timer nodes, media nodes, alignment, auto-spread, and styling.
+ */
+(function (global) {
+  'use strict';
+  var Board = global.Board = global.Board || {};
+
+  var CON_PALETTES = global.CON_PALETTES = global.CON_PALETTES || [];
+  var conDrawingSelected = global.conDrawingSelected = global.conDrawingSelected || new Set();
+  var conMultiSelected = global.conMultiSelected = global.conMultiSelected || new Set();
+  var conNoteSelected = global.conNoteSelected = global.conNoteSelected || new Set();
+  var _conShapeSelected = global._conShapeSelected = global._conShapeSelected || new Set();
+  var conTableSelected = global.conTableSelected = global.conTableSelected || new Set();
+  var AW_STORAGE_KEY = global.AW_STORAGE_KEY || 'custom_words';
+  var AW_QUOTES_KEY = global.AW_QUOTES_KEY || 'custom_quotes';
+  var AW_GAP_KEY = global.AW_GAP_KEY || 'custom_gap_fill';
+  var AW_ERROR_KEY = global.AW_ERROR_KEY || 'custom_errors';
+  var BOARD_SAVED_SESSIONS_KEY = global.BOARD_SAVED_SESSIONS_KEY || 'board_saved_sessions_v1';
+  // Active session folder and file names are bound globally in board-state.js
+  var conDrawings = global.conDrawings = global.conDrawings || [];
+  var conShapes = global.conShapes = global.conShapes || [];
+  var conTables = global.conTables = global.conTables || [];
+  var conNotes = global.conNotes = global.conNotes || [];
+  var conGroups = global.conGroups = global.conGroups || [];
+  var conMasks = global.conMasks = global.conMasks || [];
+
+  var getItemThemes = global.getItemThemes = window.getItemThemes = window.getItemThemes || function(item) {
+    if (!item || !item.word) return [];
+    var t = item.theme;
+    if (!t) return [];
+    return Array.isArray(t) ? t : String(t).split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+  };
+  var getThemeIndex = global.getThemeIndex = window.getThemeIndex = window.getThemeIndex || function() { return {}; };
+  var invalidateThemeIndex = global.invalidateThemeIndex = window.invalidateThemeIndex = window.invalidateThemeIndex || function() {};
+
+    // ================================================================
+    // CONSTELLATION PAGES STATE  (shared between IIFE + outer functions)
+    // ================================================================
+    var conPageSnapshots = global.conPageSnapshots = global.conPageSnapshots || [{}];
+    var _conPageSnapshotPngs = global._conPageSnapshotPngs = global._conPageSnapshotPngs || [];
+    function board() { return document.getElementById('constellation-board'); }
+    global.board = window.board = board;
+    function svg() { return document.getElementById('constellation-svg'); }
+    global.svg = window.svg = svg;
+    let _conCopiedPages = [];    // clipboard for copy/paste page(s)
+    let _conPreviewSelectedIdx = new Set(); // checked page indices in Pages popup
+    let _conAttachmentCounter = 0;
+    // conAttachments is managed globally in board-state.js
+    let _conMirrorAttachmentPreload = {}; // attachmentId -> dataUrl, populated by mirror mode
+    window._conPdfDocCache = new Map(); // docCacheKey -> PDFDocumentProxy
+    window._conAttachmentBufferCache = new Map(); // attachmentId/key -> ArrayBuffer
+    window.conSetAttachmentPreloadMap = function (map) {
+      if (map && typeof map === 'object') {
+        Object.assign(_conMirrorAttachmentPreload, map);
+        if (document.documentElement.classList.contains('con-mirror-mode') || location.search.includes('mirror=1')) {
+          document.querySelectorAll('.con-media-item.con-media-kind-pics').forEach(function (wrap) {
+            var itemId = wrap.dataset.id;
+            var item = (typeof conMediaItems !== 'undefined') ? conMediaItems.find(function (m) { return String(m.id) === String(itemId); }) : null;
+            if (!item) return;
+            var key = item.attachmentId || item.id || '';
+            var preloadSrc = (key && _conMirrorAttachmentPreload[key]) || '';
+            if (!preloadSrc) return;
+            item._cachedDataUrl = preloadSrc;
+
+            var content = wrap.querySelector('.con-media-content');
+            var mediaEl = wrap.querySelector('img');
+            if (!mediaEl && content) {
+              content.textContent = '';
+              mediaEl = document.createElement('img');
+              mediaEl.alt = item.name || 'image';
+              mediaEl.className = 'con-media-asset';
+              content.appendChild(mediaEl);
+            }
+            if (content) {
+              content.classList.remove('con-media-load-failed');
+              var failMsg = content.querySelector('.con-media-error-msg');
+              if (failMsg) failMsg.remove();
+            }
+            if (mediaEl && (!mediaEl.src || mediaEl.src.includes('undefined') || !mediaEl.complete || mediaEl.naturalWidth === 0 || mediaEl.src !== preloadSrc)) {
+              mediaEl.style.display = '';
+              mediaEl.src = preloadSrc;
+            }
+          });
+        }
+      }
+    };
+    // conMediaItems, conPageBackgroundPdf, _conBoardBg, _conBoardBgColor are managed globally in board-state.js
+    let conMediaNextId = 0;
+    const _BC_BOARD_BG_PRESET_DEFAULTS = ['#ffffff', '#f8fafc', '#f4f1de', '#ecfdf5', '#fff7ed', '#fee2e2', '#e0f2fe', '#ede9fe'];
+    window._bcBoardBgPresets = _BC_BOARD_BG_PRESET_DEFAULTS.slice();
+
+    function conNormalizeColorHex(value) {
+      const v = String(value || '').trim();
+      if (!v) return '';
+      const m = v.match(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/);
+      if (!m) return '';
+      let h = m[1].toLowerCase();
+      if (h.length === 3) h = h.split('').map(ch => ch + ch).join('');
+      return '#' + h;
+    }
+    global.conNormalizeColorHex = window.conNormalizeColorHex = conNormalizeColorHex;
+
+    function conNormalizeBoardBgPresetList(list) {
+      const source = Array.isArray(list) ? list : [];
+      const seen = new Set();
+      const out = [];
+      source.forEach(entry => {
+        const hex = conNormalizeColorHex(entry);
+        if (!hex || seen.has(hex)) return;
+        seen.add(hex);
+        out.push(hex);
+      });
+      return out.length ? out.slice(0, 20) : _BC_BOARD_BG_PRESET_DEFAULTS.slice();
+    }
+
+    function conExtractBoardBgPresetsFromConfig(bc) {
+      const src = (bc && (
+        bc.boardBackgroundPresets ||
+        bc.boardBgPresets ||
+        bc.boardBackgroundColors
+      )) || window._bcBoardBgPresets || _BC_BOARD_BG_PRESET_DEFAULTS;
+      let presets = conNormalizeBoardBgPresetList(src);
+      const defaultColor = conNormalizeColorHex((bc && bc.boardDefaultBackgroundColor) || window._bcBoardDefaultBgColor || '');
+      if (defaultColor) {
+        presets = [defaultColor].concat(presets.filter(c => c !== defaultColor));
+      }
+      return presets.slice(0, 20);
+    }
+
+    function conGetBoardBgPresets() {
+      let presets = conNormalizeBoardBgPresetList(window._bcBoardBgPresets);
+      const current = conNormalizeColorHex(_conBoardBgColor || '');
+      if (current && !presets.includes(current)) {
+        presets = [current].concat(presets).slice(0, 20);
+      }
+      return presets;
+    }
+
+    function conRenderBoardBgPresetsInContextMenu() {
+      const wrap = document.getElementById('con-board-bg-preset-btns');
+      if (!wrap) return;
+      const presets = conGetBoardBgPresets();
+      window._bcBoardBgPresets = presets.slice();
+      wrap.innerHTML = '';
+
+      presets.forEach(color => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.title = color;
+        btn.setAttribute('aria-label', 'Use background ' + color);
+        btn.style.cssText = 'width:19px;height:19px;border-radius:999px;border:1.5px solid #bbb;background:' + color + ';cursor:pointer;padding:0;flex-shrink:0;';
+        if (color === '#ffffff') btn.style.boxShadow = 'inset 0 0 0 1px #d4d4d4';
+        if (_conBoardBgColor === color) {
+          btn.style.borderColor = '#111';
+          btn.style.transform = 'scale(1.08)';
+          btn.style.boxShadow = '0 0 0 1px #111 inset';
+        }
+        btn.onclick = () => window.conSetBoardBackgroundColor(color);
+        wrap.appendChild(btn);
+      });
+    }
+    global.conRenderBoardBgPresetsInContextMenu = window.conRenderBoardBgPresetsInContextMenu = conRenderBoardBgPresetsInContextMenu;
+
+    function conGetActiveBoardLayoutPreset() {
+      if (window._bcBoardLayoutConfig && window._bcBoardLayoutConfig.preset) {
+        return _bcNormalizeBoardLayoutPreset(window._bcBoardLayoutConfig.preset);
+      }
+      const cfg = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG) ? BOARD_CONFIG : {};
+      return _bcNormalizeBoardLayoutPreset(cfg.boardLayoutPreset);
+    }
+
+    async function conPersistBoardLayoutConfig(layout) {
+      const current = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG) ? BOARD_CONFIG : {};
+      const next = Object.assign({}, current, {
+        boardLayoutPreset: layout.preset,
+        boardCustomOrientation: layout.customOrientation,
+        boardCustomWidthPx: layout.customWidth,
+        boardCustomHeightPx: layout.customHeight
+      });
+      window.BOARD_CONFIG = next;
+      if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.saveText === 'function')) return;
+      try {
+        const lines = 'const BOARD_CONFIG = ' + JSON.stringify(next, null, 2) + ';\nwindow.BOARD_CONFIG = BOARD_CONFIG;\n';
+        await Desktop.saveText('user', 'board-config.js', lines);
+      } catch (e) {
+        // Non-blocking: layout still applies in-memory even if persistence fails.
+      }
+    }
+
+    window.conSetBoardLayoutPreset = function (preset, opts = {}) {
+      const normalized = _bcNormalizeBoardLayoutPreset(preset);
+      const current = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG) ? BOARD_CONFIG : {};
+      const fromLayout = window._bcBoardLayoutConfig || {};
+      const inputCfg = {
+        boardLayoutPreset: normalized,
+        boardCustomOrientation: current.boardCustomOrientation || fromLayout.customOrientation || 'landscape',
+        boardCustomWidthPx: current.boardCustomWidthPx || fromLayout.customWidth || 1600,
+        boardCustomHeightPx: current.boardCustomHeightPx || fromLayout.customHeight || 1000
+      };
+      const layout = _bcResolveBoardLayoutSettings(inputCfg);
+      window._bcBoardLayoutConfig = layout;
+      _bcApplyBoardLayout(layout);
+      conRenderBoardLayoutOptionsInContextMenu();
+      if (!opts || !opts.silent) {
+        if (typeof mdbToast === 'function') mdbToast('📐 Board layout: ' + layout.preset);
+      }
+      if (!opts || opts.persist !== false) {
+        conPersistBoardLayoutConfig(layout);
+      }
+      if (!opts || !opts.skipBroadcast) {
+        if (window._conMirrorBroadcast) window._conMirrorBroadcast();
+      }
+    };
+
+    function conRenderBoardLayoutOptionsInContextMenu() {
+      const wrap = document.getElementById('con-board-layout-btns');
+      if (!wrap) return;
+      const options = [
+        { value: 'flex', label: 'Flex' },
+        { value: 'a4-landscape', label: 'A4 L' },
+        { value: 'a4-portrait', label: 'A4 P' },
+        { value: 'custom', label: 'Custom' }
+      ];
+      const active = conGetActiveBoardLayoutPreset();
+      wrap.innerHTML = '';
+      options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = opt.label;
+        btn.title = 'Set layout: ' + opt.label;
+        btn.style.cssText = 'padding:2px 7px;border:1.5px solid #ccc;border-radius:3px;font-size:0.72rem;cursor:pointer;font-family:inherit;background:#f5f5f5;';
+        if (opt.value === active) {
+          btn.style.borderColor = '#111';
+          btn.style.background = '#111';
+          btn.style.color = '#fff';
+          btn.style.fontWeight = '700';
+        }
+        btn.onclick = () => window.conSetBoardLayoutPreset(opt.value);
+        wrap.appendChild(btn);
+      });
+    }
+
+    function conApplyBoardBgColor() {
+      const board = document.getElementById('constellation-board');
+      if (board) board.style.backgroundColor = _conBoardBgColor || '';
+      const clip = document.getElementById('con-mirror-clip');
+      if (clip) clip.style.backgroundColor = _conBoardBgColor || '#ffffff';
+      conRenderBoardBgPresetsInContextMenu();
+    }
+    global.conApplyBoardBgColor = window.conApplyBoardBgColor = conApplyBoardBgColor;
+
+    window.conSetBoardBackgroundColor = function (color, opts = {}) {
+      const normalized = conNormalizeColorHex(color);
+      _conBoardBgColor = normalized;
+      conApplyBoardBgColor();
+      if (!opts || !opts.silent) {
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        if (typeof mdbToast === 'function') {
+          mdbToast(normalized ? '🎨 Board background updated.' : '🧼 Board background reset.');
+        }
+      }
+      if (!opts || !opts.skipBroadcast) {
+        if (window._conMirrorBroadcast) window._conMirrorBroadcast();
+      }
+    };
+
+    window.conResetBoardBackgroundColor = function (opts = {}) {
+      window.conSetBoardBackgroundColor('', Object.assign({ silent: true }, opts || {}));
+    };
+
+    async function conEnsurePdfjsLib() {
+      if (window._conPdfjsLib) return window._conPdfjsLib;
+      if (window._cmtPdfjsLib) {
+        window._conPdfjsLib = window._cmtPdfjsLib;
+        return window._conPdfjsLib;
+      }
+      let mod = null;
+      try {
+        mod = await import('../../modules/pdf.min.mjs');
+      } catch (_) {
+        try {
+          mod = await import(new URL('../modules/pdf.min.mjs', location.href).href);
+        } catch (e2) {
+          mod = await import('../modules/pdf.min.mjs');
+        }
+      }
+      if (mod && mod.GlobalWorkerOptions) {
+        try {
+          mod.GlobalWorkerOptions.workerSrc = new URL('../modules/pdf.worker.min.mjs', location.href).href;
+        } catch (_) {}
+      }
+      window._conPdfjsLib = mod;
+      return window._conPdfjsLib;
+    }
+
+    function conPdfGetDocumentParams(loadSrc) {
+      let fontUrl = '../modules/standard_fonts/';
+      try {
+        fontUrl = new URL('../modules/standard_fonts/', location.href).href;
+      } catch (_) {}
+      return Object.assign({
+        standardFontDataUrl: fontUrl,
+        disableFontFace: false,
+        useSystemFonts: false
+      }, loadSrc || {});
+    }
+
+    async function conRenderBoardBg(opts = {}) {
+      const board = document.getElementById('constellation-board');
+      if (!board) return;
+      if (!_conBoardBg) {
+        board.style.backgroundImage = '';
+        board.style.backgroundSize = '';
+        board.style.backgroundRepeat = '';
+        board.style.backgroundPosition = '';
+        return;
+      }
+
+      const bgState = {
+        attachmentId: String(_conBoardBg.attachmentId || ''),
+        pageNumber: Math.max(1, Number(_conBoardBg.pageNumber) || 1)
+      };
+      if (!bgState.attachmentId) {
+        _conBoardBg = null;
+        board.style.backgroundImage = '';
+        board.style.backgroundSize = '';
+        board.style.backgroundRepeat = '';
+        board.style.backgroundPosition = '';
+        return;
+      }
+
+      // If we already have a cached render, just re-apply at the stored pixel size.
+      if (_conBoardBg._cachedDataUrl && _conBoardBg._cachedW && _conBoardBg._cachedH) {
+        board.style.backgroundImage = 'url(' + JSON.stringify(_conBoardBg._cachedDataUrl) + ')';
+        board.style.backgroundSize = _conBoardBg._cachedW + 'px ' + _conBoardBg._cachedH + 'px';
+        board.style.backgroundRepeat = 'no-repeat';
+        board.style.backgroundPosition = 'top left';
+        return;
+      }
+
+      let att = conFindAttachmentById(bgState.attachmentId);
+      if (!att) {
+        // Mirror windows may only have preloaded data URLs (no attachment metadata list).
+        const preloadId = bgState.attachmentId;
+        if (preloadId && _conMirrorAttachmentPreload[preloadId]) {
+          att = {
+            id: preloadId,
+            attachmentId: preloadId,
+            name: 'background.pdf',
+            mime: 'application/pdf',
+            kind: 'pdf',
+            relativePath: '',
+            file: null
+          };
+        } else {
+          _conBoardBg = null;
+          board.style.backgroundImage = '';
+          return;
+        }
+      }
+      const pdfLike = {
+        attachmentId: att.id, name: att.name, mime: att.mime || 'application/pdf',
+        relativePath: att.relativePath || '', file: att.file || null,
+        pageNumber: bgState.pageNumber
+      };
+      let pdfjsLib;
+      try {
+        pdfjsLib = await conEnsurePdfjsLib();
+      } catch (e) { console.error('[PDF.js] Failed to load:', e); return; }
+      const docCacheKey = String(pdfLike.attachmentId || pdfLike.name || '');
+      let pdf = (docCacheKey && window._conPdfDocCache && window._conPdfDocCache.get(docCacheKey)) || null;
+      if (!pdf) {
+        const buf = await conGetAttachmentArrayBuffer(pdfLike);
+        if (!buf) return;
+        try {
+          pdf = await pdfjsLib.getDocument(conPdfGetDocumentParams({ data: new Uint8Array(buf) })).promise;
+          if (docCacheKey && window._conPdfDocCache) window._conPdfDocCache.set(docCacheKey, pdf);
+        } catch (e) { console.error('[BG PDF] getDocument failed:', e); return; }
+      }
+      try {
+        const page = await pdf.getPage(bgState.pageNumber);
+        const boardW = board.clientWidth || 960;
+        const scale = boardW / page.getViewport({ scale: 1 }).width;
+        const viewport = page.getViewport({ scale });
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(viewport.width);
+        canvas.height = Math.round(viewport.height);
+        const ctx = canvas.getContext('2d');
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        const dataUrl = canvas.toDataURL('image/png');
+        const cWidth = canvas.width;
+        const cHeight = canvas.height;
+        canvas.width = 0;
+        canvas.height = 0;
+
+        // If target background changed while rendering, discard stale output.
+        if (!_conBoardBg
+          || String(_conBoardBg.attachmentId || '') !== bgState.attachmentId
+          || Math.max(1, Number(_conBoardBg.pageNumber) || 1) !== bgState.pageNumber) {
+          return;
+        }
+
+        // Cache so subsequent page-switch restores reuse these exact dimensions.
+        _conBoardBg._cachedDataUrl = dataUrl;
+        _conBoardBg._cachedW = cWidth;
+        _conBoardBg._cachedH = cHeight;
+        board.style.backgroundImage = 'url(' + JSON.stringify(dataUrl) + ')';
+        board.style.backgroundSize = cWidth + 'px ' + cHeight + 'px';
+        board.style.backgroundRepeat = 'no-repeat';
+        board.style.backgroundPosition = 'top left';
+        if (!opts.silent && typeof mdbToast === 'function') mdbToast('🖼 PDF set as page background.');
+      } catch (e) {
+        console.error('[BG PDF] render error:', e);
+      }
+    }
+
+    window.conClearBoardBg = function () {
+      _conBoardBg = null;
+      const board = document.getElementById('constellation-board');
+      if (board) {
+        board.style.backgroundImage = '';
+        board.style.backgroundSize = '';
+        board.style.backgroundRepeat = '';
+        board.style.backgroundPosition = '';
+      }
+      if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+      if (typeof mdbToast === 'function') mdbToast('🗑 Page background cleared.');
+    };
+
+    window.conSetBoardBgCacheFromMirror = function (bg, render) {
+      if (!bg || !render || !render.dataUrl) return;
+      const attachmentId = String(bg.attachmentId || '');
+      if (!attachmentId) return;
+      const pageNumber = Math.max(1, Number(bg.pageNumber) || 1);
+      const w = Math.max(1, Number(render.w) || 1);
+      const h = Math.max(1, Number(render.h) || 1);
+      _conBoardBg = {
+        attachmentId,
+        pageNumber,
+        _cachedDataUrl: String(render.dataUrl),
+        _cachedW: w,
+        _cachedH: h
+      };
+      const board = document.getElementById('constellation-board');
+      if (!board) return;
+      board.style.backgroundImage = 'url(' + JSON.stringify(_conBoardBg._cachedDataUrl) + ')';
+      board.style.backgroundSize = _conBoardBg._cachedW + 'px ' + _conBoardBg._cachedH + 'px';
+      board.style.backgroundRepeat = 'no-repeat';
+      board.style.backgroundPosition = 'top left';
+    };
+    global.conRenderBoardBg = window.conRenderBoardBg = conRenderBoardBg;
+    let conManageMediaChooserPos = null;
+    let conManageMediaChooserOutsideClick = null;
+    let conManageMediaChooserKey = null;
+
+    function conAttachmentKind(name, mime) {
+      const lowerName = String(name || '').toLowerCase();
+      const lowerMime = String(mime || '').toLowerCase();
+      if (lowerMime.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(lowerName)) return 'pics';
+      if (lowerMime.startsWith('audio/') || /\.(mp3|wav|ogg|m4a|flac|aac|weba|opus)$/i.test(lowerName) || (/^rec-.*\.webm$/i.test(lowerName) && !lowerMime.startsWith('video/'))) return 'sounds';
+      if (lowerMime.startsWith('video/') || /\.(mp4|webm|mov|m4v|avi|mkv)$/i.test(lowerName)) return 'videos';
+      if (lowerMime === 'application/pdf' || /\.pdf$/i.test(lowerName)) return 'pdf';
+      return null;
+    }
+
+    function conSanitizeAttachmentName(name, fallbackExt) {
+      const raw = String(name || '').trim();
+      const dot = raw.lastIndexOf('.');
+      const base = dot > 0 ? raw.slice(0, dot) : raw;
+      const ext = dot > 0 ? raw.slice(dot) : (fallbackExt || '');
+      const safeBase = sanitizeFilenamePart(base || 'file') || 'file';
+      const safeExt = ext.replace(/[^a-zA-Z0-9.]/g, '').toLowerCase();
+      return safeBase + safeExt;
+    }
+
+    function conAttachmentSummaryText() {
+      if (!conAttachments.length) return 'No attachments';
+      const labels = { pics: 'images', sounds: 'sounds', videos: 'videos', pdf: 'pdf' };
+      const counts = { pics: 0, sounds: 0, videos: 0, pdf: 0 };
+      conAttachments.forEach(item => {
+        if (counts[item.kind] != null) counts[item.kind] += 1;
+      });
+      const parts = Object.keys(counts)
+        .filter(k => counts[k] > 0)
+        .map(k => counts[k] + ' ' + labels[k]);
+      return parts.join(' · ') || (conAttachments.length + ' attachments');
+    }
+
+    function conRenderAttachmentSummary() {
+      const el = document.getElementById('con-attachments-summary');
+      if (!el) return;
+      el.textContent = conAttachmentSummaryText();
+      const details = conAttachments.map(item => item.name).join('\n');
+      el.title = details || 'No attachments selected';
+    }
+
+    function conResetAttachments() {
+      conAttachments.forEach(item => {
+        if (item && item._cachedObjectUrl) {
+          try { URL.revokeObjectURL(item._cachedObjectUrl); } catch { }
+        }
+      });
+      conAttachments = [];
+      _conAttachmentCounter = 0;
+      conRenderAttachmentSummary();
+    }
+
+    function conSetAttachmentsFromSession(items, mediaMap) {
+      const prevById = new Map((conAttachments || []).map(a => [String(a.id || ''), a]));
+      const prevByName = new Map((conAttachments || []).map(a => [String(a.name || '').toLowerCase(), a]));
+
+      conAttachments.forEach(item => {
+        if (item && item._cachedObjectUrl) {
+          try { URL.revokeObjectURL(item._cachedObjectUrl); } catch { }
+        }
+      });
+      conAttachments = [];
+      _conAttachmentCounter = 0;
+      const list = Array.isArray(items) ? items : [];
+      list.forEach(raw => {
+        const kind = conAttachmentKind(raw && raw.name, raw && raw.mime) || raw.kind;
+        if (!kind) return;
+        const incomingId = String(raw && raw.id ? raw.id : '');
+        const matchNum = incomingId.match(/(\d+)$/);
+        if (matchNum) {
+          _conAttachmentCounter = Math.max(_conAttachmentCounter, Number(matchNum[1]) || 0);
+        }
+        _conAttachmentCounter += 1;
+        let base64 = raw.base64 || '';
+        if (!base64 && mediaMap && typeof mediaMap === 'object') {
+          const tryKeys = [
+            kind + '/' + raw.name,
+            'media/' + kind + '/' + raw.name,
+            raw.name,
+            raw.relativePath,
+            raw.relativePath ? raw.relativePath.replace(/^[^/]+\//, '') : ''
+          ].filter(Boolean);
+
+          for (const k of tryKeys) {
+            if (mediaMap[k] && mediaMap[k].base64) {
+              base64 = mediaMap[k].base64;
+              break;
+            }
+          }
+          if (!base64) {
+            const lowerName = String(raw.name || '').toLowerCase();
+            for (const [k, v] of Object.entries(mediaMap)) {
+              if (v && v.base64 && (k.toLowerCase().endsWith('/' + lowerName) || k.toLowerCase() === lowerName || (v.name && v.name.toLowerCase() === lowerName))) {
+                base64 = v.base64;
+                break;
+              }
+            }
+          }
+        }
+        // Retain from previously loaded state if not found in mediaMap
+        if (!base64) {
+          const prev = prevById.get(incomingId) || prevByName.get(String(raw.name || '').toLowerCase());
+          if (prev && prev.base64) {
+            base64 = prev.base64;
+          }
+        }
+        const mime = raw.mime || conGuessMimeByName(raw.name, kind) || (kind === 'pics' ? 'image/webp' : (kind === 'sounds' ? 'audio/wav' : (kind === 'videos' ? 'video/webm' : 'application/octet-stream')));
+        const cleanB64 = base64.startsWith('data:') ? base64.split(',')[1] : base64;
+        let cachedUrl = '';
+        if (cleanB64) {
+          try {
+            const binary = atob(cleanB64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            const blob = new Blob([bytes], { type: mime });
+            cachedUrl = URL.createObjectURL(blob);
+          } catch {}
+        }
+        conAttachments.push({
+          id: incomingId || ('att_' + _conAttachmentCounter),
+          name: String(raw && raw.name ? raw.name : 'file'),
+          mime: mime,
+          kind,
+          size: Number(raw && raw.size) || 0,
+          file: null,
+          base64: cleanB64 || '',
+          _cachedObjectUrl: cachedUrl || '',
+          _cachedDataUrl: cleanB64 ? ('data:' + mime + ';base64,' + cleanB64) : '',
+          relativePath: String(raw && raw.relativePath ? raw.relativePath : '')
+        });
+      });
+      conRenderAttachmentSummary();
+    }
+
+    function conBuildAttachmentMetadata() {
+      return conAttachments.map(item => ({
+        id: item.id,
+        name: item.name,
+        mime: item.mime,
+        kind: item.kind,
+        size: Number(item.size) || 0,
+        relativePath: item.relativePath || ''
+      }));
+    }
+
+    window.conResolveAttachmentDiskPath = async function (att) {
+      if (!att) return '';
+      let diskPath = att.path || '';
+      if (!diskPath && att.file && window.Desktop && typeof window.Desktop.getPathForFile === 'function') {
+        try { diskPath = window.Desktop.getPathForFile(att.file) || ''; } catch (_) {}
+      }
+      if (!diskPath && att.file && att.file.path) {
+        diskPath = att.file.path;
+      }
+      if (diskPath) return diskPath;
+
+      if (att.relativePath && window.Desktop && typeof window.Desktop.resolvePath === 'function') {
+        try {
+          // Check mindmaps target first (where board files live)
+          const resMm = await window.Desktop.resolvePath('mindmaps', att.relativePath);
+          const pathMm = (typeof resMm === 'string') ? resMm : (resMm && resMm.path ? resMm.path : '');
+          if (pathMm) return pathMm;
+
+          const resUser = await window.Desktop.resolvePath('user', att.relativePath);
+          const pathUser = (typeof resUser === 'string') ? resUser : (resUser && resUser.path ? resUser.path : '');
+          if (pathUser) return pathUser;
+        } catch (_) {}
+      }
+
+      // If in Electron and we only have base64 or a Blob in memory (e.g. from .cstz or embedded json), persist to temp_media
+      if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveFile === 'function') {
+        try {
+          let mediaBlob = null;
+          if (att.file && att.file instanceof Blob) {
+            mediaBlob = att.file;
+          } else if (att._cachedObjectUrl) {
+            try {
+              const r = await fetch(att._cachedObjectUrl);
+              mediaBlob = await r.blob();
+            } catch (_) {}
+          }
+          if (!mediaBlob && typeof conGetAttachmentDataUrl === 'function') {
+            try {
+              const dUrl = await conGetAttachmentDataUrl(att);
+              if (dUrl) {
+                const r = await fetch(dUrl);
+                mediaBlob = await r.blob();
+              }
+            } catch (_) {}
+          }
+
+          let content = att.base64 || '';
+          if (!content && mediaBlob) {
+            const buf = await mediaBlob.arrayBuffer();
+            const uint8 = new Uint8Array(buf);
+            let binary = '';
+            for (let i = 0; i < uint8.length; i++) binary += String.fromCharCode(uint8[i]);
+            content = btoa(binary);
+          }
+
+          if (content) {
+            const tempName = (att.name || 'temp_media').replace(/[^\w.-]/g, '_');
+            const saveRes = await window.Desktop.saveFile({
+              target: 'user',
+              subdir: 'temp_media',
+              filename: tempName,
+              content: content,
+              encoding: 'base64'
+            });
+            if (saveRes && (saveRes.file || saveRes.path)) {
+              att.path = saveRes.file || saveRes.path;
+              return att.path;
+            }
+          }
+        } catch (saveErr) {
+          console.warn('[Board] Could not save in-memory attachment to temp file for converter:', saveErr);
+        }
+      }
+
+      return att.relativePath || att.name || '';
+    };
+
+    function conFindAttachmentById(id) {
+      if (!id) return null;
+      return conAttachments.find(item => item.id === id) || null;
+    }
+    window.conFindAttachmentById = conFindAttachmentById;
+
+    function conResolvePdfBackgroundAttachment(bg) {
+      if (!bg) return null;
+      const bgId = String(bg.attachmentId || '').trim();
+      if (bgId) {
+        const byId = conFindAttachmentById(bgId);
+        if (byId && byId.kind === 'pdf') return byId;
+      }
+
+      const bgPath = String(bg.relativePath || '').trim().replace(/\\/g, '/').toLowerCase();
+      if (bgPath) {
+        const byPath = conAttachments.find(item => item.kind === 'pdf' && String(item.relativePath || '').trim().replace(/\\/g, '/').toLowerCase() === bgPath);
+        if (byPath) return byPath;
+      }
+
+      const bgName = String(bg.name || '').trim().toLowerCase();
+      if (bgName) {
+        const byName = conAttachments.find(item => item.kind === 'pdf' && String(item.name || '').trim().toLowerCase() === bgName);
+        if (byName) return byName;
+      }
+
+      return null;
+    }
+    global.conResolvePdfBackgroundAttachment = window.conResolvePdfBackgroundAttachment = conResolvePdfBackgroundAttachment;
+
+    function conAttachmentCandidateRelativePaths(att) {
+      const out = [];
+      const seen = new Set();
+      function pushPath(value) {
+        const p = String(value || '').trim().replace(/\\/g, '/');
+        if (!p) return;
+        const key = p.toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+        out.push(p);
+      }
+
+      pushPath(att && att.relativePath);
+
+      const kind = String((att && att.kind) || '').trim();
+      const name = String((att && att.name) || '').trim();
+      if (kind && name) {
+        if (_conCurrentFolderName) {
+          pushPath(_conCurrentFolderName + '/' + kind + '/' + name);
+          if (kind === 'sounds') pushPath(_conCurrentFolderName + '/audio/' + name);
+          if (kind === 'videos') pushPath(_conCurrentFolderName + '/video/' + name);
+        }
+        const fileBase = _conCurrentFileName ? boardStripJsonExt(_conCurrentFileName) : '';
+        if (fileBase) {
+          pushPath(fileBase + '/' + kind + '/' + name);
+          if (kind === 'sounds') pushPath(fileBase + '/audio/' + name);
+          if (kind === 'videos') pushPath(fileBase + '/video/' + name);
+        }
+      }
+
+      return out;
+    }
+
+    function conGuessMimeByName(name, kind) {
+      const lower = String(name || '').toLowerCase();
+      if (/\.webp$/i.test(lower)) return 'image/webp';
+      if (/\.png$/i.test(lower)) return 'image/png';
+      if (/\.jpe?g$/i.test(lower)) return 'image/jpeg';
+      if (/\.gif$/i.test(lower)) return 'image/gif';
+      if (/\.svg$/i.test(lower)) return 'image/svg+xml';
+      if (/\.mp3$/i.test(lower)) return 'audio/mpeg';
+      if (/\.wav$/i.test(lower)) return 'audio/wav';
+      if (/\.ogg$/i.test(lower)) return 'audio/ogg';
+      if (/\.m4a$/i.test(lower)) return 'audio/mp4';
+      if (/\.(webm|weba|opus)$/i.test(lower)) return (kind === 'sounds' ? 'audio/webm' : 'video/webm');
+      if (/\.m4v$/i.test(lower)) return 'video/mp4';
+      if (/\.avi$/i.test(lower)) return 'video/x-msvideo';
+      if (/\.mkv$/i.test(lower)) return 'video/x-matroska';
+      if (/\.aac$/i.test(lower)) return 'audio/aac';
+      if (/\.flac$/i.test(lower)) return 'audio/flac';
+      if (/\.mp4$/i.test(lower)) return 'video/mp4';
+      if (/\.mov$/i.test(lower)) return 'video/quicktime';
+      if (/\.pdf$/i.test(lower)) return 'application/pdf';
+      if (kind === 'pics') return 'image/webp';
+      if (kind === 'sounds') return 'audio/wav';
+      if (kind === 'videos') return 'video/webm';
+      if (kind === 'pdf') return 'application/pdf';
+      return '';
+    }
+
+    async function conGetAttachmentDataUrl(att) {
+      if (!att) return '';
+
+      const masterAtt = (typeof conFindAttachmentById === 'function')
+        ? (conFindAttachmentById(att.attachmentId || att.id) || att)
+        : att;
+
+      if (att._cachedObjectUrl) return att._cachedObjectUrl;
+      if (masterAtt && masterAtt._cachedObjectUrl) return masterAtt._cachedObjectUrl;
+      if (att._cachedDataUrl) return att._cachedDataUrl;
+      if (masterAtt && masterAtt._cachedDataUrl) return masterAtt._cachedDataUrl;
+
+      // Mirror mode: use preloaded data URLs sent from the main window
+      if (typeof _conMirrorAttachmentPreload !== 'undefined' && _conMirrorAttachmentPreload) {
+        const candidateKeys = [
+          att.attachmentId,
+          att.id,
+          masterAtt && masterAtt.attachmentId,
+          masterAtt && masterAtt.id,
+          att.name,
+          masterAtt && masterAtt.name
+        ].filter(Boolean);
+        for (const k of candidateKeys) {
+          if (_conMirrorAttachmentPreload[k]) {
+            att._cachedDataUrl = _conMirrorAttachmentPreload[k];
+            if (masterAtt) masterAtt._cachedDataUrl = _conMirrorAttachmentPreload[k];
+            return att._cachedDataUrl;
+          }
+        }
+      }
+
+      const mimeForBlob = att.mime || (masterAtt && masterAtt.mime) || conGuessMimeByName(att.name || (masterAtt && masterAtt.name), att.kind || (masterAtt && masterAtt.kind)) || ((att.kind === 'sounds' || (masterAtt && masterAtt.kind === 'sounds')) ? 'audio/wav' : ((att.kind === 'videos' || (masterAtt && masterAtt.kind === 'videos')) ? 'video/webm' : 'application/octet-stream'));
+
+      const fileObj = att.file || (masterAtt && masterAtt.file);
+      if (fileObj) {
+        try {
+          const objUrl = URL.createObjectURL(fileObj);
+          att._cachedObjectUrl = objUrl;
+          if (masterAtt) masterAtt._cachedObjectUrl = objUrl;
+          return objUrl;
+        } catch {
+          try {
+            const dataUrl = await new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(String(reader.result || ''));
+              reader.onerror = () => reject(reader.error || new Error('Could not read file.'));
+              reader.readAsDataURL(fileObj);
+            });
+            att._cachedDataUrl = dataUrl;
+            if (masterAtt) masterAtt._cachedDataUrl = dataUrl;
+            return dataUrl;
+          } catch {
+            return '';
+          }
+        }
+      }
+
+      const base64 = att.base64 || (masterAtt && masterAtt.base64) || '';
+      if (base64) {
+        try {
+          const cleanB64 = base64.startsWith('data:') ? base64.split(',')[1] : base64;
+          let blob = null;
+          try {
+            const fetchRes = await fetch('data:' + mimeForBlob + ';base64,' + cleanB64);
+            blob = await fetchRes.blob();
+          } catch (_) {
+            const binary = atob(cleanB64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            blob = new Blob([bytes], { type: mimeForBlob });
+          }
+          if (blob) {
+            const objUrl = URL.createObjectURL(blob);
+            att._cachedObjectUrl = objUrl;
+            if (masterAtt) masterAtt._cachedObjectUrl = objUrl;
+            return objUrl;
+          }
+        } catch (e) {
+          console.error('[Attachment] Failed to convert base64 to object URL:', e);
+        }
+      }
+
+      if (window.Desktop && Desktop.isElectron() && typeof Desktop.readByPath === 'function') {
+        const candidates = conAttachmentCandidateRelativePaths(masterAtt || att);
+        for (const candidatePath of candidates) {
+          try {
+            const res = await Desktop.readByPath('mindmaps', candidatePath, { encoding: 'base64' });
+            if (res && res.ok && res.content) {
+              const cleanB64 = String(res.content).startsWith('data:') ? String(res.content).split(',')[1] : String(res.content);
+              let blob = null;
+              try {
+                const fetchRes = await fetch('data:' + mimeForBlob + ';base64,' + cleanB64);
+                blob = await fetchRes.blob();
+              } catch (_) {
+                const binary = atob(cleanB64);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                blob = new Blob([bytes], { type: mimeForBlob });
+              }
+              if (blob) {
+                const objUrl = URL.createObjectURL(blob);
+                att._cachedObjectUrl = objUrl;
+                if (masterAtt) masterAtt._cachedObjectUrl = objUrl;
+                if (!att.relativePath) att.relativePath = candidatePath;
+                if (masterAtt && !masterAtt.relativePath) masterAtt.relativePath = candidatePath;
+                return objUrl;
+              }
+            }
+          } catch { }
+        }
+      }
+
+      return '';
+    }
+    global.conGetAttachmentDataUrl = window.conGetAttachmentDataUrl = conGetAttachmentDataUrl;
+
+    // Returns {w, h} using the image's naturalWidth/naturalHeight, or null on failure.
+    async function conGetImageNaturalSize(url) {
+      if (!url) return null;
+      return new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => {
+          if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+            resolve({ w: img.naturalWidth, h: img.naturalHeight });
+          } else {
+            resolve(null);
+          }
+        };
+        img.onerror = () => resolve(null);
+        img.src = url;
+      });
+    }
+
+    async function conGetAttachmentArrayBuffer(att) {
+      if (!att) return null;
+
+      const masterAtt = (typeof conFindAttachmentById === 'function')
+        ? (conFindAttachmentById(att.attachmentId || att.id) || att)
+        : att;
+
+      // Mirror mode: convert preloaded data URL to ArrayBuffer with memory caching
+      const _abPreloadKey = (att.attachmentId || att.id || (masterAtt && (masterAtt.attachmentId || masterAtt.id))) || '';
+      if (_abPreloadKey) {
+        if (window._conAttachmentBufferCache && window._conAttachmentBufferCache.has(_abPreloadKey)) {
+          return window._conAttachmentBufferCache.get(_abPreloadKey);
+        }
+        if (_conMirrorAttachmentPreload[_abPreloadKey]) {
+          try {
+            const dataUrl = _conMirrorAttachmentPreload[_abPreloadKey];
+            const base64 = dataUrl.startsWith('data:') ? dataUrl.split(',')[1] : dataUrl;
+            const binary = atob(base64);
+            const len = binary.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+            const buf = bytes.buffer;
+            if (window._conAttachmentBufferCache) window._conAttachmentBufferCache.set(_abPreloadKey, buf);
+            return buf;
+          } catch { }
+        }
+      }
+
+      // 1. Check direct file object
+      const fileObj = att.file || (masterAtt && masterAtt.file);
+      if (fileObj && typeof fileObj.arrayBuffer === 'function') {
+        try {
+          return await fileObj.arrayBuffer();
+        } catch { }
+      }
+
+      // 2. Check base64 data
+      const base64 = att.base64 || (masterAtt && masterAtt.base64) || '';
+      if (base64) {
+        try {
+          const cleanB64 = base64.startsWith('data:') ? base64.split(',')[1] : base64;
+          const binary = atob(cleanB64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          return bytes.buffer;
+        } catch (e) {
+          console.error('[Attachment] Failed to convert base64 to buffer:', e);
+        }
+      }
+
+      // 3. Check cached object URL (blob:) or data URL
+      const cachedUrl = att._cachedObjectUrl || (masterAtt && masterAtt._cachedObjectUrl) || att._cachedDataUrl || (masterAtt && masterAtt._cachedDataUrl) || '';
+      if (cachedUrl) {
+        try {
+          const resp = await fetch(cachedUrl);
+          if (resp.ok) return await resp.arrayBuffer();
+        } catch { }
+      }
+
+      // 4. Check Desktop disk files
+      if (window.Desktop && Desktop.isElectron() && typeof Desktop.readByPath === 'function') {
+        const candidates = conAttachmentCandidateRelativePaths(masterAtt || att);
+        for (const candidatePath of candidates) {
+          try {
+            const res = await Desktop.readByPath('mindmaps', candidatePath, { encoding: 'base64' });
+            if (res && res.ok && res.content) {
+              const binary = atob(String(res.content));
+              const bytes = new Uint8Array(binary.length);
+              for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+              if (!masterAtt.relativePath) masterAtt.relativePath = candidatePath;
+              return bytes.buffer;
+            }
+          } catch { }
+        }
+      }
+
+      return null;
+    }
+
+    function conEstimatePdfPageCountFromBytes(bytes) {
+      try {
+        let text = '';
+        const chunkSize = 65536;
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+          const chunk = bytes.subarray(i, Math.min(bytes.length, i + chunkSize));
+          text += String.fromCharCode.apply(null, chunk);
+        }
+        const matches = text.match(/\/Type\s*\/Page(?!s)\b/g);
+        return Math.max(1, matches ? matches.length : 1);
+      } catch {
+        return 1;
+      }
+    }
+
+    async function conGetPdfPageCount(att) {
+      if (!att || att.kind !== 'pdf') return 1;
+      if (Number.isFinite(att._cachedPdfPageCount) && att._cachedPdfPageCount > 0) {
+        return att._cachedPdfPageCount;
+      }
+
+      try {
+        const pdfjsLib = await conEnsurePdfjsLib();
+        let pdfDoc = att._pdfDoc;
+        if (!pdfDoc) {
+          const buf = await conGetAttachmentArrayBuffer(att);
+          if (!buf) return 1;
+          pdfDoc = await pdfjsLib.getDocument(conPdfGetDocumentParams({ data: new Uint8Array(buf) })).promise;
+          att._pdfDoc = pdfDoc;
+        }
+        const pageCount = (pdfDoc && Number(pdfDoc.numPages) > 0) ? pdfDoc.numPages : 1;
+        att._cachedPdfPageCount = pageCount;
+        return pageCount;
+      } catch (e) {
+        console.warn('[PDF] Could not get accurate page count with PDF.js:', e);
+        try {
+          const buf = await conGetAttachmentArrayBuffer(att);
+          if (buf) {
+            const bytes = new Uint8Array(buf);
+            const pageCount = conEstimatePdfPageCountFromBytes(bytes);
+            att._cachedPdfPageCount = pageCount;
+            return pageCount;
+          }
+        } catch (_) {}
+        return 1;
+      }
+    }
+
+    function conBuildEmptyPageSnapshot() {
+      return {
+        nodes: [],
+        edges: [],
+        groups: [],
+        masks: [],
+        notes: [],
+        drawings: [],
+        shapes: [],
+        tables: [],
+        media: [],
+        backgroundPdf: null,
+        boardBg: null,
+        boardBgColor: window._bcBoardDefaultBgColor || null,
+        boardHeight: null
+      };
+    }
+    window.conBuildEmptyPageSnapshot = global.conBuildEmptyPageSnapshot = conBuildEmptyPageSnapshot;
+
+    async function conGetPdfPageAspectRatio(pdfLike, pageNum = 1) {
+      if (!pdfLike) return null;
+      try {
+        const pdfjsLib = await conEnsurePdfjsLib();
+        let pdfDoc = pdfLike._pdfDoc;
+        if (!pdfDoc) {
+          const buf = await conGetAttachmentArrayBuffer(pdfLike);
+          if (!buf) return null;
+          pdfDoc = await pdfjsLib.getDocument(conPdfGetDocumentParams({ data: new Uint8Array(buf) })).promise;
+          pdfLike._pdfDoc = pdfDoc;
+        }
+        const pNum = Math.max(1, Math.min(pdfDoc.numPages, Number(pageNum) || 1));
+        const page = await pdfDoc.getPage(pNum);
+        const rotation = (((Number(pdfLike.pdfRotation) || 0) % 360) + 360) % 360;
+        const vp = page.getViewport({ scale: 1, rotation });
+        if (vp && vp.width > 0 && vp.height > 0) {
+          return vp.height / vp.width;
+        }
+      } catch (e) {
+        console.warn('[PDF] Could not get aspect ratio:', e);
+      }
+      return null;
+    }
+
+    function conGetDefaultPdfMediaRect(aspectRatio) {
+      const board = document.getElementById('constellation-board');
+      const boardW = board ? Math.max(320, board.clientWidth || 0) : 960;
+      const boardH = board ? Math.max(320, board.clientHeight || 0) : 1400;
+      const w = (window._bcPdfInsertWidth > 0) ? Math.max(260, window._bcPdfInsertWidth) : Math.max(260, Math.round(boardW * 0.8));
+      const ratio = (Number.isFinite(aspectRatio) && aspectRatio > 0) ? aspectRatio : 1.35;
+      const h = Math.max(180, Math.min(boardH - 24, Math.round(w * ratio)));
+      const x = Math.max(12, Math.round((boardW - w) / 2));
+      return { x, y: 12, w, h };
+    }
+
+    function conBuildPdfMediaItem(pdfLike, options = {}) {
+      if (!pdfLike) return null;
+      const linkedAttachment = conResolvePdfBackgroundAttachment(pdfLike);
+      const ratio = options && Number.isFinite(options.aspectRatio) ? options.aspectRatio : null;
+      const rect = conGetDefaultPdfMediaRect(ratio);
+      const pageNumber = Math.max(1, Number(pdfLike.pageNumber) || 1);
+      const item = {
+        id: String(options.id || ('cm' + (conMediaNextId++))),
+        kind: 'pdf',
+        attachmentId: String((linkedAttachment && linkedAttachment.id) || pdfLike.attachmentId || ''),
+        name: String((linkedAttachment && linkedAttachment.name) || pdfLike.name || 'document.pdf'),
+        mime: String((linkedAttachment && linkedAttachment.mime) || pdfLike.mime || 'application/pdf'),
+        relativePath: String((linkedAttachment && linkedAttachment.relativePath) || pdfLike.relativePath || ''),
+        file: (linkedAttachment && linkedAttachment.file) || pdfLike.file || null,
+        pageNumber,
+        pdfFit: options.pdfFit || 'h',
+        pdfZoom: options.pdfZoom != null ? options.pdfZoom : 1,
+        pdfRotation: options.pdfRotation || 0,
+        pdfScrollX: options.pdfScrollX || 0,
+        pdfScrollY: options.pdfScrollY || 0,
+        pdfLockSize: options.pdfLockSize !== undefined ? !!options.pdfLockSize : true,
+        locked: options.locked !== undefined ? !!options.locked : true,
+        x: Number.isFinite(options.x) ? Math.round(options.x) : rect.x,
+        y: Number.isFinite(options.y) ? Math.round(options.y) : rect.y,
+        w: Number.isFinite(options.w) ? Math.max(220, Math.round(options.w)) : rect.w,
+        h: Number.isFinite(options.h) ? Math.max(180, Math.round(options.h)) : rect.h
+      };
+      if (ratio) item._ratioInitialized = true;
+      return item;
+    }
+
+    function conRemoveInsertAttachmentChooser() {
+      const el = document.getElementById('con-insert-attachment-chooser');
+      if (el) el.remove();
+      conRemoveManageMediaDeletePopup();
+
+      if (conManageMediaChooserOutsideClick) {
+        document.removeEventListener('mousedown', conManageMediaChooserOutsideClick, true);
+        conManageMediaChooserOutsideClick = null;
+      }
+      if (conManageMediaChooserKey) {
+        document.removeEventListener('keydown', conManageMediaChooserKey, true);
+        conManageMediaChooserKey = null;
+      }
+    }
+
+    function conRemoveManageMediaDeletePopup() {
+      const pop = document.getElementById('con-media-delete-popover');
+      if (pop) pop.remove();
+    }
+
+    function conOpenManageMediaDeletePopover(att, anchorBtn) {
+      conRemoveManageMediaDeletePopup();
+      if (!att) return;
+
+      const pop = document.createElement('div');
+      pop.id = 'con-media-delete-popover';
+      pop.className = 'con-media-delete-popover';
+
+      const msg = document.createElement('div');
+      msg.className = 'con-media-delete-popover-msg';
+      msg.textContent = 'Delete "' + att.name + '" from this constellation file? This also removes it from all pages.';
+
+      const actions = document.createElement('div');
+      actions.className = 'con-media-delete-popover-actions';
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.type = 'button';
+      cancelBtn.className = 'con-media-manage-btn';
+      cancelBtn.textContent = 'Cancel';
+      cancelBtn.onclick = () => {
+        conRemoveManageMediaDeletePopup();
+      };
+
+      const confirmBtn = document.createElement('button');
+      confirmBtn.type = 'button';
+      confirmBtn.className = 'con-media-manage-btn con-media-manage-btn-danger';
+      confirmBtn.textContent = 'Delete';
+      confirmBtn.onclick = async () => {
+        await conDeleteAttachmentEverywhere(att.id);
+        conRemoveManageMediaDeletePopup();
+        window.conOpenManageMediaChooser({ keepPosition: true });
+      };
+
+      actions.appendChild(cancelBtn);
+      actions.appendChild(confirmBtn);
+      pop.appendChild(msg);
+      pop.appendChild(actions);
+      document.body.appendChild(pop);
+
+      const rect = anchorBtn && typeof anchorBtn.getBoundingClientRect === 'function'
+        ? anchorBtn.getBoundingClientRect()
+        : { left: window.innerWidth / 2, top: window.innerHeight / 2, bottom: window.innerHeight / 2 };
+
+      const popRect = pop.getBoundingClientRect();
+      let left = Math.round(rect.left);
+      let top = Math.round(rect.bottom + 8);
+      if (left + popRect.width > window.innerWidth - 8) {
+        left = Math.max(8, Math.round(window.innerWidth - popRect.width - 8));
+      }
+      if (top + popRect.height > window.innerHeight - 8) {
+        top = Math.max(8, Math.round(rect.top - popRect.height - 8));
+      }
+
+      pop.style.left = left + 'px';
+      pop.style.top = top + 'px';
+
+      const onOutside = ev => {
+        if (!pop.contains(ev.target)) {
+          conRemoveManageMediaDeletePopup();
+          document.removeEventListener('mousedown', onOutside, true);
+        }
+      };
+
+      setTimeout(() => {
+        document.addEventListener('mousedown', onOutside, true);
+      }, 0);
+    }
+
+    function conCountAttachmentPlacedOnCurrentPage(attachmentId) {
+      const id = String(attachmentId || '');
+      if (!id) return 0;
+      let count = conMediaItems.filter(item => String(item.attachmentId || '') === id).length;
+      if (conPageBackgroundPdf && String(conPageBackgroundPdf.attachmentId || '') === id) count += 1;
+      return count;
+    }
+
+    function conRemoveAttachmentFromCurrentPage(attachmentId, options = {}) {
+      const id = String(attachmentId || '');
+      if (!id) return { removedMedia: 0, removedPdfBackground: false };
+
+      const removeIds = new Set(
+        conMediaItems
+          .filter(item => String(item.attachmentId || '') === id)
+          .map(item => String(item.id || ''))
+      );
+      const removedMedia = removeIds.size;
+      if (removedMedia > 0) {
+        conMediaItems = conMediaItems.filter(item => !removeIds.has(String(item.id || '')));
+        document.querySelectorAll('.con-media-item').forEach(el => {
+          if (removeIds.has(String(el.dataset.id || ''))) el.remove();
+        });
+      }
+
+      let removedPdfBackground = false;
+      if (conPageBackgroundPdf && String(conPageBackgroundPdf.attachmentId || '') === id) {
+        conPageBackgroundPdf = null;
+        conRenderPagePdfBackground();
+        removedPdfBackground = true;
+      }
+
+      if (!(options && options.silent) && typeof mdbToast === 'function') {
+        if (removedMedia > 0 || removedPdfBackground) {
+          const parts = [];
+          if (removedMedia > 0) parts.push(removedMedia + ' media item(s)');
+          if (removedPdfBackground) parts.push('PDF background');
+          mdbToast('🧹 Removed from current page: ' + parts.join(' + ') + '.');
+        } else {
+          mdbToast('ℹ️ This attachment is not on the current page.');
+        }
+      }
+
+      return { removedMedia, removedPdfBackground };
+    }
+
+    async function conDeleteAttachmentEverywhere(attachmentId, options = {}) {
+      const id = String(attachmentId || '');
+      if (!id) return false;
+
+      conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
+
+      conPageSnapshots = conPageSnapshots.map(page => {
+        const base = page && typeof page === 'object' ? page : conBuildEmptyPageSnapshot();
+        const nextPage = {
+          ...base,
+          media: Array.isArray(base.media)
+            ? base.media.filter(item => String((item && item.attachmentId) || '') !== id)
+            : [],
+          backgroundPdf: (base.backgroundPdf && String(base.backgroundPdf.attachmentId || '') === id)
+            ? null
+            : (base.backgroundPdf || null)
+        };
+        return nextPage;
+      });
+
+      _conRestorePageToBoard(conPageSnapshots[conCurrentPageIndex] || conBuildEmptyPageSnapshot());
+      if (window.conUpdatePageBar) window.conUpdatePageBar();
+
+      const idx = conAttachments.findIndex(item => String(item.id || '') === id);
+      if (idx < 0) return false;
+      const [removed] = conAttachments.splice(idx, 1);
+      if (removed && removed._cachedObjectUrl) {
+        try { URL.revokeObjectURL(removed._cachedObjectUrl); } catch { }
+      }
+
+      const removedRelativePath = String((removed && removed.relativePath) || '').trim();
+      if (removedRelativePath
+        && window.Desktop
+        && Desktop.isElectron()
+        && typeof Desktop.deleteByPath === 'function') {
+        try {
+          await Desktop.deleteByPath('mindmaps', removedRelativePath, { recursive: false, force: true });
+        } catch (error) {
+          console.warn('Could not delete attachment file from disk:', removedRelativePath, error);
+        }
+      }
+
+      conRenderAttachmentSummary();
+      if (!(options && options.silent) && typeof mdbToast === 'function') {
+        mdbToast('🗑 Deleted attachment: ' + (removed && removed.name ? removed.name : 'file'));
+      }
+      return true;
+    }
+
+    async function conDeleteAttachmentsBulk(categoryOrKind, options = {}) {
+      if (!Array.isArray(conAttachments) || conAttachments.length === 0) return 0;
+
+      const cat = String(categoryOrKind || 'all').toLowerCase();
+      let toDelete = [];
+      let label = 'all';
+
+      if (cat === 'all') {
+        toDelete = [...conAttachments];
+        label = 'all';
+      } else if (cat === 'pdf') {
+        toDelete = conAttachments.filter(item => item && item.kind === 'pdf');
+        label = 'PDF';
+      } else if (cat === 'pics' || cat === 'images') {
+        toDelete = conAttachments.filter(item => item && item.kind === 'pics');
+        label = 'image';
+      } else if (cat === 'sounds' || cat === 'audio') {
+        toDelete = conAttachments.filter(item => item && item.kind === 'sounds');
+        label = 'audio';
+      } else if (cat === 'videos' || cat === 'video') {
+        toDelete = conAttachments.filter(item => item && (item.kind === 'video' || item.kind === 'videos'));
+        label = 'video';
+      } else if (cat === 'other') {
+        toDelete = conAttachments.filter(item => item && !['pdf', 'pics', 'sounds', 'videos'].includes(item.kind));
+        label = 'other';
+      } else {
+        toDelete = conAttachments.filter(item => item && item.kind === cat);
+        label = cat;
+      }
+
+      if (!toDelete.length) return 0;
+
+      const deleteIds = new Set(toDelete.map(a => String(a.id || '')));
+
+      conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
+
+      conPageSnapshots = conPageSnapshots.map(page => {
+        const base = page && typeof page === 'object' ? page : conBuildEmptyPageSnapshot();
+        return {
+          ...base,
+          media: Array.isArray(base.media)
+            ? base.media.filter(item => !deleteIds.has(String((item && item.attachmentId) || '')))
+            : [],
+          backgroundPdf: (base.backgroundPdf && deleteIds.has(String(base.backgroundPdf.attachmentId || '')))
+            ? null
+            : (base.backgroundPdf || null),
+          boardBg: (base.boardBg && deleteIds.has(String(base.boardBg.attachmentId || '')))
+            ? null
+            : (base.boardBg || null)
+        };
+      });
+
+      _conRestorePageToBoard(conPageSnapshots[conCurrentPageIndex] || conBuildEmptyPageSnapshot());
+      if (window.conUpdatePageBar) window.conUpdatePageBar();
+
+      for (const item of toDelete) {
+        if (item && item._cachedObjectUrl) {
+          try { URL.revokeObjectURL(item._cachedObjectUrl); } catch { }
+        }
+        const removedRelativePath = String((item && item.relativePath) || '').trim();
+        if (removedRelativePath
+          && window.Desktop
+          && Desktop.isElectron()
+          && typeof Desktop.deleteByPath === 'function') {
+          try {
+            await Desktop.deleteByPath('mindmaps', removedRelativePath, { recursive: false, force: true });
+          } catch (error) {
+            console.warn('Could not delete attachment file from disk:', removedRelativePath, error);
+          }
+        }
+      }
+
+      conAttachments = conAttachments.filter(item => !deleteIds.has(String(item.id || '')));
+
+      conRenderAttachmentSummary();
+      if (!(options && options.silent) && typeof mdbToast === 'function') {
+        mdbToast('Deleted ' + toDelete.length + ' ' + label + ' attachment' + (toDelete.length === 1 ? '' : 's') + '.');
+      }
+      return toDelete.length;
+    }
+
+    function conOpenRemoveAllAttachedPopover(anchorBtn) {
+      conRemoveManageMediaDeletePopup();
+      if (!Array.isArray(conAttachments) || conAttachments.length === 0) {
+        if (typeof mdbToast === 'function') mdbToast('No attached documents to remove.');
+        return;
+      }
+
+      const counts = { all: conAttachments.length, pdf: 0, pics: 0, sounds: 0, videos: 0, other: 0 };
+      conAttachments.forEach(att => {
+        const k = att && att.kind;
+        if (k === 'pdf') counts.pdf += 1;
+        else if (k === 'pics') counts.pics += 1;
+        else if (k === 'sounds') counts.sounds += 1;
+        else if (k === 'videos') counts.videos += 1;
+        else counts.other += 1;
+      });
+
+      const pop = document.createElement('div');
+      pop.id = 'con-media-delete-popover';
+      pop.className = 'con-media-delete-popover';
+      pop.style.width = '330px';
+      pop.style.maxWidth = 'calc(100vw - 16px)';
+
+      function renderCategoryChoices() {
+        pop.innerHTML = '';
+
+        const title = document.createElement('div');
+        title.style.cssText = 'font-weight:800; font-size:0.82rem; color:#111; display:flex; align-items:center; gap:6px; margin-bottom:2px;';
+        title.innerHTML = '<span>' + (t('conRemoveAllAttachedTitle') || 'Remove Attached Documents') + '</span>';
+        pop.appendChild(title);
+
+        const hint = document.createElement('div');
+        hint.style.cssText = 'font-size:0.75rem; color:#555; margin-bottom:8px; line-height:1.3;';
+        hint.textContent = t('conRemoveAllAttachedHint') || 'Choose which attachments to permanently remove from this board:';
+        pop.appendChild(hint);
+
+        const list = document.createElement('div');
+        list.style.cssText = 'display:flex; flex-direction:column; gap:5px; margin-bottom:8px;';
+
+        const categories = [
+          { key: 'all', label: t('conRemoveAllCategories') || 'All attached documents (All categories)', count: counts.all, danger: true },
+          { key: 'pdf', label: t('conRemoveAllPdf') || 'All PDF documents', count: counts.pdf },
+          { key: 'pics', label: t('conRemoveAllImages') || 'All Images', count: counts.pics },
+          { key: 'sounds', label: t('conRemoveAllAudio') || 'All Sounds / Audio', count: counts.sounds },
+          { key: 'videos', label: t('conRemoveAllVideos') || 'All Videos', count: counts.videos },
+        ];
+        if (counts.other > 0) {
+          categories.push({ key: 'other', label: t('conRemoveAllOther') || 'Other Documents', count: counts.other });
+        }
+
+        categories.forEach(cat => {
+          if (cat.count === 0 && cat.key !== 'all') return;
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'con-media-manage-btn' + (cat.danger ? ' con-media-manage-btn-danger' : '');
+          btn.style.cssText = 'display:flex; align-items:center; justify-content:space-between; padding:6px 10px; font-size:0.76rem; border-radius:5px; text-align:left; gap:8px;' + (cat.danger ? ' font-weight:800;' : '');
+
+          const labelSpan = document.createElement('span');
+          labelSpan.textContent = cat.label;
+          const badge = document.createElement('span');
+          badge.style.cssText = 'font-weight:700; opacity:0.8; font-size:0.72rem; padding:1px 6px; border-radius:10px; background:rgba(0,0,0,0.06); flex-shrink:0;';
+          badge.textContent = cat.count;
+
+          btn.appendChild(labelSpan);
+          btn.appendChild(badge);
+          btn.onclick = () => renderConfirmation(cat);
+          list.appendChild(btn);
+        });
+
+        pop.appendChild(list);
+
+        const footer = document.createElement('div');
+        footer.style.cssText = 'display:flex; justify-content:flex-end;';
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'con-media-manage-btn';
+        cancelBtn.textContent = t('btnCancel') || 'Cancel';
+        cancelBtn.onclick = () => conRemoveManageMediaDeletePopup();
+        footer.appendChild(cancelBtn);
+        pop.appendChild(footer);
+      }
+
+      function renderConfirmation(cat) {
+        pop.innerHTML = '';
+
+        const title = document.createElement('div');
+        title.style.cssText = 'font-weight:800; font-size:0.82rem; color:#b91c1c; display:flex; align-items:center; gap:6px; margin-bottom:4px;';
+        title.innerHTML = '<span>Confirm Removal</span>';
+        pop.appendChild(title);
+
+        const msg = document.createElement('div');
+        msg.style.cssText = 'font-size:0.77rem; color:#222; line-height:1.4; margin-bottom:12px;';
+        if (cat.key === 'all') {
+          msg.textContent = 'Delete ALL ' + cat.count + ' attached document(s) across all categories? This will permanently remove them from all board pages and session files.';
+        } else {
+          msg.textContent = 'Delete all ' + cat.count + ' attached ' + cat.label.toLowerCase() + '? This will permanently remove them from all board pages and session files.';
+        }
+        pop.appendChild(msg);
+
+        const actions = document.createElement('div');
+        actions.style.cssText = 'display:flex; justify-content:flex-end; gap:6px;';
+
+        const backBtn = document.createElement('button');
+        backBtn.type = 'button';
+        backBtn.className = 'con-media-manage-btn';
+        backBtn.textContent = 'Back';
+        backBtn.onclick = () => renderCategoryChoices();
+
+        const confirmBtn = document.createElement('button');
+        confirmBtn.type = 'button';
+        confirmBtn.className = 'con-media-manage-btn con-media-manage-btn-danger';
+        confirmBtn.textContent = 'Delete ' + (cat.key === 'all' ? 'All' : cat.count);
+        confirmBtn.onclick = async () => {
+          confirmBtn.disabled = true;
+          confirmBtn.textContent = 'Deleting...';
+          await conDeleteAttachmentsBulk(cat.key);
+          conRemoveManageMediaDeletePopup();
+          window.conOpenManageMediaChooser({ keepPosition: true });
+        };
+
+        actions.appendChild(backBtn);
+        actions.appendChild(confirmBtn);
+        pop.appendChild(actions);
+      }
+
+      renderCategoryChoices();
+      document.body.appendChild(pop);
+
+      const rect = anchorBtn && typeof anchorBtn.getBoundingClientRect === 'function'
+        ? anchorBtn.getBoundingClientRect()
+        : { left: window.innerWidth / 2, top: window.innerHeight / 2, bottom: window.innerHeight / 2 };
+
+      const popRect = pop.getBoundingClientRect();
+      let left = Math.round(rect.left);
+      let top = Math.round(rect.bottom + 8);
+      if (left + popRect.width > window.innerWidth - 8) {
+        left = Math.max(8, Math.round(window.innerWidth - popRect.width - 8));
+      }
+      if (top + popRect.height > window.innerHeight - 8) {
+        top = Math.max(8, Math.round(rect.top - popRect.height - 8));
+      }
+
+      pop.style.left = left + 'px';
+      pop.style.top = top + 'px';
+
+      const onOutside = ev => {
+        if (!pop.contains(ev.target)) {
+          conRemoveManageMediaDeletePopup();
+          document.removeEventListener('mousedown', onOutside, true);
+        }
+      };
+
+      setTimeout(() => {
+        document.addEventListener('mousedown', onOutside, true);
+      }, 0);
+    }
+
+    window.conOpenManageMediaChooser = function (anchorOrOptions) {
+      conRemoveInsertAttachmentChooser();
+
+      const opts = (anchorOrOptions && !anchorOrOptions.getBoundingClientRect)
+        ? anchorOrOptions
+        : {};
+      const keepPosition = !!(opts && opts.keepPosition);
+      const anchorEl = (anchorOrOptions && anchorOrOptions.getBoundingClientRect)
+        ? anchorOrOptions
+        : (document.getElementById('con-manage-media-btn') || null);
+      const rect = anchorEl ? anchorEl.getBoundingClientRect() : { left: 120, top: 100, height: 30 };
+
+      const chooser = document.createElement('div');
+      chooser.id = 'con-insert-attachment-chooser';
+      chooser.className = 'con-insert-attachment-chooser';
+      if (keepPosition && conManageMediaChooserPos) {
+        chooser.style.left = conManageMediaChooserPos.left + 'px';
+        chooser.style.top = conManageMediaChooserPos.top + 'px';
+      } else {
+        chooser.style.left = (rect.left + window.scrollX) + 'px';
+        chooser.style.top = (rect.bottom + window.scrollY + 6) + 'px';
+      }
+
+      const title = document.createElement('div');
+      title.className = 'con-insert-attachment-title';
+      title.textContent = 'Manage Attached Media';
+      chooser.appendChild(title);
+
+      const quickActions = document.createElement('div');
+      quickActions.className = 'con-media-manage-quick-actions';
+
+      const addBtn = document.createElement('button');
+      addBtn.type = 'button';
+      addBtn.className = 'con-media-manage-btn';
+      addBtn.textContent = '📎 Attach';
+      addBtn.onclick = () => {
+        conRemoveInsertAttachmentChooser();
+        window.conPickAttachments();
+      };
+
+      const recordBtn = document.createElement('button');
+      recordBtn.type = 'button';
+      recordBtn.className = 'con-media-manage-btn';
+      recordBtn.textContent = t('recordAudio') || '🎙 Record Audio';
+      recordBtn.onclick = () => {
+        conRemoveInsertAttachmentChooser();
+        conOpenRecordPopup();
+      };
+
+      const removeAllBtn = document.createElement('button');
+      removeAllBtn.type = 'button';
+      removeAllBtn.className = 'con-media-manage-btn';
+      removeAllBtn.textContent = '🗑 Media';
+      removeAllBtn.title = 'Remove all inserted image/audio/video objects';
+      removeAllBtn.onclick = () => {
+        window.conRemoveInsertedMedia();
+        window.conOpenManageMediaChooser({ keepPosition: true });
+      };
+
+      const clearPdfBtn = document.createElement('button');
+      clearPdfBtn.type = 'button';
+      clearPdfBtn.className = 'con-media-manage-btn';
+      clearPdfBtn.textContent = '🗑 PDF';
+      clearPdfBtn.title = 'Remove inserted PDF boxes from this page';
+      clearPdfBtn.onclick = () => {
+        window.conClearPagePdfBackground();
+        window.conOpenManageMediaChooser({ keepPosition: true });
+      };
+
+      const removeAttachedBtn = document.createElement('button');
+      removeAttachedBtn.type = 'button';
+      removeAttachedBtn.className = 'con-media-manage-btn con-media-manage-btn-danger';
+      removeAttachedBtn.textContent = (t('conRemoveAttachedDocs') || 'Attached Docs ▾');
+      removeAttachedBtn.title = 'Remove attached documents (all categories, PDFs, images, etc.)';
+      if (!conAttachments.length) {
+        removeAttachedBtn.disabled = true;
+        removeAttachedBtn.style.opacity = '0.5';
+        removeAttachedBtn.style.cursor = 'not-allowed';
+      } else {
+        removeAttachedBtn.onclick = (e) => {
+          e.stopPropagation();
+          conOpenRemoveAllAttachedPopover(removeAttachedBtn);
+        };
+      }
+
+      quickActions.appendChild(addBtn);
+      quickActions.appendChild(recordBtn);
+      quickActions.appendChild(removeAllBtn);
+      quickActions.appendChild(clearPdfBtn);
+      quickActions.appendChild(removeAttachedBtn);
+      chooser.appendChild(quickActions);
+
+      if (!conAttachments.length) {
+        const empty = document.createElement('div');
+        empty.className = 'con-media-manage-empty';
+        empty.textContent = 'No attachments yet. Use Attach to add media files.';
+        chooser.appendChild(empty);
+      } else {
+        const attachHeaderRow = document.createElement('div');
+        attachHeaderRow.style.cssText = 'display:flex; align-items:center; justify-content:space-between; padding:4px 4px 2px; font-size:0.72rem; color:#666; font-weight:700; border-top:1px dashed #e2e8f0; margin-top:2px;';
+
+        const countLabel = document.createElement('span');
+        countLabel.textContent = conAttachments.length + ' attached document' + (conAttachments.length === 1 ? '' : 's');
+        attachHeaderRow.appendChild(countLabel);
+
+        const removeAllLink = document.createElement('button');
+        removeAllLink.type = 'button';
+        removeAllLink.className = 'con-media-manage-btn con-media-manage-btn-danger';
+        removeAllLink.style.fontSize = '0.68rem';
+        removeAllLink.textContent = (t('conRemoveAttachedDocs') || 'Remove all attached...');
+        removeAllLink.title = 'Remove all attached documents (all categories, PDFs, images, etc.)';
+        removeAllLink.onclick = (e) => {
+          e.stopPropagation();
+          conOpenRemoveAllAttachedPopover(removeAllLink);
+        };
+        attachHeaderRow.appendChild(removeAllLink);
+        chooser.appendChild(attachHeaderRow);
+      }
+
+      conAttachments.forEach(att => {
+        const row = document.createElement('div');
+        row.className = 'con-insert-attachment-item';
+
+        const label = document.createElement('div');
+        label.className = 'con-media-manage-label';
+        const icon = att.kind === 'pics' ? '🖼' : att.kind === 'sounds' ? '🔊' : att.kind === 'videos' ? '🎬' : '📄';
+        const placedCount = conCountAttachmentPlacedOnCurrentPage(att.id);
+        label.textContent = icon + ' ' + att.name + (placedCount > 0 ? (' (' + placedCount + ' on page)') : '');
+
+        const actions = document.createElement('div');
+        actions.className = 'con-media-manage-actions';
+
+        const insertBtn = document.createElement('button');
+        insertBtn.type = 'button';
+        insertBtn.className = 'con-media-manage-btn';
+        insertBtn.textContent = att.kind === 'videos' ? (typeof t === 'function' ? t('conMediaInsertNodeBtn', 'Insert as Node') : 'Insert as Node') : (typeof t === 'function' ? t('conMediaInsertBtn', 'Insert') : 'Insert');
+        insertBtn.onclick = async () => {
+          await window.conInsertAttachmentById(att.id);
+          window.conOpenManageMediaChooser({ keepPosition: true });
+        };
+        actions.appendChild(insertBtn);
+
+        if (att.kind === 'videos') {
+          const insertBoxBtn = document.createElement('button');
+          insertBoxBtn.type = 'button';
+          insertBoxBtn.className = 'con-media-manage-btn';
+          insertBoxBtn.textContent = typeof t === 'function' ? t('conMediaInsertCanvasBoxBtn', 'Insert as Canvas Box') : 'Insert as Canvas Box';
+          insertBoxBtn.onclick = async () => {
+            await window.conInsertAttachmentById(att.id, { asCanvasBox: true });
+            window.conOpenManageMediaChooser({ keepPosition: true });
+          };
+          actions.appendChild(insertBoxBtn);
+        }
+
+        if (att.kind === 'sounds' || att.kind === 'videos') {
+          const convBtn = document.createElement('button');
+          convBtn.type = 'button';
+          convBtn.className = 'con-media-manage-btn';
+          convBtn.innerHTML = '<img src="../assets/icons/media-converter.svg" style="width:11px;height:11px;vertical-align:-1px;margin-right:2px;" alt="" />' + (typeof t === 'function' ? t('conMediaConvertBtn', 'Convert') : 'Convert');
+          convBtn.title = 'Open in Media Converter';
+          convBtn.onclick = async () => {
+            const targetPath = (typeof window.conResolveAttachmentDiskPath === 'function')
+              ? await window.conResolveAttachmentDiskPath(att)
+              : (att.path || (att.file && att.file.path) || att.relativePath || att.name || '');
+            if (window.MediaConverterService && typeof window.MediaConverterService.openMediaConverter === 'function') {
+              window.MediaConverterService.openMediaConverter(targetPath);
+            }
+          };
+          actions.appendChild(convBtn);
+        }
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'con-media-manage-btn';
+        removeBtn.textContent = 'Remove from board';
+        removeBtn.onclick = () => {
+          conRemoveAttachmentFromCurrentPage(att.id);
+          window.conOpenManageMediaChooser({ keepPosition: true });
+        };
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'con-media-manage-btn con-media-manage-btn-danger';
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.onclick = () => conOpenManageMediaDeletePopover(att, deleteBtn);
+
+        actions.appendChild(insertBtn);
+        actions.appendChild(removeBtn);
+        actions.appendChild(deleteBtn);
+        row.appendChild(label);
+        row.appendChild(actions);
+        chooser.appendChild(row);
+      });
+
+      document.body.appendChild(chooser);
+      conManageMediaChooserPos = {
+        left: chooser.offsetLeft,
+        top: chooser.offsetTop
+      };
+
+      if (conManageMediaChooserOutsideClick) {
+        document.removeEventListener('mousedown', conManageMediaChooserOutsideClick, true);
+      }
+      if (conManageMediaChooserKey) {
+        document.removeEventListener('keydown', conManageMediaChooserKey, true);
+      }
+
+      function onOutsideClick(ev) {
+        const deletePop = document.getElementById('con-media-delete-popover');
+        if (!chooser.contains(ev.target) && !(deletePop && deletePop.contains(ev.target))) {
+          conRemoveInsertAttachmentChooser();
+        }
+      }
+      function onKey(ev) {
+        if (ev.key === 'Escape') {
+          conRemoveInsertAttachmentChooser();
+        }
+      }
+
+      conManageMediaChooserOutsideClick = onOutsideClick;
+      conManageMediaChooserKey = onKey;
+
+      setTimeout(() => {
+        if (conManageMediaChooserOutsideClick === onOutsideClick) {
+          document.addEventListener('mousedown', onOutsideClick, true);
+        }
+        if (conManageMediaChooserKey === onKey) {
+          document.addEventListener('keydown', onKey, true);
+        }
+      }, 0);
+    };
+
+    // Backward compatibility for previous button handler name.
+    window.conOpenInsertAttachmentChooser = function () {
+      window.conOpenManageMediaChooser();
+    };
+
+    function conEnsurePdfBackgroundLayer() {
+      const existing = document.getElementById('con-page-pdf-bg');
+      if (existing) existing.remove();
+      return null;
+    }
+
+    async function conRenderPagePdfBackground(options = {}) {
+      conEnsurePdfBackgroundLayer();
+      if (!conPageBackgroundPdf) return;
+
+      const legacyPdf = {
+        attachmentId: String(conPageBackgroundPdf.attachmentId || ''),
+        name: String(conPageBackgroundPdf.name || 'document.pdf'),
+        mime: String(conPageBackgroundPdf.mime || 'application/pdf'),
+        relativePath: String(conPageBackgroundPdf.relativePath || ''),
+        pageNumber: Math.max(1, Number(conPageBackgroundPdf.pageNumber) || 1),
+        file: conPageBackgroundPdf.file || null
+      };
+
+      const linked = conResolvePdfBackgroundAttachment(legacyPdf);
+      if (linked) {
+        legacyPdf.attachmentId = linked.id;
+        if (linked.name) legacyPdf.name = linked.name;
+        if (linked.mime) legacyPdf.mime = linked.mime;
+        if (linked.relativePath) legacyPdf.relativePath = linked.relativePath;
+        if (linked.file) legacyPdf.file = linked.file;
+      }
+
+      const duplicate = conMediaItems.some(item =>
+        item &&
+        item.kind === 'pdf' &&
+        String(item.attachmentId || '') === String(legacyPdf.attachmentId || '') &&
+        Math.max(1, Number(item.pageNumber) || 1) === legacyPdf.pageNumber
+      );
+
+      if (!duplicate) {
+        const mediaItem = conBuildPdfMediaItem(legacyPdf);
+        if (mediaItem) {
+          conMediaItems.push(mediaItem);
+          conBuildMediaWidget(mediaItem);
+        }
+      }
+
+      conPageBackgroundPdf = null;
+      if (!options.silent && typeof mdbToast === 'function') {
+        mdbToast('📄 Inserted PDF as a resizable box.');
+      }
+    }
+    global.conRenderPagePdfBackground = window.conRenderPagePdfBackground = conRenderPagePdfBackground;
+
+    window.conClearPagePdfBackground = function () {
+      const removeIds = new Set(
+        conMediaItems
+          .filter(item => item && item.kind === 'pdf')
+          .map(item => String(item.id || ''))
+      );
+      if (removeIds.size) {
+        conMediaItems = conMediaItems.filter(item => !removeIds.has(String(item.id || '')));
+        document.querySelectorAll('.con-media-item').forEach(el => {
+          if (removeIds.has(String(el.dataset.id || ''))) el.remove();
+        });
+      }
+      conPageBackgroundPdf = null;
+      conRenderPagePdfBackground({ silent: true });
+      mdbToast(removeIds.size
+        ? ('🧹 Cleared ' + removeIds.size + ' PDF box(es) from this page.')
+        : 'ℹ️ No PDF boxes on this page.');
+    };
+
+    async function conRenderPdfCanvas(item, canvas, contentEl) {
+      let pdfjsLib;
+      try {
+        pdfjsLib = await conEnsurePdfjsLib();
+      } catch (e) {
+        console.error('[PDF.js] Failed to load:', e);
+        return;
+      }
+      if (!item._pdfDoc) {
+        const buf = await conGetAttachmentArrayBuffer(item);
+        if (!buf) return;
+        try {
+          item._pdfDoc = await pdfjsLib.getDocument(conPdfGetDocumentParams({ data: new Uint8Array(buf) })).promise;
+        } catch (e) {
+          console.error('[PDF.js] getDocument failed:', e);
+          return;
+        }
+      }
+      const pageNum = Math.max(1, Math.min(item._pdfDoc.numPages, Number(item.pageNumber) || 1));
+      let page;
+      try { page = await item._pdfDoc.getPage(pageNum); } catch (e) { return; }
+      const contentW = contentEl.clientWidth || item.w;
+      const contentH = contentEl.clientHeight || Math.max(1, item.h - 24);
+      if (contentW < 2 || contentH < 2) return;
+      if (!(Number.isFinite(item._pdfBaseW) && item._pdfBaseW > 1)) item._pdfBaseW = Math.max(1, contentW);
+      if (!(Number.isFinite(item._pdfBaseH) && item._pdfBaseH > 1)) item._pdfBaseH = Math.max(1, contentH);
+      const baseVp = page.getViewport({ scale: 1 });
+      const fitScale = (item.pdfFit === 'v')
+        ? (item._pdfBaseH / baseVp.height)
+        : (item._pdfBaseW / baseVp.width);
+      const scale = fitScale * (item.pdfZoom || 1);
+      const viewport = page.getViewport({ scale });
+      canvas.width = Math.round(viewport.width);
+      canvas.height = Math.round(viewport.height);
+      canvas.style.width = canvas.width + 'px';
+      canvas.style.height = canvas.height + 'px';
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      try { await page.render({ canvasContext: ctx, viewport }).promise; } catch (e) { /* ignore abort */ }
+      // Resize widget to exactly fit the rendered canvas (no grey gap)
+      const wrap = contentEl.closest('.con-media-item');
+      if (wrap) {
+        item.w = canvas.width;
+        item.h = canvas.height + 24; // 24px = header height
+        wrap.style.width = item.w + 'px';
+        wrap.style.height = item.h + 'px';
+      }
+    }
+
+    // Canvas-based PDF renderer: full control of zoom, rotation, scroll — can be synced to mirror.
+    async function conRenderPdfForItem(item, canvas, scrollDiv, contentEl) {
+      if (!item) return;
+      // Cancel any previous active render task on this canvas / item to avoid concurrent GPU thread collision
+      if (canvas && canvas._activePdfRenderTask) {
+        try { canvas._activePdfRenderTask.cancel(); } catch (_) { }
+        canvas._activePdfRenderTask = null;
+      }
+      if (item && item._activePdfRenderTask) {
+        try { item._activePdfRenderTask.cancel(); } catch (_) { }
+        item._activePdfRenderTask = null;
+      }
+      const renderTask = (async () => {
+        let pdfjsLib;
+        try { pdfjsLib = await conEnsurePdfjsLib(); } catch (e) { return; }
+        const docCacheKey = String(item.attachmentId || item.id || item.relativePath || item.name || '');
+        let pdfDoc = (docCacheKey && window._conPdfDocCache && window._conPdfDocCache.get(docCacheKey)) || item._pdfDoc || null;
+        if (pdfDoc && (pdfDoc.destroyed || typeof pdfDoc.getPage !== 'function')) {
+          pdfDoc = null;
+          if (docCacheKey && window._conPdfDocCache) window._conPdfDocCache.delete(docCacheKey);
+        }
+        if (!pdfDoc) {
+          const buf = await conGetAttachmentArrayBuffer(item);
+          if (!buf) {
+            console.warn('[conRenderPdfForItem] Could not obtain array buffer for item:', item.name || item.id);
+            return;
+          }
+          try {
+            pdfDoc = await pdfjsLib.getDocument(conPdfGetDocumentParams({ data: new Uint8Array(buf) })).promise;
+            if (docCacheKey && window._conPdfDocCache) window._conPdfDocCache.set(docCacheKey, pdfDoc);
+          } catch (e) {
+            console.error('[conRenderPdfForItem] PDF getDocument failed:', e);
+            return;
+          }
+        }
+        item._pdfDoc = pdfDoc;
+        const pageNum = Math.max(1, Math.min(item._pdfDoc.numPages, Number(item.pageNumber) || 1));
+        let page;
+        try { page = await item._pdfDoc.getPage(pageNum); } catch (e) {
+          console.error('[conRenderPdfForItem] getPage failed:', e);
+          return;
+        }
+        const rotation = (((Number(item.pdfRotation) || 0) % 360) + 360) % 360;
+        let contentW = contentEl ? Math.max(10, contentEl.clientWidth || item.w) : item.w;
+        let contentH = contentEl ? Math.max(10, contentEl.clientHeight || item.h) : item.h;
+        if (item._fullscreen) {
+          contentW = window.innerWidth;
+          contentH = window.innerHeight;
+        }
+        const baseVp = page.getViewport({ scale: 1, rotation });
+
+        if (baseVp && baseVp.width > 0 && baseVp.height > 0) {
+          if (!item._ratioInitialized && !item._fullscreen) {
+            item._ratioInitialized = true;
+            const pdfAspect = baseVp.height / baseVp.width;
+            const board = document.getElementById('constellation-board');
+            const boardH = board ? Math.max(320, board.clientHeight || 0) : 1400;
+            const targetH = Math.max(100, Math.min(boardH - 24, Math.round(item.w * pdfAspect)));
+            if (Math.abs((item.h || 0) - targetH) > 2) {
+              item.h = targetH;
+              contentH = targetH;
+              if (contentEl) {
+                const wrapEl = contentEl.closest('.con-media-item');
+                if (wrapEl) wrapEl.style.height = targetH + 'px';
+              }
+            }
+          }
+        }
+        const fitScale = baseVp.width > 0 ? contentW / baseVp.width : 1;
+
+        let scale;
+        if (item.pdfLockSize || item._fullscreen) {
+          const fitScaleH = baseVp.height > 0 ? contentH / baseVp.height : 1;
+          scale = Math.min(fitScale, fitScaleH);
+          if (!item._fullscreen) {
+            item.pdfZoom = scale / fitScale;
+          }
+        } else {
+          const zoom = item.pdfZoom != null ? Number(item.pdfZoom) : 1;
+          scale = Math.max(0.05, fitScale * zoom);
+        }
+
+        const dpr = Math.max(1, window.devicePixelRatio || 1);
+        const viewport = page.getViewport({ scale: scale * dpr, rotation });
+        canvas.width = Math.round(viewport.width);
+        canvas.height = Math.round(viewport.height);
+        canvas.style.width = Math.round(viewport.width / dpr) + 'px';
+        canvas.style.height = Math.round(viewport.height / dpr) + 'px';
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const currentActiveTask = page.render({
+          canvasContext: ctx,
+          viewport: viewport
+        });
+        if (canvas) canvas._activePdfRenderTask = currentActiveTask;
+        if (item) item._activePdfRenderTask = currentActiveTask;
+
+        try {
+          await currentActiveTask.promise;
+        } catch (e) {
+          /* Render cancellation is expected when resizing/zooming rapidly */
+        } finally {
+          if (canvas && canvas._activePdfRenderTask === currentActiveTask) canvas._activePdfRenderTask = null;
+          if (item && item._activePdfRenderTask === currentActiveTask) item._activePdfRenderTask = null;
+        }
+
+        if (scrollDiv) {
+          if (item.pdfLockSize || item._fullscreen) {
+            scrollDiv.style.overflow = 'hidden';
+            canvas.style.position = 'absolute';
+            canvas.style.top = '0';
+            canvas.style.bottom = '0';
+            canvas.style.left = '0';
+            canvas.style.right = '0';
+            canvas.style.margin = 'auto';
+            scrollDiv.scrollLeft = 0;
+            scrollDiv.scrollTop = 0;
+          } else {
+            scrollDiv.style.overflow = 'auto';
+            canvas.style.position = 'absolute';
+            canvas.style.top = '0';
+            canvas.style.bottom = 'auto';
+            canvas.style.left = '0';
+            canvas.style.right = 'auto';
+            canvas.style.margin = '0';
+            scrollDiv.scrollLeft = Math.round(Number(item.pdfScrollX) || 0);
+            scrollDiv.scrollTop = Math.round(Number(item.pdfScrollY) || 0);
+          }
+        }
+      })();
+      item._renderPromise = renderTask;
+      if (canvas) canvas._renderPromise = renderTask;
+      return renderTask;
+    }
+
+    async function conAwaitAllPdfRendersOnBoard() {
+      const board = document.getElementById('constellation-board');
+      if (!board) return;
+      const pdfWraps = Array.from(board.querySelectorAll('.con-media-kind-pdf'));
+      const promises = [];
+      pdfWraps.forEach(wrap => {
+        const canvas = wrap.querySelector('canvas');
+        const itemId = wrap.dataset.id;
+        const item = (typeof conMediaItems !== 'undefined') ? conMediaItems.find(m => String(m.id) === String(itemId)) : null;
+        if (item && item._renderPromise) {
+          promises.push(item._renderPromise);
+        } else if (canvas && canvas._renderPromise) {
+          promises.push(canvas._renderPromise);
+        } else if (item && typeof conRenderPdfForItem === 'function' && canvas) {
+          const scrollDiv = wrap.querySelector('.con-pdf-scroll-wrap');
+          const contentEl = wrap.querySelector('.con-media-content');
+          item._renderPromise = conRenderPdfForItem(item, canvas, scrollDiv, contentEl);
+          promises.push(item._renderPromise);
+        }
+      });
+      if (promises.length > 0) {
+        try { await Promise.all(promises); } catch (e) { console.warn('[PDF Export] Error awaiting PDF renders:', e); }
+      }
+    }
+
+    async function conRenderPdfNative(item, frameEl) {
+      if (!item || !frameEl) return;
+      const att = conFindAttachmentById(item.attachmentId) || item;
+      const src = await conGetAttachmentDataUrl(att);
+      if (!src) {
+        frameEl.removeAttribute('src');
+        return;
+      }
+      const pageNum = Math.max(1, Number(item.pageNumber) || 1);
+      const zoom = Math.max(25, Math.min(400, Math.round(100 * (Number(item.pdfZoom) || 1))));
+      const fallbackState = 'page=' + pageNum + '&zoom=' + zoom;
+      const state = String(item._pdfViewerState || '').trim() || fallbackState;
+      const nextSrc = src + '#' + state.replace(/^#/, '');
+      if (frameEl.dataset.srcSignature !== nextSrc) {
+        frameEl.dataset.srcSignature = nextSrc;
+        frameEl.src = nextSrc;
+      }
+    }
+
+    function conReadPdfIframeViewState(frameEl) {
+      if (!frameEl) return '';
+      // Prefer live viewer hash if accessible; otherwise fall back to iframe src hash.
+      try {
+        const liveHash = String((frameEl.contentWindow && frameEl.contentWindow.location && frameEl.contentWindow.location.hash) || '');
+        if (liveHash && liveHash.length > 1) return liveHash.slice(1);
+      } catch (e) { }
+      try {
+        const src = String(frameEl.src || '');
+        const idx = src.indexOf('#');
+        if (idx >= 0 && idx < src.length - 1) return src.slice(idx + 1);
+      } catch (e) { }
+      return '';
+    }
+
+    function conBuildMediaWidget(item) {
+      const board = document.getElementById('constellation-board');
+      if (!board || !item) return;
+      const wrap = document.createElement('div');
+      wrap.className = 'con-media-item con-media-kind-' + item.kind;
+      wrap.dataset.id = item.id;
+      wrap.style.left = item.x + 'px';
+      wrap.style.top = item.y + 'px';
+      wrap.style.width = item.w + 'px';
+      wrap.style.height = item.h + 'px';
+      if (item.locked) wrap.classList.add('con-media-locked');
+      wrap.addEventListener('contextmenu', function (e) { e.preventDefault(); e.stopPropagation(); window.conMediaCtxOpen(e, item); });
+
+      const closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.className = 'con-media-remove-btn';
+      closeBtn.textContent = '✕';
+      closeBtn.title = 'Remove media item';
+      closeBtn.onclick = ev => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (item._pdfViewPoll) {
+          clearInterval(item._pdfViewPoll);
+          item._pdfViewPoll = null;
+        }
+        conMediaItems = conMediaItems.filter(m => m.id !== item.id);
+        wrap.remove();
+      };
+      const content = document.createElement('div');
+      content.className = 'con-media-content';
+
+      let mediaEl = null;
+      let pdfCanvas = null, pdfScrollDiv = null;
+      if (item.kind === 'pics') {
+        mediaEl = document.createElement('img');
+        mediaEl.alt = item.name || 'image';
+      } else if (item.kind === 'sounds') {
+        mediaEl = document.createElement('audio');
+        mediaEl.controls = true;
+      } else if (item.kind === 'videos') {
+        mediaEl = document.createElement('video');
+        mediaEl.controls = true;
+      } else if (item.kind === 'pdf') {
+        // Canvas-based PDF renderer — gives full programmatic control for mirror sync
+        pdfScrollDiv = document.createElement('div');
+        pdfScrollDiv.className = 'con-media-pdf-scroll';
+        pdfCanvas = document.createElement('canvas');
+        pdfCanvas.className = 'con-media-pdf-canvas';
+        pdfScrollDiv.appendChild(pdfCanvas);
+        content.appendChild(pdfScrollDiv);
+
+        const pdfToolbar = document.createElement('div');
+        pdfToolbar.className = 'con-media-pdf-toolbar';
+        const _pdfMkBtn = (text, title, fn) => {
+          const b = document.createElement('button');
+          b.type = 'button'; b.className = 'con-media-pdf-tb-btn';
+          b.textContent = text; b.title = title;
+          b.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); });
+          b.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); fn(); });
+          return b;
+        };
+        const _pdfRerender = () => conRenderPdfForItem(item, pdfCanvas, pdfScrollDiv, content);
+        const _pdfSync = () => {
+          if (window._conMirrorBroadcast) window._conMirrorBroadcast();
+          if (window._conMirrorSend) window._conMirrorSend({
+            type: 'pdf-view-state', itemId: String(item.id),
+            pdfZoom: item.pdfZoom || 1, pdfRotation: item.pdfRotation || 0,
+            pdfScrollX: item.pdfScrollX || 0, pdfScrollY: item.pdfScrollY || 0,
+            pdfLockSize: !!item.pdfLockSize
+          });
+        };
+        pdfToolbar.appendChild(_pdfMkBtn('−', 'Zoom out', () => {
+          item.pdfZoom = Math.max(0.1, (item.pdfZoom || 1) / 1.25);
+          _pdfRerender().then(_pdfSync);
+        }));
+        pdfToolbar.appendChild(_pdfMkBtn('+', 'Zoom in', () => {
+          item.pdfZoom = Math.min(8, (item.pdfZoom || 1) * 1.25);
+          _pdfRerender().then(_pdfSync);
+        }));
+        pdfToolbar.appendChild(_pdfMkBtn('↔', 'Fit to width', () => {
+          item.pdfZoom = 1; item.pdfScrollX = 0; item.pdfScrollY = 0;
+          _pdfRerender().then(_pdfSync);
+        }));
+        pdfToolbar.appendChild(_pdfMkBtn('↺', 'Rotate anticlockwise', () => {
+          item.pdfRotation = ((item.pdfRotation || 0) - 90 + 360) % 360;
+          item.pdfScrollX = 0; item.pdfScrollY = 0;
+          _pdfRerender().then(_pdfSync);
+        }));
+        // pdfToolbar buttons are moved to the hover mini-actions bar (below)
+
+        pdfScrollDiv.addEventListener('scroll', () => {
+          item.pdfScrollX = Math.round(pdfScrollDiv.scrollLeft);
+          item.pdfScrollY = Math.round(pdfScrollDiv.scrollTop);
+          if (window._conMirrorSend) window._conMirrorSend({
+            type: 'pdf-view-state', itemId: String(item.id),
+            pdfZoom: item.pdfZoom || 1, pdfRotation: item.pdfRotation || 0,
+            pdfScrollX: item.pdfScrollX, pdfScrollY: item.pdfScrollY,
+            pdfLockSize: !!item.pdfLockSize
+          });
+        }, { passive: true });
+
+        item._lastRenderSignature = [item.pageNumber, item.w, item.h, item.pdfZoom || 1, item.pdfRotation || 0, !!item.pdfLockSize].join('|');
+        item._renderPromise = conRenderPdfForItem(item, pdfCanvas, pdfScrollDiv, content);
+      }
+
+      if (mediaEl) {
+        if (item.kind !== 'pdf') mediaEl.className = 'con-media-asset';
+        content.appendChild(mediaEl);
+
+        const isMirrorMode = document.documentElement.classList.contains('con-mirror-mode') || location.search.includes('mirror=1');
+        if (isMirrorMode) {
+          mediaEl.muted = true;
+          if (item.kind === 'videos') mediaEl.playsInline = true;
+          const applyMirrorMediaSync = function () {
+            var st = item._mediaSyncState;
+            if (!st) return;
+            if (typeof st.playbackRate === 'number' && st.playbackRate > 0) {
+              try { mediaEl.playbackRate = st.playbackRate; } catch (_) {}
+            }
+            if (typeof st.currentTime === 'number' && Number.isFinite(st.currentTime)) {
+              if (Math.abs((mediaEl.currentTime || 0) - st.currentTime) > 0.3) {
+                try { mediaEl.currentTime = st.currentTime; } catch (_) {}
+              }
+            }
+            if (!st.paused && (st.action === 'play' || st.action === 'timeupdate')) {
+              if (mediaEl.paused) {
+                try {
+                  var p = mediaEl.play();
+                  if (p && typeof p.catch === 'function') p.catch(function () {});
+                } catch (_) {}
+              }
+            } else if (st.paused) {
+              try { mediaEl.pause(); } catch (_) {}
+            }
+          };
+          mediaEl._applyMirrorMediaSync = applyMirrorMediaSync;
+          mediaEl.addEventListener('loadedmetadata', applyMirrorMediaSync);
+          mediaEl.addEventListener('canplay', applyMirrorMediaSync);
+        } else if (item.kind === 'sounds' || item.kind === 'videos') {
+          var _lastMediaSyncTime = 0;
+          var _sendMediaSync = function (action, extra) {
+            if (window._conMirrorSend) {
+              var payload = {
+                type: 'media-playback',
+                id: String(item.id),
+                action: action,
+                currentTime: mediaEl.currentTime || 0,
+                playbackRate: mediaEl.playbackRate || 1,
+                paused: !!mediaEl.paused
+              };
+              if (extra) Object.assign(payload, extra);
+              window._conMirrorSend(payload);
+            }
+          };
+          mediaEl.addEventListener('play', function () { _sendMediaSync('play'); });
+          mediaEl.addEventListener('pause', function () { _sendMediaSync('pause'); });
+          mediaEl.addEventListener('seeked', function () { _sendMediaSync('seek'); });
+          mediaEl.addEventListener('ratechange', function () { _sendMediaSync('ratechange'); });
+          mediaEl.addEventListener('timeupdate', function () {
+            if (mediaEl.paused) return;
+            var now = Date.now();
+            if (now - _lastMediaSyncTime >= 1000) {
+              _lastMediaSyncTime = now;
+              _sendMediaSync('timeupdate');
+            }
+          });
+        }
+
+        if (item.kind === 'sounds' || item.kind === 'videos') {
+          const controls = document.createElement('div');
+          controls.className = 'con-media-extra-controls';
+
+          const timelineWrap = document.createElement('div');
+          timelineWrap.className = 'con-media-timeline-wrap';
+          const timelineInput = document.createElement('input');
+          timelineInput.type = 'range';
+          timelineInput.className = 'con-media-timeline';
+          timelineInput.min = '0';
+          timelineInput.max = '0';
+          timelineInput.value = '0';
+          timelineInput.step = '0.1';
+          timelineInput.disabled = true;
+          const timelineTime = document.createElement('span');
+          timelineTime.className = 'con-media-time';
+          timelineTime.textContent = '0:00 / 0:00';
+          timelineWrap.appendChild(timelineInput);
+          timelineWrap.appendChild(timelineTime);
+
+          function conFmtMediaTime(sec) {
+            const s = Math.max(0, Math.floor(Number(sec) || 0));
+            const m = Math.floor(s / 60);
+            const r = s % 60;
+            return m + ':' + String(r).padStart(2, '0');
+          }
+
+          function syncTimelineFromMedia() {
+            let duration = Number(mediaEl.duration);
+            const current = Number(mediaEl.currentTime) || 0;
+            if (!Number.isFinite(duration) || duration <= 0) {
+              if (mediaEl.seekable && mediaEl.seekable.length > 0) {
+                const end = mediaEl.seekable.end(mediaEl.seekable.length - 1);
+                if (Number.isFinite(end) && end > 0) duration = end;
+              }
+            }
+            if (Number.isFinite(duration) && duration > 0) {
+              timelineInput.disabled = false;
+              timelineInput.max = String(duration);
+              if (!timelineInput.matches(':active')) {
+                timelineInput.value = String(Math.max(0, Math.min(duration, current)));
+              }
+              timelineTime.textContent = conFmtMediaTime(current) + ' / ' + conFmtMediaTime(duration);
+            } else {
+              timelineInput.disabled = true;
+              timelineInput.max = '0';
+              timelineInput.value = '0';
+              timelineTime.textContent = conFmtMediaTime(current) + ' / ' + (Number.isFinite(duration) ? '0:00' : '…');
+            }
+          }
+
+          function makeCtrlBtn(iconName, title, onClick, extraText) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'con-media-ctrl-btn';
+            btn.innerHTML = '<img src="../assets/icons/' + iconName + '.svg" class="btn-icon" alt="" />' + (extraText ? ' ' + extraText : '');
+            btn.title = title;
+            btn.addEventListener('mousedown', ev => {
+              ev.preventDefault();
+              ev.stopPropagation();
+            });
+            btn.addEventListener('click', ev => {
+              ev.preventDefault();
+              ev.stopPropagation();
+              onClick();
+            });
+            return btn;
+          }
+
+          controls.appendChild(makeCtrlBtn('play', 'Play', () => {
+            try {
+              const playPromise = mediaEl.play();
+              if (playPromise && typeof playPromise.catch === 'function') {
+                playPromise.catch(() => { });
+              }
+            } catch { }
+          }));
+          controls.appendChild(makeCtrlBtn('pause', 'Pause', () => {
+            try { mediaEl.pause(); } catch { }
+          }));
+          controls.appendChild(makeCtrlBtn('stop', 'Stop', () => {
+            try {
+              mediaEl.pause();
+              mediaEl.currentTime = 0;
+            } catch { }
+          }));
+          controls.appendChild(makeCtrlBtn('rewind', 'Back 10 seconds', () => {
+            try {
+              const current = Number(mediaEl.currentTime) || 0;
+              mediaEl.currentTime = Math.max(0, current - 10);
+            } catch { }
+          }, '10s'));
+          const fwdBtn = makeCtrlBtn('rewind', 'Forward 10 seconds', () => {
+            try {
+              const current = Number(mediaEl.currentTime) || 0;
+              const duration = Number(mediaEl.duration);
+              const maxTime = Number.isFinite(duration) && duration > 0 ? duration : (current + 10);
+              mediaEl.currentTime = Math.min(maxTime, current + 10);
+            } catch { }
+          }, '10s');
+          const fwdIcon = fwdBtn.querySelector('img');
+          if (fwdIcon) fwdIcon.style.transform = 'scaleX(-1)';
+          controls.appendChild(fwdBtn);
+
+          timelineInput.addEventListener('mousedown', ev => {
+            ev.stopPropagation();
+          });
+          timelineInput.addEventListener('input', ev => {
+            ev.stopPropagation();
+            const next = Number(timelineInput.value);
+            if (Number.isFinite(next)) {
+              try { mediaEl.currentTime = next; } catch { }
+            }
+          });
+
+          mediaEl.addEventListener('loadedmetadata', () => {
+            if (!Number.isFinite(mediaEl.duration) || mediaEl.duration === Infinity) {
+              const cur = mediaEl.currentTime;
+              mediaEl.currentTime = 1e101;
+              mediaEl.ontimeupdate = function () {
+                this.ontimeupdate = null;
+                mediaEl.currentTime = cur || 0;
+                syncTimelineFromMedia();
+              };
+            }
+            syncTimelineFromMedia();
+          });
+          mediaEl.addEventListener('durationchange', syncTimelineFromMedia);
+          mediaEl.addEventListener('timeupdate', syncTimelineFromMedia);
+          mediaEl.addEventListener('seeked', syncTimelineFromMedia);
+          mediaEl.addEventListener('ended', syncTimelineFromMedia);
+
+          syncTimelineFromMedia();
+
+          content.appendChild(controls);
+          content.appendChild(timelineWrap);
+        }
+
+        conGetAttachmentDataUrl(item).then(src => {
+          if (!src) {
+            if (isMirrorMode) {
+              content.classList.add('con-media-load-failed');
+              let failMsg = content.querySelector('.con-media-error-msg');
+              if (!failMsg) {
+                failMsg = document.createElement('div');
+                failMsg.className = 'con-media-error-msg';
+                failMsg.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#888;font-size:0.8rem;text-align:center;padding:8px;pointer-events:none;';
+                failMsg.textContent = 'Could not load media source.';
+                content.appendChild(failMsg);
+              }
+              if (mediaEl) mediaEl.style.display = 'none';
+              if (typeof window._conMirrorRequestState === 'function') {
+                window._conMirrorRequestState();
+              }
+              return;
+            }
+            content.textContent = 'Could not load media source.';
+            return;
+          }
+          const failMsg = content.querySelector('.con-media-error-msg');
+          if (failMsg) failMsg.remove();
+          content.classList.remove('con-media-load-failed');
+          if (mediaEl) {
+            mediaEl.style.display = '';
+            mediaEl.src = src;
+            if (isMirrorMode && typeof mediaEl._applyMirrorMediaSync === 'function') {
+              mediaEl._applyMirrorMediaSync();
+            }
+          }
+        });
+      } else if (item.kind !== 'pdf') {
+        content.textContent = 'Unsupported media type.';
+      }
+
+      const resizer = document.createElement('div');
+      resizer.className = 'con-media-resizer';
+
+      wrap.appendChild(content);
+      wrap.appendChild(closeBtn);
+      wrap.appendChild(resizer);
+
+      // Hover mini-actions for visual media (not sounds/videos)
+      if (item.kind === 'pics' || item.kind === 'pdf') {
+        const miniActions = document.createElement('div');
+        miniActions.className = 'con-media-mini-actions';
+        const _mkMini = (iconSvg, titleText, action, handler) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'con-media-mini-btn';
+          btn.dataset.action = action;
+          btn.innerHTML = '<img src="../assets/icons/' + iconSvg + '.svg" class="btn-icon" alt="" />';
+          btn.title = titleText;
+          btn.addEventListener('mousedown', ev => { ev.preventDefault(); ev.stopPropagation(); });
+          btn.addEventListener('click', ev => { ev.preventDefault(); ev.stopPropagation(); handler(); });
+          return btn;
+        };
+        const lockMiniBtn = _mkMini(item.locked ? 'unlock' : 'lock', 'Lock/Unlock', 'lock', () => {
+          item.locked = !item.locked;
+          if (typeof _conApplyMediaStyles === 'function') _conApplyMediaStyles(item, wrap);
+        });
+        const hideMiniBtn = _mkMini(item.hidden ? 'eye' : 'mask', item.hidden ? 'Reveal (Ctrl+H)' : 'Hide (Ctrl+H)', 'hide', () => {
+          item.hidden = !item.hidden;
+          if (typeof _conApplyMediaStyles === 'function') _conApplyMediaStyles(item, wrap);
+          if (window._conMirrorSend) window._conMirrorSend({ type: 'media-hide', id: item.id, hidden: !!item.hidden });
+        });
+        const blinkMiniBtn = _mkMini('blink', 'Blink on/off', 'blink', () => {
+          item.blink = !item.blink;
+          if (typeof _conApplyMediaStyles === 'function') _conApplyMediaStyles(item, wrap);
+          if (window._conMirrorSend) window._conMirrorSend({ type: 'media-blink', id: item.id, blink: !!item.blink });
+        });
+        const fullMiniBtn = _mkMini('fullscreen', 'Fullscreen', 'fullscreen', () => {
+          window._conCtxItem = item;
+          if (item.kind === 'pics' && typeof window.conImgSpToggleFullscreen === 'function') {
+            window.conImgSpToggleFullscreen(item);
+          } else if (item.kind === 'pdf' && typeof window.conPdfSpToggleFullscreen === 'function') {
+            window.conPdfSpToggleFullscreen(item);
+          }
+        });
+        const emojiMiniBtn = _mkMini('sparkles', 'Add emoji sticker', 'emoji', () => {
+          if (typeof window._pickerOpenForMedia === 'function') window._pickerOpenForMedia(item);
+        });
+        miniActions.appendChild(lockMiniBtn);
+        miniActions.appendChild(hideMiniBtn);
+        miniActions.appendChild(blinkMiniBtn);
+        miniActions.appendChild(fullMiniBtn);
+        miniActions.appendChild(emojiMiniBtn);
+
+        // PDF-specific controls: zoom + rotate, appended right into the hover bar
+        if (item.kind === 'pdf') {
+          const pdfSep = document.createElement('span');
+          pdfSep.className = 'con-pdf-only-btn';
+          pdfSep.style.cssText = 'color:#bbb;padding:0 2px;font-size:11px;line-height:24px;pointer-events:none;';
+          pdfSep.textContent = '|';
+          const _pdfMiniMkBtn = (iconSvg, title, fn) => {
+            const b = document.createElement('button');
+            b.type = 'button'; b.className = 'con-media-mini-btn con-pdf-only-btn';
+            b.innerHTML = '<img src="../assets/icons/' + iconSvg + '.svg" class="btn-icon" alt="" />';
+            b.title = title;
+            b.addEventListener('mousedown', ev => { ev.preventDefault(); ev.stopPropagation(); });
+            b.addEventListener('click', ev => { ev.preventDefault(); ev.stopPropagation(); fn(); });
+            return b;
+          };
+          const _pdfMiniRr = () => conRenderPdfForItem(item, pdfCanvas, pdfScrollDiv, content);
+          const _pdfMiniSnc = () => {
+            if (window._conMirrorBroadcast) window._conMirrorBroadcast();
+            if (window._conMirrorSend) window._conMirrorSend({
+              type: 'pdf-view-state', itemId: String(item.id),
+              pdfZoom: item.pdfZoom || 1, pdfRotation: item.pdfRotation || 0,
+              pdfScrollX: item.pdfScrollX || 0, pdfScrollY: item.pdfScrollY || 0,
+              pdfLockSize: !!item.pdfLockSize
+            });
+          };
+          miniActions.appendChild(pdfSep);
+          const _updateLockBtnState = () => {
+            if (lockSizeMiniBtn) {
+              lockSizeMiniBtn.classList.toggle('active', !!item.pdfLockSize);
+            }
+          };
+          miniActions.appendChild(_pdfMiniMkBtn('zoom-out', 'Zoom out', () => {
+            item.pdfLockSize = false; _updateLockBtnState();
+            if (window._conCtxItem && window._conCtxItem.id === item.id) {
+              const menuBtn = document.getElementById('con-pdf-sp-lockfit-btn');
+              if (menuBtn) menuBtn.classList.remove('active');
+            }
+            item.pdfZoom = Math.max(0.1, (item.pdfZoom || 1) / 1.25); _pdfMiniRr().then(_pdfMiniSnc);
+          }));
+          miniActions.appendChild(_pdfMiniMkBtn('zoom-in', 'Zoom in', () => {
+            item.pdfLockSize = false; _updateLockBtnState();
+            if (window._conCtxItem && window._conCtxItem.id === item.id) {
+              const menuBtn = document.getElementById('con-pdf-sp-lockfit-btn');
+              if (menuBtn) menuBtn.classList.remove('active');
+            }
+            item.pdfZoom = Math.min(8, (item.pdfZoom || 1) * 1.25); _pdfMiniRr().then(_pdfMiniSnc);
+          }));
+          miniActions.appendChild(_pdfMiniMkBtn('maximize', 'Fit width', () => {
+            item.pdfLockSize = false; _updateLockBtnState();
+            if (window._conCtxItem && window._conCtxItem.id === item.id) {
+              const menuBtn = document.getElementById('con-pdf-sp-lockfit-btn');
+              if (menuBtn) menuBtn.classList.remove('active');
+            }
+            item.pdfZoom = 1; item.pdfScrollX = 0; item.pdfScrollY = 0; _pdfMiniRr().then(_pdfMiniSnc);
+          }));
+          miniActions.appendChild(_pdfMiniMkBtn('refresh', 'Rotate', () => {
+            item.pdfRotation = ((item.pdfRotation || 0) - 90 + 360) % 360;
+            item.pdfScrollX = 0; item.pdfScrollY = 0; _pdfMiniRr().then(_pdfMiniSnc);
+          }));
+          const lockSizeMiniBtn = _pdfMiniMkBtn('snap', 'Lock size to container (no scroll)', () => {
+            item.pdfLockSize = !item.pdfLockSize;
+            lockSizeMiniBtn.classList.toggle('active', !!item.pdfLockSize);
+            if (window._conCtxItem && window._conCtxItem.id === item.id) {
+              const menuBtn = document.getElementById('con-pdf-sp-lockfit-btn');
+              if (menuBtn) menuBtn.classList.toggle('active', !!item.pdfLockSize);
+            }
+            _pdfMiniRr().then(_pdfMiniSnc);
+          });
+          lockSizeMiniBtn.dataset.action = 'lockfit';
+          if (item.pdfLockSize) lockSizeMiniBtn.classList.add('active');
+          miniActions.appendChild(lockSizeMiniBtn);
+        }
+
+        wrap.appendChild(miniActions);
+        wrap.addEventListener('mouseenter', () => miniActions.classList.add('con-media-mini-visible'));
+        wrap.addEventListener('mouseleave', () => miniActions.classList.remove('con-media-mini-visible'));
+      }
+
+      wrap.addEventListener('dblclick', ev => {
+        if (item.hidden && !ev.target.closest('.con-media-remove-btn, .con-media-resizer, .con-media-mini-btn')) {
+          item.hidden = false;
+          if (typeof _conApplyMediaStyles === 'function') _conApplyMediaStyles(item, wrap);
+          if (window._conMirrorSend) window._conMirrorSend({ type: 'media-hide', id: item.id, hidden: false });
+        }
+      });
+
+      if (item._fullscreen) {
+        wrap.classList.add('con-media-fullscreen');
+        if (document.documentElement.classList.contains('con-mirror-mode')) {
+          document.body.appendChild(wrap);
+        } else {
+          board.appendChild(wrap);
+        }
+      } else {
+        board.appendChild(wrap);
+      }
+
+      // Apply persisted visual styles and restore stickers
+      if (typeof _conApplyMediaStyles === 'function') _conApplyMediaStyles(item, wrap);
+      if (window.conMediaRebuildStickers) window.conMediaRebuildStickers(item, wrap);
+
+      let dragStartX = 0, dragStartY = 0, baseX = 0, baseY = 0;
+      let dragging = false;
+      let _mediaMoveRaf = null, _pendingMediaMoveMsg = null;
+      wrap.addEventListener('mousedown', ev => {
+        if (ev.button !== 0) return;
+        window._conActiveMediaItem = item;
+        document.querySelectorAll('.con-media-item.con-media-selected').forEach(el => {
+          if (el !== wrap) el.classList.remove('con-media-selected');
+        });
+        wrap.classList.add('con-media-selected');
+        if (item.locked) return;
+        if (ev.target.closest('.con-media-resizer')) return;
+        if (ev.target.closest('.con-media-remove-btn')) return;
+        if (ev.target.closest('.con-media-extra-controls')) return;
+        if (ev.target.closest('.con-media-timeline-wrap')) return;
+        if (ev.target.closest('audio,video,input,button,textarea,select,iframe')) return;
+        dragging = true;
+        window._conMirrorDragging = true;
+        dragStartX = ev.clientX;
+        dragStartY = ev.clientY;
+        baseX = item.x;
+        baseY = item.y;
+        ev.preventDefault();
+        ev.stopPropagation();
+      });
+
+      let resizing = false, resizeStartX = 0, resizeStartY = 0, baseW = 0, baseH = 0, aspectRatio = 1;
+      let _mediaResizeRaf = null, _pendingMediaResizeMsg = null;
+      resizer.addEventListener('mousedown', ev => {
+        if (item.locked) return;
+        resizing = true;
+        window._conMirrorDragging = true;
+        resizeStartX = ev.clientX;
+        resizeStartY = ev.clientY;
+        baseW = item.w;
+        baseH = item.h;
+        aspectRatio = baseW / baseH;
+        ev.preventDefault();
+        ev.stopPropagation();
+      });
+
+      document.addEventListener('mousemove', ev => {
+        if (dragging) {
+          item.x = Math.max(0, baseX + (ev.clientX - dragStartX));
+          item.y = Math.max(0, baseY + (ev.clientY - dragStartY));
+          wrap.style.left = item.x + 'px';
+          wrap.style.top = item.y + 'px';
+          if (window._conMirrorSend) {
+            _pendingMediaMoveMsg = { type: 'media-move', id: item.id, x: item.x, y: item.y };
+            if (!_mediaMoveRaf) {
+              _mediaMoveRaf = requestAnimationFrame(function () {
+                _mediaMoveRaf = null;
+                if (window._conMirrorSend && _pendingMediaMoveMsg) {
+                  window._conMirrorSend(_pendingMediaMoveMsg);
+                }
+              });
+            }
+          }
+        }
+        if (resizing) {
+          const minW = item.kind === 'sounds' ? 220 : (item.kind === 'pdf' ? 220 : 140);
+          const minH = item.kind === 'sounds' ? 70 : (item.kind === 'pdf' ? 220 : 100);
+          let newW = Math.max(minW, baseW + (ev.clientX - resizeStartX));
+          let newH = Math.max(minH, baseH + (ev.clientY - resizeStartY));
+
+          // Preserve aspect ratio for PDFs and images
+          if ((item.kind === 'pdf' || item.kind === 'pics') && aspectRatio > 0) {
+            const wDelta = Math.abs(ev.clientX - resizeStartX);
+            const hDelta = Math.abs(ev.clientY - resizeStartY);
+            if (wDelta > hDelta) {
+              newH = Math.max(minH, Math.round(newW / aspectRatio));
+            } else {
+              newW = Math.max(minW, Math.round(newH * aspectRatio));
+            }
+          }
+
+          item.w = newW;
+          item.h = newH;
+          wrap.style.width = item.w + 'px';
+          wrap.style.height = item.h + 'px';
+          if (window._conMirrorSend) {
+            _pendingMediaResizeMsg = { type: 'media-resize', id: item.id, w: item.w, h: item.h };
+            if (!_mediaResizeRaf) {
+              _mediaResizeRaf = requestAnimationFrame(function () {
+                _mediaResizeRaf = null;
+                if (window._conMirrorSend && _pendingMediaResizeMsg) {
+                  window._conMirrorSend(_pendingMediaResizeMsg);
+                }
+              });
+            }
+          }
+        }
+      });
+
+      document.addEventListener('mouseup', () => {
+        const wasDragging = dragging;
+        const wasResizing = resizing;
+        if (wasDragging) {
+          if (_mediaMoveRaf) { cancelAnimationFrame(_mediaMoveRaf); _mediaMoveRaf = null; }
+          if (window._conMirrorSend && _pendingMediaMoveMsg) {
+            window._conMirrorSend(_pendingMediaMoveMsg);
+            _pendingMediaMoveMsg = null;
+          }
+        }
+        if (wasResizing) {
+          if (_mediaResizeRaf) { cancelAnimationFrame(_mediaResizeRaf); _mediaResizeRaf = null; }
+          if (window._conMirrorSend && _pendingMediaResizeMsg) {
+            window._conMirrorSend(_pendingMediaResizeMsg);
+            _pendingMediaResizeMsg = null;
+          }
+        }
+        dragging = false;
+        resizing = false;
+        if (wasResizing && item.kind === 'pdf' && pdfCanvas) {
+          conRenderPdfForItem(item, pdfCanvas, pdfScrollDiv, content);
+        }
+        if (wasDragging || wasResizing) {
+          setTimeout(() => {
+            window._conMirrorDragging = false;
+          }, 60);
+        }
+      });
+    }
+
+    window.conMediaClear = function () {
+      if (window._conPdfDocCache) {
+        window._conPdfDocCache.forEach(doc => {
+          if (doc && typeof doc.destroy === 'function') {
+            try { doc.destroy(); } catch (_) { }
+          }
+        });
+        window._conPdfDocCache.clear();
+      }
+      if (window._conAttachmentBufferCache) window._conAttachmentBufferCache.clear();
+      conMediaItems.forEach(item => {
+        if (item && item._pdfViewPoll) {
+          clearInterval(item._pdfViewPoll);
+          item._pdfViewPoll = null;
+        }
+        item._pdfDoc = null;
+      });
+      conMediaItems = [];
+      conMediaNextId = 0;
+      document.querySelectorAll('.con-media-item').forEach(el => {
+        el.querySelectorAll('audio, video').forEach(function (m) {
+          try { m.pause(); m.src = ''; m.load(); } catch (_) { }
+        });
+        el.querySelectorAll('canvas').forEach(function (c) {
+          c.width = 0; c.height = 0;
+        });
+        el.remove();
+      });
+    };
+
+    window.conRemoveInsertedMedia = function () {
+      const count = Array.isArray(conMediaItems) ? conMediaItems.length : 0;
+      window.conMediaClear();
+      if (typeof mdbToast === 'function') {
+        mdbToast(count > 0
+          ? ('🗑 Removed ' + count + ' inserted media object(s).')
+          : 'ℹ️ No inserted media objects to remove.');
+      }
+    };
+
+    window.conGetMediaItems = function () {
+      return conMediaItems;
+    };
+
+    function conRestoreMediaItems(items) {
+      const incoming = Array.isArray(items) ? items : [];
+      const prevById = new Map((conMediaItems || []).map(it => [String(it.id || ''), it]));
+      const prevElsById = new Map();
+      document.querySelectorAll('.con-media-item').forEach(el => {
+        const id = String((el && el.dataset && el.dataset.id) || '');
+        if (id) prevElsById.set(id, el);
+      });
+
+      const nextItems = [];
+      const keepIds = new Set();
+
+      incoming.forEach(raw => {
+        const kind = raw && raw.kind;
+        if (kind !== 'pics' && kind !== 'sounds' && kind !== 'videos' && kind !== 'pdf') return;
+
+        const defaultPdfRect = kind === 'pdf' ? conGetDefaultPdfMediaRect() : null;
+        const id = String(raw.id || ('cm' + (conMediaNextId++)));
+        const normalized = {
+          id,
+          kind,
+          attachmentId: String(raw.attachmentId || ''),
+          name: raw.name || '',
+          mime: raw.mime || '',
+          relativePath: raw.relativePath || '',
+          pageNumber: Math.max(1, Number(raw.pageNumber) || 1),
+          pdfFit: (kind === 'pdf' ? (raw.pdfFit || 'h') : undefined),
+          pdfZoom: (kind === 'pdf' ? Math.max(0.1, Math.min(8, Number(raw.pdfZoom) || 1)) : undefined),
+          pdfRotation: (kind === 'pdf' ? (((Number(raw.pdfRotation) || 0) % 360) + 360) % 360 : undefined),
+          pdfScrollX: (kind === 'pdf' ? (Math.round(Number(raw.pdfScrollX) || 0)) : undefined),
+          pdfScrollY: (kind === 'pdf' ? (Math.round(Number(raw.pdfScrollY) || 0)) : undefined),
+          pdfLockSize: (kind === 'pdf' ? !!raw.pdfLockSize : undefined),
+          x: (raw.x != null && Number.isFinite(Number(raw.x))) ? Number(raw.x) : 60,
+          y: (raw.y != null && Number.isFinite(Number(raw.y))) ? Number(raw.y) : 60,
+          w: Math.max(70, Number(raw.w) || (defaultPdfRect ? defaultPdfRect.w : 220)),
+          h: Math.max(40, Number(raw.h) || (defaultPdfRect ? defaultPdfRect.h : 180)),
+          hidden: !!raw.hidden,
+          locked: !!raw.locked,
+          blink: !!raw.blink,
+          borderWidth: Number(raw.borderWidth) || 0,
+          borderStyle: raw.borderStyle || 'solid',
+          borderColor: raw.borderColor || '#111111',
+          rotation: (kind === 'pics' ? (Number(raw.rotation) || 0) : undefined),
+          opacity: (raw.opacity != null && Number.isFinite(Number(raw.opacity))) ? Number(raw.opacity) : 1,
+          _fullscreen: raw._fullscreen ? true : undefined,
+          _fsZoom: raw._fullscreen ? (Number(raw._fsZoom) || 1) : undefined,
+          _fsPanX: raw._fullscreen ? (Number(raw._fsPanX) || 0) : undefined,
+          _fsPanY: raw._fullscreen ? (Number(raw._fsPanY) || 0) : undefined
+        };
+
+        const linkedAttachment = conFindAttachmentById(normalized.attachmentId);
+        if (linkedAttachment) {
+          normalized.file = linkedAttachment.file || null;
+          normalized.base64 = linkedAttachment.base64 || '';
+          normalized._cachedObjectUrl = linkedAttachment._cachedObjectUrl || '';
+          normalized._cachedDataUrl = linkedAttachment._cachedDataUrl || '';
+          if (linkedAttachment.relativePath) normalized.relativePath = linkedAttachment.relativePath;
+          if (linkedAttachment.mime) normalized.mime = linkedAttachment.mime;
+          if (linkedAttachment.name) normalized.name = linkedAttachment.name;
+        }
+
+        const prev = prevById.get(id);
+        const canReuse = !!(prev
+          && prev.kind === normalized.kind
+          && String(prev.attachmentId || '') === String(normalized.attachmentId || '')
+          && Math.max(1, Number(prev.pageNumber) || 1) === normalized.pageNumber);
+
+        if (!canReuse) {
+          const staleEl = prevElsById.get(id);
+          if (staleEl) staleEl.remove();
+          nextItems.push(normalized);
+          keepIds.add(id);
+          conBuildMediaWidget(normalized);
+        } else {
+          const prevRenderSignature = prev._lastRenderSignature || '';
+          Object.assign(prev, normalized);
+          nextItems.push(prev);
+          keepIds.add(id);
+
+          const wrap = prevElsById.get(id);
+          if (wrap) {
+            wrap.style.left = prev.x + 'px';
+            wrap.style.top = prev.y + 'px';
+            wrap.style.width = prev.w + 'px';
+            wrap.style.height = prev.h + 'px';
+            if (typeof _conApplyMediaStyles === 'function') _conApplyMediaStyles(prev, wrap);
+            if (window.conMediaRebuildStickers) window.conMediaRebuildStickers(prev, wrap);
+
+            if (prev.kind === 'pdf') {
+              const pdfCvs = wrap.querySelector('canvas.con-media-pdf-canvas');
+              const pdfScrDiv = wrap.querySelector('.con-media-pdf-scroll');
+              const cntEl = wrap.querySelector('.con-media-content');
+              const nextRenderSignature = [
+                prev.pageNumber, prev.w, prev.h, prev.pdfZoom || 1, prev.pdfRotation || 0, !!prev.pdfLockSize, !!prev._fullscreen
+              ].join('|');
+              if (pdfCvs && prevRenderSignature !== nextRenderSignature) {
+                prev._lastRenderSignature = nextRenderSignature;
+                conRenderPdfForItem(prev, pdfCvs, pdfScrDiv, cntEl).then(function () {
+                  if (pdfScrDiv) {
+                    if (prev.pdfLockSize || prev._fullscreen) {
+                      pdfScrDiv.scrollLeft = 0;
+                      pdfScrDiv.scrollTop = 0;
+                    } else {
+                      pdfScrDiv.scrollLeft = prev.pdfScrollX || 0;
+                      pdfScrDiv.scrollTop = prev.pdfScrollY || 0;
+                    }
+                  }
+                });
+              }
+            } else if (prev.kind === 'pics') {
+              const img = wrap.querySelector('img');
+              const contentEl = wrap.querySelector('.con-media-content');
+              const key = prev.attachmentId || prev.id || '';
+              const preloadSrc = (typeof _conMirrorAttachmentPreload !== 'undefined' && _conMirrorAttachmentPreload[key])
+                ? _conMirrorAttachmentPreload[key]
+                : (prev._cachedDataUrl || prev._cachedObjectUrl || '');
+              if (preloadSrc) {
+                if (!img && contentEl) {
+                  contentEl.textContent = '';
+                  const newImg = document.createElement('img');
+                  newImg.alt = prev.name || 'image';
+                  newImg.className = 'con-media-asset';
+                  newImg.src = preloadSrc;
+                  contentEl.appendChild(newImg);
+                } else if (img && (!img.src || img.src.includes('undefined') || !img.complete || img.naturalWidth === 0 || img.src !== preloadSrc)) {
+                  img.style.display = '';
+                  img.src = preloadSrc;
+                }
+                const failMsg = wrap.querySelector('.con-media-error-msg');
+                if (failMsg) failMsg.remove();
+                if (contentEl) contentEl.classList.remove('con-media-load-failed');
+              } else if (!img) {
+                wrap.remove();
+                conBuildMediaWidget(prev);
+              }
+            }
+          } else {
+            conBuildMediaWidget(prev);
+          }
+        }
+
+        const _fsItem = !canReuse ? normalized : prev;
+        const _fsWrap = document.querySelector('.con-media-item[data-id="' + id + '"]');
+        if (_fsWrap) {
+          if (_fsItem._fullscreen) {
+            const isMirror = document.documentElement.classList.contains('con-mirror-mode');
+            if (isMirror && _fsWrap.parentElement !== document.body) {
+              document.body.appendChild(_fsWrap);
+            }
+            const wasFullscreen = _fsWrap.classList.contains('con-media-fullscreen');
+            _fsWrap.classList.add('con-media-fullscreen');
+            if (typeof _conFsApplyTransform === 'function') {
+              _conFsApplyTransform(_fsItem, _fsWrap);
+            }
+            if (_fsItem.kind === 'pdf') {
+              const _fsCvs = _fsWrap.querySelector('canvas.con-media-pdf-canvas');
+              const _fsScrDiv = _fsWrap.querySelector('.con-media-pdf-scroll');
+              const _fsCntEl = _fsWrap.querySelector('.con-media-content');
+              if (_fsCvs && typeof conRenderPdfForItem === 'function' && (!wasFullscreen || !canReuse)) {
+                conRenderPdfForItem(_fsItem, _fsCvs, _fsScrDiv, _fsCntEl);
+              }
+            }
+          } else {
+            // Clean up any leftover fullscreen state (e.g. mirror received _fullscreen:false)
+            if (_fsWrap.classList.contains('con-media-fullscreen')) {
+              _fsWrap.classList.remove('con-media-fullscreen');
+              const boardEl = document.getElementById('constellation-board');
+              if (boardEl && _fsWrap.parentElement !== boardEl) {
+                boardEl.appendChild(_fsWrap);
+              }
+              _fsWrap.style.left = _fsItem.x + 'px';
+              _fsWrap.style.top = _fsItem.y + 'px';
+              _fsWrap.style.width = _fsItem.w + 'px';
+              _fsWrap.style.height = _fsItem.h + 'px';
+              var _fsExit = _fsWrap.querySelector('.con-media-fullscreen-exit-btn');
+              if (_fsExit) _fsExit.remove();
+              var _fsMini = _fsWrap.querySelector('.con-media-mini-actions');
+              if (_fsMini) {
+                _fsMini.querySelectorAll('.con-fs-zoom-btn,.con-fs-zoom-sep').forEach(function (el) { el.remove(); });
+                _fsMini.classList.remove('con-media-mini-visible', 'con-fs-mini-pinned');
+              }
+              var _fsCnt = _fsWrap.querySelector('.con-media-content');
+              if (_fsCnt) _fsCnt.style.transform = (_fsItem.kind === 'pics' && _fsItem.rotation) ? 'rotate(' + _fsItem.rotation + 'deg)' : '';
+              if (_fsItem.kind === 'pdf') {
+                const _fsCvs = _fsWrap.querySelector('canvas.con-media-pdf-canvas');
+                const _fsScrDiv = _fsWrap.querySelector('.con-media-pdf-scroll');
+                if (_fsCvs && typeof conRenderPdfForItem === 'function') {
+                  conRenderPdfForItem(_fsItem, _fsCvs, _fsScrDiv, _fsCnt);
+                }
+              }
+            }
+          }
+        }
+
+        const num = parseInt(String(id).replace('cm', ''), 10);
+        if (Number.isFinite(num)) conMediaNextId = Math.max(conMediaNextId, num + 1);
+      });
+
+      prevElsById.forEach((el, id) => {
+        if (!keepIds.has(id)) {
+          el.querySelectorAll('audio, video').forEach(function (m) {
+            try { m.pause(); m.src = ''; m.load(); } catch (_) { }
+          });
+          el.querySelectorAll('canvas').forEach(function (c) {
+            c.width = 0; c.height = 0;
+          });
+          el.remove();
+        }
+      });
+
+      prevById.forEach((prev, id) => {
+        if (!keepIds.has(id) && prev) {
+          if (prev._pdfViewPoll) {
+            clearInterval(prev._pdfViewPoll);
+            prev._pdfViewPoll = null;
+          }
+          prev._pdfDoc = null;
+        }
+      });
+
+      conMediaItems = nextItems;
+    }
+
+    function conFormatFileSize(bytes) {
+      const b = Number(bytes) || 0;
+      if (b <= 0) return '0 B';
+      if (b < 1024) return b + ' B';
+      if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+      return (b / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+
+    let _conImgConvertCurrentAtt = null;
+    let _conImgConvertCurrentOptions = null;
+
+    window.conImgUpdateFormatControls = function () {
+      const fmt = (document.getElementById('con-img-conv-format') || {}).value;
+      const qRow = document.getElementById('con-img-conv-quality-slider-row');
+      if (qRow) {
+        qRow.style.display = (fmt === 'png') ? 'none' : 'flex';
+      }
+    };
+
+    async function conImgConvertOpen(att, options) {
+      _conImgConvertCurrentAtt = att;
+      _conImgConvertCurrentOptions = options || {};
+
+      const hintEl = document.getElementById('con-img-convert-hint');
+      const filenameEl = document.getElementById('con-img-convert-filename');
+      const metaEl = document.getElementById('con-img-convert-meta');
+      const thumbImg = document.getElementById('con-img-convert-thumb');
+      const iconSpan = document.getElementById('con-img-convert-icon');
+
+      window.conImgUpdateFormatControls();
+
+      const name = att.name || 'image.png';
+      if (filenameEl) filenameEl.textContent = name;
+      if (hintEl) hintEl.textContent = (typeof t === 'function' ? t('conImgConvertHintSingle') : null) || 'Choose format and compression to optimize image size before adding.';
+
+      const ext = (name.split('.').pop() || 'png').toUpperCase();
+      const sizeStr = conFormatFileSize(att.size);
+      if (metaEl) metaEl.textContent = `${ext} • ${sizeStr}`;
+
+      if (thumbImg) thumbImg.style.display = 'none';
+      if (iconSpan) iconSpan.style.display = 'block';
+
+      try {
+        const src = await conGetAttachmentDataUrl(att);
+        if (src) {
+          const img = new Image();
+          img.onload = () => {
+            if (metaEl) metaEl.textContent = `${ext} • ${sizeStr} • ${img.naturalWidth} × ${img.naturalHeight} px`;
+            if (thumbImg) {
+              thumbImg.src = src;
+              thumbImg.style.display = 'block';
+            }
+            if (iconSpan) iconSpan.style.display = 'none';
+          };
+          img.src = src;
+        }
+      } catch (_) {}
+
+      const overlay = document.getElementById('con-img-convert-overlay');
+      if (overlay) overlay.classList.add('active');
+    }
+
+    window.conImgConvertClose = function () {
+      const overlay = document.getElementById('con-img-convert-overlay');
+      if (overlay) overlay.classList.remove('active');
+      _conImgConvertCurrentAtt = null;
+      _conImgConvertCurrentOptions = null;
+    };
+
+    window.conImgConvertKeepOriginal = function () {
+      const att = _conImgConvertCurrentAtt;
+      const opts = _conImgConvertCurrentOptions || {};
+      window.conImgConvertClose();
+      if (att && typeof window.conInsertAttachmentById === 'function') {
+        window.conInsertAttachmentById(att.id, Object.assign({}, opts, { skipConvertModal: true }));
+      }
+    };
+
+    window.conImgConvertConfirm = async function () {
+      const att = _conImgConvertCurrentAtt;
+      const opts = _conImgConvertCurrentOptions || {};
+      if (!att) { window.conImgConvertClose(); return; }
+
+      const chosenFmt = (document.getElementById('con-img-conv-format') || {}).value || 'webp';
+      const chosenRes = (document.getElementById('con-img-conv-resolution') || {}).value || '1920';
+      const chosenQualityVal = parseInt((document.getElementById('con-img-conv-quality') || {}).value, 10);
+      const chosenQuality = Number.isFinite(chosenQualityVal) ? Math.max(0.2, Math.min(1.0, chosenQualityVal / 100)) : 0.82;
+
+      window.conImgConvertClose();
+
+      try {
+        if (typeof mdbToast === 'function') mdbToast((typeof t === 'function' ? t('conImgConverting') : null) || 'Converting image...');
+        const src = await conGetAttachmentDataUrl(att);
+        if (!src) {
+          mdbToast('⚠️ Could not load image data for conversion.');
+          window.conInsertAttachmentById(att.id, Object.assign({}, opts, { skipConvertModal: true }));
+          return;
+        }
+
+        const img = await new Promise((resolve, reject) => {
+          const i = new Image();
+          i.onload = () => resolve(i);
+          i.onerror = () => reject(new Error('Failed to load image into memory'));
+          i.src = src;
+        });
+
+        let targetW = img.naturalWidth;
+        let targetH = img.naturalHeight;
+        if (chosenRes !== 'original') {
+          const maxDim = parseInt(chosenRes, 10);
+          if (Number.isFinite(maxDim) && maxDim > 0 && Math.max(targetW, targetH) > maxDim) {
+            const scale = maxDim / Math.max(targetW, targetH);
+            targetW = Math.max(1, Math.round(targetW * scale));
+            targetH = Math.max(1, Math.round(targetH * scale));
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = targetW;
+        canvas.height = targetH;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, targetW, targetH);
+
+        let mimeType = 'image/webp';
+        let ext = 'webp';
+        let q = chosenQuality;
+        if (chosenFmt === 'jpeg') {
+          mimeType = 'image/jpeg';
+          ext = 'jpg';
+        } else if (chosenFmt === 'png') {
+          mimeType = 'image/png';
+          ext = 'png';
+          q = 1.0;
+        }
+
+        let imgDataUrl = canvas.toDataURL(mimeType, q);
+        if (chosenFmt === 'webp' && !imgDataUrl.startsWith('data:image/webp')) {
+          imgDataUrl = canvas.toDataURL('image/png');
+          mimeType = 'image/png';
+          ext = 'png';
+        }
+        canvas.width = 0;
+        canvas.height = 0;
+
+        const base64Data = imgDataUrl.split(',')[1];
+        const binary = atob(base64Data);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const imgBlob = new Blob([bytes], { type: mimeType });
+
+        if (att._cachedObjectUrl) {
+          try { URL.revokeObjectURL(att._cachedObjectUrl); } catch (_) {}
+        }
+
+        const baseName = (att.name || 'image').replace(/\.[^/.]+$/, '');
+        const newName = `${baseName}.${ext}`;
+
+        att.name = newName;
+        att.mime = mimeType;
+        att.size = imgBlob.size;
+        att.file = new File([imgBlob], newName, { type: mimeType });
+        att.base64 = base64Data;
+        att._cachedDataUrl = imgDataUrl;
+        att._cachedObjectUrl = null;
+        att._alreadyOptimized = true;
+
+        if (typeof conRenderAttachmentSummary === 'function') conRenderAttachmentSummary();
+        window.conInsertAttachmentById(att.id, Object.assign({}, opts, { skipConvertModal: true }));
+        mdbToast('🖼 Converted: ' + newName + ' (' + conFormatFileSize(imgBlob.size) + ')');
+      } catch (err) {
+        console.error('[Image Conversion] Failed to convert image:', err);
+        mdbToast('⚠️ Conversion failed, adding original image.');
+        window.conInsertAttachmentById(att.id, Object.assign({}, opts, { skipConvertModal: true }));
+      }
+    };
+
+    let _conPdfPagePickerAtt = null;
+
+    window.conPdfToggleImageOptions = function () {
+      const chk = document.getElementById('con-pdf-insert-as-png-check');
+      const panel = document.getElementById('con-pdf-image-options-panel');
+      if (panel) {
+        panel.style.display = (chk && chk.checked) ? 'flex' : 'none';
+      }
+    };
+
+    window.conPdfUpdateFormatControls = function () {
+      const fmt = (document.getElementById('con-pdf-img-format') || {}).value;
+      const qRow = document.getElementById('con-pdf-quality-slider-row');
+      if (qRow) {
+        qRow.style.display = (fmt === 'png') ? 'none' : 'flex';
+      }
+    };
+
+    function conPdfPagePickerOpen(att, pageCount) {
+      _conPdfPagePickerAtt = att;
+      const hintEl = document.getElementById('con-pdf-page-picker-hint');
+      const grid = document.getElementById('con-pdf-page-picker-grid');
+      const pngCheck = document.getElementById('con-pdf-insert-as-png-check');
+      if (pngCheck) pngCheck.checked = true;
+      window.conPdfToggleImageOptions();
+      window.conPdfUpdateFormatControls();
+      if (hintEl) hintEl.textContent = '\u201c' + (att.name || 'document.pdf') + '\u201d \u2014 ' + pageCount + ' page' + (pageCount === 1 ? '' : 's') + '. Click to select/deselect. Each selected page becomes its own board page.';
+      if (grid) {
+        grid.innerHTML = '';
+        for (let i = 1; i <= pageCount; i++) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'pdf-page-btn selected';
+          btn.textContent = i;
+          btn.dataset.page = String(i);
+          btn.addEventListener('click', () => btn.classList.toggle('selected'));
+          grid.appendChild(btn);
+        }
+      }
+      const overlay = document.getElementById('con-pdf-page-picker-overlay');
+      if (overlay) overlay.classList.add('active');
+    }
+
+    window.conPdfPagePickerClose = function () {
+      const overlay = document.getElementById('con-pdf-page-picker-overlay');
+      if (overlay) overlay.classList.remove('active');
+      _conPdfPagePickerAtt = null;
+    };
+
+    window.conPdfPagePickerSelectAll = function () {
+      document.querySelectorAll('#con-pdf-page-picker-grid .pdf-page-btn').forEach(b => b.classList.add('selected'));
+    };
+
+    window.conPdfPagePickerSelectNone = function () {
+      document.querySelectorAll('#con-pdf-page-picker-grid .pdf-page-btn').forEach(b => b.classList.remove('selected'));
+    };
+
+    window.conPdfPagePickerConfirm = async function () {
+      const att = _conPdfPagePickerAtt;
+      if (!att) return;
+      const btns = document.querySelectorAll('#con-pdf-page-picker-grid .pdf-page-btn.selected');
+      const selectedPages = Array.from(btns).map(b => Number(b.dataset.page)).filter(n => n > 0);
+      selectedPages.sort((a, b) => a - b);
+      const asImage = !!(document.getElementById('con-pdf-insert-as-png-check') && document.getElementById('con-pdf-insert-as-png-check').checked);
+      const chosenFmt = (document.getElementById('con-pdf-img-format') || {}).value || 'webp';
+      const chosenScale = parseFloat((document.getElementById('con-pdf-img-scale') || {}).value) || 1.5;
+      const chosenQualityVal = parseInt((document.getElementById('con-pdf-img-quality') || {}).value, 10);
+      const chosenQuality = Number.isFinite(chosenQualityVal) ? Math.max(0.2, Math.min(1.0, chosenQualityVal / 100)) : 0.82;
+
+      window.conPdfPagePickerClose();
+      if (selectedPages.length === 0) { mdbToast('ℹ️ No pages selected.'); return; }
+
+      // Save current page snapshot before we start adding new pages
+      conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
+      const insertAfterIdx = conCurrentPageIndex;
+
+      if (asImage) {
+        try {
+          if (typeof mdbToast === 'function') mdbToast(t('conPdfRenderingPng') || 'Converting PDF pages to images...');
+          const pdfjsLib = await conEnsurePdfjsLib();
+          let pdfDoc = att._pdfDoc;
+          if (!pdfDoc) {
+            const buf = await conGetAttachmentArrayBuffer(att);
+            if (!buf) { mdbToast('⚠️ Could not load PDF file data.'); return; }
+            pdfDoc = await pdfjsLib.getDocument(conPdfGetDocumentParams({ data: new Uint8Array(buf) })).promise;
+            att._pdfDoc = pdfDoc;
+          }
+
+          let mimeType = 'image/webp';
+          let ext = 'webp';
+          let q = chosenQuality;
+          if (chosenFmt === 'jpeg') {
+            mimeType = 'image/jpeg';
+            ext = 'jpg';
+          } else if (chosenFmt === 'png') {
+            mimeType = 'image/png';
+            ext = 'png';
+            q = 1.0;
+          }
+
+          const newSnaps = [];
+          const baseName = (att.name || 'document').replace(/\.pdf$/i, '');
+
+          for (const pageNum of selectedPages) {
+            const page = await pdfDoc.getPage(pageNum);
+            const unscaledVp = page.getViewport({ scale: 1 });
+            const targetWidth = Math.max(900, Math.min(3200, Math.round(unscaledVp.width * chosenScale)));
+            const renderScale = targetWidth / unscaledVp.width;
+            const viewport = page.getViewport({ scale: renderScale });
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(viewport.width);
+            canvas.height = Math.round(viewport.height);
+            const ctx = canvas.getContext('2d');
+            await page.render({ canvasContext: ctx, viewport }).promise;
+
+            let imgDataUrl = canvas.toDataURL(mimeType, q);
+            if (chosenFmt === 'webp' && !imgDataUrl.startsWith('data:image/webp')) {
+              imgDataUrl = canvas.toDataURL('image/png');
+              mimeType = 'image/png';
+              ext = 'png';
+            }
+            canvas.width = 0;
+            canvas.height = 0;
+
+            const base64Data = imgDataUrl.split(',')[1];
+            const binary = atob(base64Data);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            const imgBlob = new Blob([bytes], { type: mimeType });
+
+            _conAttachmentCounter += 1;
+            const imgAttId = 'att_' + _conAttachmentCounter;
+            const imgName = `${baseName}_p${pageNum}.${ext}`;
+            const imgAtt = {
+              id: imgAttId,
+              name: imgName,
+              mime: mimeType,
+              kind: 'pics',
+              size: imgBlob.size,
+              file: new File([imgBlob], imgName, { type: mimeType }),
+              base64: base64Data,
+              _cachedDataUrl: imgDataUrl,
+              relativePath: ''
+            };
+            conAttachments.push(imgAtt);
+
+            const ratio = unscaledVp.height / unscaledVp.width;
+            const rect = conGetDefaultPdfMediaRect(ratio);
+
+            const snap = conBuildEmptyPageSnapshot();
+            snap.media = [{
+              id: 'cm' + (conMediaNextId++),
+              kind: 'pics',
+              attachmentId: imgAttId,
+              name: imgName,
+              mime: mimeType,
+              relativePath: '',
+              x: rect.x,
+              y: rect.y,
+              w: rect.w,
+              h: rect.h,
+              locked: true,
+              _ratioInitialized: true
+            }];
+            newSnaps.push(snap);
+          }
+
+          // Do not actually integrate the PDF into the document: remove from conAttachments if not used elsewhere
+          const isPdfUsedElsewhere = conPageSnapshots.some((pageSnap, idx) => {
+            if (idx === conCurrentPageIndex) return false;
+            return (pageSnap.media || []).some(m => m.attachmentId === att.id);
+          }) || (conMediaItems || []).some(m => m.attachmentId === att.id);
+
+          if (!isPdfUsedElsewhere) {
+            conAttachments = conAttachments.filter(a => a.id !== att.id);
+            if (att._cachedObjectUrl) {
+              try { URL.revokeObjectURL(att._cachedObjectUrl); } catch (_) {}
+            }
+            if (window._conPdfDocCache && att.id) {
+              window._conPdfDocCache.delete(att.id);
+            }
+          }
+
+          conPageSnapshots.splice(insertAfterIdx + 1, 0, ...newSnaps);
+          conCurrentPageIndex = insertAfterIdx + 1;
+          _conRestorePageToBoard(conPageSnapshots[conCurrentPageIndex]);
+          conUpdatePageBar();
+          conRenderAttachmentSummary();
+          if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+          if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true });
+          mdbToast('🖼 Inserted ' + selectedPages.length + ' page' + (selectedPages.length === 1 ? '' : 's') + ' as compressed images.');
+        } catch (err) {
+          console.error('[PDF to Image] Failed to render PDF pages:', err);
+          mdbToast('⚠️ Error converting PDF pages to images: ' + (err && err.message ? err.message : err));
+        }
+        return;
+      }
+
+      const pdfLike = {
+        attachmentId: att.id,
+        name: att.name,
+        mime: att.mime || 'application/pdf',
+        relativePath: att.relativePath || '',
+        file: att.file || null
+      };
+
+      const ratio = await conGetPdfPageAspectRatio(pdfLike, selectedPages[0] || 1);
+      const rect = conGetDefaultPdfMediaRect(ratio);
+
+      const newSnaps = selectedPages.map(pageNum => {
+        const snap = conBuildEmptyPageSnapshot();
+        snap.media = [{
+          id: 'cm' + (conMediaNextId++),
+          kind: 'pdf',
+          attachmentId: att.id,
+          name: att.name,
+          mime: att.mime || 'application/pdf',
+          relativePath: att.relativePath || '',
+          pageNumber: pageNum,
+          pdfZoom: 1,
+          pdfRotation: 0,
+          pdfScrollX: 0,
+          pdfScrollY: 0,
+          pdfLockSize: true,
+          locked: true,
+          x: rect.x,
+          y: rect.y,
+          w: rect.w,
+          h: rect.h,
+          _ratioInitialized: true
+        }];
+        return snap;
+      });
+
+      conPageSnapshots.splice(insertAfterIdx + 1, 0, ...newSnaps);
+      conCurrentPageIndex = insertAfterIdx + 1;
+      _conRestorePageToBoard(conPageSnapshots[conCurrentPageIndex]);
+      conUpdatePageBar();
+      mdbToast('📄 Inserted ' + selectedPages.length + ' PDF page' + (selectedPages.length === 1 ? '' : 's') + ' as new board pages.');
+    };
+
+    // -------------------------------------------------------
+
+    window.conInsertAttachmentById = async function (attachmentId, options = {}) {
+      const att = conFindAttachmentById(attachmentId);
+      if (!att) {
+        mdbToast('⚠️ Attachment not found.');
+        return;
+      }
+
+      if (att.kind === 'pdf') {
+        const pageCount = await conGetPdfPageCount(att);
+        conPdfPagePickerOpen(att, pageCount);
+        return;
+      }
+
+      if (att.kind === 'pics' && !(options && options.skipConvertModal) && !att._alreadyOptimized) {
+        conImgConvertOpen(att, options);
+        return;
+      }
+
+      if (att.kind === 'sounds') {
+        const customX = Number(options && options.x);
+        const customY = Number(options && options.y);
+        const hasCustomPos = Number.isFinite(customX) && Number.isFinite(customY);
+        const boardEl = document.getElementById('constellation-board');
+        const posX = hasCustomPos ? customX : Math.max(20, (boardEl ? (boardEl.scrollLeft || 0) + 120 : 120));
+        const posY = hasCustomPos ? customY : Math.max(20, (boardEl ? (boardEl.scrollTop || 0) + 120 : 120));
+        const pageNum = options && options.pageNum != null ? options.pageNum : null;
+        const nodeId = conAddSoundNodeAt(att, posX, posY, pageNum);
+        if (!options.silent) {
+          if (typeof mdbToast === 'function') {
+            const toastMsg = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t('soundNodeAddedToast') : '🎵 Sound node added to board.';
+            mdbToast(toastMsg || '🎵 Sound node added to board.');
+          }
+        }
+        return nodeId;
+      }
+
+      if (att.kind === 'videos' && !(options && options.asCanvasBox)) {
+        const customX = Number(options && options.x);
+        const customY = Number(options && options.y);
+        const hasCustomPos = Number.isFinite(customX) && Number.isFinite(customY);
+        const boardEl = document.getElementById('constellation-board');
+        const posX = hasCustomPos ? customX : Math.max(20, (boardEl ? (boardEl.scrollLeft || 0) + 120 : 120));
+        const posY = hasCustomPos ? customY : Math.max(20, (boardEl ? (boardEl.scrollTop || 0) + 120 : 120));
+        const pageNum = options && options.pageNum != null ? options.pageNum : null;
+        const nodeId = conAddVideoNodeAt(att, posX, posY, pageNum);
+        if (!options.silent) {
+          if (typeof mdbToast === 'function') {
+            const toastMsg = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t('videoNodeAddedToast') : '🎬 Video node added to board.';
+            mdbToast(toastMsg || '🎬 Video node added to board.');
+          }
+        }
+        return nodeId;
+      }
+
+      if (att.kind !== 'pics' && att.kind !== 'videos') {
+        mdbToast('⚠️ This attachment type cannot be inserted.');
+        return;
+      }
+
+      const board = document.getElementById('constellation-board');
+      if (!board) return;
+      const baseW = att.kind === 'videos' ? (window._bcVideoInsertWidth || 260) : (window._bcImageInsertWidth || 260);
+      const baseH = 200;
+      const customX = Number(options && options.x);
+      const customY = Number(options && options.y);
+      const hasCustomPos = Number.isFinite(customX) && Number.isFinite(customY);
+
+      // For images, resolve the natural aspect ratio so the container fits the image exactly.
+      let resolvedH = baseH;
+      if (att.kind === 'pics') {
+        try {
+          const imgUrl = await conGetAttachmentDataUrl(att);
+          const nat = await conGetImageNaturalSize(imgUrl);
+          if (nat && nat.w > 0 && nat.h > 0) {
+            resolvedH = Math.max(40, Math.round(baseW * nat.h / nat.w));
+          }
+        } catch (_) {}
+      }
+
+      const maxX = Math.max(12, board.clientWidth - baseW - 12);
+      const maxY = Math.max(12, board.clientHeight - resolvedH - 12);
+      const item = {
+        id: 'cm' + (conMediaNextId++),
+        kind: att.kind,
+        attachmentId: att.id,
+        name: att.name,
+        mime: att.mime || conGuessMimeByName(att.name, att.kind),
+        relativePath: att.relativePath || '',
+        file: att.file || null,
+        x: hasCustomPos
+          ? Math.max(12, Math.min(maxX, Math.round(customX)))
+          : Math.max(12, Math.round((board.clientWidth - baseW) / 2 + Math.random() * 40 - 20)),
+        y: hasCustomPos
+          ? Math.max(12, Math.min(maxY, Math.round(customY)))
+          : Math.max(12, Math.round((board.clientHeight - resolvedH) / 2 + Math.random() * 40 - 20)),
+        w: baseW,
+        h: resolvedH
+      };
+      conMediaItems.push(item);
+      conBuildMediaWidget(item);
+      if (!(options && options.silent)) {
+        mdbToast('🧩 Inserted: ' + att.name);
+      }
+      if (typeof window._conMirrorBroadcast === 'function') {
+        window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
+      }
+    };
+
+    async function conReadAttachmentFileBase64(file) {
+      return await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = String(reader.result || '');
+          const commaIdx = result.indexOf(',');
+          resolve(commaIdx >= 0 ? result.slice(commaIdx + 1) : result);
+        };
+        reader.onerror = () => reject(reader.error || new Error('Could not read attachment file.'));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    window.conPickAttachments = function () {
+      const input = document.getElementById('con-attachments-input');
+      if (!input) return;
+      input.click();
+    };
+
+    window.conHandleAttachmentInput = function (event) {
+      const input = event && event.target;
+      const files = input && input.files ? Array.from(input.files) : [];
+      if (input) input.value = '';
+      if (!files.length) return;
+
+      const rejected = [];
+      files.forEach(file => {
+        const kind = conAttachmentKind(file.name, file.type);
+        if (!kind) {
+          rejected.push(file.name || 'file');
+          return;
+        }
+        _conAttachmentCounter += 1;
+        let diskPath = '';
+        if (window.Desktop && typeof window.Desktop.getPathForFile === 'function') {
+          try { diskPath = window.Desktop.getPathForFile(file) || ''; } catch (_) {}
+        } else if (file && file.path) {
+          diskPath = file.path;
+        }
+        conAttachments.push({
+          id: 'att_' + _conAttachmentCounter,
+          name: conSanitizeAttachmentName(file.name),
+          mime: String(file.type || ''),
+          kind,
+          size: Number(file.size) || 0,
+          file,
+          path: diskPath,
+          relativePath: ''
+        });
+      });
+
+      conRenderAttachmentSummary();
+      conRemoveInsertAttachmentChooser();
+      if (rejected.length) {
+        mdbToast('⚠️ Ignored unsupported files: ' + rejected.slice(0, 3).join(', ') + (rejected.length > 3 ? '…' : ''));
+      } else {
+        mdbToast('📎 Added ' + files.length + ' attachment(s).');
+      }
+    };
+
+    window.conHandleBoardFileDrop = function (files, options = {}) {
+      const dropped = Array.isArray(files) ? files : [];
+      if (!dropped.length) return { inserted: 0, rejected: 0 };
+
+      let rejected = 0;
+      let inserted = 0;
+      let placedOffset = 0;
+      const dropX = Number(options.x);
+      const dropY = Number(options.y);
+      const hasDropPos = Number.isFinite(dropX) && Number.isFinite(dropY);
+
+      dropped.forEach(file => {
+        const kind = conAttachmentKind(file && file.name, file && file.type);
+        if (!kind) {
+          rejected += 1;
+          return;
+        }
+
+        _conAttachmentCounter += 1;
+        const attachmentId = 'att_' + _conAttachmentCounter;
+        let diskPath = '';
+        if (window.Desktop && typeof window.Desktop.getPathForFile === 'function') {
+          try { diskPath = window.Desktop.getPathForFile(file) || ''; } catch (_) {}
+        } else if (file && file.path) {
+          diskPath = file.path;
+        }
+        conAttachments.push({
+          id: attachmentId,
+          name: conSanitizeAttachmentName(file.name),
+          mime: String(file.type || ''),
+          kind,
+          size: Number(file.size) || 0,
+          file,
+          path: diskPath,
+          relativePath: ''
+        });
+
+        if (kind === 'pdf') {
+          window.conInsertAttachmentById(attachmentId, { silent: true });
+        } else {
+          const pos = hasDropPos
+            ? {
+              x: dropX + (placedOffset * 18),
+              y: dropY + (placedOffset * 18),
+              silent: true
+            }
+            : { silent: true };
+          window.conInsertAttachmentById(attachmentId, pos);
+          placedOffset += 1;
+        }
+
+        inserted += 1;
+      });
+
+      conRenderAttachmentSummary();
+      conRemoveInsertAttachmentChooser();
+
+      if (inserted > 0) {
+        const msg = '🧩 Inserted ' + inserted + ' file(s) from drop.' + (rejected ? ' Ignored ' + rejected + ' unsupported file(s).' : '');
+        if (typeof mdbToast === 'function') mdbToast(msg);
+      } else if (rejected > 0) {
+        if (typeof mdbToast === 'function') mdbToast('⚠️ No supported files dropped.');
+      }
+
+      return { inserted, rejected };
+    };
+
+    setTimeout(conRenderAttachmentSummary, 0);
+
+    // ================================================================
+    // BOARD BUILDER
+    // ================================================================
+    (function () {
+      let conNodes = (global.conNodes = window.conNodes = (global.conNodes || []));
+      let conEdges = (global.conEdges = window.conEdges = (global.conEdges || []));
+      let conMode = 'move';   // 'move' | 'connect' | 'delete'
+      let conSnapEnabled = true; // snap-to-align when dragging nodes
+      function conToggleSnap() {
+        conSnapEnabled = !conSnapEnabled;
+        const btn = document.getElementById('con-snap-toggle-btn');
+        if (btn) btn.classList.toggle('con-panel-active', conSnapEnabled);
+      }
+      window.conToggleSnap = conToggleSnap;
+      window.conGetSnapEnabled = function () { return conSnapEnabled; };
+      let conSelected = null; // id of selected node
+      let conMultiSelected = (typeof global.conMultiSelected !== 'undefined' && global.conMultiSelected) || new Set(); // ids of multi-selected nodes
+      let conGroupFocused = null; // id of focused group (Delete key support)
+      let conTableSelected = (typeof global.conTableSelected !== 'undefined' && global.conTableSelected) || new Set(); // ids of selected tables
+      function conTableClearSelection() {
+        conTableSelected.clear();
+        document.querySelectorAll('#constellation-board .con-table-el.con-table-selected')
+          .forEach(el => el.classList.remove('con-table-selected'));
+        if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
+      }
+      window.conTableClearSelection = conTableClearSelection;
+      window.conGetTableSelected = function () { return conTableSelected; };
+      let conConnSrc = null;  // id of first node in connect mode
+      let _conLinkSrc = null; // id of source element for Ctrl+J cross-type link mode
+      let conNextId = 1;
+      let _conClipboard = null;
+      let _conClipboardPasteCount = 0;
+      let _lastBoardPastePoint = null;
+      const CON_CLIPBOARD_STORAGE_KEY = 'con_clipboard_v1';
+      function _conClipboardWrite(payload) {
+        _conClipboard = payload;
+        _conClipboardPasteCount = 0;
+        try { sessionStorage.setItem(CON_CLIPBOARD_STORAGE_KEY, JSON.stringify(payload)); } catch (e) { }
+      }
+      function _conClipboardRead() {
+        if (_conClipboard) return _conClipboard;
+        try {
+          const raw = sessionStorage.getItem(CON_CLIPBOARD_STORAGE_KEY);
+          if (raw) return JSON.parse(raw);
+        } catch (e) { }
+        return null;
+      }
+      var conBuildPageSnapshot = function () {
+        return (typeof window.conBuildPageSnapshot === 'function')
+          ? window.conBuildPageSnapshot()
+          : ((window.Board && window.Board.pages && typeof window.Board.pages.buildPageSnapshot === 'function')
+            ? window.Board.pages.buildPageSnapshot()
+            : {});
+      };
+      var _conRestorePageToBoard = function (snapshot, opts) {
+        if (typeof window._conRestorePageToBoard === 'function') {
+          return window._conRestorePageToBoard(snapshot, opts);
+        }
+        if (typeof window.conRestorePageToBoard === 'function') {
+          return window.conRestorePageToBoard(snapshot, opts);
+        }
+      };
+      let _conUndoStack = [];
+      let _conRedoStack = [];
+      let _conApplySizeUndoPushed = false;
+      const _CON_UNDO_MAX = 20;
+      function conPushUndo(snapshot) {
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        _conUndoStack.push(snapshot || conBuildPageSnapshot());
+        if (_conUndoStack.length > _CON_UNDO_MAX) _conUndoStack.shift();
+        _conRedoStack = [];
+      }
+      function conUndo() {
+        if (_conUndoStack.length === 0) return;
+        _conRedoStack.push(conBuildPageSnapshot());
+        const snap = _conUndoStack.pop();
+        if (typeof _conInvalidatePageDomCache === 'function') _conInvalidatePageDomCache(conCurrentPageIndex);
+        _conRestorePageToBoard(snap, { isUndoRedo: true, scrollToTop: false });
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+      }
+      function conRedo() {
+        if (_conRedoStack.length === 0) return;
+        _conUndoStack.push(conBuildPageSnapshot());
+        const snap = _conRedoStack.pop();
+        if (typeof _conInvalidatePageDomCache === 'function') _conInvalidatePageDomCache(conCurrentPageIndex);
+        _conRestorePageToBoard(snap, { isUndoRedo: true, scrollToTop: false });
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+      }
+      window.conPushUndo = global.conPushUndo = conPushUndo;
+      window.conUndo = global.conUndo = conUndo;
+      window.conRedo = global.conRedo = conRedo;
+      let _pendingConnectSrcId = null; // for "add connected word" feature
+      let _pendingConnectType = 'none'; // arrow type for pending connect: 'none','forward','backward','both'
+      let _boardCtxX = 0, _boardCtxY = 0;
+      window.conCurrentZoom = 1; // track zoom scale
+      let conCurrentZoom = window.conCurrentZoom;
+      var conTitle = global.conTitle = window.conTitle = (typeof window.conTitle !== 'undefined' ? window.conTitle : ''); // board title for export filename
+      // ========================================================
+      // Universal Unit Management System (pt/px for Font, mm/pt/px for Thickness)
+      // ========================================================
+      const CON_FONT_UNIT_KEY = 'con_pref_font_unit';
+      const CON_THICKNESS_UNIT_KEY = 'con_pref_thickness_unit';
+
+      window.conFontUnit = (function () {
+        try {
+          const u = localStorage.getItem(CON_FONT_UNIT_KEY);
+          if (u === 'pt' || u === 'px') return u;
+        } catch (e) { }
+        return 'pt'; // Standard typographic unit
+      })();
+
+      window.conThicknessUnit = (function () {
+        try {
+          const u = localStorage.getItem(CON_THICKNESS_UNIT_KEY);
+          if (u === 'mm' || u === 'pt' || u === 'px') return u;
+        } catch (e) { }
+        return 'mm'; // Standard physical line/stroke unit
+      })();
+
+      function conPxToFontUnit(px, unit) {
+        unit = unit || window.conFontUnit || 'pt';
+        const num = parseFloat(px) || 0;
+        if (unit === 'px') return Math.round(num);
+        // pt: 1px = 0.75pt (96dpi: 72pt/inch, 96px/inch)
+        return Math.round(num * 0.75 * 10) / 10;
+      }
+
+      function conFontUnitToPx(val, unit) {
+        unit = unit || window.conFontUnit || 'pt';
+        const num = parseFloat(val) || 0;
+        if (unit === 'px') return Math.round(num);
+        // 1pt = 4/3 px
+        return Math.round((num / 0.75) * 10) / 10;
+      }
+
+      function conFormatFontSize(px, unit) {
+        unit = unit || window.conFontUnit || 'pt';
+        const val = conPxToFontUnit(px, unit);
+        return val + ' ' + unit;
+      }
+
+      function conPxToThicknessUnit(px, unit) {
+        unit = unit || window.conThicknessUnit || 'mm';
+        const num = parseFloat(px) || 0;
+        if (unit === 'px') return Math.round(num * 10) / 10;
+        if (unit === 'pt') return Math.round(num * 0.75 * 10) / 10;
+        // mm: 1px = 25.4 / 96 mm
+        return Math.round((num * 25.4 / 96) * 10) / 10;
+      }
+
+      function conThicknessUnitToPx(val, unit) {
+        unit = unit || window.conThicknessUnit || 'mm';
+        const num = parseFloat(val) || 0;
+        if (unit === 'px') return Math.round(num * 10) / 10;
+        if (unit === 'pt') return Math.round((num / 0.75) * 10) / 10;
+        // mm: 1mm = 96 / 25.4 px
+        return Math.round((num * 96 / 25.4) * 10) / 10;
+      }
+
+      function conFormatThickness(px, unit) {
+        unit = unit || window.conThicknessUnit || 'mm';
+        const val = conPxToThicknessUnit(px, unit);
+        return val + ' ' + unit;
+      }
+
+      function _conSetupFontSizeSlider(el, unit, context) {
+        if (!el) return;
+        unit = unit || window.conFontUnit || 'pt';
+        const isNote = context === 'note' || (el && el.id === 'wn-sp-size-slider');
+        if (unit === 'pt') {
+          el.min = isNote ? '3' : '6';
+          el.max = '72';
+          el.step = '1';
+        } else {
+          el.min = isNote ? '4' : '8';
+          el.max = '96';
+          el.step = '1';
+        }
+      }
+
+      function _conSetupThicknessSlider(el, unit, context) {
+        if (!el) return;
+        unit = unit || window.conThicknessUnit || 'mm';
+        if (unit === 'mm') {
+          if (context === 'shape') { el.min = '0.2'; el.max = '6.0'; el.step = '0.1'; }
+          else if (context === 'edge') { el.min = '0.2'; el.max = '5.0'; el.step = '0.1'; }
+          else if (context === 'noteBorder') { el.min = '0'; el.max = '6.0'; el.step = '0.1'; }
+          else { el.min = '0.2'; el.max = '10.0'; el.step = '0.1'; }
+        } else if (unit === 'pt') {
+          if (context === 'shape') { el.min = '0.5'; el.max = '18.0'; el.step = '0.5'; }
+          else if (context === 'edge') { el.min = '0.5'; el.max = '15.0'; el.step = '0.5'; }
+          else if (context === 'noteBorder') { el.min = '0'; el.max = '18.0'; el.step = '0.5'; }
+          else { el.min = '0.5'; el.max = '30.0'; el.step = '0.5'; }
+        } else { // px
+          if (context === 'shape') { el.min = '1'; el.max = '24'; el.step = '1'; }
+          else if (context === 'edge') { el.min = '1'; el.max = '20'; el.step = '0.5'; }
+          else if (context === 'noteBorder') { el.min = '0'; el.max = '18'; el.step = '1'; }
+          else { el.min = '1'; el.max = '40'; el.step = '1'; }
+        }
+      }
+
+      function _conSyncUnitToggleButtons() {
+        document.querySelectorAll('.con-unit-toggle[data-unit-type="font"]').forEach(tg => {
+          tg.querySelectorAll('.con-unit-pill').forEach(pill => {
+            pill.classList.toggle('active', pill.dataset.unit === window.conFontUnit);
+          });
+        });
+        document.querySelectorAll('.con-unit-toggle[data-unit-type="thickness"]').forEach(tg => {
+          tg.querySelectorAll('.con-unit-pill').forEach(pill => {
+            pill.classList.toggle('active', pill.dataset.unit === window.conThicknessUnit);
+          });
+        });
+        const edgeThickUnit = document.getElementById('con-edge-ctx-thickness-unit');
+        if (edgeThickUnit) edgeThickUnit.textContent = window.conThicknessUnit;
+      }
+
+      function _conSyncFontSizeSliders() {
+        // 1. Toolbar default font size input
+        const defaultInput = document.getElementById('con-default-font-size-input');
+        if (defaultInput) {
+          _conSetupFontSizeSlider(defaultInput, window.conFontUnit);
+          defaultInput.value = String(conPxToFontUnit(conDefaultNewWordFontSize, window.conFontUnit));
+        }
+        // 2. Node context menu font size slider
+        const ctxSlider = document.getElementById('con-ctx-font-size');
+        const ctxDisplay = document.getElementById('con-ctx-font-size-display');
+        if (ctxSlider) {
+          _conSetupFontSizeSlider(ctxSlider, window.conFontUnit);
+          const targetNode = conCtxNodeId ? conNodes.find(n => n.id === conCtxNodeId) : null;
+          const px = targetNode ? (conGetNodeBaseFontSize(targetNode) || 16) : 16;
+          const unitVal = conPxToFontUnit(px, window.conFontUnit);
+          ctxSlider.value = String(unitVal);
+          if (ctxDisplay) ctxDisplay.textContent = unitVal + ' ' + window.conFontUnit;
+        }
+        // 3. Word note style popup font size slider
+        const wnSlider = document.getElementById('wn-sp-size-slider');
+        const wnVal = document.getElementById('wn-sp-size-val');
+        if (wnSlider) {
+          _conSetupFontSizeSlider(wnSlider, window.conFontUnit, 'note');
+          if (typeof _wnActiveNote !== 'undefined' && _wnActiveNote) {
+            const px = _wnActiveNote.fontSize || 16;
+            wnSlider.value = String(conPxToFontUnit(px, window.conFontUnit));
+            if (wnVal) wnVal.textContent = conFormatFontSize(px, window.conFontUnit);
+          }
+        }
+      }
+
+      function _conSyncThicknessSliders() {
+        // 1. Draw line menu slider
+        const drawSlider = document.getElementById('con-draw-thickness');
+        const drawVal = document.getElementById('con-draw-thickness-val');
+        if (drawSlider) {
+          _conSetupThicknessSlider(drawSlider, window.conThicknessUnit, 'drawing');
+          drawSlider.value = String(conPxToThicknessUnit(_conDrawThickness, window.conThicknessUnit));
+          if (drawVal) drawVal.textContent = conFormatThickness(_conDrawThickness, window.conThicknessUnit);
+        }
+        // 2. Shape context menu slider
+        const shapeSlider = document.getElementById('con-shape-ctx-thickness');
+        const shapeVal = document.getElementById('con-shape-ctx-thickness-val');
+        if (shapeSlider && typeof _conShapeCtxId !== 'undefined' && _conShapeCtxId) {
+          const sh = conShapes.find(x => x.id === _conShapeCtxId);
+          if (sh) {
+            _conSetupThicknessSlider(shapeSlider, window.conThicknessUnit, 'shape');
+            shapeSlider.value = String(conPxToThicknessUnit(sh.thickness || 2, window.conThicknessUnit));
+            if (shapeVal) shapeVal.textContent = conFormatThickness(sh.thickness || 2, window.conThicknessUnit);
+          }
+        }
+        // 3. Drawing stroke context menu slider
+        const strokeSlider = document.getElementById('con-drawing-ctx-thickness');
+        const strokeVal = document.getElementById('con-drawing-ctx-thickness-val');
+        if (strokeSlider && typeof _conDrawCtxId !== 'undefined' && _conDrawCtxId) {
+          const dr = conDrawings.find(dr => dr.id === _conDrawCtxId);
+          if (dr) {
+            _conSetupThicknessSlider(strokeSlider, window.conThicknessUnit, 'drawing');
+            strokeSlider.value = String(conPxToThicknessUnit(dr.thickness || 4, window.conThicknessUnit));
+            if (strokeVal) strokeVal.textContent = conFormatThickness(dr.thickness || 4, window.conThicknessUnit);
+          }
+        }
+        // 4. Edge context menu thickness input
+        const edgeThickInput = document.getElementById('con-edge-ctx-thickness');
+        const edgeThickUnit = document.getElementById('con-edge-ctx-thickness-unit');
+        if (edgeThickUnit) edgeThickUnit.textContent = window.conThicknessUnit;
+        if (edgeThickInput && typeof _conEdgeCtxId !== 'undefined' && _conEdgeCtxId) {
+          const edge = conEdges.find(e => e && e.id == _conEdgeCtxId);
+          if (edge) {
+            _conSetupThicknessSlider(edgeThickInput, window.conThicknessUnit, 'edge');
+            const px = Number.isFinite(edge.thickness) && edge.thickness > 0 ? edge.thickness : 2;
+            edgeThickInput.value = String(conPxToThicknessUnit(px, window.conThicknessUnit));
+          }
+        }
+        // 5. Word note style popup border width slider
+        const wnBwSlider = document.getElementById('wn-sp-border-width');
+        const wnBwVal = document.getElementById('wn-sp-border-width-val');
+        if (wnBwSlider) {
+          _conSetupThicknessSlider(wnBwSlider, window.conThicknessUnit, 'noteBorder');
+          if (typeof _wnActiveNote !== 'undefined' && _wnActiveNote) {
+            const px = _wnActiveNote.borderWidth || 0;
+            wnBwSlider.value = String(conPxToThicknessUnit(px, window.conThicknessUnit));
+            if (wnBwVal) wnBwVal.textContent = conFormatThickness(px, window.conThicknessUnit);
+          }
+        }
+      }
+
+      window.conSwitchFontUnit = function (newUnit) {
+        if (newUnit !== 'pt' && newUnit !== 'px') return;
+        window.conFontUnit = newUnit;
+        try { localStorage.setItem(CON_FONT_UNIT_KEY, newUnit); } catch (e) { }
+        _conSyncUnitToggleButtons();
+        _conSyncFontSizeSliders();
+      };
+
+      window.conSwitchThicknessUnit = function (newUnit) {
+        if (newUnit !== 'mm' && newUnit !== 'pt' && newUnit !== 'px') return;
+        window.conThicknessUnit = newUnit;
+        try { localStorage.setItem(CON_THICKNESS_UNIT_KEY, newUnit); } catch (e) { }
+        _conSyncUnitToggleButtons();
+        _conSyncThicknessSliders();
+      };
+
+      window.conPxToFontUnit = conPxToFontUnit;
+      window.conFontUnitToPx = conFontUnitToPx;
+      window.conFormatFontSize = conFormatFontSize;
+      window.conPxToThicknessUnit = conPxToThicknessUnit;
+      window.conThicknessUnitToPx = conThicknessUnitToPx;
+      window.conFormatThickness = conFormatThickness;
+      window._conSetupFontSizeSlider = _conSetupFontSizeSlider;
+      window._conSetupThicknessSlider = _conSetupThicknessSlider;
+      window._conSyncUnitToggleButtons = _conSyncUnitToggleButtons;
+      window._conSyncFontSizeSliders = _conSyncFontSizeSliders;
+      window._conSyncThicknessSliders = _conSyncThicknessSliders;
+
+      const CON_NEW_WORD_FONT_STORAGE_KEY = 'con_new_word_font_size';
+      const CON_NEW_WORD_FONT_MIN = 8;
+      const CON_NEW_WORD_FONT_MAX = 96;
+      const CON_NEW_WORD_FONT_DEFAULT = 16;
+      let conDefaultNewWordFontSize = (() => {
+        try {
+          const saved = parseInt(localStorage.getItem(CON_NEW_WORD_FONT_STORAGE_KEY), 10);
+          if (Number.isFinite(saved)) {
+            return Math.min(CON_NEW_WORD_FONT_MAX, Math.max(CON_NEW_WORD_FONT_MIN, saved));
+          }
+        } catch (e) { }
+        return CON_NEW_WORD_FONT_DEFAULT;
+      })();
+
+      function conClampDefaultWordFontSize(value, isInputUnit) {
+        const px = isInputUnit ? conFontUnitToPx(value, window.conFontUnit) : parseFloat(value);
+        if (!Number.isFinite(px)) return conDefaultNewWordFontSize;
+        return Math.min(CON_NEW_WORD_FONT_MAX, Math.max(CON_NEW_WORD_FONT_MIN, Math.round(px)));
+      }
+
+      window.conGetDefaultWordFontSize = function () {
+        return conDefaultNewWordFontSize;
+      };
+
+      window.conSetDefaultWordFontSize = function (value, isInputUnit) {
+        const next = conClampDefaultWordFontSize(value, isInputUnit);
+        conDefaultNewWordFontSize = next;
+        const input = document.getElementById('con-default-font-size-input');
+        if (input) {
+          _conSetupFontSizeSlider(input, window.conFontUnit);
+          const unitVal = conPxToFontUnit(next, window.conFontUnit);
+          if (String(input.value) !== String(unitVal)) input.value = String(unitVal);
+        }
+        try { localStorage.setItem(CON_NEW_WORD_FONT_STORAGE_KEY, String(next)); } catch (e) { }
+        return next;
+      };
+
+      function conApplyDefaultWordFontSize(el) {
+        if (!el) return;
+        const next = window.conGetDefaultWordFontSize();
+        if (el.dataset) el.dataset.baseFontSize = String(next);
+        el.style.fontSize = next + 'px';
+      }
+
+      function conGetEffectiveZoom() {
+        const zoom = parseFloat(window.conCurrentZoom);
+        return Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
+      }
+
+      function conNormalizeNodeFontSize(value, fallback) {
+        const parsed = parseFloat(value);
+        if (Number.isFinite(parsed) && parsed > 0) return parsed;
+        const fallbackParsed = parseFloat(fallback);
+        if (Number.isFinite(fallbackParsed) && fallbackParsed > 0) return fallbackParsed;
+        return window.conGetDefaultWordFontSize();
+      }
+
+      function conGetNodeBaseFontSize(nodeOrEl) {
+        const el = nodeOrEl && nodeOrEl.el ? nodeOrEl.el : nodeOrEl;
+        const zoom = conGetEffectiveZoom();
+        const dataVal = el && el.dataset ? parseFloat(el.dataset.baseFontSize) : NaN;
+        if (Number.isFinite(dataVal) && dataVal > 0) return dataVal;
+        const inlineVal = el && el.style ? parseFloat(el.style.fontSize) : NaN;
+        if (Number.isFinite(inlineVal) && inlineVal > 0) return inlineVal / zoom;
+        const computedVal = el ? parseFloat(getComputedStyle(el).fontSize) : NaN;
+        if (Number.isFinite(computedVal) && computedVal > 0) return computedVal / zoom;
+        return window.conGetDefaultWordFontSize();
+      }
+
+      function conSetNodeBaseFontSize(nodeOrEl, value) {
+        const el = nodeOrEl && nodeOrEl.el ? nodeOrEl.el : nodeOrEl;
+        if (!el) return window.conGetDefaultWordFontSize();
+        const baseSize = Math.max(CON_NEW_WORD_FONT_MIN, Math.min(96, conNormalizeNodeFontSize(value)));
+        const zoom = conGetEffectiveZoom();
+        if (el.dataset) el.dataset.baseFontSize = String(baseSize);
+        el.style.fontSize = (baseSize * zoom) + 'px';
+        if (nodeOrEl && nodeOrEl.el) nodeOrEl.fontSize = baseSize + 'px';
+        return baseSize;
+      }
+
+      window.conGetNodeBaseFontSize = conGetNodeBaseFontSize;
+      window.conSetNodeBaseFontSize = conSetNodeBaseFontSize;
+
+      function conIsNodeLocked(node) {
+        return !!(node && node.locked);
+      }
+
+      function conSyncNodeLockState(node) {
+        if (!node || !node.el) return;
+        node.el.classList.toggle('con-locked', !!node.locked);
+      }
+
+      // ---- Free mask rectangles ----
+      const CON_MASK_COLORS = [
+        '#111111', '#444444', '#888888', '#bbbbbb', '#ffffff',
+        '#e53935', '#f4511e', '#fb8c00', '#fdd835', '#c0ca33',
+        '#43a047', '#00897b', '#1e88e5', '#3949ab', '#8e24aa',
+        '#d81b60', '#6d4c41', '#00acc1', '#546e7a', '#f06292'
+      ];
+      conMasks = global.conMasks = global.conMasks || [];
+      _conMaskCtxId = global._conMaskCtxId = global._conMaskCtxId || null;
+
+      // ---- Expose global functions ----
+      window.conAddWord = function () {
+        const inp = document.getElementById('con-word-input');
+        const raw = inp.value.trim();
+        if (!raw) return;
+        inp.value = '';
+        // Hide connected-word banner if shown (legacy cleanup)
+        const banner = document.getElementById('con-connected-banner');
+        if (banner) banner.style.display = 'none';
+
+        const words = raw.split(',,').map(w => w.trim()).filter(w => w.length > 0);
+        const brd = board();
+        const bw = brd.clientWidth, bh = brd.clientHeight;
+        let lastId = null;
+        const newIds = [];
+        words.forEach(text => {
+          const id = 'cn' + conNextId++;
+          const x = 60 + Math.random() * (bw - 160);
+          const y = 60 + Math.random() * (bh - 120);
+          const dbMatch = conFindDbEntry(text);
+          const el = document.createElement('div');
+          el.className = 'con-node' + (dbMatch ? ' con-node-matched' : '');
+          el.id = id;
+          el.textContent = text;
+          el.style.left = x + 'px';
+          el.style.top = y + 'px';
+          conApplyDefaultWordFontSize(el);
+          if (window._bcNodeFontFamily) el.style.fontFamily = window._bcNodeFontFamily;
+          brd.appendChild(el);
+          const baseWord = text;
+          const node = { id, el, x, y, baseX: x, baseY: y, dbWord: dbMatch ? dbMatch.word : null, baseWord, fontFamily: window._bcNodeFontFamily || null };
+          conNodes.push(node);
+          conAttachNodeEvents(id, el);
+          conAddNodeStarBtn(node);
+          newIds.push(id);
+          lastId = id;
+        });
+        if (lastId) conSelect(lastId);
+        inp.focus();
+      };
+
+      window.conGetMode = global.conGetMode = function () { return conMode; };
+      window.conCancelLinkMode = global.conCancelLinkMode = function () { if (typeof _conCancelLinkMode === 'function') _conCancelLinkMode(); };
+      window.conIsLinkModeActive = global.conIsLinkModeActive = function () { return !!_conLinkSrc; };
+      window.conGetGroupFocused = global.conGetGroupFocused = function () { return (typeof conGroupFocused !== 'undefined' ? conGroupFocused : (window.conGroupFocused || null)); };
+      window.conDuplicateSelected = global.conDuplicateSelected = function () { if (typeof window.conClipboardCopy === 'function' && typeof window.conClipboardPaste === 'function') { window.conClipboardCopy({ allowWhileTyping: false }); window.conClipboardPaste(); } };
+
+      window.conSetMode = function (mode) {
+        // Cancel any active link mode before switching modes — prevents _conLinkSrc
+        // staying set as a ghost intercept while the board is in a different mode.
+        if (_conLinkSrc && typeof _conCancelLinkMode === 'function') _conCancelLinkMode();
+        conMode = mode;
+        global.conMode = window.conMode = mode;
+        conConnSrc = null;
+        conMultiSelected.clear();
+        conNodes.forEach(n => n.el.classList.remove('con-multi-selected'));
+        conDrawingSelected.clear();
+        document.querySelectorAll('#constellation-board .con-drawing.con-drawing-selected')
+          .forEach(el => el.classList.remove('con-drawing-selected'));
+        if (window.conNoteClearSelection) window.conNoteClearSelection();
+        conSelect(null);
+        const brd = board();
+        brd.classList.toggle('draw-mode', mode === 'draw');
+        brd.classList.toggle('connect-mode', mode === 'connect');
+        // Draw overlay & panel
+        const overlay = document.getElementById('con-draw-overlay');
+        if (overlay) overlay.classList.toggle('active', mode === 'draw');
+        const panel = document.getElementById('con-draw-panel');
+        if (panel) panel.style.display = mode === 'draw' ? 'flex' : 'none';
+        if (typeof window._conSyncDrawOverlaySize === 'function') window._conSyncDrawOverlaySize();
+        // Reset eraser when exiting draw mode
+        if (mode !== 'draw' && _conDrawEraserMode) window.conDrawToggleEraser();
+        // Sync toolbar eraser button
+        if (typeof _conSyncEraserToolbarBtn === 'function') _conSyncEraserToolbarBtn();
+        if (typeof _conDrawSyncOverlayCursor === 'function' && mode === 'draw') _conDrawSyncOverlayCursor();
+        // Highlight draw button
+        const drawBtn = document.getElementById('con-draw-btn');
+        if (drawBtn) drawBtn.classList.toggle('con-panel-active', mode === 'draw');
+        // Highlight active move/connect/delete buttons
+        ['move', 'connect', 'delete'].forEach(m => {
+          const btn = document.getElementById('con-mode-' + m + '-btn');
+          if (btn) btn.classList.toggle('con-panel-active', m === mode);
+        });
+        conUpdateInstructions(mode);
+        if (typeof window.updateBoardModeToggleUI === 'function') window.updateBoardModeToggleUI();
+      };
+
+      // 12 colour presets: [bg, textColor, borderColor]
+      if (!CON_PALETTES || !CON_PALETTES.length) {
+        CON_PALETTES = global.CON_PALETTES = [
+          ['#ffffff', '#111111', '#111111'],  // White (default)
+          ['#374151', '#ffffff', '#111111'],  // Dark Grey
+          ['#111111', '#ffffff', '#555555'],  // Black
+          ['#fee2e2', '#111111', '#dc2626'],  // Red
+          ['#ffedd5', '#111111', '#ea580c'],  // Orange
+          ['#fef3c7', '#111111', '#d97706'],  // Yellow
+          ['#dcfce7', '#111111', '#16a34a'],  // Green
+          ['#ccfbf1', '#111111', '#0d9488'],  // Teal
+          ['#dbeafe', '#111111', '#2563eb'],  // Blue
+          ['#e0f2fe', '#111111', '#0284c7'],  // Sky
+          ['#f3e8ff', '#111111', '#7c3aed'],  // Purple
+          ['#fce7f3', '#111111', '#db2777']  // Pink
+        ];
+      }
+      let conActivePalette = 0;
+
+      function conInitSwatches() {
+        const container = document.getElementById('con-ctx-swatches');
+        if (!container) return;
+        container.innerHTML = '';
+        CON_PALETTES.forEach(([bg, text, border, name], i) => {
+          const sw = document.createElement('div');
+          sw.className = 'con-swatch' + (i === 0 ? ' active' : '');
+          sw.style.background = bg;
+          sw.style.borderColor = i === 0 ? '#111' : border;
+          sw.style.outline = i === 0 ? '2px solid #111' : 'none';
+          sw.title = name || ['White', 'Dark Grey', 'Black', 'Red', 'Orange', 'Yellow', 'Green', 'Teal', 'Blue', 'Sky', 'Purple', 'Pink', 'Emerald'][i] || `Palette ${i + 1}`;
+          sw.onclick = function () {
+            conActivePalette = i;
+            container.querySelectorAll('.con-swatch').forEach((s, j) => s.classList.toggle('active', j === i));
+            conCtxApplyStyle();
+          };
+          container.appendChild(sw);
+        });
+      }
+
+      const _CON_BORDER_SWATCH_DEFAULTS = ['#111111', '#555555', '#dc2626', '#ea580c', '#d97706', '#16a34a', '#0d9488', '#2563eb', '#0284c7', '#7c3aed', '#db2777'];
+      window.CON_BORDER_SWATCHES = _CON_BORDER_SWATCH_DEFAULTS.slice();
+
+      function conInitBorderSwatches() {
+        const container = document.getElementById('con-ctx-border-swatches');
+        if (!container) return;
+        container.innerHTML = '';
+        (window.CON_BORDER_SWATCHES || _CON_BORDER_SWATCH_DEFAULTS).forEach(color => {
+          const sw = document.createElement('div');
+          sw.className = 'con-swatch';
+          sw.style.background = color;
+          sw.style.borderColor = color;
+          sw.style.outline = 'none';
+          sw.title = color;
+          sw.onclick = function () {
+            if (typeof window.conCtxApplyBorderColor === 'function') window.conCtxApplyBorderColor(color);
+            const picker = document.getElementById('con-ctx-border-color');
+            const text = document.getElementById('con-ctx-border-color-text');
+            if (picker) picker.value = color;
+            if (text) text.value = color.toUpperCase();
+          };
+          container.appendChild(sw);
+        });
+      }
+      window.conInitBorderSwatches = conInitBorderSwatches;
+
+      window.conApplyColor = function () {
+        if (!conSelected) return;
+        const node = conNodes.find(n => n.id === conSelected);
+        if (!node) return;
+        const [bg, text, border] = CON_PALETTES[conActivePalette];
+        node.el.style.background = bg;
+        node.el.style.color = text;
+        const rawSize = document.getElementById('con-ctx-font-size') ? document.getElementById('con-ctx-font-size').value : 12;
+        conSetNodeBaseFontSize(node, conFontUnitToPx(rawSize, window.conFontUnit) || 16);
+        conApplyNodeShape(node, node.shape);
+        conRedrawEdges();
+      };
+
+      // ── Node Preset Styles ────────────────────────────────────────────
+      function conApplyTextStrokeStyle(el, width, color) {
+        if (!el || !el.style) return;
+        if (width > 0 && color) {
+          el.style.webkitTextStroke = `${width}px ${color}`;
+          el.style.paintOrder = 'stroke fill';
+          el.style.setProperty('paint-order', 'stroke fill');
+        } else {
+          el.style.webkitTextStroke = '';
+          el.style.paintOrder = '';
+          el.style.removeProperty('paint-order');
+        }
+      }
+      window.conApplyTextStrokeStyle = conApplyTextStrokeStyle;
+
+      function conGetNodePresets() {
+        const bc = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG) ? BOARD_CONFIG : {};
+        const saved = Array.isArray(bc.constellationPresets) && bc.constellationPresets.length ? bc.constellationPresets : null;
+        if (!saved) return [];
+        return saved.map(p => ({
+          key: String(p.key || '').trim(),
+          label: String(p.label || p.key || '').trim(),
+          bg: String(p.bg || '#ffffff'),
+          color: String(p.color || '#111111'),
+          borderColor: String(p.borderColor || '#111111'),
+          borderWidth: Number(p.borderWidth || 2),
+          borderStyle: String(p.borderStyle || 'solid'),
+          highlight: String(p.highlight || ''),
+          shape: String(p.shape || 'rectangle'),
+          fontFamily: String(p.fontFamily || ''),
+          fontSize: (p.fontSize != null && p.fontSize !== '') ? Number(p.fontSize) : null,
+          textStrokeColor: String(p.textStrokeColor || ''),
+          textStrokeWidth: (p.textStrokeWidth != null && p.textStrokeWidth !== '') ? Number(p.textStrokeWidth) : 0,
+          fmt: p.fmt && typeof p.fmt === 'object' ? {
+            bold: !!p.fmt.bold,
+            italic: !!p.fmt.italic,
+            underline: !!p.fmt.underline,
+            strike: !!p.fmt.strike
+          } : { bold: false, italic: false, underline: false, strike: false }
+        }));
+      }
+
+      function conApplyNodePreset(presetKey, targetIds) {
+        const presets = conGetNodePresets();
+        const preset = presets.find(p => p.key === presetKey);
+        if (!preset) return;
+        conPushUndo();
+        const ids = targetIds || (conMultiSelected.size > 1 ? [...conMultiSelected] : (conCtxNodeId ? [conCtxNodeId] : []));
+        ids.forEach(id => {
+          const node = conNodes.find(n => n.id === id);
+          if (!node || conIsNodeLocked(node)) return;
+          node.el.style.background = preset.bg;
+          node.el.style.color = preset.color;
+          node.el.style.borderColor = preset.borderColor;
+          node.borderWidth = preset.borderWidth;
+          node.borderStyle = preset.borderStyle;
+          node.highlight = preset.highlight || null;
+          node.preset = preset.key;
+          node.fontFamily = preset.fontFamily || null;
+          node.el.style.fontFamily = preset.fontFamily || '';
+          if (preset.fontSize != null) conSetNodeBaseFontSize(node, Number(preset.fontSize));
+          // Apply text stroke
+          node.textStrokeColor = (preset.textStrokeWidth > 0 && preset.textStrokeColor) ? preset.textStrokeColor : null;
+          node.textStrokeWidth = (preset.textStrokeWidth > 0) ? preset.textStrokeWidth : null;
+          conApplyTextStrokeStyle(node.el, node.textStrokeWidth, node.textStrokeColor);
+          // Apply shape
+          conApplyNodeShape(node, preset.shape || 'rectangle');
+          if (node.id === conCtxNodeId) conSyncShapeButtons(node);
+          // Apply text formatting
+          const fmt = conGetNodeFmt(node);
+          fmt.bold = !!preset.fmt.bold;
+          fmt.italic = !!preset.fmt.italic;
+          fmt.underline = !!preset.fmt.underline;
+          fmt.strike = !!preset.fmt.strike;
+          conRenderNodeLabel(node);
+          if (node.id === conCtxNodeId) conSyncFmtButtons(node);
+        });
+        conRedrawEdges();
+        // Refresh active indicator on preset buttons
+        _conSyncPresetButtons();
+      }
+      window.conApplyNodePreset = conApplyNodePreset;
+      window.conGetNodePresets = conGetNodePresets;
+
+      function _conSyncPresetButtons() {
+        const node = conCtxNodeId ? conNodes.find(n => n.id === conCtxNodeId) : null;
+        const active = node ? (node.preset || null) : null;
+        document.querySelectorAll('#con-ctx-preset-btns .con-preset-btn').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.presetKey === active);
+        });
+      }
+
+      function conInitPresetButtons() {
+        const container = document.getElementById('con-ctx-preset-btns');
+        if (!container) return;
+        container.innerHTML = '';
+        const presets = conGetNodePresets();
+        presets.forEach(p => {
+          const btn = document.createElement('button');
+          btn.className = 'con-preset-btn';
+          btn.dataset.presetKey = p.key;
+          btn.title = p.label;
+          btn.textContent = p.key;
+          btn.style.background = p.bg;
+          btn.style.color = p.color;
+          btn.style.borderColor = p.borderColor;
+          btn.style.borderWidth = (p.borderWidth || 2) + 'px';
+          btn.style.borderStyle = p.borderStyle || 'solid';
+          if (p.highlight) btn.style.boxShadow = `0 0 0 2px ${p.highlight}`;
+          conApplyTextStrokeStyle(btn, p.textStrokeWidth, p.textStrokeColor);
+          if (p.fmt) {
+            btn.style.fontWeight = p.fmt.bold ? 'bold' : '';
+            btn.style.fontStyle = p.fmt.italic ? 'italic' : '';
+            btn.style.textDecoration = [p.fmt.underline ? 'underline' : '', p.fmt.strike ? 'line-through' : ''].filter(Boolean).join(' ') || '';
+          }
+          btn.onclick = function () { conApplyNodePreset(p.key); };
+          container.appendChild(btn);
+        });
+        // Use a 2-row grid layout when there are more than 6 presets
+        if (presets.length > 6) {
+          const cols = Math.ceil(presets.length / 2);
+          container.style.display = 'grid';
+          container.style.gridTemplateColumns = `repeat(${cols}, auto)`;
+          container.style.justifyContent = 'start';
+        } else {
+          container.style.display = 'flex';
+          container.style.gridTemplateColumns = '';
+          container.style.justifyContent = '';
+        }
+      }
+
+      // ── Preset Editor ─────────────────────────────────────────────────
+      let _conPresetEditorDraft = [];
+      window.conGetPresetEditorDraft = () => _conPresetEditorDraft;
+      window.conSetPresetEditorDraft = (val) => { _conPresetEditorDraft = val; };
+
+      function conOpenPresetEditor() {
+        conCtxClose();
+        if (typeof boardCustomiseOpen === 'function') {
+          boardCustomiseOpen();
+        }
+        if (typeof boardCustomiseSetTab === 'function') {
+          boardCustomiseSetTab('nodes');
+        }
+        // Expand the Node Preset Styles section
+        setTimeout(() => {
+          const titleEl = Array.from(document.querySelectorAll('#board-customise-modal .bc-section-title'))
+            .find(el => el.textContent.includes('Node Preset Styles'));
+          if (titleEl) {
+            const sec = titleEl.parentElement;
+            sec.classList.remove('collapsed');
+            sec.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        }, 150);
+      }
+      window.conOpenPresetEditor = conOpenPresetEditor;
+
+      function conClosePresetEditor() {
+        if (typeof boardCustomiseClose === 'function') {
+          boardCustomiseClose();
+        }
+      }
+      window.conClosePresetEditor = conClosePresetEditor;
+
+      function _conPresetEditorRender() {
+        const list = document.getElementById('con-preset-editor-list');
+        if (!list) return;
+        list.innerHTML = '';
+
+        // Column headers
+        const hdr = document.createElement('div');
+        hdr.className = 'con-preset-editor-labels';
+        hdr.innerHTML = `<span></span><span>Key</span><span>Label</span><span title="${t('conPresetBgColorTitle')}">BG</span><span title="${t('conPresetTextColorTitle')}">Txt</span><span title="${t('conPresetBorderColorTitle')}">Bdr</span><span title="${t('conPresetBorderWidthTitle')}">W</span><span title="${t('conPresetBorderStyleTitle')}">Style</span><span title="${t('conPresetGlowTitle')}">Glow</span><span title="${t('conPresetShapeTitle')}">Shape</span><span title="${t('conPresetFontSizeTitle')}">Size</span><span title="${t('conPresetStrokeColorTitle')}">StC</span><span title="${t('conPresetStrokeWidthTitle')}">StW</span><span>Fmt</span><span></span>`;
+        list.appendChild(hdr);
+
+        _conPresetEditorDraft.forEach((p, i) => {
+          const row = document.createElement('div');
+          row.className = 'con-preset-editor-row';
+          row.draggable = true;
+          row.innerHTML = `
+            <span class="pe-drag-handle" title="Drag to reorder">⠇</span>
+            <input type="text" class="pe-key" value="${_esc(p.key)}" maxlength="12" placeholder="key" title="Short code shown on button">
+            <input type="text" class="pe-label" value="${_esc(p.label)}" maxlength="24" placeholder="Label" title="${t('conPresetTooltipTitle')}">
+            <div class="pe-color-cell">
+              <input type="color" class="pe-color-btn pe-bg-btn" value="${_safeHex(p.bg, '#ffffff')}" title="${t('conPresetBgColorTitle')}">
+              <input type="text" class="pe-color-input pe-bg" value="${_esc(p.bg)}" placeholder="#fff / rgba(...)" title="${t('conPresetBgColorTitle')}">
+            </div>
+            <div class="pe-color-cell">
+              <input type="color" class="pe-color-btn pe-color-btn-tx" value="${_safeHex(p.color, '#111111')}" title="${t('conPresetTextColorTitle')}">
+              <input type="text" class="pe-color-input pe-color" value="${_esc(p.color)}" placeholder="#111 / rgba(...)" title="${t('conPresetTextColorTitle')}">
+            </div>
+            <div class="pe-color-cell">
+              <input type="color" class="pe-color-btn pe-bdr-btn" value="${_safeHex(p.borderColor, '#111111')}" title="${t('conPresetBorderColorTitle')}">
+              <input type="text" class="pe-color-input pe-bdr" value="${_esc(p.borderColor)}" placeholder="#111 / rgba(...)" title="${t('conPresetBorderColorTitle')}">
+            </div>
+            <input type="number" class="pe-bw" min="1" max="10" value="${p.borderWidth || 2}" title="${t('conPresetBorderWidthTitle')}" style="font-family:inherit;font-size:0.78rem;border:1.5px solid #ccc;border-radius:3px;padding:3px 4px;outline:none;min-width:0;width:100%;">
+            <select class="pe-bs" title="${t('conPresetBorderStyleTitle')}">
+              <option value="solid"  ${p.borderStyle === 'solid' ? 'selected' : ''}>${t('conPresetSolid')}</option>
+              <option value="dashed" ${p.borderStyle === 'dashed' ? 'selected' : ''}>${t('conPresetDashed')}</option>
+              <option value="dotted" ${p.borderStyle === 'dotted' ? 'selected' : ''}>${t('conPresetDotted')}</option>
+              <option value="double" ${p.borderStyle === 'double' ? 'selected' : ''}>${t('conPresetDouble')}</option>
+            </select>
+            <div class="pe-color-cell">
+              <input type="color" class="pe-color-btn pe-hl-btn" value="${_safeHex(p.highlight || '#ffffff', '#ffffff')}" title="${t('conPresetGlowTitle')}">
+              <input type="text" class="pe-color-input pe-hl" value="${_esc(p.highlight || '')}" placeholder="glow (rgba/hex)" title="${t('conPresetGlowTitle')}">
+            </div>
+            <select class="pe-shape" title="${t('conPresetShapeTitle')}">
+              <option value="rectangle" ${(p.shape || 'rectangle') === 'rectangle' ? 'selected' : ''}>${t('conShapeRect')}</option>
+              <option value="oval"      ${p.shape === 'oval' ? 'selected' : ''}>${t('conShapeOval')}</option>
+              <option value="circle"    ${p.shape === 'circle' ? 'selected' : ''}>${t('conShapeCircle')}</option>
+              <option value="square"    ${p.shape === 'square' ? 'selected' : ''}>${t('conShapeSquare')}</option>
+            </select>
+            <div class="pe-font-wrap"></div>
+            <input type="number" class="pe-fs" min="6" max="96" value="${p.fontSize != null ? p.fontSize : ''}" placeholder="—" title="${t('conPresetFontSizeTitle')}" style="font-family:inherit;font-size:0.78rem;border:1.5px solid #ccc;border-radius:3px;padding:3px 4px;outline:none;min-width:0;width:100%;">
+            <div class="pe-color-cell">
+              <input type="color" class="pe-color-btn pe-tsc-btn" value="${_safeHex(p.textStrokeColor || '#000000', '#000000')}" title="${t('conPresetStrokeColorTitle')}">
+              <input type="text" class="pe-color-input pe-tsc" value="${_esc(p.textStrokeColor || '')}" placeholder="stroke (rgba/hex)" title="${t('conPresetStrokeColorTitle')}">
+            </div>
+            <input type="number" class="pe-tsw" min="0" max="10" step="0.5" value="${p.textStrokeWidth != null ? p.textStrokeWidth : 0}" title="${t('conPresetStrokeWidthTitle')}" style="font-family:inherit;font-size:0.78rem;border:1.5px solid #ccc;border-radius:3px;padding:3px 4px;outline:none;min-width:0;width:100%;">
+            <div class="pe-fmt-btns">
+              <button class="pe-fmt-btn${p.fmt.bold ? ' active' : ''}" data-fmt="bold" onclick="this.classList.toggle('active')" title="${t('conPresetBoldTitle')}"><b>B</b></button>
+              <button class="pe-fmt-btn${p.fmt.italic ? ' active' : ''}" data-fmt="italic" onclick="this.classList.toggle('active')" title="${t('conPresetItalicTitle')}"><i>I</i></button>
+              <button class="pe-fmt-btn${p.fmt.underline ? ' active' : ''}" data-fmt="under" onclick="this.classList.toggle('active')" title="${t('conPresetUnderlineTitle')}"><u>U</u></button>
+              <button class="pe-fmt-btn${p.fmt.strike ? ' active' : ''}" data-fmt="strike" onclick="this.classList.toggle('active')" title="${t('conPresetStrikethroughTitle')}"><s>S</s></button>
+            </div>
+            <button class="con-preset-editor-del-btn" title="${t('conPresetRemoveTitle')}" onclick="conPresetEditorDeleteRow(${i})">🗑</button>
+          `;
+
+          function _bindColorPair(btnEl, inputEl) {
+            if (!btnEl || !inputEl) return;
+            inputEl.addEventListener('input', () => {
+              _bcSyncPickerFromText(btnEl, inputEl.value.trim());
+            });
+            btnEl.addEventListener('input', () => {
+              const hex = btnEl.value;
+              const curText = inputEl.value.trim();
+              const rgbaMatch = curText.match(/^rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([0-9.]+)\s*\)$/i);
+              if (rgbaMatch) {
+                const r = parseInt(hex.slice(1, 3), 16);
+                const g = parseInt(hex.slice(3, 5), 16);
+                const b = parseInt(hex.slice(5, 7), 16);
+                const alpha = rgbaMatch[4];
+                inputEl.value = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+              } else {
+                inputEl.value = hex;
+              }
+            });
+          }
+
+          _bindColorPair(row.querySelector('.pe-bg-btn'), row.querySelector('.pe-bg'));
+          _bindColorPair(row.querySelector('.pe-color-btn-tx'), row.querySelector('.pe-color'));
+          _bindColorPair(row.querySelector('.pe-bdr-btn'), row.querySelector('.pe-bdr'));
+          _bindColorPair(row.querySelector('.pe-hl-btn'), row.querySelector('.pe-hl'));
+          _bindColorPair(row.querySelector('.pe-tsc-btn'), row.querySelector('.pe-tsc'));
+
+          // Inject font select into the .pe-font-wrap cell
+          const fontWrap = row.querySelector('.pe-font-wrap');
+          if (fontWrap && typeof _bcBuildFontSelect === 'function') {
+            const fsel = _bcBuildFontSelect('', p.fontFamily || '', '');
+            fsel.className = 'pe-font';
+            fsel.title = 'Font family (blank = default)';
+            fsel.style.cssText = 'width:100%;font-size:0.72rem;border:1.5px solid #ccc;border-radius:3px;padding:2px 3px;font-family:inherit;';
+            fontWrap.appendChild(fsel);
+          }
+          // Sync text-stroke enable state via opacity on the width input
+          const tswInput = row.querySelector('.pe-tsw');
+          if (tswInput && !(p.textStrokeWidth > 0)) tswInput.style.opacity = '0.45';
+          if (tswInput) tswInput.addEventListener('input', () => { tswInput.style.opacity = Number(tswInput.value) > 0 ? '1' : '0.45'; });
+          list.appendChild(row);
+        });
+
+        const addBtn = document.getElementById('con-preset-add-btn');
+        if (addBtn) addBtn.disabled = _conPresetEditorDraft.length >= 15;
+        _conPresetEditorEnableDrag(list);
+      }
+      window._conPresetEditorRender = _conPresetEditorRender;
+
+      function _esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+      function _safeHex(s, fallback = '#ffffff') {
+        const v = (s || '').trim();
+        if (/^#[0-9a-fA-F]{6}$/.test(v)) return v;
+        if (/^#[0-9a-fA-F]{3}$/.test(v)) return '#' + v[1] + v[1] + v[2] + v[2] + v[3] + v[3];
+        try {
+          const tmp = document.createElement('div');
+          tmp.style.color = v;
+          document.body.appendChild(tmp);
+          const comp = getComputedStyle(tmp).color;
+          document.body.removeChild(tmp);
+          const m = comp.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+          if (m) {
+            const h = n => parseInt(n).toString(16).padStart(2, '0');
+            return '#' + h(m[1]) + h(m[2]) + h(m[3]);
+          }
+        } catch (e) { }
+        return fallback;
+      }
+
+      function _conPresetEditorEnableDrag(list) {
+        let dragSrc = null;
+        list.querySelectorAll('.con-preset-editor-row').forEach(row => {
+          const handle = row.querySelector('.pe-drag-handle');
+          if (handle) {
+            handle.addEventListener('mousedown', () => { row.draggable = true; });
+            handle.addEventListener('mouseup', () => { row.draggable = false; });
+          }
+          row.addEventListener('dragstart', e => {
+            dragSrc = row;
+            e.dataTransfer.effectAllowed = 'move';
+            row.classList.add('pe-row-dragging');
+          });
+          row.addEventListener('dragend', () => {
+            row.classList.remove('pe-row-dragging');
+            list.querySelectorAll('.con-preset-editor-row').forEach(r => r.classList.remove('pe-row-drag-over'));
+            dragSrc = null;
+          });
+          row.addEventListener('dragover', e => {
+            e.preventDefault();
+            if (dragSrc && dragSrc !== row) row.classList.add('pe-row-drag-over');
+          });
+          row.addEventListener('dragleave', () => row.classList.remove('pe-row-drag-over'));
+          row.addEventListener('drop', e => {
+            e.preventDefault();
+            row.classList.remove('pe-row-drag-over');
+            if (!dragSrc || dragSrc === row) return;
+            const rows = Array.from(list.querySelectorAll('.con-preset-editor-row'));
+            const fromIdx = rows.indexOf(dragSrc);
+            const toIdx = rows.indexOf(row);
+            if (fromIdx < 0 || toIdx < 0) return;
+            _conPresetEditorFlushDOM();
+            const [moved] = _conPresetEditorDraft.splice(fromIdx, 1);
+            _conPresetEditorDraft.splice(toIdx, 0, moved);
+            _conPresetEditorRender();
+          });
+        });
+      }
+
+      // Read current DOM row values back into _conPresetEditorDraft (before any re-render)
+      function _conPresetEditorFlushDOM() {
+        const rows = document.querySelectorAll('#con-preset-editor-list .con-preset-editor-row');
+        const flushed = [];
+        rows.forEach(row => {
+          const keyInput = row.querySelector('.pe-key');
+          const key = (keyInput ? keyInput.value : '').trim();
+          const labelInput = row.querySelector('.pe-label');
+          const label = (labelInput ? labelInput.value : key).trim() || key;
+          if (!key) return;
+          const bgInput = row.querySelector('.pe-bg');
+          const bg = (bgInput ? bgInput.value : '#ffffff').trim() || '#ffffff';
+          const colorInput = row.querySelector('.pe-color');
+          const color = (colorInput ? colorInput.value : '#111111').trim() || '#111111';
+          const bdrInput = row.querySelector('.pe-bdr');
+          const borderColor = (bdrInput ? bdrInput.value : '#111111').trim() || '#111111';
+          const borderWidth = Math.max(1, Math.min(10, parseInt(row.querySelector('.pe-bw').value) || 2));
+          const borderStyle = row.querySelector('.pe-bs').value || 'solid';
+          const hlInput = row.querySelector('.pe-hl');
+          const highlight = hlInput ? hlInput.value.trim() : '';
+          const shape = (row.querySelector('.pe-shape') ? row.querySelector('.pe-shape').value : null) || 'rectangle';
+          const fmtBtns = row.querySelector('.pe-fmt-btns');
+          const fmt = {
+            bold: fmtBtns ? fmtBtns.querySelector('[data-fmt="bold"]').classList.contains('active') : false,
+            italic: fmtBtns ? fmtBtns.querySelector('[data-fmt="italic"]').classList.contains('active') : false,
+            underline: fmtBtns ? fmtBtns.querySelector('[data-fmt="under"]').classList.contains('active') : false,
+            strike: fmtBtns ? fmtBtns.querySelector('[data-fmt="strike"]').classList.contains('active') : false
+          };
+          const fontSel = row.querySelector('.pe-font');
+          const fontFamily = fontSel ? (fontSel.value || '') : '';
+          const fsInput = row.querySelector('.pe-fs');
+          const fontSize = fsInput && fsInput.value.trim() !== '' ? Math.max(6, Math.min(96, parseInt(fsInput.value))) : null;
+          const tscInput = row.querySelector('.pe-tsc');
+          const textStrokeColor = tscInput ? tscInput.value.trim() : '';
+          const tswInput = row.querySelector('.pe-tsw');
+          const textStrokeWidth = tswInput ? Math.max(0, Math.min(10, parseFloat(tswInput.value) || 0)) : 0;
+          flushed.push({ key, label, bg, color, borderColor, borderWidth, borderStyle, highlight, shape, fontFamily, fontSize, textStrokeColor, textStrokeWidth, fmt });
+        });
+        if (flushed.length > 0) _conPresetEditorDraft = flushed;
+      }
+
+      window.conPresetEditorDeleteRow = function (i) {
+        _conPresetEditorFlushDOM();
+        _conPresetEditorDraft.splice(i, 1);
+        _conPresetEditorRender();
+      };
+
+      window.conPresetEditorAddRow = function () {
+        if (_conPresetEditorDraft.length >= 15) return;
+        _conPresetEditorFlushDOM();
+        _conPresetEditorDraft.push({ key: 'new', label: 'New', bg: '#ffffff', color: '#111111', borderColor: '#111111', borderWidth: 2, borderStyle: 'solid', highlight: '', shape: 'rectangle', fontFamily: '', fontSize: null, textStrokeColor: '', textStrokeWidth: 0, fmt: { bold: false, italic: false, underline: false, strike: false } });
+        _conPresetEditorRender();
+        // Focus the key field of the new row
+        const rows = document.querySelectorAll('#con-preset-editor-list .con-preset-editor-row');
+        const last = rows[rows.length - 1];
+        if (last) { const kf = last.querySelector('.pe-key'); if (kf) kf.focus(); }
+      };
+
+      window.conPresetEditorSave = async function () {
+        // Collect from DOM
+        _conPresetEditorFlushDOM();
+        const result = _conPresetEditorDraft.filter(p => !!p.key);
+        if (!result.length) { mdbToast('⚠️ At least one preset required.'); return; }
+
+        // Update in-memory config
+        const bc = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG) ? BOARD_CONFIG : {};
+        bc.constellationPresets = result;
+        window.BOARD_CONFIG = bc;
+
+        // Persist to board-config.js (Electron) or download (browser)
+        const lines = 'const BOARD_CONFIG = ' + JSON.stringify(bc, null, 2) + ';\nwindow.BOARD_CONFIG = BOARD_CONFIG;\n';
+
+        if (window.Desktop && typeof Desktop.saveText === 'function') {
+          try {
+            await Desktop.saveText('user', 'board-config.js', lines);
+            mdbToast('✅ Presets saved to board-config.js');
+          } catch (err) {
+            mdbToast('⚠️ Could not save: ' + (err && err.message ? err.message : String(err)));
+          }
+        } else {
+          const blob = new Blob([lines], { type: 'text/javascript' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = 'board-config.js'; a.click();
+          URL.revokeObjectURL(url);
+          mdbToast('📥 board-config.js downloaded — replace the file in user/');
+        }
+        if (typeof conInitPresetButtons === 'function') conInitPresetButtons();
+        conClosePresetEditor();
+      };
+      // ── End Preset Styles ─────────────────────────────────────────────
+
+      window.conDeleteSelected = function () {
+        if (typeof window.conDeleteSelectedItems === 'function') {
+          window.conDeleteSelectedItems();
+          return;
+        }
+        if (window._conSelectedEdgeId) {
+          conPushUndo();
+          const edgeToDelete = window._conSelectedEdgeId;
+          window._conSelectedEdgeId = null;
+          conRemoveEdge(edgeToDelete);
+          if (typeof conRedrawEdges === 'function') conRedrawEdges();
+          return;
+        }
+        if (!conSelected) return;
+        conRemoveNode(conSelected);
+      };
+
+      function _conDoClearAll(resetTitle) {
+        conNodes.forEach(n => { if (n && n.el) n.el.remove(); });
+        document.querySelectorAll('#constellation-board .con-node').forEach(el => el.remove());
+        conNodes.length = 0;
+        window.conNodes = conNodes;
+        global.conNodes = conNodes;
+
+        conEdges.forEach(e => { if (e && e.g) e.g.remove(); });
+        conEdges.length = 0;
+        window.conEdges = conEdges;
+        global.conEdges = conEdges;
+
+        conGroups.forEach(g => { if (g && g.el) g.el.remove(); });
+        document.querySelectorAll('#constellation-board .con-group-box').forEach(el => el.remove());
+        conGroups.length = 0;
+        window.conGroups = conGroups;
+        global.conGroups = conGroups;
+
+        if (svg()) svg().innerHTML = '';
+
+        conSelect(null);
+        conConnSrc = null;
+        if (conMultiSelected && conMultiSelected.clear) conMultiSelected.clear();
+        if (window.conDrawingSelected && window.conDrawingSelected.clear) window.conDrawingSelected.clear();
+        if (window.conNoteSelected && window.conNoteSelected.clear) window.conNoteSelected.clear();
+        if (window._conShapeSelected && window._conShapeSelected.clear) window._conShapeSelected.clear();
+        if (window.conTableSelected && window.conTableSelected.clear) window.conTableSelected.clear();
+
+        if (window.conMasksClear) window.conMasksClear();
+        if (window.conNotesClear) window.conNotesClear();
+        if (window.conDrawingsClear) window.conDrawingsClear();
+        if (window.conShapesClear) window.conShapesClear();
+        if (window.conTablesClear) window.conTablesClear();
+        if (window.conMediaClear) window.conMediaClear();
+
+        conPageBackgroundPdf = null;
+        if (typeof conRenderPagePdfBackground === 'function') conRenderPagePdfBackground();
+        _conBoardBg = null;
+        if (typeof conRenderBoardBg === 'function') conRenderBoardBg({ silent: true });
+        _conBoardBgColor = window._bcBoardDefaultBgColor || '';
+        if (typeof conApplyBoardBgColor === 'function') conApplyBoardBgColor();
+        if (typeof conResetAttachments === 'function') conResetAttachments();
+
+        _conCurrentFileName = null;
+        _conCurrentFolderName = null;
+        global._conCurrentFileName = null;
+        global._conCurrentFolderName = null;
+        if (typeof conUpdateRenameButtonVisibility === 'function') conUpdateRenameButtonVisibility();
+
+        const _clearBoardEl = document.getElementById('constellation-board');
+        if (_clearBoardEl) {
+          if (window._bcBoardLayoutConfig && window._bcBoardLayoutConfig.dims && window._bcBoardLayoutConfig.dims.h) {
+            _clearBoardEl.style.height = window._bcBoardLayoutConfig.dims.h + 'px';
+          } else {
+            _clearBoardEl.style.height = '';
+          }
+        }
+        try {
+          sessionStorage.removeItem('cmt-board-expanded-height');
+          sessionStorage.removeItem('cmt-board-expanded-height-0');
+          sessionStorage.removeItem('cmt-board-active-open-request');
+        } catch (_) { }
+
+        if (typeof window._conClearPageDomCache === 'function') {
+          window._conClearPageDomCache();
+        }
+
+        const emptySnap = (typeof conBuildEmptyPageSnapshot === 'function')
+          ? conBuildEmptyPageSnapshot()
+          : (typeof window.conBuildEmptyPageSnapshot === 'function' ? window.conBuildEmptyPageSnapshot() : {});
+        conPageSnapshots = [emptySnap];
+        global.conPageSnapshots = conPageSnapshots;
+        window.conPageSnapshots = conPageSnapshots;
+
+        if (Array.isArray(_conPageSnapshotPngs)) _conPageSnapshotPngs.length = 0;
+        if (Array.isArray(window._conPageSnapshotPngs)) window._conPageSnapshotPngs.length = 0;
+        if (Array.isArray(global._conPageSnapshotPngs)) global._conPageSnapshotPngs.length = 0;
+
+        conCurrentPageIndex = 0;
+        global.conCurrentPageIndex = 0;
+        window.conCurrentPageIndex = 0;
+
+        if (resetTitle) {
+          const titleInput = document.getElementById('con-title-input');
+          const _tsTitle = (typeof conMakeTimestampTitle === 'function' ? conMakeTimestampTitle() : (typeof window.conMakeTimestampTitle === 'function' ? window.conMakeTimestampTitle() : ''));
+          if (titleInput) titleInput.value = _tsTitle;
+          if (window.conSetTitle) window.conSetTitle(_tsTitle);
+          if (typeof boardSetDirty === 'function') boardSetDirty(false);
+        }
+
+        _conCurrentCompetences = [];
+        if (typeof conRenderHeaderCompetenceBar === 'function') conRenderHeaderCompetenceBar();
+        conNextId = 1;
+        _conGroupNextId = 1;
+        if (typeof conUpdatePageBar === 'function') conUpdatePageBar();
+        if (typeof window.conUpdatePageBar === 'function') window.conUpdatePageBar();
+
+        if (typeof window.conClearUndo === 'function') window.conClearUndo();
+        else if (typeof conClearUndo === 'function') conClearUndo();
+
+        if (typeof window._conBumpBoardRevision === 'function') window._conBumpBoardRevision();
+        if (typeof window._conMirrorSendFullSnapshot === 'function') window._conMirrorSendFullSnapshot();
+
+        mdbToast('🗑 Board cleared');
+      }
+
+      window.conClearAll = function (options = {}) {
+        const skipConfirm = options === true || !!options.skipConfirm;
+        const resetTitle = options === true || options.resetTitle !== false;
+        if (skipConfirm) { _conDoClearAll(resetTitle); return; }
+
+        // Show an inline confirm popup near the Clear All button
+        const existing = document.getElementById('con-clearall-popup');
+        if (existing) { existing.remove(); return; }
+
+        const btn = document.querySelector('[onclick="conClearAll()"]');
+        const popup = document.createElement('div');
+        popup.id = 'con-clearall-popup';
+        popup.style.cssText = 'position:fixed;z-index:9999;background:#f5f5f0;border:2px solid #333;border-radius:8px;box-shadow:3px 3px 0 #555;padding:12px 16px;display:flex;flex-direction:column;gap:10px;font-family:inherit;font-size:0.85rem;min-width:180px;';
+        popup.innerHTML = `<div style="font-weight:700;color:#111;" data-i18n="conClearEverythingTitle">${t('conClearEverythingTitle')}</div>
+          <div style="display:flex;gap:8px;">
+            <button id="con-clearall-yes" class="action-btn" style="flex:1;padding:6px 0;background:#c96b6b;color:#fff;border:2px solid #333;border-radius:6px;box-shadow:2px 2px 0 #555;font-weight:700;cursor:pointer;font-family:inherit;font-size:0.82rem;" data-i18n="conClearConfirmBtn">${t('conClearConfirmBtn')}</button>
+            <button id="con-clearall-no" class="action-btn btn-grey" style="flex:1;padding:6px 0;background:#fff;color:#333;border:2px solid #333;border-radius:6px;box-shadow:2px 2px 0 #555;font-weight:700;cursor:pointer;font-family:inherit;font-size:0.82rem;" data-i18n="btnCancel">${t('btnCancel')}</button>
+          </div>`;
+        document.body.appendChild(popup);
+
+        // Position below the button, or centre-top if button not found
+        if (btn) {
+          const r = btn.getBoundingClientRect();
+          popup.style.left = r.left + 'px';
+          popup.style.top = (r.bottom + 6) + 'px';
+        } else {
+          popup.style.left = '50%';
+          popup.style.top = '72px';
+          popup.style.transform = 'translateX(-50%)';
+        }
+
+        const close = () => popup.remove();
+        document.getElementById('con-clearall-yes').onclick = () => { close(); _conDoClearAll(resetTitle); };
+        document.getElementById('con-clearall-no').onclick = close;
+        // Close on outside click
+        setTimeout(() => document.addEventListener('click', function handler(e) {
+          if (!popup.contains(e.target)) { close(); document.removeEventListener('click', handler); }
+        }), 0);
+      };
+
+      // ---- Mirror: BroadcastChannel broadcast (main window only) ----
+      let _conBoardRevision = 1;
+      window._conBumpBoardRevision = function () {
+        _conBoardRevision++;
+        return _conBoardRevision;
+      };
+      window._conGetBoardRevision = function () {
+        return _conBoardRevision;
+      };
+      window._conSuppressMirrorObserver = false;
+
+      if (new URLSearchParams(location.search).get('mirror') !== '1' && new URLSearchParams(location.search).get('pageWindow') !== '1') {
+        const _conMirrorSessionId = 'board_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+        const _conMirrorChannelName = 'constellation-mirror-' + _conMirrorSessionId;
+        window._conMirrorChannelName = _conMirrorChannelName;
+        const _mirrorCh = new BroadcastChannel(_conMirrorChannelName);
+        let _mirrorPopupRef = null;
+        let _mirrorTimer = null;
+        let _mirrorLastSent = 0;
+        let _mirrorFrozen = false;
+        let _mirrorFrozenSnapshot = null;
+        let _mirrorFrozenPageIndex = null;
+        let _mirrorFrozenViewport = null;
+        window._conMirrorFrozen = false;
+        window.conIsMirrorFrozen = function () { return !!_mirrorFrozen; };
+        window.conToggleMirrorPointer = function () {};
+        window.conToggleMirrorFreeze = function () {};
+        const _mirrorPeers = new Set();
+        let _mirrorControlMenuEl = null;
+        const _attachmentDataUrlCache = new Map(); // cacheKey -> dataUrl
+        const _mirrorSentAttachmentKeys = new Set(); // tracks keys already transmitted to mirror
+
+        window.conMirrorSyncSelection = function () {
+          if (!window._conMirrorSend) return;
+          try {
+            const multiNodes = (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 0)
+              ? Array.from(conMultiSelected)
+              : (window.conGetSelected ? (window.conGetSelected() ? [window.conGetSelected()] : []) : []);
+            window._conMirrorSend({
+              type: 'selection-state',
+              selectedNodeId: window.conGetSelected ? (window.conGetSelected() || null) : null,
+              selectedNodeIds: multiNodes,
+              selectedGroupId: conGroupFocused || null,
+              selectedNoteIds: (typeof conNoteSelected !== 'undefined' && conNoteSelected) ? Array.from(conNoteSelected) : [],
+              selectedDrawingIds: (typeof conDrawingSelected !== 'undefined' && conDrawingSelected) ? Array.from(conDrawingSelected) : [],
+              selectedShapeIds: (typeof _conShapeSelected !== 'undefined' && _conShapeSelected) ? Array.from(_conShapeSelected) : [],
+              selectedEdgeId: (typeof _conSelectedEdgeId !== 'undefined') ? _conSelectedEdgeId : null,
+              noteTextSelection: (typeof wnGetActiveNoteSelection === 'function') ? wnGetActiveNoteSelection() : null
+            });
+          } catch (_) { }
+        };
+
+        function _updateMirrorControlMenuVisibility() {
+          if (_mirrorPeers.size > 0 && !_mirrorControlMenuEl) {
+            _ensureMirrorControlMenu();
+          }
+          if (_mirrorControlMenuEl) {
+            _mirrorControlMenuEl.style.display = _mirrorPeers.size > 0 ? 'flex' : 'none';
+          }
+        }
+        function _ensureMirrorControlMenu() {
+          if (_mirrorControlMenuEl) return;
+          const menu = document.createElement('div');
+          menu.id = 'con-pres-menu';
+          menu.className = 'pres-control-menu tooltip-bottom';
+          menu.style.cssText = 'position:fixed;top:8px;right:8px;z-index:100000;';
+          menu.innerHTML = ''
+            + '<div class="pres-drag-handle" title="Drag to move">⋮⋮</div>'
+            + '<button type="button" class="pres-btn" data-pres-action="close" data-tooltip="' + (boardT('pres_stop_title') || boardT('presStop')) + '" title="' + (boardT('pres_stop_title') || boardT('presStop')) + '" aria-label="' + (boardT('pres_stop_title') || boardT('presStop')) + '"><img src="../assets/icons/stop.svg" alt="" /></button>'
+            + '<button type="button" class="pres-btn" data-pres-action="freeze" data-tooltip="' + (boardT('pres_freeze_title') || boardT('presFreeze')) + '" title="' + (boardT('pres_freeze_title') || boardT('presFreeze')) + '" aria-label="' + (boardT('pres_freeze_title') || boardT('presFreeze')) + '"><img src="../assets/icons/pause.svg" alt="" /></button>'
+            + '<button type="button" class="pres-btn" data-pres-action="pin" data-tooltip="' + (boardT('pres_pin_title') || 'Keep presentation window always on top') + '" title="' + (boardT('pres_pin_title') || 'Keep presentation window always on top') + '" aria-label="' + (boardT('pres_pin_title') || 'Keep presentation window always on top') + '"><img src="../assets/icons/pin.svg" alt="" /></button>'
+            + '<button type="button" class="pres-btn" data-pres-action="resize" data-tooltip="' + (boardT('pres_resize_title') || boardT('presResize')) + '" title="' + (boardT('pres_resize_title') || boardT('presResize')) + '" aria-label="' + (boardT('pres_resize_title') || boardT('presResize')) + '"><img src="../assets/icons/compact.svg" alt="" /></button>'
+            + '<button type="button" class="pres-btn" data-pres-action="default-size" data-tooltip="' + (boardT('pres_default_size_title') || boardT('pres_default_size') || 'Default size') + '" title="' + (boardT('pres_default_size_title') || boardT('pres_default_size') || 'Default size') + '" aria-label="' + (boardT('pres_default_size_title') || boardT('pres_default_size') || 'Default size') + '"><img src="../assets/icons/monitor.svg" alt="" /></button>'
+            + '<button type="button" class="pres-btn" data-pres-action="maximise" data-tooltip="' + (boardT('pres_maximize_title') || boardT('presMaximise')) + '" title="' + (boardT('pres_maximize_title') || boardT('presMaximise')) + '" aria-label="' + (boardT('pres_maximize_title') || boardT('presMaximise')) + '"><img src="../assets/icons/maximize.svg" alt="" /></button>'
+            + '<button type="button" class="pres-btn" data-pres-action="left" data-tooltip="' + (boardT('pres_left_title') || boardT('presLeft')) + '" title="' + (boardT('pres_left_title') || boardT('presLeft')) + '" aria-label="' + (boardT('pres_left_title') || boardT('presLeft')) + '"><img src="../assets/icons/triangle-left.svg" alt="" /></button>'
+            + '<button type="button" class="pres-btn" data-pres-action="right" data-tooltip="' + (boardT('pres_right_title') || boardT('presRight')) + '" title="' + (boardT('pres_right_title') || boardT('presRight')) + '" aria-label="' + (boardT('pres_right_title') || boardT('presRight')) + '"><img src="../assets/icons/triangle-right.svg" alt="" /></button>';
+          menu.addEventListener('click', function (event) {
+            const btn = event.target && event.target.closest ? event.target.closest('[data-pres-action]') : null;
+            if (!btn) return;
+            event.preventDefault();
+            event.stopPropagation();
+            const action = btn.getAttribute('data-pres-action');
+            if (action === 'close') window.conCloseMirrorWindow();
+            else if (action === 'freeze') window.conToggleMirrorFreeze();
+            else if (action === 'pin') window.conToggleMirrorAlwaysOnTop();
+            else if (action === 'resize') window.conMirrorResizeWindow();
+            else if (action === 'default-size') window.conMirrorDefaultSize();
+            else if (action === 'maximise') window.conMirrorMaximiseWindow();
+            else if (action === 'right') window.conMirrorDockRight();
+            else if (action === 'left') window.conMirrorDockLeft();
+          });
+
+          // Make the popup draggable
+          let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+          menu.addEventListener('mousedown', dragMouseDown);
+          menu.addEventListener('touchstart', dragMouseDown, { passive: false });
+
+          function dragMouseDown(e) {
+            if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
+            e = e || window.event;
+            if (e.type !== 'touchstart') {
+              e.preventDefault();
+            }
+            if (e.type === 'touchstart') {
+              pos3 = e.touches[0].clientX;
+              pos4 = e.touches[0].clientY;
+            } else {
+              pos3 = e.clientX;
+              pos4 = e.clientY;
+            }
+            document.addEventListener('mouseup', closeDragElement);
+            document.addEventListener('mousemove', elementDrag);
+            document.addEventListener('touchend', closeDragElement);
+            document.addEventListener('touchmove', elementDrag, { passive: false });
+          }
+
+          function elementDrag(e) {
+            e = e || window.event;
+            let clientX, clientY;
+            if (e.type === 'touchmove') {
+              clientX = e.touches[0].clientX;
+              clientY = e.touches[0].clientY;
+            } else {
+              clientX = e.clientX;
+              clientY = e.clientY;
+            }
+            pos1 = pos3 - clientX;
+            pos2 = pos4 - clientY;
+            pos3 = clientX;
+            pos4 = clientY;
+
+            let newTop = menu.offsetTop - pos2;
+            let newLeft = menu.offsetLeft - pos1;
+
+            const rect = menu.getBoundingClientRect();
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+
+            if (newTop < 0) newTop = 0;
+            if (newTop + rect.height > viewportHeight) newTop = viewportHeight - rect.height;
+            if (newLeft < 0) newLeft = 0;
+            if (newLeft + rect.width > viewportWidth) newLeft = viewportWidth - rect.width;
+
+            menu.style.top = newTop + 'px';
+            menu.style.left = newLeft + 'px';
+            menu.style.right = 'auto';
+            menu.style.bottom = 'auto';
+          }
+
+          function closeDragElement() {
+            document.removeEventListener('mouseup', closeDragElement);
+            document.removeEventListener('mousemove', elementDrag);
+            document.removeEventListener('touchend', closeDragElement);
+            document.removeEventListener('touchmove', elementDrag);
+          }
+
+          document.body.appendChild(menu);
+          _mirrorControlMenuEl = menu;
+          if (typeof _syncMirrorPinButtons === 'function') _syncMirrorPinButtons();
+          _updateMirrorControlMenuVisibility();
+        }
+        function _setPresentationActive(on) {
+          if (on && !_mirrorControlMenuEl) {
+            _ensureMirrorControlMenu();
+          }
+          document.documentElement.classList.toggle('con-presentation-active', !!on);
+          _updateMirrorControlMenuVisibility();
+        }
+        function _mirrorGetViewport() {
+          var brd = document.getElementById('constellation-board');
+          if (!brd) return { vW: window.innerWidth, vH: window.innerHeight, sx: 0, sy: 0 };
+          var r = brd.getBoundingClientRect();
+          var vW = window.innerWidth;
+          // Use window.innerHeight as a fixed height so aspect ratio stays stable
+          // when the toolbar scrolls off-screen and the board fills more of the window.
+          var vH = window.innerHeight;
+          var sx = brd.scrollLeft + Math.max(0, -r.left);
+          var sy = brd.scrollTop + Math.max(0, -r.top);
+          return { vW: vW, vH: vH, sx: sx, sy: sy };
+        }
+        function _mirrorBroadcast(opts = {}) {
+          if (_mirrorFrozen) return;
+          if (_mirrorPeers.size === 0 && (!_mirrorPopupRef || _mirrorPopupRef.closed)) return;
+          if (opts.bumpRevision && typeof window._conBumpBoardRevision === 'function') {
+            window._conBumpBoardRevision();
+          }
+          const _now = Date.now();
+          // Leading edge or explicit forceRender: fire immediately if enough time has passed or forceRender is requested
+          if (opts.forceRender || _now - _mirrorLastSent >= 80) {
+            clearTimeout(_mirrorTimer);
+            _mirrorTimer = null;
+            _mirrorLastSent = _now;
+            _mirrorDoSend(opts);
+            return;
+          }
+          // Trailing edge: schedule a catch-up send for the end of the burst
+          if (!_mirrorTimer) {
+            _mirrorTimer = setTimeout(function () {
+              _mirrorTimer = null;
+              _mirrorLastSent = Date.now();
+              _mirrorDoSend(opts);
+            }, 80 - (_now - _mirrorLastSent));
+          }
+        }
+        async function _mirrorDoSend(opts = {}) {
+          try {
+            if (_mirrorPeers.size === 0 && (!_mirrorPopupRef || _mirrorPopupRef.closed)) return;
+            var vp = _mirrorGetViewport();
+            var snap = window.conBuildPageSnapshot();
+            snap._revision = _conBoardRevision;
+            // Resolve delta data URLs for media attachments not yet cached in the mirror window
+            var attachmentDataUrls = {};
+            var _mediaItems = snap.media || [];
+            await Promise.all(_mediaItems.map(async function (m) {
+              var attId = m.attachmentId || m.id;
+              if (!attId) return;
+              var att = conFindAttachmentById(attId) || (m.attachmentId ? conFindAttachmentById(m.attachmentId) : null);
+              if (!att) att = { id: attId, attachmentId: m.attachmentId || attId, name: m.name, mime: m.mime, kind: m.kind, relativePath: m.relativePath || '', file: null };
+              var cacheKey = attId + '_' + (att.relativePath || '') + '_' + (att.name || '');
+              if (!opts.forceRender && _mirrorSentAttachmentKeys.has(cacheKey)) {
+                return; // Mirror already has this attachment data URL cached
+              }
+              var url = _attachmentDataUrlCache.get(cacheKey);
+              if (!url) {
+                if (att._cachedDataUrl && att._cachedDataUrl.startsWith('data:')) {
+                  url = att._cachedDataUrl;
+                } else if (att.base64) {
+                  var cleanB64 = att.base64.startsWith('data:') ? att.base64 : ('data:' + (att.mime || 'image/png') + ';base64,' + att.base64);
+                  url = cleanB64;
+                } else if (att.file) {
+                  try {
+                    url = await new Promise(function (resolve) {
+                      var reader = new FileReader();
+                      reader.onload = function () { resolve(reader.result || ''); };
+                      reader.onerror = function () { resolve(''); };
+                      reader.readAsDataURL(att.file);
+                    });
+                  } catch (_) { url = ''; }
+                } else {
+                  url = await conGetAttachmentDataUrl(att);
+                  if (url && url.startsWith('blob:')) {
+                    try {
+                      var resp = await fetch(url);
+                      var blob = await resp.blob();
+                      if (blob && blob.size > 10 * 1024 * 1024) {
+                        url = '';
+                      } else {
+                        url = await new Promise(function (resolve, reject) {
+                          var reader = new FileReader();
+                          reader.onload = function () { resolve(reader.result); };
+                          reader.onerror = reject;
+                          reader.readAsDataURL(blob);
+                        });
+                      }
+                    } catch (err) { url = ''; }
+                  }
+                }
+                if (url) {
+                  _attachmentDataUrlCache.set(cacheKey, url);
+                  att._cachedDataUrl = url;
+                }
+              }
+              if (url) {
+                _mirrorSentAttachmentKeys.add(cacheKey);
+                if (m.attachmentId) attachmentDataUrls[m.attachmentId] = url;
+                if (m.id) attachmentDataUrls[m.id] = url;
+                if (att && att.id) attachmentDataUrls[att.id] = url;
+                attachmentDataUrls[attId] = url;
+              }
+            }));
+            // Also preload page background PDF delta if not yet transmitted
+            var _bg = snap.boardBg || null;
+            if (_bg && _bg.attachmentId) {
+              var bgAtt = conFindAttachmentById(_bg.attachmentId);
+              if (!bgAtt) {
+                bgAtt = {
+                  id: _bg.attachmentId,
+                  attachmentId: _bg.attachmentId,
+                  name: 'background.pdf',
+                  mime: 'application/pdf',
+                  kind: 'pdf',
+                  relativePath: '',
+                  file: null
+                };
+              }
+              var bgCacheKey = _bg.attachmentId + '_' + (bgAtt.relativePath || '') + '_' + (bgAtt.name || '');
+              if (opts.forceRender || !_mirrorSentAttachmentKeys.has(bgCacheKey)) {
+                var bgUrl = _attachmentDataUrlCache.get(bgCacheKey);
+                if (!bgUrl) {
+                  if (bgAtt._cachedDataUrl && bgAtt._cachedDataUrl.startsWith('data:')) {
+                    bgUrl = bgAtt._cachedDataUrl;
+                  } else if (bgAtt.file) {
+                    try {
+                      bgUrl = await new Promise(function (resolve) {
+                        var reader = new FileReader();
+                        reader.onload = function () { resolve(reader.result || ''); };
+                        reader.onerror = function () { resolve(''); };
+                        reader.readAsDataURL(bgAtt.file);
+                      });
+                    } catch (_) { bgUrl = ''; }
+                  } else {
+                    bgUrl = await conGetAttachmentDataUrl(bgAtt);
+                    if (bgUrl && bgUrl.startsWith('blob:')) {
+                      try {
+                        var bgResp = await fetch(bgUrl);
+                        var bgBlob = await bgResp.blob();
+                        bgUrl = await new Promise(function (resolve, reject) {
+                          var bgReader = new FileReader();
+                          bgReader.onload = function () { resolve(bgReader.result); };
+                          bgReader.onerror = reject;
+                          bgReader.readAsDataURL(bgBlob);
+                        });
+                      } catch (err) { bgUrl = ''; }
+                    }
+                  }
+                  if (bgUrl) _attachmentDataUrlCache.set(bgCacheKey, bgUrl);
+                }
+                if (bgUrl) {
+                  _mirrorSentAttachmentKeys.add(bgCacheKey);
+                  attachmentDataUrls[_bg.attachmentId] = bgUrl;
+                }
+              }
+            }
+            var mediaPlaybackStates = {};
+            document.querySelectorAll('.con-media-item video, .con-media-item audio').forEach(function (el) {
+              var parent = el.closest('.con-media-item');
+              if (!parent || !parent.dataset.id) return;
+              mediaPlaybackStates[parent.dataset.id] = {
+                action: el.paused ? 'pause' : 'play',
+                paused: !!el.paused,
+                currentTime: el.currentTime || 0,
+                playbackRate: el.playbackRate || 1
+              };
+            });
+            _mirrorCh.postMessage({
+              type: 'board-state',
+              snapshot: snap,
+              pageIndex: (typeof conCurrentPageIndex === 'number') ? conCurrentPageIndex : 0,
+              forceRender: !!(opts && opts.forceRender),
+              mediaPlaybackStates: Object.keys(mediaPlaybackStates).length ? mediaPlaybackStates : undefined,
+              boardBgRender: (_conBoardBg && _conBoardBg._cachedDataUrl && _conBoardBg._cachedW && _conBoardBg._cachedH)
+                ? {
+                  attachmentId: String(_conBoardBg.attachmentId || ''),
+                  pageNumber: Math.max(1, Number(_conBoardBg.pageNumber) || 1),
+                  dataUrl: _conBoardBg._cachedDataUrl,
+                  w: _conBoardBg._cachedW,
+                  h: _conBoardBg._cachedH
+                }
+                : null,
+              zoom: conCurrentZoom || 1,
+              boardViewW: vp.vW,
+              boardViewH: vp.vH,
+              sx: vp.sx, sy: vp.sy,
+              attachmentDataUrls: Object.keys(attachmentDataUrls).length ? attachmentDataUrls : undefined,
+              selectedNodeId: window.conGetSelected ? (window.conGetSelected() || null) : null,
+              selectedNodeIds: (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 0)
+                ? Array.from(conMultiSelected)
+                : (window.conGetSelected && window.conGetSelected() ? [window.conGetSelected()] : []),
+              selectedGroupId: conGroupFocused || null,
+              selectedNoteIds: (typeof conNoteSelected !== 'undefined' && conNoteSelected) ? Array.from(conNoteSelected) : [],
+              selectedDrawingIds: (typeof conDrawingSelected !== 'undefined' && conDrawingSelected) ? Array.from(conDrawingSelected) : [],
+              selectedShapeIds: (typeof _conShapeSelected !== 'undefined' && _conShapeSelected) ? Array.from(_conShapeSelected) : [],
+              selectedEdgeId: (typeof _conSelectedEdgeId !== 'undefined') ? _conSelectedEdgeId : null,
+              noteTextSelection: (typeof wnGetActiveNoteSelection === 'function') ? wnGetActiveNoteSelection() : null,
+              cmsTimer: {
+                timerActive: false,
+                timerDisplayText: '--:--',
+                timerDisplayClass: '',
+                timerDisplayOpacity: '',
+                ui: {}
+              },
+              pointerOn: window._mirrorPointerOn || false,
+              frozen: _mirrorFrozen
+            });
+          } catch (e) { console.error('[BoardPresenter] Error in _mirrorDoSend:', e); }
+        }
+        _mirrorCh.onmessage = function (e) {
+          if (!e.data) return;
+          if (e.data.type === 'request-state') {
+            _mirrorSentAttachmentKeys.clear();
+            if (_mirrorFrozen && _mirrorFrozenSnapshot) {
+              _mirrorDoSendFrozen();
+              return;
+            }
+            _mirrorBroadcast({ bumpRevision: true, forceRender: true });
+            return;
+          }
+          if (e.data.type === 'mirror-control') {
+            if (e.data.command === 'close') {
+              window.conCloseMirrorWindow();
+            } else if (e.data.command === 'freeze') {
+              window.conToggleMirrorFreeze();
+            } else if (e.data.command === 'pin') {
+              window.conToggleMirrorAlwaysOnTop();
+            } else if (e.data.command === 'resize') {
+              window.conMirrorResizeWindow();
+            } else if (e.data.command === 'maximise') {
+              window.conMirrorMaximiseWindow();
+            } else if (e.data.command === 'right') {
+              window.conMirrorDockRight();
+            } else if (e.data.command === 'left') {
+              window.conMirrorDockLeft();
+            }
+            return;
+          }
+          if (e.data.type === 'mirror-presence') {
+            const mirrorId = String(e.data.id || 'default');
+            if (e.data.online) {
+              _mirrorPeers.add(mirrorId);
+              _mirrorSentAttachmentKeys.clear();
+              if (_mirrorFrozen && _mirrorFrozenSnapshot) {
+                _mirrorDoSendFrozen();
+              } else {
+                _mirrorBroadcast({ bumpRevision: true });
+              }
+              if (typeof window._conMirrorSend === 'function') {
+                window._conMirrorSend({ type: 'mirror-pin-state', on: _mirrorAlwaysOnTop });
+              }
+            } else {
+              _mirrorPeers.delete(mirrorId);
+            }
+            _setPresentationActive(_mirrorPeers.size > 0);
+          }
+        };
+        function _mirrorDoSendFrozen() {
+          try {
+            if (!_mirrorFrozenSnapshot) return;
+            var vp = _mirrorFrozenViewport || _mirrorGetViewport();
+            _mirrorCh.postMessage({
+              type: 'board-state',
+              snapshot: _mirrorFrozenSnapshot,
+              pageIndex: _mirrorFrozenPageIndex !== null ? _mirrorFrozenPageIndex : 0,
+              zoom: conCurrentZoom || 1,
+              boardViewW: vp.vW,
+              boardViewH: vp.vH,
+              sx: vp.sx,
+              sy: vp.sy,
+              pointerOn: false,
+              frozen: true,
+              forceRender: true
+            });
+          } catch (e) { console.error('[BoardPresenter] Error in _mirrorDoSendFrozen:', e); }
+        }
+        window._conMirrorBroadcast = _mirrorBroadcast;
+        window._conMirrorSend = function (msg) {
+          if (!msg) return;
+          if (_mirrorFrozen && msg.type !== 'freeze-state' && msg.type !== 'mirror-control' && msg.type !== 'mirror-presence') {
+            return;
+          }
+          try { _mirrorCh.postMessage(msg); } catch (e) { }
+        };
+        document.addEventListener('DOMContentLoaded', function () {
+          function _setFreezeUi(on) {
+            var btn = document.getElementById('con-freeze-btn');
+            if (btn) btn.classList.toggle('laser-btn-active', !!on);
+            var badge = document.getElementById('con-frozen-indicator');
+            if (badge) badge.classList.toggle('con-frozen-active', !!on);
+            // Update the dynamic pres-menu freeze button label
+            if (_mirrorControlMenuEl) {
+              var dynFreezeBtn = _mirrorControlMenuEl.querySelector('[data-pres-action="freeze"]');
+              if (dynFreezeBtn) {
+                var label = on ? (boardT('pres_unfreeze_title') || boardT('presUnfreeze')) : (boardT('pres_freeze_title') || boardT('presFreeze'));
+                dynFreezeBtn.title = label;
+                dynFreezeBtn.setAttribute('data-tooltip', label);
+                dynFreezeBtn.setAttribute('aria-label', label);
+                dynFreezeBtn.classList.toggle('is-frozen', !!on);
+              }
+            }
+          }
+          function _syncMirrorPinButtons() {
+            if (_mirrorControlMenuEl) {
+              var dynPinBtn = _mirrorControlMenuEl.querySelector('[data-pres-action="pin"]');
+              if (dynPinBtn) {
+                var label = _mirrorAlwaysOnTop
+                  ? (boardT('pres_unpin_title') || 'Disable always on top for presentation window')
+                  : (boardT('pres_pin_title') || 'Keep presentation window always on top');
+                dynPinBtn.title = label;
+                dynPinBtn.setAttribute('data-tooltip', label);
+                dynPinBtn.setAttribute('aria-label', label);
+                dynPinBtn.classList.toggle('is-pinned', !!_mirrorAlwaysOnTop);
+              }
+            }
+          }
+          const _mirrorBoard = document.getElementById('constellation-board');
+          if (_mirrorBoard) {
+            let _mirrorObsTimer = null;
+            const _CON_SELECTION_STATUS_CLASSES = new Set([
+              'con-selected', 'con-multi-selected', 'con-src', 'con-group-selected',
+              'con-group-blink', 'con-attention-blink', 'wn-selected', 'wn-hidden',
+              'con-drawing-selected', 'wn-emoji-sticker', 'laser-active', 'laser-btn-active',
+              'con-drop-target', 'con-table-drop-highlight', 'con-timer-running',
+              'con-timer-warning', 'con-timer-ended', 'con-masked', 'con-link-src',
+              'con-table-selected', 'con-shape-selected', 'con-edge-selected',
+              'con-media-selected', 'con-media-hidden', 'con-media-blink', 'tbl-locked',
+              'con-media-fullscreen', 'con-fs-mini-pinned', 'con-media-mini-visible',
+              'con-linking', 'con-link-mode',
+              'draw-mode', 'connect-mode',
+              'con-random-rolling',
+              'con-node-video', 'con-video-playing', 'con-video-paused'
+            ]);
+            new MutationObserver(function (mutations) {
+              if (window._conSuppressMirrorObserver || window._conMirrorDragging || (typeof location !== 'undefined' && location.search.indexOf('mirror=1') !== -1)) return;
+              // Skip full re-render if mutations are only selection, blink, stickers, note typing, timer ticks, or transient classes
+              const allIgnored = mutations.every(function (m) {
+                const t = m.target;
+                if (!t) return true;
+                // Ignore rubber-band selection element and its transient mutations
+                if (t.id === 'con-rubberband' || (t.closest && t.closest('#con-rubberband'))) return true;
+                // Ignore fullscreen media exit buttons and zoom bar buttons
+                if (t.closest && (t.closest('.con-media-fullscreen-exit-btn') || t.closest('.con-fs-zoom-btn') || t.closest('.con-fs-zoom-sep'))) return true;
+                if (t.classList && (t.classList.contains('con-media-fullscreen-exit-btn') || t.classList.contains('con-fs-zoom-btn') || t.classList.contains('con-fs-zoom-sep'))) return true;
+                // Ignore attribute mutations on media items (position, size, fullscreen, transform, and hide are handled via micro-messages)
+                if (t.closest && t.closest('.con-media-item')) {
+                  if (m.type === 'attributes') return true;
+                }
+                // Ignore draw overlay, live SVG, and eraser outline
+                if (t.id === 'con-draw-overlay' || t.id === 'con-draw-live-svg' || (t.closest && (t.closest('#con-draw-overlay') || t.closest('#con-draw-live-svg') || t.closest('.con-eraser-outline')))) return true;
+                if (t.classList && (t.classList.contains('con-eraser-outline') || t.classList.contains('con-eraser-active'))) return true;
+                // Ignore drawings, shapes, and masks added/modified (handled via drawing-add, shape-add, drawing-resize, etc.)
+                if (t.classList && (t.classList.contains('con-drawing') || t.classList.contains('con-shape') || t.classList.contains('con-mask-rect'))) return true;
+                if (t.closest && (t.closest('.con-drawing') || t.closest('.con-shape') || t.closest('.con-mask-rect'))) return true;
+                // Ignore drawing/shape/media/table/mask/node resize handles
+                if (t.closest && (t.closest('.con-drawing-handle') || t.closest('.con-shape-handle') || t.closest('.con-group-resizer') || t.closest('.con-mask-resizer') || t.closest('.con-node-resizer') || t.closest('.con-media-resizer') || t.closest('.con-table-resizer') || t.closest('.con-table-col-resizer') || t.closest('.con-table-row-resizer'))) return true;
+                // Ignore any mutations inside word notes (typing, formatting, autosize) — handled directly by note-text and note-move
+                if (t.closest && (t.closest('.con-word-note') || t.closest('.wn-note-editor') || t.closest('.wn-note-resizer'))) return true;
+                // Ignore any mutations inside node timers (countdown ticks, digit changes) — handled directly by node-timer-tick
+                if (t.closest && (t.closest('.con-node-timer') || t.closest('.con-timer-digits') || t.closest('.con-timer-node-row'))) return true;
+                // Ignore any mutations inside random nodes (roll digit changes) — handled directly by node-random-roll
+                if (t.closest && (t.closest('.con-random-digits') || t.closest('.con-random-node-row'))) return true;
+                // Ignore any mutations inside sound nodes (playback state, digits, popovers) — handled directly by node-sound-state
+                if (t.closest && (t.closest('.con-node-sound') || t.closest('.con-sound-digits') || t.closest('.con-sound-node-row') || t.closest('#con-sound-action-popover'))) return true;
+                // Ignore any mutations inside video nodes (playback state, digits, popovers) — handled directly by node-video-state
+                if (t.closest && (t.closest('.con-node-video') || t.closest('.con-video-digits') || t.closest('.con-video-node-row') || t.closest('#con-video-action-popover'))) return true;
+                // Ignore any mutations inside edge SVG line groups (creation, style, label changes — handled directly by edge-add, edge-remove, edge-update)
+                if (t.closest && (t.closest('.con-line-group') || t.closest('.con-line') || t.closest('.con-line-hit') || t.closest('.con-line-label') || t.id === 'con-arrow-defs' || (t.closest && t.closest('#con-arrow-defs')))) return true;
+                if (t.classList && (t.classList.contains('con-line-group') || t.classList.contains('con-line') || t.classList.contains('con-line-hit') || t.classList.contains('con-line-label'))) return true;
+
+                if (m.type === 'attributes') {
+                  if (m.attributeName === 'class') {
+                    const oldTokens = (m.oldValue || '').trim().split(/\s+/).filter(Boolean);
+                    const newTokens = (t.className || '').trim().split(/\s+/).filter(Boolean);
+                    const oldSet = new Set(oldTokens);
+                    const newSet = new Set(newTokens);
+                    let onlySelectionStatusDiff = true;
+                    for (const c of oldTokens) {
+                      if (!newSet.has(c) && !_CON_SELECTION_STATUS_CLASSES.has(c)) {
+                        onlySelectionStatusDiff = false;
+                        break;
+                      }
+                    }
+                    if (onlySelectionStatusDiff) {
+                      for (const c of newTokens) {
+                        if (!oldSet.has(c) && !_CON_SELECTION_STATUS_CLASSES.has(c)) {
+                          onlySelectionStatusDiff = false;
+                          break;
+                        }
+                      }
+                    }
+                    if (onlySelectionStatusDiff) return true;
+                  } else if (m.attributeName === 'style') {
+                    if (t.classList && (t.classList.contains('wn-emoji-sticker') || t.classList.contains('con-drop-target') || t.classList.contains('con-drawing') || t.classList.contains('con-shape') || t.classList.contains('con-mask-rect') || t.classList.contains('con-mask-resizer') || t.classList.contains('con-eraser-outline'))) return true;
+                    if (t.closest && (t.closest('.con-drawing') || t.closest('.con-shape') || t.closest('.con-mask-rect') || t.closest('#con-draw-overlay') || t.closest('.con-eraser-outline'))) return true;
+                    // Ignore transient CSS variables used for attention blinking (--con-blink-delay, --con-node-border, --con-group-blink-delay)
+                    // and transient selection styles like z-index, cursor, pointer-events
+                    const cleanStyle = s => (s || '').replace(/(?:--con-(?:blink-delay|node-border|group-blink-delay)|z-index|cursor|pointer-events)\s*:[^;]+;?/gi, '').trim();
+                    const currentStyle = (t.getAttribute && t.getAttribute('style')) || '';
+                    if (cleanStyle(m.oldValue) === cleanStyle(currentStyle)) return true;
+                  }
+                } else if (m.type === 'childList') {
+                  const isIgnoredNode = n => {
+                    if (!n) return true;
+                    if (n.nodeType === Node.TEXT_NODE) return true;
+                    if (!n.classList) return false;
+                    return n.classList.contains('wn-emoji-sticker') ||
+                           n.classList.contains('con-timer-digits') ||
+                           n.classList.contains('con-timer-node-row') ||
+                           n.classList.contains('con-random-digits') ||
+                           n.classList.contains('con-random-node-row') ||
+                           n.classList.contains('con-node-sound') ||
+                           n.classList.contains('con-sound-digits') ||
+                           n.classList.contains('con-sound-node-row') ||
+                           n.classList.contains('con-node-video') ||
+                           n.classList.contains('con-video-digits') ||
+                           n.classList.contains('con-video-node-row') ||
+                           n.classList.contains('wn-mirror-selection-overlay') ||
+                           n.classList.contains('con-snap-line') ||
+                           n.classList.contains('con-drawing-handle') ||
+                           n.classList.contains('con-shape-handle') ||
+                           n.classList.contains('con-media-resizer') ||
+                           n.classList.contains('con-media-fullscreen-exit-btn') ||
+                           n.classList.contains('con-fs-zoom-btn') ||
+                           n.classList.contains('con-fs-zoom-sep') ||
+                           n.classList.contains('con-table-resizer') ||
+                           n.classList.contains('con-table-col-resizer') ||
+                           n.classList.contains('con-table-row-resizer') ||
+                           n.classList.contains('con-mask-resizer') ||
+                           n.classList.contains('con-line-group') ||
+                           n.classList.contains('con-line') ||
+                           n.classList.contains('con-line-hit') ||
+                           n.classList.contains('con-line-label') ||
+                           n.classList.contains('con-eraser-outline') ||
+                           n.id === 'con-draw-overlay' ||
+                           n.id === 'con-draw-live-svg' ||
+                           n.id === 'con-arrow-defs' ||
+                           // Drawing/shape/mask removal is synced via dedicated micro-messages
+                           n.classList.contains('con-drawing') ||
+                           n.classList.contains('con-shape') ||
+                           n.classList.contains('con-mask-rect');
+                  };
+                  const addedOnlyIgnored = Array.from(m.addedNodes).every(isIgnoredNode);
+                  const removedOnlyIgnored = Array.from(m.removedNodes).every(isIgnoredNode);
+                  if ((m.addedNodes.length === 0 || addedOnlyIgnored) && (m.removedNodes.length === 0 || removedOnlyIgnored)) return true;
+                }
+                return false;
+              });
+              if (!allIgnored) {
+                if (_mirrorObsTimer) clearTimeout(_mirrorObsTimer);
+                _mirrorObsTimer = setTimeout(() => {
+                  _mirrorObsTimer = null;
+                  _mirrorBroadcast({ bumpRevision: true });
+                }, 50);
+              }
+            }).observe(_mirrorBoard, {
+              childList: true, subtree: true,
+              attributes: true, attributeFilter: ['style', 'class', 'data-shape'],
+              attributeOldValue: true
+            });
+          }
+          // Patch laserToggle to forward on/off state
+          var _origLaserToggle = window.laserToggle;
+          if (typeof _origLaserToggle === 'function') {
+            window.laserToggle = function () {
+              _origLaserToggle.apply(this, arguments);
+              window._conMirrorSend({ type: 'laser-toggle', on: document.body.classList.contains('laser-active') });
+            };
+          }
+          // Mirror pointer mode: show mouse position as laser dot without activating full laser mode
+          var _mirrorPointerOn = false;
+          window._mirrorPointerOn = false;
+          window.conToggleMirrorPointer = function () {
+            _mirrorPointerOn = !_mirrorPointerOn;
+            window._mirrorPointerOn = _mirrorPointerOn;
+            var btn = document.getElementById('con-pointer-btn');
+            if (btn) btn.classList.toggle('laser-btn-active', _mirrorPointerOn);
+            window._conMirrorSend({ type: 'pointer-state', on: _mirrorPointerOn });
+          };
+          window.conToggleMirrorFreeze = function () {
+            _mirrorFrozen = !_mirrorFrozen;
+            window._conMirrorFrozen = _mirrorFrozen;
+            if (_mirrorFrozen) {
+              _mirrorFrozenSnapshot = window.conBuildPageSnapshot ? window.conBuildPageSnapshot() : null;
+              _mirrorFrozenPageIndex = (typeof conCurrentPageIndex === 'number') ? conCurrentPageIndex : 0;
+              _mirrorFrozenViewport = _mirrorGetViewport ? _mirrorGetViewport() : null;
+            } else {
+              _mirrorFrozenSnapshot = null;
+              _mirrorFrozenPageIndex = null;
+              _mirrorFrozenViewport = null;
+            }
+            _setFreezeUi(_mirrorFrozen);
+            window._conMirrorSend({ type: 'freeze-state', on: _mirrorFrozen });
+            if (!_mirrorFrozen) {
+              _mirrorSentAttachmentKeys.clear();
+              if (typeof window._conBumpBoardRevision === 'function') {
+                window._conBumpBoardRevision();
+              }
+              if (_mirrorTimer) {
+                clearTimeout(_mirrorTimer);
+                _mirrorTimer = null;
+              }
+              _mirrorLastSent = 0;
+              _mirrorBroadcast({ bumpRevision: true, forceRender: true });
+            }
+          };
+          _setFreezeUi(_mirrorFrozen);
+          // Sync board scroll (and page scroll) to mirror (throttled to rAF)
+          let _mirrorScrollRaf = null;
+          function _mirrorSendScroll() {
+            if (_mirrorFrozen) return;
+            if (_mirrorScrollRaf) return;
+            _mirrorScrollRaf = requestAnimationFrame(function () {
+              _mirrorScrollRaf = null;
+              var vp = _mirrorGetViewport();
+              window._conMirrorSend({
+                type: 'board-scroll',
+                sx: vp.sx, sy: vp.sy,
+                boardViewW: vp.vW, boardViewH: vp.vH,
+                zoom: conCurrentZoom || 1
+              });
+            });
+          }
+          if (_mirrorBoard) {
+            _mirrorBoard.addEventListener('scroll', _mirrorSendScroll, { passive: true });
+          }
+          window.addEventListener('scroll', _mirrorSendScroll, { passive: true });
+          // Forward laser events using viewport-relative normalised coords so positions
+          // align precisely with the board region shown on the mirror.
+          function _normBrd(cx, cy) {
+            var brd = _mirrorBoard;
+            if (!brd) return { nx: cx / window.innerWidth, ny: cy / window.innerHeight };
+            var r = brd.getBoundingClientRect();
+            // Offset relative to visible viewport width/height — matching _mirrorGetViewport
+            return {
+              nx: (cx - Math.max(r.left, 0)) / Math.max(1, window.innerWidth),
+              ny: (cy - Math.max(r.top, 0)) / Math.max(1, window.innerHeight)
+            };
+          }
+          var _ld = false, _ldX = 0, _ldY = 0, _lt = false, _lts = 0;
+          document.addEventListener('mousemove', function (e) {
+            var isLaser = document.body.classList.contains('laser-active');
+            if (!isLaser && !_mirrorPointerOn) return;
+            var now = Date.now(); if (now - _lts < 16) return; _lts = now;
+            var p = _normBrd(e.clientX, e.clientY);
+            window._conMirrorSend({ type: 'laser-move', nx: p.nx, ny: p.ny });
+            if (isLaser && _ld) {
+              var dx = e.clientX - _ldX, dy = e.clientY - _ldY;
+              if (dx * dx + dy * dy > 36) _lt = true;
+              if (_lt) { var pt = _normBrd(e.clientX, e.clientY); window._conMirrorSend({ type: 'laser-trail', nx: pt.nx, ny: pt.ny, size: 5 + Math.random() * 5 }); }
+            }
+          }, { passive: true });
+          document.addEventListener('mousedown', function (e) {
+            if (!document.body.classList.contains('laser-active') || e.button !== 0) return;
+            _ld = true; _ldX = e.clientX; _ldY = e.clientY; _lt = false;
+          });
+          document.addEventListener('mouseup', function (e) {
+            var isLaser = document.body.classList.contains('laser-active');
+            if (isLaser && _ld) {
+              var wasTr = _lt; _ld = false; _lt = false;
+              if (!wasTr) { var p = _normBrd(e.clientX, e.clientY); window._conMirrorSend({ type: 'laser-mark', nx: p.nx, ny: p.ny }); }
+            } else {
+              // Flush mirror after resize / drag operations settle
+              _mirrorBroadcast();
+            }
+          });
+          document.addEventListener('dblclick', function (e) {
+            if (!document.body.classList.contains('laser-active')) return;
+            var p = _normBrd(e.clientX, e.clientY);
+            window._conMirrorSend({ type: 'laser-pulse', nx: p.nx, ny: p.ny });
+          });
+        });
+        window.conOpenMirrorWindow = function () {
+          _mirrorPeers.add('primary-mirror');
+          _mirrorAlwaysOnTop = false;
+          _ensureMirrorControlMenu();
+          if (typeof _syncMirrorPinButtons === 'function') _syncMirrorPinButtons();
+          _setPresentationActive(true);
+          try {
+            localStorage.setItem('cmt_active_board_mirror_channel', _conMirrorChannelName);
+          } catch (_) { }
+          let cardCfg = {};
+          try { cardCfg = JSON.parse(localStorage.getItem('cmt-card-config-board') || '{}'); } catch (_) {}
+          if (window.Desktop && window.Desktop.isElectron()) {
+            window.Desktop.openMirrorWindow({ channel: _conMirrorChannelName, cardConfig: cardCfg });
+          } else {
+            const sizeNum = Number(cardCfg.presWindowSize || cardCfg.presSize);
+            const ratio = (!isNaN(sizeNum) && sizeNum >= 10 && sizeNum <= 100) ? (sizeNum / 100) : 0.8;
+            const sw = (window.screen && window.screen.availWidth) || 1200;
+            const sh = (window.screen && window.screen.availHeight) || 800;
+            const w = Math.max(420, Math.round(sw * ratio));
+            const h = Math.max(300, Math.round(sh * ratio));
+            _mirrorPopupRef = window.open(location.pathname + '?mirror=1&mirrorChannel=' + encodeURIComponent(_conMirrorChannelName), '_blank',
+              'width=' + w + ',height=' + h + ',menubar=no,toolbar=no,location=no');
+          }
+        };
+        window.conCloseMirrorWindow = async function () {
+          if (window.Desktop && window.Desktop.isElectron() && typeof window.Desktop.mirrorWindowCommand === 'function') {
+            await window.Desktop.mirrorWindowCommand('close');
+          } else if (_mirrorPopupRef && !_mirrorPopupRef.closed) {
+            _mirrorPopupRef.close();
+          }
+          // Proactively clear peers and hide the presentation menu;
+          // the mirror's beforeunload mirror-presence message may not arrive
+          // before the window is destroyed (especially in Electron).
+          _mirrorPeers.clear();
+          _mirrorAlwaysOnTop = false;
+          if (typeof _syncMirrorPinButtons === 'function') _syncMirrorPinButtons();
+          _setPresentationActive(false);
+        };
+
+        (function initBoardSecondScreenPrompt() {
+          if (location.search.includes('mirror=1') || location.search.includes('pageWindow=1')) return;
+          function showSecondScreenBanner(onStartPresentation) {
+            if (document.getElementById('second-screen-prompt-banner')) return;
+            const promptMsg = typeof window.t === 'function' ? window.t('secondDisplayPrompt') : 'Second display detected! Would you like to launch Presentation Mode on monitor 2?';
+            const startBtnTxt = typeof window.t === 'function' ? window.t('btnStartPresentation') : '📽️ Start Presentation Mode';
+            const dismissBtnTxt = typeof window.t === 'function' ? window.t('btnDismissPrompt') : 'Dismiss';
+            const banner = document.createElement('div');
+            banner.id = 'second-screen-prompt-banner';
+            banner.style.cssText = 'position:fixed;top:16px;right:20px;z-index:99999;display:flex;align-items:center;gap:12px;padding:10px 16px;border:1px solid rgba(74,144,217,0.4);border-radius:12px;background:rgba(18,24,38,0.92);box-shadow:0 8px 24px rgba(0,0,0,0.35);backdrop-filter:blur(10px);color:#fff;font-family:inherit;font-size:0.86rem;line-height:1.3;animation:slideDownPrompt 0.3s ease-out;';
+            if (!document.getElementById('second-screen-banner-styles')) {
+              const styleEl = document.createElement('style');
+              styleEl.id = 'second-screen-banner-styles';
+              styleEl.textContent = '@keyframes slideDownPrompt { from { transform: translateY(-20px); opacity:0; } to { transform: translateY(0); opacity:1; } }';
+              document.head.appendChild(styleEl);
+            }
+            banner.innerHTML = '<div style="display:flex;align-items:center;gap:8px;"><span style="font-size:1.2rem;">🖥️</span><span>' + promptMsg + '</span></div>'
+              + '<div style="display:flex;align-items:center;gap:8px;margin-left:8px;">'
+              + '<button type="button" id="btn-start-second-pres" style="padding:6px 12px;border:none;border-radius:8px;background:linear-gradient(135deg, #28a745, #208637);color:#fff;font-weight:700;font-size:0.8rem;cursor:pointer;box-shadow:0 2px 8px rgba(40,167,69,0.3);transition:transform 0.1s, background 0.15s;">' + startBtnTxt + '</button>'
+              + '<button type="button" id="btn-dismiss-second-pres" style="padding:6px 10px;border:1px solid rgba(255,255,255,0.2);border-radius:8px;background:transparent;color:#ccc;font-weight:600;font-size:0.8rem;cursor:pointer;transition:background 0.15s;">' + dismissBtnTxt + '</button>'
+              + '</div>';
+            document.body.appendChild(banner);
+            banner.querySelector('#btn-start-second-pres').onclick = function () {
+              banner.remove();
+              onStartPresentation();
+            };
+            banner.querySelector('#btn-dismiss-second-pres').onclick = function () {
+              sessionStorage.setItem('dismissed_second_screen_prompt', '1');
+              banner.remove();
+            };
+          }
+
+          async function checkAndPrompt() {
+            if (_mirrorPeers.size > 0 || (_mirrorPopupRef && !_mirrorPopupRef.closed)) return;
+            if (sessionStorage.getItem('dismissed_second_screen_prompt')) return;
+            let hasSecond = false;
+            if (window.Desktop && window.Desktop.isElectron() && typeof window.Desktop.hasSecondDisplay === 'function') {
+              hasSecond = await window.Desktop.hasSecondDisplay();
+            } else if (window.screen && ('isExtended' in window.screen)) {
+              hasSecond = !!window.screen.isExtended;
+            }
+            if (hasSecond) {
+              showSecondScreenBanner(function () {
+                if (typeof window.conOpenMirrorWindow === 'function') window.conOpenMirrorWindow();
+              });
+            }
+          }
+
+          setTimeout(checkAndPrompt, 1500);
+          if (window.Desktop && window.Desktop.isElectron() && typeof window.Desktop.onDisplayChanged === 'function') {
+            window.Desktop.onDisplayChanged(function (data) {
+              if (data && data.hasSecond) {
+                checkAndPrompt();
+              } else {
+                const existing = document.getElementById('second-screen-prompt-banner');
+                if (existing) existing.remove();
+              }
+            });
+          }
+        })();
+        window.conMirrorResizeWindow = async function () {
+          if (window.Desktop && window.Desktop.isElectron() && typeof window.Desktop.mirrorWindowCommand === 'function') {
+            await window.Desktop.mirrorWindowCommand('resize-window');
+            return;
+          }
+          if (_mirrorPopupRef && !_mirrorPopupRef.closed) {
+            const width = Math.max(420, Math.round(window.outerWidth || 1200));
+            const height = Math.max(300, Math.round(window.outerHeight || 800));
+            _mirrorPopupRef.resizeTo(width, height);
+          }
+        };
+        window.conMirrorDefaultSize = async function () {
+          if (window.Desktop && window.Desktop.isElectron() && typeof window.Desktop.mirrorWindowCommand === 'function') {
+            await window.Desktop.mirrorWindowCommand('default-size');
+            return;
+          }
+          if (_mirrorPopupRef && !_mirrorPopupRef.closed) {
+            let cardCfg = {};
+            try { cardCfg = JSON.parse(localStorage.getItem('cmt-card-config-board') || '{}'); } catch (_) {}
+            const sizeNum = Number(cardCfg.presWindowSize || cardCfg.presSize);
+            const ratio = (!isNaN(sizeNum) && sizeNum >= 10 && sizeNum <= 100) ? (sizeNum / 100) : 0.8;
+            const sw = (window.screen && window.screen.availWidth) || 1200;
+            const sh = (window.screen && window.screen.availHeight) || 800;
+            const width = Math.max(420, Math.round(sw * ratio));
+            const height = Math.max(300, Math.round(sh * ratio));
+            _mirrorPopupRef.resizeTo(width, height);
+          }
+        };
+        window.conMirrorDockLeft = async function () {
+          if (window.Desktop && window.Desktop.isElectron() && typeof window.Desktop.mirrorWindowCommand === 'function') {
+            await window.Desktop.mirrorWindowCommand('dock-left');
+            return;
+          }
+          if (_mirrorPopupRef && !_mirrorPopupRef.closed) {
+            const width = Math.max(260, Math.round((window.screen && window.screen.availWidth ? window.screen.availWidth : 1200) * 0.2));
+            const height = Math.max(300, Math.round(window.outerHeight || 800));
+            _mirrorPopupRef.resizeTo(width, height);
+            _mirrorPopupRef.moveTo(0, 0);
+          }
+        };
+        window.conMirrorDockRight = async function () {
+          if (window.Desktop && window.Desktop.isElectron() && typeof window.Desktop.mirrorWindowCommand === 'function') {
+            await window.Desktop.mirrorWindowCommand('dock-right');
+            return;
+          }
+          if (_mirrorPopupRef && !_mirrorPopupRef.closed) {
+            const width = Math.max(260, Math.round((window.screen && window.screen.availWidth ? window.screen.availWidth : 1200) * 0.2));
+            const height = Math.max(300, Math.round(window.outerHeight || 800));
+            const left = Math.max(0, Math.round((window.screen && window.screen.availWidth ? window.screen.availWidth : 1200) - width));
+            _mirrorPopupRef.resizeTo(width, height);
+            _mirrorPopupRef.moveTo(left, 0);
+          }
+        };
+        window.conMirrorMaximiseWindow = async function () {
+          if (window.Desktop && window.Desktop.isElectron() && typeof window.Desktop.mirrorWindowCommand === 'function') {
+            await window.Desktop.mirrorWindowCommand('maximise');
+            return;
+          }
+          if (_mirrorPopupRef && !_mirrorPopupRef.closed) {
+            try { _mirrorPopupRef.moveTo(0, 0); } catch (e) { }
+            try {
+              const sw = window.screen && window.screen.availWidth ? window.screen.availWidth : screen.availWidth;
+              const sh = window.screen && window.screen.availHeight ? window.screen.availHeight : screen.availHeight;
+              _mirrorPopupRef.resizeTo(sw, sh);
+            } catch (e) { }
+          }
+        };
+        var _mirrorAlwaysOnTop = false;
+        window.conToggleMirrorAlwaysOnTop = async function () {
+          if (window.Desktop && window.Desktop.isElectron() && typeof window.Desktop.mirrorWindowCommand === 'function') {
+            var res = await window.Desktop.mirrorWindowCommand('toggle-always-on-top');
+            if (res && typeof res.alwaysOnTop === 'boolean') {
+              _mirrorAlwaysOnTop = res.alwaysOnTop;
+            } else {
+              _mirrorAlwaysOnTop = !_mirrorAlwaysOnTop;
+            }
+          } else {
+            _mirrorAlwaysOnTop = !_mirrorAlwaysOnTop;
+            if (typeof showToast === 'function') {
+              showToast(boardT('pres_pin_web_notice') || 'Always on top is only available in the desktop application', true);
+            }
+          }
+          if (typeof _syncMirrorPinButtons === 'function') _syncMirrorPinButtons();
+          if (typeof window._conMirrorSend === 'function') {
+            window._conMirrorSend({ type: 'mirror-pin-state', on: _mirrorAlwaysOnTop });
+          }
+        };
+      } else {
+        window.conOpenMirrorWindow = function () { };
+        window.conCloseMirrorWindow = function () { };
+      }
+
+      // ---- Internal helpers ----
+      function conNodeClearSelection() {
+        conSelected = null;
+        window.conSelected = global.conSelected = null;
+        conMultiSelected.clear();
+        conNodes.forEach(n => {
+          if (n && n.el) n.el.classList.remove('con-selected', 'con-src', 'con-multi-selected');
+        });
+        conGroups.forEach(g => { if (g && g.el) g.el.classList.remove('con-group-selected'); });
+        conGroupFocused = null;
+        window.conGroupFocused = global.conGroupFocused = null;
+        if (typeof conCloseNodeWordCard === 'function') conCloseNodeWordCard();
+        if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
+      }
+      window.conNodeClearSelection = conNodeClearSelection;
+
+      function conSelect(id) {
+        // Clear group focus
+        conGroups.forEach(g => g.el.classList.remove('con-group-selected'));
+        conGroupFocused = null;
+        window.conGroupFocused = global.conGroupFocused = null;
+        // Clear multi-selection
+        conMultiSelected.clear();
+        conNodes.forEach(n => {
+          n.el.classList.remove('con-selected', 'con-src', 'con-multi-selected');
+        });
+        conSelected = id;
+        window.conSelected = global.conSelected = id;
+        if (id) {
+          if (window._conSelectedEdgeId) {
+            window._conSelectedEdgeId = null;
+            if (typeof conRedrawEdges === 'function') conRedrawEdges();
+          }
+          // Clear drawing selection
+          conDrawingSelected.clear();
+          document.querySelectorAll('#constellation-board .con-drawing.con-drawing-selected')
+            .forEach(el => el.classList.remove('con-drawing-selected'));
+          // Clear note selection
+          if (typeof conNoteSelected !== 'undefined' && conNoteSelected) {
+            conNoteSelected.clear();
+            document.querySelectorAll('#constellation-board .con-word-note.wn-selected')
+              .forEach(el => el.classList.remove('wn-selected'));
+          }
+          if (typeof window.conShapeClearSelection === 'function') {
+            window.conShapeClearSelection();
+          }
+          if (typeof window.conTableClearSelection === 'function') {
+            window.conTableClearSelection();
+          }
+          const node = conNodes.find(n => n.id === id);
+          if (node) node.el.classList.add('con-selected');
+          // Sync active palette to match the node's current colour
+          const el = node && node.el;
+          if (el) {
+            const nodeBg = (el.style.background || el.style.backgroundColor || '#ffffff').trim();
+            const match = CON_PALETTES.findIndex(([bg]) => {
+              if (!bg) return false;
+              if (bg.trim().toLowerCase() === nodeBg.toLowerCase()) return true;
+              if (typeof rgbToHex === 'function' && rgbToHex(bg).toLowerCase() === rgbToHex(nodeBg).toLowerCase()) return true;
+              return false;
+            });
+            conActivePalette = match >= 0 ? match : 0;
+          }
+        }
+        if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
+      }
+
+      function conSetMultiSelected(ids, preserveOthers) {
+        // ids: array of node ids to multi-select
+        conSelected = null;
+        if (ids && ids.length > 0 && window._conSelectedEdgeId) {
+          window._conSelectedEdgeId = null;
+          if (typeof conRedrawEdges === 'function') conRedrawEdges();
+        }
+        conMultiSelected = new Set(ids);
+        conNodes.forEach(n => {
+          n.el.classList.remove('con-selected', 'con-multi-selected');
+          if (conMultiSelected.has(n.id)) n.el.classList.add('con-multi-selected');
+        });
+        if (!preserveOthers && ids && ids.length > 0) {
+          if (typeof conNoteSelected !== 'undefined' && conNoteSelected) {
+            conNoteSelected.clear();
+            document.querySelectorAll('#constellation-board .con-word-note.wn-selected')
+              .forEach(el => el.classList.remove('wn-selected'));
+          }
+          if (typeof window.conDrawingClearSelection === 'function') {
+            window.conDrawingClearSelection();
+          }
+          if (typeof window.conShapeClearSelection === 'function') {
+            window.conShapeClearSelection();
+          }
+          if (typeof window.conTableClearSelection === 'function') {
+            window.conTableClearSelection();
+          }
+        }
+        if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
+      }
+
+      let _conActiveWordCardNodeId = null;
+      let _conActiveWordCardDbEntry = null;
+
+      function conCloseNodeWordCard() {
+        const popup = document.getElementById('con-node-card-popup');
+        if (popup) {
+          popup.style.display = 'none';
+          popup.classList.remove('visible');
+        }
+        _conActiveWordCardNodeId = null;
+        _conActiveWordCardDbEntry = null;
+      }
+
+      let _conActiveWordCardMatches = [];
+
+      function conOpenNodeWordCard(id, x, y) {
+        const node = conNodes.find(n => n.id === id);
+        if (!node) return;
+        const nodeWord = (node.baseWord || (node.el && node.el.textContent.trim()) || '').trim();
+
+        let matches = conGetNodeDbEntries(node);
+        if (!matches || !matches.length) {
+          matches = conFindAllDbEntries(nodeWord);
+        }
+        if (!matches || !matches.length) {
+          const legacy = conGetNodeDbEntry(node) || conFindDbEntry(nodeWord);
+          if (legacy) {
+            matches = [{ entry: legacy, matchType: 'direct', matchedWord: legacy.word }];
+          }
+        }
+
+        if (!matches || !matches.length) {
+          if (typeof mdbToast === 'function') {
+            mdbToast(`⚠️ "${nodeWord || 'Word'}" was not found in the word bank.`);
+          }
+          return;
+        }
+
+        _conActiveWordCardNodeId = node.id;
+        _conActiveWordCardDbEntry = matches[0].entry;
+        _conActiveWordCardMatches = matches;
+
+        const popup = document.getElementById('con-node-card-popup');
+        if (!popup) return;
+
+        const wordEl = document.getElementById('con-ncp-word');
+        const posEl = document.getElementById('con-ncp-pos');
+        const levelEl = document.getElementById('con-ncp-level');
+        const sourceEl = document.getElementById('con-ncp-source');
+        const countPill = document.getElementById('con-ncp-count');
+
+        wordEl.textContent = nodeWord || matches[0].entry.word || 'Word';
+
+        // 1. Gather distinct metadata across all matches
+        const allPos = new Set();
+        const allLevels = new Set();
+        const allSources = new Set();
+
+        matches.forEach(m => {
+          const e = m.entry;
+          if (!e) return;
+          const p = e.partOfSpeech || e.pos;
+          if (Array.isArray(p)) p.forEach(x => x && allPos.add(String(x).trim()));
+          else if (typeof p === 'string' && p.trim()) allPos.add(p.trim());
+
+          if (e.level && typeof e.level === 'string' && e.level.trim()) allLevels.add(e.level.trim());
+          const src = e._source || (e._custom ? 'custom' : '');
+          if (src) allSources.add(src);
+          if (Array.isArray(e._sources)) e._sources.forEach(s => s && allSources.add(s));
+        });
+
+        if (allPos.size > 0) {
+          posEl.textContent = Array.from(allPos).join(' / ');
+          posEl.style.display = '';
+        } else {
+          posEl.style.display = 'none';
+        }
+
+        if (allLevels.size > 0) {
+          levelEl.textContent = Array.from(allLevels).join(', ');
+          levelEl.style.display = '';
+        } else {
+          levelEl.style.display = 'none';
+        }
+
+        if (allSources.size > 0) {
+          sourceEl.textContent = Array.from(allSources).join(', ');
+          sourceEl.style.display = '';
+        } else {
+          sourceEl.style.display = 'none';
+        }
+
+        if (countPill) {
+          if (matches.length > 1) {
+            countPill.textContent = `${matches.length} entries`;
+            countPill.style.display = '';
+          } else {
+            countPill.style.display = 'none';
+          }
+        }
+
+        const conSafeClipboardCopy = async (text, toastMsg) => {
+          if (!text) return false;
+          let ok = false;
+          if (typeof Desktop !== 'undefined' && typeof Desktop.clipboardWriteText === 'function') {
+            try {
+              await Desktop.clipboardWriteText(text);
+              ok = true;
+            } catch (_) {}
+          }
+          if (!ok && window.electronApi && typeof window.electronApi.clipboardWriteText === 'function') {
+            try {
+              await window.electronApi.clipboardWriteText(text);
+              ok = true;
+            } catch (_) {}
+          }
+          if (!ok && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+            try {
+              await navigator.clipboard.writeText(text);
+              ok = true;
+            } catch (_) {}
+          }
+          if (!ok) {
+            try {
+              const tmp = document.createElement('textarea');
+              tmp.value = text;
+              tmp.style.position = 'fixed';
+              tmp.style.opacity = '0';
+              tmp.style.pointerEvents = 'none';
+              document.body.appendChild(tmp);
+              tmp.focus();
+              tmp.select();
+              ok = document.execCommand('copy');
+              tmp.remove();
+            } catch (_) {}
+          }
+          if (ok && toastMsg && typeof mdbToast === 'function') {
+            mdbToast(toastMsg);
+          }
+          return ok;
+        };
+
+        // 2. Exhaustive "All Forms in Databases" Section
+        const allFormsSec = document.getElementById('con-ncp-all-forms-section');
+        const formsCountPill = document.getElementById('con-ncp-forms-count');
+        const formsWrap = document.getElementById('con-ncp-forms-wrap');
+
+        const formsSet = new Set();
+        const rawNode = conNormalizeWordForLookup(nodeWord);
+
+        if (nodeWord) formsSet.add(nodeWord);
+        matches.forEach(m => {
+          const e = m.entry;
+          if (!e) return;
+          if (e.word) formsSet.add(e.word.trim());
+          const fList = e.otherForms || e.otherTerms;
+          if (Array.isArray(fList)) {
+            fList.forEach(f => {
+              if (!f) return;
+              const s = typeof f === 'string' ? f : (f.word || f.form || f.term || '');
+              if (s && s.trim()) formsSet.add(s.trim());
+            });
+          } else if (typeof fList === 'string' && fList.trim()) {
+            fList.split(/[,;/]+/).forEach(s => {
+              if (s && s.trim()) formsSet.add(s.trim());
+            });
+          }
+        });
+
+        const formsArr = Array.from(formsSet);
+        if (formsArr.length > 0 && formsWrap && allFormsSec) {
+          formsWrap.innerHTML = '';
+          if (formsCountPill) formsCountPill.textContent = String(formsArr.length);
+          formsArr.forEach(form => {
+            const chip = document.createElement('span');
+            chip.className = 'con-ncp-form-chip';
+            if (conNormalizeWordForLookup(form) === rawNode) {
+              chip.classList.add('current-word');
+            }
+            chip.textContent = form;
+            chip.title = `Click to copy "${form}". Alt-click to add as connected node on board.`;
+            chip.onclick = (e) => {
+              e.stopPropagation();
+              if (e.altKey && typeof conAddWordAt === 'function') {
+                const nx = Math.min(window.innerWidth - 120, (node.x || 200) + 140);
+                const ny = (node.y || 200);
+                const newId = conAddWordAt(form, nx, ny);
+                if (newId && typeof conAddEdge === 'function') {
+                  conAddEdge(node.id, newId);
+                }
+                if (typeof mdbToast === 'function') mdbToast(`✓ Added connected node "${form}"`);
+              } else {
+                conSafeClipboardCopy(form, `Copied form: "${form}"`);
+              }
+            };
+            formsWrap.appendChild(chip);
+          });
+          allFormsSec.style.display = '';
+        } else if (allFormsSec) {
+          allFormsSec.style.display = 'none';
+        }
+
+        // 3. Multi-Entry / Multi-Sense Container
+        const entriesContainer = document.getElementById('con-ncp-entries-container');
+        if (entriesContainer) {
+          entriesContainer.innerHTML = '';
+          matches.forEach((m, idx) => {
+            const e = m.entry;
+            if (!e) return;
+            const card = document.createElement('div');
+            card.className = 'con-ncp-entry-card';
+
+            // Header
+            const header = document.createElement('div');
+            header.className = 'con-ncp-entry-header';
+
+            const titleWrap = document.createElement('div');
+            titleWrap.style.display = 'inline-flex';
+            titleWrap.style.alignItems = 'center';
+            titleWrap.style.gap = '4px';
+
+            const title = document.createElement('span');
+            title.className = 'con-ncp-entry-title con-ncp-copyable';
+            title.textContent = e.word || 'Entry';
+            title.title = 'Click to copy word';
+            title.onclick = (ev) => {
+              ev.stopPropagation();
+              conSafeClipboardCopy(e.word, `Copied: "${e.word}"`);
+            };
+            titleWrap.appendChild(title);
+
+            if (m.matchType === 'inflection') {
+              const inflPill = document.createElement('span');
+              inflPill.className = 'con-ncp-count-pill';
+              inflPill.textContent = `form of ${e.word}`;
+              titleWrap.appendChild(inflPill);
+            }
+            header.appendChild(titleWrap);
+
+            // Badges
+            const badgesWrap = document.createElement('div');
+            badgesWrap.className = 'con-ncp-entry-badges';
+
+            const pos = e.partOfSpeech || e.pos;
+            if (pos) {
+              const posBadge = document.createElement('span');
+              posBadge.className = 'con-ncp-badge con-ncp-pos';
+              posBadge.textContent = Array.isArray(pos) ? pos.join(', ') : String(pos);
+              badgesWrap.appendChild(posBadge);
+            }
+
+            if (e.level) {
+              const lvlBadge = document.createElement('span');
+              lvlBadge.className = 'con-ncp-badge con-ncp-level';
+              lvlBadge.textContent = String(e.level);
+              badgesWrap.appendChild(lvlBadge);
+            }
+
+            const src = e._source || (Array.isArray(e._sources) ? e._sources[0] : '');
+            if (src) {
+              const srcBadge = document.createElement('span');
+              srcBadge.className = 'con-ncp-badge con-ncp-source';
+              srcBadge.textContent = src;
+              badgesWrap.appendChild(srcBadge);
+            }
+
+            if (e.ipa) {
+              const ipaBadge = document.createElement('span');
+              ipaBadge.className = 'con-ncp-badge con-ncp-copyable';
+              ipaBadge.style.background = '#f1f5f9';
+              ipaBadge.style.color = '#334155';
+              ipaBadge.textContent = `/${e.ipa}/`;
+              ipaBadge.title = 'Click to copy IPA';
+              ipaBadge.onclick = (ev) => {
+                ev.stopPropagation();
+                conSafeClipboardCopy(String(e.ipa), `Copied IPA: "/${e.ipa}/"`);
+              };
+              badgesWrap.appendChild(ipaBadge);
+            }
+
+            header.appendChild(badgesWrap);
+            card.appendChild(header);
+
+            // Translation / French
+            const fr = e.french || e.translation;
+            if (fr) {
+              const frStr = Array.isArray(fr) ? fr.filter(Boolean).join(', ') : String(fr).trim();
+              if (frStr) {
+                const frRow = document.createElement('div');
+                frRow.className = 'con-ncp-entry-row';
+                frRow.innerHTML = `<span class="con-ncp-entry-label">FR</span><span class="con-ncp-copyable" title="Click to copy">${frStr}</span>`;
+                frRow.querySelector('.con-ncp-copyable').onclick = (ev) => {
+                  ev.stopPropagation();
+                  conSafeClipboardCopy(frStr, `Copied translation: "${frStr}"`);
+                };
+                card.appendChild(frRow);
+              }
+            }
+
+            // Definitions List
+            const rawDefs = e.definition != null ? e.definition : e.def;
+            const defs = Array.isArray(rawDefs)
+              ? rawDefs.map(String).map(s => s.trim()).filter(Boolean)
+              : (rawDefs ? String(rawDefs).split(/\n+/).map(s => s.trim()).filter(Boolean) : []);
+
+            if (defs.length > 0) {
+              const ol = document.createElement('ol');
+              ol.className = 'con-ncp-def-list';
+              defs.forEach((d, dIdx) => {
+                const li = document.createElement('li');
+                li.className = 'con-ncp-copyable';
+                li.textContent = d;
+                li.title = 'Click to copy this definition';
+                li.onclick = (ev) => {
+                  ev.stopPropagation();
+                  conSafeClipboardCopy(d, `Copied definition ${dIdx + 1}`);
+                };
+                ol.appendChild(li);
+              });
+              card.appendChild(ol);
+            }
+
+            // Examples
+            const rawEx = e.exampleSentence || e.example;
+            const exList = Array.isArray(rawEx)
+              ? rawEx.map(String).map(s => s.trim()).filter(Boolean)
+              : (rawEx ? [String(rawEx).trim()].filter(Boolean) : []);
+
+            exList.forEach(ex => {
+              const exEl = document.createElement('div');
+              exEl.className = 'con-ncp-entry-ex con-ncp-copyable';
+              exEl.textContent = `“${ex}”`;
+              exEl.title = 'Click to copy example';
+              exEl.onclick = (ev) => {
+                ev.stopPropagation();
+                conSafeClipboardCopy(ex, `Copied example`);
+              };
+              card.appendChild(exEl);
+            });
+
+            // Synonyms & Antonyms
+            const syns = Array.isArray(e.synonyms) ? e.synonyms.filter(Boolean) : (e.synonyms ? String(e.synonyms).split(/[,;/]+/).map(s => s.trim()).filter(Boolean) : []);
+            if (syns.length > 0) {
+              const synRow = document.createElement('div');
+              synRow.className = 'con-ncp-entry-row';
+              const synStr = syns.join(', ');
+              synRow.innerHTML = `<span class="con-ncp-entry-label">SYN</span><span class="con-ncp-copyable" title="Click to copy">${synStr}</span>`;
+              synRow.querySelector('.con-ncp-copyable').onclick = (ev) => {
+                ev.stopPropagation();
+                conSafeClipboardCopy(synStr, `Copied synonyms`);
+              };
+              card.appendChild(synRow);
+            }
+
+            const ants = Array.isArray(e.antonyms) ? e.antonyms.filter(Boolean) : (e.antonyms ? String(e.antonyms).split(/[,;/]+/).map(s => s.trim()).filter(Boolean) : []);
+            if (ants.length > 0) {
+              const antRow = document.createElement('div');
+              antRow.className = 'con-ncp-entry-row';
+              const antStr = ants.join(', ');
+              antRow.innerHTML = `<span class="con-ncp-entry-label">ANT</span><span class="con-ncp-copyable" title="Click to copy">${antStr}</span>`;
+              antRow.querySelector('.con-ncp-copyable').onclick = (ev) => {
+                ev.stopPropagation();
+                conSafeClipboardCopy(antStr, `Copied antonyms`);
+              };
+              card.appendChild(antRow);
+            }
+
+            entriesContainer.appendChild(card);
+          });
+        }
+
+        // 4. Populate legacy fallback elements (hidden, for backwards compatibility)
+        const d0 = matches[0].entry;
+        const formatArr = (val) => {
+          if (!val) return '';
+          if (Array.isArray(val)) return val.filter(Boolean).map(v => typeof v === 'string' ? v : (v.word || v.form || v.term || JSON.stringify(v))).join(', ');
+          return String(val).trim();
+        };
+        const bindLegacy = (id, val) => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = formatArr(val);
+        };
+        bindLegacy('con-ncp-ipa', d0.ipa);
+        bindLegacy('con-ncp-fr', d0.french || d0.translation);
+        bindLegacy('con-ncp-def', d0.definition || d0.def);
+        bindLegacy('con-ncp-syn', d0.synonyms);
+        bindLegacy('con-ncp-ant', d0.antonyms);
+        bindLegacy('con-ncp-forms', d0.otherForms || d0.otherTerms);
+        bindLegacy('con-ncp-ex', d0.exampleSentence || d0.example);
+
+        // Hide legacy rows since rich cards are rendered above
+        ['ipa', 'fr', 'def', 'syn', 'ant', 'forms', 'ex'].forEach(k => {
+          const row = document.getElementById(`con-ncp-${k}-row`);
+          if (row) row.style.display = 'none';
+        });
+
+        // 5. Position popup safely
+        popup.style.display = 'flex';
+        popup.classList.add('visible');
+
+        let targetX = x;
+        let targetY = y;
+        if (targetX == null || targetY == null) {
+          const rect = node.el ? node.el.getBoundingClientRect() : { right: 200, top: 200, left: 100 };
+          targetX = rect.right + 10;
+          targetY = rect.top;
+        }
+
+        const popRect = popup.getBoundingClientRect();
+        const maxX = window.innerWidth - popRect.width - 12;
+        const maxY = window.innerHeight - popRect.height - 12;
+
+        if (targetX > maxX) {
+          const rect = node.el ? node.el.getBoundingClientRect() : { left: targetX };
+          targetX = Math.max(12, rect.left - popRect.width - 10);
+        }
+        if (targetX > maxX) targetX = maxX;
+        if (targetX < 12) targetX = 12;
+
+        if (targetY > maxY) targetY = maxY;
+        if (targetY < 12) targetY = 12;
+
+        popup.style.left = `${Math.round(targetX)}px`;
+        popup.style.top = `${Math.round(targetY)}px`;
+      }
+
+      window.conCloseNodeWordCard = conCloseNodeWordCard;
+      window.conOpenNodeWordCard = conOpenNodeWordCard;
+
+      window.conNodeCardCopyAll = function() {
+        const matches = _conActiveWordCardMatches && _conActiveWordCardMatches.length
+          ? _conActiveWordCardMatches
+          : (_conActiveWordCardDbEntry ? [{ entry: _conActiveWordCardDbEntry, matchType: 'direct' }] : []);
+        if (!matches.length) return;
+
+        const mainWord = (matches[0].entry && matches[0].entry.word) || 'Word';
+
+        // Gather all forms
+        const formsSet = new Set();
+        matches.forEach(m => {
+          const e = m.entry;
+          if (!e) return;
+          if (e.word) formsSet.add(e.word);
+          const fList = e.otherForms || e.otherTerms;
+          if (Array.isArray(fList)) fList.forEach(f => f && formsSet.add(typeof f === 'string' ? f : (f.word || f.form || '')));
+          else if (typeof fList === 'string') fList.split(/[,;/]+/).forEach(s => s && formsSet.add(s.trim()));
+        });
+
+        const blocks = [];
+        blocks.push(`Word: ${mainWord}`);
+        if (formsSet.size > 0) {
+          blocks.push(`All Forms: ${Array.from(formsSet).join(', ')}`);
+        }
+
+        matches.forEach((m, idx) => {
+          const e = m.entry;
+          if (!e) return;
+          const pos = e.partOfSpeech || e.pos;
+          const posStr = Array.isArray(pos) ? pos.join(', ') : (pos ? String(pos) : '');
+          const src = e._source || (Array.isArray(e._sources) ? e._sources.join(', ') : '');
+          const ipaStr = e.ipa ? ` /${e.ipa}/` : '';
+          const headerLine = `\n--- Entry ${idx + 1}: ${e.word}${posStr ? ` (${posStr})` : ''}${ipaStr}${src ? ` [${src}]` : ''} ---`;
+          blocks.push(headerLine);
+
+          const fr = e.french || e.translation;
+          if (fr) {
+            blocks.push(`FR: ${Array.isArray(fr) ? fr.join(', ') : fr}`);
+          }
+
+          const rawDefs = e.definition != null ? e.definition : e.def;
+          const defs = Array.isArray(rawDefs) ? rawDefs : (rawDefs ? String(rawDefs).split(/\n+/) : []);
+          if (defs.length) {
+            blocks.push('Definitions:');
+            defs.forEach((d, dIdx) => blocks.push(`  ${dIdx + 1}. ${String(d).trim()}`));
+          }
+
+          const ex = e.exampleSentence || e.example;
+          if (ex) {
+            const exList = Array.isArray(ex) ? ex : [ex];
+            exList.forEach(x => blocks.push(`  Example: “${x}”`));
+          }
+
+          if (e.synonyms && e.synonyms.length) {
+            blocks.push(`Synonyms: ${Array.isArray(e.synonyms) ? e.synonyms.join(', ') : e.synonyms}`);
+          }
+          if (e.antonyms && e.antonyms.length) {
+            blocks.push(`Antonyms: ${Array.isArray(e.antonyms) ? e.antonyms.join(', ') : e.antonyms}`);
+          }
+        });
+
+        const fullText = blocks.join('\n');
+        if (typeof Desktop !== 'undefined' && typeof Desktop.clipboardWriteText === 'function') {
+          Desktop.clipboardWriteText(fullText).catch(() => {});
+        } else if (window.electronApi && typeof window.electronApi.clipboardWriteText === 'function') {
+          window.electronApi.clipboardWriteText(fullText).catch(() => {});
+        } else if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          navigator.clipboard.writeText(fullText).catch(() => {});
+        }
+        if (typeof mdbToast === 'function') mdbToast(`✓ Copied all database info for "${mainWord}"`);
+      };
+
+      window.conNodeCardEditInDbManager = async function() {
+        if (!_conActiveWordCardDbEntry) return;
+        const word = _conActiveWordCardDbEntry.word;
+        conCloseNodeWordCard();
+        if (typeof Desktop !== 'undefined' && typeof Desktop.openTool === 'function') {
+          try {
+            await Desktop.openTool('manage-database.html', { query: { type: 'wordbanks', word: word } });
+            return;
+          } catch (e) {
+            console.warn('[conNodeCardEditInDbManager] Desktop.openTool error:', e);
+          }
+        }
+        window.open(`manage-database.html?type=wordbanks&word=${encodeURIComponent(word)}`, '_blank');
+      };
+
+      window.conViewSelectedCard = function () {
+        const id = conCtxNodeId || conSelected;
+        if (!id) return;
+        conOpenNodeWordCard(id);
+      };
+
+      window.conAddSelectedToDb = function () {
+        const id = conCtxNodeId || conSelected;
+        if (!id) return;
+        const node = conNodes.find(n => n.id === id);
+        if (!node) return;
+        const word = (node.baseWord || node.el.textContent.trim()).trim();
+        if (!word) return;
+        const existing = conGetNodeDbEntry(node) || conFindDbEntry(word);
+        cwdbOpen(word, existing || null);
+      };
+
+      // ================================================================
+      // CONSTELLATION → WORD DB QUICK-ADD / EDIT MODAL  (cwdb*)
+      // ================================================================
+      let _cwdbEditWord = null; // lowercase key of the word currently in modal
+
+      function cwdbOpen(word, existingEntry) {
+        _cwdbEditWord = word ? word.toLowerCase() : null;
+
+        const badge = document.getElementById('cwdb-word-badge');
+        const title = document.getElementById('cwdb-title');
+        const note = document.getElementById('cwdb-existing-note');
+        const fb = document.getElementById('cwdb-feedback');
+
+        badge.textContent = word;
+        fb.textContent = ''; fb.className = '';
+
+        if (existingEntry && existingEntry._custom) {
+          title.textContent = '✏️ Edit in DB';
+          note.textContent = `"${existingEntry.word}" is already a custom entry — editing will update it.`;
+          note.className = 'show';
+        } else if (existingEntry) {
+          title.textContent = '✏️ Edit in DB';
+          note.textContent = `"${existingEntry.word}" already exists in the database — saving creates a custom override.`;
+          note.className = 'show';
+        } else {
+          title.textContent = '➕ Add to DB';
+          note.textContent = ''; note.className = '';
+        }
+
+        // Fill form fields from existing entry (if any)
+        const fill = existingEntry || {};
+        document.getElementById('cwdb-ipa').value = fill.ipa || '';
+        document.getElementById('cwdb-french').value = fill.french || '';
+        const posRaw = Array.isArray(fill.partOfSpeech) ? fill.partOfSpeech[0] : (fill.partOfSpeech || '');
+        document.getElementById('cwdb-pos').value = posRaw.toLowerCase();
+        document.getElementById('cwdb-level').value = (fill.level || '').toUpperCase();
+        const themes = (existingEntry && typeof getItemThemes === 'function') ? getItemThemes(existingEntry).join(', ') : '';
+        document.getElementById('cwdb-theme').value = themes;
+        document.getElementById('cwdb-definition').value = Array.isArray(fill.definition) ? fill.definition.join('\n') : fill.definition || '';
+        document.getElementById('cwdb-example').value = fill.exampleSentence || '';
+        document.getElementById('cwdb-synonyms').value = (fill.synonyms || []).join(', ');
+        document.getElementById('cwdb-antonyms').value = (fill.antonyms || []).join(', ');
+
+        // Populate theme datalist from vocabBank
+        try {
+          const allThemes = [...new Set(vocabBank.flatMap(w => typeof getItemThemes === 'function' ? getItemThemes(w) : []))].sort();
+          document.getElementById('cwdb-theme-list').innerHTML = allThemes.map(t => `<option value="${t}">`).join('');
+        } catch (e) { }
+
+        // Show Electron save buttons; hide non-Electron save button
+        const isElec = !!(window.Desktop && Desktop.isElectron());
+        const saveMemBtn = document.getElementById('cwdb-save-memory-btn');
+        if (saveMemBtn) saveMemBtn.style.display = isElec ? 'none' : '';
+        const exportBtn = document.getElementById('cwdb-save-export-btn');
+        if (exportBtn) {
+          exportBtn.style.display = isElec ? '' : 'none';
+          exportBtn.textContent = existingEntry ? '💾 Update in Main DB' : '💾 Save to Main DB';
+        }
+        const customBtn = document.getElementById('cwdb-save-custom-btn');
+        if (customBtn) {
+          customBtn.style.display = isElec ? '' : 'none';
+          customBtn.textContent = existingEntry ? '📁 Update in Custom DB' : '📁 Save to Custom DB';
+        }
+
+        // Delete only makes sense for existing words
+        const deleteBtn = document.getElementById('cwdb-delete-btn');
+        if (deleteBtn) {
+          deleteBtn.style.display = '';
+          deleteBtn.disabled = !existingEntry;
+        }
+        document.getElementById('cwdb-overlay').classList.add('active');
+        setTimeout(() => { const el = document.getElementById('cwdb-ipa'); if (el) el.focus(); }, 80);
+      }
+
+      function cwdbClose() {
+        document.getElementById('cwdb-overlay').classList.remove('active');
+        _cwdbEditWord = null;
+      }
+
+      async function pickCustomDbFile() {
+        return new Promise(async (resolve) => {
+          let existingFiles = [];
+          if (window.Desktop && Desktop.isElectron() && typeof Desktop.listFiles === 'function') {
+            try {
+              const r = await Desktop.listFiles('customWordbanks', { extensions: ['.js'] });
+              if (r && r.ok && Array.isArray(r.files)) {
+                existingFiles = r.files.map(f => f.filename).sort();
+              }
+            } catch { }
+          }
+
+          const overlay = document.getElementById('custom-db-picker-overlay');
+          const listEl = document.getElementById('custom-db-picker-list');
+          const newRow = document.getElementById('custom-db-picker-new-row');
+          const newInput = document.getElementById('custom-db-picker-new-name');
+          const newErr = document.getElementById('custom-db-picker-new-err');
+          const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+          listEl.innerHTML = existingFiles.map(fn =>
+            `<label class="cdbp-file-item"><input type="radio" name="cdbp-file" value="${esc(fn)}"><span>📄 ${esc(fn)}</span></label>`
+          ).join('') +
+            `<label class="cdbp-file-item cdbp-new-item"><input type="radio" name="cdbp-file" value="__new__"><span>✨ New file…</span></label>`;
+
+          newInput.value = '';
+          newErr.textContent = '';
+          newRow.style.display = 'none';
+
+          const radios = listEl.querySelectorAll('input[type="radio"]');
+          if (existingFiles.length === 0) {
+            radios[radios.length - 1].checked = true;
+            newRow.style.display = 'block';
+          } else {
+            radios[0].checked = true;
+          }
+
+          listEl.addEventListener('change', function onchange(e) {
+            if (e.target.name === 'cdbp-file') {
+              newRow.style.display = e.target.value === '__new__' ? 'block' : 'none';
+              newErr.textContent = '';
+            }
+          });
+
+          function cleanup() {
+            overlay.classList.remove('active');
+            overlay.onclick = null;
+            document.getElementById('custom-db-picker-confirm').onclick = null;
+            document.getElementById('custom-db-picker-cancel').onclick = null;
+            document.getElementById('custom-db-picker-close-btn').onclick = null;
+          }
+
+          function doCancel() { cleanup(); resolve(null); }
+
+          function doConfirm() {
+            const sel = listEl.querySelector('input[name="cdbp-file"]:checked');
+            if (!sel) { doCancel(); return; }
+            if (sel.value === '__new__') {
+              let name = newInput.value.trim();
+              if (!name) { newErr.textContent = '⚠ Please enter a file name.'; newInput.focus(); return; }
+              if (!/^[\w\- .]+$/.test(name)) { newErr.textContent = '⚠ Only letters, numbers, spaces, hyphens, dots allowed.'; newInput.focus(); return; }
+              if (!name.endsWith('.js')) name += '.js';
+              cleanup(); resolve(name);
+            } else {
+              cleanup(); resolve(sel.value);
+            }
+          }
+
+          document.getElementById('custom-db-picker-confirm').onclick = doConfirm;
+          document.getElementById('custom-db-picker-cancel').onclick = doCancel;
+          document.getElementById('custom-db-picker-close-btn').onclick = doCancel;
+          overlay.onclick = e => { if (e.target === overlay) doCancel(); };
+
+          newInput.addEventListener('keydown', function onkey(e) {
+            if (e.key === 'Enter') { e.preventDefault(); doConfirm(); }
+          });
+
+          overlay.classList.add('active');
+        });
+      }
+
+      // ── Board → Wordbank DB Export ──────────────────────────────────────────
+      let _conDbExportWords = [];
+
+      function conDbExportOpen() {
+        conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
+        conDbExportRefresh();
+        document.getElementById('con-db-export-overlay').classList.add('active');
+      }
+
+      function conDbExportRefresh() {
+        const srcNodes = document.getElementById('con-db-src-nodes').checked;
+        const srcNotes = document.getElementById('con-db-src-notes').checked;
+        const wordMap = new Map();
+
+        conPageSnapshots.forEach((snap, pageIdx) => {
+          const pg = pageIdx + 1;
+
+          if (srcNodes) {
+            (snap.nodes || []).forEach(n => {
+              const w = (n.baseWord || '').trim();
+              if (!w) return;
+              const k = w.toLowerCase();
+              if (!wordMap.has(k)) wordMap.set(k, { word: w, srcs: new Set(), pages: new Set(), bookPgs: new Set() });
+              const e = wordMap.get(k);
+              e.srcs.add('node');
+              e.pages.add(pg);
+              if (n.pageNum != null) e.bookPgs.add(n.pageNum);
+            });
+          }
+
+          if (srcNotes) {
+            (snap.notes || []).forEach(n => {
+              const raw = (n.text || '') + ' ' + (n.html || '').replace(/<[^>]+>/g, ' ');
+              const tokens = raw.match(/\b[a-zA-ZÀ-ÿ]{3,}\b/g) || [];
+              tokens.forEach(tok => {
+                const k = tok.toLowerCase();
+                if (!wordMap.has(k)) wordMap.set(k, { word: tok, srcs: new Set(), pages: new Set(), bookPgs: new Set() });
+                const e = wordMap.get(k);
+                e.srcs.add('note');
+                e.pages.add(pg);
+              });
+            });
+          }
+        });
+
+        _conDbExportWords = [...wordMap.values()].sort((a, b) =>
+          a.word.toLowerCase().localeCompare(b.word.toLowerCase())
+        );
+        _conDbExportRenderTable();
+      }
+
+      function _conDbExportRenderTable() {
+        const tbody = document.getElementById('con-db-export-tbody');
+        const countEl = document.getElementById('con-db-export-count');
+        const multiPg = conPageSnapshots.length > 1;
+
+        countEl.textContent = `${_conDbExportWords.length} word${_conDbExportWords.length !== 1 ? 's' : ''}`;
+
+        // Show/hide page column header
+        const pgTh = document.getElementById('con-db-export-pg-th');
+        if (pgTh) pgTh.style.display = multiPg ? '' : 'none';
+
+        if (!_conDbExportWords.length) {
+          tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px 10px;color:#aaa;font-style:italic;">No words found — enable a source above.</td></tr>`;
+          return;
+        }
+
+        const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+        tbody.innerHTML = _conDbExportWords.map((entry, i) => {
+          const inDb = Array.isArray(window.vocabBank) &&
+            vocabBank.some(v => v.word && v.word.toLowerCase() === entry.word.toLowerCase());
+
+          const srcBadges = [...entry.srcs].map(s =>
+            `<span class="cde-src-badge cde-src-${s}">${s === 'node' ? '⬡' : '📌'} ${s}</span>`
+          ).join(' ');
+
+          const pgTxt = [...entry.pages].sort((a, b) => a - b).join(', ');
+          const bookPgTxt = entry.bookPgs.size > 0
+            ? ` <small class="cde-bookpg">p.${[...entry.bookPgs].sort((a, b) => a - b).join(',')}</small>` : '';
+
+          return `<tr class="cde-row">
+            <td class="cde-cell-word">${esc(entry.word)}${bookPgTxt}</td>
+            <td class="cde-cell-src">${srcBadges}</td>
+            <td class="cde-cell-pg" style="${multiPg ? '' : 'display:none'}">${pgTxt}</td>
+            <td class="cde-cell-indb">${inDb ? '<span class="cde-indb-yes" title="Already in word bank">✓</span>' : ''}</td>
+            <td class="cde-cell-check"><label style="cursor:pointer;"><input type="checkbox" class="cde-cb" data-idx="${i}" checked></label></td>
+          </tr>`;
+        }).join('');
+      }
+
+      function conDbExportSelectAll(checked) {
+        document.querySelectorAll('.cde-cb').forEach(cb => { cb.checked = checked; });
+      }
+
+      function conDbExportClose() {
+        document.getElementById('con-db-export-overlay').classList.remove('active');
+      }
+
+      async function conDbExportSave() {
+        if (!window.Desktop || !Desktop.isElectron()) return;
+
+        const selected = [...document.querySelectorAll('.cde-cb:checked')]
+          .map(cb => _conDbExportWords[parseInt(cb.dataset.idx)])
+          .filter(Boolean);
+
+        if (!selected.length) { mdbToast('⚠ No words selected.'); return; }
+
+        const keyword = (document.getElementById('con-db-export-keyword').value || '').trim();
+
+        const filename = await pickCustomDbFile();
+        if (!filename) return;
+
+        // Read existing file entries
+        let entries = [];
+        try {
+          const res = await Desktop.readText('customWordbanks', filename);
+          if (res && res.ok && res.content) {
+            const s = res.content.indexOf('['), e2 = res.content.lastIndexOf(']');
+            if (s !== -1 && e2 > s) { try { entries = JSON.parse(res.content.slice(s, e2 + 1)); } catch { } }
+          }
+        } catch { }
+
+        // Build lookup by word (existing entries are not overwritten)
+        const entryMap = new Map();
+        entries.forEach(e => { if (e && e.word) entryMap.set(e.word.toLowerCase(), e); });
+
+        function _applyKeyword(entry) {
+          if (!keyword) return entry;
+          const kws = Array.isArray(entry.keywords) ? [...entry.keywords] : (entry.keywords ? [entry.keywords] : []);
+          if (!kws.includes(keyword)) kws.push(keyword);
+          return { ...entry, keywords: kws };
+        }
+
+        let added = 0, skipped = 0;
+        selected.forEach(item => {
+          const k = item.word.toLowerCase();
+          if (entryMap.has(k)) {
+            // Word already in file — only add keyword if one was provided
+            if (keyword) entryMap.set(k, _applyKeyword(entryMap.get(k)));
+            skipped++;
+            return;
+          }
+
+          // Use full vocabBank entry if word is known, otherwise minimal stub
+          const dbEntry = Array.isArray(window.vocabBank)
+            ? vocabBank.find(v => v.word && v.word.toLowerCase() === k)
+            : null;
+
+          if (dbEntry) {
+            const clean = { ...dbEntry };
+            delete clean._source;
+            entryMap.set(k, _applyKeyword(clean));
+          } else {
+            entryMap.set(k, _applyKeyword({ word: item.word }));
+          }
+          added++;
+        });
+
+        const allEntries = [...entryMap.values()];
+        const lines = allEntries.map(w => '  ' + JSON.stringify(w));
+        const content = `// ${filename}\nconst customVocabBank = [\n${lines.join(',\n')}\n];\n`;
+
+        try {
+          await Desktop.saveText('customWordbanks', filename, content);
+          const msg = `✓ ${added} word${added !== 1 ? 's' : ''} added to ${filename}` +
+            (skipped > 0 ? ` (${skipped} already existed, kept unchanged)` : '');
+          mdbToast(msg);
+          conDbExportClose();
+          try {
+            if (typeof initCustomDatabases === 'function') {
+              _customDbInitPromise = null;
+              await initCustomDatabases();
+              conNodes.forEach(n => {
+                const match = conGetNodeDbEntry(n);
+                if (match) {
+                  n.dbWord = match.word;
+                  n.el.classList.add('con-node-matched');
+                  if (typeof conAddNodeStarBtn === 'function') conAddNodeStarBtn(n);
+                  if (typeof conUpdateNodeStarVisual === 'function') conUpdateNodeStarVisual(n);
+                }
+              });
+            }
+          } catch (_) { }
+        } catch (err) {
+          mdbToast('⚠ Save failed: ' + err);
+        }
+      }
+      // ── end DB Export ────────────────────────────────────────────────────────
+
+
+      async function cwdbSave(target) {
+        if (!_cwdbEditWord) return;
+
+        const themeRaw = document.getElementById('cwdb-theme').value.trim();
+        const themeVal = themeRaw.includes(',')
+          ? themeRaw.split(',').map(s => s.trim()).filter(Boolean)
+          : (themeRaw || '');
+
+        // Preserve original word casing if possible
+        const existing = vocabBank.find(v => v.word.toLowerCase() === _cwdbEditWord);
+        const wordDisplay = existing ? existing.word : (_cwdbEditWord.charAt(0).toUpperCase() + _cwdbEditWord.slice(1));
+
+        const entry = {
+          word: wordDisplay,
+          ipa: document.getElementById('cwdb-ipa').value.trim(),
+          partOfSpeech: document.getElementById('cwdb-pos').value || '',
+          level: document.getElementById('cwdb-level').value || '',
+          theme: themeVal,
+          definition: (function () { const v = document.getElementById('cwdb-definition').value.trim(); const lines = v.split('\n').map(s => s.trim()).filter(Boolean); return lines.length > 1 ? lines : (lines[0] || ''); })(),
+          french: document.getElementById('cwdb-french').value.trim(),
+          exampleSentence: document.getElementById('cwdb-example').value.trim(),
+          synonyms: document.getElementById('cwdb-synonyms').value.split(',').map(s => s.trim()).filter(Boolean),
+          antonyms: document.getElementById('cwdb-antonyms').value.split(',').map(s => s.trim()).filter(Boolean),
+          otherForms: (existing && existing.otherForms) || [],
+          _custom: true
+        };
+
+        // Register themes in vocabThemes index
+        const newThemeArr = Array.isArray(themeVal) ? themeVal : (themeVal ? [themeVal] : []);
+        if (typeof vocabThemes !== 'undefined' && newThemeArr.length) {
+          vocabThemes.forEach(e => {
+            for (const k of Object.keys(e)) {
+              e[k] = e[k].filter(w => w.toLowerCase() !== _cwdbEditWord);
+            }
+          });
+          newThemeArr.forEach(theme => {
+            let found = false;
+            vocabThemes.forEach(e => {
+              if (Object.prototype.hasOwnProperty.call(e, theme)) {
+                if (!e[theme].map(w => w.toLowerCase()).includes(_cwdbEditWord)) e[theme].push(wordDisplay);
+                found = true;
+              }
+            });
+            if (!found) vocabThemes.push({ [theme]: [wordDisplay] });
+          });
+          if (typeof invalidateThemeIndex === 'function') invalidateThemeIndex();
+        }
+
+        // Update vocabBank in memory
+        const bi = vocabBank.findIndex(v => v.word.toLowerCase() === _cwdbEditWord);
+        if (bi !== -1) { vocabBank[bi] = Object.assign({}, vocabBank[bi], entry); }
+        else { vocabBank.push(entry); }
+
+        // Persist to localStorage custom words
+        try {
+          const custom = awGetCustomWords();
+          const ci = custom.findIndex(w => w.word.toLowerCase() === _cwdbEditWord);
+          if (ci !== -1) { custom[ci] = entry; } else { custom.push(entry); }
+          awSaveCustomWords(custom);
+        } catch (e2) { }
+
+        // Refresh theme menus if available
+        if (typeof populateAllThemeMenus === 'function') populateAllThemeMenus();
+
+        conNodes.forEach(n => {
+          const match = conGetNodeDbEntry(n);
+          if (match) {
+            n.dbWord = match.word;
+            n.el.classList.add('con-node-matched');
+            conAddNodeStarBtn(n);
+            conUpdateNodeStarVisual(n);
+          }
+        });
+
+        if (target === 'main' && typeof awDownloadDB === 'function') {
+          await awDownloadDB();
+          cwdbFeedback(`✓ "${wordDisplay}" saved — writing wordDb.js…`, 'ok');
+          setTimeout(() => cwdbClose(), 1400);
+        } else if (target === 'custom' && window.Desktop && Desktop.isElectron()) {
+          const filename = await pickCustomDbFile();
+          if (!filename) return;
+          let entries = [];
+          try {
+            const result = await Desktop.readText('customWordbanks', filename);
+            if (result && result.ok && result.content) {
+              const s = result.content.indexOf('['), e = result.content.lastIndexOf(']');
+              if (s !== -1 && e > s) { try { entries = JSON.parse(result.content.slice(s, e + 1)); } catch { } }
+            }
+          } catch (e3) { /* file doesn't exist yet — start fresh */ }
+          try {
+            const { _custom, ...stripped } = entry;
+            const ci2 = entries.findIndex(w => w.word.toLowerCase() === _cwdbEditWord);
+            if (ci2 !== -1) { entries[ci2] = stripped; } else { entries.push(stripped); }
+            const lines = entries.map(w => '  ' + JSON.stringify(w));
+            const content = `// ${filename}\nconst customVocabBank = [\n${lines.join(',\n')}\n];\n`;
+            await Desktop.saveText('customWordbanks', filename, content);
+            cwdbFeedback(`✓ "${wordDisplay}" saved to ${filename}!`, 'ok');
+            try {
+              if (typeof initCustomDatabases === 'function') {
+                _customDbInitPromise = null;
+                await initCustomDatabases();
+              }
+            } catch (_) {}
+          } catch (e3) {
+            cwdbFeedback('⚠ Failed to save to custom DB.', 'err');
+            return;
+          }
+          setTimeout(() => cwdbClose(), 900);
+        } else {
+          cwdbFeedback(`✓ "${wordDisplay}" saved!`, 'ok');
+          setTimeout(() => cwdbClose(), 900);
+        }
+      }
+
+      async function cwdbDelete() {
+        if (!_cwdbEditWord) return;
+        const existing = vocabBank.find(v => v.word && v.word.toLowerCase() === _cwdbEditWord);
+        if (!existing) {
+          cwdbFeedback('⚠ Word is not in the database yet.', 'err');
+          return;
+        }
+        const label = existing.word || _cwdbEditWord;
+        if (!await showConfirm(`Permanently delete "${label}"?`)) return;
+
+        // Remove from vocabBank
+        const vi = vocabBank.findIndex(v => v.word && v.word.toLowerCase() === _cwdbEditWord);
+        if (vi !== -1) vocabBank.splice(vi, 1);
+
+        conNodes.forEach(n => {
+          const match = conGetNodeDbEntry(n);
+          if (!match) {
+            n.dbWord = null;
+            n.el.classList.remove('con-node-matched');
+            const star = n.el.querySelector('.con-node-star-btn');
+            if (star) star.remove();
+          }
+        });
+
+        // Remove from custom localStorage list if present
+        try {
+          const custom = awGetCustomWords();
+          const ci = custom.findIndex(w => w.word && w.word.toLowerCase() === _cwdbEditWord);
+          if (ci !== -1) {
+            custom.splice(ci, 1);
+            awSaveCustomWords(custom);
+          }
+        } catch (e2) { }
+
+        // Remove from theme index
+        if (typeof vocabThemes !== 'undefined') {
+          vocabThemes.forEach(entry => {
+            for (const k of Object.keys(entry)) {
+              entry[k] = entry[k].filter(w => w.toLowerCase() !== _cwdbEditWord);
+            }
+          });
+          if (typeof invalidateThemeIndex === 'function') invalidateThemeIndex();
+        }
+        if (typeof populateAllThemeMenus === 'function') populateAllThemeMenus();
+
+        cwdbFeedback(`✓ "${label}" deleted.`, 'ok');
+        setTimeout(() => cwdbClose(), 700);
+      }
+
+      function cwdbFeedback(msg, type) {
+        const el = document.getElementById('cwdb-feedback');
+        if (!el) return;
+        el.textContent = msg; el.className = type;
+      }
+
+      // Expose handlers for inline HTML onclick attributes (modal is outside this IIFE scope)
+      window.cwdbClose = cwdbClose;
+      window.cwdbSave = cwdbSave;
+      window.cwdbDelete = cwdbDelete;
+      window.pickCustomDbFile = pickCustomDbFile;
+      window.conDbExportOpen = conDbExportOpen;
+      window.conDbExportRefresh = conDbExportRefresh;
+      window.conDbExportSelectAll = conDbExportSelectAll;
+      window.conDbExportClose = conDbExportClose;
+      window.conDbExportSave = conDbExportSave;
+      // ================================================================
+      // END CONSTELLATION → WORD DB MODAL
+      // ================================================================
+
+      function conBlinkNodeAttention(el, durationMs) {
+        if (!el) return;
+        const totalMs = Math.max(250, Number(durationMs) || 3000);
+        const node = conNodes.find(n => n.id === el.id);
+        const baseBorderColor = (node && (node.border || (node.el && node.el.style && node.el.style.borderColor))) || '#111111';
+
+        if (el._conBlinkTimeout) {
+          clearTimeout(el._conBlinkTimeout);
+          el._conBlinkTimeout = null;
+        }
+
+        el.style.setProperty('--con-node-border', baseBorderColor);
+        el.style.setProperty('--con-blink-delay', '-' + (Math.floor(performance.now()) % 360) + 'ms');
+        el.classList.add('con-attention-blink');
+        if (window._conMirrorSend) window._conMirrorSend({ type: 'node-blink', nodeId: el.id, durationMs: totalMs, borderColor: baseBorderColor });
+
+        el._conBlinkTimeout = setTimeout(() => {
+          el.classList.remove('con-attention-blink');
+          el.style.removeProperty('--con-blink-delay');
+          if (el._conBlinkTimeout) el._conBlinkTimeout = null;
+        }, totalMs);
+      }
+
+      function conAttachNode(id, el) {
+        return conAttachNodeEvents(id, el);
+      }
+
+      function conAttachNodeEvents(id, el) {
+        // Right-click context menu
+        el.addEventListener('contextmenu', function (e) {
+          const _ctxNode = conNodes.find(n => n && (n.id === id || String(n.id) === String(id)))
+            || ((global.conNodes || []).find(n => n && (n.id === id || String(n.id) === String(id))));
+          if (_ctxNode && _ctxNode.isRandom && typeof conOpenRandomPopover === 'function') {
+            e.preventDefault();
+            e.stopPropagation();
+            conOpenRandomPopover(_ctxNode);
+          } else {
+            conCtxOpen(e, id);
+          }
+        });
+
+        // Double-click to make a node visibly blink for attention.
+        el.addEventListener('dblclick', function (e) {
+          if (document.body.classList.contains('laser-active')) return;
+          e.preventDefault();
+          e.stopPropagation();
+          const node = conNodes.find(n => n && (n.id === id || String(n.id) === String(id)))
+            || ((global.conNodes || []).find(n => n && (n.id === id || String(n.id) === String(id))));
+          if (node && node.masked) {
+            node.masked = false;
+            el.classList.remove('con-masked');
+            if (typeof conRedrawEdges === 'function') conRedrawEdges();
+            if (typeof window._conMirrorSend === 'function') {
+              window._conMirrorSend({ type: 'node-mask', nodeId: String(node.id), masked: false });
+            }
+          }
+          conBlinkNodeAttention(el, 3000);
+        });
+
+        // Resize handle (bottom-right corner) — scales font-size proportionally
+        const _resizer = document.createElement('div');
+        _resizer.className = 'con-node-resizer';
+        el.appendChild(_resizer);
+        {
+          let _rz = false, _rx = 0, _rFontSize = 0, _rWidth = 0;
+          let _nodeResizeRaf = null;
+          let _pendingNodeResizeMsg = null;
+          _resizer.addEventListener('mousedown', function (e) {
+            if (e.button !== 0) return;
+            const _rzNode = conNodes.find(n => n && (n.id === id || String(n.id) === String(id)))
+              || ((global.conNodes || []).find(n => n && (n.id === id || String(n.id) === String(id))));
+            if (!_rzNode || conIsNodeLocked(_rzNode)) return;
+            const _rzGroup = conGroupOfNode(id);
+            if (_rzGroup && _rzGroup.phraseGroup) return;
+            e.preventDefault(); e.stopPropagation();
+            _rz = true;
+            window._conMirrorDragging = true;
+            _rx = e.clientX;
+            _rFontSize = conGetNodeBaseFontSize(_rzNode || el);
+            _rWidth = el.offsetWidth;
+          });
+          document.addEventListener('mousemove', function (e) {
+            if (!_rz) return;
+            const dx = e.clientX - _rx;
+            const newWidth = Math.max(20, _rWidth + dx);
+            const scale = newWidth / _rWidth;
+            const newFs = Math.max(8, Math.min(96, Math.round(_rFontSize * scale)));
+            const node = conNodes.find(n => n && (n.id === id || String(n.id) === String(id)))
+              || ((global.conNodes || []).find(n => n && (n.id === id || String(n.id) === String(id))));
+            if (node) {
+              conSetNodeBaseFontSize(node, newFs);
+              conApplyNodeShape(node, node.shape);
+            }
+            conRedrawEdges();
+            conGroupRefitAll();
+            if (window._conMirrorSend) {
+              _pendingNodeResizeMsg = {
+                type: 'node-resize',
+                id: String(id),
+                fontSize: newFs,
+                shape: node ? node.shape : undefined
+              };
+              if (!_nodeResizeRaf) {
+                _nodeResizeRaf = requestAnimationFrame(function () {
+                  _nodeResizeRaf = null;
+                  if (window._conMirrorSend && _pendingNodeResizeMsg) {
+                    window._conMirrorSend(_pendingNodeResizeMsg);
+                  }
+                });
+              }
+            }
+          });
+          document.addEventListener('mouseup', function () {
+            if (!_rz) return;
+            if (_nodeResizeRaf) { cancelAnimationFrame(_nodeResizeRaf); _nodeResizeRaf = null; }
+            if (window._conMirrorSend && _pendingNodeResizeMsg) {
+              window._conMirrorSend(_pendingNodeResizeMsg);
+              _pendingNodeResizeMsg = null;
+            }
+            conGroupRefitAll();
+            _rz = false;
+            if (typeof window.conPushUndo === 'function') window.conPushUndo();
+            setTimeout(() => {
+              window._conMirrorDragging = false;
+            }, 60);
+          });
+        }
+
+        // Emoji reaction dot (top-right corner)
+        if (window.conEmojiAttachNodeDot) window.conEmojiAttachNodeDot(id, el);
+
+        // All click logic lives here in mousedown/onUp so modifier keys are available
+        let dragging = false, ox = 0, oy = 0, startX = 0, startY = 0;
+        let _preDragSnap = null, _conNodeMoveRaf = null;
+        el.addEventListener('mousedown', function (e) {
+          if (e.button !== 0) return; // left button only
+          if (e.target.closest('.con-node-resizer')) return; // let resizer handle it
+          if (e.target.closest('.con-emoji-dot')) return; // let emoji dot handle it
+          if (e.target.closest('.con-node-note-btn')) return; // let note toggle btn handle it
+          if (e.target.closest('.con-node-star-btn')) return; // let star btn handle it
+
+          // Phrase-group nodes are not individually draggable in move mode — delegate to the group
+          if (conMode === 'move') {
+            const _pg = conGroupOfNode(id);
+            if (_pg && _pg.phraseGroup) {
+              _pg.el.dispatchEvent(new MouseEvent('mousedown', {
+                bubbles: false, cancelable: true, button: 0,
+                clientX: e.clientX, clientY: e.clientY, ctrlKey: e.ctrlKey, shiftKey: e.shiftKey
+              }));
+              return;
+            }
+          }
+
+          e.stopPropagation(); // prevent board rubber-band from firing
+
+          // delete / connect modes: handle immediately on mousedown
+          if (conMode === 'delete') { e.preventDefault(); conPushUndo(); conRemoveNode(id); return; }
+          if (conMode === 'connect') {
+            e.preventDefault();
+            if (!conConnSrc) {
+              conConnSrc = id;
+              el.classList.add('con-src');
+              conUpdateInstructions('connect-src');
+            } else if (conConnSrc !== id) {
+              conPushUndo();
+              conAddEdge(conConnSrc, id);
+              conNodes.forEach(n => n.el.classList.remove('con-src'));
+              conConnSrc = null;
+              conUpdateInstructions('connect');
+            }
+            return;
+          }
+
+          // Move mode — handle drag + click + ctrl/shift multi-select
+          e.preventDefault();
+          const node = conNodes.find(n => n && (n.id === id || String(n.id) === String(id)))
+            || ((global.conNodes || []).find(n => n && (n.id === id || String(n.id) === String(id))));
+          if (!node) return;
+          ox = e.clientX - node.x;
+          oy = e.clientY - node.y;
+          startX = e.clientX; startY = e.clientY;
+          dragging = false;
+          _preDragSnap = conBuildPageSnapshot();
+
+          // Snapshot offsets for all multi-selected nodes relative to this drag origin
+          const allSelectedNodeIds = new Set(conMultiSelected);
+          if (conSelected) allSelectedNodeIds.add(conSelected);
+          const isSelected = allSelectedNodeIds.has(id);
+          const shapeSel = window.conGetShapeSelected ? window.conGetShapeSelected() : (typeof _conShapeSelected !== 'undefined' ? _conShapeSelected : new Set());
+          const tableSel = (typeof conTableSelected !== 'undefined') ? conTableSelected : new Set();
+          const totalSelectedObjects = allSelectedNodeIds.size + conNoteSelected.size + conDrawingSelected.size + shapeSel.size + tableSel.size;
+          const isMulti = isSelected && (allSelectedNodeIds.size > 1 || totalSelectedObjects > 1);
+
+          // Expand selection to include phrase siblings of any selected node
+          let _multiDragIds = null;
+          if (isMulti) {
+            _multiDragIds = new Set(allSelectedNodeIds);
+            allSelectedNodeIds.forEach(nid => {
+              const pg = conGroups.find(g => g.phraseGroup && g.nodeIds.includes(nid));
+              if (pg) pg.nodeIds.forEach(sid => _multiDragIds.add(sid));
+            });
+          }
+          const groupSnap = isMulti
+            ? conNodes.filter(n => _multiDragIds.has(n.id) && !conIsNodeLocked(n)).map(n => ({ n, dx: n.x - node.x, dy: n.y - node.y }))
+            : null;
+          // Snapshot selected notes for joint drag
+          const nodeStartX = node.x, nodeStartY = node.y;
+          const noteGroupSnap = (conNoteSelected.size > 0 && isSelected)
+            ? Array.from(conNoteSelected).map(nid => {
+              const nd = conNotes.find(n => n.id === nid);
+              return nd ? { nd, snapX: nd.x, snapY: nd.y } : null;
+            }).filter(Boolean)
+            : [];
+          // Snapshot selected drawings for joint drag
+          const drawGroupSnap = (conDrawingSelected.size > 0 && isSelected)
+            ? Array.from(conDrawingSelected).map(did => {
+              const dr = conDrawings.find(d => d.id === did);
+              return dr ? { dr, snapX: dr.x, snapY: dr.y, pad: dr.pad || 12 } : null;
+            }).filter(Boolean)
+            : [];
+          // Snapshot selected shapes for joint drag
+          const shapeGroupSnap = (shapeSel.size > 0 && isSelected)
+            ? Array.from(shapeSel).map(sid => {
+              const s = (typeof conShapes !== 'undefined' ? conShapes : []).find(x => x.id === sid);
+              return s ? {
+                s, snapX: s.x, snapY: s.y,
+                snapLx1: s.lx1, snapLy1: s.ly1, snapLx2: s.lx2, snapLy2: s.ly2,
+                snapPts: s.pts ? s.pts.map(p => ({ ...p })) : null,
+                pad: s.pad || (typeof _conShapeGetPAD === 'function' ? _conShapeGetPAD(s) : 16)
+              } : null;
+            }).filter(Boolean)
+            : [];
+          // Snapshot selected tables for joint drag
+          const tableGroupSnap = (tableSel.size > 0 && isSelected)
+            ? Array.from(tableSel).map(tid => {
+              const tbl = (window.conGetTables ? window.conGetTables() : []).find(t => t.id === tid);
+              return tbl ? { tbl, snapX: tbl.x, snapY: tbl.y } : null;
+            }).filter(Boolean)
+            : [];
+
+          // Determine marker node for snapping (top-left node if multi-selected, or the dragged node itself)
+          let markerNode = node;
+          let markerDx = 0;
+          let markerDy = 0;
+          if (groupSnap && groupSnap.length > 0) {
+            let minX = Infinity, minY = Infinity;
+            groupSnap.forEach(({ n }) => {
+              if (n.x < minX) minX = n.x;
+              if (n.y < minY) minY = n.y;
+            });
+            let bestDistSq = Infinity;
+            let markerItem = groupSnap[0];
+            groupSnap.forEach(item => {
+              const dX = item.n.x - minX;
+              const dY = item.n.y - minY;
+              const distSq = dX * dX + dY * dY;
+              if (distSq < bestDistSq) {
+                bestDistSq = distSq;
+                markerItem = item;
+              } else if (Math.abs(distSq - bestDistSq) < 1e-4) {
+                if (item.n.y < markerItem.n.y || (item.n.y === markerItem.n.y && item.n.x < markerItem.n.x)) {
+                  markerItem = item;
+                }
+              }
+            });
+            markerNode = markerItem.n;
+            markerDx = markerItem.dx;
+            markerDy = markerItem.dy;
+          }
+          const minGroupDx = groupSnap ? Math.min(...groupSnap.map(g => g.dx)) : 0;
+          const minGroupDy = groupSnap ? Math.min(...groupSnap.map(g => g.dy)) : 0;
+
+          function onMove(e) {
+            if (conIsNodeLocked(node)) return;
+            // Nodes inside a phrase group move only as a group — block solo drag (allow if multi-select)
+            const _phraseGrp = conGroupOfNode(id);
+            if (_phraseGrp && _phraseGrp.phraseGroup && !isMulti) return;
+            const brd = board();
+            let nx = e.clientX - ox;
+            let ny = e.clientY - oy;
+            nx = Math.max(-minGroupDx, nx);
+            ny = Math.max(-minGroupDy, ny);
+            if (!dragging && Math.abs(e.clientX - startX) < 3 && Math.abs(e.clientY - startY) < 3) return;
+            dragging = true;
+            window._conMirrorDragging = true; // suppress heavy MutationObserver broadcast during drag
+            window._conTblDraggingNodeId = id;
+
+            // Snap align (single or multi-node drag) — hold Alt to bypass
+            if (conSnapEnabled && !e.altKey) {
+              const SNAP_DIST = 8;
+              const markerEl = markerNode ? markerNode.el : el;
+              const elW = markerEl ? markerEl.offsetWidth : 80;
+              const elH = markerEl ? markerEl.offsetHeight : 32;
+              const curMarkerX = nx + markerDx;
+              const curMarkerY = ny + markerDy;
+              const dragAnchorsX = [curMarkerX, curMarkerX + elW / 2, curMarkerX + elW];
+              const dragAnchorsY = [curMarkerY, curMarkerY + elH / 2, curMarkerY + elH];
+              let bestSnapX = null, bestSnapY = null;
+
+              const draggedNodeIds = _multiDragIds || new Set([id]);
+
+              conNodes.forEach(sn => {
+                if (draggedNodeIds.has(sn.id)) return;
+                const snW = sn.el ? sn.el.offsetWidth : 80, snH = sn.el ? sn.el.offsetHeight : 32;
+                [sn.x, sn.x + snW / 2, sn.x + snW].forEach(na => {
+                  dragAnchorsX.forEach(da => {
+                    const diff = Math.abs(da - na);
+                    if (diff < SNAP_DIST && (!bestSnapX || diff < bestSnapX.diff))
+                      bestSnapX = { shift: na - da, line: na, diff };
+                  });
+                });
+                [sn.y, sn.y + snH / 2, sn.y + snH].forEach(na => {
+                  dragAnchorsY.forEach(da => {
+                    const diff = Math.abs(da - na);
+                    if (diff < SNAP_DIST && (!bestSnapY || diff < bestSnapY.diff))
+                      bestSnapY = { shift: na - da, line: na, diff };
+                  });
+                });
+              });
+              // Also consider notes
+              conNotes.forEach(on => {
+                if (conNoteSelected && conNoteSelected.has(on.id)) return;
+                const oEl = wnGetNoteElementById(on.id);
+                const oW = oEl ? oEl.offsetWidth : (on.width || 120), oH = oEl ? oEl.offsetHeight : (on.height || 80);
+                [on.x, on.x + oW / 2, on.x + oW].forEach(na => {
+                  dragAnchorsX.forEach(da => {
+                    const diff = Math.abs(da - na);
+                    if (diff < SNAP_DIST && (!bestSnapX || diff < bestSnapX.diff)) bestSnapX = { shift: na - da, line: na, diff };
+                  });
+                });
+                [on.y, on.y + oH / 2, on.y + oH].forEach(na => {
+                  dragAnchorsY.forEach(da => {
+                    const diff = Math.abs(da - na);
+                    if (diff < SNAP_DIST && (!bestSnapY || diff < bestSnapY.diff)) bestSnapY = { shift: na - da, line: na, diff };
+                  });
+                });
+              });
+              // Consider shapes
+              conShapes.forEach(sh => {
+                if (shapeSel && shapeSel.has(sh.id)) return;
+                const sW = Math.max(2, sh.w || 40), sH = Math.max(2, sh.h || 40);
+                [sh.x, sh.x + sW / 2, sh.x + sW].forEach(na => {
+                  dragAnchorsX.forEach(da => {
+                    const diff = Math.abs(da - na);
+                    if (diff < SNAP_DIST && (!bestSnapX || diff < bestSnapX.diff)) bestSnapX = { shift: na - da, line: na, diff };
+                  });
+                });
+                [sh.y, sh.y + sH / 2, sh.y + sH].forEach(na => {
+                  dragAnchorsY.forEach(da => {
+                    const diff = Math.abs(da - na);
+                    if (diff < SNAP_DIST && (!bestSnapY || diff < bestSnapY.diff)) bestSnapY = { shift: na - da, line: na, diff };
+                  });
+                });
+              });
+              // Consider freehand drawings
+              conDrawings.forEach(d => {
+                if (conDrawingSelected && conDrawingSelected.has(d.id)) return;
+                const dW = Math.max(2, d.w || 40), dH = Math.max(2, d.h || 40);
+                [d.x, d.x + dW / 2, d.x + dW].forEach(na => {
+                  dragAnchorsX.forEach(da => {
+                    const diff = Math.abs(da - na);
+                    if (diff < SNAP_DIST && (!bestSnapX || diff < bestSnapX.diff)) bestSnapX = { shift: na - da, line: na, diff };
+                  });
+                });
+                [d.y, d.y + dH / 2, d.y + dH].forEach(na => {
+                  dragAnchorsY.forEach(da => {
+                    const diff = Math.abs(da - na);
+                    if (diff < SNAP_DIST && (!bestSnapY || diff < bestSnapY.diff)) bestSnapY = { shift: na - da, line: na, diff };
+                  });
+                });
+              });
+              // Consider tables
+              const allTables = (window.conGetTables ? window.conGetTables() : []);
+              allTables.forEach(tbl => {
+                if (tableSel && tableSel.has(tbl.id)) return;
+                const tW = Math.max(20, tbl.w || 200), tH = Math.max(20, tbl.h || 100);
+                [tbl.x, tbl.x + tW / 2, tbl.x + tW].forEach(na => {
+                  dragAnchorsX.forEach(da => {
+                    const diff = Math.abs(da - na);
+                    if (diff < SNAP_DIST && (!bestSnapX || diff < bestSnapX.diff)) bestSnapX = { shift: na - da, line: na, diff };
+                  });
+                });
+                [tbl.y, tbl.y + tH / 2, tbl.y + tH].forEach(na => {
+                  dragAnchorsY.forEach(da => {
+                    const diff = Math.abs(da - na);
+                    if (diff < SNAP_DIST && (!bestSnapY || diff < bestSnapY.diff)) bestSnapY = { shift: na - da, line: na, diff };
+                  });
+                });
+              });
+
+              const svgEl = document.getElementById('constellation-svg');
+              document.querySelectorAll('.con-snap-line').forEach(l => l.remove());
+              if (bestSnapX !== null) {
+                nx = Math.max(-minGroupDx, nx + bestSnapX.shift);
+                const sl = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                sl.setAttribute('class', 'con-snap-line');
+                sl.setAttribute('x1', bestSnapX.line); sl.setAttribute('y1', 0);
+                sl.setAttribute('x2', bestSnapX.line); sl.setAttribute('y2', Math.max(brd.clientHeight, brd.scrollHeight));
+                svgEl.appendChild(sl);
+              }
+              if (bestSnapY !== null) {
+                ny = Math.max(-minGroupDy, ny + bestSnapY.shift);
+                const sl = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                sl.setAttribute('class', 'con-snap-line');
+                sl.setAttribute('x1', 0); sl.setAttribute('y1', bestSnapY.line);
+                sl.setAttribute('x2', Math.max(brd.clientWidth, brd.scrollWidth)); sl.setAttribute('y2', bestSnapY.line);
+                svgEl.appendChild(sl);
+              }
+            } else {
+              document.querySelectorAll('.con-snap-line').forEach(l => l.remove());
+            }
+
+            if (groupSnap) {
+              groupSnap.forEach(({ n, dx, dy }) => {
+                n.x = Math.max(0, nx + dx);
+                n.y = Math.max(0, ny + dy);
+                n.el.style.left = n.x + 'px';
+                n.el.style.top = n.y + 'px';
+              });
+            } else {
+              node.x = nx; node.y = ny;
+              el.style.left = nx + 'px';
+              el.style.top = ny + 'px';
+            }
+            // Move jointly-selected notes
+            if (noteGroupSnap.length > 0) {
+              const ddx = node.x - nodeStartX, ddy = node.y - nodeStartY;
+              noteGroupSnap.forEach(({ nd, snapX, snapY }) => {
+                nd.x = snapX + ddx;
+                nd.y = snapY + ddy;
+                const noteEl = wnGetNoteElementById(nd.id);
+                if (noteEl) { noteEl.style.left = nd.x + 'px'; noteEl.style.top = nd.y + 'px'; }
+              });
+            }
+            // Move jointly-selected drawings
+            if (drawGroupSnap.length > 0) {
+              const ddx = node.x - nodeStartX, ddy = node.y - nodeStartY;
+              drawGroupSnap.forEach(({ dr, snapX, snapY, pad }) => {
+                dr.x = snapX + ddx;
+                dr.y = snapY + ddy;
+                const p = pad !== undefined ? pad : (dr.pad || 12);
+                if (dr.el) { dr.el.style.left = (dr.x - p) + 'px'; dr.el.style.top = (dr.y - p) + 'px'; }
+              });
+            }
+            // Move jointly-selected shapes
+            if (shapeGroupSnap.length > 0) {
+              const ddx = node.x - nodeStartX, ddy = node.y - nodeStartY;
+              shapeGroupSnap.forEach(({ s, snapX, snapY, snapLx1, snapLy1, snapLx2, snapLy2, snapPts, pad }) => {
+                s.x = snapX + ddx;
+                s.y = snapY + ddy;
+                if (s.lx1 !== undefined && snapLx1 !== undefined) {
+                  s.lx1 = snapLx1 + ddx; s.ly1 = snapLy1 + ddy;
+                  s.lx2 = snapLx2 + ddx; s.ly2 = snapLy2 + ddy;
+                }
+                if (s.pts && snapPts) {
+                  s.pts = snapPts.map(p => ({ x: p.x + ddx, y: p.y + ddy }));
+                }
+                const p = pad !== undefined ? pad : (s.pad || 16);
+                if (s.el) { s.el.style.left = (s.x - p) + 'px'; s.el.style.top = (s.y - p) + 'px'; }
+                if (typeof _conShapeUpdateHandles === 'function') _conShapeUpdateHandles(s);
+              });
+            }
+            // Move jointly-selected tables
+            if (tableGroupSnap.length > 0) {
+              const ddx = node.x - nodeStartX, ddy = node.y - nodeStartY;
+              tableGroupSnap.forEach(({ tbl, snapX, snapY }) => {
+                tbl.x = snapX + ddx;
+                tbl.y = snapY + ddy;
+                if (tbl.el) { tbl.el.style.left = tbl.x + 'px'; tbl.el.style.top = tbl.y + 'px'; }
+              });
+            }
+            // Highlight nearby nodes as drop targets (single-node drag only)
+            if (!groupSnap) {
+              const DROP_DIST = 24;
+              conNodes.forEach(n => {
+                if (n.id === id) return;
+                const dx = (n.x + (n.el.offsetWidth || 80) / 2) - (node.x + (el.offsetWidth || 80) / 2);
+                const dy = (n.y + (n.el.offsetHeight || 32) / 2) - (node.y + (el.offsetHeight || 32) / 2);
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                n.el.classList.toggle('con-drop-target', dist < DROP_DIST);
+              });
+            }
+            conRedrawEdges();
+            conGroupRefitAll();
+            // Send lightweight move messages to mirror throttled to rAF — avoids full snapshot during drag
+            if (window._conMirrorSend) {
+              window._conMirrorDragging = true;
+              if (!_conNodeMoveRaf) {
+                _conNodeMoveRaf = requestAnimationFrame(function () {
+                  _conNodeMoveRaf = null;
+                  if (!window._conMirrorSend) return;
+                  const _mirrorPositions = [];
+                  if (groupSnap) {
+                    groupSnap.forEach(function ({ n }) { _mirrorPositions.push({ id: n.id, x: n.x, y: n.y }); });
+                  } else {
+                    _mirrorPositions.push({ id: node.id, x: node.x, y: node.y });
+                  }
+                  window._conMirrorSend({ type: 'node-move', positions: _mirrorPositions });
+                  if (noteGroupSnap.length > 0) {
+                    window._conMirrorSend({
+                      type: 'note-move',
+                      positions: noteGroupSnap.map(({ nd }) => ({ id: nd.id, x: nd.x, y: nd.y }))
+                    });
+                  }
+                  if (drawGroupSnap.length > 0) {
+                    window._conMirrorSend({
+                      type: 'drawing-move',
+                      positions: drawGroupSnap.map(({ dr }) => ({ id: dr.id, x: dr.x, y: dr.y }))
+                    });
+                  }
+                  if (shapeGroupSnap.length > 0) {
+                    window._conMirrorSend({
+                      type: 'shape-move',
+                      positions: shapeGroupSnap.map(({ s }) => ({
+                        id: s.id, x: s.x, y: s.y,
+                        lx1: s.lx1, ly1: s.ly1, lx2: s.lx2, ly2: s.ly2,
+                        pts: s.pts ? s.pts.map(p => ({ ...p })) : undefined
+                      }))
+                    });
+                  }
+                  if (tableGroupSnap.length > 0) {
+                    window._conMirrorSend({
+                      type: 'table-move',
+                      positions: tableGroupSnap.map(({ tbl }) => ({ id: tbl.id, x: tbl.x, y: tbl.y }))
+                    });
+                  }
+                });
+              }
+            }
+          }
+          function onUp(e) {
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            if (_conNodeMoveRaf) {
+              cancelAnimationFrame(_conNodeMoveRaf);
+              _conNodeMoveRaf = null;
+            }
+            if (dragging && window._conMirrorSend) {
+              const _mirrorPositions = [];
+              if (groupSnap) {
+                groupSnap.forEach(function ({ n }) { _mirrorPositions.push({ id: n.id, x: n.x, y: n.y }); });
+              } else {
+                _mirrorPositions.push({ id: node.id, x: node.x, y: node.y });
+              }
+              window._conMirrorSend({ type: 'node-move', positions: _mirrorPositions });
+              if (noteGroupSnap.length > 0) {
+                window._conMirrorSend({
+                  type: 'note-move',
+                  positions: noteGroupSnap.map(({ nd }) => ({ id: nd.id, x: nd.x, y: nd.y }))
+                });
+              }
+              if (drawGroupSnap.length > 0) {
+                window._conMirrorSend({
+                  type: 'drawing-move',
+                  positions: drawGroupSnap.map(({ dr }) => ({ id: dr.id, x: dr.x, y: dr.y }))
+                });
+              }
+              if (shapeGroupSnap.length > 0) {
+                window._conMirrorSend({
+                  type: 'shape-move',
+                  positions: shapeGroupSnap.map(({ s }) => ({
+                    id: s.id, x: s.x, y: s.y,
+                    lx1: s.lx1, ly1: s.ly1, lx2: s.lx2, ly2: s.ly2,
+                    pts: s.pts ? s.pts.map(p => ({ ...p })) : undefined
+                  }))
+                });
+              }
+              if (tableGroupSnap.length > 0) {
+                window._conMirrorSend({
+                  type: 'table-move',
+                  positions: tableGroupSnap.map(({ tbl }) => ({ id: tbl.id, x: tbl.x, y: tbl.y }))
+                });
+              }
+            }
+            // Lift drag suppression so the MutationObserver resumes normal operation
+            window._conMirrorDragging = false;
+            // Clear snap lines and drop-target highlights
+            document.querySelectorAll('.con-snap-line').forEach(l => l.remove());
+            conNodes.forEach(n => n.el.classList.remove('con-drop-target'));
+            window._conTblDraggingNodeId = null;
+            document.querySelectorAll('.con-table-drop-highlight').forEach(x => x.classList.remove('con-table-drop-highlight'));
+
+            if (dragging && _preDragSnap) conPushUndo(_preDragSnap);
+            if (dragging && !groupSnap) {
+              // Update baseX, baseY based on current zoom level
+              const board = document.getElementById('constellation-board');
+              const boardCenterX = board.clientWidth / 2;
+              const boardCenterY = board.clientHeight / 2;
+              node.baseX = boardCenterX + (node.x - boardCenterX) / conCurrentZoom;
+              node.baseY = boardCenterY + (node.y - boardCenterY) / conCurrentZoom;
+              // Single-node drag: check if dropped close to another node → create/join group
+              const DROP_DIST = 24;
+              const targetNode = conNodes.find(n => {
+                if (n.id === id) return false;
+                const dx = (n.x + (n.el.offsetWidth || 80) / 2) - (node.x + (el.offsetWidth || 80) / 2);
+                const dy = (n.y + (n.el.offsetHeight || 32) / 2) - (node.y + (el.offsetHeight || 32) / 2);
+                return Math.sqrt(dx * dx + dy * dy) < DROP_DIST;
+              });
+              if (targetNode) {
+                requestAnimationFrame(() => conGroupMergeOrCreate(id, targetNode.id));
+              } else {
+                // Check if dropped inside any group rect
+                const cx = node.x + (el.offsetWidth || 80) / 2;
+                const cy = node.y + (el.offsetHeight || 32) / 2;
+                const hitGroup = conGroups.find(g => {
+                  if (g.nodeIds.includes(id)) return false;
+                  if (g.phraseGroup) return false; // don't drop into phrase groups
+                  const gl = parseFloat(g.el.style.left), gt = parseFloat(g.el.style.top);
+                  const gw = parseFloat(g.el.style.width) || g.el.offsetWidth;
+                  const gh = parseFloat(g.el.style.height) || g.el.offsetHeight;
+                  return cx >= gl && cx <= gl + gw && cy >= gt && cy <= gt + gh;
+                });
+                if (hitGroup) {
+                  // If the dragged node is part of a phrase group, add all phrase siblings too
+                  const phraseGroup = conGroups.find(g => g.phraseGroup && g.nodeIds.includes(id));
+                  const toAdd = phraseGroup
+                    ? phraseGroup.nodeIds.filter(nid => !hitGroup.nodeIds.includes(nid))
+                    : (hitGroup.nodeIds.includes(id) ? [] : [id]);
+                  toAdd.forEach(nid => hitGroup.nodeIds.push(nid));
+                  requestAnimationFrame(() => {
+                    conGroupRefit(hitGroup);
+                  });
+                } else if (window._conDropNodeToCell) {
+                  // Check if dropped inside a table cell
+                  const _dropTables = window.conGetTables ? window.conGetTables() : [];
+                  outer: for (const _dt of _dropTables) {
+                    let _rAcc = _dt.y + 24; // 24 = bar height
+                    for (let _dr = 0; _dr < _dt.rows; _dr++) {
+                      let _cAcc = _dt.x;
+                      for (let _dc = 0; _dc < _dt.cols; _dc++) {
+                        const _cw = _dt.colWidths[_dc] || 80;
+                        const _rh = _dt.rowHeights[_dr] || 36;
+                        if (cx >= _cAcc && cx < _cAcc + _cw && cy >= _rAcc && cy < _rAcc + _rh) {
+                          window._conDropNodeToCell(id, _dt.id, _dr, _dc);
+                          break outer;
+                        }
+                        _cAcc += _cw;
+                      }
+                      _rAcc += _dt.rowHeights[_dr] || 36;
+                    }
+                  }
+                }
+              }
+            }
+
+            if (dragging && groupSnap) {
+              // Update baseX, baseY for all dragged nodes when multi-dragging
+              const board = document.getElementById('constellation-board');
+              const boardCenterX = board.clientWidth / 2;
+              const boardCenterY = board.clientHeight / 2;
+              groupSnap.forEach(({ n }) => {
+                n.baseX = boardCenterX + (n.x - boardCenterX) / conCurrentZoom;
+                n.baseY = boardCenterY + (n.y - boardCenterY) / conCurrentZoom;
+              });
+            }
+            // Full mirror sync on drag end so the mirror state is always consistent
+            if (dragging && window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
+
+            if (!dragging) {
+              // It was a click — check modifiers
+              if (e.ctrlKey || e.metaKey) {
+                // Ctrl+click: toggle this node in/out of multi-selection
+                // If there's a single-selected node, fold it into multi-selection first
+                if (conSelected && conSelected !== id) {
+                  const prevEl = conNodes.find(n => n.id === conSelected);
+                  if (prevEl) {
+                    conMultiSelected.add(conSelected);
+                    prevEl.el.classList.remove('con-selected');
+                    prevEl.el.classList.add('con-multi-selected');
+                  }
+                }
+                conSelected = null;
+                conNodes.forEach(n => n.el.classList.remove('con-selected'));
+                if (conMultiSelected.has(id)) {
+                  conMultiSelected.delete(id);
+                  el.classList.remove('con-multi-selected');
+                } else {
+                  conMultiSelected.add(id);
+                  el.classList.add('con-multi-selected');
+                }
+              } else if (e.shiftKey && (conMultiSelected.size > 0 || conSelected || (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0) || (typeof conDrawingSelected !== 'undefined' && conDrawingSelected && conDrawingSelected.size > 0) || (typeof _conShapeSelected !== 'undefined' && _conShapeSelected && _conShapeSelected.size > 0) || (typeof conTableSelected !== 'undefined' && conTableSelected && conTableSelected.size > 0))) {
+                // Shift-click: also toggle
+                if (conSelected && conSelected !== id) {
+                  const prevEl = conNodes.find(n => n.id === conSelected);
+                  if (prevEl) {
+                    conMultiSelected.add(conSelected);
+                    prevEl.el.classList.remove('con-selected');
+                    prevEl.el.classList.add('con-multi-selected');
+                  }
+                }
+                conSelected = null;
+                conNodes.forEach(n => n.el.classList.remove('con-selected'));
+                if (conMultiSelected.has(id)) {
+                  conMultiSelected.delete(id);
+                  el.classList.remove('con-multi-selected');
+                } else {
+                  conMultiSelected.add(id);
+                  el.classList.add('con-multi-selected');
+                }
+              } else {
+                conSelect(id);
+                if (window.conNoteClearSelection) window.conNoteClearSelection();
+                if (node && node.isRandom && typeof conRollRandomNode === 'function') {
+                  // Option A: single click = immediately re-roll the number
+                  conRollRandomNode(node.id);
+                  if (typeof conCloseTimerPopover === 'function') conCloseTimerPopover();
+                  if (typeof conCloseSoundPopover === 'function') conCloseSoundPopover();
+                  if (typeof conCloseVideoPopover === 'function') conCloseVideoPopover();
+                } else if (node && node.isTimer && typeof conOpenTimerPopover === 'function') {
+                  conOpenTimerPopover(node);
+                  if (typeof conCloseRandomPopover === 'function') conCloseRandomPopover();
+                  if (typeof conCloseSoundPopover === 'function') conCloseSoundPopover();
+                  if (typeof conCloseVideoPopover === 'function') conCloseVideoPopover();
+                } else if (node && node.isSound && typeof conOpenSoundPopover === 'function') {
+                  conOpenSoundPopover(node);
+                  if (typeof conCloseTimerPopover === 'function') conCloseTimerPopover();
+                  if (typeof conCloseRandomPopover === 'function') conCloseRandomPopover();
+                  if (typeof conCloseVideoPopover === 'function') conCloseVideoPopover();
+                } else if (node && node.isVideo && typeof conOpenVideoPopover === 'function') {
+                  conOpenVideoPopover(node);
+                  if (typeof conCloseTimerPopover === 'function') conCloseTimerPopover();
+                  if (typeof conCloseRandomPopover === 'function') conCloseRandomPopover();
+                  if (typeof conCloseSoundPopover === 'function') conCloseSoundPopover();
+                } else {
+                  if (typeof conCloseTimerPopover === 'function') conCloseTimerPopover();
+                  if (typeof conCloseRandomPopover === 'function') conCloseRandomPopover();
+                  if (typeof conCloseSoundPopover === 'function') conCloseSoundPopover();
+                  if (typeof conCloseVideoPopover === 'function') conCloseVideoPopover();
+                }
+              }
+            }
+            if (dragging) {
+              if (typeof conCloseTimerPopover === 'function') conCloseTimerPopover();
+              if (typeof conCloseRandomPopover === 'function') conCloseRandomPopover();
+              if (typeof conCloseSoundPopover === 'function') conCloseSoundPopover();
+              if (typeof conCloseVideoPopover === 'function') conCloseVideoPopover();
+            }
+            dragging = false;
+          }
+          document.addEventListener('mousemove', onMove);
+          document.addEventListener('mouseup', onUp);
+        });
+
+        // Touch drag
+        el.addEventListener('touchstart', function (e) {
+          if (conMode !== 'move') return;
+          const touch = e.touches[0];
+          const node = conNodes.find(n => n && (n.id === id || String(n.id) === String(id)))
+            || ((global.conNodes || []).find(n => n && (n.id === id || String(n.id) === String(id))));
+          if (!node || conIsNodeLocked(node)) return;
+          ox = touch.clientX - node.x;
+          oy = touch.clientY - node.y;
+          function onTMove(e) {
+            e.preventDefault();
+            const t = e.touches[0];
+            const brd = board();
+            let nx = t.clientX - ox;
+            let ny = t.clientY - oy;
+            nx = Math.max(0, nx);
+            ny = Math.max(0, ny);
+            node.x = nx; node.y = ny;
+            el.style.left = nx + 'px';
+            el.style.top = ny + 'px';
+            conRedrawEdges();
+          }
+          function onTEnd() {
+            // Update baseX, baseY based on current zoom level
+            const board = document.getElementById('constellation-board');
+            const boardCenterX = board.clientWidth / 2;
+            const boardCenterY = board.clientHeight / 2;
+            node.baseX = boardCenterX + (node.x - boardCenterX) / conCurrentZoom;
+            node.baseY = boardCenterY + (node.y - boardCenterY) / conCurrentZoom;
+            el.removeEventListener('touchmove', onTMove);
+            el.removeEventListener('touchend', onTEnd);
+          }
+          el.addEventListener('touchmove', onTMove, { passive: false });
+          el.addEventListener('touchend', onTEnd);
+        });
+      }
+
+      function conComputeEdgeGeometry(x1, y1, x2, y2, routing, strokeType, curvature, thickness, type, terminator) {
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const dist = Math.hypot(dx, dy);
+        if (dist < 1) {
+          return { d: `M ${x1.toFixed(1)} ${y1.toFixed(1)} L ${x2.toFixed(1)} ${y2.toFixed(1)}`, mx: x1, my: y1, angle: 0, cx: x1, cy: y1 };
+        }
+        const ux = dx / dist;
+        const uy = dy / dist;
+        const nx = -uy;
+        const ny = ux;
+        const sw = Math.max(1, thickness || 2);
+        const isDouble = strokeType === 'double';
+        const isWavy = strokeType === 'wavy';
+        const hasStartArrow = type === 'backward' || type === 'both';
+        const hasEndArrow = type === 'forward' || type === 'both';
+
+        const termLengths = {
+          arrow: 8.5,
+          open: 7.0,
+          circle: 7.0,
+          diamond: 10.0
+        };
+        const term = terminator || 'arrow';
+        const rawTermLen = termLengths[term] || 8.5;
+        const neededLen = (hasStartArrow ? rawTermLen : 0) + (hasEndArrow ? rawTermLen : 0);
+        const scale = (dist > 2 && neededLen > 0 && dist < neededLen + 4) ? Math.max(0.1, (dist - 4) / neededLen) : 1;
+        const startLen = hasStartArrow ? (rawTermLen * scale) : 0;
+        const endLen = hasEndArrow ? (rawTermLen * scale) : 0;
+
+        let d = '';
+        let mx = (x1 + x2) / 2;
+        let my = (y1 + y2) / 2;
+        let cx = mx;
+        let cy = my;
+        let angle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+        if (routing === 'curved') {
+          const curv = (typeof curvature === 'number' && Number.isFinite(curvature)) ? curvature : 30;
+          cx = mx + nx * curv;
+          cy = my + ny * curv;
+          mx = 0.25 * x1 + 0.5 * cx + 0.25 * x2;
+          my = 0.25 * y1 + 0.5 * cy + 0.25 * y2;
+          angle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+          // Tangent at start: from (x1, y1) towards (cx, cy)
+          const sTanX = cx - x1, sTanY = cy - y1;
+          const sTanDist = Math.hypot(sTanX, sTanY) || 1;
+          const sux = sTanX / sTanDist, suy = sTanY / sTanDist;
+
+          // Tangent at end: from (cx, cy) towards (x2, y2)
+          const eTanX = x2 - cx, eTanY = y2 - cy;
+          const eTanDist = Math.hypot(eTanX, eTanY) || 1;
+          const eux = eTanX / eTanDist, euy = eTanY / eTanDist;
+
+          const sx = x1 + sux * startLen;
+          const sy = y1 + suy * startLen;
+          const ex = x2 - eux * endLen;
+          const ey = y2 - euy * endLen;
+
+          if (isDouble) {
+            const off = Math.max(2, sw * 0.9);
+            d = `M ${(sx + nx * off).toFixed(1)} ${(sy + ny * off).toFixed(1)} ` +
+                `Q ${(cx + nx * off).toFixed(1)} ${(cy + ny * off).toFixed(1)} ${(ex + nx * off).toFixed(1)} ${(ey + ny * off).toFixed(1)} ` +
+                `M ${(sx - nx * off).toFixed(1)} ${(sy - ny * off).toFixed(1)} ` +
+                `Q ${(cx - nx * off).toFixed(1)} ${(cy - ny * off).toFixed(1)} ${(ex - nx * off).toFixed(1)} ${(ey - ny * off).toFixed(1)}`;
+          } else if (isWavy) {
+            const steps = Math.max(4, Math.round(dist / 14));
+            const amp = Math.min(7, Math.max(3, sw * 1.3));
+            d = `M ${sx.toFixed(1)} ${sy.toFixed(1)}`;
+            for (let i = 1; i <= steps; i++) {
+              const t = i / steps;
+              const sgn = (i % 2 === 0) ? 1 : -1;
+              const curAmp = ((i === steps && hasEndArrow) || (i === 1 && hasStartArrow)) ? 0 : amp * sgn;
+              const bx = (1 - t) * (1 - t) * sx + 2 * (1 - t) * t * cx + t * t * ex;
+              const by = (1 - t) * (1 - t) * sy + 2 * (1 - t) * t * cy + t * t * ey;
+              d += ` Q ${(bx + nx * curAmp).toFixed(1)} ${(by + ny * curAmp).toFixed(1)} ${bx.toFixed(1)} ${by.toFixed(1)}`;
+            }
+          } else {
+            d = `M ${sx.toFixed(1)} ${sy.toFixed(1)} Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${ex.toFixed(1)} ${ey.toFixed(1)}`;
+          }
+        } else if (routing === 'orthogonal') {
+          if (Math.abs(dx) >= Math.abs(dy)) {
+            const midX = (x1 + x2) / 2;
+            const sSign = (midX >= x1 ? 1 : -1);
+            const eSign = (x2 >= midX ? 1 : -1);
+            const sx = x1 + sSign * startLen;
+            const sy = y1;
+            const ex = x2 - eSign * endLen;
+            const ey = y2;
+            d = `M ${sx.toFixed(1)} ${sy.toFixed(1)} L ${midX.toFixed(1)} ${y1.toFixed(1)} L ${midX.toFixed(1)} ${y2.toFixed(1)} L ${ex.toFixed(1)} ${ey.toFixed(1)}`;
+            mx = midX;
+            my = (y1 + y2) / 2;
+            angle = 0;
+          } else {
+            const midY = (y1 + y2) / 2;
+            const sSign = (midY >= y1 ? 1 : -1);
+            const eSign = (y2 >= midY ? 1 : -1);
+            const sx = x1;
+            const sy = y1 + sSign * startLen;
+            const ex = x2;
+            const ey = y2 - eSign * endLen;
+            d = `M ${sx.toFixed(1)} ${sy.toFixed(1)} L ${x1.toFixed(1)} ${midY.toFixed(1)} L ${x2.toFixed(1)} ${midY.toFixed(1)} L ${ex.toFixed(1)} ${ey.toFixed(1)}`;
+            mx = (x1 + x2) / 2;
+            my = midY;
+            angle = 0;
+          }
+        } else {
+          // Straight
+          const sx = x1 + ux * startLen;
+          const sy = y1 + uy * startLen;
+          const ex = x2 - ux * endLen;
+          const ey = y2 - uy * endLen;
+          const straightDist = Math.hypot(ex - sx, ey - sy);
+
+          if (isDouble) {
+            const off = Math.max(2, sw * 0.9);
+            d = `M ${(sx + nx * off).toFixed(1)} ${(sy + ny * off).toFixed(1)} L ${(ex + nx * off).toFixed(1)} ${(ey + ny * off).toFixed(1)} ` +
+                `M ${(sx - nx * off).toFixed(1)} ${(sy - ny * off).toFixed(1)} L ${(ex - nx * off).toFixed(1)} ${(ey - ny * off).toFixed(1)}`;
+          } else if (isWavy) {
+            const waveLen = Math.max(16, sw * 5);
+            const halfWaves = Math.max(2, Math.round(straightDist / (waveLen / 2)));
+            const hwLen = straightDist / halfWaves;
+            const amp = Math.min(8, Math.max(3.5, sw * 1.5));
+            d = `M ${sx.toFixed(1)} ${sy.toFixed(1)}`;
+            for (let i = 0; i < halfWaves; i++) {
+              const sgn = (i % 2 === 0) ? 1 : -1;
+              const curAmp = ((i === halfWaves - 1 && hasEndArrow) || (i === 0 && hasStartArrow)) ? 0 : (amp * sgn);
+              const p0 = i * hwLen;
+              const p3 = (i + 1) * hwLen;
+              const cp1x = sx + ux * (p0 + hwLen * 0.35) + nx * curAmp;
+              const cp1y = sy + uy * (p0 + hwLen * 0.35) + ny * curAmp;
+              const cp2x = sx + ux * (p0 + hwLen * 0.65) + nx * curAmp;
+              const cp2y = sy + uy * (p0 + hwLen * 0.65) + ny * curAmp;
+              const endX = sx + ux * p3;
+              const endY = sy + uy * p3;
+              d += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)} ${cp2x.toFixed(1)} ${cp2y.toFixed(1)} ${endX.toFixed(1)} ${endY.toFixed(1)}`;
+            }
+          } else {
+            d = `M ${sx.toFixed(1)} ${sy.toFixed(1)} L ${ex.toFixed(1)} ${ey.toFixed(1)}`;
+          }
+        }
+
+        return { d, mx, my, angle, cx, cy };
+      }
+
+      function _conInitMidHandle(edge) {
+        if (!edge.midHandle) return;
+        edge.midHandle.addEventListener('mousedown', function (e) {
+          if (e.button !== 0) return;
+          e.preventDefault();
+          e.stopPropagation();
+          const na = conResolveLinkAnchor(edge.a);
+          const nb = conResolveLinkAnchor(edge.b);
+          if (!na || !nb) return;
+          const ax = na.cx, ay = na.cy, bx = nb.cx, by = nb.cy;
+          const dx = bx - ax, dy = by - ay;
+          const dist = Math.hypot(dx, dy) || 1;
+          const nx = -dy / dist, ny = dx / dist;
+          const midX = (ax + bx) / 2, midY = (ay + by) / 2;
+
+          let animFrame = null;
+          function onMM(ev) {
+            if (animFrame) return;
+            animFrame = requestAnimationFrame(() => {
+              animFrame = null;
+              const brdEl = (typeof board === 'function') ? board() : document.getElementById('constellation-board');
+              if (!brdEl) return;
+              const brd = brdEl.getBoundingClientRect();
+              const curX = (ev.clientX - brd.left) / conCurrentZoom;
+              const curY = (ev.clientY - brd.top) / conCurrentZoom;
+              const offX = curX - midX;
+              const offY = curY - midY;
+              const curv = offX * nx + offY * ny;
+              edge.routing = 'curved';
+              edge.curvature = Math.round(curv);
+              conUpdateEdge(edge);
+              if (typeof window._conMirrorSend === 'function') {
+                window._conMirrorSend({
+                  type: 'edge-update',
+                  edge: { id: edge.id, routing: edge.routing, curvature: edge.curvature }
+                });
+              }
+            });
+          }
+          function onMU() {
+            if (animFrame) cancelAnimationFrame(animFrame);
+            document.removeEventListener('mousemove', onMM);
+            document.removeEventListener('mouseup', onMU);
+            conPushUndo();
+          }
+          document.addEventListener('mousemove', onMM);
+          document.addEventListener('mouseup', onMU);
+        });
+      }
+
+      function _conInitEndHandle(edge, whichEnd) {
+        const handle = (whichEnd === 'a') ? edge.endHandleA : edge.endHandleB;
+        if (!handle) return;
+        handle.addEventListener('mousedown', function (e) {
+          if (e.button !== 0) return;
+          e.preventDefault();
+          e.stopPropagation();
+          const oppositeId = (whichEnd === 'a') ? edge.b : edge.a;
+          const brd = board();
+          if (!brd) return;
+
+          const dockAnchors = [];
+          const candidateTargets = [];
+
+          (typeof conNodes !== 'undefined' ? conNodes : []).forEach(n => {
+            if (n && n.id !== oppositeId && n.el) candidateTargets.push({ id: n.id });
+          });
+
+          (typeof conNotes !== 'undefined' ? conNotes : []).forEach(nd => {
+            if (nd && nd.id !== oppositeId && !nd.hidden) {
+              const el = (typeof wnGetNoteElementById === 'function') ? wnGetNoteElementById(nd.id) : document.querySelector(`.con-word-note[data-id="${nd.id}"]`);
+              if (el) candidateTargets.push({ id: nd.id });
+            }
+          });
+
+          (typeof conGroups !== 'undefined' ? conGroups : []).forEach(g => {
+            if (g && g.id !== oppositeId && g.el) candidateTargets.push({ id: g.id });
+          });
+
+          candidateTargets.forEach(target => {
+            const anchorData = conResolveLinkAnchor(target.id);
+            if (!anchorData) return;
+            ['top', 'right', 'bottom', 'left'].forEach(pos => {
+              const pt = conGetAnchorPoint(anchorData, pos);
+              if (!pt) return;
+              const dot = document.createElement('div');
+              dot.className = 'con-dock-anchor';
+              dot.style.left = pt.x + 'px';
+              dot.style.top = pt.y + 'px';
+              dot.dataset.nid = target.id;
+              dot.dataset.port = pos;
+              brd.appendChild(dot);
+              dockAnchors.push({ el: dot, nodeId: target.id, port: pos, x: pt.x, y: pt.y });
+            });
+          });
+
+          let bestSnap = null;
+          let animFrame = null;
+
+          function onMM(ev) {
+            if (animFrame) return;
+            animFrame = requestAnimationFrame(() => {
+              animFrame = null;
+              const brdRect = brd.getBoundingClientRect();
+              const mx = (ev.clientX - brdRect.left) / conCurrentZoom;
+              const my = (ev.clientY - brdRect.top) / conCurrentZoom;
+
+              bestSnap = null;
+              let bestDist = 28;
+              dockAnchors.forEach(da => {
+                const d = Math.hypot(mx - da.x, my - da.y);
+                if (d < bestDist) {
+                  bestDist = d;
+                  bestSnap = da;
+                }
+              });
+
+              dockAnchors.forEach(da => {
+                da.el.classList.toggle('active', da === bestSnap);
+              });
+
+              if (bestSnap) {
+                if (whichEnd === 'a') {
+                  edge.a = bestSnap.nodeId;
+                  edge.anchorA = bestSnap.port;
+                } else {
+                  edge.b = bestSnap.nodeId;
+                  edge.anchorB = bestSnap.port;
+                }
+              }
+              conUpdateEdge(edge);
+            });
+          }
+
+          function onMU() {
+            if (animFrame) cancelAnimationFrame(animFrame);
+            document.removeEventListener('mousemove', onMM);
+            document.removeEventListener('mouseup', onMU);
+            dockAnchors.forEach(da => da.el.remove());
+
+            if (bestSnap) {
+              if (whichEnd === 'a') {
+                edge.a = bestSnap.nodeId;
+                edge.anchorA = bestSnap.port;
+              } else {
+                edge.b = bestSnap.nodeId;
+                edge.anchorB = bestSnap.port;
+              }
+              conPushUndo();
+              conRedrawEdges();
+              if (typeof window._conMirrorSend === 'function') {
+                window._conMirrorSend({
+                  type: 'edge-update',
+                  edge: { id: edge.id, a: edge.a, b: edge.b, anchorA: edge.anchorA, anchorB: edge.anchorB }
+                });
+              }
+            } else {
+              conRedrawEdges();
+            }
+          }
+
+          document.addEventListener('mousemove', onMM);
+          document.addEventListener('mouseup', onMU);
+        });
+      }
+
+      const _CON_NEUTRAL = new Set(['', 'transparent', '#111', '#111111', '#333', '#333333', '#000', '#000000']);
+      const _CON_NEUTRAL_BG = new Set(['', 'transparent', '#fff', '#ffffff']);
+
+      function conGetAnchorColor(id) {
+        if (!id) return null;
+        const nodeArr = (typeof conNodes !== 'undefined') ? conNodes : ((typeof window.conGetNodes === 'function') ? window.conGetNodes() : []);
+        const node = nodeArr.find(n => n && n.id === id);
+        if (node) {
+          const raw = (node.el && node.el.style && node.el.style.borderColor) || node.border || '';
+          if (!raw || raw === 'transparent') return null;
+          const hex = (typeof rgbToHex === 'function' ? rgbToHex(raw) : (window.rgbToHex ? window.rgbToHex(raw) : raw)).toLowerCase();
+          return _CON_NEUTRAL.has(hex) ? null : hex;
+        }
+        const noteArr = (typeof conNotes !== 'undefined') ? conNotes : ((typeof window.conGetNotes === 'function') ? window.conGetNotes() : []);
+        const note = noteArr.find(n => n && n.id === id);
+        if (note) {
+          const raw = note.bg || (note.el && note.el.style && note.el.style.backgroundColor) || '';
+          if (!raw || raw === 'transparent') return null;
+          const hex = (typeof rgbToHex === 'function' ? rgbToHex(raw) : (window.rgbToHex ? window.rgbToHex(raw) : raw)).toLowerCase();
+          return (_CON_NEUTRAL_BG.has(hex) || _CON_NEUTRAL.has(hex)) ? null : hex;
+        }
+        const groupArr = (typeof conGroups !== 'undefined') ? conGroups : ((typeof window.conGetGroups === 'function') ? window.conGetGroups() : []);
+        const group = groupArr.find(g => g && g.id === id);
+        if (group) {
+          if (group.drawingGroup || group.phraseGroup || group.invisible) return null;
+          let border = '';
+          if (typeof conGroupPaletteBorder === 'function') {
+            border = conGroupPaletteBorder(group.paletteIdx);
+          } else {
+            const CON_PALETTES_REF = window.CON_PALETTES || [];
+            const pal = CON_PALETTES_REF[group.paletteIdx] || [];
+            border = pal[2] || '';
+          }
+          if (!border || border === 'transparent') return null;
+          const hex = (typeof rgbToHex === 'function' ? rgbToHex(border) : (window.rgbToHex ? window.rgbToHex(border) : border)).toLowerCase();
+          return _CON_NEUTRAL.has(hex) ? null : hex;
+        }
+        return null;
+      }
+      window.conGetAnchorColor = conGetAnchorColor;
+
+      function conResolveEdgeStroke(edge) {
+        if (!edge) return { solid: window._conDefaultLinkColor || '#333333' };
+        if (edge.colorMode === undefined) {
+          const ca = conGetAnchorColor(edge.a);
+          const cb = conGetAnchorColor(edge.b);
+          const defCol = (window._conDefaultLinkColor || '#333333').toLowerCase();
+          const lc = (edge.labelColor ? String(edge.labelColor) : '#333333').toLowerCase();
+          if (lc === '#333333' || lc === '#333' || lc === defCol || (ca && lc === ca) || (cb && lc === cb)) {
+            edge.colorMode = 'auto';
+            if (ca && lc === ca) {
+              edge.labelColor = '#333333';
+            }
+          } else {
+            edge.colorMode = 'manual';
+            edge.strokeColor = edge.labelColor;
+          }
+        }
+
+        if (edge.colorMode === 'manual') {
+          return { solid: edge.strokeColor || edge.labelColor || window._conDefaultLinkColor || '#333333', isManual: true };
+        }
+
+        const ca = conGetAnchorColor(edge.a);
+        const cb = conGetAnchorColor(edge.b);
+        if (ca && cb && ca !== cb) {
+          return { gradient: [ca, cb], colorA: ca, colorB: cb };
+        }
+        return { solid: ca || cb || window._conDefaultLinkColor || '#333333', colorA: ca, colorB: cb };
+      }
+      window.conResolveEdgeStroke = conResolveEdgeStroke;
+
+      function _conEnsureEdgeDefs(edge) {
+        if (!edge.defs) {
+          const existing = edge.g && edge.g.querySelector('defs');
+          if (existing) {
+            edge.defs = existing;
+          } else {
+            edge.defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            if (edge.line && edge.g) {
+              edge.g.insertBefore(edge.defs, edge.line);
+            } else if (edge.g) {
+              edge.g.appendChild(edge.defs);
+            }
+          }
+        }
+        return edge.defs;
+      }
+
+      function _conUpdateEdgeGradient(edge, x1, y1, x2, y2, colorA, colorB) {
+        const defs = _conEnsureEdgeDefs(edge);
+        if (!defs) return;
+        const gradId = 'con-edge-grad-' + edge.id;
+        let grad = edge.gradEl || defs.querySelector('#' + gradId);
+        if (!grad) {
+          grad = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+          grad.id = gradId;
+          grad.setAttribute('gradientUnits', 'userSpaceOnUse');
+          const s1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+          s1.setAttribute('offset', '0%');
+          const s2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+          s2.setAttribute('offset', '100%');
+          grad.appendChild(s1);
+          grad.appendChild(s2);
+          defs.appendChild(grad);
+          edge.gradEl = grad;
+        }
+        grad.setAttribute('x1', String(x1));
+        grad.setAttribute('y1', String(y1));
+        grad.setAttribute('x2', String(x2));
+        grad.setAttribute('y2', String(y2));
+        if (grad.children[0]) grad.children[0].setAttribute('stop-color', colorA);
+        if (grad.children[1]) grad.children[1].setAttribute('stop-color', colorB);
+      }
+
+      function _conEnsureEdgeCustomMarker(edge, whichEnd, term, color) {
+        const defs = _conEnsureEdgeDefs(edge);
+        if (!defs) return 'url(#con-' + term + '-' + whichEnd + ')';
+        const markerId = 'con-edge-marker-' + whichEnd + '-' + edge.id;
+        let m = defs.querySelector('#' + markerId);
+        if (!m) {
+          m = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+          m.id = markerId;
+          m.setAttribute('orient', 'auto');
+          m.setAttribute('markerUnits', 'userSpaceOnUse');
+          defs.appendChild(m);
+        }
+        const template = document.getElementById('con-' + term + '-' + whichEnd);
+        if (template) {
+          m.setAttribute('markerWidth', template.getAttribute('markerWidth') || '11');
+          m.setAttribute('markerHeight', template.getAttribute('markerHeight') || '9');
+          m.setAttribute('refX', template.getAttribute('refX') || '1');
+          m.setAttribute('refY', template.getAttribute('refY') || '4.5');
+          const inner = template.innerHTML.replace(/context-stroke/g, color);
+          if (m.innerHTML !== inner) {
+            m.innerHTML = inner;
+          }
+        }
+        return 'url(#' + markerId + ')';
+      }
+
+      function conAddEdge(aId, bId, type, color, existingId, explicitThickness) {
+        // Don't duplicate
+        const existingEdge = conEdges.find(e => (e.a === aId && e.b === bId) || (e.a === bId && e.b === aId));
+        if (existingEdge) return existingEdge;
+        conEnsureSvgDefs();
+        const svgEl = svg();
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.setAttribute('class', 'con-line-group');
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        line.setAttribute('class', 'con-line');
+        line.setAttribute('fill', 'none');
+        const hit = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        hit.setAttribute('class', 'con-line-hit');
+        hit.setAttribute('fill', 'none');
+        const edgeId = existingId || ('ce' + conNextId++);
+        g.dataset.eid = edgeId;
+        const labelBgEl = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        labelBgEl.setAttribute('class', 'con-line-label-bg');
+        labelBgEl.setAttribute('rx', '4');
+        labelBgEl.setAttribute('ry', '4');
+        labelBgEl.style.display = 'none';
+        const labelEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        labelEl.setAttribute('class', 'con-line-label');
+        g.appendChild(line);
+        g.appendChild(labelBgEl);
+        g.appendChild(labelEl);
+        g.appendChild(hit);
+        svgEl.appendChild(g);
+
+        hit.addEventListener('click', function (e) {
+          if (conMode === 'delete') {
+            conPushUndo();
+            conRemoveEdge(edgeId);
+            return;
+          }
+          e.stopPropagation();
+          const nextSelected = (window._conSelectedEdgeId === edgeId) ? null : edgeId;
+          if (nextSelected) {
+            if (typeof window.conDeselectAll === 'function') {
+              window.conDeselectAll();
+            } else if (typeof conSelect === 'function') {
+              conSelect(null);
+            }
+          }
+          window._conSelectedEdgeId = nextSelected;
+          if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
+          conRedrawEdges();
+        });
+        hit.addEventListener('dblclick', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          const edgeRef = conEdges.find(ed => ed && ed.id === edgeId);
+          if (edgeRef && edgeRef.excerpts && edgeRef.excerpts.length > 0 && typeof characterNetworkShowExcerpts === 'function') {
+            characterNetworkShowExcerpts(edgeId);
+            return;
+          }
+          conEdgeCtxOpen(e, edgeId);
+        });
+        hit.addEventListener('contextmenu', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          conEdgeCtxOpen(e, edgeId);
+        });
+        labelEl.style.pointerEvents = 'all';
+        labelEl.style.cursor = 'pointer';
+        labelEl.addEventListener('click', function (e) {
+          if (conMode === 'delete') {
+            conPushUndo();
+            conRemoveEdge(edgeId);
+          } else {
+            e.preventDefault();
+            e.stopPropagation();
+            conEdgeCtxOpen(e, edgeId);
+          }
+        });
+        labelEl.addEventListener('dblclick', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          const edgeRef = conEdges.find(ed => ed && ed.id === edgeId);
+          if (edgeRef && edgeRef.excerpts && edgeRef.excerpts.length > 0 && typeof characterNetworkShowExcerpts === 'function') {
+            characterNetworkShowExcerpts(edgeId);
+            return;
+          }
+          conEdgeCtxOpen(e, edgeId);
+        });
+        labelEl.addEventListener('contextmenu', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          conEdgeCtxOpen(e, edgeId);
+        });
+        hit.addEventListener('mousedown', function (e) {
+          if (e.button !== 0) return;
+          if (conMode !== 'move') return;
+          const edgeRef = conEdges.find(ed => ed.id === edgeId);
+          if (!edgeRef) return;
+          const na = conNodes.find(n => n.id === edgeRef.a);
+          const nb = conNodes.find(n => n.id === edgeRef.b);
+          if (!na || !nb) return;
+          e.preventDefault();
+          e.stopPropagation();
+
+          const brd = board();
+          const sx = e.clientX;
+          const sy = e.clientY;
+          const a0x = na.x;
+          const a0y = na.y;
+          const b0x = nb.x;
+          const b0y = nb.y;
+
+          function onMove(ev) {
+            const dx = ev.clientX - sx;
+            const dy = ev.clientY - sy;
+
+            const aMaxX = Math.max(0, brd.clientWidth - (na.el.offsetWidth || 80));
+            const aMaxY = Math.max(0, brd.clientHeight - (na.el.offsetHeight || 32));
+            const bMaxX = Math.max(0, brd.clientWidth - (nb.el.offsetWidth || 80));
+            const bMaxY = Math.max(0, brd.clientHeight - (nb.el.offsetHeight || 32));
+
+            na.x = Math.max(0, Math.min(aMaxX, a0x + dx));
+            na.y = Math.max(0, Math.min(aMaxY, a0y + dy));
+            nb.x = Math.max(0, Math.min(bMaxX, b0x + dx));
+            nb.y = Math.max(0, Math.min(bMaxY, b0y + dy));
+
+            na.el.style.left = na.x + 'px';
+            na.el.style.top = na.y + 'px';
+            nb.el.style.left = nb.x + 'px';
+            nb.el.style.top = nb.y + 'px';
+
+            conGroupRefitAll();
+            conRedrawEdges();
+          }
+
+          function onUp() {
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            conSyncNodeBasePosition(na);
+            conSyncNodeBasePosition(nb);
+          }
+
+          document.addEventListener('mousemove', onMove);
+          document.addEventListener('mouseup', onUp);
+        });
+
+        const _defLinkThickness = (explicitThickness > 0) ? Number(explicitThickness) : ((window._conDefaultLinkThickness > 0) ? window._conDefaultLinkThickness : 2);
+        const _defLinkStrokeType = window._conDefaultLinkStrokeType || 'solid';
+        const _defLinkRouting = window._conDefaultLinkRouting || 'straight';
+        const _defLinkDirection = (type !== undefined && type !== null) ? type : (window._conDefaultLinkDirection || 'none');
+        const _defLinkTerminator = window._conDefaultLinkTerminator || 'arrow';
+        const _hasExplicitColor = (typeof color === 'string' && color.trim() !== '');
+        const _defLinkColor = _hasExplicitColor ? color : (window._conDefaultLinkColor || '#333333');
+        const _defLinkOpacity = (typeof window._conDefaultLinkOpacity === 'number') ? window._conDefaultLinkOpacity : 1;
+        const _defLinkAnimated = !!window._conDefaultLinkAnimated;
+        const _defLinkLabelBg = !!window._conDefaultLinkLabelBg;
+        const _defLinkLabelSize = (window._conDefaultLinkLabelSize > 0) ? window._conDefaultLinkLabelSize : (window.conGetDefaultWordFontSize ? window.conGetDefaultWordFontSize() : 16);
+
+        const edge = {
+          id: edgeId,
+          a: aId,
+          b: bId,
+          type: _defLinkDirection,
+          label: '',
+          labelSize: _defLinkLabelSize,
+          labelColor: _defLinkColor,
+          labelWeight: 600,
+          colorMode: _hasExplicitColor ? 'manual' : 'auto',
+          strokeColor: _hasExplicitColor ? color : null,
+          thickness: _defLinkThickness,
+          dashStyle: (_defLinkStrokeType === 'dashed' || _defLinkStrokeType === 'dotted') ? _defLinkStrokeType : null,
+          strokeType: _defLinkStrokeType,
+          routing: _defLinkRouting,
+          curvature: 0,
+          opacity: _defLinkOpacity,
+          terminator: _defLinkTerminator,
+          animated: _defLinkAnimated,
+          labelBgActive: _defLinkLabelBg,
+          anchorA: null,
+          anchorB: null,
+          line,
+          hit,
+          labelEl,
+          labelBg: labelBgEl,
+          midHandle: null,
+          endHandleA: null,
+          endHandleB: null,
+          g
+        };
+        line.style.strokeWidth = String(_defLinkThickness) + 'px';
+        hit.style.strokeWidth = String(Math.max(16, _defLinkThickness + 10)) + 'px';
+        conEdges.push(edge);
+        conApplyEdgeLabelStyle(edge);
+        conUpdateEdge(edge);
+        if (typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({
+            type: 'edge-add',
+            edge: {
+              id: edge.id,
+              a: edge.a,
+              b: edge.b,
+              type: edge.type,
+              label: edge.label,
+              labelSize: edge.labelSize,
+              labelColor: edge.labelColor,
+              labelWeight: edge.labelWeight,
+              thickness: edge.thickness,
+              dashStyle: edge.dashStyle,
+              strokeType: edge.strokeType,
+              routing: edge.routing,
+              curvature: edge.curvature,
+              opacity: edge.opacity,
+              terminator: edge.terminator,
+              animated: edge.animated,
+              labelBg: edge.labelBgActive,
+              anchorA: edge.anchorA,
+              anchorB: edge.anchorB,
+              colorMode: edge.colorMode,
+              strokeColor: edge.strokeColor
+            }
+          });
+        }
+        return edge;
+      }
+
+      function conNormalizeEdgeLabelStyle(edge) {
+        const rawSize = Number(edge && edge.labelSize);
+        const rawWeight = Number(edge && edge.labelWeight);
+        const color = edge && edge.labelColor ? String(edge.labelColor) : '#333333';
+        const defSize = window.conGetDefaultWordFontSize ? window.conGetDefaultWordFontSize() : 16;
+        const size = Math.max(8, Math.min(36, Number.isFinite(rawSize) && rawSize > 0 ? rawSize : defSize));
+        const weight = Math.max(300, Math.min(900, Number.isFinite(rawWeight) ? (Math.round(rawWeight / 100) * 100) : 600));
+        return { size, color, weight };
+      }
+
+      function conApplyEdgeLabelStyle(edge) {
+        if (!edge || !edge.labelEl) return;
+        const style = conNormalizeEdgeLabelStyle(edge);
+        edge.labelSize = style.size;
+        edge.labelColor = style.color;
+        edge.labelWeight = style.weight;
+        edge.labelEl.style.fontSize = style.size + 'px';
+        edge.labelEl.style.fontWeight = String(style.weight);
+
+        const strokeInfo = conResolveEdgeStroke(edge);
+        if (strokeInfo.gradient) {
+          edge.labelEl.style.fill = (edge.colorMode === 'manual') ? style.color : '#111111';
+        } else {
+          edge.labelEl.style.fill = (edge.colorMode === 'manual') ? style.color : (edge.labelColor || '#333333');
+        }
+
+        if (edge.line) {
+          if (strokeInfo.gradient) {
+            edge.line.style.stroke = 'url(#con-edge-grad-' + edge.id + ')';
+          } else {
+            edge.line.style.stroke = strokeInfo.solid;
+          }
+          const strokeType = edge.strokeType || (edge.dashStyle === 'dashed' ? 'dashed' : 'solid');
+          const sw = Math.max(1, edge.thickness || 2);
+          const hasArrow = edge.type && edge.type !== 'none';
+          if (strokeType === 'dashed') {
+            edge.line.style.strokeDasharray = `${sw * 4} ${sw * 2}`;
+            edge.line.style.strokeLinecap = 'butt';
+          } else if (strokeType === 'dotted') {
+            edge.line.style.strokeDasharray = `${sw * 0.4} ${sw * 2.5}`;
+            edge.line.style.strokeLinecap = hasArrow ? 'butt' : 'round';
+          } else if (edge.animated) {
+            edge.line.style.strokeDasharray = `${sw * 4} ${sw * 2}`;
+            edge.line.style.strokeLinecap = hasArrow ? 'butt' : 'round';
+          } else {
+            edge.line.style.strokeDasharray = '';
+            edge.line.style.strokeLinecap = hasArrow ? 'butt' : 'round';
+          }
+          const op = (typeof edge.opacity === 'number' && edge.opacity >= 0.05 && edge.opacity <= 1) ? edge.opacity : 1;
+          edge.line.style.opacity = String(op);
+          if (edge.animated) {
+            if (edge.type === 'backward') {
+              edge.line.classList.remove('con-edge-animated');
+              edge.line.classList.add('con-edge-animated-reverse');
+            } else {
+              edge.line.classList.remove('con-edge-animated-reverse');
+              edge.line.classList.add('con-edge-animated');
+            }
+          } else {
+            edge.line.classList.remove('con-edge-animated');
+            edge.line.classList.remove('con-edge-animated-reverse');
+          }
+        }
+      }
+
+      function conEnsureSvgDefs() {
+        const svgEl = svg();
+        if (svgEl.querySelector('#con-arrow-defs')) return;
+        const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+        defs.id = 'con-arrow-defs';
+        const mkMarker = (id, refX, refY, w, h, innerSvg) => {
+          const m = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+          m.setAttribute('id', id);
+          m.setAttribute('markerWidth', String(w));
+          m.setAttribute('markerHeight', String(h));
+          m.setAttribute('refX', String(refX));
+          m.setAttribute('refY', String(refY));
+          m.setAttribute('orient', 'auto');
+          m.setAttribute('markerUnits', 'userSpaceOnUse');
+          m.innerHTML = innerSvg;
+          return m;
+        };
+
+        // Compact sleek arrow (triangle) - length = 8.5
+        defs.appendChild(mkMarker('con-arrow-end', 1, 4.5, 11, 9,
+          '<path d="M 1 1 L 9.5 4.5 L 1 8 Z" fill="context-stroke" stroke="context-stroke" stroke-linejoin="round" />'));
+        defs.appendChild(mkMarker('con-arrow-start', 9.5, 4.5, 11, 9,
+          '<path d="M 9.5 1 L 1 4.5 L 9.5 8 Z" fill="context-stroke" stroke="context-stroke" stroke-linejoin="round" />'));
+
+        // Open chevron marker - length = 7.0
+        defs.appendChild(mkMarker('con-open-end', 1.5, 5, 10, 10,
+          '<path d="M 1.5 1.5 L 8.5 5 L 1.5 8.5" fill="none" stroke="context-stroke" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />'));
+        defs.appendChild(mkMarker('con-open-start', 8.5, 5, 10, 10,
+          '<path d="M 8.5 1.5 L 1.5 5 L 8.5 8.5" fill="none" stroke="context-stroke" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />'));
+
+        // Circle / Dot marker - length = 7.0
+        defs.appendChild(mkMarker('con-circle-end', 1.5, 5, 10, 10,
+          '<circle cx="5" cy="5" r="3.5" fill="context-stroke" stroke="context-stroke" />'));
+        defs.appendChild(mkMarker('con-circle-start', 8.5, 5, 10, 10,
+          '<circle cx="5" cy="5" r="3.5" fill="context-stroke" stroke="context-stroke" />'));
+
+        // Diamond marker - length = 10.0
+        defs.appendChild(mkMarker('con-diamond-end', 1, 5, 12, 10,
+          '<polygon points="6,1 11,5 6,9 1,5" fill="context-stroke" stroke="context-stroke" stroke-linejoin="round" />'));
+        defs.appendChild(mkMarker('con-diamond-start', 11, 5, 12, 10,
+          '<polygon points="6,1 1,5 6,9 11,5" fill="context-stroke" stroke="context-stroke" stroke-linejoin="round" />'));
+
+        svgEl.insertBefore(defs, svgEl.firstChild);
+      }
+
+      function _conIsAnchorMasked(id) {
+        if (!id) return false;
+        const noteArr = (typeof conNotes !== 'undefined') ? conNotes : ((typeof window.conGetNotes === 'function') ? window.conGetNotes() : []);
+        const note = noteArr.find(n => n && n.id === id);
+        if (note) return !!note.hidden;
+        const nodesArr = (typeof conNodes !== 'undefined') ? conNodes : ((typeof window.conGetNodes === 'function') ? window.conGetNodes() : []);
+        const node = nodesArr.find(n => n && n.id === id);
+        if (node) return !!node.masked;
+        const groupsArr = (typeof conGroups !== 'undefined') ? conGroups : ((typeof window.conGetGroups === 'function') ? window.conGetGroups() : []);
+        const group = groupsArr.find(g => g && g.id === id);
+        if (group && group.nodeIds && group.nodeIds.length) {
+          return group.nodeIds.every(nid => {
+            const gn = nodesArr.find(n => n && n.id === nid);
+            return gn && gn.masked;
+          });
+        }
+        return false;
+      }
+
+      function conUpdateEdge(edge) {
+        const na = conResolveLinkAnchor(edge.a);
+        const nb = conResolveLinkAnchor(edge.b);
+        if (!na || !nb) return;
+        if (edge.g) {
+          const isEndpointMasked = _conIsAnchorMasked(edge.a) || _conIsAnchorMasked(edge.b);
+          const isBothMasked = _conIsAnchorMasked(edge.a) && _conIsAnchorMasked(edge.b);
+          edge.g.classList.toggle('con-edge-masked', isEndpointMasked);
+          edge.g.classList.toggle('con-edge-both-masked', isBothMasked);
+        }
+
+        // Migrate <line> to <path> for line and hit if necessary
+        if (edge.line && edge.line.tagName.toLowerCase() === 'line') {
+          const np = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          np.setAttribute('class', 'con-line');
+          np.setAttribute('fill', 'none');
+          np.style.strokeWidth = edge.line.style.strokeWidth;
+          np.style.stroke = edge.line.style.stroke;
+          edge.g.replaceChild(np, edge.line);
+          edge.line = np;
+        }
+        if (edge.hit && edge.hit.tagName.toLowerCase() === 'line') {
+          const nh = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          nh.setAttribute('class', 'con-line-hit');
+          nh.setAttribute('fill', 'none');
+          nh.style.strokeWidth = edge.hit.style.strokeWidth;
+          edge.g.replaceChild(nh, edge.hit);
+          edge.hit = nh;
+        }
+
+        let ax = na.cx, ay = na.cy, bx = nb.cx, by = nb.cy;
+        if (edge.anchorA) {
+          const ptA = conGetAnchorPoint(na, edge.anchorA);
+          if (ptA) { ax = ptA.x; ay = ptA.y; }
+        }
+        if (edge.anchorB) {
+          const ptB = conGetAnchorPoint(nb, edge.anchorB);
+          if (ptB) { bx = ptB.x; by = ptB.y; }
+        }
+
+        const t = edge.type || 'none';
+        let x1 = ax, y1 = ay, x2 = bx, y2 = by;
+
+        // Trim endpoints to node boundary unless fixed port anchor is used
+        const dx = bx - ax, dy = by - ay;
+        const dist = Math.hypot(dx, dy);
+        if (dist > 8) {
+          const nx = dx / dist, ny = dy / dist;
+          const rawRA = !edge.anchorA ? conNodeEdgeOffset(na, dx, dy) : 0;
+          const rawRB = !edge.anchorB ? conNodeEdgeOffset(nb, -dx, -dy) : 0;
+          let rA = rawRA;
+          let rB = rawRB;
+          if (rawRA + rawRB + 8 > dist) {
+            const scale = Math.max(0, (dist - 8) / ((rawRA + rawRB) || 1));
+            rA = rawRA * scale;
+            rB = rawRB * scale;
+          }
+          if (!edge.anchorA) {
+            x1 = ax + nx * rA; y1 = ay + ny * rA;
+          }
+          if (!edge.anchorB) {
+            x2 = bx - nx * rB; y2 = by - ny * rB;
+          }
+        }
+
+        const strokeType = edge.strokeType || (edge.dashStyle === 'dashed' ? 'dashed' : (edge.dashStyle === 'dotted' ? 'dotted' : 'solid'));
+        const routing = edge.routing || 'straight';
+        const curvature = (typeof edge.curvature === 'number') ? edge.curvature : 0;
+        const sw = Number.isFinite(edge.thickness) && edge.thickness > 0 ? edge.thickness : 2;
+
+        const term = edge.terminator || 'arrow';
+        const geo = conComputeEdgeGeometry(x1, y1, x2, y2, routing, strokeType, curvature, sw, t, term);
+
+        if (edge.line) {
+          edge.line.setAttribute('d', geo.d);
+          edge.line.style.setProperty('stroke-width', sw + 'px', 'important');
+          edge.line.setAttribute('stroke-width', String(sw));
+        }
+        if (edge.hit) {
+          edge.hit.setAttribute('d', geo.d);
+          edge.hit.style.strokeWidth = Math.max(16, sw + 10) + 'px';
+        }
+
+        const strokeInfo = conResolveEdgeStroke(edge);
+        if (strokeInfo.gradient) {
+          _conUpdateEdgeGradient(edge, x1, y1, x2, y2, strokeInfo.colorA, strokeInfo.colorB);
+          if (edge.line) edge.line.style.stroke = 'url(#con-edge-grad-' + edge.id + ')';
+        } else if (edge.line) {
+          edge.line.style.stroke = strokeInfo.solid;
+        }
+
+        // Terminator markers
+        let mEnd = 'url(#con-' + term + '-end)';
+        let mStart = 'url(#con-' + term + '-start)';
+
+        if (strokeInfo.gradient) {
+          if (t === 'forward' || t === 'both') {
+            mEnd = _conEnsureEdgeCustomMarker(edge, 'end', term, strokeInfo.colorB);
+          }
+          if (t === 'backward' || t === 'both') {
+            mStart = _conEnsureEdgeCustomMarker(edge, 'start', term, strokeInfo.colorA);
+          }
+        }
+
+        if (t === 'forward') {
+          edge.line.setAttribute('marker-end', mEnd);
+          edge.line.removeAttribute('marker-start');
+        } else if (t === 'backward') {
+          edge.line.setAttribute('marker-start', mStart);
+          edge.line.removeAttribute('marker-end');
+        } else if (t === 'both') {
+          edge.line.setAttribute('marker-start', mStart);
+          edge.line.setAttribute('marker-end', mEnd);
+        } else {
+          edge.line.removeAttribute('marker-start');
+          edge.line.removeAttribute('marker-end');
+        }
+
+        // Update label position and pill background
+        if (edge.labelEl) {
+          conApplyEdgeLabelStyle(edge);
+          const mx = geo.mx;
+          const my = geo.my;
+          const angle = geo.angle;
+          const a = (angle > 90 || angle < -90) ? angle + 180 : angle;
+          edge.labelEl.setAttribute('x', mx);
+          edge.labelEl.setAttribute('y', my);
+          edge.labelEl.setAttribute('transform', `rotate(${a.toFixed(1)},${mx.toFixed(1)},${my.toFixed(1)})`);
+          const dy = -Math.max(4, Math.round((edge.labelSize || (window.conGetDefaultWordFontSize ? window.conGetDefaultWordFontSize() : 16)) * 0.45));
+          edge.labelEl.setAttribute('dy', String(dy));
+          edge.labelEl.textContent = edge.label || '';
+
+          if (!edge.labelBg) {
+            const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            bg.setAttribute('class', 'con-line-label-bg');
+            bg.setAttribute('rx', '4');
+            bg.setAttribute('ry', '4');
+            edge.g.insertBefore(bg, edge.labelEl);
+            edge.labelBg = bg;
+          }
+          if (edge.label && edge.labelBgActive) {
+            const approxW = Math.max(20, edge.label.length * (edge.labelSize * 0.6) + 12);
+            const approxH = Math.max(14, edge.labelSize * 1.25);
+            edge.labelBg.setAttribute('x', mx - approxW / 2);
+            edge.labelBg.setAttribute('y', my + dy - approxH * 0.75);
+            edge.labelBg.setAttribute('width', approxW);
+            edge.labelBg.setAttribute('height', approxH);
+            edge.labelBg.setAttribute('transform', `rotate(${a.toFixed(1)},${mx.toFixed(1)},${my.toFixed(1)})`);
+            edge.labelBg.setAttribute('fill', '#ffffff');
+            edge.labelBg.setAttribute('stroke', '#111111');
+            edge.labelBg.setAttribute('stroke-width', '1.5');
+            edge.labelBg.style.display = 'block';
+          } else if (edge.labelBg) {
+            edge.labelBg.style.display = 'none';
+          }
+        }
+
+        // Handles for selected edge
+        const isSelected = window._conSelectedEdgeId === edge.id;
+        if (!edge.midHandle) {
+          const mh = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          mh.setAttribute('class', 'con-edge-mid-handle');
+          mh.setAttribute('r', '5.5');
+          edge.g.appendChild(mh);
+          edge.midHandle = mh;
+          _conInitMidHandle(edge);
+        }
+        if (!edge.endHandleA) {
+          const ha = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          ha.setAttribute('class', 'con-edge-end-handle');
+          ha.setAttribute('r', '5');
+          edge.g.appendChild(ha);
+          edge.endHandleA = ha;
+          _conInitEndHandle(edge, 'a');
+        }
+        if (!edge.endHandleB) {
+          const hb = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          hb.setAttribute('class', 'con-edge-end-handle');
+          hb.setAttribute('r', '5');
+          edge.g.appendChild(hb);
+          edge.endHandleB = hb;
+          _conInitEndHandle(edge, 'b');
+        }
+
+        if (isSelected) {
+          edge.midHandle.setAttribute('cx', geo.cx);
+          edge.midHandle.setAttribute('cy', geo.cy);
+          edge.midHandle.style.display = 'block';
+
+          edge.endHandleA.setAttribute('cx', x1);
+          edge.endHandleA.setAttribute('cy', y1);
+          edge.endHandleA.style.display = 'block';
+
+          edge.endHandleB.setAttribute('cx', x2);
+          edge.endHandleB.setAttribute('cy', y2);
+          edge.endHandleB.style.display = 'block';
+        } else {
+          if (edge.midHandle) edge.midHandle.style.display = 'none';
+          if (edge.endHandleA) edge.endHandleA.style.display = 'none';
+          if (edge.endHandleB) edge.endHandleB.style.display = 'none';
+        }
+      }
+
+      // Returns distance from node centre to its rectangular boundary in direction (dx, dy)
+      // plus a small margin so the arrowhead tip lands just at the visible edge
+      function conNodeEdgeOffset(node, dx, dy) {
+        const rawW = (node && typeof node.w === 'number' && node.w > 0) ? node.w : ((node && node._cachedW > 0) ? node._cachedW : (node && node.el ? ((node.el.offsetWidth > 0) ? (node._cachedW = node.el.offsetWidth) : (parseFloat(node.el.style.width) || 80)) : 80));
+        const rawH = (node && typeof node.h === 'number' && node.h > 0) ? node.h : ((node && node._cachedH > 0) ? node._cachedH : (node && node.el ? ((node.el.offsetHeight > 0) ? (node._cachedH = node.el.offsetHeight) : (parseFloat(node.el.style.height) || 28)) : 28));
+        const w = Math.max(20, rawW);
+        const h = Math.max(10, rawH);
+
+        const rot = (node && typeof node.rotation === 'number')
+          ? node.rotation
+          : ((node && node.el && node.el.dataset && node.el.dataset.rotation)
+            ? (parseFloat(node.el.dataset.rotation) || 0)
+            : 0);
+        let localDx = dx, localDy = dy;
+        if (rot && rot % 360 !== 0) {
+          const rad = -rot * Math.PI / 180;
+          localDx = dx * Math.cos(rad) - dy * Math.sin(rad);
+          localDy = dx * Math.sin(rad) + dy * Math.cos(rad);
+        }
+
+        const len = Math.sqrt(localDx * localDx + localDy * localDy);
+        if (len < 0.01) return w / 2;
+        const nx = Math.abs(localDx / len), ny = Math.abs(localDy / len);
+        const shape = conNormalizeNodeShape(node.shape || (node.el && node.el.dataset.shape));
+
+        if (shape === 'circle') return (Math.max(w, h) / 2) + 3;
+        if (shape === 'oval') {
+          const a = w / 2;
+          const b = h / 2;
+          const denom = Math.sqrt(((nx * nx) / (a * a)) + ((ny * ny) / (b * b)));
+          return (denom > 0 ? 1 / denom : Math.max(a, b)) + 3;
+        }
+        if (shape === 'losange') {
+          const denom = (nx / (w / 2)) + (ny / (h / 2));
+          return (denom > 0 ? 1 / denom : Math.min(w, h) / 2) + 3;
+        }
+
+        const rw = nx > 0.01 ? (w / 2) / nx : Infinity;
+        const rh = ny > 0.01 ? (h / 2) / ny : Infinity;
+        return Math.min(rw, rh) + 3; // +3 so arrow tip is just outside node edge
+      }
+
+      function conRedrawEdges() {
+        if (typeof conNodes !== 'undefined' && Array.isArray(conNodes)) {
+          for (let i = 0; i < conNodes.length; i++) {
+            conNodes[i]._cachedW = 0;
+            conNodes[i]._cachedH = 0;
+          }
+        }
+        if (typeof conNotes !== 'undefined' && Array.isArray(conNotes)) {
+          for (let i = 0; i < conNotes.length; i++) {
+            conNotes[i]._cachedW = 0;
+            conNotes[i]._cachedH = 0;
+          }
+        }
+        conEdges.forEach(e => conUpdateEdge(e));
+      }
+
+      // Resolve any constellation element (node, note, group/phrase-group) by ID to its
+      // Resolve any constellation element (node, note, group/phrase-group) by ID to its
+      // current visual centre and bounding box, for use by conUpdateEdge and link mode.
+      function conResolveLinkAnchor(id) {
+        const noteArr = (typeof window.conGetNotes === 'function') ? window.conGetNotes() : ((typeof conNotes !== 'undefined') ? conNotes : (window.conNotes || []));
+        const note = noteArr.find(n => n && (n.id === id || String(n.id) === String(id)));
+        if (note) {
+          const el = (typeof wnGetNoteElementById === 'function') ? wnGetNoteElementById(note.id) : document.querySelector(`.con-word-note[data-id="${note.id}"]`);
+          const w = (note._cachedW > 0) ? note._cachedW : ((el && el.offsetWidth > 0) ? (note._cachedW = el.offsetWidth) : (typeof note.width === 'number' && note.width > 0 ? note.width : 120));
+          const h = (note._cachedH > 0) ? note._cachedH : ((el && el.offsetHeight > 0) ? (note._cachedH = el.offsetHeight) : (typeof note.height === 'number' && note.height > 0 ? note.height : 80));
+          const rot = (typeof note.rotation === 'number') ? note.rotation : ((el && el.dataset && el.dataset.rotation) ? (parseFloat(el.dataset.rotation) || 0) : 0);
+          return { cx: note.x + w / 2, cy: note.y + h / 2, x: note.x, y: note.y, w, h, el, shape: null, rotation: rot, node: note };
+        }
+        const noteEl = document.querySelector(`.con-word-note[data-id="${id}"]`);
+        if (noteEl) {
+          const nx = parseFloat(noteEl.style.left) || 0;
+          const ny = parseFloat(noteEl.style.top) || 0;
+          const nw = noteEl.offsetWidth || 120;
+          const nh = noteEl.offsetHeight || 80;
+          const rot = (noteEl.dataset && noteEl.dataset.rotation) ? (parseFloat(noteEl.dataset.rotation) || 0) : 0;
+          return { cx: nx + nw / 2, cy: ny + nh / 2, x: nx, y: ny, w: nw, h: nh, el: noteEl, shape: null, rotation: rot, node: { id, x: nx, y: ny, width: nw, height: nh } };
+        }
+        const node = conNodes.find(n => n && (n.id === id || String(n.id) === String(id)));
+        if (node && node.el) {
+          const nw = (node._cachedW > 0) ? node._cachedW : ((node.el.offsetWidth > 0) ? (node._cachedW = node.el.offsetWidth) : (parseFloat(node.el.style.width) || 80));
+          const nh = (node._cachedH > 0) ? node._cachedH : ((node.el.offsetHeight > 0) ? (node._cachedH = node.el.offsetHeight) : (parseFloat(node.el.style.height) || 28));
+          const rot = (typeof node.rotation === 'number')
+            ? node.rotation
+            : ((node.el.dataset && node.el.dataset.rotation) ? (parseFloat(node.el.dataset.rotation) || 0) : 0);
+          return {
+            cx: node.x + nw / 2,
+            cy: node.y + nh / 2,
+            x: node.x,
+            y: node.y,
+            w: nw,
+            h: nh,
+            el: node.el,
+            shape: node.shape,
+            rotation: rot,
+            node: node
+          };
+        }
+        const group = conGroups.find(g => g && (g.id === id || String(g.id) === String(id)));
+        if (group && group.el) {
+          const gx = parseFloat(group.el.style.left) || 0;
+          const gy = parseFloat(group.el.style.top) || 0;
+          const gw = (group.el.offsetWidth > 0) ? group.el.offsetWidth : (parseFloat(group.el.style.width) || (group._manualW != null ? group._manualW : 160));
+          const gh = (group.el.offsetHeight > 0) ? group.el.offsetHeight : (parseFloat(group.el.style.height) || (group._manualH != null ? group._manualH : 64));
+          const rot = (typeof group.rotation === 'number') ? group.rotation : ((group.el.dataset && group.el.dataset.rotation) ? (parseFloat(group.el.dataset.rotation) || 0) : 0);
+          return {
+            cx: gx + gw / 2,
+            cy: gy + gh / 2,
+            x: gx,
+            y: gy,
+            w: gw,
+            h: gh,
+            el: group.el,
+            shape: null,
+            rotation: rot,
+            node: group
+          };
+        }
+        return null;
+      }
+
+      function conGetAnchorPoint(anchorData, pos) {
+        if (!anchorData) return null;
+        const rot = (typeof anchorData.rotation === 'number')
+          ? anchorData.rotation
+          : ((anchorData.el && anchorData.el.dataset && anchorData.el.dataset.rotation)
+            ? (parseFloat(anchorData.el.dataset.rotation) || 0)
+            : 0);
+        let ox = 0, oy = 0;
+        const halfW = (anchorData.w || 80) / 2;
+        const halfH = (anchorData.h || 28) / 2;
+        if (pos === 'top') { ox = 0; oy = -halfH; }
+        else if (pos === 'bottom') { ox = 0; oy = halfH; }
+        else if (pos === 'left') { ox = -halfW; oy = 0; }
+        else if (pos === 'right') { ox = halfW; oy = 0; }
+        if (rot && rot % 360 !== 0) {
+          const rad = rot * Math.PI / 180;
+          const rx = ox * Math.cos(rad) - oy * Math.sin(rad);
+          const ry = ox * Math.sin(rad) + oy * Math.cos(rad);
+          return { x: anchorData.cx + rx, y: anchorData.cy + ry };
+        }
+        return { x: anchorData.cx + ox, y: anchorData.cy + oy };
+      }
+
+      // Start Ctrl+J cross-type link mode with the given element ID as the source.
+      function _conStartLinkMode(srcId) {
+        _conCancelLinkMode();
+        _conLinkSrc = srcId;
+        window._conLinkSrc = global._conLinkSrc = srcId;
+        const anchor = conResolveLinkAnchor(srcId);
+        if (anchor && anchor.el) anchor.el.classList.add('con-link-src');
+        const brd = board();
+        if (brd) brd.classList.add('con-linking');
+        conUpdateInstructions('link-src');
+        if (typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({ type: 'link-mode-start', srcId: String(srcId) });
+        }
+      }
+
+      // Cancel Ctrl+J link mode, restoring normal visual state.
+      function _conCancelLinkMode() {
+        if (!_conLinkSrc && !window._conLinkSrc) return;
+        const currentSrc = _conLinkSrc || window._conLinkSrc;
+        const anchor = conResolveLinkAnchor(currentSrc);
+        const cancelledId = currentSrc;
+        if (anchor && anchor.el) anchor.el.classList.remove('con-link-src');
+        _conLinkSrc = null;
+        window._conLinkSrc = global._conLinkSrc = null;
+        const brd = board();
+        if (brd) brd.classList.remove('con-linking');
+        conUpdateInstructions(conMode);
+        if (typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({ type: 'link-mode-cancel', srcId: String(cancelledId) });
+        }
+      }
+
+      function conRemoveNode(id) {
+        const idx = conNodes.findIndex(n => n.id === id);
+        if (idx === -1) return;
+        conNodes[idx].el.remove();
+        conNodes.splice(idx, 1);
+        // Remove connected edges
+        conEdges.filter(e => e.a === id || e.b === id).forEach(e => e.g.remove());
+        conEdges = conEdges.filter(e => e.a !== id && e.b !== id);
+        // Remove from any group
+        conGroupRemoveNode(id);
+        if (conSelected === id) conSelect(null);
+        if (conConnSrc === id) conConnSrc = null;
+      }
+
+      function conRemoveEdge(eid) {
+        const idx = conEdges.findIndex(e => e.id === eid);
+        if (idx === -1) return;
+        conEdges[idx].g.remove();
+        conEdges.splice(idx, 1);
+        if (window._conSelectedEdgeId === eid) {
+          window._conSelectedEdgeId = null;
+        }
+        if (typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({ type: 'edge-remove', id: String(eid) });
+        }
+      }
+
+      function conUpdateInstructions(mode) {
+        return;
+      }
+
+      function rgbToHex(color) {
+        if (!color || color === '' || color === 'transparent') return '#ffffff';
+        if (color.startsWith('#')) return color.length === 4
+          ? '#' + color[1] + color[1] + color[2] + color[2] + color[3] + color[3]
+          : color;
+        const m = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+        if (!m) return '#111111';
+        return '#' + [m[1], m[2], m[3]].map(x => parseInt(x).toString(16).padStart(2, '0')).join('');
+      }
+
+      const CON_NODE_SHAPES = ['oval', 'circle', 'square', 'rectangle'];
+
+      function conNormalizeNodeShape(shape) {
+        const normalized = String(shape || '').trim().toLowerCase();
+        if (normalized === 'losange' || normalized === 'triangle') return 'rectangle';
+        return CON_NODE_SHAPES.includes(normalized) ? normalized : 'rectangle';
+      }
+
+      function conApplyNodeShape(node, requestedShape) {
+        if (!node || !node.el) return;
+        const el = node.el;
+        const shape = conNormalizeNodeShape(requestedShape || node.shape || el.dataset.shape);
+        const borderColor = el.style.borderColor || node.border || '#111111';
+        const bgColor = el.style.background || node.bg || '#ffffff';
+        node.shape = shape;
+        el.dataset.shape = shape;
+        el.style.setProperty('--con-node-border', borderColor);
+        el.style.setProperty('--con-node-bg', bgColor);
+
+        el.style.clipPath = '';
+        el.style.borderRadius = '4px';
+        el.style.padding = '4px 9px';
+        el.style.minWidth = '';
+        el.style.minHeight = '';
+        el.style.width = '';
+        el.style.height = '';
+        el.style.display = 'inline-flex';
+        el.style.flexDirection = 'column';
+        el.style.alignItems = 'center';
+        el.style.justifyContent = 'center';
+        el.style.textAlign = 'center';
+        el.style.lineHeight = '1.2';
+        el.style.boxSizing = 'border-box';
+
+        // Apply highlight glow if set
+        const hlColor = node.highlight || null;
+        el.style.boxShadow = hlColor ? `0 0 0 3px ${hlColor}, 1px 1px 0 #ccc` : '1px 1px 0 #ccc';
+
+        // Apply custom border width / style if set
+        if (node.borderWidth) el.style.borderWidth = node.borderWidth + 'px';
+        if (node.borderStyle) el.style.borderStyle = node.borderStyle;
+
+        // Apply per-node max-width constraint with word-wrap (rectangle + oval only)
+        const _mw = (node.fmt && typeof node.fmt.maxWidth === 'number' && node.fmt.maxWidth > 0) ? node.fmt.maxWidth : null;
+        if (_mw && shape !== 'circle' && shape !== 'square') {
+          el.style.maxWidth = _mw + 'px';
+          el.style.whiteSpace = 'normal';
+          el.style.wordBreak = 'break-word';
+          el.style.textAlign = 'left';
+          el.style.alignItems = 'flex-start';
+        } else {
+          el.style.maxWidth = '';
+          el.style.whiteSpace = '';
+          el.style.wordBreak = '';
+          el.style.textAlign = '';
+          el.style.alignItems = '';
+        }
+
+        // Rectangle is default; avoid reading layout dimensions to prevent forced reflows!
+        if (shape === 'rectangle') return;
+
+        const naturalW = Math.max(48, el.scrollWidth || el.offsetWidth || 48);
+        const naturalH = Math.max(32, el.scrollHeight || el.offsetHeight || 32);
+
+        if (shape === 'oval') {
+          el.style.borderRadius = '66%';
+          el.style.padding = '8px 16px';
+          el.style.minHeight = Math.max(38, naturalH) + 'px';
+        } else if (shape === 'circle') {
+          const d = Math.max(54, naturalW, naturalH);
+          el.style.borderRadius = '50%';
+          el.style.padding = '8px';
+          el.style.width = d + 'px';
+          el.style.height = d + 'px';
+        } else if (shape === 'square') {
+          const s = Math.max(54, naturalW, naturalH);
+          el.style.padding = '8px';
+          el.style.width = s + 'px';
+          el.style.height = s + 'px';
+        }
+      }
+
+      function conSyncShapeButtons(node) {
+        const shape = conNormalizeNodeShape(node && (node.shape || (node.el && node.el.dataset.shape)));
+        document.querySelectorAll('#con-ctx-shapes [data-shape]').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.shape === shape);
+        });
+      }
+
+      function conNormalizeNodeRotation(deg) {
+        if (typeof deg !== 'number' || isNaN(deg)) deg = 0;
+        deg = Math.round(deg) % 360;
+        if (deg < 0) deg += 360;
+        return deg;
+      }
+
+      function conApplyNodeRotation(nodeOrEl, deg) {
+        if (!nodeOrEl) return;
+        const node = (nodeOrEl && nodeOrEl.el) ? nodeOrEl : null;
+        const el = node ? node.el : (nodeOrEl.style ? nodeOrEl : null);
+        if (!el) return;
+        const rot = conNormalizeNodeRotation(deg);
+        if (node) node.rotation = rot;
+        el.dataset.rotation = rot;
+        el.style.transformOrigin = 'center center';
+        el.style.transform = rot ? ('rotate(' + rot + 'deg)') : '';
+      }
+
+      function conSyncRotationButtons(node) {
+        const rot = conNormalizeNodeRotation(node && node.rotation);
+        const isPreset = [0, 90, 180, 270].includes(rot);
+        document.querySelectorAll('#con-ctx-rot-btns [data-rot]').forEach(btn => {
+          btn.classList.toggle('active', parseInt(btn.dataset.rot, 10) === rot);
+        });
+        const customBtn = document.getElementById('con-ctx-rot-custom-btn');
+        if (customBtn) {
+          customBtn.classList.toggle('active', !isPreset && rot !== 0);
+          customBtn.textContent = (!isPreset && rot !== 0) ? `${rot}°` : '⚙';
+        }
+      }
+
+      window.conNormalizeNodeShape = conNormalizeNodeShape;
+      window.conApplyNodeShape = conApplyNodeShape;
+      window.conNormalizeNodeRotation = conNormalizeNodeRotation;
+      window.conApplyNodeRotation = conApplyNodeRotation;
+      window.conSyncRotationButtons = conSyncRotationButtons;
+
+      window.conCtxSetRotation = function (requestedDeg) {
+        conPushUndo();
+        const deg = conNormalizeNodeRotation(requestedDeg);
+        const targets = (conMultiSelected.size > 1)
+          ? conNodes.filter(n => conMultiSelected.has(n.id))
+          : (conCtxNodeId ? [conNodes.find(n => n.id === conCtxNodeId)].filter(Boolean) : []);
+        if (!targets.length) return;
+
+        const rotationsToSend = [];
+        targets.forEach(node => {
+          conApplyNodeRotation(node, deg);
+          rotationsToSend.push({ id: String(node.id), rotation: deg });
+        });
+
+        if (targets.length === 1) {
+          conSyncRotationButtons(targets[0]);
+        } else {
+          conSyncRotationButtons({ rotation: deg });
+        }
+
+        conRedrawEdges();
+        if (window.conGroupRefitAll) window.conGroupRefitAll();
+
+        if (typeof window._conMirrorSend === 'function') {
+          if (rotationsToSend.length === 1) {
+            window._conMirrorSend({ type: 'node-rotate', id: rotationsToSend[0].id, rotation: rotationsToSend[0].rotation });
+          } else if (rotationsToSend.length > 1) {
+            window._conMirrorSend({ type: 'nodes-rotate', rotations: rotationsToSend });
+          }
+        }
+      };
+
+      window.conCtxPromptCustomRotation = function () {
+        const target = conCtxNodeId ? conNodes.find(n => n.id === conCtxNodeId) : null;
+        const currentRot = target ? (target.rotation || 0) : 0;
+        const promptMsg = (window.i18n && typeof window.i18n.t === 'function')
+          ? window.i18n.t('conPromptRotateAngle')
+          : 'Enter rotation angle in degrees (0–360):';
+
+        const applyVal = function (val) {
+          if (val === null || val === undefined || String(val).trim() === '') return;
+          const num = parseFloat(String(val).replace(/[^0-9.-]/g, ''));
+          if (!isNaN(num)) {
+            window.conCtxSetRotation(num);
+          }
+        };
+
+        if (typeof window.showPrompt === 'function') {
+          window.showPrompt(promptMsg, String(currentRot)).then(applyVal);
+        } else {
+          const val = window.prompt(promptMsg, String(currentRot));
+          applyVal(val);
+        }
+      };
+
+      window.conRotateSelectedNodes = function (angleStep = 90) {
+        const targets = (conMultiSelected.size > 0)
+          ? conNodes.filter(n => conMultiSelected.has(n.id))
+          : (conSelected ? [conNodes.find(n => n.id === conSelected)].filter(Boolean) : []);
+        if (!targets.length) return;
+        conPushUndo();
+        const rotationsToSend = [];
+        targets.forEach(node => {
+          const curRot = conNormalizeNodeRotation(node.rotation || 0);
+          const nextRot = conNormalizeNodeRotation(curRot + angleStep);
+          conApplyNodeRotation(node, nextRot);
+          rotationsToSend.push({ id: String(node.id), rotation: nextRot });
+        });
+        if (targets.length === 1) {
+          conSyncRotationButtons(targets[0]);
+        } else {
+          conSyncRotationButtons({ rotation: targets[0].rotation });
+        }
+        conRedrawEdges();
+        if (window.conGroupRefitAll) window.conGroupRefitAll();
+        if (typeof window._conMirrorSend === 'function') {
+          if (rotationsToSend.length === 1) {
+            window._conMirrorSend({ type: 'node-rotate', id: rotationsToSend[0].id, rotation: rotationsToSend[0].rotation });
+          } else if (rotationsToSend.length > 1) {
+            window._conMirrorSend({ type: 'nodes-rotate', rotations: rotationsToSend });
+          }
+        }
+      };
+
+      // ---- Context menu ----
+      let conCtxNodeId = null;
+      let _conPagePopupNodeId = null;
+
+      function conCtxOpen(e, id) {
+        e.preventDefault();
+        e.stopPropagation();
+        conCtxNodeId = id;
+        window.conCtxNodeId = global.conCtxNodeId = id;
+        // If this node is part of multi-selection, keep multi-selection active
+        // Otherwise select normally
+        if (!conMultiSelected.has(id)) {
+          conSelect(id);
+        }
+        const node = conNodes.find(n => n.id === id);
+        const matched = conGetNodeDbEntries(node);
+        const entries = (matched && matched.length)
+          ? matched.map(m => m.entry).filter(Boolean)
+          : (conGetNodeDbEntry(node) ? [conGetNodeDbEntry(node)] : []);
+        const dbWord = entries[0] || null;
+
+        const menu = document.getElementById('con-ctx-menu');
+        const label = document.getElementById('con-ctx-word-label');
+        const synBtn = document.getElementById('con-ctx-syn-btn');
+        const antBtn = document.getElementById('con-ctx-ant-btn');
+        const cardBtn = document.getElementById('con-ctx-card-btn');
+
+        label.textContent = node ? (node.baseWord || node.el.dataset.baseWord || node.el.textContent) : 'Word';
+
+        const allSynonyms = Array.from(new Set(entries.flatMap(e => Array.isArray(e.synonyms) ? e.synonyms : (e.synonyms ? [e.synonyms] : [])).filter(Boolean)));
+        const allAntonyms = Array.from(new Set(entries.flatMap(e => Array.isArray(e.antonyms) ? e.antonyms : (e.antonyms ? [e.antonyms] : [])).filter(Boolean)));
+        const hasSyn = allSynonyms.length > 0;
+        const hasAnt = allAntonyms.length > 0;
+        const hasDef = entries.some(e => Array.isArray(e.definition) ? e.definition.some(d => String(d || '').trim()) : !!String(e.definition || e.def || '').trim());
+        const hasFr = entries.some(e => Array.isArray(e.french) ? e.french.some(f => String(f || '').trim()) : !!String(e.french || e.translation || '').trim());
+        const hasIpa = entries.some(e => !!String(e.ipa || '').trim());
+
+        if (synBtn) {
+          synBtn.style.display = hasSyn ? '' : 'none';
+          if (hasSyn) {
+            synBtn.innerHTML = `<img src="../assets/icons/syn.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">syn·${allSynonyms.length}</span>`;
+          }
+        }
+        if (antBtn) {
+          antBtn.style.display = hasAnt ? '' : 'none';
+          if (hasAnt) {
+            antBtn.innerHTML = `<img src="../assets/icons/ant.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">ant·${allAntonyms.length}</span>`;
+          }
+        }
+
+        const defBtn = document.getElementById('con-fmt-def');
+        if (defBtn) defBtn.style.display = hasDef ? '' : 'none';
+
+        const transBtn = document.getElementById('con-fmt-trans');
+        if (transBtn) transBtn.style.display = hasFr ? '' : 'none';
+
+        const ipaBtn = document.getElementById('con-fmt-ipa');
+        if (ipaBtn) ipaBtn.style.display = hasIpa ? '' : 'none';
+
+        const networkBtn = document.getElementById('con-ctx-network-btn');
+        const networkWords = new Set();
+        entries.forEach(e => {
+          ['synonyms', 'antonyms', 'otherForms', 'otherTerms', 'hypernym', 'hyponym'].forEach(k => {
+            const arr = Array.isArray(e[k]) ? e[k] : (e[k] ? [e[k]] : []);
+            arr.forEach(w => { if (w && typeof w === 'string') networkWords.add(w.trim()); });
+          });
+        });
+        const hasNetwork = entries.length > 0 && networkWords.size > 0;
+        if (networkBtn) {
+          networkBtn.style.display = hasNetwork ? '' : 'none';
+          if (hasNetwork) {
+            networkBtn.innerHTML = `NET<span class="con-ctx-icon-label">${networkWords.size}</span>`;
+          }
+        }
+
+        const relSep = document.getElementById('con-ctx-relations-sep');
+        if (relSep) {
+          relSep.style.display = (hasSyn || hasAnt || hasDef || hasFr || hasIpa || hasNetwork) ? '' : 'none';
+        }
+
+        // Show/hide Card button
+        if (cardBtn) cardBtn.style.display = entries.length > 0 ? '' : 'none';
+
+        // Check for linked PDF to display Extract PDF Page button
+        const extractRow = document.getElementById('con-ctx-extract-pdf-row');
+        if (extractRow) {
+          let hasPdf = false;
+          let pdfUrn = null;
+          if (node && typeof LinksService !== 'undefined') {
+            const nodeUrn = (typeof conGetActiveNodeUrn === 'function') ? conGetActiveNodeUrn(node) : null;
+            if (nodeUrn) {
+              const nodeLinks = LinksService.getLinksForSync(nodeUrn);
+              const foundPdf = (nodeLinks || []).find(l => {
+                const p = LinksService.parseUrn(l.otherUrn);
+                return p && p.type === 'file' && (p.id.toLowerCase().endsWith('.pdf') || (l.targetMeta && l.targetMeta.relativePath && l.targetMeta.relativePath.toLowerCase().endsWith('.pdf')));
+              });
+              if (foundPdf) {
+                hasPdf = true;
+                pdfUrn = foundPdf.otherUrn;
+              }
+            }
+          }
+          extractRow.style.display = hasPdf ? '' : 'none';
+          extractRow.dataset.pdfUrn = pdfUrn || '';
+        }
+
+        // Media Tools row
+        const mediaRow = document.getElementById('con-ctx-media-row');
+        const slowBtn = document.getElementById('con-ctx-slow-btn');
+        const boostBtn = document.getElementById('con-ctx-boost-btn');
+        const extractAudioBtn = document.getElementById('con-ctx-extract-audio-btn');
+        if (mediaRow) {
+          const soundAtt = node && (node.soundAttachmentId || (conAttachments || []).find(a => a && (a.id === node.soundAttachmentId || (a.kind === 'sounds' && a.name === (node.baseWord || (node.el && node.el.textContent))))));
+          const videoAtt = node && (node.videoAttachmentId || (conAttachments || []).find(a => a && (a.id === node.videoAttachmentId || (a.kind === 'videos' && a.name === (node.baseWord || (node.el && node.el.textContent))))));
+          const isSound = !!soundAtt || (node && (node.isSound || node.type === 'sound'));
+          const isVideo = !!videoAtt || (node && (node.isVideo || node.type === 'video'));
+
+          if (isSound || isVideo) {
+            mediaRow.style.display = '';
+            if (slowBtn) slowBtn.style.display = isSound ? '' : 'none';
+            if (boostBtn) boostBtn.style.display = isSound ? '' : 'none';
+            if (extractAudioBtn) extractAudioBtn.style.display = isVideo ? '' : 'none';
+          } else {
+            mediaRow.style.display = 'none';
+          }
+        }
+
+        // Star button: show only when node has a db entry
+        const starBtn = document.getElementById('con-ctx-star-btn');
+        if (starBtn) {
+          if (dbWord) {
+            starBtn.style.display = '';
+            starBtn.textContent = dbWord.starred ? '★' : '☆';
+            starBtn.classList.toggle('active', !!dbWord.starred);
+            starBtn.title = dbWord.starred ? 'Unstar' : 'Star in DB';
+          } else {
+            starBtn.style.display = 'none';
+          }
+        }
+
+        // Show/hide Remove-from-group button (and its separator)
+        const rmGroupBtn = document.getElementById('con-ctx-rmgroup-btn');
+        const rmGroupSep = document.getElementById('con-ctx-rmgroup-sep');
+        const rmGroupVisible = !!conGroupOfNode(id);
+        if (rmGroupBtn) rmGroupBtn.style.display = rmGroupVisible ? '' : 'none';
+        if (rmGroupSep) rmGroupSep.style.display = rmGroupVisible ? '' : 'none';
+
+        // Base-word row: show when node is a synonym/antonym/related word/other form.
+        // Priority 1 — metadata stamped at creation time (conCtxAddRelated).
+        // Priority 2 — live reverse-lookup across vocabBank (covers manually-typed words).
+        const baseWordRow = document.getElementById('con-ctx-baseword-row');
+        const baseWordName = document.getElementById('con-ctx-baseword-name');
+        const baseWordTag = document.getElementById('con-ctx-baseword-tag');
+        const addBaseBtn = document.getElementById('con-ctx-addbaseword-btn');
+
+        function conFindOriginEntry(text) {
+          const lower = stripParens(String(text || '').trim()).toLowerCase();
+          if (!lower || typeof vocabBank === 'undefined' || !Array.isArray(vocabBank)) return null;
+          // Skip if word is itself a direct DB entry (it IS the base word)
+          if (vocabBank.find(e => e && e.word && stripParens(e.word.trim()).toLowerCase() === lower)) return null;
+          for (const entry of vocabBank) {
+            if (!entry) continue;
+            if ((entry.synonyms || []).some(s => stripParens(String(s).trim()).toLowerCase() === lower))
+              return { word: entry.word, relation: 'synonyms' };
+            if ((entry.antonyms || []).some(a => stripParens(String(a).trim()).toLowerCase() === lower))
+              return { word: entry.word, relation: 'antonyms' };
+            if ((entry.related || []).some(r => stripParens(String(r).trim()).toLowerCase() === lower))
+              return { word: entry.word, relation: 'related' };
+            if (Array.isArray(entry.otherForms) && entry.otherForms.some(o => {
+              const s = typeof o === 'string' ? o : (o.word || o.form || '');
+              return stripParens(String(s).trim()).toLowerCase() === lower;
+            })) {
+              return { word: entry.word, relation: 'otherForms' };
+            }
+            if (typeof entry.otherForms === 'string' && entry.otherForms.split(/[,;/]+/).some(s => stripParens(s.trim()).toLowerCase() === lower)) {
+              return { word: entry.word, relation: 'otherForms' };
+            }
+          }
+          return null;
+        }
+
+        const tagLabels = { synonyms: 'Synonym', antonyms: 'Antonym', related: 'Related', otherForms: 'Other Form' };
+        const tagClasses = { synonyms: 'syn', antonyms: 'ant', related: 'rel', otherForms: 'form' };
+
+        // Resolve origin: stamped metadata takes precedence, then live lookup
+        let originWord = node && node.sourceWord ? node.sourceWord : null;
+        let originRelation = node && node.relation ? node.relation : null;
+        if (!originWord && node) {
+          const nodeText = node.baseWord || node.el.textContent.trim();
+          const found = conFindOriginEntry(nodeText);
+          if (found) { originWord = found.word; originRelation = found.relation; }
+        }
+
+        if (originWord && originRelation) {
+          baseWordRow.classList.add('visible');
+          baseWordName.textContent = originWord;
+          baseWordTag.textContent = tagLabels[originRelation] || originRelation;
+          baseWordTag.className = 'con-ctx-baseword-tag ' + (tagClasses[originRelation] || 'rel');
+          // Stamp onto node so it's cached for future opens
+          if (node && !node.sourceWord) { node.sourceWord = originWord; node.relation = originRelation; }
+          // "Add base word" only if not already on the board
+          const alreadyOnBoard = conNodes.some(n =>
+            (n.baseWord || n.el.textContent.trim()).toLowerCase() === originWord.toLowerCase()
+          );
+          addBaseBtn.style.display = alreadyOnBoard ? 'none' : '';
+        } else {
+          baseWordRow.classList.remove('visible');
+          addBaseBtn.style.display = 'none';
+        }
+
+        // Multi-select row
+        const multiRow = document.getElementById('con-ctx-multi-edit-row');
+        const multiCount = document.getElementById('con-ctx-multi-count');
+        conCtxCloseArrangeMenus();
+        // Count all selected types
+        const shapeSelCount = typeof window.conGetShapeSelected === 'function' ? window.conGetShapeSelected().size : (typeof _conShapeSelected !== 'undefined' && _conShapeSelected ? _conShapeSelected.size : 0);
+        const totalMultiCount = conMultiSelected.size + conNoteSelected.size + conDrawingSelected.size + shapeSelCount;
+        if (totalMultiCount > 1 || conMultiSelected.size > 1 || (conMultiSelected.size >= 1 && (conNoteSelected.size > 0 || conDrawingSelected.size > 0 || shapeSelCount > 0))) {
+          multiRow.style.display = '';
+          if (multiCount) multiCount.textContent = totalMultiCount;
+        } else {
+          multiRow.style.display = 'none';
+        }
+
+        // Sync swatches to node's current colour
+        const rawNodeBg = (node && node.el ? (node.el.style.background || node.el.style.backgroundColor || '#ffffff') : '#ffffff').trim();
+        const matchIdx = CON_PALETTES.findIndex(([bg]) => {
+          if (!bg) return false;
+          if (bg.trim().toLowerCase() === rawNodeBg.toLowerCase()) return true;
+          if (typeof rgbToHex === 'function' && rgbToHex(bg).toLowerCase() === rgbToHex(rawNodeBg).toLowerCase()) return true;
+          return false;
+        });
+        conActivePalette = matchIdx >= 0 ? matchIdx : 0;
+        document.querySelectorAll('#con-ctx-swatches .con-swatch').forEach((s, j) => {
+          s.classList.toggle('active', j === conActivePalette);
+        });
+
+        // Sync size slider
+        const sizeSlider = document.getElementById('con-ctx-font-size');
+        if (sizeSlider && node) {
+          _conSetupFontSizeSlider(sizeSlider, window.conFontUnit);
+          const pxVal = conGetNodeBaseFontSize(node) || 16;
+          const uVal = conPxToFontUnit(pxVal, window.conFontUnit);
+          sizeSlider.value = String(uVal);
+          const sizeDisplay = document.getElementById('con-ctx-font-size-display');
+          if (sizeDisplay) sizeDisplay.textContent = uVal + ' ' + window.conFontUnit;
+        }
+        _conSyncUnitToggleButtons();
+
+        // Sync max-width slider
+        const mwSlider = document.getElementById('con-ctx-max-width');
+        const mwDisplay = document.getElementById('con-ctx-max-width-display');
+        const mwRow = document.getElementById('con-ctx-maxwidth-row');
+        if (mwSlider && node) {
+          const _shape = conNormalizeNodeShape(node.shape);
+          const _isFixedSize = _shape === 'circle' || _shape === 'square';
+          if (mwRow) { mwRow.style.opacity = _isFixedSize ? '0.35' : ''; mwRow.style.pointerEvents = _isFixedSize ? 'none' : ''; }
+          const _mwVal = (node.fmt && typeof node.fmt.maxWidth === 'number' && node.fmt.maxWidth > 0) ? node.fmt.maxWidth : 0;
+          mwSlider.value = _mwVal;
+          if (mwDisplay) mwDisplay.textContent = _mwVal > 0 ? _mwVal + 'px' : '\u2014';
+        }
+
+        // Sync format buttons
+        if (node) {
+          conSyncFmtButtons(node);
+          conSyncShapeButtons(node);
+          conSyncRotationButtons(node);
+          conSyncBorderControls(node);
+        }
+        _conSyncPresetButtons();
+        const maskBtn = document.getElementById('con-ctx-mask-btn');
+        if (maskBtn) maskBtn.innerHTML = (node && node.masked) ? '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">show</span>' : '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">hide</span>';
+
+        const lockBtn = document.getElementById('con-ctx-lock-btn');
+        if (lockBtn) {
+          const isLocked = !!(node && node.locked);
+          lockBtn.innerHTML = isLocked ? '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">lock</span>' : '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">free</span>';
+          lockBtn.title = isLocked ? 'Unlock node position and size' : 'Lock node position and size';
+        }
+
+        // Position near cursor, keep wholly inside viewport
+        menu.classList.add('visible');
+        const margin = 8;
+        const maxAvailH = Math.max(160, window.innerHeight - 2 * margin);
+        const maxAvailW = Math.max(200, window.innerWidth - 2 * margin);
+        menu.style.maxHeight = maxAvailH + 'px';
+        menu.style.maxWidth = maxAvailW + 'px';
+        menu.style.overflowY = 'auto';
+        menu.style.overflowX = 'hidden';
+
+        const mw = menu.offsetWidth || 230, mh = menu.offsetHeight || 220;
+        let mx = e.clientX + 6, my = e.clientY + 6;
+        if (mx + mw > window.innerWidth - margin) mx = e.clientX - mw - 6;
+        if (my + mh > window.innerHeight - margin) my = e.clientY - mh - 6;
+
+        const maxX = Math.max(margin, window.innerWidth - mw - margin);
+        const maxY = Math.max(margin, window.innerHeight - mh - margin);
+        mx = Math.max(margin, Math.min(maxX, mx));
+        my = Math.max(margin, Math.min(maxY, my));
+
+        menu.style.left = Math.round(mx) + 'px';
+        menu.style.top = Math.round(my) + 'px';
+        menu.style.maxHeight = Math.max(160, window.innerHeight - my - margin) + 'px';
+      }
+
+      window.conCtxApplyStyle = function () {
+        const [bg, text, border] = CON_PALETTES[conActivePalette];
+        // Apply to multi-selected set if there are multiple; otherwise just the ctx node
+        const targets = (conMultiSelected.size > 1)
+          ? conNodes.filter(n => conMultiSelected.has(n.id))
+          : (conCtxNodeId ? [conNodes.find(n => n.id === conCtxNodeId)].filter(Boolean) : []);
+        targets.forEach(node => {
+          node.el.style.background = bg;
+          node.el.style.color = text;
+          node.el.style.borderColor = border;
+          // Swatch applies a plain palette — clear preset-specific overrides
+          node.borderWidth = null;
+          node.borderStyle = null;
+          node.highlight = null;
+          node.preset = null;
+          conApplyNodeShape(node, node.shape);
+        });
+        conRedrawEdges();
+        _conSyncPresetButtons();
+        // Sync border color display to the palette border
+        const mainNode = conCtxNodeId ? conNodes.find(n => n.id === conCtxNodeId) : null;
+        if (mainNode) conSyncBorderControls(mainNode);
+      };
+
+      window.conCtxApplySize = function () {
+        if (!_conApplySizeUndoPushed) { conPushUndo(); _conApplySizeUndoPushed = true; }
+        const rawVal = document.getElementById('con-ctx-font-size') ? parseFloat(document.getElementById('con-ctx-font-size').value) : 12;
+        const numFontSize = conFontUnitToPx(rawVal, window.conFontUnit);
+        const fontSize = numFontSize + 'px';
+        const display = document.getElementById('con-ctx-font-size-display');
+        if (display) display.textContent = rawVal + ' ' + window.conFontUnit;
+        // Apply to multi-selected set if there are multiple; otherwise just the ctx node
+        const targets = (conMultiSelected.size > 1)
+          ? conNodes.filter(n => conMultiSelected.has(n.id))
+          : (conCtxNodeId ? [conNodes.find(n => n.id === conCtxNodeId)].filter(Boolean) : []);
+        const _sizeAffectedPhraseGroups = new Set();
+        const resizedNodes = [];
+        window._conSuppressMirrorObserver = true;
+        try {
+          targets.forEach(node => {
+            if (conIsNodeLocked(node)) return;
+            conSetNodeBaseFontSize(node, fontSize);
+            conApplyNodeShape(node, node.shape);
+            resizedNodes.push({ id: String(node.id), fontSize: numFontSize, shape: node.shape });
+            const _pg = conGroupOfNode(node.id);
+            if (_pg && _pg.phraseGroup) _sizeAffectedPhraseGroups.add(_pg);
+          });
+          conRedrawEdges();
+          if (_sizeAffectedPhraseGroups.size > 0 && typeof conPhraseGroupLayout === 'function') {
+            // Re-layout phrase groups in-place — don't spread
+            requestAnimationFrame(() => {
+              _sizeAffectedPhraseGroups.forEach(pg => conPhraseGroupLayout(pg));
+            });
+          }
+          if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
+          if (resizedNodes.length && window._conMirrorSend) {
+            if (resizedNodes.length === 1) {
+              window._conMirrorSend({
+                type: 'node-resize',
+                id: resizedNodes[0].id,
+                fontSize: resizedNodes[0].fontSize,
+                shape: resizedNodes[0].shape
+              });
+            } else {
+              window._conMirrorSend({
+                type: 'nodes-resize',
+                nodes: resizedNodes
+              });
+            }
+          }
+        } finally {
+          setTimeout(function () { window._conSuppressMirrorObserver = false; }, 60);
+        }
+      };
+
+      let _conApplyMaxWidthUndoPushed = false;
+      window.conCtxApplyMaxWidth = function (rawVal) {
+        if (!_conApplyMaxWidthUndoPushed) { conPushUndo(); _conApplyMaxWidthUndoPushed = true; }
+        const mw = parseInt(rawVal, 10);
+        const targets = (conMultiSelected.size > 1)
+          ? conNodes.filter(n => conMultiSelected.has(n.id))
+          : (conCtxNodeId ? [conNodes.find(n => n.id === conCtxNodeId)].filter(Boolean) : []);
+        targets.forEach(node => {
+          if (conIsNodeLocked(node)) return;
+          const fmt = conGetNodeFmt(node);
+          fmt.maxWidth = (mw > 0) ? mw : null;
+          conApplyNodeShape(node, node.shape);
+          conRenderNodeLabel(node);
+        });
+        conRedrawEdges();
+        if (window.conGroupRefitAll) window.conGroupRefitAll();
+        if (window.conMarkBoardDirty) window.conMarkBoardDirty();
+      };
+      document.addEventListener('mouseup', () => { _conApplyMaxWidthUndoPushed = false; });
+
+      window.conCtxSetShape = function (shape) {
+        conPushUndo();
+        const normalized = conNormalizeNodeShape(shape);
+        const targets = (conMultiSelected.size > 1)
+          ? conNodes.filter(n => conMultiSelected.has(n.id))
+          : (conCtxNodeId ? [conNodes.find(n => n.id === conCtxNodeId)].filter(Boolean) : []);
+        targets.forEach(node => {
+          node.shape = normalized;
+          conApplyNodeShape(node, normalized);
+        });
+        if (targets.length === 1) conSyncShapeButtons(targets[0]);
+        conRedrawEdges();
+        if (window.conGroupRefitAll) window.conGroupRefitAll();
+      };
+
+      let _conApplyBorderWidthUndoPushed = false;
+      window.conCtxApplyBorderWidth = function () {
+        if (!_conApplyBorderWidthUndoPushed) { conPushUndo(); _conApplyBorderWidthUndoPushed = true; }
+        const val = parseInt(document.getElementById('con-ctx-border-width').value) || 0;
+        const targets = (conMultiSelected.size > 1)
+          ? conNodes.filter(n => conMultiSelected.has(n.id))
+          : (conCtxNodeId ? [conNodes.find(n => n.id === conCtxNodeId)].filter(Boolean) : []);
+        targets.forEach(node => {
+          node.borderWidth = val > 0 ? val : null;
+          node.el.style.borderWidth = val > 0 ? val + 'px' : '';
+          conApplyNodeShape(node, node.shape);
+        });
+        conRedrawEdges();
+      };
+      document.addEventListener('mouseup', () => { _conApplyBorderWidthUndoPushed = false; });
+
+      window.conCtxApplyBorderStyle = function (style) {
+        conPushUndo();
+        const targets = (conMultiSelected.size > 1)
+          ? conNodes.filter(n => conMultiSelected.has(n.id))
+          : (conCtxNodeId ? [conNodes.find(n => n.id === conCtxNodeId)].filter(Boolean) : []);
+        targets.forEach(node => {
+          node.borderStyle = style;
+          node.el.style.borderStyle = style;
+          conApplyNodeShape(node, node.shape);
+        });
+        document.querySelectorAll('#con-ctx-menu [data-bstyle]').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.bstyle === style);
+        });
+        conRedrawEdges();
+      };
+
+      window.conCtxApplyBorderColor = function (color) {
+        conPushUndo();
+        const targets = (conMultiSelected.size > 1)
+          ? conNodes.filter(n => conMultiSelected.has(n.id))
+          : (conCtxNodeId ? [conNodes.find(n => n.id === conCtxNodeId)].filter(Boolean) : []);
+        targets.forEach(node => {
+          node.el.style.borderColor = color;
+          conApplyNodeShape(node, node.shape);
+        });
+        conRedrawEdges();
+      };
+
+      function conSyncBorderControls(node) {
+        const bwSlider = document.getElementById('con-ctx-border-width');
+        const bwDisplay = document.getElementById('con-ctx-border-width-display');
+        const bcPicker = document.getElementById('con-ctx-border-color');
+        const bcText = document.getElementById('con-ctx-border-color-text');
+        if (!bwSlider) return;
+        const bw = node && node.borderWidth ? node.borderWidth : 1;
+        bwSlider.value = bw;
+        if (bwDisplay) bwDisplay.textContent = bw;
+        const rawColor = node && node.el ? (node.el.style.borderColor || '#111111') : '#111111';
+        const hexColor = (typeof rgbToHex === 'function') ? rgbToHex(rawColor) : rawColor;
+        if (bcPicker) bcPicker.value = hexColor;
+        if (bcText) bcText.value = hexColor.toUpperCase();
+        const bs = node && node.borderStyle ? node.borderStyle : '';
+        document.querySelectorAll('#con-ctx-menu [data-bstyle]').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.bstyle === bs);
+        });
+      }
+
+      window.conCtxViewCard = function () {
+        conViewSelectedCard();
+        conCtxClose();
+      };
+
+      window.conCtxAddToDb = function () {
+        conAddSelectedToDb();
+        conCtxClose();
+      };
+
+      window.conCtxSetPage = function (targetNodeId) {
+        const targetId = targetNodeId || (typeof conCtxNodeId !== 'undefined' && conCtxNodeId) || (window.conGetSelected && window.conGetSelected()) || window.conSelected || (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size === 1 ? Array.from(conMultiSelected)[0] : null);
+        const node = conNodes.find(n => n.id === targetId);
+        if (!node) return;
+        if (typeof conCtxClose === 'function') conCtxClose();
+        _conPagePopupNodeId = node.id;
+        const popup = document.getElementById('con-page-popup');
+        if (!popup) return;
+        const inp = document.getElementById('con-page-popup-input');
+        if (!inp) return;
+        inp.value = node.pageNum != null ? String(node.pageNum) : '';
+        const rect = node.el.getBoundingClientRect();
+        popup.style.left = Math.max(10, Math.min(rect.right + 6, window.innerWidth - 175)) + 'px';
+        popup.style.top = Math.max(10, Math.min(rect.top, window.innerHeight - 80)) + 'px';
+        popup.classList.add('visible');
+        inp.focus();
+        inp.select();
+        inp.onkeydown = function (e) {
+          if (e.key === 'Enter') conPagePopupCommit();
+          if (e.key === 'Escape') conPagePopupCancel();
+          e.stopPropagation();
+        };
+      };
+
+      window.conPagePopupCommit = function () {
+        const node = conNodes.find(n => n.id === _conPagePopupNodeId);
+        const inp = document.getElementById('con-page-popup-input');
+        document.getElementById('con-page-popup').classList.remove('visible');
+        if (!node) return;
+        conPushUndo();
+        const trimmed = inp.value.trim();
+        if (trimmed === '') {
+          node.pageNum = null;
+        } else {
+          node.pageNum = trimmed;
+        }
+        conRenderNodeLabel(node);
+        conRedrawEdges();
+      };
+
+      window.conPagePopupRemove = function () {
+        const node = conNodes.find(n => n.id === _conPagePopupNodeId);
+        document.getElementById('con-page-popup').classList.remove('visible');
+        if (!node) return;
+        conPushUndo();
+        node.pageNum = null;
+        conRenderNodeLabel(node);
+        conRedrawEdges();
+      };
+
+      // ── Media Converter Integration Handlers ──────────────────────────────
+      window.conCtxGetActiveNodeMediaAttachment = function () {
+        const node = conCtxNodeId ? conNodes.find(n => n.id === conCtxNodeId) : null;
+        if (!node) return null;
+        const attId = node.soundAttachmentId || node.videoAttachmentId || null;
+        if (attId) {
+          const found = (conAttachments || []).find(a => a && a.id === attId);
+          if (found) return found;
+        }
+        const text = (node.baseWord || (node.el && node.el.textContent) || '').trim();
+        if (text) {
+          const foundName = (conAttachments || []).find(a => a && a.name && (a.name === text || a.name.startsWith(text)));
+          if (foundName) return foundName;
+        }
+        return null;
+      };
+
+      window.conCtxSlowDownSound = async function (speedRatio) {
+        speedRatio = speedRatio || 0.85;
+        const att = conCtxGetActiveNodeMediaAttachment();
+        if (!att) {
+          if (typeof mdbToast === 'function') mdbToast('No audio attachment found on this node.', true);
+          return;
+        }
+        if (typeof mdbToast === 'function') mdbToast(typeof t === 'function' ? t('conMediaConverting', 'Processing media conversion...') : 'Processing conversion...', false);
+
+        try {
+          const fileOrBlob = att.file || (att._cachedObjectUrl ? await (await fetch(att._cachedObjectUrl)).blob() : null);
+          if (!fileOrBlob) throw new Error('Could not load source audio.');
+
+          if (window.MediaConverterService && typeof window.MediaConverterService.slowDownForListening === 'function') {
+            const res = await window.MediaConverterService.slowDownForListening(fileOrBlob, speedRatio);
+            if (res && res.blob) {
+              _conAttachmentCounter += 1;
+              const newName = att.name.replace(/\.[^/.]+$/, '') + '-slow-' + Math.round(speedRatio * 100) + 'pct.mp3';
+              const newAtt = {
+                id: 'att_' + _conAttachmentCounter,
+                name: newName,
+                mime: 'audio/mp3',
+                kind: 'sounds',
+                size: res.blob.size,
+                file: res.blob,
+                relativePath: ''
+              };
+              conAttachments.push(newAtt);
+              const node = conNodes.find(n => n.id === conCtxNodeId);
+              if (node) {
+                node.soundAttachmentId = newAtt.id;
+              }
+              if (typeof conRenderAttachmentSummary === 'function') conRenderAttachmentSummary();
+              if (typeof mdbToast === 'function') mdbToast((typeof t === 'function' ? t('conMediaConvertSuccess', 'Media converted successfully') : 'Converted') + ': ' + newName, false);
+            }
+          }
+        } catch (err) {
+          console.error('[Board] Slow down error:', err);
+          if (typeof mdbToast === 'function') mdbToast('Conversion error: ' + (err.message || ''), true);
+        }
+      };
+
+      window.conCtxNormalizeVoice = async function () {
+        const att = conCtxGetActiveNodeMediaAttachment();
+        if (!att) {
+          if (typeof mdbToast === 'function') mdbToast('No audio attachment found on this node.', true);
+          return;
+        }
+        if (typeof mdbToast === 'function') mdbToast(typeof t === 'function' ? t('conMediaConverting', 'Processing media conversion...') : 'Processing conversion...', false);
+
+        try {
+          const fileOrBlob = att.file || (att._cachedObjectUrl ? await (await fetch(att._cachedObjectUrl)).blob() : null);
+          if (!fileOrBlob) throw new Error('Could not load source audio.');
+
+          if (window.MediaConverterService && typeof window.MediaConverterService.normalizeVoice === 'function') {
+            const res = await window.MediaConverterService.normalizeVoice(fileOrBlob);
+            if (res && res.blob) {
+              _conAttachmentCounter += 1;
+              const newName = att.name.replace(/\.[^/.]+$/, '') + '-boosted.mp3';
+              const newAtt = {
+                id: 'att_' + _conAttachmentCounter,
+                name: newName,
+                mime: 'audio/mp3',
+                kind: 'sounds',
+                size: res.blob.size,
+                file: res.blob,
+                relativePath: ''
+              };
+              conAttachments.push(newAtt);
+              const node = conNodes.find(n => n.id === conCtxNodeId);
+              if (node) {
+                node.soundAttachmentId = newAtt.id;
+              }
+              if (typeof conRenderAttachmentSummary === 'function') conRenderAttachmentSummary();
+              if (typeof mdbToast === 'function') mdbToast((typeof t === 'function' ? t('conMediaConvertSuccess', 'Media converted successfully') : 'Converted') + ': ' + newName, false);
+            }
+          }
+        } catch (err) {
+          console.error('[Board] Voice normalize error:', err);
+          if (typeof mdbToast === 'function') mdbToast('Conversion error: ' + (err.message || ''), true);
+        }
+      };
+
+      window.conCtxExtractAudioToSoundNode = async function () {
+        const att = conCtxGetActiveNodeMediaAttachment();
+        const node = conNodes.find(n => n.id === conCtxNodeId);
+        if (!att) {
+          if (typeof mdbToast === 'function') mdbToast('No video attachment found on this node.', true);
+          return;
+        }
+        if (typeof mdbToast === 'function') mdbToast(typeof t === 'function' ? t('conMediaConverting', 'Processing media conversion...') : 'Processing conversion...', false);
+
+        try {
+          const fileOrBlob = att.file || (att._cachedObjectUrl ? await (await fetch(att._cachedObjectUrl)).blob() : null);
+          if (!fileOrBlob) throw new Error('Could not load source video.');
+
+          if (window.MediaConverterService && typeof window.MediaConverterService.extractAudio === 'function') {
+            const res = await window.MediaConverterService.extractAudio(fileOrBlob, 'mp3');
+            if (res && res.blob) {
+              _conAttachmentCounter += 1;
+              const newName = att.name.replace(/\.[^/.]+$/, '') + '-audio.mp3';
+              const newAttId = 'att_' + _conAttachmentCounter;
+              const newAtt = {
+                id: newAttId,
+                name: newName,
+                mime: 'audio/mp3',
+                kind: 'sounds',
+                size: res.blob.size,
+                file: res.blob,
+                relativePath: ''
+              };
+              conAttachments.push(newAtt);
+              if (typeof conRenderAttachmentSummary === 'function') conRenderAttachmentSummary();
+
+              // Spawn companion sound node next to the video node
+              if (node && typeof window.conInsertAttachmentById === 'function') {
+                await window.conInsertAttachmentById(newAttId, {
+                  x: (node.x || 100) + 120,
+                  y: (node.y || 100) + 40,
+                  silent: false
+                });
+              }
+              if (typeof mdbToast === 'function') mdbToast((typeof t === 'function' ? t('conMediaConvertSuccess', 'Media converted successfully') : 'Converted') + ': ' + newName, false);
+            }
+          }
+        } catch (err) {
+          console.error('[Board] Audio extract error:', err);
+          if (typeof mdbToast === 'function') mdbToast('Extraction error: ' + (err.message || ''), true);
+        }
+      };
+
+      window.conCtxOpenInMediaConverter = async function () {
+        const att = conCtxGetActiveNodeMediaAttachment();
+        const path = (typeof window.conResolveAttachmentDiskPath === 'function')
+          ? await window.conResolveAttachmentDiskPath(att)
+          : (att ? (att.path || (att.file && att.file.path) || att.relativePath || att.name || '') : '');
+        if (window.MediaConverterService && typeof window.MediaConverterService.openMediaConverter === 'function') {
+          window.MediaConverterService.openMediaConverter(path);
+        }
+      };
+
+      window.conPagePopupCancel = function () {
+        document.getElementById('con-page-popup').classList.remove('visible');
+      };
+
+      window.conCtxEditWord = function () {
+        const node = conNodes.find(n => n.id === conCtxNodeId);
+        conCtxClose();
+        if (!node) return;
+
+        const el = node.el;
+        const currentText = node.baseWord || el.textContent.trim();
+
+        // Capture actual rendered width before clearing innerHTML
+        const actualWidth = Math.max(el.offsetWidth, Math.ceil(el.getBoundingClientRect().width || 0));
+        const prevStyleWidth = el.style.width;
+        const prevStyleMinWidth = el.style.minWidth;
+
+        // Replace node content with an input
+        const _savedResizer = el.querySelector('.con-node-resizer');
+        const _savedEmojiDot = el.querySelector('.con-emoji-dot');
+        const _savedStarBtn = el.querySelector('.con-node-star-btn');
+        el.innerHTML = '';
+        if (actualWidth > 0) {
+          el.style.width = actualWidth + 'px';
+          el.style.minWidth = actualWidth + 'px';
+        }
+        const inp = document.createElement('input');
+        inp.value = currentText + (node.pageNum != null ? ' ((' + node.pageNum + '))' : '');
+        inp.style.cssText = 'width:100%;box-sizing:border-box;border:none;outline:none;background:transparent;font:inherit;color:inherit;text-align:center;padding:0;min-width:0;';
+        el.appendChild(inp);
+        if (_savedResizer) el.appendChild(_savedResizer);
+        if (_savedEmojiDot) el.appendChild(_savedEmojiDot);
+        if (_savedStarBtn) el.appendChild(_savedStarBtn);
+        inp.focus();
+        inp.select();
+        inp.addEventListener('mousedown', e => e.stopPropagation());
+
+        let committed = false;
+        async function commit() {
+          if (committed) return;
+          committed = true;
+          inp.removeEventListener('blur', commit);
+          const rawText = inp.value.trim() || currentText;
+          el.style.minWidth = prevStyleMinWidth;
+          el.style.width = prevStyleWidth;
+
+          // Check if edited to timer syntax
+          const parsedTimer = conParseTimerSyntax(rawText);
+          if (parsedTimer) {
+            const choice = await conPromptTimerConversion(parsedTimer);
+            if (!choice) {
+              conRenderNodeLabel(node);
+              conRedrawEdges();
+              return;
+            }
+            if (choice === 'timer') {
+              conPushUndo();
+              node.isTimer = true;
+              node.durationSec = parsedTimer.totalSec;
+              node.remainingSec = parsedTimer.totalSec;
+              node.timerState = 'idle';
+              node.timerTarget = null;
+              node.baseWord = conFormatDurationSec(parsedTimer.totalSec);
+              conRenderNodeLabel(node);
+              conRedrawEdges();
+              return;
+            }
+          } else if (node.isTimer) {
+            node.isTimer = false;
+            node.timerState = 'idle';
+            node.timerTarget = null;
+          }
+
+          const entries = rawText.split(',,').map(w => w.trim()).filter(Boolean);
+
+          function parseEntry(entryRaw, fallbackText) {
+            const pageMatch = String(entryRaw || '').match(/\(\(([^)]+)\)\)/);
+            const page = pageMatch ? pageMatch[1].trim() : undefined;
+            const text = String(entryRaw || '').replace(/\s*\(\([^)]+\)\)\s*/, '').trim() || fallbackText;
+            return { text, page };
+          }
+
+          const first = parseEntry(entries[0] || rawText, currentText);
+          const newText = first.text;
+          const newPage = first.page;
+
+          if (entries.length <= 1 && newText === currentText && newPage === undefined) { // no change, just re-render
+            conRenderNodeLabel(node);
+            conRedrawEdges();
+            return;
+          }
+          conPushUndo();
+          // Underscore-separated text → convert to phrase group
+          if (newText.includes('_') && !newText.startsWith('_') && !newText.endsWith('_')) {
+            const phraseWords = newText.split('_').map(w => w.trim()).filter(Boolean);
+            if (phraseWords.length >= 2) {
+              // Re-use this node as the first phrase word (preserves all edges/styling)
+              const firstWord = phraseWords[0];
+              const firstDb = conFindDbEntry(firstWord);
+              node.baseWord = firstWord;
+              node.dbWord = firstDb ? firstDb.word : null;
+              node.phraseOrder = 0;
+              el.className = 'con-node' + (firstDb ? ' con-node-matched' : '');
+              if (newPage !== undefined) node.pageNum = newPage || null;
+              conRenderNodeLabel(node);
+              // Create additional nodes for remaining phrase words
+              const phraseIds = [node.id];
+              for (let i = 1; i < phraseWords.length; i++) {
+                const nid = conAddWordAt(phraseWords[i], node.x + i * 2, node.y + i);
+                const nn = conNodes.find(n => n.id === nid);
+                if (nn) nn.phraseOrder = i;
+                if (nid) phraseIds.push(nid);
+              }
+              const group = conGroupCreate(phraseIds, node.x, node.y, [], [], [], { phraseGroup: true });
+              if (group) requestAnimationFrame(() => conPhraseGroupLayout(group));
+              conRedrawEdges();
+              return;
+            }
+          }
+          const dbMatch = conFindDbEntry(newText);
+          node.baseWord = newText;
+          node.dbWord = dbMatch ? dbMatch.word : null;
+          if (newPage !== undefined) node.pageNum = newPage || null;
+          el.className = 'con-node' + (dbMatch ? ' con-node-matched' : '');
+          conRenderNodeLabel(node);
+          conAddNodeStarBtn(node);
+
+          // Support editing with ",," to create additional nodes from one edit action.
+          if (entries.length > 1) {
+            entries.slice(1).forEach((rawEntry, idx) => {
+              const parsed = parseEntry(rawEntry, '');
+              const text = parsed.text;
+              if (!text) return;
+              const ox = (idx + 1) * 8;
+              const oy = (idx + 1) * 36;
+              if (text.includes('_') && !text.startsWith('_') && !text.endsWith('_')) {
+                const phraseWords = text.split('_').map(w => w.trim()).filter(Boolean);
+                if (phraseWords.length >= 2) {
+                  conCreatePhraseGroup(phraseWords, node.x + ox, node.y + oy);
+                  return;
+                }
+              }
+              conAddWordAt(text, node.x + ox, node.y + oy, parsed.page);
+            });
+          }
+
+          conRedrawEdges();
+        }
+
+        inp.addEventListener('blur', commit);
+        inp.addEventListener('keydown', e => {
+          if (e.key === 'Enter') { inp.blur(); }
+          if (e.key === 'Escape') { inp.value = currentText; inp.blur(); }
+          e.stopPropagation();
+        });
+      };
+
+      window.conCtxToggleLock = function () {
+        const targets = (conMultiSelected.size > 1 && conCtxNodeId && conMultiSelected.has(conCtxNodeId))
+          ? conNodes.filter(n => conMultiSelected.has(n.id))
+          : (conCtxNodeId ? [conNodes.find(n => n.id === conCtxNodeId)].filter(Boolean) : []);
+        if (!targets.length) return;
+        conPushUndo();
+        const shouldLock = targets.some(node => !conIsNodeLocked(node));
+        targets.forEach(node => {
+          node.locked = shouldLock;
+          conSyncNodeLockState(node);
+        });
+        const lockBtn = document.getElementById('con-ctx-lock-btn');
+        if (lockBtn) {
+          lockBtn.innerHTML = shouldLock ? '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">lock</span>' : '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">free</span>';
+          lockBtn.title = shouldLock ? 'Unlock node position and size' : 'Lock node position and size';
+        }
+      };
+
+      function conCtxCloseArrangeMenus() {
+        ['align', 'distribute'].forEach(kind => {
+          const menu = document.getElementById('con-ctx-' + kind + '-menu');
+          const toggle = document.getElementById('con-ctx-' + kind + '-toggle');
+          if (menu) menu.classList.remove('visible');
+          if (toggle) toggle.classList.remove('active');
+        });
+      }
+
+      window.conCtxToggleArrangeMenu = function (kind, event) {
+        if (event) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        if (conMultiSelected.size < 2) return;
+        const menu = document.getElementById('con-ctx-' + kind + '-menu');
+        const toggle = document.getElementById('con-ctx-' + kind + '-toggle');
+        if (!menu || !toggle) return;
+        const willOpen = !menu.classList.contains('visible');
+        conCtxCloseArrangeMenus();
+        if (willOpen) {
+          menu.classList.add('visible');
+          toggle.classList.add('active');
+        }
+      };
+
+      window.conCtxClose = function () {
+        conCtxNodeId = null;
+        window.conCtxNodeId = global.conCtxNodeId = null;
+        _conApplySizeUndoPushed = false;
+        conCtxCloseArrangeMenus();
+        const caseDd = document.getElementById('con-ctx-case-dropdown');
+        if (caseDd) caseDd.style.display = 'none';
+        const splitDd = document.getElementById('con-ctx-split-dropdown');
+        if (splitDd) splitDd.style.display = 'none';
+        const menu = document.getElementById('con-ctx-menu');
+        if (menu) {
+          menu.classList.remove('visible');
+          menu.style.maxHeight = '';
+        }
+      };
+
+      // ---- Edge context menu (right-click on a link/arrow) ----
+      let _conEdgeCtxId = null;
+      let _conEdgeCtxOriginal = null;
+
+      function conEdgeCtxCapture(edge) {
+        if (!edge) return null;
+        return {
+          label: edge.label || '',
+          labelSize: Number(edge.labelSize) || (window.conGetDefaultWordFontSize ? window.conGetDefaultWordFontSize() : 16),
+          labelColor: edge.labelColor || '#333333',
+          colorMode: edge.colorMode || 'auto',
+          strokeColor: edge.strokeColor || null,
+          labelWeight: Number(edge.labelWeight) || 600,
+          thickness: Number.isFinite(edge.thickness) && edge.thickness > 0
+            ? edge.thickness
+            : (window._conDefaultLinkThickness > 0 ? window._conDefaultLinkThickness : 2),
+          strokeType: edge.strokeType || (edge.dashStyle === 'dashed' ? 'dashed' : (edge.dashStyle === 'dotted' ? 'dotted' : 'solid')),
+          routing: edge.routing || 'straight',
+          type: edge.type || 'none',
+          terminator: edge.terminator || 'arrow',
+          opacity: (typeof edge.opacity === 'number') ? edge.opacity : 1,
+          animated: !!edge.animated,
+          labelBg: !!edge.labelBgActive,
+          curvature: (typeof edge.curvature === 'number') ? edge.curvature : 0
+        };
+      }
+
+      function conEdgeCtxApplySnapshot(edge, snap) {
+        if (!edge || !snap) return;
+        edge.label = String(snap.label || '');
+        edge.labelSize = Number(snap.labelSize) || edge.labelSize || 16;
+        edge.labelColor = String(snap.labelColor || edge.labelColor || '#333333');
+        if (snap.colorMode !== undefined) edge.colorMode = snap.colorMode;
+        if (snap.strokeColor !== undefined) edge.strokeColor = snap.strokeColor;
+        edge.labelWeight = Number(snap.labelWeight) || edge.labelWeight || 600;
+        const t = Math.max(1, Math.min(20, parseFloat(snap.thickness) || 2));
+        edge.thickness = t;
+        edge.strokeType = snap.strokeType || 'solid';
+        edge.dashStyle = (edge.strokeType === 'dashed') ? 'dashed' : (edge.strokeType === 'dotted' ? 'dotted' : null);
+        edge.routing = snap.routing || 'straight';
+        edge.type = snap.type || edge.type || 'none';
+        edge.terminator = snap.terminator || 'arrow';
+        edge.opacity = (typeof snap.opacity === 'number') ? snap.opacity : 1;
+        edge.animated = !!snap.animated;
+        edge.labelBgActive = !!snap.labelBg;
+        if (typeof snap.curvature === 'number') edge.curvature = snap.curvature;
+
+        if (edge.line) edge.line.style.strokeWidth = String(t);
+        if (edge.hit) edge.hit.style.strokeWidth = String(Math.max(16, t + 10));
+        conApplyEdgeLabelStyle(edge);
+        if (edge.labelEl) edge.labelEl.textContent = edge.label;
+        conUpdateEdge(edge);
+      }
+
+      function conEdgeCtxReadForm() {
+        const input = document.getElementById('con-edge-ctx-input');
+        const sizeInput = document.getElementById('con-edge-ctx-size');
+        const colorText = document.getElementById('con-edge-ctx-color-text');
+        const thicknessInput = document.getElementById('con-edge-ctx-thickness');
+        const opacityInput = document.getElementById('con-edge-ctx-opacity');
+        const labelBgInput = document.getElementById('con-edge-ctx-label-bg');
+        const animatedInput = document.getElementById('con-edge-ctx-animated');
+        const terminatorSelect = document.getElementById('con-edge-ctx-terminator');
+
+        const strokeBtn = document.querySelector('#con-edge-ctx-stroke-group .con-edge-ctx-btn.active');
+        const routingBtn = document.querySelector('#con-edge-ctx-routing-group .con-edge-ctx-btn.active');
+        const dirBtn = document.querySelector('#con-edge-ctx-dir-group .con-edge-ctx-btn.active');
+
+        const colorRaw = colorText ? colorText.value.trim() : '';
+        const color = /^#[0-9a-fA-F]{6}$/.test(colorRaw) ? colorRaw : '#333333';
+        const opVal = opacityInput ? (parseInt(opacityInput.value, 10) / 100) : 1;
+
+        const activeEdge = _conEdgeCtxId ? conEdges.find(e => e && e.id == _conEdgeCtxId) : null;
+        const isAuto = (window._conEdgeCtxColorMode === 'auto');
+
+        return {
+          label: input ? input.value.trim() : '',
+          labelSize: sizeInput ? (conFontUnitToPx(sizeInput.value, window.conFontUnit) || 16) : 16,
+          labelColor: isAuto ? '#333333' : color,
+          colorMode: isAuto ? 'auto' : 'manual',
+          strokeColor: isAuto ? null : color,
+          thickness: thicknessInput ? Math.max(0.2, Math.min(60, conThicknessUnitToPx(thicknessInput.value, window.conThicknessUnit) || 2)) : 2,
+          strokeType: strokeBtn ? strokeBtn.dataset.stroke : 'solid',
+          routing: routingBtn ? routingBtn.dataset.routing : 'straight',
+          type: dirBtn ? dirBtn.dataset.dir : 'forward',
+          terminator: terminatorSelect ? terminatorSelect.value : 'arrow',
+          opacity: Math.max(0.1, Math.min(1, opVal)),
+          animated: animatedInput ? !!animatedInput.checked : false,
+          labelBg: labelBgInput ? !!labelBgInput.checked : false,
+          curvature: (activeEdge && typeof activeEdge.curvature === 'number') ? activeEdge.curvature : 30
+        };
+      }
+
+      function conEdgeCtxApplyLive() {
+        if (!_conEdgeCtxId) return;
+        const edge = conEdges.find(e => e && e.id == _conEdgeCtxId);
+        if (!edge) return;
+        const snap = conEdgeCtxReadForm();
+        conEdgeCtxApplySnapshot(edge, snap);
+        if (typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({
+            type: 'edge-update',
+            edge: {
+              id: edge.id,
+              a: edge.a,
+              b: edge.b,
+              type: edge.type,
+              label: edge.label,
+              labelSize: edge.labelSize,
+              labelColor: edge.labelColor,
+              labelWeight: edge.labelWeight,
+              thickness: edge.thickness,
+              dashStyle: edge.dashStyle,
+              strokeType: edge.strokeType,
+              routing: edge.routing,
+              curvature: edge.curvature,
+              opacity: edge.opacity,
+              terminator: edge.terminator,
+              animated: edge.animated,
+              labelBg: edge.labelBgActive,
+              anchorA: edge.anchorA,
+              anchorB: edge.anchorB,
+              colorMode: edge.colorMode,
+              strokeColor: edge.strokeColor
+            }
+          });
+        }
+      }
+      window.conEdgeCtxApplyLive = conEdgeCtxApplyLive;
+      window.conEdgeCtxReadForm = conEdgeCtxReadForm;
+      window.conEdgeCtxApplySnapshot = conEdgeCtxApplySnapshot;
+      window.conEdgeCtxCapture = conEdgeCtxCapture;
+
+      function conEdgeCtxSetPreset(text) {
+        const inp = document.getElementById('con-edge-ctx-input');
+        if (inp) {
+          inp.value = text;
+          conEdgeCtxApplyLive();
+        }
+      }
+      window.conEdgeCtxSetPreset = conEdgeCtxSetPreset;
+
+      function conEdgeCtxSetStroke(stroke) {
+        const group = document.getElementById('con-edge-ctx-stroke-group');
+        if (group) {
+          group.querySelectorAll('.con-edge-ctx-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.stroke === stroke);
+          });
+        }
+        conEdgeCtxApplyLive();
+      }
+      window.conEdgeCtxSetStroke = conEdgeCtxSetStroke;
+
+      function conEdgeCtxSetRouting(routing) {
+        const group = document.getElementById('con-edge-ctx-routing-group');
+        if (group) {
+          group.querySelectorAll('.con-edge-ctx-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.routing === routing);
+          });
+        }
+        conEdgeCtxApplyLive();
+      }
+      window.conEdgeCtxSetRouting = conEdgeCtxSetRouting;
+
+      function conEdgeCtxSetAutoColor() {
+        window._conEdgeCtxColorMode = 'auto';
+        const autoBtn = document.getElementById('con-edge-ctx-auto-color-btn');
+        if (autoBtn) autoBtn.classList.add('active');
+        const swatchWrap = document.getElementById('con-edge-ctx-swatches');
+        if (swatchWrap) swatchWrap.querySelectorAll('.con-edge-swatch').forEach(x => x.classList.remove('active'));
+        conEdgeCtxApplyLive();
+      }
+      window.conEdgeCtxSetAutoColor = conEdgeCtxSetAutoColor;
+
+      function conEdgeCtxSetDir(dir) {
+        const group = document.getElementById('con-edge-ctx-dir-group');
+        if (group) {
+          group.querySelectorAll('.con-edge-ctx-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.dir === dir);
+          });
+        }
+        conEdgeCtxApplyLive();
+      }
+      window.conEdgeCtxSetDir = conEdgeCtxSetDir;
+
+      function conEdgeCtxOpen(e, edgeId) {
+        if (typeof window.conDeselectAll === 'function') {
+          window.conDeselectAll();
+        } else if (typeof conSelect === 'function') {
+          conSelect(null);
+        }
+        _conEdgeCtxId = edgeId;
+        window._conSelectedEdgeId = edgeId;
+        if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
+        const menu = document.getElementById('con-edge-ctx-menu');
+        if (!menu) return;
+        const edge = conEdges.find(ed => ed && ed.id == edgeId);
+        _conEdgeCtxOriginal = conEdgeCtxCapture(edge);
+        window._conEdgeCtxColorMode = (edge && edge.colorMode) ? edge.colorMode : 'auto';
+        const autoColorBtn = document.getElementById('con-edge-ctx-auto-color-btn');
+        if (autoColorBtn) autoColorBtn.classList.toggle('active', window._conEdgeCtxColorMode === 'auto');
+        const input = document.getElementById('con-edge-ctx-input');
+        const sizeInput = document.getElementById('con-edge-ctx-size');
+        const sizeVal = document.getElementById('con-edge-ctx-size-val');
+        const colorInput = document.getElementById('con-edge-ctx-color');
+        const colorText = document.getElementById('con-edge-ctx-color-text');
+        const thicknessInput = document.getElementById('con-edge-ctx-thickness');
+        const opacityInput = document.getElementById('con-edge-ctx-opacity');
+        const opacityVal = document.getElementById('con-edge-ctx-opacity-val');
+        const labelBgInput = document.getElementById('con-edge-ctx-label-bg');
+        const animatedInput = document.getElementById('con-edge-ctx-animated');
+        const terminatorSelect = document.getElementById('con-edge-ctx-terminator');
+
+        if (input) input.value = edge ? (edge.label || '') : '';
+        const style = conNormalizeEdgeLabelStyle(edge || {});
+        if (sizeInput) {
+          _conSetupFontSizeSlider(sizeInput, window.conFontUnit);
+          const uSize = conPxToFontUnit(style.size || 16, window.conFontUnit);
+          sizeInput.value = String(uSize);
+        }
+        if (sizeVal) sizeVal.textContent = conPxToFontUnit(style.size || 16, window.conFontUnit) + ' ' + window.conFontUnit;
+        if (colorInput) colorInput.value = style.color;
+        if (colorText) colorText.value = style.color.toUpperCase();
+        if (thicknessInput) {
+          _conSetupThicknessSlider(thicknessInput, window.conThicknessUnit, 'edge');
+          const rawPxThick = Number.isFinite(edge && edge.thickness) && edge.thickness > 0 ? edge.thickness : (window._conDefaultLinkThickness > 0 ? window._conDefaultLinkThickness : 2);
+          thicknessInput.value = String(conPxToThicknessUnit(rawPxThick, window.conThicknessUnit));
+        }
+        _conSyncUnitToggleButtons();
+
+        const opPercent = Math.round(((edge && typeof edge.opacity === 'number') ? edge.opacity : 1) * 100);
+        if (opacityInput) opacityInput.value = String(opPercent);
+        if (opacityVal) opacityVal.textContent = opPercent + '%';
+
+        if (labelBgInput) labelBgInput.checked = !!(edge && edge.labelBgActive);
+        if (animatedInput) animatedInput.checked = !!(edge && edge.animated);
+
+        const excerptsRow = document.getElementById('con-edge-ctx-excerpts-row');
+        if (excerptsRow) {
+          excerptsRow.style.display = (edge && edge.excerpts && edge.excerpts.length > 0) ? 'block' : 'none';
+        }
+
+        const currentStroke = (edge && (edge.strokeType || (edge.dashStyle === 'dashed' ? 'dashed' : (edge.dashStyle === 'dotted' ? 'dotted' : 'solid')))) || 'solid';
+        const strokeGroup = document.getElementById('con-edge-ctx-stroke-group');
+        if (strokeGroup) {
+          strokeGroup.querySelectorAll('.con-edge-ctx-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.stroke === currentStroke);
+          });
+        }
+
+        const currentRouting = (edge && edge.routing) || 'straight';
+        const routingGroup = document.getElementById('con-edge-ctx-routing-group');
+        if (routingGroup) {
+          routingGroup.querySelectorAll('.con-edge-ctx-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.routing === currentRouting);
+          });
+        }
+
+        const currentDir = (edge && edge.type) || 'none';
+        const dirGroup = document.getElementById('con-edge-ctx-dir-group');
+        if (dirGroup) {
+          dirGroup.querySelectorAll('.con-edge-ctx-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.dir === currentDir);
+          });
+        }
+
+        if (terminatorSelect) {
+          terminatorSelect.value = (edge && edge.terminator) || 'arrow';
+        }
+
+        if (input) {
+          input.oninput = function () { conEdgeCtxApplyLive(); };
+        }
+        if (sizeInput) {
+          sizeInput.oninput = function () {
+            if (sizeVal) sizeVal.textContent = this.value + ' ' + window.conFontUnit;
+            conEdgeCtxApplyLive();
+          };
+        }
+        if (colorInput && colorText) {
+          colorInput.oninput = function () {
+            window._conEdgeCtxColorMode = 'manual';
+            const autoBtn = document.getElementById('con-edge-ctx-auto-color-btn');
+            if (autoBtn) autoBtn.classList.remove('active');
+            colorText.value = this.value.toUpperCase();
+            conEdgeCtxApplyLive();
+          };
+          colorText.oninput = function () {
+            if (/^#[0-9a-fA-F]{6}$/.test(this.value)) {
+              window._conEdgeCtxColorMode = 'manual';
+              const autoBtn = document.getElementById('con-edge-ctx-auto-color-btn');
+              if (autoBtn) autoBtn.classList.remove('active');
+              colorInput.value = this.value;
+              conEdgeCtxApplyLive();
+            }
+          };
+        }
+        if (thicknessInput) {
+          thicknessInput.oninput = function () { conEdgeCtxApplyLive(); };
+          thicknessInput.onchange = function () { conEdgeCtxApplyLive(); };
+        }
+        if (opacityInput) {
+          opacityInput.oninput = function () {
+            if (opacityVal) opacityVal.textContent = this.value + '%';
+            conEdgeCtxApplyLive();
+          };
+        }
+        if (labelBgInput) {
+          labelBgInput.onchange = function () { conEdgeCtxApplyLive(); };
+        }
+        if (animatedInput) {
+          animatedInput.onchange = function () { conEdgeCtxApplyLive(); };
+        }
+        if (terminatorSelect) {
+          terminatorSelect.onchange = function () { conEdgeCtxApplyLive(); };
+        }
+
+        // Build / refresh colour swatches with wrapping palette
+        const swatchWrap = document.getElementById('con-edge-ctx-swatches');
+        if (swatchWrap) {
+          const colorList = (typeof CON_MASK_COLORS !== 'undefined' && Array.isArray(CON_MASK_COLORS))
+            ? CON_MASK_COLORS
+            : ['#111111', '#444444', '#888888', '#bbbbbb', '#ffffff', '#e53935', '#f4511e', '#fb8c00', '#fdd835', '#c0ca33', '#43a047', '#00897b', '#1e88e5', '#3949ab', '#8e24aa', '#d81b60', '#6d4c41', '#00acc1', '#546e7a', '#f06292'];
+
+          if (!swatchWrap.children.length) {
+            colorList.forEach(c => {
+              const s = document.createElement('span');
+              s.dataset.color = c;
+              s.className = 'con-edge-swatch';
+              s.style.background = c;
+              if (c === '#ffffff') s.style.boxShadow = 'inset 0 0 0 1.5px #ccc';
+              s.onclick = () => {
+                window._conEdgeCtxColorMode = 'manual';
+                const autoBtn = document.getElementById('con-edge-ctx-auto-color-btn');
+                if (autoBtn) autoBtn.classList.remove('active');
+                if (colorInput) colorInput.value = c;
+                if (colorText) colorText.value = c.toUpperCase();
+                swatchWrap.querySelectorAll('.con-edge-swatch').forEach(x => x.classList.remove('active'));
+                s.classList.add('active');
+                conEdgeCtxApplyLive();
+              };
+              swatchWrap.appendChild(s);
+            });
+          }
+          const cur = style.color.toLowerCase();
+          swatchWrap.querySelectorAll('.con-edge-swatch').forEach(s => {
+            s.classList.toggle('active', s.dataset.color.toLowerCase() === cur);
+          });
+        }
+
+        // Position and clamp context menu inside viewport bounds
+        menu.classList.add('visible');
+        const margin = 8;
+        menu.style.maxHeight = Math.max(160, window.innerHeight - 2 * margin) + 'px';
+        menu.style.maxWidth = Math.max(200, window.innerWidth - 2 * margin) + 'px';
+        menu.style.overflowY = 'auto';
+        menu.style.overflowX = 'hidden';
+
+        const mw = menu.offsetWidth || 256;
+        const mh = menu.offsetHeight || 380;
+        const clientX = (e && typeof e.clientX === 'number') ? e.clientX : (window.innerWidth / 2);
+        const clientY = (e && typeof e.clientY === 'number') ? e.clientY : (window.innerHeight / 2);
+        let mx = clientX + 6;
+        let my = clientY + 6;
+
+        // If menu extends beyond right edge, flip to left of cursor
+        if (mx + mw > window.innerWidth - margin) {
+          mx = clientX - mw - 6;
+        }
+        // If menu extends beyond bottom edge, flip above cursor
+        if (my + mh > window.innerHeight - margin) {
+          my = clientY - mh - 6;
+        }
+        // Clamp strictly within viewport margins
+        const maxX = Math.max(margin, window.innerWidth - mw - margin);
+        const maxY = Math.max(margin, window.innerHeight - mh - margin);
+        mx = Math.max(margin, Math.min(maxX, mx));
+        my = Math.max(margin, Math.min(maxY, my));
+
+        menu.style.left = Math.round(mx) + 'px';
+        menu.style.top = Math.round(my) + 'px';
+        menu.style.maxHeight = Math.max(160, window.innerHeight - my - margin) + 'px';
+
+        if (input) setTimeout(() => { input.focus(); input.select(); }, 50);
+      }
+      window.conEdgeCtxOpen = conEdgeCtxOpen;
+
+      function conEdgeCtxClose(applyChanges) {
+        const shouldApply = (applyChanges !== false);
+        const edge = _conEdgeCtxId ? conEdges.find(e => e && e.id == _conEdgeCtxId) : null;
+        if (edge && _conEdgeCtxOriginal) {
+          if (shouldApply) {
+            const current = conEdgeCtxCapture(edge);
+            const changed = JSON.stringify(current) !== JSON.stringify(_conEdgeCtxOriginal);
+            if (changed) {
+              conEdgeCtxApplySnapshot(edge, _conEdgeCtxOriginal);
+              conPushUndo();
+              conEdgeCtxApplySnapshot(edge, current);
+            }
+          } else {
+            conEdgeCtxApplySnapshot(edge, _conEdgeCtxOriginal);
+          }
+        }
+        _conEdgeCtxId = null;
+        _conEdgeCtxOriginal = null;
+        window._conSelectedEdgeId = null;
+        if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
+        const menu = document.getElementById('con-edge-ctx-menu');
+        if (menu) {
+          menu.classList.remove('visible');
+          menu.style.maxHeight = '';
+        }
+        conRedrawEdges();
+      }
+      window.conEdgeCtxClose = conEdgeCtxClose;
+
+      function conEdgeCtxSave() {
+        if (!_conEdgeCtxId) { conEdgeCtxClose(false); return; }
+        conEdgeCtxApplyLive();
+        conEdgeCtxClose(true);
+      }
+      window.conEdgeCtxSave = conEdgeCtxSave;
+
+      function conEdgeCtxDelete() {
+        if (!_conEdgeCtxId) { conEdgeCtxClose(false); return; }
+        conPushUndo();
+        const eid = _conEdgeCtxId;
+        conEdgeCtxClose(false);
+        conRemoveEdge(eid);
+      }
+      window.conEdgeCtxDelete = conEdgeCtxDelete;
+
+      let _boardMenuLocked = false; // prevents immediate dismissal by in-flight click
+
+      function conPlaceBoardCtxMenu(menuEl, anchorX, anchorY, opts) {
+        if (!menuEl) return;
+        const cfg = opts || {};
+        const margin = Number.isFinite(cfg.margin) ? cfg.margin : 8;
+        const offX = Number.isFinite(cfg.offsetX) ? cfg.offsetX : 6;
+        const offY = Number.isFinite(cfg.offsetY) ? cfg.offsetY : 6;
+
+        menuEl.style.maxHeight = Math.max(160, window.innerHeight - 2 * margin) + 'px';
+        menuEl.style.maxWidth = Math.max(200, window.innerWidth - 2 * margin) + 'px';
+        menuEl.style.overflowY = 'auto';
+        menuEl.style.overflowX = 'hidden';
+
+        const mw = menuEl.offsetWidth || 320;
+        const mh = menuEl.offsetHeight || 240;
+
+        let mx = anchorX + offX;
+        let my = anchorY + offY;
+
+        if (mx + mw > window.innerWidth - margin) mx = anchorX - mw - offX;
+        if (my + mh > window.innerHeight - margin) my = anchorY - mh - offY;
+
+        const maxX = Math.max(margin, window.innerWidth - mw - margin);
+        const maxY = Math.max(margin, window.innerHeight - mh - margin);
+        mx = Math.max(margin, Math.min(maxX, mx));
+        my = Math.max(margin, Math.min(maxY, my));
+
+        menuEl.style.left = Math.round(mx) + 'px';
+        menuEl.style.top = Math.round(my) + 'px';
+        menuEl.style.maxHeight = Math.max(160, window.innerHeight - my - margin) + 'px';
+      }
+
+      // Start canvas link mode from context menu
+      window.conCtxStartLinkMode = function () {
+        const srcId = conCtxNodeId || (window.conGetCtxNodeId ? window.conGetCtxNodeId() : (window.conGetSelected ? window.conGetSelected() : null));
+        if (srcId) {
+          if (typeof _conStartLinkMode === 'function') _conStartLinkMode(srcId);
+          else if (typeof window._conStartLinkMode === 'function') window._conStartLinkMode(srcId);
+        }
+        conCtxClose();
+      };
+
+      // Add a new word connected to the current context node — reuses the board popup
+      window.conCtxAddConnectedWord = function (arrowType) {
+        _pendingConnectType = arrowType || 'none';
+        const srcId = conCtxNodeId || (window.conGetCtxNodeId ? window.conGetCtxNodeId() : (window.conGetSelected ? window.conGetSelected() : null));
+        const srcNode = conNodes.find(n => n.id === srcId);
+        if (!srcNode) { conCtxClose(); return; }
+
+        // Position the popup near (but offset from) the source node
+        const brd = board();
+        const brdRect = brd.getBoundingClientRect();
+        _boardCtxX = srcNode.x + (srcNode.el.offsetWidth || 80) + 30;
+        _boardCtxY = srcNode.y;
+        _pendingConnectSrcId = srcId;
+
+        // Update popup title to hint it will be connected
+        const title = document.querySelector('#con-board-ctx-menu .con-ctx-title');
+        if (title) title.textContent = `Connect to "${srcNode.baseWord || srcNode.el.textContent.trim()}"`;
+
+        // Show popup near the source node (adjusting for board scroll)
+        const bmenu = document.getElementById('con-board-ctx-menu');
+        const nodeScreenX = brdRect.left + srcNode.x - (brd.scrollLeft || 0) + (srcNode.el.offsetWidth || 80) + 10;
+        const nodeScreenY = brdRect.top + srcNode.y - (brd.scrollTop || 0);
+
+        conCtxClose();
+
+        // Lock against immediate dismissal, then show menu
+        _boardMenuLocked = true;
+        setTimeout(() => {
+          bmenu.classList.add('visible');
+          if (window.conSyncBoardCtxLayoutUi) window.conSyncBoardCtxLayoutUi(true);
+          conPlaceBoardCtxMenu(bmenu, nodeScreenX, nodeScreenY, { offsetX: 6, offsetY: 6, margin: 8 });
+          const inp = document.getElementById('con-board-ctx-input');
+          if (inp) { inp.value = ''; inp.focus(); }
+          setTimeout(() => { _boardMenuLocked = false; }, 50);
+        }, 20);
+      };
+
+      // ================================================================
+      // CONSTELLATION TIMER NODES
+      // ================================================================
+
+      let _conActiveTimerPopoverNodeId = null;
+      let _conTimerEngineInterval = null;
+
+      function conFormatDurationSec(totalSec) {
+        const s = Math.max(0, Math.round(Number(totalSec) || 0));
+        const h = Math.floor(s / 3600);
+        const m = Math.floor((s % 3600) / 60);
+        const remS = s % 60;
+        if (h > 0) {
+          return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(remS).padStart(2, '0');
+        }
+        return String(m).padStart(2, '0') + ':' + String(remS).padStart(2, '0');
+      }
+      window.conFormatDurationSec = conFormatDurationSec;
+
+      function conParseTimerSyntax(text) {
+        if (!text || typeof text !== 'string') return null;
+        const raw = text.trim();
+        // 1. Minutes + Seconds e.g. 15'30", 15'30, 15’30”, 15’30
+        const mAndS = raw.match(/^(\d+)\s*['’]\s*(\d{1,2})\s*["”]?$/);
+        if (mAndS) {
+          const min = parseInt(mAndS[1], 10);
+          const sec = parseInt(mAndS[2], 10);
+          if (min > 0 || sec > 0) {
+            const totalSec = min * 60 + sec;
+            return {
+              totalSec,
+              min,
+              sec,
+              displayDuration: conFormatDurationSec(totalSec),
+              raw
+            };
+          }
+        }
+        // 2. Minutes only e.g. 15', 5', 120'
+        const mOnly = raw.match(/^(\d+)\s*['’]$/);
+        if (mOnly) {
+          const min = parseInt(mOnly[1], 10);
+          if (min > 0) {
+            const totalSec = min * 60;
+            return {
+              totalSec,
+              min,
+              sec: 0,
+              displayDuration: conFormatDurationSec(totalSec),
+              raw
+            };
+          }
+        }
+        // 3. Seconds only e.g. 45", 30”, 90"
+        const sOnly = raw.match(/^(\d+)\s*["”]$/);
+        if (sOnly) {
+          const sec = parseInt(sOnly[1], 10);
+          if (sec > 0) {
+            return {
+              totalSec: sec,
+              min: Math.floor(sec / 60),
+              sec: sec % 60,
+              displayDuration: conFormatDurationSec(sec),
+              raw
+            };
+          }
+        }
+        return null;
+      }
+      window.conParseTimerSyntax = conParseTimerSyntax;
+
+      function conPromptTimerConversion(parsedTimer) {
+        return new Promise(resolve => {
+          const modal = document.getElementById('con-timer-convert-modal');
+          if (!modal) { resolve('timer'); return; }
+          const titleEl = document.getElementById('con-timer-convert-title');
+          const msgEl = document.getElementById('con-timer-convert-msg');
+          const createBtn = document.getElementById('con-timer-convert-create-btn');
+          const textBtn = document.getElementById('con-timer-convert-text-btn');
+          const cancelBtn = document.getElementById('con-timer-convert-cancel-btn');
+          const createLabel = document.getElementById('con-timer-convert-create-label');
+          const textLabel = document.getElementById('con-timer-convert-text-label');
+          const cancelLabel = document.getElementById('con-timer-convert-cancel-label');
+
+          if (titleEl && typeof i18n !== 'undefined') titleEl.textContent = i18n.t('timerNodeConvertTitle') || 'Timer Node';
+          if (msgEl && typeof i18n !== 'undefined') {
+            const tmpl = i18n.t('timerNodeConvertPrompt') || 'Convert "{text}" into a timer node ({duration})?';
+            msgEl.textContent = tmpl.replace('{text}', parsedTimer.raw).replace('{duration}', parsedTimer.displayDuration);
+          }
+          if (createLabel && typeof i18n !== 'undefined') createLabel.textContent = i18n.t('timerNodeCreateBtn') || 'Create Timer';
+          if (textLabel && typeof i18n !== 'undefined') textLabel.textContent = i18n.t('timerNodeKeepTextBtn') || 'Keep as Text';
+          if (cancelLabel && typeof i18n !== 'undefined') cancelLabel.textContent = i18n.t('btnCancel') || 'Cancel';
+
+          function cleanup(choice) {
+            modal.style.display = 'none';
+            document.removeEventListener('keydown', onKey);
+            createBtn.onclick = null;
+            textBtn.onclick = null;
+            cancelBtn.onclick = null;
+            window.conTimerConvertModalCancel = null;
+            resolve(choice);
+          }
+
+          function onKey(e) {
+            if (e.key === 'Enter') { e.preventDefault(); cleanup('timer'); }
+            else if (e.key === 'Escape') { e.preventDefault(); cleanup(null); }
+          }
+
+          createBtn.onclick = () => cleanup('timer');
+          textBtn.onclick = () => cleanup('text');
+          cancelBtn.onclick = () => cleanup(null);
+          window.conTimerConvertModalCancel = () => cleanup(null);
+          document.addEventListener('keydown', onKey);
+
+          modal.style.display = 'flex';
+          createBtn.focus();
+        });
+      }
+      window.conPromptTimerConversion = conPromptTimerConversion;
+
+      function conAddTimerNodeAt(totalSec, x, y, pageNum) {
+        const formatted = conFormatDurationSec(totalSec);
+        const id = conAddWordAt(formatted, x, y, pageNum);
+        const node = conNodes.find(n => n.id === id);
+        if (node) {
+          node.isTimer = true;
+          node.durationSec = totalSec;
+          node.remainingSec = totalSec;
+          node.timerState = 'idle';
+          node.timerTarget = null;
+          node.baseWord = formatted;
+          conRenderNodeLabel(node);
+          conRedrawEdges();
+        }
+        return id;
+      }
+      window.conAddTimerNodeAt = conAddTimerNodeAt;
+
+      // ═══════════════════════════════════════════════════════
+      // RANDOM NUMBER NODE  —  =random(a,b)
+      // ═══════════════════════════════════════════════════════
+
+      /**
+       * Parse "=random(a,b)" (or "=random( a , b )") from the ctx input.
+       * Supports integers and decimals; min/max are auto-sorted so order doesn't matter.
+       * Returns { min, max } or null if not matched.
+       */
+      function conParseRandomSyntax(text) {
+        if (!text || typeof text !== 'string') return null;
+        const m = text.trim().match(/^=random\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$/i);
+        if (!m) return null;
+        const a = parseFloat(m[1]);
+        const b = parseFloat(m[2]);
+        if (!isFinite(a) || !isFinite(b)) return null;
+        return { min: Math.min(a, b), max: Math.max(a, b) };
+      }
+      window.conParseRandomSyntax = conParseRandomSyntax;
+
+      /**
+       * Create a Random Number node at (x, y) with range [min, max].
+       * Immediately rolls a value and renders the node with the dice display.
+       */
+      function conAddRandomNodeAt(min, max, x, y, pageNum) {
+        const rolled = Math.round(Math.random() * (max - min)) + Math.ceil(min);
+        const id = conAddWordAt(String(rolled), x, y, pageNum);
+        const node = conNodes.find(n => n.id === id);
+        if (node) {
+          node.isRandom = true;
+          node.randomMin = min;
+          node.randomMax = max;
+          node.randomValue = rolled;
+          node.baseWord = '=random(' + min + ',' + max + ')';
+          conRenderNodeLabel(node);
+          conRedrawEdges();
+        }
+        return id;
+      }
+      window.conAddRandomNodeAt = conAddRandomNodeAt;
+
+      /**
+       * In-place update of a random node's displayed value.
+       * Mutates only the .con-random-digits text + triggers the dice spin CSS animation.
+       * No innerHTML rebuild.
+       */
+      function conUpdateRandomNodeDisplay(node) {
+        if (!node || !node.isRandom) return;
+        if (!node.el || !node.el.parentNode) {
+          node.el = document.getElementById(node.id);
+          if (!node.el) return;
+        }
+        const digits = node.el.querySelector('.con-random-digits');
+        if (digits) {
+          digits.textContent = String(node.randomValue);
+          // Trigger the CSS dice-spin animation (GPU-composited transform only)
+          node.el.classList.remove('con-random-rolling');
+          void node.el.offsetWidth; // force reflow to restart animation
+          node.el.classList.add('con-random-rolling');
+          setTimeout(() => { if (node.el) node.el.classList.remove('con-random-rolling'); }, 360);
+        } else {
+          conRenderNodeLabel(node);
+        }
+      }
+      window.conUpdateRandomNodeDisplay = conUpdateRandomNodeDisplay;
+
+      /**
+       * Roll the random node: pick a new integer in [randomMin, randomMax],
+       * update in-place, and broadcast a micro-message to the mirror window.
+       */
+      function conRollRandomNode(nodeId) {
+        const node = conNodes.find(n => n.id === nodeId);
+        if (!node || !node.isRandom) return;
+        node.randomValue = Math.round(Math.random() * (node.randomMax - node.randomMin)) + Math.ceil(node.randomMin);
+        conUpdateRandomNodeDisplay(node);
+        if (window._conMirrorSend) {
+          window._conMirrorSend({
+            type: 'node-random-roll',
+            id: String(node.id),
+            value: node.randomValue
+          });
+        }
+      }
+      window.conRollRandomNode = conRollRandomNode;
+
+      // --- Random Node Popover (right-click / long-press: set range) ---
+      var _conActiveRandomPopoverNodeId = null;
+
+      function conOpenRandomPopover(node) {
+        const popover = document.getElementById('con-random-action-popover');
+        if (!popover || !node || !node.el) return;
+        _conActiveRandomPopoverNodeId = node.id;
+        const rect = node.el.getBoundingClientRect();
+
+        const titleEl = document.getElementById('con-random-popover-title');
+        const bodyEl  = document.getElementById('con-random-popover-actions');
+
+        if (titleEl && typeof i18n !== 'undefined') {
+          titleEl.textContent = i18n.t('randomNodeTitle') || 'Random Number Node';
+        }
+
+        if (bodyEl && typeof i18n !== 'undefined') {
+          const rangeLabel = (i18n.t('randomNodeRange') || 'Range: {min} \u2013 {max}')
+            .replace('{min}', node.randomMin)
+            .replace('{max}', node.randomMax);
+          bodyEl.innerHTML = `
+            <button type="button" class="con-timer-action-btn" onclick="conRollRandomNode('${node.id}');conCloseRandomPopover();">
+              <img src="../assets/icons/dice.svg" class="btn-icon" alt="" />
+              <span>${i18n.t('randomNodeRoll') || 'Roll'}</span>
+            </button>
+            <div style="font-size:0.72rem;color:#888;padding:2px 4px;">${rangeLabel}</div>
+            <button type="button" class="con-timer-action-btn" onclick="conRandomNodeSetRange('${node.id}');conCloseRandomPopover();">
+              <img src="../assets/icons/edit.svg" class="btn-icon" alt="" />
+              <span>${i18n.t('randomNodeSetRange') || 'Set range\u2026'}</span>
+            </button>
+          `;
+        }
+
+        popover.style.display = 'flex';
+        const popW = popover.offsetWidth || 200;
+        const popH = popover.offsetHeight || 120;
+        let px = rect.left + rect.width / 2 - popW / 2;
+        let py = rect.top - popH - 8;
+        if (py < 10) py = rect.bottom + 8;
+        px = Math.max(10, Math.min(window.innerWidth - popW - 10, px));
+        popover.style.left = px + 'px';
+        popover.style.top  = py + 'px';
+
+        setTimeout(() => {
+          document.addEventListener('mousedown', _conOnRandomPopoverOutside, true);
+        }, 20);
+      }
+      window.conOpenRandomPopover = conOpenRandomPopover;
+
+      function _conOnRandomPopoverOutside(e) {
+        const popover = document.getElementById('con-random-action-popover');
+        if (!popover || popover.style.display === 'none') {
+          document.removeEventListener('mousedown', _conOnRandomPopoverOutside, true);
+          return;
+        }
+        if (popover.contains(e.target) ||
+            (e.target && e.target.closest && e.target.closest('.con-node-random'))) {
+          return;
+        }
+        conCloseRandomPopover();
+      }
+
+      function conCloseRandomPopover() {
+        const popover = document.getElementById('con-random-action-popover');
+        if (popover) popover.style.display = 'none';
+        _conActiveRandomPopoverNodeId = null;
+        document.removeEventListener('mousedown', _conOnRandomPopoverOutside, true);
+      }
+      window.conCloseRandomPopover = conCloseRandomPopover;
+
+      /**
+       * Prompt the user to change the range of an existing random node.
+       * Accepts "=random(a,b)" or just "a,b".
+       */
+      window.conRandomNodeSetRange = async function (nodeId) {
+        const node = conNodes.find(n => n.id === nodeId);
+        if (!node || !node.isRandom) return;
+        const prompt = (typeof i18n !== 'undefined' ? i18n.t('randomNodeRangePrompt') : null)
+          || 'Enter new range as: =random(min,max)';
+        const answer = await showPrompt(prompt, '=random(' + node.randomMin + ',' + node.randomMax + ')');
+        if (!answer) return;
+        // Accept "=random(a,b)" or plain "a,b"
+        let parsed = conParseRandomSyntax(answer.trim());
+        if (!parsed) {
+          const parts = answer.trim().split(',').map(Number).filter(v => isFinite(v));
+          if (parts.length >= 2) parsed = { min: Math.min(parts[0], parts[1]), max: Math.max(parts[0], parts[1]) };
+        }
+        if (!parsed) return;
+        conPushUndo();
+        node.randomMin = parsed.min;
+        node.randomMax = parsed.max;
+        node.randomValue = Math.round(Math.random() * (parsed.max - parsed.min)) + Math.ceil(parsed.min);
+        node.baseWord = '=random(' + parsed.min + ',' + parsed.max + ')';
+        conUpdateRandomNodeDisplay(node);
+        if (window._conMirrorSend) {
+          window._conMirrorSend({ type: 'node-random-roll', id: String(node.id), value: node.randomValue });
+        }
+      };
+
+      function conPlayTimerChime() {
+        try {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (!AudioCtx) return;
+          const ctx = new AudioCtx();
+          const now = ctx.currentTime;
+          [0, 0.16, 0.32].forEach((offset, idx) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(idx === 2 ? 1046.5 : 880, now + offset);
+            gain.gain.setValueAtTime(0.2, now + offset);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.35);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(now + offset);
+            osc.stop(now + offset + 0.36);
+          });
+        } catch (_) {}
+      }
+
+      let _conActiveCmsTimerNodeId = null;
+      window._conActiveCmsTimerNodeId = null;
+
+      function conUpdateTimerNodeDisplay(node) {
+        if (!node) return;
+        if (!node.el || !node.el.parentNode) {
+          node.el = document.getElementById(node.id);
+          if (!node.el) return;
+        }
+        const totalSec = node.remainingSec != null ? node.remainingSec : (node.durationSec || 0);
+        const timeStr = conFormatDurationSec(totalSec);
+        const isWarn = totalSec <= 60 && totalSec > 0;
+        const isEnded = node.timerState === 'ended' || totalSec <= 0;
+        const isRunning = node.timerState === 'running';
+
+        node.el.classList.toggle('con-node-timer', true);
+        node.el.classList.toggle('con-timer-running', isRunning);
+        node.el.classList.toggle('con-timer-warning', isRunning && isWarn);
+        node.el.classList.toggle('con-timer-ended', isEnded);
+
+        const digits = node.el.querySelector('.con-timer-digits');
+        if (digits) {
+          if (digits.textContent !== timeStr) digits.textContent = timeStr;
+        } else {
+          conRenderNodeLabel(node);
+        }
+      }
+      window.conUpdateTimerNodeDisplay = conUpdateTimerNodeDisplay;
+
+      function conTimerTickEngine() {
+        if (typeof location !== 'undefined' && location.search.indexOf('mirror=1') !== -1) return;
+        if (_conTimerEngineInterval) return;
+        _conTimerEngineInterval = setInterval(function () {
+          const now = Date.now();
+
+          conNodes.forEach(node => {
+            if (!node || !node.isTimer) return;
+            // Only tick nodes running locally on the board.
+            // Nodes targeted to CMS receive their ticks exclusively from Class Management.
+            if (node.timerState === 'running' && node.timerTarget !== 'cms') {
+              if (node.timerEndTime) {
+                const rem = Math.max(0, Math.ceil((node.timerEndTime - now) / 1000));
+                if (rem !== node.remainingSec) {
+                  node.remainingSec = rem;
+                  conUpdateTimerNodeDisplay(node);
+                  if (window._conMirrorSend) {
+                    window._conMirrorSend({
+                      type: 'node-timer-tick',
+                      id: String(node.id),
+                      remainingSec: rem,
+                      timerState: node.timerState
+                    });
+                  }
+                }
+                if (rem <= 0) {
+                  node.timerState = 'ended';
+                  node.timerEndTime = null;
+                  conUpdateTimerNodeDisplay(node);
+                  if (window._conMirrorSend) {
+                    window._conMirrorSend({
+                      type: 'node-timer-tick',
+                      id: String(node.id),
+                      remainingSec: 0,
+                      timerState: 'ended'
+                    });
+                  }
+                  if (typeof conBlinkNodeAttention === 'function' && node.el) {
+                    conBlinkNodeAttention(node.el, 3000);
+                  }
+                  conPlayTimerChime();
+                  if (window._conMirrorBroadcast) {
+                    window._conMirrorBroadcast();
+                  }
+                }
+              }
+            }
+          });
+        }, 500);
+      }
+      conTimerTickEngine();
+
+      function conStartNodeTimer(nodeId, target) {
+        const node = conNodes.find(n => n.id === nodeId);
+        if (!node || !node.isTimer) return;
+
+        if (target === 'cms') {
+          _conActiveCmsTimerNodeId = nodeId;
+          window._conActiveCmsTimerNodeId = nodeId;
+          // Unlink any other nodes that might have had cms target
+          conNodes.forEach(n => {
+            if (n && n.isTimer && n.id !== nodeId) {
+              if (n.timerTarget === 'cms') {
+                n.timerTarget = null;
+                if (n.timerState === 'running') {
+                  n.timerState = 'idle';
+                  n.remainingSec = n.durationSec || 60;
+                  n.timerEndTime = null;
+                  conRenderNodeLabel(n);
+                  if (window._conMirrorSend) {
+                    window._conMirrorSend({
+                      type: 'node-timer-tick',
+                      id: String(n.id),
+                      remainingSec: n.remainingSec,
+                      timerState: n.timerState
+                    });
+                  }
+                }
+              }
+            }
+          });
+        }
+
+        const rem = (typeof node.remainingSec === 'number' && node.remainingSec > 0) ? node.remainingSec : (node.durationSec || 60);
+        node.remainingSec = rem;
+        node.timerState = 'running';
+        node.timerTarget = target || 'board';
+        node.timerEndTime = Date.now() + rem * 1000;
+        conRenderNodeLabel(node);
+        if (window._conMirrorSend) {
+          window._conMirrorSend({
+            type: 'node-timer-tick',
+            id: String(node.id),
+            remainingSec: rem,
+            timerState: node.timerState
+          });
+        }
+        if (target === 'cms') {
+          conDispatchTimerToCms(node);
+        }
+      }
+
+      function conPauseNodeTimer(nodeId) {
+        const node = conNodes.find(n => n.id === nodeId);
+        if (!node || !node.isTimer) return;
+        if (node.timerState === 'running') {
+          const now = Date.now();
+          node.remainingSec = Math.max(0, Math.ceil((node.timerEndTime - now) / 1000));
+          node.timerState = 'paused';
+          node.timerEndTime = null;
+          conRenderNodeLabel(node);
+          if (window._conMirrorSend) {
+            window._conMirrorSend({
+              type: 'node-timer-tick',
+              id: String(node.id),
+              remainingSec: node.remainingSec,
+              timerState: node.timerState
+            });
+          }
+          if (node.timerTarget === 'cms') {
+            if (window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron()) {
+              Desktop.timerCommand({ cmd: 'pause' });
+            }
+            if (typeof boardCmsTimerChannel !== 'undefined' && boardCmsTimerChannel) {
+              try { boardCmsTimerChannel.postMessage({ type: 'timer-command', cmd: 'pause' }); } catch (_) {}
+            }
+          }
+        }
+      }
+
+      function conResumeNodeTimer(nodeId) {
+        const node = conNodes.find(n => n.id === nodeId);
+        if (!node || !node.isTimer) return;
+        if (node.timerState === 'paused') {
+          const rem = (typeof node.remainingSec === 'number' && node.remainingSec > 0) ? node.remainingSec : (node.durationSec || 60);
+          node.remainingSec = rem;
+          node.timerState = 'running';
+          node.timerEndTime = Date.now() + rem * 1000;
+          conRenderNodeLabel(node);
+          if (window._conMirrorSend) {
+            window._conMirrorSend({
+              type: 'node-timer-tick',
+              id: String(node.id),
+              remainingSec: node.remainingSec,
+              timerState: node.timerState
+            });
+          }
+          if (node.timerTarget === 'cms') {
+            if (window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron()) {
+              Desktop.timerCommand({ cmd: 'resume' });
+            }
+            if (typeof boardCmsTimerChannel !== 'undefined' && boardCmsTimerChannel) {
+              try { boardCmsTimerChannel.postMessage({ type: 'timer-command', cmd: 'resume' }); } catch (_) {}
+            }
+          }
+        }
+      }
+
+      function conResetNodeTimer(nodeId) {
+        const node = conNodes.find(n => n.id === nodeId);
+        if (!node || !node.isTimer) return;
+        node.timerState = 'idle';
+        node.timerEndTime = null;
+        node.remainingSec = node.durationSec || 60;
+        if (node.timerTarget === 'cms' || _conActiveCmsTimerNodeId === nodeId) {
+          _conActiveCmsTimerNodeId = null;
+          window._conActiveCmsTimerNodeId = null;
+          node.timerTarget = null;
+          if (window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron()) {
+            Desktop.timerCommand({ cmd: 'stop' });
+          }
+          if (typeof boardCmsTimerChannel !== 'undefined' && boardCmsTimerChannel) {
+            try { boardCmsTimerChannel.postMessage({ type: 'timer-command', cmd: 'stop' }); } catch (_) {}
+          }
+        }
+        conRenderNodeLabel(node);
+        if (window._conMirrorSend) {
+          window._conMirrorSend({
+            type: 'node-timer-tick',
+            id: String(node.id),
+            remainingSec: node.remainingSec,
+            timerState: node.timerState
+          });
+        }
+      }
+
+      function conStopNodeTimer(nodeId) {
+        conResetNodeTimer(nodeId);
+      }
+
+      async function conDispatchTimerToCms(node) {
+        const totalSec = node.remainingSec || node.durationSec || 60;
+        const isElec = typeof window.Desktop !== 'undefined' && typeof Desktop.isElectron === 'function' && Desktop.isElectron();
+
+        if (!isElec) {
+          if (typeof boardCmsTimerChannel !== 'undefined' && boardCmsTimerChannel) {
+            try { boardCmsTimerChannel.postMessage({ type: 'start-timer', seconds: totalSec }); } catch (_) {}
+          }
+          const promptText = (typeof i18n !== 'undefined' && i18n.t('timerNodeCmsNotOpenPrompt'))
+            || 'Class Management is not currently open. Would you like to open it and start this timer?';
+          const confirmOpen = (typeof showConfirm === 'function') ? await showConfirm(promptText) : true;
+          if (confirmOpen) {
+            window.open('class-management.html?startTimerSec=' + encodeURIComponent(totalSec), '_blank');
+          }
+          return;
+        }
+
+        try {
+          const isOpen = await Desktop.isToolOpen('class-management.html');
+          if (!isOpen) {
+            const promptText = (typeof i18n !== 'undefined' && i18n.t('timerNodeCmsNotOpenPrompt'))
+              || 'Class Management is not currently open. Would you like to open it and start this timer?';
+            const confirmOpen = (typeof showConfirm === 'function') ? await showConfirm(promptText) : true;
+            if (!confirmOpen) {
+              node.timerTarget = 'board';
+              return;
+            }
+            await Desktop.openTool('class-management.html', {
+              query: { startTimerSec: totalSec }
+            });
+            setTimeout(async () => {
+              try {
+                await Desktop.timerCommand({ cmd: 'start', totalSec: totalSec });
+              } catch (_) {}
+              if (typeof boardCmsTimerChannel !== 'undefined' && boardCmsTimerChannel) {
+                try {
+                  boardCmsTimerChannel.postMessage({ type: 'start-timer', seconds: totalSec });
+                } catch (_) {}
+              }
+            }, 1200);
+          } else {
+            await Desktop.openTool('class-management.html', { noReload: true });
+            const res = await Desktop.timerCommand({ cmd: 'start', totalSec: totalSec });
+            if (!res || !res.ok) {
+              if (typeof boardCmsTimerChannel !== 'undefined' && boardCmsTimerChannel) {
+                boardCmsTimerChannel.postMessage({ type: 'start-timer', seconds: totalSec });
+              }
+            }
+          }
+        } catch (err) {
+          console.error('Failed to dispatch timer to Class Management', err);
+          if (typeof showToast === 'function') showToast('Could not start timer in Class Management', true);
+        }
+      }
+
+      function conOpenTimerPopover(node) {
+        const popover = document.getElementById('con-timer-action-popover');
+        if (!popover || !node || !node.el) return;
+        _conActiveTimerPopoverNodeId = node.id;
+        const rect = node.el.getBoundingClientRect();
+        const titleEl = document.getElementById('con-timer-popover-title');
+        const bodyEl = document.getElementById('con-timer-popover-actions');
+
+        const durStr = conFormatDurationSec(node.remainingSec != null ? node.remainingSec : (node.durationSec || 0));
+        if (titleEl && typeof i18n !== 'undefined') {
+          const tmpl = i18n.t('timerNodeActionTitle') || 'Timer: {duration}';
+          titleEl.textContent = tmpl.replace('{duration}', durStr);
+        }
+
+        if (bodyEl && typeof i18n !== 'undefined') {
+          bodyEl.innerHTML = '';
+          const state = node.timerState || 'idle';
+
+          if (state === 'idle' || state === 'ended') {
+            bodyEl.innerHTML = `
+              <button type="button" class="con-timer-action-btn" onclick="conHandleTimerAction('${node.id}', 'start-board')">
+                <img src="../assets/icons/board.svg" class="btn-icon" alt="" />
+                <span>${i18n.t('timerNodeStartBoard') || 'Start in Board'}</span>
+              </button>
+              <button type="button" class="con-timer-action-btn" onclick="conHandleTimerAction('${node.id}', 'start-cms')">
+                <img src="../assets/icons/class-management.svg" class="btn-icon" alt="" />
+                <span>${i18n.t('timerNodeStartCms') || 'Start in Class Management'}</span>
+              </button>
+              ${state === 'ended' ? `
+              <button type="button" class="con-timer-action-btn" onclick="conHandleTimerAction('${node.id}', 'reset')">
+                <img src="../assets/icons/refresh.svg" class="btn-icon" alt="" />
+                <span>${i18n.t('timerNodeReset') || 'Reset'}</span>
+              </button>` : ''}
+            `;
+          } else if (state === 'running') {
+            bodyEl.innerHTML = `
+              <button type="button" class="con-timer-action-btn" onclick="conHandleTimerAction('${node.id}', 'pause')">
+                <img src="../assets/icons/pause.svg" class="btn-icon" alt="" />
+                <span>${i18n.t('timerNodePause') || 'Pause'}</span>
+              </button>
+              <button type="button" class="con-timer-action-btn" onclick="conHandleTimerAction('${node.id}', 'reset')">
+                <img src="../assets/icons/refresh.svg" class="btn-icon" alt="" />
+                <span>${i18n.t('timerNodeReset') || 'Reset'}</span>
+              </button>
+              <button type="button" class="con-timer-action-btn" onclick="conHandleTimerAction('${node.id}', 'stop')">
+                <img src="../assets/icons/stop.svg" class="btn-icon" alt="" />
+                <span>${i18n.t('timerNodeStop') || 'Stop'}</span>
+              </button>
+            `;
+          } else if (state === 'paused') {
+            bodyEl.innerHTML = `
+              <button type="button" class="con-timer-action-btn" onclick="conHandleTimerAction('${node.id}', 'resume')">
+                <img src="../assets/icons/play.svg" class="btn-icon" alt="" />
+                <span>${i18n.t('timerNodeResume') || 'Resume'}</span>
+              </button>
+              <button type="button" class="con-timer-action-btn" onclick="conHandleTimerAction('${node.id}', 'reset')">
+                <img src="../assets/icons/refresh.svg" class="btn-icon" alt="" />
+                <span>${i18n.t('timerNodeReset') || 'Reset'}</span>
+              </button>
+              <button type="button" class="con-timer-action-btn" onclick="conHandleTimerAction('${node.id}', 'stop')">
+                <img src="../assets/icons/stop.svg" class="btn-icon" alt="" />
+                <span>${i18n.t('timerNodeStop') || 'Stop'}</span>
+              </button>
+            `;
+          }
+        }
+
+        popover.style.display = 'flex';
+        const popW = popover.offsetWidth || 210;
+        const popH = popover.offsetHeight || 130;
+        let px = rect.left + rect.width / 2 - popW / 2;
+        let py = rect.top - popH - 8;
+        if (py < 10) {
+          py = rect.bottom + 8;
+        }
+        px = Math.max(10, Math.min(window.innerWidth - popW - 10, px));
+        popover.style.left = px + 'px';
+        popover.style.top = py + 'px';
+
+        setTimeout(() => {
+          document.addEventListener('mousedown', _conOnTimerPopoverOutside, true);
+        }, 20);
+      }
+      window.conOpenTimerPopover = conOpenTimerPopover;
+
+      function _conOnTimerPopoverOutside(e) {
+        const popover = document.getElementById('con-timer-action-popover');
+        if (!popover || popover.style.display === 'none') {
+          document.removeEventListener('mousedown', _conOnTimerPopoverOutside, true);
+          return;
+        }
+        if (popover.contains(e.target) || (e.target && e.target.closest && e.target.closest('.con-node-timer'))) {
+          return;
+        }
+        conCloseTimerPopover();
+      }
+
+      function conCloseTimerPopover() {
+        const popover = document.getElementById('con-timer-action-popover');
+        if (popover) popover.style.display = 'none';
+        _conActiveTimerPopoverNodeId = null;
+        document.removeEventListener('mousedown', _conOnTimerPopoverOutside, true);
+      }
+      window.conCloseTimerPopover = conCloseTimerPopover;
+
+      window.conHandleTimerAction = function (nodeId, action) {
+        conCloseTimerPopover();
+        if (action === 'start-board') {
+          conStartNodeTimer(nodeId, 'board');
+        } else if (action === 'start-cms') {
+          conStartNodeTimer(nodeId, 'cms');
+        } else if (action === 'pause') {
+          conPauseNodeTimer(nodeId);
+        } else if (action === 'resume') {
+          conResumeNodeTimer(nodeId);
+        } else if (action === 'reset') {
+          conResetNodeTimer(nodeId);
+        } else if (action === 'stop') {
+          conStopNodeTimer(nodeId);
+        }
+      };
+
+      function conSyncCmsTimerDataToNodes(data) {
+        if (typeof location !== 'undefined' && location.search.indexOf('mirror=1') !== -1) return;
+        if (!data || typeof conNodes === 'undefined' || !Array.isArray(conNodes)) return;
+        let node = null;
+        if (_conActiveCmsTimerNodeId) {
+          node = conNodes.find(n => n && n.id === _conActiveCmsTimerNodeId);
+        }
+        if (!node) {
+          node = conNodes.find(n => n && n.isTimer && n.timerTarget === 'cms');
+          if (node) {
+            _conActiveCmsTimerNodeId = node.id;
+            window._conActiveCmsTimerNodeId = node.id;
+          }
+        }
+        if (!node || !node.isTimer || node.timerTarget !== 'cms') return;
+
+        if (!data.timerActive) {
+          if (node.timerState === 'running' || node.timerState === 'paused') {
+            node.timerState = 'ended';
+            node.timerEndTime = null;
+            node.remainingSec = 0;
+            conUpdateTimerNodeDisplay(node);
+            if (window._conMirrorSend) {
+              window._conMirrorSend({
+                type: 'node-timer-tick',
+                id: String(node.id),
+                remainingSec: 0,
+                timerState: 'ended'
+              });
+            }
+            if (typeof conBlinkNodeAttention === 'function' && node.el) {
+              conBlinkNodeAttention(node.el, 3000);
+            }
+            conPlayTimerChime();
+          }
+          _conActiveCmsTimerNodeId = null;
+          window._conActiveCmsTimerNodeId = null;
+          node.timerTarget = null;
+          return;
+        }
+
+        const txt = String(data.timerDisplayText || '').trim();
+        const parts = txt.split(':').map(p => parseInt(p, 10));
+        let s = null;
+        if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+          s = parts[0] * 60 + parts[1];
+        } else if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+          s = parts[0] * 3600 + parts[1] * 60 + parts[2];
+        }
+        if (s !== null) {
+          const isEnded = s <= 0;
+          const isPaused = data.timerDisplayOpacity === '0.5' || /paused/i.test(data.timerDisplayClass || '');
+          const nextState = isEnded ? 'ended' : (isPaused ? 'paused' : 'running');
+          if (node.remainingSec !== s || node.timerState !== nextState) {
+            node.remainingSec = s;
+            node.timerState = nextState;
+            conUpdateTimerNodeDisplay(node);
+            if (window._conMirrorSend) {
+              window._conMirrorSend({
+                type: 'node-timer-tick',
+                id: String(node.id),
+                remainingSec: s,
+                timerState: nextState
+              });
+            }
+            if (isEnded) {
+              node.timerEndTime = null;
+              if (typeof conBlinkNodeAttention === 'function' && node.el) {
+                conBlinkNodeAttention(node.el, 3000);
+              }
+              conPlayTimerChime();
+            }
+          }
+        }
+      }
+      window.conSyncCmsTimerDataToNodes = conSyncCmsTimerDataToNodes;
+
+      // ================================================================
+      // SOUND NODE ENGINE & POPOVER (Zero-DOM-teardown mirror sync)
+      // ================================================================
+      let _conActiveSoundNodeId = null;
+      let _conSoundAudio = null;
+      let _conSoundBroadcastPending = false;
+
+      function conGetOrInitSoundAudio() {
+        if (!_conSoundAudio) {
+          _conSoundAudio = new Audio();
+          _conSoundAudio.addEventListener('timeupdate', function () {
+            if (!_conActiveSoundNodeId) return;
+            const node = (conNodes || []).find(n => n && n.id === _conActiveSoundNodeId);
+            if (node) {
+              node.soundCurrentTime = _conSoundAudio.currentTime;
+              if (_conSoundAudio.duration && isFinite(_conSoundAudio.duration)) {
+                node.soundDuration = _conSoundAudio.duration;
+              }
+              conSyncSoundPopoverUi(node);
+              conUpdateSoundNodeDisplay(node);
+              _conThrottleBroadcastSoundState(node);
+            }
+          });
+          _conSoundAudio.addEventListener('ended', function () {
+            if (!_conActiveSoundNodeId) return;
+            const node = (conNodes || []).find(n => n && n.id === _conActiveSoundNodeId);
+            if (node) {
+              node.soundState = 'ended';
+              node.soundCurrentTime = node.soundDuration || _conSoundAudio.duration || 0;
+              conSyncSoundPopoverUi(node);
+              conUpdateSoundNodeDisplay(node);
+              _conBroadcastSoundState(node);
+            }
+          });
+          _conSoundAudio.addEventListener('play', function () {
+            if (!_conActiveSoundNodeId) return;
+            const node = (conNodes || []).find(n => n && n.id === _conActiveSoundNodeId);
+            if (node) {
+              node.soundState = 'playing';
+              conSyncSoundPopoverUi(node);
+              conUpdateSoundNodeDisplay(node);
+              _conBroadcastSoundState(node);
+            }
+          });
+          _conSoundAudio.addEventListener('pause', function () {
+            if (!_conActiveSoundNodeId) return;
+            const node = (conNodes || []).find(n => n && n.id === _conActiveSoundNodeId);
+            if (node && node.soundState !== 'ended' && node.soundState !== 'idle') {
+              node.soundState = 'paused';
+              conSyncSoundPopoverUi(node);
+              conUpdateSoundNodeDisplay(node);
+              _conBroadcastSoundState(node);
+            }
+          });
+        }
+        return _conSoundAudio;
+      }
+
+      function _conBroadcastSoundState(node) {
+        if (!node || !window._conMirrorSend) return;
+        try {
+          window._conMirrorSend({
+            type: 'node-sound-state',
+            id: String(node.id),
+            soundState: node.soundState,
+            currentTime: node.soundCurrentTime || 0,
+            duration: node.soundDuration || 0
+          });
+        } catch (_) {}
+      }
+
+      function _conThrottleBroadcastSoundState(node) {
+        if (_conSoundBroadcastPending || !window._conMirrorSend) return;
+        _conSoundBroadcastPending = true;
+        requestAnimationFrame(function () {
+          _conSoundBroadcastPending = false;
+          _conBroadcastSoundState(node);
+        });
+      }
+
+      function conAddSoundNodeAt(attOrName, x, y, pageNum) {
+        let att = null;
+        let name = '';
+        let attId = null;
+        if (typeof attOrName === 'object' && attOrName) {
+          att = attOrName;
+          attId = att.id;
+          name = att.name || 'Sound';
+        } else if (typeof attOrName === 'string') {
+          name = attOrName;
+          att = (conAttachments || []).find(a => a && (a.id === attOrName || a.name === attOrName));
+          if (att) attId = att.id;
+        }
+
+        const id = conAddWordAt(name || 'Sound', x, y, pageNum);
+        const node = conNodes.find(n => n && n.id === id);
+        if (node) {
+          node.isSound = true;
+          node.soundAttachmentId = attId || null;
+          node.soundName = name || 'Sound';
+          node.soundDuration = 0;
+          node.soundCurrentTime = 0;
+          node.soundState = 'idle';
+          node.baseWord = name || 'Sound';
+
+          if (att) {
+            conGetAttachmentDataUrl(att).then(url => {
+              if (!url) return;
+              const probeAudio = new Audio();
+              probeAudio.preload = 'metadata';
+              probeAudio.src = url;
+              probeAudio.onloadedmetadata = function () {
+                if (probeAudio.duration && isFinite(probeAudio.duration)) {
+                  node.soundDuration = probeAudio.duration;
+                  conUpdateSoundNodeDisplay(node);
+                }
+              };
+            }).catch(() => {});
+          }
+
+          conRenderNodeLabel(node);
+          conRedrawEdges();
+        }
+        return id;
+      }
+      window.conAddSoundNodeAt = conAddSoundNodeAt;
+
+      function conUpdateSoundNodeDisplay(node) {
+        if (!node || !node.isSound) return;
+        if (!node.el || !node.el.parentNode) {
+          node.el = document.getElementById(node.id);
+          if (!node.el) return;
+        }
+        const isPlaying = node.soundState === 'playing';
+        const isPaused = node.soundState === 'paused';
+        node.el.classList.toggle('con-node-sound', true);
+        node.el.classList.toggle('con-sound-playing', isPlaying);
+        node.el.classList.toggle('con-sound-paused', isPaused);
+
+        const curTime = (typeof node.soundCurrentTime === 'number') ? node.soundCurrentTime : 0;
+        const durTime = (typeof node.soundDuration === 'number') ? node.soundDuration : 0;
+        let timeStr = '';
+        if (durTime > 0) {
+          timeStr = conFormatDurationSec(Math.round(curTime)) + ' / ' + conFormatDurationSec(Math.round(durTime));
+        }
+
+        const digits = node.el.querySelector('.con-sound-digits');
+        if (digits) {
+          if (timeStr) {
+            digits.style.display = '';
+            if (digits.textContent !== timeStr) digits.textContent = timeStr;
+          } else {
+            digits.style.display = 'none';
+          }
+        } else {
+          conRenderNodeLabel(node);
+        }
+      }
+      window.conUpdateSoundNodeDisplay = conUpdateSoundNodeDisplay;
+
+      async function conOpenSoundPopover(node) {
+        const popover = document.getElementById('con-sound-action-popover');
+        if (!popover || !node || !node.el) return;
+        _conActiveSoundNodeId = node.id;
+        const audio = conGetOrInitSoundAudio();
+
+        if (audio.dataset.nodeId !== String(node.id)) {
+          if (!audio.paused) audio.pause();
+          audio.dataset.nodeId = String(node.id);
+
+          let audioSrc = '';
+          const att = (conAttachments || []).find(a => a && (a.id === node.soundAttachmentId || a.name === node.soundName || a.name === node.baseWord));
+          if (att) {
+            if (att._cachedObjectUrl) {
+              audioSrc = att._cachedObjectUrl;
+            } else if (typeof conGetAttachmentDataUrl === 'function') {
+              audioSrc = await conGetAttachmentDataUrl(att);
+            }
+          }
+          if (audioSrc) {
+            audio.src = audioSrc;
+            audio.load();
+            if (node.soundCurrentTime && node.soundCurrentTime > 0) {
+              audio.currentTime = node.soundCurrentTime;
+            }
+          }
+        }
+
+        const titleEl = document.getElementById('con-sound-popover-title');
+        if (titleEl) {
+          const trackTitle = node.soundName || node.text || node.baseWord || 'Audio';
+          titleEl.textContent = trackTitle;
+          titleEl.title = trackTitle;
+        }
+
+        conSyncSoundPopoverUi(node);
+
+        popover.style.display = 'flex';
+        const rect = node.el.getBoundingClientRect();
+        const popW = popover.offsetWidth || 260;
+        const popH = popover.offsetHeight || 120;
+        let px = rect.left + rect.width / 2 - popW / 2;
+        let py = rect.top - popH - 8;
+        if (py < 10) py = rect.bottom + 8;
+        px = Math.max(10, Math.min(window.innerWidth - popW - 10, px));
+        popover.style.left = px + 'px';
+        popover.style.top = py + 'px';
+
+        setTimeout(() => {
+          document.addEventListener('mousedown', _conOnSoundPopoverOutside, true);
+        }, 20);
+      }
+      window.conOpenSoundPopover = conOpenSoundPopover;
+
+      function _conOnSoundPopoverOutside(e) {
+        const popover = document.getElementById('con-sound-action-popover');
+        if (!popover || popover.style.display === 'none') {
+          document.removeEventListener('mousedown', _conOnSoundPopoverOutside, true);
+          return;
+        }
+        if (popover.contains(e.target) || (e.target && e.target.closest && e.target.closest('.con-node-sound'))) {
+          return;
+        }
+        conCloseSoundPopover();
+      }
+
+      function conCloseSoundPopover() {
+        const popover = document.getElementById('con-sound-action-popover');
+        if (popover) popover.style.display = 'none';
+        document.removeEventListener('mousedown', _conOnSoundPopoverOutside, true);
+      }
+      window.conCloseSoundPopover = conCloseSoundPopover;
+
+      function conSyncSoundPopoverUi(node) {
+        const popover = document.getElementById('con-sound-action-popover');
+        if (!popover || popover.style.display === 'none') return;
+        if (!node) node = (conNodes || []).find(n => n && n.id === _conActiveSoundNodeId);
+        if (!node) return;
+
+        const audio = _conSoundAudio;
+        const curSec = (audio && !isNaN(audio.currentTime)) ? audio.currentTime : (node.soundCurrentTime || 0);
+        const durSec = (audio && !isNaN(audio.duration) && isFinite(audio.duration) && audio.duration > 0) ? audio.duration : (node.soundDuration || 0);
+
+        const slider = document.getElementById('con-sound-seek-slider');
+        if (slider && document.activeElement !== slider) {
+          slider.max = durSec > 0 ? durSec : 100;
+          slider.value = curSec;
+          slider.disabled = (durSec <= 0 && (!audio || !audio.src));
+        }
+
+        const curTimeEl = document.getElementById('con-sound-cur-time');
+        if (curTimeEl) curTimeEl.textContent = (typeof conFormatDurationSec === 'function') ? conFormatDurationSec(Math.round(curSec)) : String(Math.round(curSec));
+
+        const totalTimeEl = document.getElementById('con-sound-total-time');
+        if (totalTimeEl) totalTimeEl.textContent = (typeof conFormatDurationSec === 'function') ? conFormatDurationSec(Math.round(durSec)) : String(Math.round(durSec));
+
+        const playBtn = document.getElementById('con-sound-play-pause-btn');
+        const playLabel = document.getElementById('con-sound-play-pause-label');
+        const playIcon = playBtn ? playBtn.querySelector('img') : null;
+
+        const isPlaying = audio && !audio.paused && !audio.ended;
+        if (playLabel) playLabel.textContent = isPlaying ? (typeof i18n !== 'undefined' ? i18n.t('soundNodePause') || 'Pause' : 'Pause') : (typeof i18n !== 'undefined' ? i18n.t('soundNodePlay') || 'Play' : 'Play');
+        if (playIcon) playIcon.src = isPlaying ? '../assets/icons/pause.svg' : '../assets/icons/play.svg';
+        if (playBtn) {
+          playBtn.classList.toggle('btn-blue', !isPlaying);
+          playBtn.classList.toggle('btn-grey', isPlaying);
+        }
+      }
+
+      window.conHandleSoundPlayPause = function () {
+        const node = (conNodes || []).find(n => n && n.id === _conActiveSoundNodeId);
+        if (!node) return;
+        const audio = conGetOrInitSoundAudio();
+        if (!audio.src) return;
+
+        if (!audio.paused && !audio.ended) {
+          audio.pause();
+          node.soundState = 'paused';
+        } else {
+          if (audio.ended) {
+            audio.currentTime = 0;
+            node.soundCurrentTime = 0;
+          }
+          audio.play().catch(err => {
+            console.warn('Audio playback error:', err);
+          });
+          node.soundState = 'playing';
+        }
+        conSyncSoundPopoverUi(node);
+        conUpdateSoundNodeDisplay(node);
+        _conBroadcastSoundState(node);
+      };
+
+      window.conHandleSoundStop = function () {
+        const node = (conNodes || []).find(n => n && n.id === _conActiveSoundNodeId);
+        const audio = conGetOrInitSoundAudio();
+        if (audio) {
+          audio.pause();
+          audio.currentTime = 0;
+        }
+        if (node) {
+          node.soundCurrentTime = 0;
+          node.soundState = 'idle';
+          conUpdateSoundNodeDisplay(node);
+          _conBroadcastSoundState(node);
+        }
+        conSyncSoundPopoverUi(node);
+      };
+
+      window.conHandleSoundSeek = function (val) {
+        const node = (conNodes || []).find(n => n && n.id === _conActiveSoundNodeId);
+        const audio = conGetOrInitSoundAudio();
+        const time = parseFloat(val) || 0;
+        if (audio && isFinite(time)) {
+          audio.currentTime = time;
+        }
+        if (node) {
+          node.soundCurrentTime = time;
+          conUpdateSoundNodeDisplay(node);
+          _conThrottleBroadcastSoundState(node);
+        }
+        const curTimeEl = document.getElementById('con-sound-cur-time');
+        if (curTimeEl) curTimeEl.textContent = (typeof conFormatDurationSec === 'function') ? conFormatDurationSec(Math.round(time)) : String(Math.round(time));
+      };
+
+      // ================================================================
+      // VIDEO NODE ENGINE & POPOVER (Zero-DOM-teardown mirror sync)
+      // ================================================================
+      let _conActiveVideoNodeId = null;
+      let _conVideoEl = null;
+      let _conVideoBroadcastPending = false;
+
+      function conGetOrInitVideoPlayer() {
+        if (!_conVideoEl) {
+          _conVideoEl = document.getElementById('con-video-player-el');
+          if (!_conVideoEl) {
+            _conVideoEl = document.createElement('video');
+            _conVideoEl.id = 'con-video-player-el';
+            _conVideoEl.playsInline = true;
+          }
+          _conVideoEl.addEventListener('timeupdate', function () {
+            if (!_conActiveVideoNodeId) return;
+            const node = (conNodes || []).find(n => n && n.id === _conActiveVideoNodeId);
+            if (node) {
+              node.videoCurrentTime = _conVideoEl.currentTime;
+              if (_conVideoEl.duration && isFinite(_conVideoEl.duration)) {
+                node.videoDuration = _conVideoEl.duration;
+              }
+              conSyncVideoPopoverUi(node);
+              conUpdateVideoNodeDisplay(node);
+              _conThrottleBroadcastVideoState(node);
+            }
+          });
+          _conVideoEl.addEventListener('ended', function () {
+            if (!_conActiveVideoNodeId) return;
+            const node = (conNodes || []).find(n => n && n.id === _conActiveVideoNodeId);
+            if (node) {
+              node.videoState = 'ended';
+              node.videoCurrentTime = node.videoDuration || _conVideoEl.duration || 0;
+              conSyncVideoPopoverUi(node);
+              conUpdateVideoNodeDisplay(node);
+              _conBroadcastVideoState(node);
+            }
+          });
+          _conVideoEl.addEventListener('play', function () {
+            if (!_conActiveVideoNodeId) return;
+            const node = (conNodes || []).find(n => n && n.id === _conActiveVideoNodeId);
+            if (node) {
+              node.videoState = 'playing';
+              conSyncVideoPopoverUi(node);
+              conUpdateVideoNodeDisplay(node);
+              _conBroadcastVideoState(node);
+            }
+          });
+          _conVideoEl.addEventListener('pause', function () {
+            if (!_conActiveVideoNodeId) return;
+            const node = (conNodes || []).find(n => n && n.id === _conActiveVideoNodeId);
+            if (node && node.videoState !== 'ended' && node.videoState !== 'idle') {
+              node.videoState = 'paused';
+              conSyncVideoPopoverUi(node);
+              conUpdateVideoNodeDisplay(node);
+              _conBroadcastVideoState(node);
+            }
+          });
+          _conVideoEl.addEventListener('volumechange', function () {
+            if (!_conActiveVideoNodeId) return;
+            const node = (conNodes || []).find(n => n && n.id === _conActiveVideoNodeId);
+            if (node) {
+              node.videoMuted = !!_conVideoEl.muted;
+              conSyncVideoPopoverUi(node);
+              _conBroadcastVideoState(node);
+            }
+          });
+        }
+        return _conVideoEl;
+      }
+
+      function _conBroadcastVideoState(node) {
+        if (!node || !window._conMirrorSend) return;
+        try {
+          let videoSrc = '';
+          const att = (conAttachments || []).find(a => a && (a.id === node.videoAttachmentId || a.name === node.videoName || a.name === node.baseWord));
+          if (att) {
+            videoSrc = att._cachedObjectUrl || att.relativePath || (att.file && att.file.path) || att.path || '';
+          }
+          window._conMirrorSend({
+            type: 'node-video-state',
+            id: String(node.id),
+            videoState: node.videoState,
+            currentTime: node.videoCurrentTime || 0,
+            duration: node.videoDuration || 0,
+            muted: !!node.videoMuted,
+            videoAttachmentId: node.videoAttachmentId || (att ? att.id : null),
+            videoName: node.videoName || (att ? att.name : ''),
+            videoSrc: videoSrc
+          });
+        } catch (_) {}
+      }
+
+      function _conThrottleBroadcastVideoState(node) {
+        if (_conVideoBroadcastPending || !window._conMirrorSend) return;
+        _conVideoBroadcastPending = true;
+        requestAnimationFrame(function () {
+          _conVideoBroadcastPending = false;
+          _conBroadcastVideoState(node);
+        });
+      }
+
+      function conAddVideoNodeAt(attOrName, x, y, pageNum) {
+        let att = null;
+        let name = '';
+        let attId = null;
+        if (typeof attOrName === 'object' && attOrName) {
+          att = attOrName;
+          attId = att.id;
+          name = att.name || 'Video';
+        } else if (typeof attOrName === 'string') {
+          name = attOrName;
+          att = (conAttachments || []).find(a => a && (a.id === attOrName || a.name === attOrName));
+          if (att) attId = att.id;
+        }
+
+        const id = conAddWordAt(name || 'Video', x, y, pageNum);
+        const node = conNodes.find(n => n && n.id === id);
+        if (node) {
+          node.isVideo = true;
+          node.videoAttachmentId = attId || null;
+          node.videoName = name || 'Video';
+          node.videoDuration = 0;
+          node.videoCurrentTime = 0;
+          node.videoState = 'idle';
+          node.videoMuted = false;
+          node.baseWord = name || 'Video';
+
+          if (att) {
+            conGetAttachmentDataUrl(att).then(url => {
+              if (!url) return;
+              const probeVideo = document.createElement('video');
+              probeVideo.preload = 'metadata';
+              probeVideo.src = url;
+              probeVideo.onloadedmetadata = function () {
+                if (probeVideo.duration && isFinite(probeVideo.duration)) {
+                  node.videoDuration = probeVideo.duration;
+                  conUpdateVideoNodeDisplay(node);
+                }
+              };
+            }).catch(() => {});
+          }
+
+          conRenderNodeLabel(node);
+          conRedrawEdges();
+        }
+        return id;
+      }
+      window.conAddVideoNodeAt = conAddVideoNodeAt;
+
+      function conUpdateVideoNodeDisplay(node) {
+        if (!node || !node.isVideo) return;
+        if (!node.el || !node.el.parentNode) {
+          node.el = document.getElementById(node.id);
+          if (!node.el) return;
+        }
+        const isPlaying = node.videoState === 'playing';
+        const isPaused = node.videoState === 'paused';
+        node.el.classList.toggle('con-node-video', true);
+        node.el.classList.toggle('con-video-playing', isPlaying);
+        node.el.classList.toggle('con-video-paused', isPaused);
+
+        const curTime = (typeof node.videoCurrentTime === 'number') ? node.videoCurrentTime : 0;
+        const durTime = (typeof node.videoDuration === 'number') ? node.videoDuration : 0;
+        let timeStr = '';
+        if (durTime > 0) {
+          timeStr = conFormatDurationSec(Math.round(curTime)) + ' / ' + conFormatDurationSec(Math.round(durTime));
+        }
+
+        const digits = node.el.querySelector('.con-video-digits');
+        if (digits) {
+          if (timeStr) {
+            digits.style.display = '';
+            if (digits.textContent !== timeStr) digits.textContent = timeStr;
+          } else {
+            digits.style.display = 'none';
+          }
+        } else {
+          conRenderNodeLabel(node);
+        }
+      }
+      window.conUpdateVideoNodeDisplay = conUpdateVideoNodeDisplay;
+
+      async function conOpenVideoPopover(node) {
+        const popover = document.getElementById('con-video-action-popover');
+        if (!popover || !node || !node.el) return;
+        _conActiveVideoNodeId = node.id;
+        const video = conGetOrInitVideoPlayer();
+
+        if (video.dataset.nodeId !== String(node.id)) {
+          if (!video.paused) video.pause();
+          video.dataset.nodeId = String(node.id);
+
+          let videoSrc = '';
+          const att = (conAttachments || []).find(a => a && (a.id === node.videoAttachmentId || a.name === node.videoName || a.name === node.baseWord));
+          if (att) {
+            if (att._cachedObjectUrl) {
+              videoSrc = att._cachedObjectUrl;
+            } else if (typeof conGetAttachmentDataUrl === 'function') {
+              videoSrc = await conGetAttachmentDataUrl(att);
+            }
+          }
+          if (videoSrc) {
+            video.src = videoSrc;
+            video.load();
+            if (node.videoCurrentTime && node.videoCurrentTime > 0) {
+              video.currentTime = node.videoCurrentTime;
+            }
+          }
+        }
+
+        const titleEl = document.getElementById('con-video-popover-title');
+        if (titleEl) {
+          const trackTitle = node.videoName || node.text || node.baseWord || 'Video';
+          titleEl.textContent = trackTitle;
+          titleEl.title = trackTitle;
+        }
+
+        conSyncVideoPopoverUi(node);
+
+        popover.style.display = 'flex';
+        const rect = node.el.getBoundingClientRect();
+        const popW = popover.offsetWidth || 300;
+        const popH = popover.offsetHeight || 260;
+        let px = rect.left + rect.width / 2 - popW / 2;
+        let py = rect.top - popH - 8;
+        if (py < 10) py = rect.bottom + 8;
+        px = Math.max(10, Math.min(window.innerWidth - popW - 10, px));
+        popover.style.left = px + 'px';
+        popover.style.top = py + 'px';
+
+        setTimeout(() => {
+          document.addEventListener('mousedown', _conOnVideoPopoverOutside, true);
+        }, 20);
+      }
+      window.conOpenVideoPopover = conOpenVideoPopover;
+
+      function _conOnVideoPopoverOutside(e) {
+        const popover = document.getElementById('con-video-action-popover');
+        if (!popover || popover.style.display === 'none') {
+          document.removeEventListener('mousedown', _conOnVideoPopoverOutside, true);
+          return;
+        }
+        if (popover.contains(e.target) || (e.target && e.target.closest && e.target.closest('.con-node-video'))) {
+          return;
+        }
+        conCloseVideoPopover();
+      }
+
+      function conCloseVideoPopover() {
+        const popover = document.getElementById('con-video-action-popover');
+        if (popover) popover.style.display = 'none';
+        if (typeof conToggleVideoCinemaModal === 'function') {
+          conToggleVideoCinemaModal(false);
+        }
+        document.removeEventListener('mousedown', _conOnVideoPopoverOutside, true);
+      }
+      window.conCloseVideoPopover = conCloseVideoPopover;
+
+      function conSyncVideoPopoverUi(node) {
+        const popover = document.getElementById('con-video-action-popover');
+        if (!popover || popover.style.display === 'none') return;
+        if (!node) node = (conNodes || []).find(n => n && n.id === _conActiveVideoNodeId);
+        if (!node) return;
+
+        const video = _conVideoEl;
+        const curSec = (video && !isNaN(video.currentTime)) ? video.currentTime : (node.videoCurrentTime || 0);
+        const durSec = (video && !isNaN(video.duration) && isFinite(video.duration) && video.duration > 0) ? video.duration : (node.videoDuration || 0);
+
+        const slider = document.getElementById('con-video-seek-slider');
+        if (slider && document.activeElement !== slider) {
+          slider.max = durSec > 0 ? durSec : 100;
+          slider.value = curSec;
+          slider.disabled = (durSec <= 0 && (!video || !video.src));
+        }
+
+        const curTimeEl = document.getElementById('con-video-cur-time');
+        if (curTimeEl) curTimeEl.textContent = (typeof conFormatDurationSec === 'function') ? conFormatDurationSec(Math.round(curSec)) : String(Math.round(curSec));
+
+        const totalTimeEl = document.getElementById('con-video-total-time');
+        if (totalTimeEl) totalTimeEl.textContent = (typeof conFormatDurationSec === 'function') ? conFormatDurationSec(Math.round(durSec)) : String(Math.round(durSec));
+
+        const playBtn = document.getElementById('con-video-play-pause-btn');
+        const playLabel = document.getElementById('con-video-play-pause-label');
+        const playIcon = playBtn ? playBtn.querySelector('img') : null;
+
+        const isPlaying = video && !video.paused && !video.ended;
+        if (playLabel) playLabel.textContent = isPlaying ? (typeof i18n !== 'undefined' ? i18n.t('videoNodePause') || 'Pause' : 'Pause') : (typeof i18n !== 'undefined' ? i18n.t('videoNodePlay') || 'Play' : 'Play');
+        if (playIcon) playIcon.src = isPlaying ? '../assets/icons/pause.svg' : '../assets/icons/play.svg';
+        if (playBtn) {
+          playBtn.classList.toggle('btn-blue', !isPlaying);
+          playBtn.classList.toggle('btn-grey', isPlaying);
+        }
+
+        const muteIcon = document.getElementById('con-video-mute-icon');
+        if (muteIcon) {
+          const isMuted = video ? (video.muted || video.volume === 0) : !!node.videoMuted;
+          muteIcon.src = isMuted ? '../assets/icons/mute.svg' : '../assets/icons/volume.svg';
+        }
+      }
+
+      window.conHandleVideoPlayPause = function () {
+        const node = (conNodes || []).find(n => n && n.id === _conActiveVideoNodeId);
+        if (!node) return;
+        const video = conGetOrInitVideoPlayer();
+        if (!video.src) return;
+
+        if (!video.paused && !video.ended) {
+          video.pause();
+          node.videoState = 'paused';
+        } else {
+          if (video.ended) {
+            video.currentTime = 0;
+            node.videoCurrentTime = 0;
+          }
+          video.play().catch(err => {
+            console.warn('Video playback error:', err);
+          });
+          node.videoState = 'playing';
+        }
+        conSyncVideoPopoverUi(node);
+        conUpdateVideoNodeDisplay(node);
+        _conBroadcastVideoState(node);
+      };
+
+      window.conHandleVideoStop = function () {
+        const node = (conNodes || []).find(n => n && n.id === _conActiveVideoNodeId);
+        const video = conGetOrInitVideoPlayer();
+        if (video) {
+          video.pause();
+          video.currentTime = 0;
+        }
+        if (node) {
+          node.videoCurrentTime = 0;
+          node.videoState = 'idle';
+          conUpdateVideoNodeDisplay(node);
+          _conBroadcastVideoState(node);
+        }
+        conSyncVideoPopoverUi(node);
+      };
+
+      window.conHandleVideoSeek = function (val) {
+        const node = (conNodes || []).find(n => n && n.id === _conActiveVideoNodeId);
+        const video = conGetOrInitVideoPlayer();
+        const time = parseFloat(val) || 0;
+        if (video && isFinite(time)) {
+          video.currentTime = time;
+        }
+        if (node) {
+          node.videoCurrentTime = time;
+          conUpdateVideoNodeDisplay(node);
+          _conThrottleBroadcastVideoState(node);
+        }
+        const curTimeEl = document.getElementById('con-video-cur-time');
+        if (curTimeEl) curTimeEl.textContent = (typeof conFormatDurationSec === 'function') ? conFormatDurationSec(Math.round(time)) : String(Math.round(time));
+      };
+
+      window.conHandleVideoMute = function () {
+        const node = (conNodes || []).find(n => n && n.id === _conActiveVideoNodeId);
+        const video = conGetOrInitVideoPlayer();
+        if (video) {
+          video.muted = !video.muted;
+          if (node) node.videoMuted = video.muted;
+        }
+        conSyncVideoPopoverUi(node);
+        if (node) _conBroadcastVideoState(node);
+      };
+
+      window.conHandleVideoFullscreen = async function () {
+        const video = conGetOrInitVideoPlayer();
+        if (!video) return;
+
+        // If currently in native fullscreen, exit fullscreen
+        if (document.fullscreenElement) {
+          if (document.exitFullscreen) {
+            try { await document.exitFullscreen(); } catch (_) {}
+          }
+          return;
+        }
+
+        // Try HTML5 requestFullscreen on video element with controls enabled
+        let entered = false;
+        try {
+          video.controls = true;
+          if (video.requestFullscreen) {
+            await video.requestFullscreen();
+            entered = true;
+          } else if (video.webkitRequestFullscreen) {
+            video.webkitRequestFullscreen();
+            entered = true;
+          }
+        } catch (err) {
+          console.warn('[Board] Video native fullscreen request rejected, using cinema overlay:', err);
+          video.controls = false;
+        }
+
+        if (!entered && !document.fullscreenElement) {
+          conToggleVideoCinemaModal(true);
+        }
+      };
+
+      function conToggleVideoCinemaModal(show) {
+        let modal = document.getElementById('con-video-cinema-modal');
+        const video = conGetOrInitVideoPlayer();
+        const viewport = document.getElementById('con-video-popover-viewport');
+        if (show) {
+          if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'con-video-cinema-modal';
+            modal.style.cssText = 'position:fixed; inset:0; z-index:999999; background:rgba(0,0,0,0.92); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px;';
+            modal.innerHTML = `
+              <div style="position:absolute; top:15px; right:20px; display:flex; gap:10px; z-index:10;">
+                <button type="button" class="action-btn btn-grey" onclick="conToggleVideoCinemaModal(false)" style="padding:6px 12px; font-weight:700; border-radius:6px; background:#fff; color:#000; cursor:pointer;">
+                  ✕ Close Fullscreen
+                </button>
+              </div>
+              <div id="con-video-cinema-container" style="width:90vw; max-width:1200px; height:80vh; max-height:800px; display:flex; align-items:center; justify-content:center; background:#000; border-radius:8px; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,0.8);">
+              </div>
+            `;
+            document.body.appendChild(modal);
+          }
+          const container = document.getElementById('con-video-cinema-container');
+          if (container && video) {
+            video.style.maxHeight = '100%';
+            video.style.height = '100%';
+            video.controls = true;
+            container.appendChild(video);
+          }
+          modal.style.display = 'flex';
+        } else if (modal && modal.style.display !== 'none') {
+          modal.style.display = 'none';
+          if (viewport && video) {
+            video.style.maxHeight = '190px';
+            video.style.height = '';
+            video.controls = false;
+            viewport.appendChild(video);
+          }
+        }
+      }
+      window.conToggleVideoCinemaModal = conToggleVideoCinemaModal;
+
+      document.addEventListener('fullscreenchange', function () {
+        const video = _conVideoEl;
+        if (!video) return;
+        if (document.fullscreenElement === video) {
+          video.controls = true;
+        } else if (!document.fullscreenElement) {
+          video.controls = false;
+        }
+      });
+
+      window.conConvertActiveVideoNodeToCanvas = function () {
+        const node = (conNodes || []).find(n => n && n.id === _conActiveVideoNodeId);
+        if (!node) return;
+        const att = (conAttachments || []).find(a => a && (a.id === node.videoAttachmentId || a.name === node.videoName || a.name === node.baseWord));
+        if (!att) {
+          if (typeof mdbToast === 'function') mdbToast('⚠️ Video attachment not found.');
+          return;
+        }
+        const x = node.x || 100;
+        const y = node.y || 100;
+        const pageNum = node.pageNum;
+        conCloseVideoPopover();
+        if (typeof conDeleteNode === 'function') {
+          conDeleteNode(node.id);
+        }
+        conInsertAttachmentById(att.id, { x, y, pageNum, asCanvasBox: true });
+        if (typeof mdbToast === 'function') {
+          mdbToast((typeof i18n !== 'undefined' && i18n.t) ? i18n.t('videoNodeConvertToCanvas') : 'Converted to canvas media box.');
+        }
+      };
+
+      // ---- Media Node System App & Location Folder Engine ----
+      async function conOpenMediaNodeExternal(node, action) {
+        if (!node) return;
+        const isSnd = !!(node.isSound || node.type === 'sound');
+        const isVid = !!(node.isVideo || node.type === 'video');
+        const kind = isSnd ? 'sounds' : 'videos';
+        const defaultName = isSnd ? (node.soundName || node.baseWord || 'audio.mp3') : (node.videoName || node.baseWord || 'video.mp4');
+
+        // Find associated attachment
+        let att = (conAttachments || []).find(a => a && (
+          (isSnd && (a.id === node.soundAttachmentId || a.name === node.soundName || a.name === node.baseWord)) ||
+          (isVid && (a.id === node.videoAttachmentId || a.name === node.videoName || a.name === node.baseWord)) ||
+          (a.name === defaultName)
+        ));
+
+        const isElectron = !!(window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron());
+
+        // In standard browser environment (fallback)
+        if (!isElectron) {
+          if (action === 'folder') {
+            if (typeof showToast === 'function') {
+              showToast(typeof i18n !== 'undefined' ? i18n.t('mediaNodeFolderWebNotice') || 'Folder location is only available in the desktop application.' : 'Folder location is only available in the desktop application.', true);
+            }
+            return;
+          }
+          // action === 'open' in browser: open data URL in new tab
+          let dataUrl = '';
+          if (att) {
+            dataUrl = att._cachedObjectUrl || (typeof conGetAttachmentDataUrl === 'function' ? await conGetAttachmentDataUrl(att) : '');
+          }
+          if (dataUrl) {
+            window.open(dataUrl, '_blank');
+          } else {
+            if (typeof showToast === 'function') {
+              showToast(typeof i18n !== 'undefined' ? i18n.t('mediaNodeFileNotFound') || 'Media file could not be located on disk.' : 'Media file could not be located on disk.', true);
+            }
+          }
+          return;
+        }
+
+        // Electron environment
+        // 1. Check if direct absolute path exists
+        const absPath = att && (att.path || att.absolutePath || (att.file && att.file.path));
+        if (absPath) {
+          if (action === 'folder') {
+            await Desktop.showInFolder({ absolutePath: absPath });
+          } else {
+            await Desktop.openNative({ absolutePath: absPath });
+          }
+          return;
+        }
+
+        // 2. Check candidate relative paths on disk
+        const candidates = att ? conAttachmentCandidateRelativePaths(att) : conAttachmentCandidateRelativePaths({ name: defaultName, kind });
+        let foundRelPath = null;
+        for (const cand of candidates) {
+          try {
+            const check = await Desktop.readByPath('mindmaps', cand, { encoding: 'base64' });
+            if (check && check.ok && check.content) {
+              foundRelPath = cand;
+              break;
+            }
+          } catch (_) {}
+        }
+
+        if (foundRelPath) {
+          if (action === 'folder') {
+            await Desktop.showInFolder('mindmaps', foundRelPath);
+          } else {
+            await Desktop.openNative('mindmaps', foundRelPath);
+          }
+          return;
+        }
+
+        // 3. File not found loose on disk (e.g. packed in a .cstz archive or in memory)
+        const isCstz = !!(_conCurrentFileName && (_conCurrentFileName.endsWith('.cstz') || _conCurrentFileName.endsWith('.zip')));
+
+        if (action === 'folder') {
+          // If it's a .cstz file or saved file, reveal the archive/session file in explorer
+          if (_conCurrentFileName) {
+            await Desktop.showInFolder('mindmaps', _conCurrentFileName);
+          } else if (_conCurrentFolderName) {
+            await Desktop.showInFolder('mindmaps', _conCurrentFolderName);
+          } else {
+            await Desktop.showInFolder('mindmaps', '');
+          }
+          return;
+        }
+
+        // Action === 'open' on .cstz or memory-only media:
+        // If it is a cstz file, open the folder of the archive file first, then open the extracted audio/video
+        if (isCstz && _conCurrentFileName) {
+          try {
+            await Desktop.showInFolder('mindmaps', _conCurrentFileName);
+          } catch (_) {}
+        }
+
+        // Extract and write media to disk so system player can open it
+        try {
+          let mediaBlob = null;
+          if (att && att.file && att.file instanceof Blob) {
+            mediaBlob = att.file;
+          } else if (typeof conGetAttachmentArrayBuffer === 'function' && att) {
+            const buf = await conGetAttachmentArrayBuffer(att);
+            if (buf) {
+              const mime = att.mime || (isSnd ? 'audio/mpeg' : 'video/mp4');
+              mediaBlob = new Blob([buf], { type: mime });
+            }
+          }
+          if (!mediaBlob && att && typeof conGetAttachmentDataUrl === 'function') {
+            const dUrl = await conGetAttachmentDataUrl(att);
+            if (dUrl) {
+              const fetchRes = await fetch(dUrl);
+              mediaBlob = await fetchRes.blob();
+            }
+          }
+
+          if (!mediaBlob) {
+            // Check if active audio/video element has loaded src
+            const playerEl = isSnd ? _conSoundAudio : _conVideoEl;
+            if (playerEl && playerEl.src) {
+              const fetchRes = await fetch(playerEl.src);
+              mediaBlob = await fetchRes.blob();
+            }
+          }
+
+          if (mediaBlob) {
+            const rawFileName = (att && att.name) || defaultName;
+            const extMatch = rawFileName.match(/\.[a-zA-Z0-9]+$/);
+            const ext = extMatch ? extMatch[0] : (isSnd ? '.mp3' : '.mp4');
+            const safeBase = rawFileName.replace(/\.[a-zA-Z0-9]+$/, '');
+            const finalFileName = safeBase + ext;
+
+            const boardBase = _conCurrentFileName ? boardStripJsonExt(_conCurrentFileName) : (_conCurrentFolderName || 'temp_media');
+            const relSubdir = boardBase + '/' + kind;
+
+            await Desktop.saveBlob('mindmaps', finalFileName, mediaBlob, relSubdir);
+            const extractedRelPath = relSubdir + '/' + finalFileName;
+
+            await Desktop.openNative('mindmaps', extractedRelPath);
+            if (typeof showToast === 'function') {
+              showToast(typeof i18n !== 'undefined' ? i18n.t('mediaNodeExtractedToast') || 'Media extracted from archive and opened in system application.' : 'Media extracted from archive and opened in system application.');
+            }
+            return;
+          }
+        } catch (err) {
+          console.warn('[Board] Could not extract media for external open:', err);
+        }
+
+        // Fallback if unable to extract
+        if (_conCurrentFileName) {
+          await Desktop.showInFolder('mindmaps', _conCurrentFileName);
+        } else {
+          if (typeof showToast === 'function') {
+            showToast(typeof i18n !== 'undefined' ? i18n.t('mediaNodeFileNotFound') || 'Media file could not be located on disk.' : 'Media file could not be located on disk.', true);
+          }
+        }
+      }
+
+      window.conSoundNodeOpenNative = function () {
+        const node = (conNodes || []).find(n => n && n.id === _conActiveSoundNodeId);
+        if (node) conOpenMediaNodeExternal(node, 'open');
+      };
+      window.conSoundNodeOpenFolder = function () {
+        const node = (conNodes || []).find(n => n && n.id === _conActiveSoundNodeId);
+        if (node) conOpenMediaNodeExternal(node, 'folder');
+      };
+      window.conVideoNodeOpenNative = function () {
+        const node = (conNodes || []).find(n => n && n.id === _conActiveVideoNodeId);
+        if (node) conOpenMediaNodeExternal(node, 'open');
+      };
+      window.conVideoNodeOpenFolder = function () {
+        const node = (conNodes || []).find(n => n && n.id === _conActiveVideoNodeId);
+        if (node) conOpenMediaNodeExternal(node, 'folder');
+      };
+      window.conCtxMediaOpenNative = function () {
+        const node = (conNodes || []).find(n => n && n.id === conCtxNodeId);
+        if (node) conOpenMediaNodeExternal(node, 'open');
+        if (typeof conCtxClose === 'function') conCtxClose();
+      };
+      window.conCtxMediaOpenFolder = function () {
+        const node = (conNodes || []).find(n => n && n.id === conCtxNodeId);
+        if (node) conOpenMediaNodeExternal(node, 'folder');
+        if (typeof conCtxClose === 'function') conCtxClose();
+      };
+
+      // ---- Multi-node layout preferences & state ----
+      let _conBoardLayoutPrefBoard = localStorage.getItem('con-board-layout-pref-board') || 'horizontal';
+      let _conBoardLayoutPrefConnected = localStorage.getItem('con-board-layout-pref-connected') || 'circle';
+      let _conCurrentCtxLayout = 'horizontal';
+
+      window.conGetBoardCtxLayout = function () {
+        return _conCurrentCtxLayout || (_pendingConnectSrcId ? _conBoardLayoutPrefConnected : _conBoardLayoutPrefBoard);
+      };
+
+      window.conSetBoardCtxLayout = function (layoutKey) {
+        if (!['horizontal', 'vertical', 'circle', 'cluster'].includes(layoutKey)) return;
+        _conCurrentCtxLayout = layoutKey;
+        if (_pendingConnectSrcId) {
+          _conBoardLayoutPrefConnected = layoutKey;
+          try { localStorage.setItem('con-board-layout-pref-connected', layoutKey); } catch (_) { }
+        } else {
+          _conBoardLayoutPrefBoard = layoutKey;
+          try { localStorage.setItem('con-board-layout-pref-board', layoutKey); } catch (_) { }
+        }
+        const selector = document.getElementById('con-ctx-layout-selector');
+        if (selector) {
+          selector.querySelectorAll('.con-ctx-layout-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.layout === layoutKey);
+          });
+        }
+      };
+
+      window.conSyncBoardCtxLayoutUi = function (isPendingSrc) {
+        const layout = isPendingSrc ? (_conBoardLayoutPrefConnected || 'circle') : (_conBoardLayoutPrefBoard || 'horizontal');
+        _conCurrentCtxLayout = layout;
+        const selector = document.getElementById('con-ctx-layout-selector');
+        if (selector) {
+          selector.querySelectorAll('.con-ctx-layout-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.layout === layout);
+          });
+        }
+      };
+
+      // Returns the nearest (x, y) that does not overlap any existing board node.
+      // Clamped to canvas boundaries.
+      function conFindFreePosition(x, y, excludeId) {
+        const estW = 88, estH = 34, pad = 8;
+        const brd = board();
+        const bw = brd ? brd.clientWidth : 1200;
+        const bh = brd ? brd.clientHeight : 800;
+
+        function overlaps(tx, ty) {
+          return conNodes.some(n => {
+            if (excludeId && n.id === excludeId) return false;
+            const nw = (n.el && n.el.offsetWidth) || 80;
+            const nh = (n.el && n.el.offsetHeight) || 32;
+            return !(tx + estW + pad <= n.x || tx >= n.x + nw + pad ||
+              ty + estH + pad <= n.y || ty >= n.y + nh + pad);
+          });
+        }
+
+        function clamp(tx, ty) {
+          return {
+            x: Math.max(4, Math.min(bw - estW - 4, tx)),
+            y: Math.max(4, Math.min(bh - estH - 4, ty))
+          };
+        }
+
+        const initial = clamp(x, y);
+        if (!overlaps(initial.x, initial.y)) return initial;
+        const step = Math.max(estW, estH) + pad;
+        const golden = 2.39996323; // ~137.5° in radians
+        for (let i = 1; i <= 60; i++) {
+          const r = step * Math.sqrt(i);
+          const tx = x + r * Math.cos(i * golden);
+          const ty = y + r * Math.sin(i * golden);
+          const clamped = clamp(tx, ty);
+          if (!overlaps(clamped.x, clamped.y)) return clamped;
+        }
+        return initial;
+      }
+
+      // Probes outward from (x, y) strictly bounded within maxR of (origX, origY), clamped to canvas.
+      function conFindFreePositionBounded(x, y, origX, origY, maxR, excludeId) {
+        const estW = 88, estH = 34, pad = 8;
+        const radiusLimit = Number.isFinite(maxR) && maxR > 0 ? maxR : 150;
+        const brd = board();
+        const bw = brd ? brd.clientWidth : 1200;
+        const bh = brd ? brd.clientHeight : 800;
+
+        function overlaps(tx, ty) {
+          return conNodes.some(n => {
+            if (excludeId && n.id === excludeId) return false;
+            const nw = (n.el && n.el.offsetWidth) || 80;
+            const nh = (n.el && n.el.offsetHeight) || 32;
+            return !(tx + estW + pad <= n.x || tx >= n.x + nw + pad ||
+              ty + estH + pad <= n.y || ty >= n.y + nh + pad);
+          });
+        }
+
+        function clamp(tx, ty) {
+          return {
+            x: Math.max(4, Math.min(bw - estW - 4, tx)),
+            y: Math.max(4, Math.min(bh - estH - 4, ty))
+          };
+        }
+
+        const initial = clamp(x, y);
+        if (!overlaps(initial.x, initial.y)) return initial;
+
+        const golden = 2.39996323;
+        const step = 20;
+        let best = initial;
+        for (let i = 1; i <= 60; i++) {
+          const r = step * Math.sqrt(i);
+          if (r > radiusLimit) break; // Strict radius constraint
+          const tx = origX + r * Math.cos(i * golden) - estW / 2;
+          const ty = origY + r * Math.sin(i * golden) - estH / 2;
+          const clamped = clamp(tx, ty);
+          const dist = Math.hypot(clamped.x + estW / 2 - origX, clamped.y + estH / 2 - origY);
+          if (dist <= radiusLimit + 25) {
+            if (!overlaps(clamped.x, clamped.y)) {
+              return clamped;
+            }
+            best = clamped;
+          }
+        }
+        return best;
+      }
+
+      // Unified node layout computation keeping all new nodes within compact radius (140px-160px)
+      function conComputeNodeLayout(opts) {
+        const origin = opts.origin || { x: 100, y: 100 };
+        const count = Math.max(1, opts.count || 1);
+        const layout = opts.layout || 'horizontal';
+        const isConnected = !!opts.isConnected;
+        const srcNode = opts.srcNode || null;
+        const maxR = Number.isFinite(opts.maxRadius) && opts.maxRadius > 0 ? opts.maxRadius : 150;
+        const nodeW = opts.nodeW || 88;
+        const nodeH = opts.nodeH || 34;
+        const excludeId = opts.excludeId || (srcNode ? srcNode.id : null);
+        const brd = board();
+        const bw = brd ? brd.clientWidth : 1200;
+        const bh = brd ? brd.clientHeight : 800;
+
+        function clamp(tx, ty) {
+          return {
+            x: Math.max(4, Math.min(bw - nodeW - 4, tx)),
+            y: Math.max(4, Math.min(bh - nodeH - 4, ty))
+          };
+        }
+
+        const positions = [];
+
+        // Single node
+        if (count === 1) {
+          if (isConnected && srcNode) {
+            const srcW = (srcNode.el && srcNode.el.offsetWidth) || 80;
+            const srcH = (srcNode.el && srcNode.el.offsetHeight) || 32;
+            const spaceRight = bw - (srcNode.x + srcW);
+            const spaceLeft = srcNode.x;
+            const spaceBottom = bh - (srcNode.y + srcH);
+
+            let targetX, targetY;
+            // Prefer right side if >= 120px room, else pick side with most space
+            if (spaceRight >= 120) {
+              targetX = srcNode.x + srcW + 28;
+              targetY = srcNode.y + (srcH - nodeH) / 2;
+            } else if (spaceLeft >= 120) {
+              targetX = srcNode.x - nodeW - 28;
+              targetY = srcNode.y + (srcH - nodeH) / 2;
+            } else if (spaceBottom >= 60) {
+              targetX = srcNode.x + (srcW - nodeW) / 2;
+              targetY = srcNode.y + srcH + 24;
+            } else {
+              targetX = srcNode.x + (srcW - nodeW) / 2;
+              targetY = srcNode.y - nodeH - 24;
+            }
+            const c = clamp(targetX, targetY);
+            positions.push(conFindFreePositionBounded(c.x, c.y, origin.x, origin.y, maxR, excludeId));
+          } else {
+            const c = clamp(origin.x - nodeW / 2, origin.y - nodeH / 2);
+            positions.push(conFindFreePositionBounded(c.x, c.y, origin.x, origin.y, maxR, excludeId));
+          }
+          return positions;
+        }
+
+        // Multiple nodes (count >= 2)
+        if (layout === 'circle') {
+          const R = Math.min(150, Math.max(65, 45 + count * 8));
+          let startAngle = -Math.PI / 2;
+          if (isConnected) {
+            if (origin.x < 180) startAngle = -Math.PI / 4;
+            else if (origin.x > bw - 180) startAngle = 3 * Math.PI / 4;
+          }
+          for (let i = 0; i < count; i++) {
+            const angle = startAngle + (2 * Math.PI * i / count);
+            const nx = origin.x + R * Math.cos(angle) - nodeW / 2;
+            const ny = origin.y + R * Math.sin(angle) - nodeH / 2;
+            positions.push(clamp(nx, ny));
+          }
+        } else if (layout === 'horizontal') {
+          // Always a single horizontal row, cleanly spaced and centered on origin
+          const gap = 10;
+          const totalW = count * nodeW + (count - 1) * gap;
+          let startX, rowY;
+          if (isConnected && srcNode) {
+            const srcW = (srcNode.el && srcNode.el.offsetWidth) || 80;
+            const srcH = (srcNode.el && srcNode.el.offsetHeight) || 32;
+            const spaceRight = bw - (srcNode.x + srcW);
+            const spaceLeft = srcNode.x;
+            const spaceBottom = bh - (srcNode.y + srcH);
+            if (spaceRight >= totalW + 20) {
+              startX = srcNode.x + srcW + 24;
+              rowY = srcNode.y + (srcH - nodeH) / 2;
+            } else if (spaceLeft >= totalW + 20) {
+              startX = srcNode.x - totalW - 24;
+              rowY = srcNode.y + (srcH - nodeH) / 2;
+            } else if (spaceBottom >= nodeH + 20) {
+              startX = origin.x - totalW / 2;
+              rowY = srcNode.y + srcH + 24;
+            } else {
+              startX = origin.x - totalW / 2;
+              rowY = srcNode.y - nodeH - 24;
+            }
+          } else {
+            startX = origin.x - totalW / 2;
+            rowY = origin.y - nodeH / 2;
+          }
+          if (startX < 4) startX = 4;
+          if (startX + totalW > bw - 4) startX = Math.max(4, bw - totalW - 4);
+          rowY = Math.max(4, Math.min(bh - nodeH - 4, rowY));
+          for (let i = 0; i < count; i++) {
+            positions.push({ x: startX + i * (nodeW + gap), y: rowY });
+          }
+        } else if (layout === 'vertical') {
+          // Always a single vertical column, cleanly spaced and centered on origin
+          const gap = 8;
+          const totalH = count * nodeH + (count - 1) * gap;
+          let colX, startY;
+          if (isConnected && srcNode) {
+            const srcW = (srcNode.el && srcNode.el.offsetWidth) || 80;
+            const srcH = (srcNode.el && srcNode.el.offsetHeight) || 32;
+            const spaceRight = bw - (srcNode.x + srcW);
+            const spaceLeft = srcNode.x;
+            const spaceBottom = bh - (srcNode.y + srcH);
+            if (spaceRight >= nodeW + 20) {
+              colX = srcNode.x + srcW + 24;
+              startY = origin.y - totalH / 2;
+            } else if (spaceLeft >= nodeW + 20) {
+              colX = srcNode.x - nodeW - 24;
+              startY = origin.y - totalH / 2;
+            } else if (spaceBottom >= totalH + 20) {
+              colX = origin.x - nodeW / 2;
+              startY = srcNode.y + srcH + 24;
+            } else {
+              colX = origin.x - nodeW / 2;
+              startY = srcNode.y - totalH - 24;
+            }
+          } else {
+            colX = origin.x - nodeW / 2;
+            startY = origin.y - totalH / 2;
+          }
+          colX = Math.max(4, Math.min(bw - nodeW - 4, colX));
+          if (startY < 4) startY = 4;
+          if (startY + totalH > bh - 4) startY = Math.max(4, bh - totalH - 4);
+          for (let i = 0; i < count; i++) {
+            positions.push({ x: colX, y: startY + i * (nodeH + gap) });
+          }
+        } else {
+          // 'cluster': compact spiral packing tightly constrained within maxR
+          for (let i = 0; i < count; i++) {
+            if (i === 0) {
+              positions.push(clamp(origin.x - nodeW / 2, origin.y - nodeH / 2));
+            } else {
+              const golden = 2.39996323;
+              const step = Math.min(32, 120 / Math.sqrt(count));
+              const r = step * Math.sqrt(i);
+              const nx = origin.x + r * Math.cos(i * golden) - nodeW / 2;
+              const ny = origin.y + r * Math.sin(i * golden) - nodeH / 2;
+              positions.push(clamp(nx, ny));
+            }
+          }
+        }
+
+        return positions;
+      }
+
+      window.conBoardCtxConfirm = async function () {
+        const inp = document.getElementById('con-board-ctx-input');
+        const raw = (inp && inp.value.trim()) || '';
+        const pendingSrc = _pendingConnectSrcId;  // snapshot before close clears it
+        const pendingType = _pendingConnectType || 'none'; // snapshot arrow type
+        const chosenLayout = conGetBoardCtxLayout();
+        conBoardCtxClose();
+        if (!raw) return;
+
+        // Check for =random(a,b) expression FIRST (before timer check)
+        if (!raw.includes(',,') && !raw.includes('--') && !raw.includes('>') && !raw.includes('<') && !raw.includes('++')) {
+          const parsedRandom = conParseRandomSyntax(raw);
+          if (parsedRandom) {
+            conPushUndo();
+            const _fp = conFindFreePositionBounded(_boardCtxX, _boardCtxY, _boardCtxX + 40, _boardCtxY + 18, 150, pendingSrc);
+            const randomId = conAddRandomNodeAt(parsedRandom.min, parsedRandom.max, _fp.x, _fp.y);
+            if (pendingSrc && randomId) {
+              conAddEdge(pendingSrc, randomId, pendingType);
+            }
+            return;
+          }
+        }
+
+        // Check if raw text is a single timer shorthand (e.g. 15', 15'30", 45")
+        if (!raw.includes(',,') && !raw.includes('--') && !raw.includes('>') && !raw.includes('<') && !raw.includes('++')) {
+          const parsedTimer = conParseTimerSyntax(raw);
+          if (parsedTimer) {
+            const choice = await conPromptTimerConversion(parsedTimer);
+            if (!choice) return;
+            if (choice === 'timer') {
+              conPushUndo();
+              const _fp = conFindFreePositionBounded(_boardCtxX, _boardCtxY, _boardCtxX + 40, _boardCtxY + 18, 150, pendingSrc);
+              const timerId = conAddTimerNodeAt(parsedTimer.totalSec, _fp.x, _fp.y);
+              if (pendingSrc && timerId) {
+                conAddEdge(pendingSrc, timerId, pendingType);
+              }
+              return;
+            }
+          }
+        }
+
+        conPushUndo();
+        const entries = raw.split(',,').map(w => w.trim()).filter(w => w.length > 0);
+        let lastId = null;
+        const allNewIds = [];
+
+        // Compute base positions using the unified radius-constrained layout engine (compact radius <= 150px)
+        let originX = _boardCtxX + 40;
+        let originY = _boardCtxY + 18;
+        let srcNodeObj = null;
+        if (pendingSrc) {
+          srcNodeObj = conNodes.find(n => n.id === pendingSrc);
+          if (srcNodeObj) {
+            const sw = (srcNodeObj.el && srcNodeObj.el.offsetWidth) || 80;
+            const sh = (srcNodeObj.el && srcNodeObj.el.offsetHeight) || 32;
+            originX = srcNodeObj.x + sw / 2;
+            originY = srcNodeObj.y + sh / 2;
+          }
+        }
+
+        const entryBasePositions = conComputeNodeLayout({
+          origin: { x: originX, y: originY },
+          count: entries.length,
+          layout: chosenLayout,
+          isConnected: !!pendingSrc,
+          srcNode: srcNodeObj,
+          maxRadius: 150
+        });
+
+        entries.forEach((entry, entryIdx) => {
+          // Unified parser supporting: <>, --, >>, <<, >, <, and ++ (for auto-grouped nodes)
+          const SEP_RE = /\s*(<>|--|>>|<<|>|<)\s*/;
+          const rawSegs = entry.split(SEP_RE); // [seg0, op0, seg1, op1, seg2, ...]
+          const chainParts = []; // [{words:[], op: string|null}]
+          for (let i = 0; i < rawSegs.length; i += 2) {
+            const wordGroup = rawSegs[i].trim();
+            const op = (i + 1 < rawSegs.length) ? rawSegs[i + 1] : null;
+            let words = [];
+            if (wordGroup.includes('++')) {
+              const rawWords = wordGroup.split(/\+{2,}/).map(w => w.trim());
+              if (rawWords.length > 1 && rawWords.every(w => w.length > 0)) {
+                words = rawWords;
+              }
+            }
+            if (!words.length && wordGroup) {
+              words = [wordGroup];
+            }
+            if (words.length) chainParts.push({ words, op });
+          }
+          if (!chainParts.length) return;
+
+          const chainAnchorIds = [];  // first node id of each segment (for chaining)
+          const chainNodeIds = [];    // all node ids (for spread)
+
+          const entryBase = entryBasePositions[entryIdx] || { x: originX, y: originY };
+          const baseX = entryBase.x;
+          const baseY = entryBase.y;
+
+          chainParts.forEach((part, partIdx) => {
+            const partOffsetX = partIdx * 20;
+            const partOffsetY = partIdx * 8;
+            const unitNodeIds = [];
+
+            part.words.forEach((word, wordIdx) => {
+              const pageMatch = word.match(/\(\(([^)]+)\)\)/);
+              const pageNum = pageMatch ? pageMatch[1].trim() : null;
+              const cleanWord = word.replace(/\s*\(\([^)]+\)\)\s*/, '').trim();
+              if (!cleanWord) return;
+              const ox = partOffsetX + wordIdx * 6;
+              const oy = partOffsetY + wordIdx * (28 + 4);
+              let nx = baseX + ox;
+              let ny = baseY + oy;
+              const brd = board();
+              const bw = brd ? brd.clientWidth : 1200;
+              const bh = brd ? brd.clientHeight : 800;
+              nx = Math.max(4, Math.min(bw - 88 - 4, nx));
+              ny = Math.max(4, Math.min(bh - 34 - 4, ny));
+              const _fp = (partIdx > 0 || wordIdx > 0)
+                ? conFindFreePositionBounded(nx, ny, originX, originY, 150, pendingSrc)
+                : { x: nx, y: ny };
+              if (cleanWord.includes('_')) {
+                // Underscore-separated phrase → seamless phrase group (one node per segment)
+                const phraseWords = cleanWord.split('_').map(w => w.trim()).filter(Boolean);
+                const phraseIds = conCreatePhraseGroup(phraseWords, _fp.x, _fp.y);
+                if (phraseIds.length) {
+                  unitNodeIds.push(phraseIds[0]);
+                  phraseIds.forEach(nid => { chainNodeIds.push(nid); allNewIds.push(nid); });
+                  lastId = phraseIds[0];
+                }
+              } else {
+                const newId = conAddWordAt(cleanWord, _fp.x, _fp.y, pageNum);
+                if (newId) {
+                  unitNodeIds.push(newId);
+                  chainNodeIds.push(newId);
+                  allNewIds.push(newId);
+                  lastId = newId;
+                }
+              }
+            });
+
+            if (!unitNodeIds.length) return;
+
+            // Group '++' words together
+            if (unitNodeIds.length > 1) {
+              const newGroup = conGroupCreate(unitNodeIds, baseX + partOffsetX, baseY + partOffsetY);
+              if (newGroup) conSpreadGroup(newGroup);
+            }
+
+            chainAnchorIds.push({ id: unitNodeIds[0], op: part.op });
+          });
+
+          if (!chainAnchorIds.length) return;
+
+          // Auto-connect to pending source node (from "Add Connected Word")
+          if (pendingSrc) {
+            conAddEdge(pendingSrc, chainAnchorIds[0].id, pendingType);
+          }
+
+          // Link chain segments in order using their preceding operator
+          for (let i = 0; i < chainAnchorIds.length - 1; i++) {
+            const aId = chainAnchorIds[i].id;
+            const bId = chainAnchorIds[i + 1].id;
+            const op = chainAnchorIds[i].op;
+            const t = (op === '>' || op === '>>') ? 'forward'
+                    : (op === '<' || op === '<<') ? 'backward'
+                    : (op === '<>') ? 'both'
+                    : 'none';
+            conAddEdge(aId, bId, t);
+          }
+
+          // Spread multi-segment chains
+          if (chainParts.length > 1 && chainNodeIds.length > 1) {
+            conSpreadNodeSet(chainNodeIds);
+          }
+        });
+
+        // When multiple nodes are created, select all of them for immediate joint moving
+        if (allNewIds.length > 1) {
+          conSelected = null;
+          conMultiSelected.clear();
+          allNewIds.forEach(id => {
+            const n = conNodes.find(node => node.id === id);
+            if (n && n.el) {
+              n.el.classList.remove('con-selected');
+              n.el.classList.add('con-multi-selected');
+              conMultiSelected.add(n.id);
+            }
+          });
+          if (typeof conUpdateToolbarStatus === 'function') conUpdateToolbarStatus();
+          if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
+        }
+      };
+      window.conBoardCtxFocusNoteInput = function () {
+        const noteInp = document.getElementById('con-board-ctx-note-input');
+        if (!noteInp) {
+          window.conBoardCtxAddNote();
+          return;
+        }
+        noteInp.focus();
+        noteInp.select();
+      };
+
+      window.conBoardCtxConfirmNote = function () {
+        const noteInp = document.getElementById('con-board-ctx-note-input');
+        const raw = noteInp ? noteInp.value : '';
+        window.conBoardCtxAddNote(raw);
+      };
+
+      window.conBoardCtxClose = function () {
+        const bmenu = document.getElementById('con-board-ctx-menu');
+        if (bmenu) {
+          bmenu.classList.remove('visible');
+          bmenu.style.maxHeight = '';
+        }
+        const saveSelItem = document.getElementById('con-board-ctx-save-library');
+        if (saveSelItem) saveSelItem.style.display = 'none';
+        const inp = document.getElementById('con-board-ctx-input');
+        if (inp) inp.value = '';
+        const noteInp = document.getElementById('con-board-ctx-note-input');
+        if (noteInp) noteInp.value = '';
+        const tblRows = document.getElementById('con-board-ctx-table-rows');
+        if (tblRows) tblRows.value = '2';
+        const tblCols = document.getElementById('con-board-ctx-table-cols');
+        if (tblCols) tblCols.value = '4';
+        _pendingConnectSrcId = null;
+        _pendingConnectType = 'none';
+        // Reset title back to default
+        const title = document.querySelector('#con-board-ctx-menu .con-ctx-title');
+        if (title) title.textContent = 'Add to Board';
+        conRenderBoardBgPresetsInContextMenu();
+        conRenderBoardLayoutOptionsInContextMenu();
+      };
+
+      window.conBoardCtxOpenRecord = function () {
+        conOpenRecordPopup(_boardCtxX, _boardCtxY);
+      };
+
+      function conAddWordAt(text, x, y, pageNum) {
+        const id = 'cn' + conNextId++;
+        const brd = board();
+        const dbMatch = conFindDbEntry(text);
+        const el = document.createElement('div');
+        el.className = 'con-node' + (dbMatch ? ' con-node-matched' : '');
+        el.id = id;
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+        conApplyDefaultWordFontSize(el);
+        if (window._bcNodeFontFamily) el.style.fontFamily = window._bcNodeFontFamily;
+        brd.appendChild(el);
+        const baseWord = text;
+        const node = { id, el, x, y, dbWord: dbMatch ? dbMatch.word : null, baseWord, pageNum: pageNum != null ? pageNum : null, locked: false, fontFamily: window._bcNodeFontFamily || null };
+        conNodes.push(node);
+        conSyncNodeLockState(node);
+        if (typeof BoardAudioService !== 'undefined') BoardAudioService.playAction('create_node');
+        conRenderNodeLabel(node);
+        conAttachNodeEvents(id, el);
+        conAddNodeStarBtn(node);
+        conSelect(id);
+        return id;
+      }
+
+      function conDuplicateNodeById(nodeId, offsetX, offsetY) {
+        const src = conNodes.find(n => n.id === nodeId);
+        if (!src) return null;
+        const brd = board();
+        const dx = Number.isFinite(offsetX) ? offsetX : 40;
+        const dy = Number.isFinite(offsetY) ? offsetY : 28;
+        const maxX = Math.max(0, brd.clientWidth - (src.el.offsetWidth || 80));
+        const maxY = Math.max(0, brd.clientHeight - (src.el.offsetHeight || 32));
+        const x = Math.max(0, Math.min(maxX, src.x + dx));
+        const y = Math.max(0, Math.min(maxY, src.y + dy));
+
+        const newId = conAddWordAt(src.baseWord || src.el.textContent.trim(), x, y, src.pageNum);
+        const dup = conNodes.find(n => n.id === newId);
+        if (!dup) return null;
+
+        dup.dbWord = src.dbWord || null;
+        dup.pageNum = src.pageNum != null ? src.pageNum : null;
+        if (src.sourceWord) dup.sourceWord = src.sourceWord;
+        if (src.relation) dup.relation = src.relation;
+        if (src.fmt) dup.fmt = Object.assign({}, src.fmt);
+        if (src.shape) dup.shape = src.shape;
+        dup.locked = !!src.locked;
+        dup.borderWidth = src.borderWidth || null;
+        dup.borderStyle = src.borderStyle || null;
+        dup.highlight = src.highlight || null;
+        dup.preset = src.preset || null;
+        dup.fontFamily = src.fontFamily || null;
+
+        ['background', 'color', 'borderColor', 'fontSize', 'fontFamily'].forEach(key => {
+          if (src.el.style[key]) dup.el.style[key] = src.el.style[key];
+        });
+
+        dup.masked = !!src.masked;
+        dup.el.classList.toggle('con-masked', !!src.masked);
+        dup.rotation = src.rotation || 0;
+        conApplyNodeRotation(dup, dup.rotation);
+        if (src.isTimer) {
+          dup.isTimer = true;
+          dup.durationSec = src.durationSec;
+          dup.remainingSec = src.durationSec;
+          dup.timerState = 'idle';
+          dup.timerTarget = null;
+        }
+        if (src.isRandom) {
+          dup.isRandom = true;
+          dup.randomMin = src.randomMin;
+          dup.randomMax = src.randomMax;
+          // Re-roll a fresh value for the duplicate
+          dup.randomValue = Math.round(Math.random() * (src.randomMax - src.randomMin)) + Math.ceil(src.randomMin);
+          dup.baseWord = '=random(' + src.randomMin + ',' + src.randomMax + ')';
+        }
+        if (src.isSound) {
+          dup.isSound = true;
+          dup.soundAttachmentId = src.soundAttachmentId || null;
+          dup.soundName = src.soundName || null;
+          dup.soundDuration = src.soundDuration || 0;
+          dup.soundCurrentTime = 0;
+          dup.soundState = 'idle';
+        }
+        if (src.isVideo) {
+          dup.isVideo = true;
+          dup.videoAttachmentId = src.videoAttachmentId || null;
+          dup.videoName = src.videoName || null;
+          dup.videoDuration = src.videoDuration || 0;
+          dup.videoCurrentTime = 0;
+          dup.videoState = 'idle';
+          dup.videoMuted = !!src.videoMuted;
+        }
+        conSyncNodeLockState(dup);
+
+        conRenderNodeLabel(dup);
+        return newId;
+      }
+
+      // Multi-select bulk format toggle
+      window.conCtxMultiToggleFmt = function (type) {
+        if (conMultiSelected.size < 1) return;
+        conPushUndo();
+        const targets = conNodes.filter(n => conMultiSelected.has(n.id));
+        // Determine majority state: if most are on, turn all off; else turn all on
+        const onCount = targets.filter(n => conGetNodeFmt(n)[type]).length;
+        const newVal = onCount < targets.length / 2 ? true : false;
+        targets.forEach(node => {
+          conGetNodeFmt(node)[type] = newVal;
+          conRenderNodeLabel(node);
+        });
+        conRedrawEdges();
+      };
+
+      // Connect all multi-selected nodes to each other (chain or full mesh based on count)
+      window.conCtxConnectSelected = function (type) {
+        if (conMultiSelected.size < 2) return;
+        conPushUndo();
+        const edgeType = type || 'none';
+        // Use selection order, falling back to DOM order for stability
+        const ids = [...conMultiSelected];
+        for (let i = 0; i < ids.length - 1; i++) {
+          conAddEdge(ids[i], ids[i + 1], edgeType);
+        }
+        conCtxClose();
+      };
+
+      // Merge multi-selected nodes: opens the small choice popup close to the button
+      window.conCtxMergeSelected = function (event) {
+        if (!conMultiSelected || conMultiSelected.size < 2) return;
+        let anchorRect = null;
+        const btn = (event && (event.currentTarget || event.target)) || document.getElementById('con-ctx-merge-btn') || document.querySelector('button[onclick*="conCtxMergeSelected"]');
+        if (btn && typeof btn.getBoundingClientRect === 'function') {
+          anchorRect = btn.getBoundingClientRect();
+        } else if (conCtxNodeId) {
+          const node = conNodes.find(n => n.id === conCtxNodeId);
+          if (node && node.el) anchorRect = node.el.getBoundingClientRect();
+        }
+        conCtxClose();
+        conOpenMergeChoiceModal(anchorRect);
+      };
+
+      function conOpenMergeChoiceModal(anchorRect) {
+        if (!conMultiSelected || conMultiSelected.size < 2) return;
+        const overlay = document.getElementById('con-merge-choice-overlay');
+        const popup = document.getElementById('con-merge-choice-popup');
+        if (!overlay || !popup) return;
+
+        if (typeof applyI18nToContainer === 'function') {
+          applyI18nToContainer(popup);
+        }
+        overlay.classList.add('active');
+
+        // Position popup close to the pressed button
+        if (anchorRect) {
+          const pw = popup.offsetWidth || 236;
+          const ph = popup.offsetHeight || 105;
+          let left = anchorRect.left;
+          let top = anchorRect.bottom + 4;
+
+          if (left + pw > window.innerWidth - 8) {
+            left = window.innerWidth - pw - 8;
+          }
+          if (left < 8) left = 8;
+
+          if (top + ph > window.innerHeight - 8) {
+            top = Math.max(8, anchorRect.top - ph - 4);
+          }
+          popup.style.left = left + 'px';
+          popup.style.top = top + 'px';
+        } else {
+          popup.style.left = '50%';
+          popup.style.top = '50%';
+          popup.style.transform = 'translate(-50%, -50%)';
+        }
+      }
+
+      window.conMergeChoiceCancel = function () {
+        conMergeChoiceClose();
+      };
+
+      function conMergeChoiceClose() {
+        const overlay = document.getElementById('con-merge-choice-overlay');
+        if (overlay) overlay.classList.remove('active');
+      }
+
+      window.conMergeChoiceExecute = function (mode) {
+        if (!conMultiSelected || conMultiSelected.size < 2) {
+          conMergeChoiceClose();
+          return;
+        }
+        conPushUndo();
+        // Sort by x position for left-to-right word order
+        const nodes = conNodes.filter(n => conMultiSelected.has(n.id))
+          .sort((a, b) => a.x - b.x);
+        if (nodes.length < 2) {
+          conMergeChoiceClose();
+          return;
+        }
+        const cx = nodes.reduce((s, n) => s + n.x, 0) / nodes.length;
+        const cy = nodes.reduce((s, n) => s + n.y, 0) / nodes.length;
+        const ids = nodes.map(n => n.id);
+        const phraseWords = nodes.map(n => n.baseWord || (n.el ? n.el.textContent.trim() : '')).filter(Boolean);
+        const first = nodes[0];
+
+        if (mode === 'phrase') {
+          // Remove the original nodes
+          ids.forEach(id => conRemoveNode(id));
+          conMultiSelected.clear();
+          if (phraseWords.length < 2) {
+            // Single-word fallback
+            const newId = conAddWordAt(phraseWords[0] || '', cx, cy, first ? first.pageNum : null);
+            const newNode = conNodes.find(n => n.id === newId);
+            if (newNode && first) {
+              if (first.fmt) newNode.fmt = Object.assign({}, first.fmt);
+              ['background', 'color', 'fontSize', 'fontFamily'].forEach(k => {
+                if (first.el && first.el.style[k]) newNode.el.style[k] = first.el.style[k];
+              });
+              conRenderNodeLabel(newNode);
+            }
+          } else {
+            const phraseIds = conCreatePhraseGroup(phraseWords, cx, cy);
+            // Apply per-word formatting from the source nodes
+            phraseIds.forEach((nid, i) => {
+              const src = nodes[i];
+              const newNode = conNodes.find(n => n.id === nid);
+              if (!newNode || !src) return;
+              if (src.fmt) newNode.fmt = Object.assign({}, src.fmt);
+              if (src.pageNum != null) newNode.pageNum = src.pageNum;
+              ['background', 'color', 'fontSize', 'fontFamily'].forEach(k => {
+                if (src.el && src.el.style[k]) newNode.el.style[k] = src.el.style[k];
+              });
+              conRenderNodeLabel(newNode);
+            });
+          }
+        } else {
+          // Single node mode: join words with spaces
+          const fullText = phraseWords.join(' ');
+          const pageNumNode = nodes.find(n => n.pageNum != null);
+          const targetPageNum = pageNumNode ? pageNumNode.pageNum : (first ? first.pageNum : null);
+
+          // Remove original nodes
+          ids.forEach(id => conRemoveNode(id));
+          conMultiSelected.clear();
+
+          const newId = conAddWordAt(fullText, cx, cy, targetPageNum);
+          const newNode = conNodes.find(n => n.id === newId);
+          if (newNode && first) {
+            if (first.fmt) newNode.fmt = Object.assign({}, first.fmt);
+            ['background', 'color', 'fontFamily', 'borderColor'].forEach(k => {
+              if (first.el && first.el.style[k]) newNode.el.style[k] = first.el.style[k];
+            });
+            const srcBaseSize = conGetNodeBaseFontSize(first);
+            if (srcBaseSize) conSetNodeBaseFontSize(newNode, srcBaseSize);
+            newNode.borderWidth = first.borderWidth || null;
+            newNode.borderStyle = first.borderStyle || null;
+            newNode.highlight = first.highlight || null;
+            newNode.preset = first.preset || null;
+            newNode.shape = first.shape || null;
+            newNode.fontFamily = first.fontFamily || null;
+            newNode.textStrokeColor = first.textStrokeColor || null;
+            newNode.textStrokeWidth = first.textStrokeWidth || null;
+            if (first.shape) conApplyNodeShape(newNode, first.shape);
+            if (first.rotation != null) {
+              newNode.rotation = (typeof window.conNormalizeNodeRotation === 'function') ? window.conNormalizeNodeRotation(first.rotation) : (Number(first.rotation) || 0);
+              if (typeof conApplyNodeRotation === 'function') conApplyNodeRotation(newNode, newNode.rotation);
+            }
+            if (newNode.textStrokeWidth || newNode.textStrokeColor) {
+              conApplyTextStrokeStyle(newNode.el, newNode.textStrokeWidth, newNode.textStrokeColor);
+            }
+            conRenderNodeLabel(newNode);
+          }
+        }
+        conRedrawEdges();
+        if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true });
+        conMergeChoiceClose();
+      };
+
+      function conGetMultiSelectedNodes() {
+        return conNodes.filter(n => conMultiSelected.has(n.id));
+      }
+
+      function conClampNodePosition(node, x, y) {
+        const brd = board();
+        const maxX = Math.max(0, brd.clientWidth - (node.el.offsetWidth || 80));
+        const maxY = Math.max(0, brd.clientHeight - (node.el.offsetHeight || 32));
+        return {
+          x: Math.max(0, Math.min(maxX, x)),
+          y: Math.max(0, Math.min(maxY, y)),
+        };
+      }
+
+      function conSyncNodeBasePosition(node) {
+        const brd = board();
+        const centerX = brd.clientWidth / 2;
+        const centerY = brd.clientHeight / 2;
+        node.baseX = centerX + (node.x - centerX) / conCurrentZoom;
+        node.baseY = centerY + (node.y - centerY) / conCurrentZoom;
+      }
+
+      function conCommitNodeLayout(nodes) {
+        nodes.forEach(node => {
+          if (conIsNodeLocked(node)) return;
+          const pos = conClampNodePosition(node, node.x, node.y);
+          node.x = pos.x;
+          node.y = pos.y;
+          node.el.style.left = node.x + 'px';
+          node.el.style.top = node.y + 'px';
+          conSyncNodeBasePosition(node);
+        });
+        conGroupRefitAll();
+        conRedrawEdges();
+      }
+
+      function conGetSelectionBounds(nodes) {
+        const left = Math.min(...nodes.map(node => node.x));
+        const top = Math.min(...nodes.map(node => node.y));
+        const right = Math.max(...nodes.map(node => node.x + (node.el.offsetWidth || 80)));
+        const bottom = Math.max(...nodes.map(node => node.y + (node.el.offsetHeight || 32)));
+        return {
+          left,
+          top,
+          right,
+          bottom,
+          width: right - left,
+          height: bottom - top,
+          centerX: (left + right) / 2,
+          centerY: (top + bottom) / 2,
+        };
+      }
+
+      window.conCtxAlignSelected = function (direction, mode) {
+        const targets = conGetMultiSelectedNodes().filter(node => !conIsNodeLocked(node));
+        if (targets.length < 2) return;
+
+        const bounds = conGetSelectionBounds(targets);
+        targets.forEach(node => {
+          const width = node.el.offsetWidth || 80;
+          const height = node.el.offsetHeight || 32;
+          if (direction === 'vertical') {
+            if (mode === 'left') node.x = bounds.left;
+            else if (mode === 'middle') node.x = bounds.centerX - width / 2;
+            else if (mode === 'right') node.x = bounds.right - width;
+          } else {
+            if (mode === 'top') node.y = bounds.top;
+            else if (mode === 'centre') node.y = bounds.centerY - height / 2;
+            else if (mode === 'bottom') node.y = bounds.bottom - height;
+          }
+        });
+
+        conCommitNodeLayout(targets);
+        conCtxClose();
+      };
+
+      window.conCtxDistributeSelected = function (direction) {
+        const targets = conGetMultiSelectedNodes().filter(node => !conIsNodeLocked(node));
+        if (targets.length < 3) return;
+
+        const brd = board();
+        const isHorizontal = direction === 'horizontal';
+        const sorted = [...targets].sort((a, b) => isHorizontal ? a.x - b.x : a.y - b.y);
+        const bounds = conGetSelectionBounds(sorted);
+        const totalSize = sorted.reduce((sum, node) => {
+          return sum + (isHorizontal ? (node.el.offsetWidth || 80) : (node.el.offsetHeight || 32));
+        }, 0);
+        const available = isHorizontal ? brd.clientWidth : brd.clientHeight;
+        const currentSpan = isHorizontal ? bounds.width : bounds.height;
+        const minGap = isHorizontal ? 18 : 14;
+        const span = Math.min(available, Math.max(currentSpan, totalSize + minGap * (sorted.length - 1)));
+        const gap = Math.max(0, (span - totalSize) / (sorted.length - 1));
+        const center = isHorizontal ? bounds.centerX : bounds.centerY;
+        let cursor = Math.max(0, Math.min(available - span, center - span / 2));
+
+        sorted.forEach(node => {
+          if (isHorizontal) node.x = cursor;
+          else node.y = cursor;
+          cursor += (isHorizontal ? (node.el.offsetWidth || 80) : (node.el.offsetHeight || 32)) + gap;
+        });
+
+        conCommitNodeLayout(sorted);
+        conCtxClose();
+      };
+
+      window.conCtxGridSelected = function () {
+        const targets = conGetMultiSelectedNodes().filter(node => !conIsNodeLocked(node));
+        if (targets.length < 2) return;
+
+        const brd = board();
+        const ordered = [...targets].sort((a, b) => (a.y - b.y) || (a.x - b.x));
+        const bounds = conGetSelectionBounds(ordered);
+        const maxWidth = Math.max(...ordered.map(node => node.el.offsetWidth || 80));
+        const maxHeight = Math.max(...ordered.map(node => node.el.offsetHeight || 32));
+        const ratio = bounds.height > 0 ? bounds.width / bounds.height : 1;
+        let columns = Math.round(Math.sqrt(ordered.length * Math.max(ratio, 0.5)));
+        columns = Math.max(1, Math.min(ordered.length, columns || 1));
+        const rows = Math.ceil(ordered.length / columns);
+        const gapX = 24;
+        const gapY = 18;
+        const gridWidth = columns * maxWidth + (columns - 1) * gapX;
+        const gridHeight = rows * maxHeight + (rows - 1) * gapY;
+        const startX = Math.max(0, bounds.centerX - gridWidth / 2);
+        const startY = Math.max(0, bounds.centerY - gridHeight / 2);
+
+        ordered.forEach((node, index) => {
+          const column = index % columns;
+          const row = Math.floor(index / columns);
+          const width = node.el.offsetWidth || 80;
+          const height = node.el.offsetHeight || 32;
+          node.x = startX + column * (maxWidth + gapX) + (maxWidth - width) / 2;
+          node.y = startY + row * (maxHeight + gapY) + (maxHeight - height) / 2;
+        });
+
+        conCommitNodeLayout(ordered);
+        conCtxClose();
+      };
+
+      function conSpreadNodeSet(ids) {
+        const selectedNodes = ids.map(id => conNodes.find(n => n.id === id)).filter(node => {
+          if (!node || conIsNodeLocked(node)) return false;
+          const pg = conGroupOfNode(node.id);
+          return !(pg && pg.phraseGroup);
+        });
+        if (selectedNodes.length < 2) return;
+
+        // Build member positions for force calculation
+        const mems = selectedNodes.map(n => ({
+          n,
+          cx: n.x + (n.el.offsetWidth || 80) / 2,
+          cy: n.y + (n.el.offsetHeight || 28) / 2,
+          w: n.el.offsetWidth || 80,
+          h: n.el.offsetHeight || 28,
+        }));
+
+        const ITER_INTRA = 80;
+        const INTRA_PAD = 12;
+
+        // Spread members using force-based physics
+        for (let iter = 0; iter < ITER_INTRA; iter++) {
+          const forces = mems.map(() => ({ fx: 0, fy: 0 }));
+          for (let i = 0; i < mems.length; i++) {
+            for (let j = i + 1; j < mems.length; j++) {
+              const a = mems[i], b = mems[j];
+              const dx = b.cx - a.cx || 0.1, dy = b.cy - a.cy;
+              const ox = (a.w / 2 + b.w / 2 + INTRA_PAD) - Math.abs(dx);
+              const oy = (a.h / 2 + b.h / 2 + INTRA_PAD) - Math.abs(dy);
+              if (ox > 0 && oy > 0) {
+                let px = 0, py = 0;
+                if (ox < oy) px = (ox / 2 + 0.5) * Math.sign(dx);
+                else py = (oy / 2 + 0.5) * Math.sign(dy || 1);
+                forces[i].fx -= px; forces[i].fy -= py;
+                forces[j].fx += px; forces[j].fy += py;
+              }
+            }
+          }
+          mems.forEach((m, i) => { m.cx += forces[i].fx; m.cy += forces[i].fy; });
+        }
+
+        // Apply new positions
+        mems.forEach(m => {
+          m.n.x = m.cx - m.w / 2;
+          m.n.y = m.cy - m.h / 2;
+          m.n.el.style.transition = 'left 0.4s ease, top 0.4s ease';
+          m.n.el.style.left = m.n.x + 'px';
+          m.n.el.style.top = m.n.y + 'px';
+        });
+
+        conGroupRefitAll();
+        conRedrawEdges();
+        setTimeout(() => {
+          mems.forEach(m => { m.n.el.style.transition = ''; });
+          conRedrawEdges();
+          conGroupRefitAll();
+        }, 450);
+      }
+
+      // Spread multi-selected words using force-based physics (same as conSpreadGroup)
+      window.conCtxSpreadSelected = function () {
+        if (conMultiSelected.size < 2) return;
+        conPushUndo();
+        conSpreadNodeSet([...conMultiSelected]);
+        conCtxClose();
+      };
+
+      window.conBoardCtxSpreadRegion = function (radius = 220) {
+        const brd = board();
+        if (!brd || conNodes.length < 2) return;
+
+        const centerX = Number(window._boardCtxNoteX) || (_boardCtxX + 40) || brd.clientWidth / 2;
+        const centerY = Number(window._boardCtxNoteY) || (_boardCtxY + 18) || brd.clientHeight / 2;
+        const regionRadius = Math.max(140, Number(radius) || 220);
+
+        function boxTouchesRegion(left, top, right, bottom) {
+          const nearX = Math.max(left, Math.min(centerX, right));
+          const nearY = Math.max(top, Math.min(centerY, bottom));
+          return Math.hypot(nearX - centerX, nearY - centerY) <= regionRadius;
+        }
+
+        const units = [];
+        const assignedNodeIds = new Set();
+
+        conGroups.forEach(g => {
+          const members = conNodes.filter(n => g.nodeIds.includes(n.id));
+          if (!members.length) return;
+
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          members.forEach(n => {
+            const w = n.el.offsetWidth || 80;
+            const h = n.el.offsetHeight || 28;
+            minX = Math.min(minX, n.x);
+            minY = Math.min(minY, n.y);
+            maxX = Math.max(maxX, n.x + w);
+            maxY = Math.max(maxY, n.y + h);
+          });
+
+          if (!boxTouchesRegion(minX, minY, maxX, maxY)) return;
+
+          const gcx = (minX + maxX) / 2;
+          const gcy = (minY + maxY) / 2;
+          members.forEach(n => assignedNodeIds.add(n.id));
+          units.push({
+            cx: gcx,
+            cy: gcy,
+            w: maxX - minX + GROUP_PAD * 2,
+            h: maxY - minY + GROUP_PAD * 2,
+            isGroup: true,
+            memberOffsets: members.map(n => ({
+              n,
+              dx: (n.x + (n.el.offsetWidth || 80) / 2) - gcx,
+              dy: (n.y + (n.el.offsetHeight || 28) / 2) - gcy,
+              w: n.el.offsetWidth || 80,
+              h: n.el.offsetHeight || 28,
+            })),
+          });
+        });
+
+        conNodes.forEach(n => {
+          if (assignedNodeIds.has(n.id)) return;
+          const w = n.el.offsetWidth || 80;
+          const h = n.el.offsetHeight || 28;
+          if (!boxTouchesRegion(n.x, n.y, n.x + w, n.y + h)) return;
+          units.push({ cx: n.x + w / 2, cy: n.y + h / 2, w, h, isGroup: false, node: n, locked: conIsNodeLocked(n) });
+        });
+
+        if (units.length < 2) {
+          if (typeof mdbToast === 'function') mdbToast('ℹ️ No nearby words to spread here.');
+          return;
+        }
+
+        conPushUndo();
+
+        const ordered = units.map(u => ({
+          ...u,
+          originCx: u.cx,
+          originCy: u.cy,
+        }));
+
+        const PADDING = 14;
+        const ITERATIONS = 70;
+        const anchorStrength = 0.22;
+        const maxShift = Math.min(90, Math.max(36, regionRadius * 0.35));
+
+        for (let iter = 0; iter < ITERATIONS; iter++) {
+          const forces = ordered.map(() => ({ fx: 0, fy: 0 }));
+
+          for (let i = 0; i < ordered.length; i++) {
+            for (let j = i + 1; j < ordered.length; j++) {
+              const a = ordered[i], b = ordered[j];
+              const rawDx = b.cx - a.cx;
+              const rawDy = b.cy - a.cy;
+              const dx = rawDx || (b.originCx - a.originCx) || 0.1;
+              const dy = rawDy || (b.originCy - a.originCy) || 0.1;
+              const ox = (a.w / 2 + b.w / 2 + PADDING) - Math.abs(rawDx);
+              const oy = (a.h / 2 + b.h / 2 + PADDING) - Math.abs(rawDy);
+              if (ox > 0 && oy > 0) {
+                let px = 0, py = 0;
+                if (ox < oy) px = (ox / 2 + 0.35) * Math.sign(dx);
+                else py = (oy / 2 + 0.35) * Math.sign(dy);
+                forces[i].fx -= px; forces[i].fy -= py;
+                forces[j].fx += px; forces[j].fy += py;
+              }
+            }
+          }
+
+          ordered.forEach((u, i) => {
+            if (!u.isGroup && u.locked) return;
+            u.cx += forces[i].fx;
+            u.cy += forces[i].fy;
+
+            u.cx += (u.originCx - u.cx) * anchorStrength;
+            u.cy += (u.originCy - u.cy) * anchorStrength;
+
+            const shiftX = u.cx - u.originCx;
+            const shiftY = u.cy - u.originCy;
+            const shift = Math.hypot(shiftX, shiftY);
+            if (shift > maxShift && shift > 0) {
+              const scale = maxShift / shift;
+              u.cx = u.originCx + shiftX * scale;
+              u.cy = u.originCy + shiftY * scale;
+            }
+
+            u.cx = Math.max(u.w / 2 + 4, u.cx);
+            u.cy = Math.max(u.h / 2 + 4, u.cy);
+          });
+        }
+
+        const boardCenterX = brd.clientWidth / 2;
+        const boardCenterY = brd.clientHeight / 2;
+        ordered.forEach(unit => {
+          if (unit.isGroup) {
+            unit.memberOffsets.forEach(({ n, dx, dy, w, h }) => {
+              if (conIsNodeLocked(n)) return;
+              n.x = unit.cx + dx - w / 2;
+              n.y = unit.cy + dy - h / 2;
+              n.baseX = boardCenterX + (n.x - boardCenterX) / conCurrentZoom;
+              n.baseY = boardCenterY + (n.y - boardCenterY) / conCurrentZoom;
+              n.el.style.transition = 'left 0.4s ease, top 0.4s ease';
+              n.el.style.left = n.x + 'px';
+              n.el.style.top = n.y + 'px';
+            });
+          } else if (!unit.locked) {
+            unit.node.x = unit.cx - unit.w / 2;
+            unit.node.y = unit.cy - unit.h / 2;
+            unit.node.baseX = boardCenterX + (unit.node.x - boardCenterX) / conCurrentZoom;
+            unit.node.baseY = boardCenterY + (unit.node.y - boardCenterY) / conCurrentZoom;
+            unit.node.el.style.transition = 'left 0.4s ease, top 0.4s ease';
+            unit.node.el.style.left = unit.node.x + 'px';
+            unit.node.el.style.top = unit.node.y + 'px';
+          }
+        });
+
+        conRedrawEdges();
+        conGroupRefitAll();
+        setTimeout(() => {
+          ordered.forEach(u => {
+            if (u.isGroup) u.memberOffsets.forEach(({ n }) => { n.el.style.transition = ''; });
+            else u.node.el.style.transition = '';
+          });
+          conRedrawEdges();
+          conGroupRefitAll();
+        }, 450);
+      };
+
+      // ---- Compact helpers ----
+      // Each node/unit greedily moves as far as possible toward the centroid
+      // without overlapping any neighbour. Processed innermost-first, 3 passes.
+      function _conCompactRunUnits(units, centX, centY, PADDING) {
+        let totalMoved = 0;
+        for (let pass = 0; pass < 8; pass++) {
+          // Recompute centroid from current (moved) positions each pass
+          const freeUnits = units.filter(u => !u.locked);
+          const cx = freeUnits.reduce((s, u) => s + u.cx, 0) / (freeUnits.length || 1);
+          const cy = freeUnits.reduce((s, u) => s + u.cy, 0) / (freeUnits.length || 1);
+          // Innermost units first: they slide toward centroid, opening room for outer ones
+          const order = units.map((_, i) => i).sort((a, b) =>
+            Math.hypot(units[a].cx - cx, units[a].cy - cy) -
+            Math.hypot(units[b].cx - cx, units[b].cy - cy));
+          order.forEach(i => {
+            const u = units[i];
+            if (u.locked) return;
+            const dxD = cx - u.cx, dyD = cy - u.cy;
+            if (Math.hypot(dxD, dyD) < 0.5) return;
+            // Binary-search: max fraction t ∈ [0,1] we can move without overlapping
+            let lo = 0, hi = 1;
+            for (let k = 0; k < 28; k++) {
+              const mid = (lo + hi) / 2;
+              const nx = u.cx + dxD * mid, ny = u.cy + dyD * mid;
+              let hit = false;
+              for (let j = 0; j < units.length; j++) {
+                if (j === i) continue;
+                if (Math.abs(nx - units[j].cx) < (u.w + units[j].w) / 2 + PADDING &&
+                  Math.abs(ny - units[j].cy) < (u.h + units[j].h) / 2 + PADDING) { hit = true; break; }
+              }
+              if (hit) hi = mid; else lo = mid;
+            }
+            if (lo < 0.001) return;
+            u.cx += dxD * lo; u.cy += dyD * lo;
+            totalMoved += Math.hypot(dxD * lo, dyD * lo);
+          });
+        }
+        return totalMoved;
+      }
+
+      function conCompactNodeSet(ids) {
+        const selectedNodes = ids.map(id => conNodes.find(n => n.id === id)).filter(n => n && !conIsNodeLocked(n));
+        if (selectedNodes.length < 2) return;
+        const units = selectedNodes.map(n => ({
+          n, locked: false,
+          cx: n.x + (n.el.offsetWidth || 80) / 2, cy: n.y + (n.el.offsetHeight || 28) / 2,
+          w: n.el.offsetWidth || 80, h: n.el.offsetHeight || 28,
+        }));
+        const centX = units.reduce((s, u) => s + u.cx, 0) / units.length;
+        const centY = units.reduce((s, u) => s + u.cy, 0) / units.length;
+        const totalMoved = _conCompactRunUnits(units, centX, centY, 4);
+        if (totalMoved < 1) { if (typeof mdbToast === 'function') mdbToast('ℹ️ Already as compact as possible.'); return; }
+        units.forEach(u => {
+          u.n.x = u.cx - u.w / 2; u.n.y = u.cy - u.h / 2;
+          u.n.el.style.transition = 'left 0.4s ease, top 0.4s ease';
+          u.n.el.style.left = u.n.x + 'px'; u.n.el.style.top = u.n.y + 'px';
+        });
+        conGroupRefitAll(); conRedrawEdges();
+        setTimeout(() => { units.forEach(u => { u.n.el.style.transition = ''; }); conRedrawEdges(); conGroupRefitAll(); }, 450);
+      }
+
+      window.conCtxCompactSelected = function () {
+        if (conMultiSelected.size < 2) return;
+        conPushUndo();
+        conCompactNodeSet([...conMultiSelected]);
+        conCtxClose();
+      };
+
+      window.conCompactNodes = function conCompactNodes() {
+        const nodes = conNodes;
+        if (nodes.length < 2) return;
+        const brd = board();
+        const bw = brd.clientWidth, bh = brd.clientHeight;
+        const units = [];
+        const assignedNodeIds = new Set();
+        conGroups.forEach(g => {
+          const members = nodes.filter(n => g.nodeIds.includes(n.id));
+          if (members.length === 0) return;
+          members.forEach(n => assignedNodeIds.add(n.id));
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          members.forEach(n => {
+            const w = n.el.offsetWidth || 80, h = n.el.offsetHeight || 28;
+            minX = Math.min(minX, n.x); minY = Math.min(minY, n.y);
+            maxX = Math.max(maxX, n.x + w); maxY = Math.max(maxY, n.y + h);
+          });
+          const gcx = (minX + maxX) / 2, gcy = (minY + maxY) / 2;
+          units.push({
+            cx: gcx, cy: gcy, locked: false,
+            w: maxX - minX + GROUP_PAD * 2, h: maxY - minY + GROUP_PAD * 2,
+            isGroup: true,
+            memberOffsets: members.map(n => ({
+              n, dx: (n.x + (n.el.offsetWidth || 80) / 2) - gcx, dy: (n.y + (n.el.offsetHeight || 28) / 2) - gcy,
+              w: n.el.offsetWidth || 80, h: n.el.offsetHeight || 28,
+            })),
+          });
+        });
+        nodes.forEach(n => {
+          if (assignedNodeIds.has(n.id)) return;
+          const w = n.el.offsetWidth || 80, h = n.el.offsetHeight || 28;
+          units.push({ cx: n.x + w / 2, cy: n.y + h / 2, w, h, isGroup: false, node: n, locked: conIsNodeLocked(n) });
+        });
+        if (units.length < 2) return;
+        const centX = units.reduce((s, u) => s + u.cx, 0) / units.length;
+        const centY = units.reduce((s, u) => s + u.cy, 0) / units.length;
+        const totalMoved = _conCompactRunUnits(units, centX, centY, 6);
+        if (totalMoved < 1) { if (typeof mdbToast === 'function') mdbToast('ℹ️ Already as compact as possible.'); return; }
+        conPushUndo();
+        const bcx = bw / 2, bcy = bh / 2;
+        units.forEach(unit => {
+          if (unit.isGroup) {
+            unit.memberOffsets.forEach(({ n, dx, dy, w, h }) => {
+              n.x = unit.cx + dx - w / 2; n.y = unit.cy + dy - h / 2;
+              n.baseX = bcx + (n.x - bcx) / conCurrentZoom; n.baseY = bcy + (n.y - bcy) / conCurrentZoom;
+              n.el.style.transition = 'left 0.4s ease, top 0.4s ease';
+              n.el.style.left = n.x + 'px'; n.el.style.top = n.y + 'px';
+            });
+          } else {
+            unit.node.x = unit.cx - unit.w / 2; unit.node.y = unit.cy - unit.h / 2;
+            unit.node.baseX = bcx + (unit.node.x - bcx) / conCurrentZoom;
+            unit.node.baseY = bcy + (unit.node.y - bcy) / conCurrentZoom;
+            unit.node.el.style.transition = 'left 0.4s ease, top 0.4s ease';
+            if (!unit.locked) { unit.node.el.style.left = unit.node.x + 'px'; unit.node.el.style.top = unit.node.y + 'px'; }
+          }
+        });
+        conRedrawEdges(); conGroupRefitAll();
+        setTimeout(() => {
+          units.forEach(u => { if (u.isGroup) u.memberOffsets.forEach(({ n }) => { n.el.style.transition = ''; }); else u.node.el.style.transition = ''; });
+          conRedrawEdges(); conGroupRefitAll();
+        }, 450);
+      };
+
+      window.conBoardCtxCompactRegion = function (radius = 220) {
+        const brd = board();
+        if (!brd || conNodes.length < 2) return;
+        const centerX = Number(window._boardCtxNoteX) || (_boardCtxX + 40) || brd.clientWidth / 2;
+        const centerY = Number(window._boardCtxNoteY) || (_boardCtxY + 18) || brd.clientHeight / 2;
+        const regionRadius = Math.max(140, Number(radius) || 220);
+        function boxTouchesRegion(left, top, right, bottom) {
+          const nearX = Math.max(left, Math.min(centerX, right));
+          const nearY = Math.max(top, Math.min(centerY, bottom));
+          return Math.hypot(nearX - centerX, nearY - centerY) <= regionRadius;
+        }
+        const units = [];
+        const assignedNodeIds = new Set();
+        conGroups.forEach(g => {
+          const members = conNodes.filter(n => g.nodeIds.includes(n.id));
+          if (!members.length) return;
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          members.forEach(n => {
+            const w = n.el.offsetWidth || 80, h = n.el.offsetHeight || 28;
+            minX = Math.min(minX, n.x); minY = Math.min(minY, n.y);
+            maxX = Math.max(maxX, n.x + w); maxY = Math.max(maxY, n.y + h);
+          });
+          if (!boxTouchesRegion(minX, minY, maxX, maxY)) return;
+          const gcx = (minX + maxX) / 2, gcy = (minY + maxY) / 2;
+          members.forEach(n => assignedNodeIds.add(n.id));
+          units.push({
+            cx: gcx, cy: gcy, locked: false,
+            w: maxX - minX + GROUP_PAD * 2, h: maxY - minY + GROUP_PAD * 2,
+            isGroup: true,
+            memberOffsets: members.map(n => ({
+              n, dx: (n.x + (n.el.offsetWidth || 80) / 2) - gcx, dy: (n.y + (n.el.offsetHeight || 28) / 2) - gcy,
+              w: n.el.offsetWidth || 80, h: n.el.offsetHeight || 28,
+            })),
+          });
+        });
+        conNodes.forEach(n => {
+          if (assignedNodeIds.has(n.id)) return;
+          const w = n.el.offsetWidth || 80, h = n.el.offsetHeight || 28;
+          if (!boxTouchesRegion(n.x, n.y, n.x + w, n.y + h)) return;
+          units.push({ cx: n.x + w / 2, cy: n.y + h / 2, w, h, isGroup: false, node: n, locked: conIsNodeLocked(n) });
+        });
+        if (units.length < 2) { if (typeof mdbToast === 'function') mdbToast('ℹ️ No nearby words to compact here.'); return; }
+        const centX = units.reduce((s, u) => s + u.cx, 0) / units.length;
+        const centY = units.reduce((s, u) => s + u.cy, 0) / units.length;
+        const totalMoved = _conCompactRunUnits(units, centX, centY, 6);
+        if (totalMoved < 1) { if (typeof mdbToast === 'function') mdbToast('ℹ️ Already as compact as possible.'); return; }
+        conPushUndo();
+        const boardCenterX = brd.clientWidth / 2, boardCenterY = brd.clientHeight / 2;
+        units.forEach(unit => {
+          if (unit.isGroup) {
+            unit.memberOffsets.forEach(({ n, dx, dy, w, h }) => {
+              if (conIsNodeLocked(n)) return;
+              n.x = unit.cx + dx - w / 2; n.y = unit.cy + dy - h / 2;
+              n.baseX = boardCenterX + (n.x - boardCenterX) / conCurrentZoom;
+              n.baseY = boardCenterY + (n.y - boardCenterY) / conCurrentZoom;
+              n.el.style.transition = 'left 0.4s ease, top 0.4s ease';
+              n.el.style.left = n.x + 'px'; n.el.style.top = n.y + 'px';
+            });
+          } else if (!unit.locked) {
+            unit.node.x = unit.cx - unit.w / 2; unit.node.y = unit.cy - unit.h / 2;
+            unit.node.baseX = boardCenterX + (unit.node.x - boardCenterX) / conCurrentZoom;
+            unit.node.baseY = boardCenterY + (unit.node.y - boardCenterY) / conCurrentZoom;
+            unit.node.el.style.transition = 'left 0.4s ease, top 0.4s ease';
+            unit.node.el.style.left = unit.node.x + 'px'; unit.node.el.style.top = unit.node.y + 'px';
+          }
+        });
+        conRedrawEdges(); conGroupRefitAll();
+        setTimeout(() => {
+          units.forEach(u => { if (u.isGroup) u.memberOffsets.forEach(({ n }) => { n.el.style.transition = ''; }); else u.node.el.style.transition = ''; });
+          conRedrawEdges(); conGroupRefitAll();
+        }, 450);
+      };
+
+      // ---- Node formatting helpers ----
+      // Returns an array of vocabBank entries for baseWord.
+      // Returns all entries across all databases matching the lemma or inflected forms.
+      function conLookupDbEntries(baseWord, dbWordOverride) {
+        if (typeof vocabBank === 'undefined' || !Array.isArray(vocabBank)) return [];
+        const targetWord = dbWordOverride || baseWord;
+        if (!targetWord) return [];
+        const allMatches = conFindAllDbEntries(targetWord);
+        if (allMatches && allMatches.length > 0) {
+          return allMatches.map(m => m.entry).filter(Boolean);
+        }
+        const parts = String(targetWord).trim().split(/\s+/).filter(Boolean);
+        if (parts.length >= 2) {
+          const results = [];
+          const seen = new Set();
+          parts.forEach(p => {
+            const matches = conFindAllDbEntries(p);
+            matches.forEach(m => {
+              if (m && m.entry && !seen.has(m.entry)) {
+                seen.add(m.entry);
+                results.push(m.entry);
+              }
+            });
+          });
+          if (results.length > 0) return results;
+        }
+        return [];
+      }
+      window.conLookupDbEntries = conLookupDbEntries;
+
+      function boardTransformCasingText(text, casing) {
+        if (!text) return '';
+        const s = String(text);
+        if (!casing || casing === 'none' || casing === 'smallcaps') return s;
+        if (casing === 'uppercase') {
+          return s.toUpperCase();
+        }
+        if (casing === 'lowercase') {
+          return s.toLowerCase();
+        }
+        if (casing === 'titlecase') {
+          return s.replace(/\b[a-zA-ZÀ-ÿ]+/g, function (word) {
+            return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+          });
+        }
+        if (casing === 'sentencecase') {
+          return s.toLowerCase().replace(/(^\s*|\.\s+|\!\s+|\?\s+|<br\s*\/?>\s*)([a-zA-ZÀ-ÿ])/gi, function (match, sep, char) {
+            return sep + char.toUpperCase();
+          });
+        }
+        return s;
+      }
+      window.boardTransformCasingText = boardTransformCasingText;
+
+      // Each node stores: node.fmt = { bold, italic, underline, strike, showTrans, showIpa, casing, maxWidth }
+      function conGetNodeFmt(node) {
+        if (!node.fmt) {
+          node.fmt = {
+            bold: false,
+            italic: false,
+            underline: false,
+            strike: false,
+            showTrans: false,
+            showIpa: false,
+            casing: 'none',
+            maxWidth: null  // null = unconstrained; positive number = pixel cap with word-wrap
+          };
+        }
+        if (typeof node.fmt.strike !== 'boolean') node.fmt.strike = false;
+        if (typeof node.fmt.casing !== 'string') node.fmt.casing = 'none';
+        if (node.fmt.maxWidth !== null && typeof node.fmt.maxWidth !== 'number') node.fmt.maxWidth = null;
+        return node.fmt;
+      }
+
+      function conRenderNodeLabel(node) {
+        // --- Random Number Node ---
+        if (node && node.isRandom) {
+          const val = (node.randomValue != null) ? node.randomValue : node.randomMin;
+          const iconHtml = `<img src="../assets/icons/dice.svg" class="btn-icon con-random-dice-icon" alt="" style="width:14px;height:14px;margin-right:5px;vertical-align:-2px;pointer-events:none;display:inline-block;" />`;
+          const randomHtml = `<span class="con-node-word-row con-random-node-row" style="display:inline-flex;align-items:center;font-weight:700;">${iconHtml}<span class="con-random-digits">${val}</span></span>`;
+
+          node.el.classList.toggle('con-node-random', true);
+          node.el.classList.remove('con-node-timer', 'con-timer-running', 'con-timer-warning', 'con-timer-ended');
+
+          const _savedResizer = node.el.querySelector('.con-node-resizer');
+          const _savedEmojiDot = node.el.querySelector('.con-emoji-dot');
+          const _savedNoteBtn = node.el.querySelector('.con-node-note-btn');
+          const _savedStarBtn = node.el.querySelector('.con-node-star-btn');
+          const _savedCompBadge = node.el.querySelector('.con-node-comp-badge');
+          node.el.innerHTML = randomHtml;
+          if (_savedResizer) node.el.appendChild(_savedResizer);
+          if (_savedEmojiDot) node.el.appendChild(_savedEmojiDot);
+          if (_savedNoteBtn) node.el.appendChild(_savedNoteBtn);
+          if (_savedStarBtn) node.el.appendChild(_savedStarBtn);
+          if (typeof conUpdateNodeNoteButton === 'function') conUpdateNodeNoteButton(node);
+          if (typeof conUpdateNodeCompetenceBadge === 'function') {
+            conUpdateNodeCompetenceBadge(node);
+          } else if (_savedCompBadge) {
+            node.el.appendChild(_savedCompBadge);
+          }
+          node.el.style.display = 'inline-flex';
+          node.el.style.flexDirection = 'column';
+          node.el.style.alignItems = 'center';
+          node.el.style.justifyContent = 'center';
+          conApplyNodeShape(node, node.shape);
+          return;
+        }
+
+        if (node && node.isTimer) {
+          const displaySec = (typeof node.remainingSec === 'number') ? node.remainingSec : (node.durationSec || 0);
+          const timeStr = conFormatDurationSec(displaySec);
+          const isWarn = node.timerState === 'running' && displaySec > 0 && displaySec <= 60;
+          const isEnded = node.timerState === 'ended' || (node.timerState === 'running' && displaySec <= 0);
+          const isRunning = node.timerState === 'running';
+
+          node.el.classList.toggle('con-node-timer', true);
+          node.el.classList.toggle('con-timer-running', isRunning);
+          node.el.classList.toggle('con-timer-warning', isWarn);
+          node.el.classList.toggle('con-timer-ended', isEnded);
+          node.el.classList.remove('con-node-random', 'con-node-sound', 'con-sound-playing', 'con-sound-paused');
+
+          const iconHtml = `<img src="../assets/icons/clock.svg" class="btn-icon" alt="" style="width:14px;height:14px;margin-right:5px;vertical-align:-2px;pointer-events:none;display:inline-block;" />`;
+          const timerHtml = `<span class="con-node-word-row con-timer-node-row" style="display:inline-flex;align-items:center;font-weight:700;">${iconHtml}<span class="con-timer-digits">${timeStr}</span></span>`;
+
+          const _savedResizer = node.el.querySelector('.con-node-resizer');
+          const _savedEmojiDot = node.el.querySelector('.con-emoji-dot');
+          const _savedNoteBtn = node.el.querySelector('.con-node-note-btn');
+          const _savedStarBtn = node.el.querySelector('.con-node-star-btn');
+          const _savedCompBadge = node.el.querySelector('.con-node-comp-badge');
+          node.el.innerHTML = timerHtml;
+          if (_savedResizer) node.el.appendChild(_savedResizer);
+          if (_savedEmojiDot) node.el.appendChild(_savedEmojiDot);
+          if (_savedNoteBtn) node.el.appendChild(_savedNoteBtn);
+          if (_savedStarBtn) node.el.appendChild(_savedStarBtn);
+          if (typeof conUpdateNodeNoteButton === 'function') conUpdateNodeNoteButton(node);
+          if (typeof conUpdateNodeCompetenceBadge === 'function') {
+            conUpdateNodeCompetenceBadge(node);
+          } else if (_savedCompBadge) {
+            node.el.appendChild(_savedCompBadge);
+          }
+          node.el.style.display = 'inline-flex';
+          node.el.style.flexDirection = 'column';
+          node.el.style.alignItems = 'center';
+          node.el.style.justifyContent = 'center';
+          conApplyNodeShape(node, node.shape);
+          return;
+        }
+
+        // --- Sound Node ---
+        if (node && node.isSound) {
+          const soundTitle = node.soundName || node.text || node.baseWord || 'Audio';
+          const isPlaying = node.soundState === 'playing';
+          const isPaused = node.soundState === 'paused';
+          const curTime = (typeof node.soundCurrentTime === 'number') ? node.soundCurrentTime : 0;
+          const durTime = (typeof node.soundDuration === 'number') ? node.soundDuration : 0;
+          let timeStr = '';
+          if (durTime > 0) {
+            timeStr = conFormatDurationSec(Math.round(curTime)) + ' / ' + conFormatDurationSec(Math.round(durTime));
+          }
+
+          node.el.classList.toggle('con-node-sound', true);
+          node.el.classList.toggle('con-sound-playing', isPlaying);
+          node.el.classList.toggle('con-sound-paused', isPaused);
+          node.el.classList.remove('con-node-timer', 'con-timer-running', 'con-timer-warning', 'con-timer-ended', 'con-node-random');
+
+          const iconHtml = `<img src="../assets/icons/volume.svg" class="btn-icon con-sound-icon" alt="" style="width:14px;height:14px;margin-right:5px;vertical-align:-2px;pointer-events:none;display:inline-block;" />`;
+          const digitsHtml = timeStr ? `<span class="con-sound-digits" style="font-size:0.8em;opacity:0.8;margin-left:6px;font-variant-numeric:tabular-nums;font-weight:600;">${timeStr}</span>` : `<span class="con-sound-digits" style="display:none;"></span>`;
+          const soundHtml = `<span class="con-node-word-row con-sound-node-row" style="display:inline-flex;align-items:center;font-weight:700;">${iconHtml}<span class="con-sound-title-text">${soundTitle}</span>${digitsHtml}</span>`;
+
+          const _savedResizer = node.el.querySelector('.con-node-resizer');
+          const _savedEmojiDot = node.el.querySelector('.con-emoji-dot');
+          const _savedNoteBtn = node.el.querySelector('.con-node-note-btn');
+          const _savedStarBtn = node.el.querySelector('.con-node-star-btn');
+          const _savedCompBadge = node.el.querySelector('.con-node-comp-badge');
+          node.el.innerHTML = soundHtml;
+          if (_savedResizer) node.el.appendChild(_savedResizer);
+          if (_savedEmojiDot) node.el.appendChild(_savedEmojiDot);
+          if (_savedNoteBtn) node.el.appendChild(_savedNoteBtn);
+          if (_savedStarBtn) node.el.appendChild(_savedStarBtn);
+          if (typeof conUpdateNodeNoteButton === 'function') conUpdateNodeNoteButton(node);
+          if (typeof conUpdateNodeCompetenceBadge === 'function') {
+            conUpdateNodeCompetenceBadge(node);
+          } else if (_savedCompBadge) {
+            node.el.appendChild(_savedCompBadge);
+          }
+          node.el.style.display = 'inline-flex';
+          node.el.style.flexDirection = 'column';
+          node.el.style.alignItems = 'center';
+          node.el.style.justifyContent = 'center';
+          conApplyNodeShape(node, node.shape);
+          return;
+        }
+
+        if (node && node.el) {
+          node.el.classList.remove('con-node-timer', 'con-timer-running', 'con-timer-warning', 'con-timer-ended', 'con-node-random', 'con-node-sound', 'con-sound-playing', 'con-sound-paused');
+        }
+
+
+        // Get the base word (always the raw word text, never the annotated version)
+        const baseWord = node.baseWord || node.el.dataset.baseWord || node.el.textContent.trim();
+        node.baseWord = baseWord;
+        node.el.dataset.baseWord = baseWord;
+
+        const fmt = conGetNodeFmt(node);
+        const casing = fmt.casing || window._bcNodeDefaultCasing || 'none';
+        const hasMaxWidth = !!(fmt && typeof fmt.maxWidth === 'number' && fmt.maxWidth > 0 && node.shape !== 'circle' && node.shape !== 'square');
+        // Retrieve DB entries for translation / IPA (supports space-separated multi-word nodes)
+        const dbEntries = conLookupDbEntries(baseWord, node.dbWord);
+
+        let wordPart = baseWord;
+        if (casing && casing !== 'none' && casing !== 'smallcaps') {
+          wordPart = boardTransformCasingText(wordPart, casing);
+        }
+        // Page badge
+        const pageBadge = (node.pageNum != null)
+          ? `<span class="con-node-page">(${node.pageNum})</span>`
+          : '';
+        const relationBadge = node.relation === 'translation'
+          ? '<span class="con-node-rel-badge con-node-rel-badge-fr">FR</span>'
+          : (node.relation === 'ipa'
+            ? '<span class="con-node-rel-badge con-node-rel-badge-ipa">IPA</span>'
+            : '');
+
+        function conApplyWordFmt(textStr) {
+          let res = textStr;
+          if (fmt.underline) res = `<u>${res}</u>`;
+          if (fmt.italic) res = `<em>${res}</em>`;
+          if (fmt.bold) res = `<strong>${res}</strong>`;
+          if (fmt.strike) res = `<s>${res}</s>`;
+          return res;
+        }
+
+        const isExplicitMultiLine = wordPart.includes('//') || wordPart.includes('\n') || /<br\s*\/?>/i.test(wordPart);
+        let wordContent = '';
+
+        if (isExplicitMultiLine) {
+          const rawLines = wordPart.split(/\/\/|\r?\n|<br\s*\/?>/i).map(s => s.trim());
+          const formattedLines = rawLines.map((line, idx) => {
+            const formatted = conApplyWordFmt(line);
+            if (idx === rawLines.length - 1) {
+              return `${formatted}${relationBadge}${pageBadge}`;
+            }
+            return formatted;
+          });
+          wordContent = formattedLines.join('<br>');
+        } else {
+          wordContent = `${conApplyWordFmt(wordPart)}${relationBadge}${pageBadge}`;
+        }
+
+        const smallCapsStyle = (casing === 'smallcaps') ? 'font-variant:small-caps;' : '';
+        let multiLineStyle = '';
+        if (hasMaxWidth) {
+          multiLineStyle = 'display:inline-block;width:100%;text-align:left;white-space:normal;word-break:break-word;';
+        } else if (isExplicitMultiLine) {
+          multiLineStyle = 'display:inline-block;text-align:center;';
+        }
+        const combinedStyle = (smallCapsStyle || multiLineStyle) ? ` style="${smallCapsStyle}${multiLineStyle}"` : '';
+        const wordRow = `<span class="con-node-word-row"${combinedStyle}>${wordContent}</span>`;
+
+        // Build annotation lines below the word
+        let annLines = '';
+        if (fmt.showTrans) {
+          let transParts;
+          if (Array.isArray(fmt.selectedTrans) && fmt.selectedTrans.length) {
+            transParts = fmt.selectedTrans;
+          } else {
+            transParts = dbEntries.map(e => e.french || e.translation).filter(Boolean);
+          }
+          const annStyle = hasMaxWidth ? ' style="text-align:left;width:100%;"' : '';
+          if (transParts.length) annLines += `<div class="con-node-ann con-node-trans"${annStyle}>(${transParts.join(' · ')})</div>`;
+        }
+        if (fmt.showIpa) {
+          const ipaParts = dbEntries.map(e => e.ipa).filter(Boolean);
+          const annStyle = hasMaxWidth ? ' style="text-align:left;width:100%;"' : '';
+          if (ipaParts.length) annLines += `<div class="con-node-ann con-node-ipa"${annStyle}>[${ipaParts.join(' / ')}]</div>`;
+        }
+
+        const el = node.el;
+        if (casing === 'smallcaps') {
+          el.style.fontVariant = 'small-caps';
+        } else {
+          el.style.fontVariant = 'normal';
+        }
+        // Preserve resize handle, emoji dot, note button, star button, competence badge, and links bar across innerHTML rebuilds
+        const _savedResizer = el.querySelector('.con-node-resizer');
+        const _savedEmojiDot = el.querySelector('.con-emoji-dot');
+        const _savedNoteBtn = el.querySelector('.con-node-note-btn');
+        const _savedStarBtn = el.querySelector('.con-node-star-btn');
+        const _savedCompBadge = el.querySelector('.con-node-comp-badge');
+        const _savedLinksBar = el.querySelector('.con-node-links-bar');
+        node.el.innerHTML = wordRow + annLines;
+        if (_savedResizer) el.appendChild(_savedResizer);
+        if (_savedEmojiDot) el.appendChild(_savedEmojiDot);
+        if (_savedNoteBtn) el.appendChild(_savedNoteBtn);
+        if (_savedStarBtn) el.appendChild(_savedStarBtn);
+        if (typeof conUpdateNodeNoteButton === 'function') conUpdateNodeNoteButton(node);
+        if (typeof conUpdateNodeCompetenceBadge === 'function') {
+          conUpdateNodeCompetenceBadge(node);
+        } else if (_savedCompBadge) {
+          el.appendChild(_savedCompBadge);
+        }
+        if (_savedLinksBar) el.appendChild(_savedLinksBar);
+        if (typeof conUpdateNodeLinkBadges === 'function') {
+          conUpdateNodeLinkBadges(node);
+        }
+        // Keep node content vertically centred for all shapes, align left if hasMaxWidth
+        node.el.style.display = 'inline-flex';
+        node.el.style.flexDirection = 'column';
+        node.el.style.alignItems = hasMaxWidth ? 'flex-start' : 'center';
+        node.el.style.justifyContent = 'center';
+        node.el.style.textAlign = hasMaxWidth ? 'left' : 'center';
+        conApplyNodeShape(node, node.shape);
+      }
+
+      function conSyncFmtButtons(node) {
+        const fmt = conGetNodeFmt(node);
+        document.getElementById('con-fmt-bold').classList.toggle('active', !!fmt.bold);
+        document.getElementById('con-fmt-italic').classList.toggle('active', !!fmt.italic);
+        document.getElementById('con-fmt-under').classList.toggle('active', !!fmt.underline);
+        document.getElementById('con-fmt-strike').classList.toggle('active', !!fmt.strike);
+
+        const casing = fmt.casing || window._bcNodeDefaultCasing || 'none';
+        const caseBtn = document.getElementById('con-fmt-case-btn');
+        if (caseBtn) {
+          caseBtn.classList.toggle('active', casing !== 'none');
+        }
+        const caseDd = document.getElementById('con-ctx-case-dropdown');
+        if (caseDd) {
+          caseDd.querySelectorAll('.board-casing-item').forEach(item => {
+            item.classList.toggle('active', (item.dataset.case || 'none') === casing);
+          });
+        }
+
+        // Check DB availability for annotation buttons (supports space-separated multi-word nodes)
+        const baseWord = node.baseWord || node.el.dataset.baseWord || node.el.textContent.trim();
+        const dbEntries = conLookupDbEntries(baseWord, node.dbWord);
+
+        const hasTrans = dbEntries.some(e => !!(e.french || e.translation));
+        const hasIpa = dbEntries.some(e => !!e.ipa);
+
+        const transBtn = document.getElementById('con-fmt-trans');
+        const ipaBtn = document.getElementById('con-fmt-ipa');
+
+        if (transBtn) {
+          transBtn.disabled = !hasTrans;
+          transBtn.style.opacity = hasTrans ? '1' : '0.45';
+          transBtn.style.cursor = hasTrans ? 'pointer' : 'default';
+          transBtn.title = hasTrans
+            ? 'Add French translation node(s)'
+            : 'No translation available for this word';
+        }
+
+        if (ipaBtn) {
+          ipaBtn.disabled = !hasIpa;
+          ipaBtn.style.opacity = hasIpa ? '1' : '0.45';
+          ipaBtn.style.cursor = hasIpa ? 'pointer' : 'default';
+          ipaBtn.title = hasIpa
+            ? 'Add IPA node(s)'
+            : 'No IPA available for this word';
+        }
+
+      }
+
+      function boardPositionCasingDropdown(btn, dd) {
+        if (!btn || !dd) return;
+        dd.style.display = 'flex';
+        dd.style.top = '';
+        dd.style.bottom = '';
+        dd.style.left = '0';
+        dd.style.right = '';
+
+        const btnRect = btn.getBoundingClientRect();
+        const ddHeight = dd.offsetHeight || 190;
+        const spaceBelow = window.innerHeight - btnRect.bottom;
+        const spaceAbove = btnRect.top;
+
+        if (spaceBelow < ddHeight + 10 && spaceAbove > spaceBelow) {
+          dd.style.top = 'auto';
+          dd.style.bottom = 'calc(100% + 4px)';
+        } else {
+          dd.style.top = 'calc(100% + 4px)';
+          dd.style.bottom = 'auto';
+        }
+
+        const ddRect = dd.getBoundingClientRect();
+        if (ddRect.right > window.innerWidth - 8) {
+          dd.style.left = 'auto';
+          dd.style.right = '0';
+        }
+      }
+      window.boardPositionCasingDropdown = boardPositionCasingDropdown;
+
+      window.conCtxToggleCaseDropdown = function (event) {
+        if (event) { event.preventDefault(); event.stopPropagation(); }
+        const dd = document.getElementById('con-ctx-case-dropdown');
+        const btn = document.getElementById('con-fmt-case-btn');
+        if (!dd) return;
+        const isVisible = dd.style.display !== 'none';
+        const wnDd = document.getElementById('wn-sp-case-dropdown');
+        if (wnDd) wnDd.style.display = 'none';
+        const splitDd = document.getElementById('con-ctx-split-dropdown');
+        if (splitDd) splitDd.style.display = 'none';
+        if (isVisible) {
+          dd.style.display = 'none';
+        } else {
+          if (conCtxNodeId) {
+            const node = conNodes.find(n => n.id === conCtxNodeId);
+            if (node) {
+              const fmt = conGetNodeFmt(node);
+              const casing = fmt.casing || window._bcNodeDefaultCasing || 'none';
+              dd.querySelectorAll('.board-casing-item').forEach(item => {
+                item.classList.toggle('active', (item.dataset.case || 'none') === casing);
+              });
+            }
+          }
+          boardPositionCasingDropdown(btn, dd);
+        }
+      };
+
+      window.conCtxSetCasing = function (casingKey) {
+        const dd = document.getElementById('con-ctx-case-dropdown');
+        if (dd) dd.style.display = 'none';
+        if (!conCtxNodeId) return;
+        conPushUndo();
+        const targets = (conMultiSelected && conMultiSelected.size > 1 && conMultiSelected.has(conCtxNodeId))
+          ? conNodes.filter(n => conMultiSelected.has(n.id))
+          : [conNodes.find(n => n.id === conCtxNodeId)].filter(Boolean);
+
+        targets.forEach(node => {
+          const fmt = conGetNodeFmt(node);
+          fmt.casing = casingKey;
+          conRenderNodeLabel(node);
+        });
+        const activeNode = conNodes.find(n => n.id === conCtxNodeId);
+        if (activeNode) conSyncFmtButtons(activeNode);
+        conRedrawEdges();
+      };
+
+      window.conCtxToggleFmt = function (type) {
+        if (!conCtxNodeId) return;
+        const node = conNodes.find(n => n.id === conCtxNodeId);
+        if (!node) return;
+        conPushUndo();
+        const fmt = conGetNodeFmt(node);
+        fmt[type] = !fmt[type];
+        conRenderNodeLabel(node);
+        conSyncFmtButtons(node);
+        conRedrawEdges();
+      };
+
+      window.conCtxToggleAnnotation = function (type) {
+        if (!conCtxNodeId) return;
+        const node = conNodes.find(n => n.id === conCtxNodeId);
+        if (!node) return;
+        const baseWord = node.baseWord || node.el.dataset.baseWord || node.el.textContent.trim();
+        const dbEntries = conLookupDbEntries(baseWord, node.dbWord);
+
+        if (type === 'translation') {
+          if (!dbEntries.some(e => !!(e.french || e.translation))) return;
+          const choices = conGetTranslationChoices(dbEntries);
+          conTransPickerOpen(node, baseWord, choices, 'translation');
+          return;
+        } else if (type === 'ipa') {
+          if (!dbEntries.some(e => !!e.ipa)) return;
+          const choices = conGetIpaChoices(dbEntries);
+          conTransPickerOpen(node, baseWord, choices, 'ipa');
+          return;
+        }
+      };
+
+      window.conCtxToggleMask = function () {
+        const id = conCtxNodeId || conSelected;
+        const node = conNodes.find(n => n.id === id);
+        conCtxClose();
+        if (!node) return;
+        conPushUndo();
+        node.masked = !node.masked;
+        node.el.classList.toggle('con-masked', node.masked);
+        if (typeof conRedrawEdges === 'function') conRedrawEdges();
+        if (typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({ type: 'node-mask', nodeId: String(node.id), masked: node.masked });
+        }
+      };
+
+      // ---- Star / unstar a node's DB entry ----
+      function conAddNodeStarBtn(nodeObj) {
+        if (typeof vocabBank === 'undefined') return;
+        const dbEntry = nodeObj.dbWord
+          ? vocabBank.find(w => w.word === nodeObj.dbWord)
+          : vocabBank.find(w => stripParens(w.word).toLowerCase() === stripParens(nodeObj.baseWord || '').toLowerCase());
+        if (!dbEntry) return;
+        if (nodeObj.el.querySelector('.con-node-star-btn')) return;
+        const btn = document.createElement('button');
+        btn.className = 'con-node-star-btn' + (dbEntry.starred ? ' active' : '');
+        btn.textContent = dbEntry.starred ? '★' : '☆';
+        btn.title = dbEntry.starred ? 'Unstar' : 'Star in DB';
+        btn.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); });
+        btn.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); conToggleNodeStarDirect(nodeObj); });
+        nodeObj.el.appendChild(btn);
+      }
+      window.conAddNodeStarBtn = conAddNodeStarBtn;
+
+      function conSyncNodeStarState(nodeObj) {
+        const btn = nodeObj.el && nodeObj.el.querySelector('.con-node-star-btn');
+        if (!btn || typeof vocabBank === 'undefined') return;
+        const dbEntry = nodeObj.dbWord
+          ? vocabBank.find(w => w.word === nodeObj.dbWord)
+          : vocabBank.find(w => stripParens(w.word).toLowerCase() === stripParens(nodeObj.baseWord || '').toLowerCase());
+        if (!dbEntry) { btn.remove(); return; }
+        btn.textContent = dbEntry.starred ? '★' : '☆';
+        btn.classList.toggle('active', !!dbEntry.starred);
+        btn.title = dbEntry.starred ? 'Unstar' : 'Star in DB';
+      }
+
+      async function conToggleNodeStarDirect(nodeObj) {
+        if (typeof vocabBank === 'undefined') return;
+        const dbEntry = nodeObj.dbWord
+          ? vocabBank.find(w => w.word === nodeObj.dbWord)
+          : vocabBank.find(w => stripParens(w.word).toLowerCase() === stripParens(nodeObj.baseWord || '').toLowerCase());
+        if (!dbEntry) return;
+        dbEntry.starred = !dbEntry.starred;
+        // Sync all nodes referencing the same entry
+        conNodes.forEach(n => {
+          if ((n.dbWord && n.dbWord === dbEntry.word) ||
+            (!n.dbWord && stripParens((n.baseWord || '').toLowerCase()) === stripParens(dbEntry.word.toLowerCase()))) {
+            conSyncNodeStarState(n);
+          }
+        });
+        // Sync context menu star btn if open on this node
+        const ctxStarBtn = document.getElementById('con-ctx-star-btn');
+        if (ctxStarBtn && ctxStarBtn.style.display !== 'none' && conCtxNodeId === nodeObj.id) {
+          ctxStarBtn.textContent = dbEntry.starred ? '★' : '☆';
+          ctxStarBtn.classList.toggle('active', !!dbEntry.starred);
+          ctxStarBtn.title = dbEntry.starred ? 'Unstar' : 'Star in DB';
+        }
+        await conSaveVocabBankFile(dbEntry.word.toLowerCase());
+      }
+
+      window.conCtxToggleStar = async function () {
+        const node = conNodes.find(n => n.id === conCtxNodeId);
+        if (!node) return;
+        await conToggleNodeStarDirect(node);
+      };
+
+      async function conSaveVocabBankFile(wordKey) {
+        if (!window.Desktop || !Desktop.isElectron() || !wordKey) return;
+        try {
+          const result = await Desktop.listByPath('customWordbanks', '', { extensions: ['.js'] });
+          if (!result || !result.ok || !result.files) return;
+          for (const file of result.files) {
+            await _conUpdateStarredInFile(file, wordKey);
+          }
+        } catch (e) { }
+      }
+
+      async function _conUpdateStarredInFile(file, wordKey) {
+        const content = await Desktop.readByPath('customWordbanks', file.relativePath || file.filename);
+        if (!content || !content.ok || !content.content) return;
+        const varMatch = content.content.match(/\b(?:const|let|var)\s+(\w+)\s*=\s*\[/);
+        if (!varMatch) return;
+        const exportVar = varMatch[1];
+        let records = null;
+        const s = content.content.indexOf('['), e2 = content.content.lastIndexOf(']');
+        if (s !== -1 && e2 > s) {
+          try { records = JSON.parse(content.content.slice(s, e2 + 1)); } catch (_) {}
+        }
+        if (!records) {
+          try {
+            const fn = new Function(content.content + `\n; try { return ${exportVar}; } catch(e) { return []; }`);
+            records = fn();
+          } catch (e) { return; }
+        }
+        if (!Array.isArray(records)) return;
+        const idx = records.findIndex(w => w && w.word && w.word.toLowerCase() === wordKey);
+        if (idx === -1) return;
+        const vbEntry = (typeof vocabBank !== 'undefined') ? vocabBank.find(w => w.word && w.word.toLowerCase() === wordKey) : null;
+        const starred = vbEntry ? !!vbEntry.starred : false;
+        const cur = records[idx];
+        if (!!cur.starred === starred) return;
+        const updated = { ...cur };
+        if (starred) { updated.starred = true; } else { delete updated.starred; }
+        records[idx] = updated;
+        const newContent = `// ${file.filename}\nconst ${exportVar} = ${JSON.stringify(records, null, 2)};\n`;
+        try { await Desktop.saveText('customWordbanks', file.filename, newContent); } catch (e) { }
+      }
+
+      window.conRevealAll = function () {
+        if (typeof BoardAudioService !== 'undefined') BoardAudioService.playAction('reveal_all');
+        conNodes.forEach(node => {
+          if (node.masked) {
+            node.masked = false;
+            node.el.classList.remove('con-masked');
+          }
+        });
+        if (typeof conRedrawEdges === 'function') conRedrawEdges();
+        if (typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({ type: 'node-masks', masks: conNodes.map(n => ({ id: String(n.id), masked: false })) });
+        }
+      };
+
+      window.conMaskAll = function () {
+        if (typeof BoardAudioService !== 'undefined') BoardAudioService.playAction('mask_all');
+        conNodes.forEach(node => {
+          if (!node.masked) {
+            node.masked = true;
+            node.el.classList.add('con-masked');
+          }
+        });
+        if (typeof conRedrawEdges === 'function') conRedrawEdges();
+        if (typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({ type: 'node-masks', masks: conNodes.map(n => ({ id: String(n.id), masked: true })) });
+        }
+      };
+
+      window.conToggleMaskAll = function () {
+        if (!conNodes.length) return;
+        const hasVisible = conNodes.some(node => !node.masked);
+        if (hasVisible) conMaskAll();
+        else conRevealAll();
+      };
+
+      // Mask / reveal for selected nodes
+      window.conMaskSelected = function () {
+        const selectedNodes = (conMultiSelected && conMultiSelected.size > 0)
+          ? conNodes.filter(n => conMultiSelected.has(n.id))
+          : (conSelected ? [conNodes.find(n => n.id === conSelected)].filter(Boolean) : []);
+        if (selectedNodes.length === 0) return;
+        conPushUndo();
+        selectedNodes.forEach(node => {
+          if (!node.masked) {
+            node.masked = true;
+            if (node.el) node.el.classList.add('con-masked');
+          }
+        });
+        if (typeof conRedrawEdges === 'function') conRedrawEdges();
+        if (typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({ type: 'node-masks', masks: selectedNodes.map(n => ({ id: String(n.id), masked: true })) });
+        }
+      };
+
+      window.conRevealSelected = function () {
+        const selectedNodes = (conMultiSelected && conMultiSelected.size > 0)
+          ? conNodes.filter(n => conMultiSelected.has(n.id))
+          : (conSelected ? [conNodes.find(n => n.id === conSelected)].filter(Boolean) : []);
+        if (selectedNodes.length === 0) return;
+        conPushUndo();
+        selectedNodes.forEach(node => {
+          if (node.masked) {
+            node.masked = false;
+            if (node.el) node.el.classList.remove('con-masked');
+          }
+        });
+        if (typeof conRedrawEdges === 'function') conRedrawEdges();
+        if (typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({ type: 'node-masks', masks: selectedNodes.map(n => ({ id: String(n.id), masked: false })) });
+        }
+      };
+
+      window.conToggleAllIpa = function () {
+        const anyOn = conNodes.some(n => conGetNodeFmt(n).showIpa);
+        conNodes.forEach(node => {
+          const fmt = conGetNodeFmt(node);
+          const baseWord = node.baseWord || node.el.dataset.baseWord || node.el.textContent.trim();
+          const dbEntries = conLookupDbEntries(baseWord, node.dbWord);
+          if (!dbEntries.some(e => !!e.ipa)) return;
+          fmt.showIpa = !anyOn;
+          conRenderNodeLabel(node);
+        });
+        conRedrawEdges();
+        const btn = document.getElementById('con-toggle-ipa-btn');
+        if (btn) btn.classList.toggle('active', !anyOn);
+      };
+
+      window.conToggleAllFrench = function () {
+        const anyOn = conNodes.some(n => conGetNodeFmt(n).showTrans);
+        conNodes.forEach(node => {
+          const fmt = conGetNodeFmt(node);
+          const baseWord = node.baseWord || node.el.dataset.baseWord || node.el.textContent.trim();
+          const dbEntries = conLookupDbEntries(baseWord, node.dbWord);
+          if (!dbEntries.some(e => !!(e.french || e.translation))) return;
+          fmt.showTrans = !anyOn;
+          conRenderNodeLabel(node);
+        });
+        conRedrawEdges();
+        const btn = document.getElementById('con-toggle-french-btn');
+        if (btn) btn.classList.toggle('active', !anyOn);
+      };
+
+      window.conCtxRemove = function () {
+        if (!conCtxNodeId) return;
+        const id = conCtxNodeId;
+        conCtxClose();
+        conRemoveNode(id);
+      };
+
+      window.conCtxDuplicate = function () {
+        if (!conCtxNodeId) return;
+        const id = conCtxNodeId;
+        conPushUndo();
+        conCtxClose();
+        conDuplicateNodeById(id, 46, 34);
+        conRedrawEdges();
+      };
+
+      function boardPositionSplitDropdown(btn, dd) {
+        if (!btn || !dd) return;
+        dd.style.display = 'flex';
+        dd.style.position = 'fixed';
+        dd.style.zIndex = '10005';
+        dd.style.top = '';
+        dd.style.bottom = '';
+        dd.style.left = '';
+        dd.style.right = '';
+
+        const btnRect = btn.getBoundingClientRect();
+        const ddHeight = dd.offsetHeight || 160;
+        const ddWidth = dd.offsetWidth || 185;
+
+        let left = btnRect.left;
+        if (left + ddWidth > window.innerWidth - 8) {
+          left = btnRect.right - ddWidth;
+        }
+        if (left + ddWidth > window.innerWidth - 8) {
+          left = window.innerWidth - ddWidth - 8;
+        }
+        if (left < 8) left = 8;
+        dd.style.left = Math.round(left) + 'px';
+
+        const spaceBelow = window.innerHeight - btnRect.bottom;
+        const spaceAbove = btnRect.top;
+
+        if (btn.id === 'con-ctx-split-btn') {
+          // Simply appear below the button without scrolling the context menu
+          let top = btnRect.bottom + 4;
+          if (top + ddHeight > window.innerHeight - 8) {
+            top = Math.max(8, window.innerHeight - ddHeight - 8);
+          }
+          dd.style.top = Math.round(top) + 'px';
+        } else {
+          // For other dropdowns (e.g. note convert modal)
+          if (spaceBelow < ddHeight + 8 && spaceAbove > spaceBelow) {
+            let top = btnRect.top - ddHeight - 4;
+            if (top < 8) top = 8;
+            dd.style.top = Math.round(top) + 'px';
+          } else {
+            let top = btnRect.bottom + 4;
+            if (top + ddHeight > window.innerHeight - 8) {
+              top = Math.max(8, window.innerHeight - ddHeight - 8);
+            }
+            dd.style.top = Math.round(top) + 'px';
+          }
+        }
+      }
+      window.boardPositionSplitDropdown = boardPositionSplitDropdown;
+
+      window.conCtxToggleSplitDropdown = function (event) {
+        if (event) { event.preventDefault(); event.stopPropagation(); }
+        const dd = document.getElementById('con-ctx-split-dropdown');
+        const btn = document.getElementById('con-ctx-split-btn');
+        if (!dd) return;
+        const isVisible = dd.style.display !== 'none';
+        if (isVisible) {
+          dd.style.display = 'none';
+        } else {
+          const caseDd = document.getElementById('con-ctx-case-dropdown');
+          if (caseDd) caseDd.style.display = 'none';
+          const noteDd = document.getElementById('con-note-convert-modal');
+          if (noteDd) noteDd.style.display = 'none';
+
+          const isMulti = conMultiSelected && conMultiSelected.size > 1 && (!conCtxNodeId || conMultiSelected.has(conCtxNodeId));
+          const singleGrp = document.getElementById('con-ctx-split-single-group');
+          const multiGrp = document.getElementById('con-ctx-split-multi-group');
+          if (singleGrp && multiGrp) {
+            if (isMulti) {
+              singleGrp.style.display = 'none';
+              multiGrp.style.display = 'flex';
+              const multiTitle = document.getElementById('con-ctx-split-multi-title');
+              if (multiTitle) {
+                const count = conMultiSelected.size;
+                const template = (typeof i18n !== 'undefined' && i18n.t('conSplitAllSelected')) || 'All selected ({0})';
+                multiTitle.textContent = template.replace('{0}', count);
+              }
+            } else {
+              singleGrp.style.display = 'flex';
+              multiGrp.style.display = 'none';
+            }
+          }
+          boardPositionSplitDropdown(btn, dd);
+        }
+      };
+
+      function conSplitSingleNode(node, mode) {
+        if (!node) return false;
+        const text = node.baseWord || (node.el ? node.el.textContent.trim() : '');
+        let parts = [];
+        if (mode === 'letter') {
+          const noSpace = text.replace(/\s+/g, '');
+          parts = Array.from(noSpace);
+        } else {
+          parts = text.trim().split(/\s+/).filter(Boolean);
+        }
+        if (parts.length < 2) return false;
+
+        const ox = node.x, oy = node.y;
+        const centerX = ox + (node.el.offsetWidth || 0) / 2;
+        const gap = 4;
+        const newIds = [];
+        const lastIdx = parts.length - 1;
+
+        parts.forEach((itemText, i) => {
+          const wordPageNum = (i === lastIdx) ? (node.pageNum != null ? node.pageNum : null) : null;
+          const newId = conAddWordAt(itemText, ox, oy, wordPageNum);
+          const newNode = conNodes.find(n => n.id === newId);
+          if (newNode) {
+            if (node.fmt) newNode.fmt = Object.assign({}, node.fmt);
+            ['background', 'color', 'fontFamily'].forEach(k => {
+              if (node.el.style[k]) newNode.el.style[k] = node.el.style[k];
+            });
+            const srcBaseSize = conGetNodeBaseFontSize(node);
+            if (srcBaseSize) conSetNodeBaseFontSize(newNode, srcBaseSize);
+            newNode.borderWidth = node.borderWidth || null;
+            newNode.borderStyle = node.borderStyle || null;
+            newNode.highlight = node.highlight || null;
+            newNode.preset = node.preset || null;
+            newNode.fontFamily = node.fontFamily || null;
+            newNode.textStrokeColor = node.textStrokeColor || null;
+            newNode.textStrokeWidth = node.textStrokeWidth || null;
+            conApplyTextStrokeStyle(newNode.el, newNode.textStrokeWidth, newNode.textStrokeColor);
+            conRenderNodeLabel(newNode);
+          }
+          newIds.push(newId);
+        });
+
+        conRemoveNode(node.id);
+
+        const newNodes = newIds.map(id => conNodes.find(n => n.id === id)).filter(Boolean);
+        const totalWidth = newNodes.reduce((sum, n) => sum + (n.el.offsetWidth || 0), 0) + gap * (newNodes.length - 1);
+        let curX = centerX - totalWidth / 2;
+        newNodes.forEach(n => {
+          n.x = curX;
+          n.y = oy;
+          n.el.style.left = curX + 'px';
+          n.el.style.top = oy + 'px';
+          curX += (n.el.offsetWidth || 0) + gap;
+        });
+
+        return true;
+      }
+      window.conSplitSingleNode = conSplitSingleNode;
+
+      window.conCtxExecuteSplit = function (mode, splitAll) {
+        const dd = document.getElementById('con-ctx-split-dropdown');
+        if (dd) dd.style.display = 'none';
+
+        const targets = (splitAll && conMultiSelected && conMultiSelected.size > 1)
+          ? conNodes.filter(n => conMultiSelected.has(n.id))
+          : [conNodes.find(n => n.id === conCtxNodeId)].filter(Boolean);
+
+        if (!targets.length) {
+          conCtxClose();
+          return;
+        }
+
+        conPushUndo();
+        conCtxClose();
+
+        let splitCount = 0;
+        targets.forEach(node => {
+          if (conSplitSingleNode(node, mode)) {
+            splitCount++;
+          }
+        });
+
+        if (conMultiSelected) conMultiSelected.clear();
+        conRedrawEdges();
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true });
+
+        if (splitCount === 0 && typeof showToast === 'function') {
+          const msg = (typeof i18n !== 'undefined' && i18n.t('conSplitCannotSplit')) || 'No words could be split';
+          showToast(msg, false);
+        }
+      };
+
+      window.conCtxSplitNode = function (mode, splitAll) {
+        if (!mode) {
+          const dd = document.getElementById('con-ctx-split-dropdown');
+          if (dd && dd.style.display === 'none') {
+            conCtxToggleSplitDropdown();
+            return;
+          }
+        }
+        conCtxExecuteSplit(mode || 'space', !!splitAll);
+      };
+
+      // Convert a single node to a note
+      function conConvertSingleNodeToNote(node) {
+        if (!node) return null;
+        const text = node.baseWord || (node.el ? node.el.textContent.trim() : '') || 'Note';
+        const x = Number.isFinite(node.x) ? node.x : 60;
+        const y = Number.isFinite(node.y) ? node.y : 60;
+        const rawColor = (node.el && (node.el.style.color || node.el.style.borderColor)) || '#111111';
+        const rawBg = (node.el && (node.el.style.backgroundColor || node.el.style.background)) || '#ffffff';
+        const fontSize = Math.round(conGetNodeBaseFontSize(node) || 16);
+        const fmt = conGetNodeFmt(node) || {};
+        const nid = 'cnn' + (conNoteNextId++);
+        const noteData = {
+          id: nid,
+          nodeId: null,
+          text: text,
+          x: x,
+          y: y,
+          color: rawColor,
+          bg: rawBg,
+          fontSize: fontSize,
+          fontFamily: node.fontFamily || (node.el ? node.el.style.fontFamily : null) || null,
+          bold: !!fmt.bold,
+          italic: !!fmt.italic,
+          underline: !!fmt.underline,
+          strike: !!fmt.strike,
+          hidden: !!node.masked,
+          locked: !!node.locked,
+          manualSize: false,
+          width: null,
+          height: null,
+          borderWidth: node.borderWidth || null,
+          borderColor: node.borderColor || (node.el ? node.el.style.borderColor : null) || null,
+          borderStyle: node.borderStyle || null,
+          highlight: node.highlight || null,
+          pageNum: node.pageNum != null ? node.pageNum : null
+        };
+        if (typeof window.conAddNoteObject === 'function') {
+          window.conAddNoteObject(noteData);
+        } else {
+          const liveNotes = (typeof window.conGetNotes === 'function') ? window.conGetNotes() : conNotes;
+          if (!liveNotes.includes(noteData)) liveNotes.push(noteData);
+          if (typeof conNoteBuild === 'function') conNoteBuild(noteData);
+        }
+        conRemoveNode(node.id);
+        return noteData;
+      }
+      window.conConvertSingleNodeToNote = conConvertSingleNodeToNote;
+
+      // Convert active/selected node(s) to note(s)
+      window.conCtxConvertToNote = function () {
+        const selectedNodeIds = (conMultiSelected && conMultiSelected.size > 0)
+          ? [...conMultiSelected]
+          : (conCtxNodeId ? [conCtxNodeId] : (conSelected ? [conSelected] : []));
+        if (!selectedNodeIds.length) return;
+        if (window.conPushUndo) window.conPushUndo();
+        conCtxClose();
+
+        const createdNotes = [];
+        selectedNodeIds.forEach(id => {
+          const node = conNodes.find(n => n.id === id);
+          if (node) {
+            const note = conConvertSingleNodeToNote(node);
+            if (note) createdNotes.push(note);
+          }
+        });
+        if (conMultiSelected) conMultiSelected.clear();
+        conRedrawEdges();
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true });
+      };
+
+      window.conCtxRemoveFromGroup = function () {
+        if (!conCtxNodeId) return;
+        conPushUndo();
+        const id = conCtxNodeId;
+        conCtxClose();
+        conGroupRemoveNode(id);
+      };
+
+      window.conCtxAddBaseWord = function () {
+        const node = conCtxNodeId ? conNodes.find(n => n.id === conCtxNodeId) : null;
+        if (!node || !node.sourceWord) { conCtxClose(); return; }
+        conPushUndo();
+        const srcWord = node.sourceWord;
+        conCtxClose();
+        const brd = board();
+        const bw = brd.clientWidth, bh = brd.clientHeight;
+        const nx = Math.max(4, Math.min(bw - 120, node.x - 120));
+        const ny = Math.max(4, Math.min(bh - 50, node.y));
+        const newId = conAddWordAt(srcWord, nx, ny);
+        if (newId) conAddEdge(newId, node.id);
+      };
+
+      window.conCtxAddRelated = function (relation) {
+        if (!conCtxNodeId) return;
+        const node = conNodes.find(n => n.id === conCtxNodeId);
+        if (!node) { conCtxClose(); return; }
+        const matched = conGetNodeDbEntries(node);
+        const entries = (matched && matched.length)
+          ? matched.map(m => m.entry).filter(Boolean)
+          : conLookupDbEntries(node.baseWord || (node.el && node.el.textContent.trim()));
+        if (!entries.length) { conCtxClose(); return; }
+
+        const wordsSet = new Set();
+        entries.forEach(dbWord => {
+          const list = (relation === 'synonyms' ? dbWord.synonyms : dbWord.antonyms) || [];
+          const arr = Array.isArray(list) ? list : String(list).split(/[,;/]+/);
+          arr.forEach(w => {
+            const s = typeof w === 'string' ? w.trim() : (w.word || w.term || '');
+            if (s) wordsSet.add(s);
+          });
+        });
+        const words = Array.from(wordsSet);
+        if (!words.length) { conCtxClose(); return; }
+
+        conCtxClose();
+        conRelPickerOpen(node, relation, words);
+      };
+
+      // ---- Related-word picker ----
+      let _conRelPickerNode = null;
+      let _conRelPickerRelation = null;
+      let _conRelPickerWords = [];
+
+      window.conPickerSetAllChecks = function (listSelector, checked, includeDisabled) {
+        const selector = listSelector + ' input[type="checkbox"]' + (includeDisabled ? '' : ':not(:disabled)');
+        document.querySelectorAll(selector).forEach(cb => {
+          cb.checked = !!checked;
+        });
+      };
+
+      window.conRelPickerSelectAll = function () {
+        window.conPickerSetAllChecks('#con-rel-picker-list', true, false);
+      };
+
+      window.conRelPickerClearAll = function () {
+        window.conPickerSetAllChecks('#con-rel-picker-list', false, false);
+      };
+
+      function conRelPickerOpen(node, relation, words) {
+        _conRelPickerNode = node;
+        _conRelPickerRelation = relation;
+        _conRelPickerWords = words;
+
+        document.getElementById('con-rel-picker-title').textContent =
+          relation === 'synonyms' ? '🔗 Add Synonyms' : '⚡ Add Antonyms';
+        document.getElementById('con-rel-picker-word-badge').textContent =
+          node.baseWord || node.el.textContent.trim();
+
+        const tagClass = relation === 'synonyms' ? 'syn' : 'ant';
+        const tagLabel = relation === 'synonyms' ? 'syn' : 'ant';
+
+        const list = document.getElementById('con-rel-picker-list');
+        list.innerHTML = '';
+        words.forEach((word, i) => {
+          const alreadyOnBoard = !!conNodes.find(n =>
+            (n.baseWord || n.el.textContent).toLowerCase() === word.toLowerCase()
+          );
+          const item = document.createElement('label');
+          item.className = 'con-rel-picker-item' + (alreadyOnBoard ? ' on-board' : '');
+          item.title = alreadyOnBoard ? 'Already on board' : '';
+
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.dataset.idx = String(i);
+          cb.checked = !alreadyOnBoard;
+          cb.disabled = alreadyOnBoard;
+
+          const lbl = document.createElement('span');
+          lbl.className = 'con-rel-picker-item-label';
+          lbl.textContent = word;
+
+          const tag = document.createElement('span');
+          tag.className = 'con-rel-picker-item-tag ' + tagClass;
+          tag.textContent = tagLabel;
+
+          item.appendChild(cb);
+          item.appendChild(lbl);
+          item.appendChild(tag);
+
+          if (alreadyOnBoard) {
+            const note = document.createElement('span');
+            note.className = 'con-rel-picker-item-on-board-note';
+            note.textContent = 'on board';
+            item.appendChild(note);
+          }
+          list.appendChild(item);
+        });
+
+        document.getElementById('con-rel-picker-overlay').classList.add('active');
+      }
+
+      window.conRelPickerClose = function () {
+        _conRelPickerNode = null;
+        _conRelPickerRelation = null;
+        _conRelPickerWords = [];
+        document.getElementById('con-rel-picker-overlay').classList.remove('active');
+      };
+
+      window.conRelPickerConfirm = function () {
+        const node = _conRelPickerNode;
+        const relation = _conRelPickerRelation;
+        if (!node || !relation) { window.conRelPickerClose(); return; }
+
+        const checkboxes = document.querySelectorAll(
+          '#con-rel-picker-list input[type="checkbox"]:checked:not(:disabled)'
+        );
+        const selected = Array.from(checkboxes)
+          .map(cb => _conRelPickerWords[Number(cb.dataset.idx)])
+          .filter(Boolean);
+
+        window.conRelPickerClose();
+
+        const brd = board();
+        const bw = brd.clientWidth, bh = brd.clientHeight;
+        const originX = node.x + (node.el.offsetWidth || 80) / 2;
+        const originY = node.y + (node.el.offsetHeight || 36) / 2;
+        const radius = 110;
+        const count = selected.length;
+
+        selected.forEach((word, i) => {
+          if (conNodes.find(n => (n.baseWord || n.el.textContent).toLowerCase() === word.toLowerCase())) return;
+
+          const angleOffset = relation === 'antonyms' ? Math.PI / Math.max(count, 1) : 0;
+          const angle = (2 * Math.PI * i / count) - Math.PI / 2 + angleOffset;
+          let nx = originX + Math.cos(angle) * radius - 40;
+          let ny = originY + Math.sin(angle) * radius - 18;
+          nx = Math.max(4, Math.min(bw - 120, nx));
+          ny = Math.max(4, Math.min(bh - 50, ny));
+          ({ x: nx, y: ny } = conFindFreePosition(nx, ny));
+          nx = Math.max(4, Math.min(bw - 120, nx));
+          ny = Math.max(4, Math.min(bh - 50, ny));
+
+          const id = 'cn' + conNextId++;
+          const dbMatch = vocabBank.find(w => w.word.toLowerCase() === word.toLowerCase());
+          const el = document.createElement('div');
+          el.className = 'con-node' + (dbMatch ? ' con-node-matched' : '');
+          el.id = id;
+          el.textContent = dbMatch ? dbMatch.word : word;
+          el.style.left = nx + 'px';
+          el.style.top = ny + 'px';
+          conApplyDefaultWordFontSize(el);
+          if (relation === 'synonyms') {
+            el.style.borderColor = '#4a9e4a';
+          } else {
+            el.style.borderColor = '#b94040';
+          }
+          brd.appendChild(el);
+          conNodes.push({
+            id, el, x: nx, y: ny,
+            dbWord: dbMatch ? dbMatch.word : null,
+            baseWord: dbMatch ? dbMatch.word : word,
+            sourceWord: node.baseWord || node.el.textContent.trim(), relation
+          });
+          conAttachNodeEvents(id, el);
+          conAddEdge(node.id, id);
+        });
+      };
+
+      // ---- Word Network ----
+      let _conNetworkNodeId = null;
+      let _conNetworkDepth = 1;
+      const _conNetworkChipDeselected = new Set(); // "catKey:word.toLowerCase()"
+
+      window.conNetworkToggleChip = function (el) {
+        const catKey = el.closest('.con-network-cat-row').querySelector('[data-cat]').dataset.cat;
+        const word = el.dataset.word.toLowerCase();
+        const id = catKey + ':' + word;
+        if (_conNetworkChipDeselected.has(id)) {
+          _conNetworkChipDeselected.delete(id);
+          el.classList.remove('chip-inactive');
+        } else {
+          _conNetworkChipDeselected.add(id);
+          el.classList.add('chip-inactive');
+        }
+      };
+
+      const _CON_NETWORK_CATS = [
+        { key: 'synonyms', label: 'Synonyms', color: '#16a34a', edgeLabel: 'syn' },
+        { key: 'antonyms', label: 'Antonyms', color: '#dc2626', edgeLabel: 'ant' },
+        { key: 'otherForms', label: 'Other Forms', color: '#2563eb', edgeLabel: 'form' },
+        { key: 'hypernym', label: 'Hypernyms', color: '#9333ea', edgeLabel: '↑' },
+        { key: 'hyponym', label: 'Hyponyms', color: '#ea580c', edgeLabel: '↓' },
+        { key: 'ipa', label: 'IPA', color: '#0891b2', edgeLabel: '[ipa]', singleValue: true },
+        { key: 'french', label: 'FR', color: '#7c3aed', edgeLabel: '[fr]', singleValue: true },
+        { key: 'german', label: 'DE', color: '#059669', edgeLabel: '[de]', singleValue: true },
+        { key: 'italian', label: 'IT', color: '#db2777', edgeLabel: '[it]', singleValue: true },
+      ];
+
+      window.conCtxOpenNetworkModal = function () {
+        if (!conCtxNodeId) return;
+        const node = conNodes.find(n => n.id === conCtxNodeId);
+        if (!node) { conCtxClose(); return; }
+        const matched = conGetNodeDbEntries(node);
+        const entries = (matched && matched.length)
+          ? matched.map(m => m.entry).filter(Boolean)
+          : conLookupDbEntries(node.baseWord || (node.el && node.el.textContent.trim()));
+        if (!entries.length) { conCtxClose(); return; }
+
+        conCtxClose();
+        _conNetworkNodeId = node.id;
+        _conNetworkDepth = 1;
+        _conNetworkChipDeselected.clear();
+
+        document.querySelectorAll('.con-network-depth-btn').forEach(b => {
+          b.classList.toggle('active', Number(b.dataset.depth) === 1);
+        });
+        document.getElementById('con-network-depth-warning').style.display = 'none';
+        document.getElementById('con-network-word-badge').textContent = node.baseWord || node.el.textContent.trim() || '';
+
+        const container = document.getElementById('con-network-categories');
+        container.innerHTML = '';
+
+        _CON_NETWORK_CATS.forEach(cat => {
+          const wordsSet = new Set();
+          entries.forEach(dbWord => {
+            const rawVal = dbWord[cat.key];
+            const list = cat.singleValue
+              ? [Array.isArray(rawVal) ? rawVal[0] : rawVal].filter(v => typeof v === 'string' && v.trim().length > 0)
+              : (Array.isArray(rawVal) ? rawVal : (rawVal ? [rawVal] : [])).filter(v => typeof v === 'string' && v.trim().length > 0);
+            list.forEach(w => wordsSet.add(w.trim()));
+          });
+          const words = Array.from(wordsSet);
+          // A word is "on board" if a node with that baseWord already exists
+          const onBoardCount = words.filter(w =>
+            conNodes.find(n => (n.baseWord || '').toLowerCase() === w.toLowerCase())
+          ).length;
+          // Category is useful if there are any words (on-board ones will be linked, new ones spawned)
+          const hasAny = words.length > 0;
+
+          const row = document.createElement('div');
+          row.className = 'con-network-cat-row';
+
+          const chipsHtml = hasAny
+            ? `<div class="con-network-cat-chips">${words.map(w => {
+              const ob = !!conNodes.find(n => (n.baseWord || '').toLowerCase() === w.toLowerCase());
+              const esc = w.replace(/"/g, '&quot;');
+              return `<span class="con-network-chip${ob ? ' on-board' : ''}" data-word="${esc}" title="${ob ? 'on board — will link (click to skip)' : 'click to deselect'}" onclick="conNetworkToggleChip(this)">${w}</span>`;
+            }).join('')}</div>`
+            : `<div class="con-network-cat-empty">(none)</div>`;
+
+          const countLabel = onBoardCount > 0 && onBoardCount < words.length
+            ? `${words.length - onBoardCount}+${onBoardCount}↗`
+            : words.length > 0 ? String(words.length) : '—';
+
+          row.innerHTML = `
+            <label class="con-network-cat-toggle">
+              <input type="checkbox" data-cat="${cat.key}" ${hasAny ? 'checked' : 'disabled'}>
+              <span class="con-network-cat-label" style="color:${cat.color};">${cat.label}</span>
+              <span class="con-network-cat-count" title="${onBoardCount} already on board">${countLabel}</span>
+            </label>
+            ${chipsHtml}
+          `;
+          container.appendChild(row);
+        });
+
+        document.getElementById('con-network-overlay').classList.add('active');
+      };
+
+      window.conNetworkClose = function () {
+        document.getElementById('con-network-overlay').classList.remove('active');
+        _conNetworkNodeId = null;
+      };
+
+      window.conNetworkSetDepth = function (d) {
+        _conNetworkDepth = d;
+        document.querySelectorAll('.con-network-depth-btn').forEach(b => {
+          b.classList.toggle('active', Number(b.dataset.depth) === d);
+        });
+        document.getElementById('con-network-depth-warning').style.display = d > 1 ? '' : 'none';
+      };
+
+      window.conNetworkSpawn = function () {
+        if (!_conNetworkNodeId) { window.conNetworkClose(); return; }
+
+        const enabledCats = {};
+        document.querySelectorAll('#con-network-categories input[type=checkbox]:checked:not(:disabled)').forEach(cb => {
+          enabledCats[cb.dataset.cat] = true;
+        });
+
+
+        const srcNodeId = _conNetworkNodeId;
+        const maxDepth = _conNetworkDepth;
+        window.conNetworkClose();
+
+        if (!Object.keys(enabledCats).length) return;
+
+        conPushUndo();
+
+        const brd = board();
+        const bw = brd.clientWidth;
+        const bh = brd.clientHeight;
+
+        // Map of word (lowercase) → nodeId for all nodes already on the board before spawn.
+        // These will be linked-to rather than re-created.
+        const preExisting = new Map();
+        conNodes.forEach(n => {
+          const w = (n.baseWord || n.el.textContent.trim()).toLowerCase();
+          if (!preExisting.has(w)) preExisting.set(w, n.id);
+        });
+
+        // visitedInBFS tracks only words queued/created in THIS run to prevent cycles.
+        // Pre-existing words are NOT seeded here so they can still be linked.
+        const visitedInBFS = new Set();
+        const srcNode0 = conNodes.find(n => n.id === srcNodeId);
+        if (srcNode0) visitedInBFS.add((srcNode0.baseWord || srcNode0.el.textContent.trim()).toLowerCase());
+
+        // BFS: { nodeId, depth }
+        const queue = [{ nodeId: srcNodeId, depth: 0 }];
+
+        while (queue.length > 0) {
+          const { nodeId: parentNodeId, depth } = queue.shift();
+          if (depth >= maxDepth) continue;
+
+          const parentNode = conNodes.find(n => n.id === parentNodeId);
+          if (!parentNode) continue;
+
+          const lookupWord = parentNode.dbWord || parentNode.baseWord || '';
+          const dbEntry = typeof vocabBank !== 'undefined'
+            ? vocabBank.find(e => e.word && e.word.toLowerCase() === lookupWord.toLowerCase())
+            : null;
+          if (!dbEntry) continue;
+
+          // Collect relations to handle. Skip only words already queued/created in this run.
+          const toSpawn = [];
+          _CON_NETWORK_CATS.forEach(cat => {
+            if (!enabledCats[cat.key]) return;
+            if (cat.singleValue && depth > 0) return; // info fields only expand from source node
+            const rawCatVal = dbEntry[cat.key];
+            const catWords = cat.singleValue
+              ? [Array.isArray(rawCatVal) ? rawCatVal[0] : rawCatVal].filter(v => typeof v === 'string' && v.length > 0)
+              : (Array.isArray(rawCatVal) ? rawCatVal : []).filter(v => typeof v === 'string' && v.length > 0);
+            catWords.forEach(w => {
+              if (depth === 0 && _conNetworkChipDeselected.has(cat.key + ':' + w.toLowerCase())) return;
+              if (!visitedInBFS.has(w.toLowerCase())) {
+                toSpawn.push({ word: w, cat, existingId: preExisting.get(w.toLowerCase()) || null });
+              }
+            });
+          });
+
+          if (!toSpawn.length) continue;
+
+          // Compute radial positions only for words that need new nodes
+          const newWords = toSpawn.filter(item => !item.existingId);
+          const nodeW = parentNode.el.offsetWidth || 80;
+          const nodeH = parentNode.el.offsetHeight || 32;
+          const cx = parentNode.x + nodeW / 2;
+          const cy = parentNode.y + nodeH / 2;
+          const count = newWords.length;
+          const radius = Math.max(180, count * 32);
+          let newWordIdx = 0;
+
+          toSpawn.forEach(item => {
+            if (visitedInBFS.has(item.word.toLowerCase())) return; // concurrent dedup
+            visitedInBFS.add(item.word.toLowerCase());
+
+            const isDashed = depth > 0;
+
+            if (item.existingId) {
+              // Word already on board — just connect parent → existing node
+              const beforeLen = conEdges.length;
+              conAddEdge(parentNodeId, item.existingId, 'none', item.cat.color);
+              if (conEdges.length > beforeLen) {
+                const edge = conEdges[conEdges.length - 1];
+                edge.label = isDashed ? '' : item.cat.edgeLabel;
+                edge.labelColor = item.cat.color;
+                edge.dashStyle = isDashed ? 'dashed' : null;
+                if (edge.labelEl) edge.labelEl.textContent = edge.label;
+                conApplyEdgeLabelStyle(edge);
+              }
+              // Don't BFS-expand pre-existing nodes (they may already have rich connections)
+              return;
+            }
+
+            // New node — place it radially around the parent, then nudge if it overlaps
+            const angle = (2 * Math.PI * newWordIdx / Math.max(count, 1)) - Math.PI / 2;
+            newWordIdx++;
+            let nx = cx + radius * Math.cos(angle) - 40;
+            let ny = cy + radius * Math.sin(angle) - 18;
+            nx = Math.max(4, Math.min(bw - 120, nx));
+            ny = Math.max(4, Math.min(bh - 50, ny));
+            ({ x: nx, y: ny } = conFindFreePosition(nx, ny, parentNodeId));
+            nx = Math.max(4, Math.min(bw - 120, nx));
+            ny = Math.max(4, Math.min(bh - 50, ny));
+
+            const newId = 'cn' + conNextId++;
+            const dbMatch = typeof vocabBank !== 'undefined'
+              ? vocabBank.find(w2 => w2.word && w2.word.toLowerCase() === item.word.toLowerCase())
+              : null;
+
+            const el = document.createElement('div');
+            el.className = 'con-node' + (dbMatch ? ' con-node-matched' : '');
+            el.id = newId;
+            el.style.left = nx + 'px';
+            el.style.top = ny + 'px';
+            conApplyDefaultWordFontSize(el);
+            if (window._bcNodeFontFamily) el.style.fontFamily = window._bcNodeFontFamily;
+            brd.appendChild(el);
+
+            const newNode = {
+              id: newId, el, x: nx, y: ny,
+              dbWord: dbMatch ? dbMatch.word : null,
+              baseWord: dbMatch ? dbMatch.word : item.word,
+              sourceWord: parentNode.baseWord || parentNode.el.textContent.trim(),
+              relation: item.cat.key,
+              locked: false,
+              fontFamily: window._bcNodeFontFamily || null
+            };
+            conNodes.push(newNode);
+            conSyncNodeLockState(newNode);
+            conRenderNodeLabel(newNode);
+            conAttachNodeEvents(newId, el);
+
+            // Register in preExisting so further BFS steps link to it rather than re-create
+            preExisting.set(item.word.toLowerCase(), newId);
+
+            const beforeLen = conEdges.length;
+            conAddEdge(parentNodeId, newId, 'none', item.cat.color);
+            if (conEdges.length > beforeLen) {
+              const edge = conEdges[conEdges.length - 1];
+              edge.label = isDashed ? '' : item.cat.edgeLabel;
+              edge.labelColor = item.cat.color;
+              edge.dashStyle = isDashed ? 'dashed' : null;
+              if (edge.labelEl) edge.labelEl.textContent = edge.label;
+              conApplyEdgeLabelStyle(edge);
+            }
+
+            queue.push({ nodeId: newId, depth: depth + 1 });
+          });
+        }
+
+        conRedrawEdges();
+      };
+
+      // ---- Translation picker ----
+      let _conTransPickerNode = null;
+      let _conTransPickerChoices = [];
+      let _conTransPickerMode = 'translation';
+
+      function conGetTranslationChoices(dbEntries) {
+        const choices = [];
+        const seen = new Set();
+        dbEntries.forEach(e => {
+          const raw = e.french || e.translation;
+          if (!raw) return;
+          const items = Array.isArray(raw) ? raw : [raw];
+          items.forEach(item => {
+            const val = String(item).trim();
+            if (!val || seen.has(val.toLowerCase())) return;
+            seen.add(val.toLowerCase());
+            choices.push({ text: val, label: 'FR' });
+          });
+        });
+        return choices;
+      }
+
+      function conGetIpaChoices(dbEntries) {
+        const choices = [];
+        const seen = new Set();
+        dbEntries.forEach(e => {
+          const val = String(e.ipa || '').trim();
+          if (!val || seen.has(val.toLowerCase())) return;
+          seen.add(val.toLowerCase());
+          choices.push({ text: val, label: 'IPA' });
+        });
+        return choices;
+      }
+
+      function conAddLinkedChildNodesFromText(node, selectedTexts, relation) {
+        const selected = Array.isArray(selectedTexts)
+          ? selectedTexts.map(v => String(v || '').trim()).filter(Boolean)
+          : [];
+        if (!node || !selected.length) return 0;
+
+        const brd = board();
+        const bw = brd.clientWidth;
+        const bh = brd.clientHeight;
+        const originX = node.x + (node.el.offsetWidth || 80) / 2;
+        const originY = node.y + (node.el.offsetHeight || 36) / 2;
+        const radius = Math.max(110, 96 + selected.length * 6);
+        const stroke = relation === 'ipa' ? '#7c3aed' : '#059669';
+        let created = 0;
+
+        selected.forEach((text, i) => {
+          const alreadyOnBoard = !!conNodes.find(n =>
+            (n.baseWord || n.el.textContent).toLowerCase() === text.toLowerCase()
+          );
+          if (alreadyOnBoard) return;
+
+          const angle = (2 * Math.PI * i / selected.length) - Math.PI / 2;
+          let nx = originX + Math.cos(angle) * radius - 40;
+          let ny = originY + Math.sin(angle) * radius - 18;
+          nx = Math.max(4, Math.min(bw - 120, nx));
+          ny = Math.max(4, Math.min(bh - 50, ny));
+          ({ x: nx, y: ny } = conFindFreePosition(nx, ny));
+          nx = Math.max(4, Math.min(bw - 120, nx));
+          ny = Math.max(4, Math.min(bh - 50, ny));
+
+          const id = 'cn' + conNextId++;
+          const el = document.createElement('div');
+          el.className = 'con-node';
+          el.id = id;
+          el.style.left = nx + 'px';
+          el.style.top = ny + 'px';
+          el.style.borderColor = stroke;
+          conApplyDefaultWordFontSize(el);
+          brd.appendChild(el);
+
+          const child = {
+            id,
+            el,
+            x: nx,
+            y: ny,
+            dbWord: null,
+            baseWord: text,
+            sourceWord: node.baseWord || node.el.textContent.trim(),
+            relation
+          };
+          conNodes.push(child);
+          conRenderNodeLabel(child);
+          conAttachNodeEvents(id, el);
+          conAddEdge(node.id, id);
+          created++;
+        });
+
+        return created;
+      }
+
+      function conTransPickerOpen(node, word, choices, mode) {
+        _conTransPickerNode = node;
+        _conTransPickerChoices = Array.isArray(choices) ? choices : [];
+        _conTransPickerMode = mode === 'ipa' ? 'ipa' : 'translation';
+
+        const overlay = document.getElementById('con-trans-picker-overlay');
+        const titleEl = document.querySelector('#con-trans-picker-header h3');
+        const badge = document.getElementById('con-trans-picker-word-badge');
+        const hint = document.getElementById('con-trans-picker-hint');
+        const list = document.getElementById('con-trans-picker-list');
+        const confirmBtn = document.getElementById('con-trans-picker-confirm-btn');
+
+        if (!overlay || !list) return;
+
+        const isIpa = _conTransPickerMode === 'ipa';
+        if (titleEl) titleEl.textContent = isIpa ? '[ ] Add IPA' : '( ) Add Translation';
+
+        if (badge) badge.textContent = word || 'Word';
+        if (hint) hint.textContent = _conTransPickerChoices.length
+          ? (isIpa
+            ? 'Choose which IPA value(s) to add as connected node(s).'
+            : 'Choose which translation(s) to add as connected node(s).')
+          : (isIpa ? 'No IPA is saved for this word.' : 'No translation is saved for this word.');
+        if (confirmBtn) confirmBtn.textContent = _conTransPickerChoices.length ? 'Add Selected' : 'Cancel';
+
+        list.innerHTML = '';
+        if (!_conTransPickerChoices.length) {
+          const empty = document.createElement('div');
+          empty.className = 'con-def-picker-empty';
+          empty.textContent = isIpa
+            ? 'No IPA is saved for this word yet.'
+            : 'No translation is saved for this word yet.';
+          list.appendChild(empty);
+        } else {
+          _conTransPickerChoices.forEach((choice, idx) => {
+            const item = document.createElement('label');
+            item.className = 'con-def-picker-item';
+
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.dataset.idx = String(idx);
+            cb.checked = true;
+
+            const textWrap = document.createElement('div');
+            textWrap.className = 'con-def-picker-item-text';
+
+            const tag = document.createElement('span');
+            tag.className = 'con-def-picker-item-tag con-trans-picker-item-tag';
+            tag.textContent = choice.label;
+
+            const text = document.createElement('div');
+            text.className = 'con-def-picker-item-value';
+            text.textContent = choice.text;
+
+            textWrap.appendChild(tag);
+            textWrap.appendChild(text);
+            item.appendChild(cb);
+            item.appendChild(textWrap);
+            list.appendChild(item);
+          });
+        }
+
+        overlay.classList.add('active');
+      }
+
+      window.conTransPickerClose = function () {
+        _conTransPickerNode = null;
+        _conTransPickerChoices = [];
+        _conTransPickerMode = 'translation';
+        const overlay = document.getElementById('con-trans-picker-overlay');
+        if (overlay) overlay.classList.remove('active');
+      };
+
+      window.conTransPickerSelectAll = function () {
+        window.conPickerSetAllChecks('#con-trans-picker-list', true, false);
+      };
+
+      window.conTransPickerClearAll = function () {
+        window.conPickerSetAllChecks('#con-trans-picker-list', false, false);
+      };
+
+      window.conTransPickerConfirm = function () {
+        const node = _conTransPickerNode;
+        const mode = _conTransPickerMode;
+        if (!node) { window.conTransPickerClose(); return; }
+        if (!_conTransPickerChoices.length) { window.conTransPickerClose(); return; }
+
+        const selected = Array.from(
+          document.querySelectorAll('#con-trans-picker-list input[type="checkbox"]:checked')
+        ).map(cb => _conTransPickerChoices[Number(cb.dataset.idx)])
+          .filter(Boolean)
+          .map(choice => choice.text);
+
+        if (selected.length === 0) {
+          if (typeof mdbToast === 'function') {
+            mdbToast(mode === 'ipa'
+              ? 'ℹ️ Select at least one IPA value to add.'
+              : 'ℹ️ Select at least one translation to add.');
+          }
+          return;
+        }
+
+        window.conTransPickerClose();
+        conPushUndo();
+        const relation = mode === 'ipa' ? 'ipa' : 'translation';
+        const created = conAddLinkedChildNodesFromText(node, selected, relation);
+        if (!created && typeof mdbToast === 'function') {
+          mdbToast('ℹ️ Selected value(s) are already on the board.');
+        }
+      };
+
+      function conClipboardIsConstellationVisible() {
+        const sec = document.getElementById('constellation-section');
+        return !!(sec && !sec.classList.contains('hidden'));
+      }
+
+      function conClipboardTypingFocus() {
+        const ae = document.activeElement;
+        if (!ae) return false;
+        const tag = ae.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+        if (ae.isContentEditable) return true;
+        return false;
+      }
+
+      let _lastConCopiedText = null;
+      let _lastConCopiedOsText = null;
+      let _lastConCopyTime = 0;
+
+      async function _conWriteOsClipboardText(text) {
+        const str = String(text || '');
+        if (window.Desktop && typeof window.Desktop.clipboardWriteText === 'function') {
+          try { await window.Desktop.clipboardWriteText(str); } catch (e) {}
+        } else if (window.electronApi && typeof window.electronApi.clipboardWriteText === 'function') {
+          try { await window.electronApi.clipboardWriteText(str); } catch (e) {}
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          try { await navigator.clipboard.writeText(str); } catch (e) {}
+        }
+      }
+
+      async function _conReadOsClipboardText() {
+        if (window.Desktop && typeof window.Desktop.clipboardReadText === 'function') {
+          try { return await window.Desktop.clipboardReadText(); } catch (e) {}
+        } else if (window.electronApi && typeof window.electronApi.clipboardReadText === 'function') {
+          try { return await window.electronApi.clipboardReadText(); } catch (e) {}
+        }
+        if (navigator.clipboard && navigator.clipboard.readText) {
+          try { return await navigator.clipboard.readText(); } catch (e) {}
+        }
+        return null;
+      }
+
+      function conClipboardSelectionSummary() {
+        const nodeIds = new Set();
+        const noteIds = new Set();
+        const groupIds = new Set();
+        const drawingIds = new Set();
+        const shapeIds = new Set();
+
+        const hasNoteSelection = typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0;
+        const hasNodeSelection = (conMultiSelected && conMultiSelected.size > 0) || !!conSelected;
+        const hasDrawingSelection = typeof conDrawingSelected !== 'undefined' && conDrawingSelected && conDrawingSelected.size > 0;
+        const shapeSel = typeof window.conGetShapeSelected === 'function' ? window.conGetShapeSelected() : null;
+        const hasShapeSelection = !!(shapeSel && shapeSel.size > 0);
+
+        if (conMultiSelected && conMultiSelected.size > 0) {
+          conMultiSelected.forEach(id => nodeIds.add(id));
+        } else if (conSelected && !hasNoteSelection) {
+          nodeIds.add(conSelected);
+        }
+
+        if (hasNoteSelection) {
+          conNoteSelected.forEach(id => noteIds.add(id));
+        }
+
+        if (hasDrawingSelection) {
+          conDrawingSelected.forEach(id => drawingIds.add(id));
+        }
+
+        if (hasShapeSelection) {
+          shapeSel.forEach(id => shapeIds.add(id));
+        }
+
+        const groupCtxMenu = document.getElementById('con-group-ctx-menu');
+        const isGroupCtxVisible = groupCtxMenu && groupCtxMenu.classList.contains('visible');
+        if (typeof _conGroupCtxId !== 'undefined' && _conGroupCtxId && isGroupCtxVisible) {
+          groupIds.add(_conGroupCtxId);
+        } else if (conGroupFocused) {
+          groupIds.add(conGroupFocused);
+        }
+
+        groupIds.forEach(gid => {
+          const g = conGroups.find(x => x.id === gid);
+          if (!g) return;
+          (g.nodeIds || []).forEach(id => nodeIds.add(id));
+          (g.noteIds || []).forEach(id => noteIds.add(id));
+        });
+
+        conGroups.forEach(g => {
+          const gNodeIds = g.nodeIds || [];
+          const gNoteIds = g.noteIds || [];
+          if (!gNodeIds.length && !gNoteIds.length) return;
+          const hasAnySelected = gNodeIds.some(id => nodeIds.has(id)) || gNoteIds.some(id => noteIds.has(id));
+          const fullySelected = (gNodeIds.length === 0 || gNodeIds.every(id => nodeIds.has(id))) &&
+                                (gNoteIds.length === 0 || gNoteIds.every(id => noteIds.has(id)));
+          if (hasAnySelected && fullySelected) groupIds.add(g.id);
+        });
+
+        return {
+          nodeIds: [...nodeIds],
+          noteIds: [...noteIds],
+          groupIds: [...groupIds],
+          drawingIds: [...drawingIds],
+          shapeIds: [...shapeIds]
+        };
+      }
+
+      function conClipboardBuildPayload() {
+        const sel = conClipboardSelectionSummary();
+        if (!sel.nodeIds.length && !sel.noteIds.length && !sel.groupIds.length && !sel.drawingIds.length && !sel.shapeIds.length) return null;
+
+        const nodes = sel.nodeIds
+          .map(id => conNodes.find(n => n.id === id))
+          .filter(Boolean)
+          .map(n => ({
+            id: n.id,
+            baseWord: n.baseWord || (n.el ? n.el.textContent.trim() : ''),
+            dbWord: n.dbWord || null,
+            sourceWord: n.sourceWord || null,
+            relation: n.relation || null,
+            x: Number(n.x) || 0,
+            y: Number(n.y) || 0,
+            bg: n.el ? n.el.style.background || '' : '',
+            color: n.el ? n.el.style.color || '' : '',
+            border: n.el ? n.el.style.borderColor || '' : '',
+            borderWidth: n.borderWidth || null,
+            borderStyle: n.borderStyle || null,
+            highlight: n.highlight || null,
+            preset: n.preset || null,
+            fontSize: n.el ? n.el.style.fontSize || '16px' : '16px',
+            fmt: n.fmt ? { ...n.fmt } : {},
+            masked: !!n.masked,
+            locked: !!n.locked,
+            pageNum: n.pageNum != null ? n.pageNum : null,
+            phraseOrder: n.phraseOrder != null ? n.phraseOrder : null,
+            shape: conNormalizeNodeShape(n.shape || (n.el && n.el.dataset.shape)),
+            rotation: (typeof n.rotation === 'number') ? conNormalizeNodeRotation(n.rotation) : 0,
+            textStrokeColor: n.textStrokeColor || null,
+            textStrokeWidth: n.textStrokeWidth || null
+          }));
+
+        const notes = sel.noteIds
+          .map(id => (typeof conNotes !== 'undefined' ? conNotes.find(n => n.id === id) : null))
+          .filter(Boolean)
+          .map(n => ({
+            id: n.id,
+            nodeId: n.nodeId || null,
+            text: n.text || '',
+            html: n.html || '',
+            x: Number(n.x) || 0,
+            y: Number(n.y) || 0,
+            color: n.color || '#111111',
+            bg: n.bg || '#ffffff',
+            fontSize: Number(n.fontSize) || 14,
+            bold: !!n.bold,
+            italic: !!n.italic,
+            underline: !!n.underline,
+            strike: !!n.strike,
+            hidden: !!n.hidden,
+            locked: !!n.locked,
+            manualSize: !!n.manualSize,
+            width: typeof n.width === 'number' ? n.width : null,
+            height: typeof n.height === 'number' ? n.height : null,
+            borderWidth: n.borderWidth || null,
+            borderStyle: n.borderStyle || null,
+            borderColor: n.borderColor || null,
+            preset: n.preset || null,
+            textAlign: n.textAlign || null
+          }));
+
+        const groups = sel.groupIds
+          .map(id => conGroups.find(g => g.id === id))
+          .filter(Boolean)
+          .map(g => ({
+            id: g.id,
+            nodeIds: [...(g.nodeIds || [])].filter(id => sel.nodeIds.includes(id)),
+            noteIds: [...(g.noteIds || [])].filter(id => sel.noteIds.includes(id)),
+            title: g.title || '',
+            blink: !!g.blink,
+            paletteIdx: Number(g.paletteIdx) || 0,
+            invisible: !!g.invisible,
+            drawingGroup: !!g.drawingGroup,
+            phraseGroup: !!g.phraseGroup,
+            manualW: g._manualW != null ? g._manualW : null,
+            manualH: g._manualH != null ? g._manualH : null,
+            x: g.el ? (parseFloat(g.el.style.left) || 0) : 0,
+            y: g.el ? (parseFloat(g.el.style.top) || 0) : 0,
+            w: g.el ? (parseFloat(g.el.style.width) || g.el.offsetWidth || 180) : 180,
+            h: g.el ? (parseFloat(g.el.style.height) || g.el.offsetHeight || 100) : 100
+          }));
+
+        const drawings = (sel.drawingIds || [])
+          .map(id => (typeof conDrawings !== 'undefined' ? conDrawings.find(d => d.id === id) : null))
+          .filter(Boolean)
+          .map(d => ({
+            id: d.id,
+            x: Number(d.x) || 0,
+            y: Number(d.y) || 0,
+            w: Number(d.w) || 100,
+            h: Number(d.h) || 100,
+            points: Array.isArray(d.points) ? JSON.parse(JSON.stringify(d.points)) : [],
+            color: d.color || '#111111',
+            thickness: Number(d.thickness) || 3,
+            opacity: d.opacity != null ? Number(d.opacity) : 1,
+            pad: d.pad || 16
+          }));
+
+        const shapes = (sel.shapeIds || [])
+          .map(id => (typeof conShapes !== 'undefined' ? conShapes.find(s => s.id === id) : null))
+          .filter(Boolean)
+          .map(s => ({
+            id: s.id,
+            type: s.type || 'rect',
+            x: Number(s.x) || 0,
+            y: Number(s.y) || 0,
+            w: Number(s.w) || 100,
+            h: Number(s.h) || 100,
+            color: s.color || '#111111',
+            thickness: Number(s.thickness) || 2,
+            opacity: s.opacity != null ? Number(s.opacity) : 1,
+            fillColor: s.fillColor || 'none',
+            dashStyle: s.dashStyle || 'solid',
+            arrowheadSize: s.arrowheadSize || 20,
+            pts: Array.isArray(s.pts) ? JSON.parse(JSON.stringify(s.pts)) : undefined
+          }));
+
+        const nodeSet = new Set(nodes.map(n => n.id));
+        const edges = conEdges
+          .filter(e => nodeSet.has(e.a) && nodeSet.has(e.b))
+          .map(e => ({
+            a: e.a,
+            b: e.b,
+            type: e.type || 'none',
+            label: e.label || '',
+            labelSize: Number(e.labelSize) || 11,
+            labelColor: e.labelColor || '#333333',
+            labelWeight: Number(e.labelWeight) || 600,
+            colorMode: e.colorMode,
+            strokeColor: e.strokeColor
+          }));
+
+        const rects = [];
+        nodes.forEach(n => {
+          const el = conNodes.find(x => x.id === n.id) && conNodes.find(x => x.id === n.id).el;
+          rects.push({
+            x: n.x,
+            y: n.y,
+            w: el ? (el.offsetWidth || 80) : 80,
+            h: el ? (el.offsetHeight || 32) : 32
+          });
+        });
+        notes.forEach(n => {
+          const el = typeof wnGetNoteElementById === 'function' ? wnGetNoteElementById(n.id) : null;
+          rects.push({
+            x: n.x,
+            y: n.y,
+            w: el ? (el.offsetWidth || 120) : (n.width || 120),
+            h: el ? (el.offsetHeight || 40) : (n.height || 40)
+          });
+        });
+        groups.forEach(g => {
+          rects.push({ x: g.x, y: g.y, w: g.w || 180, h: g.h || 100 });
+        });
+        drawings.forEach(d => {
+          rects.push({ x: d.x, y: d.y, w: d.w || 100, h: d.h || 100 });
+        });
+        shapes.forEach(s => {
+          rects.push({ x: s.x, y: s.y, w: s.w || 100, h: s.h || 100 });
+        });
+
+        const bounds = rects.length
+          ? {
+            minX: Math.min(...rects.map(r => r.x)),
+            minY: Math.min(...rects.map(r => r.y)),
+            maxX: Math.max(...rects.map(r => r.x + r.w)),
+            maxY: Math.max(...rects.map(r => r.y + r.h))
+          }
+          : { minX: 0, minY: 0, maxX: 120, maxY: 60 };
+
+        const textParts = [];
+        nodes.forEach(n => { if (n.baseWord) textParts.push(n.baseWord); });
+        notes.forEach(n => { if (n.text) textParts.push(n.text); });
+        groups.forEach(g => { if (g.title) textParts.push(g.title); });
+        const plainText = textParts.join('\n');
+
+        return {
+          type: 'constellation-selection',
+          nodes,
+          notes,
+          groups,
+          drawings,
+          shapes,
+          edges,
+          bounds,
+          plainText,
+          timestamp: Date.now()
+        };
+      }
+
+      function conClipboardClearVisualSelection() {
+        conMultiSelected.clear();
+        conSelected = null;
+        conNodes.forEach(n => n.el && n.el.classList.remove('con-selected', 'con-multi-selected', 'con-src'));
+        if (typeof conNoteSelected !== 'undefined') {
+          conNoteSelected.clear();
+          document.querySelectorAll('#constellation-board .con-word-note.wn-selected')
+            .forEach(el => el.classList.remove('wn-selected'));
+        }
+        if (typeof conDrawingSelected !== 'undefined') {
+          conDrawingSelected.clear();
+          document.querySelectorAll('#constellation-board .con-drawing.con-drawing-selected')
+            .forEach(el => el.classList.remove('con-drawing-selected'));
+        }
+        if (typeof window.conShapeClearSelection === 'function') {
+          window.conShapeClearSelection();
+        }
+        window._conSelectedEdgeId = null;
+        conRedrawEdges();
+      }
+
+      function conClipboardDeletePayload(payload) {
+        if (!payload) return;
+
+        if (payload.notes && payload.notes.length && typeof conNotes !== 'undefined') {
+          payload.notes.forEach(n => {
+            const nd = conNotes.find(x => x.id === n.id);
+            if (nd) wnDeleteNoteData(nd);
+          });
+        }
+
+        if (payload.nodes && payload.nodes.length) {
+          payload.nodes.forEach(n => conRemoveNode(n.id));
+        }
+
+        if (payload.groups && payload.groups.length) {
+          payload.groups.forEach(g => {
+            const exists = conGroups.find(x => x.id === g.id);
+            if (exists) conGroupDissolve(g.id);
+          });
+        }
+
+        const cutDrawIds = [];
+        if (payload.drawings && payload.drawings.length && typeof conDrawings !== 'undefined') {
+          payload.drawings.forEach(d => {
+            const dr = conDrawings.find(x => x.id === d.id);
+            if (dr && dr.el) dr.el.remove();
+            conDrawings = conDrawings.filter(x => x.id !== d.id);
+            cutDrawIds.push(String(d.id));
+          });
+        }
+
+        const cutShapeIds = [];
+        if (payload.shapes && payload.shapes.length && typeof conShapes !== 'undefined') {
+          payload.shapes.forEach(s => {
+            const sh = conShapes.find(x => x.id === s.id);
+            if (sh && sh.el) sh.el.remove();
+            conShapes = conShapes.filter(x => x.id !== s.id);
+            cutShapeIds.push(String(s.id));
+          });
+        }
+        if (typeof window._conMirrorSend === 'function') {
+          if (cutDrawIds.length > 0) window._conMirrorSend({ type: 'drawing-remove', ids: cutDrawIds });
+          if (cutShapeIds.length > 0) window._conMirrorSend({ type: 'shape-remove', ids: cutShapeIds });
+        }
+
+        conClipboardClearVisualSelection();
+      }
+
+      function conClipboardPastePayload(payload) {
+        if (!payload || payload.type !== 'constellation-selection') return false;
+        const brd = board();
+        if (!brd) return false;
+
+        const sourceBounds = payload.bounds || { minX: 0, minY: 0, maxX: 120, maxY: 60 };
+        const anchorX = (_lastBoardPastePoint && _lastBoardPastePoint.x) || Number(window._boardCtxNoteX);
+        const anchorY = (_lastBoardPastePoint && _lastBoardPastePoint.y) || Number(window._boardCtxNoteY);
+        const baseX = Number.isFinite(anchorX) ? anchorX : Math.round(brd.clientWidth / 2);
+        const baseY = Number.isFinite(anchorY) ? anchorY : Math.round(brd.clientHeight / 2);
+        _conClipboardPasteCount = 0;
+        const targetMinX = baseX;
+        const targetMinY = baseY;
+
+        const nodeIdMap = new Map();
+        const noteIdMap = new Map();
+
+        (payload.nodes || []).forEach(n => {
+          const nx = targetMinX + ((Number(n.x) || 0) - sourceBounds.minX);
+          const ny = targetMinY + ((Number(n.y) || 0) - sourceBounds.minY);
+          const newId = conAddWordAt(n.baseWord || '', nx, ny, n.pageNum != null ? n.pageNum : null);
+          const newNode = conNodes.find(x => x.id === newId);
+          if (!newNode) return;
+
+          newNode.dbWord = n.dbWord || null;
+          newNode.baseWord = n.baseWord || newNode.baseWord;
+          newNode.sourceWord = n.sourceWord || null;
+          newNode.relation = n.relation || null;
+          newNode.fmt = n.fmt ? { ...n.fmt } : {};
+          newNode.shape = conNormalizeNodeShape(n.shape || 'rectangle');
+          newNode.locked = !!n.locked;
+          newNode.masked = !!n.masked;
+          newNode.borderWidth = n.borderWidth || null;
+          newNode.borderStyle = n.borderStyle || null;
+          newNode.highlight = n.highlight || null;
+          newNode.preset = n.preset || null;
+          newNode.textStrokeColor = n.textStrokeColor || null;
+          newNode.textStrokeWidth = n.textStrokeWidth || null;
+
+          if (n.bg) newNode.el.style.background = n.bg;
+          if (n.color) newNode.el.style.color = n.color;
+          if (n.border) newNode.el.style.borderColor = n.border;
+          conApplyTextStrokeStyle(newNode.el, newNode.textStrokeWidth, newNode.textStrokeColor);
+
+          newNode.el.classList.toggle('con-masked', !!newNode.masked);
+          conSyncNodeLockState(newNode);
+          conRenderNodeLabel(newNode);
+          if (n.fontSize) conSetNodeBaseFontSize(newNode, n.fontSize);
+          conApplyNodeShape(newNode, newNode.shape);
+          newNode.rotation = (typeof n.rotation === 'number') ? conNormalizeNodeRotation(n.rotation) : 0;
+          conApplyNodeRotation(newNode, newNode.rotation);
+          nodeIdMap.set(n.id, newId);
+        });
+
+        (payload.edges || []).forEach(e => {
+          const a = nodeIdMap.get(e.a);
+          const b = nodeIdMap.get(e.b);
+          if (!a || !b) return;
+          const beforeLen = conEdges.length;
+          conAddEdge(a, b, e.type || 'none');
+          if (conEdges.length > beforeLen) {
+            const edge = conEdges[conEdges.length - 1];
+            edge.label = e.label || '';
+            edge.labelSize = Number(e.labelSize) || 11;
+            edge.labelColor = e.labelColor || '#333333';
+            edge.labelWeight = Number(e.labelWeight) || 600;
+            edge.dashStyle = e.dashStyle || null;
+            if (e.thickness > 0) {
+              edge.thickness = Number(e.thickness);
+              if (edge.line) edge.line.style.strokeWidth = String(edge.thickness);
+              if (edge.hit) edge.hit.style.strokeWidth = String(Math.max(16, edge.thickness + 10));
+            }
+            if (e.colorMode !== undefined) edge.colorMode = e.colorMode;
+            if (e.strokeColor !== undefined) edge.strokeColor = e.strokeColor;
+            if (edge.labelEl) edge.labelEl.textContent = edge.label;
+            conApplyEdgeLabelStyle(edge);
+          }
+        });
+
+        if (typeof conNotes !== 'undefined') {
+          (payload.notes || []).forEach(n => {
+            const nx = targetMinX + ((Number(n.x) || 0) - sourceBounds.minX);
+            const ny = targetMinY + ((Number(n.y) || 0) - sourceBounds.minY);
+            const newId = 'cnn' + (conNoteNextId++);
+            const mappedNodeId = n.nodeId ? (nodeIdMap.get(n.nodeId) || null) : null;
+            const clone = {
+              id: newId,
+              nodeId: mappedNodeId,
+              text: n.text || '',
+              html: n.html || '',
+              x: nx,
+              y: ny,
+              color: n.color || '#111111',
+              bg: n.bg || '#ffffff',
+              fontSize: Number(n.fontSize) || 14,
+              bold: !!n.bold,
+              italic: !!n.italic,
+              underline: !!n.underline,
+              strike: !!n.strike,
+              hidden: !!n.hidden,
+              locked: !!n.locked,
+              manualSize: !!n.manualSize,
+              width: typeof n.width === 'number' ? n.width : null,
+              height: typeof n.height === 'number' ? n.height : null,
+              borderWidth: n.borderWidth || null,
+              borderStyle: n.borderStyle || null,
+              borderColor: n.borderColor || null,
+              preset: n.preset || null,
+              textAlign: n.textAlign || null
+            };
+            if (typeof window.conAddNoteObject === 'function') {
+              window.conAddNoteObject(clone);
+            } else {
+              const liveNotes = (typeof window.conGetNotes === 'function') ? window.conGetNotes() : conNotes;
+              if (!liveNotes.includes(clone)) liveNotes.push(clone);
+              if (typeof conNoteBuild === 'function') conNoteBuild(clone);
+            }
+            if (mappedNodeId) {
+              const linkedNode = conNodes.find(x => x.id === mappedNodeId);
+              if (linkedNode && linkedNode.el) {
+                linkedNode.el.classList.add('has-con-note');
+                if (typeof conUpdateNodeNoteButton === 'function') conUpdateNodeNoteButton(linkedNode);
+              }
+            }
+            noteIdMap.set(n.id, newId);
+          });
+        }
+
+        if (typeof conDrawingFromData === 'function' && Array.isArray(payload.drawings)) {
+          payload.drawings.forEach(d => {
+            const dx = targetMinX + ((Number(d.x) || 0) - sourceBounds.minX);
+            const dy = targetMinY + ((Number(d.y) || 0) - sourceBounds.minY);
+            conDrawingFromData({
+              ...d,
+              id: undefined,
+              x: dx,
+              y: dy,
+              points: Array.isArray(d.points) ? d.points.map(p => (p ? { x: p.x, y: p.y } : null)) : []
+            });
+          });
+        }
+
+        if (typeof conShapeFromData === 'function' && Array.isArray(payload.shapes)) {
+          payload.shapes.forEach(s => {
+            const sx = targetMinX + ((Number(s.x) || 0) - sourceBounds.minX);
+            const sy = targetMinY + ((Number(s.y) || 0) - sourceBounds.minY);
+            conShapeFromData({
+              ...s,
+              id: undefined,
+              x: sx,
+              y: sy
+            });
+          });
+        }
+
+        (payload.groups || []).forEach(g => {
+          const mappedNodeIds = (g.nodeIds || []).map(id => nodeIdMap.get(id)).filter(Boolean);
+          const mappedNoteIds = (g.noteIds || []).map(id => noteIdMap.get(id)).filter(Boolean);
+
+          const gx = targetMinX + ((Number(g.x) || 0) - sourceBounds.minX);
+          const gy = targetMinY + ((Number(g.y) || 0) - sourceBounds.minY);
+
+          let newGroup = null;
+          if (mappedNodeIds.length >= 2) {
+            newGroup = conGroupCreate(mappedNodeIds, undefined, undefined, mappedNoteIds, [], [], { phraseGroup: !!g.phraseGroup });
+          } else {
+            newGroup = conGroupCreate([], gx, gy, mappedNoteIds, [], [], { phraseGroup: !!g.phraseGroup });
+            if (newGroup && mappedNodeIds.length === 1) {
+              newGroup.nodeIds = [mappedNodeIds[0]];
+            }
+          }
+          if (!newGroup) return;
+
+          newGroup.title = g.title || '';
+          newGroup.blink = !!g.blink;
+          newGroup.paletteIdx = Number(g.paletteIdx) || 0;
+          newGroup.invisible = !!g.invisible;
+          newGroup.drawingGroup = !!g.drawingGroup;
+          newGroup.phraseGroup = !!g.phraseGroup;
+          newGroup._manualW = g.manualW != null ? g.manualW : null;
+          newGroup._manualH = g.manualH != null ? g.manualH : null;
+          if (newGroup._manualW != null && newGroup._manualH != null) {
+            newGroup._px = gx;
+            newGroup._py = gy;
+          }
+          conGroupApplyStyle(newGroup);
+          conGroupRefit(newGroup);
+          newGroup.el.classList.toggle('con-group-blink', !!newGroup.blink);
+          if (newGroup.phraseGroup) {
+            // Restore phraseOrder on pasted nodes and re-layout
+            (g.nodeIds || []).forEach((origId, i) => {
+              const newId = nodeIdMap.get(origId);
+              const node = newId ? conNodes.find(n => n.id === newId) : null;
+              if (node && node.phraseOrder == null) node.phraseOrder = i;
+            });
+            requestAnimationFrame(() => conPhraseGroupLayout(newGroup));
+          }
+        });
+
+        conRedrawEdges();
+        conGroupRefitAll();
+
+        const pastedNodeIds = [...nodeIdMap.values()];
+        const pastedNoteIds = [...noteIdMap.values()];
+        conClipboardClearVisualSelection();
+        if (pastedNodeIds.length > 1) {
+          conSetMultiSelected(pastedNodeIds);
+        } else if (pastedNodeIds.length === 1) {
+          conSelect(pastedNodeIds[0]);
+        }
+        if (typeof conNoteSelected !== 'undefined' && pastedNoteIds.length > 0) {
+          pastedNoteIds.forEach(nid => {
+            conNoteSelected.add(nid);
+            const el = wnGetNoteElementById(nid);
+            if (el) el.classList.add('wn-selected');
+          });
+        }
+        return true;
+      }
+
+      window.conClipboardCopy = function (opts) {
+        if (!conClipboardIsConstellationVisible()) return false;
+        if (document.body.classList.contains('laser-active')) return false;
+        const allowWhileTyping = !opts || opts.allowWhileTyping !== false;
+        if (!allowWhileTyping && conClipboardTypingFocus()) return false;
+        const payload = conClipboardBuildPayload();
+        if (!payload) {
+          if (typeof mdbToast === 'function') mdbToast('ℹ️ Select nodes, notes, or a group first.');
+          return false;
+        }
+        _conClipboardWrite(payload);
+        _lastConCopiedText = payload.plainText || '';
+        _lastConCopyTime = Date.now();
+        const textToWrite = payload.plainText || '';
+        _lastConCopiedOsText = textToWrite;
+        if (textToWrite) {
+          _conWriteOsClipboardText(textToWrite);
+        }
+        const count = (payload.nodes || []).length + (payload.notes || []).length + (payload.groups || []).length + (payload.drawings || []).length + (payload.shapes || []).length;
+        if (typeof mdbToast === 'function') mdbToast('📋 Copied ' + count + ' item' + (count === 1 ? '' : 's'));
+        return true;
+      };
+
+      window.conClipboardCut = function (opts) {
+        if (!conClipboardIsConstellationVisible()) return false;
+        if (document.body.classList.contains('laser-active')) return false;
+        const allowWhileTyping = !opts || opts.allowWhileTyping !== false;
+        if (!allowWhileTyping && conClipboardTypingFocus()) return false;
+        const payload = conClipboardBuildPayload();
+        if (!payload) {
+          if (typeof mdbToast === 'function') mdbToast('ℹ️ Select nodes, notes, or a group first.');
+          return false;
+        }
+        _conClipboardWrite(payload);
+        _lastConCopiedText = payload.plainText || '';
+        _lastConCopyTime = Date.now();
+        const textToWrite = payload.plainText || '';
+        _lastConCopiedOsText = textToWrite;
+        if (textToWrite) {
+          _conWriteOsClipboardText(textToWrite);
+        }
+        conPushUndo();
+        conClipboardDeletePayload(payload);
+        const count = (payload.nodes || []).length + (payload.notes || []).length + (payload.groups || []).length + (payload.drawings || []).length + (payload.shapes || []).length;
+        if (typeof mdbToast === 'function') mdbToast('✂ Cut ' + count + ' item' + (count === 1 ? '' : 's'));
+        return true;
+      };
+
+      window.conClipboardPaste = async function (opts) {
+        if (!conClipboardIsConstellationVisible()) return false;
+        if (document.body.classList.contains('laser-active')) return false;
+        const allowWhileTyping = !opts || opts.allowWhileTyping !== false;
+        if (!allowWhileTyping && conClipboardTypingFocus()) return false;
+
+        const brd = board();
+        const anchorX = (_lastBoardPastePoint && _lastBoardPastePoint.x) || Number(window._boardCtxNoteX);
+        const anchorY = (_lastBoardPastePoint && _lastBoardPastePoint.y) || Number(window._boardCtxNoteY);
+        const x = Number.isFinite(anchorX) ? anchorX : (brd ? Math.round(brd.clientWidth / 2 - 60) : 60);
+        const y = Number.isFinite(anchorY) ? anchorY : (brd ? Math.round(brd.clientHeight / 2 - 20) : 60);
+
+        // 1. Try reading via Desktop / Electron native clipboard first (synchronous & guaranteed)
+        let osPlainText = null;
+        let osHtml = '';
+        let osImageDataUrl = '';
+
+        if (window.Desktop && typeof window.Desktop.clipboardReadText === 'function') {
+          try { osPlainText = await window.Desktop.clipboardReadText(); } catch (e) {}
+        } else if (window.electronApi && typeof window.electronApi.clipboardReadText === 'function') {
+          try { osPlainText = await window.electronApi.clipboardReadText(); } catch (e) {}
+        }
+
+        if (window.Desktop && typeof window.Desktop.clipboardReadHtml === 'function') {
+          try { osHtml = (await window.Desktop.clipboardReadHtml()) || ''; } catch (e) {}
+        } else if (window.electronApi && typeof window.electronApi.clipboardReadHtml === 'function') {
+          try { osHtml = (await window.electronApi.clipboardReadHtml()) || ''; } catch (e) {}
+        }
+
+        if (window.Desktop && typeof window.Desktop.clipboardReadImage === 'function') {
+          try { osImageDataUrl = (await window.Desktop.clipboardReadImage()) || ''; } catch (e) {}
+        } else if (window.electronApi && typeof window.electronApi.clipboardReadImage === 'function') {
+          try { osImageDataUrl = (await window.electronApi.clipboardReadImage()) || ''; } catch (e) {}
+        }
+
+        // 2. Fallback to Web standard navigator.clipboard (for browser mode)
+        if (!osImageDataUrl && navigator.clipboard && navigator.clipboard.read) {
+          try {
+            const clipItems = await navigator.clipboard.read();
+            for (const item of clipItems) {
+              for (const type of item.types) {
+                if (type.startsWith('image/')) {
+                  const blob = await item.getType(type);
+                  osImageDataUrl = await new Promise((res) => {
+                    const r = new FileReader();
+                    r.onload = () => res(r.result);
+                    r.onerror = () => res('');
+                    r.readAsDataURL(blob);
+                  });
+                  break;
+                }
+              }
+              if (osImageDataUrl) break;
+            }
+          } catch (e) {}
+        }
+
+        if (osPlainText === null && navigator.clipboard && navigator.clipboard.readText) {
+          try { osPlainText = await navigator.clipboard.readText(); } catch (e) {}
+        }
+
+        // 3. Handle image paste from OS clipboard
+        if (osImageDataUrl) {
+          try {
+            const parts = osImageDataUrl.split(',');
+            const mime = (parts[0].match(/:(.*?);/) || [])[1] || 'image/png';
+            const bstr = atob(parts[1]);
+            let n = bstr.length;
+            const u8arr = new Uint8Array(n);
+            while (n--) u8arr[n] = bstr.charCodeAt(n);
+            const blob = new Blob([u8arr], { type: mime });
+
+            const ext = (mime.split('/')[1] || 'png').replace('jpeg', 'jpg');
+            const name = 'pasted-image-' + Date.now() + '.' + ext;
+            _conAttachmentCounter += 1;
+            const attachmentId = 'att_' + _conAttachmentCounter;
+            conAttachments.push({
+              id: attachmentId,
+              name: conSanitizeAttachmentName(name),
+              mime,
+              kind: 'pics',
+              size: Number(blob.size) || 0,
+              file: blob,
+              base64: parts[1] || '',
+              _cachedDataUrl: osImageDataUrl,
+              relativePath: ''
+            });
+            conRenderAttachmentSummary();
+            const brdEl = document.getElementById('constellation-board');
+            const baseW = window._bcImageInsertWidth || 260;
+            const baseH = 200;
+            const pos = brdEl
+              ? {
+                x: Math.max(12, Math.round((brdEl.clientWidth - baseW) / 2)),
+                y: Math.max(12, Math.round((brdEl.clientHeight - baseH) / 2))
+              }
+              : { x: 40, y: 40 };
+            // conInsertAttachmentById probes natural size internally; just pass position.
+            window.conInsertAttachmentById(attachmentId, { x: pos.x, y: pos.y, silent: true });
+            if (typeof mdbToast === 'function') mdbToast('🖼 Image pasted onto the board.');
+            return true;
+          } catch (err) {}
+        }
+
+        const _pasteTarget = _conClipboardRead();
+        const hasValidInternalPayload = _pasteTarget && _pasteTarget.type === 'constellation-selection' &&
+          ((_pasteTarget.nodes && _pasteTarget.nodes.length) ||
+           (_pasteTarget.notes && _pasteTarget.notes.length) ||
+           (_pasteTarget.groups && _pasteTarget.groups.length) ||
+           (_pasteTarget.drawings && _pasteTarget.drawings.length) ||
+           (_pasteTarget.shapes && _pasteTarget.shapes.length));
+
+        const plain = String(osPlainText || '').trim();
+
+        // 4. Disambiguate Internal Board payload vs External Clipboard
+        const isInternalCopyMatch = hasValidInternalPayload && (
+          !plain ||
+          plain === (_pasteTarget.plainText || '').trim() ||
+          plain === (_lastConCopiedText || '').trim() ||
+          (_lastConCopiedOsText != null && plain === _lastConCopiedOsText.trim())
+        );
+
+        if (isInternalCopyMatch) {
+          if (!_conClipboard) { _conClipboard = _pasteTarget; _conClipboardPasteCount = 0; }
+          conPushUndo();
+          const ok = conClipboardPastePayload(_pasteTarget);
+          if (ok && typeof mdbToast === 'function') {
+            const count = (_pasteTarget.nodes || []).length + (_pasteTarget.notes || []).length + (_pasteTarget.groups || []).length + (_pasteTarget.drawings || []).length + (_pasteTarget.shapes || []).length;
+            mdbToast('⎗ Pasted ' + count + ' item' + (count === 1 ? '' : 's'));
+          }
+          return ok;
+        }
+
+        // 5. Check for Table (HTML / TSV) from OS clipboard
+        const mockClip = {
+          getData: (t) => t === 'text/html' ? osHtml : (t === 'text/plain' ? (osPlainText || '') : '')
+        };
+        if (typeof wnPasteAsConTable === 'function' && ((osHtml && osHtml.includes('<table')) || (plain && plain.includes('\t') && plain.includes('\n')))) {
+          if (wnPasteAsConTable(mockClip, x, y)) {
+            if (typeof mdbToast === 'function') mdbToast('📊 Pasted table onto the board.');
+            return true;
+          }
+        }
+
+        // 6. External plain text: paste as a new text note
+        if (plain) {
+          conPushUndo();
+          if (window.conCreateTextNote) {
+            const note = window.conCreateTextNote(plain, x, y, { fontSize: window._bcNoteFontSizeFree || 24 });
+            if (note) {
+              conClipboardClearVisualSelection();
+              if (typeof conNoteSelected !== 'undefined') {
+                conNoteSelected.add(note.id);
+                const el = typeof wnGetNoteElementById === 'function' ? wnGetNoteElementById(note.id) : null;
+                if (el) el.classList.add('wn-selected');
+              }
+              if (typeof mdbToast === 'function') mdbToast('📝 Pasted text note onto the board.');
+              return true;
+            }
+          }
+        }
+
+        // 7. If no plain text in OS clipboard but internal payload exists
+        if (hasValidInternalPayload) {
+          if (!_conClipboard) { _conClipboard = _pasteTarget; _conClipboardPasteCount = 0; }
+          conPushUndo();
+          const ok = conClipboardPastePayload(_pasteTarget);
+          if (ok && typeof mdbToast === 'function') {
+            const count = (_pasteTarget.nodes || []).length + (_pasteTarget.notes || []).length + (_pasteTarget.groups || []).length + (_pasteTarget.drawings || []).length + (_pasteTarget.shapes || []).length;
+            mdbToast('⎗ Pasted ' + count + ' item' + (count === 1 ? '' : 's'));
+          }
+          return ok;
+        }
+
+        if (typeof mdbToast === 'function') mdbToast('ℹ️ Clipboard is empty. Copy something first.');
+        return false;
+      };
+
+
+      document.addEventListener('click', function (e) {
+        if (!e.target.closest('#con-ctx-menu')) conCtxClose();
+        if (!e.target.closest('#con-node-card-popup') && !e.target.closest('#con-ctx-card-btn')) conCloseNodeWordCard();
+        if (!e.target.closest('#con-fmt-case-btn') && !e.target.closest('#con-ctx-case-dropdown')) {
+          const dd = document.getElementById('con-ctx-case-dropdown');
+          if (dd) dd.style.display = 'none';
+        }
+        if (!e.target.closest('#con-ctx-split-btn') && !e.target.closest('#con-ctx-split-dropdown')) {
+          const sdd = document.getElementById('con-ctx-split-dropdown');
+          if (sdd) sdd.style.display = 'none';
+        }
+        if (!e.target.closest('#wn-sp-case-btn') && !e.target.closest('#wn-sp-case-dropdown')) {
+          const dd = document.getElementById('wn-sp-case-dropdown');
+          if (dd) dd.style.display = 'none';
+        }
+        if (!e.target.closest('#wn-sp-convert-btn') && !e.target.closest('#con-note-convert-modal')) {
+          const dd = document.getElementById('con-note-convert-modal');
+          if (dd) dd.style.display = 'none';
+        }
+        if (!_boardMenuLocked && !e.target.closest('#con-board-ctx-menu')) {
+          const bmenu = document.getElementById('con-board-ctx-menu');
+          if (bmenu && bmenu.classList.contains('visible')) conBoardCtxClose();
+        }
+        if (!e.target.closest('#con-edge-ctx-menu')) window.conEdgeCtxClose(true);
+        if (!e.target.closest('#con-mask-style-overlay')) window.conMaskCtxClose();
+      });
+      document.addEventListener('keydown', function (e) {
+        if (!e || typeof e.key !== 'string') return;
+        if (typeof window.boardDispatchCustomShortcut === 'function' && window.boardDispatchCustomShortcut(e)) return;
+        else if (typeof boardDispatchCustomShortcut === 'function' && boardDispatchCustomShortcut(e)) return;
+        if (e.key === 'Escape') {
+          // 1. First close any active inline confirm popup
+          const clearallPop = document.getElementById('con-clearall-popup');
+          if (clearallPop) { clearallPop.remove(); return; }
+
+          // 2. Close any open dialogs/overlays (either .active or display !== 'none')
+          const overlays = [
+            '#char-net-excerpts-overlay', '#character-network-overlay', '#board-rec-preview-overlay',
+            '#board-rec-setup-overlay', '#con-bp-all-overlay', '#wn-planner-modal', '#con-crop-overlay',
+            '#con-learning-import-overlay', '#new-session-overlay', '#con-close-overlay',
+            '#save-filename-overlay', '#session-load-overlay', '#con-template-overlay',
+            '#tour-choice-overlay', '#history-delete-overlay', '#history-duplicate-overlay',
+            '#history-rename-overlay', '#board-customise-overlay', '#con-pages-overlay',
+            '#con-search-overlay', '#con-premade-library-overlay', '#con-merge-choice-overlay',
+            '#con-img-convert-overlay', '#con-table-style-overlay', '#con-shape-style-overlay',
+            '#con-drawing-style-overlay', '#con-mask-style-overlay', '#wn-style-overlay',
+            '#con-img-style-overlay', '#con-pdf-style-overlay', '#con-sound-style-overlay',
+            '#con-competence-overlay', '#con-class-import-overlay', '#unknown-words-overlay',
+            '#con-pdf-picker-overlay', '#con-pdf-page-picker-overlay', '#con-export-settings-overlay',
+            '#word-detail-overlay'
+          ];
+          for (let i = 0; i < overlays.length; i++) {
+            const el = document.querySelector(overlays[i]);
+            if (el && (el.classList.contains('active') || (el.style.display && el.style.display !== 'none'))) {
+              const overlayId = el.id;
+              if (overlayId === 'char-net-excerpts-overlay' && typeof window.characterNetworkCloseExcerpts === 'function') { window.characterNetworkCloseExcerpts(); return; }
+              if (overlayId === 'character-network-overlay' && typeof window.characterNetworkCloseModal === 'function') { window.characterNetworkCloseModal(); return; }
+              if (overlayId === 'board-rec-setup-overlay' && typeof window.boardVideoCloseSetup === 'function') { window.boardVideoCloseSetup(); return; }
+              if (overlayId === 'board-rec-preview-overlay' && typeof window.boardVideoPromptClosePreview === 'function') { window.boardVideoPromptClosePreview(); return; }
+              if (overlayId === 'con-bp-all-overlay' && typeof window.bpAllClose === 'function') { window.bpAllClose(); return; }
+              if (overlayId === 'wn-planner-modal' && typeof window.wnpClose === 'function') { window.wnpClose(); return; }
+              if (overlayId === 'con-crop-overlay' && typeof window.conCloseCropOverlay === 'function') { window.conCloseCropOverlay(); return; }
+              if (overlayId === 'con-learning-import-overlay' && typeof window.conCloseLearningImportModal === 'function') { window.conCloseLearningImportModal(); return; }
+              if (overlayId === 'new-session-overlay' && typeof window.newSessionConfirmCancel === 'function') { window.newSessionConfirmCancel(); return; }
+              if (overlayId === 'con-close-overlay' && typeof window.conCloseCancel === 'function') { window.conCloseCancel(); return; }
+              if (overlayId === 'save-filename-overlay' && typeof window.sfnCancel === 'function') { window.sfnCancel(); return; }
+              if (overlayId === 'session-load-overlay' && typeof window.closeSessionLoadPopup === 'function') { window.closeSessionLoadPopup(); return; }
+              if (overlayId === 'con-template-overlay' && typeof window.conCloseTemplatePopup === 'function') { window.conCloseTemplatePopup(); return; }
+              if (overlayId === 'tour-choice-overlay' && typeof window.closeTourChoice === 'function') { window.closeTourChoice(); return; }
+              if (overlayId === 'history-delete-overlay' && typeof window.historyDeleteCancel === 'function') { window.historyDeleteCancel(); return; }
+              if (overlayId === 'history-duplicate-overlay' && typeof window.historyDuplicateCancel === 'function') { window.historyDuplicateCancel(); return; }
+              if (overlayId === 'history-rename-overlay' && typeof window.historyRenameCancel === 'function') { window.historyRenameCancel(); return; }
+              if (overlayId === 'board-customise-overlay' && typeof window.boardCustomiseClose === 'function') { window.boardCustomiseClose(); return; }
+              if (overlayId === 'con-pages-overlay' && typeof window.conClosePagePreview === 'function') { window.conClosePagePreview(); return; }
+              if (overlayId === 'con-search-overlay' && typeof window.conCloseSearchModal === 'function') { window.conCloseSearchModal(); return; }
+              if (overlayId === 'con-premade-library-overlay' && typeof window.conClosePremadeLibraryModal === 'function') { window.conClosePremadeLibraryModal(); return; }
+              if (overlayId === 'con-table-style-overlay' && typeof window.conTableCtxClose === 'function') { window.conTableCtxClose(); return; }
+              if (overlayId === 'con-shape-style-overlay' && typeof window.conShapeCtxClose === 'function') { window.conShapeCtxClose(); return; }
+              if (overlayId === 'con-drawing-style-overlay' && typeof window.conDrawingCtxClose === 'function') { window.conDrawingCtxClose(); return; }
+              if (overlayId === 'con-mask-style-overlay' && typeof window.conMaskCtxClose === 'function') { window.conMaskCtxClose(); return; }
+              if (overlayId === 'wn-style-overlay' && typeof window.wnStyleClose === 'function') { window.wnStyleClose(); return; }
+              if (overlayId === 'con-img-style-overlay' && typeof window.conImgStyleClose === 'function') { window.conImgStyleClose(); return; }
+              if (overlayId === 'con-pdf-style-overlay' && typeof window.conPdfStyleClose === 'function') { window.conPdfStyleClose(); return; }
+              if (overlayId === 'con-sound-style-overlay' && typeof window.conSoundStyleClose === 'function') { window.conSoundStyleClose(); return; }
+              if (overlayId === 'con-competence-overlay' && typeof window.conCloseCompetenceModal === 'function') { window.conCloseCompetenceModal(); return; }
+              if (overlayId === 'con-class-import-overlay' && typeof window.conCloseClassImportModal === 'function') { window.conCloseClassImportModal(); return; }
+              if (overlayId === 'unknown-words-overlay' && typeof window.unknownWordsClose === 'function') { window.unknownWordsClose(); return; }
+              if (overlayId === 'con-pdf-picker-overlay' && typeof window.conPdfPickerClose === 'function') { window.conPdfPickerClose(); return; }
+              if (overlayId === 'con-pdf-page-picker-overlay' && typeof window.conPdfPagePickerClose === 'function') { window.conPdfPagePickerClose(); return; }
+              if (overlayId === 'con-export-settings-overlay' && typeof window.conCloseExportSettingsModal === 'function') { window.conCloseExportSettingsModal(); return; }
+              if (overlayId === 'word-detail-overlay' && typeof window.hideWordDetail === 'function') { window.hideWordDetail(); return; }
+              if (overlayId === 'con-merge-choice-overlay' && typeof window.conMergeChoiceCancel === 'function') { window.conMergeChoiceCancel(); return; }
+              if (overlayId === 'con-img-convert-overlay' && typeof window.conImgConvertClose === 'function') { window.conImgConvertClose(); return; }
+              el.classList.remove('active');
+              el.style.display = 'none';
+              return;
+            }
+          }
+
+          // 3. Close open drawing dropdown menus
+          const openDrawMenu = document.querySelector('#con-draw-panel .con-draw-drop-menu[style*="display: flex"], #con-draw-panel .con-draw-drop-menu[style*="display: block"]');
+          if (openDrawMenu && typeof window.conDrawCloseAllMenus === 'function') {
+            window.conDrawCloseAllMenus();
+            return;
+          }
+
+          // 4. Close open action popovers, context menus & dropdowns
+          const timerPop = document.getElementById('con-timer-action-popover');
+          if (timerPop && timerPop.style.display !== 'none') {
+            if (typeof window.conCloseTimerPopover === 'function') window.conCloseTimerPopover();
+            else if (typeof conCloseTimerPopover === 'function') conCloseTimerPopover();
+            return;
+          }
+          const randomPop = document.getElementById('con-random-action-popover');
+          if (randomPop && randomPop.style.display !== 'none') {
+            if (typeof window.conCloseRandomPopover === 'function') window.conCloseRandomPopover();
+            else if (typeof conCloseRandomPopover === 'function') conCloseRandomPopover();
+            return;
+          }
+          const soundPop = document.getElementById('con-sound-action-popover');
+          if (soundPop && soundPop.style.display !== 'none') {
+            if (typeof window.conCloseSoundPopover === 'function') window.conCloseSoundPopover();
+            else if (typeof conCloseSoundPopover === 'function') conCloseSoundPopover();
+            return;
+          }
+          const videoPop = document.getElementById('con-video-action-popover');
+          if (videoPop && videoPop.style.display !== 'none') {
+            if (typeof window.conCloseVideoPopover === 'function') window.conCloseVideoPopover();
+            else if (typeof conCloseVideoPopover === 'function') conCloseVideoPopover();
+            return;
+          }
+          const bpPop = document.getElementById('con-bp-popover');
+          if (bpPop && bpPop.style.display !== 'none') {
+            if (typeof window.bpClose === 'function') window.bpClose();
+            else if (typeof bpClose === 'function') bpClose();
+            return;
+          }
+
+          const openCtx = document.querySelector('#con-ctx-menu.visible, #con-board-ctx-menu.visible, #con-group-ctx-menu.visible, #con-edge-ctx-menu[style*="display: flex"], #search-ctx-menu.visible, #con-class-dropdown.open, #save-sync-menu.open');
+          if (openCtx) {
+            if (typeof conCtxClose === 'function') conCtxClose(); else if (typeof window.conCtxClose === 'function') window.conCtxClose();
+            if (typeof conCloseNodeWordCard === 'function') conCloseNodeWordCard(); else if (typeof window.conCloseNodeWordCard === 'function') window.conCloseNodeWordCard();
+            if (typeof conBoardCtxClose === 'function') conBoardCtxClose(); else if (typeof window.conBoardCtxClose === 'function') window.conBoardCtxClose();
+            if (typeof window.conGroupCtxClose === 'function') window.conGroupCtxClose();
+            if (typeof window.conEdgeCtxClose === 'function') window.conEdgeCtxClose();
+            if (typeof window.searchCtxClose === 'function') window.searchCtxClose();
+            if (typeof window.conCloseClassDropdown === 'function') window.conCloseClassDropdown();
+            if (typeof window.closeSaveSyncMenu === 'function') window.closeSaveSyncMenu();
+            return;
+          }
+
+          // 5. Close transient sub-popups
+          if (typeof window.conCloseNoteConvertModal === 'function') window.conCloseNoteConvertModal();
+          if (typeof window.conRelPickerClose === 'function') window.conRelPickerClose();
+          if (typeof window.conDefPickerClose === 'function') window.conDefPickerClose();
+          if (typeof window.conTransPickerClose === 'function') window.conTransPickerClose();
+
+          // 6. Cancel transient interactive states
+          if (document.body.classList.contains('laser-active')) { if (typeof window.laserToggle === 'function') window.laserToggle(); return; }
+          if (_conLinkSrc) { if (typeof _conCancelLinkMode === 'function') _conCancelLinkMode(); else if (typeof window.conCancelLinkMode === 'function') window.conCancelLinkMode(); return; }
+          if (typeof _polygonInProgress !== 'undefined' && _polygonInProgress && typeof window._conPolygonReset === 'function') {
+            window._conPolygonReset();
+            return;
+          }
+
+          // 7. Finally, exit draw mode if active
+          const activeMode = (typeof window.conGetMode === 'function') ? window.conGetMode() : conMode;
+          if (activeMode === 'draw') {
+            if (typeof window.conSetMode === 'function') window.conSetMode('move');
+            return;
+          }
+          if (typeof _taDrawActive !== 'undefined' && _taDrawActive && typeof window.taToggleDrawMode === 'function') { window.taToggleDrawMode(); return; }
+        }
+        if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) {
+          const tag = document.activeElement && document.activeElement.tagName;
+          if (tag === 'INPUT' || tag === 'TEXTAREA' || (document.activeElement && (document.activeElement.isContentEditable || (document.activeElement.closest && document.activeElement.closest('[contenteditable="true"]'))))) return;
+          const sec = document.getElementById('constellation-section');
+          if (!sec || sec.classList.contains('hidden')) return;
+          e.preventDefault();
+          if (typeof conRedo === 'function') conRedo();
+          else if (typeof window.conRedo === 'function') window.conRedo();
+          return;
+        }
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
+          const tag = document.activeElement && document.activeElement.tagName;
+          if (tag === 'INPUT' || tag === 'TEXTAREA' || (document.activeElement && (document.activeElement.isContentEditable || (document.activeElement.closest && document.activeElement.closest('[contenteditable="true"]'))))) return;
+          const sec = document.getElementById('constellation-section');
+          if (!sec || sec.classList.contains('hidden')) return;
+          e.preventDefault();
+          if (typeof conUndo === 'function') conUndo();
+          else if (typeof window.conUndo === 'function') window.conUndo();
+          return;
+        }
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 's') {
+          const sec = document.getElementById('constellation-section');
+          if (!sec || sec.classList.contains('hidden')) return;
+          e.preventDefault();
+          if (typeof conSaveSession === 'function') conSaveSession();
+          else if (typeof window.conSaveSession === 'function') window.conSaveSession();
+          return;
+        }
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'a') {
+          const tag = document.activeElement && document.activeElement.tagName;
+          if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+          if (document.activeElement && document.activeElement.isContentEditable) return;
+          const sec = document.getElementById('constellation-section');
+          if (!sec || sec.classList.contains('hidden')) return;
+          e.preventDefault();
+          if (typeof window.conSelectAll === 'function') {
+            window.conSelectAll();
+          } else if (typeof window.conSelectAllNodes === 'function') {
+            window.conSelectAllNodes();
+          }
+          return;
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') {
+          const tag = document.activeElement && document.activeElement.tagName;
+          if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+          const sec = document.getElementById('constellation-section');
+          if (!sec || sec.classList.contains('hidden')) return;
+          e.preventDefault();
+          if (typeof conGroupSelected === 'function') conGroupSelected(e.shiftKey);
+          else if (typeof window.conGroupSelected === 'function') window.conGroupSelected(e.shiftKey);
+          return;
+        }
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'h') {
+          const tag = document.activeElement && document.activeElement.tagName;
+          if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+          if (document.activeElement && document.activeElement.isContentEditable) return;
+          const sec = document.getElementById('constellation-section');
+          if (!sec || sec.classList.contains('hidden')) return;
+          e.preventDefault();
+          if (typeof window.conToggleMaskSelected === 'function') {
+            window.conToggleMaskSelected();
+          }
+          return;
+        }
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'c') {
+          const sec = document.getElementById('constellation-section');
+          if (!sec || sec.classList.contains('hidden')) return;
+          if (typeof window.conClipboardCopy === 'function' && window.conClipboardCopy({ allowWhileTyping: false })) e.preventDefault();
+          return;
+        }
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'x') {
+          const sec = document.getElementById('constellation-section');
+          if (!sec || sec.classList.contains('hidden')) return;
+          if (typeof window.conClipboardCut === 'function' && window.conClipboardCut({ allowWhileTyping: false })) e.preventDefault();
+          return;
+        }
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'v') {
+          // Image paste (from system clipboard) and node paste are both handled
+          // in the 'paste' event listener below, which fires after this keydown.
+          // Nothing to do here — just let the paste event handle it.
+          return;
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
+          const tag = document.activeElement && document.activeElement.tagName;
+          if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+          if (document.activeElement && document.activeElement.isContentEditable) return;
+          const conSec = document.getElementById('constellation-section');
+          if (conSec && !conSec.classList.contains('hidden')) {
+            e.preventDefault();
+            if (typeof window.conToggleDrawMode === 'function') window.conToggleDrawMode();
+            return;
+          }
+          return;
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'w') {
+          const tag = document.activeElement && document.activeElement.tagName;
+          if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+          if (document.activeElement && document.activeElement.isContentEditable) return;
+          const sec = document.getElementById('constellation-section');
+          if (!sec || sec.classList.contains('hidden')) return;
+          e.preventDefault();
+          if (typeof window.conSetMode === 'function') window.conSetMode('move');
+          return;
+        }
+        if (!e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && (e.key || '').toLowerCase() === 'h') {
+          const tag = document.activeElement && document.activeElement.tagName;
+          if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+          if (document.activeElement && document.activeElement.isContentEditable) return;
+          const sec = document.getElementById('constellation-section');
+          if (!sec || sec.classList.contains('hidden')) return;
+          e.preventDefault();
+          if (typeof window.conToggleHandMode === 'function') {
+            window.conToggleHandMode();
+          } else if (typeof setBoardMode === 'function') {
+            setBoardMode('hand');
+          }
+          return;
+        }
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'j') {
+          const tag = document.activeElement && document.activeElement.tagName;
+          if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+          if (document.activeElement && document.activeElement.isContentEditable && !document.activeElement.closest('.con-word-note')) return;
+          const sec = document.getElementById('constellation-section');
+          if (!sec || sec.classList.contains('hidden')) return;
+          e.preventDefault();
+          // Find the single currently-selected element (node, note, or group).
+          let srcId = null;
+          if (document.activeElement && document.activeElement.closest('.con-word-note')) {
+            const an = document.activeElement.closest('.con-word-note');
+            if (an && an.dataset && an.dataset.id) srcId = an.dataset.id;
+          }
+          if (!srcId && typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size === 1) {
+            srcId = [...conNoteSelected][0];
+          } else if (!srcId && typeof window.conGetNoteSelected === 'function' && window.conGetNoteSelected() && window.conGetNoteSelected().size === 1) {
+            srcId = [...window.conGetNoteSelected()][0];
+          } else if (!srcId && typeof conSelected !== 'undefined' && conSelected) {
+            srcId = conSelected;
+          } else if (!srcId && typeof window.conGetSelected === 'function' && window.conGetSelected()) {
+            srcId = window.conGetSelected();
+          } else if (!srcId && typeof conGroupFocused !== 'undefined' && conGroupFocused) {
+            srcId = conGroupFocused;
+          } else if (!srcId && typeof window.conGetGroupFocused === 'function' && window.conGetGroupFocused()) {
+            srcId = window.conGetGroupFocused();
+          }
+          if (!srcId) {
+            const singleNoteEl = document.querySelectorAll('#constellation-board .con-word-note.wn-selected');
+            if (singleNoteEl.length === 1 && singleNoteEl[0].dataset && singleNoteEl[0].dataset.id) {
+              srcId = singleNoteEl[0].dataset.id;
+            }
+          }
+          if (!srcId) {
+            const singleNodeEl = document.querySelectorAll('#constellation-board .con-node.con-selected');
+            if (singleNodeEl.length === 1 && singleNodeEl[0].id) {
+              srcId = singleNodeEl[0].id;
+            }
+          }
+          if (!srcId) return;
+          const curLinkSrc = _conLinkSrc || window._conLinkSrc;
+          // Toggle off if Ctrl+J pressed again on the same source
+          if (curLinkSrc === srcId) {
+            if (typeof _conCancelLinkMode === 'function') _conCancelLinkMode();
+            else if (typeof window.conCancelLinkMode === 'function') window.conCancelLinkMode();
+            return;
+          }
+          if (typeof _conStartLinkMode === 'function') _conStartLinkMode(srcId);
+          else if (typeof window._conStartLinkMode === 'function') window._conStartLinkMode(srcId);
+          return;
+        }
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+          const tag = document.activeElement && document.activeElement.tagName;
+          if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+          if (document.activeElement && document.activeElement.isContentEditable) return;
+          const sec = document.getElementById('constellation-section');
+          if (!sec || sec.classList.contains('hidden')) return;
+          const hasSelection = (typeof conSelected !== 'undefined' && conSelected) || (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 0) || (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0);
+          if (!hasSelection) return;
+          e.preventDefault();
+          if (typeof window.conAdjustSelectedFontSize === 'function') {
+            window.conAdjustSelectedFontSize(e.key === 'ArrowUp' ? 1 : -1);
+          }
+          return;
+        }
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+          const tag = document.activeElement && document.activeElement.tagName;
+          if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+          if (document.activeElement && document.activeElement.isContentEditable) return;
+          const sec = document.getElementById('constellation-section');
+          if (!sec || sec.classList.contains('hidden')) return;
+          const hasSelection = (typeof conSelected !== 'undefined' && conSelected) || (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 0);
+          if (!hasSelection) return;
+          e.preventDefault();
+          if (typeof window.conCtxAlignSelected === 'function') {
+            window.conCtxAlignSelected('vertical', e.key === 'ArrowRight' ? 'right' : 'left');
+          } else if (typeof conCtxAlignSelected === 'function') {
+            conCtxAlignSelected('vertical', e.key === 'ArrowRight' ? 'right' : 'left');
+          }
+          return;
+        }
+        if (!e.ctrlKey && !e.metaKey && !e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+          const tag = document.activeElement && document.activeElement.tagName;
+          if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+          if (document.activeElement && document.activeElement.isContentEditable) return;
+          const sec = document.getElementById('constellation-section');
+          if (!sec || sec.classList.contains('hidden')) return;
+          const hasSelection = (typeof conSelected !== 'undefined' && conSelected) || (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 0);
+          if (!hasSelection) return;
+          e.preventDefault();
+          const step = e.shiftKey ? 10 : 1;
+          const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+          const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+          const targets = (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 0)
+            ? conNodes.filter(n => conMultiSelected.has(n.id))
+            : [conNodes.find(n => n.id === conSelected)].filter(Boolean);
+          if (!targets.length) return;
+          if (typeof conPushUndo === 'function') conPushUndo();
+          else if (typeof window.conPushUndo === 'function') window.conPushUndo();
+          // Collect phrase groups whose anchor moved so we can re-layout them once
+          const movedPhraseGroups = new Set();
+          const nodeIsLocked = typeof conIsNodeLocked === 'function' ? conIsNodeLocked : (window.conIsNodeLocked || function () { return false; });
+          const groupOf = typeof conGroupOfNode === 'function' ? conGroupOfNode : (window.conGroupOfNode || function () { return null; });
+          const layoutPhrase = typeof conPhraseGroupLayout === 'function' ? conPhraseGroupLayout : (window.conPhraseGroupLayout || function () {});
+          targets.forEach(node => {
+            if (nodeIsLocked(node)) return;
+            const pg = groupOf(node.id);
+            if (pg && pg.phraseGroup) {
+              movedPhraseGroups.add(pg);
+              // Only move once per phrase group via the anchor node (phraseOrder 0)
+              if ((node.phraseOrder || 0) !== 0) return;
+              const anchor = conNodes.find(n => pg.nodeIds.includes(n.id) && (n.phraseOrder || 0) === 0);
+              if (anchor) {
+                anchor.x += dx; anchor.y += dy;
+                anchor.el.style.left = anchor.x + 'px';
+                anchor.el.style.top = anchor.y + 'px';
+              }
+            } else {
+              node.x += dx; node.y += dy;
+              node.el.style.left = node.x + 'px';
+              node.el.style.top = node.y + 'px';
+            }
+          });
+          movedPhraseGroups.forEach(pg => layoutPhrase(pg));
+          if (typeof conRedrawEdges === 'function') conRedrawEdges();
+          else if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
+          if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
+          else if (typeof window.conGroupRefitAll === 'function') window.conGroupRefitAll();
+          return;
+        }
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+          const tag = document.activeElement && document.activeElement.tagName;
+          if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+          const ce = document.activeElement && document.activeElement.isContentEditable;
+          if (ce) return;
+          const sec = document.getElementById('constellation-section');
+          if (!sec || sec.classList.contains('hidden')) return;
+          if (typeof conPushUndo === 'function') conPushUndo();
+          else if (typeof window.conPushUndo === 'function') window.conPushUndo();
+          // Delete selected edge / connection line
+          if (window._conSelectedEdgeId) {
+            const edgeToDelete = window._conSelectedEdgeId;
+            window._conSelectedEdgeId = null;
+            if (typeof conRemoveEdge === 'function') conRemoveEdge(edgeToDelete);
+            else if (typeof window.conRemoveEdge === 'function') window.conRemoveEdge(edgeToDelete);
+            if (typeof conRedrawEdges === 'function') conRedrawEdges();
+            else if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
+            e.preventDefault();
+            return;
+          }
+          // Delete focused group and all its contents
+          const focusedGroup = typeof conGroupFocused !== 'undefined' ? conGroupFocused : (window.conGroupFocused || null);
+          if (focusedGroup) {
+            const deleteGrp = typeof conGroupDeleteWithContents === 'function' ? conGroupDeleteWithContents : (window.conGroupDeleteWithContents || function () {});
+            const focusGrp = typeof conGroupFocus === 'function' ? conGroupFocus : (window.conGroupFocus || function () {});
+            deleteGrp(focusedGroup);
+            focusGrp(null);
+            e.preventDefault();
+            return;
+          }
+          // Delete selected nodes
+          if (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 1) {
+            [...conMultiSelected].forEach(id => {
+              if (typeof conRemoveNode === 'function') conRemoveNode(id);
+              else if (typeof window.conRemoveNode === 'function') window.conRemoveNode(id);
+            });
+            conMultiSelected.clear();
+          } else if (typeof conSelected !== 'undefined' && conSelected) {
+            if (typeof conRemoveNode === 'function') conRemoveNode(conSelected);
+            else if (typeof window.conRemoveNode === 'function') window.conRemoveNode(conSelected);
+          }
+          // Delete selected drawings
+          if (typeof window.conDrawingDeleteSelected === 'function' && typeof conDrawingSelected !== 'undefined' && conDrawingSelected && conDrawingSelected.size > 0) {
+            window.conDrawingDeleteSelected();
+          } else if (typeof conDrawingSelected !== 'undefined' && conDrawingSelected && conDrawingSelected.size > 0) {
+            const _delDrawIds = conDrawingSelected;
+            const _delDrawIdsArr = [..._delDrawIds].map(String);
+            _delDrawIdsArr.forEach(did => {
+              try {
+                const escaped = (typeof CSS !== 'undefined' && CSS.escape) ? CSS.escape(did) : did.replace(/["\\]/g, '\\$&');
+                document.querySelectorAll('#constellation-board .con-drawing[data-did="' + escaped + '"], .con-drawing[data-did="' + escaped + '"]').forEach(el => {
+                  try { el.remove(); } catch (_) {}
+                });
+              } catch (_) {}
+            });
+            const delSet = new Set(_delDrawIdsArr);
+            [conDrawings, global.conDrawings, window.conDrawings].forEach(arr => {
+              if (Array.isArray(arr)) {
+                for (let i = arr.length - 1; i >= 0; i--) {
+                  if (arr[i] && delSet.has(String(arr[i].id))) arr.splice(i, 1);
+                }
+              }
+            });
+            conDrawingSelected.clear();
+            // Sync deletion to mirror without DOM teardown
+            if (typeof window._conMirrorSend === 'function' && _delDrawIdsArr.length > 0) {
+              window._conMirrorSend({ type: 'drawing-remove', ids: _delDrawIdsArr });
+            }
+          }
+          // Delete selected shapes
+          if (window.conGetShapeSelected) {
+            const shapeSel = window.conGetShapeSelected();
+            if (shapeSel && shapeSel.size > 0) {
+              const _delShapeIds = new Set(shapeSel);
+              const _delShapeIdsArr = [..._delShapeIds].map(String);
+              conShapes.forEach(s => { if (_delShapeIds.has(s.id) && s.el) s.el.remove(); });
+              conShapes = conShapes.filter(s => !_delShapeIds.has(s.id));
+              conGroups.forEach(g => { if (g.shapeIds) g.shapeIds = g.shapeIds.filter(id => !_delShapeIds.has(id)); });
+              if (typeof window.conShapeClearSelection === 'function') window.conShapeClearSelection();
+              // Sync deletion to mirror without DOM teardown
+              if (typeof window._conMirrorSend === 'function' && _delShapeIdsArr.length > 0) {
+                window._conMirrorSend({ type: 'shape-remove', ids: _delShapeIdsArr });
+              }
+            }
+          }
+          // Delete selected notes
+          const _liveNotes = (typeof window.conGetNotes === 'function') ? window.conGetNotes() : ((typeof conNotes !== 'undefined') ? conNotes : (window.conNotes || []));
+          const delNote = typeof wnDeleteNoteData === 'function' ? wnDeleteNoteData : (window.wnDeleteNoteData || function () {});
+          const _targetNoteIds = new Set();
+          if (typeof conNoteSelected !== 'undefined' && conNoteSelected) {
+            conNoteSelected.forEach(id => _targetNoteIds.add(id));
+          }
+          if (typeof window.conGetNoteSelected === 'function') {
+            const wSel = window.conGetNoteSelected();
+            if (wSel) wSel.forEach(id => _targetNoteIds.add(id));
+          }
+          document.querySelectorAll('#constellation-board .con-word-note.wn-selected').forEach(el => {
+            if (el.dataset && el.dataset.id) _targetNoteIds.add(el.dataset.id);
+          });
+          if (_targetNoteIds.size > 0) {
+            [..._targetNoteIds].forEach(nid => {
+              const nd = _liveNotes.find(n => n && (n.id === nid || String(n.id) === String(nid)));
+              if (nd && typeof delNote === 'function') {
+                delNote(nd);
+              } else {
+                const el = (typeof wnGetNoteElementById === 'function') ? wnGetNoteElementById(nid) : document.querySelector(`.con-word-note[data-id="${nid}"]`);
+                if (el) el.remove();
+              }
+            });
+            if (typeof conNoteSelected !== 'undefined' && conNoteSelected) conNoteSelected.clear();
+            if (typeof window.conGetNoteSelected === 'function' && window.conGetNoteSelected()) window.conGetNoteSelected().clear();
+          }
+          e.preventDefault();
+        }
+      });
+
+      // ---- Unified Document Paste Handler ----
+      document.addEventListener('paste', function (e) {
+        // Only act when the constellation section is visible
+        const sec = document.getElementById('constellation-section');
+        if (!sec || sec.classList.contains('hidden')) return;
+
+        // Don't intercept paste inside text inputs / contenteditable / note editors
+        const target = e.target;
+        if (target && target.closest('.wn-note-editor, textarea, input, select, [contenteditable="true"]')) return;
+        const ae = document.activeElement;
+        if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable)) return;
+
+        // Block all paste when laser pointer is active
+        if (document.body.classList.contains('laser-active')) return;
+
+        const clip = (e.clipboardData || window.clipboardData);
+        if (!clip) return;
+
+        // 1. Check for image attachments from system clipboard
+        const items = clip.items || [];
+        const imageItems = [];
+        for (let i = 0; i < items.length; i++) {
+          if (items[i].type && items[i].type.startsWith('image/')) {
+            imageItems.push(items[i]);
+          }
+        }
+        if (imageItems.length > 0) {
+          e.preventDefault();
+          imageItems.forEach((clipItem, idx) => {
+            const file = clipItem.getAsFile();
+            if (!file) return;
+
+            const ext = (file.name && file.name.includes('.'))
+              ? file.name.split('.').pop()
+              : (clipItem.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+            const name = 'pasted-image-' + Date.now() + (idx > 0 ? '-' + idx : '') + '.' + ext;
+
+            _conAttachmentCounter += 1;
+            const attachmentId = 'att_' + _conAttachmentCounter;
+            conAttachments.push({
+              id: attachmentId,
+              name: conSanitizeAttachmentName(name),
+              mime: clipItem.type,
+              kind: 'pics',
+              size: Number(file.size) || 0,
+              file,
+              relativePath: ''
+            });
+            conRenderAttachmentSummary();
+
+            const board = document.getElementById('constellation-board');
+            const baseW = window._bcImageInsertWidth || 260;
+            const baseH = 200;
+            const pos = board
+              ? {
+                x: Math.max(12, Math.round((board.clientWidth - baseW) / 2 + idx * 20)),
+                y: Math.max(12, Math.round((board.clientHeight - baseH) / 2 + idx * 20))
+              }
+              : { x: 40 + idx * 20, y: 40 + idx * 20 };
+
+            // conInsertAttachmentById probes natural size internally; just pass position.
+            window.conInsertAttachmentById(attachmentId, { x: pos.x, y: pos.y, silent: true });
+            if (typeof mdbToast === 'function') mdbToast('🖼 Image pasted onto the board.');
+          });
+          return;
+        }
+
+        const brd = board();
+        const anchorX = (_lastBoardPastePoint && _lastBoardPastePoint.x) || window._boardCtxNoteX;
+        const anchorY = (_lastBoardPastePoint && _lastBoardPastePoint.y) || window._boardCtxNoteY;
+        const x = Number.isFinite(anchorX) ? anchorX : (brd ? Math.round(brd.clientWidth / 2) : 100);
+        const y = Number.isFinite(anchorY) ? anchorY : (brd ? Math.round(brd.clientHeight / 2) : 100);
+
+        const text = clip.getData ? clip.getData('text/plain') : '';
+        const html = clip.getData ? clip.getData('text/html') : '';
+        const plain = String(text || '').trim();
+
+        // 2. Check for Table data (HTML <table> or TSV)
+        if (typeof wnPasteAsConTable === 'function' && (html.includes('<table') || (plain.includes('\t') && plain.includes('\n')))) {
+          if (wnPasteAsConTable(clip, x, y)) {
+            e.preventDefault();
+            return;
+          }
+        }
+
+        // 3. Check for Internal Board Clipboard vs External Plain Text
+        const _pasteTarget = _conClipboardRead();
+        const hasValidInternalPayload = _pasteTarget && _pasteTarget.type === 'constellation-selection' &&
+          ((_pasteTarget.nodes && _pasteTarget.nodes.length) ||
+           (_pasteTarget.notes && _pasteTarget.notes.length) ||
+           (_pasteTarget.groups && _pasteTarget.groups.length) ||
+           (_pasteTarget.drawings && _pasteTarget.drawings.length) ||
+           (_pasteTarget.shapes && _pasteTarget.shapes.length));
+
+        // If internal payload was copied and the OS clipboard matches the copied text,
+        // or hasn't changed since copy, or is empty, paste the internal payload
+        const isInternalCopyMatch = hasValidInternalPayload && (
+          !plain ||
+          plain === (_pasteTarget.plainText || '').trim() ||
+          plain === (_lastConCopiedText || '').trim() ||
+          (_lastConCopiedOsText != null && plain === _lastConCopiedOsText.trim())
+        );
+
+        if (isInternalCopyMatch) {
+          e.preventDefault();
+          if (!_conClipboard) { _conClipboard = _pasteTarget; _conClipboardPasteCount = 0; }
+          conPushUndo();
+          const ok = conClipboardPastePayload(_pasteTarget);
+          if (ok && typeof mdbToast === 'function') {
+            const count = (_pasteTarget.nodes || []).length + (_pasteTarget.notes || []).length + (_pasteTarget.groups || []).length + (_pasteTarget.drawings || []).length + (_pasteTarget.shapes || []).length;
+            mdbToast('⎗ Pasted ' + count + ' item' + (count === 1 ? '' : 's'));
+          }
+          return;
+        }
+
+        // 4. Fallback: If external plain text exists in OS clipboard, create a text note
+        if (plain) {
+          e.preventDefault();
+          conPushUndo();
+          if (window.conCreateTextNote) {
+            const note = window.conCreateTextNote(plain, x, y, { fontSize: window._bcNoteFontSizeFree || 24 });
+            if (note) {
+              conClipboardClearVisualSelection();
+              if (typeof conNoteSelected !== 'undefined') {
+                conNoteSelected.add(note.id);
+                const el = typeof wnGetNoteElementById === 'function' ? wnGetNoteElementById(note.id) : null;
+                if (el) el.classList.add('wn-selected');
+              }
+              if (typeof mdbToast === 'function') mdbToast('📝 Pasted text note onto the board.');
+            }
+          }
+          return;
+        }
+
+        // 5. If no plain text in OS clipboard but internal payload exists, paste internal payload
+        if (hasValidInternalPayload) {
+          e.preventDefault();
+          if (!_conClipboard) { _conClipboard = _pasteTarget; _conClipboardPasteCount = 0; }
+          conPushUndo();
+          const ok = conClipboardPastePayload(_pasteTarget);
+          if (ok && typeof mdbToast === 'function') {
+            const count = (_pasteTarget.nodes || []).length + (_pasteTarget.notes || []).length + (_pasteTarget.groups || []).length + (_pasteTarget.drawings || []).length + (_pasteTarget.shapes || []).length;
+            mdbToast('⎗ Pasted ' + count + ' item' + (count === 1 ? '' : 's'));
+          }
+        }
+      });
+
+      // ---- Merge selected drawings/shapes into a single multi-stroke drawing ----
+      function _conShapeToAbsPoints(s) {
+        const pts = [];
+        if (s.type === 'rect') {
+          pts.push({ x: s.x, y: s.y });
+          pts.push({ x: s.x + s.w, y: s.y });
+          pts.push({ x: s.x + s.w, y: s.y + s.h });
+          pts.push({ x: s.x, y: s.y + s.h });
+          pts.push({ x: s.x, y: s.y });
+        } else if (s.type === 'circle' || s.type === 'ellipse') {
+          const cx = s.x + s.w / 2, cy = s.y + s.h / 2, rx = s.w / 2, ry = s.h / 2;
+          for (let i = 0; i <= 32; i++) { const t = (2 * Math.PI * i) / 32; pts.push({ x: cx + rx * Math.cos(t), y: cy + ry * Math.sin(t) }); }
+        } else if (s.type === 'diamond') {
+          const cx = s.x + s.w / 2, cy = s.y + s.h / 2;
+          pts.push({ x: cx, y: s.y });
+          pts.push({ x: s.x + s.w, y: cy });
+          pts.push({ x: cx, y: s.y + s.h });
+          pts.push({ x: s.x, y: cy });
+          pts.push({ x: cx, y: s.y });
+        } else if (s.type === 'line' || s.type === 'arrow') {
+          pts.push({ x: s.lx1, y: s.ly1 }); pts.push({ x: s.lx2, y: s.ly2 });
+          if (s.type === 'arrow') {
+            const angle = Math.atan2(s.ly2 - s.ly1, s.lx2 - s.lx1), hs = Math.max(10, (s.thickness || 2) * 4);
+            pts.push(null);
+            pts.push({ x: s.lx2 - hs * Math.cos(angle - Math.PI / 6), y: s.ly2 - hs * Math.sin(angle - Math.PI / 6) });
+            pts.push({ x: s.lx2, y: s.ly2 });
+            pts.push({ x: s.lx2 - hs * Math.cos(angle + Math.PI / 6), y: s.ly2 - hs * Math.sin(angle + Math.PI / 6) });
+          }
+        } else if (s.type === 'polygon' && s.pts) {
+          s.pts.forEach(p => pts.push({ x: p.x, y: p.y }));
+          if (s.pts.length > 0) pts.push({ x: s.pts[0].x, y: s.pts[0].y }); // close
+        }
+        return pts;
+      }
+
+      function conMergeSelectedToDrawing() {
+        const drawingIds = [...conDrawingSelected];
+        const shapeIds = window.conGetShapeSelected ? [...window.conGetShapeSelected()] : [];
+        if (drawingIds.length + shapeIds.length < 2) return false;
+        conPushUndo();
+        const strokes = [];
+        let mergeColor = '#333333', mergeThickness = 4, mergeOpacity = 1, first = true;
+        drawingIds.forEach(did => {
+          const d = conDrawings.find(x => x.id === did); if (!d) return;
+          if (first) { mergeColor = d.color; mergeThickness = d.thickness; mergeOpacity = Number.isFinite(d.opacity) ? d.opacity : 1; first = false; }
+          let cur = [];
+          d.points.forEach(p => {
+            if (p === null || p === undefined) { if (cur.length) { strokes.push(cur); cur = []; } }
+            else { cur.push({ x: d.x + p.x, y: d.y + p.y }); }
+          });
+          if (cur.length) strokes.push(cur);
+        });
+        shapeIds.forEach(sid => {
+          const s = conShapes.find(x => x.id === sid); if (!s) return;
+          if (first) { mergeColor = s.color || '#333333'; mergeThickness = s.thickness || 2; mergeOpacity = Number.isFinite(s.opacity) ? s.opacity : 1; first = false; }
+          const absPts = _conShapeToAbsPoints(s);
+          let cur = [];
+          absPts.forEach(p => {
+            if (p === null) { if (cur.length) { strokes.push(cur); cur = []; } }
+            else { cur.push(p); }
+          });
+          if (cur.length) strokes.push(cur);
+        });
+        if (!strokes.length) return false;
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        strokes.forEach(sk => sk.forEach(p => { minX = Math.min(minX, p.x); minY = Math.min(minY, p.y); maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y); }));
+        const mergedPoints = [];
+        strokes.forEach((sk, i) => { if (i > 0) mergedPoints.push(null); sk.forEach(p => mergedPoints.push({ x: p.x - minX, y: p.y - minY })); });
+        const newId = 'cd' + (_conDrawNextId++);
+        // Remove originals
+        drawingIds.forEach(did => {
+          const d = conDrawings.find(x => x.id === did);
+          if (d && d.el) d.el.remove();
+          conDrawings = conDrawings.filter(x => x.id !== did);
+          conGroups.forEach(g => { if (g.drawingIds) g.drawingIds = g.drawingIds.filter(id => id !== did); });
+        });
+        shapeIds.forEach(sid => {
+          const s = conShapes.find(x => x.id === sid);
+          if (s && s.el) s.el.remove();
+          conShapes = conShapes.filter(x => x.id !== sid);
+          conGroups.forEach(g => { if (g.shapeIds) g.shapeIds = g.shapeIds.filter(id => id !== sid); });
+        });
+        conDrawingSelected.clear();
+        if (window.conShapeClearSelection) window.conShapeClearSelection();
+        // Build merged drawing
+        const merged = conDrawingFromData({ id: newId, x: minX, y: minY, w: Math.max(1, maxX - minX), h: Math.max(1, maxY - minY), points: mergedPoints, color: mergeColor, thickness: mergeThickness, opacity: mergeOpacity });
+        if (merged && merged.el) { merged.el.classList.add('con-drawing-selected'); conDrawingSelected.add(merged.id); }
+        return true;
+      }
+
+      // ---- Ctrl+G: group selected nodes and spread them ----
+      function conGroupSelected(invisible) {
+        // Collect the ids to group
+        const selNotesSet = (typeof window.conGetNoteSelected === 'function' && window.conGetNoteSelected())
+          ? window.conGetNoteSelected()
+          : (typeof conNoteSelected !== 'undefined' ? conNoteSelected : (window.conNoteSelected || new Set()));
+        const noteIds = [...selNotesSet];
+        const drawingIds = [...conDrawingSelected];
+        const shapeIds = window.conGetShapeSelected ? [...window.conGetShapeSelected()] : [];
+
+        // If ONLY drawings/shapes are selected (no word-nodes, no notes) → create a borderless drawing group
+        const _onlyDrawSel = conMultiSelected.size === 0 && !conSelected && noteIds.length === 0;
+        if (_onlyDrawSel) {
+          const _dIds = drawingIds;
+          const _sIds = shapeIds;
+          if (_dIds.length + _sIds.length >= 2) {
+            conPushUndo();
+            const newGroup = conGroupCreate([], undefined, undefined, [], _dIds, _sIds, { drawingGroup: true });
+            if (newGroup) {
+              const gEl = newGroup.el;
+              const gRect = gEl.getBoundingClientRect();
+              const fakeEvt = { clientX: gRect.right - 10, clientY: gRect.top + 10, preventDefault: () => { }, stopPropagation: () => { } };
+              setTimeout(() => conGroupCtxOpen(fakeEvt, newGroup.id), 80);
+            }
+            return;
+          }
+        }
+        conPushUndo();
+        let ids = [];
+        if (conMultiSelected.size > 0) {
+          ids = [...conMultiSelected];
+          if (conSelected && !ids.includes(conSelected)) ids.push(conSelected);
+        } else if (conSelected) {
+          // Single node selected — include it plus every node already in its group
+          const existing = conGroupOfNode(conSelected);
+          ids = existing ? [...existing.nodeIds] : [conSelected];
+        } else {
+          ids = [];
+        }
+
+        const totalItems = ids.length + noteIds.length + drawingIds.length + shapeIds.length;
+        if (totalItems < 2) return;
+
+        // Expand phrase groups: if any selected node belongs to a phrase group,
+        // pull in ALL sibling nodes of that phrase so the whole phrase is grouped together.
+        {
+          const expanded = new Set(ids);
+          ids.forEach(id => {
+            const pg = conGroups.find(g => g.phraseGroup && g.nodeIds.includes(id));
+            if (pg) pg.nodeIds.forEach(nid => expanded.add(nid));
+          });
+          ids = [...expanded];
+        }
+
+        // Merge all involved nodes into one group (handles existing group memberships)
+        // Phrase groups are structural — never repurpose them as a regular group.
+        let targetGroup = null;
+        ids.forEach(id => {
+          const g = conGroups.find(gg => !gg.phraseGroup && gg.nodeIds.includes(id));
+          if (!targetGroup) {
+            if (g) {
+              targetGroup = g;
+            }
+          } else if (g && g.id !== targetGroup.id) {
+            // Merge g into targetGroup
+            g.nodeIds.filter(nid => !targetGroup.nodeIds.includes(nid))
+              .forEach(nid => targetGroup.nodeIds.push(nid));
+            conGroupDissolve(g.id);
+          }
+        });
+        if (!targetGroup) {
+          if (totalItems < 2) return;
+          targetGroup = conGroupCreate(ids, undefined, undefined, noteIds, drawingIds, shapeIds, { invisible: !!invisible });
+        } else {
+          ids.forEach(id => { if (!targetGroup.nodeIds.includes(id)) targetGroup.nodeIds.push(id); });
+          // Merge in selected notes, drawings and shapes
+          noteIds.forEach(nid => { if (!(targetGroup.noteIds || []).includes(nid)) (targetGroup.noteIds = targetGroup.noteIds || []).push(nid); });
+          drawingIds.forEach(did => { if (!(targetGroup.drawingIds || []).includes(did)) (targetGroup.drawingIds = targetGroup.drawingIds || []).push(did); });
+          shapeIds.forEach(sid => { if (!(targetGroup.shapeIds || []).includes(sid)) (targetGroup.shapeIds = targetGroup.shapeIds || []).push(sid); });
+          if (invisible) targetGroup.invisible = true;
+          conGroupApplyStyle(targetGroup);
+          conGroupRefit(targetGroup);
+          conSpreadGroup(targetGroup);
+        }
+        if (!targetGroup) return;
+
+        // Open the group context menu so the user can name/colour it right away
+        const gEl = targetGroup.el;
+        const gRect = gEl.getBoundingClientRect();
+        const fakeEvt = {
+          clientX: gRect.right - 10,
+          clientY: gRect.top + 10,
+          preventDefault: () => { }, stopPropagation: () => { }
+        };
+        setTimeout(() => conGroupCtxOpen(fakeEvt, targetGroup.id), 80);
+      }
+
+      // Init mode buttons on load
+      document.addEventListener('DOMContentLoaded', function () {
+        conSetMode('move');
+        conInitSwatches();
+        conInitBorderSwatches();
+        conInitPresetButtons();
+        conSetDefaultWordFontSize(conDefaultNewWordFontSize);
+        if (typeof conRenderHeaderCompetenceBar === 'function') conRenderHeaderCompetenceBar();
+        if (typeof _ensureMirrorControlMenu === 'function') _ensureMirrorControlMenu();
+        // Reflect initial snap state on button
+        const snapBtn = document.getElementById('con-snap-toggle-btn');
+        if (snapBtn) snapBtn.classList.toggle('con-panel-active', conSnapEnabled);
+        const brd = board();
+        if (!brd) return;
+
+        // Clicking outside a note editor should unselect text and remove focus from it
+        document.addEventListener('mousedown', function (e) {
+          if (e.target && e.target.closest('#wn-style-popup, .con-ctx-menu, .custom-context-menu')) return;
+          const sel = window.getSelection();
+          let selectedEditor = null;
+          if (sel && sel.rangeCount > 0) {
+            const anchor = sel.anchorNode;
+            const anchorEl = anchor ? (anchor.nodeType === Node.ELEMENT_NODE ? anchor : anchor.parentElement) : null;
+            selectedEditor = anchorEl ? anchorEl.closest('.wn-note-editor') : null;
+          }
+          const ae = document.activeElement;
+          const aeEditor = ae ? (ae.classList && ae.classList.contains('wn-note-editor') ? ae : (ae.closest && ae.closest('.wn-note-editor'))) : null;
+          const targetEditor = selectedEditor || aeEditor;
+          if (!targetEditor && !aeEditor) return;
+          if (targetEditor && e.target && (e.target === targetEditor || targetEditor.contains(e.target))) return;
+          if (sel) {
+            sel.removeAllRanges();
+          }
+          if (aeEditor && typeof aeEditor.blur === 'function') {
+            aeEditor.blur();
+          } else if (ae && typeof ae.blur === 'function' && ae !== document.body) {
+            ae.blur();
+          }
+        }, true);
+
+        // Ctrl+J cross-type link mode: intercept the target click (capture phase
+        // so it fires before individual element handlers and can stop propagation).
+        brd.addEventListener('mousedown', function (e) {
+          if (!_conLinkSrc || e.button !== 0) return;
+          // Don't intercept clicks when draw mode is active — the draw overlay handles them.
+          if (conMode === 'draw') return;
+          const nodeEl = e.target.closest('.con-node');
+          const noteEl = e.target.closest('.con-word-note');
+          const groupEl = e.target.closest('.con-group');
+          let targetId = null;
+          if (nodeEl) targetId = nodeEl.id;
+          else if (noteEl) targetId = noteEl.dataset.id;
+          else if (groupEl) targetId = groupEl.dataset.gid;
+          if (!targetId) {
+            // Click on the board background — cancel link mode
+            _conCancelLinkMode();
+            return;
+          }
+          if (targetId === _conLinkSrc) {
+            // Clicked the source element itself — cancel
+            _conCancelLinkMode();
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
+          e.preventDefault();
+          e.stopPropagation();
+          conPushUndo();
+          conAddEdge(_conLinkSrc, targetId);
+          _conCancelLinkMode();
+        }, true);
+
+        // Track mouse position on the board so Ctrl+V / paste button land at cursor
+        brd.addEventListener('mousemove', function (e) {
+          const brdRect = brd.getBoundingClientRect();
+          const px = e.clientX - brdRect.left + brd.scrollLeft;
+          const py = e.clientY - brdRect.top + brd.scrollTop;
+          _lastBoardPastePoint = { x: px, y: py };
+          window._boardCtxNoteX = px;
+          window._boardCtxNoteY = py;
+        });
+
+        // Suppress native browser context menu on the board
+        brd.addEventListener('contextmenu', function (e) {
+          e.preventDefault();
+          if (conMode === 'draw') return; // handled by drawing overlay
+          // If clicking on a node, let node handler deal with it
+          if (e.target.closest('.con-node')) return;
+          // If clicking on a mask rectangle, let mask handler deal with it
+          if (e.target.closest('.con-mask-rect')) return;
+          // If clicking on a table, let table handler deal with it
+          if (e.target.closest('.con-table-el')) return;
+          // If clicking on inserted media, let media controls handle it
+          if (e.target.closest('.con-media-item')) return;
+          // Board right-click: show add-word menu at cursor position
+          const brdRect = brd.getBoundingClientRect();
+          _boardCtxX = e.clientX - brdRect.left + brd.scrollLeft - 40;
+          _boardCtxY = e.clientY - brdRect.top + brd.scrollTop - 18;
+          _boardCtxX = Math.max(4, _boardCtxX);
+          _boardCtxY = Math.max(4, _boardCtxY);
+          // Also store raw position for note placement (no word-offset)
+          window._boardCtxNoteX = e.clientX - brdRect.left + brd.scrollLeft;
+          window._boardCtxNoteY = e.clientY - brdRect.top + brd.scrollTop;
+          const bmenu = document.getElementById('con-board-ctx-menu');
+          const saveSelItem = document.getElementById('con-board-ctx-save-library');
+          if (saveSelItem) {
+            const hasSelection = (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 0)
+              || (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0)
+              || (typeof conSelected !== 'undefined' && conSelected != null);
+            saveSelItem.style.display = hasSelection ? '' : 'none';
+          }
+          conRenderBoardBgPresetsInContextMenu();
+          conRenderBoardLayoutOptionsInContextMenu();
+          if (window.conSyncBoardCtxLayoutUi) window.conSyncBoardCtxLayoutUi(false);
+          bmenu.classList.add('visible');
+          conPlaceBoardCtxMenu(bmenu, e.clientX, e.clientY, { offsetX: 6, offsetY: 6, margin: 8 });
+          setTimeout(() => {
+            const inp = document.getElementById('con-board-ctx-input');
+            if (inp) inp.focus();
+          }, 50);
+        });
+
+        function conBoardHasFileDrag(ev) {
+          const dt = ev && ev.dataTransfer;
+          if (!dt) return false;
+          if (dt.items && dt.items.length) {
+            for (let i = 0; i < dt.items.length; i++) {
+              if (dt.items[i] && dt.items[i].kind === 'file') return true;
+            }
+          }
+          return !!(dt.files && dt.files.length);
+        }
+
+        brd.addEventListener('dragenter', function (e) {
+          if (!conBoardHasFileDrag(e)) return;
+          e.preventDefault();
+          brd.classList.add('file-drag-over');
+        });
+
+        brd.addEventListener('dragover', function (e) {
+          if (!conBoardHasFileDrag(e)) return;
+          e.preventDefault();
+          if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+          brd.classList.add('file-drag-over');
+        });
+
+        brd.addEventListener('dragleave', function (e) {
+          if (!conBoardHasFileDrag(e)) return;
+          if (!brd.contains(e.relatedTarget)) {
+            brd.classList.remove('file-drag-over');
+          }
+        });
+
+        brd.addEventListener('drop', function (e) {
+          if (!conBoardHasFileDrag(e)) return;
+          e.preventDefault();
+          brd.classList.remove('file-drag-over');
+          const droppedFiles = e.dataTransfer && e.dataTransfer.files
+            ? Array.from(e.dataTransfer.files)
+            : [];
+          if (!droppedFiles.length) return;
+          const brdRect = brd.getBoundingClientRect();
+          const dropX = e.clientX - brdRect.left + brd.scrollLeft;
+          const dropY = e.clientY - brdRect.top + brd.scrollTop;
+          if (window.conHandleBoardFileDrop) {
+            window.conHandleBoardFileDrop(droppedFiles, { x: dropX, y: dropY });
+          }
+        });
+
+        // Rubber-band selection rect element
+        let rbEl = document.getElementById('con-rubberband');
+        if (!rbEl) {
+          rbEl = document.createElement('div');
+          rbEl.id = 'con-rubberband';
+          brd.appendChild(rbEl);
+        }
+
+        // Board mousedown → start rubber-band (only in move mode, only on bare board)
+        brd.addEventListener('mousedown', function (e) {
+          if (conMode !== 'move') return;
+          if (document.body.classList.contains('laser-active')) return; // disable during laser trail
+          let curRbEl = document.getElementById('con-rubberband') || rbEl;
+          if (!brd.contains(curRbEl)) {
+            brd.appendChild(curRbEl);
+          }
+          if (e.target !== brd && e.target !== curRbEl) return; // only on bare board
+          e.preventDefault();
+          window._conMirrorDragging = true; // suppress heavy MutationObserver broadcast during rubber-band drag
+
+          const brdRect = brd.getBoundingClientRect();
+          const x0 = e.clientX - brdRect.left + brd.scrollLeft;
+          const y0 = e.clientY - brdRect.top + brd.scrollTop;
+          let x1 = x0, y1 = y0;
+
+          curRbEl.style.display = 'block';
+          curRbEl.style.left = x0 + 'px';
+          curRbEl.style.top = y0 + 'px';
+          curRbEl.style.width = '0px';
+          curRbEl.style.height = '0px';
+
+          function onMove(e) {
+            x1 = e.clientX - brdRect.left + brd.scrollLeft;
+            y1 = e.clientY - brdRect.top + brd.scrollTop;
+            const rx = Math.min(x0, x1), ry = Math.min(y0, y1);
+            const rw = Math.abs(x1 - x0), rh = Math.abs(y1 - y0);
+            curRbEl.style.left = rx + 'px';
+            curRbEl.style.top = ry + 'px';
+            curRbEl.style.width = rw + 'px';
+            curRbEl.style.height = rh + 'px';
+          }
+
+          function onUp(e) {
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            window._conMirrorDragging = false;
+            curRbEl.style.display = 'none';
+
+            const rx0 = Math.min(x0, x1), ry0 = Math.min(y0, y1);
+            const rx1 = Math.max(x0, x1), ry1 = Math.max(y0, y1);
+
+            // Only act if rect is meaningful (>5px)
+            if (rx1 - rx0 < 5 && ry1 - ry0 < 5) {
+              // Tiny click on board — deselect all
+              if (typeof window.conDeselectAll === 'function') {
+                window.conDeselectAll();
+              } else {
+                if (window.conNoteClearSelection) window.conNoteClearSelection();
+                if (window.conTableClearSelection) window.conTableClearSelection();
+                if (window.conDrawingClearSelection) window.conDrawingClearSelection();
+                if (window.conShapeClearSelection) window.conShapeClearSelection();
+                conSelect(null);
+              }
+              return;
+            }
+
+            // Find nodes whose centre lies inside the rect OR bbox overlaps
+            const hits = (typeof conNodes !== 'undefined' && Array.isArray(conNodes)) ? conNodes.filter(n => {
+              const nw = (n.el && n.el.offsetWidth) || 80;
+              const nh = (n.el && n.el.offsetHeight) || 36;
+              const cx = n.x + nw / 2;
+              const cy = n.y + nh / 2;
+              return (cx >= rx0 && cx <= rx1 && cy >= ry0 && cy <= ry1) ||
+                     (n.x < rx1 && (n.x + nw) > rx0 && n.y < ry1 && (n.y + nh) > ry0);
+            }).map(n => n.id) : [];
+
+            // Find notes within the rect (centre inside OR bbox overlaps)
+            const allNotes = (typeof window.conGetNotes === 'function')
+              ? window.conGetNotes()
+              : ((typeof conNotes !== 'undefined' && Array.isArray(conNotes)) ? conNotes : (window.conNotes || []));
+            const noteHits = allNotes.filter(n => {
+              const el = (typeof wnGetNoteElementById === 'function') ? wnGetNoteElementById(n.id) : document.querySelector(`.con-word-note[data-id="${n.id}"]`);
+              const nx = (n.x != null) ? n.x : (el ? (parseInt(el.style.left) || 0) : 0);
+              const ny = (n.y != null) ? n.y : (el ? (parseInt(el.style.top) || 0) : 0);
+              const nw = (el && el.offsetWidth) || n.width || 80;
+              const nh = (el && el.offsetHeight) || n.height || 28;
+              const cx = nx + nw / 2;
+              const cy = ny + nh / 2;
+              return (cx >= rx0 && cx <= rx1 && cy >= ry0 && cy <= ry1) ||
+                     (nx < rx1 && (nx + nw) > rx0 && ny < ry1 && (ny + nh) > ry0);
+            }).map(n => n.id);
+
+            // Find groups within the rect (centre inside OR bbox overlaps)
+            const allGroups = (typeof conGroups !== 'undefined' && Array.isArray(conGroups)) ? conGroups : [];
+            const groupHits = allGroups.filter(g => {
+              if (!g || !g.el) return false;
+              const gx = parseFloat(g.el.style.left) || 0;
+              const gy = parseFloat(g.el.style.top) || 0;
+              const gw = g.el.offsetWidth || parseFloat(g.el.style.width) || 100;
+              const gh = g.el.offsetHeight || parseFloat(g.el.style.height) || 60;
+              const cx = gx + gw / 2;
+              const cy = gy + gh / 2;
+              return (cx >= rx0 && cx <= rx1 && cy >= ry0 && cy <= ry1) ||
+                     (gx < rx1 && (gx + gw) > rx0 && gy < ry1 && (gy + gh) > ry0);
+            }).map(g => g.id);
+
+            // Find tables within the rect (centre inside OR bbox overlaps)
+            const allTables = (typeof window.conGetTables === 'function') ? window.conGetTables() : (typeof conTables !== 'undefined' ? conTables : []);
+            const tableHits = allTables.filter(t => {
+              if (!t) return false;
+              const tx = (t.x != null) ? t.x : (t.el ? (parseInt(t.el.style.left) || 0) : 0);
+              const ty = (t.y != null) ? t.y : (t.el ? (parseInt(t.el.style.top) || 0) : 0);
+              const tw = (t.el && t.el.offsetWidth) || t.w || 200;
+              const th = (t.el && t.el.offsetHeight) || t.h || 120;
+              const cx = tx + tw / 2;
+              const cy = ty + th / 2;
+              return (cx >= rx0 && cx <= rx1 && cy >= ry0 && cy <= ry1) ||
+                     (tx < rx1 && (tx + tw) > rx0 && ty < ry1 && (ty + th) > ry0);
+            }).map(t => t.id);
+
+            // Find drawings whose bounding box overlaps the rect
+            const allDrawings = (typeof conDrawings !== 'undefined' && Array.isArray(conDrawings)) ? conDrawings : [];
+            const drawingHits = allDrawings.filter(dr => {
+              const dw = Math.max(1, dr.w || 1);
+              const dh = Math.max(1, dr.h || 1);
+              const cx = dr.x + dw / 2;
+              const cy = dr.y + dh / 2;
+              return (cx >= rx0 && cx <= rx1 && cy >= ry0 && cy <= ry1) ||
+                     (dr.x < rx1 && (dr.x + dw) > rx0 && dr.y < ry1 && (dr.y + dh) > ry0);
+            }).map(dr => dr.id);
+
+            // Find shapes whose bounding box overlaps the rect
+            const allShapes = (typeof conShapes !== 'undefined' && Array.isArray(conShapes)) ? conShapes : [];
+            const shapeHits = allShapes.filter(s => {
+              const sw = Math.max(1, s.w || 1);
+              const sh = Math.max(1, s.h || 1);
+              const cx = s.x + sw / 2;
+              const cy = s.y + sh / 2;
+              return (cx >= rx0 && cx <= rx1 && cy >= ry0 && cy <= ry1) ||
+                     (s.x < rx1 && (s.x + sw) > rx0 && s.y < ry1 && (s.y + sh) > ry0);
+            }).map(s => s.id);
+
+            const totalHits = hits.length + noteHits.length + groupHits.length + tableHits.length + drawingHits.length + shapeHits.length;
+            const isAdditive = !!(e.ctrlKey || e.metaKey || e.shiftKey);
+            if (totalHits === 0) {
+              if (!isAdditive) {
+                if (typeof window.conDeselectAll === 'function') window.conDeselectAll();
+                else conSelect(null);
+              }
+              return;
+            }
+
+            if (!isAdditive) {
+              // Clear existing selection across all item types first
+              if (window.conNoteClearSelection) window.conNoteClearSelection();
+              if (window.conTableClearSelection) window.conTableClearSelection();
+              if (window.conDrawingClearSelection) window.conDrawingClearSelection();
+              if (window.conShapeClearSelection) window.conShapeClearSelection();
+              if (typeof conDrawingSelected !== 'undefined') {
+                conDrawingSelected.clear();
+                document.querySelectorAll('#constellation-board .con-drawing.con-drawing-selected')
+                  .forEach(el => el.classList.remove('con-drawing-selected'));
+              }
+              if (typeof conGroups !== 'undefined') {
+                conGroups.forEach(g => { if (g && g.el) g.el.classList.remove('con-group-selected'); });
+                conGroupFocused = null;
+              }
+              conSelected = null;
+              conMultiSelected.clear();
+              conNodes.forEach(n => {
+                if (n && n.el) n.el.classList.remove('con-selected', 'con-src', 'con-multi-selected');
+              });
+            }
+
+            // Apply node selection
+            if (!isAdditive && hits.length === 1 && totalHits === 1) {
+              conSelect(hits[0]);
+            } else if (hits.length > 0) {
+              hits.forEach(id => {
+                conMultiSelected.add(id);
+                const n = conNodes.find(x => x.id === id);
+                if (n && n.el) n.el.classList.add('con-multi-selected');
+              });
+              if (isAdditive && conSelected) {
+                conMultiSelected.add(conSelected);
+                const sn = conNodes.find(x => x.id === conSelected);
+                if (sn && sn.el) sn.el.classList.add('con-multi-selected');
+                conSelected = null;
+              }
+            }
+
+            // Apply note selection
+            noteHits.forEach(nid => {
+              if (typeof conNoteSelected !== 'undefined') conNoteSelected.add(nid);
+              if (typeof window.conGetNoteSelected === 'function' && window.conGetNoteSelected()) {
+                window.conGetNoteSelected().add(nid);
+              }
+              const el = (typeof wnGetNoteElementById === 'function') ? wnGetNoteElementById(nid) : document.querySelector(`.con-word-note[data-id="${nid}"]`);
+              if (el) el.classList.add('wn-selected');
+            });
+
+            // Apply group selection
+            groupHits.forEach(gid => {
+              const g = allGroups.find(x => x.id === gid);
+              if (g && g.el) g.el.classList.add('con-group-selected');
+            });
+            if (groupHits.length === 1) {
+              conGroupFocused = groupHits[0];
+            }
+
+            // Apply table selection
+            tableHits.forEach(tid => {
+              if (typeof conTableSelected !== 'undefined') conTableSelected.add(tid);
+              const tbl = allTables.find(t => t.id === tid);
+              if (tbl && tbl.el) tbl.el.classList.add('con-table-selected');
+            });
+
+            // Apply drawing selection
+            drawingHits.forEach(did => {
+              if (typeof conDrawingSelected !== 'undefined') conDrawingSelected.add(did);
+              const dr = allDrawings.find(x => x.id === did);
+              if (dr && dr.el) {
+                dr.el.classList.add('con-drawing-selected');
+                dr.el.style.pointerEvents = 'auto';
+                dr.el.style.cursor = 'grab';
+                if (typeof window._conDrawingShowHandles === 'function') window._conDrawingShowHandles(dr);
+              }
+            });
+
+            // Apply shape selection
+            shapeHits.forEach(sid => {
+              if (typeof _conShapeSelected !== 'undefined') _conShapeSelected.add(sid);
+              const s = allShapes.find(x => x.id === sid);
+              if (s && s.el) s.el.classList.add('con-shape-selected');
+            });
+
+            if (typeof conUpdateToolbarStatus === 'function') conUpdateToolbarStatus();
+            if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
+          }
+
+          document.addEventListener('mousemove', onMove);
+          document.addEventListener('mouseup', onUp);
+        });
+
+        // ---- Draw overlay: capture freehand strokes and shapes ----
+        (function () {
+          const drawOverlay = document.getElementById('con-draw-overlay');
+          if (!drawOverlay) return;
+          let livePoints = [], livePath = null;
+          let _drawActivePointerId = null;
+          let _liveMirrorThrottle = 0;
+          let _eraserPushedUndo = false;
+          let _eraserLastPos = null;
+          // Shape drawing state
+          let _shapeStart = null, _shapePreviewEl = null, _shapeLastPos = null;
+          // Polygon click-based drawing state
+          let _polygonInProgress = false, _polygonPoints = [], _polygonLivePos = null, _polygonPreviewEl = null;
+
+          const _eraserOutline = document.createElement('div');
+          _eraserOutline.className = 'con-eraser-outline';
+          const _initEraserR = window._conEraserRadius || 20;
+          _eraserOutline.style.width = (_initEraserR * 2) + 'px';
+          _eraserOutline.style.height = (_initEraserR * 2) + 'px';
+          drawOverlay.appendChild(_eraserOutline);
+
+          function _conSyncDrawOverlaySize() {
+            const b = document.getElementById('constellation-board');
+            if (!b || !drawOverlay) return;
+            const liveSvg = document.getElementById('con-draw-live-svg');
+            const conSvg = document.getElementById('constellation-svg');
+            if (typeof conMode === 'undefined' || conMode !== 'draw') {
+              drawOverlay.style.width = '100%';
+              drawOverlay.style.height = '100%';
+              if (liveSvg) { liveSvg.style.width = '100%'; liveSvg.style.height = '100%'; }
+              return;
+            }
+            const maxW = Math.max(
+              b.scrollWidth || 0,
+              b.clientWidth || 0,
+              Math.ceil((b.scrollLeft || 0) + (b.clientWidth || 0))
+            );
+            const maxH = Math.max(
+              b.scrollHeight || 0,
+              b.clientHeight || 0,
+              Math.ceil((b.scrollTop || 0) + (b.clientHeight || 0))
+            );
+            const wStr = Math.max(maxW, 100) + 'px';
+            const hStr = Math.max(maxH, 100) + 'px';
+            if (drawOverlay.style.width !== wStr) drawOverlay.style.width = wStr;
+            if (drawOverlay.style.height !== hStr) drawOverlay.style.height = hStr;
+            if (liveSvg) {
+              if (liveSvg.style.width !== wStr) liveSvg.style.width = wStr;
+              if (liveSvg.style.height !== hStr) liveSvg.style.height = hStr;
+            }
+            if (conSvg) {
+              if (conSvg.style.width !== wStr) conSvg.style.width = wStr;
+              if (conSvg.style.height !== hStr) conSvg.style.height = hStr;
+            }
+          }
+          window._conSyncDrawOverlaySize = _conSyncDrawOverlaySize;
+
+          window._conUpdateEraserOutlineSize = function () {
+            const r = window._conEraserRadius || 20;
+            if (_eraserOutline) {
+              _eraserOutline.style.width = (r * 2) + 'px';
+              _eraserOutline.style.height = (r * 2) + 'px';
+            }
+          };
+
+          function _conEraserCanShow() {
+            return conMode === 'draw' && _conDrawEraserMode && !_conDrawHandMode;
+          }
+
+          function _conSetEraserOutlineVisible(show) {
+            if (!_eraserOutline) return;
+            _eraserOutline.classList.toggle('visible', !!show && _conEraserCanShow());
+          }
+
+          function _conUpdateEraserOutlineByEvent(e) {
+            if (!_conEraserCanShow()) { _conSetEraserOutlineVisible(false); return; }
+            const b = document.getElementById('constellation-board');
+            if (!b) { _conSetEraserOutlineVisible(false); return; }
+            const pos = getBoardPos(e);
+            const r = window._conEraserRadius || 20;
+            _eraserOutline.style.width = (r * 2) + 'px';
+            _eraserOutline.style.height = (r * 2) + 'px';
+            _eraserOutline.style.left = (pos.x - r) + 'px';
+            _eraserOutline.style.top = (pos.y - r) + 'px';
+            _conSetEraserOutlineVisible(true);
+          }
+
+          function _conCircleTouchesRect(cx, cy, r, left, top, right, bottom) {
+            const closestX = Math.max(left, Math.min(cx, right));
+            const closestY = Math.max(top, Math.min(cy, bottom));
+            const dx = cx - closestX;
+            const dy = cy - closestY;
+            return (dx * dx + dy * dy) <= (r * r);
+          }
+
+          function _conDistSqPointToPoint(p1, p2) {
+            const dx = p1.x - p2.x, dy = p1.y - p2.y;
+            return dx * dx + dy * dy;
+          }
+
+          function _conDistSqToSegment(px, py, x1, y1, x2, y2) {
+            const dx = x2 - x1, dy = y2 - y1;
+            const l2 = dx * dx + dy * dy;
+            if (l2 < 1e-6) {
+              const ex = px - x1, ey = py - y1;
+              return ex * ex + ey * ey;
+            }
+            let t = ((px - x1) * dx + (py - y1) * dy) / l2;
+            t = Math.max(0, Math.min(1, t));
+            const cx = x1 + t * dx, cy = y1 + t * dy;
+            const ex = px - cx, ey = py - cy;
+            return ex * ex + ey * ey;
+          }
+
+          function _conPolylineLength(pts) {
+            let len = 0;
+            for (let i = 1; i < pts.length; i++) {
+              len += Math.sqrt(_conDistSqPointToPoint(pts[i], pts[i - 1]));
+            }
+            return len;
+          }
+
+          function _conExtractWorldSubstrokes(d) {
+            const substrokes = [];
+            let cur = [];
+            for (let i = 0; i < d.points.length; i++) {
+              const pt = d.points[i];
+              if (pt === null || pt === undefined) {
+                if (cur.length > 0) {
+                  substrokes.push(cur);
+                  cur = [];
+                }
+              } else {
+                cur.push({ x: d.x + pt.x, y: d.y + pt.y });
+              }
+            }
+            if (cur.length > 0) substrokes.push(cur);
+            return substrokes;
+          }
+
+          function _conClipSubstrokeByCircle(pts, cx, cy, Reff) {
+            if (!pts || pts.length === 0) return { surviving: [], modified: false };
+            if (pts.length === 1) {
+              if (_conDistSqPointToPoint(pts[0], { x: cx, y: cy }) < Reff * Reff) {
+                return { surviving: [], modified: true };
+              }
+              return { surviving: [pts], modified: false };
+            }
+            const R2 = Reff * Reff;
+            const surviving = [];
+            let current = [];
+            let modified = false;
+
+            const p0Inside = _conDistSqPointToPoint(pts[0], { x: cx, y: cy }) < R2;
+            if (p0Inside) {
+              modified = true;
+            } else {
+              current.push({ x: pts[0].x, y: pts[0].y });
+            }
+
+            for (let i = 0; i < pts.length - 1; i++) {
+              const p1 = pts[i];
+              const p2 = pts[i + 1];
+              const dx = p2.x - p1.x;
+              const dy = p2.y - p1.y;
+              const a = dx * dx + dy * dy;
+              const p1In = _conDistSqPointToPoint(p1, { x: cx, y: cy }) < R2;
+              const p2In = _conDistSqPointToPoint(p2, { x: cx, y: cy }) < R2;
+
+              if (p1In || p2In) modified = true;
+
+              if (a < 1e-6) continue;
+
+              const delx = p1.x - cx;
+              const dely = p1.y - cy;
+              const b = 2 * (delx * dx + dely * dy);
+              const c = (delx * delx + dely * dely) - R2;
+              const disc = b * b - 4 * a * c;
+
+              if (p1In && p2In) {
+                if (current.length >= 2 && _conPolylineLength(current) >= 2) {
+                  surviving.push(current);
+                }
+                current = [];
+              } else if (p1In && !p2In) {
+                let t = 0;
+                if (disc > 0) {
+                  t = (-b + Math.sqrt(disc)) / (2 * a);
+                }
+                t = Math.max(0, Math.min(1, t));
+                const Pexit = { x: p1.x + t * dx, y: p1.y + t * dy };
+                current = [Pexit, { x: p2.x, y: p2.y }];
+              } else if (!p1In && p2In) {
+                let t = 1;
+                if (disc > 0) {
+                  t = (-b - Math.sqrt(disc)) / (2 * a);
+                }
+                t = Math.max(0, Math.min(1, t));
+                const Penter = { x: p1.x + t * dx, y: p1.y + t * dy };
+                current.push(Penter);
+                if (current.length >= 2 && _conPolylineLength(current) >= 2) {
+                  surviving.push(current);
+                }
+                current = [];
+              } else {
+                if (disc > 0) {
+                  const sq = Math.sqrt(disc);
+                  const t1 = (-b - sq) / (2 * a);
+                  const t2 = (-b + sq) / (2 * a);
+                  if (t1 > 0 && t2 < 1) {
+                    modified = true;
+                    const Penter = { x: p1.x + t1 * dx, y: p1.y + t1 * dy };
+                    const Pexit = { x: p1.x + t2 * dx, y: p1.y + t2 * dy };
+                    current.push(Penter);
+                    if (current.length >= 2 && _conPolylineLength(current) >= 2) {
+                      surviving.push(current);
+                    }
+                    current = [Pexit, { x: p2.x, y: p2.y }];
+                    continue;
+                  }
+                }
+                current.push({ x: p2.x, y: p2.y });
+              }
+            }
+
+            if (current.length >= 2 && _conPolylineLength(current) >= 2) {
+              surviving.push(current);
+            }
+
+            return { surviving, modified };
+          }
+
+          function _conEraseAtPos(pos) {
+            const r = window._conEraserRadius || 20;
+            const isPartial = (window._conEraserType || 'partial') === 'partial';
+
+            const toDeleteDrawingIds = [];
+            const toDeleteDrawingItems = [];
+            const modifiedDrawings = [];
+
+            // Process freehand drawings
+            const currentDrawings = [...conDrawings];
+            currentDrawings.forEach(d => {
+              const sw = Math.max(1, Number(d.thickness) || 1);
+              const Reff = r + sw / 2;
+              if (!_conCircleTouchesRect(
+                pos.x, pos.y, r,
+                d.x - sw / 2, d.y - sw / 2,
+                d.x + d.w + sw / 2, d.y + d.h + sw / 2
+              )) {
+                return;
+              }
+
+              const substrokes = _conExtractWorldSubstrokes(d);
+              if (!substrokes || substrokes.length === 0) return;
+
+              if (!isPartial) {
+                // Stroke Eraser mode: delete entire stroke if circle touches any part of it
+                let touchesStroke = false;
+                const R2 = Reff * Reff;
+                for (const sub of substrokes) {
+                  if (!sub || sub.length === 0) continue;
+                  if (sub.length === 1) {
+                    if (_conDistSqPointToPoint(sub[0], pos) <= R2) {
+                      touchesStroke = true;
+                      break;
+                    }
+                  }
+                  for (let i = 0; i < sub.length - 1; i++) {
+                    if (_conDistSqToSegment(pos.x, pos.y, sub[i].x, sub[i].y, sub[i + 1].x, sub[i + 1].y) <= R2) {
+                      touchesStroke = true;
+                      break;
+                    }
+                  }
+                  if (touchesStroke) break;
+                }
+                if (touchesStroke) {
+                  toDeleteDrawingIds.push(d.id);
+                  toDeleteDrawingItems.push(d);
+                }
+              } else {
+                // Partial Eraser mode: clip each substroke against the eraser circle
+                let drawingModified = false;
+                const allSurviving = [];
+                for (const sub of substrokes) {
+                  const { surviving, modified } = _conClipSubstrokeByCircle(sub, pos.x, pos.y, Reff);
+                  if (modified) drawingModified = true;
+                  for (const s of surviving) {
+                    allSurviving.push(s);
+                  }
+                }
+                if (!drawingModified) return;
+
+                if (allSurviving.length === 0) {
+                  // Entire drawing was erased
+                  toDeleteDrawingIds.push(d.id);
+                  toDeleteDrawingItems.push(d);
+                } else {
+                  // Stroke was partially erased
+                  if (!_eraserPushedUndo) {
+                    conPushUndo();
+                    _eraserPushedUndo = true;
+                  }
+                  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                  for (const sub of allSurviving) {
+                    for (const pt of sub) {
+                      if (pt.x < minX) minX = pt.x;
+                      if (pt.x > maxX) maxX = pt.x;
+                      if (pt.y < minY) minY = pt.y;
+                      if (pt.y > maxY) maxY = pt.y;
+                    }
+                  }
+                  const newPoints = [];
+                  allSurviving.forEach((sub, idx) => {
+                    if (idx > 0) newPoints.push(null);
+                    for (const pt of sub) {
+                      newPoints.push({ x: pt.x - minX, y: pt.y - minY });
+                    }
+                  });
+
+                  d.x = minX;
+                  d.y = minY;
+                  d.w = Math.max(1, maxX - minX);
+                  d.h = Math.max(1, maxY - minY);
+                  d.points = newPoints;
+                  _conDrawingUpdateGeom(d);
+                  if (conDrawingSelected && conDrawingSelected.has(d.id)) {
+                    _conDrawingUpdateHandles(d);
+                  }
+                  modifiedDrawings.push(d);
+                }
+              }
+            });
+
+            // Handle deleted drawings
+            if (toDeleteDrawingItems.length > 0) {
+              if (!_eraserPushedUndo) {
+                conPushUndo();
+                _eraserPushedUndo = true;
+              }
+              const delSet = new Set(toDeleteDrawingIds);
+              toDeleteDrawingItems.forEach(d => {
+                if (d.el) try { d.el.remove(); } catch (_) {}
+                if (conDrawingSelected) conDrawingSelected.delete(d.id);
+                try {
+                  const escaped = (typeof CSS !== 'undefined' && CSS.escape) ? CSS.escape(d.id) : String(d.id).replace(/["\\]/g, '\\$&');
+                  document.querySelectorAll('#constellation-board .con-drawing[data-did="' + escaped + '"], .con-drawing[data-did="' + escaped + '"]').forEach(el => {
+                    try { el.remove(); } catch (_) {}
+                  });
+                } catch (_) {}
+              });
+              [conDrawings, global.conDrawings, window.conDrawings].forEach(arr => {
+                if (Array.isArray(arr)) {
+                  for (let i = arr.length - 1; i >= 0; i--) {
+                    if (arr[i] && delSet.has(arr[i].id)) arr.splice(i, 1);
+                  }
+                }
+              });
+            }
+
+            // Process shapes
+            const toDeleteShapeIds = new Set();
+            const toDeleteShapeItems = [];
+            conShapes.forEach(s => {
+              const sw = Math.max(1, Number(s.thickness) || 1);
+              if (_conCircleTouchesRect(
+                pos.x, pos.y, r,
+                s.x - sw / 2, s.y - sw / 2,
+                s.x + s.w + sw / 2, s.y + s.h + sw / 2
+              )) {
+                if (s.type === 'line' || s.type === 'arrow') {
+                  const x1 = s.lx1 != null ? s.lx1 : s.x;
+                  const y1 = s.ly1 != null ? s.ly1 : s.y;
+                  const x2 = s.lx2 != null ? s.lx2 : (s.x + s.w);
+                  const y2 = s.ly2 != null ? s.ly2 : (s.y + s.h);
+                  const Reff = r + sw / 2;
+                  if (_conDistSqToSegment(pos.x, pos.y, x1, y1, x2, y2) <= Reff * Reff) {
+                    toDeleteShapeIds.add(s.id);
+                    toDeleteShapeItems.push(s);
+                  }
+                } else {
+                  toDeleteShapeIds.add(s.id);
+                  toDeleteShapeItems.push(s);
+                }
+              }
+            });
+
+            if (toDeleteShapeItems.length > 0) {
+              if (!_eraserPushedUndo) {
+                conPushUndo();
+                _eraserPushedUndo = true;
+              }
+              toDeleteShapeItems.forEach(s => {
+                if (s.el) s.el.remove();
+                if (typeof _conShapeSelected !== 'undefined') _conShapeSelected.delete(s.id);
+              });
+              conShapes = conShapes.filter(s => !toDeleteShapeIds.has(s.id));
+            }
+
+            // Clean up group references
+            if (toDeleteDrawingIds.length > 0 || toDeleteShapeIds.size > 0) {
+              const dDelSet = new Set(toDeleteDrawingIds);
+              conGroups.forEach(g => {
+                if (g.drawingIds && toDeleteDrawingIds.length > 0) {
+                  g.drawingIds = g.drawingIds.filter(id => !dDelSet.has(id));
+                }
+                if (g.shapeIds && toDeleteShapeIds.size > 0) {
+                  g.shapeIds = g.shapeIds.filter(id => !toDeleteShapeIds.has(id));
+                }
+              });
+            }
+
+            // Throttle mirror micro-messages via rAF so we send at most once per frame
+            const hasDeletions = toDeleteDrawingItems.length > 0 || toDeleteShapeItems.length > 0;
+            const hasModifications = modifiedDrawings.length > 0;
+            if ((hasDeletions || hasModifications) && typeof window._conMirrorSend === 'function') {
+              if (!window._conEraserMirrorPendingDrawIds) window._conEraserMirrorPendingDrawIds = [];
+              if (!window._conEraserMirrorPendingShapeIds) window._conEraserMirrorPendingShapeIds = [];
+              if (!window._conEraserMirrorPendingModifiedDrawings) window._conEraserMirrorPendingModifiedDrawings = new Map();
+
+              if (toDeleteDrawingItems.length > 0) {
+                toDeleteDrawingItems.forEach(d => {
+                  window._conEraserMirrorPendingDrawIds.push(String(d.id));
+                  window._conEraserMirrorPendingModifiedDrawings.delete(String(d.id));
+                });
+              }
+              if (toDeleteShapeItems.length > 0) {
+                toDeleteShapeItems.forEach(s => window._conEraserMirrorPendingShapeIds.push(String(s.id)));
+              }
+              if (modifiedDrawings.length > 0) {
+                modifiedDrawings.forEach(d => {
+                  window._conEraserMirrorPendingModifiedDrawings.set(String(d.id), {
+                    id: d.id, x: d.x, y: d.y, w: d.w, h: d.h, points: d.points
+                  });
+                });
+              }
+
+              if (!window._conEraserMirrorRaf) {
+                window._conEraserMirrorRaf = requestAnimationFrame(function () {
+                  window._conEraserMirrorRaf = null;
+                  _conFlushEraserMirrorMessages();
+                });
+              }
+            }
+          }
+
+          function _conFlushEraserMirrorMessages() {
+            if (typeof window._conMirrorSend !== 'function') return;
+            if (window._conEraserMirrorPendingDrawIds && window._conEraserMirrorPendingDrawIds.length > 0) {
+              const uniqueDrawIds = Array.from(new Set(window._conEraserMirrorPendingDrawIds.map(String))).filter(Boolean);
+              window._conEraserMirrorPendingDrawIds = [];
+              if (uniqueDrawIds.length > 0) {
+                window._conMirrorSend({ type: 'drawing-remove', ids: uniqueDrawIds });
+              }
+            }
+            if (window._conEraserMirrorPendingShapeIds && window._conEraserMirrorPendingShapeIds.length > 0) {
+              const uniqueShapeIds = Array.from(new Set(window._conEraserMirrorPendingShapeIds.map(String))).filter(Boolean);
+              window._conEraserMirrorPendingShapeIds = [];
+              if (uniqueShapeIds.length > 0) {
+                window._conMirrorSend({ type: 'shape-remove', ids: uniqueShapeIds });
+              }
+            }
+            if (window._conEraserMirrorPendingModifiedDrawings && window._conEraserMirrorPendingModifiedDrawings.size > 0) {
+              window._conEraserMirrorPendingModifiedDrawings.forEach(modData => {
+                window._conMirrorSend({
+                  type: 'drawing-resize',
+                  id: modData.id,
+                  x: modData.x,
+                  y: modData.y,
+                  w: modData.w,
+                  h: modData.h,
+                  points: modData.points
+                });
+              });
+              window._conEraserMirrorPendingModifiedDrawings.clear();
+            }
+          }
+
+          function _conSplitMultiSubstrokeDrawings() {
+            const toAdd = [];
+            const modified = [];
+            conDrawings.forEach(d => {
+              const substrokes = _conExtractWorldSubstrokes(d);
+              if (substrokes.length > 1) {
+                // First substroke stays with d
+                const firstSub = substrokes[0];
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                for (const pt of firstSub) {
+                  if (pt.x < minX) minX = pt.x;
+                  if (pt.x > maxX) maxX = pt.x;
+                  if (pt.y < minY) minY = pt.y;
+                  if (pt.y > maxY) maxY = pt.y;
+                }
+                d.x = minX;
+                d.y = minY;
+                d.w = Math.max(1, maxX - minX);
+                d.h = Math.max(1, maxY - minY);
+                d.points = firstSub.map(pt => ({ x: pt.x - minX, y: pt.y - minY }));
+                _conDrawingUpdateGeom(d);
+                if (conDrawingSelected && conDrawingSelected.has(d.id)) {
+                  _conDrawingUpdateHandles(d);
+                }
+                modified.push(d);
+
+                // Remaining substrokes become new separate drawings
+                const parentGroup = conGroups.find(g => (g.drawingIds || []).includes(d.id));
+                for (let i = 1; i < substrokes.length; i++) {
+                  const sub = substrokes[i];
+                  let sMinX = Infinity, sMinY = Infinity, sMaxX = -Infinity, sMaxY = -Infinity;
+                  for (const pt of sub) {
+                    if (pt.x < sMinX) sMinX = pt.x;
+                    if (pt.x > sMaxX) sMaxX = pt.x;
+                    if (pt.y < sMinY) sMinY = pt.y;
+                    if (pt.y > sMaxY) sMaxY = pt.y;
+                  }
+                  const newD = {
+                    id: 'cd' + (_conDrawNextId++),
+                    x: sMinX, y: sMinY,
+                    w: Math.max(1, sMaxX - sMinX),
+                    h: Math.max(1, sMaxY - sMinY),
+                    points: sub.map(pt => ({ x: pt.x - sMinX, y: pt.y - sMinY })),
+                    color: d.color,
+                    thickness: d.thickness,
+                    opacity: d.opacity,
+                    el: null, hitPath: null, visPath: null, pad: 0
+                  };
+                  toAdd.push(newD);
+                  if (parentGroup && parentGroup.drawingIds) {
+                    parentGroup.drawingIds.push(newD.id);
+                  }
+                }
+              }
+            });
+            toAdd.forEach(newD => {
+              conDrawings.push(newD);
+              conDrawingBuild(newD);
+            });
+
+            // Send in-place updates to mirror
+            if (typeof window._conMirrorSend === 'function') {
+              modified.forEach(d => {
+                window._conMirrorSend({
+                  type: 'drawing-resize',
+                  id: d.id,
+                  x: d.x,
+                  y: d.y,
+                  w: d.w,
+                  h: d.h,
+                  points: d.points
+                });
+              });
+              if (toAdd.length > 0) {
+                window._conMirrorSend({
+                  type: 'drawing-add',
+                  drawings: toAdd.map(newD => ({
+                    id: newD.id,
+                    x: newD.x,
+                    y: newD.y,
+                    w: newD.w,
+                    h: newD.h,
+                    points: newD.points,
+                    color: newD.color,
+                    thickness: newD.thickness,
+                    opacity: newD.opacity
+                  })),
+                  groupDrawingLinks: toAdd.map(newD => {
+                    const parentGroup = conGroups.find(g => (g.drawingIds || []).includes(newD.id));
+                    return parentGroup ? { drawingId: newD.id, groupId: parentGroup.id } : null;
+                  }).filter(Boolean)
+                });
+              }
+            }
+          }
+
+          function _conPolygonSnapAngle(prev, cur) {
+            if (!prev) return cur;
+            const dx = cur.x - prev.x, dy = cur.y - prev.y;
+            const len = Math.sqrt(dx * dx + dy * dy);
+            if (len < 1) return cur;
+            const step = 45 * Math.PI / 180;
+            const snapped = Math.round(Math.atan2(dy, dx) / step) * step;
+            return { x: prev.x + len * Math.cos(snapped), y: prev.y + len * Math.sin(snapped) };
+          }
+
+          function _polygonPreviewUpdate() {
+            const liveSvg = document.getElementById('con-draw-live-svg');
+            if (!liveSvg) return;
+            if (_polygonPreviewEl && _polygonPreviewEl.parentNode === liveSvg) liveSvg.removeChild(_polygonPreviewEl);
+            _polygonPreviewEl = null;
+            if (_polygonPoints.length < 1) return;
+            const col = _conDrawColor, sw = _conDrawThickness, op = _conDrawOpacity;
+            const fill = _conDrawShapeFill || 'none';
+            const dash = _conShapeDashArr ? _conShapeDashArr(_conDrawShapeDash || 'solid', sw) : null;
+            const dashAttr = dash ? ` stroke-dasharray="${dash}"` : '';
+            let d = '';
+            if (_polygonPoints.length >= 2) {
+              const ptsStr = _polygonPoints.map(p => `${p.x},${p.y}`).join(' ');
+              d += `<polyline points="${ptsStr}" fill="none" stroke="${col}" stroke-width="${sw}" opacity="${op}"${dashAttr} stroke-linecap="round" stroke-linejoin="round"/>`;
+            }
+            if (_polygonLivePos && _polygonPoints.length >= 1) {
+              const last = _polygonPoints[_polygonPoints.length - 1];
+              d += `<line x1="${last.x}" y1="${last.y}" x2="${_polygonLivePos.x}" y2="${_polygonLivePos.y}" stroke="${col}" stroke-width="${sw}" opacity="${op}" stroke-dasharray="${sw * 3} ${sw * 2}" stroke-linecap="round"/>`;
+            }
+            if (_polygonPoints.length >= 1) {
+              const fp = _polygonPoints[0];
+              d += `<circle cx="${fp.x}" cy="${fp.y}" r="${Math.max(5, sw * 2)}" fill="none" stroke="${col}" stroke-width="1.5" opacity="${op * 0.7}"/>`;
+            }
+            _polygonPreviewEl = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            _polygonPreviewEl.style.pointerEvents = 'none';
+            _polygonPreviewEl.innerHTML = d;
+            liveSvg.appendChild(_polygonPreviewEl);
+          }
+
+          function _polygonReset() {
+            _polygonInProgress = false; _polygonPoints = []; _polygonLivePos = null;
+            const liveSvg = document.getElementById('con-draw-live-svg');
+            if (_polygonPreviewEl && liveSvg && _polygonPreviewEl.parentNode === liveSvg) liveSvg.removeChild(_polygonPreviewEl);
+            _polygonPreviewEl = null;
+          }
+          window._conPolygonReset = _polygonReset;
+
+          function _polygonCommit() {
+            if (_polygonPoints.length < 3) { _polygonReset(); return; }
+            const xs = _polygonPoints.map(p => p.x), ys = _polygonPoints.map(p => p.y);
+            const x = Math.min(...xs), y = Math.min(...ys);
+            const w = Math.max(2, Math.max(...xs) - x), h = Math.max(2, Math.max(...ys) - y);
+            const id = 'cs' + (_conShapeNextId++);
+            const s = {
+              id, type: 'polygon',
+              x, y, w, h,
+              lx1: null, ly1: null, lx2: null, ly2: null,
+              pts: _polygonPoints.map(p => ({ x: p.x, y: p.y })),
+              color: _conDrawColor, fillColor: _conDrawShapeFill || 'none',
+              thickness: _conDrawThickness, opacity: _conDrawOpacity,
+              dashStyle: _conDrawShapeDash || 'solid',
+              arrowheadSize: null, el: null, svgEl: null, hitEl: null, visEl: null, pad: 0
+            };
+            conShapes.push(s);
+            conShapeBuild(s);
+            if (window._conMirrorSend) {
+              window._conMirrorSend({
+                type: 'shape-add',
+                shapes: [{
+                  id: s.id, type: s.type,
+                  x: s.x, y: s.y, w: s.w, h: s.h,
+                  lx1: s.lx1, ly1: s.ly1, lx2: s.lx2, ly2: s.ly2,
+                  pts: s.pts,
+                  color: s.color, fillColor: s.fillColor,
+                  thickness: s.thickness, opacity: s.opacity,
+                  dashStyle: s.dashStyle, arrowheadSize: s.arrowheadSize
+                }]
+              });
+            }
+            if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+            _polygonReset();
+          }
+
+          // Ctrl-constrain: angle snap (line/arrow) or square (rect/circle/diamond)
+          function _conShapeSnapPos(start, cur, type, shiftKey) {
+            if (!shiftKey || !start) return cur;
+            if (type === 'line' || type === 'arrow') {
+              const dx = cur.x - start.x, dy = cur.y - start.y;
+              const len = Math.sqrt(dx * dx + dy * dy);
+              if (len < 1) return cur;
+              const step = 30 * Math.PI / 180;
+              const snapped = Math.round(Math.atan2(dy, dx) / step) * step;
+              return { x: start.x + len * Math.cos(snapped), y: start.y + len * Math.sin(snapped) };
+            }
+            if (type === 'rect' || type === 'circle' || type === 'ellipse' || type === 'diamond') {
+              const dx = cur.x - start.x, dy = cur.y - start.y;
+              const side = Math.max(Math.abs(dx), Math.abs(dy));
+              return { x: start.x + (dx < 0 ? -side : side), y: start.y + (dy < 0 ? -side : side) };
+            }
+            return cur;
+          }
+
+          function getBoardPos(e) {
+            const b = document.getElementById('constellation-board');
+            const rect = b.getBoundingClientRect();
+            return { x: e.clientX - rect.left + b.scrollLeft, y: e.clientY - rect.top + b.scrollTop };
+          }
+
+          function _shapePreviewUpdate(startPos, curPos, type) {
+            const liveSvg = document.getElementById('con-draw-live-svg');
+            if (!liveSvg) return;
+            if (_shapePreviewEl) liveSvg.removeChild(_shapePreviewEl);
+            const x = Math.min(startPos.x, curPos.x);
+            const y = Math.min(startPos.y, curPos.y);
+            const w = Math.max(2, Math.abs(curPos.x - startPos.x));
+            const h = Math.max(2, Math.abs(curPos.y - startPos.y));
+            const col = _conDrawColor;
+            const sw = _conDrawThickness;
+            const op = _conDrawOpacity;
+            const fill = _conDrawShapeFill || 'none';
+            const dash = _conShapeDashArr ? _conShapeDashArr(_conDrawShapeDash || 'solid', sw) : null;
+            const dashAttr = dash ? ` stroke-dasharray="${dash}"` : '';
+            let d = '';
+            if (type === 'rect') {
+              d = `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}" stroke="${col}" stroke-width="${sw}" opacity="${op}"${dashAttr} stroke-linecap="round"/>`;
+            } else if (type === 'circle' || type === 'ellipse') {
+              d = `<ellipse cx="${x + w / 2}" cy="${y + h / 2}" rx="${w / 2}" ry="${h / 2}" fill="${fill}" stroke="${col}" stroke-width="${sw}" opacity="${op}"${dashAttr}/>`;
+            } else if (type === 'diamond') {
+              const pts = `${x + w / 2},${y} ${x + w},${y + h / 2} ${x + w / 2},${y + h} ${x},${y + h / 2}`;
+              d = `<polygon points="${pts}" fill="${fill}" stroke="${col}" stroke-width="${sw}" opacity="${op}"${dashAttr}/>`;
+            } else if (type === 'line') {
+              d = `<line x1="${startPos.x}" y1="${startPos.y}" x2="${curPos.x}" y2="${curPos.y}" stroke="${col}" stroke-width="${sw}" opacity="${op}"${dashAttr} stroke-linecap="round"/>`;
+            } else if (type === 'arrow') {
+              const mid = '_lprev_arrow';
+              const _ahPx = _conDrawArrowheadSize || 20;
+              const _mwPrev = (_ahPx / sw).toFixed(3);
+              const _mhPrev = (_ahPx / sw * 0.6).toFixed(3);
+              d = `<defs><marker id="${mid}" viewBox="0 0 10 6" markerWidth="${_mwPrev}" markerHeight="${_mhPrev}" refX="0" refY="3" orient="auto" markerUnits="strokeWidth"><polygon points="0 0, 10 3, 0 6" fill="${col}" opacity="${op}"/></marker></defs>` +
+                `<line x1="${startPos.x}" y1="${startPos.y}" x2="${curPos.x}" y2="${curPos.y}" stroke="${col}" stroke-width="${sw}" opacity="${op}"${dashAttr} stroke-linecap="butt" marker-end="url(#${mid})"/>`;
+            }
+            _shapePreviewEl = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            _shapePreviewEl.style.pointerEvents = 'none';
+            _shapePreviewEl.innerHTML = d;
+            liveSvg.appendChild(_shapePreviewEl);
+          }
+
+          function _shapeCommit(startPos, endPos) {
+            const liveSvg = document.getElementById('con-draw-live-svg');
+            if (_shapePreviewEl && liveSvg && _shapePreviewEl.parentNode === liveSvg) {
+              liveSvg.removeChild(_shapePreviewEl);
+            }
+            _shapePreviewEl = null;
+            const type = _conDrawShapeTool;
+            if (!type) return;
+            const isLine = type === 'line' || type === 'arrow';
+            const x1 = startPos.x, y1 = startPos.y, x2 = endPos.x, y2 = endPos.y;
+            const x = Math.min(x1, x2), y = Math.min(y1, y2);
+            const w = Math.max(2, Math.abs(x2 - x1)), h = Math.max(2, Math.abs(y2 - y1));
+            if (w < 3 && h < 3) return; // Too small — ignore tap
+            const id = 'cs' + (_conShapeNextId++);
+            const s = {
+              id, type,
+              x, y, w, h,
+              lx1: x1, ly1: y1, lx2: x2, ly2: y2,
+              color: _conDrawColor,
+              fillColor: _conDrawShapeFill || 'none',
+              thickness: _conDrawThickness,
+              opacity: _conDrawOpacity,
+              dashStyle: _conDrawShapeDash || 'solid',
+              arrowheadSize: type === 'arrow' ? (_conDrawArrowheadSize || 20) : null,
+              pts: null,
+              el: null, svgEl: null, hitEl: null, visEl: null, pad: 0
+            };
+            conShapes.push(s);
+            conShapeBuild(s);
+            if (window._conMirrorSend) {
+              window._conMirrorSend({
+                type: 'shape-add',
+                shapes: [{
+                  id: s.id, type: s.type,
+                  x: s.x, y: s.y, w: s.w, h: s.h,
+                  lx1: s.lx1, ly1: s.ly1, lx2: s.lx2, ly2: s.ly2,
+                  pts: s.pts,
+                  color: s.color, fillColor: s.fillColor,
+                  thickness: s.thickness, opacity: s.opacity,
+                  dashStyle: s.dashStyle, arrowheadSize: s.arrowheadSize
+                }]
+              });
+            }
+            if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+          }
+
+          function _conDrawPointerDown(e) {
+            _conSyncDrawOverlaySize();
+            if (_drawActivePointerId !== null && _drawActivePointerId !== e.pointerId) return;
+            _drawActivePointerId = e.pointerId;
+            e.preventDefault();
+            try { drawOverlay.setPointerCapture(e.pointerId); } catch (_) {
+              try { if (e.target && e.target.setPointerCapture) e.target.setPointerCapture(e.pointerId); } catch (__) {}
+            }
+            _conUpdateEraserOutlineByEvent(e);
+            const pos = getBoardPos(e);
+            if (_conDrawHandMode) return;
+            // Polygon: pointer capture only — points added via click event
+            if (_conDrawShapeTool === 'polygon' && !_conDrawEraserMode) {
+              return;
+            }
+            // Shape drawing mode
+            if (_conDrawShapeTool && !_conDrawEraserMode) {
+              _shapeStart = pos;
+              return;
+            }
+            livePoints = [];
+            livePoints.push(pos);
+            if (_conDrawEraserMode) {
+              window._conMirrorDragging = true;
+              _eraserPushedUndo = false;
+              _eraserLastPos = pos;
+              _conEraseAtPos(pos);
+              return;
+            }
+            const liveSvg = document.getElementById('con-draw-live-svg');
+            if (!liveSvg) return;
+            livePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            livePath.setAttribute('fill', 'none');
+            livePath.setAttribute('stroke', _conDrawColor);
+            livePath.setAttribute('stroke-width', String(_conDrawThickness));
+            livePath.setAttribute('stroke-linecap', 'round');
+            livePath.setAttribute('stroke-linejoin', 'round');
+            livePath.setAttribute('opacity', String(_conDrawOpacity));
+            livePath.style.pointerEvents = 'none';
+            livePath.setAttribute('d', `M ${pos.x} ${pos.y}`);
+            liveSvg.appendChild(livePath);
+            _liveMirrorThrottle = 0;
+            if (window._conMirrorSend) window._conMirrorSend({
+              type: 'live-path-start',
+              color: _conDrawColor, thickness: _conDrawThickness, opacity: _conDrawOpacity
+            });
+          }
+
+          function _conDrawPointerMove(e) {
+            if (_drawActivePointerId !== null && _drawActivePointerId !== e.pointerId) return;
+            _conUpdateEraserOutlineByEvent(e);
+            if (e.buttons === 0) return;
+            const pos = getBoardPos(e);
+            if (_conDrawHandMode) return;
+            if (pos.x + 100 > drawOverlay.offsetWidth || pos.y + 100 > drawOverlay.offsetHeight) {
+              _conSyncDrawOverlaySize();
+            }
+            // Polygon live edge preview
+            if (_conDrawShapeTool === 'polygon' && !_conDrawEraserMode && _polygonInProgress) {
+              _polygonLivePos = pos;
+              _polygonPreviewUpdate();
+              return;
+            }
+            // Shape preview
+            if (_conDrawShapeTool && !_conDrawEraserMode && _shapeStart) {
+              _shapeLastPos = pos;
+              const _snapPos = _conShapeSnapPos(_shapeStart, pos, _conDrawShapeTool, e.ctrlKey);
+              _shapePreviewUpdate(_shapeStart, _snapPos, _conDrawShapeTool);
+              return;
+            }
+            if (_conDrawEraserMode) {
+              if (_eraserLastPos) {
+                const dist = Math.hypot(pos.x - _eraserLastPos.x, pos.y - _eraserLastPos.y);
+                const stepSize = Math.max(4, (window._conEraserRadius || 20) * 0.5);
+                if (dist > stepSize) {
+                  const steps = Math.ceil(dist / stepSize);
+                  for (let i = 1; i < steps; i++) {
+                    const ix = _eraserLastPos.x + (pos.x - _eraserLastPos.x) * (i / steps);
+                    const iy = _eraserLastPos.y + (pos.y - _eraserLastPos.y) * (i / steps);
+                    _conEraseAtPos({ x: ix, y: iy });
+                  }
+                }
+              }
+              _eraserLastPos = pos;
+              _conEraseAtPos(pos);
+              return;
+            }
+            livePoints.push(pos);
+            if (livePath && livePoints.length >= 2) {
+              const last = livePoints[livePoints.length - 1];
+              const newD = (livePath.getAttribute('d') || '') + ` L ${last.x} ${last.y}`;
+              livePath.setAttribute('d', newD);
+              if (window._conMirrorSend) {
+                const _now = performance.now();
+                if (_now - _liveMirrorThrottle >= 16) {
+                  _liveMirrorThrottle = _now;
+                  window._conMirrorSend({ type: 'live-path', d: newD });
+                }
+              }
+            }
+          }
+
+          function _conDrawPointerUp(e) {
+            if (_drawActivePointerId !== e.pointerId) return;
+            _drawActivePointerId = null;
+            if (_conDrawHandMode) { livePoints = []; livePath = null; _conSetEraserOutlineVisible(false); return; }
+            // Polygon: handled via click event
+            if (_conDrawShapeTool === 'polygon' && !_conDrawEraserMode) return;
+            // Commit shape
+            if (_conDrawShapeTool && !_conDrawEraserMode && _shapeStart) {
+              const pos = getBoardPos(e);
+              const _snapPos = _conShapeSnapPos(_shapeStart, pos, _conDrawShapeTool, e.ctrlKey);
+              _shapeCommit(_shapeStart, _snapPos);
+              _shapeStart = null;
+              _shapeLastPos = null;
+              _conSyncDrawOverlaySize();
+              return;
+            }
+            if (_conDrawEraserMode) {
+              _eraserLastPos = null;
+              if (window._conEraserMirrorRaf) {
+                cancelAnimationFrame(window._conEraserMirrorRaf);
+                window._conEraserMirrorRaf = null;
+              }
+              _conFlushEraserMirrorMessages();
+              if (_eraserPushedUndo) {
+                _conSplitMultiSubstrokeDrawings();
+                if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
+                _eraserPushedUndo = false;
+              }
+              livePoints = [];
+              if (e.pointerType !== 'mouse') _conSetEraserOutlineVisible(false);
+              setTimeout(() => { window._conMirrorDragging = false; }, 60);
+              _conSyncDrawOverlaySize();
+              return;
+            }
+            if (livePath && livePoints.length >= 2) {
+              const liveSvg = document.getElementById('con-draw-live-svg');
+              if (liveSvg && livePath.parentNode === liveSvg) liveSvg.removeChild(livePath);
+              const xs = livePoints.map(function (p) { return p.x; });
+              const ys = livePoints.map(function (p) { return p.y; });
+              const minX = Math.min.apply(null, xs);
+              const minY = Math.min.apply(null, ys);
+              const maxX = Math.max.apply(null, xs);
+              const maxY = Math.max.apply(null, ys);
+              const id = 'cd' + (_conDrawNextId++);
+              const d = {
+                id: id,
+                x: minX, y: minY,
+                w: Math.max(1, maxX - minX),
+                h: Math.max(1, maxY - minY),
+                points: livePoints.map(function (p) { return { x: p.x - minX, y: p.y - minY }; }),
+                color: _conDrawColor,
+                thickness: _conDrawThickness,
+                opacity: _conDrawOpacity,
+                el: null, hitPath: null, visPath: null, pad: 0
+              };
+              const targetDrawings = (typeof window.conGetDrawings === 'function') ? window.conGetDrawings() : (global.conDrawings || conDrawings);
+              if (!targetDrawings.includes(d)) targetDrawings.push(d);
+              if (conDrawings !== targetDrawings && Array.isArray(conDrawings) && !conDrawings.includes(d)) conDrawings.push(d);
+              if (global.conDrawings && global.conDrawings !== targetDrawings && !global.conDrawings.includes(d)) global.conDrawings.push(d);
+              conDrawingBuild(d);
+              _conSyncDrawOverlaySize();
+              if (window._conMirrorSend) {
+                window._conMirrorSend({
+                  type: 'drawing-add',
+                  drawings: [{
+                    id: d.id,
+                    x: d.x,
+                    y: d.y,
+                    w: d.w,
+                    h: d.h,
+                    points: d.points,
+                    color: d.color,
+                    thickness: d.thickness,
+                    opacity: d.opacity
+                  }]
+                });
+              }
+              if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+            } else if (livePath) {
+              const liveSvg = document.getElementById('con-draw-live-svg');
+              if (liveSvg && livePath.parentNode === liveSvg) liveSvg.removeChild(livePath);
+            }
+            livePath = null;
+            livePoints = [];
+            if (window._conMirrorSend) window._conMirrorSend({ type: 'live-path-commit' });
+            if (e.pointerType !== 'mouse') _conSetEraserOutlineVisible(false);
+            _conSyncDrawOverlaySize();
+          }
+
+          function _conDrawPointerCancel(e) {
+            if (_drawActivePointerId !== e.pointerId) return;
+            _drawActivePointerId = null;
+            if (_conDrawEraserMode) {
+              _eraserLastPos = null;
+              if (window._conEraserMirrorRaf) {
+                cancelAnimationFrame(window._conEraserMirrorRaf);
+                window._conEraserMirrorRaf = null;
+              }
+              _conFlushEraserMirrorMessages();
+              if (_eraserPushedUndo) {
+                _conSplitMultiSubstrokeDrawings();
+                if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
+                _eraserPushedUndo = false;
+                if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+              }
+              livePoints = [];
+              _conSetEraserOutlineVisible(false);
+              setTimeout(() => { window._conMirrorDragging = false; }, 60);
+              return;
+            }
+            const liveSvg = document.getElementById('con-draw-live-svg');
+            if (livePath && liveSvg && livePath.parentNode === liveSvg) liveSvg.removeChild(livePath);
+            livePath = null;
+            livePoints = [];
+            _shapeStart = null;
+            _shapeLastPos = null;
+            if (window._conMirrorSend) window._conMirrorSend({ type: 'live-path-end' });
+            _conSetEraserOutlineVisible(false);
+          }
+
+          drawOverlay.addEventListener('pointerdown', _conDrawPointerDown);
+          drawOverlay.addEventListener('pointermove', _conDrawPointerMove);
+          drawOverlay.addEventListener('pointerup', _conDrawPointerUp);
+          drawOverlay.addEventListener('pointercancel', _conDrawPointerCancel);
+
+          drawOverlay.addEventListener('pointerenter', function (e) {
+            _conUpdateEraserOutlineByEvent(e);
+          });
+
+          drawOverlay.addEventListener('lostpointercapture', function (e) {
+            if (_drawActivePointerId === e.pointerId) _drawActivePointerId = null;
+          });
+
+          drawOverlay.addEventListener('mouseleave', function () {
+            _conSetEraserOutlineVisible(false);
+          });
+
+          const brdEl = document.getElementById('constellation-board');
+          if (brdEl) {
+            brdEl.addEventListener('scroll', function () {
+              if (typeof conMode !== 'undefined' && conMode === 'draw') {
+                _conSyncDrawOverlaySize();
+              }
+            }, { passive: true });
+
+            brdEl.addEventListener('pointerdown', function (e) {
+              if (typeof conMode !== 'undefined' && conMode === 'draw') {
+                _conSyncDrawOverlaySize();
+                if (e.target !== drawOverlay && !drawOverlay.contains(e.target)) {
+                  _conDrawPointerDown(e);
+                }
+              }
+            }, true);
+          }
+
+          window.addEventListener('resize', function () {
+            if (typeof conMode !== 'undefined' && conMode === 'draw') {
+              _conSyncDrawOverlaySize();
+            }
+          });
+
+          window.addEventListener('pointermove', function (e) {
+            if (typeof conMode !== 'undefined' && conMode === 'draw' && _drawActivePointerId !== null && _drawActivePointerId === e.pointerId && e.target !== drawOverlay) {
+              _conDrawPointerMove(e);
+            }
+          });
+
+          window.addEventListener('pointerup', function (e) {
+            if (typeof conMode !== 'undefined' && conMode === 'draw' && _drawActivePointerId !== null && _drawActivePointerId === e.pointerId && e.target !== drawOverlay) {
+              _conDrawPointerUp(e);
+            }
+          });
+
+          // Polygon: click to add points, double-click to close
+          drawOverlay.addEventListener('click', function (e) {
+            if (_conDrawHandMode) return;
+            if (_conDrawShapeTool !== 'polygon' || _conDrawEraserMode) return;
+            e.stopPropagation();
+            const pos = getBoardPos(e);
+            const prev = _polygonPoints.length > 0 ? _polygonPoints[_polygonPoints.length - 1] : null;
+            const snapped = e.ctrlKey && prev ? _conPolygonSnapAngle(prev, pos) : pos;
+            if (!_polygonInProgress) {
+              _polygonInProgress = true;
+              _polygonPoints = [snapped];
+            } else {
+              const fp = _polygonPoints[0];
+              const dist = Math.hypot(snapped.x - fp.x, snapped.y - fp.y);
+              if (_polygonPoints.length >= 3 && dist < Math.max(12, _conDrawThickness * 3)) {
+                _polygonCommit();
+              } else {
+                _polygonPoints.push(snapped);
+              }
+            }
+            _polygonPreviewUpdate();
+          });
+
+          drawOverlay.addEventListener('dblclick', function (e) {
+            if (_conDrawHandMode) return;
+            if (_conDrawShapeTool !== 'polygon' || _conDrawEraserMode || !_polygonInProgress) return;
+            e.stopPropagation();
+            // dblclick fires after two clicks; the second click already added a point — remove it
+            if (_polygonPoints.length > 3) _polygonPoints.pop();
+            _polygonCommit();
+          });
+
+          // Polygon live edge: track mouse without button pressed
+          drawOverlay.addEventListener('mousemove', function (e) {
+            _conUpdateEraserOutlineByEvent(e);
+            if (_conDrawHandMode) return;
+            if (_conDrawShapeTool !== 'polygon' || _conDrawEraserMode || !_polygonInProgress) return;
+            if (e.buttons !== 0) return; // handled by pointermove when button held
+            _polygonLivePos = getBoardPos(e);
+            _polygonPreviewUpdate();
+          });
+
+          // Hand tool: pan board on empty drag, move drawing when dragging over it.
+          let _handActive = false;
+          let _handStartX = 0, _handStartY = 0;
+          let _handStartScrollX = 0, _handStartScrollY = 0;
+          let _handDragDrawingSnaps = null;
+          let _handDragSceneSnaps = null;
+          let _handUndoPushed = false;
+
+          function _conBuildHandSceneSnaps() {
+            const boardEl = document.getElementById('constellation-board');
+            const liveNotes = (typeof window.conGetNotes === 'function')
+              ? window.conGetNotes()
+              : (window.conNotes || (typeof conNotes !== 'undefined' ? conNotes : []));
+            const liveDrawings = (typeof window.conGetDrawings === 'function')
+              ? window.conGetDrawings()
+              : (window.conDrawings || (typeof conDrawings !== 'undefined' ? conDrawings : []));
+            const liveShapes = (typeof window.conGetShapes === 'function')
+              ? window.conGetShapes()
+              : (window.conShapes || (typeof conShapes !== 'undefined' ? conShapes : []));
+            const liveTables = (typeof window.conGetTables === 'function')
+              ? window.conGetTables()
+              : (window.conTables || (typeof conTables !== 'undefined' ? conTables : []));
+            return {
+              boardEl,
+              nodes: conNodes.map(n => ({ n, sx: n.x, sy: n.y })),
+              notes: liveNotes.map(note => ({ note, sx: note.x, sy: note.y })),
+              drawings: liveDrawings.map(dr => ({ dr, sx: dr.x, sy: dr.y })),
+              shapes: liveShapes.map(s => ({
+                s,
+                sx: s.x,
+                sy: s.y,
+                slx1: s.lx1,
+                sly1: s.ly1,
+                slx2: s.lx2,
+                sly2: s.ly2
+              })),
+              tables: liveTables.map(tbl => ({ tbl, sx: tbl.x, sy: tbl.y })),
+              masks: conMasks.map(m => ({ m, sx: m.x, sy: m.y })),
+              media: conMediaItems.map(item => ({ item, sx: item.x, sy: item.y })),
+              groups: conGroups.map(g => ({
+                g,
+                sx: parseFloat((g.el && g.el.style && g.el.style.left) || '0') || 0,
+                sy: parseFloat((g.el && g.el.style && g.el.style.top) || '0') || 0
+              }))
+            };
+          }
+
+          function _conApplyHandSceneDelta(snaps, dx, dy) {
+            if (!snaps) return;
+
+            snaps.nodes.forEach(({ n, sx, sy }) => {
+              n.x = sx + dx;
+              n.y = sy + dy;
+              if (n.el) {
+                n.el.style.left = n.x + 'px';
+                n.el.style.top = n.y + 'px';
+              }
+            });
+
+            snaps.notes.forEach(({ note, sx, sy }) => {
+              note.x = sx + dx;
+              note.y = sy + dy;
+              const noteEl = (typeof window.wnGetNoteElementById === 'function')
+                ? window.wnGetNoteElementById(note.id)
+                : ((typeof wnGetNoteElementById === 'function') ? wnGetNoteElementById(note.id) : document.querySelector(`.con-word-note[data-id="${note.id}"]`));
+              if (noteEl) {
+                noteEl.style.left = note.x + 'px';
+                noteEl.style.top = note.y + 'px';
+              }
+            });
+
+            snaps.drawings.forEach(({ dr, sx, sy }) => {
+              dr.x = sx + dx;
+              dr.y = sy + dy;
+              if (dr.el) {
+                dr.el.style.left = (dr.x - dr.pad) + 'px';
+                dr.el.style.top = (dr.y - dr.pad) + 'px';
+              }
+              if (typeof _conDrawingUpdateHandles === 'function') _conDrawingUpdateHandles(dr);
+            });
+
+            snaps.shapes.forEach(({ s, sx, sy, slx1, sly1, slx2, sly2 }) => {
+              s.x = sx + dx;
+              s.y = sy + dy;
+              if (slx1 !== undefined && slx1 !== null) s.lx1 = slx1 + dx;
+              if (sly1 !== undefined && sly1 !== null) s.ly1 = sly1 + dy;
+              if (slx2 !== undefined && slx2 !== null) s.lx2 = slx2 + dx;
+              if (sly2 !== undefined && sly2 !== null) s.ly2 = sly2 + dy;
+              if (s.el) {
+                s.el.style.left = (s.x - s.pad) + 'px';
+                s.el.style.top = (s.y - s.pad) + 'px';
+              }
+              if (typeof _conShapeUpdateHandles === 'function') _conShapeUpdateHandles(s);
+            });
+
+            if (snaps.tables) {
+              snaps.tables.forEach(({ tbl, sx, sy }) => {
+                tbl.x = sx + dx;
+                tbl.y = sy + dy;
+                if (tbl.el) {
+                  tbl.el.style.left = tbl.x + 'px';
+                  tbl.el.style.top = tbl.y + 'px';
+                }
+              });
+            }
+
+            snaps.masks.forEach(({ m, sx, sy }) => {
+              m.x = sx + dx;
+              m.y = sy + dy;
+              if (typeof conApplyMaskStyle === 'function') conApplyMaskStyle(m);
+            });
+
+            snaps.media.forEach(({ item, sx, sy }) => {
+              item.x = sx + dx;
+              item.y = sy + dy;
+              const wrap = document.querySelector('#constellation-board .con-media-item[data-id="' + item.id + '"]');
+              if (wrap) {
+                wrap.style.left = item.x + 'px';
+                wrap.style.top = item.y + 'px';
+              }
+            });
+
+            snaps.groups.forEach(({ g, sx, sy }) => {
+              const gx = sx + dx;
+              const gy = sy + dy;
+              if (g.el) {
+                g.el.style.left = gx + 'px';
+                g.el.style.top = gy + 'px';
+              }
+              g._px = gx;
+              g._py = gy;
+            });
+
+            conRedrawEdges();
+          }
+
+          function _conFinalizeHandScene(snaps) {
+            if (!snaps || !snaps.boardEl) return;
+            const boardEl = snaps.boardEl;
+            const boardCenterX = boardEl.clientWidth / 2;
+            const boardCenterY = boardEl.clientHeight / 2;
+            const z = (typeof conCurrentZoom !== 'undefined' && Number.isFinite(conCurrentZoom) && conCurrentZoom > 0) ? conCurrentZoom : 1;
+            snaps.nodes.forEach(({ n }) => {
+              n.baseX = boardCenterX + (n.x - boardCenterX) / z;
+              n.baseY = boardCenterY + (n.y - boardCenterY) / z;
+            });
+            if (snaps.notes) {
+              snaps.notes.forEach(({ note }) => {
+                note.baseX = boardCenterX + (note.x - boardCenterX) / z;
+                note.baseY = boardCenterY + (note.y - boardCenterY) / z;
+              });
+            }
+            if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
+            // Mirror sync
+            if (window._conMirrorSend) {
+              if (snaps.nodes && snaps.nodes.length > 0) {
+                window._conMirrorSend({
+                  type: 'node-move',
+                  positions: snaps.nodes.map(({ n }) => ({ id: n.id, x: n.x, y: n.y }))
+                });
+              }
+              if (snaps.notes && snaps.notes.length > 0) {
+                window._conMirrorSend({
+                  type: 'note-move',
+                  positions: snaps.notes.map(({ note }) => ({ id: note.id, x: note.x, y: note.y }))
+                });
+              }
+              if (snaps.drawings && snaps.drawings.length > 0) {
+                window._conMirrorSend({
+                  type: 'drawing-move',
+                  positions: snaps.drawings.map(({ dr }) => ({ id: dr.id, x: dr.x, y: dr.y }))
+                });
+              }
+              if (snaps.shapes && snaps.shapes.length > 0) {
+                window._conMirrorSend({
+                  type: 'shape-move',
+                  positions: snaps.shapes.map(({ s }) => ({
+                    id: s.id, x: s.x, y: s.y,
+                    lx1: s.lx1, ly1: s.ly1, lx2: s.lx2, ly2: s.ly2,
+                    pts: s.pts ? s.pts.map(p => ({ ...p })) : undefined
+                  }))
+                });
+              }
+              if (snaps.tables && snaps.tables.length > 0) {
+                window._conMirrorSend({
+                  type: 'table-move',
+                  positions: snaps.tables.map(({ tbl }) => ({ id: tbl.id, x: tbl.x, y: tbl.y }))
+                });
+              }
+            }
+            if (typeof conMarkDirty === 'function') conMarkDirty();
+            else if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+          }
+
+          function _conFindTopDrawingAt(pos) {
+            const liveDrawings = (typeof window.conGetDrawings === 'function')
+              ? window.conGetDrawings()
+              : (window.conDrawings || conDrawings || []);
+            for (let i = liveDrawings.length - 1; i >= 0; i--) {
+              const d = liveDrawings[i];
+              if (!d) continue;
+              const pad = Math.max(10, (d.thickness || 4) + 8);
+              if (pos.x >= d.x - pad && pos.x <= d.x + d.w + pad && pos.y >= d.y - pad && pos.y <= d.y + d.h + pad) {
+                return d;
+              }
+            }
+            return null;
+          }
+
+          drawOverlay.addEventListener('pointerdown', function (e) {
+            if (!_conDrawHandMode) return;
+            e.preventDefault();
+            drawOverlay.setPointerCapture(e.pointerId);
+            const b = document.getElementById('constellation-board');
+            const pos = getBoardPos(e);
+            _handActive = true;
+            _handUndoPushed = false;
+            _handStartX = e.clientX;
+            _handStartY = e.clientY;
+            _handStartScrollX = b ? b.scrollLeft : 0;
+            _handStartScrollY = b ? b.scrollTop : 0;
+
+            const hit = _conFindTopDrawingAt(pos);
+            if (hit) {
+              const selIds = conDrawingSelected.has(hit.id) && conDrawingSelected.size > 1
+                ? Array.from(conDrawingSelected)
+                : [hit.id];
+              _handDragDrawingSnaps = selIds.map(function (did) {
+                const liveDrawings = (typeof window.conGetDrawings === 'function') ? window.conGetDrawings() : (window.conDrawings || conDrawings || []);
+                const dr = liveDrawings.find(x => x.id === did);
+                return dr ? { dr: dr, sx: dr.x, sy: dr.y } : null;
+              }).filter(Boolean);
+              _handDragSceneSnaps = null;
+            } else {
+              _handDragDrawingSnaps = null;
+              _handDragSceneSnaps = _conBuildHandSceneSnaps();
+            }
+            drawOverlay.style.cursor = 'grabbing';
+          }, true);
+
+          drawOverlay.addEventListener('pointermove', function (e) {
+            if (!_conDrawHandMode || !_handActive) return;
+            const dx = e.clientX - _handStartX;
+            const dy = e.clientY - _handStartY;
+            if (!_handUndoPushed && (Math.abs(dx) > 2 || Math.abs(dy) > 2)) {
+              conPushUndo();
+              _handUndoPushed = true;
+            }
+            if (_handDragDrawingSnaps && _handDragDrawingSnaps.length) {
+              _handDragDrawingSnaps.forEach(function (snap) {
+                const dr = snap.dr;
+                dr.x = snap.sx + dx;
+                dr.y = snap.sy + dy;
+                if (dr.el) {
+                  dr.el.style.left = (dr.x - dr.pad) + 'px';
+                  dr.el.style.top = (dr.y - dr.pad) + 'px';
+                }
+                if (typeof _conDrawingUpdateHandles === 'function') _conDrawingUpdateHandles(dr);
+              });
+            } else if (_handDragSceneSnaps) {
+              _conApplyHandSceneDelta(_handDragSceneSnaps, dx, dy);
+            } else {
+              const b = document.getElementById('constellation-board');
+              if (b) {
+                b.scrollLeft = _handStartScrollX - dx;
+                b.scrollTop = _handStartScrollY - dy;
+              }
+            }
+          }, true);
+
+          function _conHandEnd() {
+            if (!_handActive) return;
+            if (_handDragDrawingSnaps && _handDragDrawingSnaps.length) {
+              if (window._conMirrorSend) {
+                _handDragDrawingSnaps.forEach(function (snap) {
+                  window._conMirrorSend({ type: 'drawing-move', id: String(snap.dr.id), x: snap.dr.x, y: snap.dr.y });
+                });
+              }
+              if (typeof conMarkDirty === 'function') conMarkDirty();
+              else if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+            }
+            if (_handDragSceneSnaps) _conFinalizeHandScene(_handDragSceneSnaps);
+            _handActive = false;
+            _handDragDrawingSnaps = null;
+            _handDragSceneSnaps = null;
+            _handUndoPushed = false;
+            _conDrawSyncOverlayCursor();
+          }
+
+          drawOverlay.addEventListener('pointerup', _conHandEnd, true);
+          drawOverlay.addEventListener('pointercancel', _conHandEnd, true);
+          drawOverlay.addEventListener('lostpointercapture', _conHandEnd, true);
+
+          // Refresh shape preview when Ctrl is pressed/released mid-drag
+          document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && _polygonInProgress && conMode === 'draw') {
+              _polygonReset();
+              return;
+            }
+            if (e.key === 'Control' && _shapeStart && _shapeLastPos && _conDrawShapeTool && !_conDrawEraserMode) {
+              const snapped = _conShapeSnapPos(_shapeStart, _shapeLastPos, _conDrawShapeTool, true);
+              _shapePreviewUpdate(_shapeStart, snapped, _conDrawShapeTool);
+            }
+          });
+          document.addEventListener('keyup', function (e) {
+            if (e.key === 'Control' && _shapeStart && _shapeLastPos && _conDrawShapeTool && !_conDrawEraserMode) {
+              _shapePreviewUpdate(_shapeStart, _shapeLastPos, _conDrawShapeTool);
+            }
+          });
+
+          function _conDrawAbort() {
+            if (_shapePreviewEl) {
+              const liveSvg = document.getElementById('con-draw-live-svg');
+              if (liveSvg && _shapePreviewEl.parentNode === liveSvg) liveSvg.removeChild(_shapePreviewEl);
+              _shapePreviewEl = null;
+            }
+            _shapeStart = null;
+            _shapeLastPos = null;
+            // Note: polygon state is NOT reset here — it uses click-based flow and
+            // lostpointercapture fires after every click, so _polygonReset() must
+            // NOT be called from here. Reset polygon via Escape, tool change, or commit.
+            if (livePath) {
+              const liveSvg = document.getElementById('con-draw-live-svg');
+              if (liveSvg && livePath.parentNode === liveSvg) liveSvg.removeChild(livePath);
+            }
+            livePath = null;
+            livePoints = [];
+          }
+
+          drawOverlay.addEventListener('pointercancel', function () { _conDrawAbort(); _polygonReset(); });
+          drawOverlay.addEventListener('lostpointercapture', _conDrawAbort);
+        })();
+      });
+
+      // ---- Spread / equalise ----
+      window.conSpreadNodes = function conSpreadNodes() {
+        const nodes = conNodes;
+        if (nodes.length < 2) return;
+        const brd = board();
+        const bw = brd.clientWidth;
+        const bh = brd.clientHeight;
+
+        const units = [];
+        const assignedNodeIds = new Set();
+
+        conGroups.forEach(g => {
+          const members = nodes.filter(n => g.nodeIds.includes(n.id));
+          if (members.length === 0) return;
+          members.forEach(n => assignedNodeIds.add(n.id));
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          members.forEach(n => {
+            const w = n.el.offsetWidth || 80;
+            const h = n.el.offsetHeight || 28;
+            minX = Math.min(minX, n.x); minY = Math.min(minY, n.y);
+            maxX = Math.max(maxX, n.x + w); maxY = Math.max(maxY, n.y + h);
+          });
+          const gcx = (minX + maxX) / 2, gcy = (minY + maxY) / 2;
+          units.push({
+            cx: gcx, cy: gcy,
+            w: maxX - minX + GROUP_PAD * 2,
+            h: maxY - minY + GROUP_PAD * 2,
+            isGroup: true,
+            isPhraseGroup: !!g.phraseGroup,
+            group: g,
+            memberOffsets: members.map(n => ({
+              n,
+              dx: (n.x + (n.el.offsetWidth || 80) / 2) - gcx,
+              dy: (n.y + (n.el.offsetHeight || 28) / 2) - gcy,
+              w: n.el.offsetWidth || 80,
+              h: n.el.offsetHeight || 28,
+            })),
+          });
+        });
+
+        nodes.forEach(n => {
+          if (assignedNodeIds.has(n.id)) return;
+          const w = n.el.offsetWidth || 80, h = n.el.offsetHeight || 28;
+          units.push({ cx: n.x + w / 2, cy: n.y + h / 2, w, h, isGroup: false, node: n, locked: conIsNodeLocked(n) });
+        });
+
+        const PADDING = 16;
+        const ITER_INTER = 120;
+        const ITER_INTRA = 80;
+        const INTRA_PAD = 12;
+
+        // Intra-group: spread members inside each group (skip phrase groups)
+        units.forEach(unit => {
+          if (!unit.isGroup || unit.isPhraseGroup || unit.memberOffsets.length < 2) return;
+          const mems = unit.memberOffsets.map(m => ({ ...m, cx: unit.cx + m.dx, cy: unit.cy + m.dy }));
+          for (let iter = 0; iter < ITER_INTRA; iter++) {
+            const forces = mems.map(() => ({ fx: 0, fy: 0 }));
+            for (let i = 0; i < mems.length; i++) {
+              for (let j = i + 1; j < mems.length; j++) {
+                const a = mems[i], b = mems[j];
+                const dx = b.cx - a.cx || 0.1, dy = b.cy - a.cy;
+                const ox = (a.w / 2 + b.w / 2 + INTRA_PAD) - Math.abs(dx);
+                const oy = (a.h / 2 + b.h / 2 + INTRA_PAD) - Math.abs(dy);
+                if (ox > 0 && oy > 0) {
+                  let px = 0, py = 0;
+                  if (ox < oy) px = (ox / 2 + 0.5) * Math.sign(dx);
+                  else py = (oy / 2 + 0.5) * Math.sign(dy || 1);
+                  forces[i].fx -= px; forces[i].fy -= py;
+                  forces[j].fx += px; forces[j].fy += py;
+                }
+              }
+            }
+            mems.forEach((m, i) => { if (conIsNodeLocked(m.n)) return; m.cx += forces[i].fx; m.cy += forces[i].fy; });
+          }
+          mems.forEach((m, i) => {
+            if (conIsNodeLocked(m.n)) return;
+            unit.memberOffsets[i].dx = m.cx - unit.cx;
+            unit.memberOffsets[i].dy = m.cy - unit.cy;
+          });
+          let mhw = 0, mhh = 0;
+          unit.memberOffsets.forEach(m => {
+            mhw = Math.max(mhw, Math.abs(m.dx) + m.w / 2);
+            mhh = Math.max(mhh, Math.abs(m.dy) + m.h / 2);
+          });
+          unit.w = (mhw + GROUP_PAD) * 2;
+          unit.h = (mhh + GROUP_PAD) * 2;
+        });
+
+        // Inter-unit: spread groups/lone-nodes from each other
+        if (units.length > 1) {
+          for (let iter = 0; iter < ITER_INTER; iter++) {
+            const forces = units.map(() => ({ fx: 0, fy: 0 }));
+            for (let i = 0; i < units.length; i++) {
+              for (let j = i + 1; j < units.length; j++) {
+                const a = units[i], b = units[j];
+                const dx = b.cx - a.cx || 0.1, dy = b.cy - a.cy;
+                const ox = (a.w / 2 + b.w / 2 + PADDING) - Math.abs(dx);
+                const oy = (a.h / 2 + b.h / 2 + PADDING) - Math.abs(dy);
+                if (ox > 0 && oy > 0) {
+                  let px = 0, py = 0;
+                  if (ox < oy) px = (ox / 2 + 0.5) * Math.sign(dx);
+                  else py = (oy / 2 + 0.5) * Math.sign(dy || 1);
+                  forces[i].fx -= px; forces[i].fy -= py;
+                  forces[j].fx += px; forces[j].fy += py;
+                }
+              }
+            }
+            units.forEach((u, i) => {
+              if (u.locked) return;
+              u.cx += forces[i].fx; u.cy += forces[i].fy;
+              u.cx = Math.max(u.w / 2 + 4, Math.min(bw - u.w / 2 - 4, u.cx));
+              u.cy = Math.max(u.h / 2 + 4, Math.min(bh - u.h / 2 - 4, u.cy));
+            });
+          }
+        }
+
+        // Apply
+        const boardCenterX = bw / 2;
+        const boardCenterY = bh / 2;
+        units.forEach(unit => {
+          if (unit.isGroup) {
+            unit.memberOffsets.forEach(({ n, dx, dy, w, h }) => {
+              n.x = unit.cx + dx - w / 2; n.y = unit.cy + dy - h / 2;
+              n.baseX = boardCenterX + (n.x - boardCenterX) / conCurrentZoom;
+              n.baseY = boardCenterY + (n.y - boardCenterY) / conCurrentZoom;
+              n.el.style.transition = 'left 0.4s ease, top 0.4s ease';
+              n.el.style.left = n.x + 'px'; n.el.style.top = n.y + 'px';
+            });
+          } else {
+            unit.node.x = unit.cx - unit.w / 2; unit.node.y = unit.cy - unit.h / 2;
+            unit.node.baseX = boardCenterX + (unit.node.x - boardCenterX) / conCurrentZoom;
+            unit.node.baseY = boardCenterY + (unit.node.y - boardCenterY) / conCurrentZoom;
+            unit.node.el.style.transition = 'left 0.4s ease, top 0.4s ease';
+            if (!unit.locked) {
+              unit.node.el.style.left = unit.node.x + 'px'; unit.node.el.style.top = unit.node.y + 'px';
+            }
+          }
+        });
+
+        conRedrawEdges(); conGroupRefitAll();
+        setTimeout(() => {
+          units.forEach(u => {
+            if (u.isGroup) u.memberOffsets.forEach(({ n }) => { n.el.style.transition = ''; });
+            else u.node.el.style.transition = '';
+          });
+          conRedrawEdges(); conGroupRefitAll();
+        }, 450);
+      };
+
+      // Spread members within a single group (e.g., newly created group from drag & drop)
+      window.conSpreadGroup = function conSpreadGroup(group) {
+        if (!group || group.nodeIds.length < 2) return;
+        // Phrase groups have their own layout — no force-spread
+        if (group.phraseGroup) { conPhraseGroupLayout(group); return; }
+        const members = conNodes.filter(n => group.nodeIds.includes(n.id));
+        if (members.length < 2) return;
+
+        // Calculate group center
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        members.forEach(n => {
+          const w = n.el.offsetWidth || 80;
+          const h = n.el.offsetHeight || 28;
+          minX = Math.min(minX, n.x); minY = Math.min(minY, n.y);
+          maxX = Math.max(maxX, n.x + w); maxY = Math.max(maxY, n.y + h);
+        });
+        const gcx = (minX + maxX) / 2, gcy = (minY + maxY) / 2;
+
+        // Build member offsets
+        const mems = members.map(n => ({
+          n,
+          cx: n.x + (n.el.offsetWidth || 80) / 2,
+          cy: n.y + (n.el.offsetHeight || 28) / 2,
+          w: n.el.offsetWidth || 80,
+          h: n.el.offsetHeight || 28,
+        }));
+
+        const ITER_INTRA = 80;
+        const INTRA_PAD = 12;
+
+        // Spread members inside the group
+        for (let iter = 0; iter < ITER_INTRA; iter++) {
+          const forces = mems.map(() => ({ fx: 0, fy: 0 }));
+          for (let i = 0; i < mems.length; i++) {
+            for (let j = i + 1; j < mems.length; j++) {
+              const a = mems[i], b = mems[j];
+              const dx = b.cx - a.cx || 0.1, dy = b.cy - a.cy;
+              const ox = (a.w / 2 + b.w / 2 + INTRA_PAD) - Math.abs(dx);
+              const oy = (a.h / 2 + b.h / 2 + INTRA_PAD) - Math.abs(dy);
+              if (ox > 0 && oy > 0) {
+                let px = 0, py = 0;
+                if (ox < oy) px = (ox / 2 + 0.5) * Math.sign(dx);
+                else py = (oy / 2 + 0.5) * Math.sign(dy || 1);
+                forces[i].fx -= px; forces[i].fy -= py;
+                forces[j].fx += px; forces[j].fy += py;
+              }
+            }
+          }
+          mems.forEach((m, i) => { if (conIsNodeLocked(m.n)) return; m.cx += forces[i].fx; m.cy += forces[i].fy; });
+        }
+
+        // Apply new positions
+        mems.forEach(m => {
+          if (conIsNodeLocked(m.n)) return;
+          m.n.x = m.cx - m.w / 2;
+          m.n.y = m.cy - m.h / 2;
+          m.n.el.style.transition = 'left 0.4s ease, top 0.4s ease';
+          m.n.el.style.left = m.n.x + 'px';
+          m.n.el.style.top = m.n.y + 'px';
+        });
+
+        conRedrawEdges(); conGroupRefit(group);
+        setTimeout(() => {
+          mems.forEach(m => { m.n.el.style.transition = ''; });
+          conRedrawEdges(); conGroupRefit(group);
+        }, 450);
+      };
+
+      window.conGetNodes = global.conGetNodes = function () { return conNodes; };
+      window.conGetEdges = global.conGetEdges = function () { return conEdges; };
+      window.conGetGroups = global.conGetGroups = function () { return conGroups; };
+      window.conGroupSelected = global.conGroupSelected = conGroupSelected;
+      window.conInitSwatches = global.conInitSwatches = conInitSwatches;
+      window.conAttachNodeEvents = global.conAttachNodeEvents = conAttachNodeEvents;
+      window.conAttachNode = global.conAttachNode = conAttachNodeEvents;
+      window.conattachnode = global.conattachnode = conAttachNodeEvents;
+      window.conGetCtxNodeId = global.conGetCtxNodeId = function () { return (typeof conCtxNodeId !== 'undefined' ? conCtxNodeId : null); };
+      window.conSetNextId = global.conSetNextId = function (n) { if (typeof conNextId !== 'undefined' && n > conNextId) conNextId = n; };
+      window.taGetLines = global.taGetLines = function () { return (typeof taLines !== 'undefined') ? taLines : []; };
+      window.conComputeEdgeGeometry = global.conComputeEdgeGeometry = conComputeEdgeGeometry;
+      window.conAddEdge = global.conAddEdge = conAddEdge;
+      window.conEnsureSvgDefs = global.conEnsureSvgDefs = conEnsureSvgDefs;
+      window.conUpdateEdge = global.conUpdateEdge = conUpdateEdge;
+      window.conRedrawEdges = global.conRedrawEdges = conRedrawEdges;
+      window.conRenderNodeLabel = global.conRenderNodeLabel = conRenderNodeLabel;
+      window.conIsNodeLocked = global.conIsNodeLocked = conIsNodeLocked;
+      window.conSyncNodeLockState = global.conSyncNodeLockState = conSyncNodeLockState;
+
+      window.conSelect = global.conSelect = conSelect;
+      window.conNodeClearSelection = global.conNodeClearSelection = conNodeClearSelection;
+      window.conClearSelection = global.conClearSelection = conNodeClearSelection;
+      window.conAddWordAt = global.conAddWordAt = conAddWordAt;
+      window.conRemoveNode = global.conRemoveNode = conRemoveNode;
+      window.conDeleteNode = global.conDeleteNode = function (id) { return conRemoveNode(id); };
+      window.conDuplicateNodeById = global.conDuplicateNodeById = conDuplicateNodeById;
+      window.conRemoveEdge = global.conRemoveEdge = conRemoveEdge;
+      window._conCancelLinkMode = global._conCancelLinkMode = _conCancelLinkMode;
+      window.conCancelLinkMode = global.conCancelLinkMode = _conCancelLinkMode;
+      window._conStartLinkMode = global._conStartLinkMode = _conStartLinkMode;
+      window.conGetLinkSrc = global.conGetLinkSrc = function () { return _conLinkSrc; };
+      window.conGetSelected = global.conGetSelected = function () { return conSelected; };
+      window.conGetMultiSelected = global.conGetMultiSelected = function () { return conMultiSelected; };
+      window.conGetGroupFocused = global.conGetGroupFocused = function () { return conGroupFocused; };
+      window.conGetEffectiveZoom = global.conGetEffectiveZoom = conGetEffectiveZoom;
+      window.conResolveLinkAnchor = global.conResolveLinkAnchor = conResolveLinkAnchor;
+      window.conGetAnchorPoint = global.conGetAnchorPoint = conGetAnchorPoint;
+      window.conNodeEdgeOffset = global.conNodeEdgeOffset = conNodeEdgeOffset;
+      window.conSnapEnabled = global.conSnapEnabled = conSnapEnabled;
+      window.conGroupFocused = global.conGroupFocused = conGroupFocused;
+      window.conCtxNodeId = global.conCtxNodeId = conCtxNodeId;
+      window.conCreateEdge = global.conCreateEdge = function(src, tgt) { return conAddEdge(src, tgt); };
+      window.conSyncNodeBasePosition = global.conSyncNodeBasePosition = conSyncNodeBasePosition;
+      window.conUpdateToolbarStatus = global.conUpdateToolbarStatus = function () {};
+      window.conUpdateNodeStarVisual = global.conUpdateNodeStarVisual = function (n) { if (typeof conSyncNodeStarState === 'function') return conSyncNodeStarState(n); };
+      window._conSelectedEdgeId = global._conSelectedEdgeId = (typeof _conSelectedEdgeId !== 'undefined' ? _conSelectedEdgeId : null);
+      window._conSetupThicknessSlider = global._conSetupThicknessSlider = _conSetupThicknessSlider;
+      window._conSetupThicknessNumberInput = global._conSetupThicknessNumberInput = _conSetupThicknessSlider;
+
+      try {
+        Object.defineProperty(window, 'conSelected', {
+          get: function () { return conSelected; },
+          set: function (v) { conSelected = v; },
+          configurable: true,
+          enumerable: true
+        });
+        Object.defineProperty(global, 'conSelected', {
+          get: function () { return conSelected; },
+          set: function (v) { conSelected = v; },
+          configurable: true,
+          enumerable: true
+        });
+        Object.defineProperty(window, '_conLinkSrc', {
+          get: function () { return _conLinkSrc; },
+          set: function (v) { _conLinkSrc = v; },
+          configurable: true,
+          enumerable: true
+        });
+        Object.defineProperty(global, '_conLinkSrc', {
+          get: function () { return _conLinkSrc; },
+          set: function (v) { _conLinkSrc = v; },
+          configurable: true,
+          enumerable: true
+        });
+        Object.defineProperty(window, 'conGroupFocused', {
+          get: function () { return conGroupFocused; },
+          set: function (v) { conGroupFocused = v; },
+          configurable: true,
+          enumerable: true
+        });
+        Object.defineProperty(global, 'conGroupFocused', {
+          get: function () { return conGroupFocused; },
+          set: function (v) { conGroupFocused = v; },
+          configurable: true,
+          enumerable: true
+        });
+      } catch (e) {
+        window.conSelected = conSelected;
+        window._conLinkSrc = _conLinkSrc;
+        window.conGroupFocused = conGroupFocused;
+      }
+
+      try {
+        Object.defineProperty(window, 'conNextId', {
+          get: function() { return conNextId; },
+          set: function(v) { conNextId = v; },
+          configurable: true,
+          enumerable: true
+        });
+      } catch (e) {
+        window.conNextId = conNextId;
+      }
+    })();
+
+    window.onload = async () => {
+      await Promise.resolve(window.__boardUserBootstrapPromise).catch(function () { });
+      // Refresh class groups from user data target in case files changed during runtime.
+      if (window.Desktop && typeof Desktop.readText === 'function') {
+        try {
+          const gr = await Desktop.readText('user', 'class-groups.js');
+          if (gr?.ok && gr.content) {
+            try {
+              const fn = new Function('window', gr.content + '\nif (typeof CLASS_GROUPS !== "undefined") window.CLASS_GROUPS = CLASS_GROUPS;\nif (typeof CLASS_GROUPS_META !== "undefined") window.CLASS_GROUPS_META = CLASS_GROUPS_META;\nif (typeof CLASS_GROUPS_DATA !== "undefined") window.CLASS_GROUPS_DATA = CLASS_GROUPS_DATA;');
+              fn(window);
+            } catch (_) {}
+          }
+        } catch (e) { /* ignore */ }
+      }
+      // Restore custom content and settings from backup files if localStorage is missing them
+      if (window.Desktop && Desktop.isElectron()) {
+        const _restoreArrIfEmpty = async (lsKey, target, file) => {
+          try {
+            if (localStorage.getItem(lsKey)) return;
+            const r = await Desktop.readJson(target, file);
+            if (r && r.ok && Array.isArray(r.data) && r.data.length)
+              localStorage.setItem(lsKey, JSON.stringify(r.data));
+          } catch (e) { }
+        };
+        await Promise.all([
+          _restoreArrIfEmpty(AW_STORAGE_KEY, 'customWordbanks', 'custom-words-backup.json'),
+          _restoreArrIfEmpty(MDB_DELETED_KEY, 'customWordbanks', 'deleted-words-backup.json'),
+          (async () => {
+            try {
+              if (localStorage.getItem(BOARD_SAVED_SESSIONS_KEY)) return;
+              const r = await Desktop.readJson('user', 'board-sessions-backup.json');
+              if (r && r.ok && r.data) localStorage.setItem(BOARD_SAVED_SESSIONS_KEY, JSON.stringify(r.data));
+            } catch (e) { }
+          })(),
+          (async () => {
+            try {
+              if (localStorage.getItem('app_font_size')) return;
+              const r = await Desktop.readJson('user', 'ui-prefs.json');
+              if (r && r.ok && r.data && r.data.fontSize) {
+                applyFontSize(r.data.fontSize, false);
+                try { localStorage.setItem('app_font_size', r.data.fontSize); } catch (e) { }
+              }
+            } catch (e) { }
+          })(),
+        ]);
+      }
+      // Merge custom words from localStorage into vocabBank
+      if (typeof window.awLoadCustomWords === 'function') window.awLoadCustomWords();
+      if (typeof window.historyInit === 'function') window.historyInit();
+      if (typeof window.initClassGroupSelector === 'function') window.initClassGroupSelector();
+      if (typeof window.bpUpdateBtn === 'function') window.bpUpdateBtn();
+      if (typeof window.initBoardSessionAutosave === 'function') window.initBoardSessionAutosave();
+      if (typeof window.boardConsumePendingOpenRequestFromQuery === 'function') await window.boardConsumePendingOpenRequestFromQuery();
+      const _initBrd = document.getElementById('constellation-board');
+      if (_initBrd) {
+        const _pIdx = (typeof conCurrentPageIndex === 'number') ? conCurrentPageIndex : 0;
+        const _initSnapH = (typeof conPageSnapshots !== 'undefined' && conPageSnapshots[_pIdx]?.boardHeight)
+          || (() => {
+            try {
+              const s = sessionStorage.getItem('cmt-board-expanded-height-' + _pIdx) || sessionStorage.getItem('cmt-board-expanded-height');
+              const v = parseInt(s, 10);
+              return (!isNaN(v) && v > 0) ? v : null;
+            } catch (_) { return null; }
+          })();
+        if (_initSnapH && _initSnapH > 0) {
+          _initBrd.style.height = _initSnapH + 'px';
+          if (conPageSnapshots && conPageSnapshots[_pIdx]) {
+            conPageSnapshots[_pIdx].boardHeight = _initSnapH;
+          }
+        }
+      }
+      // Set timestamp title on fresh load if no title was restored
+      const _initTitleInput = document.getElementById('con-title-input');
+      if (_initTitleInput && !_initTitleInput.value.trim()) {
+        const _initTs = (typeof conMakeTimestampTitle === 'function' ? conMakeTimestampTitle() : (typeof window.conMakeTimestampTitle === 'function' ? window.conMakeTimestampTitle() : ''));
+        _initTitleInput.value = _initTs;
+        if (window.conSetTitle) window.conSetTitle(_initTs);
+      }
+      setTimeout(() => {
+        if (typeof boardSetAutosaveFingerprint === 'function' && typeof conBuildSessionData === 'function') {
+          boardSetAutosaveFingerprint('constellation', conBuildSessionData());
+        }
+        if (typeof _boardIsDirty !== 'undefined') _boardIsDirty = false;
+        window._boardIsDirty = false;
+        if (typeof _boardInitComplete !== 'undefined') _boardInitComplete = true;
+        window._boardInitComplete = true;
+      }, 250);
+      setTimeout(() => {
+        if (typeof populateAllThemeMenus === 'function') populateAllThemeMenus();
+        else if (typeof window.populateAllThemeMenus === 'function') window.populateAllThemeMenus();
+
+        if (typeof populateGrammarMenu === 'function') populateGrammarMenu();
+        else if (typeof window.populateGrammarMenu === 'function') window.populateGrammarMenu();
+
+        if (typeof renderTeamSetup === 'function') renderTeamSetup();
+        else if (typeof window.renderTeamSetup === 'function') window.renderTeamSetup();
+
+        if (typeof renderMainScoreboard === 'function') renderMainScoreboard();
+        else if (typeof window.renderMainScoreboard === 'function') window.renderMainScoreboard();
+
+        if (typeof conImportPopulateThemes === 'function') conImportPopulateThemes();
+        else if (typeof window.conImportPopulateThemes === 'function') window.conImportPopulateThemes();
+
+        if (typeof searchInitShortcutMenu === 'function') searchInitShortcutMenu();
+        else if (typeof window.searchInitShortcutMenu === 'function') window.searchInitShortcutMenu();
+
+        if (typeof dictPopulateThemeFilter === 'function') dictPopulateThemeFilter();
+        else if (typeof window.dictPopulateThemeFilter === 'function') window.dictPopulateThemeFilter();
+      }, 0);
+
+      // Defer loading large custom-data DB files until after first paint.
+      setTimeout(() => {
+        if (typeof scheduleCustomDatabasesInit === 'function') scheduleCustomDatabasesInit();
+        else if (typeof window.scheduleCustomDatabasesInit === 'function') window.scheduleCustomDatabasesInit();
+      }, 0);
+
+    };
+
+    // ================================================================
+    // CONSTELLATION IMPORT FROM VOCAB BANK
+    // ================================================================
+    let conImportSelected = new Set();
+    let conImportFilteredItems = [];
+    let conImportShownCount = 200;
+
+    function conNormalizeSourceId(sourceId) {
+      const s = String(sourceId || '').trim();
+      if (!s) return '';
+      if (/^worddb$/i.test(s)) return 'worddb';
+      if (/^custom$/i.test(s)) return 'custom';
+      return s;
+    }
+
+    function conGetItemSourceIds(item) {
+      const arr = Array.isArray(item && item._sources) && item._sources.length ? item._sources : [item && item._source];
+      return [...new Set(arr.map(conNormalizeSourceId).filter(Boolean))];
+    }
+
+    function conImportPopulateThemes() {
+      const sel = document.getElementById('con-import-theme');
+      if (!sel) return;
+      const current = sel.value;
+      // Remove all options except the first ("All Themes")
+      while (sel.options.length > 1) sel.remove(1);
+      const themes = [...new Set(vocabBank.flatMap(i => getItemThemes(i)))].sort();
+      themes.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t; opt.textContent = t;
+        sel.appendChild(opt);
+      });
+      // Restore previously selected value if still valid
+      if (current && [...sel.options].some(o => o.value === current)) sel.value = current;
+    }
+
+    function conImportPopulateKeywords() {
+      const sel = document.getElementById('con-import-keyword');
+      if (!sel || sel.options.length > 1) return;
+      const keywords = [...new Set(vocabBank.flatMap(i => (i.keywords || [])).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+      keywords.forEach(k => {
+        const opt = document.createElement('option');
+        opt.value = k; opt.textContent = k;
+        sel.appendChild(opt);
+      });
+    }
+
+    function conImportPopulateSources() {
+      const sel = document.getElementById('con-import-source');
+      if (!sel) return;
+      const SOURCE_LABELS = { worddb: 'Word DB', custom: 'Custom Added' };
+      const sources = [...new Set([
+        ...vocabBank.flatMap(conGetItemSourceIds),
+        ..._customDbSources.map(conNormalizeSourceId).filter(Boolean)
+      ])].sort((a, b) => a.localeCompare(b));
+      const current = sel.value;
+      sel.innerHTML = '<option value="all">All Sources</option>';
+      sources.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s;
+        opt.textContent = SOURCE_LABELS[s] || s.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        sel.appendChild(opt);
+      });
+      sel.value = sources.includes(current) ? current : 'all';
+    }
+
+    function conImportOpen() {
+      if (typeof conOpenUniversalImportModal === 'function') {
+        conOpenUniversalImportModal('learning', 'wordbanks');
+        return;
+      }
+      conImportSelected.clear();
+      conImportPopulateKeywords();
+      conImportPopulateSources();
+      conImportRender();
+      document.getElementById('con-import-overlay').classList.add('active');
+    }
+
+    function conImportClose() {
+      document.getElementById('con-import-overlay').classList.remove('active');
+      conImportSelected.clear();
+    }
+
+    function wildcardMatch(pattern, str) {
+      if (!pattern) return true;
+      const re = new RegExp('^' + pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.') + '$');
+      return re.test(str);
+    }
+
+    function wildcardTest(q, ...fields) {
+      if (!q) return true;
+      const lower = q.toLowerCase();
+      const toStr = f => Array.isArray(f) ? f.join(' ') : String(f == null ? '' : f);
+      const isWild = lower.includes('*') || lower.includes('?');
+      if (isWild) return fields.some(f => wildcardMatch(lower, toStr(f).toLowerCase()));
+      return fields.some(f => toStr(f).toLowerCase().includes(lower));
+    }
+
+    function conImportGetFiltered() {
+      const lvl = document.getElementById('con-import-lvl').value;
+      const theme = document.getElementById('con-import-theme').value;
+      const pos = document.getElementById('con-import-pos').value;
+      const keyword = document.getElementById('con-import-keyword').value;
+      const srcSel = document.getElementById('con-import-source');
+      const source = srcSel ? conNormalizeSourceId(srcSel.value) : 'all';
+      const q = document.getElementById('con-import-search').value.trim().toLowerCase();
+      const starredOnly = !!(document.getElementById('con-import-starred-only') && document.getElementById('con-import-starred-only').checked);
+      return vocabBank.filter(item => {
+        if (lvl !== 'all' && (!item.level || item.level.toLowerCase() !== lvl)) return false;
+        if (theme !== 'all' && !getItemThemes(item).includes(theme)) return false;
+        if (pos !== 'all' && (!item.partOfSpeech || !(Array.isArray(item.partOfSpeech) ? item.partOfSpeech : [item.partOfSpeech]).some(p => p.toLowerCase() === pos))) return false;
+        if (keyword !== 'all' && !(item.keywords || []).includes(keyword)) return false;
+        if (source !== 'all' && !conGetItemSourceIds(item).includes(source)) return false;
+        if (q && !wildcardTest(q, item.word, item.french, item.german, item.italian, item.english)) return false;
+        if (starredOnly && !item.starred) return false;
+        return true;
+      });
+    }
+
+    function conImportRender() {
+      conImportFilteredItems = conImportGetFiltered();
+      const list = document.getElementById('con-import-word-list');
+      list.innerHTML = '';
+      if (conImportFilteredItems.length === 0) {
+        list.innerHTML = '<em style="color:#999;font-size:0.9rem;">No words match these filters.</em>';
+        conImportUpdateCount();
+        conImportUpdateFilterCounts();
+        return;
+      }
+      conImportFilteredItems.sort((a, b) => a.word.localeCompare(b.word));
+
+      conImportShownCount = 200;
+      conImportRenderChipRange(list, 0, Math.min(conImportShownCount, conImportFilteredItems.length));
+      conImportAppendShowMore(list);
+      conImportUpdateCount();
+      conImportUpdateFilterCounts();
+    }
+
+    function conImportRenderChipRange(list, start, end) {
+      const toRender = conImportFilteredItems.slice(start, end);
+      toRender.forEach(item => {
+        const chip = document.createElement('div');
+        chip.className = 'con-import-chip' + (conImportSelected.has(item.word) ? ' selected' : '') + (item.starred ? ' starred' : '');
+        const _chipTrans = getTranslation(item);
+        chip.innerHTML = item.word
+          + (_chipTrans ? '<span class="chip-translation">(' + _chipTrans + ')</span>' : '');
+        chip.onclick = function () {
+          if (conImportSelected.has(item.word)) {
+            conImportSelected.delete(item.word);
+            chip.classList.remove('selected');
+          } else {
+            conImportSelected.add(item.word);
+            chip.classList.add('selected');
+          }
+          conImportUpdateCount();
+        };
+        list.appendChild(chip);
+      });
+    }
+
+    function conImportAppendShowMore(list) {
+      const remaining = conImportFilteredItems.length - conImportShownCount;
+      if (remaining <= 0) return;
+      const wrap = document.createElement('div');
+      wrap.id = 'con-import-show-more-btn';
+      wrap.style.cssText = 'text-align:center;padding:14px 0 6px;';
+      wrap.innerHTML = `<button class="action-btn" onclick="conImportShowMore()">Show ${Math.min(200, remaining)} more <span style="opacity:0.55;font-weight:400;">(${remaining} remaining)</span></button>`;
+      list.appendChild(wrap);
+    }
+
+    function conImportShowMore() {
+      const btn = document.getElementById('con-import-show-more-btn');
+      if (btn) btn.remove();
+      const list = document.getElementById('con-import-word-list');
+      const start = conImportShownCount;
+      conImportShownCount = Math.min(conImportShownCount + 200, conImportFilteredItems.length);
+      conImportRenderChipRange(list, start, conImportShownCount);
+      conImportAppendShowMore(list);
+    }
+
+    function conImportUpdateCount() {
+      const n = conImportSelected.size;
+      document.getElementById('con-import-count').textContent =
+        n === 0 ? 'No words selected' : n + ' word' + (n > 1 ? 's' : '') + ' selected';
+    }
+
+    function conImportUpdateFilterCounts() {
+      const lvl = document.getElementById('con-import-lvl').value;
+      const theme = document.getElementById('con-import-theme').value;
+      const pos = document.getElementById('con-import-pos').value;
+      const keyword = document.getElementById('con-import-keyword').value;
+      const srcEl = document.getElementById('con-import-source');
+      const source = srcEl ? conNormalizeSourceId(srcEl.value) : 'all';
+      const q = document.getElementById('con-import-search').value.trim().toLowerCase();
+
+      function bankWithout(skip) {
+        return vocabBank.filter(item => {
+          if (skip !== 'lvl' && lvl !== 'all' && (!item.level || item.level.toLowerCase() !== lvl)) return false;
+          if (skip !== 'theme' && theme !== 'all' && !getItemThemes(item).includes(theme)) return false;
+          if (skip !== 'pos' && pos !== 'all' && !(item.partOfSpeech && (Array.isArray(item.partOfSpeech) ? item.partOfSpeech : [item.partOfSpeech]).some(p => p.toLowerCase() === pos))) return false;
+          if (skip !== 'keyword' && keyword !== 'all' && !(item.keywords || []).includes(keyword)) return false;
+          if (skip !== 'source' && source !== 'all' && !conGetItemSourceIds(item).includes(source)) return false;
+          if (q && !wildcardTest(q, item.word, item.french)) return false;
+          return true;
+        });
+      }
+
+      function applyToSelect(selId, bank, getCounts) {
+        const sel = document.getElementById(selId);
+        if (!sel) return;
+        const counts = getCounts(bank);
+        [...sel.options].forEach(opt => {
+          const base = opt.text.replace(/\s*\(\d+\)$/, '');
+          const c = opt.value === 'all' ? bank.length : (counts[opt.value] || 0);
+          opt.text = base + ' (' + c + ')';
+          if (opt.value !== 'all') {
+            opt.disabled = c === 0;
+            opt.style.color = c === 0 ? '#bbb' : '';
+          }
+        });
+      }
+
+      applyToSelect('con-import-lvl', bankWithout('lvl'), bank => {
+        const m = {};
+        bank.forEach(item => { if (item.level) { const v = item.level.toLowerCase(); m[v] = (m[v] || 0) + 1; } });
+        return m;
+      });
+
+      applyToSelect('con-import-theme', bankWithout('theme'), bank => {
+        const m = {};
+        bank.forEach(item => getItemThemes(item).forEach(t => { m[t] = (m[t] || 0) + 1; }));
+        return m;
+      });
+
+      applyToSelect('con-import-pos', bankWithout('pos'), bank => {
+        const m = {};
+        bank.forEach(item => {
+          (item.partOfSpeech ? (Array.isArray(item.partOfSpeech) ? item.partOfSpeech : [item.partOfSpeech]) : []).filter(Boolean).forEach(p => { const v = p.toLowerCase(); m[v] = (m[v] || 0) + 1; });
+        });
+        return m;
+      });
+
+      applyToSelect('con-import-keyword', bankWithout('keyword'), bank => {
+        const m = {};
+        bank.forEach(item => (item.keywords || []).forEach(k => { if (k) m[k] = (m[k] || 0) + 1; }));
+        return m;
+      });
+
+      if (srcEl) {
+        applyToSelect('con-import-source', bankWithout('source'), bank => {
+          const m = {};
+          bank.forEach(item => {
+            conGetItemSourceIds(item).forEach(s => {
+              m[s] = (m[s] || 0) + 1;
+            });
+          });
+          return m;
+        });
+      }
+    }
+
+    function conImportSelectAll() {
+      conImportGetFiltered().forEach(item => conImportSelected.add(item.word));
+      conImportRender();
+    }
+
+    function conImportClearSel() {
+      conImportSelected.clear();
+      conImportRender();
+    }
+
+    // ================================================================
+    // CONSTELLATION — SPREAD / EQUALISE  (defined inside IIFE — see above)
+    // ================================================================
+    function conSpreadNodes_UNUSED() {
+      const nodes = conGetNodes();
+      if (nodes.length < 2) return;
+      const brd = conGetBoard();
+      const bw = brd.clientWidth;
+      const bh = brd.clientHeight;
+
+      const groups = typeof conGroups !== 'undefined' ? conGroups : [];
+      const GROUP_PAD = 18;
+
+      // Build "units" — either a group (rigid body) or a lone node
+      // Each unit has: cx, cy, w, h, and a list of members to move
+      const units = [];
+      const assignedNodeIds = new Set();
+
+      groups.forEach(g => {
+        const members = nodes.filter(n => g.nodeIds.includes(n.id));
+        if (members.length === 0) return;
+        members.forEach(n => assignedNodeIds.add(n.id));
+        // Bounding box of the group
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        members.forEach(n => {
+          const w = n.el.offsetWidth || 80;
+          const h = n.el.offsetHeight || 28;
+          minX = Math.min(minX, n.x);
+          minY = Math.min(minY, n.y);
+          maxX = Math.max(maxX, n.x + w);
+          maxY = Math.max(maxY, n.y + h);
+        });
+        const gw = maxX - minX + GROUP_PAD * 2;
+        const gh = maxY - minY + GROUP_PAD * 2;
+        units.push({
+          cx: (minX + maxX) / 2,
+          cy: (minY + maxY) / 2,
+          w: gw, h: gh,
+          isGroup: true,
+          group: g,
+          members,
+          // Offsets of each member centre relative to group centre
+          memberOffsets: members.map(n => ({
+            n,
+            dx: (n.x + (n.el.offsetWidth || 80) / 2) - (minX + maxX) / 2,
+            dy: (n.y + (n.el.offsetHeight || 28) / 2) - (minY + maxY) / 2,
+            w: n.el.offsetWidth || 80,
+            h: n.el.offsetHeight || 28,
+          })),
+        });
+      });
+
+      // Lone nodes (not in any group)
+      nodes.forEach(n => {
+        if (assignedNodeIds.has(n.id)) return;
+        const w = n.el.offsetWidth || 80;
+        const h = n.el.offsetHeight || 28;
+        units.push({
+          cx: n.x + w / 2,
+          cy: n.y + h / 2,
+          w, h,
+          isGroup: false,
+          node: n,
+        });
+      });
+
+      if (units.length < 2) return;
+
+      const PADDING = 16;
+      const ITERATIONS = 120;
+      const REPULSE_STRENGTH = 1.0;
+
+      for (let iter = 0; iter < ITERATIONS; iter++) {
+        const forces = units.map(() => ({ fx: 0, fy: 0 }));
+
+        for (let i = 0; i < units.length; i++) {
+          for (let j = i + 1; j < units.length; j++) {
+            const a = units[i], b = units[j];
+            const dx = b.cx - a.cx;
+            const dy = b.cy - a.cy;
+            const overlapX = (a.w / 2 + b.w / 2 + PADDING) - Math.abs(dx);
+            const overlapY = (a.h / 2 + b.h / 2 + PADDING) - Math.abs(dy);
+            if (overlapX > 0 && overlapY > 0) {
+              let pushX = 0, pushY = 0;
+              if (overlapX < overlapY) {
+                pushX = (overlapX / 2 + 0.5) * Math.sign(dx || 1) * REPULSE_STRENGTH;
+              } else {
+                pushY = (overlapY / 2 + 0.5) * Math.sign(dy || 1) * REPULSE_STRENGTH;
+              }
+              forces[i].fx -= pushX; forces[i].fy -= pushY;
+              forces[j].fx += pushX; forces[j].fy += pushY;
+            }
+          }
+        }
+
+        for (let i = 0; i < units.length; i++) {
+          units[i].cx += forces[i].fx;
+          units[i].cy += forces[i].fy;
+          const hw = units[i].w / 2, hh = units[i].h / 2;
+          units[i].cx = Math.max(hw + 4, Math.min(bw - hw - 4, units[i].cx));
+          units[i].cy = Math.max(hh + 4, Math.min(bh - hh - 4, units[i].cy));
+        }
+      }
+
+      // Intra-group repulsion: spread members within each group
+      units.forEach(unit => {
+        if (!unit.isGroup || unit.memberOffsets.length < 2) return;
+        const members = unit.memberOffsets.map(m => ({
+          ...m,
+          cx: unit.cx + m.dx,
+          cy: unit.cy + m.dy,
+        }));
+        const INTRA_PAD = 12;
+        const INTRA_ITER = 80;
+        for (let iter = 0; iter < INTRA_ITER; iter++) {
+          const forces = members.map(() => ({ fx: 0, fy: 0 }));
+          for (let i = 0; i < members.length; i++) {
+            for (let j = i + 1; j < members.length; j++) {
+              const a = members[i], b = members[j];
+              const dx = b.cx - a.cx;
+              const dy = b.cy - a.cy;
+              const overlapX = (a.w / 2 + b.w / 2 + INTRA_PAD) - Math.abs(dx);
+              const overlapY = (a.h / 2 + b.h / 2 + INTRA_PAD) - Math.abs(dy);
+              if (overlapX > 0 && overlapY > 0) {
+                let pushX = 0, pushY = 0;
+                if (overlapX < overlapY) {
+                  pushX = (overlapX / 2 + 0.5) * Math.sign(dx || 1);
+                } else {
+                  pushY = (overlapY / 2 + 0.5) * Math.sign(dy || 1);
+                }
+                forces[i].fx -= pushX; forces[i].fy -= pushY;
+                forces[j].fx += pushX; forces[j].fy += pushY;
+              }
+            }
+          }
+          members.forEach((m, i) => { m.cx += forces[i].fx; m.cy += forces[i].fy; });
+        }
+        // Write back new offsets relative to group centre (centre of mass stays fixed)
+        members.forEach((m, i) => {
+          unit.memberOffsets[i].dx = m.cx - unit.cx;
+          unit.memberOffsets[i].dy = m.cy - unit.cy;
+        });
+        // Expand group bounding box to fit new member positions
+        let maxHW = 0, maxHH = 0;
+        unit.memberOffsets.forEach(m => {
+          maxHW = Math.max(maxHW, Math.abs(m.dx) + m.w / 2);
+          maxHH = Math.max(maxHH, Math.abs(m.dy) + m.h / 2);
+        });
+        unit.w = (maxHW + GROUP_PAD) * 2;
+        unit.h = (maxHH + GROUP_PAD) * 2;
+      });
+
+      // Apply final positions
+      units.forEach(unit => {
+        if (unit.isGroup) {
+          // Move each member to its offset from the new group centre
+          unit.memberOffsets.forEach(({ n, dx, dy, w, h }) => {
+            if (conIsNodeLocked(n)) return;
+            const nx = unit.cx + dx - w / 2;
+            const ny = unit.cy + dy - h / 2;
+            n.x = nx; n.y = ny;
+            n.el.style.transition = 'left 0.4s ease, top 0.4s ease';
+            n.el.style.left = nx + 'px';
+            n.el.style.top = ny + 'px';
+          });
+        } else {
+          if (!unit.locked) {
+            const nx = unit.cx - unit.w / 2;
+            const ny = unit.cy - unit.h / 2;
+            unit.node.x = nx; unit.node.y = ny;
+            unit.node.el.style.transition = 'left 0.4s ease, top 0.4s ease';
+            unit.node.el.style.left = nx + 'px';
+            unit.node.el.style.top = ny + 'px';
+          }
+        }
+      });
+
+      conRedrawEdges();
+      if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
+      setTimeout(() => {
+        units.forEach(unit => {
+          if (unit.isGroup) unit.memberOffsets.forEach(({ n }) => { n.el.style.transition = ''; });
+          else unit.node.el.style.transition = '';
+        });
+        conRedrawEdges();
+        if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
+      }, 450);
+    }
+
+    function conImportConfirm() {
+      if (conImportSelected.size === 0) return;
+      const words = [...conImportSelected].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+      conImportClose();
+      conImportTrayOpen(words);
+    }
+
+    // ================================================================
+    // IMPORT STAGING TRAY
+    // ================================================================
+    let _trayWords = [];
+    let _trayDragWord = null;
+    let _trayDragChip = null;
+
+    function conImportTrayOpen(words) {
+      _trayWords = words.slice();
+      _conTrayRender();
+      document.getElementById('con-import-tray').classList.add('active');
+    }
+
+    function conImportTrayClose() {
+      document.getElementById('con-import-tray').classList.remove('active');
+      _trayWords = [];
+    }
+
+    function _conTrayRender() {
+      const list = document.getElementById('con-import-tray-list');
+      if (!list) return;
+      list.innerHTML = '';
+      _trayWords.forEach(word => {
+        const chip = document.createElement('div');
+        chip.className = 'con-tray-chip';
+        chip.textContent = word;
+        chip.addEventListener('mousedown', _conTrayChipDown);
+        list.appendChild(chip);
+      });
+      const countEl = document.getElementById('con-import-tray-count');
+      if (countEl) countEl.textContent = _trayWords.length;
+      if (_trayWords.length === 0) conImportTrayClose();
+    }
+
+    function _conTrayChipDown(e) {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      _trayDragWord = e.currentTarget.textContent.trim();
+      _trayDragChip = e.currentTarget;
+      _trayDragChip.classList.add('tray-dragging');
+      const ghost = document.getElementById('con-import-ghost');
+      ghost.textContent = _trayDragWord;
+      ghost.style.left = (e.clientX + 12) + 'px';
+      ghost.style.top = (e.clientY - 16) + 'px';
+      ghost.style.display = 'block';
+      document.addEventListener('mousemove', _conTrayMouseMove);
+      document.addEventListener('mouseup', _conTrayMouseUp);
+    }
+
+    function _conTrayMouseMove(e) {
+      const ghost = document.getElementById('con-import-ghost');
+      ghost.style.left = (e.clientX + 12) + 'px';
+      ghost.style.top = (e.clientY - 16) + 'px';
+      const brd = document.getElementById('constellation-board');
+      if (brd) {
+        const r = brd.getBoundingClientRect();
+        const over = e.clientX >= r.left && e.clientX <= r.right
+          && e.clientY >= r.top && e.clientY <= r.bottom;
+        ghost.classList.toggle('over-board', over);
+      }
+    }
+
+    function _conTrayMouseUp(e) {
+      document.removeEventListener('mousemove', _conTrayMouseMove);
+      document.removeEventListener('mouseup', _conTrayMouseUp);
+      const ghost = document.getElementById('con-import-ghost');
+      ghost.style.display = 'none';
+      ghost.classList.remove('over-board');
+      if (_trayDragChip) { _trayDragChip.classList.remove('tray-dragging'); _trayDragChip = null; }
+      const word = _trayDragWord;
+      _trayDragWord = null;
+      if (!word) return;
+      const brd = document.getElementById('constellation-board');
+      if (!brd) return;
+      const r = brd.getBoundingClientRect();
+      const over = e.clientX >= r.left && e.clientX <= r.right
+        && e.clientY >= r.top && e.clientY <= r.bottom;
+      if (!over) return;
+      if (typeof window.conPushUndo === 'function') window.conPushUndo();
+      const x = e.clientX - r.left + brd.scrollLeft;
+      const y = e.clientY - r.top + brd.scrollTop;
+      if (typeof window.conAddWordAt === 'function') window.conAddWordAt(word, x, y);
+      _trayWords = _trayWords.filter(w => w !== word);
+      _conTrayRender();
+    }
+
+    function conImportTrayDropAll() {
+      if (!_trayWords.length) return;
+      const brd = document.getElementById('constellation-board');
+      if (!brd) return;
+      if (typeof window.conPushUndo === 'function') window.conPushUndo();
+      const startX = brd.scrollLeft + 40;
+      const startY = brd.scrollTop + Math.max(40, Math.round(brd.clientHeight / 2 - (_trayWords.length * 44) / 2));
+      _trayWords.forEach((word, i) => {
+        if (typeof window.conAddWordAt === 'function') window.conAddWordAt(word, startX, startY + i * 44);
+      });
+      _trayWords = [];
+      _conTrayRender();
+    }
+
+    // ── Stubs for variables from the removed textual-analysis section ──
+    let taWordNotes = [];
+    let taLines = [];
+    function taFindToken() { return null; }
+    function taGetTitle() { return ''; }
+
+    // ================================================================
+    // EMOJI REACTION SYSTEM (nodes & notes)
+    // ================================================================
+    (function () {
+      const CON_EMOJIS = [
+        { e: '❤️', label: 'Heart' },
+        { e: '😊', label: 'Happy' },
+        { e: '😢', label: 'Sad' },
+        { e: '😲', label: 'Surprised' },
+        { e: '🤔', label: 'Puzzled' },
+        { e: '😠', label: 'Angry' },
+        { e: '🤢', label: 'Disgust' },
+        { e: '😱', label: 'Shocked' },
+        { e: '😨', label: 'Scared' },
+        { e: '😔', label: 'Sad / Down' },
+        { e: '😌', label: 'Relieved' },
+        { e: '🥰', label: 'In love' },
+        { e: '😤', label: 'Frustrated' },
+        { e: '😅', label: 'Nervous' },
+        { e: '🤩', label: 'Excited' }
+      ];
+
+      let _emojiTarget = null; // { type: 'node'|'note', id }
+
+      function _pickerClose() {
+        const picker = document.getElementById('con-emoji-picker');
+        if (picker) picker.classList.remove('active');
+        _emojiTarget = null;
+      }
+
+      function _pickerOpen(e, type, id) {
+        e.preventDefault(); e.stopPropagation();
+        const picker = document.getElementById('con-emoji-picker');
+        if (!picker) return;
+        _emojiTarget = { type, id };
+        picker.classList.add('active');
+        const rect = e.currentTarget.getBoundingClientRect();
+        const pw = picker.offsetWidth || 110;
+        const ph = picker.offsetHeight || 110;
+        let x = rect.right + 6;
+        let y = rect.top;
+        if (x + pw > window.innerWidth - 4) x = rect.left - pw - 6;
+        if (y + ph > window.innerHeight - 4) y = window.innerHeight - ph - 4;
+        picker.style.left = Math.max(4, x) + 'px';
+        picker.style.top = Math.max(4, y) + 'px';
+      }
+
+      function _applyEmoji(type, id, emoji) {
+        if (type === 'node') {
+          const node = (window.conGetNodes ? window.conGetNodes() : []).find(n => n.id === id);
+          if (!node || !node.el) return;
+          _updateNodeDot(node);
+          // Place a board-level draggable sticker near the node
+          if (emoji) {
+            const board = document.getElementById('constellation-board');
+            if (board) {
+              if (!window._conBoardStickers) window._conBoardStickers = [];
+              const sd = {
+                id: 'bms' + Date.now(),
+                emoji: emoji,
+                x: (Number(node.x) || parseInt(node.el.style.left) || 0) + (node.el.offsetWidth || 0) - 10,
+                y: (Number(node.y) || parseInt(node.el.style.top) || 0) - 10,
+                size: 40
+              };
+              window._conBoardStickers.push(sd);
+              if (typeof conNoteBuildSticker === 'function') {
+                conNoteBuildSticker(sd, { emojiStickers: window._conBoardStickers }, board);
+              }
+              if (window._conMirrorSend) {
+                window._conMirrorSend({ type: 'sticker-add', target: 'board', sticker: sd });
+              }
+            }
+          }
+        } else if (type === 'note') {
+          const note = typeof conNotes !== 'undefined' ? conNotes.find(n => n.id === id) : null;
+          if (note) {
+            note.emoji = emoji || null;
+            const noteEl = typeof wnGetNoteElementById === 'function' ? wnGetNoteElementById(id) : null;
+            if (noteEl) _updateNoteDot(noteEl, emoji);
+          }
+          if (emoji && window.conNoteAddEmojiSticker) {
+            window.conNoteAddEmojiSticker(id, emoji);
+          }
+        }
+      }
+
+      function _updateNodeDot(node) {
+        if (!node || !node.el) return;
+        const dot = node.el.querySelector('.con-emoji-dot');
+        if (!dot) return;
+        dot.textContent = '•';
+        dot.classList.remove('has-emoji');
+        dot.title = 'Add reaction';
+      }
+
+      function _updateNoteDot(noteEl, emoji) {
+        if (!noteEl) return;
+        const dot = noteEl.querySelector('.con-emoji-dot');
+        if (!dot) return;
+        dot.textContent = emoji || '•';
+        dot.classList.toggle('has-emoji', !!emoji);
+        dot.title = emoji ? 'Change reaction' : 'Add reaction';
+      }
+
+      function _makeEmojiDot(type, id) {
+        const dot = document.createElement('button');
+        dot.className = 'con-emoji-dot';
+        dot.textContent = '•';
+        dot.title = 'Add reaction';
+        dot.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); });
+        dot.addEventListener('click', e => _pickerOpen(e, type, id));
+        return dot;
+      }
+
+      // Called from conAttachNodeEvents
+      window.conEmojiAttachNodeDot = function (id, el) {
+        el.appendChild(_makeEmojiDot('node', id));
+      };
+
+      // Called from conNoteBuild
+      window.conEmojiAttachNoteDot = function (id, noteEl) {
+        noteEl.appendChild(_makeEmojiDot('note', id));
+      };
+
+      // Called after conRenderNodeLabel (re-syncs dot that was preserved)
+      window.conEmojiRestoreNodeDotAndBadge = function (node) {
+        if (!node || !node.el) return;
+        if (!node.el.querySelector('.con-emoji-dot')) {
+          window.conEmojiAttachNodeDot(node.id, node.el);
+        }
+        _updateNodeDot(node);
+      };
+
+      // Build picker buttons once DOM is ready
+      function _initPicker() {
+        const picker = document.getElementById('con-emoji-picker');
+        if (!picker || picker.dataset.built) return;
+        picker.dataset.built = '1';
+        CON_EMOJIS.forEach(({ e, label }) => {
+          const btn = document.createElement('button');
+          btn.textContent = e;
+          btn.title = label;
+          btn.addEventListener('click', ev => {
+            ev.stopPropagation();
+            if (!_emojiTarget) return;
+            _applyEmoji(_emojiTarget.type, _emojiTarget.id, e);
+            _pickerClose();
+          });
+          picker.appendChild(btn);
+        });
+        // Remove reaction button (spans full width in 4th row)
+        const removeBtn = document.createElement('button');
+        removeBtn.textContent = '✕';
+        removeBtn.title = 'Remove reaction';
+        removeBtn.style.cssText = 'grid-column: 1/-1; font-size:13px; color:#888; border-top:1px solid #eee; border-radius:0 0 6px 6px;';
+        removeBtn.addEventListener('click', ev => {
+          ev.stopPropagation();
+          if (!_emojiTarget) return;
+          _applyEmoji(_emojiTarget.type, _emojiTarget.id, null);
+          _pickerClose();
+        });
+        picker.appendChild(removeBtn);
+        document.addEventListener('mousedown', ev => {
+          if (!picker.classList.contains('active')) return;
+          if (!picker.contains(ev.target)) _pickerClose();
+        }, true);
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', _initPicker);
+      } else {
+        _initPicker();
+      }
+    })();
+    // ================================================================
+    // END EMOJI REACTION SYSTEM
+    // ================================================================
+
+    // ================================================================
+    // BOARD CUSTOMISE
+    // ================================================================
+
+    const _BC_NOTE_TEXT_DEFAULTS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#a855f7', '#ffffff', '#111111'];
+    const _BC_NODE_BORDER_DEFAULTS = ['#111111', '#555555', '#dc2626', '#ea580c', '#d97706', '#16a34a', '#0d9488', '#2563eb', '#0284c7', '#7c3aed', '#db2777'];
+    const _BC_NOTE_BORDER_DEFAULTS = ['#111111', '#555555', '#dc2626', '#ea580c', '#d97706', '#16a34a', '#0d9488', '#2563eb', '#0284c7', '#7c3aed', '#db2777'];
+    const _BC_PEN_PRESET_DEFAULTS = [
+      { name: 'Red', color: '#e53935', opacity: 1, thickness: 4, shape: '' },
+      { name: 'Highlighter', color: '#fdd835', opacity: 0.4, thickness: 16, shape: '' },
+      { name: 'Blue thin', color: '#1e88e5', opacity: 1, thickness: 2, shape: '' },
+    ];
+    const _BC_PEN_SHAPE_OPTIONS = [
+      { value: '', label: '✏ Freehand' },
+      { value: 'rect', label: '▭ Rect' },
+      { value: 'circle', label: '⬭ Ellipse' },
+      { value: 'diamond', label: '◇ Diamond' },
+      { value: 'polygon', label: '⬡ Polygon' },
+      { value: 'line', label: '╲ Line' },
+      { value: 'arrow', label: '→ Arrow' },
+    ];
+
+    // 20 font options: 10 serif, 5 sans-serif, 5 quirky
+    const _BC_FONT_OPTIONS = [
+      // ── Serif ─────────────────────────────────────────────────────────
+      { group: 'Serif', label: 'Georgia', value: 'Georgia, "Times New Roman", serif' },
+      { group: 'Serif', label: 'Times New Roman', value: '"Times New Roman", Times, serif' },
+      { group: 'Serif', label: 'Garamond', value: 'Garamond, "EB Garamond", "Times New Roman", serif' },
+      { group: 'Serif', label: 'Palatino', value: '"Palatino Linotype", Palatino, "Book Antiqua", serif' },
+      { group: 'Serif', label: 'Cambria', value: 'Cambria, "Hoefler Text", serif' },
+      { group: 'Serif', label: 'Constantia', value: 'Constantia, Palatino, serif' },
+      { group: 'Serif', label: 'Baskerville', value: 'Baskerville, "Baskerville Old Face", "Times New Roman", serif' },
+      { group: 'Serif', label: 'Didot / Bodoni', value: 'Didot, "Bodoni MT", "Times New Roman", serif' },
+      { group: 'Serif', label: 'Calisto MT', value: '"Calisto MT", "Bookman Old Style", Georgia, serif' },
+      { group: 'Serif', label: 'Book Antiqua', value: '"Book Antiqua", Palatino, serif' },
+      // ── Sans-serif ────────────────────────────────────────────────────
+      { group: 'Sans-serif', label: 'Arial', value: 'Arial, Helvetica, sans-serif' },
+      { group: 'Sans-serif', label: 'Verdana', value: 'Verdana, Geneva, sans-serif' },
+      { group: 'Sans-serif', label: 'Segoe UI', value: '"Segoe UI", Tahoma, sans-serif' },
+      { group: 'Sans-serif', label: 'Calibri', value: 'Calibri, Candara, sans-serif' },
+      { group: 'Sans-serif', label: 'Tahoma', value: 'Tahoma, Geneva, sans-serif' },
+      // ── Quirky ────────────────────────────────────────────────────────
+      { group: 'Quirky', label: 'Impact', value: 'Impact, Charcoal, sans-serif' },
+      { group: 'Quirky', label: 'Comic Sans', value: '"Comic Sans MS", "Comic Sans", cursive' },
+      { group: 'Quirky', label: 'Papyrus', value: 'Papyrus, fantasy' },
+      { group: 'Quirky', label: 'Courier New', value: '"Courier New", Courier, monospace' },
+      { group: 'Quirky', label: 'Copperplate', value: '"Copperplate", "Copperplate Gothic Light", fantasy' },
+    ];
+
+    function _bcBuildFontSelect(id, selectedValue, onchangeExpr) {
+      const sel = document.createElement('select');
+      sel.id = id;
+      sel.className = 'bc-select bc-font-select';
+      if (onchangeExpr) sel.setAttribute('onchange', onchangeExpr);
+      // Default / inherit option
+      const defOpt = document.createElement('option');
+      defOpt.value = '';
+      defOpt.textContent = '— Default (inherit) —';
+      sel.appendChild(defOpt);
+      let currentGroup = '';
+      _BC_FONT_OPTIONS.forEach(f => {
+        if (f.group !== currentGroup) {
+          currentGroup = f.group;
+          const og = document.createElement('optgroup');
+          og.label = currentGroup;
+          sel.appendChild(og);
+        }
+        const opt = document.createElement('option');
+        opt.value = f.value;
+        opt.textContent = f.label;
+        opt.style.fontFamily = f.value;
+        sel.lastChild.appendChild(opt);
+      });
+      if (selectedValue) sel.value = selectedValue;
+      return sel;
+    }
+
+    function _bcFontSelectHtml(idAttr) {
+      let html = `<select id="${idAttr}" class="bc-select bc-font-select"><option value="">— Default (inherit) —</option>`;
+      let currentGroup = '';
+      _BC_FONT_OPTIONS.forEach(f => {
+        if (f.group !== currentGroup) {
+          if (currentGroup) html += '</optgroup>';
+          currentGroup = f.group;
+          html += `<optgroup label="${f.group}">`;
+        }
+        html += `<option value="${f.value}" style="font-family:${f.value}">${f.label}</option>`;
+      });
+      if (currentGroup) html += '</optgroup>';
+      html += '</select>';
+      return html;
+    }
+
+    // ── Pen preset list (Customise modal) ────────────────────────────────
+    function _bcBuildPenPresetList(containerId, presets) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      container.innerHTML = '';
+
+      function makeRow(p) {
+        const row = document.createElement('div');
+        row.className = 'bc-swatch-row';
+        row.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:4px;';
+
+        const dragHandle = document.createElement('span');
+        dragHandle.className = 'bc-drag-handle';
+        dragHandle.textContent = '\u2807';
+        dragHandle.title = 'Drag to reorder';
+
+        const preview = document.createElement('div');
+        preview.style.cssText = 'width:18px;height:18px;border-radius:3px;flex-shrink:0;border:1.5px solid #ccc;';
+        preview.style.background = p.color || '#e53935';
+        preview.style.opacity = p.opacity !== undefined ? p.opacity : 1;
+
+        const colorPick = document.createElement('input');
+        colorPick.type = 'color';
+        colorPick.value = p.color || '#e53935';
+        colorPick.title = 'Pen colour';
+        colorPick.style.cssText = 'width:28px;height:22px;border:1px solid #ccc;border-radius:3px;cursor:pointer;padding:0;flex-shrink:0;';
+        colorPick.oninput = () => { preview.style.background = colorPick.value; };
+
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.value = p.name || '';
+        nameInput.placeholder = 'Name…';
+        nameInput.className = 'bc-swatch-input';
+        nameInput.style.cssText = 'flex:1;min-width:60px;max-width:90px;';
+
+        // Opacity
+        const opLabel = document.createElement('span');
+        opLabel.textContent = 'Opacity';
+        opLabel.style.cssText = 'font-size:0.62rem;color:#888;white-space:nowrap;';
+        const opInput = document.createElement('input');
+        opInput.type = 'range';
+        opInput.min = '0.05'; opInput.max = '1'; opInput.step = '0.05';
+        opInput.value = p.opacity !== undefined ? p.opacity : 1;
+        opInput.style.cssText = 'width:60px;accent-color:#111;cursor:pointer;';
+        const opVal = document.createElement('span');
+        opVal.textContent = Math.round((p.opacity !== undefined ? p.opacity : 1) * 100) + '%';
+        opVal.style.cssText = 'font-size:0.72rem;color:#555;width:30px;text-align:right;flex-shrink:0;';
+        opInput.oninput = () => {
+          opVal.textContent = Math.round(parseFloat(opInput.value) * 100) + '%';
+          preview.style.opacity = opInput.value;
+        };
+
+        // Thickness
+        const thLabel = document.createElement('span');
+        thLabel.textContent = 'Size';
+        thLabel.style.cssText = 'font-size:0.62rem;color:#888;white-space:nowrap;';
+        const thInput = document.createElement('input');
+        thInput.type = 'range';
+        thInput.min = '1'; thInput.max = '40'; thInput.step = '1';
+        thInput.value = p.thickness || 4;
+        thInput.style.cssText = 'width:60px;accent-color:#111;cursor:pointer;';
+        const thVal = document.createElement('span');
+        thVal.textContent = (p.thickness || 4) + 'px';
+        thVal.style.cssText = 'font-size:0.72rem;color:#555;width:30px;text-align:right;flex-shrink:0;';
+        thInput.oninput = () => { thVal.textContent = thInput.value + 'px'; };
+
+        // Shape selector
+        const shapeSelect = document.createElement('select');
+        shapeSelect.className = 'bc-select';
+        shapeSelect.title = 'Shape tool';
+        shapeSelect.style.cssText = 'font-size:0.72rem;padding:2px 4px;';
+        _BC_PEN_SHAPE_OPTIONS.forEach(opt => {
+          const o = document.createElement('option');
+          o.value = opt.value;
+          o.textContent = opt.label;
+          shapeSelect.appendChild(o);
+        });
+        shapeSelect.value = p.shape || '';
+
+        // Icon selector
+        const iconSelect = document.createElement('select');
+        iconSelect.className = 'bc-select';
+        iconSelect.title = 'Preset icon';
+        iconSelect.style.cssText = 'font-size:0.72rem;padding:2px 4px;';
+        const ICON_OPTS = [
+          { value: '', label: 'Auto Icon' },
+          { value: 'pen.svg', label: 'Pen' },
+          { value: 'highlighter.svg', label: 'Highlighter' },
+          { value: 'pen-thin.svg', label: 'Fine Pen' },
+          { value: 'draw.svg', label: 'Nib' },
+          { value: 'shape-rect.svg', label: 'Rect' },
+          { value: 'shape-circle.svg', label: 'Circle' },
+          { value: 'shape-diamond.svg', label: 'Diamond' },
+          { value: 'shape-polygon.svg', label: 'Polygon' },
+          { value: 'shape-line.svg', label: 'Line' },
+          { value: 'shape-arrow.svg', label: 'Arrow' }
+        ];
+        ICON_OPTS.forEach(opt => {
+          const o = document.createElement('option');
+          o.value = opt.value;
+          o.textContent = opt.label;
+          iconSelect.appendChild(o);
+        });
+        iconSelect.value = p.icon || '';
+
+        const removeBtn = document.createElement('button');
+        removeBtn.textContent = '\u2715';
+        removeBtn.className = 'bc-swatch-remove';
+        removeBtn.title = 'Remove preset';
+        removeBtn.style.cssText = 'width:22px;height:22px;display:flex;align-items:center;justify-content:center;padding:0;font-size:0.7rem;';
+        removeBtn.onclick = () => row.remove();
+
+        row.appendChild(dragHandle);
+        row.appendChild(preview);
+        row.appendChild(colorPick);
+        row.appendChild(nameInput);
+        row.appendChild(opLabel);
+        row.appendChild(opInput);
+        row.appendChild(opVal);
+        row.appendChild(thLabel);
+        row.appendChild(thInput);
+        row.appendChild(thVal);
+        row.appendChild(shapeSelect);
+        row.appendChild(iconSelect);
+        row.appendChild(removeBtn);
+        return row;
+      }
+
+      presets.forEach(p => container.appendChild(makeRow(p)));
+
+      const addBtn = document.createElement('button');
+      addBtn.textContent = '\uff0b Add preset';
+      addBtn.className = 'action-btn btn-grey bc-add-btn';
+      addBtn.onclick = () => {
+        container.insertBefore(makeRow({ name: '', color: '#111111', opacity: 1, thickness: 4, shape: '', icon: '' }), addBtn);
+        _bcEnableDragReorder(container, '.bc-swatch-row');
+      };
+      container.appendChild(addBtn);
+      _bcEnableDragReorder(container, '.bc-swatch-row');
+    }
+
+    function _bcGetPenPresets() {
+      const rows = document.querySelectorAll('#bc-pen-preset-list .bc-swatch-row');
+      return Array.from(rows).map(row => {
+        const inputs = row.querySelectorAll('input');
+        const colorPick = inputs[0];
+        const nameInput = inputs[1];
+        const opInput = inputs[2];
+        const thInput = inputs[3];
+        const selects = row.querySelectorAll('select');
+        const shapeSelect = selects[0];
+        const iconSelect = selects[1];
+        return {
+          name: nameInput ? nameInput.value.trim() : '',
+          color: colorPick ? colorPick.value : '#111111',
+          opacity: opInput ? parseFloat(opInput.value) : 1,
+          thickness: thInput ? parseInt(thInput.value, 10) : 4,
+          shape: shapeSelect ? shapeSelect.value : '',
+          icon: iconSelect ? iconSelect.value : '',
+        };
+      }).filter(p => p.name || p.color !== '#111111');
+    }
+
+    // ── Pen preset icon resolver ─────────────────────────────────────────
+    function _conGetPresetIconName(p) {
+      if (!p) return 'pen.svg';
+      if (p.icon) {
+        return p.icon.endsWith('.svg') ? p.icon : (p.icon + '.svg');
+      }
+      const s = String(p.shape || '').trim().toLowerCase();
+      if (s === 'rect' || s === 'rectangle') return 'shape-rect.svg';
+      if (s === 'circle' || s === 'ellipse') return 'shape-circle.svg';
+      if (s === 'diamond') return 'shape-diamond.svg';
+      if (s === 'polygon') return 'shape-polygon.svg';
+      if (s === 'line') return 'shape-line.svg';
+      if (s === 'arrow') return 'shape-arrow.svg';
+
+      // Freehand pen variations
+      const name = String(p.name || '').toLowerCase();
+      const op = p.opacity !== undefined ? Number(p.opacity) : 1;
+      const th = p.thickness !== undefined ? Number(p.thickness) : 4;
+      if (op < 0.75 || th >= 10 || /high|fluo|marker|surlign/i.test(name)) {
+        return 'highlighter.svg';
+      }
+      if (th <= 2 || /thin|fine|fin/i.test(name)) {
+        return 'pen-thin.svg';
+      }
+      return 'pen.svg';
+    }
+    window._conGetPresetIconName = _conGetPresetIconName;
+
+    // ── Pen preset toolbar (Draw panel) ──────────────────────────────────
+    function conDrawInitPenPresets() {
+      const container = document.getElementById('con-draw-preset-btns');
+      const emptyHint = document.getElementById('con-draw-no-presets');
+      if (!container) return;
+      container.innerHTML = '';
+      const presets = window._bcPenPresets || [];
+      if (!presets.length) {
+        if (emptyHint) emptyHint.style.display = 'block';
+        return;
+      }
+      if (emptyHint) emptyHint.style.display = 'none';
+
+      presets.forEach((p, idx) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'action-btn btn-grey con-draw-preset-icon-btn';
+        btn.dataset.presetIdx = String(idx);
+        const iconName = _conGetPresetIconName(p);
+        const shapeLabel = p.shape ? (p.shape.charAt(0).toUpperCase() + p.shape.slice(1)) : 'Freehand';
+        const thickVal = p.thickness || 4;
+        const opVal = Math.round((p.opacity !== undefined ? p.opacity : 1) * 100);
+        const titleText = (p.name || 'Preset') + ' (' + shapeLabel + ' · ' + thickVal + 'px · ' + opVal + '%)';
+        btn.title = titleText;
+        btn.setAttribute('aria-label', titleText);
+
+        const iconImg = document.createElement('img');
+        iconImg.src = '../assets/icons/' + iconName;
+        iconImg.className = 'btn-icon con-draw-preset-icon-img';
+        iconImg.alt = p.name || 'Preset';
+
+        const swatch = document.createElement('span');
+        swatch.className = 'con-draw-preset-swatch';
+        swatch.style.background = p.color || '#111111';
+        swatch.style.opacity = p.opacity !== undefined ? p.opacity : 1;
+        const barH = Math.min(5, Math.max(2, Math.round(thickVal / 3)));
+        swatch.style.height = barH + 'px';
+
+        btn.appendChild(iconImg);
+        btn.appendChild(swatch);
+
+        btn.onclick = () => {
+          window.conDrawApplyPenPreset(p, idx);
+        };
+        container.appendChild(btn);
+      });
+    }
+    window.conDrawInitPenPresets = conDrawInitPenPresets;
+
+    window.conDrawApplyPenPreset = function (p, idx) {
+      _conDrawHandMode = false;
+      _conDrawEraserMode = false;
+      if (typeof _conSyncEraserToolbarBtn === 'function') _conSyncEraserToolbarBtn();
+      if (typeof _conDrawSyncOverlayCursor === 'function') _conDrawSyncOverlayCursor();
+
+      if (typeof window.conDrawSetColor === 'function') window.conDrawSetColor(p.color || '#111111');
+      if (typeof window.conDrawSetThickness === 'function') window.conDrawSetThickness(p.thickness || 4);
+      const tSlider = document.getElementById('con-draw-thickness');
+      if (tSlider) tSlider.value = p.thickness || 4;
+      if (typeof window.conDrawSetOpacity === 'function') window.conDrawSetOpacity(p.opacity !== undefined ? p.opacity : 1);
+      const oSlider = document.getElementById('con-draw-opacity');
+      if (oSlider) oSlider.value = p.opacity !== undefined ? p.opacity : 1;
+      if (typeof window.conDrawSetShapeDirect === 'function') window.conDrawSetShapeDirect(p.shape || null);
+
+      const container = document.getElementById('con-draw-preset-btns');
+      if (container) {
+        container.querySelectorAll('.con-draw-preset-icon-btn').forEach((b, i) => {
+          b.classList.toggle('con-panel-active', idx !== undefined ? i === idx : false);
+        });
+      }
+      if (typeof window.conDrawCloseAllMenus === 'function') window.conDrawCloseAllMenus();
+    };
+
+    const _BC_A4_SIZE_PX = {
+      landscape: { w: 1123, h: 794 },
+      portrait: { w: 794, h: 1123 }
+    };
+
+    function _bcNormalizeBoardLayoutPreset(v) {
+      const s = String(v || '').trim().toLowerCase();
+      if (s === 'a4-landscape' || s === 'a4-portrait' || s === 'custom') return s;
+      return 'flex';
+    }
+
+    function _bcNormalizeBoardOrientation(v) {
+      return String(v || '').trim().toLowerCase() === 'portrait' ? 'portrait' : 'landscape';
+    }
+
+    function _bcClampBoardDimension(v, fallback) {
+      const n = Math.round(Number(v));
+      if (!Number.isFinite(n)) return fallback;
+      return Math.max(320, Math.min(12000, n));
+    }
+
+    function _bcResolveBoardLayoutSettings(cfg) {
+      const src = cfg || {};
+      const preset = _bcNormalizeBoardLayoutPreset(src.boardLayoutPreset);
+      const customOrientation = _bcNormalizeBoardOrientation(src.boardCustomOrientation);
+      let customWidth = _bcClampBoardDimension(src.boardCustomWidthPx, 1600);
+      let customHeight = _bcClampBoardDimension(src.boardCustomHeightPx, 1000);
+
+      if (customOrientation === 'landscape' && customHeight > customWidth) {
+        [customWidth, customHeight] = [customHeight, customWidth];
+      } else if (customOrientation === 'portrait' && customWidth > customHeight) {
+        [customWidth, customHeight] = [customHeight, customWidth];
+      }
+
+      let dims = null;
+      if (preset === 'a4-landscape') dims = { ..._BC_A4_SIZE_PX.landscape };
+      else if (preset === 'a4-portrait') dims = { ..._BC_A4_SIZE_PX.portrait };
+      else if (preset === 'custom') dims = { w: customWidth, h: customHeight };
+
+      return {
+        preset,
+        customOrientation,
+        customWidth,
+        customHeight,
+        dims
+      };
+    }
+
+    function _bcApplyBoardLayout(layout) {
+      const board = document.getElementById('constellation-board');
+      const section = document.getElementById('constellation-section');
+      if (!board) return;
+      if (section && section.classList.contains('con-fullscreen')) return;
+
+      const pIdx = (typeof conCurrentPageIndex === 'number') ? conCurrentPageIndex : 0;
+      const savedH = (typeof conPageSnapshots !== 'undefined' && conPageSnapshots[pIdx]?.boardHeight)
+        || (() => {
+          try {
+            const s = sessionStorage.getItem('cmt-board-expanded-height-' + pIdx) || sessionStorage.getItem('cmt-board-expanded-height');
+            const v = parseInt(s, 10);
+            return (!isNaN(v) && v > 0) ? v : null;
+          } catch (_) { return null; }
+        })();
+
+      if (!layout || !layout.dims) {
+        board.style.width = '';
+        board.style.maxWidth = '';
+        board.style.height = (savedH && savedH > 0) ? (savedH + 'px') : '';
+        board.style.marginLeft = '';
+        board.style.marginRight = '';
+        return;
+      }
+
+      board.style.width = '100%';
+      board.style.maxWidth = layout.dims.w + 'px';
+      board.style.height = (savedH && savedH > layout.dims.h ? savedH : layout.dims.h) + 'px';
+      board.style.marginLeft = 'auto';
+      board.style.marginRight = 'auto';
+    }
+
+    function _bcApplyCustomOrientationInInputs() {
+      const orientationEl = document.getElementById('bc-board-custom-orientation');
+      const widthEl = document.getElementById('bc-board-custom-width');
+      const heightEl = document.getElementById('bc-board-custom-height');
+      if (!orientationEl || !widthEl || !heightEl) return;
+
+      const orientation = _bcNormalizeBoardOrientation(orientationEl.value);
+      let width = _bcClampBoardDimension(widthEl.value, 1600);
+      let height = _bcClampBoardDimension(heightEl.value, 1000);
+      if (orientation === 'landscape' && height > width) {
+        [width, height] = [height, width];
+      } else if (orientation === 'portrait' && width > height) {
+        [width, height] = [height, width];
+      }
+      widthEl.value = width;
+      heightEl.value = height;
+    }
+
+    function _bcSyncBoardLayoutControls() {
+      const presetEl = document.getElementById('bc-board-layout-preset');
+      const orientationEl = document.getElementById('bc-board-custom-orientation');
+      const widthEl = document.getElementById('bc-board-custom-width');
+      const heightEl = document.getElementById('bc-board-custom-height');
+      if (!presetEl || !orientationEl || !widthEl || !heightEl) return;
+
+      const preset = _bcNormalizeBoardLayoutPreset(presetEl.value);
+      const isCustom = preset === 'custom';
+      const isA4 = preset === 'a4-landscape' || preset === 'a4-portrait';
+
+      orientationEl.disabled = !isCustom;
+      widthEl.disabled = !isCustom;
+      heightEl.disabled = !isCustom;
+
+      if (isA4) {
+        const dims = preset === 'a4-portrait' ? _BC_A4_SIZE_PX.portrait : _BC_A4_SIZE_PX.landscape;
+        widthEl.value = dims.w;
+        heightEl.value = dims.h;
+      } else if (isCustom) {
+        _bcApplyCustomOrientationInInputs();
+      }
+    }
+
+    window.conApplyDefaultBoardLayout = function () {
+      const cfg = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG) ? BOARD_CONFIG : {};
+      const layout = _bcResolveBoardLayoutSettings(cfg);
+      window._bcBoardLayoutConfig = layout;
+      _bcApplyBoardLayout(layout);
+    };
+
+
+  Board.nodes = Board.nodes || {};
+
+  // Backward compatibility exports for HTML attributes & cross-module calls
+  window.conGroupSelected = global.conGroupSelected = conGroupSelected;
+  window.conImportOpen = global.conImportOpen = conImportOpen;
+  window.conImportClose = global.conImportClose = conImportClose;
+  window.conImportRender = global.conImportRender = conImportRender;
+  window.conImportSelectAll = global.conImportSelectAll = conImportSelectAll;
+  window.conImportClearSel = global.conImportClearSel = conImportClearSel;
+  window.conImportConfirm = global.conImportConfirm = conImportConfirm;
+  window.conImportTrayClose = global.conImportTrayClose = conImportTrayClose;
+  window.conImportTrayDropAll = global.conImportTrayDropAll = conImportTrayDropAll;
+  window.conInitSwatches = global.conInitSwatches = conInitSwatches;
+  window.conAttachNodeEvents = global.conAttachNodeEvents = conAttachNodeEvents;
+  window.conAttachNode = global.conAttachNode = conAttachNodeEvents;
+  window.conattachnode = global.conattachnode = conAttachNodeEvents;
+  window.conGetCtxNodeId = global.conGetCtxNodeId = function () { return (typeof conCtxNodeId !== 'undefined' ? conCtxNodeId : null); };
+  window.conSetNextId = global.conSetNextId = function (n) { if (typeof conNextId !== 'undefined' && n > conNextId) conNextId = n; };
+  window.taGetLines = global.taGetLines = function () { return (typeof taLines !== 'undefined') ? taLines : []; };
+  window.conComputeEdgeGeometry = global.conComputeEdgeGeometry = conComputeEdgeGeometry;
+  window.conAddEdge = global.conAddEdge = conAddEdge;
+  window.conEnsureSvgDefs = global.conEnsureSvgDefs = conEnsureSvgDefs;
+  window.conUpdateEdge = global.conUpdateEdge = conUpdateEdge;
+  window.conRedrawEdges = global.conRedrawEdges = conRedrawEdges;
+  window.conRenderNodeLabel = global.conRenderNodeLabel = conRenderNodeLabel;
+  window.conIsNodeLocked = global.conIsNodeLocked = conIsNodeLocked;
+  window.conSyncNodeLockState = global.conSyncNodeLockState = conSyncNodeLockState;
+
+  window.taWordNotes = global.taWordNotes = taWordNotes;
+  window.taFindToken = global.taFindToken = taFindToken;
+  window.conRemoveAttachmentFromCurrentPage = global.conRemoveAttachmentFromCurrentPage = conRemoveAttachmentFromCurrentPage;
+  window._conAttachmentCounter = global._conAttachmentCounter = _conAttachmentCounter;
+  window.conRenderAttachmentSummary = global.conRenderAttachmentSummary = conRenderAttachmentSummary;
+  window._conCopiedPages = global._conCopiedPages = _conCopiedPages;
+  window.conReadAttachmentFileBase64 = global.conReadAttachmentFileBase64 = conReadAttachmentFileBase64;
+  window.conAttachmentCandidateRelativePaths = global.conAttachmentCandidateRelativePaths = conAttachmentCandidateRelativePaths;
+  window.conAttachmentKind = global.conAttachmentKind = conAttachmentKind;
+  window.conGuessMimeByName = global.conGuessMimeByName = conGuessMimeByName;
+  window.conMediaNextId = global.conMediaNextId = conMediaNextId;
+  window._conPreviewSelectedIdx = global._conPreviewSelectedIdx = _conPreviewSelectedIdx;
+  window._conMirrorAttachmentPreload = global._conMirrorAttachmentPreload = _conMirrorAttachmentPreload;
+  window.conBuildAttachmentMetadata = global.conBuildAttachmentMetadata = conBuildAttachmentMetadata;
+  window.taLines = global.taLines = taLines;
+  window.taGetTitle = global.taGetTitle = taGetTitle;
+  window.conSanitizeAttachmentName = global.conSanitizeAttachmentName = conSanitizeAttachmentName;
+  window.conAwaitAllPdfRendersOnBoard = global.conAwaitAllPdfRendersOnBoard = conAwaitAllPdfRendersOnBoard;
+  window.conSetAttachmentsFromSession = global.conSetAttachmentsFromSession = conSetAttachmentsFromSession;
+  window.conRestoreMediaItems = global.conRestoreMediaItems = conRestoreMediaItems;
+  window.conRenderPdfForItem = global.conRenderPdfForItem = conRenderPdfForItem;
+  window.conBuildMediaWidget = global.conBuildMediaWidget = conBuildMediaWidget;
+  window.conEnsurePdfjsLib = global.conEnsurePdfjsLib = conEnsurePdfjsLib;
+  window.conGetAttachmentArrayBuffer = global.conGetAttachmentArrayBuffer = conGetAttachmentArrayBuffer;
+  window.conPdfGetDocumentParams = global.conPdfGetDocumentParams = conPdfGetDocumentParams;
+  window.conGetPdfPageCount = global.conGetPdfPageCount = conGetPdfPageCount;
+  window.conPdfPagePickerOpen = global.conPdfPagePickerOpen = conPdfPagePickerOpen;
+  window.conImportTrayOpen = global.conImportTrayOpen = conImportTrayOpen;
+  window.conImportPopulateThemes = global.conImportPopulateThemes = conImportPopulateThemes;
+  window.conImportPopulateSources = global.conImportPopulateSources = conImportPopulateSources;
+
+
+  window._BC_A4_SIZE_PX = global._BC_A4_SIZE_PX = _BC_A4_SIZE_PX;
+  window._bcNormalizeBoardLayoutPreset = global._bcNormalizeBoardLayoutPreset = _bcNormalizeBoardLayoutPreset;
+  window._bcNormalizeBoardOrientation = global._bcNormalizeBoardOrientation = _bcNormalizeBoardOrientation;
+  window._bcClampBoardDimension = global._bcClampBoardDimension = _bcClampBoardDimension;
+  window._bcResolveBoardLayoutSettings = global._bcResolveBoardLayoutSettings = _bcResolveBoardLayoutSettings;
+  window._bcApplyBoardLayout = global._bcApplyBoardLayout = _bcApplyBoardLayout;
+  window._bcApplyCustomOrientationInInputs = global._bcApplyCustomOrientationInInputs = _bcApplyCustomOrientationInInputs;
+  window._bcSyncBoardLayoutControls = global._bcSyncBoardLayoutControls = _bcSyncBoardLayoutControls;
+  window.conExtractBoardBgPresetsFromConfig = global.conExtractBoardBgPresetsFromConfig = conExtractBoardBgPresetsFromConfig;
+  window.conRenderBoardLayoutOptionsInContextMenu = global.conRenderBoardLayoutOptionsInContextMenu = conRenderBoardLayoutOptionsInContextMenu;
+  window._BC_NOTE_TEXT_DEFAULTS = global._BC_NOTE_TEXT_DEFAULTS = _BC_NOTE_TEXT_DEFAULTS;
+  window._BC_NODE_BORDER_DEFAULTS = global._BC_NODE_BORDER_DEFAULTS = _BC_NODE_BORDER_DEFAULTS;
+  window._BC_NOTE_BORDER_DEFAULTS = global._BC_NOTE_BORDER_DEFAULTS = _BC_NOTE_BORDER_DEFAULTS;
+  window._BC_PEN_PRESET_DEFAULTS = global._BC_PEN_PRESET_DEFAULTS = _BC_PEN_PRESET_DEFAULTS;
+  window._BC_PEN_SHAPE_OPTIONS = global._BC_PEN_SHAPE_OPTIONS = _BC_PEN_SHAPE_OPTIONS;
+  window._BC_FONT_OPTIONS = global._BC_FONT_OPTIONS = _BC_FONT_OPTIONS;
+  window._bcBuildFontSelect = global._bcBuildFontSelect = _bcBuildFontSelect;
+  window._bcFontSelectHtml = global._bcFontSelectHtml = _bcFontSelectHtml;
+  window._bcBuildPenPresetList = global._bcBuildPenPresetList = _bcBuildPenPresetList;
+  window._bcGetPenPresets = global._bcGetPenPresets = _bcGetPenPresets;
+
+})(typeof window !== "undefined" ? window : this);

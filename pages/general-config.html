@@ -170,6 +170,16 @@
               <p class="field-hint" data-i18n="gcShowDevFeaturesHint">When off, hides beta tools (Phone Remote, Student
                 Input Note, Multiplayer Host).</p>
             </div>
+
+            <div class="field" style="margin-top:14px;">
+              <label
+                style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:0.88rem;font-weight:700;">
+                <input type="checkbox" id="scoringMotivatorsToggle"
+                  style="width:15px;height:15px;cursor:pointer;accent-color:#000;">
+                <span data-i18n="gcFieldScoringMotivators">Scoring motivators & encouraging tips</span>
+              </label>
+              <p class="field-hint" data-i18n="gcFieldScoringMotivatorsDesc">Show playful progress milestones, pace estimates, and cheerful messages during test scoring.</p>
+            </div>
           </section>
 
           <!-- ── PDF Export Settings ────────────────────────── -->
@@ -1044,6 +1054,16 @@
       updateDevFeaturesVisibility();
       flashSaved(startupStatus);
     });
+
+    var scoringMotivatorsToggle = document.getElementById('scoringMotivatorsToggle');
+    if (scoringMotivatorsToggle) {
+      scoringMotivatorsToggle.addEventListener('change', function () {
+        try {
+          localStorage.setItem('cmt-scoring-motivators-enabled', scoringMotivatorsToggle.checked ? 'true' : 'false');
+        } catch(e) {}
+        flashSaved(startupStatus);
+      });
+    }
 
     /* ── startup layout ────────────────────────────────── */
     var startupStatus = document.getElementById('startupSaveStatus');
@@ -3111,6 +3131,11 @@
 
       showDevFeaturesToggle.checked = cfg.showDevFeatures === true;
       updateDevFeaturesVisibility();
+
+      if (scoringMotivatorsToggle) {
+        var motivVal = localStorage.getItem('cmt-scoring-motivators-enabled');
+        scoringMotivatorsToggle.checked = motivVal === null ? true : (motivVal === 'true');
+      }
 
       refreshCurrentPath();
       checkFirstRun();

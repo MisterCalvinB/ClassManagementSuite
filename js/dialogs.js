@@ -80,6 +80,20 @@
   ].join('');
   document.head.appendChild(style);
 
+  // ── Universal HTML Escaping Utility ─────────────────────────────────────────
+  function escapeHtml(text) {
+    if (text === null || text === undefined) return '';
+    return String(text)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+  if (typeof window !== 'undefined' && !window.escapeHtml) {
+    window.escapeHtml = escapeHtml;
+  }
+
   // ── Universal Modal / Popover Escape Stack Manager ─────────────────────────
   window.cmtEscapeStack = window.cmtEscapeStack || [];
 
@@ -283,19 +297,21 @@
   var timedConfirmResolve = null;
   var timedConfirmTimer = null;
   var timedConfirmRemaining = 0;
+  var _timedConfirmHasCancel = false;
 
   function ensureTimedConfirm() {
     if (timedConfirmOverlay) return;
     timedConfirmOverlay = document.createElement('div');
     timedConfirmOverlay.className = 'cmt-overlay';
     timedConfirmOverlay.innerHTML =
-      '<div class="cmt-dialog-box" style="text-align: center; max-width: 420px; padding: 24px 26px 20px;">' +
+      '<div class="cmt-dialog-box" style="text-align: center; max-width: 440px; padding: 24px 26px 20px;">' +
         '<div style="font-size: 2rem; margin-bottom: 10px; line-height: 1;">💾</div>' +
         '<h3 class="cmt-timed-title" style="margin: 0 0 10px; font-size: 1.1rem; font-weight: 800; color: inherit;"></h3>' +
         '<p class="cmt-timed-msg" style="margin: 0 0 12px; font-size: .92rem; line-height: 1.45; color: inherit; white-space: pre-wrap;"></p>' +
         '<div class="cmt-timed-countdown" style="margin-bottom: 18px; font-size: .84rem; font-weight: 600; color: #888;"></div>' +
-        '<div class="cmt-dialog-btns" style="justify-content: center; gap: 14px;">' +
+        '<div class="cmt-dialog-btns" style="justify-content: center; gap: 12px; flex-wrap: wrap;">' +
           '<button class="cmt-btn-cancel cmt-timed-btn-no" style="min-width: 90px; padding: 8px 18px;"></button>' +
+          '<button class="cmt-btn-cancel cmt-timed-btn-cancel" style="min-width: 90px; padding: 8px 18px; display: none;"></button>' +
           '<button class="cmt-btn-ok cmt-timed-btn-yes" style="min-width: 90px; padding: 8px 18px;"></button>' +
         '</div>' +
       '</div>';
@@ -303,9 +319,10 @@
 
     timedConfirmOverlay.querySelector('.cmt-timed-btn-yes').addEventListener('click', function () { resolveTimedConfirm(true); });
     timedConfirmOverlay.querySelector('.cmt-timed-btn-no').addEventListener('click', function () { resolveTimedConfirm(false); });
+    timedConfirmOverlay.querySelector('.cmt-timed-btn-cancel').addEventListener('click', function () { resolveTimedConfirm('cancel'); });
     timedConfirmOverlay.addEventListener('keydown', function (e) {
       if (e.key === 'Enter')  { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); resolveTimedConfirm(true);  }
-      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); resolveTimedConfirm(false); }
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); resolveTimedConfirm(_timedConfirmHasCancel ? 'cancel' : false); }
     });
   }
 
@@ -316,6 +333,7 @@
       clearInterval(timedConfirmTimer);
       timedConfirmTimer = null;
     }
+    _timedConfirmHasCancel = false;
     if (!timedConfirmOverlay) return;
     timedConfirmOverlay.classList.remove('open');
     if (timedConfirmResolve) {
@@ -362,6 +380,7 @@
     var msg = opts.msg || (typeof window.t === 'function' ? window.t('conAutosaveOnClosePrompt') : (defMsg[lang] || defMsg.en));
     var yesLabel = opts.yesText || (typeof window.t === 'function' ? window.t('btnYes') : (lbl.yes || 'Yes'));
     var noLabel = opts.noText || (typeof window.t === 'function' ? window.t('btnNo') : (lbl.no || 'No'));
+    var cancelLabel = opts.cancelText || null;
     var countdownTemplate = opts.countdownMsg || (typeof window.t === 'function' ? window.t('conAutosaveCountdown') : (defCountdown[lang] || defCountdown.en));
     var seconds = typeof opts.timeoutSeconds === 'number' ? opts.timeoutSeconds : 10;
     var defaultChoice = typeof opts.defaultChoice === 'boolean' ? opts.defaultChoice : true;
@@ -370,6 +389,16 @@
     timedConfirmOverlay.querySelector('.cmt-timed-msg').textContent = msg;
     timedConfirmOverlay.querySelector('.cmt-timed-btn-yes').textContent = yesLabel;
     timedConfirmOverlay.querySelector('.cmt-timed-btn-no').textContent = noLabel;
+
+    var cancelBtn = timedConfirmOverlay.querySelector('.cmt-timed-btn-cancel');
+    if (cancelLabel) {
+      _timedConfirmHasCancel = true;
+      cancelBtn.textContent = cancelLabel;
+      cancelBtn.style.display = 'inline-block';
+    } else {
+      _timedConfirmHasCancel = false;
+      cancelBtn.style.display = 'none';
+    }
 
     var countdownEl = timedConfirmOverlay.querySelector('.cmt-timed-countdown');
     timedConfirmRemaining = seconds;
@@ -400,7 +429,7 @@
     if (window.cmtPushEscapeHandler) {
       _timedConfirmEscUnreg = window.cmtPushEscapeHandler({
         el: timedConfirmOverlay,
-        close: function () { resolveTimedConfirm(false); }
+        close: function () { resolveTimedConfirm(_timedConfirmHasCancel ? 'cancel' : false); }
       });
     }
     setTimeout(function () {
@@ -654,13 +683,33 @@
     }, true);
   }
 
-  // ── Export destination modal ("to-print" vs "custom") ─────────────────────
-  var destinationOverlay = null;
   // ── Export destination modal ("to-print" vs "custom" vs "doc-editor") ────
   var destinationOverlay = null;
   var _destinationResolver = null;
+  var _destinationEscUnreg = null;
   var _currentExportDefaultExt = '';
   var _currentExportDefaultName = '';
+
+  function _closeDestinationOverlay(res) {
+    if (_destinationEscUnreg) {
+      _destinationEscUnreg();
+      _destinationEscUnreg = null;
+    }
+    if (destinationOverlay) {
+      destinationOverlay.classList.remove('open');
+    }
+    if (_destinationResolver) {
+      var fn = _destinationResolver;
+      _destinationResolver = null;
+      if (!res) {
+        fn(null);
+      } else {
+        var filenameInput = destinationOverlay ? destinationOverlay.querySelector('#cmt-dest-filename-input') : null;
+        var cleanName = _sanitizeExportFilename(filenameInput ? filenameInput.value : '', _currentExportDefaultExt, _currentExportDefaultName);
+        fn({ destination: res, filename: cleanName });
+      }
+    }
+  }
 
   function _sanitizeExportFilename(inputVal, defaultExt, defaultName) {
     var str = (inputVal || '').trim();
@@ -745,21 +794,7 @@
     var btnCloseX = destinationOverlay.querySelector('.cmt-dest-close-x');
     var filenameInput = destinationOverlay.querySelector('#cmt-dest-filename-input');
 
-    var _destinationEscUnreg = null;
-    function closeWith(res) {
-      if (_destinationEscUnreg) { _destinationEscUnreg(); _destinationEscUnreg = null; }
-      destinationOverlay.classList.remove('open');
-      if (_destinationResolver) {
-        var fn = _destinationResolver;
-        _destinationResolver = null;
-        if (!res) {
-          fn(null);
-        } else {
-          var cleanName = _sanitizeExportFilename(filenameInput ? filenameInput.value : '', _currentExportDefaultExt, _currentExportDefaultName);
-          fn({ destination: res, filename: cleanName });
-        }
-      }
-    }
+    var closeWith = _closeDestinationOverlay;
 
     if (btnSameFolder) {
       btnSameFolder.addEventListener('click', function () { closeWith('same-folder'); });
@@ -853,6 +888,10 @@
       if (_destinationResolver) {
         var old = _destinationResolver;
         _destinationResolver = null;
+        if (_destinationEscUnreg) {
+          _destinationEscUnreg();
+          _destinationEscUnreg = null;
+        }
         old(null);
       }
       _destinationResolver = resolve;
@@ -860,7 +899,7 @@
       if (window.cmtPushEscapeHandler) {
         _destinationEscUnreg = window.cmtPushEscapeHandler({
           el: destinationOverlay,
-          close: function () { closeWith(null); }
+          close: function () { _closeDestinationOverlay(null); }
         });
       }
 

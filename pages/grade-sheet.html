@@ -9,6 +9,7 @@
   <script src="../js/student-name-utils.js"></script>
   <script src="../js/i18n.js"></script>
   <script src="../js/dialogs.js"></script>
+  <script src="../js/scoring-motivators.js"></script>
   <script src="../js/shortcuts-modal.js"></script>
   <script src="../js/tutorial.js"></script>
   <script src="../modules/xlsx.min.js"></script>
@@ -900,6 +901,20 @@
     </div>
   </div>
 
+  <!-- Remaining students popover (Option B) -->
+  <div id="gs-remaining-students-popover" class="gs-remaining-popover hidden" role="dialog" aria-modal="true" aria-labelledby="gs-rem-popover-title">
+    <div class="gs-rem-popover-header">
+      <div class="gs-rem-popover-title-row">
+        <span class="gs-rem-popover-icon"><img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /></span>
+        <h3 id="gs-rem-popover-title" class="gs-rem-popover-title" data-i18n="gsProgressRemainingListTitle">Remaining Students to Score</h3>
+      </div>
+      <button class="gs-rem-popover-close" id="gs-rem-popover-close" title="Close" aria-label="Close"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
+    </div>
+    <div class="gs-rem-popover-summary" id="gs-rem-popover-summary"></div>
+    <div class="gs-rem-popover-list" id="gs-rem-popover-list"></div>
+    <div class="gs-rem-popover-excluded" id="gs-rem-popover-excluded" style="display:none;"></div>
+  </div>
+
   <!-- Coefficient popup -->
   <div id="coeff-popup-overlay" class="crit-popup-overlay hidden">
     <div class="crit-popup panel" role="dialog" aria-modal="true">
@@ -1104,6 +1119,42 @@
                 <label for="topt-info-chips-bank" data-i18n="gsChipsBank">Observation Chips Bank</label>
                 <select id="topt-info-chips-bank" class="input" style="font-size:0.85rem;padding:4px 8px;"></select>
               </div>
+            </div>
+          </div>
+
+          <div class="topt-card" style="margin-top:14px;">
+            <div class="topt-card-title"><span data-i18n="gsToptDeadlineTitle">Correction Deadline & Reminders</span></div>
+            <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;">
+              <div class="form-group" style="margin-bottom:0;flex:1;min-width:180px;">
+                <label for="topt-info-deadline" data-i18n="gsToptDeadlineLabel">Target completion deadline:</label>
+                <div style="display:flex;gap:6px;">
+                  <input id="topt-info-deadline" class="input" type="date" style="flex:1;" />
+                  <input id="topt-info-deadline-time" class="input" type="time" style="width:110px;" />
+                </div>
+              </div>
+              <div class="form-group" style="margin-bottom:0;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                <button type="button" class="btn" id="topt-deadline-quick-3d" data-i18n="gsToptDeadlineQuick3d">+3 Days</button>
+                <button type="button" class="btn" id="topt-deadline-quick-1w" data-i18n="gsToptDeadlineQuick1w">+1 Week</button>
+                <button type="button" class="btn" id="topt-deadline-clear" data-i18n="gsToptDeadlineClear">Clear Deadline</button>
+              </div>
+            </div>
+            <div style="margin-top:10px;padding:8px 10px;background:#f5f5f0;border:1.5px solid #333333;border-radius:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;font-weight:600;cursor:pointer;margin:0;">
+                <input type="checkbox" id="topt-info-deadline-auto" checked />
+                <span data-i18n="gsToptDeadlineAutoSet">Auto-set deadline:</span>
+              </label>
+              <div style="display:inline-flex;align-items:center;gap:6px;">
+                <input id="topt-info-deadline-days-after" class="input" type="number" min="1" max="180" value="13" style="width:58px;padding:3px 6px;text-align:center;font-weight:700;" />
+                <span style="font-size:0.85rem;font-weight:600;" data-i18n="gsToptDeadlineDaysAfter">days after test date</span>
+              </div>
+              <button type="button" class="btn" id="topt-deadline-apply-offset" data-i18n="gsToptDeadlineApplyOffset" style="margin-left:auto;padding:3px 10px;font-size:0.8rem;">Apply</button>
+            </div>
+            <div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+              <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;cursor:pointer;">
+                <input type="checkbox" id="topt-info-deadline-reminders" checked />
+                <span data-i18n="gsToptDeadlineReminders">Show auto-reminders in Launcher</span>
+              </label>
+              <div id="topt-deadline-live-status" class="field-hint" style="margin:0;font-weight:700;color:#555;"></div>
             </div>
           </div>
         </div>
@@ -2475,19 +2526,102 @@
       return '#0284c7';
     }
 
+    function isObservationSectionMatch(groupOrSec, sampleLabel = '', sampleKind = '') {
+      if (!groupOrSec) return false;
+      const secName = typeof groupOrSec === 'object' ? (groupOrSec.section || groupOrSec.name || groupOrSec.sectionName || '') : String(groupOrSec);
+      const secLower = String(secName || '').trim().toLowerCase();
+      const lblLower = String(sampleLabel || '').trim().toLowerCase();
+      const normTargetKind = typeof normalizeObservationKind === 'function' ? normalizeObservationKind(sampleKind) : '';
+      const kTarget = (normTargetKind || String(sampleKind || '').trim()).toLowerCase();
+      const normSecKind = typeof groupOrSec === 'object' && groupOrSec.kind && typeof normalizeObservationKind === 'function' ? normalizeObservationKind(groupOrSec.kind) : '';
+      const kSec = (normSecKind || (typeof groupOrSec === 'object' && groupOrSec.kind ? String(groupOrSec.kind).trim() : '')).toLowerCase();
+
+      // 1. Exact string match on section name / label
+      if (secLower && lblLower && secLower === lblLower) return true;
+
+      // 2. Kind semantic matching (goodPoints vs toRemedy vs action)
+      const isTargetGood = kTarget === 'goodpoints' || lblLower.includes('good') || lblLower.includes('fort') || lblLower.includes('strength') || lblLower.includes('bien') || lblLower.includes('positif') || lblLower.includes('stärk') || lblLower.includes('ottim');
+      const isTargetRemedy = kTarget === 'toremedy' || lblLower.includes('remedy') || lblLower.includes('improv') || lblLower.includes('amélio') || lblLower.includes('faible') || lblLower.includes('difficul') || lblLower.includes('schwach') || lblLower.includes('lacune');
+      const isTargetAction = kTarget === 'action' || lblLower.includes('action') || lblLower.includes('plan') || lblLower.includes('next') || lblLower.includes('étape') || lblLower.includes('conseil') || lblLower.includes('ziel');
+
+      const isSecGood = kSec === 'goodpoints' || secLower.includes('good') || secLower.includes('fort') || secLower.includes('strength') || secLower.includes('bien') || secLower.includes('positif') || secLower.includes('stärk') || secLower.includes('ottim');
+      const isSecRemedy = kSec === 'toremedy' || secLower.includes('remedy') || secLower.includes('improv') || secLower.includes('amélio') || secLower.includes('faible') || secLower.includes('difficul') || secLower.includes('schwach') || secLower.includes('lacune');
+      const isSecAction = kSec === 'action' || secLower.includes('action') || secLower.includes('plan') || secLower.includes('next') || secLower.includes('étape') || secLower.includes('conseil') || secLower.includes('ziel');
+
+      if (isTargetGood && isSecGood) return true;
+      if (isTargetRemedy && isSecRemedy) return true;
+      if (isTargetAction && isSecAction) return true;
+
+      // Mutually exclusive: if target is good and sec is remedy (or vice versa), NEVER match
+      if ((isTargetGood && isSecRemedy) || (isTargetRemedy && isSecGood)) return false;
+      if ((isTargetGood && isSecAction) || (isTargetAction && isSecGood)) return false;
+      if ((isTargetRemedy && isSecAction) || (isTargetAction && isSecRemedy)) return false;
+
+      // 3. Substring containment if both non-empty and neither is standard kind
+      if (secLower && lblLower && !isTargetGood && !isTargetRemedy && !isTargetAction && !isSecGood && !isSecRemedy && !isSecAction) {
+        if (secLower.includes(lblLower) || lblLower.includes(secLower)) return true;
+      }
+
+      return false;
+    }
+
+    function isObservationSectionConflict(groupOrSec, sampleLabel = '', sampleKind = '') {
+      if (!groupOrSec) return false;
+      const secName = typeof groupOrSec === 'object' ? (groupOrSec.section || groupOrSec.name || groupOrSec.sectionName || '') : String(groupOrSec);
+      const secLower = String(secName || '').trim().toLowerCase();
+      const lblLower = String(sampleLabel || '').trim().toLowerCase();
+      const normTargetKind = typeof normalizeObservationKind === 'function' ? normalizeObservationKind(sampleKind) : '';
+      const kTarget = (normTargetKind || String(sampleKind || '').trim()).toLowerCase();
+      const normSecKind = typeof groupOrSec === 'object' && groupOrSec.kind && typeof normalizeObservationKind === 'function' ? normalizeObservationKind(groupOrSec.kind) : '';
+      const kSec = (normSecKind || (typeof groupOrSec === 'object' && groupOrSec.kind ? String(groupOrSec.kind).trim() : '')).toLowerCase();
+
+      const isTargetGood = kTarget === 'goodpoints' || lblLower.includes('good') || lblLower.includes('fort') || lblLower.includes('strength') || lblLower.includes('bien') || lblLower.includes('positif') || lblLower.includes('stärk') || lblLower.includes('ottim');
+      const isTargetRemedy = kTarget === 'toremedy' || lblLower.includes('remedy') || lblLower.includes('improv') || lblLower.includes('amélio') || lblLower.includes('faible') || lblLower.includes('difficul') || lblLower.includes('schwach') || lblLower.includes('lacune');
+      const isTargetAction = kTarget === 'action' || lblLower.includes('action') || lblLower.includes('plan') || lblLower.includes('next') || lblLower.includes('étape') || lblLower.includes('conseil') || lblLower.includes('ziel');
+
+      const isSecGood = kSec === 'goodpoints' || secLower.includes('good') || secLower.includes('fort') || secLower.includes('strength') || secLower.includes('bien') || secLower.includes('positif') || secLower.includes('stärk') || secLower.includes('ottim');
+      const isSecRemedy = kSec === 'toremedy' || secLower.includes('remedy') || secLower.includes('improv') || secLower.includes('amélio') || secLower.includes('faible') || secLower.includes('difficul') || secLower.includes('schwach') || secLower.includes('lacune');
+      const isSecAction = kSec === 'action' || secLower.includes('action') || secLower.includes('plan') || secLower.includes('next') || secLower.includes('étape') || secLower.includes('conseil') || secLower.includes('ziel');
+
+      if ((isTargetGood && isSecRemedy) || (isTargetRemedy && isSecGood)) return true;
+      if ((isTargetGood && isSecAction) || (isTargetAction && isSecGood)) return true;
+      if ((isTargetRemedy && isSecAction) || (isTargetAction && isSecRemedy)) return true;
+
+      return false;
+    }
+
     function resolveObservationChipColor(chipName, sectionColor = '', sampleKind = '', sampleLabel = '', bankFilename = null) {
       const nameLower = String(chipName || '').trim().toLowerCase();
       const targetBank = bankFilename || (typeof _activeChipBankFilename !== 'undefined' ? _activeChipBankFilename : null);
+      const hasSectionContext = !!(String(sampleLabel || '').trim() || String(sampleKind || '').trim());
 
       if (typeof getObservationChecklistGroups === 'function') {
         const groups = getObservationChecklistGroups(targetBank);
-        if (Array.isArray(groups)) {
-          for (const g of groups) {
-            if (Array.isArray(g.items) && g.items.some(item => String(item || '').trim().toLowerCase() === nameLower)) {
-              if (g.color) return g.color;
-              if (g.section) {
-                const secCol = resolveObservationSectionColor(g.section, '', targetBank);
-                if (secCol) return secCol;
+        if (Array.isArray(groups) && groups.length > 0) {
+          // 1. If we have section context, first search specifically within matching section groups
+          if (hasSectionContext) {
+            for (const g of groups) {
+              if (isObservationSectionMatch(g, sampleLabel, sampleKind)) {
+                if (Array.isArray(g.items) && g.items.some(item => String(item || '').trim().toLowerCase() === nameLower)) {
+                  if (g.color) return g.color;
+                  if (g.section) {
+                    const secCol = resolveObservationSectionColor(g.section, sampleKind, targetBank);
+                    if (secCol) return secCol;
+                  }
+                }
+              }
+            }
+          }
+
+          // 2. If NO section context was provided at all, search across all groups
+          if (!hasSectionContext) {
+            for (const g of groups) {
+              if (Array.isArray(g.items) && g.items.some(item => String(item || '').trim().toLowerCase() === nameLower)) {
+                if (g.color) return g.color;
+                if (g.section) {
+                  const secCol = resolveObservationSectionColor(g.section, '', targetBank);
+                  if (secCol) return secCol;
+                }
               }
             }
           }
@@ -2501,16 +2635,25 @@
       return resolveObservationSectionColor(sampleLabel, sampleKind, targetBank);
     }
 
-    function renderObservationPill(nameOrObj, kind, label) {
+    function renderObservationPill(nameOrObj, kind, label, preferredColor = '') {
       const parsed = parseObservationChipItem(nameOrObj);
       const name = parsed.name;
       const count = parsed.count;
       const lbl = String(label || "").trim();
-      const chipCol = resolveObservationChipColor(name, '', kind, lbl);
+      const chipCol = resolveObservationChipColor(name, preferredColor, kind, lbl);
       const border = chipCol;
-      const color = chipCol;
+      const color = (typeof getHighContrastTextColor === 'function') ? getHighContrastTextColor(chipCol) : chipCol;
       const bg = `${chipCol}18`;
-      const pillClass = "obs-pill obs-pill-custom";
+
+      const normK = typeof normalizeObservationKind === 'function' ? normalizeObservationKind(kind) : '';
+      const k = (normK || (kind ? String(kind) : '')).toLowerCase();
+      const lblLower = lbl.toLowerCase();
+      let pillClass = "obs-pill obs-pill-custom";
+      if (k === 'goodpoints' || lblLower.includes('good') || lblLower.includes('fort') || lblLower.includes('strength') || lblLower.includes('stärk') || lblLower.includes('bien') || chipCol === '#16a34a' || chipCol === '#166534') {
+        pillClass = "obs-pill obs-pill-good";
+      } else if (k === 'toremedy' || lblLower.includes('remedy') || lblLower.includes('improv') || lblLower.includes('amélio') || lblLower.includes('faible') || lblLower.includes('schwach') || lblLower.includes('difficul') || chipCol === '#dc2626' || chipCol === '#991b1b') {
+        pillClass = "obs-pill obs-pill-remedy";
+      }
 
       const multiplierBadge = count > 1
         ? `<sup class="obs-pill-multiplier" style="font-size:0.68em;font-weight:800;line-height:0;vertical-align:super;margin-left:2px;margin-right:3px;display:inline-block;white-space:nowrap;pointer-events:none;">x${count}</sup>`
@@ -2523,15 +2666,14 @@
       return `<span class="${pillClass}" style="display:inline-block;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700;line-height:1.15;margin:1px 2px 1px 0;background:${bg};color:${color};border:1.5px solid ${border};box-shadow:1px 1px 0 rgba(0,0,0,0.12);">${escapeHtml(name)}${multiplierBadge}${commentSpan}</span>`;
     }
 
-    function groupObservationChipsByCategory(chips, sectionLabel, bankFilename) {
+    function groupObservationChipsByCategory(chips, sectionLabel, bankFilename, sectionKind = '') {
       if (!Array.isArray(chips) || chips.length === 0) return [];
       const groups = getObservationChecklistGroups(bankFilename);
       const generalLabel = (typeof t === 'function' ? (t('gsCategoryGeneral') || 'General') : 'General');
 
-      const sLabelLower = String(sectionLabel || '').trim().toLowerCase();
-      const secGroups = groups.filter(g => String(g.section || '').trim().toLowerCase() === sLabelLower);
-      const otherGroups = groups.filter(g => String(g.section || '').trim().toLowerCase() !== sLabelLower);
-      const orderedGroups = secGroups.concat(otherGroups);
+      const secGroups = groups.filter(g => isObservationSectionMatch(g, sectionLabel, sectionKind));
+      const hasSpecificSecGroups = secGroups.length > 0;
+      const targetGroups = hasSpecificSecGroups ? secGroups : groups.filter(g => !isObservationSectionConflict(g, sectionLabel, sectionKind));
 
       const categoryMap = new Map();
       const uncategorized = [];
@@ -2543,7 +2685,7 @@
         const chipLower = chipClean.toLowerCase();
 
         let foundGroup = null;
-        for (const g of orderedGroups) {
+        for (const g of targetGroups) {
           if (Array.isArray(g.items) && g.items.some(item => String(item || '').trim().toLowerCase() === chipLower)) {
             foundGroup = g;
             break;
@@ -2577,7 +2719,7 @@
       return result;
     }
 
-    function renderObservationSectionHtml(section) {
+    function renderObservationSectionHtml(section, bankFilename = null) {
       if (!section) return "";
       const label = String(section.label || "").trim();
       const checklist = sectionChecklistSummary(section);
@@ -2585,18 +2727,19 @@
 
       if (checklist.length === 0 && !text) return "";
 
-      const secColor = resolveObservationSectionColor(section, section.kind);
+      const targetBank = bankFilename || section.bankFilename || (typeof _activeChipBankFilename !== 'undefined' ? _activeChipBankFilename : null);
+      const secColor = resolveObservationSectionColor(section, section.kind, targetBank);
 
       let pillsHtml = "";
       if (checklist.length > 0) {
-        const catGroups = groupObservationChipsByCategory(checklist, label, typeof _activeChipBankFilename !== 'undefined' ? _activeChipBankFilename : null);
+        const catGroups = groupObservationChipsByCategory(checklist, label, targetBank, section.kind);
         if (catGroups.length > 0) {
           pillsHtml = catGroups.map(cg => `
             <span class="obs-category-span" style="display:inline-flex;align-items:center;flex-wrap:wrap;gap:2px;margin:0 4px 0 0;vertical-align:middle;">
-              <span class="obs-category-tag" style="font-size:8.5px;font-weight:800;letter-spacing:0.02em;color:#333333;margin-right:2px;white-space:nowrap;">
+              <span class="obs-category-tag" style="font-size:10px;font-weight:800;letter-spacing:0.02em;color:#333333;margin-right:2px;white-space:nowrap;">
                 ${escapeHtml(cg.category)}:
               </span>
-              ${cg.chips.map(chip => renderObservationPill(chip, section.kind, label)).join("")}
+              ${cg.chips.map(chip => renderObservationPill(chip, section.kind, label, cg.color || secColor)).join("")}
             </span>
           `).join("");
         }
@@ -2618,7 +2761,7 @@
       return `<div class="obs-section" style="margin-bottom:4px;line-height:1.35;">${topChipsLine}${feedbackHtml}</div>`;
     }
 
-    function renderObservationInlineHtml(section) {
+    function renderObservationInlineHtml(section, bankFilename = null) {
       if (!section) return "";
       const label = String(section.label || "").trim();
       const checklist = sectionChecklistSummary(section);
@@ -2626,14 +2769,17 @@
 
       if (checklist.length === 0 && !text) return "";
 
+      const targetBank = bankFilename || section.bankFilename || (typeof _activeChipBankFilename !== 'undefined' ? _activeChipBankFilename : null);
+      const secColor = resolveObservationSectionColor(section, section.kind, targetBank);
+
       const labelPrefix = label ? `<strong class="obs-label" style="color:#111;margin-right:4px;font-size:9.5px;text-transform:uppercase;letter-spacing:0.03em;">${escapeHtml(label)}:</strong>` : "";
       let pills = "";
       if (checklist.length > 0) {
-        const catGroups = groupObservationChipsByCategory(checklist, label, typeof _activeChipBankFilename !== 'undefined' ? _activeChipBankFilename : null);
+        const catGroups = groupObservationChipsByCategory(checklist, label, targetBank, section.kind);
         pills = catGroups.map(cg => `
           <span class="obs-category-span" style="display:inline-flex;align-items:center;flex-wrap:wrap;gap:2px;margin:0 4px 0 0;vertical-align:middle;">
-            <span class="obs-category-tag" style="font-size:8.5px;font-weight:800;letter-spacing:0.02em;color:#333333;margin-right:2px;white-space:nowrap;">${escapeHtml(cg.category)}:</span>
-            ${cg.chips.map(chip => renderObservationPill(chip, section.kind, label)).join("")}
+            <span class="obs-category-tag" style="font-size:10px;font-weight:800;letter-spacing:0.02em;color:#333333;margin-right:2px;white-space:nowrap;">${escapeHtml(cg.category)}:</span>
+            ${cg.chips.map(chip => renderObservationPill(chip, section.kind, label, cg.color || secColor)).join("")}
           </span>
         `).join("");
       }
@@ -8417,6 +8563,16 @@
         nextGradeHighlightPoints: 0,
         criteria: [],
         observationSections: [],
+        correctionDeadline: "",
+        correctionDeadlineTime: "",
+        correctionDeadlineDaysAfter: 13,
+        correctionDeadlineAuto: true,
+        deadlineReminders: {
+          enabled: true,
+          offsetsDays: [3, 1, 0]
+        },
+        correctionDeadlineDoneAt: null,
+        excludedStudentIds: [],
         grading: {
           mode: "manual",
           manualInputMode: "percent",
@@ -8486,6 +8642,23 @@
             if (typeof cfg.testDate !== "string") cfg.testDate = "";
             if (typeof cfg.scope !== "string") cfg.scope = "";
             if (typeof cfg.type !== "string") cfg.type = "";
+            if (typeof cfg.correctionDeadline !== "string") cfg.correctionDeadline = "";
+            if (typeof cfg.correctionDeadlineTime !== "string") cfg.correctionDeadlineTime = "";
+            if (typeof cfg.correctionDeadlineDaysAfter !== "number" || isNaN(cfg.correctionDeadlineDaysAfter)) {
+              cfg.correctionDeadlineDaysAfter = 13;
+            }
+            if (typeof cfg.correctionDeadlineAuto !== "boolean") {
+              cfg.correctionDeadlineAuto = true;
+            }
+            if (!cfg.deadlineReminders || typeof cfg.deadlineReminders !== "object") {
+              cfg.deadlineReminders = { enabled: true, offsetsDays: [3, 1, 0] };
+            }
+            if (cfg.correctionDeadlineDoneAt !== undefined && typeof cfg.correctionDeadlineDoneAt !== "string" && cfg.correctionDeadlineDoneAt !== null) {
+              cfg.correctionDeadlineDoneAt = null;
+            }
+            if (!Array.isArray(cfg.excludedStudentIds)) {
+              cfg.excludedStudentIds = [];
+            }
             if (!cfg.criteriaBank) {
               cfg.criteriaBank = classObj.criteriaBank || (classObj.criteriaBanks && classObj.criteriaBanks[0]) || 'correction-criteria.js';
             }
@@ -9414,7 +9587,17 @@
 
       // 1. Populate metadata
       config.testName = testObj.title || testObj.name || (filename ? filename.replace(/\.json$/i, '') : 'Imported Test');
-      if (testObj.date) config.testDate = testObj.date;
+      if (testObj.date) {
+        config.testDate = testObj.date;
+        if (!config.correctionDeadline && config.correctionDeadlineAuto !== false) {
+          const days = (typeof config.correctionDeadlineDaysAfter === 'number') ? config.correctionDeadlineDaysAfter : 13;
+          const d = new Date(testObj.date + 'T00:00:00');
+          if (!isNaN(d.getTime())) {
+            d.setDate(d.getDate() + days);
+            config.correctionDeadline = d.toISOString().slice(0, 10);
+          }
+        }
+      }
       if (testObj.scope) config.scope = testObj.scope;
       if (testObj.subject) config.type = testObj.subject;
 
@@ -10078,6 +10261,7 @@
             const testData = {
               _savedAt: now,
               classId: cls.id,
+              className: cls.name || '',
               semester: sem,
               testIndex: i,
               testConfig: cfg || createDefaultTestConfig(),
@@ -10096,6 +10280,16 @@
               .catch(() => {});
           }
         }
+      }
+      if (typeof BroadcastChannel !== 'undefined') {
+        try {
+          new BroadcastChannel('cmt-grades').postMessage({
+            action: 'grades-saved',
+            targetClassId: targetClassId,
+            targetSem: targetSem,
+            targetTestIndex: targetTestIndex
+          });
+        } catch (e) {}
       }
     }
 
@@ -10357,6 +10551,16 @@
         saveGradesStructured(targetClassId, targetSem, targetTestIndex).catch(err => {
           console.error('Electron save failed:', err);
         });
+      }
+      if (typeof BroadcastChannel !== 'undefined') {
+        try {
+          new BroadcastChannel('cmt-grades').postMessage({
+            action: 'grades-saved',
+            targetClassId,
+            targetSem,
+            targetTestIndex
+          });
+        } catch (e) {}
       }
     }
 
@@ -11130,8 +11334,90 @@
           chip.type = "button";
           chip.className = "all-test-item";
           chip.draggable = true;
-          chip.setAttribute("title", t('gsDragToReorder'));
-          chip.innerHTML = `<span class="all-test-badge">${escapeHtml(badge)}</span><span class="all-test-name">${escapeHtml(name)}</span>${date ? `<span class="all-test-date">${escapeHtml(date)}</span>` : ''}`;
+
+          // Check if test was already taken and has unscored students
+          const todayStr = new Date().toISOString().slice(0, 10);
+          let remClusterHtml = '';
+          let chipTooltip = t('gsDragToReorder');
+
+          if (date && date <= todayStr) {
+            const progress = computeScoringProgress(c, sem, i, cfg);
+            if (progress && progress.remainingCount > 0) {
+              const estMinutes = (progress.hasEta && progress.avgMin > 0)
+                ? Math.round(progress.remainingCount * progress.avgMin)
+                : (progress.remainingCount * 15);
+              const estTimeStr = formatCorrectionTime(estMinutes);
+
+              let dlDate = (cfg && cfg.correctionDeadline) ? cfg.correctionDeadline : '';
+              if (!dlDate && cfg && cfg.correctionDeadlineDaysAfter && date) {
+                try {
+                  const d = new Date(date + 'T00:00:00');
+                  d.setDate(d.getDate() + Number(cfg.correctionDeadlineDaysAfter));
+                  dlDate = d.toISOString().slice(0, 10);
+                } catch (_) {}
+              }
+
+              const isOverdue = !!(dlDate && dlDate < todayStr);
+              const isDueToday = !!(dlDate && dlDate === todayStr);
+              chip.classList.add(isOverdue ? "test-taken-overdue" : "test-taken-pending");
+
+              const remCountText = tFmt('gsAllTestsRemaining', { n: progress.remainingCount });
+              const etaText = tFmt('gsAllTestsEta', { time: estTimeStr });
+              let dlText = '';
+              if (dlDate) {
+                if (isOverdue) {
+                  dlText = tFmt('gsAllTestsOverdue', { date: dlDate });
+                } else if (isDueToday) {
+                  dlText = t('gsAllTestsDueToday');
+                } else {
+                  dlText = tFmt('gsAllTestsDeadline', { date: dlDate });
+                }
+              }
+
+              remClusterHtml = `
+                <span class="all-test-rem-cluster">
+                  <span class="all-test-rem-pill all-test-rem-count" title="${escapeHtml(remCountText)}">
+                    <img src="../assets/icons/group.svg" class="all-test-mini-icon" alt="" />
+                    ${escapeHtml(remCountText)}
+                  </span>
+                  <span class="all-test-rem-pill all-test-rem-eta" title="${escapeHtml(etaText)}">
+                    <img src="../assets/icons/stopwatch.svg" class="all-test-mini-icon" alt="" />
+                    ${escapeHtml(etaText)}
+                  </span>
+                  ${dlText ? `
+                    <span class="all-test-rem-pill all-test-rem-dl ${isOverdue ? 'overdue' : ''}" title="${escapeHtml(dlText)}">
+                      <img src="../assets/icons/calendar.svg" class="all-test-mini-icon" alt="" />
+                      ${escapeHtml(dlText)}
+                    </span>
+                  ` : ''}
+                </span>
+              `;
+
+              const baseDlDesc = dlText || (dlDate || '—');
+              chipTooltip = tFmt('gsAllTestsTakenPendingTooltip', {
+                testDate: date,
+                n: progress.remainingCount,
+                time: estTimeStr,
+                dl: baseDlDesc
+              });
+
+              if (window.ScoringMotivators && ScoringMotivators.isEnabled()) {
+                const motiv = ScoringMotivators.pick({
+                  deadlineStatus: progress.deadlineStatus || (isOverdue ? 'overdue' : (isDueToday ? 'behind' : 'on-track')),
+                  remaining: progress.remainingCount,
+                  total: progress.totalCount,
+                  pct: progress.pct,
+                  scored: progress.scoredCount
+                });
+                if (motiv && motiv.text) {
+                  chipTooltip += ` · ✨ ${motiv.text}`;
+                }
+              }
+            }
+          }
+
+          chip.setAttribute("title", chipTooltip);
+          chip.innerHTML = `<span class="all-test-badge">${escapeHtml(badge)}</span><span class="all-test-name">${escapeHtml(name)}</span>${date ? `<span class="all-test-date">${escapeHtml(date)}</span>` : ''}${remClusterHtml}`;
 
           chip.addEventListener("dragstart", (e) => {
             _gsDraggedTestInfo = { classId: c.id, sem: sem, testIndex: i };
@@ -11811,6 +12097,19 @@
       testInfoChip.innerHTML = `<span class="chip-icon"><img src="../assets/icons/planner.svg" class="btn-icon" alt="" /></span><span class="chip-label">${t('gsTestInfoTitle')}</span><span class="chip-value" style="max-width:360px;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(nameDisplay)} · ${escapeHtml(dateDisplay)} · ${escapeHtml(scopeDisplay)} · ${escapeHtml(typeDisplay)} · next ${fmtN(nextGradeHighlightDisplay)}pts</span>`;
       testInfoChip.addEventListener("click", () => openTestOptionsModal(config, classObj, sem, testIndex, "info"));
       configWrap.appendChild(testInfoChip);
+
+      // Scoring Progress & Deadline chip (Option D)
+      const progress = computeScoringProgress(classObj, sem, testIndex, config);
+      const progressChip = document.createElement("div");
+      progressChip.className = "config-chip chip-scoring-progress" + (progress.remainingCount === 0 && progress.totalCount > 0 ? " all-done" : "");
+      progressChip.id = "chip-scoring-progress";
+      const etaStr = progress.hasEta ? ` · ≈ ${formatCorrectionTime(progress.etaMin)}` : "";
+      const dlBadge = progress.deadlineStatus ? ` [${progress.daysLeft < 0 ? tFmt('gsToptDeadlineOverdue', { n: Math.abs(progress.daysLeft) }) : (progress.daysLeft === 0 ? t('gsToptDeadlineDueToday') : tFmt('gsToptDeadlineDaysLeft', { n: progress.daysLeft }))}]` : "";
+      progressChip.innerHTML = `<span class="chip-icon"><img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /></span><span class="chip-label">${t('gsScoringProgressTitle')}</span><span class="chip-value">${progress.remainingCount === 0 && progress.totalCount > 0 ? t('gsProgressAllDone') : tFmt('gsProgressRemaining', { n: progress.remainingCount }) + etaStr}${dlBadge}</span>`;
+      progressChip.addEventListener("click", () => {
+        openRemainingStudentsPopover(progressChip, classObj, sem, testIndex, config);
+      });
+      configWrap.appendChild(progressChip);
 
       // Info span
       const infoSpan = document.createElement("span");
@@ -12604,6 +12903,163 @@
       document.getElementById("topt-info-scope").value = config.scope || "";
       document.getElementById("topt-info-type").value = config.type || "";
       document.getElementById("topt-info-next-grade").value = fmtN(Math.max(0, toNumber(config.nextGradeHighlightPoints) ?? 0));
+
+      const dlInput = document.getElementById("topt-info-deadline");
+      const dlTimeInput = document.getElementById("topt-info-deadline-time");
+      const dlRemindersInput = document.getElementById("topt-info-deadline-reminders");
+      const dlDaysAfterInput = document.getElementById("topt-info-deadline-days-after");
+      const dlAutoInput = document.getElementById("topt-info-deadline-auto");
+      const btnApplyOffset = document.getElementById("topt-deadline-apply-offset");
+      const toptDateInput = document.getElementById("topt-info-date");
+      const dlStatusEl = document.getElementById("topt-deadline-live-status");
+
+      if (dlInput) {
+        const calculateDeadlineFromTestDate = (dateStr, offsetDays) => {
+          if (!dateStr) return '';
+          const d = new Date(dateStr + 'T00:00:00');
+          if (isNaN(d.getTime())) return '';
+          d.setDate(d.getDate() + (parseInt(offsetDays, 10) || 13));
+          return d.toISOString().slice(0, 10);
+        };
+
+        const daysAfter = (typeof config.correctionDeadlineDaysAfter === 'number' && !isNaN(config.correctionDeadlineDaysAfter))
+          ? config.correctionDeadlineDaysAfter
+          : 13;
+        if (dlDaysAfterInput) dlDaysAfterInput.value = daysAfter;
+        if (dlAutoInput) dlAutoInput.checked = (config.correctionDeadlineAuto !== false);
+
+        // Auto-fill deadline if auto-set is checked, deadline is empty, and testDate exists
+        if (dlAutoInput && dlAutoInput.checked && !config.correctionDeadline && toptDateInput && toptDateInput.value) {
+          const autoComputed = calculateDeadlineFromTestDate(toptDateInput.value, daysAfter);
+          if (autoComputed) {
+            dlInput.value = autoComputed;
+            config.correctionDeadline = autoComputed;
+          } else {
+            dlInput.value = "";
+          }
+        } else {
+          dlInput.value = config.correctionDeadline || "";
+        }
+        if (dlTimeInput) dlTimeInput.value = config.correctionDeadlineTime || "";
+        if (dlRemindersInput) dlRemindersInput.checked = (config.deadlineReminders && config.deadlineReminders.enabled !== false);
+
+        const updateDlLiveStatus = () => {
+          if (!dlStatusEl) return;
+          const val = dlInput.value;
+          if (!val) {
+            dlStatusEl.textContent = "";
+            return;
+          }
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const dlD = new Date(val + 'T00:00:00');
+          const diffDays = Math.ceil((dlD.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+          const prog = computeScoringProgress(classObj, activeSem, activeTestIndex, config);
+          const rem = prog.remainingCount;
+
+          let daysText = diffDays < 0
+            ? tFmt('gsToptDeadlineOverdue', { n: Math.abs(diffDays) })
+            : (diffDays === 0 ? t('gsToptDeadlineDueToday') : tFmt('gsToptDeadlineDaysLeft', { n: diffDays }));
+          let paceText = "";
+          if (diffDays > 0 && rem > 0) {
+            const pace = Math.round((rem / diffDays) * 10) / 10;
+            paceText = ` · ${tFmt('gsToptDeadlinePaceHint', { pace })}`;
+          }
+          dlStatusEl.textContent = `${daysText} · ${tFmt('gsProgressRemaining', { n: rem })}${paceText}`;
+          dlStatusEl.style.color = diffDays < 0 ? "#c96b6b" : (diffDays <= 1 ? "#d4895a" : "#2e7d32");
+        };
+
+        const applyOffsetToDeadline = (silent) => {
+          const tDate = toptDateInput ? toptDateInput.value : (config.testDate || '');
+          const days = dlDaysAfterInput ? (parseInt(dlDaysAfterInput.value, 10) || 13) : 13;
+          if (!tDate) {
+            if (!silent && typeof showToast === 'function') {
+              showToast(typeof t === 'function' ? t('gsToptDeadlineNoTestDate') : 'Please set a test date first.', false);
+            }
+            return false;
+          }
+          const computed = calculateDeadlineFromTestDate(tDate, days);
+          if (computed) {
+            dlInput.value = computed;
+            if (dlAutoInput) dlAutoInput.checked = true;
+            updateDlLiveStatus();
+            return true;
+          }
+          return false;
+        };
+
+        dlInput.oninput = () => {
+          const tDate = toptDateInput ? toptDateInput.value : (config.testDate || '');
+          const days = dlDaysAfterInput ? (parseInt(dlDaysAfterInput.value, 10) || 13) : 13;
+          const expected = calculateDeadlineFromTestDate(tDate, days);
+          if (dlAutoInput && dlInput.value !== expected) {
+            dlAutoInput.checked = false;
+          }
+          updateDlLiveStatus();
+        };
+
+        if (btnApplyOffset) {
+          btnApplyOffset.onclick = () => applyOffsetToDeadline(false);
+        }
+
+        if (dlDaysAfterInput) {
+          dlDaysAfterInput.oninput = () => {
+            if (dlAutoInput && dlAutoInput.checked && toptDateInput && toptDateInput.value) {
+              applyOffsetToDeadline(true);
+            }
+          };
+        }
+
+        if (toptDateInput) {
+          const prevDateInput = toptDateInput.oninput;
+          toptDateInput.oninput = (e) => {
+            if (prevDateInput) prevDateInput(e);
+            if (dlAutoInput && dlAutoInput.checked && toptDateInput.value) {
+              applyOffsetToDeadline(true);
+            }
+          };
+        }
+
+        if (dlAutoInput) {
+          dlAutoInput.onchange = () => {
+            if (dlAutoInput.checked && toptDateInput && toptDateInput.value) {
+              applyOffsetToDeadline(true);
+            }
+          };
+        }
+
+        updateDlLiveStatus();
+
+        const btn3d = document.getElementById("topt-deadline-quick-3d");
+        if (btn3d) {
+          btn3d.onclick = () => {
+            const baseDate = (toptDateInput && toptDateInput.value) ? new Date(toptDateInput.value + 'T00:00:00') : (config.testDate ? new Date(config.testDate + 'T00:00:00') : new Date());
+            baseDate.setDate(baseDate.getDate() + 3);
+            dlInput.value = baseDate.toISOString().slice(0, 10);
+            if (dlAutoInput) dlAutoInput.checked = false;
+            updateDlLiveStatus();
+          };
+        }
+        const btn1w = document.getElementById("topt-deadline-quick-1w");
+        if (btn1w) {
+          btn1w.onclick = () => {
+            const baseDate = (toptDateInput && toptDateInput.value) ? new Date(toptDateInput.value + 'T00:00:00') : (config.testDate ? new Date(config.testDate + 'T00:00:00') : new Date());
+            baseDate.setDate(baseDate.getDate() + 7);
+            dlInput.value = baseDate.toISOString().slice(0, 10);
+            if (dlAutoInput) dlAutoInput.checked = false;
+            updateDlLiveStatus();
+          };
+        }
+        const btnClr = document.getElementById("topt-deadline-clear");
+        if (btnClr) {
+          btnClr.onclick = () => {
+            dlInput.value = "";
+            if (dlTimeInput) dlTimeInput.value = "";
+            if (dlAutoInput) dlAutoInput.checked = false;
+            updateDlLiveStatus();
+          };
+        }
+      }
 
       const toptChipBankSel = document.getElementById("topt-info-chips-bank");
       if (toptChipBankSel) {
@@ -14359,10 +14815,27 @@
           });
         }
 
+        const toptDeadlineEl = document.getElementById("topt-info-deadline");
+        const toptDeadlineTimeEl = document.getElementById("topt-info-deadline-time");
+        const toptDeadlineRemindersEl = document.getElementById("topt-info-deadline-reminders");
+        const toptDeadlineDaysAfterEl = document.getElementById("topt-info-deadline-days-after");
+        const toptDeadlineAutoEl = document.getElementById("topt-info-deadline-auto");
+        if (toptDeadlineEl) {
+          config.correctionDeadline = toptDeadlineEl.value || "";
+          config.correctionDeadlineTime = (toptDeadlineTimeEl && toptDeadlineTimeEl.value) || "";
+          config.correctionDeadlineDaysAfter = toptDeadlineDaysAfterEl ? (parseInt(toptDeadlineDaysAfterEl.value, 10) || 13) : 13;
+          config.correctionDeadlineAuto = toptDeadlineAutoEl ? toptDeadlineAutoEl.checked : true;
+          config.deadlineReminders = {
+            enabled: toptDeadlineRemindersEl ? toptDeadlineRemindersEl.checked : true,
+            offsetsDays: [3, 1, 0]
+          };
+        }
+
         recalcAllStudentGradesForTest(classObj, activeSem, activeTestIndex);
         saveState(); renderTestSheet(); renderSummary();
         overlay.classList.add("hidden");
         syncTestToPlanner(classObj, activeSem, activeTestIndex); // async, non-blocking
+        syncCorrectionDeadlineToPlanner(classObj, activeSem, activeTestIndex, config); // async, non-blocking
         syncTestAutoLinks(classObj, activeSem, activeTestIndex); // async auto-link sync from criteria & scale tabs
       };
 
@@ -14565,7 +15038,7 @@
           vertical-align: middle;
         }
         .obs-category-tag {
-          font-size: ${fitToOnePage ? '8px' : '8.5px'};
+          font-size: ${fitToOnePage ? '8px' : '10px'};
           font-weight: 800;
           text-transform: none;
           letter-spacing: 0.02em;
@@ -14785,7 +15258,7 @@
         // Observations
         let obsHtml = "";
         if (notes.length > 0 && notes.some(s => sectionHasContent(s))) {
-          const blocks = notes.filter(s => sectionHasContent(s)).map(s => renderObservationSectionHtml(s)).join("");
+          const blocks = notes.filter(s => sectionHasContent(s)).map(s => renderObservationSectionHtml(s, (config && config.chipBank) || (classObj && classObj.chipBank))).join("");
           obsHtml = `<div><div class="section-title">${t('gsReportObservationsFeedback') || t('gsColObservations') || 'Observations & Teacher Feedback'}</div>${blocks}</div>`;
         }
 
@@ -15164,7 +15637,7 @@
             kind: s.kind || "",
             checklist: sectionChecklistSummary(s),
             text: s.text || "",
-            html: renderObservationSectionHtml(s)
+            html: renderObservationSectionHtml(s, (config && config.chipBank) || (classObj && classObj.chipBank))
           }))
         };
       });
@@ -15278,18 +15751,19 @@
           padding-bottom: 3px;
           margin-bottom: 6px;
         }
-        table { width: 100%; border-collapse: var(--exp-table-border-collapse, collapse); font-size: 12px; table-layout: fixed; border: var(--exp-border-width, 2px) solid var(--exp-border-color, #333333); background: var(--exp-bg-surface, #ffffff); }
+        table { width: 100%; border-collapse: collapse !important; font-size: 12px; table-layout: fixed; border: 1px solid #000000 !important; background: var(--exp-bg-surface, #ffffff); }
         th {
           background: var(--exp-table-th-bg, #f0f0eb);
           font-weight: 800;
           text-align: left;
-          padding: 6px 8px;
-          border: var(--exp-table-cell-border, var(--exp-border-width, 1.5px) solid var(--exp-border-color, #333333));
+          padding: 5px 7px;
+          border: 1px solid #000000 !important;
+          border-bottom: 2px solid #000000 !important;
           color: var(--exp-text-color, #1e293b);
         }
-        td { padding: 6px 8px; border: var(--exp-table-cell-border, var(--exp-border-width, 1.5px) solid var(--exp-border-color, #333333)); vertical-align: top; overflow: hidden; text-overflow: ellipsis; color: var(--exp-text-color, #1e293b); }
+        td { padding: 5px 7px; border: 1px solid #000000 !important; vertical-align: top; overflow: hidden; text-overflow: ellipsis; color: var(--exp-text-color, #1e293b); }
         .pts-cell { text-align: right; white-space: nowrap; font-weight: 700; }
-        .total-row td { font-weight: 800; background: var(--exp-table-th-bg, #f0f0eb); border-top: var(--exp-border-width, 2px) solid var(--exp-border-color, #333333); color: var(--exp-text-color, #1e293b); }
+        .total-row td { font-weight: 800; background: var(--exp-table-th-bg, #f0f0eb); border-top: 2px solid #000000 !important; color: var(--exp-text-color, #1e293b); }
         .obs-section { margin-bottom: 8px; }
         .obs-label {
           font-size: 11.5px;
@@ -15319,7 +15793,7 @@
           page-break-inside: avoid;
         }
         .obs-category-tag {
-          font-size: 9.5px;
+          font-size: 10px;
           font-weight: 800;
           text-transform: none;
           letter-spacing: 0.02em;
@@ -15389,13 +15863,30 @@
         .obs-feedback-body p:last-child {
           margin-bottom: 0;
         }
-          margin-bottom: 0;
-        }
         .obs-text { font-size: 13px; line-height: 1.5; white-space: normal; color: #1e293b; }
+        .crit-comment-cell, td.crit-comment-cell {
+          font-size: 9.5px !important;
+          line-height: 1.35 !important;
+          vertical-align: top;
+          padding-left: 5px !important;
+          padding-right: 5px !important;
+        }
+        .crit-comment-cell p, td.crit-comment-cell p,
+        .crit-comment-cell ul, td.crit-comment-cell ul,
+        .crit-comment-cell ol, td.crit-comment-cell ol {
+          margin: 0 0 2px 0 !important;
+          padding-left: 0 !important;
+          margin-left: 0 !important;
+          font-size: 9.5px !important;
+          line-height: 1.35 !important;
+        }
+        .crit-comment-cell p:last-child, td.crit-comment-cell p:last-child {
+          margin-bottom: 0 !important;
+        }
         .no-data { color: #888; font-size: 12px; }
         .scale-wrap { margin-top: 2px; }
-        .scale-table { font-size: 10px; border-collapse: collapse; width: 100%; table-layout: fixed; border: 2px solid #333333; }
-        .scale-table th, .scale-table td { padding: 3px 5px; border: 1.5px solid #333333; text-align: center; white-space: nowrap; color: #1e293b; }
+        .scale-table { font-size: 10px; border-collapse: collapse !important; width: 100%; table-layout: fixed; border: 1px solid #000000 !important; }
+        .scale-table th, .scale-table td { padding: 3px 5px; border: 1px solid #000000 !important; text-align: center; white-space: nowrap; color: #1e293b; }
         .scale-table thead th { background: #f0f0eb; font-weight: 800; }
         .scale-table .row-label { background: #f0f0eb; font-weight: 800; text-align: left; }
         .scale-grade-pass { font-weight: 800; color: #1e293b; }
@@ -15440,7 +15931,7 @@
               <td>${esc(r.criterionName)}</td>
               <td class="pts-cell">${ptsDisplay}</td>
               <td class="pts-cell" style="font-weight:700;color:#475569;">${esc(r.meanPtsText || '—')}</td>
-              <td>${r.commentHtml}</td>
+              <td class="crit-comment-cell">${r.commentHtml}</td>
             </tr>`;
           }).join("");
 
@@ -15651,7 +16142,11 @@
 
     async function exportSemesterHtml(classObj, sem) {
       const report = buildSemesterReportData(classObj, sem);
-      const html = buildSemesterReportHtml(report);
+      let html = buildSemesterReportHtml(report);
+      if (window.ExportStylesService) {
+        const sId = ExportStylesService.getSelectedStyle('gradeSheet');
+        html = await ExportStylesService.injectStyleIntoHtml(html, sId, 'gradeSheet');
+      }
       const slug = slugifyForPath(classObj.name || "class");
       const filename = `${slug}-${sem}-grades-${new Date().toISOString().slice(0, 10)}.html`;
       downloadTextFile(html, filename, "text/html;charset=utf-8");
@@ -15911,7 +16406,7 @@
           notes.filter(s => sectionHasContent(s)).forEach(s => {
             const label = s.label ? `**${s.label}**` : "";
             const checklist = sectionChecklistSummary(s);
-            const catGroups = groupObservationChipsByCategory(checklist, s.label, typeof _activeChipBankFilename !== 'undefined' ? _activeChipBankFilename : null);
+            const catGroups = groupObservationChipsByCategory(checklist, s.label, (config && config.chipBank) || (classObj && classObj.chipBank) || (typeof _activeChipBankFilename !== 'undefined' ? _activeChipBankFilename : null), s.kind);
             const textStr = String(s.text || "").trim();
 
             if (label) sections.push(`#### ${label}`);
@@ -16189,7 +16684,7 @@
           gap: ${fitToOnePage ? '6px' : '10px'};
         }
         .section-heading {
-          font-size: ${fitToOnePage ? '9.5px' : '11px'};
+          font-size: ${fitToOnePage ? '9.5px' : '12px'};
           font-weight: 800;
           text-transform: uppercase;
           letter-spacing: 0.06em;
@@ -16199,23 +16694,24 @@
           margin-bottom: ${fitToOnePage ? '2px' : '4px'};
           color: var(--exp-text-color, #1e293b);
         }
-        table, table.report-table {
+        table, table.report-table, .scale-table {
           width: 100%;
-          border-collapse: var(--exp-table-border-collapse, collapse);
-          border: var(--exp-border-width, 2px) solid var(--exp-border-color, #333333);
+          border-collapse: collapse !important;
+          border: 1px solid #000000 !important;
           font-size: ${fitToOnePage ? '9px' : '10.5px'};
           background: var(--exp-bg-surface, #ffffff);
+          box-shadow: none !important;
         }
-        th, td, table.report-table th, table.report-table td {
-          border: var(--exp-table-cell-border, var(--exp-border-width, 1.5px) solid var(--exp-border-color, #333333));
+        th, td, table.report-table th, table.report-table td, .scale-table th, .scale-table td {
+          border: 1px solid #000000 !important;
           padding: ${fitToOnePage ? '2.5px 5px' : '4px 6px'};
           text-align: left;
           color: var(--exp-text-color, #1e293b);
         }
-        th, thead th, table.report-table th { background: var(--exp-table-th-bg, #f0f0eb); font-weight: 800; color: var(--exp-text-color, #1e293b); }
+        th, thead th, table.report-table th, .scale-table thead th { background: var(--exp-table-th-bg, #f0f0eb); font-weight: 800; color: var(--exp-text-color, #1e293b); border-bottom: 2px solid #000000 !important; }
         table.report-table td.center, table.report-table th.center { text-align: center; }
         table.report-table td.right, table.report-table th.right { text-align: right; }
-        table.report-table tr.stats-row td, tr.stats-row td, .total-row td { background: var(--exp-table-th-bg, #f0f0eb); font-weight: 800; font-size: ${fitToOnePage ? '8.5px' : '9.5px'}; border-top: var(--exp-border-width, 2px) solid var(--exp-border-color, #333333); }
+        table.report-table tr.stats-row td, tr.stats-row td, .total-row td { background: var(--exp-table-th-bg, #f0f0eb); font-weight: 800; font-size: ${fitToOnePage ? '8.5px' : '9.5px'}; border-top: 2px solid #000000 !important; }
         table.report-table tr:nth-child(even) td:not(.stats-row td), tbody tr:nth-child(even) td:not(.stats-row td) { background: var(--exp-table-row-even, #fafafa); }
         .crit-pts-scored {
           display: inline-block;
@@ -16268,7 +16764,7 @@
           vertical-align: middle;
         }
         .obs-category-tag {
-          font-size: ${fitToOnePage ? '8px' : '8.5px'};
+          font-size: ${fitToOnePage ? '8px' : '10px'};
           font-weight: 800;
           text-transform: none;
           letter-spacing: 0.02em;
@@ -16305,8 +16801,31 @@
         .obs-feedback-body p:last-child { margin-bottom: 0; }
         .obs-inline-row { margin-bottom: 2px; }
         .obs-inline-text { display: block; font-size: ${fitToOnePage ? '8.5px' : '9.5px'}; color: #1e293b; }
+        .crit-comment-cell, td.crit-comment-cell, table.report-table td.crit-comment-cell {
+          font-size: ${fitToOnePage ? '8.5px' : '9.5px'} !important;
+          line-height: 1.3 !important;
+          vertical-align: top;
+          padding-left: 5px !important;
+          padding-right: 5px !important;
+        }
+        .crit-comment-cell p, td.crit-comment-cell p, table.report-table td.crit-comment-cell p,
+        .crit-comment-cell ul, td.crit-comment-cell ul, table.report-table td.crit-comment-cell ul,
+        .crit-comment-cell ol, td.crit-comment-cell ol, table.report-table td.crit-comment-cell ol {
+          margin: 0 0 2px 0 !important;
+          padding-left: 0 !important;
+          margin-left: 0 !important;
+          font-size: ${fitToOnePage ? '8.5px' : '9.5px'} !important;
+          line-height: 1.3 !important;
+        }
+        .crit-comment-cell p:last-child, td.crit-comment-cell p:last-child, table.report-table td.crit-comment-cell p:last-child {
+          margin-bottom: 0 !important;
+        }
         @page { size: ${size}; margin: ${pageMargin}; }
         @media print {
+          *, *:before, *:after {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
           body { background: #fff; margin: 0; padding: 0; }
           .report-page {
             width: 100% !important;
@@ -16318,6 +16837,23 @@
             page-break-inside: avoid;
             break-inside: avoid;
             box-sizing: border-box !important;
+          }
+          table, table.report-table, .scale-table {
+            border: 1px solid #000000 !important;
+            border-collapse: collapse !important;
+            box-shadow: none !important;
+          }
+          th, td, table.report-table th, table.report-table td, .scale-table th, .scale-table td {
+            border: 1px solid #000000 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .kpi-card, .badge, .grade-pill {
+            border: 1.5px solid #333333 !important;
+            box-shadow: none !important;
+          }
+          .report-header, .section-heading {
+            border-bottom: 2px solid #333333 !important;
           }
         }
       `;
@@ -17344,7 +17880,7 @@
           const deltaColor = delta != null ? (delta >= 0 ? '#2e7d32' : '#c62828') : '#111';
 
           const noteArr = student.testNotes[sem];
-          const notesHtml = (Array.isArray(noteArr[ti]) ? noteArr[ti] : []).filter(s => sectionHasContent(s)).map(s => renderObservationInlineHtml(s)).join("");
+          const notesHtml = (Array.isArray(noteArr[ti]) ? noteArr[ti] : []).filter(s => sectionHasContent(s)).map(s => renderObservationInlineHtml(s, (cfg && cfg.chipBank) || (classObj && classObj.chipBank))).join("");
 
           testRows.push(`<tr>
             <td class="center" style="font-weight:700;">${sem.toUpperCase()}</td>
@@ -17473,7 +18009,7 @@
         const deltaColor = delta != null ? (delta >= 0 ? '#2e7d32' : '#c62828') : '#111';
 
         const noteArr = student.testNotes[sem];
-        const notesHtml = (Array.isArray(noteArr[ti]) ? noteArr[ti] : []).filter(s => sectionHasContent(s)).map(s => renderObservationInlineHtml(s)).join("");
+        const notesHtml = (Array.isArray(noteArr[ti]) ? noteArr[ti] : []).filter(s => sectionHasContent(s)).map(s => renderObservationInlineHtml(s, (cfg && cfg.chipBank) || (classObj && classObj.chipBank))).join("");
 
         testRows.push(`<tr>
           <td class="center" style="font-weight:700;">T${ti + 1}</td>
@@ -17624,13 +18160,13 @@
               <td style="font-weight:700;">${escapeHtml(cr.name)}${compBadges}</td>
               <td class="center" style="font-weight:800;">${ptsStr}</td>
               <td class="center" style="font-weight:700;color:#475569;">${meanPtsStr}</td>
-              ${incComments ? `<td>${comment}</td>` : ''}
+              ${incComments ? `<td class="crit-comment-cell">${comment}</td>` : ''}
             </tr>`;
           }
           return `<tr>
             <td style="font-weight:700;">${escapeHtml(cr.name)}${compBadges}</td>
             <td class="center" style="font-weight:800;">${ptsStr}</td>
-            ${incComments ? `<td>${comment}</td>` : ''}
+            ${incComments ? `<td class="crit-comment-cell">${comment}</td>` : ''}
           </tr>`;
         }).join('');
       }
@@ -17638,7 +18174,7 @@
       // Observations
       let obsHtml = '';
       if (notes.length > 0 && notes.some(s => sectionHasContent(s))) {
-        const blocks = notes.filter(s => sectionHasContent(s)).map(s => renderObservationSectionHtml(s)).join('');
+        const blocks = notes.filter(s => sectionHasContent(s)).map(s => renderObservationSectionHtml(s, (config && config.chipBank) || (classObj && classObj.chipBank))).join('');
         obsHtml = `<div class="obs-feedback" style="padding:6px 0;background:transparent;margin-top:6px;">
           <div class="section-heading" style="margin-top:0;">${t('gsReportObservationsFeedback') || 'Observations & Teacher Feedback'}</div>
           ${blocks}
@@ -17877,6 +18413,10 @@
 
     function applyReportOptions(opts) {
       if (!opts || typeof opts !== 'object') return;
+      if (!window.GRADE_SHEET_REPORT_OPTIONS) window.GRADE_SHEET_REPORT_OPTIONS = {};
+      Object.assign(window.GRADE_SHEET_REPORT_OPTIONS, opts);
+      window.REPORT_OPTIONS = window.GRADE_SHEET_REPORT_OPTIONS;
+
       if (typeof opts.includeCompetences === 'boolean') {
         localStorage.setItem('cmt-gs-report-include-competences', opts.includeCompetences ? 'true' : 'false');
       }
@@ -17911,174 +18451,204 @@
     }
 
     function getReportFitToOnePage() {
-      const el = document.getElementById('gs-report-toggle-fit-page') || document.getElementById('gs-pdf-export-fit-page');
-      if (el) return !!el.checked;
       if (window.GRADE_SHEET_REPORT_OPTIONS && typeof window.GRADE_SHEET_REPORT_OPTIONS.fitToOnePage === 'boolean') {
         return window.GRADE_SHEET_REPORT_OPTIONS.fitToOnePage;
       }
       const cached = localStorage.getItem('cmt-gs-report-fit-one-page');
-      return cached === 'true';
+      if (cached !== null) return cached === 'true';
+      const el = document.getElementById('gs-report-toggle-fit-page') || document.getElementById('gs-pdf-export-fit-page');
+      return el ? !!el.checked : false;
     }
 
     function setReportFitToOnePage(val) {
-      localStorage.setItem('cmt-gs-report-fit-one-page', val ? 'true' : 'false');
+      const boolVal = !!val;
+      if (!window.GRADE_SHEET_REPORT_OPTIONS) window.GRADE_SHEET_REPORT_OPTIONS = {};
+      window.GRADE_SHEET_REPORT_OPTIONS.fitToOnePage = boolVal;
+      localStorage.setItem('cmt-gs-report-fit-one-page', boolVal ? 'true' : 'false');
       const el1 = document.getElementById('gs-report-toggle-fit-page');
-      if (el1) el1.checked = !!val;
+      if (el1) el1.checked = boolVal;
       const el2 = document.getElementById('gs-pdf-export-fit-page');
-      if (el2) el2.checked = !!val;
+      if (el2) el2.checked = boolVal;
       saveReportOptionsConfigFile();
     }
 
     function getReportIncludeCompetences() {
-      const el = document.getElementById('gs-report-toggle-competences');
-      if (el) return !!el.checked;
       if (window.GRADE_SHEET_REPORT_OPTIONS && typeof window.GRADE_SHEET_REPORT_OPTIONS.includeCompetences === 'boolean') {
         return window.GRADE_SHEET_REPORT_OPTIONS.includeCompetences;
       }
       const cached = localStorage.getItem('cmt-gs-report-include-competences');
-      return cached !== 'false';
+      if (cached !== null) return cached !== 'false';
+      const el = document.getElementById('gs-report-toggle-competences');
+      return el ? !!el.checked : true;
     }
 
     function setReportIncludeCompetences(val) {
-      localStorage.setItem('cmt-gs-report-include-competences', val ? 'true' : 'false');
+      const boolVal = !!val;
+      if (!window.GRADE_SHEET_REPORT_OPTIONS) window.GRADE_SHEET_REPORT_OPTIONS = {};
+      window.GRADE_SHEET_REPORT_OPTIONS.includeCompetences = boolVal;
+      localStorage.setItem('cmt-gs-report-include-competences', boolVal ? 'true' : 'false');
       const el = document.getElementById('gs-report-toggle-competences');
-      if (el) el.checked = !!val;
+      if (el) el.checked = boolVal;
       saveReportOptionsConfigFile();
     }
 
     function getReportIncludeExerciseMeans() {
-      const el = document.getElementById('gs-report-toggle-exercise-means');
-      if (el) return !!el.checked;
       if (window.GRADE_SHEET_REPORT_OPTIONS && typeof window.GRADE_SHEET_REPORT_OPTIONS.includeExerciseMeans === 'boolean') {
         return window.GRADE_SHEET_REPORT_OPTIONS.includeExerciseMeans;
       }
       const cached = localStorage.getItem('cmt-gs-report-include-exercise-means');
-      return cached !== 'false';
+      if (cached !== null) return cached !== 'false';
+      const el = document.getElementById('gs-report-toggle-exercise-means');
+      return el ? !!el.checked : true;
     }
 
     function setReportIncludeExerciseMeans(val) {
-      localStorage.setItem('cmt-gs-report-include-exercise-means', val ? 'true' : 'false');
+      const boolVal = !!val;
+      if (!window.GRADE_SHEET_REPORT_OPTIONS) window.GRADE_SHEET_REPORT_OPTIONS = {};
+      window.GRADE_SHEET_REPORT_OPTIONS.includeExerciseMeans = boolVal;
+      localStorage.setItem('cmt-gs-report-include-exercise-means', boolVal ? 'true' : 'false');
       const el = document.getElementById('gs-report-toggle-exercise-means');
-      if (el) el.checked = !!val;
+      if (el) el.checked = boolVal;
       saveReportOptionsConfigFile();
     }
 
     function getReportIncludeKpi() {
-      const el = document.getElementById('gs-report-toggle-kpi');
-      if (el) return !!el.checked;
       if (window.GRADE_SHEET_REPORT_OPTIONS && typeof window.GRADE_SHEET_REPORT_OPTIONS.includeKpi === 'boolean') {
         return window.GRADE_SHEET_REPORT_OPTIONS.includeKpi;
       }
       const cached = localStorage.getItem('cmt-gs-report-include-kpi');
-      return cached !== 'false';
+      if (cached !== null) return cached !== 'false';
+      const el = document.getElementById('gs-report-toggle-kpi');
+      return el ? !!el.checked : true;
     }
 
     function setReportIncludeKpi(val) {
-      localStorage.setItem('cmt-gs-report-include-kpi', val ? 'true' : 'false');
+      const boolVal = !!val;
+      if (!window.GRADE_SHEET_REPORT_OPTIONS) window.GRADE_SHEET_REPORT_OPTIONS = {};
+      window.GRADE_SHEET_REPORT_OPTIONS.includeKpi = boolVal;
+      localStorage.setItem('cmt-gs-report-include-kpi', boolVal ? 'true' : 'false');
       const el = document.getElementById('gs-report-toggle-kpi');
-      if (el) el.checked = !!val;
+      if (el) el.checked = boolVal;
       saveReportOptionsConfigFile();
     }
 
     function getReportIncludeCharts() {
-      const el = document.getElementById('gs-report-toggle-charts');
-      if (el) return !!el.checked;
       if (window.GRADE_SHEET_REPORT_OPTIONS && typeof window.GRADE_SHEET_REPORT_OPTIONS.includeCharts === 'boolean') {
         return window.GRADE_SHEET_REPORT_OPTIONS.includeCharts;
       }
       const cached = localStorage.getItem('cmt-gs-report-include-charts');
-      return cached !== 'false';
+      if (cached !== null) return cached !== 'false';
+      const el = document.getElementById('gs-report-toggle-charts');
+      return el ? !!el.checked : true;
     }
 
     function setReportIncludeCharts(val) {
-      localStorage.setItem('cmt-gs-report-include-charts', val ? 'true' : 'false');
+      const boolVal = !!val;
+      if (!window.GRADE_SHEET_REPORT_OPTIONS) window.GRADE_SHEET_REPORT_OPTIONS = {};
+      window.GRADE_SHEET_REPORT_OPTIONS.includeCharts = boolVal;
+      localStorage.setItem('cmt-gs-report-include-charts', boolVal ? 'true' : 'false');
       const el = document.getElementById('gs-report-toggle-charts');
-      if (el) el.checked = !!val;
+      if (el) el.checked = boolVal;
       saveReportOptionsConfigFile();
     }
 
     function getReportIncludeCriteria() {
-      const el = document.getElementById('gs-report-toggle-criteria');
-      if (el) return !!el.checked;
       if (window.GRADE_SHEET_REPORT_OPTIONS && typeof window.GRADE_SHEET_REPORT_OPTIONS.includeCriteria === 'boolean') {
         return window.GRADE_SHEET_REPORT_OPTIONS.includeCriteria;
       }
       const cached = localStorage.getItem('cmt-gs-report-include-criteria');
-      return cached !== 'false';
+      if (cached !== null) return cached !== 'false';
+      const el = document.getElementById('gs-report-toggle-criteria');
+      return el ? !!el.checked : true;
     }
 
     function setReportIncludeCriteria(val) {
-      localStorage.setItem('cmt-gs-report-include-criteria', val ? 'true' : 'false');
+      const boolVal = !!val;
+      if (!window.GRADE_SHEET_REPORT_OPTIONS) window.GRADE_SHEET_REPORT_OPTIONS = {};
+      window.GRADE_SHEET_REPORT_OPTIONS.includeCriteria = boolVal;
+      localStorage.setItem('cmt-gs-report-include-criteria', boolVal ? 'true' : 'false');
       const el = document.getElementById('gs-report-toggle-criteria');
-      if (el) el.checked = !!val;
+      if (el) el.checked = boolVal;
       saveReportOptionsConfigFile();
     }
 
     function getReportIncludeComments() {
-      const el = document.getElementById('gs-report-toggle-comments');
-      if (el) return !!el.checked;
       if (window.GRADE_SHEET_REPORT_OPTIONS && typeof window.GRADE_SHEET_REPORT_OPTIONS.includeComments === 'boolean') {
         return window.GRADE_SHEET_REPORT_OPTIONS.includeComments;
       }
       const cached = localStorage.getItem('cmt-gs-report-include-comments');
-      return cached !== 'false';
+      if (cached !== null) return cached !== 'false';
+      const el = document.getElementById('gs-report-toggle-comments');
+      return el ? !!el.checked : true;
     }
 
     function setReportIncludeComments(val) {
-      localStorage.setItem('cmt-gs-report-include-comments', val ? 'true' : 'false');
+      const boolVal = !!val;
+      if (!window.GRADE_SHEET_REPORT_OPTIONS) window.GRADE_SHEET_REPORT_OPTIONS = {};
+      window.GRADE_SHEET_REPORT_OPTIONS.includeComments = boolVal;
+      localStorage.setItem('cmt-gs-report-include-comments', boolVal ? 'true' : 'false');
       const el = document.getElementById('gs-report-toggle-comments');
-      if (el) el.checked = !!val;
+      if (el) el.checked = boolVal;
       saveReportOptionsConfigFile();
     }
 
     function getReportIncludeObservations() {
-      const el = document.getElementById('gs-report-toggle-observations');
-      if (el) return !!el.checked;
       if (window.GRADE_SHEET_REPORT_OPTIONS && typeof window.GRADE_SHEET_REPORT_OPTIONS.includeObservations === 'boolean') {
         return window.GRADE_SHEET_REPORT_OPTIONS.includeObservations;
       }
       const cached = localStorage.getItem('cmt-gs-report-include-observations');
-      return cached !== 'false';
+      if (cached !== null) return cached !== 'false';
+      const el = document.getElementById('gs-report-toggle-observations');
+      return el ? !!el.checked : true;
     }
 
     function setReportIncludeObservations(val) {
-      localStorage.setItem('cmt-gs-report-include-observations', val ? 'true' : 'false');
+      const boolVal = !!val;
+      if (!window.GRADE_SHEET_REPORT_OPTIONS) window.GRADE_SHEET_REPORT_OPTIONS = {};
+      window.GRADE_SHEET_REPORT_OPTIONS.includeObservations = boolVal;
+      localStorage.setItem('cmt-gs-report-include-observations', boolVal ? 'true' : 'false');
       const el = document.getElementById('gs-report-toggle-observations');
-      if (el) el.checked = !!val;
+      if (el) el.checked = boolVal;
       saveReportOptionsConfigFile();
     }
 
     function getReportIncludeObservationChips() {
-      const el = document.getElementById('gs-report-toggle-observation-chips');
-      if (el) return !!el.checked;
       if (window.GRADE_SHEET_REPORT_OPTIONS && typeof window.GRADE_SHEET_REPORT_OPTIONS.includeObservationChips === 'boolean') {
         return window.GRADE_SHEET_REPORT_OPTIONS.includeObservationChips;
       }
       const cached = localStorage.getItem('cmt-gs-report-include-observation-chips');
-      return cached !== 'false';
+      if (cached !== null) return cached !== 'false';
+      const el = document.getElementById('gs-report-toggle-observation-chips');
+      return el ? !!el.checked : true;
     }
 
     function setReportIncludeObservationChips(val) {
-      localStorage.setItem('cmt-gs-report-include-observation-chips', val ? 'true' : 'false');
+      const boolVal = !!val;
+      if (!window.GRADE_SHEET_REPORT_OPTIONS) window.GRADE_SHEET_REPORT_OPTIONS = {};
+      window.GRADE_SHEET_REPORT_OPTIONS.includeObservationChips = boolVal;
+      localStorage.setItem('cmt-gs-report-include-observation-chips', boolVal ? 'true' : 'false');
       const el = document.getElementById('gs-report-toggle-observation-chips');
-      if (el) el.checked = !!val;
+      if (el) el.checked = boolVal;
       saveReportOptionsConfigFile();
     }
 
     function getReportIncludeScale() {
-      const el = document.getElementById('gs-report-toggle-scale');
-      if (el) return !!el.checked;
       if (window.GRADE_SHEET_REPORT_OPTIONS && typeof window.GRADE_SHEET_REPORT_OPTIONS.includeScale === 'boolean') {
         return window.GRADE_SHEET_REPORT_OPTIONS.includeScale;
       }
       const cached = localStorage.getItem('cmt-gs-report-include-scale');
-      return cached !== 'false';
+      if (cached !== null) return cached !== 'false';
+      const el = document.getElementById('gs-report-toggle-scale');
+      return el ? !!el.checked : true;
     }
 
     function setReportIncludeScale(val) {
-      localStorage.setItem('cmt-gs-report-include-scale', val ? 'true' : 'false');
+      const boolVal = !!val;
+      if (!window.GRADE_SHEET_REPORT_OPTIONS) window.GRADE_SHEET_REPORT_OPTIONS = {};
+      window.GRADE_SHEET_REPORT_OPTIONS.includeScale = boolVal;
+      localStorage.setItem('cmt-gs-report-include-scale', boolVal ? 'true' : 'false');
       const el = document.getElementById('gs-report-toggle-scale');
-      if (el) el.checked = !!val;
+      if (el) el.checked = boolVal;
       saveReportOptionsConfigFile();
     }
 
@@ -18153,6 +18723,12 @@
       const frame = document.getElementById('gs-report-preview-frame');
       if (frame) {
         frame.srcdoc = newHtml;
+        frame.onload = function () {
+          if (window.ExportStylesService) {
+            var sId = ExportStylesService.getSelectedStyle('gradeSheet');
+            ExportStylesService.applyStyleToIframe(frame, sId);
+          }
+        };
       }
     }
 
@@ -18599,6 +19175,542 @@
     }
 
 
+    // ── Scoring Progress & Deadlines Controller ──────────────────────
+    function computeScoringProgress(classObj, sem, testIndex, config) {
+      if (!classObj || !Array.isArray(classObj.students)) {
+        return {
+          totalCount: 0,
+          scoredCount: 0,
+          remainingCount: 0,
+          remainingStudents: [],
+          excludedStudents: [],
+          avgMin: 0,
+          etaMin: 0,
+          hasEta: false,
+          sampleSize: 0,
+          pct: 0,
+          deadlineStatus: null,
+          daysLeft: null
+        };
+      }
+
+      config = config || getTestConfig(classObj, sem, testIndex);
+      const excludedSet = new Set(Array.isArray(config.excludedStudentIds) ? config.excludedStudentIds : []);
+
+      const eligibleStudents = [];
+      const excludedStudents = [];
+
+      classObj.students.forEach(st => {
+        if (excludedSet.has(st.id) || st.isAbsent === true) {
+          excludedStudents.push(st);
+        } else {
+          eligibleStudents.push(st);
+        }
+      });
+
+      const totalCount = eligibleStudents.length;
+      const remainingStudents = [];
+      const validCorrectionTimes = [];
+
+      eligibleStudents.forEach(st => {
+        const tests = sem === "sem1" ? st.sem1Tests : st.sem2Tests;
+        const score = Array.isArray(tests) ? tests[testIndex] : null;
+        const critResults = st.criteriaResults?.[sem]?.[testIndex];
+        const hasCritScore = critResults && typeof critResults === 'object' && Object.values(critResults).some(c => c && c.points != null);
+        const isScored = (score != null) || hasCritScore;
+
+        if (isScored) {
+          const ct = st.correctionTime?.[sem]?.[testIndex];
+          if (typeof ct === "number" && ct > 0.25) {
+            validCorrectionTimes.push(ct);
+          }
+        } else {
+          remainingStudents.push(st);
+        }
+      });
+
+      const scoredCount = totalCount - remainingStudents.length;
+      const remainingCount = remainingStudents.length;
+      const pct = totalCount > 0 ? Math.round((scoredCount / totalCount) * 100) : 0;
+
+      let avgMin = 0;
+      let sampleSize = validCorrectionTimes.length;
+      let hasEta = false;
+      let etaMin = 0;
+
+      if (sampleSize >= 2) {
+        const sorted = [...validCorrectionTimes].sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        const median = sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+        const maxThreshold = Math.max(15, median * 3);
+
+        const filtered = validCorrectionTimes.map(v => Math.min(v, maxThreshold));
+        const sum = filtered.reduce((acc, v) => acc + v, 0);
+        avgMin = sum / filtered.length;
+        etaMin = Math.round(remainingCount * avgMin * 10) / 10;
+        hasEta = true;
+      }
+
+      let deadlineStatus = null;
+      let daysLeft = null;
+      if (config.correctionDeadline) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const dlDate = new Date(config.correctionDeadline + 'T00:00:00');
+        const diffMs = dlDate.getTime() - today.getTime();
+        daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+        if (remainingCount === 0) {
+          deadlineStatus = 'completed';
+        } else if (daysLeft < 0) {
+          deadlineStatus = 'overdue';
+        } else if (daysLeft <= 1) {
+          deadlineStatus = 'behind';
+        } else {
+          deadlineStatus = 'on-track';
+        }
+      }
+
+      return {
+        totalCount,
+        scoredCount,
+        remainingCount,
+        remainingStudents,
+        excludedStudents,
+        avgMin,
+        etaMin,
+        hasEta,
+        sampleSize,
+        pct,
+        deadlineStatus,
+        daysLeft
+      };
+    }
+
+    function renderScoringProgressStrip(container, classObj, sem, testIndex, config) {
+      let strip = container.querySelector("#smod-scoring-progress-strip");
+      if (!strip) {
+        strip = document.createElement("div");
+        strip.id = "smod-scoring-progress-strip";
+        strip.className = "smod-progress-strip";
+        strip.innerHTML = `
+          <div class="smod-progress-top-row">
+            <div class="smod-progress-metrics">
+              <span class="smod-badge smod-badge-scored" id="smod-badge-scored" title="${t('gsProgressScored')}">
+                <img src="../assets/icons/check.svg" class="smod-badge-icon" alt="" />
+                <span id="smod-text-scored">0 / 0</span>
+              </span>
+              <span class="smod-badge smod-badge-remaining" id="smod-badge-remaining" title="${t('gsProgressRemaining')}">
+                <img src="../assets/icons/stopwatch.svg" class="smod-badge-icon" alt="" />
+                <span id="smod-text-remaining">0 left</span>
+              </span>
+              <span class="smod-badge smod-badge-eta" id="smod-badge-eta" title="${t('gsProgressEta')}">
+                <img src="../assets/icons/clock.svg" class="smod-badge-icon" alt="" />
+                <span id="smod-text-eta">—</span>
+              </span>
+              <span class="smod-badge smod-badge-deadline hidden" id="smod-badge-deadline">
+                <img src="../assets/icons/calendar.svg" class="smod-badge-icon" alt="" />
+                <span id="smod-text-deadline"></span>
+              </span>
+            </div>
+            <button type="button" class="smod-progress-btn-rem" id="smod-btn-view-remaining">
+              <span>${t('gsProgressRemainingListTitle')}</span>
+              <img src="../assets/icons/chevron-down.svg" class="smod-badge-icon" alt="" />
+            </button>
+          </div>
+          <div class="smod-progress-track">
+            <div class="smod-progress-fill" id="smod-progress-fill"></div>
+          </div>
+          <div class="smod-motivator-row" id="smod-motivator-row">
+            <span class="smod-motivator-icon"><img src="../assets/icons/sparkles.svg" style="width:14px;height:14px;" alt="" /></span>
+            <span class="smod-motivator-text" id="smod-motivator-text"></span>
+          </div>
+        `;
+        container.prepend(strip);
+
+        const btnViewRem = strip.querySelector("#smod-btn-view-remaining");
+        if (btnViewRem) {
+          btnViewRem.onclick = (e) => {
+            e.stopPropagation();
+            openRemainingStudentsPopover(btnViewRem, classObj, sem, testIndex, config);
+          };
+        }
+      }
+
+      const progress = computeScoringProgress(classObj, sem, testIndex, config);
+      updateScoringProgressStrip(strip, progress, classObj, sem, testIndex, config, true);
+    }
+
+    function updateScoringProgressStrip(strip, progress, classObj, sem, testIndex, config, updateMotivator = false) {
+      if (!strip || !progress) return;
+
+      const textScored = strip.querySelector("#smod-text-scored");
+      const textRemaining = strip.querySelector("#smod-text-remaining");
+      const textEta = strip.querySelector("#smod-text-eta");
+      const fill = strip.querySelector("#smod-progress-fill");
+      const badgeDeadline = strip.querySelector("#smod-badge-deadline");
+      const textDeadline = strip.querySelector("#smod-text-deadline");
+      const textMotivator = strip.querySelector("#smod-motivator-text");
+      const rowMotivator = strip.querySelector("#smod-motivator-row");
+
+      if (textScored) {
+        textScored.textContent = tFmt('gsProgressScored', { n: progress.scoredCount, total: progress.totalCount });
+      }
+      if (textRemaining) {
+        textRemaining.textContent = progress.remainingCount === 0 && progress.totalCount > 0
+          ? t('gsProgressAllDone')
+          : tFmt('gsProgressRemaining', { n: progress.remainingCount });
+      }
+      if (textEta) {
+        textEta.textContent = progress.remainingCount === 0 && progress.totalCount > 0
+          ? "✓"
+          : (progress.hasEta ? `≈ ${formatCorrectionTime(progress.etaMin)}` : t('gsProgressEtaPending'));
+      }
+
+      if (fill) {
+        const ratio = progress.totalCount > 0 ? (progress.scoredCount / progress.totalCount) : 0;
+        fill.style.transform = `scaleX(${Math.max(0, Math.min(1, ratio))})`;
+        fill.classList.toggle("completed", progress.remainingCount === 0 && progress.totalCount > 0);
+        fill.classList.toggle("warning", progress.deadlineStatus === "behind");
+        fill.classList.toggle("overdue", progress.deadlineStatus === "overdue");
+      }
+
+      if (badgeDeadline && textDeadline) {
+        if (progress.deadlineStatus) {
+          badgeDeadline.classList.remove("hidden");
+          badgeDeadline.className = `smod-badge smod-badge-deadline ${progress.deadlineStatus}`;
+          const dlText = progress.daysLeft < 0
+            ? tFmt('gsToptDeadlineOverdue', { n: Math.abs(progress.daysLeft) })
+            : (progress.daysLeft === 0 ? t('gsToptDeadlineDueToday') : tFmt('gsToptDeadlineDaysLeft', { n: progress.daysLeft }));
+          textDeadline.textContent = dlText;
+        } else {
+          badgeDeadline.classList.add("hidden");
+        }
+      }
+
+      if (rowMotivator && textMotivator) {
+        if (window.ScoringMotivators && ScoringMotivators.isEnabled()) {
+          if (updateMotivator) {
+            const motiv = ScoringMotivators.pick({
+              scored: progress.scoredCount,
+              total: progress.totalCount,
+              remaining: progress.remainingCount,
+              pct: progress.pct,
+              deadlineStatus: progress.deadlineStatus
+            });
+            if (motiv && motiv.text) {
+              rowMotivator.style.display = "flex";
+              textMotivator.textContent = motiv.text;
+            } else {
+              rowMotivator.style.display = "none";
+              textMotivator.textContent = "";
+            }
+          }
+        } else {
+          rowMotivator.style.display = "none";
+          textMotivator.textContent = "";
+        }
+      }
+    }
+
+    const _gsLastRemainingMap = {};
+    // Celebration waiting for the student modal to close: { mode, classObj, sem, testIndex, config }
+    let _gsPendingCelebration = null;
+
+    function flushPendingCelebration() {
+      const p = _gsPendingCelebration;
+      _gsPendingCelebration = null;
+      if (p) showCorrectionCompleteCelebration(p.classObj, p.sem, p.testIndex, p.config, p.mode);
+    }
+
+    // Returns 'done' when remaining just hit 0, 'scored' when it just decreased, otherwise null.
+    function _gsTrackRemainingTransition(classObj, sem, testIndex, config, initOnly) {
+      if (!classObj) return null;
+      const key = `${classObj.id}|${sem}|${testIndex}`;
+      const prog = computeScoringProgress(classObj, sem, testIndex, config);
+      const prev = _gsLastRemainingMap[key];
+      _gsLastRemainingMap[key] = prog.remainingCount;
+      if (initOnly || prev == null || prog.totalCount <= 0) return null;
+      if (prog.remainingCount > prev) _gsPendingCelebration = null; // un-scored again: drop stale celebration
+      if (prev > 0 && prog.remainingCount === 0) return 'done';
+      if (prog.remainingCount < prev) return 'scored';
+      return null;
+    }
+
+    function showCorrectionCompleteCelebration(classObj, sem, testIndex, config, mode) {
+      if (!window.ScoringMotivators || !ScoringMotivators.isEnabled()) return;
+      const isDone = mode !== 'scored';
+      const prog = computeScoringProgress(classObj, sem, testIndex, config);
+      const motiv = ScoringMotivators.pick({
+        scored: prog.scoredCount, total: prog.totalCount, remaining: prog.remainingCount,
+        pct: prog.pct, deadlineStatus: prog.deadlineStatus
+      });
+      const msg = (motiv && motiv.text) || t(isDone ? 'gsDoneCelebrationFallback' : 'gsScoredCelebrationFallback');
+
+      const old = document.getElementById("gs-celebration-popup");
+      if (old) old.remove();
+
+      const testLabel = config.testName || `T${testIndex + 1}`;
+      const title = isDone ? t('gsDoneCelebrationTitle') : t('gsScoredCelebrationTitle');
+      const sub = isDone
+        ? `${classObj.name} \u00b7 ${testLabel}`
+        : `${tFmt('gsProgressRemaining', { n: prog.remainingCount })} \u00b7 ${testLabel}`;
+      const popup = document.createElement("div");
+      popup.id = "gs-celebration-popup";
+      popup.className = "gs-celebration-popup" + (isDone ? "" : " mini");
+      popup.setAttribute("role", "status");
+      popup.innerHTML = `
+        <img class="gs-celebration-icon" src="../assets/icons/${isDone ? 'award' : 'check'}.svg" alt="" />
+        <div class="gs-celebration-body">
+          <div class="gs-celebration-title">${escapeHtml(title)}</div>
+          <div class="gs-celebration-sub">${escapeHtml(sub)}</div>
+          <div class="gs-celebration-msg">${escapeHtml(msg)}</div>
+        </div>
+        <button type="button" class="gs-celebration-close" title="${escapeHtml(t('gsDoneCelebrationClose'))}"><img src="../assets/icons/close.svg" alt="" /></button>`;
+      document.body.appendChild(popup);
+
+      let timer = null;
+      const dismiss = () => {
+        if (timer) clearTimeout(timer);
+        popup.classList.remove("show");
+        setTimeout(() => popup.remove(), 220);
+      };
+      popup.querySelector(".gs-celebration-close").addEventListener("click", dismiss);
+      requestAnimationFrame(() => popup.classList.add("show"));
+      timer = setTimeout(dismiss, isDone ? 6000 : 3500);
+    }
+
+    function updateTopChipScoringProgress(classObj, sem, testIndex, config) {
+      const progressChip = document.getElementById("chip-scoring-progress");
+      if (!progressChip) return;
+      if (!classObj) classObj = getActiveClass();
+      if (!classObj) return;
+      if (!sem && appState && appState.activeTest) sem = appState.activeTest.semester;
+      if (testIndex == null && appState && appState.activeTest) testIndex = appState.activeTest.testIndex;
+      if (sem == null || testIndex == null) return;
+      if (!config) config = getTestConfig(classObj, sem, testIndex);
+
+      const progress = computeScoringProgress(classObj, sem, testIndex, config);
+      progressChip.className = "config-chip chip-scoring-progress" + (progress.remainingCount === 0 && progress.totalCount > 0 ? " all-done" : "");
+      const etaStr = progress.hasEta ? ` · ≈ ${formatCorrectionTime(progress.etaMin)}` : "";
+      const dlBadge = progress.deadlineStatus ? ` [${progress.daysLeft < 0 ? tFmt('gsToptDeadlineOverdue', { n: Math.abs(progress.daysLeft) }) : (progress.daysLeft === 0 ? t('gsToptDeadlineDueToday') : tFmt('gsToptDeadlineDaysLeft', { n: progress.daysLeft }))}]` : "";
+      progressChip.innerHTML = `<span class="chip-icon"><img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /></span><span class="chip-label">${t('gsScoringProgressTitle')}</span><span class="chip-value">${progress.remainingCount === 0 && progress.totalCount > 0 ? t('gsProgressAllDone') : tFmt('gsProgressRemaining', { n: progress.remainingCount }) + etaStr}${dlBadge}</span>`;
+    }
+
+    function openRemainingStudentsPopover(anchorEl, classObj, sem, testIndex, config) {
+      const popover = document.getElementById("gs-remaining-students-popover");
+      if (!popover) return;
+
+      const progress = computeScoringProgress(classObj, sem, testIndex, config);
+      const summaryEl = document.getElementById("gs-rem-popover-summary");
+      const listEl = document.getElementById("gs-rem-popover-list");
+      const excludedEl = document.getElementById("gs-rem-popover-excluded");
+
+      if (summaryEl) {
+        const avgText = progress.hasEta ? tFmt('gsProgressAvg', { time: formatCorrectionTime(progress.avgMin) }) : t('gsProgressEtaPending');
+        summaryEl.textContent = `${tFmt('gsProgressRemaining', { n: progress.remainingCount })} · ${avgText}`;
+      }
+
+      if (listEl) {
+        listEl.innerHTML = "";
+        if (progress.remainingStudents.length === 0) {
+          listEl.innerHTML = `<div style="text-align:center;padding:16px;color:#1a6438;font-weight:700;">${t('gsProgressAllDone')}</div>`;
+        } else {
+          progress.remainingStudents.forEach(st => {
+            const row = document.createElement("div");
+            row.className = "gs-rem-row";
+            const stName = (window.StudentNameUtils && typeof StudentNameUtils.formatStudentName === 'function')
+              ? StudentNameUtils.formatStudentName(st, getGsNameDisplayMode())
+              : `${st.firstName} ${st.lastName}`.trim();
+
+            row.innerHTML = `
+              <div class="gs-rem-student-info">
+                <span class="gs-rem-student-idx">#${st.index || ''}</span>
+                <span class="gs-rem-student-name" title="${escapeHtml(stName)}">${escapeHtml(stName)}</span>
+              </div>
+              <div class="gs-rem-actions">
+                <button type="button" class="gs-rem-btn-score" title="${t('gsProgressGoTo')}">${t('gsProgressGoTo')}</button>
+                <button type="button" class="gs-rem-btn-exclude" title="${t('gsProgressExcludeFromCount')}">✕</button>
+              </div>
+            `;
+
+            row.querySelector(".gs-rem-btn-score").onclick = () => {
+              jumpToStudentFromPopover(st, classObj, sem, testIndex, config);
+            };
+
+            row.querySelector(".gs-rem-btn-exclude").onclick = () => {
+              toggleStudentExclusion(st.id, classObj, sem, testIndex, config, true);
+              openRemainingStudentsPopover(anchorEl, classObj, sem, testIndex, config);
+            };
+
+            listEl.appendChild(row);
+          });
+        }
+      }
+
+      if (excludedEl) {
+        if (progress.excludedStudents.length > 0) {
+          excludedEl.style.display = "block";
+          excludedEl.innerHTML = `<div class="gs-rem-popover-excluded-title">${t('gsProgressExcludedStudents')} (${progress.excludedStudents.length})</div>`;
+          progress.excludedStudents.forEach(st => {
+            const row = document.createElement("div");
+            row.className = "gs-rem-row excluded";
+            const stName = (window.StudentNameUtils && typeof StudentNameUtils.formatStudentName === 'function')
+              ? StudentNameUtils.formatStudentName(st, getGsNameDisplayMode())
+              : `${st.firstName} ${st.lastName}`.trim();
+
+            row.innerHTML = `
+              <div class="gs-rem-student-info">
+                <span class="gs-rem-student-name" title="${escapeHtml(stName)}">${escapeHtml(stName)}</span>
+              </div>
+              <div class="gs-rem-actions">
+                <button type="button" class="gs-rem-btn-exclude" style="color:#1a6438;font-weight:800;" title="${t('gsProgressIncludeInCount')}">+</button>
+              </div>
+            `;
+
+            row.querySelector(".gs-rem-btn-exclude").onclick = () => {
+              toggleStudentExclusion(st.id, classObj, sem, testIndex, config, false);
+              openRemainingStudentsPopover(anchorEl, classObj, sem, testIndex, config);
+            };
+
+            excludedEl.appendChild(row);
+          });
+        } else {
+          excludedEl.style.display = "none";
+        }
+      }
+
+      if (anchorEl) {
+        const rect = anchorEl.getBoundingClientRect();
+        let top = rect.bottom + 8;
+        let left = Math.min(window.innerWidth - 376, Math.max(16, rect.right - 360));
+        if (top + 420 > window.innerHeight) {
+          top = Math.max(16, rect.top - 430);
+        }
+        popover.style.top = `${Math.round(top)}px`;
+        popover.style.left = `${Math.round(left)}px`;
+      } else {
+        popover.style.top = "100px";
+        popover.style.left = "calc(50vw - 180px)";
+      }
+
+      popover.classList.remove("hidden");
+
+      const closeBtn = document.getElementById("gs-rem-popover-close");
+      if (closeBtn) closeBtn.onclick = () => popover.classList.add("hidden");
+    }
+
+    function jumpToStudentFromPopover(targetStudent, classObj, sem, testIndex, config) {
+      const popover = document.getElementById("gs-remaining-students-popover");
+      if (popover) popover.classList.add("hidden");
+
+      if (_studentModalDraft) {
+        persistStudentModalDraft(true);
+      }
+      flushPendingCelebration();
+
+      const targetTr = document.querySelector(`#test-table tbody tr[data-student-id="${targetStudent.id}"]`);
+      openStudentModal(targetStudent, classObj, sem, testIndex, targetTr, config);
+    }
+
+    function toggleStudentExclusion(studentId, classObj, sem, testIndex, config, exclude) {
+      if (!config) config = getTestConfig(classObj, sem, testIndex);
+      if (!Array.isArray(config.excludedStudentIds)) config.excludedStudentIds = [];
+
+      if (exclude) {
+        if (!config.excludedStudentIds.includes(studentId)) {
+          config.excludedStudentIds.push(studentId);
+        }
+      } else {
+        config.excludedStudentIds = config.excludedStudentIds.filter(id => id !== studentId);
+      }
+
+      saveState(classObj.id, sem, testIndex);
+
+      const modalBody = document.getElementById("student-modal-body");
+      if (modalBody) {
+        const strip = modalBody.querySelector("#smod-scoring-progress-strip");
+        if (strip) {
+          const progress = computeScoringProgress(classObj, sem, testIndex, config);
+          updateScoringProgressStrip(strip, progress, classObj, sem, testIndex, config);
+        }
+      }
+
+      updateTopChipScoringProgress(classObj, sem, testIndex, config);
+    }
+
+    async function syncCorrectionDeadlineToPlanner(classObj, sem, testIndex, config) {
+      if (!window.Desktop || !Desktop.isElectron()) return;
+      config = config || getTestConfig(classObj, sem, testIndex);
+
+      const plannerClassId = classObj.groupId || classObj.id;
+      if (!plannerClassId) return;
+
+      try {
+        let allByClass = {};
+        const fileRes = await Desktop.readByPath('user', 'planner/' + plannerClassId + '.js');
+        if (fileRes && fileRes.content) {
+          try {
+            const fake = {};
+            new Function('window', fileRes.content)(fake);
+            allByClass = fake.PLANNER_ENTRIES_BY_CLASS || {};
+          } catch (e) {}
+        }
+
+        let list = (allByClass[plannerClassId] || []).slice();
+
+        const deadlineEntryIdx = list.findIndex(e =>
+          e._gradeRef && e._gradeRef.classId === classObj.id && e._gradeRef.semester === sem && e._gradeRef.testIndex === testIndex
+        );
+
+        if (!config.correctionDeadline) {
+          if (deadlineEntryIdx >= 0) {
+            list.splice(deadlineEntryIdx, 1);
+            allByClass[plannerClassId] = list;
+            const content = 'window.PLANNER_ENTRIES_BY_CLASS = window.PLANNER_ENTRIES_BY_CLASS || {};\n' +
+              'window.PLANNER_ENTRIES_BY_CLASS[' + JSON.stringify(plannerClassId) + '] = ' +
+              JSON.stringify(list, null, 2) + ';\n';
+            await Desktop.saveText('user', (plannerClassId || '__unassigned') + '.js', content, 'planner');
+          }
+          return;
+        }
+
+        const testLabel = config.testName || `T${testIndex + 1}`;
+        const topic = (typeof t === 'function' ? t('gsCorrectionDeadlineTitle') : 'Finish correcting: ') + testLabel;
+        const objective = (typeof t === 'function' ? t('gsCorrectionDeadlineFor') : 'Correction deadline for ') + classObj.name;
+
+        if (deadlineEntryIdx >= 0) {
+          list[deadlineEntryIdx].date = config.correctionDeadline;
+          list[deadlineEntryIdx].time = config.correctionDeadlineTime || '';
+          list[deadlineEntryIdx].topic = topic;
+          list[deadlineEntryIdx].objective = objective;
+        } else {
+          list.push({
+            id: 'gs-dl-' + plannerClassId + '-' + sem + '-' + testIndex + '-' + Date.now(),
+            classId: plannerClassId,
+            date: config.correctionDeadline,
+            time: config.correctionDeadlineTime || '',
+            timeEnd: '',
+            type: 'assignment',
+            topic: topic,
+            objective: objective,
+            readings: '', activities: '', homework: '', notes: '',
+            reminder: null,
+            isCorrectionDeadline: true,
+            _gradeRef: { classId: classObj.id, semester: sem, testIndex: testIndex }
+          });
+        }
+
+        allByClass[plannerClassId] = list;
+        const content = 'window.PLANNER_ENTRIES_BY_CLASS = window.PLANNER_ENTRIES_BY_CLASS || {};\n' +
+          'window.PLANNER_ENTRIES_BY_CLASS[' + JSON.stringify(plannerClassId) + '] = ' +
+          JSON.stringify(list, null, 2) + ';\n';
+        await Desktop.saveText('user', (plannerClassId || '__unassigned') + '.js', content, 'planner');
+      } catch (e) {
+        console.warn('syncCorrectionDeadlineToPlanner error:', e);
+      }
+    }
+
     function openStudentModal(student, classObj, sem, testIndex, tr, config) {
       // Deep-clone working copies
       const sourceArray = sem === "sem1" ? student.sem1Tests : student.sem2Tests;
@@ -18650,6 +19762,18 @@
 
       const body = document.getElementById("student-modal-body");
       body.innerHTML = "";
+
+      // ── Scoring Progress Strip (Option A) ──
+      renderScoringProgressStrip(body, classObj, sem, testIndex, config);
+      _gsTrackRemainingTransition(classObj, sem, testIndex, config, true);
+
+      if (!config._absentPromptChecked) {
+        config._absentPromptChecked = true;
+        const absentCount = (classObj.students || []).filter(s => s.isAbsent === true && !(config.excludedStudentIds || []).includes(s.id)).length;
+        if (absentCount > 0 && typeof showToast === "function") {
+          showToast(tFmt('gsProgressAbsentSuggested', { n: absentCount }));
+        }
+      }
 
       // — Grade —
       const gradeSection = document.createElement("div");
@@ -20152,6 +21276,30 @@
       }
 
       saveState(classObj ? classObj.id : null, sem, testIndex);
+
+      // Update scoring progress strip in-place
+      const modalBody = document.getElementById("student-modal-body");
+      if (modalBody) {
+        const strip = modalBody.querySelector("#smod-scoring-progress-strip");
+        if (strip) {
+          const prog = computeScoringProgress(classObj, sem, testIndex, config);
+          updateScoringProgressStrip(strip, prog, classObj, sem, testIndex, config);
+          if (config && prog.remainingCount === 0 && prog.totalCount > 0 && !config.correctionDeadlineDoneAt) {
+            config.correctionDeadlineDoneAt = new Date().toISOString();
+            saveState(classObj ? classObj.id : null, sem, testIndex);
+          }
+        }
+      }
+
+      // Update test top chip scoring progress
+      updateTopChipScoringProgress(classObj, sem, testIndex, config);
+
+      const _gsTransition = _gsTrackRemainingTransition(classObj, sem, testIndex, config, false);
+      if (_gsTransition && !(_gsPendingCelebration && _gsPendingCelebration.mode === 'done' && _gsTransition === 'scored')) {
+        // Deferred: shown when the modal closes so it never interrupts marking.
+        _gsPendingCelebration = { mode: _gsTransition, classObj, sem, testIndex, config };
+      }
+
       renderSummary();
       if (classObj && sem && testIndex != null && typeof renderTestTopChips === 'function') {
         renderTestTopChips(classObj, sem, testIndex);
@@ -20194,11 +21342,14 @@
         flushStudentModalAutoSave();
         document.getElementById("student-modal-overlay").classList.add("hidden");
         _studentModalDraft = null;
+        updateTopChipScoringProgress(classObj, sem, testIndex);
+        flushPendingCelebration();
         if (classObj && sem && testIndex != null && typeof renderTestTopChips === 'function') {
           renderTestTopChips(classObj, sem, testIndex);
         }
       } else {
         document.getElementById("student-modal-overlay").classList.add("hidden");
+        updateTopChipScoringProgress();
       }
     }
 
@@ -20742,7 +21893,16 @@
         }
 
         if (isSelected("testName")) destConfig.testName = srcConfig.testName || "";
-        if (isSelected("testDate")) destConfig.testDate = srcConfig.testDate || "";
+        if (isSelected("testDate")) {
+          destConfig.testDate = srcConfig.testDate || "";
+          destConfig.correctionDeadline = srcConfig.correctionDeadline || "";
+          destConfig.correctionDeadlineTime = srcConfig.correctionDeadlineTime || "";
+          destConfig.correctionDeadlineDaysAfter = (typeof srcConfig.correctionDeadlineDaysAfter === 'number') ? srcConfig.correctionDeadlineDaysAfter : 13;
+          destConfig.correctionDeadlineAuto = srcConfig.correctionDeadlineAuto !== false;
+          if (srcConfig.deadlineReminders) {
+            destConfig.deadlineReminders = JSON.parse(JSON.stringify(srcConfig.deadlineReminders));
+          }
+        }
         if (isSelected("scope")) destConfig.scope = srcConfig.scope || "";
         if (isSelected("type")) destConfig.type = srcConfig.type || "";
         if (isSelected("observationSections")) {
@@ -22158,6 +23318,13 @@
 
       // ── close menus on outside click / scroll / resize / Escape ──
       document.addEventListener("click", e => {
+        const remPop = document.getElementById("gs-remaining-students-popover");
+        if (remPop && !remPop.classList.contains("hidden")) {
+          if (!remPop.contains(e.target) && !e.target.closest("#smod-btn-view-remaining") && !e.target.closest("#chip-scoring-progress")) {
+            remPop.classList.add("hidden");
+          }
+        }
+
         const menus = ["test-row-menu", "class-card-menu", "test-header-menu", "summary-student-row-menu", "all-test-item-menu"]
           .map(id => document.getElementById(id)).filter(Boolean);
         const anyVisible = menus.some(m => !m.classList.contains("hidden"));
@@ -22169,6 +23336,14 @@
       window.addEventListener("resize", closeAllContextMenus);
       document.addEventListener("keydown", e => {
         if (e.key !== "Escape" || e.defaultPrevented) return;
+
+        // 0. Remaining students popover
+        const remPop = document.getElementById("gs-remaining-students-popover");
+        if (remPop && !remPop.classList.contains("hidden")) {
+          e.preventDefault();
+          remPop.classList.add("hidden");
+          return;
+        }
 
         // 1. Color picker
         const refPop = document.getElementById("ref-color-picker-popover");
@@ -22722,8 +23897,8 @@
   }
   .crit-table td.desc-col {
     white-space: pre-wrap;
-    line-height: 1.55;
-    font-size: 0.92rem;
+    line-height: 1.4;
+    font-size: 0.82rem;
   }
   .crit-table tr:nth-child(even) td.desc-col {
     background: #fcfbf9;
@@ -23078,7 +24253,11 @@ ${blocks}
       }
       // Ensure criteria banks are loaded so getTestCriteriaBank() works for custom banks
       await loadAvailableCriteriaBanks().catch(() => {});
-      const html = buildCriteriaRefHtml(config, classObj, semester, testIndex);
+      let html = buildCriteriaRefHtml(config, classObj, semester, testIndex);
+      if (window.ExportStylesService) {
+        const sId = ExportStylesService.getSelectedStyle('gradeSheet');
+        html = await ExportStylesService.injectStyleIntoHtml(html, sId, 'gradeSheet');
+      }
       const slug = slugifyForPath(classObj.name || "class");
       const filename = `${slug}-${semester}-t${testIndex + 1}-criteria-reference-${new Date().toISOString().slice(0, 10)}.html`;
       downloadTextFile(html, filename, "text/html;charset=utf-8");
@@ -24048,6 +25227,14 @@ ${blocks}
       }
       navigateToTarget(initialParams);
 
+      try {
+        const storedNav = localStorage.getItem('cmt-grade-sheet-nav');
+        if (storedNav) {
+          localStorage.removeItem('cmt-grade-sheet-nav');
+          navigateToTarget(JSON.parse(storedNav));
+        }
+      } catch (e) {}
+
       if (typeof BroadcastChannel !== 'undefined') {
         try {
           const navCh = new BroadcastChannel('cmt-gradesheet-nav');
@@ -24666,8 +25853,12 @@ ${blocks}
       });
     }
 
-    function exportCompareHtml() {
-      const html = buildCompareClassesReportHtml();
+    async function exportCompareHtml() {
+      let html = buildCompareClassesReportHtml();
+      if (window.ExportStylesService) {
+        const sId = ExportStylesService.getSelectedStyle('gradeSheet');
+        html = await ExportStylesService.injectStyleIntoHtml(html, sId, 'gradeSheet');
+      }
       downloadTextFile(html, `class-comparison-${_cmpState.scope}-${new Date().toISOString().slice(0, 10)}.html`, "text/html;charset=utf-8");
     }
 

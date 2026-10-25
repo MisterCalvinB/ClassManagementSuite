@@ -16,6 +16,7 @@
   <script src="../js/tutorial.js"></script>
   <script src="../js/competence-aggregator-service.js"></script>
   <script src="../js/links-service.js"></script>
+  <script src="../js/badge-sets-service.js"></script>
   <script src="../js/tag-link-modal.js"></script>
   <link rel="stylesheet" href="../css/tag-link-modal.css">
   <script>
@@ -453,6 +454,13 @@
           <input type="text" id="nf-name" data-i18n-placeholder="mdbNfPlaceholder" placeholder="e.g. my-words.js"
             onkeydown="if(event.key==='Enter')doCreateFile()">
           <div id="nf-err" class="form-err"></div>
+          <div id="nf-badges-seed-wrap" class="hidden" style="margin-top:12px;padding:8px 10px;background:#f5f5f0;border:1.5px solid #333;border-radius:6px;">
+            <label style="display:flex;align-items:center;gap:8px;font-size:0.82rem;font-weight:600;cursor:pointer;">
+              <input type="checkbox" id="nf-seed-default-badges" checked style="width:16px;height:16px;cursor:pointer;">
+              <span data-i18n="mdbBadgeStartFromDefault">Start from default badges</span>
+            </label>
+            <div style="font-size:0.75rem;color:#555;margin-top:4px;" data-i18n="mdbBadgeStartFromDefaultDesc">Pre-populates the new badge set with the standard class management badges.</div>
+          </div>
         </div>
       </div>
       <div class="modal-ft">
@@ -614,6 +622,7 @@
       { key: 'criteria', labelKey: 'mdbTypeCriteria', icon: 'check.svg', target: 'customCriteria', defaultView: 'table' },
       { key: 'scales', labelKey: 'mdbTypeScales', icon: 'award.svg', target: 'customScales', defaultView: 'table' },
       { key: 'chips', labelKey: 'mdbTypePersonalisedChips', icon: 'speech-bubbles.svg', target: 'customChips', defaultView: 'table' },
+      { key: 'badgebanks', labelKey: 'mdbTypeBadges', icon: 'award.svg', target: 'customBadges', defaultView: 'table' },
     ];
 
     const DATABASE_SECTIONS = [
@@ -625,7 +634,7 @@
       {
         id: 'assessmentCurriculum',
         labelKey: 'mdbSectionAssessmentCurriculum',
-        types: ['testbanks', 'competences', 'phases', 'criteria', 'scales', 'chips']
+        types: ['testbanks', 'competences', 'phases', 'criteria', 'scales', 'chips', 'badgebanks']
       }
     ];
 
@@ -638,6 +647,7 @@
       competences: 'customCompetenceBank', descriptors: 'customCompetenceBank',
       phases: 'customPhaseBank', criteria: 'XLSM_CRITERIA',
       scales: 'XLSM_SCALE_MODELS', chips: 'OBSERVATION_CHECKLIST_GROUPS',
+      badgebanks: 'customBadgeBank'
     };
 
     // ─────────────────────────────────────────────────────────────────────
@@ -885,6 +895,13 @@
           const fn = new Function(content + '\n;try{return typeof XLSM_CRITERIA !== "undefined" ? XLSM_CRITERIA : (typeof customCriteria !== "undefined" ? customCriteria : null);}catch(e){return null;}');
           const critRes = fn();
           if (Array.isArray(critRes) && critRes.length > 0) return critRes;
+        } catch (_) {}
+      } else if (typeKey === 'badgebanks') {
+        try {
+          if (typeof BadgeSets !== 'undefined' && typeof BadgeSets.parseFileContent === 'function') {
+            const bRes = BadgeSets.parseFileContent(content);
+            if (Array.isArray(bRes) && bRes.length > 0) return bRes;
+          }
         } catch (_) {}
       }
 
@@ -1693,6 +1710,16 @@
         addStr('color');
         addStr('type');
         addArr('items', { longArray: true });
+      } else if (typeKey === 'badgebanks') {
+        addStr('icon');
+        addStr('label');
+        addStr('tone', { useSelect: true, uniqueVals: ['positive', 'negative'] });
+        addStr('meaning', { isLong: true });
+        addNum('coefficient');
+        addStr('scope', { useSelect: true, uniqueVals: ['individual', 'team', 'both'] });
+        addBool('inlineInRoster');
+        addBool('strikeOnAward');
+        addBool('hidden');
       }
 
       const customCols = getCustomColumns(typeKey);
@@ -1856,6 +1883,12 @@
             delete rec.isBonus;
             delete rec.showComment;
           }
+        }
+      } else if (typeKey === 'badgebanks') {
+        if (typeof BadgeSets !== 'undefined' && typeof BadgeSets.normalizeDefs === 'function') {
+          const norm = BadgeSets.normalizeDefs(records).filter(b => !b.isBuiltin);
+          records.length = 0;
+          records.push(...norm);
         }
       } else if (typeKey === 'wordbanks') {
         for (const rec of records) {
@@ -3706,6 +3739,21 @@
           { val: 'stations', lbl: 'Stations / Carousel' }
         ];
         input = `<select id="${id}">${modeOpts.map(o => `<option value="${o.val}"${val === o.val ? ' selected' : ''}>${esc(o.lbl)}</option>`).join('')}</select>`;
+      } else if (S.typeKey === 'badgebanks' && field.key === 'tone') {
+        const curTone = String(val || 'positive').toLowerCase() === 'negative' ? 'negative' : 'positive';
+        input = `<select id="${id}">
+          <option value="positive"${curTone === 'positive' ? ' selected' : ''}>Positive</option>
+          <option value="negative"${curTone === 'negative' ? ' selected' : ''}>Negative</option>
+        </select>`;
+      } else if (S.typeKey === 'badgebanks' && field.key === 'scope') {
+        const curScope = String(val || 'individual').toLowerCase();
+        input = `<select id="${id}">
+          <option value="individual"${curScope === 'individual' ? ' selected' : ''}>Individual</option>
+          <option value="team"${curScope === 'team' ? ' selected' : ''}>Team</option>
+          <option value="both"${curScope === 'both' ? ' selected' : ''}>Both</option>
+        </select>`;
+      } else if (field.useSelect && Array.isArray(field.uniqueVals) && field.uniqueVals.length > 0) {
+        input = `<select id="${id}">${field.uniqueVals.map(opt => `<option value="${esc(opt)}"${val === opt ? ' selected' : ''}>${esc(opt)}</option>`).join('')}</select>`;
       } else if (field.type === 'boolean') {
         input = `<input type="checkbox" id="${id}"${val ? ' checked' : ''} style="width:auto">`;
       } else if (field.type === 'number') {
@@ -3968,6 +4016,14 @@
           </div>
           <div>Configures the checklist chip categories shown in the <strong>Teacher Observations</strong> section of Grade Sheet. Specify the category <strong>type</strong> (e.g. Effort, Oral Skills) and individual observation phrase <strong>items</strong>.</div>
         </div>`;
+      } else if (S.typeKey === 'badgebanks') {
+        infoBanner = `<div style="background:#f8fafc;border:1.5px solid #cbd5e1;border-radius:6px;padding:10px 12px;margin-bottom:14px;font-size:0.78rem;color:#334155;line-height:1.45;">
+          <div style="font-weight:700;color:#0f172a;margin-bottom:2px;display:flex;align-items:center;justify-content:space-between;">
+            <span>Custom Badges Database Guide</span>
+            <span style="font-size:0.7rem;background:#e2e8f0;padding:2px 6px;border-radius:4px;color:#475569;">Class Management Badges</span>
+          </div>
+          <div>Manage custom badge sets that can be assigned per class in <strong>Class Management</strong>. Define <strong>icon</strong> (emoji or short text, max 8 chars), <strong>label</strong>, <strong>tone</strong> (positive/negative), <strong>meaning</strong>, <strong>coefficient</strong>, <strong>scope</strong> (individual/team/both), and behavior flags.</div>
+        </div>`;
       }
 
       if (isAdd) {
@@ -4092,6 +4148,18 @@
         } else {
           values = readFormValues(schema);
         }
+
+        if (S.typeKey === 'badgebanks') {
+          const icon = String(values.icon || '').trim();
+          const label = String(values.label || '').trim();
+          if (!icon) { showToast(t('mdbErrBadgeIconReq', 'Badge icon is required (emoji or text max 8 chars).'), true); return; }
+          if (icon.length > 8) { showToast(t('mdbErrBadgeIconTooLong', 'Badge icon must be at most 8 characters.'), true); return; }
+          if (!label) { showToast(t('mdbErrBadgeLabelReq', 'Badge label is required.'), true); return; }
+          const key = `${icon}|${label}`.toLowerCase();
+          const exists = S.files[fi].records.some(r => `${r.icon}|${r.label}`.toLowerCase() === key);
+          if (exists) { showToast(t('mdbErrBadgeDuplicate', 'A badge with this icon and label already exists in this file.'), true); return; }
+        }
+
         S.files[fi].records.push(values);
         if (!await saveFile(fi)) return;
       } else {
@@ -4104,6 +4172,18 @@
           values = readFormValues(schema);
         }
         const { editFI: fi, editRI: ri } = S;
+
+        if (S.typeKey === 'badgebanks') {
+          const icon = String(values.icon || '').trim();
+          const label = String(values.label || '').trim();
+          if (!icon) { showToast(t('mdbErrBadgeIconReq', 'Badge icon is required (emoji or text max 8 chars).'), true); return; }
+          if (icon.length > 8) { showToast(t('mdbErrBadgeIconTooLong', 'Badge icon must be at most 8 characters.'), true); return; }
+          if (!label) { showToast(t('mdbErrBadgeLabelReq', 'Badge label is required.'), true); return; }
+          const key = `${icon}|${label}`.toLowerCase();
+          const exists = S.files[fi].records.some((r, idx) => idx !== ri && `${r.icon}|${r.label}`.toLowerCase() === key);
+          if (exists) { showToast(t('mdbErrBadgeDuplicate', 'A badge with this icon and label already exists in this file.'), true); return; }
+        }
+
         S.files[fi].records[ri] = { ...S.files[fi].records[ri], ...values };
         if (!await saveFile(fi)) return;
       }
@@ -5833,6 +5913,16 @@
     function openNewFile() {
       $('nf-name').value = '';
       $('nf-err').textContent = '';
+      const seedWrap = $('nf-badges-seed-wrap');
+      if (seedWrap) {
+        if (S.typeKey === 'badgebanks') {
+          seedWrap.classList.remove('hidden');
+          const seedCb = $('nf-seed-default-badges');
+          if (seedCb) seedCb.checked = true;
+        } else {
+          seedWrap.classList.add('hidden');
+        }
+      }
       $('nf-bg').classList.remove('hidden');
       setTimeout(() => $('nf-name').focus(), 80);
     }
@@ -5844,10 +5934,19 @@
       if (!name.endsWith('.js')) name += '.js';
       const def = getTypeDef(S.typeKey);
       const varName = VAR_NAME_DEFAULTS[S.typeKey] || 'customData';
-      const result = await Desktop.saveText(def.target, name, buildJsContent(varName, []));
+
+      let initialRecords = [];
+      if (S.typeKey === 'badgebanks') {
+        const seedCb = $('nf-seed-default-badges');
+        if (seedCb && seedCb.checked && typeof BadgeSets !== 'undefined' && typeof BadgeSets.getDefaultDefs === 'function') {
+          initialRecords = BadgeSets.getDefaultDefs(true); // exclude built-ins (+ and -)
+        }
+      }
+
+      const result = await Desktop.saveText(def.target, name, buildJsContent(varName, initialRecords));
       if (!result?.ok) { $('nf-err').textContent = result?.error || t('mdbErrFailedCreate'); return; }
-      S.files.push({ name, varName, records: [], status: 'loaded', size: 0 });
-      if (_gsc[S.typeKey]) _gsc[S.typeKey][name] = { records: [], varName };
+      S.files.push({ name, varName, records: initialRecords, status: 'loaded', size: 0 });
+      if (_gsc[S.typeKey]) _gsc[S.typeKey][name] = { records: initialRecords, varName };
       S.counts[S.typeKey] = S.files.length;
       updateSidebarCount(S.typeKey);
       closeNF();
@@ -5858,6 +5957,14 @@
           if (typeof BroadcastChannel !== 'undefined') {
             const ch = new BroadcastChannel('cmt-criteria');
             ch.postMessage({ type: 'criteria-updated', filename: name, timestamp: Date.now() });
+            ch.close();
+          }
+        } catch (_) {}
+      } else if (S.typeKey === 'badgebanks') {
+        try {
+          if (typeof BroadcastChannel !== 'undefined') {
+            const ch = new BroadcastChannel('cmt-badgebanks');
+            ch.postMessage({ type: 'badgebanks-updated', filename: name, timestamp: Date.now() });
             ch.close();
           }
         } catch (_) {}
@@ -6400,6 +6507,18 @@
             const chCrit = new BroadcastChannel('cmt-criteria');
             chCrit.postMessage({ type: 'chips-updated', filename: file.name, timestamp: Date.now() });
             chCrit.close();
+          }
+        } catch (_) {}
+      } else if (S.typeKey === 'badgebanks') {
+        try {
+          if (typeof BadgeSets !== 'undefined' && typeof BadgeSets.clearCache === 'function') {
+            const setId = file.name.replace(/\.(js|json)$/i, '');
+            BadgeSets.clearCache(setId);
+          }
+          if (typeof BroadcastChannel !== 'undefined') {
+            const ch = new BroadcastChannel('cmt-badgebanks');
+            ch.postMessage({ type: 'badgebanks-updated', filename: file.name, timestamp: Date.now() });
+            ch.close();
           }
         } catch (_) {}
       }

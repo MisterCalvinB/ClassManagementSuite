@@ -202,11 +202,14 @@
       });
     }
 
-    // Close on outside click (idempotent: register once per wrapper)
+    // Close on outside click or Escape key (idempotent: register once per wrapper)
     if (!wrap._hmDocBound) {
       wrap._hmDocBound = true;
       document.addEventListener('click', function (e) {
         if (!wrap.contains(e.target)) wrap.classList.remove('open');
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') wrap.classList.remove('open');
       });
     }
   };

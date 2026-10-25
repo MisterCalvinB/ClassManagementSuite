@@ -635,6 +635,7 @@
     { id: 'criteria', domain: 'assessment', label: 'Criteria Rubrics', icon: 'check.svg', target: 'customCriteria', subFolder: 'criteria', defaultVar: 'XLSM_CRITERIA', defaultFiles: ['correction-criteria.js', 'criteria.json'] },
     { id: 'scales', domain: 'assessment', label: 'Grading Scales', icon: 'award.svg', target: 'customScales', subFolder: 'scales', defaultVar: 'XLSM_SCALE_MODELS', defaultFiles: ['grade-scale-models.js', 'scales.json'] },
     { id: 'chips', domain: 'assessment', label: 'Observation Chips', icon: 'speech-bubbles.svg', target: 'customChips', subFolder: 'chips', defaultVar: 'OBSERVATION_CHECKLIST_GROUPS', defaultFiles: ['chips.json', 'correction-criteria.js'] },
+    { id: 'badgebanks', domain: 'assessment', label: 'Custom Badges', icon: 'award.svg', target: 'customBadges', subFolder: 'badges', defaultVar: 'customBadgeBank', defaultFiles: ['badges.json'] },
 
     // 3. Class & Rosters
     { id: 'roster', domain: 'class', label: 'Class Rosters', icon: 'groups.svg', special: 'roster' },

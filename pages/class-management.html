@@ -14,6 +14,7 @@
     <script src="../js/menus.js"></script>
     <script src="../js/tutorial.js"></script>
     <script src="../js/shortcuts-modal.js"></script>
+    <script src="../js/badge-sets-service.js"></script>
     <script src="../js/lesson-creator-service.js"></script>
     <script src="../js/links-service.js"></script>
     <script src="../js/tag-link-modal.js"></script>
@@ -1991,6 +1992,172 @@
                 transform: none !important;
             }
         }
+
+        /* ── Badge Sets Neobrutalist Styles ── */
+        .badge-set-header-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            margin-bottom: 14px;
+            background: #fafaf7;
+            border: 2px solid #333333;
+            border-radius: 8px;
+            box-shadow: 2px 2px 0 #555555;
+            flex-wrap: wrap;
+        }
+
+        .badge-set-label {
+            font-size: 0.82rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #222222;
+        }
+
+        .badge-set-select {
+            padding: 6px 10px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            border: 2px solid #333333;
+            border-radius: 6px;
+            background: #ffffff;
+            color: #111111;
+            cursor: pointer;
+            box-shadow: 2px 2px 0 #555555;
+            min-width: 170px;
+        }
+
+        .badge-set-action-btn {
+            background: #ffffff;
+            color: #111111;
+            border: 2px solid #333333;
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-size: 0.80rem;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 2px 2px 0 #555555;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: transform 0.08s ease, box-shadow 0.08s ease;
+        }
+
+        .badge-set-action-btn:hover {
+            transform: translate(-1px, -1px);
+            box-shadow: 3px 3px 0 #555555;
+        }
+
+        .badge-set-action-btn:active {
+            transform: translate(1px, 1px);
+            box-shadow: 1px 1px 0 #888888;
+        }
+
+        .badge-set-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.74rem;
+            font-weight: 700;
+            padding: 2px 8px;
+            background: #e2c96e;
+            color: #111111;
+            border: 1.5px solid #333333;
+            border-radius: 6px;
+            box-shadow: 2px 2px 0 #555555;
+            cursor: pointer;
+            margin-left: 8px;
+            vertical-align: middle;
+            user-select: none;
+            transition: transform 0.08s ease, box-shadow 0.08s ease;
+        }
+
+        .badge-set-chip:hover {
+            transform: translate(-1px, -1px);
+            box-shadow: 3px 3px 0 #555555;
+        }
+
+        .badge-set-chip:active {
+            transform: translate(1px, 1px);
+            box-shadow: 1px 1px 0 #888888;
+        }
+
+        .badge-set-classes-section {
+            border: 2px solid #333333;
+            border-radius: 8px;
+            background: #ffffff;
+            box-shadow: 2px 2px 0 #555555;
+            padding: 10px 12px;
+            margin-bottom: 14px;
+        }
+
+        .badge-set-classes-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .badge-set-classes-title {
+            font-size: 0.82rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #222222;
+        }
+
+        .badge-set-classes-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            max-height: 140px;
+            overflow-y: auto;
+            padding: 4px 2px;
+        }
+
+        .badge-set-class-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border: 1.5px solid #333333;
+            border-radius: 6px;
+            background: #f8fafc;
+            font-size: 0.80rem;
+            font-weight: 700;
+            color: #1e293b;
+            cursor: pointer;
+            box-shadow: 1.5px 1.5px 0 #555555;
+            user-select: none;
+            transition: background 0.1s ease, transform 0.08s ease;
+        }
+
+        .badge-set-class-pill.selected {
+            background: #e2c96e;
+            color: #111111;
+        }
+
+        .badge-set-class-pill:hover {
+            transform: translate(-1px, -1px);
+            box-shadow: 2.5px 2.5px 0 #555555;
+        }
+
+        .badge-set-link-notice {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            background: #f0fdf4;
+            border: 1.5px solid #22c55e;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #15803d;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 
@@ -2881,7 +3048,7 @@
                 <div class="roster-panel-header">
                     <h2 data-i18n-prefix="students_label">Students <span id="students-present-count"
                             style="font-weight:normal; font-size:0.85em; color:#666;"></span>: <span
-                            id="display-name">--</span></h2>
+                            id="display-name">--</span><span id="cms-badge-set-chip" class="badge-set-chip" style="display:none;" onclick="openEditBadgesModal()" title="Badge set"><img src="../assets/icons/award.svg" class="btn-icon" alt="" /><span id="cms-badge-set-chip-label">Default</span></span></h2>
                     <div style="display:flex; gap:6px; align-items:center;">
                     </div>
                 </div>
@@ -3314,14 +3481,41 @@
             <button class="close-modal" onclick="closeEditBadgesModal()">&times;</button>
             <h2 style="text-transform:uppercase; letter-spacing:2px; margin-bottom:4px;" data-i18n="eb_title">Edit
                 Badges</h2>
-            <p style="color:#666; font-size:0.82rem; margin-top:0; margin-bottom:16px;" data-i18n="eb_desc">Update badge
+            <p style="color:#666; font-size:0.82rem; margin-top:0; margin-bottom:14px;" data-i18n="eb_desc">Update badge
                 logo, name, connotation, and meaning. These changes affect the badge picker immediately.</p>
+            <div class="badge-set-header-bar" id="eb-set-bar">
+                <span class="badge-set-label" data-i18n="eb_set_label">Badge Set:</span>
+                <select id="eb-set-select" class="badge-set-select" onchange="onEditBadgesSetChange(this.value)"></select>
+                <label style="display:flex;align-items:center;gap:6px;font-size:0.80rem;font-weight:600;cursor:pointer;color:#333;">
+                    <input type="checkbox" id="eb-set-default-all-cb" style="width:15px;height:15px;cursor:pointer;">
+                    <span data-i18n="eb_set_use_default_all">Use as default for all classes</span>
+                </label>
+                <button type="button" class="badge-set-action-btn" onclick="openManageDatabaseForBadges()" style="margin-left:auto;">
+                    <img src="../assets/icons/award.svg" class="btn-icon" alt="" />
+                    <span data-i18n="eb_set_manage">Manage sets…</span>
+                </button>
+            </div>
+            <!-- Dynamic Classes Assigned Section (visible when custom non-default set is chosen) -->
+            <div id="eb-classes-section" class="badge-set-classes-section" style="display:none;">
+                <div class="badge-set-classes-header">
+                    <span class="badge-set-classes-title" data-i18n="eb_classes_assigned_title">Assigned Classes:</span>
+                    <div style="display:flex;gap:6px;align-items:center;">
+                        <button type="button" class="btn-mini" onclick="selectAllClassesForBadgeSet(true)" data-i18n="eb_classes_assigned_all">Select All</button>
+                        <button type="button" class="btn-mini" onclick="selectAllClassesForBadgeSet(false)" data-i18n="eb_classes_assigned_none">Clear All</button>
+                    </div>
+                </div>
+                <div class="badge-set-link-notice" id="eb-link-notice">
+                    <img src="../assets/icons/links.svg" class="btn-icon" alt="" />
+                    <span id="eb-link-notice-text">Linked to user/custom-data/badges/</span>
+                </div>
+                <div id="eb-classes-grid" class="badge-set-classes-grid"></div>
+            </div>
             <div id="edit-badges-body" style="display:flex; flex-direction:column; gap:10px;"></div>
             <div style="display:flex; gap:8px; margin-top:18px; flex-wrap:wrap;">
                 <button onclick="addBadgeDefinitionRow()"
                     style="background:#fff; color:#111; border:2px solid #111; border-radius:5px; padding:10px 16px; font-weight:700; font-size:0.82rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;"
                     data-i18n="eb_add_btn">+ Add Badge</button>
-                <button onclick="saveBadgeSettings()"
+                <button id="eb-save-btn" onclick="saveBadgeSettings()"
                     style="flex:1; background:#111; color:#fff; border:2px solid #111; border-radius:5px; padding:10px; font-weight:700; font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;"
                     data-i18n="eb_save_btn">Save to config.js</button>
                 <button onclick="resetBadgeSettings()"
@@ -4049,6 +4243,9 @@
             }
         };
         let badgeDefinitions = DEFAULT_BADGE_DEFINITIONS.map(entry => ({ ...entry }));
+        let badgeSetSettings = { defaultSetId: 'default', classSets: {} };
+        let activeBadgeSetId = 'default';
+        let modalEditingSetId = 'default';
         let soundSettings = JSON.parse(JSON.stringify(DEFAULT_SOUND_SETTINGS));
         const DEFAULT_PARTICIPATION_SETTINGS = {
             plusMinusCoefficient: 1,
@@ -5585,11 +5782,17 @@
         }
 
         function normalizeBadgeScope(scope) {
+            if (typeof BadgeSets !== 'undefined' && typeof BadgeSets.normalizeScope === 'function') {
+                return BadgeSets.normalizeScope(scope);
+            }
             const value = String(scope || 'individual').trim().toLowerCase();
             return ['individual', 'team', 'both'].includes(value) ? value : 'individual';
         }
 
         function normalizeBadgeDefinitions(definitions) {
+            if (typeof BadgeSets !== 'undefined' && typeof BadgeSets.normalizeDefs === 'function') {
+                return BadgeSets.normalizeDefs(definitions);
+            }
             const source = Array.isArray(definitions) ? definitions : [];
             const seen = new Set();
             return source.map(entry => ({
@@ -5730,15 +5933,28 @@
             teamColors.splice(0, teamColors.length, ...restoredTeams);
             applySessionTeamNames();
 
+            const rawBadgeSets = config?.badgeSetSettings;
+            badgeSetSettings = {
+                defaultSetId: String(rawBadgeSets?.defaultSetId || 'default').trim() || 'default',
+                classSets: (rawBadgeSets?.classSets && typeof rawBadgeSets.classSets === 'object') ? { ...rawBadgeSets.classSets } : {}
+            };
+
             const savedBadges = Array.isArray(config?.badgeDefinitions) ? config.badgeDefinitions : DEFAULT_BADGE_DEFINITIONS;
-            badgeDefinitions = normalizeBadgeDefinitions(savedBadges && savedBadges.length ? savedBadges : DEFAULT_BADGE_DEFINITIONS);
+            const normalizedDefaults = normalizeBadgeDefinitions(savedBadges && savedBadges.length ? savedBadges : DEFAULT_BADGE_DEFINITIONS);
             // Ensure builtin + and - entries always exist (inject for backward compat with old configs)
             const legacyPmCoeff = normalizeParticipationSettings(config?.participationSettings).plusMinusCoefficient;
             for (const builtin of DEFAULT_BADGE_DEFINITIONS.filter(d => d.isBuiltin).reverse()) {
-                if (!badgeDefinitions.find(d => d.isBuiltin && d.icon === builtin.icon)) {
-                    badgeDefinitions.unshift({ ...builtin, coefficient: legacyPmCoeff });
+                if (!normalizedDefaults.find(d => d.isBuiltin && d.icon === builtin.icon)) {
+                    normalizedDefaults.unshift({ ...builtin, coefficient: legacyPmCoeff });
                 }
             }
+            if (typeof BadgeSets !== 'undefined' && typeof BadgeSets.setCachedDefs === 'function') {
+                BadgeSets.setCachedDefs('default', normalizedDefaults);
+            }
+            badgeDefinitions = normalizedDefaults;
+            activeBadgeSetId = 'default';
+            modalEditingSetId = 'default';
+
             soundSettings = normalizeSoundSettings(config?.soundSettings);
             syncTimerBeepsFromSoundSettings();
             actionButtonSettings = normalizeActionButtonSettings(config?.uiSettings?.actionButtons);
@@ -6021,7 +6237,17 @@
                     hex: entry.hex,
                     border: entry.border
                 })),
-                badgeDefinitions: badgeDefinitions.map(entry => ({ ...entry })),
+                badgeDefinitions: (function () {
+                    const defaultDefs = (typeof BadgeSets !== 'undefined' && typeof BadgeSets.getCachedDefs === 'function')
+                        ? BadgeSets.getCachedDefs('default')
+                        : null;
+                    const source = (activeBadgeSetId === 'default') ? badgeDefinitions : (defaultDefs || loadedConfig.badgeDefinitions || DEFAULT_BADGE_DEFINITIONS);
+                    return (source || []).map(entry => ({ ...entry }));
+                })(),
+                badgeSetSettings: {
+                    defaultSetId: String(badgeSetSettings?.defaultSetId || 'default').trim() || 'default',
+                    classSets: { ...(badgeSetSettings?.classSets || {}) }
+                },
                 classModes: classModes.map(entry => ({ ...entry })),
                 soundSettings: normalizeSoundSettings(soundSettings),
                 participationSettings: normalizeParticipationSettings(participationSettings),
@@ -7007,7 +7233,257 @@
             renderRanking();
         }
 
-        function openEditBadgesModal() {
+        function findBadgeDef(icon, label) {
+            if (typeof BadgeSets !== 'undefined' && typeof BadgeSets.findBadgeDef === 'function') {
+                return BadgeSets.findBadgeDef(icon, label, badgeDefinitions);
+            }
+            const normIcon = String(icon || '').trim();
+            const normLabel = String(label || '').trim();
+            return (badgeDefinitions || []).find(d => {
+                if (normIcon && normLabel) return d.icon === normIcon && d.label === normLabel;
+                if (normIcon) return d.icon === normIcon;
+                return d.label === normLabel;
+            }) || null;
+        }
+
+        async function applyBadgeSetForClass(classId) {
+            if (!classId) return;
+            const targetSetId = (typeof BadgeSets !== 'undefined' && typeof BadgeSets.resolveForClass === 'function')
+                ? BadgeSets.resolveForClass(classId, badgeSetSettings)
+                : (badgeSetSettings?.defaultSetId || 'default');
+
+            const loadedDefs = (typeof BadgeSets !== 'undefined' && typeof BadgeSets.loadSet === 'function')
+                ? await BadgeSets.loadSet(targetSetId, getLoadedConfig()?.badgeDefinitions, participationSettings?.plusMinusCoefficient)
+                : null;
+
+            if (loadedDefs && Array.isArray(loadedDefs)) {
+                activeBadgeSetId = targetSetId;
+                // Swap in-place preserving array identity
+                badgeDefinitions.length = 0;
+                badgeDefinitions.push(...loadedDefs);
+            } else if (targetSetId !== 'default') {
+                // Set file was missing or renamed -> fall back to default
+                const missingMsg = (typeof i18n !== 'undefined' && typeof i18n.t === 'function')
+                    ? i18n.t('eb_set_missing_toast', { set: targetSetId })
+                    : `Badge set "${targetSetId}" not found. Reverted to default.`;
+                showToast(missingMsg, true);
+                const defaultDefs = (typeof BadgeSets !== 'undefined' && typeof BadgeSets.loadSet === 'function')
+                    ? await BadgeSets.loadSet('default', getLoadedConfig()?.badgeDefinitions, participationSettings?.plusMinusCoefficient)
+                    : DEFAULT_BADGE_DEFINITIONS;
+                activeBadgeSetId = 'default';
+                badgeDefinitions.length = 0;
+                badgeDefinitions.push(...(defaultDefs || DEFAULT_BADGE_DEFINITIONS));
+            }
+
+            updateCmsBadgeSetChip();
+            if (typeof _remotePushStateDebounced === 'function') _remotePushStateDebounced();
+        }
+
+        function updateCmsBadgeSetChip() {
+            const chip = document.getElementById('cms-badge-set-chip');
+            const labelEl = document.getElementById('cms-badge-set-chip-label');
+            if (!chip) return;
+            if (!selectedGroupName) {
+                chip.style.display = 'none';
+                return;
+            }
+            const setName = (activeBadgeSetId === 'default') ? 'Default' : activeBadgeSetId;
+            if (labelEl) labelEl.textContent = setName;
+            const tooltip = (typeof i18n !== 'undefined' && typeof i18n.t === 'function')
+                ? i18n.t('eb_chip_tooltip', { set: setName })
+                : `Active badge set: ${setName}. Click to configure.`;
+            chip.title = tooltip;
+            chip.style.display = 'inline-flex';
+        }
+
+        async function populateEditBadgesSetSelector(desiredSetId) {
+            const select = document.getElementById('eb-set-select');
+            const defAllCb = document.getElementById('eb-set-default-all-cb');
+            if (!select) return;
+
+            const sets = (typeof BadgeSets !== 'undefined' && typeof BadgeSets.listSets === 'function')
+                ? await BadgeSets.listSets()
+                : [{ id: 'default', name: 'Default (config.js)' }];
+
+            const curClassSet = selectedGroupName && badgeSetSettings?.classSets
+                ? (badgeSetSettings.classSets[selectedGroupName] || badgeSetSettings.defaultSetId || 'default')
+                : (badgeSetSettings?.defaultSetId || 'default');
+
+            const targetSetId = desiredSetId || (select.value && sets.some(s => s.id === select.value) ? select.value : curClassSet);
+
+            select.innerHTML = sets.map(s => {
+                const label = s.isDefault ? t('eb_set_default', 'Default (config.js)') : s.name;
+                return `<option value="${escapeSettingsHtml(s.id)}" ${s.id === targetSetId ? 'selected' : ''}>${escapeSettingsHtml(label)}</option>`;
+            }).join('');
+
+            modalEditingSetId = select.value || targetSetId || 'default';
+            if (defAllCb) {
+                defAllCb.checked = (badgeSetSettings?.defaultSetId === modalEditingSetId);
+            }
+            updateEditBadgesSaveButtonLabel();
+            renderAssignedClassesSection();
+        }
+
+        function renderAssignedClassesSection() {
+            const section = document.getElementById('eb-classes-section');
+            const grid = document.getElementById('eb-classes-grid');
+            const linkNoticeText = document.getElementById('eb-link-notice-text');
+            if (!section || !grid) return;
+
+            if (modalEditingSetId === 'default') {
+                // When "default" is selected, hide the per-class custom assignment list
+                section.style.display = 'none';
+                return;
+            }
+
+            // When a custom badge set is selected (i.e. unselecting "default")
+            section.style.display = 'block';
+
+            if (linkNoticeText) {
+                const fileName = modalEditingSetId + '.js';
+                linkNoticeText.textContent = `Linked file: user/custom-data/badges/${fileName}`;
+            }
+
+            const allGroups = (typeof studentGroups !== 'undefined' && studentGroups)
+                ? Object.keys(studentGroups).filter(g => !rawMeta[g]?.archived)
+                : [];
+
+            if (!allGroups.length) {
+                grid.innerHTML = `<span style="font-size:0.82rem;color:#888;">${t('eb_classes_none_created', 'No classes available.')}</span>`;
+                return;
+            }
+
+            grid.innerHTML = allGroups.map(groupId => {
+                const groupName = (rawMeta && rawMeta[groupId]?.name) ? rawMeta[groupId].name : groupId;
+                // A class uses this set if explicitly mapped, or if this set is the defaultSetId and class has no override
+                const assignedSet = badgeSetSettings.classSets?.[groupId] || badgeSetSettings.defaultSetId || 'default';
+                const isAssigned = (assignedSet === modalEditingSetId);
+                const isCurrentClass = (selectedGroupName === groupId);
+
+                return `
+                    <label class="badge-set-class-pill ${isAssigned ? 'selected' : ''}" title="${escapeSettingsHtml(groupName)}">
+                        <input type="checkbox" style="display:none;" value="${escapeSettingsHtml(groupId)}" ${isAssigned ? 'checked' : ''} onchange="onToggleClassBadgeSet('${escapeSettingsHtml(groupId)}', this.checked)">
+                        <span>${escapeSettingsHtml(groupName)}</span>
+                        ${isCurrentClass ? `<span style="font-size:0.70rem;background:#333;color:#fff;padding:1px 5px;border-radius:4px;margin-left:2px;">current</span>` : ''}
+                        <span>${isAssigned ? '✓' : ''}</span>
+                    </label>
+                `;
+            }).join('');
+        }
+
+        async function onToggleClassBadgeSet(classId, isChecked) {
+            if (!badgeSetSettings.classSets) badgeSetSettings.classSets = {};
+            if (isChecked) {
+                badgeSetSettings.classSets[classId] = modalEditingSetId;
+            } else {
+                if (badgeSetSettings.classSets[classId] === modalEditingSetId) {
+                    delete badgeSetSettings.classSets[classId];
+                }
+            }
+            renderAssignedClassesSection();
+
+            // Persist assignment mapping to config.js immediately
+            await persistBadgeSettings();
+
+            // If the toggled class is currently active in Class Management, update activeBadgeSetId and chip
+            if (selectedGroupName === classId) {
+                await applyBadgeSetForClass(classId);
+                renderRoster();
+            }
+        }
+
+        async function selectAllClassesForBadgeSet(select) {
+            if (!badgeSetSettings.classSets) badgeSetSettings.classSets = {};
+            const allGroups = (typeof studentGroups !== 'undefined' && studentGroups)
+                ? Object.keys(studentGroups).filter(g => !rawMeta[g]?.archived)
+                : [];
+
+            allGroups.forEach(groupId => {
+                if (select) {
+                    badgeSetSettings.classSets[groupId] = modalEditingSetId;
+                } else {
+                    if (badgeSetSettings.classSets[groupId] === modalEditingSetId) {
+                        delete badgeSetSettings.classSets[groupId];
+                    }
+                }
+            });
+
+            renderAssignedClassesSection();
+            await persistBadgeSettings();
+
+            if (selectedGroupName) {
+                await applyBadgeSetForClass(selectedGroupName);
+                renderRoster();
+            }
+        }
+
+        async function onEditBadgesSetChange(newSetId) {
+            modalEditingSetId = newSetId || 'default';
+            const defAllCb = document.getElementById('eb-set-default-all-cb');
+            if (defAllCb) {
+                defAllCb.checked = (badgeSetSettings?.defaultSetId === modalEditingSetId);
+            }
+            updateEditBadgesSaveButtonLabel();
+            renderAssignedClassesSection();
+
+            // Auto-assign to current class if chosen
+            if (selectedGroupName) {
+                if (!badgeSetSettings.classSets) badgeSetSettings.classSets = {};
+                if (modalEditingSetId === (badgeSetSettings.defaultSetId || 'default')) {
+                    delete badgeSetSettings.classSets[selectedGroupName];
+                } else {
+                    badgeSetSettings.classSets[selectedGroupName] = modalEditingSetId;
+                }
+                await persistBadgeSettings();
+                renderAssignedClassesSection();
+            }
+
+            // Load definitions for the selected set
+            const loaded = (typeof BadgeSets !== 'undefined' && typeof BadgeSets.loadSet === 'function')
+                ? await BadgeSets.loadSet(modalEditingSetId, getLoadedConfig()?.badgeDefinitions, participationSettings?.plusMinusCoefficient)
+                : null;
+
+            if (loaded && Array.isArray(loaded)) {
+                badgeDefinitions.length = 0;
+                badgeDefinitions.push(...loaded);
+                activeBadgeSetId = modalEditingSetId;
+                updateCmsBadgeSetChip();
+                renderEditBadgesModal();
+                if (selectedGroupName) renderRoster();
+            }
+        }
+
+        function updateEditBadgesSaveButtonLabel() {
+            const btn = document.getElementById('eb-save-btn');
+            if (!btn) return;
+            if (modalEditingSetId === 'default') {
+                btn.textContent = t('eb_save_btn', 'Save to config.js');
+            } else {
+                const fileLabel = modalEditingSetId + '.js';
+                btn.textContent = tFmt ? tFmt('eb_save_to_file', { file: fileLabel }) : `Save to ${fileLabel}`;
+            }
+        }
+
+        function openManageDatabaseForBadges() {
+            if (window.Desktop && typeof window.Desktop.openTool === 'function') {
+                window.Desktop.openTool('manage-database.html', { query: { type: 'badgebanks' } });
+            } else {
+                window.open('manage-database.html?type=badgebanks', '_blank');
+            }
+        }
+
+        async function openEditBadgesModal() {
+            const curClassSet = selectedGroupName && badgeSetSettings?.classSets
+                ? (badgeSetSettings.classSets[selectedGroupName] || badgeSetSettings.defaultSetId || 'default')
+                : (badgeSetSettings?.defaultSetId || 'default');
+            await populateEditBadgesSetSelector(curClassSet);
+            const loaded = (typeof BadgeSets !== 'undefined' && typeof BadgeSets.loadSet === 'function')
+                ? await BadgeSets.loadSet(modalEditingSetId, getLoadedConfig()?.badgeDefinitions, participationSettings?.plusMinusCoefficient)
+                : null;
+            if (loaded && Array.isArray(loaded)) {
+                badgeDefinitions.length = 0;
+                badgeDefinitions.push(...loaded);
+            }
             renderEditBadgesModal();
             document.getElementById('edit-badges-modal').style.display = 'flex';
         }
@@ -7151,8 +7627,9 @@
                 };
             });
 
-            badgeDefinitions = normalizeBadgeDefinitions(updated.length ? updated : DEFAULT_BADGE_DEFINITIONS);
-            if (!badgeDefinitions.length) badgeDefinitions = DEFAULT_BADGE_DEFINITIONS.map(entry => ({ ...entry }));
+            const norm = normalizeBadgeDefinitions(updated.length ? updated : DEFAULT_BADGE_DEFINITIONS);
+            badgeDefinitions.length = 0;
+            badgeDefinitions.push(...(norm.length ? norm : DEFAULT_BADGE_DEFINITIONS.map(entry => ({ ...entry }))));
 
             // Derive plusMinusCoefficient from the + badge for backward compat
             const plusBadge = badgeDefinitions.find(d => d.isBuiltin && d.icon === '+');
@@ -7161,25 +7638,72 @@
                 plusMinusCoefficient: plusBadge && Number.isFinite(plusBadge.coefficient) ? plusBadge.coefficient : participationSettings.plusMinusCoefficient
             });
 
+            // Update badgeSetSettings mappings
+            const select = document.getElementById('eb-set-select');
+            const chosenSetId = select ? select.value : modalEditingSetId;
+            const defAllCb = document.getElementById('eb-set-default-all-cb');
+
+            if (defAllCb && defAllCb.checked) {
+                badgeSetSettings.defaultSetId = chosenSetId;
+            }
+            if (selectedGroupName) {
+                if (chosenSetId === badgeSetSettings.defaultSetId) {
+                    delete badgeSetSettings.classSets[selectedGroupName];
+                } else {
+                    badgeSetSettings.classSets[selectedGroupName] = chosenSetId;
+                }
+            }
+
+            // Save to file or config.js
+            let saveSuccess = false;
+            if (chosenSetId !== 'default' && window.Desktop && window.Desktop.isElectron && window.Desktop.isElectron()) {
+                const cleanDefsForBank = badgeDefinitions.filter(d => !d.isBuiltin);
+                const jsContent = `var customBadgeBank = ${JSON.stringify(cleanDefsForBank, null, 2)};\n`;
+                const filename = chosenSetId + '.js';
+                const fileSaveRes = await window.Desktop.saveText('customBadges', filename, jsContent);
+                if (fileSaveRes?.ok) {
+                    if (typeof BadgeSets !== 'undefined' && typeof BadgeSets.setCachedDefs === 'function') {
+                        BadgeSets.setCachedDefs(chosenSetId, badgeDefinitions);
+                    }
+                    saveSuccess = true;
+                } else {
+                    showToast('Save failed: ' + (fileSaveRes?.error || 'Unable to save ' + filename), true);
+                    return;
+                }
+            } else {
+                if (typeof BadgeSets !== 'undefined' && typeof BadgeSets.setCachedDefs === 'function') {
+                    BadgeSets.setCachedDefs('default', badgeDefinitions);
+                }
+            }
+
             const result = await persistBadgeSettings();
             if (!result?.ok) {
                 showToast('Save failed: ' + (result?.error || 'Unable to save config.js'), true);
                 return;
             }
 
+            activeBadgeSetId = chosenSetId;
+            updateCmsBadgeSetChip();
             closeEditBadgesModal();
             renderRoster();
-            mdbToast('✅ Badges saved to config.js');
+            const toastMsg = (chosenSetId === 'default') ? '✅ Badges saved to config.js' : `✅ Badges saved to ${chosenSetId}.js`;
+            mdbToast(toastMsg);
+            if (typeof _remotePushStateDebounced === 'function') _remotePushStateDebounced();
         }
 
-        function resetBadgeSettings() {
+        async function resetBadgeSettings() {
             badgeDefinitions = DEFAULT_BADGE_DEFINITIONS.map(entry => ({ ...entry }));
             const plusBadge = badgeDefinitions.find(d => d.isBuiltin && d.icon === '+');
             participationSettings = normalizeParticipationSettings({
                 ...participationSettings,
                 plusMinusCoefficient: plusBadge && Number.isFinite(plusBadge.coefficient) ? plusBadge.coefficient : 1
             });
-            persistBadgeSettings();
+            if (modalEditingSetId === 'default') {
+                if (typeof BadgeSets !== 'undefined' && typeof BadgeSets.setCachedDefs === 'function') {
+                    BadgeSets.setCachedDefs('default', badgeDefinitions);
+                }
+                persistBadgeSettings();
+            }
             renderEditBadgesModal();
             renderRoster();
         }
@@ -8232,6 +8756,7 @@
             loadObjectivesForClass(groupName);
             updateUtilityButtons();
             _cmsUpdatePlanChip();
+            await applyBadgeSetForClass(groupName);
             renderRoster();
             updateExamSessionBanner();
             renderRanking();
@@ -22255,6 +22780,28 @@ ${body}
                                 }
                             }
                             CmsLessonRunner.loadPlanById(e.data.planId);
+                        }
+                    };
+
+                    var _badgeCh = new BroadcastChannel('cmt-badgebanks');
+                    _badgeCh.onmessage = function (e) {
+                        if (e.data && e.data.type === 'badgebanks-updated') {
+                            if (typeof BadgeSets !== 'undefined' && typeof BadgeSets.clearCache === 'function') {
+                                if (e.data.filename) {
+                                    BadgeSets.clearCache(e.data.filename.replace(/\.(js|json)$/i, ''));
+                                } else {
+                                    BadgeSets.clearCache();
+                                }
+                            }
+                            var modal = document.getElementById('edit-badges-modal');
+                            if (modal && modal.style.display !== 'none' && typeof populateEditBadgesSetSelector === 'function') {
+                                populateEditBadgesSetSelector();
+                            }
+                            if (typeof applyBadgeSetForClass === 'function' && typeof selectedGroupName !== 'undefined' && selectedGroupName) {
+                                applyBadgeSetForClass(selectedGroupName).then(function () {
+                                    if (typeof renderRoster === 'function') renderRoster();
+                                });
+                            }
                         }
                     };
                 } catch (_) {}

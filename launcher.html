@@ -9,6 +9,7 @@
   <script src="js/i18n.js"></script>
   <script src="js/shortcuts-modal.js"></script>
   <script src="js/dialogs.js"></script>
+  <script src="js/scoring-motivators.js"></script>
   <script src="js/tutorial.js"></script>
   <script src="js/pins.js"></script>
   <script>
@@ -589,6 +590,13 @@
       icon: 'assets/icons/media-converter.svg',
       title: 'Video & Sound Converter',
       desc: 'Convert, extract, normalize, and trim classroom video and audio files with teacher presets.'
+    },
+    {
+      id: 'dictionary',
+      pageFile: 'dictionary.html',
+      icon: 'assets/icons/dictionary.svg',
+      title: 'Quick Dictionary',
+      desc: 'Lightning-fast dictionary that searches your word banks. Choose the search scope and which banks to include.'
     }
   ];
 
@@ -596,7 +604,7 @@
   var DEFAULT_GROUPS = [
     { id: 'grp-classroom', labelKey: 'sectionClassroom', cardIds: ['board', 'classManagement', 'learningTools'], collapsed: false },
     { id: 'grp-students',  labelKey: 'sectionStudents',  cardIds: ['administrativeGroups', 'competencePortfolio', 'testCreator', 'lessonCreator', 'participationTracker', 'gradeSheet', 'oralMarking', 'groupEditor', 'classPlan', 'planner', 'scheduleMaker'], collapsed: false },
-    { id: 'grp-content',   labelKey: 'sectionContent',   cardIds: ['manageDatabase', 'mediaConverter', 'importTool', 'databaseConverter', 'documentEditor', 'fileManager'], collapsed: true },
+    { id: 'grp-content',   labelKey: 'sectionContent',   cardIds: ['manageDatabase', 'dictionary', 'mediaConverter', 'importTool', 'databaseConverter', 'documentEditor', 'fileManager'], collapsed: true },
     { id: 'grp-system',    labelKey: 'sectionSystem',    cardIds: ['generalConfig'], collapsed: true }
   ];
 
@@ -1726,6 +1734,57 @@
   var rfContentCache = new Map();
   var rfSessionTypeCache = new Map();
   var rfGroupMeta = {};
+  var sbGradeClassNames = {};
+  var sbPlannerCfg = null;
+
+  function rfParseClassGroups(content) {
+    var meta = {};
+    if (!content) return meta;
+    try {
+      var fn = new Function(content + '\nreturn {' +
+        ' data: typeof CLASS_GROUPS_DATA !== "undefined" ? CLASS_GROUPS_DATA : null,' +
+        ' meta: typeof CLASS_GROUPS_META !== "undefined" ? CLASS_GROUPS_META : null,' +
+        ' groups: typeof CLASS_GROUPS !== "undefined" ? CLASS_GROUPS : null' +
+      '};');
+      var parsed = fn();
+      if (parsed.data && parsed.data.classGroupsMeta) {
+        Object.assign(meta, parsed.data.classGroupsMeta);
+      }
+      if (parsed.meta) {
+        Object.keys(parsed.meta).forEach(function(k) {
+          if (!meta[k]) meta[k] = parsed.meta[k];
+        });
+      }
+      if (parsed.groups) {
+        Object.keys(parsed.groups).forEach(function(k) {
+          if (!meta[k]) meta[k] = { name: k };
+          else if (!meta[k].name && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(k)) {
+            meta[k].name = k;
+          }
+        });
+      }
+    } catch(e) {}
+    return meta;
+  }
+
+  function sbResolveClassTitle(classId, customName) {
+    if (customName && typeof customName === 'string' && customName.trim()) {
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(customName.trim())) {
+        return customName.trim();
+      }
+    }
+    if (!classId) return '';
+    if (sbGradeClassNames && sbGradeClassNames[classId]) return sbGradeClassNames[classId];
+    if (rfGroupMeta && rfGroupMeta[classId] && rfGroupMeta[classId].name) return rfGroupMeta[classId].name;
+    if (sbPlannerCfg && sbPlannerCfg.classes && sbPlannerCfg.classes[classId] && sbPlannerCfg.classes[classId].name) {
+      return sbPlannerCfg.classes[classId].name;
+    }
+    // If not a UUID, it might be a human-readable class name
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(classId)) {
+      return classId;
+    }
+    return '';
+  }
   var rfContentSearchTimer = null;
   var RF_IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'];
   var RF_SOUND_EXTS = ['.mp3', '.wav', '.ogg', '.m4a', '.aac'];
@@ -2200,11 +2259,7 @@
 
     rfGroupMeta = {};
     if (cgr && cgr.content) {
-      try {
-        var cgFn = new Function(cgr.content + '\nreturn typeof CLASS_GROUPS_DATA !== "undefined" ? CLASS_GROUPS_DATA : null;');
-        var cgd = cgFn();
-        if (cgd && cgd.classGroupsMeta) rfGroupMeta = cgd.classGroupsMeta;
-      } catch(e) {}
+      rfGroupMeta = rfParseClassGroups(cgr.content);
     }
   }
 
@@ -2660,12 +2715,12 @@
   }
 
   function sbTypeLabel(type) {
-    var map = { lesson: 'sbTypeLesson', test: 'sbTypeTest', assignment: 'sbTypeAssignment' };
+    var map = { lesson: 'sbTypeLesson', test: 'sbTypeTest', assignment: 'sbTypeAssignment', 'correction-deadline': 'sbTagDeadline' };
     var key = map[type];
     return (key && typeof t === 'function') ? t(key) : (typeof t === 'function' ? t('sbTypeOther') : 'Event');
   }
   function sbTypeClass(type) {
-    return { lesson: 'sb-tag-lesson', test: 'sb-tag-test', assignment: 'sb-tag-assignment' }[type] || 'sb-tag-other';
+    return { lesson: 'sb-tag-lesson', test: 'sb-tag-test', assignment: 'sb-tag-assignment', 'correction-deadline': 'sb-tag-deadline' }[type] || 'sb-tag-other';
   }
 
   async function sbLoadPinned(silent) {
@@ -2795,13 +2850,17 @@
     var cfg = null;
     var classMeta = {};  // classId → { name }
     var entries = [];
+    var deadlines = [];
     await Promise.all([
       (async function() {
         try {
           var rc = await Desktop.readByPath('user', 'planner-config.js');
           if (rc && rc.content) {
             var mc = rc.content.match(/PLANNER_CONFIG\s*=\s*(\{[\s\S]*\})\s*;/);
-            if (mc) cfg = JSON.parse(mc[1]);
+            if (mc) {
+              cfg = JSON.parse(mc[1]);
+              sbPlannerCfg = cfg;
+            }
           }
         } catch(e) {}
       })(),
@@ -2809,9 +2868,8 @@
         try {
           var rg = await Desktop.readByPath('user', 'class-groups.js');
           if (rg && rg.content) {
-            var fn = new Function(rg.content + '\nreturn typeof CLASS_GROUPS_DATA !== "undefined" ? CLASS_GROUPS_DATA : null;');
-            var cgd = fn();
-            if (cgd && cgd.classGroupsMeta) classMeta = cgd.classGroupsMeta;
+            classMeta = rfParseClassGroups(rg.content);
+            Object.assign(rfGroupMeta, classMeta);
           }
         } catch(e) {}
       })(),
@@ -2842,6 +2900,89 @@
             }
           } catch(e) {}
         }
+      })(),
+      (async function() {
+        try {
+          if (!window.Desktop || typeof Desktop.listByPath !== 'function') return;
+          var gr = await Desktop.listByPath('grades', '', { extensions: ['.js'], recursive: true });
+          if (gr && gr.ok && Array.isArray(gr.files)) {
+            // First read _class.js to resolve class IDs to human-readable names
+            var classFiles = gr.files.filter(function(f) {
+              var fn = f.filename || f.relativePath || '';
+              return fn.endsWith('_class.js');
+            });
+            var classReads = classFiles.map(async function(f) {
+              try {
+                var res = await Desktop.readByPath('grades', f.relativePath || f.filename);
+                if (!res || !res.content) return null;
+                var sandbox = {};
+                var fn = new Function('window', res.content);
+                fn(sandbox);
+                return sandbox.GRADE_CLASS || null;
+              } catch(e) { return null; }
+            });
+            var classDatas = await Promise.all(classReads);
+            classDatas.forEach(function(gc) {
+              if (!gc) return;
+              if (gc.classId && gc.className) sbGradeClassNames[gc.classId] = gc.className;
+              if (gc.groupId && gc.className) sbGradeClassNames[gc.groupId] = gc.className;
+            });
+
+            var testFiles = gr.files.filter(function(f) {
+              var fn = f.filename || f.relativePath || '';
+              return /-test-\d+\.js$/i.test(fn);
+            });
+            var testReads = testFiles.map(async function(f) {
+              try {
+                var res = await Desktop.readByPath('grades', f.relativePath || f.filename);
+                if (!res || !res.content) return null;
+                var sandbox = {};
+                var fn = new Function('window', res.content);
+                fn(sandbox);
+                var td = sandbox.GRADE_TEST_DATA;
+                if (!td || !td.testConfig || !td.testConfig.correctionDeadline) return null;
+                if (td.testConfig.deadlineReminders === false) return null;
+                return td;
+              } catch(err) {
+                return null;
+              }
+            });
+            var testDatas = await Promise.all(testReads);
+            testDatas.forEach(function(td) {
+              if (!td) return;
+              var tcfg = td.testConfig || {};
+              var dlDate = tcfg.correctionDeadline;
+              if (!dlDate) return;
+
+              var excludedIds = new Set(Array.isArray(tcfg.excludedStudentIds) ? tcfg.excludedStudentIds : []);
+              var results = Array.isArray(td.results) ? td.results : [];
+              var total = 0;
+              var scored = 0;
+              results.forEach(function(r) {
+                if (excludedIds.has(r.studentId)) return;
+                total++;
+                if (r.score !== null && r.score !== undefined && r.score !== '') {
+                  scored++;
+                }
+              });
+              var remaining = Math.max(0, total - scored);
+              if (remaining === 0 && total > 0) return;
+
+              deadlines.push({
+                classId: td.classId || '',
+                className: td.className || sbGradeClassNames[td.classId] || '',
+                semester: td.semester || 'sem1',
+                testIndex: typeof td.testIndex === 'number' ? td.testIndex : 0,
+                testTitle: tcfg.title || ('Test ' + ((td.testIndex || 0) + 1)),
+                deadline: dlDate,
+                time: tcfg.correctionDeadlineTime || '18:00',
+                total: total,
+                scored: scored,
+                remaining: remaining
+              });
+            });
+          }
+        } catch(e) {}
       })()
     ]);
 
@@ -2868,7 +3009,7 @@
         // Entry map keyed by "date|classId"
         var emap = {}, consumed = {};
         entries.forEach(function(e) {
-          if (!e || !e.date) return;
+          if (!e || !e.date || e.isCorrectionDeadline || e.type === 'correction-deadline') return;
           var k = e.date + '|' + (e.classId || '');
           if (!emap[k]) emap[k] = [];
           emap[k].push(e);
@@ -2921,7 +3062,7 @@
 
         // Orphan entries (tests, assignments, etc. not on a scheduled slot)
         entries.forEach(function(e) {
-          if (!e || !e.date || e.date < todayStr || e.type === 'holiday') return;
+          if (!e || !e.date || e.date < todayStr || e.type === 'holiday' || e.isCorrectionDeadline || e.type === 'correction-deadline') return;
           if (e.classId && (classMeta[e.classId] || {}).archived) return;
           var k = e.classId ? (e.date + '|' + e.classId) : (e.date + '|__' + (e.id || ''));
           if (consumed[k]) return;
@@ -2933,7 +3074,7 @@
     } else {
       // No config: fall back to entries only
       entries.forEach(function(e) {
-        if (e && e.date && e.date >= todayStr && e.type !== 'holiday' &&
+        if (e && e.date && e.date >= todayStr && e.type !== 'holiday' && !e.isCorrectionDeadline && e.type !== 'correction-deadline' &&
             !(e.classId && (classMeta[e.classId] || {}).archived)) {
           slots.push({ date: e.date, classId: e.classId || '', time: e.time || '', timeEnd: e.timeEnd || '',
                        type: e.type || 'lesson', topic: e.topic || '', entryId: e.id || '' });
@@ -2941,8 +3082,73 @@
       });
     }
 
+    // Merge correction deadlines into slots
+    var dlSnoozes = {};
+    try {
+      dlSnoozes = JSON.parse(localStorage.getItem('cmt-deadline-snoozes') || '{}');
+    } catch(e) {}
+
+    var hasOverdue = false;
+    var hasToday = false;
+
+    deadlines.forEach(function(dl) {
+      if (dl.classId && (classMeta[dl.classId] || {}).archived) return;
+
+      var snoozeKey = dl.classId + '|' + dl.semester + '|' + dl.testIndex;
+      var snoozedUntil = dlSnoozes[snoozeKey] || null;
+      var isSnoozed = !!(snoozedUntil && snoozedUntil >= todayStr);
+
+      var isOverdue = dl.deadline < todayStr;
+      var isDueToday = dl.deadline === todayStr;
+
+      if (!isSnoozed) {
+        if (isOverdue) hasOverdue = true;
+        if (isDueToday) hasToday = true;
+      }
+
+      var displayDate = isSnoozed ? snoozedUntil : dl.deadline;
+      var diffDays = Math.ceil((new Date(dl.deadline + 'T12:00:00').getTime() - new Date(todayStr + 'T12:00:00').getTime()) / 86400000);
+      var isUrgent = !isOverdue && !isDueToday && diffDays <= 3;
+      var pct = dl.total > 0 ? Math.round((dl.scored / dl.total) * 100) : 0;
+
+      slots.push({
+        date: displayDate,
+        deadlineDate: dl.deadline,
+        time: dl.time || '18:00',
+        type: 'correction-deadline',
+        topic: dl.testTitle,
+        classId: dl.classId,
+        className: dl.className,
+        semester: dl.semester,
+        testIndex: dl.testIndex,
+        total: dl.total,
+        scored: dl.scored,
+        remaining: dl.remaining,
+        pct: pct,
+        isOverdue: isOverdue,
+        isDueToday: isDueToday,
+        isUrgent: isUrgent,
+        isSnoozed: isSnoozed,
+        diffDays: diffDays,
+        snoozedUntil: snoozedUntil
+      });
+    });
+
+    if (!window._cmtDeadlineToastFired && (hasOverdue || hasToday)) {
+      window._cmtDeadlineToastFired = true;
+      if (typeof showToast === 'function') {
+        if (hasOverdue) {
+          showToast(typeof t === 'function' ? t('sbDeadlineOverdueToast') : 'Correction deadline overdue!', true);
+        } else if (hasToday) {
+          showToast(typeof t === 'function' ? t('sbDeadlineTodayToast') : 'Correction deadline due today!', false);
+        }
+      }
+    }
+
     slots.sort(function(a, b) {
       if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+      if (a.type === 'correction-deadline' && b.type !== 'correction-deadline') return -1;
+      if (b.type === 'correction-deadline' && a.type !== 'correction-deadline') return 1;
       if (a.time && b.time && a.time !== b.time) return a.time < b.time ? -1 : 1;
       return 0;
     });
@@ -2955,27 +3161,89 @@
 
     var fragment = document.createDocumentFragment();
     slots.forEach(function(s) {
-      var isPast = sbIsPastEvent(s);
+      var isPast = s.type !== 'correction-deadline' && sbIsPastEvent(s);
       var ds = sbFormatDate(s.date);
       var isToday = s.date === sbTodayStr(), isTom = s.date === sbTomorrowStr();
       var item = document.createElement('div');
-      item.className = 'sb-item' + (isPast ? ' sb-item-past' : '');
-      var clsName = (classMeta[s.classId] && classMeta[s.classId].name) || s.classId || '';
-      item.innerHTML =
-        '<div class="sb-item-top">' +
-          '<span class="sb-tag ' + sbTypeClass(s.type) + '">' + escHtml(sbTypeLabel(s.type)) + '</span>' +
-          '<span class="sb-date' + (isToday ? ' sb-today' : isTom ? ' sb-tomorrow' : '') + '">' + escHtml(ds) + '</span>' +
-          (s.time ? '<span class="sb-date"> ' + escHtml(s.time) + '</span>' : '') +
-        '</div>' +
-        '<div class="sb-name" title="' + escHtml(s.topic || clsName || '') + '">' + escHtml(s.topic || clsName || '—') + '</div>' +
-        (s.topic && clsName ? '<div class="sb-meta">' + escHtml(clsName) + '</div>' : '');
-      (function(slot) {
-        item.addEventListener('click', function() {
-          try { localStorage.removeItem('cmt-planner-todo'); localStorage.setItem('cmt-planner-nav', JSON.stringify({ date: slot.date, classId: slot.classId || '', time: slot.time || '' })); } catch(e) {}
-          openApp('planner.html');
-        });
-        if (typeof sbEventAttachCtx === 'function') sbEventAttachCtx(item, slot);
-      })(s);
+      var clsName = sbResolveClassTitle(s.classId, s.className);
+
+      if (s.type === 'correction-deadline') {
+        var statusCls = s.isSnoozed ? 'sb-dl-snoozed' : (s.isOverdue ? 'sb-dl-overdue' : (s.isDueToday || s.isUrgent ? 'sb-dl-urgent' : 'sb-dl-ontrack'));
+        item.className = 'sb-item sb-item-deadline ' + statusCls;
+
+        var badgeLabel = '';
+        var badgeCls = '';
+        if (s.isSnoozed) {
+          badgeLabel = typeof t === 'function' ? t('sbTagSnoozed') : 'Snoozed';
+          badgeCls = 'sb-dl-badge-snoozed';
+        } else if (s.isOverdue) {
+          badgeLabel = typeof t === 'function' ? t('sbDeadlineDueOverdue') : 'Overdue';
+          badgeCls = 'sb-dl-badge-overdue';
+        } else if (s.isDueToday) {
+          badgeLabel = typeof t === 'function' ? t('sbDeadlineDueToday') : 'Due today';
+          badgeCls = 'sb-dl-badge-urgent';
+        } else {
+          badgeLabel = (typeof t === 'function' ? t('sbDeadlineDueDaysLeft') : '{n}d left').replace('{n}', s.diffDays);
+          badgeCls = s.isUrgent ? 'sb-dl-badge-urgent' : 'sb-dl-badge-ontrack';
+        }
+
+        var progressText = (typeof t === 'function' ? t('gsProgressScored') : '{n} / {total} scored')
+          .replace('{n}', s.scored)
+          .replace('{total}', s.total) + ' (' + (typeof t === 'function' ? t('gsProgressRemaining') : '{n} remaining').replace('{n}', s.remaining) + ')';
+
+        var motivHtml = '';
+        if (window.ScoringMotivators && ScoringMotivators.isEnabled()) {
+          var dlStatus = s.isOverdue ? 'overdue' : (s.diffDays <= 2 ? 'behind' : 'on-track');
+          var motiv = ScoringMotivators.pick({ deadlineStatus: dlStatus, remaining: s.remaining, total: s.total, pct: s.pct, scored: s.scored });
+          if (motiv && motiv.text) {
+            motivHtml = '<div class="sb-dl-motivator">' + escHtml(motiv.text) + '</div>';
+          }
+        }
+
+        item.innerHTML =
+          '<div class="sb-item-top">' +
+            '<span class="sb-tag ' + sbTypeClass(s.type) + '">' + escHtml(sbTypeLabel(s.type)) + '</span>' +
+            '<span class="sb-dl-badge ' + badgeCls + '">' + escHtml(badgeLabel) + '</span>' +
+            '<span class="sb-date' + (isToday ? ' sb-today' : isTom ? ' sb-tomorrow' : '') + '">' + escHtml(ds) + '</span>' +
+          '</div>' +
+          '<div class="sb-name" title="' + escHtml(s.topic) + '">' + escHtml(s.topic) + '</div>' +
+          (clsName ? '<div class="sb-meta">' + escHtml(clsName) + '</div>' : '') +
+          '<div class="sb-dl-progress-track"><div class="sb-dl-progress-fill" style="transform: scaleX(' + (s.pct / 100) + ')"></div></div>' +
+          '<div class="sb-dl-stats"><span>' + escHtml(progressText) + '</span><span>' + s.pct + '%</span></div>' +
+          motivHtml;
+
+        (function(slot) {
+          item.addEventListener('click', function() {
+            try {
+              localStorage.setItem('cmt-grade-sheet-nav', JSON.stringify({
+                classId: slot.classId,
+                semester: slot.semester,
+                testIndex: slot.testIndex
+              }));
+            } catch(e) {}
+            openApp('pages/grade-sheet.html');
+          });
+          if (typeof sbEventAttachCtx === 'function') sbEventAttachCtx(item, slot);
+        })(s);
+      } else {
+        item.className = 'sb-item' + (isPast ? ' sb-item-past' : '');
+        item.innerHTML =
+          '<div class="sb-item-top">' +
+            '<span class="sb-tag ' + sbTypeClass(s.type) + '">' + escHtml(sbTypeLabel(s.type)) + '</span>' +
+            '<span class="sb-date' + (isToday ? ' sb-today' : isTom ? ' sb-tomorrow' : '') + '">' + escHtml(ds) + '</span>' +
+            (s.time ? '<span class="sb-date"> ' + escHtml(s.time) + '</span>' : '') +
+          '</div>' +
+          '<div class="sb-name" title="' + escHtml(s.topic || clsName || '') + '">' + escHtml(s.topic || clsName || '—') + '</div>' +
+          (s.topic && clsName ? '<div class="sb-meta">' + escHtml(clsName) + '</div>' : '');
+
+        (function(slot) {
+          item.addEventListener('click', function() {
+            try { localStorage.removeItem('cmt-planner-todo'); localStorage.setItem('cmt-planner-nav', JSON.stringify({ date: slot.date, classId: slot.classId || '', time: slot.time || '' })); } catch(e) {}
+            openApp('planner.html');
+          });
+          if (typeof sbEventAttachCtx === 'function') sbEventAttachCtx(item, slot);
+        })(s);
+      }
       fragment.appendChild(item);
     });
     list.replaceChildren(fragment);
@@ -3118,7 +3386,7 @@
       var dateLbl = td.dueDate ? sbFormatDate(td.dueDate) : '';
       var cids = Array.isArray(td.classIds) && td.classIds.length ? td.classIds : (td.classId ? [td.classId] : []);
       var clsNames = cids.map(function(cid) {
-        return (rfGroupMeta[cid] && rfGroupMeta[cid].name) || cid;
+        return sbResolveClassTitle(cid);
       }).filter(Boolean);
       var clsName = clsNames.join(', ');
       var subs = Array.isArray(td.subtodos) ? td.subtodos : [];
@@ -3207,9 +3475,7 @@
       try {
         var cgr = await Desktop.readByPath('user', 'class-groups.js');
         if (cgr && cgr.content) {
-          var cgFn = new Function(cgr.content + '\nreturn typeof CLASS_GROUPS_DATA !== "undefined" ? CLASS_GROUPS_DATA : null;');
-          var cgd = cgFn();
-          if (cgd && cgd.classGroupsMeta) rfGroupMeta = cgd.classGroupsMeta;
+          rfGroupMeta = rfParseClassGroups(cgr.content);
         }
       } catch(e) {}
     }
@@ -3224,20 +3490,20 @@
 
   // Unified Coalesced Sync for background updates without lag or IPC storms
   var _sbSyncTimer = null;
-  var _sbPendingTasks = { pinned: false, planner: false, docs: false, tags: false };
+  var _sbPendingTasks = { pinned: false, planner: false, docs: false, tags: false, deadlines: false };
   var _sbSyncRunning = false;
-  var _sbDirtyTasksWhileInactive = { pinned: false, planner: false, docs: false, tags: false };
+  var _sbDirtyTasksWhileInactive = { pinned: false, planner: false, docs: false, tags: false, deadlines: false };
   var _isWindowFocused = (typeof document.hasFocus === 'function') ? document.hasFocus() : true;
 
   function isLauncherActive() {
-    return !document.hidden && _isWindowFocused;
+    return !document.hidden;
   }
 
   function flushInactiveTasks(force) {
-    if (_sbDirtyTasksWhileInactive.pinned || _sbDirtyTasksWhileInactive.planner || _sbDirtyTasksWhileInactive.docs || _sbDirtyTasksWhileInactive.tags) {
+    if (_sbDirtyTasksWhileInactive.pinned || _sbDirtyTasksWhileInactive.planner || _sbDirtyTasksWhileInactive.docs || _sbDirtyTasksWhileInactive.tags || _sbDirtyTasksWhileInactive.deadlines) {
       var tasksToRun = Object.assign({}, _sbDirtyTasksWhileInactive);
-      _sbDirtyTasksWhileInactive = { pinned: false, planner: false, docs: false, tags: false };
-      sbScheduleSync(tasksToRun, force);
+      _sbDirtyTasksWhileInactive = { pinned: false, planner: false, docs: false, tags: false, deadlines: false };
+      sbScheduleSync(tasksToRun, force, 50);
     }
   }
 
@@ -3256,26 +3522,30 @@
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden) {
       _isWindowFocused = (typeof document.hasFocus === 'function') ? document.hasFocus() : true;
-      if (_isWindowFocused) flushInactiveTasks();
+      flushInactiveTasks();
     } else {
       _isWindowFocused = false;
     }
   });
 
-  function sbScheduleSync(tasks, force) {
+  function sbScheduleSync(tasks, force, delayMs) {
     if (!tasks) tasks = {};
     if (tasks.pinned) _sbPendingTasks.pinned = true;
     if (tasks.planner) _sbPendingTasks.planner = true;
     if (tasks.docs) _sbPendingTasks.docs = true;
     if (tasks.tags) _sbPendingTasks.tags = true;
+    if (tasks.deadlines) _sbPendingTasks.deadlines = true;
 
     if (!isLauncherActive() && !force) {
       if (tasks.pinned) _sbDirtyTasksWhileInactive.pinned = true;
       if (tasks.planner) _sbDirtyTasksWhileInactive.planner = true;
       if (tasks.docs) _sbDirtyTasksWhileInactive.docs = true;
       if (tasks.tags) _sbDirtyTasksWhileInactive.tags = true;
+      if (tasks.deadlines) _sbDirtyTasksWhileInactive.deadlines = true;
       return;
     }
+
+    var wait = (typeof delayMs === 'number') ? delayMs : 1200;
 
     if (_sbSyncTimer) clearTimeout(_sbSyncTimer);
     _sbSyncTimer = setTimeout(async function() {
@@ -3285,11 +3555,12 @@
         if (_sbPendingTasks.planner) _sbDirtyTasksWhileInactive.planner = true;
         if (_sbPendingTasks.docs) _sbDirtyTasksWhileInactive.docs = true;
         if (_sbPendingTasks.tags) _sbDirtyTasksWhileInactive.tags = true;
-        _sbPendingTasks = { pinned: false, planner: false, docs: false, tags: false };
+        if (_sbPendingTasks.deadlines) _sbDirtyTasksWhileInactive.deadlines = true;
+        _sbPendingTasks = { pinned: false, planner: false, docs: false, tags: false, deadlines: false };
         return;
       }
       if (_sbSyncRunning) {
-        sbScheduleSync({}, force);
+        sbScheduleSync({}, force, wait);
         return;
       }
       _sbSyncRunning = true;
@@ -3297,14 +3568,15 @@
       var runPlanner = _sbPendingTasks.planner;
       var runDocs = _sbPendingTasks.docs;
       var runTags = _sbPendingTasks.tags;
-      _sbPendingTasks = { pinned: false, planner: false, docs: false, tags: false };
+      var runDeadlines = _sbPendingTasks.deadlines;
+      _sbPendingTasks = { pinned: false, planner: false, docs: false, tags: false, deadlines: false };
 
       try {
         var promises = [];
         var sidebarOpen = (typeof sbIsOpen === 'function') ? sbIsOpen() : false;
         if (sidebarOpen) {
           if (runPinned && typeof sbLoadPinned === 'function') promises.push(sbLoadPinned(true));
-          if (runPlanner && typeof sbLoadEvents === 'function') promises.push(sbLoadEvents(true));
+          if ((runPlanner || runDeadlines) && typeof sbLoadEvents === 'function') promises.push(sbLoadEvents(true));
           if (runPlanner && typeof sbLoadTodos === 'function') promises.push(sbLoadTodos(true));
           if (runDocs && typeof sbLoadDocs === 'function') promises.push(sbLoadDocs(true));
           if (runTags && typeof sbLoadTags === 'function') promises.push(sbLoadTags(true));
@@ -3327,7 +3599,7 @@
           } catch(e) {}
         }
       }
-    }, 1200);
+    }, wait);
   }
 
   // Periodic background maintenance (every 10 minutes) to avoid memory buildup while unfocused
@@ -3464,15 +3736,43 @@
     }
     if (isPlannerRelated) {
       if (typeof sbScheduleSync === 'function') {
-        sbScheduleSync({ planner: true });
+        sbScheduleSync({ planner: true }, true, 200);
       } else if (typeof sbLoadAll === 'function' && sbIsOpen()) {
         sbLoadAll(true).catch(function () {});
       }
+    }
+    var isGradesRelated = (
+      data.target === 'grades' ||
+      data.target === 'gradeSheet' ||
+      dataSubdir === 'grades' ||
+      dataSubdir.indexOf('grades/') === 0 ||
+      dataRel.indexOf('grades/') === 0 ||
+      dataOldRel.indexOf('grades/') === 0 ||
+      dataNewRel.indexOf('grades/') === 0
+    );
+    if (isGradesRelated) {
+      if (typeof sbScheduleSync === 'function') {
+        sbScheduleSync({ deadlines: true }, true, 100);
+      } else if (typeof sbLoadEvents === 'function' && sbIsOpen()) {
+        sbLoadEvents(true).catch(function () {});
+      }
+      return;
     }
     if (isLauncherDocsRelated) {
       launcherScheduleDocsRefresh();
     }
   });
+
+  if (typeof BroadcastChannel !== 'undefined') {
+    var _gradesBc = new BroadcastChannel('cmt-grades');
+    _gradesBc.onmessage = function () {
+      if (typeof sbScheduleSync === 'function') {
+        sbScheduleSync({ deadlines: true }, true, 100);
+      } else if (typeof sbLoadEvents === 'function' && sbIsOpen()) {
+        sbLoadEvents(true).catch(function () {});
+      }
+    };
+  }
 })();
 </script>
 
@@ -3811,6 +4111,73 @@
     item.addEventListener('contextmenu', function(e) {
       e.preventDefault();
       e.stopPropagation();
+
+      if (slot.type === 'correction-deadline') {
+        var snoozeKey = slot.classId + '|' + slot.semester + '|' + slot.testIndex;
+        var menuItems = [
+          {
+            label: typeof t === 'function' ? t('sbDeadlineOpenGradeSheet') : 'Open in Grade Sheet',
+            action: function() {
+              try {
+                localStorage.setItem('cmt-grade-sheet-nav', JSON.stringify({
+                  classId: slot.classId,
+                  semester: slot.semester,
+                  testIndex: slot.testIndex
+                }));
+              } catch(ex) {}
+              openApp('pages/grade-sheet.html');
+            }
+          },
+          '-'
+        ];
+
+        if (slot.isSnoozed) {
+          menuItems.push({
+            label: typeof t === 'function' ? t('sbDeadlineClearSnooze') : 'Clear snooze',
+            action: function() {
+              try {
+                var snoozes = JSON.parse(localStorage.getItem('cmt-deadline-snoozes') || '{}');
+                delete snoozes[snoozeKey];
+                localStorage.setItem('cmt-deadline-snoozes', JSON.stringify(snoozes));
+              } catch(ex) {}
+              sbLoadEvents(true);
+            }
+          });
+        } else {
+          menuItems.push({
+            label: typeof t === 'function' ? t('sbDeadlineSnoozeTomorrow') : 'Snooze reminder until tomorrow',
+            action: function() {
+              try {
+                var snoozes = JSON.parse(localStorage.getItem('cmt-deadline-snoozes') || '{}');
+                var d = new Date();
+                d.setDate(d.getDate() + 1);
+                snoozes[snoozeKey] = d.toISOString().slice(0, 10);
+                localStorage.setItem('cmt-deadline-snoozes', JSON.stringify(snoozes));
+              } catch(ex) {}
+              sbLoadEvents(true);
+            }
+          });
+          menuItems.push({
+            label: typeof t === 'function' ? t('sbDeadlineSnooze3Days') : 'Snooze reminder for 3 days',
+            action: function() {
+              try {
+                var snoozes = JSON.parse(localStorage.getItem('cmt-deadline-snoozes') || '{}');
+                var d = new Date();
+                d.setDate(d.getDate() + 3);
+                snoozes[snoozeKey] = d.toISOString().slice(0, 10);
+                localStorage.setItem('cmt-deadline-snoozes', JSON.stringify(snoozes));
+              } catch(ex) {}
+              sbLoadEvents(true);
+            }
+          });
+        }
+
+        if (typeof showCtx === 'function') {
+          showCtx(e.clientX, e.clientY, menuItems);
+        }
+        return;
+      }
+
       if (!window.Pins) return;
 
       var pinInfo = {
@@ -3836,7 +4203,7 @@
                 await Pins.unpinItem(pinInfo);
               } else {
                 var displayTitle = (slot.topic || (typeof t === 'function' ? t('pl_emptySlot') : 'Lesson')).trim();
-                var className = (rfGroupMeta[slot.classId] && rfGroupMeta[slot.classId].name) || slot.classId || '';
+                var className = sbResolveClassTitle(slot.classId, slot.className);
                 if (className) displayTitle = className + ': ' + displayTitle;
                 await Pins.pinItem(Object.assign({ title: displayTitle }, pinInfo));
               }
@@ -3870,7 +4237,7 @@
                 await Pins.unpinItem(pinInfo);
               } else {
                 var displayTitle = (td.text || 'To-do').trim();
-                var className = td.classId ? ((rfGroupMeta[td.classId] && rfGroupMeta[td.classId].name) || td.classId) : '';
+                var className = td.classId ? sbResolveClassTitle(td.classId) : '';
                 if (className) displayTitle = '[' + className + '] ' + displayTitle;
                 await Pins.pinItem(Object.assign({ title: displayTitle }, pinInfo));
               }

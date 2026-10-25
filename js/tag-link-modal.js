@@ -31,6 +31,20 @@
     return fallback;
   }
 
+  function escapeHtml(s) {
+    if (s === null || s === undefined) return '';
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  if (typeof window !== 'undefined' && !window.escapeHtml) {
+    window.escapeHtml = escapeHtml;
+  }
+
   function getLinksIconPath() {
     var isSubPage = typeof window !== 'undefined' && window.location.pathname.includes('/pages/');
     return (isSubPage ? '../' : '') + 'assets/icons/links.svg';
@@ -419,7 +433,7 @@
           var pill = document.createElement('span');
           pill.className = 'cmt-lm-tag-pill';
           pill.innerHTML =
-            '<span>' + tag + '</span>' +
+            '<span>' + escapeHtml(tag) + '</span>' +
             '<button type="button" class="cmt-lm-tag-del" title="' + escapeHtml(t('lmRemoveTagTooltip', 'Remove tag')) + '">[X]</button>';
           pill.querySelector('.cmt-lm-tag-del').addEventListener('click', async function() {
             await window.LinksService.removeTag(urn, tag);
@@ -5340,6 +5354,7 @@
     previewFile: previewFile,
     closePreview: closePreview,
     getIconPath: getLinksIconPath,
+    escapeHtml: escapeHtml,
     renderBadgeHtml: function(linksCount, tagsCount) {
       var icon = getLinksIconPath();
       var tagPart = tagsCount ? (' | TAGS: ' + tagsCount) : '';
