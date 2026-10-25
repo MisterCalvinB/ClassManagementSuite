@@ -2954,14 +2954,22 @@
               var dlDate = tcfg.correctionDeadline;
               if (!dlDate) return;
 
-              var excludedIds = new Set(Array.isArray(tcfg.excludedStudentIds) ? tcfg.excludedStudentIds : []);
+              var excludedIds = new Set((Array.isArray(tcfg.excludedStudentIds) ? tcfg.excludedStudentIds : []).filter(function(id) { return id != null && id !== ''; }).map(String));
               var results = Array.isArray(td.results) ? td.results : [];
               var total = 0;
               var scored = 0;
               results.forEach(function(r) {
-                if (excludedIds.has(r.studentId)) return;
+                if (r.studentId && excludedIds.has(String(r.studentId))) return;
                 total++;
-                if (r.score !== null && r.score !== undefined && r.score !== '') {
+                var hasScore = r.score !== null && r.score !== undefined && r.score !== '' && !isNaN(Number(r.score));
+                var hasCrit = false;
+                if (Array.isArray(tcfg.criteria) && tcfg.criteria.length > 0) {
+                  hasCrit = tcfg.criteria.every(function(cr) {
+                    var c = r.criteriaResults && r.criteriaResults[cr.id];
+                    return c && c.points !== null && c.points !== undefined && c.points !== '' && !isNaN(Number(c.points));
+                  });
+                }
+                if (hasScore || hasCrit) {
                   scored++;
                 }
               });

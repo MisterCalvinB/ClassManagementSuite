@@ -2191,7 +2191,24 @@
   }
 
   // ── Embedded Previewer Modal ────────────────────────────────────────────────
-  function previewFile(pathOrUrn, title) {
+  async function ensurePdfjsLib() {
+    if (window._cmtPdfjsLib) return window._cmtPdfjsLib;
+    var isSubPage = typeof window !== 'undefined' && window.location.pathname && (window.location.pathname.includes('/pages/') || window.location.pathname.includes('\\pages\\'));
+    var prefix = isSubPage ? '../' : '';
+    try {
+      var mod = await import(prefix + 'modules/pdf.min.mjs');
+      if (mod && mod.GlobalWorkerOptions) {
+        mod.GlobalWorkerOptions.workerSrc = new URL(prefix + 'modules/pdf.worker.min.mjs', location.href).href;
+      }
+      window._cmtPdfjsLib = mod;
+      return mod;
+    } catch (err) {
+      console.warn('Could not load PDF.js module:', err);
+      return null;
+    }
+  }
+
+  async function previewFile(pathOrUrn, title) {
     ensurePreviewDom();
     var overlay = document.getElementById('cmt-preview-modal-overlay');
     var titleEl = document.getElementById('cmt-prev-title');
@@ -2199,36 +2216,209 @@
     var bodyEl = document.getElementById('cmt-prev-body');
     var openOsBtn = document.getElementById('cmt-prev-btn-open-os');
 
-    var cleanPath = String(pathOrUrn || '').replace(/^cmt:file:/, '');
+    var cleanPath = String(pathOrUrn || '').trim();
+    cleanPath = cleanPath.replace(/^cmt:(?:file|doc|document|submission|handout):/i, '');
+    cleanPath = cleanPath.replace(/^\/+/, '');
+
     titleEl.textContent = title || cleanPath.split('/').pop() || 'FILE PREVIEW';
     pathEl.textContent = cleanPath;
 
-    // Resolve URL for iframe / media
+    var isSubPage = typeof window !== 'undefined' && window.location.pathname && (window.location.pathname.includes('/pages/') || window.location.pathname.includes('\\pages\\'));
+    var rootPrefix = isSubPage ? '../' : '';
+
+    // Resolve URL for media / iframe
     var resolvedUrl = cleanPath;
-    if (!cleanPath.startsWith('http://') && !cleanPath.startsWith('https://') && !cleanPath.startsWith('data:')) {
+    if (!cleanPath.startsWith('http://') && !cleanPath.startsWith('https://') && !cleanPath.startsWith('data:') && !cleanPath.startsWith('blob:')) {
       if (cleanPath.startsWith('user/')) {
-        resolvedUrl = '../' + cleanPath;
+        resolvedUrl = rootPrefix + cleanPath;
+      } else if (!cleanPath.includes(':') && !cleanPath.startsWith('/') && !cleanPath.startsWith('.')) {
+        resolvedUrl = rootPrefix + 'user/' + cleanPath;
       }
     }
 
     var lower = cleanPath.toLowerCase();
     if (lower.endsWith('.pdf')) {
-      bodyEl.innerHTML = '<iframe src="' + resolvedUrl + '#toolbar=1&navpanes=0" title="PDF Preview"></iframe>';
-    } else if (lower.endsWith('.png') || lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.webp') || lower.endsWith('.svg')) {
-      bodyEl.innerHTML = '<img src="' + resolvedUrl + '" alt="Preview" />';
-    } else if (lower.endsWith('.mp3') || lower.endsWith('.wav') || lower.endsWith('.ogg') || lower.endsWith('.m4a')) {
-      bodyEl.innerHTML = '<audio controls autoplay src="' + resolvedUrl + '"></audio>';
-    } else {
+      bodyEl.classList.add('is-pdf');
       bodyEl.innerHTML =
-        '<div class="cmt-lm-empty">' +
-          'No inline preview available for this file type.<br><br>' +
-          '<button type="button" class="cmt-lm-btn primary" id="btn-preview-direct-open">[OPEN IN EXTERNAL APP]</button>' +
+        '<div class="cmt-pdf-viewer">' +
+          '<div class="cmt-pdf-toolbar">' +
+            '<div style="font-size:0.78rem;font-weight:800;color:#111;">' +
+              '<span id="cmt-pdf-page-count">' + (t('lmLoadingPdfPreview', 'Loading PDF preview…') || 'Loading PDF preview…') + '</span>' +
+            '</div>' +
+            '<div style="display:flex;align-items:center;gap:6px;" id="cmt-pdf-zoom-controls">' +
+              '<button type="button" class="cmt-dos-preset-btn" id="cmt-pdf-zoom-out" style="padding:2px 8px;font-weight:900;" title="' + (t('lmPdfZoomOut', 'Zoom Out') || 'Zoom Out') + '">−</button>' +
+              '<span id="cmt-pdf-zoom-level" style="font-size:0.75rem;font-weight:800;color:#333;min-width:44px;text-align:center;">100%</span>' +
+              '<button type="button" class="cmt-dos-preset-btn" id="cmt-pdf-zoom-in" style="padding:2px 8px;font-weight:900;" title="' + (t('lmPdfZoomIn', 'Zoom In') || 'Zoom In') + '">+</button>' +
+              '<button type="button" class="cmt-dos-preset-btn" id="cmt-pdf-zoom-fit" style="padding:2px 8px;font-weight:800;">' + (t('lmDossierPreviewFit', 'Fit') || 'Fit') + '</button>' +
+            '</div>' +
+          '</div>' +
+          '<div class="cmt-pdf-pages-scroll" id="cmt-pdf-pages-scroll">' +
+            '<div class="cmt-lm-empty" style="margin:auto;display:flex;flex-direction:column;align-items:center;gap:10px;">' +
+              '<div style="width:28px;height:28px;border:3px solid #cbd5e1;border-top-color:#333;border-radius:50%;animation:cmtSpin 0.8s linear infinite;"></div>' +
+              '<div>' + (t('lmLoadingPdfPreview', 'Loading PDF preview…') || 'Loading PDF preview…') + '</div>' +
+            '</div>' +
+          '</div>' +
         '</div>';
-      var directBtn = bodyEl.querySelector('#btn-preview-direct-open');
-      if (directBtn) {
-        directBtn.addEventListener('click', function() {
-          openInOs(cleanPath);
-        });
+
+      try {
+        var pdfjsLib = await ensurePdfjsLib();
+        if (!pdfjsLib) throw new Error('PDF.js unavailable');
+
+        var pdfBytes = null;
+        if (window.Desktop && typeof window.Desktop.isElectron === 'function' && window.Desktop.isElectron()) {
+          try {
+            var userRel = cleanPath.replace(/^user\//i, '');
+            if (typeof window.Desktop.readByPath === 'function') {
+              var readRes = await window.Desktop.readByPath('user', userRel, { encoding: 'base64' });
+              if (readRes && readRes.ok && readRes.content) {
+                var bin = atob(readRes.content);
+                pdfBytes = new Uint8Array(bin.length);
+                for (var bi = 0; bi < bin.length; bi++) pdfBytes[bi] = bin.charCodeAt(bi);
+              }
+            }
+            if (!pdfBytes && typeof window.Desktop.readDiskFile === 'function') {
+              var diskRes = await window.Desktop.readDiskFile(cleanPath, 'base64');
+              if (diskRes && diskRes.ok && diskRes.content) {
+                var bin2 = atob(diskRes.content);
+                pdfBytes = new Uint8Array(bin2.length);
+                for (var b2 = 0; b2 < bin2.length; b2++) pdfBytes[b2] = bin2.charCodeAt(b2);
+              }
+            }
+          } catch (rErr) {
+            console.warn('Desktop read PDF bytes error:', rErr);
+          }
+        }
+
+        if (!pdfBytes) {
+          try {
+            var resp = await fetch(resolvedUrl);
+            if (resp.ok) {
+              var ab = await resp.arrayBuffer();
+              pdfBytes = new Uint8Array(ab);
+            }
+          } catch (fErr) {
+            console.warn('Fetch PDF error:', fErr);
+          }
+        }
+
+        var getDocConfig = {
+          standardFontDataUrl: new URL(rootPrefix + 'modules/standard_fonts/', location.href).href,
+          disableFontFace: false
+        };
+        if (pdfBytes) {
+          getDocConfig.data = pdfBytes;
+        } else {
+          getDocConfig.url = resolvedUrl;
+        }
+
+        var pdfDoc = await pdfjsLib.getDocument(getDocConfig).promise;
+        var scrollPane = bodyEl.querySelector('#cmt-pdf-pages-scroll');
+        var pageCountEl = bodyEl.querySelector('#cmt-pdf-page-count');
+        var zoomLevelEl = bodyEl.querySelector('#cmt-pdf-zoom-level');
+        if (pageCountEl) {
+          pageCountEl.textContent = (t('lmDossierPdfPageCount', 'Pages: ') || 'Pages: ') + pdfDoc.numPages;
+        }
+
+        var zoom = 1.0;
+        async function renderAllPages() {
+          if (!scrollPane) return;
+          scrollPane.innerHTML = '';
+          var availW = Math.max(300, (scrollPane.clientWidth || 800) - 48);
+          var dpr = Math.max(window.devicePixelRatio || 1, 2);
+
+          for (var pNo = 1; pNo <= pdfDoc.numPages; pNo++) {
+            var page = await pdfDoc.getPage(pNo);
+            var unscaledVp = page.getViewport({ scale: 1.0 });
+            var baseW = Math.min(unscaledVp.width, availW);
+            var displayW = Math.round(baseW * zoom);
+            var displayH = Math.round(unscaledVp.height * (displayW / unscaledVp.width));
+            var renderScale = (displayW / unscaledVp.width) * dpr;
+            var vp = page.getViewport({ scale: renderScale });
+
+            var pWrap = document.createElement('div');
+            pWrap.className = 'cmt-pdf-rendered-page';
+            pWrap.style.cssText = 'position:relative;background:#ffffff;box-shadow:0 4px 10px rgba(0,0,0,0.18),0 0 0 1.5px #333333;border-radius:3px;overflow:hidden;flex-shrink:0;width:' + displayW + 'px;height:' + displayH + 'px;margin-bottom:12px;';
+
+            var canvas = document.createElement('canvas');
+            canvas.width = Math.round(vp.width);
+            canvas.height = Math.round(vp.height);
+            canvas.style.width = displayW + 'px';
+            canvas.style.height = displayH + 'px';
+            canvas.style.display = 'block';
+
+            var ctx = canvas.getContext('2d');
+            await page.render({ canvasContext: ctx, viewport: vp }).promise;
+
+            pWrap.appendChild(canvas);
+
+            var pageBadge = document.createElement('div');
+            pageBadge.style.cssText = 'position:absolute;bottom:6px;right:8px;background:rgba(0,0,0,0.65);color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;pointer-events:none;font-family:sans-serif;';
+            pageBadge.textContent = pNo + ' / ' + pdfDoc.numPages;
+            pWrap.appendChild(pageBadge);
+
+            scrollPane.appendChild(pWrap);
+          }
+        }
+
+        await renderAllPages();
+
+        var zIn = bodyEl.querySelector('#cmt-pdf-zoom-in');
+        var zOut = bodyEl.querySelector('#cmt-pdf-zoom-out');
+        var zFit = bodyEl.querySelector('#cmt-pdf-zoom-fit');
+
+        if (zIn) {
+          zIn.addEventListener('click', function() {
+            zoom = Math.min(2.5, +(zoom + 0.15).toFixed(2));
+            if (zoomLevelEl) zoomLevelEl.textContent = Math.round(zoom * 100) + '%';
+            renderAllPages();
+          });
+        }
+        if (zOut) {
+          zOut.addEventListener('click', function() {
+            zoom = Math.max(0.4, +(zoom - 0.15).toFixed(2));
+            if (zoomLevelEl) zoomLevelEl.textContent = Math.round(zoom * 100) + '%';
+            renderAllPages();
+          });
+        }
+        if (zFit) {
+          zFit.addEventListener('click', function() {
+            zoom = 1.0;
+            if (zoomLevelEl) zoomLevelEl.textContent = '100%';
+            renderAllPages();
+          });
+        }
+      } catch (pdfErr) {
+        console.warn('PDF.js render failed, falling back:', pdfErr);
+        bodyEl.innerHTML =
+          '<div class="cmt-lm-empty">' +
+            '<p style="margin-bottom:12px;font-weight:700;">' + (t('lmPdfPreviewUnavailable', 'Inline PDF preview is not available.') || 'Inline PDF preview is not available.') + '</p>' +
+            '<button type="button" class="cmt-lm-btn primary" id="btn-preview-direct-open">[OPEN IN EXTERNAL APP]</button>' +
+          '</div>';
+        var directBtn = bodyEl.querySelector('#btn-preview-direct-open');
+        if (directBtn) {
+          directBtn.addEventListener('click', function() {
+            openInOs(cleanPath);
+          });
+        }
+      }
+    } else {
+      bodyEl.classList.remove('is-pdf');
+      if (lower.endsWith('.png') || lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.webp') || lower.endsWith('.svg')) {
+        bodyEl.innerHTML = '<img src="' + resolvedUrl + '" alt="Preview" />';
+      } else if (lower.endsWith('.mp3') || lower.endsWith('.wav') || lower.endsWith('.ogg') || lower.endsWith('.m4a')) {
+        bodyEl.innerHTML = '<audio controls autoplay src="' + resolvedUrl + '"></audio>';
+      } else {
+        bodyEl.innerHTML =
+          '<div class="cmt-lm-empty">' +
+            'No inline preview available for this file type.<br><br>' +
+            '<button type="button" class="cmt-lm-btn primary" id="btn-preview-direct-open">[OPEN IN EXTERNAL APP]</button>' +
+          '</div>';
+        var directBtn2 = bodyEl.querySelector('#btn-preview-direct-open');
+        if (directBtn2) {
+          directBtn2.addEventListener('click', function() {
+            openInOs(cleanPath);
+          });
+        }
       }
     }
 
@@ -2241,16 +2431,28 @@
   }
 
   function openInOs(filePath) {
+    if (!filePath) return;
+    var clean = String(filePath).trim().replace(/^cmt:(?:file|doc|document|submission|handout):/i, '');
     if (window.Desktop && typeof window.Desktop.openPath === 'function') {
-      window.Desktop.openPath(filePath);
+      window.Desktop.openPath(clean);
+    } else if (window.Desktop && typeof window.Desktop.openNative === 'function') {
+      window.Desktop.openNative(clean);
     } else {
-      window.open(filePath, '_blank');
+      var isSub = typeof window !== 'undefined' && window.location.pathname && (window.location.pathname.includes('/pages/') || window.location.pathname.includes('\\pages\\'));
+      var prefix = isSub ? '../' : '';
+      var url = clean.startsWith('http') || clean.startsWith('/') ? clean : (prefix + (clean.startsWith('user/') ? clean : ('user/' + clean)));
+      window.open(url, '_blank');
     }
   }
 
   function closePreview() {
     var overlay = document.getElementById('cmt-preview-modal-overlay');
     if (overlay) overlay.classList.remove('open');
+    var bodyEl = document.getElementById('cmt-prev-body');
+    if (bodyEl) {
+      bodyEl.classList.remove('is-pdf');
+      bodyEl.innerHTML = '';
+    }
     if (document.body) document.body.classList.remove('cmt-modal-open');
   }
 
@@ -2835,7 +3037,7 @@
             '<div class="cmt-dos-pdf-preview-body" id="cmt-dos-preview-body">' +
               '<div class="cmt-dos-preview-scaler" id="cmt-dos-preview-scaler">' +
                 '<div class="cmt-dos-preview-viewport" id="cmt-dos-preview-viewport" style="width:794px;min-height:1123px;">' +
-                  '<iframe class="cmt-dos-preview-frame" id="cmt-dos-preview-frame" title="Dossier Document Preview"></iframe>' +
+                  '<iframe class="cmt-dos-preview-frame" id="cmt-dos-preview-frame" title="Dossier Document Preview" srcdoc=""></iframe>' +
                 '</div>' +
               '</div>' +
             '</div>' +
@@ -3029,13 +3231,8 @@
     }
 
     var htmlDoc = generateDossierPdfHtml(dossier, options, _dossierMindmapCache);
-    if (frame && frame.contentWindow) {
+    if (frame) {
       try {
-        var doc = frame.contentDocument || frame.contentWindow.document;
-        doc.open();
-        doc.write(htmlDoc);
-        doc.close();
-
         var isLandscape = options.orientation === 'landscape';
         var isLetter = options.pageSize === 'Letter';
         var naturalW = isLetter ? (isLandscape ? 1056 : 816) : (isLandscape ? 1123 : 794);
@@ -3073,9 +3270,22 @@
           scaler.style.height = Math.round(docHeight * _dossierPreviewZoom) + 'px';
         }
 
+        frame.onload = function() {
+          fitFrameHeight();
+        };
+
+        if ('srcdoc' in frame) {
+          frame.srcdoc = htmlDoc;
+        } else if (frame.contentWindow) {
+          var doc = frame.contentDocument || frame.contentWindow.document;
+          doc.open();
+          doc.write(htmlDoc);
+          doc.close();
+        }
+
         fitFrameHeight();
-        setTimeout(fitFrameHeight, 50);
-        setTimeout(fitFrameHeight, 200);
+        setTimeout(fitFrameHeight, 60);
+        setTimeout(fitFrameHeight, 250);
       } catch (e) {
         console.warn('Preview render error:', e);
       }
@@ -3743,9 +3953,11 @@
     var pageSize = options.pageSize === 'Letter' ? 'letter' : 'A4';
     var orientation = options.orientation === 'landscape' ? 'landscape' : 'portrait';
     var baseFontSize = options.fontScale === 'sm' ? '8.5pt' : (options.fontScale === 'lg' ? '10.5pt' : '9.5pt');
+    var isSubPage = typeof window !== 'undefined' && window.location.pathname && (window.location.pathname.includes('/pages/') || window.location.pathname.includes('\\pages\\'));
+    var rootPrefix = isSubPage ? '../' : '';
 
     var html = '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="utf-8">\n<title>' + esc(st.name || 'Student') + ' — ' + esc(t('lmDossierPdfDocHeader', 'Academic Dossier') || 'Academic Dossier') + '</title>\n' +
-      '<link rel="stylesheet" href="../modules/lexend/lexend.css">\n' +
+      '<link rel="stylesheet" href="' + rootPrefix + 'modules/lexend/lexend.css">\n' +
       '<style>\n' +
       '@page {\n' +
       '  size: ' + pageSize + ' ' + orientation + ';\n' +
@@ -4353,10 +4565,18 @@
               (bdItem.subtitle ? ('<div class="pdf-item-sub">' + esc(bdItem.subtitle) + '</div>') : '');
 
           if (bData && (mmMode === 'diagram' || mmMode === 'full')) {
-            html += '<div class="pdf-mindmap-container" style="margin-top:8px;">' + renderMindmapSessionToSvg(bData) + '</div>';
+            try {
+              html += '<div class="pdf-mindmap-container" style="margin-top:8px;">' + renderMindmapSessionToSvg(bData) + '</div>';
+            } catch (svgErr) {
+              console.warn('Error rendering mindmap SVG for dossier:', svgErr);
+            }
           }
           if (bData && mmMode === 'full') {
-            html += renderMindmapConceptsTable(bData);
+            try {
+              html += renderMindmapConceptsTable(bData);
+            } catch (tblErr) {
+              console.warn('Error rendering mindmap table for dossier:', tblErr);
+            }
           }
 
           html += '</div>';
@@ -4380,29 +4600,34 @@
                          (pt.trend === 'down' ? '↓ ' + (t('lmDossierTrendDeclining', 'Declining') || 'Declining') :
                          '→ ' + (t('lmDossierTrendStable', 'Stable') || 'Stable'));
         var trendColor = pt.trend === 'up' ? '#166534' : (pt.trend === 'down' ? '#991b1b' : '#334155');
+        var attRate = (pt.attendanceRate != null ? pt.attendanceRate : 0);
+        var attCount = (pt.attendedSessions != null ? pt.attendedSessions : 0);
+        var totCount = (pt.totalSessions != null ? pt.totalSessions : 0);
+        var netScore = (pt.netScore != null ? pt.netScore : 0);
+        var picks = (pt.picksCount != null ? pt.picksCount : 0);
 
         html +=
           '<div class="pdf-pt-grid">' +
             '<div class="pdf-pt-card">' +
               '<span class="pdf-pt-card-label">' + esc(t('lmDossierAttendanceRate', 'Attendance') || 'Attendance') + '</span>' +
-              '<span class="pdf-pt-card-val">' + pt.attendanceRate + '% <span style="font-size:7pt;font-weight:700;color:#666;">(' + pt.attendedSessions + '/' + pt.totalSessions + ')</span></span>' +
+              '<span class="pdf-pt-card-val">' + attRate + '% <span style="font-size:7pt;font-weight:700;color:#666;">(' + attCount + '/' + totCount + ')</span></span>' +
             '</div>' +
             '<div class="pdf-pt-card">' +
               '<span class="pdf-pt-card-label">' + esc(t('lmDossierNetScore', 'Net Score') || 'Net Score') + '</span>' +
-              '<span class="pdf-pt-card-val" style="color:' + (pt.netScore >= 0 ? '#166534' : '#991b1b') + ';">' + (pt.netScore >= 0 ? '+' : '') + pt.netScore + ' pts</span>' +
+              '<span class="pdf-pt-card-val" style="color:' + (netScore >= 0 ? '#166534' : '#991b1b') + ';">' + (netScore >= 0 ? '+' : '') + netScore + ' pts</span>' +
             '</div>' +
             '<div class="pdf-pt-card">' +
               '<span class="pdf-pt-card-label">' + esc(t('lmDossierTrend', 'Trend') || 'Trend') + '</span>' +
               '<span class="pdf-pt-card-val" style="color:' + trendColor + ';font-size:8.5pt;">' + esc(trendSymbol) + '</span>' +
             '</div>' +
-            (pt.provisionalGrade !== null ?
+            (pt.provisionalGrade !== null && pt.provisionalGrade !== undefined ?
               ('<div class="pdf-pt-card">' +
                 '<span class="pdf-pt-card-label">' + esc(t('lmDossierProvisionalGrade', 'Provisional Grade') || 'Provisional Grade') + '</span>' +
                 '<span class="pdf-pt-card-val">' + pt.provisionalGrade + '</span>' +
               '</div>') : '') +
             '<div class="pdf-pt-card">' +
               '<span class="pdf-pt-card-label">' + esc(t('lmDossierPicks', 'Random Picks') || 'Random Picks') + '</span>' +
-              '<span class="pdf-pt-card-val">' + pt.picksCount + '</span>' +
+              '<span class="pdf-pt-card-val">' + picks + '</span>' +
             '</div>' +
           '</div>';
       }

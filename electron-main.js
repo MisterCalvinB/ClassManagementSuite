@@ -6571,9 +6571,14 @@ ipcMain.handle('app:print-pdf', async (event, request = {}) => {
         }
 
         const waitMs = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-        const imgList = Array.from(document.images || []);
-        const pending = imgList
+        const htmlImgs = Array.from(document.images || []);
+        const svgImgs = Array.from(document.querySelectorAll('image') || []);
+        const pending = htmlImgs
           .filter(img => !(img && img.complete))
+          .concat(svgImgs.filter(img => {
+            const src = img.getAttribute('href') || img.getAttribute('xlink:href') || '';
+            return src && !src.startsWith('data:');
+          }))
           .map(img => new Promise(resolve => {
             const done = () => resolve(true);
             img.addEventListener('load', done, { once: true });

@@ -2013,6 +2013,7 @@
 
   <div id="test-row-menu" class="row-context-menu hidden" role="menu" aria-label="Student row menu" data-i18n-aria="gsAriaStudentRowMenu">
     <button id="test-row-menu-open" class="menu-item" type="button" role="menuitem" data-i18n="gsMenuOpenStudent"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" /> Open student</button>
+    <button id="test-row-menu-absent" class="menu-item" type="button" role="menuitem"><img src="../assets/icons/clear.svg" class="btn-icon" alt="" /> <span id="test-row-menu-absent-text" data-i18n="gsMenuMarkAbsent">Mark as absent</span></button>
     <button id="test-row-menu-report-student" class="menu-item" type="button" role="menuitem" data-i18n="gsReportStudentTest"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> Student Test Report</button>
     <button id="test-row-menu-dossier" class="menu-item" type="button" role="menuitem"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> <span data-i18n="gsMenuStudentDossier">360° Academic Dossier</span></button>
     <button id="test-row-menu-attach-work" class="menu-item" type="button" role="menuitem"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> <span data-i18n="gsMenuAttachStudentWork">Attach Student Work / PDF</span></button>
@@ -2038,6 +2039,7 @@
     <button id="test-header-menu-tc-open" class="menu-item" type="button" role="menuitem" style="display:none;"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> <span data-i18n="gsMenuOpenInTestCreator">Open in Test Creator</span></button>
     <button id="test-header-menu-file-open" class="menu-item" type="button" role="menuitem" style="display:none;"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> <span data-i18n="gsMenuOpenAttachedFile">Open Attached File / Answer Key</span></button>
     <button id="test-header-menu-settings" class="menu-item" type="button" role="menuitem" data-i18n="gsMenuEditTestSettings"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> Edit test settings</button>
+    <button id="test-header-menu-toggle-completed" class="menu-item" type="button" role="menuitem"><img src="../assets/icons/check.svg" class="btn-icon" alt="" /> <span id="test-header-menu-completed-text" data-i18n="gsMenuMarkingCompleted">Mark as marking completed</span></button>
     <hr class="menu-sep">
     <button id="test-header-menu-report-test" class="menu-item" type="button" role="menuitem" data-i18n="gsReportClassTest"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> Test Report (Whole Class)</button>
     <button id="test-header-menu-batch-reports" class="menu-item" type="button" role="menuitem" data-i18n="gsReportBatchStudentTests"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> Batch All Student Test Reports</button>
@@ -2050,6 +2052,7 @@
     <button id="all-test-menu-open" class="menu-item" type="button" role="menuitem" data-i18n="gsMenuOpenTest"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" /> Open test</button>
     <button id="all-test-menu-rename" class="menu-item" type="button" role="menuitem" data-i18n="gsMenuEditName"><img src="../assets/icons/edit-word.svg" class="btn-icon" alt="" /> Edit name</button>
     <button id="all-test-menu-settings" class="menu-item" type="button" role="menuitem" data-i18n="gsMenuEditTestSettings"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> Edit test settings</button>
+    <button id="all-test-menu-toggle-completed" class="menu-item" type="button" role="menuitem"><img src="../assets/icons/check.svg" class="btn-icon" alt="" /> <span id="all-test-menu-completed-text" data-i18n="gsMenuMarkingCompleted">Mark as marking completed</span></button>
     <button id="all-test-menu-duplicate" class="menu-item" type="button" role="menuitem" data-i18n="gsMenuDuplicateTest"><img src="../assets/icons/duplicate.svg" class="btn-icon" alt="" /> Duplicate / Copy test</button>
     <button id="all-test-menu-links" class="menu-item" type="button" role="menuitem"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> <span data-i18n="gsMenuTestLinks">Test Links &amp; Attachments</span></button>
     <hr class="menu-sep">
@@ -8573,6 +8576,8 @@
         },
         correctionDeadlineDoneAt: null,
         excludedStudentIds: [],
+        absentStudentIds: [],
+        markingCompleted: false,
         grading: {
           mode: "manual",
           manualInputMode: "percent",
@@ -8658,6 +8663,12 @@
             }
             if (!Array.isArray(cfg.excludedStudentIds)) {
               cfg.excludedStudentIds = [];
+            }
+            if (!Array.isArray(cfg.absentStudentIds)) {
+              cfg.absentStudentIds = [];
+            }
+            if (typeof cfg.markingCompleted !== "boolean") {
+              cfg.markingCompleted = false;
             }
             if (!cfg.criteriaBank) {
               cfg.criteriaBank = classObj.criteriaBank || (classObj.criteriaBanks && classObj.criteriaBanks[0]) || 'correction-criteria.js';
@@ -9309,11 +9320,109 @@
       _testRowMenuCtx = null;
     }
 
+    function isStudentAbsentForTest(studentId, config) {
+      if (!config || studentId == null || studentId === '') return false;
+      if (!Array.isArray(config.absentStudentIds)) return false;
+      const sid = String(studentId);
+      return config.absentStudentIds.some(id => id != null && String(id) === sid);
+    }
+
+    function setStudentAbsentForTest(studentId, isAbsent, classObj, sem, testIndex, config, skipBroadcast = false) {
+      if (!classObj || sem == null || testIndex == null || studentId == null || studentId === '') return false;
+      if (!config) config = getTestConfig(classObj, sem, testIndex);
+      if (!Array.isArray(config.absentStudentIds)) config.absentStudentIds = [];
+      const sid = String(studentId);
+      const idx = config.absentStudentIds.findIndex(id => id != null && String(id) === sid);
+      const isCurrentlyAbsent = idx !== -1;
+      if (!!isAbsent === isCurrentlyAbsent) return false;
+
+      if (isAbsent) {
+        config.absentStudentIds.push(sid);
+      } else {
+        config.absentStudentIds.splice(idx, 1);
+      }
+      saveState(classObj.id, sem, testIndex);
+
+      if (appState.currentScreen === "test" && appState.activeClassId === classObj.id && appState.activeTest && appState.activeTest.semester === sem && appState.activeTest.testIndex === testIndex) {
+        renderTestSheet();
+      }
+
+      if (!skipBroadcast && typeof BroadcastChannel !== 'undefined') {
+        try {
+          new BroadcastChannel('cmt-grades').postMessage({
+            action: 'grade-absence-changed',
+            classId: classObj.id,
+            groupId: classObj.groupId,
+            className: classObj.name,
+            semester: sem,
+            testIndex: testIndex,
+            testDate: config.testDate,
+            studentId: studentId,
+            isAbsent: !!isAbsent,
+            absentStudentIds: config.absentStudentIds
+          });
+        } catch (_) {}
+      }
+      return true;
+    }
+
+    function toggleStudentAbsentForTest(studentId, classObj, sem, testIndex, config) {
+      if (!classObj || sem == null || testIndex == null) return;
+      if (!config) config = getTestConfig(classObj, sem, testIndex);
+      if (!Array.isArray(config.absentStudentIds)) config.absentStudentIds = [];
+      const isNowAbsent = !config.absentStudentIds.includes(studentId);
+      setStudentAbsentForTest(studentId, isNowAbsent, classObj, sem, testIndex, config, false);
+
+      const student = (classObj.students || []).find(s => s.id === studentId);
+      const studentName = student
+        ? ((window.StudentNameUtils && typeof StudentNameUtils.formatStudentName === 'function')
+            ? StudentNameUtils.formatStudentName(student, getGsNameDisplayMode())
+            : `${student.firstName} ${student.lastName}`.trim())
+        : '';
+      const msg = isNowAbsent
+        ? tFmt('gsToastMarkedAbsent', { name: studentName })
+        : tFmt('gsToastMarkedPresent', { name: studentName });
+      if (typeof showToast === 'function') showToast(msg);
+    }
+
+    function toggleTestMarkingCompleted(classObj, sem, testIndex) {
+      if (!classObj || sem == null || testIndex == null) return;
+      ensureClassStructures(classObj);
+      const cfg = getTestConfig(classObj, sem, testIndex);
+      cfg.markingCompleted = !cfg.markingCompleted;
+      saveState(classObj.id, sem, testIndex);
+      if (typeof renderAllTests === 'function') {
+        renderAllTests();
+      }
+      if (appState.currentScreen === "summary" && appState.activeClassId === classObj.id) {
+        renderSummary();
+      }
+      if (appState.currentScreen === "test" && appState.activeClassId === classObj.id && appState.activeTest && appState.activeTest.semester === sem && appState.activeTest.testIndex === testIndex) {
+        renderTestSheet();
+      }
+      const testName = cfg.testName || `T${testIndex + 1}`;
+      const msg = cfg.markingCompleted
+        ? tFmt('gsToastMarkingCompleted', { test: testName })
+        : tFmt('gsToastMarkingIncomplete', { test: testName });
+      if (typeof showToast === 'function') showToast(msg);
+    }
+
     function openTestRowMenu(x, y, student, classObj, sem, testIndex, config) {
       closeAllContextMenus();
       const menu = document.getElementById("test-row-menu");
       if (!menu) return;
       _testRowMenuCtx = { student, classObj, sem, testIndex, config };
+      const cfg = config || getTestConfig(classObj, sem, testIndex);
+      const isAbsent = isStudentAbsentForTest(student.id, cfg);
+      const absentBtn = document.getElementById("test-row-menu-absent");
+      const absentText = document.getElementById("test-row-menu-absent-text");
+      if (absentBtn && absentText) {
+        absentText.textContent = isAbsent ? t('gsMenuMarkPresent') : t('gsMenuMarkAbsent');
+        const icon = absentBtn.querySelector('.btn-icon');
+        if (icon) {
+          icon.src = isAbsent ? '../assets/icons/user-check.svg' : '../assets/icons/clear.svg';
+        }
+      }
       _positionMenu(menu, x, y);
     }
 
@@ -9322,6 +9431,17 @@
       const menu = document.getElementById("all-test-item-menu");
       if (!menu) return;
       _allTestItemMenuCtx = { classObj, sem, testIndex };
+      const cfg = getTestConfig(classObj, sem, testIndex);
+      const isCompleted = !!(cfg && cfg.markingCompleted);
+      const compBtn = document.getElementById("all-test-menu-toggle-completed");
+      const compText = document.getElementById("all-test-menu-completed-text");
+      if (compBtn && compText) {
+        compText.textContent = isCompleted ? t('gsMenuMarkingIncomplete') : t('gsMenuMarkingCompleted');
+        const icon = compBtn.querySelector('.btn-icon');
+        if (icon) {
+          icon.src = isCompleted ? '../assets/icons/refresh.svg' : '../assets/icons/check.svg';
+        }
+      }
       _positionMenu(menu, x, y);
     }
 
@@ -9379,6 +9499,17 @@
       _testHeaderMenuCtx = { classObj, sem, testIndex };
       const semLabel = sem === "sem2" ? t('gsSem2') : t('gsSem1');
       document.getElementById("test-header-menu-print-sem").innerHTML = `<img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> ${tFmt('gsMenuPrintSemGradesLabel', { sem: semLabel })}`;
+      const cfg = getTestConfig(classObj, sem, testIndex);
+      const isCompleted = !!(cfg && cfg.markingCompleted);
+      const compBtn = document.getElementById("test-header-menu-toggle-completed");
+      const compText = document.getElementById("test-header-menu-completed-text");
+      if (compBtn && compText) {
+        compText.textContent = isCompleted ? t('gsMenuMarkingIncomplete') : t('gsMenuMarkingCompleted');
+        const icon = compBtn.querySelector('.btn-icon');
+        if (icon) {
+          icon.src = isCompleted ? '../assets/icons/refresh.svg' : '../assets/icons/check.svg';
+        }
+      }
       _positionMenu(menu, x, y);
     }
 
@@ -11340,7 +11471,10 @@
           let remClusterHtml = '';
           let chipTooltip = t('gsDragToReorder');
 
-          if (date && date <= todayStr) {
+          if (cfg && cfg.markingCompleted) {
+            chip.classList.add("test-marking-completed");
+            chipTooltip = `${name} · ${t('gsMarkingCompletedTooltip')}`;
+          } else if (date && date <= todayStr) {
             const progress = computeScoringProgress(c, sem, i, cfg);
             if (progress && progress.remainingCount > 0) {
               const estMinutes = (progress.hasEta && progress.avgMin > 0)
@@ -12176,6 +12310,10 @@
       classObj.students.forEach(student => {
         const tr = document.createElement("tr");
         tr.dataset.studentId = student.id;
+        const isAbsent = isStudentAbsentForTest(student.id, config);
+        if (isAbsent) {
+          tr.classList.add("student-row-absent");
+        }
         // If the student no longer appears in the external class-groups.js,
         // mark the row as "missing" (greyed out) but keep their grades.
         try {
@@ -12221,6 +12359,14 @@
           firstNameSpan.title = `${student.firstName} ${student.lastName} (Custom: ${student.customName})`;
         }
         tdFirst.appendChild(firstNameSpan);
+
+        if (isAbsent) {
+          const absentBadge = document.createElement("span");
+          absentBadge.className = "gs-absent-badge";
+          absentBadge.textContent = t('gsAbsentBadgeLabel');
+          absentBadge.title = t('gsAbsentBadgeTitle');
+          tdFirst.appendChild(absentBadge);
+        }
 
         if (typeof LinksService !== 'undefined') {
           const studentEvalUrn = `cmt:eval:${classObj.id}:${sem}:${testIndex}:student:${student.id}`;
@@ -19195,13 +19341,31 @@
       }
 
       config = config || getTestConfig(classObj, sem, testIndex);
-      const excludedSet = new Set(Array.isArray(config.excludedStudentIds) ? config.excludedStudentIds : []);
+      const excludedSet = new Set(
+        (Array.isArray(config.excludedStudentIds) ? config.excludedStudentIds : [])
+          .filter(id => id != null && id !== '')
+          .map(String)
+      );
+      const absentSet = new Set(
+        (Array.isArray(config.absentStudentIds) ? config.absentStudentIds : [])
+          .filter(id => id != null && id !== '')
+          .map(String)
+      );
 
       const eligibleStudents = [];
       const excludedStudents = [];
 
       classObj.students.forEach(st => {
-        if (excludedSet.has(st.id) || st.isAbsent === true) {
+        if (!st) return;
+        const sId = st.id != null ? String(st.id) : null;
+        const sUuid = st.uuid != null ? String(st.uuid) : null;
+        const isExcluded = (sId != null && excludedSet.has(sId)) || (sUuid != null && excludedSet.has(sUuid));
+        const isAbsent = isStudentAbsentForTest(st.id, config) ||
+          (sUuid != null && isStudentAbsentForTest(sUuid, config)) ||
+          (sId != null && absentSet.has(sId)) ||
+          (sUuid != null && absentSet.has(sUuid));
+
+        if (isExcluded || isAbsent) {
           excludedStudents.push(st);
         } else {
           eligibleStudents.push(st);
@@ -19216,8 +19380,17 @@
         const tests = sem === "sem1" ? st.sem1Tests : st.sem2Tests;
         const score = Array.isArray(tests) ? tests[testIndex] : null;
         const critResults = st.criteriaResults?.[sem]?.[testIndex];
-        const hasCritScore = critResults && typeof critResults === 'object' && Object.values(critResults).some(c => c && c.points != null);
-        const isScored = (score != null) || hasCritScore;
+        const hasValidScore = score !== null && score !== undefined && score !== "" && !Number.isNaN(Number(score));
+
+        let hasAllCriteriaScored = false;
+        if (Array.isArray(config.criteria) && config.criteria.length > 0) {
+          hasAllCriteriaScored = config.criteria.every(cr => {
+            const c = critResults && critResults[cr.id];
+            return c && c.points !== null && c.points !== undefined && c.points !== "" && !Number.isNaN(Number(c.points));
+          });
+        }
+
+        const isScored = hasValidScore || hasAllCriteriaScored;
 
         if (isScored) {
           const ct = st.correctionTime?.[sem]?.[testIndex];
@@ -19229,9 +19402,16 @@
         }
       });
 
-      const scoredCount = totalCount - remainingStudents.length;
-      const remainingCount = remainingStudents.length;
-      const pct = totalCount > 0 ? Math.round((scoredCount / totalCount) * 100) : 0;
+      let scoredCount = totalCount - remainingStudents.length;
+      let remainingCount = remainingStudents.length;
+      let pct = totalCount > 0 ? Math.round((scoredCount / totalCount) * 100) : 0;
+
+      if (config.markingCompleted) {
+        remainingCount = 0;
+        scoredCount = totalCount;
+        pct = 100;
+        remainingStudents.length = 0;
+      }
 
       let avgMin = 0;
       let sampleSize = validCorrectionTimes.length;
@@ -19539,7 +19719,11 @@
             };
 
             row.querySelector(".gs-rem-btn-exclude").onclick = () => {
-              toggleStudentExclusion(st.id, classObj, sem, testIndex, config, true);
+              const targetId = st.id != null ? st.id : st.uuid;
+              toggleStudentExclusion(targetId, classObj, sem, testIndex, config, true);
+              if (st.uuid && st.uuid !== targetId) {
+                toggleStudentExclusion(st.uuid, classObj, sem, testIndex, config, true);
+              }
               openRemainingStudentsPopover(anchorEl, classObj, sem, testIndex, config);
             };
 
@@ -19558,10 +19742,14 @@
             const stName = (window.StudentNameUtils && typeof StudentNameUtils.formatStudentName === 'function')
               ? StudentNameUtils.formatStudentName(st, getGsNameDisplayMode())
               : `${st.firstName} ${st.lastName}`.trim();
+            const sId = st.id != null ? String(st.id) : null;
+            const sUuid = st.uuid != null ? String(st.uuid) : null;
+            const isStAbsent = isStudentAbsentForTest(st.id, config) || (sUuid && isStudentAbsentForTest(sUuid, config));
+            const absBadgeHtml = isStAbsent ? `<span class="gs-absent-badge" style="margin-left:4px;">${escapeHtml(t('gsAbsentBadgeLabel', 'ABSENT'))}</span>` : '';
 
             row.innerHTML = `
               <div class="gs-rem-student-info">
-                <span class="gs-rem-student-name" title="${escapeHtml(stName)}">${escapeHtml(stName)}</span>
+                <span class="gs-rem-student-name" title="${escapeHtml(stName)}">${escapeHtml(stName)}</span>${absBadgeHtml}
               </div>
               <div class="gs-rem-actions">
                 <button type="button" class="gs-rem-btn-exclude" style="color:#1a6438;font-weight:800;" title="${t('gsProgressIncludeInCount')}">+</button>
@@ -19569,7 +19757,18 @@
             `;
 
             row.querySelector(".gs-rem-btn-exclude").onclick = () => {
-              toggleStudentExclusion(st.id, classObj, sem, testIndex, config, false);
+              const targetId = st.id != null ? st.id : st.uuid;
+              if (isStAbsent) {
+                toggleStudentAbsentForTest(targetId, classObj, sem, testIndex, config);
+                if (st.uuid && st.uuid !== targetId) {
+                  toggleStudentAbsentForTest(st.uuid, classObj, sem, testIndex, config);
+                }
+              } else {
+                toggleStudentExclusion(targetId, classObj, sem, testIndex, config, false);
+                if (st.uuid && st.uuid !== targetId) {
+                  toggleStudentExclusion(st.uuid, classObj, sem, testIndex, config, false);
+                }
+              }
               openRemainingStudentsPopover(anchorEl, classObj, sem, testIndex, config);
             };
 
@@ -19609,20 +19808,25 @@
       }
       flushPendingCelebration();
 
-      const targetTr = document.querySelector(`#test-table tbody tr[data-student-id="${targetStudent.id}"]`);
+      const sId = targetStudent.id != null ? String(targetStudent.id) : null;
+      const sUuid = targetStudent.uuid != null ? String(targetStudent.uuid) : null;
+      const targetTr = (sId ? document.querySelector(`#test-table tbody tr[data-student-id="${sId}"]`) : null)
+        || (sUuid ? document.querySelector(`#test-table tbody tr[data-student-id="${sUuid}"]`) : null);
       openStudentModal(targetStudent, classObj, sem, testIndex, targetTr, config);
     }
 
     function toggleStudentExclusion(studentId, classObj, sem, testIndex, config, exclude) {
       if (!config) config = getTestConfig(classObj, sem, testIndex);
       if (!Array.isArray(config.excludedStudentIds)) config.excludedStudentIds = [];
+      const sid = studentId != null ? String(studentId).trim() : '';
+      if (!sid) return;
 
       if (exclude) {
-        if (!config.excludedStudentIds.includes(studentId)) {
-          config.excludedStudentIds.push(studentId);
+        if (!config.excludedStudentIds.some(id => id != null && String(id) === sid)) {
+          config.excludedStudentIds.push(sid);
         }
       } else {
-        config.excludedStudentIds = config.excludedStudentIds.filter(id => id !== studentId);
+        config.excludedStudentIds = config.excludedStudentIds.filter(id => id != null && String(id) !== sid);
       }
 
       saveState(classObj.id, sem, testIndex);
@@ -19769,7 +19973,15 @@
 
       if (!config._absentPromptChecked) {
         config._absentPromptChecked = true;
-        const absentCount = (classObj.students || []).filter(s => s.isAbsent === true && !(config.excludedStudentIds || []).includes(s.id)).length;
+        const absentCount = (classObj.students || []).filter(s => {
+          if (!s) return false;
+          const sId = s.id != null ? String(s.id) : null;
+          const sUuid = s.uuid != null ? String(s.uuid) : null;
+          const isAbs = isStudentAbsentForTest(s.id, config) || (sUuid && isStudentAbsentForTest(sUuid, config));
+          const isExcl = (sId && (config.excludedStudentIds || []).map(String).includes(sId)) ||
+                         (sUuid && (config.excludedStudentIds || []).map(String).includes(sUuid));
+          return isAbs && !isExcl;
+        }).length;
         if (absentCount > 0 && typeof showToast === "function") {
           showToast(tFmt('gsProgressAbsentSuggested', { n: absentCount }));
         }
@@ -19831,9 +20043,16 @@
 
       const computeDraftAutoGrade = () => {
         const draftMap = {};
+        let hasAnyScored = false;
         config.criteria.forEach(c => {
-          if (draftCriteria[c.id]) draftMap[c.id] = draftCriteria[c.id];
+          if (draftCriteria[c.id]) {
+            draftMap[c.id] = draftCriteria[c.id];
+            if (draftCriteria[c.id].points !== null && draftCriteria[c.id].points !== undefined && draftCriteria[c.id].points !== "" && !Number.isNaN(Number(draftCriteria[c.id].points))) {
+              hasAnyScored = true;
+            }
+          }
         });
+        if (!hasAnyScored) return null;
         const totals = calcCriteriaTotals(config, draftMap);
         if (totals.totalPossible <= 0) return null;
         const scored = (totals.totalScored || 0) + (totals.totalBonusScored || 0);
@@ -23034,6 +23253,12 @@
         openStudentModal(ctx.student, ctx.classObj, ctx.sem, ctx.testIndex,
           document.querySelector(`#test-table tbody tr[data-student-id="${ctx.student.id}"]`), ctx.config);
       });
+      document.getElementById("test-row-menu-absent")?.addEventListener("click", () => {
+        const ctx = _testRowMenuCtx;
+        closeAllContextMenus();
+        if (!ctx || !ctx.student || !ctx.classObj) return;
+        toggleStudentAbsentForTest(ctx.student.id, ctx.classObj, ctx.sem, ctx.testIndex, ctx.config);
+      });
       document.getElementById("test-row-menu-report-student").addEventListener("click", () => {
         const ctx = _testRowMenuCtx;
         closeAllContextMenus();
@@ -23156,6 +23381,12 @@
         showScreen("test");
         openTestOptionsModal(getTestConfig(ctx.classObj, ctx.sem, ctx.testIndex), ctx.classObj, ctx.sem, ctx.testIndex);
       });
+      document.getElementById("test-header-menu-toggle-completed")?.addEventListener("click", () => {
+        const ctx = _testHeaderMenuCtx;
+        closeAllContextMenus();
+        if (!ctx || !ctx.classObj) return;
+        toggleTestMarkingCompleted(ctx.classObj, ctx.sem, ctx.testIndex);
+      });
       document.getElementById("test-header-menu-report-test").addEventListener("click", () => {
         const ctx = _testHeaderMenuCtx;
         closeAllContextMenus();
@@ -23208,6 +23439,12 @@
         closeAllContextMenus();
         if (!ctx || !ctx.classObj) return;
         openTestOptionsModal(getTestConfig(ctx.classObj, ctx.sem, ctx.testIndex), ctx.classObj, ctx.sem, ctx.testIndex, "info");
+      });
+      document.getElementById("all-test-menu-toggle-completed")?.addEventListener("click", () => {
+        const ctx = _allTestItemMenuCtx;
+        closeAllContextMenus();
+        if (!ctx || !ctx.classObj) return;
+        toggleTestMarkingCompleted(ctx.classObj, ctx.sem, ctx.testIndex);
       });
       document.getElementById("all-test-menu-duplicate")?.addEventListener("click", () => {
         const ctx = _allTestItemMenuCtx;
@@ -25268,6 +25505,107 @@ ${blocks}
           chipsCh.onmessage = async function () {
             await loadAvailableChipBanks();
             loadReferenceDataOverrides();
+          };
+
+          const gradesCh = new BroadcastChannel('cmt-grades');
+          gradesCh.onmessage = function (ev) {
+            if (!ev || !ev.data || typeof ev.data !== 'object') return;
+            const msg = ev.data;
+
+            if (msg.action === 'set-student-absent') {
+              const targetClass = appState.classes.find(c =>
+                c.groupId === msg.classId || c.groupId === msg.groupId ||
+                c.id === msg.classId || c.id === msg.groupId ||
+                (c.name && msg.className && c.name.toLowerCase() === msg.className.toLowerCase()) ||
+                (c.name && msg.groupId && c.name.toLowerCase() === msg.groupId.toLowerCase()) ||
+                (c.name && msg.classId && c.name.toLowerCase() === msg.classId.toLowerCase())
+              );
+              if (!targetClass) return;
+              const sem = msg.semester;
+              const testIndex = msg.testIndex;
+              if (sem !== 'sem1' && sem !== 'sem2') return;
+              if (typeof testIndex !== 'number' || testIndex < 0 || testIndex >= TEST_COUNT_PER_SEM) return;
+
+              let student = targetClass.students.find(s =>
+                (msg.studentUuid && (s.id === msg.studentUuid || s.uuid === msg.studentUuid)) ||
+                (msg.studentId && (s.id === msg.studentId || s.uuid === msg.studentId))
+              );
+              if (!student && msg.studentName) {
+                student = findStudentByName(targetClass, msg.studentName);
+              }
+              if (!student) return;
+
+              const changed = setStudentAbsentForTest(student.id, !!msg.isAbsent, targetClass, sem, testIndex, null, true);
+              if (changed) {
+                const sName = (window.StudentNameUtils && typeof StudentNameUtils.formatStudentName === 'function')
+                  ? StudentNameUtils.formatStudentName(student, getGsNameDisplayMode())
+                  : `${student.firstName} ${student.lastName}`.trim();
+                const note = msg.isAbsent
+                  ? tFmt('gsToastMarkedAbsent', { name: sName })
+                  : tFmt('gsToastMarkedPresent', { name: sName });
+                if (typeof showToast === 'function') showToast(note + ' (Class Management)');
+              }
+            } else if (msg.action === 'query-active-test') {
+              const targetClass = appState.classes.find(c =>
+                (msg.groupUuid && (c.groupId === msg.groupUuid || c.id === msg.groupUuid)) ||
+                (msg.groupName && (c.groupId === msg.groupName || c.id === msg.groupName || (c.name && c.name.toLowerCase() === msg.groupName.toLowerCase()))) ||
+                (msg.classId && (c.id === msg.classId || c.groupId === msg.classId))
+              );
+              if (!targetClass) return;
+              let matchedSem = null;
+              let matchedIdx = -1;
+              let matchedCfg = null;
+
+              for (const sem of ['sem1', 'sem2']) {
+                const cfgs = (targetClass.testConfigs && targetClass.testConfigs[sem]) || [];
+                for (let i = 0; i < cfgs.length; i++) {
+                  const cfg = cfgs[i];
+                  if (cfg && cfg.testDate && cfg.testDate === msg.date) {
+                    matchedSem = sem;
+                    matchedIdx = i;
+                    matchedCfg = cfg;
+                    break;
+                  }
+                }
+                if (matchedCfg) break;
+              }
+
+              if (matchedCfg) {
+                try {
+                  gradesCh.postMessage({
+                    action: 'active-test-response',
+                    queryId: msg.queryId,
+                    groupName: msg.groupName,
+                    classId: targetClass.id,
+                    groupId: targetClass.groupId,
+                    classSlug: slugifyForPath(targetClass.name),
+                    semester: matchedSem,
+                    testIndex: matchedIdx,
+                    testConfig: matchedCfg,
+                    absentStudentIds: matchedCfg.absentStudentIds || []
+                  });
+                } catch (_) {}
+              }
+            } else if (msg.action === 'sync-all-absences') {
+              const targetClass = appState.classes.find(c =>
+                c.groupId === msg.classId || c.groupId === msg.groupId ||
+                c.id === msg.classId || c.id === msg.groupId ||
+                (c.name && msg.groupId && c.name.toLowerCase() === msg.groupId.toLowerCase())
+              );
+              if (!targetClass) return;
+              const sem = msg.semester;
+              const testIndex = msg.testIndex;
+              if (sem !== 'sem1' && sem !== 'sem2') return;
+              if (typeof testIndex !== 'number' || testIndex < 0 || testIndex >= TEST_COUNT_PER_SEM) return;
+              const cfg = getTestConfig(targetClass, sem, testIndex);
+              if (Array.isArray(msg.absentStudentIds)) {
+                cfg.absentStudentIds = [...msg.absentStudentIds];
+                saveState(targetClass.id, sem, testIndex);
+                if (appState.currentScreen === "test" && appState.activeClassId === targetClass.id && appState.activeTest && appState.activeTest.semester === sem && appState.activeTest.testIndex === testIndex) {
+                  renderTestSheet();
+                }
+              }
+            }
           };
         } catch (_) {}
       }

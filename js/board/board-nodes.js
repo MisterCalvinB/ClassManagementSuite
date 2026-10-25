@@ -200,7 +200,22 @@
       };
       const layout = _bcResolveBoardLayoutSettings(inputCfg);
       window._bcBoardLayoutConfig = layout;
-      _bcApplyBoardLayout(layout);
+
+      const pIdx = (typeof conCurrentPageIndex === 'number') ? conCurrentPageIndex : 0;
+      if (typeof conPageSnapshots !== 'undefined' && conPageSnapshots[pIdx]) {
+        conPageSnapshots[pIdx].boardHeight = layout.dims ? layout.dims.h : null;
+      }
+      try {
+        if (layout.dims) {
+          sessionStorage.setItem('cmt-board-expanded-height-' + pIdx, String(layout.dims.h));
+          sessionStorage.setItem('cmt-board-expanded-height', String(layout.dims.h));
+        } else {
+          sessionStorage.removeItem('cmt-board-expanded-height-' + pIdx);
+          sessionStorage.removeItem('cmt-board-expanded-height');
+        }
+      } catch (_) { }
+
+      _bcApplyBoardLayout(layout, { resetHeight: true });
       conRenderBoardLayoutOptionsInContextMenu();
       if (!opts || !opts.silent) {
         if (typeof mdbToast === 'function') mdbToast('📐 Board layout: ' + layout.preset);
@@ -209,7 +224,7 @@
         conPersistBoardLayoutConfig(layout);
       }
       if (!opts || !opts.skipBroadcast) {
-        if (window._conMirrorBroadcast) window._conMirrorBroadcast();
+        if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
       }
     };
 
@@ -229,12 +244,13 @@
         btn.type = 'button';
         btn.textContent = opt.label;
         btn.title = 'Set layout: ' + opt.label;
-        btn.style.cssText = 'padding:2px 7px;border:1.5px solid #ccc;border-radius:3px;font-size:0.72rem;cursor:pointer;font-family:inherit;background:#f5f5f5;';
+        btn.style.cssText = 'padding:2px 8px;border:1.5px solid #333333;border-radius:4px;font-size:0.72rem;cursor:pointer;font-family:inherit;background:#f5f5f0;color:#111111;font-weight:600;box-shadow:1px 1px 0 #555555;transition:transform 0.1s ease;';
         if (opt.value === active) {
-          btn.style.borderColor = '#111';
-          btn.style.background = '#111';
-          btn.style.color = '#fff';
+          btn.style.borderColor = '#111111';
+          btn.style.background = '#111111';
+          btn.style.color = '#ffffff';
           btn.style.fontWeight = '700';
+          btn.style.boxShadow = 'none';
         }
         btn.onclick = () => window.conSetBoardLayoutPreset(opt.value);
         wrap.appendChild(btn);
@@ -582,7 +598,8 @@
           base64: cleanB64 || '',
           _cachedObjectUrl: cachedUrl || '',
           _cachedDataUrl: cleanB64 ? ('data:' + mime + ';base64,' + cleanB64) : '',
-          relativePath: String(raw && raw.relativePath ? raw.relativePath : '')
+          relativePath: String(raw && raw.relativePath ? raw.relativePath : ''),
+          transcript: String(raw && raw.transcript ? raw.transcript : '')
         });
       });
       conRenderAttachmentSummary();
@@ -595,7 +612,8 @@
         mime: item.mime,
         kind: item.kind,
         size: Number(item.size) || 0,
-        relativePath: item.relativePath || ''
+        relativePath: item.relativePath || '',
+        transcript: item.transcript || ''
       }));
     }
 
@@ -1703,6 +1721,20 @@
           actions.appendChild(convBtn);
         }
 
+        if (att.kind === 'sounds') {
+          const transBtn = document.createElement('button');
+          transBtn.type = 'button';
+          transBtn.className = 'con-media-manage-btn';
+          transBtn.innerHTML = '<img src="../assets/icons/dictation.svg" style="width:11px;height:11px;vertical-align:-1px;margin-right:2px;" alt="" />' + (typeof t === 'function' ? t('conMediaTranscribeBtn', 'Transcript') : 'Transcript');
+          transBtn.title = 'Audio Transcript Studio';
+          transBtn.onclick = () => {
+            if (typeof window.conOpenAudioTranscript === 'function') {
+              window.conOpenAudioTranscript(att);
+            }
+          };
+          actions.appendChild(transBtn);
+        }
+
         const removeBtn = document.createElement('button');
         removeBtn.type = 'button';
         removeBtn.className = 'con-media-manage-btn';
@@ -2354,6 +2386,17 @@
           if (fwdIcon) fwdIcon.style.transform = 'scaleX(-1)';
           controls.appendChild(fwdBtn);
 
+          if (item.kind === 'sounds') {
+            const transcriptBtn = makeCtrlBtn('dictation', 'Transcript', () => {
+              if (typeof window.conOpenAudioTranscript === 'function') {
+                window.conOpenAudioTranscript(item);
+              }
+            });
+            transcriptBtn.className += ' con-media-transcript-btn';
+            if (item.transcript) transcriptBtn.className += ' con-media-has-transcript';
+            controls.appendChild(transcriptBtn);
+          }
+
           timelineInput.addEventListener('mousedown', ev => {
             ev.stopPropagation();
           });
@@ -2415,6 +2458,26 @@
           if (mediaEl) {
             mediaEl.style.display = '';
             mediaEl.src = src;
+            if (item.kind === 'pics') {
+              mediaEl.onload = function () {
+                if (!item.dataUrl && mediaEl.naturalWidth > 0) {
+                  try {
+                    const c = document.createElement('canvas');
+                    c.width = mediaEl.naturalWidth;
+                    c.height = mediaEl.naturalHeight;
+                    c.getContext('2d').drawImage(mediaEl, 0, 0);
+                    const dUrl = c.toDataURL(item.mime || 'image/png');
+                    if (dUrl && dUrl.startsWith('data:')) {
+                      item.dataUrl = dUrl;
+                      const att = (typeof conFindAttachmentById === 'function') ? conFindAttachmentById(item.attachmentId) : null;
+                      if (att && (!att._cachedDataUrl || !att._cachedDataUrl.startsWith('data:'))) {
+                        att._cachedDataUrl = dUrl;
+                      }
+                    }
+                  } catch (_) {}
+                }
+              };
+            }
             if (isMirrorMode && typeof mediaEl._applyMirrorMediaSync === 'function') {
               mediaEl._applyMirrorMediaSync();
             }
@@ -2793,7 +2856,8 @@
           _fullscreen: raw._fullscreen ? true : undefined,
           _fsZoom: raw._fullscreen ? (Number(raw._fsZoom) || 1) : undefined,
           _fsPanX: raw._fullscreen ? (Number(raw._fsPanX) || 0) : undefined,
-          _fsPanY: raw._fullscreen ? (Number(raw._fsPanY) || 0) : undefined
+          _fsPanY: raw._fullscreen ? (Number(raw._fsPanY) || 0) : undefined,
+          transcript: raw.transcript || ''
         };
 
         const linkedAttachment = conFindAttachmentById(normalized.attachmentId);
@@ -2806,6 +2870,8 @@
           if (linkedAttachment.mime) normalized.mime = linkedAttachment.mime;
           if (linkedAttachment.name) normalized.name = linkedAttachment.name;
         }
+        if (raw.dataUrl) normalized.dataUrl = raw.dataUrl;
+        if (raw.base64 && !normalized.base64) normalized.base64 = raw.base64;
 
         const prev = prevById.get(id);
         const canReuse = !!(prev
@@ -3477,6 +3543,8 @@
         mime: att.mime || conGuessMimeByName(att.name, att.kind),
         relativePath: att.relativePath || '',
         file: att.file || null,
+        base64: att.base64 || '',
+        dataUrl: (att._cachedDataUrl && att._cachedDataUrl.startsWith('data:')) ? att._cachedDataUrl : '',
         x: hasCustomPos
           ? Math.max(12, Math.min(maxX, Math.round(customX)))
           : Math.max(12, Math.round((board.clientWidth - baseW) / 2 + Math.random() * 40 - 20)),
@@ -3522,6 +3590,7 @@
       if (!files.length) return;
 
       const rejected = [];
+      let lastAudioAtt = null;
       files.forEach(file => {
         const kind = conAttachmentKind(file.name, file.type);
         if (!kind) {
@@ -3535,7 +3604,7 @@
         } else if (file && file.path) {
           diskPath = file.path;
         }
-        conAttachments.push({
+        const attObj = {
           id: 'att_' + _conAttachmentCounter,
           name: conSanitizeAttachmentName(file.name),
           mime: String(file.type || ''),
@@ -3543,12 +3612,20 @@
           size: Number(file.size) || 0,
           file,
           path: diskPath,
-          relativePath: ''
-        });
+          relativePath: '',
+          transcript: ''
+        };
+        conAttachments.push(attObj);
+        if (kind === 'sounds') {
+          lastAudioAtt = attObj;
+        }
       });
 
       conRenderAttachmentSummary();
       conRemoveInsertAttachmentChooser();
+      if (lastAudioAtt && typeof window.conShowAudioImportPill === 'function') {
+        window.conShowAudioImportPill(lastAudioAtt);
+      }
       if (rejected.length) {
         mdbToast('⚠️ Ignored unsupported files: ' + rejected.slice(0, 3).join(', ') + (rejected.length > 3 ? '…' : ''));
       } else {
@@ -3563,6 +3640,7 @@
       let rejected = 0;
       let inserted = 0;
       let placedOffset = 0;
+      let lastAudioAtt = null;
       const dropX = Number(options.x);
       const dropY = Number(options.y);
       const hasDropPos = Number.isFinite(dropX) && Number.isFinite(dropY);
@@ -3582,7 +3660,7 @@
         } else if (file && file.path) {
           diskPath = file.path;
         }
-        conAttachments.push({
+        const attObj = {
           id: attachmentId,
           name: conSanitizeAttachmentName(file.name),
           mime: String(file.type || ''),
@@ -3590,8 +3668,13 @@
           size: Number(file.size) || 0,
           file,
           path: diskPath,
-          relativePath: ''
-        });
+          relativePath: '',
+          transcript: ''
+        };
+        conAttachments.push(attObj);
+        if (kind === 'sounds') {
+          lastAudioAtt = attObj;
+        }
 
         if (kind === 'pdf') {
           window.conInsertAttachmentById(attachmentId, { silent: true });
@@ -3612,6 +3695,9 @@
 
       conRenderAttachmentSummary();
       conRemoveInsertAttachmentChooser();
+      if (lastAudioAtt && typeof window.conShowAudioImportPill === 'function') {
+        window.conShowAudioImportPill(lastAudioAtt);
+      }
 
       if (inserted > 0) {
         const msg = '🧩 Inserted ' + inserted + ' file(s) from drop.' + (rejected ? ' Ignored ' + rejected + ' unsupported file(s).' : '');
@@ -4994,6 +5080,7 @@
           var sy = brd.scrollTop + Math.max(0, -r.top);
           return { vW: vW, vH: vH, sx: sx, sy: sy };
         }
+        window._mirrorGetViewport = _mirrorGetViewport;
         function _mirrorBroadcast(opts = {}) {
           if (_mirrorFrozen) return;
           if (_mirrorPeers.size === 0 && (!_mirrorPopupRef || _mirrorPopupRef.closed)) return;
@@ -5508,6 +5595,7 @@
             _mirrorBoard.addEventListener('scroll', _mirrorSendScroll, { passive: true });
           }
           window.addEventListener('scroll', _mirrorSendScroll, { passive: true });
+          window.addEventListener('resize', _mirrorSendScroll, { passive: true });
           // Forward laser events using viewport-relative normalised coords so positions
           // align precisely with the board region shown on the mirror.
           function _normBrd(cx, cy) {
@@ -9684,7 +9772,7 @@
         speedRatio = speedRatio || 0.85;
         const att = conCtxGetActiveNodeMediaAttachment();
         if (!att) {
-          if (typeof mdbToast === 'function') mdbToast('No audio attachment found on this node.', true);
+          if (typeof mdbToast === 'function') mdbToast(typeof t === 'function' ? t('conMediaNoAudio', 'No audio attachment found on this node.') : 'No audio attachment found on this node.', true);
           return;
         }
         if (typeof mdbToast === 'function') mdbToast(typeof t === 'function' ? t('conMediaConverting', 'Processing media conversion...') : 'Processing conversion...', false);
@@ -9718,14 +9806,14 @@
           }
         } catch (err) {
           console.error('[Board] Slow down error:', err);
-          if (typeof mdbToast === 'function') mdbToast('Conversion error: ' + (err.message || ''), true);
+          if (typeof mdbToast === 'function') mdbToast((typeof t === 'function' ? t('conMediaConvertError', 'Conversion error: ') : 'Conversion error: ') + (err.message || ''), true);
         }
       };
 
       window.conCtxNormalizeVoice = async function () {
         const att = conCtxGetActiveNodeMediaAttachment();
         if (!att) {
-          if (typeof mdbToast === 'function') mdbToast('No audio attachment found on this node.', true);
+          if (typeof mdbToast === 'function') mdbToast(typeof t === 'function' ? t('conMediaNoAudio', 'No audio attachment found on this node.') : 'No audio attachment found on this node.', true);
           return;
         }
         if (typeof mdbToast === 'function') mdbToast(typeof t === 'function' ? t('conMediaConverting', 'Processing media conversion...') : 'Processing conversion...', false);
@@ -9759,7 +9847,7 @@
           }
         } catch (err) {
           console.error('[Board] Voice normalize error:', err);
-          if (typeof mdbToast === 'function') mdbToast('Conversion error: ' + (err.message || ''), true);
+          if (typeof mdbToast === 'function') mdbToast((typeof t === 'function' ? t('conMediaConvertError', 'Conversion error: ') : 'Conversion error: ') + (err.message || ''), true);
         }
       };
 
@@ -9767,7 +9855,7 @@
         const att = conCtxGetActiveNodeMediaAttachment();
         const node = conNodes.find(n => n.id === conCtxNodeId);
         if (!att) {
-          if (typeof mdbToast === 'function') mdbToast('No video attachment found on this node.', true);
+          if (typeof mdbToast === 'function') mdbToast(typeof t === 'function' ? t('conMediaNoVideo', 'No video attachment found on this node.') : 'No video attachment found on this node.', true);
           return;
         }
         if (typeof mdbToast === 'function') mdbToast(typeof t === 'function' ? t('conMediaConverting', 'Processing media conversion...') : 'Processing conversion...', false);
@@ -9807,7 +9895,7 @@
           }
         } catch (err) {
           console.error('[Board] Audio extract error:', err);
-          if (typeof mdbToast === 'function') mdbToast('Extraction error: ' + (err.message || ''), true);
+          if (typeof mdbToast === 'function') mdbToast((typeof t === 'function' ? t('conMediaExtractError', 'Extraction error: ') : 'Extraction error: ') + (err.message || ''), true);
         }
       };
 
@@ -16211,6 +16299,7 @@
             '#con-img-convert-overlay', '#con-table-style-overlay', '#con-shape-style-overlay',
             '#con-drawing-style-overlay', '#con-mask-style-overlay', '#wn-style-overlay',
             '#con-img-style-overlay', '#con-pdf-style-overlay', '#con-sound-style-overlay',
+            '#con-transcript-overlay',
             '#con-competence-overlay', '#con-class-import-overlay', '#unknown-words-overlay',
             '#con-pdf-picker-overlay', '#con-pdf-page-picker-overlay', '#con-export-settings-overlay',
             '#word-detail-overlay'
@@ -16219,6 +16308,7 @@
             const el = document.querySelector(overlays[i]);
             if (el && (el.classList.contains('active') || (el.style.display && el.style.display !== 'none'))) {
               const overlayId = el.id;
+              if (overlayId === 'con-transcript-overlay' && typeof window.conCloseTranscriptModal === 'function') { window.conCloseTranscriptModal(); return; }
               if (overlayId === 'char-net-excerpts-overlay' && typeof window.characterNetworkCloseExcerpts === 'function') { window.characterNetworkCloseExcerpts(); return; }
               if (overlayId === 'character-network-overlay' && typeof window.characterNetworkCloseModal === 'function') { window.characterNetworkCloseModal(); return; }
               if (overlayId === 'board-rec-setup-overlay' && typeof window.boardVideoCloseSetup === 'function') { window.boardVideoCloseSetup(); return; }
@@ -17477,6 +17567,7 @@
               drawOverlay.style.width = '100%';
               drawOverlay.style.height = '100%';
               if (liveSvg) { liveSvg.style.width = '100%'; liveSvg.style.height = '100%'; }
+              if (conSvg) { conSvg.style.width = '100%'; conSvg.style.height = '100%'; }
               return;
             }
             const maxW = Math.max(
@@ -20460,36 +20551,78 @@
       };
     }
 
-    function _bcApplyBoardLayout(layout) {
+    function _bcApplyBoardLayout(layout, opts = {}) {
+      if (typeof document !== 'undefined' && document.documentElement && document.documentElement.classList.contains('con-mirror-mode')) return;
+      if (typeof location !== 'undefined' && location.search && location.search.indexOf('mirror=1') !== -1) return;
       const board = document.getElementById('constellation-board');
       const section = document.getElementById('constellation-section');
       if (!board) return;
       if (section && section.classList.contains('con-fullscreen')) return;
 
       const pIdx = (typeof conCurrentPageIndex === 'number') ? conCurrentPageIndex : 0;
-      const savedH = (typeof conPageSnapshots !== 'undefined' && conPageSnapshots[pIdx]?.boardHeight)
-        || (() => {
-          try {
-            const s = sessionStorage.getItem('cmt-board-expanded-height-' + pIdx) || sessionStorage.getItem('cmt-board-expanded-height');
-            const v = parseInt(s, 10);
-            return (!isNaN(v) && v > 0) ? v : null;
-          } catch (_) { return null; }
-        })();
+      const expandBtn = document.getElementById('con-board-expand-btn');
+
+      function _resetOverlays() {
+        if (typeof conMode === 'undefined' || conMode !== 'draw') {
+          const conSvg = document.getElementById('constellation-svg');
+          const liveSvg = document.getElementById('con-draw-live-svg');
+          const drawOverlay = document.getElementById('con-draw-overlay');
+          if (conSvg) { conSvg.style.width = '100%'; conSvg.style.height = '100%'; }
+          if (liveSvg) { liveSvg.style.width = '100%'; liveSvg.style.height = '100%'; }
+          if (drawOverlay) { drawOverlay.style.width = '100%'; drawOverlay.style.height = '100%'; }
+        }
+      }
 
       if (!layout || !layout.dims) {
-        board.style.width = '';
+        const savedH = (opts && opts.resetHeight) ? null : ((typeof conPageSnapshots !== 'undefined' && conPageSnapshots[pIdx]?.boardHeight)
+          || (() => {
+            try {
+              const s = sessionStorage.getItem('cmt-board-expanded-height-' + pIdx) || sessionStorage.getItem('cmt-board-expanded-height');
+              const v = parseInt(s, 10);
+              return (!isNaN(v) && v > 0) ? v : null;
+            } catch (_) { return null; }
+          })());
+
+        board.style.width = '100%';
         board.style.maxWidth = '';
-        board.style.height = (savedH && savedH > 0) ? (savedH + 'px') : '';
+        board.style.height = (savedH && savedH > 0) ? (savedH + 'px') : 'calc(100vh - 180px)';
+        board.style.minHeight = '600px';
         board.style.marginLeft = '';
         board.style.marginRight = '';
+        board.style.overflowX = 'auto';
+        board.style.overflowY = 'auto';
+        if (expandBtn) expandBtn.style.display = '';
+        _resetOverlays();
         return;
       }
 
+      const dims = layout.dims;
       board.style.width = '100%';
-      board.style.maxWidth = layout.dims.w + 'px';
-      board.style.height = (savedH && savedH > layout.dims.h ? savedH : layout.dims.h) + 'px';
+      board.style.maxWidth = dims.w + 'px';
+      board.style.minHeight = '';
+
+      let targetH = dims.h;
+      if (!opts || !opts.resetHeight) {
+        const savedH = (typeof conPageSnapshots !== 'undefined' && conPageSnapshots[pIdx]?.boardHeight)
+          || (() => {
+            try {
+              const s = sessionStorage.getItem('cmt-board-expanded-height-' + pIdx) || sessionStorage.getItem('cmt-board-expanded-height');
+              const v = parseInt(s, 10);
+              return (!isNaN(v) && v > 0) ? v : null;
+            } catch (_) { return null; }
+          })();
+        if (savedH && savedH > dims.h) targetH = savedH;
+      }
+      board.style.height = targetH + 'px';
       board.style.marginLeft = 'auto';
       board.style.marginRight = 'auto';
+
+      board.style.overflowX = 'hidden';
+      board.style.overflowY = 'hidden';
+
+      if (expandBtn) expandBtn.style.display = 'none';
+
+      _resetOverlays();
     }
 
     function _bcApplyCustomOrientationInInputs() {

@@ -1078,6 +1078,30 @@
             background: #c4b5fd;
             color: #1e1b4b;
         }
+        .cm-exam-gs-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 2px 8px;
+            background: #ffffff;
+            color: #1e1b4b;
+            border: 1.5px solid #333333;
+            border-radius: 4px;
+            box-shadow: 1.5px 1.5px 0 #555555;
+            font-size: 0.74rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.15s ease, transform 0.1s ease;
+        }
+        .cm-exam-gs-badge:hover {
+            background: #f5f5f0;
+            transform: translateY(-1px);
+        }
+        .cm-exam-gs-badge .btn-icon {
+            width: 14px;
+            height: 14px;
+        }
         .student-exam-badge {
             font-size: 0.68rem;
             font-weight: 700;
@@ -3076,6 +3100,10 @@
                 <div id="cm-exam-session-banner" class="cm-exam-session-banner" style="display:none;">
                     <img src="../assets/icons/test-creator.svg" class="btn-icon" alt="" />
                     <span id="cm-exam-session-text" data-i18n="cmExamSessionActive">Exam Session Active</span>
+                    <button type="button" id="cm-exam-session-gs-link" class="cm-exam-gs-badge" style="display:none;" onclick="openLinkedGradeSheetForSession()" title="Open this test in Grade Sheet" data-i18n-title="cmExamSessionLinkedGsTitle">
+                        <img src="../assets/icons/grade-sheet.svg" class="btn-icon" alt="" />
+                        <span id="cm-exam-session-gs-text">Grade Sheet</span>
+                    </button>
                     <button type="button" class="cm-exam-exit-btn" onclick="toggleExamSessionMode(selectedGroupName)"
                         title="Exit Exam Session" data-i18n-title="ctx_exit_exam_session">✕</button>
                 </div>
@@ -6664,6 +6692,7 @@
         }
 
         async function initApp() {
+            if (typeof _cmsInitGradesSync === 'function') _cmsInitGradesSync();
             await Promise.resolve(window.__cmUserBootstrapPromise).catch(function () { });
             await loadConfigFromDisk();
 
@@ -8763,6 +8792,12 @@
             updateDbAutosaveStatusLabel();
             applyAutoFlags(groupName);
             checkScheduledPlannerTest(groupName);
+            if (typeof cmsGetAssociatedGradeSheetTest === 'function') {
+                cmsGetAssociatedGradeSheetTest(groupName).then(t => {
+                    _cmsCurrentAssociatedTest = t;
+                    updateExamSessionBanner();
+                }).catch(() => {});
+            }
 
             if (typeof _updateClassBtnLabel === 'function') _updateClassBtnLabel();
             closeClassSelectionPopup();
@@ -10580,6 +10615,9 @@
                 logHistory('attendance', student.name, student.isAbsent ? 'Marked absent' : 'Marked present', { studentId: student.id, isAbsent: student.isAbsent });
                 renderRoster();
                 renderRanking();
+                if (typeof cmsSyncStudentAbsenceToGradeSheet === 'function') {
+                    cmsSyncStudentAbsenceToGradeSheet(student, student.isAbsent);
+                }
             }
 
             if (action === 'flag') {
@@ -10611,6 +10649,365 @@
             closeRosterContextMenu();
         }
 
+        function slugifyForPath(name) {
+            return String(name || '').trim()
+                .replace(/[\\/:*?"<>|]/g, '-')
+                .replace(/\s+/g, ' ')
+                .trim()
+                .replace(/^\.+/, '_') || '_unnamed';
+        }
+
+        let _cmsCurrentAssociatedTest = null;
+        let _cmsGradesChannel = null;
+
+        function _cmsInitGradesSync() {
+            if (typeof BroadcastChannel === 'undefined' || _cmsGradesChannel) return;
+            try {
+                _cmsGradesChannel = new BroadcastChannel('cmt-grades');
+                _cmsGradesChannel.onmessage = function (ev) {
+                    if (!ev || !ev.data || typeof ev.data !== 'object') return;
+                    const msg = ev.data;
+                    if (msg.action === 'grade-absence-changed') {
+                        if (!selectedGroupName) return;
+                        const meta = rawMeta[selectedGroupName] || {};
+                        const gUuid = meta.uuid || selectedGroupName;
+                        const matchesClass = (msg.groupId === selectedGroupName || msg.classId === selectedGroupName ||
+                            msg.groupId === gUuid || msg.classId === gUuid ||
+                            (meta.name && msg.className && meta.name.toLowerCase() === msg.className.toLowerCase()));
+                        if (!matchesClass) return;
+
+                        const isExam = isExamSessionActive(selectedGroupName);
+                        const isThisTest = _cmsCurrentAssociatedTest &&
+                            _cmsCurrentAssociatedTest.semester === msg.semester &&
+                            _cmsCurrentAssociatedTest.testIndex === msg.testIndex;
+
+                        if (isExam || isThisTest) {
+                            const students = studentGroups[selectedGroupName] || [];
+                            const student = students.find(s =>
+                                (msg.studentId && (s.uuid === msg.studentId || s.id === msg.studentId)) ||
+                                (msg.studentName && s.name.trim().toLowerCase() === msg.studentName.trim().toLowerCase())
+                            );
+                            if (student && !!student.isAbsent !== !!msg.isAbsent) {
+                                student.isAbsent = !!msg.isAbsent;
+                                if (student.isAbsent) {
+                                    delete student.teamId;
+                                    delete student.role;
+                                    student.isPicked = false;
+                                }
+                                logHistory('attendance', student.name, student.isAbsent ? 'Marked absent (from Grade Sheet)' : 'Marked present (from Grade Sheet)', { studentId: student.id, isAbsent: student.isAbsent });
+                                renderRoster();
+                                renderRanking();
+                            }
+                        }
+                    }
+                };
+            } catch (_) {}
+        }
+
+        async function cmsGetAssociatedGradeSheetTest(groupName = selectedGroupName) {
+            if (!groupName) return null;
+            const todayStr = new Date().toISOString().slice(0, 10);
+            const meta = rawMeta[groupName] || {};
+            const groupUuid = meta.uuid || groupName;
+
+            // 1. Check if linked via Planner entry
+            try {
+                const entries = await loadPlannerEntriesForClass(groupName);
+                let testEntry = null;
+                if (currentPlannerEntryId) {
+                    testEntry = entries.find(e => e && e.id === currentPlannerEntryId && (e.type === 'test' || e.isTest === true || e.gsLink));
+                }
+                if (!testEntry) {
+                    testEntry = entries.find(e => e && e.date === todayStr && (e.type === 'test' || e.isTest === true || e.gsLink));
+                }
+                if (testEntry && testEntry.gsLink && testEntry.gsLink.semester && testEntry.gsLink.testIndex != null) {
+                    return {
+                        source: 'planner',
+                        plannerEntryId: testEntry.id,
+                        testName: testEntry.topic || testEntry.title || (window.i18n ? i18n.t('pl_typeTest') : 'Test'),
+                        testDate: testEntry.date || todayStr,
+                        classId: testEntry.gsLink.classId || groupUuid,
+                        classSlug: testEntry.gsLink.classSlug || testEntry.gsLink.classId,
+                        classFolder: testEntry.gsLink.classSlug || testEntry.gsLink.classId,
+                        semester: testEntry.gsLink.semester,
+                        testIndex: testEntry.gsLink.testIndex
+                    };
+                }
+            } catch (e) {
+                console.warn('[CMS] cmsGetAssociatedGradeSheetTest planner check failed:', e);
+            }
+
+            // 2. Query Grade Sheet window via BroadcastChannel (fast in-memory lookup)
+            const bcPromise = new Promise(resolve => {
+                if (typeof BroadcastChannel === 'undefined') return resolve(null);
+                try {
+                    const ch = new BroadcastChannel('cmt-grades');
+                    const queryId = 'qry-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+                    let timer = null;
+                    const handler = ev => {
+                        if (ev && ev.data && ev.data.action === 'active-test-response' && ev.data.queryId === queryId) {
+                            clearTimeout(timer);
+                            try { ch.removeEventListener('message', handler); ch.close(); } catch (_) {}
+                            resolve(ev.data);
+                        }
+                    };
+                    ch.addEventListener('message', handler);
+                    ch.postMessage({
+                        action: 'query-active-test',
+                        queryId,
+                        groupName,
+                        groupUuid,
+                        date: todayStr
+                    });
+                    timer = setTimeout(() => {
+                        try { ch.removeEventListener('message', handler); ch.close(); } catch (_) {}
+                        resolve(null);
+                    }, 300);
+                } catch (_) {
+                    resolve(null);
+                }
+            });
+
+            const bcRes = await bcPromise;
+            if (bcRes && bcRes.semester && bcRes.testIndex != null) {
+                return {
+                    source: 'gradesheet-window',
+                    testName: (bcRes.testConfig && bcRes.testConfig.testName) || (window.i18n ? i18n.t('pl_typeTest') : 'Test'),
+                    testDate: (bcRes.testConfig && bcRes.testConfig.testDate) || todayStr,
+                    classId: bcRes.classId || groupUuid,
+                    classSlug: bcRes.classSlug || bcRes.classId,
+                    classFolder: bcRes.classFolder || bcRes.classId,
+                    semester: bcRes.semester,
+                    testIndex: bcRes.testIndex,
+                    testConfig: bcRes.testConfig,
+                    absentStudentIds: bcRes.absentStudentIds || []
+                };
+            }
+
+            // 3. Fallback: inspect Grade files on disk
+            if (window.Desktop && Desktop.isElectron() && typeof Desktop.listByPath === 'function') {
+                try {
+                    const listRes = await Desktop.listByPath('grades', '', { recursive: true, extensions: ['.js'] });
+                    if (listRes && listRes.ok && Array.isArray(listRes.files)) {
+                        const classFiles = listRes.files.filter(f => f.filename === '_class.js');
+                        let targetFolder = null;
+                        let targetClassMeta = null;
+
+                        for (const cf of classFiles) {
+                            const r = await Desktop.readByPath('grades', cf.relativePath);
+                            if (!r || !r.content) continue;
+                            let meta = null;
+                            try {
+                                const fake = {};
+                                new Function('window', r.content)(fake);
+                                meta = fake.GRADE_CLASS;
+                            } catch (_) {}
+                            if (meta && (meta.classId === groupUuid || meta.classId === groupName || meta.groupId === groupUuid || meta.groupId === groupName || (meta.className && meta.className.toLowerCase() === groupName.toLowerCase()))) {
+                                targetFolder = cf.relativePath.split('/')[0];
+                                targetClassMeta = meta;
+                                break;
+                            }
+                        }
+
+                        if (!targetFolder) {
+                            const possibleFolders = [groupName, groupUuid, slugifyForPath(groupName)].filter(Boolean);
+                            for (const pf of possibleFolders) {
+                                if (listRes.files.some(f => f.relativePath.startsWith(pf + '/'))) {
+                                    targetFolder = pf;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (targetFolder) {
+                            const testFiles = listRes.files.filter(f => f.relativePath.startsWith(targetFolder + '/') && f.filename.includes('-test-'));
+                            for (const tf of testFiles) {
+                                const r = await Desktop.readByPath('grades', tf.relativePath);
+                                if (!r || !r.content) continue;
+                                let testData = null;
+                                try {
+                                    const fake = {};
+                                    new Function('window', r.content)(fake);
+                                    testData = fake.GRADE_TEST_DATA;
+                                } catch (_) {}
+                                if (testData && testData.testConfig && (testData.testConfig.testDate === todayStr)) {
+                                    return {
+                                        source: 'disk',
+                                        testName: testData.testConfig.testName || (window.i18n ? i18n.t('pl_typeTest') : 'Test'),
+                                        testDate: testData.testConfig.testDate,
+                                        classId: testData.classId || (targetClassMeta && targetClassMeta.classId) || groupUuid,
+                                        classSlug: targetFolder,
+                                        classFolder: targetFolder,
+                                        semester: testData.semester,
+                                        testIndex: testData.testIndex,
+                                        testConfig: testData.testConfig,
+                                        absentStudentIds: testData.testConfig.absentStudentIds || []
+                                    };
+                                }
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.warn('[CMS] Disk grade inspection error:', err);
+                }
+            }
+
+            return null;
+        }
+
+        async function cmsSyncStudentAbsenceToGradeSheet(student, isAbsent, targetGroup = selectedGroupName) {
+            if (!student || !targetGroup) return;
+            if (!_cmsCurrentAssociatedTest) {
+                _cmsCurrentAssociatedTest = await cmsGetAssociatedGradeSheetTest(targetGroup);
+            }
+            const test = _cmsCurrentAssociatedTest;
+            if (!test) return;
+
+            const studentUuid = student.uuid || student.id;
+            const studentName = student.name || '';
+
+            // 1. Broadcast via cmt-grades
+            try {
+                if (typeof BroadcastChannel !== 'undefined') {
+                    const ch = new BroadcastChannel('cmt-grades');
+                    ch.postMessage({
+                        action: 'set-student-absent',
+                        classId: test.classId,
+                        groupId: targetGroup,
+                        className: (rawMeta[targetGroup] && rawMeta[targetGroup].name) ? rawMeta[targetGroup].name : targetGroup,
+                        semester: test.semester,
+                        testIndex: test.testIndex,
+                        studentId: student.id,
+                        studentUuid: studentUuid,
+                        studentName: studentName,
+                        isAbsent: !!isAbsent
+                    });
+                    setTimeout(() => { try { ch.close(); } catch (_) {} }, 500);
+                }
+            } catch (e) {
+                console.warn('[CMS] Failed to broadcast student absence to Grade Sheet:', e);
+            }
+
+            // 2. Persist to file on disk in case Grade Sheet is closed
+            if (window.Desktop && Desktop.isElectron() && typeof Desktop.readByPath === 'function') {
+                try {
+                    const testLabel = `${test.semester}-test-${String(test.testIndex + 1).padStart(2, '0')}.js`;
+                    const filePath = `${test.classFolder}/${testLabel}`;
+                    const r = await Desktop.readByPath('grades', filePath);
+                    if (r && r.ok && r.content) {
+                        const sandbox = {};
+                        new Function('window', r.content)(sandbox);
+                        const testData = sandbox.GRADE_TEST_DATA;
+                        if (testData && testData.testConfig) {
+                            if (!Array.isArray(testData.testConfig.absentStudentIds)) {
+                                testData.testConfig.absentStudentIds = [];
+                            }
+                            let matchedId = studentUuid;
+                            if (Array.isArray(testData.results)) {
+                                const rItem = testData.results.find(res => 
+                                    res.studentId === studentUuid || 
+                                    (res.name && res.name.trim().toLowerCase() === studentName.trim().toLowerCase())
+                                );
+                                if (rItem && rItem.studentId) matchedId = rItem.studentId;
+                            }
+
+                            const idx = testData.testConfig.absentStudentIds.indexOf(matchedId);
+                            let modified = false;
+                            if (isAbsent && idx === -1) {
+                                testData.testConfig.absentStudentIds.push(matchedId);
+                                modified = true;
+                            } else if (!isAbsent && idx !== -1) {
+                                testData.testConfig.absentStudentIds.splice(idx, 1);
+                                modified = true;
+                            }
+
+                            if (modified) {
+                                testData._savedAt = Date.now();
+                                const newContent = '// _savedAt: ' + testData._savedAt + '\nwindow.GRADE_TEST_DATA = ' + JSON.stringify(testData, null, 2) + ';\n';
+                                await Desktop.saveText('grades', testLabel, newContent, test.classFolder);
+                                test.absentStudentIds = testData.testConfig.absentStudentIds;
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.warn('[CMS] Failed to save test absence to disk:', err);
+                }
+            }
+
+            const toastKey = isAbsent ? 'cmToastAbsenceSyncedToGs' : 'cmToastPresenceSyncedToGs';
+            const toastDefault = isAbsent ? '{name} marked absent (synced to Grade Sheet: {test}).' : '{name} marked present (synced to Grade Sheet: {test}).';
+            const msg = (window.i18n ? i18n.t(toastKey) : toastDefault)
+                .replace('{name}', studentName)
+                .replace('{test}', test.testName || 'Test');
+            if (typeof showToast === 'function') showToast(msg);
+        }
+
+        async function cmsSyncExamSessionWithGradeSheet(groupName) {
+            if (!groupName) return;
+            _cmsCurrentAssociatedTest = await cmsGetAssociatedGradeSheetTest(groupName);
+            if (!_cmsCurrentAssociatedTest) return;
+
+            const test = _cmsCurrentAssociatedTest;
+            const groupStudents = studentGroups[groupName] || [];
+
+            let rosterUpdated = false;
+            if (Array.isArray(test.absentStudentIds) && test.absentStudentIds.length) {
+                groupStudents.forEach(s => {
+                    const sid = s.uuid || s.id;
+                    if (test.absentStudentIds.includes(sid) && !s.isAbsent) {
+                        s.isAbsent = true;
+                        delete s.teamId;
+                        delete s.role;
+                        s.isPicked = false;
+                        rosterUpdated = true;
+                        logHistory('attendance', s.name, 'Marked absent (synced from Grade Sheet)', { studentId: s.id, isAbsent: true });
+                    }
+                });
+            }
+
+            const absentStudents = groupStudents.filter(s => s.isAbsent);
+            for (const abs of absentStudents) {
+                await cmsSyncStudentAbsenceToGradeSheet(abs, true, groupName);
+            }
+
+            if (rosterUpdated) {
+                renderRoster();
+                renderRanking();
+            }
+
+            updateExamSessionBanner();
+
+            const syncedMsg = (window.i18n ? i18n.t('cmToastExamSessionSynced') : 'Exam session linked to Grade Sheet ({test}). Absences synchronized.')
+                .replace('{test}', test.testName || 'Test');
+            if (typeof showToast === 'function') showToast(syncedMsg);
+        }
+
+        function openLinkedGradeSheetForSession() {
+            if (!_cmsCurrentAssociatedTest || !selectedGroupName) {
+                openInGradeSheet();
+                return;
+            }
+            const test = _cmsCurrentAssociatedTest;
+            const groupName = (rawMeta[selectedGroupName] && rawMeta[selectedGroupName].name) ? rawMeta[selectedGroupName].name : selectedGroupName;
+
+            if (window.Desktop && typeof Desktop.openTool === 'function') {
+                const query = {
+                    group: selectedGroupName,
+                    class: groupName
+                };
+                if (test.semester) query.sem = test.semester;
+                if (test.testIndex != null) query.testIndex = String(test.testIndex);
+                Desktop.openTool('grade-sheet.html', { query });
+            } else {
+                const params = new URLSearchParams();
+                params.set('group', selectedGroupName);
+                params.set('class', groupName);
+                if (test.semester) params.set('sem', test.semester);
+                if (test.testIndex != null) params.set('testIndex', String(test.testIndex));
+                window.open('grade-sheet.html?' + params.toString(), '_blank');
+            }
+        }
+
         function isExamSessionActive(groupName = selectedGroupName) {
             if (!groupName) return false;
             if (groupExamModes[groupName] !== undefined) return !!groupExamModes[groupName];
@@ -10622,7 +11019,7 @@
             return false;
         }
 
-        function setExamSessionMode(groupName, enable) {
+        async function setExamSessionMode(groupName, enable) {
             if (!groupName) return;
             groupExamModes[groupName] = !!enable;
             const students = studentGroups[groupName] || [];
@@ -10631,7 +11028,14 @@
             });
             logHistory('exam-toggle', groupName, enable ? 'Exam session mode enabled' : 'Exam session mode ended', { inExam: !!enable });
             renderRoster();
-            updateExamSessionBanner();
+
+            if (enable) {
+                await cmsSyncExamSessionWithGradeSheet(groupName);
+            } else {
+                _cmsCurrentAssociatedTest = null;
+                updateExamSessionBanner();
+            }
+
             const msg = enable 
                 ? (window.i18n ? i18n.t('msg_exam_session_started') : 'Exam session enabled. Students marked in exam.')
                 : (window.i18n ? i18n.t('msg_exam_session_ended') : 'Exam session ended.');
@@ -10656,6 +11060,19 @@
             if (!banner) return;
             const isActive = isExamSessionActive(selectedGroupName);
             banner.style.display = isActive ? 'inline-flex' : 'none';
+
+            const gsLink = document.getElementById('cm-exam-session-gs-link');
+            const gsText = document.getElementById('cm-exam-session-gs-text');
+            if (gsLink && gsText) {
+                if (isActive && _cmsCurrentAssociatedTest) {
+                    gsLink.style.display = 'inline-flex';
+                    gsText.textContent = _cmsCurrentAssociatedTest.testName || (window.i18n ? i18n.t('ctx_grades') : 'Grade Sheet');
+                    const linkTitle = (window.i18n ? i18n.t('cmExamSessionLinkedGsTitle') : 'Open this test in Grade Sheet');
+                    gsLink.title = linkTitle;
+                } else {
+                    gsLink.style.display = 'none';
+                }
+            }
         }
 
         async function checkScheduledPlannerTest(groupName) {
@@ -10679,7 +11096,10 @@
 
                 const confirmed = await (typeof showConfirm === 'function' ? showConfirm(msg) : Promise.resolve(confirm(msg)));
                 if (confirmed) {
-                    setExamSessionMode(groupName, true);
+                    if (testEntry.id && !currentPlannerEntryId) {
+                        currentPlannerEntryId = testEntry.id;
+                    }
+                    await setExamSessionMode(groupName, true);
                 }
             } catch (err) {
                 console.warn('checkScheduledPlannerTest error:', err);
@@ -10720,20 +11140,24 @@
             const student = students.find(s => s.id === studentId) || students[studentId];
             const groupName = (rawMeta[selectedGroupName] && rawMeta[selectedGroupName].name) ? rawMeta[selectedGroupName].name : selectedGroupName;
             const studentQuery = student ? (student.uuid || student.name) : '';
+            const test = _cmsCurrentAssociatedTest;
 
             if (window.Desktop && typeof Desktop.openTool === 'function') {
-                Desktop.openTool('grade-sheet.html', {
-                    query: {
-                        group: selectedGroupName,
-                        class: groupName,
-                        student: studentQuery
-                    }
-                });
+                const query = {
+                    group: selectedGroupName,
+                    class: groupName,
+                    student: studentQuery
+                };
+                if (test && test.semester) query.sem = test.semester;
+                if (test && test.testIndex != null) query.testIndex = String(test.testIndex);
+                Desktop.openTool('grade-sheet.html', { query });
             } else {
                 const params = new URLSearchParams();
                 params.set('group', selectedGroupName);
                 params.set('class', groupName);
                 if (studentQuery) params.set('student', studentQuery);
+                if (test && test.semester) params.set('sem', test.semester);
+                if (test && test.testIndex != null) params.set('testIndex', String(test.testIndex));
                 window.open('grade-sheet.html?' + params.toString(), '_blank');
             }
         }
@@ -15763,6 +16187,9 @@ syncState();
                     delete student.role;
                     student.isPicked = false;
                     logHistory('attendance', student.name, 'Marked absent (RV badge)', { studentId: student.id, isAbsent: true });
+                    if (typeof cmsSyncStudentAbsenceToGradeSheet === 'function') {
+                        cmsSyncStudentAbsenceToGradeSheet(student, true);
+                    }
                 }
             });
 
@@ -15810,6 +16237,13 @@ syncState();
             // Diamond removal undoes the +1 point
             if (icon === '💎') {
                 student.pluses = Math.max(0, (student.pluses || 0) - 1);
+            }
+            if (icon === 'RV' && !student.badges.some(b => b.icon === 'RV')) {
+                student.isAbsent = false;
+                logHistory('attendance', student.name, 'Marked present (RV badge removed)', { studentId: student.id, isAbsent: false });
+                if (typeof cmsSyncStudentAbsenceToGradeSheet === 'function') {
+                    cmsSyncStudentAbsenceToGradeSheet(student, false);
+                }
             }
             logHistory('remove', student.name, (removed?.label ? removed.label + ' ' : '') + 'badge (' + icon + ')');
             renderRoster();

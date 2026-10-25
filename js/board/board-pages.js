@@ -3989,7 +3989,10 @@
           _fullscreen: m._fullscreen ? true : undefined,
           _fsZoom: m._fullscreen ? (m._fsZoom || 1) : undefined,
           _fsPanX: m._fullscreen ? (m._fsPanX || 0) : undefined,
-          _fsPanY: m._fullscreen ? (m._fsPanY || 0) : undefined
+          _fsPanY: m._fullscreen ? (m._fsPanY || 0) : undefined,
+          dataUrl: (m.dataUrl && m.dataUrl.startsWith('data:')) ? m.dataUrl : (m._resolvedDataUrl || undefined),
+          base64: m.base64 || undefined,
+          transcript: m.transcript || undefined
         })),
         backgroundPdf: (() => {
           const bgPdf = (typeof conPageBackgroundPdf !== 'undefined' ? conPageBackgroundPdf : (typeof window !== 'undefined' ? window.conPageBackgroundPdf : null));
@@ -6796,16 +6799,27 @@
         if (ph > maxY) maxY = ph;
       }
 
-      if (window._bcBoardLayoutConfig && window._bcBoardLayoutConfig.dims) {
-        const lw = window._bcBoardLayoutConfig.dims.w;
-        const lh = window._bcBoardLayoutConfig.dims.h;
-        if (lw > maxX) maxX = lw;
-        if (lh > maxY) maxY = lh;
+      let bw, bh, PAD;
+      const hasLayoutDims = window._bcBoardLayoutConfig && window._bcBoardLayoutConfig.dims;
+      if (hasLayoutDims) {
+        const targetW = window._bcBoardLayoutConfig.dims.w;
+        const targetH = window._bcBoardLayoutConfig.dims.h;
+        if (maxX <= targetW && maxY <= targetH) {
+          bw = targetW;
+          bh = targetH;
+          PAD = 0;
+        } else {
+          const scaleFactor = Math.max(maxX / targetW, maxY / targetH);
+          bw = Math.round(targetW * scaleFactor);
+          bh = Math.round(targetH * scaleFactor);
+          PAD = 0;
+        }
+      } else {
+        bw = (maxX > 0) ? Math.max(600, maxX + 40) : Math.max(600, board.clientWidth || 800);
+        bh = (maxY > 0) ? Math.max(400, maxY + 40) : Math.max(400, board.clientHeight || 600);
+        PAD = 24;
       }
 
-      const bw = (maxX > 0) ? Math.max(600, maxX + 40) : Math.max(600, board.clientWidth || 800);
-      const bh = (maxY > 0) ? Math.max(400, maxY + 40) : Math.max(400, board.clientHeight || 600);
-      const PAD = 24;
       const defaultScale = Math.max(window.devicePixelRatio || 1, 2);
       const scale = (opts && typeof opts.scale === 'number' && opts.scale > 0) ? opts.scale : defaultScale;
       const canvas = document.createElement('canvas');
@@ -6821,7 +6835,9 @@
       if (_conBoardBg && _conBoardBg._cachedDataUrl) {
         await new Promise(resolve => { const img = new Image(); img.onload = () => { ctx.drawImage(img, PAD, PAD, _conBoardBg._cachedW, _conBoardBg._cachedH); resolve(); }; img.onerror = resolve; img.src = _conBoardBg._cachedDataUrl; });
       }
-      ctx.strokeStyle = '#111111'; ctx.lineWidth = 2; ctx.strokeRect(1, 1, bw + PAD * 2 - 2, bh + PAD * 2 - 2);
+      if (PAD > 0) {
+        ctx.strokeStyle = '#111111'; ctx.lineWidth = 2; ctx.strokeRect(1, 1, bw + PAD * 2 - 2, bh + PAD * 2 - 2);
+      }
 
       // Render background media widgets (Images, PDFs) first so they act as background elements underneath groups
       conDrawMediaWidgetsToCanvas(ctx, PAD, ['pics', 'pdf']);
@@ -7625,12 +7641,18 @@
       const targetScale = (exportOpts && typeof exportOpts.scale === 'number') ? exportOpts.scale : 1.5;
       const targetQuality = (exportOpts && typeof exportOpts.quality === 'number') ? Math.max(0.2, Math.min(1.0, exportOpts.quality / 100)) : 0.82;
 
+      const curLayout = window._bcBoardLayoutConfig || {};
+      const isPortrait = curLayout.preset === 'a4-portrait' ||
+        (curLayout.preset === 'custom' && curLayout.customOrientation === 'portrait') ||
+        (curLayout.dims && curLayout.dims.h > curLayout.dims.w);
+      const resolvedOrientation = isPortrait ? 'portrait' : 'landscape';
+
       // 1. PRIMARY: Headless vector SVG BoardExportService (if mode is 'vector' or default)
       if (mode !== 'snapshots' && window.BoardExportService && typeof window.BoardExportService.exportPagesPdf === 'function') {
         try {
           const res = await window.BoardExportService.exportPagesPdf(pagesToProcess, {
             title: titleVal,
-            orientation: 'landscape',
+            orientation: resolvedOrientation,
             renderMode: 'vector'
           });
           if (res && (res.ok || res.canceled)) {
@@ -7695,7 +7717,7 @@
       if (window.BoardExportService && typeof window.BoardExportService.exportCanvasPagesPdf === 'function') {
         return window.BoardExportService.exportCanvasPagesPdf(dataUrls, {
           title: titleVal,
-          orientation: 'landscape',
+          orientation: resolvedOrientation,
           quality: targetQuality,
           scale: targetScale
         });
@@ -7704,7 +7726,7 @@
       function escapeHtml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
       const displayTitle = escapeHtml(titleVal);
       const imgTags = dataUrls.map((url, i) => `<div class="pg"><img src="${url}" alt="Page ${i + 1}"></div>`).join('\n');
-      const html = `<!doctype html><html><head><meta charset="utf-8"><title>${displayTitle}</title><style>@page{margin:0;size:landscape}html,body{margin:0;padding:0;background:#fff;width:100%;height:100%}.pg{width:100vw;height:100vh;page-break-after:always;display:flex;align-items:center;justify-content:center;overflow:hidden;box-sizing:border-box}.pg:last-child{page-break-after:auto}img{max-width:100%;max-height:100%;object-fit:contain;display:block}</style></head><body>\n${imgTags}\n</body></html>`;
+      const html = `<!doctype html><html><head><meta charset="utf-8"><title>${displayTitle}</title><style>@page{margin:0;size:${resolvedOrientation}}html,body{margin:0;padding:0;background:#fff;width:100%;height:100%}.pg{width:100vw;height:100vh;page-break-after:always;display:flex;align-items:center;justify-content:center;overflow:hidden;box-sizing:border-box}.pg:last-child{page-break-after:auto}img{max-width:100%;max-height:100%;object-fit:contain;display:block}</style></head><body>\n${imgTags}\n</body></html>`;
       const safeTitle = titleVal.replace(/[\\/:*?"<>|]/g, '_') || 'constellation';
       const defaultName = safeTitle + '_pages.pdf';
 

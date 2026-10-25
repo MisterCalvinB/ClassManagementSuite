@@ -335,6 +335,7 @@
                   <span id="testCriteriaCountBadge" style="background:#d1fae5;border:1.5px solid #059669;color:#065f46;font-size:0.75rem;padding:2px 8px;border-radius:3px;font-weight:900;"></span>
                 </div>
                 <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                  <button type="button" class="neo-btn sm" style="background:#ecfdf5;color:#065f46;border-color:#059669;" onclick="tcOpenRubricMatrixModal('__exam__')" title="View detailed rubric matrix with performance levels and descriptors"><span data-i18n="tcViewRubricMatrix">👁 View Rubric Matrix</span></button>
                   <button type="button" class="neo-btn sm" style="background:#d1fae5;color:#065f46;border-color:#059669;" onclick="tcAddSectionBlockToExam('section_criteria')" title="Place a dedicated criteria rubric block in the exam question sequence" data-i18n-title="tcPlaceInExamFlowTooltip"><span data-i18n="tcPlaceInExamFlow">📍 Place in Exam Flow</span></button>
                   <label style="display:inline-flex;align-items:center;gap:4px;font-size:0.75rem;font-weight:700;color:#065f46;cursor:pointer;">
                     <input type="checkbox" id="testCriteriaPrintChk" onchange="tcToggleCriteriaPrintOnTest(this.checked)">
@@ -1820,8 +1821,11 @@
                   </td>
                   <td>
                     <select id="hdrSelect_criteriaDisplayMode" class="meta-select" style="padding:2px 4px;font-size:0.75rem;" onchange="tcUpdateElemStyle('criteriaStyle', 'displayMode', this.value)">
-                      <option value="table" data-i18n="tcEvaluationRubricTable">Evaluation Rubric Table</option>
-                      <option value="compact" data-i18n="tcCriteriaBadges">Criteria Badges</option>
+                      <option value="matrix" data-i18n="tcDisplayMatrix">Full Rubric Matrix Grid</option>
+                      <option value="table" data-i18n="tcEvaluationRubricTable">Summary Rubric Table</option>
+                      <option value="badges" data-i18n="tcCriteriaBadges">Criteria Badges</option>
+                      <option value="list" data-i18n="tcBulletedList">Bulleted List</option>
+                      <option value="compact" data-i18n="tcDisplayCompact">Compact Summary</option>
                       <option value="inline" data-i18n="tcHeaderMetadata">Header Metadata</option>
                     </select>
                   </td>
@@ -2298,6 +2302,22 @@
           <button type="button" class="neo-btn" onclick="tcCloseCompetenceCustomizeModal()"><span data-i18n="btnCancel">Cancel</span></button>
           <button type="button" class="neo-btn primary" onclick="tcSaveCompetenceConfig()"><span data-i18n="btnSave">Save &amp; Apply</span></button>
         </div>
+  <!-- ── 20. Rubric Levels & Descriptors Matrix Modal ───────────────────────── -->
+  <div id="tcRubricMatrixModal" class="modal-overlay" style="display:none; z-index:10005;" onclick="if(event.target===this)tcCloseRubricMatrixModal()">
+    <div class="modal-box" style="max-width:980px; width:92vw; max-height:90vh; display:flex; flex-direction:column; padding:18px; border:3px solid var(--neo-dark, #333); box-shadow:4px 4px 0 #555;">
+      <div class="modal-header" style="border-bottom:2px solid var(--neo-dark, #333); padding-bottom:8px; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between;">
+        <span class="modal-title" style="display:flex; align-items:center; gap:8px;">
+          <img src="../assets/icons/check.svg" style="width:20px;height:20px;" alt="" />
+          <span id="tcRubricModalTitleText" data-i18n="tcRubricModalTitle">Rubric Levels &amp; Performance Descriptors</span>
+        </span>
+        <button class="modal-close-btn" onclick="tcCloseRubricMatrixModal()">&times;</button>
+      </div>
+      <div id="tcRubricModalBody" class="modal-bd modal-body" style="overflow-y:auto; overflow-x:auto; flex:1; padding-right:4px;">
+        <!-- Filled dynamically by tcOpenRubricMatrixModal -->
+      </div>
+      <div class="modal-footer" style="margin-top:12px; border-top:2px solid var(--neo-dark, #333); padding-top:10px; display:flex; justify-content:space-between; align-items:center;">
+        <span id="tcRubricModalItemCount" style="font-size:0.75rem; font-weight:800; color:#065f46;"></span>
+        <button type="button" class="neo-btn" onclick="tcCloseRubricMatrixModal()" data-i18n="btnClose">Close</button>
       </div>
     </div>
   </div>
@@ -3907,8 +3927,10 @@
               var title = (c && c.title) || (c && c.name) || (c && c.label) || 'Criterion';
               var pts = (c && c.points !== undefined) ? c.points : ((c && c.maxPoints !== undefined) ? c.maxPoints : '');
               var desc = (c && (c.description || c.descriptors)) || '';
+              var lvlCount = (c && c.comments && typeof c.comments === 'object') ? Object.keys(c.comments).length : (c && Array.isArray(c.grades) ? c.grades.length : 0);
+              var lvlInfo = lvlCount > 0 ? ' <span style="font-size:0.68rem;opacity:0.85;text-decoration:underline;cursor:pointer;" onclick="tcOpenRubricMatrixModal(\'' + ex.id + '\', ' + cIdx + ')">[' + lvlCount + ' levels]</span>' : '';
               return '<span style="background:#ecfdf5;border:1.5px solid #059669;color:#065f46;font-size:0.75rem;padding:3px 8px;border-radius:4px;font-weight:900;display:inline-flex;align-items:center;gap:6px;">' +
-                '<span>' + escapeHtml(title) + (pts !== '' ? ' (/' + pts + ' pts)' : '') + '</span>' +
+                '<span>' + escapeHtml(title) + (pts !== '' ? ' (/' + pts + ' pts)' : '') + lvlInfo + '</span>' +
                 (desc && opts.showDescriptions !== false ? ' <span style="font-size:0.68rem;font-weight:700;color:#10b981;">[+desc]</span>' : '') +
                 ' <button type="button" style="background:none;border:none;cursor:pointer;color:#ef4444;font-weight:900;font-size:0.85rem;padding:0;line-height:1;" onclick="tcRemoveCriterionFromSection(\'' + ex.id + '\', ' + cIdx + ')" title="Remove criterion">&times;</button>' +
                 '</span>';
@@ -3937,9 +3959,12 @@
           '      ' + buildMiniFormatToolbar('exInstr_' + ex.id) +
           '    </div>' +
           '    <div class="section-block-preview">' +
-          '      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
+          '      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:6px;flex-wrap:wrap;">' +
           '        <span style="font-size:0.75rem;font-weight:900;text-transform:uppercase;color:#065f46;">' + (i18n.t('tcActiveCriteriaInBlock') || 'Assessment criteria rubrics displayed by this block:') + '</span>' +
-          '        <button type="button" class="neo-btn sm" style="background:#d1fae5;color:#065f46;border-color:#059669;font-size:0.75rem;padding:2px 8px;" onclick="tcOpenCriteriaDrawerForSection(\'' + ex.id + '\')">' + (i18n.t('tcManageInDrawer') || 'Open Drawer…') + '</button>' +
+          '        <div style="display:flex;align-items:center;gap:6px;">' +
+          '          <button type="button" class="neo-btn sm" style="background:#ecfdf5;color:#065f46;border-color:#059669;font-size:0.75rem;padding:2px 8px;" onclick="tcOpenRubricMatrixModal(\'' + ex.id + '\')">' + (i18n.t('tcViewRubricMatrix') || '👁 View Rubric Matrix') + '</button>' +
+          '          <button type="button" class="neo-btn sm" style="background:#d1fae5;color:#065f46;border-color:#059669;font-size:0.75rem;padding:2px 8px;" onclick="tcOpenCriteriaDrawerForSection(\'' + ex.id + '\')">' + (i18n.t('tcManageInDrawer') || 'Open Drawer…') + '</button>' +
+          '        </div>' +
           '      </div>' +
           previewContent +
           '    </div>' +
@@ -3948,6 +3973,7 @@
           '        <div>' +
           '          <label style="display:block;font-size:0.75rem;font-weight:800;margin-bottom:3px;">' + (i18n.t('tcSectionDisplayMode') || 'Display Mode:') + '</label>' +
           '          <select class="meta-input sm" style="width:100%;" onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'displayMode\', this.value)">' +
+          '            <option value="matrix"' + ((!opts.displayMode || opts.displayMode === 'matrix') ? ' selected' : '') + '>' + (i18n.t('tcDisplayMatrix') || 'Full Rubric Matrix Grid') + '</option>' +
           '            <option value="table"' + (opts.displayMode === 'table' ? ' selected' : '') + '>' + (i18n.t('tcDisplayTable') || 'Table / Grid') + '</option>' +
           '            <option value="badges"' + (opts.displayMode === 'badges' ? ' selected' : '') + '>' + (i18n.t('tcDisplayBadges') || 'Badges / Tags') + '</option>' +
           '            <option value="list"' + (opts.displayMode === 'list' ? ' selected' : '') + '>' + (i18n.t('tcDisplayList') || 'Bullet List') + '</option>' +
@@ -4391,17 +4417,22 @@
       function renderExerciseTagsHtml(ex) {
         var html = '';
         var comps = Array.isArray(ex.linkedCompetenceIds) ? ex.linkedCompetenceIds : [];
-        var rubrics = Array.isArray(ex.markingRubric) ? ex.markingRubric : [];
+        var rubrics = (Array.isArray(ex.criteria) && ex.criteria.length)
+          ? ex.criteria
+          : (Array.isArray(ex.markingRubric) ? ex.markingRubric : []);
         var scale = ex.scaleModel || (ex.scaleModelId ? { name: ex.scaleModelId } : null);
         if (comps.length > 0 || rubrics.length > 0 || scale) {
-          html += '<div style="margin-top:10px;padding-top:8px;border-top:1.5px dashed #ccc;display:flex;flex-wrap:wrap;gap:6px;">';
+          html += '<div style="margin-top:10px;padding-top:8px;border-top:1.5px dashed #ccc;display:flex;flex-wrap:wrap;align-items:center;gap:6px;">';
           comps.forEach(function (c, cIdx) {
             html += '<span style="background:#eff6ff;border:1.5px solid #2563eb;color:#1e40af;font-size:0.75rem;padding:2px 8px;border-radius:4px;font-weight:800;display:inline-flex;align-items:center;gap:6px;">' +
               escapeHtml(c) + ' <button type="button" style="background:none;border:none;cursor:pointer;color:#1e40af;font-weight:900;font-size:0.85rem;padding:0;line-height:1;" onclick="tcRemoveCompFromEx(\'' + ex.id + '\',' + cIdx + ')">&times;</button></span>';
           });
           rubrics.forEach(function (r, rIdx) {
+            var levelCount = (r.comments && typeof r.comments === 'object') ? Object.keys(r.comments).length : (Array.isArray(r.grades) ? r.grades.length : 0);
+            var levelBadge = levelCount > 0 ? ' <span style="font-size:0.68rem;font-weight:700;color:#047857;background:#d1fae5;padding:1px 4px;border-radius:3px;">[' + levelCount + ' lvls]</span>' : '';
             html += '<span style="background:#f0fdf4;border:1.5px solid #16a34a;color:#15803d;font-size:0.75rem;padding:2px 8px;border-radius:4px;font-weight:800;display:inline-flex;align-items:center;gap:6px;">' +
-              escapeHtml(r.title) + ' (/' + (r.maxPoints || 0) + ' pts)' +
+              escapeHtml(r.title) + ' (/' + (r.maxPoints || 0) + ' pts)' + levelBadge +
+              ' <button type="button" class="card-btn-icon" style="padding:1px 5px;font-size:0.72rem;background:#d1fae5;color:#065f46;border:1px solid #10b981;cursor:pointer;margin-left:2px;" onclick="tcOpenRubricMatrixModal(\'' + ex.id + '\')" title="' + escapeAttr(i18n.t('tcViewRubricMatrix') || 'View Rubric Matrix') + '">👁 Matrix</button>' +
               ' <button type="button" style="background:none;border:none;cursor:pointer;color:#15803d;font-weight:900;font-size:0.85rem;padding:0;line-height:1;" onclick="tcRemoveRubricFromEx(\'' + ex.id + '\',' + rIdx + ')">&times;</button></span>';
           });
           if (scale) {
@@ -8089,11 +8120,15 @@
           var title = c.title || c.name || 'Criterion';
           var maxPts = c.maxPoints || (Array.isArray(c.grades) && c.grades[0] ? Number(c.grades[0]) : 6) || 3;
           var desc = c.description || c.domain || c.category || (Array.isArray(c.grades) ? 'Scale: ' + c.grades.join(', ') : 'Criteria');
+          var levelCount = (c.comments && typeof c.comments === 'object') ? Object.keys(c.comments).length : (Array.isArray(c.grades) ? c.grades.length : 0);
           var targetBtnText = targetEx ? '+ ' + (targetEx.type === 'section_criteria' ? 'Block' : 'Exercise') : '+ Target';
           return '<div class="drawer-item-card" style="cursor:pointer;" draggable="true" data-index="' + idx + '" onclick="tcOnCriteriaCardClick(' + idx + ')">' +
             '  <div style="display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:0.85rem;">' +
             '    <span>' + escapeHtml(title) + '</span>' +
-            '    <span style="color:#059669;background:#d1fae5;padding:1px 6px;border-radius:3px;border:1px solid #10b981;">/' + maxPts + ' pts</span>' +
+            '    <div style="display:flex;gap:4px;align-items:center;">' +
+            (levelCount > 0 ? '      <span style="color:#047857;background:#d1fae5;padding:1px 5px;border-radius:3px;font-size:0.68rem;font-weight:700;border:1px solid #10b981;">' + levelCount + ' levels</span>' : '') +
+            '      <span style="color:#059669;background:#d1fae5;padding:1px 6px;border-radius:3px;border:1px solid #10b981;">/' + maxPts + ' pts</span>' +
+            '    </div>' +
             '  </div>' +
             '  <div style="font-size:0.75rem;color:#475569;margin-top:3px;line-height:1.35;">' + escapeHtml(desc) + '</div>' +
             '  <div style="display:flex;gap:6px;margin-top:6px;align-items:center;">' +
@@ -8119,6 +8154,10 @@
               maxPoints: maxPts,
               description: item.description || item.domain || item.category || '',
               grades: item.grades || null,
+              comments: item.comments || null,
+              colors: item.colors || null,
+              minPoints: item.minPoints != null ? item.minPoints : null,
+              weight: Number(item.pointCoefficient || item.weight) || 1,
               domain: item.domain || ''
             }));
             e.dataTransfer.setData('text/plain', item.title || item.name || '');
@@ -8237,13 +8276,17 @@
           title: crit.title || crit.name || 'Assessment Criterion',
           description: crit.description || crit.desc || crit.domain || '',
           maxPoints: maxPts,
-          weight: Number(crit.pointCoefficient) || 1,
-          grades: crit.grades || null,
+          weight: Number(crit.pointCoefficient || crit.weight) || 1,
+          grades: Array.isArray(crit.grades) ? crit.grades.slice() : null,
+          comments: (crit.comments && typeof crit.comments === 'object') ? JSON.parse(JSON.stringify(crit.comments)) : null,
+          colors: (crit.colors && typeof crit.colors === 'object') ? JSON.parse(JSON.stringify(crit.colors)) : null,
+          minPoints: crit.minPoints != null ? crit.minPoints : null,
           domain: crit.domain || ''
         };
 
         if (targetEx.type === 'section_criteria') {
           if (!Array.isArray(targetEx.criteria)) targetEx.criteria = [];
+          if (!Array.isArray(targetEx.markingRubric)) targetEx.markingRubric = [];
           var isDup = targetEx.criteria.some(function (c) {
             return (c.id && critObjToStore.id && c.id === critObjToStore.id) || (c.title && critObjToStore.title && c.title === critObjToStore.title);
           });
@@ -8252,6 +8295,7 @@
             return;
           }
           targetEx.criteria.push(critObjToStore);
+          targetEx.markingRubric.push(critObjToStore);
           targetEx.points = 0;
           renderExerciseCards();
           updatePointsBadge();
@@ -8261,6 +8305,7 @@
         }
 
         if (!Array.isArray(targetEx.markingRubric)) targetEx.markingRubric = [];
+        if (!Array.isArray(targetEx.criteria)) targetEx.criteria = [];
         var isRubricDup = targetEx.markingRubric.some(function (r) {
           return (r.id && critObjToStore.id && r.id === critObjToStore.id) || (r.title && critObjToStore.title && r.title === critObjToStore.title);
         });
@@ -8269,6 +8314,7 @@
           return;
         }
         targetEx.markingRubric.push(critObjToStore);
+        targetEx.criteria.push(critObjToStore);
         TestCreatorService.calculateExercisePoints(targetEx);
         renderExerciseCards();
         updatePointsBadge();
@@ -8279,21 +8325,28 @@
       window.tcRemoveCriterionFromSection = function (exId, cIdx) {
         var ex = (currentTest && currentTest.exercises) ? currentTest.exercises.find(function (e) { return e.id === exId; }) : null;
         if (!ex) return;
-        var list = Array.isArray(ex.criteria) ? ex.criteria : (Array.isArray(ex.markingRubric) ? ex.markingRubric : null);
-        if (list && list[cIdx]) {
-          list.splice(cIdx, 1);
-          ex.points = 0;
-          renderExerciseCards();
-          updatePointsBadge();
-          tcOnDirty();
-          if (window.showToast) showToast(i18n.t('tcCriteriaRemovedToast') || 'Criterion removed from block');
+        if (Array.isArray(ex.criteria) && ex.criteria[cIdx]) {
+          ex.criteria.splice(cIdx, 1);
         }
+        if (Array.isArray(ex.markingRubric) && ex.markingRubric[cIdx]) {
+          ex.markingRubric.splice(cIdx, 1);
+        }
+        ex.points = 0;
+        renderExerciseCards();
+        updatePointsBadge();
+        tcOnDirty();
+        if (window.showToast) showToast(i18n.t('tcCriteriaRemovedToast') || 'Criterion removed from block');
       };
 
       window.tcRemoveRubricFromEx = function (exId, rIdx) {
         var ex = currentTest.exercises.find(function (e) { return e.id === exId; });
-        if (ex && Array.isArray(ex.markingRubric)) {
-          ex.markingRubric.splice(rIdx, 1);
+        if (ex) {
+          if (Array.isArray(ex.markingRubric) && ex.markingRubric[rIdx]) {
+            ex.markingRubric.splice(rIdx, 1);
+          }
+          if (Array.isArray(ex.criteria) && ex.criteria[rIdx]) {
+            ex.criteria.splice(rIdx, 1);
+          }
           TestCreatorService.calculateExercisePoints(ex);
           renderExerciseCards();
           updatePointsBadge();
@@ -8418,9 +8471,12 @@
           var title = crit.title || crit.name || 'Criterion';
           var maxPts = crit.maxPoints || 6;
           var desc = crit.description || crit.desc || crit.domain || '';
+          var levelCount = (crit.comments && typeof crit.comments === 'object') ? Object.keys(crit.comments).length : (Array.isArray(crit.grades) ? crit.grades.length : 0);
+          var levelBadge = levelCount > 0 ? ' <span style="font-size:0.68rem;font-weight:700;color:#047857;background:#d1fae5;padding:1px 4px;border-radius:3px;">[' + levelCount + ' lvls]</span>' : '';
           return '<span style="background:#fff;border:1.5px solid #059669;color:#065f46;font-size:0.75rem;padding:3px 8px;border-radius:4px;font-weight:900;display:inline-flex;align-items:center;gap:6px;box-shadow:1px 1px 0 #059669;" title="' + escapeHtml(desc) + '">' +
             '<span>' + escapeHtml(title) + '</span>' +
             '<span style="color:#059669;font-weight:800;font-size:0.7rem;">(/' + maxPts + ' pts)</span>' +
+            levelBadge +
             (desc ? ' <span style="font-size:0.68rem;font-weight:700;color:#10b981;">[+desc]</span>' : '') +
             ' <button type="button" style="background:none;border:none;cursor:pointer;color:#ef4444;font-weight:900;font-size:0.85rem;padding:0;line-height:1;" onclick="tcRemoveTestCriterion(' + idx + ')" title="Remove criterion">&times;</button>' +
             '</span>';
@@ -8489,8 +8545,11 @@
           title: crit.title || crit.name || 'Criterion',
           description: crit.description || crit.desc || crit.domain || '',
           maxPoints: maxPts,
-          weight: Number(crit.pointCoefficient) || 1,
-          grades: crit.grades || null,
+          weight: Number(crit.pointCoefficient || crit.weight) || 1,
+          grades: Array.isArray(crit.grades) ? crit.grades.slice() : null,
+          comments: (crit.comments && typeof crit.comments === 'object') ? JSON.parse(JSON.stringify(crit.comments)) : null,
+          colors: (crit.colors && typeof crit.colors === 'object') ? JSON.parse(JSON.stringify(crit.colors)) : null,
+          minPoints: crit.minPoints != null ? crit.minPoints : null,
           domain: crit.domain || ''
         };
         currentTest.criteria.push(newCrit);
@@ -8501,6 +8560,58 @@
         if (window.showToast) {
           showToast((i18n.t('tcCriteriaAttachedToast') || 'Assessment criteria attached to test: ') + newCrit.title);
         }
+      };
+
+      window.tcOpenRubricMatrixModal = function (targetId) {
+        if (!currentTest) return;
+        var modal = document.getElementById('tcRubricMatrixModal');
+        var body = document.getElementById('tcRubricMatrixModalBody');
+        var titleEl = document.getElementById('tcRubricMatrixModalTitle');
+        var subEl = document.getElementById('tcRubricMatrixModalSub');
+        if (!modal || !body) return;
+
+        var html = '';
+        var modalTitle = i18n.t('tcRubricModalTitle') || 'Assessment Criteria Rubric Matrix';
+        var modalSub = i18n.t('tcRubricModalSub') || 'Full grade-by-grade level descriptor matrix';
+
+        if (targetId && targetId !== '__exam__' && targetId !== '__all__') {
+          var targetEx = (currentTest.exercises || []).find(function (e) { return e.id === targetId; });
+          if (targetEx) {
+            var crits = (Array.isArray(targetEx.criteria) && targetEx.criteria.length)
+              ? targetEx.criteria
+              : (Array.isArray(targetEx.markingRubric) ? targetEx.markingRubric : []);
+            modalTitle = (targetEx.title || i18n.t('tcExercise') || 'Exercise') + ' — ' + (i18n.t('tcRubricModalTitle') || 'Rubric Matrix');
+            modalSub = (i18n.t('tcCriteriaBlockSingleEx') || 'Showing criteria attached to this exercise/block');
+            html = TestCreatorService.renderCriteriaHtml(crits, {
+              displayMode: 'matrix',
+              showDescriptions: true,
+              title: targetEx.title || 'Rubric Matrix',
+              exercises: [targetEx]
+            });
+          }
+        } else {
+          var allCrits = (Array.isArray(currentTest.criteria) && currentTest.criteria.length)
+            ? currentTest.criteria
+            : ((Array.isArray(currentTest.linkedCriteria) && currentTest.linkedCriteria.length) ? currentTest.linkedCriteria : []);
+          modalTitle = (currentTest.title || 'Exam') + ' — ' + (i18n.t('tcRubricModalTitle') || 'Assessment Criteria Rubric Matrix');
+          modalSub = i18n.t('tcCriteriaBlockUnifiedSub') || 'Unified rubric matrix aggregated across all test exercises and criteria';
+          html = TestCreatorService.renderCriteriaHtml(allCrits, {
+            displayMode: 'matrix',
+            showDescriptions: true,
+            title: i18n.t('tcCriteriaBlockTitle') || 'Assessment Criteria & Rubric Matrix',
+            exercises: currentTest.exercises || []
+          });
+        }
+
+        if (titleEl) titleEl.textContent = modalTitle;
+        if (subEl) subEl.textContent = modalSub;
+        body.innerHTML = html;
+        modal.style.display = 'flex';
+      };
+
+      window.tcCloseRubricMatrixModal = function () {
+        var modal = document.getElementById('tcRubricMatrixModal');
+        if (modal) modal.style.display = 'none';
       };
 
       function updateCompetenceTargetDropdown() {

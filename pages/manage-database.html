@@ -173,8 +173,8 @@
             <select id="page-size-sel" onchange="setPageSize(this.value)"
               style="border:1.5px solid #bbb;border-radius:4px;padding:2px 6px;font-family:inherit;font-size:0.78rem;background:#fff;">
               <option value="50">50</option>
-              <option value="100">100</option>
-              <option value="200" selected>200</option>
+              <option value="100" selected>100</option>
+              <option value="200">200</option>
               <option value="500">500</option>
               <option value="0">All</option>
             </select>
@@ -673,8 +673,15 @@
       delFI: null,
       delRI: null,
       page: 0,
-      pageSize: 200,
+      pageSize: (function () {
+        try {
+          const saved = localStorage.getItem('mdb_page_size');
+          if (saved !== null) return Number(saved) || Infinity;
+        } catch (_) {}
+        return 100;
+      })(),
       batchSel: new Set(),
+      _lastTheadSignature: null,
     };
 
     // ─────────────────────────────────────────────────────────────────────
@@ -771,8 +778,43 @@
       const m = String(text).match(/(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=/);
       return m ? m[1] : null;
     }
+    function serializeDatabaseRecords(data) {
+      return JSON.stringify(data, (key, value) => {
+        if (key === '_fi' || key === '_ri' || key === '_src' || key === '_fKey' || key === '_fSearch') {
+          return undefined;
+        }
+        return value;
+      }, 2);
+    }
     function buildJsContent(varName, data) {
-      return `// ${varName}\nconst ${varName} = ${JSON.stringify(data, null, 2)};\n`;
+      return `// ${varName}\nconst ${varName} = ${serializeDatabaseRecords(data)};\n`;
+    }
+    function foldString(val) {
+      return String(val == null ? '' : val)
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+    }
+    function indexRecord(rec) {
+      if (!rec || typeof rec !== 'object') return;
+      const primary = rec.word || rec.term || rec.sentence || rec.quote || rec.correct || rec.title || rec.category || rec.name || '';
+      rec._fKey = foldString(primary);
+
+      const tokens = [];
+      for (const [k, v] of Object.entries(rec)) {
+        if (k.startsWith('_')) continue;
+        if (typeof v === 'string') tokens.push(v);
+        else if (Array.isArray(v)) tokens.push(v.join(' '));
+        else if (v && typeof v === 'object') tokens.push(Object.values(v).join(' '));
+        else if (v !== null && v !== undefined) tokens.push(String(v));
+      }
+      rec._fSearch = foldString(tokens.join(' '));
+    }
+    function indexRecords(records) {
+      if (!records || !Array.isArray(records)) return;
+      for (let i = 0; i < records.length; i++) {
+        indexRecord(records[i]);
+      }
     }
     function getAllRecords() {
       return S.files.filter(f => f.status === 'loaded').flatMap(f => f.records);
@@ -1132,11 +1174,14 @@
 
     async function startBackgroundLoad() {
       if (!window.Desktop || !Desktop.isElectron()) return;
+      const pendingLists = {};
+
+      // Pass 1: Quick directory scan to display counts and badges immediately
       for (const def of TYPE_DEFS) {
         try {
           const list = await Desktop.listFiles(def.target, { extensions: ['.js', '.json'] });
           let fileEntries = _normalizeFileList(list);
-          if (def.key === 'criteria') {
+          if (def.key === 'criteria' || def.key === 'chips') {
             const rootCheck = await Desktop.readText('user', 'correction-criteria.js');
             const hasRoot = fileEntries.some(f => (typeof f === 'string' ? f : f.filename) === 'correction-criteria.js');
             if (!hasRoot) {
@@ -1148,29 +1193,32 @@
             if (!hasRoot) {
               fileEntries.unshift({ filename: 'grade-scale-models.js', size: (rootCheck && rootCheck.ok && rootCheck.content) ? rootCheck.content.length : 0 });
             }
-          } else if (def.key === 'chips') {
-            const rootCheck = await Desktop.readText('user', 'correction-criteria.js');
-            const hasRoot = fileEntries.some(f => (typeof f === 'string' ? f : f.filename) === 'correction-criteria.js');
-            if (!hasRoot) {
-              fileEntries.unshift({ filename: 'correction-criteria.js', size: (rootCheck && rootCheck.ok && rootCheck.content) ? rootCheck.content.length : 0 });
-            }
           }
           S.counts[def.key] = fileEntries.length;
           updateSidebarCount(def.key);
-          if (!fileEntries.length) { _gsc[def.key] = {}; continue; }
-          const typeFiles = {};
-          for (const fi of fileEntries) {
-            const filename = typeof fi === 'string' ? fi : fi.filename;
-            if (!filename) continue;
-            // Re-use anything already seeded by a user-triggered load
-            if (_gsc[def.key]?.[filename]) { typeFiles[filename] = _gsc[def.key][filename]; continue; }
-            try {
-              const result = await readRecords(def.target, filename, def.key);
-              if (result) typeFiles[filename] = result;
-            } catch (e) { }
-          }
-          _gsc[def.key] = typeFiles;
-        } catch (e) { _gsc[def.key] = {}; }
+          pendingLists[def.key] = fileEntries;
+          if (!fileEntries.length) _gsc[def.key] = {};
+        } catch (e) {
+          _gsc[def.key] = {};
+        }
+      }
+
+      // Pass 2: Cooperative cache warming with small yields between files so UI thread stays 60fps responsive
+      for (const def of TYPE_DEFS) {
+        const fileEntries = pendingLists[def.key] || [];
+        if (!fileEntries.length) continue;
+        const typeFiles = _gsc[def.key] || {};
+        for (const fi of fileEntries) {
+          const filename = typeof fi === 'string' ? fi : fi.filename;
+          if (!filename || typeFiles[filename]) continue;
+          try {
+            const result = await readRecords(def.target, filename, def.key);
+            if (result) typeFiles[filename] = result;
+          } catch (e) { }
+          // Yield to browser event loop between files
+          await new Promise(r => setTimeout(r, 50));
+        }
+        _gsc[def.key] = typeFiles;
       }
     }
 
@@ -1182,6 +1230,10 @@
       initRowContextMenu();
       if (window.applyTranslations) applyTranslations();
       renderSidebar();
+      const pgSel = $('page-size-sel');
+      if (pgSel) {
+        pgSel.value = isFinite(S.pageSize) ? String(S.pageSize) : '0';
+      }
       setTimeout(startBackgroundLoad, 0);
 
       var params = new URLSearchParams(window.location.search);
@@ -1368,6 +1420,7 @@
       S.sortDir = 'asc';
       S.filters = {};
       S.page = 0;
+      S._lastTheadSignature = null;
       S.viewMode = getTypeDef(key).defaultView || 'table';
       S.batchSel = new Set();
       closeBatchPanel();
@@ -1531,7 +1584,16 @@
             customLabel: customDef?.label || cap(key)
           };
         }
-        const vals = records.map(r => r ? r[key] : undefined).filter(v => v !== undefined && v !== null && v !== '');
+        // Fast sample for type and length detection (up to 300 non-empty values)
+        const vals = [];
+        for (let i = 0; i < records.length; i++) {
+          const v = records[i]?.[key];
+          if (v !== undefined && v !== null && v !== '') {
+            vals.push(v);
+            if (vals.length >= 300) break;
+          }
+        }
+
         if (!vals.length && customDef) {
           return {
             key,
@@ -1567,10 +1629,23 @@
           }
         }
 
-        const uniqueVals = (type === 'string' || type === 'number')
-          ? [...new Set(vals.map(v => String(v)).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
-          : [];
-        const useSelect = uniqueVals.length >= 1 && uniqueVals.length <= 25;
+        // Capped unique value check: we only use uniqueVals if uniqueVals.length <= 25 for select dropdowns
+        let uniqueVals = [];
+        let useSelect = false;
+        if (type === 'string' || type === 'number') {
+          const valSet = new Set();
+          for (let i = 0; i < records.length; i++) {
+            const v = records[i]?.[key];
+            if (v !== undefined && v !== null && v !== '') {
+              valSet.add(String(v));
+              if (valSet.size > 26) break; // Exceeds dropdown limit
+            }
+          }
+          if (valSet.size >= 1 && valSet.size <= 25) {
+            useSelect = true;
+            uniqueVals = Array.from(valSet).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+          }
+        }
 
         return { key, type, isLong, longArray, uniqueVals, useSelect, isCustom: Boolean(customDef), customLabel: customDef?.label };
       });
@@ -1918,6 +1993,7 @@
           }
         }
       }
+      indexRecords(records);
       return records;
     }
 
@@ -1926,33 +2002,39 @@
     // ─────────────────────────────────────────────────────────────────────
     function getDisplayRecords() {
       let rows = [];
-      for (const [fi, file] of S.files.entries()) {
-        if (file.status !== 'loaded') continue;
-        for (const [ri, rec] of file.records.entries()) {
-          rows.push({ _fi: fi, _ri: ri, _src: file.name, ...rec });
+      for (let fi = 0; fi < S.files.length; fi++) {
+        const file = S.files[fi];
+        if (file.status !== 'loaded' || !Array.isArray(file.records)) continue;
+        for (let ri = 0; ri < file.records.length; ri++) {
+          const rec = file.records[ri];
+          if (rec) {
+            rec._fi = fi;
+            rec._ri = ri;
+            rec._src = file.name;
+            if (!rec._fSearch) indexRecord(rec);
+            rows.push(rec);
+          }
         }
       }
 
-      const hasAllSearch = !!(S.filters['_all'] || '').trim();
       const srcSet = S.filters['_srcMulti'];
       if (srcSet instanceof Set && srcSet.size > 0) {
         rows = rows.filter(r => srcSet.has(r._src));
       }
       for (const [key, val] of Object.entries(S.filters)) {
         if (!val) continue;
-        if (key === '_src') continue; // legacy key — ignored; use _srcMulti
-        if (key === '_srcMulti') continue;
+        if (key === '_src' || key === '_srcMulti' || key === '_scope') continue;
         if (key === '_starred') { rows = rows.filter(r => r.starred === true); continue; }
         if (key === '_all') {
-          const lv = val.toLowerCase();
-          rows = rows.filter(r => S.schema.some(f => {
-            const v = r[f.key];
-            if (f.type === 'array') return Array.isArray(v) && v.some(el => String(el).toLowerCase().includes(lv));
-            if (v && typeof v === 'object' && !Array.isArray(v)) {
-              return Object.entries(v).some(([gk, gv]) => `${gk} ${gv}`.toLowerCase().includes(lv));
-            }
-            return String(v ?? '').toLowerCase().includes(lv);
-          }));
+          const fQuery = foldString(val).trim();
+          if (!fQuery) continue;
+          const isPrimaryOnly = S.filters['_scope'] === 'primary';
+          rows = rows.filter(r => {
+            if (!r._fSearch) indexRecord(r);
+            return isPrimaryOnly
+              ? (r._fKey && r._fKey.includes(fQuery))
+              : (r._fSearch && r._fSearch.includes(fQuery));
+          });
           continue;
         }
         const field = S.schema.find(f => f.key === key);
@@ -1984,15 +2066,16 @@
           });
           continue;
         }
-        const lv = String(val).toLowerCase();
-        if (!lv.trim()) continue;
+        const fQuery = foldString(val).trim();
+        if (!fQuery) continue;
         rows = rows.filter(r => {
           const v = r[key];
-          if (field.type === 'array') return Array.isArray(v) && v.some(el => String(el).toLowerCase().includes(lv));
+          if (v === undefined || v === null || v === '') return false;
+          if (field.type === 'array') return Array.isArray(v) && v.some(el => foldString(el).includes(fQuery));
           if (v && typeof v === 'object' && !Array.isArray(v)) {
-            return Object.entries(v).some(([gk, gv]) => `${gk} ${gv}`.toLowerCase().includes(lv));
+            return Object.entries(v).some(([gk, gv]) => foldString(`${gk} ${gv}`).includes(fQuery));
           }
-          return String(v ?? '').toLowerCase().includes(lv);
+          return foldString(v).includes(fQuery);
         });
       }
 
@@ -2109,14 +2192,36 @@
       renderTable();
     }
 
-    function renderFilterBar() {
+    function renderFilterBar(preserveFocus = false) {
       const bar = $('filter-bar');
       if (!S.typeKey) { bar.innerHTML = ''; return; }
 
+      let activeKey = null;
+      let selStart = null;
+      let selEnd = null;
+      if (preserveFocus && document.activeElement) {
+        if (document.activeElement.classList.contains('mdb-all-search')) {
+          activeKey = '_all';
+          selStart = document.activeElement.selectionStart;
+          selEnd = document.activeElement.selectionEnd;
+        } else if (document.activeElement.dataset?.filterKey) {
+          activeKey = document.activeElement.dataset.filterKey;
+          selStart = document.activeElement.selectionStart;
+          selEnd = document.activeElement.selectionEnd;
+        }
+      }
+
       const allVal = S.filters['_all'] || '';
-      let html = `<div class="fc">
-    <span class="fl">${t('mdbFilterAllFields')}</span>
-    <input type="text" value="${esc(allVal)}" placeholder="${t('mdbFilterSearchAll')}" oninput="setAllFieldsFilter(this.value)" style="min-width:140px">
+      const curScope = S.filters['_scope'] || 'all';
+      let html = `<div class="fc" style="display:flex;align-items:flex-end;gap:6px;">
+    <div>
+      <span class="fl">${t('mdbFilterAllFields')}</span>
+      <input type="text" class="mdb-all-search" value="${esc(allVal)}" placeholder="${t('mdbFilterSearchAll')}" oninput="setAllFieldsFilterDebounced(this.value)" style="min-width:140px">
+    </div>
+    <select id="mdb-scope-select" onchange="setSearchScope(this.value)" style="padding:5px 8px;border:1.5px solid #333;border-radius:6px;font-family:inherit;font-size:0.78rem;background:#fff;cursor:pointer;margin-bottom:1px;" title="${t('mdbScopeTooltip', 'Search scope')}">
+      <option value="all"${curScope === 'all' ? ' selected' : ''}>${t('mdbScopeAll', 'All fields')}</option>
+      <option value="primary"${curScope === 'primary' ? ' selected' : ''}>${t('mdbScopePrimary', 'Primary term only (fastest)')}</option>
+    </select>
   </div>`;
 
       if (S.schema.length) {
@@ -2177,7 +2282,7 @@
             const val = typeof curVal === 'string' ? curVal : '';
             html += `<div class="fc">
           <span class="fl">${esc(cap(field.key))}</span>
-          <input type="text" value="${esc(val)}" placeholder="${t('mdbFilterPlaceholder')}" oninput="setFilter('${field.key}', this.value)">
+          <input type="text" class="mdb-col-search" data-filter-key="${esc(field.key)}" value="${esc(val)}" placeholder="${t('mdbFilterPlaceholder')}" oninput="setFilterDebounced('${field.key}', this.value)">
           </div>`;
           }
         }
@@ -2195,6 +2300,21 @@
     <button class="btn btn-secondary btn-sm" onclick="resetFilters()"><img src="../assets/icons/refresh.svg" class="btn-icon" alt="" /> ${t('mdbFilterReset')}</button></div>`;
 
       bar.innerHTML = html;
+
+      if (activeKey) {
+        let inputToFocus = null;
+        if (activeKey === '_all') {
+          inputToFocus = bar.querySelector('.mdb-all-search');
+        } else {
+          inputToFocus = bar.querySelector(`.mdb-col-search[data-filter-key="${activeKey}"]`);
+        }
+        if (inputToFocus) {
+          inputToFocus.focus();
+          if (selStart !== null && selEnd !== null) {
+            try { inputToFocus.setSelectionRange(selStart, selEnd); } catch (_) {}
+          }
+        }
+      }
     }
 
     function toggleMdbDropdown(key, e) {
@@ -2331,6 +2451,28 @@
       }
     }
 
+    let _mdbAllFilterTimer = null;
+    function setAllFieldsFilterDebounced(val) {
+      clearTimeout(_mdbAllFilterTimer);
+      _mdbAllFilterTimer = setTimeout(() => {
+        setAllFieldsFilter(val);
+      }, 75);
+    }
+
+    let _mdbColFilterTimer = null;
+    function setFilterDebounced(key, val) {
+      clearTimeout(_mdbColFilterTimer);
+      _mdbColFilterTimer = setTimeout(() => {
+        setFilter(key, val);
+      }, 75);
+    }
+
+    function setSearchScope(scope) {
+      S.filters['_scope'] = scope;
+      S.page = 0;
+      renderTable();
+    }
+
     function setFilter(key, val) {
       S.filters[key] = val;
       S.page = 0;
@@ -2349,7 +2491,7 @@
           ));
           S.schema = buildSchema(getAllRecords());
           renderFilePills();
-          renderFilterBar();
+          renderFilterBar(true);
         }
       }
       renderTable();
@@ -2434,7 +2576,10 @@
       const allPageSelected = rows.length > 0 && rows.every(r => S.batchSel.has(batchKey(r._fi, r._ri)));
       const colWidths = getColumnWidths(S.typeKey);
 
-      thead.innerHTML = `<tr>
+      const theadSig = `${S.typeKey}_${tableCols.map(f => f.key).join(',')}_${multiFile}_${isBatchMode}`;
+      if (S._lastTheadSignature !== theadSig) {
+        S._lastTheadSignature = theadSig;
+        thead.innerHTML = `<tr>
     ${isBatchMode ? `<th class="th-act" style="width:32px;min-width:32px;padding:8px 4px 8px 11px;"><input type="checkbox" id="batch-check-all" ${allPageSelected ? 'checked' : ''} onchange="handleBatchCheckAll(this)" title="${t('mdbTitleSelectAllPage')}"></th>` : ''}
     ${tableCols.map(f => {
         const cls = S.sortField === f.key ? (S.sortDir === 'asc' ? 'sort-asc' : 'sort-desc') : '';
@@ -2452,6 +2597,21 @@
     ${multiFile ? `<th class="${S.sortField === '_src' ? (S.sortDir === 'asc' ? 'sort-asc' : 'sort-desc') : ''}" onclick="setSort('_src')">${t('mdbColSource')}</th>` : ''}
     <th class="th-act">${t('mdbColActions')}</th>
   </tr>`;
+        initColResizers();
+      } else {
+        const batchAll = thead.querySelector('#batch-check-all');
+        if (batchAll) batchAll.checked = allPageSelected;
+        thead.querySelectorAll('th[data-col]').forEach(th => {
+          const col = th.dataset.col;
+          th.classList.toggle('sort-asc', S.sortField === col && S.sortDir === 'asc');
+          th.classList.toggle('sort-desc', S.sortField === col && S.sortDir === 'desc');
+        });
+        const srcTh = thead.querySelector('th[onclick*="_src"]');
+        if (srcTh) {
+          srcTh.classList.toggle('sort-asc', S.sortField === '_src' && S.sortDir === 'asc');
+          srcTh.classList.toggle('sort-desc', S.sortField === '_src' && S.sortDir === 'desc');
+        }
+      }
 
       tbody.innerHTML = rows.map(row => {
         const bk = batchKey(row._fi, row._ri);
@@ -3008,6 +3168,7 @@
         const newJson = JSON.stringify(newVal ?? '');
         if (origJson !== newJson) {
           rec[key] = newVal;
+          indexRecord(rec);
           td.classList.add('cell-saved-flash');
           setTimeout(() => td.classList.remove('cell-saved-flash'), 500);
           saveFile(fi);
@@ -3628,6 +3789,7 @@
 
     function setPageSize(val) {
       S.pageSize = Number(val) || Infinity;
+      try { localStorage.setItem('mdb_page_size', String(val)); } catch (_) {}
       S.page = 0;
       renderTable();
       $('table-wrap').scrollTop = 0;
@@ -4160,6 +4322,7 @@
           if (exists) { showToast(t('mdbErrBadgeDuplicate', 'A badge with this icon and label already exists in this file.'), true); return; }
         }
 
+        indexRecord(values);
         S.files[fi].records.push(values);
         if (!await saveFile(fi)) return;
       } else {
@@ -4185,6 +4348,7 @@
         }
 
         S.files[fi].records[ri] = { ...S.files[fi].records[ri], ...values };
+        indexRecord(S.files[fi].records[ri]);
         if (!await saveFile(fi)) return;
       }
 
@@ -6397,19 +6561,19 @@
             }
           }
         }
-        const content = `const XLSM_CRITERIA = ${JSON.stringify(file.records, null, 2)};\n` +
-          `const OBSERVATION_CHECKLIST_GROUPS = ${JSON.stringify(chips, null, 2)};\n` +
-          `const SCORING_DECISIONS = ${JSON.stringify(scoringDecisions, null, 2)};\n`;
+        const content = `const XLSM_CRITERIA = ${serializeDatabaseRecords(file.records)};\n` +
+          `const OBSERVATION_CHECKLIST_GROUPS = ${serializeDatabaseRecords(chips)};\n` +
+          `const SCORING_DECISIONS = ${serializeDatabaseRecords(scoringDecisions)};\n`;
         result = await Desktop.saveText('user', 'correction-criteria.js', content);
         try {
-          localStorage.setItem('gradeSheetReferenceCriteria.v1', JSON.stringify(file.records));
-          localStorage.setItem('gradeSheetReferenceScoringDecisions.v1', JSON.stringify(scoringDecisions));
+          localStorage.setItem('gradeSheetReferenceCriteria.v1', serializeDatabaseRecords(file.records));
+          localStorage.setItem('gradeSheetReferenceScoringDecisions.v1', serializeDatabaseRecords(scoringDecisions));
         } catch (_) {}
       } else if (S.typeKey === 'scales' && file.name === 'grade-scale-models.js') {
-        const content = `// XLSM_SCALE_MODELS\nconst XLSM_SCALE_MODELS = ${JSON.stringify(file.records, null, 2)};\n`;
+        const content = `// XLSM_SCALE_MODELS\nconst XLSM_SCALE_MODELS = ${serializeDatabaseRecords(file.records)};\n`;
         result = await Desktop.saveText('user', 'grade-scale-models.js', content);
         try {
-          localStorage.setItem('gradeSheetScaleModels.v1', JSON.stringify(file.records));
+          localStorage.setItem('gradeSheetScaleModels.v1', serializeDatabaseRecords(file.records));
         } catch (_) {}
       } else if (S.typeKey === 'chips' && file.name === 'correction-criteria.js') {
         let criteria = [];
@@ -6435,13 +6599,13 @@
             if (ls) scoringDecisions = JSON.parse(ls);
           } catch (_) {}
         }
-        const content = `const XLSM_CRITERIA = ${JSON.stringify(criteria, null, 2)};\n` +
-          `const OBSERVATION_CHECKLIST_GROUPS = ${JSON.stringify(file.records, null, 2)};\n` +
-          `const SCORING_DECISIONS = ${JSON.stringify(scoringDecisions, null, 2)};\n`;
+        const content = `const XLSM_CRITERIA = ${serializeDatabaseRecords(criteria)};\n` +
+          `const OBSERVATION_CHECKLIST_GROUPS = ${serializeDatabaseRecords(file.records)};\n` +
+          `const SCORING_DECISIONS = ${serializeDatabaseRecords(scoringDecisions)};\n`;
         result = await Desktop.saveText('user', 'correction-criteria.js', content);
         try {
-          localStorage.setItem('gradeSheetPersonalisedChips.v1', JSON.stringify(file.records));
-          localStorage.setItem('gradeSheetReferenceScoringDecisions.v1', JSON.stringify(scoringDecisions));
+          localStorage.setItem('gradeSheetPersonalisedChips.v1', serializeDatabaseRecords(file.records));
+          localStorage.setItem('gradeSheetReferenceScoringDecisions.v1', serializeDatabaseRecords(scoringDecisions));
         } catch (_) {}
       } else {
         result = await Desktop.saveText(def.target, file.name, buildJsContent(file.varName, file.records));
@@ -10557,7 +10721,7 @@ Rules:
 
     function mdbGlobalSearchDebounced(q) {
       clearTimeout(_mdbGlobalTimer);
-      _mdbGlobalTimer = setTimeout(() => mdbGlobalSearch(q), 280);
+      _mdbGlobalTimer = setTimeout(() => mdbGlobalSearch(q), 120);
     }
 
     async function mdbGlobalSearch(q) {
@@ -10576,20 +10740,18 @@ Rules:
         return;
       }
 
-      const lq = trimmed.toLowerCase();
+      const foldedQ = foldString(trimmed);
       const hits = [];
 
       function searchRecords(records, typeKey, typeLabel, filename) {
         for (let ri = 0; ri < records.length; ri++) {
-          const r = records[ri]; if (!r) continue; const
-            matched = Object.entries(r).some(([k, v]) => {
-              if (k.startsWith('_')) return false;
-              if (typeof v === 'string') return v.toLowerCase().includes(lq);
-              if (Array.isArray(v)) return v.some(el => String(el).toLowerCase().includes(lq));
-              return false;
-            });
-          if (matched) hits.push({ ...r, _typeKey: typeKey, _typeLabel: typeLabel, _file: filename, _recordIndex: ri });
-          if (hits.length >= 60) return true;
+          const r = records[ri];
+          if (!r) continue;
+          if (!r._fSearch) indexRecord(r);
+          if (r._fSearch && r._fSearch.includes(foldedQ)) {
+            hits.push({ ...r, _typeKey: typeKey, _typeLabel: typeLabel, _file: filename, _recordIndex: ri });
+            if (hits.length >= 60) return true;
+          }
         }
         return false;
       }

@@ -665,12 +665,15 @@
       (data.backgroundPdf && (data.backgroundPdf.relativePath || data.backgroundPdf.attachmentId));
 
     var customMaxH = opts.maxHeight ? ('max-height:' + opts.maxHeight + ';') : 'max-height:500px;';
+    var emptyLayout = (data && data.boardLayout) || opts.boardLayout || (typeof window !== 'undefined' ? window._bcBoardLayoutConfig : null);
+    var emptyW = (emptyLayout && emptyLayout.dims) ? emptyLayout.dims.w : 1000;
+    var emptyH = (emptyLayout && emptyLayout.dims) ? emptyLayout.dims.h : 650;
     if (!hasContent) {
       if (opts.standalone) {
         return '<div class="pdf-mindmap-empty" style="padding:16px;text-align:center;font-size:9pt;color:#777;font-style:italic;border:1.5px dashed #ccc;border-radius:6px;background:#fafaf9;">Empty board session</div>';
       }
-      return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 650" class="bes-mindmap-svg" style="width:100%;height:auto;' + customMaxH + 'background:' + (data.boardBgColor || '#ffffff') + ';border:2px solid #333333;border-radius:8px;display:block;margin:8px 0;page-break-inside:avoid;break-inside:avoid;">\n' +
-        '  <rect x="0" y="0" width="1000" height="650" fill="' + (data.boardBgColor || '#ffffff') + '" />\n' +
+      return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + emptyW + ' ' + emptyH + '" class="bes-mindmap-svg" style="width:100%;height:auto;' + customMaxH + 'background:' + (data.boardBgColor || '#ffffff') + ';border:2px solid #333333;border-radius:8px;display:block;margin:8px 0;page-break-inside:avoid;break-inside:avoid;">\n' +
+        '  <rect x="0" y="0" width="' + emptyW + '" height="' + emptyH + '" fill="' + (data.boardBgColor || '#ffffff') + '" />\n' +
         '</svg>\n';
     }
 
@@ -931,18 +934,36 @@
       }
     });
 
-    if (!isFinite(minX) || !isFinite(minY)) {
-      minX = 0; minY = 0; maxX = 800; maxY = 500;
+    var layoutCfg = (data && data.boardLayout) || opts.boardLayout || (typeof window !== 'undefined' ? window._bcBoardLayoutConfig : null);
+    var width, height;
+    if (layoutCfg && layoutCfg.dims) {
+      var targetW = layoutCfg.dims.w;
+      var targetH = layoutCfg.dims.h;
+      if (maxX <= targetW && maxY <= targetH) {
+        minX = 0;
+        minY = 0;
+        width = targetW;
+        height = targetH;
+      } else {
+        var scaleF = Math.max(Math.max(0, maxX) / targetW, Math.max(0, maxY) / targetH);
+        minX = 0;
+        minY = 0;
+        width = Math.round(targetW * scaleF);
+        height = Math.round(targetH * scaleF);
+      }
+    } else {
+      if (!isFinite(minX) || !isFinite(minY)) {
+        minX = 0; minY = 0; maxX = 800; maxY = 500;
+      }
+      var pad = opts.padding != null ? opts.padding : 50;
+      minX -= pad; minY -= pad; maxX += pad; maxY += pad;
+      width = Math.max(400, maxX - minX);
+      height = Math.max(300, maxY - minY);
     }
-
-    var pad = opts.padding != null ? opts.padding : 50;
-    minX -= pad; minY -= pad; maxX += pad; maxY += pad;
-    var width = Math.max(400, maxX - minX);
-    var height = Math.max(300, maxY - minY);
 
     var markerId = 'bes-arrow-' + Math.random().toString(36).substring(2, 8);
     var customMaxH = opts.maxHeight ? ('max-height:' + opts.maxHeight + ';') : 'max-height:500px;';
-    var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' + minX + ' ' + minY + ' ' + width + ' ' + height + '" class="bes-mindmap-svg" style="width:100%;height:auto;' + customMaxH + 'background:' + (data.boardBgColor || '#ffffff') + ';border:2px solid #333333;border-radius:8px;display:block;margin:8px 0;page-break-inside:avoid;break-inside:avoid;">\n' +
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="' + minX + ' ' + minY + ' ' + width + ' ' + height + '" class="bes-mindmap-svg" style="width:100%;height:auto;' + customMaxH + 'background:' + (data.boardBgColor || '#ffffff') + ';border:2px solid #333333;border-radius:8px;display:block;margin:8px 0;page-break-inside:avoid;break-inside:avoid;">\n' +
       '<defs>\n' +
       '  <marker id="' + markerId + '" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">\n' +
       '    <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#333333" />\n' +
@@ -952,15 +973,15 @@
 
     // Background image
     if (data.boardBg) {
-      var bgSrc = data.boardBg._cachedDataUrl || data.boardBg.dataUrl || '';
+      var bgSrc = data.boardBg._resolvedDataUrl || data.boardBg._cachedDataUrl || data.boardBg.dataUrl || '';
       if (!bgSrc && typeof window !== 'undefined' && typeof window.conFindAttachmentById === 'function' && data.boardBg.attachmentId) {
         var bgAtt = window.conFindAttachmentById(data.boardBg.attachmentId);
         if (bgAtt) {
-          bgSrc = bgAtt._cachedDataUrl || bgAtt.dataUrl || (bgAtt.base64 ? ('data:' + (bgAtt.mime || 'image/png') + ';base64,' + bgAtt.base64) : (bgAtt._cachedObjectUrl || bgAtt.relativePath || ''));
+          bgSrc = bgAtt._cachedDataUrl || bgAtt.dataUrl || (bgAtt.base64 ? ('data:' + (bgAtt.mime || 'image/png') + ';base64,' + bgAtt.base64) : (bgAtt.data ? ('data:' + (bgAtt.mime || 'image/png') + ';base64,' + bgAtt.data) : ''));
         }
       }
-      if (bgSrc) {
-        svg += '  <image href="' + escapeXml(bgSrc) + '" x="' + minX + '" y="' + minY + '" width="' + width + '" height="' + height + '" preserveAspectRatio="none" opacity="0.9" />\n';
+      if (bgSrc && !bgSrc.startsWith('blob:')) {
+        svg += '  <image href="' + escapeXml(bgSrc) + '" xlink:href="' + escapeXml(bgSrc) + '" x="' + minX + '" y="' + minY + '" width="' + width + '" height="' + height + '" preserveAspectRatio="none" opacity="0.9" />\n';
       }
     }
 
@@ -989,41 +1010,76 @@
       var mKind = String(m.kind || 'media').toLowerCase();
       var mName = m.name || (mKind.toUpperCase() + ' Document');
 
-      var imgSrc = m.dataUrl || m.src || m.url || '';
+      var imgSrc = m._resolvedDataUrl || m.dataUrl || '';
       if (!imgSrc && m.base64) {
-        imgSrc = 'data:' + (m.mime || 'image/png') + ';base64,' + m.base64;
+        var cleanB64 = m.base64.startsWith('data:') ? m.base64 : ('data:' + (m.mime || 'image/png') + ';base64,' + m.base64);
+        imgSrc = cleanB64;
       }
-      if (!imgSrc && typeof window !== 'undefined') {
+      if ((!imgSrc || imgSrc.startsWith('blob:')) && typeof window !== 'undefined') {
+        var att = null;
         if (typeof window.conFindAttachmentById === 'function' && m.attachmentId) {
-          var att = window.conFindAttachmentById(m.attachmentId);
-          if (att) {
-            imgSrc = att.dataUrl || (att.data ? ('data:' + (att.mime || 'image/png') + ';base64,' + att.data) : (att.relativePath || ''));
+          att = window.conFindAttachmentById(m.attachmentId);
+        }
+        if (!att && window.conAttachments && Array.isArray(window.conAttachments)) {
+          att = window.conAttachments.find(function (a) {
+            return a && (a.id === m.attachmentId || (m.name && a.name === m.name));
+          });
+        }
+        if (att) {
+          if (att._cachedDataUrl && att._cachedDataUrl.startsWith('data:')) {
+            imgSrc = att._cachedDataUrl;
+          } else if (att.base64 || att.data) {
+            var rawB = att.base64 || att.data;
+            imgSrc = rawB.startsWith('data:') ? rawB : ('data:' + (att.mime || m.mime || 'image/png') + ';base64,' + rawB);
           }
         }
-        if (!imgSrc && typeof document !== 'undefined') {
+        if ((!imgSrc || imgSrc.startsWith('blob:')) && typeof document !== 'undefined') {
           var domImg = document.querySelector('.con-media-item[data-id="' + m.id + '"] img') ||
-            document.querySelector('img[data-attachment-id="' + m.attachmentId + '"]');
-          if (domImg && domImg.src) imgSrc = domImg.src;
-          var domCanvas = document.querySelector('.con-media-item[data-id="' + m.id + '"] canvas.con-media-pdf-canvas') ||
-            document.querySelector('.con-media-item[data-id="' + m.id + '"] canvas');
-          if (!imgSrc && domCanvas && typeof domCanvas.toDataURL === 'function') {
-            try { imgSrc = domCanvas.toDataURL('image/png'); } catch (_) { }
+            (m.attachmentId ? document.querySelector('img[data-attachment-id="' + m.attachmentId + '"]') : null);
+          if (domImg && domImg.complete && domImg.naturalWidth > 0) {
+            try {
+              var cvs = document.createElement('canvas');
+              cvs.width = domImg.naturalWidth;
+              cvs.height = domImg.naturalHeight;
+              var cctx = cvs.getContext('2d');
+              cctx.drawImage(domImg, 0, 0);
+              var extracted = cvs.toDataURL(m.mime || 'image/png');
+              if (extracted && extracted.startsWith('data:')) {
+                imgSrc = extracted;
+                if (att) att._cachedDataUrl = extracted;
+                m.dataUrl = extracted;
+              }
+            } catch (_) {}
+          }
+          if (!imgSrc || imgSrc.startsWith('blob:')) {
+            var domCanvas = document.querySelector('.con-media-item[data-id="' + m.id + '"] canvas.con-media-pdf-canvas') ||
+              document.querySelector('.con-media-item[data-id="' + m.id + '"] canvas');
+            if (domCanvas && typeof domCanvas.toDataURL === 'function') {
+              try { imgSrc = domCanvas.toDataURL('image/png'); } catch (_) {}
+            }
           }
         }
       }
 
-      var isImage = (mKind === 'pics' || mKind === 'image' || (m.mime && m.mime.startsWith('image/')) || (imgSrc && imgSrc.length > 5));
+      var isImage = (mKind === 'pics' || mKind === 'image' || (m.mime && m.mime.startsWith('image/')) || (imgSrc && imgSrc.startsWith('data:image/')));
 
-      if (isImage && imgSrc) {
+      if (isImage && imgSrc && !imgSrc.startsWith('blob:')) {
+        var rot = Number(m.rotation) || 0;
+        var rotTransform = (rot && rot % 360 !== 0) ? (' transform="rotate(' + rot + ' ' + (mx + mw / 2) + ' ' + (my + mh / 2) + ')"') : '';
+        var op = (m.opacity != null && Number.isFinite(Number(m.opacity))) ? Number(m.opacity) : 1;
+        var opAttr = op < 1 ? (' opacity="' + op + '"') : '';
+        var bColor = m.borderColor || '#333333';
+        var bWidth = m.borderWidth != null ? Number(m.borderWidth) : 1.5;
+        var bDash = m.borderStyle === 'dashed' ? ' stroke-dasharray="6,4"' : (m.borderStyle === 'dotted' ? ' stroke-dasharray="2,3"' : '');
         var clipId = 'bes-img-' + Math.random().toString(36).substring(2, 9);
-        svg += '  <g class="bes-media">\n' +
+        svg += '  <g class="bes-media"' + rotTransform + opAttr + '>\n' +
           '    <defs>\n' +
           '      <clipPath id="' + clipId + '">\n' +
           '        <rect x="' + mx + '" y="' + my + '" width="' + mw + '" height="' + mh + '" rx="6" />\n' +
           '      </clipPath>\n' +
           '    </defs>\n' +
-          '    <rect x="' + mx + '" y="' + my + '" width="' + mw + '" height="' + mh + '" rx="6" fill="#f8f9fa" stroke="#333333" stroke-width="1.5" />\n' +
-          '    <image href="' + escapeXml(imgSrc) + '" x="' + mx + '" y="' + my + '" width="' + mw + '" height="' + mh + '" preserveAspectRatio="xMidYMid meet" clip-path="url(#' + clipId + ')" />\n' +
+          '    <rect x="' + mx + '" y="' + my + '" width="' + mw + '" height="' + mh + '" rx="6" fill="#f8f9fa" stroke="' + bColor + '" stroke-width="' + bWidth + '"' + bDash + ' />\n' +
+          '    <image href="' + escapeXml(imgSrc) + '" xlink:href="' + escapeXml(imgSrc) + '" x="' + mx + '" y="' + my + '" width="' + mw + '" height="' + mh + '" preserveAspectRatio="xMidYMid meet" clip-path="url(#' + clipId + ')" />\n' +
           '  </g>\n';
       } else {
         svg += '  <g class="bes-media">\n' +
@@ -1381,12 +1437,13 @@
 
       // Use foreignObject for Chromium / Electron printPdf (preserves full rich HTML, KaTeX math, bullet lists, CSS word wrap)
       if (cleanHtml) {
+        var noteHtmlToRender = nt._resolvedHtml || cleanHtml;
         var wsStyle = hasBlockTags ? 'white-space:normal;' : 'white-space:pre-wrap;';
         var fontStyleAttr = 'font-family:' + escapeHtml(ff) + ';font-size:' + fs + 'px;font-weight:' + fw + ';font-style:' + fst + ';text-decoration:' + td + ';' + tdStyle + 'text-transform:' + textTransform + ';font-variant:' + fontVariant + ';text-align:' + align + ';color:' + nTextColor + ';';
         svg += '    <foreignObject x="' + tx + '" y="' + ty + '" width="' + tw + '" height="' + th + '" clip-path="url(#' + clipId + ')">\n' +
           '      <div xmlns="http://www.w3.org/1999/xhtml" class="bes-note-inner" style="width:' + tw + 'px;height:' + th + 'px;box-sizing:border-box;padding:' + padTop + 'px ' + padRight + 'px ' + padBottom + 'px ' + padLeft + 'px;' + fontStyleAttr + 'overflow:hidden;word-break:break-word;' + wsStyle + 'line-height:1.4;">' +
           '<style>.bes-note-inner p,.bes-note-inner div{margin:0;padding:0;}.bes-note-inner ul,.bes-note-inner ol{margin:0;padding-left:1.6em;box-sizing:border-box;}.bes-note-inner ul[data-checkbox-list="true"]{list-style:none;padding-left:0;}.bes-note-inner ul[data-checkbox-list="true"]>li{list-style:none;display:flex;align-items:center;}.bes-note-inner ul[data-checkbox-list="true"]>li>input[type="checkbox"]{margin:0 6px 0 0;vertical-align:middle;}</style>' +
-          cleanHtml +
+          noteHtmlToRender +
           '</div>\n' +
           '    </foreignObject>\n';
       } else {
@@ -1616,21 +1673,50 @@
       var mKind = String(m.kind || 'media').toUpperCase();
       var mName = m.name || (mKind + ' Document');
 
-      ctx.save();
-      ctx.fillStyle = '#f8f9fa';
-      ctx.fillRect(mx, my, mw, mh);
-      ctx.strokeStyle = '#333333';
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(mx, my, mw, mh);
+      var isPic = (mKind === 'PICS' || mKind === 'IMAGE');
+      var drawnImg = false;
+      if (isPic && typeof document !== 'undefined') {
+        var domImg = document.querySelector('.con-media-item[data-id="' + m.id + '"] img') ||
+          (m.attachmentId ? document.querySelector('img[data-attachment-id="' + m.attachmentId + '"]') : null);
+        if (domImg && domImg.complete && domImg.naturalWidth > 0) {
+          try {
+            ctx.save();
+            var rot = Number(m.rotation) || 0;
+            if (rot && rot % 360 !== 0) {
+              ctx.translate(mx + mw / 2, my + mh / 2);
+              ctx.rotate((rot * Math.PI) / 180);
+              ctx.translate(-(mx + mw / 2), -(my + mh / 2));
+            }
+            if (m.opacity != null && Number.isFinite(Number(m.opacity))) {
+              ctx.globalAlpha = Number(m.opacity);
+            }
+            ctx.drawImage(domImg, mx, my, mw, mh);
+            ctx.strokeStyle = m.borderColor || '#333333';
+            ctx.lineWidth = m.borderWidth != null ? Number(m.borderWidth) : 1.5;
+            ctx.strokeRect(mx, my, mw, mh);
+            ctx.restore();
+            drawnImg = true;
+          } catch (_) {}
+        }
+      }
 
-      ctx.fillStyle = '#475569';
-      ctx.fillRect(mx, my, mw, 24);
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 10px "Lexend", "Segoe UI", Arial, sans-serif';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(mKind + ': ' + mName.slice(0, 24), mx + 8, my + 12);
-      ctx.restore();
+      if (!drawnImg) {
+        ctx.save();
+        ctx.fillStyle = '#f8f9fa';
+        ctx.fillRect(mx, my, mw, mh);
+        ctx.strokeStyle = '#333333';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(mx, my, mw, mh);
+
+        ctx.fillStyle = '#475569';
+        ctx.fillRect(mx, my, mw, 24);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 10px "Lexend", "Segoe UI", Arial, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(mKind + ': ' + mName.slice(0, 24), mx + 8, my + 12);
+        ctx.restore();
+      }
     });
 
     // Universal Anchor Map for links between nodes, sticky notes, and groups
@@ -2115,6 +2201,303 @@
   }
 
   /**
+   * Helper: Read a Blob or File as a base64 Data URL
+   */
+  function readBlobAsDataUrl(blob) {
+    return new Promise(function (resolve) {
+      if (!blob) { resolve(''); return; }
+      var reader = new FileReader();
+      reader.onload = function () { resolve(String(reader.result || '')); };
+      reader.onerror = function () { resolve(''); };
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  /**
+   * Helper: Asynchronously resolve any image source (Blob, File, blob: URL, disk path, attachment, DOM img)
+   * into a 100% self-contained base64 data URL (e.g. data:image/png;base64,...)
+   */
+  async function resolveMediaItemToDataUrl(m) {
+    if (!m) return '';
+    if (m._resolvedDataUrl && m._resolvedDataUrl.startsWith('data:image/')) return m._resolvedDataUrl;
+    if (m.dataUrl && m.dataUrl.startsWith('data:image/')) return m.dataUrl;
+    var mime = m.mime || 'image/png';
+    var mKind = String(m.kind || 'media').toLowerCase();
+    if (m.base64) {
+      var rawB = m.base64;
+      var cleanB = rawB.startsWith('data:') ? rawB : ('data:' + mime + ';base64,' + rawB);
+      m._resolvedDataUrl = cleanB;
+      return cleanB;
+    }
+
+    // 1. Look up master attachment from board state
+    var att = null;
+    if (typeof window !== 'undefined') {
+      if (typeof window.conFindAttachmentById === 'function' && m.attachmentId) {
+        att = window.conFindAttachmentById(m.attachmentId);
+      }
+      if (!att && window.conAttachments && Array.isArray(window.conAttachments)) {
+        att = window.conAttachments.find(function (a) {
+          return a && (a.id === m.attachmentId || (m.name && a.name === m.name));
+        });
+      }
+    }
+
+    if (att) {
+      if (att._cachedDataUrl && att._cachedDataUrl.startsWith('data:image/')) {
+        m._resolvedDataUrl = att._cachedDataUrl;
+        return att._cachedDataUrl;
+      }
+      if (att.base64 || att.data) {
+        var rawB64 = att.base64 || att.data;
+        var cleanB64 = rawB64.startsWith('data:') ? rawB64 : ('data:' + (att.mime || mime) + ';base64,' + rawB64);
+        att._cachedDataUrl = cleanB64;
+        m._resolvedDataUrl = cleanB64;
+        return cleanB64;
+      }
+      if (att.file && typeof FileReader !== 'undefined') {
+        try {
+          var dUrl = await readBlobAsDataUrl(att.file);
+          if (dUrl && dUrl.startsWith('data:')) {
+            att._cachedDataUrl = dUrl;
+            m._resolvedDataUrl = dUrl;
+            return dUrl;
+          }
+        } catch (_) {}
+      }
+      if (att._cachedObjectUrl && att._cachedObjectUrl.startsWith('blob:')) {
+        try {
+          var resp = await fetch(att._cachedObjectUrl);
+          var b = await resp.blob();
+          var dUrl = await readBlobAsDataUrl(b);
+          if (dUrl && dUrl.startsWith('data:')) {
+            att._cachedDataUrl = dUrl;
+            m._resolvedDataUrl = dUrl;
+            return dUrl;
+          }
+        } catch (_) {}
+      }
+      if (att.path && typeof window !== 'undefined' && window.Desktop && typeof window.Desktop.isElectron === 'function' && window.Desktop.isElectron()) {
+        try {
+          var fUrl = 'file:///' + String(att.path).replace(/\\/g, '/');
+          var resp = await fetch(fUrl);
+          var b = await resp.blob();
+          var dUrl = await readBlobAsDataUrl(b);
+          if (dUrl && dUrl.startsWith('data:')) {
+            att._cachedDataUrl = dUrl;
+            m._resolvedDataUrl = dUrl;
+            return dUrl;
+          }
+        } catch (_) {}
+      }
+      if (att.relativePath && typeof window !== 'undefined' && window.Desktop && typeof window.Desktop.readByPath === 'function') {
+        try {
+          var res = await window.Desktop.readByPath('mindmaps', att.relativePath, { encoding: 'base64' });
+          if (res && res.ok && res.content) {
+            var rawC = res.content;
+            var dUrl = rawC.startsWith('data:') ? rawC : ('data:' + (att.mime || mime) + ';base64,' + rawC);
+            att._cachedDataUrl = dUrl;
+            m._resolvedDataUrl = dUrl;
+            return dUrl;
+          }
+        } catch (_) {}
+      }
+    }
+
+    // 2. Check DOM element if active on board
+    if (typeof document !== 'undefined') {
+      var domImg = document.querySelector('.con-media-item[data-id="' + m.id + '"] img') ||
+        (m.attachmentId ? document.querySelector('img[data-attachment-id="' + m.attachmentId + '"]') : null);
+      if (domImg) {
+        if (!domImg.complete) {
+          try {
+            await new Promise(function (resolve) {
+              domImg.addEventListener('load', resolve, { once: true });
+              domImg.addEventListener('error', resolve, { once: true });
+              setTimeout(resolve, 600);
+            });
+          } catch (_) {}
+        }
+        if (domImg.naturalWidth > 0) {
+          try {
+            var cvs = document.createElement('canvas');
+            cvs.width = domImg.naturalWidth;
+            cvs.height = domImg.naturalHeight;
+            var ctx = cvs.getContext('2d');
+            ctx.drawImage(domImg, 0, 0);
+            var dUrl = cvs.toDataURL(mime);
+            if (dUrl && dUrl.startsWith('data:')) {
+              if (att) att._cachedDataUrl = dUrl;
+              m._resolvedDataUrl = dUrl;
+              return dUrl;
+            }
+          } catch (_) {}
+        }
+        if (domImg.src && domImg.src.startsWith('blob:')) {
+          try {
+            var resp = await fetch(domImg.src);
+            var b = await resp.blob();
+            var dUrl = await readBlobAsDataUrl(b);
+            if (dUrl && dUrl.startsWith('data:')) {
+              if (att) att._cachedDataUrl = dUrl;
+              m._resolvedDataUrl = dUrl;
+              return dUrl;
+            }
+          } catch (_) {}
+        }
+      }
+
+      var domCanvas = document.querySelector('.con-media-item[data-id="' + m.id + '"] canvas.con-media-pdf-canvas') ||
+        document.querySelector('.con-media-item[data-id="' + m.id + '"] canvas');
+      if (domCanvas && typeof domCanvas.toDataURL === 'function') {
+        try {
+          var dUrl = domCanvas.toDataURL('image/png');
+          m._resolvedDataUrl = dUrl;
+          return dUrl;
+        } catch (_) {}
+      }
+    }
+
+    // 3. Render offscreen PDF canvas if PDF widget
+    if (mKind === 'pdf') {
+      try {
+        if (typeof window !== 'undefined' && typeof window.conEnsurePdfjsLib === 'function') {
+          var pdfjsLib = await window.conEnsurePdfjsLib();
+          if (pdfjsLib && typeof window.conGetAttachmentArrayBuffer === 'function') {
+            var buf = await window.conGetAttachmentArrayBuffer(m);
+            if (buf) {
+              var docParams = (typeof window.conPdfGetDocumentParams === 'function') ? window.conPdfGetDocumentParams({ data: new Uint8Array(buf) }) : { data: new Uint8Array(buf) };
+              var pdfDoc = await pdfjsLib.getDocument(docParams).promise;
+              var pageNum = Math.max(1, Math.min(pdfDoc.numPages, Number(m.pageNumber) || 1));
+              var page = await pdfDoc.getPage(pageNum);
+              var vp = page.getViewport({ scale: 2 });
+              var offCvs = document.createElement('canvas');
+              offCvs.width = vp.width;
+              offCvs.height = vp.height;
+              var offCtx = offCvs.getContext('2d');
+              await page.render({ canvasContext: offCtx, viewport: vp }).promise;
+              var dUrl = offCvs.toDataURL('image/png');
+              m._resolvedDataUrl = dUrl;
+              return dUrl;
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    // 4. Fallback direct src
+    var directSrc = m.src || m.url || '';
+    if (directSrc && directSrc.startsWith('blob:')) {
+      try {
+        var resp = await fetch(directSrc);
+        var b = await resp.blob();
+        var dUrl = await readBlobAsDataUrl(b);
+        if (dUrl && dUrl.startsWith('data:')) {
+          m._resolvedDataUrl = dUrl;
+          return dUrl;
+        }
+      } catch (_) {}
+    }
+    if (directSrc && directSrc.startsWith('data:')) {
+      m._resolvedDataUrl = directSrc;
+      return directSrc;
+    }
+
+    return '';
+  }
+
+  /**
+   * Helper: Resolve board background image to data URL
+   */
+  async function resolveBoardBgToDataUrl(boardBg) {
+    if (!boardBg) return '';
+    if (boardBg._resolvedDataUrl && boardBg._resolvedDataUrl.startsWith('data:image/')) return boardBg._resolvedDataUrl;
+    if (boardBg._cachedDataUrl && boardBg._cachedDataUrl.startsWith('data:image/')) return boardBg._cachedDataUrl;
+    if (boardBg.dataUrl && boardBg.dataUrl.startsWith('data:image/')) return boardBg.dataUrl;
+    if (typeof window !== 'undefined' && typeof window.conFindAttachmentById === 'function' && boardBg.attachmentId) {
+      var bgAtt = window.conFindAttachmentById(boardBg.attachmentId);
+      if (bgAtt) {
+        return resolveMediaItemToDataUrl(Object.assign({}, boardBg, bgAtt));
+      }
+    }
+    if (boardBg.attachmentId || boardBg.file || boardBg.base64) {
+      return resolveMediaItemToDataUrl(boardBg);
+    }
+    return '';
+  }
+
+  /**
+   * Helper: Replace any blob: images in note HTML strings with base64 data URLs
+   */
+  async function replaceBlobImagesInHtml(html) {
+    if (!html || !html.includes('blob:')) return html;
+    var matches = html.match(/src=["'](blob:[^"']+)["']/g);
+    if (!matches) return html;
+    var result = html;
+    for (var i = 0; i < matches.length; i++) {
+      var m = matches[i];
+      var urlMatch = m.match(/src=["'](blob:[^"']+)["']/);
+      if (urlMatch && urlMatch[1]) {
+        var blobUrl = urlMatch[1];
+        try {
+          var resp = await fetch(blobUrl);
+          var b = await resp.blob();
+          var dataUrl = await readBlobAsDataUrl(b);
+          if (dataUrl) {
+            result = result.split(blobUrl).join(dataUrl);
+          }
+        } catch (_) {}
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Universal Preloader: Resolves all images across all board pages into base64 data URLs
+   */
+  async function preloadAllMediaDataUrls(pages) {
+    if (!Array.isArray(pages) || !pages.length) return;
+    for (var i = 0; i < pages.length; i++) {
+      var p = pages[i];
+      if (!p) continue;
+      var mediaList = Array.isArray(p.media) ? p.media : (Array.isArray(p.mediaItems) ? p.mediaItems : []);
+      for (var j = 0; j < mediaList.length; j++) {
+        var m = mediaList[j];
+        if (!m || m.hidden) continue;
+        try {
+          var dataUrl = await resolveMediaItemToDataUrl(m);
+          if (dataUrl) {
+            m._resolvedDataUrl = dataUrl;
+            m.dataUrl = dataUrl;
+          }
+        } catch (_) {}
+      }
+      if (p.boardBg) {
+        try {
+          var bgDataUrl = await resolveBoardBgToDataUrl(p.boardBg);
+          if (bgDataUrl) {
+            p.boardBg._resolvedDataUrl = bgDataUrl;
+            p.boardBg._cachedDataUrl = bgDataUrl;
+          }
+        } catch (_) {}
+      }
+      if (Array.isArray(p.notes)) {
+        for (var k = 0; k < p.notes.length; k++) {
+          var nt = p.notes[k];
+          if (nt && (nt.html || nt.cleanHtml)) {
+            var rawNoteHtml = nt.html || nt.cleanHtml || '';
+            if (rawNoteHtml.includes('<img') || rawNoteHtml.includes('blob:')) {
+              try {
+                nt._resolvedHtml = await replaceBlobImagesInHtml(rawNoteHtml);
+              } catch (_) {}
+            }
+          }
+        }
+      }
+    }
+  }
+
+  /**
    * 3. Multi-page Board PDF Generation
    * Compiles one or more page snapshots into semantic printable HTML with embedded vector SVGs.
    */
@@ -2145,6 +2528,9 @@
         pages = activePages;
       }
     }
+
+    // Preload and convert all images across all pages to self-contained base64 data URLs
+    await preloadAllMediaDataUrls(pages);
 
     var isSnapshotMode = options.renderMode === 'snapshot' || !!options.useSnapshots;
     var snapshotImages = Array.isArray(options.snapshotImages) ? options.snapshotImages : null;
@@ -2501,7 +2887,9 @@
     getPdfExportSettings: getPdfExportSettings,
     normalizeBoardData: normalizeBoardData,
     resolveNodeDims: resolveNodeDims,
-    resolveNoteDims: resolveNoteDims
+    resolveNoteDims: resolveNoteDims,
+    resolveMediaItemToDataUrl: resolveMediaItemToDataUrl,
+    preloadAllMediaDataUrls: preloadAllMediaDataUrls
   };
 
 })();

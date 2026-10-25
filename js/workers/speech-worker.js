@@ -44,63 +44,69 @@
     return '../../modules/stt/';
   }
 
+  var pipelinePromise = null;
+
   /**
    * Initialize Transformers.js pipeline with local quantized Whisper model
    */
   async function initPipeline() {
     if (transcriber) return transcriber;
-    if (isModelLoading) return null;
-    isModelLoading = true;
+    if (pipelinePromise) return pipelinePromise;
 
-    var basePath = getSttBasePath();
-    postMessage({ type: 'worker-log', message: 'Initializing Whisper STT from: ' + basePath });
+    pipelinePromise = (async function () {
+      var basePath = getSttBasePath();
+      postMessage({ type: 'worker-log', message: 'Initializing Whisper STT from: ' + basePath });
 
-    try {
-      var tf = self.transformers;
-      if (!tf) {
-        var scriptUrl = basePath + 'transformers.min.js';
-        try {
-          tf = await import(scriptUrl);
-          self.transformers = tf;
-        } catch (e1) {
+      try {
+        var tf = self.transformers;
+        if (!tf) {
+          var scriptUrl = basePath + 'transformers.min.js';
           try {
-            tf = await import('../../modules/stt/transformers.min.js');
+            tf = await import(scriptUrl);
             self.transformers = tf;
-          } catch (e2) {
-            postMessage({ type: 'worker-log', message: 'Failed to import transformers: ' + (e2 && e2.message) });
+          } catch (e1) {
+            try {
+              tf = await import('../../modules/stt/transformers.min.js');
+              self.transformers = tf;
+            } catch (e2) {
+              postMessage({ type: 'worker-log', message: 'Failed to import transformers: ' + (e2 && e2.message) });
+            }
           }
         }
-      }
 
-      if (tf) {
-        var env = tf.env;
-        env.allowRemoteModels = false;
-        env.allowLocalModels = true;
-        env.useBrowserCache = false;
-        env.localModelPath = basePath;
-        if (env.backends && env.backends.onnx && env.backends.onnx.wasm) {
-          env.backends.onnx.wasm.wasmPaths = basePath;
-          env.backends.onnx.wasm.numThreads = 1;
+        if (tf) {
+          var env = tf.env;
+          env.allowRemoteModels = false;
+          env.allowLocalModels = true;
+          env.useBrowserCache = false;
+          env.localModelPath = basePath;
+          if (env.backends && env.backends.onnx && env.backends.onnx.wasm) {
+            env.backends.onnx.wasm.wasmPaths = basePath;
+            env.backends.onnx.wasm.numThreads = 1;
+          }
+
+          transcriber = await tf.pipeline('automatic-speech-recognition', 'whisper-tiny', {
+            quantized: true
+          });
+
+          isModelLoading = false;
+          postMessage({ type: 'model-ready' });
+          postMessage({ type: 'worker-log', message: 'Whisper model loaded and ready.' });
+          return transcriber;
+        } else {
+          postMessage({ type: 'worker-log', message: 'Error: transformers module undefined after import' });
         }
-
-        transcriber = await tf.pipeline('automatic-speech-recognition', 'whisper-tiny', {
-          quantized: true
-        });
-
+      } catch (err) {
+        console.error('[SpeechWorker] Transformers pipeline init error:', err);
+        postMessage({ type: 'worker-log', message: 'Model load failed: ' + (err.message || err) });
         isModelLoading = false;
-        postMessage({ type: 'model-ready' });
-        postMessage({ type: 'worker-log', message: 'Whisper model loaded and ready.' });
-        return transcriber;
-      } else {
-        postMessage({ type: 'worker-log', message: 'Error: transformers module undefined after import' });
       }
-    } catch (err) {
-      console.error('[SpeechWorker] Transformers pipeline init error:', err);
-      postMessage({ type: 'worker-log', message: 'Model load failed: ' + (err.message || err) });
       isModelLoading = false;
-    }
-    isModelLoading = false;
-    return null;
+      pipelinePromise = null;
+      return null;
+    })();
+
+    return pipelinePromise;
   }
 
   /**
@@ -245,6 +251,130 @@
     });
   }
 
+  var activeFileJob = null;
+
+  /**
+   * Process a complete audio file buffer (Float32 PCM at 16kHz)
+   * Splits into 30s Whisper windows, performs inference, and reports progress.
+   */
+  async function handleTranscribeFile(jobId, pcm, lang) {
+    if (!pcm || pcm.length === 0) {
+      postMessage({ type: 'file-transcribe-complete', jobId: jobId, text: '', durationSec: 0 });
+      return;
+    }
+
+    activeFileJob = { jobId: jobId, cancelled: false };
+
+    postMessage({
+      type: 'file-transcribe-status',
+      jobId: jobId,
+      status: 'loading-model'
+    });
+
+    var pipe = await initPipeline();
+    if (!pipe) {
+      postMessage({
+        type: 'file-transcribe-error',
+        jobId: jobId,
+        error: 'Failed to initialize speech recognition pipeline'
+      });
+      activeFileJob = null;
+      return;
+    }
+
+    if (activeFileJob && activeFileJob.cancelled) {
+      postMessage({ type: 'file-transcribe-cancelled', jobId: jobId });
+      activeFileJob = null;
+      return;
+    }
+
+    var targetLang = LANG_MAP[lang] || LANG_MAP[activeLanguage] || null;
+    var opts = {
+      task: 'transcribe',
+      return_timestamps: false
+    };
+    if (targetLang) opts.language = targetLang;
+
+    // 30 seconds at 16000 Hz = 480000 samples
+    var windowSamples = 30 * audioSampleRate;
+    // 29-second step gives 1s overlap between chunks
+    var stepSamples = 29 * audioSampleRate;
+    var totalSamples = pcm.length;
+    var totalDuration = totalSamples / audioSampleRate;
+
+    var chunks = [];
+    if (totalSamples <= windowSamples) {
+      chunks.push(pcm);
+    } else {
+      for (var offset = 0; offset < totalSamples; offset += stepSamples) {
+        var end = Math.min(totalSamples, offset + windowSamples);
+        chunks.push(pcm.subarray(offset, end));
+        if (end >= totalSamples) break;
+      }
+    }
+
+    var totalChunks = chunks.length;
+    var fullTranscript = '';
+
+    for (var i = 0; i < totalChunks; i++) {
+      if (activeFileJob && activeFileJob.cancelled) {
+        postMessage({ type: 'file-transcribe-cancelled', jobId: jobId });
+        activeFileJob = null;
+        return;
+      }
+
+      var currentChunk = chunks[i];
+      var chunkRms = computeRms(currentChunk);
+
+      var startPct = Math.min(99, Math.round((i / totalChunks) * 100));
+      postMessage({
+        type: 'file-transcribe-progress',
+        jobId: jobId,
+        percent: startPct,
+        chunkIndex: i + 1,
+        totalChunks: totalChunks,
+        interimText: fullTranscript
+      });
+
+      // Skip silent chunks (RMS below 0.002)
+      if (chunkRms >= 0.002) {
+        try {
+          var result = await pipe(currentChunk, opts);
+          var rawText = (result && result.text) ? result.text.trim() : '';
+          var cleaned = cleanTranscript(rawText);
+          if (cleaned) {
+            if (fullTranscript) {
+              fullTranscript += ' ' + cleaned;
+            } else {
+              fullTranscript = cleaned;
+            }
+          }
+        } catch (chunkErr) {
+          console.warn('[SpeechWorker] Chunk inference notice:', chunkErr);
+        }
+      }
+
+      var endPct = Math.min(99, Math.round(((i + 1) / totalChunks) * 100));
+      postMessage({
+        type: 'file-transcribe-progress',
+        jobId: jobId,
+        percent: endPct,
+        chunkIndex: i + 1,
+        totalChunks: totalChunks,
+        interimText: fullTranscript
+      });
+    }
+
+    postMessage({
+      type: 'file-transcribe-complete',
+      jobId: jobId,
+      text: fullTranscript.trim(),
+      durationSec: totalDuration,
+      language: lang
+    });
+    activeFileJob = null;
+  }
+
   /**
    * Worker Message Handler
    */
@@ -288,6 +418,16 @@
         speechSamples = 0;
         silenceSamples = 0;
         postMessage({ type: 'reset-complete' });
+        break;
+
+      case 'transcribe-file':
+        handleTranscribeFile(data.jobId, data.pcm, data.language || activeLanguage);
+        break;
+
+      case 'cancel-file-transcription':
+        if (activeFileJob && activeFileJob.jobId === data.jobId) {
+          activeFileJob.cancelled = true;
+        }
         break;
 
       default:

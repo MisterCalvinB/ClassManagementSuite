@@ -1215,6 +1215,471 @@
       if (item) { _conCtxItem = null; _conMediaDeleteItem(item); }
     };
 
+    // ============================================================
+    // AUDIO TRANSCRIPT STUDIO
+    // ============================================================
+    var _transcriptActiveItem = null;
+    var _transcriptActiveAttachment = null;
+    var _transcriptActiveFile = null;
+    var _transcriptCurrentJobId = null;
+    var _transcriptImportPillTimer = null;
+    var _transcriptPendingImport = null;
+
+    window.conSoundSpTranscribe = function () {
+      var item = _conCtxItem;
+      window.conSoundStyleDismiss();
+      if (item) {
+        window.conOpenAudioTranscript(item);
+      }
+    };
+
+    window.conAudioImportPillTranscribe = function () {
+      var pending = _transcriptPendingImport;
+      window.conDismissAudioImportPill();
+      if (pending) {
+        window.conOpenAudioTranscript(pending);
+      }
+    };
+
+    window.conDismissAudioImportPill = function () {
+      if (_transcriptImportPillTimer) {
+        clearTimeout(_transcriptImportPillTimer);
+        _transcriptImportPillTimer = null;
+      }
+      var pill = document.getElementById('con-audio-import-pill');
+      if (pill) pill.style.display = 'none';
+      _transcriptPendingImport = null;
+    };
+
+    window.conShowAudioImportPill = function (info) {
+      if (!info) return;
+      _transcriptPendingImport = info;
+      var pill = document.getElementById('con-audio-import-pill');
+      var msgEl = document.getElementById('con-audio-import-msg-text');
+      if (!pill) return;
+
+      var name = info.name || (info.file && info.file.name) || 'Audio';
+      if (msgEl) {
+        var fmt = (window.i18n && typeof i18n.t === 'function')
+          ? i18n.t('conAudioImportedTranscribePrompt', { name: name })
+          : ('Audio imported: ' + name);
+        msgEl.textContent = fmt;
+      }
+
+      pill.style.display = 'flex';
+
+      if (_transcriptImportPillTimer) clearTimeout(_transcriptImportPillTimer);
+      _transcriptImportPillTimer = setTimeout(function () {
+        window.conDismissAudioImportPill();
+      }, 10000);
+    };
+
+    window.conTranscriptOverlayClick = function (e) {
+      if (e.target === document.getElementById('con-transcript-overlay')) {
+        window.conCloseTranscriptModal();
+      }
+    };
+
+    window.conCloseTranscriptModal = function () {
+      if (_transcriptCurrentJobId && window.SpeechTranscriber) {
+        window.SpeechTranscriber.cancelFileTranscription(_transcriptCurrentJobId);
+        _transcriptCurrentJobId = null;
+      }
+      var overlay = document.getElementById('con-transcript-overlay');
+      if (overlay) overlay.style.display = 'none';
+      _transcriptActiveItem = null;
+      _transcriptActiveAttachment = null;
+      _transcriptActiveFile = null;
+    };
+
+    window.conCancelTranscript = function () {
+      if (_transcriptCurrentJobId && window.SpeechTranscriber) {
+        window.SpeechTranscriber.cancelFileTranscription(_transcriptCurrentJobId);
+        _transcriptCurrentJobId = null;
+      }
+      var pBox = document.getElementById('con-transcript-progress-box');
+      var eBox = document.getElementById('con-transcript-editor-box');
+      var reBtn = document.getElementById('con-transcript-retranscribe-btn');
+      if (pBox) pBox.style.display = 'none';
+      if (eBox) eBox.style.display = 'flex';
+      if (reBtn) reBtn.style.display = 'inline-flex';
+    };
+
+    window.conTranscriptUpdateWordCount = function () {
+      var textarea = document.getElementById('con-transcript-textarea');
+      var countEl = document.getElementById('con-transcript-word-count');
+      if (!textarea || !countEl) return;
+      var val = textarea.value.trim();
+      var words = val ? val.split(/\s+/).length : 0;
+      countEl.textContent = words + (words === 1 ? ' word' : ' words');
+    };
+
+    window.conTranscriptChangeLanguage = function (lang) {
+      if (window.SpeechTranscriber && typeof window.SpeechTranscriber.setLanguage === 'function') {
+        window.SpeechTranscriber.setLanguage(lang);
+      }
+    };
+
+    window.conOpenAudioTranscript = async function (target, options) {
+      options = options || {};
+      _transcriptActiveItem = null;
+      _transcriptActiveAttachment = null;
+      _transcriptActiveFile = null;
+
+      if (!target) return;
+
+      var name = '';
+      var existingTranscript = '';
+
+      if (target.kind === 'sounds' || target.attachmentId) {
+        _transcriptActiveItem = target;
+        name = target.name || '';
+        existingTranscript = target.transcript || '';
+        var linkedAtt = (typeof conFindAttachmentById === 'function') ? conFindAttachmentById(target.attachmentId) : null;
+        if (linkedAtt) {
+          _transcriptActiveAttachment = linkedAtt;
+          if (!existingTranscript && linkedAtt.transcript) existingTranscript = linkedAtt.transcript;
+          if (!name && linkedAtt.name) name = linkedAtt.name;
+        }
+      } else if (target.kind === 'sounds' || (target.mime && target.mime.startsWith('audio/'))) {
+        _transcriptActiveAttachment = target;
+        name = target.name || '';
+        existingTranscript = target.transcript || '';
+      } else if (target instanceof File || (target.file instanceof File)) {
+        var f = target instanceof File ? target : target.file;
+        _transcriptActiveFile = f;
+        name = f.name || 'audio';
+      }
+
+      var overlay = document.getElementById('con-transcript-overlay');
+      var metaEl = document.getElementById('con-transcript-meta');
+      var textarea = document.getElementById('con-transcript-textarea');
+      var pBox = document.getElementById('con-transcript-progress-box');
+      var eBox = document.getElementById('con-transcript-editor-box');
+      var reBtn = document.getElementById('con-transcript-retranscribe-btn');
+      var langSelect = document.getElementById('con-transcript-lang');
+
+      if (!overlay) return;
+
+      if (metaEl) {
+        metaEl.textContent = name;
+        metaEl.title = name;
+      }
+
+      if (langSelect) {
+        var curLang = 'auto';
+        try {
+          if (window.i18n && typeof window.i18n.getLanguage === 'function') {
+            curLang = window.i18n.getLanguage();
+          }
+        } catch (_) {}
+        langSelect.value = curLang || 'auto';
+      }
+
+      overlay.style.display = 'flex';
+
+      if (existingTranscript && !options.force) {
+        if (textarea) textarea.value = existingTranscript;
+        if (pBox) pBox.style.display = 'none';
+        if (eBox) eBox.style.display = 'flex';
+        if (reBtn) reBtn.style.display = 'inline-flex';
+        window.conTranscriptUpdateWordCount();
+      } else {
+        if (textarea) textarea.value = '';
+        window.conRunAudioTranscription(target);
+      }
+    };
+
+    window.conRerunTranscript = function () {
+      var target = _transcriptActiveItem || _transcriptActiveAttachment || _transcriptActiveFile;
+      if (target) {
+        window.conRunAudioTranscription(target);
+      }
+    };
+
+    window.conRunAudioTranscription = async function (target) {
+      var pBox = document.getElementById('con-transcript-progress-box');
+      var eBox = document.getElementById('con-transcript-editor-box');
+      var reBtn = document.getElementById('con-transcript-retranscribe-btn');
+      var pStatus = document.getElementById('con-transcript-progress-status');
+      var pPct = document.getElementById('con-transcript-progress-pct');
+      var pFill = document.getElementById('con-transcript-progress-fill');
+      var pPreview = document.getElementById('con-transcript-live-preview');
+      var textarea = document.getElementById('con-transcript-textarea');
+      var langSelect = document.getElementById('con-transcript-lang');
+
+      if (pBox) pBox.style.display = 'flex';
+      if (eBox) eBox.style.display = 'none';
+      if (reBtn) reBtn.style.display = 'none';
+      if (pPct) pPct.textContent = '0%';
+      if (pFill) pFill.style.width = '0%';
+      if (pPreview) pPreview.textContent = '';
+      if (pStatus) {
+        pStatus.textContent = (window.i18n && typeof i18n.t === 'function')
+          ? i18n.t('conTranscriptDecoding')
+          : 'Decoding and preparing audio...';
+      }
+
+      if (!window.SpeechTranscriber) {
+        if (typeof showToast === 'function') {
+          showToast('Speech transcriber module not loaded', true);
+        }
+        window.conCancelTranscript();
+        return;
+      }
+
+      try {
+        var audioSource = null;
+        if (_transcriptActiveFile) {
+          audioSource = _transcriptActiveFile;
+        } else if (_transcriptActiveItem || _transcriptActiveAttachment) {
+          var targetObj = _transcriptActiveItem || _transcriptActiveAttachment;
+          var masterAtt = (typeof conFindAttachmentById === 'function' && targetObj)
+            ? (conFindAttachmentById(targetObj.attachmentId || targetObj.id) || targetObj)
+            : targetObj;
+
+          if (targetObj && (targetObj.file instanceof Blob || (typeof File !== 'undefined' && targetObj.file instanceof File))) {
+            audioSource = targetObj.file;
+          } else if (masterAtt && (masterAtt.file instanceof Blob || (typeof File !== 'undefined' && masterAtt.file instanceof File))) {
+            audioSource = masterAtt.file;
+          } else if (targetObj && targetObj.blob instanceof Blob) {
+            audioSource = targetObj.blob;
+          } else if (masterAtt && masterAtt.blob instanceof Blob) {
+            audioSource = masterAtt.blob;
+          } else if (targetObj && targetObj.dataUrl) {
+            audioSource = targetObj.dataUrl;
+          } else if (masterAtt && masterAtt.dataUrl) {
+            audioSource = masterAtt.dataUrl;
+          } else if (targetObj && targetObj._cachedDataUrl) {
+            audioSource = targetObj._cachedDataUrl;
+          } else if (typeof conGetAttachmentDataUrl === 'function') {
+            audioSource = await conGetAttachmentDataUrl(targetObj);
+          } else if (targetObj && targetObj._cachedObjectUrl) {
+            audioSource = targetObj._cachedObjectUrl;
+          }
+        }
+
+        if (!audioSource) {
+          throw new Error('Unable to resolve audio source file');
+        }
+
+        var selectedLang = langSelect ? langSelect.value : 'auto';
+
+        var result = await window.SpeechTranscriber.transcribeAudio(audioSource, {
+          language: selectedLang,
+          onStatus: function (st) {
+            if (pStatus) {
+              if (st === 'loading-model') {
+                pStatus.textContent = (window.i18n && typeof i18n.t === 'function')
+                  ? i18n.t('conTranscriptLoadingModel')
+                  : 'Loading Whisper model...';
+              } else if (st === 'decoding') {
+                pStatus.textContent = (window.i18n && typeof i18n.t === 'function')
+                  ? i18n.t('conTranscriptDecoding')
+                  : 'Decoding and preparing audio...';
+              }
+            }
+          },
+          onProgress: function (pData) {
+            if (pStatus) {
+              pStatus.textContent = (window.i18n && typeof i18n.t === 'function')
+                ? (i18n.t('conTranscriptProcessing') + ' (' + pData.chunkIndex + '/' + pData.totalChunks + ')')
+                : ('Transcribing (' + pData.chunkIndex + '/' + pData.totalChunks + ')...');
+            }
+            if (pPct) pPct.textContent = pData.percent + '%';
+            if (pFill) pFill.style.width = pData.percent + '%';
+            if (pPreview && pData.interimText) {
+              pPreview.textContent = pData.interimText;
+              pPreview.scrollTop = pPreview.scrollHeight;
+            }
+          }
+        });
+
+        var text = (result && result.text) ? result.text.trim() : '';
+
+        // Save onto active item / attachment
+        if (_transcriptActiveItem) {
+          _transcriptActiveItem.transcript = text;
+          var el = (typeof _conMediaGetWrap === 'function')
+            ? _conMediaGetWrap(_transcriptActiveItem)
+            : document.querySelector('.con-media-item[data-id="' + _transcriptActiveItem.id + '"]');
+          if (el) {
+            var tBtn = el.querySelector('.con-media-transcript-btn');
+            if (tBtn) tBtn.classList.toggle('con-media-has-transcript', !!text);
+          }
+        }
+        if (_transcriptActiveAttachment) {
+          _transcriptActiveAttachment.transcript = text;
+        }
+
+        if (textarea) textarea.value = text;
+        window.conTranscriptUpdateWordCount();
+
+        if (pBox) pBox.style.display = 'none';
+        if (eBox) eBox.style.display = 'flex';
+        if (reBtn) reBtn.style.display = 'inline-flex';
+
+        if (typeof conMarkBoardDirty === 'function') conMarkBoardDirty();
+      } catch (err) {
+        console.error('[TranscriptStudio] Error:', err);
+        if (pBox) pBox.style.display = 'none';
+        if (eBox) eBox.style.display = 'flex';
+        if (reBtn) reBtn.style.display = 'inline-flex';
+        if (typeof showToast === 'function' && err.message !== 'Transcription cancelled') {
+          showToast('Transcription failed: ' + (err.message || err), true);
+        }
+      }
+    };
+
+    window.conTranscriptCopy = function () {
+      var textarea = document.getElementById('con-transcript-textarea');
+      var text = textarea ? textarea.value.trim() : '';
+      if (!text) return;
+      navigator.clipboard.writeText(text).then(function () {
+        if (typeof showToast === 'function') {
+          showToast((window.i18n && typeof i18n.t === 'function') ? i18n.t('conTranscriptCopied') : 'Transcript copied to clipboard!');
+        }
+      });
+    };
+
+    window.conTranscriptSaveToItem = function () {
+      var textarea = document.getElementById('con-transcript-textarea');
+      var text = textarea ? textarea.value.trim() : '';
+      if (_transcriptActiveItem) {
+        _transcriptActiveItem.transcript = text;
+        var el = (typeof _conMediaGetWrap === 'function')
+          ? _conMediaGetWrap(_transcriptActiveItem)
+          : document.querySelector('.con-media-item[data-id="' + _transcriptActiveItem.id + '"]');
+        if (el) {
+          var tBtn = el.querySelector('.con-media-transcript-btn');
+          if (tBtn) tBtn.classList.toggle('con-media-has-transcript', !!text);
+        }
+      }
+      if (_transcriptActiveAttachment) {
+        _transcriptActiveAttachment.transcript = text;
+      }
+      if (typeof conMarkBoardDirty === 'function') conMarkBoardDirty();
+      if (typeof showToast === 'function') {
+        showToast((window.i18n && typeof i18n.t === 'function') ? i18n.t('conTranscriptSaved') : 'Transcript saved to audio item.');
+      }
+      window.conCloseTranscriptModal();
+    };
+
+    window.conTranscriptInsertAsNote = function () {
+      var textarea = document.getElementById('con-transcript-textarea');
+      var text = textarea ? textarea.value.trim() : '';
+      if (!text) {
+        if (typeof showToast === 'function') showToast('No transcript text to insert', true);
+        return;
+      }
+
+      var posX = 100, posY = 100;
+      if (_transcriptActiveItem && Number.isFinite(_transcriptActiveItem.x) && Number.isFinite(_transcriptActiveItem.y)) {
+        posX = _transcriptActiveItem.x + (_transcriptActiveItem.w || 220) + 30;
+        posY = _transcriptActiveItem.y;
+      } else {
+        var brd = document.getElementById('board') || document.getElementById('constellation-board');
+        if (brd) {
+          posX = (brd.scrollLeft || 0) + Math.round(brd.clientWidth / 2) - 120;
+          posY = (brd.scrollTop || 0) + Math.round(brd.clientHeight / 2) - 80;
+        }
+      }
+
+      if (typeof window.conNoteAdd === 'function') {
+        window.conNoteAdd(Math.max(20, posX), Math.max(20, posY), text);
+      } else if (typeof window.conAddWordAt === 'function') {
+        window.conAddWordAt(text, Math.max(20, posX), Math.max(20, posY));
+      }
+
+      if (typeof conMarkBoardDirty === 'function') conMarkBoardDirty();
+      if (typeof showToast === 'function') {
+        showToast((window.i18n && typeof i18n.t === 'function') ? i18n.t('conTranscriptNoteCreated') : 'Transcript added as sticky note.');
+      }
+      window.conCloseTranscriptModal();
+    };
+
+    window.conTranscriptInsertAsNodes = function () {
+      var textarea = document.getElementById('con-transcript-textarea');
+      var text = textarea ? textarea.value.trim() : '';
+      if (!text) {
+        if (typeof showToast === 'function') showToast('No transcript text to insert', true);
+        return;
+      }
+
+      var rawSentences = text.split(/(?<=[.?!;:\n])\s+/);
+      var sentences = rawSentences.map(function (s) { return s.trim(); }).filter(function (s) { return s.length > 0; });
+      if (sentences.length === 0) sentences = [text];
+
+      var startX = 120, startY = 120;
+      if (_transcriptActiveItem && Number.isFinite(_transcriptActiveItem.x) && Number.isFinite(_transcriptActiveItem.y)) {
+        startX = _transcriptActiveItem.x + (_transcriptActiveItem.w || 220) + 40;
+        startY = _transcriptActiveItem.y;
+      } else {
+        var brd = document.getElementById('board') || document.getElementById('constellation-board');
+        if (brd) {
+          startX = (brd.scrollLeft || 0) + 100;
+          startY = (brd.scrollTop || 0) + 100;
+        }
+      }
+
+      var placed = 0;
+      sentences.forEach(function (sentence, idx) {
+        var x = startX + (Math.floor(idx % 3) * 220);
+        var y = startY + (Math.floor(idx / 3) * 90);
+        if (typeof window.conAddWordAt === 'function') {
+          window.conAddWordAt(sentence, x, y);
+          placed++;
+        }
+      });
+
+      if (typeof conMarkBoardDirty === 'function') conMarkBoardDirty();
+      if (typeof showToast === 'function') {
+        showToast((window.i18n && typeof i18n.t === 'function') ? i18n.t('conTranscriptNodesCreated') : ('Added ' + placed + ' concept nodes.'));
+      }
+      window.conCloseTranscriptModal();
+    };
+
+    window.conTranscriptExport = async function () {
+      var textarea = document.getElementById('con-transcript-textarea');
+      var text = textarea ? textarea.value.trim() : '';
+      if (!text) return;
+
+      var name = 'Transcript';
+      if (_transcriptActiveItem && _transcriptActiveItem.name) {
+        name = _transcriptActiveItem.name.replace(/\.[a-z0-9]+$/i, '');
+      } else if (_transcriptActiveAttachment && _transcriptActiveAttachment.name) {
+        name = _transcriptActiveAttachment.name.replace(/\.[a-z0-9]+$/i, '');
+      }
+
+      var defaultFilename = 'Transcript_' + (name.replace(/[^a-zA-Z0-9_-]/g, '_') || 'audio') + '.md';
+
+      var mdContent = '# Audio Transcript: ' + name + '\n\n' +
+        '- **Generated:** ' + new Date().toLocaleString() + '\n' +
+        '- **Source:** Class Management Tools Board\n\n' +
+        '---\n\n' +
+        '## Transcript Text\n\n' +
+        text + '\n';
+
+      if (typeof window.saveExportWithDestination === 'function') {
+        await window.saveExportWithDestination({
+          content: mdContent,
+          filename: defaultFilename,
+          filters: [
+            { name: 'Markdown (*.md)', extensions: ['md'] },
+            { name: 'Text Document (*.txt)', extensions: ['txt'] }
+          ],
+          title: 'Export Audio Transcript'
+        });
+      } else {
+        var blob = new Blob([mdContent], { type: 'text/markdown;charset=utf-8' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = defaultFilename;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      }
+    };
+
     // ── Emoji picker adapter for media ───────────────────────────
     window._pickerOpenForMedia = function (item) {
       if (!item) return;

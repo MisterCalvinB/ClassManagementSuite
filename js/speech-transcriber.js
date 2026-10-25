@@ -19,6 +19,7 @@
   var currentTranscript = '';
   var interimTranscript = '';
   var silenceTimer = null;
+  var fileTranscriptionCallbacks = {};
 
   var callbacks = {
     onStateChange: null,
@@ -120,6 +121,43 @@
             }
           }
           if (state === 'processing') setState('listening');
+        } else if (data.type === 'file-transcribe-progress') {
+          var pCb = fileTranscriptionCallbacks[data.jobId];
+          if (pCb && typeof pCb.onProgress === 'function') {
+            pCb.onProgress({
+              percent: data.percent,
+              chunkIndex: data.chunkIndex,
+              totalChunks: data.totalChunks,
+              interimText: data.interimText
+            });
+          }
+        } else if (data.type === 'file-transcribe-status') {
+          var sCb = fileTranscriptionCallbacks[data.jobId];
+          if (sCb && typeof sCb.onStatus === 'function') {
+            sCb.onStatus(data.status);
+          }
+        } else if (data.type === 'file-transcribe-complete') {
+          var cCb = fileTranscriptionCallbacks[data.jobId];
+          if (cCb) {
+            cCb.resolve({
+              text: data.text,
+              durationSec: data.durationSec || cCb.durationSec,
+              language: data.language
+            });
+            delete fileTranscriptionCallbacks[data.jobId];
+          }
+        } else if (data.type === 'file-transcribe-error') {
+          var eCb = fileTranscriptionCallbacks[data.jobId];
+          if (eCb) {
+            eCb.reject(new Error(data.error || 'Audio transcription failed'));
+            delete fileTranscriptionCallbacks[data.jobId];
+          }
+        } else if (data.type === 'file-transcribe-cancelled') {
+          var xCb = fileTranscriptionCallbacks[data.jobId];
+          if (xCb) {
+            xCb.reject(new Error('Audio transcription cancelled'));
+            delete fileTranscriptionCallbacks[data.jobId];
+          }
         }
       };
 
@@ -408,6 +446,144 @@
   }
 
   /**
+   * Decode an Audio ArrayBuffer and resample to 16,000 Hz mono PCM Float32Array
+   */
+  async function decodeAudioToArrayBuffer(arrayBuffer) {
+    var AudioCtxClass = global.AudioContext || global.webkitAudioContext;
+    var OfflineCtxClass = global.OfflineAudioContext || global.webkitOfflineAudioContext;
+    if (!AudioCtxClass || !OfflineCtxClass) {
+      throw new Error('Web Audio API is not supported in this environment');
+    }
+
+    var tempCtx = new AudioCtxClass();
+    var decoded;
+    try {
+      decoded = await tempCtx.decodeAudioData(arrayBuffer.slice(0));
+    } finally {
+      try { tempCtx.close(); } catch (_) {}
+    }
+
+    var targetSampleRate = 16000;
+    var targetLength = Math.max(1, Math.ceil(decoded.duration * targetSampleRate));
+    var offlineCtx = new OfflineCtxClass(1, targetLength, targetSampleRate);
+
+    var source = offlineCtx.createBufferSource();
+    source.buffer = decoded;
+    source.connect(offlineCtx.destination);
+    source.start(0);
+
+    var rendered = await offlineCtx.startRendering();
+    return {
+      pcm: rendered.getChannelData(0),
+      durationSec: decoded.duration
+    };
+  }
+
+  /**
+   * Transcribe an audio source (ArrayBuffer, Blob, File, or URL) offline via Whisper Web Worker
+   */
+  async function transcribeAudio(source, options) {
+    initWorker();
+    options = options || {};
+    var jobId = 'stt_job_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+
+    var arrayBuffer;
+    if (source instanceof ArrayBuffer) {
+      arrayBuffer = source;
+    } else if (source instanceof Blob) {
+      arrayBuffer = await source.arrayBuffer();
+    } else if (typeof source === 'string') {
+      if (source.indexOf('data:') === 0) {
+        var base64Idx = source.indexOf(';base64,');
+        if (base64Idx !== -1) {
+          var b64Data = source.substring(base64Idx + 8);
+          var binaryStr = atob(b64Data);
+          var len = binaryStr.length;
+          var bytes = new Uint8Array(len);
+          for (var i = 0; i < len; i++) {
+            bytes[i] = binaryStr.charCodeAt(i);
+          }
+          arrayBuffer = bytes.buffer;
+        } else {
+          var resp = await fetch(source);
+          arrayBuffer = await resp.arrayBuffer();
+        }
+      } else {
+        try {
+          var resp = await fetch(source);
+          arrayBuffer = await resp.arrayBuffer();
+        } catch (fetchErr) {
+          arrayBuffer = await new Promise(function (resolve, reject) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', source, true);
+            xhr.responseType = 'arraybuffer';
+            xhr.onload = function () {
+              if (xhr.status === 200 || (xhr.status === 0 && xhr.response)) {
+                resolve(xhr.response);
+              } else {
+                reject(fetchErr || new Error('Failed to load audio from source'));
+              }
+            };
+            xhr.onerror = function () {
+              reject(fetchErr || new Error('Network error loading audio source'));
+            };
+            xhr.send();
+          });
+        }
+      }
+    } else if (source && typeof source.arrayBuffer === 'function') {
+      arrayBuffer = await source.arrayBuffer();
+    } else {
+      throw new Error('Unsupported audio source format');
+    }
+
+    if (typeof options.onStatus === 'function') {
+      options.onStatus('decoding');
+    }
+
+    var decoded = await decodeAudioToArrayBuffer(arrayBuffer);
+    var pcm = decoded.pcm;
+
+    return new Promise(function (resolve, reject) {
+      fileTranscriptionCallbacks[jobId] = {
+        resolve: resolve,
+        reject: reject,
+        onProgress: options.onProgress,
+        onStatus: options.onStatus,
+        durationSec: decoded.durationSec
+      };
+
+      if (!worker) {
+        delete fileTranscriptionCallbacks[jobId];
+        return reject(new Error('Speech recognition worker unavailable'));
+      }
+
+      worker.postMessage({
+        type: 'transcribe-file',
+        jobId: jobId,
+        pcm: pcm,
+        language: options.language || activeLanguage || 'auto'
+      }, [pcm.buffer]);
+    });
+  }
+
+  /**
+   * Cancel an in-progress file transcription job
+   */
+  function cancelFileTranscription(jobId) {
+    if (worker && jobId) {
+      worker.postMessage({
+        type: 'cancel-file-transcription',
+        jobId: jobId
+      });
+    }
+    if (fileTranscriptionCallbacks[jobId]) {
+      fileTranscriptionCallbacks[jobId].reject(new Error('Transcription cancelled'));
+      delete fileTranscriptionCallbacks[jobId];
+    }
+  }
+
+  /**
    * Public API
    */
   global.SpeechTranscriber = {
@@ -420,7 +596,10 @@
     getTranscript: function () { return currentTranscript.trim(); },
     isSupported: function () {
       return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
-    }
+    },
+    transcribeAudio: transcribeAudio,
+    cancelFileTranscription: cancelFileTranscription,
+    decodeAudioToArrayBuffer: decodeAudioToArrayBuffer
   };
 
 })(typeof window !== 'undefined' ? window : this);

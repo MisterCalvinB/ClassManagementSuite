@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data:; script-src 'self' 'unsafe-inline' 'unsafe-eval' file: data:; style-src 'self' 'unsafe-inline' file: data:; connect-src 'self' ws://127.0.0.1:* http://127.0.0.1:* file: data:; font-src 'self' file: data:; img-src 'self' file: data: blob:; media-src 'self' file: data: blob:;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' file: data: blob:; style-src 'self' 'unsafe-inline' file: data:; connect-src 'self' ws://127.0.0.1:* http://127.0.0.1:* file: data: blob:; font-src 'self' file: data:; img-src 'self' file: data: blob:; media-src 'self' file: data: blob:; worker-src 'self' file: blob:;">
   <title>Board</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <link rel="stylesheet" href="../modules/katex/dist/katex.min.css">
@@ -1003,22 +1003,22 @@
         <span data-i18n="conMediaActionsTitle">Media Tools</span>
       </div>
       <div style="display:flex; gap:4px; flex-wrap:wrap;">
-        <button type="button" class="action-btn btn-sm btn-grey" id="con-ctx-slow-btn" onclick="conCtxSlowDownSound(0.85)" title="Slow down audio to 0.85x speed" style="font-size:0.68rem; padding:2px 6px;">
+        <button type="button" class="action-btn btn-sm btn-grey" id="con-ctx-slow-btn" onclick="conCtxSlowDownSound(0.85)" title="Slow down audio to 0.85x speed" data-i18n-title="conMediaSlowTitle" style="font-size:0.68rem; padding:2px 6px;">
           <img src="../assets/icons/clock.svg" class="btn-icon" style="width:12px;height:12px;" alt="" /> <span data-i18n="conMediaSlow">0.85x Speed</span>
         </button>
-        <button type="button" class="action-btn btn-sm btn-grey" id="con-ctx-boost-btn" onclick="conCtxNormalizeVoice()" title="Normalize and boost voice volume" style="font-size:0.68rem; padding:2px 6px;">
+        <button type="button" class="action-btn btn-sm btn-grey" id="con-ctx-boost-btn" onclick="conCtxNormalizeVoice()" title="Normalize and boost voice volume" data-i18n-title="conMediaVoiceBoostTitle" style="font-size:0.68rem; padding:2px 6px;">
           <img src="../assets/icons/volume.svg" class="btn-icon" style="width:12px;height:12px;" alt="" /> <span data-i18n="conMediaVoiceBoost">Boost Voice</span>
         </button>
-        <button type="button" class="action-btn btn-sm btn-grey" id="con-ctx-extract-audio-btn" onclick="conCtxExtractAudioToSoundNode()" title="Extract audio track to a new Sound Node" style="font-size:0.68rem; padding:2px 6px;">
+        <button type="button" class="action-btn btn-sm btn-grey" id="con-ctx-extract-audio-btn" onclick="conCtxExtractAudioToSoundNode()" title="Extract audio track to a new Sound Node" data-i18n-title="conMediaExtractAudioTitle" style="font-size:0.68rem; padding:2px 6px;">
           <img src="../assets/icons/music.svg" class="btn-icon" style="width:12px;height:12px;" alt="" /> <span data-i18n="conMediaExtractAudio">Extract Audio</span>
         </button>
-        <button type="button" class="action-btn btn-sm btn-grey" id="con-ctx-open-converter-btn" onclick="conCtxOpenInMediaConverter()" title="Open in Video & Sound Converter" style="font-size:0.68rem; padding:2px 6px;">
+        <button type="button" class="action-btn btn-sm btn-grey" id="con-ctx-open-converter-btn" onclick="conCtxOpenInMediaConverter()" title="Open in Video & Sound Converter" data-i18n-title="conMediaOpenConverterTitle" style="font-size:0.68rem; padding:2px 6px;">
           <img src="../assets/icons/sparkles.svg" class="btn-icon" style="width:12px;height:12px;" alt="" /> <span data-i18n="conMediaOpenConverter">Converter...</span>
         </button>
-        <button type="button" class="action-btn btn-sm btn-grey" id="con-ctx-open-app-btn" onclick="conCtxMediaOpenNative()" title="Open in System Application" data-i18n-title="soundNodeOpenAppTitle" style="font-size:0.68rem; padding:2px 6px;">
+        <button type="button" class="action-btn btn-sm btn-grey" id="con-ctx-open-app-btn" onclick="conCtxMediaOpenNative()" title="Open with default system media player" data-i18n-title="soundNodeOpenAppTitle" style="font-size:0.68rem; padding:2px 6px;">
           <img src="../assets/icons/media.svg" class="btn-icon" style="width:12px;height:12px;" alt="" /> <span data-i18n="soundNodeOpenApp">Open App</span>
         </button>
-        <button type="button" class="action-btn btn-sm btn-grey" id="con-ctx-open-folder-btn" onclick="conCtxMediaOpenFolder()" title="Open Location Folder" data-i18n-title="soundNodeOpenFolderTitle" style="font-size:0.68rem; padding:2px 6px;">
+        <button type="button" class="action-btn btn-sm btn-grey" id="con-ctx-open-folder-btn" onclick="conCtxMediaOpenFolder()" title="Open file location folder" data-i18n-title="soundNodeOpenFolderTitle" style="font-size:0.68rem; padding:2px 6px;">
           <img src="../assets/icons/folder.svg" class="btn-icon" style="width:12px;height:12px;" alt="" /> <span data-i18n="soundNodeOpenFolder">Folder</span>
         </button>
       </div>
@@ -4846,6 +4846,8 @@
       <h4><span data-i18n="conSoundStyleTitle">Sound style</span> <button onclick="conSoundStyleDismiss()"><img
             src="../assets/icons/clear.svg" class="btn-icon" alt="" /></button></h4>
       <div class="wn-sp-actions" style="flex-wrap:wrap;">
+        <button class="wn-sp-action-btn" id="con-sound-sp-transcribe-btn" onclick="conSoundSpTranscribe()"
+          data-i18n="conSpTranscribe"><img src="../assets/icons/dictation.svg" class="btn-icon" alt="" /> Transcript</button>
         <button class="wn-sp-action-btn" onclick="conSoundSpTrim()" data-i18n="conSpTrim"><img
             src="../assets/icons/split.svg" class="btn-icon" alt="" /> Trim</button>
         <button class="wn-sp-action-btn" id="con-sound-sp-lock-btn" onclick="conSoundSpToggleLock()"
@@ -4858,6 +4860,99 @@
             alt="" /> Folder</button>
         <button class="wn-sp-action-btn danger" onclick="conSoundSpDelete()" data-i18n="conSpDelete"><img
             src="../assets/icons/delete.svg" class="btn-icon" alt="" /> Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating Audio Import Notification Pill -->
+  <div id="con-audio-import-pill" class="con-audio-import-pill" style="display:none;" role="status">
+    <span class="caip-msg"><img src="../assets/icons/dictation.svg" style="width:16px;height:16px;" alt="" /><span id="con-audio-import-msg-text">Audio imported</span></span>
+    <button type="button" class="caip-btn" id="con-audio-import-transcribe-btn" onclick="conAudioImportPillTranscribe()"><img src="../assets/icons/dictation.svg" class="btn-icon" style="width:12px;height:12px;" alt="" /> <span data-i18n="conAudioImportCreateTranscript">Create Transcript</span></button>
+    <button type="button" class="caip-close-btn" onclick="conDismissAudioImportPill()" title="Dismiss">&times;</button>
+  </div>
+
+  <!-- ── Audio Transcript Studio modal ───────────────────────────────── -->
+  <div id="con-transcript-overlay" class="con-sp-overlay" onclick="conTranscriptOverlayClick(event)" style="display:none;position:fixed;inset:0;z-index:13000;background:rgba(0,0,0,0.45);align-items:center;justify-content:center;">
+    <div id="con-transcript-modal" class="con-transcript-modal-dialog" onclick="event.stopPropagation()">
+      <!-- Header -->
+      <div class="con-transcript-header">
+        <div class="con-transcript-header-left">
+          <img src="../assets/icons/dictation.svg" class="con-transcript-icon" alt="" />
+          <div>
+            <h3 id="con-transcript-modal-title" data-i18n="conTranscriptModalTitle">Audio Transcript Studio</h3>
+            <span id="con-transcript-meta" class="con-transcript-meta"></span>
+          </div>
+        </div>
+        <div class="con-transcript-header-right">
+          <div class="con-transcript-lang-wrap">
+            <label for="con-transcript-lang" data-i18n="conTranscriptLangLabel">Language:</label>
+            <select id="con-transcript-lang" class="con-transcript-lang-select" onchange="conTranscriptChangeLanguage(this.value)">
+              <option value="auto" data-i18n="conTranscriptLangAuto">Auto Detect</option>
+              <option value="en">English</option>
+              <option value="fr">Français</option>
+              <option value="de">Deutsch</option>
+              <option value="it">Italiano</option>
+            </select>
+          </div>
+          <button type="button" class="con-transcript-close-btn" onclick="conCloseTranscriptModal()" title="Close" data-i18n-title="btnClose">
+            <img src="../assets/icons/clear.svg" class="btn-icon" alt="" />
+          </button>
+        </div>
+      </div>
+
+      <!-- Body / Progress & Result -->
+      <div class="con-transcript-body">
+        <!-- Progress bar container -->
+        <div id="con-transcript-progress-box" class="con-transcript-progress-box" style="display:none;">
+          <div class="con-transcript-progress-header">
+            <span id="con-transcript-progress-status" data-i18n="conTranscriptProcessing">Transcribing audio...</span>
+            <span id="con-transcript-progress-pct">0%</span>
+          </div>
+          <div class="con-transcript-progress-bar">
+            <div id="con-transcript-progress-fill" class="con-transcript-progress-fill" style="width:0%;"></div>
+          </div>
+          <div id="con-transcript-live-preview" class="con-transcript-live-preview"></div>
+          <div class="con-transcript-progress-actions">
+            <button type="button" class="cwdb-btn-outline" onclick="conCancelTranscript()" data-i18n="btnCancel">Cancel</button>
+          </div>
+        </div>
+
+        <!-- Editor container (when finished or viewing existing) -->
+        <div id="con-transcript-editor-box" class="con-transcript-editor-box">
+          <div class="con-transcript-editor-toolbar">
+            <span id="con-transcript-word-count" class="con-transcript-word-count">0 words</span>
+            <div class="con-transcript-toolbar-tools">
+              <button type="button" class="con-transcript-tb-btn" onclick="conTranscriptCopy()" title="Copy to clipboard" data-i18n-title="sttPillCopy">
+                <img src="../assets/icons/copy.svg" class="btn-icon" alt="" /> <span data-i18n="conTranscriptBtnCopy">Copy</span>
+              </button>
+              <button type="button" class="con-transcript-tb-btn" onclick="conTranscriptExport()" title="Export as document" data-i18n-title="conTranscriptExportTitle">
+                <img src="../assets/icons/export.svg" class="btn-icon" alt="" /> <span data-i18n="conTranscriptBtnExport">Export</span>
+              </button>
+            </div>
+          </div>
+          <textarea id="con-transcript-textarea" class="con-transcript-textarea" placeholder="Transcript text will appear here. You can edit this text before saving or creating notes." data-i18n-placeholder="conTranscriptPlaceholder" spellcheck="true" oninput="conTranscriptUpdateWordCount()"></textarea>
+        </div>
+      </div>
+
+      <!-- Footer Actions -->
+      <div class="con-transcript-footer">
+        <div class="con-transcript-footer-left">
+          <button type="button" id="con-transcript-retranscribe-btn" class="cwdb-btn-outline" onclick="conRerunTranscript()" style="display:none;">
+            <img src="../assets/icons/refresh.svg" class="btn-icon" alt="" /> <span data-i18n="conTranscriptBtnRetranscribe">Re-transcribe</span>
+          </button>
+        </div>
+        <div class="con-transcript-footer-right">
+          <button type="button" class="cwdb-btn-outline" onclick="conCloseTranscriptModal()" data-i18n="btnClose">Close</button>
+          <button type="button" id="con-transcript-insert-note-btn" class="cwdb-btn" onclick="conTranscriptInsertAsNote()">
+            <img src="../assets/icons/note.svg" class="btn-icon" alt="" /> <span data-i18n="conTranscriptBtnInsertNote">+ Note</span>
+          </button>
+          <button type="button" id="con-transcript-insert-nodes-btn" class="cwdb-btn" onclick="conTranscriptInsertAsNodes()">
+            <img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> <span data-i18n="conTranscriptBtnInsertNodes">+ Nodes</span>
+          </button>
+          <button type="button" id="con-transcript-save-btn" class="cwdb-btn cwdb-btn-primary" onclick="conTranscriptSaveToItem()">
+            <img src="../assets/icons/save.svg" class="btn-icon" alt="" /> <span data-i18n="conTranscriptBtnSave">Save to Audio</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>
