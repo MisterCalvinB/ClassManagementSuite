@@ -4683,5 +4683,6 @@
   window.searchBookText = global.searchBookText = searchBookText;
   window.searchAvailableBooks = global.searchAvailableBooks = searchAvailableBooks;
   window.searchReadShortcutBook = global.searchReadShortcutBook = searchReadShortcutBook;
+  window.searchExpandResultParagraph = global.searchExpandResultParagraph = searchExpandResultParagraph;
 
 })(typeof window !== "undefined" ? window : this);

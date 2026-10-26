@@ -4573,6 +4573,31 @@
   window.bpBuildLabel = global.bpBuildLabel = bpBuildLabel;
   window.bpUpdateBtn = global.bpUpdateBtn = bpUpdateBtn;
 
+  window.themeTagRemove = global.themeTagRemove = themeTagRemove;
+  window.awEditWord = global.awEditWord = awEditWord;
+  window.awDeleteWord = global.awDeleteWord = awDeleteWord;
+  window.awSubmitForm = global.awSubmitForm = awSubmitForm;
+  window.awCancelEdit = global.awCancelEdit = awCancelEdit;
+  window.awEditQuote = global.awEditQuote = awEditQuote;
+  window.awDeleteQuote = global.awDeleteQuote = awDeleteQuote;
+  window.awSubmitQuote = global.awSubmitQuote = awSubmitQuote;
+  window.awCancelEditQuote = global.awCancelEditQuote = awCancelEditQuote;
+  window.awEditGap = global.awEditGap = awEditGap;
+  window.awDeleteGap = global.awDeleteGap = awDeleteGap;
+  window.awSubmitGap = global.awSubmitGap = awSubmitGap;
+  window.awCancelEditGap = global.awCancelEditGap = awCancelEditGap;
+  window.awEditError = global.awEditError = awEditError;
+  window.awDeleteError = global.awDeleteError = awDeleteError;
+  window.awSubmitError = global.awSubmitError = awSubmitError;
+  window.awCancelEditError = global.awCancelEditError = awCancelEditError;
+  window.mdbUpdateMergePreview = global.mdbUpdateMergePreview = mdbUpdateMergePreview;
+  window.mdbToggleWord = global.mdbToggleWord = mdbToggleWord;
+  window.mdbDeleteOne = global.mdbDeleteOne = mdbDeleteOne;
+  window.mdbOpenEditWord = global.mdbOpenEditWord = mdbOpenEditWord;
+  window.mdbShowMoreWords = global.mdbShowMoreWords = mdbShowMoreWords;
+  window.mdbUpdateBarCount = global.mdbUpdateBarCount = mdbUpdateBarCount;
+  window.mdbAddMergeTag = global.mdbAddMergeTag = mdbAddMergeTag;
+
   try {
     Object.defineProperty(window, 'activeClassGroup', {
       get: function() { return activeClassGroup; },

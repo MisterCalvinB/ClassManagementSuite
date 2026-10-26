@@ -1713,6 +1713,14 @@
             if (sec.resources) {
               html += '        <div style="font-size:0.75rem;margin-top:4px;"><strong>Materials:</strong> ' + escapeHtml(sec.resources) + '</div>\n';
             }
+            if (Array.isArray(sec.customFields) && sec.customFields.length > 0) {
+              sec.customFields.forEach(function (cf) {
+                var cfTitle = (cf && cf.title) ? String(cf.title).trim() : '';
+                var cfContent = (cf && cf.content) ? String(cf.content).trim() : '';
+                if (!cfTitle && !cfContent) return;
+                html += '        <div style="font-size:0.75rem;margin-top:4px;"><strong>' + escapeHtml(cfTitle || 'Field') + ':</strong> ' + escapeHtml(cfContent).replace(/\n/g, '<br>') + '</div>\n';
+              });
+            }
             html += '      </div>\n';
           });
         }
@@ -2187,6 +2195,15 @@
           if (s.teacherAction && String(s.teacherAction).trim()) md += '- **Teacher:** ' + s.teacherAction.trim() + '\n';
           if (s.studentAction && String(s.studentAction).trim()) md += '- **Students:** ' + s.studentAction.trim() + '\n';
           if (s.resources && String(s.resources).trim()) md += '- **Materials:** ' + s.resources.trim() + '\n';
+          if (Array.isArray(s.customFields) && s.customFields.length > 0) {
+            s.customFields.forEach(function (cf) {
+              var cfTitle = (cf && cf.title) ? String(cf.title).trim() : 'Custom Field';
+              var cfContent = (cf && cf.content) ? String(cf.content).trim() : '';
+              if (cfTitle || cfContent) {
+                md += '- **' + cfTitle + ':** ' + cfContent.replace(/\n+/g, ' ') + '\n';
+              }
+            });
+          }
           md += '\n';
         });
         md += '---\n\n';

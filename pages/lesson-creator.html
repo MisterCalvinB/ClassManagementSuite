@@ -15,6 +15,7 @@
   <script src="../js/menus.js"></script>
   <script src="../js/import-utils.js"></script>
   <script src="../modules/xlsx.min.js"></script>
+  <script src="../modules/marked/marked.umd.js"></script>
   <script src="../js/competence-aggregator-service.js"></script>
   <script src="../js/lesson-creator-service.js"></script>
   <script src="../js/links-service.js"></script>
@@ -55,6 +56,7 @@
         <button class="nav-btn" data-i18n="menuEdit">Edit</button>
         <div class="nav-group-popup">
           <button class="nav-pop-item" onclick="lcAddPhase()"><span data-i18n="lcAddPhase">Add Phase</span> <span class="nav-pop-hint">Ctrl+Shift+A</span></button>
+          <button class="nav-pop-item" onclick="lcPromptAddCustomFieldToAll()"><span data-i18n="lcAddCustomFieldToAll">Add Custom Field to All Phases…</span></button>
           <button class="nav-pop-item" onclick="lcOpenOutlineModal()"><span data-i18n="lcOutlineModalTitle">Lesson Outline &amp; Reorder…</span></button>
           <button class="nav-pop-item" onclick="lcOpenTeamModal()"><span data-i18n="lcTeamConfig">Cooperative Teams…</span></button>
           <button class="nav-pop-item" onclick="lcOpenSoundModal()"><span data-i18n="lcSoundAlert">Phase Sound Alert…</span></button>
@@ -1021,6 +1023,13 @@
                   <span class="neo-switch-slider"></span>
                 </label>
               </div>
+              <div class="customize-toggle-item">
+                <span data-i18n="lcExportCustomFields">Custom Phase Fields</span>
+                <label class="neo-switch">
+                  <input type="checkbox" id="exportTgl_phaseCustomFields" checked onchange="lcOnExportToggleChange()">
+                  <span class="neo-switch-slider"></span>
+                </label>
+              </div>
             </div>
           </div>
         </div>
@@ -1317,6 +1326,13 @@
               <span data-i18n="lcExportCompetenceText">Full Competence Description Text</span>
               <label class="neo-switch">
                 <input type="checkbox" id="copyTgl_phaseDescText" onchange="lcOnCopyToggleChange()">
+                <span class="neo-switch-slider"></span>
+              </label>
+            </div>
+            <div class="customize-toggle-item">
+              <span data-i18n="lcExportCustomFields">Custom Phase Fields</span>
+              <label class="neo-switch">
+                <input type="checkbox" id="copyTgl_phaseCustomFields" checked onchange="lcOnCopyToggleChange()">
                 <span class="neo-switch-slider"></span>
               </label>
             </div>
@@ -3335,6 +3351,84 @@
           iconHtml + '<span>' + escapeHtml(getInteractionLabel(m.id, true)) + '</span></span>';
       }
 
+      function renderMarkdownOrHtml(content, format) {
+        if (!content) return '';
+        var raw = String(content);
+        if (format === 'html') {
+          return raw.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+                    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
+        }
+        if (format === 'markdown' || !format) {
+          if (window.marked && typeof marked.parse === 'function') {
+            try {
+              var parsed = marked.parse(raw, { breaks: true, gfm: true });
+              return String(parsed).replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+                                   .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
+            } catch (e) {
+              console.warn('Error parsing markdown:', e);
+            }
+          }
+        }
+        return escapeHtml(raw).replace(/\n/g, '<br>');
+      }
+
+      function buildPhaseCustomFields(customFields, phaseIndex) {
+        if (!Array.isArray(customFields) || customFields.length === 0) {
+          return '<div class="phase-custom-fields-list" id="phaseCustomFieldsList_' + phaseIndex + '"></div>';
+        }
+
+        var html = '<div class="phase-custom-fields-list" id="phaseCustomFieldsList_' + phaseIndex + '">';
+        customFields.forEach(function (cf) {
+          var cfId = cf.id || ('cf_' + Math.random().toString(36).slice(2, 7));
+          cf.id = cfId;
+          var fmt = cf.format || 'markdown';
+          var isPreview = (cf._viewMode === 'preview');
+          var rendered = renderMarkdownOrHtml(cf.content || '', fmt);
+          var emptyHint = '<div class="phase-custom-preview-empty">' + escapeHtml(i18n.t('lcCustomFieldPreviewEmpty') || 'Empty content — click Edit to add text') + '</div>';
+
+          html += '<div class="phase-custom-field-card" id="cfCard_' + phaseIndex + '_' + escapeHtml(cfId) + '">';
+          // Header
+          html += '  <div class="phase-custom-field-header">';
+          html += '    <div class="phase-custom-field-title-wrap">';
+          html += '      <span class="phase-custom-field-badge">CUSTOM</span>';
+          html += '      <input type="text" class="phase-custom-title-input" value="' + escapeHtml(cf.title || '') + '" placeholder="' + escapeHtml(i18n.t('lcCustomFieldTitlePlaceholder') || 'Field Title (e.g. Vocabulary, Notes)') + '" oninput="lcOnCustomFieldTitleChange(' + phaseIndex + ', \'' + escapeHtml(cfId) + '\', this.value)" title="' + escapeHtml(i18n.t('lcCustomFieldTitlePlaceholder') || 'Custom Field Title') + '">';
+          html += '    </div>';
+
+          // Actions
+          html += '    <div class="phase-custom-field-actions">';
+          // Format switch
+          html += '      <div class="phase-custom-format-group" title="' + escapeHtml(i18n.t('lcCustomFieldFormat') || 'Format') + '">';
+          html += '        <button type="button" class="phase-format-btn' + (fmt === 'markdown' ? ' active' : '') + '" onclick="lcSetCustomFieldFormat(' + phaseIndex + ', \'' + escapeHtml(cfId) + '\', \'markdown\')">MD</button>';
+          html += '        <button type="button" class="phase-format-btn' + (fmt === 'html' ? ' active' : '') + '" onclick="lcSetCustomFieldFormat(' + phaseIndex + ', \'' + escapeHtml(cfId) + '\', \'html\')">HTML</button>';
+          html += '        <button type="button" class="phase-format-btn' + (fmt === 'text' ? ' active' : '') + '" onclick="lcSetCustomFieldFormat(' + phaseIndex + ', \'' + escapeHtml(cfId) + '\', \'text\')">TXT</button>';
+          html += '      </div>';
+
+          // Edit vs Preview
+          html += '      <div class="phase-custom-view-group">';
+          html += '        <button type="button" class="phase-view-btn' + (!isPreview ? ' active' : '') + '" id="cfEditBtn_' + phaseIndex + '_' + escapeHtml(cfId) + '" onclick="lcToggleCustomFieldView(' + phaseIndex + ', \'' + escapeHtml(cfId) + '\', \'edit\')" title="' + escapeHtml(i18n.t('lcCustomFieldEdit') || 'Edit') + '">' + escapeHtml(i18n.t('lcCustomFieldEdit') || 'Edit') + '</button>';
+          html += '        <button type="button" class="phase-view-btn' + (isPreview ? ' active' : '') + '" id="cfPrevBtn_' + phaseIndex + '_' + escapeHtml(cfId) + '" onclick="lcToggleCustomFieldView(' + phaseIndex + ', \'' + escapeHtml(cfId) + '\', \'preview\')" title="' + escapeHtml(i18n.t('lcCustomFieldPreview') || 'Preview') + '">' + escapeHtml(i18n.t('lcCustomFieldPreview') || 'Preview') + '</button>';
+          html += '      </div>';
+
+          // Duplicate to all phases
+          html += '      <button type="button" class="icon-btn" onclick="lcDuplicateCustomFieldToAll(' + phaseIndex + ', \'' + escapeHtml(cfId) + '\')" title="' + escapeHtml(i18n.t('lcDuplicateToAllPhases') || 'Add this field to all phases') + '"><img src="../assets/icons/copy.svg" class="btn-icon btn-icon-xs" alt=""></button>';
+
+          // Remove
+          html += '      <button type="button" class="icon-btn danger" onclick="lcRemoveCustomField(' + phaseIndex + ', \'' + escapeHtml(cfId) + '\')" title="' + escapeHtml(i18n.t('lcRemoveCustomField') || 'Remove Field') + '">&times;</button>';
+          html += '    </div>';
+          html += '  </div>';
+
+          // Body
+          html += '  <div class="phase-custom-field-body">';
+          html += '    <textarea class="phase-textarea phase-custom-textarea" id="cfTextarea_' + phaseIndex + '_' + escapeHtml(cfId) + '" rows="2" placeholder="' + escapeHtml(i18n.t('lcCustomFieldContentPlaceholder') || 'Enter content (Markdown or HTML supported)…') + '" style="' + (isPreview ? 'display:none;' : '') + '" oninput="lcOnCustomFieldContentChange(' + phaseIndex + ', \'' + escapeHtml(cfId) + '\', this.value); lcAutoResizeField(this);">' + escapeHtml(cf.content || '') + '</textarea>';
+          html += '    <div class="phase-custom-preview" id="cfPreview_' + phaseIndex + '_' + escapeHtml(cfId) + '" style="' + (!isPreview ? 'display:none;' : '') + '">' + (rendered || emptyHint) + '</div>';
+          html += '  </div>';
+
+          html += '</div>';
+        });
+        html += '</div>';
+        return html;
+      }
+
       function renderPhaseCards() {
         var list = document.getElementById('phaseCardsList');
         list.innerHTML = '';
@@ -3523,7 +3617,16 @@
             '<div class="phase-field"><label class="phase-label">' + escapeHtml(i18n.t('lcResourcesMaterialsLbl')) + '</label><textarea class="phase-input" rows="1" placeholder="' + escapeHtml(i18n.t('lcResourcesMaterialsPlaceholder')) + '" oninput="lcOnPhaseFieldChange(' + idx + ', \'resources\', this.value); lcAutoResizeField(this);">' + escapeHtml(sec.resources || '') + '</textarea></div>',
             '<div class="phase-field"><label class="phase-label">' + escapeHtml(i18n.t('lcTeacherActionLbl')) + '</label><textarea class="phase-textarea" rows="2" placeholder="' + escapeHtml(i18n.t('lcTeacherActionPlaceholder')) + '" oninput="lcOnPhaseFieldChange(' + idx + ', \'teacherAction\', this.value); lcAutoResizeField(this);">' + escapeHtml(sec.teacherAction || '') + '</textarea></div>',
             '<div class="phase-field"><label class="phase-label">' + escapeHtml(i18n.t('lcStudentActionLbl')) + '</label><textarea class="phase-textarea" rows="2" placeholder="' + escapeHtml(i18n.t('lcStudentActionPlaceholder')) + '" oninput="lcOnPhaseFieldChange(' + idx + ', \'studentAction\', this.value); lcAutoResizeField(this);">' + escapeHtml(sec.studentAction || '') + '</textarea></div>',
-            '<div class="phase-field full-width"><label class="phase-label">' + escapeHtml(i18n.t('lcTaggedStandardsLbl')) + '</label><div class="phase-descriptors-wrap" id="phaseDescWrap_' + idx + '">' + buildPhaseDescriptorChips(sec.descriptorIds, idx) + '</div></div>'
+            '<div class="phase-field full-width"><label class="phase-label">' + escapeHtml(i18n.t('lcTaggedStandardsLbl')) + '</label><div class="phase-descriptors-wrap" id="phaseDescWrap_' + idx + '">' + buildPhaseDescriptorChips(sec.descriptorIds, idx) + '</div></div>',
+            '<div class="phase-field full-width">' +
+              buildPhaseCustomFields(sec.customFields, idx) +
+              '<div style="display:flex;align-items:center;gap:6px;margin-top:4px;">' +
+                '<button type="button" class="neo-btn" style="padding:4px 10px;font-size:0.75rem;background:#f0fdf4;border-color:#16a34a;color:#15803d;font-weight:800;display:inline-flex;align-items:center;gap:4px;" onclick="lcAddCustomField(' + idx + ')" title="' + escapeHtml(i18n.t('lcAddCustomFieldTooltip') || 'Add custom phase field with customizable title and Markdown or HTML support') + '">' +
+                  '<img src="../assets/icons/plus.svg" class="btn-icon btn-icon-xs" alt="">' +
+                  '<span>+ ' + escapeHtml(i18n.t('lcAddCustomField') || 'Add Custom Field') + '</span>' +
+                '</button>' +
+              '</div>' +
+            '</div>'
           ].join('');
           card.appendChild(body);
 
@@ -4369,7 +4472,8 @@
           teacherAction: template.teacherAction || '',
           studentAction: template.studentAction || '',
           descriptorIds: Array.isArray(template.descriptorIds) ? template.descriptorIds.slice() : [],
-          resources: template.resources || ''
+          resources: template.resources || '',
+          customFields: Array.isArray(template.customFields) ? JSON.parse(JSON.stringify(template.customFields)) : []
         };
 
         currentPlan.sections = currentPlan.sections || [];
@@ -4563,7 +4667,8 @@
           studentAction: sec.studentAction || '',
           resources: sec.resources || '',
           descriptorIds: Array.isArray(sec.descriptorIds) ? sec.descriptorIds.slice() : [],
-          tags: tagsVal
+          tags: tagsVal,
+          customFields: Array.isArray(sec.customFields) ? JSON.parse(JSON.stringify(sec.customFields)) : []
         };
 
         // Also update the section in the current plan with the assigned category/tags
@@ -4941,7 +5046,8 @@
           teacherAction: '',
           studentAction: '',
           descriptorIds: [],
-          resources: ''
+          resources: '',
+          customFields: []
         };
         currentPlan.sections = currentPlan.sections || [];
         currentPlan.sections.push(newSec);
@@ -5011,6 +5117,13 @@
           var cloned = JSON.parse(JSON.stringify(currentPlan.sections[idx]));
           cloned.id = LessonCreatorService.generateId('sec');
           cloned.title = cloned.title + ' (Copy)';
+          if (Array.isArray(cloned.customFields)) {
+            cloned.customFields = cloned.customFields.map(function (cf) {
+              return Object.assign({}, cf, {
+                id: 'cf_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6)
+              });
+            });
+          }
           currentPlan.sections.splice(idx + 1, 0, cloned);
           renderPhaseCards();
           updateDurationMeter();
@@ -5024,6 +5137,199 @@
           renderPhaseCards();
           updateDurationMeter();
           lcOnPlanDirty();
+        }
+      };
+
+      // ── Custom Phase Fields Operations ──────────────────────────────────
+      window.lcAddCustomField = function (phaseIdx, initialData) {
+        if (!currentPlan.sections || !currentPlan.sections[phaseIdx]) return;
+        var sec = currentPlan.sections[phaseIdx];
+        sec.customFields = Array.isArray(sec.customFields) ? sec.customFields : [];
+        var newCf = {
+          id: 'cf_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6),
+          title: (initialData && initialData.title) || '',
+          content: (initialData && initialData.content) || '',
+          format: (initialData && initialData.format) || 'markdown',
+          _viewMode: 'edit'
+        };
+        sec.customFields.push(newCf);
+        renderPhaseCards();
+        lcOnPlanDirty();
+        setTimeout(function () {
+          var cardEl = document.getElementById('cfCard_' + phaseIdx + '_' + newCf.id);
+          if (cardEl) {
+            var inp = cardEl.querySelector('.phase-custom-title-input');
+            if (inp) inp.focus();
+          }
+        }, 50);
+      };
+
+      window.lcOnCustomFieldTitleChange = function (phaseIdx, cfId, newTitle) {
+        if (!currentPlan.sections || !currentPlan.sections[phaseIdx]) return;
+        var sec = currentPlan.sections[phaseIdx];
+        if (!Array.isArray(sec.customFields)) return;
+        var cf = sec.customFields.find(function (f) { return f.id === cfId; });
+        if (cf) {
+          cf.title = newTitle;
+          lcOnPlanDirty();
+        }
+      };
+
+      window.lcOnCustomFieldContentChange = function (phaseIdx, cfId, newContent) {
+        if (!currentPlan.sections || !currentPlan.sections[phaseIdx]) return;
+        var sec = currentPlan.sections[phaseIdx];
+        if (!Array.isArray(sec.customFields)) return;
+        var cf = sec.customFields.find(function (f) { return f.id === cfId; });
+        if (cf) {
+          cf.content = newContent;
+          var prevEl = document.getElementById('cfPreview_' + phaseIdx + '_' + cfId);
+          if (prevEl) {
+            var rendered = renderMarkdownOrHtml(newContent, cf.format);
+            var emptyHint = '<div class="phase-custom-preview-empty">' + escapeHtml(i18n.t('lcCustomFieldPreviewEmpty') || 'Empty content — click Edit to add text') + '</div>';
+            prevEl.innerHTML = rendered || emptyHint;
+          }
+          lcOnPlanDirty();
+        }
+      };
+
+      window.lcSetCustomFieldFormat = function (phaseIdx, cfId, newFormat) {
+        if (!currentPlan.sections || !currentPlan.sections[phaseIdx]) return;
+        var sec = currentPlan.sections[phaseIdx];
+        if (!Array.isArray(sec.customFields)) return;
+        var cf = sec.customFields.find(function (f) { return f.id === cfId; });
+        if (cf) {
+          cf.format = newFormat;
+          var cardEl = document.getElementById('cfCard_' + phaseIdx + '_' + cfId);
+          if (cardEl) {
+            var btns = cardEl.querySelectorAll('.phase-format-btn');
+            btns.forEach(function (btn) {
+              var txt = btn.textContent.trim().toUpperCase();
+              var match = (newFormat === 'markdown' && txt === 'MD') ||
+                          (newFormat === 'html' && txt === 'HTML') ||
+                          (newFormat === 'text' && txt === 'TXT');
+              btn.classList.toggle('active', match);
+            });
+            var prevEl = document.getElementById('cfPreview_' + phaseIdx + '_' + cfId);
+            if (prevEl) {
+              var rendered = renderMarkdownOrHtml(cf.content || '', newFormat);
+              var emptyHint = '<div class="phase-custom-preview-empty">' + escapeHtml(i18n.t('lcCustomFieldPreviewEmpty') || 'Empty content — click Edit to add text') + '</div>';
+              prevEl.innerHTML = rendered || emptyHint;
+            }
+          }
+          lcOnPlanDirty();
+        }
+      };
+
+      window.lcToggleCustomFieldView = function (phaseIdx, cfId, mode) {
+        if (!currentPlan.sections || !currentPlan.sections[phaseIdx]) return;
+        var sec = currentPlan.sections[phaseIdx];
+        if (!Array.isArray(sec.customFields)) return;
+        var cf = sec.customFields.find(function (f) { return f.id === cfId; });
+        if (cf) {
+          cf._viewMode = mode;
+          var editBtn = document.getElementById('cfEditBtn_' + phaseIdx + '_' + cfId);
+          var prevBtn = document.getElementById('cfPrevBtn_' + phaseIdx + '_' + cfId);
+          var ta = document.getElementById('cfTextarea_' + phaseIdx + '_' + cfId);
+          var prevEl = document.getElementById('cfPreview_' + phaseIdx + '_' + cfId);
+          var isPreview = (mode === 'preview');
+
+          if (editBtn) editBtn.classList.toggle('active', !isPreview);
+          if (prevBtn) prevBtn.classList.toggle('active', isPreview);
+
+          if (isPreview) {
+            if (ta) ta.style.display = 'none';
+            if (prevEl) {
+              var rendered = renderMarkdownOrHtml(cf.content || '', cf.format);
+              var emptyHint = '<div class="phase-custom-preview-empty">' + escapeHtml(i18n.t('lcCustomFieldPreviewEmpty') || 'Empty content — click Edit to add text') + '</div>';
+              prevEl.innerHTML = rendered || emptyHint;
+              prevEl.style.display = 'block';
+            }
+          } else {
+            if (prevEl) prevEl.style.display = 'none';
+            if (ta) {
+              ta.style.display = 'block';
+              lcAutoResizeField(ta);
+              ta.focus();
+            }
+          }
+        }
+      };
+
+      window.lcRemoveCustomField = function (phaseIdx, cfId) {
+        if (!currentPlan.sections || !currentPlan.sections[phaseIdx]) return;
+        var sec = currentPlan.sections[phaseIdx];
+        if (!Array.isArray(sec.customFields)) return;
+        var idx = sec.customFields.findIndex(function (f) { return f.id === cfId; });
+        if (idx !== -1) {
+          sec.customFields.splice(idx, 1);
+          renderPhaseCards();
+          lcOnPlanDirty();
+          if (typeof showToast === 'function') {
+            showToast(i18n.t('lcToastCustomFieldRemoved') || 'Custom field removed');
+          }
+        }
+      };
+
+      window.lcDuplicateCustomFieldToAll = function (sourcePhaseIdx, cfId) {
+        if (!currentPlan.sections || !currentPlan.sections[sourcePhaseIdx]) return;
+        var sourceSec = currentPlan.sections[sourcePhaseIdx];
+        if (!Array.isArray(sourceSec.customFields)) return;
+        var srcCf = sourceSec.customFields.find(function (f) { return f.id === cfId; });
+        if (!srcCf) return;
+
+        var addedCount = 0;
+        (currentPlan.sections || []).forEach(function (sec, pIdx) {
+          if (pIdx === sourcePhaseIdx) return;
+          sec.customFields = Array.isArray(sec.customFields) ? sec.customFields : [];
+          var exists = sec.customFields.some(function (f) {
+            return (f.title || '').trim().toLowerCase() === (srcCf.title || '').trim().toLowerCase();
+          });
+          if (!exists) {
+            sec.customFields.push({
+              id: 'cf_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6),
+              title: srcCf.title || '',
+              content: '',
+              format: srcCf.format || 'markdown',
+              _viewMode: 'edit'
+            });
+            addedCount++;
+          }
+        });
+
+        renderPhaseCards();
+        lcOnPlanDirty();
+        if (typeof showToast === 'function') {
+          showToast(i18n.t('lcToastCustomFieldAddedAll') || 'Custom field added to all phases');
+        }
+      };
+
+      window.lcPromptAddCustomFieldToAll = function () {
+        var promptMsg = i18n.t('lcPromptCustomFieldTitle') || 'Enter title for the custom phase field (e.g. Key Vocabulary, Homework):';
+        if (typeof showPrompt === 'function') {
+          showPrompt(promptMsg, '').then(function (title) {
+            if (!title || !title.trim()) return;
+            var cleanTitle = title.trim();
+            (currentPlan.sections || []).forEach(function (sec) {
+              sec.customFields = Array.isArray(sec.customFields) ? sec.customFields : [];
+              var exists = sec.customFields.some(function (f) {
+                return (f.title || '').trim().toLowerCase() === cleanTitle.toLowerCase();
+              });
+              if (!exists) {
+                sec.customFields.push({
+                  id: 'cf_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6),
+                  title: cleanTitle,
+                  content: '',
+                  format: 'markdown',
+                  _viewMode: 'edit'
+                });
+              }
+            });
+            renderPhaseCards();
+            lcOnPlanDirty();
+            if (typeof showToast === 'function') {
+              showToast(i18n.t('lcToastCustomFieldAddedAll') || 'Custom field added to all phases');
+            }
+          });
         }
       };
 
@@ -5146,6 +5452,13 @@
         partB.id = LessonCreatorService.generateId('sec');
         partB.title = titB;
         partB.duration = durB;
+        if (Array.isArray(partB.customFields)) {
+          partB.customFields = partB.customFields.map(function (cf) {
+            return Object.assign({}, cf, {
+              id: 'cf_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6)
+            });
+          });
+        }
 
         currentPlan.sections.splice(idx, 1, partA, partB);
         lcCloseModal('splitModal');
@@ -8460,7 +8773,7 @@
 
       function lcGetExportToggles() {
         var keys = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence', 'metaTags', 'metaTeams',
-                    'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseTeacher', 'phaseStudent', 'phaseResources', 'phaseDescriptors', 'phaseDescText', 'phaseDiff', 'phaseAssess'];
+                    'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseTeacher', 'phaseStudent', 'phaseResources', 'phaseDescriptors', 'phaseDescText', 'phaseDiff', 'phaseAssess', 'phaseCustomFields'];
         var res = {};
         keys.forEach(function (k) {
           var el = document.getElementById('exportTgl_' + k);
@@ -8798,6 +9111,25 @@
           '      background: #ffffff;\n' +
           '      border-left: 4px solid var(--neo-red);\n' +
           '    }\n' +
+          '    .custom-field-box {\n' +
+          '      background: #ffffff;\n' +
+          '      border: var(--neo-border-sm) solid var(--neo-border-color);\n' +
+          '      border-left: 4px solid #8b7cc2;\n' +
+          '      margin-top: 6px;\n' +
+          '    }\n' +
+          '    .custom-field-content {\n' +
+          '      font-size: 0.88rem;\n' +
+          '      line-height: 1.55;\n' +
+          '      color: var(--neo-dark);\n' +
+          '    }\n' +
+          '    .custom-field-content p { margin: 0 0 6px 0; }\n' +
+          '    .custom-field-content p:last-child { margin-bottom: 0; }\n' +
+          '    .custom-field-content ul, .custom-field-content ol { margin: 4px 0 6px 20px; padding: 0; }\n' +
+          '    .custom-field-content table { border-collapse: collapse; margin: 6px 0; width: 100%; font-size: 0.82rem; }\n' +
+          '    .custom-field-content th, .custom-field-content td { border: 1px solid #333; padding: 4px 8px; text-align: left; }\n' +
+          '    .custom-field-content th { background: #f1f5f9; font-weight: 700; }\n' +
+          '    .custom-field-content code { background: #f1f5f9; padding: 2px 5px; border-radius: 4px; font-family: monospace; font-size: 0.82rem; }\n' +
+          '    .custom-field-content pre { background: #1e293b; color: #f8fafc; border: 1px solid #333; padding: 8px; border-radius: 4px; overflow-x: auto; }\n' +
           '    .descriptors-box {\n' +
           '      background: #ffffff;\n' +
           '      border-left: 4px solid var(--neo-teal);\n' +
@@ -9063,6 +9395,20 @@
             html += '          <span class="box-tag">' + escapeHtml(assessTag) + '</span>\n';
             html += '          <div class="box-text">' + escapeHtml(sec.assessmentStrategy) + '</div>\n';
             html += '        </div>\n';
+          }
+
+          // Custom Phase Fields
+          if (toggles.phaseCustomFields !== false && Array.isArray(sec.customFields) && sec.customFields.length > 0) {
+            sec.customFields.forEach(function (cf) {
+              if (cf && (cf.content || cf.title)) {
+                var cfTitle = cf.title || i18n.t('lcCustomField') || 'Custom Field';
+                var renderedContent = renderMarkdownOrHtml(cf.content || '', cf.format);
+                html += '        <div class="sec-box custom-field-box">\n';
+                html += '          <span class="box-tag">' + escapeHtml(cfTitle) + '</span>\n';
+                html += '          <div class="box-text custom-field-content">' + renderedContent + '</div>\n';
+                html += '        </div>\n';
+              }
+            });
           }
 
           html += '      </div>\n';
@@ -9383,6 +9729,18 @@
         if (toggles.phaseDescriptors) headers.push('Tagged Competences');
         if (toggles.phaseDiff) headers.push('Differentiation & Support');
         if (toggles.phaseAssess) headers.push('Formative Assessment');
+        var customFieldTitles = [];
+        if (toggles.phaseCustomFields !== false) {
+          phases.forEach(function (sec) {
+            if (Array.isArray(sec.customFields)) {
+              sec.customFields.forEach(function (cf) {
+                var t = (cf && cf.title ? cf.title.trim() : 'Custom Field');
+                if (customFieldTitles.indexOf(t) === -1) customFieldTitles.push(t);
+              });
+            }
+          });
+          customFieldTitles.forEach(function (t) { headers.push(t); });
+        }
 
         aoa.push(headers);
 
@@ -9427,6 +9785,14 @@
           }
           if (toggles.phaseDiff) row.push(sec.differentiation || '');
           if (toggles.phaseAssess) row.push(sec.assessmentStrategy || '');
+          if (toggles.phaseCustomFields !== false) {
+            customFieldTitles.forEach(function (t) {
+              var match = Array.isArray(sec.customFields) ? sec.customFields.find(function (f) {
+                return (f.title || '').trim().toLowerCase() === t.toLowerCase();
+              }) : null;
+              row.push(match ? (match.content || '') : '');
+            });
+          }
           aoa.push(row);
         });
 
@@ -9576,6 +9942,18 @@
         if (toggles.phaseDescriptors) headers.push('Tagged Competences');
         if (toggles.phaseDiff) headers.push('Differentiation');
         if (toggles.phaseAssess) headers.push('Formative Assessment');
+        var customCsvTitles = [];
+        if (toggles.phaseCustomFields !== false) {
+          phases.forEach(function (sec) {
+            if (Array.isArray(sec.customFields)) {
+              sec.customFields.forEach(function (cf) {
+                var t = (cf && cf.title ? cf.title.trim() : 'Custom Field');
+                if (customCsvTitles.indexOf(t) === -1) customCsvTitles.push(t);
+              });
+            }
+          });
+          customCsvTitles.forEach(function (t) { headers.push(t); });
+        }
 
         rows.push(headers.map(escCsv).join(','));
 
@@ -9617,6 +9995,14 @@
           }
           if (toggles.phaseDiff) r.push(sec.differentiation || '');
           if (toggles.phaseAssess) r.push(sec.assessmentStrategy || '');
+          if (toggles.phaseCustomFields !== false) {
+            customCsvTitles.forEach(function (t) {
+              var match = Array.isArray(sec.customFields) ? sec.customFields.find(function (f) {
+                return (f.title || '').trim().toLowerCase() === t.toLowerCase();
+              }) : null;
+              r.push(match ? (match.content || '') : '');
+            });
+          }
           rows.push(r.map(escCsv).join(','));
         });
 
@@ -9810,7 +10196,8 @@
         phaseStudent: true,
         phaseResources: true,
         phaseDescriptors: true,
-        phaseDescText: false
+        phaseDescText: false,
+        phaseCustomFields: true
       };
 
       function getActivityLabel(aId, isShort) {
@@ -10031,7 +10418,8 @@
           phaseStudent: !!(document.getElementById('copyTgl_phaseStudent') && document.getElementById('copyTgl_phaseStudent').checked),
           phaseResources: !!(document.getElementById('copyTgl_phaseResources') && document.getElementById('copyTgl_phaseResources').checked),
           phaseDescriptors: !!(document.getElementById('copyTgl_phaseDescriptors') && document.getElementById('copyTgl_phaseDescriptors').checked),
-          phaseDescText: !!(document.getElementById('copyTgl_phaseDescText') && document.getElementById('copyTgl_phaseDescText').checked)
+          phaseDescText: !!(document.getElementById('copyTgl_phaseDescText') && document.getElementById('copyTgl_phaseDescText').checked),
+          phaseCustomFields: !(document.getElementById('copyTgl_phaseCustomFields') && !document.getElementById('copyTgl_phaseCustomFields').checked)
         };
       }
 
@@ -10182,6 +10570,15 @@
               pLines.push(formatField('Competences', (cfg.phaseDescText ? ('\n  • ' + descNames) : descNames)));
             }
 
+            // Custom Fields
+            if (cfg.phaseCustomFields !== false && Array.isArray(sec.customFields) && sec.customFields.length > 0) {
+              sec.customFields.forEach(function (cf) {
+                if (cf && cf.content) {
+                  pLines.push(formatField(cf.title || 'Custom Field', cf.content));
+                }
+              });
+            }
+
             if (pLines.length > 0) {
               lines.push(pLines.join('\n'));
               lines.push(''); // Blank separator between phases
@@ -10203,7 +10600,7 @@
         if (fmtSel) fmtSel.value = cfg.format || 'markdown';
 
         var keys = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence', 'metaTags', 'metaTeams',
-                     'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseTeacher', 'phaseStudent', 'phaseResources', 'phaseDescriptors', 'phaseDescText'];
+                     'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseTeacher', 'phaseStudent', 'phaseResources', 'phaseDescriptors', 'phaseDescText', 'phaseCustomFields'];
         keys.forEach(function (k) {
           var el = document.getElementById('copyTgl_' + k);
           if (el) el.checked = (cfg[k] === true);

@@ -2192,15 +2192,61 @@
     }
 
   Board.shortcuts = Board.shortcuts || {};
+  Board.shortcuts.boardSoundPreviewAction = boardSoundPreviewAction;
+  Board.shortcuts.boardSoundBrowseCustomFile = boardSoundBrowseCustomFile;
+  Board.shortcuts.boardSoundToggleSelectAll = boardSoundToggleSelectAll;
+  Board.shortcuts.boardSoundSelectAll = boardSoundSelectAll;
+  Board.shortcuts.boardSoundToggleMasterEnable = boardSoundToggleMasterEnable;
+  Board.shortcuts.boardSoundRescanFiles = boardSoundRescanFiles;
+  Board.shortcuts.resetBoardSoundsToDefault = resetBoardSoundsToDefault;
+  Board.shortcuts.boardFilterSoundTable = boardFilterSoundTable;
+  Board.shortcuts._bcUpdateSoundRowState = _bcUpdateSoundRowState;
+  Board.shortcuts._bcHandleSoundSourceChange = _bcHandleSoundSourceChange;
+  Board.shortcuts.startRecordingBoardShortcut = startRecordingBoardShortcut;
+  Board.shortcuts.clearBoardShortcut = clearBoardShortcut;
+  Board.shortcuts.toggleBoardQuickActionPin = toggleBoardQuickActionPin;
+  Board.shortcuts.boardFilterShortcutsTable = boardFilterShortcutsTable;
+  Board.shortcuts.resetBoardShortcutsToDefault = resetBoardShortcutsToDefault;
+  Board.shortcuts.renderBoardShortcutsTable = renderBoardShortcutsTable;
+  Board.shortcuts.renderQuickActionsToolbar = renderQuickActionsToolbar;
+  Board.shortcuts.getBoardCustomShortcutsMap = getBoardCustomShortcutsMap;
+  Board.shortcuts.saveBoardCustomShortcutsMap = saveBoardCustomShortcutsMap;
+  Board.shortcuts.getBoardQuickActionsList = getBoardQuickActionsList;
+  Board.shortcuts.saveBoardQuickActionsList = saveBoardQuickActionsList;
+  Board.shortcuts.getActiveShortcutForDef = getActiveShortcutForDef;
+  Board.shortcuts.boardDispatchCustomShortcut = boardDispatchCustomShortcut;
+  Board.shortcuts.openBoardShortcuts = openBoardShortcuts;
+  Board.shortcuts.boardCustomiseOpen = boardCustomiseOpen;
+  Board.shortcuts.boardCustomiseClose = boardCustomiseClose;
+  Board.shortcuts.boardCustomiseSave = boardCustomiseSave;
 
   // Backward compatibility exports for HTML attributes & cross-module calls
-  window.boardFilterShortcutsTable = global.boardFilterShortcutsTable = boardFilterShortcutsTable;
-  window.resetBoardShortcutsToDefault = global.resetBoardShortcutsToDefault = resetBoardShortcutsToDefault;
+  window.boardSoundPreviewAction = global.boardSoundPreviewAction = boardSoundPreviewAction;
+  window.boardSoundBrowseCustomFile = global.boardSoundBrowseCustomFile = boardSoundBrowseCustomFile;
+  window.boardSoundToggleSelectAll = global.boardSoundToggleSelectAll = boardSoundToggleSelectAll;
   window.boardSoundSelectAll = global.boardSoundSelectAll = boardSoundSelectAll;
   window.boardFilterSoundTable = global.boardFilterSoundTable = boardFilterSoundTable;
   window.boardSoundToggleMasterEnable = global.boardSoundToggleMasterEnable = boardSoundToggleMasterEnable;
   window.boardSoundRescanFiles = global.boardSoundRescanFiles = boardSoundRescanFiles;
   window.resetBoardSoundsToDefault = global.resetBoardSoundsToDefault = resetBoardSoundsToDefault;
+  window._bcUpdateSoundRowState = global._bcUpdateSoundRowState = _bcUpdateSoundRowState;
+  window._bcHandleSoundSourceChange = global._bcHandleSoundSourceChange = _bcHandleSoundSourceChange;
+  window._bcBuildSoundTable = global._bcBuildSoundTable = _bcBuildSoundTable;
+  window._bcGetSoundSettings = global._bcGetSoundSettings = _bcGetSoundSettings;
+
+  window.startRecordingBoardShortcut = global.startRecordingBoardShortcut = startRecordingBoardShortcut;
+  window.clearBoardShortcut = global.clearBoardShortcut = clearBoardShortcut;
+  window.toggleBoardQuickActionPin = global.toggleBoardQuickActionPin = toggleBoardQuickActionPin;
+  window.boardFilterShortcutsTable = global.boardFilterShortcutsTable = boardFilterShortcutsTable;
+  window.resetBoardShortcutsToDefault = global.resetBoardShortcutsToDefault = resetBoardShortcutsToDefault;
+  window.renderBoardShortcutsTable = global.renderBoardShortcutsTable = renderBoardShortcutsTable;
+  window.renderQuickActionsToolbar = global.renderQuickActionsToolbar = renderQuickActionsToolbar;
+  window.saveBoardCustomShortcutsMap = global.saveBoardCustomShortcutsMap = saveBoardCustomShortcutsMap;
+  window.saveBoardQuickActionsList = global.saveBoardQuickActionsList = saveBoardQuickActionsList;
+  window.formatShortcutKeysList = global.formatShortcutKeysList = formatShortcutKeysList;
+  window.formatShortcutKeyHtml = global.formatShortcutKeyHtml = formatShortcutKeyHtml;
+  window._cancelRecording = global._cancelRecording = _cancelRecording;
+
   window.boardCustomiseOpen = global.boardCustomiseOpen = boardCustomiseOpen;
   window.boardCustomiseClose = global.boardCustomiseClose = boardCustomiseClose;
   window.boardCustomiseSave = global.boardCustomiseSave = boardCustomiseSave;
