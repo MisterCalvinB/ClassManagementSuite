@@ -1686,6 +1686,38 @@
             color: #92400e !important;
         }
 
+        .btn-mini.btn-badge-inline.tone-positive,
+        .btn-mini.btn-badge-inline.btn-badge-positive,
+        .btn-mini.btn-badge-inline[data-tone="positive"] {
+            background: #ecfdf5 !important;
+            color: #047857 !important;
+            border-color: #059669 !important;
+        }
+
+        .btn-mini.btn-badge-inline.tone-positive:hover,
+        .btn-mini.btn-badge-inline.btn-badge-positive:hover,
+        .btn-mini.btn-badge-inline[data-tone="positive"]:hover {
+            background: #d1fae5 !important;
+            color: #065f46 !important;
+            border-color: #059669 !important;
+        }
+
+        .btn-mini.btn-badge-inline.tone-negative,
+        .btn-mini.btn-badge-inline.btn-badge-negative,
+        .btn-mini.btn-badge-inline[data-tone="negative"] {
+            background: #fef2f2 !important;
+            color: #b91c1c !important;
+            border-color: #dc2626 !important;
+        }
+
+        .btn-mini.btn-badge-inline.tone-negative:hover,
+        .btn-mini.btn-badge-inline.btn-badge-negative:hover,
+        .btn-mini.btn-badge-inline[data-tone="negative"]:hover {
+            background: #fee2e2 !important;
+            color: #991b1b !important;
+            border-color: #dc2626 !important;
+        }
+
         /* Team Dividers (Drag headers) */
         li[data-team-id] {
             border: 2px solid #333333 !important;
@@ -4152,6 +4184,8 @@
         let currentPlannerEntryId = '';
         let groupExamModes = {}; // { [groupName]: boolean }
         let _promptedExamSessionKeys = new Set(); // Prevent repeated prompts per class per day
+        var _cmsCurrentAssociatedTest = null;
+        var _cmsGradesChannel = null;
 
         const DEFAULT_TEAM_COLORS = teamColors.map(entry => ({ ...entry }));
         const EXTRA_TEAM_COLOR_PRESETS = [
@@ -10657,8 +10691,7 @@
                 .replace(/^\.+/, '_') || '_unnamed';
         }
 
-        let _cmsCurrentAssociatedTest = null;
-        let _cmsGradesChannel = null;
+        // _cmsCurrentAssociatedTest and _cmsGradesChannel declared at top of script to prevent TDZ ReferenceError during initApp()
 
         function _cmsInitGradesSync() {
             if (typeof BroadcastChannel === 'undefined' || _cmsGradesChannel) return;
@@ -16041,10 +16074,13 @@ syncState();
 
             const renderButton = (badge) => {
                 const title = [badge.label, badge.meaning].filter(Boolean).join(' — ');
-                const toneStyles = badge.tone === 'negative'
-                    ? 'background:#fff7f7; border-color:#e9b9b9; color:#8a1c1c;'
-                    : 'background:#f7fff7; border-color:#b7e0b7; color:#0c5c2a;';
-                return `<button class="btn-mini btn-badge-inline" onclick='awardBadge(${teamId}, ${JSON.stringify(badge.icon)}, ${JSON.stringify(badge.label)}, ${JSON.stringify(badge.tone)}, ${JSON.stringify(badge.meaning)}, "team")' title="${escapeSettingsHtml(title)}" style="${toneStyles}">${escapeSettingsHtml(badge.icon)}</button>`;
+                const isNeg = badge.tone === 'negative';
+                const toneClass = isNeg ? 'tone-negative btn-badge-negative' : 'tone-positive btn-badge-positive';
+                const toneAttr = isNeg ? 'negative' : 'positive';
+                const toneStyles = isNeg
+                    ? 'background:#fef2f2; border-color:#dc2626; color:#b91c1c;'
+                    : 'background:#ecfdf5; border-color:#059669; color:#047857;';
+                return `<button class="btn-mini btn-badge-inline ${toneClass}" data-tone="${toneAttr}" onclick='awardBadge(${teamId}, ${JSON.stringify(badge.icon)}, ${JSON.stringify(badge.label)}, ${JSON.stringify(badge.tone)}, ${JSON.stringify(badge.meaning)}, "team")' title="${escapeSettingsHtml(title)}" style="${toneStyles}">${escapeSettingsHtml(badge.icon)}</button>`;
             };
 
             return defs.map(renderButton).join('');
@@ -16056,10 +16092,13 @@ syncState();
 
             const renderButton = (badge) => {
                 const title = [badge.label, badge.meaning].filter(Boolean).join(' — ');
-                const toneStyles = badge.tone === 'negative'
-                    ? 'background:#fff7f7; border-color:#e9b9b9; color:#8a1c1c;'
-                    : 'background:#f7fff7; border-color:#b7e0b7; color:#0c5c2a;';
-                return `<button class="btn-mini btn-badge-inline" onclick='awardBadge(${targetId}, ${JSON.stringify(badge.icon)}, ${JSON.stringify(badge.label)}, ${JSON.stringify(badge.tone)}, ${JSON.stringify(badge.meaning)}, ${JSON.stringify(targetType)})' title="${escapeSettingsHtml(title)}" style="${toneStyles}">${escapeSettingsHtml(badge.icon)}</button>`;
+                const isNeg = badge.tone === 'negative';
+                const toneClass = isNeg ? 'tone-negative btn-badge-negative' : 'tone-positive btn-badge-positive';
+                const toneAttr = isNeg ? 'negative' : 'positive';
+                const toneStyles = isNeg
+                    ? 'background:#fef2f2; border-color:#dc2626; color:#b91c1c;'
+                    : 'background:#ecfdf5; border-color:#059669; color:#047857;';
+                return `<button class="btn-mini btn-badge-inline ${toneClass}" data-tone="${toneAttr}" onclick='awardBadge(${targetId}, ${JSON.stringify(badge.icon)}, ${JSON.stringify(badge.label)}, ${JSON.stringify(badge.tone)}, ${JSON.stringify(badge.meaning)}, ${JSON.stringify(targetType)})' title="${escapeSettingsHtml(title)}" style="${toneStyles}">${escapeSettingsHtml(badge.icon)}</button>`;
             };
 
             return defs.map(renderButton).join('');
@@ -18446,6 +18485,9 @@ syncState();
 
             window.addEventListener('beforeunload', () => {
                 saveAllActiveGroupsSilent();
+                if (_cmsGradesChannel && typeof _cmsGradesChannel.close === 'function') {
+                    try { _cmsGradesChannel.close(); } catch (_) {}
+                }
             });
         }
 

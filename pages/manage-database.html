@@ -1633,7 +1633,8 @@
         // Capped unique value check: we only use uniqueVals if uniqueVals.length <= 25 for select dropdowns
         let uniqueVals = [];
         let useSelect = false;
-        if (type === 'string' || type === 'number') {
+        const isBadgeTextField = (S.typeKey === 'badgebanks' && ['icon', 'label', 'meaning', 'coefficient'].includes(key));
+        if (!isBadgeTextField && (type === 'string' || type === 'number')) {
           const valSet = new Set();
           for (let i = 0; i < records.length; i++) {
             const v = records[i]?.[key];
@@ -1790,7 +1791,7 @@
         addStr('icon');
         addStr('label');
         addStr('tone', { useSelect: true, uniqueVals: ['positive', 'negative'] });
-        addStr('meaning', { isLong: true });
+        addStr('meaning');
         addNum('coefficient');
         addStr('scope', { useSelect: true, uniqueVals: ['individual', 'team', 'both'] });
         addBool('inlineInRoster');
@@ -3915,6 +3916,15 @@
           <option value="team"${curScope === 'team' ? ' selected' : ''}>Team</option>
           <option value="both"${curScope === 'both' ? ' selected' : ''}>Both</option>
         </select>`;
+      } else if (S.typeKey === 'badgebanks' && (field.key === 'icon' || field.key === 'label' || field.key === 'meaning' || field.key === 'coefficient')) {
+        let ph = '';
+        if (field.key === 'icon') ph = 'e.g. ⭐, 🎯, A+ (max 8 chars)';
+        else if (field.key === 'label') ph = 'e.g. Active Participation';
+        else if (field.key === 'meaning') ph = 'e.g. Solid work, focus and perseverance';
+        else if (field.key === 'coefficient') ph = 'e.g. 1, -1, 2';
+        const maxLenAttr = field.key === 'icon' ? ' maxlength="8"' : '';
+        const defVal = (field.key === 'coefficient' && (val === undefined || val === null || val === '')) ? '1' : String(val ?? '');
+        input = `<input type="text" id="${id}" value="${esc(defVal)}"${maxLenAttr} placeholder="${esc(ph)}">`;
       } else if (field.useSelect && Array.isArray(field.uniqueVals) && field.uniqueVals.length > 0) {
         input = `<select id="${id}">${field.uniqueVals.map(opt => `<option value="${esc(opt)}"${val === opt ? ' selected' : ''}>${esc(opt)}</option>`).join('')}</select>`;
       } else if (field.type === 'boolean') {
@@ -4081,6 +4091,8 @@
       else if (S.typeKey === 'chips' && field.key === 'items') fieldLabel = t('mdbColItems', 'Observation Chips');
       else if (S.typeKey === 'scales' && field.key === 'key') fieldLabel = 'Scale Identifier (Key)';
       else if (S.typeKey === 'scales' && field.key === 'label') fieldLabel = 'Scale Display Name';
+      else if (S.typeKey === 'badgebanks' && field.key === 'inlineInRoster') fieldLabel = 'Inline in Roster';
+      else if (S.typeKey === 'badgebanks' && field.key === 'strikeOnAward') fieldLabel = 'Strike on Award';
 
       return `<div class="form-field" style="margin-bottom:12px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
@@ -4113,6 +4125,17 @@
           if (f.uniqueVals && f.uniqueVals.length) existing.uniqueVals = f.uniqueVals;
           if (f.useSelect) existing.useSelect = f.useSelect;
         }
+      }
+
+      if (S.typeKey === 'badgebanks') {
+        ['icon', 'label', 'meaning', 'coefficient'].forEach(k => {
+          if (map.has(k)) {
+            const item = map.get(k);
+            item.useSelect = false;
+            item.uniqueVals = [];
+            if (k === 'meaning') item.isLong = false;
+          }
+        });
       }
 
       if (rec && typeof rec === 'object') {
@@ -4321,6 +4344,12 @@
           const key = `${icon}|${label}`.toLowerCase();
           const exists = S.files[fi].records.some(r => `${r.icon}|${r.label}`.toLowerCase() === key);
           if (exists) { showToast(t('mdbErrBadgeDuplicate', 'A badge with this icon and label already exists in this file.'), true); return; }
+          if (values.coefficient !== undefined && values.coefficient !== null && values.coefficient !== '') {
+            const num = Number(values.coefficient);
+            values.coefficient = Number.isFinite(num) ? num : 1;
+          } else {
+            values.coefficient = 1;
+          }
         }
 
         indexRecord(values);
@@ -4346,6 +4375,12 @@
           const key = `${icon}|${label}`.toLowerCase();
           const exists = S.files[fi].records.some((r, idx) => idx !== ri && `${r.icon}|${r.label}`.toLowerCase() === key);
           if (exists) { showToast(t('mdbErrBadgeDuplicate', 'A badge with this icon and label already exists in this file.'), true); return; }
+          if (values.coefficient !== undefined && values.coefficient !== null && values.coefficient !== '') {
+            const num = Number(values.coefficient);
+            values.coefficient = Number.isFinite(num) ? num : 1;
+          } else {
+            values.coefficient = 1;
+          }
         }
 
         S.files[fi].records[ri] = { ...S.files[fi].records[ri], ...values };
