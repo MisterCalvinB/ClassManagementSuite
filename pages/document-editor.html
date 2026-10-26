@@ -52,6 +52,8 @@
             <div class="tg-label" id="tg-label">—</div>
           </div>
         </div>
+        <button class="nav-pop-item" id="btn-insert-spreadsheet" onclick="dePromptInsertSpreadsheet()"><img src="../assets/icons/table.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="deInsertSpreadsheet">Insert Spreadsheet (.ods, .xlsx)…</span></button>
+        <input type="file" id="de-spreadsheet-input" accept=".ods,.xlsx,.xls,.csv" style="display:none" onchange="deHandleSpreadsheetSelect(event)">
         <button class="nav-pop-item" id="btn-insert-image"><img src="../assets/icons/media.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="deInsertImage">Image…</span></button>
         <input type="file" id="image-file-input" accept="image/*" style="display:none">
         <hr class="nav-pop-sep">
@@ -227,6 +229,7 @@
       <div class="nav-group-popup">
         <button class="nav-pop-item" id="btn-export-pdf"><img src="../assets/icons/export.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="deExportPdf">Export PDF Document…</span></button>
         <button class="nav-pop-item" id="btn-export-docx"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="deExportDocx">Export Word (.docx)…</span></button>
+        <button class="nav-pop-item" id="btn-export-odt"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="deExportOdt">Export LibreOffice Writer (.odt)…</span></button>
         <hr class="nav-pop-sep">
         <button class="nav-pop-item" id="btn-export-batch-mp"><img src="../assets/icons/groups.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="deExportBatchMp">Batch Export (Mailposting)…</span></button>
         <button class="nav-pop-item" id="btn-de-export-mindmap" onclick="deConvertOutlineToMindmap()"><img src="../assets/icons/board.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="deConvertOutlineToMindmap">Convert Outline to Mindmap…</span></button>
@@ -918,6 +921,7 @@
   <script src="../js/mailposting-service.js"></script>
   <script src="../modules/katex/dist/katex.min.js"></script>
   <script src="../modules/marked/marked.umd.js"></script>
+  <script src="../modules/xlsx.min.js"></script>
   <script src="../modules/typst/typst-bundle.js"></script>
   <script src="../modules/typst/typst-service.js"></script>
   <script src="../js/typst-monarch.js"></script>
@@ -2050,6 +2054,75 @@
       insertTextAtCursor('\n' + lines.join('\n') + '\n');
     }
 
+    function dePromptInsertSpreadsheet() {
+      const input = document.getElementById('de-spreadsheet-input');
+      if (input) {
+        input.value = '';
+        input.click();
+      }
+    }
+
+    async function deHandleSpreadsheetSelect(evt) {
+      const file = evt.target && evt.target.files && evt.target.files[0];
+      if (!file) return;
+      await deImportSpreadsheetFile(file);
+      evt.target.value = '';
+    }
+
+    async function deImportSpreadsheetFile(file) {
+      if (typeof XLSX === 'undefined') {
+        showToast('Spreadsheet engine (XLSX) not available.', true);
+        return;
+      }
+      try {
+        const buffer = await file.arrayBuffer();
+        const wb = XLSX.read(buffer, { type: 'array' });
+        if (!wb || !wb.SheetNames || !wb.SheetNames.length) {
+          showToast('No sheets found in spreadsheet.', true);
+          return;
+        }
+        const sheetName = wb.SheetNames[0];
+        const sheet = wb.Sheets[sheetName];
+        const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
+        if (!rawRows || !rawRows.length) {
+          showToast('Spreadsheet sheet is empty.', true);
+          return;
+        }
+        const rows = rawRows.filter(r => Array.isArray(r) && r.some(c => c != null && String(c).trim() !== ''));
+        if (!rows.length) {
+          showToast('Spreadsheet contains no data rows.', true);
+          return;
+        }
+        const maxCols = Math.max(...rows.map(r => r.length));
+        if (maxCols === 0) return;
+
+        const headers = Array.from({ length: maxCols }, (_, i) => {
+          const val = rows[0][i];
+          return (val != null && String(val).trim()) ? String(val).replace(/\|/g, '\\|').trim() : ('Col ' + (i + 1));
+        });
+        const sep = Array.from({ length: maxCols }, () => '---');
+        const lines = [
+          '| ' + headers.join(' | ') + ' |',
+          '| ' + sep.join(' | ') + ' |'
+        ];
+
+        for (let i = 1; i < rows.length; i++) {
+          const rowVals = Array.from({ length: maxCols }, (_, c) => {
+            const v = rows[i][c];
+            return (v != null ? String(v) : '').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ').trim();
+          });
+          lines.push('| ' + rowVals.join(' | ') + ' |');
+        }
+
+        const mdTable = lines.join('\n');
+        insertTextAtCursor('\n' + mdTable + '\n');
+        showToast((t('deSpreadsheetImportSuccess') || 'Imported table from ') + (file.name || 'spreadsheet'));
+      } catch (err) {
+        console.error('Failed to parse spreadsheet', err);
+        showToast('Could not import spreadsheet: ' + (err && err.message ? err.message : String(err)), true);
+      }
+    }
+
     function initTablePicker() {
       const grid = document.getElementById('tg-grid');
       const label = document.getElementById('tg-label');
@@ -2231,12 +2304,29 @@
         if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) e.preventDefault();
       });
 
-      mainSplit.addEventListener('drop', function (e) {
+      mainSplit.addEventListener('drop', async function (e) {
         dragDepth = 0;
         overlay.classList.remove('active');
         const files = e.dataTransfer && e.dataTransfer.files;
         if (!files || !files.length) return;
-        const imgFile = Array.from(files).find(f => f.type && f.type.startsWith('image/'));
+        const fileList = Array.from(files);
+        const odtFile = fileList.find(f => (f.name || '').toLowerCase().endsWith('.odt'));
+        if (odtFile) {
+          e.preventDefault();
+          if (odtFile.path) {
+            await loadExternalDocByAbsPath(odtFile.path);
+          } else {
+            showToast('Opening dropped ODT requires file path.', true);
+          }
+          return;
+        }
+        const sheetFile = fileList.find(f => /\.(ods|xlsx|xls|csv)$/i.test(f.name || ''));
+        if (sheetFile) {
+          e.preventDefault();
+          await deImportSpreadsheetFile(sheetFile);
+          return;
+        }
+        const imgFile = fileList.find(f => f.type && f.type.startsWith('image/'));
         if (imgFile) { e.preventDefault(); embedImageFile(imgFile); }
       });
     }
@@ -2936,7 +3026,7 @@
         return;
       }
       const r = await Desktop.pickAndReadFile([
-        { name: t('deDocFilterName') || 'Documents', extensions: ['typ', 'html', 'md', 'txt'] },
+        { name: t('deDocFilterName') || 'Documents & Spreadsheets', extensions: ['typ', 'html', 'md', 'txt', 'odt', 'ods', 'xlsx', 'csv'] },
         { name: t('deAllFilesFilter') || 'All Files', extensions: ['*'] }
       ]);
       if (!r || r.canceled) return;
@@ -2945,6 +3035,44 @@
         return;
       }
       const ext = (r.name.split('.').pop() || '').toLowerCase();
+      if (ext === 'odt') {
+        showToast(t('deOpeningOdt') || 'Loading and converting ODT document…');
+        const odtData = await Desktop.readOdtFile(r.path);
+        if (!odtData || !odtData.ok) {
+          showToast('Could not open ODT: ' + ((odtData && odtData.error) || 'unknown error'), true);
+          return;
+        }
+        mdEditor.setValue(odtData.markdown || '');
+        currentDocName = r.name;
+        currentDocSubdir = null;
+        currentEditTarget = null;
+        currentEditRelPath = null;
+        currentDocStoredInDocs = false;
+        currentOpenedDiskPath = r.path || null;
+        currentDocType = 'md';
+        docModified = false;
+        updateDocIndicator();
+        const typeBtn = document.getElementById('btn-doc-type');
+        if (typeBtn) {
+          typeBtn.textContent = 'ODT';
+          typeBtn.classList.remove('html-mode', 'typ-mode');
+        }
+        if (mdEditor) monaco.editor.setModelLanguage(mdEditor.getModel(), 'markdown');
+        deUpdateViewSwitcherState();
+        currentDocMeta = {};
+        if (odtData.layout) {
+          if (odtData.layout.size) pageLayout.size = odtData.layout.size;
+          if (odtData.layout.orientation) pageLayout.orientation = odtData.layout.orientation;
+          if (odtData.layout.margins) pageLayout.margins = Object.assign({}, pageLayout.margins, odtData.layout.margins);
+          if (odtData.layout.fontFamily) pageLayout.fontFamily = odtData.layout.fontFamily;
+          if (odtData.layout.fontSize) pageLayout.fontSize = odtData.layout.fontSize;
+          syncPopupToState && syncPopupToState();
+          applyPageLayoutToPreview && applyPageLayoutToPreview();
+        }
+        renderPreview();
+        showToast(t('deOdtLoadedNotice') || 'ODT loaded. Edits can be saved directly back to .odt.');
+        return;
+      }
       const diskDocType = ext === 'typ' ? 'typ' : (ext === 'html' ? 'html' : 'md');
       const inlineState = deExtractStyleBlocks(r.content || '');
       mdEditor.setValue(inlineState.content || '');
@@ -3167,6 +3295,41 @@
     async function loadExternalDocByAbsPath(absPath) {
       if (!window.Desktop || !Desktop.isElectron()) return;
       try {
+        if (String(absPath).toLowerCase().endsWith('.odt')) {
+          const odtData = await Desktop.readOdtFile(absPath);
+          if (odtData && odtData.ok) {
+            mdEditor.setValue(odtData.markdown || '');
+            const filename = odtData.name || String(absPath).split(/[\\/]/).pop();
+            currentDocName = filename;
+            currentDocSubdir = null;
+            currentEditTarget = null;
+            currentEditRelPath = null;
+            currentDocStoredInDocs = false;
+            currentOpenedDiskPath = absPath;
+            currentDocType = 'md';
+            docModified = false;
+            updateDocIndicator();
+            const typeBtn2 = document.getElementById('btn-doc-type');
+            if (typeBtn2) {
+              typeBtn2.textContent = 'ODT';
+              typeBtn2.classList.remove('html-mode', 'typ-mode');
+            }
+            if (mdEditor) monaco.editor.setModelLanguage(mdEditor.getModel(), 'markdown');
+            deUpdateViewSwitcherState();
+            currentDocMeta = {};
+            if (odtData.layout) {
+              if (odtData.layout.size) pageLayout.size = odtData.layout.size;
+              if (odtData.layout.orientation) pageLayout.orientation = odtData.layout.orientation;
+              if (odtData.layout.margins) pageLayout.margins = Object.assign({}, pageLayout.margins, odtData.layout.margins);
+              if (odtData.layout.fontFamily) pageLayout.fontFamily = odtData.layout.fontFamily;
+              if (odtData.layout.fontSize) pageLayout.fontSize = odtData.layout.fontSize;
+              syncPopupToState && syncPopupToState();
+              applyPageLayoutToPreview && applyPageLayoutToPreview();
+            }
+            renderPreview();
+            return;
+          }
+        }
         const r = await Desktop.readDiskFile(absPath);
         if (r && r.ok) {
           const inlineState = deExtractStyleBlocks(r.content || '');
@@ -3278,8 +3441,32 @@
     async function saveDiskDoc() {
       if (docSaveInProgress) return;
       docSaveInProgress = true;
-      const content = deBuildPersistedCurrentDocContent();
       try {
+        if (currentOpenedDiskPath && currentOpenedDiskPath.toLowerCase().endsWith('.odt')) {
+          deSyncPageLayoutFromControls();
+          showToast(t('deSavingOdt') || 'Saving ODT…');
+          const markdown = mdEditor.getValue();
+          const r = await Desktop.exportOdt({
+            markdown,
+            targetPath: currentOpenedDiskPath,
+            defaultName: currentDocName || 'document',
+            fontFamily: pageLayout.fontFamily,
+            fontSize: pageLayout.fontSize,
+            margins: pageLayout.margins,
+            size: pageLayout.size,
+            orientation: pageLayout.orientation
+          });
+          if (r && r.ok) {
+            cssModified = false;
+            docModified = false;
+            updateDocIndicator();
+            showToast('Saved: ' + (currentDocName || currentOpenedDiskPath));
+          } else {
+            showToast('Save failed: ' + ((r && r.error) || ''), true);
+          }
+          return;
+        }
+        const content = deBuildPersistedCurrentDocContent();
         const r = await Desktop.writeDiskFile(currentOpenedDiskPath, content);
         if (r && r.ok) {
           cssModified = false;
@@ -4299,6 +4486,35 @@
         }
       } else if (result && !result.ok && !result.canceled) {
         showToast('DOCX export failed: ' + (result.error || 'unknown'), true);
+      }
+    }
+
+    async function exportOdt() {
+      if (!window.Desktop || !Desktop.isElectron()) {
+        showToast(t('deOdtRequiresElectron') || 'ODT export requires the Electron desktop app.', true);
+        return;
+      }
+      deSyncPageLayoutFromControls();
+      deSyncCssEditorWithLayout(true);
+      showToast(t('dePreparingOdt') || 'Preparing ODT…');
+      const markdown = mdEditor.getValue();
+      const cssStyles = extractDocxStylesFromCss(cssEditor ? cssEditor.getValue() : '');
+      const result = await Desktop.exportOdt({
+        markdown,
+        defaultName: currentDocName || 'document',
+        fontFamily: cssStyles.fontFamily || pageLayout.fontFamily,
+        fontSize: cssStyles.fontSize || pageLayout.fontSize,
+        margins: pageLayout.margins,
+        size: pageLayout.size,
+        orientation: pageLayout.orientation
+      });
+      if (result && result.ok) {
+        showToast(t('deOdtExported') || 'ODT exported successfully');
+        if (window.showExportSuccessPopup && result.path) {
+          showExportSuccessPopup(result.path, result.name || ((currentDocName || 'document') + '.odt'));
+        }
+      } else if (result && !result.ok && !result.canceled) {
+        showToast((t('deOdtFailed') || 'ODT export failed: ') + (result.error || 'unknown'), true);
       }
     }
 
@@ -10346,6 +10562,7 @@
       });
       document.getElementById('btn-export-pdf').addEventListener('click', exportPdf);
       document.getElementById('btn-export-docx').addEventListener('click', exportDocx);
+      document.getElementById('btn-export-odt').addEventListener('click', exportOdt);
       document.getElementById('btn-preview').addEventListener('click', showFullPreview);
       document.getElementById('btn-pres-mode').addEventListener('click', deOpenPresentation);
       document.getElementById('btn-syntax-help').addEventListener('click', () => openSyntaxHelpModal());

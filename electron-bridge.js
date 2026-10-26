@@ -741,6 +741,16 @@
     return getDesktopApi().exportDocx(request);
   }
 
+  async function exportOdt(request) {
+    if (!isElectron()) return null;
+    return getDesktopApi().exportOdt(request);
+  }
+
+  async function readOdtFile(absPath) {
+    if (!isElectron()) return null;
+    return getDesktopApi().readOdt({ absPath });
+  }
+
   async function backupZip() {
     if (!isElectron()) {
       return null;
@@ -1201,6 +1211,8 @@
     printHtml,
     printPdf,
     exportDocx,
+    exportOdt,
+    readOdtFile,
     resetFolders,
     resolvePath,
     restoreZip,

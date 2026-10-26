@@ -107,6 +107,48 @@
     // ================================================================
 
     let conNoteNextId = 0;
+
+    function conSyncNoteNextId(maxIdNum) {
+      if (typeof maxIdNum === 'number' && !isNaN(maxIdNum)) {
+        conNoteNextId = Math.max(conNoteNextId, maxIdNum);
+      }
+    }
+    window.conSyncNoteNextId = conSyncNoteNextId;
+
+    function conGetNextNoteId() {
+      let maxId = -1;
+      const noteList = (typeof conGetNotes === 'function') ? conGetNotes() : (window.conNotes || conNotes || []);
+      if (Array.isArray(noteList)) {
+        for (let i = 0; i < noteList.length; i++) {
+          const n = noteList[i];
+          if (n && n.id) {
+            const m = String(n.id).match(/^cnn(\d+)$/);
+            if (m) {
+              const val = parseInt(m[1], 10);
+              if (!isNaN(val) && val > maxId) maxId = val;
+            }
+          }
+        }
+      }
+      const domNotes = document.querySelectorAll('#constellation-board .con-word-note[data-id]');
+      for (let i = 0; i < domNotes.length; i++) {
+        const did = domNotes[i].dataset ? domNotes[i].dataset.id : null;
+        if (did) {
+          const m = String(did).match(/^cnn(\d+)$/);
+          if (m) {
+            const val = parseInt(m[1], 10);
+            if (!isNaN(val) && val > maxId) maxId = val;
+          }
+        }
+      }
+      if (conNoteNextId <= maxId) {
+        conNoteNextId = maxId + 1;
+      }
+      const nextId = 'cnn' + (conNoteNextId++);
+      return nextId;
+    }
+    window.conGetNextNoteId = conGetNextNoteId;
+
     let _conNoteCtxData = null; // note data for which wn-ctx-menu is open
     let _conNoteMirrorSyncTimer = null;
 
@@ -331,10 +373,18 @@
       }
       const noteEl = wnGetNoteElementById(nd.id);
       if (noteEl) noteEl.remove();
-      if (typeof conEdges !== 'undefined' && Array.isArray(conEdges)) {
-        conEdges.filter(e => e.a === nd.id || e.b === nd.id).forEach(e => e.g && e.g.remove());
-        conEdges = conEdges.filter(e => e.a !== nd.id && e.b !== nd.id);
-        window.conEdges = conEdges;
+      const edgesArr = (typeof window !== 'undefined' && window.conEdges) || (typeof global !== 'undefined' && global.conEdges) || conEdges;
+      if (Array.isArray(edgesArr)) {
+        for (let i = edgesArr.length - 1; i >= 0; i--) {
+          const e = edgesArr[i];
+          if (e && (e.a === nd.id || e.b === nd.id)) {
+            if (e.g && e.g.remove) e.g.remove();
+            edgesArr.splice(i, 1);
+          }
+        }
+        if (typeof window !== 'undefined') window.conEdges = edgesArr;
+        if (typeof global !== 'undefined') global.conEdges = edgesArr;
+        conEdges = edgesArr;
         if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
       }
       if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
@@ -1806,7 +1856,16 @@
       if (!noteEl) return;
       const editor = noteEl.querySelector('.wn-note-editor, textarea');
       if (!editor || editor.tagName === 'TEXTAREA') return;
-      const savedRange = _wnSavedSelectionRange;
+      let savedRange = _wnSavedSelectionRange;
+      if (!savedRange) {
+        const sel = window.getSelection && window.getSelection();
+        if (sel && sel.rangeCount > 0) {
+          const r = sel.getRangeAt(0);
+          if (editor === r.commonAncestorContainer || editor.contains(r.commonAncestorContainer)) {
+            savedRange = r;
+          }
+        }
+      }
       const zoom = window.conGetZoom ? window.conGetZoom() : 1;
 
       // Measure cursor / split line bottom position before altering content
@@ -1827,19 +1886,24 @@
       if (savedRange && (editor === savedRange.commonAncestorContainer || editor.contains(savedRange.commonAncestorContainer))) {
         const fragToHTML = frag => { const d = document.createElement('div'); d.appendChild(frag); return d.innerHTML; };
         const r1 = document.createRange();
-        r1.selectNodeContents(editor); r1.setEnd(savedRange.startContainer, savedRange.startOffset);
+        r1.selectNodeContents(editor);
+        r1.setEnd(savedRange.startContainer, savedRange.startOffset);
         beforeHTML = fragToHTML(r1.cloneContents());
         const r2 = document.createRange();
-        r2.selectNodeContents(editor); r2.setStart(savedRange.endContainer, savedRange.endOffset);
+        r2.selectNodeContents(editor);
+        r2.setStart(savedRange.startContainer, savedRange.startOffset);
         afterHTML = fragToHTML(r2.cloneContents());
       }
       const trimBr = h => h.replace(/^(\s*<br\s*\/?>\s*)+|(\s*<br\s*\/?>\s*)+$/gi, '').trim();
-      beforeHTML = trimBr(beforeHTML); afterHTML = trimBr(afterHTML);
+      beforeHTML = trimBr(beforeHTML);
+      afterHTML = trimBr(afterHTML);
       if (window.conPushUndo) window.conPushUndo();
       wnStyleDismiss();
+      _wnSavedSelectionRange = null;
 
       // Put remaining content into the initial note's editor
-      editor.innerHTML = beforeHTML;
+      const renderedBefore = (typeof wnRenderMathHtml === 'function') ? wnRenderMathHtml(beforeHTML) : beforeHTML;
+      editor.innerHTML = renderedBefore;
       wnSyncNoteDataFromEditor(nd, editor);
 
       // Reset explicit height styles to measure the natural layout height of remaining content
@@ -1858,6 +1922,7 @@
         noteEl.style.height = (reducedH * zoom) + 'px';
         editor.style.height = Math.max(16, (reducedH - 12) * zoom) + 'px';
         nd.liveBaseHeight = reducedH;
+        if (typeof conNoteAutosize === 'function') conNoteAutosize(editor, nd);
       }
       if (nd._applyStyle) nd._applyStyle();
 
@@ -1865,14 +1930,38 @@
       editor.style.height = Math.max(16, (reducedH - 12) * zoom) + 'px';
 
       const belowY = Math.round(nd.y + noteEl.offsetHeight / Math.max(0.5, zoom) + 8);
-      const newId = 'cnn' + (conNoteNextId++);
-      const clone = Object.assign({}, nd, { id: newId, y: belowY, html: afterHTML, text: '', manualSize: false, width: null, height: null });
+      const newId = conGetNextNoteId();
+      const clone = Object.assign({}, nd, {
+        id: newId,
+        nodeId: null,
+        y: belowY,
+        html: afterHTML,
+        text: '',
+        manualSize: false,
+        width: null,
+        height: null,
+        w: null,
+        h: null,
+        liveBaseWidth: null,
+        liveBaseHeight: null,
+        _cachedW: null,
+        _cachedH: null,
+        emojiStickers: []
+      });
       delete clone._applyStyle;
+      delete clone._updateContent;
       conNotes.push(clone);
       conNoteBuild(clone);
-      if (clone.nodeId) {
-        const linkedNode = conGetNodes().find(n => n.id === clone.nodeId);
-        if (linkedNode && linkedNode.el) linkedNode.el.classList.add('has-con-note');
+
+      const newNoteEl = wnGetNoteElementById(newId);
+      const newEditor = newNoteEl ? newNoteEl.querySelector('.wn-note-editor') : null;
+      if (newEditor && typeof conNoteAutosize === 'function') {
+        conNoteAutosize(newEditor, clone);
+      }
+
+      // Automatically select the new split note
+      if (typeof window.conSelectNote === 'function') {
+        window.conSelectNote(newId);
       }
 
       if (typeof window._conMirrorSend === 'function') {
@@ -1897,11 +1986,13 @@
           manualSize: !!nd.manualSize
         });
       }
+      if (typeof window._conMirrorBroadcast === 'function') {
+        window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
+      }
       if (typeof conRedrawEdges === 'function') conRedrawEdges();
       if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
       if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
 
-      const newEditor = document.querySelector(`.con-word-note[data-id="${newId}"] .wn-note-editor`);
       if (newEditor) setTimeout(() => newEditor.focus(), 0);
     }
 
@@ -3151,7 +3242,7 @@
         y = Math.round(board.clientHeight / 2 - 20 + Math.random() * 40 - 20);
       }
       const seedText = String(initialText || '').trim();
-      const id = 'cnn' + (conNoteNextId++);
+      const id = conGetNextNoteId();
       const noteData = {
         id, nodeId: null, text: seedText, x, y,
         color: '#111111', bg: '#ffffff', fontSize: (window._bcNoteFontSizeFree || 26),
@@ -3178,7 +3269,7 @@
         x = (node.x || parseInt(el.style.left) || 0) + el.offsetWidth + 12;
         y = (node.y || parseInt(el.style.top) || 0);
       }
-      const nid = 'cnn' + (conNoteNextId++);
+      const nid = conGetNextNoteId();
       const noteData = {
         id: nid, nodeId: id || null, text: '', x, y,
         color: '#111111', bg: '#ffffff', fontSize: (window._bcNoteFontSizeLinked || 14),
@@ -3205,7 +3296,7 @@
       if (!board || !node) return;
       const x = (node.x || parseInt(node.el.style.left) || 0) + (node.el.offsetWidth || 80) + 12;
       const y = (node.y || parseInt(node.el.style.top) || 0);
-      const nid = 'cnn' + (conNoteNextId++);
+      const nid = conGetNextNoteId();
       const noteData = {
         id: nid, nodeId: node.id || null, text: noteText || '', x, y,
         color: '#444444', bg: '#ffffff', fontSize: 12,
@@ -3760,12 +3851,61 @@
       });
       ta.addEventListener('focus', () => {
         wnRememberSelection(ta);
+        _wnActiveNote = noteData;
+        if (typeof conNoteSelected !== 'undefined' && !conNoteSelected.has(noteData.id)) {
+          conNoteSelected.clear();
+          conNoteSelected.add(noteData.id);
+          document.querySelectorAll('#constellation-board .con-word-note.wn-selected, #constellation-board .ta-word-note.wn-selected')
+            .forEach(n => n.classList.remove('wn-selected'));
+          note.classList.add('wn-selected');
+        }
         if (window.conNodeClearSelection) window.conNodeClearSelection();
         if (window.conDrawingClearSelection) window.conDrawingClearSelection();
         if (window.conShapeClearSelection) window.conShapeClearSelection();
       });
       ta.addEventListener('keydown', e => {
         if (!e || typeof e.key !== 'string') return;
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'x') {
+          const sel = window.getSelection();
+          const hasTextSelected = sel && sel.toString().length > 0;
+          if (!hasTextSelected) {
+            e.preventDefault();
+            e.stopPropagation();
+            ta.blur();
+            if (typeof conNoteSelected !== 'undefined') {
+              if (!conNoteSelected.has(noteData.id)) {
+                conNoteSelected.clear();
+                conNoteSelected.add(noteData.id);
+                note.classList.add('wn-selected');
+              }
+            }
+            if (typeof window.conClipboardCut === 'function') {
+              window.conClipboardCut({ allowWhileTyping: true });
+            }
+            return;
+          }
+          return;
+        }
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'c') {
+          const sel = window.getSelection();
+          const hasTextSelected = sel && sel.toString().length > 0;
+          if (!hasTextSelected) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof conNoteSelected !== 'undefined') {
+              if (!conNoteSelected.has(noteData.id)) {
+                conNoteSelected.clear();
+                conNoteSelected.add(noteData.id);
+                note.classList.add('wn-selected');
+              }
+            }
+            if (typeof window.conClipboardCopy === 'function') {
+              window.conClipboardCopy({ allowWhileTyping: true });
+            }
+            return;
+          }
+          return;
+        }
         if (e.key === 'Enter') {
           setTimeout(() => {
             if (typeof wnRenderMathImmediate === 'function') wnRenderMathImmediate();
@@ -4148,14 +4288,28 @@
         // Selection handling
         const isModifier = e.shiftKey || e.ctrlKey || e.metaKey;
         if (isModifier) {
-          if (typeof conSelected !== 'undefined' && conSelected) {
-            const prevEl = conNodes.find(n => n.id === conSelected);
-            if (prevEl) {
-              conMultiSelected.add(conSelected);
-              prevEl.el.classList.remove('con-selected');
-              prevEl.el.classList.add('con-multi-selected');
+          const _curSelNode = (typeof window.conGetSelected === 'function' ? window.conGetSelected() : null)
+            || (typeof window.conSelected !== 'undefined' ? window.conSelected : null)
+            || (typeof conSelected !== 'undefined' ? conSelected : null);
+          if (_curSelNode) {
+            if (typeof window.conAddMultiSelected === 'function') {
+              window.conAddMultiSelected(_curSelNode);
+            } else {
+              const multiSel = (typeof window.conGetMultiSelected === 'function')
+                ? window.conGetMultiSelected()
+                : (window.conMultiSelected || conMultiSelected);
+              if (multiSel && multiSel.add) multiSel.add(_curSelNode);
+              const liveNodes = (typeof window.conGetNodes === 'function')
+                ? window.conGetNodes()
+                : (window.conNodes || conNodes || []);
+              const prevEl = liveNodes.find(n => n && (n.id === _curSelNode || String(n.id) === String(_curSelNode)));
+              if (prevEl && prevEl.el) {
+                prevEl.el.classList.remove('con-selected');
+                prevEl.el.classList.add('con-multi-selected');
+              }
             }
-            conSelected = null;
+            if ('conSelected' in window) window.conSelected = null;
+            if (typeof conSelected !== 'undefined') conSelected = null;
           }
           if (conNoteSelected.has(noteData.id)) {
             conNoteSelected.delete(noteData.id);
@@ -4171,11 +4325,12 @@
             conNoteSelected.clear();
             conNoteSelected.add(noteData.id);
             note.classList.add('wn-selected');
-            // Plain click on an unselected note — clear node, drawing, shape, and table selections
+            // Plain click on an unselected note — clear node, drawing, shape, table, and media selections
             if (window.conNodeClearSelection) window.conNodeClearSelection();
             if (window.conDrawingClearSelection) window.conDrawingClearSelection();
             if (window.conShapeClearSelection) window.conShapeClearSelection();
             if (typeof window.conTableClearSelection === 'function') window.conTableClearSelection();
+            if (window.conMediaClearSelection) window.conMediaClearSelection();
           }
         }
         if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
@@ -4203,20 +4358,39 @@
         });
         // Snapshot selected nodes for joint drag
         _nodeOffsets = [];
-        const _nAllNodes = new Set(window.conGetMultiSelected ? window.conGetMultiSelected() : (typeof conMultiSelected !== 'undefined' ? conMultiSelected : []));
-        if (typeof conSelected !== 'undefined' && conSelected) _nAllNodes.add(conSelected);
-        if (window.conGetSelected && window.conGetSelected()) _nAllNodes.add(window.conGetSelected());
+        const _nAllNodes = new Set();
+        if (typeof window.conGetMultiSelected === 'function' && window.conGetMultiSelected()) {
+          window.conGetMultiSelected().forEach(nid => _nAllNodes.add(nid));
+        }
+        if (typeof window.conMultiSelected !== 'undefined' && window.conMultiSelected) {
+          window.conMultiSelected.forEach(nid => _nAllNodes.add(nid));
+        }
+        if (typeof conMultiSelected !== 'undefined' && conMultiSelected) {
+          conMultiSelected.forEach(nid => _nAllNodes.add(nid));
+        }
+        const _singleSel = (typeof window.conGetSelected === 'function' ? window.conGetSelected() : null)
+          || (typeof window.conSelected !== 'undefined' ? window.conSelected : null)
+          || (typeof conSelected !== 'undefined' ? conSelected : null);
+        if (_singleSel) _nAllNodes.add(_singleSel);
+
+        // Include any visually selected node on the board DOM
+        document.querySelectorAll('#constellation-board .con-node.con-selected, #constellation-board .con-node.con-multi-selected').forEach(el => {
+          if (el.id) _nAllNodes.add(el.id);
+        });
+
         if (typeof conGroups !== 'undefined' && Array.isArray(conGroups)) {
           const _expandedNodeIds = new Set(_nAllNodes);
           _nAllNodes.forEach(nid => {
-            const pg = conGroups.find(g => g.phraseGroup && g.nodeIds && g.nodeIds.includes(nid));
+            const pg = conGroups.find(g => g.phraseGroup && g.nodeIds && (g.nodeIds.includes(nid) || g.nodeIds.some(sid => String(sid) === String(nid))));
             if (pg) pg.nodeIds.forEach(sid => _expandedNodeIds.add(sid));
           });
           _expandedNodeIds.forEach(nid => _nAllNodes.add(nid));
         }
-        const _nNodesList = window.conGetNodes ? window.conGetNodes() : [];
+        const _nNodesList = (typeof window.conGetNodes === 'function')
+          ? window.conGetNodes()
+          : (window.conNodes || conNodes || []);
         _nAllNodes.forEach(nid => {
-          const nd = _nNodesList.find(n => n.id === nid);
+          const nd = _nNodesList.find(n => n && (n.id === nid || String(n.id) === String(nid)));
           if (nd && !(typeof conIsNodeLocked === 'function' && conIsNodeLocked(nd))) {
             _nodeOffsets.push({ nd, sx: nd.x, sy: nd.y });
           }
@@ -4387,9 +4561,10 @@
           _nodeOffsets.forEach(({ nd, sx, sy }) => {
             nd.x = sx + dx;
             nd.y = sy + dy;
-            if (nd.el) {
-              nd.el.style.left = nd.x + 'px';
-              nd.el.style.top = nd.y + 'px';
+            const el = nd.el || document.getElementById(nd.id);
+            if (el) {
+              el.style.left = nd.x + 'px';
+              el.style.top = nd.y + 'px';
             }
           });
           if (window.conRedrawEdges) window.conRedrawEdges();
@@ -4498,16 +4673,22 @@
             }
           }
           if (_nodeOffsets.length > 0) {
-            const board = document.getElementById('constellation-board');
-            if (board) {
-              const boardCenterX = board.clientWidth / 2;
-              const boardCenterY = board.clientHeight / 2;
-              const z = (typeof conCurrentZoom !== 'undefined') ? conCurrentZoom : 1;
-              _nodeOffsets.forEach(({ nd }) => {
-                nd.baseX = boardCenterX + (nd.x - boardCenterX) / z;
-                nd.baseY = boardCenterY + (nd.y - boardCenterY) / z;
-              });
-            }
+            _nodeOffsets.forEach(({ nd }) => {
+              if (typeof window.conSyncNodeBasePosition === 'function') {
+                window.conSyncNodeBasePosition(nd);
+              } else {
+                const board = document.getElementById('constellation-board');
+                if (board) {
+                  const boardCenterX = board.clientWidth / 2;
+                  const boardCenterY = board.clientHeight / 2;
+                  const z = (window.conGetZoom ? window.conGetZoom() : (typeof window.conCurrentZoom === 'number' ? window.conCurrentZoom : 1)) || 1;
+                  nd.baseX = boardCenterX + (nd.x - boardCenterX) / z;
+                  nd.baseY = boardCenterY + (nd.y - boardCenterY) / z;
+                }
+              }
+            });
+            if (window.conRedrawEdges) window.conRedrawEdges();
+            if (window.conGroupRefitAll) window.conGroupRefitAll();
           }
           if (_preDragSnap && typeof conPushUndo === 'function') conPushUndo(_preDragSnap);
           if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
@@ -4550,13 +4731,15 @@
       if (!noteData || !noteData.id || !noteData.id.startsWith('cn')) return null;
       const dx = Number.isFinite(offsetX) ? offsetX : 30;
       const dy = Number.isFinite(offsetY) ? offsetY : 24;
-      const newId = 'cnn' + (conNoteNextId++);
+      const newId = conGetNextNoteId();
       const clone = Object.assign({}, noteData, {
         id: newId,
         x: (Number(noteData.x) || 0) + dx,
-        y: (Number(noteData.y) || 0) + dy
+        y: (Number(noteData.y) || 0) + dy,
+        emojiStickers: []
       });
       delete clone._applyStyle;
+      delete clone._updateContent;
       conNotes.push(clone);
       conNoteBuild(clone);
       if (clone.nodeId) {
@@ -4606,10 +4789,10 @@
     window.conAddNoteObject = function (noteData) {
       if (!noteData) return null;
       if (!noteData.id) {
-        noteData.id = 'cnn' + (conNoteNextId++);
+        noteData.id = conGetNextNoteId();
       } else {
         const m = String(noteData.id).match(/^cnn(\d+)$/);
-        if (m) conNoteNextId = Math.max(conNoteNextId, parseInt(m[1], 10) + 1);
+        if (m) conSyncNoteNextId(parseInt(m[1], 10) + 1);
       }
       conNotes.push(noteData);
       conNoteBuild(noteData);
@@ -4625,9 +4808,7 @@
       const el = document.querySelector(`.con-word-note[data-id="${noteId}"]`);
       if (el) el.classList.add('wn-selected');
     };
-    window.conGetNextNoteId = function () {
-      return 'cnn' + (conNoteNextId++);
-    };
+    window.conGetNextNoteId = conGetNextNoteId;
 
     // ── Emoji sticker system ──────────────────────────────────────────
     let _emojiStickerSeq = 0;
@@ -5301,7 +5482,7 @@
     window.conCreateTextNote = function (text, x, y, opts) {
       const noteText = String(text || '').trim();
       if (!noteText) return null;
-      const nid = 'cnn' + (conNoteNextId++);
+      const nid = conGetNextNoteId();
       const noteData = {
         id: nid, nodeId: null, text: noteText, x: Number(x) || 60, y: Number(y) || 60,
         color: '#111111', bg: '#ffffff', fontSize: (opts && Number(opts.fontSize)) || 24,

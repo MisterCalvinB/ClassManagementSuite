@@ -4124,10 +4124,12 @@
     }
 
     function searchFindOccurrences(word, scope) {
+      if (!word || !word.trim() || !searchBookText) return [];
       const results = [];
       const seenContexts = new Set();
       const lowerText = searchBookText.toLowerCase();
-      const lowerWord = word.toLowerCase();
+      const lowerWord = word.trim().toLowerCase();
+      if (!lowerWord) return [];
       let index = lowerText.indexOf(lowerWord);
 
       while (index !== -1) {
@@ -4178,7 +4180,7 @@
           });
         }
 
-        index = lowerText.indexOf(lowerWord, index + 1);
+        index = lowerText.indexOf(lowerWord, index + Math.max(1, lowerWord.length));
       }
 
       return results;

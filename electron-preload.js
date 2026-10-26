@@ -110,6 +110,12 @@ const exposedApi = {
   exportDocx(request) {
     return invoke('app:export-docx', request);
   },
+  exportOdt(request) {
+    return invoke('app:export-odt', request);
+  },
+  readOdt(request) {
+    return invoke('app:read-odt', request);
+  },
   renameFile(request) {
     return invoke('app:rename-file', request);
   },

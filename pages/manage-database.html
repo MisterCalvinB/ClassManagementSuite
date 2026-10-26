@@ -128,6 +128,7 @@
                   <button class="dropdown-item" onclick="handleExportClick('html-filter')" data-i18n="mdbBtnExportFilterHtml"><img src="../assets/icons/search.svg" class="btn-icon" alt="" /> Export HTML (Interactive &amp; Filterable)</button>
                   <button class="dropdown-item" onclick="handleExportClick('md')" data-i18n="mdbBtnExportMd"><img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" /> Export Markdown</button>
                   <button class="dropdown-item" onclick="handleExportClick('xlsx')" data-i18n="mdbBtnExportXlsx"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> Export XLSX</button>
+                  <button class="dropdown-item" onclick="handleExportClick('ods')"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> <span data-i18n="exportFormatOds">LibreOffice Calc (.ods)</span></button>
                   <button class="dropdown-item" onclick="handleExportClick('docx')" data-i18n="mdbBtnExportDocx"><img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" /> Export DOCX</button>
                 </div>
               </div>
@@ -7169,6 +7170,9 @@ Rules:
       } else if (mode === 'xlsx') {
         title = t('mdbColPickerXlsxTitle') || 'Export XLSX — select columns';
         confirmText = t('mdbBtnExportXlsxConfirm') || 'Export XLSX';
+      } else if (mode === 'ods') {
+        title = 'Export LibreOffice Calc (.ods) — select columns';
+        confirmText = 'Export ODS';
       } else if (mode === 'docx') {
         title = t('mdbColPickerDocxTitle') || 'Export DOCX — select columns';
         confirmText = t('mdbBtnExportDocxConfirm') || 'Export DOCX';
@@ -7183,7 +7187,7 @@ Rules:
         else if (mode === 'html') doExportHTML(rows, selectedKeys);
         else if (mode === 'html-filter') doExportFilterableHTML(rows, selectedKeys, titleKey);
         else if (mode === 'md') doExportMarkdown(rows, selectedKeys);
-        else if (mode === 'xlsx') doExportXLSX(rows, selectedKeys);
+        else if (mode === 'xlsx' || mode === 'ods') doExportXLSX(rows, selectedKeys, mode);
         else if (mode === 'docx') doExportDocx(rows, selectedKeys);
       };
 
@@ -9715,7 +9719,7 @@ Rules:
       }
     }
 
-    function doExportXLSX(rows, selectedKeys) {
+    function doExportXLSX(rows, selectedKeys, format = 'xlsx') {
       if (typeof XLSX === 'undefined') {
         showToast('XLSX library not loaded', true);
         return;
@@ -9741,28 +9745,31 @@ Rules:
       XLSX.utils.book_append_sheet(wb, ws, label.slice(0, 31));
 
       try {
-        const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        const isOds = format === 'ods';
+        const wbout = XLSX.write(wb, { bookType: isOds ? 'ods' : 'xlsx', type: 'array' });
         const safeLabel = label.toLowerCase().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]/g, '_');
-        const filename = `${safeLabel}_${ts}.xlsx`;
+        const ext = isOds ? 'ods' : 'xlsx';
+        const filename = `${safeLabel}_${ts}.${ext}`;
+        const mime = isOds ? 'application/vnd.oasis.opendocument.spreadsheet' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
         if (window.saveExportWithDestination) {
           window.saveExportWithDestination({
             filename: filename,
             content: wbout,
-            mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            modalTitle: t('mdbColPickerXlsxTitle') || 'Export Excel Spreadsheet',
+            mimeType: mime,
+            modalTitle: isOds ? 'Export LibreOffice Calc (.ods)' : (t('mdbColPickerXlsxTitle') || 'Export Excel Spreadsheet'),
             allowDocEditor: false,
             filters: [
-              { name: 'Excel Spreadsheet', extensions: ['xlsx'] },
+              { name: isOds ? 'LibreOffice Calc Spreadsheet' : 'Excel Spreadsheet', extensions: [ext] },
               { name: 'All Files', extensions: ['*'] }
             ]
           });
         } else {
-          downloadExportFile(filename, wbout, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-          showToast(t('mdbExportSuccessXlsx') || 'Excel spreadsheet exported successfully.');
+          downloadExportFile(filename, wbout, mime);
+          showToast(isOds ? 'LibreOffice Calc spreadsheet exported successfully.' : (t('mdbExportSuccessXlsx') || 'Excel spreadsheet exported successfully.'));
         }
       } catch (err) {
-        showToast('⚠️ ' + (t('mdbErrSaveFailed') || 'Could not save XLSX: ') + (err && err.message ? err.message : String(err)), true);
+        showToast('⚠️ ' + (t('mdbErrSaveFailed') || 'Could not save spreadsheet: ') + (err && err.message ? err.message : String(err)), true);
       }
     }
 

@@ -9569,6 +9569,55 @@ ipcMain.handle('app:export-docx', async (event, request = {}) => {
   }
 });
 
+ipcMain.handle('app:export-odt', async (event, request = {}) => {
+  try {
+    const { markdownToOdtBuffer } = require('./js/odt-converter.js');
+    const buffer = await markdownToOdtBuffer(request);
+    const baseName = (typeof request.defaultName === 'string' && request.defaultName.trim())
+      ? request.defaultName.trim().replace(/\.(md|odt)$/i, '')
+      : 'document';
+    let finalPath = request.targetPath || null;
+    if (!finalPath) {
+      if (request.target === 'toPrint') {
+        const toPrintDir = getWritablePaths().toPrint;
+        await fs.ensureDir(toPrintDir);
+        finalPath = path.join(toPrintDir, baseName + '.odt');
+      } else {
+        const { canceled, filePath } = await dialog.showSaveDialog({
+          title: 'Save as LibreOffice Writer Document',
+          defaultPath: path.join(app.getPath('downloads'), baseName + '.odt'),
+          filters: [{ name: 'OpenDocument Text', extensions: ['odt'] }]
+        });
+        if (canceled || !filePath) return { ok: false, canceled: true };
+        finalPath = filePath;
+      }
+    }
+    await fs.writeFile(finalPath, buffer);
+    return { ok: true, path: finalPath, name: path.basename(finalPath) };
+  } catch (err) {
+    console.error('export-odt failed', err);
+    return { ok: false, error: String(err && err.message ? err.message : err) };
+  }
+});
+
+ipcMain.handle('app:read-odt', async (event, request = {}) => {
+  try {
+    const { absPath } = request;
+    if (!absPath || !fs.existsSync(absPath)) {
+      return { ok: false, error: 'File not found: ' + absPath };
+    }
+    const buffer = await fs.readFile(absPath);
+    const { odtBufferToMarkdown } = require('./js/odt-converter.js');
+    const result = await odtBufferToMarkdown(buffer);
+    result.path = absPath;
+    result.name = path.basename(absPath);
+    return result;
+  } catch (err) {
+    console.error('read-odt failed', err);
+    return { ok: false, error: String(err && err.message ? err.message : err) };
+  }
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock();

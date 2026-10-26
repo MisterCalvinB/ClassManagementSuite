@@ -1864,7 +1864,7 @@
           if (Array.isArray(d.notePositions)) {
             var _liveNotes = window.conGetNotes ? window.conGetNotes() : [];
             d.notePositions.forEach(function (ntp) {
-              var noteEl = document.querySelector('#constellation-board .con-word-note[data-id="' + ntp.id + '"]');
+              var noteEl = document.querySelector('#constellation-board .con-word-note[data-id="' + ntp.id + '"], #constellation-board .ta-word-note[data-id="' + ntp.id + '"]');
               if (noteEl) {
                 noteEl.style.left = ntp.x + 'px';
                 noteEl.style.top = ntp.y + 'px';
@@ -1909,6 +1909,21 @@
               }
             });
           }
+          if (Array.isArray(d.mediaPositions)) {
+            var _liveMediaMove = (typeof conMediaItems !== 'undefined') ? conMediaItems : (window.conMediaItems || []);
+            d.mediaPositions.forEach(function (mp) {
+              var mEl = document.querySelector('#constellation-board .con-media-item[data-id="' + mp.id + '"]');
+              if (mEl) {
+                mEl.style.left = mp.x + 'px';
+                mEl.style.top = mp.y + 'px';
+              }
+              var mObj = _liveMediaMove.find(function (m) { return String(m.id) === String(mp.id); });
+              if (mObj) {
+                mObj.x = mp.x;
+                mObj.y = mp.y;
+              }
+            });
+          }
           if (typeof conRedrawEdges === 'function') conRedrawEdges();
           if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
           return;
@@ -1947,6 +1962,25 @@
                 drObj.x = dp.x; drObj.y = dp.y; drObj.w = dp.w; drObj.h = dp.h;
                 if (dp.points) drObj.points = dp.points;
                 if (typeof window._conDrawingUpdateGeom === 'function') window._conDrawingUpdateGeom(drObj);
+              }
+            });
+          }
+          if (Array.isArray(d.media)) {
+            var _liveMediaResize = (typeof conMediaItems !== 'undefined') ? conMediaItems : (window.conMediaItems || []);
+            d.media.forEach(function (mp) {
+              var mEl = document.querySelector('#constellation-board .con-media-item[data-id="' + mp.id + '"]');
+              if (mEl) {
+                mEl.style.left = mp.x + 'px';
+                mEl.style.top = mp.y + 'px';
+                if (typeof mp.w === 'number') mEl.style.width = mp.w + 'px';
+                if (typeof mp.h === 'number') mEl.style.height = mp.h + 'px';
+              }
+              var mObj = _liveMediaResize.find(function (m) { return String(m.id) === String(mp.id); });
+              if (mObj) {
+                mObj.x = mp.x;
+                mObj.y = mp.y;
+                if (typeof mp.w === 'number') mObj.w = mp.w;
+                if (typeof mp.h === 'number') mObj.h = mp.h;
               }
             });
           }

@@ -277,6 +277,13 @@
                   <div class="dropdown-item-desc" data-i18n="gsOptionExportXlsxDesc">Formatted semester grade sheet table for Excel</div>
                 </div>
               </button>
+              <button class="dropdown-item" id="btn-export-semester-ods">
+                <img src="../assets/icons/table.svg" class="btn-icon" alt="" />
+                <div class="dropdown-item-text">
+                  <div class="dropdown-item-title" data-i18n="gsOptionExportOds">LibreOffice Calc (.ods)</div>
+                  <div class="dropdown-item-desc" data-i18n="gsOptionExportOdsDesc">Formatted semester grade sheet table for LibreOffice Calc</div>
+                </div>
+              </button>
               <button class="dropdown-item" id="btn-export-semester-csv">
                 <img src="../assets/icons/table.svg" class="btn-icon" alt="" />
                 <div class="dropdown-item-text">
@@ -537,6 +544,13 @@
                 <div class="dropdown-item-text">
                   <div class="dropdown-item-title" data-i18n="gsCmpExportCompareXlsx">Comparison Spreadsheet (.xlsx)</div>
                   <div class="dropdown-item-desc">Formatted multi-class comparative workbook</div>
+                </div>
+              </button>
+              <button class="dropdown-item" id="btn-cmp-export-ods">
+                <img src="../assets/icons/table.svg" class="btn-icon" alt="" />
+                <div class="dropdown-item-text">
+                  <div class="dropdown-item-title" data-i18n="gsCmpExportCompareOds">Comparison Spreadsheet (.ods)</div>
+                  <div class="dropdown-item-desc" data-i18n="gsOptionExportOdsDesc">Formatted multi-class comparative workbook for LibreOffice</div>
                 </div>
               </button>
               <button class="dropdown-item" id="btn-cmp-export-html">
@@ -16322,7 +16336,7 @@
       URL.revokeObjectURL(url);
     }
 
-    async function exportSemesterGradesXlsx(classObj, sem) {
+    async function exportSemesterGradesXlsx(classObj, sem, format = 'xlsx') {
       if (typeof XLSX === "undefined") {
         await showAlert(t('gsAlertXlsxNotLoaded') || "XLSX library not loaded");
         return;
@@ -16434,13 +16448,20 @@
       XLSX.utils.book_append_sheet(wb, ws, report.semLabel || sem);
 
       try {
-        const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        const isOds = format === 'ods';
+        const wbout = XLSX.write(wb, { bookType: isOds ? 'ods' : 'xlsx', type: 'array' });
         const slug = slugifyForPath(classObj.name || "class");
-        const filename = `${slug}-${sem}-grades-${new Date().toISOString().slice(0, 10)}.xlsx`;
-        downloadBinaryFile(wbout, filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        const ext = isOds ? 'ods' : 'xlsx';
+        const mime = isOds ? 'application/vnd.oasis.opendocument.spreadsheet' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        const filename = `${slug}-${sem}-grades-${new Date().toISOString().slice(0, 10)}.${ext}`;
+        downloadBinaryFile(wbout, filename, mime);
       } catch (err) {
-        await showAlert('<img src="../assets/icons/error.svg" class="btn-icon" alt="" /> ' + (t('gsAlertXlsxSaveFailed') || 'Could not save XLSX:') + ' ' + (err && err.message ? err.message : String(err)));
+        await showAlert('<img src="../assets/icons/error.svg" class="btn-icon" alt="" /> ' + (t('gsAlertXlsxSaveFailed') || 'Could not save spreadsheet:') + ' ' + (err && err.message ? err.message : String(err)));
       }
+    }
+
+    async function exportSemesterGradesOds(classObj, sem) {
+      return exportSemesterGradesXlsx(classObj, sem, 'ods');
     }
 
     async function exportTestHtml(classObj, sem, testIndex) {
@@ -23119,6 +23140,9 @@
       document.getElementById("btn-cmp-export-xlsx")?.addEventListener("click", () => {
         if (typeof exportCompareXlsx === 'function') exportCompareXlsx();
       });
+      document.getElementById("btn-cmp-export-ods")?.addEventListener("click", () => {
+        if (typeof exportCompareOds === 'function') exportCompareOds();
+      });
       document.getElementById("btn-cmp-export-html")?.addEventListener("click", () => {
         if (typeof exportCompareHtml === 'function') exportCompareHtml();
       });
@@ -23744,6 +23768,14 @@
         const sem = await pickSemesterForReport();
         if (!sem) return;
         exportSemesterGradesXlsx(classObj, sem);
+      });
+
+      document.getElementById("btn-export-semester-ods")?.addEventListener("click", async () => {
+        const classObj = getActiveClass();
+        if (!classObj) return;
+        const sem = await pickSemesterForReport();
+        if (!sem) return;
+        exportSemesterGradesOds(classObj, sem);
       });
 
       document.getElementById("btn-export").addEventListener("click", exportJson);
@@ -26416,12 +26448,19 @@ ${blocks}
       });
 
       try {
-        const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-        const fname = `class-comparison-${_cmpState.scope}-${new Date().toISOString().slice(0, 10)}.xlsx`;
-        downloadBinaryFile(wbout, fname, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        const isOds = format === 'ods';
+        const wbout = XLSX.write(wb, { bookType: isOds ? 'ods' : 'xlsx', type: 'array' });
+        const ext = isOds ? 'ods' : 'xlsx';
+        const mime = isOds ? 'application/vnd.oasis.opendocument.spreadsheet' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        const fname = `class-comparison-${_cmpState.scope}-${new Date().toISOString().slice(0, 10)}.${ext}`;
+        downloadBinaryFile(wbout, fname, mime);
       } catch (err) {
-        showToast('Failed to generate XLSX: ' + err.message, true);
+        showToast('Failed to generate spreadsheet: ' + err.message, true);
       }
+    }
+
+    function exportCompareOds() {
+      return exportCompareXlsx('ods');
     }
 
     window.openCompareClassesScreen = openCompareClassesScreen;

@@ -19,9 +19,25 @@
   var conNotes = global.conNotes = global.conNotes || [];
   var conGroups = global.conGroups = global.conGroups || [];
   var conMasks = global.conMasks = global.conMasks || [];
+  var conMediaSelected = global.conMediaSelected = global.conMediaSelected || new Set();
+  var conMediaItems = global.conMediaItems = global.conMediaItems || [];
 
   var board = global.board = window.board = window.board || function () { return document.getElementById('constellation-board'); };
   var svg = global.svg = window.svg = window.svg || function () { return document.getElementById('constellation-svg'); };
+
+  function _getLiveNotes() {
+    return (typeof window.conGetNotes === 'function')
+      ? window.conGetNotes()
+      : ((typeof window.conNotes !== 'undefined' && Array.isArray(window.conNotes))
+          ? window.conNotes
+          : ((typeof conNotes !== 'undefined' && Array.isArray(conNotes)) ? conNotes : (global.conNotes || [])));
+  }
+
+  function _getLiveMedia() {
+    return (typeof window.conMediaItems !== 'undefined' && Array.isArray(window.conMediaItems))
+      ? window.conMediaItems
+      : ((typeof conMediaItems !== 'undefined' && Array.isArray(conMediaItems)) ? conMediaItems : (global.conMediaItems || []));
+  }
 
       // ---- Super Groups ----
       const GROUP_PAD = 18; // padding around member nodes inside the rect
@@ -79,7 +95,8 @@
       function conGroupPaletteText(idx) { return (CON_PALETTES[idx] || CON_PALETTES[0])[1]; }
 
       function conGroupCreate(nodeIds, placeholderX, placeholderY, noteIds, drawingIds, shapeIds, opts) {
-        const _totalGroupItems = nodeIds.length + (noteIds || []).length + (drawingIds || []).length + (shapeIds || []).length;
+        const mediaIds = (opts && (opts.mediaIds || opts.imageIds)) || (Array.isArray(arguments[7]) ? arguments[7] : []);
+        const _totalGroupItems = nodeIds.length + (noteIds || []).length + (drawingIds || []).length + (shapeIds || []).length + mediaIds.length;
         if (_totalGroupItems < 2 && placeholderX === undefined) return null;
         const _isDrawingGroup = !!(opts && opts.drawingGroup);
         const _isPhraseGroup = !!(opts && opts.phraseGroup);
@@ -104,7 +121,7 @@
         brd_.insertBefore(el, _insertTarget);
 
         const group = {
-          id, nodeIds: [...nodeIds], noteIds: [...(noteIds || [])], drawingIds: [...(drawingIds || [])], shapeIds: [...(shapeIds || [])],
+          id, nodeIds: [...nodeIds], noteIds: [...(noteIds || [])], drawingIds: [...(drawingIds || [])], shapeIds: [...(shapeIds || [])], mediaIds: [...mediaIds],
           title: '', paletteIdx: 0, drawingGroup: _isDrawingGroup, phraseGroup: _isPhraseGroup, invisible: _isInvisible, el,
           _manualW: null, _manualH: null,
           _px: placeholderX, _py: placeholderY
@@ -181,27 +198,34 @@
           group.el.style.height = group._manualH + 'px';
           // Still reposition to follow member nodes
           const members = conNodes.filter(n => _refitIdSet.has(n.id));
-          const _liveNotes = (typeof window.conGetNotes === 'function')
-            ? window.conGetNotes()
-            : ((typeof conNotes !== 'undefined' && Array.isArray(conNotes)) ? conNotes : (window.conNotes || []));
+          const _liveNotes = _getLiveNotes();
           const noteMembers = (group.noteIds || []).map(nid => {
-            const el = document.querySelector(`.con-word-note[data-id="${nid}"]`);
-            const nd = _liveNotes.find(n => n.id === nid);
+            const el = (typeof window.wnGetNoteElementById === 'function')
+              ? window.wnGetNoteElementById(nid)
+              : document.querySelector(`.con-word-note[data-id="${nid}"], .ta-word-note[data-id="${nid}"]`);
+            const nd = _liveNotes.find(n => n && (n.id === nid || String(n.id) === String(nid)));
             return el && nd ? { x: nd.x, y: nd.y, w: el.offsetWidth || 80, h: el.offsetHeight || 28 } : null;
           }).filter(Boolean);
           const drawMembers = (group.drawingIds || []).map(did => {
-            const dr = conDrawings.find(d => d.id === did);
+            const dr = conDrawings.find(d => d && (d.id === did || String(d.id) === String(did)));
             return dr ? { x: dr.x, y: dr.y, w: dr.w || 1, h: dr.h || 1 } : null;
           }).filter(Boolean);
           const shapeMembers = (group.shapeIds || []).map(sid => {
-            const s = conShapes.find(x => x.id === sid);
+            const s = conShapes.find(x => x && (x.id === sid || String(x.id) === String(sid)));
             return s ? { x: s.x, y: s.y, w: s.w || 1, h: s.h || 1 } : null;
+          }).filter(Boolean);
+          const liveMediaList = _getLiveMedia();
+          const mediaMembers = (group.mediaIds || []).map(mid => {
+            const el = document.querySelector(`.con-media-item[data-id="${mid}"]`);
+            const m = liveMediaList.find(x => x && (x.id === mid || String(x.id) === String(mid)));
+            return m ? { x: m.x, y: m.y, w: m.w || (el ? el.offsetWidth : 100), h: m.h || (el ? el.offsetHeight : 80) } : null;
           }).filter(Boolean);
           const allRects = [
             ...members.map(n => conGetNodeBoundingBox(n)),
             ...noteMembers,
             ...drawMembers,
-            ...shapeMembers
+            ...shapeMembers,
+            ...mediaMembers
           ];
           if (allRects.length) {
             let minX = Infinity, minY = Infinity;
@@ -211,29 +235,36 @@
           }
           return;
         }
-        // Compute bounding box of all member nodes, notes, and drawings
+        // Compute bounding box of all member nodes, notes, drawings, shapes, and media items
         const members = conNodes.filter(n => _refitIdSet.has(n.id));
-        const _liveNotes = (typeof window.conGetNotes === 'function')
-          ? window.conGetNotes()
-          : ((typeof conNotes !== 'undefined' && Array.isArray(conNotes)) ? conNotes : (window.conNotes || []));
+        const _liveNotes = _getLiveNotes();
         const noteMembers = (group.noteIds || []).map(nid => {
-          const el = document.querySelector(`.con-word-note[data-id="${nid}"]`);
-          const nd = _liveNotes.find(n => n.id === nid);
+          const el = (typeof window.wnGetNoteElementById === 'function')
+            ? window.wnGetNoteElementById(nid)
+            : document.querySelector(`.con-word-note[data-id="${nid}"], .ta-word-note[data-id="${nid}"]`);
+          const nd = _liveNotes.find(n => n && (n.id === nid || String(n.id) === String(nid)));
           return el && nd ? { x: nd.x, y: nd.y, w: el.offsetWidth || 80, h: el.offsetHeight || 28 } : null;
         }).filter(Boolean);
         const drawMembers = (group.drawingIds || []).map(did => {
-          const dr = conDrawings.find(d => d.id === did);
+          const dr = conDrawings.find(d => d && (d.id === did || String(d.id) === String(did)));
           return dr ? { x: dr.x, y: dr.y, w: dr.w || 1, h: dr.h || 1 } : null;
         }).filter(Boolean);
         const shapeMembers = (group.shapeIds || []).map(sid => {
-          const s = conShapes.find(x => x.id === sid);
+          const s = conShapes.find(x => x && (x.id === sid || String(x.id) === String(sid)));
           return s ? { x: s.x, y: s.y, w: s.w || 1, h: s.h || 1 } : null;
+        }).filter(Boolean);
+        const liveMediaListAuto = _getLiveMedia();
+        const mediaMembers = (group.mediaIds || []).map(mid => {
+          const el = document.querySelector(`.con-media-item[data-id="${mid}"]`);
+          const m = liveMediaListAuto.find(x => x && (x.id === mid || String(x.id) === String(mid)));
+          return m ? { x: m.x, y: m.y, w: m.w || (el ? el.offsetWidth : 100), h: m.h || (el ? el.offsetHeight : 80) } : null;
         }).filter(Boolean);
         const allRects = [
           ...members.map(n => conGetNodeBoundingBox(n)),
           ...noteMembers,
           ...drawMembers,
-          ...shapeMembers
+          ...shapeMembers,
+          ...mediaMembers
         ];
         if (!allRects.length) {
           // Empty group: show a fixed-size placeholder at stored position
@@ -477,23 +508,30 @@
             .filter(n => _memberIdSet.has(n.id) && !conIsNodeLocked(n))
             .map(n => ({ n, dx: n.x - gLeft, dy: n.y - gTop }));
           // Snapshot member notes
+          const _liveNotes = _getLiveNotes();
           const noteMemberSnap = (group.noteIds || []).map(nid => {
-            const nd = typeof conNotes !== 'undefined' ? conNotes.find(n => n.id === nid) : null;
+            const nd = _liveNotes.find(n => n && (n.id === nid || String(n.id) === String(nid)));
             return nd ? { nd, dx: nd.x - gLeft, dy: nd.y - gTop } : null;
           }).filter(Boolean);
           // Snapshot member drawings
           const drawMemberSnap = (group.drawingIds || []).map(did => {
-            const dr = conDrawings.find(d => d.id === did);
+            const dr = conDrawings.find(d => d && (d.id === did || String(d.id) === String(did)));
             return dr ? { dr, dx: dr.x - gLeft, dy: dr.y - gTop } : null;
           }).filter(Boolean);
           // Snapshot member shapes
           const shapeMemberSnap = (group.shapeIds || []).map(sid => {
-            const s = conShapes.find(x => x.id === sid);
+            const s = conShapes.find(x => x && (x.id === sid || String(x.id) === String(sid)));
             return s ? {
               s, dx: s.x - gLeft, dy: s.y - gTop,
               dlx1: s.lx1 - gLeft, dly1: s.ly1 - gTop,
               dlx2: s.lx2 - gLeft, dly2: s.ly2 - gTop
             } : null;
+          }).filter(Boolean);
+          // Snapshot member media items (images)
+          const liveMediaDragList = _getLiveMedia();
+          const mediaMemberSnap = (group.mediaIds || []).map(mid => {
+            const m = liveMediaDragList.find(x => x && (x.id === mid || String(x.id) === String(mid)));
+            return m ? { m, dx: m.x - gLeft, dy: m.y - gTop } : null;
           }).filter(Boolean);
 
           let _groupMoveRaf = null;
@@ -521,7 +559,9 @@
             noteMemberSnap.forEach(({ nd, dx, dy }) => {
               nd.x = nx + dx;
               nd.y = ny + dy;
-              const noteEl = document.querySelector(`.con-word-note[data-id="${nd.id}"]`);
+              const noteEl = (typeof window.wnGetNoteElementById === 'function')
+                ? window.wnGetNoteElementById(nd.id)
+                : document.querySelector(`.con-word-note[data-id="${nd.id}"], .ta-word-note[data-id="${nd.id}"]`);
               if (noteEl) { noteEl.style.left = nd.x + 'px'; noteEl.style.top = nd.y + 'px'; }
             });
             drawMemberSnap.forEach(({ dr, dx, dy }) => {
@@ -533,7 +573,13 @@
               s.x = nx + dx; s.y = ny + dy;
               if (s.lx1 !== undefined) { s.lx1 = nx + dlx1; s.ly1 = ny + dly1; s.lx2 = nx + dlx2; s.ly2 = ny + dly2; }
               if (s.el) { s.el.style.left = (s.x - s.pad) + 'px'; s.el.style.top = (s.y - s.pad) + 'px'; }
-              _conShapeUpdateHandles(s);
+              if (typeof _conShapeUpdateHandles === 'function') _conShapeUpdateHandles(s);
+            });
+            mediaMemberSnap.forEach(({ m, dx, dy }) => {
+              m.x = nx + dx;
+              m.y = ny + dy;
+              const mEl = document.querySelector(`.con-media-item[data-id="${m.id}"]`);
+              if (mEl) { mEl.style.left = m.x + 'px'; mEl.style.top = m.y + 'px'; }
             });
             conRedrawEdges();
             // Send lightweight group-move message to mirror (no full snapshot needed)
@@ -546,7 +592,8 @@
                 nodePositions: memberSnap.map(({ n }) => ({ id: n.id, x: n.x, y: n.y })),
                 notePositions: noteMemberSnap.map(({ nd }) => ({ id: nd.id, x: nd.x, y: nd.y })),
                 drawPositions: drawMemberSnap.map(({ dr }) => ({ id: dr.id, x: dr.x, y: dr.y, pad: dr.pad || 0 })),
-                shapePositions: shapeMemberSnap.map(({ s }) => ({ id: s.id, x: s.x, y: s.y, pad: s.pad || 0, lx1: s.lx1, ly1: s.ly1, lx2: s.lx2, ly2: s.ly2 }))
+                shapePositions: shapeMemberSnap.map(({ s }) => ({ id: s.id, x: s.x, y: s.y, pad: s.pad || 0, lx1: s.lx1, ly1: s.ly1, lx2: s.lx2, ly2: s.ly2 })),
+                mediaPositions: mediaMemberSnap.map(({ m }) => ({ id: m.id, x: m.x, y: m.y }))
               };
               if (!_groupMoveRaf) {
                 _groupMoveRaf = requestAnimationFrame(function () {
@@ -566,17 +613,19 @@
             }
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onUp);
-            if (dragging && group.nodeIds.length > 0) {
-              // Update baseX/baseY for all member nodes based on current zoom
-              const board = document.getElementById('constellation-board');
-              const boardCenterX = board.clientWidth / 2;
-              const boardCenterY = board.clientHeight / 2;
+            if (dragging) {
+              const brdEl = board();
+              const boardCenterX = brdEl ? (brdEl.clientWidth / 2) : 0;
+              const boardCenterY = brdEl ? (brdEl.clientHeight / 2) : 0;
+              const zoom = (typeof conCurrentZoom === 'number' && conCurrentZoom > 0) ? conCurrentZoom : (window.conGetZoom ? window.conGetZoom() : 1);
               memberSnap.forEach(({ n }) => {
-                n.baseX = boardCenterX + (n.x - boardCenterX) / conCurrentZoom;
-                n.baseY = boardCenterY + (n.y - boardCenterY) / conCurrentZoom;
+                n.baseX = boardCenterX + (n.x - boardCenterX) / zoom;
+                n.baseY = boardCenterY + (n.y - boardCenterY) / zoom;
               });
               if (group.phraseGroup) conPhraseGroupLayout(group);
               else { conGroupRefit(group); conGroupRefitAll(); }
+              if (typeof window.conPushUndo === 'function') window.conPushUndo();
+              else if (typeof conPushUndo === 'function') conPushUndo();
             } else if (!dragging && conMode === 'move') {
               // Plain click on group background — focus the group
               conGroupFocus(group.id);
@@ -593,7 +642,7 @@
         // Resize handle
         const resizeHandle = el.querySelector('.con-group-resizer');
         let resizing = false, rsX = 0, rsY = 0, rsW = 0, rsH = 0;
-        let _rsShapeSnaps = [], _rsDrawSnaps = [];
+        let _rsShapeSnaps = [], _rsDrawSnaps = [], _rsMediaSnaps = [], _rsNoteSnaps = [];
         let _groupResizeRaf = null;
         let _pendingGroupResizeMsg = null;
         resizeHandle.addEventListener('mousedown', function (e) {
@@ -608,7 +657,7 @@
           const gTop = parseFloat(el.style.top) || 0;
           // Snapshot shape positions relative to group content origin
           _rsShapeSnaps = (group.shapeIds || []).map(sid => {
-            const s = conShapes.find(x => x.id === sid);
+            const s = conShapes.find(x => x && (x.id === sid || String(x.id) === String(sid)));
             if (!s) return null;
             return {
               s,
@@ -622,13 +671,34 @@
           }).filter(Boolean);
           // Snapshot drawing positions relative to group content origin
           _rsDrawSnaps = (group.drawingIds || []).map(did => {
-            const dr = conDrawings.find(x => x.id === did);
+            const dr = conDrawings.find(x => x && (x.id === did || String(x.id) === String(did)));
             if (!dr) return null;
             return {
               dr,
               rx: dr.x - (gLeft + GROUP_PAD), ry: dr.y - (gTop + GROUP_PAD),
               rw: dr.w, rh: dr.h,
               points: dr.points.map(p => p === null ? null : { x: p.x, y: p.y })
+            };
+          }).filter(Boolean);
+          // Snapshot media item positions relative to group content origin
+          const liveMediaResizeList = _getLiveMedia();
+          _rsMediaSnaps = (group.mediaIds || []).map(mid => {
+            const m = liveMediaResizeList.find(x => x && (x.id === mid || String(x.id) === String(mid)));
+            if (!m) return null;
+            return {
+              m,
+              rx: m.x - (gLeft + GROUP_PAD), ry: m.y - (gTop + GROUP_PAD),
+              rw: m.w || 100, rh: m.h || 80
+            };
+          }).filter(Boolean);
+          // Snapshot note positions relative to group content origin
+          const liveNoteResizeList = _getLiveNotes();
+          _rsNoteSnaps = (group.noteIds || []).map(nid => {
+            const nd = liveNoteResizeList.find(x => x && (x.id === nid || String(x.id) === String(nid)));
+            if (!nd) return null;
+            return {
+              nd,
+              rx: nd.x - (gLeft + GROUP_PAD), ry: nd.y - (gTop + GROUP_PAD)
             };
           }).filter(Boolean);
         });
@@ -657,8 +727,8 @@
               s.lx1 = ox + rlx1 * scaleX; s.ly1 = oy + rly1 * scaleY;
               s.lx2 = ox + rlx2 * scaleX; s.ly2 = oy + rly2 * scaleY;
             }
-            _conShapeUpdateGeom(s);
-            _conShapeUpdateHandles(s);
+            if (typeof _conShapeUpdateGeom === 'function') _conShapeUpdateGeom(s);
+            if (typeof _conShapeUpdateHandles === 'function') _conShapeUpdateHandles(s);
           });
           // Proportionally scale drawings within the group
           _rsDrawSnaps.forEach(({ dr, rx, ry, rw, rh, points }) => {
@@ -667,8 +737,34 @@
             dr.w = Math.max(2, rw * scaleX);
             dr.h = Math.max(2, rh * scaleY);
             dr.points = points.map(p => p === null ? null : { x: p.x * scaleX, y: p.y * scaleY });
-            _conDrawingUpdateGeom(dr);
-            _conDrawingUpdateHandles(dr);
+            if (typeof _conDrawingUpdateGeom === 'function') _conDrawingUpdateGeom(dr);
+            if (typeof _conDrawingUpdateHandles === 'function') _conDrawingUpdateHandles(dr);
+          });
+          // Proportionally scale media items within the group
+          _rsMediaSnaps.forEach(({ m, rx, ry, rw, rh }) => {
+            m.x = ox + rx * scaleX;
+            m.y = oy + ry * scaleY;
+            m.w = Math.max(20, rw * scaleX);
+            m.h = Math.max(20, rh * scaleY);
+            const mEl = document.querySelector(`.con-media-item[data-id="${m.id}"]`);
+            if (mEl) {
+              mEl.style.left = m.x + 'px';
+              mEl.style.top = m.y + 'px';
+              mEl.style.width = m.w + 'px';
+              mEl.style.height = m.h + 'px';
+            }
+          });
+          // Proportionally reposition notes within the group
+          _rsNoteSnaps.forEach(({ nd, rx, ry }) => {
+            nd.x = ox + rx * scaleX;
+            nd.y = oy + ry * scaleY;
+            const noteEl = (typeof window.wnGetNoteElementById === 'function')
+              ? window.wnGetNoteElementById(nd.id)
+              : document.querySelector(`.con-word-note[data-id="${nd.id}"], .ta-word-note[data-id="${nd.id}"]`);
+            if (noteEl) {
+              noteEl.style.left = nd.x + 'px';
+              noteEl.style.top = nd.y + 'px';
+            }
           });
           if (window._conMirrorSend) {
             _pendingGroupResizeMsg = {
@@ -684,6 +780,9 @@
               drawings: _rsDrawSnaps.map(({ dr }) => ({
                 id: dr.id, x: dr.x, y: dr.y, w: dr.w, h: dr.h,
                 points: dr.points ? dr.points.map(p => p === null ? null : { x: p.x, y: p.y }) : undefined
+              })),
+              media: _rsMediaSnaps.map(({ m }) => ({
+                id: m.id, x: m.x, y: m.y, w: m.w, h: m.h
               }))
             };
             if (!_groupResizeRaf) {
@@ -758,10 +857,18 @@
         dissolved.el.remove();
         conGroups.splice(idx, 1);
         if (conGroupFocused === gid) conGroupFocused = null;
-        if (typeof conEdges !== 'undefined' && Array.isArray(conEdges)) {
-          conEdges.filter(e => e.a === gid || e.b === gid).forEach(e => e.g && e.g.remove());
-          conEdges = conEdges.filter(e => e.a !== gid && e.b !== gid);
-          window.conEdges = conEdges;
+        const edgesArr = (typeof window !== 'undefined' && window.conEdges) || (typeof global !== 'undefined' && global.conEdges) || conEdges;
+        if (Array.isArray(edgesArr)) {
+          for (let i = edgesArr.length - 1; i >= 0; i--) {
+            const e = edgesArr[i];
+            if (e && (e.a === gid || e.b === gid)) {
+              if (e.g && e.g.remove) e.g.remove();
+              edgesArr.splice(i, 1);
+            }
+          }
+          if (typeof window !== 'undefined') window.conEdges = edgesArr;
+          if (typeof global !== 'undefined') global.conEdges = edgesArr;
+          conEdges = edgesArr;
           if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
         }
       }
@@ -789,23 +896,36 @@
         const group = conGroups.find(g => g.id === gid);
         if (!group) return;
         [...group.nodeIds].forEach(id => conRemoveNode(id));
-        if (group.noteIds) [...group.noteIds].forEach(nid => {
-          const nd = conNotes.find(n => n.id === nid);
-          if (nd) wnDeleteNoteData(nd);
-        });
+        if (group.noteIds) {
+          const _liveNotes = _getLiveNotes();
+          [...group.noteIds].forEach(nid => {
+            const nd = _liveNotes.find(n => n && (n.id === nid || String(n.id) === String(nid)));
+            if (nd) {
+              if (typeof window.wnDeleteNoteData === 'function') window.wnDeleteNoteData(nd);
+              else if (typeof wnDeleteNoteData === 'function') wnDeleteNoteData(nd);
+            }
+          });
+        }
         const removedDrawIds = [];
         if (group.drawingIds) [...group.drawingIds].forEach(did => {
-          const dr = conDrawings.find(x => x.id === did);
+          const dr = conDrawings.find(x => x && (x.id === did || String(x.id) === String(did)));
           if (dr && dr.el) dr.el.remove();
-          conDrawings = conDrawings.filter(x => x.id !== did);
+          conDrawings = conDrawings.filter(x => String(x.id) !== String(did));
           removedDrawIds.push(String(did));
         });
         const removedShapeIds = [];
         if (group.shapeIds) [...group.shapeIds].forEach(sid => {
-          const s = conShapes.find(x => x.id === sid);
+          const s = conShapes.find(x => x && (x.id === sid || String(x.id) === String(sid)));
           if (s && s.el) s.el.remove();
-          conShapes = conShapes.filter(x => x.id !== sid);
+          conShapes = conShapes.filter(x => String(x.id) !== String(sid));
           removedShapeIds.push(String(sid));
+        });
+        if (group.mediaIds) [...group.mediaIds].forEach(mid => {
+          const mEl = document.querySelector(`.con-media-item[data-id="${mid}"]`);
+          if (mEl) mEl.remove();
+          if (typeof window.conMediaItems !== 'undefined' && Array.isArray(window.conMediaItems)) {
+            window.conMediaItems = window.conMediaItems.filter(x => String(x.id) !== String(mid));
+          }
         });
         conGroupDissolve(gid);
         if (typeof window._conMirrorSend === 'function') {
@@ -1105,12 +1225,14 @@
         const gNotes = Array.isArray(group.noteIds) ? [...group.noteIds] : [];
         const gDrawings = Array.isArray(group.drawingIds) ? [...group.drawingIds] : [];
         const gShapes = Array.isArray(group.shapeIds) ? [...group.shapeIds] : [];
+        const gMedia = Array.isArray(group.mediaIds) ? [...group.mediaIds] : [];
         conSaveSelectionToLibraryPrompt(group.title || 'Group', {
           groupIds: [group.id],
           nodeIds: gNodes,
           noteIds: gNotes,
           drawingIds: gDrawings,
-          shapeIds: gShapes
+          shapeIds: gShapes,
+          mediaIds: gMedia
         });
       };
 
@@ -1388,6 +1510,20 @@
         }
       };
 
+
+  function conGroupOfMedia(mid) {
+    if (!mid) return null;
+    return conGroups.find(g => (g.mediaIds || []).some(id => String(id) === String(mid))) || null;
+  }
+  window.conGroupOfMedia = conGroupOfMedia;
+
+  function conGroupRemoveMedia(mid) {
+    const g = conGroupOfMedia(mid);
+    if (!g) return;
+    g.mediaIds = (g.mediaIds || []).filter(id => String(id) !== String(mid));
+    conGroupRefit(g);
+  }
+  window.conGroupRemoveMedia = conGroupRemoveMedia;
 
   // Export group functions onto window and Board.groups
   window.conGroupCreate = conGroupCreate;

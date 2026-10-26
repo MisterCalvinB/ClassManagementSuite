@@ -2139,7 +2139,14 @@
           clearInterval(item._pdfViewPoll);
           item._pdfViewPoll = null;
         }
+        if (typeof conMediaSelected !== 'undefined') conMediaSelected.delete(item.id);
         conMediaItems = conMediaItems.filter(m => m.id !== item.id);
+        if (typeof conGroups !== 'undefined') {
+          conGroups.forEach(g => {
+            if (g.mediaIds) g.mediaIds = g.mediaIds.filter(id => String(id) !== String(item.id));
+          });
+          if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
+        }
         wrap.remove();
       };
       const content = document.createElement('div');
@@ -2647,10 +2654,46 @@
       wrap.addEventListener('mousedown', ev => {
         if (ev.button !== 0) return;
         window._conActiveMediaItem = item;
-        document.querySelectorAll('.con-media-item.con-media-selected').forEach(el => {
-          if (el !== wrap) el.classList.remove('con-media-selected');
-        });
-        wrap.classList.add('con-media-selected');
+        const isModifier = !!(ev.shiftKey || ev.ctrlKey || ev.metaKey);
+        if (isModifier) {
+          if (typeof conSelected !== 'undefined' && conSelected) {
+            const prevEl = conNodes.find(n => n.id === conSelected);
+            if (prevEl) {
+              conMultiSelected.add(conSelected);
+              prevEl.el.classList.remove('con-selected');
+              prevEl.el.classList.add('con-multi-selected');
+            }
+            conSelected = null;
+          }
+          if (typeof conMediaSelected !== 'undefined') {
+            if (conMediaSelected.has(item.id)) {
+              conMediaSelected.delete(item.id);
+              wrap.classList.remove('con-media-selected');
+            } else {
+              conMediaSelected.add(item.id);
+              wrap.classList.add('con-media-selected');
+            }
+          } else {
+            wrap.classList.toggle('con-media-selected');
+          }
+        } else {
+          if (typeof conMediaSelected !== 'undefined' && !conMediaSelected.has(item.id)) {
+            if (window.conMediaClearSelection) window.conMediaClearSelection();
+            conMediaSelected.add(item.id);
+            wrap.classList.add('con-media-selected');
+            if (window.conNodeClearSelection) window.conNodeClearSelection();
+            else if (typeof conSelect === 'function') conSelect(null);
+            if (window.conNoteClearSelection) window.conNoteClearSelection();
+            if (window.conDrawingClearSelection) window.conDrawingClearSelection();
+            if (window.conShapeClearSelection) window.conShapeClearSelection();
+            if (typeof window.conTableClearSelection === 'function') window.conTableClearSelection();
+          } else if (typeof conMediaSelected === 'undefined') {
+            document.querySelectorAll('.con-media-item.con-media-selected').forEach(el => {
+              if (el !== wrap) el.classList.remove('con-media-selected');
+            });
+            wrap.classList.add('con-media-selected');
+          }
+        }
         if (item.locked) return;
         if (ev.target.closest('.con-media-resizer')) return;
         if (ev.target.closest('.con-media-remove-btn')) return;
@@ -2758,12 +2801,26 @@
           conRenderPdfForItem(item, pdfCanvas, pdfScrollDiv, content);
         }
         if (wasDragging || wasResizing) {
+          if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
+          else if (typeof window.conGroupOfMedia === 'function') {
+            const parentGroup = window.conGroupOfMedia(item.id);
+            if (parentGroup && typeof conGroupRefit === 'function') conGroupRefit(parentGroup);
+          }
           setTimeout(() => {
             window._conMirrorDragging = false;
           }, 60);
         }
       });
     }
+
+    window.conMediaClearSelection = function () {
+      if (typeof conMediaSelected !== 'undefined') conMediaSelected.clear();
+      window._conActiveMediaItem = null;
+      document.querySelectorAll('.con-media-item.con-media-selected').forEach(el => el.classList.remove('con-media-selected'));
+    };
+    window.conGetMediaSelected = function () {
+      return (typeof conMediaSelected !== 'undefined') ? conMediaSelected : (window.conMediaSelected || new Set());
+    };
 
     window.conMediaClear = function () {
       if (window._conPdfDocCache) {
@@ -7181,12 +7238,42 @@
           _preDragSnap = conBuildPageSnapshot();
 
           // Snapshot offsets for all multi-selected nodes relative to this drag origin
-          const allSelectedNodeIds = new Set(conMultiSelected);
+          const allSelectedNodeIds = new Set();
+          if (typeof window.conGetMultiSelected === 'function' && window.conGetMultiSelected()) {
+            window.conGetMultiSelected().forEach(nid => allSelectedNodeIds.add(nid));
+          }
+          if (typeof window.conMultiSelected !== 'undefined' && window.conMultiSelected) {
+            window.conMultiSelected.forEach(nid => allSelectedNodeIds.add(nid));
+          }
+          if (typeof conMultiSelected !== 'undefined' && conMultiSelected) {
+            conMultiSelected.forEach(nid => allSelectedNodeIds.add(nid));
+          }
           if (conSelected) allSelectedNodeIds.add(conSelected);
-          const isSelected = allSelectedNodeIds.has(id);
+          if (typeof window.conSelected !== 'undefined' && window.conSelected) allSelectedNodeIds.add(window.conSelected);
+          if (el.classList.contains('con-selected') || el.classList.contains('con-multi-selected')) {
+            allSelectedNodeIds.add(id);
+          }
+          const isSelected = allSelectedNodeIds.has(id) || allSelectedNodeIds.has(String(id)) || allSelectedNodeIds.has(Number(id));
+
+          // Collect selected notes (live notes list, live selection set, plus DOM fallback)
+          const activeNoteSel = new Set();
+          if (typeof window.conGetNoteSelected === 'function' && window.conGetNoteSelected()) {
+            window.conGetNoteSelected().forEach(nid => activeNoteSel.add(nid));
+          }
+          if (typeof window.conNoteSelected !== 'undefined' && window.conNoteSelected) {
+            window.conNoteSelected.forEach(nid => activeNoteSel.add(nid));
+          }
+          if (typeof conNoteSelected !== 'undefined' && conNoteSelected) {
+            conNoteSelected.forEach(nid => activeNoteSel.add(nid));
+          }
+          document.querySelectorAll('#constellation-board .con-word-note.wn-selected').forEach(wel => {
+            const did = wel.dataset.id || wel.id;
+            if (did) activeNoteSel.add(did);
+          });
+
           const shapeSel = window.conGetShapeSelected ? window.conGetShapeSelected() : (typeof _conShapeSelected !== 'undefined' ? _conShapeSelected : new Set());
           const tableSel = (typeof conTableSelected !== 'undefined') ? conTableSelected : new Set();
-          const totalSelectedObjects = allSelectedNodeIds.size + conNoteSelected.size + conDrawingSelected.size + shapeSel.size + tableSel.size;
+          const totalSelectedObjects = allSelectedNodeIds.size + activeNoteSel.size + conDrawingSelected.size + shapeSel.size + tableSel.size;
           const isMulti = isSelected && (allSelectedNodeIds.size > 1 || totalSelectedObjects > 1);
 
           // Expand selection to include phrase siblings of any selected node
@@ -7194,19 +7281,32 @@
           if (isMulti) {
             _multiDragIds = new Set(allSelectedNodeIds);
             allSelectedNodeIds.forEach(nid => {
-              const pg = conGroups.find(g => g.phraseGroup && g.nodeIds.includes(nid));
+              const pg = conGroups.find(g => g.phraseGroup && g.nodeIds && (g.nodeIds.includes(nid) || g.nodeIds.some(sid => String(sid) === String(nid))));
               if (pg) pg.nodeIds.forEach(sid => _multiDragIds.add(sid));
             });
           }
           const groupSnap = isMulti
-            ? conNodes.filter(n => _multiDragIds.has(n.id) && !conIsNodeLocked(n)).map(n => ({ n, dx: n.x - node.x, dy: n.y - node.y }))
+            ? conNodes.filter(n => (_multiDragIds.has(n.id) || _multiDragIds.has(String(n.id))) && !conIsNodeLocked(n)).map(n => ({ n, dx: n.x - node.x, dy: n.y - node.y }))
             : null;
           // Snapshot selected notes for joint drag
+          const liveNotes = (typeof window.conGetNotes === 'function')
+            ? window.conGetNotes()
+            : ((typeof window.conNotes !== 'undefined' && Array.isArray(window.conNotes))
+              ? window.conNotes
+              : ((typeof conNotes !== 'undefined' && Array.isArray(conNotes)) ? conNotes : (global.conNotes || [])));
           const nodeStartX = node.x, nodeStartY = node.y;
-          const noteGroupSnap = (conNoteSelected.size > 0 && isSelected)
-            ? Array.from(conNoteSelected).map(nid => {
-              const nd = conNotes.find(n => n.id === nid);
-              return nd ? { nd, snapX: nd.x, snapY: nd.y } : null;
+          const noteGroupSnap = (activeNoteSel.size > 0 && isSelected)
+            ? Array.from(activeNoteSel).map(nid => {
+              const nd = liveNotes.find(n => n && (n.id === nid || String(n.id) === String(nid)));
+              if (!nd || nd.locked) return null;
+              const noteEl = (typeof window.wnGetNoteElementById === 'function')
+                ? window.wnGetNoteElementById(nd.id)
+                : ((typeof wnGetNoteElementById === 'function')
+                  ? wnGetNoteElementById(nd.id)
+                  : (document.querySelector(`.con-word-note[data-id="${nd.id}"]`) || document.getElementById(nd.id)));
+              const snapX = (nd.x != null) ? nd.x : (noteEl ? (parseInt(noteEl.style.left) || 0) : 0);
+              const snapY = (nd.y != null) ? nd.y : (noteEl ? (parseInt(noteEl.style.top) || 0) : 0);
+              return { nd, snapX, snapY, el: noteEl };
             }).filter(Boolean)
             : [];
           // Snapshot selected drawings for joint drag
@@ -7423,10 +7523,14 @@
             // Move jointly-selected notes
             if (noteGroupSnap.length > 0) {
               const ddx = node.x - nodeStartX, ddy = node.y - nodeStartY;
-              noteGroupSnap.forEach(({ nd, snapX, snapY }) => {
+              noteGroupSnap.forEach(({ nd, snapX, snapY, el: sEl }) => {
                 nd.x = snapX + ddx;
                 nd.y = snapY + ddy;
-                const noteEl = wnGetNoteElementById(nd.id);
+                const noteEl = sEl || (typeof window.wnGetNoteElementById === 'function'
+                  ? window.wnGetNoteElementById(nd.id)
+                  : ((typeof wnGetNoteElementById === 'function')
+                    ? wnGetNoteElementById(nd.id)
+                    : (document.querySelector(`.con-word-note[data-id="${nd.id}"]`) || document.getElementById(nd.id))));
                 if (noteEl) { noteEl.style.left = nd.x + 'px'; noteEl.style.top = nd.y + 'px'; }
               });
             }
@@ -7651,6 +7755,15 @@
                 n.baseY = boardCenterY + (n.y - boardCenterY) / conCurrentZoom;
               });
             }
+            if (dragging && noteGroupSnap && noteGroupSnap.length > 0) {
+              if (window._conMirrorSend) {
+                window._conMirrorSend({
+                  type: 'note-move',
+                  positions: noteGroupSnap.map(({ nd }) => ({ id: nd.id, x: nd.x, y: nd.y }))
+                });
+              }
+              if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+            }
             // Full mirror sync on drag end so the mirror state is always consistent
             if (dragging && window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
 
@@ -7676,7 +7789,25 @@
                   conMultiSelected.add(id);
                   el.classList.add('con-multi-selected');
                 }
-              } else if (e.shiftKey && (conMultiSelected.size > 0 || conSelected || (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0) || (typeof conDrawingSelected !== 'undefined' && conDrawingSelected && conDrawingSelected.size > 0) || (typeof _conShapeSelected !== 'undefined' && _conShapeSelected && _conShapeSelected.size > 0) || (typeof conTableSelected !== 'undefined' && conTableSelected && conTableSelected.size > 0))) {
+              } else if (e.shiftKey && (
+                conMultiSelected.size > 0 ||
+                conSelected ||
+                (typeof window.conGetNoteSelected === 'function' && window.conGetNoteSelected() && window.conGetNoteSelected().size > 0) ||
+                (typeof window.conNoteSelected !== 'undefined' && window.conNoteSelected && window.conNoteSelected.size > 0) ||
+                (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0) ||
+                (document.querySelector('#constellation-board .con-word-note.wn-selected') !== null) ||
+                (typeof window.conGetMediaSelected === 'function' && window.conGetMediaSelected() && window.conGetMediaSelected().size > 0) ||
+                (typeof conMediaSelected !== 'undefined' && conMediaSelected && conMediaSelected.size > 0) ||
+                (document.querySelector('#constellation-board .con-media-item.con-media-selected') !== null) ||
+                (typeof window.conGetDrawingSelected === 'function' && window.conGetDrawingSelected() && window.conGetDrawingSelected().size > 0) ||
+                (typeof conDrawingSelected !== 'undefined' && conDrawingSelected && conDrawingSelected.size > 0) ||
+                (document.querySelector('#constellation-board .con-drawing.con-drawing-selected') !== null) ||
+                (typeof window.conGetShapeSelected === 'function' && window.conGetShapeSelected() && window.conGetShapeSelected().size > 0) ||
+                (typeof _conShapeSelected !== 'undefined' && _conShapeSelected && _conShapeSelected.size > 0) ||
+                (document.querySelector('#constellation-board .con-shape.con-shape-selected') !== null) ||
+                (typeof conTableSelected !== 'undefined' && conTableSelected && conTableSelected.size > 0) ||
+                (document.querySelector('#constellation-board .con-table-el.con-table-selected') !== null)
+              )) {
                 // Shift-click: also toggle
                 if (conSelected && conSelected !== id) {
                   const prevEl = conNodes.find(n => n.id === conSelected);
@@ -7698,6 +7829,7 @@
               } else {
                 conSelect(id);
                 if (window.conNoteClearSelection) window.conNoteClearSelection();
+                if (window.conMediaClearSelection) window.conMediaClearSelection();
                 if (node && node.isRandom && typeof conRollRandomNode === 'function') {
                   // Option A: single click = immediately re-roll the number
                   conRollRandomNode(node.id);
@@ -7780,7 +7912,7 @@
         const dx = x2 - x1;
         const dy = y2 - y1;
         const dist = Math.hypot(dx, dy);
-        if (dist < 1) {
+        if (!Number.isFinite(dist) || dist < 1) {
           return { d: `M ${x1.toFixed(1)} ${y1.toFixed(1)} L ${x2.toFixed(1)} ${y2.toFixed(1)}`, mx: x1, my: y1, angle: 0, cx: x1, cy: y1 };
         }
         const ux = dx / dist;
@@ -7843,7 +7975,7 @@
                 `M ${(sx - nx * off).toFixed(1)} ${(sy - ny * off).toFixed(1)} ` +
                 `Q ${(cx - nx * off).toFixed(1)} ${(cy - ny * off).toFixed(1)} ${(ex - nx * off).toFixed(1)} ${(ey - ny * off).toFixed(1)}`;
           } else if (isWavy) {
-            const steps = Math.max(4, Math.round(dist / 14));
+            const steps = Math.min(200, Math.max(4, Math.round(dist / 14)));
             const amp = Math.min(7, Math.max(3, sw * 1.3));
             d = `M ${sx.toFixed(1)} ${sy.toFixed(1)}`;
             for (let i = 1; i <= steps; i++) {
@@ -7897,7 +8029,7 @@
                 `M ${(sx - nx * off).toFixed(1)} ${(sy - ny * off).toFixed(1)} L ${(ex - nx * off).toFixed(1)} ${(ey - ny * off).toFixed(1)}`;
           } else if (isWavy) {
             const waveLen = Math.max(16, sw * 5);
-            const halfWaves = Math.max(2, Math.round(straightDist / (waveLen / 2)));
+            const halfWaves = (!Number.isFinite(straightDist) || straightDist < 1) ? 2 : Math.min(200, Math.max(2, Math.round(straightDist / (waveLen / 2))));
             const hwLen = straightDist / halfWaves;
             const amp = Math.min(8, Math.max(3.5, sw * 1.5));
             d = `M ${sx.toFixed(1)} ${sy.toFixed(1)}`;
@@ -8243,7 +8375,13 @@
         const hit = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         hit.setAttribute('class', 'con-line-hit');
         hit.setAttribute('fill', 'none');
-        const edgeId = existingId || ('ce' + conNextId++);
+        let edgeId = existingId || ('ce' + (typeof window.conGetNextId === 'function' ? window.conGetNextId() : conNextId++));
+        if (!existingId) {
+          while (conEdges.some(e => e.id === edgeId)) {
+            const nextNum = (typeof window.conGetNextId === 'function') ? window.conGetNextId() : conNextId++;
+            edgeId = 'ce' + nextNum;
+          }
+        }
         g.dataset.eid = edgeId;
         const labelBgEl = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
         labelBgEl.setAttribute('class', 'con-line-label-bg');
@@ -8583,7 +8721,13 @@
       function conUpdateEdge(edge) {
         const na = conResolveLinkAnchor(edge.a);
         const nb = conResolveLinkAnchor(edge.b);
-        if (!na || !nb) return;
+        if (!na || !nb) {
+          if (edge.g) edge.g.style.display = 'none';
+          return;
+        }
+        if (edge.g && edge.g.style.display === 'none') {
+          edge.g.style.display = '';
+        }
         if (edge.g) {
           const isEndpointMasked = _conIsAnchorMasked(edge.a) || _conIsAnchorMasked(edge.b);
           const isBothMasked = _conIsAnchorMasked(edge.a) && _conIsAnchorMasked(edge.b);
@@ -8966,9 +9110,15 @@
         if (idx === -1) return;
         conNodes[idx].el.remove();
         conNodes.splice(idx, 1);
-        // Remove connected edges
-        conEdges.filter(e => e.a === id || e.b === id).forEach(e => e.g.remove());
-        conEdges = conEdges.filter(e => e.a !== id && e.b !== id);
+        // Remove connected edges in-place to preserve array references across modules
+        for (let i = conEdges.length - 1; i >= 0; i--) {
+          const e = conEdges[i];
+          if (e && (e.a === id || e.b === id)) {
+            if (e.g && e.g.remove) e.g.remove();
+            conEdges.splice(i, 1);
+          }
+        }
+        window.conEdges = global.conEdges = conEdges;
         // Remove from any group
         conGroupRemoveNode(id);
         if (conSelected === id) conSelect(null);
@@ -9429,8 +9579,9 @@
         conCtxCloseArrangeMenus();
         // Count all selected types
         const shapeSelCount = typeof window.conGetShapeSelected === 'function' ? window.conGetShapeSelected().size : (typeof _conShapeSelected !== 'undefined' && _conShapeSelected ? _conShapeSelected.size : 0);
-        const totalMultiCount = conMultiSelected.size + conNoteSelected.size + conDrawingSelected.size + shapeSelCount;
-        if (totalMultiCount > 1 || conMultiSelected.size > 1 || (conMultiSelected.size >= 1 && (conNoteSelected.size > 0 || conDrawingSelected.size > 0 || shapeSelCount > 0))) {
+        const mediaSelCount = typeof window.conGetMediaSelected === 'function' ? window.conGetMediaSelected().size : (typeof conMediaSelected !== 'undefined' && conMediaSelected ? conMediaSelected.size : 0);
+        const totalMultiCount = conMultiSelected.size + conNoteSelected.size + conDrawingSelected.size + shapeSelCount + mediaSelCount;
+        if (totalMultiCount > 1 || conMultiSelected.size > 1 || (conMultiSelected.size >= 1 && (conNoteSelected.size > 0 || conDrawingSelected.size > 0 || shapeSelCount > 0 || mediaSelCount > 0)) || (mediaSelCount >= 1 && (conMultiSelected.size > 0 || conNoteSelected.size > 0 || conDrawingSelected.size > 0 || shapeSelCount > 0))) {
           multiRow.style.display = '';
           if (multiCount) multiCount.textContent = totalMultiCount;
         } else {
@@ -14708,7 +14859,7 @@
         const rawBg = (node.el && (node.el.style.backgroundColor || node.el.style.background)) || '#ffffff';
         const fontSize = Math.round(conGetNodeBaseFontSize(node) || 16);
         const fmt = conGetNodeFmt(node) || {};
-        const nid = 'cnn' + (conNoteNextId++);
+        const nid = (typeof window.conGetNextNoteId === 'function') ? window.conGetNextNoteId() : ('cnn' + (conNoteNextId++));
         const noteData = {
           id: nid,
           nodeId: null,
@@ -15446,8 +15597,16 @@
         const ae = document.activeElement;
         if (!ae) return false;
         const tag = ae.tagName;
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
-        if (ae.isContentEditable) return true;
+        if (tag === 'INPUT' || tag === 'SELECT') return true;
+        if (tag === 'TEXTAREA') return true;
+        if (ae.isContentEditable) {
+          // If editing inside a note, but no text range is highlighted, user intends to cut/copy the whole note
+          const sel = window.getSelection();
+          if (ae.closest('.con-word-note, .ta-word-note') && (!sel || sel.toString().length === 0)) {
+            return false;
+          }
+          return true;
+        }
         return false;
       }
 
@@ -15500,6 +15659,14 @@
 
         if (hasNoteSelection) {
           conNoteSelected.forEach(id => noteIds.add(id));
+        } else if (document.activeElement) {
+          const noteEl = document.activeElement.closest ? document.activeElement.closest('.con-word-note, .ta-word-note') : null;
+          if (noteEl && noteEl.dataset.id) {
+            noteIds.add(noteEl.dataset.id);
+          }
+        }
+        if (!noteIds.size && typeof _wnActiveNote !== 'undefined' && _wnActiveNote && _wnActiveNote.id) {
+          noteIds.add(_wnActiveNote.id);
         }
 
         if (hasDrawingSelection) {
@@ -15508,6 +15675,12 @@
 
         if (hasShapeSelection) {
           shapeSel.forEach(id => shapeIds.add(id));
+        }
+
+        const mediaSel = (typeof window.conGetMediaSelected === 'function') ? window.conGetMediaSelected() : (typeof conMediaSelected !== 'undefined' ? conMediaSelected : new Set());
+        const mediaIds = new Set();
+        if (mediaSel && mediaSel.size > 0) {
+          mediaSel.forEach(id => mediaIds.add(id));
         }
 
         const groupCtxMenu = document.getElementById('con-group-ctx-menu');
@@ -15523,15 +15696,18 @@
           if (!g) return;
           (g.nodeIds || []).forEach(id => nodeIds.add(id));
           (g.noteIds || []).forEach(id => noteIds.add(id));
+          (g.mediaIds || []).forEach(id => mediaIds.add(id));
         });
 
         conGroups.forEach(g => {
           const gNodeIds = g.nodeIds || [];
           const gNoteIds = g.noteIds || [];
-          if (!gNodeIds.length && !gNoteIds.length) return;
-          const hasAnySelected = gNodeIds.some(id => nodeIds.has(id)) || gNoteIds.some(id => noteIds.has(id));
+          const gMediaIds = g.mediaIds || [];
+          if (!gNodeIds.length && !gNoteIds.length && !gMediaIds.length) return;
+          const hasAnySelected = gNodeIds.some(id => nodeIds.has(id)) || gNoteIds.some(id => noteIds.has(id)) || gMediaIds.some(id => mediaIds.has(id));
           const fullySelected = (gNodeIds.length === 0 || gNodeIds.every(id => nodeIds.has(id))) &&
-                                (gNoteIds.length === 0 || gNoteIds.every(id => noteIds.has(id)));
+                                (gNoteIds.length === 0 || gNoteIds.every(id => noteIds.has(id))) &&
+                                (gMediaIds.length === 0 || gMediaIds.every(id => mediaIds.has(id)));
           if (hasAnySelected && fullySelected) groupIds.add(g.id);
         });
 
@@ -15540,13 +15716,14 @@
           noteIds: [...noteIds],
           groupIds: [...groupIds],
           drawingIds: [...drawingIds],
-          shapeIds: [...shapeIds]
+          shapeIds: [...shapeIds],
+          mediaIds: [...mediaIds]
         };
       }
 
       function conClipboardBuildPayload() {
         const sel = conClipboardSelectionSummary();
-        if (!sel.nodeIds.length && !sel.noteIds.length && !sel.groupIds.length && !sel.drawingIds.length && !sel.shapeIds.length) return null;
+        if (!sel.nodeIds.length && !sel.noteIds.length && !sel.groupIds.length && !sel.drawingIds.length && !sel.shapeIds.length && !sel.mediaIds.length) return null;
 
         const nodes = sel.nodeIds
           .map(id => conNodes.find(n => n.id === id))
@@ -15578,8 +15755,14 @@
             textStrokeWidth: n.textStrokeWidth || null
           }));
 
+        const _liveNotes = (typeof window.conGetNotes === 'function')
+          ? window.conGetNotes()
+          : ((typeof window.conNotes !== 'undefined' && Array.isArray(window.conNotes))
+              ? window.conNotes
+              : ((typeof conNotes !== 'undefined' && Array.isArray(conNotes)) ? conNotes : (global.conNotes || [])));
+
         const notes = sel.noteIds
-          .map(id => (typeof conNotes !== 'undefined' ? conNotes.find(n => n.id === id) : null))
+          .map(id => _liveNotes.find(n => n && (n.id === id || String(n.id) === String(id))))
           .filter(Boolean)
           .map(n => ({
             id: n.id,
@@ -15663,6 +15846,26 @@
             pts: Array.isArray(s.pts) ? JSON.parse(JSON.stringify(s.pts)) : undefined
           }));
 
+        const _liveMedia = (typeof window.conMediaItems !== 'undefined' && Array.isArray(window.conMediaItems))
+          ? window.conMediaItems
+          : ((typeof conMediaItems !== 'undefined' && Array.isArray(conMediaItems)) ? conMediaItems : (global.conMediaItems || []));
+
+        const media = (sel.mediaIds || [])
+          .map(id => _liveMedia.find(m => m && (m.id === id || String(m.id) === String(id))))
+          .filter(Boolean)
+          .map(m => ({
+            id: m.id,
+            kind: m.kind,
+            name: m.name,
+            x: Number(m.x) || 0,
+            y: Number(m.y) || 0,
+            w: Number(m.w) || 120,
+            h: Number(m.h) || 80,
+            src: m.src || null,
+            attachmentId: m.attachmentId || null,
+            locked: !!m.locked
+          }));
+
         const nodeSet = new Set(nodes.map(n => n.id));
         const edges = conEdges
           .filter(e => nodeSet.has(e.a) && nodeSet.has(e.b))
@@ -15697,6 +15900,9 @@
             h: el ? (el.offsetHeight || 40) : (n.height || 40)
           });
         });
+        media.forEach(m => {
+          rects.push({ x: m.x, y: m.y, w: m.w || 120, h: m.h || 80 });
+        });
         groups.forEach(g => {
           rects.push({ x: g.x, y: g.y, w: g.w || 180, h: g.h || 100 });
         });
@@ -15729,6 +15935,7 @@
           groups,
           drawings,
           shapes,
+          media,
           edges,
           bounds,
           plainText,
@@ -15760,10 +15967,18 @@
       function conClipboardDeletePayload(payload) {
         if (!payload) return;
 
-        if (payload.notes && payload.notes.length && typeof conNotes !== 'undefined') {
+        if (payload.notes && payload.notes.length) {
+          const _liveNotes = (typeof window.conGetNotes === 'function')
+            ? window.conGetNotes()
+            : ((typeof window.conNotes !== 'undefined' && Array.isArray(window.conNotes))
+                ? window.conNotes
+                : ((typeof conNotes !== 'undefined' && Array.isArray(conNotes)) ? conNotes : (global.conNotes || [])));
           payload.notes.forEach(n => {
-            const nd = conNotes.find(x => x.id === n.id);
-            if (nd) wnDeleteNoteData(nd);
+            const nd = _liveNotes.find(x => x && (x.id === n.id || String(x.id) === String(n.id)));
+            if (nd) {
+              if (typeof window.wnDeleteNoteData === 'function') window.wnDeleteNoteData(nd);
+              else if (typeof wnDeleteNoteData === 'function') wnDeleteNoteData(nd);
+            }
           });
         }
 
@@ -15888,7 +16103,7 @@
           (payload.notes || []).forEach(n => {
             const nx = targetMinX + ((Number(n.x) || 0) - sourceBounds.minX);
             const ny = targetMinY + ((Number(n.y) || 0) - sourceBounds.minY);
-            const newId = 'cnn' + (conNoteNextId++);
+            const newId = (typeof window.conGetNextNoteId === 'function') ? window.conGetNextNoteId() : ('cnn' + (conNoteNextId++));
             const mappedNodeId = n.nodeId ? (nodeIdMap.get(n.nodeId) || null) : null;
             const clone = {
               id: newId,
@@ -16043,7 +16258,7 @@
         if (textToWrite) {
           _conWriteOsClipboardText(textToWrite);
         }
-        const count = (payload.nodes || []).length + (payload.notes || []).length + (payload.groups || []).length + (payload.drawings || []).length + (payload.shapes || []).length;
+        const count = (payload.nodes || []).length + (payload.notes || []).length + (payload.groups || []).length + (payload.drawings || []).length + (payload.shapes || []).length + (payload.media || []).length;
         if (typeof mdbToast === 'function') mdbToast('📋 Copied ' + count + ' item' + (count === 1 ? '' : 's'));
         return true;
       };
@@ -16068,7 +16283,7 @@
         }
         conPushUndo();
         conClipboardDeletePayload(payload);
-        const count = (payload.nodes || []).length + (payload.notes || []).length + (payload.groups || []).length + (payload.drawings || []).length + (payload.shapes || []).length;
+        const count = (payload.nodes || []).length + (payload.notes || []).length + (payload.groups || []).length + (payload.drawings || []).length + (payload.shapes || []).length + (payload.media || []).length;
         if (typeof mdbToast === 'function') mdbToast('✂ Cut ' + count + ' item' + (count === 1 ? '' : 's'));
         return true;
       };
@@ -17036,15 +17251,28 @@
         const noteIds = [...selNotesSet];
         const drawingIds = [...conDrawingSelected];
         const shapeIds = window.conGetShapeSelected ? [...window.conGetShapeSelected()] : [];
+        const selMediaSet = (typeof window.conGetMediaSelected === 'function' && window.conGetMediaSelected())
+          ? window.conGetMediaSelected()
+          : (typeof conMediaSelected !== 'undefined' ? conMediaSelected : (window.conMediaSelected || new Set()));
+        const mediaIds = [...selMediaSet];
+        document.querySelectorAll('.con-media-item.con-media-selected').forEach(el => {
+          const mid = el.dataset.id;
+          if (mid && !mediaIds.includes(mid)) mediaIds.push(mid);
+        });
 
-        // If ONLY drawings/shapes are selected (no word-nodes, no notes) → create a borderless drawing group
-        const _onlyDrawSel = conMultiSelected.size === 0 && !conSelected && noteIds.length === 0;
-        if (_onlyDrawSel) {
+        // If ONLY drawings/shapes/media are selected (no word-nodes, no notes) → create a borderless drawing group or media group
+        const _onlyNonTextSel = conMultiSelected.size === 0 && !conSelected && noteIds.length === 0;
+        if (_onlyNonTextSel) {
           const _dIds = drawingIds;
           const _sIds = shapeIds;
-          if (_dIds.length + _sIds.length >= 2) {
+          const _mIds = mediaIds;
+          if (_dIds.length + _sIds.length + _mIds.length >= 2) {
             conPushUndo();
-            const newGroup = conGroupCreate([], undefined, undefined, [], _dIds, _sIds, { drawingGroup: true });
+            const newGroup = conGroupCreate([], undefined, undefined, [], _dIds, _sIds, {
+              drawingGroup: (_mIds.length === 0),
+              invisible: !!invisible,
+              mediaIds: _mIds
+            });
             if (newGroup) {
               const gEl = newGroup.el;
               const gRect = gEl.getBoundingClientRect();
@@ -17067,7 +17295,7 @@
           ids = [];
         }
 
-        const totalItems = ids.length + noteIds.length + drawingIds.length + shapeIds.length;
+        const totalItems = ids.length + noteIds.length + drawingIds.length + shapeIds.length + mediaIds.length;
         if (totalItems < 2) return;
 
         // Expand phrase groups: if any selected node belongs to a phrase group,
@@ -17098,14 +17326,27 @@
           }
         });
         if (!targetGroup) {
+          noteIds.forEach(nid => {
+            const g = conGroups.find(gg => !gg.phraseGroup && (gg.noteIds || []).includes(nid));
+            if (!targetGroup && g) targetGroup = g;
+          });
+        }
+        if (!targetGroup) {
+          mediaIds.forEach(mid => {
+            const g = conGroups.find(gg => !gg.phraseGroup && (gg.mediaIds || []).includes(mid));
+            if (!targetGroup && g) targetGroup = g;
+          });
+        }
+        if (!targetGroup) {
           if (totalItems < 2) return;
-          targetGroup = conGroupCreate(ids, undefined, undefined, noteIds, drawingIds, shapeIds, { invisible: !!invisible });
+          targetGroup = conGroupCreate(ids, undefined, undefined, noteIds, drawingIds, shapeIds, { invisible: !!invisible, mediaIds });
         } else {
           ids.forEach(id => { if (!targetGroup.nodeIds.includes(id)) targetGroup.nodeIds.push(id); });
-          // Merge in selected notes, drawings and shapes
+          // Merge in selected notes, drawings, shapes, and media items
           noteIds.forEach(nid => { if (!(targetGroup.noteIds || []).includes(nid)) (targetGroup.noteIds = targetGroup.noteIds || []).push(nid); });
           drawingIds.forEach(did => { if (!(targetGroup.drawingIds || []).includes(did)) (targetGroup.drawingIds = targetGroup.drawingIds || []).push(did); });
           shapeIds.forEach(sid => { if (!(targetGroup.shapeIds || []).includes(sid)) (targetGroup.shapeIds = targetGroup.shapeIds || []).push(sid); });
+          mediaIds.forEach(mid => { if (!(targetGroup.mediaIds || []).includes(mid)) (targetGroup.mediaIds = targetGroup.mediaIds || []).push(mid); });
           if (invisible) targetGroup.invisible = true;
           conGroupApplyStyle(targetGroup);
           conGroupRefit(targetGroup);
@@ -17309,7 +17550,7 @@
           if (!brd.contains(curRbEl)) {
             brd.appendChild(curRbEl);
           }
-          if (e.target !== brd && e.target !== curRbEl) return; // only on bare board
+          if (e.target !== brd && e.target !== curRbEl && !e.target.closest('.con-media-locked')) return; // only on bare board or locked background elements
           e.preventDefault();
           window._conMirrorDragging = true; // suppress heavy MutationObserver broadcast during rubber-band drag
 
@@ -17435,7 +17676,19 @@
                      (s.x < rx1 && (s.x + sw) > rx0 && s.y < ry1 && (s.y + sh) > ry0);
             }).map(s => s.id);
 
-            const totalHits = hits.length + noteHits.length + groupHits.length + tableHits.length + drawingHits.length + shapeHits.length;
+            // Find media items within the rect (centre inside OR bbox overlaps)
+            const allMedia = (typeof conMediaItems !== 'undefined' && Array.isArray(conMediaItems)) ? conMediaItems : [];
+            const mediaHits = allMedia.filter(m => {
+              if (!m) return false;
+              const mw = Math.max(1, m.w || 100);
+              const mh = Math.max(1, m.h || 80);
+              const cx = m.x + mw / 2;
+              const cy = m.y + mh / 2;
+              return (cx >= rx0 && cx <= rx1 && cy >= ry0 && cy <= ry1) ||
+                     (m.x < rx1 && (m.x + mw) > rx0 && m.y < ry1 && (m.y + mh) > ry0);
+            }).map(m => m.id);
+
+            const totalHits = hits.length + noteHits.length + groupHits.length + tableHits.length + drawingHits.length + shapeHits.length + mediaHits.length;
             const isAdditive = !!(e.ctrlKey || e.metaKey || e.shiftKey);
             if (totalHits === 0) {
               if (!isAdditive) {
@@ -17451,6 +17704,7 @@
               if (window.conTableClearSelection) window.conTableClearSelection();
               if (window.conDrawingClearSelection) window.conDrawingClearSelection();
               if (window.conShapeClearSelection) window.conShapeClearSelection();
+              if (window.conMediaClearSelection) window.conMediaClearSelection();
               if (typeof conDrawingSelected !== 'undefined') {
                 conDrawingSelected.clear();
                 document.querySelectorAll('#constellation-board .con-drawing.con-drawing-selected')
@@ -17527,6 +17781,13 @@
               if (typeof _conShapeSelected !== 'undefined') _conShapeSelected.add(sid);
               const s = allShapes.find(x => x.id === sid);
               if (s && s.el) s.el.classList.add('con-shape-selected');
+            });
+
+            // Apply media item selection
+            mediaHits.forEach(mid => {
+              if (typeof conMediaSelected !== 'undefined') conMediaSelected.add(mid);
+              const mEl = document.querySelector(`.con-media-item[data-id="${mid}"]`);
+              if (mEl) mEl.classList.add('con-media-selected');
             });
 
             if (typeof conUpdateToolbarStatus === 'function') conUpdateToolbarStatus();
@@ -19182,6 +19443,7 @@
       window.conattachnode = global.conattachnode = conAttachNodeEvents;
       window.conGetCtxNodeId = global.conGetCtxNodeId = function () { return (typeof conCtxNodeId !== 'undefined' ? conCtxNodeId : null); };
       window.conSetNextId = global.conSetNextId = function (n) { if (typeof conNextId !== 'undefined' && n > conNextId) conNextId = n; };
+      window.conGetNextId = global.conGetNextId = function () { return conNextId++; };
       window.taGetLines = global.taGetLines = function () { return (typeof taLines !== 'undefined') ? taLines : []; };
       window.conComputeEdgeGeometry = global.conComputeEdgeGeometry = conComputeEdgeGeometry;
       window.conAddEdge = global.conAddEdge = conAddEdge;
@@ -19206,6 +19468,16 @@
       window.conGetLinkSrc = global.conGetLinkSrc = function () { return _conLinkSrc; };
       window.conGetSelected = global.conGetSelected = function () { return conSelected; };
       window.conGetMultiSelected = global.conGetMultiSelected = function () { return conMultiSelected; };
+      window.conAddMultiSelected = global.conAddMultiSelected = function (id) {
+        if (!id) return;
+        conMultiSelected.add(id);
+        const n = conNodes.find(x => x && (x.id === id || String(x.id) === String(id)));
+        if (n && n.el) {
+          n.el.classList.remove('con-selected');
+          n.el.classList.add('con-multi-selected');
+        }
+      };
+      window.conSetMultiSelected = global.conSetMultiSelected = conSetMultiSelected;
       window.conGetGroupFocused = global.conGetGroupFocused = function () { return conGroupFocused; };
       window.conGetEffectiveZoom = global.conGetEffectiveZoom = conGetEffectiveZoom;
       window.conResolveLinkAnchor = global.conResolveLinkAnchor = conResolveLinkAnchor;
@@ -19235,6 +19507,18 @@
           configurable: true,
           enumerable: true
         });
+        Object.defineProperty(window, 'conMultiSelected', {
+          get: function () { return conMultiSelected; },
+          set: function (v) { conMultiSelected = v; },
+          configurable: true,
+          enumerable: true
+        });
+        Object.defineProperty(global, 'conMultiSelected', {
+          get: function () { return conMultiSelected; },
+          set: function (v) { conMultiSelected = v; },
+          configurable: true,
+          enumerable: true
+        });
         Object.defineProperty(window, '_conLinkSrc', {
           get: function () { return _conLinkSrc; },
           set: function (v) { _conLinkSrc = v; },
@@ -19261,6 +19545,7 @@
         });
       } catch (e) {
         window.conSelected = conSelected;
+        window.conMultiSelected = conMultiSelected;
         window._conLinkSrc = _conLinkSrc;
         window.conGroupFocused = conGroupFocused;
       }
@@ -20693,6 +20978,7 @@
   window.conattachnode = global.conattachnode = conAttachNodeEvents;
   window.conGetCtxNodeId = global.conGetCtxNodeId = function () { return (typeof conCtxNodeId !== 'undefined' ? conCtxNodeId : null); };
   window.conSetNextId = global.conSetNextId = function (n) { if (typeof conNextId !== 'undefined' && n > conNextId) conNextId = n; };
+  window.conGetNextId = global.conGetNextId = function () { return conNextId++; };
   window.taGetLines = global.taGetLines = function () { return (typeof taLines !== 'undefined') ? taLines : []; };
   window.conComputeEdgeGeometry = global.conComputeEdgeGeometry = conComputeEdgeGeometry;
   window.conAddEdge = global.conAddEdge = conAddEdge;

@@ -1184,7 +1184,7 @@
     var closeBtn = exportOverlay.querySelector('.cmt-btn-close-export');
 
     var ext = String(filePath || '').split('?')[0].split('.').pop().toLowerCase();
-    var isDoc = !isFolder && (ext === 'md' || ext === 'html' || ext === 'typ');
+    var isDoc = !isFolder && (ext === 'md' || ext === 'html' || ext === 'typ' || ext === 'odt');
 
     if (isFolder) {
       openBtn.style.display = 'none';

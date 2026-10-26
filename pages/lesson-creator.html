@@ -843,6 +843,13 @@
                 <span class="fmt-desc" data-i18n="lcExportFmtExcelDesc">Workbook Sheets (.xlsx)</span>
               </div>
             </button>
+            <button type="button" class="export-format-card" data-format="ods" onclick="lcSelectExportFormat('ods')">
+              <img src="../assets/icons/table.svg" class="btn-icon" alt="">
+              <div class="fmt-info">
+                <span class="fmt-name" data-i18n="exportFormatOds">LibreOffice Calc</span>
+                <span class="fmt-desc">Workbook Sheets (.ods)</span>
+              </div>
+            </button>
             <button type="button" class="export-format-card" data-format="csv" onclick="lcSelectExportFormat('csv')">
               <img src="../assets/icons/table.svg" class="btn-icon" alt="">
               <div class="fmt-info">
@@ -8381,6 +8388,7 @@
             case 'html': labelText = 'Export HTML (.html)'; break;
             case 'pdf': labelText = 'Print / PDF (.pdf)'; break;
             case 'xlsx': labelText = 'Download Excel (.xlsx)'; break;
+            case 'ods': labelText = 'Download LibreOffice Calc (.ods)'; break;
             case 'csv': labelText = 'Download CSV (.csv)'; break;
             case 'json': labelText = 'Download JSON (.json)'; break;
             case 'text': labelText = 'Download Text (.md)'; break;
@@ -8529,7 +8537,7 @@
 
         var fmtBadge = document.getElementById('exportSummaryFormatBadge');
         if (fmtBadge) {
-          var extMap = { html: 'HTML (.html)', pdf: 'PDF (.pdf)', xlsx: 'Excel (.xlsx)', csv: 'CSV (.csv)', json: 'JSON (.json)', text: 'Text (.md)' };
+          var extMap = { html: 'HTML (.html)', pdf: 'PDF (.pdf)', xlsx: 'Excel (.xlsx)', ods: 'LibreOffice Calc (.ods)', csv: 'CSV (.csv)', json: 'JSON (.json)', text: 'Text (.md)' };
           fmtBadge.textContent = extMap[activeExportFormat] || activeExportFormat.toUpperCase();
         }
 
@@ -9304,7 +9312,7 @@
         }
       };
 
-      window.lcExecuteExportXlsx = async function (dest) {
+      window.lcExecuteExportXlsx = async function (dest, format = 'xlsx') {
         if (typeof XLSX === 'undefined') {
           if (typeof showToast === 'function') showToast('Excel export library (SheetJS) is not loaded.', true);
           return;
@@ -9473,14 +9481,17 @@
           }
         }
 
-        var wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-        var filename = getSafeExportFilename('xlsx');
+        var isOds = format === 'ods';
+        var wbout = XLSX.write(wb, { bookType: isOds ? 'ods' : 'xlsx', type: 'array' });
+        var ext = isOds ? 'ods' : 'xlsx';
+        var filename = getSafeExportFilename(ext);
+        var mime = isOds ? 'application/vnd.oasis.opendocument.spreadsheet' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
         if (window.Desktop && Desktop.isElectron() && dest !== 'browser') {
           try {
             var result = null;
             if (dest === 'to-print') {
-              var blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+              var blob = new Blob([wbout], { type: mime });
               result = await Desktop.saveBlob('toPrint', filename, blob);
               if (result && result.file && result.file.path) result.path = result.file.path;
               if (result && !result.name) result.name = filename;
@@ -9493,26 +9504,26 @@
               }
               var base64 = btoa(binary);
               result = await Desktop.saveToDisk({
-                title: 'Save Excel Spreadsheet',
+                title: isOds ? 'Save LibreOffice Calc Spreadsheet' : 'Save Excel Spreadsheet',
                 defaultPath: filename,
-                filters: [{ name: 'Excel Workbook', extensions: ['xlsx'] }],
+                filters: [{ name: isOds ? 'LibreOffice Calc Workbook' : 'Excel Workbook', extensions: [ext] }],
                 content: base64,
                 encoding: 'base64'
               });
             }
             if (result && result.ok) {
-              handleExportSuccess(result.path, result.name || filename, i18n.t('lcExportCopySuccess') || 'Excel spreadsheet exported successfully.');
+              handleExportSuccess(result.path, result.name || filename, i18n.t('lcExportCopySuccess') || 'Spreadsheet exported successfully.');
             } else if (result && !result.ok && !result.canceled) {
-              if (typeof showToast === 'function') showToast('Could not save Excel: ' + (result.error || 'unknown error'), true);
+              if (typeof showToast === 'function') showToast('Could not save spreadsheet: ' + (result.error || 'unknown error'), true);
             }
           } catch (err) {
-            if (typeof showToast === 'function') showToast('Could not save Excel: ' + err.message, true);
+            if (typeof showToast === 'function') showToast('Could not save spreadsheet: ' + err.message, true);
           }
         } else {
-          downloadExportBlob(filename, wbout, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+          downloadExportBlob(filename, wbout, mime);
           lcCloseModal('exportPlanModal');
           if (typeof showToast === 'function') {
-            showToast(i18n.t('lcExportCopySuccess') || 'Excel spreadsheet exported successfully.');
+            showToast(i18n.t('lcExportCopySuccess') || 'Spreadsheet exported successfully.');
           }
         }
       };
@@ -9750,7 +9761,10 @@
             await lcExecuteExportPdf(destination);
             break;
           case 'xlsx':
-            await lcExecuteExportXlsx(destination);
+            await lcExecuteExportXlsx(destination, 'xlsx');
+            break;
+          case 'ods':
+            await lcExecuteExportXlsx(destination, 'ods');
             break;
           case 'csv':
             await lcExecuteExportCsv(destination);

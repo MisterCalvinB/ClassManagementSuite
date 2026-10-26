@@ -419,6 +419,18 @@
     return hc;
   };
 
+  TestCreatorService.DEFAULT_LINE_NUMBERING = {
+    format: 'decimal',   // 'decimal' | 'period' | 'parenthesis' | 'parentheses' | 'prefix_l' | 'prefix_line' | 'roman_lower' | 'roman_upper' | 'alpha_lower' | 'alpha_upper'
+    size: '8pt',
+    color: '#64748b',
+    distance: '8px',
+    weight: '700',
+    italic: false,
+    align: 'right',
+    startAt: 1,
+    interval: 1
+  };
+
   // ── 2b3. Page Margins & Export Style Defaults ──────────────────────────────
   TestCreatorService.DEFAULT_EXPORT_STYLE = {
     theme: 'academic',
@@ -426,6 +438,17 @@
     lineHeight: 1.5,
     padding: '14px',
     numberedLines: false,
+    lineNumbering: {
+      format: 'decimal',
+      size: '8pt',
+      color: '#64748b',
+      distance: '8px',
+      weight: '700',
+      italic: false,
+      align: 'right',
+      startAt: 1,
+      interval: 1
+    },
     margins: {
       preset: 'normal',
       top: 15,
@@ -434,6 +457,57 @@
       left: 15,
       unit: 'mm'
     }
+  };
+
+  TestCreatorService.formatLineNumber = function (num, format) {
+    var n = Number(num) || 1;
+    switch (format) {
+      case 'period':
+        return n + '.';
+      case 'parenthesis':
+        return n + ')';
+      case 'parentheses':
+        return '(' + n + ')';
+      case 'prefix_l':
+        return 'L' + n;
+      case 'prefix_line':
+        return 'Line ' + n;
+      case 'roman_lower':
+        return TestCreatorService.toRoman(n).toLowerCase();
+      case 'roman_upper':
+        return TestCreatorService.toRoman(n).toUpperCase();
+      case 'alpha_lower':
+        return TestCreatorService.toAlpha(n).toLowerCase();
+      case 'alpha_upper':
+        return TestCreatorService.toAlpha(n).toUpperCase();
+      case 'decimal':
+      default:
+        return String(n);
+    }
+  };
+
+  TestCreatorService.toRoman = function (num) {
+    var roman = '';
+    var lookup = { M: 1000, CM: 900, D: 500, CD: 400, C: 100, XC: 90, L: 50, XL: 40, X: 10, IX: 9, V: 5, IV: 4, I: 1 };
+    var n = Math.max(1, Math.floor(num));
+    for (var k in lookup) {
+      while (n >= lookup[k]) {
+        roman += k;
+        n -= lookup[k];
+      }
+    }
+    return roman || String(num);
+  };
+
+  TestCreatorService.toAlpha = function (num) {
+    var n = Math.max(1, Math.floor(num));
+    var s = '';
+    while (n > 0) {
+      var rem = (n - 1) % 26;
+      s = String.fromCharCode(65 + rem) + s;
+      n = Math.floor((n - 1) / 26);
+    }
+    return s || 'A';
   };
 
   TestCreatorService.MARGIN_PRESETS = {
@@ -455,6 +529,19 @@
     if (!es.lineHeight) es.lineHeight = d.lineHeight;
     if (!es.padding) es.padding = d.padding;
     if (es.numberedLines === undefined) es.numberedLines = d.numberedLines;
+    if (!es.lineNumbering || typeof es.lineNumbering !== 'object') {
+      es.lineNumbering = JSON.parse(JSON.stringify(d.lineNumbering));
+    } else {
+      if (!es.lineNumbering.format) es.lineNumbering.format = 'decimal';
+      if (!es.lineNumbering.size) es.lineNumbering.size = '8pt';
+      if (!es.lineNumbering.color) es.lineNumbering.color = '#64748b';
+      if (!es.lineNumbering.distance) es.lineNumbering.distance = '8px';
+      if (!es.lineNumbering.weight) es.lineNumbering.weight = '700';
+      if (es.lineNumbering.italic === undefined) es.lineNumbering.italic = false;
+      if (!es.lineNumbering.align) es.lineNumbering.align = 'right';
+      if (es.lineNumbering.startAt === undefined) es.lineNumbering.startAt = 1;
+      if (es.lineNumbering.interval === undefined) es.lineNumbering.interval = 1;
+    }
     if (!es.margins || typeof es.margins !== 'object') {
       es.margins = JSON.parse(JSON.stringify(d.margins));
     } else {
@@ -1789,6 +1876,14 @@
         if (o.vocabularyFootnotes === undefined) o.vocabularyFootnotes = '';
         break;
     }
+    // Universal rubric display & layout options for exercises
+    if (o.rubricDisplayMode === undefined) o.rubricDisplayMode = 'matrix';
+    if (o.rubricBg === undefined) o.rubricBg = 'default';
+    if (o.rubricPadding === undefined) o.rubricPadding = 'standard';
+    if (o.rubricBorder === undefined) o.rubricBorder = 'solid';
+    if (o.showRubricDescriptions === undefined) o.showRubricDescriptions = true;
+    if (o.showRubric === undefined) o.showRubric = true;
+    if (o.rubricTitle === undefined) o.rubricTitle = '';
     return o;
   };
 
@@ -2488,6 +2583,8 @@
       '.numbered-lines { counter-reset: writing-line-counter; }',
       '.writing-line-numbered { display: flex; align-items: flex-end; gap: 8px; }',
       '.writing-line-numbered::before { counter-increment: writing-line-counter; content: counter(writing-line-counter); font-size: 8pt; font-weight: 700; color: #64748b; width: 22px; text-align: right; flex-shrink: 0; user-select: none; line-height: 1; padding-bottom: 2px; }',
+      '.writing-line-numbered.has-custom-num::before { display: none !important; content: none !important; }',
+      '.writing-line-num { display: inline-block; user-select: none; flex-shrink: 0; line-height: 1; padding-bottom: 2px; }',
       '.writing-line-numbered .writing-line { flex: 1; width: 100%; }',
       '.passage-line-numbered { display: flex; align-items: baseline; gap: 8px; line-height: 1.6; }',
       '.passage-line-num { font-size: 8pt; font-weight: 700; color: #64748b; width: 22px; text-align: right; flex-shrink: 0; user-select: none; }',
@@ -3584,12 +3681,48 @@
     var pageBreakClass = ex.forcePageBreak ? ' page-break-before' : '';
     var exOpts = TestCreatorService.ensureExerciseOptions(ex);
 
-    var effectiveNumberedLines = false;
-    if (ex.exportStyle && ex.exportStyle.numberedLines !== null && ex.exportStyle.numberedLines !== undefined) {
-      effectiveNumberedLines = !!ex.exportStyle.numberedLines;
-    } else if (opts.exportStyle && opts.exportStyle.numberedLines) {
-      effectiveNumberedLines = !!opts.exportStyle.numberedLines;
+    function resolveLineNumberConfig(lineOpts) {
+      var isNumbered = false;
+      if (lineOpts && lineOpts.numberedLines !== undefined && lineOpts.numberedLines !== null && lineOpts.numberedLines !== 'inherit') {
+        isNumbered = lineOpts.numberedLines === true || lineOpts.numberedLines === 'true';
+      } else if (ex.exportStyle && ex.exportStyle.numberedLines !== null && ex.exportStyle.numberedLines !== undefined && ex.exportStyle.numberedLines !== 'inherit') {
+        isNumbered = ex.exportStyle.numberedLines === true || ex.exportStyle.numberedLines === 'true';
+      } else if (exOpts && exOpts.numberedLines !== undefined && exOpts.numberedLines !== null && exOpts.numberedLines !== 'inherit') {
+        isNumbered = exOpts.numberedLines === true || exOpts.numberedLines === 'true';
+      } else if (opts.exportStyle && opts.exportStyle.numberedLines) {
+        isNumbered = !!opts.exportStyle.numberedLines;
+      }
+      if (!isNumbered) return null;
+
+      var gNum = (opts.exportStyle && opts.exportStyle.lineNumbering) || (TestCreatorService.DEFAULT_EXPORT_STYLE && TestCreatorService.DEFAULT_EXPORT_STYLE.lineNumbering) || {};
+      var exNum = (ex.exportStyle && ex.exportStyle.lineNumbering) || (exOpts && exOpts.lineNumbering) || {};
+      var itNum = (lineOpts && lineOpts.lineNumbering) || {};
+      var dNum = TestCreatorService.DEFAULT_LINE_NUMBERING || {};
+
+      var format = itNum.format || exNum.format || gNum.format || dNum.format || 'decimal';
+      var size = itNum.size || exNum.size || gNum.size || dNum.size || '8pt';
+      var color = itNum.color || exNum.color || gNum.color || dNum.color || '#64748b';
+      var distance = itNum.distance || exNum.distance || gNum.distance || dNum.distance || '8px';
+      var weight = itNum.weight || exNum.weight || gNum.weight || dNum.weight || '700';
+      var italic = (itNum.italic !== undefined) ? !!itNum.italic : ((exNum.italic !== undefined) ? !!exNum.italic : ((gNum.italic !== undefined) ? !!gNum.italic : !!dNum.italic));
+      var align = itNum.align || exNum.align || gNum.align || dNum.align || 'right';
+      var startAt = Number(itNum.startAt || exNum.startAt || gNum.startAt || dNum.startAt) || 1;
+      var interval = Number(itNum.interval || exNum.interval || gNum.interval || dNum.interval) || 1;
+
+      return {
+        format: format,
+        size: size,
+        color: color,
+        distance: distance,
+        weight: weight,
+        italic: italic,
+        align: align,
+        startAt: startAt,
+        interval: interval
+      };
     }
+
+    var effectiveNumberedLines = !!resolveLineNumberConfig();
 
     var borderClass = '';
     if (ex.exportStyle && ex.exportStyle.cardBorderStyle && ex.exportStyle.cardBorderStyle !== 'academic') {
@@ -3612,7 +3745,8 @@
       var isDotted = (lineType === 'dotted');
       var isDashed = (lineType === 'dashed');
 
-      var wrapClass = effectiveNumberedLines ? 'writing-lines numbered-lines' : 'writing-lines';
+      var numCfg = resolveLineNumberConfig(lineOpts);
+      var wrapClass = numCfg ? 'writing-lines numbered-lines' : 'writing-lines';
       if (isDotted) wrapClass += ' dotted-lines';
       else if (isDashed) wrapClass += ' dashed-lines';
       else wrapClass += ' solid-lines';
@@ -3634,8 +3768,28 @@
       var out = [];
       out.push('    <div class="' + wrapClass + '">');
       for (var i = 0; i < count; i++) {
-        if (effectiveNumberedLines) {
-          out.push('      <div class="writing-line-numbered"><div class="' + lineClass + '"' + inlineStyleAttr + '></div></div>');
+        if (numCfg) {
+          var lineNum = numCfg.startAt + i;
+          var isVisible = (numCfg.interval <= 1) || (lineNum % numCfg.interval === 0);
+          var formattedNum = isVisible ? TestCreatorService.formatLineNumber(lineNum, numCfg.format) : '';
+          var numStyle = [
+            'font-size:' + numCfg.size,
+            'color:' + numCfg.color,
+            'font-weight:' + numCfg.weight,
+            'font-style:' + (numCfg.italic ? 'italic' : 'normal'),
+            'text-align:' + numCfg.align,
+            'min-width:18px',
+            'user-select:none',
+            'flex-shrink:0',
+            'line-height:1',
+            'padding-bottom:2px'
+          ];
+          if (!isVisible) numStyle.push('visibility:hidden');
+
+          out.push('      <div class="writing-line-numbered has-custom-num" style="display:flex;align-items:flex-end;gap:' + numCfg.distance + ';">');
+          out.push('        <span class="writing-line-num" style="' + numStyle.join(';') + ';">' + (formattedNum || '&nbsp;') + '</span>');
+          out.push('        <div class="' + lineClass + '"' + inlineStyleAttr + ' style="flex:1;width:100%;"></div>');
+          out.push('      </div>');
         } else {
           out.push('      <div class="' + lineClass + '"' + inlineStyleAttr + '></div>');
         }
@@ -3783,7 +3937,12 @@
           }
           var lCount = Number(it.lineCount) || 4;
           var lSt = it.lineStyle || exOpts.lineStyle || 'lines';
-          html.push(buildWritingLinesHtml(lCount, lSt));
+          html.push(buildWritingLinesHtml(lCount, lSt, {
+            lineHeight: exOpts.lineHeight,
+            lineThickness: exOpts.lineThickness,
+            numberedLines: it.numberedLines !== undefined ? it.numberedLines : exOpts.numberedLines,
+            lineNumbering: it.lineNumbering || exOpts.lineNumbering
+          }));
           html.push('  </div>');
         });
         break;
@@ -3854,7 +4013,13 @@
             var cStyle = it.lineStyle || exOpts.lineStyle || 'solid';
             var cHeight = it.lineHeight || exOpts.lineHeight || 28;
             var cThickness = it.lineThickness || exOpts.lineThickness || 1;
-            lOut.push(buildWritingLinesHtml(cLines, cStyle, { lineHeight: cHeight, lineThickness: cThickness, lineType: cStyle }));
+            lOut.push(buildWritingLinesHtml(cLines, cStyle, {
+              lineHeight: cHeight,
+              lineThickness: cThickness,
+              lineType: cStyle,
+              numberedLines: it.numberedLines !== undefined ? it.numberedLines : exOpts.numberedLines,
+              lineNumbering: it.lineNumbering || exOpts.lineNumbering
+            }));
           });
           return lOut.join('\n');
         }
@@ -3889,6 +4054,9 @@
             title: exOpts.rubricTitle || (ex.title ? (ex.title + ' — Rubric') : 'Assessment Rubric'),
             displayMode: exOpts.rubricDisplayMode || 'matrix',
             showDescriptions: exOpts.showRubricDescriptions !== false,
+            background: exOpts.rubricBg || 'default',
+            padding: exOpts.rubricPadding || 'standard',
+            border: exOpts.rubricBorder || 'solid',
             includeExerciseCriteria: false
           });
         }
@@ -4012,7 +4180,10 @@
             html.push('    <div class="translation-solution">&rarr; ' + TestCreatorService.formatRichText(item.modelTranslation) + '</div>');
           }
           var lines = Number(item.allocatedLines) || 2;
-          html.push(buildWritingLinesHtml(lines, item.lineStyle || exOpts.lineStyle || 'lines'));
+          html.push(buildWritingLinesHtml(lines, item.lineStyle || exOpts.lineStyle || 'lines', {
+            numberedLines: item.numberedLines !== undefined ? item.numberedLines : exOpts.numberedLines,
+            lineNumbering: item.lineNumbering || exOpts.lineNumbering
+          }));
           html.push('  </div>');
         });
         break;
@@ -4050,7 +4221,10 @@
               html.push('        <div class="pic-sample-answer">Sample Answer: ' + TestCreatorService.formatRichText(it.modelAnswer) + '</div>');
             }
             var pLines = Number(it.lineCount) || 6;
-            html.push(buildWritingLinesHtml(pLines, it.lineStyle || 'lines'));
+            html.push(buildWritingLinesHtml(pLines, it.lineStyle || 'lines', {
+              numberedLines: it.numberedLines !== undefined ? it.numberedLines : exOpts.numberedLines,
+              lineNumbering: it.lineNumbering || exOpts.lineNumbering
+            }));
             html.push('      </div>');
             html.push('    </div>');
           } else {
@@ -4068,7 +4242,10 @@
               html.push('    <div class="pic-sample-answer">Sample Answer: ' + TestCreatorService.formatRichText(it.modelAnswer) + '</div>');
             }
             var pLines = Number(it.lineCount) || 6;
-            html.push(buildWritingLinesHtml(pLines, it.lineStyle || 'lines'));
+            html.push(buildWritingLinesHtml(pLines, it.lineStyle || 'lines', {
+              numberedLines: it.numberedLines !== undefined ? it.numberedLines : exOpts.numberedLines,
+              lineNumbering: it.lineNumbering || exOpts.lineNumbering
+            }));
           }
           html.push('  </div>');
         });
@@ -4164,10 +4341,25 @@
         if (rcTitle) {
           html.push('    <div class="reading-passage-title">' + TestCreatorService.formatRichText(rcTitle) + '</div>');
         }
-        if (effectiveNumberedLines && rcPassage) {
+        var passageNumCfg = resolveLineNumberConfig();
+        if (passageNumCfg && rcPassage) {
           var pLines = rcPassage.split('\n');
           var numberedPassage = pLines.map(function (ln, lIdx) {
-            return '<div class="passage-line-numbered"><span class="passage-line-num">' + (lIdx + 1) + '</span><span class="passage-line-text">' + (TestCreatorService.formatRichText(ln) || '&nbsp;') + '</span></div>';
+            var rawNum = passageNumCfg.startAt + lIdx;
+            var isVis = (passageNumCfg.interval <= 1) || (rawNum % passageNumCfg.interval === 0);
+            var pNumText = isVis ? TestCreatorService.formatLineNumber(rawNum, passageNumCfg.format) : '';
+            var pStyle = [
+              'font-size:' + passageNumCfg.size,
+              'color:' + passageNumCfg.color,
+              'font-weight:' + passageNumCfg.weight,
+              'font-style:' + (passageNumCfg.italic ? 'italic' : 'normal'),
+              'text-align:' + passageNumCfg.align,
+              'min-width:20px',
+              'flex-shrink:0',
+              'user-select:none'
+            ];
+            if (!isVis) pStyle.push('visibility:hidden');
+            return '<div class="passage-line-numbered" style="display:flex;align-items:baseline;gap:' + passageNumCfg.distance + ';line-height:1.6;"><span class="passage-line-num" style="' + pStyle.join(';') + ';">' + (pNumText || '&nbsp;') + '</span><span class="passage-line-text" style="flex:1;">' + (TestCreatorService.formatRichText(ln) || '&nbsp;') + '</span></div>';
           }).join('');
           html.push('    <div>' + numberedPassage + '</div>');
         } else {
@@ -4196,7 +4388,10 @@
             if (isTeacherKey && sq.solution) {
               html.push('    <div class="rc-answer-solution">&rarr; Answer: ' + TestCreatorService.formatRichText(sq.solution) + '</div>');
             }
-            html.push(buildWritingLinesHtml(sqLines, sq.lineStyle || 'lines'));
+            html.push(buildWritingLinesHtml(sqLines, sq.lineStyle || 'lines', {
+              numberedLines: sq.numberedLines !== undefined ? sq.numberedLines : exOpts.numberedLines,
+              lineNumbering: sq.lineNumbering || exOpts.lineNumbering
+            }));
           }
           html.push('  </div>');
         });
@@ -4213,6 +4408,9 @@
           title: exOpts.rubricTitle || (ex.title ? (ex.title + ' — Rubric') : 'Assessment Rubric'),
           displayMode: exOpts.rubricDisplayMode || 'matrix',
           showDescriptions: exOpts.showRubricDescriptions !== false,
+          background: exOpts.rubricBg || 'default',
+          padding: exOpts.rubricPadding || 'standard',
+          border: exOpts.rubricBorder || 'solid',
           includeExerciseCriteria: false
         });
         if (genRubricHtml) {
@@ -4633,11 +4831,14 @@
             });
             md.push('');
           }
-          if (exOpts.showRubric !== false && Array.isArray(ex.markingRubric) && ex.markingRubric.length) {
-            md.push('| Criteria | Max Points | Score |');
+          var compCrits = (Array.isArray(ex.criteria) && ex.criteria.length)
+            ? ex.criteria
+            : ((Array.isArray(ex.markingRubric) && ex.markingRubric.length) ? ex.markingRubric : []);
+          if (exOpts.showRubric !== false && compCrits.length) {
+            md.push('| ' + (exOpts.rubricTitle || 'Criteria') + ' | Max Points | Score |');
             md.push('|---|---|---|');
-            ex.markingRubric.forEach(function (r) {
-              md.push('| ' + r.title + ' | /' + (r.maxPoints || 0) + ' | |');
+            compCrits.forEach(function (r) {
+              md.push('| ' + (r.title || r.name || 'Criterion') + ' | /' + (r.maxPoints || 0) + ' | |');
             });
             md.push('');
           }
@@ -4818,6 +5019,20 @@
         default:
           if (ex.content && ex.content.prompt) md.push(ex.content.prompt);
           break;
+      }
+
+      if (ex.type !== 'composition' && !isSection) {
+        var exCrits = (Array.isArray(ex.criteria) && ex.criteria.length)
+          ? ex.criteria
+          : ((Array.isArray(ex.markingRubric) && ex.markingRubric.length) ? ex.markingRubric : []);
+        if (exOpts.showRubric !== false && exCrits.length) {
+          md.push('| ' + (exOpts.rubricTitle || 'Criteria') + ' | Max Points | Score |');
+          md.push('|---|---|---|');
+          exCrits.forEach(function (r) {
+            md.push('| ' + (r.title || r.name || 'Criterion') + ' | /' + (r.maxPoints || 0) + ' | |');
+          });
+          md.push('');
+        }
       }
 
       md.push('');

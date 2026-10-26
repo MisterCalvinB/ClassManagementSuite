@@ -3466,7 +3466,7 @@
       const x = (targetX != null) ? targetX : Math.max(40, Math.round(board.clientWidth / 2 - 220));
       const y = (targetY != null) ? targetY : Math.max(40, Math.round(board.clientHeight / 2 - 160));
 
-      const nid = 'cnn' + (conNoteNextId++);
+      const nid = (typeof window.conGetNextNoteId === 'function') ? window.conGetNextNoteId() : ('cnn' + (conNoteNextId++));
       const plan = planPayload.plan || planPayload.rawPlan || planPayload.raw || planPayload;
       const rawCName = (planPayload.className || plan.className || 'Class').trim();
       const className = (typeof _cgDisplayName === 'function' ? _cgDisplayName(rawCName) : '') || rawCName;
@@ -3701,7 +3701,7 @@
       const x = (targetX != null) ? targetX : Math.max(40, Math.round(board.clientWidth / 2 - 180 + Math.random() * 40 - 20));
       const y = (targetY != null) ? targetY : Math.max(40, Math.round(board.clientHeight / 2 - 120 + Math.random() * 40 - 20));
 
-      const nid = 'cnn' + (conNoteNextId++);
+      const nid = (typeof window.conGetNextNoteId === 'function') ? window.conGetNextNoteId() : ('cnn' + (conNoteNextId++));
       const itemCount = (activity.items || []).length;
       const itemLabel = activity.activityType === 'quizzes'
         ? (itemCount === 1 ? 'Question' : 'Questions')

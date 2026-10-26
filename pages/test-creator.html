@@ -1249,12 +1249,85 @@
             </select>
           </div>
 
-          <div class="style-control-card">
-            <label data-i18n="tcStyleNumberedLines">Line Numbering:</label>
-            <label class="style-checkbox-row">
-              <input type="checkbox" id="globalStyleNumberedLines" onchange="tcOnGlobalStyleChange()">
-              <span data-i18n="tcStyleNumberedLinesDesc">Number student writing lines & passages (1, 2, 3...)</span>
-            </label>
+          <div class="style-control-card" style="grid-column: span 2;">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+              <label data-i18n="tcStyleNumberedLines" style="margin:0;font-weight:900;">Line Numbering:</label>
+              <label class="style-checkbox-row" style="margin:0;">
+                <input type="checkbox" id="globalStyleNumberedLines" onchange="tcOnGlobalStyleChange(); tcToggleGlobalLineNumberingFields();">
+                <span data-i18n="tcStyleNumberedLinesDesc">Number student writing lines &amp; passages (1, 2, 3...)</span>
+              </label>
+            </div>
+            
+            <div id="globalLineNumberingOptions" style="display:none;margin-top:10px;padding-top:10px;border-top:1.5px dashed #cbd5e1;flex-direction:column;gap:10px;">
+              <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:8px;align-items:end;">
+                <div>
+                  <span class="meta-lbl" data-i18n="tcLineNumberFormat">Number Format / Style:</span>
+                  <select id="globalStyleNumFormat" class="style-select" onchange="tcOnGlobalStyleChange()">
+                    <option value="decimal" data-i18n="tcLineNumberFormatDecimal">1, 2, 3... (Standard Digits)</option>
+                    <option value="period" data-i18n="tcLineNumberFormatPeriod">1., 2., 3... (With Dot)</option>
+                    <option value="parenthesis" data-i18n="tcLineNumberFormatParenthesis">1), 2), 3)... (Parenthesis)</option>
+                    <option value="parentheses" data-i18n="tcLineNumberFormatParentheses">(1), (2), (3)... (Enclosed)</option>
+                    <option value="prefix_l" data-i18n="tcLineNumberFormatPrefixL">L1, L2, L3... (Prefix L)</option>
+                    <option value="prefix_line" data-i18n="tcLineNumberFormatPrefixLine">Line 1, Line 2... (Full Word)</option>
+                    <option value="roman_lower" data-i18n="tcLineNumberFormatRomanLower">i, ii, iii... (Roman Lowercase)</option>
+                    <option value="roman_upper" data-i18n="tcLineNumberFormatRomanUpper">I, II, III... (Roman Uppercase)</option>
+                    <option value="alpha_lower" data-i18n="tcLineNumberFormatAlphaLower">a, b, c... (Letters Lowercase)</option>
+                    <option value="alpha_upper" data-i18n="tcLineNumberFormatAlphaUpper">A, B, C... (Letters Uppercase)</option>
+                  </select>
+                </div>
+                <div>
+                  <span class="meta-lbl" data-i18n="tcLineNumberSize">Number Font Size:</span>
+                  <select id="globalStyleNumSize" class="style-select" onchange="tcOnGlobalStyleChange()">
+                    <option value="7pt">7 pt (Tiny)</option>
+                    <option value="8pt" selected>8 pt (Standard)</option>
+                    <option value="9pt">9 pt (Medium)</option>
+                    <option value="10pt">10 pt (Prominent)</option>
+                    <option value="11pt">11 pt (Large)</option>
+                    <option value="12pt">12 pt (Extra Large)</option>
+                  </select>
+                </div>
+                <div>
+                  <span class="meta-lbl" data-i18n="tcLineNumberDistance">Distance to Line (Gap):</span>
+                  <select id="globalStyleNumDistance" class="style-select" onchange="tcOnGlobalStyleChange()">
+                    <option value="4px">4 px (Tight)</option>
+                    <option value="6px">6 px (Compact)</option>
+                    <option value="8px" selected>8 px (Standard - 8px)</option>
+                    <option value="10px">10 px (Medium - 10px)</option>
+                    <option value="12px">12 px (Spacious - 12px)</option>
+                    <option value="16px">16 px (Wide - 16px)</option>
+                    <option value="20px">20 px (Extra Wide - 20px)</option>
+                  </select>
+                </div>
+                <div>
+                  <span class="meta-lbl" data-i18n="tcLineNumberInterval">Frequency / Step:</span>
+                  <select id="globalStyleNumInterval" class="style-select" onchange="tcOnGlobalStyleChange()">
+                    <option value="1" data-i18n="tcLineNumberIntervalAll">Every line (All)</option>
+                    <option value="2" data-i18n="tcLineNumberInterval2">Every 2 lines (2, 4, 6...)</option>
+                    <option value="5" data-i18n="tcLineNumberInterval5">Every 5 lines (5, 10, 15...)</option>
+                    <option value="10" data-i18n="tcLineNumberInterval10">Every 10 lines (10, 20...)</option>
+                  </select>
+                </div>
+                <div>
+                  <span class="meta-lbl" data-i18n="tcLineNumberColor">Number Colour:</span>
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <input type="color" id="globalStyleNumColorPicker" value="#64748b" style="width:28px;height:28px;padding:1px;border:1.5px solid #333;border-radius:4px;cursor:pointer;" onchange="document.getElementById('globalStyleNumColor').value=this.value; tcOnGlobalStyleChange();">
+                    <input type="text" id="globalStyleNumColor" class="meta-input" style="width:78px;font-size:0.8rem;padding:3px 6px;" value="#64748b" onchange="document.getElementById('globalStyleNumColorPicker').value=this.value; tcOnGlobalStyleChange();">
+                  </div>
+                </div>
+                <div style="display:flex;gap:10px;align-items:center;padding-bottom:6px;">
+                  <label style="font-size:0.8rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="globalStyleNumBold" checked onchange="tcOnGlobalStyleChange()"> <span data-i18n="tcBold">Bold</span></label>
+                  <label style="font-size:0.8rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="globalStyleNumItalic" onchange="tcOnGlobalStyleChange()"> <span data-i18n="tcItalic">Italic</span></label>
+                </div>
+              </div>
+
+              <!-- Mini interactive preview -->
+              <div class="line-num-preview-box">
+                <div class="line-num-preview-title"><span data-i18n="tcLineNumberPreview">Sample Line Preview:</span><span style="font-size:0.7rem;font-weight:normal;color:#64748b;">(Interactive Live Demo)</span></div>
+                <div id="globalLineSamplePreview" class="line-num-preview-lines">
+                  <!-- Populated dynamically -->
+                </div>
+              </div>
+            </div>
           </div>
           <div class="style-control-card" style="grid-column: span 2; margin-top: 4px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
@@ -1443,6 +1516,92 @@
             </div>
             <div style="margin-top:8px;">
               <label style="font-size:0.8rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="exStylePromptBold"> <span data-i18n="tcBoldPrompts">Bold Question Prompts</span></label>
+            </div>
+          </div>
+
+          <!-- Exercise Line Numbering & Formatting -->
+          <div id="exStyleLineNumberingSection" style="border-top:1.5px solid #000;padding-top:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px;">
+              <div style="font-weight:900;font-size:0.83rem;text-transform:uppercase;" data-i18n="tcLineNumberingFormatting">Line Number Formatting &amp; Appearance:</div>
+              <label class="style-checkbox-row" style="margin:0;">
+                <input type="checkbox" id="exStyleCustomNumToggle" onchange="tcOnExStyleCustomNumToggle()">
+                <span style="font-size:0.78rem;font-weight:700;" data-i18n="tcLineNumberingCustom">Custom for this Exercise</span>
+              </label>
+            </div>
+
+            <div id="exStyleCustomNumFields" style="display:none;flex-direction:column;gap:8px;margin-top:6px;">
+              <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:8px;align-items:end;">
+                <div>
+                  <span class="meta-lbl" data-i18n="tcLineNumberFormat">Number Format / Style:</span>
+                  <select id="exStyleNumFormat" class="style-select" onchange="tcUpdateExStyleLinePreview()">
+                    <option value="decimal" data-i18n="tcLineNumberFormatDecimal">1, 2, 3... (Standard Digits)</option>
+                    <option value="period" data-i18n="tcLineNumberFormatPeriod">1., 2., 3... (With Dot)</option>
+                    <option value="parenthesis" data-i18n="tcLineNumberFormatParenthesis">1), 2), 3)... (Parenthesis)</option>
+                    <option value="parentheses" data-i18n="tcLineNumberFormatParentheses">(1), (2), (3)... (Enclosed)</option>
+                    <option value="prefix_l" data-i18n="tcLineNumberFormatPrefixL">L1, L2, L3... (Prefix L)</option>
+                    <option value="prefix_line" data-i18n="tcLineNumberFormatPrefixLine">Line 1, Line 2... (Full Word)</option>
+                    <option value="roman_lower" data-i18n="tcLineNumberFormatRomanLower">i, ii, iii... (Roman Lowercase)</option>
+                    <option value="roman_upper" data-i18n="tcLineNumberFormatRomanUpper">I, II, III... (Roman Uppercase)</option>
+                    <option value="alpha_lower" data-i18n="tcLineNumberFormatAlphaLower">a, b, c... (Letters Lowercase)</option>
+                    <option value="alpha_upper" data-i18n="tcLineNumberFormatAlphaUpper">A, B, C... (Letters Uppercase)</option>
+                  </select>
+                </div>
+                <div>
+                  <span class="meta-lbl" data-i18n="tcLineNumberSize">Number Font Size:</span>
+                  <select id="exStyleNumSize" class="style-select" onchange="tcUpdateExStyleLinePreview()">
+                    <option value="7pt">7 pt (Tiny)</option>
+                    <option value="8pt" selected>8 pt (Standard)</option>
+                    <option value="9pt">9 pt (Medium)</option>
+                    <option value="10pt">10 pt (Prominent)</option>
+                    <option value="11pt">11 pt (Large)</option>
+                    <option value="12pt">12 pt (Extra Large)</option>
+                  </select>
+                </div>
+                <div>
+                  <span class="meta-lbl" data-i18n="tcLineNumberDistance">Distance to Line (Gap):</span>
+                  <select id="exStyleNumDistance" class="style-select" onchange="tcUpdateExStyleLinePreview()">
+                    <option value="4px">4 px (Tight)</option>
+                    <option value="6px">6 px (Compact)</option>
+                    <option value="8px" selected>8 px (Standard - 8px)</option>
+                    <option value="10px">10 px (Medium - 10px)</option>
+                    <option value="12px">12 px (Spacious - 12px)</option>
+                    <option value="16px">16 px (Wide - 16px)</option>
+                    <option value="20px">20 px (Extra Wide - 20px)</option>
+                  </select>
+                </div>
+                <div>
+                  <span class="meta-lbl" data-i18n="tcLineNumberInterval">Frequency / Step:</span>
+                  <select id="exStyleNumInterval" class="style-select" onchange="tcUpdateExStyleLinePreview()">
+                    <option value="1" data-i18n="tcLineNumberIntervalAll">Every line (All)</option>
+                    <option value="2" data-i18n="tcLineNumberInterval2">Every 2 lines (2, 4, 6...)</option>
+                    <option value="5" data-i18n="tcLineNumberInterval5">Every 5 lines (5, 10, 15...)</option>
+                    <option value="10" data-i18n="tcLineNumberInterval10">Every 10 lines (10, 20...)</option>
+                  </select>
+                </div>
+                <div>
+                  <span class="meta-lbl" data-i18n="tcLineNumberStartAt">Start Number:</span>
+                  <input type="number" id="exStyleNumStartAt" class="meta-input" style="width:70px;padding:3px 6px;font-size:0.8rem;" value="1" min="1" max="999" onchange="tcUpdateExStyleLinePreview()">
+                </div>
+                <div>
+                  <span class="meta-lbl" data-i18n="tcLineNumberColor">Number Colour:</span>
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <input type="color" id="exStyleNumColorPicker" value="#64748b" style="width:28px;height:28px;padding:1px;border:1.5px solid #333;border-radius:4px;cursor:pointer;" onchange="document.getElementById('exStyleNumColor').value=this.value; tcUpdateExStyleLinePreview();">
+                    <input type="text" id="exStyleNumColor" class="meta-input" style="width:78px;font-size:0.8rem;padding:3px 6px;" value="#64748b" onchange="document.getElementById('exStyleNumColorPicker').value=this.value; tcUpdateExStyleLinePreview();">
+                  </div>
+                </div>
+                <div style="display:flex;gap:10px;align-items:center;padding-bottom:6px;">
+                  <label style="font-size:0.8rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="exStyleNumBold" checked onchange="tcUpdateExStyleLinePreview()"> <span data-i18n="tcBold">Bold</span></label>
+                  <label style="font-size:0.8rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="exStyleNumItalic" onchange="tcUpdateExStyleLinePreview()"> <span data-i18n="tcItalic">Italic</span></label>
+                </div>
+              </div>
+
+              <!-- Mini preview -->
+              <div class="line-num-preview-box">
+                <div class="line-num-preview-title"><span data-i18n="tcLineNumberPreview">Sample Line Preview:</span><span style="font-size:0.7rem;font-weight:normal;color:#64748b;">(Exercise Override Preview)</span></div>
+                <div id="exStyleLineSamplePreview" class="line-num-preview-lines">
+                  <!-- Populated dynamically -->
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1832,6 +1991,45 @@
                 </tr>
               </tbody>
             </table>
+          </div>
+
+          <!-- Assessment Criteria Container Customisation Section -->
+          <div id="hdrCriteriaStyleBox" style="background:#fff;border:2px solid #000;border-radius:4px;padding:10px;margin-top:10px;">
+            <div style="font-weight:800;font-size:0.85rem;margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+              <span data-i18n="tcCriteriaContainerCustomise">Assessment Criteria Container Customisation:</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;font-size:0.8rem;">
+              <div>
+                <span style="font-weight:700;display:block;margin-bottom:2px;" data-i18n="tcRubricBg">Background:</span>
+                <select id="hdrSelect_criteriaBg" class="meta-select" style="width:100%;padding:2px 6px;font-size:0.78rem;" onchange="tcUpdateElemStyle('criteriaStyle', 'background', this.value)">
+                  <option value="default" data-i18n="tcOptBgDefaultGreen">Default (Soft Green Tint)</option>
+                  <option value="white" data-i18n="tcOptBgWhite">Crisp White</option>
+                  <option value="ivory" data-i18n="tcOptBgIvory">Ivory Cream</option>
+                  <option value="amber" data-i18n="tcOptBgAmber">Warm Amber</option>
+                  <option value="light_gray" data-i18n="tcOptBgLightGray">Subtle Gray</option>
+                  <option value="none" data-i18n="tcOptBgNone">None (Transparent)</option>
+                </select>
+              </div>
+              <div>
+                <span style="font-weight:700;display:block;margin-bottom:2px;" data-i18n="tcRubricPadding">Padding:</span>
+                <select id="hdrSelect_criteriaPadding" class="meta-select" style="width:100%;padding:2px 6px;font-size:0.78rem;" onchange="tcUpdateElemStyle('criteriaStyle', 'padding', this.value)">
+                  <option value="compact" data-i18n="tcOptPadCompact">Compact (4px 8px)</option>
+                  <option value="standard" data-i18n="tcOptPadStandard">Standard (8px 14px)</option>
+                  <option value="spacious" data-i18n="tcOptPadSpacious">Spacious (14px 18px)</option>
+                </select>
+              </div>
+              <div>
+                <span style="font-weight:700;display:block;margin-bottom:2px;" data-i18n="tcRubricBorder">Border Style:</span>
+                <select id="hdrSelect_criteriaBorder" class="meta-select" style="width:100%;padding:2px 6px;font-size:0.78rem;" onchange="tcUpdateElemStyle('criteriaStyle', 'border', this.value)">
+                  <option value="solid" data-i18n="tcOptBorderSolid">Solid (2px Green / Charcoal)</option>
+                  <option value="neobrutalist" data-i18n="tcOptBorderNeobrutalist">Neobrutalist (Thick + Shadow)</option>
+                  <option value="double" data-i18n="tcOptBorderDouble">Double Rule</option>
+                  <option value="dashed" data-i18n="tcOptBorderDashed">Dashed Border</option>
+                  <option value="minimal" data-i18n="tcOptBorderMinimal">Minimal (Top/Bottom only)</option>
+                  <option value="none" data-i18n="tcOptBorderNone">None (Borderless)</option>
+                </select>
+              </div>
+            </div>
           </div>
 
           <!-- Grading Scale Container Customisation Section -->
@@ -2302,14 +2500,21 @@
           <button type="button" class="neo-btn" onclick="tcCloseCompetenceCustomizeModal()"><span data-i18n="btnCancel">Cancel</span></button>
           <button type="button" class="neo-btn primary" onclick="tcSaveCompetenceConfig()"><span data-i18n="btnSave">Save &amp; Apply</span></button>
         </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ── 20. Rubric Levels & Descriptors Matrix Modal ───────────────────────── -->
-  <div id="tcRubricMatrixModal" class="modal-overlay" style="display:none; z-index:10005;" onclick="if(event.target===this)tcCloseRubricMatrixModal()">
+  <div id="tcRubricMatrixModal" class="modal-overlay" onclick="if(event.target===this)tcCloseRubricMatrixModal()">
     <div class="modal-box" style="max-width:980px; width:92vw; max-height:90vh; display:flex; flex-direction:column; padding:18px; border:3px solid var(--neo-dark, #333); box-shadow:4px 4px 0 #555;">
       <div class="modal-header" style="border-bottom:2px solid var(--neo-dark, #333); padding-bottom:8px; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between;">
-        <span class="modal-title" style="display:flex; align-items:center; gap:8px;">
-          <img src="../assets/icons/check.svg" style="width:20px;height:20px;" alt="" />
-          <span id="tcRubricModalTitleText" data-i18n="tcRubricModalTitle">Rubric Levels &amp; Performance Descriptors</span>
-        </span>
+        <div>
+          <span class="modal-title" style="display:flex; align-items:center; gap:8px;">
+            <img src="../assets/icons/eye.svg" style="width:20px;height:20px;" alt="" />
+            <span id="tcRubricModalTitleText" data-i18n="tcRubricModalTitle">Rubric Levels &amp; Performance Descriptors</span>
+          </span>
+          <div id="tcRubricMatrixModalSub" style="font-size:0.75rem; color:#64748b; font-weight:600; margin-top:2px;"></div>
+        </div>
         <button class="modal-close-btn" onclick="tcCloseRubricMatrixModal()">&times;</button>
       </div>
       <div id="tcRubricModalBody" class="modal-bd modal-body" style="overflow-y:auto; overflow-x:auto; flex:1; padding-right:4px;">
@@ -2318,6 +2523,103 @@
       <div class="modal-footer" style="margin-top:12px; border-top:2px solid var(--neo-dark, #333); padding-top:10px; display:flex; justify-content:space-between; align-items:center;">
         <span id="tcRubricModalItemCount" style="font-size:0.75rem; font-weight:800; color:#065f46;"></span>
         <button type="button" class="neo-btn" onclick="tcCloseRubricMatrixModal()" data-i18n="btnClose">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 21. Rubric Layout & Appearance Customizer Modal ─────────────────── -->
+  <div id="tcRubricLayoutModal" class="modal-overlay" onclick="if(event.target===this)tcCloseRubricLayoutModal()">
+    <div class="modal-box" style="max-width:880px; width:92vw; max-height:90vh; display:flex; flex-direction:column; padding:18px; border:3px solid var(--neo-dark, #333); box-shadow:4px 4px 0 #555; background:var(--neo-card, #ffffff); border-radius:10px;">
+      <div class="modal-header" style="border-bottom:2px solid var(--neo-dark, #333); padding-bottom:8px; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between;">
+        <div>
+          <span class="modal-title" style="display:flex; align-items:center; gap:8px;">
+            <img src="../assets/icons/layout.svg" style="width:20px;height:20px;" alt="" />
+            <span id="tcRubricLayoutModalTitleText" data-i18n="tcRubricLayoutModalTitle">Evaluation Rubric Layout &amp; Appearance</span>
+          </span>
+          <div id="tcRubricLayoutModalSub" style="font-size:0.75rem; color:#64748b; font-weight:600; margin-top:2px;"></div>
+        </div>
+        <button class="modal-close-btn" onclick="tcCloseRubricLayoutModal()">&times;</button>
+      </div>
+
+      <div class="modal-bd modal-body" style="overflow-y:auto; overflow-x:hidden; flex:1; padding-right:6px; display:flex; flex-direction:column; gap:14px;">
+        
+        <!-- Controls Grid -->
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:12px; background:#f8fafc; border:2px solid #333; border-radius:8px; padding:12px; box-shadow:2px 2px 0 #555;">
+          <div>
+            <label style="display:block; font-size:0.78rem; font-weight:800; margin-bottom:4px;" data-i18n="tcRubricTitle">Rubric Heading / Title:</label>
+            <input type="text" id="tcModalRubricTitle" class="meta-input" style="width:100%; font-size:0.8rem; padding:4px 8px;" placeholder="e.g. Assessment Rubric" oninput="tcUpdateModalRubricOption('rubricTitle', this.value)">
+          </div>
+
+          <div>
+            <label style="display:block; font-size:0.78rem; font-weight:800; margin-bottom:4px;" data-i18n="tcRubricDisplayMode">Display Layout / Format:</label>
+            <select id="tcModalRubricDisplayMode" class="meta-select" style="width:100%; font-size:0.8rem; padding:4px 8px;" onchange="tcUpdateModalRubricOption('rubricDisplayMode', this.value)">
+              <option value="matrix" data-i18n="tcDisplayMatrix">Full Rubric Matrix Grid</option>
+              <option value="table" data-i18n="tcEvaluationRubricTable">Summary Rubric Table</option>
+              <option value="compact" data-i18n="tcDisplayCompact">Compact Summary</option>
+              <option value="badges" data-i18n="tcCriteriaBadges">Criteria Badges</option>
+              <option value="list" data-i18n="tcBulletedList">Bullet List</option>
+            </select>
+          </div>
+
+          <div>
+            <label style="display:block; font-size:0.78rem; font-weight:800; margin-bottom:4px;" data-i18n="tcRubricBg">Container Background:</label>
+            <select id="tcModalRubricBg" class="meta-select" style="width:100%; font-size:0.8rem; padding:4px 8px;" onchange="tcUpdateModalRubricOption('rubricBg', this.value)">
+              <option value="default" data-i18n="tcOptBgDefaultGreen">Default (Soft Green Tint)</option>
+              <option value="white" data-i18n="tcOptBgWhite">Crisp White</option>
+              <option value="ivory" data-i18n="tcOptBgIvory">Ivory Cream</option>
+              <option value="amber" data-i18n="tcOptBgAmber">Warm Amber</option>
+              <option value="light_gray" data-i18n="tcOptBgLightGray">Subtle Gray</option>
+              <option value="none" data-i18n="tcOptBgNone">None (Transparent)</option>
+            </select>
+          </div>
+
+          <div>
+            <label style="display:block; font-size:0.78rem; font-weight:800; margin-bottom:4px;" data-i18n="tcRubricPadding">Container Padding:</label>
+            <select id="tcModalRubricPadding" class="meta-select" style="width:100%; font-size:0.8rem; padding:4px 8px;" onchange="tcUpdateModalRubricOption('rubricPadding', this.value)">
+              <option value="compact" data-i18n="tcOptPadCompact">Compact (4px 8px)</option>
+              <option value="standard" data-i18n="tcOptPadStandard">Standard (8px 14px)</option>
+              <option value="spacious" data-i18n="tcOptPadSpacious">Spacious (14px 18px)</option>
+            </select>
+          </div>
+
+          <div>
+            <label style="display:block; font-size:0.78rem; font-weight:800; margin-bottom:4px;" data-i18n="tcRubricBorder">Container Border Style:</label>
+            <select id="tcModalRubricBorder" class="meta-select" style="width:100%; font-size:0.8rem; padding:4px 8px;" onchange="tcUpdateModalRubricOption('rubricBorder', this.value)">
+              <option value="solid" data-i18n="tcOptBorderSolid">Solid (2px Green / Charcoal)</option>
+              <option value="neobrutalist" data-i18n="tcOptBorderNeobrutalist">Neobrutalist (Thick + Shadow)</option>
+              <option value="double" data-i18n="tcOptBorderDouble">Double Rule</option>
+              <option value="dashed" data-i18n="tcOptBorderDashed">Dashed Border</option>
+              <option value="minimal" data-i18n="tcOptBorderMinimal">Minimal (Top/Bottom only)</option>
+              <option value="none" data-i18n="tcOptBorderNone">None (Borderless)</option>
+            </select>
+          </div>
+
+          <div style="display:flex; flex-direction:column; justify-content:center; gap:6px;">
+            <label class="card-checkbox-label" style="font-size:0.78rem; font-weight:700;">
+              <input type="checkbox" id="tcModalRubricShowDesc" onchange="tcUpdateModalRubricOption('showRubricDescriptions', this.checked)">
+              <span data-i18n="tcIncludeDescriptions">Include Performance Descriptors</span>
+            </label>
+            <label class="card-checkbox-label" style="font-size:0.78rem; font-weight:700;">
+              <input type="checkbox" id="tcModalRubricShowRubric" onchange="tcUpdateModalRubricOption('showRubric', this.checked)">
+              <span data-i18n="tcPrintRubricOnSheet">Display Rubric Below Exercise on Sheet</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Live Preview Box -->
+        <div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <span style="font-weight:800; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.5px; color:#065f46;" data-i18n="tcRubricPreviewLabel">Live Rubric Preview (Exam / PDF Output):</span>
+            <button type="button" class="neo-btn sm" style="font-size:0.72rem; padding:2px 8px; color:#b91c1c; border-color:#ef4444;" onclick="tcResetRubricLayoutOptions()" data-i18n="tcBtnResetDefaults">Reset to Defaults</button>
+          </div>
+          <div id="tcRubricLayoutPreviewBox" style="background:#ffffff; border:2px dashed #94a3b8; border-radius:8px; padding:12px; overflow-x:auto; min-height:120px;">
+          </div>
+        </div>
+
+      </div>
+
+      <div class="modal-footer" style="margin-top:12px; border-top:2px solid var(--neo-dark, #333); padding-top:10px; display:flex; justify-content:flex-end; gap:8px;">
+        <button type="button" class="neo-btn primary" onclick="tcCloseRubricLayoutModal()" data-i18n="btnDone">Done</button>
       </div>
     </div>
   </div>
@@ -3980,6 +4282,36 @@
           '            <option value="compact"' + (opts.displayMode === 'compact' ? ' selected' : '') + '>' + (i18n.t('tcDisplayCompact') || 'Compact Summary') + '</option>' +
           '          </select>' +
           '        </div>' +
+          '        <div>' +
+          '          <label style="display:block;font-size:0.75rem;font-weight:800;margin-bottom:3px;">' + (i18n.t('tcRubricBg') || 'Container Background:') + '</label>' +
+          '          <select class="meta-input sm" style="width:100%;" onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'background\', this.value)">' +
+          '            <option value="default"' + ((!opts.background || opts.background === 'default') ? ' selected' : '') + '>' + (i18n.t('tcOptBgDefaultGreen') || 'Default (Soft Green Tint)') + '</option>' +
+          '            <option value="white"' + (opts.background === 'white' ? ' selected' : '') + '>' + (i18n.t('tcOptBgWhite') || 'Crisp White') + '</option>' +
+          '            <option value="ivory"' + (opts.background === 'ivory' ? ' selected' : '') + '>' + (i18n.t('tcOptBgIvory') || 'Ivory Cream') + '</option>' +
+          '            <option value="amber"' + (opts.background === 'amber' ? ' selected' : '') + '>' + (i18n.t('tcOptBgAmber') || 'Warm Amber') + '</option>' +
+          '            <option value="light_gray"' + (opts.background === 'light_gray' ? ' selected' : '') + '>' + (i18n.t('tcOptBgLightGray') || 'Subtle Gray') + '</option>' +
+          '            <option value="none"' + (opts.background === 'none' ? ' selected' : '') + '>' + (i18n.t('tcOptBgNone') || 'None (Transparent)') + '</option>' +
+          '          </select>' +
+          '        </div>' +
+          '        <div>' +
+          '          <label style="display:block;font-size:0.75rem;font-weight:800;margin-bottom:3px;">' + (i18n.t('tcRubricPadding') || 'Container Padding:') + '</label>' +
+          '          <select class="meta-input sm" style="width:100%;" onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'padding\', this.value)">' +
+          '            <option value="compact"' + (opts.padding === 'compact' ? ' selected' : '') + '>' + (i18n.t('tcOptPadCompact') || 'Compact (4px 8px)') + '</option>' +
+          '            <option value="standard"' + ((!opts.padding || opts.padding === 'standard') ? ' selected' : '') + '>' + (i18n.t('tcOptPadStandard') || 'Standard (8px 14px)') + '</option>' +
+          '            <option value="spacious"' + (opts.padding === 'spacious' ? ' selected' : '') + '>' + (i18n.t('tcOptPadSpacious') || 'Spacious (14px 18px)') + '</option>' +
+          '          </select>' +
+          '        </div>' +
+          '        <div>' +
+          '          <label style="display:block;font-size:0.75rem;font-weight:800;margin-bottom:3px;">' + (i18n.t('tcRubricBorder') || 'Container Border:') + '</label>' +
+          '          <select class="meta-input sm" style="width:100%;" onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'border\', this.value)">' +
+          '            <option value="solid"' + ((!opts.border || opts.border === 'solid') ? ' selected' : '') + '>' + (i18n.t('tcOptBorderSolid') || 'Solid (2px Green / Charcoal)') + '</option>' +
+          '            <option value="neobrutalist"' + (opts.border === 'neobrutalist' ? ' selected' : '') + '>' + (i18n.t('tcOptBorderNeobrutalist') || 'Neobrutalist (Thick + Shadow)') + '</option>' +
+          '            <option value="double"' + (opts.border === 'double' ? ' selected' : '') + '>' + (i18n.t('tcOptBorderDouble') || 'Double Rule') + '</option>' +
+          '            <option value="dashed"' + (opts.border === 'dashed' ? ' selected' : '') + '>' + (i18n.t('tcOptBorderDashed') || 'Dashed Border') + '</option>' +
+          '            <option value="minimal"' + (opts.border === 'minimal' ? ' selected' : '') + '>' + (i18n.t('tcOptBorderMinimal') || 'Minimal (Top/Bottom only)') + '</option>' +
+          '            <option value="none"' + (opts.border === 'none' ? ' selected' : '') + '>' + (i18n.t('tcOptBorderNone') || 'None (Borderless)') + '</option>' +
+          '          </select>' +
+          '        </div>' +
           '        <div style="display:flex;flex-direction:column;justify-content:center;gap:6px;">' +
           '          <label class="card-checkbox-label" style="font-size:0.78rem;">' +
           '            <input type="checkbox" ' + (opts.showDescriptions !== false ? 'checked' : '') + ' onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'showDescriptions\', this.checked)">' +
@@ -4432,7 +4764,8 @@
             var levelBadge = levelCount > 0 ? ' <span style="font-size:0.68rem;font-weight:700;color:#047857;background:#d1fae5;padding:1px 4px;border-radius:3px;">[' + levelCount + ' lvls]</span>' : '';
             html += '<span style="background:#f0fdf4;border:1.5px solid #16a34a;color:#15803d;font-size:0.75rem;padding:2px 8px;border-radius:4px;font-weight:800;display:inline-flex;align-items:center;gap:6px;">' +
               escapeHtml(r.title) + ' (/' + (r.maxPoints || 0) + ' pts)' + levelBadge +
-              ' <button type="button" class="card-btn-icon" style="padding:1px 5px;font-size:0.72rem;background:#d1fae5;color:#065f46;border:1px solid #10b981;cursor:pointer;margin-left:2px;" onclick="tcOpenRubricMatrixModal(\'' + ex.id + '\')" title="' + escapeAttr(i18n.t('tcViewRubricMatrix') || 'View Rubric Matrix') + '">👁 Matrix</button>' +
+              ' <button type="button" class="card-btn-icon" style="padding:1px 5px;font-size:0.72rem;background:#d1fae5;color:#065f46;border:1px solid #10b981;cursor:pointer;margin-left:2px;display:inline-flex;align-items:center;gap:3px;" onclick="tcOpenRubricMatrixModal(\'' + ex.id + '\')" title="' + escapeAttr(i18n.t('tcViewRubricMatrix') || 'View Rubric Matrix') + '"><img src="../assets/icons/eye.svg" style="width:12px;height:12px;" alt="">' + escapeHtml(i18n.t('tcMatrixBtn') || 'Matrix') + '</button>' +
+              ' <button type="button" class="card-btn-icon" style="padding:1px 5px;font-size:0.72rem;background:#ecfdf5;color:#065f46;border:1px solid #059669;cursor:pointer;margin-left:2px;display:inline-flex;align-items:center;gap:3px;" onclick="tcOpenRubricLayoutModal(\'' + ex.id + '\')" title="' + escapeAttr(i18n.t('tcRubricLayoutTooltip') || 'Rubric Layout & Appearance') + '"><img src="../assets/icons/layout.svg" style="width:12px;height:12px;" alt="">' + escapeHtml(i18n.t('tcLayoutAppearance') || 'Layout') + '</button>' +
               ' <button type="button" style="background:none;border:none;cursor:pointer;color:#15803d;font-weight:900;font-size:0.85rem;padding:0;line-height:1;" onclick="tcRemoveRubricFromEx(\'' + ex.id + '\',' + rIdx + ')">&times;</button></span>';
           });
           if (scale) {
@@ -4633,7 +4966,17 @@
               '    <button type="button" class="neo-btn sm" onclick="tcAddCompositionItem(\'' + ex.id + '\')">' + escapeHtml(i18n.t('tcAddWritingTask')) + '</button>' +
               '  </div>' +
               '  <div style="margin-top:6px;">' +
-              '    <span class="field-label">' + escapeHtml(i18n.t('tcScoringRubricCriteria')) + '</span>' +
+              '    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:4px;">' +
+              '      <span class="field-label" style="margin-bottom:0;">' + escapeHtml(i18n.t('tcScoringRubricCriteria')) + '</span>' +
+              '      <div style="display:flex;align-items:center;gap:4px;">' +
+              '        <button type="button" class="neo-btn sm" style="padding:2px 8px;font-size:0.75rem;background:#ecfdf5;color:#065f46;border-color:#059669;display:inline-flex;align-items:center;gap:4px;" onclick="tcOpenRubricLayoutModal(\'' + ex.id + '\')" title="' + escapeAttr(i18n.t('tcRubricLayoutTooltip') || 'Customise rubric layout, border, padding, and display mode below exercise') + '">' +
+              '          <img src="../assets/icons/layout.svg" style="width:13px;height:13px;" alt="">' + escapeHtml(i18n.t('tcRubricLayoutAppearance') || 'Layout & Appearance') +
+              '        </button>' +
+              '        <button type="button" class="neo-btn sm" style="padding:2px 8px;font-size:0.75rem;background:#d1fae5;color:#065f46;border-color:#059669;display:inline-flex;align-items:center;gap:4px;" onclick="tcOpenRubricMatrixModal(\'' + ex.id + '\')" title="' + escapeAttr(i18n.t('tcViewRubricMatrix') || 'View Rubric Matrix') + '">' +
+              '          <img src="../assets/icons/eye.svg" style="width:13px;height:13px;" alt="">' + escapeHtml(i18n.t('tcMatrixBtn') || 'Matrix') +
+              '        </button>' +
+              '      </div>' +
+              '    </div>' +
               '    <div style="display:flex;flex-direction:column;gap:4px;margin-top:4px;">' +
               (ex.markingRubric || []).map(function (rub, rIdx) {
                 return '<div style="display:flex;align-items:center;gap:6px;background:#f8fafc;padding:4px 8px;border-radius:4px;border:1px solid #cbd5e1;font-size:0.8rem;">' +
@@ -5047,6 +5390,7 @@
             break;
 
           case 'open_question':
+            var curOqNumMode = (o.numberedLines !== undefined && o.numberedLines !== null) ? String(o.numberedLines) : 'inherit';
             html += '<div class="opt-field">' +
               '<span class="opt-label">' + escapeHtml(i18n.t('tcDefaultLineStyle')) + '</span>' +
               '<select class="opt-select" onchange="tcUpdateExOption(\'' + ex.id + '\', \'lineStyle\', this.value)">' +
@@ -5054,6 +5398,14 @@
               '<option value="dotted"' + (o.lineStyle === 'dotted' ? ' selected' : '') + '>Dotted Guide Lines</option>' +
               '<option value="grid"' + (o.lineStyle === 'grid' ? ' selected' : '') + '>Squared Math Grid</option>' +
               '<option value="box"' + (o.lineStyle === 'box' ? ' selected' : '') + '>Blank Bordered Box</option>' +
+              '</select></div>';
+
+            html += '<div class="opt-field">' +
+              '<span class="opt-label">' + escapeHtml(i18n.t('tcStyleNumberedLines') || 'Line Numbering') + '</span>' +
+              '<select class="opt-select" onchange="tcUpdateExOption(\'' + ex.id + '\', \'numberedLines\', this.value === \'inherit\' ? \'inherit\' : (this.value === \'true\'))">' +
+              '<option value="inherit"' + (curOqNumMode === 'inherit' ? ' selected' : '') + '>' + escapeHtml(i18n.t('tcLineNumberingInherit') || 'Inherit Test Global') + '</option>' +
+              '<option value="true"' + (curOqNumMode === 'true' ? ' selected' : '') + '>' + escapeHtml(i18n.t('tcLineNumberingEnable') || 'Numbered Lines Enabled') + '</option>' +
+              '<option value="false"' + (curOqNumMode === 'false' ? ' selected' : '') + '>' + escapeHtml(i18n.t('tcLineNumberingDisable') || 'Plain Lines (No Numbers)') + '</option>' +
               '</select></div>';
 
             html += '<div class="opt-field">' +
@@ -5283,6 +5635,19 @@
                   '        <span class="opt-label">' + (t('tcEssayLineThickness') || 'Line Thickness') + '</span>' +
                   '        <div>' + tcBuildUnitInputHtml(curLineThickness, 'px', ['px', 'pt', 'mm'], 'tcUpdateEssayLineOption(\'' + ex.id + '\', \'lineThickness\', __VAL__)') + '</div>' +
                   '      </div>' +
+                  '      <div class="opt-field">' +
+                  '        <span class="opt-label">' + (t('tcStyleNumberedLines') || 'Line Numbering') + '</span>' +
+                  '        <select class="opt-select" onchange="tcUpdateEssayLineOption(\'' + ex.id + '\', \'numberedLines\', this.value === \'inherit\' ? \'inherit\' : (this.value === \'true\'))">' +
+                  '          <option value="inherit"' + (((o.numberedLines === 'inherit' || o.numberedLines === undefined || o.numberedLines === null)) ? ' selected' : '') + '>' + (t('tcLineNumberingInherit') || 'Inherit Test Global') + '</option>' +
+                  '          <option value="true"' + (o.numberedLines === true || o.numberedLines === 'true' ? ' selected' : '') + '>' + (t('tcLineNumberingEnable') || 'Numbered Lines Enabled') + '</option>' +
+                  '          <option value="false"' + (o.numberedLines === false || o.numberedLines === 'false' ? ' selected' : '') + '>' + (t('tcLineNumberingDisable') || 'Plain Lines (No Numbers)') + '</option>' +
+                  '        </select>' +
+                  '      </div>' +
+                  '    </div>' +
+                  '    <div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap;">' +
+                  '      <button type="button" class="neo-btn sm" style="padding:2px 8px;font-size:0.75rem;" onclick="tcOpenExerciseStyleModal(\'' + ex.id + '\')" title="' + escapeAttr(t('tcLineNumberingFormatting') || 'Format line number digits, size, colour, distance to line, and intervals') + '">' +
+                  '        <img src="../assets/icons/layout.svg" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" alt="">' + (t('tcLineNumberingFormatting') || 'Number Formatting & Appearance…') +
+                  '      </button>' +
                   '    </div>' +
                   '  </div>';
               } else if (cKey === 'genreBadge') {
@@ -5301,6 +5666,69 @@
                   '          <option value="Dialogue / Script"' + (o.textGenre === 'Dialogue / Script' ? ' selected' : '') + '>Dialogue / Script</option>' +
                   '        </select>' +
                   '      </div>' +
+                  '    </div>' +
+                  '  </div>';
+              } else if (cKey === 'rubric') {
+                html += '  <div id="tcCompSubOpts_' + ex.id + '_rubric" class="tc-comp-subopts" style="display:' + (on ? 'block' : 'none') + ';">' +
+                  '    <div class="tc-subopts-title">' + (t('tcCompRubricCustomisation') || 'Evaluation Rubric Layout & Appearance') + '</div>' +
+                  '    <div class="tc-subopts-grid" style="margin-bottom:8px;">' +
+                  '      <div class="opt-field">' +
+                  '        <span class="opt-label">' + (t('tcRubricTitle') || 'Rubric Heading / Title') + '</span>' +
+                  '        <input type="text" class="opt-input" placeholder="' + escapeAttr((ex.title ? (ex.title + ' — Rubric') : 'Assessment Rubric')) + '" value="' + escapeAttr(o.rubricTitle || '') + '" onchange="tcUpdateRubricOption(\'' + ex.id + '\', \'rubricTitle\', this.value)">' +
+                  '      </div>' +
+                  '      <div class="opt-field">' +
+                  '        <span class="opt-label">' + (t('tcRubricDisplayMode') || 'Display Layout') + '</span>' +
+                  '        <select class="opt-select" onchange="tcUpdateRubricOption(\'' + ex.id + '\', \'rubricDisplayMode\', this.value)">' +
+                  '          <option value="matrix"' + ((o.rubricDisplayMode || 'matrix') === 'matrix' ? ' selected' : '') + '>' + (t('tcDisplayMatrix') || 'Full Rubric Matrix Grid') + '</option>' +
+                  '          <option value="table"' + (o.rubricDisplayMode === 'table' ? ' selected' : '') + '>' + (t('tcEvaluationRubricTable') || 'Summary Rubric Table') + '</option>' +
+                  '          <option value="compact"' + (o.rubricDisplayMode === 'compact' ? ' selected' : '') + '>' + (t('tcDisplayCompact') || 'Compact Summary') + '</option>' +
+                  '          <option value="badges"' + (o.rubricDisplayMode === 'badges' ? ' selected' : '') + '>' + (t('tcCriteriaBadges') || 'Criteria Badges') + '</option>' +
+                  '          <option value="list"' + (o.rubricDisplayMode === 'list' ? ' selected' : '') + '>' + (t('tcBulletedList') || 'Bullet List') + '</option>' +
+                  '        </select>' +
+                  '      </div>' +
+                  '    </div>' +
+                  '    <div class="tc-subopts-grid" style="margin-bottom:8px;">' +
+                  '      <div class="opt-field">' +
+                  '        <span class="opt-label">' + (t('tcRubricBg') || 'Container Background') + '</span>' +
+                  '        <select class="opt-select" onchange="tcUpdateRubricOption(\'' + ex.id + '\', \'rubricBg\', this.value)">' +
+                  '          <option value="default"' + ((o.rubricBg || 'default') === 'default' ? ' selected' : '') + '>' + (t('tcOptBgDefaultGreen') || 'Default (Soft Green Tint)') + '</option>' +
+                  '          <option value="white"' + (o.rubricBg === 'white' ? ' selected' : '') + '>' + (t('tcOptBgWhite') || 'Crisp White') + '</option>' +
+                  '          <option value="ivory"' + (o.rubricBg === 'ivory' ? ' selected' : '') + '>' + (t('tcOptBgIvory') || 'Ivory Cream') + '</option>' +
+                  '          <option value="amber"' + (o.rubricBg === 'amber' ? ' selected' : '') + '>' + (t('tcOptBgAmber') || 'Warm Amber') + '</option>' +
+                  '          <option value="light_gray"' + (o.rubricBg === 'light_gray' ? ' selected' : '') + '>' + (t('tcOptBgLightGray') || 'Subtle Gray') + '</option>' +
+                  '          <option value="none"' + (o.rubricBg === 'none' ? ' selected' : '') + '>' + (t('tcOptBgNone') || 'None (Transparent)') + '</option>' +
+                  '        </select>' +
+                  '      </div>' +
+                  '      <div class="opt-field">' +
+                  '        <span class="opt-label">' + (t('tcRubricPadding') || 'Container Padding') + '</span>' +
+                  '        <select class="opt-select" onchange="tcUpdateRubricOption(\'' + ex.id + '\', \'rubricPadding\', this.value)">' +
+                  '          <option value="compact"' + (o.rubricPadding === 'compact' ? ' selected' : '') + '>' + (t('tcOptPadCompact') || 'Compact (4px 8px)') + '</option>' +
+                  '          <option value="standard"' + ((o.rubricPadding || 'standard') === 'standard' ? ' selected' : '') + '>' + (t('tcOptPadStandard') || 'Standard (8px 14px)') + '</option>' +
+                  '          <option value="spacious"' + (o.rubricPadding === 'spacious' ? ' selected' : '') + '>' + (t('tcOptPadSpacious') || 'Spacious (14px 18px)') + '</option>' +
+                  '        </select>' +
+                  '      </div>' +
+                  '      <div class="opt-field">' +
+                  '        <span class="opt-label">' + (t('tcRubricBorder') || 'Container Border') + '</span>' +
+                  '        <select class="opt-select" onchange="tcUpdateRubricOption(\'' + ex.id + '\', \'rubricBorder\', this.value)">' +
+                  '          <option value="solid"' + ((o.rubricBorder || 'solid') === 'solid' ? ' selected' : '') + '>' + (t('tcOptBorderSolid') || 'Solid (2px Green / Charcoal)') + '</option>' +
+                  '          <option value="neobrutalist"' + (o.rubricBorder === 'neobrutalist' ? ' selected' : '') + '>' + (t('tcOptBorderNeobrutalist') || 'Neobrutalist (Thick + Shadow)') + '</option>' +
+                  '          <option value="double"' + (o.rubricBorder === 'double' ? ' selected' : '') + '>' + (t('tcOptBorderDouble') || 'Double Rule') + '</option>' +
+                  '          <option value="dashed"' + (o.rubricBorder === 'dashed' ? ' selected' : '') + '>' + (t('tcOptBorderDashed') || 'Dashed Border') + '</option>' +
+                  '          <option value="minimal"' + (o.rubricBorder === 'minimal' ? ' selected' : '') + '>' + (t('tcOptBorderMinimal') || 'Minimal (Top/Bottom only)') + '</option>' +
+                  '          <option value="none"' + (o.rubricBorder === 'none' ? ' selected' : '') + '>' + (t('tcOptBorderNone') || 'None (Borderless)') + '</option>' +
+                  '        </select>' +
+                  '      </div>' +
+                  '    </div>' +
+                  '    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:6px;">' +
+                  '      <label class="card-checkbox-label" style="font-size:0.78rem;">' +
+                  '        <input type="checkbox" ' + (o.showRubricDescriptions !== false ? 'checked' : '') + ' onchange="tcUpdateRubricOption(\'' + ex.id + '\', \'showRubricDescriptions\', this.checked)">' +
+                  '        <span>' + (t('tcIncludeDescriptions') || 'Include Performance Descriptors') + '</span>' +
+                  '      </label>' +
+                  '      <label class="card-checkbox-label" style="font-size:0.78rem;">' +
+                  '        <input type="checkbox" ' + (o.showRubric !== false ? 'checked' : '') + ' onchange="tcUpdateRubricOption(\'' + ex.id + '\', \'showRubric\', this.checked)">' +
+                  '        <span>' + (t('tcPrintRubricOnSheet') || 'Print Rubric on Exam Sheet') + '</span>' +
+                  '      </label>' +
+                  '      <button type="button" class="neo-btn sm" style="margin-left:auto;padding:2px 8px;font-size:0.75rem;background:#ecfdf5;color:#065f46;border-color:#059669;display:inline-flex;align-items:center;gap:4px;" onclick="tcOpenRubricLayoutModal(\'' + ex.id + '\')"><img src="../assets/icons/eye.svg" style="width:13px;height:13px;" alt="">' + escapeHtml(t('tcLivePreviewRubricModal') || 'Live Preview & Customizer Modal…') + '</button>' +
                   '    </div>' +
                   '  </div>';
               }
@@ -5363,12 +5791,21 @@
               '<input type="text" class="opt-input" value="' + escapeAttr(o.direction || 'English → French') + '" placeholder="e.g. English → French" onchange="tcUpdateExOption(\'' + ex.id + '\', \'direction\', this.value)">' +
               '</div>';
 
+            var curTrNumMode = (o.numberedLines !== undefined && o.numberedLines !== null) ? String(o.numberedLines) : 'inherit';
             html += '<div class="opt-field">' +
               '<span class="opt-label">Line Ruling Style</span>' +
               '<select class="opt-select" onchange="tcUpdateExOption(\'' + ex.id + '\', \'lineStyle\', this.value)">' +
               '<option value="lines"' + (o.lineStyle === 'lines' ? ' selected' : '') + '>Ruled Writing Lines</option>' +
               '<option value="dotted"' + (o.lineStyle === 'dotted' ? ' selected' : '') + '>Dotted Guide Lines</option>' +
               '<option value="box"' + (o.lineStyle === 'box' ? ' selected' : '') + '>Blank Bordered Box</option>' +
+              '</select></div>';
+
+            html += '<div class="opt-field">' +
+              '<span class="opt-label">' + escapeHtml(i18n.t('tcStyleNumberedLines') || 'Line Numbering') + '</span>' +
+              '<select class="opt-select" onchange="tcUpdateExOption(\'' + ex.id + '\', \'numberedLines\', this.value === \'inherit\' ? \'inherit\' : (this.value === \'true\'))">' +
+              '<option value="inherit"' + (curTrNumMode === 'inherit' ? ' selected' : '') + '>' + escapeHtml(i18n.t('tcLineNumberingInherit') || 'Inherit Test Global') + '</option>' +
+              '<option value="true"' + (curTrNumMode === 'true' ? ' selected' : '') + '>' + escapeHtml(i18n.t('tcLineNumberingEnable') || 'Numbered Lines Enabled') + '</option>' +
+              '<option value="false"' + (curTrNumMode === 'false' ? ' selected' : '') + '>' + escapeHtml(i18n.t('tcLineNumberingDisable') || 'Plain Lines (No Numbers)') + '</option>' +
               '</select></div>';
 
             html += '<div class="opt-field" style="justify-content:center;">' +
@@ -5398,6 +5835,15 @@
               '<span class="opt-label">Document / Figure Label</span>' +
               '<input type="text" class="opt-input" value="' + escapeAttr(o.figureLabel || 'Figure 1') + '" placeholder="e.g. Figure 1, Document A" onchange="tcUpdateExOption(\'' + ex.id + '\', \'figureLabel\', this.value)">' +
               '</div>';
+
+            var curPicNumMode = (o.numberedLines !== undefined && o.numberedLines !== null) ? String(o.numberedLines) : 'inherit';
+            html += '<div class="opt-field">' +
+              '<span class="opt-label">' + escapeHtml(i18n.t('tcStyleNumberedLines') || 'Line Numbering') + '</span>' +
+              '<select class="opt-select" onchange="tcUpdateExOption(\'' + ex.id + '\', \'numberedLines\', this.value === \'inherit\' ? \'inherit\' : (this.value === \'true\'))">' +
+              '<option value="inherit"' + (curPicNumMode === 'inherit' ? ' selected' : '') + '>' + escapeHtml(i18n.t('tcLineNumberingInherit') || 'Inherit Test Global') + '</option>' +
+              '<option value="true"' + (curPicNumMode === 'true' ? ' selected' : '') + '>' + escapeHtml(i18n.t('tcLineNumberingEnable') || 'Numbered Lines Enabled') + '</option>' +
+              '<option value="false"' + (curPicNumMode === 'false' ? ' selected' : '') + '>' + escapeHtml(i18n.t('tcLineNumberingDisable') || 'Plain Lines (No Numbers)') + '</option>' +
+              '</select></div>';
 
             html += '<div class="opt-field" style="grid-column: span 2;">' +
               '<span class="opt-label">Target Vocabulary Chips Pool</span>' +
@@ -5465,6 +5911,72 @@
             break;
         }
 
+        var hasAttachedRubrics = (Array.isArray(ex.criteria) && ex.criteria.length) || (Array.isArray(ex.markingRubric) && ex.markingRubric.length);
+        if (ex.type !== 'composition' && hasAttachedRubrics) {
+          html += '<div class="tc-subopts-panel" style="grid-column: 1 / -1; display:block; margin-top:8px;">' +
+            '<div class="tc-subopts-title">' + (t('tcCompRubricCustomisation') || 'Evaluation Rubric Layout & Appearance') + '</div>' +
+            '<div class="tc-subopts-grid" style="margin-bottom:8px;">' +
+            '  <div class="opt-field">' +
+            '    <span class="opt-label">' + (t('tcRubricTitle') || 'Rubric Heading / Title') + '</span>' +
+            '    <input type="text" class="opt-input" placeholder="' + escapeAttr((ex.title ? (ex.title + ' — Rubric') : 'Assessment Rubric')) + '" value="' + escapeAttr(o.rubricTitle || '') + '" onchange="tcUpdateRubricOption(\'' + ex.id + '\', \'rubricTitle\', this.value)">' +
+            '  </div>' +
+            '  <div class="opt-field">' +
+            '    <span class="opt-label">' + (t('tcRubricDisplayMode') || 'Display Layout') + '</span>' +
+            '    <select class="opt-select" onchange="tcUpdateRubricOption(\'' + ex.id + '\', \'rubricDisplayMode\', this.value)">' +
+            '      <option value="matrix"' + ((o.rubricDisplayMode || 'matrix') === 'matrix' ? ' selected' : '') + '>' + (t('tcDisplayMatrix') || 'Full Rubric Matrix Grid') + '</option>' +
+            '      <option value="table"' + (o.rubricDisplayMode === 'table' ? ' selected' : '') + '>' + (t('tcEvaluationRubricTable') || 'Summary Rubric Table') + '</option>' +
+            '      <option value="compact"' + (o.rubricDisplayMode === 'compact' ? ' selected' : '') + '>' + (t('tcDisplayCompact') || 'Compact Summary') + '</option>' +
+            '      <option value="badges"' + (o.rubricDisplayMode === 'badges' ? ' selected' : '') + '>' + (t('tcCriteriaBadges') || 'Criteria Badges') + '</option>' +
+            '      <option value="list"' + (o.rubricDisplayMode === 'list' ? ' selected' : '') + '>' + (t('tcBulletedList') || 'Bullet List') + '</option>' +
+            '    </select>' +
+            '  </div>' +
+            '</div>' +
+            '<div class="tc-subopts-grid" style="margin-bottom:8px;">' +
+            '  <div class="opt-field">' +
+            '    <span class="opt-label">' + (t('tcRubricBg') || 'Container Background') + '</span>' +
+            '    <select class="opt-select" onchange="tcUpdateRubricOption(\'' + ex.id + '\', \'rubricBg\', this.value)">' +
+            '      <option value="default"' + ((o.rubricBg || 'default') === 'default' ? ' selected' : '') + '>' + (t('tcOptBgDefaultGreen') || 'Default (Soft Green Tint)') + '</option>' +
+            '      <option value="white"' + (o.rubricBg === 'white' ? ' selected' : '') + '>' + (t('tcOptBgWhite') || 'Crisp White') + '</option>' +
+            '      <option value="ivory"' + (o.rubricBg === 'ivory' ? ' selected' : '') + '>' + (t('tcOptBgIvory') || 'Ivory Cream') + '</option>' +
+            '      <option value="amber"' + (o.rubricBg === 'amber' ? ' selected' : '') + '>' + (t('tcOptBgAmber') || 'Warm Amber') + '</option>' +
+            '      <option value="light_gray"' + (o.rubricBg === 'light_gray' ? ' selected' : '') + '>' + (t('tcOptBgLightGray') || 'Subtle Gray') + '</option>' +
+            '      <option value="none"' + (o.rubricBg === 'none' ? ' selected' : '') + '>' + (t('tcOptBgNone') || 'None (Transparent)') + '</option>' +
+            '    </select>' +
+            '  </div>' +
+            '  <div class="opt-field">' +
+            '    <span class="opt-label">' + (t('tcRubricPadding') || 'Container Padding') + '</span>' +
+            '    <select class="opt-select" onchange="tcUpdateRubricOption(\'' + ex.id + '\', \'rubricPadding\', this.value)">' +
+            '      <option value="compact"' + (o.rubricPadding === 'compact' ? ' selected' : '') + '>' + (t('tcOptPadCompact') || 'Compact (4px 8px)') + '</option>' +
+            '      <option value="standard"' + ((o.rubricPadding || 'standard') === 'standard' ? ' selected' : '') + '>' + (t('tcOptPadStandard') || 'Standard (8px 14px)') + '</option>' +
+            '      <option value="spacious"' + (o.rubricPadding === 'spacious' ? ' selected' : '') + '>' + (t('tcOptPadSpacious') || 'Spacious (14px 18px)') + '</option>' +
+            '    </select>' +
+            '  </div>' +
+            '  <div class="opt-field">' +
+            '    <span class="opt-label">' + (t('tcRubricBorder') || 'Container Border') + '</span>' +
+            '    <select class="opt-select" onchange="tcUpdateRubricOption(\'' + ex.id + '\', \'rubricBorder\', this.value)">' +
+            '      <option value="solid"' + ((o.rubricBorder || 'solid') === 'solid' ? ' selected' : '') + '>' + (t('tcOptBorderSolid') || 'Solid (2px Green / Charcoal)') + '</option>' +
+            '      <option value="neobrutalist"' + (o.rubricBorder === 'neobrutalist' ? ' selected' : '') + '>' + (t('tcOptBorderNeobrutalist') || 'Neobrutalist (Thick + Shadow)') + '</option>' +
+            '      <option value="double"' + (o.rubricBorder === 'double' ? ' selected' : '') + '>' + (t('tcOptBorderDouble') || 'Double Rule') + '</option>' +
+            '      <option value="dashed"' + (o.rubricBorder === 'dashed' ? ' selected' : '') + '>' + (t('tcOptBorderDashed') || 'Dashed Border') + '</option>' +
+            '      <option value="minimal"' + (o.rubricBorder === 'minimal' ? ' selected' : '') + '>' + (t('tcOptBorderMinimal') || 'Minimal (Top/Bottom only)') + '</option>' +
+            '      <option value="none"' + (o.rubricBorder === 'none' ? ' selected' : '') + '>' + (t('tcOptBorderNone') || 'None (Borderless)') + '</option>' +
+            '    </select>' +
+            '  </div>' +
+            '</div>' +
+            '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:6px;">' +
+            '  <label class="card-checkbox-label" style="font-size:0.78rem;">' +
+            '    <input type="checkbox" ' + (o.showRubricDescriptions !== false ? 'checked' : '') + ' onchange="tcUpdateRubricOption(\'' + ex.id + '\', \'showRubricDescriptions\', this.checked)">' +
+            '    <span>' + (t('tcIncludeDescriptions') || 'Include Performance Descriptors') + '</span>' +
+            '  </label>' +
+            '  <label class="card-checkbox-label" style="font-size:0.78rem;">' +
+            '    <input type="checkbox" ' + (o.showRubric !== false ? 'checked' : '') + ' onchange="tcUpdateRubricOption(\'' + ex.id + '\', \'showRubric\', this.checked)">' +
+            '    <span>' + (t('tcPrintRubricOnSheet') || 'Print Rubric on Exam Sheet') + '</span>' +
+            '  </label>' +
+            '  <button type="button" class="neo-btn sm" style="margin-left:auto;padding:2px 8px;font-size:0.75rem;background:#ecfdf5;color:#065f46;border-color:#059669;display:inline-flex;align-items:center;gap:4px;" onclick="tcOpenRubricLayoutModal(\'' + ex.id + '\')"><img src="../assets/icons/eye.svg" style="width:13px;height:13px;" alt="">' + escapeHtml(t('tcLivePreviewRubricModal') || 'Live Preview & Customizer Modal…') + '</button>' +
+            '</div>' +
+            '</div>';
+        }
+
         html += '</div>';
         return html;
       }
@@ -5502,7 +6014,14 @@
         if (!ex) return;
         var o = TestCreatorService.ensureExerciseOptions(ex);
         o[optKey] = value;
+        if (optKey === 'numberedLines') {
+          if (!ex.exportStyle) ex.exportStyle = {};
+          ex.exportStyle.numberedLines = (value === 'inherit' ? null : (value === true || value === 'true'));
+        }
         tcOnDirty();
+        if (typeof tcScheduleLivePreviewUpdate === 'function') {
+          tcScheduleLivePreviewUpdate();
+        }
         if (ex.autoSaveToDb) {
           TestCreatorService.saveExerciseToDatabase(ex, currentTest.subject);
         }
@@ -5514,6 +6033,10 @@
         if (!ex) return;
         var o = TestCreatorService.ensureExerciseOptions(ex);
         o[key] = value;
+        if (key === 'numberedLines') {
+          if (!ex.exportStyle) ex.exportStyle = {};
+          ex.exportStyle.numberedLines = (value === 'inherit' ? null : (value === true || value === 'true'));
+        }
         if (ex.content && Array.isArray(ex.content.items)) {
           ex.content.items.forEach(function (it) {
             it[key] = value;
@@ -5521,6 +6044,9 @@
         }
         renderExerciseCards();
         tcOnDirty();
+        if (typeof tcScheduleLivePreviewUpdate === 'function') {
+          tcScheduleLivePreviewUpdate();
+        }
         if (ex.autoSaveToDb) {
           TestCreatorService.saveExerciseToDatabase(ex, currentTest.subject);
         }
@@ -8565,9 +9091,9 @@
       window.tcOpenRubricMatrixModal = function (targetId) {
         if (!currentTest) return;
         var modal = document.getElementById('tcRubricMatrixModal');
-        var body = document.getElementById('tcRubricMatrixModalBody');
-        var titleEl = document.getElementById('tcRubricMatrixModalTitle');
-        var subEl = document.getElementById('tcRubricMatrixModalSub');
+        var body = document.getElementById('tcRubricModalBody') || document.getElementById('tcRubricMatrixModalBody');
+        var titleEl = document.getElementById('tcRubricModalTitleText') || document.getElementById('tcRubricMatrixModalTitle');
+        var subEl = document.getElementById('tcRubricMatrixModalSub') || document.getElementById('tcRubricModalItemCount');
         if (!modal || !body) return;
 
         var html = '';
@@ -8582,7 +9108,7 @@
               : (Array.isArray(targetEx.markingRubric) ? targetEx.markingRubric : []);
             modalTitle = (targetEx.title || i18n.t('tcExercise') || 'Exercise') + ' — ' + (i18n.t('tcRubricModalTitle') || 'Rubric Matrix');
             modalSub = (i18n.t('tcCriteriaBlockSingleEx') || 'Showing criteria attached to this exercise/block');
-            html = TestCreatorService.renderCriteriaHtml(crits, {
+            html = TestCreatorService.renderCriteriaHtml({ criteria: crits, exercises: [] }, {
               displayMode: 'matrix',
               showDescriptions: true,
               title: targetEx.title || 'Rubric Matrix',
@@ -8595,7 +9121,7 @@
             : ((Array.isArray(currentTest.linkedCriteria) && currentTest.linkedCriteria.length) ? currentTest.linkedCriteria : []);
           modalTitle = (currentTest.title || 'Exam') + ' — ' + (i18n.t('tcRubricModalTitle') || 'Assessment Criteria Rubric Matrix');
           modalSub = i18n.t('tcCriteriaBlockUnifiedSub') || 'Unified rubric matrix aggregated across all test exercises and criteria';
-          html = TestCreatorService.renderCriteriaHtml(allCrits, {
+          html = TestCreatorService.renderCriteriaHtml({ criteria: allCrits, exercises: currentTest.exercises || [] }, {
             displayMode: 'matrix',
             showDescriptions: true,
             title: i18n.t('tcCriteriaBlockTitle') || 'Assessment Criteria & Rubric Matrix',
@@ -8605,13 +9131,167 @@
 
         if (titleEl) titleEl.textContent = modalTitle;
         if (subEl) subEl.textContent = modalSub;
-        body.innerHTML = html;
+        body.innerHTML = html || '<div style="padding:24px;text-align:center;color:#64748b;font-style:italic;">No rubric criteria found to display</div>';
+        modal.classList.add('open');
         modal.style.display = 'flex';
       };
 
       window.tcCloseRubricMatrixModal = function () {
         var modal = document.getElementById('tcRubricMatrixModal');
-        if (modal) modal.style.display = 'none';
+        if (modal) {
+          modal.classList.remove('open');
+          modal.style.display = 'none';
+        }
+      };
+
+      // ── Rubric Layout & Appearance Modal & In-place Handlers ─────────────────
+      window._currentEditingRubricExId = null;
+
+      window.tcUpdateRubricOption = function (exId, key, value) {
+        var ex = (currentTest.exercises || []).find(function (e) { return e.id === exId; });
+        if (!ex) return;
+        var o = TestCreatorService.ensureExerciseOptions(ex);
+        o[key] = value;
+        tcOnDirty();
+        if (ex.autoSaveToDb) {
+          TestCreatorService.saveExerciseToDatabase(ex, currentTest.subject);
+        }
+        if (window._currentEditingRubricExId === exId && typeof tcRenderRubricLayoutPreview === 'function') {
+          tcRenderRubricLayoutPreview(ex);
+        }
+      };
+
+      window.tcOpenRubricLayoutModal = function (exId) {
+        if (!currentTest) return;
+        var ex = (currentTest.exercises || []).find(function (e) { return e.id === exId; });
+        if (!ex) return;
+        window._currentEditingRubricExId = exId;
+        var o = TestCreatorService.ensureExerciseOptions(ex);
+
+        var modal = document.getElementById('tcRubricLayoutModal');
+        if (!modal) return;
+
+        var subEl = document.getElementById('tcRubricLayoutModalSub');
+        if (subEl) {
+          subEl.textContent = (ex.title || i18n.t('tcExercise') || 'Exercise') + ' — ' + (i18n.t('tcRubricCustomiseDisplayHelp') || 'Customise the display of rubrics below the exercise');
+        }
+
+        var titleInp = document.getElementById('tcModalRubricTitle');
+        if (titleInp) titleInp.value = o.rubricTitle || '';
+
+        var modeSel = document.getElementById('tcModalRubricDisplayMode');
+        if (modeSel) modeSel.value = o.rubricDisplayMode || 'matrix';
+
+        var bgSel = document.getElementById('tcModalRubricBg');
+        if (bgSel) bgSel.value = o.rubricBg || 'default';
+
+        var padSel = document.getElementById('tcModalRubricPadding');
+        if (padSel) padSel.value = o.rubricPadding || 'standard';
+
+        var borderSel = document.getElementById('tcModalRubricBorder');
+        if (borderSel) borderSel.value = o.rubricBorder || 'solid';
+
+        var descChk = document.getElementById('tcModalRubricShowDesc');
+        if (descChk) descChk.checked = o.showRubricDescriptions !== false;
+
+        var printChk = document.getElementById('tcModalRubricShowRubric');
+        if (printChk) printChk.checked = o.showRubric !== false;
+
+        tcRenderRubricLayoutPreview(ex);
+        modal.classList.add('open');
+        modal.style.display = 'flex';
+      };
+
+      window.tcCloseRubricLayoutModal = function () {
+        var modal = document.getElementById('tcRubricLayoutModal');
+        if (modal) {
+          modal.classList.remove('open');
+          modal.style.display = 'none';
+        }
+        window._currentEditingRubricExId = null;
+      };
+
+      window.tcUpdateModalRubricOption = function (key, value) {
+        if (!window._currentEditingRubricExId) return;
+        var ex = (currentTest.exercises || []).find(function (e) { return e.id === window._currentEditingRubricExId; });
+        if (!ex) return;
+        var o = TestCreatorService.ensureExerciseOptions(ex);
+        o[key] = value;
+        tcOnDirty();
+        if (ex.autoSaveToDb) {
+          TestCreatorService.saveExerciseToDatabase(ex, currentTest.subject);
+        }
+        tcRenderRubricLayoutPreview(ex);
+      };
+
+      window.tcRenderRubricLayoutPreview = function (ex) {
+        var previewBox = document.getElementById('tcRubricLayoutPreviewBox');
+        if (!previewBox || !ex) return;
+        var o = TestCreatorService.ensureExerciseOptions(ex);
+        var rawCrits = (Array.isArray(ex.criteria) && ex.criteria.length)
+          ? ex.criteria
+          : ((Array.isArray(ex.markingRubric) && ex.markingRubric.length) ? ex.markingRubric : []);
+
+        if (rawCrits.length === 0) {
+          rawCrits = [
+            {
+              id: 'preview_crit_1',
+              title: 'Structure & Cohesion',
+              maxPoints: 4,
+              grades: [4, 3, 2, 1],
+              comments: {
+                '4': 'Clear structure with well-linked paragraphs and varied connectors.',
+                '3': 'Logical flow with minor cohesion gaps.',
+                '2': 'Basic sequencing; repetitive connectors.',
+                '1': 'Disjointed or unstructured ideas.'
+              }
+            },
+            {
+              id: 'preview_crit_2',
+              title: 'Vocabulary & Grammar',
+              maxPoints: 4,
+              grades: [4, 3, 2, 1],
+              comments: {
+                '4': 'Precise vocabulary and complex accurate grammatical structures.',
+                '3': 'Adequate range of vocabulary with occasional minor inaccuracies.',
+                '2': 'Limited vocabulary range; several noticeable grammatical errors.',
+                '1': 'Pervasive grammatical errors obstructing meaning.'
+              }
+            }
+          ];
+        }
+
+        var html = TestCreatorService.renderCriteriaHtml({ criteria: rawCrits, exercises: [] }, {
+          title: o.rubricTitle || (ex.title ? (ex.title + ' — Rubric') : (i18n.t('tcCompRubric') || 'Assessment Rubric')),
+          displayMode: o.rubricDisplayMode || 'matrix',
+          showDescriptions: o.showRubricDescriptions !== false,
+          background: o.rubricBg || 'default',
+          padding: o.rubricPadding || 'standard',
+          border: o.rubricBorder || 'solid',
+          includeExerciseCriteria: false
+        });
+
+        previewBox.innerHTML = html || '<div style="color:#64748b;font-style:italic;">No rubric criteria to preview</div>';
+      };
+
+      window.tcResetRubricLayoutOptions = function () {
+        if (!window._currentEditingRubricExId) return;
+        var ex = (currentTest.exercises || []).find(function (e) { return e.id === window._currentEditingRubricExId; });
+        if (!ex) return;
+        var o = TestCreatorService.ensureExerciseOptions(ex);
+        o.rubricDisplayMode = 'matrix';
+        o.rubricBg = 'default';
+        o.rubricPadding = 'standard';
+        o.rubricBorder = 'solid';
+        o.showRubricDescriptions = true;
+        o.showRubric = true;
+        o.rubricTitle = '';
+
+        tcOpenRubricLayoutModal(ex.id);
+        tcOnDirty();
+        if (window.showToast) {
+          showToast(i18n.t('tcRubricResetToast') || 'Rubric layout reset to defaults');
+        }
       };
 
       function updateCompetenceTargetDropdown() {
@@ -10020,6 +10700,52 @@
         tcSetMarginPreset(val);
       };
 
+      window.tcRenderSampleLinesHtml = function (cfg) {
+        var format = cfg.format || 'decimal';
+        var size = cfg.size || '8pt';
+        var color = cfg.color || '#64748b';
+        var distance = cfg.distance || '8px';
+        var weight = cfg.weight || '700';
+        var italic = !!cfg.italic;
+        var interval = Number(cfg.interval) || 1;
+        var startAt = Number(cfg.startAt) || 1;
+
+        var html = [];
+        for (var i = 0; i < 3; i++) {
+          var num = startAt + i;
+          var isVis = (interval <= 1) || (num % interval === 0);
+          var numTxt = isVis ? (window.TestCreatorService ? TestCreatorService.formatLineNumber(num, format) : String(num)) : '';
+          html.push('<div class="line-num-preview-row" style="gap:' + distance + ';">' +
+            '<span class="line-num-preview-indicator" style="font-size:' + size + ';color:' + color + ';font-weight:' + weight + ';font-style:' + (italic ? 'italic' : 'normal') + ';min-width:22px;text-align:right;' + (isVis ? '' : 'visibility:hidden;') + '">' + (numTxt || '&nbsp;') + '</span>' +
+            '<div class="line-num-preview-stroke"></div>' +
+            '</div>');
+        }
+        return html.join('');
+      };
+
+      window.tcUpdateGlobalLineSamplePreview = function () {
+        var box = document.getElementById('globalLineSamplePreview');
+        if (!box) return;
+        var cfg = {
+          format: document.getElementById('globalStyleNumFormat') ? document.getElementById('globalStyleNumFormat').value : 'decimal',
+          size: document.getElementById('globalStyleNumSize') ? document.getElementById('globalStyleNumSize').value : '8pt',
+          color: document.getElementById('globalStyleNumColor') ? document.getElementById('globalStyleNumColor').value : '#64748b',
+          distance: document.getElementById('globalStyleNumDistance') ? document.getElementById('globalStyleNumDistance').value : '8px',
+          weight: (document.getElementById('globalStyleNumBold') && document.getElementById('globalStyleNumBold').checked) ? '700' : '400',
+          italic: document.getElementById('globalStyleNumItalic') ? document.getElementById('globalStyleNumItalic').checked : false,
+          interval: document.getElementById('globalStyleNumInterval') ? Number(document.getElementById('globalStyleNumInterval').value) : 1,
+          startAt: 1
+        };
+        box.innerHTML = tcRenderSampleLinesHtml(cfg);
+      };
+
+      window.tcToggleGlobalLineNumberingFields = function () {
+        var chk = document.getElementById('globalStyleNumberedLines');
+        var f = document.getElementById('globalLineNumberingOptions');
+        if (f) f.style.display = (chk && chk.checked) ? 'flex' : 'none';
+        if (chk && chk.checked) tcUpdateGlobalLineSamplePreview();
+      };
+
       window.tcOpenGlobalStyleModal = function () {
         currentTest.exportStyle = TestCreatorService.ensureExportStyle(currentTest);
         var st = currentTest.exportStyle;
@@ -10034,6 +10760,18 @@
         if (lSel) lSel.value = String(st.lineHeight || 1.5);
         if (pSel) pSel.value = st.padding || '14px';
         if (nChk) nChk.checked = !!st.numberedLines;
+
+        var gNum = st.lineNumbering || {};
+        if (document.getElementById('globalStyleNumFormat')) document.getElementById('globalStyleNumFormat').value = gNum.format || 'decimal';
+        if (document.getElementById('globalStyleNumSize')) document.getElementById('globalStyleNumSize').value = gNum.size || '8pt';
+        if (document.getElementById('globalStyleNumDistance')) document.getElementById('globalStyleNumDistance').value = gNum.distance || '8px';
+        if (document.getElementById('globalStyleNumInterval')) document.getElementById('globalStyleNumInterval').value = String(gNum.interval || 1);
+        if (document.getElementById('globalStyleNumColor')) document.getElementById('globalStyleNumColor').value = gNum.color || '#64748b';
+        if (document.getElementById('globalStyleNumColorPicker')) document.getElementById('globalStyleNumColorPicker').value = (gNum.color && gNum.color.startsWith('#') && gNum.color.length === 7) ? gNum.color : '#64748b';
+        if (document.getElementById('globalStyleNumBold')) document.getElementById('globalStyleNumBold').checked = gNum.weight !== '400';
+        if (document.getElementById('globalStyleNumItalic')) document.getElementById('globalStyleNumItalic').checked = !!gNum.italic;
+        tcToggleGlobalLineNumberingFields();
+        tcUpdateGlobalLineSamplePreview();
 
         var mg = st.margins || { preset: 'normal', top: 15, right: 15, bottom: 15, left: 15, unit: 'mm' };
         var tIn = document.getElementById('globalMarginTop');
@@ -10076,6 +10814,17 @@
         currentTest.exportStyle.lineHeight = Number(document.getElementById('globalStyleLineHeight').value);
         currentTest.exportStyle.padding = document.getElementById('globalStylePadding').value;
         currentTest.exportStyle.numberedLines = document.getElementById('globalStyleNumberedLines').checked;
+        currentTest.exportStyle.lineNumbering = {
+          format: (document.getElementById('globalStyleNumFormat') && document.getElementById('globalStyleNumFormat').value) || 'decimal',
+          size: (document.getElementById('globalStyleNumSize') && document.getElementById('globalStyleNumSize').value) || '8pt',
+          color: (document.getElementById('globalStyleNumColor') && document.getElementById('globalStyleNumColor').value) || '#64748b',
+          distance: (document.getElementById('globalStyleNumDistance') && document.getElementById('globalStyleNumDistance').value) || '8px',
+          weight: (document.getElementById('globalStyleNumBold') && document.getElementById('globalStyleNumBold').checked) ? '700' : '400',
+          italic: (document.getElementById('globalStyleNumItalic') && document.getElementById('globalStyleNumItalic').checked) || false,
+          interval: Number(document.getElementById('globalStyleNumInterval') ? document.getElementById('globalStyleNumInterval').value : 1) || 1,
+          startAt: 1
+        };
+        tcUpdateGlobalLineSamplePreview();
         tcSaveCurrentTest(false);
       };
 
@@ -10188,6 +10937,29 @@
       };
 
       // ── Individual Exercise Style Modal ────────────────────────────────────
+      window.tcOnExStyleCustomNumToggle = function () {
+        var chk = document.getElementById('exStyleCustomNumToggle');
+        var f = document.getElementById('exStyleCustomNumFields');
+        if (f) f.style.display = (chk && chk.checked) ? 'flex' : 'none';
+        if (chk && chk.checked) tcUpdateExStyleLinePreview();
+      };
+
+      window.tcUpdateExStyleLinePreview = function () {
+        var box = document.getElementById('exStyleLineSamplePreview');
+        if (!box) return;
+        var cfg = {
+          format: document.getElementById('exStyleNumFormat') ? document.getElementById('exStyleNumFormat').value : 'decimal',
+          size: document.getElementById('exStyleNumSize') ? document.getElementById('exStyleNumSize').value : '8pt',
+          color: document.getElementById('exStyleNumColor') ? document.getElementById('exStyleNumColor').value : '#64748b',
+          distance: document.getElementById('exStyleNumDistance') ? document.getElementById('exStyleNumDistance').value : '8px',
+          weight: (document.getElementById('exStyleNumBold') && document.getElementById('exStyleNumBold').checked) ? '700' : '400',
+          italic: document.getElementById('exStyleNumItalic') ? document.getElementById('exStyleNumItalic').checked : false,
+          interval: document.getElementById('exStyleNumInterval') ? Number(document.getElementById('exStyleNumInterval').value) : 1,
+          startAt: document.getElementById('exStyleNumStartAt') ? Number(document.getElementById('exStyleNumStartAt').value) : 1
+        };
+        box.innerHTML = tcRenderSampleLinesHtml(cfg);
+      };
+
       window.tcOpenExerciseStyleModal = function (exId) {
         var ex = (currentTest.exercises || []).find(function (e) { return e.id === exId; });
         if (!ex) return;
@@ -10203,6 +10975,28 @@
         document.getElementById('exStyleLineHeight').value = st.lineHeight !== undefined && st.lineHeight !== null ? String(st.lineHeight) : '';
         document.getElementById('exStylePadding').value = st.padding || '';
         document.getElementById('exStyleNumberedLines').value = st.numberedLines !== undefined && st.numberedLines !== null ? String(st.numberedLines) : 'inherit';
+
+        // Line Numbering Formatting
+        var nlCfg = st.lineNumbering || {};
+        var hasCustomNum = !!(st.lineNumbering && Object.keys(st.lineNumbering).length > 0);
+        var customNumToggle = document.getElementById('exStyleCustomNumToggle');
+        if (customNumToggle) customNumToggle.checked = hasCustomNum;
+
+        var gCfg = (currentTest.exportStyle && currentTest.exportStyle.lineNumbering) || {};
+        var defCfg = Object.assign({}, gCfg, nlCfg);
+
+        if (document.getElementById('exStyleNumFormat')) document.getElementById('exStyleNumFormat').value = defCfg.format || 'decimal';
+        if (document.getElementById('exStyleNumSize')) document.getElementById('exStyleNumSize').value = defCfg.size || '8pt';
+        if (document.getElementById('exStyleNumDistance')) document.getElementById('exStyleNumDistance').value = defCfg.distance || '8px';
+        if (document.getElementById('exStyleNumInterval')) document.getElementById('exStyleNumInterval').value = String(defCfg.interval || 1);
+        if (document.getElementById('exStyleNumStartAt')) document.getElementById('exStyleNumStartAt').value = defCfg.startAt || 1;
+        if (document.getElementById('exStyleNumColor')) document.getElementById('exStyleNumColor').value = defCfg.color || '#64748b';
+        if (document.getElementById('exStyleNumColorPicker')) document.getElementById('exStyleNumColorPicker').value = (defCfg.color && defCfg.color.startsWith('#') && defCfg.color.length === 7) ? defCfg.color : '#64748b';
+        if (document.getElementById('exStyleNumBold')) document.getElementById('exStyleNumBold').checked = defCfg.weight !== '400';
+        if (document.getElementById('exStyleNumItalic')) document.getElementById('exStyleNumItalic').checked = !!defCfg.italic;
+
+        tcOnExStyleCustomNumToggle();
+        tcUpdateExStyleLinePreview();
 
         // Title Typography
         var ts = st.titleStyle || {};
@@ -10258,6 +11052,20 @@
           if (lh) st.lineHeight = Number(lh);
           if (pad) st.padding = pad;
           if (nl !== 'inherit') st.numberedLines = (nl === 'true');
+
+          var isCustomNum = document.getElementById('exStyleCustomNumToggle') && document.getElementById('exStyleCustomNumToggle').checked;
+          if (isCustomNum) {
+            st.lineNumbering = {
+              format: (document.getElementById('exStyleNumFormat') && document.getElementById('exStyleNumFormat').value) || 'decimal',
+              size: (document.getElementById('exStyleNumSize') && document.getElementById('exStyleNumSize').value) || '8pt',
+              color: (document.getElementById('exStyleNumColor') && document.getElementById('exStyleNumColor').value) || '#64748b',
+              distance: (document.getElementById('exStyleNumDistance') && document.getElementById('exStyleNumDistance').value) || '8px',
+              weight: (document.getElementById('exStyleNumBold') && document.getElementById('exStyleNumBold').checked) ? '700' : '400',
+              italic: (document.getElementById('exStyleNumItalic') && document.getElementById('exStyleNumItalic').checked) || false,
+              interval: Number(document.getElementById('exStyleNumInterval') ? document.getElementById('exStyleNumInterval').value : 1) || 1,
+              startAt: Number(document.getElementById('exStyleNumStartAt') ? document.getElementById('exStyleNumStartAt').value : 1) || 1
+            };
+          }
 
           // Title Typography
           var tSize = document.getElementById('exStyleTitleSize') ? document.getElementById('exStyleTitleSize').value : '';
@@ -10582,6 +11390,15 @@
         }
         if (document.getElementById('hdrSelect_criteriaDisplayMode')) {
           document.getElementById('hdrSelect_criteriaDisplayMode').value = (hc.criteriaStyle && hc.criteriaStyle.displayMode) || 'table';
+        }
+        if (document.getElementById('hdrSelect_criteriaBg')) {
+          document.getElementById('hdrSelect_criteriaBg').value = (hc.criteriaStyle && hc.criteriaStyle.background) || 'default';
+        }
+        if (document.getElementById('hdrSelect_criteriaPadding')) {
+          document.getElementById('hdrSelect_criteriaPadding').value = (hc.criteriaStyle && hc.criteriaStyle.padding) || 'standard';
+        }
+        if (document.getElementById('hdrSelect_criteriaBorder')) {
+          document.getElementById('hdrSelect_criteriaBorder').value = (hc.criteriaStyle && hc.criteriaStyle.border) || 'solid';
         }
         if (document.getElementById('hdrSelect_scaleBg')) {
           document.getElementById('hdrSelect_scaleBg').value = (hc.gradingScaleStyle && hc.gradingScaleStyle.background) || 'default';

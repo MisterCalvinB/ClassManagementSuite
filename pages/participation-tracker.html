@@ -997,6 +997,14 @@
                             </div>
                         </label>
                         <label class="pt-format-tile">
+                            <input type="radio" name="ptExportFormat" value="ods">
+                            <div class="pt-format-box">
+                                <span class="pt-format-icon"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /></span>
+                                <span class="pt-format-name">ODS</span>
+                                <span class="pt-format-tag">Calc</span>
+                            </div>
+                        </label>
+                        <label class="pt-format-tile">
                             <input type="radio" name="ptExportFormat" value="csv">
                             <div class="pt-format-box">
                                 <span class="pt-format-icon"><img src="../assets/icons/download.svg" class="btn-icon" alt="" /></span>
@@ -7334,6 +7342,7 @@
             else if (ext === 'md') filterName = 'Markdown Document';
             else if (ext === 'csv') filterName = 'CSV Spreadsheet';
             else if (ext === 'xlsx') filterName = 'Excel Spreadsheet';
+            else if (ext === 'ods') filterName = 'LibreOffice Calc Spreadsheet';
             else if (ext === 'docx' || ext === 'doc') filterName = 'Word Document';
             else if (ext === 'json') filterName = 'JSON Document';
 
@@ -7427,6 +7436,7 @@
                 pdf: '<img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> <strong>PDF:</strong> Generates clean print-ready layout formatted for desktop printing or PDF export via Electron / system dialog.',
                 docx: '<img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" /> <strong>DOCX:</strong> Editable Word document report compatible with Microsoft Word and desktop editors.',
                 xlsx: '<img src="../assets/icons/table.svg" class="btn-icon" alt="" /> <strong>XLSX:</strong> Native Excel workbook spreadsheet file containing structured columns and headers.',
+                ods: '<img src="../assets/icons/table.svg" class="btn-icon" alt="" /> <strong>ODS:</strong> Standard LibreOffice Calc spreadsheet file containing structured columns and headers.',
                 csv: '<img src="../assets/icons/download.svg" class="btn-icon" alt="" /> <strong>CSV:</strong> Standard comma-separated values spreadsheet file for raw data analysis.'
             };
             hintEl.innerHTML = hints[selectedFormat] || hints.html;
@@ -8563,8 +8573,8 @@
                 await exportCategoryAsPdf(category, data);
             } else if (format === 'docx') {
                 await exportCategoryAsDocx(category, data);
-            } else if (format === 'xlsx') {
-                exportCategoryAsXlsx(category, data);
+            } else if (format === 'xlsx' || format === 'ods') {
+                exportCategoryAsXlsx(category, data, format);
             } else if (format === 'csv') {
                 exportCategoryAsCsv(category, data);
             }
@@ -8991,7 +9001,7 @@
             }
         }
 
-        async function exportCategoryAsXlsx(category, data) {
+        async function exportCategoryAsXlsx(category, data, format = 'xlsx') {
             if (typeof XLSX === 'undefined') {
                 showMessage('XLSX library not loaded. Exporting as CSV instead.', 'error');
                 exportCategoryAsCsv(category, data);
@@ -9010,9 +9020,11 @@
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, (data.groupName || 'Stats').slice(0, 31));
 
-            const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-            await downloadFile(`${data.filenameBase}.xlsx`, wbout, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-            showMessage('XLSX spreadsheet exported successfully!', 'success');
+            const isOds = format === 'ods';
+            const wbout = XLSX.write(wb, { bookType: isOds ? 'ods' : 'xlsx', type: 'array' });
+            const mime = isOds ? 'application/vnd.oasis.opendocument.spreadsheet' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+            await downloadFile(`${data.filenameBase}.${isOds ? 'ods' : 'xlsx'}`, wbout, mime);
+            showMessage(isOds ? 'LibreOffice Calc (.ods) spreadsheet exported successfully!' : 'XLSX spreadsheet exported successfully!', 'success');
         }
 
         function exportCategoryAsCsv(category, data) {

@@ -2705,6 +2705,7 @@
     { id: 'md', label: 'Markdown (.MD)', icon: 'document-editor.svg' },
     { id: 'csv', label: 'CSV File', icon: 'download.svg' },
     { id: 'xlsx', label: 'Excel (.XLSX)', icon: 'table.svg' },
+    { id: 'ods', label: 'LibreOffice Calc (.ODS)', icon: 'table.svg' },
     { id: 'docx', label: 'Word (.DOCX)', icon: 'document-editor.svg' }
   ];
 
@@ -2966,7 +2967,10 @@
           window.showExportSuccessPopup(savedPath, fileName);
         }
       }
-    } else if (format === 'xlsx') {
+    } else if (format === 'xlsx' || format === 'ods') {
+      const isOds = format === 'ods';
+      const ext = isOds ? 'ods' : 'xlsx';
+      const mime = isOds ? 'application/vnd.oasis.opendocument.spreadsheet' : 'application/octet-stream';
       if (typeof window !== 'undefined' && window.XLSX) {
         const headers = ['#', 'ID', 'Title', 'Subtitle', 'Theme', 'Level', 'Badge'];
         const data = [headers];
@@ -2985,13 +2989,13 @@
         const ws = window.XLSX.utils.aoa_to_sheet(data);
         const wb = window.XLSX.utils.book_new();
         window.XLSX.utils.book_append_sheet(wb, ws, 'Export');
-        const wbout = window.XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-        const blob = new Blob([wbout], { type: 'application/octet-stream' });
+        const wbout = window.XLSX.write(wb, { bookType: isOds ? 'ods' : 'xlsx', type: 'array' });
+        const blob = new Blob([wbout], { type: mime });
         if (window.Desktop && typeof window.Desktop.saveBlob === 'function') {
-          const res = await window.Desktop.saveBlob('user', `${baseName}.xlsx`, blob).catch(() => null);
-          const savedPath = res?.path || `${baseName}.xlsx`;
+          const res = await window.Desktop.saveBlob('user', `${baseName}.${ext}`, blob).catch(() => null);
+          const savedPath = res?.path || `${baseName}.${ext}`;
           if (typeof window.showExportSuccessPopup === 'function') {
-            window.showExportSuccessPopup(savedPath, `${baseName}.xlsx`);
+            window.showExportSuccessPopup(savedPath, `${baseName}.${ext}`);
           }
         }
       } else {

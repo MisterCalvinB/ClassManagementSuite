@@ -2141,6 +2141,7 @@
             noteIds: Array.isArray(g.noteIds) ? g.noteIds.filter(nid => selectedNoteIdSet.has(nid)) : [],
             drawingIds: Array.isArray(g.drawingIds) ? g.drawingIds.filter(did => selectedDrawingIdSet.has(did)) : [],
             shapeIds: Array.isArray(g.shapeIds) ? g.shapeIds.filter(sid => selectedShapeIdSet.has(sid)) : [],
+            mediaIds: Array.isArray(g.mediaIds) ? [...g.mediaIds] : [],
             x: g.x || 0,
             y: g.y || 0,
             paletteIdx: g.paletteIdx || 0,
@@ -2890,18 +2891,25 @@
       window.conRenderPageThumbnail = conRenderPageThumbnail;
 
       // Expose internals needed by the import function
-      window.conGetNextId = function () { return (typeof conNextId !== 'undefined') ? conNextId++ : 0; };
-      window.conGetNodes = function () { return global.conNodes || []; };
+      window.conGetNextId = window.conGetNextId || function () {
+        if (typeof window.conNextId === 'number') return window.conNextId++;
+        if (typeof conNextId !== 'undefined') return conNextId++;
+        return 0;
+      };
+      window.conGetNodes = function () { return (typeof window !== 'undefined' && window.conNodes) || (typeof global !== 'undefined' && global.conNodes) || []; };
       window.conGetBoard = function () { return document.getElementById('constellation-board'); };
       window.conAttachNode = window.conAttachNode || function (id, el) { if (typeof window.conAttachNodeEvents === 'function') return window.conAttachNodeEvents(id, el); };
       window.conGroupAttach = window.conGroupAttach || function (group) { if (typeof window.conGroupAttachEvents === 'function') return window.conGroupAttachEvents(group); };
       window.conGetCtxNodeId = window.conGetCtxNodeId || function () { return (typeof conCtxNodeId !== 'undefined' ? conCtxNodeId : (window.conCtxNodeId || null)); };
-      window.conSetNextId = window.conSetNextId || function (n) { if (typeof conNextId !== 'undefined' && n > conNextId) conNextId = n; else if (typeof window.conNextId === 'number' && n > window.conNextId) window.conNextId = n; };
+      window.conSetNextId = window.conSetNextId || function (n) {
+        if (typeof window.conNextId === 'number' && n > window.conNextId) window.conNextId = n;
+        else if (typeof conNextId !== 'undefined' && n > conNextId) conNextId = n;
+      };
       window.conGroups = global.conGroups;
-      window.conEdges = global.conEdges;
+      window.conEdges = (typeof global !== 'undefined' && global.conEdges) || (typeof window !== 'undefined' && window.conEdges);
       window.CON_PALETTES = global.CON_PALETTES;
-      window.conGetEdges = function () { return global.conEdges || []; };
-      window.conGetGroups = function () { return global.conGroups || []; };
+      window.conGetEdges = function () { return (typeof window !== 'undefined' && window.conEdges) || (typeof global !== 'undefined' && global.conEdges) || []; };
+      window.conGetGroups = function () { return (typeof window !== 'undefined' && window.conGroups) || (typeof global !== 'undefined' && global.conGroups) || []; };
       window.conGetSelected = function () {
         if (typeof window.conSelected !== 'undefined' && window.conSelected) return window.conSelected;
         if (typeof conSelected !== 'undefined' && conSelected) return conSelected;
@@ -2913,13 +2921,14 @@
         return global.conMultiSelected || new Set();
       };
       window.conGetSelectedNodes = function () {
-        const multi = global.conMultiSelected;
-        if (multi && multi.size > 0 && Array.isArray(global.conNodes)) {
-          return global.conNodes.filter(n => multi.has(n.id));
+        const multi = (typeof window.conGetMultiSelected === 'function') ? window.conGetMultiSelected() : (window.conMultiSelected || global.conMultiSelected || conMultiSelected);
+        const liveNodes = (typeof window.conGetNodes === 'function') ? window.conGetNodes() : (global.conNodes || []);
+        if (multi && multi.size > 0 && Array.isArray(liveNodes)) {
+          return liveNodes.filter(n => multi.has(n.id) || multi.has(String(n.id)));
         }
-        const selId = global.conSelected || (typeof conCtxNodeId !== 'undefined' ? conCtxNodeId : null);
-        if (selId && Array.isArray(global.conNodes)) {
-          const node = global.conNodes.find(n => n.id === selId);
+        const selId = (typeof window.conGetSelected === 'function' ? window.conGetSelected() : null) || global.conSelected || (typeof conCtxNodeId !== 'undefined' ? conCtxNodeId : null);
+        if (selId && Array.isArray(liveNodes)) {
+          const node = liveNodes.find(n => n.id === selId || String(n.id) === String(selId));
           return node ? [node] : [];
         }
         return [];
@@ -2931,6 +2940,8 @@
         if (typeof window.conTableClearSelection === 'function') window.conTableClearSelection();
         if (typeof window.conDrawingClearSelection === 'function') window.conDrawingClearSelection();
         if (typeof window.conShapeClearSelection === 'function') window.conShapeClearSelection();
+        if (typeof window.conMediaClearSelection === 'function') window.conMediaClearSelection();
+        if (typeof conMediaSelected !== 'undefined') conMediaSelected.clear();
         window._conActiveMediaItem = null;
         document.querySelectorAll('.con-media-item.con-media-selected').forEach(el => el.classList.remove('con-media-selected'));
         if (window._conSelectedEdgeId) {
@@ -3118,6 +3129,24 @@
             }
           });
           conTableSelected.clear();
+        }
+        const mediaSel = (typeof window.conGetMediaSelected === 'function') ? window.conGetMediaSelected() : (typeof conMediaSelected !== 'undefined' ? conMediaSelected : new Set());
+        const selMediaIds = new Set(mediaSel ? [...mediaSel] : []);
+        document.querySelectorAll('#constellation-board .con-media-item.con-media-selected').forEach(el => {
+          if (el.dataset && el.dataset.id) selMediaIds.add(el.dataset.id);
+        });
+        if (selMediaIds.size > 0) {
+          selMediaIds.forEach(mid => {
+            const mEl = document.querySelector(`.con-media-item[data-id="${mid}"]`);
+            if (mEl) mEl.remove();
+            if (typeof conMediaItems !== 'undefined') {
+              conMediaItems = conMediaItems.filter(m => String(m.id) !== String(mid));
+            }
+            if (typeof conGroups !== 'undefined') {
+              conGroups.forEach(g => { if (g.mediaIds) g.mediaIds = g.mediaIds.filter(id => String(id) !== String(mid)); });
+            }
+          });
+          if (window.conMediaClearSelection) window.conMediaClearSelection();
         }
         if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
         if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
@@ -3835,6 +3864,7 @@
           noteIds: [...(g.noteIds || [])],
           drawingIds: [...(g.drawingIds || [])],
           shapeIds: [...(g.shapeIds || [])],
+          mediaIds: [...(g.mediaIds || [])],
           title: g.title || '',
           blink: !!g.blink,
           paletteIdx: g.paletteIdx || 0,
@@ -9595,21 +9625,49 @@
             }
           }
 
-          // Advance numeric IDs past snapshot so subsequent additions don't collide
-          const savedMasksData = Array.isArray(data.masks) ? data.masks : (Array.isArray(data.conMasks) ? data.conMasks : []);
-          const allNumericIds = []
-            .concat((data.nodes || []).map(n => n.id))
-            .concat((data.edges || []).map(e => [e.a, e.b]).flat())
-            .concat((data.groups || []).map(g => g.id))
-            .concat(savedMasksData.map(m => m.id))
-            .concat((data.drawings || []).map(d => d.id));
+          // Advance numeric IDs past snapshot and all pages so subsequent additions don't collide
+          const pagesToScan = [data];
+          if (Array.isArray(data.pages)) pagesToScan.push(...data.pages);
+          if (typeof conPageSnapshots !== 'undefined' && Array.isArray(conPageSnapshots)) pagesToScan.push(...conPageSnapshots);
+          let allNumericIds = [];
+          pagesToScan.forEach(p => {
+            if (!p) return;
+            const masks = Array.isArray(p.masks) ? p.masks : (Array.isArray(p.conMasks) ? p.conMasks : []);
+            allNumericIds = allNumericIds
+              .concat((p.nodes || []).map(n => n && n.id))
+              .concat((p.edges || []).map(e => e && [e.id, e.a, e.b]).flat())
+              .concat((p.groups || []).map(g => g && g.id))
+              .concat(masks.map(m => m && m.id))
+              .concat((p.drawings || []).map(d => d && d.id))
+              .concat((p.shapes || []).map(s => s && s.id))
+              .concat((p.tables || []).map(t => t && t.id));
+          });
           let maxNum = 0;
           allNumericIds.forEach(id => {
+            if (!id) return;
             const m = String(id).match(/\d+$/);
-            if (m) maxNum = Math.max(maxNum, parseInt(m[0]));
+            if (m) maxNum = Math.max(maxNum, parseInt(m[0], 10));
           });
           if (window.conSetNextId) window.conSetNextId(maxNum + 2);
           if (typeof window.conSyncGroupNextId === 'function') window.conSyncGroupNextId(maxNum + 2);
+
+          let maxNoteNum = -1;
+          pagesToScan.forEach(p => {
+            if (!p) return;
+            (p.notes || []).forEach(n => {
+              if (n && n.id) {
+                const m = String(n.id).match(/^cnn(\d+)$/);
+                if (m) {
+                  const val = parseInt(m[1], 10);
+                  if (!isNaN(val) && val > maxNoteNum) maxNoteNum = val;
+                }
+              }
+            });
+          });
+          if (maxNoteNum >= 0) {
+            if (typeof window.conSyncNoteNextId === 'function') window.conSyncNoteNextId(maxNoteNum + 1);
+            else if (typeof conNoteNextId !== 'undefined') conNoteNextId = Math.max(conNoteNextId, maxNoteNum + 1);
+          }
 
           const existingNodes = conGetNodes();
           const existingNodeMap = new Map(existingNodes.map(n => [n.id, n]));
@@ -9805,6 +9863,14 @@
         (data.notes || []).forEach(n => {
           const nid = String(n.id);
           keepNoteIds.add(nid);
+          const numMatch = nid.match(/^cnn(\d+)$/);
+          if (numMatch) {
+            const num = parseInt(numMatch[1], 10);
+            if (!isNaN(num)) {
+              if (typeof window.conSyncNoteNextId === 'function') window.conSyncNoteNextId(num + 1);
+              else if (typeof conNoteNextId !== 'undefined') conNoteNextId = Math.max(conNoteNextId, num + 1);
+            }
+          }
           const existing = existingNotesMap.get(nid);
           const noteEl = (typeof wnGetNoteElementById === 'function') ? wnGetNoteElementById(nid) : document.querySelector('.con-word-note[data-id="' + nid + '"]');
 
@@ -9890,11 +9956,15 @@
           }
         });
 
-        // Remove deleted notes
-        existingNotesMap.forEach((n, id) => {
-          if (!keepNoteIds.has(id)) {
-            const el = (typeof wnGetNoteElementById === 'function') ? wnGetNoteElementById(id) : document.querySelector('.con-word-note[data-id="' + id + '"]');
-            if (el) el.remove();
+        // Remove deleted notes and any orphan DOM note elements
+        const seenNoteIds = new Set();
+        const allDomNotes = document.querySelectorAll('#constellation-board .con-word-note');
+        allDomNotes.forEach(el => {
+          const did = el.dataset ? el.dataset.id : null;
+          if (!did || !keepNoteIds.has(did) || seenNoteIds.has(did)) {
+            el.remove();
+          } else {
+            seenNoteIds.add(did);
           }
         });
         _liveNotes.length = 0;
@@ -9902,18 +9972,47 @@
 
         // ── Reconcile Edges In-Place (Zero SVG Teardown) ──
         const existingEdges = window.conGetEdges ? window.conGetEdges() : [];
-        const existingEdgesMap = new Map();
+        const existingEdgesById = new Map();
+        const existingEdgesByEndpoints = new Map();
         existingEdges.forEach(e => {
-          if (e.id) existingEdgesMap.set(String(e.id), e);
-          if (e.a && e.b) existingEdgesMap.set(String(e.a) + '->' + String(e.b), e);
+          if (e && e.id) existingEdgesById.set(String(e.id), e);
+          if (e && e.a && e.b) existingEdgesByEndpoints.set(String(e.a) + '->' + String(e.b), e);
         });
-        const keepEdgeIds = new Set();
+        const keepEdges = new Set();
+        const seenEdgeIdsInIncoming = new Set();
+
         (data.edges || []).forEach(e => {
-          if (!e.a || !e.b) return;
-          const lookupKey = e.id ? String(e.id) : (String(e.a) + '->' + String(e.b));
-          keepEdgeIds.add(lookupKey);
-          const existing = existingEdgesMap.get(lookupKey);
+          if (!e || !e.a || !e.b) return;
+          let edgeId = e.id ? String(e.id) : null;
+          // If edgeId is duplicate within incoming data, generate a fresh non-colliding ID
+          if (edgeId && seenEdgeIdsInIncoming.has(edgeId)) {
+            let nextNum = window.conGetNextId ? window.conGetNextId() : Date.now();
+            edgeId = 'ce' + nextNum;
+            while (seenEdgeIdsInIncoming.has(edgeId) || existingEdgesById.has(edgeId)) {
+              nextNum = window.conGetNextId ? window.conGetNextId() : (++nextNum);
+              edgeId = 'ce' + nextNum;
+            }
+          }
+          if (edgeId) seenEdgeIdsInIncoming.add(edgeId);
+
+          // Find candidate existing edge
+          let existing = null;
+          if (edgeId && existingEdgesById.has(edgeId)) {
+            const cand = existingEdgesById.get(edgeId);
+            if (cand && !keepEdges.has(cand) && cand.a === e.a && cand.b === e.b) {
+              existing = cand;
+            }
+          }
+          if (!existing) {
+            const epKey = String(e.a) + '->' + String(e.b);
+            const cand = existingEdgesByEndpoints.get(epKey);
+            if (cand && !keepEdges.has(cand)) {
+              existing = cand;
+            }
+          }
+
           if (existing && existing.g) {
+            if (edgeId) existing.id = edgeId;
             existing.type = e.type || 'none';
             existing.label = e.label || '';
             existing.labelSize = Number(e.labelSize) || 16;
@@ -9935,14 +10034,21 @@
             if (existing.labelEl) {
               existing.labelEl.textContent = existing.label;
             }
+            if (existing.g) {
+              existing.g.dataset.eid = existing.id;
+              existing.g.style.display = '';
+            }
+            keepEdges.add(existing);
           } else {
-            _conRestoreEdge(e.a, e.b, e.type, e.label || '', e.labelSize, e.labelColor, e.labelWeight, e.thickness, e.dashStyle || null, e.id || null, e.strokeType, e.routing, e.curvature, e.opacity, e.terminator, e.animated, e.labelBg, e.anchorA, e.anchorB, e.colorMode, e.strokeColor);
+            const restored = _conRestoreEdge(e.a, e.b, e.type, e.label || '', e.labelSize, e.labelColor, e.labelWeight, e.thickness, e.dashStyle || null, edgeId, e.strokeType, e.routing, e.curvature, e.opacity, e.terminator, e.animated, e.labelBg, e.anchorA, e.anchorB, e.colorMode, e.strokeColor);
+            const targetEdge = restored || existingEdges[existingEdges.length - 1];
+            if (targetEdge) keepEdges.add(targetEdge);
           }
         });
+
         for (let i = existingEdges.length - 1; i >= 0; i--) {
           const e = existingEdges[i];
-          const key = e.id ? String(e.id) : (String(e.a) + '->' + String(e.b));
-          if (!keepEdgeIds.has(key)) {
+          if (!keepEdges.has(e)) {
             if (e.g && e.g.remove) e.g.remove();
             existingEdges.splice(i, 1);
           }
@@ -9959,12 +10065,14 @@
           const noteIds = g.noteIds || [];
           const drawingIds = g.drawingIds || [];
           const shapeIds = g.shapeIds || [];
+          const mediaIds = g.mediaIds || [];
           const existing = existingGroupsMap.get(gid);
           if (existing && existing.el) {
             existing.nodeIds = [...validIds];
             existing.noteIds = [...noteIds];
             existing.drawingIds = [...drawingIds];
             existing.shapeIds = [...shapeIds];
+            existing.mediaIds = [...mediaIds];
             existing.title = g.title || '';
             existing.paletteIdx = g.paletteIdx || 0;
             existing.invisible = !!g.invisible;
@@ -9998,8 +10106,8 @@
               }
             }
           } else {
-            if (validIds.length >= 1 || noteIds.length >= 1 || drawingIds.length >= 1 || shapeIds.length >= 1 || (g.manualW != null && g.manualH != null)) {
-              _conRestoreGroup({ ...g, noteIds, drawingIds, shapeIds }, validIds);
+            if (validIds.length >= 1 || noteIds.length >= 1 || drawingIds.length >= 1 || shapeIds.length >= 1 || mediaIds.length >= 1 || (g.manualW != null && g.manualH != null)) {
+              _conRestoreGroup({ ...g, noteIds, drawingIds, shapeIds, mediaIds }, validIds);
             }
           }
         });
@@ -10288,24 +10396,54 @@
       _conBoardBgColor = '';
       conApplyBoardBgColor();
 
-      // Advance conNextId past all saved ids so new additions don't collide
       const savedMasks = Array.isArray(data.masks)
         ? data.masks
         : (Array.isArray(data.conMasks) ? data.conMasks : []);
 
-      const allNumericIds = []
-        .concat((data.nodes || []).map(n => n.id))
-        .concat((data.edges || []).map(e => [e.a, e.b]).flat())
-        .concat((data.groups || []).map(g => g.id))
-        .concat(savedMasks.map(m => m.id))
-        .concat((data.drawings || []).map(d => d.id));
+      // Advance conNextId past all saved ids across all pages so new additions don't collide
+      const pagesToScan = [data];
+      if (Array.isArray(data.pages)) pagesToScan.push(...data.pages);
+      if (typeof conPageSnapshots !== 'undefined' && Array.isArray(conPageSnapshots)) pagesToScan.push(...conPageSnapshots);
+
+      let allNumericIds = [];
+      pagesToScan.forEach(p => {
+        if (!p) return;
+        const pageMasks = Array.isArray(p.masks) ? p.masks : (Array.isArray(p.conMasks) ? p.conMasks : []);
+        allNumericIds = allNumericIds
+          .concat((p.nodes || []).map(n => n && n.id))
+          .concat((p.edges || []).map(e => e && [e.id, e.a, e.b]).flat())
+          .concat((p.groups || []).map(g => g && g.id))
+          .concat(pageMasks.map(m => m && m.id))
+          .concat((p.drawings || []).map(d => d && d.id))
+          .concat((p.shapes || []).map(s => s && s.id))
+          .concat((p.tables || []).map(t => t && t.id));
+      });
       let maxNum = 0;
       allNumericIds.forEach(id => {
+        if (!id) return;
         const m = String(id).match(/\d+$/);
-        if (m) maxNum = Math.max(maxNum, parseInt(m[0]));
+        if (m) maxNum = Math.max(maxNum, parseInt(m[0], 10));
       });
       if (window.conSetNextId) window.conSetNextId(maxNum + 2);
       if (typeof window.conSyncGroupNextId === 'function') window.conSyncGroupNextId(maxNum + 2);
+
+      let maxNoteNum = -1;
+      pagesToScan.forEach(p => {
+        if (!p) return;
+        (p.notes || []).forEach(n => {
+          if (n && n.id) {
+            const m = String(n.id).match(/^cnn(\d+)$/);
+            if (m) {
+              const val = parseInt(m[1], 10);
+              if (!isNaN(val) && val > maxNoteNum) maxNoteNum = val;
+            }
+          }
+        });
+      });
+      if (maxNoteNum >= 0) {
+        if (typeof window.conSyncNoteNextId === 'function') window.conSyncNoteNextId(maxNoteNum + 1);
+        else if (typeof conNoteNextId !== 'undefined') conNoteNextId = Math.max(conNoteNextId, maxNoteNum + 1);
+      }
 
       const brd = conGetBoard();
       const contentBottom = conGetBoardContentBottomFromData(data);
@@ -10484,8 +10622,9 @@
           const noteIds = g.noteIds || [];
           const drawingIds = g.drawingIds || [];
           const shapeIds = g.shapeIds || [];
-          if (validIds.length >= 1 || noteIds.length >= 1 || drawingIds.length >= 1 || shapeIds.length >= 1 || (g.manualW != null && g.manualH != null))
-            _conRestoreGroup({ ...g, noteIds, drawingIds, shapeIds }, validIds);
+          const mediaIds = g.mediaIds || [];
+          if (validIds.length >= 1 || noteIds.length >= 1 || drawingIds.length >= 1 || shapeIds.length >= 1 || mediaIds.length >= 1 || (g.manualW != null && g.manualH != null))
+            _conRestoreGroup({ ...g, noteIds, drawingIds, shapeIds, mediaIds }, validIds);
         });
       }
 
@@ -10522,7 +10661,10 @@
         _liveNotes.push(noteData);
         conNoteBuild(noteData);
         const num = parseInt(String(n.id).replace(/^cn+/, ''));
-        if (!isNaN(num)) conNoteNextId = Math.max(conNoteNextId, num + 1);
+        if (!isNaN(num)) {
+          if (typeof window.conSyncNoteNextId === 'function') window.conSyncNoteNextId(num + 1);
+          else if (typeof conNoteNextId !== 'undefined') conNoteNextId = Math.max(conNoteNextId, num + 1);
+        }
         if (n.nodeId) {
           const linkedNode = conGetNodes().find(nd => nd.id === n.nodeId);
           if (linkedNode) linkedNode.el.classList.add('has-con-note');
@@ -10622,7 +10764,14 @@
       labelEl.setAttribute('class', 'con-line-label');
       labelEl.style.pointerEvents = 'all';
       labelEl.style.cursor = 'pointer';
-      const edgeId = existingId || ('ce' + (window.conGetNextId ? window.conGetNextId() : Date.now()));
+      let edgeId = existingId || ('ce' + (window.conGetNextId ? window.conGetNextId() : Date.now()));
+      const curEdges = window.conGetEdges ? window.conGetEdges() : [];
+      if (!existingId || curEdges.some(e => e.id === edgeId)) {
+        while (curEdges.some(e => e.id === edgeId)) {
+          const nextNum = window.conGetNextId ? window.conGetNextId() : Date.now();
+          edgeId = 'ce' + nextNum;
+        }
+      }
       g.dataset.eid = edgeId;
       g.appendChild(line);
       g.appendChild(labelBgEl);
@@ -10711,6 +10860,7 @@
       edgesArr.push(edge);
       labelEl.textContent = edge.label;
       if (window.conApplyEdgeLabelStyle) window.conApplyEdgeLabelStyle(edge);
+      return edge;
     }
     window._conRestoreEdge = _conRestoreEdge;
 
@@ -10768,7 +10918,7 @@
       el.appendChild(resizeHandle);
 
       const groupObj = {
-        id: gid, nodeIds: [...validIds], noteIds: [...(g.noteIds || [])], drawingIds: [...(g.drawingIds || [])], shapeIds: [...(g.shapeIds || [])],
+        id: gid, nodeIds: [...validIds], noteIds: [...(g.noteIds || [])], drawingIds: [...(g.drawingIds || [])], shapeIds: [...(g.shapeIds || [])], mediaIds: [...(g.mediaIds || [])],
         title: g.title || '', blink: !!g.blink, paletteIdx: g.paletteIdx || 0, invisible: !!g.invisible, drawingGroup: !!g.drawingGroup, phraseGroup: !!g.phraseGroup, el,
         _manualW: (g.manualW != null ? g.manualW : null),
         _manualH: (g.manualH != null ? g.manualH : null),

@@ -1114,6 +1114,7 @@
         <button class="dropdown-item" onclick="handleExportClick('pdf')"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnPrintPdf">Print PDF</span></button>
         <button class="dropdown-item" onclick="handleExportClick('csv')"><img src="../assets/icons/download.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExportCsv">CSV</span></button>
         <button class="dropdown-item" onclick="handleExportClick('xlsx')"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExportXlsx">Export XLSX</span></button>
+        <button class="dropdown-item" onclick="handleExportClick('ods')"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> <span data-i18n="exportFormatOds">LibreOffice Calc (.ods)</span></button>
         <button class="dropdown-item" onclick="handleExportClick('docx')"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExportDocx">Export DOCX</span></button>
         <button class="dropdown-item" onclick="handleExportClick('html')"><img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExportHtml">Export HTML (Editable)</span></button>
       </div>
@@ -2552,7 +2553,7 @@
     const fmt = smActiveExportFormat || 'pdf';
     if (fmt === 'pdf') exportPdf(smExportConfig);
     else if (fmt === 'csv') exportCsv(smExportConfig);
-    else if (fmt === 'xlsx') exportXlsx(smExportConfig);
+    else if (fmt === 'xlsx' || fmt === 'ods') exportXlsx(smExportConfig, fmt);
     else if (fmt === 'docx') exportDocx(smExportConfig);
     else if (fmt === 'html') exportHtml(smExportConfig);
   }
@@ -2643,6 +2644,7 @@
     if (ext === 'html') filterName = 'HTML Document';
     else if (ext === 'csv') filterName = 'CSV Spreadsheet';
     else if (ext === 'xlsx') filterName = 'Excel Spreadsheet';
+    else if (ext === 'ods') filterName = 'LibreOffice Calc Spreadsheet';
     else if (ext === 'docx' || ext === 'doc') filterName = 'Word Document';
     else if (ext === 'json') filterName = 'JSON Document';
 
@@ -3030,7 +3032,7 @@
     downloadExportFile('schedule-' + stamp + '.csv', content, 'text/csv');
   }
 
-  function exportXlsx(opts) {
+  function exportXlsx(opts, format = 'xlsx') {
     opts = Object.assign({}, smExportConfig, opts || {});
     if (orderItems.filter(i => (i.type === 'student' || i.type === 'group') && !i.excluded).length === 0) {
       showNotice(typeof t === 'function' ? t('smNothingToExport') : 'Nothing to export.', true);
@@ -3136,12 +3138,14 @@
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
 
     try {
-      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const isOds = format === 'ods';
+      const wbout = XLSX.write(wb, { bookType: isOds ? 'ods' : 'xlsx', type: 'array' });
       const stamp = date || new Date().toISOString().slice(0, 10);
-      const filename = 'schedule-' + stamp + '.xlsx';
-      downloadExportFile(filename, wbout, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      const filename = 'schedule-' + stamp + (isOds ? '.ods' : '.xlsx');
+      const mime = isOds ? 'application/vnd.oasis.opendocument.spreadsheet' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      downloadExportFile(filename, wbout, mime);
     } catch (err) {
-      const errPrefix = typeof t === 'function' ? t('smXlsxSaveError') : 'Could not save XLSX:';
+      const errPrefix = typeof t === 'function' ? t('smXlsxSaveError') : 'Could not save spreadsheet:';
       showNotice(errPrefix + ' ' + (err && err.message ? err.message : String(err)), true);
     }
   }

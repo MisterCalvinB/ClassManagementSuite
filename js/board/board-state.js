@@ -197,6 +197,7 @@
   var conNoteSelected = global.conNoteSelected = global.conNoteSelected || new Set();
   var _conShapeSelected = global._conShapeSelected = global._conShapeSelected || new Set();
   var conTableSelected = global.conTableSelected = global.conTableSelected || new Set();
+  var conMediaSelected = global.conMediaSelected = global.conMediaSelected || new Set();
 
   // --- Canvas Modes & State Flags ---
   var _conModeVal = (global && global.conMode) || 'move';
@@ -584,6 +585,7 @@
     get noteSelected() { return global.conNoteSelected; },
     get shapeSelected() { return global._conShapeSelected; },
     get tableSelected() { return global.conTableSelected; },
+    get mediaSelected() { return global.conMediaSelected; },
 
     get currentFileName() { return global._conCurrentFileName; },
     set currentFileName(val) { global._conCurrentFileName = val; },
@@ -635,6 +637,7 @@
   global.conTables = conTables;
   global._conShapeSelected = _conShapeSelected;
   global.conTableSelected = conTableSelected;
+  global.conMediaSelected = conMediaSelected;
   global.conMasks = conMasks;
   global.conTitle = conTitle;
   global.sanitizeFilenamePart = sanitizeFilenamePart;
@@ -643,6 +646,7 @@
   if (typeof window !== 'undefined') {
     window.conNotes = conNotes;
     window.conNoteSelected = conNoteSelected;
+    window.conMediaSelected = conMediaSelected;
     window.sanitizeFilenamePart = sanitizeFilenamePart;
     window.boardStripJsonExt = boardStripJsonExt;
     window.getClassGroupLabel = getClassGroupLabel;
