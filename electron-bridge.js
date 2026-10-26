@@ -1154,7 +1154,31 @@
     return api.deleteArchive(payload);
   }
 
+  function getAppTeacherName() {
+    try {
+      if (typeof window !== 'undefined') {
+        if (typeof window.CLASS_MANAGEMENT_CONFIG !== 'undefined' && window.CLASS_MANAGEMENT_CONFIG) {
+          if (window.CLASS_MANAGEMENT_CONFIG.launcherSettings && window.CLASS_MANAGEMENT_CONFIG.launcherSettings.teacherName) {
+            return String(window.CLASS_MANAGEMENT_CONFIG.launcherSettings.teacherName).trim();
+          }
+          if (window.CLASS_MANAGEMENT_CONFIG.teacherName) {
+            return String(window.CLASS_MANAGEMENT_CONFIG.teacherName).trim();
+          }
+        }
+        var raw = window.localStorage ? window.localStorage.getItem('cmt-general-config') : null;
+        if (raw) {
+          var parsed = JSON.parse(raw);
+          if (parsed && parsed.teacherName) return String(parsed.teacherName).trim();
+        }
+      }
+    } catch (_) {}
+    return '';
+  }
+
+  window.getAppTeacherName = getAppTeacherName;
+
   window.Desktop = Object.freeze({
+    getTeacherName: getAppTeacherName,
     adjustZoom,
     resetZoom,
     setZoomFactor,

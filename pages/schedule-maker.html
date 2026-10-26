@@ -2708,7 +2708,7 @@
     opts = Object.assign({}, smExportConfig, opts || {});
     const title   = document.getElementById('sm-exam-title').value.trim() || (typeof t === 'function' ? t('smTitle') : 'Schedule');
     const subject = document.getElementById('sm-subject').value.trim();
-    const teacher = document.getElementById('sm-teacher').value.trim();
+    const teacher = document.getElementById('sm-teacher').value.trim() || (typeof window.getAppTeacherName === 'function' ? window.getAppTeacherName() : '');
     const room    = document.getElementById('sm-room').value.trim();
     const date    = document.getElementById('sm-date').value;
     const group   = document.getElementById('sm-group').value;
@@ -2790,7 +2790,7 @@
     }
 
     const metaHtml = metaItems.length ? `<div class="meta-box">${metaItems.join('')}</div>` : '';
-    const footerHtml = (opts.showFooter && metaText) ? `<div class="schedule-footer">${esc(metaText)}</div>` : '';
+    const footerHtml = (opts.showFooter && metaText) ? `<div class="schedule-footer exp-footer"><span class="exp-footer-left">${esc(metaText)}</span>${teacher ? `<span class="exp-footer-right">${esc(teacher)}</span>` : ''}</div>` : '';
 
     const colGroup = columns.map((col, i) => `<col data-col="${i}"${col.width ? ` style="width:${col.width}"` : ''}>`).join('');
     const headerCells = columns.map((col, i) => `<th class="${col.class}"><span class="th-wrap">${esc(col.name)}<span class="col-resizer" data-col="${i}"></span></span></th>`).join('');
@@ -3651,6 +3651,13 @@
     const today = new Date();
     const pad = n => String(n).padStart(2, '0');
     document.getElementById('sm-date').value = today.getFullYear() + '-' + pad(today.getMonth()+1) + '-' + pad(today.getDate());
+
+    // Default teacher name from configuration if not yet set
+    const defTeacher = (typeof window.getAppTeacherName === 'function') ? window.getAppTeacherName() : '';
+    const teacherInput = document.getElementById('sm-teacher');
+    if (defTeacher && teacherInput && !teacherInput.value) {
+      teacherInput.value = defTeacher;
+    }
 
     await loadGroups();
 

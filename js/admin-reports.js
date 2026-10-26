@@ -945,6 +945,13 @@
 
   // 5.8 Standalone Full HTML Document Wrapper
   AdminReports.buildFullStandaloneHtmlReport = function (title, bodyContent) {
+    var teacherName = (typeof window.getAppTeacherName === 'function') ? window.getAppTeacherName() : '';
+    var footerHtml = '\n    <footer class="exp-footer report-footer" style="margin-top:24px;padding-top:8px;border-top:1.5px solid #333333;display:flex;align-items:center;justify-content:space-between;font-size:10px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;break-inside:avoid;page-break-inside:avoid;">\n' +
+      '      <span class="exp-footer-left">' + escapeHtml(title) + ' | Class Management Tools</span>\n' +
+      (teacherName ? ('      <span class="exp-footer-center" style="font-weight:700;color:#222;">' + escapeHtml(teacherName) + '</span>\n') : '') +
+      '      <span class="exp-footer-right">Exported: ' + new Date().toLocaleDateString() + '</span>\n' +
+      '    </footer>\n';
+
     return '<!DOCTYPE html>\n<html lang="' + (isFrench() ? 'fr' : 'en') + '">\n<head>\n' +
       '  <meta charset="UTF-8">\n' +
       '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
@@ -955,6 +962,7 @@
       '</head>\n<body>\n' +
       '  <div class="ag-report-wrap">\n' +
       bodyContent +
+      footerHtml +
       '\n  </div>\n' +
       '</body>\n</html>';
   };

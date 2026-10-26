@@ -7559,16 +7559,29 @@
         + '.act-main{font-size:' + actMainSize + ';line-height:1.25;color:#222222}'
         + '.empty-row{text-align:center;color:#64748b;font-style:italic}\n'
         + '.class-page-break{page-break-before:always;break-before:page;margin-top:24px}\n'
+        + '.planner-export-footer{margin-top:20px;padding-top:8px;border-top:1.5px solid #333333;display:flex;align-items:center;justify-content:space-between;font-size:8pt;color:#475569;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;page-break-inside:avoid;break-inside:avoid}\n'
+        + '.exp-footer-left{text-align:left}\n'
+        + '.exp-footer-center{text-align:center;font-weight:700;color:#222222}\n'
+        + '.exp-footer-right{text-align:right;white-space:nowrap}\n'
         + getExportStyleCss();
 
       var topHeaderHtml = (separateTables && classList.length > 1)
         ? ''
         : ('<h1>' + esc(title) + '</h1>');
 
+      var teacherName = (typeof window.getAppTeacherName === 'function') ? window.getAppTeacherName() : '';
+      var todayStr = new Date().toLocaleDateString();
+      var footerHtml = '<footer class="exp-footer planner-export-footer">'
+        + '<span class="exp-footer-left">' + esc(title) + ' | Class Management Tools</span>'
+        + (teacherName ? ('<span class="exp-footer-center">' + esc(teacherName) + '</span>') : '')
+        + '<span class="exp-footer-right">Exported: ' + esc(todayStr) + '</span>'
+        + '</footer>';
+
       return '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + esc(title) + '</title>'
         + '<style>' + css + '</style></head><body>'
         + topHeaderHtml
-        + tablesHtml + '</body></html>';
+        + tablesHtml
+        + footerHtml + '</body></html>';
     }
 
 

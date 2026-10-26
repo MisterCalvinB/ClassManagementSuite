@@ -1988,13 +1988,18 @@ function buildPrintHtml(plan, isContentEditable) {
     }
   `;
 
+  const teacherName = (typeof window.getAppTeacherName === 'function') ? window.getAppTeacherName() : '';
+  const groupLabel = cpGroupDisplayName(selectedGroup) || '';
+  const footerBits = [groupLabel, teacherName].filter(Boolean).join('  ·  ');
+  const footerText = (footerBits ? footerBits + '  —  ' : '') + 'Printed ' + today;
+
   return '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + esc(plan.name) + '</title>' +
     '<style>' + css + '</style></head><body' + editableAttr + '>' +
     '<h1>' + esc(plan.name) + '</h1>' +
     metaHtml +
     body +
     teacherDeskHtml +
-    '<footer>' + esc(cpGroupDisplayName(selectedGroup) || '') + '  —  Printed ' + today + '</footer>' +
+    '<footer>' + esc(footerText) + '</footer>' +
     '</body></html>';
 }
 

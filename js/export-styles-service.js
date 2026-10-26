@@ -175,6 +175,32 @@
     DEFAULT_STYLE_ID: 'export-light-neobrutalist.css',
 
     /**
+     * Helper to resolve the configured teacher's name across config and localStorage
+     * @returns {string} Teacher name or empty string
+     */
+    getTeacherName() {
+      if (typeof window.getAppTeacherName === 'function') {
+        return window.getAppTeacherName();
+      }
+      try {
+        if (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' && CLASS_MANAGEMENT_CONFIG) {
+          if (CLASS_MANAGEMENT_CONFIG.launcherSettings && CLASS_MANAGEMENT_CONFIG.launcherSettings.teacherName) {
+            return String(CLASS_MANAGEMENT_CONFIG.launcherSettings.teacherName).trim();
+          }
+          if (CLASS_MANAGEMENT_CONFIG.teacherName) {
+            return String(CLASS_MANAGEMENT_CONFIG.teacherName).trim();
+          }
+        }
+        var raw = localStorage.getItem('cmt-general-config');
+        if (raw) {
+          var parsed = JSON.parse(raw);
+          if (parsed && parsed.teacherName) return String(parsed.teacherName).trim();
+        }
+      } catch (_) {}
+      return '';
+    },
+
+    /**
      * Discover all available styles across css/export-css/ and user/export-css/
      * @param {boolean} forceRefresh
      * @returns {Promise<Array>} Array of style metadata objects

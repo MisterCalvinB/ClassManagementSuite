@@ -1385,13 +1385,18 @@
     var defaultTheme = (typeof localStorage !== 'undefined' && localStorage.getItem('cmt_default_test_theme')) || 'academic';
     var defaultStyle = JSON.parse(JSON.stringify(TestCreatorService.DEFAULT_EXPORT_STYLE));
     defaultStyle.theme = defaultTheme;
+    var defaultTeacher = (typeof window !== 'undefined' && typeof window.getAppTeacherName === 'function')
+      ? window.getAppTeacherName()
+      : (typeof ExportStylesService !== 'undefined' && typeof ExportStylesService.getTeacherName === 'function')
+        ? ExportStylesService.getTeacherName()
+        : '';
     return {
       id: generateUUID(),
       title: '',
       subject: 'English',
       classId: '',
       className: '',
-      teacher: '',
+      teacher: defaultTeacher,
       date: new Date().toISOString().split('T')[0],
       durationMinutes: 45,
       scope: '',
@@ -4542,6 +4547,14 @@
       }));
     });
 
+    var teacherName = (test && test.teacher) || ((typeof window !== 'undefined' && typeof window.getAppTeacherName === 'function') ? window.getAppTeacherName() : '');
+    html.push('    <footer class="exp-footer exam-footer" style="margin-top:24px;padding-top:8px;border-top:1.5px solid #333333;display:flex;align-items:center;justify-content:space-between;font-size:10px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;break-inside:avoid;page-break-inside:avoid;">');
+    html.push('      <span class="exp-footer-left">' + escapeHtml(test.title || 'Exam') + (variant ? ' (' + variant + ')' : '') + '</span>');
+    if (teacherName) {
+      html.push('      <span class="exp-footer-center" style="font-weight:700;color:#222;">' + escapeHtml(teacherName) + '</span>');
+    }
+    html.push('      <span class="exp-footer-right">' + (test.date || new Date().toLocaleDateString()) + '</span>');
+    html.push('    </footer>');
     html.push('  </div>');
     html.push('</body>');
     html.push('</html>');

@@ -15448,6 +15448,11 @@
           ${criteriaHtml}
           ${obsHtml}
           ${scaleHtml}
+          <div class="student-page-footer exp-footer" style="margin-top:16px;padding-top:6px;border-top:1px solid #333333;display:flex;align-items:center;justify-content:space-between;font-size:8pt;color:#475569;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;page-break-inside:avoid;break-inside:avoid;">
+            <span class="exp-footer-left">${testLabel}</span>
+            ${(typeof window.getAppTeacherName === 'function' && window.getAppTeacherName()) ? `<span class="exp-footer-center" style="font-weight:700;color:#222;">${esc(window.getAppTeacherName())}</span>` : ''}
+            <span class="exp-footer-right">${new Date().toLocaleDateString()}</span>
+          </div>
         </div>`;
       }).join("");
 
@@ -18901,8 +18906,25 @@
 
     function openReportModal(reportHtml, title, defaultFilename, options = {}) {
       syncReportOptionControls();
+
+      const teacherName = (typeof window.getAppTeacherName === 'function') ? window.getAppTeacherName() : '';
+      const footerHtml = `<footer class="exp-footer report-footer" style="margin-top:24px;padding-top:8px;border-top:1.5px solid #333333;display:flex;align-items:center;justify-content:space-between;font-size:10px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;break-inside:avoid;page-break-inside:avoid;">
+        <span class="exp-footer-left">${esc(title || 'Grade Report')} | Class Management Tools</span>
+        ${teacherName ? `<span class="exp-footer-center" style="font-weight:700;color:#222;">${esc(teacherName)}</span>` : ''}
+        <span class="exp-footer-right">Exported: ${new Date().toLocaleDateString()}</span>
+      </footer>`;
+
+      let finalReportHtml = reportHtml || '';
+      if (finalReportHtml && finalReportHtml.indexOf('exp-footer') === -1) {
+        if (finalReportHtml.indexOf('</body>') !== -1) {
+          finalReportHtml = finalReportHtml.replace('</body>', footerHtml + '</body>');
+        } else {
+          finalReportHtml += footerHtml;
+        }
+      }
+
       _currentActiveReport = {
-        html: reportHtml,
+        html: finalReportHtml,
         title: title || t('gsReportModalTitle') || 'Report Preview',
         defaultFilename: defaultFilename || 'grade-report',
         isLandscape: !!options.isLandscape,
@@ -18923,7 +18945,7 @@
 
       const frame = document.getElementById('gs-report-preview-frame');
       if (frame) {
-        frame.srcdoc = reportHtml;
+        frame.srcdoc = finalReportHtml;
         frame.onload = function () {
           if (window.ExportStylesService) {
             var sId = ExportStylesService.getSelectedStyle('gradeSheet');
@@ -18976,6 +18998,19 @@
           let finalHtml = html;
           if (rebuild && typeof rebuild === 'function') {
             finalHtml = rebuild(getReportOptions());
+            const teacherName = (typeof window.getAppTeacherName === 'function') ? window.getAppTeacherName() : '';
+            const footerHtml = `<footer class="exp-footer report-footer" style="margin-top:24px;padding-top:8px;border-top:1.5px solid #333333;display:flex;align-items:center;justify-content:space-between;font-size:10px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;break-inside:avoid;page-break-inside:avoid;">
+              <span class="exp-footer-left">${esc(report.title || 'Grade Report')} | Class Management Tools</span>
+              ${teacherName ? `<span class="exp-footer-center" style="font-weight:700;color:#222;">${esc(teacherName)}</span>` : ''}
+              <span class="exp-footer-right">Exported: ${new Date().toLocaleDateString()}</span>
+            </footer>`;
+            if (finalHtml && finalHtml.indexOf('exp-footer') === -1) {
+              if (finalHtml.indexOf('</body>') !== -1) {
+                finalHtml = finalHtml.replace('</body>', footerHtml + '</body>');
+              } else {
+                finalHtml += footerHtml;
+              }
+            }
           }
           if (window.ExportStylesService) {
             var sId = ExportStylesService.getSelectedStyle('gradeSheet');

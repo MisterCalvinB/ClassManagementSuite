@@ -103,9 +103,9 @@
           <div id="top-row">
             <h1 id="type-title"></h1>
             <div id="actions-row">
-              <button class="btn btn-primary" onclick="openAdd()" data-i18n="mdbBtnAddRecord"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Record</button>
-              <button class="btn btn-secondary" onclick="openNewFile()" data-i18n="mdbBtnNewFile"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> New File</button>
-              <button class="btn btn-secondary" id="add-col-btn" onclick="openAddColumnModal()" data-i18n="mdbBtnAddColumn"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Column</button>
+              <button class="btn btn-primary btn-sm" onclick="openAdd()" data-i18n="mdbBtnAddRecord"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Record</button>
+              <button class="btn btn-secondary btn-sm" onclick="openNewFile()" data-i18n="mdbBtnNewFile"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> New File</button>
+              <button class="btn btn-secondary btn-sm" id="add-col-btn" onclick="openAddColumnModal()" data-i18n="mdbBtnAddColumn"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Column</button>
               <button class="btn btn-secondary btn-sm" id="ai-prompt-btn" onclick="copyAIPrompt(this)"
                 style="display:none" data-i18n="mdbBtnAiPrompt"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> AI Prompt</button>
               <button class="btn btn-secondary btn-sm" id="view-toggle-btn" onclick="toggleViewMode()"
@@ -7060,6 +7060,59 @@ Format:
 
 Rules:
 - Each item must have "type" (string, category name) and "items" (array of short observation phrases).
+- No markdown or explanation text.`,
+
+      criteria: `Generate JSON for assessment criteria and grading rubric descriptors.
+Return ONLY valid JSON (array of objects), no markdown.
+
+Format:
+[
+  {
+    "name": "Grammar & Accuracy",
+    "minPoints": 0,
+    "maxPoints": 6,
+    "interval": 0.5,
+    "pointCoefficient": 1,
+    "grades": ["6", "5.5", "5", "4.5", "4", "3.5", "3", "2.5", "2", "1.5", "1"],
+    "comments": {
+      "6": "Consistently accurate grammatical structures; errors are extremely rare and non-systematic.",
+      "5.5": "High level of grammatical accuracy with only occasional minor slips.",
+      "5": "Good grammatical control; errors occur in more complex sentences but do not impede meaning.",
+      "4.5": "Generally accurate in standard structures; some noticeable errors in advanced forms.",
+      "4": "Sufficient control for basic communication; frequent errors in complex patterns.",
+      "3.5": "Noticeable and repetitive errors that occasionally obscure clarity.",
+      "3": "Limited grammatical range; basic structural errors regularly impede comprehension.",
+      "2.5": "Frequent and severe errors throughout; meaning is frequently obscured.",
+      "2": "Pervasive grammatical breakdowns; very little structural control.",
+      "1.5": "Isolated words or phrases only; no structural coherence.",
+      "1": "No demonstrable grammatical ability."
+    },
+    "colors": {
+      "6": "#166534",
+      "5.5": "#15803d",
+      "5": "#22c55e",
+      "4.5": "#84cc16",
+      "4": "#eab308",
+      "3.5": "#f97316",
+      "3": "#ef4444",
+      "2.5": "#dc2626",
+      "2": "#b91c1c",
+      "1.5": "#991b1b",
+      "1": "#7f1d1d"
+    },
+    "competenceIds": [],
+    "scoringDecisions": []
+  }
+]
+
+Rules:
+- "name" is required (string, e.g. "Task Achievement", "Grammar & Accuracy", "Vocabulary & Expression", "Pronunciation & Fluency").
+- "minPoints" (number, default 0), "maxPoints" (number, default 6), "interval" (number, default 0.5), and "pointCoefficient" (number, default 1).
+- "grades" must be an array of strings listing grade levels in descending order.
+- "comments" must map each grade in "grades" to a clear qualitative performance descriptor.
+- "colors" must map each grade in "grades" to a hex color code.
+- "competenceIds" is an array of linked curriculum competence IDs (e.g. ["LAN-01"]) or empty array [].
+- "scoringDecisions" is an array of guidelines or empty array [].
 - No markdown or explanation text.`,
     };
 

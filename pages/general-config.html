@@ -55,6 +55,14 @@
                 <span class="save-status" id="titleSaveStatus" data-i18n="saved">Saved</span>
               </p>
             </div>
+            <div class="field" style="margin-top: 14px;">
+              <label class="field-label" for="teacherNameInput" data-i18n="gcFieldTeacherName">Teacher's name</label>
+              <input type="text" id="teacherNameInput" data-i18n-placeholder="gcTeacherNamePlaceholder"
+                placeholder="e.g. Ms. Smith, John Doe">
+              <p class="field-hint"><span data-i18n="gcTeacherNameHint">Appears in document and report footers when exporting.</span>
+                <span class="save-status" id="teacherNameSaveStatus" data-i18n="saved">Saved</span>
+              </p>
+            </div>
           </section>
 
           <!-- ── Default Student Name Display ─────────────────── -->
@@ -988,6 +996,17 @@
       document.title = (titleInput.value.trim() || 'Class Management Tools') + ' — General Config';
       flashSaved(titleStatus);
     });
+
+    /* ── teacher name ───────────────────────────────────── */
+    var teacherNameInput = document.getElementById('teacherNameInput');
+    var teacherNameStatus = document.getElementById('teacherNameSaveStatus');
+
+    if (teacherNameInput) {
+      teacherNameInput.addEventListener('input', function () {
+        patchLauncherSettings({ teacherName: teacherNameInput.value.trim() });
+        flashSaved(teacherNameStatus);
+      });
+    }
 
     /* ── PDF export ────────────────────────────────────────── */
     var pdfPageSizeSelect = document.getElementById('pdfPageSizeSelect');
@@ -3100,6 +3119,11 @@
       /* title */
       titleInput.value = cfg.appTitle || '';
       document.title = (titleInput.value.trim() || 'Class Management Tools') + ' — General Config';
+
+      /* teacher name */
+      if (teacherNameInput) {
+        teacherNameInput.value = cfg.teacherName || '';
+      }
 
       /* language */
       var lang = cfg.language || 'fr';

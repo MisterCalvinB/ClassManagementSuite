@@ -21591,6 +21591,11 @@ syncState();
                 body = `<table style="border-collapse:collapse;">${tableRows}</table>`;
             }
 
+            const tName = (typeof window.getAppTeacherName === 'function') ? window.getAppTeacherName() : '';
+            const grpLabel = (rawMeta[groupName] && rawMeta[groupName].name) || groupName || '';
+            const fBits = [grpLabel, tName].filter(Boolean).join('  ·  ');
+            const fText = (fBits ? fBits + '  —  ' : '') + `Printed ${todayStr}`;
+
             return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${plan.name}</title>
 <style>
   body { font-family: Arial, sans-serif; margin: 1cm; color: #111; }
@@ -21605,7 +21610,7 @@ syncState();
 <h1>${plan.name}</h1>
 <div class="meta">${[plan.roomNumber ? '📍 ' + plan.roomNumber : '', schedStr].filter(Boolean).join('  ·  ')}</div>
 ${body}
-<footer>${(rawMeta[groupName] && rawMeta[groupName].name) || groupName || ''}  —  Printed ${todayStr}</footer>
+<footer>${fText}</footer>
 </body></html>`;
         }
 

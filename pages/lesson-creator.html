@@ -9416,10 +9416,12 @@
         });
 
         // Footer Banner
-        html += '    <div class="plan-footer">\n' +
-          '      <span>' + escapeHtml(planTitle) + ' | Class Management Tools</span>\n' +
-          '      <span>Exported: ' + new Date().toLocaleDateString() + '</span>\n' +
-          '    </div>\n' +
+        var teacherName = (typeof window.getAppTeacherName === 'function') ? window.getAppTeacherName() : '';
+        html += '    <footer class="plan-footer exp-footer">\n' +
+          '      <span class="exp-footer-left">' + escapeHtml(planTitle) + ' | Class Management Tools</span>\n' +
+          (teacherName ? ('      <span class="exp-footer-center">' + escapeHtml(teacherName) + '</span>\n') : '') +
+          '      <span class="exp-footer-right">Exported: ' + new Date().toLocaleDateString() + '</span>\n' +
+          '    </footer>\n' +
           '  </div>\n';
 
         if (options && options.autoPrint) {

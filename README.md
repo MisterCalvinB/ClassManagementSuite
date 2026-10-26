@@ -523,7 +523,7 @@ Centralized settings page organized into **four dedicated tabs** for intuitive n
 
 #### 1. General Tab (`data-tab="general"`)
 
-- **App Identity**: Customize the global **App Title** displayed in launcher headers and tool window title bars.
+- **App Identity**: Customize the global **App Title** (displayed in launcher headers and window title bars) and configure the **Teacher's Name**, which automatically persists to `user/config.js` (`launcherSettings.teacherName`) and injects into document and report export footers across the suite (Lesson Creator, Weekly Planner, Class Plan, Class Management, Schedule Maker, Participation Tracker, Grade Sheet, and Test Creator).
 - **Language**: Select interface language (**English 🇬🇧**, **Français 🇫🇷**, **Deutsch 🇩🇪**, **Italiano 🇮🇹**). Updates menus, UI strings, help text, and default translation columns in [Learning Tools](#learning-toolshtml).
 - **PDF Export Settings**:
   - **Page Size**: Select default paper format (**A4**, **Letter**, **A5**, **Legal**, **A3**).
