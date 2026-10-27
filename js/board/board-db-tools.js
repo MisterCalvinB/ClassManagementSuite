@@ -2118,9 +2118,13 @@
         || /^\d{4}-\d{2}-\d{2}( \d{2}:\d{2})?(\.(cstz|js|json|zip))?$/i.test(curFileName)
         || /^(constellation)(\.(cstz|js|json|zip))?$/i.test(curFileName);
 
+      let didRenameSave = false;
       if (_conPendingDuplicateRelinkRename || (isAutoFile && curFileName)) {
         const ok = await conRenameCurrentBundleToPlannerSlot(e);
-        if (ok) _conPendingDuplicateRelinkRename = false;
+        if (ok) {
+          _conPendingDuplicateRelinkRename = false;
+          didRenameSave = true;
+        }
       }
 
       // Automatic regressive links via LinksService
@@ -2145,8 +2149,8 @@
         }
       }
 
-      // Persist timeslot linking even when board content itself is unchanged.
-      if (typeof boardAutosaveAllNow === 'function') {
+      // Persist timeslot linking even when board content itself is unchanged (if rename didn't already save)
+      if (!didRenameSave && typeof boardAutosaveAllNow === 'function') {
         boardAutosaveAllNow({ force: true });
       }
     }

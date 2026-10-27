@@ -1959,7 +1959,8 @@
       }
 
       function _onMove(e) {
-        if (!_on) return;
+        var isPointer = !!window._mirrorPointerOn;
+        if (!_on && !isPointer) return;
         var brd = document.getElementById('constellation-board');
         var d = _dot();
         if (!brd || !brd.contains(e.target)) {
@@ -1968,7 +1969,7 @@
         }
         if (d) d.style.visibility = 'visible';
         _moveDot(e.clientX, e.clientY);
-        if (_down) {
+        if (_on && _down) {
           if (!_didTrail) {
             const dx = e.clientX - _downX, dy = e.clientY - _downY;
             if (dx * dx + dy * dy > 36) _didTrail = true;  // moved > 6px
@@ -2018,6 +2019,9 @@
         });
       }
 
+      window.getLaserDot = _dot;
+      window.moveLaserDot = _moveDot;
+
       window.laserToggle = function () {
         // If activating laser while in draw mode, exit draw mode first
         if (!_on) {
@@ -2032,7 +2036,11 @@
         _on = !_on;
         document.body.classList.toggle('laser-active', _on);
         var d = _dot();
-        if (d) d.style.display = _on ? 'block' : 'none';
+        if (d) {
+          var shouldShow = _on || !!window._mirrorPointerOn;
+          d.style.display = shouldShow ? 'block' : 'none';
+          if (!shouldShow) d.style.visibility = 'hidden';
+        }
         if (!_on) {
           _down = false;
           clearInterval(_trailTimer); _trailTimer = null;
@@ -2040,6 +2048,11 @@
         }
         _syncBtns();
         if (typeof window.updateBoardModeToggleUI === 'function') window.updateBoardModeToggleUI();
+        if (typeof mdbToast === 'function') {
+          var laserMsg = (typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t(_on ? 'conLaserOn' : 'conLaserOff') : null)
+            || (_on ? '🔦 Laser pointer: ON' : '🔦 Laser pointer: OFF');
+          mdbToast(laserMsg);
+        }
       };
 
       window.laserClearMarks = function () {

@@ -326,11 +326,31 @@
       const raw = String(rawText || '').replace(/^\uFEFF/, '').trim();
       if (!raw) throw new Error('Empty file.');
       try { return JSON.parse(raw); } catch (e) { }
-      // Strip leading comment lines (e.g. // _createdAt: ... / // _savedAt: ...)
-      const stripped = raw.replace(/^(\/\/[^\n]*\n?)+/, '').trim();
-      const src = stripped || raw;
-      const match = src.match(/^(?:window\.[A-Za-z_$][\w$]*\s*=\s*|const\s+[A-Za-z_$][\w$]*\s*=\s*|let\s+[A-Za-z_$][\w$]*\s*=\s*|var\s+[A-Za-z_$][\w$]*\s*=\s*|export\s+default\s+)([\s\S]*?)\s*;?\s*$/);
-      if (match) return JSON.parse(match[1].trim());
+
+      // Strip leading comment lines safely without catastrophic regex backtracking
+      let src = raw;
+      while (src.startsWith('//')) {
+        const nextLine = src.indexOf('\n');
+        if (nextLine === -1) { src = ''; break; }
+        src = src.slice(nextLine + 1).trimStart();
+      }
+      src = src.trim();
+      if (!src) throw new Error('Empty file.');
+      try { return JSON.parse(src); } catch (e) { }
+
+      // Check JS assignment safely without regular expression backtracking
+      const eqIdx = src.indexOf('=');
+      if (eqIdx !== -1 && (src.startsWith('window.') || src.startsWith('const ') || src.startsWith('let ') || src.startsWith('var '))) {
+        let jsonStr = src.slice(eqIdx + 1).trim();
+        if (jsonStr.endsWith(';')) jsonStr = jsonStr.slice(0, -1).trim();
+        try { return JSON.parse(jsonStr); } catch (_) { }
+      }
+      if (src.startsWith('export default')) {
+        let jsonStr = src.slice('export default'.length).trim();
+        if (jsonStr.endsWith(';')) jsonStr = jsonStr.slice(0, -1).trim();
+        try { return JSON.parse(jsonStr); } catch (_) { }
+      }
+
       throw new Error('Invalid session file.');
     }
 
@@ -535,10 +555,48 @@
       return out.slice(0, BOARD_MAX_SESSIONS_PER_SECTION);
     }
 
+    function boardSanitizeForLocalStorage(data) {
+      if (!data || typeof data !== 'object') return data;
+      try {
+        const clean = Object.assign({}, data);
+        delete clean._mediaMap;
+        delete clean._thumbnails;
+        if (Array.isArray(clean.pages)) {
+          clean.pages = clean.pages.map(p => {
+            if (!p || typeof p !== 'object') return p;
+            const pClean = Object.assign({}, p);
+            if (Array.isArray(pClean.media)) {
+              pClean.media = pClean.media.map(m => {
+                if (!m || typeof m !== 'object') return m;
+                const mClean = Object.assign({}, m);
+                delete mClean.dataUrl;
+                delete mClean.base64;
+                delete mClean._resolvedDataUrl;
+                return mClean;
+              });
+            }
+            return pClean;
+          });
+        }
+        if (Array.isArray(clean.attachments)) {
+          clean.attachments = clean.attachments.map(a => {
+            if (!a || typeof a !== 'object') return a;
+            const aClean = Object.assign({}, a);
+            delete aClean.base64;
+            delete aClean._cachedDataUrl;
+            return aClean;
+          });
+        }
+        return clean;
+      } catch (_) {
+        return data;
+      }
+    }
+
     function boardWriteStoreWithFallback(store) {
       if (boardTryWriteStore(store)) return true;
       let guard = 0;
-      while (guard < 120) {
+      while (guard < 25) {
         guard += 1;
         let candidate = null;
         ['constellation', 'textanalysis'].forEach(section => {
@@ -561,7 +619,7 @@
             if (item.savedAt < candidate.savedAt) candidate = item;
           });
         });
-        if (!candidate) return false;
+        if (!candidate) break;
         store[candidate.section].splice(candidate.idx, 1);
         if (boardTryWriteStore(store)) return true;
       }
@@ -571,6 +629,7 @@
     function boardPersistLocalSession(section, data, options = {}) {
       const expectedType = boardSessionType(section);
       if (!data || data._type !== expectedType) return;
+      const sanitizedData = boardSanitizeForLocalStorage(data);
       const store = boardReadStore();
       const list = Array.isArray(store[section]) ? store[section] : [];
       const classGroup = typeof options.classGroup === 'string' ? options.classGroup : (activeClassGroup || '');
@@ -582,7 +641,7 @@
         const existingIdx = list.findIndex(e => e.classGroup === classGroup && e.source === 'autosave');
         const id = existingIdx >= 0 ? list[existingIdx].id : boardMakeSessionId(section);
         const createdAt = existingIdx >= 0 ? (Number(list[existingIdx].createdAt) || now) : now;
-        const autosaveEntry = { id, classGroup, plannerEntryId: activePlannerEntryId, source, name, savedAt: now, createdAt, data };
+        const autosaveEntry = { id, classGroup, plannerEntryId: activePlannerEntryId, source, name, savedAt: now, createdAt, data: sanitizedData };
         if (existingIdx >= 0) list.splice(existingIdx, 1, autosaveEntry);
         else list.push(autosaveEntry);
       } else if (source === 'manual-save') {
@@ -595,7 +654,7 @@
         );
         const id = existingIdx >= 0 ? list[existingIdx].id : boardMakeSessionId(section);
         const createdAt = existingIdx >= 0 ? (Number(list[existingIdx].createdAt) || now) : now;
-        const manualEntry = { id, classGroup, plannerEntryId: activePlannerEntryId, source, name, savedAt: now, createdAt, data };
+        const manualEntry = { id, classGroup, plannerEntryId: activePlannerEntryId, source, name, savedAt: now, createdAt, data: sanitizedData };
         if (existingIdx >= 0) list.splice(existingIdx, 1, manualEntry);
         else list.push(manualEntry);
       } else {
@@ -607,7 +666,7 @@
           name,
           savedAt: now,
           createdAt: now,
-          data
+          data: sanitizedData
         });
       }
 
@@ -2968,7 +3027,10 @@
 
     function historyDuplicateFilename(entry) {
       const baseName = boardStripJsonExt(entry && entry.filename ? entry.filename : 'session') || 'session';
-      const extension = '.js';
+      const extension = (entry && entry.filename && entry.filename.endsWith('.cstz')) ? '.cstz'
+        : (entry && entry.filename && entry.filename.endsWith('.zip')) ? '.zip'
+        : (entry && entry.filename && entry.filename.endsWith('.json')) ? '.json'
+        : '.js';
       const lowerTaken = new Set(
         historyEntries
           .filter(item => item && item.target === entry.target)
@@ -3056,7 +3118,7 @@
       historyDuplicateCancel();
       if (!entry || !entry.target || !entry.filename) return;
 
-      if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.readText === 'function' && typeof Desktop.saveText === 'function')) {
+      if (!(window.Desktop && Desktop.isElectron())) {
         mdbToast('⚠️ Duplicating files requires the Electron desktop app.');
         return;
       }
@@ -3076,21 +3138,24 @@
       const newDisplayName = _cgDisplayName(newClassGroup) || '';
       const safePrefix = sanitizeFilenamePart(newDisplayName);
       const prefixedName = safePrefix ? (safePrefix + '_' + bareTitle) : bareTitle;
-      const duplicateFilename = (prefixedName || 'session') + '.js';
+      const isArchive = String(entry.filename || '').endsWith('.cstz') || String(entry.filename || '').endsWith('.zip');
+      const ext = isArchive ? (entry.filename.endsWith('.zip') ? '.zip' : '.cstz') : (entry.filename.endsWith('.json') ? '.json' : '.js');
+      const duplicateFilename = (prefixedName || 'session') + ext;
 
       try {
-        const readResult = await historyReadEntryText(entry);
-        if (!readResult || !readResult.ok) {
-          throw new Error(readResult && readResult.error ? readResult.error : 'Could not read file.');
-        }
-
-        let duplicateContent = String(readResult.content || '');
         let relinkAfterDuplicate = false;
-        if (entry.section === 'constellation') {
-          let parsed = null;
-          try { parsed = boardParseSessionText(duplicateContent); } catch (e) { }
-          if (parsed && typeof parsed === 'object') {
-            const linkedId = String(parsed._plannerEntryId || parsed.plannerEntryId || '').trim();
+        let parsedData = null;
+
+        if (isArchive && typeof Desktop.readBoardArchive === 'function' && typeof Desktop.saveBoardArchive === 'function') {
+          const rel = historyEntryRelativePath(entry) || entry.filename;
+          const readArch = await Desktop.readBoardArchive(entry.target, rel);
+          if (!readArch || !readArch.ok || !readArch.boardData) {
+            throw new Error(readArch && readArch.error ? readArch.error : 'Could not read archive.');
+          }
+
+          parsedData = readArch.boardData;
+          if (entry.section === 'constellation') {
+            const linkedId = String(parsedData._plannerEntryId || parsedData.plannerEntryId || '').trim();
             if (linkedId) {
               const linkedEntry = bpGetAllEntries().find(e => e.id === linkedId);
               const linkedLabel = linkedEntry ? ('\n\nCurrent link: ' + bpBuildLabel(linkedEntry)) : '';
@@ -3108,33 +3173,116 @@
                 + '\nCancel = keep duplicate unlinked'
               );
             }
-            delete parsed._plannerEntryId;
-            delete parsed.plannerEntryId;
-            duplicateContent = boardBuildSessionFileContent(parsed, 'CONSTELLATION_SESSION_EXPORT');
+            delete parsedData._plannerEntryId;
+            delete parsedData.plannerEntryId;
           }
-        }
+          if (newClassGroup) {
+            parsedData._classGroup = newClassGroup;
+            parsedData.classGroup = newClassGroup;
+          }
 
-        let saveResult;
-        if (entry.target === 'mindmaps' && historyEntryIsNestedPath(entry) && typeof Desktop.saveFiles === 'function') {
-          saveResult = await Desktop.saveFiles(entry.target, [{
-            filename: duplicateFilename,
-            subdir: boardStripJsonExt(duplicateFilename),
-            content: duplicateContent,
-            encoding: 'utf8'
-          }]);
+          // Build archive entries from the read archive components
+          const baseName = boardStripJsonExt(duplicateFilename);
+          const manifest = Object.assign({}, readArch.manifest || {}, {
+            title: baseName,
+            classGroup: newClassGroup || (readArch.manifest && readArch.manifest.classGroup) || '',
+            plannerEntryId: '',
+            updatedAt: Date.now(),
+            savedAt: Date.now()
+          });
+
+          const entriesToSave = [
+            { name: 'manifest.json', data: JSON.stringify(manifest, null, 2), encoding: 'utf8', store: true },
+            { name: 'board.json', data: JSON.stringify(parsedData, null, 2), encoding: 'utf8', store: true }
+          ];
+
+          if (readArch.thumbnails && typeof readArch.thumbnails === 'object') {
+            for (const [tName, tDataUrl] of Object.entries(readArch.thumbnails)) {
+              if (tDataUrl && typeof tDataUrl === 'string') {
+                const cIdx = tDataUrl.indexOf(',');
+                const b64 = cIdx >= 0 ? tDataUrl.slice(cIdx + 1) : tDataUrl;
+                entriesToSave.push({ name: tName, data: b64, encoding: 'base64', store: true });
+              }
+            }
+          }
+
+          if (readArch.media && typeof readArch.media === 'object') {
+            const seenMedia = new Set();
+            for (const [mKey, mEntry] of Object.entries(readArch.media)) {
+              if (mEntry && mEntry.subPath && mEntry.base64 && !seenMedia.has(mEntry.subPath)) {
+                seenMedia.add(mEntry.subPath);
+                const zipPath = mEntry.subPath.startsWith('media/') ? mEntry.subPath : ('media/' + mEntry.subPath);
+                entriesToSave.push({ name: zipPath, data: mEntry.base64, encoding: 'base64', store: true });
+              }
+            }
+          }
+
+          const saveArchResult = await Desktop.saveBoardArchive(entry.target, duplicateFilename, entriesToSave);
+          if (!saveArchResult || !saveArchResult.ok) {
+            throw new Error(saveArchResult && saveArchResult.error ? saveArchResult.error : 'Duplicate archive failed.');
+          }
         } else {
-          saveResult = await Desktop.saveText(entry.target, duplicateFilename, duplicateContent);
-        }
-        if (!saveResult || !saveResult.ok) {
-          throw new Error(saveResult && saveResult.error ? saveResult.error : 'Duplicate failed.');
+          const readResult = await historyReadEntryText(entry);
+          if (!readResult || !readResult.ok) {
+            throw new Error(readResult && readResult.error ? readResult.error : 'Could not read file.');
+          }
+
+          let duplicateContent = String(readResult.content || '');
+          if (entry.section === 'constellation') {
+            let parsed = null;
+            try { parsed = boardParseSessionText(duplicateContent); } catch (e) { }
+            if (parsed && typeof parsed === 'object') {
+              parsedData = parsed;
+              const linkedId = String(parsed._plannerEntryId || parsed.plannerEntryId || '').trim();
+              if (linkedId) {
+                const linkedEntry = bpGetAllEntries().find(e => e.id === linkedId);
+                const linkedLabel = linkedEntry ? ('\n\nCurrent link: ' + bpBuildLabel(linkedEntry)) : '';
+                const proceed = await showConfirm(
+                  'This file is linked to a Planner class timeslot.'
+                  + '\nDuplicating it will break that link in the duplicate file.'
+                  + linkedLabel
+                  + '\n\nContinue with duplication?'
+                );
+                if (!proceed) return;
+
+                relinkAfterDuplicate = await showConfirm(
+                  'After duplicating, do you want to create a new Planner link for the duplicate file?'
+                  + '\n\nOK = open class timeslot picker'
+                  + '\nCancel = keep duplicate unlinked'
+                );
+              }
+              delete parsed._plannerEntryId;
+              delete parsed.plannerEntryId;
+              if (newClassGroup) {
+                parsed._classGroup = newClassGroup;
+                parsed.classGroup = newClassGroup;
+              }
+              duplicateContent = boardBuildSessionFileContent(parsed, 'CONSTELLATION_SESSION_EXPORT');
+            }
+          }
+
+          let saveResult;
+          if (entry.target === 'mindmaps' && historyEntryIsNestedPath(entry) && typeof Desktop.saveFiles === 'function') {
+            saveResult = await Desktop.saveFiles(entry.target, [{
+              filename: duplicateFilename,
+              subdir: boardStripJsonExt(duplicateFilename),
+              content: duplicateContent,
+              encoding: 'utf8'
+            }]);
+          } else {
+            saveResult = await Desktop.saveText(entry.target, duplicateFilename, duplicateContent);
+          }
+          if (!saveResult || !saveResult.ok) {
+            throw new Error(saveResult && saveResult.error ? saveResult.error : 'Duplicate failed.');
+          }
         }
 
         const dupRelPath = (entry.target === 'mindmaps' && historyEntryIsNestedPath(entry))
           ? (boardStripJsonExt(duplicateFilename) + '/' + duplicateFilename)
           : duplicateFilename;
-        let parsedData = null;
-        try { parsedData = boardParseSessionText(duplicateContent); } catch (e) { }
         historyUpsertEntry(entry.target, duplicateFilename, dupRelPath, parsedData || {});
+
+        mdbToast('✅ Duplicated: ' + duplicateFilename);
 
         if (entry.section === 'constellation' && relinkAfterDuplicate) {
           const relPath = (entry.target === 'mindmaps' && historyEntryIsNestedPath(entry))

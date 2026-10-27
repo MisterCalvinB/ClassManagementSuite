@@ -298,7 +298,9 @@
       { id: 'close_presentation', name: 'Close Presentation Window', desc: 'Close active presentation mode window', category: 'presentation', categoryName: 'Presentation & View', icon: '../assets/icons/monitor.svg', defaultShortcut: null, fn: () => { if (typeof window.conCloseMirrorWindow === 'function') window.conCloseMirrorWindow(); else if (typeof conCloseMirrorWindow === 'function') conCloseMirrorWindow(); } },
       { id: 'freeze_presentation', name: 'Freeze Presentation', desc: 'Freeze or unfreeze presentation window', category: 'presentation', categoryName: 'Presentation & View', icon: '../assets/icons/snowflake.svg', defaultShortcut: null, fn: () => { if (typeof window.conToggleMirrorFreeze === 'function') window.conToggleMirrorFreeze(); else if (typeof conToggleMirrorFreeze === 'function') conToggleMirrorFreeze(); } },
       { id: 'pin_presentation', name: 'Always on Top', desc: 'Keep presentation window always on top', category: 'presentation', categoryName: 'Presentation & View', icon: '../assets/icons/pin.svg', defaultShortcut: null, fn: () => { if (typeof window.conToggleMirrorAlwaysOnTop === 'function') window.conToggleMirrorAlwaysOnTop(); else if (typeof conToggleMirrorAlwaysOnTop === 'function') conToggleMirrorAlwaysOnTop(); } },
-      { id: 'mouse_pointer', name: 'Presentation Mouse Pointer', desc: 'Show mouse position as laser dot in presentation window', category: 'presentation', categoryName: 'Presentation & View', icon: '../assets/icons/sparkles.svg', defaultShortcut: null, fn: () => { if (typeof window.conToggleMirrorPointer === 'function') window.conToggleMirrorPointer(); else if (typeof conToggleMirrorPointer === 'function') conToggleMirrorPointer(); } },
+      { id: 'mouse_pointer', name: 'Mouse Light Pointer (Presentation)', desc: 'Show mouse position as red laser light dot on the board and in presentation display', category: 'presentation', categoryName: 'Presentation & View', icon: '../assets/icons/laser.svg', defaultShortcut: null, fn: () => { if (typeof window.conToggleMirrorPointer === 'function') window.conToggleMirrorPointer(); else if (typeof conToggleMirrorPointer === 'function') conToggleMirrorPointer(); } },
+      { id: 'tool_dictate', name: 'Voice Dictation (STT)', desc: 'Toggle speech-to-text voice dictation into notes or words', category: 'modes', categoryName: 'Modes & Tools', icon: '../assets/icons/mic.svg', defaultShortcut: { ctrl: true, alt: true, key: 'v' }, fn: () => { if (typeof window.boardToggleDictation === 'function') window.boardToggleDictation(); else if (typeof boardToggleDictation === 'function') boardToggleDictation(); } },
+      { id: 'tool_record', name: 'Record Board Video', desc: 'Record live video and microphone audio of the board', category: 'presentation', categoryName: 'Presentation & View', icon: '../assets/icons/record.svg', defaultShortcut: null, fn: () => { if (typeof window.boardVideoOpenSetup === 'function') window.boardVideoOpenSetup(); else if (typeof boardVideoOpenSetup === 'function') boardVideoOpenSetup(); } },
       { id: 'zoom_in', name: 'Zoom In', desc: 'Increase board zoom by 10%', category: 'presentation', categoryName: 'Presentation & View', icon: '../assets/icons/zoom-in.svg', defaultShortcut: null, fn: () => { if (typeof window.updateZoom === 'function') window.updateZoom((window.conCurrentZoom || 1) + 0.1); else if (typeof updateZoom === 'function') updateZoom((window.conCurrentZoom || 1) + 0.1); } },
       { id: 'zoom_out', name: 'Zoom Out', desc: 'Decrease board zoom by 10%', category: 'presentation', categoryName: 'Presentation & View', icon: '../assets/icons/zoom-out.svg', defaultShortcut: null, fn: () => { if (typeof window.updateZoom === 'function') window.updateZoom((window.conCurrentZoom || 1) - 0.1); else if (typeof updateZoom === 'function') updateZoom((window.conCurrentZoom || 1) - 0.1); } },
       { id: 'zoom_reset', name: 'Reset Zoom', desc: 'Reset zoom to 100%', category: 'presentation', categoryName: 'Presentation & View', icon: '../assets/icons/maximize.svg', defaultShortcut: null, fn: () => { if (typeof window.updateZoom === 'function') window.updateZoom(1); else if (typeof updateZoom === 'function') updateZoom(1); } },
@@ -350,7 +352,7 @@
 
     function getBoardCustomShortcutsMap() {
       const cfg = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG) ? BOARD_CONFIG : {};
-      if (cfg && cfg.shortcuts && typeof cfg.shortcuts === 'object' && !Array.isArray(cfg.shortcuts)) {
+      if (cfg && cfg.shortcuts && typeof cfg.shortcuts === 'object' && !Array.isArray(cfg.shortcuts) && Object.keys(cfg.shortcuts).length > 0) {
         return { ...cfg.shortcuts };
       }
       try {
@@ -373,7 +375,7 @@
 
     function getBoardQuickActionsList() {
       const cfg = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG) ? BOARD_CONFIG : {};
-      if (cfg && Array.isArray(cfg.quickActions)) {
+      if (cfg && Array.isArray(cfg.quickActions) && cfg.quickActions.length > 0) {
         return [...cfg.quickActions];
       }
       try {
@@ -446,54 +448,160 @@
     }
 
     function renderQuickActionsToolbar() {
-      const bar = document.getElementById('con-quick-actions-bar');
       const group = document.getElementById('con-tb-quick-actions');
-      if (!bar || !group) return;
+      const barWrap = document.getElementById('con-quick-actions-bar-wrap');
+      const bar = document.getElementById('con-quick-actions-bar');
+      const menuList = document.getElementById('con-quick-actions-menu-list');
+      const ctxPinnedSec = document.getElementById('con-board-ctx-pinned-section');
+      const ctxPinnedList = document.getElementById('con-board-ctx-pinned-list');
 
       const pinnedIds = getBoardQuickActionsList();
       if (!pinnedIds || !pinnedIds.length) {
-        group.style.display = 'none';
-        bar.innerHTML = '';
+        if (group) group.style.display = 'none';
+        if (barWrap) barWrap.style.display = 'none';
+        if (bar) bar.innerHTML = '';
+        if (menuList) menuList.innerHTML = '';
+        if (ctxPinnedSec) ctxPinnedSec.style.display = 'none';
+        if (ctxPinnedList) ctxPinnedList.innerHTML = '';
         return;
       }
 
-      group.style.display = 'inline-flex';
-      bar.innerHTML = '';
+      if (group) group.style.display = '';
+      if (barWrap) barWrap.style.display = 'inline-flex';
+      if (ctxPinnedSec) ctxPinnedSec.style.display = '';
 
       const customMap = getBoardCustomShortcutsMap();
-      pinnedIds.forEach(id => {
-        const def = BOARD_ACTION_DEFINITIONS.find(a => a.id === id);
-        if (!def) return;
-        const sc = getActiveShortcutForDef(def, customMap);
-        const scText = sc && sc.key ? ' (' + formatShortcutKeysList(sc).join('+') + ')' : '';
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'action-btn btn-grey con-quick-action-btn';
-        btn.title = def.name + ' — ' + def.desc + scText;
-        if (def.icon) {
-          const img = document.createElement('img');
-          img.src = def.icon;
-          img.className = 'btn-icon';
-          img.alt = '';
-          btn.appendChild(img);
-        } else if (def.symbol) {
-          const span = document.createElement('span');
-          span.style.fontWeight = '700';
-          span.style.fontSize = '0.74rem';
-          span.textContent = def.symbol;
-          btn.appendChild(span);
-        } else {
-          const span = document.createElement('span');
-          span.style.fontWeight = '700';
-          span.style.fontSize = '0.68rem';
-          span.textContent = (def.name || '').slice(0, 2);
-          btn.appendChild(span);
-        }
-        btn.onclick = () => {
-          if (typeof def.fn === 'function') def.fn();
-        };
-        bar.appendChild(btn);
-      });
+
+      // 1. Populate compact toolbar buttons
+      if (bar) {
+        bar.innerHTML = '';
+        pinnedIds.forEach(id => {
+          const def = BOARD_ACTION_DEFINITIONS.find(a => a.id === id);
+          if (!def) return;
+          const sc = getActiveShortcutForDef(def, customMap);
+          const scText = sc && sc.key ? ' (' + formatShortcutKeysList(sc).join('+') + ')' : '';
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'action-btn btn-grey con-quick-action-btn';
+          btn.dataset.action = def.id;
+          btn.title = def.name + ' — ' + def.desc + scText;
+          if (def.id === 'mouse_pointer' && (window._mirrorPointerOn || (typeof _mirrorPointerOn !== 'undefined' && _mirrorPointerOn))) {
+            btn.classList.add('laser-btn-active', 'con-quick-active');
+          }
+          if (def.icon) {
+            const img = document.createElement('img');
+            img.src = def.icon;
+            img.className = 'btn-icon';
+            img.alt = '';
+            btn.appendChild(img);
+          } else if (def.symbol) {
+            const span = document.createElement('span');
+            span.style.fontWeight = '700';
+            span.style.fontSize = '0.74rem';
+            span.textContent = def.symbol;
+            btn.appendChild(span);
+          } else {
+            const span = document.createElement('span');
+            span.style.fontWeight = '700';
+            span.style.fontSize = '0.68rem';
+            span.textContent = (def.name || '').slice(0, 2);
+            btn.appendChild(span);
+          }
+          btn.onclick = (e) => {
+            e.stopPropagation();
+            if (typeof def.fn === 'function') def.fn();
+          };
+          bar.appendChild(btn);
+        });
+      }
+
+      // 2. Populate toolbar dropdown menu list
+      if (menuList) {
+        menuList.innerHTML = '';
+        pinnedIds.forEach(id => {
+          const def = BOARD_ACTION_DEFINITIONS.find(a => a.id === id);
+          if (!def) return;
+          const sc = getActiveShortcutForDef(def, customMap);
+          const scBadge = sc && sc.key ? `<span class="con-tb-shortcut-badge">${formatShortcutKeysList(sc).join('+')}</span>` : '';
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'action-btn btn-grey con-menu-action-item';
+          btn.dataset.action = def.id;
+          btn.style.display = 'flex';
+          btn.style.alignItems = 'center';
+          btn.style.justifyContent = 'space-between';
+          btn.style.width = '100%';
+          btn.style.gap = '8px';
+          btn.title = def.desc;
+          if (def.id === 'mouse_pointer' && (window._mirrorPointerOn || (typeof _mirrorPointerOn !== 'undefined' && _mirrorPointerOn))) {
+            btn.classList.add('laser-btn-active', 'con-quick-active');
+          }
+
+          let iconHtml = '';
+          if (def.icon) {
+            iconHtml = `<img src="${def.icon}" class="btn-icon" alt="" />`;
+          } else if (def.symbol) {
+            iconHtml = `<span style="font-weight:700; font-size:0.8rem; width:14px; text-align:center;">${def.symbol}</span>`;
+          }
+
+          btn.innerHTML = `
+            <div style="display:flex; align-items:center; gap:6px;">
+              ${iconHtml}
+              <span>${def.name}</span>
+            </div>
+            ${scBadge}
+          `;
+          btn.onclick = (e) => {
+            e.stopPropagation();
+            if (typeof def.fn === 'function') def.fn();
+          };
+          menuList.appendChild(btn);
+        });
+      }
+
+      // 3. Populate board right-click context menu pinned list
+      if (ctxPinnedList) {
+        ctxPinnedList.innerHTML = '';
+        pinnedIds.forEach(id => {
+          const def = BOARD_ACTION_DEFINITIONS.find(a => a.id === id);
+          if (!def) return;
+          const sc = getActiveShortcutForDef(def, customMap);
+          const scBadge = sc && sc.key ? `<span class="con-ctx-shortcut-badge" style="margin-left:auto; font-size:0.65rem; color:#888; font-weight:600; padding:1px 4px; background:#e5e5e0; border-radius:3px;">${formatShortcutKeysList(sc).join('+')}</span>` : '';
+          const item = document.createElement('div');
+          item.className = 'con-ctx-item con-ctx-pinned-item';
+          item.dataset.action = def.id;
+          item.style.display = 'flex';
+          item.style.alignItems = 'center';
+          item.style.gap = '6px';
+          
+          let iconHtml = '';
+          if (def.icon) {
+            iconHtml = `<img src="${def.icon}" class="btn-icon" alt="" />`;
+          } else if (def.symbol) {
+            iconHtml = `<span style="font-weight:700; width:14px; text-align:center;">${def.symbol}</span>`;
+          }
+
+          item.innerHTML = `
+            ${iconHtml}
+            <span>${def.name}</span>
+            ${scBadge}
+          `;
+          item.onclick = (e) => {
+            e.stopPropagation();
+            if (typeof window.conBoardCtxClose === 'function') window.conBoardCtxClose();
+            if (typeof def.fn === 'function') def.fn();
+          };
+          ctxPinnedList.appendChild(item);
+        });
+      }
+    }
+
+    if (typeof document !== 'undefined') {
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', renderQuickActionsToolbar);
+      } else {
+        setTimeout(renderQuickActionsToolbar, 10);
+      }
     }
 
     window.renderQuickActionsToolbar = renderQuickActionsToolbar;
@@ -725,6 +833,30 @@
           }
           e.preventDefault();
           return true;
+        }
+      }
+
+      // Check if this key matches the default shortcut of an action that was overridden or cleared
+      for (const def of BOARD_ACTION_DEFINITIONS) {
+        if (!def.defaultShortcut || !def.defaultShortcut.key) continue;
+        if (customMap[def.id] === undefined) continue; // default still active
+        // User customized this action! Check if event matches the old default
+        const dsc = def.defaultShortcut;
+        const ctrl = !!(e.ctrlKey || e.metaKey);
+        const alt = !!e.altKey;
+        const shift = !!e.shiftKey;
+        if (ctrl === !!dsc.ctrl && alt === !!dsc.alt && shift === !!dsc.shift) {
+          let eventKey = e.key;
+          let targetKey = dsc.key;
+          if (eventKey === ' ' || eventKey === 'Spacebar') eventKey = 'Space';
+          if (targetKey === ' ' || targetKey === 'Spacebar') targetKey = 'Space';
+          if (eventKey === 'Del') eventKey = 'Delete';
+          if (targetKey === 'Del') targetKey = 'Delete';
+          if (String(eventKey).toLowerCase() === String(targetKey).toLowerCase()) {
+            // Default was cleared or changed to something else — suppress hardcoded fallback!
+            e.preventDefault();
+            return true;
+          }
         }
       }
       return false;

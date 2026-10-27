@@ -293,6 +293,9 @@
     if (typeof window.conUpdatePageBar === "function") {
       window.conUpdatePageBar();
     }
+    if (typeof window.renderQuickActionsToolbar === "function") {
+      window.renderQuickActionsToolbar();
+    }
     Promise.resolve(global.__boardUserBootstrapPromise)
       .catch(function () { })
       .then(function () {
@@ -300,6 +303,7 @@
         if (typeof global.boardInitCmsTimerMirror === "function") global.boardInitCmsTimerMirror();
         if (typeof window.conUpdatePageBar === "function") window.conUpdatePageBar();
         if (typeof window.initClassGroupSelector === "function") window.initClassGroupSelector();
+        if (typeof window.renderQuickActionsToolbar === "function") window.renderQuickActionsToolbar();
       });
   });
 

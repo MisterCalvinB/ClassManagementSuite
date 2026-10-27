@@ -4982,7 +4982,42 @@
         let _mirrorFrozenViewport = null;
         window._conMirrorFrozen = false;
         window.conIsMirrorFrozen = function () { return !!_mirrorFrozen; };
-        window.conToggleMirrorPointer = function () {};
+        var _mirrorPointerOn = false;
+        window._mirrorPointerOn = false;
+        window.conToggleMirrorPointer = function () {
+          _mirrorPointerOn = !_mirrorPointerOn;
+          window._mirrorPointerOn = _mirrorPointerOn;
+          var btn = document.getElementById('con-pointer-btn');
+          if (btn) btn.classList.toggle('laser-btn-active', _mirrorPointerOn);
+          document.querySelectorAll('.con-quick-action-btn[data-action="mouse_pointer"], .con-menu-action-item[data-action="mouse_pointer"]').forEach(function (el) {
+            el.classList.toggle('laser-btn-active', _mirrorPointerOn);
+            el.classList.toggle('con-quick-active', _mirrorPointerOn);
+          });
+          if (document.body) document.body.classList.toggle('con-pointer-active', _mirrorPointerOn);
+
+          var dot = (typeof window.getLaserDot === 'function') ? window.getLaserDot() : document.getElementById('laser-dot');
+          if (dot) {
+            if (_mirrorPointerOn) {
+              dot.style.display = 'block';
+            } else {
+              var fullLaser = (typeof window.laserIsActive === 'function') ? window.laserIsActive() : (document.body && document.body.classList.contains('laser-active'));
+              if (!fullLaser) dot.style.display = 'none';
+            }
+          }
+
+          if (typeof window._conMirrorSend === 'function') {
+            window._conMirrorSend({ type: 'pointer-state', on: _mirrorPointerOn });
+          }
+
+          var msg = _mirrorPointerOn
+            ? ((typeof i18n !== 'undefined' && i18n.t) ? i18n.t('conPointerOn') : 'Presentation Pointer ON')
+            : ((typeof i18n !== 'undefined' && i18n.t) ? i18n.t('conPointerOff') : 'Presentation Pointer OFF');
+          if (typeof showToast === 'function') {
+            showToast(msg);
+          } else if (typeof mdbToast === 'function') {
+            mdbToast(msg);
+          }
+        };
         window.conToggleMirrorFreeze = function () {};
         const _mirrorPeers = new Set();
         let _mirrorControlMenuEl = null;
@@ -5595,15 +5630,7 @@
             };
           }
           // Mirror pointer mode: show mouse position as laser dot without activating full laser mode
-          var _mirrorPointerOn = false;
-          window._mirrorPointerOn = false;
-          window.conToggleMirrorPointer = function () {
-            _mirrorPointerOn = !_mirrorPointerOn;
-            window._mirrorPointerOn = _mirrorPointerOn;
-            var btn = document.getElementById('con-pointer-btn');
-            if (btn) btn.classList.toggle('laser-btn-active', _mirrorPointerOn);
-            window._conMirrorSend({ type: 'pointer-state', on: _mirrorPointerOn });
-          };
+          // (window.conToggleMirrorPointer is defined at outer scope with full UI and mirror integration)
           window.conToggleMirrorFreeze = function () {
             _mirrorFrozen = !_mirrorFrozen;
             window._conMirrorFrozen = _mirrorFrozen;
@@ -5668,7 +5695,7 @@
           var _ld = false, _ldX = 0, _ldY = 0, _lt = false, _lts = 0;
           document.addEventListener('mousemove', function (e) {
             var isLaser = document.body.classList.contains('laser-active');
-            if (!isLaser && !_mirrorPointerOn) return;
+            if (!isLaser && !_mirrorPointerOn && !window._mirrorPointerOn) return;
             var now = Date.now(); if (now - _lts < 16) return; _lts = now;
             var p = _normBrd(e.clientX, e.clientY);
             window._conMirrorSend({ type: 'laser-move', nx: p.nx, ny: p.ny });
@@ -17478,6 +17505,7 @@
           }
           conRenderBoardBgPresetsInContextMenu();
           conRenderBoardLayoutOptionsInContextMenu();
+          if (typeof window.renderQuickActionsToolbar === 'function') window.renderQuickActionsToolbar();
           if (window.conSyncBoardCtxLayoutUi) window.conSyncBoardCtxLayoutUi(false);
           bmenu.classList.add('visible');
           conPlaceBoardCtxMenu(bmenu, e.clientX, e.clientY, { offsetX: 6, offsetY: 6, margin: 8 });

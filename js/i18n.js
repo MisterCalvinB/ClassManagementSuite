@@ -11,6 +11,13 @@
 
   var STRINGS = {
     en: {
+      conPointerOn: "🔦 Mouse light pointer: ON",
+      conPointerOff: "🔦 Mouse light pointer: OFF",
+      conLaserOn: "🔦 Laser pointer: ON",
+      conLaserOff: "🔦 Laser pointer: OFF",
+      conTbQuickActions: "Quick",
+      conTbQuickTitle: "Pinned Shortcuts & Quick Actions",
+      conCtxPinnedTitle: "Pinned Shortcuts",
       btnCharacterNetwork: "Character Network",
       charNetModalTitle: "Novel Character Network",
       charNetSelectBook: "Select Novel from Books Folder",
@@ -8123,6 +8130,13 @@
     },
 
     fr: {
+      conPointerOn: "🔦 Pointeur lumineux souris : ACTIVÉ",
+      conPointerOff: "🔦 Pointeur lumineux souris : DÉSACTIVÉ",
+      conLaserOn: "🔦 Pointeur laser : ACTIVÉ",
+      conLaserOff: "🔦 Pointeur laser : DÉSACTIVÉ",
+      conTbQuickActions: "Raccourcis",
+      conTbQuickTitle: "Raccourcis épinglés & Actions rapides",
+      conCtxPinnedTitle: "Raccourcis épinglés",
       btnCharacterNetwork: "Réseau de personnages",
       charNetModalTitle: "Réseau de personnages de roman",
       charNetSelectBook: "Sélectionner un roman dans le dossier livres",
@@ -16178,6 +16192,13 @@
     },
 
     de: {
+      conPointerOn: "🔦 Maus-Lichtzeiger: EIN",
+      conPointerOff: "🔦 Maus-Lichtzeiger: AUS",
+      conLaserOn: "🔦 Laserpointer: EIN",
+      conLaserOff: "🔦 Laserpointer: AUS",
+      conTbQuickActions: "Schnell",
+      conTbQuickTitle: "Angeheftete Tastaturkürzel & Schnellaktionen",
+      conCtxPinnedTitle: "Angeheftete Tastaturkürzel",
       gcFieldTeacherName: "Name der Lehrkraft",
       gcTeacherNameHint: "Wird beim Exportieren in der Fußzeile von Dokumenten und Berichten angezeigt.",
       gcTeacherNamePlaceholder: "z. B. Frau Müller, Max Mustermann",
@@ -22073,6 +22094,13 @@ gsStudentAllChip: "Alle",
       smBtnConfirmExport: "Datei exportieren",
     },
     it: {
+      conPointerOn: "🔦 Puntatore luminoso mouse: ATTIVO",
+      conPointerOff: "🔦 Puntatore luminoso mouse: DISATTIVO",
+      conLaserOn: "🔦 Laserpointer: ATTIVO",
+      conLaserOff: "🔦 Laserpointer: DISATTIVO",
+      conTbQuickActions: "Rapidi",
+      conTbQuickTitle: "Scorciatoie bloccate & Azioni rapide",
+      conCtxPinnedTitle: "Scorciatoie bloccate",
       gcFieldTeacherName: "Nome dell’insegnante",
       gcTeacherNameHint: "Visualizzato nel piè di pagina di documenti e report durante l’esportazione.",
       gcTeacherNamePlaceholder: "es. Prof. Rossi, Maria Bianchi",

@@ -5706,12 +5706,16 @@
         let activeDataUrl = '';
         if (typeof _conBuildBoardCanvas === 'function') {
           try {
-            const liveRes = await _conBuildBoardCanvas();
+            const liveRes = await _conBuildBoardCanvas({ scale: 0.5 });
             if (liveRes && liveRes.canvas) {
               activeDataUrl = liveRes.canvas.toDataURL('image/webp', 0.92);
               if (!activeDataUrl || !activeDataUrl.startsWith('data:image/webp')) {
                 activeDataUrl = liveRes.canvas.toDataURL('image/png');
               }
+              try {
+                liveRes.canvas.width = 0;
+                liveRes.canvas.height = 0;
+              } catch (_) {}
             }
           } catch (err) {
             console.warn('[Board] _conBuildBoardCanvas error on snapshot capture:', err);
@@ -6851,10 +6855,19 @@
       }
 
       const defaultScale = Math.max(window.devicePixelRatio || 1, 2);
-      const scale = (opts && typeof opts.scale === 'number' && opts.scale > 0) ? opts.scale : defaultScale;
+      let scale = (opts && typeof opts.scale === 'number' && opts.scale > 0) ? opts.scale : defaultScale;
+      let targetW = Math.round((bw + PAD * 2) * scale);
+      let targetH = Math.round((bh + PAD * 2) * scale);
+      const MAX_PIXELS = 12 * 1024 * 1024;
+      if (targetW * targetH > MAX_PIXELS) {
+        const factor = Math.sqrt(MAX_PIXELS / (targetW * targetH));
+        scale *= factor;
+        targetW = Math.round((bw + PAD * 2) * scale);
+        targetH = Math.round((bh + PAD * 2) * scale);
+      }
       const canvas = document.createElement('canvas');
-      canvas.width = Math.round((bw + PAD * 2) * scale);
-      canvas.height = Math.round((bh + PAD * 2) * scale);
+      canvas.width = targetW;
+      canvas.height = targetH;
       const ctx = canvas.getContext('2d'); ctx.scale(scale, scale);
 
       const computedBg = board ? getComputedStyle(board).backgroundColor : '';
@@ -7947,7 +7960,28 @@
     }
     window.conTriggerLivePageSnapshot = conTriggerLivePageSnapshot;
 
+    let _conSaveBundlePromise = Promise.resolve();
+
     async function conSaveSessionFolderBundle(sessionFilename, persistedData, options = {}) {
+      const prevPromise = _conSaveBundlePromise;
+      let currentResolve, currentReject;
+      _conSaveBundlePromise = new Promise((resolve, reject) => {
+        currentResolve = resolve;
+        currentReject = reject;
+      });
+
+      try {
+        await prevPromise.catch(() => {});
+        const res = await _conSaveSessionFolderBundleImpl(sessionFilename, persistedData, options);
+        currentResolve(res);
+        return res;
+      } catch (err) {
+        currentReject(err);
+        throw err;
+      }
+    }
+
+    async function _conSaveSessionFolderBundleImpl(sessionFilename, persistedData, options = {}) {
       if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveBoardArchive === 'function') {
         const archiveBundle = await conBuildSessionArchiveBundle(sessionFilename, persistedData, options);
         const result = await Desktop.saveBoardArchive('mindmaps', archiveBundle.filename, archiveBundle.entries);

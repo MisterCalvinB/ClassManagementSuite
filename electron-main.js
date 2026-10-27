@@ -4441,19 +4441,30 @@ ipcMain.handle('app:save-board-archive', async (event, request = {}) => {
   const finalDir = request.subdir ? path.resolve(targetDir, sanitizeRelativePath(request.subdir)) : targetDir;
   await fs.mkdir(finalDir, { recursive: true });
   const finalPath = path.join(finalDir, filename);
-  const tmpPath = finalPath + '.tmp';
+  const randTag = String(Date.now()) + '-' + Math.random().toString(36).slice(2, 8);
+  const tmpPath = path.join(finalDir, '.' + filename + '.' + randTag + '.tmp');
 
   try {
     await fs.writeFile(tmpPath, zipBuffer);
-    try {
-      await fs.rename(tmpPath, finalPath);
-    } catch (renameErr) {
-      if (renameErr.code === 'EPERM' || renameErr.code === 'EEXIST') {
-        await fs.unlink(finalPath).catch(() => {});
+    let renamed = false;
+    let lastErr = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
         await fs.rename(tmpPath, finalPath);
-      } else {
-        throw renameErr;
+        renamed = true;
+        break;
+      } catch (renameErr) {
+        lastErr = renameErr;
+        if (renameErr.code === 'EPERM' || renameErr.code === 'EEXIST' || renameErr.code === 'EBUSY' || renameErr.code === 'EACCES') {
+          await fs.unlink(finalPath).catch(() => {});
+          await new Promise(r => setTimeout(r, 60));
+        } else {
+          break;
+        }
       }
+    }
+    if (!renamed) {
+      throw lastErr || new Error('Could not rename temp archive to target path');
     }
   } catch (err) {
     await fs.unlink(tmpPath).catch(() => {});
@@ -7302,7 +7313,7 @@ ipcMain.handle('app:zip-and-delete-archived', async (event, request = {}) => {
     return { ok: false, error: 'No files found to archive.' };
   }
 
-  const zipBuffer = buildZip(zipEntries);
+  const zipBuffer = await buildZip(zipEntries);
   await fs.mkdir(archivedDir, { recursive: true });
   const finalZipPath = path.join(archivedDir, zipFilename);
   const tmpZipPath = finalZipPath + '.tmp';
