@@ -17,6 +17,7 @@
   <script src="../modules/xlsx.min.js"></script>
   <script src="../modules/marked/marked.umd.js"></script>
   <script src="../js/competence-aggregator-service.js"></script>
+  <script src="../js/test-creator-service.js"></script>
   <script src="../js/lesson-creator-service.js"></script>
   <script src="../js/links-service.js"></script>
   <script src="../js/tag-link-modal.js"></script>
@@ -838,6 +839,13 @@
                 <span class="fmt-desc" data-i18n="lcExportFmtPdfDesc">Print-Ready Document (.pdf)</span>
               </div>
             </button>
+            <button type="button" class="export-format-card" data-format="docx" onclick="lcSelectExportFormat('docx')">
+              <img src="../assets/icons/file-text.svg" class="btn-icon" alt="">
+              <div class="fmt-info">
+                <span class="fmt-name" data-i18n="tcExportFormatWord">Word (.doc)</span>
+                <span class="fmt-desc" data-i18n="tcExportFormatWordDesc">Editable Word Document</span>
+              </div>
+            </button>
             <button type="button" class="export-format-card" data-format="xlsx" onclick="lcSelectExportFormat('xlsx')">
               <img src="../assets/icons/table.svg" class="btn-icon" alt="">
               <div class="fmt-info">
@@ -876,14 +884,25 @@
           </div>
         </div>
 
-        <!-- Presets Row -->
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;background:var(--neo-gray-light);padding:8px 12px;border:2px solid var(--neo-dark);border-radius:var(--neo-radius-sm);box-shadow:var(--neo-shadow-sm);">
-          <div style="display:flex;align-items:center;gap:6px;font-size:0.82rem;font-weight:800;">
+        <!-- Presets & Layout Row -->
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;background:var(--neo-gray-light);padding:8px 12px;border:2px solid var(--neo-dark);border-radius:var(--neo-radius-sm);box-shadow:var(--neo-shadow-sm);">
+          <div style="display:flex;align-items:center;gap:6px;font-size:0.82rem;font-weight:800;flex-wrap:wrap;">
             <span data-i18n="lcCopyPresets">Presets:</span>
             <button type="button" class="neo-btn" style="padding:3px 8px;font-size:0.75rem;" onclick="lcApplyExportPreset('full')"><span data-i18n="lcExportPresetFull">Full Plan</span></button>
             <button type="button" class="neo-btn" style="padding:3px 8px;font-size:0.75rem;" onclick="lcApplyExportPreset('teacher')"><span data-i18n="lcExportPresetTeacher">Teacher Guide</span></button>
             <button type="button" class="neo-btn" style="padding:3px 8px;font-size:0.75rem;" onclick="lcApplyExportPreset('student')"><span data-i18n="lcExportPresetStudent">Student Handout</span></button>
             <button type="button" class="neo-btn" style="padding:3px 8px;font-size:0.75rem;" onclick="lcApplyExportPreset('outline')"><span data-i18n="lcExportPresetOutline">Summary Outline</span></button>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:800;">
+            <span data-i18n="seqLessonLayoutLabel">Lesson Layout:</span>
+            <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;background:#fff;padding:3px 8px;border:1.5px solid var(--neo-dark);border-radius:4px;">
+              <input type="radio" name="exportPlanLayoutMode" value="cards" checked onchange="lcOnExportToggleChange()">
+              <span data-i18n="seqLessonLayoutCards">Standard Cards</span>
+            </label>
+            <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;background:#fff;padding:3px 8px;border:1.5px solid var(--neo-dark);border-radius:4px;">
+              <input type="radio" name="exportPlanLayoutMode" value="horizontal_table" onchange="lcOnExportToggleChange()">
+              <span data-i18n="seqLessonLayoutTable">Horizontal Table</span>
+            </label>
           </div>
         </div>
 
@@ -1526,9 +1545,12 @@
 
   <!-- Entire Unit Sequence Export Modal -->
   <div id="sequenceExportModal" class="modal-overlay" style="display:none;">
-    <div class="modal-box" style="max-width:680px;max-height:92vh;display:flex;flex-direction:column;">
+    <div class="modal-box" style="max-width:860px;max-height:92vh;display:flex;flex-direction:column;">
       <div class="modal-header">
-        <div><span data-i18n="lcExportSequenceModalTitle">Export Entire Unit Sequence</span></div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <img src="../assets/icons/export.svg" style="width:20px;height:20px;" alt="">
+          <span data-i18n="lcExportSequenceModalTitle">Export Entire Unit Sequence</span>
+        </div>
         <button class="icon-btn" onclick="lcCloseModal('sequenceExportModal')">&times;</button>
       </div>
       <div class="modal-body" style="display:flex;flex-direction:column;gap:14px;overflow-y:auto;">
@@ -1536,184 +1558,562 @@
           Bundle all lessons, tests, exercises, and vocabulary in this sequence into a comprehensive unit booklet.
         </p>
 
-        <!-- Export Format Chooser -->
+        <!-- Export Format Chooser (All 8 Formats) -->
         <div>
           <div style="font-weight:900;font-size:0.84rem;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;color:var(--neo-dark);" data-i18n="lcExportFormatTitle">
-            Export Format
+            1. Export Format
           </div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:8px;">
-            <label class="export-format-card" id="seqCardHtml" style="cursor:pointer;border:2px solid var(--neo-dark);padding:10px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:4px;box-shadow:var(--neo-shadow-sm);">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(125px, 1fr));gap:8px;">
+            <label class="export-format-card" id="seqCardHtml" style="cursor:pointer;border:2px solid var(--neo-dark);padding:8px 10px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:3px;box-shadow:var(--neo-shadow-sm);">
               <div style="display:flex;align-items:center;justify-content:space-between;">
                 <input type="radio" name="seqExportFormat" value="html" checked onchange="lcOnSeqExportFormatChange()" style="margin:0;">
-                <img src="../assets/icons/file-text.svg" style="width:16px;height:16px;" alt="">
+                <img src="../assets/icons/file-text.svg" style="width:15px;height:15px;" alt="">
               </div>
-              <span style="font-weight:900;font-size:0.85rem;" data-i18n="lcExportHtmlBooklet">HTML Booklet</span>
-              <span style="font-size:0.72rem;color:var(--neo-gray-dark);" data-i18n="lcExportHtmlBookletDesc">Interactive standalone web document with TOC</span>
+              <span style="font-weight:900;font-size:0.82rem;" data-i18n="lcExportHtmlBooklet">HTML Booklet</span>
+              <span style="font-size:0.68rem;color:var(--neo-gray-dark);" data-i18n="lcExportHtmlBookletDesc">Interactive web booklet (.html)</span>
             </label>
-            <label class="export-format-card" id="seqCardPdf" style="cursor:pointer;border:2px solid var(--neo-dark);padding:10px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:4px;box-shadow:var(--neo-shadow-sm);">
+            <label class="export-format-card" id="seqCardPdf" style="cursor:pointer;border:2px solid var(--neo-dark);padding:8px 10px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:3px;box-shadow:var(--neo-shadow-sm);">
               <div style="display:flex;align-items:center;justify-content:space-between;">
                 <input type="radio" name="seqExportFormat" value="pdf" onchange="lcOnSeqExportFormatChange()" style="margin:0;">
-                <img src="../assets/icons/printer.svg" style="width:16px;height:16px;" alt="">
+                <img src="../assets/icons/printer.svg" style="width:15px;height:15px;" alt="">
               </div>
-              <span style="font-weight:900;font-size:0.85rem;" data-i18n="lcExportPdfBooklet">Print / PDF</span>
-              <span style="font-size:0.72rem;color:var(--neo-gray-dark);" data-i18n="lcExportPdfBookletDesc">Print-ready unified booklet</span>
+              <span style="font-weight:900;font-size:0.82rem;" data-i18n="lcExportPdfBooklet">Print / PDF</span>
+              <span style="font-size:0.68rem;color:var(--neo-gray-dark);" data-i18n="lcExportPdfBookletDesc">Print-ready unified booklet (.pdf)</span>
             </label>
-            <label class="export-format-card" id="seqCardXlsx" style="cursor:pointer;border:2px solid var(--neo-dark);padding:10px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:4px;box-shadow:var(--neo-shadow-sm);">
+            <label class="export-format-card" id="seqCardDocx" style="cursor:pointer;border:2px solid var(--neo-dark);padding:8px 10px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:3px;box-shadow:var(--neo-shadow-sm);">
+              <div style="display:flex;align-items:center;justify-content:space-between;">
+                <input type="radio" name="seqExportFormat" value="docx" onchange="lcOnSeqExportFormatChange()" style="margin:0;">
+                <img src="../assets/icons/file-text.svg" style="width:15px;height:15px;" alt="">
+              </div>
+              <span style="font-weight:900;font-size:0.82rem;" data-i18n="tcExportFormatWord">Word (.doc)</span>
+              <span style="font-size:0.68rem;color:var(--neo-gray-dark);" data-i18n="tcExportFormatWordDesc">Editable Word Document</span>
+            </label>
+            <label class="export-format-card" id="seqCardXlsx" style="cursor:pointer;border:2px solid var(--neo-dark);padding:8px 10px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:3px;box-shadow:var(--neo-shadow-sm);">
               <div style="display:flex;align-items:center;justify-content:space-between;">
                 <input type="radio" name="seqExportFormat" value="xlsx" onchange="lcOnSeqExportFormatChange()" style="margin:0;">
-                <img src="../assets/icons/table.svg" style="width:16px;height:16px;" alt="">
+                <img src="../assets/icons/table.svg" style="width:15px;height:15px;" alt="">
               </div>
-              <span style="font-weight:900;font-size:0.85rem;" data-i18n="lcExportFmtExcel">Excel</span>
-              <span style="font-size:0.72rem;color:var(--neo-gray-dark);" data-i18n="lcExportFmtExcelDesc">Workbook Sheets (.xlsx)</span>
+              <span style="font-weight:900;font-size:0.82rem;" data-i18n="lcExportFmtExcel">Excel (.xlsx)</span>
+              <span style="font-size:0.68rem;color:var(--neo-gray-dark);" data-i18n="lcExportFmtExcelDesc">Multi-sheet Workbook</span>
             </label>
-            <label class="export-format-card" id="seqCardCsv" style="cursor:pointer;border:2px solid var(--neo-dark);padding:10px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:4px;box-shadow:var(--neo-shadow-sm);">
+            <label class="export-format-card" id="seqCardOds" style="cursor:pointer;border:2px solid var(--neo-dark);padding:8px 10px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:3px;box-shadow:var(--neo-shadow-sm);">
+              <div style="display:flex;align-items:center;justify-content:space-between;">
+                <input type="radio" name="seqExportFormat" value="ods" onchange="lcOnSeqExportFormatChange()" style="margin:0;">
+                <img src="../assets/icons/table.svg" style="width:15px;height:15px;" alt="">
+              </div>
+              <span style="font-weight:900;font-size:0.82rem;" data-i18n="exportFormatOds">LibreOffice (.ods)</span>
+              <span style="font-size:0.68rem;color:var(--neo-gray-dark);">Workbook Sheets (.ods)</span>
+            </label>
+            <label class="export-format-card" id="seqCardCsv" style="cursor:pointer;border:2px solid var(--neo-dark);padding:8px 10px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:3px;box-shadow:var(--neo-shadow-sm);">
               <div style="display:flex;align-items:center;justify-content:space-between;">
                 <input type="radio" name="seqExportFormat" value="csv" onchange="lcOnSeqExportFormatChange()" style="margin:0;">
-                <img src="../assets/icons/table.svg" style="width:16px;height:16px;" alt="">
+                <img src="../assets/icons/table.svg" style="width:15px;height:15px;" alt="">
               </div>
-              <span style="font-weight:900;font-size:0.85rem;" data-i18n="lcExportFmtCsv">CSV</span>
-              <span style="font-size:0.72rem;color:var(--neo-gray-dark);" data-i18n="lcExportFmtCsvDesc">Spreadsheet Table (.csv)</span>
+              <span style="font-weight:900;font-size:0.82rem;" data-i18n="lcExportFmtCsv">CSV (.csv)</span>
+              <span style="font-size:0.68rem;color:var(--neo-gray-dark);" data-i18n="lcExportFmtCsvDesc">Spreadsheet Table</span>
             </label>
-            <label class="export-format-card" id="seqCardMd" style="cursor:pointer;border:2px solid var(--neo-dark);padding:10px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:4px;box-shadow:var(--neo-shadow-sm);">
+            <label class="export-format-card" id="seqCardMd" style="cursor:pointer;border:2px solid var(--neo-dark);padding:8px 10px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:3px;box-shadow:var(--neo-shadow-sm);">
               <div style="display:flex;align-items:center;justify-content:space-between;">
                 <input type="radio" name="seqExportFormat" value="markdown" onchange="lcOnSeqExportFormatChange()" style="margin:0;">
-                <img src="../assets/icons/copy.svg" style="width:16px;height:16px;" alt="">
+                <img src="../assets/icons/copy.svg" style="width:15px;height:15px;" alt="">
               </div>
-              <span style="font-weight:900;font-size:0.85rem;" data-i18n="lcExportMarkdownBooklet">Markdown</span>
-              <span style="font-size:0.72rem;color:var(--neo-gray-dark);" data-i18n="lcExportMarkdownBookletDesc">Editable .md for Document Editor</span>
+              <span style="font-weight:900;font-size:0.82rem;" data-i18n="lcExportMarkdownBooklet">Markdown (.md)</span>
+              <span style="font-size:0.68rem;color:var(--neo-gray-dark);" data-i18n="lcExportMarkdownBookletDesc">Editable for Document Editor</span>
             </label>
-            <label class="export-format-card" id="seqCardJson" style="cursor:pointer;border:2px solid var(--neo-dark);padding:10px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:4px;box-shadow:var(--neo-shadow-sm);">
+            <label class="export-format-card" id="seqCardJson" style="cursor:pointer;border:2px solid var(--neo-dark);padding:8px 10px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:3px;box-shadow:var(--neo-shadow-sm);">
               <div style="display:flex;align-items:center;justify-content:space-between;">
                 <input type="radio" name="seqExportFormat" value="json" onchange="lcOnSeqExportFormatChange()" style="margin:0;">
-                <img src="../assets/icons/save.svg" style="width:16px;height:16px;" alt="">
+                <img src="../assets/icons/save.svg" style="width:15px;height:15px;" alt="">
               </div>
-              <span style="font-weight:900;font-size:0.85rem;" data-i18n="lcExportJsonBundle">JSON Archive</span>
-              <span style="font-size:0.72rem;color:var(--neo-gray-dark);" data-i18n="lcExportJsonBundleDesc">Complete data bundle of all unit items</span>
+              <span style="font-weight:900;font-size:0.82rem;" data-i18n="lcExportJsonBundle">JSON Archive</span>
+              <span style="font-size:0.68rem;color:var(--neo-gray-dark);" data-i18n="lcExportJsonBundleDesc">Complete unit data bundle</span>
             </label>
           </div>
         </div>
 
-        <!-- Export Style Chooser -->
-        <div id="seqThemeSection" style="margin-top: 4px; display: flex; align-items: center; justify-content: space-between; background: #fafaf7; border: 1.5px solid #333333; border-radius: 6px; padding: 8px 12px;">
-          <div style="display:flex;align-items:center;gap:8px;">
+        <!-- Export Style & Visual Theme Bar -->
+        <div id="seqThemeSection" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;background:#fafaf7;border:2px solid var(--neo-dark);border-radius:var(--neo-radius-sm);padding:8px 12px;box-shadow:var(--neo-shadow-sm);">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             <img src="../assets/icons/layout.svg" style="width:16px;height:16px;" alt="" />
-            <span class="modal-section-label" style="margin: 0;font-weight:900;font-size:0.84rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--neo-dark);" data-i18n="exportStyleLabel">Export Style:</span>
+            <span style="font-weight:900;font-size:0.82rem;text-transform:uppercase;letter-spacing:0.4px;color:var(--neo-dark);" data-i18n="tcSeqThemeTitle">Visual Theme:</span>
+            <label style="display:inline-flex;align-items:center;gap:4px;font-size:0.78rem;font-weight:800;cursor:pointer;background:#fff;padding:3px 8px;border:1.5px solid var(--neo-dark);border-radius:4px;">
+              <input type="radio" name="seqCssTheme" value="neobrutalist" checked onchange="lcOnSeqCssThemeChange()">
+              <span data-i18n="tcSeqThemeNeo">Light Neobrutalist</span>
+            </label>
+            <label style="display:inline-flex;align-items:center;gap:4px;font-size:0.78rem;font-weight:800;cursor:pointer;background:#fff;padding:3px 8px;border:1.5px solid var(--neo-dark);border-radius:4px;">
+              <input type="radio" name="seqCssTheme" value="minimal" onchange="lcOnSeqCssThemeChange()">
+              <span data-i18n="tcSeqThemeMinimal">Minimal Academic</span>
+            </label>
+            <label style="display:inline-flex;align-items:center;gap:4px;font-size:0.78rem;font-weight:800;cursor:pointer;background:#fff;padding:3px 8px;border:1.5px solid var(--neo-dark);border-radius:4px;">
+              <input type="radio" name="seqCssTheme" value="horizontal_table" onchange="lcOnSeqCssThemeChange()">
+              <span data-i18n="tcSeqThemeTable">Landscape Table</span>
+            </label>
           </div>
-          <div id="lc-seq-export-style-selector-wrap" style="display:inline-flex;align-items:center;"></div>
-        </div>
-
-        <!-- Content Inclusions -->
-        <div>
-          <div style="font-weight:900;font-size:0.84rem;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;color:var(--neo-dark);" data-i18n="lcExportOptionsTitle">
-            Content Inclusions
-          </div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:6px;background:var(--neo-card-bg);padding:10px;border:2px solid var(--neo-dark);border-radius:var(--neo-radius-sm);">
-            <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;font-weight:700;cursor:pointer;">
-              <input type="checkbox" id="seqOptSummary" checked>
-              <span data-i18n="lcSeqOptSummary">Table of Contents & Unit Overview</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;font-weight:700;cursor:pointer;">
-              <input type="checkbox" id="seqOptVocab" checked>
-              <span data-i18n="lcSeqOptVocab">Aggregated Unit Vocabulary & Key Concepts</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;font-weight:700;cursor:pointer;">
-              <input type="checkbox" id="seqOptPhases" checked>
-              <span data-i18n="lcSeqOptPhases">All Lesson Plans & Learning Phases</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;font-weight:700;cursor:pointer;">
-              <input type="checkbox" id="seqOptTests" checked>
-              <span data-i18n="lcSeqOptTests">Attached Tests & Review Exercises</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;font-weight:700;cursor:pointer;">
-              <input type="checkbox" id="seqOptGradingScale" checked>
-              <span data-i18n="lcSeqOptGradingScale">Test Grading Scales & Conversion Tables</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;font-weight:700;cursor:pointer;">
-              <input type="checkbox" id="seqOptAnswerKeys">
-              <span data-i18n="lcSeqOptAnswerKeys">Include Answer Keys & Teacher Solutions</span>
-            </label>
+          <div style="display:inline-flex;align-items:center;gap:6px;">
+            <span style="font-weight:800;font-size:0.78rem;" data-i18n="exportStyleLabel">Export Style:</span>
+            <div id="lc-seq-export-style-selector-wrap" style="display:inline-flex;align-items:center;"></div>
           </div>
         </div>
 
-        <!-- Table of Contents Competences Layout -->
-        <div>
-          <div style="font-weight:900;font-size:0.84rem;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;color:var(--neo-dark);" data-i18n="lcSeqTocCompetenceLayout">
-            Competences in Table of Contents
+        <!-- Section Navigation Tabs -->
+        <div style="display:flex;gap:6px;flex-wrap:wrap;border-bottom:2px solid var(--neo-dark);padding-bottom:8px;">
+          <button type="button" class="seq-filter-pill active" id="seqTabBtn_all" onclick="lcSwitchSeqExportTab('all')">
+            <span data-i18n="seqExportTabAll">All Options</span>
+          </button>
+          <button type="button" class="seq-filter-pill" id="seqTabBtn_toc" onclick="lcSwitchSeqExportTab('toc')">
+            <span data-i18n="seqExportTabToc">1. Unit &amp; Table of Contents</span>
+          </button>
+          <button type="button" class="seq-filter-pill" id="seqTabBtn_lessons" onclick="lcSwitchSeqExportTab('lessons')">
+            <span data-i18n="seqExportTabLessons">2. Lesson Plans (Layout &amp; Columns)</span>
+          </button>
+          <button type="button" class="seq-filter-pill" id="seqTabBtn_tests" onclick="lcSwitchSeqExportTab('tests')">
+            <span data-i18n="seqExportTabTests">3. Attached Tests (Layout &amp; Columns)</span>
+          </button>
+        </div>
+
+        <!-- ================================================================
+             PANEL 1: UNIT OVERVIEW & TABLE OF CONTENTS
+             ================================================================ -->
+        <div id="seqExportPanel_toc" style="display:flex;flex-direction:column;gap:12px;">
+          <!-- Content Inclusions -->
+          <div>
+            <div style="font-weight:900;font-size:0.84rem;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;color:var(--neo-dark);" data-i18n="lcExportOptionsTitle">
+              Unit Booklet Sections to Include
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:6px;background:var(--neo-card-bg);padding:10px;border:2px solid var(--neo-dark);border-radius:var(--neo-radius-sm);">
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.84rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqOptSummary" checked>
+                <span data-i18n="lcSeqOptSummary">Table of Contents &amp; Unit Overview</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.84rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqOptVocab" checked>
+                <span data-i18n="lcSeqOptVocab">Aggregated Unit Vocabulary &amp; Key Concepts</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.84rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqOptPhases" checked>
+                <span data-i18n="lcSeqOptPhases">All Lesson Plans &amp; Learning Phases</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.84rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqOptTests" checked>
+                <span data-i18n="lcSeqOptTests">Attached Tests &amp; Review Exercises</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.84rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqOptGradingScale" checked>
+                <span data-i18n="lcSeqOptGradingScale">Test Grading Scales &amp; Conversion Tables</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.84rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqOptAnswerKeys" onchange="lcOnSeqAnswerKeysChange(this.checked)">
+                <span data-i18n="lcSeqOptAnswerKeys">Include Answer Keys &amp; Teacher Solutions</span>
+              </label>
+            </div>
           </div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(115px, 1fr));gap:8px;">
-            <label class="export-format-card" style="cursor:pointer;border:2px solid var(--neo-dark);padding:8px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:3px;box-shadow:var(--neo-shadow-sm);">
-              <input type="radio" name="seqCompLayout" value="column" checked style="margin:0;">
-              <span style="font-weight:900;font-size:0.82rem;" data-i18n="lcSeqTocCompColumn">Dedicated Column</span>
-              <span style="font-size:0.7rem;color:var(--neo-gray-dark);" data-i18n="lcSeqTocCompColumnDesc">Competence chips per table row</span>
-            </label>
-            <label class="export-format-card" style="cursor:pointer;border:2px solid var(--neo-dark);padding:8px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:3px;box-shadow:var(--neo-shadow-sm);">
-              <input type="radio" name="seqCompLayout" value="subrow" style="margin:0;">
-              <span style="font-weight:900;font-size:0.82rem;" data-i18n="lcSeqTocCompSubrow">Under Title</span>
-              <span style="font-size:0.7rem;color:var(--neo-gray-dark);" data-i18n="lcSeqTocCompSubrowDesc">Compact badges under each topic</span>
-            </label>
-            <label class="export-format-card" style="cursor:pointer;border:2px solid var(--neo-dark);padding:8px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:3px;box-shadow:var(--neo-shadow-sm);">
-              <input type="radio" name="seqCompLayout" value="matrix" style="margin:0;">
-              <span style="font-weight:900;font-size:0.82rem;" data-i18n="lcSeqTocCompMatrix">Summary Matrix</span>
-              <span style="font-size:0.7rem;color:var(--neo-gray-dark);" data-i18n="lcSeqTocCompMatrixDesc">Coverage grid below TOC table</span>
-            </label>
-            <label class="export-format-card" style="cursor:pointer;border:2px solid var(--neo-dark);padding:8px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:3px;box-shadow:var(--neo-shadow-sm);">
-              <input type="radio" name="seqCompLayout" value="both" style="margin:0;">
-              <span style="font-weight:900;font-size:0.82rem;" data-i18n="lcSeqTocCompBoth">Column + Matrix</span>
-              <span style="font-size:0.7rem;color:var(--neo-gray-dark);" data-i18n="lcSeqTocCompBothDesc">Both table column & summary card</span>
-            </label>
-            <label class="export-format-card" style="cursor:pointer;border:2px solid var(--neo-dark);padding:8px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:3px;box-shadow:var(--neo-shadow-sm);">
-              <input type="radio" name="seqCompLayout" value="none" style="margin:0;">
-              <span style="font-weight:900;font-size:0.82rem;" data-i18n="lcSeqTocCompNone">None</span>
-              <span style="font-size:0.7rem;color:var(--neo-gray-dark);" data-i18n="lcSeqTocCompNoneDesc">Standard TOC without competences</span>
-            </label>
+
+          <!-- Table of Contents Columns to Add -->
+          <div>
+            <div style="font-weight:900;font-size:0.84rem;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;color:var(--neo-dark);" data-i18n="seqTocColumnsTitle">
+              Table of Contents Columns to Add
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(175px, 1fr));gap:6px;background:var(--neo-card-bg);padding:8px 10px;border:2px solid var(--neo-dark);border-radius:var(--neo-radius-sm);">
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.82rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqTocCol_type" checked>
+                <span data-i18n="seqTocColType">Item Type Badge (Lesson/Test)</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.82rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqTocCol_date">
+                <span data-i18n="seqTocColDate">Scheduled Date Column</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.82rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqTocCol_objectives" checked>
+                <span data-i18n="seqTocColObjectives">Key Objectives / Summary</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.82rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqTocCol_duration" checked>
+                <span data-i18n="seqTocColDuration">Duration / Points Column</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Table of Contents Competences Layout -->
+          <div>
+            <div style="font-weight:900;font-size:0.84rem;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;color:var(--neo-dark);" data-i18n="lcSeqTocCompetenceLayout">
+              Competences in Table of Contents
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(115px, 1fr));gap:8px;">
+              <label class="export-format-card" style="cursor:pointer;border:2px solid var(--neo-dark);padding:8px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:3px;box-shadow:var(--neo-shadow-sm);">
+                <input type="radio" name="seqCompLayout" value="column" checked style="margin:0;">
+                <span style="font-weight:900;font-size:0.82rem;" data-i18n="lcSeqTocCompColumn">Dedicated Column</span>
+                <span style="font-size:0.7rem;color:var(--neo-gray-dark);" data-i18n="lcSeqTocCompColumnDesc">Competence chips per table row</span>
+              </label>
+              <label class="export-format-card" style="cursor:pointer;border:2px solid var(--neo-dark);padding:8px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:3px;box-shadow:var(--neo-shadow-sm);">
+                <input type="radio" name="seqCompLayout" value="subrow" style="margin:0;">
+                <span style="font-weight:900;font-size:0.82rem;" data-i18n="lcSeqTocCompSubrow">Under Title</span>
+                <span style="font-size:0.7rem;color:var(--neo-gray-dark);" data-i18n="lcSeqTocCompSubrowDesc">Compact badges under each topic</span>
+              </label>
+              <label class="export-format-card" style="cursor:pointer;border:2px solid var(--neo-dark);padding:8px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:3px;box-shadow:var(--neo-shadow-sm);">
+                <input type="radio" name="seqCompLayout" value="matrix" style="margin:0;">
+                <span style="font-weight:900;font-size:0.82rem;" data-i18n="lcSeqTocCompMatrix">Summary Matrix</span>
+                <span style="font-size:0.7rem;color:var(--neo-gray-dark);" data-i18n="lcSeqTocCompMatrixDesc">Coverage grid below TOC table</span>
+              </label>
+              <label class="export-format-card" style="cursor:pointer;border:2px solid var(--neo-dark);padding:8px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:3px;box-shadow:var(--neo-shadow-sm);">
+                <input type="radio" name="seqCompLayout" value="both" style="margin:0;">
+                <span style="font-weight:900;font-size:0.82rem;" data-i18n="lcSeqTocCompBoth">Column + Matrix</span>
+                <span style="font-size:0.7rem;color:var(--neo-gray-dark);" data-i18n="lcSeqTocCompBothDesc">Both table column &amp; summary card</span>
+              </label>
+              <label class="export-format-card" style="cursor:pointer;border:2px solid var(--neo-dark);padding:8px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:3px;box-shadow:var(--neo-shadow-sm);">
+                <input type="radio" name="seqCompLayout" value="none" style="margin:0;">
+                <span style="font-weight:900;font-size:0.82rem;" data-i18n="lcSeqTocCompNone">None</span>
+                <span style="font-size:0.7rem;color:var(--neo-gray-dark);" data-i18n="lcSeqTocCompNoneDesc">Standard TOC without competences</span>
+              </label>
+            </div>
           </div>
         </div>
 
-        <!-- Attached Tests Correction Criteria Mode -->
-        <div>
-          <div style="font-weight:900;font-size:0.84rem;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;color:var(--neo-dark);" data-i18n="lcSeqTestCriteriaTitle">
-            Test Correction Criteria
+        <!-- ================================================================
+             PANEL 2: LESSON PLANS OPTIONS (Homogenized with Individual Lesson Export)
+             ================================================================ -->
+        <div id="seqExportPanel_lessons" style="display:flex;flex-direction:column;gap:10px;border-top:2px dashed var(--neo-gray-mid);padding-top:10px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+            <div style="font-weight:900;font-size:0.86rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--neo-dark);" data-i18n="seqLessonOptionsHeader">
+              Lesson Plans Layout &amp; Columns to Include
+            </div>
+            <!-- Presets & Layout Row -->
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+              <span style="font-size:0.76rem;font-weight:800;" data-i18n="lcCopyPresets">Presets:</span>
+              <button type="button" class="neo-btn" style="padding:2px 7px;font-size:0.72rem;" onclick="lcApplySeqLessonPreset('full')"><span data-i18n="lcExportPresetFull">Full Plan</span></button>
+              <button type="button" class="neo-btn" style="padding:2px 7px;font-size:0.72rem;" onclick="lcApplySeqLessonPreset('teacher')"><span data-i18n="lcExportPresetTeacher">Teacher Guide</span></button>
+              <button type="button" class="neo-btn" style="padding:2px 7px;font-size:0.72rem;" onclick="lcApplySeqLessonPreset('student')"><span data-i18n="lcExportPresetStudent">Student Handout</span></button>
+              <button type="button" class="neo-btn" style="padding:2px 7px;font-size:0.72rem;" onclick="lcApplySeqLessonPreset('outline')"><span data-i18n="lcExportPresetOutline">Summary Outline</span></button>
+            </div>
           </div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:8px;">
-            <label class="export-format-card" style="cursor:pointer;border:2px solid var(--neo-dark);padding:8px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:3px;box-shadow:var(--neo-shadow-sm);">
-              <input type="radio" name="seqTestCriteriaMode" value="compact" checked style="margin:0;">
-              <span style="font-weight:900;font-size:0.82rem;" data-i18n="lcSeqTestCriteriaCompact">Compact (Titles &amp; Pts)</span>
-              <span style="font-size:0.7rem;color:var(--neo-gray-dark);" data-i18n="lcSeqTestCriteriaCompactDesc">Summary rubric table with max points</span>
+
+          <!-- Lesson Layout Mode -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:8px;">
+            <label class="export-format-card" style="cursor:pointer;border:2px solid var(--neo-dark);padding:8px 10px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:3px;box-shadow:var(--neo-shadow-sm);">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <input type="radio" name="seqLessonLayout" value="cards" checked style="margin:0;">
+                <span style="font-weight:900;font-size:0.82rem;" data-i18n="seqLessonLayoutCards">Standard Phase Cards</span>
+              </div>
+              <span style="font-size:0.7rem;color:var(--neo-gray-dark);" data-i18n="seqLessonLayoutCardsDesc">Detailed vertical phase cards with color-coded blocks</span>
             </label>
-            <label class="export-format-card" style="cursor:pointer;border:2px solid var(--neo-dark);padding:8px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:3px;box-shadow:var(--neo-shadow-sm);">
-              <input type="radio" name="seqTestCriteriaMode" value="detailed" style="margin:0;">
-              <span style="font-weight:900;font-size:0.82rem;" data-i18n="lcSeqTestCriteriaDetailed">Detailed (Full Rubric)</span>
-              <span style="font-size:0.7rem;color:var(--neo-gray-dark);" data-i18n="lcSeqTestCriteriaDetailedDesc">Descriptions, performance levels &amp; weight</span>
+            <label class="export-format-card" style="cursor:pointer;border:2px solid var(--neo-dark);padding:8px 10px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:3px;box-shadow:var(--neo-shadow-sm);">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <input type="radio" name="seqLessonLayout" value="horizontal_table" style="margin:0;">
+                <span style="font-weight:900;font-size:0.82rem;" data-i18n="seqLessonLayoutTable">Horizontal Landscape Table</span>
+              </div>
+              <span style="font-size:0.7rem;color:var(--neo-gray-dark);" data-i18n="seqLessonLayoutTableDesc">Side-by-side columns for each selected phase element</span>
             </label>
-            <label class="export-format-card" style="cursor:pointer;border:2px solid var(--neo-dark);padding:8px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:3px;box-shadow:var(--neo-shadow-sm);">
-              <input type="radio" name="seqTestCriteriaMode" value="none" style="margin:0;">
-              <span style="font-weight:900;font-size:0.82rem;" data-i18n="lcSeqTestCriteriaNone">None</span>
-              <span style="font-size:0.7rem;color:var(--neo-gray-dark);" data-i18n="lcSeqTestCriteriaNoneDesc">Do not include criteria</span>
-            </label>
+          </div>
+
+          <!-- A. Lesson Information & Metadata -->
+          <div>
+            <div style="font-size:0.75rem;font-weight:800;color:var(--neo-gray-dark);text-transform:uppercase;margin-bottom:4px;" data-i18n="lcExportSecInfo">A. Lesson Information &amp; Header Metadata</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));gap:6px;background:var(--neo-card-bg);padding:8px 10px;border:2px solid var(--neo-dark);border-radius:var(--neo-radius-sm);">
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqLt_metaHeader" checked>
+                <span data-i18n="lcCopyMetaHeader">Title, Subject &amp; Class</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqLt_metaDate" checked>
+                <span data-i18n="lcCopyMetaDate">Date, Year Level &amp; Semester</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqLt_metaDuration" checked>
+                <span data-i18n="lcCopyMetaDuration">Total Duration &amp; Target</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqLt_metaSequence" checked>
+                <span data-i18n="lcCopyMetaSequence">Unit Sequence Info</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqLt_metaTags" checked>
+                <span data-i18n="lcCopyMetaTags">Tags &amp; Keywords</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqLt_metaTeams" checked>
+                <span data-i18n="lcCopyMetaTeams">Team Config &amp; Roles</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- B. Phase Elements & Table Columns to Add -->
+          <div>
+            <div style="font-size:0.75rem;font-weight:800;color:var(--neo-gray-dark);text-transform:uppercase;margin-bottom:4px;" data-i18n="seqLessonPhaseColsLabel">B. Phase Elements &amp; Table Columns to Add</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));gap:6px;background:var(--neo-card-bg);padding:8px 10px;border:2px solid var(--neo-dark);border-radius:var(--neo-radius-sm);">
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqLt_phaseTitle" checked>
+                <span data-i18n="lcCopyPhaseTitle">Phase Numbers &amp; Titles</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqLt_phaseDuration" checked>
+                <span data-i18n="lcCopyPhaseDuration">Phase Durations</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqLt_phaseActivity" checked>
+                <span data-i18n="lcCopyPhaseActivity">Activity &amp; Mode Badges</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqLt_phaseObjective" checked>
+                <span data-i18n="lcCopyPhaseObjective">Learning Objectives</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqLt_phaseTeacher" checked>
+                <span data-i18n="lcCopyPhaseTeacher">Teacher Actions &amp; Prompts</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqLt_phaseStudent" checked>
+                <span data-i18n="lcCopyPhaseStudent">Student Tasks &amp; Actions</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqLt_phaseResources" checked>
+                <span data-i18n="lcCopyPhaseResources">Resources &amp; Materials</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqLt_phaseDescriptors" checked>
+                <span data-i18n="lcCopyPhaseDescriptors">Tagged Competences</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqLt_phaseDescText" checked>
+                <span data-i18n="lcExportCompetenceText">Full Competence Description Text</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqLt_phaseDiff" checked>
+                <span data-i18n="lcExportPhaseDifferentiation">Differentiation &amp; Support</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqLt_phaseAssess" checked>
+                <span data-i18n="lcExportPhaseAssessment">Formative Assessment</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqLt_phaseCustomFields" checked>
+                <span data-i18n="lcExportCustomFields">Custom Phase Fields</span>
+              </label>
+            </div>
           </div>
         </div>
 
-        <!-- Attached Tests Competences Mode -->
-        <div>
-          <div style="font-weight:900;font-size:0.84rem;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;color:var(--neo-dark);" data-i18n="lcSeqTestCompetencesTitle">
-            Test Competences &amp; Standards
+        <!-- ================================================================
+             PANEL 3: ATTACHED TESTS & EXAMS OPTIONS (Homogenized with Test Creator)
+             ================================================================ -->
+        <div id="seqExportPanel_tests" style="display:flex;flex-direction:column;gap:10px;border-top:2px dashed var(--neo-gray-mid);padding-top:10px;">
+          <div style="font-weight:900;font-size:0.86rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--neo-dark);" data-i18n="seqTestOptionsHeader">
+            Attached Tests &amp; Assessments Layout &amp; Columns
           </div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:8px;">
-            <label class="export-format-card" style="cursor:pointer;border:2px solid var(--neo-dark);padding:8px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:3px;box-shadow:var(--neo-shadow-sm);">
-              <input type="radio" name="seqTestCompetencesMode" value="compact" checked style="margin:0;">
-              <span style="font-weight:900;font-size:0.82rem;" data-i18n="lcSeqTestCompetencesCompact">Compact (Badges)</span>
-              <span style="font-size:0.7rem;color:var(--neo-gray-dark);" data-i18n="lcSeqTestCompetencesCompactDesc">Competence codes &amp; title chips per exercise</span>
+
+          <!-- Test Exercise Render Mode & Variant / Copy -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:8px;">
+            <label class="export-format-card" style="cursor:pointer;border:2px solid var(--neo-dark);padding:8px 10px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:3px;box-shadow:var(--neo-shadow-sm);">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <input type="radio" name="seqTestRenderMode" value="full_exam" checked style="margin:0;">
+                <span style="font-weight:900;font-size:0.82rem;" data-i18n="seqTestRenderFullExam">Full Printable Exam Paper</span>
+              </div>
+              <span style="font-size:0.7rem;color:var(--neo-gray-dark);" data-i18n="seqTestRenderFullExamDesc">Complete exam header, writing lines, rubrics &amp; formatting</span>
             </label>
-            <label class="export-format-card" style="cursor:pointer;border:2px solid var(--neo-dark);padding:8px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:3px;box-shadow:var(--neo-shadow-sm);">
-              <input type="radio" name="seqTestCompetencesMode" value="detailed" style="margin:0;">
-              <span style="font-weight:900;font-size:0.82rem;" data-i18n="lcSeqTestCompetencesDetailed">Detailed (Standards Breakdown)</span>
-              <span style="font-size:0.7rem;color:var(--neo-gray-dark);" data-i18n="lcSeqTestCompetencesDetailedDesc">Full descriptions, categories &amp; levels</span>
+            <label class="export-format-card" style="cursor:pointer;border:2px solid var(--neo-dark);padding:8px 10px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:3px;box-shadow:var(--neo-shadow-sm);">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <input type="radio" name="seqTestRenderMode" value="summary_cards" style="margin:0;">
+                <span style="font-weight:900;font-size:0.82rem;" data-i18n="seqTestRenderSummaryCards">Compact Summary Cards</span>
+              </div>
+              <span style="font-size:0.7rem;color:var(--neo-gray-dark);" data-i18n="seqTestRenderSummaryCardsDesc">Condensed overview of exercises and prompts</span>
             </label>
-            <label class="export-format-card" style="cursor:pointer;border:2px solid var(--neo-dark);padding:8px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:3px;box-shadow:var(--neo-shadow-sm);">
-              <input type="radio" name="seqTestCompetencesMode" value="none" style="margin:0;">
-              <span style="font-weight:900;font-size:0.82rem;" data-i18n="lcSeqTestCompetencesNone">None</span>
-              <span style="font-size:0.7rem;color:var(--neo-gray-dark);" data-i18n="lcSeqTestCompetencesNoneDesc">Do not include competences on test sheets</span>
+          </div>
+
+          <!-- Target Copy, Exam Variant & Numbered Lines Bar -->
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;background:var(--neo-card-bg);padding:8px 10px;border:2px solid var(--neo-dark);border-radius:var(--neo-radius-sm);">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:0.8rem;font-weight:800;">
+              <span data-i18n="tcExportExamVariant">Variant:</span>
+              <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;">
+                <input type="radio" name="seqTestVariant" value="A" checked>
+                <span data-i18n="tcVariantGroupA">Group A</span>
+              </label>
+              <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;">
+                <input type="radio" name="seqTestVariant" value="B">
+                <span data-i18n="tcVariantGroupB">Group B (Shuffled)</span>
+              </label>
+              <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;">
+                <input type="radio" name="seqTestVariant" value="both">
+                <span data-i18n="seqTestVariantBoth">Both A &amp; B</span>
+              </label>
+            </div>
+            <label style="display:inline-flex;align-items:center;gap:6px;font-size:0.8rem;font-weight:700;cursor:pointer;">
+              <input type="checkbox" id="seqTestNumberedLines">
+              <span data-i18n="tcExportNumberedLines">Numbered Writing Lines (1, 2, 3...)</span>
             </label>
+          </div>
+
+          <!-- Exam Header Elements to Include -->
+          <div>
+            <div style="font-size:0.75rem;font-weight:800;color:var(--neo-gray-dark);text-transform:uppercase;margin-bottom:4px;" data-i18n="seqTestHeaderFieldsTitle">A. Exam Header Elements to Include</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(185px, 1fr));gap:6px;background:var(--neo-card-bg);padding:8px 10px;border:2px solid var(--neo-dark);border-radius:var(--neo-radius-sm);">
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqTh_showStudentName" checked>
+                <span data-i18n="tcElemStudentName">Student Name Field</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqTh_showDate" checked>
+                <span data-i18n="tcElemDate">Date Field</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqTh_showClass" checked>
+                <span data-i18n="tcElemClassGroup">Class / Group</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqTh_showDuration" checked>
+                <span data-i18n="tcElemDuration">Exam Duration</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqTh_showScoreBox" checked>
+                <span data-i18n="tcElemScoreBox">Score / Points Box</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqTh_showGradeBox" checked>
+                <span data-i18n="tcElemGradeBox">Final Grade Box</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqTh_showScale" checked>
+                <span data-i18n="tcElemGradingScale">Grading Scale in Header</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqTh_showSignature" checked>
+                <span data-i18n="tcElemSignature">Parent / Teacher Signature</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqTh_showInstructions" checked>
+                <span data-i18n="tcElemGeneralInstructions">General Instructions</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Test Grading Scale Display Mode -->
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;background:var(--neo-card-bg);padding:8px 10px;border:2px solid var(--neo-dark);border-radius:var(--neo-radius-sm);">
+            <span style="font-size:0.8rem;font-weight:800;" data-i18n="seqTestScaleDisplayLabel">Grading Scale Display Mode:</span>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:0.78rem;font-weight:700;">
+              <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;">
+                <input type="radio" name="seqTestScaleMode" value="use_test" checked>
+                <span data-i18n="seqUseTestSetting">Use Each Test's Setting</span>
+              </label>
+              <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;">
+                <input type="radio" name="seqTestScaleMode" value="table">
+                <span data-i18n="seqScaleModeTable">Points Table</span>
+              </label>
+              <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;">
+                <input type="radio" name="seqTestScaleMode" value="both">
+                <span data-i18n="seqScaleModeBoth">Table + Formula</span>
+              </label>
+              <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;">
+                <input type="radio" name="seqTestScaleMode" value="compact">
+                <span data-i18n="seqScaleModeCompact">Compact Line</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Attached Tests Competences Mode & Columns to Add -->
+          <div>
+            <div style="font-size:0.75rem;font-weight:800;color:var(--neo-gray-dark);text-transform:uppercase;margin-bottom:4px;" data-i18n="lcSeqTestCompetencesTitle">
+              B. Test Competences &amp; Standards (Layout &amp; Columns to Add)
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(135px, 1fr));gap:8px;margin-bottom:6px;">
+              <label class="export-format-card" style="cursor:pointer;border:2px solid var(--neo-dark);padding:7px 8px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:2px;box-shadow:var(--neo-shadow-sm);">
+                <input type="radio" name="seqTestCompetencesMode" value="use_test" style="margin:0;">
+                <span style="font-weight:900;font-size:0.8rem;" data-i18n="seqUseTestSetting">Use Test Setting</span>
+                <span style="font-size:0.68rem;color:var(--neo-gray-dark);" data-i18n="seqUseTestSettingDesc">Per-test saved layout</span>
+              </label>
+              <label class="export-format-card" style="cursor:pointer;border:2px solid var(--neo-dark);padding:7px 8px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:2px;box-shadow:var(--neo-shadow-sm);">
+                <input type="radio" name="seqTestCompetencesMode" value="compact" checked style="margin:0;">
+                <span style="font-weight:900;font-size:0.8rem;" data-i18n="lcSeqTestCompetencesCompact">Compact (Badges)</span>
+                <span style="font-size:0.68rem;color:var(--neo-gray-dark);" data-i18n="lcSeqTestCompetencesCompactDesc">Competence code &amp; title chips</span>
+              </label>
+              <label class="export-format-card" style="cursor:pointer;border:2px solid var(--neo-dark);padding:7px 8px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:2px;box-shadow:var(--neo-shadow-sm);">
+                <input type="radio" name="seqTestCompetencesMode" value="detailed" style="margin:0;">
+                <span style="font-weight:900;font-size:0.8rem;" data-i18n="lcSeqTestCompetencesDetailed">Detailed Table</span>
+                <span style="font-size:0.68rem;color:var(--neo-gray-dark);" data-i18n="lcSeqTestCompetencesDetailedDesc">Full table with custom columns</span>
+              </label>
+              <label class="export-format-card" style="cursor:pointer;border:2px solid var(--neo-dark);padding:7px 8px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:2px;box-shadow:var(--neo-shadow-sm);">
+                <input type="radio" name="seqTestCompetencesMode" value="none" style="margin:0;">
+                <span style="font-weight:900;font-size:0.8rem;" data-i18n="lcSeqTestCompetencesNone">None</span>
+                <span style="font-size:0.68rem;color:var(--neo-gray-dark);" data-i18n="lcSeqTestCompetencesNoneDesc">Hide competences on tests</span>
+              </label>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(175px, 1fr));gap:6px;background:var(--neo-card-bg);padding:8px 10px;border:2px solid var(--neo-dark);border-radius:var(--neo-radius-sm);">
+              <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqTcCol_code" checked>
+                <span data-i18n="seqColCode">Code Column</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqTcCol_title" checked>
+                <span data-i18n="seqColTitle">Title / Standard Column</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqTcCol_desc" checked>
+                <span data-i18n="seqColDescription">Descriptor Text Column</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqTcCol_level" checked>
+                <span data-i18n="seqColLevel">Level / Mastery Column</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqTcCol_score" checked>
+                <span data-i18n="seqColScore">Score / Pts Column</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqTcCol_comments">
+                <span data-i18n="seqColComments">Comments Column</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Attached Tests Correction Criteria Mode & Columns to Add -->
+          <div>
+            <div style="font-size:0.75rem;font-weight:800;color:var(--neo-gray-dark);text-transform:uppercase;margin-bottom:4px;" data-i18n="lcSeqTestCriteriaTitle">
+              C. Test Correction Criteria &amp; Rubric (Layout &amp; Columns to Add)
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(135px, 1fr));gap:8px;margin-bottom:6px;">
+              <label class="export-format-card" style="cursor:pointer;border:2px solid var(--neo-dark);padding:7px 8px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:2px;box-shadow:var(--neo-shadow-sm);">
+                <input type="radio" name="seqTestCriteriaMode" value="use_test" style="margin:0;">
+                <span style="font-weight:900;font-size:0.8rem;" data-i18n="seqUseTestSetting">Use Test Setting</span>
+                <span style="font-size:0.68rem;color:var(--neo-gray-dark);" data-i18n="seqUseTestSettingDesc">Per-test saved layout</span>
+              </label>
+              <label class="export-format-card" style="cursor:pointer;border:2px solid var(--neo-dark);padding:7px 8px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:2px;box-shadow:var(--neo-shadow-sm);">
+                <input type="radio" name="seqTestCriteriaMode" value="compact" checked style="margin:0;">
+                <span style="font-weight:900;font-size:0.8rem;" data-i18n="lcSeqTestCriteriaCompact">Compact (Titles &amp; Pts)</span>
+                <span style="font-size:0.68rem;color:var(--neo-gray-dark);" data-i18n="lcSeqTestCriteriaCompactDesc">Summary rubric table</span>
+              </label>
+              <label class="export-format-card" style="cursor:pointer;border:2px solid var(--neo-dark);padding:7px 8px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:2px;box-shadow:var(--neo-shadow-sm);">
+                <input type="radio" name="seqTestCriteriaMode" value="detailed" style="margin:0;">
+                <span style="font-weight:900;font-size:0.8rem;" data-i18n="lcSeqTestCriteriaDetailed">Detailed (Full Rubric)</span>
+                <span style="font-size:0.68rem;color:var(--neo-gray-dark);" data-i18n="lcSeqTestCriteriaDetailedDesc">Performance levels &amp; descriptions</span>
+              </label>
+              <label class="export-format-card" style="cursor:pointer;border:2px solid var(--neo-dark);padding:7px 8px;border-radius:var(--neo-radius-sm);background:var(--neo-card-bg);display:flex;flex-direction:column;gap:2px;box-shadow:var(--neo-shadow-sm);">
+                <input type="radio" name="seqTestCriteriaMode" value="none" style="margin:0;">
+                <span style="font-weight:900;font-size:0.8rem;" data-i18n="lcSeqTestCriteriaNone">None</span>
+                <span style="font-size:0.68rem;color:var(--neo-gray-dark);" data-i18n="lcSeqTestCriteriaNoneDesc">Do not include criteria</span>
+              </label>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(175px, 1fr));gap:6px;background:var(--neo-card-bg);padding:8px 10px;border:2px solid var(--neo-dark);border-radius:var(--neo-radius-sm);">
+              <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqCrCol_criterion" checked>
+                <span data-i18n="seqColCriterion">Criterion Title Column</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqCrCol_levels" checked>
+                <span data-i18n="seqColLevels">Performance Levels / Scale</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqCrCol_desc" checked>
+                <span data-i18n="seqColCritDesc">Criterion Descriptors</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqCrCol_max" checked>
+                <span data-i18n="seqColMaxPts">Max Points Column</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqCrCol_score" checked>
+                <span data-i18n="seqColEarnedScore">Earned Score Column</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="seqCrCol_comments">
+                <span data-i18n="seqColComments">Feedback / Comments Column</span>
+              </label>
+            </div>
           </div>
         </div>
       </div>
@@ -6979,6 +7379,144 @@
       };
 
       // ── Entire Unit Sequence Export Handlers ─────────────────────────────
+      window.lcSwitchSeqExportTab = function (tab) {
+        ['all', 'toc', 'lessons', 'tests'].forEach(function (t) {
+          var btn = document.getElementById('seqTabBtn_' + t);
+          if (btn) btn.classList.toggle('active', t === tab);
+        });
+        var pToc = document.getElementById('seqExportPanel_toc');
+        var pLes = document.getElementById('seqExportPanel_lessons');
+        var pTst = document.getElementById('seqExportPanel_tests');
+        if (pToc) pToc.style.display = (tab === 'all' || tab === 'toc') ? 'flex' : 'none';
+        if (pLes) pLes.style.display = (tab === 'all' || tab === 'lessons') ? 'flex' : 'none';
+        if (pTst) pTst.style.display = (tab === 'all' || tab === 'tests') ? 'flex' : 'none';
+      };
+
+      window.lcOnSeqCssThemeChange = function () {
+        var themeInp = document.querySelector('input[name="seqCssTheme"]:checked');
+        var val = themeInp ? themeInp.value : 'neobrutalist';
+        if (val === 'horizontal_table') {
+          var tblRadio = document.querySelector('input[name="seqLessonLayout"][value="horizontal_table"]');
+          if (tblRadio) tblRadio.checked = true;
+        }
+      };
+
+      window.lcOnSeqAnswerKeysChange = function (checked) {
+        // Keep answer key toggle in sync
+        var el = document.getElementById('seqOptAnswerKeys');
+        if (el) el.checked = !!checked;
+      };
+
+      window.lcApplySeqLessonPreset = function (preset) {
+        var keys = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence', 'metaTags', 'metaTeams',
+                    'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseTeacher', 'phaseStudent', 'phaseResources', 'phaseDescriptors', 'phaseDescText', 'phaseDiff', 'phaseAssess', 'phaseCustomFields'];
+        var activeSet = keys;
+        if (preset === 'teacher') {
+          activeSet = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence', 'metaTags', 'metaTeams',
+                       'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseTeacher', 'phaseResources', 'phaseDescriptors', 'phaseDiff', 'phaseAssess', 'phaseCustomFields'];
+        } else if (preset === 'student') {
+          activeSet = ['metaHeader', 'metaDate', 'metaDuration',
+                       'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseStudent', 'phaseResources', 'phaseCustomFields'];
+        } else if (preset === 'outline') {
+          activeSet = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence',
+                       'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective'];
+        }
+        keys.forEach(function (k) {
+          var el = document.getElementById('seqLt_' + k);
+          if (el) el.checked = activeSet.indexOf(k) !== -1;
+        });
+      };
+
+      function lcGetSequenceExportModalOptions() {
+        var compLayoutInput = document.querySelector('input[name="seqCompLayout"]:checked');
+        var compLayout = compLayoutInput ? compLayoutInput.value : 'column';
+        var critModeInput = document.querySelector('input[name="seqTestCriteriaMode"]:checked');
+        var testCriteriaMode = critModeInput ? critModeInput.value : 'compact';
+        var compModeInput = document.querySelector('input[name="seqTestCompetencesMode"]:checked');
+        var testCompetencesMode = compModeInput ? compModeInput.value : 'compact';
+        var themeInput = document.querySelector('input[name="seqCssTheme"]:checked');
+        var cssTheme = themeInput ? themeInput.value : 'neobrutalist';
+        var lessonLayoutInput = document.querySelector('input[name="seqLessonLayout"]:checked');
+        var lessonLayout = lessonLayoutInput ? lessonLayoutInput.value : (cssTheme === 'horizontal_table' ? 'horizontal_table' : 'cards');
+        var testRenderModeInput = document.querySelector('input[name="seqTestRenderMode"]:checked');
+        var testRenderMode = testRenderModeInput ? testRenderModeInput.value : 'full_exam';
+        var testVariantInput = document.querySelector('input[name="seqTestVariant"]:checked');
+        var testVariant = testVariantInput ? testVariantInput.value : 'A';
+        var testScaleModeInput = document.querySelector('input[name="seqTestScaleMode"]:checked');
+        var testScaleDisplayMode = testScaleModeInput ? testScaleModeInput.value : 'use_test';
+
+        var ltKeys = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence', 'metaTags', 'metaTeams',
+                      'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseTeacher', 'phaseStudent', 'phaseResources', 'phaseDescriptors', 'phaseDescText', 'phaseDiff', 'phaseAssess', 'phaseCustomFields'];
+        var lessonToggles = {};
+        ltKeys.forEach(function (k) {
+          var el = document.getElementById('seqLt_' + k);
+          lessonToggles[k] = el ? el.checked : true;
+        });
+
+        var tocCols = {
+          showType: document.getElementById('seqTocCol_type') ? document.getElementById('seqTocCol_type').checked : true,
+          showDate: document.getElementById('seqTocCol_date') ? document.getElementById('seqTocCol_date').checked : false,
+          showObjectives: document.getElementById('seqTocCol_objectives') ? document.getElementById('seqTocCol_objectives').checked : true,
+          showDuration: document.getElementById('seqTocCol_duration') ? document.getElementById('seqTocCol_duration').checked : true
+        };
+
+        var testHeaderToggles = {
+          showStudentName: document.getElementById('seqTh_showStudentName') ? document.getElementById('seqTh_showStudentName').checked : true,
+          showDate: document.getElementById('seqTh_showDate') ? document.getElementById('seqTh_showDate').checked : true,
+          showClass: document.getElementById('seqTh_showClass') ? document.getElementById('seqTh_showClass').checked : true,
+          showDuration: document.getElementById('seqTh_showDuration') ? document.getElementById('seqTh_showDuration').checked : true,
+          showScoreBox: document.getElementById('seqTh_showScoreBox') ? document.getElementById('seqTh_showScoreBox').checked : true,
+          showGradeBox: document.getElementById('seqTh_showGradeBox') ? document.getElementById('seqTh_showGradeBox').checked : true,
+          showScale: document.getElementById('seqTh_showScale') ? document.getElementById('seqTh_showScale').checked : true,
+          showSignature: document.getElementById('seqTh_showSignature') ? document.getElementById('seqTh_showSignature').checked : true,
+          showInstructions: document.getElementById('seqTh_showInstructions') ? document.getElementById('seqTh_showInstructions').checked : true
+        };
+
+        var testCompCols = {
+          showCodeCol: document.getElementById('seqTcCol_code') ? document.getElementById('seqTcCol_code').checked : true,
+          showTitleCol: document.getElementById('seqTcCol_title') ? document.getElementById('seqTcCol_title').checked : true,
+          showDescriptions: document.getElementById('seqTcCol_desc') ? document.getElementById('seqTcCol_desc').checked : true,
+          showLevelCol: document.getElementById('seqTcCol_level') ? document.getElementById('seqTcCol_level').checked : true,
+          showScoreCol: document.getElementById('seqTcCol_score') ? document.getElementById('seqTcCol_score').checked : true,
+          showCommentsCol: document.getElementById('seqTcCol_comments') ? document.getElementById('seqTcCol_comments').checked : false
+        };
+
+        var testCritCols = {
+          showCriterionCol: document.getElementById('seqCrCol_criterion') ? document.getElementById('seqCrCol_criterion').checked : true,
+          showLevelsCol: document.getElementById('seqCrCol_levels') ? document.getElementById('seqCrCol_levels').checked : true,
+          showDescriptions: document.getElementById('seqCrCol_desc') ? document.getElementById('seqCrCol_desc').checked : true,
+          showMaxCol: document.getElementById('seqCrCol_max') ? document.getElementById('seqCrCol_max').checked : true,
+          showScoreCol: document.getElementById('seqCrCol_score') ? document.getElementById('seqCrCol_score').checked : true,
+          showCommentsCol: document.getElementById('seqCrCol_comments') ? document.getElementById('seqCrCol_comments').checked : false
+        };
+
+        return {
+          includeSummary: document.getElementById('seqOptSummary') ? document.getElementById('seqOptSummary').checked : true,
+          includeVocab: document.getElementById('seqOptVocab') ? document.getElementById('seqOptVocab').checked : true,
+          includePhases: document.getElementById('seqOptPhases') ? document.getElementById('seqOptPhases').checked : true,
+          includeTests: document.getElementById('seqOptTests') ? document.getElementById('seqOptTests').checked : true,
+          includeGradingScale: document.getElementById('seqOptGradingScale') ? document.getElementById('seqOptGradingScale').checked : true,
+          includeAnswerKeys: document.getElementById('seqOptAnswerKeys') ? document.getElementById('seqOptAnswerKeys').checked : false,
+          competenceLayout: compLayout,
+          tocCols: tocCols,
+          lessonLayout: lessonLayout,
+          lessonToggles: lessonToggles,
+          testRenderMode: testRenderMode,
+          testVariant: testVariant,
+          testNumberedLines: document.getElementById('seqTestNumberedLines') ? document.getElementById('seqTestNumberedLines').checked : false,
+          testHeaderToggles: testHeaderToggles,
+          testScaleDisplayMode: testScaleDisplayMode,
+          testCriteriaMode: testCriteriaMode,
+          testCritCols: testCritCols,
+          testCompetencesMode: testCompetencesMode,
+          testCompCols: testCompCols,
+          cssTheme: cssTheme,
+          allCompetences: (typeof allCompetences !== 'undefined' && Array.isArray(allCompetences)) ? allCompetences : [],
+          getActivityLabel: typeof getActivityLabel === 'function' ? getActivityLabel : null,
+          getInteractionLabel: typeof getInteractionLabel === 'function' ? getInteractionLabel : null
+        };
+      }
+
       window.lcOpenSequenceExportModal = async function () {
         await loadSavedPlansIndex();
         var seq = currentPlan && currentPlan.unitSequence;
@@ -7010,7 +7548,7 @@
       window.lcOnSeqExportFormatChange = function () {
         var fmt = document.querySelector('input[name="seqExportFormat"]:checked');
         var val = fmt ? fmt.value : 'html';
-        ['Html', 'Pdf', 'Xlsx', 'Csv', 'Md', 'Json'].forEach(function (k) {
+        ['Html', 'Pdf', 'Docx', 'Xlsx', 'Ods', 'Csv', 'Md', 'Json'].forEach(function (k) {
           var el = document.getElementById('seqCard' + k);
           if (el) {
             var isSel = (el.querySelector('input') && el.querySelector('input').checked);
@@ -7020,11 +7558,11 @@
         });
         var previewBtn = document.getElementById('seqBtnPreview');
         if (previewBtn) {
-          previewBtn.style.display = (val === 'html' || val === 'pdf') ? 'inline-block' : 'none';
+          previewBtn.style.display = (val === 'html' || val === 'pdf' || val === 'docx') ? 'inline-block' : 'none';
         }
         var themeSec = document.getElementById('seqThemeSection');
         if (themeSec) {
-          themeSec.style.display = (val === 'json' || val === 'xlsx' || val === 'csv') ? 'none' : 'flex';
+          themeSec.style.display = (val === 'json' || val === 'xlsx' || val === 'ods' || val === 'csv') ? 'none' : 'flex';
         }
       };
 
@@ -7062,28 +7600,7 @@
         var seq = currentPlan && currentPlan.unitSequence;
         if (!seq) return;
         var collected = await lcCollectSequenceFullData(seq);
-        var compLayoutInput = document.querySelector('input[name="seqCompLayout"]:checked');
-        var compLayout = compLayoutInput ? compLayoutInput.value : 'column';
-        var critModeInput = document.querySelector('input[name="seqTestCriteriaMode"]:checked');
-        var testCriteriaMode = critModeInput ? critModeInput.value : 'compact';
-        var compModeInput = document.querySelector('input[name="seqTestCompetencesMode"]:checked');
-        var testCompetencesMode = compModeInput ? compModeInput.value : 'compact';
-        var themeInput = document.querySelector('input[name="seqCssTheme"]:checked');
-        var cssTheme = themeInput ? themeInput.value : 'neobrutalist';
-
-        var options = {
-          includeSummary: document.getElementById('seqOptSummary') ? document.getElementById('seqOptSummary').checked : true,
-          includeVocab: document.getElementById('seqOptVocab') ? document.getElementById('seqOptVocab').checked : true,
-          includePhases: document.getElementById('seqOptPhases') ? document.getElementById('seqOptPhases').checked : true,
-          includeTests: document.getElementById('seqOptTests') ? document.getElementById('seqOptTests').checked : true,
-          includeGradingScale: document.getElementById('seqOptGradingScale') ? document.getElementById('seqOptGradingScale').checked : true,
-          includeAnswerKeys: document.getElementById('seqOptAnswerKeys') ? document.getElementById('seqOptAnswerKeys').checked : false,
-          competenceLayout: compLayout,
-          testCriteriaMode: testCriteriaMode,
-          testCompetencesMode: testCompetencesMode,
-          cssTheme: cssTheme,
-          allCompetences: (typeof allCompetences !== 'undefined' && Array.isArray(allCompetences)) ? allCompetences : []
-        };
+        var options = lcGetSequenceExportModalOptions();
 
         var html = LessonCreatorService.exportSequenceToHtml(seq, collected.fullLessons, collected.fullTests, options);
         if (window.ExportStylesService) {
@@ -7109,30 +7626,13 @@
 
         var fmtInput = document.querySelector('input[name="seqExportFormat"]:checked');
         var format = fmtInput ? fmtInput.value : 'html';
-        var compLayoutInput = document.querySelector('input[name="seqCompLayout"]:checked');
-        var compLayout = compLayoutInput ? compLayoutInput.value : 'column';
-        var critModeInput = document.querySelector('input[name="seqTestCriteriaMode"]:checked');
-        var testCriteriaMode = critModeInput ? critModeInput.value : 'compact';
-        var compModeInput = document.querySelector('input[name="seqTestCompetencesMode"]:checked');
-        var testCompetencesMode = compModeInput ? compModeInput.value : 'compact';
-        var themeInput = document.querySelector('input[name="seqCssTheme"]:checked');
-        var cssTheme = themeInput ? themeInput.value : 'neobrutalist';
-
-        var options = {
-          includeSummary: document.getElementById('seqOptSummary') ? document.getElementById('seqOptSummary').checked : true,
-          includeVocab: document.getElementById('seqOptVocab') ? document.getElementById('seqOptVocab').checked : true,
-          includePhases: document.getElementById('seqOptPhases') ? document.getElementById('seqOptPhases').checked : true,
-          includeTests: document.getElementById('seqOptTests') ? document.getElementById('seqOptTests').checked : true,
-          includeGradingScale: document.getElementById('seqOptGradingScale') ? document.getElementById('seqOptGradingScale').checked : true,
-          includeAnswerKeys: document.getElementById('seqOptAnswerKeys') ? document.getElementById('seqOptAnswerKeys').checked : false,
-          competenceLayout: compLayout,
-          testCriteriaMode: testCriteriaMode,
-          testCompetencesMode: testCompetencesMode,
-          cssTheme: cssTheme,
-          allCompetences: (typeof allCompetences !== 'undefined' && Array.isArray(allCompetences)) ? allCompetences : []
-        };
+        var options = lcGetSequenceExportModalOptions();
+        var cssTheme = options.cssTheme;
 
         var collected = await lcCollectSequenceFullData(seq);
+        options.subjectLabel = getSubjectLabel(seq.subject || (collected.fullLessons[0] && collected.fullLessons[0].subjectId));
+        options.classLabel = getClassLabel(seq.classId || (collected.fullLessons[0] && collected.fullLessons[0].classId));
+
         var safeSeqName = (seq.title || 'unit_sequence').toLowerCase().replace(/[^a-z0-9_-]+/gi, '_').replace(/^_+|_+$/g, '') || 'unit_sequence';
 
         if (format === 'html') {
@@ -7157,6 +7657,29 @@
             downloadExportBlob(htmlFilename, htmlContent, 'text/html;charset=utf-8');
             lcCloseModal('sequenceExportModal');
             if (typeof showToast === 'function') showToast(i18n.t("lcUnitBookletExportedToast"));
+          }
+        } else if (format === 'docx') {
+          var docHtml = LessonCreatorService.exportSequenceToDocxHtml(seq, collected.fullLessons, collected.fullTests, options);
+          if (window.ExportStylesService) {
+            docHtml = await ExportStylesService.injectStyleIntoHtml(docHtml, ExportStylesService.getSelectedStyle('lessonCreator'));
+          }
+          var docFilename = safeSeqName + '_booklet.doc';
+          if (window.Desktop && Desktop.isElectron()) {
+            var dResult = await Desktop.saveToDisk({
+              title: 'Save Unit Word Booklet',
+              defaultPath: docFilename,
+              filters: [{ name: 'Word Document', extensions: ['doc', 'docx'] }],
+              content: docHtml,
+              encoding: 'utf8'
+            });
+            if (dResult && dResult.ok) {
+              lcCloseModal('sequenceExportModal');
+              handleExportSuccess(dResult.path, dResult.name || docFilename, 'Unit Word document exported successfully.');
+            }
+          } else {
+            downloadExportBlob(docFilename, docHtml, 'application/msword;charset=utf-8');
+            lcCloseModal('sequenceExportModal');
+            if (typeof showToast === 'function') showToast('Unit Word document exported successfully.');
           }
         } else if (format === 'markdown') {
           var mdContent = LessonCreatorService.exportSequenceToMarkdown(seq, collected.fullLessons, collected.fullTests, options);
@@ -7184,7 +7707,7 @@
             pdfHtml = await ExportStylesService.injectStyleIntoHtml(pdfHtml, ExportStylesService.getSelectedStyle('lessonCreator'));
           }
           var pdfFilename = safeSeqName + '_booklet.pdf';
-          var isLandscape = (cssTheme === 'horizontal_table');
+          var isLandscape = (cssTheme === 'horizontal_table' || options.lessonLayout === 'horizontal_table');
           if (window.Desktop && Desktop.isElectron() && typeof Desktop.printPdf === 'function') {
             try {
               var pRes = await Desktop.printPdf({
@@ -7209,215 +7732,18 @@
             }
             lcCloseModal('sequenceExportModal');
           }
-        } else if (format === 'xlsx') {
+        } else if (format === 'xlsx' || format === 'ods') {
           if (typeof XLSX === 'undefined') {
-            if (typeof showToast === 'function') showToast('Excel export library (SheetJS) is not loaded.', true);
+            if (typeof showToast === 'function') showToast('Spreadsheet export library (SheetJS) is not loaded.', true);
             return;
           }
-
-          var wb = XLSX.utils.book_new();
-          var descList = (typeof allDescriptors !== 'undefined' && Array.isArray(allDescriptors)) ? allDescriptors : ((typeof allCompetences !== 'undefined' && Array.isArray(allCompetences)) ? allCompetences : []);
-
-          function getCleanDescText(id) {
-            var tId = String(id || '').toLowerCase().trim();
-            var d = descList.find(function (item) {
-              return item && (String(item.id || '').toLowerCase().trim() === tId || String(item.code || '').toLowerCase().trim() === tId);
-            });
-            if (!d) return String(id || '');
-            return (d.code ? (d.code + ': ') : '') + (d.title || d.id || '');
-          }
-
-          function getSortedDescString(ids) {
-            if (!Array.isArray(ids) || ids.length === 0) return '';
-            var sorted = ids.slice().sort(function (a, b) {
-              return String(a || '').localeCompare(String(b || ''), undefined, { numeric: true, sensitivity: 'base' });
-            });
-            return sorted.map(getCleanDescText).join(';\n');
-          }
-
-          // Sheet 1: Sequence Overview
-          var aoaOverview = [];
-          aoaOverview.push(['UNIT CURRICULUM SEQUENCE', (seq.title || 'Untitled Sequence').toUpperCase()]);
-          var subLabel = getSubjectLabel(seq.subject || (collected.fullLessons[0] && collected.fullLessons[0].subjectId));
-          var clsLabel = getClassLabel(seq.classId || (collected.fullLessons[0] && collected.fullLessons[0].classId));
-          aoaOverview.push(['Subject', subLabel || 'All', 'Class', clsLabel || 'All']);
-          aoaOverview.push(['Total Items', (seq.lessons || []).length, 'Lessons', collected.fullLessons.length, 'Tests / Assessments', collected.fullTests.length]);
-          aoaOverview.push([]);
-
-          var overviewHeaders = ['#', 'Item Type', 'Title', 'Duration / Points', 'Key Objectives / Details', 'Tagged Competences'];
-          aoaOverview.push(overviewHeaders);
-
-          (seq.lessons || []).forEach(function (it, idx) {
-            var isTest = (it.type === 'test' || it.category === 'test');
-            var typeLabel = isTest ? 'Assessment / Test' : 'Lesson Plan';
-            var itemTitle = it.title || (isTest ? ('Test ' + (idx + 1)) : ('Lesson ' + (idx + 1)));
-            var durPoints = '';
-            var details = '';
-            var descIds = [];
-
-            if (isTest) {
-              var matchTest = collected.fullTests.find(function (t) { return t.id === it.id; });
-              if (matchTest) {
-                var pts = (matchTest.exercises || []).reduce(function (sum, e) { return sum + (Number(e.points) || 0); }, 0);
-                durPoints = pts + ' pts';
-                details = (matchTest.exercises || []).length + ' exercises';
-                if (Array.isArray(matchTest.descriptorIds)) descIds = descIds.concat(matchTest.descriptorIds);
-                if (Array.isArray(matchTest.linkedCompetenceIds)) descIds = descIds.concat(matchTest.linkedCompetenceIds);
-              } else {
-                durPoints = (it.points || 0) + ' pts';
-              }
-            } else {
-              var matchPlan = collected.fullLessons.find(function (l) { return l.id === it.id; });
-              if (matchPlan) {
-                var dur = (matchPlan.sections || []).reduce(function (sum, s) { return sum + (Number(s.duration) || 0); }, 0);
-                durPoints = dur + ' min';
-                var objs = (matchPlan.sections || []).map(function (s) { return s.objective; }).filter(Boolean);
-                details = objs.join('; ');
-                if (Array.isArray(matchPlan.descriptorIds)) descIds = descIds.concat(matchPlan.descriptorIds);
-                (matchPlan.sections || []).forEach(function (s) {
-                  if (Array.isArray(s.descriptorIds)) descIds = descIds.concat(s.descriptorIds);
-                });
-              } else {
-                durPoints = (it.duration || 0) + ' min';
-              }
-            }
-            aoaOverview.push([idx + 1, typeLabel, itemTitle, durPoints, details, getSortedDescString(Array.from(new Set(descIds)))]);
-          });
-
-          var wsOverview = XLSX.utils.aoa_to_sheet(aoaOverview);
-          wsOverview['!cols'] = [{ wch: 6 }, { wch: 18 }, { wch: 30 }, { wch: 18 }, { wch: 45 }, { wch: 35 }];
-          XLSX.utils.book_append_sheet(wb, wsOverview, 'Unit Overview');
-
-          // Sheet 2: Lesson Plans & Phases
-          if (options.includePhases !== false && collected.fullLessons.length > 0) {
-            var aoaPhases = [];
-            var phaseHeaders = ['Lesson #', 'Lesson Title', 'Phase #', 'Phase Title', 'Duration (min)', 'Activity Type', 'Interaction Mode', 'Learning Objective', 'Teacher Actions', 'Student Tasks', 'Resources', 'Tagged Competences', 'Differentiation', 'Assessment'];
-            aoaPhases.push(phaseHeaders);
-
-            collected.fullLessons.forEach(function (plan, lIdx) {
-              var lNum = lIdx + 1;
-              var lTitle = plan.title || ('Lesson ' + lNum);
-              (plan.sections || []).forEach(function (sec, pIdx) {
-                aoaPhases.push([
-                  lNum,
-                  lTitle,
-                  pIdx + 1,
-                  sec.title || ('Phase ' + (pIdx + 1)),
-                  Number(sec.duration) || 0,
-                  getActivityLabel(sec.activityTypeId) || '',
-                  getInteractionLabel(sec.interactionTypeId) || '',
-                  sec.objective || '',
-                  sec.teacherAction || '',
-                  sec.studentAction || '',
-                  sec.resources || '',
-                  getSortedDescString(sec.descriptorIds),
-                  sec.differentiation || '',
-                  sec.assessmentStrategy || ''
-                ]);
-              });
-            });
-
-            var wsPhases = XLSX.utils.aoa_to_sheet(aoaPhases);
-            wsPhases['!cols'] = [{ wch: 10 }, { wch: 28 }, { wch: 8 }, { wch: 26 }, { wch: 14 }, { wch: 20 }, { wch: 18 }, { wch: 35 }, { wch: 35 }, { wch: 35 }, { wch: 22 }, { wch: 32 }, { wch: 24 }, { wch: 24 }];
-            XLSX.utils.book_append_sheet(wb, wsPhases, 'Lessons & Phases');
-          }
-
-          // Sheet 3: Assessments & Tests
-          if (options.includeTests !== false && collected.fullTests.length > 0) {
-            var aoaTests = [];
-            var testHeaders = ['Test #', 'Test Title', 'Exercise #', 'Exercise Title', 'Points', 'Instructions', 'Correction Criteria', 'Tagged Competences'];
-            if (options.includeAnswerKeys) testHeaders.push('Answer Key / Solution');
-            aoaTests.push(testHeaders);
-
-            collected.fullTests.forEach(function (tst, tIdx) {
-              var tNum = tIdx + 1;
-              var tTitle = tst.title || ('Assessment ' + tNum);
-              (tst.exercises || []).forEach(function (ex, eIdx) {
-                var exDescIds = (ex.descriptorIds || []).concat(ex.linkedCompetenceIds || []).concat(ex.competenceIds || []);
-                var row = [
-                  tNum,
-                  tTitle,
-                  eIdx + 1,
-                  ex.title || ('Exercise ' + (eIdx + 1)),
-                  Number(ex.points) || 0,
-                  ex.instruction || ex.content || ex.question || '',
-                  Array.isArray(ex.criteria) ? ex.criteria.map(function (c) { return (c.title || c.name || '') + ' (' + (c.points || 0) + ' pts)'; }).join('; ') : '',
-                  getSortedDescString(Array.from(new Set(exDescIds)))
-                ];
-                if (options.includeAnswerKeys) {
-                  row.push(ex.solution || ex.answerKey || ex.answer || '');
-                }
-                aoaTests.push(row);
-              });
-            });
-
-            var wsTests = XLSX.utils.aoa_to_sheet(aoaTests);
-            wsTests['!cols'] = [{ wch: 8 }, { wch: 28 }, { wch: 10 }, { wch: 26 }, { wch: 10 }, { wch: 40 }, { wch: 30 }, { wch: 28 }];
-            if (options.includeAnswerKeys) wsTests['!cols'].push({ wch: 35 });
-            XLSX.utils.book_append_sheet(wb, wsTests, 'Assessments & Tests');
-          }
-
-          // Sheet 4: Competences Coverage
-          var usedDescMap = new Map();
-          collected.fullLessons.forEach(function (plan, lIdx) {
-            var lLabel = 'Lesson ' + (lIdx + 1);
-            (plan.sections || []).forEach(function (sec) {
-              (sec.descriptorIds || []).forEach(function (id) {
-                var tId = String(id || '').toLowerCase().trim();
-                var d = descList.find(function (item) { return item && (String(item.id || '').toLowerCase().trim() === tId || String(item.code || '').toLowerCase().trim() === tId); });
-                var key = d ? (d.code || d.id) : id;
-                if (!usedDescMap.has(key)) {
-                  usedDescMap.set(key, {
-                    code: d ? (d.code || '') : key,
-                    title: d ? (d.title || d.id) : id,
-                    description: d ? (d.description || d.statement || '') : '',
-                    category: d ? (d.category || d.subCategory || '') : '',
-                    subject: d ? (getSubjectLabel(d.subjectId) || d.subjectId || '') : '',
-                    targets: new Set()
-                  });
-                }
-                usedDescMap.get(key).targets.add(lLabel);
-              });
-            });
-          });
-
-          collected.fullTests.forEach(function (tst, tIdx) {
-            var tLabel = 'Test ' + (tIdx + 1);
-            (tst.exercises || []).forEach(function (ex) {
-              var exIds = (ex.descriptorIds || []).concat(ex.linkedCompetenceIds || []).concat(ex.competenceIds || []);
-              exIds.forEach(function (id) {
-                var tId = String(id || '').toLowerCase().trim();
-                var d = descList.find(function (item) { return item && (String(item.id || '').toLowerCase().trim() === tId || String(item.code || '').toLowerCase().trim() === tId); });
-                var key = d ? (d.code || d.id) : id;
-                if (!usedDescMap.has(key)) {
-                  usedDescMap.set(key, {
-                    code: d ? (d.code || '') : key,
-                    title: d ? (d.title || d.id) : id,
-                    description: d ? (d.description || d.statement || '') : '',
-                    category: d ? (d.category || d.subCategory || '') : '',
-                    subject: d ? (getSubjectLabel(d.subjectId) || d.subjectId || '') : '',
-                    targets: new Set()
-                  });
-                }
-                usedDescMap.get(key).targets.add(tLabel);
-              });
-            });
-          });
-
-          if (usedDescMap.size > 0) {
-            var compRows = [['Code', 'Standard / Competence Title', 'Description / Text', 'Category', 'Subject', 'Covered In']];
-            Array.from(usedDescMap.values()).sort(function (a, b) {
-              return String(a.code || a.title).localeCompare(String(b.code || b.title), undefined, { numeric: true, sensitivity: 'base' });
-            }).forEach(function (val) {
-              compRows.push([val.code, val.title, val.description, val.category, val.subject, Array.from(val.targets).join(', ')]);
-            });
-            var wsComp = XLSX.utils.aoa_to_sheet(compRows);
-            wsComp['!cols'] = [{ wch: 14 }, { wch: 32 }, { wch: 50 }, { wch: 20 }, { wch: 18 }, { wch: 30 }];
-            XLSX.utils.book_append_sheet(wb, wsComp, 'Competences Coverage');
-          }
-
-          var wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-          var xlsxFilename = safeSeqName + '_sequence.xlsx';
+          var wb = LessonCreatorService.buildSequenceWorkbook(seq, collected.fullLessons, collected.fullTests, options);
+          if (!wb) return;
+          var isOds = (format === 'ods');
+          var ext = isOds ? 'ods' : 'xlsx';
+          var mime = isOds ? 'application/vnd.oasis.opendocument.spreadsheet' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+          var wbout = XLSX.write(wb, { bookType: ext, type: 'array' });
+          var sheetFilename = safeSeqName + '_sequence.' + ext;
 
           if (window.Desktop && Desktop.isElectron()) {
             var binary = '';
@@ -7428,155 +7754,23 @@
             }
             var base64 = btoa(binary);
             var xResult = await Desktop.saveToDisk({
-              title: 'Save Unit Sequence Spreadsheet',
-              defaultPath: xlsxFilename,
-              filters: [{ name: 'Excel Workbook', extensions: ['xlsx'] }],
+              title: isOds ? 'Save Unit Sequence LibreOffice Spreadsheet' : 'Save Unit Sequence Excel Spreadsheet',
+              defaultPath: sheetFilename,
+              filters: [{ name: isOds ? 'LibreOffice Calc Workbook' : 'Excel Workbook', extensions: [ext] }],
               content: base64,
               encoding: 'base64'
             });
             if (xResult && xResult.ok) {
               lcCloseModal('sequenceExportModal');
-              handleExportSuccess(xResult.path, xResult.name || xlsxFilename, i18n.t('lcUnitXlsxExportedToast') || 'Unit sequence Excel spreadsheet exported successfully.');
+              handleExportSuccess(xResult.path, xResult.name || sheetFilename, i18n.t('lcUnitXlsxExportedToast') || 'Unit sequence spreadsheet exported successfully.');
             }
           } else {
-            downloadExportBlob(xlsxFilename, wbout, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            downloadExportBlob(sheetFilename, wbout, mime);
             lcCloseModal('sequenceExportModal');
-            if (typeof showToast === 'function') showToast(i18n.t('lcUnitXlsxExportedToast') || 'Unit sequence Excel spreadsheet exported successfully.');
+            if (typeof showToast === 'function') showToast(i18n.t('lcUnitXlsxExportedToast') || 'Unit sequence spreadsheet exported successfully.');
           }
         } else if (format === 'csv') {
-          function escCsv(val) {
-            var s = String(val === null || val === undefined ? '' : val);
-            if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
-              return '"' + s.replace(/"/g, '""') + '"';
-            }
-            return s;
-          }
-
-          var descList = (typeof allDescriptors !== 'undefined' && Array.isArray(allDescriptors)) ? allDescriptors : ((typeof allCompetences !== 'undefined' && Array.isArray(allCompetences)) ? allCompetences : []);
-          function getDescStrCsv(ids) {
-            if (!Array.isArray(ids) || ids.length === 0) return '';
-            return ids.map(function (id) {
-              var tId = String(id || '').toLowerCase().trim();
-              var d = descList.find(function (item) {
-                return item && (String(item.id || '').toLowerCase().trim() === tId || String(item.code || '').toLowerCase().trim() === tId);
-              });
-              return d ? ((d.code ? (d.code + ': ') : '') + (d.title || d.id)) : id;
-            }).join('; ');
-          }
-
-          var csvRows = [];
-          var subLabel = getSubjectLabel(seq.subject || (collected.fullLessons[0] && collected.fullLessons[0].subjectId));
-          var clsLabel = getClassLabel(seq.classId || (collected.fullLessons[0] && collected.fullLessons[0].classId));
-
-          csvRows.push(['# UNIT SEQUENCE', seq.title || 'Untitled Sequence'].map(escCsv).join(','));
-          csvRows.push(['# Subject', subLabel || 'All', '# Class', clsLabel || 'All'].map(escCsv).join(','));
-          csvRows.push(['# Total Lessons', collected.fullLessons.length, '# Total Tests', collected.fullTests.length].map(escCsv).join(','));
-          csvRows.push([]);
-
-          var csvHeaders = [
-            'Sequence Item #',
-            'Item Type',
-            'Item Title',
-            'Phase / Exercise #',
-            'Phase / Exercise Title',
-            'Duration (min) / Points',
-            'Activity / Mode',
-            'Learning Objective / Instructions',
-            'Teacher Actions',
-            'Student Tasks',
-            'Resources',
-            'Tagged Competences',
-            'Differentiation / Criteria'
-          ];
-          csvRows.push(csvHeaders.map(escCsv).join(','));
-
-          (seq.lessons || []).forEach(function (it, idx) {
-            var isTest = (it.type === 'test' || it.category === 'test');
-            var itemNum = idx + 1;
-            var itemType = isTest ? 'Assessment' : 'Lesson';
-            var itemTitle = it.title || (isTest ? ('Test ' + itemNum) : ('Lesson ' + itemNum));
-
-            if (!isTest) {
-              var matchPlan = collected.fullLessons.find(function (l) { return l.id === it.id; });
-              var sections = (matchPlan && matchPlan.sections) ? matchPlan.sections : [];
-              if (sections.length > 0) {
-                sections.forEach(function (sec, pIdx) {
-                  csvRows.push([
-                    itemNum,
-                    itemType,
-                    itemTitle,
-                    pIdx + 1,
-                    sec.title || ('Phase ' + (pIdx + 1)),
-                    Number(sec.duration) || 0,
-                    (getActivityLabel(sec.activityTypeId) || '') + (sec.interactionTypeId ? (' (' + getInteractionLabel(sec.interactionTypeId) + ')') : ''),
-                    sec.objective || '',
-                    sec.teacherAction || '',
-                    sec.studentAction || '',
-                    sec.resources || '',
-                    getDescStrCsv(sec.descriptorIds),
-                    sec.differentiation || ''
-                  ].map(escCsv).join(','));
-                });
-              } else {
-                csvRows.push([
-                  itemNum,
-                  itemType,
-                  itemTitle,
-                  '',
-                  '',
-                  it.duration || '',
-                  '',
-                  '',
-                  '',
-                  '',
-                  '',
-                  '',
-                  ''
-                ].map(escCsv).join(','));
-              }
-            } else {
-              var matchTest = collected.fullTests.find(function (t) { return t.id === it.id; });
-              var exercises = (matchTest && matchTest.exercises) ? matchTest.exercises : [];
-              if (exercises.length > 0) {
-                exercises.forEach(function (ex, eIdx) {
-                  var exIds = (ex.descriptorIds || []).concat(ex.linkedCompetenceIds || []).concat(ex.competenceIds || []);
-                  csvRows.push([
-                    itemNum,
-                    itemType,
-                    itemTitle,
-                    eIdx + 1,
-                    ex.title || ('Exercise ' + (eIdx + 1)),
-                    (Number(ex.points) || 0) + ' pts',
-                    'Assessment',
-                    ex.instruction || ex.content || ex.question || '',
-                    '',
-                    options.includeAnswerKeys ? (ex.solution || ex.answerKey || '') : '',
-                    '',
-                    getDescStrCsv(Array.from(new Set(exIds))),
-                    Array.isArray(ex.criteria) ? ex.criteria.map(function (c) { return (c.title || c.name || '') + ' (' + (c.points || 0) + ' pts)'; }).join('; ') : ''
-                  ].map(escCsv).join(','));
-                });
-              } else {
-                csvRows.push([
-                  itemNum,
-                  itemType,
-                  itemTitle,
-                  '',
-                  '',
-                  (it.points ? (it.points + ' pts') : ''),
-                  'Assessment',
-                  '',
-                  '',
-                  '',
-                  '',
-                  '',
-                  ''
-                ].map(escCsv).join(','));
-              }
-            }
-          });
-
-          var csvContent = csvRows.join('\r\n');
+          var csvContent = LessonCreatorService.exportSequenceToCsv(seq, collected.fullLessons, collected.fullTests, options);
           var csvFilename = safeSeqName + '_sequence.csv';
 
           if (window.Desktop && Desktop.isElectron()) {
@@ -8692,7 +8886,7 @@
         var submitLabelEl = document.getElementById('exportSubmitBtnLabel');
         var previewBtn = document.getElementById('btnExportPreview');
         if (previewBtn) {
-          previewBtn.style.display = (activeExportFormat === 'html' || activeExportFormat === 'pdf') ? 'inline-flex' : 'none';
+          previewBtn.style.display = (activeExportFormat === 'html' || activeExportFormat === 'pdf' || activeExportFormat === 'docx') ? 'inline-flex' : 'none';
         }
 
         if (submitLabelEl) {
@@ -8700,6 +8894,7 @@
           switch (activeExportFormat) {
             case 'html': labelText = 'Export HTML (.html)'; break;
             case 'pdf': labelText = 'Print / PDF (.pdf)'; break;
+            case 'docx': labelText = 'Download Word (.doc)'; break;
             case 'xlsx': labelText = 'Download Excel (.xlsx)'; break;
             case 'ods': labelText = 'Download LibreOffice Calc (.ods)'; break;
             case 'csv': labelText = 'Download CSV (.csv)'; break;
@@ -8850,7 +9045,7 @@
 
         var fmtBadge = document.getElementById('exportSummaryFormatBadge');
         if (fmtBadge) {
-          var extMap = { html: 'HTML (.html)', pdf: 'PDF (.pdf)', xlsx: 'Excel (.xlsx)', ods: 'LibreOffice Calc (.ods)', csv: 'CSV (.csv)', json: 'JSON (.json)', text: 'Text (.md)' };
+          var extMap = { html: 'HTML (.html)', pdf: 'PDF (.pdf)', docx: 'Word (.doc)', xlsx: 'Excel (.xlsx)', ods: 'LibreOffice Calc (.ods)', csv: 'CSV (.csv)', json: 'JSON (.json)', text: 'Text (.md)' };
           fmtBadge.textContent = extMap[activeExportFormat] || activeExportFormat.toUpperCase();
         }
 
@@ -8866,7 +9061,7 @@
 
         var fnEl = document.getElementById('exportSummaryFilename');
         if (fnEl) {
-          var ext = (activeExportFormat === 'text') ? 'md' : activeExportFormat;
+          var ext = (activeExportFormat === 'text') ? 'md' : ((activeExportFormat === 'docx') ? 'doc' : activeExportFormat);
           fnEl.textContent = getSafeExportFilename(ext);
         }
       }
@@ -9203,21 +9398,58 @@
           '      text-transform: uppercase;\n' +
           '      letter-spacing: 0.5px;\n' +
           '    }\n' +
+          '    .lesson-horiz-table-wrap {\n' +
+          '      background: var(--neo-surface);\n' +
+          '      border: var(--neo-border-width) solid var(--neo-border-color);\n' +
+          '      border-radius: 6px;\n' +
+          '      box-shadow: 3px 3px 0 #888888;\n' +
+          '      overflow-x: auto;\n' +
+          '      margin-bottom: 18px;\n' +
+          '    }\n' +
+          '    .lesson-horiz-table {\n' +
+          '      width: 100%;\n' +
+          '      border-collapse: collapse;\n' +
+          '      font-size: 0.84rem;\n' +
+          '      text-align: left;\n' +
+          '    }\n' +
+          '    .lesson-horiz-table th {\n' +
+          '      background: #e2c96e;\n' +
+          '      color: #333333;\n' +
+          '      padding: 8px 10px;\n' +
+          '      font-weight: 800;\n' +
+          '      font-size: 0.75rem;\n' +
+          '      text-transform: uppercase;\n' +
+          '      letter-spacing: 0.4px;\n' +
+          '      border-bottom: 2px solid #333333;\n' +
+          '      border-right: 1px solid #cbd5e1;\n' +
+          '    }\n' +
+          '    .lesson-horiz-table th:last-child { border-right: none; }\n' +
+          '    .lesson-horiz-table td {\n' +
+          '      padding: 8px 10px;\n' +
+          '      border-bottom: 1px solid #cbd5e1;\n' +
+          '      border-right: 1px solid #e2e8f0;\n' +
+          '      vertical-align: top;\n' +
+          '      white-space: pre-wrap;\n' +
+          '      line-height: 1.45;\n' +
+          '    }\n' +
+          '    .lesson-horiz-table td:last-child { border-right: none; }\n' +
+          '    .lesson-horiz-table tr:nth-child(even) td { background: #fafaf7; }\n' +
           '    @media print {\n' +
           '      body { background: #ffffff !important; padding: 0 !important; font-size: 11pt !important; color: #000000 !important; }\n' +
           '      .export-container { max-width: 100% !important; margin: 0 !important; }\n' +
           '      .plan-hero { box-shadow: none !important; border: 1.5px solid #333333 !important; margin-bottom: 12px !important; }\n' +
           '      .phase-export-card { page-break-inside: avoid !important; break-inside: avoid !important; border: 1.5px solid #333333 !important; box-shadow: none !important; margin-bottom: 10px !important; }\n' +
+          '      .lesson-horiz-table-wrap { box-shadow: none !important; border: 1.5px solid #333333 !important; }\n' +
           '      .phase-header { background: #f8fafc !important; border-bottom: 1.5px solid #333333 !important; }\n' +
           '      .sec-box { border: 1px solid #333333 !important; }\n' +
           '      .plan-footer { border-top: 1.5px solid #333333 !important; }\n' +
-          '      @page { margin: 12mm 10mm; size: A4 portrait; }\n' +
+          '      @page { margin: 12mm 10mm; size: A4 ' + ((document.querySelector('input[name="exportPlanLayoutMode"]:checked') && document.querySelector('input[name="exportPlanLayoutMode"]:checked').value === 'horizontal_table') ? 'landscape' : 'portrait') + '; }\n' +
           '      -webkit-print-color-adjust: exact; print-color-adjust: exact;\n' +
           '    }\n' +
           '  </style>\n' +
           '</head>\n' +
           '<body>\n' +
-          '  <div class="export-container">\n';
+          '  <div class="export-container"' + ((document.querySelector('input[name="exportPlanLayoutMode"]:checked') && document.querySelector('input[name="exportPlanLayoutMode"]:checked').value === 'horizontal_table') ? ' style="max-width:1180px;"' : '') + '>\n';
 
         // 1. Hero Block
         if (toggles.metaHeader || toggles.metaDate || toggles.metaDuration || toggles.metaSequence || toggles.metaTags || toggles.metaTeams) {
@@ -9256,6 +9488,93 @@
         }
 
         // 2. Phases Block
+        var layoutModeEl = document.querySelector('input[name="exportPlanLayoutMode"]:checked');
+        var isHorizTable = (layoutModeEl && layoutModeEl.value === 'horizontal_table');
+
+        if (isHorizTable) {
+          var customTableTitles = [];
+          if (toggles.phaseCustomFields !== false) {
+            phases.forEach(function (sec) {
+              if (Array.isArray(sec.customFields)) {
+                sec.customFields.forEach(function (cf) {
+                  var t = (cf && cf.title ? cf.title.trim() : 'Custom Field');
+                  if (customTableTitles.indexOf(t) === -1) customTableTitles.push(t);
+                });
+              }
+            });
+          }
+          html += '    <div class="lesson-horiz-table-wrap">\n';
+          html += '      <table class="lesson-horiz-table">\n';
+          html += '        <thead><tr>\n';
+          html += '          <th style="width:42px;text-align:center;">#</th>\n';
+          if (toggles.phaseTitle) html += '          <th>' + escapeHtml(i18n.t('lcExportPhaseTitle') || 'Phase Title') + '</th>\n';
+          if (toggles.phaseDuration) html += '          <th style="width:70px;text-align:center;">' + escapeHtml(i18n.t('lblDuration') || 'Min') + '</th>\n';
+          if (toggles.phaseActivity) html += '          <th>' + escapeHtml(i18n.t('lcExportActivityMode') || 'Activity & Mode') + '</th>\n';
+          if (toggles.phaseObjective) html += '          <th>' + escapeHtml(i18n.t('lcExportObjective') || 'Learning Objective') + '</th>\n';
+          if (toggles.phaseTeacher) html += '          <th>' + escapeHtml(i18n.t('lcExportTeacherActions') || 'Teacher Actions') + '</th>\n';
+          if (toggles.phaseStudent) html += '          <th>' + escapeHtml(i18n.t('lcExportStudentTasks') || 'Student Tasks') + '</th>\n';
+          if (toggles.phaseResources) html += '          <th>' + escapeHtml(i18n.t('lcExportResources') || 'Resources') + '</th>\n';
+          if (toggles.phaseDescriptors) html += '          <th>' + escapeHtml(i18n.t('lcExportTaggedCompetences') || 'Competences') + '</th>\n';
+          if (toggles.phaseDiff) html += '          <th>' + escapeHtml(i18n.t('lcExportDifferentiation') || 'Differentiation') + '</th>\n';
+          if (toggles.phaseAssess) html += '          <th>' + escapeHtml(i18n.t('lcExportAssessmentStrategy') || 'Assessment') + '</th>\n';
+          customTableTitles.forEach(function (ct) {
+            html += '          <th>' + escapeHtml(ct) + '</th>\n';
+          });
+          html += '        </tr></thead>\n';
+          html += '        <tbody>\n';
+          phases.forEach(function (sec, idx) {
+            var actLabel = getActivityLabel(sec.activityTypeId, false);
+            var modeLabel = getInteractionLabel(sec.interactionTypeId, false);
+            var pDur = Number(sec.duration) || 0;
+            var pTitle = sec.title || ('Phase ' + (idx + 1));
+            html += '          <tr>\n';
+            html += '            <td style="text-align:center;font-weight:800;">' + (idx + 1) + '</td>\n';
+            if (toggles.phaseTitle) html += '            <td style="font-weight:800;">' + escapeHtml(pTitle) + '</td>\n';
+            if (toggles.phaseDuration) html += '            <td style="text-align:center;font-weight:700;">' + pDur + 'm</td>\n';
+            if (toggles.phaseActivity) {
+              var amParts = [];
+              if (actLabel) amParts.push(actLabel);
+              if (modeLabel) amParts.push(modeLabel);
+              html += '            <td>' + escapeHtml(amParts.join(' • ') || '—') + '</td>\n';
+            }
+            if (toggles.phaseObjective) html += '            <td>' + escapeHtml(sec.objective || '—') + '</td>\n';
+            if (toggles.phaseTeacher) html += '            <td>' + escapeHtml(sec.teacherAction || '—') + '</td>\n';
+            if (toggles.phaseStudent) html += '            <td>' + escapeHtml(sec.studentAction || '—') + '</td>\n';
+            if (toggles.phaseResources) html += '            <td>' + escapeHtml(sec.resources || '—') + '</td>\n';
+            if (toggles.phaseDescriptors) {
+              var descHtml = '—';
+              if (Array.isArray(sec.descriptorIds) && sec.descriptorIds.length > 0) {
+                descHtml = sec.descriptorIds.map(function (id) {
+                  var targetIdStr = String(id || '').toLowerCase().trim();
+                  var d = (allDescriptors || []).find(function (item) {
+                    return item && (String(item.id || '').toLowerCase().trim() === targetIdStr || String(item.code || '').toLowerCase().trim() === targetIdStr);
+                  });
+                  var code = d ? (d.code || d.id) : id;
+                  var title = d ? (d.title || '') : '';
+                  var text = d ? (d.description || d.statement || '') : '';
+                  var s = '<span class="comp-chip">' + escapeHtml(code + (title && title !== code ? (' - ' + title) : '')) + '</span>';
+                  if (toggles.phaseDescText && text) {
+                    s += '<div style="font-size:0.74rem;color:#475569;margin-top:2px;">' + escapeHtml(text) + '</div>';
+                  }
+                  return s;
+                }).join(' ');
+              }
+              html += '            <td>' + descHtml + '</td>\n';
+            }
+            if (toggles.phaseDiff) html += '            <td>' + escapeHtml(sec.differentiation || '—') + '</td>\n';
+            if (toggles.phaseAssess) html += '            <td>' + escapeHtml(sec.assessmentStrategy || '—') + '</td>\n';
+            customTableTitles.forEach(function (ct) {
+              var match = Array.isArray(sec.customFields) ? sec.customFields.find(function (f) {
+                return (f.title || '').trim().toLowerCase() === ct.toLowerCase();
+              }) : null;
+              html += '            <td>' + (match ? renderMarkdownOrHtml(match.content || '', match.format) : '—') + '</td>\n';
+            });
+            html += '          </tr>\n';
+          });
+          html += '        </tbody>\n';
+          html += '      </table>\n';
+          html += '    </div>\n';
+        } else {
         phases.forEach(function (sec, idx) {
           var actLabel = getActivityLabel(sec.activityTypeId, false);
           var modeLabel = getInteractionLabel(sec.interactionTypeId, false);
@@ -9414,6 +9733,7 @@
           html += '      </div>\n';
           html += '    </div>\n';
         });
+        }
 
         // Footer Banner
         var teacherName = (typeof window.getAppTeacherName === 'function') ? window.getAppTeacherName() : '';
@@ -9614,13 +9934,14 @@
 
         if (window.Desktop && Desktop.isElectron() && typeof Desktop.printPdf === 'function' && dest !== 'browser') {
           try {
+            var isHorizPdf = !!(document.querySelector('input[name="exportPlanLayoutMode"]:checked') && document.querySelector('input[name="exportPlanLayoutMode"]:checked').value === 'horizontal_table');
             var req = {
               html: html,
               defaultName: filename,
-              landscape: false,
+              landscape: isHorizPdf,
               pdfOptions: {
                 pageSize: 'A4',
-                landscape: false,
+                landscape: isHorizPdf,
                 marginsType: 1,
                 preferCSSPageSize: true,
                 printBackground: true
@@ -10137,6 +10458,54 @@
         }
       };
 
+      window.lcExecuteExportDocx = async function (dest) {
+        if (!dest) {
+          dest = await lcPromptExportDestination();
+          if (!dest) return;
+        }
+
+        var toggles = lcGetExportToggles();
+        var html = lcGenerateExportHtml({ forPrint: false, toggles: toggles });
+        if (window.ExportStylesService) {
+          html = await ExportStylesService.injectStyleIntoHtml(html, ExportStylesService.getSelectedStyle('lessonCreator'));
+        }
+        var docHtml = html.replace('<html lang="en">', '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">')
+          .replace('<head>', '<head><!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom><w:DoNotOptimizeForBrowser/></w:WordDocument></xml><![endif]-->');
+        var filename = getSafeExportFilename('doc');
+
+        if (window.Desktop && Desktop.isElectron() && dest !== 'browser') {
+          try {
+            var result = null;
+            if (dest === 'to-print') {
+              result = await Desktop.saveText('toPrint', filename, docHtml);
+              if (result && result.file && result.file.path) result.path = result.file.path;
+              if (result && !result.name) result.name = filename;
+            } else {
+              result = await Desktop.saveToDisk({
+                title: 'Save Word Document (.doc)',
+                defaultPath: filename,
+                filters: [{ name: 'Word Document', extensions: ['doc'] }],
+                content: docHtml,
+                encoding: 'utf8'
+              });
+            }
+            if (result && result.ok) {
+              handleExportSuccess(result.path, result.name || filename, i18n.t('lcExportCopySuccess') || 'Word document exported successfully.');
+            } else if (result && !result.ok && !result.canceled) {
+              if (typeof showToast === 'function') showToast('Could not save Word document: ' + (result.error || 'unknown error'), true);
+            }
+          } catch (err) {
+            if (typeof showToast === 'function') showToast('Could not save Word document: ' + err.message, true);
+          }
+        } else {
+          downloadExportBlob(filename, docHtml, 'application/msword;charset=utf-8');
+          lcCloseModal('exportPlanModal');
+          if (typeof showToast === 'function') {
+            showToast(i18n.t('lcExportCopySuccess') || 'Word document exported successfully.');
+          }
+        }
+      };
+
       window.lcExecuteCurrentExport = async function () {
         var destination = await lcPromptExportDestination();
         if (!destination) return;
@@ -10147,6 +10516,9 @@
             break;
           case 'pdf':
             await lcExecuteExportPdf(destination);
+            break;
+          case 'docx':
+            await lcExecuteExportDocx(destination);
             break;
           case 'xlsx':
             await lcExecuteExportXlsx(destination, 'xlsx');

@@ -19,6 +19,7 @@
   <script src="../js/lesson-creator-service.js"></script>
   <script src="../js/test-creator-service.js"></script>
   <script src="../js/export-styles-service.js"></script>
+  <script src="../modules/xlsx.min.js"></script>
   <style>
     @keyframes tcPulseCard {
       0% { outline: 4px solid #fde047; transform: scale(1.01); }
@@ -296,6 +297,7 @@
                   <span id="testCompetencesCountBadge" style="background:#dbeafe;border:1.5px solid #2563eb;color:#1e40af;font-size:0.75rem;padding:2px 8px;border-radius:3px;font-weight:900;"></span>
                 </div>
                 <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                  <button type="button" class="neo-btn sm" style="background:#eff6ff;color:#1e40af;border-color:#2563eb;display:inline-flex;align-items:center;gap:4px;" onclick="tcOpenCompetenceLayoutModal('__exam__')" title="Customise competence table columns, page orientation, and appearance"><img src="../assets/icons/layout.svg" style="width:13px;height:13px;" alt=""><span data-i18n="tcRubricLayoutAppearance">Layout &amp; Appearance</span></button>
                   <button type="button" class="neo-btn sm" style="background:#dbeafe;color:#1e40af;border-color:#2563eb;" onclick="tcAddSectionBlockToExam('section_competences')" title="Place a dedicated competences block in the exam question sequence" data-i18n-title="tcPlaceInExamFlowTooltip"><span data-i18n="tcPlaceInExamFlow">📍 Place in Exam Flow</span></button>
                   <label style="display:inline-flex;align-items:center;gap:4px;font-size:0.75rem;font-weight:700;color:#1e40af;cursor:pointer;">
                     <input type="checkbox" id="testCompetencesPrintChk" onchange="tcToggleCompetencesPrintOnTest(this.checked)">
@@ -335,6 +337,7 @@
                   <span id="testCriteriaCountBadge" style="background:#d1fae5;border:1.5px solid #059669;color:#065f46;font-size:0.75rem;padding:2px 8px;border-radius:3px;font-weight:900;"></span>
                 </div>
                 <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                  <button type="button" class="neo-btn sm" style="background:#ecfdf5;color:#065f46;border-color:#059669;display:inline-flex;align-items:center;gap:4px;" onclick="tcOpenRubricLayoutModal('__exam__')" title="Customise criteria table columns, page orientation, and appearance"><img src="../assets/icons/layout.svg" style="width:13px;height:13px;" alt=""><span data-i18n="tcRubricLayoutAppearance">Layout &amp; Appearance</span></button>
                   <button type="button" class="neo-btn sm" style="background:#ecfdf5;color:#065f46;border-color:#059669;" onclick="tcOpenRubricMatrixModal('__exam__')" title="View detailed rubric matrix with performance levels and descriptors"><span data-i18n="tcViewRubricMatrix">👁 View Rubric Matrix</span></button>
                   <button type="button" class="neo-btn sm" style="background:#d1fae5;color:#065f46;border-color:#059669;" onclick="tcAddSectionBlockToExam('section_criteria')" title="Place a dedicated criteria rubric block in the exam question sequence" data-i18n-title="tcPlaceInExamFlowTooltip"><span data-i18n="tcPlaceInExamFlow">📍 Place in Exam Flow</span></button>
                   <label style="display:inline-flex;align-items:center;gap:4px;font-size:0.75rem;font-weight:700;color:#065f46;cursor:pointer;">
@@ -791,6 +794,71 @@
             </div>
           </div>
 
+          <div style="border-top:1px solid #ddd;padding-top:10px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:6px;">
+              <label class="meta-lbl" style="margin:0;" data-i18n="seqTestLayoutAndColumnsTitle">Header, Competences &amp; Rubric Columns to Add:</label>
+              <div style="display:flex;gap:4px;">
+                <button type="button" class="neo-btn sm" style="padding:2px 8px;font-size:0.74rem;" onclick="tcCloseExportModal();tcOpenHeaderCustomizerModal();" data-i18n="tcCustomiseHeaderBtn">Customise Header…</button>
+                <button type="button" class="neo-btn sm" style="padding:2px 8px;font-size:0.74rem;" onclick="tcCloseExportModal();tcOpenGlobalStyleModal();" data-i18n="tcStyleModalTitle">Advanced Styling…</button>
+              </div>
+            </div>
+            <div style="background:#fafaf7;border:1.5px solid #333;border-radius:6px;padding:10px;display:flex;flex-direction:column;gap:8px;font-size:0.8rem;">
+              <div>
+                <div style="font-weight:800;font-size:0.75rem;text-transform:uppercase;color:#334155;margin-bottom:4px;" data-i18n="seqTestHeaderElementsLabel">Exam Header Elements:</div>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                  <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="expHdrTitle" checked onchange="tcOnQuickExportToggleChange()"> <span data-i18n="tcElemExamTitle">Title</span></label>
+                  <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="expHdrStudent" checked onchange="tcOnQuickExportToggleChange()"> <span data-i18n="tcElemStudentName">Student Name</span></label>
+                  <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="expHdrClass" checked onchange="tcOnQuickExportToggleChange()"> <span data-i18n="tcElemClassGroup">Class</span></label>
+                  <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="expHdrDate" checked onchange="tcOnQuickExportToggleChange()"> <span data-i18n="tcElemDate">Date</span></label>
+                  <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="expHdrDuration" checked onchange="tcOnQuickExportToggleChange()"> <span data-i18n="tcElemDuration">Duration</span></label>
+                  <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="expHdrScore" checked onchange="tcOnQuickExportToggleChange()"> <span data-i18n="tcElemScoreBox">Score Box</span></label>
+                  <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="expHdrGrade" checked onchange="tcOnQuickExportToggleChange()"> <span data-i18n="tcElemGradeBox">Grade Box</span></label>
+                  <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="expHdrMaterials" checked onchange="tcOnQuickExportToggleChange()"> <span data-i18n="tcTabMaterials">Allowed Materials</span></label>
+                  <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="expHdrInstructions" checked onchange="tcOnQuickExportToggleChange()"> <span data-i18n="tcGeneralExamInstructions">Instructions</span></label>
+                  <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="expHdrSignature" onchange="tcOnQuickExportToggleChange()"> <span data-i18n="tcElemSignatureBox">Signature</span></label>
+                </div>
+              </div>
+              <div style="border-top:1px dashed #cbd5e1;padding-top:6px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:4px;">
+                  <span style="font-weight:800;font-size:0.75rem;text-transform:uppercase;color:#1e40af;" data-i18n="lcSeqTestCompetencesTitle">Competences Layout &amp; Columns:</span>
+                  <select id="expCompDisplayMode" class="meta-select" style="padding:2px 6px;font-size:0.76rem;" onchange="tcOnQuickExportToggleChange()">
+                    <option value="table" data-i18n="tcFullAssessmentTable">Full Assessment Table</option>
+                    <option value="badges" data-i18n="tcCompactBadges">Compact Badges</option>
+                    <option value="list" data-i18n="tcBulletedList">Bulleted List</option>
+                    <option value="none" data-i18n="lcSeqTestCompetencesNone">Hidden / None</option>
+                  </select>
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                  <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="expCompColCode" checked onchange="tcOnQuickExportToggleChange()"> <span data-i18n="tcColCompCode">Code</span></label>
+                  <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="expCompColDesc" checked onchange="tcOnQuickExportToggleChange()"> <span data-i18n="tcColCompDesc">Statement / Description</span></label>
+                  <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="expCompColLevel" checked onchange="tcOnQuickExportToggleChange()"> <span data-i18n="tcColCompLevel">Level</span></label>
+                  <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="expCompColMastery" checked onchange="tcOnQuickExportToggleChange()"> <span data-i18n="tcColCompMastery">Mastery Checkboxes</span></label>
+                  <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="expCompColComments" onchange="tcOnQuickExportToggleChange()"> <span data-i18n="tcColCompComments">Comments</span></label>
+                </div>
+              </div>
+              <div style="border-top:1px dashed #cbd5e1;padding-top:6px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:4px;">
+                  <span style="font-weight:800;font-size:0.75rem;text-transform:uppercase;color:#065f46;" data-i18n="lcSeqTestCriteriaTitle">Assessment Criteria &amp; Rubric Columns:</span>
+                  <select id="expCritDisplayMode" class="meta-select" style="padding:2px 6px;font-size:0.76rem;" onchange="tcOnQuickExportToggleChange()">
+                    <option value="table" data-i18n="tcEvaluationRubricTable">Summary Rubric Table</option>
+                    <option value="matrix" data-i18n="tcDisplayMatrix">Full Rubric Matrix Grid</option>
+                    <option value="badges" data-i18n="tcCriteriaBadges">Criteria Badges</option>
+                    <option value="list" data-i18n="tcBulletedList">Bulleted List</option>
+                    <option value="none" data-i18n="lcSeqTestCriteriaNone">Hidden / None</option>
+                  </select>
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                  <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="expCritColName" checked onchange="tcOnQuickExportToggleChange()"> <span data-i18n="tcColCritName">Criterion</span></label>
+                  <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="expCritColLevels" checked onchange="tcOnQuickExportToggleChange()"> <span data-i18n="tcColCritLevels">Grade Levels</span></label>
+                  <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="expCritColDesc" checked onchange="tcOnQuickExportToggleChange()"> <span data-i18n="tcColCritDesc">Descriptors</span></label>
+                  <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="expCritColMax" checked onchange="tcOnQuickExportToggleChange()"> <span data-i18n="tcColCritMax">Max Pts</span></label>
+                  <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="expCritColScore" checked onchange="tcOnQuickExportToggleChange()"> <span data-i18n="tcColCritScore">Score Box</span></label>
+                  <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="expCritColComments" checked onchange="tcOnQuickExportToggleChange()"> <span data-i18n="tcColCritComments">Feedback &amp; Comments</span></label>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div style="border-top:1px solid #ddd;padding-top:10px;" id="batchExportSection">
             <label class="meta-lbl" data-i18n="tcBatchExportTitle">Class Set Batch Export:</label>
             <label style="display:flex;align-items:center;gap:8px;margin-top:6px;cursor:pointer;font-weight:700;">
@@ -1029,24 +1097,44 @@
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:8px;">
             <label style="cursor:pointer;border:2px solid #000;padding:10px;border-radius:4px;background:#fff;display:flex;flex-direction:column;gap:4px;box-shadow:2px 2px 0 #000;">
-              <input type="radio" name="tcSeqExportFormat" value="html" checked style="margin:0;">
+              <input type="radio" name="tcSeqExportFormat" value="html" checked onchange="tcOnSeqExportFormatChange()" style="margin:0;">
               <span style="font-weight:900;font-size:0.85rem;" data-i18n="lcExportHtmlBooklet">HTML Booklet</span>
               <span style="font-size:0.72rem;color:#666;" data-i18n="lcExportHtmlBookletDesc">Interactive standalone web document with TOC</span>
             </label>
             <label style="cursor:pointer;border:2px solid #000;padding:10px;border-radius:4px;background:#fff;display:flex;flex-direction:column;gap:4px;box-shadow:2px 2px 0 #000;">
-              <input type="radio" name="tcSeqExportFormat" value="pdf" style="margin:0;">
+              <input type="radio" name="tcSeqExportFormat" value="pdf" onchange="tcOnSeqExportFormatChange()" style="margin:0;">
               <span style="font-weight:900;font-size:0.85rem;" data-i18n="lcExportPdfBooklet">Print / PDF</span>
               <span style="font-size:0.72rem;color:#666;" data-i18n="lcExportPdfBookletDesc">Print-ready unified booklet</span>
             </label>
             <label style="cursor:pointer;border:2px solid #000;padding:10px;border-radius:4px;background:#fff;display:flex;flex-direction:column;gap:4px;box-shadow:2px 2px 0 #000;">
-              <input type="radio" name="tcSeqExportFormat" value="markdown" style="margin:0;">
+              <input type="radio" name="tcSeqExportFormat" value="markdown" onchange="tcOnSeqExportFormatChange()" style="margin:0;">
               <span style="font-weight:900;font-size:0.85rem;" data-i18n="lcExportMarkdownBooklet">Markdown</span>
               <span style="font-size:0.72rem;color:#666;" data-i18n="lcExportMarkdownBookletDesc">Editable .md for Document Editor</span>
             </label>
             <label style="cursor:pointer;border:2px solid #000;padding:10px;border-radius:4px;background:#fff;display:flex;flex-direction:column;gap:4px;box-shadow:2px 2px 0 #000;">
-              <input type="radio" name="tcSeqExportFormat" value="json" style="margin:0;">
+              <input type="radio" name="tcSeqExportFormat" value="json" onchange="tcOnSeqExportFormatChange()" style="margin:0;">
               <span style="font-weight:900;font-size:0.85rem;" data-i18n="lcExportJsonBundle">JSON Archive</span>
               <span style="font-size:0.72rem;color:#666;" data-i18n="lcExportJsonBundleDesc">Complete data bundle of all unit items</span>
+            </label>
+            <label style="cursor:pointer;border:2px solid #000;padding:10px;border-radius:4px;background:#fff;display:flex;flex-direction:column;gap:4px;box-shadow:2px 2px 0 #000;">
+              <input type="radio" name="tcSeqExportFormat" value="docx" onchange="tcOnSeqExportFormatChange()" style="margin:0;">
+              <span style="font-weight:900;font-size:0.85rem;" data-i18n="tcExportFormatWord">Word (.doc)</span>
+              <span style="font-size:0.72rem;color:#666;" data-i18n="tcExportFormatWordDesc">Editable Word Document</span>
+            </label>
+            <label style="cursor:pointer;border:2px solid #000;padding:10px;border-radius:4px;background:#fff;display:flex;flex-direction:column;gap:4px;box-shadow:2px 2px 0 #000;">
+              <input type="radio" name="tcSeqExportFormat" value="xlsx" onchange="tcOnSeqExportFormatChange()" style="margin:0;">
+              <span style="font-weight:900;font-size:0.85rem;" data-i18n="lcExportFmtExcel">Excel (.xlsx)</span>
+              <span style="font-size:0.72rem;color:#666;" data-i18n="lcExportFmtExcelDesc">Multi-sheet Workbook</span>
+            </label>
+            <label style="cursor:pointer;border:2px solid #000;padding:10px;border-radius:4px;background:#fff;display:flex;flex-direction:column;gap:4px;box-shadow:2px 2px 0 #000;">
+              <input type="radio" name="tcSeqExportFormat" value="ods" onchange="tcOnSeqExportFormatChange()" style="margin:0;">
+              <span style="font-weight:900;font-size:0.85rem;" data-i18n="exportFormatOds">LibreOffice (.ods)</span>
+              <span style="font-size:0.72rem;color:#666;">Workbook Sheets (.ods)</span>
+            </label>
+            <label style="cursor:pointer;border:2px solid #000;padding:10px;border-radius:4px;background:#fff;display:flex;flex-direction:column;gap:4px;box-shadow:2px 2px 0 #000;">
+              <input type="radio" name="tcSeqExportFormat" value="csv" onchange="tcOnSeqExportFormatChange()" style="margin:0;">
+              <span style="font-weight:900;font-size:0.85rem;" data-i18n="lcExportFmtCsv">CSV (.csv)</span>
+              <span style="font-size:0.72rem;color:#666;" data-i18n="lcExportFmtCsvDesc">Spreadsheet Table</span>
             </label>
           </div>
         </div>
@@ -1058,8 +1146,23 @@
             <span class="modal-section-label" style="margin: 0;font-weight:900;font-size:0.84rem;text-transform:uppercase;letter-spacing:0.5px;color:#000;" data-i18n="exportStyleLabel">Export Style:</span>
           </div>
           <div id="tc-seq-export-style-selector-wrap" style="display:inline-flex;align-items:center;"></div>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+            <span style="font-weight:900;font-size:0.78rem;text-transform:uppercase;" data-i18n="tcSeqThemeTitle">Theme:</span>
+            <label style="display:inline-flex;align-items:center;gap:4px;font-size:0.76rem;font-weight:800;cursor:pointer;"><input type="radio" name="tcSeqCssTheme" value="neobrutalist" checked onchange="tcOnSeqCssThemeChange()"> <span data-i18n="tcSeqThemeNeo">Neobrutalist</span></label>
+            <label style="display:inline-flex;align-items:center;gap:4px;font-size:0.76rem;font-weight:800;cursor:pointer;"><input type="radio" name="tcSeqCssTheme" value="minimal" onchange="tcOnSeqCssThemeChange()"> <span data-i18n="tcSeqThemeMinimal">Minimal</span></label>
+            <label style="display:inline-flex;align-items:center;gap:4px;font-size:0.76rem;font-weight:800;cursor:pointer;"><input type="radio" name="tcSeqCssTheme" value="horizontal_table" onchange="tcOnSeqCssThemeChange()"> <span data-i18n="tcSeqThemeTable">Landscape Table</span></label>
+          </div>
         </div>
 
+        <!-- Section Navigation Tabs -->
+        <div style="display:flex;gap:6px;flex-wrap:wrap;border-bottom:2px solid #000;padding-bottom:8px;">
+          <button type="button" class="neo-btn sm primary" id="tcSeqTabBtn_all" onclick="tcSwitchSeqExportTab('all')"><span data-i18n="seqExportTabAll">All Options</span></button>
+          <button type="button" class="neo-btn sm" id="tcSeqTabBtn_toc" onclick="tcSwitchSeqExportTab('toc')"><span data-i18n="seqExportTabToc">1. Unit &amp; Table of Contents</span></button>
+          <button type="button" class="neo-btn sm" id="tcSeqTabBtn_lessons" onclick="tcSwitchSeqExportTab('lessons')"><span data-i18n="seqExportTabLessons">2. Lesson Plans (Layout &amp; Columns)</span></button>
+          <button type="button" class="neo-btn sm" id="tcSeqTabBtn_tests" onclick="tcSwitchSeqExportTab('tests')"><span data-i18n="seqExportTabTests">3. Attached Tests (Layout &amp; Columns)</span></button>
+        </div>
+
+        <div id="tcSeqExportPanel_toc" style="display:flex;flex-direction:column;gap:12px;">
         <!-- Content Inclusions -->
         <div>
           <div style="font-weight:900;font-size:0.84rem;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;color:#000;" data-i18n="lcExportOptionsTitle">
@@ -1092,6 +1195,19 @@
             </label>
           </div>
         </div>
+
+          <!-- Table of Contents Columns to Add -->
+          <div>
+            <div style="font-weight:900;font-size:0.84rem;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;color:#000;" data-i18n="seqTocColumnsTitle">
+              Table of Contents Columns to Add
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(175px, 1fr));gap:6px;background:#fff;padding:8px 10px;border:2px solid #000;border-radius:4px;box-shadow:2px 2px 0 #000;">
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.82rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqTocCol_type" checked> <span data-i18n="seqTocColType">Item Type Badge (Lesson/Test)</span></label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.82rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqTocCol_date"> <span data-i18n="seqTocColDate">Scheduled Date Column</span></label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.82rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqTocCol_objectives" checked> <span data-i18n="seqTocColObjectives">Key Objectives / Summary</span></label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.82rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqTocCol_duration" checked> <span data-i18n="seqTocColDuration">Duration / Points Column</span></label>
+            </div>
+          </div>
 
         <!-- Table of Contents Competences Layout -->
         <div>
@@ -1127,6 +1243,136 @@
           </div>
         </div>
 
+        </div><!-- /tcSeqExportPanel_toc -->
+
+        <!-- ================================================================
+             PANEL 2: LESSON PLANS OPTIONS (Homogenized with Lesson Creator)
+             ================================================================ -->
+        <div id="tcSeqExportPanel_lessons" style="display:flex;flex-direction:column;gap:10px;border-top:2px dashed #cbd5e1;padding-top:10px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+            <div style="font-weight:900;font-size:0.86rem;text-transform:uppercase;letter-spacing:0.5px;color:#000;" data-i18n="seqLessonOptionsHeader">
+              Lesson Plans Layout &amp; Columns to Include
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+              <span style="font-size:0.76rem;font-weight:800;" data-i18n="lcCopyPresets">Presets:</span>
+              <button type="button" class="neo-btn sm" style="padding:2px 7px;font-size:0.72rem;" onclick="tcApplySeqLessonPreset('full')"><span data-i18n="lcExportPresetFull">Full Plan</span></button>
+              <button type="button" class="neo-btn sm" style="padding:2px 7px;font-size:0.72rem;" onclick="tcApplySeqLessonPreset('teacher')"><span data-i18n="lcExportPresetTeacher">Teacher Guide</span></button>
+              <button type="button" class="neo-btn sm" style="padding:2px 7px;font-size:0.72rem;" onclick="tcApplySeqLessonPreset('student')"><span data-i18n="lcExportPresetStudent">Student Handout</span></button>
+              <button type="button" class="neo-btn sm" style="padding:2px 7px;font-size:0.72rem;" onclick="tcApplySeqLessonPreset('outline')"><span data-i18n="lcExportPresetOutline">Summary Outline</span></button>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:8px;">
+            <label style="cursor:pointer;border:2px solid #000;padding:8px 10px;border-radius:4px;background:#fff;display:flex;flex-direction:column;gap:3px;box-shadow:2px 2px 0 #000;">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <input type="radio" name="tcSeqLessonLayout" value="cards" checked style="margin:0;">
+                <span style="font-weight:900;font-size:0.82rem;" data-i18n="seqLessonLayoutCards">Standard Phase Cards</span>
+              </div>
+              <span style="font-size:0.7rem;color:#666;" data-i18n="seqLessonLayoutCardsDesc">Detailed vertical phase cards with color-coded blocks</span>
+            </label>
+            <label style="cursor:pointer;border:2px solid #000;padding:8px 10px;border-radius:4px;background:#fff;display:flex;flex-direction:column;gap:3px;box-shadow:2px 2px 0 #000;">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <input type="radio" name="tcSeqLessonLayout" value="horizontal_table" style="margin:0;">
+                <span style="font-weight:900;font-size:0.82rem;" data-i18n="seqLessonLayoutTable">Horizontal Landscape Table</span>
+              </div>
+              <span style="font-size:0.7rem;color:#666;" data-i18n="seqLessonLayoutTableDesc">Side-by-side columns for each selected phase element</span>
+            </label>
+          </div>
+
+          <div>
+            <div style="font-size:0.75rem;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:4px;" data-i18n="lcExportSecInfo">A. Lesson Information &amp; Header Metadata</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));gap:6px;background:#fff;padding:8px 10px;border:2px solid #000;border-radius:4px;box-shadow:2px 2px 0 #000;">
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqLt_metaHeader" checked> <span data-i18n="lcCopyMetaHeader">Title, Subject &amp; Class</span></label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqLt_metaDate" checked> <span data-i18n="lcCopyMetaDate">Date, Year Level &amp; Semester</span></label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqLt_metaDuration" checked> <span data-i18n="lcCopyMetaDuration">Total Duration &amp; Target</span></label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqLt_metaSequence" checked> <span data-i18n="lcCopyMetaSequence">Unit Sequence Info</span></label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqLt_metaTags" checked> <span data-i18n="lcCopyMetaTags">Tags &amp; Keywords</span></label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqLt_metaTeams" checked> <span data-i18n="lcCopyMetaTeams">Team Config &amp; Roles</span></label>
+            </div>
+          </div>
+
+          <div>
+            <div style="font-size:0.75rem;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:4px;" data-i18n="seqLessonPhaseColsLabel">B. Phase Elements &amp; Table Columns to Add</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));gap:6px;background:#fff;padding:8px 10px;border:2px solid #000;border-radius:4px;box-shadow:2px 2px 0 #000;">
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqLt_phaseTitle" checked> <span data-i18n="lcCopyPhaseTitle">Phase Numbers &amp; Titles</span></label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqLt_phaseDuration" checked> <span data-i18n="lcCopyPhaseDuration">Phase Durations</span></label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqLt_phaseActivity" checked> <span data-i18n="lcCopyPhaseActivity">Activity &amp; Mode Badges</span></label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqLt_phaseObjective" checked> <span data-i18n="lcCopyPhaseObjective">Learning Objectives</span></label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqLt_phaseTeacher" checked> <span data-i18n="lcCopyPhaseTeacher">Teacher Actions &amp; Prompts</span></label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqLt_phaseStudent" checked> <span data-i18n="lcCopyPhaseStudent">Student Tasks &amp; Actions</span></label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqLt_phaseResources" checked> <span data-i18n="lcCopyPhaseResources">Resources &amp; Materials</span></label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqLt_phaseDescriptors" checked> <span data-i18n="lcCopyPhaseDescriptors">Tagged Competences</span></label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqLt_phaseDescText" checked> <span data-i18n="lcExportCompetenceText">Full Competence Description Text</span></label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqLt_phaseDiff" checked> <span data-i18n="lcExportPhaseDifferentiation">Differentiation &amp; Support</span></label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqLt_phaseAssess" checked> <span data-i18n="lcExportPhaseAssessment">Formative Assessment</span></label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqLt_phaseCustomFields" checked> <span data-i18n="lcExportCustomFields">Custom Phase Fields</span></label>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================================================================
+             PANEL 3: ATTACHED TESTS & EXAMS OPTIONS
+             ================================================================ -->
+        <div id="tcSeqExportPanel_tests" style="display:flex;flex-direction:column;gap:10px;border-top:2px dashed #cbd5e1;padding-top:10px;">
+          <div style="font-weight:900;font-size:0.86rem;text-transform:uppercase;letter-spacing:0.5px;color:#000;" data-i18n="seqTestOptionsHeader">
+            Attached Tests &amp; Assessments Layout &amp; Columns
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:8px;">
+            <label style="cursor:pointer;border:2px solid #000;padding:8px 10px;border-radius:4px;background:#fff;display:flex;flex-direction:column;gap:3px;box-shadow:2px 2px 0 #000;">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <input type="radio" name="tcSeqTestRenderMode" value="full_exam" checked style="margin:0;">
+                <span style="font-weight:900;font-size:0.82rem;" data-i18n="seqTestRenderFullExam">Full Printable Exam Paper</span>
+              </div>
+              <span style="font-size:0.7rem;color:#666;" data-i18n="seqTestRenderFullExamDesc">Complete exam header, writing lines, rubrics &amp; formatting</span>
+            </label>
+            <label style="cursor:pointer;border:2px solid #000;padding:8px 10px;border-radius:4px;background:#fff;display:flex;flex-direction:column;gap:3px;box-shadow:2px 2px 0 #000;">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <input type="radio" name="tcSeqTestRenderMode" value="summary_cards" style="margin:0;">
+                <span style="font-weight:900;font-size:0.82rem;" data-i18n="seqTestRenderSummaryCards">Compact Summary Cards</span>
+              </div>
+              <span style="font-size:0.7rem;color:#666;" data-i18n="seqTestRenderSummaryCardsDesc">Condensed overview of exercises and prompts</span>
+            </label>
+          </div>
+
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;background:#fff;padding:8px 10px;border:2px solid #000;border-radius:4px;box-shadow:2px 2px 0 #000;">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:0.8rem;font-weight:800;">
+              <span data-i18n="tcExportExamVariant">Variant:</span>
+              <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="tcSeqTestVariant" value="A" checked> <span data-i18n="tcVariantGroupA">Group A</span></label>
+              <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="tcSeqTestVariant" value="B"> <span data-i18n="tcVariantGroupB">Group B (Shuffled)</span></label>
+              <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="tcSeqTestVariant" value="both"> <span data-i18n="seqTestVariantBoth">Both A &amp; B</span></label>
+            </div>
+            <label style="display:inline-flex;align-items:center;gap:6px;font-size:0.8rem;font-weight:700;cursor:pointer;">
+              <input type="checkbox" id="tcSeqTestNumberedLines">
+              <span data-i18n="tcExportNumberedLines">Numbered Writing Lines (1, 2, 3...)</span>
+            </label>
+          </div>
+
+          <div>
+            <div style="font-size:0.75rem;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:4px;" data-i18n="seqTestHeaderFieldsTitle">A. Exam Header Elements to Include</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(185px, 1fr));gap:6px;background:#fff;padding:8px 10px;border:2px solid #000;border-radius:4px;box-shadow:2px 2px 0 #000;">
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqTh_showStudentName" checked> <span data-i18n="tcElemStudentName">Student Name Field</span></label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqTh_showDate" checked> <span data-i18n="tcElemDate">Date Field</span></label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqTh_showClass" checked> <span data-i18n="tcElemClassGroup">Class / Group</span></label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqTh_showDuration" checked> <span data-i18n="tcElemDuration">Exam Duration</span></label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqTh_showScoreBox" checked> <span data-i18n="tcElemScoreBox">Score / Points Box</span></label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqTh_showGradeBox" checked> <span data-i18n="tcElemGradeBox">Final Grade Box</span></label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqTh_showScale" checked> <span data-i18n="tcElemGradingScale">Grading Scale in Header</span></label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqTh_showSignature" checked> <span data-i18n="tcElemSignature">Parent / Teacher Signature</span></label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqTh_showInstructions" checked> <span data-i18n="tcElemGeneralInstructions">General Instructions</span></label>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;background:#fff;padding:8px 10px;border:2px solid #000;border-radius:4px;box-shadow:2px 2px 0 #000;">
+            <span style="font-size:0.8rem;font-weight:800;" data-i18n="seqTestScaleDisplayLabel">Grading Scale Display Mode:</span>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:0.78rem;font-weight:700;">
+              <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="tcSeqTestScaleMode" value="use_test" checked> <span data-i18n="seqUseTestSetting">Use Each Test's Setting</span></label>
+              <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="tcSeqTestScaleMode" value="table"> <span data-i18n="seqScaleModeTable">Points Table</span></label>
+              <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="tcSeqTestScaleMode" value="both"> <span data-i18n="seqScaleModeBoth">Table + Formula</span></label>
+              <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="tcSeqTestScaleMode" value="compact"> <span data-i18n="seqScaleModeCompact">Compact Line</span></label>
+            </div>
+          </div>
+
         <!-- Attached Tests Correction Criteria Mode -->
         <div>
           <div style="font-weight:900;font-size:0.84rem;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;color:#000;" data-i18n="lcSeqTestCriteriaTitle">
@@ -1152,6 +1398,14 @@
         </div>
 
         <!-- Attached Tests Competences Mode -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(175px, 1fr));gap:6px;background:#fff;padding:8px 10px;border:2px solid #000;border-radius:4px;box-shadow:2px 2px 0 #000;">
+          <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqCrCol_criterion" checked> <span data-i18n="seqColCriterion">Criterion Title Column</span></label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqCrCol_levels" checked> <span data-i18n="seqColLevels">Performance Levels / Scale</span></label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqCrCol_desc" checked> <span data-i18n="seqColCritDesc">Criterion Descriptors</span></label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqCrCol_max" checked> <span data-i18n="seqColMaxPts">Max Points Column</span></label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqCrCol_score" checked> <span data-i18n="seqColEarnedScore">Earned Score Column</span></label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqCrCol_comments"> <span data-i18n="seqColComments">Feedback / Comments Column</span></label>
+        </div>
         <div>
           <div style="font-weight:900;font-size:0.84rem;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;color:#000;" data-i18n="lcSeqTestCompetencesTitle">
             Test Competences &amp; Standards
@@ -1173,7 +1427,16 @@
               <span style="font-size:0.7rem;color:#666;" data-i18n="lcSeqTestCompetencesNoneDesc">Do not include competences on test sheets</span>
             </label>
           </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(175px, 1fr));gap:6px;background:#fff;padding:8px 10px;border:2px solid #000;border-radius:4px;box-shadow:2px 2px 0 #000;margin-top:6px;">
+          <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqTcCol_code" checked> <span data-i18n="seqColCode">Code Column</span></label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqTcCol_title" checked> <span data-i18n="seqColTitle">Title / Standard Column</span></label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqTcCol_desc" checked> <span data-i18n="seqColDescription">Descriptor Text Column</span></label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqTcCol_level" checked> <span data-i18n="seqColLevel">Level / Mastery Column</span></label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqTcCol_score" checked> <span data-i18n="seqColScore">Score / Pts Column</span></label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:700;cursor:pointer;"><input type="checkbox" id="tcSeqTcCol_comments"> <span data-i18n="seqColComments">Comments Column</span></label>
         </div>
+          </div>
+        </div><!-- /tcSeqExportPanel_tests -->
       </div>
       <div class="modal-footer" style="display:flex;justify-content:space-between;align-items:center;">
         <button type="button" class="neo-btn" onclick="tcCloseSequenceExportModal()"><span data-i18n="btnCancel">Cancel</span></button>
@@ -1993,12 +2256,70 @@
             </table>
           </div>
 
+          <!-- Competences & Objectives Container Customisation Section -->
+          <div id="hdrCompetencesStyleBox" style="background:#fff;border:2px solid #000;border-radius:4px;padding:10px;margin-top:10px;">
+            <div style="font-weight:800;font-size:0.85rem;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;">
+              <span data-i18n="tcCompContainerCustomise">Competences &amp; Objectives Container Customisation:</span>
+              <button type="button" class="neo-btn sm" style="padding:2px 8px;font-size:0.72rem;background:#eff6ff;color:#1e40af;border-color:#2563eb;" onclick="tcOpenCompetenceLayoutModal('__exam__')" data-i18n="tcOpenCompCustomizer">Live Preview &amp; Column Customizer…</button>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));gap:10px;font-size:0.8rem;">
+              <div>
+                <span style="font-weight:700;display:block;margin-bottom:2px;" data-i18n="tcRubricBg">Background:</span>
+                <select id="hdrSelect_competencesBg" class="meta-select" style="width:100%;padding:2px 6px;font-size:0.78rem;" onchange="tcUpdateElemStyle('competencesStyle', 'background', this.value)">
+                  <option value="default" data-i18n="tcOptBgDefaultBlue">Default (Soft Blue Tint)</option>
+                  <option value="white" data-i18n="tcOptBgWhite">Crisp White</option>
+                  <option value="ivory" data-i18n="tcOptBgIvory">Ivory Cream</option>
+                  <option value="tint" data-i18n="tcOptBgSkyTint">Sky Tint</option>
+                  <option value="light_gray" data-i18n="tcOptBgLightGray">Subtle Gray</option>
+                  <option value="none" data-i18n="tcOptBgNone">None (Transparent)</option>
+                </select>
+              </div>
+              <div>
+                <span style="font-weight:700;display:block;margin-bottom:2px;" data-i18n="tcRubricPadding">Padding:</span>
+                <select id="hdrSelect_competencesPadding" class="meta-select" style="width:100%;padding:2px 6px;font-size:0.78rem;" onchange="tcUpdateElemStyle('competencesStyle', 'padding', this.value)">
+                  <option value="compact" data-i18n="tcOptPadCompact">Compact (4px 8px)</option>
+                  <option value="standard" data-i18n="tcOptPadStandard">Standard (8px 14px)</option>
+                  <option value="spacious" data-i18n="tcOptPadSpacious">Spacious (14px 18px)</option>
+                </select>
+              </div>
+              <div>
+                <span style="font-weight:700;display:block;margin-bottom:2px;" data-i18n="tcRubricBorder">Border Style:</span>
+                <select id="hdrSelect_competencesBorder" class="meta-select" style="width:100%;padding:2px 6px;font-size:0.78rem;" onchange="tcUpdateElemStyle('competencesStyle', 'border', this.value)">
+                  <option value="solid" data-i18n="tcOptBorderSolidBlue">Solid (2px Blue)</option>
+                  <option value="neobrutalist" data-i18n="tcOptBorderNeobrutalist">Neobrutalist (Thick + Shadow)</option>
+                  <option value="double" data-i18n="tcOptBorderDouble">Double Rule</option>
+                  <option value="dashed" data-i18n="tcOptBorderDashed">Dashed Border</option>
+                  <option value="minimal" data-i18n="tcOptBorderMinimal">Minimal (Top/Bottom only)</option>
+                  <option value="none" data-i18n="tcOptBorderNone">None (Borderless)</option>
+                </select>
+              </div>
+              <div>
+                <span style="font-weight:700;display:block;margin-bottom:2px;" data-i18n="tcPageOrientationLabel">Page Orientation:</span>
+                <select id="hdrSelect_competencesOrientation" class="meta-select" style="width:100%;padding:2px 6px;font-size:0.78rem;" onchange="tcUpdateElemStyle('competencesStyle', 'pageOrientation', this.value); if(this.value==='landscape'){tcUpdateElemStyle('competencesStyle','separatePage',true);var chk=document.getElementById('hdrChk_compSeparatePage');if(chk)chk.checked=true;}">
+                  <option value="portrait" data-i18n="tcOrientationPortrait">Portrait (A4 Vertical)</option>
+                  <option value="landscape" data-i18n="tcOrientationLandscape">Landscape (A4 Horizontal)</option>
+                </select>
+              </div>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:8px;padding-top:6px;border-top:1px dashed #cbd5e1;font-size:0.76rem;">
+              <strong style="color:#1e40af;" data-i18n="tcVisibleColumnsLabel">Table Columns:</strong>
+              <label style="display:inline-flex;align-items:center;gap:3px;cursor:pointer;"><input type="checkbox" id="hdrChk_compColCode" onchange="tcUpdateElemStyle('competencesStyle', 'showCodeCol', this.checked)"><span data-i18n="tcColCompCode">Code / Ref</span></label>
+              <label style="display:inline-flex;align-items:center;gap:3px;cursor:pointer;"><input type="checkbox" id="hdrChk_compColTitle" onchange="tcUpdateElemStyle('competencesStyle', 'showTitleCol', this.checked)"><span data-i18n="tcColCompTitle">Objective / Title</span></label>
+              <label style="display:inline-flex;align-items:center;gap:3px;cursor:pointer;"><input type="checkbox" id="hdrChk_compColDesc" onchange="tcUpdateElemStyle('competencesStyle', 'showDescriptions', this.checked); tcToggleCompetenceDescriptionsPrint(this.checked);"><span data-i18n="tcColCompDesc">Descriptors</span></label>
+              <label style="display:inline-flex;align-items:center;gap:3px;cursor:pointer;"><input type="checkbox" id="hdrChk_compColLevel" onchange="tcUpdateElemStyle('competencesStyle', 'showLevelCol', this.checked)"><span data-i18n="tcColCompLevel">Level</span></label>
+              <label style="display:inline-flex;align-items:center;gap:3px;cursor:pointer;"><input type="checkbox" id="hdrChk_compColScore" onchange="tcUpdateElemStyle('competencesStyle', 'showScoreCol', this.checked)"><span data-i18n="tcColCompScore">Mastery / Score</span></label>
+              <label style="display:inline-flex;align-items:center;gap:3px;cursor:pointer;"><input type="checkbox" id="hdrChk_compColComments" onchange="tcUpdateElemStyle('competencesStyle', 'showCommentsCol', this.checked)"><span data-i18n="tcColCritComments">Feedback &amp; Comments</span></label>
+              <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;margin-left:auto;font-weight:800;color:#1e40af;"><input type="checkbox" id="hdrChk_compSeparatePage" onchange="tcUpdateElemStyle('competencesStyle', 'separatePage', this.checked)"><span data-i18n="tcSeparatePageOption">Separate Page</span></label>
+            </div>
+          </div>
+
           <!-- Assessment Criteria Container Customisation Section -->
           <div id="hdrCriteriaStyleBox" style="background:#fff;border:2px solid #000;border-radius:4px;padding:10px;margin-top:10px;">
-            <div style="font-weight:800;font-size:0.85rem;margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+            <div style="font-weight:800;font-size:0.85rem;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;">
               <span data-i18n="tcCriteriaContainerCustomise">Assessment Criteria Container Customisation:</span>
+              <button type="button" class="neo-btn sm" style="padding:2px 8px;font-size:0.72rem;background:#ecfdf5;color:#065f46;border-color:#059669;" onclick="tcOpenRubricLayoutModal('__exam__')" data-i18n="tcOpenRubricCustomizer">Live Preview &amp; Column Customizer…</button>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;font-size:0.8rem;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));gap:10px;font-size:0.8rem;">
               <div>
                 <span style="font-weight:700;display:block;margin-bottom:2px;" data-i18n="tcRubricBg">Background:</span>
                 <select id="hdrSelect_criteriaBg" class="meta-select" style="width:100%;padding:2px 6px;font-size:0.78rem;" onchange="tcUpdateElemStyle('criteriaStyle', 'background', this.value)">
@@ -2029,6 +2350,23 @@
                   <option value="none" data-i18n="tcOptBorderNone">None (Borderless)</option>
                 </select>
               </div>
+              <div>
+                <span style="font-weight:700;display:block;margin-bottom:2px;" data-i18n="tcPageOrientationLabel">Page Orientation:</span>
+                <select id="hdrSelect_criteriaOrientation" class="meta-select" style="width:100%;padding:2px 6px;font-size:0.78rem;" onchange="tcUpdateElemStyle('criteriaStyle', 'pageOrientation', this.value); if(this.value==='landscape'){tcUpdateElemStyle('criteriaStyle','separatePage',true);var chk=document.getElementById('hdrChk_critSeparatePage');if(chk)chk.checked=true;}">
+                  <option value="portrait" data-i18n="tcOrientationPortrait">Portrait (A4 Vertical)</option>
+                  <option value="landscape" data-i18n="tcOrientationLandscape">Landscape (A4 Horizontal)</option>
+                </select>
+              </div>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:8px;padding-top:6px;border-top:1px dashed #cbd5e1;font-size:0.76rem;">
+              <strong style="color:#065f46;" data-i18n="tcVisibleColumnsLabel">Table Columns:</strong>
+              <label style="display:inline-flex;align-items:center;gap:3px;cursor:pointer;"><input type="checkbox" id="hdrChk_critColName" onchange="tcUpdateElemStyle('criteriaStyle', 'showCriterionCol', this.checked)"><span data-i18n="tcColCritName">Criterion Name</span></label>
+              <label style="display:inline-flex;align-items:center;gap:3px;cursor:pointer;"><input type="checkbox" id="hdrChk_critColLevels" onchange="tcUpdateElemStyle('criteriaStyle', 'showLevelsCol', this.checked)"><span data-i18n="tcColCritLevels">Grade Levels</span></label>
+              <label style="display:inline-flex;align-items:center;gap:3px;cursor:pointer;"><input type="checkbox" id="hdrChk_critColDesc" onchange="tcUpdateElemStyle('criteriaStyle', 'showDescriptions', this.checked); tcToggleCriteriaDescPrint(this.checked);"><span data-i18n="tcColCritDesc">Descriptors &amp; Comments</span></label>
+              <label style="display:inline-flex;align-items:center;gap:3px;cursor:pointer;"><input type="checkbox" id="hdrChk_critColMax" onchange="tcUpdateElemStyle('criteriaStyle', 'showMaxCol', this.checked)"><span data-i18n="tcColCritMax">Max Points</span></label>
+              <label style="display:inline-flex;align-items:center;gap:3px;cursor:pointer;"><input type="checkbox" id="hdrChk_critColScore" onchange="tcUpdateElemStyle('criteriaStyle', 'showScoreCol', this.checked)"><span data-i18n="tcColCritScore">Score Box</span></label>
+              <label style="display:inline-flex;align-items:center;gap:3px;cursor:pointer;"><input type="checkbox" id="hdrChk_critColComments" onchange="tcUpdateElemStyle('criteriaStyle', 'showCommentsCol', this.checked)"><span data-i18n="tcColCritComments">Feedback &amp; Comments</span></label>
+              <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;margin-left:auto;font-weight:800;color:#065f46;"><input type="checkbox" id="hdrChk_critSeparatePage" onchange="tcUpdateElemStyle('criteriaStyle', 'separatePage', this.checked)"><span data-i18n="tcSeparatePageOption">Separate Page</span></label>
             </div>
           </div>
 
@@ -2594,14 +2932,50 @@
             </select>
           </div>
 
-          <div style="display:flex; flex-direction:column; justify-content:center; gap:6px;">
+          <div>
+            <label style="display:block; font-size:0.78rem; font-weight:800; margin-bottom:4px;" data-i18n="tcPageOrientationLabel">Page Orientation (Separate Page):</label>
+            <select id="tcModalRubricOrientation" class="meta-select" style="width:100%; font-size:0.8rem; padding:4px 8px;" onchange="tcUpdateModalRubricOption('pageOrientation', this.value)">
+              <option value="portrait" data-i18n="tcOrientationPortrait">Portrait (A4 Vertical)</option>
+              <option value="landscape" data-i18n="tcOrientationLandscape">Landscape (A4 Horizontal)</option>
+            </select>
+          </div>
+
+          <div style="grid-column: 1 / -1; display:flex; flex-wrap:wrap; align-items:center; gap:14px; padding-top:8px; border-top:1.5px dashed #cbd5e1;">
+            <strong style="font-size:0.78rem; color:#065f46;" data-i18n="tcVisibleColumnsLabel">Table Columns:</strong>
+            <label class="card-checkbox-label" style="font-size:0.78rem; font-weight:700;">
+              <input type="checkbox" id="tcModalRubricColCriterion" onchange="tcUpdateModalRubricOption('showCriterionCol', this.checked)">
+              <span data-i18n="tcColCritName">Criterion Name</span>
+            </label>
+            <label class="card-checkbox-label" style="font-size:0.78rem; font-weight:700;">
+              <input type="checkbox" id="tcModalRubricColLevels" onchange="tcUpdateModalRubricOption('showLevelsCol', this.checked)">
+              <span data-i18n="tcColCritLevels">Grade Levels (6, 5, 4…)</span>
+            </label>
             <label class="card-checkbox-label" style="font-size:0.78rem; font-weight:700;">
               <input type="checkbox" id="tcModalRubricShowDesc" onchange="tcUpdateModalRubricOption('showRubricDescriptions', this.checked)">
-              <span data-i18n="tcIncludeDescriptions">Include Performance Descriptors</span>
+              <span data-i18n="tcColCritDesc">Descriptors &amp; Comments</span>
+            </label>
+            <label class="card-checkbox-label" style="font-size:0.78rem; font-weight:700;">
+              <input type="checkbox" id="tcModalRubricColMax" onchange="tcUpdateModalRubricOption('showMaxCol', this.checked)">
+              <span data-i18n="tcColCritMax">Max Points</span>
+            </label>
+            <label class="card-checkbox-label" style="font-size:0.78rem; font-weight:700;">
+              <input type="checkbox" id="tcModalRubricColScore" onchange="tcUpdateModalRubricOption('showScoreCol', this.checked)">
+              <span data-i18n="tcColCritScore">Score Box</span>
+            </label>
+            <label class="card-checkbox-label" style="font-size:0.78rem; font-weight:700;">
+              <input type="checkbox" id="tcModalRubricColComments" onchange="tcUpdateModalRubricOption('showCommentsCol', this.checked)">
+              <span data-i18n="tcColCritComments">Feedback &amp; Comments</span>
+            </label>
+          </div>
+
+          <div style="grid-column: 1 / -1; display:flex; flex-wrap:wrap; align-items:center; gap:16px; padding-top:6px; border-top:1px dashed #e2e8f0;">
+            <label class="card-checkbox-label" style="font-size:0.78rem; font-weight:800; color:#065f46;">
+              <input type="checkbox" id="tcModalRubricSeparatePage" onchange="tcUpdateModalRubricOption('separatePage', this.checked)">
+              <span data-i18n="tcPrintCriteriaOnSeparatePage">Place Criteria Table on a Separate Page</span>
             </label>
             <label class="card-checkbox-label" style="font-size:0.78rem; font-weight:700;">
               <input type="checkbox" id="tcModalRubricShowRubric" onchange="tcUpdateModalRubricOption('showRubric', this.checked)">
-              <span data-i18n="tcPrintRubricOnSheet">Display Rubric Below Exercise on Sheet</span>
+              <span data-i18n="tcPrintRubricOnSheet">Print Rubric on Exam Sheet</span>
             </label>
           </div>
         </div>
@@ -2620,6 +2994,132 @@
 
       <div class="modal-footer" style="margin-top:12px; border-top:2px solid var(--neo-dark, #333); padding-top:10px; display:flex; justify-content:flex-end; gap:8px;">
         <button type="button" class="neo-btn primary" onclick="tcCloseRubricLayoutModal()" data-i18n="btnDone">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 21b. Competence Layout & Appearance Customizer Modal ────────────── -->
+  <div id="tcCompLayoutModal" class="modal-overlay" onclick="if(event.target===this)tcCloseCompetenceLayoutModal()">
+    <div class="modal-box" style="max-width:880px; width:92vw; max-height:90vh; display:flex; flex-direction:column; padding:18px; border:3px solid var(--neo-dark, #333); box-shadow:4px 4px 0 #555; background:var(--neo-card, #ffffff); border-radius:10px;">
+      <div class="modal-header" style="border-bottom:2px solid var(--neo-dark, #333); padding-bottom:8px; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between;">
+        <div>
+          <span class="modal-title" style="display:flex; align-items:center; gap:8px;">
+            <img src="../assets/icons/layout.svg" style="width:20px;height:20px;" alt="" />
+            <span id="tcCompLayoutModalTitleText" data-i18n="tcCompLayoutModalTitle">Competences &amp; Objectives Layout &amp; Appearance</span>
+          </span>
+          <div id="tcCompLayoutModalSub" style="font-size:0.75rem; color:#64748b; font-weight:600; margin-top:2px;"></div>
+        </div>
+        <button class="modal-close-btn" onclick="tcCloseCompetenceLayoutModal()">&times;</button>
+      </div>
+
+      <div class="modal-bd modal-body" style="overflow-y:auto; overflow-x:hidden; flex:1; padding-right:6px; display:flex; flex-direction:column; gap:14px;">
+        <!-- Controls Grid -->
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:12px; background:#f8fafc; border:2px solid #333; border-radius:8px; padding:12px; box-shadow:2px 2px 0 #555;">
+          <div>
+            <label style="display:block; font-size:0.78rem; font-weight:800; margin-bottom:4px;" data-i18n="tcCompHeadingLabel">Competence Heading / Title:</label>
+            <input type="text" id="tcModalCompTitle" class="meta-input" style="width:100%; font-size:0.8rem; padding:4px 8px;" placeholder="e.g. Competences &amp; Curriculum Objectives" oninput="tcUpdateModalCompOption('compTitle', this.value)">
+          </div>
+
+          <div>
+            <label style="display:block; font-size:0.78rem; font-weight:800; margin-bottom:4px;" data-i18n="tcRubricDisplayMode">Display Layout / Format:</label>
+            <select id="tcModalCompDisplayMode" class="meta-select" style="width:100%; font-size:0.8rem; padding:4px 8px;" onchange="tcUpdateModalCompOption('displayMode', this.value)">
+              <option value="table" data-i18n="tcObjectivesTable">Objectives Table</option>
+              <option value="badges" data-i18n="tcCurriculumBadges">Curriculum Badges</option>
+              <option value="list" data-i18n="tcBulletedList">Bullet List</option>
+              <option value="compact" data-i18n="tcDisplayCompact">Compact Summary</option>
+            </select>
+          </div>
+
+          <div>
+            <label style="display:block; font-size:0.78rem; font-weight:800; margin-bottom:4px;" data-i18n="tcRubricBg">Container Background:</label>
+            <select id="tcModalCompBg" class="meta-select" style="width:100%; font-size:0.8rem; padding:4px 8px;" onchange="tcUpdateModalCompOption('background', this.value)">
+              <option value="default" data-i18n="tcOptBgDefaultBlue">Default (Soft Blue Tint)</option>
+              <option value="white" data-i18n="tcOptBgWhite">Crisp White</option>
+              <option value="ivory" data-i18n="tcOptBgIvory">Ivory Cream</option>
+              <option value="tint" data-i18n="tcOptBgSkyTint">Sky Tint</option>
+              <option value="light_gray" data-i18n="tcOptBgLightGray">Subtle Gray</option>
+              <option value="none" data-i18n="tcOptBgNone">None (Transparent)</option>
+            </select>
+          </div>
+
+          <div>
+            <label style="display:block; font-size:0.78rem; font-weight:800; margin-bottom:4px;" data-i18n="tcRubricPadding">Container Padding:</label>
+            <select id="tcModalCompPadding" class="meta-select" style="width:100%; font-size:0.8rem; padding:4px 8px;" onchange="tcUpdateModalCompOption('padding', this.value)">
+              <option value="compact" data-i18n="tcOptPadCompact">Compact (4px 8px)</option>
+              <option value="standard" data-i18n="tcOptPadStandard">Standard (8px 14px)</option>
+              <option value="spacious" data-i18n="tcOptPadSpacious">Spacious (14px 18px)</option>
+            </select>
+          </div>
+
+          <div>
+            <label style="display:block; font-size:0.78rem; font-weight:800; margin-bottom:4px;" data-i18n="tcRubricBorder">Container Border Style:</label>
+            <select id="tcModalCompBorder" class="meta-select" style="width:100%; font-size:0.8rem; padding:4px 8px;" onchange="tcUpdateModalCompOption('border', this.value)">
+              <option value="solid" data-i18n="tcOptBorderSolidBlue">Solid (2px Blue)</option>
+              <option value="neobrutalist" data-i18n="tcOptBorderNeobrutalist">Neobrutalist (Thick + Shadow)</option>
+              <option value="double" data-i18n="tcOptBorderDouble">Double Rule</option>
+              <option value="dashed" data-i18n="tcOptBorderDashed">Dashed Border</option>
+              <option value="minimal" data-i18n="tcOptBorderMinimal">Minimal (Top/Bottom only)</option>
+              <option value="none" data-i18n="tcOptBorderNone">None (Borderless)</option>
+            </select>
+          </div>
+
+          <div>
+            <label style="display:block; font-size:0.78rem; font-weight:800; margin-bottom:4px;" data-i18n="tcPageOrientationLabel">Page Orientation (Separate Page):</label>
+            <select id="tcModalCompOrientation" class="meta-select" style="width:100%; font-size:0.8rem; padding:4px 8px;" onchange="tcUpdateModalCompOption('pageOrientation', this.value)">
+              <option value="portrait" data-i18n="tcOrientationPortrait">Portrait (A4 Vertical)</option>
+              <option value="landscape" data-i18n="tcOrientationLandscape">Landscape (A4 Horizontal)</option>
+            </select>
+          </div>
+
+          <div style="grid-column: 1 / -1; display:flex; flex-wrap:wrap; align-items:center; gap:14px; padding-top:8px; border-top:1.5px dashed #cbd5e1;">
+            <strong style="font-size:0.78rem; color:#1e40af;" data-i18n="tcVisibleColumnsLabel">Table Columns:</strong>
+            <label class="card-checkbox-label" style="font-size:0.78rem; font-weight:700;">
+              <input type="checkbox" id="tcModalCompColCode" onchange="tcUpdateModalCompOption('showCodeCol', this.checked)">
+              <span data-i18n="tcColCompCode">Code / Ref</span>
+            </label>
+            <label class="card-checkbox-label" style="font-size:0.78rem; font-weight:700;">
+              <input type="checkbox" id="tcModalCompColTitle" onchange="tcUpdateModalCompOption('showTitleCol', this.checked)">
+              <span data-i18n="tcColCompTitle">Objective / Title</span>
+            </label>
+            <label class="card-checkbox-label" style="font-size:0.78rem; font-weight:700;">
+              <input type="checkbox" id="tcModalCompShowDesc" onchange="tcUpdateModalCompOption('showDescriptions', this.checked)">
+              <span data-i18n="tcColCompDesc">Descriptors &amp; Performance Criteria</span>
+            </label>
+            <label class="card-checkbox-label" style="font-size:0.78rem; font-weight:700;">
+              <input type="checkbox" id="tcModalCompColLevel" onchange="tcUpdateModalCompOption('showLevelCol', this.checked)">
+              <span data-i18n="tcColCompLevel">Level</span>
+            </label>
+            <label class="card-checkbox-label" style="font-size:0.78rem; font-weight:700;">
+              <input type="checkbox" id="tcModalCompColScore" onchange="tcUpdateModalCompOption('showScoreCol', this.checked)">
+              <span data-i18n="tcColCompScore">Mastery / Score Box</span>
+            </label>
+            <label class="card-checkbox-label" style="font-size:0.78rem; font-weight:700;">
+              <input type="checkbox" id="tcModalCompColComments" onchange="tcUpdateModalCompOption('showCommentsCol', this.checked)">
+              <span data-i18n="tcColCritComments">Feedback &amp; Comments</span>
+            </label>
+          </div>
+
+          <div style="grid-column: 1 / -1; display:flex; flex-wrap:wrap; align-items:center; gap:16px; padding-top:6px; border-top:1px dashed #e2e8f0;">
+            <label class="card-checkbox-label" style="font-size:0.78rem; font-weight:800; color:#1e40af;">
+              <input type="checkbox" id="tcModalCompSeparatePage" onchange="tcUpdateModalCompOption('separatePage', this.checked)">
+              <span data-i18n="tcPrintCompOnSeparatePage">Place Competence Table on a Separate Page</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Live Preview Box -->
+        <div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <span style="font-weight:800; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.5px; color:#1e40af;" data-i18n="tcCompPreviewLabel">Live Competence Preview (Exam / PDF Output):</span>
+            <button type="button" class="neo-btn sm" style="font-size:0.72rem; padding:2px 8px; color:#b91c1c; border-color:#ef4444;" onclick="tcResetCompLayoutOptions()" data-i18n="tcBtnResetDefaults">Reset to Defaults</button>
+          </div>
+          <div id="tcCompLayoutPreviewBox" style="background:#ffffff; border:2px dashed #94a3b8; border-radius:8px; padding:12px; overflow-x:auto; min-height:110px;">
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="margin-top:12px; border-top:2px solid var(--neo-dark, #333); padding-top:10px; display:flex; justify-content:flex-end; gap:8px;">
+        <button type="button" class="neo-btn primary" onclick="tcCloseCompetenceLayoutModal()" data-i18n="btnDone">Done</button>
       </div>
     </div>
   </div>
@@ -4125,7 +4625,13 @@
 
       function buildCompetencesSectionCardHtml(ex, idx) {
         var isOpen = window._openOptionsExerciseIds && window._openOptionsExerciseIds.has(ex.id);
-        var opts = ex.options || {};
+        var opts = TestCreatorService.ensureExerciseOptions(ex);
+        var curMode = opts.displayMode || 'table';
+        var curBg = opts.background || 'default';
+        var curPad = opts.padding || 'standard';
+        var curBorder = opts.border || 'solid';
+        var curOrient = opts.pageOrientation || 'portrait';
+        var curSepPage = !!(ex.forcePageBreak || opts.separatePage || curOrient === 'landscape');
         var rawComps = (Array.isArray(ex.linkedCompetences) && ex.linkedCompetences.length)
           ? ex.linkedCompetences
           : (Array.isArray(ex.linkedCompetenceIds) && ex.linkedCompetenceIds.length ? ex.linkedCompetenceIds : []);
@@ -4143,6 +4649,9 @@
               return '<span style="background:#eff6ff;border:1.5px solid #2563eb;color:#1e40af;font-size:0.75rem;padding:3px 8px;border-radius:4px;font-weight:900;display:inline-flex;align-items:center;gap:6px;">' +
                 '<span>' + escapeHtml(title) + '</span>' +
                 (desc && opts.showDescriptions !== false ? ' <span style="font-size:0.68rem;font-weight:700;color:#3b82f6;">[+desc]</span>' : '') +
+                '<button type="button" class="neo-btn sm" style="padding:1px 5px;font-size:0.66rem;background:#fff;color:#1e40af;border-color:#2563eb;display:inline-flex;align-items:center;gap:3px;" onclick="tcOpenCompetenceLayoutModal(\'' + ex.id + '\')" title="' + escapeAttr(i18n.t('tcCompLayoutTooltip') || 'Customise competence table columns, orientation, and appearance') + '">' +
+                '<img src="../assets/icons/layout.svg" style="width:11px;height:11px;" alt="">' + escapeHtml(i18n.t('tcLayoutBtn') || 'Layout') +
+                '</button>' +
                 ' <button type="button" style="background:none;border:none;cursor:pointer;color:#ef4444;font-weight:900;font-size:0.85rem;padding:0;line-height:1;" onclick="tcRemoveCompFromSection(\'' + ex.id + '\', ' + cIdx + ')" title="Remove objective">&times;</button>' +
                 '</span>';
             }).join('') +
@@ -4170,40 +4679,103 @@
           '      ' + buildMiniFormatToolbar('exInstr_' + ex.id) +
           '    </div>' +
           '    <div class="section-block-preview">' +
-          '      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
+          '      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:6px;flex-wrap:wrap;">' +
           '        <span style="font-size:0.75rem;font-weight:900;text-transform:uppercase;color:#1e40af;">' + (i18n.t('tcActiveCompetencesInBlock') || 'Curriculum objectives displayed by this block:') + '</span>' +
-          '        <button type="button" class="neo-btn sm" style="background:#dbeafe;color:#1e40af;border-color:#2563eb;font-size:0.75rem;padding:2px 8px;" onclick="tcOpenCompetenceDrawerForSection(\'' + ex.id + '\')">' + (i18n.t('tcManageInDrawer') || 'Open Drawer…') + '</button>' +
+          '        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
+          '          <button type="button" class="neo-btn sm" style="background:#eff6ff;color:#1e40af;border-color:#2563eb;font-size:0.75rem;padding:2px 8px;display:inline-flex;align-items:center;gap:4px;" onclick="tcOpenCompetenceLayoutModal(\'' + ex.id + '\')" title="' + escapeAttr(i18n.t('tcCompLayoutTooltip') || 'Customise competence table columns, orientation, and appearance') + '">' +
+          '            <img src="../assets/icons/layout.svg" style="width:13px;height:13px;" alt="">' + escapeHtml(i18n.t('tcRubricLayoutAppearance') || 'Layout & Appearance') +
+          '          </button>' +
+          '          <button type="button" class="neo-btn sm" style="background:#dbeafe;color:#1e40af;border-color:#2563eb;font-size:0.75rem;padding:2px 8px;" onclick="tcOpenCompetenceDrawerForSection(\'' + ex.id + '\')">' + (i18n.t('tcManageInDrawer') || 'Open Drawer…') + '</button>' +
+          '        </div>' +
           '      </div>' +
           previewContent +
           '    </div>' +
           '    <div class="exercise-options-panel" id="optionsPanel_' + ex.id + '" style="display:' + (isOpen ? 'block' : 'none') + ';">' +
-          '      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:10px;padding:8px 0;">' +
+          '      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding-top:4px;flex-wrap:wrap;gap:6px;">' +
+          '        <span style="font-size:0.78rem;font-weight:900;color:#1e40af;display:inline-flex;align-items:center;gap:5px;">' +
+          '          <img src="../assets/icons/award.svg" style="width:14px;height:14px;" alt="">' +
+          '          ' + escapeHtml(i18n.t('tcCompLayoutModalTitle') || 'Competences & Objectives Layout & Appearance') +
+          '        </span>' +
+          '        <button type="button" class="neo-btn sm" style="padding:2px 8px;font-size:0.74rem;background:#eff6ff;color:#1e40af;border-color:#2563eb;" onclick="tcOpenCompetenceLayoutModal(\'' + ex.id + '\')">' +
+          '          ' + escapeHtml(i18n.t('tcOpenCompCustomizer') || 'Live Preview & Column Customizer…') +
+          '        </button>' +
+          '      </div>' +
+          '      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:10px;padding:4px 0 8px 0;">' +
+          '        <div>' +
+          '          <label style="display:block;font-size:0.75rem;font-weight:800;margin-bottom:3px;">' + (i18n.t('tcCompHeadingLabel') || 'Competence Heading / Title:') + '</label>' +
+          '          <input type="text" class="meta-input sm" style="width:100%;" placeholder="' + escapeAttr(ex.title || 'Competences & Curriculum Objectives') + '" value="' + escapeAttr(opts.compTitle || '') + '" onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'compTitle\', this.value)">' +
+          '        </div>' +
           '        <div>' +
           '          <label style="display:block;font-size:0.75rem;font-weight:800;margin-bottom:3px;">' + (i18n.t('tcSectionDisplayMode') || 'Display Mode:') + '</label>' +
           '          <select class="meta-input sm" style="width:100%;" onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'displayMode\', this.value)">' +
-          '            <option value="table"' + (opts.displayMode === 'table' ? ' selected' : '') + '>' + (i18n.t('tcDisplayTable') || 'Table / Grid') + '</option>' +
-          '            <option value="badges"' + (opts.displayMode === 'badges' ? ' selected' : '') + '>' + (i18n.t('tcDisplayBadges') || 'Badges / Tags') + '</option>' +
-          '            <option value="list"' + (opts.displayMode === 'list' ? ' selected' : '') + '>' + (i18n.t('tcDisplayList') || 'Bullet List') + '</option>' +
-          '            <option value="compact"' + (opts.displayMode === 'compact' ? ' selected' : '') + '>' + (i18n.t('tcDisplayCompact') || 'Compact Summary') + '</option>' +
+          '            <option value="table"' + (curMode === 'table' ? ' selected' : '') + '>' + (i18n.t('tcObjectivesTable') || 'Objectives Table') + '</option>' +
+          '            <option value="badges"' + (curMode === 'badges' ? ' selected' : '') + '>' + (i18n.t('tcCurriculumBadges') || 'Curriculum Badges') + '</option>' +
+          '            <option value="list"' + (curMode === 'list' ? ' selected' : '') + '>' + (i18n.t('tcBulletedList') || 'Bullet List') + '</option>' +
+          '            <option value="compact"' + (curMode === 'compact' ? ' selected' : '') + '>' + (i18n.t('tcDisplayCompact') || 'Compact Summary') + '</option>' +
           '          </select>' +
           '        </div>' +
-          '        <div style="display:flex;flex-direction:column;justify-content:center;gap:6px;">' +
-          '          <label class="card-checkbox-label" style="font-size:0.78rem;">' +
-          '            <input type="checkbox" ' + (opts.showDescriptions !== false ? 'checked' : '') + ' onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'showDescriptions\', this.checked)">' +
-          '            <span>' + (i18n.t('tcIncludeDescriptions') || 'Include Descriptions') + '</span>' +
-          '          </label>' +
+          '        <div>' +
+          '          <label style="display:block;font-size:0.75rem;font-weight:800;margin-bottom:3px;">' + (i18n.t('tcRubricBg') || 'Container Background:') + '</label>' +
+          '          <select class="meta-input sm" style="width:100%;" onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'background\', this.value)">' +
+          '            <option value="default"' + (curBg === 'default' ? ' selected' : '') + '>' + (i18n.t('tcOptBgDefaultBlue') || 'Default (Soft Blue Tint)') + '</option>' +
+          '            <option value="white"' + (curBg === 'white' ? ' selected' : '') + '>' + (i18n.t('tcOptBgWhite') || 'Crisp White') + '</option>' +
+          '            <option value="ivory"' + (curBg === 'ivory' ? ' selected' : '') + '>' + (i18n.t('tcOptBgIvory') || 'Ivory Cream') + '</option>' +
+          '            <option value="tint"' + (curBg === 'tint' ? ' selected' : '') + '>' + (i18n.t('tcOptBgSkyTint') || 'Sky Tint') + '</option>' +
+          '            <option value="light_gray"' + (curBg === 'light_gray' ? ' selected' : '') + '>' + (i18n.t('tcOptBgLightGray') || 'Subtle Gray') + '</option>' +
+          '            <option value="none"' + (curBg === 'none' ? ' selected' : '') + '>' + (i18n.t('tcOptBgNone') || 'None (Transparent)') + '</option>' +
+          '          </select>' +
           '        </div>' +
+          '        <div>' +
+          '          <label style="display:block;font-size:0.75rem;font-weight:800;margin-bottom:3px;">' + (i18n.t('tcRubricPadding') || 'Container Padding:') + '</label>' +
+          '          <select class="meta-input sm" style="width:100%;" onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'padding\', this.value)">' +
+          '            <option value="compact"' + (curPad === 'compact' ? ' selected' : '') + '>' + (i18n.t('tcOptPadCompact') || 'Compact (4px 8px)') + '</option>' +
+          '            <option value="standard"' + (curPad === 'standard' ? ' selected' : '') + '>' + (i18n.t('tcOptPadStandard') || 'Standard (8px 14px)') + '</option>' +
+          '            <option value="spacious"' + (curPad === 'spacious' ? ' selected' : '') + '>' + (i18n.t('tcOptPadSpacious') || 'Spacious (14px 18px)') + '</option>' +
+          '          </select>' +
+          '        </div>' +
+          '        <div>' +
+          '          <label style="display:block;font-size:0.75rem;font-weight:800;margin-bottom:3px;">' + (i18n.t('tcRubricBorder') || 'Container Border:') + '</label>' +
+          '          <select class="meta-input sm" style="width:100%;" onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'border\', this.value)">' +
+          '            <option value="solid"' + (curBorder === 'solid' ? ' selected' : '') + '>' + (i18n.t('tcOptBorderSolidBlue') || 'Solid (2px Blue)') + '</option>' +
+          '            <option value="neobrutalist"' + (curBorder === 'neobrutalist' ? ' selected' : '') + '>' + (i18n.t('tcOptBorderNeobrutalist') || 'Neobrutalist (Thick + Shadow)') + '</option>' +
+          '            <option value="double"' + (curBorder === 'double' ? ' selected' : '') + '>' + (i18n.t('tcOptBorderDouble') || 'Double Rule') + '</option>' +
+          '            <option value="dashed"' + (curBorder === 'dashed' ? ' selected' : '') + '>' + (i18n.t('tcOptBorderDashed') || 'Dashed Border') + '</option>' +
+          '            <option value="minimal"' + (curBorder === 'minimal' ? ' selected' : '') + '>' + (i18n.t('tcOptBorderMinimal') || 'Minimal (Top/Bottom only)') + '</option>' +
+          '            <option value="none"' + (curBorder === 'none' ? ' selected' : '') + '>' + (i18n.t('tcOptBorderNone') || 'None (Borderless)') + '</option>' +
+          '          </select>' +
+          '        </div>' +
+          '        <div>' +
+          '          <label style="display:block;font-size:0.75rem;font-weight:800;margin-bottom:3px;">' + (i18n.t('tcPageOrientationLabel') || 'Page Orientation:') + '</label>' +
+          '          <select class="meta-input sm" style="width:100%;" onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'pageOrientation\', this.value)">' +
+          '            <option value="portrait"' + (curOrient === 'portrait' ? ' selected' : '') + '>' + (i18n.t('tcOrientationPortrait') || 'Portrait (A4 Vertical)') + '</option>' +
+          '            <option value="landscape"' + (curOrient === 'landscape' ? ' selected' : '') + '>' + (i18n.t('tcOrientationLandscape') || 'Landscape (A4 Horizontal)') + '</option>' +
+          '          </select>' +
+          '        </div>' +
+          '      </div>' +
+          '      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:6px 0;border-top:1px dashed #cbd5e1;font-size:0.76rem;">' +
+          '        <strong style="color:#1e40af;">' + (i18n.t('tcVisibleColumnsLabel') || 'Table Columns:') + '</strong>' +
+          '        <label class="card-checkbox-label" style="font-size:0.76rem;"><input type="checkbox" ' + (opts.showCodeCol !== false ? 'checked' : '') + ' onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'showCodeCol\', this.checked)"><span>' + (i18n.t('tcColCompCode') || 'Code / Ref') + '</span></label>' +
+          '        <label class="card-checkbox-label" style="font-size:0.76rem;"><input type="checkbox" ' + (opts.showTitleCol !== false ? 'checked' : '') + ' onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'showTitleCol\', this.checked)"><span>' + (i18n.t('tcColCompTitle') || 'Objective / Title') + '</span></label>' +
+          '        <label class="card-checkbox-label" style="font-size:0.76rem;"><input type="checkbox" ' + (opts.showDescriptions !== false ? 'checked' : '') + ' onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'showDescriptions\', this.checked)"><span>' + (i18n.t('tcColCompDesc') || 'Descriptors') + '</span></label>' +
+          '        <label class="card-checkbox-label" style="font-size:0.76rem;"><input type="checkbox" ' + (opts.showLevelCol !== false ? 'checked' : '') + ' onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'showLevelCol\', this.checked)"><span>' + (i18n.t('tcColCompLevel') || 'Level') + '</span></label>' +
+          '        <label class="card-checkbox-label" style="font-size:0.76rem;"><input type="checkbox" ' + (opts.showScoreCol ? 'checked' : '') + ' onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'showScoreCol\', this.checked)"><span>' + (i18n.t('tcColCompScore') || 'Mastery / Score') + '</span></label>' +
+          '        <label class="card-checkbox-label" style="font-size:0.76rem;"><input type="checkbox" ' + (opts.showCommentsCol ? 'checked' : '') + ' onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'showCommentsCol\', this.checked)"><span>' + (i18n.t('tcColCritComments') || 'Feedback & Comments') + '</span></label>' +
           '      </div>' +
           '    </div>' +
           '  </div>' +
           '  <div class="card-footer">' +
-          '    <div class="card-toggles">' +
+          '    <div class="card-toggles" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">' +
           '      <label class="card-checkbox-label">' +
-          '        <input type="checkbox" ' + (ex.forcePageBreak ? 'checked' : '') + ' onchange="tcUpdateExField(\'' + ex.id + '\', \'forcePageBreak\', this.checked)">' +
-          '        <span>Force Page Break before this section</span>' +
+          '        <input type="checkbox" ' + (curSepPage ? 'checked' : '') + ' onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'separatePage\', this.checked)">' +
+          '        <span>' + (i18n.t('tcPrintCompOnSeparatePage') || 'Separate Page for Competences') + '</span>' +
           '      </label>' +
+          '      <select class="meta-input sm" style="padding:1px 6px;font-size:0.74rem;width:auto;" onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'pageOrientation\', this.value)" title="Page Orientation">' +
+          '        <option value="portrait"' + (curOrient === 'portrait' ? ' selected' : '') + '>' + (i18n.t('tcOrientationPortraitShort') || 'Portrait') + '</option>' +
+          '        <option value="landscape"' + (curOrient === 'landscape' ? ' selected' : '') + '>' + (i18n.t('tcOrientationLandscapeShort') || 'Landscape') + '</option>' +
+          '      </select>' +
           '    </div>' +
           '    <div style="display:flex;align-items:center;gap:6px;">' +
+          '      <button type="button" class="neo-btn sm" style="background:#eff6ff;color:#1e40af;border-color:#2563eb;" onclick="tcOpenCompetenceDrawerForSection(\'' + ex.id + '\')" title="Attach curriculum competences from database">+ Competences</button>' +
           '      <button type="button" id="optionsBtn_' + ex.id + '" class="neo-btn sm tc-options-btn' + (isOpen ? ' yellow' : '') + '" onclick="tcToggleExerciseOptions(\'' + ex.id + '\')">Options</button>' +
           '      <button type="button" class="' + (ex.exportStyle && (ex.exportStyle.fontSize || ex.exportStyle.lineHeight || ex.exportStyle.padding) ? 'neo-btn sm primary' : 'neo-btn sm') + '" onclick="tcOpenExerciseStyleModal(\'' + ex.id + '\')" title="Customise export formatting">Style</button>' +
           '    </div>' +
@@ -4213,7 +4785,12 @@
 
       function buildCriteriaSectionCardHtml(ex, idx) {
         var isOpen = window._openOptionsExerciseIds && window._openOptionsExerciseIds.has(ex.id);
-        var opts = ex.options || {};
+        var opts = TestCreatorService.ensureExerciseOptions(ex);
+        var curMode = opts.displayMode || opts.rubricDisplayMode || 'matrix';
+        var curBg = opts.background || opts.rubricBg || 'default';
+        var curPad = opts.padding || opts.rubricPadding || 'standard';
+        var curBorder = opts.border || opts.rubricBorder || 'solid';
+        var curShowDesc = (opts.showDescriptions !== undefined) ? opts.showDescriptions : (opts.showRubricDescriptions !== false);
         var rawCrits = (Array.isArray(ex.criteria) && ex.criteria.length)
           ? ex.criteria
           : ((Array.isArray(ex.markingRubric) && ex.markingRubric.length) ? ex.markingRubric : ((Array.isArray(ex.linkedCriteria) && ex.linkedCriteria.length) ? ex.linkedCriteria : []));
@@ -4233,7 +4810,13 @@
               var lvlInfo = lvlCount > 0 ? ' <span style="font-size:0.68rem;opacity:0.85;text-decoration:underline;cursor:pointer;" onclick="tcOpenRubricMatrixModal(\'' + ex.id + '\', ' + cIdx + ')">[' + lvlCount + ' levels]</span>' : '';
               return '<span style="background:#ecfdf5;border:1.5px solid #059669;color:#065f46;font-size:0.75rem;padding:3px 8px;border-radius:4px;font-weight:900;display:inline-flex;align-items:center;gap:6px;">' +
                 '<span>' + escapeHtml(title) + (pts !== '' ? ' (/' + pts + ' pts)' : '') + lvlInfo + '</span>' +
-                (desc && opts.showDescriptions !== false ? ' <span style="font-size:0.68rem;font-weight:700;color:#10b981;">[+desc]</span>' : '') +
+                (desc && curShowDesc ? ' <span style="font-size:0.68rem;font-weight:700;color:#10b981;">[+desc]</span>' : '') +
+                '<button type="button" class="neo-btn sm" style="padding:1px 5px;font-size:0.66rem;background:#d1fae5;color:#065f46;border-color:#059669;display:inline-flex;align-items:center;gap:3px;" onclick="tcOpenRubricMatrixModal(\'' + ex.id + '\')" title="' + escapeAttr(i18n.t('tcViewRubricMatrix') || 'View Rubric Matrix') + '">' +
+                '<img src="../assets/icons/eye.svg" style="width:11px;height:11px;" alt="">' + escapeHtml(i18n.t('tcMatrixBtn') || 'Matrix') +
+                '</button>' +
+                '<button type="button" class="neo-btn sm" style="padding:1px 5px;font-size:0.66rem;background:#fff;color:#065f46;border-color:#059669;display:inline-flex;align-items:center;gap:3px;" onclick="tcOpenRubricLayoutModal(\'' + ex.id + '\')" title="' + escapeAttr(i18n.t('tcRubricLayoutTooltip') || 'Customise rubric layout, border, padding, and display mode') + '">' +
+                '<img src="../assets/icons/layout.svg" style="width:11px;height:11px;" alt="">' + escapeHtml(i18n.t('tcLayoutBtn') || 'Layout') +
+                '</button>' +
                 ' <button type="button" style="background:none;border:none;cursor:pointer;color:#ef4444;font-weight:900;font-size:0.85rem;padding:0;line-height:1;" onclick="tcRemoveCriterionFromSection(\'' + ex.id + '\', ' + cIdx + ')" title="Remove criterion">&times;</button>' +
                 '</span>';
             }).join('') +
@@ -4263,72 +4846,105 @@
           '    <div class="section-block-preview">' +
           '      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:6px;flex-wrap:wrap;">' +
           '        <span style="font-size:0.75rem;font-weight:900;text-transform:uppercase;color:#065f46;">' + (i18n.t('tcActiveCriteriaInBlock') || 'Assessment criteria rubrics displayed by this block:') + '</span>' +
-          '        <div style="display:flex;align-items:center;gap:6px;">' +
-          '          <button type="button" class="neo-btn sm" style="background:#ecfdf5;color:#065f46;border-color:#059669;font-size:0.75rem;padding:2px 8px;" onclick="tcOpenRubricMatrixModal(\'' + ex.id + '\')">' + (i18n.t('tcViewRubricMatrix') || '👁 View Rubric Matrix') + '</button>' +
+          '        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
+          '          <button type="button" class="neo-btn sm" style="background:#ecfdf5;color:#065f46;border-color:#059669;font-size:0.75rem;padding:2px 8px;display:inline-flex;align-items:center;gap:4px;" onclick="tcOpenRubricLayoutModal(\'' + ex.id + '\')" title="' + escapeAttr(i18n.t('tcRubricLayoutTooltip') || 'Customise rubric layout, border, padding, and display mode') + '">' +
+          '            <img src="../assets/icons/layout.svg" style="width:13px;height:13px;" alt="">' + escapeHtml(i18n.t('tcRubricLayoutAppearance') || 'Layout & Appearance') +
+          '          </button>' +
+          '          <button type="button" class="neo-btn sm" style="background:#ecfdf5;color:#065f46;border-color:#059669;font-size:0.75rem;padding:2px 8px;display:inline-flex;align-items:center;gap:4px;" onclick="tcOpenRubricMatrixModal(\'' + ex.id + '\')">' +
+          '            <img src="../assets/icons/eye.svg" style="width:13px;height:13px;" alt="">' + escapeHtml(i18n.t('tcViewRubricMatrix') || 'View Rubric Matrix') +
+          '          </button>' +
           '          <button type="button" class="neo-btn sm" style="background:#d1fae5;color:#065f46;border-color:#059669;font-size:0.75rem;padding:2px 8px;" onclick="tcOpenCriteriaDrawerForSection(\'' + ex.id + '\')">' + (i18n.t('tcManageInDrawer') || 'Open Drawer…') + '</button>' +
           '        </div>' +
           '      </div>' +
           previewContent +
           '    </div>' +
           '    <div class="exercise-options-panel" id="optionsPanel_' + ex.id + '" style="display:' + (isOpen ? 'block' : 'none') + ';">' +
-          '      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:10px;padding:8px 0;">' +
+          '      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding-top:4px;flex-wrap:wrap;gap:6px;">' +
+          '        <span style="font-size:0.78rem;font-weight:900;color:#065f46;display:inline-flex;align-items:center;gap:5px;">' +
+          '          <img src="../assets/icons/award.svg" style="width:14px;height:14px;" alt="">' +
+          '          ' + escapeHtml(i18n.t('tcRubricLayoutAppearance') || 'Rubric Layout & Appearance') +
+          '        </span>' +
+          '        <button type="button" class="neo-btn sm" style="padding:2px 8px;font-size:0.74rem;background:#ecfdf5;color:#065f46;border-color:#059669;" onclick="tcOpenRubricLayoutModal(\'' + ex.id + '\')">' +
+          '          ' + escapeHtml(i18n.t('tcOpenRubricCustomizer') || 'Live Preview & Customizer Modal…') +
+          '        </button>' +
+          '      </div>' +
+          '      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:10px;padding:4px 0 8px 0;">' +
+          '        <div>' +
+          '          <label style="display:block;font-size:0.75rem;font-weight:800;margin-bottom:3px;">' + (i18n.t('tcRubricHeadingLabel') || 'Rubric Heading / Title:') + '</label>' +
+          '          <input type="text" class="meta-input sm" style="width:100%;" placeholder="' + escapeAttr(ex.title || (i18n.t('tcDefaultRubricTitle') || 'Assessment Criteria & Evaluation Rubric')) + '" value="' + escapeAttr(opts.rubricTitle || '') + '" onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'rubricTitle\', this.value)">' +
+          '        </div>' +
           '        <div>' +
           '          <label style="display:block;font-size:0.75rem;font-weight:800;margin-bottom:3px;">' + (i18n.t('tcSectionDisplayMode') || 'Display Mode:') + '</label>' +
           '          <select class="meta-input sm" style="width:100%;" onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'displayMode\', this.value)">' +
-          '            <option value="matrix"' + ((!opts.displayMode || opts.displayMode === 'matrix') ? ' selected' : '') + '>' + (i18n.t('tcDisplayMatrix') || 'Full Rubric Matrix Grid') + '</option>' +
-          '            <option value="table"' + (opts.displayMode === 'table' ? ' selected' : '') + '>' + (i18n.t('tcDisplayTable') || 'Table / Grid') + '</option>' +
-          '            <option value="badges"' + (opts.displayMode === 'badges' ? ' selected' : '') + '>' + (i18n.t('tcDisplayBadges') || 'Badges / Tags') + '</option>' +
-          '            <option value="list"' + (opts.displayMode === 'list' ? ' selected' : '') + '>' + (i18n.t('tcDisplayList') || 'Bullet List') + '</option>' +
-          '            <option value="compact"' + (opts.displayMode === 'compact' ? ' selected' : '') + '>' + (i18n.t('tcDisplayCompact') || 'Compact Summary') + '</option>' +
+          '            <option value="matrix"' + (curMode === 'matrix' ? ' selected' : '') + '>' + (i18n.t('tcDisplayMatrix') || 'Full Rubric Matrix Grid') + '</option>' +
+          '            <option value="table"' + (curMode === 'table' ? ' selected' : '') + '>' + (i18n.t('tcDisplayTable') || 'Summary Rubric Table') + '</option>' +
+          '            <option value="badges"' + (curMode === 'badges' ? ' selected' : '') + '>' + (i18n.t('tcDisplayBadges') || 'Badges / Tags') + '</option>' +
+          '            <option value="list"' + (curMode === 'list' ? ' selected' : '') + '>' + (i18n.t('tcDisplayList') || 'Bullet List') + '</option>' +
+          '            <option value="compact"' + (curMode === 'compact' ? ' selected' : '') + '>' + (i18n.t('tcDisplayCompact') || 'Compact Summary') + '</option>' +
           '          </select>' +
           '        </div>' +
           '        <div>' +
           '          <label style="display:block;font-size:0.75rem;font-weight:800;margin-bottom:3px;">' + (i18n.t('tcRubricBg') || 'Container Background:') + '</label>' +
           '          <select class="meta-input sm" style="width:100%;" onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'background\', this.value)">' +
-          '            <option value="default"' + ((!opts.background || opts.background === 'default') ? ' selected' : '') + '>' + (i18n.t('tcOptBgDefaultGreen') || 'Default (Soft Green Tint)') + '</option>' +
-          '            <option value="white"' + (opts.background === 'white' ? ' selected' : '') + '>' + (i18n.t('tcOptBgWhite') || 'Crisp White') + '</option>' +
-          '            <option value="ivory"' + (opts.background === 'ivory' ? ' selected' : '') + '>' + (i18n.t('tcOptBgIvory') || 'Ivory Cream') + '</option>' +
-          '            <option value="amber"' + (opts.background === 'amber' ? ' selected' : '') + '>' + (i18n.t('tcOptBgAmber') || 'Warm Amber') + '</option>' +
-          '            <option value="light_gray"' + (opts.background === 'light_gray' ? ' selected' : '') + '>' + (i18n.t('tcOptBgLightGray') || 'Subtle Gray') + '</option>' +
-          '            <option value="none"' + (opts.background === 'none' ? ' selected' : '') + '>' + (i18n.t('tcOptBgNone') || 'None (Transparent)') + '</option>' +
+          '            <option value="default"' + (curBg === 'default' ? ' selected' : '') + '>' + (i18n.t('tcOptBgDefaultGreen') || 'Default (Soft Green Tint)') + '</option>' +
+          '            <option value="white"' + (curBg === 'white' ? ' selected' : '') + '>' + (i18n.t('tcOptBgWhite') || 'Crisp White') + '</option>' +
+          '            <option value="ivory"' + (curBg === 'ivory' ? ' selected' : '') + '>' + (i18n.t('tcOptBgIvory') || 'Ivory Cream') + '</option>' +
+          '            <option value="amber"' + (curBg === 'amber' ? ' selected' : '') + '>' + (i18n.t('tcOptBgAmber') || 'Warm Amber') + '</option>' +
+          '            <option value="light_gray"' + (curBg === 'light_gray' ? ' selected' : '') + '>' + (i18n.t('tcOptBgLightGray') || 'Subtle Gray') + '</option>' +
+          '            <option value="none"' + (curBg === 'none' ? ' selected' : '') + '>' + (i18n.t('tcOptBgNone') || 'None (Transparent)') + '</option>' +
           '          </select>' +
           '        </div>' +
           '        <div>' +
           '          <label style="display:block;font-size:0.75rem;font-weight:800;margin-bottom:3px;">' + (i18n.t('tcRubricPadding') || 'Container Padding:') + '</label>' +
           '          <select class="meta-input sm" style="width:100%;" onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'padding\', this.value)">' +
-          '            <option value="compact"' + (opts.padding === 'compact' ? ' selected' : '') + '>' + (i18n.t('tcOptPadCompact') || 'Compact (4px 8px)') + '</option>' +
-          '            <option value="standard"' + ((!opts.padding || opts.padding === 'standard') ? ' selected' : '') + '>' + (i18n.t('tcOptPadStandard') || 'Standard (8px 14px)') + '</option>' +
-          '            <option value="spacious"' + (opts.padding === 'spacious' ? ' selected' : '') + '>' + (i18n.t('tcOptPadSpacious') || 'Spacious (14px 18px)') + '</option>' +
+          '            <option value="compact"' + (curPad === 'compact' ? ' selected' : '') + '>' + (i18n.t('tcOptPadCompact') || 'Compact (4px 8px)') + '</option>' +
+          '            <option value="standard"' + (curPad === 'standard' ? ' selected' : '') + '>' + (i18n.t('tcOptPadStandard') || 'Standard (8px 14px)') + '</option>' +
+          '            <option value="spacious"' + (curPad === 'spacious' ? ' selected' : '') + '>' + (i18n.t('tcOptPadSpacious') || 'Spacious (14px 18px)') + '</option>' +
           '          </select>' +
           '        </div>' +
           '        <div>' +
           '          <label style="display:block;font-size:0.75rem;font-weight:800;margin-bottom:3px;">' + (i18n.t('tcRubricBorder') || 'Container Border:') + '</label>' +
           '          <select class="meta-input sm" style="width:100%;" onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'border\', this.value)">' +
-          '            <option value="solid"' + ((!opts.border || opts.border === 'solid') ? ' selected' : '') + '>' + (i18n.t('tcOptBorderSolid') || 'Solid (2px Green / Charcoal)') + '</option>' +
-          '            <option value="neobrutalist"' + (opts.border === 'neobrutalist' ? ' selected' : '') + '>' + (i18n.t('tcOptBorderNeobrutalist') || 'Neobrutalist (Thick + Shadow)') + '</option>' +
-          '            <option value="double"' + (opts.border === 'double' ? ' selected' : '') + '>' + (i18n.t('tcOptBorderDouble') || 'Double Rule') + '</option>' +
-          '            <option value="dashed"' + (opts.border === 'dashed' ? ' selected' : '') + '>' + (i18n.t('tcOptBorderDashed') || 'Dashed Border') + '</option>' +
-          '            <option value="minimal"' + (opts.border === 'minimal' ? ' selected' : '') + '>' + (i18n.t('tcOptBorderMinimal') || 'Minimal (Top/Bottom only)') + '</option>' +
-          '            <option value="none"' + (opts.border === 'none' ? ' selected' : '') + '>' + (i18n.t('tcOptBorderNone') || 'None (Borderless)') + '</option>' +
+          '            <option value="solid"' + (curBorder === 'solid' ? ' selected' : '') + '>' + (i18n.t('tcOptBorderSolid') || 'Solid (2px Green / Charcoal)') + '</option>' +
+          '            <option value="neobrutalist"' + (curBorder === 'neobrutalist' ? ' selected' : '') + '>' + (i18n.t('tcOptBorderNeobrutalist') || 'Neobrutalist (Thick + Shadow)') + '</option>' +
+          '            <option value="double"' + (curBorder === 'double' ? ' selected' : '') + '>' + (i18n.t('tcOptBorderDouble') || 'Double Rule') + '</option>' +
+          '            <option value="dashed"' + (curBorder === 'dashed' ? ' selected' : '') + '>' + (i18n.t('tcOptBorderDashed') || 'Dashed Border') + '</option>' +
+          '            <option value="minimal"' + (curBorder === 'minimal' ? ' selected' : '') + '>' + (i18n.t('tcOptBorderMinimal') || 'Minimal (Top/Bottom only)') + '</option>' +
+          '            <option value="none"' + (curBorder === 'none' ? ' selected' : '') + '>' + (i18n.t('tcOptBorderNone') || 'None (Borderless)') + '</option>' +
           '          </select>' +
           '        </div>' +
-          '        <div style="display:flex;flex-direction:column;justify-content:center;gap:6px;">' +
-          '          <label class="card-checkbox-label" style="font-size:0.78rem;">' +
-          '            <input type="checkbox" ' + (opts.showDescriptions !== false ? 'checked' : '') + ' onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'showDescriptions\', this.checked)">' +
-          '            <span>' + (i18n.t('tcIncludeDescriptions') || 'Include Descriptions') + '</span>' +
-          '          </label>' +
+          '        <div>' +
+          '          <label style="display:block;font-size:0.75rem;font-weight:800;margin-bottom:3px;">' + (i18n.t('tcPageOrientationLabel') || 'Page Orientation:') + '</label>' +
+          '          <select class="meta-input sm" style="width:100%;" onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'pageOrientation\', this.value)">' +
+          '            <option value="portrait"' + ((opts.pageOrientation || opts.rubricPageOrientation || 'portrait') === 'portrait' ? ' selected' : '') + '>' + (i18n.t('tcOrientationPortrait') || 'Portrait (A4 Vertical)') + '</option>' +
+          '            <option value="landscape"' + ((opts.pageOrientation || opts.rubricPageOrientation || 'portrait') === 'landscape' ? ' selected' : '') + '>' + (i18n.t('tcOrientationLandscape') || 'Landscape (A4 Horizontal)') + '</option>' +
+          '          </select>' +
           '        </div>' +
+          '      </div>' +
+          '      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:6px 0;border-top:1px dashed #cbd5e1;font-size:0.76rem;">' +
+          '        <strong style="color:#065f46;">' + (i18n.t('tcVisibleColumnsLabel') || 'Table Columns:') + '</strong>' +
+          '        <label class="card-checkbox-label" style="font-size:0.76rem;"><input type="checkbox" ' + (opts.showCriterionCol !== false ? 'checked' : '') + ' onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'showCriterionCol\', this.checked)"><span>' + (i18n.t('tcColCritName') || 'Criterion Name') + '</span></label>' +
+          '        <label class="card-checkbox-label" style="font-size:0.76rem;"><input type="checkbox" ' + (opts.showLevelsCol !== false ? 'checked' : '') + ' onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'showLevelsCol\', this.checked)"><span>' + (i18n.t('tcColCritLevels') || 'Grade Levels') + '</span></label>' +
+          '        <label class="card-checkbox-label" style="font-size:0.76rem;"><input type="checkbox" ' + (curShowDesc ? 'checked' : '') + ' onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'showDescriptions\', this.checked)"><span>' + (i18n.t('tcColCritDesc') || 'Descriptors & Comments') + '</span></label>' +
+          '        <label class="card-checkbox-label" style="font-size:0.76rem;"><input type="checkbox" ' + (opts.showMaxCol !== false ? 'checked' : '') + ' onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'showMaxCol\', this.checked)"><span>' + (i18n.t('tcColCritMax') || 'Max Points') + '</span></label>' +
+          '        <label class="card-checkbox-label" style="font-size:0.76rem;"><input type="checkbox" ' + (opts.showScoreCol !== false ? 'checked' : '') + ' onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'showScoreCol\', this.checked)"><span>' + (i18n.t('tcColCritScore') || 'Score Box') + '</span></label>' +
+          '        <label class="card-checkbox-label" style="font-size:0.76rem;"><input type="checkbox" ' + (opts.showCommentsCol !== false ? 'checked' : '') + ' onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'showCommentsCol\', this.checked)"><span>' + (i18n.t('tcColCritComments') || 'Feedback & Comments') + '</span></label>' +
           '      </div>' +
           '    </div>' +
           '  </div>' +
           '  <div class="card-footer">' +
-          '    <div class="card-toggles">' +
+          '    <div class="card-toggles" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">' +
           '      <label class="card-checkbox-label">' +
-          '        <input type="checkbox" ' + (ex.forcePageBreak ? 'checked' : '') + ' onchange="tcUpdateExField(\'' + ex.id + '\', \'forcePageBreak\', this.checked)">' +
-          '        <span>Force Page Break before this section</span>' +
+          '        <input type="checkbox" ' + ((ex.forcePageBreak || opts.separatePage || opts.rubricSeparatePage || (opts.pageOrientation || opts.rubricPageOrientation) === 'landscape') ? 'checked' : '') + ' onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'separatePage\', this.checked)">' +
+          '        <span>' + (i18n.t('tcPrintCriteriaOnSeparatePage') || 'Separate Page for Criteria') + '</span>' +
           '      </label>' +
+          '      <select class="meta-input sm" style="padding:1px 6px;font-size:0.74rem;width:auto;" onchange="tcUpdateExOptionField(\'' + ex.id + '\', \'pageOrientation\', this.value)" title="Page Orientation">' +
+          '        <option value="portrait"' + ((opts.pageOrientation || opts.rubricPageOrientation || 'portrait') === 'portrait' ? ' selected' : '') + '>' + (i18n.t('tcOrientationPortraitShort') || 'Portrait') + '</option>' +
+          '        <option value="landscape"' + ((opts.pageOrientation || opts.rubricPageOrientation || 'portrait') === 'landscape' ? ' selected' : '') + '>' + (i18n.t('tcOrientationLandscapeShort') || 'Landscape') + '</option>' +
+          '      </select>' +
           '    </div>' +
           '    <div style="display:flex;align-items:center;gap:6px;">' +
+          '      <button type="button" class="neo-btn sm" style="background:#ecfdf5;color:#065f46;border-color:#059669;" onclick="tcOpenCriteriaDrawerForSection(\'' + ex.id + '\')" title="Attach scoring rubric criteria from database">+ Rubric Criteria</button>' +
           '      <button type="button" id="optionsBtn_' + ex.id + '" class="neo-btn sm tc-options-btn' + (isOpen ? ' yellow' : '') + '" onclick="tcToggleExerciseOptions(\'' + ex.id + '\')">Options</button>' +
           '      <button type="button" class="' + (ex.exportStyle && (ex.exportStyle.fontSize || ex.exportStyle.lineHeight || ex.exportStyle.padding) ? 'neo-btn sm primary' : 'neo-btn sm') + '" onclick="tcOpenExerciseStyleModal(\'' + ex.id + '\')" title="Customise export formatting">Style</button>' +
           '    </div>' +
@@ -5718,11 +6334,27 @@
                   '          <option value="none"' + (o.rubricBorder === 'none' ? ' selected' : '') + '>' + (t('tcOptBorderNone') || 'None (Borderless)') + '</option>' +
                   '        </select>' +
                   '      </div>' +
+                  '      <div class="opt-field">' +
+                  '        <span class="opt-label">' + (t('tcPageOrientationLabel') || 'Page Orientation') + '</span>' +
+                  '        <select class="opt-select" onchange="tcUpdateRubricOption(\'' + ex.id + '\', \'rubricPageOrientation\', this.value)">' +
+                  '          <option value="portrait"' + ((o.rubricPageOrientation || 'portrait') === 'portrait' ? ' selected' : '') + '>' + (t('tcOrientationPortrait') || 'Portrait (A4 Vertical)') + '</option>' +
+                  '          <option value="landscape"' + (o.rubricPageOrientation === 'landscape' ? ' selected' : '') + '>' + (t('tcOrientationLandscape') || 'Landscape (A4 Horizontal)') + '</option>' +
+                  '        </select>' +
+                  '      </div>' +
+                  '    </div>' +
+                  '    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:6px 0;border-top:1px dashed #cbd5e1;font-size:0.76rem;">' +
+                  '      <strong style="color:#065f46;">' + (t('tcVisibleColumnsLabel') || 'Table Columns:') + '</strong>' +
+                  '      <label class="card-checkbox-label" style="font-size:0.76rem;"><input type="checkbox" ' + (o.showCriterionCol !== false ? 'checked' : '') + ' onchange="tcUpdateRubricOption(\'' + ex.id + '\', \'showCriterionCol\', this.checked)"><span>' + (t('tcColCritName') || 'Criterion Name') + '</span></label>' +
+                  '      <label class="card-checkbox-label" style="font-size:0.76rem;"><input type="checkbox" ' + (o.showLevelsCol !== false ? 'checked' : '') + ' onchange="tcUpdateRubricOption(\'' + ex.id + '\', \'showLevelsCol\', this.checked)"><span>' + (t('tcColCritLevels') || 'Grade Levels') + '</span></label>' +
+                  '      <label class="card-checkbox-label" style="font-size:0.76rem;"><input type="checkbox" ' + (o.showRubricDescriptions !== false ? 'checked' : '') + ' onchange="tcUpdateRubricOption(\'' + ex.id + '\', \'showRubricDescriptions\', this.checked)"><span>' + (t('tcColCritDesc') || 'Descriptors & Comments') + '</span></label>' +
+                  '      <label class="card-checkbox-label" style="font-size:0.76rem;"><input type="checkbox" ' + (o.showMaxCol !== false ? 'checked' : '') + ' onchange="tcUpdateRubricOption(\'' + ex.id + '\', \'showMaxCol\', this.checked)"><span>' + (t('tcColCritMax') || 'Max Points') + '</span></label>' +
+                  '      <label class="card-checkbox-label" style="font-size:0.76rem;"><input type="checkbox" ' + (o.showScoreCol !== false ? 'checked' : '') + ' onchange="tcUpdateRubricOption(\'' + ex.id + '\', \'showScoreCol\', this.checked)"><span>' + (t('tcColCritScore') || 'Score Box') + '</span></label>' +
+                  '      <label class="card-checkbox-label" style="font-size:0.76rem;"><input type="checkbox" ' + (o.showCommentsCol !== false ? 'checked' : '') + ' onchange="tcUpdateRubricOption(\'' + ex.id + '\', \'showCommentsCol\', this.checked)"><span>' + (t('tcColCritComments') || 'Feedback & Comments') + '</span></label>' +
                   '    </div>' +
                   '    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:6px;">' +
-                  '      <label class="card-checkbox-label" style="font-size:0.78rem;">' +
-                  '        <input type="checkbox" ' + (o.showRubricDescriptions !== false ? 'checked' : '') + ' onchange="tcUpdateRubricOption(\'' + ex.id + '\', \'showRubricDescriptions\', this.checked)">' +
-                  '        <span>' + (t('tcIncludeDescriptions') || 'Include Performance Descriptors') + '</span>' +
+                  '      <label class="card-checkbox-label" style="font-size:0.78rem;color:#065f46;font-weight:800;">' +
+                  '        <input type="checkbox" ' + ((o.rubricSeparatePage || o.rubricPageOrientation === 'landscape') ? 'checked' : '') + ' onchange="tcUpdateRubricOption(\'' + ex.id + '\', \'rubricSeparatePage\', this.checked)">' +
+                  '        <span>' + (t('tcPrintCriteriaOnSeparatePage') || 'Place Criteria Table on a Separate Page') + '</span>' +
                   '      </label>' +
                   '      <label class="card-checkbox-label" style="font-size:0.78rem;">' +
                   '        <input type="checkbox" ' + (o.showRubric !== false ? 'checked' : '') + ' onchange="tcUpdateRubricOption(\'' + ex.id + '\', \'showRubric\', this.checked)">' +
@@ -5962,11 +6594,27 @@
             '      <option value="none"' + (o.rubricBorder === 'none' ? ' selected' : '') + '>' + (t('tcOptBorderNone') || 'None (Borderless)') + '</option>' +
             '    </select>' +
             '  </div>' +
+            '  <div class="opt-field">' +
+            '    <span class="opt-label">' + (t('tcPageOrientationLabel') || 'Page Orientation') + '</span>' +
+            '    <select class="opt-select" onchange="tcUpdateRubricOption(\'' + ex.id + '\', \'rubricPageOrientation\', this.value)">' +
+            '      <option value="portrait"' + ((o.rubricPageOrientation || 'portrait') === 'portrait' ? ' selected' : '') + '>' + (t('tcOrientationPortrait') || 'Portrait (A4 Vertical)') + '</option>' +
+            '      <option value="landscape"' + (o.rubricPageOrientation === 'landscape' ? ' selected' : '') + '>' + (t('tcOrientationLandscape') || 'Landscape (A4 Horizontal)') + '</option>' +
+            '    </select>' +
+            '  </div>' +
+            '</div>' +
+            '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:6px 0;border-top:1px dashed #cbd5e1;font-size:0.76rem;">' +
+            '  <strong style="color:#065f46;">' + (t('tcVisibleColumnsLabel') || 'Table Columns:') + '</strong>' +
+            '  <label class="card-checkbox-label" style="font-size:0.76rem;"><input type="checkbox" ' + (o.showCriterionCol !== false ? 'checked' : '') + ' onchange="tcUpdateRubricOption(\'' + ex.id + '\', \'showCriterionCol\', this.checked)"><span>' + (t('tcColCritName') || 'Criterion Name') + '</span></label>' +
+            '  <label class="card-checkbox-label" style="font-size:0.76rem;"><input type="checkbox" ' + (o.showLevelsCol !== false ? 'checked' : '') + ' onchange="tcUpdateRubricOption(\'' + ex.id + '\', \'showLevelsCol\', this.checked)"><span>' + (t('tcColCritLevels') || 'Grade Levels') + '</span></label>' +
+            '  <label class="card-checkbox-label" style="font-size:0.76rem;"><input type="checkbox" ' + (o.showRubricDescriptions !== false ? 'checked' : '') + ' onchange="tcUpdateRubricOption(\'' + ex.id + '\', \'showRubricDescriptions\', this.checked)"><span>' + (t('tcColCritDesc') || 'Descriptors & Comments') + '</span></label>' +
+            '  <label class="card-checkbox-label" style="font-size:0.76rem;"><input type="checkbox" ' + (o.showMaxCol !== false ? 'checked' : '') + ' onchange="tcUpdateRubricOption(\'' + ex.id + '\', \'showMaxCol\', this.checked)"><span>' + (t('tcColCritMax') || 'Max Points') + '</span></label>' +
+            '  <label class="card-checkbox-label" style="font-size:0.76rem;"><input type="checkbox" ' + (o.showScoreCol !== false ? 'checked' : '') + ' onchange="tcUpdateRubricOption(\'' + ex.id + '\', \'showScoreCol\', this.checked)"><span>' + (t('tcColCritScore') || 'Score Box') + '</span></label>' +
+            '  <label class="card-checkbox-label" style="font-size:0.76rem;"><input type="checkbox" ' + (o.showCommentsCol !== false ? 'checked' : '') + ' onchange="tcUpdateRubricOption(\'' + ex.id + '\', \'showCommentsCol\', this.checked)"><span>' + (t('tcColCritComments') || 'Feedback & Comments') + '</span></label>' +
             '</div>' +
             '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:6px;">' +
-            '  <label class="card-checkbox-label" style="font-size:0.78rem;">' +
-            '    <input type="checkbox" ' + (o.showRubricDescriptions !== false ? 'checked' : '') + ' onchange="tcUpdateRubricOption(\'' + ex.id + '\', \'showRubricDescriptions\', this.checked)">' +
-            '    <span>' + (t('tcIncludeDescriptions') || 'Include Performance Descriptors') + '</span>' +
+            '  <label class="card-checkbox-label" style="font-size:0.78rem;color:#065f46;font-weight:800;">' +
+            '    <input type="checkbox" ' + ((o.rubricSeparatePage || o.rubricPageOrientation === 'landscape') ? 'checked' : '') + ' onchange="tcUpdateRubricOption(\'' + ex.id + '\', \'rubricSeparatePage\', this.checked)">' +
+            '    <span>' + (t('tcPrintCriteriaOnSeparatePage') || 'Place Criteria Table on a Separate Page') + '</span>' +
             '  </label>' +
             '  <label class="card-checkbox-label" style="font-size:0.78rem;">' +
             '    <input type="checkbox" ' + (o.showRubric !== false ? 'checked' : '') + ' onchange="tcUpdateRubricOption(\'' + ex.id + '\', \'showRubric\', this.checked)">' +
@@ -7520,13 +8168,56 @@
         tcOnDirty();
       };
 
+      function syncRubricOptionKeys(o, key, value, ex) {
+        if (!o) return;
+        o[key] = value;
+        if (key === 'displayMode') o.rubricDisplayMode = value;
+        else if (key === 'rubricDisplayMode') o.displayMode = value;
+        else if (key === 'background') o.rubricBg = value;
+        else if (key === 'rubricBg') o.background = value;
+        else if (key === 'padding') o.rubricPadding = value;
+        else if (key === 'rubricPadding') o.padding = value;
+        else if (key === 'border') o.rubricBorder = value;
+        else if (key === 'rubricBorder') o.border = value;
+        else if (key === 'showDescriptions') o.showRubricDescriptions = value;
+        else if (key === 'showRubricDescriptions') o.showDescriptions = value;
+        else if (key === 'separatePage') {
+          o.rubricSeparatePage = value;
+          if (ex && (ex.type === 'section_criteria' || ex.type === 'section_competences')) ex.forcePageBreak = !!value;
+        } else if (key === 'rubricSeparatePage') {
+          o.separatePage = value;
+          if (ex && (ex.type === 'section_criteria' || ex.type === 'section_competences')) ex.forcePageBreak = !!value;
+        } else if (key === 'pageOrientation') {
+          o.rubricPageOrientation = value;
+          if (value === 'landscape') {
+            o.separatePage = true;
+            o.rubricSeparatePage = true;
+            if (ex && (ex.type === 'section_criteria' || ex.type === 'section_competences')) ex.forcePageBreak = true;
+          }
+        } else if (key === 'rubricPageOrientation') {
+          o.pageOrientation = value;
+          if (value === 'landscape') {
+            o.separatePage = true;
+            o.rubricSeparatePage = true;
+            if (ex && (ex.type === 'section_criteria' || ex.type === 'section_competences')) ex.forcePageBreak = true;
+          }
+        }
+      }
+
       window.tcUpdateExOptionField = function (exId, optKey, value) {
         var ex = (currentTest.exercises || []).find(function (e) { return e.id === exId; });
         if (!ex) return;
-        if (!ex.options) ex.options = {};
-        ex.options[optKey] = value;
+        var o = TestCreatorService.ensureExerciseOptions(ex);
+        syncRubricOptionKeys(o, optKey, value, ex);
         renderExerciseCards();
         tcOnDirty();
+        if (window._currentEditingRubricExId === exId && typeof tcRenderRubricLayoutPreview === 'function') {
+          tcRenderRubricLayoutPreview(ex);
+        }
+        if (window._currentEditingCompExId === exId && typeof tcRenderCompLayoutPreview === 'function') {
+          tcRenderCompLayoutPreview(ex);
+        }
+        if (typeof tcScheduleLivePreviewUpdate === 'function') tcScheduleLivePreviewUpdate();
       };
 
       window.tcOpenCompetenceDrawerForSection = function (exId) {
@@ -9105,15 +9796,35 @@
           if (targetEx) {
             var crits = (Array.isArray(targetEx.criteria) && targetEx.criteria.length)
               ? targetEx.criteria
-              : (Array.isArray(targetEx.markingRubric) ? targetEx.markingRubric : []);
+              : ((Array.isArray(targetEx.markingRubric) && targetEx.markingRubric.length)
+                ? targetEx.markingRubric
+                : (Array.isArray(targetEx.linkedCriteria) ? targetEx.linkedCriteria : []));
+            var exOpts = TestCreatorService.ensureExerciseOptions(targetEx);
             modalTitle = (targetEx.title || i18n.t('tcExercise') || 'Exercise') + ' — ' + (i18n.t('tcRubricModalTitle') || 'Rubric Matrix');
             modalSub = (i18n.t('tcCriteriaBlockSingleEx') || 'Showing criteria attached to this exercise/block');
-            html = TestCreatorService.renderCriteriaHtml({ criteria: crits, exercises: [] }, {
-              displayMode: 'matrix',
-              showDescriptions: true,
-              title: targetEx.title || 'Rubric Matrix',
-              exercises: [targetEx]
-            });
+            if (targetEx.type === 'section_criteria' && crits.length === 0) {
+              var fallbackCrits = (Array.isArray(currentTest.criteria) && currentTest.criteria.length)
+                ? currentTest.criteria
+                : ((Array.isArray(currentTest.linkedCriteria) && currentTest.linkedCriteria.length) ? currentTest.linkedCriteria : []);
+              html = TestCreatorService.renderCriteriaHtml({ criteria: fallbackCrits, exercises: currentTest.exercises || [] }, {
+                displayMode: exOpts.displayMode || exOpts.rubricDisplayMode || 'matrix',
+                showDescriptions: exOpts.showDescriptions !== undefined ? exOpts.showDescriptions : (exOpts.showRubricDescriptions !== false),
+                background: exOpts.background || exOpts.rubricBg || 'default',
+                padding: exOpts.padding || exOpts.rubricPadding || 'standard',
+                border: exOpts.border || exOpts.rubricBorder || 'solid',
+                title: exOpts.rubricTitle || targetEx.title || 'Rubric Matrix'
+              });
+            } else {
+              html = TestCreatorService.renderCriteriaHtml({ criteria: crits, exercises: [] }, {
+                displayMode: 'matrix',
+                showDescriptions: true,
+                background: exOpts.background || exOpts.rubricBg || 'default',
+                padding: exOpts.padding || exOpts.rubricPadding || 'standard',
+                border: exOpts.border || exOpts.rubricBorder || 'solid',
+                title: exOpts.rubricTitle || targetEx.title || 'Rubric Matrix',
+                includeExerciseCriteria: false
+              });
+            }
           }
         } else {
           var allCrits = (Array.isArray(currentTest.criteria) && currentTest.criteria.length)
@@ -9151,7 +9862,7 @@
         var ex = (currentTest.exercises || []).find(function (e) { return e.id === exId; });
         if (!ex) return;
         var o = TestCreatorService.ensureExerciseOptions(ex);
-        o[key] = value;
+        syncRubricOptionKeys(o, key, value, ex);
         tcOnDirty();
         if (ex.autoSaveToDb) {
           TestCreatorService.saveExerciseToDatabase(ex, currentTest.subject);
@@ -9159,45 +9870,83 @@
         if (window._currentEditingRubricExId === exId && typeof tcRenderRubricLayoutPreview === 'function') {
           tcRenderRubricLayoutPreview(ex);
         }
+        if (typeof tcScheduleLivePreviewUpdate === 'function') tcScheduleLivePreviewUpdate();
       };
 
       window.tcOpenRubricLayoutModal = function (exId) {
         if (!currentTest) return;
-        var ex = (currentTest.exercises || []).find(function (e) { return e.id === exId; });
-        if (!ex) return;
-        window._currentEditingRubricExId = exId;
-        var o = TestCreatorService.ensureExerciseOptions(ex);
+        var isExamLevel = (!exId || exId === '__exam__' || exId === '__all__');
+        var ex = isExamLevel ? null : (currentTest.exercises || []).find(function (e) { return e.id === exId; });
+        if (!isExamLevel && !ex) return;
+        window._currentEditingRubricExId = isExamLevel ? '__exam__' : exId;
+
+        var hc = TestCreatorService.ensureHeaderConfig(currentTest);
+        var crSt = hc.criteriaStyle || {};
+        var o = isExamLevel ? crSt : TestCreatorService.ensureExerciseOptions(ex);
 
         var modal = document.getElementById('tcRubricLayoutModal');
         if (!modal) return;
 
         var subEl = document.getElementById('tcRubricLayoutModalSub');
         if (subEl) {
-          subEl.textContent = (ex.title || i18n.t('tcExercise') || 'Exercise') + ' — ' + (i18n.t('tcRubricCustomiseDisplayHelp') || 'Customise the display of rubrics below the exercise');
+          subEl.textContent = isExamLevel
+            ? ((currentTest.title || 'Exam') + ' — ' + (i18n.t('tcTargetEntireExam') || 'Entire Exam (Test-wide Header)'))
+            : ((ex.title || i18n.t('tcExercise') || 'Exercise') + ' — ' + (i18n.t('tcRubricCustomiseDisplayHelp') || 'Customise the display of rubrics'));
         }
 
         var titleInp = document.getElementById('tcModalRubricTitle');
-        if (titleInp) titleInp.value = o.rubricTitle || '';
+        if (titleInp) titleInp.value = isExamLevel ? (hc.criteriaLabel || '') : (o.rubricTitle || '');
 
         var modeSel = document.getElementById('tcModalRubricDisplayMode');
-        if (modeSel) modeSel.value = o.rubricDisplayMode || 'matrix';
+        if (modeSel) modeSel.value = isExamLevel ? (crSt.displayMode || 'matrix') : (o.rubricDisplayMode || o.displayMode || 'matrix');
 
         var bgSel = document.getElementById('tcModalRubricBg');
-        if (bgSel) bgSel.value = o.rubricBg || 'default';
+        if (bgSel) bgSel.value = isExamLevel ? (crSt.background || 'default') : (o.rubricBg || o.background || 'default');
 
         var padSel = document.getElementById('tcModalRubricPadding');
-        if (padSel) padSel.value = o.rubricPadding || 'standard';
+        if (padSel) padSel.value = isExamLevel ? (crSt.padding || 'standard') : (o.rubricPadding || o.padding || 'standard');
 
         var borderSel = document.getElementById('tcModalRubricBorder');
-        if (borderSel) borderSel.value = o.rubricBorder || 'solid';
+        if (borderSel) borderSel.value = isExamLevel ? (crSt.border || 'solid') : (o.rubricBorder || o.border || 'solid');
+
+        var orientSel = document.getElementById('tcModalRubricOrientation');
+        if (orientSel) orientSel.value = isExamLevel ? (crSt.pageOrientation || 'portrait') : (o.pageOrientation || o.rubricPageOrientation || 'portrait');
+
+        var colCritChk = document.getElementById('tcModalRubricColCriterion');
+        if (colCritChk) colCritChk.checked = o.showCriterionCol !== false;
+
+        var colLvlChk = document.getElementById('tcModalRubricColLevels');
+        if (colLvlChk) colLvlChk.checked = o.showLevelsCol !== false;
 
         var descChk = document.getElementById('tcModalRubricShowDesc');
-        if (descChk) descChk.checked = o.showRubricDescriptions !== false;
+        if (descChk) {
+          descChk.checked = isExamLevel
+            ? (crSt.showDescriptions !== undefined ? crSt.showDescriptions : (hc.showCriteriaDescriptions !== false))
+            : (o.showRubricDescriptions !== undefined ? o.showRubricDescriptions : (o.showDescriptions !== false));
+        }
+
+        var colMaxChk = document.getElementById('tcModalRubricColMax');
+        if (colMaxChk) colMaxChk.checked = o.showMaxCol !== false;
+
+        var colScoreChk = document.getElementById('tcModalRubricColScore');
+        if (colScoreChk) colScoreChk.checked = o.showScoreCol !== false;
+
+        var colCmtChk = document.getElementById('tcModalRubricColComments');
+        if (colCmtChk) colCmtChk.checked = o.showCommentsCol !== false;
+
+        var sepChk = document.getElementById('tcModalRubricSeparatePage');
+        if (sepChk) {
+          sepChk.checked = isExamLevel
+            ? !!(crSt.separatePage || crSt.pageOrientation === 'landscape')
+            : !!(ex.forcePageBreak || o.separatePage || o.rubricSeparatePage || (o.pageOrientation || o.rubricPageOrientation) === 'landscape');
+        }
 
         var printChk = document.getElementById('tcModalRubricShowRubric');
-        if (printChk) printChk.checked = o.showRubric !== false;
+        if (printChk) {
+          printChk.checked = isExamLevel ? !!hc.showCriteria : (o.showRubric !== false);
+        }
 
-        tcRenderRubricLayoutPreview(ex);
+        tcRenderRubricLayoutPreview(isExamLevel ? '__exam__' : ex);
         modal.classList.add('open');
         modal.style.display = 'flex';
       };
@@ -9213,26 +9962,103 @@
 
       window.tcUpdateModalRubricOption = function (key, value) {
         if (!window._currentEditingRubricExId) return;
+        if (window._currentEditingRubricExId === '__exam__') {
+          var hc = TestCreatorService.ensureHeaderConfig(currentTest);
+          var crSt = hc.criteriaStyle || (hc.criteriaStyle = {});
+          if (key === 'rubricTitle' || key === 'title') {
+            hc.criteriaLabel = value;
+          } else if (key === 'rubricDisplayMode' || key === 'displayMode') {
+            crSt.displayMode = value;
+          } else if (key === 'rubricBg' || key === 'background') {
+            crSt.background = value;
+          } else if (key === 'rubricPadding' || key === 'padding') {
+            crSt.padding = value;
+          } else if (key === 'rubricBorder' || key === 'border') {
+            crSt.border = value;
+          } else if (key === 'showRubricDescriptions' || key === 'showDescriptions') {
+            crSt.showDescriptions = !!value;
+            hc.showCriteriaDescriptions = !!value;
+            var barDescChk = document.getElementById('testCriteriaDescPrintChk');
+            if (barDescChk) barDescChk.checked = !!value;
+          } else if (key === 'showRubric') {
+            hc.showCriteria = !!value;
+            var barPrintChk = document.getElementById('testCriteriaPrintChk');
+            if (barPrintChk) barPrintChk.checked = !!value;
+          } else if (key === 'pageOrientation' || key === 'rubricPageOrientation') {
+            crSt.pageOrientation = value;
+            if (value === 'landscape') {
+              crSt.separatePage = true;
+              var sepChk = document.getElementById('tcModalRubricSeparatePage');
+              if (sepChk) sepChk.checked = true;
+            }
+          } else if (key === 'separatePage' || key === 'rubricSeparatePage') {
+            crSt.separatePage = !!value;
+          } else {
+            crSt[key] = value;
+          }
+          tcOnDirty();
+          tcRenderRubricLayoutPreview('__exam__');
+          if (typeof tcScheduleLivePreviewUpdate === 'function') tcScheduleLivePreviewUpdate();
+          return;
+        }
+
         var ex = (currentTest.exercises || []).find(function (e) { return e.id === window._currentEditingRubricExId; });
         if (!ex) return;
         var o = TestCreatorService.ensureExerciseOptions(ex);
-        o[key] = value;
+        syncRubricOptionKeys(o, key, value, ex);
+        if (key === 'pageOrientation' && value === 'landscape') {
+          var sepChk2 = document.getElementById('tcModalRubricSeparatePage');
+          if (sepChk2) sepChk2.checked = true;
+        }
+        renderExerciseCards();
         tcOnDirty();
         if (ex.autoSaveToDb) {
           TestCreatorService.saveExerciseToDatabase(ex, currentTest.subject);
         }
         tcRenderRubricLayoutPreview(ex);
+        if (typeof tcScheduleLivePreviewUpdate === 'function') tcScheduleLivePreviewUpdate();
       };
 
-      window.tcRenderRubricLayoutPreview = function (ex) {
+      window.tcRenderRubricLayoutPreview = function (exOrTarget) {
         var previewBox = document.getElementById('tcRubricLayoutPreviewBox');
-        if (!previewBox || !ex) return;
-        var o = TestCreatorService.ensureExerciseOptions(ex);
-        var rawCrits = (Array.isArray(ex.criteria) && ex.criteria.length)
-          ? ex.criteria
-          : ((Array.isArray(ex.markingRubric) && ex.markingRubric.length) ? ex.markingRubric : []);
+        if (!previewBox || !exOrTarget) return;
+        var isExamLevel = (exOrTarget === '__exam__');
+        var ex = isExamLevel ? null : exOrTarget;
+        var hc = TestCreatorService.ensureHeaderConfig(currentTest);
+        var crSt = hc.criteriaStyle || {};
+        var o = isExamLevel ? crSt : TestCreatorService.ensureExerciseOptions(ex);
 
-        if (rawCrits.length === 0) {
+        var rawCrits = [];
+        var includeExCrits = false;
+        var previewExercises = [];
+
+        if (isExamLevel) {
+          rawCrits = (Array.isArray(currentTest.criteria) && currentTest.criteria.length)
+            ? currentTest.criteria
+            : ((Array.isArray(currentTest.linkedCriteria) && currentTest.linkedCriteria.length) ? currentTest.linkedCriteria : []);
+          previewExercises = currentTest.exercises || [];
+          includeExCrits = true;
+        } else {
+          rawCrits = (Array.isArray(ex.criteria) && ex.criteria.length)
+            ? ex.criteria
+            : ((Array.isArray(ex.markingRubric) && ex.markingRubric.length)
+              ? ex.markingRubric
+              : ((Array.isArray(ex.linkedCriteria) && ex.linkedCriteria.length) ? ex.linkedCriteria : []));
+          if (rawCrits.length === 0 && ex.type === 'section_criteria' && currentTest) {
+            var testLevelCrits = (Array.isArray(currentTest.criteria) && currentTest.criteria.length)
+              ? currentTest.criteria
+              : ((Array.isArray(currentTest.linkedCriteria) && currentTest.linkedCriteria.length) ? currentTest.linkedCriteria : []);
+            if (testLevelCrits.length > 0) {
+              rawCrits = testLevelCrits;
+            }
+            if (Array.isArray(currentTest.exercises) && currentTest.exercises.length) {
+              previewExercises = currentTest.exercises;
+              includeExCrits = true;
+            }
+          }
+        }
+
+        if (rawCrits.length === 0 && !includeExCrits) {
           rawCrits = [
             {
               id: 'preview_crit_1',
@@ -9261,36 +10087,328 @@
           ];
         }
 
-        var html = TestCreatorService.renderCriteriaHtml({ criteria: rawCrits, exercises: [] }, {
-          title: o.rubricTitle || (ex.title ? (ex.title + ' — Rubric') : (i18n.t('tcCompRubric') || 'Assessment Rubric')),
-          displayMode: o.rubricDisplayMode || 'matrix',
-          showDescriptions: o.showRubricDescriptions !== false,
-          background: o.rubricBg || 'default',
-          padding: o.rubricPadding || 'standard',
-          border: o.rubricBorder || 'solid',
-          includeExerciseCriteria: false
+        var defaultPreviewTitle = isExamLevel
+          ? (hc.criteriaLabel || (i18n.t('tcDefaultRubricTitle') || 'Assessment Criteria & Evaluation Rubric'))
+          : ((ex.type === 'section_criteria')
+            ? (ex.title || (i18n.t('tcDefaultRubricTitle') || 'Assessment Criteria & Evaluation Rubric'))
+            : (ex.title ? (ex.title + ' — Rubric') : (i18n.t('tcCompRubric') || 'Assessment Rubric')));
+
+        var isSep = isExamLevel
+          ? !!(crSt.separatePage || crSt.pageOrientation === 'landscape')
+          : !!(ex.forcePageBreak || o.separatePage || o.rubricSeparatePage || (o.pageOrientation || o.rubricPageOrientation) === 'landscape');
+        var orient = isExamLevel ? (crSt.pageOrientation || 'portrait') : (o.pageOrientation || o.rubricPageOrientation || 'portrait');
+        var pageBadge = isSep
+          ? '<div style="margin-bottom:6px;display:inline-flex;align-items:center;gap:6px;background:#ecfdf5;border:1.5px solid #059669;color:#065f46;font-size:0.72rem;font-weight:800;padding:2px 8px;border-radius:4px;">📄 Separate Page (' + (orient === 'landscape' ? 'Landscape A4' : 'Portrait A4') + ')</div>'
+          : '';
+
+        var html = TestCreatorService.renderCriteriaHtml({ criteria: rawCrits, exercises: previewExercises }, {
+          title: isExamLevel ? defaultPreviewTitle : (o.rubricTitle || defaultPreviewTitle),
+          displayMode: isExamLevel ? (crSt.displayMode || 'matrix') : (o.rubricDisplayMode || o.displayMode || 'matrix'),
+          showCriterionCol: o.showCriterionCol !== false,
+          showLevelsCol: o.showLevelsCol !== false,
+          showDescriptions: isExamLevel
+            ? (crSt.showDescriptions !== undefined ? crSt.showDescriptions : (hc.showCriteriaDescriptions !== false))
+            : (o.showRubricDescriptions !== undefined ? o.showRubricDescriptions : (o.showDescriptions !== false)),
+          showMaxCol: o.showMaxCol !== false,
+          showScoreCol: o.showScoreCol !== false,
+          showCommentsCol: o.showCommentsCol !== false,
+          background: isExamLevel ? (crSt.background || 'default') : (o.rubricBg || o.background || 'default'),
+          padding: isExamLevel ? (crSt.padding || 'standard') : (o.rubricPadding || o.padding || 'standard'),
+          border: isExamLevel ? (crSt.border || 'solid') : (o.rubricBorder || o.border || 'solid'),
+          includeExerciseCriteria: includeExCrits,
+          applyPageLayout: false
         });
 
-        previewBox.innerHTML = html || '<div style="color:#64748b;font-style:italic;">No rubric criteria to preview</div>';
+        previewBox.innerHTML = pageBadge + (html || '<div style="color:#64748b;font-style:italic;">No rubric criteria to preview</div>');
       };
 
       window.tcResetRubricLayoutOptions = function () {
         if (!window._currentEditingRubricExId) return;
+        if (window._currentEditingRubricExId === '__exam__') {
+          var hc = TestCreatorService.ensureHeaderConfig(currentTest);
+          hc.criteriaLabel = 'Assessment Criteria & Evaluation Rubric:';
+          hc.showCriteriaDescriptions = true;
+          hc.criteriaStyle = Object.assign({}, TestCreatorService.DEFAULT_HEADER_CONFIG.criteriaStyle);
+          tcOpenRubricLayoutModal('__exam__');
+          tcOnDirty();
+          if (typeof tcScheduleLivePreviewUpdate === 'function') tcScheduleLivePreviewUpdate();
+          if (window.showToast) showToast(i18n.t('tcRubricResetToast') || 'Rubric layout reset to defaults');
+          return;
+        }
         var ex = (currentTest.exercises || []).find(function (e) { return e.id === window._currentEditingRubricExId; });
         if (!ex) return;
         var o = TestCreatorService.ensureExerciseOptions(ex);
         o.rubricDisplayMode = 'matrix';
+        o.displayMode = 'matrix';
         o.rubricBg = 'default';
+        o.background = 'default';
         o.rubricPadding = 'standard';
+        o.padding = 'standard';
         o.rubricBorder = 'solid';
+        o.border = 'solid';
+        o.showCriterionCol = true;
+        o.showLevelsCol = true;
         o.showRubricDescriptions = true;
+        o.showDescriptions = true;
+        o.showMaxCol = true;
+        o.showScoreCol = true;
+        o.showCommentsCol = true;
+        o.separatePage = false;
+        o.rubricSeparatePage = false;
+        o.pageOrientation = 'portrait';
+        o.rubricPageOrientation = 'portrait';
+        if (ex.type === 'section_criteria') ex.forcePageBreak = false;
         o.showRubric = true;
         o.rubricTitle = '';
 
+        renderExerciseCards();
         tcOpenRubricLayoutModal(ex.id);
         tcOnDirty();
+        if (typeof tcScheduleLivePreviewUpdate === 'function') tcScheduleLivePreviewUpdate();
         if (window.showToast) {
           showToast(i18n.t('tcRubricResetToast') || 'Rubric layout reset to defaults');
+        }
+      };
+
+      // ── Competence Layout & Appearance Modal Handlers ──────────────────────
+      window._currentEditingCompExId = null;
+
+      window.tcOpenCompetenceLayoutModal = function (exId) {
+        if (!currentTest) return;
+        var isExamLevel = (!exId || exId === '__exam__' || exId === '__all__');
+        var ex = isExamLevel ? null : (currentTest.exercises || []).find(function (e) { return e.id === exId; });
+        if (!isExamLevel && !ex) return;
+        window._currentEditingCompExId = isExamLevel ? '__exam__' : exId;
+
+        var hc = TestCreatorService.ensureHeaderConfig(currentTest);
+        var cSt = hc.competencesStyle || {};
+        var o = isExamLevel ? cSt : TestCreatorService.ensureExerciseOptions(ex);
+
+        var modal = document.getElementById('tcCompLayoutModal');
+        if (!modal) return;
+
+        var subEl = document.getElementById('tcCompLayoutModalSub');
+        if (subEl) {
+          subEl.textContent = isExamLevel
+            ? ((currentTest.title || 'Exam') + ' — ' + (i18n.t('tcTargetEntireExam') || 'Entire Exam (Test-wide Header)'))
+            : ((ex.title || i18n.t('tcTypeSectionCompetences') || 'Competences Block') + ' — ' + (i18n.t('tcCompCustomiseDisplayHelp') || 'Customise competence columns, orientation, and appearance'));
+        }
+
+        var titleInp = document.getElementById('tcModalCompTitle');
+        if (titleInp) titleInp.value = isExamLevel ? (hc.competencesLabel || '') : (o.compTitle || '');
+
+        var modeSel = document.getElementById('tcModalCompDisplayMode');
+        if (modeSel) modeSel.value = o.displayMode || 'table';
+
+        var bgSel = document.getElementById('tcModalCompBg');
+        if (bgSel) bgSel.value = o.background || 'default';
+
+        var padSel = document.getElementById('tcModalCompPadding');
+        if (padSel) padSel.value = o.padding || 'standard';
+
+        var borderSel = document.getElementById('tcModalCompBorder');
+        if (borderSel) borderSel.value = o.border || 'solid';
+
+        var orientSel = document.getElementById('tcModalCompOrientation');
+        if (orientSel) orientSel.value = o.pageOrientation || 'portrait';
+
+        var colCodeChk = document.getElementById('tcModalCompColCode');
+        if (colCodeChk) colCodeChk.checked = o.showCodeCol !== false;
+
+        var colTitleChk = document.getElementById('tcModalCompColTitle');
+        if (colTitleChk) colTitleChk.checked = o.showTitleCol !== false;
+
+        var descChk = document.getElementById('tcModalCompShowDesc');
+        if (descChk) {
+          descChk.checked = isExamLevel
+            ? (cSt.showDescriptions !== undefined ? cSt.showDescriptions : (hc.showCompetenceDescriptions !== false))
+            : (o.showDescriptions !== false);
+        }
+
+        var colLvlChk = document.getElementById('tcModalCompColLevel');
+        if (colLvlChk) colLvlChk.checked = o.showLevelCol !== false;
+
+        var colScoreChk = document.getElementById('tcModalCompColScore');
+        if (colScoreChk) colScoreChk.checked = !!o.showScoreCol;
+
+        var colCmtChk = document.getElementById('tcModalCompColComments');
+        if (colCmtChk) colCmtChk.checked = !!o.showCommentsCol;
+
+        var sepChk = document.getElementById('tcModalCompSeparatePage');
+        if (sepChk) {
+          sepChk.checked = isExamLevel
+            ? !!(cSt.separatePage || cSt.pageOrientation === 'landscape')
+            : !!(ex.forcePageBreak || o.separatePage || o.pageOrientation === 'landscape');
+        }
+
+        tcRenderCompLayoutPreview(isExamLevel ? '__exam__' : ex);
+        modal.classList.add('open');
+        modal.style.display = 'flex';
+      };
+
+      window.tcCloseCompetenceLayoutModal = function () {
+        var modal = document.getElementById('tcCompLayoutModal');
+        if (modal) {
+          modal.classList.remove('open');
+          modal.style.display = 'none';
+        }
+        window._currentEditingCompExId = null;
+      };
+
+      window.tcUpdateModalCompOption = function (key, value) {
+        if (!window._currentEditingCompExId) return;
+        if (window._currentEditingCompExId === '__exam__') {
+          var hc = TestCreatorService.ensureHeaderConfig(currentTest);
+          var cSt = hc.competencesStyle || (hc.competencesStyle = {});
+          if (key === 'compTitle' || key === 'title') {
+            hc.competencesLabel = value;
+          } else if (key === 'showDescriptions') {
+            cSt.showDescriptions = !!value;
+            hc.showCompetenceDescriptions = !!value;
+            var barDescChk = document.getElementById('testCompetencesDescPrintChk');
+            if (barDescChk) barDescChk.checked = !!value;
+          } else if (key === 'pageOrientation') {
+            cSt.pageOrientation = value;
+            if (value === 'landscape') {
+              cSt.separatePage = true;
+              var sepChk = document.getElementById('tcModalCompSeparatePage');
+              if (sepChk) sepChk.checked = true;
+            }
+          } else if (key === 'separatePage') {
+            cSt.separatePage = !!value;
+          } else {
+            cSt[key] = value;
+          }
+          tcOnDirty();
+          tcRenderCompLayoutPreview('__exam__');
+          if (typeof tcScheduleLivePreviewUpdate === 'function') tcScheduleLivePreviewUpdate();
+          return;
+        }
+
+        var ex = (currentTest.exercises || []).find(function (e) { return e.id === window._currentEditingCompExId; });
+        if (!ex) return;
+        var o = TestCreatorService.ensureExerciseOptions(ex);
+        syncRubricOptionKeys(o, key, value, ex);
+        if (key === 'pageOrientation' && value === 'landscape') {
+          var sepChk2 = document.getElementById('tcModalCompSeparatePage');
+          if (sepChk2) sepChk2.checked = true;
+        }
+        renderExerciseCards();
+        tcOnDirty();
+        tcRenderCompLayoutPreview(ex);
+        if (typeof tcScheduleLivePreviewUpdate === 'function') tcScheduleLivePreviewUpdate();
+      };
+
+      window.tcRenderCompLayoutPreview = function (exOrTarget) {
+        var previewBox = document.getElementById('tcCompLayoutPreviewBox');
+        if (!previewBox || !exOrTarget) return;
+        var isExamLevel = (exOrTarget === '__exam__');
+        var ex = isExamLevel ? null : exOrTarget;
+        var hc = TestCreatorService.ensureHeaderConfig(currentTest);
+        var cSt = hc.competencesStyle || {};
+        var o = isExamLevel ? cSt : TestCreatorService.ensureExerciseOptions(ex);
+
+        var rawComps = [];
+        if (isExamLevel) {
+          rawComps = (Array.isArray(currentTest.linkedCompetences) && currentTest.linkedCompetences.length)
+            ? currentTest.linkedCompetences
+            : (Array.isArray(currentTest.linkedCompetenceIds) ? currentTest.linkedCompetenceIds : []);
+        } else {
+          rawComps = (Array.isArray(ex.linkedCompetences) && ex.linkedCompetences.length)
+            ? ex.linkedCompetences
+            : (Array.isArray(ex.linkedCompetenceIds) && ex.linkedCompetenceIds.length
+              ? ex.linkedCompetenceIds
+              : ((currentTest && Array.isArray(currentTest.linkedCompetences)) ? currentTest.linkedCompetences : []));
+        }
+
+        if (rawComps.length === 0) {
+          rawComps = [
+            {
+              code: 'L2.1',
+              title: 'Written Comprehension & Interpretation',
+              description: 'Understand main ideas and specific details in authentic written texts.',
+              level: 'B1 / 10e',
+              domain: 'Reading'
+            },
+            {
+              code: 'L2.2',
+              title: 'Written Expression & Argumentation',
+              description: 'Produce clear, coherent text on familiar or curriculum topics.',
+              level: 'B1 / 10e',
+              domain: 'Writing'
+            }
+          ];
+        }
+
+        var defaultPreviewTitle = isExamLevel
+          ? (hc.competencesLabel || 'Competences & Curriculum Objectives:')
+          : (o.compTitle || ex.title || 'Competences & Curriculum Objectives');
+
+        var isSep = isExamLevel
+          ? !!(cSt.separatePage || cSt.pageOrientation === 'landscape')
+          : !!(ex.forcePageBreak || o.separatePage || o.pageOrientation === 'landscape');
+        var orient = o.pageOrientation || 'portrait';
+        var pageBadge = isSep
+          ? '<div style="margin-bottom:6px;display:inline-flex;align-items:center;gap:6px;background:#eff6ff;border:1.5px solid #2563eb;color:#1e40af;font-size:0.72rem;font-weight:800;padding:2px 8px;border-radius:4px;">📄 Separate Page (' + (orient === 'landscape' ? 'Landscape A4' : 'Portrait A4') + ')</div>'
+          : '';
+
+        var html = TestCreatorService.renderCompetencesHtml({ linkedCompetences: rawComps, exercises: [] }, {
+          title: defaultPreviewTitle,
+          displayMode: o.displayMode || 'table',
+          showCodeCol: o.showCodeCol !== false,
+          showTitleCol: o.showTitleCol !== false,
+          showDescriptions: isExamLevel
+            ? (cSt.showDescriptions !== undefined ? cSt.showDescriptions : (hc.showCompetenceDescriptions !== false))
+            : (o.showDescriptions !== false),
+          showLevelCol: o.showLevelCol !== false,
+          showScoreCol: !!o.showScoreCol,
+          showCommentsCol: !!o.showCommentsCol,
+          background: o.background || 'default',
+          padding: o.padding || 'standard',
+          border: o.border || 'solid',
+          applyPageLayout: false
+        });
+
+        previewBox.innerHTML = pageBadge + (html || '<div style="color:#64748b;font-style:italic;">No competences to preview</div>');
+      };
+
+      window.tcResetCompLayoutOptions = function () {
+        if (!window._currentEditingCompExId) return;
+        if (window._currentEditingCompExId === '__exam__') {
+          var hc = TestCreatorService.ensureHeaderConfig(currentTest);
+          hc.competencesLabel = 'Competences & Curriculum Objectives:';
+          hc.showCompetenceDescriptions = true;
+          hc.competencesStyle = Object.assign({}, TestCreatorService.DEFAULT_HEADER_CONFIG.competencesStyle);
+          tcOpenCompetenceLayoutModal('__exam__');
+          tcOnDirty();
+          if (typeof tcScheduleLivePreviewUpdate === 'function') tcScheduleLivePreviewUpdate();
+          if (window.showToast) showToast(i18n.t('tcCompResetToast') || 'Competence layout reset to defaults');
+          return;
+        }
+        var ex = (currentTest.exercises || []).find(function (e) { return e.id === window._currentEditingCompExId; });
+        if (!ex) return;
+        var o = TestCreatorService.ensureExerciseOptions(ex);
+        o.displayMode = 'table';
+        o.background = 'default';
+        o.padding = 'standard';
+        o.border = 'solid';
+        o.showCodeCol = true;
+        o.showTitleCol = true;
+        o.showDescriptions = true;
+        o.showLevelCol = true;
+        o.showScoreCol = false;
+        o.showCommentsCol = false;
+        o.separatePage = false;
+        o.pageOrientation = 'portrait';
+        ex.forcePageBreak = false;
+        o.compTitle = '';
+
+        renderExerciseCards();
+        tcOpenCompetenceLayoutModal(ex.id);
+        tcOnDirty();
+        if (typeof tcScheduleLivePreviewUpdate === 'function') tcScheduleLivePreviewUpdate();
+        if (window.showToast) {
+          showToast(i18n.t('tcCompResetToast') || 'Competence layout reset to defaults');
         }
       };
 
@@ -11389,7 +12507,7 @@
           document.getElementById('hdrSelect_competencesDisplayMode').value = (hc.competencesStyle && hc.competencesStyle.displayMode) || 'table';
         }
         if (document.getElementById('hdrSelect_criteriaDisplayMode')) {
-          document.getElementById('hdrSelect_criteriaDisplayMode').value = (hc.criteriaStyle && hc.criteriaStyle.displayMode) || 'table';
+          document.getElementById('hdrSelect_criteriaDisplayMode').value = (hc.criteriaStyle && hc.criteriaStyle.displayMode) || 'matrix';
         }
         if (document.getElementById('hdrSelect_criteriaBg')) {
           document.getElementById('hdrSelect_criteriaBg').value = (hc.criteriaStyle && hc.criteriaStyle.background) || 'default';
@@ -11399,6 +12517,63 @@
         }
         if (document.getElementById('hdrSelect_criteriaBorder')) {
           document.getElementById('hdrSelect_criteriaBorder').value = (hc.criteriaStyle && hc.criteriaStyle.border) || 'solid';
+        }
+        if (document.getElementById('hdrSelect_criteriaOrientation')) {
+          document.getElementById('hdrSelect_criteriaOrientation').value = (hc.criteriaStyle && hc.criteriaStyle.pageOrientation) || 'portrait';
+        }
+        if (document.getElementById('hdrChk_critColName')) {
+          document.getElementById('hdrChk_critColName').checked = !hc.criteriaStyle || hc.criteriaStyle.showCriterionCol !== false;
+        }
+        if (document.getElementById('hdrChk_critColLevels')) {
+          document.getElementById('hdrChk_critColLevels').checked = !hc.criteriaStyle || hc.criteriaStyle.showLevelsCol !== false;
+        }
+        if (document.getElementById('hdrChk_critColDesc')) {
+          document.getElementById('hdrChk_critColDesc').checked = !hc.criteriaStyle || (hc.criteriaStyle.showDescriptions !== undefined ? hc.criteriaStyle.showDescriptions : (hc.showCriteriaDescriptions !== false));
+        }
+        if (document.getElementById('hdrChk_critColMax')) {
+          document.getElementById('hdrChk_critColMax').checked = !hc.criteriaStyle || hc.criteriaStyle.showMaxCol !== false;
+        }
+        if (document.getElementById('hdrChk_critColScore')) {
+          document.getElementById('hdrChk_critColScore').checked = !hc.criteriaStyle || hc.criteriaStyle.showScoreCol !== false;
+        }
+        if (document.getElementById('hdrChk_critColComments')) {
+          document.getElementById('hdrChk_critColComments').checked = !hc.criteriaStyle || hc.criteriaStyle.showCommentsCol !== false;
+        }
+        if (document.getElementById('hdrChk_critSeparatePage')) {
+          document.getElementById('hdrChk_critSeparatePage').checked = !!(hc.criteriaStyle && (hc.criteriaStyle.separatePage || hc.criteriaStyle.pageOrientation === 'landscape'));
+        }
+        if (document.getElementById('hdrSelect_competencesBg')) {
+          document.getElementById('hdrSelect_competencesBg').value = (hc.competencesStyle && hc.competencesStyle.background) || 'default';
+        }
+        if (document.getElementById('hdrSelect_competencesPadding')) {
+          document.getElementById('hdrSelect_competencesPadding').value = (hc.competencesStyle && hc.competencesStyle.padding) || 'standard';
+        }
+        if (document.getElementById('hdrSelect_competencesBorder')) {
+          document.getElementById('hdrSelect_competencesBorder').value = (hc.competencesStyle && hc.competencesStyle.border) || 'solid';
+        }
+        if (document.getElementById('hdrSelect_competencesOrientation')) {
+          document.getElementById('hdrSelect_competencesOrientation').value = (hc.competencesStyle && hc.competencesStyle.pageOrientation) || 'portrait';
+        }
+        if (document.getElementById('hdrChk_compColCode')) {
+          document.getElementById('hdrChk_compColCode').checked = !hc.competencesStyle || hc.competencesStyle.showCodeCol !== false;
+        }
+        if (document.getElementById('hdrChk_compColTitle')) {
+          document.getElementById('hdrChk_compColTitle').checked = !hc.competencesStyle || hc.competencesStyle.showTitleCol !== false;
+        }
+        if (document.getElementById('hdrChk_compColDesc')) {
+          document.getElementById('hdrChk_compColDesc').checked = !hc.competencesStyle || (hc.competencesStyle.showDescriptions !== undefined ? hc.competencesStyle.showDescriptions : (hc.showCompetenceDescriptions !== false));
+        }
+        if (document.getElementById('hdrChk_compColLevel')) {
+          document.getElementById('hdrChk_compColLevel').checked = !hc.competencesStyle || hc.competencesStyle.showLevelCol !== false;
+        }
+        if (document.getElementById('hdrChk_compColScore')) {
+          document.getElementById('hdrChk_compColScore').checked = !!(hc.competencesStyle && hc.competencesStyle.showScoreCol);
+        }
+        if (document.getElementById('hdrChk_compColComments')) {
+          document.getElementById('hdrChk_compColComments').checked = !!(hc.competencesStyle && hc.competencesStyle.showCommentsCol);
+        }
+        if (document.getElementById('hdrChk_compSeparatePage')) {
+          document.getElementById('hdrChk_compSeparatePage').checked = !!(hc.competencesStyle && (hc.competencesStyle.separatePage || hc.competencesStyle.pageOrientation === 'landscape'));
         }
         if (document.getElementById('hdrSelect_scaleBg')) {
           document.getElementById('hdrSelect_scaleBg').value = (hc.gradingScaleStyle && hc.gradingScaleStyle.background) || 'default';
@@ -12052,6 +13227,8 @@
           }
           if (!themeCss) {
             themeCss = TestCreatorService.getThemeCss(theme);
+          } else {
+            themeCss = TestCreatorService.getThemeCss(theme) + '\n' + themeCss;
           }
           var scopedCss = themeCss
             .replace(/\bbody\s*\{/g, '#previewCanvasWrap .a4-sheet {')
@@ -12125,8 +13302,128 @@
       };
 
       // ── Export Modal & Direct Actions ─────────────────────────────────────
+      function tcSyncQuickExportTogglesFromTest() {
+        if (!currentTest || typeof TestCreatorService === 'undefined') return;
+        var hc = TestCreatorService.ensureHeaderConfig(currentTest);
+        var setChk = function (id, val) {
+          var el = document.getElementById(id);
+          if (el) el.checked = (val !== false);
+        };
+        setChk('tcQuickExpHdr_studentName', hc.showStudentName);
+        setChk('tcQuickExpHdr_class', hc.showClass);
+        setChk('tcQuickExpHdr_date', hc.showDate);
+        setChk('tcQuickExpHdr_duration', hc.showDuration);
+        setChk('tcQuickExpHdr_points', hc.showTotalPoints);
+        setChk('tcQuickExpHdr_materials', hc.showMaterials);
+        setChk('tcQuickExpHdr_instructions', hc.showInstructions !== false);
+        setChk('tcQuickExpHdr_scale', hc.showGradingScale !== false);
+
+        var cs = hc.competencesStyle || {};
+        var compModeSel = document.getElementById('tcQuickExpCompMode');
+        if (compModeSel) {
+          compModeSel.value = (hc.showCompetences === false) ? 'none' : (cs.displayMode || 'table');
+        }
+        setChk('tcQuickExpTc_code', cs.showCodeCol);
+        setChk('tcQuickExpTc_title', cs.showTitleCol);
+        setChk('tcQuickExpTc_desc', cs.showDescriptions);
+        setChk('tcQuickExpTc_level', cs.showLevelCol);
+        setChk('tcQuickExpTc_score', cs.showScoreCol);
+        setChk('tcQuickExpTc_comments', !!cs.showCommentsCol);
+
+        var crs = hc.criteriaStyle || {};
+        var critModeSel = document.getElementById('tcQuickExpCritMode');
+        if (critModeSel) {
+          critModeSel.value = (hc.showCriteria === false) ? 'none' : (crs.displayMode || 'matrix');
+        }
+        setChk('tcQuickExpCr_criterion', crs.showCriterionCol);
+        setChk('tcQuickExpCr_levels', crs.showLevelsCol);
+        setChk('tcQuickExpCr_desc', crs.showDescriptions);
+        setChk('tcQuickExpCr_max', crs.showMaxCol);
+        setChk('tcQuickExpCr_score', crs.showScoreCol);
+        setChk('tcQuickExpCr_comments', !!crs.showCommentsCol);
+      }
+
+      window.tcOnQuickExportToggleChange = function () {
+        if (!currentTest || typeof TestCreatorService === 'undefined') return;
+        var hc = TestCreatorService.ensureHeaderConfig(currentTest);
+        var getChk = function (id, defVal) {
+          var el = document.getElementById(id);
+          return el ? el.checked : defVal;
+        };
+        hc.showStudentName = getChk('tcQuickExpHdr_studentName', true);
+        hc.showClass = getChk('tcQuickExpHdr_class', true);
+        hc.showDate = getChk('tcQuickExpHdr_date', true);
+        hc.showDuration = getChk('tcQuickExpHdr_duration', true);
+        hc.showTotalPoints = getChk('tcQuickExpHdr_points', true);
+        hc.showMaterials = getChk('tcQuickExpHdr_materials', true);
+        hc.showInstructions = getChk('tcQuickExpHdr_instructions', true);
+        hc.showGradingScale = getChk('tcQuickExpHdr_scale', true);
+
+        if (!hc.competencesStyle) hc.competencesStyle = {};
+        var compModeSel = document.getElementById('tcQuickExpCompMode');
+        if (compModeSel) {
+          if (compModeSel.value === 'none') {
+            hc.showCompetences = false;
+          } else {
+            hc.showCompetences = true;
+            hc.competencesStyle.displayMode = compModeSel.value;
+          }
+        }
+        hc.competencesStyle.showCodeCol = getChk('tcQuickExpTc_code', true);
+        hc.competencesStyle.showTitleCol = getChk('tcQuickExpTc_title', true);
+        hc.competencesStyle.showDescriptions = getChk('tcQuickExpTc_desc', true);
+        hc.competencesStyle.showLevelCol = getChk('tcQuickExpTc_level', true);
+        hc.competencesStyle.showScoreCol = getChk('tcQuickExpTc_score', true);
+        hc.competencesStyle.showCommentsCol = getChk('tcQuickExpTc_comments', false);
+
+        if (!hc.criteriaStyle) hc.criteriaStyle = {};
+        var critModeSel = document.getElementById('tcQuickExpCritMode');
+        if (critModeSel) {
+          if (critModeSel.value === 'none') {
+            hc.showCriteria = false;
+          } else {
+            hc.showCriteria = true;
+            hc.criteriaStyle.displayMode = critModeSel.value;
+          }
+        }
+        hc.criteriaStyle.showCriterionCol = getChk('tcQuickExpCr_criterion', true);
+        hc.criteriaStyle.showLevelsCol = getChk('tcQuickExpCr_levels', true);
+        hc.criteriaStyle.showDescriptions = getChk('tcQuickExpCr_desc', true);
+        hc.criteriaStyle.showMaxCol = getChk('tcQuickExpCr_max', true);
+        hc.criteriaStyle.showScoreCol = getChk('tcQuickExpCr_score', true);
+        hc.criteriaStyle.showCommentsCol = getChk('tcQuickExpCr_comments', false);
+
+        // Also sync any section_competences / section_criteria blocks in currentTest
+        if (Array.isArray(currentTest.exercises)) {
+          currentTest.exercises.forEach(function (ex) {
+            if (!ex) return;
+            if (ex.type === 'section_competences') {
+              if (!ex.competencesConfig) ex.competencesConfig = {};
+              if (compModeSel && compModeSel.value !== 'none') ex.competencesConfig.displayMode = compModeSel.value;
+              ex.competencesConfig.showCodeCol = hc.competencesStyle.showCodeCol;
+              ex.competencesConfig.showTitleCol = hc.competencesStyle.showTitleCol;
+              ex.competencesConfig.showDescriptions = hc.competencesStyle.showDescriptions;
+              ex.competencesConfig.showLevelCol = hc.competencesStyle.showLevelCol;
+              ex.competencesConfig.showScoreCol = hc.competencesStyle.showScoreCol;
+              ex.competencesConfig.showCommentsCol = hc.competencesStyle.showCommentsCol;
+            } else if (ex.type === 'section_criteria') {
+              if (!ex.criteriaConfig) ex.criteriaConfig = {};
+              if (critModeSel && critModeSel.value !== 'none') ex.criteriaConfig.displayMode = critModeSel.value;
+              ex.criteriaConfig.showCriterionCol = hc.criteriaStyle.showCriterionCol;
+              ex.criteriaConfig.showLevelsCol = hc.criteriaStyle.showLevelsCol;
+              ex.criteriaConfig.showDescriptions = hc.criteriaStyle.showDescriptions;
+              ex.criteriaConfig.showMaxCol = hc.criteriaStyle.showMaxCol;
+              ex.criteriaConfig.showScoreCol = hc.criteriaStyle.showScoreCol;
+              ex.criteriaConfig.showCommentsCol = hc.criteriaStyle.showCommentsCol;
+            }
+          });
+        }
+        tcSaveCurrentTest(false);
+      };
+
       window.tcOpenExportModal = function () {
         document.getElementById('exportModal').classList.add('open');
+        tcSyncQuickExportTogglesFromTest();
         var expThm = document.getElementById('exportThemeSelect');
         if (expThm && currentTest) {
           var curThm = (currentTest.exportStyle && currentTest.exportStyle.theme) || currentTest.stylesheetTheme || (window.ExportStylesService && ExportStylesService.getSelectedStyle('testCreator')) || localStorage.getItem('cmt_default_test_theme') || 'export-light-neobrutalist.css';
@@ -12912,6 +14209,102 @@
       };
 
       // ── Entire Unit Sequence Export Handlers ─────────────────────────────
+      window.tcSwitchSeqExportTab = function (tab) {
+        ['all', 'toc', 'lessons', 'tests'].forEach(function (t) {
+          var btn = document.getElementById('tcSeqTabBtn_' + t);
+          if (btn) {
+            if (t === tab) btn.classList.add('primary');
+            else btn.classList.remove('primary');
+          }
+        });
+        ['toc', 'lessons', 'tests'].forEach(function (p) {
+          var panel = document.getElementById('tcSeqExportPanel_' + p);
+          if (panel) {
+            panel.style.display = (tab === 'all' || tab === p) ? 'block' : 'none';
+          }
+        });
+      };
+
+      window.tcOnSeqCssThemeChange = function () {
+        var themeInput = document.querySelector('input[name="tcSeqCssTheme"]:checked');
+        var val = themeInput ? themeInput.value : 'neobrutalist';
+        if (window.ExportStylesService) {
+          var mapped = val === 'editorial' ? 'export-editorial.css' : (val === 'minimal' ? 'export-minimal-grid.css' : 'export-light-neobrutalist.css');
+          ExportStylesService.setSelectedStyle('testCreator', mapped);
+          ExportStylesService.renderStyleSelector(document.getElementById('tc-seq-export-style-selector-wrap'), {
+            toolKey: 'testCreator',
+            onChange: function (styleId) {
+              var ifr = document.getElementById('exportPreviewIframe');
+              if (ifr && document.getElementById('exportPreviewModal').classList.contains('open')) {
+                ExportStylesService.applyStyleToIframe(ifr, styleId);
+              }
+            }
+          });
+        }
+      };
+
+      window.tcOnSeqExportFormatChange = function () {
+        var fmtInput = document.querySelector('input[name="tcSeqExportFormat"]:checked');
+        var fmt = fmtInput ? fmtInput.value : 'html';
+        var themeRow = document.getElementById('tcSeqThemeRow');
+        if (themeRow) {
+          themeRow.style.display = (fmt === 'html' || fmt === 'pdf' || fmt === 'docx') ? 'block' : 'none';
+        }
+      };
+
+      window.tcApplySeqLessonPreset = function (preset) {
+        var map = {
+          meta: true,
+          objectives: true,
+          vocab: true,
+          competences: true,
+          links: true,
+          notes: true,
+          phTime: true,
+          phActivity: true,
+          phInteraction: true,
+          phObjective: true,
+          phDescription: true,
+          phTeacherActions: true,
+          phStudentActions: true,
+          phDifferentiation: true,
+          phAssessment: true,
+          phMaterials: true,
+          phHomework: true,
+          phCompetences: true
+        };
+        if (preset === 'teacher') {
+          map.links = false;
+        } else if (preset === 'student') {
+          map.competences = false;
+          map.links = false;
+          map.notes = false;
+          map.phTeacherActions = false;
+          map.phDifferentiation = false;
+          map.phAssessment = false;
+          map.phCompetences = false;
+        } else if (preset === 'summary') {
+          map.vocab = false;
+          map.links = false;
+          map.notes = false;
+          map.phDescription = false;
+          map.phTeacherActions = false;
+          map.phStudentActions = false;
+          map.phDifferentiation = false;
+          map.phAssessment = false;
+          map.phMaterials = false;
+          map.phHomework = false;
+        }
+        Object.keys(map).forEach(function (k) {
+          var chk = document.getElementById('tcSeqLP_' + k);
+          if (chk) chk.checked = map[k];
+        });
+        var phMain = document.getElementById('tcSeqOptPhases');
+        if (phMain) phMain.checked = true;
+        var vocMain = document.getElementById('tcSeqOptVocab');
+        if (vocMain) vocMain.checked = !!map.vocab;
+      };
+
       window.tcOpenSequenceExportModal = async function () {
         var seq = currentTest && currentTest.unitSequence;
         if (!seq || !seq.title || !seq.lessons || seq.lessons.length === 0) {
@@ -12921,6 +14314,8 @@
         }
         var modal = document.getElementById('tcSequenceExportModal');
         if (modal) modal.classList.add('open');
+        tcSwitchSeqExportTab('all');
+        tcOnSeqExportFormatChange();
         if (window.ExportStylesService) {
           ExportStylesService.renderStyleSelector(document.getElementById('tc-seq-export-style-selector-wrap'), {
             toolKey: 'testCreator',
@@ -12944,10 +14339,24 @@
         var format = fmtInput ? fmtInput.value : 'html';
 
         var themeInput = document.querySelector('input[name="tcSeqCssTheme"]:checked');
-        var cssTheme = themeInput ? themeInput.value : 'editorial';
+        var cssTheme = themeInput ? themeInput.value : 'neobrutalist';
 
         var compLayoutInput = document.querySelector('input[name="tcSeqCompLayout"]:checked');
         var competenceLayout = compLayoutInput ? compLayoutInput.value : 'column';
+
+        var lessonLayoutInput = document.querySelector('input[name="tcSeqLessonLayout"]:checked');
+        var lessonLayout = lessonLayoutInput ? lessonLayoutInput.value : 'cards';
+
+        var testRenderModeInput = document.querySelector('input[name="tcSeqTestRenderMode"]:checked');
+        var testRenderMode = testRenderModeInput ? testRenderModeInput.value : 'full_exam';
+
+        var testVariantSel = document.getElementById('tcSeqTestVariantSelect');
+        var testVariant = testVariantSel ? testVariantSel.value : 'A';
+
+        var testNumberedLines = document.getElementById('tcSeqTestNumberedLines') ? document.getElementById('tcSeqTestNumberedLines').checked : false;
+
+        var testScaleDisplaySel = document.getElementById('tcSeqTestScaleDisplayMode');
+        var testScaleDisplayMode = testScaleDisplaySel ? testScaleDisplaySel.value : 'table';
 
         var critModeInput = document.querySelector('input[name="tcSeqTestCriteriaMode"]:checked');
         var testCriteriaMode = critModeInput ? critModeInput.value : 'compact';
@@ -12962,24 +14371,120 @@
         var includeGradingScale = document.getElementById('tcSeqOptGradingScale') ? document.getElementById('tcSeqOptGradingScale').checked : true;
         var includeAnswerKeys = document.getElementById('tcSeqOptAnswerKeys') ? document.getElementById('tcSeqOptAnswerKeys').checked : false;
 
+        var getChk = function (id, defVal) {
+          var el = document.getElementById(id);
+          return el ? el.checked : defVal;
+        };
+
+        var tocCols = {
+          index: getChk('tcSeqTocCol_index', true),
+          type: getChk('tcSeqTocCol_type', true),
+          title: getChk('tcSeqTocCol_title', true),
+          duration: getChk('tcSeqTocCol_duration', true),
+          objectives: getChk('tcSeqTocCol_objectives', true),
+          competences: getChk('tcSeqTocCol_competences', true),
+          vocab: getChk('tcSeqTocCol_vocab', true),
+          homework: getChk('tcSeqTocCol_homework', false)
+        };
+
+        var lessonToggles = {
+          meta: getChk('tcSeqLP_meta', true),
+          objectives: getChk('tcSeqLP_objectives', true),
+          vocab: getChk('tcSeqLP_vocab', includeVocab),
+          competences: getChk('tcSeqLP_competences', true),
+          links: getChk('tcSeqLP_links', true),
+          notes: getChk('tcSeqLP_notes', true),
+          phases: includePhases,
+          phTime: getChk('tcSeqLP_phTime', true),
+          phActivity: getChk('tcSeqLP_phActivity', true),
+          phInteraction: getChk('tcSeqLP_phInteraction', true),
+          phObjective: getChk('tcSeqLP_phObjective', true),
+          phDescription: getChk('tcSeqLP_phDescription', true),
+          phTeacherActions: getChk('tcSeqLP_phTeacherActions', true),
+          phStudentActions: getChk('tcSeqLP_phStudentActions', true),
+          phDifferentiation: getChk('tcSeqLP_phDifferentiation', true),
+          phAssessment: getChk('tcSeqLP_phAssessment', true),
+          phMaterials: getChk('tcSeqLP_phMaterials', true),
+          phHomework: getChk('tcSeqLP_phHomework', true),
+          phCompetences: getChk('tcSeqLP_phCompetences', true)
+        };
+
+        var testHeaderToggles = {
+          showTitle: true,
+          showStudentName: getChk('tcSeqTestHdr_studentName', true),
+          showClass: getChk('tcSeqTestHdr_class', true),
+          showDate: getChk('tcSeqTestHdr_date', true),
+          showTeacher: getChk('tcSeqTestHdr_teacher', true),
+          showDuration: getChk('tcSeqTestHdr_duration', true),
+          showMaterials: getChk('tcSeqTestHdr_materials', true),
+          showScope: getChk('tcSeqTestHdr_scope', true),
+          showTotalPoints: getChk('tcSeqTestHdr_points', true),
+          showInstructions: getChk('tcSeqTestHdr_instructions', true),
+          showGradingScale: includeGradingScale,
+          scaleDisplayMode: testScaleDisplayMode
+        };
+
+        var testCompCols = {
+          showCodeCol: getChk('tcSeqTcCol_code', true),
+          showTitleCol: getChk('tcSeqTcCol_title', true),
+          showDescriptions: getChk('tcSeqTcCol_desc', true),
+          showLevelCol: getChk('tcSeqTcCol_level', true),
+          showScoreCol: getChk('tcSeqTcCol_score', true),
+          showCommentsCol: getChk('tcSeqTcCol_comments', false)
+        };
+
+        var testCritCols = {
+          showCriterionCol: getChk('tcSeqCrCol_criterion', true),
+          showLevelsCol: getChk('tcSeqCrCol_levels', true),
+          showDescriptions: getChk('tcSeqCrCol_desc', true),
+          showMaxCol: getChk('tcSeqCrCol_max', true),
+          showScoreCol: getChk('tcSeqCrCol_score', true),
+          showCommentsCol: getChk('tcSeqCrCol_comments', false)
+        };
+
+        var classMap = {};
+        (activeClassGroups || []).forEach(function (g) {
+          if (g && (g.id || g.name)) classMap[g.id || g.name] = g.name || g.id;
+        });
+
+        var actMap = {};
+        var intMap = {};
+        if (typeof LessonCreatorService !== 'undefined') {
+          (LessonCreatorService.DEFAULT_ACTIVITIES || []).forEach(function (a) { actMap[a.id] = a.name; });
+          (LessonCreatorService.DEFAULT_INTERACTIONS || []).forEach(function (x) { intMap[x.id] = x.name; });
+        }
+
         return {
           format: format,
           cssTheme: cssTheme,
           competenceLayout: competenceLayout,
+          tocCols: tocCols,
+          lessonLayout: lessonLayout,
+          lessonToggles: lessonToggles,
+          testRenderMode: testRenderMode,
+          testVariant: testVariant,
+          testNumberedLines: testNumberedLines,
+          testHeaderToggles: testHeaderToggles,
+          testScaleDisplayMode: testScaleDisplayMode,
           testCriteriaMode: testCriteriaMode,
+          testCritCols: testCritCols,
           testCompetencesMode: testCompetencesMode,
+          testCompCols: testCompCols,
           includeSummary: includeSummary,
           includeVocab: includeVocab,
           includePhases: includePhases,
           includeTests: includeTests,
           includeGradingScale: includeGradingScale,
           includeAnswerKeys: includeAnswerKeys,
-          allCompetences: (typeof _cachedCompetences !== 'undefined' && Array.isArray(_cachedCompetences)) ? _cachedCompetences : []
+          allCompetences: (typeof _cachedCompetences !== 'undefined' && Array.isArray(_cachedCompetences)) ? _cachedCompetences : [],
+          classLookup: classMap,
+          activityLookup: actMap,
+          interactionLookup: intMap
         };
       }
 
       window.tcExecuteSequenceExport = async function () {
-        var seq = currentTest && currentTest.unitSequence;
+        var seq = (currentTest && currentTest.unitSequence) || (typeof tcEnsureCurrentTestSequence === 'function' ? tcEnsureCurrentTestSequence() : null);
         if (!seq) return;
 
         await tcLoadSequencesAndItems();
@@ -13020,6 +14525,73 @@
               allowDocEditor: true,
               filters: [{ name: 'HTML Document', extensions: ['html'] }],
               modalTitle: 'Export Unit HTML Booklet'
+            });
+            tcCloseSequenceExportModal();
+          }
+        } else if (opts.format === 'docx') {
+          var docxHtml = LessonCreatorService.exportSequenceToDocxHtml(seq, fullLessons, fullTests, opts);
+          if (window.ExportStylesService) {
+            docxHtml = await ExportStylesService.injectStyleIntoHtml(docxHtml, ExportStylesService.getSelectedStyle('testCreator'));
+          }
+          var docxFilename = safeSeqName + '_booklet.doc';
+          if (window.saveExportWithDestination) {
+            await window.saveExportWithDestination({
+              filename: docxFilename,
+              content: docxHtml,
+              mimeType: 'application/msword',
+              allowDocEditor: false,
+              filters: [{ name: 'Word Document (.doc)', extensions: ['doc', 'docx'] }],
+              modalTitle: 'Export Unit Word Document (.doc)'
+            });
+            tcCloseSequenceExportModal();
+          }
+        } else if (opts.format === 'xlsx' || opts.format === 'ods') {
+          var wb = LessonCreatorService.buildSequenceWorkbook(seq, fullLessons, fullTests, opts);
+          if (!wb || typeof XLSX === 'undefined') {
+            if (window.showToast) showToast('Spreadsheet library (XLSX) is not loaded.', true);
+            return;
+          }
+          var bookType = opts.format === 'ods' ? 'ods' : 'xlsx';
+          var sheetFilename = safeSeqName + '_unit.' + bookType;
+          var wbOut = XLSX.write(wb, { bookType: bookType, type: 'array' });
+          var mime = bookType === 'ods'
+            ? 'application/vnd.oasis.opendocument.spreadsheet'
+            : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+          var blob = new Blob([wbOut], { type: mime });
+          if (window.saveExportWithDestination) {
+            await window.saveExportWithDestination({
+              filename: sheetFilename,
+              blob: blob,
+              mimeType: mime,
+              allowDocEditor: false,
+              filters: [{ name: bookType.toUpperCase() + ' Workbook', extensions: [bookType] }],
+              modalTitle: 'Export Unit ' + bookType.toUpperCase() + ' Workbook'
+            });
+          } else if (window.Desktop && Desktop.isElectron && typeof Desktop.saveBlob === 'function') {
+            var bRes = await Desktop.saveBlob('toPrint', sheetFilename, blob);
+            if (bRes && bRes.ok && window.showExportSuccessPopup) {
+              window.showExportSuccessPopup(bRes.path, sheetFilename);
+            }
+          } else {
+            var u = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = u;
+            a.download = sheetFilename;
+            a.click();
+            URL.revokeObjectURL(u);
+          }
+          tcCloseSequenceExportModal();
+        } else if (opts.format === 'csv') {
+          var csvContent = '\uFEFF' + LessonCreatorService.exportSequenceToCsv(seq, fullLessons, fullTests, opts);
+          var csvFilename = safeSeqName + '_unit.csv';
+          if (window.saveExportWithDestination) {
+            await window.saveExportWithDestination({
+              filename: csvFilename,
+              content: csvContent,
+              mimeType: 'text/csv;charset=utf-8',
+              allowDocEditor: false,
+              filters: [{ name: 'CSV Spreadsheet', extensions: ['csv'] }],
+              modalTitle: 'Export Unit CSV Table'
             });
             tcCloseSequenceExportModal();
           }
