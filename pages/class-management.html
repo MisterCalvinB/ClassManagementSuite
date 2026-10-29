@@ -4027,18 +4027,29 @@
                     </div>
                 </div>
                 <div style="margin-bottom:12px;">
-                    <label style="display:block; font-weight:bold; font-size:0.85rem; margin-bottom:4px;">Default Volume
-                        (0 - 100%)</label>
+                    <label style="display:block; font-weight:bold; font-size:0.85rem; margin-bottom:4px;" data-i18n="mode_default_vol_label">Default Volume (0 - 100%)</label>
                     <input type="range" id="mode-edit-sound-vol" min="0" max="100" value="20" style="width:100%;"
-                        oninput="document.getElementById('mode-edit-sound-vol-val').textContent = this.value + '%'">
+                        oninput="onModeEditorVolumeInput(this.value)">
                     <span id="mode-edit-sound-vol-val"
                         style="font-size:0.85rem; font-weight:bold; color:#555;">20%</span>
                 </div>
-                <div style="margin-bottom:12px;">
-                    <label
-                        style="display:flex; align-items:center; gap:8px; font-weight:bold; font-size:0.85rem; cursor:pointer;">
-                        <input type="checkbox" id="mode-edit-sound-chime"> Play chime sound on mode activation
-                    </label>
+                <div style="margin-bottom:16px;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+                        <label style="display:flex; align-items:center; gap:8px; font-weight:bold; font-size:0.85rem; cursor:pointer;">
+                            <input type="checkbox" id="mode-edit-sound-chime"> <span data-i18n="mode_chime_label">Play chime sound on mode activation</span>
+                        </label>
+                        <button type="button" id="mode-editor-test-chime-btn" onclick="playModeChime()" style="display:inline-flex; align-items:center; gap:5px; padding:4px 10px; font-size:0.78rem; font-weight:700; border:2px solid #333333; border-radius:6px; background:#f5f5f0; box-shadow:2px 2px 0 #555555; cursor:pointer;">
+                            <img src="../assets/icons/bell.svg" class="btn-icon" alt="" style="width:13px; height:13px;" />
+                            <span data-i18n="mode_test_chime">Preview Chime</span>
+                        </button>
+                    </div>
+                </div>
+                <div style="padding-top:12px; border-top:1px dashed #ccc; display:flex; align-items:center; gap:12px;">
+                    <button type="button" id="mode-editor-test-sound-btn" onclick="toggleModeEditorTestSound()" style="display:inline-flex; align-items:center; gap:6px; padding:6px 14px; font-size:0.82rem; font-weight:700; border:2px solid #333333; border-radius:6px; background:#ffffff; box-shadow:2px 2px 0 #555555; cursor:pointer;">
+                        <img src="../assets/icons/volume.svg" class="btn-icon" alt="" style="width:14px; height:14px;" />
+                        <span data-i18n="mode_test_sound">Test Sound</span>
+                    </button>
+                    <span style="font-size:0.78rem; color:#666;">Preview ambient noise before saving</span>
                 </div>
             </div>
 
@@ -14353,8 +14364,8 @@
             return true;
         }
 
-        async function _playNoiseFileAudio() {
-            const audio = await _ensureNoiseFileAudio();
+        async function _playNoiseFileAudio(specificFile = null) {
+            const audio = await _ensureNoiseFileAudio(specificFile);
             if (!audio) return false;
 
             try {
@@ -14395,11 +14406,11 @@
             });
         }
 
-        async function _ensureNoiseFileAudio() {
+        async function _ensureNoiseFileAudio(specificFile = null) {
             soundSettings = normalizeSoundSettings(soundSettings);
             const cfg = soundSettings.timerBackground || DEFAULT_SOUND_SETTINGS.timerBackground;
-            const fallbackFile = soundSettings.timerEnd?.mode === 'file' ? soundSettings.timerEnd.file : '';
-            const filePath = normalizeSoundFilePath(cfg?.file || fallbackFile || '');
+            const chosen = specificFile || cfg?.file || '';
+            const filePath = normalizeSoundFilePath(chosen);
             if (!filePath) return null;
 
             const url = await getSoundFileUrl(filePath);
@@ -14581,6 +14592,14 @@
             closeMp3Picker();
             soundSettings = normalizeSoundSettings(soundSettings);
             soundSettings.timerBackground = Object.assign({}, soundSettings.timerBackground, { mode: 'file', file });
+            if (activeWorkingModeId) {
+                const curMode = classModes.find(m => m.id === activeWorkingModeId || m.name.toLowerCase() === (activeWorkingModeId || '').toLowerCase());
+                if (curMode) {
+                    if (!curMode.sound) curMode.sound = { type: 'file', volume: Math.round(whiteNoiseVolume * 100), chime: false };
+                    curMode.sound.type = 'file';
+                    curMode.sound.file = file;
+                }
+            }
             persistSettingsToUserFile().catch(err => console.warn('selectMp3File: could not save config:', err));
             // Force reload of audio pool so new file takes effect immediately
             _resetNoiseFilePlayers(true);
@@ -14588,7 +14607,7 @@
                 // Already in file mode — restart playback with new file
                 if (whiteNoisePlaying && !whiteNoiseMuted) {
                     _stopNoiseFileAudio();
-                    const ok = await _playNoiseFileAudio();
+                    const ok = await _playNoiseFileAudio(file);
                     if (!ok) whiteNoisePlaying = false;
                     _syncWhiteNoiseUI();
                 }
@@ -14805,6 +14824,13 @@
                         _ensureNoiseNodes(_noiseType);
                         _noiseGains[_noiseType].gain.setTargetAtTime(whiteNoiseVolume, audioContext.currentTime, 0.15);
                     }
+                }
+            }
+            if (activeWorkingModeId) {
+                const curMode = classModes.find(m => m.id === activeWorkingModeId || m.name.toLowerCase() === (activeWorkingModeId || '').toLowerCase());
+                if (curMode) {
+                    if (!curMode.sound) curMode.sound = { type: 'none', volume: Math.round(whiteNoiseVolume * 100), chime: false };
+                    curMode.sound.type = (whiteNoisePlaying && !whiteNoiseMuted) ? _noiseType : 'none';
                 }
             }
             _syncWhiteNoiseUI();
@@ -16909,6 +16935,9 @@ syncState();
             if (index === -1) return;
             const confirmed = (typeof showConfirm === 'function') ? await showConfirm(`Are you sure you want to delete "${classModes[index].name}"?`) : confirm(`Are you sure you want to delete "${classModes[index].name}"?`);
             if (confirmed) {
+                if (activeWorkingModeId === modeId) {
+                    closeMode();
+                }
                 classModes.splice(index, 1);
                 renderModeManagerList();
                 renderTimerModeShortcuts();
@@ -16919,6 +16948,9 @@ syncState();
         async function resetModesToDefault() {
             const confirmed = (typeof showConfirm === 'function') ? await showConfirm('Reset class modes to standard defaults (Quiet, Talk, Group)?') : confirm('Reset class modes to standard defaults (Quiet, Talk, Group)?');
             if (confirmed) {
+                if (activeWorkingModeId) {
+                    closeMode();
+                }
                 classModes = JSON.parse(JSON.stringify(DEFAULT_CLASS_MODES));
                 renderModeManagerList();
                 renderTimerModeShortcuts();
@@ -16936,6 +16968,7 @@ syncState();
         }
 
         function openModeEditor(modeId) {
+            stopModeEditorTestSound();
             const mode = classModes.find(m => m.id === modeId);
             if (!mode) return;
             activeEditingModeId = modeId;
@@ -16972,6 +17005,7 @@ syncState();
         }
 
         function closeModeEditor() {
+            stopModeEditorTestSound();
             document.getElementById('mode-editor-modal').style.display = 'none';
             activeEditingModeId = null;
         }
@@ -17114,10 +17148,177 @@ syncState();
             }
         }
 
+        let _modeEditorTestAudio = null;
+        let _modeEditorTestGain = null;
+        let _modeEditorTestSource = null;
+
+        function stopModeEditorTestSound() {
+            if (_modeEditorTestAudio) {
+                try {
+                    _modeEditorTestAudio.pause();
+                    _modeEditorTestAudio.currentTime = 0;
+                } catch (_) { }
+                _modeEditorTestAudio = null;
+            }
+            if (_modeEditorTestGain && audioContext) {
+                try {
+                    _modeEditorTestGain.gain.setTargetAtTime(0, audioContext.currentTime, 0.05);
+                } catch (_) { }
+            }
+            if (_modeEditorTestSource) {
+                try { _modeEditorTestSource.stop(); } catch (_) { }
+                _modeEditorTestSource = null;
+            }
+            _modeEditorTestGain = null;
+            const btn = document.getElementById('mode-editor-test-sound-btn');
+            if (btn) {
+                btn.classList.remove('playing');
+                btn.innerHTML = '<img src="../assets/icons/volume.svg" class="btn-icon" alt="" style="width:14px; height:14px;" /> <span data-i18n="mode_test_sound">Test Sound</span>';
+            }
+        }
+
+        async function toggleModeEditorTestSound() {
+            const btn = document.getElementById('mode-editor-test-sound-btn');
+            if (btn && btn.classList.contains('playing')) {
+                stopModeEditorTestSound();
+                return;
+            }
+            stopModeEditorTestSound();
+
+            const soundType = document.getElementById('mode-edit-sound-type')?.value || 'none';
+            const soundFile = document.getElementById('mode-edit-sound-file')?.value || '';
+            const volNum = parseInt(document.getElementById('mode-edit-sound-vol')?.value, 10) || 20;
+            const volFraction = Math.max(0, Math.min(1, volNum / 100));
+
+            if (soundType === 'none') {
+                if (typeof showToast === 'function') showToast('Select an ambient noise type first.', false);
+                return;
+            }
+
+            if (audioContext && audioContext.state === 'suspended') {
+                try { await audioContext.resume(); } catch (_) { }
+            }
+
+            if (soundType === 'file') {
+                const filePath = normalizeSoundFilePath(soundFile);
+                if (!filePath) {
+                    if (typeof showToast === 'function') showToast('Please select or upload an audio file first.', true);
+                    return;
+                }
+                const url = await getSoundFileUrl(filePath);
+                if (!url) {
+                    if (typeof showToast === 'function') showToast('Could not load sound file.', true);
+                    return;
+                }
+                try {
+                    const audio = new Audio(url);
+                    audio.loop = true;
+                    audio.volume = volFraction;
+                    await audio.play();
+                    _modeEditorTestAudio = audio;
+                } catch (err) {
+                    console.warn('Mode editor audio test play error:', err);
+                    if (typeof showToast === 'function') showToast('Error playing audio file.', true);
+                    return;
+                }
+            } else if (['white', 'pink', 'brown'].includes(soundType)) {
+                try {
+                    const sampleRate = audioContext.sampleRate;
+                    const bufLen = 4 * sampleRate;
+                    const buffer = audioContext.createBuffer(1, bufLen, sampleRate);
+                    const data = buffer.getChannelData(0);
+
+                    if (soundType === 'brown') {
+                        let lastOut = 0;
+                        for (let i = 0; i < bufLen; i++) {
+                            const white = Math.random() * 2 - 1;
+                            lastOut = (lastOut + 0.02 * white) / 1.02;
+                            data[i] = lastOut;
+                        }
+                        let peak = 0;
+                        for (let i = 0; i < bufLen; i++) if (Math.abs(data[i]) > peak) peak = Math.abs(data[i]);
+                        if (peak > 0) for (let i = 0; i < bufLen; i++) data[i] /= peak;
+                    } else if (soundType === 'pink') {
+                        let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+                        for (let i = 0; i < bufLen; i++) {
+                            const white = Math.random() * 2 - 1;
+                            b0 = 0.99886 * b0 + white * 0.0555179;
+                            b1 = 0.99332 * b1 + white * 0.0750759;
+                            b2 = 0.96900 * b2 + white * 0.1538520;
+                            b3 = 0.86650 * b3 + white * 0.3104856;
+                            b4 = 0.55000 * b4 + white * 0.5329522;
+                            b5 = -0.7616 * b5 - white * 0.0168980;
+                            data[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.11;
+                            b6 = white * 0.115926;
+                        }
+                    } else {
+                        for (let i = 0; i < bufLen; i++) data[i] = Math.random() * 2 - 1;
+                    }
+
+                    const src = audioContext.createBufferSource();
+                    src.buffer = buffer;
+                    src.loop = true;
+
+                    const gain = audioContext.createGain();
+                    gain.gain.setValueAtTime(volFraction, audioContext.currentTime);
+
+                    if (soundType === 'white') {
+                        const lpf = audioContext.createBiquadFilter();
+                        lpf.type = 'lowpass';
+                        lpf.frequency.value = 3500;
+                        src.connect(lpf);
+                        lpf.connect(gain);
+                    } else if (soundType === 'brown') {
+                        const shelf = audioContext.createBiquadFilter();
+                        shelf.type = 'lowshelf';
+                        shelf.frequency.value = 200;
+                        shelf.gain.value = 4;
+                        src.connect(shelf);
+                        shelf.connect(gain);
+                    } else {
+                        src.connect(gain);
+                    }
+
+                    gain.connect(audioContext.destination);
+                    src.start();
+                    _modeEditorTestSource = src;
+                    _modeEditorTestGain = gain;
+                } catch (err) {
+                    console.warn('Mode editor noise test error:', err);
+                    return;
+                }
+            }
+
+            if (btn) {
+                btn.classList.add('playing');
+                btn.innerHTML = '<img src="../assets/icons/stop.svg" class="btn-icon" alt="" style="width:14px; height:14px;" /> <span data-i18n="mode_stop_sound">Stop Sound</span>';
+            }
+        }
+
+        function onModeEditorVolumeInput(val) {
+            const numVal = Math.max(0, Math.min(100, Number(val) || 0));
+            const lbl = document.getElementById('mode-edit-sound-vol-val');
+            if (lbl) lbl.textContent = numVal + '%';
+
+            const volFraction = numVal / 100;
+            if (_modeEditorTestAudio) {
+                _modeEditorTestAudio.volume = volFraction;
+            }
+            if (_modeEditorTestGain && audioContext) {
+                try { _modeEditorTestGain.gain.setTargetAtTime(volFraction, audioContext.currentTime, 0.05); } catch (_) { }
+            }
+
+            // If the mode being edited is currently active, update live
+            if (activeWorkingModeId && activeWorkingModeId === activeEditingModeId) {
+                overlayNoiseVolume(numVal);
+            }
+        }
+
         function toggleSoundTypeFields() {
             const type = document.getElementById('mode-edit-sound-type').value;
             const fileWrap = document.getElementById('mode-edit-sound-file-wrap');
             if (fileWrap) fileWrap.style.display = (type === 'file') ? 'block' : 'none';
+            stopModeEditorTestSound();
         }
 
         function populateModeAudioFileDropdown(selectedPath = '') {
@@ -17221,6 +17422,8 @@ syncState();
             const mode = classModes.find(m => m.id === activeEditingModeId);
             if (!mode) return;
 
+            stopModeEditorTestSound();
+
             const name = document.getElementById('mode-edit-name').value.trim() || 'Mode';
             const icon = document.getElementById('mode-edit-icon').value.trim() || '🎭';
             const shortcutKey = document.getElementById('mode-edit-shortcut').value.trim();
@@ -17257,9 +17460,42 @@ syncState();
             renderModeManagerList();
             renderTimerModeShortcuts();
             persistSettingsToUserFile().catch(err => console.warn('saveModeFromEditor config save error:', err));
+
+            // CRITICAL FIX: If the edited mode is currently active, apply changes immediately!
+            if (activeWorkingModeId === mode.id || (activeWorkingModeId && mode.name.toLowerCase() === activeWorkingModeId.toLowerCase())) {
+                playModeSound(mode).catch(e => console.warn('Mode sound update error on save:', e));
+
+                const overlay = document.getElementById('mode-animation-overlay');
+                if (overlay && overlay.classList.contains('active') && !isModeMinimised) {
+                    const content = document.getElementById('mode-animation-content');
+                    if (content) {
+                        clearModeAnimationTimers();
+                        if (mode.id === 'quiet' && mode.picture?.type === 'emoji' && mode.picture?.animation === 'shush') {
+                            content.innerHTML = buildQuietMode(mode);
+                            spawnShushParticles();
+                        } else if (mode.id === 'conversation' && mode.picture?.type === 'speech_bubbles') {
+                            content.innerHTML = buildConversationMode(mode);
+                            animateSpeechBubbles();
+                        } else if (mode.id === 'group' && mode.picture?.type === 'group_icons') {
+                            content.innerHTML = buildGroupMode(mode);
+                        } else {
+                            content.innerHTML = buildCustomModeHTML(mode);
+                            if (mode.picture?.animation === 'shush') spawnShushParticles();
+                            if (mode.picture?.animation === 'bubbles') animateSpeechBubbles();
+                        }
+                    }
+                } else if (isModeMinimised) {
+                    updateModeMinimisedPill();
+                }
+
+                if (!PRESENTATION_MODE && presSettings.modes) {
+                    _broadcastAnimation('mode-activate', { mode: mode.id });
+                }
+            }
         }
 
         async function playModeSound(mode) {
+            if (PRESENTATION_MODE) return;
             if (!mode || !mode.sound || !mode.sound.type || mode.sound.type === 'none') {
                 stopWhiteNoise();
                 return;
@@ -17270,14 +17506,13 @@ syncState();
             }
 
             const soundVol = typeof mode.sound.volume === 'number' ? mode.sound.volume : 20;
-            overlayNoiseVolume(soundVol);
-
             const soundType = mode.sound.type;
+
             if (soundType === 'file') {
-                if (mode.sound.file) {
-                    soundSettings = soundSettings || {};
-                    soundSettings.timerBackground = soundSettings.timerBackground || {};
-                    soundSettings.timerBackground.file = mode.sound.file;
+                const targetFile = mode.sound.file ? normalizeSoundFilePath(mode.sound.file) : '';
+                if (!targetFile) {
+                    stopWhiteNoise();
+                    return;
                 }
                 ['white', 'pink', 'brown'].forEach(t => {
                     if (_noiseGains[t] && audioContext) {
@@ -17285,10 +17520,11 @@ syncState();
                     }
                 });
                 _noiseType = 'file';
-                _resetNoiseFilePlayers(true);
+                whiteNoiseVolume = Math.max(0, Math.min(1, soundVol / 100));
                 whiteNoisePlaying = true;
                 whiteNoiseMuted = false;
-                const ok = await _playNoiseFileAudio();
+                _resetNoiseFilePlayers(true);
+                const ok = await _playNoiseFileAudio(targetFile);
                 if (!ok) {
                     whiteNoisePlaying = false;
                 }
@@ -17301,12 +17537,18 @@ syncState();
                 });
                 _noiseType = soundType;
                 _ensureNoiseNodes(soundType);
+                whiteNoiseVolume = Math.max(0, Math.min(1, soundVol / 100));
                 whiteNoisePlaying = true;
                 whiteNoiseMuted = false;
                 if (_noiseGains[soundType] && audioContext) {
                     _noiseGains[soundType].gain.setTargetAtTime(whiteNoiseVolume, audioContext.currentTime, 0.15);
                 }
+            } else {
+                stopWhiteNoise();
+                return;
             }
+
+            overlayNoiseVolume(soundVol);
             _syncWhiteNoiseUI();
         }
 
@@ -17328,6 +17570,22 @@ syncState();
             return id;
         }
 
+        function playModeChime() {
+            if (PRESENTATION_MODE) return;
+            if (audioContext && audioContext.state === 'suspended') {
+                try { audioContext.resume(); } catch (_) { }
+            }
+            const prevScale = _soundVolumeScale;
+            _soundVolumeScale = 1.0;
+            try {
+                playChimeBuiltin();
+            } catch (err) {
+                console.warn('Mode chime play error:', err);
+            } finally {
+                _soundVolumeScale = prevScale;
+            }
+        }
+
         function activateMode(modeId) {
             closeModePicker();
             clearModeAnimationTimers();
@@ -17346,13 +17604,13 @@ syncState();
             if (mode) {
                 // Built-in presets custom handlers vs generic builder
                 if (mode.id === 'quiet' && mode.picture?.type === 'emoji' && mode.picture?.animation === 'shush') {
-                    content.innerHTML = buildQuietMode();
+                    content.innerHTML = buildQuietMode(mode);
                     spawnShushParticles();
                 } else if (mode.id === 'conversation' && mode.picture?.type === 'speech_bubbles') {
-                    content.innerHTML = buildConversationMode();
+                    content.innerHTML = buildConversationMode(mode);
                     animateSpeechBubbles();
                 } else if (mode.id === 'group' && mode.picture?.type === 'group_icons') {
-                    content.innerHTML = buildGroupMode();
+                    content.innerHTML = buildGroupMode(mode);
                 } else {
                     // Custom Mode Renderer
                     content.innerHTML = buildCustomModeHTML(mode);
@@ -17360,14 +17618,16 @@ syncState();
                     if (mode.picture?.animation === 'bubbles') animateSpeechBubbles();
                 }
 
-                // Handle sound options
-                playModeSound(mode).catch(e => console.warn('Mode sound play error:', e));
-                if (mode.sound && mode.sound.chime) {
-                    playTimerBeep(2, 600);
+                // Handle sound options (only on primary display, never in presentation mode)
+                if (!PRESENTATION_MODE) {
+                    playModeSound(mode).catch(e => console.warn('Mode sound play error:', e));
+                    if (mode.sound && mode.sound.chime) {
+                        playModeChime();
+                    }
                 }
             } else {
                 content.innerHTML = buildQuietMode();
-                stopWhiteNoise();
+                if (!PRESENTATION_MODE) stopWhiteNoise();
             }
 
             overlay.classList.add('active');
@@ -17557,12 +17817,17 @@ syncState();
             return `<div class="mode-overlay-timer${isWarning ? ' warning' : ''}" id="mode-overlay-timer"${bgStyle} onclick="openTimerFullscreen()" title="Click to open fullscreen timer">${timeStr}</div>`;
         }
 
-        function buildQuietMode() {
+        function buildQuietMode(mode) {
+            const title = mode?.text?.title || mode?.name || 'Quiet Work';
+            const subtitle = mode?.text?.subtitle || '';
+            const color = mode?.text?.color || '#ffffff';
+            const sizeClass = mode?.text?.size === 'xlarge' ? 'size-xl' : (mode?.text?.size === 'medium' ? 'size-m' : 'size-l');
             return `
         <div class="shush-particles" id="shush-particles"></div>
-        <div class="quiet-mode-anim">
+        <div class="quiet-mode-anim ${sizeClass}" style="color:${color}; text-align:center;">
             <div class="quiet-icon">🤫</div>
-            <div class="quiet-label">Quiet Work</div>
+            <div class="quiet-label" style="font-size:3rem; font-weight:800; text-transform:uppercase; letter-spacing:2px; margin-bottom:6px;">${title}</div>
+            ${subtitle ? `<div class="quiet-subtitle" style="font-size:1.3rem; opacity:0.9; margin-bottom:16px;">${subtitle}</div>` : ''}
             ${getModeTimerHTML()}
         </div>
     `;
@@ -17609,15 +17874,20 @@ syncState();
             }
         }
 
-        function buildConversationMode() {
+        function buildConversationMode(mode) {
+            const title = mode?.text?.title || mode?.name || 'Conversation';
+            const subtitle = mode?.text?.subtitle || '';
+            const color = mode?.text?.color || '#ffffff';
+            const sizeClass = mode?.text?.size === 'xlarge' ? 'size-xl' : (mode?.text?.size === 'medium' ? 'size-m' : 'size-l');
             return `
-        <div class="conversation-mode-anim">
+        <div class="conversation-mode-anim ${sizeClass}" style="color:${color}; text-align:center;">
             <div class="speech-bubbles-container">
                 <div class="speech-bubble left" style="animation-delay:0s;">Great idea!</div>
                 <div class="speech-bubble right" style="animation-delay:0.5s;">I agree, because…</div>
                 <div class="speech-bubble center" style="animation-delay:1s;">What do you think?</div>
             </div>
-            <div class="conversation-label">Conversation</div>
+            <div class="conversation-label" style="font-size:3rem; font-weight:800; text-transform:uppercase; letter-spacing:2px; margin-bottom:6px;">${title}</div>
+            ${subtitle ? `<div class="conversation-subtitle" style="font-size:1.3rem; opacity:0.9; margin-bottom:16px;">${subtitle}</div>` : ''}
             ${getModeTimerHTML()}
         </div>
     `;
@@ -17652,9 +17922,13 @@ syncState();
             queueModeTimer(cycle, 5000);
         }
 
-        function buildGroupMode() {
+        function buildGroupMode(mode) {
+            const title = mode?.text?.title || mode?.name || 'Group Work';
+            const subtitle = mode?.text?.subtitle !== undefined ? mode.text.subtitle : 'Work together with your team';
+            const color = mode?.text?.color || '#ffffff';
+            const sizeClass = mode?.text?.size === 'xlarge' ? 'size-xl' : (mode?.text?.size === 'medium' ? 'size-m' : 'size-l');
             return `
-        <div class="group-mode-anim">
+        <div class="group-mode-anim ${sizeClass}" style="color:${color}; text-align:center;">
             <div class="group-icons-row">
                 <div class="group-person"><div class="group-person-icon">🧑🏿</div></div>
                 <div class="group-person"><div class="group-person-icon">👩🏼</div></div>
@@ -17666,8 +17940,8 @@ syncState();
                 <div class="group-person"><div class="group-person-icon">👩🏾</div></div>
                 <div class="group-person"><div class="group-person-icon">🧑🏼</div></div>
             </div>
-            <div class="group-mode-label">Group Work</div>
-            <div class="group-subtext">Work together with your team</div>
+            <div class="group-mode-label" style="font-size:3rem; font-weight:800; text-transform:uppercase; letter-spacing:2px; margin-bottom:6px;">${title}</div>
+            ${subtitle ? `<div class="group-subtext" style="font-size:1.3rem; opacity:0.9; margin-bottom:16px;">${subtitle}</div>` : ''}
             ${getModeTimerHTML()}
         </div>
     `;
