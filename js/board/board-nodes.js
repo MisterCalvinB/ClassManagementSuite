@@ -2816,6 +2816,12 @@
     window.conMediaClearSelection = function () {
       if (typeof conMediaSelected !== 'undefined') conMediaSelected.clear();
       window._conActiveMediaItem = null;
+      const isImgActive = !!(document.getElementById('con-img-style-overlay') && document.getElementById('con-img-style-overlay').classList.contains('active'));
+      const isPdfActive = !!(document.getElementById('con-pdf-style-overlay') && document.getElementById('con-pdf-style-overlay').classList.contains('active'));
+      const isSndActive = !!(document.getElementById('con-sound-style-overlay') && document.getElementById('con-sound-style-overlay').classList.contains('active'));
+      if (!isImgActive && !isPdfActive && !isSndActive) {
+        window._conCtxItem = null;
+      }
       document.querySelectorAll('.con-media-item.con-media-selected').forEach(el => el.classList.remove('con-media-selected'));
     };
     window.conGetMediaSelected = function () {
@@ -6044,6 +6050,9 @@
           if (typeof window.conTableClearSelection === 'function') {
             window.conTableClearSelection();
           }
+          if (typeof window.conMediaClearSelection === 'function') {
+            window.conMediaClearSelection();
+          }
           const node = conNodes.find(n => n.id === id);
           if (node) node.el.classList.add('con-selected');
           // Sync active palette to match the node's current colour
@@ -6088,6 +6097,9 @@
           }
           if (typeof window.conTableClearSelection === 'function') {
             window.conTableClearSelection();
+          }
+          if (typeof window.conMediaClearSelection === 'function') {
+            window.conMediaClearSelection();
           }
         }
         if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();

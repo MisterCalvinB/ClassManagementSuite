@@ -179,6 +179,13 @@
       conNoteSelected.clear();
       document.querySelectorAll('#constellation-board .con-word-note.wn-selected')
         .forEach(n => n.classList.remove('wn-selected'));
+      const isNoteActive = !!(document.getElementById('wn-style-overlay') && document.getElementById('wn-style-overlay').classList.contains('active'));
+      const isNoteFocused = !!(document.activeElement && document.activeElement.closest && document.activeElement.closest('.con-word-note'));
+      if (!isNoteActive && !isNoteFocused) {
+        _wnActiveNote = null;
+        window._wnActiveNote = null;
+        if (typeof _conNoteCtxData !== 'undefined') _conNoteCtxData = null;
+      }
       if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
     };
 
@@ -3879,6 +3886,8 @@
         if (window.conNodeClearSelection) window.conNodeClearSelection();
         if (window.conDrawingClearSelection) window.conDrawingClearSelection();
         if (window.conShapeClearSelection) window.conShapeClearSelection();
+        if (typeof window.conTableClearSelection === 'function') window.conTableClearSelection();
+        if (window.conMediaClearSelection) window.conMediaClearSelection();
       });
       ta.addEventListener('keydown', e => {
         if (!e || typeof e.key !== 'string') return;
@@ -4348,6 +4357,7 @@
             if (window.conShapeClearSelection) window.conShapeClearSelection();
             if (typeof window.conTableClearSelection === 'function') window.conTableClearSelection();
             if (window.conMediaClearSelection) window.conMediaClearSelection();
+            if (window.conMediaClearSelection) window.conMediaClearSelection();
           }
         }
         if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
@@ -4723,6 +4733,7 @@
             if (window.conDrawingClearSelection) window.conDrawingClearSelection();
             if (window.conShapeClearSelection) window.conShapeClearSelection();
             if (typeof window.conTableClearSelection === 'function') window.conTableClearSelection();
+            if (window.conMediaClearSelection) window.conMediaClearSelection();
             if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
           }
         }
@@ -4820,6 +4831,11 @@
         document.querySelectorAll('#constellation-board .con-word-note.wn-selected')
           .forEach(n => n.classList.remove('wn-selected'));
         conNoteSelected.clear();
+        if (window.conNodeClearSelection) window.conNodeClearSelection();
+        if (window.conDrawingClearSelection) window.conDrawingClearSelection();
+        if (window.conShapeClearSelection) window.conShapeClearSelection();
+        if (typeof window.conTableClearSelection === 'function') window.conTableClearSelection();
+        if (window.conMediaClearSelection) window.conMediaClearSelection();
       }
       conNoteSelected.add(noteId);
       const el = document.querySelector(`.con-word-note[data-id="${noteId}"]`);

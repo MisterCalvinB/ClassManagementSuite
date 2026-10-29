@@ -2783,6 +2783,11 @@ async function runAutoSync() {
         await fs.utimes(destPath, stat.atime, stat.mtime).catch(() => {});
       } catch {}
     }
+    _broadcastDataChanged(null, 'general-config.html', {
+      action: 'sync-complete',
+      target: 'user',
+      auto: true
+    });
   } catch (err) {
     console.error('Auto-sync error:', err);
   } finally {
@@ -3045,6 +3050,13 @@ async function runFtpTransfer(direction) {
       }
       await saveFtpManifest(remoteManifest);
     }
+    if (direction === 'download') {
+      _broadcastDataChanged(null, 'general-config.html', {
+        action: 'sync-complete',
+        target: 'user',
+        remote: 'ftp'
+      });
+    }
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err.message };
@@ -3257,6 +3269,13 @@ async function runDriveTransfer(direction) {
       }
     }
     await saveDriveConfig({ ...cfg, driveFolderId: rootId });
+    if (direction === 'download') {
+      _broadcastDataChanged(null, 'general-config.html', {
+        action: 'sync-complete',
+        target: 'user',
+        remote: 'drive'
+      });
+    }
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err.message };
@@ -3380,6 +3399,13 @@ async function runWebdavTransfer(direction) {
           }
         }
       }
+    }
+    if (direction === 'download') {
+      _broadcastDataChanged(null, 'general-config.html', {
+        action: 'sync-complete',
+        target: 'user',
+        remote: 'webdav'
+      });
     }
     return { ok: true };
   } catch (err) {
@@ -5376,6 +5402,7 @@ function _normalizeDataChangedPath(value) {
 }
 
 function _isCrossAppDataChange(payload = {}) {
+  if (payload.action === 'sync' || payload.action === 'sync-complete') return true;
   const target = payload.target;
   const filename = payload.filename;
   const subdir = _normalizeDataChangedPath(payload.subdir);
@@ -5405,7 +5432,9 @@ function _broadcastDataChanged(event, pageFile, payload = {}) {
   const sourceTitle = PAGE_LABELS[pageFile] || pageFile;
   const mergedPayload = Object.assign({}, payload, { sourceTitle });
   for (const win of BrowserWindow.getAllWindows()) {
-    if (!win.isDestroyed() && win.webContents !== event.sender) {
+    const isSync = payload.action === 'sync' || payload.action === 'sync-complete';
+    const senderWebContents = event && event.sender ? event.sender : null;
+    if (!win.isDestroyed() && (isSync || !senderWebContents || win.webContents !== senderWebContents)) {
       win.webContents.send('app:data-changed', mergedPayload);
     }
   }
@@ -7703,13 +7732,15 @@ ipcMain.handle('app:run-sync', async (_event, { mode, mtimeTolMs = 0 } = {}) => 
     await saveSyncBaseline(baselineMap);
     _pendingBaselineEntries = [];
 
-    if (syncMode === 'mirror-to-source') {
+
       _broadcastDataChanged(_event, 'general-config.html', {
-        action: 'sync',
+        action: 'sync-complete',
+        mode: syncMode,
+        copied: result.copied,
+        deleted: allDeleted.length,
         target: 'user',
-        filename: 'config.js'
+        deletedFiles: allDeleted
       });
-    }
 
     return {
       ok: true,
@@ -7729,6 +7760,13 @@ ipcMain.handle('app:run-sync', async (_event, { mode, mtimeTolMs = 0 } = {}) => 
   _pendingBaselineEntries = result.synced.map(s => ({ relativePath: s.relativePath, mtimeMs: s.mtimeMs, size: s.size }));
 
   if (allConflicts.length === 0 && allNewFiles.length === 0) {
+    _broadcastDataChanged(_event, 'general-config.html', {
+      action: 'sync-complete',
+      target: 'user',
+      mode: syncMode,
+      copied: result.copied,
+      added: allAdded
+    });
     // All done — commit baseline now
     for (const e of _pendingBaselineEntries) {
       baselineMap.set(e.relativePath, { mtimeMs: e.mtimeMs, size: e.size });
@@ -7927,7 +7965,8 @@ ipcMain.handle('app:apply-sync-choices', async (_event, { decisions = [] } = {})
   }
 
   _broadcastDataChanged(_event, 'general-config.html', {
-    action: 'sync',
+    action: 'sync-complete',
+    applied,
     target: 'user'
   });
 

@@ -1441,9 +1441,13 @@
     var overlay = document.getElementById('launcherModal');
     var frame   = document.getElementById('launcherModalFrame');
     if (!overlay.classList.contains('open')) return;
+    var hadConfig = frame.src && frame.src.indexOf('general-config.html') !== -1;
     overlay.classList.remove('open');
     frame.src = '';
     document.body.style.overflow = '';
+    if (hadConfig && typeof refreshLauncherAfterSync === 'function') {
+      refreshLauncherAfterSync({ showToast: false });
+    }
   }
 
   document.getElementById('launcherModalClose').addEventListener('click', closeModal);
@@ -1466,6 +1470,11 @@
       if (typeof sbRender === 'function') sbRender();
       if (typeof rfRender === 'function') rfRender();
       if (typeof sbUpdateHeaderDate === 'function') sbUpdateHeaderDate();
+    }
+    if (e.data && e.data.type === 'cmt-sync-complete') {
+      if (typeof refreshLauncherAfterSync === 'function') {
+        refreshLauncherAfterSync({ showToast: true });
+      }
     }
   });
 
@@ -2537,6 +2546,101 @@
     }
   }
 
+  var _refreshSyncTimer = null;
+  async function refreshLauncherAfterSync(options) {
+    options = options || {};
+    if (_refreshSyncTimer) clearTimeout(_refreshSyncTimer);
+    _refreshSyncTimer = setTimeout(async function () {
+      _refreshSyncTimer = null;
+      try {
+        // 1. Reload General Config from disk (config.js)
+        if (window.Desktop && Desktop.isElectron && Desktop.isElectron() && typeof Desktop.readJson === 'function') {
+          try {
+            var cfgResult = await Desktop.readJson('user', 'config.js');
+            if (cfgResult && cfgResult.ok && cfgResult.data) {
+              var cfgData = cfgResult.data;
+              if (cfgData.launcherSettings) {
+                var baseConfig = getGeneralConfig() || {};
+                var settings = (typeof cfgData.launcherSettings === 'object' && cfgData.launcherSettings) ? cfgData.launcherSettings : {};
+                var merged = Object.assign({}, baseConfig, settings);
+                localStorage.setItem('cmt-general-config', JSON.stringify(merged));
+                applyTitle();
+                var curLang = typeof getLang === 'function' ? getLang() : null;
+                if (settings.language && curLang && settings.language !== curLang) {
+                  if (typeof setLang === 'function') setLang(settings.language);
+                  localStorage.setItem('cmt-lang-launcher', settings.language);
+                  if (typeof applyTranslations === 'function') applyTranslations();
+                  if (typeof applyTitle === 'function') applyTitle();
+                  if (typeof sbRender === 'function') sbRender();
+                  if (typeof rfRender === 'function') rfRender();
+                  if (typeof sbUpdateHeaderDate === 'function') sbUpdateHeaderDate();
+                }
+              }
+            }
+          } catch (e) {
+            console.warn('launcher: could not refresh config.js:', e);
+          }
+        }
+
+        // 2. Reload user/launcher-config.js (sections, cards, custom labels, notes, sizes, positions)
+        if (typeof loadLauncherConfigFile === 'function') {
+          await loadLauncherConfigFile();
+        }
+        if (typeof renderSections === 'function') {
+          renderSections();
+        }
+
+        // 3. Reload class-groups.js metadata (so recent docs display new/renamed class titles)
+        if (window.Desktop && Desktop.isElectron && typeof Desktop.readByPath === 'function') {
+          try {
+            var cgr = await Desktop.readByPath('user', 'class-groups.js');
+            if (cgr && cgr.content) {
+              rfGroupMeta = rfParseClassGroups(cgr.content);
+            }
+          } catch (e) {}
+        }
+
+        // 4. Update setup wizard badge if progress changed
+        if (typeof updateLauncherWizardBadge === 'function') {
+          updateLauncherWizardBadge();
+        }
+
+        // 5. Reload sidebar data: pinned, events/deadlines, to-dos, docs, tags
+        await Promise.all([
+          typeof sbLoadPinned === 'function' ? sbLoadPinned(true).catch(function(){}) : Promise.resolve(),
+          typeof sbLoadEvents === 'function' ? sbLoadEvents(true).catch(function(){}) : Promise.resolve(),
+          typeof sbLoadTodos === 'function'  ? sbLoadTodos(true).catch(function(){})  : Promise.resolve(),
+          typeof sbLoadDocs === 'function'   ? sbLoadDocs(true).catch(function(){})   : Promise.resolve(),
+          typeof sbLoadTags === 'function'   ? sbLoadTags(true).catch(function(){})   : Promise.resolve()
+        ]);
+
+        // 6. Reload Recent Files Modal if open
+        var rfModal = document.getElementById('rfModal');
+        if (rfModal && rfModal.classList.contains('open') && window.Desktop && Desktop.isElectron()) {
+          if (typeof rfLoadRecentSources === 'function') {
+            await rfLoadRecentSources();
+            if (typeof rfApplyFilters === 'function') rfApplyFilters();
+          }
+        }
+
+        // 7. Reload Unit / Tag Explorer Modal if open
+        var ueModal = document.getElementById('unitExplorerModal');
+        if (ueModal && ueModal.classList.contains('open')) {
+          if (typeof ueLoadTagsList === 'function') await ueLoadTagsList(typeof _ueActiveTag !== 'undefined' ? _ueActiveTag : undefined);
+          if (typeof ueRenderResources === 'function') ueRenderResources();
+          if (typeof ueLoadDossiers === 'function') await ueLoadDossiers();
+        }
+
+        if (options.showToast !== false && typeof showToast === 'function') {
+          showToast(typeof t === 'function' ? t('launcherSyncUpdated') : 'Launcher updated with latest synced data.');
+        }
+      } catch (err) {
+        console.warn('[Launcher] Error refreshing after sync:', err);
+      }
+    }, 150);
+  }
+  window.refreshLauncherAfterSync = refreshLauncherAfterSync;
+
   function init() {
     const popup = document.getElementById('cfgPopup');
     if (popup) {
@@ -3479,7 +3583,7 @@
 
   async function sbLoadAll(silent) {
     // Pre-load group meta so rfPrettyName works in sidebar context menus
-    if (window.Desktop && Desktop.isElectron() && Object.keys(rfGroupMeta).length === 0) {
+    if (window.Desktop && Desktop.isElectron()) {
       try {
         var cgr = await Desktop.readByPath('user', 'class-groups.js');
         if (cgr && cgr.content) {
@@ -3730,6 +3834,13 @@
         dataNewRel.indexOf('custom-data/') === 0
       ))
     );
+    if (data.action === 'sync' || data.action === 'sync-complete') {
+      var isAuto = !!data.auto;
+      if (typeof refreshLauncherAfterSync === 'function') {
+        refreshLauncherAfterSync({ showToast: !isAuto });
+      }
+      return;
+    }
     if (data.filename === 'config.js') {
       showDataChangedBanner(data);
       return;
@@ -3778,6 +3889,15 @@
         sbScheduleSync({ deadlines: true }, true, 100);
       } else if (typeof sbLoadEvents === 'function' && sbIsOpen()) {
         sbLoadEvents(true).catch(function () {});
+      }
+    };
+    var _syncBc = new BroadcastChannel('cmt-sync');
+    _syncBc.onmessage = function (e) {
+      if (e && e.data && e.data.type === 'sync-complete') {
+        var isAuto = !!(e.data.info && e.data.info.auto);
+        if (typeof refreshLauncherAfterSync === 'function') {
+          refreshLauncherAfterSync({ showToast: !isAuto });
+        }
       }
     };
   }

@@ -691,6 +691,8 @@
     window.conImgStyleDismiss = function () {
       var overlay = document.getElementById('con-img-style-overlay');
       if (overlay) overlay.classList.remove('active');
+      _conCtxItem = null;
+      window._conCtxItem = null;
     };
     window.conImgSpSetBorderWidth = function (v) {
       if (!_conCtxItem) return;
@@ -931,6 +933,8 @@
     window.conPdfStyleDismiss = function () {
       var overlay = document.getElementById('con-pdf-style-overlay');
       if (overlay) overlay.classList.remove('active');
+      _conCtxItem = null;
+      window._conCtxItem = null;
     };
     window.conPdfSpSetBorderWidth = function (v) {
       if (!_conCtxItem) return;
@@ -1185,6 +1189,8 @@
     window.conSoundStyleDismiss = function () {
       var overlay = document.getElementById('con-sound-style-overlay');
       if (overlay) overlay.classList.remove('active');
+      _conCtxItem = null;
+      window._conCtxItem = null;
     };
     window.conSoundSpTrim = function () {
       var item = _conCtxItem;

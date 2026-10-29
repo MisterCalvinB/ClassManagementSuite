@@ -527,6 +527,7 @@
             if (window.conDrawingClearSelection) window.conDrawingClearSelection();
             if (window.conNoteClearSelection) window.conNoteClearSelection();
             if (typeof conTableClearSelection === 'function') conTableClearSelection();
+            if (window.conMediaClearSelection) window.conMediaClearSelection();
             window.conShapeClearSelection();
             _conShapeSelected.add(s.id); s.el.classList.add('con-shape-selected');
             _conShapeShowHandles(s);

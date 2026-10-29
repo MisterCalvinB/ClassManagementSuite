@@ -355,6 +355,7 @@
                 if (window.conNoteClearSelection) window.conNoteClearSelection();
                 if (window.conDrawingClearSelection) window.conDrawingClearSelection();
                 if (window.conShapeClearSelection) window.conShapeClearSelection();
+                if (window.conMediaClearSelection) window.conMediaClearSelection();
               }
             }
             if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
@@ -535,6 +536,7 @@
                 if (window.conNoteClearSelection) window.conNoteClearSelection();
                 if (window.conDrawingClearSelection) window.conDrawingClearSelection();
                 if (window.conShapeClearSelection) window.conShapeClearSelection();
+                if (window.conMediaClearSelection) window.conMediaClearSelection();
                 if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
               }
             }

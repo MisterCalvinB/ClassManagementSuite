@@ -215,6 +215,7 @@
             if (window.conNoteClearSelection) window.conNoteClearSelection();
             if (window.conShapeClearSelection) window.conShapeClearSelection();
             if (typeof conTableClearSelection === 'function') conTableClearSelection();
+            if (window.conMediaClearSelection) window.conMediaClearSelection();
             // Now select only this drawing
             conDrawingSelected.add(d.id);
             el.classList.add('con-drawing-selected');

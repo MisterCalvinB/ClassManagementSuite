@@ -2512,6 +2512,19 @@
       }
     });
 
+    function notifySyncCompleted(syncInfo) {
+      if (typeof BroadcastChannel !== 'undefined') {
+        try {
+          var bc = new BroadcastChannel('cmt-sync');
+          bc.postMessage({ type: 'sync-complete', info: syncInfo, timestamp: Date.now() });
+          bc.close();
+        } catch (_) {}
+      }
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'cmt-sync-complete', info: syncInfo }, '*');
+      }
+    }
+
     syncConflictApply.addEventListener('click', async function () {
       var decisions = collectSyncDecisions();
       syncConflictApply.disabled = true;
@@ -2526,6 +2539,7 @@
         } else {
           setSyncStatus(tFmt('gcSyncCompleteConflicts', { applied: res.applied }), 'ok');
           _saveLastSyncTime();
+          notifySyncCompleted({ mode: 'conflicts-resolved', applied: res.applied });
         }
       } catch (err) { setSyncStatus(String(err && err.message ? err.message : err), 'err'); }
       finally { syncConflictApply.disabled = false; document.getElementById('runSyncBtn').disabled = false; }
@@ -2555,6 +2569,7 @@
         } else {
           setSyncStatus(t('gcSyncComplete'), 'ok');
           _saveLastSyncTime();
+          notifySyncCompleted({ mode: 'both', copied: res.copied });
         }
       } catch (err) { setSyncStatus(String(err && err.message ? err.message : err), 'err'); }
       finally {
@@ -2590,6 +2605,7 @@
         } else {
           setSyncStatus(tFmt('gcMirrorComplete', { copied: res.copied || 0, deleted: res.deleted || 0 }), 'ok');
           _saveLastSyncTime();
+          notifySyncCompleted({ mode: 'mirror-to-target', copied: res.copied });
         }
       } catch (err) {
         setSyncStatus(String(err && err.message ? err.message : err), 'err');
@@ -2628,6 +2644,7 @@
         } else {
           setSyncStatus(tFmt('gcMirrorComplete', { copied: res.copied || 0, deleted: res.deleted || 0 }), 'ok');
           _saveLastSyncTime();
+          notifySyncCompleted({ mode: 'mirror-to-source', copied: res.copied });
         }
       } catch (err) {
         setSyncStatus(String(err && err.message ? err.message : err), 'err');
@@ -2770,6 +2787,7 @@
       try {
         var res = await window.electronApi.ftpDownload();
         setRemoteStatus('ftpStatus', res && res.ok ? t('gcFtpDownloadDone') : tFmt('gcFtpDownloadFailed', { error: (res && res.error) || '' }), res && res.ok ? 'ok' : 'err');
+        if (res && res.ok) notifySyncCompleted({ remote: 'ftp' });
       } catch (e) { setRemoteStatus('ftpStatus', String(e && e.message || e), 'err'); }
       finally { this.disabled = false; }
     });
@@ -2860,6 +2878,7 @@
       try {
         var res = await window.electronApi.driveDownload();
         setRemoteStatus('driveStatus', res && res.ok ? t('gcDriveDownloadDone') : tFmt('gcDriveDownloadFailed', { error: (res && res.error) || '' }), res && res.ok ? 'ok' : 'err');
+        if (res && res.ok) notifySyncCompleted({ remote: 'drive' });
       } catch (e) { setRemoteStatus('driveStatus', String(e && e.message || e), 'err'); }
       finally { this.disabled = false; }
     });
@@ -2940,6 +2959,7 @@
       try {
         var res = await window.electronApi.webdavDownload();
         setRemoteStatus('webdavStatus', res && res.ok ? t('gcWebdavDownloadDone') : tFmt('gcFtpDownloadFailed', { error: (res && res.error) || '' }), res && res.ok ? 'ok' : 'err');
+        if (res && res.ok) notifySyncCompleted({ remote: 'webdav' });
       } catch (e) { setRemoteStatus('webdavStatus', String(e && e.message || e), 'err'); }
       finally { this.disabled = false; }
     });

@@ -3185,30 +3185,42 @@
         if (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0) {
           conNoteSelected.forEach(id => noteIdSet.add(String(id)));
         }
-        document.querySelectorAll('#constellation-board .con-word-note.wn-selected').forEach(el => {
+        document.querySelectorAll('#constellation-board .con-word-note.wn-selected, #constellation-board .ta-word-note.wn-selected').forEach(el => {
           if (el.dataset.id) noteIdSet.add(String(el.dataset.id));
         });
-        if (typeof _wnActiveNote !== 'undefined' && _wnActiveNote && _wnActiveNote.id) {
+        const isNoteOverlayActive = !!(document.getElementById('wn-style-overlay') && document.getElementById('wn-style-overlay').classList.contains('active'));
+        const isNoteCtxActive = !!(document.getElementById('con-note-ctx-menu') && document.getElementById('con-note-ctx-menu').style.display !== 'none');
+        const isNoteFocused = !!(document.activeElement && document.activeElement.closest && document.activeElement.closest('.con-word-note'));
+        if ((isNoteOverlayActive || isNoteFocused) && typeof _wnActiveNote !== 'undefined' && _wnActiveNote && _wnActiveNote.id) {
           noteIdSet.add(String(_wnActiveNote.id));
         }
-        if (typeof _conNoteCtxData !== 'undefined' && _conNoteCtxData && _conNoteCtxData.id) {
+        if (isNoteCtxActive && typeof _conNoteCtxData !== 'undefined' && _conNoteCtxData && _conNoteCtxData.id) {
           noteIdSet.add(String(_conNoteCtxData.id));
         }
 
         const selectedNotes = allNotes.filter(n => n && noteIdSet.has(String(n.id)));
 
-        const selectedMedia = [];
-        if (typeof window._conActiveMediaItem !== 'undefined' && window._conActiveMediaItem) {
-          selectedMedia.push(window._conActiveMediaItem);
-        } else if (typeof window._conCtxItem !== 'undefined' && window._conCtxItem && (window._conCtxItem.kind === 'pics' || window._conCtxItem.kind === 'pdf')) {
-          selectedMedia.push(window._conCtxItem);
-        } else {
-          const selMediaEl = document.querySelector('.con-media-item.con-media-selected');
-          if (selMediaEl && selMediaEl.dataset.id && typeof conMediaItems !== 'undefined') {
-            const m = conMediaItems.find(it => String(it.id) === selMediaEl.dataset.id);
-            if (m) selectedMedia.push(m);
-          }
+        // Collect all selected media IDs from actual selection and active popovers (prevent stale ghosts)
+        const mediaSel = (typeof window.conGetMediaSelected === 'function')
+          ? window.conGetMediaSelected()
+          : ((typeof conMediaSelected !== 'undefined' && conMediaSelected) ? conMediaSelected : new Set());
+        const mediaIdSet = new Set(mediaSel ? [...mediaSel].map(String) : []);
+
+        document.querySelectorAll('#constellation-board .con-media-item.con-media-selected').forEach(el => {
+          if (el.dataset && el.dataset.id) mediaIdSet.add(String(el.dataset.id));
+        });
+
+        const isImgOverlayActive = !!(document.getElementById('con-img-style-overlay') && document.getElementById('con-img-style-overlay').classList.contains('active'));
+        const isPdfOverlayActive = !!(document.getElementById('con-pdf-style-overlay') && document.getElementById('con-pdf-style-overlay').classList.contains('active'));
+        const isSoundOverlayActive = !!(document.getElementById('con-sound-style-overlay') && document.getElementById('con-sound-style-overlay').classList.contains('active'));
+        if ((isImgOverlayActive || isPdfOverlayActive || isSoundOverlayActive) && typeof window._conCtxItem !== 'undefined' && window._conCtxItem && window._conCtxItem.id) {
+          mediaIdSet.add(String(window._conCtxItem.id));
         }
+
+        const allMedia = (typeof conMediaItems !== 'undefined' && Array.isArray(conMediaItems))
+          ? conMediaItems
+          : (window.conMediaItems || []);
+        const selectedMedia = allMedia.filter(m => m && mediaIdSet.has(String(m.id)));
 
         const hasNodeSelection = selectedNodes.length > 0;
         const hasNoteSelection = selectedNotes.length > 0;
@@ -3294,9 +3306,10 @@
           if (group) {
             const grpNodes = (group.nodeIds || []).map(nid => conNodes.find(n => n.id === nid)).filter(Boolean);
             const grpNotes = (group.noteIds || []).map(nid => allNotes.find(n => String(n.id) === String(nid))).filter(Boolean);
-            if (grpNodes.length || grpNotes.length) {
+            const grpMedia = (group.mediaIds || []).map(mid => allMedia.find(m => String(m.id) === String(mid))).filter(Boolean);
+            if (grpNodes.length || grpNotes.length || grpMedia.length) {
               conPushUndo();
-              const anyVisible = grpNodes.some(n => !n.masked) || grpNotes.some(n => !n.hidden);
+              const anyVisible = grpNodes.some(n => !n.masked) || grpNotes.some(n => !n.hidden) || grpMedia.some(m => !m.hidden);
               grpNodes.forEach(node => {
                 if (!node || !node.el) return;
                 node.masked = anyVisible;
@@ -3328,6 +3341,16 @@
                 grpNotes.forEach(note => {
                   window._conMirrorSend({ type: 'note-hide', id: String(note.id), hidden: anyVisible });
                   window._conMirrorSend({ type: 'note-style', id: String(note.id), hidden: anyVisible });
+                });
+              }
+              grpMedia.forEach(m => {
+                m.hidden = anyVisible;
+                const wrap = (typeof _conMediaGetWrap === 'function') ? _conMediaGetWrap(m) : document.querySelector('.con-media-item[data-id="' + m.id + '"]');
+                if (wrap && typeof _conApplyMediaStyles === 'function') _conApplyMediaStyles(m, wrap);
+              });
+              if (grpMedia.length && typeof window._conMirrorSend === 'function') {
+                grpMedia.forEach(m => {
+                  window._conMirrorSend({ type: 'media-hide', id: String(m.id), hidden: anyVisible });
                 });
               }
             }
