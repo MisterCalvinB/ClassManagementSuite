@@ -1376,6 +1376,11 @@
         langSelect.value = curLang || 'auto';
       }
 
+      var modelSelect = document.getElementById('con-transcript-model');
+      if (modelSelect && window.SpeechTranscriber) {
+        modelSelect.value = window.SpeechTranscriber.getActiveModel() || 'whisper-tiny';
+      }
+
       overlay.style.display = 'flex';
 
       if (existingTranscript && !options.force) {
@@ -1387,6 +1392,36 @@
       } else {
         if (textarea) textarea.value = '';
         window.conRunAudioTranscription(target);
+      }
+    };
+
+    window.conTranscriptChangeModel = async function (modelId) {
+      if (!window.SpeechTranscriber) return;
+      try {
+        var avail = await window.SpeechTranscriber.listAvailableModels();
+        var found = (avail && avail.models && avail.models.find(function (m) { return m.id === modelId; }));
+        if (found && !found.isInstalled) {
+          if (typeof window.openWhisperModelManager === 'function') {
+            window.openWhisperModelManager({
+              highlightModelId: modelId,
+              onModelChanged: function (newId) {
+                var sel = document.getElementById('con-transcript-model');
+                if (sel) sel.value = newId;
+              }
+            });
+          }
+          var curActive = window.SpeechTranscriber.getActiveModel();
+          var sel = document.getElementById('con-transcript-model');
+          if (sel) sel.value = curActive;
+          return;
+        }
+
+        await window.SpeechTranscriber.setActiveModel(modelId);
+        if (typeof showToast === 'function') {
+          showToast((window.i18n && typeof i18n.t === 'function') ? i18n.t('whisperModelReady') : 'Speech model ready!');
+        }
+      } catch (err) {
+        console.error('[TranscriptStudio] Change model error:', err);
       }
     };
 

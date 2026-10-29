@@ -10750,8 +10750,8 @@
         menuEl.style.overflowY = 'auto';
         menuEl.style.overflowX = 'hidden';
 
-        const mw = menuEl.offsetWidth || 320;
-        const mh = menuEl.offsetHeight || 240;
+        const mw = menuEl.offsetWidth || 480;
+        const mh = menuEl.offsetHeight || 280;
 
         let mx = anchorX + offX;
         let my = anchorY + offY;
@@ -13123,6 +13123,8 @@
         if (tblRows) tblRows.value = '2';
         const tblCols = document.getElementById('con-board-ctx-table-cols');
         if (tblCols) tblCols.value = '4';
+        const synDet = document.querySelector('#con-board-ctx-menu .con-ctx-syntax-details');
+        if (synDet) synDet.open = false;
         _pendingConnectSrcId = null;
         _pendingConnectType = 'none';
         // Reset title back to default

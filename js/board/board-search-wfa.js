@@ -371,6 +371,15 @@
       _boardSttLastTranscript = '';
       _boardSttActive = true;
 
+      var pillModelName = document.getElementById('board-stt-model-name');
+      if (pillModelName && window.SpeechTranscriber) {
+        var curM = window.SpeechTranscriber.getActiveModel();
+        var shortM = 'Tiny';
+        if (curM === 'whisper-base') shortM = 'Base';
+        if (curM === 'whisper-small') shortM = 'Small';
+        pillModelName.textContent = shortM;
+      }
+
       window.SpeechTranscriber.on('onMicLevel', function (level) {
         if (!_boardSttActive) return;
         var fill = document.getElementById('board-stt-meter-fill');

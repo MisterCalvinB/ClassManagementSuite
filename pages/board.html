@@ -38,6 +38,7 @@
   <script src="../modules/wavesurfer/wavesurfer.min.js"></script>
   <script src="../modules/wavesurfer/wavesurfer.regions.min.js"></script>
   <script src="../js/speech-transcriber.js"></script>
+  <script src="../js/whisper-model-modal.js"></script>
   <script src="../js/board/board-state.js"></script>
   <script src="../js/board/board-bootstrap.js"></script>
   <script src="../js/board/board-nodes.js"></script>
@@ -106,6 +107,11 @@
         <option value="de">DE</option>
         <option value="it">IT</option>
       </select>
+    </div>
+    <div class="board-stt-model-select-wrap">
+      <button type="button" id="board-stt-model-chip-btn" class="board-stt-model-chip" onclick="openWhisperModelManager()" title="Change Whisper Speech Model" data-i18n-title="whisperManageModels">
+        <span id="board-stt-model-name">Tiny</span> ▾
+      </button>
     </div>
     <div class="board-stt-transcript-box" id="board-stt-transcript-box" title="Live transcribed text">
       <span id="board-stt-transcript-text" class="board-stt-transcript-text" data-i18n="sttPillSpeakPrompt">Speak now...</span>
@@ -1383,123 +1389,202 @@
     </div>
   </div>
 
-  <!-- Board right-click menu (add word at position) -->
+  <!-- Board right-click menu (adaptive hybrid layout: content & canvas) -->
   <div id="con-board-ctx-menu">
-    <div class="con-ctx-title">Board</div>
-    <div style="padding:4px 10px 6px; display:flex; gap:5px; align-items:center;">
-      <input type="text" id="con-board-ctx-input" list="con-board-ctx-datalist"
-        placeholder="Word (spaces OK) · _ = phrase · // = 2 lines · ,, = several" maxlength="200"
-        oninput="if(typeof conBoardCtxSuggestDbWords==='function')conBoardCtxSuggestDbWords(this.value);"
-        onkeydown="if(event.key==='Enter'){conBoardCtxConfirm();}if(event.key==='Escape'){conBoardCtxClose();}"
-        style="flex:1; padding:5px 8px; border:1.5px solid #ccc; border-radius:3px; font-family:inherit; font-size:24px; outline:none; min-width:0;">
-      <datalist id="con-board-ctx-datalist"></datalist>
-      <button onclick="conBoardCtxConfirm()"
-        style="padding:5px 9px; background:#111; color:#fff; border:none; border-radius:3px; font-size:0.82rem; font-weight:700; cursor:pointer; font-family:inherit; flex-shrink:0;">＋</button>
+    <div class="con-board-ctx-header">
+      <div class="con-ctx-title">Board</div>
+      <button type="button" class="con-board-ctx-close-btn" onclick="conBoardCtxClose()" title="Close" aria-label="Close">✕</button>
     </div>
-    <div class="con-ctx-layout-selector" id="con-ctx-layout-selector">
-      <span class="con-ctx-layout-label" data-i18n="conLayoutMulti">Multi-layout:</span>
-      <button type="button" class="con-ctx-layout-btn" data-layout="horizontal" onclick="conSetBoardCtxLayout('horizontal')" title="Horizontal row">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="12" x2="21" y2="12"/><circle cx="5" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="19" cy="12" r="2" fill="currentColor"/></svg>
-        <span data-i18n="conLayoutRow">Row</span>
-      </button>
-      <button type="button" class="con-ctx-layout-btn" data-layout="vertical" onclick="conSetBoardCtxLayout('vertical')" title="Vertical column">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="3" x2="12" y2="21"/><circle cx="12" cy="5" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="19" r="2" fill="currentColor"/></svg>
-        <span data-i18n="conLayoutCol">Col</span>
-      </button>
-      <button type="button" class="con-ctx-layout-btn" data-layout="circle" onclick="conSetBoardCtxLayout('circle')" title="Radial circle">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="5" r="1.5" fill="currentColor"/><circle cx="18.5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="19" r="1.5" fill="currentColor"/><circle cx="5.5" cy="12" r="1.5" fill="currentColor"/></svg>
-        <span data-i18n="conLayoutCircle">Circle</span>
-      </button>
-      <button type="button" class="con-ctx-layout-btn" data-layout="cluster" onclick="conSetBoardCtxLayout('cluster')" title="Compact cluster">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="8" cy="9" r="2.8" fill="currentColor"/><circle cx="16" cy="9" r="2.8" fill="currentColor"/><circle cx="12" cy="16" r="2.8" fill="currentColor"/></svg>
-        <span data-i18n="conLayoutCluster">Cluster</span>
-      </button>
+
+    <div class="con-board-ctx-body">
+      <!-- Left Column: Content & Object Creation -->
+      <div class="con-board-ctx-col con-board-ctx-col-left">
+        <div class="con-board-ctx-section-title">
+          <span data-i18n="conCtxCreateTitle">Create Content</span>
+        </div>
+
+        <!-- Word Input Row -->
+        <div class="con-board-ctx-input-wrap">
+          <input type="text" id="con-board-ctx-input" list="con-board-ctx-datalist"
+            placeholder="Word / phrase…" maxlength="200"
+            data-i18n-placeholder="conCtxWordPlaceholder"
+            oninput="if(typeof conBoardCtxSuggestDbWords==='function')conBoardCtxSuggestDbWords(this.value);"
+            onkeydown="if(event.key==='Enter'){conBoardCtxConfirm();}if(event.key==='Escape'){conBoardCtxClose();}"
+            class="con-board-ctx-input">
+          <datalist id="con-board-ctx-datalist"></datalist>
+          <button type="button" class="con-board-ctx-btn-primary" onclick="conBoardCtxConfirm()" title="Add word">＋</button>
+        </div>
+
+        <!-- Multi-Layout Selector -->
+        <div class="con-ctx-layout-selector" id="con-ctx-layout-selector">
+          <span class="con-ctx-layout-label" data-i18n="conLayoutMulti">Multi-layout:</span>
+          <button type="button" class="con-ctx-layout-btn" data-layout="horizontal" onclick="conSetBoardCtxLayout('horizontal')" title="Horizontal row">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="12" x2="21" y2="12"/><circle cx="5" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="19" cy="12" r="2" fill="currentColor"/></svg>
+            <span data-i18n="conLayoutRow">Row</span>
+          </button>
+          <button type="button" class="con-ctx-layout-btn" data-layout="vertical" onclick="conSetBoardCtxLayout('vertical')" title="Vertical column">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="3" x2="12" y2="21"/><circle cx="12" cy="5" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="19" r="2" fill="currentColor"/></svg>
+            <span data-i18n="conLayoutCol">Col</span>
+          </button>
+          <button type="button" class="con-ctx-layout-btn" data-layout="circle" onclick="conSetBoardCtxLayout('circle')" title="Radial circle">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="5" r="1.5" fill="currentColor"/><circle cx="18.5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="19" r="1.5" fill="currentColor"/><circle cx="5.5" cy="12" r="1.5" fill="currentColor"/></svg>
+            <span data-i18n="conLayoutCircle">Circle</span>
+          </button>
+          <button type="button" class="con-ctx-layout-btn" data-layout="cluster" onclick="conSetBoardCtxLayout('cluster')" title="Compact cluster">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="8" cy="9" r="2.8" fill="currentColor"/><circle cx="16" cy="9" r="2.8" fill="currentColor"/><circle cx="12" cy="16" r="2.8" fill="currentColor"/></svg>
+            <span data-i18n="conLayoutCluster">Cluster</span>
+          </button>
+        </div>
+
+        <!-- Collapsible Syntax Shortcuts Helper -->
+        <details class="con-ctx-syntax-details">
+          <summary class="con-ctx-syntax-summary">
+            <span data-i18n="conCtxSyntaxShortcuts">Syntax shortcuts</span>
+            <span class="con-ctx-syntax-badge">?</span>
+          </summary>
+          <div class="con-ctx-syntax-content">
+            <code>_</code> phrase &nbsp;·&nbsp; <code>//</code> 2 lines &nbsp;·&nbsp; <code>,,</code> separate<br>
+            <code>--</code> chain &nbsp;·&nbsp; <code>++</code> group<br>
+            <code>&gt;</code>/<code>&gt;&gt;</code> arrow→ &nbsp;·&nbsp; <code>&lt;</code>/<code>&lt;&lt;</code> arrow← &nbsp;·&nbsp; <code>&lt;&gt;</code> both↔<br>
+            <code>((n))</code> page number &nbsp;e.g. <code>word ((128))</code><br>
+            <code>=random(a,b)</code> random number node
+          </div>
+        </details>
+
+        <div class="con-ctx-sep"></div>
+
+        <!-- Note Input Row -->
+        <div class="con-board-ctx-input-wrap">
+          <input type="text" id="con-board-ctx-note-input" placeholder="Note text…" maxlength="1200"
+            data-i18n-placeholder="conCtxNotePlaceholder"
+            onkeydown="if(event.key==='Enter'){conBoardCtxConfirmNote();}if(event.key==='Escape'){conBoardCtxClose();}"
+            class="con-board-ctx-input">
+          <button type="button" class="con-board-ctx-btn-primary" onclick="conBoardCtxConfirmNote()" title="Add note" aria-label="Add note">
+            <img src="../assets/icons/note.svg" class="btn-icon" alt="" />
+          </button>
+        </div>
+
+        <!-- Table Row -->
+        <div class="con-board-ctx-table-row">
+          <span class="con-board-ctx-sublabel" title="Table dimensions">
+            <img src="../assets/icons/table.svg" class="btn-icon" alt="" />
+          </span>
+          <input type="number" id="con-board-ctx-table-rows" min="1" max="20" value="2"
+            onkeydown="if(event.key==='Enter'){conBoardCtxAddTable();}if(event.key==='Escape'){conBoardCtxClose();}"
+            class="con-board-ctx-num-input" aria-label="Rows">
+          <span class="con-board-ctx-times">×</span>
+          <input type="number" id="con-board-ctx-table-cols" min="1" max="20" value="4"
+            onkeydown="if(event.key==='Enter'){conBoardCtxAddTable();}if(event.key==='Escape'){conBoardCtxClose();}"
+            class="con-board-ctx-num-input" aria-label="Columns">
+          <button type="button" class="con-board-ctx-pill-btn" onclick="conBoardCtxAddTable()" data-i18n="conAddTable">Add Table</button>
+        </div>
+
+        <div class="con-ctx-sep"></div>
+
+        <!-- Insert Action Grid -->
+        <div class="con-board-ctx-action-grid">
+          <button type="button" class="con-board-ctx-action-btn" onclick="conBoardCtxClose(); conOpenUniversalImportModal(null, null, { x: window._boardCtxNoteX, y: window._boardCtxNoteY });">
+            <img src="../assets/icons/import.svg" class="btn-icon" alt="" />
+            <span data-i18n="conCtxUniversalImport">Universal Import…</span>
+          </button>
+          <button type="button" class="con-board-ctx-action-btn" onclick="conBoardCtxClose(); boardOpenIpaKeyboard({ x: window._boardCtxNoteX, y: window._boardCtxNoteY });">
+            <img src="../assets/icons/ipa.svg" class="btn-icon" alt="" />
+            <span data-i18n="conCtxIpaKeyboard">IPA Keyboard…</span>
+          </button>
+          <button type="button" class="con-board-ctx-action-btn" onclick="conBoardCtxImportText()">
+            <img src="../assets/icons/import-tool.svg" class="btn-icon" alt="" />
+            <span data-i18n="conCtxImportText">Import Text</span>
+          </button>
+          <button type="button" class="con-board-ctx-action-btn" id="con-ctx-student-note-dev" onclick="conBoardCtxOpenStudentNote()" style="display:none;">
+            <img src="../assets/icons/group-editor.svg" class="btn-icon" alt="" />
+            <span>Student Note</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Right Column: Tools & Canvas Controls -->
+      <div class="con-board-ctx-col con-board-ctx-col-right">
+        <div class="con-board-ctx-section-title">
+          <span data-i18n="conCtxToolsTitle">Tools & Canvas</span>
+        </div>
+
+        <!-- Canvas Modes (Icon row: Draw, Erase, Laser, Record, Mask, Group) -->
+        <div class="con-ctx-icon-row con-board-ctx-modes-row">
+          <button type="button" class="con-ctx-icon-btn" onclick="conBoardCtxClose();conToggleDrawMode();" title="Draw" data-i18n-title="conCtxDraw">
+            <img src="../assets/icons/draw.svg" class="btn-icon" alt="" />
+          </button>
+          <button type="button" class="con-ctx-icon-btn" onclick="conBoardCtxClose();conToggleEraserMode();" title="Erase" data-i18n-title="conCtxErase">
+            <img src="../assets/icons/delete.svg" class="btn-icon" alt="" />
+          </button>
+          <button type="button" class="con-ctx-icon-btn" onclick="conBoardCtxClose();laserToggle();" title="Laser pointer" data-i18n-title="conCtxLaser">
+            <img src="../assets/icons/laser.svg" class="btn-icon" alt="" />
+          </button>
+          <button type="button" class="con-ctx-icon-btn" onclick="conBoardCtxClose();conBoardCtxOpenRecord();" title="Record Audio" data-i18n-title="recordAudio">
+            <img src="../assets/icons/mic.svg" class="btn-icon" alt="" />
+          </button>
+          <button type="button" class="con-ctx-icon-btn" onclick="conBoardCtxAddMask()" title="Add Mask" data-i18n-title="conCtxMask">
+            <img src="../assets/icons/mask.svg" class="btn-icon" alt="" />
+          </button>
+          <button type="button" class="con-ctx-icon-btn" onclick="conBoardCtxCreateGroup()" title="Add Group" data-i18n-title="conCtxGroup">
+            <img src="../assets/icons/group.svg" class="btn-icon" alt="" />
+          </button>
+        </div>
+
+        <div class="con-ctx-sep"></div>
+
+        <!-- Region Arrange: Spread & Compact side by side -->
+        <div class="con-board-ctx-duo-row">
+          <button type="button" class="con-board-ctx-duo-btn" onclick="conBoardCtxClose();conBoardCtxSpreadRegion();" title="Spread this region">
+            <img src="../assets/icons/spread.svg" class="btn-icon" alt="" />
+            <span data-i18n="conCtxSpreadRegion">Spread Region</span>
+          </button>
+          <button type="button" class="con-board-ctx-duo-btn" onclick="conBoardCtxClose();conBoardCtxCompactRegion();" title="Compact this region">
+            <img src="../assets/icons/compact.svg" class="btn-icon" alt="" />
+            <span data-i18n="conCtxCompactRegion">Compact Region</span>
+          </button>
+        </div>
+
+        <div class="con-ctx-sep"></div>
+
+        <!-- Canvas Background -->
+        <div class="con-board-ctx-setting-block">
+          <div class="con-board-ctx-setting-header">
+            <span class="con-board-ctx-setting-label">
+              <img src="../assets/icons/general-config.svg" class="btn-icon" alt="" />
+              <span data-i18n="conCtxBackground">Background</span>
+            </span>
+            <div class="con-board-ctx-setting-links">
+              <button type="button" class="con-board-ctx-sublink" onclick="conResetBoardBackgroundColor()" data-i18n="conReset">Reset</button>
+              <button type="button" class="con-board-ctx-sublink" onclick="conBoardCtxClose(); boardCustomiseOpen()" data-i18n="conPresetsEllipsis">Presets…</button>
+            </div>
+          </div>
+          <div id="con-board-bg-preset-btns" class="con-board-ctx-swatches-wrap"></div>
+        </div>
+
+        <div class="con-ctx-sep"></div>
+
+        <!-- Canvas Layout -->
+        <div class="con-board-ctx-setting-block">
+          <div class="con-board-ctx-setting-header">
+            <span class="con-board-ctx-setting-label">
+              <img src="../assets/icons/layout.svg" class="btn-icon" alt="" />
+              <span data-i18n="conCtxLayout">Layout</span>
+            </span>
+            <button type="button" class="con-board-ctx-sublink" onclick="conBoardCtxClose(); boardCustomiseOpen()" data-i18n="conEditLayoutEllipsis">Edit Layout…</button>
+          </div>
+          <div id="con-board-layout-btns" class="con-board-ctx-layout-btns-wrap"></div>
+        </div>
+
+        <!-- Save selection to library (conditional) -->
+        <div class="con-ctx-item" id="con-board-ctx-save-library" onclick="conBoardCtxClose();conSaveSelectionToLibraryPrompt();"
+          style="display:none; color:#8b5cf6; font-weight:600; margin-top:4px;">
+          <img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" />
+          <span data-i18n="conSaveSelectionToLibrary">Save Selection to Library</span>
+        </div>
+      </div>
     </div>
-    <div style="padding:0 10px 5px; font-size:0.65rem; color:#999; line-height:1.55;">
-      <code>_</code> phrase &nbsp;·&nbsp; <code>//</code> 2 lines &nbsp;·&nbsp; <code>,,</code> separate<br>
-      <code>--</code> chain &nbsp;·&nbsp; <code>++</code> group<br>
-      <code>&gt;</code>/<code>&gt;&gt;</code> arrow→ &nbsp;·&nbsp; <code>&lt;</code>/<code>&lt;&lt;</code> arrow← &nbsp;·&nbsp; <code>&lt;&gt;</code> both↔<br>
-      <code>((n))</code> page number &nbsp;e.g. <code>word ((128))</code><br>
-      <code>=random(a,b)</code> random number node
-    </div>
-    <div class="con-ctx-sep"></div>
-    <div style="padding:4px 10px 6px; display:flex; gap:5px; align-items:center;">
-      <input type="text" id="con-board-ctx-note-input" placeholder="Note text" maxlength="1200"
-        onkeydown="if(event.key==='Enter'){conBoardCtxConfirmNote();}if(event.key==='Escape'){conBoardCtxClose();}"
-        style="flex:1; padding:5px 8px; border:1.5px solid #ccc; border-radius:3px; font-family:inherit; font-size:16px; outline:none; min-width:0;">
-      <button onclick="conBoardCtxConfirmNote()" title="Add note"
-        style="padding:5px 9px; background:#111; color:#fff; border:none; border-radius:3px; font-size:0.82rem; font-weight:700; cursor:pointer; font-family:inherit; flex-shrink:0;"><img
-          src="../assets/icons/note.svg" class="btn-icon" alt="" /></button>
-    </div>
-    <div class="con-ctx-item" id="con-ctx-student-note-dev" onclick="conBoardCtxOpenStudentNote()"
-      style="display:none;"><img src="../assets/icons/group-editor.svg" class="btn-icon" alt="" /> Student Input Note
-    </div>
-    <div class="con-ctx-item" onclick="conBoardCtxImportText()"><img src="../assets/icons/import-tool.svg"
-        class="btn-icon" alt="" /> Import Text</div>
-    <div class="con-ctx-item" onclick="conBoardCtxClose(); conOpenUniversalImportModal(null, null, { x: window._boardCtxNoteX, y: window._boardCtxNoteY });"><img src="../assets/icons/import.svg"
-        class="btn-icon" alt="" /> <span data-i18n="conCtxUniversalImport">Universal Import…</span></div>
-    <div class="con-ctx-item" onclick="conBoardCtxClose(); boardOpenIpaKeyboard({ x: window._boardCtxNoteX, y: window._boardCtxNoteY });"><img src="../assets/icons/ipa.svg"
-        class="btn-icon" alt="" /> <span data-i18n="conCtxIpaKeyboard">IPA Keyboard…</span></div>
-    <div class="con-ctx-item" onclick="conBoardCtxAddMask()"><img src="../assets/icons/mask.svg" class="btn-icon"
-        alt="" /> Add Mask</div>
-    <div style="padding:4px 10px 6px; display:flex; gap:5px; align-items:center;">
-      <span style="font-size:0.82rem; flex-shrink:0; color:#222;"><img src="../assets/icons/table.svg" class="btn-icon"
-          alt="" /></span>
-      <input type="number" id="con-board-ctx-table-rows" min="1" max="20" value="2"
-        onkeydown="if(event.key==='Enter'){conBoardCtxAddTable();}if(event.key==='Escape'){conBoardCtxClose();}"
-        style="width:40px; padding:4px 5px; border:1.5px solid #ccc; border-radius:3px; font-family:inherit; font-size:14px; outline:none; text-align:center;">
-      <span style="font-size:0.82rem; color:#555;">×</span>
-      <input type="number" id="con-board-ctx-table-cols" min="1" max="20" value="4"
-        onkeydown="if(event.key==='Enter'){conBoardCtxAddTable();}if(event.key==='Escape'){conBoardCtxClose();}"
-        style="width:40px; padding:4px 5px; border:1.5px solid #ccc; border-radius:3px; font-family:inherit; font-size:14px; outline:none; text-align:center;">
-      <button onclick="conBoardCtxAddTable()"
-        style="padding:5px 9px; background:#111; color:#fff; border:none; border-radius:3px; font-size:0.82rem; font-weight:700; cursor:pointer; font-family:inherit; flex-shrink:0;">Add
-        Table</button>
-    </div>
-    <div class="con-ctx-item" onclick="conBoardCtxCreateGroup()"><img src="../assets/icons/group.svg" class="btn-icon"
-        alt="" /> Add Group</div>
-    <div class="con-ctx-item" id="con-board-ctx-save-library" onclick="conBoardCtxClose();conSaveSelectionToLibraryPrompt();"
-      style="display:none; color:#8b5cf6; font-weight:600;"><img src="../assets/icons/sparkles.svg" class="btn-icon"
-        alt="" /> <span data-i18n="conSaveSelectionToLibrary">Save Selection to Library</span></div>
-    <div class="con-ctx-sep"></div>
-    <div style="padding:4px 10px 3px; display:flex; gap:6px; align-items:flex-start;">
-      <span style="font-size:0.78rem; font-weight:700; color:#444; white-space:nowrap; margin-top:1px;"><img
-          src="../assets/icons/general-config.svg" class="btn-icon" alt="" />
-        Background</span>
-      <div id="con-board-bg-preset-btns" style="display:flex; gap:4px; flex-wrap:wrap; flex:1; min-height:20px;"></div>
-    </div>
-    <div style="padding:0 10px 6px; display:flex; gap:6px; align-items:center;">
-      <button onclick="conResetBoardBackgroundColor()"
-        style="padding:2px 7px; border:1.5px solid #ccc; border-radius:3px; font-size:0.72rem; cursor:pointer; font-family:inherit; background:#f5f5f5; flex-shrink:0;">Reset</button>
-      <button onclick="conBoardCtxClose(); boardCustomiseOpen()"
-        style="padding:2px 7px; border:1.5px solid #ccc; border-radius:3px; font-size:0.72rem; cursor:pointer; font-family:inherit; background:#f5f5f5; flex-shrink:0; margin-left:auto;">Presets…</button>
-    </div>
-    <div style="padding:2px 10px 3px; display:flex; gap:6px; align-items:flex-start;">
-      <span style="font-size:0.78rem; font-weight:700; color:#444; white-space:nowrap; margin-top:1px;"><img
-          src="../assets/icons/layout.svg" class="btn-icon" alt="" /> Layout</span>
-      <div id="con-board-layout-btns" style="display:flex; gap:4px; flex-wrap:wrap; flex:1; min-height:20px;"></div>
-    </div>
-    <div style="padding:0 10px 6px; display:flex; gap:6px; align-items:center;">
-      <button onclick="conBoardCtxClose(); boardCustomiseOpen()"
-        style="padding:2px 7px; border:1.5px solid #ccc; border-radius:3px; font-size:0.72rem; cursor:pointer; font-family:inherit; background:#f5f5f5; margin-left:auto;">Edit
-        Layout…</button>
-    </div>
-    <div class="con-ctx-sep"></div>
-    <div class="con-ctx-item" onclick="conBoardCtxClose();conBoardCtxSpreadRegion();"><img
-        src="../assets/icons/spread.svg" class="btn-icon" alt="" /> Spread this region</div>
-    <div class="con-ctx-item" onclick="conBoardCtxClose();conBoardCtxCompactRegion();"><img
-        src="../assets/icons/compact.svg" class="btn-icon" alt="" /> Compact this region</div>
-    <div class="con-ctx-sep"></div>
-    <div class="con-ctx-item" onclick="conBoardCtxClose();conToggleDrawMode();"><img src="../assets/icons/draw.svg"
-        class="btn-icon" alt="" /> Draw</div>
-    <div class="con-ctx-item" onclick="conBoardCtxClose();conToggleEraserMode();"><img src="../assets/icons/delete.svg"
-        class="btn-icon" alt="" /> Erase</div>
-    <div class="con-ctx-item" onclick="conBoardCtxClose();laserToggle();"><img src="../assets/icons/laser.svg"
-        class="btn-icon" alt="" /> Laser</div>
-    <div class="con-ctx-sep"></div>
-    <div class="con-ctx-item" onclick="conBoardCtxClose();conBoardCtxOpenRecord();" data-i18n="recordAudio"><img
-        src="../assets/icons/mic.svg" class="btn-icon" alt="" /> Record
-      Audio</div>
+
+    <!-- Pinned Shortcuts Section (at bottom if present) -->
     <div id="con-board-ctx-pinned-section" style="display:none;">
       <div class="con-ctx-sep"></div>
       <div class="con-ctx-title" style="display:flex; align-items:center; gap:5px; font-size:0.75rem; color:#444;">
@@ -1508,9 +1593,6 @@
       </div>
       <div id="con-board-ctx-pinned-list"></div>
     </div>
-    <div class="con-ctx-sep"></div>
-    <div class="con-ctx-item" onclick="conBoardCtxClose()" style="color:#888;font-weight:600;"><img
-        src="../assets/icons/clear.svg" class="btn-icon" alt="" /> Cancel</div>
   </div>
 
   <!-- Table context menu -->
@@ -4913,6 +4995,17 @@
               <option value="de">Deutsch</option>
               <option value="it">Italiano</option>
             </select>
+          </div>
+          <div class="con-transcript-model-wrap">
+            <label for="con-transcript-model" data-i18n="whisperModelSelectorLabel">Model:</label>
+            <select id="con-transcript-model" class="con-transcript-lang-select" onchange="conTranscriptChangeModel(this.value)">
+              <option value="whisper-tiny">Whisper Tiny</option>
+              <option value="whisper-base">Whisper Base</option>
+              <option value="whisper-small">Whisper Small</option>
+            </select>
+            <button type="button" class="con-transcript-manage-btn" onclick="openWhisperModelManager()" title="Manage Speech Models" data-i18n-title="whisperManageModels">
+              <img src="../assets/icons/gear.svg" class="btn-icon" alt="" />
+            </button>
           </div>
           <button type="button" class="con-transcript-close-btn" onclick="conCloseTranscriptModal()" title="Close" data-i18n-title="btnClose">
             <img src="../assets/icons/clear.svg" class="btn-icon" alt="" />

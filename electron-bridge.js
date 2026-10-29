@@ -1335,6 +1335,87 @@
       var api = getDesktopApi();
       return (api && typeof api.onMediaProgress === 'function') ? api.onMediaProgress(callback) : () => {};
     },
+    async whisperListModels() {
+      if (!isElectron()) {
+        return {
+          ok: true,
+          activeModel: 'whisper-tiny',
+          models: [
+            {
+              id: 'whisper-tiny',
+              name: 'Whisper Tiny (Quantized)',
+              tier: 'tiny',
+              isBundled: true,
+              isInstalled: true,
+              isActive: true,
+              speedRating: '⚡⚡⚡',
+              relativeSpeed: '1.0×',
+              ramEstimate: '~180 MB',
+              diskSize: '~41 MB',
+              sizeBytes: 43336495,
+              descriptionKey: 'whisperTinyDesc'
+            },
+            {
+              id: 'whisper-base',
+              name: 'Whisper Base (Quantized)',
+              tier: 'base',
+              isBundled: false,
+              isInstalled: false,
+              isActive: false,
+              speedRating: '⚡⚡',
+              relativeSpeed: '~1.8×',
+              ramEstimate: '~350 MB',
+              diskSize: '~75 MB',
+              downloadSizeBytes: 78643200,
+              descriptionKey: 'whisperBaseDesc',
+              webDisabled: true
+            },
+            {
+              id: 'whisper-small',
+              name: 'Whisper Small (Quantized)',
+              tier: 'small',
+              isBundled: false,
+              isInstalled: false,
+              isActive: false,
+              speedRating: '⚡',
+              relativeSpeed: '~3.5×',
+              ramEstimate: '~850 MB',
+              diskSize: '~245 MB',
+              downloadSizeBytes: 256901120,
+              descriptionKey: 'whisperSmallDesc',
+              webDisabled: true
+            }
+          ]
+        };
+      }
+      var api = getDesktopApi();
+      return (api && typeof api.whisperListModels === 'function') ? api.whisperListModels() : { ok: false, error: 'unavailable' };
+    },
+    async whisperGetConfig() {
+      if (!isElectron()) return { ok: true, config: { activeModel: 'whisper-tiny' } };
+      var api = getDesktopApi();
+      return (api && typeof api.whisperGetConfig === 'function') ? api.whisperGetConfig() : { ok: false, error: 'unavailable' };
+    },
+    async whisperSetActiveModel(modelId) {
+      if (!isElectron()) return { ok: true, activeModel: modelId };
+      var api = getDesktopApi();
+      return (api && typeof api.whisperSetActiveModel === 'function') ? api.whisperSetActiveModel({ modelId: modelId }) : { ok: false, error: 'unavailable' };
+    },
+    async whisperDeleteModel(modelId) {
+      if (!isElectron()) return { ok: false, error: 'web-fallback' };
+      var api = getDesktopApi();
+      return (api && typeof api.whisperDeleteModel === 'function') ? api.whisperDeleteModel({ modelId: modelId }) : { ok: false, error: 'unavailable' };
+    },
+    async whisperDownloadModel(modelId) {
+      if (!isElectron()) return { ok: false, error: 'web-fallback' };
+      var api = getDesktopApi();
+      return (api && typeof api.whisperDownloadModel === 'function') ? api.whisperDownloadModel({ modelId: modelId }) : { ok: false, error: 'unavailable' };
+    },
+    onWhisperDownloadProgress(callback) {
+      if (!isElectron()) return () => {};
+      var api = getDesktopApi();
+      return (api && typeof api.onWhisperDownloadProgress === 'function') ? api.onWhisperDownloadProgress(callback) : () => {};
+    },
     getPathForFile(file) {
       var api = getDesktopApi();
       if (api && typeof api.getPathForFile === 'function' && file) {

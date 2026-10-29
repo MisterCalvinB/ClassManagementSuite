@@ -10134,6 +10134,47 @@ function _downloadBufferWithRedirect(url, onProgress, maxRedirects = 5) {
   });
 }
 
+function _downloadFileWithRedirect(url, destPath, onChunk, maxRedirects = 5) {
+  return new Promise((resolve, reject) => {
+    if (maxRedirects <= 0) return reject(new Error('Too many redirects'));
+    const client = url.startsWith('https:') ? https : http;
+    const req = client.get(url, { headers: { 'User-Agent': 'ClassManagementTools/1.0' } }, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        let nextUrl = res.headers.location;
+        if (!nextUrl.startsWith('http://') && !nextUrl.startsWith('https://')) {
+          const parsed = new URL(url);
+          nextUrl = new URL(nextUrl, parsed.origin).href;
+        }
+        return resolve(_downloadFileWithRedirect(nextUrl, destPath, onChunk, maxRedirects - 1));
+      }
+      if (res.statusCode !== 200) {
+        return reject(new Error(`Download failed with HTTP ${res.statusCode}`));
+      }
+
+      fsSync.mkdirSync(path.dirname(destPath), { recursive: true });
+      const fileStream = fsSync.createWriteStream(destPath);
+      res.on('data', (chunk) => {
+        if (typeof onChunk === 'function') {
+          onChunk(chunk.length);
+        }
+      });
+      res.pipe(fileStream);
+      fileStream.on('finish', () => {
+        fileStream.close(() => resolve());
+      });
+      fileStream.on('error', (err) => {
+        try { fsSync.unlinkSync(destPath); } catch (_) {}
+        reject(err);
+      });
+      res.on('error', (err) => {
+        try { fsSync.unlinkSync(destPath); } catch (_) {}
+        reject(err);
+      });
+    });
+    req.on('error', reject);
+  });
+}
+
 // ── Quick Dictionary (worker-thread backed word bank search) ─────────────────
 const _dictionaryService = createDictionaryService({
   workerPath: path.join(ROOT_DIR, 'js', 'dictionary-worker.js'),
@@ -10572,6 +10613,416 @@ ipcMain.handle('media:cancel', async (_event, request = {}) => {
     }
     return { ok: true };
   } catch (err) {
+    return { ok: false, error: err?.message || String(err) };
+  }
+});
+
+// ── Whisper Speech Recognition Models Manager ────────────────────────────────
+const WHISPER_MODEL_FILES = [
+  'config.json',
+  'generation_config.json',
+  'merges.txt',
+  'normalizer.json',
+  'preprocessor_config.json',
+  'tokenizer.json',
+  'tokenizer_config.json',
+  'vocab.json',
+  'special_tokens_map.json',
+  'added_tokens.json',
+  'onnx/decoder_model_merged_quantized.onnx',
+  'onnx/encoder_model_quantized.onnx'
+];
+
+const WHISPER_MODEL_SPECS = {
+  'whisper-tiny': {
+    id: 'whisper-tiny',
+    name: 'Whisper Tiny (Quantized)',
+    tier: 'tiny',
+    isBundled: true,
+    speedRating: '⚡⚡⚡',
+    relativeSpeed: '1.0×',
+    ramEstimate: '~180 MB',
+    diskSize: '~41 MB',
+    sizeBytes: 43336495,
+    downloadSizeBytes: 43336495,
+    huggingFaceRepo: 'Xenova/whisper-tiny',
+    downloadUrl: '',
+    descriptionKey: 'whisperTinyDesc'
+  },
+  'whisper-base': {
+    id: 'whisper-base',
+    name: 'Whisper Base (Quantized)',
+    tier: 'base',
+    isBundled: false,
+    speedRating: '⚡⚡',
+    relativeSpeed: '~1.8×',
+    ramEstimate: '~350 MB',
+    diskSize: '~78 MB',
+    sizeBytes: 81261020,
+    downloadSizeBytes: 81261020,
+    huggingFaceRepo: 'Xenova/whisper-base',
+    downloadUrl: '',
+    descriptionKey: 'whisperBaseDesc'
+  },
+  'whisper-small': {
+    id: 'whisper-small',
+    name: 'Whisper Small (Quantized)',
+    tier: 'small',
+    isBundled: false,
+    speedRating: '⚡',
+    relativeSpeed: '~3.5×',
+    ramEstimate: '~850 MB',
+    diskSize: '~242 MB',
+    sizeBytes: 253458435,
+    downloadSizeBytes: 253458435,
+    huggingFaceRepo: 'Xenova/whisper-small',
+    downloadUrl: '',
+    descriptionKey: 'whisperSmallDesc'
+  }
+};
+
+function getWhisperConfigPath() {
+  return path.join(getWritableRootDir(), 'user', 'whisper-config.json');
+}
+
+async function loadWhisperConfig() {
+  try {
+    const raw = await fs.readFile(getWhisperConfigPath(), 'utf8');
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object') {
+      return {
+        activeModel: parsed.activeModel || 'whisper-tiny'
+      };
+    }
+  } catch (_) {}
+  return { activeModel: 'whisper-tiny' };
+}
+
+async function saveWhisperConfig(cfg) {
+  try {
+    const cfgPath = getWhisperConfigPath();
+    await fs.mkdir(path.dirname(cfgPath), { recursive: true });
+    await fs.writeFile(cfgPath, JSON.stringify(cfg, null, 2), 'utf8');
+    return true;
+  } catch (err) {
+    console.error('[WhisperModel] Failed to save whisper-config.json:', err);
+    return false;
+  }
+}
+
+function getUserWhisperModelsDir() {
+  return path.join(getWritableRootDir(), 'user', 'models', 'whisper');
+}
+
+function getBundledWhisperDir() {
+  return path.join(ROOT_DIR, 'modules', 'stt');
+}
+
+async function _getDirSizeBytes(dirPath) {
+  let total = 0;
+  try {
+    const entries = await fs.readdir(dirPath, { withFileTypes: true });
+    for (const ent of entries) {
+      const full = path.join(dirPath, ent.name);
+      if (ent.isDirectory()) {
+        total += await _getDirSizeBytes(full);
+      } else if (ent.isFile()) {
+        const st = await fs.stat(full).catch(() => null);
+        if (st) total += st.size;
+      }
+    }
+  } catch (_) {}
+  return total;
+}
+
+async function isWhisperModelInstalled(modelId) {
+  if (modelId === 'whisper-tiny') {
+    const bundledDir = path.join(getBundledWhisperDir(), 'whisper-tiny');
+    const bundledCfg = path.join(bundledDir, 'config.json');
+    if (fsSync.existsSync(bundledCfg)) return { installed: true, isBundled: true, dir: bundledDir, basePath: getBundledWhisperDir() };
+    const rootCfg = path.join(getBundledWhisperDir(), 'config.json');
+    if (fsSync.existsSync(rootCfg)) return { installed: true, isBundled: true, dir: getBundledWhisperDir(), basePath: getBundledWhisperDir() };
+  }
+  const userModelDir = path.join(getUserWhisperModelsDir(), modelId);
+  const userCfg = path.join(userModelDir, 'config.json');
+  if (fsSync.existsSync(userCfg)) {
+    return { installed: true, isBundled: false, dir: userModelDir, basePath: getUserWhisperModelsDir() };
+  }
+  return { installed: false, isBundled: false, dir: '', basePath: '' };
+}
+
+ipcMain.handle('whisper:list-models', async () => {
+  try {
+    const config = await loadWhisperConfig();
+    let activeModel = config.activeModel || 'whisper-tiny';
+    const modelsList = [];
+
+    for (const [modelId, spec] of Object.entries(WHISPER_MODEL_SPECS)) {
+      const status = await isWhisperModelInstalled(modelId);
+      let sizeBytes = spec.sizeBytes;
+      if (status.installed && status.dir) {
+        const calculatedSize = await _getDirSizeBytes(status.dir);
+        if (calculatedSize > 0) sizeBytes = calculatedSize;
+      }
+
+      modelsList.push({
+        id: spec.id,
+        name: spec.name,
+        tier: spec.tier,
+        isBundled: spec.isBundled,
+        isInstalled: status.installed,
+        isActive: activeModel === spec.id,
+        speedRating: spec.speedRating,
+        relativeSpeed: spec.relativeSpeed,
+        ramEstimate: spec.ramEstimate,
+        diskSize: spec.diskSize,
+        downloadSizeBytes: spec.downloadSizeBytes,
+        sizeBytes: sizeBytes,
+        modelDir: status.dir,
+        basePath: status.basePath,
+        downloadUrl: spec.downloadUrl,
+        descriptionKey: spec.descriptionKey
+      });
+    }
+
+    const activeModelObj = modelsList.find(m => m.id === activeModel);
+    if (!activeModelObj || !activeModelObj.isInstalled) {
+      activeModel = 'whisper-tiny';
+      await saveWhisperConfig({ activeModel });
+      for (const m of modelsList) {
+        m.isActive = (m.id === activeModel);
+      }
+    }
+
+    return {
+      ok: true,
+      activeModel: activeModel,
+      models: modelsList,
+      userModelsDir: getUserWhisperModelsDir(),
+      bundledDir: getBundledWhisperDir()
+    };
+  } catch (err) {
+    return { ok: false, error: err?.message || String(err) };
+  }
+});
+
+ipcMain.handle('whisper:get-config', async () => {
+  try {
+    const config = await loadWhisperConfig();
+    return { ok: true, config };
+  } catch (err) {
+    return { ok: false, error: err?.message || String(err) };
+  }
+});
+
+ipcMain.handle('whisper:set-active-model', async (_event, request = {}) => {
+  try {
+    const modelId = request.modelId;
+    if (!modelId || !WHISPER_MODEL_SPECS[modelId]) {
+      return { ok: false, error: 'Invalid model ID' };
+    }
+    const status = await isWhisperModelInstalled(modelId);
+    if (!status.installed) {
+      return { ok: false, error: 'Model is not installed on this system' };
+    }
+    await saveWhisperConfig({ activeModel: modelId });
+    return { ok: true, activeModel: modelId, basePath: status.basePath, modelDir: status.dir };
+  } catch (err) {
+    return { ok: false, error: err?.message || String(err) };
+  }
+});
+
+ipcMain.handle('whisper:delete-model', async (_event, request = {}) => {
+  try {
+    const modelId = request.modelId;
+    if (!modelId || !WHISPER_MODEL_SPECS[modelId]) {
+      return { ok: false, error: 'Invalid model ID' };
+    }
+    if (WHISPER_MODEL_SPECS[modelId].isBundled || modelId === 'whisper-tiny') {
+      return { ok: false, error: 'Cannot delete pre-bundled default model' };
+    }
+
+    const modelDir = path.join(getUserWhisperModelsDir(), modelId);
+    if (fsSync.existsSync(modelDir)) {
+      await fs.rm(modelDir, { recursive: true, force: true });
+    }
+
+    const config = await loadWhisperConfig();
+    if (config.activeModel === modelId) {
+      await saveWhisperConfig({ activeModel: 'whisper-tiny' });
+    }
+
+    return { ok: true, modelId };
+  } catch (err) {
+    return { ok: false, error: err?.message || String(err) };
+  }
+});
+
+ipcMain.handle('whisper:download-model', async (event, request = {}) => {
+  const modelId = request.modelId;
+  if (!modelId || !WHISPER_MODEL_SPECS[modelId]) {
+    return { ok: false, error: 'Invalid model specified' };
+  }
+  const spec = WHISPER_MODEL_SPECS[modelId];
+  if (spec.isBundled) {
+    return { ok: true, modelId, message: 'Model is pre-bundled' };
+  }
+
+  const userModelsDir = getUserWhisperModelsDir();
+  const destDir = path.join(userModelsDir, modelId);
+  const stageDir = path.join(userModelsDir, `.tmp-${modelId}-${Date.now()}`);
+
+  const notifyProgress = (data) => {
+    if (event.sender && !event.sender.isDestroyed()) {
+      try {
+        event.sender.send('whisper:download-progress', {
+          modelId,
+          ...data
+        });
+      } catch (_) {}
+    }
+  };
+
+  try {
+    await fs.mkdir(userModelsDir, { recursive: true });
+
+    // Optional: If an explicit .zip archive download URL is supplied, attempt zip download first
+    if (spec.downloadUrl && spec.downloadUrl.endsWith('.zip')) {
+      try {
+        notifyProgress({ phase: 'downloading', loadedBytes: 0, totalBytes: spec.downloadSizeBytes, percent: 0 });
+        const zipBuf = await _downloadBufferWithRedirect(spec.downloadUrl, (prog) => {
+          notifyProgress({
+            phase: 'downloading',
+            loadedBytes: prog.loadedBytes,
+            totalBytes: prog.totalBytes || spec.downloadSizeBytes,
+            percent: prog.percent
+          });
+        });
+
+        notifyProgress({ phase: 'extracting', loadedBytes: zipBuf.length, totalBytes: zipBuf.length, percent: 100 });
+        const entries = await parseZipEntries(zipBuf);
+        if (entries && entries.length > 0) {
+          let prefixToStrip = '';
+          const nonDirEntries = entries.filter(e => !e.name.endsWith('/'));
+          if (nonDirEntries.length > 0 && nonDirEntries.every(e => e.name.startsWith(modelId + '/') || e.name.startsWith(modelId + '\\'))) {
+            prefixToStrip = modelId + '/';
+          }
+
+          await fs.mkdir(destDir, { recursive: true });
+          for (const ent of entries) {
+            let relName = normalizeZipEntryPath(ent.name) || ent.name;
+            if (prefixToStrip && (relName.startsWith(prefixToStrip) || relName.startsWith(modelId + '/'))) {
+              relName = relName.slice(prefixToStrip.length);
+            }
+            relName = relName.replace(/^[\/\\]+/, '');
+            if (!relName || ent.name.endsWith('/')) continue;
+
+            const targetFilePath = path.resolve(destDir, relName);
+            if (!targetFilePath.startsWith(path.resolve(destDir) + path.sep)) continue;
+
+            await fs.mkdir(path.dirname(targetFilePath), { recursive: true });
+            await fs.writeFile(targetFilePath, ent.data);
+          }
+
+          const configPath = path.join(destDir, 'config.json');
+          if (fsSync.existsSync(configPath)) {
+            notifyProgress({ phase: 'complete', percent: 100 });
+            return { ok: true, modelId, destDir };
+          }
+        }
+      } catch (zipErr) {
+        console.warn(`[WhisperModel] Zip archive download for ${modelId} failed (${zipErr.message}), falling back to direct model download.`);
+      }
+    }
+
+    // Direct streaming download from Hugging Face repository
+    const repo = spec.huggingFaceRepo || ('Xenova/' + modelId);
+    const totalExpectedBytes = spec.downloadSizeBytes || 81261020;
+    let overallLoaded = 0;
+
+    await fs.mkdir(stageDir, { recursive: true });
+    notifyProgress({ phase: 'downloading', loadedBytes: 0, totalBytes: totalExpectedBytes, percent: 0 });
+
+    for (const file of WHISPER_MODEL_FILES) {
+      if (event.sender && event.sender.isDestroyed()) {
+        throw new Error('Download aborted: window closed');
+      }
+
+      const targetFilePath = path.join(stageDir, file);
+      const primaryUrl = `https://huggingface.co/${repo}/resolve/main/${file}`;
+      const fallbackUrl = `https://hf-mirror.com/${repo}/resolve/main/${file}`;
+
+      let downloaded = false;
+      let lastErr = null;
+
+      try {
+        await _downloadFileWithRedirect(primaryUrl, targetFilePath, (chunkBytes) => {
+          overallLoaded += chunkBytes;
+          const pct = Math.min(99.9, Math.round((overallLoaded / totalExpectedBytes) * 1000) / 10);
+          notifyProgress({
+            phase: 'downloading',
+            loadedBytes: overallLoaded,
+            totalBytes: totalExpectedBytes,
+            percent: pct,
+            currentFile: file
+          });
+        });
+        downloaded = true;
+      } catch (pErr) {
+        lastErr = pErr;
+      }
+
+      if (!downloaded) {
+        try {
+          await _downloadFileWithRedirect(fallbackUrl, targetFilePath, (chunkBytes) => {
+            overallLoaded += chunkBytes;
+            const pct = Math.min(99.9, Math.round((overallLoaded / totalExpectedBytes) * 1000) / 10);
+            notifyProgress({
+              phase: 'downloading',
+              loadedBytes: overallLoaded,
+              totalBytes: totalExpectedBytes,
+              percent: pct,
+              currentFile: file
+            });
+          });
+          downloaded = true;
+        } catch (fErr) {
+          lastErr = fErr;
+        }
+      }
+
+      if (!downloaded) {
+        if (file === 'added_tokens.json' || file === 'special_tokens_map.json' || file === 'normalizer.json') {
+          console.warn(`[WhisperModel] Optional file ${file} skipped:`, lastErr?.message);
+        } else {
+          throw new Error(`Failed to download ${file}: ${lastErr?.message || 'Network error'}`);
+        }
+      }
+    }
+
+    notifyProgress({ phase: 'extracting', loadedBytes: overallLoaded, totalBytes: totalExpectedBytes, percent: 100 });
+
+    const checkCfg = path.join(stageDir, 'config.json');
+    const checkEnc = path.join(stageDir, 'onnx', 'encoder_model_quantized.onnx');
+    const checkDec = path.join(stageDir, 'onnx', 'decoder_model_merged_quantized.onnx');
+
+    if (!fsSync.existsSync(checkCfg) || !fsSync.existsSync(checkEnc) || !fsSync.existsSync(checkDec)) {
+      throw new Error('Downloaded model is incomplete: missing required config or ONNX files');
+    }
+
+    if (fsSync.existsSync(destDir)) {
+      await fs.rm(destDir, { recursive: true, force: true });
+    }
+    await fs.rename(stageDir, destDir);
+
+    notifyProgress({ phase: 'complete', percent: 100 });
+    return { ok: true, modelId, destDir };
+  } catch (err) {
+    try {
+      if (fsSync.existsSync(stageDir)) {
+        await fs.rm(stageDir, { recursive: true, force: true });
+      }
+    } catch (_) {}
     return { ok: false, error: err?.message || String(err) };
   }
 });

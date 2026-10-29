@@ -45,22 +45,69 @@
   }
 
   var pipelinePromise = null;
+  var currentModelId = 'whisper-tiny';
+  var currentBasePath = '';
 
   /**
-   * Initialize Transformers.js pipeline with local quantized Whisper model
+   * Free existing pipeline and ONNX sessions to prevent WebAssembly memory leaks
    */
-  async function initPipeline() {
-    if (transcriber) return transcriber;
-    if (pipelinePromise) return pipelinePromise;
+  async function disposeCurrentTranscriber() {
+    if (transcriber) {
+      try {
+        if (typeof transcriber.dispose === 'function') {
+          await transcriber.dispose();
+        } else if (transcriber.model) {
+          if (transcriber.model.encoder && transcriber.model.encoder.session && typeof transcriber.model.encoder.session.release === 'function') {
+            await transcriber.model.encoder.session.release();
+          }
+          if (transcriber.model.decoder && transcriber.model.decoder.session && typeof transcriber.model.decoder.session.release === 'function') {
+            await transcriber.model.decoder.session.release();
+          }
+        }
+      } catch (e) {
+        console.warn('[SpeechWorker] Memory cleanup notice:', e);
+      }
+      transcriber = null;
+    }
+  }
+
+  /**
+   * Dynamically load requested Whisper model (tiny, base, small)
+   */
+  async function loadModel(modelId, customBasePath) {
+    modelId = modelId || currentModelId || 'whisper-tiny';
+    if (transcriber && currentModelId === modelId && (!customBasePath || customBasePath === currentBasePath)) {
+      return transcriber;
+    }
+
+    if (pipelinePromise) {
+      try { await pipelinePromise; } catch (_) {}
+    }
 
     pipelinePromise = (async function () {
-      var basePath = getSttBasePath();
-      postMessage({ type: 'worker-log', message: 'Initializing Whisper STT from: ' + basePath });
+      isModelLoading = true;
+      var wasmBasePath = getSttBasePath();
+      var modelBasePath = customBasePath || (modelId === 'whisper-tiny' ? getSttBasePath() : (wasmBasePath + '../../user/models/whisper/'));
+
+      if (/^[a-zA-Z]:[\\\/]/.test(modelBasePath)) {
+        modelBasePath = 'file:///' + modelBasePath.replace(/\\/g, '/');
+      }
+
+      if (!modelBasePath.endsWith('/') && !modelBasePath.endsWith('\\')) {
+        modelBasePath += '/';
+      }
+
+      postMessage({
+        type: 'worker-log',
+        message: 'Initializing Whisper STT model [' + modelId + '] from: ' + modelBasePath
+      });
 
       try {
+        await disposeCurrentTranscriber();
+
         var tf = self.transformers;
         if (!tf) {
-          var scriptUrl = basePath + 'transformers.min.js';
+          var scriptUrl = wasmBasePath + 'transformers.min.js';
           try {
             tf = await import(scriptUrl);
             self.transformers = tf;
@@ -79,27 +126,44 @@
           env.allowRemoteModels = false;
           env.allowLocalModels = true;
           env.useBrowserCache = false;
-          env.localModelPath = basePath;
+          env.localModelPath = modelBasePath;
           if (env.backends && env.backends.onnx && env.backends.onnx.wasm) {
-            env.backends.onnx.wasm.wasmPaths = basePath;
+            env.backends.onnx.wasm.wasmPaths = wasmBasePath;
             env.backends.onnx.wasm.numThreads = 1;
           }
 
-          transcriber = await tf.pipeline('automatic-speech-recognition', 'whisper-tiny', {
+          transcriber = await tf.pipeline('automatic-speech-recognition', modelId, {
             quantized: true
           });
 
+          currentModelId = modelId;
+          currentBasePath = modelBasePath;
           isModelLoading = false;
-          postMessage({ type: 'model-ready' });
-          postMessage({ type: 'worker-log', message: 'Whisper model loaded and ready.' });
+          postMessage({ type: 'model-ready', modelId: modelId });
+          postMessage({ type: 'worker-log', message: 'Whisper model [' + modelId + '] loaded and ready.' });
           return transcriber;
         } else {
           postMessage({ type: 'worker-log', message: 'Error: transformers module undefined after import' });
         }
       } catch (err) {
-        console.error('[SpeechWorker] Transformers pipeline init error:', err);
-        postMessage({ type: 'worker-log', message: 'Model load failed: ' + (err.message || err) });
+        console.error('[SpeechWorker] Transformers pipeline loadModel error:', err);
+        var errStr = String(err && (err.message || err));
+        var isOom = /out of memory|wasm-out-of-bounds|maximum call stack|allocation failed/i.test(errStr);
+        postMessage({
+          type: 'model-error',
+          modelId: modelId,
+          error: errStr,
+          oom: isOom
+        });
         isModelLoading = false;
+
+        // Auto fallback to whisper-tiny if advanced model failed
+        if (modelId !== 'whisper-tiny') {
+          postMessage({ type: 'worker-log', message: 'Reverting to default whisper-tiny model after error...' });
+          try {
+            return await loadModel('whisper-tiny', wasmBasePath);
+          } catch (_) {}
+        }
       }
       isModelLoading = false;
       pipelinePromise = null;
@@ -107,6 +171,13 @@
     })();
 
     return pipelinePromise;
+  }
+
+  /**
+   * Initialize or return current pipeline
+   */
+  async function initPipeline() {
+    return loadModel(currentModelId, currentBasePath);
   }
 
   /**
@@ -386,8 +457,18 @@
       case 'init':
         activeLanguage = data.language || 'auto';
         isInitialized = true;
-        initPipeline();
-        postMessage({ type: 'init-ready', language: activeLanguage });
+        if (data.modelId) currentModelId = data.modelId;
+        if (data.customBasePath) currentBasePath = data.customBasePath;
+        loadModel(currentModelId, currentBasePath);
+        postMessage({ type: 'init-ready', language: activeLanguage, modelId: currentModelId });
+        break;
+
+      case 'set-model':
+        if (data.modelId) {
+          currentModelId = data.modelId;
+          currentBasePath = data.customBasePath || '';
+          loadModel(currentModelId, currentBasePath);
+        }
         break;
 
       case 'set-language':

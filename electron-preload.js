@@ -504,6 +504,32 @@ const exposedApi = {
       try { ipcRenderer.removeListener('media:progress', listener); } catch (_) {}
     };
   },
+  // ── Whisper Speech Recognition Models ──────────────────────────────────────
+  whisperListModels() {
+    return invoke('whisper:list-models');
+  },
+  whisperGetConfig() {
+    return invoke('whisper:get-config');
+  },
+  whisperSetActiveModel(request) {
+    return invoke('whisper:set-active-model', request);
+  },
+  whisperDeleteModel(request) {
+    return invoke('whisper:delete-model', request);
+  },
+  whisperDownloadModel(request) {
+    return invoke('whisper:download-model', request);
+  },
+  onWhisperDownloadProgress(callback) {
+    if (!ipcRenderer || typeof ipcRenderer.on !== 'function') return () => {};
+    const listener = (_event, data) => {
+      try { callback(data); } catch (e) { console.error('Whisper download progress listener error:', e); }
+    };
+    ipcRenderer.on('whisper:download-progress', listener);
+    return () => {
+      try { ipcRenderer.removeListener('whisper:download-progress', listener); } catch (_) {}
+    };
+  },
   getPathForFile(file) {
     if (webUtils && typeof webUtils.getPathForFile === 'function' && file) {
       try {

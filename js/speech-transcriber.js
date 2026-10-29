@@ -20,13 +20,22 @@
   var interimTranscript = '';
   var silenceTimer = null;
   var fileTranscriptionCallbacks = {};
+  var activeModelId = 'whisper-tiny';
+  var activeModelBasePath = '';
+  var modelSwitchResolvers = [];
+
+  try {
+    var storedModel = localStorage.getItem('cmt-active-whisper-model');
+    if (storedModel) activeModelId = storedModel;
+  } catch (_) {}
 
   var callbacks = {
     onStateChange: null,
     onInterimResult: null,
     onFinalResult: null,
     onMicLevel: null,
-    onError: null
+    onError: null,
+    onModelChange: null
   };
 
   /**
@@ -105,7 +114,31 @@
         } else if (data.type === 'worker-log') {
           console.log('[SpeechWorker]', data.message);
         } else if (data.type === 'model-ready') {
-          console.log('[SpeechTranscriber] Whisper offline model ready');
+          activeModelId = data.modelId || activeModelId;
+          console.log('[SpeechTranscriber] Whisper offline model ready [' + activeModelId + ']');
+          var mResolvers = modelSwitchResolvers.slice(0);
+          modelSwitchResolvers = [];
+          for (var mr = 0; mr < mResolvers.length; mr++) {
+            mResolvers[mr].resolve({ ok: true, modelId: activeModelId });
+          }
+          if (typeof callbacks.onModelChange === 'function') {
+            callbacks.onModelChange(activeModelId);
+          }
+        } else if (data.type === 'model-error') {
+          console.warn('[SpeechTranscriber] Model error notice:', data.error);
+          if (data.oom) {
+            if (typeof global.showToast === 'function') {
+              global.showToast((global.i18n && typeof global.i18n.t === 'function')
+                ? global.i18n.t('whisperOomError')
+                : 'Whisper model memory exceeded. Reverting to Whisper Tiny.', true);
+            }
+            activeModelId = 'whisper-tiny';
+          }
+          var meResolvers = modelSwitchResolvers.slice(0);
+          modelSwitchResolvers = [];
+          for (var mer = 0; mer < meResolvers.length; mer++) {
+            meResolvers[mer].reject(new Error(data.error || 'Failed to load model'));
+          }
         } else if (data.type === 'transcribe-result') {
           if (data.text) {
             if (currentTranscript) {
@@ -161,7 +194,12 @@
         }
       };
 
-      worker.postMessage({ type: 'init', language: activeLanguage });
+      worker.postMessage({
+        type: 'init',
+        language: activeLanguage,
+        modelId: activeModelId,
+        customBasePath: activeModelBasePath
+      });
     } catch (err) {
       console.warn('[SpeechTranscriber] Web Worker initialization notice:', err);
     }
@@ -584,6 +622,157 @@
   }
 
   /**
+   * Get active Whisper Model ID
+   */
+  function getActiveModel() {
+    return activeModelId || 'whisper-tiny';
+  }
+
+  /**
+   * List available Whisper models and their installed status
+   */
+  async function listAvailableModels() {
+    if (global.Desktop && typeof global.Desktop.whisperListModels === 'function') {
+      return await global.Desktop.whisperListModels();
+    }
+    return {
+      ok: true,
+      activeModel: activeModelId,
+      models: [
+        {
+          id: 'whisper-tiny',
+          name: 'Whisper Tiny (Quantized)',
+          tier: 'tiny',
+          isBundled: true,
+          isInstalled: true,
+          isActive: activeModelId === 'whisper-tiny',
+          speedRating: '⚡⚡⚡',
+          relativeSpeed: '1.0×',
+          ramEstimate: '~180 MB',
+          diskSize: '~41 MB',
+          descriptionKey: 'whisperTinyDesc'
+        },
+        {
+          id: 'whisper-base',
+          name: 'Whisper Base (Quantized)',
+          tier: 'base',
+          isBundled: false,
+          isInstalled: false,
+          isActive: activeModelId === 'whisper-base',
+          speedRating: '⚡⚡',
+          relativeSpeed: '~1.8×',
+          ramEstimate: '~350 MB',
+          diskSize: '~75 MB',
+          downloadSizeBytes: 78643200,
+          descriptionKey: 'whisperBaseDesc',
+          webDisabled: true
+        },
+        {
+          id: 'whisper-small',
+          name: 'Whisper Small (Quantized)',
+          tier: 'small',
+          isBundled: false,
+          isInstalled: false,
+          isActive: activeModelId === 'whisper-small',
+          speedRating: '⚡',
+          relativeSpeed: '~3.5×',
+          ramEstimate: '~850 MB',
+          diskSize: '~245 MB',
+          downloadSizeBytes: 256901120,
+          descriptionKey: 'whisperSmallDesc',
+          webDisabled: true
+        }
+      ]
+    };
+  }
+
+  /**
+   * Switch the active Whisper Model
+   */
+  async function setActiveModel(modelId, customBasePath) {
+    if (!modelId) return { ok: false, error: 'No model ID provided' };
+
+    activeModelId = modelId;
+    if (customBasePath) activeModelBasePath = customBasePath;
+
+    try {
+      localStorage.setItem('cmt-active-whisper-model', modelId);
+    } catch (_) {}
+
+    if (global.Desktop && typeof global.Desktop.whisperSetActiveModel === 'function') {
+      try {
+        var setRes = await global.Desktop.whisperSetActiveModel(modelId);
+        if (setRes && setRes.basePath && !customBasePath) {
+          activeModelBasePath = setRes.basePath;
+        }
+      } catch (_) {}
+    }
+
+    initWorker();
+
+    return new Promise(function (resolve, reject) {
+      modelSwitchResolvers.push({ resolve: resolve, reject: reject });
+
+      if (worker) {
+        worker.postMessage({
+          type: 'set-model',
+          modelId: modelId,
+          customBasePath: customBasePath || activeModelBasePath
+        });
+      } else {
+        resolve({ ok: true, modelId: modelId });
+      }
+    });
+  }
+
+  /**
+   * Download a Whisper model with live progress callback
+   */
+  async function downloadModel(modelId, onProgress) {
+    if (!global.Desktop || typeof global.Desktop.whisperDownloadModel !== 'function') {
+      throw new Error('Automated model downloading is only supported in Desktop Electron mode');
+    }
+
+    var unsub = null;
+    if (typeof onProgress === 'function' && typeof global.Desktop.onWhisperDownloadProgress === 'function') {
+      unsub = global.Desktop.onWhisperDownloadProgress(function (data) {
+        if (data && data.modelId === modelId) {
+          onProgress(data);
+        }
+      });
+    }
+
+    try {
+      var res = await global.Desktop.whisperDownloadModel(modelId);
+      if (!res || !res.ok) {
+        throw new Error((res && res.error) || 'Failed to download model');
+      }
+      return res;
+    } finally {
+      if (typeof unsub === 'function') {
+        try { unsub(); } catch (_) {}
+      }
+    }
+  }
+
+  /**
+   * Delete an installed Whisper model
+   */
+  async function deleteModel(modelId) {
+    if (!global.Desktop || typeof global.Desktop.whisperDeleteModel !== 'function') {
+      throw new Error('Deleting models is only supported in Desktop Electron mode');
+    }
+    var res = await global.Desktop.whisperDeleteModel(modelId);
+    if (!res || !res.ok) {
+      throw new Error((res && res.error) || 'Failed to delete model');
+    }
+    if (activeModelId === modelId) {
+      await setActiveModel('whisper-tiny');
+    }
+    return res;
+  }
+
+  /**
    * Public API
    */
   global.SpeechTranscriber = {
@@ -599,7 +788,12 @@
     },
     transcribeAudio: transcribeAudio,
     cancelFileTranscription: cancelFileTranscription,
-    decodeAudioToArrayBuffer: decodeAudioToArrayBuffer
+    decodeAudioToArrayBuffer: decodeAudioToArrayBuffer,
+    getActiveModel: getActiveModel,
+    setActiveModel: setActiveModel,
+    listAvailableModels: listAvailableModels,
+    downloadModel: downloadModel,
+    deleteModel: deleteModel
   };
 
 })(typeof window !== 'undefined' ? window : this);
