@@ -18905,6 +18905,7 @@
     }
 
     function openReportModal(reportHtml, title, defaultFilename, options = {}) {
+      const esc = escapeHtml;
       syncReportOptionControls();
 
       const teacherName = (typeof window.getAppTeacherName === 'function') ? window.getAppTeacherName() : '';
@@ -18985,6 +18986,7 @@
     }
 
     async function exportCurrentReportPdf() {
+      const esc = escapeHtml;
       if (!_currentActiveReport) return;
       const report = _currentActiveReport;
       const { html, defaultFilename, isLandscape, rebuild } = report;
@@ -21765,7 +21767,12 @@
       tdNote.appendChild(container);
     }
 
+    function esc(value) {
+      return escapeHtml(value);
+    }
+
     function escapeHtml(value) {
+      if (value == null) return '';
       return String(value)
         .replaceAll("&", "&amp;")
         .replaceAll("<", "&lt;")

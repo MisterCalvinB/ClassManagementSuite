@@ -714,6 +714,16 @@
     const WN_SIZE_MIN = 4, WN_SIZE_MAX = 96;
 
     let _wnActiveNote = null;
+    try {
+      Object.defineProperty(window, '_wnActiveNote', {
+        get: function () { return _wnActiveNote; },
+        set: function (val) { _wnActiveNote = val; },
+        configurable: true
+      });
+    } catch (e) {
+      window._wnActiveNote = _wnActiveNote;
+    }
+    window.wnGetActiveNote = function () { return _wnActiveNote; };
     let _wnSavedSelectionRange = null;
     let _wnPopupWordMeta = null;
     let _wnOverlayOpenTime = 0;
@@ -950,6 +960,7 @@
       const pxToFont = window.conPxToFontUnit || (typeof conPxToFontUnit === 'function' ? conPxToFontUnit : null);
       const fmtFont = window.conFormatFontSize || (typeof conFormatFontSize === 'function' ? conFormatFontSize : null);
       if (szSlider) {
+        szSlider.dataset.rawPx = String(noteData.fontSize || 16);
         if (setupFontSlider) setupFontSlider(szSlider, window.conFontUnit, 'note');
         if (pxToFont) szSlider.value = String(pxToFont(noteData.fontSize || 16, window.conFontUnit));
       }
@@ -963,6 +974,7 @@
       const pxToThick = window.conPxToThicknessUnit || (typeof conPxToThicknessUnit === 'function' ? conPxToThicknessUnit : null);
       const fmtThick = window.conFormatThickness || (typeof conFormatThickness === 'function' ? conFormatThickness : null);
       if (bwSlider) {
+        bwSlider.dataset.rawPx = String(noteData.borderWidth || 0);
         if (setupThickSlider) setupThickSlider(bwSlider, window.conThicknessUnit, 'noteBorder');
         if (pxToThick) bwSlider.value = String(pxToThick(noteData.borderWidth || 0, window.conThicknessUnit));
       }
@@ -2743,13 +2755,15 @@
     }
 
     function wnStyleSetSize(sizeVal, isUnitValue) {
-      if (!_wnActiveNote) return;
       const fnFontUnitToPx = window.conFontUnitToPx || (typeof conFontUnitToPx === 'function' ? conFontUnitToPx : null);
       const fnFmtFont = window.conFormatFontSize || (typeof conFormatFontSize === 'function' ? conFormatFontSize : null);
-      const px = (isUnitValue && fnFontUnitToPx) ? fnFontUnitToPx(sizeVal, window.conFontUnit) : (Number(sizeVal) || _wnActiveNote.fontSize || 16);
+      const px = (isUnitValue && fnFontUnitToPx) ? fnFontUnitToPx(sizeVal, window.conFontUnit) : (Number(sizeVal) || (_wnActiveNote && _wnActiveNote.fontSize) || 16);
       const value = Math.max(WN_SIZE_MIN, Math.min(WN_SIZE_MAX, Math.round(px)));
+      const szSlider = document.getElementById('wn-sp-size-slider');
+      if (szSlider) szSlider.dataset.rawPx = String(value);
       const szVal = document.getElementById('wn-sp-size-val');
       if (szVal) szVal.textContent = fnFmtFont ? fnFmtFont(value, window.conFontUnit) : value + 'px';
+      if (!_wnActiveNote) return;
       if (wnApplySelectionCommand('fontSize', '7')) {
         const editor = wnGetActiveEditor();
         if (editor) {
@@ -2850,16 +2864,18 @@
     }
 
     function wnStyleSetBorderWidth(val, isUnitValue) {
-      if (!_wnActiveNote) return;
       const fnThickUnitToPx = window.conThicknessUnitToPx || (typeof conThicknessUnitToPx === 'function' ? conThicknessUnitToPx : null);
       const fnFmtThick = window.conFormatThickness || (typeof conFormatThickness === 'function' ? conFormatThickness : null);
       const px = (isUnitValue && fnThickUnitToPx) ? fnThickUnitToPx(val, window.conThicknessUnit) : (Number(val) || 0);
       const w = Math.max(0, Math.min(18, Math.round(px)));
+      const bwSlider = document.getElementById('wn-sp-border-width');
+      if (bwSlider) bwSlider.dataset.rawPx = String(w);
+      const bwVal = document.getElementById('wn-sp-border-width-val');
+      if (bwVal) bwVal.textContent = fnFmtThick ? fnFmtThick(w, window.conThicknessUnit) : w + 'px';
+      if (!_wnActiveNote) return;
       _wnActiveNote.borderWidth = w > 0 ? w : null;
       if (!_wnActiveNote.borderStyle && w > 0) _wnActiveNote.borderStyle = 'solid';
       if (!_wnActiveNote.borderColor && w > 0) _wnActiveNote.borderColor = '#111111';
-      const bwVal = document.getElementById('wn-sp-border-width-val');
-      if (bwVal) bwVal.textContent = fnFmtThick ? fnFmtThick(w, window.conThicknessUnit) : w + 'px';
       _wnActiveNote._applyStyle && _wnActiveNote._applyStyle();
     }
     function wnStyleSetBorderStyle(style) {
@@ -2875,6 +2891,7 @@
         const fnFmtThick = window.conFormatThickness || (typeof conFormatThickness === 'function' ? conFormatThickness : null);
         if (fnSetupThick) fnSetupThick(bwSlider, window.conThicknessUnit, 'noteBorder');
         if (fnPxToThick) bwSlider.value = String(fnPxToThick(1, window.conThicknessUnit));
+        bwSlider.dataset.rawPx = '1';
         if (bwVal) bwVal.textContent = fnFmtThick ? fnFmtThick(1, window.conThicknessUnit) : '1px';
       }
       _wnActiveNote._applyStyle && _wnActiveNote._applyStyle();

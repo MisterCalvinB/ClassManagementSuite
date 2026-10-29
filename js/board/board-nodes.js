@@ -3991,27 +3991,63 @@
           _conSetupFontSizeSlider(defaultInput, window.conFontUnit);
           defaultInput.value = String(conPxToFontUnit(conDefaultNewWordFontSize, window.conFontUnit));
         }
-        // 2. Node context menu font size slider
+        // 2. Node context menu font size slider and display
         const ctxSlider = document.getElementById('con-ctx-font-size');
         const ctxDisplay = document.getElementById('con-ctx-font-size-display');
         if (ctxSlider) {
           _conSetupFontSizeSlider(ctxSlider, window.conFontUnit);
-          const targetNode = conCtxNodeId ? conNodes.find(n => n.id === conCtxNodeId) : null;
-          const px = targetNode ? (conGetNodeBaseFontSize(targetNode) || 16) : 16;
+          const activeNodeId = (typeof conCtxNodeId !== 'undefined' && conCtxNodeId)
+            || (window.conGetCtxNodeId ? window.conGetCtxNodeId() : null)
+            || (window.conCtxNodeId || null);
+          const targetNode = activeNodeId
+            ? (typeof conNodes !== 'undefined' ? conNodes.find(n => n && n.id === activeNodeId) : null)
+            : ((typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 0 && typeof conNodes !== 'undefined')
+              ? conNodes.find(n => n && conMultiSelected.has(n.id))
+              : ((typeof conSelected !== 'undefined' && conSelected && typeof conNodes !== 'undefined')
+                ? conNodes.find(n => n && n.id === conSelected)
+                : null));
+          let px;
+          if (targetNode) {
+            px = conGetNodeBaseFontSize(targetNode) || 16;
+          } else if (ctxSlider.dataset.rawPx) {
+            px = parseFloat(ctxSlider.dataset.rawPx);
+          } else {
+            const curVal = parseFloat(ctxSlider.value);
+            const wasPt = ctxDisplay && ctxDisplay.textContent ? ctxDisplay.textContent.includes('pt') : (window.conFontUnit !== 'pt');
+            px = !isNaN(curVal) && curVal > 0 ? (wasPt ? conFontUnitToPx(curVal, 'pt') : curVal) : 16;
+          }
+          if (isNaN(px) || px <= 0) px = 16;
+          ctxSlider.dataset.rawPx = String(px);
           const unitVal = conPxToFontUnit(px, window.conFontUnit);
           ctxSlider.value = String(unitVal);
           if (ctxDisplay) ctxDisplay.textContent = unitVal + ' ' + window.conFontUnit;
         }
-        // 3. Word note style popup font size slider
+        // 3. Word note style popup font size slider and display
         const wnSlider = document.getElementById('wn-sp-size-slider');
         const wnVal = document.getElementById('wn-sp-size-val');
         if (wnSlider) {
           _conSetupFontSizeSlider(wnSlider, window.conFontUnit, 'note');
-          if (typeof _wnActiveNote !== 'undefined' && _wnActiveNote) {
-            const px = _wnActiveNote.fontSize || 16;
-            wnSlider.value = String(conPxToFontUnit(px, window.conFontUnit));
-            if (wnVal) wnVal.textContent = conFormatFontSize(px, window.conFontUnit);
+          const activeNote = (window.wnGetActiveNote ? window.wnGetActiveNote() : null)
+            || (window._wnActiveNote || null)
+            || (typeof _wnActiveNote !== 'undefined' && _wnActiveNote ? _wnActiveNote : null)
+            || ((typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0 && window.conGetNotes)
+              ? window.conGetNotes().find(n => n && conNoteSelected.has(n.id))
+              : null);
+          let px;
+          if (activeNote && (activeNote.fontSize || activeNote.size)) {
+            px = activeNote.fontSize || activeNote.size;
+          } else if (wnSlider.dataset.rawPx) {
+            px = parseFloat(wnSlider.dataset.rawPx);
+          } else {
+            const curVal = parseFloat(wnSlider.value);
+            const wasPt = wnVal && wnVal.textContent ? wnVal.textContent.includes('pt') : (window.conFontUnit !== 'pt');
+            px = !isNaN(curVal) && curVal > 0 ? (wasPt ? conFontUnitToPx(curVal, 'pt') : curVal) : 26;
           }
+          if (isNaN(px) || px <= 0) px = 26;
+          wnSlider.dataset.rawPx = String(px);
+          const unitVal = conPxToFontUnit(px, window.conFontUnit);
+          wnSlider.value = String(unitVal);
+          if (wnVal) wnVal.textContent = conFormatFontSize(px, window.conFontUnit);
         }
       }
 
@@ -4058,16 +4094,36 @@
             edgeThickInput.value = String(conPxToThicknessUnit(px, window.conThicknessUnit));
           }
         }
-        // 5. Word note style popup border width slider
+        // 5. Word note style popup border width slider and display
         const wnBwSlider = document.getElementById('wn-sp-border-width');
         const wnBwVal = document.getElementById('wn-sp-border-width-val');
         if (wnBwSlider) {
           _conSetupThicknessSlider(wnBwSlider, window.conThicknessUnit, 'noteBorder');
-          if (typeof _wnActiveNote !== 'undefined' && _wnActiveNote) {
-            const px = _wnActiveNote.borderWidth || 0;
-            wnBwSlider.value = String(conPxToThicknessUnit(px, window.conThicknessUnit));
-            if (wnBwVal) wnBwVal.textContent = conFormatThickness(px, window.conThicknessUnit);
+          const activeNote = (window.wnGetActiveNote ? window.wnGetActiveNote() : null)
+            || (window._wnActiveNote || null)
+            || (typeof _wnActiveNote !== 'undefined' && _wnActiveNote ? _wnActiveNote : null)
+            || ((typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0 && window.conGetNotes)
+              ? window.conGetNotes().find(n => n && conNoteSelected.has(n.id))
+              : null);
+          let px;
+          if (activeNote && typeof activeNote.borderWidth === 'number') {
+            px = activeNote.borderWidth;
+          } else if (wnBwSlider.dataset.rawPx) {
+            px = parseFloat(wnBwSlider.dataset.rawPx);
+          } else {
+            const curVal = parseFloat(wnBwSlider.value);
+            let prevUnit = 'px';
+            if (wnBwVal && wnBwVal.textContent) {
+              if (wnBwVal.textContent.includes('mm')) prevUnit = 'mm';
+              else if (wnBwVal.textContent.includes('pt')) prevUnit = 'pt';
+            }
+            px = !isNaN(curVal) && curVal >= 0 ? conThicknessUnitToPx(curVal, prevUnit) : 0;
           }
+          if (isNaN(px) || px < 0) px = 0;
+          wnBwSlider.dataset.rawPx = String(px);
+          const unitVal = conPxToThicknessUnit(px, window.conThicknessUnit);
+          wnBwSlider.value = String(unitVal);
+          if (wnBwVal) wnBwVal.textContent = conFormatThickness(px, window.conThicknessUnit);
         }
       }
 
@@ -4077,6 +4133,7 @@
         try { localStorage.setItem(CON_FONT_UNIT_KEY, newUnit); } catch (e) { }
         _conSyncUnitToggleButtons();
         _conSyncFontSizeSliders();
+        _conSyncThicknessSliders();
       };
 
       window.conSwitchThicknessUnit = function (newUnit) {
@@ -4084,6 +4141,13 @@
         window.conThicknessUnit = newUnit;
         try { localStorage.setItem(CON_THICKNESS_UNIT_KEY, newUnit); } catch (e) { }
         _conSyncUnitToggleButtons();
+        _conSyncThicknessSliders();
+        _conSyncFontSizeSliders();
+      };
+
+      window.conSyncAllUnitControls = function () {
+        _conSyncUnitToggleButtons();
+        _conSyncFontSizeSliders();
         _conSyncThicknessSliders();
       };
 
@@ -4098,6 +4162,21 @@
       window._conSyncUnitToggleButtons = _conSyncUnitToggleButtons;
       window._conSyncFontSizeSliders = _conSyncFontSizeSliders;
       window._conSyncThicknessSliders = _conSyncThicknessSliders;
+      window.conSyncAllUnitControls = conSyncAllUnitControls;
+
+      document.addEventListener('click', function (e) {
+        const pill = e.target && e.target.closest ? e.target.closest('.con-unit-pill') : null;
+        if (pill) {
+          const toggle = pill.closest('.con-unit-toggle');
+          const unitType = toggle ? toggle.dataset.unitType : null;
+          const unit = pill.dataset.unit;
+          if (unitType === 'font' && (unit === 'pt' || unit === 'px')) {
+            window.conSwitchFontUnit(unit);
+          } else if (unitType === 'thickness' && (unit === 'mm' || unit === 'pt' || unit === 'px')) {
+            window.conSwitchThicknessUnit(unit);
+          }
+        }
+      });
 
       const CON_NEW_WORD_FONT_STORAGE_KEY = 'con_new_word_font_size';
       const CON_NEW_WORD_FONT_MIN = 8;
@@ -16033,11 +16112,29 @@
         }
 
         const cutShapeIds = [];
-        if (payload.shapes && payload.shapes.length && typeof conShapes !== 'undefined') {
+        if (payload.shapes && payload.shapes.length) {
+          const shapesList = (window.conGetShapes ? window.conGetShapes() : (window.conShapes || conShapes)) || [];
           payload.shapes.forEach(s => {
-            const sh = conShapes.find(x => x.id === s.id);
+            const sh = shapesList.find(x => x.id === s.id);
             if (sh && sh.el) sh.el.remove();
-            conShapes = conShapes.filter(x => x.id !== s.id);
+            for (let i = shapesList.length - 1; i >= 0; i--) {
+              if (shapesList[i].id === s.id) shapesList.splice(i, 1);
+            }
+            if (Array.isArray(conShapes) && conShapes !== shapesList) {
+              for (let i = conShapes.length - 1; i >= 0; i--) {
+                if (conShapes[i].id === s.id) conShapes.splice(i, 1);
+              }
+            }
+            if (Array.isArray(window.conShapes) && window.conShapes !== shapesList) {
+              for (let i = window.conShapes.length - 1; i >= 0; i--) {
+                if (window.conShapes[i].id === s.id) window.conShapes.splice(i, 1);
+              }
+            }
+            if (Array.isArray(global.conShapes) && global.conShapes !== shapesList) {
+              for (let i = global.conShapes.length - 1; i >= 0; i--) {
+                if (global.conShapes[i].id === s.id) global.conShapes.splice(i, 1);
+              }
+            }
             cutShapeIds.push(String(s.id));
           });
         }
@@ -16192,6 +16289,8 @@
         }
 
         if (typeof conShapeFromData === 'function' && Array.isArray(payload.shapes)) {
+          const shapeOffsetDx = targetMinX - sourceBounds.minX;
+          const shapeOffsetDy = targetMinY - sourceBounds.minY;
           payload.shapes.forEach(s => {
             const sx = targetMinX + ((Number(s.x) || 0) - sourceBounds.minX);
             const sy = targetMinY + ((Number(s.y) || 0) - sourceBounds.minY);
@@ -16199,7 +16298,12 @@
               ...s,
               id: undefined,
               x: sx,
-              y: sy
+              y: sy,
+              lx1: s.lx1 != null ? (Number(s.lx1) + shapeOffsetDx) : undefined,
+              ly1: s.ly1 != null ? (Number(s.ly1) + shapeOffsetDy) : undefined,
+              lx2: s.lx2 != null ? (Number(s.lx2) + shapeOffsetDx) : undefined,
+              ly2: s.ly2 != null ? (Number(s.ly2) + shapeOffsetDy) : undefined,
+              pts: Array.isArray(s.pts) ? s.pts.map(p => ({ x: Number(p.x) + shapeOffsetDx, y: Number(p.y) + shapeOffsetDy })) : null
             });
           });
         }
@@ -16993,8 +17097,26 @@
             if (shapeSel && shapeSel.size > 0) {
               const _delShapeIds = new Set(shapeSel);
               const _delShapeIdsArr = [..._delShapeIds].map(String);
-              conShapes.forEach(s => { if (_delShapeIds.has(s.id) && s.el) s.el.remove(); });
-              conShapes = conShapes.filter(s => !_delShapeIds.has(s.id));
+              const shapesList = (window.conGetShapes ? window.conGetShapes() : (window.conShapes || conShapes)) || [];
+              shapesList.forEach(s => { if (_delShapeIds.has(s.id) && s.el) s.el.remove(); });
+              for (let i = shapesList.length - 1; i >= 0; i--) {
+                if (_delShapeIds.has(shapesList[i].id)) shapesList.splice(i, 1);
+              }
+              if (Array.isArray(conShapes) && conShapes !== shapesList) {
+                for (let i = conShapes.length - 1; i >= 0; i--) {
+                  if (_delShapeIds.has(conShapes[i].id)) conShapes.splice(i, 1);
+                }
+              }
+              if (Array.isArray(window.conShapes) && window.conShapes !== shapesList) {
+                for (let i = window.conShapes.length - 1; i >= 0; i--) {
+                  if (_delShapeIds.has(window.conShapes[i].id)) window.conShapes.splice(i, 1);
+                }
+              }
+              if (Array.isArray(global.conShapes) && global.conShapes !== shapesList) {
+                for (let i = global.conShapes.length - 1; i >= 0; i--) {
+                  if (_delShapeIds.has(global.conShapes[i].id)) global.conShapes.splice(i, 1);
+                }
+              }
               conGroups.forEach(g => { if (g.shapeIds) g.shapeIds = g.shapeIds.filter(id => !_delShapeIds.has(id)); });
               if (typeof window.conShapeClearSelection === 'function') window.conShapeClearSelection();
               // Sync deletion to mirror without DOM teardown
@@ -17233,8 +17355,9 @@
           });
           if (cur.length) strokes.push(cur);
         });
+        const shapesList = (window.conGetShapes ? window.conGetShapes() : (window.conShapes || conShapes)) || [];
         shapeIds.forEach(sid => {
-          const s = conShapes.find(x => x.id === sid); if (!s) return;
+          const s = shapesList.find(x => x.id === sid); if (!s) return;
           if (first) { mergeColor = s.color || '#333333'; mergeThickness = s.thickness || 2; mergeOpacity = Number.isFinite(s.opacity) ? s.opacity : 1; first = false; }
           const absPts = _conShapeToAbsPoints(s);
           let cur = [];
@@ -17258,9 +17381,26 @@
           conGroups.forEach(g => { if (g.drawingIds) g.drawingIds = g.drawingIds.filter(id => id !== did); });
         });
         shapeIds.forEach(sid => {
-          const s = conShapes.find(x => x.id === sid);
+          const s = shapesList.find(x => x.id === sid);
           if (s && s.el) s.el.remove();
-          conShapes = conShapes.filter(x => x.id !== sid);
+          for (let i = shapesList.length - 1; i >= 0; i--) {
+            if (shapesList[i].id === sid) shapesList.splice(i, 1);
+          }
+          if (Array.isArray(conShapes) && conShapes !== shapesList) {
+            for (let i = conShapes.length - 1; i >= 0; i--) {
+              if (conShapes[i].id === sid) conShapes.splice(i, 1);
+            }
+          }
+          if (Array.isArray(window.conShapes) && window.conShapes !== shapesList) {
+            for (let i = window.conShapes.length - 1; i >= 0; i--) {
+              if (window.conShapes[i].id === sid) window.conShapes.splice(i, 1);
+            }
+          }
+          if (Array.isArray(global.conShapes) && global.conShapes !== shapesList) {
+            for (let i = global.conShapes.length - 1; i >= 0; i--) {
+              if (global.conShapes[i].id === sid) global.conShapes.splice(i, 1);
+            }
+          }
           conGroups.forEach(g => { if (g.shapeIds) g.shapeIds = g.shapeIds.filter(id => id !== sid); });
         });
         conDrawingSelected.clear();
@@ -17395,17 +17535,25 @@
       }
 
       // Init mode buttons on load
-      document.addEventListener('DOMContentLoaded', function () {
+      function _initBoardNodesOnLoad() {
         conSetMode('move');
         conInitSwatches();
         conInitBorderSwatches();
         conInitPresetButtons();
         conSetDefaultWordFontSize(conDefaultNewWordFontSize);
+        if (typeof window.conSyncAllUnitControls === 'function') window.conSyncAllUnitControls();
         if (typeof conRenderHeaderCompetenceBar === 'function') conRenderHeaderCompetenceBar();
         if (typeof _ensureMirrorControlMenu === 'function') _ensureMirrorControlMenu();
         // Reflect initial snap state on button
         const snapBtn = document.getElementById('con-snap-toggle-btn');
         if (snapBtn) snapBtn.classList.toggle('con-panel-active', conSnapEnabled);
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', _initBoardNodesOnLoad);
+      } else {
+        _initBoardNodesOnLoad();
+      }
+      document.addEventListener('DOMContentLoaded', function () {
         const brd = board();
         if (!brd) return;
 
@@ -18192,7 +18340,8 @@
             // Process shapes
             const toDeleteShapeIds = new Set();
             const toDeleteShapeItems = [];
-            conShapes.forEach(s => {
+            const _shapesToErase = (window.conGetShapes ? window.conGetShapes() : (window.conShapes || conShapes)) || [];
+            _shapesToErase.forEach(s => {
               const sw = Math.max(1, Number(s.thickness) || 1);
               if (_conCircleTouchesRect(
                 pos.x, pos.y, r,
@@ -18225,7 +18374,13 @@
                 if (s.el) s.el.remove();
                 if (typeof _conShapeSelected !== 'undefined') _conShapeSelected.delete(s.id);
               });
-              conShapes = conShapes.filter(s => !toDeleteShapeIds.has(s.id));
+              [conShapes, global.conShapes, window.conShapes].forEach(arr => {
+                if (Array.isArray(arr)) {
+                  for (let i = arr.length - 1; i >= 0; i--) {
+                    if (arr[i] && toDeleteShapeIds.has(arr[i].id)) arr.splice(i, 1);
+                  }
+                }
+              });
             }
 
             // Clean up group references
@@ -18466,7 +18621,11 @@
               dashStyle: _conDrawShapeDash || 'solid',
               arrowheadSize: null, el: null, svgEl: null, hitEl: null, visEl: null, pad: 0
             };
-            conShapes.push(s);
+            const shapeList = (typeof window.conGetShapes === 'function') ? window.conGetShapes() : (window.conShapes || global.conShapes || conShapes);
+            shapeList.push(s);
+            if (Array.isArray(conShapes) && conShapes !== shapeList) conShapes.push(s);
+            if (Array.isArray(window.conShapes) && window.conShapes !== shapeList) window.conShapes.push(s);
+            if (Array.isArray(global.conShapes) && global.conShapes !== shapeList) global.conShapes.push(s);
             conShapeBuild(s);
             if (window._conMirrorSend) {
               window._conMirrorSend({
@@ -18562,6 +18721,7 @@
             const x = Math.min(x1, x2), y = Math.min(y1, y2);
             const w = Math.max(2, Math.abs(x2 - x1)), h = Math.max(2, Math.abs(y2 - y1));
             if (w < 3 && h < 3) return; // Too small — ignore tap
+            if (typeof conPushUndo === 'function') conPushUndo();
             const id = 'cs' + (_conShapeNextId++);
             const s = {
               id, type,
@@ -18576,7 +18736,11 @@
               pts: null,
               el: null, svgEl: null, hitEl: null, visEl: null, pad: 0
             };
-            conShapes.push(s);
+            const shapeList = (typeof window.conGetShapes === 'function') ? window.conGetShapes() : (window.conShapes || global.conShapes || conShapes);
+            shapeList.push(s);
+            if (Array.isArray(conShapes) && conShapes !== shapeList) conShapes.push(s);
+            if (Array.isArray(window.conShapes) && window.conShapes !== shapeList) window.conShapes.push(s);
+            if (Array.isArray(global.conShapes) && global.conShapes !== shapeList) global.conShapes.push(s);
             conShapeBuild(s);
             if (window._conMirrorSend) {
               window._conMirrorSend({

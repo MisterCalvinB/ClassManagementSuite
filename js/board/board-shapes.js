@@ -156,6 +156,7 @@
           const x1 = PAD + (s.lx1 - s.x), y1 = PAD + (s.ly1 - s.y);
           const x2 = PAD + (s.lx2 - s.x), y2 = PAD + (s.ly2 - s.y);
           const mid = s.id + '-am';
+          const hitMid = s.id + '-am-hit';
           const ahPx = s.arrowheadSize || _conDrawArrowheadSize || 20;
           const _mwArrow = (ahPx / sw).toFixed(3);
           const _mhArrow = (ahPx / sw * 0.6).toFixed(3);
@@ -175,9 +176,33 @@
           arrowHead.setAttribute('opacity', String(op));
           marker.appendChild(arrowHead);
           defs.appendChild(marker);
+
+          // Transparent hit marker so clicking the arrowhead grabs hitEl
+          const hitMarker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+          hitMarker.setAttribute('id', hitMid);
+          hitMarker.setAttribute('data-hit', '1');
+          hitMarker.setAttribute('viewBox', '0 0 10 6');
+          hitMarker.setAttribute('markerWidth', (parseFloat(_mwArrow) * 1.5).toFixed(3));
+          hitMarker.setAttribute('markerHeight', (parseFloat(_mhArrow) * 1.5).toFixed(3));
+          hitMarker.setAttribute('refX', '0');
+          hitMarker.setAttribute('refY', '3');
+          hitMarker.setAttribute('orient', 'auto');
+          hitMarker.setAttribute('markerUnits', 'strokeWidth');
+          const hitArrowHead = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+          hitArrowHead.setAttribute('data-hit', '1');
+          hitArrowHead.setAttribute('points', '0 0, 10 3, 0 6');
+          hitArrowHead.setAttribute('fill', 'transparent');
+          hitArrowHead.setAttribute('stroke', 'transparent');
+          hitArrowHead.setAttribute('stroke-width', '4');
+          hitArrowHead.style.pointerEvents = 'all';
+          hitArrowHead.style.cursor = 'grab';
+          hitMarker.appendChild(hitArrowHead);
+          defs.appendChild(hitMarker);
+
           hitEl = makeHit('line');
           hitEl.setAttribute('x1', x1); hitEl.setAttribute('y1', y1);
           hitEl.setAttribute('x2', x2); hitEl.setAttribute('y2', y2);
+          hitEl.setAttribute('marker-end', 'url(#' + hitMid + ')');
           hitEl.style.pointerEvents = 'stroke';
           visEl = document.createElementNS('http://www.w3.org/2000/svg', 'line');
           visEl.setAttribute('x1', x1); visEl.setAttribute('y1', y1);
@@ -243,14 +268,21 @@
         if (s.hitEl) s.hitEl.setAttribute('stroke-width', String(Math.max(20, sw + 14)));
         // Update arrowhead
         if (s.type === 'arrow' && s.svgEl) {
-          const ap = s.svgEl.querySelector('defs polygon');
+          const ap = s.svgEl.querySelector('defs polygon:not([data-hit])');
           if (ap) { ap.setAttribute('fill', col); ap.setAttribute('opacity', String(op)); }
-          const mk = s.svgEl.querySelector('defs marker');
+          const mk = s.svgEl.querySelector('defs marker:not([data-hit])');
           if (mk) {
             const ahPx = s.arrowheadSize || _conDrawArrowheadSize || 20;
             const _mw = (ahPx / sw).toFixed(3);
             mk.setAttribute('markerWidth', _mw);
             mk.setAttribute('markerHeight', (parseFloat(_mw) * 0.6).toFixed(3));
+          }
+          const hmk = s.svgEl.querySelector('defs marker[data-hit]');
+          if (hmk) {
+            const ahPx = s.arrowheadSize || _conDrawArrowheadSize || 20;
+            const _mw = (ahPx / sw).toFixed(3);
+            hmk.setAttribute('markerWidth', (parseFloat(_mw) * 1.5).toFixed(3));
+            hmk.setAttribute('markerHeight', (parseFloat(_mw) * 0.6 * 1.5).toFixed(3));
           }
         }
       }
@@ -324,6 +356,7 @@
           if (e.button !== 0 || _getConMode() !== 'move') return;
           e.preventDefault(); e.stopPropagation();
           window._conMirrorDragging = true;
+          let _shapeResizeUndoPushed = false;
           let _shapeResizeRaf = null;
           function _sendShapeResize() {
             if (!window._conMirrorSend) return;
@@ -335,12 +368,17 @@
               pts: s.pts ? s.pts.map(p => ({ ...p })) : null
             });
           }
+          const zoom = window.conCurrentZoom || 1;
           // Polygon vertex drag
           if (hid.startsWith('p') && s.pts) {
             const idx = parseInt(hid.slice(1), 10);
             const snapPt = { ...s.pts[idx] };
             function onMovePoly(ev) {
-              const dx = ev.clientX - e.clientX, dy = ev.clientY - e.clientY;
+              const dx = (ev.clientX - e.clientX) / zoom, dy = (ev.clientY - e.clientY) / zoom;
+              if (!_shapeResizeUndoPushed && (Math.abs(dx) > 2 || Math.abs(dy) > 2)) {
+                conPushUndo();
+                _shapeResizeUndoPushed = true;
+              }
               s.pts[idx] = { x: snapPt.x + dx, y: snapPt.y + dy };
               const xs = s.pts.map(p => p.x), ys = s.pts.map(p => p.y);
               s.x = Math.min(...xs); s.y = Math.min(...ys);
@@ -355,12 +393,15 @@
                 });
               }
             }
-            function onUpPoly() {
+            function onUpPoly(ev) {
               document.removeEventListener('mousemove', onMovePoly);
               document.removeEventListener('mouseup', onUpPoly);
               if (_shapeResizeRaf) { cancelAnimationFrame(_shapeResizeRaf); _shapeResizeRaf = null; }
               window._conMirrorDragging = false;
               _sendShapeResize();
+              if (_shapeResizeUndoPushed && typeof window.conMarkBoardDirty === 'function') {
+                window.conMarkBoardDirty();
+              }
             }
             document.addEventListener('mousemove', onMovePoly);
             document.addEventListener('mouseup', onUpPoly);
@@ -371,7 +412,11 @@
             lx1: s.lx1, ly1: s.ly1, lx2: s.lx2, ly2: s.ly2
           };
           function onMove(ev) {
-            const dx = ev.clientX - e.clientX, dy = ev.clientY - e.clientY;
+            const dx = (ev.clientX - e.clientX) / zoom, dy = (ev.clientY - e.clientY) / zoom;
+            if (!_shapeResizeUndoPushed && (Math.abs(dx) > 2 || Math.abs(dy) > 2)) {
+              conPushUndo();
+              _shapeResizeUndoPushed = true;
+            }
             if (hid === 'start') {
               s.lx1 = snap.lx1 + dx; s.ly1 = snap.ly1 + dy;
               s.x = Math.min(s.lx1, s.lx2); s.y = Math.min(s.ly1, s.ly2);
@@ -399,12 +444,15 @@
               });
             }
           }
-          function onUp() {
+          function onUp(ev) {
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onUp);
             if (_shapeResizeRaf) { cancelAnimationFrame(_shapeResizeRaf); _shapeResizeRaf = null; }
             window._conMirrorDragging = false;
             _sendShapeResize();
+            if (_shapeResizeUndoPushed && typeof window.conMarkBoardDirty === 'function') {
+              window.conMarkBoardDirty();
+            }
           }
           document.addEventListener('mousemove', onMove);
           document.addEventListener('mouseup', onUp);
@@ -440,7 +488,11 @@
         if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
       };
       window.conGetShapeSelected = function () { return _conShapeSelected; };
-      window.conGetShapes = function () { return conShapes; };
+      window.conGetShapes = global.conGetShapes = function () {
+        return (typeof window !== 'undefined' && Array.isArray(window.conShapes))
+          ? window.conShapes
+          : (Array.isArray(global.conShapes) ? global.conShapes : conShapes);
+      };
 
       function _conShapeAttachHitEvents(s) {
         if (!s.hitEl) return;
@@ -487,8 +539,10 @@
           const snaps = [];
           let _dragShapeRaf = null;
           let _pendingShapeMoveMsg = null;
+          let _shapeDragUndoPushed = false;
+          const _allShapesList = (window.conGetShapes ? window.conGetShapes() : (window.conShapes || conShapes));
           _conShapeSelected.forEach(sid => {
-            const sh = conShapes.find(x => x.id === sid);
+            const sh = _allShapesList.find(x => x.id === sid);
             if (sh) snaps.push({
               sh, sx: sh.x, sy: sh.y,
               slx1: sh.lx1, sly1: sh.ly1, slx2: sh.lx2, sly2: sh.ly2,
@@ -533,7 +587,12 @@
           });
           function onMove(ev) {
             if (!dragging) return;
-            const dx = ev.clientX - e.clientX, dy = ev.clientY - e.clientY;
+            const zoom = window.conCurrentZoom || 1;
+            const dx = (ev.clientX - e.clientX) / zoom, dy = (ev.clientY - e.clientY) / zoom;
+            if (!_shapeDragUndoPushed && (Math.abs(dx) > 2 || Math.abs(dy) > 2)) {
+              conPushUndo();
+              _shapeDragUndoPushed = true;
+            }
             // Clear previous snap lines
             const svgEl = document.getElementById('constellation-svg');
             const brd = document.getElementById('constellation-board');
@@ -744,6 +803,9 @@
             dragging = false;
             s.el.style.zIndex = '500';
             if (s.hitEl) s.hitEl.style.cursor = 'grab';
+            if (_hasActuallyMoved && typeof window.conMarkBoardDirty === 'function') {
+              window.conMarkBoardDirty();
+            }
             // Clear snap lines
             document.querySelectorAll('.con-snap-line').forEach(l => l.remove());
             document.removeEventListener('mousemove', onMove);
@@ -822,9 +884,12 @@
       }
 
       window.conShapesClear = function () {
-        conShapes.forEach(s => { if (s.el) s.el.remove(); });
-        conShapes = [];
-        global.conShapes = window.conShapes = conShapes;
+        const list = (window.conGetShapes ? window.conGetShapes() : conShapes) || [];
+        list.forEach(s => { if (s && s.el) s.el.remove(); });
+        list.length = 0;
+        if (Array.isArray(conShapes) && conShapes !== list) conShapes.length = 0;
+        if (Array.isArray(global.conShapes) && global.conShapes !== list) global.conShapes.length = 0;
+        if (Array.isArray(window.conShapes) && window.conShapes !== list) window.conShapes.length = 0;
         _conShapeNextId = 1;
         _conShapeCtxId = null;
         _conShapeSelected.clear();
@@ -836,15 +901,19 @@
         const idStr = (src.id != null && String(src.id).trim()) ? String(src.id).trim() : 'cs' + (_conShapeNextId++);
         const idNum = parseInt(String(idStr).replace(/^cs/, ''), 10);
         if (!isNaN(idNum)) _conShapeNextId = Math.max(_conShapeNextId, idNum + 1);
+        const sx = Number(src.x) || 0;
+        const sy = Number(src.y) || 0;
+        const sw = Math.max(2, Number(src.w) || 40);
+        const sh = Math.max(2, Number(src.h) || 40);
         const s = {
           id: idStr,
           type: src.type || 'rect',
-          x: Number(src.x) || 0, y: Number(src.y) || 0,
-          w: Math.max(2, Number(src.w) || 40), h: Math.max(2, Number(src.h) || 40),
-          lx1: Number(src.lx1) !== 0 ? Number(src.lx1) : Number(src.x) || 0,
-          ly1: Number(src.ly1) !== 0 ? Number(src.ly1) : Number(src.y) || 0,
-          lx2: Number(src.lx2) !== 0 ? Number(src.lx2) : (Number(src.x) || 0) + Math.max(2, Number(src.w) || 40),
-          ly2: Number(src.ly2) !== 0 ? Number(src.ly2) : (Number(src.y) || 0) + Math.max(2, Number(src.h) || 40),
+          x: sx, y: sy,
+          w: sw, h: sh,
+          lx1: (src.lx1 != null && !isNaN(Number(src.lx1))) ? Number(src.lx1) : sx,
+          ly1: (src.ly1 != null && !isNaN(Number(src.ly1))) ? Number(src.ly1) : sy,
+          lx2: (src.lx2 != null && !isNaN(Number(src.lx2))) ? Number(src.lx2) : (sx + sw),
+          ly2: (src.ly2 != null && !isNaN(Number(src.ly2))) ? Number(src.ly2) : (sy + sh),
           color: src.color || '#333333',
           fillColor: src.fillColor != null ? src.fillColor : 'none',
           thickness: Number(src.thickness) || 2,
@@ -854,7 +923,11 @@
           pts: Array.isArray(src.pts) ? src.pts.map(p => ({ x: Number(p.x) || 0, y: Number(p.y) || 0 })) : null,
           el: null, svgEl: null, hitEl: null, visEl: null, pad: 0
         };
-        conShapes.push(s);
+        const list = (window.conGetShapes ? window.conGetShapes() : conShapes) || conShapes;
+        list.push(s);
+        if (Array.isArray(conShapes) && conShapes !== list) conShapes.push(s);
+        if (Array.isArray(window.conShapes) && window.conShapes !== list) window.conShapes.push(s);
+        if (Array.isArray(global.conShapes) && global.conShapes !== list) global.conShapes.push(s);
         conShapeBuild(s);
         return s;
       }
@@ -1575,14 +1648,32 @@
       window.conShapeCtxDelete = function () {
         if (!_conShapeCtxId) return;
         conPushUndo();
-        const s = conShapes.find(x => x.id === _conShapeCtxId);
+        const list = (window.conGetShapes ? window.conGetShapes() : conShapes) || conShapes;
+        const s = list.find(x => x.id === _conShapeCtxId);
         if (s && s.el) s.el.remove();
-        conShapes = conShapes.filter(x => x.id !== _conShapeCtxId);
-        global.conShapes = window.conShapes = conShapes;
+        for (let i = list.length - 1; i >= 0; i--) {
+          if (list[i].id === _conShapeCtxId) list.splice(i, 1);
+        }
+        if (Array.isArray(conShapes) && conShapes !== list) {
+          for (let i = conShapes.length - 1; i >= 0; i--) {
+            if (conShapes[i].id === _conShapeCtxId) conShapes.splice(i, 1);
+          }
+        }
+        if (Array.isArray(window.conShapes) && window.conShapes !== list) {
+          for (let i = window.conShapes.length - 1; i >= 0; i--) {
+            if (window.conShapes[i].id === _conShapeCtxId) window.conShapes.splice(i, 1);
+          }
+        }
+        if (Array.isArray(global.conShapes) && global.conShapes !== list) {
+          for (let i = global.conShapes.length - 1; i >= 0; i--) {
+            if (global.conShapes[i].id === _conShapeCtxId) global.conShapes.splice(i, 1);
+          }
+        }
         // Remove from groups
         conGroups.forEach(g => {
           if (g.shapeIds) g.shapeIds = g.shapeIds.filter(id => id !== _conShapeCtxId);
         });
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
         window.conShapeCtxClose();
       };
 

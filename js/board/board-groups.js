@@ -911,6 +911,19 @@
           const dr = conDrawings.find(x => x && (x.id === did || String(x.id) === String(did)));
           if (dr && dr.el) dr.el.remove();
           conDrawings = conDrawings.filter(x => String(x.id) !== String(did));
+          const drawList = (typeof window.conGetDrawings === 'function') ? window.conGetDrawings() : (window.conDrawings || conDrawings || []);
+          const idx = drawList.findIndex(x => x && (x.id === did || String(x.id) === String(did)));
+          if (idx !== -1) {
+            const dr = drawList[idx];
+            if (dr && dr.el) dr.el.remove();
+            drawList.splice(idx, 1);
+          }
+          [typeof conDrawings !== 'undefined' ? conDrawings : null, global.conDrawings, window.conDrawings].forEach(arr => {
+            if (arr && arr !== drawList) {
+              const i = arr.findIndex(x => x && (x.id === did || String(x.id) === String(did)));
+              if (i !== -1) arr.splice(i, 1);
+            }
+          });
           removedDrawIds.push(String(did));
         });
         const removedShapeIds = [];
@@ -918,6 +931,19 @@
           const s = conShapes.find(x => x && (x.id === sid || String(x.id) === String(sid)));
           if (s && s.el) s.el.remove();
           conShapes = conShapes.filter(x => String(x.id) !== String(sid));
+          const shapesList = (typeof window.conGetShapes === 'function') ? window.conGetShapes() : (window.conShapes || conShapes || []);
+          const idx = shapesList.findIndex(x => x && (x.id === sid || String(x.id) === String(sid)));
+          if (idx !== -1) {
+            const s = shapesList[idx];
+            if (s && s.el) s.el.remove();
+            shapesList.splice(idx, 1);
+          }
+          [typeof conShapes !== 'undefined' ? conShapes : null, global.conShapes, window.conShapes].forEach(arr => {
+            if (arr && arr !== shapesList) {
+              const i = arr.findIndex(x => x && (x.id === sid || String(x.id) === String(sid)));
+              if (i !== -1) arr.splice(i, 1);
+            }
+          });
           removedShapeIds.push(String(sid));
         });
         if (group.mediaIds) [...group.mediaIds].forEach(mid => {

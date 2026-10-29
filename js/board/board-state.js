@@ -460,6 +460,11 @@
 
   // --- Drawing, Shape & Mode Forward Stubs ---
   global.conShapeBuild = global.conShapeBuild || function () {};
+  global.conGetShapes = global.conGetShapes || function () {
+    return (typeof window !== 'undefined' && Array.isArray(window.conShapes))
+      ? window.conShapes
+      : (Array.isArray(global.conShapes) ? global.conShapes : conShapes);
+  };
   global._conDrawSyncOverlayCursor = global._conDrawSyncOverlayCursor || function () {};
   global._conSyncEraserToolbarBtn = global._conSyncEraserToolbarBtn || function () {};
   global.conDrawInitPanel = global.conDrawInitPanel || function () {};
@@ -511,6 +516,7 @@
     window.boardSectionLabel = window.boardSectionLabel || global.boardSectionLabel;
     window.boardSessionType = window.boardSessionType || global.boardSessionType;
     window.conShapeBuild = window.conShapeBuild || global.conShapeBuild;
+    window.conGetShapes = window.conGetShapes || global.conGetShapes;
     window._conDrawSyncOverlayCursor = window._conDrawSyncOverlayCursor || global._conDrawSyncOverlayCursor;
     window._conSyncEraserToolbarBtn = window._conSyncEraserToolbarBtn || global._conSyncEraserToolbarBtn;
     window.conDrawInitPanel = window.conDrawInitPanel || global.conDrawInitPanel;
@@ -645,7 +651,10 @@
   global.getClassGroupLabel = getClassGroupLabel;
   if (typeof window !== 'undefined') {
     window.conNotes = conNotes;
+    window.conShapes = conShapes;
+    window.conDrawings = conDrawings;
     window.conNoteSelected = conNoteSelected;
+    window._conShapeSelected = _conShapeSelected;
     window.conMediaSelected = conMediaSelected;
     window.sanitizeFilenamePart = sanitizeFilenamePart;
     window.boardStripJsonExt = boardStripJsonExt;

@@ -3079,9 +3079,19 @@
           if (shapeSel && shapeSel.size > 0) {
             const removedShapeIds = [];
             [...shapeSel].forEach(sid => {
-              const s = (typeof conShapes !== 'undefined' ? conShapes : []).find(x => x.id === sid);
-              if (s && s.el) s.el.remove();
-              if (typeof conShapes !== 'undefined') conShapes = conShapes.filter(x => x.id !== sid);
+              const shapesList = (typeof window.conGetShapes === 'function') ? window.conGetShapes() : (window.conShapes || conShapes || []);
+              const idx = shapesList.findIndex(x => x && (x.id === sid || String(x.id) === String(sid)));
+              if (idx !== -1) {
+                const s = shapesList[idx];
+                if (s && s.el) s.el.remove();
+                shapesList.splice(idx, 1);
+              }
+              [typeof conShapes !== 'undefined' ? conShapes : null, global.conShapes, window.conShapes].forEach(arr => {
+                if (arr && arr !== shapesList) {
+                  const i = arr.findIndex(x => x && (x.id === sid || String(x.id) === String(sid)));
+                  if (i !== -1) arr.splice(i, 1);
+                }
+              });
               conGroups.forEach(g => { if (g.shapeIds) g.shapeIds = g.shapeIds.filter(id => id !== sid); });
               removedShapeIds.push(String(sid));
             });
@@ -3981,14 +3991,19 @@
           thickness: d.thickness,
           opacity: Number.isFinite(d.opacity) ? d.opacity : 1
         })),
-        shapes: (window.conGetShapes ? window.conGetShapes() : []).map(s => ({
+        shapes: (window.conGetShapes ? window.conGetShapes() : (window.conShapes || [])).map(s => ({
           id: s.id, type: s.type,
           x: s.x, y: s.y, w: s.w, h: s.h,
-          lx1: s.lx1, ly1: s.ly1, lx2: s.lx2, ly2: s.ly2,
+          lx1: (s.lx1 != null && !isNaN(Number(s.lx1))) ? Number(s.lx1) : s.x,
+          ly1: (s.ly1 != null && !isNaN(Number(s.ly1))) ? Number(s.ly1) : s.y,
+          lx2: (s.lx2 != null && !isNaN(Number(s.lx2))) ? Number(s.lx2) : (s.x + s.w),
+          ly2: (s.ly2 != null && !isNaN(Number(s.ly2))) ? Number(s.ly2) : (s.y + s.h),
           color: s.color, fillColor: s.fillColor || 'none',
           thickness: s.thickness,
           opacity: Number.isFinite(s.opacity) ? s.opacity : 1,
-          dashStyle: s.dashStyle || 'solid'
+          dashStyle: s.dashStyle || 'solid',
+          arrowheadSize: s.arrowheadSize || null,
+          pts: Array.isArray(s.pts) ? s.pts.map(p => ({ x: p.x, y: p.y })) : null
         })),
         media: (window.conGetMediaItems ? window.conGetMediaItems() : []).map(m => ({
           id: m.id,
@@ -10249,15 +10264,17 @@
             existing.y = Number(src.y) || 0;
             existing.w = Math.max(2, Number(src.w) || 40);
             existing.h = Math.max(2, Number(src.h) || 40);
-            existing.lx1 = Number(src.lx1) !== 0 ? Number(src.lx1) : existing.x;
-            existing.ly1 = Number(src.ly1) !== 0 ? Number(src.ly1) : existing.y;
-            existing.lx2 = Number(src.lx2) !== 0 ? Number(src.lx2) : existing.x + existing.w;
-            existing.ly2 = Number(src.ly2) !== 0 ? Number(src.ly2) : existing.y + existing.h;
+            existing.lx1 = (src.lx1 != null && !isNaN(Number(src.lx1))) ? Number(src.lx1) : existing.x;
+            existing.ly1 = (src.ly1 != null && !isNaN(Number(src.ly1))) ? Number(src.ly1) : existing.y;
+            existing.lx2 = (src.lx2 != null && !isNaN(Number(src.lx2))) ? Number(src.lx2) : existing.x + existing.w;
+            existing.ly2 = (src.ly2 != null && !isNaN(Number(src.ly2))) ? Number(src.ly2) : existing.y + existing.h;
             existing.color = src.color || existing.color || '#333333';
             existing.fillColor = src.fillColor || 'none';
             existing.thickness = Number(src.thickness) || 3;
             existing.opacity = Number.isFinite(Number(src.opacity)) && Number(src.opacity) > 0 ? Number(src.opacity) : 1;
             existing.dashStyle = src.dashStyle || 'solid';
+            existing.arrowheadSize = Number(src.arrowheadSize) || null;
+            existing.pts = Array.isArray(src.pts) ? src.pts.map(p => ({ x: Number(p.x) || 0, y: Number(p.y) || 0 })) : null;
             if (typeof conShapeFullRebuild === 'function') {
               conShapeFullRebuild(existing);
             } else if (existing.el) {
