@@ -314,10 +314,10 @@
       { id: 'vocab_export_db', name: 'Export to Word Bank', desc: 'Export board words into a custom word bank database', category: 'vocab', categoryName: 'Vocab & Language', icon: '../assets/icons/add-db.svg', defaultShortcut: null, fn: () => { if (typeof window.conDbExportOpen === 'function') window.conDbExportOpen(); else if (typeof conDbExportOpen === 'function') conDbExportOpen(); } },
 
       // Text & Formatting
-      { id: 'font_size_increase', name: 'Increase Node Font Size', desc: 'Increase font size for selected nodes', category: 'formatting', categoryName: 'Text & Formatting', symbol: 'A+', defaultShortcut: { ctrl: true, key: 'ArrowUp' }, fn: () => {
+      { id: 'font_size_increase', name: 'Increase Font Size', desc: 'Increase font size for selected nodes, notes, or selected text in notes', category: 'formatting', categoryName: 'Text & Formatting', symbol: 'A+', defaultShortcut: { ctrl: true, key: 'ArrowUp' }, fn: () => {
         if (typeof window.conAdjustSelectedFontSize === 'function') window.conAdjustSelectedFontSize(1);
       } },
-      { id: 'font_size_decrease', name: 'Decrease Node Font Size', desc: 'Decrease font size for selected nodes', category: 'formatting', categoryName: 'Text & Formatting', symbol: 'A-', defaultShortcut: { ctrl: true, key: 'ArrowDown' }, fn: () => {
+      { id: 'font_size_decrease', name: 'Decrease Font Size', desc: 'Decrease font size for selected nodes, notes, or selected text in notes', category: 'formatting', categoryName: 'Text & Formatting', symbol: 'A-', defaultShortcut: { ctrl: true, key: 'ArrowDown' }, fn: () => {
         if (typeof window.conAdjustSelectedFontSize === 'function') window.conAdjustSelectedFontSize(-1);
       } },
       { id: 'align_left', name: 'Align Left', desc: 'Align selected nodes to left edge', category: 'formatting', categoryName: 'Text & Formatting', icon: '../assets/icons/arrow-left.svg', defaultShortcut: { ctrl: true, key: 'ArrowLeft' }, fn: () => { if (typeof window.conCtxAlignSelected === 'function') window.conCtxAlignSelected('vertical', 'left'); else if (typeof conCtxAlignSelected === 'function') conCtxAlignSelected('vertical', 'left'); } },
@@ -777,6 +777,30 @@
       return [..._bcQuickActionsDraftList];
     }
 
+    function matchShortcutDef(def, sc, e) {
+      if (!sc || !sc.key) return false;
+      const ctrl = !!(e.ctrlKey || e.metaKey);
+      const alt = !!e.altKey;
+      const shift = !!e.shiftKey;
+
+      if (ctrl !== !!sc.ctrl) return false;
+      if (alt !== !!sc.alt) return false;
+      if (shift !== !!sc.shift) return false;
+
+      let eventKey = e.key;
+      let targetKey = sc.key;
+      if (eventKey === ' ' || eventKey === 'Spacebar') eventKey = 'Space';
+      if (targetKey === ' ' || targetKey === 'Spacebar') targetKey = 'Space';
+      if (eventKey === 'Del') eventKey = 'Delete';
+      if (targetKey === 'Del') targetKey = 'Delete';
+
+      let keyMatches = String(eventKey).toLowerCase() === String(targetKey).toLowerCase();
+      if (!keyMatches && def && def.id === 'delete_selected' && (eventKey === 'Backspace' || eventKey === 'Delete') && (targetKey === 'Delete' || targetKey === 'Backspace')) {
+        keyMatches = true;
+      }
+      return keyMatches;
+    }
+
     function boardDispatchCustomShortcut(e) {
       if (_bcActiveRecordingActionId) return false;
       const tag = document.activeElement && document.activeElement.tagName;
@@ -785,11 +809,29 @@
         (document.activeElement && document.activeElement.closest && document.activeElement.closest('[contenteditable="true"]')) ||
         (e.target && e.target.closest && e.target.closest('[contenteditable="true"], .wn-note-editor'));
       
-      // If user is actively typing in a text field, allow Escape, search shortcut (Ctrl+F), save shortcut (Ctrl+S), and link shortcut (Ctrl+J)
+      const isNoteTarget = (document.activeElement && (document.activeElement.classList.contains('wn-note-editor') || (document.activeElement.closest && document.activeElement.closest('.wn-note-editor, .con-word-note, .ta-word-note')))) ||
+        (e.target && (e.target.classList && e.target.classList.contains('wn-note-editor') || (e.target.closest && e.target.closest('.wn-note-editor, .con-word-note, .ta-word-note'))));
+
+      // If user is actively typing in a text field, allow Escape, search shortcut (Ctrl+F), save shortcut (Ctrl+S), link shortcut (Ctrl+J), and font size in notes
       const isSearchShortcut = (e.ctrlKey || e.metaKey) && String(e.key).toLowerCase() === 'f';
       const isSaveShortcut = (e.ctrlKey || e.metaKey) && !e.shiftKey && String(e.key).toLowerCase() === 's';
       const isLinkShortcut = (e.ctrlKey || e.metaKey) && !e.shiftKey && String(e.key).toLowerCase() === 'j';
-      if (isInput && e.key !== 'Escape' && !isSearchShortcut && !isSaveShortcut && !isLinkShortcut) return false;
+
+      let isFontSizeShortcut = false;
+      if (isNoteTarget) {
+        const customMap = getBoardCustomShortcutsMap();
+        for (const def of BOARD_ACTION_DEFINITIONS) {
+          if (def.id === 'font_size_increase' || def.id === 'font_size_decrease') {
+            const sc = getActiveShortcutForDef(def, customMap);
+            if (matchShortcutDef(def, sc, e)) {
+              isFontSizeShortcut = true;
+              break;
+            }
+          }
+        }
+      }
+
+      if (isInput && e.key !== 'Escape' && !isSearchShortcut && !isSaveShortcut && !isLinkShortcut && !isFontSizeShortcut) return false;
 
       // When constellation section is hidden, only allow Escape and search shortcut
       const sec = document.getElementById('constellation-section');
@@ -800,40 +842,18 @@
       const customMap = getBoardCustomShortcutsMap();
       for (const def of BOARD_ACTION_DEFINITIONS) {
         const sc = getActiveShortcutForDef(def, customMap);
-        if (!sc || !sc.key) continue;
+        if (!matchShortcutDef(def, sc, e)) continue;
 
-        const ctrl = !!(e.ctrlKey || e.metaKey);
-        const alt = !!e.altKey;
-        const shift = !!e.shiftKey;
-
-        if (ctrl !== !!sc.ctrl) continue;
-        if (alt !== !!sc.alt) continue;
-        if (shift !== !!sc.shift) continue;
-
-        let eventKey = e.key;
-        let targetKey = sc.key;
-        if (eventKey === ' ' || eventKey === 'Spacebar') eventKey = 'Space';
-        if (targetKey === ' ' || targetKey === 'Spacebar') targetKey = 'Space';
-        if (eventKey === 'Del') eventKey = 'Delete';
-        if (targetKey === 'Del') targetKey = 'Delete';
-
-        let keyMatches = String(eventKey).toLowerCase() === String(targetKey).toLowerCase();
-        if (!keyMatches && def.id === 'delete_selected' && (eventKey === 'Backspace' || eventKey === 'Delete') && (targetKey === 'Delete' || targetKey === 'Backspace')) {
-          keyMatches = true;
+        // If def is clipboard_paste, let the native 'paste' event fire so system images & text are handled
+        if (def.id === 'clipboard_paste') {
+          return false;
         }
-
-        if (keyMatches) {
-          // If def is clipboard_paste, let the native 'paste' event fire so system images & text are handled
-          if (def.id === 'clipboard_paste') {
-            return false;
-          }
-          if (typeof def.fn === 'function') {
-            const res = def.fn();
-            if (res === false) return false;
-          }
-          e.preventDefault();
-          return true;
+        if (typeof def.fn === 'function') {
+          const res = def.fn();
+          if (res === false) return false;
         }
+        e.preventDefault();
+        return true;
       }
 
       // Check if this key matches the default shortcut of an action that was overridden or cleared

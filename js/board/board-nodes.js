@@ -16958,10 +16958,15 @@
         if ((e.ctrlKey || e.metaKey) && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
           const tag = document.activeElement && document.activeElement.tagName;
           if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-          if (document.activeElement && document.activeElement.isContentEditable) return;
+          const isNoteEd = document.activeElement && (document.activeElement.classList.contains('wn-note-editor') || (document.activeElement.closest && document.activeElement.closest('.wn-note-editor, .con-word-note, .ta-word-note')));
+          if (document.activeElement && document.activeElement.isContentEditable && !isNoteEd) return;
           const sec = document.getElementById('constellation-section');
           if (!sec || sec.classList.contains('hidden')) return;
-          const hasSelection = (typeof conSelected !== 'undefined' && conSelected) || (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 0) || (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0);
+          const hasSelection = (typeof conSelected !== 'undefined' && conSelected) ||
+            (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 0) ||
+            (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0) ||
+            (typeof _wnActiveNote !== 'undefined' && _wnActiveNote) ||
+            isNoteEd;
           if (!hasSelection) return;
           e.preventDefault();
           if (typeof window.conAdjustSelectedFontSize === 'function') {

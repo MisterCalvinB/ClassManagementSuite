@@ -1053,7 +1053,7 @@ Interactive mind-map, visual board, constellation session maps, and whiteboard c
 | `Ctrl/Cmd + Alt + V` | Toggle voice dictation (speech-to-text) |
 | `Ctrl/Cmd + Z` / `Y` | Undo / Redo |
 | `Ctrl/Cmd + G` | Group selected nodes |
-| `Ctrl/Cmd + ↑ / ↓` | Increase / decrease node font size |
+| `Ctrl/Cmd + ↑ / ↓` | Increase / decrease font size (nodes, whole notes, or selected note text) |
 | `Delete` | Remove selected nodes |
 </details>
 

@@ -3415,17 +3415,39 @@
         }
       };
       window.conAdjustSelectedFontSize = function (delta) {
+        if (!delta) return;
+        if (typeof window.wnAdjustSelectionOrNoteFontSize === 'function' && window.wnAdjustSelectionOrNoteFontSize(delta)) {
+          return;
+        }
+
         const hasNodeSelection = conSelected || (conMultiSelected && conMultiSelected.size > 0);
-        const hasNoteSelection = typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0;
+        const allLiveNotes = (typeof window.conGetNotes === 'function') ? window.conGetNotes() : (typeof conNotes !== 'undefined' ? conNotes : []);
+        let effActiveNote = (typeof _wnActiveNote !== 'undefined' && _wnActiveNote) ? _wnActiveNote : (window._wnActiveNote || null);
+        if (!effActiveNote && document.activeElement) {
+          const noteEl = document.activeElement.closest('.con-word-note, .ta-word-note');
+          if (noteEl && noteEl.dataset && noteEl.dataset.id) {
+            effActiveNote = allLiveNotes.find(n => n && String(n.id) === String(noteEl.dataset.id));
+          }
+        }
+        const noteTargetsSet = new Set();
+        if (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0) {
+          allLiveNotes.forEach(n => {
+            if (conNoteSelected.has(n.id) || conNoteSelected.has(String(n.id))) {
+              noteTargetsSet.add(n);
+            }
+          });
+        }
+        if (noteTargetsSet.size === 0 && effActiveNote) {
+          noteTargetsSet.add(effActiveNote);
+        }
+        const noteTargets = Array.from(noteTargetsSet);
+        const hasNoteSelection = noteTargets.length > 0;
+
         if (!hasNodeSelection && !hasNoteSelection) return;
         const targets = hasNodeSelection
           ? ((conMultiSelected && conMultiSelected.size > 0)
               ? conNodes.filter(n => conMultiSelected.has(n.id))
               : [conNodes.find(n => n.id === conSelected)].filter(Boolean))
-          : [];
-        const allLiveNotes = (typeof window.conGetNotes === 'function') ? window.conGetNotes() : (typeof conNotes !== 'undefined' ? conNotes : []);
-        const noteTargets = hasNoteSelection
-          ? allLiveNotes.filter(n => conNoteSelected.has(n.id) || conNoteSelected.has(String(n.id)))
           : [];
         if (!targets.length && !noteTargets.length) return;
         conPushUndo();
@@ -3447,10 +3469,29 @@
           });
           noteTargets.forEach(note => {
             if (note.locked) return;
-            const current = parseFloat(note.fontSize) || 14;
-            const next = delta > 0 ? Math.min(current + delta, 96) : Math.max(current + delta, 8);
+            const current = parseFloat(note.fontSize) || 16;
+            const next = delta > 0 ? Math.min(current + delta, 96) : Math.max(current + delta, 4);
+            if (current === next) return;
+            const oldBase = current;
+            const zoom = (window.conGetZoom && note.id && String(note.id).startsWith('cn')) ? window.conGetZoom() : 1;
+            const noteEl = (typeof wnGetNoteElementById === 'function') ? wnGetNoteElementById(note.id) : (document.querySelector ? document.querySelector('.con-word-note[data-id="' + note.id + '"]') : null);
+            const editor = noteEl ? noteEl.querySelector('.wn-note-editor, textarea') : null;
+            if (editor && editor.tagName !== 'TEXTAREA') {
+              editor.querySelectorAll('[style*="font-size"]').forEach(el => {
+                const match = el.style.fontSize.match(/^([\d.]+)px$/);
+                if (match) el.style.fontSize = Math.round(next * (parseFloat(match[1]) / (oldBase * zoom)) * zoom) + 'px';
+              });
+              if (typeof wnSyncNoteDataFromEditor === 'function') wnSyncNoteDataFromEditor(note, editor);
+            }
             note.fontSize = next;
             if (typeof note._applyStyle === 'function') note._applyStyle();
+            if (typeof _wnActiveNote !== 'undefined' && _wnActiveNote && String(_wnActiveNote.id) === String(note.id)) {
+              const szSlider = document.getElementById('wn-sp-size-slider');
+              if (szSlider) szSlider.dataset.rawPx = String(next);
+              const szVal = document.getElementById('wn-sp-size-val');
+              const fnFmtFont = window.conFormatFontSize || (typeof conFormatFontSize === 'function' ? conFormatFontSize : null);
+              if (szVal) szVal.textContent = fnFmtFont ? fnFmtFont(next, window.conFontUnit) : next + 'px';
+            }
             if (window._conMirrorSend) {
               window._conMirrorSend({
                 type: 'note-style',
@@ -3459,6 +3500,9 @@
               });
             }
           });
+          if (noteTargets.length && typeof window.conMarkBoardDirty === 'function') {
+            window.conMarkBoardDirty();
+          }
           if (targets.length) {
             const lastSize = conGetNodeBaseFontSize(targets[targets.length - 1]) || 13;
             const slider = document.getElementById('con-ctx-font-size');
