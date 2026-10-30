@@ -1949,6 +1949,9 @@
       editor.style.height = Math.max(16, (reducedH - 12) * zoom) + 'px';
 
       const belowY = Math.round(nd.y + noteEl.offsetHeight / Math.max(0.5, zoom) + 8);
+      const origW = (nd.manualSize && Number.isFinite(Number(nd.width)))
+        ? Number(nd.width)
+        : Math.max(80, Math.round(noteEl.offsetWidth / Math.max(0.5, zoom)));
       const newId = conGetNextNoteId();
       const clone = Object.assign({}, nd, {
         id: newId,
@@ -1956,12 +1959,12 @@
         y: belowY,
         html: afterHTML,
         text: '',
-        manualSize: false,
-        width: null,
+        manualSize: true,
+        width: origW,
         height: null,
         w: null,
         h: null,
-        liveBaseWidth: null,
+        liveBaseWidth: origW,
         liveBaseHeight: null,
         _cachedW: null,
         _cachedH: null,
@@ -1976,6 +1979,15 @@
       const newEditor = newNoteEl ? newNoteEl.querySelector('.wn-note-editor') : null;
       if (newEditor && typeof conNoteAutosize === 'function') {
         conNoteAutosize(newEditor, clone);
+      }
+      // Fit height to content while keeping the original width
+      if (newNoteEl && newEditor) {
+        newNoteEl.style.height = '';
+        newEditor.style.height = 'auto';
+        const fitH = Math.max(40, Math.round(newNoteEl.offsetHeight / Math.max(0.5, zoom)));
+        clone.height = fitH;
+        clone.liveBaseHeight = fitH;
+        wnApplyStoredSize(newNoteEl, newEditor, clone, zoom);
       }
 
       // Automatically select the new split note

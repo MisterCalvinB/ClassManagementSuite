@@ -3926,6 +3926,12 @@
         const maxLenAttr = field.key === 'icon' ? ' maxlength="8"' : '';
         const defVal = (field.key === 'coefficient' && (val === undefined || val === null || val === '')) ? '1' : String(val ?? '');
         input = `<input type="text" id="${id}" value="${esc(defVal)}"${maxLenAttr} placeholder="${esc(ph)}">`;
+      } else if (S.typeKey === 'chips' && ['section', 'color', 'type'].includes(field.key) && field.type !== 'array' && field.type !== 'object' && field.type !== 'boolean' && field.type !== 'number') {
+        // Personalised chips: free-text entry instead of a dropdown of existing values
+        const listId = `${id}-suggestions`;
+        const suggestions = Array.isArray(field.uniqueVals) ? field.uniqueVals : [];
+        input = `<input type="text" id="${id}" value="${esc(String(val ?? ''))}" list="${listId}" autocomplete="off">` +
+          (suggestions.length ? `<datalist id="${listId}">${suggestions.map(o => `<option value="${esc(String(o))}"></option>`).join('')}</datalist>` : '');
       } else if (S.typeKey !== 'criteria' && field.useSelect && Array.isArray(field.uniqueVals) && field.uniqueVals.length > 0) {
         input = `<select id="${id}">${field.uniqueVals.map(opt => `<option value="${esc(opt)}"${val === opt ? ' selected' : ''}>${esc(opt)}</option>`).join('')}</select>`;
       } else if (field.type === 'boolean') {

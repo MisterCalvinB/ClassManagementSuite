@@ -1644,34 +1644,13 @@
       (fullTests && fullTests.length > 0 ? '        <span class="unit-meta-pill highlight"><strong>Attached Assessments:</strong> ' + fullTests.length + ' (' + totalExamPoints + ' pts)</span>\n' : '') +
       '        <span class="unit-meta-pill"><strong>Generated:</strong> ' + new Date().toLocaleDateString() + '</span>\n' +
       '      </div>\n' +
-      '    </div>\n' +
-      '\n' +
-      '    <!-- ── 2. Unit Table of Contents ── -->\n' +
-      '    <div class="unit-toc">\n' +
-      '      <h3 class="unit-toc-title">Sequence Structure &amp; Progression</h3>\n' +
-      '      <table class="unit-toc-table">\n' +
-      '        <thead>\n' +
-      '          <tr>\n' +
-      '            <th style="width:40px;">#</th>\n' +
-      '            <th style="width:90px;">Type</th>\n' +
-      '            <th>Title / Topic</th>\n' +
-      (showColumn ? '            <th style="min-width:140px;">Competences / Standards</th>\n' : '') +
-      '            <th style="width:100px;">Duration/Pts</th>\n' +
-      '          </tr>\n' +
-      '        </thead>\n' +
-      '        <tbody>\n';
       '    </div>\n';
 
-    var rowIdx = 1;
-    items.forEach(function (it) {
-    // Populate sequenceCoverageMap even if TOC is hidden
     var tocRowsData = [];
     items.forEach(function (it, idx) {
-      var rIdx = idx + 1;
       var isTest = (it.type === 'test' || it.category === 'test' || it.category === 'summative');
+      var rIdx = idx + 1;
       var badgeClass = isTest ? 'unit-item-badge test' : 'unit-item-badge lesson';
-      var badgeText = isTest ? '[TEST / EXAM]' : '[LESSON ' + rowIdx + ']';
-      var itemLabel = isTest ? ('Assessment ' + rowIdx) : ('Lesson ' + rowIdx);
       var badgeText = isTest ? '[TEST / EXAM]' : '[LESSON ' + rIdx + ']';
       var itemLabel = isTest ? ('Assessment ' + rIdx) : ('Lesson ' + rIdx);
       var durOrPts = isTest ? 'Exam' : 'Lesson';
@@ -1699,11 +1678,6 @@
 
       var itemComps = extractItemCompetences(it);
       itemComps.forEach(function (cId) {
-        if (!sequenceCoverageMap[cId]) {
-          var compInfo = compLookup[cId] || {};
-          sequenceCoverageMap[cId] = {
-            code: cId,
-            title: compInfo.title || compInfo.name || cId,
         var compInfo = lookupCompInfo(cId);
         var normCode = compInfo.code || cId;
         if (!sequenceCoverageMap[normCode]) {
@@ -1716,7 +1690,6 @@
             targets: []
           };
         }
-        sequenceCoverageMap[cId].targets.push({
         sequenceCoverageMap[normCode].targets.push({
           label: itemLabel,
           title: it.title || 'Untitled',
@@ -1753,16 +1726,6 @@
         '      <table class="unit-toc-table">\n' +
         '        <thead>\n' +
         '          <tr>\n' +
-        '            <td><strong>' + (rowIdx++) + '</strong></td>\n' +
-        '            <td><span class="' + badgeClass + '">' + badgeText + '</span></td>\n' +
-        '            <td>\n' +
-        '              <strong>' + escapeHtml(it.title || 'Untitled') + '</strong>\n' +
-        (showSubrow && compChipsHtml ? ('              <div class="toc-comp-pills">' + compChipsHtml + '</div>\n') : '') +
-        '            </td>\n' +
-        (showColumn ? ('            <td>' + (compChipsHtml ? ('<div class="toc-comp-pills">' + compChipsHtml + '</div>') : '<span style="color:#94a3b8;font-size:0.75rem;">—</span>') + '</td>\n') : '') +
-        '            <td>' + escapeHtml(durOrPts) + '</td>\n' +
-        '          </tr>\n';
-    });
         '            <th style="width:40px;">#</th>\n' +
         (tocCols.showType !== false ? '            <th style="width:95px;">Type</th>\n' : '') +
         '            <th>Title / Topic</th>\n' +
@@ -1774,9 +1737,6 @@
         '        </thead>\n' +
         '        <tbody>\n';
 
-    html +=
-      '        </tbody>\n' +
-      '      </table>\n';
       tocRowsData.forEach(function (r) {
         var compChipsHtml = '';
         if (r.itemComps.length > 0) {
@@ -1787,11 +1747,6 @@
             return '<span class="comp-tag-chip' + (r.isTest ? ' test' : '') + '" title="' + escapeHtml(chipTitle) + '">' + escapeHtml(dispCode) + '</span>';
           }).join('');
         }
-
-    // Competence Coverage Summary Matrix block
-    if (showMatrix) {
-      var covKeys = Object.keys(sequenceCoverageMap).sort(function (a, b) {
-        return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
         html +=
           '          <tr>\n' +
           '            <td><strong>' + r.rowNum + '</strong></td>\n' +
@@ -1806,20 +1761,7 @@
           (tocCols.showDuration !== false ? '            <td>' + escapeHtml(r.durOrPts) + '</td>\n' : '') +
           '          </tr>\n';
       });
-      if (covKeys.length > 0) {
-        html +=
-          '      <div class="unit-comp-matrix">\n' +
-          '        <div class="unit-comp-matrix-hdr">\n' +
-          '          <span class="unit-comp-matrix-title">Curriculum Competences &amp; Coverage</span>\n' +
-          '          <span class="unit-comp-matrix-badge">' + covKeys.length + ' Targeted Competence' + (covKeys.length > 1 ? 's' : '') + '</span>\n' +
-          '        </div>\n' +
-          '        <div class="unit-comp-grid">\n';
 
-        covKeys.forEach(function (cId) {
-          var cov = sequenceCoverageMap[cId];
-          var targetsHtml = cov.targets.map(function (tg) {
-            return '<span style="font-weight:700;color:' + (tg.isTest ? '#9d174d' : '#1e40af') + ';">' + escapeHtml(tg.label) + '</span>';
-          }).join(', ');
       html +=
         '        </tbody>\n' +
         '      </table>\n';
@@ -1831,13 +1773,6 @@
         });
         if (covKeys.length > 0) {
           html +=
-            '          <div class="unit-comp-card">\n' +
-            '            <div class="unit-comp-card-top">\n' +
-            '              <span class="comp-tag-chip">' + escapeHtml(cov.code) + '</span>\n' +
-            '              <span class="unit-comp-card-name">' + escapeHtml(cov.title) + '</span>\n' +
-            '            </div>\n' +
-            '            <div class="unit-comp-card-links"><strong>Addressed in:</strong> ' + targetsHtml + '</div>\n' +
-            '          </div>\n';
             '      <div class="unit-comp-matrix">\n' +
             '        <div class="unit-comp-matrix-hdr">\n' +
             '          <span class="unit-comp-matrix-title">Curriculum Competences &amp; Coverage</span>\n' +
@@ -1942,8 +1877,6 @@
 
       if (vocabEntries.length > 0) {
         html +=
-          '        </div>\n' +
-          '      </div>\n';
           '    <div class="unit-vocab-card">\n' +
           '      <div class="unit-card-hdr" style="margin-bottom:8px;">\n' +
           '        <h3 class="unit-toc-title" style="margin:0;border:none;padding:0;">Aggregated Unit Vocabulary &amp; Key Concepts</h3>\n' +
@@ -1966,25 +1899,12 @@
       }
     }
 
-    html += '    </div>\n';
-
     // ── 3. Full Lesson Plans in Order ──
     if (options.includePhases !== false) {
       (fullLessons || []).forEach(function (plan, lIdx) {
         var planDur = (plan.sections || []).reduce(function (sum, s) { return sum + (Number(s.duration) || 0); }, 0);
-        html +=
-          '    <div class="unit-lesson-card unit-page-break">\n' +
-          '      <div class="unit-card-hdr">\n' +
-          '        <div>\n' +
-          '          <span class="unit-item-badge lesson">[LESSON ' + (lIdx + 1) + ']</span>\n' +
-          '          <h2 class="unit-card-title">' + escapeHtml(plan.title || 'Lesson Plan') + '</h2>\n' +
-          '        </div>\n' +
-          '        <div style="font-weight:800;font-size:0.85rem;">' + (planDur || plan.targetDuration || 60) + ' min' + (plan.date ? (' • ' + escapeHtml(plan.date)) : '') + '</div>\n' +
-          '      </div>\n';
         var planSub = plan.subject || plan.subjectId || subject || '';
         var planCls = plan.className || plan.classId || className || '';
-
-        if (cssTheme === 'horizontal_table') {
         html += '    <div class="unit-lesson-card unit-page-break' + (lessonLayout === 'horizontal_table' ? ' page-orientation-landscape' : '') + '">\n';
 
         // A. Lesson Header & Metadata Toggles
@@ -2240,22 +2160,17 @@
             if (hasTeacher || hasStudent) {
               html += '        <div class="phase-actions">\n';
               if (hasTeacher) {
-                html += '          <div class="action-box"><span class="action-tag">Teacher Actions</span>' + escapeHtml(sec.teacherAction) + '</div>\n';
                 html += '          <div class="action-box"><span class="action-tag">Teacher Actions</span>' + escapeHtml(sec.teacherAction).replace(/\n/g, '<br>') + '</div>\n';
               }
               if (hasStudent) {
-                html += '          <div class="action-box"><span class="action-tag">Student Actions</span>' + escapeHtml(sec.studentAction) + '</div>\n';
                 html += '          <div class="action-box"><span class="action-tag">Student Tasks</span>' + escapeHtml(sec.studentAction).replace(/\n/g, '<br>') + '</div>\n';
               }
               html += '        </div>\n';
             }
 
-            if (sec.resources) {
-              html += '        <div style="font-size:0.75rem;margin-top:4px;"><strong>Materials:</strong> ' + escapeHtml(sec.resources) + '</div>\n';
             if (lessonToggles.phaseResources !== false && sec.resources) {
               html += '        <div class="phase-subbox resources"><strong>Resources &amp; Materials:</strong> ' + escapeHtml(sec.resources).replace(/\n/g, '<br>') + '</div>\n';
             }
-            if (Array.isArray(sec.customFields) && sec.customFields.length > 0) {
             if (lessonToggles.phaseDiff !== false && sec.differentiation) {
               html += '        <div class="phase-subbox diff"><strong>Differentiation &amp; Support:</strong> ' + escapeHtml(sec.differentiation).replace(/\n/g, '<br>') + '</div>\n';
             }
@@ -2267,7 +2182,6 @@
                 var cfTitle = (cf && cf.title) ? String(cf.title).trim() : '';
                 var cfContent = (cf && cf.content) ? String(cf.content).trim() : '';
                 if (!cfTitle && !cfContent) return;
-                html += '        <div style="font-size:0.75rem;margin-top:4px;"><strong>' + escapeHtml(cfTitle || 'Field') + ':</strong> ' + escapeHtml(cfContent).replace(/\n/g, '<br>') + '</div>\n';
                 html += '        <div class="phase-subbox"><strong>' + escapeHtml(cfTitle || 'Custom Field') + ':</strong> ' + escapeHtml(cfContent).replace(/\n/g, '<br>') + '</div>\n';
               });
             }
@@ -2291,22 +2205,8 @@
 
     // ── 4. Attached Tests in Sequence ──
     if (options.includeTests !== false) {
-      (fullTests || []).forEach(function (test, tIdx) {
-        var tPts = (test.exercises || []).reduce(function (sum, e) { return sum + (Number(e.points) || 0); }, 0);
-        var hasSectionComps = (test.exercises || []).some(function (e) { return e && e.type === 'section_competences'; });
-        var hasSectionCrits = (test.exercises || []).some(function (e) { return e && e.type === 'section_criteria'; });
-        var hasSectionScale = (test.exercises || []).some(function (e) { return e && e.type === 'section_grading_scale'; });
       var variantsToRender = (testVariant === 'both') ? ['A', 'B'] : [testVariant === 'B' ? 'B' : 'A'];
 
-        html +=
-          '    <div class="unit-exam-card unit-page-break">\n' +
-          '      <div class="unit-card-hdr">\n' +
-          '        <div>\n' +
-          '          <span class="unit-item-badge test">[ASSESSMENT / EXAM]</span>\n' +
-          '          <h2 class="unit-card-title">' + escapeHtml(test.title || 'Unit Examination') + '</h2>\n' +
-          '        </div>\n' +
-          '        <div style="font-weight:800;font-size:0.85rem;color:#9d174d;">' + tPts + ' pts • ' + (test.duration || 45) + ' min</div>\n' +
-          '      </div>\n';
       (fullTests || []).forEach(function (origTest) {
         variantsToRender.forEach(function (activeVar) {
           var test = JSON.parse(JSON.stringify(origTest));
@@ -2316,18 +2216,10 @@
             test.variant = activeVar;
           }
 
-        // 4a. Test-Wide Competences (if not placed as an in-flow section block)
-        if (!hasSectionComps && testCompetencesMode !== 'none') {
-          var testWideComps = (Array.isArray(test.linkedCompetences) && test.linkedCompetences.length)
-          // Enrich test-level linkedCompetences with full objects from compLookup
+          // Enrich test-level competences with full objects from the competence catalogue
           var rawTestComps = (Array.isArray(test.linkedCompetences) && test.linkedCompetences.length)
             ? test.linkedCompetences
             : (Array.isArray(test.linkedCompetenceIds) ? test.linkedCompetenceIds : []);
-          if (testWideComps.length > 0) {
-            testWideComps = testWideComps.slice().sort(function (a, b) {
-              var ca = (a && (a.code || a.id)) || String(a || '');
-              var cb = (b && (b.code || b.id)) || String(b || '');
-              return ca.localeCompare(cb, undefined, { numeric: true, sensitivity: 'base' });
           if (!rawTestComps.length && Array.isArray(test.descriptorIds)) {
             rawTestComps = test.descriptorIds.slice();
           }
@@ -2345,76 +2237,8 @@
                 domain: (c && c.domain) || info.category || info.domain || ''
               };
             });
-            if (typeof TestCreatorService !== 'undefined' && typeof TestCreatorService.renderCompetencesHtml === 'function') {
-              var tcSt = (test.headerConfig && test.headerConfig.competencesStyle) || {};
-              html += '      <div style="margin-bottom:12px;">' + TestCreatorService.renderCompetencesHtml(test, {
-                displayMode: tcSt.displayMode || (testCompetencesMode === 'detailed' ? 'table' : 'badges'),
-                title: tcSt.title || 'Competences & Curriculum Objectives',
-                showDescriptions: tcSt.showDescriptions !== false,
-                showCodeCol: tcSt.showCodeCol !== false,
-                showTitleCol: tcSt.showTitleCol !== false,
-                showLevelCol: tcSt.showLevelCol !== false,
-                showScoreCol: !!tcSt.showScoreCol,
-                showCommentsCol: !!tcSt.showCommentsCol,
-                background: tcSt.background || 'default',
-                border: tcSt.border || 'solid',
-                padding: tcSt.padding || 'standard',
-                separatePage: !!tcSt.separatePage,
-                pageOrientation: tcSt.pageOrientation || 'portrait'
-              }) + '</div>\n';
-            } else {
-              html += '      <div class="test-comp-section" style="margin-bottom:12px;">\n';
-              html += '        <span class="test-comp-label">Test-Wide Competences:</span>\n';
-              html += '        <div class="test-comp-chips">\n';
-              testWideComps.forEach(function (c) {
-                var cTitle = (c && c.title) || (c && c.code) || c;
-                html += '          <span class="comp-tag-chip test">' + escapeHtml(String(cTitle)) + '</span>\n';
-              });
-              html += '        </div>\n';
-              html += '      </div>\n';
-            }
           }
-        }
 
-        // 4b. Test-Wide Assessment Criteria (if not placed as an in-flow section block)
-        if (!hasSectionCrits && testCriteriaMode !== 'none') {
-          var testWideCrits = (Array.isArray(test.criteria) && test.criteria.length)
-            ? test.criteria
-            : (Array.isArray(test.linkedCriteria) ? test.linkedCriteria : []);
-          if (testWideCrits.length > 0) {
-            if (typeof TestCreatorService !== 'undefined' && typeof TestCreatorService.renderCriteriaHtml === 'function') {
-              var tcrSt = (test.headerConfig && test.headerConfig.criteriaStyle) || {};
-              html += '      <div style="margin-bottom:12px;">' + TestCreatorService.renderCriteriaHtml(test, {
-                displayMode: tcrSt.displayMode || (testCriteriaMode === 'detailed' ? 'matrix' : 'compact'),
-                title: tcrSt.title || 'Assessment Criteria & Evaluation Rubric',
-                showDescriptions: tcrSt.showDescriptions !== false,
-                showCriterionCol: tcrSt.showCriterionCol !== false,
-                showLevelsCol: tcrSt.showLevelsCol !== false,
-                showMaxCol: tcrSt.showMaxCol !== false,
-                showScoreCol: tcrSt.showScoreCol !== false,
-                showCommentsCol: tcrSt.showCommentsCol !== false,
-                background: tcrSt.background || 'default',
-                border: tcrSt.border || 'solid',
-                padding: tcrSt.padding || 'standard',
-                separatePage: !!tcrSt.separatePage,
-                pageOrientation: tcrSt.pageOrientation || 'portrait'
-              }) + '</div>\n';
-            } else {
-              html += '      <div class="test-criteria-section" style="margin-bottom:12px;">\n';
-              html += '        <span class="test-criteria-label">Test Assessment Criteria:</span>\n';
-              html += '        <table class="test-criteria-table">\n';
-              html += '          <thead><tr><th>Criterion</th><th style="width:60px;text-align:center;">Max</th><th style="width:60px;text-align:center;">Weight</th></tr></thead>\n';
-              html += '          <tbody>\n';
-              testWideCrits.forEach(function (cr) {
-                var crTitle = (cr && (cr.title || cr.name)) || 'Criterion';
-                var crMax = (cr && (cr.maxPoints || cr.points)) || 1;
-                var crWeight = (cr && cr.weight) || 1;
-                html += '            <tr><td><strong>' + escapeHtml(crTitle) + '</strong></td><td style="text-align:center;">/' + crMax + '</td><td style="text-align:center;">' + crWeight + 'x</td></tr>\n';
-              });
-              html += '          </tbody>\n';
-              html += '        </table>\n';
-              html += '      </div>\n';
-            }
           var tPts = (typeof TestCreatorService !== 'undefined' && typeof TestCreatorService.calculateTotalTestPoints === 'function')
             ? TestCreatorService.calculateTotalTestPoints(test)
             : (test.exercises || []).reduce(function (sum, e) { return sum + (Number(e.points) || 0); }, 0);
@@ -2425,7 +2249,7 @@
           } else if (!test.headerConfig) {
             test.headerConfig = {};
           }
-        }
+
           var hc = test.headerConfig;
           hc.showStudentName = testHeaderToggles.showStudentName !== false;
           hc.showClass = testHeaderToggles.showClass !== false;
@@ -2440,62 +2264,12 @@
             hc.showVariantBadge = true;
           }
 
-        // 4c. Test Grading Scale & Conversion (if not placed as an in-flow section block)
-        if (!hasSectionScale && includeGradingScale && (test.scaleModel || test.scaleModelId) && test.scaleModelId !== 'none') {
-          if (typeof TestCreatorService !== 'undefined' && typeof TestCreatorService.renderGradingScaleHtml === 'function') {
-            html += '      <div style="margin-bottom:12px;">' + TestCreatorService.renderGradingScaleHtml(test, { totalPoints: tPts }) + '</div>\n';
-          // Grading Scale config
           hc.showGradingScale = includeGradingScale;
           if (!hc.gradingScaleStyle) hc.gradingScaleStyle = {};
           if (testScaleDisplayMode && testScaleDisplayMode !== 'use_test') {
             hc.gradingScaleStyle.displayMode = testScaleDisplayMode;
           }
-        }
 
-        // 4d. Exercises and In-flow Section Blocks
-        var questionCounter = 0;
-        (test.exercises || []).forEach(function (ex, eIdx) {
-          if (ex.type === 'section_competences') {
-            var blockComps = (Array.isArray(ex.linkedCompetences) && ex.linkedCompetences.length)
-              ? ex.linkedCompetences
-              : (Array.isArray(ex.linkedCompetenceIds) && ex.linkedCompetenceIds.length ? ex.linkedCompetenceIds : []);
-            var cContext = blockComps.length ? { linkedCompetences: blockComps, exercises: [] } : test;
-            if (typeof TestCreatorService !== 'undefined' && typeof TestCreatorService.renderCompetencesHtml === 'function') {
-              var cpOpts = ex.options || {};
-              html += '      <div style="margin-bottom:12px;">' + TestCreatorService.renderCompetencesHtml(cContext, {
-                title: cpOpts.title || ex.title || 'Competences & Curriculum Objectives',
-                displayMode: cpOpts.displayMode || 'table',
-                showDescriptions: cpOpts.showDescriptions !== false,
-                showCodeCol: cpOpts.showCodeCol !== false,
-                showTitleCol: cpOpts.showTitleCol !== false,
-                showLevelCol: cpOpts.showLevelCol !== false,
-                showScoreCol: !!cpOpts.showScoreCol,
-                showCommentsCol: !!cpOpts.showCommentsCol,
-                background: cpOpts.background || 'default',
-                border: cpOpts.border || 'solid',
-                padding: cpOpts.padding || 'standard',
-                separatePage: !!cpOpts.separatePage,
-                pageOrientation: cpOpts.pageOrientation || 'portrait',
-                includeExerciseCompetences: blockComps.length === 0
-              }) + '</div>\n';
-            } else {
-              var sComps = (Array.isArray(cContext.linkedCompetences) && cContext.linkedCompetences.length) ? cContext.linkedCompetences : (Array.isArray(cContext.linkedCompetenceIds) ? cContext.linkedCompetenceIds : []);
-              sComps = sComps.slice().sort(function (a, b) {
-                var ca = (a && (a.code || a.id)) || String(a || '');
-                var cb = (b && (b.code || b.id)) || String(b || '');
-                return ca.localeCompare(cb, undefined, { numeric: true, sensitivity: 'base' });
-              });
-              html += '      <div class="test-comp-section" style="margin-bottom:14px;border:1.5px solid #2563eb;border-radius:4px;padding:10px;background:#eff6ff;">\n';
-              html += '        <div style="font-weight:900;font-size:0.88rem;color:#1e40af;margin-bottom:6px;text-transform:uppercase;">' + escapeHtml(ex.title || 'Competences & Curriculum Objectives') + '</div>\n';
-              if (ex.instructions) html += '        <div style="font-size:0.8rem;color:#3b82f6;margin-bottom:6px;font-style:italic;">' + escapeHtml(ex.instructions) + '</div>\n';
-              html += '        <div class="test-comp-chips">\n';
-              sComps.forEach(function (c) {
-                var cTitle = (c && c.title) || (c && c.code) || c;
-                html += '          <span class="comp-tag-chip test">' + escapeHtml(String(cTitle)) + '</span>\n';
-              });
-              html += '        </div>\n      </div>\n';
-            }
-            return;
           // Competences style & columns config
           if (!hc.competencesStyle) hc.competencesStyle = {};
           var resolvedCompDisplayMode = hc.competencesStyle.displayMode || 'table';
@@ -2504,44 +2278,6 @@
             else if (testCompetencesMode === 'detailed' || testCompetencesMode === 'table') resolvedCompDisplayMode = 'table';
             else if (testCompetencesMode === 'list') resolvedCompDisplayMode = 'list';
           }
-          if (ex.type === 'section_criteria') {
-            var blockCrits = (Array.isArray(ex.criteria) && ex.criteria.length)
-              ? ex.criteria
-              : ((Array.isArray(ex.markingRubric) && ex.markingRubric.length) ? ex.markingRubric : ((Array.isArray(ex.linkedCriteria) && ex.linkedCriteria.length) ? ex.linkedCriteria : []));
-            var crContext = blockCrits.length ? { criteria: blockCrits, exercises: [] } : test;
-            var crOpts = ex.options || {};
-            if (typeof TestCreatorService !== 'undefined' && typeof TestCreatorService.renderCriteriaHtml === 'function') {
-              html += '      <div style="margin-bottom:12px;">' + TestCreatorService.renderCriteriaHtml(crContext, {
-                title: crOpts.rubricTitle || ex.title || 'Assessment Criteria & Evaluation Rubric',
-                displayMode: crOpts.displayMode || crOpts.rubricDisplayMode || 'matrix',
-                showDescriptions: crOpts.showDescriptions !== undefined ? crOpts.showDescriptions : (crOpts.showRubricDescriptions !== false),
-                showCriterionCol: crOpts.showCriterionCol !== false,
-                showLevelsCol: crOpts.showLevelsCol !== false,
-                showMaxCol: crOpts.showMaxCol !== false,
-                showScoreCol: crOpts.showScoreCol !== false,
-                showCommentsCol: crOpts.showCommentsCol !== false,
-                background: crOpts.background || crOpts.rubricBg || 'default',
-                border: crOpts.border || crOpts.rubricBorder || 'solid',
-                padding: crOpts.padding || crOpts.rubricPadding || 'standard',
-                separatePage: crOpts.separatePage !== undefined ? !!crOpts.separatePage : !!crOpts.rubricSeparatePage,
-                pageOrientation: crOpts.pageOrientation || crOpts.rubricPageOrientation || 'portrait',
-                includeExerciseCriteria: blockCrits.length === 0
-              }) + '</div>\n';
-            } else {
-              var sCrits = (Array.isArray(crContext.criteria) && crContext.criteria.length) ? crContext.criteria : (Array.isArray(crContext.linkedCriteria) ? crContext.linkedCriteria : []);
-              html += '      <div class="test-criteria-section" style="margin-bottom:14px;border:1.5px solid #059669;border-radius:4px;padding:10px;background:#ecfdf5;">\n';
-              html += '        <div style="font-weight:900;font-size:0.88rem;color:#065f46;margin-bottom:6px;text-transform:uppercase;">' + escapeHtml(ex.title || 'Assessment Criteria & Evaluation Rubric') + '</div>\n';
-              if (ex.instructions) html += '        <div style="font-size:0.8rem;color:#059669;margin-bottom:6px;font-style:italic;">' + escapeHtml(ex.instructions) + '</div>\n';
-              html += '        <table class="test-criteria-table">\n          <thead><tr><th>Criterion</th><th style="width:60px;text-align:center;">Max</th><th style="width:60px;text-align:center;">Weight</th></tr></thead>\n          <tbody>\n';
-              sCrits.forEach(function (cr) {
-                var crTitle = (cr && (cr.title || cr.name)) || 'Criterion';
-                var crMax = (cr && (cr.maxPoints || cr.points)) || 1;
-                var crWeight = (cr && cr.weight) || 1;
-                html += '            <tr><td><strong>' + escapeHtml(crTitle) + '</strong></td><td style="text-align:center;">/' + crMax + '</td><td style="text-align:center;">' + crWeight + 'x</td></tr>\n';
-              });
-              html += '          </tbody>\n        </table>\n      </div>\n';
-            }
-            return;
           hc.competencesStyle = Object.assign({}, hc.competencesStyle, {
             displayMode: resolvedCompDisplayMode,
             showCodeCol: testCompCols.showCodeCol !== false,
@@ -2566,24 +2302,6 @@
             else if (testCriteriaMode === 'badges') resolvedCritDisplayMode = 'badges';
             else if (testCriteriaMode === 'list') resolvedCritDisplayMode = 'list';
           }
-          if (ex.type === 'section_grading_scale') {
-            if (typeof TestCreatorService !== 'undefined' && typeof TestCreatorService.renderGradingScaleHtml === 'function') {
-              html += '      <div style="margin-bottom:12px;">' + TestCreatorService.renderGradingScaleHtml(test, { title: ex.title || 'Grading Scale & Score Conversion', totalPoints: tPts }) + '</div>\n';
-            } else {
-              var sModel = test.scaleModel;
-              html += '      <div style="margin-bottom:14px;border:1.5px solid #d97706;border-radius:4px;padding:10px;background:#fffbeb;">\n';
-              html += '        <div style="font-weight:900;font-size:0.88rem;color:#92400e;margin-bottom:6px;text-transform:uppercase;">' + escapeHtml(ex.title || 'Grading Scale & Score Conversion') + '</div>\n';
-              if (ex.instructions) html += '        <div style="font-size:0.8rem;color:#b45309;margin-bottom:6px;font-style:italic;">' + escapeHtml(ex.instructions) + '</div>\n';
-              if (sModel && Array.isArray(sModel.intervals) && sModel.intervals.length > 0) {
-                html += '        <div style="display:flex;flex-wrap:wrap;gap:6px;">\n';
-                sModel.intervals.forEach(function (it) {
-                  html += '          <span style="background:#fff;border:1px solid #d97706;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:800;color:#92400e;"><strong>' + escapeHtml(it.grade) + '</strong>: ' + (it.minPoints != null ? (it.minPoints + '–' + it.maxPoints + ' pts') : (it.pct + '%')) + '</span>\n';
-                });
-                html += '        </div>\n';
-              }
-              html += '      </div>\n';
-            }
-            return;
           hc.criteriaStyle = Object.assign({}, hc.criteriaStyle, {
             displayMode: resolvedCritDisplayMode,
             showCriterionCol: testCritCols.showCriterionCol !== false,
@@ -2605,75 +2323,20 @@
             test.exportStyle.numberedLines = false;
           }
 
-          questionCounter++;
           var hasSectionComps = (test.exercises || []).some(function (e) { return e && e.type === 'section_competences'; });
           var hasSectionCrits = (test.exercises || []).some(function (e) { return e && e.type === 'section_criteria'; });
           var hasSectionScale = (test.exercises || []).some(function (e) { return e && e.type === 'section_grading_scale'; });
 
           html +=
-            '      <div class="ex-item-card">\n' +
-            '        <div style="display:flex;justify-content:space-between;font-weight:800;font-size:0.9rem;border-bottom:1.5px solid #000;padding-bottom:4px;margin-bottom:6px;">\n' +
-            '          <span>Exercise ' + questionCounter + ': ' + escapeHtml(ex.title || (ex.type ? ex.type.toUpperCase() : 'Task')) + '</span>\n' +
-            '          <span>/' + (ex.points || 1) + ' pts</span>\n' +
             '    <div class="unit-exam-card unit-page-break">\n' +
             '      <div class="unit-card-hdr">\n' +
             '        <div>\n' +
             '          <span class="unit-item-badge test">[ASSESSMENT / EXAM' + (testVariant === 'both' || activeVar === 'B' ? (' — GROUP ' + activeVar) : '') + (includeAnswerKeys ? ' — TEACHER KEY' : '') + ']</span>\n' +
             '          <h2 class="unit-card-title">' + escapeHtml(test.title || 'Unit Examination') + '</h2>\n' +
             '        </div>\n' +
-            (ex.instructions ? '        <div style="font-size:0.85rem;font-style:italic;margin-bottom:6px;">' + escapeHtml(ex.instructions) + '</div>\n' : '');
             '        <div style="font-weight:800;font-size:0.85rem;color:#9d174d;">' + tPts + ' pts • ' + (test.durationMinutes || test.duration || 45) + ' min</div>\n' +
             '      </div>\n';
 
-          if (ex.type === 'cloze' && ex.content && ex.content.text) {
-            html += '        <div style="font-size:0.85rem;white-space:pre-line;line-height:1.6;">' + escapeHtml(ex.content.text) + '</div>\n';
-          } else if (ex.type === 'matching' && ex.content && Array.isArray(ex.content.pairs)) {
-            html += '        <ul style="font-size:0.85rem;margin:4px 0;padding-left:20px;">' +
-              ex.content.pairs.map(function (p) { return '<li>' + escapeHtml(p.left) + ' → ' + escapeHtml(p.right) + '</li>'; }).join('') +
-              '</ul>\n';
-          } else if (ex.type === 'open_question' && ex.content && Array.isArray(ex.content.questions)) {
-            html += '        <ol style="font-size:0.85rem;margin:4px 0;padding-left:20px;">' +
-              ex.content.questions.map(function (q) { return '<li>' + escapeHtml(q.prompt) + ' (' + (q.points || 1) + ' pts)</li>'; }).join('') +
-              '</ol>\n';
-          } else if (ex.type === 'composition' && ex.content && Array.isArray(ex.content.prompts)) {
-            html += '        <ul style="font-size:0.85rem;margin:4px 0;padding-left:20px;">' +
-              ex.content.prompts.map(function (p) { return '<li>' + escapeHtml(p.title || p.text || p) + '</li>'; }).join('') +
-              '</ul>\n';
-          } else if ((ex.type === 'mcq' || ex.type === 'qcm') && ex.content && Array.isArray(ex.content.questions)) {
-            html += '        <ol style="font-size:0.85rem;margin:4px 0;padding-left:20px;">' +
-              ex.content.questions.map(function (q) {
-                var opts = Array.isArray(q.options) ? q.options.map(function(o){ return '<span style="margin-right:12px;">◻ ' + escapeHtml(o.text || o) + '</span>'; }).join('') : '';
-                return '<li style="margin-bottom:6px;"><div>' + escapeHtml(q.prompt || q.text || '') + '</div><div style="margin-top:2px;">' + opts + '</div></li>';
-              }).join('') +
-              '</ol>\n';
-          } else if (ex.type === 'transformation' && ex.content && Array.isArray(ex.content.items)) {
-            html += '        <ol style="font-size:0.85rem;margin:4px 0;padding-left:20px;">' +
-              ex.content.items.map(function (it) { return '<li style="margin-bottom:4px;"><div>' + escapeHtml(it.sentence || it.text || '') + '</div><div style="font-style:italic;color:#64748b;">→ ' + escapeHtml(it.prompt || '') + '</div></li>'; }).join('') +
-              '</ol>\n';
-          } else if (ex.type === 'translation' && ex.content && Array.isArray(ex.content.sentences)) {
-            html += '        <ol style="font-size:0.85rem;margin:4px 0;padding-left:20px;">' +
-              ex.content.sentences.map(function (s) { return '<li style="margin-bottom:4px;">' + escapeHtml(s.source || s.text || s) + '</li>'; }).join('') +
-              '</ol>\n';
-          } else if (ex.type === 'picture_description' && ex.content) {
-            html += '        <div style="font-size:0.85rem;margin:4px 0;">' +
-              (ex.content.prompt ? '<div>' + escapeHtml(ex.content.prompt) + '</div>' : '') +
-              (ex.content.guidingQuestions ? '<ul style="padding-left:20px;margin-top:4px;">' + ex.content.guidingQuestions.map(function (g) { return '<li>' + escapeHtml(g) + '</li>'; }).join('') + '</ul>' : '') +
-              '</div>\n';
-          } else if (ex.type === 'odd_one_out' && ex.content && Array.isArray(ex.content.items)) {
-            html += '        <ol style="font-size:0.85rem;margin:4px 0;padding-left:20px;">' +
-              ex.content.items.map(function (it) {
-                var wList = Array.isArray(it.words) ? it.words.join(' • ') : (it.words || '');
-                return '<li style="margin-bottom:4px;">' + escapeHtml(wList) + '</li>';
-              }).join('') +
-              '</ol>\n';
-          } else if (ex.type === 'reading_comprehension' && ex.content) {
-            html += '        <div style="font-size:0.85rem;line-height:1.6;background:#f8fafc;padding:8px 10px;border-left:3px solid #3b82f6;margin-bottom:8px;">' +
-              escapeHtml(ex.content.text || ex.content.passage || '') +
-              '</div>\n';
-            if (Array.isArray(ex.content.subQuestions) && ex.content.subQuestions.length > 0) {
-              html += '        <ol style="font-size:0.85rem;margin:4px 0;padding-left:20px;">' +
-                ex.content.subQuestions.map(function (sq) { return '<li style="margin-bottom:4px;">' + escapeHtml(sq.prompt || sq.text || '') + ' (' + (sq.points || 1) + ' pts)</li>'; }).join('') +
-                '</ol>\n';
           // Full Exam Header Box (when enabled and TestCreatorService is loaded)
           var renderedScaleInHeader = false;
           if (testHeaderToggles.showHeader !== false && typeof TestCreatorService !== 'undefined' && typeof TestCreatorService.renderHeaderHtml === 'function') {
@@ -2716,9 +2379,6 @@
             }
           }
 
-          // Optional Teacher Solution Key
-          if (includeAnswerKeys && ex.solution) {
-            html += '        <div style="margin-top:6px;padding:6px 8px;background:#fef3c7;border:1px dashed #d97706;border-radius:4px;font-size:0.8rem;color:#92400e;"><strong>Teacher Solution Key:</strong> ' + escapeHtml(typeof ex.solution === 'string' ? ex.solution : JSON.stringify(ex.solution)) + '</div>\n';
           // 4b. Test-Wide Assessment Criteria (if not placed as an in-flow section block)
           if (!hasSectionCrits && testCriteriaMode !== 'none') {
             var testWideCrits = (Array.isArray(test.criteria) && test.criteria.length)
@@ -2758,17 +2418,6 @@
             }
           }
 
-          // Exercise Competences Rendering
-          if (testCompetencesMode !== 'none') {
-            var exComps = [];
-            var cSet = new Set();
-            if (Array.isArray(ex.descriptorIds)) ex.descriptorIds.forEach(function (id) { if (id) cSet.add(String(id).trim()); });
-            if (Array.isArray(ex.linkedCompetenceIds)) ex.linkedCompetenceIds.forEach(function (id) { if (id) cSet.add(String(id).trim()); });
-            if (Array.isArray(ex.linkedCompetences)) {
-              ex.linkedCompetences.forEach(function (c) {
-                var cid = (typeof c === 'object' && c) ? (c.id || c.code || c.title) : c;
-                if (cid) cSet.add(String(cid).trim());
-              });
           // 4c. Test Grading Scale & Conversion (if not already rendered in header or as an in-flow section block)
           if (!renderedScaleInHeader && !hasSectionScale && includeGradingScale && (test.scaleModel || test.scaleModelId) && test.scaleModelId !== 'none') {
             if (typeof TestCreatorService !== 'undefined' && typeof TestCreatorService.renderGradingScaleHtml === 'function') {
@@ -2777,28 +2426,8 @@
                 displayMode: hc.gradingScaleStyle.displayMode
               }) + '</div>\n';
             }
-            if (Array.isArray(ex.competenceIds)) ex.competenceIds.forEach(function (id) { if (id) cSet.add(String(id).trim()); });
-            if (Array.isArray(ex.competences)) {
-              ex.competences.forEach(function (c) {
-                var cid = (typeof c === 'object' && c) ? (c.id || c.code || c.title) : c;
-                if (cid) cSet.add(String(cid).trim());
-              });
-            }
-            cSet.forEach(function (cid) {
-              var info = compLookup[cid] || {};
-              exComps.push({
-                code: cid,
-                title: info.title || info.name || cid,
-                description: info.description || info.desc || '',
-                category: info.category || info.theme || '',
-                level: info.level || info.tier || ''
-              });
-            });
           }
 
-            exComps.sort(function (a, b) {
-              return String(a.code || a.title).localeCompare(String(b.code || b.title), undefined, { numeric: true, sensitivity: 'base' });
-            });
           // 4d. Exercises and In-flow Section Blocks
           var questionCounter = 0;
           var exList = test.exercises || [];
@@ -2806,33 +2435,6 @@
             var isSecBlock = (ex.type === 'section_competences' || ex.type === 'section_criteria' || ex.type === 'section_grading_scale' || ex.type === 'section_custom' || ex.type === 'custom_block');
             if (!isSecBlock) questionCounter++;
 
-            if (exComps.length > 0) {
-              if (testCompetencesMode === 'compact') {
-                html += '        <div class="test-comp-section">\n';
-                html += '          <span class="test-comp-label">Targeted Competences:</span>\n';
-                html += '          <div class="test-comp-chips">\n';
-                exComps.forEach(function (c) {
-                  html += '            <span class="comp-tag-chip test" title="' + escapeHtml(c.title ? (c.code + ': ' + c.title) : c.code) + '">' + escapeHtml(c.code) + (c.title && c.title !== c.code ? (' — ' + escapeHtml(c.title)) : '') + '</span>\n';
-                });
-                html += '          </div>\n';
-                html += '        </div>\n';
-              } else if (testCompetencesMode === 'detailed') {
-                html += '        <div class="test-comp-section">\n';
-                html += '          <span class="test-comp-label">Targeted Standards &amp; Descriptors:</span>\n';
-                html += '          <div class="test-comp-cards-grid">\n';
-                exComps.forEach(function (c) {
-                  html += '            <div class="test-comp-card">\n';
-                  html += '              <div class="test-comp-card-top">\n';
-                  html += '                <span class="comp-tag-chip test">' + escapeHtml(c.code) + '</span>\n';
-                  html += '                <span class="test-comp-card-title">' + escapeHtml(c.title) + '</span>\n';
-                  if (c.level) html += '                <span class="test-comp-level-badge">' + escapeHtml(c.level) + '</span>\n';
-                  if (c.category) html += '                <span class="test-comp-cat-badge">' + escapeHtml(c.category) + '</span>\n';
-                  html += '              </div>\n';
-                  if (c.description) html += '              <div class="test-comp-card-desc">' + escapeHtml(c.description) + '</div>\n';
-                  html += '            </div>\n';
-                });
-                html += '          </div>\n';
-                html += '        </div>\n';
             // Apply competence/criteria column overrides to section blocks & exercise rubrics if not 'use_test'
             if (ex.type === 'section_competences') {
               if (testCompetencesMode === 'none') return;
@@ -2884,38 +2486,7 @@
                 ex.options.showCommentsCol = hc.criteriaStyle.showCommentsCol;
               }
             }
-          }
 
-          // Exercise Criteria / Rubric Rendering
-          if (testCriteriaMode !== 'none') {
-            var exRubrics = Array.isArray(ex.markingRubric) ? ex.markingRubric : (Array.isArray(ex.criteria) ? ex.criteria : (Array.isArray(ex.correctionCriteria) ? ex.correctionCriteria : []));
-            if (exRubrics.length > 0) {
-              if (testCriteriaMode === 'compact') {
-                html += '        <div class="test-criteria-section">\n';
-                html += '          <span class="test-criteria-label">Assessment &amp; Rubric Criteria:</span>\n';
-                html += '          <table class="test-criteria-table">\n';
-                html += '            <thead><tr><th>Criterion</th><th style="width:55px;text-align:center;">Max</th><th style="width:55px;text-align:center;">Weight</th><th style="width:55px;text-align:center;">Score</th></tr></thead>\n';
-                html += '            <tbody>\n';
-                exRubrics.forEach(function (r) {
-                  var rTitle = (typeof r === 'object' && r) ? (r.title || r.name || 'Criterion') : String(r);
-                  var rMax = (typeof r === 'object' && r && (r.maxPoints != null || r.points != null)) ? (r.maxPoints != null ? r.maxPoints : r.points) : 1;
-                  var rWeight = (typeof r === 'object' && r && r.weight != null) ? r.weight : 1;
-                  html += '              <tr><td><strong>' + escapeHtml(rTitle) + '</strong></td><td style="text-align:center;">/' + rMax + '</td><td style="text-align:center;">' + rWeight + 'x</td><td></td></tr>\n';
-                });
-                html += '            </tbody>\n';
-                html += '          </table>\n';
-                html += '        </div>\n';
-              } else if (testCriteriaMode === 'detailed') {
-                html += '        <div class="test-criteria-section">\n';
-                html += '          <span class="test-criteria-label">Detailed Correction Rubric:</span>\n';
-                html += '          <div class="test-criteria-list">\n';
-                exRubrics.forEach(function (r) {
-                  var rTitle = (typeof r === 'object' && r) ? (r.title || r.name || 'Criterion') : String(r);
-                  var rMax = (typeof r === 'object' && r && (r.maxPoints != null || r.points != null)) ? (r.maxPoints != null ? r.maxPoints : r.points) : 1;
-                  var rWeight = (typeof r === 'object' && r && r.weight != null) ? r.weight : 1;
-                  var rDesc = (typeof r === 'object' && r) ? (r.description || r.desc || '') : '';
-                  var rLevel = (typeof r === 'object' && r) ? (r.level || r.tier || '') : '';
-                  var rScale = (typeof r === 'object' && r && Array.isArray(r.scale)) ? r.scale : (Array.isArray(r.levels) ? r.levels : null);
             // Full Printable Exam Exercise Rendering via TestCreatorService
             if (testRenderMode !== 'summary_cards' && typeof TestCreatorService !== 'undefined' && typeof TestCreatorService.renderExerciseHtml === 'function') {
               var renderedExHtml = TestCreatorService.renderExerciseHtml(ex, eIdx, includeAnswerKeys, {
@@ -2929,28 +2500,6 @@
               return;
             }
 
-                  html += '            <div class="test-criterion-card">\n';
-                  html += '              <div class="test-criterion-top">\n';
-                  html += '                <span class="test-criterion-title">' + escapeHtml(rTitle) + '</span>\n';
-                  html += '                <div class="test-criterion-meta">\n';
-                  if (rLevel) html += '                  <span class="test-comp-level-badge">' + escapeHtml(rLevel) + '</span>\n';
-                  html += '                  <span>Max: /' + rMax + ' pts (' + rWeight + 'x)</span>\n';
-                  html += '                </div>\n';
-                  html += '              </div>\n';
-                  if (rDesc) html += '              <div class="test-criterion-desc">' + escapeHtml(rDesc) + '</div>\n';
-                  if (rScale && rScale.length > 0) {
-                    html += '              <div class="test-criterion-scale">\n';
-                    rScale.forEach(function (sc) {
-                      var scScore = (typeof sc === 'object' && sc) ? (sc.score != null ? sc.score : (sc.points != null ? sc.points : '')) : '';
-                      var scText = (typeof sc === 'object' && sc) ? (sc.desc || sc.title || sc.label || '') : String(sc);
-                      html += '                <span><strong>' + (scScore !== '' ? (scScore + ' pts: ') : '') + '</strong>' + escapeHtml(scText) + '</span>\n';
-                    });
-                    html += '              </div>\n';
-                  }
-                  html += '            </div>\n';
-                });
-                html += '          </div>\n';
-                html += '        </div>\n';
             // Fallback / Compact Summary Cards Mode
             if (ex.type === 'section_competences' || ex.type === 'section_criteria' || ex.type === 'section_grading_scale') {
               return;
@@ -3021,9 +2570,129 @@
                   '</ol>\n';
               }
             }
+
+          // Exercise Competences Rendering
+          if (testCompetencesMode !== 'none') {
+            var exComps = [];
+            var cSet = new Set();
+            if (Array.isArray(ex.descriptorIds)) ex.descriptorIds.forEach(function (id) { if (id) cSet.add(String(id).trim()); });
+            if (Array.isArray(ex.linkedCompetenceIds)) ex.linkedCompetenceIds.forEach(function (id) { if (id) cSet.add(String(id).trim()); });
+            if (Array.isArray(ex.linkedCompetences)) {
+              ex.linkedCompetences.forEach(function (c) {
+                var cid = (typeof c === 'object' && c) ? (c.id || c.code || c.title) : c;
+                if (cid) cSet.add(String(cid).trim());
+              });
+            }
+            if (Array.isArray(ex.competenceIds)) ex.competenceIds.forEach(function (id) { if (id) cSet.add(String(id).trim()); });
+            if (Array.isArray(ex.competences)) {
+              ex.competences.forEach(function (c) {
+                var cid = (typeof c === 'object' && c) ? (c.id || c.code || c.title) : c;
+                if (cid) cSet.add(String(cid).trim());
+              });
+            }
+            cSet.forEach(function (cid) {
+              var info = compLookup[cid] || {};
+              exComps.push({
+                code: cid,
+                title: info.title || info.name || cid,
+                description: info.description || info.desc || '',
+                category: info.category || info.theme || '',
+                level: info.level || info.tier || ''
+              });
+            });
+
+            exComps.sort(function (a, b) {
+              return String(a.code || a.title).localeCompare(String(b.code || b.title), undefined, { numeric: true, sensitivity: 'base' });
+            });
+
+            if (exComps.length > 0) {
+              if (testCompetencesMode === 'compact') {
+                html += '        <div class="test-comp-section">\n';
+                html += '          <span class="test-comp-label">Targeted Competences:</span>\n';
+                html += '          <div class="test-comp-chips">\n';
+                exComps.forEach(function (c) {
+                  html += '            <span class="comp-tag-chip test" title="' + escapeHtml(c.title ? (c.code + ': ' + c.title) : c.code) + '">' + escapeHtml(c.code) + (c.title && c.title !== c.code ? (' — ' + escapeHtml(c.title)) : '') + '</span>\n';
+                });
+                html += '          </div>\n';
+                html += '        </div>\n';
+              } else if (testCompetencesMode === 'detailed') {
+                html += '        <div class="test-comp-section">\n';
+                html += '          <span class="test-comp-label">Targeted Standards &amp; Descriptors:</span>\n';
+                html += '          <div class="test-comp-cards-grid">\n';
+                exComps.forEach(function (c) {
+                  html += '            <div class="test-comp-card">\n';
+                  html += '              <div class="test-comp-card-top">\n';
+                  html += '                <span class="comp-tag-chip test">' + escapeHtml(c.code) + '</span>\n';
+                  html += '                <span class="test-comp-card-title">' + escapeHtml(c.title) + '</span>\n';
+                  if (c.level) html += '                <span class="test-comp-level-badge">' + escapeHtml(c.level) + '</span>\n';
+                  if (c.category) html += '                <span class="test-comp-cat-badge">' + escapeHtml(c.category) + '</span>\n';
+                  html += '              </div>\n';
+                  if (c.description) html += '              <div class="test-comp-card-desc">' + escapeHtml(c.description) + '</div>\n';
+                  html += '            </div>\n';
+                });
+                html += '          </div>\n';
+                html += '        </div>\n';
+              }
+            }
           }
 
-          html += '      </div>\n';
+          // Exercise Criteria / Rubric Rendering
+          if (testCriteriaMode !== 'none') {
+            var exRubrics = Array.isArray(ex.markingRubric) ? ex.markingRubric : (Array.isArray(ex.criteria) ? ex.criteria : (Array.isArray(ex.correctionCriteria) ? ex.correctionCriteria : []));
+            if (exRubrics.length > 0) {
+              if (testCriteriaMode === 'compact') {
+                html += '        <div class="test-criteria-section">\n';
+                html += '          <span class="test-criteria-label">Assessment &amp; Rubric Criteria:</span>\n';
+                html += '          <table class="test-criteria-table">\n';
+                html += '            <thead><tr><th>Criterion</th><th style="width:55px;text-align:center;">Max</th><th style="width:55px;text-align:center;">Weight</th><th style="width:55px;text-align:center;">Score</th></tr></thead>\n';
+                html += '            <tbody>\n';
+                exRubrics.forEach(function (r) {
+                  var rTitle = (typeof r === 'object' && r) ? (r.title || r.name || 'Criterion') : String(r);
+                  var rMax = (typeof r === 'object' && r && (r.maxPoints != null || r.points != null)) ? (r.maxPoints != null ? r.maxPoints : r.points) : 1;
+                  var rWeight = (typeof r === 'object' && r && r.weight != null) ? r.weight : 1;
+                  html += '              <tr><td><strong>' + escapeHtml(rTitle) + '</strong></td><td style="text-align:center;">/' + rMax + '</td><td style="text-align:center;">' + rWeight + 'x</td><td></td></tr>\n';
+                });
+                html += '            </tbody>\n';
+                html += '          </table>\n';
+                html += '        </div>\n';
+              } else if (testCriteriaMode === 'detailed') {
+                html += '        <div class="test-criteria-section">\n';
+                html += '          <span class="test-criteria-label">Detailed Correction Rubric:</span>\n';
+                html += '          <div class="test-criteria-list">\n';
+                exRubrics.forEach(function (r) {
+                  var rTitle = (typeof r === 'object' && r) ? (r.title || r.name || 'Criterion') : String(r);
+                  var rMax = (typeof r === 'object' && r && (r.maxPoints != null || r.points != null)) ? (r.maxPoints != null ? r.maxPoints : r.points) : 1;
+                  var rWeight = (typeof r === 'object' && r && r.weight != null) ? r.weight : 1;
+                  var rDesc = (typeof r === 'object' && r) ? (r.description || r.desc || '') : '';
+                  var rLevel = (typeof r === 'object' && r) ? (r.level || r.tier || '') : '';
+                  var rScale = (typeof r === 'object' && r && Array.isArray(r.scale)) ? r.scale : (Array.isArray(r.levels) ? r.levels : null);
+
+                  html += '            <div class="test-criterion-card">\n';
+                  html += '              <div class="test-criterion-top">\n';
+                  html += '                <span class="test-criterion-title">' + escapeHtml(rTitle) + '</span>\n';
+                  html += '                <div class="test-criterion-meta">\n';
+                  if (rLevel) html += '                  <span class="test-comp-level-badge">' + escapeHtml(rLevel) + '</span>\n';
+                  html += '                  <span>Max: /' + rMax + ' pts (' + rWeight + 'x)</span>\n';
+                  html += '                </div>\n';
+                  html += '              </div>\n';
+                  if (rDesc) html += '              <div class="test-criterion-desc">' + escapeHtml(rDesc) + '</div>\n';
+                  if (rScale && rScale.length > 0) {
+                    html += '              <div class="test-criterion-scale">\n';
+                    rScale.forEach(function (sc) {
+                      var scScore = (typeof sc === 'object' && sc) ? (sc.score != null ? sc.score : (sc.points != null ? sc.points : '')) : '';
+                      var scText = (typeof sc === 'object' && sc) ? (sc.desc || sc.title || sc.label || '') : String(sc);
+                      html += '                <span><strong>' + (scScore !== '' ? (scScore + ' pts: ') : '') + '</strong>' + escapeHtml(scText) + '</span>\n';
+                    });
+                    html += '              </div>\n';
+                  }
+                  html += '            </div>\n';
+                });
+                html += '          </div>\n';
+                html += '        </div>\n';
+              }
+            }
+          }
+
             if (includeAnswerKeys && (ex.solution || ex.answerKey)) {
               var solText = ex.solution || ex.answerKey;
               html += '        <div style="margin-top:6px;padding:6px 8px;background:#fef3c7;border:1px dashed #d97706;border-radius:4px;font-size:0.8rem;color:#92400e;"><strong>Teacher Solution Key:</strong> ' + escapeHtml(typeof solText === 'string' ? solText : JSON.stringify(solText)) + '</div>\n';
@@ -3034,8 +2703,6 @@
 
           html += '    </div>\n';
         });
-
-        html += '    </div>\n';
       });
     }
 
@@ -3072,8 +2739,6 @@
     var subject = (unitSeq && unitSeq.subject) || (fullLessons[0] && (fullLessons[0].subject || fullLessons[0].subjectId)) || '';
     var className = (unitSeq && unitSeq.classId) || (fullLessons[0] && fullLessons[0].classId) || '';
     var compLayout = options.competenceLayout || 'column';
-    var testCriteriaMode = options.testCriteriaMode || 'compact';
-    var testCompetencesMode = options.testCompetencesMode || 'compact';
     var testCriteriaMode = options.testCriteriaMode || 'use_test';
     var testCompetencesMode = options.testCompetencesMode || 'use_test';
     var includeGradingScale = (options.includeGradingScale !== false);
@@ -3133,8 +2798,6 @@
     };
 
     var md = '# ' + title + '\n\n';
-    md += '**Subject:** ' + (subject || 'General') + ' | **Class:** ' + (className || 'N/A') + ' | **Total Lessons:** ' + (fullLessons || []).length + '\n\n';
-    md += '## Sequence Structure\n\n';
     if (includeSummary) {
       md += '**Subject:** ' + (subject || 'General') + ' | **Class:** ' + (className || 'N/A') + ' | **Total Lessons:** ' + (fullLessons || []).length + ' | **Assessments:** ' + (fullTests || []).length + '\n\n';
       if (unitSeq && (unitSeq.description || unitSeq.summary || unitSeq.objectives)) {
@@ -3154,27 +2817,6 @@
 
     var sequenceCoverageMap = {};
 
-    (unitSeq.lessons || []).forEach(function (it, idx) {
-      var isTest = (it.type === 'test' || it.category === 'test');
-      var itemLabel = isTest ? ('Assessment ' + (idx + 1)) : ('Lesson ' + (idx + 1));
-      var set = new Set();
-      if (!isTest) {
-        var matchL = (fullLessons || []).find(function (fl) { return fl.id === it.id; });
-        if (matchL) {
-          if (Array.isArray(matchL.descriptorIds)) matchL.descriptorIds.forEach(function (id) { if (id) set.add(String(id).trim()); });
-          (matchL.sections || []).forEach(function (sec) {
-            if (Array.isArray(sec.descriptorIds)) sec.descriptorIds.forEach(function (id) { if (id) set.add(String(id).trim()); });
-          });
-        }
-      } else {
-        var matchT = (fullTests || []).find(function (ft) { return ft.id === it.id; });
-        if (matchT) {
-          if (Array.isArray(matchT.descriptorIds)) matchT.descriptorIds.forEach(function (id) { if (id) set.add(String(id).trim()); });
-          if (Array.isArray(matchT.linkedCompetenceIds)) matchT.linkedCompetenceIds.forEach(function (id) { if (id) set.add(String(id).trim()); });
-          if (Array.isArray(matchT.linkedCompetences)) {
-            matchT.linkedCompetences.forEach(function (c) {
-              var cid = (typeof c === 'object' && c) ? (c.id || c.code || c.title) : c;
-              if (cid) set.add(String(cid).trim());
     if (includeSummary) {
       md += '## Sequence Structure & Table of Contents\n\n';
       var tocHeaderParts = ['#'];
@@ -3211,11 +2853,6 @@
           } else {
             itemDur = (it.duration || 45) + ' min';
           }
-          (matchT.exercises || []).forEach(function (ex) {
-            if (Array.isArray(ex.descriptorIds)) ex.descriptorIds.forEach(function (id) { if (id) set.add(String(id).trim()); });
-            if (Array.isArray(ex.linkedCompetenceIds)) ex.linkedCompetenceIds.forEach(function (id) { if (id) set.add(String(id).trim()); });
-            if (Array.isArray(ex.linkedCompetences)) {
-              ex.linkedCompetences.forEach(function (c) {
         } else {
           var matchT = (fullTests || []).find(function (ft) { return ft.id === it.id; });
           if (matchT) {
@@ -3231,8 +2868,6 @@
                 if (cid) set.add(String(cid).trim());
               });
             }
-            if (Array.isArray(ex.competenceIds)) ex.competenceIds.forEach(function (id) { if (id) set.add(String(id).trim()); });
-          });
             (matchT.exercises || []).forEach(function (ex) {
               if (Array.isArray(ex.descriptorIds)) ex.descriptorIds.forEach(function (id) { if (id) set.add(String(id).trim()); });
               if (Array.isArray(ex.linkedCompetenceIds)) ex.linkedCompetenceIds.forEach(function (id) { if (id) set.add(String(id).trim()); });
@@ -3248,9 +2883,6 @@
             itemDur = (it.points || 20) + ' pts';
           }
         }
-      }
-      var comps = Array.from(set).sort(function (a, b) {
-        return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
         var comps = Array.from(set).sort(function (a, b) {
           return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
         });
@@ -3276,22 +2908,8 @@
 
         md += '| ' + rowParts.join(' | ') + ' |\n';
       });
-      comps.forEach(function (cId) {
-        if (!sequenceCoverageMap[cId]) {
-          var compInfo = compLookup[cId] || {};
-          sequenceCoverageMap[cId] = {
-            code: cId,
-            title: compInfo.title || compInfo.name || cId,
-            targets: []
-          };
-        }
-        sequenceCoverageMap[cId].targets.push(itemLabel);
-      });
       md += '\n';
 
-      var compSuffix = '';
-      if (compLayout !== 'none' && comps.length > 0) {
-        compSuffix = ' — *[' + comps.join(', ') + ']*';
       if ((compLayout === 'matrix' || compLayout === 'both') && Object.keys(sequenceCoverageMap).length > 0) {
         md += '### Curriculum Competence Coverage Matrix\n\n';
         md += '| Competence Code | Title / Descriptor | Addressed in |\n';
@@ -3305,20 +2923,6 @@
         md += '\n';
       }
     }
-
-      md += (idx + 1) + '. **[' + (isTest ? 'TEST' : 'LESSON') + ']** ' + (it.title || 'Untitled') + compSuffix + '\n';
-    });
-    md += '\n';
-
-    if ((compLayout === 'matrix' || compLayout === 'both') && Object.keys(sequenceCoverageMap).length > 0) {
-      md += '### Curriculum Competence Coverage Matrix\n\n';
-      md += '| Competence Code | Title / Descriptor | Addressed in |\n';
-      md += '| :--- | :--- | :--- |\n';
-      Object.keys(sequenceCoverageMap).sort(function (a, b) {
-        return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
-      }).forEach(function (cId) {
-        var cov = sequenceCoverageMap[cId];
-        md += '| **`' + cov.code + '`** | ' + (cov.title || cov.code) + ' | ' + cov.targets.join(', ') + ' |\n';
     if (includeVocab) {
       var unitVocabSet = new Set();
       if (unitSeq && Array.isArray(unitSeq.vocabulary)) {
@@ -3328,7 +2932,6 @@
         if (Array.isArray(fl.tags)) fl.tags.forEach(function (tg) { if (tg) unitVocabSet.add(String(tg).trim()); });
         if (Array.isArray(fl.vocabulary)) fl.vocabulary.forEach(function (v) { if (v) unitVocabSet.add(typeof v === 'object' ? (v.word || v.term || '') : String(v)); });
       });
-      md += '\n';
       var vocabArr = Array.from(unitVocabSet).filter(Boolean);
       if (vocabArr.length > 0) {
         md += '### Unit Key Concepts, Tags & Vocabulary\n\n';
@@ -3340,22 +2943,6 @@
 
     if (options.includePhases !== false) {
       (fullLessons || []).forEach(function (l, idx) {
-        md += '## Lesson ' + (idx + 1) + ': ' + (l.title || 'Untitled') + '\n\n';
-        if (l.date) md += '*Date: ' + l.date + '*\n\n';
-        (l.sections || []).forEach(function (s, sIdx) {
-          md += '### Phase ' + (sIdx + 1) + ': ' + (s.title || 'Activity') + ' (' + (s.duration || 10) + ' min)\n\n';
-          if (s.objective && String(s.objective).trim()) md += '- **Objective:** ' + s.objective.trim() + '\n';
-          if (s.teacherAction && String(s.teacherAction).trim()) md += '- **Teacher:** ' + s.teacherAction.trim() + '\n';
-          if (s.studentAction && String(s.studentAction).trim()) md += '- **Students:** ' + s.studentAction.trim() + '\n';
-          if (s.resources && String(s.resources).trim()) md += '- **Materials:** ' + s.resources.trim() + '\n';
-          if (Array.isArray(s.customFields) && s.customFields.length > 0) {
-            s.customFields.forEach(function (cf) {
-              var cfTitle = (cf && cf.title) ? String(cf.title).trim() : 'Custom Field';
-              var cfContent = (cf && cf.content) ? String(cf.content).trim() : '';
-              if (cfTitle || cfContent) {
-                md += '- **' + cfTitle + ':** ' + cfContent.replace(/\n+/g, ' ') + '\n';
-              }
-            });
         if (lessonToggles.metaHeader) {
           md += '## Lesson ' + (idx + 1) + ': ' + (l.title || 'Untitled') + '\n\n';
           var metaLine = [];
@@ -3414,7 +3001,6 @@
             md += '| ' + r.join(' | ') + ' |\n';
           });
           md += '\n';
-        });
         } else {
           (l.sections || []).forEach(function (s, sIdx) {
             var pHead = '### Phase ' + (sIdx + 1);
@@ -3471,13 +3057,6 @@
               return ca.localeCompare(cb, undefined, { numeric: true, sensitivity: 'base' });
             });
             md += '### Test-Wide Objectives & Competences\n\n';
-            tComps.forEach(function (c) {
-              var cCode = (c && c.code) || (c && c.id) || c;
-              var cTitle = (c && c.title) || '';
-              var cDesc = (c && (c.description || c.descriptors)) || '';
-              md += '- **`' + cCode + '`**' + (cTitle && cTitle !== cCode ? (' ' + cTitle) : '') + (cDesc ? (' — ' + cDesc) : '') + '\n';
-            });
-            md += '\n';
             if (testCompetencesMode === 'detailed') {
               var cHeaders = [];
               if (testCompCols.showCodeCol) cHeaders.push('Code');
@@ -3525,16 +3104,6 @@
             : (Array.isArray(t.linkedCriteria) ? t.linkedCriteria : []);
           if (tCrits.length > 0) {
             md += '### Test Assessment Criteria\n\n';
-            md += '| Criterion | Max Points | Weight | Description |\n';
-            md += '| :--- | :--- | :--- | :--- |\n';
-            tCrits.forEach(function (cr) {
-              var crTitle = (cr && (cr.title || cr.name)) || 'Criterion';
-              var crMax = (cr && (cr.maxPoints || cr.points)) || 1;
-              var crWeight = (cr && cr.weight) || 1;
-              var crDesc = (cr && (cr.description || cr.desc || cr.domain)) || '—';
-              md += '| ' + crTitle + ' | /' + crMax + ' | ' + crWeight + 'x | ' + crDesc + ' |\n';
-            });
-            md += '\n';
             var crHeaders = [];
             if (testCritCols.showCriterionCol) crHeaders.push('Criterion');
             if (testCritCols.showLevelsCol) crHeaders.push('Levels / Weight');
@@ -3611,9 +3180,9 @@
               return String(a.code || a.title).localeCompare(String(b.code || b.title), undefined, { numeric: true, sensitivity: 'base' });
             });
             if (exComps.length > 0) {
-              if (testCompetencesMode === 'compact') {
+              if (testCompetencesMode !== 'detailed') {
                 md += '- **Competences:** ' + exComps.map(function (c) { return '`' + c.code + '`' + (c.title && c.title !== c.code ? (' (' + c.title + ')') : ''); }).join(', ') + '\n\n';
-              } else if (testCompetencesMode === 'detailed') {
+              } else {
                 md += '#### Competence Descriptors\n\n';
                 md += '| Code | Title | Level | Description |\n';
                 md += '| :--- | :--- | :--- | :--- |\n';
@@ -3640,7 +3209,6 @@
                   md += '| ' + rTitle + ' | /' + rMax + ' | ' + rWeight + 'x |\n';
                 });
                 md += '\n';
-              } else if (testCriteriaMode === 'detailed') {
               } else {
                 md += '#### Detailed Rubric\n\n';
                 md += '| Criterion | Level | Max Points | Description |\n';
@@ -3658,8 +3226,6 @@
             }
           }
 
-          if (includeAnswerKeys && e.solution) {
-            md += '**Solution:** ' + (typeof e.solution === 'string' ? e.solution : JSON.stringify(e.solution)) + '\n\n';
           if (includeAnswerKeys && (e.solution || e.answerKey)) {
             var solVal = e.solution || e.answerKey;
             md += '**Solution:** ' + (typeof solVal === 'string' ? solVal : JSON.stringify(solVal)) + '\n\n';
