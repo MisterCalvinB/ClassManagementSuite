@@ -363,6 +363,7 @@ Curriculum competences can be linked across distinct databases (e.g. mapping Nat
 - **Smart Prompts in Grade Sheet, Board & Lesson Creator**: When a teacher selects or tags a competence in [Grade Sheet](#grade-sheethtml), [Board](#boardhtml), or [Lesson Creator](#lesson-creatorhtml), a Neobrutalist prompt automatically offers to attach linked companion competences from other databases with 1 click.
 - **Auto-Add Preference**: Teachers can toggle *"Don't ask again this session (auto-add linked)"* to automatically link paired standards without interruptions.
 - **Portfolio Navigation**: [Competence Portfolio](#competence-portfoliohtml) renders clickable linked competence badges in the detail modal, allowing seamless navigation across related standards and curricula.
+- **Competence Detailed Description (per-line visibility)**: Competences in [Manage Database](#manage-databasehtml) have an optional **Detailed Description** field (one item per line; shown as individual bullets in the table and card views). In [Lesson Creator](#lesson-creatorhtml) and [Test Creator](#test-creatorhtml), every line has its own toggle on the competence drawer cards (stored globally in `competence-display-config.json`; the *Customise View* modal can hide the whole list). Clicking a competence chip on a lesson phase or a test exercise/test header opens a popover with the same toggles, so the visible lines can be chosen **individually per phase / per exercise**; only the selected lines are appended to the competence description in exports.
 
 ---
 

@@ -1748,6 +1748,7 @@
         addStr('semester');
         addStr('level');
         addStr('description', { isLong: true });
+        addArr('detailedDescription', { longArray: true });
         addArr('tags');
         addArr('linkedCompetenceIds');
         addStr('comments', { isLong: true });
@@ -1828,6 +1829,9 @@
               rec.tags = rec.tags.split(',').map(s => s.trim()).filter(Boolean);
             } else if (!Array.isArray(rec.tags)) {
               rec.tags = [];
+            }
+            if (typeof rec.detailedDescription === 'string') {
+              rec.detailedDescription = rec.detailedDescription.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
             }
             if (typeof rec.linkedCompetenceIds === 'string') {
               rec.linkedCompetenceIds = rec.linkedCompetenceIds.split(',').map(s => s.trim()).filter(Boolean);
@@ -2588,7 +2592,7 @@
         const cls = S.sortField === f.key ? (S.sortDir === 'asc' ? 'sort-asc' : 'sort-desc') : '';
         const w = colWidths[f.key];
         const wStyle = w ? `style="width:${w}px;min-width:${w}px;max-width:${w}px;"` : '';
-        const displayLabel = esc(f.customLabel || (f.key === 'scoringDecisions' ? t('mdbColScoringDecisions') : cap(f.key)));
+        const displayLabel = esc(f.customLabel || (f.key === 'scoringDecisions' ? t('mdbColScoringDecisions') : (f.key === 'detailedDescription' ? t('mdbColDetailedDescription', 'Detailed Description') : cap(f.key))));
         const badge = f.isCustom ? `<span class="th-custom-badge">custom</span>` : '';
         return `<th class="${cls}" data-col="${esc(f.key)}" ${wStyle} onclick="setSort('${f.key}')">
           <span class="th-label">${displayLabel}</span>${badge}
@@ -2682,6 +2686,11 @@
           }).join('');
           const more = arr.length > 4 ? `<span class="tag-more">+${arr.length - 4}</span>` : '';
           return `<span class="tags">${items}${more}</span>`;
+        }
+        if (field.key === 'detailedDescription') {
+          const lines = arr.map(l => String(l).trim()).filter(Boolean);
+          if (!lines.length) return '<span class="cell-empty">—</span>';
+          return '<ul class="desc-bullet-list">' + lines.map(l => '<li>' + esc(l.replace(/^[-*•]\s*/, '')) + '</li>').join('') + '</ul>';
         }
         const items = arr.slice(0, 4).map(t => `<span class="tag">${esc(String(t))}</span>`).join('');
         const more = arr.length > 4 ? `<span class="tag-more">+${arr.length - 4}</span>` : '';
@@ -4098,7 +4107,8 @@
       }
 
       let fieldLabel = esc(cap(field.key));
-      if (isCompCriteriaField) fieldLabel = t('mdbLinkedCompetences');
+      if (field.key === 'detailedDescription' && (S.typeKey === 'competences' || S.typeKey === 'descriptors')) fieldLabel = t('mdbColDetailedDescription', 'Detailed Description');
+      else if (isCompCriteriaField) fieldLabel = t('mdbLinkedCompetences');
       else if (isCompLinkedField) fieldLabel = t('mdbLinkedCompetencesField', 'Linked Competences (Cross-Database)');
       else if (field.key === 'scoringDecisions' || field.key === 'markingDecisions') fieldLabel = t('mdbColScoringDecisions', 'Marking Decisions');
       else if (S.typeKey === 'chips' && field.key === 'section') fieldLabel = t('mdbColSection', 'Section');
@@ -9473,6 +9483,15 @@ Rules:
           return;
         }
 
+        // Detailed description: one bullet per line
+        if (col.key === 'detailedDescription') {
+          if (!hideBody) {
+            const dl = (Array.isArray(rawVal) ? rawVal : String(rawVal).split(/\r?\n/)).map(l => String(l).trim().replace(/^[-*\u2022]\s*/, '')).filter(Boolean);
+            if (dl.length) longDescHtml += '<div class="rec-desc"><span class="desc-label">' + esc(col.label) + ':</span> <ul class="desc-bullet-list">' + dl.map(l => '<li>' + esc(l) + '</li>').join('') + '</ul></div>';
+          }
+          return;
+        }
+
         // Long descriptions
         if (col.isLong || col.key === 'description' || col.key === 'comment' || col.key === 'text' || col.key === 'definition' || col.key === 'example' || col.key === 'explanation' || col.key === 'sampleTasks') {
           if (!hideBody) {
@@ -9582,6 +9601,11 @@ Rules:
       // Badges
       if (col.key === 'pos' || col.key === 'level' || col.key === 'category' || col.key === 'theme' || col.key === 'partofspeech' || col.key === 'cefr' || col.key === 'domain' || col.key === 'scale') {
         return '<span class="' + getBadgeClass(col.key) + '">' + esc(rawVal) + '</span>';
+      }
+
+      if (col.key === 'detailedDescription') {
+        const dl = (Array.isArray(rawVal) ? rawVal : String(rawVal).split(/\r?\n/)).map(l => String(l).trim().replace(/^[-*\u2022]\s*/, '')).filter(Boolean);
+        return '<ul class="desc-bullet-list">' + dl.map(l => '<li>' + esc(l) + '</li>').join('') + '</ul>';
       }
 
       // Long text

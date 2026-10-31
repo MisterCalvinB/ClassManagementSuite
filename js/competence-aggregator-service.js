@@ -91,11 +91,98 @@
       level,
       yearLevel,
       description,
+      detailedDescription: getDetailedLines(item),
       tags,
       linkedCompetenceIds
     };
   }
 
+  // -- Detailed Description helpers (per-line visibility) --
+  function getDetailedLines(comp) {
+    if (!comp) return [];
+    const raw = comp.detailedDescription;
+    const arr = Array.isArray(raw) ? raw : (raw ? String(raw).split(/\r?\n/) : []);
+    return arr.map(l => String(l).trim()).filter(Boolean);
+  }
+
+  function getVisibleDetailedLines(comp, hiddenMap) {
+    const hidden = (hiddenMap && comp && hiddenMap[comp.id]) || [];
+    return getDetailedLines(comp).filter(l => hidden.indexOf(l) === -1);
+  }
+
+  function composeDescription(comp, baseText, hiddenMap) {
+    const base = String(baseText !== undefined && baseText !== null ? baseText : ((comp && (comp.description || comp.statement)) || '')).trim();
+    const lines = getVisibleDetailedLines(comp, hiddenMap);
+    if (!lines.length) return base;
+    return (base ? base + ' ' : '') + lines.join(' ');
+  }
+  function closeDetailPopover() {
+    const old = document.getElementById('cmtDetailPopover');
+    if (old) old.remove();
+    if (closeDetailPopover._off) {
+      document.removeEventListener('mousedown', closeDetailPopover._off, true);
+      document.removeEventListener('keydown', closeDetailPopover._key, true);
+      closeDetailPopover._off = null;
+    }
+  }
+
+  // Opens a popover under `anchor` listing one toggle per detailed-description line.
+  // onToggle(line, isShown) is called on every change; rows are updated in place.
+  function openDetailPopover(anchor, title, lines, hiddenLines, onToggle) {
+    closeDetailPopover();
+    const pop = document.createElement('div');
+    pop.id = 'cmtDetailPopover';
+    pop.className = 'detail-popover';
+    const head = document.createElement('div');
+    head.className = 'detail-popover-title';
+    head.textContent = title || '';
+    pop.appendChild(head);
+    const list = document.createElement('div');
+    list.className = 'drawer-detail-list';
+    lines.forEach(function (line) {
+      const row = document.createElement('label');
+      const on = hiddenLines.indexOf(line) === -1;
+      row.className = 'drawer-detail-row' + (on ? '' : ' is-off');
+      const sw = document.createElement('span');
+      sw.className = 'neo-switch';
+      const inp = document.createElement('input');
+      inp.type = 'checkbox';
+      inp.checked = on;
+      const sl = document.createElement('span');
+      sl.className = 'neo-switch-slider';
+      sw.appendChild(inp);
+      sw.appendChild(sl);
+      const txt = document.createElement('span');
+      txt.className = 'drawer-detail-text';
+      txt.textContent = line;
+      row.appendChild(sw);
+      row.appendChild(txt);
+      inp.addEventListener('change', function () {
+        row.classList.toggle('is-off', !inp.checked);
+        if (onToggle) onToggle(line, inp.checked);
+      });
+      list.appendChild(row);
+    });
+    pop.appendChild(list);
+    document.body.appendChild(pop);
+
+    const rect = anchor.getBoundingClientRect();
+    const w = pop.offsetWidth;
+    const h = pop.offsetHeight;
+    let left = Math.max(8, Math.min(rect.left, window.innerWidth - w - 8));
+    let top = rect.bottom + 6;
+    if (top + h > window.innerHeight - 8) top = Math.max(8, rect.top - h - 6);
+    pop.style.left = left + 'px';
+    pop.style.top = top + 'px';
+
+    closeDetailPopover._off = function (e) { if (!pop.contains(e.target)) closeDetailPopover(); };
+    closeDetailPopover._key = function (e) { if (e.key === 'Escape') closeDetailPopover(); };
+    setTimeout(function () {
+      if (!document.getElementById('cmtDetailPopover')) return;
+      document.addEventListener('mousedown', closeDetailPopover._off, true);
+      document.addEventListener('keydown', closeDetailPopover._key, true);
+    }, 0);
+  }
   // ── Load All Master Competences ─────────────────────────────────────
   async function loadAllCompetences(forceReload = false) {
     if (_cachedCompetences && !forceReload) {
@@ -1692,6 +1779,11 @@
 
   return {
     loadAllCompetences,
+    getDetailedLines,
+    getVisibleDetailedLines,
+    composeDescription,
+    openDetailPopover,
+    closeDetailPopover,
     getAvailableYearLevels,
     getAvailableLevels,
     getAvailableSubjects,

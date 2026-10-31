@@ -482,6 +482,13 @@
             </label>
           </div>
 
+                    <div class="customize-toggle-item">
+            <span data-i18n="lcShowDetailedDescription">Detailed Description Lines</span>
+            <label class="neo-switch">
+              <input type="checkbox" id="cfgShowDetailed" checked>
+              <span class="neo-switch-slider"></span>
+            </label>
+          </div>
           <div class="customize-toggle-item">
             <span data-i18n="lcShowActions">Action Buttons (+ Tag)</span>
             <label class="neo-switch">
@@ -2347,6 +2354,8 @@
         showCategory: true,
         showTags: true,
         showComments: true,
+        showDetailedDescription: true,
+        hiddenDetailLines: {},
         showActions: true,
         drawerWidth: 400
       };
@@ -4095,9 +4104,11 @@
           var displayText = escapeHtml(codeStr || id || 'Standard');
           var titleSnippet = (titleStr && titleStr !== codeStr) ? ' <span style="font-weight:500;color:#555;font-size:0.72rem;">(' + escapeHtml(titleStr.length > 32 ? titleStr.slice(0, 30) + '…' : titleStr) + ')</span>' : '';
 
-          return '<span class="desc-chip ' + escapeHtml(subCls) + '" title="' + escapeHtml(fullTooltip) + '">' +
+          var hasDetail = !!(desc && window.CompetenceAggregatorService && window.CompetenceAggregatorService.getDetailedLines(desc).length);
+          var detailAttr = hasDetail ? (' onclick="lcOpenDetailPopover(event, ' + phaseIndex + ', \'' + escapeHtml(String(id).replace(/'/g, "\\'")) + '\')"') : '';
+          return '<span class="desc-chip ' + escapeHtml(subCls) + (hasDetail ? ' has-detail' : '') + '" title="' + escapeHtml(fullTooltip) + '"' + detailAttr + '>' +
             '<strong>' + displayText + '</strong>' + titleSnippet +
-            ' <span class="desc-chip-remove" onclick="lcRemoveDescriptorFromPhase(' + phaseIndex + ', \'' + escapeHtml(String(id).replace(/'/g, "\\'")) + '\')" title="' + escapeHtml(i18n.t('lcRemoveDescriptorTooltip')) + '">&times;</span>' +
+            ' <span class="desc-chip-remove" onclick="event.stopPropagation(); lcRemoveDescriptorFromPhase(' + phaseIndex + ', \'' + escapeHtml(String(id).replace(/'/g, "\\'")) + '\')" title="' + escapeHtml(i18n.t('lcRemoveDescriptorTooltip')) + '">&times;</span>' +
             '</span>';
         }).join('');
       }
@@ -4282,6 +4293,17 @@
           }
 
           // Tags
+          // Detailed description: one toggle per line
+          if (cfg.showDetailedDescription !== false && cfg.preset !== 'minimal' && window.CompetenceAggregatorService) {
+            var dLines = window.CompetenceAggregatorService.getDetailedLines(d);
+            if (dLines.length) {
+              var hiddenLines = (cfg.hiddenDetailLines && cfg.hiddenDetailLines[d.id]) || [];
+              htmlParts.push('<div class="drawer-detail-list">' + dLines.map(function (line) {
+                var on = hiddenLines.indexOf(line) === -1;
+                return '<label class="drawer-detail-row' + (on ? '' : ' is-off') + '"><span class="neo-switch"><input type="checkbox" ' + (on ? 'checked ' : '') + 'data-comp-id="' + escapeHtml(String(d.id)) + '" data-line="' + escapeHtml(line) + '" onchange="lcToggleDetailLine(this)"><span class="neo-switch-slider"></span></span><span class="drawer-detail-text">' + highlightMatchText(line, rawQuery) + '</span></label>';
+              }).join('') + '</div>');
+            }
+          }
           if (cfg.showTags && cfg.preset !== 'minimal') {
             var tagsArr = Array.isArray(d.tags) ? d.tags : (d.tags ? [d.tags] : []);
             if (tagsArr.length > 0) {
@@ -4315,6 +4337,32 @@
         list.appendChild(fragment);
       }
 
+      window.lcToggleDetailLine = function (inp) {
+        var id = inp.getAttribute('data-comp-id');
+        var line = inp.getAttribute('data-line');
+        var map = Object.assign({}, competenceDisplayConfig.hiddenDetailLines || {});
+        var arr = (map[id] || []).slice();
+        var i = arr.indexOf(line);
+        if (inp.checked) { if (i > -1) arr.splice(i, 1); }
+        else if (i === -1) arr.push(line);
+        if (arr.length) map[id] = arr; else delete map[id];
+        competenceDisplayConfig.hiddenDetailLines = map;
+        var row = inp.closest('.drawer-detail-row');
+        if (row) row.classList.toggle('is-off', !inp.checked);
+        saveCompetenceDisplayConfigToDisk();
+      };
+
+      window.lcDescText = function (d, sec) {
+        if (!d) return '';
+        var base = d.description || d.statement || '';
+        if (!window.CompetenceAggregatorService || !window.CompetenceAggregatorService.composeDescription) return base;
+        var hiddenMap = competenceDisplayConfig && competenceDisplayConfig.hiddenDetailLines;
+        if (sec && sec.detailHiddenLines && sec.detailHiddenLines[d.id]) {
+          hiddenMap = {};
+          hiddenMap[d.id] = sec.detailHiddenLines[d.id];
+        }
+        return window.CompetenceAggregatorService.composeDescription(d, base, hiddenMap);
+      };
       window.lcOpenCompetenceCustomizeModal = function () {
         var cfg = competenceDisplayConfig;
 
@@ -4330,6 +4378,7 @@
         document.getElementById('cfgShowCategory').checked = !!cfg.showCategory;
         document.getElementById('cfgShowTags').checked = !!cfg.showTags;
         document.getElementById('cfgShowComments').checked = !!cfg.showComments;
+        document.getElementById('cfgShowDetailed').checked = cfg.showDetailedDescription !== false;
         document.getElementById('cfgShowActions').checked = !!cfg.showActions;
 
         var m = document.getElementById('competenceCustomizeModal');
@@ -4345,6 +4394,7 @@
           document.getElementById('cfgShowCategory').checked = true;
           document.getElementById('cfgShowTags').checked = true;
           document.getElementById('cfgShowComments').checked = true;
+          document.getElementById('cfgShowDetailed').checked = true;
           document.getElementById('cfgShowActions').checked = true;
         } else if (presetMode === 'minimal') {
           document.getElementById('cfgShowCode').checked = true;
@@ -4354,6 +4404,7 @@
           document.getElementById('cfgShowCategory').checked = true;
           document.getElementById('cfgShowTags').checked = false;
           document.getElementById('cfgShowComments').checked = false;
+          document.getElementById('cfgShowDetailed').checked = false;
           document.getElementById('cfgShowActions').checked = true;
         }
       };
@@ -4377,6 +4428,8 @@
           showCategory: document.getElementById('cfgShowCategory').checked,
           showTags: document.getElementById('cfgShowTags').checked,
           showComments: document.getElementById('cfgShowComments').checked,
+          showDetailedDescription: document.getElementById('cfgShowDetailed').checked,
+          hiddenDetailLines: (competenceDisplayConfig && competenceDisplayConfig.hiddenDetailLines) || {},
           showActions: document.getElementById('cfgShowActions').checked
         };
 
@@ -5790,6 +5843,36 @@
         }
       };
 
+      window.lcOpenDetailPopover = function (ev, phaseIdx, descId) {
+        if (ev && ev.stopPropagation) ev.stopPropagation();
+        var sec = currentPlan && currentPlan.sections && currentPlan.sections[phaseIdx];
+        if (!sec || !window.CompetenceAggregatorService) return;
+        var t = String(descId || '').toLowerCase().trim();
+        var d = allDescriptors.find(function (x) {
+          return x && (String(x.id || '').toLowerCase().trim() === t || String(x.code || '').toLowerCase().trim() === t);
+        });
+        if (!d) return;
+        var lines = window.CompetenceAggregatorService.getDetailedLines(d);
+        if (!lines.length) return;
+        var base = (sec.detailHiddenLines && sec.detailHiddenLines[d.id])
+          || ((competenceDisplayConfig.hiddenDetailLines || {})[d.id])
+          || [];
+        var hidden = base.slice();
+        window.CompetenceAggregatorService.openDetailPopover(
+          ev.currentTarget,
+          (d.code || d.id) + ' - ' + i18n.t('lcDetailPopoverTitle'),
+          lines,
+          hidden,
+          function (line, on) {
+            var i = hidden.indexOf(line);
+            if (on) { if (i > -1) hidden.splice(i, 1); }
+            else if (i === -1) hidden.push(line);
+            sec.detailHiddenLines = sec.detailHiddenLines || {};
+            sec.detailHiddenLines[d.id] = hidden.slice();
+            lcOnPlanDirty();
+          }
+        );
+      };
       window.lcRemoveDescriptorFromPhase = function (phaseIdx, descId) {
         if (currentPlan.sections[phaseIdx] && currentPlan.sections[phaseIdx].descriptorIds) {
           var sec = currentPlan.sections[phaseIdx];
@@ -9551,7 +9634,7 @@
                   });
                   var code = d ? (d.code || d.id) : id;
                   var title = d ? (d.title || '') : '';
-                  var text = d ? (d.description || d.statement || '') : '';
+                  var text = d ? lcDescText(d, sec) : '';
                   var s = '<span class="comp-chip">' + escapeHtml(code + (title && title !== code ? (' - ' + title) : '')) + '</span>';
                   if (toggles.phaseDescText && text) {
                     s += '<div style="font-size:0.74rem;color:#475569;margin-top:2px;">' + escapeHtml(text) + '</div>';
@@ -9671,7 +9754,7 @@
                 });
                 var code = d ? (d.code || d.id) : id;
                 var title = d ? (d.title || '') : '';
-                var text = d ? (d.description || d.statement || '') : '';
+                var text = d ? lcDescText(d, sec) : '';
                 html += '            <div class="comp-item">\n';
                 html += '              <div class="comp-item-header">';
                 if (code) html += '<span class="comp-item-code">' + escapeHtml(code) + '</span>';
@@ -10098,8 +10181,8 @@
                 });
                 if (!d) return id;
                 var s = (d.code ? (d.code + ': ') : '') + (d.title || d.id);
-                if (toggles.phaseDescText && (d.description || d.statement)) {
-                  s += ' — ' + (d.description || d.statement);
+                if (toggles.phaseDescText && lcDescText(d, sec)) {
+                  s += ' — ' + lcDescText(d, sec);
                 }
                 return s;
               }).join(';\n');
@@ -10148,7 +10231,7 @@
                 usedDescMap.set(key, {
                   code: d ? (d.code || '') : key,
                   title: d ? (d.title || d.id) : id,
-                  description: d ? (d.description || d.statement || '') : '',
+                  description: d ? lcDescText(d) : '',
                   category: d ? (d.category || d.subCategory || '') : '',
                   subject: d ? (getSubjectLabel(d.subjectId) || d.subjectId || '') : '',
                   phases: []
@@ -10309,8 +10392,8 @@
               });
               if (!d) return id;
               var s = (d.code ? (d.code + ': ') : '') + (d.title || d.id);
-              if (toggles.phaseDescText && (d.description || d.statement)) {
-                s += ' — ' + (d.description || d.statement);
+              if (toggles.phaseDescText && lcDescText(d, sec)) {
+                s += ' — ' + lcDescText(d, sec);
               }
               return s;
             }).join('; ');
@@ -10936,8 +11019,8 @@
                 });
                 if (!d) return id;
                 var s = (d.code ? (d.code + ' - ') : '') + (d.title || d.id);
-                if (cfg.phaseDescText && (d.description || d.statement)) {
-                  s += ': ' + (d.description || d.statement);
+                if (cfg.phaseDescText && lcDescText(d, sec)) {
+                  s += ': ' + lcDescText(d, sec);
                 }
                 return s;
               }).join(cfg.phaseDescText ? '\n  • ' : '; ');
